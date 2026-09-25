@@ -13,7 +13,7 @@ PUBLISHER_ALLOWED = (
     "Copyright (c) 2026 MotleyAI",
     'authors = [{ name = "MotleyAI" }]',
     '"name": "MotleyAI"',
-    "github.com/MotleyAI/living-architecture",
+    "MotleyAI/living-architecture",
 )
 
 
