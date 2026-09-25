@@ -11,7 +11,7 @@ from living_architecture.config_cli import format_value, main
 def repo(tmp_path: Path) -> Path:
     (tmp_path / CONFIG_FILENAME).write_text(
         "reviewers:\n  coderabbit: true\n  sonar: {enabled: true, project_key: k}\n"
-        "conventions: {text_ratio_exempt: [a.py]}\n",
+        "conventions: {exempt: [a.py]}\n",
         encoding="utf-8",
     )
     return tmp_path
@@ -36,7 +36,7 @@ def test_get_nested_string(repo: Path, capsys: pytest.CaptureFixture[str]) -> No
 
 
 def test_get_list_is_json(repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    assert main(["--root", str(repo), "get", "conventions.text_ratio_exempt"]) == 0
+    assert main(["--root", str(repo), "get", "conventions.exempt"]) == 0
     assert json.loads(capsys.readouterr().out) == ["a.py"]
 
 

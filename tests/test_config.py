@@ -39,7 +39,7 @@ reviewers:
   sonar: {enabled: true, project_key: org_proj}
 issue_key_pattern: "PROJ-\\\\d+"
 commands: {test: "pytest -q", lint: "ruff check ."}
-conventions: {text_ratio_max: 0.2, text_ratio_exempt: [pkg/server.py]}
+conventions: {text_ratio_max: 0.2, exempt: [pkg/server.py]}
 """,
     )
     cfg = load_config(tmp_path)
@@ -47,7 +47,7 @@ conventions: {text_ratio_max: 0.2, text_ratio_exempt: [pkg/server.py]}
     assert cfg.reviewers.sonar.project_key == "org_proj"
     assert cfg.issue_key_re().fullmatch("PROJ-12")
     assert cfg.commands.test == "pytest -q"
-    assert cfg.conventions.text_ratio_exempt == ["pkg/server.py"]
+    assert cfg.conventions.exempt == ["pkg/server.py"]
 
 
 def test_sonar_enabled_requires_project_key(tmp_path: Path) -> None:

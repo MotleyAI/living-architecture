@@ -44,7 +44,7 @@ class CommandsConfig(_Strict):
 
 class ConventionsConfig(_Strict):
     text_ratio_max: float = Field(default=0.15, gt=0, le=1)
-    text_ratio_exempt: list[str] = []
+    exempt: list[str] = []
 
 
 class LaConfig(_Strict):
