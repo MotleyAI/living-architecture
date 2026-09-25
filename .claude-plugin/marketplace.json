@@ -1,13 +1,14 @@
 {
-  "name": "deterministic-refactor",
+  "name": "living-architecture",
   "owner": {
     "name": "MotleyAI"
   },
+  "description": "Claude Code plugin for spec-driven development with an enforced living architecture.",
   "plugins": [
     {
-      "name": "deterministic-refactor",
-      "source": "./",
-      "description": "Rename/move Python code with rope and verify completeness deterministically: deterministic-refactor, make-diff-compliant, and make-refactor-target-compliant skills wrapping the dr-refactor / dr-compliance / dr-mock-lint tools."
+      "name": "la",
+      "source": "./plugin",
+      "description": "Living architecture for agent-driven development: spec-driven change flow, arc42 + LikeC4 architecture enforcement, PR review processing, and deterministically verified Python refactoring."
     }
   ]
 }

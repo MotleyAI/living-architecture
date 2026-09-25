@@ -75,14 +75,14 @@ Bring exactly the files a PR touches up to the five conditions before it merges,
 so compliance grows monotonically with the diff instead of requiring a big-bang
 migration. The skill runs `dr-compliance` on the changed files, adds the missing
 annotations / `@override` / mock specs, and loops until the type checker and
-`dr-mock-lint` are clean on the diff. See `skills/make-diff-compliant/`.
+`dr-mock-lint` are clean on the diff. See `plugin/skills/make-diff-compliant/`.
 
 ### 3. Do a refactor — skill `deterministic-refactor`
 
 Locate the symbol with the editor/LSP → `dr-refactor` dry-run → apply → run the
 gate (type checker shows no new errors, `dr-mock-lint` passes, tests pass, grep
 the string-only references no static tool sees) → review the diff. See
-`skills/deterministic-refactor/`.
+`plugin/skills/deterministic-refactor/`.
 
 ### 4. Make a refactor's blast radius compliant first — skill `make-refactor-target-compliant`
 
@@ -92,4 +92,4 @@ checker — untyped parameters/variables that could hold an `X`, classes whose
 attribute names match the target ("right-looking" names), subclasses missing
 `@override`. The skill drives `dr-compliance --attr <name>` to enumerate those
 sites, annotates them, and re-checks until the blast radius is fully typed —
-so the post-rename gate is sound. See `skills/make-refactor-target-compliant/`.
+so the post-rename gate is sound. See `plugin/skills/make-refactor-target-compliant/`.
