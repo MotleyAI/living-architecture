@@ -1,0 +1,5 @@
+{
+  "name": "deterministic-refactor",
+  "description": "Rename/move Python code with rope and verify completeness deterministically: deterministic-refactor, make-diff-compliant, and make-refactor-target-compliant skills wrapping the dr-refactor / dr-compliance / dr-mock-lint tools.",
+  "version": "0.1.0"
+}
