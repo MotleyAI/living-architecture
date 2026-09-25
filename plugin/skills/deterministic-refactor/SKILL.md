@@ -3,12 +3,14 @@ name: deterministic-refactor
 description: Use to rename or move a Python module/class/function/method/attribute and update all imports/references, with a deterministic check that nothing was missed. Mutator = rope (dr-refactor); the guarantee = the project's type checker + dr-mock-lint. Only sound on a compliant target (see repo README).
 ---
 
+**Preflight:** run `la-doctor --expect 0.1.0` once per session before using any `la-*` or `dr-*` command; if it fails, stop and show the user its output.
+
 # Deterministic refactor
 
 The mutator is best-effort — no tool reliably rewrites every annotated
 `obj.attr`, `super()` call, and override. The **type-check gate is the
 guarantee**, and it is only sound on code that meets the compliance conditions
-(README). If the blast radius is not typed, run `make-refactor-target-compliant`
+(README). If the blast radius is not typed, run `la:make-refactor-target-compliant`
 first.
 
 ## Procedure

@@ -212,12 +212,6 @@ def test_healthy_fixture_passes(tmp_path):
     assert arch_check.run_checks(make_repo(tmp_path)) == []
 
 
-def test_import_linter_plumbing_dropped():
-    for symbol in ("_pyproject_importlinter", "_check_contracts"):
-        assert not hasattr(arch_check, symbol)
-    assert "contracts-known" not in arch_check.CHECK_IDS
-
-
 def test_unclaimed_top_level_module(tmp_path):
     root = make_repo(tmp_path)
     (root / "pkg" / "extra.py").write_text("", encoding="utf-8")

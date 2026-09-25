@@ -3,10 +3,12 @@ name: make-refactor-target-compliant
 description: Use BEFORE renaming a Python symbol/attribute to make its blast radius verifiable — annotate the untyped code that might reference it (unannotated params/vars that could hold the class, classes with matching attribute names, subclasses missing @override) so the post-rename type-check gate is sound.
 ---
 
+**Preflight:** run `la-doctor --expect 0.1.0` once per session before using any `la-*` or `dr-*` command; if it fails, stop and show the user its output.
+
 # Make a refactor's blast radius compliant
 
 A rename is only provable over code the type checker can resolve. This closes
-the blind spots first, so the `deterministic-refactor` gate afterwards is sound.
+the blind spots first, so the `la:deterministic-refactor` gate afterwards is sound.
 
 ## Steps
 
@@ -27,7 +29,7 @@ the blind spots first, so the `deterministic-refactor` gate afterwards is sound.
 4. **Re-check until the blast radius is typed:**
    - `dr-compliance --attr NAME <repo>` reports no `attr-blindspot`;
    - the project's type checker is clean over the touched files.
-5. **Then run `deterministic-refactor`.** Every real reference is now
+5. **Then run `la:deterministic-refactor`.** Every real reference is now
    type-visible; anything left is a genuinely dynamic string reference, which
    that skill's grep step catches.
 
