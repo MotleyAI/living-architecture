@@ -214,5 +214,15 @@ def test_wait_detects_rate_limit(fake_gh, run_script):
     assert "RATE LIMITED" in r.stderr
 
 
+def test_wait_gate_fails_closed_when_gh_errors(fake_gh, run_script, monkeypatch):
+    fake_gh.route((["pr", "view", "statusCheckRollup"], "", 1))
+    monkeypatch.setenv("LA_WAIT_GATE_TIMEOUT", "0")
+    monkeypatch.setenv("LA_WAIT_POLL_SECONDS", "0")
+    r = run_script("wait-for-reviews.sh", "7", *REPO)
+    assert r.returncode == 1
+    assert "gate clear" not in r.stdout
+    assert "could not read the check rollup" in r.stdout
+
+
 def test_wait_requires_pr(run_script):
     assert run_script("wait-for-reviews.sh").returncode == 64

@@ -80,11 +80,13 @@ fi
 # Stage 0a — status-check rollup gate (cap 30 minutes)
 # ---------------------------------------------------------------------------
 
-GATE_TIMEOUT=$((30 * 60))
+GATE_TIMEOUT=${LA_WAIT_GATE_TIMEOUT:-$((30 * 60))}
+POLL=${LA_WAIT_POLL_SECONDS:-60}
 GATE_START=$(date +%s)
 
 while :; do
-    pending=$(gh pr view "$PR" --repo "$REPO" --json statusCheckRollup --jq '
+    # A failed read is "unknown", never "clear" — a network blip must not open the gate.
+    if pending=$(gh pr view "$PR" --repo "$REPO" --json statusCheckRollup --jq '
         [.statusCheckRollup[]
          | select(
              (.__typename == "StatusContext"
@@ -94,22 +96,24 @@ while :; do
                   or .status == "WAITING" or .status == "REQUESTED"
                   or .status == "PENDING"))
            )
-         | (.name // .context)] | join(", ")' 2>/dev/null || echo "")
-
-    if [[ -z "$pending" ]]; then
-        echo "Stage 0a: gate clear."
-        break
+         | (.name // .context)] | join(", ")' 2>/dev/null); then
+        if [[ -z "$pending" ]]; then
+            echo "Stage 0a: gate clear."
+            break
+        fi
+    else
+        pending="(unknown — could not read the check rollup)"
     fi
 
     elapsed=$(( $(date +%s) - GATE_START ))
-    echo "Stage 0a: pending — $pending (elapsed $((elapsed / 60))m). Sleeping 1m."
+    echo "Stage 0a: pending — $pending (elapsed $((elapsed / 60))m). Sleeping ${POLL}s."
 
     if (( elapsed >= GATE_TIMEOUT )); then
-        echo "Stage 0a: gate timed out after 30 min. Still pending: $pending." >&2
+        echo "Stage 0a: gate timed out after $((GATE_TIMEOUT / 60)) min. Still pending: $pending." >&2
         exit 1
     fi
 
-    sleep 60
+    sleep "$POLL"
 done
 
 # ---------------------------------------------------------------------------
