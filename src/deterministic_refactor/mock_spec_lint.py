@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Deterministic CI gate: every unittest.mock double must be bound to a spec.
 
 Makes a renamed-away member impossible to reference undetected. Every

@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Compliance checker: report constructs that make a rename un-verifiable.
 
 A rename's completeness can only be proven by a type checker over code the

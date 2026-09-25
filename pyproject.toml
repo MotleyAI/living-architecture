@@ -1,25 +1,40 @@
 [project]
-name = "deterministic-refactor"
+name = "living-architecture"
 version = "0.1.0"
-description = "Rename/move Python code with a deterministically verifiable completeness gate."
+description = "Spec-driven development with an enforced living architecture, as a Claude Code plugin plus its CLI tools."
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
 authors = [{ name = "MotleyAI" }]
-dependencies = ["rope>=1.13"]
+dependencies = ["rope>=1.13", "pydantic>=2.6", "pyyaml>=6"]
 
 # The verifier. Point it at the target project's interpreter (see README).
 [project.optional-dependencies]
 verify = ["basedpyright>=1.20"]
 
 [project.scripts]
+la-config = "living_architecture.config_cli:main"
+la-doctor = "living_architecture.doctor:main"
 dr-refactor = "deterministic_refactor.refactor:main"
 dr-mock-lint = "deterministic_refactor.mock_spec_lint:main"
 dr-compliance = "deterministic_refactor.compliance:main"
 
+[dependency-groups]
+dev = ["pytest>=8", "ruff>=0.6", "basedpyright>=1.20", "types-pyyaml>=6"]
+
 [build-system]
 requires = ["uv_build>=0.9,<0.13"]
 build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = ["living_architecture", "deterministic_refactor"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
 
 # This repo dogfoods its own compliance conditions: the verifier runs against
 # the project's own venv so imports (rope) resolve.

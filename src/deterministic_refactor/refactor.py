@@ -32,7 +32,7 @@ def _offset_from_line_col(text: str, line: int, col: int) -> int:
 
 def _find_symbol_offset(text: str, name: str) -> int:
     escaped = re.escape(name)
-    m = re.search(rf"^\s*(?:async\s+def|def|class)\s+({escaped})\b", text, re.M)
+    m = re.search(rf"^\s*(?:async\s+def|def|class)\s+({escaped})\b", text, re.MULTILINE)
     if m:
         return m.start(1)
     m = re.search(rf"\b{escaped}\b", text)
@@ -52,7 +52,10 @@ def _resolve_offset(args, text: str) -> int:
 
 
 def _resource(project: Project, path: str) -> Resource:
-    resource = libutils.path_to_resource(project, str(Path(path).resolve()))
+    resolved = Path(path).resolve()
+    if not resolved.is_relative_to(Path(project.address).resolve()):
+        raise SystemExit(f"path is not inside the project: {path}")
+    resource = libutils.path_to_resource(project, str(resolved))
     if resource is None:
         raise SystemExit(f"path is not inside the project: {path}")
     return resource
