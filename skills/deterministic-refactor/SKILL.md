@@ -21,14 +21,21 @@ first.
 3. **Dry-run** (default):
    `dr-refactor --project <repo> rename --file F --line L --col C --new-name N`.
    Show the diff. Method renames rename the hierarchy by default.
-4. **Apply**: add `--apply`.
+4. **Apply**: `--apply` is a GLOBAL flag and goes before the subcommand
+   (`dr-refactor --project <repo> --apply rename ...`); trailing it errors.
 5. **GATE — done only when ALL pass:**
    - the type checker shows **no new errors** vs the baseline (a missed
-     annotated usage, `super()` call, or orphaned `@override` surfaces here);
+     annotated usage, `super()` call, or orphaned `@override` surfaces here).
+     Known rope misses the gate catches: receivers narrowed by `isinstance`
+     rather than annotation (e.g. `other.attr` inside `__eq__`), and
+     constructor keyword arguments of dataclass/Pydantic fields
+     (`Cls(attr=...)`);
    - `dr-mock-lint <tests>` passes;
    - the full non-integration test suite passes;
    - grep the string-only refs no static tool sees: `importlib`, `getattr(`,
-     `__all__`, `patch("dotted.path")`, entry points, config paths.
+     `__all__`, `patch("dotted.path")`, entry points, config paths, and — for
+     a Pydantic field rename — `model_copy(update={"NAME": ...})` /
+     `model_dump` consumers keyed on the old name.
 6. Review the diff. The user commits — never commit or `git add -A`.
 
 ## Commands

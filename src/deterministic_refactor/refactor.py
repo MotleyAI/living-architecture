@@ -18,6 +18,10 @@ from rope.base.resources import Resource
 from rope.refactor.move import MoveGlobal, MoveModule, create_move
 from rope.refactor.rename import Rename
 
+from deterministic_refactor.rope_patches import apply_rope_patches
+
+apply_rope_patches()
+
 
 def _offset_from_line_col(text: str, line: int, col: int) -> int:
     lines = text.splitlines(keepends=True)
