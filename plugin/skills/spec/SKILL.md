@@ -3,7 +3,7 @@ name: spec
 description: Spec-driven change flow for a task given to an agent. Always pulls in the Linear issue whose `gitBranchName` matches the current git branch exactly, and combines it with whatever the user typed when invoking the skill. Rehydrates context, detects the current stage, and dispatches to the stage skills la:spec-plan → la:spec-tests → la:spec-implement → la:spec-review.
 ---
 
-**Preflight:** run `la-doctor --expect 0.1.0` once per session before using any `la-*` or `dr-*` command; if it fails, stop and show the user its output.
+**Preflight:** run `la-doctor --expect 0.1.1` once per session before using any `la-*` or `dr-*` command; if it fails, stop and show the user its output.
 
 I want a detailed spec-driven flow. The brief is the union of:
 1. The Linear issue tied to the current branch (see "Rehydrate" below), AND

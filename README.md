@@ -24,7 +24,7 @@ development with an enforced living architecture**:
 /plugin install la@living-architecture
 
 # the commands (la-*, dr-*), pinned to the same version as the plugin
-uv tool install git+https://github.com/MotleyAI/living-architecture@v0.1.0
+uv tool install living-architecture==0.1.1
 ```
 
 Skills run `la-doctor --expect <version>` first and stop if the installed
@@ -90,10 +90,11 @@ conventions:
 ## Architecture checks in CI
 
 Pin the checker to a release; it needs no per-repo code beyond
-`architecture/`:
+`architecture/`. `--no-build` installs only prebuilt wheels:
 
 ```yaml
-- run: uvx --from git+https://github.com/MotleyAI/living-architecture@v0.1.0 la-arch-check
+- uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+- run: uvx --no-build --from living-architecture==0.1.1 la-arch-check
 ```
 
 ## Working from a local checkout
@@ -122,9 +123,11 @@ alias claude='claude --plugin-dir ~/src/living-architecture/plugin'   # e.g. in 
 
 ## Releasing
 
-Bump the version in `pyproject.toml`, `plugin/.claude-plugin/plugin.json`, and
-every skill's `la-doctor --expect` pin (the tests fail until all three agree),
-update the `@v…` pins in this README, then tag `v<version>`.
+Bump the version with `uv version <new>`, then in `plugin/.claude-plugin/plugin.json`
+and every skill's `la-doctor --expect` pin (the tests fail until all agree), and
+update the pins in this README. Tag `v<version>` and publish a GitHub release for
+it; the `Publish to PyPI` workflow uploads the package (it refuses a tag that
+doesn't match the package version).
 
 ## Deterministic refactoring
 

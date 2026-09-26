@@ -3,7 +3,7 @@ name: make-refactor-target-compliant
 description: Use BEFORE renaming a Python symbol/attribute to make its blast radius verifiable — annotate the untyped code that might reference it (unannotated params/vars that could hold the class, classes with matching attribute names, subclasses missing @override) so the post-rename type-check gate is sound.
 ---
 
-**Preflight:** run `la-doctor --expect 0.1.0` once per session before using any `la-*` or `dr-*` command; if it fails, stop and show the user its output.
+**Preflight:** run `la-doctor --expect 0.1.1` once per session before using any `la-*` or `dr-*` command; if it fails, stop and show the user its output.
 
 # Make a refactor's blast radius compliant
 

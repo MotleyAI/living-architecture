@@ -3,7 +3,7 @@ name: living-architecture
 description: Use to set up or maintain the living-architecture layer (LikeC4 structure model + arc42 principles + model-truth import enforcement + cross-check) in a repo that uses the /la:spec + OpenSpec flow. Sibling of /la:spec — OpenSpec owns per-capability behaviour; this owns cross-cutting structure. Dispatches to init (scaffold) or maintenance; carving a boundary is the arch-slice skill.
 ---
 
-**Preflight:** run `la-doctor --expect 0.1.0` once per session before using any `la-*` or `dr-*` command; if it fails, stop and show the user its output.
+**Preflight:** run `la-doctor --expect 0.1.1` once per session before using any `la-*` or `dr-*` command; if it fails, stop and show the user its output.
 
 # Living architecture
 
@@ -127,7 +127,8 @@ baseline. It runs, blocking, in:
 - the **arch-slice** move gate,
 - CI — `arch_check` is cheap and deterministic, so wire it there once the setup
   has settled (not at init), pinned to a release:
-  `uvx --from git+https://github.com/MotleyAI/living-architecture@v<version> la-arch-check`.
+  `uvx --no-build --from living-architecture==<version> la-arch-check` (after
+  `astral-sh/setup-uv`, pinned by commit SHA).
 
 **Ratchet rules (hard):**
 - `#legacy` arrows may only ever be REMOVED, never added. Wanting to add one

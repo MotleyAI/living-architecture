@@ -3,7 +3,7 @@ name: concise-comments
 description: Rules for concise code comments/docstrings, plus a pass to trim verbose ones. Use when writing or reviewing code, or when asked to reduce comment verbosity / trim over-commented code / cut docstring bloat. Referenced by /la:spec and /la:process-reviews.
 ---
 
-**Preflight:** run `la-doctor --expect 0.1.0` once per session before using any `la-*` or `dr-*` command; if it fails, stop and show the user its output.
+**Preflight:** run `la-doctor --expect 0.1.1` once per session before using any `la-*` or `dr-*` command; if it fails, stop and show the user its output.
 
 # Concise comments & docstrings
 

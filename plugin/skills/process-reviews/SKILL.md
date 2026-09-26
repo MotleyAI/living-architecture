@@ -3,7 +3,7 @@ name: process-reviews
 description: Use when the user asks to process / triage / address / handle PR reviews from CodeRabbit, SonarQube, Codex, and CI all together (CodeRabbit and Sonar only when enabled in living-architecture.yaml). First waits (polling every 1 min, max 30 min) until CodeRabbit, Sonar, and every CI check on the PR are in a terminal state — while a Codex review runs concurrently against the local diff. Then fetches unresolved threads from all three code-review sources plus failed CI checks, validates each against the actual code / log, handles invalid ones in place (reply on thread / NOSONAR comment), and presents a unified plan for fixing the valid ones (split into logical groups if more than 3).
 ---
 
-**Preflight:** run `la-doctor --expect 0.1.0` once per session before using any `la-*` or `dr-*` command; if it fails, stop and show the user its output.
+**Preflight:** run `la-doctor --expect 0.1.1` once per session before using any `la-*` or `dr-*` command; if it fails, stop and show the user its output.
 
 # Process unresolved review feedback (CodeRabbit + SonarQube + Codex + failed CI)
 

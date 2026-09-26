@@ -3,7 +3,7 @@ name: reply-to-pr-thread
 description: Use when the user asks to reply / comment on a CodeRabbit (or any) PR review thread, OR when posting a reasoning/explanation reply tagging @coderabbitai for a thread you've classified as invalid. Wraps `gh api .../pulls/N/comments/<id>/replies`. Body is read from stdin.
 ---
 
-**Preflight:** run `la-doctor --expect 0.1.0` once per session before using any `la-*` or `dr-*` command; if it fails, stop and show the user its output.
+**Preflight:** run `la-doctor --expect 0.1.1` once per session before using any `la-*` or `dr-*` command; if it fails, stop and show the user its output.
 
 # Reply to a GitHub PR review thread
 

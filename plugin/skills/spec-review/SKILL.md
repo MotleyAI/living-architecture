@@ -3,7 +3,7 @@ name: spec-review
 description: Stage 4 of 4 of the /la:spec flow — run /la:process-reviews in a loop until every source is green, then (OpenSpec repos only) archive the change and push so the PR can merge. Normally dispatched by /la:spec; if the /la:spec context (BRANCH, CHANGE_ID, OPENSPEC, Linear issue) is not already loaded in this session, invoke the la:spec skill instead.
 ---
 
-**Preflight:** run `la-doctor --expect 0.1.0` once per session before using any `la-*` or `dr-*` command; if it fails, stop and show the user its output.
+**Preflight:** run `la-doctor --expect 0.1.1` once per session before using any `la-*` or `dr-*` command; if it fails, stop and show the user its output.
 
 **Stage 4 of 4 of the `/la:spec` flow.** Prerequisite: `/spec` has run in this
 session and established `BRANCH`, `CHANGE_ID`, `OPENSPEC`, and the full Linear

@@ -3,7 +3,7 @@ name: make-diff-compliant
 description: Use to bring exactly the Python files a PR/branch touches up to the deterministic-refactor compliance conditions (typed, @override, spec-bound mocks), so a future refactor over them is verifiable. Scoped to the diff — grows compliance monotonically, no repo-wide migration.
 ---
 
-**Preflight:** run `la-doctor --expect 0.1.0` once per session before using any `la-*` or `dr-*` command; if it fails, stop and show the user its output.
+**Preflight:** run `la-doctor --expect 0.1.1` once per session before using any `la-*` or `dr-*` command; if it fails, stop and show the user its output.
 
 # Make the diff compliant
 

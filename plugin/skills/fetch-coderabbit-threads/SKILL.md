@@ -3,7 +3,7 @@ name: fetch-coderabbit-threads
 description: Use when the user asks to fetch / list / read / show unresolved CodeRabbit review threads on a GitHub PR. Pulls thread URL, file:line, author, and full comment body for every thread CodeRabbit opened that is not yet resolved, plus CodeRabbit's review-summary nitpicks.
 ---
 
-**Preflight:** run `la-doctor --expect 0.1.0` once per session before using any `la-*` or `dr-*` command; if it fails, stop and show the user its output.
+**Preflight:** run `la-doctor --expect 0.1.1` once per session before using any `la-*` or `dr-*` command; if it fails, stop and show the user its output.
 
 # Fetch unresolved CodeRabbit review threads from a PR
 

@@ -1,7 +1,7 @@
 {
   "name": "la",
   "description": "Living architecture for agent-driven development: spec-driven change flow, arc42 + LikeC4 architecture enforcement, PR review processing, and deterministically verified Python refactoring.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": {
     "name": "MotleyAI"
   },

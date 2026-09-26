@@ -3,7 +3,7 @@ name: arch-slice
 description: Use to carve or tighten ONE architecture boundary in a repo with the living-architecture setup — take a coherent batch of grandfathered `#legacy` arrows (or extract a new node), refactor them away with verified moves (deterministic-refactor), and shrink the legacy-arrow baseline monotonically. Behaviour-preserving by definition; one slice = one branch/PR.
 ---
 
-**Preflight:** run `la-doctor --expect 0.1.0` once per session before using any `la-*` or `dr-*` command; if it fails, stop and show the user its output.
+**Preflight:** run `la-doctor --expect 0.1.1` once per session before using any `la-*` or `dr-*` command; if it fails, stop and show the user its output.
 
 # Carve one boundary slice
 

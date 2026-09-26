@@ -3,7 +3,7 @@ name: fetch-failed-pr-checks
 description: Use when the user asks to check / fetch / list / show failed CI checks (GitHub Actions, external CI) on a GitHub PR — including details/logs of the failures. Pulls the statusCheckRollup, filters to non-passing terminal states, and (for GitHub Actions runs) appends the failed-step log excerpt.
 ---
 
-**Preflight:** run `la-doctor --expect 0.1.0` once per session before using any `la-*` or `dr-*` command; if it fails, stop and show the user its output.
+**Preflight:** run `la-doctor --expect 0.1.1` once per session before using any `la-*` or `dr-*` command; if it fails, stop and show the user its output.
 
 # Fetch failed CI checks (and their failed-step logs) for a PR
 

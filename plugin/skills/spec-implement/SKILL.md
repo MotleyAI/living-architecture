@@ -3,7 +3,7 @@ name: spec-implement
 description: Stage 3 of 4 of the /la:spec flow — implement until every test from the spec-tests stage passes, then with the user's explicit go-ahead commit, push, and open the PR. Normally dispatched by /la:spec; if the /la:spec context (BRANCH, CHANGE_ID, OPENSPEC, Linear issue) is not already loaded in this session, invoke the la:spec skill instead.
 ---
 
-**Preflight:** run `la-doctor --expect 0.1.0` once per session before using any `la-*` or `dr-*` command; if it fails, stop and show the user its output.
+**Preflight:** run `la-doctor --expect 0.1.1` once per session before using any `la-*` or `dr-*` command; if it fails, stop and show the user its output.
 
 **Stage 3 of 4 of the `/la:spec` flow.** Prerequisite: `/spec` has run in this
 session and established `BRANCH`, `CHANGE_ID`, `OPENSPEC`, and the full Linear

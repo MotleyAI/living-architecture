@@ -3,7 +3,7 @@ name: deterministic-refactor
 description: Use to rename or move a Python module/class/function/method/attribute and update all imports/references, with a deterministic check that nothing was missed. Mutator = rope (dr-refactor); the guarantee = the project's type checker + dr-mock-lint. Only sound on a compliant target (see repo README).
 ---
 
-**Preflight:** run `la-doctor --expect 0.1.0` once per session before using any `la-*` or `dr-*` command; if it fails, stop and show the user its output.
+**Preflight:** run `la-doctor --expect 0.1.1` once per session before using any `la-*` or `dr-*` command; if it fails, stop and show the user its output.
 
 # Deterministic refactor
 
