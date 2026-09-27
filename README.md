@@ -105,8 +105,15 @@ instead of a marketplace install:
 ```bash
 git clone https://github.com/MotleyAI/living-architecture ~/src/living-architecture
 uv tool install -e ~/src/living-architecture
-alias claude='claude --plugin-dir ~/src/living-architecture/plugin'   # e.g. in ~/.bashrc
+ln -s ~/src/living-architecture/plugin ~/.claude/skills/la
 ```
+
+Claude Code loads a plugin directory under `~/.claude/skills/` in place (it shows
+as `la@skills-dir` in `claude plugin list`), so this works in every launcher,
+including IDE and git-client integrations. The alternative is
+`alias claude='claude --plugin-dir ~/src/living-architecture/plugin'`, but
+launchers that don't read your shell aliases need that flag added to their own
+command settings.
 
 - Do **not** also install `la` from the marketplace — both copies would load and
   every skill would appear twice. If it is installed, `/plugin uninstall
@@ -115,8 +122,6 @@ alias claude='claude --plugin-dir ~/src/living-architecture/plugin'   # e.g. in 
   Adding or renaming a command in `pyproject.toml` needs `uv tool install -e`
   again.
 - SKILL.md edits take effect from the next Claude Code session.
-- Launchers that don't read your shell aliases (IDE or git-client integrations)
-  need `--plugin-dir <checkout>/plugin` added to their own command settings.
 - To try an unreleased checker in a repo that pins a release, `pip install -e
   <checkout>` into that repo's environment; its next dependency sync restores
   the pin.
