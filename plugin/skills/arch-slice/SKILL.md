@@ -3,14 +3,14 @@ name: arch-slice
 description: Use to carve or tighten ONE architecture boundary in a repo with the living-architecture setup — take a coherent batch of grandfathered `#legacy` arrows (or extract a new node), refactor them away with verified moves (deterministic-refactor), and shrink the legacy-arrow baseline monotonically. Behaviour-preserving by definition; one slice = one branch/PR.
 ---
 
-**Preflight:** run `la-doctor --expect 0.1.1` once per session before using any `la-*` or `dr-*` command; if it fails, stop and show the user its output.
+**Preflight:** run `la-doctor --expect 0.2.0` once per session before using any `la-*` or `dr-*` command; if it fails, stop and show the user its output.
 
 # Carve one boundary slice
 
 A slice moves code until a batch of grandfathered edges dies, with a
 deterministic gate proving nothing dangles. It is behaviour-preserving: no new
 behaviour, no new tests, no OpenSpec spec deltas. The legacy-arrow ratchet plus
-the green suite ARE the spec, so the /la:spec stage flow does not apply — but
+the green suite ARE the spec, so the /la:pr stage flow does not apply — but
 each slice still gets its own issue, branch, and PR.
 
 ## Procedure

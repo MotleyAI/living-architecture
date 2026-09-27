@@ -1,11 +1,11 @@
 ---
 name: openspec-init
-description: Initialize or repair OpenSpec in the current repo for the /la:spec flow. Ensures the openspec CLI is available (global install, npx fallback), scaffolds openspec/ with `openspec init --tools none` (corpus only, no /opsx:* commands), and verifies. Invoked by /spec when openspec/ is absent or invalid, or run directly.
+description: Initialize or repair OpenSpec in the current repo for the /la:pr flow. Ensures the openspec CLI is available (global install, npx fallback), scaffolds openspec/ with `openspec init --tools none` (corpus only, no /opsx:* commands), and verifies. Invoked by /la:pr when openspec/ is absent or invalid, or run directly.
 ---
 
 Bring the current repo to a valid OpenSpec state: the `openspec` CLI resolvable
 and an `openspec/` corpus (`specs/` + `changes/`) present and healthy. Corpus
-only — no `/opsx:*` slash commands or AGENTS wiring, because the `/la:spec` flow
+only — no `/opsx:*` slash commands or AGENTS wiring, because the `/la:pr` flow
 replaces propose/apply.
 
 ## Step 1 — Resolve the CLI (set `OPENSPEC_CMD`)
@@ -39,7 +39,7 @@ $OPENSPEC_CMD init --tools none --no-animation
 
 Add `--force` only if it complains about legacy files. This creates just
 `openspec/config.yaml` (`schema: spec-driven`); `--tools none` keeps it
-corpus-only (no `/opsx:*` commands or AGENTS wiring — `/la:spec` gets its authoring
+corpus-only (no `/opsx:*` commands or AGENTS wiring — `/la:pr` gets its authoring
 format from `openspec instructions`). Note: `changes/<id>/` is created later by
 `openspec new change`, and `specs/` by the first `openspec archive` — init alone
 lays down only `config.yaml`.
@@ -61,4 +61,4 @@ lays down only `config.yaml`.
   merge) if you want every future branch/worktree to inherit it — don't init
   per-worktree.
 
-Return to the caller (e.g. `/la:spec`) with OpenSpec now valid.
+Return to the caller (e.g. `/la:pr`) with OpenSpec now valid.

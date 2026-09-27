@@ -1,22 +1,22 @@
 ---
-name: spec-plan
-description: Stage 1 of 4 of the /la:spec flow — interview the user to turn the Linear issue + typed brief into a detailed spec, Codex-review the plan, emit the OpenSpec change (OpenSpec repos only), and make the plan durable. Normally dispatched by /la:spec; if the /la:spec context (BRANCH, CHANGE_ID, OPENSPEC, Linear issue) is not already loaded in this session, invoke the la:spec skill instead.
+name: pr-plan
+description: Stage 1 of 4 of the /la:pr flow — interview the user to turn the Linear issue + typed brief into a detailed spec, Codex-review the plan, emit the OpenSpec change (OpenSpec repos only), and make the plan durable. Normally dispatched by /la:pr; if the /la:pr context (BRANCH, CHANGE_ID, OPENSPEC, Linear issue) is not already loaded in this session, invoke the la:pr skill instead.
 ---
 
-**Stage 1 of 4 of the `/la:spec` flow.** Prerequisite: `/spec` has run in this
+**Stage 1 of 4 of the `/la:pr` flow.** Prerequisite: `/la:pr` has run in this
 session and established `BRANCH`, `CHANGE_ID`, `OPENSPEC`, and the full Linear
-issue (body + comments). If any of that is missing, invoke the `la:spec` skill
-instead — it rehydrates and dispatches back here. The `/la:spec` stopping policy
+issue (body + comments). If any of that is missing, invoke the `la:pr` skill
+instead — it rehydrates and dispatches back here. The `/la:pr` stopping policy
 applies throughout this stage.
 
 ## Step 1 — Combine and interview
 
 Treat the Linear issue body + comments AND whatever I typed when invoking
-`/la:spec` as the combined brief. In case of conflict, what I typed has higher
+`/la:pr` as the combined brief. In case of conflict, what I typed has higher
 priority but ask to be sure.
 
 **Living-architecture repos**: the arc42 / LikeC4 reads and normative-harness
-rules in the `la:spec` skill apply before drafting. The plan MUST state which node
+rules in the `la:pr` skill apply before drafting. The plan MUST state which node
 principles apply, and any arc42 contradiction is raised as its own interview
 point. If the change adds a capability, the plan also records where its spec
 attaches in `index.yaml` (one node's `specs:`, or `cross_cutting_specs` with a
@@ -83,7 +83,7 @@ written spec to reflect the resolved decisions before moving on.
 
 ## Step 3 — Emit the OpenSpec change (OpenSpec repos only)
 
-Skip this whole step unless `OPENSPEC=1` (set by `/la:spec`). Turn the approved,
+Skip this whole step unless `OPENSPEC=1` (set by `/la:pr`). Turn the approved,
 Codex-resolved plan into an OpenSpec change — but do NOT hand-author the files
 from memory. OpenSpec ships authoritative, version-correct, per-artifact
 instructions; follow them so the output passes `validate --strict`.
@@ -108,11 +108,11 @@ instructions; follow them so the output passes `validate --strict`.
      gotchas: scenarios need **exactly four** `#` (three or bullets fail
      silently); MODIFIED must contain the FULL updated requirement; REMOVED needs
      **Reason** + **Migration**; RENAMED uses FROM:/TO:. These scenarios ARE the
-     acceptance criteria for the `spec-tests` stage.
+     acceptance criteria for the `pr-tests` stage.
    - **design.md** — only for non-obvious design (the Codex-resolved decisions);
      skip if there's nothing to say.
    - **tasks.md** — the `- [ ]` checklist that also drives the
-     `spec-tests` and `spec-implement` stages; maintain it here, not twice.
+     `pr-tests` and `pr-implement` stages; maintain it here, not twice.
 3. **No spec-level behaviour change?** (pure refactor, tooling, docs, or a fix
    that doesn't alter specified behaviour) — do NOT invent a requirement; set
    `skip_specs: true` in `openspec/changes/<CHANGE_ID>/.openspec.yaml`. Specs
@@ -133,5 +133,5 @@ instructions; follow them so the output passes `validate --strict`.
 > durable: if `OPENSPEC=1` it's the validated change folder; if `OPENSPEC=0`,
 > post the finalized plan to the Linear issue (a comment) so a reset recovers
 > it. Then say we're at reset point 1 and STOP — do not start writing tests.
-> I'll `/clear` and re-invoke `/la:spec`, which will detect and run
-> `spec-tests`.
+> I'll `/clear` and re-invoke `/la:pr`, which will detect and run
+> `pr-tests`.

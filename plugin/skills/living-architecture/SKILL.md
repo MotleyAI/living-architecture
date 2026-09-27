@@ -1,9 +1,9 @@
 ---
 name: living-architecture
-description: Use to set up or maintain the living-architecture layer (LikeC4 structure model + arc42 principles + model-truth import enforcement + cross-check) in a repo that uses the /la:spec + OpenSpec flow. Sibling of /la:spec — OpenSpec owns per-capability behaviour; this owns cross-cutting structure. Dispatches to init (scaffold) or maintenance; carving a boundary is the arch-slice skill.
+description: Use to set up or maintain the living-architecture layer (LikeC4 structure model + arc42 principles + model-truth import enforcement + cross-check) in a repo that uses the /la:pr + OpenSpec flow. Sibling of /la:pr — OpenSpec owns per-capability behaviour; this owns cross-cutting structure. Dispatches to init (scaffold) or maintenance; carving a boundary is the arch-slice skill.
 ---
 
-**Preflight:** run `la-doctor --expect 0.1.1` once per session before using any `la-*` or `dr-*` command; if it fails, stop and show the user its output.
+**Preflight:** run `la-doctor --expect 0.2.0` once per session before using any `la-*` or `dr-*` command; if it fails, stop and show the user its output.
 
 # Living architecture
 
@@ -123,7 +123,7 @@ deptrac for PHP, ArchUnit for JVM — kept honest by a model-truth cross-check.)
 (`npx likec4 validate`; if the installed CLI version lacks it, use the lightest
 command that parses the model, e.g. `npx likec4 build`) + the repo's type-check
 baseline. It runs, blocking, in:
-- the **spec-review** gate (that stage runs it in repos with `architecture/`),
+- the **pr-review** gate (that stage runs it in repos with `architecture/`),
 - the **arch-slice** move gate,
 - CI — `arch_check` is cheap and deterministic, so wire it there once the setup
   has settled (not at init), pinned to a release:
@@ -192,20 +192,20 @@ baseline. It runs, blocking, in:
    `system.arc42.md` (global principles — promote the structural conventions
    already in CLAUDE.md) + node arc42 only for the 1–3 nodes that earn prose
    now.
-7. Run `la-arch-check` until green. Do NOT touch CI at init — the spec-review
+7. Run `la-arch-check` until green. Do NOT touch CI at init — the pr-review
    and arch-slice gates carry enforcement until the user asks to wire CI.
 8. If the repo has a legacy decisions/ADR file: fold its present-tense rules
    into the arc42 principles of the owning nodes, then delete the file
    (history stays in git + the openspec archive). Confirm with the user
    before deleting.
 
-## Interaction with /la:spec
+## Interaction with /la:pr
 
-- At spec-plan time, read `architecture/index.yaml` plus the arc42 and view of
+- At pr-plan time, read `architecture/index.yaml` plus the arc42 and view of
   every node the change touches. The plan must state which principles apply,
   and must not violate the model's import law — or must explicitly include the
   model + arc42 change as part of the same change.
-- At spec-review time, the enforcement bundle is part of the convergence gate.
+- At pr-review time, the enforcement bundle is part of the convergence gate.
 - New capability → decide with the user where its spec attaches (one node's
   `specs:`, or `cross_cutting_specs` with a `touches:` list) and record it in
   `index.yaml` in the same change.

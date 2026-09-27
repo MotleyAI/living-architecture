@@ -3,7 +3,7 @@
 A Claude Code plugin (`la`) plus its command-line tools for **spec-driven
 development with an enforced living architecture**:
 
-- **Spec flow** — `/la:spec` runs a change through four resumable stages
+- **PR flow** — `/la:pr` runs a change through four resumable stages
   (plan → failing tests → implementation → review loop), keyed on the Linear
   issue whose branch name matches the current branch, with OpenSpec as the
   behaviour corpus.
@@ -24,7 +24,7 @@ development with an enforced living architecture**:
 /plugin install la@living-architecture
 
 # the commands (la-*, dr-*), pinned to the same version as the plugin
-uv tool install living-architecture==0.1.1
+uv tool install living-architecture==0.2.0
 ```
 
 Skills run `la-doctor --expect <version>` first and stop if the installed
@@ -40,8 +40,8 @@ refactoring and architecture gates compare against its recorded baseline).
 
 | Skill | Purpose |
 |---|---|
-| `la:spec` | Entry point: rehydrate the Linear issue, detect the stage, dispatch |
-| `la:spec-plan`, `la:spec-tests`, `la:spec-implement`, `la:spec-review` | The four stages |
+| `la:pr` | Entry point: rehydrate the Linear issue, detect the stage, dispatch |
+| `la:pr-plan`, `la:pr-tests`, `la:pr-implement`, `la:pr-review` | The four stages |
 | `la:openspec-init` | Initialize or repair OpenSpec in a repo |
 | `la:living-architecture` | Set up or maintain the architecture layer |
 | `la:arch-slice` | Retire a batch of `#legacy` import arrows with verified moves |
@@ -94,7 +94,7 @@ Pin the checker to a release; it needs no per-repo code beyond
 
 ```yaml
 - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-- run: uvx --no-build --from living-architecture==0.1.1 la-arch-check
+- run: uvx --no-build --from living-architecture==0.2.0 la-arch-check
 ```
 
 ## Working from a local checkout

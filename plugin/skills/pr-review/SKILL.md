@@ -1,15 +1,15 @@
 ---
-name: spec-review
-description: Stage 4 of 4 of the /la:spec flow — run /la:process-reviews in a loop until every source is green, then (OpenSpec repos only) archive the change and push so the PR can merge. Normally dispatched by /la:spec; if the /la:spec context (BRANCH, CHANGE_ID, OPENSPEC, Linear issue) is not already loaded in this session, invoke the la:spec skill instead.
+name: pr-review
+description: Stage 4 of 4 of the /la:pr flow — run /la:process-reviews in a loop until every source is green, then (OpenSpec repos only) archive the change and push so the PR can merge. Normally dispatched by /la:pr; if the /la:pr context (BRANCH, CHANGE_ID, OPENSPEC, Linear issue) is not already loaded in this session, invoke the la:pr skill instead.
 ---
 
-**Preflight:** run `la-doctor --expect 0.1.1` once per session before using any `la-*` or `dr-*` command; if it fails, stop and show the user its output.
+**Preflight:** run `la-doctor --expect 0.2.0` once per session before using any `la-*` or `dr-*` command; if it fails, stop and show the user its output.
 
-**Stage 4 of 4 of the `/la:spec` flow.** Prerequisite: `/spec` has run in this
+**Stage 4 of 4 of the `/la:pr` flow.** Prerequisite: `/la:pr` has run in this
 session and established `BRANCH`, `CHANGE_ID`, `OPENSPEC`, and the full Linear
 issue (body + comments), and the PR for `BRANCH` exists. If any of that is
-missing, invoke the `la:spec` skill instead — it rehydrates and dispatches back
-here. The `/la:spec` stopping policy applies throughout this stage.
+missing, invoke the `la:pr` skill instead — it rehydrates and dispatches back
+here. The `/la:pr` stopping policy applies throughout this stage.
 
 **Enabled review bots.** CodeRabbit and Sonar are per-repo opt-ins: read
 `la-config get reviewers.coderabbit` and `la-config get reviewers.sonar.enabled`
@@ -53,7 +53,7 @@ Split the gates into two tiers:
     Sonar gate);
   - `openspec validate <CHANGE_ID> --strict` (OpenSpec repos);
   - **living-architecture repos** (an `architecture/` directory at the repo
-    root): the arc42 reads and normative-harness rules in the `la:spec` skill
+    root): the arc42 reads and normative-harness rules in the `la:pr` skill
     apply to every fix in this loop. Then the enforcement
     bundle — `la-arch-check` (the one import law,
     model-truth at every declared granularity), LikeC4 model validation, and the
@@ -120,7 +120,7 @@ missed-normalization that a single canonical representation would obviate, etc.
 are all tells). When a structural fix appears warranted, STOP and present the
 case to me — the symptom, the structural cause, the band-aid vs. structural
 options with PROS/CONS, the arc42 grounding, and your RECOMMENDATION — then wait
-for my call (this is the design-decision pause permitted by the `/la:spec` stopping
+for my call (this is the design-decision pause permitted by the `/la:pr` stopping
 policy). If the finding is genuinely local with no structural cause, just fix
 it. Never silently ship a band-aid over a structural problem, and never
 undertake a large structural refactor without my go-ahead.
@@ -191,5 +191,5 @@ REMOVED deleted) and moves the change to
 `openspec/changes/archive/YYYY-MM-DD-<CHANGE_ID>/`. Commit the result with
 specific `git add` of the changed `openspec/specs/**` and the moved folder. This
 is the one step that keeps the behaviour corpus current — everything upstream is
-best-effort authoring; `validate` (in `spec-plan`) and `archive` here are
+best-effort authoring; `validate` (in `pr-plan`) and `archive` here are
 the deterministic guarantees.

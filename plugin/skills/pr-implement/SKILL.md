@@ -1,25 +1,25 @@
 ---
-name: spec-implement
-description: Stage 3 of 4 of the /la:spec flow — implement until every test from the spec-tests stage passes, then with the user's explicit go-ahead commit, push, and open the PR. Normally dispatched by /la:spec; if the /la:spec context (BRANCH, CHANGE_ID, OPENSPEC, Linear issue) is not already loaded in this session, invoke the la:spec skill instead.
+name: pr-implement
+description: Stage 3 of 4 of the /la:pr flow — implement until every test from the pr-tests stage passes, then with the user's explicit go-ahead commit, push, and open the PR. Normally dispatched by /la:pr; if the /la:pr context (BRANCH, CHANGE_ID, OPENSPEC, Linear issue) is not already loaded in this session, invoke the la:pr skill instead.
 ---
 
-**Preflight:** run `la-doctor --expect 0.1.1` once per session before using any `la-*` or `dr-*` command; if it fails, stop and show the user its output.
+**Preflight:** run `la-doctor --expect 0.2.0` once per session before using any `la-*` or `dr-*` command; if it fails, stop and show the user its output.
 
-**Stage 3 of 4 of the `/la:spec` flow.** Prerequisite: `/spec` has run in this
+**Stage 3 of 4 of the `/la:pr` flow.** Prerequisite: `/la:pr` has run in this
 session and established `BRANCH`, `CHANGE_ID`, `OPENSPEC`, and the full Linear
-issue (body + comments). If any of that is missing, invoke the `la:spec` skill
-instead — it rehydrates and dispatches back here. The `/la:spec` stopping policy
+issue (body + comments). If any of that is missing, invoke the `la:pr` skill
+instead — it rehydrates and dispatches back here. The `/la:pr` stopping policy
 applies throughout this stage.
 
 Before writing anything, recover the durable plan (the
 `openspec/changes/<CHANGE_ID>/` folder when `OPENSPEC=1`, else the plan
 comment on the Linear issue) and the failing tests already on disk from
-`spec-tests`.
+`pr-tests`.
 
 ## Step 1 — Implement until tests pass
 
 Implement the plan. Run the repo's test command (`la-config get commands.test`; if unset, the repo's documented full non-integration suite) after changes and fix any failures. Do not
-declare done until every test from the `spec-tests` stage passes.
+declare done until every test from the `pr-tests` stage passes.
 
 **Symptom vs. structural cause — decide before you patch.** The plan already
 chose between a band-aid and a structural fix; implement the structural shape
@@ -33,7 +33,7 @@ the `architecture/**/*.arc42.md` files) — STOP and present the case to me: the
 symptom, the structural cause, the band-aid vs. structural options with
 PROS/CONS, the arc42 grounding, and your RECOMMENDATION (leaning structural —
 a bigger diff is an acceptable cost). Wait for my call (this is the
-design-decision pause permitted by the `/la:spec` stopping policy). If the
+design-decision pause permitted by the `/la:pr` stopping policy). If the
 failure is genuinely local with no structural cause, just fix it. Never
 silently ship a band-aid over a structural problem, and never undertake a
 large structural refactor the plan did not include without my go-ahead.
@@ -45,7 +45,7 @@ before the push. The go-ahead gate in Step 3 governs **pushing** and **opening
 the PR**, not every local commit.
 
 If `OPENSPEC=1`, tick off `openspec/changes/<CHANGE_ID>/tasks.md` as you complete
-each task (the same checklist authored in `spec-plan` — this is the
+each task (the same checklist authored in `pr-plan` — this is the
 `apply` phase, driven by TDD here instead of `/opsx:apply`).
 
 When writing code, follow the `la:concise-comments` skill: no design essays,
@@ -56,7 +56,7 @@ code — so verbose comments never get written in the first place.
 ## Step 2 — Conventions gate (before commit)
 
 Once the suite is green, run the SAME deterministic conventions gate
-`spec-review` uses, so the review bots don't have to redo it and the first
+`pr-review` uses, so the review bots don't have to redo it and the first
 push is already clean. There is no PR yet at this stage, so diff against the
 default branch with `--base`:
 
@@ -92,7 +92,7 @@ file, never `git add -A`).
 If `OPENSPEC=1`, the whole `openspec/changes/<CHANGE_ID>/` folder is part of the
 change — `git add` it explicitly alongside the code (proposal, design, tasks,
 delta specs). Do NOT archive yet — that happens once the review loop has
-converged, just before I merge (`spec-review`).
+converged, just before I merge (`pr-review`).
 
 **Always merge the PR's destination branch before creating the PR.** After
 committing and before the push, bring the PR's envisioned base branch (the branch
@@ -120,5 +120,5 @@ spec surface reads it there. Link the Linear issue.
 > **🛑 HARD STOP (reset point 3 of 3) — just after the PR is created.** Code,
 > tests (green, conventions gate clean), and the change folder are committed and
 > the PR exists. Say we're at reset point 3 and STOP — do not start the review
-> loop. I'll `/clear` and re-invoke `/la:spec`, which will detect and run
-> `spec-review`.
+> loop. I'll `/clear` and re-invoke `/la:pr`, which will detect and run
+> `pr-review`.

@@ -1,9 +1,9 @@
 ---
-name: spec
-description: Spec-driven change flow for a task given to an agent. Always pulls in the Linear issue whose `gitBranchName` matches the current git branch exactly, and combines it with whatever the user typed when invoking the skill. Rehydrates context, detects the current stage, and dispatches to the stage skills la:spec-plan → la:spec-tests → la:spec-implement → la:spec-review.
+name: pr
+description: Spec-driven change flow for a task given to an agent. Always pulls in the Linear issue whose `gitBranchName` matches the current git branch exactly, and combines it with whatever the user typed when invoking the skill. Rehydrates context, detects the current stage, and dispatches to the stage skills la:pr-plan → la:pr-tests → la:pr-implement → la:pr-review.
 ---
 
-**Preflight:** run `la-doctor --expect 0.1.1` once per session before using any `la-*` or `dr-*` command; if it fails, stop and show the user its output.
+**Preflight:** run `la-doctor --expect 0.2.0` once per session before using any `la-*` or `dr-*` command; if it fails, stop and show the user its output.
 
 I want a detailed spec-driven flow. The brief is the union of:
 1. The Linear issue tied to the current branch (see "Rehydrate" below), AND
@@ -16,16 +16,16 @@ session (`/clear`) between stages. Each stage ends at a hard stop; everything
 a fresh session needs is on disk or in Linear, so any stage can resume from
 just the branch name:
 
-1. **`spec-plan`** — interview me, Codex-review the plan, emit the
+1. **`pr-plan`** — interview me, Codex-review the plan, emit the
    OpenSpec change (OpenSpec repos only), make the plan durable.
    Ends at 🛑 reset point 1 (before tests).
-2. **`spec-tests`** — write the full failing test suite for the plan,
+2. **`pr-tests`** — write the full failing test suite for the plan,
    Codex-review the tests against the plan.
    Ends at 🛑 reset point 2 (before implementation).
-3. **`spec-implement`** — implement until every test passes, then (with my
+3. **`pr-implement`** — implement until every test passes, then (with my
    go-ahead) commit, push, and open the PR.
    Ends at 🛑 reset point 3 (just after the PR is created).
-4. **`spec-review`** — run `/la:process-reviews` until converged, then
+4. **`pr-review`** — run `/la:process-reviews` until converged, then
    archive the OpenSpec change (OpenSpec repos only) so I can merge.
 
 This skill does NO stage work itself. It only: rehydrates context (below),
@@ -37,18 +37,18 @@ never chain into the next stage, even if it looks quick.
 
 Each stage skill ends with its own **hard stop** so I can reset your context.
 At a hard stop: say which reset point we're at, then STOP and wait — do not
-start the next stage. I'll `/clear` and re-invoke `/la:spec` (possibly with
+start the next stage. I'll `/clear` and re-invoke `/la:pr` (possibly with
 "continue on branch `<BRANCH>`"); rehydration + stage detection below take it
 from there.
 
 **Within a stage, run autonomously — do NOT stop or ask permission to
 proceed.** The only other permitted pauses are:
-- the **`spec-plan` interview** (its whole point is questioning me);
+- the **`pr-plan` interview** (its whole point is questioning me);
 - a **nontrivial design decision** — a real fork with more than one reasonable
   option — raised with explicit PROS/CONS + RECOMMENDATION (per the interview
-  rule in `spec-plan`). A choice with an obvious default is NOT this:
+  rule in `pr-plan`). A choice with an obvious default is NOT this:
   take the default and move on;
-- the standing **go-ahead gate before push/PR** (`spec-implement`): never
+- the standing **go-ahead gate before push/PR** (`pr-implement`): never
   push or open a PR without my explicit go-ahead;
 - a **suspected unrelated gap** — a failure, restriction, or missing capability
   that looks pre-existing or outside this change's scope (a bind-level refusal, an
@@ -63,11 +63,11 @@ proceed.** The only other permitted pauses are:
 Never stop just to report progress, to confirm an obvious next step, or to ask
 something you can determine yourself.
 
-## The plan is frozen once spec-plan ends
+## The plan is frozen once pr-plan ends
 
 The plan — the OpenSpec change folder (proposal, design, tasks, delta specs) or,
 without OpenSpec, the finalized-plan comment on the Linear issue — is MINE once
-`spec-plan` reaches its hard stop. In EVERY later stage, NEVER change it without
+`pr-plan` reaches its hard stop. In EVERY later stage, NEVER change it without
 my explicit confirmation of the exact edit: no added or amended decisions, no
 rewritten or added scenarios, no "corrections" after a probe, no re-scoping, no
 notes folded into tasks. If a stage finds the plan wrong, incomplete, or
@@ -80,7 +80,7 @@ when it was completed exactly as written.
 Sessions `/clear` between stages, so the stop message reaches no future stage.
 Anything the next stage must know therefore has to be **persisted where that
 stage will discover it naturally** during its own rehydration and work — NEVER a
-turn-final "heads-up", "note for next time", "FYI for spec-implement", or a
+turn-final "heads-up", "note for next time", "FYI for pr-implement", or a
 caveat tacked onto the stop message. Such text is gone the instant I `/clear`, so
 it only masquerades as a hand-off. If you catch yourself about to write one,
 STOP and put it in one of these instead:
@@ -109,7 +109,7 @@ skills. What still holds:
 - Stage with **specific named paths** (`git add <path>`, one at a time) — NEVER
   `git add -A`, `git add .`, or a whole directory.
 - **Commit only** — pushing and opening the PR still need my explicit go-ahead
-  (`spec-implement` Step 3 / the stopping policy above); the end-of-stage
+  (`pr-implement` Step 3 / the stopping policy above); the end-of-stage
   commit does not.
 
 ## Normative harnesses (living-architecture repos)
@@ -185,19 +185,19 @@ byte-equal to the issue's `gitBranchName`. That equality is the join key.
 Work out which stage this session should run — first match wins:
 
 1. **Open PR for `BRANCH`?** Check with `gh pr view --json state,url`.
-   If an open PR exists → **`spec-review`**.
+   If an open PR exists → **`pr-review`**.
 2. **No durable plan yet?** The plan is durable iff:
    - `OPENSPEC=1`: `openspec/changes/<CHANGE_ID>/` exists and
      `openspec validate <CHANGE_ID> --strict` passes; or
    - `OPENSPEC=0`: the Linear issue has a comment containing the finalized
      plan.
-   If not durable → **`spec-plan`**.
+   If not durable → **`pr-plan`**.
 3. **No tests for this change yet?** Look for test files added/changed for
    this change: the working tree (`git status`) plus commits since the
    merge-base with the default branch
    (`git diff --name-only $(git merge-base HEAD <default-branch>)..HEAD`).
-   If none → **`spec-tests`**.
-4. **Otherwise** → **`spec-implement`** (plan and tests exist, no PR yet;
+   If none → **`pr-tests`**.
+4. **Otherwise** → **`pr-implement`** (plan and tests exist, no PR yet;
    this stage also covers the "all tests already pass, awaiting my
    commit/push/PR go-ahead" case).
 
@@ -207,6 +207,6 @@ belong to this change), say what you found and ask me which stage to run.
 ## Dispatch
 
 Tell me in one line which stage was detected and why, then invoke that stage's
-skill (`la:spec-plan` / `la:spec-tests` / `la:spec-implement` / `la:spec-review`)
+skill (`la:pr-plan` / `la:pr-tests` / `la:pr-implement` / `la:pr-review`)
 via the Skill tool and follow it to its hard stop. If I explicitly named a stage
-when invoking `/la:spec`, that overrides detection.
+when invoking `/la:pr`, that overrides detection.
