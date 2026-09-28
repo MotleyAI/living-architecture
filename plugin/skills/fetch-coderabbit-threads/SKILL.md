@@ -13,8 +13,7 @@ description: Use when the user asks to fetch / list / read / show unresolved Cod
 la-fetch-coderabbit-threads <PR_NUMBER> [--repo OWNER/REPO] [--all-authors]
 ```
 
-The command refuses to run (exit 3) when `reviewers.coderabbit` is off in the
-repo's `living-architecture.yaml` — CodeRabbit is a per-repo opt-in.
+Works in any repo; it does not read `living-architecture.yaml`.
 
 - `<PR_NUMBER>` — required, the PR number.
 - `--repo OWNER/REPO` — optional; defaults to the repo of the current git directory (auto-detected via `gh repo view`).

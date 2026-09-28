@@ -74,7 +74,7 @@ takes its default.
 
 ```yaml
 reviewers:
-  coderabbit: false                 # CodeRabbit steps and commands run only when true
+  coderabbit: false                 # /la:pr flow's CodeRabbit steps run only when true (la-* CR commands always work)
   sonar:
     enabled: false                  # SonarQube steps run only when true
     project_key: my-org_my-repo     # required when enabled

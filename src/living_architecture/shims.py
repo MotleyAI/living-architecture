@@ -1,4 +1,4 @@
-"""`la-*` entry points for the bundled bash scripts, gated by the repo config."""
+"""`la-*` entry points for the bundled bash scripts."""
 
 from __future__ import annotations
 
@@ -24,27 +24,15 @@ def _config(prog: str) -> LaConfig:
         raise SystemExit(2) from exc
 
 
-def _require_coderabbit(prog: str) -> None:
-    if not _config(prog).reviewers.coderabbit:
-        print(
-            f"{prog}: CodeRabbit is disabled for this repo (set reviewers.coderabbit: true in"
-            " living-architecture.yaml to enable it)",
-            file=sys.stderr,
-        )
-        raise SystemExit(3)
-
-
 def _args(argv: list[str] | None) -> list[str]:
     return list(sys.argv[1:] if argv is None else argv)
 
 
 def fetch_coderabbit_threads(argv: list[str] | None = None) -> NoReturn:
-    _require_coderabbit("la-fetch-coderabbit-threads")
     _exec("fetch-coderabbit-threads.sh", _args(argv))
 
 
 def reply_invalid_coderabbit(argv: list[str] | None = None) -> NoReturn:
-    _require_coderabbit("la-reply-invalid-coderabbit")
     _exec("reply-invalid-coderabbit.sh", _args(argv))
 
 
