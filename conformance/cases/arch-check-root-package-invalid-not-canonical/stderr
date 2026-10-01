@@ -1,0 +1,1 @@
+arch_check: architecture/index.yaml: root_package 'pkg/' must not have empty or '.' segments

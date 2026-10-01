@@ -1,0 +1,8 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+fixture: arch-ok
+expect:
+  exit: 2
+note: 'new behaviour: an invalid root_package is a setup error naming root_package'

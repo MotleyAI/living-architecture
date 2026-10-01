@@ -967,6 +967,7 @@ def test_virtual_node_needs_no_package(tmp_path):
 
 
 def test_layout_defaults_source_root_to_repo_root(tmp_path):
+    (tmp_path / "pkg").mkdir()
     layout = archcheck.resolve_layout(tmp_path, {"root_package": "pkg"})
     assert layout.source_root == tmp_path
 
@@ -983,3 +984,35 @@ def test_layout_rejects_invalid_source_root(tmp_path, value):
     (tmp_path / "b" / "pkg").mkdir(parents=True)
     with pytest.raises(archcheck.ArchCheckError, match="source_root"):
         archcheck.resolve_layout(tmp_path, {"root_package": "pkg", "source_root": value})
+
+
+@pytest.mark.parametrize(
+    ("index", "error"),
+    [
+        ({"root_package": "/abs"}, "root_package '/abs' must be a relative path"),
+        ({"root_package": "../pkg"}, "root_package '../pkg' must not contain '..'"),
+        ({"root_package": "pkg/"}, "root_package 'pkg/' must not have empty or '.' segments"),
+        ({"root_package": "."}, "root_package '.' must not have empty or '.' segments"),
+        ({"root_package": "./pkg"}, "root_package './pkg' must not have empty or '.' segments"),
+        ({"root_package": "a//b"}, "root_package 'a//b' must not have empty or '.' segments"),
+        ({"root_package": "escape"}, "root_package 'escape' resolves outside source_root '.'"),
+        ({"root_package": "link", "source_root": "src"}, "root_package 'link' resolves outside source_root 'src'"),
+        ({"root_package": "file.py"}, "root_package 'file.py' is not a directory under source_root '.'"),
+        ({"root_package": "missing"}, "root_package 'missing' is not a directory under source_root '.'"),
+        ({"root_package": "loop"}, "root_package 'loop' is not a directory under source_root '.'"),
+        ({"root_package": "p\x00"}, "root_package 'p\\x00' is not a directory under source_root '.'"),
+        ({"root_package": "pkg", "source_root": "s\x00"}, "source_root 's\\x00' is not a directory"),
+    ],
+    ids=["absolute", "parent-segment", "trailing-slash", "dot", "dot-prefix", "empty-segment", "symlink-escape", "outside-source-root", "file", "missing", "symlink-loop", "nul", "source-root-nul"],
+)
+def test_layout_rejects_invalid_root_package(tmp_path, index, error):
+    repo = tmp_path / "repo"
+    (repo / "src").mkdir(parents=True)
+    (repo / "pkg").mkdir()
+    (repo / "file.py").write_text("", encoding="utf-8")
+    (repo / "escape").symlink_to(tmp_path)
+    (repo / "src" / "link").symlink_to(repo / "pkg")
+    (repo / "loop").symlink_to("loop")
+    with pytest.raises(archcheck.ArchCheckError) as excinfo:
+        archcheck.resolve_layout(repo, index)
+    assert str(excinfo.value) == f"architecture/index.yaml: {error}"

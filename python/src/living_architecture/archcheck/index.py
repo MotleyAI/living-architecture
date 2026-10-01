@@ -32,7 +32,7 @@ def load_index(root: Path) -> dict[str, Any]:
     except (OSError, YAMLError) as exc:
         raise ArchCheckError(str(exc)) from exc
     if not isinstance(index, dict):
-        raise ArchCheckError(f"{INDEX_REL}: top level must be a mapping")
+        raise ArchCheckError(message("arch-check.index-not-mapping"))
     pkg = index.get("root_package")
     if not isinstance(pkg, str) or not pkg:
         raise ArchCheckError(message("arch-check.root-package-missing"))
@@ -42,28 +42,35 @@ def load_index(root: Path) -> dict[str, Any]:
     return index
 
 
-def _source_root_problem(repo_root: Path, value: str, root_package: str) -> str | None:
+def _contained(base: Path, key: str, value: str, escapes_id: str, *, canonical: bool = False, **values: object) -> Path:
+    """`base / value`, which must stay under `base` (symlinks included); `canonical`: no empty or `.` segments."""
     rel = Path(value)
     if not value or rel.is_absolute():
-        return "must be a relative path"
+        raise ArchCheckError(message("arch-check.layout-not-relative", key=key, value=value))
     if ".." in rel.parts:
-        return "must not contain '..'"
-    resolved = (repo_root / rel).resolve()
-    if not resolved.is_relative_to(repo_root.resolve()):
-        return "resolves outside the repo"
-    if not resolved.is_dir():
-        return "is not a directory"
-    if not (resolved / root_package).is_dir():
-        return f"does not contain root_package {root_package!r}"
-    return None
+        raise ArchCheckError(message("arch-check.layout-parent-segment", key=key, value=value))
+    if canonical and any(s in ("", ".") for s in value.split("/")):
+        raise ArchCheckError(message("arch-check.root-package-not-canonical", value=value))
+    try:
+        resolved = (base / rel).resolve()
+    except (ValueError, RuntimeError):  # NUL, or a symlink loop before 3.13: not a directory, as the caller reports
+        return base / rel
+    if not resolved.is_relative_to(base.resolve()):
+        raise ArchCheckError(message(escapes_id, value=value, **values))
+    return base / rel
 
 
 def resolve_layout(repo_root: Path, index: dict[str, Any]) -> Layout:
+    """Where the code lives; ArchCheckError unless `source_root` and `root_package` are directories inside the repo."""
     root_package = index["root_package"]
     value = index.get("source_root")
-    if value is None:
-        return Layout(repo_root=repo_root, source_root=repo_root, root_package=root_package)
-    problem = _source_root_problem(repo_root, value, root_package)
-    if problem is not None:
-        raise ArchCheckError(f"{INDEX_REL}: source_root {value!r} {problem}")
-    return Layout(repo_root=repo_root, source_root=repo_root / value, root_package=root_package)
+    source_root = repo_root
+    if value is not None:
+        source_root = _contained(repo_root, "source_root", value, "arch-check.source-root-escapes")
+        if not source_root.is_dir():
+            raise ArchCheckError(message("arch-check.source-root-not-a-directory", value=value))
+    shown = "." if value is None else value
+    package_dir = _contained(source_root, "root_package", root_package, "arch-check.root-package-escapes", canonical=True, source_root=shown)
+    if not package_dir.is_dir():
+        raise ArchCheckError(message("arch-check.root-package-not-a-directory", value=root_package, source_root=shown))
+    return Layout(repo_root=repo_root, source_root=source_root, root_package=root_package)

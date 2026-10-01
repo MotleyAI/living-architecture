@@ -1,0 +1,1 @@
+arch_check: architecture/index.yaml: root_package 'pkg' is not a directory under source_root 'python'

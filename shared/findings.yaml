@@ -20,6 +20,14 @@ findings:
   arch-check.summary: 'arch_check: {count} finding(s)'
   arch-check.setup-error: 'arch_check: {error}'
   arch-check.root-package-missing: architecture/index.yaml must set root_package to the top-level package name
+  arch-check.index-not-mapping: 'architecture/index.yaml: top level must be a mapping'
+  arch-check.layout-not-relative: 'architecture/index.yaml: {key} {value!r} must be a relative path'
+  arch-check.layout-parent-segment: 'architecture/index.yaml: {key} {value!r} must not contain ''..'''
+  arch-check.source-root-escapes: 'architecture/index.yaml: source_root {value!r} resolves outside the repo'
+  arch-check.source-root-not-a-directory: 'architecture/index.yaml: source_root {value!r} is not a directory'
+  arch-check.root-package-not-canonical: 'architecture/index.yaml: root_package {value!r} must not have empty or ''.'' segments'
+  arch-check.root-package-escapes: 'architecture/index.yaml: root_package {value!r} resolves outside source_root {source_root!r}'
+  arch-check.root-package-not-a-directory: 'architecture/index.yaml: root_package {value!r} is not a directory under source_root {source_root!r}'
 
   claims-exist.unit-missing: 'claims-exist: {node} claims {unit}, which does not exist on disk'
   claims-exist.child-missing: 'claims-exist: {node} declares child {child}, which does not exist on disk'

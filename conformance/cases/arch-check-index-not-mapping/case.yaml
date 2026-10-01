@@ -1,0 +1,6 @@
+kind: neutral
+command: la-arch-check
+fixture: arch-ok
+expect:
+  exit: 2
+note: index.yaml whose top level is a list

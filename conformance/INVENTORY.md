@@ -12,8 +12,9 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | repo root: `--root`, `.git` discovery from a subdir, no `.git` (cwd) | 0 | `arch-check-root-flag`, `arch-check-root-discovery-from-subdir`, `arch-check-root-without-git-is-cwd` |
 | `index.yaml` missing (OSError) | 2 | `arch-check-index-missing` |
 | `index.yaml` invalid YAML | 2 | `arch-check-index-invalid-yaml` |
+| *(new)* `index.yaml` top level not a mapping | 2 | `arch-check-index-not-mapping` |
 | `root_package` absent / empty / not a string | 2 | `arch-check-root-package-absent`, `arch-check-root-package-empty`, `arch-check-root-package-not-string` |
-| `root_package` dir missing (OSError) | 2 | `arch-check-root-package-dir-missing` |
+| `root_package` dir missing (layout validation) | 2 | `arch-check-root-package-dir-missing` |
 | invalid `living-architecture.yaml` | 2 | `arch-check-config-invalid`, `arch-check-config-invalid-regex` |
 | claims-exist: package / claim missing on disk | 1 | `arch-check-claims-missing-package`, `arch-check-claims-missing-claim` |
 | claims-exactly-once: claimed twice | 1 | `arch-check-claims-duplicate-claim` |
@@ -44,7 +45,8 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | diagrams-fresh: every views-parse finding; no `views {` block | 1 | `arch-check-parse-views-findings`, `arch-check-parse-views-no-views-block` |
 | diagrams-fresh: `view_depth` not a mapping; unknown view; non-positive / non-integer values | 1 | `arch-check-view-depth-not-mapping`, `arch-check-view-depth-findings`, `arch-check-view-depth-bad-string`, `arch-check-view-depth-bad-bool`, `arch-check-view-depth-bad-float`, `arch-check-view-depth-bad-negative` |
 | *(new)* `source_root`: src layout, prefix-free ids, architecture/specs stay at the repo root, `.`, symlink inside the repo | 0/1 | `arch-check-source-root-src-layout`, `arch-check-source-root-src-layout-findings`, `arch-check-source-root-control-findings`, `arch-check-source-root-architecture-stays-at-repo-root`, `arch-check-source-root-dot`, `arch-check-source-root-symlink-inside-repo` |
-| *(new)* `source_root` invalid: absolute, `..`, escapes the repo, symlink escape, not a dir, missing, lacks `root_package`, not a string | 2 | `arch-check-source-root-invalid-absolute`, `arch-check-source-root-invalid-parent-segment`, `arch-check-source-root-invalid-escapes-repo`, `arch-check-source-root-invalid-symlink-escape`, `arch-check-source-root-invalid-not-a-directory`, `arch-check-source-root-invalid-missing`, `arch-check-source-root-invalid-lacks-root-package`, `arch-check-source-root-invalid-not-a-string` |
+| *(new)* `source_root` invalid: absolute, `..`, escapes the repo, symlink escape, not a dir, missing, NUL, lacks `root_package`, not a string | 2 | `arch-check-source-root-invalid-absolute`, `arch-check-source-root-invalid-parent-segment`, `arch-check-source-root-invalid-escapes-repo`, `arch-check-source-root-invalid-symlink-escape`, `arch-check-source-root-invalid-not-a-directory`, `arch-check-source-root-invalid-missing`, `arch-check-source-root-invalid-lacks-root-package`, `arch-check-source-root-invalid-nul`, `arch-check-source-root-invalid-not-a-string` |
+| *(new)* `root_package` invalid: absolute, `..`, empty or `.` segment, NUL, symlink escape or loop, outside `source_root`, not a dir | 2 | `arch-check-root-package-invalid-absolute`, `arch-check-root-package-invalid-parent-segment`, `arch-check-root-package-invalid-not-canonical`, `arch-check-root-package-invalid-nul`, `arch-check-root-package-invalid-symlink-escape`, `arch-check-root-package-invalid-symlink-loop`, `arch-check-root-package-invalid-outside-source-root`, `arch-check-root-package-invalid-not-a-directory` |
 
 ## la-arch-diagrams
 

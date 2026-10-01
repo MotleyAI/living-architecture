@@ -27,3 +27,7 @@ NOT include the `source_root` prefix.
 #### Scenario: Invalid source_root
 - **WHEN** `source_root` is absolute, contains `..`, resolves (including via symlinks) outside the repo, is not a directory, or does not contain `root_package`
 - **THEN** `la-arch-check` exits 2 with an error naming `source_root`
+
+#### Scenario: Invalid root_package
+- **WHEN** `root_package` is absolute, has an empty, `.` or `..` segment (e.g. `pkg/`, `.`, `./pkg`), resolves (including via symlinks) outside `source_root`, or is not a directory
+- **THEN** `la-arch-check` exits 2 with an error naming `root_package`
