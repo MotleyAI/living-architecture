@@ -24,7 +24,7 @@ development with an enforced living architecture**:
 /plugin install la@living-architecture
 
 # the commands (la-*, dr-*), pinned to the same version as the plugin
-uv tool install living-architecture==0.2.0
+uv tool install living-architecture==0.2.1
 ```
 
 Skills run `la-doctor --expect <version>` first and stop if the installed
@@ -74,7 +74,7 @@ takes its default.
 
 ```yaml
 reviewers:
-  coderabbit: false                 # CodeRabbit steps and commands run only when true
+  coderabbit: false                 # /la:pr flow's CodeRabbit steps run only when true (la-* CR commands always work)
   sonar:
     enabled: false                  # SonarQube steps run only when true
     project_key: my-org_my-repo     # required when enabled
@@ -94,7 +94,7 @@ Pin the checker to a release; it needs no per-repo code beyond
 
 ```yaml
 - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-- run: uvx --no-build --from living-architecture==0.2.0 la-arch-check
+- run: uvx --no-build --from living-architecture==0.2.1 la-arch-check
 ```
 
 ## Working from a local checkout
