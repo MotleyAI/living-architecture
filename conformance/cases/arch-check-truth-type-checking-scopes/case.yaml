@@ -1,0 +1,8 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+fixture: arch-ok
+expect:
+  exit: 1
+note: guard names resolve lexically; nested-scope bindings neither cancel nor create a guard, global/nonlocal and leaking walrus targets cancel it

@@ -335,6 +335,44 @@ def test_param_shadowed_typing_alias_still_measured(tmp_path):
     assert findings_for(root, "model-truth") == []
 
 
+@pytest.mark.parametrize(
+    "src",
+    [
+        "import typing as t\ndef f(t):\n    return t\nif t.TYPE_CHECKING:\n    import pkg.core\n",
+        "import typing as t\nf = lambda t: t\nif t.TYPE_CHECKING:\n    import pkg.core\n",
+        "from typing import TYPE_CHECKING\nclass C:\n    TYPE_CHECKING = False\nif TYPE_CHECKING:\n    import pkg.core\n",
+        "from typing import TYPE_CHECKING\nX = [TYPE_CHECKING for TYPE_CHECKING in ()]\nif TYPE_CHECKING:\n    import pkg.core\n",
+        (
+            "from typing import TYPE_CHECKING\nclass C:\n    TYPE_CHECKING = False\n    def m(self):\n"
+            "        if TYPE_CHECKING:\n            import pkg.core\n"
+        ),
+        "def f():\n    import typing\n    if typing.TYPE_CHECKING:\n        import pkg.core\n",
+    ],
+    ids=["param", "lambda-param", "class-attr", "comprehension-target", "method-skips-class-scope", "function-local"],
+)
+def test_nested_scope_binding_keeps_typing_guard(tmp_path, src):
+    root = make_repo(tmp_path)
+    (root / "pkg" / "engine" / "b.py").write_text(src, encoding="utf-8")
+    assert any("engine -> core" in f for f in findings_for(root, "model-truth"))
+
+
+@pytest.mark.parametrize(
+    "src",
+    [
+        "import typing as t\ndef f():\n    global t\n    t = None\nif t.TYPE_CHECKING:\n    import pkg.core\n",
+        "from typing import TYPE_CHECKING\nX = [(TYPE_CHECKING := x) for x in ()]\nif TYPE_CHECKING:\n    import pkg.core\n",
+        "from typing import TYPE_CHECKING\ndef f(x=(TYPE_CHECKING := 0)):\n    pass\nif TYPE_CHECKING:\n    import pkg.core\n",
+        "from typing import TYPE_CHECKING\nclass C:\n    TYPE_CHECKING = False\n    if TYPE_CHECKING:\n        import pkg.core\n",
+        "from typing import TYPE_CHECKING\ndef f():\n    TYPE_CHECKING = True\n    if TYPE_CHECKING:\n        import pkg.core\n",
+    ],
+    ids=["global", "comprehension-walrus", "default-walrus", "class-body", "function-local-rebind"],
+)
+def test_binding_in_guard_scope_cancels_typing_guard(tmp_path, src):
+    root = make_repo(tmp_path)
+    (root / "pkg" / "engine" / "b.py").write_text(src, encoding="utf-8")
+    assert findings_for(root, "model-truth") == []
+
+
 def test_import_rebound_typing_alias_still_measured(tmp_path):
     root = make_repo(tmp_path)
     (root / "pkg" / "engine" / "b.py").write_text(
