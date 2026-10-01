@@ -3,7 +3,7 @@ name: pr
 description: Spec-driven change flow for a task given to an agent. Always pulls in the Linear issue whose `gitBranchName` matches the current git branch exactly, and combines it with whatever the user typed when invoking the skill. Rehydrates context, detects the current stage, and dispatches to the stage skills la:pr-plan → la:pr-tests → la:pr-implement → la:pr-review.
 ---
 
-**Preflight:** run `la-doctor --expect 0.2.0` once per session before using any `la-*` or `dr-*` command; if it fails, stop and show the user its output.
+**Preflight:** run `la-doctor --expect 0.2.1` once per session before using any `la-*` or `dr-*` command; if it fails, stop and show the user its output.
 
 I want a detailed spec-driven flow. The brief is the union of:
 1. The Linear issue tied to the current branch (see "Rehydrate" below), AND
