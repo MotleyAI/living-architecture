@@ -1,0 +1,46 @@
+# Unresolved CodeRabbit threads on o/r PR #7
+
+## Thread 1 — src/a.py:10
+URL: https://x/src/a.py
+Resolved: false   Outdated: false
+
+### Comment 1 — coderabbitai  t
+<https://x/src/a.py>
+
+> Fix this
+
+---
+
+## CodeRabbit review-summary nitpicks
+
+### Nitpick 1
+Review: https://x/review/1   Submitted: t
+
+> <blockquote>
+> 
+> Nit finding text
+> 
+> </blockquote>
+
+---
+
+## CodeRabbit outside-diff-range comments
+
+### Outside-diff 1
+Review: https://x/review/1   Submitted: t
+
+> Outside finding text
+> 
+> </blockquote></details>
+> <details>
+> <summary>🧹 Nitpick comments (1)</summary><blockquote>
+> 
+> Nit finding text
+> 
+> </blockquote></details>
+> 
+> 
+
+---
+
+JSON: <ROOT>/tmp/coderabbit-threads-7-<TS>.json

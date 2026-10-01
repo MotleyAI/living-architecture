@@ -3,7 +3,7 @@ name: living-architecture
 description: Use to set up or maintain the living-architecture layer (LikeC4 structure model + arc42 principles + model-truth import enforcement + cross-check) in a repo that uses the /la:pr + OpenSpec flow. Sibling of /la:pr — OpenSpec owns per-capability behaviour; this owns cross-cutting structure. Dispatches to init (scaffold) or maintenance; carving a boundary is the arch-slice skill.
 ---
 
-**Preflight:** run `la-doctor --expect 0.2.0` once per session before using any `la-*` or `dr-*` command; if it fails, stop and show the user its output.
+**Preflight:** run `la-doctor --expect 0.2.1` once per session before using any `la-*` or `dr-*` command; if it fails, stop and show the user its output.
 
 # Living architecture
 

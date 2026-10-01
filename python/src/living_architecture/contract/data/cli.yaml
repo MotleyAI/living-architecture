@@ -4,7 +4,9 @@
 # option:      name, type (string | int | float | path | flag), help; optional: dest, metavar, choices,
 #              default, required, repeatable, store (a flag's stored value; default true)
 # positional:  name, help; optional: nargs ('?' | '*' | '+'; default exactly one)
-# command:     help, exit (code -> meaning), options, positionals, subcommands, passthrough, usage
+# command:     help, exit (code -> meaning), options, positionals, subcommands, passthrough, usage,
+#              require_one_of (dests; none given is a usage error), script (the bundled review script it
+#              runs), gate (skip-coderabbit: append --skip-coderabbit unless reviewers.coderabbit is on)
 
 commands:
   la-config:
@@ -68,17 +70,15 @@ commands:
 
   la-fetch-coderabbit-threads:
     help: Fetch unresolved CodeRabbit review threads on a PR (bundled script).
-    exit: {0: ok, 2: usage or config error, 3: CodeRabbit disabled}
+    exit: {0: ok, 2: usage error}
     passthrough: true
     script: fetch-coderabbit-threads.sh
-    gate: coderabbit
 
   la-reply-invalid-coderabbit:
     help: Reply to a CodeRabbit thread, mentioning @coderabbitai (bundled script).
-    exit: {0: ok, 2: usage or config error, 3: CodeRabbit disabled}
+    exit: {0: ok, 2: usage error}
     passthrough: true
     script: reply-invalid-coderabbit.sh
-    gate: coderabbit
 
   la-reply-to-pr-thread:
     help: Reply to a PR review thread (bundled script).

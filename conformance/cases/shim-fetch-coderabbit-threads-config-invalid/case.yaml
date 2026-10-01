@@ -2,10 +2,106 @@ kind: neutral
 command: la-fetch-coderabbit-threads
 args:
 - '7'
+- --repo
+- o/r
+gh:
+- match:
+  - graphql
+  stdout:
+    data:
+      repository:
+        pullRequest:
+          reviewThreads:
+            pageInfo:
+              hasNextPage: false
+              endCursor: null
+            nodes:
+            - id: T_src/a.py
+              isResolved: false
+              isOutdated: false
+              path: src/a.py
+              line: 10
+              originalLine: 10
+              comments:
+                pageInfo:
+                  hasNextPage: false
+                  endCursor: null
+                nodes:
+                - author:
+                    login: coderabbitai
+                  body: Fix this
+                  url: https://x/src/a.py
+                  createdAt: t
+            - id: T_src/b.py
+              isResolved: true
+              isOutdated: false
+              path: src/b.py
+              line: 10
+              originalLine: 10
+              comments:
+                pageInfo:
+                  hasNextPage: false
+                  endCursor: null
+                nodes:
+                - author:
+                    login: coderabbitai
+                  body: Old news
+                  url: https://x/src/b.py
+                  createdAt: t
+            - id: T_src/c.py
+              isResolved: false
+              isOutdated: false
+              path: src/c.py
+              line: 10
+              originalLine: 10
+              comments:
+                pageInfo:
+                  hasNextPage: false
+                  endCursor: null
+                nodes:
+                - author:
+                    login: someone
+                  body: Human note
+                  url: https://x/src/c.py
+                  createdAt: t
+- match:
+  - repos/o/r/pulls/7/reviews
+  stdout:
+  - user:
+      login: coderabbitai[bot]
+    body: 'Actionable comments posted: 1
+
+
+      <details>
+
+      <summary>⚠️ Outside diff range comments (1)</summary><blockquote>
+
+
+      Outside finding text
+
+
+      </blockquote></details>
+
+      <details>
+
+      <summary>🧹 Nitpick comments (1)</summary><blockquote>
+
+
+      Nit finding text
+
+
+      </blockquote></details>
+
+
+      🤖 Prompt for all review comments with AI agents
+
+
+      prompt'
+    html_url: https://x/review/1
+    submitted_at: t
+normalize:
+- pattern: -[0-9]{8}-[0-9]{6}\.json
+  replace: -<TS>.json
 expect:
-  exit: 2
-  stdout: ''
-  stderr:
-    contains:
-    - bogus
-note: config validation wording is not part of the contract; exit code and offending key are
+  exit: 0
+note: the CodeRabbit helpers ignore the repo config (disabled, invalid or absent) since 0.2.1

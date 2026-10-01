@@ -1,4 +1,4 @@
-"""Review shims: run a bundled contract script, gated by the repo config."""
+"""Review shims: run a bundled contract script."""
 
 from __future__ import annotations
 
@@ -20,13 +20,9 @@ def _config(prog: str) -> LaConfig:
 
 
 def run_shim(command: str, argv: list[str]) -> NoReturn:
-    """Exec the command's bundled script with `argv`, after its config gate (cli.yaml `gate`)."""
+    """Exec the command's bundled script with `argv`; a `skip-coderabbit` gate (cli.yaml) reads the config."""
     spec = manifest()[command]
     args = list(argv)
-    gate = spec.get("gate")
-    if gate == "coderabbit" and not _config(command).reviewers.coderabbit:
-        print(message("review.coderabbit-disabled", prog=command), file=sys.stderr)
-        raise SystemExit(3)
-    if gate == "skip-coderabbit" and not _config(command).reviewers.coderabbit:
+    if spec.get("gate") == "skip-coderabbit" and not _config(command).reviewers.coderabbit:
         args.append("--skip-coderabbit")
     os.execvp("bash", ["bash", str(script_path(spec["script"])), *args])

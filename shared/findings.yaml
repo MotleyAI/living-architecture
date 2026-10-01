@@ -128,7 +128,6 @@ findings:
 
   # ---- review shims
   review.config-error: '{prog}: {error}'
-  review.coderabbit-disabled: '{prog}: CodeRabbit is disabled for this repo (set reviewers.coderabbit: true in living-architecture.yaml to enable it)'
 
   # ---- la-check-conventions
   conventions.violation: '{path}:{line}: [{rule}] {message}'

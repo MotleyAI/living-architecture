@@ -3,7 +3,7 @@ name: fetch-coderabbit-threads
 description: Use when the user asks to fetch / list / read / show unresolved CodeRabbit review threads on a GitHub PR. Pulls thread URL, file:line, author, and full comment body for every thread CodeRabbit opened that is not yet resolved, plus CodeRabbit's review-summary nitpicks.
 ---
 
-**Preflight:** run `la-doctor --expect 0.2.0` once per session before using any `la-*` or `dr-*` command; if it fails, stop and show the user its output.
+**Preflight:** run `la-doctor --expect 0.2.1` once per session before using any `la-*` or `dr-*` command; if it fails, stop and show the user its output.
 
 # Fetch unresolved CodeRabbit review threads from a PR
 
@@ -13,8 +13,7 @@ description: Use when the user asks to fetch / list / read / show unresolved Cod
 la-fetch-coderabbit-threads <PR_NUMBER> [--repo OWNER/REPO] [--all-authors]
 ```
 
-The command refuses to run (exit 3) when `reviewers.coderabbit` is off in the
-repo's `living-architecture.yaml` — CodeRabbit is a per-repo opt-in.
+Works in any repo; it does not read `living-architecture.yaml`.
 
 - `<PR_NUMBER>` — required, the PR number.
 - `--repo OWNER/REPO` — optional; defaults to the repo of the current git directory (auto-detected via `gh repo view`).

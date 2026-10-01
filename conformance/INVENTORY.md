@@ -143,8 +143,7 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 
 | Branch | Exit | Cases |
 |---|---|---|
-| CodeRabbit-gated shims: disabled; invalid config | 3/2 | `shim-fetch-coderabbit-threads-disabled`, `shim-reply-invalid-coderabbit-disabled`, `shim-fetch-coderabbit-threads-config-invalid`, `shim-reply-invalid-coderabbit-config-invalid` |
-| ungated shims ignore the config | 0 | `shim-reply-to-pr-thread-ignores-config`, `shim-fetch-failed-pr-checks-ignores-config` |
+| ungated shims ignore the config (CodeRabbit disabled, invalid config; the CodeRabbit helpers since 0.2.1) | 0 | `shim-fetch-coderabbit-threads-disabled`, `shim-reply-invalid-coderabbit-disabled`, `shim-fetch-coderabbit-threads-config-invalid`, `shim-reply-invalid-coderabbit-config-invalid`, `shim-reply-to-pr-thread-ignores-config`, `shim-fetch-failed-pr-checks-ignores-config` |
 | `la-wait-for-reviews` reads the config (invalid → 2; disabled → `--skip-coderabbit` appended) | 2/0 | `shim-wait-for-reviews-config-invalid`, `shim-wait-for-reviews-disabled-skips-settle` |
 | fetch-coderabbit-threads: threads + nitpicks + outside-diff; all authors; argument and repo errors | 0/2 | `shim-fetch-coderabbit-threads-ok`, `shim-fetch-coderabbit-threads-all-authors`, `shim-fetch-coderabbit-threads-bad-pr`, `shim-fetch-coderabbit-threads-bad-repo`, `shim-fetch-coderabbit-threads-unknown-flag`, `shim-fetch-coderabbit-threads-repo-autodetect-fails` |
 | reply-invalid-coderabbit: mention prepended; empty body | 0/2 | `shim-reply-invalid-coderabbit-ok`, `shim-reply-invalid-coderabbit-empty-body` |

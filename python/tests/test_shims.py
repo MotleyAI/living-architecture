@@ -39,36 +39,39 @@ def _enable_coderabbit(repo: Path) -> None:
     (repo / CONFIG_FILENAME).write_text("reviewers: {coderabbit: true}\n", encoding="utf-8")
 
 
-@pytest.mark.parametrize("shim", [cli.la_fetch_coderabbit_threads, cli.la_reply_invalid_coderabbit])
-def test_coderabbit_commands_refuse_when_disabled(repo, execvp, shim, capsys):
-    with pytest.raises(SystemExit) as exc:
-        shim(["7"])
-    assert exc.value.code == 3
-    assert "reviewers.coderabbit" in capsys.readouterr().err
-    assert execvp == []
+def _disable_coderabbit(repo: Path) -> None:
+    (repo / CONFIG_FILENAME).write_text("reviewers: {coderabbit: false}\n", encoding="utf-8")
 
 
-@pytest.mark.parametrize(
-    ("shim", "script"),
-    [(cli.la_fetch_coderabbit_threads, "fetch-coderabbit-threads.sh"),
-     (cli.la_reply_invalid_coderabbit, "reply-invalid-coderabbit.sh")],
-)
-def test_coderabbit_commands_run_when_enabled(repo, execvp, shim, script):
-    _enable_coderabbit(repo)
+def _invalid_config(repo: Path) -> None:
+    (repo / CONFIG_FILENAME).write_text("bogus: 1\n", encoding="utf-8")
+
+
+UNGATED = [
+    (cli.la_fetch_coderabbit_threads, "fetch-coderabbit-threads.sh"),
+    (cli.la_reply_invalid_coderabbit, "reply-invalid-coderabbit.sh"),
+    (cli.la_reply_to_pr_thread, "reply-to-pr-thread.sh"),
+    (cli.la_fetch_failed_pr_checks, "fetch-failed-pr-checks.sh"),
+]
+
+
+# Single-source helpers run whatever the repo config says (or whether it exists, or parses).
+@pytest.mark.parametrize("setup", [lambda repo: None, _enable_coderabbit, _disable_coderabbit, _invalid_config],
+                         ids=["no-config", "coderabbit-on", "coderabbit-off", "invalid-config"])
+@pytest.mark.parametrize(("shim", "script"), UNGATED)
+def test_ungated_commands(repo, execvp, shim, script, setup):
+    setup(repo)
     with pytest.raises(Execd):
         shim(["7", "--repo", "o/r"])
     assert execvp == [["bash", str(SCRIPTS_DIR / script), "7", "--repo", "o/r"]]
 
 
-@pytest.mark.parametrize(
-    ("shim", "script"),
-    [(cli.la_reply_to_pr_thread, "reply-to-pr-thread.sh"),
-     (cli.la_fetch_failed_pr_checks, "fetch-failed-pr-checks.sh")],
-)
-def test_ungated_commands(repo, execvp, shim, script):
+@pytest.mark.parametrize(("shim", "script"), UNGATED)
+def test_ungated_commands_run_outside_a_git_repo(tmp_path, monkeypatch, execvp, shim, script):
+    monkeypatch.chdir(tmp_path)
     with pytest.raises(Execd):
-        shim(["x"])
-    assert execvp == [["bash", str(SCRIPTS_DIR / script), "x"]]
+        shim(["7"])
+    assert execvp == [["bash", str(SCRIPTS_DIR / script), "7"]]
 
 
 def test_wait_skips_coderabbit_when_disabled(repo, execvp):
@@ -85,7 +88,7 @@ def test_wait_waits_for_coderabbit_when_enabled(repo, execvp):
 
 
 def test_invalid_config_exits_2(repo, execvp, capsys):
-    (repo / CONFIG_FILENAME).write_text("bogus: 1\n", encoding="utf-8")
+    _invalid_config(repo)
     with pytest.raises(SystemExit) as exc:
         cli.la_wait_for_reviews(["7"])
     assert exc.value.code == 2
