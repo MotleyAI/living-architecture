@@ -606,9 +606,6 @@ name = "fixture"
 
 INDEX_BASE = """
 root_package: pkg
-nodes:
-  core: {package: pkg.core}
-  engine: {package: pkg.engine, arc42: architecture/engine.arc42.md}
 legacy_arrows: {baseline: 1}
 cross_cutting_specs:
   queries: {touches: [core, engine]}
@@ -623,8 +620,17 @@ specification {
   tag legacy
 }
 model {
-  core = node 'Core'
-  engine = node 'Engine'
+  core = node 'Core' {
+    metadata {
+      package 'pkg.core'
+    }
+  }
+  engine = node 'Engine' {
+    metadata {
+      package 'pkg.engine'
+      arc42 'architecture/engine.arc42.md'
+    }
+  }
   core -> engine #legacy
   engine -> core
 }
@@ -1200,9 +1206,17 @@ specification {
 }
 model {
   core = node 'Core' {
+    metadata {
+      package 'pkg.core'
+    }
     query = node 'Query'
   }
-  engine = node 'Engine'
+  engine = node 'Engine' {
+    metadata {
+      package 'pkg.engine'
+      arc42 'architecture/engine.arc42.md'
+    }
+  }
   core.query -> engine #legacy
   engine -> core
 }
@@ -1272,12 +1286,6 @@ def test_generate_raises_on_malformed_view_depth(tmp_path):
 def test_arch_check_dropped_regex_parser():
     for symbol in ("_ELEMENT_RE", "_RELATION_RE", "_parse_elements", "_parse_relations"):
         assert not hasattr(archcheck, symbol)
-
-
-def test_model_identity_finding_text_unchanged(tmp_path):
-    model = MODEL.replace("engine = node 'Engine'", "engine = node 'Engine'\n  ghost = node 'Ghost'")
-    root = make_repo(tmp_path, regenerate=False, model=model)
-    assert "model-identity: element ghost maps to no node or declared child in index.yaml" in archcheck.run_checks(root)
 
 
 def test_model_truth_missing_finding_names_module_witness(tmp_path):

@@ -1,0 +1,41 @@
+specification {
+  element node
+  element bucket {
+    #virtual
+  }
+  tag legacy
+}
+
+model {
+  api = node 'API' {
+    metadata {
+      package 'pkg.api'
+      arc42 'architecture/api.arc42.md'
+      specs ['api']
+    }
+    handlers = node 'Handlers'
+  }
+  core = node 'Core' {
+    metadata {
+      package 'pkg.core'
+      claims ['pkg.util']
+    }
+  }
+  store = node 'Store' {
+    metadata {
+      package 'pkg.store'
+    }
+  }
+  legacy = bucket 'Legacy' {
+    metadata {
+      packages ['pkg.old']
+    }
+    x = node 'X'
+    y = node 'Y'
+  }
+
+  api.handlers -> core
+  core -> store
+  api -> store #legacy
+  legacy -> core
+}

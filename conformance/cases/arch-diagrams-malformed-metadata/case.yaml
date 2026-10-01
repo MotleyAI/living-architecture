@@ -1,0 +1,11 @@
+kind: paired
+languages:
+- python
+command: la-arch-diagrams
+fixture: arch-diagrams
+expect:
+  exit: 1
+  files:
+  - architecture/system.arc42.md
+golden: manual
+note: 'bad metadata syntax is a parse finding that blocks generation; nothing else is reported for the block'

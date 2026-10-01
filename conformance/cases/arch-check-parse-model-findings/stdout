@@ -1,4 +1,3 @@
-model-identity: element thing maps to no node or declared child in index.yaml
 model-truth: modeled relation core -> ghost has no measured runtime edge
 diagrams-fresh: unrecognized specification line: #virtual
 diagrams-fresh: unrecognized specification line: colour red
@@ -8,4 +7,4 @@ diagrams-fresh: duplicate relation core -> store
 diagrams-fresh: unrecognized model line: this is not a model line
 diagrams-fresh: element thing has undeclared kind widget
 diagrams-fresh: relation core -> ghost has unknown endpoint ghost
-arch_check: 10 finding(s)
+arch_check: 9 finding(s)

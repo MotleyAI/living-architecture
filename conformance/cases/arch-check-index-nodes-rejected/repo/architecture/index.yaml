@@ -1,0 +1,13 @@
+root_package: pkg
+cross_cutting_arc42:
+- architecture/security.arc42.md
+cross_cutting_specs:
+  logging:
+    touches:
+    - api
+    - core
+legacy_arrows:
+  baseline: 1
+diagrams: {}
+nodes:
+  api: {package: pkg.api}

@@ -1,0 +1,11 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+fixture: arch-ok
+remove:
+- pkg/api/handlers.py
+expect:
+  exit: 1
+golden: manual
+note: 'candidates are other nodes'' declared units, scanned in sorted order; declared units win attribution'

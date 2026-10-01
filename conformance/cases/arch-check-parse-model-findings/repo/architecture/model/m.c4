@@ -8,14 +8,36 @@ specification {
 
 model {
   api = node 'API' {
+    metadata {
+      package 'pkg.api'
+      arc42 'architecture/api.arc42.md'
+      specs ['api']
+    }
     handlers = node 'Handlers'
     api.handlers -> core
   }
-  core = node 'Core' // a comment
-  store = node 'Store // not a comment'
-  legacy = bucket 'Legacy'
+  core = node 'Core' { // a comment
+    metadata {
+      package 'pkg.core'
+      claims ['pkg.util']
+    }
+  }
+  store = node 'Store // not a comment' {
+    metadata {
+      package 'pkg.store'
+    }
+  }
+  legacy = bucket 'Legacy' {
+    metadata {
+      packages ['pkg.old']
+    }
+  }
   core = node 'Again'
-  thing = widget 'Thing'
+  thing = widget 'Thing' {
+    metadata {
+      package 'pkg.thing'
+    }
+  }
   core -> store
   core -> store
   api -> store #legacy

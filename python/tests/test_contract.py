@@ -25,6 +25,7 @@ from living_architecture.contract import (
     materialize_defaults,
     render_template,
     snapshot_dir,
+    validate,
 )
 
 
@@ -41,6 +42,7 @@ HASH_FILE = "CONTRACT_HASH"
 SHARED_FILES = (
     "schema/living-architecture.schema.json",
     "schema/index.schema.json",
+    "schema/node.schema.json",
     "findings.yaml",
     "cli.yaml",
     "conventions.yaml",
@@ -77,6 +79,45 @@ def _tree(root: Path) -> dict[str, tuple[bool, bytes]]:
 @pytest.mark.parametrize("rel", SHARED_FILES)
 def test_shared_file_exists(rel: str) -> None:
     assert (SHARED / rel).is_file()
+
+
+def _schema(name: str) -> dict:
+    return json.loads((SHARED / "schema" / f"{name}.schema.json").read_text(encoding="utf-8"))
+
+
+def test_node_schema_defines_both_node_varieties() -> None:
+    defs = _schema("node")["$defs"]
+    assert defs["precise"]["required"] == ["package"]
+    assert set(defs["precise"]["properties"]) == {"package", "claims", "arc42", "specs"}
+    assert set(defs["virtual"]["properties"]) == {"packages", "arc42", "specs"}
+    assert defs["precise"]["additionalProperties"] is False
+    assert defs["virtual"]["additionalProperties"] is False
+
+
+@pytest.mark.parametrize(
+    ("variety", "metadata", "valid"),
+    [
+        ("precise", {"package": "p", "claims": ["a"], "arc42": "d.md", "specs": ["s"]}, True),
+        ("precise", {"package": ["p"]}, False),
+        ("precise", {"package": "p", "claims": "a"}, False),
+        ("precise", {"package": "p", "claims": [1]}, False),
+        ("precise", {"package": "p", "arc42": ["d.md"]}, False),
+        ("precise", {"package": "p", "specs": "s"}, False),
+        ("virtual", {"packages": ["a"], "arc42": "d.md", "specs": ["s"]}, True),
+        ("virtual", {}, True),
+        ("virtual", {"packages": "a"}, False),
+        ("virtual", {"packages": [1]}, False),
+    ],
+)
+def test_node_schema_value_types(variety: str, metadata: dict, valid: bool) -> None:
+    schema = {"$defs": _schema("node")["$defs"], "$ref": f"#/$defs/{variety}"}
+    assert (validate(schema, metadata) == []) is valid
+
+
+def test_index_schema_does_not_define_nodes() -> None:
+    index = _schema("index")
+    assert "nodes" not in index["properties"]
+    assert index["additionalProperties"] is False
 
 
 @pytest.mark.parametrize("vector", _vectors("repr.yaml")["cases"], ids=lambda v: v["repr"])

@@ -1,0 +1,9 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+fixture: arch-ok
+expect:
+  exit: 0
+golden: manual
+note: 'only a top-level element''s kind makes a node virtual; nested elements map by convention'

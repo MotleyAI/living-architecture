@@ -5,3 +5,5 @@ command: la-arch-check
 fixture: arch-ok
 expect:
   exit: 1
+golden: manual
+note: 'one finding per virtual node however many elements it contains; they map to no unit'
