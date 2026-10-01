@@ -6,3 +6,7 @@ build/
 *.egg-info/
 .ruff_cache/
 .pytest_cache/
+# conformance fixtures may contain these paths on purpose
+!conformance/cases/**/.venv/
+!conformance/cases/**/__pycache__/
+!conformance/cases/**/*.pyc

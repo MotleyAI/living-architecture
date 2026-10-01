@@ -325,6 +325,15 @@ def test_inventory_lists_exactly_the_cases() -> None:
     assert {name for name in listed if name.split("-")[0] in _COMMAND_PREFIXES} - cases == set()
 
 
+def test_no_corpus_file_is_git_ignored() -> None:
+    """An ignored fixture passes locally but is never committed, so the case breaks in CI."""
+    out = subprocess.run(
+        ["git", "ls-files", "--others", "--ignored", "--exclude-standard", "--", "conformance"],
+        cwd=REPO_ROOT, capture_output=True, text=True, check=True,
+    ).stdout
+    assert out.splitlines() == []
+
+
 
 def _wrong_golden_case(tmp_path: Path) -> Path:
     case_dir = tmp_path / "cases" / "wrong"
