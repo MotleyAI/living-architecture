@@ -1,0 +1,53 @@
+kind: adapter
+languages:
+- python
+command: la-check-conventions
+args:
+- --base
+- main
+git:
+- commit: init
+- origin:
+  - main
+- branch: feat
+- write:
+    f.py: |
+      """A clean module."""
+
+      import os
+
+
+      def f() -> str:
+          return os.sep
+- commit: work
+- write:
+    a.py: |
+      X = 1
+      import os
+- write:
+    g.py: |
+      """A clean module."""
+
+      import os
+
+
+      def f() -> str:
+          return os.sep
+- stage:
+  - g.py
+- write:
+    u.py: |
+      X = 1
+      import os
+- delete:
+  - b.py
+- git_rm:
+  - c.py
+- rename:
+    d.py: d2.py
+- write:
+    notes.txt: |
+      z
+expect:
+  exit: 1
+note: committed, staged, unstaged and renamed .py files count; untracked, deleted and non-.py files do not

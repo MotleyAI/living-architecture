@@ -1,0 +1,10 @@
+kind: neutral
+command: la-config
+args:
+- --
+- get
+- issue_key_pattern
+expect:
+  exit: 0
+golden: manual
+note: '`--` is honoured; argparse before Python 3.13 rejected it ahead of a subcommand'

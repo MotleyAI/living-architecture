@@ -1,0 +1,1 @@
+error: --max-log-lines must be a non-negative integer, got: x

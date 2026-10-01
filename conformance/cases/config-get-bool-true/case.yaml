@@ -1,0 +1,7 @@
+kind: neutral
+command: la-config
+args:
+- get
+- reviewers.coderabbit
+expect:
+  exit: 0

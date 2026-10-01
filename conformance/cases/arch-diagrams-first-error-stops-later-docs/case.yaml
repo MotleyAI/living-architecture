@@ -1,0 +1,8 @@
+kind: neutral
+command: la-arch-diagrams
+fixture: arch-diagrams
+expect:
+  exit: 1
+  files:
+  - architecture/system.arc42.md
+note: 'docs are written one by one: the system doc is rewritten before the api doc (no markers) fails'

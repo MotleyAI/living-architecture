@@ -1,0 +1,4 @@
+enforced-tags: api.arc42.md tags unknown enforcement id 'nope'
+enforced-tags: api.arc42.md principle item 1 has no status tag
+enforced-tags: api.arc42.md principle item 2 has no status tag
+arch_check: 3 finding(s)

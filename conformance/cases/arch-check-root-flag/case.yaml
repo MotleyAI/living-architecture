@@ -1,0 +1,11 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+args:
+- --root
+- ..
+cwd: architecture
+fixture: arch-ok
+expect:
+  exit: 0

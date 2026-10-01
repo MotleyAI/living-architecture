@@ -1,0 +1,2 @@
+src/k.py:16: unannotated-attr: K.x assigned without a type annotation
+src/k.py:19: unannotated-attr: K.z assigned without a type annotation

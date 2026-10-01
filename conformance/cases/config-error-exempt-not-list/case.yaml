@@ -1,0 +1,11 @@
+kind: neutral
+command: la-config
+args:
+- show
+expect:
+  exit: 1
+  stdout: ''
+  stderr:
+    contains:
+    - exempt
+note: config validation wording is not part of the contract; exit code and offending key are

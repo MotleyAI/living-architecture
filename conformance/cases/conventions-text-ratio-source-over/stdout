@@ -1,0 +1,10 @@
+[text-ratio] source: text-only lines are 60.0% of the changed source files (6/10), cap 15.0%
+    src/a.py: 80.0% (4/5)
+    src/b.py: 40.0% (2/5)
+
+gate: RED —
+  [import-not-top] hoist each flagged import to module top. Only a genuine
+    circular import may be waived with '# ALLOW(import-not-top): <reason>' —
+    confirm with the user before landing such a waiver.
+  [text-ratio] trim comments/docstrings in the flagged file group until
+    text-only lines fit under the cap (no per-line waiver).

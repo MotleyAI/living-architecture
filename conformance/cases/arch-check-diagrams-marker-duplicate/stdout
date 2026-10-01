@@ -1,0 +1,2 @@
+diagrams-fresh: architecture/system.arc42.md has duplicate <!-- likec4:system --> markers; run la-arch-diagrams
+arch_check: 1 finding(s)

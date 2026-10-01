@@ -1,0 +1,17 @@
+views {
+  view system {
+    title 'System'
+    include *
+  }
+  view out {
+    title 'Core out'
+    include core -> *
+  }
+  view into {
+    title 'Into store'
+    include * -> store
+  }
+  view pair {
+    include api, store
+  }
+}

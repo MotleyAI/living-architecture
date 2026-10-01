@@ -1,0 +1,39 @@
+specification {
+  element node
+  tag legacy
+  tag virtual
+}
+model {
+  contract = node 'Shared contract'
+  config = node 'Config'
+  cli = node 'CLI'
+  c4 = node 'LikeC4 model'
+  archcheck = node 'Architecture check'
+  lang = node 'Language adapter'
+  conventions = node 'Conventions and comments'
+  review = node 'Review shims'
+  doctor = node 'Doctor'
+  refactor = node 'Deterministic refactoring'
+  cli -> contract
+  cli -> config
+  cli -> archcheck
+  cli -> c4
+  cli -> conventions
+  cli -> review
+  cli -> doctor
+  cli -> refactor
+  archcheck -> c4
+  archcheck -> lang
+  archcheck -> config
+  archcheck -> contract
+  conventions -> lang
+  conventions -> config
+  conventions -> contract
+  c4 -> contract
+  config -> contract
+  review -> config
+  review -> contract
+  doctor -> config
+  doctor -> contract
+  refactor -> contract
+}

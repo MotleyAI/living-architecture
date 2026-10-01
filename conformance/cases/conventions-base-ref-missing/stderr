@@ -1,0 +1,1 @@
+la-check-conventions: git rev-parse --verify --quiet origin/nope failed

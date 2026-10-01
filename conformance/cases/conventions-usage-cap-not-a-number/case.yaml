@@ -1,0 +1,13 @@
+kind: adapter
+languages:
+- python
+command: la-check-conventions
+args:
+- --file
+- a.py
+- --text-ratio-cap
+- x
+expect:
+  exit: 2
+  stdout: ignore
+  stderr: ignore

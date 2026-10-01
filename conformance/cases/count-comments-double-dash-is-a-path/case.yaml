@@ -1,0 +1,10 @@
+kind: adapter
+languages:
+- python
+command: la-count-comments
+args:
+- --
+- a.py
+expect:
+  exit: 0
+note: 'passthrough: raw argv, so `--` is just another path'

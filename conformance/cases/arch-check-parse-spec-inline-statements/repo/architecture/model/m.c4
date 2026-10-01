@@ -1,0 +1,21 @@
+specification {
+  element node element other
+  element bucket {
+    #virtual
+  }
+  tag legacy tag x
+}
+
+model {
+  api = node 'API' {
+    handlers = node 'Handlers'
+  }
+  core = node 'Core'
+  store = node 'Store'
+  legacy = bucket 'Legacy'
+
+  api.handlers -> core
+  core -> store
+  api -> store #legacy
+  legacy -> core
+}

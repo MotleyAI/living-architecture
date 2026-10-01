@@ -1,0 +1,75 @@
+kind: neutral
+command: la-fetch-coderabbit-threads
+args:
+- '7'
+- --repo
+- o/r
+- --all-authors
+gh:
+- match:
+  - graphql
+  stdout:
+    data:
+      repository:
+        pullRequest:
+          reviewThreads:
+            pageInfo:
+              hasNextPage: false
+              endCursor: null
+            nodes:
+            - id: T_src/a.py
+              isResolved: false
+              isOutdated: false
+              path: src/a.py
+              line: 10
+              originalLine: 10
+              comments:
+                pageInfo:
+                  hasNextPage: false
+                  endCursor: null
+                nodes:
+                - author:
+                    login: coderabbitai
+                  body: Fix this
+                  url: https://x/src/a.py
+                  createdAt: t
+            - id: T_src/b.py
+              isResolved: true
+              isOutdated: false
+              path: src/b.py
+              line: 10
+              originalLine: 10
+              comments:
+                pageInfo:
+                  hasNextPage: false
+                  endCursor: null
+                nodes:
+                - author:
+                    login: coderabbitai
+                  body: Old news
+                  url: https://x/src/b.py
+                  createdAt: t
+            - id: T_src/c.py
+              isResolved: false
+              isOutdated: false
+              path: src/c.py
+              line: 10
+              originalLine: 10
+              comments:
+                pageInfo:
+                  hasNextPage: false
+                  endCursor: null
+                nodes:
+                - author:
+                    login: someone
+                  body: Human note
+                  url: https://x/src/c.py
+                  createdAt: t
+- match:
+  - repos/o/r/pulls/7/reviews
+  stdout: []
+normalize:
+- pattern: -[0-9]{8}-[0-9]{6}\.json
+  replace: -<TS>.json
+expect:
+  exit: 0

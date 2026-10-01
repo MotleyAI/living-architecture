@@ -1,0 +1,9 @@
+kind: neutral
+command: la-doctor
+args:
+- --expect
+- 0.0.0
+normalize:
+- version
+expect:
+  exit: 1

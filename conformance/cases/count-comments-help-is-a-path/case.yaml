@@ -1,0 +1,9 @@
+kind: adapter
+languages:
+- python
+command: la-count-comments
+args:
+- --help
+expect:
+  exit: 0
+note: 'passthrough: raw argv, so `--help` is just another path'

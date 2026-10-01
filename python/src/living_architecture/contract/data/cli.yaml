@@ -1,0 +1,157 @@
+# Every command's surface. Each twin builds its parser from this file: no abbreviated long options, `--`
+# ends options, a usage error exits 2, and a `passthrough` command hands its raw argv to its handler.
+#
+# option:      name, type (string | int | float | path | flag), help; optional: dest, metavar, choices,
+#              default, required, repeatable, store (a flag's stored value; default true)
+# positional:  name, help; optional: nargs ('?' | '*' | '+'; default exactly one)
+# command:     help, exit (code -> meaning), options, positionals, subcommands, passthrough, usage,
+#              require_one_of (dests; none given is a usage error), script (the bundled review script it
+#              runs), gate (skip-coderabbit: append --skip-coderabbit unless reviewers.coderabbit is on)
+
+commands:
+  la-config:
+    help: Print resolved config values for skills and scripts.
+    exit: {0: ok, 1: invalid config, 2: usage error or unknown key}
+    options:
+      - {name: --root, type: path, help: 'repo root (default: nearest git root of cwd)'}
+    subcommands:
+      get:
+        help: print one value by dotted key, e.g. reviewers.sonar.enabled
+        positionals:
+          - {name: key, help: dotted config key}
+      show:
+        help: print the whole resolved config as JSON
+
+  la-doctor:
+    help: Check the installed tools match the plugin and the repo config is valid.
+    exit: {0: healthy, 1: problems found, 2: usage error}
+    options:
+      - {name: --expect, type: string, help: plugin version the calling skill was written for}
+      - {name: --root, type: path, help: 'repo root (default: nearest git root of cwd)'}
+      - {name: --contract-hash, type: flag, help: print the bundled contract hash and exit}
+
+  la-arch-check:
+    help: 'Living-architecture cross-walk checker: code, LikeC4 model, arc42 docs and specs agree.'
+    exit: {0: clean, 1: findings, 2: setup error}
+    options:
+      - {name: --root, type: path, help: 'repo root (default: nearest git root of cwd)'}
+
+  la-arch-diagrams:
+    help: Generate mermaid diagrams in arc42 docs from the LikeC4 model; prints each rewritten doc.
+    exit: {0: ok, 1: cannot regenerate, 2: usage error}
+    options:
+      - {name: --root, type: path, help: 'repo root (default: nearest git root of cwd)'}
+
+  la-check-conventions:
+    help: >-
+      Deterministic convention gate over a PR's changed source files: import-not-top, text-ratio, and (tests)
+      composite-assert and raises-single-throw. Waive a flagged line with a trailing ALLOW(<rule>): <reason>
+      comment (not for text-ratio).
+    exit: {0: clear, 1: violations, 2: usage, config or git error}
+    positionals:
+      - {name: pr, nargs: '?', help: PR number (resolves the base branch)}
+    options:
+      - {name: --repo, type: string, help: 'OWNER/REPO for the PR lookup (default: current repo)'}
+      - {name: --base, type: string, help: base branch; skips the PR lookup}
+      - {name: --file, type: string, dest: files, repeatable: true,
+         help: check this repo-relative file instead of the PR diff (repeatable)}
+      - {name: --exclude, type: string, metavar: GLOB, repeatable: true,
+         help: extra repo-relative glob exempt from all checks (repeatable)}
+      - {name: --text-ratio-cap, type: float, help: 'percent cap (default: from config)'}
+    require_one_of: [pr, base, files]
+
+  la-count-comments:
+    help: Count comment and docstring lines in source files.
+    exit: {0: ok, 2: usage error}
+    passthrough: true
+    usage: |
+      la-count-comments FILE...                  per-file + total counts
+      la-count-comments --range REF PATH...      net added vs a git ref (working tree)
+
+  la-fetch-coderabbit-threads:
+    help: Fetch unresolved CodeRabbit review threads on a PR (bundled script).
+    exit: {0: ok, 2: usage error}
+    passthrough: true
+    script: fetch-coderabbit-threads.sh
+
+  la-reply-invalid-coderabbit:
+    help: Reply to a CodeRabbit thread, mentioning @coderabbitai (bundled script).
+    exit: {0: ok, 2: usage error}
+    passthrough: true
+    script: reply-invalid-coderabbit.sh
+
+  la-reply-to-pr-thread:
+    help: Reply to a PR review thread (bundled script).
+    exit: {0: ok, 2: usage error}
+    passthrough: true
+    script: reply-to-pr-thread.sh
+
+  la-fetch-failed-pr-checks:
+    help: Fetch failed CI checks on a PR with their failed-step logs (bundled script).
+    exit: {0: ok, 2: usage error}
+    passthrough: true
+    script: fetch-failed-pr-checks.sh
+
+  la-wait-for-reviews:
+    help: Wait until CodeRabbit, Sonar and CI on a PR are terminal (bundled script).
+    exit: {0: ok, 1: failed, 2: usage or config error, 3: rate limited, 64: gate failed closed}
+    passthrough: true
+    script: wait-for-reviews.sh
+    gate: skip-coderabbit
+
+  dr-refactor:
+    help: >-
+      IDE-grade Python refactors via rope: rename, move-symbol, move-module. Rewrites every import and
+      reference across the project. Dry-run by default; pass --apply to write. Symbol location comes from
+      --offset, --line/--col (1-based, as an editor/LSP reports), or --name (first def/class/use).
+    exit: {0: ok, 1: refactor error, 2: usage error}
+    options:
+      - {name: --project, type: path, default: ., help: 'project root (default: cwd)'}
+      - {name: --apply, type: flag, help: 'write changes (default: dry-run)'}
+    subcommands:
+      rename:
+        help: rename the symbol at a location
+        options:
+          - {name: --file, type: path, required: true, help: file holding the symbol}
+          - {name: --offset, type: int, help: 0-based character offset}
+          - {name: --line, type: int, help: 1-based line}
+          - {name: --col, type: int, help: 1-based column}
+          - {name: --name, type: string, help: first def/class/use of this name}
+          - {name: --new-name, type: string, required: true, help: the new name}
+          - {name: --no-in-hierarchy, type: flag, dest: in_hierarchy, store: false,
+             help: 'disable hierarchy rename (on by default: also renames overrides in sub/superclasses)'}
+          - {name: --unsure, type: string, choices: [skip, include], default: skip,
+             help: 'occurrences rope cannot resolve: skip (default) or include (risky)'}
+      move-symbol:
+        help: move a top-level function/class/global to another module
+        options:
+          - {name: --file, type: path, required: true, help: file holding the symbol}
+          - {name: --offset, type: int, help: 0-based character offset}
+          - {name: --line, type: int, help: 1-based line}
+          - {name: --col, type: int, help: 1-based column}
+          - {name: --name, type: string, help: first def/class/use of this name}
+          - {name: --dest, type: path, required: true, help: destination module .py (must exist)}
+      move-module:
+        help: move a module file into a package/dir
+        options:
+          - {name: --module, type: path, required: true, help: source module .py}
+          - {name: --dest, type: path, required: true, help: destination package directory (must exist)}
+
+  dr-compliance:
+    help: >-
+      Report constructs that make a rename un-verifiable: untyped-def, unannotated-attr, and mock (a mock or
+      patch not bound to a spec). With --attr NAME it also reports x.NAME accesses whose receiver is an
+      unannotated parameter.
+    exit: {0: clean, 1: violations, 2: usage error}
+    positionals:
+      - {name: paths, nargs: '+', help: files or directories}
+    options:
+      - {name: --select, type: string, default: 'untyped-def,unannotated-attr,mock',
+         help: 'comma-separated checks (default: all of untyped-def,unannotated-attr,mock)'}
+      - {name: --attr, type: string, help: also report x.ATTR accesses on unannotated receivers}
+
+  dr-mock-lint:
+    help: Every unittest.mock double must be bound to a spec.
+    exit: {0: clean, 1: violations, 2: usage error}
+    passthrough: true
+    usage: 'dr-mock-lint <path> [<path> ...]'

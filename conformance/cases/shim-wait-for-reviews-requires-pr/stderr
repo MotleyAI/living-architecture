@@ -1,0 +1,5 @@
+usage: la-wait-for-reviews <PR_NUMBER> [--repo OWNER/REPO] [--skip-coderabbit]
+
+  <PR_NUMBER>           required, the PR number
+  --repo OWNER/REPO     optional, defaults to the repo of the current git directory
+  --skip-coderabbit     don't wait for a fresh CodeRabbit review

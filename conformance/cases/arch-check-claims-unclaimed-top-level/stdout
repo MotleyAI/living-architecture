@@ -1,0 +1,3 @@
+claims-exactly-once: top-level pkg.extra is claimed by no node
+claims-exactly-once: top-level pkg.zeta is claimed by no node
+arch_check: 2 finding(s)

@@ -1,0 +1,4 @@
+claims-exactly-once: pkg.util claimed by both core and store
+model-truth: measured runtime edge legacy -> store is missing from the model (import pkg.old -> pkg.util)
+model-truth: modeled relation legacy -> core has no measured runtime edge
+arch_check: 3 finding(s)

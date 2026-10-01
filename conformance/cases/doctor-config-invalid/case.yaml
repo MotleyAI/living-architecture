@@ -1,0 +1,11 @@
+kind: neutral
+command: la-doctor
+normalize:
+- version
+expect:
+  exit: 1
+  stdout:
+    contains:
+    - 'FAIL: '
+    - bogus
+note: config validation wording is not part of the contract; exit code and offending key are

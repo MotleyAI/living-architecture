@@ -1,0 +1,2 @@
+src/k.py:27: attr-blindspot: item.name — annotate parameter 'item' so a rename of .name is verifiable
+src/k.py:28: attr-blindspot: item.name — annotate parameter 'item' so a rename of .name is verifiable

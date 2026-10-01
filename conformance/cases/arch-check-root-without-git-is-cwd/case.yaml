@@ -1,0 +1,8 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+fixture: arch-ok
+git: none
+expect:
+  exit: 0

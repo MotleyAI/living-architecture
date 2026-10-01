@@ -1,0 +1,18 @@
+kind: adapter
+languages:
+- python
+command: la-check-conventions
+args:
+- --base
+- main
+git:
+- commit: init
+- origin:
+  - main
+- branch: feat
+- write:
+    notes.txt: |
+      y
+- commit: txt
+expect:
+  exit: 0

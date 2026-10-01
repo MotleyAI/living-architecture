@@ -1,0 +1,17 @@
+kind: neutral
+command: la-reply-to-pr-thread
+args:
+- --comment-id
+- '9'
+- --pr
+- '3'
+- --repo
+- o/r
+stdin: x
+gh:
+- match:
+  - repos/o/r/pulls/3/comments/9/replies
+  stdout:
+    html_url: u
+expect:
+  exit: 0

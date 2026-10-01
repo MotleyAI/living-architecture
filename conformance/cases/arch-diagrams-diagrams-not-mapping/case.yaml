@@ -1,0 +1,5 @@
+kind: neutral
+command: la-arch-diagrams
+fixture: arch-diagrams
+expect:
+  exit: 1

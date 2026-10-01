@@ -1,0 +1,8 @@
+kind: neutral
+command: la-doctor
+hide:
+- gh
+normalize:
+- version
+expect:
+  exit: 1

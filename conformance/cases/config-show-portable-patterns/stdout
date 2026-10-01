@@ -1,0 +1,18 @@
+{
+  "reviewers": {
+    "coderabbit": false,
+    "sonar": {
+      "enabled": false,
+      "project_key": null
+    }
+  },
+  "issue_key_pattern": "^(ABC|DEF)-[0-9]+\\s?$",
+  "commands": {
+    "test": null,
+    "lint": null
+  },
+  "conventions": {
+    "text_ratio_max": 0.15,
+    "exempt": []
+  }
+}

@@ -1,0 +1,12 @@
+kind: neutral
+command: la-reply-to-pr-thread
+args:
+- --comment-id
+- x
+- --pr
+- '3'
+- --repo
+- o/r
+stdin: x
+expect:
+  exit: 2

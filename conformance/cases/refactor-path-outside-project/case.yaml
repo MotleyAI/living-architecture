@@ -1,0 +1,18 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- --project
+- proj
+- rename
+- --file
+- outside.py
+- --name
+- foo
+- --new-name
+- bar
+git:
+- commit: init
+expect:
+  exit: 1

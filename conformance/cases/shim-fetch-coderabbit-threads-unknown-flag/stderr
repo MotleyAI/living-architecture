@@ -1,0 +1,8 @@
+error: unknown flag: --bogus
+usage: la-fetch-coderabbit-threads <PR_NUMBER> [--repo OWNER/REPO] [--all-authors]
+
+  <PR_NUMBER>           required, the PR number
+  --repo OWNER/REPO     optional, defaults to the repo of the current git directory
+  --all-authors         include unresolved threads from any author, not just CodeRabbit
+
+Output: Markdown to stdout, full JSON to ${TMPDIR:-/tmp}/coderabbit-threads-<pr>-<ts>.json.

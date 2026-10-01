@@ -1,0 +1,1 @@
+arch_check: architecture/index.yaml must set root_package to the top-level package name

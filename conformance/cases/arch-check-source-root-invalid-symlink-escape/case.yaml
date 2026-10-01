@@ -1,0 +1,12 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+fixture: arch-ok
+remove:
+- pkg
+symlinks:
+  escape: ..
+expect:
+  exit: 2
+note: 'new behaviour: an invalid source_root is a setup error naming source_root'

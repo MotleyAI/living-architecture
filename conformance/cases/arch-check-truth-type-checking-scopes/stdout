@@ -1,0 +1,5 @@
+model-truth: measured runtime edge store -> api is missing from the model (import pkg.store.s6 -> pkg.api)
+model-truth: measured runtime edge store -> api.handlers is missing from the model (import pkg.store.s6 -> pkg.api.handlers)
+model-truth: measured runtime edge store -> core is missing from the model (import pkg.store.s4 -> pkg.core)
+model-truth: measured runtime edge store -> legacy is missing from the model (import pkg.store.s5 -> pkg.old)
+arch_check: 4 finding(s)

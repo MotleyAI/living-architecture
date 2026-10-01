@@ -1,0 +1,4 @@
+src/k.py:23: untyped-def: make() missing params v; return
+src/k.py:26: untyped-def: run() missing params item
+src/k.py:31: MagicMock() without spec=/spec_set= — bind it to the real class (or use create_autospec)
+src/k.py:4: untyped-def: f() missing params a, c, *args, **kw; return

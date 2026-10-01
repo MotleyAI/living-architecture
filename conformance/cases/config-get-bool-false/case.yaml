@@ -1,0 +1,7 @@
+kind: neutral
+command: la-config
+args:
+- get
+- reviewers.sonar.enabled
+expect:
+  exit: 0

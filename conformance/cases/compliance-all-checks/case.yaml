@@ -1,0 +1,9 @@
+kind: adapter
+languages:
+- python
+command: dr-compliance
+args:
+- src/k.py
+expect:
+  exit: 1
+note: output is sorted as strings, so line 10 precedes line 9

@@ -1,0 +1,8 @@
+kind: adapter
+languages:
+- python
+command: dr-mock-lint
+expect:
+  exit: 2
+  stdout: ignore
+  stderr: ignore

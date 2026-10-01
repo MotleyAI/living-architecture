@@ -1,0 +1,10 @@
+kind: neutral
+command: la-config
+args:
+- show
+- --root
+- .
+expect:
+  exit: 2
+  stdout: ignore
+  stderr: ignore

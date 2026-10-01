@@ -1,0 +1,12 @@
+kind: neutral
+command: la-config
+args:
+- get
+- issue_key_pattern
+expect:
+  exit: 1
+  stdout: ''
+  stderr:
+    contains:
+    - bogus
+note: config validation wording is not part of the contract; exit code and offending key are

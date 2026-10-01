@@ -1,0 +1,13 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+fixture: arch-ok
+remove:
+- pkg
+symlinks:
+  src-alias: python/src
+expect:
+  exit: 0
+golden: manual
+note: 'new behaviour: source_root; the golden equals the root-layout control case'

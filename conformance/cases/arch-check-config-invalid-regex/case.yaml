@@ -1,0 +1,11 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+fixture: arch-ok
+expect:
+  exit: 2
+  stderr:
+    contains:
+    - issue_key_pattern
+note: config validation wording is not part of the contract

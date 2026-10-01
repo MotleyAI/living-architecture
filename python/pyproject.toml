@@ -1,0 +1,60 @@
+[project]
+name = "living-architecture"
+version = "0.2.1"
+description = "Spec-driven development with an enforced living architecture, as a Claude Code plugin plus its CLI tools."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "MotleyAI" }]
+dependencies = ["rope>=1.13", "pydantic>=2.6", "pyyaml>=6", "jsonschema>=4.18"]
+
+# The verifier. Point it at the target project's interpreter (see README).
+[project.optional-dependencies]
+verify = ["basedpyright>=1.20"]
+
+# Must equal the command set of shared/cli.yaml.
+[project.scripts]
+la-config = "living_architecture.cli:la_config"
+la-doctor = "living_architecture.cli:la_doctor"
+la-arch-check = "living_architecture.cli:la_arch_check"
+la-arch-diagrams = "living_architecture.cli:la_arch_diagrams"
+la-check-conventions = "living_architecture.cli:la_check_conventions"
+la-count-comments = "living_architecture.cli:la_count_comments"
+la-fetch-coderabbit-threads = "living_architecture.cli:la_fetch_coderabbit_threads"
+la-reply-invalid-coderabbit = "living_architecture.cli:la_reply_invalid_coderabbit"
+la-reply-to-pr-thread = "living_architecture.cli:la_reply_to_pr_thread"
+la-fetch-failed-pr-checks = "living_architecture.cli:la_fetch_failed_pr_checks"
+la-wait-for-reviews = "living_architecture.cli:la_wait_for_reviews"
+dr-refactor = "living_architecture.cli:dr_refactor"
+dr-mock-lint = "living_architecture.cli:dr_mock_lint"
+dr-compliance = "living_architecture.cli:dr_compliance"
+
+[dependency-groups]
+dev = ["pytest>=8", "ruff>=0.6", "basedpyright>=1.20", "types-pyyaml>=6", "types-jsonschema>=4"]
+
+[build-system]
+requires = ["uv_build>=0.9,<0.13"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "living_architecture"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["FLY002"]
+
+# This repo dogfoods its own compliance conditions: the verifier runs against
+# the project's own venv so imports (rope) resolve.
+[tool.basedpyright]
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.11"
+typeCheckingMode = "standard"
+reportImplicitOverride = "error"

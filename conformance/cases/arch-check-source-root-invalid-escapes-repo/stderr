@@ -1,0 +1,1 @@
+arch_check: architecture/index.yaml: source_root '../outside' must not contain '..'

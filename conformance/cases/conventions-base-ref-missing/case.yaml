@@ -1,0 +1,13 @@
+kind: adapter
+languages:
+- python
+command: la-check-conventions
+args:
+- --base
+- nope
+git:
+- commit: init
+- origin:
+  - main
+expect:
+  exit: 2

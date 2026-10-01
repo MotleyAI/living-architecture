@@ -1,0 +1,11 @@
+kind: neutral
+command: la-config
+args:
+- show
+expect:
+  exit: 1
+  stdout: ''
+  stderr:
+    contains:
+    - issue_key_pattern
+note: 'new behaviour: the portable regex subset rejects this construct'

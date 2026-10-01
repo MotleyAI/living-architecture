@@ -1,0 +1,58 @@
+kind: adapter
+languages:
+- python
+command: la-check-conventions
+args:
+- --file
+- tests/x.py
+- --file
+- a/test/b.py
+- --file
+- test_x.py
+- --file
+- pkg/x_test.py
+- --file
+- conftest.py
+- --file
+- testing/x.py
+- --file
+- atest_x.py
+- --file
+- Tests/x.py
+- --file
+- src/tests.py
+- --file
+- a/b/tests/c/d.py
+- --file
+- test_dir/x.py
+- --file
+- .venv/tests/x.py
+- --file
+- pkg/conftest.py
+- --file
+- x_test.pyc
+- --file
+- test_
+- --file
+- a/test_/b.py
+- --file
+- test/x.py
+- --file
+- src/test.py
+- --file
+- a/x_test.py
+- --file
+- TEST_x.py
+- --file
+- test_x.txt
+- --file
+- src/pkg/mod.py
+- --file
+- myconftest.py
+- --file
+- tests.py
+- --file
+- _test.py
+expect:
+  exit: 1
+note: composite-assert fires exactly on the paths shared/vectors/test-files.yaml marks as tests

@@ -1,0 +1,3 @@
+spec-mapping: api is mapped but openspec/specs/api does not exist
+spec-mapping: logging is mapped but openspec/specs/logging does not exist
+arch_check: 2 finding(s)

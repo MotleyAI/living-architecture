@@ -1,0 +1,10 @@
+kind: neutral
+command: la-doctor
+hide:
+- git
+- gh
+git: none
+normalize:
+- version
+expect:
+  exit: 1

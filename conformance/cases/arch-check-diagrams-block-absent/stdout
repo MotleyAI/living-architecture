@@ -1,0 +1,2 @@
+diagrams-fresh: index.yaml has no diagrams block; run la-arch-diagrams
+arch_check: 1 finding(s)

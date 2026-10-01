@@ -1,0 +1,2 @@
+model-identity: node extra is not declared as an element in model/*.c4
+arch_check: 1 finding(s)

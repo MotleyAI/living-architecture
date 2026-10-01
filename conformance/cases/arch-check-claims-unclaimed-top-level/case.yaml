@@ -1,0 +1,8 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+fixture: arch-ok
+expect:
+  exit: 1
+note: zeta and extra are unclaimed; a dir without __init__.py, non-.py files and __pycache__ are not units

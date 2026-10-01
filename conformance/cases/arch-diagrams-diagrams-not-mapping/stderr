@@ -1,0 +1,1 @@
+la-arch-diagrams: diagrams block in index.yaml must be a mapping of doc -> view-id list

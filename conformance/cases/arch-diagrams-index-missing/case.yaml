@@ -1,0 +1,7 @@
+kind: neutral
+command: la-arch-diagrams
+fixture: arch-diagrams
+remove:
+- architecture/index.yaml
+expect:
+  exit: 1

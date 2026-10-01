@@ -1,0 +1,10 @@
+kind: neutral
+command: la-doctor
+args:
+- --help
+normalize:
+- version
+expect:
+  exit: 0
+  stdout: ignore
+  stderr: ignore

@@ -1,0 +1,19 @@
+views {
+  view system {
+    title 'System'
+    include *
+  }
+  view a {
+    title 42
+    include ghost, api.handlers, * -> *, api -> core, core -> ghost
+    include ghost -> *, * -> api.handlers, * -> (, api -> (
+    include (
+    colour red
+  }
+  view a {
+    include api
+  }
+  thing
+  view {
+  }
+}

@@ -1,0 +1,7 @@
+diagrams-fresh: diagrams[architecture/system.arc42.md] has an invalid view id 3
+diagrams-fresh: diagrams[architecture/system.arc42.md] has an invalid view id ''
+diagrams-fresh: diagrams[architecture/system.arc42.md] has an invalid view id None
+diagrams-fresh: diagrams[architecture/system.arc42.md] lists system more than once
+diagrams-fresh: architecture/system.arc42.md has an orphan opening likec4:system marker; run la-arch-diagrams
+diagrams-fresh: architecture/system.arc42.md has an orphan closing likec4:system marker; run la-arch-diagrams
+arch_check: 6 finding(s)

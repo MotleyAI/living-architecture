@@ -1,0 +1,47 @@
+# The shared YAML profile: YAML 1.1 exactly as PyYAML's safe loader reads it (last duplicate key wins).
+# `json` is the expected value of `text`, serialized as JSON.
+cases:
+- name: YAML 1.1 booleans
+  text: '[yes, no, on, off, true, false, True, FALSE, Yes, NO, On, OFF]'
+  json: '[true, false, true, false, true, false, true, false, true, false, true, false]'
+- name: y and n stay strings
+  text: '[y, n, Y, N]'
+  json: '["y", "n", "Y", "N"]'
+- name: nulls
+  text: '[~, null, Null, NULL, '''']'
+  json: '[null, null, null, null, ""]'
+- name: integers
+  text: '[0, -7, +12, 1_000, 0x1A, 010, 0b101]'
+  json: '[0, -7, 12, 1000, 26, 8, 5]'
+- name: sexagesimal
+  text: '[1:30, 190:20:30]'
+  json: '[90, 685230]'
+- name: strings that look numeric
+  text: '[1e3, 0o10, 1.2.3, 0x, ''010'']'
+  json: '["1e3", "0o10", "1.2.3", "0x", "010"]'
+- name: floats
+  text: '[1.0, -0.5, 1.0e+3, .5, 6.8523015e+5]'
+  json: '[1.0, -0.5, 1000.0, 0.5, 685230.15]'
+- name: duplicate key keeps the last value
+  text: |
+    a: 1
+    b: 2
+    a: 3
+  json: '{"a": 3, "b": 2}'
+- name: duplicate nested key
+  text: |
+    r: {c: true, c: false}
+  json: '{"r": {"c": false}}'
+- name: merge key
+  text: |
+    base: &b {x: 1, y: 2}
+    derived:
+      <<: *b
+      y: 3
+  json: '{"base": {"x": 1, "y": 2}, "derived": {"x": 1, "y": 3}}'
+- name: quoted scalars
+  text: '["tab\there", ''it''''s'', plain text]'
+  json: '["tab\there", "it''s", "plain text"]'
+- name: empty document
+  text: ''
+  json: 'null'

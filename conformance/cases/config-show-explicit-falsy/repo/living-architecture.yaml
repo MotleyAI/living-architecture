@@ -1,0 +1,3 @@
+conventions: {exempt: []}
+reviewers: {coderabbit: false}
+commands: {test: ''}

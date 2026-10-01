@@ -1,0 +1,16 @@
+# Per-language facts. Test globs use the contract glob dialect (contract README: matched against the POSIX
+# repo-relative path; case-sensitive; `*` stays within one segment; `**` is zero or more whole segments).
+
+python:
+  markers: [pyproject.toml, setup.py]
+  source_extensions: [.py]
+  files_label: .py
+  test_globs:
+    - '**/tests/**/*'
+    - '**/test/**/*'
+    - '**/test_*'
+    - '**/*_test.py'
+    - '**/conftest.py'
+  comment_prefix: '#'
+  suppression: '# pyright: ignore[<rule>]'
+  type_checker: basedpyright

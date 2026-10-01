@@ -1,0 +1,1 @@
+arch_check: architecture/index.yaml: top level must be a mapping

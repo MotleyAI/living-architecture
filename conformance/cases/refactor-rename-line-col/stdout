@@ -1,0 +1,28 @@
+Renaming <run> to <execute>:
+
+
+--- a/pkg/a.py
++++ b/pkg/a.py
+@@ -3,5 +3,5 @@
+ 
+ 
+ class Base:
+-    def run(self):
++    def execute(self):
+         return foo()
+
+--- a/pkg/b.py
++++ b/pkg/b.py
+@@ -2,5 +2,5 @@
+ 
+ 
+ class Child(Base):
+-    def run(self):
++    def execute(self):
+         return foo() + 1
+
+
+
+APPLIED. 2 file(s) changed:
+  pkg/a.py
+  pkg/b.py

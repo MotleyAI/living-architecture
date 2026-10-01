@@ -1,0 +1,16 @@
+kind: adapter
+languages:
+- python
+command: la-check-conventions
+args:
+- --file
+- gen/sub/x.py
+- --file
+- proto/a_pb2.py
+- --file
+- src/ok.py
+- --exclude
+- '*_pb2.py'
+expect:
+  exit: 0
+note: 'exempt globs use fnmatch: `*` also matches `/`'

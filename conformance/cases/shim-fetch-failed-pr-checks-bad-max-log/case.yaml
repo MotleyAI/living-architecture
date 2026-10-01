@@ -1,0 +1,10 @@
+kind: neutral
+command: la-fetch-failed-pr-checks
+args:
+- '7'
+- --repo
+- o/r
+- --max-log-lines
+- x
+expect:
+  exit: 2

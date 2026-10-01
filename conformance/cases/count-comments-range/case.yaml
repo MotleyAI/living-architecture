@@ -1,0 +1,25 @@
+kind: adapter
+languages:
+- python
+command: la-count-comments
+args:
+- --range
+- HEAD
+- a.py
+- b.py
+- c.py
+- new.py
+git:
+- commit: init
+- write:
+    a.py: |
+      """Doc."""
+      # one
+      # two
+      X = 1
+    new.py: |
+      # fresh
+- delete:
+  - b.py
+expect:
+  exit: 0

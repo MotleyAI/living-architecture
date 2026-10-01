@@ -1,0 +1,21 @@
+kind: adapter
+languages:
+- python
+command: la-check-conventions
+args:
+- '7'
+- --base
+- main
+git:
+- commit: init
+- origin:
+  - main
+- branch: feat
+- write:
+    a.py: |
+      X = 1
+      import os
+- commit: work
+expect:
+  exit: 1
+note: --base skips the PR lookup (no gh route exists)

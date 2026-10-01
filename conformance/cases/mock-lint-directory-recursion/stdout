@@ -1,0 +1,2 @@
+tests/b/test_z.py:2: Mock() without spec=/spec_set= — bind it to the real class (or use create_autospec)
+tests/test_a.py:2: Mock() without spec=/spec_set= — bind it to the real class (or use create_autospec)

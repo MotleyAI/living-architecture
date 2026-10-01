@@ -1,0 +1,8 @@
+kind: neutral
+command: la-fetch-coderabbit-threads
+args:
+- '7'
+- --repo
+- bad
+expect:
+  exit: 2

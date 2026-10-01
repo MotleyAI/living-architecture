@@ -1,0 +1,6 @@
+kind: neutral
+command: la-wait-for-reviews
+args:
+- '7'
+expect:
+  exit: 2

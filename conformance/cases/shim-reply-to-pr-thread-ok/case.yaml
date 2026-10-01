@@ -1,0 +1,15 @@
+kind: neutral
+command: la-reply-to-pr-thread
+args:
+- https://github.com/o/r/pull/5#discussion_r123
+stdin: |
+  hello
+gh:
+- match:
+  - api
+  - POST
+  - repos/o/r/pulls/5/comments/123/replies
+  stdout:
+    html_url: https://github.com/o/r/pull/5#discussion_r999
+expect:
+  exit: 0

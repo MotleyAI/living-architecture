@@ -1,0 +1,7 @@
+kind: neutral
+command: la-config
+args:
+- get
+- conventions.text_ratio_max
+expect:
+  exit: 0

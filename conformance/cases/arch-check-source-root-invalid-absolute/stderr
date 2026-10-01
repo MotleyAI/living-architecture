@@ -1,0 +1,1 @@
+arch_check: architecture/index.yaml: source_root '/tmp' must be a relative path
