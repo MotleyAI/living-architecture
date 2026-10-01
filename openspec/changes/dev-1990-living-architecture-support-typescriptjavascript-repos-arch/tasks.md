@@ -54,8 +54,8 @@
 
 ## 7. This repo's architecture and agent docs (every `architecture/` edit needs the user's per-edit OK)
 
-- [ ] 7.1 Present the exact `architecture/model/la.c4`, `architecture/views.c4` and `architecture/index.yaml` (draft in design D8; `source_root: python/src`, `legacy_arrows: {baseline: 0}`, diagrams mapping) for approval, then write them. Verify that `la-arch-check` exits 0 on this repo and that `npx likec4 validate architecture` succeeds.
-- [ ] 7.2 Present the exact `architecture/system.arc42.md` (Purpose, Building blocks → view, the principles from design D8 each with a status tag, Rationale) for approval, then write it and run `la-arch-diagrams`. Verify that `la-arch-check` stays at exit 0, including enforced-tags and diagrams-fresh.
+- [x] 7.1 Present the exact `architecture/model/la.c4`, `architecture/views.c4` and `architecture/index.yaml` (draft in design D8; `source_root: python/src`, `legacy_arrows: {baseline: 0}`, diagrams mapping) for approval, then write them. Verify that `la-arch-check` exits 0 on this repo and that `npx likec4 validate architecture` succeeds.
+- [x] 7.2 Present the exact `architecture/system.arc42.md` (Purpose, Building blocks → view, the principles from design D8 each with a status tag, Rationale) for approval, then write it and run `la-arch-diagrams`. Verify that `la-arch-check` stays at exit 0, including enforced-tags and diagrams-fresh.
 - [x] 7.3 Write `AGENTS.md`:
   - the twin rule
   - how to change a parameter, finding, flag or rule (edit `shared/`, run `scripts/sync-shared`, update every twin, add or adjust a conformance case)
@@ -69,6 +69,6 @@
 
 ## 8. Final gates
 
-- [ ] 8.1 In `python/`: full non-integration suite, `ruff check src tests`, `basedpyright src tests`. At the root: `npx -y @anthropic-ai/claude-code plugin validate .` and `… plugin validate plugin`. Verify all green.
-- [ ] 8.2 `la-check-conventions --base main` is clear; `openspec validate dev-1990-living-architecture-support-typescriptjavascript-repos-arch --strict` passes.
+- [x] 8.1 In `python/`: full non-integration suite, `ruff check src tests`, `basedpyright src tests`. At the root: `npx -y @anthropic-ai/claude-code plugin validate .` and `… plugin validate plugin`. Verify all green.
+- [x] 8.2 `la-check-conventions --base main` is clear; `openspec validate dev-1990-living-architecture-support-typescriptjavascript-repos-arch --strict` passes.
 - [ ] 8.3 (pr-review, at archive time) Add the spec mapping to `architecture/index.yaml` after the spec directories exist: `arch-check` → node `archcheck` `specs:`; `shared-contract` → `cross_cutting_specs` touching every node (exact edit presented for approval). Verify that `la-arch-check` exits 0 after `openspec archive`.
