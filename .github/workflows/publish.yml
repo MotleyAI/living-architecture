@@ -10,10 +10,19 @@ jobs:
     permissions:
       id-token: write  # trusted publishing (OIDC)
       contents: read
+    defaults:
+      run:
+        working-directory: python
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
       - name: Check the tag matches the package version
         run: test "v$(uv version --short)" = "${{ github.event.release.tag_name }}"
+      - name: Check the plugin version matches the package version
+        run: test "$(uv version --short)" = "$(jq -r .version ../plugin/.claude-plugin/plugin.json)"
+      - name: Check the vendored contract snapshot is current
+        run: ../scripts/sync-shared --check
       - run: uv build
       - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        with:
+          packages-dir: python/dist/

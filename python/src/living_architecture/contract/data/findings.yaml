@@ -1,0 +1,183 @@
+# Every finding, verdict and hint a command prints, by stable id. `{name}` inserts the value as text (a
+# non-string value as its canonical repr); `{name!r}` inserts the canonical repr; `{{` and `}}` are literal
+# braces. Callers pre-format numbers that need padding or fixed decimals. See README.md.
+
+# The ids an arc42 `[enforced: arch_check:<id>]` tag may name.
+check_ids:
+  - claims-exist
+  - claims-exactly-once
+  - arc42-exists
+  - model-identity
+  - spec-mapping
+  - baseline-ratchet
+  - model-truth
+  - enforced-tags
+  - diagrams-fresh
+
+findings:
+  # ---- la-arch-check
+  arch-check.ok: 'arch_check: OK'
+  arch-check.summary: 'arch_check: {count} finding(s)'
+  arch-check.setup-error: 'arch_check: {error}'
+  arch-check.root-package-missing: architecture/index.yaml must set root_package to the top-level package name
+
+  claims-exist.unit-missing: 'claims-exist: {node} claims {unit}, which does not exist on disk'
+  claims-exist.child-missing: 'claims-exist: {node} declares child {child}, which does not exist on disk'
+  claims-exist.virtual-children: 'claims-exist: virtual node {node} may not declare children'
+  claims-exactly-once.claimed-twice: 'claims-exactly-once: {unit} claimed by both {first} and {second}'
+  claims-exactly-once.unclaimed: 'claims-exactly-once: top-level {unit} is claimed by no node'
+  claims-exactly-once.child-twice: 'claims-exactly-once: {node} declares child {child} more than once'
+  claims-exactly-once.child-collides: 'claims-exactly-once: {node} child {child} ({unit}) collides with declared unit {clash}'
+
+  arc42-exists.system-missing: 'arc42-exists: {doc} is missing'
+  arc42-exists.node-doc-missing: 'arc42-exists: {node} names {doc}, which does not exist'
+  arc42-exists.cross-cutting-missing: 'arc42-exists: cross_cutting_arc42 names {doc}, which does not exist'
+  arc42-exists.orphan: 'arc42-exists: {doc} is orphaned — not {system}, a node arc42 entry, or in cross_cutting_arc42'
+
+  model-identity.node: 'model-identity: node {node} is not declared as an element in model/*.c4'
+  model-identity.child: 'model-identity: child {child} is not declared as an element in model/*.c4'
+  model-identity.element: 'model-identity: element {element} maps to no node or declared child in index.yaml'
+
+  spec-mapping.mapped-twice: 'spec-mapping: {group} mapped by both {first} and {second}'
+  spec-mapping.unknown-node: 'spec-mapping: {group} touches unknown node {node}'
+  spec-mapping.unmapped: 'spec-mapping: openspec/specs/{group} is mapped by no node and not cross-cutting'
+  spec-mapping.dir-missing: 'spec-mapping: {group} is mapped but openspec/specs/{group} does not exist'
+  spec-mapping.no-spec-md: 'spec-mapping: openspec/specs/{group} contains no spec.md'
+
+  baseline-ratchet.missing: 'baseline-ratchet: legacy_arrows.baseline is missing from index.yaml'
+  baseline-ratchet.invalid: 'baseline-ratchet: legacy_arrows.baseline must be a non-negative integer, got {value!r}'
+  baseline-ratchet.mismatch: 'baseline-ratchet: model has {count} legacy arrow(s), baseline is {baseline}'
+
+  model-truth.internal-arrow: 'model-truth: modeled relation {src} -> {dst} connects an element to its own ancestor or descendant; such edges are internal and never declared'
+  model-truth.missing-edge: 'model-truth: measured runtime edge {src} -> {dst} is missing from the model (import {src_module} -> {dst_module})'
+  model-truth.shadowed: 'model-truth: modeled relation {src} -> {dst} is fully shadowed'
+  model-truth.dead: 'model-truth: modeled relation {src} -> {dst} has no measured runtime edge'
+
+  enforced-tags.malformed: 'enforced-tags: malformed [{kind}: …] tag in {doc}'
+  enforced-tags.malformed-review: 'enforced-tags: malformed [review] tag in {doc}'
+  enforced-tags.target-mismatch: 'enforced-tags: {doc} target tag id {tag_id!r} does not match issue_key_pattern {pattern!r}'
+  enforced-tags.unknown-id: 'enforced-tags: {doc} tags unknown enforcement id {tag_id!r}'
+  enforced-tags.untagged-item: 'enforced-tags: {doc} principle item {number} has no status tag'
+
+  # ---- the LikeC4 model and views (parse findings; la-arch-check prefixes them with diagrams-fresh)
+  c4.undeclared-kind: element {element} has undeclared kind {kind}
+  c4.unknown-endpoint: relation {src} -> {dst} has unknown endpoint {endpoint}
+  c4.unrecognized-spec-line: 'unrecognized specification line: {line}'
+  c4.duplicate-element: duplicate element {element}
+  c4.relation-in-body: relation {src} -> {dst} inside element body {parent}
+  c4.duplicate-relation: duplicate relation {src} -> {dst}
+  c4.unrecognized-model-line: 'unrecognized model line: {line}'
+  c4.include-unknown: view include {form} references unknown id {name}
+  c4.include-non-top-level: view include {form} references non-top-level id {name}
+  c4.star-to-star: 'view {view}: ''* -> *'' is not supported'
+  c4.malformed-predicate: 'view {view}: malformed predicate'
+  c4.unsupported-predicate: 'view {view}: unsupported predicate {src} -> {dst}'
+  c4.view-includes-unknown: view {view} includes unknown id {name}
+  c4.view-includes-non-top-level: view {view} includes non-top-level id {name}
+  c4.unexpected-include-token: 'view {view}: unexpected include token {token!r}'
+  c4.title-not-string: view {view} title is not a string
+  c4.unrecognized-directive: view {view} has unrecognized directive {token!r}
+  c4.no-views-block: views.c4 does not open with a `views {{` block
+  c4.expected-view: expected `view` in views block
+  c4.malformed-view: malformed view declaration
+  c4.duplicate-view: duplicate view id {view}
+  c4.view-depth-not-mapping: view_depth must map view ids to positive integers
+  c4.view-depth-unknown-view: view_depth references unknown view id {view}
+  c4.view-depth-invalid: view_depth[{view}] must be a positive integer, got {value!r}
+  c4.legacy-legend: '*Dashed arrows: legacy edges slated to die.*'
+
+  # ---- diagrams: why the index.yaml diagrams block is unusable
+  c4.index-missing: index.yaml is missing
+  c4.index-invalid-yaml: index.yaml is not valid YAML
+  c4.index-not-mapping: index.yaml is not a mapping
+  c4.no-diagrams-block: index.yaml has no diagrams block
+  c4.diagrams-not-mapping: diagrams block in index.yaml must be a mapping of doc -> view-id list
+
+  diagrams-fresh.parse: 'diagrams-fresh: {finding}'
+  diagrams-fresh.unusable: 'diagrams-fresh: {reason}; run la-arch-diagrams'
+  diagrams-fresh.bad-key: 'diagrams-fresh: diagrams key {key} must be an architecture/*.arc42.md path'
+  diagrams-fresh.not-a-list: 'diagrams-fresh: diagrams[{key}] must be a list of view ids; run la-arch-diagrams'
+  diagrams-fresh.empty: 'diagrams-fresh: diagrams[{key}] is empty'
+  diagrams-fresh.invalid-view-id: 'diagrams-fresh: diagrams[{key}] has an invalid view id {view!r}'
+  diagrams-fresh.duplicate-view-id: 'diagrams-fresh: diagrams[{key}] lists {view} more than once'
+  diagrams-fresh.doc-missing: 'diagrams-fresh: mapped doc {doc} does not exist; run la-arch-diagrams'
+  diagrams-fresh.view-unknown: 'diagrams-fresh: view {view} mapped to {doc} does not exist in views.c4; run la-arch-diagrams'
+  diagrams-fresh.marker-missing: 'diagrams-fresh: {doc} is missing the <!-- likec4:{view} --> marker pair; run la-arch-diagrams'
+  diagrams-fresh.marker-duplicate: 'diagrams-fresh: {doc} has duplicate <!-- likec4:{view} --> markers; run la-arch-diagrams'
+  diagrams-fresh.marker-order: 'diagrams-fresh: {doc} has the closing {view} marker before the opening one; run la-arch-diagrams'
+  diagrams-fresh.stale: 'diagrams-fresh: {doc} diagram {view} is stale; run la-arch-diagrams'
+  diagrams-fresh.orphan-marker: 'diagrams-fresh: {doc} has an orphan {kind} likec4:{view} marker; run la-arch-diagrams'
+
+  # ---- la-arch-diagrams
+  arch-diagrams.error: 'la-arch-diagrams: {error}'
+  arch-diagrams.parse-findings: "cannot regenerate diagrams — resolve model/views findings first:\n{findings}"
+  arch-diagrams.bad-key: diagrams key {key!r} must be an architecture/*.arc42.md path
+  arch-diagrams.view-undefined: view {view} mapped to {doc} is not defined in views.c4
+  arch-diagrams.marker: '{doc}: {problem} marker(s) for view {view}'
+
+  # ---- la-config
+  config.error: 'la-config: {error}'
+  config.unknown-key: 'la-config: unknown key {key!r}'
+
+  # ---- la-doctor
+  doctor.ok: 'ok: la tools {version}; config from {source}'
+  doctor.no-config-file: defaults (no config file)
+  doctor.fail: 'FAIL: {problem}'
+  doctor.version-mismatch: installed la tools are {installed} but the plugin expects {expected}; reinstall the tools from the same checkout/tag as the plugin
+  doctor.missing-executable: '`{exe}` not found on PATH'
+
+  # ---- review shims
+  review.config-error: '{prog}: {error}'
+  review.coderabbit-disabled: '{prog}: CodeRabbit is disabled for this repo (set reviewers.coderabbit: true in living-architecture.yaml to enable it)'
+
+  # ---- la-check-conventions
+  conventions.violation: '{path}:{line}: [{rule}] {message}'
+  conventions.import-after-code: module-level import after non-import code; move it to the top of the file
+  conventions.import-in-function: import inside function {function!r}; move it to the top of the file
+  conventions.composite-assert: composite `assert ... and ...`; split into separate assert statements
+  conventions.raises-single-throw: '`pytest.raises` block makes {calls} calls that can throw; move all but the call under test outside the block'
+  conventions.exempt: 'check-conventions: exempt, skipped: {paths}'
+  conventions.ratio: 'check-conventions: {group} text-only ratio {pct}% ({text}/{total}, cap {cap}%)'
+  conventions.ratio-over: '[text-ratio] {group}: text-only lines are {pct}% of the changed {group} files ({text}/{total}), cap {cap}%'
+  conventions.ratio-file: '    {path}: {pct}% ({text}/{total})'
+  conventions.summary: 'check-conventions: {count} violation(s) across {files} changed {label} file(s)'
+  conventions.error: 'la-check-conventions: {error}'
+  conventions.pr-base-unresolved: could not resolve the base branch of PR {pr}
+  conventions.git-failed: git {args} failed
+  conventions.clear: 'gate: CLEAR — conventions hold on the PR''s modified {label} files.'
+  conventions.red: |-
+
+    gate: RED —
+      [import-not-top] hoist each flagged import to module top. Only a genuine
+        circular import may be waived with '# ALLOW(import-not-top): <reason>' —
+        confirm with the user before landing such a waiver.
+      [text-ratio] trim comments/docstrings in the flagged file group until
+        text-only lines fit under the cap (no per-line waiver).
+
+  # ---- la-count-comments
+  count-comments.file: '{total}  comment={comment} doc={doc}  {path}'
+  count-comments.total: "==================================================\nTOTAL={total} (comment {comment}, docstring {doc})"
+  count-comments.net-added: "==================================================\nNET ADDED total={total} (comment {comment}, docstring {doc})"
+
+  # ---- dr-refactor
+  refactor.line-out-of-range: line {line} out of range (file has {count} lines)
+  refactor.symbol-not-found: symbol {name!r} not found in file
+  refactor.no-locator: provide one of --offset, --line [--col], or --name
+  refactor.outside-project: 'path is not inside the project: {path}'
+  refactor.unsure-warning: 'WARNING: --unsure=include also renames occurrences rope cannot resolve; it may rewrite unrelated attributes of the same name.'
+  refactor.applied: "\nAPPLIED. {count} file(s) changed:"
+  refactor.applied-file: '  {path}'
+  refactor.dry-run: "\nDRY-RUN. {count} file(s) would change. Re-run with --apply."
+
+  # ---- dr-compliance
+  compliance.untyped-def: '{path}:{line}: untyped-def: {name}() missing {missing}'
+  compliance.untyped-params: params {params}
+  compliance.untyped-return: return
+  compliance.unannotated-attr: '{path}:{line}: unannotated-attr: {cls}.{attr} assigned without a type annotation'
+  compliance.attr-blindspot: '{path}:{line}: attr-blindspot: {receiver}.{attr} — annotate parameter ''{receiver}'' so a rename of .{attr} is verifiable'
+  compliance.parse-error: '{path}:{line}: parse-error: {error}'
+  compliance.unknown-checks: 'unknown check(s): {checks}'
+
+  # ---- dr-mock-lint
+  mock-lint.patch: '{path}:{line}: {call}() without autospec=True/new=/spec= — stale members go undetected'
+  mock-lint.mock: '{path}:{line}: {call}() without spec=/spec_set= — bind it to the real class (or use create_autospec)'

@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "index.schema.json",
+  "title": "architecture/index.yaml",
+  "description": "Maps LikeC4 model elements to code units, arc42 docs and OpenSpec spec groups. Values whose problems the arch-check reports as findings (legacy_arrows, diagrams, view_depth) are deliberately unconstrained here.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["root_package"],
+  "properties": {
+    "root_package": {"type": "string", "minLength": 1, "description": "The top-level package, under source_root."},
+    "source_root": {
+      "type": "string",
+      "description": "Repo-relative directory containing root_package; default: the repo root."
+    },
+    "nodes": {
+      "type": "object",
+      "additionalProperties": {"$ref": "#/$defs/node"}
+    },
+    "cross_cutting_arc42": {"type": "array", "items": {"type": "string"}},
+    "cross_cutting_specs": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {"touches": {"type": "array", "items": {"type": "string"}}}
+      }
+    },
+    "legacy_arrows": {"description": "{baseline: <count of #legacy arrows>}; checked by baseline-ratchet."},
+    "diagrams": {"description": "arc42 doc -> view ids; checked by diagrams-fresh."},
+    "view_depth": {"description": "view id -> render depth; checked by diagrams-fresh."}
+  },
+  "$defs": {
+    "units": {"type": "array", "items": {"type": "string"}},
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "package": {"type": "string"},
+        "packages": {"$ref": "#/$defs/units"},
+        "claims": {"$ref": "#/$defs/units"},
+        "children": {"$ref": "#/$defs/units"},
+        "virtual": {"type": "boolean"},
+        "arc42": {"type": ["string", "null"]},
+        "specs": {"$ref": "#/$defs/units"}
+      },
+      "if": {"properties": {"virtual": {"const": true}}, "required": ["virtual"]},
+      "then": {},
+      "else": {"required": ["package"]}
+    }
+  }
+}

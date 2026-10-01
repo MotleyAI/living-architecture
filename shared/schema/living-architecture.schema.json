@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "living-architecture.schema.json",
+  "title": "living-architecture.yaml",
+  "description": "Per-repo configuration at the repo root. Every key is optional; absent keys take their defaults.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "reviewers": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "coderabbit": {"type": "boolean", "default": false, "description": "CodeRabbit reviews this repo's PRs."},
+        "sonar": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {"type": "boolean", "default": false},
+            "project_key": {"type": ["string", "null"], "default": null}
+          },
+          "if": {"properties": {"enabled": {"const": true}}, "required": ["enabled"]},
+          "then": {"properties": {"project_key": {"type": "string", "minLength": 1}}, "required": ["project_key"]}
+        }
+      }
+    },
+    "issue_key_pattern": {
+      "type": "string",
+      "default": "[A-Z][A-Z0-9]+-\\d+",
+      "description": "Full-match pattern for [target: <id>] tags; must use the portable regex subset (regex-subset.md)."
+    },
+    "commands": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "test": {"type": ["string", "null"], "default": null, "description": "The repo's full non-integration test command."},
+        "lint": {"type": ["string", "null"], "default": null}
+      }
+    },
+    "conventions": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "text_ratio_max": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1,
+          "default": 0.15,
+          "description": "Cap on comment/docstring-only lines, as a fraction of each changed file group."
+        },
+        "exempt": {
+          "type": "array",
+          "items": {"type": "string"},
+          "default": [],
+          "description": "Repo-relative fnmatch globs exempt from the conventions gate."
+        }
+      }
+    }
+  }
+}
