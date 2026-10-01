@@ -1,0 +1,3 @@
+diagrams-fresh: view_depth[system] must be a positive integer, got 0
+diagrams-fresh: view_depth references unknown view id ghost
+arch_check: 2 finding(s)

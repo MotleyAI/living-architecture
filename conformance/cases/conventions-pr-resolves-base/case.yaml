@@ -1,0 +1,26 @@
+kind: adapter
+languages:
+- python
+command: la-check-conventions
+args:
+- '7'
+git:
+- commit: init
+- origin:
+  - main
+- branch: feat
+- write:
+    a.py: |
+      X = 1
+      import os
+- commit: work
+gh:
+- match:
+  - pr
+  - view
+  - '7'
+  - baseRefName
+  stdout:
+    baseRefName: main
+expect:
+  exit: 1

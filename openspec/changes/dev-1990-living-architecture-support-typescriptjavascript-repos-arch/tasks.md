@@ -1,14 +1,14 @@
 ## 1. Freeze the goldens (pr-tests stage, BEFORE any code moves)
 
-- [ ] 1.1 Inventory every output and exit branch of every current command (`la-*`, `dr-*`, including argparse usage errors, unreadable/syntax-error files, missing paths, malformed `.c4`/views, multiple simultaneous findings and their order, every finding template and each value type it is rendered with). Record it as `conformance/INVENTORY.md`, mapping each branch to the case id that covers it. Verify that every branch maps to a case.
-- [ ] 1.2 Write the conformance runner (`tests/test_conformance.py`, pytest, parametrized over `conformance/cases/*/case.yaml`). It materializes a case into a temp dir: fixture, overlay, and deterministic git history (commits, branches, local bare `origin`, staged/unstaged/untracked/deleted/renamed). It runs the installed command as a subprocess with `LC_ALL=C`, `TZ=UTC`, `COLUMNS=80`, fixed `GIT_*` identity and dates, and no network. It normalizes only the temp root to `<ROOT>` and byte-compares exit, stdout and stderr. `LA_UPDATE_GOLDENS=1` writes the goldens. Verify that a deliberately wrong golden fails with a diff and stays untouched.
-- [ ] 1.3 Author `conformance/cases/` covering the whole inventory, each case declaring `kind` (neutral/paired/adapter). For `la-check-conventions`, cover each rule, waivers and both text-ratio groups via `--file`, plus git-diff cases (committed, staged, unstaged, deleted, renamed, untracked). Add accepted and rejected invocation vectors for every command, including `--bas` (abbreviation: currently accepted; the post-change golden is exit 2, recorded as the one deliberate change in a case note). Verify that `LA_UPDATE_GOLDENS=1 pytest tests/test_conformance.py` generates every golden from the CURRENT tool.
-- [ ] 1.4 Run the runner across Python 3.11, 3.12 and 3.13 (`uv run --python 3.1x`). Add declared normalizations or dedicated cases for any version-dependent text. Verify that the goldens pass unchanged on all three.
+- [x] 1.1 Inventory every output and exit branch of every current command (`la-*`, `dr-*`, including argparse usage errors, unreadable/syntax-error files, missing paths, malformed `.c4`/views, multiple simultaneous findings and their order, every finding template and each value type it is rendered with). Record it as `conformance/INVENTORY.md`, mapping each branch to the case id that covers it. Verify that every branch maps to a case.
+- [x] 1.2 Write the conformance runner (`tests/test_conformance.py`, pytest, parametrized over `conformance/cases/*/case.yaml`). It materializes a case into a temp dir: fixture, overlay, and deterministic git history (commits, branches, local bare `origin`, staged/unstaged/untracked/deleted/renamed). It runs the installed command as a subprocess with `LC_ALL=C`, `TZ=UTC`, `COLUMNS=80`, fixed `GIT_*` identity and dates, and no network. It normalizes only the temp root to `<ROOT>` and byte-compares exit, stdout and stderr. `LA_UPDATE_GOLDENS=1` writes the goldens. Verify that a deliberately wrong golden fails with a diff and stays untouched.
+- [x] 1.3 Author `conformance/cases/` covering the whole inventory, each case declaring `kind` (neutral/paired/adapter). For `la-check-conventions`, cover each rule, waivers and both text-ratio groups via `--file`, plus git-diff cases (committed, staged, unstaged, deleted, renamed, untracked). Add accepted and rejected invocation vectors for every command, including `--bas` (abbreviation: currently accepted; the post-change golden is exit 2) and the lax config scalars (`'true'`, `1`, `'0.2'`: post-change exit 1 naming the key), each recorded as a deliberate change in a case note. Verify that `LA_UPDATE_GOLDENS=1 pytest tests/test_conformance.py` generates every golden from the CURRENT tool.
+- [x] 1.4 Run the runner across Python 3.11, 3.12 and 3.13 (`uv run --python 3.1x`). Add declared normalizations or dedicated cases for any version-dependent text. Verify that the goldens pass unchanged on all three.
 - [ ] 1.5 Commit the corpus plus goldens as the frozen baseline. Verify that the full suite is green on the unchanged code.
 
 ## 2. New-behaviour tests (pr-tests stage, failing until implemented)
 
-- [ ] 2.1 Contract vectors under `shared/vectors/`:
+- [x] 2.1 Contract vectors under `shared/vectors/`:
   - canonical repr (quotes, escapes, non-printables, nested list and mapping, bool, None, float)
   - glob dialect (separators, `**`, root-level names, dot dirs, case variants, near misses, including the Python test-file parity set from the spec)
   - default materialization (absent parents, explicit `false`/`0`/`[]`/`""`, empty or missing file)
@@ -16,9 +16,9 @@
   - regex subset (accept/reject)
 
   Write Python tests that consume the vectors. Verify they fail with no implementation present.
-- [ ] 2.2 Contract tests: every findings-registry id is produced by at least one golden; console scripts equal the manifest command set; skill command references are a subset of the manifest; the snapshot equals `shared/` byte-for-byte with modes; `la-doctor` reports the contract hash. Verify they fail now.
-- [ ] 2.3 `source_root` tests per the `arch-check` spec: absent is unchanged; src layout is resolved with prefix-free module ids; architecture/docs/specs still read from the repo root; absolute, `..`, symlink-escape, non-directory and missing-`root_package` each exit 2 naming `source_root`. Verify they fail now.
-- [ ] 2.4 Codex review of the tests against the plan (pr-tests Step 2). Verify that the findings are resolved with the user.
+- [x] 2.2 Contract tests: every findings-registry id is produced by at least one golden; console scripts equal the manifest command set; skill command references are a subset of the manifest; the snapshot equals `shared/` byte-for-byte with modes; `la-doctor` reports the contract hash. Verify they fail now.
+- [x] 2.3 `source_root` tests per the `arch-check` spec: absent is unchanged; src layout is resolved with prefix-free module ids; architecture/docs/specs still read from the repo root; absolute, `..`, symlink-escape, non-directory and missing-`root_package` each exit 2 naming `source_root`. Verify they fail now.
+- [x] 2.4 Codex review of the tests against the plan (pr-tests Step 2). Verify that the findings are resolved with the user.
 
 ## 3. Symmetric layout
 
@@ -44,6 +44,9 @@
 - [ ] 5.6 Move the `deterministic_refactor` package → `living_architecture.refactor` (no compatibility shim). Verify that the `dr-*` goldens and the existing refactor/compliance/mock-lint tests pass.
 - [ ] 5.7 Create `cli`: every command's parser is built from the manifest (`allow_abbrev=False`, `--` honoured, usage → exit 2, passthrough raw argv), and the pyproject scripts point to it. Verify that the full conformance corpus (including the `--bas` → 2 vector) passes.
 - [ ] 5.8 Add `jsonschema` to the dependencies and refresh `uv.lock`. Verify `uv sync --locked`.
+- [ ] 5.9 Make `dr-refactor` output deterministic: print rope's changes sorted by path (the
+  change descriptions and the changed-file list). Verify that the refactor goldens pass under
+  several `PYTHONHASHSEED` values.
 
 ## 6. Packaging verification
 

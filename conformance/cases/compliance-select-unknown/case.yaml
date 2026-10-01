@@ -1,0 +1,10 @@
+kind: adapter
+languages:
+- python
+command: dr-compliance
+args:
+- --select
+- zeta,untyped-def,alpha
+- src/k.py
+expect:
+  exit: 2

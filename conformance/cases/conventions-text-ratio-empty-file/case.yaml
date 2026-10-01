@@ -1,0 +1,9 @@
+kind: adapter
+languages:
+- python
+command: la-check-conventions
+args:
+- --file
+- src/empty.py
+expect:
+  exit: 0

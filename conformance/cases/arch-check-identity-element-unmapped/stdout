@@ -1,0 +1,3 @@
+model-identity: element core.inner maps to no node or declared child in index.yaml
+model-identity: element orphan maps to no node or declared child in index.yaml
+arch_check: 2 finding(s)

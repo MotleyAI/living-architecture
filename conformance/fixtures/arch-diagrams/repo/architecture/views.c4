@@ -1,0 +1,6 @@
+views {
+  view system {
+    title 'System'
+    include *
+  }
+}

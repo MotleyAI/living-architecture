@@ -1,0 +1,10 @@
+kind: adapter
+languages:
+- python
+command: la-check-conventions
+args:
+- --file
+- src/m.py
+expect:
+  exit: 1
+note: class-body imports are not function imports; the class ends the prologue

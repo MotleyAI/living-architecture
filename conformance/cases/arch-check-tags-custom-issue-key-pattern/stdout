@@ -1,0 +1,3 @@
+enforced-tags: system.arc42.md target tag id 'ABC-123' does not match issue_key_pattern 'PROJ-\\d{1,4}'
+enforced-tags: system.arc42.md principle item 2 has no status tag
+arch_check: 2 finding(s)

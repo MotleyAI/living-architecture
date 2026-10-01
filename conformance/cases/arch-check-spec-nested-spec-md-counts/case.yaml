@@ -1,0 +1,9 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+fixture: arch-ok
+remove:
+- openspec/specs/logging/spec.md
+expect:
+  exit: 0

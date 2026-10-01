@@ -1,0 +1,52 @@
+kind: neutral
+command: la-fetch-failed-pr-checks
+args:
+- '7'
+- --repo
+- o/r
+- --max-log-lines
+- '5'
+gh:
+- match:
+  - pr
+  - view
+  - statusCheckRollup
+  stdout:
+    statusCheckRollup:
+    - __typename: CheckRun
+      name: tests
+      workflowName: CI
+      conclusion: FAILURE
+      status: COMPLETED
+      detailsUrl: https://github.com/o/r/actions/runs/11/job/22
+    - __typename: CheckRun
+      name: lint
+      workflowName: CI
+      conclusion: SUCCESS
+      status: COMPLETED
+      detailsUrl: https://github.com/o/r/actions/runs/11/job/23
+    - __typename: StatusContext
+      context: ext-ci
+      state: ERROR
+      targetUrl: https://ci.example/1
+- match:
+  - run
+  - view
+  - --job
+  - '22'
+  - --log-failed
+  stdout: ''
+- match:
+  - run
+  - view
+  - --job
+  - '22'
+  - --log
+  stdout: 'container never started
+
+    '
+normalize:
+- pattern: -[0-9]{8}-[0-9]{6}\.json
+  replace: -<TS>.json
+expect:
+  exit: 0

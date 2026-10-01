@@ -1,0 +1,12 @@
+kind: adapter
+languages:
+- python
+command: la-check-conventions
+args:
+- --file
+- tests
+- --file
+- a/tests
+expect:
+  exit: 0
+note: composite-assert fires exactly on the paths shared/vectors/test-files.yaml marks as tests

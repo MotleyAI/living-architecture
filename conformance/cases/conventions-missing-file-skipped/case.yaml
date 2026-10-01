@@ -1,0 +1,11 @@
+kind: adapter
+languages:
+- python
+command: la-check-conventions
+args:
+- --file
+- src/gone.py
+- --file
+- src/ok.py
+expect:
+  exit: 0

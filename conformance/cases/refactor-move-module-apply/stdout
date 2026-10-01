@@ -1,0 +1,9 @@
+Moving module <solo>:
+
+
+rename from pkg/solo.py
+rename to pkg/sub/solo.py
+
+
+APPLIED. 1 file(s) changed:
+  pkg/solo.py

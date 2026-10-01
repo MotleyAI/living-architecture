@@ -1,0 +1,2 @@
+spec-mapping: logging is mapped but openspec/specs/logging does not exist
+arch_check: 1 finding(s)

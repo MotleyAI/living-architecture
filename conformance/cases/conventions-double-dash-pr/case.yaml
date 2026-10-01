@@ -1,0 +1,12 @@
+kind: adapter
+languages:
+- python
+command: la-check-conventions
+args:
+- --
+- '7'
+git:
+- commit: init
+expect:
+  exit: 2
+note: '`--` ends options; 7 is the PR (no gh route, so the lookup fails)'

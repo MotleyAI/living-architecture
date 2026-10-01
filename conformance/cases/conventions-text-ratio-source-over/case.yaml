@@ -1,0 +1,13 @@
+kind: adapter
+languages:
+- python
+command: la-check-conventions
+args:
+- --file
+- src/a.py
+- --file
+- src/b.py
+- --file
+- tests/test_c.py
+expect:
+  exit: 1

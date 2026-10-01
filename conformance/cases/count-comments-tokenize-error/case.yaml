@@ -1,0 +1,8 @@
+kind: adapter
+languages:
+- python
+command: la-count-comments
+args:
+- bad.py
+expect:
+  exit: 0

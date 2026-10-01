@@ -1,0 +1,11 @@
+model-identity: node api is not declared as an element in model/*.c4
+model-identity: node core is not declared as an element in model/*.c4
+model-identity: node store is not declared as an element in model/*.c4
+model-identity: node legacy is not declared as an element in model/*.c4
+model-identity: child api.handlers is not declared as an element in model/*.c4
+baseline-ratchet: model has 0 legacy arrow(s), baseline is 1
+model-truth: measured runtime edge api -> store is missing from the model (import pkg.api -> pkg.store)
+model-truth: measured runtime edge api.handlers -> core is missing from the model (import pkg.api.handlers -> pkg.core)
+model-truth: measured runtime edge core -> store is missing from the model (import pkg.core -> pkg.store)
+model-truth: measured runtime edge legacy -> core is missing from the model (import pkg.old -> pkg.util)
+arch_check: 10 finding(s)

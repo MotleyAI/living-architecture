@@ -1,0 +1,2 @@
+diagrams-fresh: architecture/system.arc42.md is missing the <!-- likec4:system --> marker pair; run la-arch-diagrams
+arch_check: 1 finding(s)

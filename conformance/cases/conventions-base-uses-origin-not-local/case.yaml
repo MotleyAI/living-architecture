@@ -1,0 +1,37 @@
+kind: adapter
+languages:
+- python
+command: la-check-conventions
+args:
+- --base
+- main
+git:
+- commit: init
+- origin:
+  - main
+- branch: feat
+- write:
+    e.py: |
+      """A clean module."""
+
+      import os
+
+
+      def f() -> str:
+          return os.sep
+- commit: e
+- checkout: main
+- write:
+    h.py: |
+      """A clean module."""
+
+      import os
+
+
+      def f() -> str:
+          return os.sep
+- commit: local only
+- checkout: feat
+expect:
+  exit: 0
+note: the merge base is computed against origin/<base>, which lacks the local-only main commit

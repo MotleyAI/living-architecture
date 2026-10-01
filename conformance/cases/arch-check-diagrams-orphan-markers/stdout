@@ -1,0 +1,3 @@
+diagrams-fresh: architecture/api.arc42.md has an orphan opening likec4:system marker; run la-arch-diagrams
+diagrams-fresh: architecture/api.arc42.md has an orphan closing likec4:other marker; run la-arch-diagrams
+arch_check: 2 finding(s)

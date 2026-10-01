@@ -1,0 +1,19 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- --apply
+- move-module
+- --module
+- pkg/solo.py
+- --dest
+- pkg/sub
+git: []
+expect:
+  exit: 0
+  stderr: ignore
+  files:
+  - pkg/solo.py
+  - pkg/sub/solo.py
+note: rope's `git mv` fails on untracked files; git's own wording is not part of the contract

@@ -39,6 +39,9 @@ TS refactoring, neutral skills and the acceptance run in DEV-2027.
   The command names are unchanged.
 - **CLI built from the manifest** with fixed parser semantics. **BREAKING (minor)**: prefix-abbreviated long
   flags (e.g. `--bas` for `--base`) are no longer accepted.
+- **Strict config types.** **BREAKING (minor)**: quoted or numeric stand-ins for booleans
+  and numbers in `living-architecture.yaml` (e.g. `coderabbit: 'true'`, `coderabbit: 1`,
+  `text_ratio_max: '0.2'`) are configuration errors naming the key, no longer coerced.
 - **`index.yaml` `source_root`**: an optional source root, defaulting to the repo root, so src-layout
   packages can be checked.
 - **`issue_key_pattern`** must use the portable regex subset shared by both twins.

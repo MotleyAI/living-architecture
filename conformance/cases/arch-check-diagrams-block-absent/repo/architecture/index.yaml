@@ -1,0 +1,28 @@
+root_package: pkg
+nodes:
+  api:
+    package: pkg.api
+    arc42: architecture/api.arc42.md
+    children:
+    - handlers
+    specs:
+    - api
+  core:
+    package: pkg.core
+    claims:
+    - pkg.util
+  store:
+    package: pkg.store
+  legacy:
+    virtual: true
+    packages:
+    - pkg.old
+cross_cutting_arc42:
+- architecture/security.arc42.md
+cross_cutting_specs:
+  logging:
+    touches:
+    - api
+    - core
+legacy_arrows:
+  baseline: 1

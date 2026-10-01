@@ -1,0 +1,41 @@
+Moving global <foo>:
+
+
+--- a/pkg/a.py
++++ b/pkg/a.py
+@@ -1,7 +1,4 @@
+-def foo():
+-    return 1
+-
+-
++import pkg.sub
+ class Base:
+     def run(self):
+-        return foo()
++        return pkg.sub.foo()
+
+--- a/pkg/b.py
++++ b/pkg/b.py
+@@ -1,6 +1,7 @@
+-from pkg.a import Base, foo
++from pkg.a import Base
++import pkg.sub
+ 
+ 
+ class Child(Base):
+     def run(self):
+-        return foo() + 1
++        return pkg.sub.foo() + 1
+
+--- a/pkg/sub/__init__.py
++++ b/pkg/sub/__init__.py
+@@ -0,0 +1,2 @@
++def foo():
++    return 1
+
+
+
+APPLIED. 3 file(s) changed:
+  pkg/a.py
+  pkg/b.py
+  pkg/sub/__init__.py

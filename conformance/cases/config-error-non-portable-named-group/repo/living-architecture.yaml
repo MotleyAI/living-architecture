@@ -1,0 +1,1 @@
+issue_key_pattern: '(?P<key>[A-Z]+)-\d+'

@@ -1,0 +1,4 @@
+kind: neutral
+command: la-wait-for-reviews
+expect:
+  exit: 64

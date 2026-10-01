@@ -1,0 +1,18 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- rename
+- --file
+- pkg/a.py
+- --offset
+- x
+- --new-name
+- bar
+git:
+- commit: init
+expect:
+  exit: 2
+  stdout: ignore
+  stderr: ignore

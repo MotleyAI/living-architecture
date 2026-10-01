@@ -1,0 +1,8 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+fixture: arch-ok
+expect:
+  exit: 1
+note: an unclaimed module yields a claims finding but no model-truth edge

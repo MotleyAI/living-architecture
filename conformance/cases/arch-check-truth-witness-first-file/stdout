@@ -1,0 +1,2 @@
+model-truth: measured runtime edge store -> core is missing from the model (import pkg.store.a -> pkg.core.service)
+arch_check: 1 finding(s)

@@ -1,0 +1,11 @@
+kind: adapter
+languages:
+- python
+command: la-count-comments
+args:
+- --range
+- HEAD
+expect:
+  exit: 2
+  stdout: ignore
+  stderr: ignore

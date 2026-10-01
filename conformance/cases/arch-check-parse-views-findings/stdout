@@ -1,0 +1,17 @@
+diagrams-fresh: view a title is not a string
+diagrams-fresh: view a includes unknown id ghost
+diagrams-fresh: view a includes non-top-level id api.handlers
+diagrams-fresh: view a: '* -> *' is not supported
+diagrams-fresh: view a: unsupported predicate api -> core
+diagrams-fresh: view a: unsupported predicate core -> ghost
+diagrams-fresh: view include ghost -> * references unknown id ghost
+diagrams-fresh: view include * -> api.handlers references non-top-level id api.handlers
+diagrams-fresh: view a: malformed predicate
+diagrams-fresh: view a: malformed predicate
+diagrams-fresh: view a: unexpected include token '('
+diagrams-fresh: view a has unrecognized directive 'colour'
+diagrams-fresh: view a has unrecognized directive 'red'
+diagrams-fresh: duplicate view id a
+diagrams-fresh: expected `view` in views block
+diagrams-fresh: malformed view declaration
+arch_check: 16 finding(s)

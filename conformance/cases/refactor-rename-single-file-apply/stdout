@@ -1,0 +1,14 @@
+Renaming <alone> to <lonely>:
+
+
+--- a/pkg/solo.py
++++ b/pkg/solo.py
+@@ -1,2 +1,2 @@
+-def alone():
++def lonely():
+     return 2
+
+
+
+APPLIED. 1 file(s) changed:
+  pkg/solo.py

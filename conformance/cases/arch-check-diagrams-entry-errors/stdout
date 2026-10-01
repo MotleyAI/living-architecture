@@ -1,0 +1,5 @@
+diagrams-fresh: diagrams key docs/x.arc42.md must be an architecture/*.arc42.md path
+diagrams-fresh: diagrams key architecture/sub/y.arc42.md must be an architecture/*.arc42.md path
+diagrams-fresh: diagrams[architecture/api.arc42.md] must be a list of view ids; run la-arch-diagrams
+diagrams-fresh: diagrams[architecture/security.arc42.md] is empty
+arch_check: 4 finding(s)

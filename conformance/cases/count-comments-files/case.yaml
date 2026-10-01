@@ -1,0 +1,9 @@
+kind: adapter
+languages:
+- python
+command: la-count-comments
+args:
+- a.py
+- b.py
+expect:
+  exit: 0

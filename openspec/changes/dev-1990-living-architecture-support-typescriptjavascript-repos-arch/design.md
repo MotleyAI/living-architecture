@@ -64,8 +64,10 @@ shared/
 
 `scripts/sync-shared` copies `shared/` into `python/src/living_architecture/contract/data/` (and
 `node/src/contract/data/` from PR 2). The copy is byte-exact, preserves file modes, and writes
-`CONTRACT_HASH`, a sha256 over the sorted (path, mode, bytes) of the snapshot. Installed tools always load
-their bundled snapshot through module-relative resource paths; root `shared/` is never read at runtime. A
+`CONTRACT_HASH`, a sha256 over the sorted (path, executable bit, bytes) of the snapshot (git tracks no other
+mode bits). Installed tools always load
+their bundled snapshot through module-relative resource paths; root `shared/` is never read at runtime.
+`la-doctor --contract-hash` prints the bundled hash. A
 drift test in each suite compares snapshot and source. CI builds the artifacts (wheel and sdist; `npm pack`
 from PR 2), installs them outside the checkout, loads the contract, runs a review shim, and checks the
 hash. The release workflow refuses to publish when the twins' hashes or versions differ.

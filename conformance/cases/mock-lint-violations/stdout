@@ -1,0 +1,7 @@
+tests/test_m.py:4: Mock() without spec=/spec_set= — bind it to the real class (or use create_autospec)
+tests/test_m.py:7: NonCallableMock() without spec=/spec_set= — bind it to the real class (or use create_autospec)
+tests/test_m.py:8: MagicMock() without spec=/spec_set= — bind it to the real class (or use create_autospec)
+tests/test_m.py:12: patch() without autospec=True/new=/spec= — stale members go undetected
+tests/test_m.py:25: patch() without autospec=True/new=/spec= — stale members go undetected
+tests/test_m.py:27: patch.object() without autospec=True/new=/spec= — stale members go undetected
+tests/test_m.py:33: patch.multiple() without autospec=True/new=/spec= — stale members go undetected

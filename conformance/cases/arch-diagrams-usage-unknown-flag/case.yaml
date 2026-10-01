@@ -1,0 +1,9 @@
+kind: neutral
+command: la-arch-diagrams
+args:
+- --bogus
+fixture: arch-diagrams
+expect:
+  exit: 2
+  stdout: ignore
+  stderr: ignore

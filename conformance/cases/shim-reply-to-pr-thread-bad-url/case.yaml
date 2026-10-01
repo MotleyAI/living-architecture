@@ -1,0 +1,7 @@
+kind: neutral
+command: la-reply-to-pr-thread
+args:
+- https://example.com/x
+stdin: x
+expect:
+  exit: 2

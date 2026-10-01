@@ -1,0 +1,14 @@
+kind: neutral
+command: la-reply-invalid-coderabbit
+args:
+- https://github.com/o/r/pull/5#discussion_r1
+stdin: not a bug
+gh:
+- match:
+  - api
+  - POST
+  - repos/o/r/pulls/5/comments/1/replies
+  stdout:
+    html_url: https://github.com/o/r/pull/5#discussion_r9
+expect:
+  exit: 0

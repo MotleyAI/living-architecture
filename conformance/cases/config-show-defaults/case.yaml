@@ -1,0 +1,6 @@
+kind: neutral
+command: la-config
+args:
+- show
+expect:
+  exit: 0

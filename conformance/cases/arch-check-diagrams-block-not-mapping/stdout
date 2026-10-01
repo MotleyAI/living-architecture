@@ -1,0 +1,2 @@
+diagrams-fresh: diagrams block in index.yaml must be a mapping of doc -> view-id list; run la-arch-diagrams
+arch_check: 1 finding(s)

@@ -1,0 +1,1 @@
+error: PR_NUMBER must be a positive integer, got: abc

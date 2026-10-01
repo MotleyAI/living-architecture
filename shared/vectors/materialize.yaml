@@ -1,0 +1,51 @@
+# Default materialization against small schemas: absent properties with a `default`, and absent objects whose
+# sub-schema has defaulted properties, are created; explicit values (including false, 0, [], "" and null) are
+# never replaced.
+cases:
+- name: explicit zero kept
+  schema: {type: object, properties: {n: {type: integer, default: 5}}}
+  input: {n: 0}
+  output: {n: 0}
+- name: explicit false, empty list, empty string and null kept
+  schema:
+    type: object
+    properties:
+      b: {type: boolean, default: true}
+      l: {type: array, default: [x]}
+      s: {type: string, default: d}
+      z: {type: [string, "null"], default: d}
+  input: {b: false, l: [], s: "", z: null}
+  output: {b: false, l: [], s: "", z: null}
+- name: absent property gets its default
+  schema: {type: object, properties: {n: {type: integer, default: 5}, m: {type: integer}}}
+  input: {}
+  output: {n: 5}
+- name: absent parent created from defaulted children
+  schema:
+    type: object
+    properties:
+      outer:
+        type: object
+        properties:
+          inner: {type: object, properties: {flag: {type: boolean, default: false}}}
+          count: {type: integer, default: 1}
+  input: {}
+  output: {outer: {inner: {flag: false}, count: 1}}
+- name: present parent completed
+  schema:
+    type: object
+    properties:
+      outer: {type: object, properties: {a: {type: integer, default: 1}, b: {type: integer, default: 2}}}
+  input: {outer: {b: 7}}
+  output: {outer: {a: 1, b: 7}}
+- name: object default not merged into an explicit object
+  schema:
+    type: object
+    properties:
+      o: {type: object, default: {a: 1}, properties: {a: {type: integer}, c: {type: integer}}}
+  input: {o: {c: 3}}
+  output: {o: {c: 3}}
+- name: missing document is an empty object
+  schema: {type: object, properties: {n: {type: integer, default: 5}}}
+  input: null
+  output: {n: 5}

@@ -1,0 +1,7 @@
+kind: neutral
+command: la-reply-to-pr-thread
+args:
+- https://github.com/o/r/pull/5#pullrequestreview-1
+stdin: x
+expect:
+  exit: 2

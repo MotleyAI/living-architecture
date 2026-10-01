@@ -1,0 +1,16 @@
+kind: adapter
+languages:
+- python
+command: la-check-conventions
+args:
+- --bas
+- main
+git:
+- commit: init
+- origin:
+  - main
+expect:
+  exit: 2
+  stdout: ignore
+  stderr: ignore
+note: 'the one deliberate change: abbreviated long options are a usage error (today --bas is accepted as --base)'

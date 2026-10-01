@@ -1,0 +1,14 @@
+kind: adapter
+languages:
+- python
+command: la-check-conventions
+args:
+- --file
+- a.py
+expect:
+  exit: 2
+  stdout: ''
+  stderr:
+    contains:
+    - bogus
+note: config validation wording is not part of the contract

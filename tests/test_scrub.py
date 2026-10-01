@@ -17,12 +17,16 @@ PUBLISHER_ALLOWED = (
 )
 
 
+# OpenSpec change folders (active and archived) keep their issue references.
+CHANGE_DOCS = "openspec/changes/"
+
+
 def _published_files() -> list[Path]:
     listing = subprocess.run(
         ["git", "ls-files", "--cached", "--others", "--exclude-standard"],
         cwd=REPO_ROOT, capture_output=True, text=True, check=True,
     ).stdout.splitlines()
-    return [REPO_ROOT / rel for rel in listing if (REPO_ROOT / rel).is_file()]
+    return [REPO_ROOT / rel for rel in listing if (REPO_ROOT / rel).is_file() and not rel.startswith(CHANGE_DOCS)]
 
 
 def _violations(text: str) -> list[str]:
@@ -36,6 +40,12 @@ def test_blocklist_catches_the_real_cases():
     assert _violations("Motley's SLayer at /home/x") == ["/home/", "Motley", "SLayer"]
     assert _violations("Categories, Egor") == ["Egor"]
     assert _violations("Copyright (c) 2026 MotleyAI") == []
+
+
+def test_change_docs_are_exempt_but_specs_are_not():
+    published = {p.relative_to(REPO_ROOT).as_posix() for p in _published_files()}
+    assert not any(rel.startswith(CHANGE_DOCS) for rel in published)
+    assert "openspec/config.yaml" in published
 
 
 def test_no_blocked_terms_in_published_files():

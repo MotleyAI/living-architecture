@@ -1,0 +1,7 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+fixture: arch-diagrams
+expect:
+  exit: 1

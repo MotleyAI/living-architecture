@@ -1,0 +1,2 @@
+src/a.py:1: untyped-def: g() missing params y
+src/b/z.py:1: untyped-def: f() missing params x; return

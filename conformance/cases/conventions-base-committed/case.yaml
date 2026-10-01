@@ -1,0 +1,29 @@
+kind: adapter
+languages:
+- python
+command: la-check-conventions
+args:
+- --base
+- main
+git:
+- commit: init
+- origin:
+  - main
+- branch: feat
+- write:
+    a.py: |
+      X = 1
+      import os
+    e.py: |
+      """A clean module."""
+
+      import os
+
+
+      def f() -> str:
+          return os.sep
+    notes.txt: |
+      y
+- commit: work
+expect:
+  exit: 1

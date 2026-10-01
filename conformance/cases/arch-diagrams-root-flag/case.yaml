@@ -1,0 +1,11 @@
+kind: neutral
+command: la-arch-diagrams
+args:
+- --root
+- .
+cwd: .
+fixture: arch-diagrams
+expect:
+  exit: 0
+  files:
+  - architecture/system.arc42.md

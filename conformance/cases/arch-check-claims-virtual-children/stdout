@@ -1,0 +1,3 @@
+claims-exist: virtual node legacy may not declare children
+model-identity: child legacy.x is not declared as an element in model/*.c4
+arch_check: 2 finding(s)

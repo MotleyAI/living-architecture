@@ -1,0 +1,1 @@
+issue_key_pattern: '^(ABC|DEF)-[0-9]+\s?$'

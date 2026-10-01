@@ -1,0 +1,2 @@
+diagrams-fresh: architecture/system.arc42.md has the closing system marker before the opening one; run la-arch-diagrams
+arch_check: 1 finding(s)

@@ -1,0 +1,8 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+cwd: pkg/api
+fixture: arch-ok
+expect:
+  exit: 0

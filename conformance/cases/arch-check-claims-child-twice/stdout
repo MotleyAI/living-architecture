@@ -1,0 +1,2 @@
+claims-exactly-once: api declares child handlers more than once
+arch_check: 1 finding(s)

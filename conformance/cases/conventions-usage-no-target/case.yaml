@@ -1,0 +1,8 @@
+kind: adapter
+languages:
+- python
+command: la-check-conventions
+expect:
+  exit: 2
+  stdout: ignore
+  stderr: ignore

@@ -1,0 +1,7 @@
+kind: neutral
+command: la-config
+args:
+- get
+- issue_key_pattern
+expect:
+  exit: 0

@@ -1,0 +1,11 @@
+kind: neutral
+command: la-config
+args:
+- show
+expect:
+  exit: 1
+  stdout: ''
+  stderr:
+    contains:
+    - text_ratio_max
+note: 'deliberate change: strict config types (pydantic used to coerce this scalar)'

@@ -1,0 +1,12 @@
+kind: adapter
+languages:
+- python
+command: la-check-conventions
+args:
+- --file
+- tests/test_a.py
+- --file
+- src/b.py
+expect:
+  exit: 1
+note: composite-assert applies only to test files

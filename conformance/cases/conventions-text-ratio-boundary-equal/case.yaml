@@ -1,0 +1,12 @@
+kind: adapter
+languages:
+- python
+command: la-check-conventions
+args:
+- --file
+- src/a.py
+- --text-ratio-cap
+- '80'
+expect:
+  exit: 0
+note: a ratio equal to the cap passes

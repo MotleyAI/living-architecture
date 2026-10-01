@@ -1,0 +1,15 @@
+kind: adapter
+languages:
+- python
+command: la-check-conventions
+args:
+- --base
+- main
+git: none
+expect:
+  exit: 2
+  stdout: ''
+  stderr:
+    contains:
+    - 'la-check-conventions: '
+note: git's own error wording is not part of the contract

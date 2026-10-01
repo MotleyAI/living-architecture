@@ -1,0 +1,17 @@
+kind: neutral
+command: la-doctor
+args:
+- --expect
+- 0.0.0
+hide:
+- gh
+normalize:
+- version
+expect:
+  exit: 1
+  stdout:
+    contains:
+    - 'FAIL: installed la tools are'
+    - bogus
+    - 'FAIL: `gh` not found on PATH'
+note: config validation wording is not part of the contract; exit code and offending key are

@@ -2,16 +2,16 @@
 
 import json
 import re
-import tomllib
 from pathlib import Path
 
 import pytest
+import yaml
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
+REPO_ROOT = next(p for p in Path(__file__).resolve().parents if (p / "plugin" / "skills").is_dir())
 SKILLS_DIR = REPO_ROOT / "plugin" / "skills"
 SKILL_FILES = sorted(SKILLS_DIR.glob("*/SKILL.md"))
 PLUGIN = json.loads((REPO_ROOT / "plugin" / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))
-COMMANDS = set(tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]["scripts"])
+MANIFEST = REPO_ROOT / "shared" / "cli.yaml"
 
 COMMAND_RE = re.compile(r"(?<![\w/.-])((?:la|dr)-[a-z][a-z-]*[a-z])\b")
 SKILL_REF_RE = re.compile(r"\bla:([a-z][a-z-]*[a-z])\b")
@@ -40,10 +40,14 @@ def test_skill_references_resolve(path):
     assert refs <= names, refs - names
 
 
+def _manifest_commands() -> set[str]:
+    return set(yaml.safe_load(MANIFEST.read_text(encoding="utf-8"))["commands"])
+
+
 @pytest.mark.parametrize("path", SKILL_FILES, ids=_id)
-def test_commands_exist(path):
+def test_commands_exist_in_the_manifest(path):
     used = set(COMMAND_RE.findall(path.read_text(encoding="utf-8")))
-    assert used <= COMMANDS, used - COMMANDS
+    assert used <= _manifest_commands(), used - _manifest_commands()
 
 
 @pytest.mark.parametrize("path", SKILL_FILES, ids=_id)

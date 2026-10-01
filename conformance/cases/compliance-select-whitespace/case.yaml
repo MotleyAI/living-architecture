@@ -1,0 +1,10 @@
+kind: adapter
+languages:
+- python
+command: dr-compliance
+args:
+- --select
+- ' mock , untyped-def '
+- src/k.py
+expect:
+  exit: 1

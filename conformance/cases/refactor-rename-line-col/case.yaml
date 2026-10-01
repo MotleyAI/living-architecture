@@ -1,0 +1,24 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- --apply
+- rename
+- --file
+- pkg/a.py
+- --line
+- '6'
+- --col
+- '9'
+- --new-name
+- execute
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - pkg/a.py
+  - pkg/b.py
+golden: manual
+note: 'new behaviour: rope''s changes print sorted by path (today the order follows the hash seed)'

@@ -1,0 +1,3 @@
+reviewers:
+  coderabbit: yes
+  sonar: {enabled: off}

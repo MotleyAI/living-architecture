@@ -1,0 +1,31 @@
+specification {
+  element node
+  element bucket { #virtual }
+  tag legacy
+  #virtual
+  colour red
+}
+
+model {
+  api = node 'API' {
+    handlers = node 'Handlers'
+    api.handlers -> core
+  }
+  core = node 'Core' // a comment
+  store = node 'Store // not a comment'
+  legacy = bucket 'Legacy'
+  core = node 'Again'
+  thing = widget 'Thing'
+  core -> store
+  core -> store
+  api -> store #legacy
+  legacy -> core
+  core -> ghost
+  api.handlers -> core
+  this is not a model line
+}
+
+views {
+  view ignored {
+  }
+}

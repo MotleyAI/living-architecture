@@ -1,0 +1,8 @@
+kind: neutral
+command: la-fetch-failed-pr-checks
+args:
+- abc
+- --repo
+- o/r
+expect:
+  exit: 2
