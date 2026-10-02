@@ -1,0 +1,2 @@
+model-truth: measured runtime edge api.handlers.x -> legacy is missing from the model (import pkg.api.handlers.x -> pkg.old)
+arch_check: 1 finding(s)

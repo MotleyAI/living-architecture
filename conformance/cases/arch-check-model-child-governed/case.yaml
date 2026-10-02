@@ -1,0 +1,9 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+fixture: arch-ok
+expect:
+  exit: 1
+golden: manual
+note: 'api.handlers is governed with no index.yaml entry: its arrow to core is live and an unmodelled import is its own edge'

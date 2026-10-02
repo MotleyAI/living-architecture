@@ -1,0 +1,11 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+fixture: arch-ok
+remove:
+- pkg/api/handlers.py
+expect:
+  exit: 1
+golden: manual
+note: 'a grandchild is governed by convention; descendants of one node never collide with each other'

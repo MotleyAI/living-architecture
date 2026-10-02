@@ -1,0 +1,13 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+fixture: arch-ok
+expect:
+  exit: 2
+  stderr:
+    contains:
+    - 'model element store: '
+    - 'packages'
+golden: manual
+note: 'packages belongs to virtual nodes only'

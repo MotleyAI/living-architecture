@@ -1,0 +1,12 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+fixture: arch-ok
+expect:
+  exit: 2
+  stderr:
+    contains:
+    - "element store has malformed metadata: package 'pkg.other'"
+golden: manual
+note: 'a repeated key is malformed'

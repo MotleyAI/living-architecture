@@ -5,27 +5,11 @@ from __future__ import annotations
 from functools import cache
 from pathlib import Path
 
-from living_architecture.archcheck.index import Layout, load_index
+from living_architecture.archcheck.index import Layout
+from living_architecture.archcheck.nodes import build_node_map, unit_to_element
 from living_architecture.c4 import is_or_ancestor, parse_model
 from living_architecture.contract import message
 from living_architecture.lang import import_targets, source_modules
-
-
-def unit_to_element(nodes: dict) -> dict[str, str]:
-    """Declared unit -> element FQN (node id, or `<node>.<child>` for children)."""
-    mapping: dict[str, str] = {}
-    for node_id, spec in nodes.items():
-        if spec.get("virtual"):
-            for pkg in spec.get("packages", []):
-                mapping[pkg] = node_id
-            continue
-        package = spec["package"]
-        mapping[package] = node_id
-        for claim in spec.get("claims", []):
-            mapping[claim] = node_id
-        for child in spec.get("children", []):
-            mapping[f"{package}.{child}"] = f"{node_id}.{child}"
-    return mapping
 
 
 def _attribute(module: str, units: dict[str, str]) -> str | None:
@@ -80,8 +64,8 @@ def _arrow_is_live(arrow: tuple[str, str], edges: list[tuple[str, str]], arrows:
     return False
 
 
-def check_model_truth(layout: Layout, nodes: dict, arrows: list[tuple[str, str]]) -> list[str]:
-    witnesses = measure_runtime_edges(layout, unit_to_element(nodes))
+def check_model_truth(layout: Layout, units: dict[str, str], arrows: list[tuple[str, str]]) -> list[str]:
+    witnesses = measure_runtime_edges(layout, units)
     edges = list(witnesses)
     findings: list[str] = []
     # A parent<->child arrow would asymmetrically cover sibling edges; keep it out of coverage.
@@ -106,9 +90,9 @@ def check_model_truth(layout: Layout, nodes: dict, arrows: list[tuple[str, str]]
 @cache
 def _license_model(root_str: str) -> tuple[tuple[tuple[str, str], ...], tuple[tuple[str, str], ...]]:
     """Cached (unit, element) pairs plus arrow set for `license`, keyed by repo root."""
-    root = Path(root_str)
-    mapping = tuple(unit_to_element(load_index(root).get("nodes", {})).items())
-    arrows = tuple((r.src, r.dst) for r in parse_model(root).relations if not _internal(r.src, r.dst))
+    model = parse_model(Path(root_str))
+    mapping = tuple(unit_to_element(build_node_map(model)).items())
+    arrows = tuple((r.src, r.dst) for r in model.relations if not _internal(r.src, r.dst))
     return mapping, arrows
 
 

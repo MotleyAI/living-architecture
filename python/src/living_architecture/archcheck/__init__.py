@@ -5,21 +5,12 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from living_architecture.archcheck.claims import check_children, check_claims, node_claims
-from living_architecture.archcheck.docs import (
-    check_arc42,
-    check_legacy_ratchet,
-    check_model_identity,
-    check_spec_mapping,
-)
+from living_architecture.archcheck.claims import check_claims
+from living_architecture.archcheck.docs import check_arc42, check_legacy_ratchet, check_spec_mapping
 from living_architecture.archcheck.index import ArchCheckError, Layout, load_index, resolve_layout
+from living_architecture.archcheck.nodes import NodeMap, build_node_map, unit_to_element
 from living_architecture.archcheck.tags import check_enforced_tags
-from living_architecture.archcheck.truth import (
-    check_model_truth,
-    license,
-    measure_runtime_edges,
-    unit_to_element,
-)
+from living_architecture.archcheck.truth import check_model_truth, license, measure_runtime_edges
 from living_architecture.c4 import check_diagrams_fresh, parse_model, parse_views
 from living_architecture.config import ConfigError, load_config
 from living_architecture.contract import message
@@ -27,6 +18,8 @@ from living_architecture.contract import message
 __all__ = [
     "ArchCheckError",
     "Layout",
+    "NodeMap",
+    "build_node_map",
     "license",
     "measure_runtime_edges",
     "resolve_layout",
@@ -39,20 +32,17 @@ __all__ = [
 def _findings(root: Path) -> list[str]:
     index = load_index(root)
     layout = resolve_layout(root, index)
-    nodes = index.get("nodes", {})
     model = parse_model(root)
+    node_map = build_node_map(model)
     views = parse_views(root=root, model=model)
-    elements = {e.id for e in model.elements}
     arrows = [(r.src, r.dst) for r in model.relations]
     legacy_count = sum(1 for r in model.relations if r.legacy)
     findings: list[str] = []
-    findings += check_claims(layout, node_claims(nodes))
-    findings += check_children(layout, nodes)
-    findings += check_arc42(root, index)
-    findings += check_model_identity(nodes=nodes, elements=elements)
-    findings += check_spec_mapping(root, index)
+    findings += check_claims(layout, node_map)
+    findings += check_arc42(root, index, node_map)
+    findings += check_spec_mapping(root, index, node_map)
     findings += check_legacy_ratchet(index, legacy_count)
-    findings += check_model_truth(layout=layout, nodes=nodes, arrows=arrows)
+    findings += check_model_truth(layout=layout, units=unit_to_element(node_map), arrows=arrows)
     findings += check_enforced_tags(root, load_config(root).issue_key_re())
     findings += check_diagrams_fresh(root=root, model=model, views=views)
     return findings

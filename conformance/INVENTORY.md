@@ -16,15 +16,18 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | `root_package` absent / empty / not a string | 2 | `arch-check-root-package-absent`, `arch-check-root-package-empty`, `arch-check-root-package-not-string` |
 | `root_package` dir missing (layout validation) | 2 | `arch-check-root-package-dir-missing` |
 | invalid `living-architecture.yaml` | 2 | `arch-check-config-invalid`, `arch-check-config-invalid-regex` |
+| *(new)* `nodes` in `index.yaml` | 2 | `arch-check-index-nodes-rejected` |
+| *(new)* node metadata violates the node schema: no block, no `package`, unknown key, scalar `claims`, the other variety's key | 2 | `arch-check-metadata-no-block`, `arch-check-metadata-missing-package`, `arch-check-metadata-unknown-key`, `arch-check-metadata-scalar-claims`, `arch-check-metadata-packages-on-precise`, `arch-check-metadata-package-on-virtual`, `arch-check-metadata-claims-on-virtual` |
+| *(new)* malformed metadata: repeated key, second block, double-quoted value, unclosed array; metadata (even an empty block) on a nested element | 2 | `arch-check-metadata-repeated-key`, `arch-check-metadata-second-block`, `arch-check-metadata-double-quoted`, `arch-check-metadata-unclosed-array`, `arch-check-metadata-on-nested-element`, `arch-check-metadata-empty-on-nested-element` |
 | claims-exist: package / claim missing on disk | 1 | `arch-check-claims-missing-package`, `arch-check-claims-missing-claim` |
 | claims-exactly-once: claimed twice | 1 | `arch-check-claims-duplicate-claim` |
 | claims-exactly-once: unclaimed top-level unit (non-units ignored) | 1 | `arch-check-claims-unclaimed-top-level` |
-| claims-exactly-once: child declared twice | 1 | `arch-check-claims-child-twice` |
-| claims-exactly-once: child collides with a declared unit | 1 | `arch-check-claims-child-collides` |
-| claims-exist: child missing on disk | 1 | `arch-check-claims-child-missing` |
-| claims-exist: virtual node with children | 1 | `arch-check-claims-virtual-children` |
+| claims-exactly-once: a model element's unit overlaps another node's declared unit (first in sorted order) | 1 | `arch-check-claims-child-collides`, `arch-check-model-descendant-collides` |
+| claims-exist: a model element's unit missing on disk, at any depth | 1 | `arch-check-claims-child-missing`, `arch-check-claims-model-child-missing`, `arch-check-model-grandchild-missing` |
+| claims-exist: virtual node containing elements (one finding; they map to no unit) | 1 | `arch-check-claims-virtual-children` |
+| *(new)* model elements governed by convention with no `index.yaml` entry: child, grandchild, virtual kind nested under a precise node; multi-line metadata arrays | 0/1 | `arch-check-model-child-governed`, `arch-check-model-grandchild-governed`, `arch-check-model-virtual-kind-nested`, `arch-check-metadata-multiline-array` |
+| no model files: no nodes, every top-level unit unclaimed | 1 | `arch-check-identity-no-model-files` |
 | arc42-exists: system doc / node doc / cross-cutting doc missing; orphan doc | 1 | `arch-check-arc42-system-missing`, `arch-check-arc42-node-doc-missing`, `arch-check-arc42-cross-cutting-missing`, `arch-check-arc42-orphan` |
-| model-identity: node / child not in model; element unmapped; no model files | 1 | `arch-check-identity-node-not-in-model`, `arch-check-identity-child-not-in-model`, `arch-check-identity-element-unmapped`, `arch-check-identity-no-model-files` |
 | spec-mapping: mapped twice; node and cross-cutting; unknown touched node | 1 | `arch-check-spec-mapped-twice`, `arch-check-spec-node-and-cross-cutting`, `arch-check-spec-touches-unknown-node` |
 | spec-mapping: unmapped dir; mapped dir missing; dir without spec.md; no openspec dir | 1 | `arch-check-spec-dir-unmapped`, `arch-check-spec-mapped-dir-missing`, `arch-check-spec-dir-without-spec-md`, `arch-check-spec-no-openspec-dir` |
 | baseline-ratchet: missing (absent, not a mapping, no key) | 1 | `arch-check-ratchet-missing`, `arch-check-ratchet-not-mapping`, `arch-check-ratchet-no-baseline-key` |
@@ -34,7 +37,7 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | model-truth measurement: witness order, TYPE_CHECKING forms, relative imports, root package, unmodelled modules, unclaimed sources | 0/1 | `arch-check-truth-witness-first-file`, `arch-check-truth-type-checking-excluded`, `arch-check-truth-type-checking-counted`, `arch-check-truth-type-checking-scopes`, `arch-check-truth-relative-imports`, `arch-check-truth-root-package-import`, `arch-check-truth-unmodelled-modules`, `arch-check-truth-unclaimed-source-skipped` |
 | enforced-tags: unclosed tag; `[review]` with text; no colon; empty id; multi-line id | 1 | `arch-check-tags-unclosed`, `arch-check-tags-review-with-text`, `arch-check-tags-no-colon`, `arch-check-tags-empty-id`, `arch-check-tags-multiline-id` |
 | enforced-tags: target id vs `issue_key_pattern` (default, custom, full match, quote repr) | 1 | `arch-check-tags-target-mismatch`, `arch-check-tags-target-quote`, `arch-check-tags-custom-issue-key-pattern`, `arch-check-tags-issue-key-full-match` |
-| enforced-tags: unknown enforcement id | 1 | `arch-check-tags-unknown-id`, `arch-check-tags-tag-in-node-doc` |
+| enforced-tags: unknown enforcement id (incl. the removed `model-identity`) | 1 | `arch-check-tags-unknown-id`, `arch-check-tags-tag-in-node-doc`, `arch-check-tags-model-identity-unknown` |
 | enforced-tags: principle item without a status tag (continuations, nesting, headings) | 1 | `arch-check-tags-untagged-item`, `arch-check-tags-item-continuation` |
 | diagrams-fresh: no diagrams block; block not a mapping | 1 | `arch-check-diagrams-block-absent`, `arch-check-diagrams-block-not-mapping` |
 | diagrams-fresh: bad key, non-list, empty list, invalid ids (`!r`), duplicate ids | 1 | `arch-check-diagrams-entry-errors`, `arch-check-diagrams-bad-view-ids` |
@@ -55,7 +58,7 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | fresh docs: nothing printed, nothing written | 0 | `arch-diagrams-noop-when-fresh` |
 | rewritten docs printed; rendering (nested, flat, predicates, several views and docs, title escape, virtual shape, legacy dashing) | 0 | `arch-diagrams-rewrite-hierarchical`, `arch-diagrams-rewrite-flat-depth-1`, `arch-diagrams-root-flag`, `arch-diagrams-predicates-and-multiple-views`, `arch-diagrams-title-escape-and-virtual-shape`, `arch-diagrams-legacy-only-when-all-contributors-are`, `arch-diagrams-crlf-outside-block-preserved` |
 | index missing / invalid YAML / not a mapping / no diagrams block / block not a mapping | 1 | `arch-diagrams-index-missing`, `arch-diagrams-index-invalid-yaml`, `arch-diagrams-index-not-mapping`, `arch-diagrams-no-diagrams-block`, `arch-diagrams-diagrams-not-mapping` |
-| model/views findings block generation | 1 | `arch-diagrams-parse-findings-block-generation` |
+| model/views findings block generation (incl. *(new)* malformed metadata) | 1 | `arch-diagrams-parse-findings-block-generation`, `arch-diagrams-malformed-metadata` |
 | key not an arc42 path (`!r`) | 1 | `arch-diagrams-key-not-arc42-path` |
 | view not defined (incl. no views.c4, string view list) | 1 | `arch-diagrams-view-not-defined`, `arch-diagrams-no-views-file`, `arch-diagrams-view-ids-string-iterates` |
 | missing / duplicate / out-of-order markers; earlier docs already written | 1 | `arch-diagrams-marker-missing`, `arch-diagrams-marker-duplicate`, `arch-diagrams-marker-order`, `arch-diagrams-first-error-stops-later-docs` |
@@ -163,8 +166,7 @@ These inputs crash today's tool with a traceback (exit 1). A traceback's module 
 survive the restructure, so the corpus does not pin them, and the post-change behaviour is not part of the
 contract:
 
-- `la-arch-check`: `index.yaml` that is not a mapping, a node without `package`, non-mapping node specs, a
-  syntax error in a measured `.py` file, non-list `children`/`claims`/`specs`
+- `la-arch-check`: a syntax error in a measured `.py` file
 - `la-arch-diagrams`: a `diagrams` entry whose view list is neither a list nor a string
 - `dr-compliance`, `dr-mock-lint`: a path that does not exist; `dr-mock-lint` on a file with a syntax error
 - `dr-refactor`: rope errors on a location that is not a renameable symbol

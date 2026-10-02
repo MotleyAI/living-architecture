@@ -6,12 +6,10 @@ from pathlib import Path
 import pytest
 
 from living_architecture import archcheck, c4, cli
+from living_architecture.contract import check_ids
 
 INDEX = """
 root_package: pkg
-nodes:
-  core: {package: pkg.core}
-  engine: {package: pkg.engine, arc42: architecture/engine.arc42.md}
 legacy_arrows: {baseline: 1}
 cross_cutting_specs:
   queries: {touches: [core, engine]}
@@ -25,8 +23,17 @@ specification {
   tag legacy
 }
 model {
-  core = node 'Core'
-  engine = node 'Engine'
+  core = node 'Core' {
+    metadata {
+      package 'pkg.core'
+    }
+  }
+  engine = node 'Engine' {
+    metadata {
+      package 'pkg.engine'
+      arc42 'architecture/engine.arc42.md'
+    }
+  }
   core -> engine #legacy
   engine -> core
 }
@@ -62,14 +69,6 @@ BASE_FILES = {
 
 CHILD_INDEX = """
 root_package: pkg
-nodes:
-  core:
-    package: pkg.core
-    children: [query, models]
-  engine:
-    package: pkg.engine
-    children: [syntax]
-    arc42: architecture/engine.arc42.md
 legacy_arrows: {baseline: 1}
 cross_cutting_specs:
   queries: {touches: [core, engine]}
@@ -84,10 +83,17 @@ specification {
 }
 model {
   core = node 'Core' {
+    metadata {
+      package 'pkg.core'
+    }
     query = node 'Query'
     models = node 'Models'
   }
   engine = node 'Engine' {
+    metadata {
+      package 'pkg.engine'
+      arc42 'architecture/engine.arc42.md'
+    }
     syntax = node 'Syntax'
   }
   core.query -> engine.syntax #legacy
@@ -114,14 +120,6 @@ CHILD_FILES = {
 
 GRAND_INDEX = """
 root_package: pkg
-nodes:
-  core:
-    package: pkg.core
-    children: [query]
-  engine:
-    package: pkg.engine
-    children: [syntax, syntax.deep]
-    arc42: architecture/engine.arc42.md
 legacy_arrows: {baseline: 0}
 cross_cutting_specs:
   queries: {touches: [core, engine]}
@@ -136,9 +134,16 @@ specification {
 }
 model {
   core = node 'Core' {
+    metadata {
+      package 'pkg.core'
+    }
     query = node 'Query'
   }
   engine = node 'Engine' {
+    metadata {
+      package 'pkg.engine'
+      arc42 'architecture/engine.arc42.md'
+    }
     syntax = node 'Syntax' {
       deep = node 'Deep'
     }
@@ -164,6 +169,11 @@ GRAND_FILES = {
     "pkg/engine/syntax/shallow.py": "",
     "pkg/engine/b.py": "import pkg.core\n",
 }
+
+
+MODEL_REL = "architecture/model/pkg.c4"
+CORE_PKG = "      package 'pkg.core'\n"
+ENGINE_ARC42 = "      arc42 'architecture/engine.arc42.md'\n"
 
 
 def write_repo(tmp_path: Path, files: dict[str, str]) -> Path:
@@ -220,13 +230,13 @@ def test_unclaimed_top_level_module(tmp_path):
 
 def test_duplicate_claim(tmp_path):
     root = make_repo(tmp_path)
-    edit(root, "architecture/index.yaml", "core: {package: pkg.core}", "core: {package: pkg.core, claims: [pkg.engine]}")
+    edit(root, MODEL_REL, CORE_PKG, CORE_PKG + "      claims ['pkg.engine']\n")
     assert any("pkg.engine" in f for f in findings_for(root, "claims-exactly-once"))
 
 
 def test_claimed_module_missing_on_disk(tmp_path):
     root = make_repo(tmp_path)
-    edit(root, "architecture/index.yaml", "core: {package: pkg.core}", "core: {package: pkg.core, claims: [pkg.ghost]}")
+    edit(root, MODEL_REL, CORE_PKG, CORE_PKG + "      claims ['pkg.ghost']\n")
     assert any("pkg.ghost" in f for f in findings_for(root, "claims-exist"))
 
 
@@ -256,16 +266,18 @@ def test_spec_group_without_spec_md(tmp_path):
     assert any("no spec.md" in f for f in findings_for(root, "spec-mapping"))
 
 
-def test_node_missing_from_model(tmp_path):
+def test_node_removed_from_model_claims_nothing(tmp_path):
     root = make_repo(tmp_path)
-    edit(root, "architecture/model/pkg.c4", "engine = node 'Engine'\n", "")
-    assert any("engine" in f for f in findings_for(root, "model-identity"))
+    edit(root, MODEL_REL, "  engine = node 'Engine' {\n    metadata {\n      package 'pkg.engine'\n" + ENGINE_ARC42 + "    }\n  }\n", "")
+    edit(root, MODEL_REL, "  core -> engine #legacy\n  engine -> core\n", "")
+    assert "claims-exactly-once: top-level pkg.engine is claimed by no node" in archcheck.run_checks(root)
 
 
-def test_extra_element_in_model(tmp_path):
+def test_top_level_element_without_metadata_is_a_setup_error(tmp_path):
     root = make_repo(tmp_path)
-    edit(root, "architecture/model/pkg.c4", "engine = node 'Engine'", "engine = node 'Engine'\n  ghost = node 'Ghost'")
-    assert any("ghost" in f for f in findings_for(root, "model-identity"))
+    edit(root, MODEL_REL, "  core -> engine #legacy\n", "  ghost = node 'Ghost'\n  core -> engine #legacy\n")
+    with pytest.raises(archcheck.ArchCheckError, match=r"model element ghost: .*package"):
+        archcheck.run_checks(root)
 
 
 def test_modeled_relation_without_measured_edge(tmp_path):
@@ -444,73 +456,370 @@ def test_legacy_arrows_negative_is_finding(tmp_path):
     assert any("legacy_arrows" in f for f in fs)
 
 
-# --------------------------------------------------------------------------- children schema
+# --------------------------------------------------------------------------- node mapping from model metadata
 
-
-def test_child_missing_on_disk_flagged(tmp_path):
-    index = CHILD_INDEX.replace("children: [query, models]", "children: [query, models, ghost]")
-    model = CHILD_MODEL.replace("    models = node 'Models'\n", "    models = node 'Models'\n    ghost = node 'Ghost'\n")
-    root = make_child_repo(tmp_path, index=index, model=model)
-    assert any("ghost" in f for f in findings_for(root, "claims-exist"))
-
-
-def test_duplicate_child_flagged(tmp_path):
-    index = CHILD_INDEX.replace("children: [query, models]", "children: [query, query, models]")
-    root = make_child_repo(tmp_path, index=index)
-    assert any("query" in f for f in findings_for(root, "claims-exactly-once"))
-
-
-def test_children_on_virtual_node_flagged(tmp_path):
-    index = """
-    root_package: pkg
-    nodes:
-      core: {package: pkg.core}
-      misc:
-        virtual: true
-        packages: [pkg.misc]
-        children: [x]
-    legacy_arrows: {baseline: 0}
-    diagrams:
-      architecture/system.arc42.md: [land]
-    """
-    model = """
-    specification {
-      element node
-      element bucket {
-        #virtual
-      }
+SCENARIO_MODEL = """
+specification {
+  element node
+  element bucket {
+    #virtual
+  }
+}
+model {
+  api = node 'API' {
+    metadata {
+      package 'pkg.api'
     }
-    model {
-      core = node 'Core'
-      misc = bucket 'Misc' {
-        x = node 'X'
-      }
+    handlers = node 'Handlers'
+  }
+  core = node 'Core' {
+    metadata {
+      package 'pkg.core'
     }
-    """
+  }
+  store = node 'Store' {
+    metadata {
+      package 'pkg.store'
+    }
+  }
+  api.handlers -> core
+}
+"""
+
+SCENARIO_FILES = {
+    "architecture/index.yaml": "root_package: pkg\nlegacy_arrows: {baseline: 0}\ndiagrams:\n  architecture/system.arc42.md: [land]\n",
+    "architecture/model/pkg.c4": SCENARIO_MODEL,
+    "architecture/views.c4": VIEWS,
+    "architecture/system.arc42.md": SYSTEM_MD,
+    "pkg/__init__.py": "",
+    "pkg/api/__init__.py": "",
+    "pkg/api/handlers/__init__.py": "from pkg.core import x\nimport pkg.store\n",
+    "pkg/core/__init__.py": "x = 1\n",
+    "pkg/store/__init__.py": "",
+}
+
+
+def make_scenario_repo(tmp_path: Path, *edits: tuple[str, str], files: dict[str, str] | None = None) -> Path:
+    model = SCENARIO_MODEL
+    for old, new in edits:
+        assert old in model, old
+        model = model.replace(old, new)
+    return write_repo(tmp_path, {**SCENARIO_FILES, MODEL_REL: model, **(files or {})})
+
+
+HANDLERS = "    handlers = node 'Handlers'\n"
+HANDLERS_TO_STORE = (
+    "model-truth: measured runtime edge api.handlers -> store is missing from the model"
+    " (import pkg.api.handlers -> pkg.store)"
+)
+
+
+def test_node_mapping_read_from_metadata(tmp_path):
     files = {
-        "architecture/index.yaml": index,
-        "architecture/model/pkg.c4": model,
+        "architecture/index.yaml": "root_package: pkg\nlegacy_arrows: {baseline: 0}\ndiagrams:\n  architecture/system.arc42.md: [land]\n",
+        MODEL_REL: "specification { element node }\nmodel {\n  api = node 'API' { metadata { package 'pkg.api'  specs ['api'] } }\n}\n",
         "architecture/views.c4": VIEWS,
         "architecture/system.arc42.md": SYSTEM_MD,
+        "openspec/specs/api/spec.md": "# spec\n",
         "pkg/__init__.py": "",
-        "pkg/core/__init__.py": "",
-        "pkg/misc/__init__.py": "",
-        "pkg/misc/x.py": "",
+        "pkg/api/__init__.py": "",
     }
+    assert archcheck.run_checks(write_repo(tmp_path, files)) == []
+
+
+def test_virtual_node_maps_buckets(tmp_path):
+    root = make_scenario_repo(
+        tmp_path,
+        ("  api.handlers -> core\n", "  legacy = bucket 'Legacy' {\n    metadata {\n      packages ['pkg.old']\n    }\n  }\n  api.handlers -> core\n"),
+        files={"pkg/old.py": "import pkg.core\n"},
+    )
+    assert archcheck.run_checks(root) == [
+        HANDLERS_TO_STORE,
+        "model-truth: measured runtime edge legacy -> core is missing from the model (import pkg.old -> pkg.core)",
+    ]
+
+
+def test_multi_line_claims_read_like_one_line(tmp_path):
+    one_line = make_scenario_repo(tmp_path / "one", ("      package 'pkg.core'\n", "      package 'pkg.core'\n      claims ['pkg.a', 'pkg.b']\n"))
+    split = make_scenario_repo(
+        tmp_path / "split", ("      package 'pkg.core'\n", "      package 'pkg.core'\n      claims [\n        'pkg.a',\n        'pkg.b'\n      ]\n")
+    )
+    assert archcheck.run_checks(split) == archcheck.run_checks(one_line)
+    assert "claims-exist: core claims pkg.b, which does not exist on disk" in archcheck.run_checks(split)
+
+
+def test_no_model_files_means_no_nodes(tmp_path):
+    root = make_scenario_repo(tmp_path)
+    (root / MODEL_REL).unlink()
+    fs = findings_for(root, "claims-exactly-once")
+    assert fs == [f"claims-exactly-once: top-level pkg.{unit} is claimed by no node" for unit in ("api", "core", "store")]
+
+
+def test_model_child_governed_with_no_index_entry(tmp_path):
+    root = make_scenario_repo(tmp_path)
+    assert "handlers" not in (root / "architecture" / "index.yaml").read_text(encoding="utf-8")
+    assert archcheck.run_checks(root) == [
+        HANDLERS_TO_STORE
+    ]
+
+
+def test_model_child_governs_license(tmp_path):
+    root = make_scenario_repo(tmp_path)
+    assert archcheck.license(root=root, src="pkg.api.handlers", dst="pkg.core")
+    assert not archcheck.license(root=root, src="pkg.api.handlers", dst="pkg.store")
+    assert not archcheck.license(root=root, src="pkg.api", dst="pkg.core")
+
+
+def test_grandchild_governed(tmp_path):
+    root = make_scenario_repo(
+        tmp_path,
+        (HANDLERS, "    handlers = node 'Handlers' {\n      x = node 'X'\n    }\n"),
+        files={"pkg/api/handlers/__init__.py": "from pkg.core import x\n", "pkg/api/handlers/x.py": "import pkg.store\n"},
+    )
+    assert archcheck.run_checks(root) == [
+        ("model-truth: measured runtime edge api.handlers.x -> store is missing from the model"
+        " (import pkg.api.handlers.x -> pkg.store)")
+    ]
+
+
+def test_model_child_missing_on_disk(tmp_path, capsys):
+    root = make_scenario_repo(tmp_path, ("      package 'pkg.core'\n    }\n", "      package 'pkg.core'\n    }\n    inner = node 'Inner'\n"))
+    assert "claims-exist: element core.inner maps to pkg.core.inner, which does not exist on disk" in findings_for(
+        root, "claims-exist"
+    )
+    assert cli.la_arch_check(["--root", str(root)]) == 1
+    assert "core.inner" in capsys.readouterr().out
+
+
+def test_grandchild_missing_on_disk(tmp_path):
+    root = make_scenario_repo(tmp_path, (HANDLERS, "    handlers = node 'Handlers' {\n      y = node 'Y'\n    }\n"))
+    assert findings_for(root, "claims-exist") == [
+        "claims-exist: element api.handlers.y maps to pkg.api.handlers.y, which does not exist on disk"
+    ]
+
+
+def test_child_collides_with_another_nodes_claim(tmp_path):
+    root = make_scenario_repo(tmp_path, ("      package 'pkg.core'\n", "      package 'pkg.core'\n      claims ['pkg.api.handlers']\n"))
+    assert (
+        "claims-exactly-once: element api.handlers (pkg.api.handlers) collides with declared unit pkg.api.handlers"
+        in findings_for(root, "claims-exactly-once")
+    )
+
+
+def test_collision_names_the_first_overlapping_unit_in_sorted_order(tmp_path):
+    root = make_scenario_repo(
+        tmp_path,
+        ("      package 'pkg.core'\n", "      package 'pkg.core'\n      claims ['pkg.api.handlers.z', 'pkg.api.handlers']\n"),
+        files={"pkg/api/handlers/z.py": ""},
+    )
+    collides = [f for f in findings_for(root, "claims-exactly-once") if "collides" in f]
+    assert collides == [
+        "claims-exactly-once: element api.handlers (pkg.api.handlers) collides with declared unit pkg.api.handlers"
+    ]
+
+
+def test_own_claims_are_collision_candidates_but_own_package_is_not(tmp_path):
+    root = make_scenario_repo(tmp_path, ("      package 'pkg.api'\n", "      package 'pkg.api'\n      claims ['pkg.api.handlers']\n"))
+    assert [f for f in findings_for(root, "claims-exactly-once") if "collides" in f] == [
+        "claims-exactly-once: element api.handlers (pkg.api.handlers) collides with declared unit pkg.api.handlers"
+    ]
+
+
+def test_descendants_of_one_node_do_not_collide(tmp_path):
+    root = make_scenario_repo(
+        tmp_path,
+        (HANDLERS, "    handlers = node 'Handlers' {\n      x = node 'X'\n    }\n"),
+        files={"pkg/api/handlers/x.py": ""},
+    )
+    assert findings_for(root, "claims-exactly-once") == []
+    assert findings_for(root, "claims-exist") == []
+
+
+def test_virtual_node_containing_elements_yields_one_finding(tmp_path):
+    root = make_scenario_repo(
+        tmp_path,
+        ("  api.handlers -> core\n", ("  misc = bucket 'Misc' {\n    metadata {\n      packages ['pkg.misc']\n    }\n"
+                                       "    x = node 'X'\n    y = node 'Y'\n  }\n  api.handlers -> core\n")),
+        files={"pkg/misc/__init__.py": "", "pkg/misc/x.py": ""},
+    )
+    assert findings_for(root, "claims-exist") == ["claims-exist: virtual node misc may not contain elements"]
+    assert findings_for(root, "claims-exactly-once") == []
+
+
+def test_elements_under_a_virtual_node_map_to_no_unit(tmp_path):
+    root = make_scenario_repo(
+        tmp_path,
+        ("  api.handlers -> core\n", ("  misc = bucket 'Misc' {\n    metadata {\n      packages ['pkg.misc']\n    }\n"
+                                       "    x = node 'X'\n  }\n  api.handlers -> core\n  misc.x -> core\n")),
+        files={"pkg/misc/__init__.py": "", "pkg/misc/x.py": "import pkg.core\n"},
+    )
+    assert findings_for(root, "model-truth") == [
+        HANDLERS_TO_STORE,
+        "model-truth: measured runtime edge misc -> core is missing from the model (import pkg.misc.x -> pkg.core)",
+        "model-truth: modeled relation misc.x -> core has no measured runtime edge",
+    ]
+    assert not archcheck.license(root=root, src="pkg.misc.x", dst="pkg.core")
+
+
+def test_virtual_kind_element_nested_under_precise_node_maps_by_convention(tmp_path):
+    root = make_scenario_repo(tmp_path, (HANDLERS, "    handlers = bucket 'Handlers'\n"))
+    assert archcheck.run_checks(root) == [
+        HANDLERS_TO_STORE
+    ]
+
+
+def test_duplicate_claim_attributes_to_the_first_node_in_model_order(tmp_path):
+    root = make_repo(tmp_path)
+    edit(root, MODEL_REL, CORE_PKG, CORE_PKG + "      claims ['pkg.shared']\n")
+    edit(root, MODEL_REL, ENGINE_ARC42, ENGINE_ARC42 + "      claims ['pkg.shared']\n")
+    edit(root, MODEL_REL, "  engine -> core\n", "")
+    (root / "pkg" / "engine" / "b.py").write_text("", encoding="utf-8")
+    (root / "pkg" / "shared.py").write_text("import pkg.core.a\n", encoding="utf-8")
+    assert findings_for(root, "claims-exactly-once") == ["claims-exactly-once: pkg.shared claimed by both core and engine"]
+    assert findings_for(root, "model-truth") == []
+    assert archcheck.license(root=root, src="pkg.shared", dst="pkg.core.a")
+
+
+def test_model_child_units_resolve_under_source_root(tmp_path):
+    files = {(f"src/{rel}" if rel.startswith("pkg/") else rel): text for rel, text in SCENARIO_FILES.items()}
+    files["architecture/index.yaml"] = "source_root: src\n" + SCENARIO_FILES["architecture/index.yaml"]
     root = write_repo(tmp_path, files)
-    assert any("misc" in f and "virtual" in f for f in findings_for(root, "claims-exist"))
+    assert findings_for(root, "claims-exist") == []
+    assert findings_for(root, "model-truth") == [
+        HANDLERS_TO_STORE
+    ]
 
 
-def test_index_child_missing_from_model_flagged(tmp_path):
-    model = CHILD_MODEL.replace("    models = node 'Models'\n", "").replace("  core.query -> core.models\n", "")
+# --------------------------------------------------------------------------- malformed node metadata (setup errors)
+
+
+@pytest.mark.parametrize(
+    ("old", "new", "pattern"),
+    [
+        (CORE_PKG, "      arc42 'architecture/engine.arc42.md'\n", r"model element core: .*package"),
+        (CORE_PKG, CORE_PKG + "      pakage 'pkg.core'\n", r"model element core: .*pakage"),
+        (CORE_PKG, CORE_PKG + "      claims 'pkg.engine'\n", r"model element core: .*claims"),
+        (CORE_PKG, CORE_PKG + "      specs 'queries'\n", r"model element core: .*specs"),
+        (ENGINE_ARC42, "      arc42 ['architecture/engine.arc42.md']\n", r"model element engine: .*arc42"),
+        (CORE_PKG, CORE_PKG + "      packages ['pkg.core']\n", r"model element core: .*packages"),
+        (CORE_PKG, CORE_PKG + "      virtual 'true'\n", r"model element core: .*virtual"),
+    ],
+    ids=["no-package", "unknown-key", "scalar-claims", "scalar-specs", "list-arc42", "packages-on-precise", "virtual-key"],
+)
+def test_metadata_schema_violation_is_a_setup_error(tmp_path, old, new, pattern):
+    root = make_repo(tmp_path)
+    edit(root, MODEL_REL, old, new)
+    with pytest.raises(archcheck.ArchCheckError, match=pattern):
+        archcheck.run_checks(root)
+
+
+VIRTUAL_MODEL = SCENARIO_MODEL.replace(
+    "  api.handlers -> core\n", "  misc = bucket 'Misc' {\n    metadata {\n      packages ['pkg.misc']\n    }\n  }\n  api.handlers -> core\n"
+)
+
+
+@pytest.mark.parametrize(
+    ("new", "key"),
+    [("      package 'pkg.misc'\n", "package"), ("      packages ['pkg.misc']\n      claims ['pkg.misc']\n", "claims")],
+    ids=["package", "claims"],
+)
+def test_precise_keys_on_a_virtual_node_are_a_setup_error(tmp_path, new, key):
+    model = VIRTUAL_MODEL.replace("      packages ['pkg.misc']\n", new)
+    root = write_repo(tmp_path, {**SCENARIO_FILES, MODEL_REL: model, "pkg/misc/__init__.py": ""})
+    with pytest.raises(archcheck.ArchCheckError, match=rf"model element misc: .*'?{key}'?"):
+        archcheck.run_checks(root)
+
+
+def test_virtual_node_needs_no_metadata(tmp_path):
+    model = VIRTUAL_MODEL.replace("    metadata {\n      packages ['pkg.misc']\n    }\n", "")
+    root = write_repo(tmp_path, {**SCENARIO_FILES, MODEL_REL: model})
+    assert findings_for(root, "claims-exist") == []
+    assert findings_for(root, "claims-exactly-once") == []
+
+
+@pytest.mark.parametrize("body", ["        package 'pkg.core.query'\n", ""], ids=["with-keys", "empty"])
+def test_metadata_on_a_nested_element_is_a_setup_error(tmp_path, body):
+    model = CHILD_MODEL.replace("    query = node 'Query'\n", f"    query = node 'Query' {{\n      metadata {{\n{body}      }}\n    }}\n")
     root = make_child_repo(tmp_path, model=model)
-    assert any("core.models" in f for f in findings_for(root, "model-identity"))
+    with pytest.raises(archcheck.ArchCheckError) as excinfo:
+        archcheck.run_checks(root)
+    assert str(excinfo.value) == "model element core.query: nested elements may not carry metadata"
 
 
-def test_model_child_unknown_to_index_flagged(tmp_path):
-    model = CHILD_MODEL.replace("    models = node 'Models'\n", "    models = node 'Models'\n    extra = node 'Extra'\n")
-    root = make_child_repo(tmp_path, model=model)
-    assert any("core.extra" in f for f in findings_for(root, "model-identity"))
+@pytest.mark.parametrize(
+    ("old", "new", "error"),
+    [
+        (CORE_PKG, CORE_PKG + "      package 'pkg.other'\n", "element core has malformed metadata: package 'pkg.other'"),
+        (CORE_PKG + "    }\n", CORE_PKG + "    }\n    metadata {\n      claims ['pkg.x']\n    }\n", "element core has malformed metadata: metadata {"),
+        (CORE_PKG, '      package "pkg.core"\n', 'element core has malformed metadata: package "pkg.core"'),
+        (CORE_PKG, CORE_PKG + "      claims ['pkg.engine'\n", "element core has malformed metadata: "),
+        (CORE_PKG, CORE_PKG + "      claims ['pkg.engine', ]\n", "element core has malformed metadata: "),
+    ],
+    ids=["repeated-key", "second-block", "double-quoted", "unclosed-array", "trailing-comma"],
+)
+def test_malformed_metadata_is_a_setup_error(tmp_path, old, new, error):
+    root = make_repo(tmp_path)
+    edit(root, MODEL_REL, old, new)
+    with pytest.raises(archcheck.ArchCheckError) as excinfo:
+        archcheck.run_checks(root)
+    assert error in str(excinfo.value)
+
+
+def test_metadata_problems_are_reported_together_in_model_order(tmp_path):
+    root = make_repo(tmp_path)
+    edit(root, MODEL_REL, ENGINE_ARC42, ENGINE_ARC42 + "      colour 'red'\n")
+    edit(root, MODEL_REL, CORE_PKG, CORE_PKG + "      pakage 'pkg.core'\n")
+    with pytest.raises(archcheck.ArchCheckError) as excinfo:
+        archcheck.run_checks(root)
+    message = str(excinfo.value)
+    assert "; " in message
+    assert message.index("model element core: ") < message.index("model element engine: ")
+    assert "pakage" in message
+    assert "colour" in message
+
+
+def test_every_kind_of_metadata_problem_is_joined_in_model_order(tmp_path):
+    model = CHILD_MODEL.replace(CORE_PKG, CORE_PKG + "      package 'pkg.other'\n").replace(
+        "    query = node 'Query'\n", "    query = node 'Query' {\n      metadata {\n        package 'pkg.core.query'\n      }\n    }\n"
+    ).replace(ENGINE_ARC42, ENGINE_ARC42 + "      pakage 'pkg.engine'\n")
+    root = make_child_repo(tmp_path)
+    (root / MODEL_REL).write_text(model, encoding="utf-8")
+    with pytest.raises(archcheck.ArchCheckError) as excinfo:
+        archcheck.run_checks(root)
+    parts = str(excinfo.value).split("; ")
+    assert parts[:2] == [
+        "element core has malformed metadata: package 'pkg.other'",
+        "model element core.query: nested elements may not carry metadata",
+    ]
+    assert len(parts) == 3
+    assert parts[2].startswith("model element engine: ")
+    assert "pakage" in parts[2]
+
+
+def test_malformed_metadata_exits_2_naming_the_element(tmp_path, capsys):
+    root = make_repo(tmp_path)
+    edit(root, MODEL_REL, CORE_PKG, CORE_PKG + "      pakage 'pkg.core'\n")
+    assert cli.la_arch_check(["--root", str(root)]) == 2
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err.startswith("arch_check: model element core: ")
+    assert "pakage" in captured.err
+
+
+def test_nodes_in_index_yaml_is_a_setup_error(tmp_path):
+    root = make_repo(tmp_path)
+    append(root, "architecture/index.yaml", "nodes:\n  core: {package: pkg.core}\n")
+    with pytest.raises(archcheck.ArchCheckError, match="nodes"):
+        archcheck.run_checks(root)
+
+
+def test_model_identity_is_not_a_check_id(tmp_path):
+    assert "model-identity" not in check_ids()
+    root = make_repo(tmp_path)
+    append(root, "architecture/system.arc42.md", "3. Identity. [enforced: arch_check:model-identity]\n")
+    assert "enforced-tags: system.arc42.md tags unknown enforcement id 'arch_check:model-identity'" in findings_for(
+        root, "enforced-tags"
+    )
 
 
 # --------------------------------------------------------------------------- law: attribution
@@ -668,22 +977,15 @@ def test_internal_arrow_not_licensed_by_license_helper(tmp_path):
 
 
 def test_child_path_colliding_with_claim_flagged(tmp_path):
-    index = CHILD_INDEX.replace(
-        "    children: [syntax]\n    arc42: architecture/engine.arc42.md",
-        "    children: [syntax]\n    claims: [pkg.core.query]\n    arc42: architecture/engine.arc42.md",
-    )
-    root = make_child_repo(tmp_path, index=index)
+    model = CHILD_MODEL.replace(ENGINE_ARC42, ENGINE_ARC42 + "      claims ['pkg.core.query']\n")
+    root = make_child_repo(tmp_path, model=model)
     assert any("collides" in f and "pkg.core.query" in f for f in findings_for(root, "claims-exactly-once"))
 
 
 def test_child_path_nested_under_claim_flagged(tmp_path):
-    """Hierarchical overlap, not just exact: a claim nested inside a declared child's subtree
-    still splits it across nodes, since `_attribute` resolves by longest prefix."""
-    index = CHILD_INDEX.replace(
-        "    children: [syntax]\n    arc42: architecture/engine.arc42.md",
-        "    children: [syntax]\n    claims: [pkg.core.query.helpers]\n    arc42: architecture/engine.arc42.md",
-    )
-    root = make_child_repo(tmp_path, index=index)
+    """A claim nested inside a model child's subtree also splits it across nodes."""
+    model = CHILD_MODEL.replace(ENGINE_ARC42, ENGINE_ARC42 + "      claims ['pkg.core.query.helpers']\n")
+    root = make_child_repo(tmp_path, model=model)
     assert any("collides" in f and "pkg.core.query" in f for f in findings_for(root, "claims-exactly-once"))
 
 
@@ -941,9 +1243,7 @@ def test_main_without_index(tmp_path, capsys):
     ("old", "new", "named"),
     [
         ("legacy_arrows:", "bogus_key: 1\nlegacy_arrows:", "bogus_key"),
-        ("core: {package: pkg.core}", "core: {package: pkg.core, colour: red}", "colour"),
-        ("core: {package: pkg.core}", "core: {package: pkg.core, children: core}", "children"),
-        ("core: {package: pkg.core}", "core: {claims: [pkg.core]}", "package"),
+        ("legacy_arrows:", "nodes: {}\nlegacy_arrows:", "nodes"),
     ],
 )
 def test_index_schema_violation_is_a_setup_error(tmp_path, old, new, named):
@@ -958,12 +1258,6 @@ def test_index_not_a_mapping_is_a_setup_error(tmp_path):
     (root / "architecture" / "index.yaml").write_text("- root_package\n", encoding="utf-8")
     with pytest.raises(archcheck.ArchCheckError, match="mapping"):
         archcheck.run_checks(root)
-
-
-def test_virtual_node_needs_no_package(tmp_path):
-    root = make_repo(tmp_path)
-    edit(root, "architecture/index.yaml", "core: {package: pkg.core}", "core: {virtual: true, packages: [pkg.core]}")
-    assert not any("package" in f for f in archcheck.run_checks(root) if f.startswith("claims-"))
 
 
 def test_layout_defaults_source_root_to_repo_root(tmp_path):

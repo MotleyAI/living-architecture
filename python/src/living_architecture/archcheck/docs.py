@@ -1,25 +1,25 @@
-"""arc42-exists, model-identity, spec-mapping and baseline-ratchet (all read from the repo root)."""
+"""arc42-exists, spec-mapping and baseline-ratchet (all read from the repo root)."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
+from living_architecture.archcheck.nodes import NodeMap
 from living_architecture.contract import message
 
 SYSTEM_DOC = "architecture/system.arc42.md"
 
 
-def check_arc42(root: Path, index: dict) -> list[str]:
+def check_arc42(root: Path, index: dict, node_map: NodeMap) -> list[str]:
     findings: list[str] = []
     if not (root / SYSTEM_DOC).is_file():
         findings.append(message("arc42-exists.system-missing", doc=SYSTEM_DOC))
     registered = {SYSTEM_DOC}
-    for node_id, spec in index.get("nodes", {}).items():
-        arc42 = spec.get("arc42")
-        if arc42:
-            registered.add(arc42)
-            if not (root / arc42).is_file():
-                findings.append(message("arc42-exists.node-doc-missing", node=node_id, doc=arc42))
+    for node in node_map.nodes:
+        if node.arc42:
+            registered.add(node.arc42)
+            if not (root / node.arc42).is_file():
+                findings.append(message("arc42-exists.node-doc-missing", node=node.id, doc=node.arc42))
     for entry in index.get("cross_cutting_arc42", []):
         registered.add(entry)
         if not (root / entry).is_file():
@@ -31,33 +31,15 @@ def check_arc42(root: Path, index: dict) -> list[str]:
     return findings
 
 
-def _declared_children(nodes: dict) -> set[str]:
-    return {f"{node_id}.{child}" for node_id, spec in nodes.items() for child in spec.get("children", [])}
-
-
-def check_model_identity(nodes: dict, elements: set[str]) -> list[str]:
-    findings: list[str] = []
-    children = _declared_children(nodes)
-    for node_id in nodes:
-        if node_id not in elements:
-            findings.append(message("model-identity.node", node=node_id))
-    for child in sorted(children):
-        if child not in elements:
-            findings.append(message("model-identity.child", child=child))
-    for element in sorted(elements - set(nodes) - children):
-        findings.append(message("model-identity.element", element=element))
-    return findings
-
-
-def _mapped_spec_groups(index: dict, findings: list[str]) -> dict[str, str]:
+def _mapped_spec_groups(index: dict, node_map: NodeMap, findings: list[str]) -> dict[str, str]:
     """Spec group -> owning node (or cross_cutting_specs), appending duplicate-mapping findings."""
-    nodes = index.get("nodes", {})
+    nodes = node_map.node_ids()
     mapped: dict[str, str] = {}
-    for node_id, spec in nodes.items():
-        for group in spec.get("specs", []):
+    for node in node_map.nodes:
+        for group in node.specs:
             if group in mapped:
-                findings.append(message("spec-mapping.mapped-twice", group=group, first=mapped[group], second=node_id))
-            mapped[group] = node_id
+                findings.append(message("spec-mapping.mapped-twice", group=group, first=mapped[group], second=node.id))
+            mapped[group] = node.id
     for group, spec in index.get("cross_cutting_specs", {}).items():
         if group in mapped:
             findings.append(
@@ -70,9 +52,9 @@ def _mapped_spec_groups(index: dict, findings: list[str]) -> dict[str, str]:
     return mapped
 
 
-def check_spec_mapping(root: Path, index: dict) -> list[str]:
+def check_spec_mapping(root: Path, index: dict, node_map: NodeMap) -> list[str]:
     findings: list[str] = []
-    mapped = _mapped_spec_groups(index, findings)
+    mapped = _mapped_spec_groups(index, node_map, findings)
     specs_dir = root / "openspec" / "specs"
     on_disk = {p.name for p in specs_dir.iterdir() if p.is_dir()} if specs_dir.is_dir() else set()
     for group in sorted(on_disk - set(mapped)):

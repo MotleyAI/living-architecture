@@ -1,0 +1,13 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+fixture: arch-ok
+expect:
+  exit: 2
+  stderr:
+    contains:
+    - 'model element store: '
+    - 'pakage'
+golden: manual
+note: 'metadata keys come only from the node schema'

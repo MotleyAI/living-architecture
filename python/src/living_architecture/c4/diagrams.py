@@ -89,7 +89,7 @@ def generate(root: Path) -> list[str]:
         raise DiagramsError(_bad_diagrams_reason(diagrams))
     model = parse_model(root)
     views = parse_views(root=root, model=model)
-    problems = model.findings + views.findings
+    problems = model.findings + model.metadata_findings + views.findings
     if problems:
         raise DiagramsError(message("arch-diagrams.parse-findings", findings="\n".join(problems)))
     by_id = {v.id: v for v in views.views}

@@ -1,0 +1,12 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+fixture: arch-ok
+expect:
+  exit: 2
+  stderr:
+    contains:
+    - 'element core has malformed metadata'
+golden: manual
+note: 'an array must close inside the block'

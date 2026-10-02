@@ -7,7 +7,6 @@ check_ids:
   - claims-exist
   - claims-exactly-once
   - arc42-exists
-  - model-identity
   - spec-mapping
   - baseline-ratchet
   - model-truth
@@ -28,23 +27,20 @@ findings:
   arch-check.root-package-not-canonical: 'architecture/index.yaml: root_package {value!r} must not have empty or ''.'' segments'
   arch-check.root-package-escapes: 'architecture/index.yaml: root_package {value!r} resolves outside source_root {source_root!r}'
   arch-check.root-package-not-a-directory: 'architecture/index.yaml: root_package {value!r} is not a directory under source_root {source_root!r}'
+  arch-check.metadata-invalid: 'model element {element}: {error}'
+  arch-check.metadata-on-nested: 'model element {element}: nested elements may not carry metadata'
 
   claims-exist.unit-missing: 'claims-exist: {node} claims {unit}, which does not exist on disk'
-  claims-exist.child-missing: 'claims-exist: {node} declares child {child}, which does not exist on disk'
-  claims-exist.virtual-children: 'claims-exist: virtual node {node} may not declare children'
+  claims-exist.child-missing: 'claims-exist: element {element} maps to {unit}, which does not exist on disk'
+  claims-exist.virtual-children: 'claims-exist: virtual node {node} may not contain elements'
   claims-exactly-once.claimed-twice: 'claims-exactly-once: {unit} claimed by both {first} and {second}'
   claims-exactly-once.unclaimed: 'claims-exactly-once: top-level {unit} is claimed by no node'
-  claims-exactly-once.child-twice: 'claims-exactly-once: {node} declares child {child} more than once'
-  claims-exactly-once.child-collides: 'claims-exactly-once: {node} child {child} ({unit}) collides with declared unit {clash}'
+  claims-exactly-once.child-collides: 'claims-exactly-once: element {element} ({unit}) collides with declared unit {clash}'
 
   arc42-exists.system-missing: 'arc42-exists: {doc} is missing'
   arc42-exists.node-doc-missing: 'arc42-exists: {node} names {doc}, which does not exist'
   arc42-exists.cross-cutting-missing: 'arc42-exists: cross_cutting_arc42 names {doc}, which does not exist'
   arc42-exists.orphan: 'arc42-exists: {doc} is orphaned — not {system}, a node arc42 entry, or in cross_cutting_arc42'
-
-  model-identity.node: 'model-identity: node {node} is not declared as an element in model/*.c4'
-  model-identity.child: 'model-identity: child {child} is not declared as an element in model/*.c4'
-  model-identity.element: 'model-identity: element {element} maps to no node or declared child in index.yaml'
 
   spec-mapping.mapped-twice: 'spec-mapping: {group} mapped by both {first} and {second}'
   spec-mapping.unknown-node: 'spec-mapping: {group} touches unknown node {node}'
@@ -75,6 +71,7 @@ findings:
   c4.relation-in-body: relation {src} -> {dst} inside element body {parent}
   c4.duplicate-relation: duplicate relation {src} -> {dst}
   c4.unrecognized-model-line: 'unrecognized model line: {line}'
+  c4.malformed-metadata: 'element {element} has malformed metadata: {line}'
   c4.include-unknown: view include {form} references unknown id {name}
   c4.include-non-top-level: view include {form} references non-top-level id {name}
   c4.star-to-star: 'view {view}: ''* -> *'' is not supported'

@@ -1,0 +1,2 @@
+claims-exist: element core.inner maps to pkg.core.inner, which does not exist on disk
+arch_check: 1 finding(s)

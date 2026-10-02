@@ -1,0 +1,9 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+fixture: arch-ok
+expect:
+  exit: 1
+golden: manual
+note: 'a nested element maps to <package>.<path> with no index.yaml entry'

@@ -51,7 +51,10 @@ each slice still gets its own issue, branch, and PR.
    - grep the string-only refs no static tool sees, for every moved dotted
      path: `patch("...")`, `importlib`, `getattr(`, `__all__`, pyproject
      entry points/scripts, config files, docs.
-6. **Sync views & arc42:** adjust views if the node shape changed; re-validate
+6. **Sync views & arc42:** adjust views if the node shape changed (an
+   extracted node is a top-level model element with its own
+   `metadata { package '…' }`; a nested element maps to `<package>.<path>` by
+   convention, with no `index.yaml` entry); re-validate
    the model (`la-arch-diagrams` refreshes the embedded view diagrams); update
    arc42 rationale/principles if the slice established a new
    rule — ideally tagged `[enforced: <the check/test that now holds>]`.

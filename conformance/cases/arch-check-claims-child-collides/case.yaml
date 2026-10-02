@@ -5,4 +5,4 @@ command: la-arch-check
 fixture: arch-ok
 expect:
   exit: 1
-note: 'a single collision only: with several, the reported unit depends on set order'
+note: 'a single collision; sorted candidate order is pinned by arch-check-model-descendant-collides'

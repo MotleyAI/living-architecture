@@ -1,0 +1,13 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+fixture: arch-ok
+expect:
+  exit: 2
+  stderr:
+    contains:
+    - 'model element legacy: '
+    - 'claims'
+golden: manual
+note: 'claims belongs to precise nodes only'
