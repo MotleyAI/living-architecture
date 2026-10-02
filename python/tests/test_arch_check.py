@@ -781,7 +781,8 @@ def test_every_kind_of_metadata_problem_is_joined_in_model_order(tmp_path):
     model = CHILD_MODEL.replace(CORE_PKG, CORE_PKG + "      package 'pkg.other'\n").replace(
         "    query = node 'Query'\n", "    query = node 'Query' {\n      metadata {\n        package 'pkg.core.query'\n      }\n    }\n"
     ).replace(ENGINE_ARC42, ENGINE_ARC42 + "      pakage 'pkg.engine'\n")
-    root = make_child_repo(tmp_path, model=model)
+    root = make_child_repo(tmp_path)
+    (root / MODEL_REL).write_text(model, encoding="utf-8")
     with pytest.raises(archcheck.ArchCheckError) as excinfo:
         archcheck.run_checks(root)
     parts = str(excinfo.value).split("; ")

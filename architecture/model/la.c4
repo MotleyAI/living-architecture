@@ -4,16 +4,57 @@ specification {
   tag virtual
 }
 model {
-  contract = node 'Shared contract'
-  config = node 'Config'
-  cli = node 'CLI'
-  c4 = node 'LikeC4 model'
-  archcheck = node 'Architecture check'
-  lang = node 'Language adapter'
-  conventions = node 'Conventions and comments'
-  review = node 'Review shims'
-  doctor = node 'Doctor'
-  refactor = node 'Deterministic refactoring'
+  contract = node 'Shared contract' {
+    metadata {
+      package 'living_architecture.contract'
+    }
+  }
+  config = node 'Config' {
+    metadata {
+      package 'living_architecture.config'
+    }
+  }
+  cli = node 'CLI' {
+    metadata {
+      package 'living_architecture.cli'
+    }
+  }
+  c4 = node 'LikeC4 model' {
+    metadata {
+      package 'living_architecture.c4'
+    }
+  }
+  archcheck = node 'Architecture check' {
+    metadata {
+      package 'living_architecture.archcheck'
+      specs ['arch-check']
+    }
+  }
+  lang = node 'Language adapter' {
+    metadata {
+      package 'living_architecture.lang'
+    }
+  }
+  conventions = node 'Conventions and comments' {
+    metadata {
+      package 'living_architecture.conventions'
+    }
+  }
+  review = node 'Review shims' {
+    metadata {
+      package 'living_architecture.review'
+    }
+  }
+  doctor = node 'Doctor' {
+    metadata {
+      package 'living_architecture.doctor'
+    }
+  }
+  refactor = node 'Deterministic refactoring' {
+    metadata {
+      package 'living_architecture.refactor'
+    }
+  }
   cli -> contract
   cli -> config
   cli -> archcheck

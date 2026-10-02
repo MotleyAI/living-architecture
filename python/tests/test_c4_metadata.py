@@ -194,6 +194,17 @@ def test_unclosed_array_is_one_metadata_finding(tmp_path):
     assert parents(mp) == {"api": None, "api.handlers": "api", "core": None}
 
 
+def test_duplicate_elements_metadata_is_discarded(tmp_path):
+    mp = parse(
+        tmp_path,
+        "api = node 'API' {\n  metadata {\n    package 'pkg.api'\n  }\n}\n"
+        "api = node 'API' {\n  metadata {\n    package 'pkg.other'\n  }\n}\n",
+    )
+    assert mp.findings == ["duplicate element api"]
+    assert mp.metadata_findings == []
+    assert metadata(mp) == {"api": {"package": "pkg.api"}}
+
+
 def test_malformed_metadata_on_nested_element_names_its_fqn(tmp_path):
     mp = parse(tmp_path, "api = node 'API' {\n  handlers = node 'H' {\n    metadata {\n      package \"x\"\n    }\n  }\n}\n")
     assert mp.metadata_findings == ['element api.handlers has malformed metadata: package "x"']

@@ -91,6 +91,25 @@ Types are strict: `coderabbit: 'true'` or `text_ratio_max: '0.2'` is an error
 naming the key, not a coerced value. `issue_key_pattern` must use the portable
 regex subset in [`shared/regex-subset.md`](shared/regex-subset.md).
 
+## Upgrading from `index.yaml` `nodes:`
+
+Node mapping now lives in the LikeC4 model; `index.yaml` keeps only repo-wide
+settings, and `la-arch-check` exits 2 while it still has `nodes:`. Once per repo:
+move each `nodes.<id>` entry into a `metadata { }` block on model element `<id>`
+(`package`, `claims`, `packages`, `arc42`, `specs`), drop `children:` and
+`virtual:` (the model's nesting and `#virtual` kinds already say both), delete
+`nodes:`, and run `la-arch-check` until green:
+
+```
+api = node 'API' {
+  metadata {
+    package 'mypkg.api'
+    specs ['api']
+  }
+  handlers = node 'Handlers'   // maps to mypkg.api.handlers
+}
+```
+
 ## Architecture checks in CI
 
 Pin the checker to a release; it needs no per-repo code beyond

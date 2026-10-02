@@ -29,19 +29,20 @@ archive.
   is its LikeC4 element id, its arc42 filename, and its package name — the same
   string.
 - **OpenSpec is looser.** A spec either belongs to one node (listed in that
-  node's `specs:` — the node is then a behaviour *leaf*) or is
+  node's metadata `specs` — the node is then a behaviour *leaf*) or is
   **cross-cutting** (listed once at top level with the nodes it touches).
   Never duplicate a spec across nodes; `arch_check` enforces exactly-once.
 - **Model depth is a dial, not an obligation.** Model precisely where you are
   actively enforcing boundaries; sweep the rest into a few *virtual bucket
   nodes* (tagged `#virtual`, claiming several packages, no alignment claim,
-  governed only at bucket granularity — no children, no child-level arrows).
+  governed only at bucket granularity — no nested elements, no child-level arrows).
   Deepen a bucket into precise nodes the first time real
   work touches it. Never model deeper than you're willing to keep true.
 
 ## File layout — the tree is virtual
 
-Each tool keeps its native layout; shared node ids + `index.yaml` join them.
+Each tool keeps its native layout; shared node ids join them. The LikeC4 model
+maps nodes to code; `index.yaml` holds only repo-wide settings.
 
 ```
 repo/
@@ -49,7 +50,7 @@ repo/
   architecture/
     model/<subsystem>.c4             # ONE LikeC4 model, split across files
     views.c4                         # one view per precise internal node
-    index.yaml                       # the cross-walk (below)
+    index.yaml                       # repo-wide settings (below)
     system.arc42.md                  # root narrative + global principles
     <node>.arc42.md                  # only where a node earns prose
   living-architecture.yaml           # repo config for the la-* tools (optional)
@@ -59,19 +60,48 @@ The checker is `la-arch-check` (the one import law + cross-check, run by the
 gates); it needs no per-repo code. `la-arch-diagrams` regenerates the embedded
 view diagrams.
 
+A node is a top-level model element; it is virtual iff its element kind is
+declared `#virtual`. It declares its mapping in one `metadata { }` block:
+
+```
+specification {
+  element node
+  element bucket {
+    #virtual
+  }
+  tag legacy
+  tag virtual
+}
+model {
+  sql = node 'SQL' {                         // precise node
+    metadata {
+      package 'mypkg.sql'                    // required
+      claims ['mypkg.sqlutil']               // optional: further units it owns
+      arc42 'architecture/sql.arc42.md'      // optional
+      specs ['sql-dialects']                 // specs owned by THIS node alone
+    }
+    render = node 'Render'                   // maps to mypkg.sql.render
+    dialects = node 'Dialects'               // maps to mypkg.sql.dialects
+  }
+  surfaces = bucket 'Surfaces' {             // virtual bucket
+    metadata {
+      packages ['mypkg.api', 'mypkg.mcp', 'mypkg.cli']
+    }
+  }
+}
+```
+
+Keys and types come from the shared node schema; values are `key 'value'` or
+`key ['a', 'b']` — single quotes, no escapes, arrays may span lines, no trailing
+comma. Nested elements, at any depth, carry no metadata: `<node>.a.b` maps to
+`<package>.a.b`, and the import law applies wherever the model nests. Malformed
+metadata is a setup error (exit 2) naming the element.
+
 `index.yaml`:
 
 ```yaml
 root_package: mypkg                   # required: the top-level package the nodes claim
-nodes:
-  sql:                                # precise node
-    package: mypkg.sql
-    children: [render, dialects]      # the import law then applies child-level here
-    arc42: architecture/sql.arc42.md  # optional
-    specs: [sql-dialects]             # specs owned by THIS node alone
-  surfaces:                           # virtual bucket
-    virtual: true
-    packages: [mypkg.api, mypkg.mcp, mypkg.cli]
+source_root: src                      # optional: directory containing root_package
 
 legacy_arrows: {baseline: 8}          # exact count of #legacy arrows in the model (ratchet)
 
@@ -104,16 +134,16 @@ There is no separate import-linter config: the entire import law lives in the
 LikeC4 model and is checked by `la-arch-check` (**model-truth**). The
 model's relations must exactly match the AST-measured runtime import edges, at
 every granularity the model declares:
-- a module attributes to its finest declared child, else its node;
+- a module attributes to its finest mapped element, else its node;
 - every edge is licensed by its most-specific covering arrow — a declared
   arrow is the only thing that permits an import, and silence is a ban;
 - a measured edge with no covering arrow, a declared arrow with no measured
-  edge, and an undeclared edge between two declared children are all findings.
+  edge, and an undeclared edge between two nested elements are all findings.
 
 TYPE_CHECKING-only imports are excluded. Grandfathered crossings are dashed
 `#legacy` arrows in the model itself (one arrow per real edge, no wildcards);
 "layer direction" is just *no upward arrow declared*, and a child boundary is
-just *no arrow declared between those children* — so one law subsumes what used
+just *no arrow declared between those nested elements* — so one law subsumes what used
 to be separate `layers` / `forbidden` / boundary contracts.
 
 (Other languages: same idea, different tool — dependency-cruiser/Nx for TS,
@@ -138,15 +168,16 @@ baseline. It runs, blocking, in:
   `arch_check` fails if the model's count differs, and the baseline is lowered
   as arrows are retired. Progress is monotonic and machine-checked.
 
-**`la-arch-check` verifies, from `index.yaml`:**
-- every precise node's `package` (and every bucket's `packages`) exists on
-  disk; every declared `child` resolves under its node's package and does not
-  collide with another node's package/claim; every `arc42` path exists;
+**`la-arch-check` verifies, from the model and `index.yaml`:**
+- every node's metadata matches the node schema (else exit 2);
+- every precise node's `package` and `claims` (and every bucket's `packages`)
+  exist on disk; every nested element's unit exists under its node's package
+  and does not collide with another declared unit; a bucket contains no
+  elements; every `arc42` path exists;
 - every top-level package of `root_package` is claimed by exactly one node —
-  no orphan packages, no phantom nodes;
-- every precise node and declared child is an element in `architecture/model/`;
+  no orphan packages;
 - every directory under `openspec/specs/` appears exactly once: in exactly one
-  node's `specs:` or in `cross_cutting_specs:`; every node named in a
+  node's `specs` or in `cross_cutting_specs:`; every node named in a
   `touches:` list exists;
 - model-truth holds at every declared granularity, the `#legacy` count equals
   `legacy_arrows.baseline`, and each mapped doc's embedded view diagram is
@@ -159,6 +190,7 @@ baseline. It runs, blocking, in:
 ## Dispatch
 
 - `architecture/` absent or invalid → run **Init** below.
+- Present, but `index.yaml` still has `nodes:` → run **Migrate** below.
 - Present → maintenance: keep the model, `index.yaml`, and arc42 in sync IN
   THE SAME PR as any structural change; deepen buckets / add views for new
   subsystems; tighten boundaries via the **la:arch-slice** skill.
@@ -178,17 +210,18 @@ baseline. It runs, blocking, in:
    script; separate runtime edges from TYPE_CHECKING-only edges).
 3. **Choose the wedge with the user**: which nodes are precise (usually the
    subsystem about to be worked on plus its neighbours), which are buckets.
-4. **Model the AS-IS in LikeC4**: precise elements + bucket elements;
-   relations = the measured runtime edges. Tag edges slated to die `#legacy`.
+4. **Model the AS-IS in LikeC4**: precise elements + bucket elements, each
+   with its `metadata { }` mapping; relations = the measured runtime edges.
+   Tag edges slated to die `#legacy`.
    Model truth, not aspiration — the model must be correct at every commit.
 5. **The model IS the law** — no separate contracts: declared arrows are the
    allowed imports, silence a ban. Where you want the law enforced child-level,
-   declare the node's `children:` in `index.yaml`; grandfather every current
+   nest elements under the node in the model; grandfather every current
    violation as an exact `#legacy` arrow (no wildcards), and record their count
    as `legacy_arrows.baseline`. The enforcement bundle must be green on the
    scaffold commit.
-6. `index.yaml` (`legacy_arrows.baseline`, spec mapping incl.
-   `cross_cutting_specs`, the `diagrams` view mapping) +
+6. `index.yaml` (`legacy_arrows.baseline`, `cross_cutting_specs`, the
+   `diagrams` view mapping) +
    `system.arc42.md` (global principles — promote the structural conventions
    already in CLAUDE.md) + node arc42 only for the 1–3 nodes that earn prose
    now.
@@ -199,15 +232,25 @@ baseline. It runs, blocking, in:
    (history stays in git + the openspec archive). Confirm with the user
    before deleting.
 
+## Migrate (index.yaml `nodes:` → model metadata, once per repo)
+
+1. For each `nodes.<id>` entry, add a `metadata { }` block to model element
+   `<id>` with its `package`, `claims`, `packages`, `arc42` and `specs`
+   (`arc42: null` is simply omitted).
+2. Drop `children:` and `virtual:`: nest the children as elements under the
+   node instead (most models already do), and keep virtual-ness on the
+   element kind (`#virtual`).
+3. Delete `nodes:` from `index.yaml`, then run `la-arch-check` until green.
+
 ## Interaction with /la:pr
 
-- At pr-plan time, read `architecture/index.yaml` plus the arc42 and view of
+- At pr-plan time, read `architecture/index.yaml` and the model plus the arc42 and view of
   every node the change touches. The plan must state which principles apply,
   and must not violate the model's import law — or must explicitly include the
   model + arc42 change as part of the same change.
 - At pr-review time, the enforcement bundle is part of the convergence gate.
 - New capability → decide with the user where its spec attaches (one node's
-  `specs:`, or `cross_cutting_specs` with a `touches:` list) and record it in
-  `index.yaml` in the same change.
+  metadata `specs`, or `cross_cutting_specs` in `index.yaml` with a `touches:`
+  list) and record it in the same change.
 - Pure structural refactors (moving code across boundaries) are their own
   changes via **la:arch-slice** — never smuggled into feature PRs.

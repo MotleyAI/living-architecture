@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "node.schema.json",
+  "title": "LikeC4 node metadata",
+  "description": "The metadata { } block of a top-level model element. A node is validated against precise or virtual, chosen by whether its element kind is #virtual.",
+  "$defs": {
+    "units": {"type": "array", "items": {"type": "string"}},
+    "precise": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["package"],
+      "properties": {
+        "package": {"type": "string", "description": "The node's package; nested elements map below it."},
+        "claims": {"$ref": "#/$defs/units", "description": "Further units the node owns."},
+        "arc42": {"type": "string", "description": "Repo-relative arc42 doc of the node."},
+        "specs": {"$ref": "#/$defs/units", "description": "OpenSpec spec groups the node owns."}
+      }
+    },
+    "virtual": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "packages": {"$ref": "#/$defs/units", "description": "Bucket units the node owns."},
+        "arc42": {"type": "string", "description": "Repo-relative arc42 doc of the node."},
+        "specs": {"$ref": "#/$defs/units", "description": "OpenSpec spec groups the node owns."}
+      }
+    }
+  }
+}
