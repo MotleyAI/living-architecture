@@ -2,6 +2,7 @@ specification {
   element node
   element bucket { #virtual }
   tag legacy
+  tag virtual
   #virtual
   colour red
 }

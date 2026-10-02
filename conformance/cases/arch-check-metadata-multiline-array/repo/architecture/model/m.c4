@@ -4,6 +4,7 @@ specification {
     #virtual
   }
   tag legacy
+  tag virtual
 }
 
 model {

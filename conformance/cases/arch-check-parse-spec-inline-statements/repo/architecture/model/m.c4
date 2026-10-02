@@ -1,4 +1,5 @@
 specification {
+  tag virtual
   element node element other
   element bucket {
     #virtual
