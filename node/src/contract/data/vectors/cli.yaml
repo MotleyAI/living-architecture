@@ -122,6 +122,14 @@ cases:
   command: la-config
   argv: [bogus]
   exit: 2
+- name: object member names are not subcommands
+  command: la-config
+  argv: [toString]
+  exit: 2
+- name: object member names are not subcommands (constructor)
+  command: la-config
+  argv: [constructor]
+  exit: 2
 - name: subcommand positional required
   command: la-config
   argv: [get]

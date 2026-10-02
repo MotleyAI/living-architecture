@@ -131,7 +131,7 @@ function parseLevel(prog: string, cmd: CommandSpec, argv: string[], args: Args):
     }
     if (ended || !isOption(token)) {
       if (Object.keys(subcommands).length > 0 && positionals.length === 0) {
-        const sub = subcommands[token];
+        const sub = Object.hasOwn(subcommands, token) ? subcommands[token] : undefined;
         if (sub === undefined) throw new UsageError(prog, `argument subcommand: invalid choice: '${token}'`);
         args.subcommand = token;
         Object.assign(args, defaults(sub));
@@ -142,7 +142,7 @@ function parseLevel(prog: string, cmd: CommandSpec, argv: string[], args: Args):
       positionals.push(token);
       continue;
     }
-    if (token === '-h' || token === '--help') throw new HelpRequested(help(prog.split(' ')[0] ?? prog));
+    if (token === '-h' || token === '--help') throw new HelpRequested(renderHelp(prog, cmd));
     const eq = token.indexOf('=');
     const name = eq >= 0 ? token.slice(0, eq) : token;
     const option = options.get(name);
@@ -202,8 +202,12 @@ function optionLines(cmd: CommandSpec): string[] {
 
 /** The command's --help text (internal options omitted). */
 export function help(command: string): string {
-  const cmd = spec(command);
-  const lines = [`usage: ${cmd.usage?.trimEnd() ?? command}`, '', cmd.help];
+  return renderHelp(command, spec(command));
+}
+
+/** Help for `cmd`, the command or subcommand invoked as `prog`. */
+function renderHelp(prog: string, cmd: CommandSpec): string {
+  const lines = [`usage: ${cmd.usage?.trimEnd() ?? prog}`, '', cmd.help];
   const positionals = cmd.positionals ?? [];
   if (positionals.length > 0) lines.push('', 'positional arguments:', ...positionals.map((p) => `  ${p.name}  ${p.help}`));
   const subcommands = Object.entries(cmd.subcommands ?? {});

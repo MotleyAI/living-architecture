@@ -7,7 +7,7 @@ import { manifest, message } from '../contract/index.js';
 import * as doctor from '../doctor/index.js';
 import * as review from '../review/index.js';
 import * as twin from '../twin/index.js';
-import { type Args, HelpRequested, UsageError, help, parse } from './parser.js';
+import { type Args, HelpRequested, UsageError, parse } from './parser.js';
 
 const root = (value: unknown): string =>
   typeof value === 'string' && value ? resolve(value) : config.findRepoRoot(process.cwd());
@@ -54,7 +54,7 @@ export function dispatch(command: string, argv: string[]): number {
     args = parse(command, argv);
   } catch (error) {
     if (error instanceof HelpRequested) {
-      process.stdout.write(help(command));
+      process.stdout.write(error.text);
       return 0;
     }
     if (!(error instanceof UsageError)) throw error;

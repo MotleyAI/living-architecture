@@ -224,7 +224,7 @@ function metadataProblem(scan: Scan, element: string, line: string): void {
 
 /** `key 'v'` / `key ['a', 'b']` statements (arrays may span lines) and the text of each bad one. */
 function parseMetadata(lines: string[]): [Record<string, string | string[]>, string[]] {
-  const values: Record<string, string | string[]> = {};
+  const values = new Map<string, string | string[]>();
   const problems: string[] = [];
   let pending = '';
   for (const line of lines) {
@@ -241,13 +241,14 @@ function parseMetadata(lines: string[]): [Record<string, string | string[]>, str
         break;
       }
       const [whole, key = '', raw = ''] = m;
-      if (Object.prototype.hasOwnProperty.call(values, key)) problems.push(whole.trim());
-      else values[key] = raw.startsWith("'") ? raw.slice(1, -1) : (raw.match(QUOTED_RE) ?? []).map((q) => q.slice(1, -1));
+      if (values.has(key)) problems.push(whole.trim());
+      else values.set(key, raw.startsWith("'") ? raw.slice(1, -1) : (raw.match(QUOTED_RE) ?? []).map((q) => q.slice(1, -1)));
       pos = META_STMT_RE.lastIndex;
     }
   }
   if (pending) problems.push(pending);
-  return [values, problems];
+  // fromEntries defines `__proto__` as an own key; assignment would hit the prototype setter.
+  return [Object.fromEntries(values), problems];
 }
 
 /** Split a brace-free specification line into its `element`/`tag` statements. */

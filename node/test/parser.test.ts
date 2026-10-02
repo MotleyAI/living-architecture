@@ -2,7 +2,7 @@
 // (defaults and `subcommand` included; a passthrough command gives {argv}) or throws UsageError (exitCode 2);
 // help(command) returns the command's --help text.
 import { describe, expect, it } from 'vitest';
-import { UsageError, help, parse } from '../src/cli/parser.js';
+import { HelpRequested, UsageError, help, parse } from '../src/cli/parser.js';
 import { plain, vectors } from './helpers.js';
 
 type Vector = { name: string; command: string; argv: string[]; args?: unknown; exit?: number };
@@ -30,6 +30,23 @@ describe('cli.yaml', () => {
       expect((error as UsageError).exitCode).toBe(v.exit);
     });
   }
+});
+
+describe('subcommand help', () => {
+  it('describes the subcommand, not its parent', () => {
+    let error: unknown;
+    try {
+      parse('la-config', ['get', '--help']);
+    } catch (e) {
+      error = e;
+    }
+    expect(error).toBeInstanceOf(HelpRequested);
+    const text = (error as HelpRequested).text;
+    expect(text).toMatch(/^usage: la-config get/);
+    expect(text).toContain('positional arguments:');
+    expect(text).toContain('key');
+    expect(text).not.toContain('subcommands:');
+  });
 });
 
 describe('internal options', () => {

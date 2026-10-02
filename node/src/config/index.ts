@@ -86,7 +86,7 @@ function dumpable(config: LaConfig): unknown {
 function lookup(data: unknown, dotted: string): unknown {
   let node = data;
   for (const part of dotted.split('.')) {
-    if (node === null || typeof node !== 'object' || Array.isArray(node) || node instanceof PyFloat || !(part in node)) {
+    if (node === null || typeof node !== 'object' || Array.isArray(node) || node instanceof PyFloat || !Object.hasOwn(node, part)) {
       throw new RangeError(dotted);
     }
     node = (node as Record<string, unknown>)[part];
