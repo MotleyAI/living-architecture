@@ -12,43 +12,43 @@
 
 ## 2. Shared contract
 
-- [ ] 2.1 `schema/index.schema.json`: language sections (`root_package`, `source_root`, TS `tsconfig`), `patternProperties` `^x-`, at least one language section, no top-level `root_package`/`source_root`. Verify with the index-schema cases from 1.3.
-- [ ] 2.2 `schema/facts.schema.json` (design D3). Verify the facts vectors from 1.7.
-- [ ] 2.3 `languages.yaml`: `typescript` entry (source extensions, test globs, runner, install command); runner and install command for `python`. `cli.yaml`: per-command native languages, internal `la-doctor --twin`, internal `la-arch-check --language`/`--emit`. `findings.yaml`: new templates (root-structure errors, relation outside roots, view scoping, ambiguity ×2, `[lang:]` unknown, twin unavailable, facts protocol failure, forward refused). `regex-subset.md`: the non-ASCII rule. Run `scripts/sync-shared` (now also into `node/`) and verify the drift tests.
+- [x] 2.1 `schema/index.schema.json`: language sections (`root_package`, `source_root`, TS `tsconfig`), `patternProperties` `^x-`, at least one language section, no top-level `root_package`/`source_root`. Verify with the index-schema cases from 1.3.
+- [x] 2.2 `schema/facts.schema.json` (design D3). Verify the facts vectors from 1.7.
+- [x] 2.3 `languages.yaml`: `typescript` entry (source extensions, test globs, runner, install command); runner and install command for `python`. `cli.yaml`: per-command native languages, internal `la-doctor --twin`, internal `la-arch-check --language`/`--emit`. `findings.yaml`: new templates (root-structure errors, relation outside roots, view scoping, ambiguity ×2, `[lang:]` unknown, twin unavailable, facts protocol failure, forward refused). `regex-subset.md`: the non-ASCII rule. Run `scripts/sync-shared` (now also into `node/`) and verify the drift tests.
 
 ## 3. PyPI twin
 
-- [ ] 3.1 `c4`: language roots, root-relative relations, model-level relation finding, scoped views via a root-local projection (design D2). Verify the 1.2 byte-identity check and the c4 cases from 1.3.
-- [ ] 3.2 `archcheck`: index sections and layout per language, root-element rules, qualified ids, facts-based claims math, union model-truth, fixed output order, `x-` keys, `[lang:]` tags, non-ASCII target ids; `license()` on qualified ids with native module inputs. Verify the 1.2/1.3/1.5 cases through the PyPI twin.
-- [ ] 3.3 `lang`: the Python facts provider (unit statuses, top-level units, sorted witnessed edges). Verify the Python arch-check cases.
-- [ ] 3.4 New `twin` node: identity handshake, PATH discovery, runner probe, wholesale forwarding, facts request + schema validation, `LA_FORWARDED`; `doctor --twin`; `cli` internal options. Verify the 1.6 cases through the PyPI twin.
+- [x] 3.1 `c4`: language roots, root-relative relations, model-level relation finding, scoped views via a root-local projection (design D2). Verify the 1.2 byte-identity check and the c4 cases from 1.3.
+- [x] 3.2 `archcheck`: index sections and layout per language, root-element rules, qualified ids, facts-based claims math, union model-truth, fixed output order, `x-` keys, `[lang:]` tags, non-ASCII target ids; `license()` on qualified ids with native module inputs. Verify the 1.2/1.3/1.5 cases through the PyPI twin.
+- [x] 3.3 `lang`: the Python facts provider (unit statuses, top-level units, sorted witnessed edges). Verify the Python arch-check cases.
+- [x] 3.4 New `twin` node: identity handshake, PATH discovery, runner probe, wholesale forwarding, facts request + schema validation, `LA_FORWARDED`; `doctor --twin`; `cli` internal options. Verify the 1.6 cases through the PyPI twin.
 
 ## 4. npm twin
 
-- [ ] 4.1 Scaffold `node/` (design D8): package.json (`private`, engines, deps `typescript@~6.0`, `yaml`, `ajv`; dev deps Vitest, ESLint, typescript-eslint, `@types/node`), package-lock, tsconfig, ESLint config, build script copying contract data and generating one bin per manifest command. Verify `npm ci && npm run build && npm run lint` succeed and the bin-set test passes.
-- [ ] 4.2 `contract`: snapshot loading, renderer with canonical repr, glob dialect, default materialization, YAML 1.1 profile, regex-subset check, JSON Schema validation. Verify every shared vector test.
-- [ ] 4.3 `cli` (manifest parser and dispatch), `config`, `doctor` (incl. `--twin`, `--contract-hash`), `review` shims. Verify the neutral `la-config`, `la-doctor` and review-shim cases through the npm twin.
-- [ ] 4.4 `c4`: constrained LikeC4 parser with metadata, roots, root-relative relations, scoped views, mermaid. Verify every `la-arch-diagrams` case and the c4 cases through the npm twin.
-- [ ] 4.5 `lang`: TS adapter (design D6). Verify every 1.4 case through the npm twin.
-- [ ] 4.6 `archcheck` (neutral checks, facts, union model-truth, ordering) and `twin`. Verify the 1.2–1.6 arch-check and forwarding cases through the npm twin.
+- [x] 4.1 Scaffold `node/` (design D8): package.json (`private`, engines, deps `typescript@~6.0`, `yaml`, `ajv`; dev deps Vitest, ESLint, typescript-eslint, `@types/node`), package-lock, tsconfig, ESLint config, build script copying contract data and generating one bin per manifest command. Verify `npm ci && npm run build && npm run lint` succeed and the bin-set test passes.
+- [x] 4.2 `contract`: snapshot loading, renderer with canonical repr, glob dialect, default materialization, YAML 1.1 profile, regex-subset check, JSON Schema validation. Verify every shared vector test.
+- [x] 4.3 `cli` (manifest parser and dispatch), `config`, `doctor` (incl. `--twin`, `--contract-hash`), `review` shims. Verify the neutral `la-config`, `la-doctor` and review-shim cases through the npm twin.
+- [x] 4.4 `c4`: constrained LikeC4 parser with metadata, roots, root-relative relations, scoped views, mermaid. Verify every `la-arch-diagrams` case and the c4 cases through the npm twin.
+- [x] 4.5 `lang`: TS adapter (design D6). Verify every 1.4 case through the npm twin.
+- [x] 4.6 `archcheck` (neutral checks, facts, union model-truth, ordering) and `twin`. Verify the 1.2–1.6 arch-check and forwarding cases through the npm twin.
 
 ## 5. Conformance, CI and publish
 
-- [ ] 5.1 `scripts/conformance-cross` and `npm run conformance`. Verify that every case passes through both twins' entry points.
-- [ ] 5.2 CI: node job (npm ci, lint, typecheck, Vitest, build, native conformance), npm pack smoke test outside the checkout (la-doctor contract hash equal to the PyPI twin's, la-config show, a review shim against the fake gh), cross-twin job; third-party actions pinned by SHA. Verify the scripts locally.
-- [ ] 5.3 Publish workflow: pre-check equal contract hashes and both versions equal to the tag, else publish neither; npm job with trusted publishing that logs a skip while `"private": true`. Verify with `actionlint` (or a dry read) and a local run of the pre-check script.
+- [x] 5.1 `scripts/conformance-cross` and `npm run conformance`. Verify that every case passes through both twins' entry points.
+- [x] 5.2 CI: node job (npm ci, lint, typecheck, Vitest, build, native conformance), npm pack smoke test outside the checkout (la-doctor contract hash equal to the PyPI twin's, la-config show, a review shim against the fake gh), cross-twin job; third-party actions pinned by SHA. Verify the scripts locally.
+- [x] 5.3 Publish workflow: pre-check equal contract hashes and both versions equal to the tag, else publish neither; npm job with trusted publishing that logs a skip while `"private": true`. Verify with `actionlint` (or a dry read) and a local run of the pre-check script.
 
 ## 6. This repo's architecture (every edit presented for the user's per-edit approval)
 
-- [ ] 6.1 Present and write `architecture/index.yaml`: `python: {source_root: python/src, root_package: living_architecture}`, `typescript: {source_root: node, root_package: src}`; `arch-check` and `twin-forwarding` specs as `cross_cutting_specs` touching both twins' owning nodes (at archive time, when the spec dirs exist); `shared-contract` touches qualified. Verify `la-arch-check` from both twins.
-- [ ] 6.2 Present and write `architecture/model/la.c4`: roots `python` (ten nodes + `twin`) and `typescript` (contract, config, cli, c4, archcheck, lang, review, doctor, twin), mirrored arrows plus `cli -> twin`, `archcheck -> twin`, `twin -> contract`. Verify `npx likec4 validate architecture` and `la-arch-check` from both twins.
-- [ ] 6.3 Present and write `architecture/views.c4` (`view system of python`, a typescript view) and `system.arc42.md` (both views embedded; second `[enforced: test:…]` on principle 1 for the Node-side conformance entry); run `la-arch-diagrams`. Verify `la-arch-check` exits 0 from both twins.
+- [x] 6.1 Present and write `architecture/index.yaml`: `python: {source_root: python/src, root_package: living_architecture}`, `typescript: {source_root: node, root_package: src}`; `arch-check` and `twin-forwarding` specs as `cross_cutting_specs` touching both twins' owning nodes (at archive time, when the spec dirs exist); `shared-contract` touches qualified. Verify `la-arch-check` from both twins.
+- [x] 6.2 Present and write `architecture/model/la.c4`: roots `python` (ten nodes + `twin`) and `typescript` (contract, config, cli, c4, archcheck, lang, review, doctor, twin), mirrored arrows plus `cli -> twin`, `archcheck -> twin`, `twin -> contract`. Verify `npx likec4 validate architecture` and `la-arch-check` from both twins.
+- [x] 6.3 Present and write `architecture/views.c4` (`view system of python`, a typescript view) and `system.arc42.md` (both views embedded; second `[enforced: test:…]` on principle 1 for the Node-side conformance entry); run `la-arch-diagrams`. Verify `la-arch-check` exits 0 from both twins.
 
 ## 7. Docs and skills
 
-- [ ] 7.1 `AGENTS.md` (node dev/test commands, `npm run conformance`, `scripts/conformance-cross`, forwarding), `README.md` (npm twin, index sections, migration), `conformance/README.md` (case model) and `INVENTORY.md`, the `living-architecture` and `arch-slice` skills (language roots, scoped views, root-relative relations, `x-` keys, migration steps). Verify `test_skills`, `plugin validate plugin`, and every new findings id covered by a golden.
+- [x] 7.1 `AGENTS.md` (node dev/test commands, `npm run conformance`, `scripts/conformance-cross`, forwarding), `README.md` (npm twin, index sections, migration), `conformance/README.md` (case model) and `INVENTORY.md`, the `living-architecture` and `arch-slice` skills (language roots, scoped views, root-relative relations, `x-` keys, migration steps). Verify `test_skills`, `plugin validate plugin`, and every new findings id covered by a golden.
 
 ## 8. Final gates
 
-- [ ] 8.1 `python/`: full non-integration suite, `ruff check src tests`, `basedpyright src tests`. `node/`: lint, typecheck, Vitest, conformance. Cross-twin run. Verify all green.
-- [ ] 8.2 `la-check-conventions --base main` clear; `openspec validate dev-2025-living-architecture-npm-twin-of-the-core-ts-arch-check-units --strict` passes; `la-arch-check` exits 0 from both twins on this repo.
+- [x] 8.1 `python/`: full non-integration suite, `ruff check src tests`, `basedpyright src tests`. `node/`: lint, typecheck, Vitest, conformance. Cross-twin run. Verify all green.
+- [x] 8.2 `la-check-conventions --base main` clear; `openspec validate dev-2025-living-architecture-npm-twin-of-the-core-ts-arch-check-units --strict` passes; `la-arch-check` exits 0 from both twins on this repo.

@@ -23,6 +23,7 @@ flowchart TD
   review["Review shims"]
   doctor["Doctor"]
   refactor["Deterministic refactoring"]
+  twin["Twin forwarding"]
   cli --> contract
   cli --> config
   cli --> archcheck
@@ -45,13 +46,53 @@ flowchart TD
   doctor --> config
   doctor --> contract
   refactor --> contract
+  cli --> twin
+  archcheck --> twin
+  twin --> contract
 ```
 <!-- /likec4:system -->
+
+<!-- likec4:npm -->
+```mermaid
+flowchart TD
+  %% npm: npm twin
+  contract["Shared contract"]
+  config["Config"]
+  cli["CLI"]
+  c4["LikeC4 model"]
+  archcheck["Architecture check"]
+  lang["Language adapter"]
+  review["Review shims"]
+  doctor["Doctor"]
+  twin["Twin forwarding"]
+  cli --> contract
+  cli --> config
+  cli --> archcheck
+  cli --> c4
+  cli --> review
+  cli --> doctor
+  cli --> twin
+  archcheck --> c4
+  archcheck --> lang
+  archcheck --> config
+  archcheck --> contract
+  archcheck --> twin
+  lang --> contract
+  c4 --> contract
+  config --> contract
+  review --> config
+  review --> contract
+  doctor --> config
+  doctor --> contract
+  twin --> contract
+```
+<!-- /likec4:npm -->
 
 ## Principles
 
 1. Twins: every behaviour observable through a command is identical in both implementations for the
    languages they share; the conformance corpus decides. [enforced: test:python/tests/test_conformance.py]
+   [enforced: test:node/scripts/conformance.mjs]
 2. Parameters, defaults, user-facing texts and command surfaces come only from the shared contract.
    [review]
 3. Language-specific code lives only in `lang` and `refactor`. [review]
