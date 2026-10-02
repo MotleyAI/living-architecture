@@ -9,11 +9,13 @@ observable output so the twins cannot drift.
 
 ### Requirement: Configuration parameters come from the shared schemas
 Every key, type, constraint and default of `living-architecture.yaml` SHALL be defined only by the shared
-JSON Schema for that file, and every key and type of `architecture/index.yaml` SHALL be defined only by the
-shared index schema. A resolved configuration SHALL equal the input with schema defaults filled in
+JSON Schema for that file, every key and type of `architecture/index.yaml` SHALL be defined only by the
+shared index schema, and every key and type of a node's model metadata SHALL be defined only by the shared
+node schema. A resolved configuration SHALL equal the input with schema defaults filled in
 recursively. Filling SHALL also fill absent parent objects, and SHALL keep explicit `false`, `0`, empty
 lists and empty strings. A missing file or an empty file SHALL resolve to all defaults. The index schema
-SHALL NOT reject any input that the arch-check reports as a finding today.
+SHALL NOT constrain the values whose problems the arch-check reports as findings (`legacy_arrows`,
+`diagrams`, `view_depth`).
 
 #### Scenario: Missing config resolves to schema defaults
 - **WHEN** a repo has no `living-architecture.yaml` and `la-config show` runs
@@ -38,6 +40,10 @@ SHALL NOT reject any input that the arch-check reports as a finding today.
 #### Scenario: A finding-level index problem stays a finding
 - **WHEN** `index.yaml` sets `legacy_arrows.baseline: -1` and `la-arch-check` runs
 - **THEN** it reports the `baseline-ratchet` finding and exits 1, exactly as the frozen golden records, not a schema error with exit 2
+
+#### Scenario: Node metadata validated by the node schema
+- **WHEN** a node's model metadata carries a key the shared node schema does not define
+- **THEN** `la-arch-check` exits 2 and its error names the element and the key
 
 ### Requirement: YAML is read with one fixed profile
 Every YAML input SHALL be read as YAML 1.1, exactly as PyYAML's safe loader reads it: `yes`/`no`/`on`/`off`
