@@ -16,6 +16,7 @@ class Element(BaseModel):
     title: str
     parent: str | None = None
     virtual: bool = False
+    has_metadata: bool = False
     metadata: dict[str, str | list[str]] = {}
     metadata_problems: list[str] = []
 
@@ -109,7 +110,6 @@ class _Scan(BaseModel):
     kinds: dict[str, bool] = {}
     by_id: dict[str, Element] = {}
     duplicates: set[str] = set()
-    with_metadata: set[str] = set()
     relations: list[Relation] = []
     rel_pairs: set[tuple[str, str]] = set()
     findings: list[str] = []
@@ -200,10 +200,10 @@ def _open_metadata(element: str, code: str, scan: _Scan) -> _MetadataBlock:
     """Start a block for `element`; a duplicate element's block, or a second block, is discarded."""
     if element in scan.duplicates:
         return _MetadataBlock(element=None)
-    if element in scan.with_metadata:
+    if scan.by_id[element].has_metadata:
         _metadata_problem(scan, element, code)
         return _MetadataBlock(element=None)
-    scan.with_metadata.add(element)
+    scan.by_id[element].has_metadata = True
     return _MetadataBlock(element=element)
 
 

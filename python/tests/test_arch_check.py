@@ -737,8 +737,9 @@ def test_virtual_node_needs_no_metadata(tmp_path):
     assert findings_for(root, "claims-exactly-once") == []
 
 
-def test_metadata_on_a_nested_element_is_a_setup_error(tmp_path):
-    model = CHILD_MODEL.replace("    query = node 'Query'\n", "    query = node 'Query' {\n      metadata {\n        package 'pkg.core.query'\n      }\n    }\n")
+@pytest.mark.parametrize("body", ["        package 'pkg.core.query'\n", ""], ids=["with-keys", "empty"])
+def test_metadata_on_a_nested_element_is_a_setup_error(tmp_path, body):
+    model = CHILD_MODEL.replace("    query = node 'Query'\n", f"    query = node 'Query' {{\n      metadata {{\n{body}      }}\n    }}\n")
     root = make_child_repo(tmp_path, model=model)
     with pytest.raises(archcheck.ArchCheckError) as excinfo:
         archcheck.run_checks(root)

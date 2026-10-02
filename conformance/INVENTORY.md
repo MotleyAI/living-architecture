@@ -18,7 +18,7 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | invalid `living-architecture.yaml` | 2 | `arch-check-config-invalid`, `arch-check-config-invalid-regex` |
 | *(new)* `nodes` in `index.yaml` | 2 | `arch-check-index-nodes-rejected` |
 | *(new)* node metadata violates the node schema: no block, no `package`, unknown key, scalar `claims`, the other variety's key | 2 | `arch-check-metadata-no-block`, `arch-check-metadata-missing-package`, `arch-check-metadata-unknown-key`, `arch-check-metadata-scalar-claims`, `arch-check-metadata-packages-on-precise`, `arch-check-metadata-package-on-virtual`, `arch-check-metadata-claims-on-virtual` |
-| *(new)* malformed metadata: repeated key, second block, double-quoted value, unclosed array; metadata on a nested element | 2 | `arch-check-metadata-repeated-key`, `arch-check-metadata-second-block`, `arch-check-metadata-double-quoted`, `arch-check-metadata-unclosed-array`, `arch-check-metadata-on-nested-element` |
+| *(new)* malformed metadata: repeated key, second block, double-quoted value, unclosed array; metadata (even an empty block) on a nested element | 2 | `arch-check-metadata-repeated-key`, `arch-check-metadata-second-block`, `arch-check-metadata-double-quoted`, `arch-check-metadata-unclosed-array`, `arch-check-metadata-on-nested-element`, `arch-check-metadata-empty-on-nested-element` |
 | claims-exist: package / claim missing on disk | 1 | `arch-check-claims-missing-package`, `arch-check-claims-missing-claim` |
 | claims-exactly-once: claimed twice | 1 | `arch-check-claims-duplicate-claim` |
 | claims-exactly-once: unclaimed top-level unit (non-units ignored) | 1 | `arch-check-claims-unclaimed-top-level` |

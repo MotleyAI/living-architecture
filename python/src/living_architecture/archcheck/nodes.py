@@ -68,7 +68,7 @@ def build_node_map(model: ModelParse) -> NodeMap:
         if element.metadata_problems:
             problems += element.metadata_problems
         elif element.parent is not None:
-            if element.metadata:
+            if element.has_metadata:
                 problems.append(message("arch-check.metadata-on-nested", element=element.id))
         else:
             problems += _metadata_errors(element)

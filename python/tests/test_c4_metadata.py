@@ -132,6 +132,12 @@ def test_parser_records_metadata_on_nested_elements(tmp_path):
     assert mp.metadata_findings == []
 
 
+def test_parser_records_an_empty_block_as_present(tmp_path):
+    mp = parse(tmp_path, "api = node 'API' {\n  metadata {\n  }\n  handlers = node 'H'\n}\n")
+    assert {e.id: e.has_metadata for e in mp.elements} == {"api": True, "api.handlers": False}
+    assert metadata(mp)["api"] == {}
+
+
 # --------------------------------------------------------------------------- malformed blocks
 
 
