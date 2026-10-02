@@ -26,4 +26,4 @@
 
 ## 5. Final gate
 
-- [ ] 5.1 Full `uv run pytest -q`, ruff, basedpyright, `scripts/sync-shared --check`, `uv run la-arch-check`, `openspec validate dev-2030-living-architecture-derive-node-children-from-the-likec4 --strict` all green; PR targets `main`
+- [x] 5.1 Full `uv run pytest -q`, ruff, basedpyright, `scripts/sync-shared --check`, `uv run la-arch-check`, `openspec validate dev-2030-living-architecture-derive-node-children-from-the-likec4 --strict` all green; PR targets `main`
