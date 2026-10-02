@@ -27,6 +27,7 @@ findings:
   arch-check.root-package-not-canonical: 'architecture/index.yaml: root_package {value!r} must not have empty or ''.'' segments'
   arch-check.root-package-escapes: 'architecture/index.yaml: root_package {value!r} resolves outside source_root {source_root!r}'
   arch-check.root-package-not-a-directory: 'architecture/index.yaml: root_package {value!r} is not a directory under source_root {source_root!r}'
+  arch-check.tsconfig-escapes: 'architecture/index.yaml: tsconfig {value!r} resolves outside the repo'
   arch-check.metadata-invalid: 'model element {element}: {error}'
   arch-check.metadata-on-nested: 'model element {element}: nested elements may not carry metadata'
   arch-check.no-language-section: 'architecture/index.yaml: a language section is required (one of python, typescript)'

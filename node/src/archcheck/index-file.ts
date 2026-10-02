@@ -120,3 +120,10 @@ export function resolveLayout(repoRoot: string, sectionValues: Record<string, st
   }
   return { repoRoot, sourceRoot, rootPackage };
 }
+
+/** The section's `tsconfig`, or null; ArchCheckError unless it stays in the repo. */
+export function resolveTsconfig(repoRoot: string, value: string | undefined): string | null {
+  if (value === undefined) return null;
+  contained(repoRoot, 'tsconfig', value, 'arch-check.tsconfig-escapes', false);
+  return value;
+}

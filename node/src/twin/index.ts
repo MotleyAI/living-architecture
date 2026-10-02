@@ -3,7 +3,7 @@ import { spawnSync } from 'node:child_process';
 import { accessSync, constants, realpathSync, statSync } from 'node:fs';
 import { constants as osConstants } from 'node:os';
 import { delimiter, join } from 'node:path';
-import { contractHash, language, message, renderTemplate, schema, validate } from '../contract/index.js';
+import { contractHash, language, message, renderTemplate, schema, validate, which } from '../contract/index.js';
 import { VERSION } from '../index.js';
 
 export const NATIVE_LANGUAGE = 'typescript';
@@ -45,9 +45,6 @@ function executable(path: string): boolean {
   }
 }
 
-const onPath = (name: string): boolean =>
-  (process.env.PATH ?? '').split(delimiter).some((dir) => dir !== '' && executable(join(dir, name)));
-
 /** The first directory (each real path once) whose executable `la-doctor` qualifies. */
 function discoverDir(lang: string, repoRoot: string): string | null {
   const dirs = [...(process.env.PATH ?? '').split(delimiter).filter(Boolean), join(repoRoot, 'node_modules', '.bin')];
@@ -72,7 +69,7 @@ function launcher(lang: string, repoRoot: string): (command: string) => string[]
   const dir = discoverDir(lang, repoRoot);
   if (dir !== null) return (command) => [join(dir, command)];
   const runner = renderTemplate(language(lang).runner, { version: VERSION }).split(' ');
-  if (onPath(runner[0] ?? '') && qualifies([...runner, 'la-doctor', '--twin'], lang)) return (command) => [...runner, command];
+  if (which(runner[0] ?? '') && qualifies([...runner, 'la-doctor', '--twin'], lang)) return (command) => [...runner, command];
   throw new TwinError(hint('twin.unavailable', lang));
 }
 

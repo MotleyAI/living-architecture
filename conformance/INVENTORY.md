@@ -90,6 +90,8 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | *(new)* resolution: `paths`/`baseUrl`, bundler default, nodenext, node16 per-file format, `.js`/`.mjs` naming TS sources, index barrels | 1 | `arch-check-ts-resolve-paths-baseurl`, `arch-check-ts-resolve-bundler-default`, `arch-check-ts-resolve-nodenext`, `arch-check-ts-resolve-node16` |
 | *(new)* tsconfig selection: section key, nearest upward, `extends` | 1 | `arch-check-ts-tsconfig-key`, `arch-check-ts-tsconfig-nearest`, `arch-check-ts-tsconfig-extends` |
 | *(new)* a tsconfig holding JavaScript: setup error naming it, never executed | 2 | `arch-check-ts-tsconfig-never-executed` |
+| *(new)* a tsconfig the compiler rejects (missing `extends` target): setup error naming it | 2 | `arch-check-ts-tsconfig-invalid` |
+| *(new)* a `tsconfig` key resolving outside the repo: setup error naming `tsconfig` | 2 | `arch-check-ts-tsconfig-escapes` |
 | *(new)* project references: solution root, nested, outDir/declarationDir/rootDir, `.d.mts`/`.d.cts` mapped to sources whether built or not, a stale output is the file it is; owner by depth-first order, overlapping includes, cycle, root fallback | 1 | `arch-check-ts-project-references`, `arch-check-ts-project-references-ownership` |
 | *(new)* JS units and targets resolve with `allowJs` off | 1 | `arch-check-ts-allowjs-off` |
 | *(new)* externals (npm package, `node:` and bare builtins, subpath, unresolved bare), targets outside `root_package`, root barrel target | 0 | `arch-check-ts-externals` |

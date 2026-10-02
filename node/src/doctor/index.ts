@@ -1,25 +1,11 @@
 // `la-doctor`: check the installed tools match the plugin and the repo config is valid.
-import { accessSync, constants, existsSync, statSync } from 'node:fs';
-import { delimiter, join } from 'node:path';
+import { existsSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 import { CONFIG_FILENAME, ConfigError, loadConfig } from '../config/index.js';
-import { contractHash, message } from '../contract/index.js';
+import { contractHash, message, which } from '../contract/index.js';
 import { VERSION } from '../index.js';
 
 const REQUIRED_EXECUTABLES = ['git', 'gh'];
-
-/** Whether `name` is an executable file in a PATH directory. */
-export function which(name: string): boolean {
-  return (process.env.PATH ?? '').split(delimiter).some((dir) => {
-    if (!dir) return false;
-    const path = join(dir, name);
-    try {
-      accessSync(path, constants.X_OK);
-      return statSync(path).isFile();
-    } catch {
-      return false;
-    }
-  });
-}
 
 /** Problems found; empty means healthy. */
 export function runChecks(root: string, expect: string | null): string[] {

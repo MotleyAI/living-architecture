@@ -1,0 +1,1 @@
+arch_check: tsconfig.json: Cannot read file '<ROOT>/repo/missing.json'.

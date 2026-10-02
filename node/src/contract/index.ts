@@ -21,3 +21,4 @@ export {
 export { PyFloat, PyTimestamp, canonicalRepr, normalize, reprFloat, toPlain } from './values.js';
 export { YAMLError, loadYaml } from './yaml.js';
 export { WORD, isWordStart, splitLines } from './text.js';
+export { which } from './which.js';

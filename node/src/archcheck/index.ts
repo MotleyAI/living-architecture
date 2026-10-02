@@ -7,7 +7,7 @@ import { NATIVE_LANGUAGE, RelayedFailure, TwinError, requestFacts } from '../twi
 import { checkClaims } from './claims.js';
 import { checkArc42, checkLegacyRatchet, checkSpecMapping } from './docs.js';
 import { type Facts, nativeFacts } from './facts.js';
-import { ArchCheckError, type Index, declaredLanguages, loadIndex, resolveLayout, section } from './index-file.js';
+import { ArchCheckError, type Index, declaredLanguages, loadIndex, resolveLayout, resolveTsconfig, section } from './index-file.js';
 import { type NodeMap, buildNodeMap } from './nodes.js';
 import { checkEnforcedTags } from './tags.js';
 import { type Witnesses, checkModelTruth } from './truth.js';
@@ -34,7 +34,7 @@ function facts(root: string, s: Setup, language: string): Facts {
   if (language === NATIVE_LANGUAGE) {
     const values = section(s.index, language);
     const layout = resolveLayout(root, values);
-    return nativeFacts({ ...layout, tsconfig: values.tsconfig ?? null }, s.nodeMap, language);
+    return nativeFacts({ ...layout, tsconfig: resolveTsconfig(root, values.tsconfig) }, s.nodeMap, language);
   }
   return requestFacts(language, root, s.nodeMap.units(language)) as Facts;
 }

@@ -1,0 +1,10 @@
+kind: adapter
+languages:
+- typescript
+command: la-arch-check
+fixture: arch-ts
+symlinks:
+  escape: ..
+expect:
+  exit: 2
+note: a tsconfig key resolving outside the repo is a setup error naming tsconfig

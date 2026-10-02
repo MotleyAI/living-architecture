@@ -227,6 +227,34 @@ describe('inline repos', () => {
     expect(() => moduleImports(layout)).toThrow(/nope\.json/);
   });
 
+  it.each([
+    ['a missing extends target', '{"extends": "./missing.json"}', /^tsconfig\.json: Cannot read file .*missing\.json/],
+    ['an unknown compiler option', '{"compilerOptions": {"bogus": 1}}', /^tsconfig\.json: Unknown compiler option 'bogus'/],
+    ['an invalid option value', '{"compilerOptions": {"moduleResolution": "nope"}}', /^tsconfig\.json: Argument for '--moduleResolution'/],
+  ])('%s is a setup error naming the tsconfig', (_label, tsconfig, error) => {
+    const layout = inline({ 'tsconfig.json': tsconfig, 'src/a.ts': '' });
+    expect(() => moduleImports(layout)).toThrow(LangError);
+    expect(() => moduleImports(layout)).toThrow(error);
+  });
+
+  it('a referenced tsconfig the compiler rejects is a setup error naming it', () => {
+    const layout = inline({
+      'tsconfig.json': '{"files": [], "references": [{"path": "./a.json"}]}',
+      'a.json': '{"compilerOptions": {"composite": true, "bogus": 1}, "include": ["src/**/*"]}',
+      'src/a.ts': '',
+    });
+    expect(() => moduleImports(layout)).toThrow(/^a\.json: Unknown compiler option 'bogus'/);
+  });
+
+  it('a tsconfig whose file list matches nothing is not an error', () => {
+    const layout = inline({
+      'tsconfig.json': '{"include": ["elsewhere/*.ts"]}',
+      'src/a/x.ts': "import '../b/y';",
+      'src/b/y.ts': '',
+    });
+    expect(edges(layout)).toEqual({ 'src/a/x': ['src/b/y'] });
+  });
+
   it('a reference cycle is tolerated', () => {
     const layout = inline({
       'tsconfig.json': '{"files": [], "references": [{"path": "./a.json"}]}',

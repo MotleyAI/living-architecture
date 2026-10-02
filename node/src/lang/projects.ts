@@ -6,6 +6,8 @@ import { canonical, DECLARATION_RE, isUnder, posix } from './files.js';
 import { LangError, type TsLayout } from './types.js';
 
 const CONFIG_NAME = 'tsconfig.json';
+/** "No inputs were found": harmless, sources are enumerated from root_package, not the config's file list. */
+const NO_INPUTS = 18003;
 
 export interface Project {
   options: ts.CompilerOptions;
@@ -38,9 +40,13 @@ function diagnosticText(diagnostic: ts.Diagnostic): string {
 }
 
 function parseConfig(path: string, layout: TsLayout): ts.ParsedCommandLine {
+  const shown = posix(relative(layout.repoRoot, path));
   const { config, error } = ts.readConfigFile(path, ts.sys.readFile);
-  if (error !== undefined) throw new LangError(`${posix(relative(layout.repoRoot, path))}: ${diagnosticText(error)}`);
-  return ts.parseJsonConfigFileContent(config, ts.sys, dirname(path), undefined, path);
+  if (error !== undefined) throw new LangError(`${shown}: ${diagnosticText(error)}`);
+  const parsed = ts.parseJsonConfigFileContent(config, ts.sys, dirname(path), undefined, path);
+  const fatal = parsed.errors.find((diagnostic) => diagnostic.code !== NO_INPUTS);
+  if (fatal !== undefined) throw new LangError(`${shown}: ${diagnosticText(fatal)}`);
+  return parsed;
 }
 
 function project(options: ts.CompilerOptions, fileNames: readonly string[], repoRoot: string): Project {
