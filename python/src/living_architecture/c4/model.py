@@ -1,4 +1,4 @@
-"""The constrained `.c4` model parser (element FQN = dotted path)."""
+"""The constrained `.c4` model parser (element FQN = dotted path; relations resolve inside their root)."""
 
 from __future__ import annotations
 
@@ -289,9 +289,14 @@ def _scan_model_line(code: str, scan: _Scan, parents: list[str], delta: int) -> 
     if rel:
         src, dst = rel.group(1), rel.group(2)
         legacy = rel.group(3) is not None
-        if parents:
+        if not parents:
+            scan.findings.append(message("c4.relation-outside-root", src=src, dst=dst))
+            return
+        if len(parents) > 1:
             scan.findings.append(message("c4.relation-in-body", src=src, dst=dst, parent=parents[-1]))
-        elif (src, dst) in scan.rel_pairs:
+            return
+        src, dst = f"{parents[0]}.{src}", f"{parents[0]}.{dst}"
+        if (src, dst) in scan.rel_pairs:
             scan.findings.append(message("c4.duplicate-relation", src=src, dst=dst))
         else:
             scan.rel_pairs.add((src, dst))
@@ -300,3 +305,28 @@ def _scan_model_line(code: str, scan: _Scan, parents: list[str], delta: int) -> 
     if _BRACES_ONLY_RE.match(code):
         return
     scan.findings.append(message("c4.unrecognized-model-line", line=code))
+
+
+def project(model: ModelParse, root: str) -> ModelParse:
+    """The elements and relations under `root`, with the root prefix stripped (the root itself dropped)."""
+    prefix = root + "."
+
+    def local(eid: str) -> str:
+        return eid[len(prefix) :]
+
+    elements = [
+        e.model_copy(update={"id": local(e.id), "parent": None if e.parent == root else local(e.parent or "")})
+        for e in model.elements
+        if e.id.startswith(prefix)
+    ]
+    relations = [
+        Relation(src=local(r.src), dst=local(r.dst), legacy=r.legacy)
+        for r in model.relations
+        if r.src.startswith(prefix) and r.dst.startswith(prefix)
+    ]
+    return ModelParse(elements=elements, relations=relations, findings=[])
+
+
+def roots(model: ModelParse) -> list[str]:
+    """Top-level element ids, in model order."""
+    return [e.id for e in model.elements if e.parent is None]

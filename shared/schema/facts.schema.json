@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "facts.schema.json",
+  "title": "la-arch-check --language L --emit facts",
+  "description": "One language's architecture facts, as a twin hands them to the other twin. Ordering (sorted candidates, top-level units and edges) is the emitter's duty.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["language", "version", "contract_hash", "units", "top_level_units", "edges"],
+  "properties": {
+    "language": {"enum": ["python", "typescript"]},
+    "version": {"type": "string"},
+    "contract_hash": {"type": "string", "minLength": 64, "maxLength": 64, "pattern": "^[0-9a-f]+$"},
+    "units": {"type": "array", "items": {"$ref": "#/$defs/unit"}},
+    "top_level_units": {"type": "array", "items": {"type": "string"}},
+    "edges": {"type": "array", "items": {"$ref": "#/$defs/edge"}}
+  },
+  "$defs": {
+    "unit": {
+      "type": "object",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "required": ["unit", "status"],
+          "properties": {"unit": {"type": "string"}, "status": {"enum": ["present", "missing"]}}
+        },
+        {
+          "additionalProperties": false,
+          "required": ["unit", "status", "candidates"],
+          "properties": {
+            "unit": {"type": "string"},
+            "status": {"const": "ambiguous"},
+            "candidates": {"type": "array", "items": {"type": "string"}, "minItems": 2}
+          }
+        }
+      ]
+    },
+    "edge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["src", "dst", "src_module", "dst_module"],
+      "properties": {
+        "src": {"type": "string"},
+        "dst": {"type": "string"},
+        "src_module": {"type": "string"},
+        "dst_module": {"type": "string"}
+      }
+    }
+  }
+}

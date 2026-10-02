@@ -1,0 +1,136 @@
+# Default materialization: `config` is the living-architecture.yaml text (null = no file);
+# `resolved` is the configuration after schema defaults are filled in.
+cases:
+- name: missing file
+  config: null
+  resolved:
+    reviewers:
+      coderabbit: false
+      sonar:
+        enabled: false
+        project_key: null
+    issue_key_pattern: '[A-Z][A-Z0-9]+-\d+'
+    commands:
+      test: null
+      lint: null
+    conventions:
+      text_ratio_max: 0.15
+      exempt: []
+- name: empty file
+  config: ''
+  resolved:
+    reviewers:
+      coderabbit: false
+      sonar:
+        enabled: false
+        project_key: null
+    issue_key_pattern: '[A-Z][A-Z0-9]+-\d+'
+    commands:
+      test: null
+      lint: null
+    conventions:
+      text_ratio_max: 0.15
+      exempt: []
+- name: comments only
+  config: |
+    # nothing yet
+  resolved:
+    reviewers:
+      coderabbit: false
+      sonar:
+        enabled: false
+        project_key: null
+    issue_key_pattern: '[A-Z][A-Z0-9]+-\d+'
+    commands:
+      test: null
+      lint: null
+    conventions:
+      text_ratio_max: 0.15
+      exempt: []
+- name: empty mapping
+  config: |
+    {}
+  resolved:
+    reviewers:
+      coderabbit: false
+      sonar:
+        enabled: false
+        project_key: null
+    issue_key_pattern: '[A-Z][A-Z0-9]+-\d+'
+    commands:
+      test: null
+      lint: null
+    conventions:
+      text_ratio_max: 0.15
+      exempt: []
+- name: absent parents are created
+  config: |
+    reviewers: {sonar: {enabled: false}}
+  resolved:
+    reviewers:
+      coderabbit: false
+      sonar:
+        enabled: false
+        project_key: null
+    issue_key_pattern: '[A-Z][A-Z0-9]+-\d+'
+    commands:
+      test: null
+      lint: null
+    conventions:
+      text_ratio_max: 0.15
+      exempt: []
+- name: explicit falsy values are kept
+  config: |
+    conventions: {exempt: []}
+    reviewers: {coderabbit: false, sonar: {enabled: false}}
+    commands: {test: ''}
+  resolved:
+    reviewers:
+      coderabbit: false
+      sonar:
+        enabled: false
+        project_key: null
+    issue_key_pattern: '[A-Z][A-Z0-9]+-\d+'
+    commands:
+      test: ''
+      lint: null
+    conventions:
+      text_ratio_max: 0.15
+      exempt: []
+- name: explicit values are never replaced
+  config: |
+    reviewers: {coderabbit: true, sonar: {enabled: true, project_key: k}}
+    issue_key_pattern: 'X-\d+'
+    commands: {test: t, lint: l}
+    conventions: {text_ratio_max: 0.5, exempt: ['a/*']}
+  resolved:
+    reviewers:
+      coderabbit: true
+      sonar:
+        enabled: true
+        project_key: k
+    issue_key_pattern: X-\d+
+    commands:
+      test: t
+      lint: l
+    conventions:
+      text_ratio_max: 0.5
+      exempt:
+      - a/*
+- name: sibling defaults filled
+  config: |
+    conventions: {exempt: ['gen/*']}
+  resolved:
+    reviewers:
+      coderabbit: false
+      sonar:
+        enabled: false
+        project_key: null
+    issue_key_pattern: '[A-Z][A-Z0-9]+-\d+'
+    commands:
+      test: null
+      lint: null
+    conventions:
+      text_ratio_max: 0.15
+      exempt:
+      - gen/*

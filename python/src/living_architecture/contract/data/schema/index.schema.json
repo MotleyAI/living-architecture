@@ -2,16 +2,14 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "index.schema.json",
   "title": "architecture/index.yaml",
-  "description": "Repo-wide architecture settings; node mapping lives in the LikeC4 model metadata. Values whose problems the arch-check reports as findings (legacy_arrows, diagrams, view_depth) are deliberately unconstrained here.",
+  "description": "Repo-wide architecture settings: one section per language, keyed by its id in languages.yaml; node mapping lives in the LikeC4 model metadata. Keys starting with x- are the repo's own and ignored. Values whose problems the arch-check reports as findings (legacy_arrows, diagrams, view_depth) are deliberately unconstrained here.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["root_package"],
+  "anyOf": [{"required": ["python"]}, {"required": ["typescript"]}],
+  "patternProperties": {"^x-": {}},
   "properties": {
-    "root_package": {"type": "string", "minLength": 1, "description": "The top-level package, under source_root."},
-    "source_root": {
-      "type": "string",
-      "description": "Repo-relative directory containing root_package; default: the repo root."
-    },
+    "python": {"$ref": "#/$defs/python"},
+    "typescript": {"$ref": "#/$defs/typescript"},
     "cross_cutting_arc42": {"type": "array", "items": {"type": "string"}},
     "cross_cutting_specs": {
       "type": "object",
@@ -24,5 +22,28 @@
     "legacy_arrows": {"description": "{baseline: <count of #legacy arrows>}; checked by baseline-ratchet."},
     "diagrams": {"description": "arc42 doc -> view ids; checked by diagrams-fresh."},
     "view_depth": {"description": "view id -> render depth; checked by diagrams-fresh."}
+  },
+  "$defs": {
+    "root_package": {"type": "string", "minLength": 1, "description": "The language root's unit, under source_root."},
+    "source_root": {"type": "string", "description": "Repo-relative directory containing root_package; default: the repo root."},
+    "python": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["root_package"],
+      "properties": {
+        "root_package": {"$ref": "#/$defs/root_package"},
+        "source_root": {"$ref": "#/$defs/source_root"}
+      }
+    },
+    "typescript": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["root_package"],
+      "properties": {
+        "root_package": {"$ref": "#/$defs/root_package"},
+        "source_root": {"$ref": "#/$defs/source_root"},
+        "tsconfig": {"type": "string", "description": "Repo-relative tsconfig for module resolution; default: the nearest tsconfig.json."}
+      }
+    }
   }
 }

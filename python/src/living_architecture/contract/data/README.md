@@ -7,10 +7,12 @@ The source of truth both twins obey. Each package vendors a byte-copy of this di
 |---|---|
 | `schema/living-architecture.schema.json` | config keys, types, bounds, cross-field rules, defaults |
 | `schema/index.schema.json` | the `architecture/index.yaml` shape |
+| `schema/node.schema.json` | a node's `metadata { }` block in the LikeC4 model |
+| `schema/facts.schema.json` | one language's architecture facts, as one twin hands them to the other |
 | `findings.yaml` | every finding, verdict and hint, by id; the arch-check ids |
-| `cli.yaml` | every command's options, positionals, subcommands and exit codes |
+| `cli.yaml` | every command's options, positionals, subcommands, exit codes and native languages |
 | `conventions.yaml` | conventions-gate rules and the waiver syntax |
-| `languages.yaml` | per-language extensions, test globs, comment prefix, suppression syntax |
+| `languages.yaml` | per-language extensions, test globs, comment prefix, suppression syntax, twin runner and install command |
 | `regex-subset.md` | the portable `issue_key_pattern` subset |
 | `vectors/` | input/output vectors both test suites consume |
 | `scripts/` | the review helpers (bash, `gh`, `jq`) |

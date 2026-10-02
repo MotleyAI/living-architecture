@@ -14,8 +14,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SHARED = ROOT / "shared"
 HASH_FILE = "CONTRACT_HASH"
-SNAPSHOTS = [ROOT / "python" / "src" / "living_architecture" / "contract" / "data"]
-VENDORED = {ROOT / "python" / name: ROOT / name for name in ("README.md", "LICENSE")}
+SNAPSHOTS = [ROOT / "python" / "src" / "living_architecture" / "contract" / "data", ROOT / "node" / "src" / "contract" / "data"]
+VENDORED = {ROOT / twin / name: ROOT / name for twin in ("python", "node") for name in ("README.md", "LICENSE")}
 
 
 def _files(root: Path) -> list[Path]:

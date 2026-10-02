@@ -66,6 +66,11 @@ def language(name: str) -> dict[str, Any]:
     return _yaml("languages.yaml")[name]
 
 
+def language_ids() -> list[str]:
+    """Every language of the registry, in id order."""
+    return sorted(_yaml("languages.yaml"))
+
+
 def conventions() -> dict[str, Any]:
     return _yaml("conventions.yaml")
 
