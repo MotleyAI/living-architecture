@@ -9,7 +9,7 @@
     {"unit": "pkg.core", "status": "present"},
     {"unit": "pkg.store", "status": "present"},
     {"unit": "pkg.old", "status": "present"},
-    {"unit": "pkg.web.views", "status": "present"},
+    {"unit": "pkg.web.pages", "status": "present"},
     {"unit": "pkg.web.ghost", "status": "missing"}
   ],
   "top_level_units": ["pkg.core", "pkg.extra", "pkg.old", "pkg.store", "pkg.util", "pkg.web"],
@@ -17,6 +17,6 @@
     {"src": "python.core", "dst": "python.store", "src_module": "pkg.core.service", "dst_module": "pkg.store"},
     {"src": "python.legacy", "dst": "python.web", "src_module": "pkg.old", "dst_module": "pkg.web"},
     {"src": "python.web", "dst": "python.core", "src_module": "pkg.web.a", "dst_module": "pkg.core.service"},
-    {"src": "python.web.views", "dst": "python.store", "src_module": "pkg.web.views", "dst_module": "pkg.store.db"}
+    {"src": "python.web.pages", "dst": "python.store", "src_module": "pkg.web.pages", "dst_module": "pkg.store.db"}
   ]
 }

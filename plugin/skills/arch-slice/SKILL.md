@@ -17,8 +17,9 @@ each slice still gets its own issue, branch, and PR.
 
 1. **Pick the slice.** List the model's `#legacy` arrows (their count is
    `legacy_arrows.baseline` in `index.yaml`); propose a coherent batch — one
-   importer module, one edge family (e.g. `core -> sql.render`), or one node
-   extraction.
+   importer module, one edge family (e.g. `python.core -> python.sql.render`),
+   or one node extraction. Arrows live inside their language root, so a slice
+   stays within one language.
    Keep it ≤ ~10 edges. Confirm the choice with the user.
 2. **Read the touched nodes' arc42 + LikeC4 view.** The principles decide the
    resolution per edge:
@@ -52,9 +53,9 @@ each slice still gets its own issue, branch, and PR.
      path: `patch("...")`, `importlib`, `getattr(`, `__all__`, pyproject
      entry points/scripts, config files, docs.
 6. **Sync views & arc42:** adjust views if the node shape changed (an
-   extracted node is a top-level model element with its own
+   extracted node is a child of its language root with its own
    `metadata { package '…' }`; a nested element maps to `<package>.<path>` by
-   convention, with no `index.yaml` entry); re-validate
+   convention, with no `index.yaml` entry; views stay `of <root>`); re-validate
    the model (`la-arch-diagrams` refreshes the embedded view diagrams); update
    arc42 rationale/principles if the slice established a new
    rule — ideally tagged `[enforced: <the check/test that now holds>]`.

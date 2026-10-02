@@ -9,8 +9,7 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "types": ["node"],
-    "outDir": "dist",
-    "rootDir": "."
+    "noEmit": true
   },
   "include": ["src", "test"]
 }

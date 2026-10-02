@@ -30,7 +30,7 @@ archive.
   string.
 - **OpenSpec is looser.** A spec either belongs to one node (listed in that
   node's metadata `specs` — the node is then a behaviour *leaf*) or is
-  **cross-cutting** (listed once at top level with the nodes it touches).
+  **cross-cutting** (listed once in `index.yaml` with the fully qualified nodes it touches).
   Never duplicate a spec across nodes; `arch_check` enforces exactly-once.
 - **Model depth is a dial, not an obligation.** Model precisely where you are
   actively enforcing boundaries; sweep the rest into a few *virtual bucket
@@ -49,7 +49,7 @@ repo/
   openspec/specs/<spec-id>/spec.md
   architecture/
     model/<subsystem>.c4             # ONE LikeC4 model, split across files
-    views.c4                         # one view per precise internal node
+    views.c4                         # views, each scoped to one language root
     index.yaml                       # repo-wide settings (below)
     system.arc42.md                  # root narrative + global principles
     <node>.arc42.md                  # only where a node earns prose
@@ -60,8 +60,13 @@ The checker is `la-arch-check` (the one import law + cross-check, run by the
 gates); it needs no per-repo code. `la-arch-diagrams` regenerates the embedded
 view diagrams.
 
-A node is a top-level model element; it is virtual iff its element kind is
-declared `#virtual`. It declares its mapping in one `metadata { }` block:
+The model has one top-level **root element per language** `index.yaml` declares,
+whose id is the language (`python`, `typescript`); it carries no metadata. A node
+is a direct child of a root; it is virtual iff its element kind is declared
+`#virtual`. Relations are written inside a root with names relative to it
+(`sql -> core` inside `python { }` is `python.sql -> python.core`), so a relation
+across roots cannot be written. Element ids are fully qualified in findings and
+in `touches:`. A node declares its mapping in one `metadata { }` block:
 
 ```
 specification {
@@ -73,23 +78,32 @@ specification {
   tag virtual
 }
 model {
-  sql = node 'SQL' {                         // precise node
-    metadata {
-      package 'mypkg.sql'                    // required
-      claims ['mypkg.sqlutil']               // optional: further units it owns
-      arc42 'architecture/sql.arc42.md'      // optional
-      specs ['sql-dialects']                 // specs owned by THIS node alone
+  python = system 'My package' {             // the python root (any element kind)
+    sql = node 'SQL' {                       // precise node python.sql
+      metadata {
+        package 'mypkg.sql'                  // required
+        claims ['mypkg.sqlutil']             // optional: further units it owns
+        arc42 'architecture/sql.arc42.md'    // optional
+        specs ['sql-dialects']               // specs owned by THIS node alone
+      }
+      render = node 'Render'                 // maps to mypkg.sql.render
+      dialects = node 'Dialects'             // maps to mypkg.sql.dialects
     }
-    render = node 'Render'                   // maps to mypkg.sql.render
-    dialects = node 'Dialects'               // maps to mypkg.sql.dialects
-  }
-  surfaces = bucket 'Surfaces' {             // virtual bucket
-    metadata {
-      packages ['mypkg.api', 'mypkg.mcp', 'mypkg.cli']
+    surfaces = bucket 'Surfaces' {           // virtual bucket
+      metadata {
+        packages ['mypkg.api', 'mypkg.mcp', 'mypkg.cli']
+      }
     }
+    surfaces -> sql
   }
 }
 ```
+
+TypeScript units are extensionless paths relative to the section's
+`source_root` (`package 'src/daemon'`, nested `pty` maps to `src/daemon/pty`); a
+unit is a directory with a visible source file or exactly one module file, and a
+unit naming both is ambiguous. Test files, `*.d.ts` and `node_modules` are
+invisible; type-only imports never count.
 
 Keys and types come from the shared node schema; values are `key 'value'` or
 `key ['a', 'b']` — single quotes, no escapes, arrays may span lines, no trailing
@@ -100,15 +114,24 @@ metadata is a setup error (exit 2) naming the element.
 `index.yaml`:
 
 ```yaml
-root_package: mypkg                   # required: the top-level package the nodes claim
-source_root: src                      # optional: directory containing root_package
+python:                               # one section per language; at least one
+  root_package: mypkg                 # required: the unit of the python root
+  source_root: src                    # optional: directory containing root_package
+typescript:
+  root_package: src
+  source_root: web                    # optional
+  tsconfig: web/tsconfig.json         # optional: default the nearest tsconfig.json
 
 legacy_arrows: {baseline: 8}          # exact count of #legacy arrows in the model (ratchet)
 
 cross_cutting_specs:
-  queries: {touches: [core, ir, engine, sql]}
-  models:  {touches: [core, storage, engine]}
+  queries: {touches: [python.core, python.engine, python.sql]}
+
+x-anything: {}                        # repo-owned keys start with x-; the tools ignore them
 ```
+
+`views.c4` scopes each view to a root, `view <id> of <root> { ... }`, with
+include names relative to the root; the root itself is never drawn.
 
 ## arc42 node file — required shape
 
@@ -146,8 +169,10 @@ TYPE_CHECKING-only imports are excluded. Grandfathered crossings are dashed
 just *no arrow declared between those nested elements* — so one law subsumes what used
 to be separate `layers` / `forbidden` / boundary contracts.
 
-(Other languages: same idea, different tool — dependency-cruiser/Nx for TS,
-deptrac for PHP, ArchUnit for JVM — kept honest by a model-truth cross-check.)
+Python edges come from `ast`, TypeScript edges from the TypeScript compiler
+under the repo's tsconfig. Either twin checks a mixed repo: each language's facts
+come from its own twin (PyPI or npm, found on PATH or run through `uvx`/`npx`), and
+model-truth runs once over all of them.
 
 **The enforcement bundle** = `la-arch-check` + LikeC4 model validation
 (`npx likec4 validate`; if the installed CLI version lacks it, use the lightest
@@ -174,8 +199,8 @@ baseline. It runs, blocking, in:
   exist on disk; every nested element's unit exists under its node's package
   and does not collide with another declared unit; a bucket contains no
   elements; every `arc42` path exists;
-- every top-level package of `root_package` is claimed by exactly one node —
-  no orphan packages;
+- every top-level unit of each language's `root_package` is claimed by exactly
+  one node — no orphan packages;
 - every directory under `openspec/specs/` appears exactly once: in exactly one
   node's `specs` or in `cross_cutting_specs:`; every node named in a
   `touches:` list exists;
@@ -185,12 +210,14 @@ baseline. It runs, blocking, in:
 - every principle item in an arc42 file carries a status tag —
   `[enforced: arch_check:<check-id>]`, `[enforced: test:<path>]`, `[review]`,
   or `[target: <issue key>]` (a future-state clause; keys must match the
-  repo's `issue_key_pattern`).
+  repo's `issue_key_pattern`); an item may add one `[lang: <language>]` naming
+  a declared language it alone binds.
 
 ## Dispatch
 
 - `architecture/` absent or invalid → run **Init** below.
-- Present, but `index.yaml` still has `nodes:` → run **Migrate** below.
+- Present, but `index.yaml` still has `nodes:` or a top-level `root_package` →
+  run **Migrate** below.
 - Present → maintenance: keep the model, `index.yaml`, and arc42 in sync IN
   THE SAME PR as any structural change; deepen buckets / add views for new
   subsystems; tighten boundaries via the **la:arch-slice** skill.
@@ -232,7 +259,9 @@ baseline. It runs, blocking, in:
    (history stays in git + the openspec archive). Confirm with the user
    before deleting.
 
-## Migrate (index.yaml `nodes:` → model metadata, once per repo)
+## Migrate (once per repo)
+
+From `index.yaml` `nodes:` to model metadata:
 
 1. For each `nodes.<id>` entry, add a `metadata { }` block to model element
    `<id>` with its `package`, `claims`, `packages`, `arc42` and `specs`
@@ -240,7 +269,17 @@ baseline. It runs, blocking, in:
 2. Drop `children:` and `virtual:`: nest the children as elements under the
    node instead (most models already do), and keep virtual-ness on the
    element kind (`#virtual`).
-3. Delete `nodes:` from `index.yaml`, then run `la-arch-check` until green.
+3. Delete `nodes:` from `index.yaml`.
+
+To language roots:
+
+1. Move `root_package`/`source_root` into a `python:` (or `typescript:`)
+   section of `index.yaml`; rename repo-owned keys to `x-…`.
+2. Wrap every top-level model element and relation, unchanged, in
+   `<language> = system '<title>' { … }`.
+3. Add `of <language>` to every view, and qualify `cross_cutting_specs`
+   `touches` (`core` → `python.core`).
+4. Run `la-arch-check` until green; diagrams need no regeneration.
 
 ## Interaction with /la:pr
 

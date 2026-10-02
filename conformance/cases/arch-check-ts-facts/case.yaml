@@ -1,6 +1,7 @@
 kind: adapter
 languages:
 - typescript
+twin: typescript
 command: la-arch-check
 args:
 - --language

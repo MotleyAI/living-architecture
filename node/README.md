@@ -30,6 +30,14 @@ uv tool install living-architecture==0.2.1
 Skills run `la-doctor --expect <version>` first and stop if the installed
 commands don't match the plugin.
 
+The commands have two native implementations (twins) with one contract: the PyPI
+package serves Python repos, and the npm package `living-architecture` (Node ≥ 22,
+same command names; published from a later release) serves TypeScript/JavaScript
+repos. Either twin checks a Python, TypeScript or mixed repo with identical
+output: it hands the other language's work to the other twin at the same version,
+found on `PATH` (or `<repo>/node_modules/.bin`) or run through `uvx`/`npx`, and
+exits 2 with an install hint when that twin is unreachable.
+
 **Prerequisites:** `git`, `bash`, `gh` (authenticated), `jq`; `npx` for the
 OpenSpec and LikeC4 CLIs; the Linear MCP server for the spec flow; the Codex MCP
 server (`mcp__codex__codex`) for plan, test, and diff reviews; the SonarQube MCP
@@ -91,6 +99,29 @@ Types are strict: `coderabbit: 'true'` or `text_ratio_max: '0.2'` is an error
 naming the key, not a coerced value. `issue_key_pattern` must use the portable
 regex subset in [`shared/regex-subset.md`](shared/regex-subset.md).
 
+## Upgrading to language roots
+
+`index.yaml` holds one section per language and the model one root element per
+language; `la-arch-check` exits 2 on a top-level `root_package`. Once per repo:
+
+1. Move `root_package`/`source_root` into a `python:` (or `typescript:`) section;
+   repo-owned keys must start with `x-`.
+2. Wrap every top-level model element and relation, unchanged, in
+   `python = system '<title>' { … }`; relation names stay relative to the root.
+3. Add `of python` to every view (`view system of python { … }`) and qualify
+   `cross_cutting_specs` `touches` (`core` → `python.core`).
+4. Run `la-arch-check` until green. Diagrams need no regeneration; findings now
+   name elements fully qualified (`python.core`).
+
+```yaml
+python:
+  root_package: mypkg
+  source_root: src
+typescript:                 # a second language: its own root element `typescript`
+  root_package: src
+  source_root: web
+```
+
 ## Upgrading from `index.yaml` `nodes:`
 
 Node mapping now lives in the LikeC4 model; `index.yaml` keeps only repo-wide
@@ -101,12 +132,14 @@ move each `nodes.<id>` entry into a `metadata { }` block on model element `<id>`
 `nodes:`, and run `la-arch-check` until green:
 
 ```
-api = node 'API' {
-  metadata {
-    package 'mypkg.api'
-    specs ['api']
+python = system 'My package' {
+  api = node 'API' {
+    metadata {
+      package 'mypkg.api'
+      specs ['api']
+    }
+    handlers = node 'Handlers'   // maps to mypkg.api.handlers
   }
-  handlers = node 'Handlers'   // maps to mypkg.api.handlers
 }
 ```
 
@@ -156,23 +189,27 @@ command settings.
 | Path | Holds |
 |---|---|
 | `plugin/` | the Claude Code plugin: skills |
-| `python/` | the PyPI package (`living-architecture`): every `la-*`/`dr-*` command |
+| `python/` | the PyPI twin (`living-architecture`): every `la-*`/`dr-*` command |
+| `node/` | the npm twin (`living-architecture`): the language-neutral commands and the TypeScript arch-check; forwards the Python-only commands |
 | `shared/` | the contract the commands obey: config and index schemas, finding texts, the CLI manifest, conventions and language registries, review scripts, test vectors |
 | `conformance/` | the byte-exact corpus pinning every command's observable output |
 | `architecture/` | this repo's own LikeC4 model and arc42 principles |
-| `scripts/sync-shared` | vendors `shared/`, `README.md` and `LICENSE` into the package |
+| `scripts/sync-shared` | vendors `shared/`, `README.md` and `LICENSE` into both twins |
+| `scripts/conformance-cross` | runs every conformance case through both twins' entry points |
+| `scripts/release-check` | checks a release tag against both twins' versions and contract hashes |
 
 See [AGENTS.md](AGENTS.md) for how to change any of them.
 
 ## Releasing
 
 In `python/`, bump the version with `uv version <new>`, then in
-`plugin/.claude-plugin/plugin.json` and every skill's `la-doctor --expect` pin (the
-tests fail until all agree), and update the pins in this README. Run
-`scripts/sync-shared` and commit the refreshed copies. Tag `v<version>` and
-publish a GitHub release for it; the `Publish to PyPI` workflow uploads the
-package (it refuses a tag that doesn't match the package or plugin version, or a
-stale contract snapshot).
+`node/package.json`, `plugin/.claude-plugin/plugin.json` and every skill's
+`la-doctor --expect` pin (the tests fail until all agree), and update the pins in
+this README. Run `scripts/sync-shared` and commit the refreshed copies. Tag
+`v<version>` and publish a GitHub release for it; the `Publish` workflow first
+runs `scripts/release-check` (every version equals the tag, both contract hashes
+agree) and publishes neither twin otherwise. The npm job skips while
+`node/package.json` is `"private": true`.
 
 ## Deterministic refactoring
 

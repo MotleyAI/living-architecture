@@ -10,7 +10,7 @@ exit code, stdout and stderr byte-for-byte. `INVENTORY.md` maps every output bra
 ```yaml
 kind: neutral | paired | adapter   # paired: one run per language; adapter: one language
 languages: [python]                # the fixture languages; required unless neutral
-twin: python | typescript          # only this twin invokes the command (forwarding cases)
+twin: python | typescript          # only this twin invokes the command (forwarding and facts cases)
 other_twin: absent                 # the other twin's bin dir is kept off PATH
 command: la-arch-check
 args: [--root, .]                  # `<VERSION>`, `<CONTRACT_HASH>`, `<ROOT>` are substituted
@@ -49,7 +49,8 @@ listed overlay to one repo. Goldens are `stdout`, `stderr` and `files/`; for a p
 `LA_CONFORMANCE_TWIN` (`python`, the default, or `typescript`) picks the invoking twin; `LA_NODE_BIN_DIR`
 holds the npm twin's commands. A twin's own run takes the cases whose fixture languages are none or only its
 own and whose command it implements natively (`native` in `shared/cli.yaml`). `LA_CONFORMANCE_CROSS=1` runs
-every case. A case with `twin:` runs only through that twin.
+every case. A case with `twin:` runs only through that twin. `npm run conformance` in `node/` runs the npm
+twin's own cases; `scripts/conformance-cross` runs every case through each twin.
 
 ## Environment
 

@@ -1,11 +1,22 @@
-name: Publish to PyPI
+name: Publish
 
 on:
   release:
     types: [published]
 
 jobs:
-  publish:
+  # Both twins publish only if every version equals the tag and both contract hashes agree.
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check versions and contract hashes against the tag
+        run: scripts/release-check "${{ github.event.release.tag_name }}"
+      - name: Check the vendored contract snapshots are current
+        run: scripts/sync-shared --check
+
+  pypi:
+    needs: check
     runs-on: ubuntu-latest
     permissions:
       id-token: write  # trusted publishing (OIDC)
@@ -16,13 +27,38 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-      - name: Check the tag matches the package version
-        run: test "v$(uv version --short)" = "${{ github.event.release.tag_name }}"
-      - name: Check the plugin version matches the package version
-        run: test "$(uv version --short)" = "$(jq -r .version ../plugin/.claude-plugin/plugin.json)"
-      - name: Check the vendored contract snapshot is current
-        run: ../scripts/sync-shared --check
       - run: uv build
       - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
         with:
           packages-dir: python/dist/
+
+  npm:
+    needs: check
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write  # trusted publishing (OIDC)
+      contents: read
+    defaults:
+      run:
+        working-directory: node
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+      - name: Skip while the package is private
+        id: private
+        run: |
+          if [ "$(jq -r '.private // false' package.json)" = "true" ]; then
+            echo "node/package.json is private: skipping the npm publish"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.private.outputs.skip != 'true'
+        run: npm install -g npm@latest  # trusted publishing needs npm >= 11.5
+      - if: steps.private.outputs.skip != 'true'
+        run: npm ci
+      - if: steps.private.outputs.skip != 'true'
+        run: npm run build
+      - if: steps.private.outputs.skip != 'true'
+        run: npm publish --provenance --access public

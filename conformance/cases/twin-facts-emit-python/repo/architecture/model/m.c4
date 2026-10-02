@@ -4,6 +4,7 @@ specification {
   element bucket {
     #virtual
   }
+  tag virtual
 }
 
 model {
@@ -13,7 +14,7 @@ model {
         package 'pkg.web'
         claims ['pkg.gone', 'pkg.util']
       }
-      views = node 'Views'
+      pages = node 'Pages'
       ghost = node 'Ghost'
     }
     core = node 'Core' {
