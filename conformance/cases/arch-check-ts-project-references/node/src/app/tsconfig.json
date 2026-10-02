@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "composite": true,
+    "paths": {
+      "@lib": [
+        "../../lib/out/index"
+      ],
+      "@lib/*": [
+        "../../lib/out/*"
+      ],
+      "@lib2": [
+        "../../lib2/types/lib2/index"
+      ]
+    }
+  },
+  "references": [
+    {
+      "path": "../lib"
+    },
+    {
+      "path": "../lib2"
+    }
+  ]
+}

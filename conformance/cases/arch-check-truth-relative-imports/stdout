@@ -1,3 +1,3 @@
-model-truth: measured runtime edge store -> core is missing from the model (import pkg.store -> pkg.util)
-model-truth: measured runtime edge store -> legacy is missing from the model (import pkg.store -> pkg.old)
+model-truth: measured runtime edge python.store -> python.core is missing from the model (import pkg.store -> pkg.util)
+model-truth: measured runtime edge python.store -> python.legacy is missing from the model (import pkg.store -> pkg.old)
 arch_check: 2 finding(s)

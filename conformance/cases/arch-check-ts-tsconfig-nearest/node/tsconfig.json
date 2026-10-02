@@ -1,0 +1,9 @@
+{
+  "compilerOptions": {
+    "paths": {
+      "@k/*": [
+        "./src/c/*"
+      ]
+    }
+  }
+}

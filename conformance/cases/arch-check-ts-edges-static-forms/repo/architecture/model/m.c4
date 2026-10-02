@@ -1,0 +1,84 @@
+specification {
+  element system
+  element node
+}
+
+model {
+  typescript = system 'Web' {
+    a = node 'a' {
+      metadata {
+        package 'src/a'
+      }
+    }
+    named = node 'named' {
+      metadata {
+        package 'src/named'
+      }
+    }
+    dflt = node 'dflt' {
+      metadata {
+        package 'src/dflt'
+      }
+    }
+    nsimport = node 'nsimport' {
+      metadata {
+        package 'src/nsimport'
+      }
+    }
+    sideeffect = node 'sideeffect' {
+      metadata {
+        package 'src/sideeffect'
+      }
+    }
+    reexport = node 'reexport' {
+      metadata {
+        package 'src/reexport'
+      }
+    }
+    starexport = node 'starexport' {
+      metadata {
+        package 'src/starexport'
+      }
+    }
+    starns = node 'starns' {
+      metadata {
+        package 'src/starns'
+      }
+    }
+    importeq = node 'importeq' {
+      metadata {
+        package 'src/importeq'
+      }
+    }
+    mixed = node 'mixed' {
+      metadata {
+        package 'src/mixed'
+      }
+    }
+    dflttype = node 'dflttype' {
+      metadata {
+        package 'src/dflttype'
+      }
+    }
+    mixedexport = node 'mixedexport' {
+      metadata {
+        package 'src/mixedexport'
+      }
+    }
+    emptyimport = node 'emptyimport' {
+      metadata {
+        package 'src/emptyimport'
+      }
+    }
+    emptyexport = node 'emptyexport' {
+      metadata {
+        package 'src/emptyexport'
+      }
+    }
+    typeuse = node 'typeuse' {
+      metadata {
+        package 'src/typeuse'
+      }
+    }
+  }
+}

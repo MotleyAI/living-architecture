@@ -270,7 +270,7 @@ Import edges SHALL be measured from every visible TypeScript source file with th
 These forms SHALL count: static `import`, `export … from`, side-effect `import 'x'`, `import x = require('x')`,
 `import('x')` and `require('x')` with a string-literal argument. Calls with non-literal arguments SHALL be
 ignored. Type-only forms SHALL be excluded by syntax alone: `import type`, `export type`, `export type * from`,
-`import type x = require()`, an import or export whose every named specifier is `type`, type-position
+`import type x = require()`, an import or export with at least one named specifier, every one of them `type`, type-position
 `import('x')` (including `typeof import('x')` and import types nested in other types), and `/// <reference>`
 directives. An import with at least one value specifier SHALL count even if the value is used only in type
 positions.

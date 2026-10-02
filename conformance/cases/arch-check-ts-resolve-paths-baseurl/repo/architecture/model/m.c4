@@ -1,0 +1,29 @@
+specification {
+  element system
+  element node
+}
+
+model {
+  typescript = system 'Web' {
+    a = node 'a' {
+      metadata {
+        package 'src/a'
+      }
+    }
+    b = node 'b' {
+      metadata {
+        package 'src/b'
+      }
+    }
+    c = node 'c' {
+      metadata {
+        package 'src/c'
+      }
+    }
+    d = node 'd' {
+      metadata {
+        package 'src/d'
+      }
+    }
+  }
+}

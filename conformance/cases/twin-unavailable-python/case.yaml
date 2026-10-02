@@ -1,0 +1,13 @@
+kind: neutral
+twin: typescript
+other_twin: absent
+command: la-check-conventions
+args:
+- --file
+- a.py
+normalize:
+- version
+expect:
+  exit: 2
+golden: manual
+note: 'npm twin asked for a Python-only command, no PyPI twin and no uvx on PATH: exit 2 with the install hint'

@@ -1,0 +1,3 @@
+model-truth: measured runtime edge python.core -> python.api is missing from the model (import pkg.core.a -> pkg.api)
+model-truth: measured runtime edge typescript.shared -> typescript.web is missing from the model (import src/shared/a -> src/web/app)
+arch_check: 2 finding(s)

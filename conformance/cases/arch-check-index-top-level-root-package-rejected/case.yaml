@@ -1,0 +1,13 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+fixture: arch-ok
+expect:
+  exit: 2
+  stderr:
+    contains:
+    - architecture/index.yaml
+    - root_package
+golden: manual
+note: 'root_package lives in a language section; schema wording is not pinned'

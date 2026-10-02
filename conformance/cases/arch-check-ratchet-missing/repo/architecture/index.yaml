@@ -1,9 +1,10 @@
-root_package: pkg
+python:
+  root_package: pkg
 cross_cutting_arc42:
 - architecture/security.arc42.md
 cross_cutting_specs:
   logging:
     touches:
-    - api
-    - core
+    - python.api
+    - python.core
 diagrams: {}

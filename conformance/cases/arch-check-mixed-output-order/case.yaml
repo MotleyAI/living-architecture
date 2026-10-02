@@ -1,0 +1,10 @@
+kind: neutral
+languages:
+- python
+- typescript
+command: la-arch-check
+fixture: arch-mixed
+expect:
+  exit: 1
+golden: manual
+note: 'typescript root first in the model: claims still python then typescript, then the fixed check order; arrows keep model order'

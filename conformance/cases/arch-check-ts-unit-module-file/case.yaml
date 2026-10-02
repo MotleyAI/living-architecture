@@ -1,0 +1,11 @@
+kind: adapter
+languages:
+- typescript
+command: la-arch-check
+fixture: arch-ts
+remove:
+- src/util.ts
+expect:
+  exit: 0
+golden: manual
+note: a unit exists as exactly one module file of any source extension

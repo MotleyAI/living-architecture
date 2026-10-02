@@ -7,7 +7,7 @@ expect:
   exit: 2
   stderr:
     contains:
-    - 'model element orphan: '
+    - 'model element python.orphan: '
     - 'package'
 golden: manual
 note: 'a precise top-level element without metadata has no package'

@@ -1,0 +1,10 @@
+views {
+  view py of python {
+    title 'Python'
+    include *
+  }
+  view ts of typescript {
+    title 'TypeScript'
+    include *
+  }
+}

@@ -1,0 +1,27 @@
+specification {
+  element system
+  element node
+}
+
+model {
+  typescript = system 'Web' {
+    app = node 'app' {
+      metadata {
+        package 'src/app'
+      }
+    }
+    lib = node 'lib' {
+      metadata {
+        package 'src/lib'
+      }
+      esm = node 'esm'
+      cjs = node 'cjs'
+      extra = node 'extra'
+    }
+    lib2 = node 'lib2' {
+      metadata {
+        package 'src/lib2'
+      }
+    }
+  }
+}

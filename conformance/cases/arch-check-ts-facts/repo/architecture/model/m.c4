@@ -1,0 +1,41 @@
+specification {
+  element system
+  element node
+  element bucket {
+    #virtual
+  }
+  tag legacy
+}
+
+model {
+  typescript = system 'Web' {
+    api = node 'API' {
+      metadata {
+        package 'src/api'
+      }
+      handlers = node 'Handlers'
+    }
+    core = node 'Core' {
+      metadata {
+        package 'src/core'
+        claims ['src/util', 'src/gone', 'src/dup']
+      }
+      fmt = node 'Format'
+    }
+    store = node 'Store' {
+      metadata {
+        package 'src/store'
+      }
+    }
+    legacy = bucket 'Legacy' {
+      metadata {
+        packages ['src/old']
+      }
+    }
+
+    api.handlers -> core
+    core -> store
+    api -> store #legacy
+    legacy -> core
+  }
+}

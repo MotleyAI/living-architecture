@@ -1,0 +1,10 @@
+kind: neutral
+languages:
+- python
+- typescript
+command: la-arch-check
+fixture: arch-mixed
+expect:
+  exit: 1
+golden: manual
+note: 'only python edges are measured, so the typescript arrow is dead; identical through both twins'

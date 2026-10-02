@@ -1,0 +1,6 @@
+model-truth: measured runtime edge typescript.a -> typescript.b is missing from the model (import src/a/x -> src/b/y)
+model-truth: measured runtime edge typescript.a -> typescript.c is missing from the model (import src/a/x -> src/c/z)
+model-truth: measured runtime edge typescript.a -> typescript.d is missing from the model (import src/a/x -> src/d)
+model-truth: measured runtime edge typescript.a -> typescript.e is missing from the model (import src/a/x -> src/e/index)
+model-truth: measured runtime edge typescript.a -> typescript.f is missing from the model (import src/a/x -> src/f)
+arch_check: 5 finding(s)

@@ -1,0 +1,23 @@
+kind: adapter
+languages:
+- python
+twin: python
+other_twin: absent
+command: la-arch-check
+fixture: twin-mixed
+bins:
+- dir: runner
+  files:
+    npx: |
+      #!/bin/sh
+      echo "npx $*" >> <ROOT>/repo/probe.log
+      echo "npm error 404 Not Found - living-architecture" >&2
+      exit 1
+normalize:
+- version
+expect:
+  exit: 2
+  files:
+  - probe.log
+golden: manual
+note: 'npx''s probe fails (as a download error does): exit 2 with the install hint, the runner''s own stderr not shown'

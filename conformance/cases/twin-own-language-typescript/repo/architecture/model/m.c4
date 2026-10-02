@@ -1,0 +1,21 @@
+specification {
+  element system
+  element node
+}
+
+model {
+  typescript = system 'TypeScript' {
+    web = node 'Web' {
+      metadata {
+        package 'src/web'
+      }
+    }
+    shared = node 'Shared' {
+      metadata {
+        package 'src/shared'
+      }
+    }
+
+    web -> shared
+  }
+}

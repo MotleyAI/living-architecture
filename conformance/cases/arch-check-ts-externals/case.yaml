@@ -1,0 +1,15 @@
+kind: adapter
+languages:
+- typescript
+command: la-arch-check
+fixture: arch-ts
+remove:
+- src/api
+- src/core
+- src/store
+- src/util.ts
+- src/old.js
+expect:
+  exit: 0
+golden: manual
+note: npm packages, node-prefixed and bare builtins, package subpaths, unresolved bare specifiers, targets outside root_package and the root barrel give no edge

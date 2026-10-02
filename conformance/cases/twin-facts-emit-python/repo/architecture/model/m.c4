@@ -1,0 +1,38 @@
+specification {
+  element system
+  element node
+  element bucket {
+    #virtual
+  }
+}
+
+model {
+  python = system 'Python' {
+    web = node 'Web' {
+      metadata {
+        package 'pkg.web'
+        claims ['pkg.gone', 'pkg.util']
+      }
+      views = node 'Views'
+      ghost = node 'Ghost'
+    }
+    core = node 'Core' {
+      metadata {
+        package 'pkg.core'
+      }
+    }
+    store = node 'Store' {
+      metadata {
+        package 'pkg.store'
+      }
+    }
+    legacy = bucket 'Legacy' {
+      metadata {
+        packages ['pkg.old']
+      }
+    }
+
+    web -> core
+    core -> store
+  }
+}

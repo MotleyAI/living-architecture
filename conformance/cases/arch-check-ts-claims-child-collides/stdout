@@ -1,0 +1,2 @@
+claims-exactly-once: element typescript.api.ui (src/api/ui) collides with declared unit src/api/ui/old
+arch_check: 1 finding(s)

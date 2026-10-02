@@ -1,0 +1,1 @@
+arch_check: architecture/index.yaml: a language section is required (one of python, typescript)

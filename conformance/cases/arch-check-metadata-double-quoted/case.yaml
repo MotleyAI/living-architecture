@@ -7,6 +7,6 @@ expect:
   exit: 2
   stderr:
     contains:
-    - 'element store has malformed metadata: package "pkg.store"'
+    - 'element python.store has malformed metadata: package "pkg.store"'
 golden: manual
 note: 'only single-quoted values'

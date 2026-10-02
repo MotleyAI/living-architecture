@@ -1,0 +1,87 @@
+{
+  "language": "typescript",
+  "version": "<VERSION>",
+  "contract_hash": "<CONTRACT_HASH>",
+  "units": [
+    {
+      "unit": "src/api",
+      "status": "present"
+    },
+    {
+      "unit": "src/core",
+      "status": "present"
+    },
+    {
+      "unit": "src/util",
+      "status": "present"
+    },
+    {
+      "unit": "src/gone",
+      "status": "missing"
+    },
+    {
+      "unit": "src/dup",
+      "status": "ambiguous",
+      "candidates": [
+        "src/dup.ts",
+        "src/dup/"
+      ]
+    },
+    {
+      "unit": "src/store",
+      "status": "present"
+    },
+    {
+      "unit": "src/old",
+      "status": "present"
+    },
+    {
+      "unit": "src/api/handlers",
+      "status": "present"
+    },
+    {
+      "unit": "src/core/fmt",
+      "status": "missing"
+    }
+  ],
+  "top_level_units": [
+    "src/api",
+    "src/core",
+    "src/dup",
+    "src/old",
+    "src/store",
+    "src/util"
+  ],
+  "edges": [
+    {
+      "src": "typescript.api",
+      "dst": "typescript.store",
+      "src_module": "src/api",
+      "dst_module": "src/store/db"
+    },
+    {
+      "src": "typescript.api.handlers",
+      "dst": "typescript.core",
+      "src_module": "src/api/handlers",
+      "dst_module": "src/core/service"
+    },
+    {
+      "src": "typescript.core",
+      "dst": "typescript.store",
+      "src_module": "src/core/service",
+      "dst_module": "src/store/db"
+    },
+    {
+      "src": "typescript.legacy",
+      "dst": "typescript.core",
+      "src_module": "src/old",
+      "dst_module": "src/util"
+    },
+    {
+      "src": "typescript.store",
+      "dst": "typescript.api.handlers",
+      "src_module": "src/store/cache",
+      "dst_module": "src/api/handlers"
+    }
+  ]
+}

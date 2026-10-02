@@ -1,5 +1,7 @@
 # The shared YAML profile: YAML 1.1 exactly as PyYAML's safe loader reads it (last duplicate key wins).
-# `json` is the expected value of `text`, serialized as JSON.
+# Each case has exactly one of: `json`, the expected value of `text` serialized as JSON (compared by value, so
+# mapping key order is not pinned); `repr`, the canonical repr of the normalized value, for values JSON cannot
+# hold (non-string keys, timestamps, inf, nan).
 cases:
 - name: YAML 1.1 booleans
   text: '[yes, no, on, off, true, false, True, FALSE, Yes, NO, On, OFF]'
@@ -45,3 +47,79 @@ cases:
 - name: empty document
   text: ''
   json: 'null'
+- name: booleans are case-sensitive beyond three spellings
+  text: '[yEs, YES, nO, oN, ON, oFF, Off, tRUE, TRUE, fALSE]'
+  json: '["yEs", true, "nO", "oN", true, "oFF", false, "tRUE", true, "fALSE"]'
+- name: null spellings beyond three stay strings
+  text: '[nULL, NuLL, "~", "null"]'
+  json: '["nULL", "NuLL", "~", "null"]'
+- name: empty mapping values are null
+  text: '{a: , b: ~}'
+  json: '{"a": null, "b": null}'
+- name: sexagesimal integers and floats
+  text: '[1:30, -1:30, +1:30, 1:30.5, 190:20:30.15, 1:2:3, 1:60, 0:30]'
+  json: '[90, -90, 90, 90.5, 685230.15, 3723, "1:60", "0:30"]'
+- name: octal hex and binary
+  text: '[017, -017, 0_17, 09, 0o17, 0x_1A, +0x1A, -0x1a, 0b1_01, -0b11, 1__0]'
+  json: '[15, -15, 15, "09", "0o17", 26, 26, -26, 5, -3, 10]'
+- name: float formats
+  text: '[1.0e3, 1.0e+3, 1E+3, 1e+3, 5., -.5, +1.5, 1_0.0_1, 1_000.5]'
+  json: '["1.0e3", 1000.0, "1E+3", "1e+3", 5.0, "-.5", 1.5, 10.01, 1000.5]'
+- name: infinities and nan
+  text: '[.inf, -.Inf, +.INF, .nan, .NaN, .NAN]'
+  repr: '[inf, -inf, inf, nan, nan, nan]'
+- name: mixed-case inf and nan stay strings
+  text: '[.Inf, .iNF, .nAN]'
+  repr: '[inf, ''.iNF'', ''.nAN'']'
+- name: timestamps normalize to ISO text
+  text: '[2026-01-02, 2026-01-02T03:04:05Z, 2026-01-02 03:04:05, 2026-01-02T03:04:05.5+05:30, 2026-01-02t03:04:05.123456789-01:00,
+    2026-1-2T3:04:05]'
+  repr: '[''2026-01-02'', ''2026-01-02T03:04:05+00:00'', ''2026-01-02T03:04:05'', ''2026-01-02T03:04:05.500000+05:30'',
+    ''2026-01-02T03:04:05.123456-01:00'', ''2026-01-02T03:04:05'']'
+- name: near-timestamps stay strings
+  text: '[2026-1-2, 2026-01-02x, "2026-01-02", 26-01-02]'
+  json: '["2026-1-2", "2026-01-02x", "2026-01-02", "26-01-02"]'
+- name: merge key list, earlier merges win, explicit keys override
+  text: |
+    a: &a {x: 1, y: 1}
+    b: &b {y: 2, z: 2}
+    c:
+      <<: [*a, *b]
+      z: 3
+  json: '{"a": {"x": 1, "y": 1}, "b": {"y": 2, "z": 2}, "c": {"x": 1, "y": 1, "z": 3}}'
+- name: explicit key overrides a merge wherever it appears
+  text: |
+    a: &a {x: 1, w: 1}
+    c:
+      x: 9
+      <<: *a
+  json: '{"a": {"x": 1, "w": 1}, "c": {"x": 9, "w": 1}}'
+- name: chained merges
+  text: |
+    a: &a {x: 1}
+    b: &b
+      <<: *a
+      y: 2
+    c:
+      <<: *b
+      z: 3
+  json: '{"a": {"x": 1}, "b": {"x": 1, "y": 2}, "c": {"x": 1, "y": 2, "z": 3}}'
+- name: duplicate keys at depth
+  text: |
+    r:
+      s:
+        t: 1
+        t: 2
+      s2: {u: [1, {v: a, v: b}]}
+  json: '{"r": {"s": {"t": 2}, "s2": {"u": [1, {"v": "b"}]}}}'
+- name: duplicate mapping value replaced, not merged
+  text: |
+    a: {x: 1}
+    a: {y: 2}
+  json: '{"a": {"y": 2}}'
+- name: non-string keys
+  text: '{1: a, 2.5: b, ~: c, false: d, -3: e, 0x10: f}'
+  repr: '{1: ''a'', 2.5: ''b'', None: ''c'', False: ''d'', -3: ''e'', 16: ''f''}'
+- name: timestamp key
+  text: '{2026-01-02: a}'
+  repr: '{''2026-01-02'': ''a''}'

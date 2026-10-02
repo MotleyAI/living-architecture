@@ -1,0 +1,3 @@
+claims-exist: typescript.core claims src/gone, which does not exist on disk
+claims-exist: element typescript.daemon.pty maps to src/daemon/pty, which does not exist on disk
+arch_check: 2 finding(s)

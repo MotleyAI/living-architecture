@@ -1,0 +1,13 @@
+kind: neutral
+languages:
+- python
+- typescript
+command: la-arch-check
+fixture: arch-mixed
+remove:
+- src/web
+- src/shared
+expect:
+  exit: 1
+golden: manual
+note: 'both roots hold api -> core; the python edge covers only python.api -> python.core, so the typescript arrow is dead'

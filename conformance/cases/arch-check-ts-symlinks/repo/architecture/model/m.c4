@@ -1,0 +1,15 @@
+specification {
+  element system
+  element node
+}
+
+model {
+  typescript = system 'Web' {
+    core = node 'Core' {
+      metadata {
+        package 'src/core'
+        claims ['src/linked', 'src/f', 'src/esc', 'src/cyc']
+      }
+    }
+  }
+}

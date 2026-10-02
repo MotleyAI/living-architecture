@@ -1,2 +1,2 @@
-model-truth: measured runtime edge api.handlers -> legacy is missing from the model (import pkg.api.handlers -> pkg.old)
+model-truth: measured runtime edge python.api.handlers -> python.legacy is missing from the model (import pkg.api.handlers -> pkg.old)
 arch_check: 1 finding(s)

@@ -1,0 +1,39 @@
+specification {
+  element system
+  element node
+}
+
+model {
+  typescript = system 'Web' {
+    a = node 'a' {
+      metadata {
+        package 'src/a'
+      }
+    }
+    c = node 'c' {
+      metadata {
+        package 'src/c'
+      }
+    }
+    dyn = node 'dyn' {
+      metadata {
+        package 'src/dyn'
+      }
+    }
+    req = node 'req' {
+      metadata {
+        package 'src/req'
+      }
+    }
+    skip = node 'skip' {
+      metadata {
+        package 'src/skip'
+      }
+    }
+    cjs = node 'cjs' {
+      metadata {
+        package 'src/cjs'
+      }
+    }
+  }
+}

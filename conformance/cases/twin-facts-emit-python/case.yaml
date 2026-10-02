@@ -1,0 +1,15 @@
+kind: adapter
+languages:
+- python
+twin: python
+command: la-arch-check
+args:
+- --language
+- python
+- --emit
+- facts
+expect:
+  exit: 0
+  stdout: json
+golden: manual
+note: 'the PyPI twin emits Python facts natively: units in model order (declared, then derived), sorted top-level units, edges sorted with the first witness (sorted source module, then target)'

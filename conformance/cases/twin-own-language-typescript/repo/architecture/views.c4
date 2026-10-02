@@ -1,0 +1,6 @@
+views {
+  view ts of typescript {
+    title 'TypeScript'
+    include *
+  }
+}

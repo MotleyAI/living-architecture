@@ -1,0 +1,3 @@
+model-truth: modeled relation python.python.api -> python.core has no measured runtime edge
+diagrams-fresh: relation python.python.api -> python.core has unknown endpoint python.python.api
+arch_check: 2 finding(s)

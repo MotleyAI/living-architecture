@@ -4,6 +4,7 @@ import pytest
 
 from living_architecture import __version__, cli, doctor
 from living_architecture.config import CONFIG_FILENAME
+from living_architecture.contract import contract_hash
 
 
 @pytest.fixture
@@ -39,3 +40,9 @@ def test_invalid_config(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> N
 def test_missing_executable(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(doctor.shutil, "which", lambda exe: None if exe == "gh" else "/bin/x")
     assert doctor.run_checks(root=tmp_path, expect=None) == ["`gh` not found on PATH"]
+
+
+def test_twin_identity_line(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    monkeypatch.chdir(tmp_path)
+    assert cli.la_doctor(["--twin"]) == 0
+    assert capsys.readouterr().out == f"python {__version__} {contract_hash()}\n"

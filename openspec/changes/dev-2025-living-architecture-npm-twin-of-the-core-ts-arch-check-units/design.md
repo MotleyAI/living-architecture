@@ -86,8 +86,10 @@ does not reuse a global install, hence PATH discovery first.
 - Project references: depth-first preorder over parsed referenced configs, cycle-tolerant via a visited set; a
   file's owner is the first project whose `fileNames` contain it, else the root config. While loading, each
   referenced project's inputs are mapped forward with `ts.getOutputFileNames`; the inverse map (declaration
-  output → source) redirects resolutions. An output not in the map is taken as the file it is (a `.d.ts` is
-  invisible, so the import is unattributed).
+  output → source) redirects resolutions. Resolution sees every mapped output as present whether or not it is
+  built, so the result does not depend on build state; an output not in the map is taken as the file it is (a
+  `.d.ts` is invisible, so the import is unattributed).
+- Each import resolves with the mode `ts.getModeForUsageLocation` reports (ESM or CommonJS under node16/nodenext).
 - Classification (spec "TypeScript module resolution"): resolve first, so `paths` aliases resolve internally; then
   builtin / `node_modules` / unresolved bare → external; real path outside `root_package` → unattributed;
   unresolved relative → lexical candidate (normalized, `?`/`#` suffix and source extension stripped, containment
@@ -96,8 +98,8 @@ does not reuse a global install, hence PATH discovery first.
 
   | node | counts as runtime edge when |
   |---|---|
-  | `ImportDeclaration` | not `importClause.isTypeOnly`, and (no clause, default/namespace binding, or ≥1 named element without `isTypeOnly`) |
-  | `ExportDeclaration` with `moduleSpecifier` | not `isTypeOnly`, and (`export *`, `export * as ns`, or ≥1 element without `isTypeOnly`) |
+  | `ImportDeclaration` | not `importClause.isTypeOnly`, and (no clause, default/namespace binding, an empty named list, or ≥1 named element without `isTypeOnly`) |
+  | `ExportDeclaration` with `moduleSpecifier` | not `isTypeOnly`, and (`export *`, `export * as ns`, an empty named list, or ≥1 element without `isTypeOnly`) |
   | `ImportEqualsDeclaration` with `ExternalModuleReference` | not `isTypeOnly` |
   | `CallExpression` `import(...)` | argument is a string literal |
   | `CallExpression` `require(...)` (identifier callee) | argument is a string literal |
@@ -115,8 +117,9 @@ Vitest. `src/<node>/` mirrors the Python nodes (contract, config, cli, c4, archc
 The CLI parser is hand-written from `cli.yaml` (no library reproduces argparse's no-abbreviation / `--` /
 passthrough / `require_one_of` semantics with exit 2 exactly). One generated bin file per manifest command,
 `dist/bin/<command>.js`, each calling the shared dispatcher with its command name; a test pins `package.json`
-`bin` to the manifest set. Contract data is copied into `dist` at build. `yaml` is configured `version: '1.1'`,
-`uniqueKeys: false`; JSON Schema validation uses `ajv` (draft 2020-12).
+`bin` to the manifest set. Contract data is copied into `dist` at build. `yaml` is configured
+`uniqueKeys: false` with custom tags reproducing the shared YAML 1.1 profile (its built-in `version: '1.1'`
+schema does not match PyYAML; the yaml vectors decide); JSON Schema validation uses `ajv` (draft 2020-12).
 
 ### D9 — Conformance: one runner, explicit twin
 The Python runner's case model separates `fixture_languages` (all listed overlays applied in list order to one

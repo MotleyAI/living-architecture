@@ -1,0 +1,3 @@
+decoy: la-doctor --twin
+uvx --from living-architecture==<VERSION> la-doctor --twin
+uvx --from living-architecture==<VERSION> la-check-conventions --file a.py

@@ -7,7 +7,7 @@ expect:
   exit: 2
   stderr:
     contains:
-    - 'model element legacy: '
+    - 'model element python.legacy: '
     - 'claims'
 golden: manual
 note: 'claims belongs to precise nodes only'

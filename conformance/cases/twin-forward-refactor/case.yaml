@@ -1,0 +1,22 @@
+kind: adapter
+languages:
+- python
+twin: typescript
+command: dr-refactor
+args:
+- rename
+- --file
+- pkg/a.py
+- --name
+- foo
+- --new-name
+- bar
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - pkg/a.py
+  - pkg/b.py
+golden: manual
+note: 'npm twin forwards dr-refactor wholesale: output equals the PyPI twin''s own run'

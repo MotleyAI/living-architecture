@@ -1,0 +1,1 @@
+la-count-comments: the python twin (living-architecture <VERSION>) is not reachable; install it with: uv tool install living-architecture==<VERSION>

@@ -10,19 +10,20 @@ from living_architecture.c4.diagrams import _diagrams_map
 from living_architecture.contract import check_ids
 
 FIX_CMD = "la-arch-diagrams"
+PY_SECTION = "python:\n  root_package: pkg\n"
 
 
 def arch_only(
     tmp_path: Path, model_text: str, views_text: str | None = None, index_text: str | None = None
 ) -> Path:
-    """Write just architecture/model + optional views/index under tmp_path, return it as root."""
+    """Write architecture/model, optional views and an index declaring `python` (plus `index_text`)."""
     model_dir = tmp_path / "architecture" / "model"
     model_dir.mkdir(parents=True)
     (model_dir / "m.c4").write_text(textwrap.dedent(model_text), encoding="utf-8")
     if views_text is not None:
         (tmp_path / "architecture" / "views.c4").write_text(textwrap.dedent(views_text), encoding="utf-8")
-    if index_text is not None:
-        (tmp_path / "architecture" / "index.yaml").write_text(textwrap.dedent(index_text), encoding="utf-8")
+    index = PY_SECTION + textwrap.dedent(index_text or "")
+    (tmp_path / "architecture" / "index.yaml").write_text(index, encoding="utf-8")
     return tmp_path
 
 
@@ -38,6 +39,7 @@ def edge_tuples(view):
 
 BASIC_MODEL = """
 specification {
+  element system
   element node
   element bucket {
     #virtual
@@ -46,136 +48,165 @@ specification {
   tag legacy
 }
 model {
-  a = node 'Node A'
-  b = node 'Node B'
-  c = bucket 'Bucket C'
-  a -> b
-  b -> a #legacy
-  a -> c
+  python = system 'Python' {
+    a = node 'Node A'
+    b = node 'Node B'
+    c = bucket 'Bucket C'
+    a -> b
+    b -> a #legacy
+    a -> c
+  }
 }
 """
 
 
 def test_parse_model_elements_in_declaration_order(tmp_path):
     mp = c4.parse_model(arch_only(tmp_path, BASIC_MODEL))
-    assert [e.id for e in mp.elements] == ["a", "b", "c"]
-    assert [e.title for e in mp.elements] == ["Node A", "Node B", "Bucket C"]
+    assert [e.id for e in mp.elements] == ["python", "python.a", "python.b", "python.c"]
+    assert [e.title for e in mp.elements] == ["Python", "Node A", "Node B", "Bucket C"]
     assert mp.findings == []
 
 
 def test_parse_model_virtual_kind_flag(tmp_path):
     mp = c4.parse_model(arch_only(tmp_path, BASIC_MODEL))
-    assert {e.id: e.virtual for e in mp.elements} == {"a": False, "b": False, "c": True}
+    assert {e.id: e.virtual for e in mp.elements} == {
+        "python": False,
+        "python.a": False,
+        "python.b": False,
+        "python.c": True,
+    }
 
 
 def test_parse_model_relations_and_legacy(tmp_path):
     mp = c4.parse_model(arch_only(tmp_path, BASIC_MODEL))
     assert [(r.src, r.dst, r.legacy) for r in mp.relations] == [
-        ("a", "b", False),
-        ("b", "a", True),
-        ("a", "c", False),
+        ("python.a", "python.b", False),
+        ("python.b", "python.a", True),
+        ("python.a", "python.c", False),
     ]
 
 
 def test_parse_model_child_gets_fqn_id_and_parent(tmp_path):
     model = """
-    specification { element node }
+    specification { element system  element node }
     model {
-      p = node 'P' {
-        kid = node 'K'
+      python = system 'Python' {
+        p = node 'P' {
+          kid = node 'K'
+        }
+        q = node 'Q'
       }
-      q = node 'Q'
     }
     """
     mp = c4.parse_model(arch_only(tmp_path, model))
-    assert {e.id: e.parent for e in mp.elements} == {"p": None, "p.kid": "p", "q": None}
+    assert {e.id: e.parent for e in mp.elements} == {
+        "python": None,
+        "python.p": "python",
+        "python.p.kid": "python.p",
+        "python.q": "python",
+    }
     assert mp.findings == []
 
 
 def test_parse_model_same_leaf_name_under_two_parents_legal(tmp_path):
     model = """
-    specification { element node }
+    specification { element system  element node }
     model {
-      p = node 'P' {
-        kid = node 'K1'
-      }
-      q = node 'Q' {
-        kid = node 'K2'
+      python = system 'Python' {
+        p = node 'P' {
+          kid = node 'K1'
+        }
+        q = node 'Q' {
+          kid = node 'K2'
+        }
       }
     }
     """
     mp = c4.parse_model(arch_only(tmp_path, model))
-    assert {e.id for e in mp.elements} == {"p", "p.kid", "q", "q.kid"}
+    assert {e.id for e in mp.elements} == {"python", "python.p", "python.p.kid", "python.q", "python.q.kid"}
     assert mp.findings == []
 
 
 def test_parse_model_duplicate_child_in_same_parent_is_finding(tmp_path):
     model = """
-    specification { element node }
+    specification { element system  element node }
     model {
-      p = node 'P' {
-        kid = node 'K'
-        kid = node 'K again'
+      python = system 'Python' {
+        p = node 'P' {
+          kid = node 'K'
+          kid = node 'K again'
+        }
       }
     }
     """
     mp = c4.parse_model(arch_only(tmp_path, model))
-    assert any("p.kid" in f for f in mp.findings)
+    assert mp.findings == ["duplicate element python.p.kid"]
 
 
 def test_parse_model_dotted_relation_endpoints(tmp_path):
     model = """
-    specification { element node  tag legacy }
+    specification { element system  element node  tag legacy }
     model {
-      p = node 'P' {
-        kid = node 'K'
+      python = system 'Python' {
+        p = node 'P' {
+          kid = node 'K'
+        }
+        q = node 'Q'
+        p.kid -> q #legacy
+        q -> p.kid
       }
-      q = node 'Q'
-      p.kid -> q #legacy
-      q -> p.kid
     }
     """
     mp = c4.parse_model(arch_only(tmp_path, model))
-    assert [(r.src, r.dst, r.legacy) for r in mp.relations] == [("p.kid", "q", True), ("q", "p.kid", False)]
+    assert [(r.src, r.dst, r.legacy) for r in mp.relations] == [
+        ("python.p.kid", "python.q", True),
+        ("python.q", "python.p.kid", False),
+    ]
     assert mp.findings == []
 
 
 def test_parse_model_unknown_dotted_endpoint_is_finding(tmp_path):
     model = """
-    specification { element node }
+    specification { element system  element node }
     model {
-      p = node 'P' {
-        kid = node 'K'
+      python = system 'Python' {
+        p = node 'P' {
+          kid = node 'K'
+        }
+        q = node 'Q'
+        p.ghost -> q
       }
-      q = node 'Q'
-      p.ghost -> q
     }
     """
     mp = c4.parse_model(arch_only(tmp_path, model))
-    assert any("p.ghost" in f for f in mp.findings)
+    assert mp.findings == ["relation python.p.ghost -> python.q has unknown endpoint python.p.ghost"]
 
 
 def test_parse_model_local_child_name_endpoint_is_finding(tmp_path):
     model = """
-    specification { element node }
+    specification { element system  element node }
     model {
-      p = node 'P' {
-        kid = node 'K'
+      python = system 'Python' {
+        p = node 'P' {
+          kid = node 'K'
+        }
+        q = node 'Q'
+        kid -> q
       }
-      q = node 'Q'
-      kid -> q
     }
     """
     mp = c4.parse_model(arch_only(tmp_path, model))
-    assert any("kid" in f for f in mp.findings)
+    assert mp.findings == ["relation python.kid -> python.q has unknown endpoint python.kid"]
 
 
 def test_parse_model_unrecognized_model_line_is_finding(tmp_path):
     model = """
-    specification { element node }
+    specification { element system  element node }
     model {
-      a = node 'A'
-      total garbage here
+      python = system 'Python' {
+        a = node 'A'
+        total garbage here
+      }
     }
     """
     mp = c4.parse_model(arch_only(tmp_path, model))
@@ -185,11 +216,14 @@ def test_parse_model_unrecognized_model_line_is_finding(tmp_path):
 def test_parse_model_unrecognized_specification_line_is_finding(tmp_path):
     model = """
     specification {
+      element system
       element node
       total junk here
     }
     model {
-      a = node 'A'
+      python = system 'Python' {
+        a = node 'A'
+      }
     }
     """
     mp = c4.parse_model(arch_only(tmp_path, model))
@@ -198,103 +232,120 @@ def test_parse_model_unrecognized_specification_line_is_finding(tmp_path):
 
 def test_parse_model_relation_in_element_body_is_finding(tmp_path):
     model = """
-    specification { element node }
+    specification { element system  element node }
     model {
-      a = node 'A' {
-        a -> b
+      python = system 'Python' {
+        a = node 'A' {
+          a -> b
+        }
+        b = node 'B'
       }
-      b = node 'B'
     }
     """
     mp = c4.parse_model(arch_only(tmp_path, model))
-    assert mp.findings
+    assert mp.findings == ["relation a -> b inside element body python.a"]
+    assert mp.relations == []
 
 
 def test_parse_model_duplicate_element_is_finding(tmp_path):
     model = """
-    specification { element node }
+    specification { element system  element node }
     model {
-      a = node 'A'
-      a = node 'A again'
+      python = system 'Python' {
+        a = node 'A'
+        a = node 'A again'
+      }
     }
     """
     mp = c4.parse_model(arch_only(tmp_path, model))
-    assert any("a" in f for f in mp.findings)
+    assert mp.findings == ["duplicate element python.a"]
 
 
 def test_parse_model_duplicate_relation_is_finding(tmp_path):
     model = """
-    specification { element node }
+    specification { element system  element node }
     model {
-      a = node 'A'
-      b = node 'B'
-      a -> b
-      a -> b
+      python = system 'Python' {
+        a = node 'A'
+        b = node 'B'
+        a -> b
+        a -> b
+      }
     }
     """
     mp = c4.parse_model(arch_only(tmp_path, model))
-    assert mp.findings
+    assert mp.findings == ["duplicate relation python.a -> python.b"]
 
 
 def test_parse_model_unknown_relation_endpoint_is_finding(tmp_path):
     model = """
-    specification { element node }
+    specification { element system  element node }
     model {
-      a = node 'A'
-      a -> ghost
+      python = system 'Python' {
+        a = node 'A'
+        a -> ghost
+      }
     }
     """
     mp = c4.parse_model(arch_only(tmp_path, model))
-    assert any("ghost" in f for f in mp.findings)
+    assert mp.findings == ["relation python.a -> python.ghost has unknown endpoint python.ghost"]
 
 
 def test_parse_model_undeclared_kind_is_finding(tmp_path):
     model = """
-    specification { element node }
+    specification { element system  element node }
     model {
-      a = widget 'A'
+      python = system 'Python' {
+        a = widget 'A'
+      }
     }
     """
     mp = c4.parse_model(arch_only(tmp_path, model))
-    assert any("widget" in f for f in mp.findings)
+    assert mp.findings == ["element python.a has undeclared kind widget"]
 
 
 def test_parse_model_brace_in_title_does_not_corrupt_nesting(tmp_path):
     model = """
-    specification { element node }
+    specification { element system  element node }
     model {
-      a = node 'Has } a brace'
-      b = node 'B'
-      a -> b
+      python = system 'Python' {
+        a = node 'Has } a brace'
+        b = node 'B'
+        a -> b
+      }
     }
     """
     mp = c4.parse_model(arch_only(tmp_path, model))
-    assert [e.id for e in mp.elements] == ["a", "b"]
-    assert [(r.src, r.dst) for r in mp.relations] == [("a", "b")]
+    assert [e.id for e in mp.elements] == ["python", "python.a", "python.b"]
+    assert [(r.src, r.dst) for r in mp.relations] == [("python.a", "python.b")]
     assert mp.findings == []
 
 
 def test_parse_model_comment_brace_is_ignored(tmp_path):
     model = """
-    specification { element node }
+    specification { element system  element node }
     model {
-      a = node 'A'
-      // a stray } in a comment
-      b = node 'B'
-      a -> b
+      python = system 'Python' {
+        a = node 'A'
+        // a stray } in a comment
+        b = node 'B'
+        a -> b
+      }
     }
     """
     mp = c4.parse_model(arch_only(tmp_path, model))
-    assert [e.id for e in mp.elements] == ["a", "b"]
+    assert [e.id for e in mp.elements] == ["python", "python.a", "python.b"]
     assert mp.findings == []
 
 
 def test_parse_model_element_trailing_content_is_finding(tmp_path):
     model = """
-    specification { element node }
+    specification { element system  element node }
     model {
-      a = node 'A' unexpected junk
-      b = node 'B'
+      python = system 'Python' {
+        a = node 'A' unexpected junk
+        b = node 'B'
+      }
     }
     """
     mp = c4.parse_model(arch_only(tmp_path, model))
@@ -304,11 +355,12 @@ def test_parse_model_element_trailing_content_is_finding(tmp_path):
 def test_parse_model_non_virtual_spec_tag_is_finding(tmp_path):
     model = """
     specification {
+      element system
       element node {
         #bogus
       }
     }
-    model { a = node 'A' }
+    model { python = system 'Python' { a = node 'A' } }
     """
     mp = c4.parse_model(arch_only(tmp_path, model))
     assert any("bogus" in f for f in mp.findings)
@@ -317,9 +369,10 @@ def test_parse_model_non_virtual_spec_tag_is_finding(tmp_path):
 def test_parse_model_spec_element_trailing_content_is_finding(tmp_path):
     model = """
     specification {
+      element system
       element node oops
     }
-    model { a = node 'A' }
+    model { python = system 'Python' { a = node 'A' } }
     """
     mp = c4.parse_model(arch_only(tmp_path, model))
     assert any("oops" in f for f in mp.findings)
@@ -328,51 +381,120 @@ def test_parse_model_spec_element_trailing_content_is_finding(tmp_path):
 def test_parse_model_double_hash_virtual_is_finding(tmp_path):
     model = """
     specification {
+      element system
       element bucket {
         ##virtual
       }
     }
-    model { a = bucket 'A' }
+    model { python = system 'Python' { a = bucket 'A' } }
     """
     mp = c4.parse_model(arch_only(tmp_path, model))
     assert any("##virtual" in f for f in mp.findings)
-    assert {e.id: e.virtual for e in mp.elements} == {"a": False}
+    assert {e.id: e.virtual for e in mp.elements} == {"python": False, "python.a": False}
 
 
-# --------------------------------------------------------------------------- parse_views
+# --------------------------------------------------------------------------- language roots
+
+TWO_ROOTS_INDEX = "typescript:\n  root_package: src\n"
+
+
+def test_root_prefixed_endpoint_inside_a_root_is_unknown(tmp_path):
+    model = """
+    specification { element system  element node }
+    model {
+      python = system 'Python' {
+        api = node 'API'
+        core = node 'Core'
+        python.api -> core
+      }
+    }
+    """
+    mp = c4.parse_model(arch_only(tmp_path, model))
+    assert mp.findings == ["relation python.python.api -> python.core has unknown endpoint python.python.api"]
+
+
+def test_same_local_ids_under_two_roots_are_two_relations(tmp_path):
+    model = """
+    specification { element system  element node }
+    model {
+      python = system 'Python' {
+        api = node 'API'
+        core = node 'Core'
+        api -> core
+      }
+      typescript = system 'TypeScript' {
+        api = node 'API'
+        core = node 'Core'
+        api -> core
+      }
+    }
+    """
+    mp = c4.parse_model(arch_only(tmp_path, model, index_text=TWO_ROOTS_INDEX))
+    assert [(r.src, r.dst) for r in mp.relations] == [
+        ("python.api", "python.core"),
+        ("typescript.api", "typescript.core"),
+    ]
+    assert mp.findings == []
+
+
+def test_relation_outside_every_root_is_a_finding_and_not_recorded(tmp_path):
+    model = """
+    specification { element system  element node }
+    model {
+      python = system 'Python' {
+        api = node 'API'
+      }
+      typescript = system 'TypeScript' {
+        web = node 'Web'
+      }
+      python.api -> typescript.web
+    }
+    """
+    mp = c4.parse_model(arch_only(tmp_path, model, index_text=TWO_ROOTS_INDEX))
+    assert mp.findings == ["relation python.api -> typescript.web outside every language root"]
+    assert mp.relations == []
+
+
+# --------------------------------------------------------------------------- parse_views (ids are root-local)
 
 CHAIN_MODEL = """
-specification { element node }
+specification { element system  element node }
 model {
-  x = node 'X'
-  y = node 'Y'
-  z = node 'Z'
-  x -> y
-  y -> z
-  z -> x
+  python = system 'Python' {
+    x = node 'X'
+    y = node 'Y'
+    z = node 'Z'
+    x -> y
+    y -> z
+    z -> x
+  }
 }
 """
 
 STAR_MODEL = """
-specification { element node }
+specification { element system  element node }
 model {
-  x = node 'X'
-  y = node 'Y'
-  z = node 'Z'
-  x -> y
-  x -> z
-  y -> z
+  python = system 'Python' {
+    x = node 'X'
+    y = node 'Y'
+    z = node 'Z'
+    x -> y
+    x -> z
+    y -> z
+  }
 }
 """
 
 CHILD_MODEL = """
-specification { element node }
+specification { element system  element node }
 model {
-  p = node 'P' {
-    kid = node 'K'
+  python = system 'Python' {
+    p = node 'P' {
+      kid = node 'K'
+    }
+    q = node 'Q'
+    p -> q
   }
-  q = node 'Q'
-  p -> q
 }
 """
 
@@ -384,38 +506,38 @@ def parsed_view(tmp_path, model_text, views_text, view_id):
 
 
 def test_parse_views_include_star(tmp_path):
-    v, findings = parsed_view(tmp_path, BASIC_MODEL, "views { view v { title 'V' include * } }", "v")
+    v, findings = parsed_view(tmp_path, BASIC_MODEL, "views { view v of python { title 'V' include * } }", "v")
     assert v.node_ids == ["a", "b", "c"]
     assert edge_tuples(v) == [("a", "b", False), ("b", "a", True), ("a", "c", False)]
     assert findings == []
 
 
 def test_parse_views_star_shows_children_to_depth(tmp_path):
-    v, _ = parsed_view(tmp_path, CHILD_MODEL, "views { view v { title 'V' include * } }", "v")
+    v, _ = parsed_view(tmp_path, CHILD_MODEL, "views { view v of python { title 'V' include * } }", "v")
     assert v.node_ids == ["p", "p.kid", "q"]
     assert edge_tuples(v) == [("p", "q", False)]
 
 
 def test_parse_views_include_listed_edges_among_only(tmp_path):
-    v, _ = parsed_view(tmp_path, BASIC_MODEL, "views { view v { title 'V' include a, b } }", "v")
+    v, _ = parsed_view(tmp_path, BASIC_MODEL, "views { view v of python { title 'V' include a, b } }", "v")
     assert v.node_ids == ["a", "b"]
     assert edge_tuples(v) == [("a", "b", False), ("b", "a", True)]
 
 
 def test_parse_views_src_star_predicate(tmp_path):
-    v, _ = parsed_view(tmp_path, CHAIN_MODEL, "views { view v { title 'V' include x, x -> * } }", "v")
+    v, _ = parsed_view(tmp_path, CHAIN_MODEL, "views { view v of python { title 'V' include x, x -> * } }", "v")
     assert v.node_ids == ["x", "y"]
     assert edge_tuples(v) == [("x", "y", False)]
 
 
 def test_parse_views_star_dst_predicate(tmp_path):
-    v, _ = parsed_view(tmp_path, CHAIN_MODEL, "views { view v { title 'V' include x, * -> x } }", "v")
+    v, _ = parsed_view(tmp_path, CHAIN_MODEL, "views { view v of python { title 'V' include x, * -> x } }", "v")
     assert v.node_ids == ["x", "z"]
     assert edge_tuples(v) == [("z", "x", False)]
 
 
 def test_parse_views_focus_excludes_neighbor_to_neighbor_edges(tmp_path):
-    v, _ = parsed_view(tmp_path, STAR_MODEL, "views { view v { title 'V' include x, x -> * } }", "v")
+    v, _ = parsed_view(tmp_path, STAR_MODEL, "views { view v of python { title 'V' include x, x -> * } }", "v")
     assert v.node_ids == ["x", "y", "z"]
     assert edge_tuples(v) == [("x", "y", False), ("x", "z", False)]
     assert ("y", "z", False) not in edge_tuples(v)
@@ -424,7 +546,7 @@ def test_parse_views_focus_excludes_neighbor_to_neighbor_edges(tmp_path):
 def test_parse_views_stable_dedup_on_repeated_includes(tmp_path):
     views = """
     views {
-      view v {
+      view v of python {
         title 'V'
         include x, x -> *
         include x
@@ -440,8 +562,8 @@ def test_parse_views_stable_dedup_on_repeated_includes(tmp_path):
 def test_parse_views_multiline_union_equals_single_line(tmp_path):
     views = """
     views {
-      view oneline { title 'T' include x, x -> * }
-      view multiline {
+      view oneline of python { title 'T' include x, x -> * }
+      view multiline of python {
         title 'T'
         include x
         include x -> *
@@ -457,44 +579,49 @@ def test_parse_views_multiline_union_equals_single_line(tmp_path):
 
 
 def test_parse_views_unknown_id_is_finding(tmp_path):
-    _, findings = parsed_view(tmp_path, CHAIN_MODEL, "views { view v { title 'V' include ghost } }", "v")
+    _, findings = parsed_view(tmp_path, CHAIN_MODEL, "views { view v of python { title 'V' include ghost } }", "v")
     assert any("ghost" in f for f in findings)
 
 
 def test_parse_views_local_child_name_is_finding(tmp_path):
-    _, findings = parsed_view(tmp_path, CHILD_MODEL, "views { view v { title 'V' include kid } }", "v")
+    _, findings = parsed_view(tmp_path, CHILD_MODEL, "views { view v of python { title 'V' include kid } }", "v")
     assert any("kid" in f for f in findings)
 
 
 def test_parse_views_child_fqn_is_finding(tmp_path):
-    _, findings = parsed_view(tmp_path, CHILD_MODEL, "views { view v { title 'V' include p.kid } }", "v")
+    _, findings = parsed_view(tmp_path, CHILD_MODEL, "views { view v of python { title 'V' include p.kid } }", "v")
     assert any("p.kid" in f for f in findings)
 
 
+def test_parse_views_root_prefixed_include_is_finding(tmp_path):
+    _, findings = parsed_view(tmp_path, CHILD_MODEL, "views { view v of python { title 'V' include python.p } }", "v")
+    assert any("python.p" in f for f in findings)
+
+
 def test_parse_views_unknown_predicate_anchor_is_finding(tmp_path):
-    _, findings = parsed_view(tmp_path, CHAIN_MODEL, "views { view v { title 'V' include ghost -> * } }", "v")
+    _, findings = parsed_view(tmp_path, CHAIN_MODEL, "views { view v of python { title 'V' include ghost -> * } }", "v")
     assert any("ghost" in f for f in findings)
 
 
 def test_parse_views_child_predicate_anchor_is_finding(tmp_path):
-    _, findings = parsed_view(tmp_path, CHILD_MODEL, "views { view v { title 'V' include p.kid -> * } }", "v")
+    _, findings = parsed_view(tmp_path, CHILD_MODEL, "views { view v of python { title 'V' include p.kid -> * } }", "v")
     assert any("p.kid" in f for f in findings)
 
 
 def test_parse_views_unsupported_predicate_is_finding(tmp_path):
-    _, findings = parsed_view(tmp_path, CHAIN_MODEL, "views { view v { title 'V' include x -> y } }", "v")
+    _, findings = parsed_view(tmp_path, CHAIN_MODEL, "views { view v of python { title 'V' include x -> y } }", "v")
     assert findings
 
 
 def test_parse_views_star_to_star_is_finding(tmp_path):
-    _, findings = parsed_view(tmp_path, CHAIN_MODEL, "views { view v { title 'V' include * -> * } }", "v")
+    _, findings = parsed_view(tmp_path, CHAIN_MODEL, "views { view v of python { title 'V' include * -> * } }", "v")
     assert findings
 
 
 def test_parse_views_unrecognized_line_is_finding(tmp_path):
     views = """
     views {
-      view v {
+      view v of python {
         title 'V'
         include *
         bogus directive
@@ -508,8 +635,8 @@ def test_parse_views_unrecognized_line_is_finding(tmp_path):
 def test_parse_views_duplicate_view_id_is_finding(tmp_path):
     views = """
     views {
-      view dup { title 'One' include * }
-      view dup { title 'Two' include * }
+      view dup of python { title 'One' include * }
+      view dup of python { title 'Two' include * }
     }
     """
     root = arch_only(tmp_path, CHAIN_MODEL, views)
@@ -517,15 +644,27 @@ def test_parse_views_duplicate_view_id_is_finding(tmp_path):
     assert any("dup" in f for f in vp.findings)
 
 
+def test_parse_views_unscoped_view_is_finding(tmp_path):
+    root = arch_only(tmp_path, CHAIN_MODEL, "views { view landscape { include * } }")
+    vp = c4.parse_views(root, c4.parse_model(root))
+    assert "view landscape is not scoped to a language root" in vp.findings
+
+
+def test_parse_views_scope_on_a_non_root_is_finding(tmp_path):
+    root = arch_only(tmp_path, CHILD_MODEL, "views { view v of python.p { title 'V' include * } }")
+    vp = c4.parse_views(root, c4.parse_model(root))
+    assert "view v is scoped to python.p, which is not a language root" in vp.findings
+
+
 # --------------------------------------------------------------------------- mermaid emission
 
 EMIT_VIEWS = """
 views {
-  view whole {
+  view whole of python {
     title 'Whole thing'
     include *
   }
-  view focus {
+  view focus of python {
     title 'A focus'
     include a, a -> *
   }
@@ -534,9 +673,14 @@ views {
 
 
 def render(root: Path, view_id: str) -> str:
-    model = c4.parse_model(root)
-    views = c4.parse_views(root, model)
-    return c4.render_mermaid(view_by_id(views.views, view_id), model)
+    """The mermaid block `la-arch-diagrams` writes for `view_id`."""
+    doc = root / "architecture" / "d.arc42.md"
+    doc.write_text(f"<!-- likec4:{view_id} -->\n<!-- /likec4:{view_id} -->\n", encoding="utf-8")
+    index = root / "architecture" / "index.yaml"
+    diagrams = f"diagrams:\n  architecture/d.arc42.md: [{view_id}]\n"
+    index.write_text(index.read_text(encoding="utf-8") + diagrams, encoding="utf-8")
+    c4.generate(root)
+    return between(doc.read_text(encoding="utf-8"), view_id)[1:-1]
 
 
 def test_render_mermaid_shapes_edges_and_legend(tmp_path):
@@ -579,12 +723,14 @@ def test_render_mermaid_no_legend_when_no_legacy_edge(tmp_path):
 
 def test_render_mermaid_escapes_double_quote_in_title(tmp_path):
     model = """
-    specification { element node }
+    specification { element system  element node }
     model {
-      x = node 'Say "hi"'
+      python = system 'Python' {
+        x = node 'Say "hi"'
+      }
     }
     """
-    root = arch_only(tmp_path, model, "views { view v { title 'V' include * } }")
+    root = arch_only(tmp_path, model, "views { view v of python { title 'V' include * } }")
     expected = "\n".join(
         [
             "```mermaid",
@@ -605,10 +751,11 @@ name = "fixture"
 """
 
 INDEX_BASE = """
-root_package: pkg
+python:
+  root_package: pkg
 legacy_arrows: {baseline: 1}
 cross_cutting_specs:
-  queries: {touches: [core, engine]}
+  queries: {touches: [python.core, python.engine]}
 """
 
 DIAGRAMS_ONE = "diagrams:\n  architecture/system.arc42.md: [land]\n"
@@ -616,29 +763,32 @@ INDEX = INDEX_BASE + DIAGRAMS_ONE
 
 MODEL = """
 specification {
+  element system
   element node
   tag legacy
 }
 model {
-  core = node 'Core' {
-    metadata {
-      package 'pkg.core'
+  python = system 'Python' {
+    core = node 'Core' {
+      metadata {
+        package 'pkg.core'
+      }
     }
-  }
-  engine = node 'Engine' {
-    metadata {
-      package 'pkg.engine'
-      arc42 'architecture/engine.arc42.md'
+    engine = node 'Engine' {
+      metadata {
+        package 'pkg.engine'
+        arc42 'architecture/engine.arc42.md'
+      }
     }
+    core -> engine #legacy
+    engine -> core
   }
-  core -> engine #legacy
-  engine -> core
 }
 """
 
 VIEWS = """
 views {
-  view land {
+  view land of python {
     title 'Landscape'
     include *
   }
@@ -754,11 +904,11 @@ def test_generate_writes_lf_newlines(tmp_path):
 
 VIEWS_TWO = """
 views {
-  view land {
+  view land of python {
     title 'Landscape'
     include *
   }
-  view cview {
+  view cview of python {
     title 'Core view'
     include core, core -> *
   }
@@ -820,7 +970,7 @@ def test_generate_errors_on_close_without_open(tmp_path):
 
 
 def test_generate_aborts_when_model_has_findings(tmp_path):
-    bad_model = MODEL.replace("  engine -> core\n", "  engine -> core\n  total garbage here\n")
+    bad_model = MODEL.replace("    engine -> core\n", "    engine -> core\n    total garbage here\n")
     root = make_repo(tmp_path, regenerate=False, model=bad_model)
     with pytest.raises(ValueError) as exc:
         c4.generate(root)
@@ -852,7 +1002,7 @@ def test_main_prints_changed_files(tmp_path, capsys):
 
 def test_main_reports_errors_without_traceback(tmp_path, capsys):
     root = make_repo(tmp_path, regenerate=False)
-    (root / "architecture" / "index.yaml").write_text("root_package: pkg\n", encoding="utf-8")
+    (root / "architecture" / "index.yaml").write_text(PY_SECTION, encoding="utf-8")
     assert cli.la_arch_diagrams(["--root", str(root)]) == 1
     assert "no diagrams block" in capsys.readouterr().err
 
@@ -971,7 +1121,7 @@ def test_diagrams_fresh_schema_malformed_container_flagged(tmp_path):
 def test_diagrams_fresh_parse_error_is_finding_other_checks_still_run(tmp_path):
     bad_views = """
     views {
-      view land {
+      view land of python {
         title 'L'
         include ghost -> ghost
       }
@@ -1021,37 +1171,41 @@ def test_diagrams_fresh_whitespace_variant_marker_flagged(tmp_path):
 # --------------------------------------------------------------------------- view depth, roll-up, subgraphs
 
 CHILD_VIEW_MODEL = """
-specification { element node  tag legacy }
+specification { element system  element node  tag legacy }
 model {
-  p = node 'P' {
-    kid = node 'Kid'
-    kid2 = node 'Kid two'
+  python = system 'Python' {
+    p = node 'P' {
+      kid = node 'Kid'
+      kid2 = node 'Kid two'
+    }
+    q = node 'Q'
+    r = node 'R'
+    p.kid -> q #legacy
+    p.kid2 -> q
+    p.kid -> p.kid2
+    q -> r
   }
-  q = node 'Q'
-  r = node 'R'
-  p.kid -> q #legacy
-  p.kid2 -> q
-  p.kid -> p.kid2
-  q -> r
 }
 """
 
 DEPTH_MODEL = """
-specification { element node }
+specification { element system  element node }
 model {
-  p = node 'P' {
-    kid = node 'Kid' {
-      grand = node 'Grand' {
-        leaf = node 'Leaf'
+  python = system 'Python' {
+    p = node 'P' {
+      kid = node 'Kid' {
+        grand = node 'Grand' {
+          leaf = node 'Leaf'
+        }
       }
     }
+    q = node 'Q'
+    p.kid.grand.leaf -> q
   }
-  q = node 'Q'
-  p.kid.grand.leaf -> q
 }
 """
 
-ONE_VIEW = "views { view v { title 'V' include * } }"
+ONE_VIEW = "views { view v of python { title 'V' include * } }"
 
 STYLING_PREFIXES = ("classDef", "class ", "style ", "direction ")
 
@@ -1093,45 +1247,47 @@ def test_rollup_dedupes_and_drops_self_edges(tmp_path):
 
 
 def test_rollup_dashed_iff_all_contributors_legacy(tmp_path):
-    model = CHILD_VIEW_MODEL.replace("  p.kid2 -> q\n", "  p.kid2 -> q #legacy\n")
+    model = CHILD_VIEW_MODEL.replace("    p.kid2 -> q\n", "    p.kid2 -> q #legacy\n")
     v = depth_view(tmp_path, model, "view_depth:\n  v: 1\n", "v")
     assert edge_tuples(v) == [("p", "q", True), ("q", "r", False)]
 
 
 def test_listed_include_expands_children_and_scopes_edges(tmp_path):
-    v, _ = parsed_view(tmp_path, CHILD_VIEW_MODEL, "views { view v { title 'V' include p, q } }", "v")
+    v, _ = parsed_view(tmp_path, CHILD_VIEW_MODEL, "views { view v of python { title 'V' include p, q } }", "v")
     assert v.node_ids == ["p", "p.kid", "p.kid2", "q"]
     assert edge_tuples(v) == [("p.kid", "q", True), ("p.kid2", "q", False), ("p.kid", "p.kid2", False)]
 
 
 def test_focus_src_predicate_matches_by_top_ancestor(tmp_path):
-    v, _ = parsed_view(tmp_path, CHILD_VIEW_MODEL, "views { view v { title 'V' include r, p -> * } }", "v")
+    v, _ = parsed_view(tmp_path, CHILD_VIEW_MODEL, "views { view v of python { title 'V' include r, p -> * } }", "v")
     assert set(v.node_ids) == {"r", "p", "p.kid", "p.kid2", "q"}
     assert set(edge_tuples(v)) == {("p.kid", "q", True), ("p.kid2", "q", False), ("p.kid", "p.kid2", False)}
 
 
 def test_focus_dst_predicate_matches_by_top_ancestor(tmp_path):
-    v, _ = parsed_view(tmp_path, CHILD_VIEW_MODEL, "views { view v { title 'V' include r, * -> q } }", "v")
+    v, _ = parsed_view(tmp_path, CHILD_VIEW_MODEL, "views { view v of python { title 'V' include r, * -> q } }", "v")
     assert set(v.node_ids) == {"r", "p", "p.kid", "p.kid2", "q"}
     assert set(edge_tuples(v)) == {("p.kid", "q", True), ("p.kid2", "q", False)}
 
 
 FOCUS_SUBTREE_MODEL = """
-specification { element node }
+specification { element system  element node }
 model {
-  p = node 'P' {
-    kid = node 'Kid'
-    kid2 = node 'Kid two'
+  python = system 'Python' {
+    p = node 'P' {
+      kid = node 'Kid'
+      kid2 = node 'Kid two'
+    }
+    q = node 'Q'
+    q -> p.kid
   }
-  q = node 'Q'
-  q -> p.kid
 }
 """
 
 
 def test_focus_predicate_pulls_ancestor_chain_not_whole_subtree(tmp_path):
     # `q -> *` matches only q -> p.kid; it pulls p.kid + its ancestor p, never the unrelated p.kid2.
-    v, findings = parsed_view(tmp_path, FOCUS_SUBTREE_MODEL, "views { view v { title 'V' include q, q -> * } }", "v")
+    v, findings = parsed_view(tmp_path, FOCUS_SUBTREE_MODEL, "views { view v of python { title 'V' include q, q -> * } }", "v")
     assert set(v.node_ids) == {"q", "p", "p.kid"}
     assert "p.kid2" not in v.node_ids
     assert edge_tuples(v) == [("q", "p.kid", False)]
@@ -1201,24 +1357,27 @@ def test_render_collapsed_view_matches_classic_emission(tmp_path):
 
 MODEL_WITH_CHILD = """
 specification {
+  element system
   element node
   tag legacy
 }
 model {
-  core = node 'Core' {
-    metadata {
-      package 'pkg.core'
+  python = system 'Python' {
+    core = node 'Core' {
+      metadata {
+        package 'pkg.core'
+      }
+      query = node 'Query'
     }
-    query = node 'Query'
-  }
-  engine = node 'Engine' {
-    metadata {
-      package 'pkg.engine'
-      arc42 'architecture/engine.arc42.md'
+    engine = node 'Engine' {
+      metadata {
+        package 'pkg.engine'
+        arc42 'architecture/engine.arc42.md'
+      }
     }
+    core.query -> engine #legacy
+    engine -> core
   }
-  core.query -> engine #legacy
-  engine -> core
 }
 """
 
@@ -1289,8 +1448,105 @@ def test_arch_check_dropped_regex_parser():
 
 
 def test_model_truth_missing_finding_names_module_witness(tmp_path):
-    root = make_repo(tmp_path, regenerate=False, model=MODEL.replace("  engine -> core\n", ""))
+    root = make_repo(tmp_path, regenerate=False, model=MODEL.replace("    engine -> core\n", ""))
     assert (
-        "model-truth: measured runtime edge engine -> core is missing from the model"
+        "model-truth: measured runtime edge python.engine -> python.core is missing from the model"
         " (import pkg.engine.b -> pkg.core)"
     ) in archcheck.run_checks(root)
+
+
+# --------------------------------------------------------------------------- scoped views
+
+WRAPPED_MODEL = """
+specification {
+  element system
+  element node
+  tag legacy
+}
+model {
+  python = system 'Python' {
+    core = node 'Core' {
+      query = node 'Query' {
+        deep = node 'Deep'
+      }
+    }
+    engine = node 'Engine'
+    store = node 'Store'
+    core.query.deep -> engine #legacy
+    engine -> core
+    store -> engine
+  }
+}
+"""
+
+WRAPPED_VIEWS = """
+views {
+  view land of python {
+    title 'Landscape'
+    include *
+  }
+  view cview of python {
+    title 'Core view'
+    include core, core -> *
+  }
+}
+"""
+
+# The same model and views unwrapped (no root, unscoped views), as rendered before roots existed.
+UNWRAPPED_DOC = """# S
+
+<!-- likec4:land -->
+```mermaid
+flowchart TD
+  %% land: Landscape
+  subgraph core["Core"]
+    subgraph core__query["Query"]
+      core__query__deep["Deep"]
+    end
+  end
+  engine["Engine"]
+  store["Store"]
+  core__query__deep -.-> engine
+  engine --> core
+  store --> engine
+  classDef leaf fill:none;
+  class core__query__deep,engine,store leaf;
+```
+*Dashed arrows: legacy edges slated to die.*
+<!-- /likec4:land -->
+
+<!-- likec4:cview -->
+```mermaid
+flowchart TD
+  %% cview: Core view
+  subgraph core["Core"]
+    core__query["Query"]
+  end
+  engine["Engine"]
+  core__query -.-> engine
+  classDef leaf fill:none;
+  class core__query,engine leaf;
+```
+*Dashed arrows: legacy edges slated to die.*
+<!-- /likec4:cview -->
+"""
+
+
+def test_wrapped_model_renders_byte_identically(tmp_path):
+    index = "diagrams:\n  architecture/system.arc42.md: [land, cview]\nview_depth:\n  cview: 2\n"
+    root = arch_only(tmp_path, WRAPPED_MODEL, WRAPPED_VIEWS, index_text=index)
+    doc = root / "architecture" / "system.arc42.md"
+    doc.write_text(
+        "# S\n\n<!-- likec4:land -->\n<!-- /likec4:land -->\n\n<!-- likec4:cview -->\n<!-- /likec4:cview -->\n",
+        encoding="utf-8",
+    )
+    c4.generate(root)
+    assert doc.read_bytes() == UNWRAPPED_DOC.encode("utf-8")
+
+
+def test_generate_refuses_an_unscoped_view(tmp_path):
+    views = VIEWS.replace("view land of python {", "view land {")
+    root = make_repo(tmp_path, regenerate=False, views=views)
+    with pytest.raises(c4.DiagramsError) as excinfo:
+        c4.generate(root)
+    assert "view land is not scoped to a language root" in str(excinfo.value).splitlines()

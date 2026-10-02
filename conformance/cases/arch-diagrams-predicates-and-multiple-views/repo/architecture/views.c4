@@ -1,17 +1,17 @@
 views {
-  view system {
+  view system of python {
     title 'System'
     include *
   }
-  view out {
+  view out of python {
     title 'Core out'
     include core -> *
   }
-  view into {
+  view into of python {
     title 'Into store'
     include * -> store
   }
-  view pair {
+  view pair of python {
     include api, store
   }
 }

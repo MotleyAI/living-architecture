@@ -1,0 +1,9 @@
+kind: neutral
+command: la-arch-diagrams
+fixture: arch-diagrams
+expect:
+  exit: 1
+  files:
+  - architecture/system.arc42.md
+golden: manual
+note: 'an unscoped view blocks regeneration; the stale doc is left untouched'

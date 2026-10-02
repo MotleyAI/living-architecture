@@ -1,2 +1,2 @@
 la-arch-diagrams: cannot regenerate diagrams — resolve model/views findings first:
-element store has malformed metadata: package "pkg.store"
+element python.store has malformed metadata: package "pkg.store"

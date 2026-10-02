@@ -1,0 +1,6 @@
+typescript:
+  source_root: web
+  root_package: src
+legacy_arrows:
+  baseline: 0
+diagrams: {}
