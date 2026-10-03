@@ -1,54 +1,55 @@
 // The module specifiers of a source file's runtime imports; type-only forms are excluded by syntax alone.
-import ts from 'typescript';
+import type * as TS from 'typescript';
+import { ts } from './ts.js';
 
-function importCounts(node: ts.ImportDeclaration): boolean {
+function importCounts(node: TS.ImportDeclaration): boolean {
   const clause = node.importClause;
   if (clause === undefined) return true;
-  if (clause.phaseModifier === ts.SyntaxKind.TypeKeyword) return false;
+  if (clause.phaseModifier === ts().SyntaxKind.TypeKeyword) return false;
   const bindings = clause.namedBindings;
-  if (clause.name !== undefined || bindings === undefined || ts.isNamespaceImport(bindings)) return true;
+  if (clause.name !== undefined || bindings === undefined || ts().isNamespaceImport(bindings)) return true;
   return bindings.elements.length === 0 || bindings.elements.some((e) => !e.isTypeOnly);
 }
 
-function exportCounts(node: ts.ExportDeclaration): boolean {
+function exportCounts(node: TS.ExportDeclaration): boolean {
   if (node.isTypeOnly) return false;
   const clause = node.exportClause;
-  if (clause === undefined || ts.isNamespaceExport(clause)) return true;
+  if (clause === undefined || ts().isNamespaceExport(clause)) return true;
   return clause.elements.length === 0 || clause.elements.some((e) => !e.isTypeOnly);
 }
 
-function callSpecifier(node: ts.CallExpression): ts.StringLiteral | undefined {
+function callSpecifier(node: TS.CallExpression): TS.StringLiteral | undefined {
   const [arg] = node.arguments;
-  if (arg === undefined || !ts.isStringLiteral(arg)) return undefined;
+  if (arg === undefined || !ts().isStringLiteral(arg)) return undefined;
   const callee = node.expression;
-  const isImport = callee.kind === ts.SyntaxKind.ImportKeyword;
-  const isRequire = ts.isIdentifier(callee) && callee.text === 'require';
+  const isImport = callee.kind === ts().SyntaxKind.ImportKeyword;
+  const isRequire = ts().isIdentifier(callee) && callee.text === 'require';
   return isImport || isRequire ? arg : undefined;
 }
 
-function specifier(node: ts.Node): ts.StringLiteral | undefined {
-  if (ts.isImportDeclaration(node)) {
-    return importCounts(node) && ts.isStringLiteral(node.moduleSpecifier) ? node.moduleSpecifier : undefined;
+function specifier(node: TS.Node): TS.StringLiteral | undefined {
+  if (ts().isImportDeclaration(node)) {
+    return importCounts(node) && ts().isStringLiteral(node.moduleSpecifier) ? node.moduleSpecifier : undefined;
   }
-  if (ts.isExportDeclaration(node)) {
+  if (ts().isExportDeclaration(node)) {
     const spec = node.moduleSpecifier;
-    return spec !== undefined && ts.isStringLiteral(spec) && exportCounts(node) ? spec : undefined;
+    return spec !== undefined && ts().isStringLiteral(spec) && exportCounts(node) ? spec : undefined;
   }
-  if (ts.isImportEqualsDeclaration(node)) {
+  if (ts().isImportEqualsDeclaration(node)) {
     const ref = node.moduleReference;
-    const counts = !node.isTypeOnly && ts.isExternalModuleReference(ref) && ts.isStringLiteral(ref.expression);
-    return counts ? (ref.expression as ts.StringLiteral) : undefined;
+    const counts = !node.isTypeOnly && ts().isExternalModuleReference(ref) && ts().isStringLiteral(ref.expression);
+    return counts ? (ref.expression as TS.StringLiteral) : undefined;
   }
-  return ts.isCallExpression(node) ? callSpecifier(node) : undefined;
+  return ts().isCallExpression(node) ? callSpecifier(node) : undefined;
 }
 
 /** Specifier literals of static imports/exports, `import x = require()`, and literal `import()`/`require()`. */
-export function runtimeSpecifiers(file: ts.SourceFile): ts.StringLiteral[] {
-  const found: ts.StringLiteral[] = [];
-  const visit = (node: ts.Node): void => {
+export function runtimeSpecifiers(file: TS.SourceFile): TS.StringLiteral[] {
+  const found: TS.StringLiteral[] = [];
+  const visit = (node: TS.Node): void => {
     const spec = specifier(node);
     if (spec !== undefined) found.push(spec);
-    ts.forEachChild(node, visit);
+    ts().forEachChild(node, visit);
   };
   visit(file);
   return found;

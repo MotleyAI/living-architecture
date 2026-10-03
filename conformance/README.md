@@ -50,7 +50,8 @@ listed overlay to one repo. Goldens are `stdout`, `stderr` and `files/`; for a p
 holds the npm twin's commands. A twin's own run takes the cases whose fixture languages are none or only its
 own and whose command it implements natively (`native` in `shared/cli.yaml`). `LA_CONFORMANCE_CROSS=1` runs
 every case. A case with `twin:` runs only through that twin. `npm run conformance` in `node/` runs the npm
-twin's own cases; `scripts/conformance-cross` runs every case through each twin.
+twin's own cases; `scripts/conformance-cross` runs every case through each twin, or through one with
+`--twin <python|typescript>`. Runs are parallel (`-n auto`); pass `-n 0` to debug a case serially.
 
 ## Environment
 
@@ -61,5 +62,5 @@ temporary root is normalized to `<ROOT>`; the repo is `<ROOT>/repo` and `TMPDIR`
 
 ## Goldens
 
-A normal run only diffs. `LA_UPDATE_GOLDENS=1` writes goldens, and refuses when the exit code differs from
-`expect.exit`. Regenerate only with a stated reason (see AGENTS.md) and review the diff.
+A normal run only diffs. `LA_UPDATE_GOLDENS=1` writes goldens from one process (it overrides `-n`), and
+refuses when the exit code differs from `expect.exit`. Regenerate only with a stated reason (see AGENTS.md) and review the diff.

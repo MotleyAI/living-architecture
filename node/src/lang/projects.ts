@@ -1,18 +1,19 @@
 // tsconfig selection and parsing (read, never executed), project references and their declaration outputs.
 import { existsSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
-import ts from 'typescript';
+import type * as TS from 'typescript';
 import { canonical, DECLARATION_RE, isUnder, posix } from './files.js';
 import { LangError, type TsLayout } from './types.js';
+import { ts } from './ts.js';
 
 const CONFIG_NAME = 'tsconfig.json';
 /** "No inputs were found": harmless, sources are enumerated from root_package, not the config's file list. */
 const NO_INPUTS = 18003;
 
 export interface Project {
-  options: ts.CompilerOptions;
+  options: TS.CompilerOptions;
   files: Set<string>;
-  cache: ts.ModuleResolutionCache;
+  cache: TS.ModuleResolutionCache;
 }
 
 export interface Projects {
@@ -22,7 +23,7 @@ export interface Projects {
   /** Declaration output -> the source that emits it. */
   outputs: Map<string, string>;
   outputDirs: Set<string>;
-  host: ts.ModuleResolutionHost;
+  host: TS.ModuleResolutionHost;
 }
 
 /** The section's tsconfig, else the nearest tsconfig.json from root_package up to the repo root. */
@@ -35,26 +36,26 @@ function selectConfig(layout: TsLayout): string | undefined {
   return undefined;
 }
 
-function diagnosticText(diagnostic: ts.Diagnostic): string {
-  return ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n');
+function diagnosticText(diagnostic: TS.Diagnostic): string {
+  return ts().flattenDiagnosticMessageText(diagnostic.messageText, '\n');
 }
 
-function parseConfig(path: string, layout: TsLayout): ts.ParsedCommandLine {
+function parseConfig(path: string, layout: TsLayout): TS.ParsedCommandLine {
   const shown = posix(relative(layout.repoRoot, path));
-  const { config, error } = ts.readConfigFile(path, ts.sys.readFile);
+  const { config, error } = ts().readConfigFile(path, ts().sys.readFile);
   if (error !== undefined) throw new LangError(`${shown}: ${diagnosticText(error)}`);
-  const parsed = ts.parseJsonConfigFileContent(config, ts.sys, dirname(path), undefined, path);
+  const parsed = ts().parseJsonConfigFileContent(config, ts().sys, dirname(path), undefined, path);
   const fatal = parsed.errors.find((diagnostic) => diagnostic.code !== NO_INPUTS);
   if (fatal !== undefined) throw new LangError(`${shown}: ${diagnosticText(fatal)}`);
   return parsed;
 }
 
-function project(options: ts.CompilerOptions, fileNames: readonly string[], repoRoot: string): Project {
+function project(options: TS.CompilerOptions, fileNames: readonly string[], repoRoot: string): Project {
   const resolutionOptions = { ...options, allowJs: true };
   return {
     options: resolutionOptions,
     files: new Set(fileNames.map(canonical)),
-    cache: ts.createModuleResolutionCache(repoRoot, (name) => name, resolutionOptions),
+    cache: ts().createModuleResolutionCache(repoRoot, (name) => name, resolutionOptions),
   };
 }
 
@@ -64,11 +65,11 @@ export function loadProjects(layout: TsLayout): Projects {
   const outputDirs = new Set<string>();
   const seen = new Set<string>();
 
-  const mapOutputs = (parsed: ts.ParsedCommandLine): void => {
+  const mapOutputs = (parsed: TS.ParsedCommandLine): void => {
     for (const input of parsed.fileNames) {
       let names: readonly string[] = [];
       try {
-        names = ts.getOutputFileNames(parsed, input, false);
+        names = ts().getOutputFileNames(parsed, input, false);
       } catch {
         continue;
       }
@@ -88,22 +89,22 @@ export function loadProjects(layout: TsLayout): Projects {
     const parsed = parseConfig(path, layout);
     ordered.push(project(parsed.options, parsed.fileNames, layout.repoRoot));
     if (referenced) mapOutputs(parsed);
-    for (const ref of parsed.projectReferences ?? []) visit(ts.resolveProjectReferencePath(ref), true);
+    for (const ref of parsed.projectReferences ?? []) visit(ts().resolveProjectReferencePath(ref), true);
   };
 
   const config = selectConfig(layout);
   if (config === undefined) {
-    ordered.push(project({ moduleResolution: ts.ModuleResolutionKind.Bundler }, [], layout.repoRoot));
+    ordered.push(project({ moduleResolution: ts().ModuleResolutionKind.Bundler }, [], layout.repoRoot));
   } else {
     visit(config, false);
   }
-  const host: ts.ModuleResolutionHost = {
-    fileExists: (name) => ts.sys.fileExists(name) || outputs.has(resolve(name)),
-    readFile: (name) => ts.sys.readFile(name),
-    directoryExists: (name) => ts.sys.directoryExists(name) || outputDirs.has(resolve(name)),
-    realpath: (name) => (ts.sys.realpath ? ts.sys.realpath(name) : name),
+  const host: TS.ModuleResolutionHost = {
+    fileExists: (name) => ts().sys.fileExists(name) || outputs.has(resolve(name)),
+    readFile: (name) => ts().sys.readFile(name),
+    directoryExists: (name) => ts().sys.directoryExists(name) || outputDirs.has(resolve(name)),
+    realpath: (name) => ts().sys.realpath?.(name) ?? name,
     getCurrentDirectory: () => layout.repoRoot,
-    getDirectories: (name) => ts.sys.getDirectories(name),
+    getDirectories: (name) => ts().sys.getDirectories(name),
   };
   return { root: ordered[0] as Project, ordered, outputs, outputDirs, host };
 }
