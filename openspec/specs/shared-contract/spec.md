@@ -67,7 +67,8 @@ are booleans, and a duplicate mapping key takes the last value.
 - alternation
 
 Lookbehind, named groups, inline flags, and possessive or atomic constructs SHALL be rejected as a
-configuration error. Accepted patterns SHALL be applied with full-match semantics.
+configuration error. Accepted patterns SHALL be applied with full-match semantics. A tag id containing any
+non-ASCII character SHALL never match, in every twin.
 
 #### Scenario: Default pattern accepted
 - **WHEN** no `issue_key_pattern` is configured
@@ -76,6 +77,10 @@ configuration error. Accepted patterns SHALL be applied with full-match semantic
 #### Scenario: Non-portable construct rejected
 - **WHEN** `issue_key_pattern` is `(?<=X)[A-Z]+-\d+`
 - **THEN** loading the configuration fails with a configuration error naming `issue_key_pattern`
+
+#### Scenario: Non-ASCII tag id never matches
+- **WHEN** `issue_key_pattern` is `\w+-\d+` and an arc42 principle carries `[target: ÄBC-123]`
+- **THEN** both twins report `enforced-tags.target-mismatch` for it
 
 ### Requirement: User-facing texts come from the shared findings registry
 Every finding line, gate verdict and hint that a command prints SHALL be rendered from a template in the
@@ -101,21 +106,27 @@ registry template SHALL be exercised by at least one conformance case.
 The set of `la-*` and `dr-*` commands, and each command's subcommands, options, types, choices, repeatability,
 required options and positionals, SHALL be defined by the shared CLI manifest. Each installed command SHALL
 build its parser from it. Parsing SHALL accept no abbreviated long options and SHALL honour `--`. A usage
-error SHALL exit 2. A command declared `passthrough` SHALL hand its raw arguments to its handler. The
-package's installed entry points SHALL be exactly the manifest's command set, and every command a skill
-references SHALL be in the manifest.
+error SHALL exit 2. A command declared `passthrough` SHALL hand its raw arguments to its handler. Options the
+manifest marks internal SHALL be accepted but omitted from help. The manifest SHALL declare, for each
+language-specific command, the languages whose twin implements it natively; a command declaring none is
+neutral. Each package's installed entry points SHALL be exactly the manifest's command set, and every command a
+skill references SHALL be in the manifest.
 
 #### Scenario: Entry points match the manifest
-- **WHEN** the test suite runs
-- **THEN** it fails if the package's console scripts differ from the manifest's commands in either direction
+- **WHEN** either twin's test suite runs
+- **THEN** it fails if that package's installed commands (console scripts or `bin` entries) differ from the manifest's commands in either direction
 
 #### Scenario: Abbreviated option rejected
-- **WHEN** `la-check-conventions --bas main` runs
+- **WHEN** `la-check-conventions --bas main` runs through either twin
 - **THEN** it exits 2 as a usage error
 
 #### Scenario: Accepted invocation vector
 - **WHEN** `la-check-conventions --file a.py --file b.py --exclude 'gen/*'` runs
 - **THEN** both files are checked, `gen/*` is exempt, and the exit code and stdout equal the golden
+
+#### Scenario: Internal option hidden
+- **WHEN** `la-doctor --help` runs
+- **THEN** the help text does not mention `--twin`, and `la-doctor --twin` is still accepted
 
 #### Scenario: Skill references only real commands
 - **WHEN** a SKILL.md mentions an `la-*` or `dr-*` command absent from the manifest
@@ -129,38 +140,54 @@ the language. Matching SHALL use the contract's single glob dialect:
 - `*` matches within one path segment
 - `**` matches zero or more whole segments
 
-For Python, classification SHALL give the same result as today for every path.
+For Python, classification SHALL give the same result as today for every path. For TypeScript the globs SHALL
+be `**/*.test.*`, `**/*.spec.*`, `**/__tests__/**/*`, `**/__mocks__/**/*`, `**/tests/**/*` and
+`**/test/**/*`.
 
 #### Scenario: Python test-file parity
 - **WHEN** the classifier runs over the shared vector set (including `tests/x.py`, `a/test/b.py`, `test_x.py`, `pkg/x_test.py`, `conftest.py`, `testing/x.py`, `atest_x.py`, `Tests/x.py`)
 - **THEN** each result equals the pre-restructure classification recorded in the vectors
 
+#### Scenario: TypeScript test-file classification
+- **WHEN** both twins classify the shared TypeScript vector set (including `src/a.test.ts`, `src/a.spec.tsx`, `src/__tests__/a.ts`, `src/__mocks__/a.ts`, `test/a.ts`, `src/testing/a.ts`, `src/latest.ts`, `src/contest.ts`)
+- **THEN** each result equals the vector's expected classification
+
 ### Requirement: Vendored contract snapshots match the shared source
-Each package SHALL load its contract only from its own vendored snapshot of `shared/`. The snapshot SHALL be
+Each twin SHALL load its contract only from its own vendored snapshot of `shared/`. Each snapshot SHALL be
 byte-identical to `shared/`, with file modes preserved, and SHALL carry a contract hash. `la-doctor` SHALL
-report that hash.
+report that hash, and both twins' hashes SHALL be equal.
 
 #### Scenario: Stale snapshot detected
-- **WHEN** a file under `shared/` changes and the snapshot is not re-synced
-- **THEN** the test suite fails and names the sync command
+- **WHEN** a file under `shared/` changes and a twin's snapshot is not re-synced
+- **THEN** that twin's test suite fails and names the sync command
 
 #### Scenario: Built artifact carries the contract
 - **WHEN** the wheel is built and installed into a clean environment outside the checkout
 - **THEN** every command loads its contract, a review shim runs its bundled script, and `la-doctor` reports the same contract hash as the source tree
 
+#### Scenario: Packed npm package carries the contract
+- **WHEN** `npm pack` output is installed into a clean prefix outside the checkout
+- **THEN** every command loads its contract, a review shim runs its bundled script, and `la-doctor --contract-hash` prints the same hash as the PyPI twin
+
 ### Requirement: Observable outputs reproduce the conformance goldens
 Every case in the conformance corpus SHALL be reproduced byte-exactly: exit code, stdout and stderr, after
 normalizing only the temporary repo root to `<ROOT>`. Cases SHALL run in a fixed environment (`LC_ALL=C`,
-`TZ=UTC`, a fixed terminal width, fixed git identity and dates) with no network access. Each case SHALL
+`TZ=UTC`, a fixed terminal width, fixed git identity and dates) with no network access. A case's `languages`
+SHALL name the languages of its fixture, and every listed language's overlay SHALL be applied. Each case SHALL
 declare one of three kinds:
-- **neutral**: one expected output, run by every twin
-- **paired**: a per-language fixture overlay, with expected outputs that are shared or per-language
+- **neutral**: one expected output, independent of fixture language
+- **paired**: one variant per listed language, each with its own overlay, and expected outputs that are shared
+  or per-language
 - **adapter**: one language only
 
+The twin that invokes the command SHALL be chosen independently of the fixture languages, and the expected
+output SHALL NOT depend on it. Each twin's own suite SHALL run, through its own entry points, the cases whose
+fixture languages are none or only its own language, and whose command that twin implements natively; a
+cross-twin run SHALL run every case through each twin's entry points.
 `--help` text and parser error wording SHALL be excluded from byte comparison.
 
 #### Scenario: Golden reproduced
-- **WHEN** the Python conformance runner executes a case applicable to Python
+- **WHEN** a twin's suite executes a case applicable to it
 - **THEN** the exit code, stdout and stderr equal the committed golden byte-for-byte
 
 #### Scenario: Golden drift is reported, not rewritten
@@ -170,3 +197,11 @@ declare one of three kinds:
 #### Scenario: Git-history case is deterministic
 - **WHEN** a case builds its repo from the declared history (commits, branches, a local bare `origin`, and staged, unstaged, untracked, deleted and renamed files) and runs `la-check-conventions --base main`
 - **THEN** the changed-file set and the output equal the golden on every supported Python version
+
+#### Scenario: Cross-twin run
+- **WHEN** the cross-twin run executes a TypeScript-fixture case through the PyPI twin and a Python-fixture case through the npm twin
+- **THEN** each output equals the case's golden byte-for-byte
+
+#### Scenario: Multi-language fixture
+- **WHEN** a case lists `languages: [python, typescript]` with kind `neutral`
+- **THEN** both the `python/` and `node/` overlays are applied to one repo before the command runs

@@ -60,6 +60,7 @@ model {
     twin = node 'Twin forwarding' {
       metadata {
         package 'living_architecture.twin'
+        specs ['twin-forwarding']
       }
     }
 
