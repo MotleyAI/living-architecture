@@ -40,4 +40,4 @@ SHALL be excluded from byte comparison; a twin SHALL NOT imitate another runtime
 
 #### Scenario: OS error detail is the runtime's own
 - **WHEN** `la-arch-check` cannot read `architecture/index.yaml`, or `la-arch-diagrams` cannot read a mapped arc42 doc (missing, or a directory), through either twin
-- **THEN** both twins exit with the same code, and stderr starts with the contract prefix (`arch_check: ` / `la-arch-diagrams: `) and names the offending path in the runtime's own wording, with no CPython errno text in the npm twin
+- **THEN** both twins exit with the same code, and stderr starts with the contract prefix (`arch_check: ` / `la-arch-diagrams: `) followed by the runtime's own wording, which names the offending path when the file is missing, with no CPython errno text in the npm twin

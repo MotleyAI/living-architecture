@@ -22,6 +22,8 @@ templates or mapping tables; repo-relative paths in OS error messages; YAML erro
   text the tool authors (the prefix); the runtime detail is data, as with YAML library messages.
 - **Goldens assert exit + prefix + path.** The path appears in both runtimes' messages (Python: `'<path>'`,
   Node: `open '<path>'`), so `contains:` on the `<ROOT>`-normalized absolute path holds in both twins.
+  Exception: Node's EISDIR message (`EISDIR: illegal operation on a directory, read`) carries no path, so
+  `arch-diagrams-doc-is-directory` asserts exit + prefix only.
 - **One new non-not-found case** (`arch-diagrams-doc-is-directory`, neutral) so a second OS error kind is
   exercised through both twins. Codex flagged that Node's `readFileSync` on a directory may not throw on
   FreeBSD; rejected, as FreeBSD is not a supported platform (Linux and macOS both raise `EISDIR`).
