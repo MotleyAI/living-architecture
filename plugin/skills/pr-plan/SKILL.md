@@ -38,14 +38,13 @@ a bare menu. If you use a structured/multiple-choice prompt, spell out the
 pros, the cons, and the recommendation inside it — do not rely on a one-line
 description to carry them.**
 
-**Recommendation bias — cleaner end-state over smaller diff.** When a decision
-trades a cleaner architectural end result against a smaller or cheaper diff,
-ALWAYS lean toward the cleaner end result and recommend it — UNLESS the diff to
-get there is *really* huge. Churn, re-blessing goldens, and touching many call
-sites are acceptable costs for a genuinely cleaner final structure; only a
-truly outsized diff tips the recommendation the other way. This governs how you
-form the RECOMMENDATION above, and applies at every stage of the flow, not just
-planning.
+**Recommendation bias — cleaner end-state over smaller diff.** Ask only about
+genuine choices. An option whose only pro is a smaller or cheaper diff is not
+one: never offer it; state the cleaner option as the default instead. Lean
+toward the cleaner end result UNLESS the diff to get there is *really* huge —
+churn, re-blessing goldens, and touching many call sites are acceptable costs.
+This governs how you form the RECOMMENDATION above, and applies at every stage
+of the flow, not just planning.
 
 **Design bias — structural fix over band-aid.** When the brief is a bug, a
 gap, or an inconsistency, decide BEFORE designing the fix whether the reported
