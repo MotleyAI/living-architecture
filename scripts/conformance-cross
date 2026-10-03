@@ -1,11 +1,20 @@
 #!/usr/bin/env bash
-# Run every conformance case through both twins' entry points (the cross-twin run).
-# Usage: scripts/conformance-cross [pytest args...]
+# Run every conformance case through both twins' entry points (the cross-twin run), or through one with --twin.
+# Usage: scripts/conformance-cross [--twin <python|typescript>] [pytest args...]
 set -euo pipefail
+usage="usage: scripts/conformance-cross [--twin <python|typescript>] [pytest args...]"
+twins=(python typescript)
+if [[ "${1:-}" == "--twin" ]]; then
+  case "${2:-}" in
+    python | typescript) twins=("$2") ;;
+    *) echo "$usage" >&2; exit 2 ;;
+  esac
+  shift 2
+fi
 cd "$(dirname "$0")/../node"
 npm run --silent build
 status=0
-for twin in python typescript; do
+for twin in "${twins[@]}"; do
   echo "== cross-twin run invoked through the $twin twin"
   LA_CONFORMANCE_CROSS=1 LA_CONFORMANCE_TWIN="$twin" npm run --silent conformance -- "$@" || status=1
 done

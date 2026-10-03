@@ -38,14 +38,13 @@ a bare menu. If you use a structured/multiple-choice prompt, spell out the
 pros, the cons, and the recommendation inside it — do not rely on a one-line
 description to carry them.**
 
-**Recommendation bias — cleaner end-state over smaller diff.** When a decision
-trades a cleaner architectural end result against a smaller or cheaper diff,
-ALWAYS lean toward the cleaner end result and recommend it — UNLESS the diff to
-get there is *really* huge. Churn, re-blessing goldens, and touching many call
-sites are acceptable costs for a genuinely cleaner final structure; only a
-truly outsized diff tips the recommendation the other way. This governs how you
-form the RECOMMENDATION above, and applies at every stage of the flow, not just
-planning.
+**Recommendation bias — cleaner end-state over smaller diff.** Ask only about
+genuine choices. An option whose only pro is a smaller or cheaper diff is not
+one: never offer it; state the cleaner option as the default instead. Lean
+toward the cleaner end result UNLESS the diff to get there is *really* huge —
+churn, re-blessing goldens, and touching many call sites are acceptable costs.
+This governs how you form the RECOMMENDATION above, and applies at every stage
+of the flow, not just planning.
 
 **Design bias — structural fix over band-aid.** When the brief is a bug, a
 gap, or an inconsistency, decide BEFORE designing the fix whether the reported
@@ -56,14 +55,12 @@ normalization that a single canonical representation would obviate, a check
 repeated at every call site, etc. are all tells). Prefer a design that makes
 the whole bug CLASS impossible or hard to recur — at the planner / type /
 canonical-representation level, one code path instead of N — over patching
-the instance in the existing repetitive implementation. Raise this as its own
-interview point: state the symptom, the structural cause, the band-aid vs.
-structural options with PROS/CONS, the arc42 grounding, and your
-RECOMMENDATION (leaning structural — a bigger diff is an acceptable cost, per
-the bias above). Only if the problem is genuinely local with no structural
-cause is the local fix the right plan; never silently plan a band-aid over a
-structural problem, and never plan a large structural refactor without my
-go-ahead.
+the instance in the existing repetitive implementation. This is NOT an
+interview question: decide it and state the symptom, the structural cause and
+the arc42 grounding in the plan. Never offer an option whose only pro is a
+smaller diff. Ask only when the structural fix's diff is HUGE — then: do it
+now / leave it / separate issue. Only if the problem is genuinely local with no
+structural cause is the local fix the right plan.
 
 When you think you have enough information, return a detailed, complete spec.
 In the spec you write, NEVER take shortcuts or make simplifications or

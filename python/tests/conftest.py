@@ -11,6 +11,14 @@ from living_architecture.contract import snapshot_dir
 
 SCRIPTS_DIR = snapshot_dir() / "scripts"
 
+
+def pytest_configure(config: pytest.Config) -> None:
+    """Golden updates write from one process: undo xdist's `-n`, even an explicit one."""
+    if os.environ.get("LA_UPDATE_GOLDENS") == "1":
+        config.option.numprocesses = 0
+        config.option.dist = "no"
+        config.option.tx = []
+
 # Stand-in `gh`: first route whose tokens all appear in argv wins; `--jq`/`-q`
 # filters are applied with the real jq; every call is logged with any --input payload.
 FAKE_GH = """\
