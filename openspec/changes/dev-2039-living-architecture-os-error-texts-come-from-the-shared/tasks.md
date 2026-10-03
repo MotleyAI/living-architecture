@@ -8,12 +8,12 @@
 
 ## 2. npm twin (pr-implement)
 
-- [ ] 2.1 Delete `osErrorText` from `node/src/c4/diagrams.ts` and its export in `node/src/c4/index.ts`; `run()` prints `(error as Error).message`
-- [ ] 2.2 `node/src/archcheck/index.ts` `setupErrorText`: return `error.message` for errors with an `E…` code; drop the `osErrorText` import
-- [ ] 2.3 Python twin: no code change (already `str(OSError)`)
+- [x] 2.1 Delete `osErrorText` from `node/src/c4/diagrams.ts` and its export in `node/src/c4/index.ts`; `run()` prints `(error as Error).message`
+- [x] 2.2 `node/src/archcheck/index.ts` `setupErrorText`: return `error.message` for errors with an `E…` code; drop the `osErrorText` import
+- [x] 2.3 Python twin: no code change (already `str(OSError)`)
 
 ## 3. Gate
 
-- [ ] 3.1 `python/`: `uv run pytest -q`, `ruff check`, `basedpyright`
-- [ ] 3.2 `node/`: `npm run lint && npm run typecheck`, `npm test`, `npm run build && npm run conformance`
-- [ ] 3.3 `scripts/conformance-cross`, `scripts/sync-shared --check`, `la-arch-check`
+- [x] 3.1 `python/`: `uv run pytest -q`, `ruff check`, `basedpyright`
+- [x] 3.2 `node/`: `npm run lint && npm run typecheck`, `npm test`, `npm run build && npm run conformance`
+- [x] 3.3 `scripts/conformance-cross`, `scripts/sync-shared --check`, `la-arch-check`
