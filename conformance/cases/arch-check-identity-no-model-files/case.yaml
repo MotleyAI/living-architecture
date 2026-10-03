@@ -6,4 +6,6 @@ fixture: arch-ok
 remove:
 - architecture/model/m.c4
 expect:
-  exit: 1
+  exit: 2
+golden: manual
+note: 'no model files: the declared python language has no root element'

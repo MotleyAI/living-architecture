@@ -1,0 +1,9 @@
+kind: adapter
+languages:
+- typescript
+command: la-arch-check
+fixture: arch-ts
+expect:
+  exit: 1
+golden: manual
+note: test-glob, .d.ts and node_modules files are neither units nor measured sources

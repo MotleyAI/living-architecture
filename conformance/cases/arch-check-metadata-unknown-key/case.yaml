@@ -7,7 +7,7 @@ expect:
   exit: 2
   stderr:
     contains:
-    - 'model element store: '
+    - 'model element python.store: '
     - 'pakage'
 golden: manual
 note: 'metadata keys come only from the node schema'

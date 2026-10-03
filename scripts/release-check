@@ -1,0 +1,53 @@
+#!/usr/bin/env python3
+"""Check a release tag against both twins: every version equals the tag, both contract hashes agree.
+
+Usage: scripts/release-check <tag>   (e.g. v0.2.1; exit 1 naming every mismatch, so neither twin publishes)
+"""
+
+from __future__ import annotations
+
+import json
+import re
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+HASHES = {
+    "python": ROOT / "python" / "src" / "living_architecture" / "contract" / "data" / "CONTRACT_HASH",
+    "node": ROOT / "node" / "src" / "contract" / "data" / "CONTRACT_HASH",
+}
+
+
+def _python_version() -> str | None:
+    project = re.split(r"^\[", (ROOT / "python" / "pyproject.toml").read_text(encoding="utf-8"), flags=re.M)
+    section = next((s for s in project if s.startswith("project]")), "")
+    m = re.search(r'^version = "([^"]+)"$', section, flags=re.M)
+    return m.group(1) if m else None
+
+
+def _versions() -> dict[str, str | None]:
+    return {
+        "python/pyproject.toml": _python_version(),
+        "node/package.json": json.loads((ROOT / "node" / "package.json").read_text(encoding="utf-8"))["version"],
+        "plugin/.claude-plugin/plugin.json": json.loads(
+            (ROOT / "plugin" / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8")
+        )["version"],
+    }
+
+
+def main(argv: list[str]) -> int:
+    if len(argv) != 1:
+        print(__doc__, file=sys.stderr)
+        return 2
+    expected = argv[0].removeprefix("v")
+    problems = [f"{path} is {version}, the tag is {argv[0]}" for path, version in _versions().items() if version != expected]
+    hashes = {twin: path.read_text(encoding="utf-8").strip() if path.is_file() else None for twin, path in HASHES.items()}
+    if len(set(hashes.values())) != 1 or None in hashes.values():
+        problems.append(f"contract hashes differ: {hashes}; run scripts/sync-shared")
+    for problem in problems:
+        print(f"release-check: {problem}", file=sys.stderr)
+    return 1 if problems else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv[1:]))

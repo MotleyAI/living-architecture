@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 from typing import NoReturn
 
-from living_architecture import archcheck, c4, config, conventions, doctor, refactor, review
+from living_architecture import archcheck, c4, config, conventions, doctor, refactor, review, twin
 from living_architecture.cli.parser import parse
 
 
@@ -26,11 +26,16 @@ def la_config(argv: list[str] | None = None) -> int:
 
 def la_doctor(argv: list[str] | None = None) -> int:
     args = parse("la-doctor", _argv(argv))
+    if args.twin:
+        print(twin.identity())
+        return 0
     return doctor.run(root=_root(args.root), expect=args.expect, print_hash=args.contract_hash)
 
 
 def la_arch_check(argv: list[str] | None = None) -> int:
-    return archcheck.run(_root(parse("la-arch-check", _argv(argv)).root))
+    args = parse("la-arch-check", _argv(argv))
+    language = args.language or (twin.NATIVE_LANGUAGE if args.emit else None)
+    return archcheck.run(_root(args.root), language=language, emit=args.emit)
 
 
 def la_arch_diagrams(argv: list[str] | None = None) -> int:

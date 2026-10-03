@@ -1,0 +1,9 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+fixture: arch-ok
+expect:
+  exit: 1
+golden: manual
+note: 'single-language repo: one finding per check, in the pre-change order, with qualified ids'

@@ -1,1 +1,1 @@
-arch_check: model element api.handlers: nested elements may not carry metadata
+arch_check: model element python.api.handlers: nested elements may not carry metadata

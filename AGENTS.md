@@ -3,8 +3,7 @@
 ## The twin rule
 
 The `la-*`/`dr-*` commands have one contract and one implementation per ecosystem: the PyPI package in
-`python/` (Python target repos) and, from the next release line, an npm package in `node/` (TS/JS target
-repos). Every behaviour observable through a command must be identical in both twins for the languages they
+`python/` (Python target repos) and the npm package in `node/` (TS/JS target repos). Every behaviour observable through a command must be identical in both twins for the languages they
 share. The conformance corpus decides: an output that differs from its golden is a bug in the twin, never
 in the golden.
 
@@ -28,7 +27,8 @@ Code never hard-codes them; each twin loads its vendored copy of `shared/` at ru
   (`stdout.<language>`).
 - **adapter**: one language only.
 
-The case format is in `conformance/README.md`.
+A case may pin the invoking twin (`twin:`); otherwise its output must not depend on which twin runs it. The
+case format is in `conformance/README.md`.
 
 ## Goldens
 
@@ -39,7 +39,7 @@ hand.
 
 ## Versions and the contract hash
 
-The package versions (`python/pyproject.toml`, and `node/package.json` once it exists) and
+The package versions (`python/pyproject.toml`, `node/package.json`) and
 `plugin/.claude-plugin/plugin.json` always move together, as do the skills' `la-doctor --expect` pins. Each
 snapshot's `CONTRACT_HASH` must equal the hash of `shared/`; `la-doctor --contract-hash` prints the bundled
 one. Release only when every twin's version and contract hash agree.
@@ -55,5 +55,19 @@ uv run ruff check src tests
 uv run basedpyright src tests
 ```
 
-Repo-wide: `scripts/sync-shared [--check]`, `la-arch-check` (this repo's own architecture), and
+npm twin, in `node/` (the conformance runner is the Python one, so it needs `uv sync` in `python/`):
+
+```bash
+npm ci
+npm run lint && npm run typecheck
+npm test                          # Vitest, including the npm pack smoke test
+npm run build && npm run conformance   # the corpus through the npm twin's bins
+```
+
+Repo-wide: `scripts/sync-shared [--check]`, `scripts/conformance-cross` (every case through both twins),
+`la-arch-check` (this repo's own architecture, from either twin), and
 `npx -y @anthropic-ai/claude-code plugin validate plugin`.
+
+A language-specific command run through a twin that does not implement it natively forwards to the other
+twin (found by `la-doctor --twin` on `PATH`, else `uvx`/`npx`); the npm twin forwards the Python-only
+commands in this release.

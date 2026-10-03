@@ -1,0 +1,45 @@
+kind: neutral
+twin: typescript
+other_twin: absent
+command: la-check-conventions
+args:
+- --file
+- a.py
+bins:
+- dir: decoy
+  files:
+    la-doctor: |
+      #!/bin/sh
+      echo "decoy: la-doctor $*" >> <ROOT>/repo/probe.log
+      [ "$*" = "--twin" ] || { echo "fake la-doctor: unexpected $*" >&2; exit 99; }
+      echo "python 0.0.0 <CONTRACT_HASH>"
+    la-check-conventions: |
+      #!/bin/sh
+      echo "decoy: la-check-conventions $*" >> <ROOT>/repo/probe.log
+      echo "decoy la-check-conventions must not run" >&2
+      exit 99
+- dir: runner
+  files:
+    uvx: |
+      #!/bin/sh
+      echo "uvx $*" >> <ROOT>/repo/probe.log
+      if [ "$*" = "--from living-architecture==<VERSION> la-doctor --twin" ]; then
+        echo "python <VERSION> <CONTRACT_HASH>"
+        exit 0
+      fi
+      if [ "$1 $2 $3" = "--from living-architecture==<VERSION> la-check-conventions" ]; then
+        [ "$LA_FORWARDED" = 1 ] || { echo "fake uvx: LA_FORWARDED is not 1" >&2; exit 99; }
+        echo "served by uvx"
+        echo "uvx stderr" >&2
+        exit 1
+      fi
+      echo "fake uvx: unexpected $*" >&2
+      exit 99
+normalize:
+- version
+expect:
+  exit: 1
+  files:
+  - probe.log
+golden: manual
+note: 'the only PyPI twin on PATH has another version: skipped, uvx probed, then runs the command; its exit and streams pass through'

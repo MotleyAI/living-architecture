@@ -1,0 +1,3 @@
+claims-exist: typescript.core claims src/util, which is ambiguous: src/util.ts, src/util/
+claims-exist: typescript.core claims src/dup, which is ambiguous: src/dup.js, src/dup.ts
+arch_check: 2 finding(s)

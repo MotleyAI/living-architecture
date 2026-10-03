@@ -1,0 +1,32 @@
+# The conventions gate (la-check-conventions). Rule ids are stable; descriptions are per language.
+# A waivable rule is waived by a trailing comment on the flagged line: the language's comment prefix
+# followed by `waiver` (a portable regex; group 1 is the rule id).
+# The text-ratio cap comes from the config key conventions.text_ratio_max; exempt globs use fnmatch
+# semantics (`*` also matches `/`).
+
+waiver: '\s*ALLOW\(([a-z-]+)\)\s*:\s*\S'
+
+rules:
+  import-not-top:
+    waivable: true
+    tests_only: false
+    description:
+      python: no imports inside functions, none after module-level code (import-only if/try wrappers count as prologue)
+  text-ratio:
+    waivable: false
+    tests_only: false
+    description:
+      python: docstring and comment-only lines at most the cap, aggregated separately over test and source files
+  composite-assert:
+    waivable: true
+    tests_only: true
+    description:
+      python: '`assert a and b`; split it'
+  raises-single-throw:
+    waivable: true
+    tests_only: true
+    description:
+      python: a pytest.raises / assertRaises block making more than one call
+
+# Reported per file when the file cannot be checked; never waivable.
+file_errors: [unreadable, syntax-error]

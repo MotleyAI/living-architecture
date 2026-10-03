@@ -7,7 +7,7 @@ expect:
   exit: 2
   stderr:
     contains:
-    - 'model element store: '
+    - 'model element python.store: '
     - 'package'
 golden: manual
 note: 'package is required on a precise node'

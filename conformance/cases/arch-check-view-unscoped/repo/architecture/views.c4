@@ -1,0 +1,9 @@
+views {
+  view system of python {
+    title 'System'
+    include *
+  }
+  view landscape {
+    include *
+  }
+}

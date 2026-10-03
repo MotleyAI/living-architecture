@@ -7,6 +7,6 @@ expect:
   exit: 2
   stderr:
     contains:
-    - "element store has malformed metadata: package 'pkg.other'"
+    - "element python.store has malformed metadata: package 'pkg.other'"
 golden: manual
 note: 'a repeated key is malformed'

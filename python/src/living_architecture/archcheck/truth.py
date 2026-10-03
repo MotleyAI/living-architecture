@@ -5,7 +5,7 @@ from __future__ import annotations
 from functools import cache
 from pathlib import Path
 
-from living_architecture.archcheck.index import Layout
+from living_architecture.archcheck.index import Layout, declared_languages, load_index
 from living_architecture.archcheck.nodes import build_node_map, unit_to_element
 from living_architecture.c4 import is_or_ancestor, parse_model
 from living_architecture.contract import message
@@ -13,7 +13,7 @@ from living_architecture.lang import import_targets, source_modules
 
 
 def _attribute(module: str, units: dict[str, str]) -> str | None:
-    """The finest declared element a module belongs to (longest unit prefix), or None."""
+    """The finest declared element a Python module belongs to (longest unit prefix), or None."""
     best: str | None = None
     for unit in units:
         if (module == unit or module.startswith(unit + ".")) and (best is None or len(unit) > len(best)):
@@ -27,13 +27,13 @@ def _internal(src_elem: str, dst_elem: str) -> bool:
 
 
 def measure_runtime_edges(layout: Layout, units: dict[str, str]) -> dict[tuple[str, str], tuple[str, str]]:
-    """Element-level runtime import edges -> a witness (importing module, imported module).
+    """Element-level Python import edges -> the first witness (importing module, imported module).
 
-    Endpoints attribute to their finest declared element; self- and ancestor/descendant pairs
-    drop as internal; type-only imports are excluded; the root package's own module is exempt.
+    Sources and targets go in sorted module-id order; endpoints attribute to their finest declared element;
+    self- and ancestor/descendant pairs drop as internal; the root package's own module is exempt.
     """
     witnesses: dict[tuple[str, str], tuple[str, str]] = {}
-    for source in source_modules(layout.source_root, layout.root_package):
+    for source in sorted(source_modules(layout.source_root, layout.root_package), key=lambda s: s.module):
         src_elem = _attribute(source.module, units)
         if src_elem is None:
             continue
@@ -64,8 +64,8 @@ def _arrow_is_live(arrow: tuple[str, str], edges: list[tuple[str, str]], arrows:
     return False
 
 
-def check_model_truth(layout: Layout, units: dict[str, str], arrows: list[tuple[str, str]]) -> list[str]:
-    witnesses = measure_runtime_edges(layout, units)
+def check_model_truth(witnesses: dict[tuple[str, str], tuple[str, str]], arrows: list[tuple[str, str]]) -> list[str]:
+    """Measured edges (every language's) against every arrow: missing edges sorted, then arrows in model order."""
     edges = list(witnesses)
     findings: list[str] = []
     # A parent<->child arrow would asymmetrically cover sibling edges; keep it out of coverage.
@@ -90,14 +90,15 @@ def check_model_truth(layout: Layout, units: dict[str, str], arrows: list[tuple[
 @cache
 def _license_model(root_str: str) -> tuple[tuple[tuple[str, str], ...], tuple[tuple[str, str], ...]]:
     """Cached (unit, element) pairs plus arrow set for `license`, keyed by repo root."""
-    model = parse_model(Path(root_str))
-    mapping = tuple(unit_to_element(build_node_map(model)).items())
+    root = Path(root_str)
+    model = parse_model(root)
+    mapping = tuple(unit_to_element(build_node_map(model, declared_languages(load_index(root))), "python").items())
     arrows = tuple((r.src, r.dst) for r in model.relations if not _internal(r.src, r.dst))
     return mapping, arrows
 
 
 def license(*, root: Path, src: str, dst: str) -> bool:
-    """Whether the model licenses a runtime import from module `src` to module `dst`.
+    """Whether the model licenses a runtime import from Python module `src` to Python module `dst`.
 
     Internal and unmodelled endpoints are never banned; otherwise a declared arrow must cover the edge.
     """

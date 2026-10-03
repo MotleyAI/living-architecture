@@ -1,0 +1,15 @@
+python:
+  root_package: pkg
+typescript:
+  root_package: src
+cross_cutting_specs:
+  logging:
+    touches:
+    - python.core
+    - typescript.shared
+legacy_arrows:
+  baseline: 1
+diagrams:
+  architecture/system.arc42.md:
+  - backend
+  - frontend

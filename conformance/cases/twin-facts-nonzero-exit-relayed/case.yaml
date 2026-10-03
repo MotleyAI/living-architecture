@@ -1,0 +1,25 @@
+kind: adapter
+languages:
+- python
+twin: python
+other_twin: absent
+command: la-arch-check
+fixture: twin-mixed
+bins:
+- dir: npm-twin
+  files:
+    la-doctor: |
+      #!/bin/sh
+      [ "$*" = "--twin" ] || { echo "fake la-doctor: unexpected $*" >&2; exit 99; }
+      echo "typescript <VERSION> <CONTRACT_HASH>"
+    la-arch-check: |
+      #!/bin/sh
+      case " $* " in *" --language typescript "*) ;; *) echo "fake la-arch-check: not a typescript facts request: $*" >&2; exit 99 ;; esac
+      case " $* " in *" --emit facts "*) ;; *) echo "fake la-arch-check: not a facts request: $*" >&2; exit 99 ;; esac
+      [ "$LA_FORWARDED" = 1 ] || { echo "fake la-arch-check: LA_FORWARDED is not 1" >&2; exit 99; }
+      echo "boom: facts crashed" >&2
+      exit 1
+expect:
+  exit: 2
+golden: manual
+note: 'any non-zero facts exit is relayed: its stderr verbatim, la-arch-check exits 2'

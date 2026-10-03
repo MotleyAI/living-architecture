@@ -1,0 +1,52 @@
+{
+  "name": "living-architecture",
+  "version": "0.2.1",
+  "description": "The npm twin of the living-architecture la-* commands.",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "dr-compliance": "dist/bin/dr-compliance.js",
+    "dr-mock-lint": "dist/bin/dr-mock-lint.js",
+    "dr-refactor": "dist/bin/dr-refactor.js",
+    "la-arch-check": "dist/bin/la-arch-check.js",
+    "la-arch-diagrams": "dist/bin/la-arch-diagrams.js",
+    "la-check-conventions": "dist/bin/la-check-conventions.js",
+    "la-config": "dist/bin/la-config.js",
+    "la-count-comments": "dist/bin/la-count-comments.js",
+    "la-doctor": "dist/bin/la-doctor.js",
+    "la-fetch-coderabbit-threads": "dist/bin/la-fetch-coderabbit-threads.js",
+    "la-fetch-failed-pr-checks": "dist/bin/la-fetch-failed-pr-checks.js",
+    "la-reply-invalid-coderabbit": "dist/bin/la-reply-invalid-coderabbit.js",
+    "la-reply-to-pr-thread": "dist/bin/la-reply-to-pr-thread.js",
+    "la-wait-for-reviews": "dist/bin/la-wait-for-reviews.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "conformance": "node scripts/conformance.mjs"
+  },
+  "dependencies": {
+    "ajv": "^8.20.0",
+    "typescript": "~6.0.3",
+    "yaml": "^2.9.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@types/node": "^22.20.5",
+    "eslint": "^9.39.5",
+    "globals": "^16.5.0",
+    "typescript-eslint": "^8.71.0",
+    "vitest": "^5.0.3"
+  }
+}

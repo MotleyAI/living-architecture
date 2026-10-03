@@ -1,0 +1,31 @@
+Renaming <foo> to <bar>:
+
+
+--- a/pkg/a.py
++++ b/pkg/a.py
+@@ -1,7 +1,7 @@
+-def foo():
++def bar():
+     return 1
+ 
+ 
+ class Base:
+     def run(self):
+-        return foo()
++        return bar()
+
+--- a/pkg/b.py
++++ b/pkg/b.py
+@@ -1,6 +1,6 @@
+-from pkg.a import Base, foo
++from pkg.a import Base, bar
+ 
+ 
+ class Child(Base):
+     def run(self):
+-        return foo() + 1
++        return bar() + 1
+
+
+
+DRY-RUN. 2 file(s) would change. Re-run with --apply.

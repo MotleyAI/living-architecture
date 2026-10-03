@@ -1,0 +1,9 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+fixture: arch-ok
+expect:
+  exit: 1
+golden: manual
+note: 'touches must be qualified (core is unknown). Qualified-id audit, template -> golden: metadata-invalid -> arch-check-metadata-*; metadata-on-nested -> arch-check-metadata-on-nested-element; root-undeclared/metadata-on-root -> arch-check-root-*; unit-missing -> arch-check-claims-missing-package; child-missing -> arch-check-claims-child-missing; virtual-children -> arch-check-claims-virtual-children; claimed-twice -> arch-check-claims-duplicate-claim; child-collides -> arch-check-claims-child-collides; unit/child-ambiguous -> arch-check-ts-* cases; node-doc-missing -> arch-check-arc42-node-doc-missing; spec mapped-twice -> arch-check-spec-mapped-twice; unknown-node (as written) -> this case; internal-arrow/missing-edge/shadowed/dead -> arch-check-truth-*; c4 undeclared-kind/duplicate-element/relation-in-body/duplicate-relation/unknown-endpoint -> arch-check-parse-model-findings; malformed-metadata -> arch-diagrams-malformed-metadata; relation-outside-root -> arch-check-relation-outside-root; view predicate ids stay root-relative -> arch-check-parse-views-findings'

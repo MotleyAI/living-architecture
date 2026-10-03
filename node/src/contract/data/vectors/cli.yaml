@@ -1,0 +1,254 @@
+# Manifest parser vectors: `argv` given to `command` either parses to `args` (every dest, defaults included, plus
+# `subcommand` for a command with subcommands; a passthrough command's handler receives `{argv: [...]}` verbatim)
+# or is a usage error (`exit: 2`). Parser error wording and --help text are not pinned.
+cases:
+- name: abbreviated option rejected
+  command: la-check-conventions
+  argv: [--bas, main]
+  exit: 2
+- name: abbreviated flag rejected
+  command: la-doctor
+  argv: [--contract]
+  exit: 2
+- name: base only, repeatables default to empty
+  command: la-check-conventions
+  argv: [--base, main]
+  args:
+    pr: null
+    repo: null
+    base: main
+    files: []
+    exclude: []
+    text_ratio_cap: null
+- name: repeatable options keep order
+  command: la-check-conventions
+  argv: [--file, b.py, --file, a.py, --exclude, gen/*, --exclude, x/*]
+  args:
+    pr: null
+    repo: null
+    base: null
+    files: [b.py, a.py]
+    exclude: [gen/*, x/*]
+    text_ratio_cap: null
+- name: optional positional
+  command: la-check-conventions
+  argv: ['42']
+  args:
+    pr: '42'
+    repo: null
+    base: null
+    files: []
+    exclude: []
+    text_ratio_cap: null
+- name: double dash before an optional positional
+  command: la-check-conventions
+  argv: [--, --odd]
+  args:
+    pr: --odd
+    repo: null
+    base: null
+    files: []
+    exclude: []
+    text_ratio_cap: null
+- name: option value may start with a dash
+  command: la-check-conventions
+  argv: [--base=-x]
+  args:
+    pr: null
+    repo: null
+    base: -x
+    files: []
+    exclude: []
+    text_ratio_cap: null
+- name: require_one_of with none given
+  command: la-check-conventions
+  argv: [--repo, o/r]
+  exit: 2
+- name: require_one_of with nothing
+  command: la-check-conventions
+  argv: []
+  exit: 2
+- name: float option
+  command: la-check-conventions
+  argv: [--base, main, --text-ratio-cap, '12.5']
+  args:
+    pr: null
+    repo: null
+    base: main
+    files: []
+    exclude: []
+    text_ratio_cap: 12.5
+- name: float option type error
+  command: la-check-conventions
+  argv: [--base, main, --text-ratio-cap, abc]
+  exit: 2
+- name: extra positional
+  command: la-check-conventions
+  argv: ['1', '2']
+  exit: 2
+- name: option missing its value
+  command: la-check-conventions
+  argv: [--base]
+  exit: 2
+- name: unknown option
+  command: la-arch-diagrams
+  argv: [--nope]
+  exit: 2
+- name: root option
+  command: la-arch-diagrams
+  argv: [--root, r]
+  args: {root: r}
+- name: subcommand with positional
+  command: la-config
+  argv: [get, reviewers.sonar.enabled]
+  args: {root: null, subcommand: get, key: reviewers.sonar.enabled}
+- name: parent option before subcommand
+  command: la-config
+  argv: [--root, /r, show]
+  args: {root: /r, subcommand: show}
+- name: double dash before a subcommand
+  command: la-config
+  argv: [--, get, --odd-key]
+  args: {root: null, subcommand: get, key: --odd-key}
+- name: double dash after a subcommand
+  command: la-config
+  argv: [get, --, --odd-key]
+  args: {root: null, subcommand: get, key: --odd-key}
+- name: subcommand required
+  command: la-config
+  argv: []
+  exit: 2
+- name: unknown subcommand
+  command: la-config
+  argv: [bogus]
+  exit: 2
+- name: object member names are not subcommands
+  command: la-config
+  argv: [toString]
+  exit: 2
+- name: object member names are not subcommands (constructor)
+  command: la-config
+  argv: [constructor]
+  exit: 2
+- name: subcommand positional required
+  command: la-config
+  argv: [get]
+  exit: 2
+- name: parent option after subcommand rejected
+  command: la-config
+  argv: [show, --root, /r]
+  exit: 2
+- name: defaults
+  command: la-doctor
+  argv: []
+  args: {expect: null, root: null, contract_hash: false, twin: false}
+- name: flag and string options
+  command: la-doctor
+  argv: [--expect, 0.2.1, --contract-hash]
+  args: {expect: 0.2.1, root: null, contract_hash: true, twin: false}
+- name: defaults
+  command: la-arch-check
+  argv: []
+  args: {root: null, language: null, emit: null}
+- name: rename with defaults
+  command: dr-refactor
+  argv: [rename, --file, a.py, --name, f, --new-name, g]
+  args: {project: ., apply: false, subcommand: rename, file: a.py, offset: null, line: null, col: null, name: f, new_name: g,
+    in_hierarchy: true, unsure: skip}
+- name: store-false flag and choice
+  command: dr-refactor
+  argv: [--apply, --project, p, rename, --file, a.py, --line, '3', --col, '7', --new-name, g, --no-in-hierarchy, --unsure,
+    include]
+  args: {project: p, apply: true, subcommand: rename, file: a.py, offset: null, line: 3, col: 7, name: null, new_name: g,
+    in_hierarchy: false, unsure: include}
+- name: choice rejected
+  command: dr-refactor
+  argv: [rename, --file, a.py, --new-name, g, --unsure, maybe]
+  exit: 2
+- name: int option
+  command: dr-refactor
+  argv: [rename, --file, a.py, --offset, '-5', --new-name, g]
+  args: {project: ., apply: false, subcommand: rename, file: a.py, offset: -5, line: null, col: null, name: null, new_name: g,
+    in_hierarchy: true, unsure: skip}
+- name: int option type error
+  command: dr-refactor
+  argv: [rename, --file, a.py, --offset, '1.5', --new-name, g]
+  exit: 2
+- name: required option missing
+  command: dr-refactor
+  argv: [rename, --file, a.py]
+  exit: 2
+- name: move-symbol
+  command: dr-refactor
+  argv: [move-symbol, --file, a.py, --name, f, --dest, b.py]
+  args: {project: ., apply: false, subcommand: move-symbol, file: a.py, offset: null, line: null, col: null, name: f, dest: b.py}
+- name: move-module
+  command: dr-refactor
+  argv: [move-module, --module, a.py, --dest, pkg]
+  args: {project: ., apply: false, subcommand: move-module, module: a.py, dest: pkg}
+- name: nargs plus
+  command: dr-compliance
+  argv: [a.py, b, --select, mock, --attr, x]
+  args:
+    paths: [a.py, b]
+    select: mock
+    attr: x
+- name: nargs plus needs one
+  command: dr-compliance
+  argv: [--select, mock]
+  exit: 2
+- name: double dash before positionals
+  command: dr-compliance
+  argv: [--, -a.py, b.py]
+  args:
+    paths: [-a.py, b.py]
+    select: untyped-def,unannotated-attr,mock
+    attr: null
+- name: internal flag
+  command: la-doctor
+  argv: [--twin]
+  args: {expect: null, root: null, contract_hash: false, twin: true}
+- name: internal flag not abbreviable
+  command: la-doctor
+  argv: [--tw]
+  exit: 2
+- name: facts request
+  command: la-arch-check
+  argv: [--language, typescript, --emit, facts]
+  args: {root: null, language: typescript, emit: facts}
+- name: facts request with root
+  command: la-arch-check
+  argv: [--root, r, --language, python, --emit, facts]
+  args: {root: r, language: python, emit: facts}
+- name: unknown language
+  command: la-arch-check
+  argv: [--language, rust]
+  exit: 2
+- name: unknown emit format
+  command: la-arch-check
+  argv: [--emit, json]
+  exit: 2
+- name: internal option not abbreviable
+  command: la-arch-check
+  argv: [--lang, python]
+  exit: 2
+- name: passthrough hands raw argv
+  command: la-count-comments
+  argv: [--range, main, a.py]
+  args:
+    argv: [--range, main, a.py]
+- name: passthrough keeps double dash
+  command: la-count-comments
+  argv: [--, --help]
+  args:
+    argv: [--, --help]
+- name: passthrough never rejects abbreviations
+  command: dr-mock-lint
+  argv: [--bas, a.py]
+  args:
+    argv: [--bas, a.py]
+- name: passthrough shim
+  command: la-wait-for-reviews
+  argv: ['12', --x]
+  args:
+    argv: ['12', --x]

@@ -1,0 +1,17 @@
+kind: adapter
+languages:
+- typescript
+command: la-arch-check
+fixture: arch-ts
+remove:
+- src
+symlinks:
+  web/src/linked: ../lib
+  web/src/f.ts: ../lib/x.ts
+  web/src/esc: ../../outside
+  web/src/zz: ../../outside
+  web/src/cyc/loop: ..
+expect:
+  exit: 1
+golden: manual
+note: symlinks are followed while their real path stays under source_root; a cycle is walked once

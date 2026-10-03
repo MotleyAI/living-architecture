@@ -1,0 +1,26 @@
+kind: adapter
+languages:
+- python
+twin: typescript
+other_twin: absent
+command: la-arch-check
+fixture: twin-mixed
+bins:
+- dir: pypi-twin
+  files:
+    la-doctor: |
+      #!/bin/sh
+      [ "$*" = "--twin" ] || { echo "fake la-doctor: unexpected $*" >&2; exit 99; }
+      echo "python <VERSION> <CONTRACT_HASH>"
+    la-arch-check: |
+      #!/bin/sh
+      case " $* " in *" --language python "*) ;; *) echo "fake la-arch-check: not a python facts request: $*" >&2; exit 99 ;; esac
+      case " $* " in *" --emit facts "*) ;; *) echo "fake la-arch-check: not a facts request: $*" >&2; exit 99 ;; esac
+      [ "$LA_FORWARDED" = 1 ] || { echo "fake la-arch-check: LA_FORWARDED is not 1" >&2; exit 99; }
+      echo "this is not JSON"
+normalize:
+- version
+expect:
+  exit: 2
+golden: manual
+note: 'the npm twin gets invalid JSON from the PyPI twin''s facts run: protocol failure with the uv hint, exit 2'

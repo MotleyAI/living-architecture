@@ -1,10 +1,10 @@
-model-truth: modeled relation core -> ghost has no measured runtime edge
+model-truth: modeled relation python.core -> python.ghost has no measured runtime edge
 diagrams-fresh: unrecognized specification line: #virtual
 diagrams-fresh: unrecognized specification line: colour red
-diagrams-fresh: relation api.handlers -> core inside element body api
-diagrams-fresh: duplicate element core
-diagrams-fresh: duplicate relation core -> store
+diagrams-fresh: relation api.handlers -> core inside element body python.api
+diagrams-fresh: duplicate element python.core
+diagrams-fresh: duplicate relation python.core -> python.store
 diagrams-fresh: unrecognized model line: this is not a model line
-diagrams-fresh: element thing has undeclared kind widget
-diagrams-fresh: relation core -> ghost has unknown endpoint ghost
+diagrams-fresh: element python.thing has undeclared kind widget
+diagrams-fresh: relation python.core -> python.ghost has unknown endpoint python.ghost
 arch_check: 9 finding(s)

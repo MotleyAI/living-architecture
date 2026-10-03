@@ -1,0 +1,15 @@
+kind: adapter
+languages:
+- typescript
+command: la-arch-check
+fixture: arch-ts
+remove:
+- src/api
+- src/core
+- src/store
+- src/util.ts
+- src/old.js
+expect:
+  exit: 1
+golden: manual
+note: the section's tsconfig key wins over the nearest tsconfig.json; its paths are relative to that file

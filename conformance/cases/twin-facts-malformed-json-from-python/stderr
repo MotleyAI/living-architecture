@@ -1,0 +1,1 @@
+arch_check: the python twin (living-architecture <VERSION>) returned invalid facts; reinstall it with: uv tool install living-architecture==<VERSION>

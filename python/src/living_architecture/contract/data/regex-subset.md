@@ -2,7 +2,8 @@
 
 `issue_key_pattern` must use only constructs that Python `re` and JavaScript `RegExp` (no flags) read
 identically on ASCII input. Accepted patterns are applied with full-match semantics. The accept/reject
-vectors are in `vectors/regex-subset.yaml`.
+vectors are in `vectors/regex-subset.yaml`. A tag id containing any non-ASCII character never matches, in
+every twin, whatever the pattern.
 
 Allowed:
 

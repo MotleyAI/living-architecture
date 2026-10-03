@@ -1,0 +1,50 @@
+kind: adapter
+languages:
+- python
+twin: python
+other_twin: absent
+command: la-arch-check
+fixture: twin-mixed
+symlinks:
+  node_modules/.bin/la-doctor: ../../../bins/local/local-la-doctor
+  node_modules/.bin/la-arch-check: ../../../bins/local/local-la-arch-check
+bins:
+- dir: local
+  files:
+    local-la-doctor: |
+      #!/bin/sh
+      echo "local: la-doctor $*" >> <ROOT>/repo/probe.log
+      [ "$*" = "--twin" ] || { echo "fake la-doctor: unexpected $*" >&2; exit 99; }
+      echo "typescript <VERSION> <CONTRACT_HASH>"
+    local-la-arch-check: |
+      #!/bin/sh
+      case " $* " in *" --language typescript "*) ;; *) echo "fake la-arch-check: not a typescript facts request: $*" >&2; exit 99 ;; esac
+      case " $* " in *" --emit facts "*) ;; *) echo "fake la-arch-check: not a facts request: $*" >&2; exit 99 ;; esac
+      [ "$LA_FORWARDED" = 1 ] || { echo "fake la-arch-check: LA_FORWARDED is not 1" >&2; exit 99; }
+      echo "local: la-arch-check (typescript facts)" >> <ROOT>/repo/probe.log
+      cat <<'EOF'
+      {
+        "language": "typescript",
+        "version": "<VERSION>",
+        "contract_hash": "<CONTRACT_HASH>",
+        "units": [
+          {"unit": "src/web", "status": "present"},
+          {"unit": "src/shared", "status": "present"}
+        ],
+        "top_level_units": ["src/shared", "src/web"],
+        "edges": [
+          {"src": "typescript.web", "dst": "typescript.shared", "src_module": "src/web/a", "dst_module": "src/shared/b"}
+        ]
+      }
+      EOF
+    npx: |
+      #!/bin/sh
+      echo "runner: npx $*" >> <ROOT>/repo/probe.log
+      echo "runner npx must not run" >&2
+      exit 99
+expect:
+  exit: 0
+  files:
+  - probe.log
+golden: manual
+note: 'no qualifying twin on PATH: the npm twin in <repo>/node_modules/.bin serves the facts before any runner'

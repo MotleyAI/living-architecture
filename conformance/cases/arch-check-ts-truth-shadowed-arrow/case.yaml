@@ -1,0 +1,9 @@
+kind: adapter
+languages:
+- typescript
+command: la-arch-check
+fixture: arch-ts
+expect:
+  exit: 1
+golden: manual
+note: a TS arrow covered only by a more specific arrow is shadowed

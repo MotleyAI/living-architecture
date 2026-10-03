@@ -1,0 +1,12 @@
+kind: neutral
+twin: typescript
+command: la-doctor
+args:
+- --twin
+normalize:
+- version
+- contract_hash
+expect:
+  exit: 0
+golden: manual
+note: la-doctor --twin prints the npm twin's identity line

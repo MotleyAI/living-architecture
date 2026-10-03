@@ -1,0 +1,14 @@
+kind: adapter
+languages:
+- typescript
+command: la-arch-check
+fixture: arch-ts
+expect:
+  exit: 2
+  stderr:
+    contains:
+    - config/tsconfig.js
+  files:
+  - executed.marker
+golden: manual
+note: a tsconfig holding JavaScript is a setup error naming it and is never executed

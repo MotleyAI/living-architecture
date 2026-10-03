@@ -1,0 +1,38 @@
+kind: adapter
+languages:
+- python
+twin: typescript
+other_twin: absent
+command: la-arch-check
+args:
+- --language
+- python
+- --emit
+- facts
+fixture: twin-mixed
+bins:
+- dir: pypi-twin
+  files:
+    la-doctor: |
+      #!/bin/sh
+      echo "pypi-twin: la-doctor $*" >> <ROOT>/repo/probe.log
+      [ "$*" = "--twin" ] || { echo "fake la-doctor: unexpected $*" >&2; exit 99; }
+      echo "python <VERSION> <CONTRACT_HASH>"
+    la-arch-check: |
+      #!/bin/sh
+      echo "pypi-twin: la-arch-check $*" >> <ROOT>/repo/probe.log
+      echo "pypi-twin la-arch-check must not run" >&2
+      exit 99
+- dir: runner
+  files:
+    uvx: |
+      #!/bin/sh
+      echo "runner: uvx $*" >> <ROOT>/repo/probe.log
+      echo "runner uvx must not run" >&2
+      exit 99
+expect:
+  exit: 2
+  files:
+  - probe.log
+golden: manual
+note: the npm twin refuses a Python facts request without starting any process

@@ -1,5 +1,5 @@
 views {
-  view system {
+  view system of python {
     title 'System'
     include *
   }

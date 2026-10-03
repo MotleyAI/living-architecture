@@ -33,3 +33,16 @@ def test_marketplace_lists_the_plugin() -> None:
 def test_vendored_root_files_are_current(name: str) -> None:
     current = (PROJECT_ROOT / name).read_bytes() == (REPO_ROOT / name).read_bytes()
     assert current, f"python/{name} is stale; run scripts/sync-shared"
+
+
+def test_npm_package_version_agrees() -> None:
+    package = REPO_ROOT / "node" / "package.json"
+    assert package.is_file(), "node/package.json is missing"
+    assert json.loads(package.read_text(encoding="utf-8"))["version"] == _plugin_version() == __version__
+
+
+@pytest.mark.parametrize("name", ["README.md", "LICENSE"])
+def test_npm_vendored_root_files_are_current(name: str) -> None:
+    vendored = REPO_ROOT / "node" / name
+    current = vendored.is_file() and vendored.read_bytes() == (REPO_ROOT / name).read_bytes()
+    assert current, f"node/{name} is stale; run scripts/sync-shared"

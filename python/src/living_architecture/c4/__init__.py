@@ -2,7 +2,15 @@
 
 from living_architecture.c4.diagrams import DiagramsError, check_diagrams_fresh, generate, run
 from living_architecture.c4.mermaid import render_mermaid
-from living_architecture.c4.model import Element, ModelParse, Relation, is_or_ancestor, parse_model
+from living_architecture.c4.model import (
+    Element,
+    ModelParse,
+    Relation,
+    is_or_ancestor,
+    parse_model,
+    project,
+    roots,
+)
 from living_architecture.c4.views import DEFAULT_VIEW_DEPTH, Edge, View, ViewsParse, parse_views
 
 __all__ = [
@@ -19,6 +27,8 @@ __all__ = [
     "is_or_ancestor",
     "parse_model",
     "parse_views",
+    "project",
     "render_mermaid",
+    "roots",
     "run",
 ]

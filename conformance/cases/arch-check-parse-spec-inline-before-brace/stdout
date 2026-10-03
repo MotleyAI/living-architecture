@@ -1,8 +1,8 @@
 diagrams-fresh: unrecognized specification line: element node element bucket {
 diagrams-fresh: unrecognized specification line: #virtual
-diagrams-fresh: element api has undeclared kind node
-diagrams-fresh: element api.handlers has undeclared kind node
-diagrams-fresh: element core has undeclared kind node
-diagrams-fresh: element store has undeclared kind node
-diagrams-fresh: element legacy has undeclared kind bucket
+diagrams-fresh: element python.api has undeclared kind node
+diagrams-fresh: element python.api.handlers has undeclared kind node
+diagrams-fresh: element python.core has undeclared kind node
+diagrams-fresh: element python.store has undeclared kind node
+diagrams-fresh: element python.legacy has undeclared kind bucket
 arch_check: 7 finding(s)

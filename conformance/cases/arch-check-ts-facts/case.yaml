@@ -1,0 +1,16 @@
+kind: adapter
+languages:
+- typescript
+twin: typescript
+command: la-arch-check
+args:
+- --language
+- typescript
+- --emit
+- facts
+fixture: arch-ts
+expect:
+  exit: 0
+  stdout: json
+golden: manual
+note: native TS facts; units in model order with statuses, sorted top-level units, sorted edges with first witnesses

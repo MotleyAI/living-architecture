@@ -1,0 +1,9 @@
+kind: neutral
+command: la-arch-diagrams
+fixture: arch-diagrams
+expect:
+  exit: 0
+  files:
+  - architecture/system.arc42.md
+golden: manual
+note: 'api -> core in each root body is two relations, one per root; each scoped view draws only its own'

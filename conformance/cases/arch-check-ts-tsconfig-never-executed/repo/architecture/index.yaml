@@ -1,0 +1,6 @@
+typescript:
+  root_package: src
+  tsconfig: config/tsconfig.js
+legacy_arrows:
+  baseline: 1
+diagrams: {}

@@ -7,7 +7,7 @@ expect:
   exit: 2
   stderr:
     contains:
-    - 'model element legacy: '
+    - 'model element python.legacy: '
     - 'package'
 golden: manual
 note: 'package belongs to precise nodes only'

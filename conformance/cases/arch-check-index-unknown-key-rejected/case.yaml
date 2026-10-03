@@ -1,0 +1,13 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+fixture: arch-ok
+expect:
+  exit: 2
+  stderr:
+    contains:
+    - architecture/index.yaml
+    - guards
+golden: manual
+note: 'an unknown key without the x- prefix is a setup error; schema wording is not pinned'

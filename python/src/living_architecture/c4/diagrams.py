@@ -9,7 +9,7 @@ from typing import Any
 
 from living_architecture.c4.index import read_index
 from living_architecture.c4.mermaid import render_mermaid
-from living_architecture.c4.model import ModelParse, parse_model
+from living_architecture.c4.model import ModelParse, parse_model, project
 from living_architecture.c4.views import View, ViewsParse, parse_views
 from living_architecture.contract import message
 
@@ -34,7 +34,7 @@ def _is_arc42_doc_key(doc_key: object) -> bool:
 
 
 def _canonical_block(view: View, model: ModelParse) -> str:
-    return f"<!-- likec4:{view.id} -->\n{render_mermaid(view, model)}\n<!-- /likec4:{view.id} -->"
+    return f"<!-- likec4:{view.id} -->\n{render_mermaid(view, project(model, view.root))}\n<!-- /likec4:{view.id} -->"
 
 
 def _marker_span(text: str, vid: str) -> tuple[tuple[int, int] | None, str | None]:

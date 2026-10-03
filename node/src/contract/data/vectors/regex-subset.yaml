@@ -1,0 +1,40 @@
+# The portable issue_key_pattern subset: literals, character classes (incl. \d \w \s and their negations),
+# quantifiers (incl. {m,n}), anchors (^ $ \b), capturing and non-capturing groups, alternation.
+# Everything else is rejected: lookaround, named groups, backreferences, inline flags, possessive and atomic
+# constructs, conditionals, comments, \A/\Z, and invalid patterns.
+accept:
+- '[A-Z][A-Z0-9]+-\d+'
+- PROJ-\d+
+- '[A-Z]{2,5}-\d+'
+- ^(ABC|DEF)-[0-9]+$
+- (?:ABC|DEF)-\d+
+- \w+-\d{1,4}
+- '[^a-z]+-\d+'
+- '[A-Z]+\s?-\d+'
+- a*b+c?
+- x{3}
+- x{2,}
+- a.b
+- \bKEY-\d+\b
+- \D\W\S
+- A\.B\-C
+- '[\d_]+'
+- '[a-z-]+'
+reject:
+- (?<=X)[A-Z]+-\d+
+- (?<!X)[A-Z]+
+- (?P<key>[A-Z]+)-\d+
+- (?<key>[A-Z]+)-\d+
+- (?i)[a-z]+-\d+
+- (?i:abc)-\d+
+- '[A-Z]++-\d+'
+- '[A-Z]*+'
+- (?>[A-Z]+)-\d+
+- (?=A)[A-Z]+
+- (?!A)[A-Z]+
+- (A)\1
+- \AKEY-\d+
+- KEY-\d+\Z
+- (?(1)a|b)
+- (?#comment)A
+- '['

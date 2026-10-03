@@ -1,3 +1,3 @@
-claims-exactly-once: element api.handlers (pkg.api.handlers) collides with declared unit pkg.api.handlers
-model-truth: modeled relation api.handlers -> core has no measured runtime edge
+claims-exactly-once: element python.api.handlers (pkg.api.handlers) collides with declared unit pkg.api.handlers
+model-truth: modeled relation python.api.handlers -> python.core has no measured runtime edge
 arch_check: 2 finding(s)

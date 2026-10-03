@@ -1,0 +1,15 @@
+kind: adapter
+languages:
+- typescript
+command: la-arch-check
+fixture: arch-ts
+remove:
+- src/api
+- src/core
+- src/store
+- src/util.ts
+- src/old.js
+expect:
+  exit: 1
+golden: manual
+note: a file resolves with the first project in depth-first reference order listing it, else the root config; reference cycles are tolerated

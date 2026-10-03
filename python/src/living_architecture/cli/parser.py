@@ -21,7 +21,7 @@ def _add_arguments(parser: argparse.ArgumentParser, spec: dict[str, Any]) -> Non
             kwargs["nargs"] = positional["nargs"]
         parser.add_argument(positional["name"], **kwargs)
     for option in spec.get("options", []):
-        kwargs = {"dest": _dest(option), "help": option["help"]}
+        kwargs = {"dest": _dest(option), "help": argparse.SUPPRESS if option.get("internal") else option["help"]}
         if option["type"] == "flag":
             kwargs["action"] = "store_true" if option.get("store", True) else "store_false"
         else:

@@ -1,0 +1,12 @@
+views {
+  view system of python {
+    title 'System'
+    include *
+  }
+  view inner of python.core {
+    include *
+  }
+  view web of typescript {
+    include *
+  }
+}

@@ -1,4 +1,4 @@
-"""The constrained `views.c4` include grammar and view expansion."""
+"""The constrained `views.c4` include grammar and view expansion over a root-local projection."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from pathlib import Path
 from pydantic import BaseModel
 
 from living_architecture.c4.index import read_index
-from living_architecture.c4.model import ModelParse, Relation, strip_line_comment
+from living_architecture.c4.model import ModelParse, Relation, project, roots, strip_line_comment
 from living_architecture.contract import message
 
 
@@ -19,8 +19,11 @@ class Edge(BaseModel):
 
 
 class View(BaseModel):
+    """A view of one language root; ids are local to the root."""
+
     id: str
     title: str
+    root: str
     node_ids: list[str]
     edges: list[Edge]
 
@@ -35,6 +38,7 @@ class _RawView(BaseModel):
 
     id: str
     title: str
+    root: str
     base: list[str]
     src_anchors: set[str]
     dst_anchors: set[str]
@@ -77,125 +81,169 @@ def _tokenize(text: str) -> list[tuple[str, str]]:
     return tokens
 
 
-def parse_views(root: Path, model: ModelParse) -> ViewsParse:  # NOSONAR(S3776) — one include-grammar parser; the nested cursor closures read clearer kept together
-    """Parse `architecture/views.c4` under the constrained include grammar."""
-    path = root / "architecture" / "views.c4"
-    if not path.exists():
-        return ViewsParse(views=[], findings=[])
-    tokens = _tokenize(path.read_text(encoding="utf-8"))
-    top_level = [e.id for e in model.elements if e.parent is None]
-    top_set = set(top_level)
-    known = {e.id for e in model.elements}
-    findings: list[str] = []
-    views: list[View] = []
-    seen_ids: set[str] = set()
-    pos = 0
+class _Scope(BaseModel):
+    """The root-local projection a view body is read against."""
 
-    def cur() -> tuple[str, str]:
-        return tokens[pos] if pos < len(tokens) else ("eof", "")
+    root: str
+    model: ModelParse
+    top_level: list[str]
+    known: set[str]
 
-    def advance() -> tuple[str, str]:
-        nonlocal pos
-        tok = cur()
-        pos += 1
+
+def _scope(model: ModelParse, root: str) -> _Scope:
+    local = project(model, root)
+    return _Scope(
+        root=root,
+        model=local,
+        top_level=[e.id for e in local.elements if e.parent is None],
+        known={e.id for e in local.elements},
+    )
+
+
+class _Parser:
+    """The include grammar over one token stream; findings accumulate in order."""
+
+    def __init__(self, tokens: list[tuple[str, str]]) -> None:
+        self.tokens = tokens
+        self.pos = 0
+        self.findings: list[str] = []
+
+    def cur(self) -> tuple[str, str]:
+        return self.tokens[self.pos] if self.pos < len(self.tokens) else ("eof", "")
+
+    def advance(self) -> tuple[str, str]:
+        tok = self.cur()
+        self.pos += 1
         return tok
 
-    def anchor_ok(name: str, form: str) -> bool:
-        if name not in known:
+    def anchor_ok(self, scope: _Scope, name: str, form: str, findings: list[str]) -> bool:
+        if name not in scope.known:
             findings.append(message("c4.include-unknown", form=form, name=name))
             return False
-        if name not in top_set:
+        if name not in scope.top_level:
             findings.append(message("c4.include-non-top-level", form=form, name=name))
             return False
         return True
 
-    def parse_body(vid: str) -> _RawView:
-        title = ""
-        base: list[str] = []
-        base_seen: set[str] = set()
-        src_anchors: set[str] = set()
-        dst_anchors: set[str] = set()
-
-        def add_base(name: str) -> None:
-            if name not in base_seen:
-                base_seen.add(name)
-                base.append(name)
-
-        def read_spec() -> None:
-            tok = advance()
-            if tok[0] == "star":
-                if cur()[0] == "arrow":
-                    advance()
-                    nxt = advance()
-                    if nxt[0] == "star":
-                        findings.append(message("c4.star-to-star", view=vid))
-                    elif nxt[0] == "word":
-                        if anchor_ok(nxt[1], f"* -> {nxt[1]}"):
-                            dst_anchors.add(nxt[1])
-                    else:
-                        findings.append(message("c4.malformed-predicate", view=vid))
+    def read_spec(self, vid: str, scope: _Scope, raw: _RawView, findings: list[str]) -> None:  # NOSONAR(S3776) — one include production
+        tok = self.advance()
+        if tok[0] == "star":
+            if self.cur()[0] == "arrow":
+                self.advance()
+                nxt = self.advance()
+                if nxt[0] == "star":
+                    findings.append(message("c4.star-to-star", view=vid))
+                elif nxt[0] == "word":
+                    if self.anchor_ok(scope, nxt[1], f"* -> {nxt[1]}", findings):
+                        raw.dst_anchors.add(nxt[1])
                 else:
-                    for eid in top_level:
-                        add_base(eid)
-            elif tok[0] == "word":
-                if cur()[0] == "arrow":
-                    advance()
-                    nxt = advance()
-                    if nxt[0] == "star":
-                        if anchor_ok(tok[1], f"{tok[1]} -> *"):
-                            src_anchors.add(tok[1])
-                    elif nxt[0] == "word":
-                        findings.append(message("c4.unsupported-predicate", view=vid, src=tok[1], dst=nxt[1]))
-                    else:
-                        findings.append(message("c4.malformed-predicate", view=vid))
-                elif tok[1] not in known:
-                    findings.append(message("c4.view-includes-unknown", view=vid, name=tok[1]))
-                elif tok[1] not in top_set:
-                    findings.append(message("c4.view-includes-non-top-level", view=vid, name=tok[1]))
-                else:
-                    add_base(tok[1])
+                    findings.append(message("c4.malformed-predicate", view=vid))
             else:
-                findings.append(message("c4.unexpected-include-token", view=vid, token=tok[1]))
+                for eid in scope.top_level:
+                    _add_base(raw, eid)
+        elif tok[0] == "word":
+            if self.cur()[0] == "arrow":
+                self.advance()
+                nxt = self.advance()
+                if nxt[0] == "star":
+                    if self.anchor_ok(scope, tok[1], f"{tok[1]} -> *", findings):
+                        raw.src_anchors.add(tok[1])
+                elif nxt[0] == "word":
+                    findings.append(message("c4.unsupported-predicate", view=vid, src=tok[1], dst=nxt[1]))
+                else:
+                    findings.append(message("c4.malformed-predicate", view=vid))
+            elif tok[1] not in scope.known:
+                findings.append(message("c4.view-includes-unknown", view=vid, name=tok[1]))
+            elif tok[1] not in scope.top_level:
+                findings.append(message("c4.view-includes-non-top-level", view=vid, name=tok[1]))
+            else:
+                _add_base(raw, tok[1])
+        else:
+            findings.append(message("c4.unexpected-include-token", view=vid, token=tok[1]))
 
-        while cur()[0] not in ("}", "eof"):
-            tok = advance()
+    def body(self, vid: str, scope: _Scope, findings: list[str]) -> _RawView:
+        raw = _RawView(id=vid, title="", root=scope.root, base=[], src_anchors=set(), dst_anchors=set())
+        while self.cur()[0] not in ("}", "eof"):
+            tok = self.advance()
             if tok == ("word", "title"):
-                st = advance()
-                title = st[1] if st[0] == "str" else title
-                if st[0] != "str":
+                st = self.advance()
+                if st[0] == "str":
+                    raw.title = st[1]
+                else:
                     findings.append(message("c4.title-not-string", view=vid))
             elif tok == ("word", "include"):
-                read_spec()
-                while cur()[0] == ",":
-                    advance()
-                    read_spec()
+                self.read_spec(vid, scope, raw, findings)
+                while self.cur()[0] == ",":
+                    self.advance()
+                    self.read_spec(vid, scope, raw, findings)
             else:
                 findings.append(message("c4.unrecognized-directive", view=vid, token=tok[1]))
-        if cur()[0] == "}":
-            advance()
-        return _RawView(id=vid, title=title, base=base, src_anchors=src_anchors, dst_anchors=dst_anchors)
+        if self.cur()[0] == "}":
+            self.advance()
+        return raw
 
+    def header(self) -> tuple[str, str | None] | None:
+        """`view <id> [of <root>] {` as (id, root); None (and a finding) when malformed."""
+        idt = self.advance()
+        if idt[0] != "word":
+            self.findings.append(message("c4.malformed-view"))
+            return None
+        nxt = self.advance()
+        if nxt == ("word", "of"):
+            scope = self.advance()
+            if scope[0] != "word" or self.advance()[0] != "{":
+                self.findings.append(message("c4.malformed-view"))
+                return None
+            return idt[1], scope[1]
+        if nxt[0] != "{":
+            self.findings.append(message("c4.malformed-view"))
+            return None
+        return idt[1], None
+
+
+def _add_base(raw: _RawView, name: str) -> None:
+    if name not in raw.base:
+        raw.base.append(name)
+
+
+def parse_views(root: Path, model: ModelParse) -> ViewsParse:
+    """Parse `architecture/views.c4`: views scoped to a language root, includes relative to it."""
+    path = root / "architecture" / "views.c4"
+    if not path.exists():
+        return ViewsParse(views=[], findings=[])
+    parser = _Parser(_tokenize(path.read_text(encoding="utf-8")))
+    model_roots = roots(model)
+    scopes = {r: _scope(model, r) for r in model_roots}
     raw: list[_RawView] = []
-    if advance() != ("word", "views") or advance()[0] != "{":
-        findings.append(message("c4.no-views-block"))
-        return ViewsParse(views=views, findings=findings)
-    while cur()[0] not in ("}", "eof"):
-        if advance() != ("word", "view"):
-            findings.append(message("c4.expected-view"))
+    seen_ids: set[str] = set()
+    if parser.advance() != ("word", "views") or parser.advance()[0] != "{":
+        parser.findings.append(message("c4.no-views-block"))
+        return ViewsParse(views=[], findings=parser.findings)
+    while parser.cur()[0] not in ("}", "eof"):
+        if parser.advance() != ("word", "view"):
+            parser.findings.append(message("c4.expected-view"))
             continue
-        idt = advance()
-        if idt[0] != "word" or advance()[0] != "{":
-            findings.append(message("c4.malformed-view"))
+        header = parser.header()
+        if header is None:
             continue
-        raw.append(parse_body(idt[1]))
-        if idt[1] in seen_ids:
-            findings.append(message("c4.duplicate-view", view=idt[1]))
-        seen_ids.add(idt[1])
-    depths = _view_depths(root=root, valid_ids=seen_ids, findings=findings)
+        vid, scope_id = header
+        if scope_id is None:
+            parser.findings.append(message("c4.view-unscoped", view=vid))
+        elif scope_id not in scopes:
+            parser.findings.append(message("c4.view-scope-unknown", view=vid, root=scope_id))
+        if scope_id in scopes:
+            raw.append(parser.body(vid, scopes[scope_id], parser.findings))
+        else:
+            parser.body(vid, _scope(model, ""), [])
+        if vid in seen_ids:
+            parser.findings.append(message("c4.duplicate-view", view=vid))
+        seen_ids.add(vid)
+    depths = _view_depths(root=root, valid_ids=seen_ids, findings=parser.findings)
     views = [
-        _build_view(spec=spec, depth=depths.get(spec.id, DEFAULT_VIEW_DEPTH), model=model) for spec in raw
+        _build_view(spec=spec, depth=depths.get(spec.id, DEFAULT_VIEW_DEPTH), model=scopes[spec.root].model)
+        for spec in raw
     ]
-    return ViewsParse(views=views, findings=findings)
+    return ViewsParse(views=views, findings=parser.findings)
 
 
 def _view_depths(root: Path, valid_ids: set[str], findings: list[str]) -> dict[str, int]:
@@ -291,4 +339,4 @@ def _build_view(spec: _RawView, depth: int, model: ModelParse) -> View:
     shown = _shown_ids(spec=spec, depth=depth, model=model, kids=kids)
     edges = _view_edges(model=model, spec=spec, among=set(spec.base), shown=shown)
     node_ids = [e.id for e in model.elements if e.id in shown]
-    return View(id=spec.id, title=spec.title, node_ids=node_ids, edges=edges)
+    return View(id=spec.id, title=spec.title, root=spec.root, node_ids=node_ids, edges=edges)

@@ -1,0 +1,118 @@
+# Canonical repr of normalized values: Python's repr for str, int, float, bool, None, list and mapping.
+# Each `value` is read with the shared YAML profile; `repr` is the exact expected text.
+cases:
+- value: ''
+  repr: ''''''
+- value: plain
+  repr: '''plain'''
+- value: it's
+  repr: '"it''s"'
+- value: say "hi"
+  repr: '''say "hi"'''
+- value: it's "both"
+  repr: '''it\''s "both"'''
+- value: back\slash
+  repr: '''back\\slash'''
+- value: "tab\there"
+  repr: '''tab\there'''
+- value: 'line
+
+    break'
+  repr: '''line\nbreak'''
+- value: "cr\rhere"
+  repr: '''cr\rhere'''
+- value: "\0"
+  repr: '''\x00'''
+- value: "\a"
+  repr: '''\x07'''
+- value: "\e[0m"
+  repr: '''\x1b[0m'''
+- value: "\x7F"
+  repr: '''\x7f'''
+- value: "\N"
+  repr: '''\x85'''
+- value: "\_"
+  repr: '''\xa0'''
+- value: "caf\xE9"
+  repr: "'caf\xE9'"
+- value: "\u200B"
+  repr: '''\u200b'''
+- value: "\L"
+  repr: '''\u2028'''
+- value: "\U0001F600"
+  repr: "'\U0001F600'"
+- value: "\U000E0001"
+  repr: '''\U000e0001'''
+- value: "\uFEFF"
+  repr: '''\ufeff'''
+- value: ''''
+  repr: '"''"'
+- value: '"'
+  repr: '''"'''
+- value: \'
+  repr: '"\\''"'
+- value: 0
+  repr: '0'
+- value: -1
+  repr: '-1'
+- value: 42
+  repr: '42'
+- value: 9007199254740993
+  repr: '9007199254740993'
+- value: 1.0
+  repr: '1.0'
+- value: -0.0
+  repr: '-0.0'
+- value: 0.1
+  repr: '0.1'
+- value: 1.5
+  repr: '1.5'
+- value: 1.0e+16
+  repr: 1e+16
+- value: 1000000000000000.0
+  repr: '1000000000000000.0'
+- value: 1.5e-07
+  repr: '1.5e-07'
+- value: 1.0e+100
+  repr: 1e+100
+- value: 1.2345678901234568e+17
+  repr: '1.2345678901234568e+17'
+- value: .inf
+  repr: inf
+- value: -.inf
+  repr: -inf
+- value: true
+  repr: 'True'
+- value: false
+  repr: 'False'
+- value: null
+  repr: None
+- value: []
+  repr: '[]'
+- value:
+  - 1
+  - a
+  - null
+  repr: '[1, ''a'', None]'
+- value:
+  - - 1
+    - - 2
+  - k: v
+  repr: '[[1, [2]], {''k'': ''v''}]'
+- value: {}
+  repr: '{}'
+- value:
+    a: 1
+    b: x
+  repr: '{''a'': 1, ''b'': ''x''}'
+- value:
+    a:
+    - 1
+    - b: null
+  repr: '{''a'': [1, {''b'': None}]}'
+- value:
+    1: int key
+  repr: '{1: ''int key''}'
+- value:
+    it's: true
+  repr: '{"it''s": True}'

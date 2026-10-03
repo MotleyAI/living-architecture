@@ -1,0 +1,9 @@
+kind: adapter
+languages:
+- typescript
+command: la-arch-check
+fixture: arch-ts
+expect:
+  exit: 1
+golden: manual
+note: top-level files and dirs with a visible source are units; dirs without sources and non-source files are not

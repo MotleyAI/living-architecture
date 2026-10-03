@@ -1,0 +1,8 @@
+kind: adapter
+languages:
+- typescript
+command: la-arch-check
+fixture: arch-ts
+expect:
+  exit: 2
+note: a tsconfig the compiler rejects (here a missing extends target) is a setup error naming it

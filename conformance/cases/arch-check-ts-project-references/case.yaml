@@ -1,0 +1,15 @@
+kind: adapter
+languages:
+- typescript
+command: la-arch-check
+fixture: arch-ts
+remove:
+- src/api
+- src/core
+- src/store
+- src/util.ts
+- src/old.js
+expect:
+  exit: 1
+golden: manual
+note: solution root with nested references; declaration outputs (outDir, declarationDir, rootDir, .d.mts, .d.cts) map to sources whether built or not; a stale output is the file it is

@@ -1,4 +1,4 @@
-"""Loading `architecture/index.yaml` and resolving where the code lives."""
+"""Loading `architecture/index.yaml` and resolving where each language's code lives."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
-from living_architecture.contract import YAMLError, load_yaml, message, schema, validate
+from living_architecture.contract import YAMLError, language_ids, load_yaml, message, schema, validate
 
 INDEX_REL = "architecture/index.yaml"
 
@@ -17,13 +17,18 @@ class ArchCheckError(Exception):
 
 
 class Layout(BaseModel):
-    """Architecture, docs and specs live under `repo_root`; code lives under `source_root`."""
+    """Architecture, docs and specs live under `repo_root`; one language's code lives under `source_root`."""
 
     model_config = ConfigDict(frozen=True)
 
     repo_root: Path
     source_root: Path
     root_package: str
+
+
+def declared_languages(index: dict[str, Any]) -> list[str]:
+    """The index's language sections, in language id order."""
+    return sorted(key for key in index if key in language_ids())
 
 
 def load_index(root: Path) -> dict[str, Any]:
@@ -33,9 +38,14 @@ def load_index(root: Path) -> dict[str, Any]:
         raise ArchCheckError(str(exc)) from exc
     if not isinstance(index, dict):
         raise ArchCheckError(message("arch-check.index-not-mapping"))
-    pkg = index.get("root_package")
-    if not isinstance(pkg, str) or not pkg:
-        raise ArchCheckError(message("arch-check.root-package-missing"))
+    languages = declared_languages(index)
+    if not languages:
+        raise ArchCheckError(message("arch-check.no-language-section"))
+    for language in languages:
+        section = index[language]
+        pkg = section.get("root_package") if isinstance(section, dict) else None
+        if not isinstance(pkg, str) or not pkg:
+            raise ArchCheckError(message("arch-check.root-package-missing"))
     errors = validate(schema("index"), index)
     if errors:
         raise ArchCheckError(f"{INDEX_REL}: " + "; ".join(errors))
@@ -60,10 +70,10 @@ def _contained(base: Path, key: str, value: str, escapes_id: str, *, canonical: 
     return base / rel
 
 
-def resolve_layout(repo_root: Path, index: dict[str, Any]) -> Layout:
-    """Where the code lives; ArchCheckError unless `source_root` and `root_package` are directories inside the repo."""
-    root_package = index["root_package"]
-    value = index.get("source_root")
+def resolve_layout(repo_root: Path, section: dict[str, Any]) -> Layout:
+    """Where one language's code lives; ArchCheckError unless `source_root` and `root_package` are dirs in the repo."""
+    root_package = section["root_package"]
+    value = section.get("source_root")
     source_root = repo_root
     if value is not None:
         source_root = _contained(repo_root, "source_root", value, "arch-check.source-root-escapes")

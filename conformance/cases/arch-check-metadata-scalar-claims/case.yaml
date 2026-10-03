@@ -7,7 +7,7 @@ expect:
   exit: 2
   stderr:
     contains:
-    - 'model element core: '
+    - 'model element python.core: '
     - 'claims'
 golden: manual
 note: 'claims is an array'

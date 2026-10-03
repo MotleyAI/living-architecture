@@ -1,0 +1,10 @@
+kind: neutral
+languages:
+- python
+- typescript
+command: la-arch-check
+fixture: arch-mixed
+expect:
+  exit: 0
+golden: manual
+note: 'python api -> core and typescript web -> shared, each measured in its language; run through both twins (cross run), so it also pins identical output'

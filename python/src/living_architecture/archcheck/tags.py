@@ -7,8 +7,8 @@ from pathlib import Path
 
 from living_architecture.contract import check_ids, message
 
-_TAG_RE = re.compile(r"\[(enforced|review|target)\b([^\]]*)\]")
-_TAG_START_RE = re.compile(r"\[(enforced|review|target)\b")
+_TAG_RE = re.compile(r"\[(enforced|review|target|lang)\b([^\]]*)\]")
+_TAG_START_RE = re.compile(r"\[(enforced|review|target|lang)\b")
 _FENCE_RE = re.compile(r"`{3,}|~{3,}")
 _PRINCIPLE_ITEM_RE = re.compile(r"^( {0,3})(\d+)\.\s")
 
@@ -23,15 +23,28 @@ def _parse_tag_id(rest: str) -> str | None:
     return tag_id
 
 
-def _tag_occurrence(kind: str, rest: str, name: str, issue_key_re: re.Pattern[str]) -> tuple[bool, list[str]]:
+class _Context:
+    """What tag checks need beyond the tag itself."""
+
+    def __init__(self, issue_key_re: re.Pattern[str], languages: list[str]) -> None:
+        self.issue_key_re = issue_key_re
+        self.languages = languages
+
+
+def _tag_occurrence(kind: str, rest: str, name: str, ctx: _Context) -> tuple[bool, list[str]]:
     """(counts as status coverage, findings) for one bracket tag."""
+    issue_key_re = ctx.issue_key_re
     if kind == "review":
         return (True, []) if not rest else (False, [message("enforced-tags.malformed-review", doc=name)])
     tag_id = _parse_tag_id(rest)
     if tag_id is None:
         return False, [message("enforced-tags.malformed", kind=kind, doc=name)]
+    if kind == "lang":
+        if tag_id not in ctx.languages:
+            return False, [message("enforced-tags.unknown-language", doc=name, language=tag_id)]
+        return False, []
     if kind == "target":
-        if issue_key_re.fullmatch(tag_id) is None:
+        if not tag_id.isascii() or issue_key_re.fullmatch(tag_id) is None:
             return False, [
                 message("enforced-tags.target-mismatch", doc=name, tag_id=tag_id, pattern=issue_key_re.pattern)
             ]
@@ -79,22 +92,25 @@ def _principle_items(text: str) -> list[tuple[str, str]]:
     return items
 
 
-def check_enforced_tags(root: Path, issue_key_re: re.Pattern[str]) -> list[str]:
+def check_enforced_tags(root: Path, issue_key_re: re.Pattern[str], languages: list[str]) -> list[str]:
+    """Tags in every arc42 doc; a `[lang:]` tag names a declared language, once per item, and is no status tag."""
+    ctx = _Context(issue_key_re, languages)
     findings: list[str] = []
     for path in sorted((root / "architecture").glob("*.arc42.md")):
         text = _strip_fences(path.read_text(encoding="utf-8"))
         occurrences = list(_TAG_RE.finditer(text))
-        for kind in ("enforced", "review", "target"):
+        for kind in ("enforced", "review", "target", "lang"):
             starts = sum(1 for m in _TAG_START_RE.finditer(text) if m.group(1) == kind)
             closed = sum(1 for m in occurrences if m.group(1) == kind)
             if starts != closed:
                 findings.append(message("enforced-tags.malformed", kind=kind, doc=path.name))
         for m in occurrences:
-            findings += _tag_occurrence(m.group(1), m.group(2), path.name, issue_key_re)[1]
+            findings += _tag_occurrence(m.group(1), m.group(2), path.name, ctx)[1]
         for num, body in _principle_items(text):
-            covered = any(
-                _tag_occurrence(t.group(1), t.group(2), path.name, issue_key_re)[0] for t in _TAG_RE.finditer(body)
-            )
+            tags = list(_TAG_RE.finditer(body))
+            if sum(1 for t in tags if t.group(1) == "lang") > 1:
+                findings.append(message("enforced-tags.malformed", kind="lang", doc=path.name))
+            covered = any(_tag_occurrence(t.group(1), t.group(2), path.name, ctx)[0] for t in tags)
             if not covered:
                 findings.append(message("enforced-tags.untagged-item", doc=path.name, number=num))
     return findings

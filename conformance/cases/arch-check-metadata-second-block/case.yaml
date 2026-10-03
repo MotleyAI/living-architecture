@@ -7,6 +7,6 @@ expect:
   exit: 2
   stderr:
     contains:
-    - 'element store has malformed metadata: metadata {'
+    - 'element python.store has malformed metadata: metadata {'
 golden: manual
 note: 'one metadata block per element'

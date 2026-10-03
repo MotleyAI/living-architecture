@@ -1,0 +1,313 @@
+# Facts documents (`la-arch-check --language L --emit facts`) checked against schema/facts.schema.json.
+# Ordering rules (sorted candidates, top-level units and edges) are the emitter's duty, not the schema's.
+accept:
+- name: typescript facts
+  document:
+    language: typescript
+    version: 0.2.1
+    contract_hash: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    units:
+    - {unit: src/cli, status: present}
+    - {unit: src/gone, status: missing}
+    - {unit: src/util, status: ambiguous, candidates: [src/util.ts, src/util/]}
+    top_level_units: [src/cli, src/util]
+    edges:
+    - {src: typescript.web, dst: typescript.shared, src_module: src/web/a, dst_module: src/shared/b}
+- name: python facts
+  document:
+    language: python
+    version: 1.0.0
+    contract_hash: ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+    units:
+    - {unit: pkg.api, status: present}
+    - {unit: pkg.api.handlers, status: missing}
+    top_level_units: [pkg.api, pkg.core]
+    edges:
+    - {src: python.api, dst: python.core, src_module: pkg.api.x, dst_module: pkg.core}
+    - {src: python.api.handlers, dst: python.core, src_module: pkg.api.handlers, dst_module: pkg.core.y}
+- name: empty lists
+  document:
+    language: typescript
+    version: 0.2.1
+    contract_hash: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    units: []
+    top_level_units: []
+    edges: []
+- name: three candidates
+  document:
+    language: typescript
+    version: 0.2.1
+    contract_hash: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    units:
+    - {unit: src/a, status: ambiguous, candidates: [src/a.js, src/a.ts, src/a/]}
+    top_level_units: [src/a]
+    edges: []
+reject:
+- name: not an object
+  document: []
+- name: missing language
+  document:
+    version: 0.2.1
+    contract_hash: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    units: []
+    top_level_units: []
+    edges: []
+- name: missing version
+  document:
+    language: typescript
+    contract_hash: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    units: []
+    top_level_units: []
+    edges: []
+- name: missing contract_hash
+  document:
+    language: typescript
+    version: 0.2.1
+    units: []
+    top_level_units: []
+    edges: []
+- name: missing units
+  document:
+    language: typescript
+    version: 0.2.1
+    contract_hash: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    top_level_units: []
+    edges: []
+- name: missing top_level_units
+  document:
+    language: typescript
+    version: 0.2.1
+    contract_hash: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    units: []
+    edges: []
+- name: missing edges
+  document:
+    language: typescript
+    version: 0.2.1
+    contract_hash: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    units: []
+    top_level_units: []
+- name: extra top-level key
+  document:
+    language: typescript
+    version: 0.2.1
+    contract_hash: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    units: []
+    top_level_units: []
+    edges: []
+    findings: []
+- name: extra key in a unit
+  document:
+    language: typescript
+    version: 0.2.1
+    contract_hash: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    units:
+    - {unit: src/a, status: present, path: src/a.ts}
+    top_level_units: []
+    edges: []
+- name: extra key in an edge
+  document:
+    language: typescript
+    version: 0.2.1
+    contract_hash: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    units: []
+    top_level_units: []
+    edges:
+    - {src: typescript.a, dst: typescript.b, src_module: src/a, dst_module: src/b, kind: import}
+- name: unknown language
+  document:
+    language: rust
+    version: 0.2.1
+    contract_hash: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    units: []
+    top_level_units: []
+    edges: []
+- name: language id is case-sensitive
+  document:
+    language: Python
+    version: 0.2.1
+    contract_hash: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    units: []
+    top_level_units: []
+    edges: []
+- name: version not a string
+  document:
+    language: typescript
+    version: 0.2
+    contract_hash: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    units: []
+    top_level_units: []
+    edges: []
+- name: uppercase hash
+  document:
+    language: typescript
+    version: 0.2.1
+    contract_hash: 0123456789ABCDEF0123456789abcdef0123456789abcdef0123456789abcdef
+    units: []
+    top_level_units: []
+    edges: []
+- name: short hash
+  document:
+    language: typescript
+    version: 0.2.1
+    contract_hash: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcde
+    units: []
+    top_level_units: []
+    edges: []
+- name: long hash
+  document:
+    language: typescript
+    version: 0.2.1
+    contract_hash: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0
+    units: []
+    top_level_units: []
+    edges: []
+- name: hash with a trailing newline
+  document:
+    language: typescript
+    version: 0.2.1
+    contract_hash: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\n"
+    units: []
+    top_level_units: []
+    edges: []
+- name: unknown status
+  document:
+    language: typescript
+    version: 0.2.1
+    contract_hash: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    units:
+    - {unit: src/a, status: absent}
+    top_level_units: []
+    edges: []
+- name: unit without status
+  document:
+    language: typescript
+    version: 0.2.1
+    contract_hash: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    units:
+    - {unit: src/a}
+    top_level_units: []
+    edges: []
+- name: status without unit
+  document:
+    language: typescript
+    version: 0.2.1
+    contract_hash: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    units:
+    - {status: present}
+    top_level_units: []
+    edges: []
+- name: unit id not a string
+  document:
+    language: python
+    version: 0.2.1
+    contract_hash: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    units:
+    - {unit: 1, status: present}
+    top_level_units: []
+    edges: []
+- name: candidates on a present unit
+  document:
+    language: typescript
+    version: 0.2.1
+    contract_hash: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    units:
+    - {unit: src/a, status: present, candidates: [src/a.ts, src/a/]}
+    top_level_units: []
+    edges: []
+- name: candidates on a missing unit
+  document:
+    language: typescript
+    version: 0.2.1
+    contract_hash: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    units:
+    - {unit: src/a, status: missing, candidates: []}
+    top_level_units: []
+    edges: []
+- name: ambiguous without candidates
+  document:
+    language: typescript
+    version: 0.2.1
+    contract_hash: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    units:
+    - {unit: src/a, status: ambiguous}
+    top_level_units: []
+    edges: []
+- name: ambiguous with no candidate
+  document:
+    language: typescript
+    version: 0.2.1
+    contract_hash: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    units:
+    - {unit: src/a, status: ambiguous, candidates: []}
+    top_level_units: []
+    edges: []
+- name: ambiguous with one candidate
+  document:
+    language: typescript
+    version: 0.2.1
+    contract_hash: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    units:
+    - {unit: src/a, status: ambiguous, candidates: [src/a.ts]}
+    top_level_units: []
+    edges: []
+- name: candidate not a string
+  document:
+    language: typescript
+    version: 0.2.1
+    contract_hash: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    units:
+    - {unit: src/a, status: ambiguous, candidates: [src/a.ts, 2]}
+    top_level_units: []
+    edges: []
+- name: units not a list
+  document:
+    language: typescript
+    version: 0.2.1
+    contract_hash: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    units: {src/a: present}
+    top_level_units: []
+    edges: []
+- name: top-level unit not a string
+  document:
+    language: python
+    version: 0.2.1
+    contract_hash: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    units: []
+    top_level_units: [pkg.a, 3]
+    edges: []
+- name: edge not an object
+  document:
+    language: typescript
+    version: 0.2.1
+    contract_hash: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    units: []
+    top_level_units: []
+    edges: [[typescript.a, typescript.b, src/a, src/b]]
+- name: edge without dst_module
+  document:
+    language: typescript
+    version: 0.2.1
+    contract_hash: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    units: []
+    top_level_units: []
+    edges:
+    - {src: typescript.a, dst: typescript.b, src_module: src/a}
+- name: edge module id not a string
+  document:
+    language: python
+    version: 0.2.1
+    contract_hash: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    units: []
+    top_level_units: []
+    edges:
+    - {src: python.a, dst: python.b, src_module: 1, dst_module: pkg.b}
+- name: edge element id not a string
+  document:
+    language: python
+    version: 0.2.1
+    contract_hash: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    units: []
+    top_level_units: []
+    edges:
+    - {src: python.a, dst: null, src_module: pkg.a, dst_module: pkg.b}

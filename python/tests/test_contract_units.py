@@ -59,3 +59,24 @@ def test_python_language_facts() -> None:
     python = language("python")
     assert python["source_extensions"] == [".py"]
     assert python["comment_prefix"] == "#"
+
+
+def test_typescript_language_facts() -> None:
+    typescript = language("typescript")
+    assert typescript["source_extensions"] == [".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"]
+    assert typescript["test_globs"] == [
+        "**/*.test.*", "**/*.spec.*", "**/__tests__/**/*", "**/__mocks__/**/*", "**/tests/**/*", "**/test/**/*",
+    ]
+
+
+@pytest.mark.parametrize(
+    ("name", "runner", "install"),
+    [
+        ("python", "uvx --from living-architecture==0.2.1", "uv tool install living-architecture==0.2.1"),
+        ("typescript", "npx -y -p living-architecture@0.2.1", "npm install -g living-architecture@0.2.1"),
+    ],
+)
+def test_twin_runner_and_install_commands(name: str, runner: str, install: str) -> None:
+    facts = language(name)
+    rendered = (render_template(facts["runner"], {"version": "0.2.1"}), render_template(facts["install"], {"version": "0.2.1"}))
+    assert rendered == (runner, install)
