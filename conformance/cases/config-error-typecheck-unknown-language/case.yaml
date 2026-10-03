@@ -1,0 +1,13 @@
+kind: neutral
+command: la-config
+args:
+- show
+expect:
+  exit: 1
+  stdout: ''
+  stderr:
+    contains:
+    - commands.typecheck
+    - rust
+golden: manual
+note: commands.typecheck keys are language ids; an unknown one is a configuration error naming it

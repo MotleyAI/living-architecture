@@ -46,7 +46,9 @@ MANIFEST = yaml.safe_load((REPO_ROOT / "shared" / "cli.yaml").read_text(encoding
 # Never reachable from a case unless it provides them: the host's own la tools and the twins' runners.
 _ALWAYS_HIDDEN = {*MANIFEST, "npx", "uvx"}
 FIXED_DATE = "2026-01-01T00:00:00+00:00"
-_COMMAND_PREFIXES = {"arch", "config", "doctor", "conventions", "count", "compliance", "mock", "refactor", "shim", "twin"}
+_COMMAND_PREFIXES = {
+    "arch", "config", "doctor", "conventions", "count", "compliance", "mock", "refactor", "shim", "twin", "typecheck"
+}
 
 FAKE_GH = """\
 import json, os, subprocess, sys
@@ -108,7 +110,7 @@ def variants(case: dict) -> list[Variant]:
 
 def native_languages(command: str) -> list[str] | None:
     """The languages whose twin runs `command` natively; None for a neutral command."""
-    return MANIFEST[command].get("native")
+    return MANIFEST.get(command, {}).get("native")
 
 
 def selected(case: dict, variant: Variant, twin: str, *, cross: bool) -> bool:
@@ -519,9 +521,17 @@ def test_language_free_case_is_native_to_both_twins() -> None:
 
 
 def test_python_only_command_is_not_native_to_the_npm_twin() -> None:
-    case = _case(command="la-check-conventions")
+    case = _case(command="dr-mock-lint")
     assert selected(case, NEUTRAL, "python", cross=False)
     assert not selected(case, NEUTRAL, "typescript", cross=False)
+
+
+@pytest.mark.parametrize("command", ["la-check-conventions", "la-count-comments", "la-typecheck"])
+def test_conventions_and_typecheck_are_neutral(command: str) -> None:
+    case = _case(command=command, kind="adapter", languages=["typescript"])
+    [variant] = variants(case)
+    assert selected(case, variant, "typescript", cross=False)
+    assert not selected(case, variant, "python", cross=False)
 
 
 def test_pinned_case_runs_only_through_its_twin() -> None:

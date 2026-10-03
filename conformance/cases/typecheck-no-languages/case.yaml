@@ -1,0 +1,6 @@
+kind: neutral
+command: la-typecheck
+expect:
+  exit: 0
+golden: manual
+note: 'no applicable language: a notice and exit 0'

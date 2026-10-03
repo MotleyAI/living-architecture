@@ -1,0 +1,8 @@
+kind: adapter
+languages:
+- python
+command: la-typecheck
+expect:
+  exit: 2
+golden: manual
+note: 'a configured Python checker found nowhere: exit 2 naming its first word'

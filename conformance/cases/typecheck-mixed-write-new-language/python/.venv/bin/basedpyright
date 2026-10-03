@@ -1,0 +1,3 @@
+#!/bin/sh
+echo "fake basedpyright must not run" >&2
+exit 99

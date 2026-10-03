@@ -13,6 +13,9 @@ cases:
     commands:
       test: null
       lint: null
+      typecheck:
+        python: basedpyright
+        typescript: tsc --noEmit
     conventions:
       text_ratio_max: 0.15
       exempt: []
@@ -28,6 +31,9 @@ cases:
     commands:
       test: null
       lint: null
+      typecheck:
+        python: basedpyright
+        typescript: tsc --noEmit
     conventions:
       text_ratio_max: 0.15
       exempt: []
@@ -44,6 +50,9 @@ cases:
     commands:
       test: null
       lint: null
+      typecheck:
+        python: basedpyright
+        typescript: tsc --noEmit
     conventions:
       text_ratio_max: 0.15
       exempt: []
@@ -60,6 +69,9 @@ cases:
     commands:
       test: null
       lint: null
+      typecheck:
+        python: basedpyright
+        typescript: tsc --noEmit
     conventions:
       text_ratio_max: 0.15
       exempt: []
@@ -76,6 +88,9 @@ cases:
     commands:
       test: null
       lint: null
+      typecheck:
+        python: basedpyright
+        typescript: tsc --noEmit
     conventions:
       text_ratio_max: 0.15
       exempt: []
@@ -94,6 +109,9 @@ cases:
     commands:
       test: ''
       lint: null
+      typecheck:
+        python: basedpyright
+        typescript: tsc --noEmit
     conventions:
       text_ratio_max: 0.15
       exempt: []
@@ -113,6 +131,9 @@ cases:
     commands:
       test: t
       lint: l
+      typecheck:
+        python: basedpyright
+        typescript: tsc --noEmit
     conventions:
       text_ratio_max: 0.5
       exempt:
@@ -130,7 +151,48 @@ cases:
     commands:
       test: null
       lint: null
+      typecheck:
+        python: basedpyright
+        typescript: tsc --noEmit
     conventions:
       text_ratio_max: 0.15
       exempt:
       - gen/*
+- name: typecheck partial map keeps explicit values and null
+  config: |
+    commands: {typecheck: {typescript: null}}
+  resolved:
+    reviewers:
+      coderabbit: false
+      sonar:
+        enabled: false
+        project_key: null
+    issue_key_pattern: '[A-Z][A-Z0-9]+-\d+'
+    commands:
+      test: null
+      lint: null
+      typecheck:
+        python: basedpyright
+        typescript: null
+    conventions:
+      text_ratio_max: 0.15
+      exempt: []
+- name: typecheck custom command
+  config: |
+    commands: {typecheck: {python: basedpyright -p python}}
+  resolved:
+    reviewers:
+      coderabbit: false
+      sonar:
+        enabled: false
+        project_key: null
+    issue_key_pattern: '[A-Z][A-Z0-9]+-\d+'
+    commands:
+      test: null
+      lint: null
+      typecheck:
+        python: basedpyright -p python
+        typescript: tsc --noEmit
+    conventions:
+      text_ratio_max: 0.15
+      exempt: []

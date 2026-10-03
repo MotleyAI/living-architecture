@@ -1,0 +1,14 @@
+kind: neutral
+languages:
+- python
+- typescript
+command: la-count-comments
+args:
+- a.py
+- b.ts
+- notes.md
+- gone.ts
+expect:
+  exit: 0
+note: per-file counts in argument order across languages, unknown extension warned, missing file zero
+golden: manual

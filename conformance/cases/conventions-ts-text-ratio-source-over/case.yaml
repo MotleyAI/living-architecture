@@ -1,0 +1,13 @@
+kind: adapter
+languages:
+- typescript
+command: la-check-conventions
+args:
+- --file
+- src/a.ts
+- --file
+- src/b.ts
+expect:
+  exit: 1
+golden: manual
+note: source text-only lines just over the cap (4/26) fail with a per-file breakdown

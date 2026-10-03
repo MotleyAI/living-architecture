@@ -70,6 +70,8 @@ prefix on the detection's line, and SHALL NOT apply to text-ratio. Violations SH
 languages, then by line and rule. Text-ratio SHALL be aggregated over two groups, `source` and `tests`, across
 languages. The files label in the summary and verdict SHALL list the files label of each language with at least
 one checked file, in language-id order, joined with ` and `, and SHALL be `source` when no file was checked.
+The RED verdict's waiver example SHALL use the comment prefix of each language with at least one checked file, in
+language-id order, joined with ` or `.
 Single-language runs SHALL otherwise keep their current output byte for byte.
 
 #### Scenario: One verdict for a mixed diff

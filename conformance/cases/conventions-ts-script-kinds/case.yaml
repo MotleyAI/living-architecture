@@ -1,0 +1,25 @@
+kind: adapter
+languages:
+- typescript
+command: la-check-conventions
+args:
+- --file
+- src/a.js
+- --file
+- src/b.jsx
+- --file
+- src/c.mjs
+- --file
+- src/d.cjs
+- --file
+- src/e.tsx
+- --file
+- src/f.mts
+- --file
+- src/g.cts
+- --file
+- src/h.ts
+expect:
+  exit: 1
+golden: manual
+note: 'each extension parses with its own ScriptKind: JSX in .js/.jsx/.tsx, types in .tsx/.mts/.cts, JSX in .ts is a syntax error'

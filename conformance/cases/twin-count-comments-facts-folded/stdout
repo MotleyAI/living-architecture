@@ -1,0 +1,4 @@
+    1  comment=   1 doc=   0  a.py
+    5  comment=   2 doc=   3  web/b.ts
+==================================================
+TOTAL=6 (comment 2, docstring 3)

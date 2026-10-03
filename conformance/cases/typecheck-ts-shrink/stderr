@@ -1,0 +1,2 @@
+la-typecheck: checking typescript with tsc --noEmit
+la-typecheck: typescript: 2 fixed error(s) removed from .tsc-baseline.json

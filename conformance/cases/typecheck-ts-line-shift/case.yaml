@@ -1,0 +1,10 @@
+kind: adapter
+languages:
+- typescript
+command: la-typecheck
+expect:
+  exit: 0
+  files:
+  - .tsc-baseline.json
+golden: manual
+note: a baselined error on another line is not new

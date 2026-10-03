@@ -1,0 +1,16 @@
+kind: adapter
+languages:
+- python
+twin: python
+command: la-check-conventions
+args:
+- --language
+- python
+- --emit
+- facts
+stdin: '["src/a.py", "src/gone.py", "src/bin.py", "src/bad.py"]'
+expect:
+  exit: 0
+  stdout: json
+note: 'Python conventions facts per input path in order: every detection with its line text (waived and tests-only ones too), counts, missing, unreadable, syntax error'
+golden: manual

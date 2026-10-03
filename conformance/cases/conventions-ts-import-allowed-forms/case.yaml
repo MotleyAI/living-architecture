@@ -1,0 +1,13 @@
+kind: adapter
+languages:
+- typescript
+command: la-check-conventions
+args:
+- --file
+- src/a.ts
+- --file
+- src/index.ts
+expect:
+  exit: 0
+golden: manual
+note: dynamic import(), type-position import('x'), `declare module` and namespace bodies and `export … from` at the bottom are never flagged

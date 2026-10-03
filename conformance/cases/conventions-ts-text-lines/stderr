@@ -1,0 +1,2 @@
+check-conventions: source text-only ratio 45.5% (10/22, cap 1.0%)
+check-conventions: 0 violation(s) across 5 changed TS/JS file(s)

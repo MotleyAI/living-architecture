@@ -45,6 +45,7 @@ SHARED_FILES = (
     "schema/index.schema.json",
     "schema/node.schema.json",
     "schema/facts.schema.json",
+    "schema/conventions-facts.schema.json",
     "findings.yaml",
     "cli.yaml",
     "conventions.yaml",
@@ -173,6 +174,57 @@ def test_facts_schema_rejects(vector: dict) -> None:
     assert validate(_schema("facts"), vector["document"]) != []
 
 
+@pytest.mark.parametrize("vector", _vectors("conventions-facts.yaml")["accept"], ids=lambda v: v["name"])
+def test_conventions_facts_schema_accepts(vector: dict) -> None:
+    assert validate(_schema("conventions-facts"), vector["document"]) == []
+
+
+@pytest.mark.parametrize("vector", _vectors("conventions-facts.yaml")["reject"], ids=lambda v: v["name"])
+def test_conventions_facts_schema_rejects(vector: dict) -> None:
+    assert validate(_schema("conventions-facts"), vector["document"]) != []
+
+
+def test_config_schema_typecheck_commands() -> None:
+    typecheck = _schema("living-architecture")["properties"]["commands"]["properties"]["typecheck"]
+    defaults = {name: spec.get("default") for name, spec in typecheck["properties"].items()}
+    assert defaults == {"python": "basedpyright", "typescript": "tsc --noEmit"}
+    assert typecheck["additionalProperties"] is False
+
+
+@pytest.mark.parametrize(
+    ("commands", "valid"),
+    [
+        ({"typecheck": {"python": "basedpyright -p python"}}, True),
+        ({"typecheck": {"typescript": None}}, True),
+        ({"typecheck": {}}, True),
+        ({"typecheck": "basedpyright"}, False),
+        ({"typecheck": {"rust": "cargo check"}}, False),
+        ({"typecheck": {"python": 1}}, False),
+    ],
+)
+def test_config_schema_typecheck_values(commands: dict, valid: bool) -> None:
+    assert (validate(_schema("living-architecture"), {"commands": commands}) == []) is valid
+
+
+def test_language_facts() -> None:
+    languages = _shared_yaml("languages.yaml")
+    python, typescript = languages["python"], languages["typescript"]
+    assert (python["local_bin"], python["baseline_file"]) == (".venv/bin", ".basedpyright/baseline.json")
+    assert typescript["markers"] == ["tsconfig.json"]
+    assert (typescript["files_label"], typescript["comment_prefix"]) == ("TS/JS", "//")
+    assert typescript["suppression"] == "// @ts-expect-error — <reason>"
+    assert (typescript["local_bin"], typescript["baseline_file"]) == ("node_modules/.bin", ".tsc-baseline.json")
+    assert "type_checker" not in python
+    assert "type_checker" not in typescript
+
+
+def test_every_rule_has_a_description_per_language() -> None:
+    rules = _shared_yaml("conventions.yaml")["rules"]
+    assert {name: sorted(rule["description"]) for name, rule in rules.items()} == {
+        name: ["python", "typescript"] for name in rules
+    }
+
+
 @pytest.mark.parametrize("vector", _vectors("repr.yaml")["cases"], ids=lambda v: v["repr"])
 def test_canonical_repr(vector: dict) -> None:
     assert canonical_repr(vector["value"]) == vector["repr"]
@@ -287,6 +339,33 @@ NEW_TEMPLATES = {
         "the {language} twin (living-architecture {version}) returned invalid facts; reinstall it with: {install}",
     "twin.forward-refused": "refusing to forward to the {language} twin from a forwarded process (LA_FORWARDED=1)",
     "twin.not-native": "{language} facts are served only by the {language} twin",
+    "conventions.ts-import-after-code":
+        "static import after other module-level statements; move it to the top of the file",
+    "conventions.ts-require-not-top": "require() call outside module scope; use a top-level import or require",
+    "conventions.ts-composite-assert":
+        "composite `expect(... && ...)` or `assert(... && ...)`; split into separate assertions",
+    "conventions.ts-raises-single-throw":
+        "`toThrow`/`rejects` assertion makes {calls} calls that can throw; move all but the call under test outside it",
+    "conventions.not-utf8": "not valid UTF-8",
+    "conventions.unknown-extension": "check-conventions: unknown extension, skipped: {path}",
+    "count-comments.unknown-extension": "count-comments: unknown extension, skipped: {path}",
+    "typecheck.header": "la-typecheck: checking {language} with {command}",
+    "typecheck.new-error": "{file}({line},{col}): error {code}: {message}",
+    "typecheck.count": "{file}({line},{col}): error {code}: {message} (baseline {baseline}, now {now})",
+    "typecheck.new-errors": "la-typecheck: {language}: {count} new error(s) not in {baseline}",
+    "typecheck.shrink": "la-typecheck: {language}: {count} fixed error(s) removed from {baseline}",
+    "typecheck.write": "la-typecheck: {language}: wrote {baseline}",
+    "typecheck.skip": "la-typecheck: {language}: {baseline} exists, skipped",
+    "typecheck.refusal": "la-typecheck: every applicable language already has a baseline; nothing written",
+    "typecheck.not-found": "la-typecheck: {language}: {command} not found in {local_bin} or on PATH",
+    "typecheck.no-languages":
+        "la-typecheck: nothing to check (no language is configured or has source files and a root marker)",
+    "typecheck.not-git": "la-typecheck: not inside a git repository",
+    "typecheck.global-diagnostic": "la-typecheck: {language}: the checker reported an error without a file",
+    "typecheck.checker-failed": "la-typecheck: {language}: {command} exited {code} without a parsable diagnostic",
+    "typecheck.baseline-invalid": "la-typecheck: {language}: {baseline} is malformed",
+    "typecheck.not-native": "{language} type checks run only in the {language} twin",
+    "typecheck.error": "la-typecheck: {error}",
 }
 
 
@@ -327,7 +406,7 @@ def test_manifest_declares_the_passthrough_commands() -> None:
     }
 
 
-PYTHON_ONLY = {"la-check-conventions", "la-count-comments", "dr-refactor", "dr-compliance", "dr-mock-lint"}
+PYTHON_ONLY = {"dr-refactor", "dr-compliance", "dr-mock-lint"}
 
 
 def test_manifest_declares_native_languages() -> None:
@@ -347,11 +426,23 @@ def _option(command: str, name: str) -> dict:
         ("la-doctor", "--twin", "flag", None),
         ("la-arch-check", "--language", "string", ["python", "typescript"]),
         ("la-arch-check", "--emit", "string", ["facts"]),
+        ("la-check-conventions", "--language", "string", ["python", "typescript"]),
+        ("la-check-conventions", "--emit", "string", ["facts"]),
+        ("la-typecheck", "--language", "string", ["python", "typescript"]),
     ],
 )
 def test_manifest_internal_options(command: str, name: str, type_: str, choices: list[str] | None) -> None:
     option = _option(command, name)
     assert (option["type"], option.get("choices"), option.get("internal")) == (type_, choices, True)
+
+
+def test_manifest_declares_la_typecheck() -> None:
+    spec = _shared_yaml("cli.yaml")["commands"]["la-typecheck"]
+    assert "native" not in spec
+    assert not spec.get("passthrough")
+    assert set(spec["exit"]) == {0, 1, 2}
+    write = _option("la-typecheck", "--write-baseline")
+    assert (write["type"], write.get("internal")) == ("flag", None)
 
 
 def test_only_the_twin_options_are_internal() -> None:

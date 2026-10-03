@@ -1,0 +1,12 @@
+kind: adapter
+languages:
+- python
+command: la-typecheck
+args:
+- --write-baseline
+expect:
+  exit: 2
+  files:
+  - .basedpyright/baseline.json
+golden: manual
+note: 'a non-basedpyright Python command rejects --writebaseline: exit 2, nothing written'

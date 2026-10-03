@@ -1,0 +1,3 @@
+check-conventions: unknown extension, skipped: notes.md
+check-conventions: source text-only ratio 14.3% (1/7, cap 15.0%)
+check-conventions: 0 violation(s) across 1 changed .py file(s)

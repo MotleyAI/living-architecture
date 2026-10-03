@@ -16,7 +16,7 @@ const GH_LOG = join(TMP, 'gh.log');
 
 function run(cmd: string, args: string[], cwd: string, input = ''): SpawnSyncReturns<string> {
   const env = { ...process.env, PATH: [FAKE_BIN, join(PREFIX, 'bin'), process.env.PATH].join(delimiter), TMPDIR: TMP };
-  return spawnSync(cmd, args, { cwd, env, input, encoding: 'utf8' });
+  return spawnSync(cmd, args, { cwd, env, input, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
 }
 
 function npm(args: string[], cwd: string): string {
@@ -56,5 +56,16 @@ describe('installed npm package', () => {
     expect(proc.status, proc.stderr).toBe(0);
     expect(proc.stdout).toBe('u\n');
     expect(readFileSync(GH_LOG, 'utf8')).toContain('repos/o/r/pulls/3/comments/9/replies');
+  });
+
+  it('conventions facts keep the order of a path list longer than a command line', () => {
+    const paths = Array.from({ length: 30_000 }, (_, i) => `web/${'d'.repeat(60)}/${String(30_000 - i).padStart(5, '0')}_${'m'.repeat(40)}.ts`);
+    const stdin = JSON.stringify(paths);
+    expect(stdin.length).toBeGreaterThan(2 * 1024 * 1024);
+    const proc = run(join(PREFIX, 'bin', 'la-check-conventions'), ['--language', 'typescript', '--emit', 'facts'], WORK, stdin);
+    expect(proc.status, proc.stderr).toBe(0);
+    const files: { path: string; status: string }[] = JSON.parse(proc.stdout).files;
+    expect(files.map((f) => f.path)).toEqual(paths);
+    expect(new Set(files.map((f) => f.status))).toEqual(new Set(['missing']));
   });
 });

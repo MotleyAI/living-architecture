@@ -1,0 +1,5 @@
+    2  comment=   1 doc=   1  a.py
+    5  comment=   2 doc=   3  b.ts
+    0  comment=   0 doc=   0  gone.ts
+==================================================
+TOTAL=7 (comment 3, docstring 4)

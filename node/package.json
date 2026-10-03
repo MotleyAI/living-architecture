@@ -34,6 +34,7 @@
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
+    "test:integration": "LA_INTEGRATION=1 vitest run test/typecheck.integration.test.ts",
     "conformance": "node scripts/conformance.mjs"
   },
   "dependencies": {

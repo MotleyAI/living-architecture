@@ -1,0 +1,20 @@
+kind: neutral
+languages:
+- python
+- typescript
+command: la-check-conventions
+args:
+- --file
+- tests/v.test.ts
+- --file
+- c/z.ts
+- --file
+- b/y.py
+- --file
+- tests/test_w.py
+- --file
+- a/x.ts
+expect:
+  exit: 1
+note: 'one report over .py and TS/JS files: path order across languages, cross-language ratio groups, one summary and verdict'
+golden: manual

@@ -1,0 +1,15 @@
+kind: adapter
+languages:
+- typescript
+command: la-check-conventions
+args:
+- --file
+- src/a.ts
+- --file
+- src/b.cjs
+- --file
+- src/w.test.ts
+expect:
+  exit: 1
+golden: manual
+note: '`// ALLOW(<rule>): <reason>` on the construct''s first line waives each rule; wrong rule, no reason, lowercase, `#` form or a later line do not'

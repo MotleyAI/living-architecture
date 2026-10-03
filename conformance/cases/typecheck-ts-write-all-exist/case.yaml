@@ -1,0 +1,12 @@
+kind: adapter
+languages:
+- typescript
+command: la-typecheck
+args:
+- --write-baseline
+expect:
+  exit: 2
+  files:
+  - .tsc-baseline.json
+golden: manual
+note: '--write-baseline when every baseline exists: skip, refuse, exit 2'

@@ -42,6 +42,8 @@ module-name = "living_architecture"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = "-m 'not integration'"
+markers = ["integration: runs a real external checker; select with -m integration"]
 
 [tool.ruff]
 line-length = 110

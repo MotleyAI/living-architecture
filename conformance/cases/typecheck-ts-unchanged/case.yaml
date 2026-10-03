@@ -1,0 +1,18 @@
+kind: adapter
+languages:
+- typescript
+command: la-typecheck
+bins:
+- dir: path-tsc
+  position: before
+  files:
+    tsc: |
+      #!/bin/sh
+      echo "PATH tsc must not run" >&2
+      exit 99
+expect:
+  exit: 0
+  files:
+  - .tsc-baseline.json
+golden: manual
+note: 'diagnostics equal the baseline: exit 0, baseline untouched; repo-local tsc wins'

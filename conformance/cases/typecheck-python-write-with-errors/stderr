@@ -1,0 +1,2 @@
+la-typecheck: checking python with basedpyright
+la-typecheck: python: wrote .basedpyright/baseline.json

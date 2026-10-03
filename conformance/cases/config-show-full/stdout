@@ -9,7 +9,11 @@
   "issue_key_pattern": "[A-Z]{2,5}-\\d+",
   "commands": {
     "test": "uv run pytest -q",
-    "lint": "uv run ruff check ."
+    "lint": "uv run ruff check .",
+    "typecheck": {
+      "python": "basedpyright",
+      "typescript": "tsc --noEmit"
+    }
   },
   "conventions": {
     "text_ratio_max": 0.3,

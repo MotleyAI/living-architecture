@@ -1,0 +1,47 @@
+kind: adapter
+languages:
+- typescript
+command: la-check-conventions
+args:
+- --base
+- main
+git:
+- commit: init
+- origin:
+  - main
+- branch: feat
+- write:
+    src/f.ts: |
+      export const f = 1;
+    src/données.ts: |
+      export const d = 1;
+      import x from './x';
+    notes.md: |
+      y
+- commit: work
+- write:
+    src/a.ts: |
+      export const a = 1;
+      import y from './y';
+- write:
+    src/g.ts: |
+      export const g = 1;
+- stage:
+  - src/g.ts
+- write:
+    src/u.ts: |
+      export const u = 1;
+      import z from './z';
+- delete:
+  - src/b.ts
+- git_rm:
+  - src/c.ts
+- rename:
+    src/d.ts: src/d2.ts
+- write:
+    notes.txt: |
+      z
+expect:
+  exit: 1
+golden: manual
+note: '--base: committed, staged, unstaged and renamed TS files count, a non-ASCII path under its real name; untracked, deleted and other files do not'
