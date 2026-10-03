@@ -1,4 +1,5 @@
 specification {
+  element system
   element node
   element bucket { #virtual }
   tag legacy
@@ -8,44 +9,46 @@ specification {
 }
 
 model {
-  api = node 'API' {
-    metadata {
-      package 'pkg.api'
-      arc42 'architecture/api.arc42.md'
-      specs ['api']
+  python = system 'Python' {
+    api = node 'API' {
+      metadata {
+        package 'pkg.api'
+        arc42 'architecture/api.arc42.md'
+        specs ['api']
+      }
+      handlers = node 'Handlers'
+      api.handlers -> core
     }
-    handlers = node 'Handlers'
+    core = node 'Core' { // a comment
+      metadata {
+        package 'pkg.core'
+        claims ['pkg.util']
+      }
+    }
+    store = node 'Store // not a comment' {
+      metadata {
+        package 'pkg.store'
+      }
+    }
+    legacy = bucket 'Legacy' {
+      metadata {
+        packages ['pkg.old']
+      }
+    }
+    core = node 'Again'
+    thing = widget 'Thing' {
+      metadata {
+        package 'pkg.thing'
+      }
+    }
+    core -> store
+    core -> store
+    api -> store #legacy
+    legacy -> core
+    core -> ghost
     api.handlers -> core
+    this is not a model line
   }
-  core = node 'Core' { // a comment
-    metadata {
-      package 'pkg.core'
-      claims ['pkg.util']
-    }
-  }
-  store = node 'Store // not a comment' {
-    metadata {
-      package 'pkg.store'
-    }
-  }
-  legacy = bucket 'Legacy' {
-    metadata {
-      packages ['pkg.old']
-    }
-  }
-  core = node 'Again'
-  thing = widget 'Thing' {
-    metadata {
-      package 'pkg.thing'
-    }
-  }
-  core -> store
-  core -> store
-  api -> store #legacy
-  legacy -> core
-  core -> ghost
-  api.handlers -> core
-  this is not a model line
 }
 
 views {

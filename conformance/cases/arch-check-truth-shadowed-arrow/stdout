@@ -1,2 +1,2 @@
-model-truth: modeled relation api -> core is fully shadowed
+model-truth: modeled relation python.api -> python.core is fully shadowed
 arch_check: 1 finding(s)

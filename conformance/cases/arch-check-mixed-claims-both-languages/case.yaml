@@ -1,0 +1,10 @@
+kind: neutral
+languages:
+- python
+- typescript
+command: la-arch-check
+fixture: arch-mixed
+expect:
+  exit: 1
+golden: manual
+note: 'claims run per language on its own facts; python findings first, then typescript'

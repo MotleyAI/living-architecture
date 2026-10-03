@@ -1,4 +1,4 @@
-# Test-file classification per language; the Python results equal the pre-restructure classifier.
+# Test-file classification per language under its `test_globs`; the Python results equal the pre-restructure classifier.
 python:
 - path: tests/x.py
   test: true
@@ -54,3 +54,82 @@ python:
   test: false
 - path: _test.py
   test: true
+typescript:
+- path: src/a.test.ts
+  test: true
+- path: src/a.spec.tsx
+  test: true
+- path: src/__tests__/a.ts
+  test: true
+- path: src/__mocks__/a.ts
+  test: true
+- path: test/a.ts
+  test: true
+- path: src/testing/a.ts
+  test: false
+- path: src/latest.ts
+  test: false
+- path: src/contest.ts
+  test: false
+- path: tests/a.ts
+  test: true
+- path: a/test/b/c.ts
+  test: true
+- path: src/a.test
+  test: false
+- path: src/atest.ts
+  test: false
+- path: src/a.tests.ts
+  test: false
+- path: src/Test/a.ts
+  test: false
+- path: src/__tests__
+  test: false
+- path: src/__mocks__
+  test: false
+- path: src/tests
+  test: false
+- path: src/test
+  test: false
+- path: a.test.ts
+  test: true
+- path: src/a.test.d.ts
+  test: true
+- path: src/a.test.js
+  test: true
+- path: src/a.spec.mjs
+  test: true
+- path: src/a.e2e.test.ts
+  test: true
+- path: src/__tests__/deep/b.tsx
+  test: true
+- path: src/.test.ts
+  test: true
+- path: src/test.ts
+  test: false
+- path: src/spec.ts
+  test: false
+- path: test.ts
+  test: false
+- path: src/a.testing.ts
+  test: false
+- path: src/a_test.ts
+  test: false
+- path: src/test_a.ts
+  test: false
+- path: src/conftest.ts
+  test: false
+- path: src/test-utils/a.ts
+  test: false
+- path: src/a.Test.ts
+  test: false
+- path: src/A.SPEC.ts
+  test: false
+- path: src/__Tests__/a.ts
+  test: false
+- path: src/x__tests__/a.ts
+  test: false
+- path: src/a.ts
+  test: false
+- path: src/index.ts
+  test: false

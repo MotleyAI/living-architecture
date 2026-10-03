@@ -1,0 +1,11 @@
+{
+  "compilerOptions": {
+    "composite": true,
+    "rootDir": "..",
+    "outDir": "../../lib2/js",
+    "declarationDir": "../../lib2/types"
+  },
+  "include": [
+    "./**/*"
+  ]
+}

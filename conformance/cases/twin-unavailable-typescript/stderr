@@ -1,0 +1,1 @@
+arch_check: the typescript twin (living-architecture <VERSION>) is not reachable; install it with: npm install -g living-architecture@<VERSION>

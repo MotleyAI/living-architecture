@@ -1,0 +1,6 @@
+model-truth: measured runtime edge typescript.app -> typescript.lib is missing from the model (import src/app/x -> src/lib)
+model-truth: measured runtime edge typescript.app -> typescript.lib.cjs is missing from the model (import src/app/x -> src/lib/cjs)
+model-truth: measured runtime edge typescript.app -> typescript.lib.esm is missing from the model (import src/app/x -> src/lib/esm)
+model-truth: measured runtime edge typescript.app -> typescript.lib.extra is missing from the model (import src/app/x -> src/lib/extra)
+model-truth: measured runtime edge typescript.app -> typescript.lib2 is missing from the model (import src/app/x -> src/lib2)
+arch_check: 5 finding(s)

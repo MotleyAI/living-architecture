@@ -1,2 +1,2 @@
-model-truth: modeled relation api -> api.handlers connects an element to its own ancestor or descendant; such edges are internal and never declared
+model-truth: modeled relation python.api -> python.api.handlers connects an element to its own ancestor or descendant; such edges are internal and never declared
 arch_check: 1 finding(s)

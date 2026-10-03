@@ -1,0 +1,26 @@
+kind: neutral
+twin: typescript
+other_twin: absent
+command: la-count-comments
+args:
+- a.py
+bins:
+- dir: runner
+  files:
+    uvx: |
+      #!/bin/sh
+      echo "uvx $*" >> <ROOT>/repo/probe.log
+      if [ "$*" = "--from living-architecture==<VERSION> la-doctor --twin" ]; then
+        echo "python 9.9.9 <CONTRACT_HASH>"
+        exit 0
+      fi
+      echo "fake uvx: unexpected $*" >&2
+      exit 99
+normalize:
+- version
+expect:
+  exit: 2
+  files:
+  - probe.log
+golden: manual
+note: 'uvx''s probe reports another version: the command never runs through it; exit 2 with the install hint'

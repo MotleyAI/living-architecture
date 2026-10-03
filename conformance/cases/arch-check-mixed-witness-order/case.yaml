@@ -1,0 +1,10 @@
+kind: neutral
+languages:
+- python
+- typescript
+command: la-arch-check
+fixture: arch-mixed
+expect:
+  exit: 1
+golden: manual
+note: 'witness per language: first source module, then first target, in sorted module-id order (not file order); missing edges sorted over the union'

@@ -1,4 +1,5 @@
-root_package: pkg
+python:
+  root_package: pkg
 cross_cutting_arc42:
 - architecture/security.arc42.md
 legacy_arrows:

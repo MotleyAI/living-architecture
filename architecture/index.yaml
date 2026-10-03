@@ -1,8 +1,13 @@
-root_package: living_architecture
-source_root: python/src
+python:
+  root_package: living_architecture
+  source_root: python/src
+typescript:
+  root_package: src
+  source_root: node
 legacy_arrows: {baseline: 0}
 cross_cutting_specs:
   shared-contract:
-    touches: [contract, config, cli, c4, archcheck, lang, conventions, review, doctor, refactor]
+    touches: [python.contract, python.config, python.cli, python.c4, python.archcheck, python.lang, python.conventions,
+      python.review, python.doctor, python.refactor]
 diagrams:
-  architecture/system.arc42.md: [system]
+  architecture/system.arc42.md: [system, npm]

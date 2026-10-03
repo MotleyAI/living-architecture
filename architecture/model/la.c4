@@ -1,80 +1,161 @@
 specification {
+  element system
   element node
   tag legacy
   tag virtual
 }
 model {
-  contract = node 'Shared contract' {
-    metadata {
-      package 'living_architecture.contract'
+  python = system 'PyPI twin' {
+    contract = node 'Shared contract' {
+      metadata {
+        package 'living_architecture.contract'
+      }
     }
-  }
-  config = node 'Config' {
-    metadata {
-      package 'living_architecture.config'
+    config = node 'Config' {
+      metadata {
+        package 'living_architecture.config'
+      }
     }
-  }
-  cli = node 'CLI' {
-    metadata {
-      package 'living_architecture.cli'
+    cli = node 'CLI' {
+      metadata {
+        package 'living_architecture.cli'
+      }
     }
-  }
-  c4 = node 'LikeC4 model' {
-    metadata {
-      package 'living_architecture.c4'
+    c4 = node 'LikeC4 model' {
+      metadata {
+        package 'living_architecture.c4'
+      }
     }
-  }
-  archcheck = node 'Architecture check' {
-    metadata {
-      package 'living_architecture.archcheck'
-      specs ['arch-check']
+    archcheck = node 'Architecture check' {
+      metadata {
+        package 'living_architecture.archcheck'
+        specs ['arch-check']
+      }
     }
-  }
-  lang = node 'Language adapter' {
-    metadata {
-      package 'living_architecture.lang'
+    lang = node 'Language adapter' {
+      metadata {
+        package 'living_architecture.lang'
+      }
     }
-  }
-  conventions = node 'Conventions and comments' {
-    metadata {
-      package 'living_architecture.conventions'
+    conventions = node 'Conventions and comments' {
+      metadata {
+        package 'living_architecture.conventions'
+      }
     }
-  }
-  review = node 'Review shims' {
-    metadata {
-      package 'living_architecture.review'
+    review = node 'Review shims' {
+      metadata {
+        package 'living_architecture.review'
+      }
     }
-  }
-  doctor = node 'Doctor' {
-    metadata {
-      package 'living_architecture.doctor'
+    doctor = node 'Doctor' {
+      metadata {
+        package 'living_architecture.doctor'
+      }
     }
-  }
-  refactor = node 'Deterministic refactoring' {
-    metadata {
-      package 'living_architecture.refactor'
+    refactor = node 'Deterministic refactoring' {
+      metadata {
+        package 'living_architecture.refactor'
+      }
     }
+    twin = node 'Twin forwarding' {
+      metadata {
+        package 'living_architecture.twin'
+        specs ['twin-forwarding']
+      }
+    }
+
+    cli -> contract
+    cli -> config
+    cli -> archcheck
+    cli -> c4
+    cli -> conventions
+    cli -> review
+    cli -> doctor
+    cli -> refactor
+    archcheck -> c4
+    archcheck -> lang
+    archcheck -> config
+    archcheck -> contract
+    conventions -> lang
+    conventions -> config
+    conventions -> contract
+    c4 -> contract
+    config -> contract
+    review -> config
+    review -> contract
+    doctor -> config
+    doctor -> contract
+    refactor -> contract
+    cli -> twin
+    archcheck -> twin
+    twin -> contract
   }
-  cli -> contract
-  cli -> config
-  cli -> archcheck
-  cli -> c4
-  cli -> conventions
-  cli -> review
-  cli -> doctor
-  cli -> refactor
-  archcheck -> c4
-  archcheck -> lang
-  archcheck -> config
-  archcheck -> contract
-  conventions -> lang
-  conventions -> config
-  conventions -> contract
-  c4 -> contract
-  config -> contract
-  review -> config
-  review -> contract
-  doctor -> config
-  doctor -> contract
-  refactor -> contract
+  typescript = system 'npm twin' {
+    contract = node 'Shared contract' {
+      metadata {
+        package 'src/contract'
+      }
+    }
+    config = node 'Config' {
+      metadata {
+        package 'src/config'
+      }
+    }
+    cli = node 'CLI' {
+      metadata {
+        package 'src/cli'
+      }
+    }
+    c4 = node 'LikeC4 model' {
+      metadata {
+        package 'src/c4'
+      }
+    }
+    archcheck = node 'Architecture check' {
+      metadata {
+        package 'src/archcheck'
+      }
+    }
+    lang = node 'Language adapter' {
+      metadata {
+        package 'src/lang'
+      }
+    }
+    review = node 'Review shims' {
+      metadata {
+        package 'src/review'
+      }
+    }
+    doctor = node 'Doctor' {
+      metadata {
+        package 'src/doctor'
+      }
+    }
+    twin = node 'Twin forwarding' {
+      metadata {
+        package 'src/twin'
+      }
+    }
+
+    cli -> contract
+    cli -> config
+    cli -> archcheck
+    cli -> c4
+    cli -> review
+    cli -> doctor
+    cli -> twin
+    archcheck -> c4
+    archcheck -> lang
+    archcheck -> config
+    archcheck -> contract
+    archcheck -> twin
+    lang -> contract
+    c4 -> contract
+    config -> contract
+    review -> config
+    review -> contract
+    doctor -> config
+    doctor -> contract
+    twin -> contract
+  }
 }

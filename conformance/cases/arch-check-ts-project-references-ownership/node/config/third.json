@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "composite": true,
+    "paths": {
+      "@x/*": [
+        "../src/e/*"
+      ]
+    }
+  },
+  "include": [
+    "../src/shared/**/*",
+    "../src/d/**/*"
+  ]
+}

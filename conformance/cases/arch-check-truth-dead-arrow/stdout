@@ -1,2 +1,2 @@
-model-truth: modeled relation store -> api has no measured runtime edge
+model-truth: modeled relation python.store -> python.api has no measured runtime edge
 arch_check: 1 finding(s)

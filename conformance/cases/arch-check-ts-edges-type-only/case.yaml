@@ -1,0 +1,15 @@
+kind: adapter
+languages:
+- typescript
+command: la-arch-check
+fixture: arch-ts
+remove:
+- src/api
+- src/core
+- src/store
+- src/util.ts
+- src/old.js
+expect:
+  exit: 0
+golden: manual
+note: type-only imports/exports, import types, reference directives and JSDoc never count; a value import does

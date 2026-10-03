@@ -10,6 +10,8 @@ from pathlib import Path
 import pytest
 import yaml
 
+from living_architecture.contract import normalize
+
 
 def _repo_root() -> Path:
     return next(p for p in Path(__file__).resolve().parents if (p / "shared" / "vectors").is_dir())
@@ -30,7 +32,16 @@ def test_repr_vectors_are_python_repr(vector: dict) -> None:
 
 @pytest.mark.parametrize("vector", _load("yaml.yaml")["cases"], ids=lambda v: v["name"])
 def test_yaml_vectors_are_pyyaml_safe_load(vector: dict) -> None:
-    assert yaml.safe_load(vector["text"]) == json.loads(vector["json"])
+    value = yaml.safe_load(vector["text"])
+    if "json" in vector:
+        assert value == json.loads(vector["json"])
+    else:
+        assert repr(normalize(value)) == vector["repr"]
+
+
+@pytest.mark.parametrize("vector", _load("yaml.yaml")["cases"], ids=lambda v: v["name"])
+def test_yaml_vectors_carry_one_expectation(vector: dict) -> None:
+    assert set(vector) - {"name", "text"} in ({"json"}, {"repr"})
 
 
 @pytest.mark.parametrize("vector", _load("defaults.yaml")["cases"], ids=lambda v: v["name"])

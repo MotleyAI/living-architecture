@@ -1,0 +1,32 @@
+kind: adapter
+languages:
+- python
+twin: typescript
+command: la-check-conventions
+args:
+- --file
+- a.py
+- --file
+- b.py
+- --exclude
+- gen/*
+bins:
+- dir: decoy
+  position: before
+  files:
+    la-doctor: |
+      #!/bin/sh
+      echo "decoy: la-doctor $*" >> <ROOT>/repo/probe.log
+      [ "$*" = "--twin" ] || { echo "fake la-doctor: unexpected $*" >&2; exit 99; }
+      echo "python 0.0.0 <CONTRACT_HASH>"
+    la-check-conventions: |
+      #!/bin/sh
+      echo "decoy: la-check-conventions $*" >> <ROOT>/repo/probe.log
+      echo "decoy la-check-conventions must not run" >&2
+      exit 99
+expect:
+  exit: 0
+  files:
+  - probe.log
+golden: manual
+note: 'npm twin first, a mismatching decoy before it: the PyPI twin later on PATH runs the Python-only command'

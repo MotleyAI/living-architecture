@@ -1,0 +1,35 @@
+specification {
+  element system
+  element node
+}
+
+model {
+  python = system 'Python' {
+    api = node 'API' {
+      metadata {
+        package 'pkg.api'
+      }
+    }
+    core = node 'Core' {
+      metadata {
+        package 'pkg.core'
+      }
+    }
+
+    api -> core
+  }
+  typescript = system 'TypeScript' {
+    web = node 'Web' {
+      metadata {
+        package 'src/web'
+      }
+    }
+    shared = node 'Shared' {
+      metadata {
+        package 'src/shared'
+      }
+    }
+
+    web -> shared
+  }
+}

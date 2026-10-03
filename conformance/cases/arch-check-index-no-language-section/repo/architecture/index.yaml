@@ -1,0 +1,12 @@
+cross_cutting_arc42:
+- architecture/security.arc42.md
+cross_cutting_specs:
+  logging:
+    touches:
+    - python.api
+    - python.core
+legacy_arrows:
+  baseline: 1
+diagrams: {}
+x-python:
+  root_package: pkg

@@ -1,0 +1,9 @@
+kind: adapter
+languages:
+- typescript
+command: la-arch-check
+fixture: arch-ts
+expect:
+  exit: 1
+golden: manual
+note: TS node in path notation; declared and derived units missing (invisible files do not count)

@@ -1,0 +1,9 @@
+kind: adapter
+languages:
+- typescript
+command: la-arch-check
+fixture: arch-ts
+expect:
+  exit: 1
+golden: manual
+note: TS units overlap segment-wise (src/api/ui/old nests in src/api/ui, src/api/uikit does not)

@@ -1,0 +1,9 @@
+kind: adapter
+languages:
+- typescript
+command: la-arch-check
+fixture: arch-ts
+expect:
+  exit: 0
+golden: manual
+note: clean TS repo; dir, file and derived units, root barrel exempt, type-only import, no tsconfig

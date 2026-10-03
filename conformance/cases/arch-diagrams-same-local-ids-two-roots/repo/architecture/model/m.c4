@@ -1,0 +1,41 @@
+specification {
+  element system
+  element node
+}
+
+model {
+  python = system 'Python' {
+    api = node 'API' {
+      metadata {
+        package 'pkg.api'
+      }
+    }
+    core = node 'Core' {
+      metadata {
+        package 'pkg.core'
+      }
+    }
+
+    api -> core
+  }
+  typescript = system 'Web' {
+    api = node 'Web API' {
+      metadata {
+        package 'src/api'
+      }
+    }
+    core = node 'Web core' {
+      metadata {
+        package 'src/core'
+      }
+    }
+    ui = node 'UI' {
+      metadata {
+        package 'src/ui'
+      }
+    }
+
+    api -> core
+    ui -> api
+  }
+}

@@ -1,0 +1,7 @@
+claims-exactly-once: top-level pkg.extra is claimed by no node
+claims-exist: typescript.shared claims src/shared, which is ambiguous: src/shared.ts, src/shared/
+claims-exactly-once: top-level src/extra is claimed by no node
+model-truth: measured runtime edge python.core -> python.api is missing from the model (import pkg.core.service -> pkg.api)
+model-truth: measured runtime edge typescript.shared -> typescript.web is missing from the model (import src/shared/b -> src/web/a)
+model-truth: modeled relation typescript.web -> typescript.shared has no measured runtime edge
+arch_check: 6 finding(s)

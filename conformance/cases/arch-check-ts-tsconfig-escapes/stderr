@@ -1,0 +1,1 @@
+arch_check: architecture/index.yaml: tsconfig 'escape/tsconfig.json' resolves outside the repo

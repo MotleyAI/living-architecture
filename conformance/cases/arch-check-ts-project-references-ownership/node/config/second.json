@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "composite": true,
+    "paths": {
+      "@x/*": [
+        "../src/c/*"
+      ]
+    }
+  },
+  "include": [
+    "../src/shared/**/*"
+  ],
+  "references": [
+    {
+      "path": "./first.json"
+    }
+  ]
+}

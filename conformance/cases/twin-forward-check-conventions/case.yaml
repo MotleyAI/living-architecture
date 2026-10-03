@@ -1,0 +1,16 @@
+kind: adapter
+languages:
+- python
+twin: typescript
+command: la-check-conventions
+args:
+- --file
+- a.py
+- --file
+- b.py
+- --exclude
+- gen/*
+expect:
+  exit: 0
+golden: manual
+note: 'npm twin forwards la-check-conventions wholesale: output equals the PyPI twin''s own run'

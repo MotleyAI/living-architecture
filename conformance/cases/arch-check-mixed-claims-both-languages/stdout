@@ -1,0 +1,6 @@
+claims-exist: python.api claims pkg.gone, which does not exist on disk
+claims-exactly-once: top-level pkg.extra is claimed by no node
+claims-exist: typescript.web claims src/gone, which does not exist on disk
+claims-exactly-once: src/web claimed by both typescript.web and typescript.shared
+claims-exactly-once: top-level src/extra is claimed by no node
+arch_check: 5 finding(s)

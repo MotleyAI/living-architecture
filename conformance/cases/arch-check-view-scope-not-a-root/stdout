@@ -1,0 +1,3 @@
+diagrams-fresh: view inner is scoped to python.core, which is not a language root
+diagrams-fresh: view web is scoped to typescript, which is not a language root
+arch_check: 2 finding(s)

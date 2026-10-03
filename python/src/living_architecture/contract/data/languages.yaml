@@ -1,10 +1,13 @@
-# Per-language facts. Test globs use the contract glob dialect (contract README: matched against the POSIX
+# Per-language facts. `runner` runs a command through the language's twin at `{version}` (the command is
+# appended); `install` is the hint shown when that twin is unreachable; `unit_separator` joins a unit's
+# segments (`pkg.api`, `src/api`). Test globs use the contract glob dialect (contract README: matched against the POSIX
 # repo-relative path; case-sensitive; `*` stays within one segment; `**` is zero or more whole segments).
 
 python:
   markers: [pyproject.toml, setup.py]
   source_extensions: [.py]
   files_label: .py
+  unit_separator: .
   test_globs:
     - '**/tests/**/*'
     - '**/test/**/*'
@@ -14,3 +17,18 @@ python:
   comment_prefix: '#'
   suppression: '# pyright: ignore[<rule>]'
   type_checker: basedpyright
+  runner: uvx --from living-architecture=={version}
+  install: uv tool install living-architecture=={version}
+
+typescript:
+  source_extensions: [.ts, .tsx, .mts, .cts, .js, .jsx, .mjs, .cjs]
+  unit_separator: /
+  test_globs:
+    - '**/*.test.*'
+    - '**/*.spec.*'
+    - '**/__tests__/**/*'
+    - '**/__mocks__/**/*'
+    - '**/tests/**/*'
+    - '**/test/**/*'
+  runner: npx -y -p living-architecture@{version}
+  install: npm install -g living-architecture@{version}

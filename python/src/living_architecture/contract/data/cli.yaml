@@ -2,11 +2,13 @@
 # ends options, a usage error exits 2, and a `passthrough` command hands its raw argv to its handler.
 #
 # option:      name, type (string | int | float | path | flag), help; optional: dest, metavar, choices,
-#              default, required, repeatable, store (a flag's stored value; default true)
+#              default, required, repeatable, store (a flag's stored value; default true), internal
+#              (accepted but omitted from help: the twins' own protocol)
 # positional:  name, help; optional: nargs ('?' | '*' | '+'; default exactly one)
 # command:     help, exit (code -> meaning), options, positionals, subcommands, passthrough, usage,
 #              require_one_of (dests; none given is a usage error), script (the bundled review script it
-#              runs), gate (skip-coderabbit: append --skip-coderabbit unless reviewers.coderabbit is on)
+#              runs), gate (skip-coderabbit: append --skip-coderabbit unless reviewers.coderabbit is on),
+#              native (the languages whose twin implements the command; absent: neutral, every twin runs it)
 
 commands:
   la-config:
@@ -29,12 +31,16 @@ commands:
       - {name: --expect, type: string, help: plugin version the calling skill was written for}
       - {name: --root, type: path, help: 'repo root (default: nearest git root of cwd)'}
       - {name: --contract-hash, type: flag, help: print the bundled contract hash and exit}
+      - {name: --twin, type: flag, internal: true, help: 'print this twin''s language, version and contract hash'}
 
   la-arch-check:
     help: 'Living-architecture cross-walk checker: code, LikeC4 model, arc42 docs and specs agree.'
     exit: {0: clean, 1: findings, 2: setup error}
     options:
       - {name: --root, type: path, help: 'repo root (default: nearest git root of cwd)'}
+      - {name: --language, type: string, choices: [python, typescript], internal: true,
+         help: the language whose facts to emit}
+      - {name: --emit, type: string, choices: [facts], internal: true, help: print the language's facts as JSON}
 
   la-arch-diagrams:
     help: Generate mermaid diagrams in arc42 docs from the LikeC4 model; prints each rewritten doc.
@@ -43,6 +49,7 @@ commands:
       - {name: --root, type: path, help: 'repo root (default: nearest git root of cwd)'}
 
   la-check-conventions:
+    native: [python]
     help: >-
       Deterministic convention gate over a PR's changed source files: import-not-top, text-ratio, and (tests)
       composite-assert and raises-single-throw. Waive a flagged line with a trailing ALLOW(<rule>): <reason>
@@ -61,6 +68,7 @@ commands:
     require_one_of: [pr, base, files]
 
   la-count-comments:
+    native: [python]
     help: Count comment and docstring lines in source files.
     exit: {0: ok, 2: usage error}
     passthrough: true
@@ -100,6 +108,7 @@ commands:
     gate: skip-coderabbit
 
   dr-refactor:
+    native: [python]
     help: >-
       IDE-grade Python refactors via rope: rename, move-symbol, move-module. Rewrites every import and
       reference across the project. Dry-run by default; pass --apply to write. Symbol location comes from
@@ -138,6 +147,7 @@ commands:
           - {name: --dest, type: path, required: true, help: destination package directory (must exist)}
 
   dr-compliance:
+    native: [python]
     help: >-
       Report constructs that make a rename un-verifiable: untyped-def, unannotated-attr, and mock (a mock or
       patch not bound to a spec). With --attr NAME it also reports x.NAME accesses whose receiver is an
@@ -151,6 +161,7 @@ commands:
       - {name: --attr, type: string, help: also report x.ATTR accesses on unannotated receivers}
 
   dr-mock-lint:
+    native: [python]
     help: Every unittest.mock double must be bound to a spec.
     exit: {0: clean, 1: violations, 2: usage error}
     passthrough: true

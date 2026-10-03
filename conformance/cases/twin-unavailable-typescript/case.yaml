@@ -1,0 +1,13 @@
+kind: adapter
+languages:
+- python
+twin: python
+other_twin: absent
+command: la-arch-check
+fixture: twin-mixed
+normalize:
+- version
+expect:
+  exit: 2
+golden: manual
+note: 'PyPI twin on a repo declaring typescript, no npm twin and no npx on PATH: exit 2 with the install hint'

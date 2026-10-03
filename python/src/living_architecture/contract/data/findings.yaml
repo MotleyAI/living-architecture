@@ -27,11 +27,18 @@ findings:
   arch-check.root-package-not-canonical: 'architecture/index.yaml: root_package {value!r} must not have empty or ''.'' segments'
   arch-check.root-package-escapes: 'architecture/index.yaml: root_package {value!r} resolves outside source_root {source_root!r}'
   arch-check.root-package-not-a-directory: 'architecture/index.yaml: root_package {value!r} is not a directory under source_root {source_root!r}'
+  arch-check.tsconfig-escapes: 'architecture/index.yaml: tsconfig {value!r} resolves outside the repo'
   arch-check.metadata-invalid: 'model element {element}: {error}'
   arch-check.metadata-on-nested: 'model element {element}: nested elements may not carry metadata'
+  arch-check.no-language-section: 'architecture/index.yaml: a language section is required (one of python, typescript)'
+  arch-check.root-undeclared: 'model element {element}: top-level elements must be declared language roots'
+  arch-check.root-missing: model has no root element for declared language {language}
+  arch-check.metadata-on-root: 'model element {element}: language roots may not carry metadata'
 
   claims-exist.unit-missing: 'claims-exist: {node} claims {unit}, which does not exist on disk'
   claims-exist.child-missing: 'claims-exist: element {element} maps to {unit}, which does not exist on disk'
+  claims-exist.unit-ambiguous: 'claims-exist: {node} claims {unit}, which is ambiguous: {candidates}'
+  claims-exist.child-ambiguous: 'claims-exist: element {element} maps to {unit}, which is ambiguous: {candidates}'
   claims-exist.virtual-children: 'claims-exist: virtual node {node} may not contain elements'
   claims-exactly-once.claimed-twice: 'claims-exactly-once: {unit} claimed by both {first} and {second}'
   claims-exactly-once.unclaimed: 'claims-exactly-once: top-level {unit} is claimed by no node'
@@ -61,6 +68,7 @@ findings:
   enforced-tags.malformed-review: 'enforced-tags: malformed [review] tag in {doc}'
   enforced-tags.target-mismatch: 'enforced-tags: {doc} target tag id {tag_id!r} does not match issue_key_pattern {pattern!r}'
   enforced-tags.unknown-id: 'enforced-tags: {doc} tags unknown enforcement id {tag_id!r}'
+  enforced-tags.unknown-language: 'enforced-tags: {doc} tags undeclared language {language!r}'
   enforced-tags.untagged-item: 'enforced-tags: {doc} principle item {number} has no status tag'
 
   # ---- the LikeC4 model and views (parse findings; la-arch-check prefixes them with diagrams-fresh)
@@ -69,6 +77,7 @@ findings:
   c4.unrecognized-spec-line: 'unrecognized specification line: {line}'
   c4.duplicate-element: duplicate element {element}
   c4.relation-in-body: relation {src} -> {dst} inside element body {parent}
+  c4.relation-outside-root: relation {src} -> {dst} outside every language root
   c4.duplicate-relation: duplicate relation {src} -> {dst}
   c4.unrecognized-model-line: 'unrecognized model line: {line}'
   c4.malformed-metadata: 'element {element} has malformed metadata: {line}'
@@ -86,6 +95,8 @@ findings:
   c4.expected-view: expected `view` in views block
   c4.malformed-view: malformed view declaration
   c4.duplicate-view: duplicate view id {view}
+  c4.view-unscoped: view {view} is not scoped to a language root
+  c4.view-scope-unknown: view {view} is scoped to {root}, which is not a language root
   c4.view-depth-not-mapping: view_depth must map view ids to positive integers
   c4.view-depth-unknown-view: view_depth references unknown view id {view}
   c4.view-depth-invalid: view_depth[{view}] must be a positive integer, got {value!r}
@@ -130,6 +141,13 @@ findings:
   doctor.fail: 'FAIL: {problem}'
   doctor.version-mismatch: installed la tools are {installed} but the plugin expects {expected}; reinstall the tools from the same checkout/tag as the plugin
   doctor.missing-executable: '`{exe}` not found on PATH'
+
+  # ---- twin forwarding
+  twin.error: '{prog}: {error}'
+  twin.unavailable: 'the {language} twin (living-architecture {version}) is not reachable; install it with: {install}'
+  twin.facts-invalid: 'the {language} twin (living-architecture {version}) returned invalid facts; reinstall it with: {install}'
+  twin.forward-refused: refusing to forward to the {language} twin from a forwarded process (LA_FORWARDED=1)
+  twin.not-native: '{language} facts are served only by the {language} twin'
 
   # ---- review shims
   review.config-error: '{prog}: {error}'

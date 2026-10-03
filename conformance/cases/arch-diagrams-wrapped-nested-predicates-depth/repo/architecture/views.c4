@@ -1,0 +1,14 @@
+views {
+  view inbound of python {
+    title 'Into core'
+    include * -> core
+  }
+  view deep of python {
+    title 'Deep'
+    include api, store
+  }
+  view outbound of python {
+    title 'API out'
+    include api -> *
+  }
+}

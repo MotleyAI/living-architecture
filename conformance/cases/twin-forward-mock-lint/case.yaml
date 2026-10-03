@@ -1,0 +1,11 @@
+kind: adapter
+languages:
+- python
+twin: typescript
+command: dr-mock-lint
+args:
+- tests/test_m.py
+expect:
+  exit: 1
+golden: manual
+note: 'npm twin forwards dr-mock-lint wholesale: output equals the PyPI twin''s own run'

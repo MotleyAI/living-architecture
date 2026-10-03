@@ -1,0 +1,3 @@
+decoy: la-doctor --twin
+npx -y -p living-architecture@<VERSION> la-doctor --twin
+npx -y -p living-architecture@<VERSION> la-arch-check (typescript facts)

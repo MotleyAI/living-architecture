@@ -1,0 +1,33 @@
+kind: adapter
+languages:
+- python
+twin: python
+other_twin: absent
+command: la-arch-check
+fixture: arch-ok
+bins:
+- dir: npm-twin
+  files:
+    la-doctor: |
+      #!/bin/sh
+      echo "npm-twin: la-doctor $*" >> <ROOT>/repo/probe.log
+      [ "$*" = "--twin" ] || { echo "fake la-doctor: unexpected $*" >&2; exit 99; }
+      echo "typescript <VERSION> <CONTRACT_HASH>"
+    la-arch-check: |
+      #!/bin/sh
+      echo "npm-twin: la-arch-check $*" >> <ROOT>/repo/probe.log
+      echo "npm-twin la-arch-check must not run" >&2
+      exit 99
+- dir: runner
+  files:
+    npx: |
+      #!/bin/sh
+      echo "runner: npx $*" >> <ROOT>/repo/probe.log
+      echo "runner npx must not run" >&2
+      exit 99
+expect:
+  exit: 0
+  files:
+  - probe.log
+golden: manual
+note: PyPI twin on a Python-only repo never probes or runs the (qualifying) npm twin or npx

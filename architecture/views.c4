@@ -1,6 +1,10 @@
 views {
-  view system {
+  view system of python {
     title 'Living-architecture commands'
+    include *
+  }
+  view npm of typescript {
+    title 'npm twin'
     include *
   }
 }

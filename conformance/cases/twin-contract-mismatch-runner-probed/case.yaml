@@ -1,0 +1,63 @@
+kind: adapter
+languages:
+- python
+twin: python
+other_twin: absent
+command: la-arch-check
+fixture: twin-mixed
+bins:
+- dir: decoy
+  files:
+    la-doctor: |
+      #!/bin/sh
+      echo "decoy: la-doctor $*" >> <ROOT>/repo/probe.log
+      [ "$*" = "--twin" ] || { echo "fake la-doctor: unexpected $*" >&2; exit 99; }
+      echo "typescript <VERSION> 0000000000000000000000000000000000000000000000000000000000000000"
+    la-arch-check: |
+      #!/bin/sh
+      echo "decoy: la-arch-check $*" >> <ROOT>/repo/probe.log
+      echo "decoy la-arch-check must not run" >&2
+      exit 99
+- dir: runner
+  files:
+    npx: |
+      #!/bin/sh
+      case "$*" in
+        "-y -p living-architecture@<VERSION> la-doctor --twin")
+          echo "npx $*" >> <ROOT>/repo/probe.log
+          echo "typescript <VERSION> <CONTRACT_HASH>"
+          exit 0 ;;
+        "-y -p living-architecture@<VERSION> la-arch-check "*)
+          shift 4
+          case " $* " in *" --language typescript "*) ;; *) echo "fake la-arch-check: not a typescript facts request: $*" >&2; exit 99 ;; esac
+          case " $* " in *" --emit facts "*) ;; *) echo "fake la-arch-check: not a facts request: $*" >&2; exit 99 ;; esac
+          [ "$LA_FORWARDED" = 1 ] || { echo "fake la-arch-check: LA_FORWARDED is not 1" >&2; exit 99; }
+          echo "npx -y -p living-architecture@<VERSION> la-arch-check (typescript facts)" >> <ROOT>/repo/probe.log
+      cat <<'EOF'
+      {
+        "language": "typescript",
+        "version": "<VERSION>",
+        "contract_hash": "<CONTRACT_HASH>",
+        "units": [
+          {"unit": "src/web", "status": "present"},
+          {"unit": "src/shared", "status": "present"}
+        ],
+        "top_level_units": ["src/shared", "src/web"],
+        "edges": [
+          {"src": "typescript.web", "dst": "typescript.shared", "src_module": "src/web/a", "dst_module": "src/shared/b"}
+        ]
+      }
+      EOF
+          exit 0 ;;
+      esac
+      echo "npx $*" >> <ROOT>/repo/probe.log
+      echo "fake npx: unexpected $*" >&2
+      exit 99
+normalize:
+- version
+expect:
+  exit: 0
+  files:
+  - probe.log
+golden: manual
+note: 'the only npm twin on PATH has another contract hash: skipped, npx probed, then serves the TypeScript facts'

@@ -1,0 +1,6 @@
+views {
+  view web of typescript {
+    title 'Web'
+    include *
+  }
+}

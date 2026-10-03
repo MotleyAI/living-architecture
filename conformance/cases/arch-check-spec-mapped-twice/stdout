@@ -1,2 +1,2 @@
-spec-mapping: api mapped by both api and core
+spec-mapping: api mapped by both python.api and python.core
 arch_check: 1 finding(s)

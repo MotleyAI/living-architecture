@@ -1,2 +1,2 @@
-claims-exactly-once: pkg.util claimed by both core and store
+claims-exactly-once: pkg.util claimed by both python.core and python.store
 arch_check: 1 finding(s)

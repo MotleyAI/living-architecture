@@ -1,0 +1,19 @@
+python:
+  root_package: pkg
+cross_cutting_arc42:
+- architecture/security.arc42.md
+cross_cutting_specs:
+  logging:
+    touches:
+    - python.api
+    - python.core
+legacy_arrows:
+  baseline: 2
+diagrams:
+  architecture/system.arc42.md:
+  - inbound
+  - deep
+  - outbound
+view_depth:
+  inbound: 2
+  outbound: 1

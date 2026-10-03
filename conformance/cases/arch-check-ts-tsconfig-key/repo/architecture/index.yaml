@@ -1,0 +1,6 @@
+typescript:
+  root_package: src
+  tsconfig: config/tsconfig.app.json
+legacy_arrows:
+  baseline: 0
+diagrams: {}

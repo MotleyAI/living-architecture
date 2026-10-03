@@ -1,0 +1,94 @@
+kind: adapter
+languages:
+- python
+twin: python
+other_twin: absent
+command: la-arch-check
+fixture: twin-mixed
+bins:
+- dir: first
+  files:
+    la-doctor: |
+      #!/bin/sh
+      echo "first: la-doctor $*" >> <ROOT>/repo/probe.log
+      [ "$*" = "--twin" ] || { echo "fake la-doctor: unexpected $*" >&2; exit 99; }
+      echo "typescript <VERSION> 0000000000000000000000000000000000000000000000000000000000000000"
+    la-arch-check: |
+      #!/bin/sh
+      echo "first: la-arch-check $*" >> <ROOT>/repo/probe.log
+      echo "first la-arch-check must not run" >&2
+      exit 99
+- dir: first-again
+  link: first
+- dir: no-doctor
+  files:
+    la-arch-check: |
+      #!/bin/sh
+      echo "no-doctor: la-arch-check $*" >> <ROOT>/repo/probe.log
+      echo "no-doctor la-arch-check must not run" >&2
+      exit 99
+- dir: not-executable
+  nonexec: [la-doctor]
+  files:
+    la-doctor: |
+      #!/bin/sh
+      echo "not-executable: la-doctor $*" >> <ROOT>/repo/probe.log
+      [ "$*" = "--twin" ] || { echo "fake la-doctor: unexpected $*" >&2; exit 99; }
+      echo "typescript <VERSION> <CONTRACT_HASH>"
+    la-arch-check: |
+      #!/bin/sh
+      echo "not-executable: la-arch-check $*" >> <ROOT>/repo/probe.log
+      echo "not-executable la-arch-check must not run" >&2
+      exit 99
+- dir: good
+  files:
+    la-doctor: |
+      #!/bin/sh
+      echo "good: la-doctor $*" >> <ROOT>/repo/probe.log
+      [ "$*" = "--twin" ] || { echo "fake la-doctor: unexpected $*" >&2; exit 99; }
+      echo "typescript <VERSION> <CONTRACT_HASH>"
+    la-arch-check: |
+      #!/bin/sh
+      case " $* " in *" --language typescript "*) ;; *) echo "fake la-arch-check: not a typescript facts request: $*" >&2; exit 99 ;; esac
+      case " $* " in *" --emit facts "*) ;; *) echo "fake la-arch-check: not a facts request: $*" >&2; exit 99 ;; esac
+      [ "$LA_FORWARDED" = 1 ] || { echo "fake la-arch-check: LA_FORWARDED is not 1" >&2; exit 99; }
+      echo "good: la-arch-check (typescript facts)" >> <ROOT>/repo/probe.log
+      cat <<'EOF'
+      {
+        "language": "typescript",
+        "version": "<VERSION>",
+        "contract_hash": "<CONTRACT_HASH>",
+        "units": [
+          {"unit": "src/web", "status": "present"},
+          {"unit": "src/shared", "status": "present"}
+        ],
+        "top_level_units": ["src/shared", "src/web"],
+        "edges": [
+          {"src": "typescript.web", "dst": "typescript.shared", "src_module": "src/web/a", "dst_module": "src/shared/b"}
+        ]
+      }
+      EOF
+- dir: later
+  files:
+    la-doctor: |
+      #!/bin/sh
+      [ "$*" = "--twin" ] || { echo "fake la-doctor: unexpected $*" >&2; exit 99; }
+      echo "typescript <VERSION> <CONTRACT_HASH>"
+    la-arch-check: |
+      #!/bin/sh
+      echo "later: la-arch-check $*" >> <ROOT>/repo/probe.log
+      echo "later la-arch-check must not run" >&2
+      exit 99
+- dir: runner
+  files:
+    npx: |
+      #!/bin/sh
+      echo "runner: npx $*" >> <ROOT>/repo/probe.log
+      echo "runner npx must not run" >&2
+      exit 99
+expect:
+  exit: 0
+  files:
+  - probe.log
+golden: manual
+note: a PATH dir already probed (same real path) is not re-probed; dirs without an executable la-doctor are skipped; the first qualifying dir serves

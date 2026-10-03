@@ -1,0 +1,7 @@
+python:
+  root_package: pkg
+typescript:
+  root_package: src
+legacy_arrows:
+  baseline: 0
+diagrams: {}

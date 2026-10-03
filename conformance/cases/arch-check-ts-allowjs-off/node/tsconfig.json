@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "allowJs": false,
+    "paths": {
+      "@app/*": [
+        "./src/*"
+      ]
+    }
+  }
+}

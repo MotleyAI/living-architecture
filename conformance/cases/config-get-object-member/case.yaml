@@ -1,0 +1,8 @@
+kind: neutral
+command: la-config
+args:
+- get
+- reviewers.toString
+expect:
+  exit: 2
+note: an object member name is an unknown key, not a value

@@ -1,0 +1,11 @@
+kind: adapter
+languages:
+- python
+twin: typescript
+command: dr-compliance
+args:
+- src/k.py
+expect:
+  exit: 1
+golden: manual
+note: 'npm twin forwards dr-compliance wholesale: output equals the PyPI twin''s own run'

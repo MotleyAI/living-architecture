@@ -1,0 +1,4 @@
+model-truth: measured runtime edge typescript.a -> typescript.dyn is missing from the model (import src/a/dyn -> src/dyn/m)
+model-truth: measured runtime edge typescript.a -> typescript.req is missing from the model (import src/a/req -> src/req/m)
+model-truth: measured runtime edge typescript.c -> typescript.cjs is missing from the model (import src/c/z -> src/cjs/m)
+arch_check: 3 finding(s)

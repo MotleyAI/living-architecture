@@ -23,6 +23,7 @@ from living_architecture.contract import (
     is_portable_regex,
     load_yaml,
     materialize_defaults,
+    normalize,
     render_template,
     snapshot_dir,
     validate,
@@ -43,6 +44,7 @@ SHARED_FILES = (
     "schema/living-architecture.schema.json",
     "schema/index.schema.json",
     "schema/node.schema.json",
+    "schema/facts.schema.json",
     "findings.yaml",
     "cli.yaml",
     "conventions.yaml",
@@ -120,6 +122,57 @@ def test_index_schema_does_not_define_nodes() -> None:
     assert index["additionalProperties"] is False
 
 
+def test_index_schema_keys() -> None:
+    index = _schema("index")
+    assert set(index["properties"]) == {
+        "python", "typescript", "cross_cutting_arc42", "cross_cutting_specs", "legacy_arrows", "diagrams", "view_depth",
+    }
+    assert set(index["patternProperties"]) == {"^x-"}
+
+
+_SETTINGS = {"cross_cutting_arc42": [], "cross_cutting_specs": {}, "legacy_arrows": {"baseline": 0}, "diagrams": {},
+             "view_depth": {}}
+
+
+@pytest.mark.parametrize(
+    ("document", "valid"),
+    [
+        ({"python": {"root_package": "pkg"}}, True),
+        ({"python": {"root_package": "pkg", "source_root": "python/src"}}, True),
+        ({"typescript": {"root_package": "src", "source_root": "node", "tsconfig": "node/tsconfig.json"}}, True),
+        ({"python": {"root_package": "pkg"}, "typescript": {"root_package": "src"}, "x-foo": 1, **_SETTINGS}, True),
+        ({"python": {"root_package": "pkg"}, "x-guards": {"baseline": 0}}, True),
+        ({}, False),
+        ({"x-a": 1}, False),
+        (_SETTINGS, False),
+        ({"root_package": "pkg"}, False),
+        ({"python": {"root_package": "pkg"}, "root_package": "pkg"}, False),
+        ({"python": {"root_package": "pkg"}, "source_root": "src"}, False),
+        ({"python": {"root_package": "pkg"}, "nodes": {}}, False),
+        ({"python": {"root_package": "pkg"}, "guards": {"baseline": 0}}, False),
+        ({"python": {"root_package": "pkg"}, "rust": {"root_package": "src"}}, False),
+        ({"python": {}}, False),
+        ({"python": {"root_package": ""}}, False),
+        ({"python": {"root_package": "pkg", "tsconfig": "tsconfig.json"}}, False),
+        ({"python": {"root_package": "pkg", "extra": 1}}, False),
+        ({"typescript": {"root_package": "src", "extra": 1}}, False),
+        ({"python": "pkg"}, False),
+    ],
+)
+def test_index_schema_language_sections(document: dict, valid: bool) -> None:
+    assert (validate(_schema("index"), document) == []) is valid
+
+
+@pytest.mark.parametrize("vector", _vectors("facts.yaml")["accept"], ids=lambda v: v["name"])
+def test_facts_schema_accepts(vector: dict) -> None:
+    assert validate(_schema("facts"), vector["document"]) == []
+
+
+@pytest.mark.parametrize("vector", _vectors("facts.yaml")["reject"], ids=lambda v: v["name"])
+def test_facts_schema_rejects(vector: dict) -> None:
+    assert validate(_schema("facts"), vector["document"]) != []
+
+
 @pytest.mark.parametrize("vector", _vectors("repr.yaml")["cases"], ids=lambda v: v["repr"])
 def test_canonical_repr(vector: dict) -> None:
     assert canonical_repr(vector["value"]) == vector["repr"]
@@ -144,9 +197,19 @@ def test_python_test_globs_reproduce_classification(vector: dict) -> None:
     assert any(glob_match(g, vector["path"]) for g in globs) is vector["test"]
 
 
+@pytest.mark.parametrize("vector", _vectors("test-files.yaml")["typescript"], ids=lambda v: v["path"])
+def test_typescript_test_globs_classify(vector: dict) -> None:
+    globs = _shared_yaml("languages.yaml")["typescript"]["test_globs"]
+    assert any(glob_match(g, vector["path"]) for g in globs) is vector["test"]
+
+
 @pytest.mark.parametrize("vector", _vectors("yaml.yaml")["cases"], ids=lambda v: v["name"])
 def test_yaml_profile(vector: dict) -> None:
-    assert load_yaml(vector["text"]) == json.loads(vector["json"])
+    value = load_yaml(vector["text"])
+    if "json" in vector:
+        assert value == json.loads(vector["json"])
+    else:
+        assert canonical_repr(normalize(value)) == vector["repr"]
 
 
 @pytest.mark.parametrize("vector", _vectors("defaults.yaml")["cases"], ids=lambda v: v["name"])
@@ -206,6 +269,32 @@ def _produced(template: str, records: list[str]) -> bool:
     return any(pattern.search(line) for record in records for line in record.splitlines())
 
 
+NEW_TEMPLATES = {
+    "arch-check.no-language-section":
+        "architecture/index.yaml: a language section is required (one of python, typescript)",
+    "arch-check.root-undeclared": "model element {element}: top-level elements must be declared language roots",
+    "arch-check.root-missing": "model has no root element for declared language {language}",
+    "arch-check.metadata-on-root": "model element {element}: language roots may not carry metadata",
+    "c4.relation-outside-root": "relation {src} -> {dst} outside every language root",
+    "c4.view-unscoped": "view {view} is not scoped to a language root",
+    "c4.view-scope-unknown": "view {view} is scoped to {root}, which is not a language root",
+    "claims-exist.unit-ambiguous": "claims-exist: {node} claims {unit}, which is ambiguous: {candidates}",
+    "claims-exist.child-ambiguous": "claims-exist: element {element} maps to {unit}, which is ambiguous: {candidates}",
+    "enforced-tags.unknown-language": "enforced-tags: {doc} tags undeclared language {language!r}",
+    "twin.unavailable":
+        "the {language} twin (living-architecture {version}) is not reachable; install it with: {install}",
+    "twin.facts-invalid":
+        "the {language} twin (living-architecture {version}) returned invalid facts; reinstall it with: {install}",
+    "twin.forward-refused": "refusing to forward to the {language} twin from a forwarded process (LA_FORWARDED=1)",
+    "twin.not-native": "{language} facts are served only by the {language} twin",
+}
+
+
+@pytest.mark.parametrize(("template_id", "text"), NEW_TEMPLATES.items())
+def test_registry_template_text(template_id: str, text: str) -> None:
+    assert _shared_yaml("findings.yaml")["findings"].get(template_id) == text
+
+
 def test_every_registry_template_is_produced_by_a_golden() -> None:
     records = _golden_records()
     registry = _shared_yaml("findings.yaml")["findings"]
@@ -236,6 +325,40 @@ def test_manifest_declares_the_passthrough_commands() -> None:
         "la-fetch-failed-pr-checks",
         "la-wait-for-reviews",
     }
+
+
+PYTHON_ONLY = {"la-check-conventions", "la-count-comments", "dr-refactor", "dr-compliance", "dr-mock-lint"}
+
+
+def test_manifest_declares_native_languages() -> None:
+    commands = _shared_yaml("cli.yaml")["commands"]
+    native = {name: spec["native"] for name, spec in commands.items() if "native" in spec}
+    assert native == {name: ["python"] for name in PYTHON_ONLY}
+
+
+def _option(command: str, name: str) -> dict:
+    [option] = [o for o in _shared_yaml("cli.yaml")["commands"][command]["options"] if o["name"] == name]
+    return option
+
+
+@pytest.mark.parametrize(
+    ("command", "name", "type_", "choices"),
+    [
+        ("la-doctor", "--twin", "flag", None),
+        ("la-arch-check", "--language", "string", ["python", "typescript"]),
+        ("la-arch-check", "--emit", "string", ["facts"]),
+    ],
+)
+def test_manifest_internal_options(command: str, name: str, type_: str, choices: list[str] | None) -> None:
+    option = _option(command, name)
+    assert (option["type"], option.get("choices"), option.get("internal")) == (type_, choices, True)
+
+
+def test_only_the_twin_options_are_internal() -> None:
+    commands = _shared_yaml("cli.yaml")["commands"]
+    specs = [*commands.values(), *(sub for spec in commands.values() for sub in spec.get("subcommands", {}).values())]
+    internal = {o["name"] for spec in specs for o in spec.get("options", []) if o.get("internal")}
+    assert internal == {"--twin", "--language", "--emit"}
 
 
 # ---- vendored snapshot and contract hash
