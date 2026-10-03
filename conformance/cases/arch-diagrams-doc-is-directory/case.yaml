@@ -6,5 +6,4 @@ expect:
   stderr:
     contains:
     - 'la-arch-diagrams: '
-    - <ROOT>/repo/architecture/gone.arc42.md
-note: OS error wording is not part of the contract
+note: OS error wording is not part of the contract; Node's EISDIR message has no path
