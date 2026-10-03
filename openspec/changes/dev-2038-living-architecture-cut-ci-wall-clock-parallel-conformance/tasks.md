@@ -29,11 +29,11 @@
 
 ## 6. CI and docs
 
-- [ ] 6.1 `.github/workflows/ci.yml`: `cross-twin` matrix over `twin: [python, typescript]` (`fail-fast: false`) calling `scripts/conformance-cross --twin ${{ matrix.twin }}`; `node` job without `npm run conformance`, `setup-uv`, `uv sync` and the separate build; `cache: npm` with `cache-dependency-path: node/package-lock.json` in `node` and `cross-twin`. Verify with `actionlint` (or a careful read) and the PR's CI run.
+- [x] 6.1 `.github/workflows/ci.yml`: `cross-twin` matrix over `twin: [python, typescript]` (`fail-fast: false`) calling `scripts/conformance-cross --twin ${{ matrix.twin }}`; `node` job without `npm run conformance`, `setup-uv`, `uv sync` and the separate build; `cache: npm` with `cache-dependency-path: node/package-lock.json` in `node` and `cross-twin`. Verify with `actionlint` (or a careful read) and the PR's CI run.
 - [x] 6.2 AGENTS.md and `conformance/README.md`: `scripts/conformance-cross [--twin <twin>]`, the parallel default, `-n 0` for debugging, and the D1 rule that tests never write shared paths. Verify that the scrub and skills tests pass.
 - [x] 6.3 `plugin/skills/pr-plan/SKILL.md`: the "Recommendation bias" paragraph says to ask only about genuine choices and never to offer an option whose only pro is a smaller diff (user request during planning).
 
 ## 7. Verification
 
 - [x] 7.1 Full Python suite, `npm run lint && npm run typecheck && npm test`, and `scripts/conformance-cross` all green with no golden change (`git status conformance/` clean).
-- [ ] 7.2 On the PR: every check passes and the slowest job takes ≤ 5 min. Record before (run 37117736893) and after times per job in the PR description.
+- [x] 7.2 On the PR: every check passes and the slowest job takes ≤ 5 min. Record before (run 37117736893) and after times per job in the PR description.
