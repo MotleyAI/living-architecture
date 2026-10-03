@@ -27,8 +27,8 @@
 
 ## 5. This repo's architecture (every edit presented for the user's per-edit approval)
 
-- [ ] 5.1 Present and write `architecture/model/la.c4` per design D9. Verify `npx likec4 validate architecture` and `la-arch-check` from both twins.
-- [ ] 5.2 Present and write `system.arc42.md` principle 4 as the approved wording (design D7); run `la-arch-diagrams`. Verify `la-arch-check` exits 0 from both twins.
+- [x] 5.1 Present and write `architecture/model/la.c4` per design D9. Verify `npx likec4 validate architecture` and `la-arch-check` from both twins.
+- [x] 5.2 Present and write `system.arc42.md` principle 4 as the approved wording (design D7); run `la-arch-diagrams`. Verify `la-arch-check` exits 0 from both twins.
 
 ## 6. Docs
 
@@ -36,6 +36,6 @@
 
 ## 7. Final gates
 
-- [ ] 7.1 `python/`: full non-integration suite, `ruff check src tests`, `basedpyright src tests`. `node/`: lint, typecheck, Vitest, conformance. `scripts/conformance-cross`. Verify all green.
-- [ ] 7.2 `la-check-conventions --base main` clear from both twins; `la-typecheck` on this repo (with `commands.typecheck` set for its layout); `openspec validate dev-2026-living-architecture-ts-conventions-gate-comment-counting-la --strict`; `la-arch-check` exits 0 from both twins.
+- [x] 7.1 `python/`: full non-integration suite, `ruff check src tests`, `basedpyright src tests`. `node/`: lint, typecheck, Vitest, conformance. `scripts/conformance-cross`. Verify all green.
+- [x] 7.2 `la-check-conventions --base main` clear from both twins; `la-typecheck` on this repo (with `commands.typecheck` set for its layout); `openspec validate dev-2026-living-architecture-ts-conventions-gate-comment-counting-la --strict`; `la-arch-check` exits 0 from both twins.
 - [ ] 7.3 (pr-review, at archive time) Map `conventions` on `python.conventions` and `typecheck` on `python.typecheck` in model metadata (exact edit presented for approval). Verify `la-arch-check` exits 0 after `openspec archive`.

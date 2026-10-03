@@ -63,6 +63,11 @@ model {
         specs ['twin-forwarding']
       }
     }
+    typecheck = node 'Type check' {
+      metadata {
+        package 'living_architecture.typecheck'
+      }
+    }
 
     cli -> contract
     cli -> config
@@ -89,6 +94,12 @@ model {
     cli -> twin
     archcheck -> twin
     twin -> contract
+    cli -> typecheck
+    typecheck -> lang
+    typecheck -> config
+    typecheck -> contract
+    typecheck -> twin
+    conventions -> twin
   }
   typescript = system 'npm twin' {
     contract = node 'Shared contract' {
@@ -136,6 +147,16 @@ model {
         package 'src/twin'
       }
     }
+    conventions = node 'Conventions and comments' {
+      metadata {
+        package 'src/conventions'
+      }
+    }
+    typecheck = node 'Type check' {
+      metadata {
+        package 'src/typecheck'
+      }
+    }
 
     cli -> contract
     cli -> config
@@ -157,5 +178,15 @@ model {
     doctor -> config
     doctor -> contract
     twin -> contract
+    cli -> conventions
+    cli -> typecheck
+    conventions -> lang
+    conventions -> config
+    conventions -> contract
+    conventions -> twin
+    typecheck -> lang
+    typecheck -> config
+    typecheck -> contract
+    typecheck -> twin
   }
 }
