@@ -55,14 +55,12 @@ normalization that a single canonical representation would obviate, a check
 repeated at every call site, etc. are all tells). Prefer a design that makes
 the whole bug CLASS impossible or hard to recur — at the planner / type /
 canonical-representation level, one code path instead of N — over patching
-the instance in the existing repetitive implementation. Raise this as its own
-interview point: state the symptom, the structural cause, the band-aid vs.
-structural options with PROS/CONS, the arc42 grounding, and your
-RECOMMENDATION (leaning structural — a bigger diff is an acceptable cost, per
-the bias above). Only if the problem is genuinely local with no structural
-cause is the local fix the right plan; never silently plan a band-aid over a
-structural problem, and never plan a large structural refactor without my
-go-ahead.
+the instance in the existing repetitive implementation. This is NOT an
+interview question: decide it and state the symptom, the structural cause and
+the arc42 grounding in the plan. Never offer an option whose only pro is a
+smaller diff. Ask only when the structural fix's diff is HUGE — then: do it
+now / leave it / separate issue. Only if the problem is genuinely local with no
+structural cause is the local fix the right plan.
 
 When you think you have enough information, return a detailed, complete spec.
 In the spec you write, NEVER take shortcuts or make simplifications or
