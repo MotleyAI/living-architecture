@@ -69,6 +69,6 @@ makes the first model a deterministic scaffold, and rewrites the docs around onb
   four stages, `process-reviews`, `living-architecture`, `deterministic-refactor` and `codex-review`.
 - `README.md`, new `docs/`, `living-architecture.yaml` of this repo, `architecture/index.yaml` (spec
   mapping), `conformance/` cases plus `INVENTORY.md`, and `python/tests/test_skills.py`.
-- Depends on DEV-2025 (language roots, npm twin, facts provider) being merged first.
+- Builds on DEV-2025 (language roots, npm twin, facts provider), merged on main.
 - Target repos with `reviewers.coderabbit` or `reviewers.sonar.enabled` delete those keys. `la:init`
   proposes this edit.

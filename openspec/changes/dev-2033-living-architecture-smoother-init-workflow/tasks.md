@@ -3,8 +3,8 @@ it does not, stop at the group boundary, tick what is done, commit, and ask the 
 
 ## 1. Prerequisites
 
-- [ ] 1.1 Merge DEV-2025's branch into this branch (`git merge` with a quoted ref; never rebase). If DEV-2025 is not yet implemented and merged, STOP and tell the user, because nothing below can start. Verify: `node/` exists, `index.yaml` has language sections, and the full suites of both twins pass.
-- [ ] 1.2 Re-read the DEV-2025 specs as archived (arch-check, twin-forwarding, shared-contract) and check that this change's specs still line up. Any mismatch is a plan change: present the exact diff to the user before editing. Verify: `openspec validate dev-2033-living-architecture-smoother-init-workflow --strict` passes.
+- [x] 1.1 Merge DEV-2025's branch into this branch (`git merge` with a quoted ref; never rebase). If DEV-2025 is not yet implemented and merged, STOP and tell the user, because nothing below can start. Verify: `node/` exists, `index.yaml` has language sections, and the full suites of both twins pass.
+- [x] 1.2 Re-read the DEV-2025 specs as archived (arch-check, twin-forwarding, shared-contract) and check that this change's specs still line up. Any mismatch is a plan change: present the exact diff to the user before editing. Verify: `openspec validate dev-2033-living-architecture-smoother-init-workflow --strict` passes.
 
 ## 2. Shared contract
 
@@ -42,7 +42,7 @@ it does not, stop at the group boundary, tick what is done, commit, and ask the 
 ## 7. Docs, this repo and tests
 
 - [ ] 7.1 `docs/living-architecture-explained.md` (Notion content cleaned up, real skill names, two parts), `docs/skills.md` (Main / Helper sections), `docs/configuration.md`, `docs/commands.md`, `docs/deterministic-refactoring.md` (moved), `docs/development.md` (local checkout, releasing, layout). Verify: the link test in 7.3.
-- [ ] 7.2 Rewrite `README.md`: Notion-style intro, quick start (`/la:init`), main-skills table, prerequisites split into required and per-gate, absolute `docs/` links; remove "Upgrading from nodes:". Update AGENTS.md references. Verify: the 7.3 tests and `scripts/sync-shared`.
+- [ ] 7.2 Rewrite `README.md`: Notion-style intro, quick start (`/la:init`), main-skills table, prerequisites split into required and per-gate, absolute `docs/` links; remove "Upgrading from nodes:" and "Upgrading to language roots" with no replacement page (no repo uses the old layouts); move the two-twins paragraph to `docs/commands.md`, keeping one README line that the commands ship as a PyPI and an npm package. Update AGENTS.md references. Verify: the 7.3 tests and `scripts/sync-shared`.
 - [ ] 7.3 `test_skills.py`: `docs/skills.md` lists every skill exactly once; main skills (except `init`) and the stages use `--require-config` and helpers don't; the README skills table equals the main skills; relative links in README and `docs/` resolve; absolute `blob/main/docs/` links name existing files.
 - [ ] 7.4 Map every new `findings.yaml` id to a named conformance case and list every new case in `conformance/INVENTORY.md`. Verify: the registry-coverage and inventory tests pass.
 - [ ] 7.5 This repo: explicit `living-architecture.yaml` (`tracker: linear`, `openspec: true`, `architecture: true`, `codex: true`, the commands). Present, then (with the user's per-edit OK) write the `architecture/index.yaml` spec placement from design.md Context, plus any arc42 or model edit. Verify: `la-doctor --require-config` and `la-arch-check` exit 0.

@@ -1,6 +1,6 @@
 ## Context
 
-DEV-2025 (stacked below, merged before any test or code here) adds language roots in `index.yaml` and the model,
+DEV-2025 (merged on main) added language roots in `index.yaml` and the model,
 the npm twin, and a per-language facts exchange (`la-arch-check --language L --emit facts`). Every
 command-level behaviour below lands in both twins, except `la-check-conventions`, which the npm twin forwards
 (per DEV-2025). Skill behaviour is prose and is pinned only structurally (`python/tests/test_skills.py`).
@@ -10,11 +10,12 @@ texts only from `shared/`), 3 (language-specific code only in `lang`/`refactor`;
 language-neutral and live in `archcheck`) and 4 (no target-repo code executed; `commands.typecheck` is run
 by skills, never by the tools).
 
-Spec placement in `architecture/index.yaml`, following DEV-2025's convention for twinned behaviour:
-- `repo-config`: `cross_cutting_specs`, touching both twins' `config` and `doctor`.
-- `review-detection`: touching both twins' `review`.
-- `arch-scaffold`: touching both twins' `archcheck` and `lang`.
-- `conventions-gate`: in `python.conventions` metadata `specs`.
+Spec placement in `architecture/index.yaml`, following DEV-2025's precedent (a twinned spec maps to its
+PyPI-twin node, e.g. `arch-check` → `python.archcheck`, `twin-forwarding` → `python.twin`):
+- `repo-config`: `cross_cutting_specs`, touching `python.config` and `python.doctor`.
+- `review-detection`: `python.review` metadata `specs`.
+- `arch-scaffold`: `python.archcheck` metadata `specs`.
+- `conventions-gate`: `python.conventions` metadata `specs`.
 
 ## Goals / Non-Goals
 
@@ -128,5 +129,3 @@ links to each other.
   key is an explicit repo decision.
 - [Scaffold ids are sanitised] → titles keep the raw names, and collisions are an error rather than a
   silent merge.
-- [This work depends on the unmerged DEV-2025] → tasks start with the merge, and the plan is written
-  against DEV-2025's specs.
