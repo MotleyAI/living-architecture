@@ -11,19 +11,19 @@
 
 ## 2. Shared contract
 
-- [ ] 2.1 `languages.yaml`: `typescript` gains `markers: [tsconfig.json]`, `files_label: TS/JS`, `comment_prefix: '//'`, `suppression: '// @ts-expect-error — <reason>'`, `local_bin: node_modules/.bin`, `baseline_file: .tsc-baseline.json`; `python` gains `local_bin: .venv/bin`, `baseline_file: .basedpyright/baseline.json`; `type_checker` removed. `conventions.yaml`: `typescript` descriptions for every rule. Verify the registry tests.
-- [ ] 2.2 `cli.yaml`: `la-typecheck` (`--write-baseline`, internal `--language`), internal `--language`/`--emit facts` on `la-check-conventions` (also serving comment counts), both conventions commands neutral, `la-count-comments` help says doc lines. `schema/living-architecture.schema.json`: `commands.typecheck` map with defaults and the basedpyright-compatibility note. New `schema/conventions-facts.schema.json`, `vectors/command-split.yaml`. `findings.yaml`: TS rule templates, unknown-extension warnings, typecheck header/new-error/count/shrink/write/skip/refusal/not-found/no-languages/not-git templates. Run `scripts/sync-shared`. Verify the drift tests and the manifest/entry-point tests (new `la-typecheck` script and bin).
+- [x] 2.1 `languages.yaml`: `typescript` gains `markers: [tsconfig.json]`, `files_label: TS/JS`, `comment_prefix: '//'`, `suppression: '// @ts-expect-error — <reason>'`, `local_bin: node_modules/.bin`, `baseline_file: .tsc-baseline.json`; `python` gains `local_bin: .venv/bin`, `baseline_file: .basedpyright/baseline.json`; `type_checker` removed. `conventions.yaml`: `typescript` descriptions for every rule. Verify the registry tests.
+- [x] 2.2 `cli.yaml`: `la-typecheck` (`--write-baseline`, internal `--language`), internal `--language`/`--emit facts` on `la-check-conventions` (also serving comment counts), both conventions commands neutral, `la-count-comments` help says doc lines. `schema/living-architecture.schema.json`: `commands.typecheck` map with defaults and the basedpyright-compatibility note. New `schema/conventions-facts.schema.json`, `vectors/command-split.yaml`. `findings.yaml`: TS rule templates, unknown-extension warnings, typecheck header/new-error/count/shrink/write/skip/refusal/not-found/no-languages/not-git templates. Run `scripts/sync-shared`. Verify the drift tests and the manifest/entry-point tests (new `la-typecheck` script and bin).
 
 ## 3. PyPI twin
 
-- [ ] 3.1 `lang`: conventions facts for Python (existing analysis plus the flagged line text and comment/doc counts); the basedpyright adapter (write flag, exit mapping). Verify the Python unit tests.
-- [ ] 3.2 `conventions`: NUL-safe diff, routing, facts requests through `twin` (stdin paths), waivers on carried line text, cross-language ratio and labels, unknown-extension warnings, the facts server for `--language python --emit facts`; `la-count-comments` routing and `--range` with raw base bytes. Verify every Python-invoked conventions case from 1.1–1.4.
-- [ ] 3.3 New `typecheck` node and its `cli` wiring. Verify every Python-invoked case from 1.5–1.6.
+- [x] 3.1 `lang`: conventions facts for Python (existing analysis plus the flagged line text and comment/doc counts); the basedpyright adapter (write flag, exit mapping). Verify the Python unit tests.
+- [x] 3.2 `conventions`: NUL-safe diff, routing, facts requests through `twin` (stdin paths), waivers on carried line text, cross-language ratio and labels, unknown-extension warnings, the facts server for `--language python --emit facts`; `la-count-comments` routing and `--range` with raw base bytes. Verify every Python-invoked conventions case from 1.1–1.4.
+- [x] 3.3 New `typecheck` node and its `cli` wiring. Verify every Python-invoked case from 1.5–1.6.
 
 ## 4. npm twin
 
-- [ ] 4.1 `lang`: TS conventions detectors, line sets, decoding, syntax errors, facts; tsc adapter (grammar, both streams, multiset baseline JSON, shrink, write). Verify the Vitest adapter tests.
-- [ ] 4.2 New `conventions` node (port of the neutral gate and comment counter) and `typecheck` node; `cli` dispatch and bins. Verify every case from 1.1–1.6 through the npm twin and `scripts/conformance-cross`.
+- [x] 4.1 `lang`: TS conventions detectors, line sets, decoding, syntax errors, facts; tsc adapter (grammar, both streams, multiset baseline JSON, shrink, write). Verify the Vitest adapter tests.
+- [x] 4.2 New `conventions` node (port of the neutral gate and comment counter) and `typecheck` node; `cli` dispatch and bins. Verify every case from 1.1–1.6 through the npm twin and `scripts/conformance-cross`.
 
 ## 5. This repo's architecture (every edit presented for the user's per-edit approval)
 
@@ -32,7 +32,7 @@
 
 ## 6. Docs
 
-- [ ] 6.1 `AGENTS.md` (la-typecheck, conventions facts), `README.md` (TS conventions, `la-typecheck`, `commands.typecheck`, BREAKING routing note, `conventions.exempt` advice), `conformance/INVENTORY.md`. Verify `test_skills`, `plugin validate plugin`, and every new findings id covered by a golden.
+- [x] 6.1 `AGENTS.md` (la-typecheck, conventions facts), `README.md` (TS conventions, `la-typecheck`, `commands.typecheck`, BREAKING routing note, `conventions.exempt` advice), `conformance/INVENTORY.md`. Verify `test_skills`, `plugin validate plugin`, and every new findings id covered by a golden.
 
 ## 7. Final gates
 

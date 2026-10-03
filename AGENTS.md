@@ -73,5 +73,10 @@ Tests run in parallel by default; pass `-n 0` to pytest (also through `npm run c
 external path, only under its own temporary directory.
 
 A language-specific command run through a twin that does not implement it natively forwards to the other
-twin (found by `la-doctor --twin` on `PATH`, else `uvx`/`npx`); the npm twin forwards the Python-only
-commands in this release.
+twin (found by `la-doctor --twin` on `PATH`, else `uvx`/`npx`); the npm twin forwards the `dr-*` commands in
+this release. `la-check-conventions` and `la-count-comments` are neutral: the other language's files come back
+as a conventions-facts document (`la-check-conventions --language L --emit facts`, paths on stdin).
+`la-typecheck` runs the other language's section as `la-typecheck --language L` in its twin.
+
+Integration tests run a real checker and are deselected by default: `uv run pytest -m integration` in
+`python/`, `npm run build && npm run test:integration` in `node/`.

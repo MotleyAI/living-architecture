@@ -49,7 +49,6 @@ commands:
       - {name: --root, type: path, help: 'repo root (default: nearest git root of cwd)'}
 
   la-check-conventions:
-    native: [python]
     help: >-
       Deterministic convention gate over a PR's changed source files: import-not-top, text-ratio, and (tests)
       composite-assert and raises-single-throw. Waive a flagged line with a trailing ALLOW(<rule>): <reason>
@@ -65,16 +64,30 @@ commands:
       - {name: --exclude, type: string, metavar: GLOB, repeatable: true,
          help: extra repo-relative glob exempt from all checks (repeatable)}
       - {name: --text-ratio-cap, type: float, help: 'percent cap (default: from config)'}
-    require_one_of: [pr, base, files]
+      - {name: --language, type: string, choices: [python, typescript], internal: true,
+         help: the language whose conventions facts to emit}
+      - {name: --emit, type: string, choices: [facts], internal: true,
+         help: print the facts of the stdin JSON path list as JSON}
+    require_one_of: [pr, base, files, emit]
 
   la-count-comments:
-    native: [python]
-    help: Count comment and docstring lines in source files.
+    help: Count comment and doc lines (docstrings, JSDoc) in source files.
     exit: {0: ok, 2: usage error}
     passthrough: true
     usage: |
       la-count-comments FILE...                  per-file + total counts
       la-count-comments --range REF PATH...      net added vs a git ref (working tree)
+
+  la-typecheck:
+    help: >-
+      Run each applicable language's type checker against its committed baseline, which only ever shrinks.
+      A language applies when commands.typecheck sets it, or when the repo has its files and a root marker.
+    exit: {0: no errors outside the baseline, 1: new errors, 2: 'usage, config or checker error'}
+    options:
+      - {name: --write-baseline, type: flag,
+         help: write the baseline of each applicable language that has none (once, when adopting the gate)}
+      - {name: --language, type: string, choices: [python, typescript], internal: true,
+         help: check only this language}
 
   la-fetch-coderabbit-threads:
     help: Fetch unresolved CodeRabbit review threads on a PR (bundled script).

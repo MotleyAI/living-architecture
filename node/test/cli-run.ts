@@ -8,14 +8,14 @@ import { dispatch } from '../src/cli/index.js';
 
 export type Run = { code: number; out: string; err: string };
 
-/** A temp git repo holding `files` (paths ending in `/bin/*` are made executable). */
+/** A temp git repo holding `files` (paths ending in `/bin/*` or `/.bin/*` are made executable). */
 export function tempRepo(files: Record<string, string>): string {
   const root = mkdtempSync(join(tmpdir(), 'la-cli-'));
   execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: root });
   for (const [rel, text] of Object.entries(files)) {
     mkdirSync(dirname(join(root, rel)), { recursive: true });
     writeFileSync(join(root, rel), text);
-    if (/\/bin\/[^/]+$/.test(rel)) chmodSync(join(root, rel), 0o755);
+    if (/\/\.?bin\/[^/]+$/.test(rel)) chmodSync(join(root, rel), 0o755);
   }
   return root;
 }

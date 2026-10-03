@@ -161,6 +161,7 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | *(new)* an explicit path with an unknown extension skipped with one warning, not counted (incl. `test_x.txt`, `x_test.pyc`, `test_` in the classification case) | 0/1 | `conventions-file-unknown-extension`, `conventions-test-file-classification` |
 | *(new)* NUL-safe `--base` diff: spaces, non-ASCII and a leading dash keep their real names | 1 | `conventions-base-nul-safe-paths` |
 | *(new)* language facts emitted natively (`--language L --emit facts`, paths on stdin): ok with detections and line text, missing, unreadable, syntax-error | 0 | `conventions-facts-emit-python`, `conventions-facts-emit-typescript` |
+| *(new)* facts request whose stdin is not a JSON array of paths | 2 | `conventions-facts-stdin-invalid` |
 
 ## la-check-conventions: multi-language
 
@@ -207,6 +208,7 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 |---|---|---|
 | *(new)* applicability: stray JS in a Python repo, explicit entry without markers, `null` off, exempt and git-ignored files not counted, nothing to check | 0 | `typecheck-python-stray-js`, `typecheck-python-explicit-without-markers`, `typecheck-ts-language-off`, `typecheck-ts-exempt-and-ignored-not-counted`, `typecheck-no-languages` |
 | *(new)* not a git repo; checker not found (first word named); `commands.typecheck` as a string | 2 | `typecheck-not-a-git-repo`, `typecheck-ts-not-found`, `typecheck-python-not-found`, `typecheck-config-string-rejected` |
+| *(new)* configured command that does not split into shell words | 2 | `typecheck-python-command-unsplittable` |
 | *(new)* usage error; `--help` | 2/0 | `typecheck-usage-unknown-option`, `typecheck-help` |
 | *(new)* Python passthrough: clean (local bin preferred), new errors, shrink, write with errors, exit >= 2, a non-basedpyright command in write mode | 0/1/2 | `typecheck-python-clean`, `typecheck-python-new-errors`, `typecheck-python-shrink`, `typecheck-python-write-with-errors`, `typecheck-python-checker-crash`, `typecheck-python-custom-command-write` |
 | *(new)* TS ratchet: unchanged (local bin preferred), from a subdirectory, line shift | 0 | `typecheck-ts-unchanged`, `typecheck-ts-from-subdirectory`, `typecheck-ts-line-shift` |

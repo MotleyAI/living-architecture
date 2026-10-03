@@ -33,7 +33,24 @@
       "additionalProperties": false,
       "properties": {
         "test": {"type": ["string", "null"], "default": null, "description": "The repo's full non-integration test command."},
-        "lint": {"type": ["string", "null"], "default": null}
+        "lint": {"type": ["string", "null"], "default": null},
+        "typecheck": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "la-typecheck's checker per language, run without a shell from the repo root; null turns the language off. Setting a language forces it on.",
+          "properties": {
+            "python": {
+              "type": ["string", "null"],
+              "default": "basedpyright",
+              "description": "A basedpyright-compatible command: it must accept --writebaseline and keep its baseline at .basedpyright/baseline.json."
+            },
+            "typescript": {
+              "type": ["string", "null"],
+              "default": "tsc --noEmit",
+              "description": "A tsc-compatible command; --pretty false is appended."
+            }
+          }
+        }
       }
     },
     "conventions": {

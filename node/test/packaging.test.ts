@@ -150,13 +150,13 @@ describe('installed npm package: forwarding', () => {
     const hash = readFileSync(join(NODE_ROOT, 'src', 'contract', 'data', HASH_FILE), 'utf8').trim();
     const identity = `python ${readJson(join(NODE_ROOT, 'package.json')).version} ${hash}`;
     writeFileSync(join(stub, 'la-doctor'), `#!/bin/sh\necho "la-doctor $*" >> '${stubLog}'\necho '${identity}'\n`);
-    writeFileSync(join(stub, 'la-check-conventions'), `#!/bin/sh\necho "la-check-conventions $*" >> '${stubLog}'\nexit 7\n`);
+    writeFileSync(join(stub, 'dr-mock-lint'), `#!/bin/sh\necho "dr-mock-lint $*" >> '${stubLog}'\nexit 7\n`);
     chmodSync(join(stub, 'la-doctor'), 0o755);
-    chmodSync(join(stub, 'la-check-conventions'), 0o755);
-    const { proc, lines } = probed('la-check-conventions', ['--x'], WORK, [join(PREFIX, 'bin'), stub, NODE_BIN]);
+    chmodSync(join(stub, 'dr-mock-lint'), 0o755);
+    const { proc, lines } = probed('dr-mock-lint', ['--x'], WORK, [join(PREFIX, 'bin'), stub, NODE_BIN]);
     expect(proc.status, proc.stderr).toBe(7);
-    expect(readFileSync(stubLog, 'utf8').trim().split('\n')).toEqual(['la-doctor --twin', 'la-check-conventions --x']);
-    expect(lines).toContain(`start ${realpathSync(bin('la-check-conventions'))}`);
+    expect(readFileSync(stubLog, 'utf8').trim().split('\n')).toEqual(['la-doctor --twin', 'dr-mock-lint --x']);
+    expect(lines).toContain(`start ${realpathSync(bin('dr-mock-lint'))}`);
     expect(lines).not.toContain(`start ${realpathSync(bin('la-doctor'))}`);
     expect(lines.filter((line) => line.startsWith('typescript '))).toEqual([]);
   });

@@ -1,4 +1,5 @@
-# Per-language facts. `runner` runs a command through the language's twin at `{version}` (the command is
+# Per-language facts. `markers` are the repo-root files that make the language's type check apply; `local_bin`
+# is where the repo installs its checker; `baseline_file` is the checker's committed baseline. `runner` runs a command through the language's twin at `{version}` (the command is
 # appended); `install` is the hint shown when that twin is unreachable; `unit_separator` joins a unit's
 # segments (`pkg.api`, `src/api`). Test globs use the contract glob dialect (contract README: matched against the POSIX
 # repo-relative path; case-sensitive; `*` stays within one segment; `**` is zero or more whole segments).
@@ -16,12 +17,15 @@ python:
     - '**/conftest.py'
   comment_prefix: '#'
   suppression: '# pyright: ignore[<rule>]'
-  type_checker: basedpyright
+  local_bin: .venv/bin
+  baseline_file: .basedpyright/baseline.json
   runner: uvx --from living-architecture=={version}
   install: uv tool install living-architecture=={version}
 
 typescript:
+  markers: [tsconfig.json]
   source_extensions: [.ts, .tsx, .mts, .cts, .js, .jsx, .mjs, .cjs]
+  files_label: TS/JS
   unit_separator: /
   test_globs:
     - '**/*.test.*'
@@ -30,5 +34,9 @@ typescript:
     - '**/__mocks__/**/*'
     - '**/tests/**/*'
     - '**/test/**/*'
+  comment_prefix: '//'
+  suppression: '// @ts-expect-error — <reason>'
+  local_bin: node_modules/.bin
+  baseline_file: .tsc-baseline.json
   runner: npx -y -p living-architecture@{version}
   install: npm install -g living-architecture@{version}

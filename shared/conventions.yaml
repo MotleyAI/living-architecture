@@ -12,21 +12,25 @@ rules:
     tests_only: false
     description:
       python: no imports inside functions, none after module-level code (import-only if/try wrappers count as prologue)
+      typescript: no static import after other module-level statements (directives excepted), no require() outside module scope
   text-ratio:
     waivable: false
     tests_only: false
     description:
       python: docstring and comment-only lines at most the cap, aggregated separately over test and source files
+      typescript: comment-only lines (line, block, JSDoc) at most the cap, aggregated separately over test and source files
   composite-assert:
     waivable: true
     tests_only: true
     description:
       python: '`assert a and b`; split it'
+      typescript: '`expect(a && b)` or `assert(a && b)`; split it'
   raises-single-throw:
     waivable: true
     tests_only: true
     description:
       python: a pytest.raises / assertRaises block making more than one call
+      typescript: a toThrow / rejects / assert.throws / assert.rejects assertion making more than one call
 
 # Reported per file when the file cannot be checked; never waivable.
 file_errors: [unreadable, syntax-error]

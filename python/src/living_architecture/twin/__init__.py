@@ -1,4 +1,4 @@
-"""Reaching the other twin: identity handshake, discovery on PATH, runner probe and facts transport."""
+"""Reaching the other twin: identity handshake, discovery on PATH, runner probe, facts transport and language runs."""
 
 from __future__ import annotations
 
@@ -121,25 +121,53 @@ def refuse_if_forwarded(lang: str) -> None:
         raise TwinError(message("twin.forward-refused", language=lang))
 
 
-def _valid_facts(document: dict[str, Any], lang: str, expected_units: list[str]) -> bool:
-    if validate(schema("facts"), document):
-        return False
-    if (document["language"], document["version"], document["contract_hash"]) != (lang, __version__, contract_hash()):
-        return False
-    return {u["unit"] for u in document["units"]} >= set(expected_units)
+def _identity_ok(document: dict[str, Any], lang: str) -> bool:
+    return (document["language"], document["version"], document["contract_hash"]) == (lang, __version__, contract_hash())
+
+
+def _document(proc: subprocess.CompletedProcess[bytes], schema_name: str, lang: str) -> dict[str, Any] | None:
+    """The run's stdout as a schema-valid document of `lang` at this version; RelayedFailure on a non-zero exit."""
+    if proc.returncode > 0:
+        raise RelayedFailure
+    try:
+        document = json.loads(proc.stdout.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return None
+    if proc.returncode < 0 or not isinstance(document, dict) or validate(schema(schema_name), document):
+        return None
+    return document if _identity_ok(document, lang) else None
 
 
 def request_facts(lang: str, repo_root: Path, expected_units: list[str]) -> dict[str, Any]:
     """`lang`'s facts from its twin, schema-checked; RelayedFailure when its run fails, TwinError otherwise."""
     refuse_if_forwarded(lang)
     argv = [*_launcher(lang, repo_root).argv("la-arch-check"), "--root", str(repo_root), "--language", lang, "--emit", "facts"]
-    proc = subprocess.run(argv, stdout=subprocess.PIPE, env=_env(), check=False)
-    if proc.returncode > 0:
-        raise RelayedFailure
-    try:
-        document = json.loads(proc.stdout.decode("utf-8"))
-    except (UnicodeDecodeError, json.JSONDecodeError):
-        document = None
-    if proc.returncode < 0 or not isinstance(document, dict) or not _valid_facts(document, lang, expected_units):
+    document = _document(subprocess.run(argv, stdout=subprocess.PIPE, env=_env(), check=False), "facts", lang)
+    if document is None or not {u["unit"] for u in document["units"]} >= set(expected_units):
         raise TwinError(_hint("twin.facts-invalid", lang))
     return document
+
+
+def request_conventions_facts(lang: str, *, cwd: Path, paths: list[str], repo_root: Path) -> list[dict[str, Any]]:
+    """`lang`'s conventions facts for `paths` (relative to `cwd`), one per path in order; errors as `request_facts`."""
+    refuse_if_forwarded(lang)
+    argv = [*_launcher(lang, repo_root).argv("la-check-conventions"), "--language", lang, "--emit", "facts"]
+    sys.stdout.flush()
+    sys.stderr.flush()
+    proc = subprocess.run(
+        argv, input=json.dumps(paths).encode("utf-8"), stdout=subprocess.PIPE, cwd=cwd, env=_env(), check=False
+    )
+    document = _document(proc, "conventions-facts", lang)
+    if document is None or [f["path"] for f in document["files"]] != paths:
+        raise TwinError(_hint("twin.facts-invalid", lang))
+    return document["files"]
+
+
+def run_language(command: str, lang: str, args: list[str], *, cwd: Path, repo_root: Path) -> int:
+    """`command --language lang ARGS` in the `lang` twin, streams relayed; its exit code (a signal: 2)."""
+    refuse_if_forwarded(lang)
+    argv = [*_launcher(lang, repo_root).argv(command), "--language", lang, *args]
+    sys.stdout.flush()
+    sys.stderr.flush()
+    code = subprocess.run(argv, cwd=cwd, env=_env(), check=False).returncode
+    return code if code >= 0 else 2
