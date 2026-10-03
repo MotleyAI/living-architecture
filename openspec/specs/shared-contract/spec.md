@@ -184,7 +184,8 @@ The twin that invokes the command SHALL be chosen independently of the fixture l
 output SHALL NOT depend on it. Each twin's own suite SHALL run, through its own entry points, the cases whose
 fixture languages are none or only its own language, and whose command that twin implements natively; a
 cross-twin run SHALL run every case through each twin's entry points.
-`--help` text and parser error wording SHALL be excluded from byte comparison.
+`--help` text, parser error wording, and runtime-supplied error detail (OS errors, YAML library messages)
+SHALL be excluded from byte comparison; a twin SHALL NOT imitate another runtime's error wording.
 
 #### Scenario: Golden reproduced
 - **WHEN** a twin's suite executes a case applicable to it
@@ -205,3 +206,7 @@ cross-twin run SHALL run every case through each twin's entry points.
 #### Scenario: Multi-language fixture
 - **WHEN** a case lists `languages: [python, typescript]` with kind `neutral`
 - **THEN** both the `python/` and `node/` overlays are applied to one repo before the command runs
+
+#### Scenario: OS error detail is the runtime's own
+- **WHEN** `la-arch-check` cannot read `architecture/index.yaml`, or `la-arch-diagrams` cannot read a mapped arc42 doc (missing, or a directory), through either twin
+- **THEN** both twins exit with the same code, and stderr starts with the contract prefix (`arch_check: ` / `la-arch-diagrams: `) followed by the runtime's own wording, which names the offending path when the file is missing, with no CPython errno text in the npm twin
