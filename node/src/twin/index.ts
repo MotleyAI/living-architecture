@@ -2,7 +2,7 @@
 import { spawnSync } from 'node:child_process';
 import { accessSync, constants, realpathSync, statSync } from 'node:fs';
 import { constants as osConstants } from 'node:os';
-import { delimiter, join } from 'node:path';
+import { delimiter, dirname, join } from 'node:path';
 import { contractHash, language, message, renderTemplate, schema, validate, which } from '../contract/index.js';
 import { VERSION } from '../index.js';
 
@@ -45,8 +45,27 @@ function executable(path: string): boolean {
   }
 }
 
-/** The first directory (each real path once) whose executable `la-doctor` qualifies. */
+/** The real path of the running entry point's sibling `la-doctor.js`; null when it is not a file. */
+function ownDoctor(): string | null {
+  try {
+    const doctor = realpathSync(join(dirname(realpathSync(process.argv[1] ?? '')), 'la-doctor.js'));
+    return statSync(doctor).isFile() ? doctor : null;
+  } catch {
+    return null;
+  }
+}
+
+function isOwn(doctor: string, own: string | null): boolean {
+  try {
+    return own !== null && realpathSync(doctor) === own;
+  } catch {
+    return false;
+  }
+}
+
+/** The first directory (each real path once, never our own) whose executable `la-doctor` qualifies. */
 function discoverDir(lang: string, repoRoot: string): string | null {
+  const own = ownDoctor();
   const dirs = [...(process.env.PATH ?? '').split(delimiter).filter(Boolean), join(repoRoot, 'node_modules', '.bin')];
   const probed = new Set<string>();
   for (const dir of dirs) {
@@ -59,6 +78,7 @@ function discoverDir(lang: string, repoRoot: string): string | null {
     if (probed.has(real)) continue;
     probed.add(real);
     const doctor = join(dir, 'la-doctor');
+    if (isOwn(doctor, own)) continue;
     if (executable(doctor) && qualifies([doctor, '--twin'], lang)) return dir;
   }
   return null;

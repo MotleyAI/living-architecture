@@ -7,6 +7,7 @@ import os
 import shlex
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -68,8 +69,25 @@ def _candidate_dirs(repo_root: Path) -> list[Path]:
     return [*dirs, repo_root / "node_modules" / ".bin"]
 
 
+def _own_doctor() -> Path | None:
+    """The real path of the running entry point's sibling `la-doctor`; None when it is not a file."""
+    try:
+        doctor = (Path(sys.argv[0]).resolve().parent / "la-doctor").resolve(strict=True)
+    except (OSError, RuntimeError):
+        return None
+    return doctor if doctor.is_file() else None
+
+
+def _is_own(doctor: Path, own: Path | None) -> bool:
+    try:
+        return own is not None and doctor.resolve(strict=True) == own
+    except (OSError, RuntimeError):
+        return False
+
+
 def _discover_dir(lang: str, repo_root: Path) -> Path | None:
-    """The first directory (each real path once) whose executable `la-doctor` qualifies."""
+    """The first directory (each real path once, never our own) whose executable `la-doctor` qualifies."""
+    own = _own_doctor()
     probed: set[Path] = set()
     for directory in _candidate_dirs(repo_root):
         try:
@@ -80,6 +98,8 @@ def _discover_dir(lang: str, repo_root: Path) -> Path | None:
             continue
         probed.add(real)
         doctor = directory / "la-doctor"
+        if _is_own(doctor, own):
+            continue
         if doctor.is_file() and os.access(doctor, os.X_OK) and _qualifies([str(doctor), "--twin"], lang):
             return directory
     return None

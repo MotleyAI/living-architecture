@@ -40,7 +40,8 @@ jobs:
       - run: uv sync --locked
       - run: uv run pytest -q tests/test_packaging.py
 
-  # The npm twin: lint, typecheck, Vitest (incl. the npm pack smoke test outside the checkout), native conformance.
+  # The npm twin: lint, typecheck, Vitest (incl. the npm pack smoke test outside the checkout). Its native conformance
+  # cases run in the cross-twin typescript leg.
   node:
     runs-on: ubuntu-latest
     defaults:
@@ -51,27 +52,28 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-        with:
-          python-version: "3.13"
+          cache: npm
+          cache-dependency-path: node/package-lock.json
       - run: ../scripts/sync-shared --check
-      - run: uv sync --locked
-        working-directory: python
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
-      - run: npm run build
-      - run: npm run conformance
 
-  # Every conformance case through both twins' entry points.
+  # Every conformance case through one twin's entry points per leg.
   cross-twin:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        twin: [python, typescript]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+          cache: npm
+          cache-dependency-path: node/package-lock.json
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           python-version: "3.13"
@@ -79,7 +81,7 @@ jobs:
         working-directory: python
       - run: npm ci
         working-directory: node
-      - run: scripts/conformance-cross
+      - run: scripts/conformance-cross --twin ${{ matrix.twin }}
 
   plugin:
     runs-on: ubuntu-latest

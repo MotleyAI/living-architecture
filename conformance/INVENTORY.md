@@ -109,7 +109,7 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | key not an arc42 path (`!r`) | 1 | `arch-diagrams-key-not-arc42-path` |
 | view not defined (incl. no views.c4, string view list) | 1 | `arch-diagrams-view-not-defined`, `arch-diagrams-no-views-file`, `arch-diagrams-view-ids-string-iterates` |
 | missing / duplicate / out-of-order markers; earlier docs already written | 1 | `arch-diagrams-marker-missing`, `arch-diagrams-marker-duplicate`, `arch-diagrams-marker-order`, `arch-diagrams-first-error-stops-later-docs` |
-| mapped doc missing (OSError) | 1 | `arch-diagrams-doc-missing` |
+| mapped doc missing or a directory (OSError) | 1 | `arch-diagrams-doc-missing`, `arch-diagrams-doc-is-directory` |
 | usage error; `--help` | 2/0 | `arch-diagrams-usage-unknown-flag`, `arch-diagrams-help` |
 | *(new)* a wrapped model renders as unwrapped: grandchild subgraphs, nested predicate endpoints, legacy roll-up, `view_depth` | 0 | `arch-diagrams-wrapped-nested-predicates-depth` |
 | *(new)* same local ids under two roots: one relation per root, each scoped view draws its own | 0 | `arch-diagrams-same-local-ids-two-roots` |
