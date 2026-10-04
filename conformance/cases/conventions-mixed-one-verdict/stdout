@@ -1,0 +1,15 @@
+a/x.ts:2: [import-not-top] static import after other module-level statements; move it to the top of the file
+b/y.py:3: [import-not-top] module-level import after non-import code; move it to the top of the file
+tests/test_w.py:2: [composite-assert] composite `assert ... and ...`; split into separate assert statements
+tests/v.test.ts:1: [composite-assert] composite `expect(... && ...)` or `assert(... && ...)`; split into separate assertions
+[text-ratio] source: text-only lines are 25.0% of the changed source files (2/8), cap 15.0%
+    c/z.ts: 50.0% (1/2)
+    b/y.py: 25.0% (1/4)
+    a/x.ts: 0.0% (0/2)
+
+gate: RED —
+  [import-not-top] hoist each flagged import to module top. Only a genuine
+    circular import may be waived with '# ALLOW(import-not-top): <reason>' or '// ALLOW(import-not-top): <reason>' —
+    confirm with the user before landing such a waiver.
+  [text-ratio] trim comments/docstrings in the flagged file group until
+    text-only lines fit under the cap (no per-line waiver).

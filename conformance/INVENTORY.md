@@ -120,6 +120,8 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | Branch | Exit | Cases |
 |---|---|---|
 | `show`: defaults (no file, empty, comments, `{}`), partial, falsy kept, YAML 1.1, duplicate keys, full, integer float, non-ASCII, portable pattern | 0 | `config-show-defaults`, `config-show-empty-file`, `config-show-comments-only`, `config-show-empty-mapping`, `config-show-partial-nested`, `config-show-explicit-falsy`, `config-show-yaml11-booleans`, `config-show-duplicate-key`, `config-show-full`, `config-show-integer-ratio`, `config-show-non-ascii`, `config-show-sonar-disabled-with-key`, `config-show-portable-patterns` |
+| *(new)* `commands.typecheck`: per-language defaults (shown in every `show` golden), explicit `null` kept, `get` of a default | 0 | `config-show-typecheck-null`, `config-get-typecheck-default` |
+| *(new)* `commands.typecheck` as a plain string, or with an unknown language key | 1 | `config-error-typecheck-string`, `config-error-typecheck-unknown-language` |
 | *(new)* strict scalar types: string/int for a bool, string for a number (pydantic used to coerce) | 1 | `config-error-lax-string-bool`, `config-error-lax-int-bool`, `config-error-lax-string-float` |
 | `get`: bool, null (empty line), string, float, list/mapping as JSON, non-ASCII | 0 | `config-get-bool-true`, `config-get-bool-false`, `config-get-null-is-empty`, `config-get-string`, `config-get-float`, `config-get-integer-float`, `config-get-empty-list`, `config-get-list`, `config-get-mapping`, `config-get-non-ascii`, `config-get-non-ascii-in-list` |
 | `get`: unknown key; key into a scalar; an object member name | 2 | `config-get-unknown-key`, `config-get-into-scalar`, `config-get-object-member` |
@@ -151,11 +153,41 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | unreadable (decode error, directory); syntax error | 1 | `conventions-unreadable-binary`, `conventions-unreadable-directory`, `conventions-syntax-error` |
 | text-ratio: source over, tests over, standalone strings; cap from flag / config | 1/0 | `conventions-text-ratio-source-over`, `conventions-text-ratio-tests-over`, `conventions-text-ratio-standalone-strings`, `conventions-text-ratio-cap-flag`, `conventions-text-ratio-config-cap` |
 | exempt globs (config + `--exclude`, fnmatch semantics) | 0 | `conventions-exempt-config-and-flag`, `conventions-accepted-invocation-vector`, `conventions-accepted-invocation-vector-with-exempt-file`, `conventions-equals-forms` |
-| `--base`: committed, staged, unstaged, untracked, deleted, renamed; origin vs local; no .py changes | 0/1 | `conventions-base-committed`, `conventions-base-working-tree`, `conventions-base-uses-origin-not-local`, `conventions-base-no-python-changes` |
+| `--base`: committed, staged, unstaged, untracked, deleted, renamed; origin vs local; *(new)* empty change set labelled `source` | 0/1 | `conventions-base-committed`, `conventions-base-working-tree`, `conventions-base-uses-origin-not-local`, `conventions-base-no-python-changes` |
 | `--base` ref missing; not a git repo | 2 | `conventions-base-ref-missing`, `conventions-base-not-a-git-repo` |
 | PR lookup: resolves, `--repo`, fails; `--base` wins; `--file` wins | 1/2/0 | `conventions-pr-resolves-base`, `conventions-pr-with-repo`, `conventions-pr-lookup-fails`, `conventions-pr-and-base-prefers-base`, `conventions-file-overrides-base`, `conventions-double-dash-pr` |
 | invalid config | 2 | `conventions-config-invalid` |
 | usage errors; `--help`; *(new)* abbreviated option rejected | 2/0 | `conventions-usage-no-target`, `conventions-usage-cap-not-a-number`, `conventions-help`, `conventions-usage-abbreviated-option` |
+| *(new)* an explicit path with an unknown extension skipped with one warning, not counted (incl. `test_x.txt`, `x_test.pyc`, `test_` in the classification case) | 0/1 | `conventions-file-unknown-extension`, `conventions-test-file-classification` |
+| *(new)* NUL-safe `--base` diff: spaces, non-ASCII and a leading dash keep their real names | 1 | `conventions-base-nul-safe-paths` |
+| *(new)* language facts emitted natively (`--language L --emit facts`, paths on stdin): ok with detections and line text, missing, unreadable, syntax-error | 0 | `conventions-facts-emit-python`, `conventions-facts-emit-typescript` |
+| *(new)* facts request whose stdin is not a JSON array of paths | 2 | `conventions-facts-stdin-invalid` |
+
+## la-check-conventions: multi-language
+
+| Branch | Exit | Cases |
+|---|---|---|
+| *(new)* one report: path order across languages, ratio groups spanning both, `.py and TS/JS` label, mixed RED waiver line | 1 | `conventions-mixed-one-verdict` |
+| *(new)* `--base` routes each file by extension; other files silently ignored; deletions excluded | 1 | `conventions-mixed-base-diff` |
+| *(new)* a rename across languages is checked under the new path by the new language | 1 | `conventions-mixed-rename-across-languages` |
+
+## la-check-conventions: TypeScript adapter
+
+| Branch | Exit | Cases |
+|---|---|---|
+| *(new)* clean TS source and test files: CLEAR with the TS/JS label | 0 | `conventions-ts-clean` |
+| *(new)* import-not-top: late static import, `import type`, `import x = require()`, `export … from` before an import; directive prologue; a string after an import; a top-level `require()` ends the prologue | 1 | `conventions-ts-import-after-code`, `conventions-ts-import-directive-prologue`, `conventions-ts-import-require-ends-prologue` |
+| *(new)* `require()` outside module scope by the n/global-require ancestor allow-list | 1 | `conventions-ts-require-not-top` |
+| *(new)* never flagged: dynamic `import()`, type-position `import('x')`, `declare module` and namespace bodies, a bottom barrel `export … from` | 0 | `conventions-ts-import-allowed-forms` |
+| *(new)* composite-assert (`expect`, `assert`, `assert.ok`, parenthesized `&&`; not `||`, not outside tests) | 1 | `conventions-ts-composite-assert` |
+| *(new)* raises-single-throw: each `toThrow*` matcher, `.rejects`, `assert.throws`/`rejects`, `new` counted, multi-line; one call and `.not.toThrow` clean | 1 | `conventions-ts-raises-single-throw` |
+| *(new)* `// ALLOW(<rule>): <reason>` waivers per rule incl. a multi-line construct; wrong rule, no reason, lowercase, `#` form, later line do not waive | 1 | `conventions-ts-waivers` |
+| *(new)* syntax error (first parse diagnostic), excluded from text-ratio; invalid UTF-8 unreadable | 1 | `conventions-ts-syntax-error`, `conventions-ts-unreadable-invalid-utf8` |
+| *(new)* every ScriptKind: `.js .jsx .mjs .cjs .tsx .mts .cts` | 1 | `conventions-ts-script-kinds` |
+| *(new)* TS test globs decide where tests-only rules apply | 1 | `conventions-ts-test-file-classification` |
+| *(new)* text-ratio at and just over the cap, per group | 0/1 | `conventions-ts-text-ratio-source-at-cap`, `conventions-ts-text-ratio-source-over`, `conventions-ts-text-ratio-tests-at-cap`, `conventions-ts-text-ratio-tests-over` |
+| *(new)* text-only lines (block comments beside code, trailing comments and JSDoc, blank lines inside a block, comment-like strings); BOM, CRLF, lone CR, no final newline | 1 | `conventions-ts-text-lines`, `conventions-ts-line-breaks` |
+| *(new)* `--base` diff of TS files: committed, staged, unstaged, renamed, non-ASCII; untracked and deleted not checked | 1 | `conventions-ts-base-diff` |
 
 ## la-count-comments
 
@@ -163,9 +195,27 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 |---|---|---|
 | per-file counts and total (comments, every docstring owner) | 0 | `count-comments-files` |
 | missing file, syntax error, tokenize error | 0 | `count-comments-missing-file`, `count-comments-syntax-error`, `count-comments-tokenize-error` |
-| passthrough argv (`--`, `--help` are paths) | 0 | `count-comments-double-dash-is-a-path`, `count-comments-help-is-a-path` |
+| passthrough argv (`--`, `--help` are paths); *(new)* both skipped with the unknown-extension warning | 0 | `count-comments-double-dash-is-a-path`, `count-comments-help-is-a-path` |
+| *(new)* unknown extension skipped with one warning | 0 | `count-comments-unknown-extension` |
+| *(new)* TS: JSDoc as doc, other comments incl. trailing and `/**/`, distinct lines, shebang neither, BOM+CRLF, missing file; syntax error still counted; `--range` | 0 | `count-comments-ts-files`, `count-comments-ts-syntax-error`, `count-comments-ts-range` |
+| *(new)* multi-language: files in argument order across languages; `--range` | 0 | `count-comments-mixed-files`, `count-comments-mixed-range` |
 | `--range`: added, removed, unchanged, new file; repo-relative ref paths | 0 | `count-comments-range`, `count-comments-range-paths-are-repo-relative` |
 | usage: no args; `--range` with too few args | 2 | `count-comments-usage-no-args`, `count-comments-range-too-few-args` |
+
+## la-typecheck
+
+| Branch | Exit | Cases |
+|---|---|---|
+| *(new)* applicability: stray JS in a Python repo, explicit entry without markers, `null` off, exempt and git-ignored files not counted, nothing to check | 0 | `typecheck-python-stray-js`, `typecheck-python-explicit-without-markers`, `typecheck-ts-language-off`, `typecheck-ts-exempt-and-ignored-not-counted`, `typecheck-no-languages` |
+| *(new)* not a git repo; checker not found (first word named); `commands.typecheck` as a string | 2 | `typecheck-not-a-git-repo`, `typecheck-ts-not-found`, `typecheck-python-not-found`, `typecheck-config-string-rejected` |
+| *(new)* configured command that does not split into shell words | 2 | `typecheck-python-command-unsplittable` |
+| *(new)* usage error; `--help` | 2/0 | `typecheck-usage-unknown-option`, `typecheck-help` |
+| *(new)* Python passthrough: clean (local bin preferred), new errors, shrink, write with errors, exit >= 2, a non-basedpyright command in write mode | 0/1/2 | `typecheck-python-clean`, `typecheck-python-new-errors`, `typecheck-python-shrink`, `typecheck-python-write-with-errors`, `typecheck-python-checker-crash`, `typecheck-python-custom-command-write` |
+| *(new)* TS ratchet: unchanged (local bin preferred), from a subdirectory, line shift | 0 | `typecheck-ts-unchanged`, `typecheck-ts-from-subdirectory`, `typecheck-ts-line-shift` |
+| *(new)* TS new errors: new key with continuation lines, count increase listing every occurrence, new + resolved without shrink | 1 | `typecheck-ts-new-error`, `typecheck-ts-count-increase`, `typecheck-ts-new-and-resolved` |
+| *(new)* TS baseline shrinks; written fresh (sorted), clean (empty), path with spaces and parentheses, continuation lines, diagnostics on stderr, absolute path keyed relative | 0 | `typecheck-ts-shrink`, `typecheck-ts-write-fresh`, `typecheck-ts-write-clean`, `typecheck-ts-path-spaces-parens`, `typecheck-ts-continuation-lines`, `typecheck-ts-diagnostics-on-stderr`, `typecheck-ts-absolute-path` |
+| *(new)* TS failures: every baseline exists in write mode, global diagnostic, non-zero exit with nothing parsed, malformed or wrongly shaped baseline | 2 | `typecheck-ts-write-all-exist`, `typecheck-ts-global-diagnostic`, `typecheck-ts-nonzero-nothing-parsed`, `typecheck-ts-malformed-baseline`, `typecheck-ts-baseline-wrong-shape` |
+| *(new)* multi-language: Python first, exit max; write for a newly added language skips the existing baseline | 1/0 | `typecheck-mixed-order-exit-max`, `typecheck-mixed-write-new-language` |
 
 ## dr-compliance
 
@@ -219,7 +269,13 @@ time or many paged responses. Those branches are pinned by `tests/test_review_sc
 | *(new)* discovery skips a PATH dir whose real path was already probed, a dir without `la-doctor` and a non-executable `la-doctor`; the first qualifying dir serves | 0 | `twin-discovery-dedup-and-skip` |
 | *(new)* version / contract mismatch skipped, runner probed (`uvx --from …==<version>`, `npx -y -p …@<version>`), command run through it, exit and streams passed through | 1/0 | `twin-version-mismatch-runner-probed`, `twin-contract-mismatch-runner-probed` |
 | *(new)* twin unavailable (install hint): no twin and no runner; runner probe fails; runner probe reports another identity | 2 | `twin-unavailable-typescript`, `twin-unavailable-python`, `twin-runner-probe-fails`, `twin-runner-probe-wrong-identity` |
-| *(new)* npm twin forwards each Python-only command wholesale; output equals the PyPI twin's own run | 0/1 | `twin-forward-check-conventions`, `twin-forward-count-comments`, `twin-forward-refactor`, `twin-forward-compliance`, `twin-forward-mock-lint` |
+| *(new)* npm twin forwards each Python-only command wholesale; output equals the PyPI twin's own run | 0/1 | `twin-forward-refactor`, `twin-forward-compliance`, `twin-forward-mock-lint` |
+| *(new)* conventions commands through the npm twin on Python files: Python facts from the PyPI twin, output equals its own run | 0 | `twin-conventions-python-files-from-npm-twin`, `twin-count-comments-python-files-from-npm-twin` |
+| *(new)* conventions facts folded into one report (carried-text waiver, tests-only filter, stdin path list); comment counts from facts | 1/0 | `twin-conventions-facts-folded`, `twin-conventions-facts-folded-from-python`, `twin-count-comments-facts-folded` |
+| *(new)* conventions facts protocol failure: malformed, schema-invalid, wrong version, killed by a signal; non-zero exit relayed | 2 | `twin-conventions-facts-malformed`, `twin-conventions-facts-schema-invalid`, `twin-conventions-facts-wrong-version`, `twin-conventions-facts-killed-by-signal`, `twin-conventions-facts-nonzero-exit-relayed` |
+| *(new)* conventions facts: twin unreachable for a mixed diff; request for a non-owned language; `LA_FORWARDED=1` refusal | 2 | `twin-conventions-facts-unavailable`, `twin-conventions-facts-non-native-typescript`, `twin-conventions-facts-non-native-python`, `twin-conventions-facts-refused-when-forwarded` |
+| *(new)* conventions commands on own-language files never probe the other twin | 0 | `twin-conventions-own-language-typescript`, `twin-conventions-own-language-python`, `twin-count-comments-own-language-typescript` |
+| *(new)* `la-typecheck`: the other language runs through its twin (`--language L`, streams relayed, exit max); `--language` for a non-owned language refused without a process; twin unreachable | 1/2 | `twin-typecheck-forwarded-typescript`, `twin-typecheck-non-native-typescript`, `twin-typecheck-non-native-python`, `twin-typecheck-unavailable` |
 | *(new)* neutral commands never forward (other twin unreachable) | 0 | `twin-neutral-config-show`, `twin-neutral-doctor`, `twin-neutral-arch-diagrams` |
 | *(new)* own-language inputs never probe or run the other twin | 0 | `twin-own-language-python`, `twin-own-language-typescript` |
 | *(new)* facts emitted natively (Python): unit statuses in model order, sorted top-level units, sorted edges with first witness | 0 | `twin-facts-emit-python` |

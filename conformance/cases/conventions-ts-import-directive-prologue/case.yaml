@@ -1,0 +1,13 @@
+kind: adapter
+languages:
+- typescript
+command: la-check-conventions
+args:
+- --file
+- src/a.ts
+- --file
+- src/b.ts
+expect:
+  exit: 1
+golden: manual
+note: string directives before the first import are prologue; a string statement after an import is code

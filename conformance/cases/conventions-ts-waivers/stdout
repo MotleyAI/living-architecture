@@ -1,0 +1,13 @@
+src/a.ts:4: [import-not-top] static import after other module-level statements; move it to the top of the file
+src/a.ts:5: [import-not-top] static import after other module-level statements; move it to the top of the file
+src/a.ts:6: [import-not-top] static import after other module-level statements; move it to the top of the file
+src/a.ts:7: [import-not-top] static import after other module-level statements; move it to the top of the file
+src/w.test.ts:8: [raises-single-throw] `toThrow`/`rejects` assertion makes 2 calls that can throw; move all but the call under test outside it
+src/w.test.ts:11: [raises-single-throw] `toThrow`/`rejects` assertion makes 2 calls that can throw; move all but the call under test outside it
+
+gate: RED —
+  [import-not-top] hoist each flagged import to module top. Only a genuine
+    circular import may be waived with '// ALLOW(import-not-top): <reason>' —
+    confirm with the user before landing such a waiver.
+  [text-ratio] trim comments/docstrings in the flagged file group until
+    text-only lines fit under the cap (no per-line waiver).

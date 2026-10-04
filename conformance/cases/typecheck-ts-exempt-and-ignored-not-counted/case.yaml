@@ -1,0 +1,14 @@
+kind: adapter
+languages:
+- typescript
+command: la-typecheck
+git:
+- write:
+    .gitignore: |
+      out/
+    out/b.ts: |
+      export const b = 1;
+expect:
+  exit: 0
+golden: manual
+note: TS files under conventions.exempt or git-ignored do not make TypeScript applicable

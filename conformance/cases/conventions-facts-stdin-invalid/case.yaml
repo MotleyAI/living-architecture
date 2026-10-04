@@ -1,0 +1,10 @@
+kind: neutral
+command: la-check-conventions
+args:
+- --emit
+- facts
+stdin: not json
+expect:
+  exit: 2
+golden: manual
+note: a facts request whose stdin is not a JSON array of paths is refused with exit 2

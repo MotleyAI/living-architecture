@@ -1,0 +1,12 @@
+kind: adapter
+languages:
+- python
+command: la-typecheck
+args:
+- --write-baseline
+expect:
+  exit: 0
+  files:
+  - .basedpyright/baseline.json
+golden: manual
+note: --write-baseline appends --writebaseline; the checker's exit 1 after writing becomes 0

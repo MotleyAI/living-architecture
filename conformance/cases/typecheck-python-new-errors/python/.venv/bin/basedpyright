@@ -1,0 +1,9 @@
+#!/bin/sh
+[ -d .git ] && [ -f pyproject.toml ] || { echo "fake basedpyright: not run at the repo root: $(pwd)" >&2; exit 99; }
+[ "$*" = "" ] || { echo "fake basedpyright: unexpected args: $*" >&2; exit 99; }
+cat <<'EOF'
+src/m.py
+  src/m.py:1:5 - error: Type "Literal['x']" is not assignable to declared type "int" (reportAssignmentType)
+1 error, 0 warnings, 0 notes
+EOF
+exit 1

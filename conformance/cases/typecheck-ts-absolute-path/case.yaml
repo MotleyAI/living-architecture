@@ -1,0 +1,12 @@
+kind: adapter
+languages:
+- typescript
+command: la-typecheck
+args:
+- --write-baseline
+expect:
+  exit: 0
+  files:
+  - .tsc-baseline.json
+golden: manual
+note: an absolute diagnostic path is keyed repo-relative

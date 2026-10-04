@@ -1,16 +1,14 @@
-tests/x.py:2: [composite-assert] composite `assert ... and ...`; split into separate assert statements
-a/test/b.py:2: [composite-assert] composite `assert ... and ...`; split into separate assert statements
-test_x.py:2: [composite-assert] composite `assert ... and ...`; split into separate assert statements
-pkg/x_test.py:2: [composite-assert] composite `assert ... and ...`; split into separate assert statements
-conftest.py:2: [composite-assert] composite `assert ... and ...`; split into separate assert statements
-a/b/tests/c/d.py:2: [composite-assert] composite `assert ... and ...`; split into separate assert statements
 .venv/tests/x.py:2: [composite-assert] composite `assert ... and ...`; split into separate assert statements
-pkg/conftest.py:2: [composite-assert] composite `assert ... and ...`; split into separate assert statements
-test_:2: [composite-assert] composite `assert ... and ...`; split into separate assert statements
-test/x.py:2: [composite-assert] composite `assert ... and ...`; split into separate assert statements
-a/x_test.py:2: [composite-assert] composite `assert ... and ...`; split into separate assert statements
-test_x.txt:2: [composite-assert] composite `assert ... and ...`; split into separate assert statements
 _test.py:2: [composite-assert] composite `assert ... and ...`; split into separate assert statements
+a/b/tests/c/d.py:2: [composite-assert] composite `assert ... and ...`; split into separate assert statements
+a/test/b.py:2: [composite-assert] composite `assert ... and ...`; split into separate assert statements
+a/x_test.py:2: [composite-assert] composite `assert ... and ...`; split into separate assert statements
+conftest.py:2: [composite-assert] composite `assert ... and ...`; split into separate assert statements
+pkg/conftest.py:2: [composite-assert] composite `assert ... and ...`; split into separate assert statements
+pkg/x_test.py:2: [composite-assert] composite `assert ... and ...`; split into separate assert statements
+test/x.py:2: [composite-assert] composite `assert ... and ...`; split into separate assert statements
+test_x.py:2: [composite-assert] composite `assert ... and ...`; split into separate assert statements
+tests/x.py:2: [composite-assert] composite `assert ... and ...`; split into separate assert statements
 
 gate: RED —
   [import-not-top] hoist each flagged import to module top. Only a genuine

@@ -1,0 +1,8 @@
+kind: adapter
+languages:
+- python
+command: la-typecheck
+expect:
+  exit: 2
+golden: manual
+note: 'a configured command that does not split into shell words (unterminated quote): exit 2 naming the key'

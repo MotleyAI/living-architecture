@@ -42,7 +42,7 @@ process.on('exit', () => {
 
 function run(cmd: string, args: string[], cwd: string, input = ''): SpawnSyncReturns<string> {
   const env = { ...process.env, PATH: [FAKE_BIN, join(PREFIX, 'bin'), process.env.PATH].join(delimiter), TMPDIR: TMP };
-  return spawnSync(cmd, args, { cwd, env, input, encoding: 'utf8' });
+  return spawnSync(cmd, args, { cwd, env, input, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
 }
 
 function npm(args: string[], cwd: string): string {
@@ -104,6 +104,17 @@ describe('installed npm package', () => {
     expect(proc.stdout).toBe('u\n');
     expect(readFileSync(GH_LOG, 'utf8')).toContain('repos/o/r/pulls/3/comments/9/replies');
   });
+
+  it('conventions facts keep the order of a path list longer than a command line', () => {
+    const paths = Array.from({ length: 30_000 }, (_, i) => `web/${'d'.repeat(60)}/${String(30_000 - i).padStart(5, '0')}_${'m'.repeat(40)}.ts`);
+    const stdin = JSON.stringify(paths);
+    expect(stdin.length).toBeGreaterThan(2 * 1024 * 1024);
+    const proc = run(join(PREFIX, 'bin', 'la-check-conventions'), ['--language', 'typescript', '--emit', 'facts'], WORK, stdin);
+    expect(proc.status, proc.stderr).toBe(0);
+    const files: { path: string; status: string }[] = JSON.parse(proc.stdout).files;
+    expect(files.map((f) => f.path)).toEqual(paths);
+    expect(new Set(files.map((f) => f.status))).toEqual(new Set(['missing']));
+  });
 });
 
 describe('installed npm package: TypeScript compiler loading', () => {
@@ -139,13 +150,13 @@ describe('installed npm package: forwarding', () => {
     const hash = readFileSync(join(NODE_ROOT, 'src', 'contract', 'data', HASH_FILE), 'utf8').trim();
     const identity = `python ${readJson(join(NODE_ROOT, 'package.json')).version} ${hash}`;
     writeFileSync(join(stub, 'la-doctor'), `#!/bin/sh\necho "la-doctor $*" >> '${stubLog}'\necho '${identity}'\n`);
-    writeFileSync(join(stub, 'la-check-conventions'), `#!/bin/sh\necho "la-check-conventions $*" >> '${stubLog}'\nexit 7\n`);
+    writeFileSync(join(stub, 'dr-mock-lint'), `#!/bin/sh\necho "dr-mock-lint $*" >> '${stubLog}'\nexit 7\n`);
     chmodSync(join(stub, 'la-doctor'), 0o755);
-    chmodSync(join(stub, 'la-check-conventions'), 0o755);
-    const { proc, lines } = probed('la-check-conventions', ['--x'], WORK, [join(PREFIX, 'bin'), stub, NODE_BIN]);
+    chmodSync(join(stub, 'dr-mock-lint'), 0o755);
+    const { proc, lines } = probed('dr-mock-lint', ['--x'], WORK, [join(PREFIX, 'bin'), stub, NODE_BIN]);
     expect(proc.status, proc.stderr).toBe(7);
-    expect(readFileSync(stubLog, 'utf8').trim().split('\n')).toEqual(['la-doctor --twin', 'la-check-conventions --x']);
-    expect(lines).toContain(`start ${realpathSync(bin('la-check-conventions'))}`);
+    expect(readFileSync(stubLog, 'utf8').trim().split('\n')).toEqual(['la-doctor --twin', 'dr-mock-lint --x']);
+    expect(lines).toContain(`start ${realpathSync(bin('dr-mock-lint'))}`);
     expect(lines).not.toContain(`start ${realpathSync(bin('la-doctor'))}`);
     expect(lines.filter((line) => line.startsWith('typescript '))).toEqual([]);
   });

@@ -1,0 +1,9 @@
+kind: neutral
+command: la-config
+args:
+- get
+- commands.typecheck.typescript
+expect:
+  exit: 0
+golden: manual
+note: the TypeScript checker command defaults from the schema

@@ -1,0 +1,17 @@
+{
+  "language": "python",
+  "version": "<VERSION>",
+  "contract_hash": "<CONTRACT_HASH>",
+  "files": [
+    {"path": "src/a.py", "status": "ok",
+     "detections": [
+       {"line": 5, "rule": "import-not-top", "message_id": "conventions.import-after-code", "values": {}, "text": "import sys  # ALLOW(import-not-top): cycle"},
+       {"line": 6, "rule": "composite-assert", "message_id": "conventions.composite-assert", "values": {}, "text": "assert a and b"},
+       {"line": 7, "rule": "raises-single-throw", "message_id": "conventions.raises-single-throw", "values": {"calls": 2}, "text": "with pytest.raises(E):"}
+     ],
+     "text_lines": 2, "total_lines": 8, "comment_lines": 2, "doc_lines": 1},
+    {"path": "src/gone.py", "status": "missing"},
+    {"path": "src/bin.py", "status": "unreadable", "line": 1, "message": "'utf-8' codec can't decode byte 0xff in position 0: invalid start byte"},
+    {"path": "src/bad.py", "status": "syntax-error", "line": 2, "message": "invalid syntax", "comment_lines": 1, "doc_lines": 0}
+  ]
+}

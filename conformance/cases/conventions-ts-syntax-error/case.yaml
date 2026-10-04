@@ -1,0 +1,13 @@
+kind: adapter
+languages:
+- typescript
+command: la-check-conventions
+args:
+- --file
+- src/bad.ts
+- --file
+- src/ok.ts
+expect:
+  exit: 1
+golden: manual
+note: the first parse diagnostic's line and message; the file is excluded from text-ratio

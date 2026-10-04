@@ -1,0 +1,16 @@
+export const b1 = 1;
+export const b2 = 2;
+export const b3 = 3;
+export const b4 = 4;
+export const b5 = 5;
+export const b6 = 6;
+export const b7 = 7;
+export const b8 = 8;
+export const b9 = 9;
+export const b10 = 10;
+export const b11 = 11;
+export const b12 = 12;
+export const b13 = 13;
+export const b14 = 14;
+export const b15 = 15;
+export const b16 = 16;

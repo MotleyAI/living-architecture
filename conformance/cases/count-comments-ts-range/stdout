@@ -1,0 +1,5 @@
+   +1  comment=  +0 doc=  +1  src/a.ts
+   -1  comment=  -1 doc=  +0  src/b.ts
+   +1  comment=  +1 doc=  +0  src/new.ts
+==================================================
+NET ADDED total=1 (comment 0, docstring 1)

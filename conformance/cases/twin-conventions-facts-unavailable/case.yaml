@@ -1,0 +1,32 @@
+kind: adapter
+languages:
+- python
+twin: python
+other_twin: absent
+command: la-check-conventions
+args:
+- --base
+- main
+git:
+- commit: init
+- origin:
+  - main
+- branch: feat
+- write:
+    src/a.py: 'X = 1
+
+      import os
+
+      '
+    web/b.ts: 'const v = 1;
+
+      import { y } from ''./y'';
+
+      '
+- commit: work
+normalize:
+- version
+expect:
+  exit: 2
+note: 'a Python repo''s diff touches a .ts file, no npm twin and no npx: exit 2 with the install hint'
+golden: manual

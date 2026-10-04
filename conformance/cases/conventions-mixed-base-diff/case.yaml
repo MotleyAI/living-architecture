@@ -1,0 +1,34 @@
+kind: neutral
+languages:
+- python
+- typescript
+command: la-check-conventions
+args:
+- --base
+- main
+git:
+- commit: init
+- origin:
+  - main
+- branch: feat
+- write:
+    src/a.py: 'X = 1
+
+      import os
+
+      '
+    web/b.ts: 'const v = 1;
+
+      import { y } from ''./y'';
+
+      '
+    README.md: 'y
+
+      '
+- git_rm:
+  - web/gone.ts
+- commit: work
+expect:
+  exit: 1
+note: a --base diff routes .py to the Python adapter and .ts to the TypeScript one; README.md ignored silently, a deleted .ts excluded
+golden: manual

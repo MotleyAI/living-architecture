@@ -1,0 +1,29 @@
+kind: adapter
+languages:
+- typescript
+command: la-check-conventions
+args:
+- --file
+- src/a.test.ts
+- --file
+- src/b.spec.tsx
+- --file
+- src/__tests__/c.js
+- --file
+- src/__mocks__/d.ts
+- --file
+- tests/e.mjs
+- --file
+- test/f.cjs
+- --file
+- src/testing.ts
+- --file
+- src/test.ts
+- --file
+- src/a.tests.ts
+- --file
+- src/spec.ts
+expect:
+  exit: 1
+golden: manual
+note: TS test files come from the typescript test globs; tests-only rules skip the rest

@@ -24,6 +24,7 @@ flowchart TD
   doctor["Doctor"]
   refactor["Deterministic refactoring"]
   twin["Twin forwarding"]
+  typecheck["Type check"]
   cli --> contract
   cli --> config
   cli --> archcheck
@@ -49,6 +50,12 @@ flowchart TD
   cli --> twin
   archcheck --> twin
   twin --> contract
+  cli --> typecheck
+  typecheck --> lang
+  typecheck --> config
+  typecheck --> contract
+  typecheck --> twin
+  conventions --> twin
 ```
 <!-- /likec4:system -->
 
@@ -65,6 +72,8 @@ flowchart TD
   review["Review shims"]
   doctor["Doctor"]
   twin["Twin forwarding"]
+  conventions["Conventions and comments"]
+  typecheck["Type check"]
   cli --> contract
   cli --> config
   cli --> archcheck
@@ -85,6 +94,16 @@ flowchart TD
   doctor --> config
   doctor --> contract
   twin --> contract
+  cli --> conventions
+  cli --> typecheck
+  conventions --> lang
+  conventions --> config
+  conventions --> contract
+  conventions --> twin
+  typecheck --> lang
+  typecheck --> config
+  typecheck --> contract
+  typecheck --> twin
 ```
 <!-- /likec4:npm -->
 
@@ -96,7 +115,7 @@ flowchart TD
 2. Parameters, defaults, user-facing texts and command surfaces come only from the shared contract.
    [review]
 3. Language-specific code lives only in `lang` and `refactor`. [review]
-4. Tools never import or execute target-repo code. [review]
+4. Tools never import or execute target-repo code, except a configured command (`commands.*`). [review]
 
 ## Rationale
 

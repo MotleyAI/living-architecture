@@ -1,0 +1,2 @@
+la-typecheck: checking typescript with tsc --noEmit
+la-typecheck: typescript: 1 new error(s) not in .tsc-baseline.json

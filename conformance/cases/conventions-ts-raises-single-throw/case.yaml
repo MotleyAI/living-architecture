@@ -1,0 +1,13 @@
+kind: adapter
+languages:
+- typescript
+command: la-check-conventions
+args:
+- --file
+- src/a.test.ts
+- --file
+- src/a.ts
+expect:
+  exit: 1
+golden: manual
+note: calls and `new` counted under each toThrow* matcher, `.rejects`, assert.throws/rejects, flagged at the assertion's first line; one call, `.not.toThrow` and non-test files are clean

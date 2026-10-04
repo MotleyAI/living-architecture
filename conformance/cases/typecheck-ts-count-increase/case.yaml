@@ -1,0 +1,10 @@
+kind: adapter
+languages:
+- typescript
+command: la-typecheck
+expect:
+  exit: 1
+  files:
+  - .tsc-baseline.json
+golden: manual
+note: 'a key''s count rose: every current occurrence listed with both counts'

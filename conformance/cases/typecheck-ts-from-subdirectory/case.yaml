@@ -1,0 +1,11 @@
+kind: adapter
+languages:
+- typescript
+command: la-typecheck
+cwd: src
+expect:
+  exit: 0
+  files:
+  - .tsc-baseline.json
+golden: manual
+note: 'run from a subdirectory: tsc and the baseline use the repo root'

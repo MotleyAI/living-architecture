@@ -1,0 +1,11 @@
+kind: adapter
+languages:
+- typescript
+command: la-check-conventions
+args:
+- --file
+- src/a.ts
+expect:
+  exit: 1
+golden: manual
+note: a top-level require() declaration is not flagged itself but ends the import prologue

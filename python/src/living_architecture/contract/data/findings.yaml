@@ -158,11 +158,21 @@ findings:
   conventions.import-in-function: import inside function {function!r}; move it to the top of the file
   conventions.composite-assert: composite `assert ... and ...`; split into separate assert statements
   conventions.raises-single-throw: '`pytest.raises` block makes {calls} calls that can throw; move all but the call under test outside the block'
+  conventions.ts-import-after-code: static import after other module-level statements; move it to the top of the file
+  conventions.ts-require-not-top: require() call outside module scope; use a top-level import or require
+  conventions.ts-composite-assert: composite `expect(... && ...)` or `assert(... && ...)`; split into separate assertions
+  conventions.ts-raises-single-throw: '`toThrow`/`rejects` assertion makes {calls} calls that can throw; move all but the call under test outside it'
+  conventions.not-utf8: not valid UTF-8
+  conventions.unknown-extension: 'check-conventions: unknown extension, skipped: {path}'
+  conventions.facts-stdin-invalid: stdin must be a JSON array of paths
   conventions.exempt: 'check-conventions: exempt, skipped: {paths}'
   conventions.ratio: 'check-conventions: {group} text-only ratio {pct}% ({text}/{total}, cap {cap}%)'
   conventions.ratio-over: '[text-ratio] {group}: text-only lines are {pct}% of the changed {group} files ({text}/{total}), cap {cap}%'
   conventions.ratio-file: '    {path}: {pct}% ({text}/{total})'
   conventions.summary: 'check-conventions: {count} violation(s) across {files} changed {label} file(s)'
+  # The files label: each checked language's files_label joined with the separator, or the empty label.
+  conventions.label-separator: ' and '
+  conventions.empty-label: source
   conventions.error: 'la-check-conventions: {error}'
   conventions.pr-base-unresolved: could not resolve the base branch of PR {pr}
   conventions.git-failed: git {args} failed
@@ -171,15 +181,38 @@ findings:
 
     gate: RED —
       [import-not-top] hoist each flagged import to module top. Only a genuine
-        circular import may be waived with '# ALLOW(import-not-top): <reason>' —
+        circular import may be waived with {waivers} —
         confirm with the user before landing such a waiver.
       [text-ratio] trim comments/docstrings in the flagged file group until
         text-only lines fit under the cap (no per-line waiver).
+  # The RED verdict's {waivers}: one example per checked language's comment prefix, joined with the separator.
+  conventions.waiver-example: '''{prefix} ALLOW(import-not-top): <reason>'''
+  conventions.waiver-separator: ' or '
 
   # ---- la-count-comments
   count-comments.file: '{total}  comment={comment} doc={doc}  {path}'
   count-comments.total: "==================================================\nTOTAL={total} (comment {comment}, docstring {doc})"
   count-comments.net-added: "==================================================\nNET ADDED total={total} (comment {comment}, docstring {doc})"
+  count-comments.unknown-extension: 'count-comments: unknown extension, skipped: {path}'
+
+  # ---- la-typecheck
+  typecheck.error: 'la-typecheck: {error}'
+  typecheck.header: 'la-typecheck: checking {language} with {command}'
+  typecheck.not-git: 'la-typecheck: not inside a git repository'
+  typecheck.no-languages: 'la-typecheck: nothing to check (no language is configured or has source files and a root marker)'
+  typecheck.not-found: 'la-typecheck: {language}: {command} not found in {local_bin} or on PATH'
+  typecheck.bad-command: 'la-typecheck: commands.typecheck.{language} is not a command: {command!r}'
+  typecheck.not-native: '{language} type checks run only in the {language} twin'
+  typecheck.skip: 'la-typecheck: {language}: {baseline} exists, skipped'
+  typecheck.refusal: 'la-typecheck: every applicable language already has a baseline; nothing written'
+  typecheck.write: 'la-typecheck: {language}: wrote {baseline}'
+  typecheck.new-error: '{file}({line},{col}): error {code}: {message}'
+  typecheck.count: '{file}({line},{col}): error {code}: {message} (baseline {baseline}, now {now})'
+  typecheck.new-errors: 'la-typecheck: {language}: {count} new error(s) not in {baseline}'
+  typecheck.shrink: 'la-typecheck: {language}: {count} fixed error(s) removed from {baseline}'
+  typecheck.global-diagnostic: 'la-typecheck: {language}: the checker reported an error without a file'
+  typecheck.checker-failed: 'la-typecheck: {language}: {command} exited {code} without a parsable diagnostic'
+  typecheck.baseline-invalid: 'la-typecheck: {language}: {baseline} is malformed'
 
   # ---- dr-refactor
   refactor.line-out-of-range: line {line} out of range (file has {count} lines)

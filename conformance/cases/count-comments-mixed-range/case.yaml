@@ -1,0 +1,31 @@
+kind: neutral
+languages:
+- python
+- typescript
+command: la-count-comments
+args:
+- --range
+- HEAD
+- a.py
+- b.ts
+git:
+- commit: init
+- write:
+    a.py: '"""Doc."""
+
+      # one
+
+      X = 1
+
+      '
+    b.ts: '/** Doc. */
+
+      // one
+
+      export const b = 1;
+
+      '
+expect:
+  exit: 0
+note: --range nets each file against REF in its own language
+golden: manual

@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conventions-facts.schema.json",
+  "title": "la-check-conventions --language L --emit facts",
+  "description": "One language's conventions facts for an ordered path list, as a twin hands them to the other twin. One entry per input path, in input order (the emitter's duty). Detections cover every rule hit, waived or tests-only included; the requesting twin filters.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["language", "version", "contract_hash", "files"],
+  "properties": {
+    "language": {"enum": ["python", "typescript"]},
+    "version": {"type": "string"},
+    "contract_hash": {"type": "string", "minLength": 64, "maxLength": 64, "pattern": "^[0-9a-f]+$"},
+    "files": {"type": "array", "items": {"$ref": "#/$defs/file"}}
+  },
+  "$defs": {
+    "count": {"type": "integer", "minimum": 0},
+    "file": {
+      "type": "object",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "required": ["path", "status", "detections", "text_lines", "total_lines", "comment_lines", "doc_lines"],
+          "properties": {
+            "path": {"type": "string"},
+            "status": {"const": "ok"},
+            "detections": {"type": "array", "items": {"$ref": "#/$defs/detection"}},
+            "text_lines": {"$ref": "#/$defs/count"},
+            "total_lines": {"$ref": "#/$defs/count"},
+            "comment_lines": {"$ref": "#/$defs/count"},
+            "doc_lines": {"$ref": "#/$defs/count"}
+          }
+        },
+        {
+          "additionalProperties": false,
+          "required": ["path", "status"],
+          "properties": {"path": {"type": "string"}, "status": {"const": "missing"}}
+        },
+        {
+          "additionalProperties": false,
+          "required": ["path", "status", "line", "message"],
+          "properties": {
+            "path": {"type": "string"},
+            "status": {"const": "unreadable"},
+            "line": {"type": "integer", "minimum": 1},
+            "message": {"type": "string"}
+          }
+        },
+        {
+          "additionalProperties": false,
+          "required": ["path", "status", "line", "message", "comment_lines", "doc_lines"],
+          "properties": {
+            "path": {"type": "string"},
+            "status": {"const": "syntax-error"},
+            "line": {"type": "integer", "minimum": 1},
+            "message": {"type": "string"},
+            "comment_lines": {"$ref": "#/$defs/count"},
+            "doc_lines": {"$ref": "#/$defs/count"}
+          }
+        }
+      ]
+    },
+    "detection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["line", "rule", "message_id", "values", "text"],
+      "properties": {
+        "line": {"type": "integer", "minimum": 1},
+        "rule": {"enum": ["import-not-top", "composite-assert", "raises-single-throw"]},
+        "message_id": {"type": "string"},
+        "values": {"type": "object", "additionalProperties": {"type": ["string", "integer"]}},
+        "text": {"type": "string"}
+      }
+    }
+  }
+}

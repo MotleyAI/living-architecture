@@ -1,0 +1,9 @@
+kind: neutral
+languages:
+- python
+- typescript
+command: la-typecheck
+expect:
+  exit: 1
+golden: manual
+note: python section first, typescript second, exit is the highest per-language code

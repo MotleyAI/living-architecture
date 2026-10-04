@@ -1,0 +1,11 @@
+kind: adapter
+languages:
+- typescript
+command: la-check-conventions
+args:
+- --file
+- src/a.ts
+expect:
+  exit: 0
+golden: manual
+note: source text-only lines exactly at the cap (3/20 = 15.0%) pass

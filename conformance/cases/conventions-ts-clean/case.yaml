@@ -1,0 +1,13 @@
+kind: adapter
+languages:
+- typescript
+command: la-check-conventions
+args:
+- --file
+- src/a.ts
+- --file
+- src/a.test.ts
+expect:
+  exit: 0
+golden: manual
+note: 'clean TS source and test files: CLEAR with the TS/JS label'

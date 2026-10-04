@@ -1,0 +1,18 @@
+kind: adapter
+languages:
+- python
+command: la-typecheck
+bins:
+- dir: path-tsc
+  position: before
+  files:
+    tsc: |
+      #!/bin/sh
+      echo "PATH tsc must not run" >&2
+      exit 99
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: a tracked .js file without tsconfig.json does not make TypeScript applicable

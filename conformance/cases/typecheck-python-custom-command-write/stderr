@@ -1,0 +1,3 @@
+la-typecheck: checking python with mypy src
+usage: mypy [-h] [-v] [-V] [more options; see below]
+mypy: error: unrecognized arguments: --writebaseline

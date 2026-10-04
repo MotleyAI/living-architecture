@@ -1,4 +1,4 @@
-"""`la-check-conventions`: the deterministic conventions gate over a change's source files."""
+"""`la-check-conventions`: the deterministic conventions gate over a change's source files, every language."""
 
 from __future__ import annotations
 
@@ -6,16 +6,18 @@ import fnmatch
 import re
 import subprocess
 import sys
-from functools import cache
 from pathlib import Path
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
+from living_architecture import lang
 from living_architecture.config import ConfigError, load_config
-from living_architecture.contract import conventions, glob_match, language, message
-from living_architecture.lang import ParseFailure, analyze
+from living_architecture.contract import conventions, glob_match, language_ids, message
+from living_architecture.contract import language as registry
+from living_architecture.conventions.facts import FactsError, collect, language_of
 
-LANGUAGE = "python"
+_FAILURES = ("unreadable", "syntax-error")
 
 
 class Violation(BaseModel):
@@ -38,13 +40,11 @@ class FileCounts(BaseModel):
     total: int
 
 
-@cache
-def _waiver_re() -> re.Pattern[str]:
-    return re.compile(re.escape(language(LANGUAGE)["comment_prefix"]) + conventions()["waiver"])
-
-
 def is_test_file(rel: str) -> bool:
-    return any(glob_match(g, Path(rel).as_posix()) for g in language(LANGUAGE)["test_globs"])
+    lang_id = language_of(rel)
+    if lang_id is None:
+        return False
+    return any(glob_match(g, Path(rel).as_posix()) for g in registry(lang_id)["test_globs"])
 
 
 def _is_excluded(rel: str, *, patterns: list[str]) -> bool:
@@ -52,50 +52,68 @@ def _is_excluded(rel: str, *, patterns: list[str]) -> bool:
     return any(fnmatch.fnmatch(rel_posix, pat) for pat in patterns)
 
 
-def _waived(*, source_lines: list[str], line: int, rule: str) -> bool:
-    if not 1 <= line <= len(source_lines) or not conventions()["rules"][rule]["waivable"]:
+def waived(*, text: str, rule: str, language: str) -> bool:
+    """`text` (the flagged line) carries the language's waiver comment for `rule`."""
+    if not conventions()["rules"].get(rule, {}).get("waivable"):
         return False
-    m = _waiver_re().search(source_lines[line - 1])
+    pattern = re.escape(registry(language)["comment_prefix"]) + conventions()["waiver"]
+    m = re.search(pattern, text)
     return bool(m and m.group(1) == rule)
 
 
-def check_file(path: Path, *, rel: str) -> tuple[list[Violation], FileCounts | None]:
-    """Violations plus text/total line counts (None when unreadable or unparsable)."""
-    try:
-        source = path.read_text(encoding="utf-8")
-    except (OSError, UnicodeDecodeError) as exc:
-        return [Violation(path=rel, line=1, rule="unreadable", message=str(exc))], None
-    try:
-        analysis = analyze(source)
-    except ParseFailure as exc:
-        return [Violation(path=rel, line=exc.line, rule="syntax-error", message=exc.msg)], None
-    source_lines = source.splitlines()
+def _present(languages: list[str]) -> list[str]:
+    return [lang_id for lang_id in language_ids() if lang_id in languages]
+
+
+def files_label(languages: list[str]) -> str:
+    """Each present language's files label in language-id order, or the empty label."""
+    labels = [registry(lang_id)["files_label"] for lang_id in _present(languages)]
+    return message("conventions.label-separator").join(labels) if labels else message("conventions.empty-label")
+
+
+def _waiver_examples(languages: list[str]) -> str:
+    examples = [message("conventions.waiver-example", prefix=registry(lang_id)["comment_prefix"]) for lang_id in _present(languages)]
+    return message("conventions.waiver-separator").join(examples)
+
+
+def _violations(entry: dict[str, Any]) -> list[Violation]:
+    rel = entry["path"]
+    if entry["status"] in _FAILURES:
+        return [Violation(path=rel, line=entry["line"], rule=entry["status"], message=entry["message"])]
+    if entry["status"] != "ok":
+        return []
+    lang_id = language_of(rel) or ""
     rules = conventions()["rules"]
     test_file = is_test_file(rel)
-    out = [
-        Violation(path=rel, line=d.line, rule=d.rule, message=message(d.message_id, **d.values))
-        for d in analysis.detections
-        if (test_file or not rules[d.rule]["tests_only"])
-        and not _waived(source_lines=source_lines, line=d.line, rule=d.rule)
+    return [
+        Violation(path=rel, line=d["line"], rule=d["rule"], message=message(d["message_id"], **d["values"]))
+        for d in entry["detections"]
+        if (test_file or not rules[d["rule"]]["tests_only"]) and not waived(text=d["text"], rule=d["rule"], language=lang_id)
     ]
-    out.sort(key=lambda v: (v.line, v.rule))
-    return out, FileCounts(rel=rel, text=analysis.text_lines, total=analysis.total_lines)
+
+
+def check_file(path: Path, *, rel: str) -> tuple[list[Violation], FileCounts | None]:
+    """One native-language file's violations and text/total counts (None when it cannot be analysed)."""
+    [entry] = lang.conventions_facts(path.parent, [path.name])
+    entry = {**entry, "path": rel}
+    counts = FileCounts(rel=rel, text=entry["text_lines"], total=entry["total_lines"]) if entry["status"] == "ok" else None
+    return sorted(_violations(entry), key=lambda v: (v.line, v.rule)), counts
 
 
 def _git(args: list[str], *, cwd: Path) -> str:
-    proc = subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True, check=False)
+    proc = subprocess.run(["git", *args], cwd=cwd, capture_output=True, check=False)
     if proc.returncode != 0:
-        raise ConfigError(proc.stderr.strip() or message("conventions.git-failed", args=" ".join(args)))
-    return proc.stdout
+        detail = proc.stderr.decode("utf-8", "replace").strip()
+        raise ConfigError(detail or message("conventions.git-failed", args=" ".join(args)))
+    return proc.stdout.decode("utf-8", "surrogateescape")
 
 
 def changed_source_files(*, base_ref: str, repo_root: Path) -> list[str]:
-    """Changed source files: merge-base committed diff plus working-tree edits."""
-    extensions = tuple(language(LANGUAGE)["source_extensions"])
+    """Changed files with a known extension: merge-base committed diff plus working-tree edits, sorted."""
     out: set[str] = set()
     for target in (f"{base_ref}...HEAD", "HEAD"):
-        listing = _git(["diff", "--name-only", "--diff-filter=ACMR", target], cwd=repo_root)
-        out.update(p for p in listing.splitlines() if p.endswith(extensions))
+        listing = _git(["diff", "--name-only", "-z", "--diff-filter=ACMR", target], cwd=repo_root)
+        out.update(p for p in listing.split("\0") if p and language_of(p) is not None)
     return sorted(out)
 
 
@@ -140,27 +158,41 @@ def _ratio_report(groups: dict[str, list[FileCounts]], *, cap_pct: float) -> boo
     return red
 
 
-def run(*, rels: list[str], repo_root: Path, excludes: list[str], cap_pct: float) -> int:
-    exempt = [r for r in rels if _is_excluded(r, patterns=excludes)]
-    rels = [r for r in rels if not _is_excluded(r, patterns=excludes)]
+def _select(rels: list[str], *, explicit: bool, excludes: list[str]) -> list[str]:
+    """Known-extension, non-exempt paths; explicit unknown ones are warned about, exempt ones listed."""
+    known = []
+    for rel in rels:
+        if language_of(rel) is not None:
+            known.append(rel)
+        elif explicit:
+            print(message("conventions.unknown-extension", path=rel), file=sys.stderr)
+    exempt = [r for r in known if _is_excluded(r, patterns=excludes)]
     if exempt:
         print(message("conventions.exempt", paths=", ".join(exempt)), file=sys.stderr)
+    return [r for r in known if not _is_excluded(r, patterns=excludes)]
+
+
+def report(rels: list[str], facts: dict[str, dict[str, Any]], *, cap_pct: float) -> int:
+    """Violations in path order, the ratio groups, the summary and the verdict; the exit code."""
     violations: list[Violation] = []
     groups: dict[str, list[FileCounts]] = {"source": [], "tests": []}
     for rel in rels:
-        path = repo_root / rel
-        if not path.exists():
-            continue
-        file_violations, counts = check_file(path, rel=rel)
-        violations.extend(file_violations)
-        if counts is not None:
+        entry = facts[rel]
+        violations.extend(_violations(entry))
+        if entry["status"] == "ok":
+            counts = FileCounts(rel=rel, text=entry["text_lines"], total=entry["total_lines"])
             groups["tests" if is_test_file(rel) else "source"].append(counts)
+    violations.sort(key=lambda v: (v.path, v.line, v.rule))
     for v in violations:
         print(v.render())
     ratio_red = _ratio_report(groups, cap_pct=cap_pct)
-    label = language(LANGUAGE)["files_label"]
+    languages = [language_of(rel) or "" for rel in rels]
+    label = files_label(languages)
     print(message("conventions.summary", count=len(violations), files=len(rels), label=label), file=sys.stderr)
-    return 1 if violations or ratio_red else 0
+    status = 1 if violations or ratio_red else 0
+    verdict = message("conventions.clear", label=label) if status == 0 else message("conventions.red", waivers=_waiver_examples(languages))
+    print(verdict)
+    return status
 
 
 def check_conventions(
@@ -173,7 +205,7 @@ def check_conventions(
     excludes: list[str],
     cap_pct: float | None,
 ) -> int:
-    """The gate end to end: resolve the changed files, check them, print the verdict."""
+    """The gate end to end: resolve the changed files, collect their facts, print the report and verdict."""
     try:
         config = load_config(repo_root)
         if files:
@@ -184,8 +216,12 @@ def check_conventions(
     except ConfigError as exc:
         print(message("conventions.error", error=str(exc)), file=sys.stderr)
         return 2
+    rels = _select(rels, explicit=bool(files), excludes=[*config.conventions.exempt, *excludes])
+    try:
+        facts = collect(rels, cwd=repo_root, repo_root=repo_root)
+    except FactsError as exc:
+        if str(exc):
+            print(message("conventions.error", error=str(exc)), file=sys.stderr)
+        return 2
     cap = cap_pct if cap_pct is not None else config.conventions.text_ratio_max * 100
-    status = run(rels=rels, repo_root=repo_root, excludes=[*config.conventions.exempt, *excludes], cap_pct=cap)
-    label = language(LANGUAGE)["files_label"]
-    print(message("conventions.clear", label=label) if status == 0 else message("conventions.red"))
-    return status
+    return report(rels, facts, cap_pct=cap)

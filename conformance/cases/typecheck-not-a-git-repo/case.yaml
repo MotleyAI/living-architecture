@@ -1,0 +1,7 @@
+kind: neutral
+command: la-typecheck
+git: none
+expect:
+  exit: 2
+golden: manual
+note: 'outside a git repository: exit 2'

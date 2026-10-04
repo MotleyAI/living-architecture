@@ -1,3 +1,6 @@
-check-conventions: source text-only ratio 0.0% (0/24, cap 15.0%)
-check-conventions: tests text-only ratio 0.0% (0/26, cap 15.0%)
-check-conventions: 13 violation(s) across 25 changed .py file(s)
+check-conventions: unknown extension, skipped: x_test.pyc
+check-conventions: unknown extension, skipped: test_
+check-conventions: unknown extension, skipped: test_x.txt
+check-conventions: source text-only ratio 0.0% (0/22, cap 15.0%)
+check-conventions: tests text-only ratio 0.0% (0/22, cap 15.0%)
+check-conventions: 11 violation(s) across 22 changed .py file(s)

@@ -1,0 +1,3 @@
+la-typecheck: checking python with basedpyright
+la-typecheck: checking typescript with tsc --noEmit
+la-typecheck: the typescript twin (living-architecture <VERSION>) is not reachable; install it with: npm install -g living-architecture@<VERSION>

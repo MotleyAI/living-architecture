@@ -1,0 +1,102 @@
+{
+  "language": "typescript",
+  "version": "<VERSION>",
+  "contract_hash": "<CONTRACT_HASH>",
+  "files": [
+    {
+      "path": "src/ok.ts",
+      "status": "ok",
+      "detections": [
+        {
+          "line": 6,
+          "rule": "import-not-top",
+          "message_id": "conventions.ts-import-after-code",
+          "values": {},
+          "text": "import y from './y';"
+        }
+      ],
+      "text_lines": 4,
+      "total_lines": 6,
+      "comment_lines": 2,
+      "doc_lines": 3
+    },
+    {
+      "path": "src/gone.ts",
+      "status": "missing"
+    },
+    {
+      "path": "src/bin.ts",
+      "status": "unreadable",
+      "line": 1,
+      "message": "not valid UTF-8"
+    },
+    {
+      "path": "src/bad.ts",
+      "status": "syntax-error",
+      "line": 2,
+      "message": "Expression expected.",
+      "comment_lines": 1,
+      "doc_lines": 0
+    },
+    {
+      "path": "src/a.test.ts",
+      "status": "ok",
+      "detections": [
+        {
+          "line": 2,
+          "rule": "composite-assert",
+          "message_id": "conventions.ts-composite-assert",
+          "values": {},
+          "text": "  expect(a && b).toBe(true);"
+        },
+        {
+          "line": 3,
+          "rule": "raises-single-throw",
+          "message_id": "conventions.ts-raises-single-throw",
+          "values": {
+            "calls": 2
+          },
+          "text": "  expect(() => f(g())).toThrow();"
+        }
+      ],
+      "text_lines": 0,
+      "total_lines": 4,
+      "comment_lines": 0,
+      "doc_lines": 0
+    },
+    {
+      "path": "src/plain.ts",
+      "status": "ok",
+      "detections": [
+        {
+          "line": 1,
+          "rule": "composite-assert",
+          "message_id": "conventions.ts-composite-assert",
+          "values": {},
+          "text": "expect(a && b).toBe(true);"
+        }
+      ],
+      "text_lines": 0,
+      "total_lines": 1,
+      "comment_lines": 0,
+      "doc_lines": 0
+    },
+    {
+      "path": "src/w.ts",
+      "status": "ok",
+      "detections": [
+        {
+          "line": 2,
+          "rule": "import-not-top",
+          "message_id": "conventions.ts-import-after-code",
+          "values": {},
+          "text": "import b from './b'; // ALLOW(import-not-top): generated"
+        }
+      ],
+      "text_lines": 0,
+      "total_lines": 2,
+      "comment_lines": 1,
+      "doc_lines": 0
+    }
+  ]
+}

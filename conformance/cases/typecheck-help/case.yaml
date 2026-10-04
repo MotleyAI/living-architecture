@@ -1,0 +1,10 @@
+kind: neutral
+command: la-typecheck
+args:
+- --help
+expect:
+  exit: 0
+  stdout: ignore
+  stderr: ignore
+golden: manual
+note: --help exits 0; help wording is not part of the contract

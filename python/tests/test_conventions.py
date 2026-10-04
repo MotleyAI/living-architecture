@@ -1,4 +1,6 @@
+import json
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -138,3 +140,64 @@ def test_requires_a_target():
     with pytest.raises(SystemExit) as exc:
         cli.la_check_conventions([])
     assert exc.value.code == 2
+
+
+# ---- routing, labels and waivers on carried line text
+
+
+@pytest.mark.parametrize(
+    ("path", "language"),
+    [("src/a.py", "python"), ("web/b.ts", "typescript"), ("web/b.tsx", "typescript"), ("x.mts", "typescript"),
+     ("x.cts", "typescript"), ("x.js", "typescript"), ("x.jsx", "typescript"), ("x.mjs", "typescript"),
+     ("x.cjs", "typescript"), ("types/x.d.ts", "typescript"), ("README.md", None), ("a.pyc", None),
+     ("a.PY", None), ("Makefile", None), ("src/données.py", "python")],
+)
+def test_language_of(path, language):
+    assert conventions.language_of(path) == language
+
+
+@pytest.mark.parametrize(
+    ("languages", "label"),
+    [([], "source"), (["python"], ".py"), (["typescript"], "TS/JS"), (["python", "typescript"], ".py and TS/JS"),
+     (["typescript", "python"], ".py and TS/JS")],
+)
+def test_files_label(languages, label):
+    assert conventions.files_label(languages) == label
+
+
+@pytest.mark.parametrize(
+    ("text", "rule", "language", "waived"),
+    [
+        ("import a  # ALLOW(import-not-top): cycle", "import-not-top", "python", True),
+        ("import a  #ALLOW(import-not-top):x", "import-not-top", "python", True),
+        ("import { a } from 'a'; // ALLOW(import-not-top): generated", "import-not-top", "typescript", True),
+        ("import { a } from 'a'; # ALLOW(import-not-top): generated", "import-not-top", "typescript", False),
+        ("import a  // ALLOW(import-not-top): cycle", "import-not-top", "python", False),
+        ("import a  # ALLOW(composite-assert): wrong rule", "import-not-top", "python", False),
+        ("import a  # ALLOW(import-not-top):", "import-not-top", "python", False),
+        ("import a  # allow(import-not-top): lowercase", "import-not-top", "python", False),
+        ("x = 1  # ALLOW(text-ratio): never", "text-ratio", "python", False),
+    ],
+)
+def test_waived_on_carried_text(text, rule, language, waived):
+    assert conventions.waived(text=text, rule=rule, language=language) is waived
+
+
+def test_facts_keep_the_order_of_a_path_list_longer_than_a_command_line(tmp_path):
+    _git(tmp_path, "init", "-q", "-b", "main")
+    (tmp_path / "pkg").mkdir()
+    (tmp_path / "pkg" / "real.py").write_text("X = 1\nimport os\n")
+    paths = [f"pkg/{'d' * 60}/{i:05d}_{'m' * 40}.py" for i in range(30_000, 0, -1)]
+    paths.insert(15_000, "pkg/real.py")
+    stdin = json.dumps(paths)
+    assert len(stdin) > 2 * 1024 * 1024
+    proc = subprocess.run(
+        [str(Path(sys.executable).parent / "la-check-conventions"), "--language", "python", "--emit", "facts"],
+        cwd=tmp_path, input=stdin, capture_output=True, text=True, check=False,
+    )
+    assert proc.returncode == 0, proc.stderr
+    files = json.loads(proc.stdout)["files"]
+    assert [f["path"] for f in files] == paths
+    assert {f["status"] for f in files[:15_000]} == {"missing"}
+    assert files[15_000]["status"] == "ok"
+    assert [d["line"] for d in files[15_000]["detections"]] == [2]

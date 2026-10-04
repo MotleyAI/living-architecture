@@ -1,0 +1,13 @@
+kind: neutral
+languages:
+- python
+- typescript
+twin: python
+other_twin: absent
+command: la-typecheck
+normalize:
+- version
+expect:
+  exit: 2
+golden: manual
+note: 'TypeScript applies but no npm twin and no npx: the Python section runs, then exit 2 with the install hint'

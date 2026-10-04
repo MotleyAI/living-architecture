@@ -67,6 +67,16 @@ export function reprFloat(x: number): string {
   return `${sign}${body}e${e < 0 ? '-' : '+'}${String(Math.abs(e)).padStart(2, '0')}`;
 }
 
+/** Python's `f"{x:.1f}"` for finite x: exact ties (x.25, x.75) round half to even, unlike toFixed. */
+export function fixed1(x: number): string {
+  const quarters = x * 4;
+  if (!Number.isInteger(quarters) || quarters % 2 === 0) return x.toFixed(1);
+  const down = Math.floor(x * 10);
+  const n = down % 2 === 0 ? down : down + 1;
+  const sign = n < 0 ? '-' : '';
+  return `${sign}${Math.trunc(Math.abs(n) / 10)}.${Math.abs(n) % 10}`;
+}
+
 /** Python's repr, restricted to normalized values. */
 export function canonicalRepr(value: unknown): string {
   if (value === null || value === undefined) return 'None';

@@ -1,0 +1,10 @@
+kind: adapter
+languages:
+- typescript
+command: la-typecheck
+expect:
+  exit: 2
+  files:
+  - .tsc-baseline.json
+golden: manual
+note: 'a baseline entry without message and count is malformed: exit 2'

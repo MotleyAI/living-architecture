@@ -1,0 +1,13 @@
+kind: adapter
+languages:
+- python
+command: la-check-conventions
+args:
+- --file
+- notes.md
+- --file
+- src/a.py
+expect:
+  exit: 0
+note: an explicit path with an unknown extension is skipped with one warning and never affects the exit code
+golden: manual

@@ -1,0 +1,10 @@
+-dash.py:2: [import-not-top] module-level import after non-import code; move it to the top of the file
+src/données.py:2: [import-not-top] module-level import after non-import code; move it to the top of the file
+src/my file.py:2: [import-not-top] module-level import after non-import code; move it to the top of the file
+
+gate: RED —
+  [import-not-top] hoist each flagged import to module top. Only a genuine
+    circular import may be waived with '# ALLOW(import-not-top): <reason>' —
+    confirm with the user before landing such a waiver.
+  [text-ratio] trim comments/docstrings in the flagged file group until
+    text-only lines fit under the cap (no per-line waiver).

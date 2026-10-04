@@ -1,0 +1,35 @@
+kind: adapter
+languages:
+- typescript
+twin: typescript
+other_twin: absent
+command: la-check-conventions
+args:
+- --file
+- src/a.ts
+bins:
+- dir: pypi-twin
+  files:
+    la-doctor: |
+      #!/bin/sh
+      echo "pypi-twin: la-doctor $*" >> <ROOT>/repo/probe.log
+      [ "$*" = "--twin" ] || { echo "fake la-doctor: unexpected $*" >&2; exit 99; }
+      echo "python <VERSION> <CONTRACT_HASH>"
+    la-check-conventions: |
+      #!/bin/sh
+      echo "pypi-twin: la-check-conventions $*" >> <ROOT>/repo/probe.log
+      echo "pypi-twin la-check-conventions must not run" >&2
+      exit 99
+- dir: runner
+  files:
+    uvx: |
+      #!/bin/sh
+      echo "runner: uvx $*" >> <ROOT>/repo/probe.log
+      echo "runner uvx must not run" >&2
+      exit 99
+expect:
+  exit: 0
+  files:
+  - probe.log
+note: the npm twin checks TS files natively and never probes or runs the PyPI twin or uvx
+golden: manual
