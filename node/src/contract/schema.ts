@@ -8,7 +8,7 @@ function validator(schema: object): ValidateFunction {
   const key = JSON.stringify(schema);
   let fn = compiled.get(key);
   if (fn === undefined) {
-    fn = new Ajv2020({ allErrors: true, strict: false }).compile(schema);
+    fn = new Ajv2020({ allErrors: true, strict: false, verbose: true }).compile(schema);
     compiled.set(key, fn);
   }
   return fn;

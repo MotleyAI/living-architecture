@@ -6,20 +6,32 @@
   "type": "object",
   "additionalProperties": false,
   "properties": {
+    "tracker": {
+      "enum": ["linear", "github", "none"],
+      "default": "linear",
+      "description": "Where issues live and, with openspec off, where the plan is persisted."
+    },
+    "openspec": {"type": "boolean", "default": true, "description": "The flow keeps specs and changes under openspec/."},
+    "architecture": {
+      "type": "boolean",
+      "default": false,
+      "description": "The repo has a living-architecture model (architecture/index.yaml)."
+    },
     "reviewers": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "coderabbit": {"type": "boolean", "default": false, "description": "CodeRabbit reviews this repo's PRs."},
+        "codex": {"type": "boolean", "default": true, "description": "The flow runs Codex reviews; a missing Codex server stops it."},
         "sonar": {
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "enabled": {"type": "boolean", "default": false},
-            "project_key": {"type": ["string", "null"], "default": null}
-          },
-          "if": {"properties": {"enabled": {"const": true}}, "required": ["enabled"]},
-          "then": {"properties": {"project_key": {"type": "string", "minLength": 1}}, "required": ["project_key"]}
+            "project_key": {
+              "type": ["string", "null"],
+              "default": null,
+              "description": "Overrides the Sonar project key otherwise inferred per PR."
+            }
+          }
         }
       }
     },
@@ -69,6 +81,12 @@
           "items": {"type": "string"},
           "default": [],
           "description": "Repo-relative fnmatch globs exempt from the conventions gate."
+        },
+        "rules": {
+          "type": "array",
+          "items": {"enum": ["import-not-top", "text-ratio", "composite-assert", "raises-single-throw"]},
+          "default": ["import-not-top", "text-ratio", "composite-assert", "raises-single-throw"],
+          "description": "The conventions rule ids the gate enforces (conventions.yaml); [] turns the gate off."
         }
       }
     }

@@ -153,15 +153,15 @@ cases:
 - name: defaults
   command: la-doctor
   argv: []
-  args: {expect: null, root: null, contract_hash: false, twin: false}
+  args: {expect: null, root: null, contract_hash: false, twin: false, require_config: false}
 - name: flag and string options
   command: la-doctor
   argv: [--expect, 0.2.1, --contract-hash]
-  args: {expect: 0.2.1, root: null, contract_hash: true, twin: false}
+  args: {expect: 0.2.1, root: null, contract_hash: true, twin: false, require_config: false}
 - name: defaults
   command: la-arch-check
   argv: []
-  args: {root: null, language: null, emit: null}
+  args: {root: null, language: null, emit: null, top_level: false}
 - name: rename with defaults
   command: dr-refactor
   argv: [rename, --file, a.py, --name, f, --new-name, g]
@@ -219,7 +219,7 @@ cases:
 - name: internal flag
   command: la-doctor
   argv: [--twin]
-  args: {expect: null, root: null, contract_hash: false, twin: true}
+  args: {expect: null, root: null, contract_hash: false, twin: true, require_config: false}
 - name: internal flag not abbreviable
   command: la-doctor
   argv: [--tw]
@@ -227,11 +227,23 @@ cases:
 - name: facts request
   command: la-arch-check
   argv: [--language, typescript, --emit, facts]
-  args: {root: null, language: typescript, emit: facts}
+  args: {root: null, language: typescript, emit: facts, top_level: false}
 - name: facts request with root
   command: la-arch-check
   argv: [--root, r, --language, python, --emit, facts]
-  args: {root: r, language: python, emit: facts}
+  args: {root: r, language: python, emit: facts, top_level: false}
+- name: top-level facts request
+  command: la-arch-check
+  argv: [--language, python, --emit, facts, --top-level]
+  args: {root: null, language: python, emit: facts, top_level: true}
+- name: require config
+  command: la-doctor
+  argv: [--require-config]
+  args: {expect: null, root: null, contract_hash: false, twin: false, require_config: true}
+- name: scaffold root
+  command: la-arch-scaffold
+  argv: [--root, r]
+  args: {root: r}
 - name: unknown language
   command: la-arch-check
   argv: [--language, rust]

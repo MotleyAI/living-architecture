@@ -29,13 +29,19 @@ def la_doctor(argv: list[str] | None = None) -> int:
     if args.twin:
         print(twin.identity())
         return 0
-    return doctor.run(root=_root(args.root), expect=args.expect, print_hash=args.contract_hash)
+    return doctor.run(
+        root=_root(args.root), expect=args.expect, print_hash=args.contract_hash, require_config=args.require_config
+    )
 
 
 def la_arch_check(argv: list[str] | None = None) -> int:
     args = parse("la-arch-check", _argv(argv))
     language = args.language or (twin.NATIVE_LANGUAGE if args.emit else None)
-    return archcheck.run(_root(args.root), language=language, emit=args.emit)
+    return archcheck.run(_root(args.root), language=language, emit=args.emit, top_level=args.top_level)
+
+
+def la_arch_scaffold(argv: list[str] | None = None) -> int:
+    return archcheck.run_scaffold(_root(parse("la-arch-scaffold", _argv(argv)).root))
 
 
 def la_arch_diagrams(argv: list[str] | None = None) -> int:
@@ -84,6 +90,10 @@ def la_fetch_failed_pr_checks(argv: list[str] | None = None) -> NoReturn:
 
 def la_wait_for_reviews(argv: list[str] | None = None) -> NoReturn:
     review.run_shim("la-wait-for-reviews", _argv(argv))
+
+
+def la_pr_reviewers(argv: list[str] | None = None) -> NoReturn:
+    review.run_shim("la-pr-reviewers", _argv(argv))
 
 
 def dr_refactor(argv: list[str] | None = None) -> int:

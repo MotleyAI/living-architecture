@@ -24,13 +24,14 @@ const HANDLERS: Record<string, (args: Args) => number> = {
       process.stdout.write(`${twin.identity()}\n`);
       return 0;
     }
-    return doctor.run(root(args.root), optional(args.expect), Boolean(args.contract_hash));
+    return doctor.run(root(args.root), optional(args.expect), Boolean(args.contract_hash), Boolean(args.require_config));
   },
   'la-arch-check': (args) => {
     const emit = optional(args.emit);
     const language = optional(args.language) ?? (emit !== null ? twin.NATIVE_LANGUAGE : null);
-    return archcheck.run(root(args.root), language, emit);
+    return archcheck.run(root(args.root), language, emit, Boolean(args.top_level));
   },
+  'la-arch-scaffold': (args) => archcheck.runScaffold(root(args.root)),
   'la-arch-diagrams': (args) => c4.run(root(args.root)),
   'la-check-conventions': (args) => {
     if (optional(args.emit) !== null) return conventions.emit(optional(args.language) ?? twin.NATIVE_LANGUAGE, process.cwd());

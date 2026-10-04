@@ -35,13 +35,8 @@ export function unitFact(facts: Facts, unit: string): UnitFact {
   return found;
 }
 
-/** The TypeScript facts, measured in-process. */
-export function nativeFacts(layout: TsLayout, nodeMap: NodeMap, language: string): Facts {
-  const units: UnitFact[] = nodeMap.units(language).map((unit) => {
-    const { status, candidates } = unitStatus(layout, unit);
-    return status === 'ambiguous' ? { unit, status, candidates } : { unit, status };
-  });
-  const witnesses = measureEdges(moduleImports(layout), unitToElement(nodeMap, language), '/');
+function facts(layout: TsLayout, language: string, units: UnitFact[], attribution: Map<string, string>): Facts {
+  const witnesses = measureEdges(moduleImports(layout), attribution, '/');
   return {
     language,
     version: VERSION,
@@ -55,4 +50,18 @@ export function nativeFacts(layout: TsLayout, nodeMap: NodeMap, language: string
         return { src, dst, src_module: srcModule, dst_module: dstModule };
       }),
   };
+}
+
+/** The TypeScript facts, measured in-process. */
+export function nativeFacts(layout: TsLayout, nodeMap: NodeMap, language: string): Facts {
+  const units: UnitFact[] = nodeMap.units(language).map((unit) => {
+    const { status, candidates } = unitStatus(layout, unit);
+    return status === 'ambiguous' ? { unit, status, candidates } : { unit, status };
+  });
+  return facts(layout, language, units, unitToElement(nodeMap, language));
+}
+
+/** The TypeScript facts with edges between top-level units; no model involved. */
+export function nativeTopLevelFacts(layout: TsLayout, language: string): Facts {
+  return facts(layout, language, [], new Map([...topLevelUnits(layout)].map((unit) => [unit, unit])));
 }

@@ -8,27 +8,27 @@ it does not, stop at the group boundary, tick what is done, commit, and ask the 
 
 ## 2. Shared contract
 
-- [ ] 2.1 `shared/schema/living-architecture.schema.json`: add `tracker`, `openspec`, `architecture`, `reviewers.codex` and `conventions.rules` (enum of the registry rule ids, default all); remove `reviewers.coderabbit` and `reviewers.sonar.enabled`, plus the if/then rule. Verify: the repo-config and shared-contract config scenarios have cases.
-- [ ] 2.2 `shared/cli.yaml`: add `la-doctor --require-config`, `la-pr-reviewers` (script command) and `la-arch-scaffold`; add `--top-level` to the internal facts options; remove `gate` from `la-wait-for-reviews` and from the manifest header. Verify: the manifest-driven parser tests pass in both twins.
-- [ ] 2.3 `shared/findings.yaml`: add templates for missing config (naming `/la:init`), each consistency finding, scaffold refusals (existing file, id collision) and the written-path line. Verify: 7.4's mapping covers each new id.
-- [ ] 2.4 `shared/scripts/`: add a shared detection helper (CodeRabbit by status or comment; Sonar check and key precedence) and `pr-reviewers.sh`; make `wait-for-reviews.sh` use the helper and drop `--skip-coderabbit`. Verify: the review-detection cases pass.
-- [ ] 2.5 Run `scripts/sync-shared`. Verify: the drift test passes and both snapshots carry the new contract hash.
+- [x] 2.1 `shared/schema/living-architecture.schema.json`: add `tracker`, `openspec`, `architecture`, `reviewers.codex` and `conventions.rules` (enum of the registry rule ids, default all); remove `reviewers.coderabbit` and `reviewers.sonar.enabled`, plus the if/then rule. Verify: the repo-config and shared-contract config scenarios have cases.
+- [x] 2.2 `shared/cli.yaml`: add `la-doctor --require-config`, `la-pr-reviewers` (script command) and `la-arch-scaffold`; add `--top-level` to the internal facts options; remove `gate` from `la-wait-for-reviews` and from the manifest header. Verify: the manifest-driven parser tests pass in both twins.
+- [x] 2.3 `shared/findings.yaml`: add templates for missing config (naming `/la:init`), each consistency finding, scaffold refusals (existing file, id collision) and the written-path line. Verify: 7.4's mapping covers each new id.
+- [x] 2.4 `shared/scripts/`: add a shared detection helper (CodeRabbit by status or comment; Sonar check and key precedence) and `pr-reviewers.sh`; make `wait-for-reviews.sh` use the helper and drop `--skip-coderabbit`. Verify: the review-detection cases pass.
+- [x] 2.5 Run `scripts/sync-shared`. Verify: the drift test passes and both snapshots carry the new contract hash.
 
 ## 3. Config and doctor (both twins)
 
-- [ ] 3.1 Config resolution with the new keys and removals in both twins. Verify: conformance `la-config` cases (defaults, removed keys, unknown tracker, unknown rule, falsy values kept, YAML 1.1 `codex: no`).
-- [ ] 3.2 `la-doctor --require-config` and the consistency checks (only when the file exists; `architecture/index.yaml` as the marker; fixed finding order) in both twins. Verify: one conformance case per repo-config doctor scenario, including the unrelated `architecture/` directory and several inconsistencies.
-- [ ] 3.3 Remove the `skip-coderabbit` gate code from both twins' `review` node and add the `la-pr-reviewers` shim. Verify: conformance cases with a fake `gh` for every review-detection scenario, run through both twins.
+- [x] 3.1 Config resolution with the new keys and removals in both twins. Verify: conformance `la-config` cases (defaults, removed keys, unknown tracker, unknown rule, falsy values kept, YAML 1.1 `codex: no`).
+- [x] 3.2 `la-doctor --require-config` and the consistency checks (only when the file exists; `architecture/index.yaml` as the marker; fixed finding order) in both twins. Verify: one conformance case per repo-config doctor scenario, including the unrelated `architecture/` directory and several inconsistencies.
+- [x] 3.3 Remove the `skip-coderabbit` gate code from both twins' `review` node and add the `la-pr-reviewers` shim. Verify: conformance cases with a fake `gh` for every review-detection scenario, run through both twins.
 
 ## 4. Conventions gate (both twins)
 
-- [ ] 4.1 `la-check-conventions` honours `conventions.rules` in the invoking twin's report (file errors only when some rule applies; waivers for rules that are not configured have no effect). Verify: conformance cases for every scenario of the conventions delta, run through both twins.
+- [x] 4.1 `la-check-conventions` honours `conventions.rules` in the invoking twin's report (file errors only when some rule applies; waivers for rules that are not configured have no effect). Verify: conformance cases for every scenario of the conventions delta, run through both twins.
 
 ## 5. Arch scaffold (both twins)
 
-- [ ] 5.1 Top-level facts mode (`--top-level`): in each adapter, attribute module edges to top-level units, read no model, exclude self-edges; extend `facts.schema.json` if needed. Verify: conformance cases (no model, intra-unit edge, forwarded).
-- [ ] 5.2 `la-arch-scaffold`: precondition checks, id derivation and collisions, in-memory rendering of the model, views, arc42 (with generated diagrams) and the index additions, then the writes. Verify: conformance cases for Python, TS and mixed repos, a cycle, an isolated unit, a hyphenated unit, a leading digit, a collision (repo unchanged), an existing model, a missing index and an unreachable twin.
-- [ ] 5.3 Scaffold-then-check cases: no specs gives `la-arch-check` exit 0; an unmapped spec gives exactly the unmapped findings. Verify: both goldens.
+- [x] 5.1 Top-level facts mode (`--top-level`): in each adapter, attribute module edges to top-level units, read no model, exclude self-edges; extend `facts.schema.json` if needed. Verify: conformance cases (no model, intra-unit edge, forwarded).
+- [x] 5.2 `la-arch-scaffold`: precondition checks, id derivation and collisions, in-memory rendering of the model, views, arc42 (with generated diagrams) and the index additions, then the writes. Verify: conformance cases for Python, TS and mixed repos, a cycle, an isolated unit, a hyphenated unit, a leading digit, a collision (repo unchanged), an existing model, a missing index and an unreachable twin.
+- [x] 5.3 Scaffold-then-check cases: no specs gives `la-arch-check` exit 0; an unmapped spec gives exactly the unmapped findings. Verify: both goldens.
 
 ## 6. Skills
 

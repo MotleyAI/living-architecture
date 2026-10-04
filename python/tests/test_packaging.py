@@ -54,7 +54,14 @@ def test_installed_artifact_runs_every_command(kind, artifacts, tmp_path, fake_g
     (work / "a.py").write_text(CLEAN, encoding="utf-8")
     env = {**fake_gh.env(), "PATH": os.pathsep.join([str(fake_gh.bin), str(bin_dir), os.environ["PATH"]])}
     fake_gh.route((["repos/o/r/pulls/3/comments/9/replies"], {"html_url": "u"}),
-                  (["pr", "view", "statusCheckRollup"], {"statusCheckRollup": []}))
+                  (["pr", "view", "statusCheckRollup"], {"statusCheckRollup": []}),
+                  (["repos/o/r/issues/7/comments"], []))
+    scaffold = tmp_path / "scaffold"
+    (scaffold / "architecture").mkdir(parents=True)
+    (scaffold / "architecture" / "index.yaml").write_text("python:\n  root_package: pkg\n", encoding="utf-8")
+    for module in ("pkg/__init__.py", "pkg/a/__init__.py", "pkg/b.py"):
+        (scaffold / module).parent.mkdir(parents=True, exist_ok=True)
+        (scaffold / module).write_text("from pkg import b\n" if module.startswith("pkg/a") else "", encoding="utf-8")
 
     def run(*argv: str, stdin: str = "") -> subprocess.CompletedProcess[str]:
         return subprocess.run([str(bin_dir / argv[0]), *argv[1:]], cwd=work, env=env, input=stdin,
@@ -73,9 +80,13 @@ def test_installed_artifact_runs_every_command(kind, artifacts, tmp_path, fake_g
         (("dr-refactor", "--help"), 0, None),
         (("la-reply-to-pr-thread", "--comment-id", "9", "--pr", "3", "--repo", "o/r"), 0, "u\n"),
         (("la-wait-for-reviews", "7", "--repo", "o/r"), 0, None),
+        (("la-pr-reviewers", "7", "--repo", "o/r"), 0,
+         '{"coderabbit":false,"sonar":{"present":false,"project_key":null}}\n'),
+        (("la-arch-scaffold", "--root", str(scaffold)), 0, None),
     ]
     for argv, code, stdout in expectations:
         proc = run(*argv, stdin="body")
         assert proc.returncode == code, (argv, proc.stdout, proc.stderr)
         if stdout is not None:
             assert proc.stdout == stdout, argv
+    assert "    a -> b\n" in (scaffold / "architecture" / "model" / "python.c4").read_text(encoding="utf-8")
