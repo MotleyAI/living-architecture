@@ -1,0 +1,6 @@
+# Python only for now.
+python:
+  root_package: pkg
+legacy_arrows: {baseline: 0}
+diagrams:
+  architecture/system.arc42.md: [python]

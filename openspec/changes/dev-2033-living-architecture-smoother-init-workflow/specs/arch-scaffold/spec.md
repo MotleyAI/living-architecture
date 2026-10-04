@@ -26,9 +26,9 @@ top-level units under L's root, with one witness each, excluding self-edges. All
 ### Requirement: la-arch-scaffold writes a starter architecture
 `la-arch-scaffold [--root DIR]` SHALL read `architecture/index.yaml`, obtain the top-level facts of every
 declared language, and write:
-- `architecture/model/<language>.c4` per declared language. Its `specification` declares the element kinds
-  `system`, `node` and a `#virtual` bucket kind, plus the tags `legacy` and `virtual`. Its model holds the
-  root `<language> = system '<language>'`, with one `node` per top-level unit carrying
+- `architecture/model/specification.c4`, declaring the element kinds `system`, `node` and a `#virtual`
+  bucket kind, plus the tags `legacy` and `virtual`.
+- `architecture/model/<language>.c4` per declared language. Its model holds the root `<language> = system '<language>'`, with one `node` per top-level unit carrying
   `metadata { package '<unit>' }`, and one relation per measured edge written inside the root.
 - `architecture/views.c4` with one `view <language> of <language>` per declared language.
 - `architecture/system.arc42.md` with the sections Purpose and context, Building blocks, Principles and
@@ -54,7 +54,7 @@ per line, in a fixed order, and exit 0.
 
 #### Scenario: Mixed repo
 - **WHEN** `index.yaml` declares `python` and `typescript`
-- **THEN** one model file and one view are written per language, and both diagrams sit in `system.arc42.md`
+- **THEN** one model file and one view are written per language, the kinds and tags are declared only in `architecture/model/specification.c4`, and both diagrams sit in `system.arc42.md`
 
 #### Scenario: Scaffold passes the check
 - **WHEN** a repo with no `openspec/specs/` directories is scaffolded and `la-arch-check` then runs

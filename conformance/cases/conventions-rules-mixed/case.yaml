@@ -1,0 +1,18 @@
+kind: neutral
+languages:
+- python
+- typescript
+command: la-check-conventions
+args:
+- --file
+- tests/v.test.ts
+- --file
+- b/y.py
+- --file
+- tests/test_w.py
+- --file
+- a/x.ts
+expect:
+  exit: 1
+golden: manual
+note: the invoking twin filters the facts of both languages by the configured rules

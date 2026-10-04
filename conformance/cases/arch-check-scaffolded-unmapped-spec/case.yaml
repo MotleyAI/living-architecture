@@ -1,0 +1,8 @@
+kind: adapter
+languages:
+- python
+command: la-arch-check
+expect:
+  exit: 1
+golden: manual
+note: the arch-scaffold-python output with an existing spec directory leaves only the unmapped-spec finding

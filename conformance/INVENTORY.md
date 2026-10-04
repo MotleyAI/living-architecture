@@ -60,6 +60,10 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | *(new)* single-language findings keep the pre-change order, with qualified ids | 1 | `arch-check-order-single-language` |
 | *(new)* enforced-tags `[lang:]`: declared language; undeclared language; second or malformed tag; never a status tag | 0/1 | `arch-check-tags-lang-declared`, `arch-check-tags-lang-undeclared`, `arch-check-tags-lang-duplicate`, `arch-check-tags-lang-malformed`, `arch-check-tags-lang-not-a-status-tag` |
 | *(new)* enforced-tags: a non-ASCII target id never matches | 1 | `arch-check-tags-target-non-ascii` |
+| *(new)* top-level facts (`--top-level`): no model read, no units, edges between top-level units with the first witness | 0 | `arch-check-top-level-facts-python`, `arch-check-top-level-facts-typescript` |
+| *(new)* top-level facts: an import inside one top-level unit yields no self-edge | 0 | `arch-check-top-level-facts-intra-unit`, `arch-check-top-level-facts-typescript` |
+| *(new)* top-level facts: several modules of one unit importing another give one edge, witnessed by the first sorted source module | 0 | `arch-check-top-level-facts-one-witness` |
+| *(new)* the arch-scaffold-python output passes the check; with an existing spec directory only the unmapped-spec finding remains | 0/1 | `arch-check-scaffolded-clean`, `arch-check-scaffolded-unmapped-spec` |
 
 ## la-arch-check: multi-language
 
@@ -115,17 +119,34 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | *(new)* same local ids under two roots: one relation per root, each scoped view draws its own | 0 | `arch-diagrams-same-local-ids-two-roots` |
 | *(new)* an unscoped view blocks generation | 1 | `arch-diagrams-view-unscoped-refuses` |
 
+## la-arch-scaffold
+
+| Branch | Exit | Cases |
+|---|---|---|
+| *(new)* kinds and tags in `model/specification.c4`, one node per top-level unit and one relation per measured edge in `model/<language>.c4`, views, arc42 with diagrams, index additions; written paths in fixed order | 0 | `arch-scaffold-python` |
+| *(new)* cycle keeps both arrows; an index already setting `legacy_arrows` gets only `diagrams`, the rest byte-identical | 0 | `arch-scaffold-cycle` |
+| *(new)* a unit without edges still gets a node | 0 | `arch-scaffold-unit-without-edges` |
+| *(new)* mixed repo: one shared `specification.c4`, one model file and one view per language, both diagrams in `system.arc42.md` | 0 | `arch-scaffold-mixed`, `twin-scaffold-forwarded-top-level` |
+| *(new)* id derivation: hyphen to `_` with the raw title; leading digit gets `n_`; order follows unit names | 0 | `arch-scaffold-ts-hyphenated`, `arch-scaffold-leading-digit` |
+| *(new)* id collision between two units of one language: names both, writes nothing | 2 | `arch-scaffold-id-collision` |
+| *(new)* an existing `model/*.c4`, `views.c4` or `*.arc42.md` refused by name, repo unchanged | 2 | `arch-scaffold-existing-model`, `arch-scaffold-existing-views`, `arch-scaffold-existing-arc42` |
+| *(new)* `architecture/index.yaml` missing or not valid YAML, nothing written | 2 | `arch-scaffold-index-missing`, `arch-scaffold-index-invalid` |
+| *(new)* other twin unreachable: install hint, nothing written | 2 | `arch-scaffold-twin-unavailable` |
+| *(new)* other twin returns schema-invalid top-level facts: protocol failure, nothing written | 2 | `twin-scaffold-top-level-schema-invalid` |
+
 ## la-config
 
 | Branch | Exit | Cases |
 |---|---|---|
-| `show`: defaults (no file, empty, comments, `{}`), partial, falsy kept, YAML 1.1, duplicate keys, full, integer float, non-ASCII, portable pattern | 0 | `config-show-defaults`, `config-show-empty-file`, `config-show-comments-only`, `config-show-empty-mapping`, `config-show-partial-nested`, `config-show-explicit-falsy`, `config-show-yaml11-booleans`, `config-show-duplicate-key`, `config-show-full`, `config-show-integer-ratio`, `config-show-non-ascii`, `config-show-sonar-disabled-with-key`, `config-show-portable-patterns` |
+| `show`: defaults (no file, empty, comments, `{}`), partial, falsy kept, YAML 1.1, duplicate keys, full, integer float, non-ASCII, portable pattern | 0 | `config-show-defaults`, `config-show-empty-file`, `config-show-empty-mapping`, `config-show-comments-only`, `config-show-partial-nested`, `config-show-explicit-falsy`, `config-show-yaml11-booleans`, `config-show-duplicate-key`, `config-show-full`, `config-show-integer-ratio`, `config-show-non-ascii`, `config-show-portable-patterns` |
 | *(new)* `commands.typecheck`: per-language defaults (shown in every `show` golden), explicit `null` kept, `get` of a default | 0 | `config-show-typecheck-null`, `config-get-typecheck-default` |
 | *(new)* `commands.typecheck` as a plain string, or with an unknown language key | 1 | `config-error-typecheck-string`, `config-error-typecheck-unknown-language` |
+| *(new)* gate keys: `tracker`, `openspec`, `architecture`, `reviewers.codex`, `conventions.rules` with their defaults (shown in every `show` golden), explicit values and falsy values kept, YAML 1.1 `codex: no`, `get` of the rules default | 0 | `config-show-defaults`, `config-show-full`, `config-show-explicit-falsy`, `config-show-yaml11-booleans`, `config-get-conventions-rules-default` |
+| *(new)* removed keys `reviewers.coderabbit` and `reviewers.sonar.enabled`; unknown `tracker`; unknown `conventions.rules` id | 1 | `config-error-removed-coderabbit`, `config-error-removed-sonar-enabled`, `config-error-unknown-tracker`, `config-error-unknown-conventions-rule` |
 | *(new)* strict scalar types: string/int for a bool, string for a number (pydantic used to coerce) | 1 | `config-error-lax-string-bool`, `config-error-lax-int-bool`, `config-error-lax-string-float` |
 | `get`: bool, null (empty line), string, float, list/mapping as JSON, non-ASCII | 0 | `config-get-bool-true`, `config-get-bool-false`, `config-get-null-is-empty`, `config-get-string`, `config-get-float`, `config-get-integer-float`, `config-get-empty-list`, `config-get-list`, `config-get-mapping`, `config-get-non-ascii`, `config-get-non-ascii-in-list` |
 | `get`: unknown key; key into a scalar; an object member name | 2 | `config-get-unknown-key`, `config-get-into-scalar`, `config-get-object-member` |
-| invalid config (key named) | 1 | `config-error-unknown-top-key`, `config-error-unknown-nested-key`, `config-error-sonar-without-key`, `config-error-sonar-empty-key`, `config-error-ratio-zero`, `config-error-ratio-above-one`, `config-error-ratio-negative`, `config-error-invalid-regex`, `config-error-pattern-not-string`, `config-error-bool-not-bool`, `config-error-exempt-not-list`, `config-error-command-not-string`, `config-error-null-section`, `config-error-top-level-list`, `config-error-top-level-scalar`, `config-error-invalid-yaml`, `config-get-invalid-config` |
+| invalid config (key named) | 1 | `config-error-unknown-top-key`, `config-error-unknown-nested-key`, `config-error-ratio-zero`, `config-error-ratio-above-one`, `config-error-ratio-negative`, `config-error-invalid-regex`, `config-error-pattern-not-string`, `config-error-bool-not-bool`, `config-error-exempt-not-list`, `config-error-command-not-string`, `config-error-null-section`, `config-error-top-level-list`, `config-error-top-level-scalar`, `config-error-invalid-yaml`, `config-get-invalid-config` |
 | *(new)* non-portable `issue_key_pattern` | 1 | `config-error-non-portable-lookbehind`, `config-error-non-portable-named-group`, `config-error-non-portable-inline-flag`, `config-error-non-portable-possessive`, `config-error-non-portable-atomic` |
 | repo root: `--root`, discovery from a subdir, no `.git` | 0 | `config-root-flag`, `config-root-discovery-from-subdir`, `config-root-without-git-is-cwd` |
 | usage errors; `--help`; *(new)* `--` honoured | 2/0 | `config-usage-no-args`, `config-usage-unknown-subcommand`, `config-usage-get-without-key`, `config-usage-root-after-subcommand`, `config-usage-unknown-flag`, `config-usage-show-extra-positional`, `config-help`, `config-double-dash` |
@@ -134,10 +155,13 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 
 | Branch | Exit | Cases |
 |---|---|---|
-| healthy (defaults / config file / `--root`), `--expect` matching | 0 | `doctor-ok-defaults`, `doctor-ok-config-file`, `doctor-root-flag`, `doctor-expect-match` |
+| healthy (defaults / config file / `--root`), `--expect` matching; no config file means no consistency checks | 0 | `doctor-ok-defaults`, `doctor-ok-config-file`, `doctor-root-flag`, `doctor-expect-match` |
 | version mismatch; invalid config; `git`/`gh` missing; all problems in order | 1 | `doctor-expect-mismatch`, `doctor-config-invalid`, `doctor-missing-git`, `doctor-missing-gh`, `doctor-missing-both`, `doctor-all-problems-in-order` |
 | usage errors; `--help` | 2/0 | `doctor-usage-unknown-flag`, `doctor-usage-expect-without-value`, `doctor-help` |
 | *(new)* `--twin` (internal option) prints `<language> <version> <contract-hash>`, per twin | 0 | `doctor-twin-identity-python`, `doctor-twin-identity-typescript` |
+| *(new)* `--require-config`: missing file is a finding naming `/la:init`; a valid, consistent file is healthy; an invalid file reports the config error | 1/0/1 | `doctor-require-config-missing`, `doctor-require-config-present`, `doctor-require-config-invalid` |
+| *(new)* config vs disk: `openspec` true without / false with `openspec/`; `architecture` true without / false with `architecture/index.yaml`; `tracker: none` with `openspec: false`; several findings in a fixed order | 1 | `doctor-openspec-enabled-absent`, `doctor-openspec-disabled-present`, `doctor-architecture-enabled-absent`, `doctor-architecture-disabled-present`, `doctor-no-plan-store`, `doctor-several-inconsistencies` |
+| *(new)* an `architecture/` directory without `index.yaml` is not a setup | 0 | `doctor-architecture-unrelated-dir` |
 
 `--contract-hash` *(new)* prints a value that changes with `shared/`; it is pinned by `tests/test_contract.py`.
 
@@ -162,6 +186,9 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | *(new)* NUL-safe `--base` diff: spaces, non-ASCII and a leading dash keep their real names | 1 | `conventions-base-nul-safe-paths` |
 | *(new)* language facts emitted natively (`--language L --emit facts`, paths on stdin): ok with detections and line text, missing, unreadable, syntax-error | 0 | `conventions-facts-emit-python`, `conventions-facts-emit-typescript` |
 | *(new)* facts request whose stdin is not a JSON array of paths | 2 | `conventions-facts-stdin-invalid` |
+| *(new)* `conventions.rules`: only configured rules report; an unconfigured text-ratio prints no ratio line; test-only rules dropped; `[]` keeps only the summary and CLEAR; a waiver for an unconfigured rule does nothing | 1/0 | `conventions-rules-one-rule-dropped`, `conventions-rules-test-only-dropped`, `conventions-rules-gate-off`, `conventions-rules-waiver-unconfigured` |
+| *(new)* `conventions.rules`: unreadable/syntax-error reported iff a configured rule applies to the file | 0/1 | `conventions-rules-file-errors-gate-off`, `conventions-rules-syntax-error-rule-on`, `conventions-rules-file-error-test-only-rules` |
+| *(new)* a conventions section without `rules` keeps every registry rule | 1 | `conventions-rules-default` |
 
 ## la-check-conventions: multi-language
 
@@ -170,6 +197,7 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | *(new)* one report: path order across languages, ratio groups spanning both, `.py and TS/JS` label, mixed RED waiver line | 1 | `conventions-mixed-one-verdict` |
 | *(new)* `--base` routes each file by extension; other files silently ignored; deletions excluded | 1 | `conventions-mixed-base-diff` |
 | *(new)* a rename across languages is checked under the new path by the new language | 1 | `conventions-mixed-rename-across-languages` |
+| *(new)* the invoking twin filters both languages' facts by `conventions.rules` | 1 | `conventions-rules-mixed` |
 
 ## la-check-conventions: TypeScript adapter
 
@@ -188,6 +216,8 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | *(new)* text-ratio at and just over the cap, per group | 0/1 | `conventions-ts-text-ratio-source-at-cap`, `conventions-ts-text-ratio-source-over`, `conventions-ts-text-ratio-tests-at-cap`, `conventions-ts-text-ratio-tests-over` |
 | *(new)* text-only lines (block comments beside code, trailing comments and JSDoc, blank lines inside a block, comment-like strings); BOM, CRLF, lone CR, no final newline | 1 | `conventions-ts-text-lines`, `conventions-ts-line-breaks` |
 | *(new)* `--base` diff of TS files: committed, staged, unstaged, renamed, non-ASCII; untracked and deleted not checked | 1 | `conventions-ts-base-diff` |
+| *(new)* `conventions.rules` on TS/JS files: one rule dropped, test-only rules dropped, `expect(a && b)` with only text-ratio, `[]`, unconfigured-rule waiver, default | 1/0 | `conventions-rules-ts-one-rule-dropped`, `conventions-rules-ts-test-only-dropped`, `conventions-rules-ts-test-file`, `conventions-rules-ts-gate-off`, `conventions-rules-ts-waiver-unconfigured`, `conventions-rules-ts-default` |
+| *(new)* `conventions.rules` on TS/JS file errors: none reported with `[]`, syntax-error reported with text-ratio | 0/1 | `conventions-rules-ts-file-errors-gate-off`, `conventions-rules-ts-syntax-error-rule-on` |
 
 ## la-count-comments
 
@@ -249,13 +279,16 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 
 | Branch | Exit | Cases |
 |---|---|---|
-| ungated shims ignore the config (CodeRabbit disabled, invalid config; the CodeRabbit helpers since 0.2.1) | 0 | `shim-fetch-coderabbit-threads-disabled`, `shim-reply-invalid-coderabbit-disabled`, `shim-fetch-coderabbit-threads-config-invalid`, `shim-reply-invalid-coderabbit-config-invalid`, `shim-reply-to-pr-thread-ignores-config`, `shim-fetch-failed-pr-checks-ignores-config` |
-| `la-wait-for-reviews` reads the config (invalid → 2; disabled → `--skip-coderabbit` appended) | 2/0 | `shim-wait-for-reviews-config-invalid`, `shim-wait-for-reviews-disabled-skips-settle` |
+| review shims ignore the config (no config, invalid config) | 0 | `shim-fetch-coderabbit-threads-disabled`, `shim-reply-invalid-coderabbit-disabled`, `shim-fetch-coderabbit-threads-config-invalid`, `shim-reply-invalid-coderabbit-config-invalid`, `shim-reply-to-pr-thread-ignores-config`, `shim-fetch-failed-pr-checks-ignores-config`, `shim-wait-for-reviews-ignores-config` |
 | fetch-coderabbit-threads: threads + nitpicks + outside-diff; all authors; argument and repo errors | 0/2 | `shim-fetch-coderabbit-threads-ok`, `shim-fetch-coderabbit-threads-all-authors`, `shim-fetch-coderabbit-threads-bad-pr`, `shim-fetch-coderabbit-threads-bad-repo`, `shim-fetch-coderabbit-threads-unknown-flag`, `shim-fetch-coderabbit-threads-repo-autodetect-fails` |
 | reply-invalid-coderabbit: mention prepended; empty body | 0/2 | `shim-reply-invalid-coderabbit-ok`, `shim-reply-invalid-coderabbit-empty-body` |
 | reply-to-pr-thread: URL; explicit ids; review-summary URL; bad URL; empty body; bad id | 0/2 | `shim-reply-to-pr-thread-ok`, `shim-reply-to-pr-thread-explicit-ids`, `shim-reply-to-pr-thread-review-summary-url`, `shim-reply-to-pr-thread-bad-url`, `shim-reply-to-pr-thread-empty-body`, `shim-reply-to-pr-thread-bad-comment-id` |
 | fetch-failed-pr-checks: failures with logs; full-log fallback; none; argument errors | 0/2 | `shim-fetch-failed-pr-checks-ok`, `shim-fetch-failed-pr-checks-full-log-fallback`, `shim-fetch-failed-pr-checks-none`, `shim-fetch-failed-pr-checks-bad-pr`, `shim-fetch-failed-pr-checks-bad-max-log` |
-| wait-for-reviews: no CodeRabbit context; fresh summary; rate limited; gate fails closed; no PR; repo auto-detect fails | 0/3/1/64/2 | `shim-wait-for-reviews-no-coderabbit-context`, `shim-wait-for-reviews-fresh-summary`, `shim-wait-for-reviews-rate-limited`, `shim-wait-for-reviews-gate-fails-closed`, `shim-wait-for-reviews-requires-pr`, `shim-wait-for-reviews-repo-autodetect-fails` |
+| wait-for-reviews: CodeRabbit absent (no check, no comment); fresh summary; rate limited; gate fails closed; no PR; repo auto-detect fails | 0/3/1/64/2 | `shim-wait-for-reviews-coderabbit-absent`, `shim-wait-for-reviews-fresh-summary`, `shim-wait-for-reviews-rate-limited`, `shim-wait-for-reviews-gate-fails-closed`, `shim-wait-for-reviews-requires-pr`, `shim-wait-for-reviews-repo-autodetect-fails` |
+| *(new)* wait-for-reviews: CodeRabbit present by comment only runs the settle; `--skip-coderabbit` is an unknown flag | 0/64 | `shim-wait-for-reviews-coderabbit-by-comment`, `shim-wait-for-reviews-skip-coderabbit-rejected` |
+| *(new)* pr-reviewers: CodeRabbit by status check / by comment; no bots | 0 | `shim-pr-reviewers-coderabbit-by-status`, `shim-pr-reviewers-coderabbit-by-comment`, `shim-pr-reviewers-no-bots` |
+| *(new)* pr-reviewers: Sonar check (run or status context, case-insensitive); key from config, properties file, check URL, none | 0 | `shim-pr-reviewers-sonar-key-from-config`, `shim-pr-reviewers-sonar-key-from-properties`, `shim-pr-reviewers-sonar-key-from-url`, `shim-pr-reviewers-sonar-status-context`, `shim-pr-reviewers-sonar-without-key` |
+| *(new)* pr-reviewers: gh failure relayed, no JSON; missing or non-numeric PR | 2 | `shim-pr-reviewers-gh-fails`, `shim-pr-reviewers-requires-pr`, `shim-pr-reviewers-bad-pr` |
 
 The scripts are shared byte-for-byte between the twins. Their remaining internal branches (thread and
 comment pagination, the polling loops' sleep-and-retry paths, the 10-minute CodeRabbit cap) depend on wall
@@ -284,6 +317,9 @@ time or many paged responses. Those branches are pinned by `tests/test_review_sc
 | *(new)* facts run exits non-zero: its stderr relayed verbatim | 2 | `twin-facts-setup-error-relayed`, `twin-facts-nonzero-exit-relayed` |
 | *(new)* facts protocol failure: malformed, truncated, missing, schema-invalid, wrong language / version / contract hash, killed by a signal; from either twin | 2 | `twin-facts-malformed-json`, `twin-facts-truncated-json`, `twin-facts-missing-document`, `twin-facts-schema-invalid`, `twin-facts-wrong-language`, `twin-facts-wrong-version`, `twin-facts-wrong-contract-hash`, `twin-facts-killed-by-signal`, `twin-facts-malformed-json-from-python` |
 | *(new)* `LA_FORWARDED=1`: forwarding refused without probing (wholesale command, facts request) | 2 | `twin-forward-refused-wholesale`, `twin-forward-refused-facts` |
+| *(new)* the npm twin refuses a Python top-level facts request without starting any process | 2 | `twin-facts-top-level-non-native-python` |
+| *(new)* `la-arch-scaffold` through the PyPI twin gets TypeScript top-level facts from the npm twin | 0 | `twin-scaffold-forwarded-top-level` |
+| *(new)* schema-invalid top-level facts from the npm twin: protocol failure | 2 | `twin-scaffold-top-level-schema-invalid` |
 
 ## Excluded: crashes
 

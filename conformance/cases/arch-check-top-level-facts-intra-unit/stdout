@@ -1,0 +1,10 @@
+{
+  "language": "python",
+  "version": "<VERSION>",
+  "contract_hash": "<CONTRACT_HASH>",
+  "units": [],
+  "top_level_units": ["pkg.api", "pkg.core"],
+  "edges": [
+    {"src": "pkg.api", "dst": "pkg.core", "src_module": "pkg.api.x", "dst_module": "pkg.core.a"}
+  ]
+}

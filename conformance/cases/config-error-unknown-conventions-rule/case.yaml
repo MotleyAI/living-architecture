@@ -1,0 +1,12 @@
+kind: neutral
+command: la-config
+args:
+- show
+expect:
+  exit: 1
+  stdout: ''
+  stderr:
+    contains:
+    - no-such-rule
+golden: manual
+note: conventions.rules items must be registry rule ids; exit code and offending value are the contract

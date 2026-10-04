@@ -112,8 +112,8 @@ cases:
   args: {root: r}
 - name: subcommand with positional
   command: la-config
-  argv: [get, reviewers.sonar.enabled]
-  args: {root: null, subcommand: get, key: reviewers.sonar.enabled}
+  argv: [get, reviewers.codex]
+  args: {root: null, subcommand: get, key: reviewers.codex}
 - name: parent option before subcommand
   command: la-config
   argv: [--root, /r, show]

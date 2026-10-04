@@ -1400,3 +1400,16 @@ def test_invalid_root_package_is_a_setup_error(tmp_path, section, error):
     with pytest.raises(archcheck.ArchCheckError) as excinfo:
         archcheck.run_checks(repo)
     assert str(excinfo.value) == f"architecture/index.yaml: {error}"
+
+
+CASES = next(p for p in Path(__file__).resolve().parents if (p / "conformance").is_dir()) / "conformance" / "cases"
+
+
+@pytest.mark.parametrize("check_case", ["arch-check-scaffolded-clean", "arch-check-scaffolded-unmapped-spec"])
+def test_scaffolded_check_cases_run_on_the_scaffold_golden(check_case):
+    """The scaffold-then-check cases check exactly what arch-scaffold-python writes."""
+    golden = CASES / "arch-scaffold-python" / "files" / "architecture"
+    checked = CASES / check_case / "repo" / "architecture"
+    files = sorted(p.relative_to(golden) for p in golden.rglob("*") if p.is_file())
+    assert files == sorted(p.relative_to(checked) for p in checked.rglob("*") if p.is_file())
+    assert all((golden / rel).read_bytes() == (checked / rel).read_bytes() for rel in files)

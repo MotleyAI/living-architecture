@@ -35,64 +35,56 @@ def repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return tmp_path
 
 
-def _enable_coderabbit(repo: Path) -> None:
-    (repo / CONFIG_FILENAME).write_text("reviewers: {coderabbit: true}\n", encoding="utf-8")
-
-
-def _disable_coderabbit(repo: Path) -> None:
-    (repo / CONFIG_FILENAME).write_text("reviewers: {coderabbit: false}\n", encoding="utf-8")
-
-
 def _invalid_config(repo: Path) -> None:
     (repo / CONFIG_FILENAME).write_text("bogus: 1\n", encoding="utf-8")
 
 
-UNGATED = [
-    (cli.la_fetch_coderabbit_threads, "fetch-coderabbit-threads.sh"),
-    (cli.la_reply_invalid_coderabbit, "reply-invalid-coderabbit.sh"),
-    (cli.la_reply_to_pr_thread, "reply-to-pr-thread.sh"),
-    (cli.la_fetch_failed_pr_checks, "fetch-failed-pr-checks.sh"),
+def _removed_coderabbit_key(repo: Path) -> None:
+    (repo / CONFIG_FILENAME).write_text("reviewers: {coderabbit: false}\n", encoding="utf-8")
+
+
+# The config-free review shims, by entry-point name (resolved lazily, so one missing entry fails alone).
+CONFIG_FREE = [
+    ("la_fetch_coderabbit_threads", "fetch-coderabbit-threads.sh"),
+    ("la_reply_invalid_coderabbit", "reply-invalid-coderabbit.sh"),
+    ("la_reply_to_pr_thread", "reply-to-pr-thread.sh"),
+    ("la_fetch_failed_pr_checks", "fetch-failed-pr-checks.sh"),
+    ("la_wait_for_reviews", "wait-for-reviews.sh"),
 ]
 
 
-# Single-source helpers run whatever the repo config says (or whether it exists, or parses).
-@pytest.mark.parametrize("setup", [lambda repo: None, _enable_coderabbit, _disable_coderabbit, _invalid_config],
-                         ids=["no-config", "coderabbit-on", "coderabbit-off", "invalid-config"])
-@pytest.mark.parametrize(("shim", "script"), UNGATED)
-def test_ungated_commands(repo, execvp, shim, script, setup):
+# These helpers run whatever the repo config says (or whether it exists, or parses), argv unchanged.
+@pytest.mark.parametrize("setup", [lambda repo: None, _removed_coderabbit_key, _invalid_config],
+                         ids=["no-config", "removed-coderabbit-key", "invalid-config"])
+@pytest.mark.parametrize(("shim", "script"), CONFIG_FREE)
+def test_config_free_commands(repo, execvp, shim, script, setup):
     setup(repo)
     with pytest.raises(Execd):
-        shim(["7", "--repo", "o/r"])
+        getattr(cli, shim)(["7", "--repo", "o/r"])
     assert execvp == [["bash", str(SCRIPTS_DIR / script), "7", "--repo", "o/r"]]
 
 
-@pytest.mark.parametrize(("shim", "script"), UNGATED)
-def test_ungated_commands_run_outside_a_git_repo(tmp_path, monkeypatch, execvp, shim, script):
+@pytest.mark.parametrize(("shim", "script"), CONFIG_FREE)
+def test_config_free_commands_run_outside_a_git_repo(tmp_path, monkeypatch, execvp, shim, script):
     monkeypatch.chdir(tmp_path)
     with pytest.raises(Execd):
-        shim(["7"])
+        getattr(cli, shim)(["7"])
     assert execvp == [["bash", str(SCRIPTS_DIR / script), "7"]]
 
 
-def test_wait_skips_coderabbit_when_disabled(repo, execvp):
-    with pytest.raises(Execd):
-        cli.la_wait_for_reviews(["7"])
-    assert execvp[0][-2:] == ["7", "--skip-coderabbit"]
+def test_no_command_has_a_gate():
+    assert [name for name, spec in manifest().items() if "gate" in spec] == []
+    assert "gate" not in (snapshot_dir() / "cli.yaml").read_text(encoding="utf-8").split("\ncommands:")[0]
 
 
-def test_wait_waits_for_coderabbit_when_enabled(repo, execvp):
-    _enable_coderabbit(repo)
-    with pytest.raises(Execd):
-        cli.la_wait_for_reviews(["7"])
-    assert execvp[0][-1] == "7"
+def test_pr_reviewers_runs_its_bundled_script():
+    assert manifest()["la-pr-reviewers"]["script"] == "pr-reviewers.sh"
+    assert (SCRIPTS_DIR / "pr-reviewers.sh").is_file()
 
 
-def test_invalid_config_exits_2(repo, execvp, capsys):
-    _invalid_config(repo)
-    with pytest.raises(SystemExit) as exc:
-        cli.la_wait_for_reviews(["7"])
-    assert exc.value.code == 2
-    assert execvp == []
+def test_every_manifest_command_has_an_entry_point():
+    scripts = tomllib.loads((PROJECT_ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]["scripts"]
+    assert sorted(set(manifest()) - set(scripts)) == []
 
 
 def test_every_bundled_script_has_a_command():

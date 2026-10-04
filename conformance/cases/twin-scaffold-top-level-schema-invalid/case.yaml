@@ -1,0 +1,45 @@
+kind: adapter
+languages:
+- python
+twin: python
+other_twin: absent
+command: la-arch-scaffold
+bins:
+- dir: npm-twin
+  files:
+    la-doctor: |
+      #!/bin/sh
+      [ "$*" = "--twin" ] || { echo "fake la-doctor: unexpected $*" >&2; exit 99; }
+      echo "typescript <VERSION> <CONTRACT_HASH>"
+    la-arch-check: |
+      #!/bin/sh
+      case " $* " in *" --language typescript "*) ;; *) echo "fake la-arch-check: not a typescript facts request: $*" >&2; exit 99 ;; esac
+      case " $* " in *" --emit facts "*) ;; *) echo "fake la-arch-check: not a facts request: $*" >&2; exit 99 ;; esac
+      case " $* " in *" --top-level "*) ;; *) echo "fake la-arch-check: not a top-level request: $*" >&2; exit 99 ;; esac
+      [ "$LA_FORWARDED" = 1 ] || { echo "fake la-arch-check: LA_FORWARDED is not 1" >&2; exit 99; }
+      cat <<'DOC'
+      {
+        "language": "typescript",
+        "version": "<VERSION>",
+        "contract_hash": "<CONTRACT_HASH>",
+        "units": [],
+        "top_level_units": ["src/shared", "src/web"],
+        "nodes": [],
+        "edges": [
+          {"src": "src/web", "dst": "src/shared", "src_module": "src/web/app", "dst_module": "src/shared/util"}
+        ]
+      }
+      DOC
+normalize:
+- version
+expect:
+  exit: 2
+  files:
+  - architecture/model/specification.c4
+  - architecture/model/python.c4
+  - architecture/model/typescript.c4
+  - architecture/views.c4
+  - architecture/system.arc42.md
+  - architecture/index.yaml
+golden: manual
+note: 'a top-level facts document with a key the facts schema forbids: protocol failure, exit 2, nothing written'

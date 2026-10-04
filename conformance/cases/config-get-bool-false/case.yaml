@@ -2,6 +2,6 @@ kind: neutral
 command: la-config
 args:
 - get
-- reviewers.sonar.enabled
+- architecture
 expect:
   exit: 0

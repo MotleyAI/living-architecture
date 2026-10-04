@@ -1,0 +1,13 @@
+kind: neutral
+command: la-pr-reviewers
+args:
+- '7'
+- --repo
+- o/r
+expect:
+  exit: 2
+  stderr:
+    contains:
+    - 'fake gh: no route for'
+golden: manual
+note: gh's error is relayed on stderr and no JSON is printed

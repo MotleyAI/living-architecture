@@ -1,0 +1,16 @@
+kind: adapter
+languages:
+- python
+twin: python
+command: la-arch-check
+args:
+- --language
+- python
+- --emit
+- facts
+- --top-level
+expect:
+  exit: 0
+  stdout: json
+golden: manual
+note: an import between two modules of one top-level unit yields no self-edge

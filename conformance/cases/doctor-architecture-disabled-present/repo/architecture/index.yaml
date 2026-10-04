@@ -1,0 +1,1 @@
+python: {root_package: app, source_root: src}

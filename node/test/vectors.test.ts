@@ -86,9 +86,9 @@ describe('materialize.yaml', () => {
   }
 
   it('does not mutate its input', () => {
-    const data = { reviewers: { coderabbit: true } };
+    const data = { reviewers: { codex: true } };
     materializeDefaults(CONFIG_SCHEMA, data);
-    expect(data).toEqual({ reviewers: { coderabbit: true } });
+    expect(data).toEqual({ reviewers: { codex: true } });
   });
 });
 

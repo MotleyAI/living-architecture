@@ -1,0 +1,14 @@
+kind: adapter
+languages:
+- python
+command: la-arch-scaffold
+expect:
+  exit: 0
+  files:
+  - architecture/model/specification.c4
+  - architecture/model/python.c4
+  - architecture/views.c4
+  - architecture/system.arc42.md
+  - architecture/index.yaml
+golden: manual
+note: 'one node per top-level unit, one relation per measured edge, one view, the arc42 skeleton with its diagram, and the index additions; written paths print in a fixed order'

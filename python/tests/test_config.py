@@ -20,8 +20,12 @@ def _write(root: Path, text: str) -> None:
 def test_missing_file_gives_defaults(tmp_path: Path) -> None:
     cfg = load_config(tmp_path)
     assert cfg == resolve(None)
-    assert cfg.reviewers.coderabbit is False
-    assert cfg.reviewers.sonar.enabled is False
+    assert cfg.tracker == "linear"
+    assert cfg.openspec is True
+    assert cfg.architecture is False
+    assert cfg.reviewers.codex is True
+    assert cfg.reviewers.sonar.project_key is None
+    assert cfg.conventions.rules == ["import-not-top", "text-ratio", "composite-assert", "raises-single-throw"]
     assert cfg.issue_key_pattern == DEFAULT_ISSUE_KEY_PATTERN
     assert cfg.conventions.text_ratio_max == 0.15
 
@@ -35,26 +39,48 @@ def test_full_config_parses(tmp_path: Path) -> None:
     _write(
         tmp_path,
         """
+tracker: github
+openspec: false
+architecture: true
 reviewers:
-  coderabbit: true
-  sonar: {enabled: true, project_key: org_proj}
+  codex: false
+  sonar: {project_key: org_proj}
 issue_key_pattern: "PROJ-\\\\d+"
 commands: {test: "pytest -q", lint: "ruff check ."}
-conventions: {text_ratio_max: 0.2, exempt: [pkg/server.py]}
+conventions: {text_ratio_max: 0.2, exempt: [pkg/server.py], rules: [text-ratio]}
 """,
     )
     cfg = load_config(tmp_path)
-    assert cfg.reviewers.coderabbit is True
+    assert (cfg.tracker, cfg.openspec, cfg.architecture) == ("github", False, True)
+    assert cfg.reviewers.codex is False
     assert cfg.reviewers.sonar.project_key == "org_proj"
     assert cfg.issue_key_re().fullmatch("PROJ-12")
     assert cfg.commands.test == "pytest -q"
     assert cfg.conventions.exempt == ["pkg/server.py"]
+    assert cfg.conventions.rules == ["text-ratio"]
 
 
-def test_sonar_enabled_requires_project_key(tmp_path: Path) -> None:
-    _write(tmp_path, "reviewers: {sonar: {enabled: true}}\n")
-    with pytest.raises(ConfigError, match="project_key"):
+@pytest.mark.parametrize(
+    ("text", "offender"),
+    [
+        ("reviewers: {coderabbit: true}\n", "coderabbit"),
+        ("reviewers: {sonar: {enabled: true, project_key: o_r}}\n", "enabled"),
+        ("tracker: jira\n", "tracker"),
+        ("conventions: {rules: [import-not-top, no-such-rule]}\n", "no-such-rule"),
+    ],
+)
+def test_invalid_gate_values_rejected(tmp_path: Path, text: str, offender: str) -> None:
+    _write(tmp_path, text)
+    with pytest.raises(ConfigError, match=offender):
         load_config(tmp_path)
+
+
+def test_explicit_falsy_gate_values_kept(tmp_path: Path) -> None:
+    _write(tmp_path, "conventions: {rules: []}\nreviewers: {codex: no}\nopenspec: off\n")
+    cfg = load_config(tmp_path)
+    assert cfg.conventions.rules == []
+    assert cfg.reviewers.codex is False
+    assert cfg.openspec is False
 
 
 def test_unknown_key_rejected(tmp_path: Path) -> None:

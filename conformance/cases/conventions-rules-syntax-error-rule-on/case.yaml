@@ -1,0 +1,11 @@
+kind: adapter
+languages:
+- python
+command: la-check-conventions
+args:
+- --file
+- src/bad.py
+expect:
+  exit: 1
+golden: manual
+note: text-ratio applies to every file, so the file's syntax-error is reported

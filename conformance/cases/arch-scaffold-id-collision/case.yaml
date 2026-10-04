@@ -1,0 +1,14 @@
+kind: adapter
+languages:
+- typescript
+command: la-arch-scaffold
+expect:
+  exit: 2
+  files:
+  - architecture/model/specification.c4
+  - architecture/model/typescript.c4
+  - architecture/views.c4
+  - architecture/system.arc42.md
+  - architecture/index.yaml
+golden: manual
+note: two units of one language deriving the same id are a setup error naming both; nothing is written

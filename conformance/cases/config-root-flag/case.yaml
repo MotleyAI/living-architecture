@@ -4,6 +4,6 @@ args:
 - --root
 - sub
 - get
-- reviewers.coderabbit
+- reviewers.codex
 expect:
   exit: 0

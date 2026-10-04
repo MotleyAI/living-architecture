@@ -278,9 +278,9 @@ def test_generic_materialization(vector: dict) -> None:
 
 def test_materialization_does_not_mutate_its_input() -> None:
     schema = json.loads((SHARED / "schema" / "living-architecture.schema.json").read_text(encoding="utf-8"))
-    data = {"reviewers": {"coderabbit": True}}
+    data = {"reviewers": {"codex": False}}
     materialize_defaults(schema, data)
-    assert data == {"reviewers": {"coderabbit": True}}
+    assert data == {"reviewers": {"codex": False}}
 
 
 @pytest.mark.parametrize("pattern", _vectors("regex-subset.yaml")["accept"])

@@ -1,0 +1,12 @@
+kind: neutral
+command: la-arch-scaffold
+expect:
+  exit: 2
+  files:
+  - architecture/model/specification.c4
+  - architecture/index.yaml
+  - architecture/model/python.c4
+  - architecture/views.c4
+  - architecture/system.arc42.md
+golden: manual
+note: without architecture/index.yaml there is nothing to scaffold from; nothing is written

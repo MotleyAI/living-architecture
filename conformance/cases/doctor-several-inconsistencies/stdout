@@ -1,0 +1,2 @@
+FAIL: openspec is true but the repo has no openspec/ directory; run /la:openspec-init or set openspec: false
+FAIL: architecture is true but the repo has no architecture/index.yaml; run /la:arch-init or set architecture: false

@@ -1,0 +1,10 @@
+{
+  "language": "typescript",
+  "version": "<VERSION>",
+  "contract_hash": "<CONTRACT_HASH>",
+  "units": [],
+  "top_level_units": ["src/api", "src/data-access"],
+  "edges": [
+    {"src": "src/api", "dst": "src/data-access", "src_module": "src/api", "dst_module": "src/data-access/repo"}
+  ]
+}

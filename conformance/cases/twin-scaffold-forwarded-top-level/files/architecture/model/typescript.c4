@@ -1,0 +1,16 @@
+model {
+  typescript = system 'typescript' {
+    shared = node 'shared' {
+      metadata {
+        package 'src/shared'
+      }
+    }
+    web = node 'web' {
+      metadata {
+        package 'src/web'
+      }
+    }
+
+    web -> shared
+  }
+}

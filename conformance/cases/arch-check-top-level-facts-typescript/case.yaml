@@ -1,0 +1,16 @@
+kind: adapter
+languages:
+- typescript
+twin: typescript
+command: la-arch-check
+args:
+- --language
+- typescript
+- --emit
+- facts
+- --top-level
+expect:
+  exit: 0
+  stdout: json
+golden: manual
+note: native TS top-level facts without a model; the import inside src/data-access yields no self-edge

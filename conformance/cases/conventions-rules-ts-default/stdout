@@ -1,0 +1,8 @@
+src/a.test.ts:1: [composite-assert] composite `expect(... && ...)` or `assert(... && ...)`; split into separate assertions
+
+gate: RED —
+  [import-not-top] hoist each flagged import to module top. Only a genuine
+    circular import may be waived with '// ALLOW(import-not-top): <reason>' —
+    confirm with the user before landing such a waiver.
+  [text-ratio] trim comments/docstrings in the flagged file group until
+    text-only lines fit under the cap (no per-line waiver).

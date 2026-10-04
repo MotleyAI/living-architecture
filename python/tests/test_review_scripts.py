@@ -1,6 +1,9 @@
 import json
 import re
+import subprocess
 from pathlib import Path
+
+import pytest
 
 REPO = ["--repo", "o/r"]
 
@@ -168,6 +171,7 @@ def test_coderabbit_threads_all_authors(fake_gh, run_script):
 # --------------------------------------------------------------------------- wait-for-reviews
 
 CLEAR = {"statusCheckRollup": [{"__typename": "CheckRun", "name": "tests", "status": "COMPLETED"}]}
+HUMAN_COMMENTS = [{"user": {"login": "alice"}, "updated_at": "2026-01-02T00:00:00Z", "body": "LGTM"}]
 WITH_CR = {"statusCheckRollup": [
     {"__typename": "CheckRun", "name": "tests", "status": "COMPLETED"},
     {"__typename": "StatusContext", "context": "CodeRabbit", "state": "SUCCESS"},
@@ -185,19 +189,27 @@ def _cr_routes(comment_body: str) -> tuple:
 
 
 def test_wait_gate_clear_without_coderabbit(fake_gh, run_script):
-    fake_gh.route((["pr", "view", "statusCheckRollup"], CLEAR))
+    fake_gh.route((["pr", "view", "statusCheckRollup"], CLEAR), (["repos/o/r/issues/7/comments"], HUMAN_COMMENTS))
     r = run_script("wait-for-reviews.sh", "7", *REPO)
     assert r.returncode == 0, r.stderr
-    assert "Stage 0a: gate clear." in r.stdout
-    assert "no CodeRabbit StatusContext" in r.stdout
+    assert r.stdout == "Stage 0a: gate clear.\nStage 0b: CodeRabbit is not on this PR — skipping settle.\n"
 
 
-def test_wait_skip_coderabbit(fake_gh, run_script):
-    fake_gh.route(*_cr_routes("## Summary"))
-    r = run_script("wait-for-reviews.sh", "7", *REPO, "--skip-coderabbit")
+def test_wait_settles_when_coderabbit_only_commented(fake_gh, run_script):
+    fake_gh.route((["pr", "view", "statusCheckRollup"], CLEAR), *_cr_routes("## Summary")[1:])
+    r = run_script("wait-for-reviews.sh", "7", *REPO)
     assert r.returncode == 0, r.stderr
-    assert "CodeRabbit disabled" in r.stdout
-    assert not any("repos/o/r/issues/7/comments" in c["argv"] for c in fake_gh.calls())
+    assert "CodeRabbit summary updated" in r.stdout
+
+
+def test_wait_rejects_skip_coderabbit(fake_gh, run_script, monkeypatch):
+    monkeypatch.setenv("LA_WAIT_GATE_TIMEOUT", "0")
+    monkeypatch.setenv("LA_WAIT_POLL_SECONDS", "0")
+    r = run_script("wait-for-reviews.sh", "7", *REPO, "--skip-coderabbit")
+    assert r.returncode == 64
+    assert "unknown flag: --skip-coderabbit" in r.stderr
+    assert "--skip-coderabbit     " not in r.stderr
+    assert fake_gh.calls() == []
 
 
 def test_wait_fresh_coderabbit_summary(fake_gh, run_script):
@@ -226,3 +238,76 @@ def test_wait_gate_fails_closed_when_gh_errors(fake_gh, run_script, monkeypatch)
 
 def test_wait_requires_pr(run_script):
     assert run_script("wait-for-reviews.sh").returncode == 64
+
+
+# --------------------------------------------------------------------------- pr-reviewers
+
+SONAR_RUN = {"__typename": "CheckRun", "name": "SonarCloud Code Analysis", "status": "COMPLETED",
+             "detailsUrl": "https://sonarcloud.io/dashboard?id=url_key&pullRequest=7"}
+
+
+@pytest.fixture
+def git_repo(fake_gh):
+    subprocess.run(["git", "init", "-q", str(fake_gh.tmp)], check=True)
+
+
+def _reviewers(fake_gh, run_script, rollup, comments):
+    fake_gh.route((["pr", "view", "statusCheckRollup"], {"statusCheckRollup": rollup}),
+                  (["repos/o/r/issues/7/comments"], comments))
+    r = run_script("pr-reviewers.sh", "7", *REPO)
+    assert r.returncode == 0, r.stderr
+    return json.loads(r.stdout)
+
+
+@pytest.mark.usefixtures("git_repo")
+def test_pr_reviewers_coderabbit_by_status(fake_gh, run_script):
+    rollup = WITH_CR["statusCheckRollup"]
+    assert _reviewers(fake_gh, run_script, rollup, HUMAN_COMMENTS)["coderabbit"] is True
+
+
+@pytest.mark.usefixtures("git_repo")
+def test_pr_reviewers_coderabbit_by_comment(fake_gh, run_script):
+    comments = [{"user": {"login": "coderabbitai[bot]"}, "updated_at": "t", "body": "## Summary"}]
+    assert _reviewers(fake_gh, run_script, CLEAR["statusCheckRollup"], comments)["coderabbit"] is True
+
+
+@pytest.mark.usefixtures("git_repo")
+def test_pr_reviewers_no_bots(fake_gh, run_script):
+    out = _reviewers(fake_gh, run_script, CLEAR["statusCheckRollup"], HUMAN_COMMENTS)
+    assert out == {"coderabbit": False, "sonar": {"present": False, "project_key": None}}
+
+
+@pytest.mark.usefixtures("git_repo")
+def test_pr_reviewers_sonar_key_from_url(fake_gh, run_script):
+    out = _reviewers(fake_gh, run_script, [*CLEAR["statusCheckRollup"], SONAR_RUN], [])
+    assert out["sonar"] == {"present": True, "project_key": "url_key"}
+
+
+@pytest.mark.usefixtures("git_repo")
+def test_pr_reviewers_sonar_key_from_properties(fake_gh, run_script):
+    (fake_gh.tmp / "sonar-project.properties").write_text("sonar.projectKey = props_key\n", encoding="utf-8")
+    out = _reviewers(fake_gh, run_script, [*CLEAR["statusCheckRollup"], SONAR_RUN], [])
+    assert out["sonar"] == {"present": True, "project_key": "props_key"}
+
+
+@pytest.mark.usefixtures("git_repo")
+def test_pr_reviewers_sonar_context_matched_case_insensitively(fake_gh, run_script):
+    context = {"__typename": "StatusContext", "context": "SONARQUBE", "state": "SUCCESS", "targetUrl": "https://s/x"}
+    out = _reviewers(fake_gh, run_script, [*CLEAR["statusCheckRollup"], context], [])
+    assert out["sonar"] == {"present": True, "project_key": None}
+
+
+@pytest.mark.usefixtures("git_repo")
+def test_pr_reviewers_gh_failure(fake_gh, run_script):
+    fake_gh.route((["pr", "view", "statusCheckRollup"], "", 1))
+    r = run_script("pr-reviewers.sh", "7", *REPO)
+    assert r.returncode == 2
+    assert r.stdout == ""
+
+
+@pytest.mark.parametrize("args", [[], ["abc", *REPO], ["-3", *REPO]])
+def test_pr_reviewers_rejects_missing_or_bad_pr(fake_gh, run_script, args):
+    r = run_script("pr-reviewers.sh", *args)
+    assert r.returncode == 2
+    assert r.stdout == ""
+    assert fake_gh.calls() == []
