@@ -12,7 +12,6 @@ Which parts of the flow a repo uses, recorded as explicit decisions in `living-a
 - `architecture`: boolean (default `false`)
 - `reviewers.codex`: boolean (default `true`)
 - `reviewers.sonar.project_key`: string or null (default null)
-- `commands.typecheck`: string or null (default null)
 - `conventions.rules`: a list of conventions rule ids (default: every rule id in the shared conventions
   registry, in registry order)
 
@@ -20,7 +19,7 @@ It SHALL NOT accept `reviewers.coderabbit` or `reviewers.sonar.enabled`. Every k
 
 #### Scenario: Defaults of the gate keys
 - **WHEN** a repo has no `living-architecture.yaml` and `la-config show` runs
-- **THEN** the output has `tracker: linear`, `openspec: true`, `architecture: false`, `reviewers.codex: true`, `reviewers.sonar.project_key: null`, `commands.typecheck: null` and `conventions.rules` listing every registry rule, and the command exits 0
+- **THEN** the output has `tracker: linear`, `openspec: true`, `architecture: false`, `reviewers.codex: true`, `reviewers.sonar.project_key: null` and `conventions.rules` listing every registry rule, and the command exits 0
 
 #### Scenario: Removed CodeRabbit key
 - **WHEN** the config sets `reviewers: {coderabbit: true}` and `la-config show` runs

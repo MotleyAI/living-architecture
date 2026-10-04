@@ -1,8 +1,3 @@
-## Purpose
-
-Let a repo choose which conventions rules its gate enforces, so a team can drop a rule it disagrees with
-without losing the others or the gate itself.
-
 ## ADDED Requirements
 
 ### Requirement: The conventions gate enforces only the configured rules
@@ -34,3 +29,7 @@ configured SHALL have no effect.
 #### Scenario: Default keeps every rule
 - **WHEN** the config does not set `conventions.rules` and a changed test file has `assert a and b`
 - **THEN** the `composite-assert` finding is reported
+
+#### Scenario: TypeScript test file
+- **WHEN** the config sets `conventions.rules: [text-ratio]` and a changed `src/a.test.ts` has `expect(a && b).toBe(true)`
+- **THEN** no `composite-assert` finding is reported

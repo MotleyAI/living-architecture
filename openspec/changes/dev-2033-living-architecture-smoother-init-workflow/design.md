@@ -2,20 +2,22 @@
 
 DEV-2025 (merged on main) added language roots in `index.yaml` and the model,
 the npm twin, and a per-language facts exchange (`la-arch-check --language L --emit facts`). Every
-command-level behaviour below lands in both twins, except `la-check-conventions`, which the npm twin forwards
-(per DEV-2025). Skill behaviour is prose and is pinned only structurally (`python/tests/test_skills.py`).
+command-level behaviour below lands in both twins. DEV-2026 (merged on main) made `la-check-conventions`
+native in both twins and added `la-typecheck` with the per-language `commands.typecheck` map. Skill behaviour
+is prose and is pinned only structurally (`python/tests/test_skills.py`).
 
 Applicable `system.arc42.md` principles: 1 (twins identical, the corpus decides), 2 (parameters, defaults and
 texts only from `shared/`), 3 (language-specific code only in `lang`/`refactor`; scaffold id rules are
-language-neutral and live in `archcheck`) and 4 (no target-repo code executed; `commands.typecheck` is run
-by skills, never by the tools).
+language-neutral and live in `archcheck`) and 4 (tools never import or execute target-repo code, except a
+configured `commands.*` command).
 
 Spec placement in `architecture/index.yaml`, following DEV-2025's precedent (a twinned spec maps to its
 PyPI-twin node, e.g. `arch-check` → `python.archcheck`, `twin-forwarding` → `python.twin`):
 - `repo-config`: `cross_cutting_specs`, touching `python.config` and `python.doctor`.
 - `review-detection`: `python.review` metadata `specs`.
 - `arch-scaffold`: `python.archcheck` metadata `specs`.
-- `conventions-gate`: `python.conventions` metadata `specs`.
+- `conventions`: the rule selection is an added requirement of the existing spec, already mapped to
+  `python.conventions`.
 
 ## Goals / Non-Goals
 
@@ -68,12 +70,12 @@ runtime detection, which silently weakens the review.
 (`[]`). File errors appear only when some rule checks the file. Alternative: a skill-side `enabled`, which is
 all-or-nothing and untested.
 
-**D7: `commands.typecheck` contract.** The command exits 0 iff there are no type errors beyond the recorded
-baseline. The baseline is the checker's own mechanism (basedpyright's `.basedpyright/baseline.json`).
-`la:init` offers the one-time recording for basedpyright only. Other checkers need a command with these
-exit semantics, or a clean baseline. The ratchet rule (never re-record; root-fix; shrink only) has one
-description, at the gate in pr-implement and pr-review. `la:arch-cleanup` and `la:deterministic-refactor`
-stop when it is null.
+**D7: The type-check gate is `la-typecheck`.** DEV-2026 owns the command, the per-language
+`commands.typecheck` map and the baselines (`.basedpyright/baseline.json`, `.tsc-baseline.json`). `la:init`
+detects each language's checker and proposes a `commands.typecheck` entry only where the default does not
+fit, then offers `la-typecheck --write-baseline` when an applicable language has no baseline. The ratchet
+rule (never re-record; root-fix; shrink only) has one description, at the gate in pr-implement and
+pr-review. `la:arch-cleanup` and `la:deterministic-refactor` stop when `la-typecheck` checks no language.
 
 **D8: Scaffold measures through a top-level facts mode.** DEV-2025's facts attribute edges to elements of an
 existing model, and a forwarded twin reads that model from disk. `--top-level` attributes module edges to

@@ -8,7 +8,7 @@ it does not, stop at the group boundary, tick what is done, commit, and ask the 
 
 ## 2. Shared contract
 
-- [ ] 2.1 `shared/schema/living-architecture.schema.json`: add `tracker`, `openspec`, `architecture`, `reviewers.codex`, `commands.typecheck` and `conventions.rules` (enum of the registry rule ids, default all); remove `reviewers.coderabbit` and `reviewers.sonar.enabled`, plus the if/then rule. Verify: the repo-config and shared-contract config scenarios have cases.
+- [ ] 2.1 `shared/schema/living-architecture.schema.json`: add `tracker`, `openspec`, `architecture`, `reviewers.codex` and `conventions.rules` (enum of the registry rule ids, default all); remove `reviewers.coderabbit` and `reviewers.sonar.enabled`, plus the if/then rule. Verify: the repo-config and shared-contract config scenarios have cases.
 - [ ] 2.2 `shared/cli.yaml`: add `la-doctor --require-config`, `la-pr-reviewers` (script command) and `la-arch-scaffold`; add `--top-level` to the internal facts options; remove `gate` from `la-wait-for-reviews` and from the manifest header. Verify: the manifest-driven parser tests pass in both twins.
 - [ ] 2.3 `shared/findings.yaml`: add templates for missing config (naming `/la:init`), each consistency finding, scaffold refusals (existing file, id collision) and the written-path line. Verify: 7.4's mapping covers each new id.
 - [ ] 2.4 `shared/scripts/`: add a shared detection helper (CodeRabbit by status or comment; Sonar check and key precedence) and `pr-reviewers.sh`; make `wait-for-reviews.sh` use the helper and drop `--skip-coderabbit`. Verify: the review-detection cases pass.
@@ -20,9 +20,9 @@ it does not, stop at the group boundary, tick what is done, commit, and ask the 
 - [ ] 3.2 `la-doctor --require-config` and the consistency checks (only when the file exists; `architecture/index.yaml` as the marker; fixed finding order) in both twins. Verify: one conformance case per repo-config doctor scenario, including the unrelated `architecture/` directory and several inconsistencies.
 - [ ] 3.3 Remove the `skip-coderabbit` gate code from both twins' `review` node and add the `la-pr-reviewers` shim. Verify: conformance cases with a fake `gh` for every review-detection scenario, run through both twins.
 
-## 4. Conventions gate (Python twin)
+## 4. Conventions gate (both twins)
 
-- [ ] 4.1 `la-check-conventions` honours `conventions.rules` (file errors only when some rule applies; waivers for rules that are not configured have no effect). Verify: conformance cases for every conventions-gate scenario.
+- [ ] 4.1 `la-check-conventions` honours `conventions.rules` in the invoking twin's report (file errors only when some rule applies; waivers for rules that are not configured have no effect). Verify: conformance cases for every scenario of the conventions delta, run through both twins.
 
 ## 5. Arch scaffold (both twins)
 
@@ -33,10 +33,10 @@ it does not, stop at the group boundary, tick what is done, commit, and ask the 
 ## 6. Skills
 
 - [ ] 6.1 New `plugin/skills/init/SKILL.md` per design D11 (detection list, the proposal with a source per key, one question round with pros/cons/recommendation, OpenSpec scaffold before writing, `issue_key_pattern` per tracker, the fast path, editing in place, converting legacy keys). Verify: `test_skills.py` passes.
-- [ ] 6.2 New `plugin/skills/arch-init/SKILL.md` (preconditions including the typecheck baseline, writing the language sections, `la-arch-scaffold`, the wedge interview, principles drafted from CLAUDE.md/AGENTS.md and approved one by one, folding in ADRs, spec mapping, green check, flipping `architecture: true`, no CI). Remove Init and Migrate from `living-architecture`, point it to `la:arch-init`, and keep it as reference plus maintenance. Verify: `test_skills.py`.
-- [ ] 6.3 Rename `arch-slice` to `arch-cleanup` (directory, frontmatter, every reference). It uses `commands.typecheck` and stops when it is null; `deterministic-refactor` does the same. Verify: `test_skills.py` reference check; no `arch-slice` left (`grep -r arch-slice plugin docs README.md AGENTS.md`).
+- [ ] 6.2 New `plugin/skills/arch-init/SKILL.md` (preconditions including a `la-typecheck` baseline, writing the language sections, `la-arch-scaffold`, the wedge interview, principles drafted from CLAUDE.md/AGENTS.md and approved one by one, folding in ADRs, spec mapping, green check, flipping `architecture: true`, no CI). Remove Init and Migrate from `living-architecture`, point it to `la:arch-init`, and keep it as reference plus maintenance. Verify: `test_skills.py`.
+- [ ] 6.3 Rename `arch-slice` to `arch-cleanup` (directory, frontmatter, every reference). It gates on `la-typecheck` and stops when that checks no language; `deterministic-refactor` does the same. Verify: `test_skills.py` reference check; no `arch-slice` left (`grep -r arch-slice plugin docs README.md AGENTS.md`).
 - [ ] 6.4 Preflight: main skills except `init`, plus the four stages, use `--require-config` with the D1 routing text; helpers keep the plain line. Verify: new `test_skills.py` check.
-- [ ] 6.5 `la:pr` and the stages: tracker per config (D5, GitHub linked-branch join, plan comment per tracker), `OPENSPEC` from config, "the tracker" wording, Codex per `reviewers.codex` (stop if missing), the typecheck gate in pr-implement and pr-review with the single ratchet description. Verify: `test_skills.py`.
+- [ ] 6.5 `la:pr` and the stages: tracker per config (D5, GitHub linked-branch join, plan comment per tracker), `OPENSPEC` from config, "the tracker" wording, Codex per `reviewers.codex` (stop if missing), the `la-typecheck` gate in pr-implement and pr-review with the single ratchet description. Verify: `test_skills.py`.
 - [ ] 6.6 Split `process-reviews` / `pr-review` per D12 (detection via `la-pr-reviewers`, ending standalone versus when invoked, CodeRabbit reply rule moved, single conventions-gate description, duplicated non-terminal block removed); `codex-review` follows `reviewers.codex`. Verify: `test_skills.py`, and a read-through confirming no rule is lost (list each moved rule in the commit message).
 
 ## 7. Docs, this repo and tests

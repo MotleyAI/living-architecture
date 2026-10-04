@@ -2,8 +2,7 @@
 
 Onboarding a repo is manual and lossy. Nothing asks the user what the repo has, so the flow decides by
 itself: it asks again on every change whether to use OpenSpec, assumes CodeRabbit is off when there is no
-config file, silently skips Codex when its server is missing, and leaves the agent to guess the type-check
-command. Building the first architecture model means hand-writing a throwaway import-graph script. The
+config file, and silently skips Codex when its server is missing. Building the first architecture model means hand-writing a throwaway import-graph script. The
 README lists every skill and command, so a newcomer cannot tell where to start. This change adds one guided,
 mostly detected setup (`la:init`), records each gate as an explicit decision in `living-architecture.yaml`,
 makes the first model a deterministic scaffold, and rewrites the docs around onboarding.
@@ -16,13 +15,13 @@ makes the first model a deterministic scaffold, and rewrites the docs around onb
   the type-check baseline and `la:arch-init`. When another skill finds no config, it runs a fast path and
   hands back.
 - **Explicit gates in the config**: new keys `tracker` (`linear | github | none`), `openspec`,
-  `architecture`, `reviewers.codex`, `commands.typecheck` and `conventions.rules`.
+  `architecture`, `reviewers.codex` and `conventions.rules`.
 - **BREAKING**: `reviewers.coderabbit` and `reviewers.sonar.enabled` are removed. Both bots are now detected
   per PR. `reviewers.sonar.project_key` stays as an override.
 - **`la-doctor --require-config`**: a missing config file is a finding that names `/la:init`. When the file
   exists, the doctor also checks that the `openspec`/`architecture` flags agree with the disk, and rejects
   `tracker: none` together with `openspec: false`.
-- **`la-check-conventions`** reports only the rules listed in `conventions.rules`.
+- **`la-check-conventions`** reports only the rules listed in `conventions.rules`, in both twins.
 - **New `la-pr-reviewers`** reports whether CodeRabbit and Sonar ran on a PR, plus the Sonar project key.
   **BREAKING**: `la-wait-for-reviews` loses `--skip-coderabbit` and the manifest's `gate` field, and detects
   CodeRabbit the same way.
@@ -36,7 +35,7 @@ makes the first model a deterministic scaffold, and rewrites the docs around onb
   - Main skills preflight with `--require-config`; helpers never gate on the config file.
   - `la:pr` follows `tracker` (with GitHub linked-branch lookup) and `openspec`.
   - The Codex steps follow `reviewers.codex` and stop when the server is missing.
-  - `commands.typecheck` is a local gate in pr-implement and pr-review.
+  - `la-typecheck` is a local gate in pr-implement and pr-review.
   - `process-reviews` owns one review sweep; `pr-review` owns the loop. The duplication between them goes.
 - **Docs**:
   - An onboarding README with an intro based on "Living-architecture explained", a quick start and the
@@ -51,9 +50,9 @@ makes the first model a deterministic scaffold, and rewrites the docs around onb
   config/disk consistency checks.
 - `review-detection`: per-PR detection of CodeRabbit and Sonar (`la-pr-reviewers`, `la-wait-for-reviews`).
 - `arch-scaffold`: `la-arch-scaffold`, and the top-level facts mode it relies on.
-- `conventions-gate`: selecting which conventions rules `la-check-conventions` enforces.
 
 ### Modified Capabilities
+- `conventions`: a requirement selecting which rules the gate enforces.
 - `shared-contract`: the config-schema and YAML-profile requirements, whose scenarios name the removed
   `reviewers.coderabbit` and `reviewers.sonar.enabled` keys.
 
@@ -63,12 +62,12 @@ makes the first model a deterministic scaffold, and rewrites the docs around onb
   `cli.yaml` (`la-doctor --require-config`, `la-pr-reviewers`, `la-arch-scaffold`, no `gate`),
   `findings.yaml`, `scripts/` (new `pr-reviewers.sh`, a shared detection helper, `wait-for-reviews.sh`).
   Both snapshots are re-synced and the contract hash changes.
-- Both twins: `config`, `doctor`, `review` and `archcheck`, plus `lang` for top-level facts. The Python
-  twin also gets `conventions`.
+- Both twins: `config`, `doctor`, `review`, `archcheck` and `conventions`, plus `lang` for top-level facts.
 - `plugin/skills/`: new `init` and `arch-init`; `arch-slice` renamed to `arch-cleanup`; edits to `pr`, the
   four stages, `process-reviews`, `living-architecture`, `deterministic-refactor` and `codex-review`.
 - `README.md`, new `docs/`, `living-architecture.yaml` of this repo, `architecture/index.yaml` (spec
   mapping), `conformance/` cases plus `INVENTORY.md`, and `python/tests/test_skills.py`.
-- Builds on DEV-2025 (language roots, npm twin, facts provider), merged on main.
+- Builds on DEV-2025 (language roots, npm twin, facts provider) and DEV-2026 (native conventions in both
+  twins, `la-typecheck`), both merged on main.
 - Target repos with `reviewers.coderabbit` or `reviewers.sonar.enabled` delete those keys. `la:init`
   proposes this edit.
