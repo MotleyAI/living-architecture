@@ -1,0 +1,10 @@
+kind: neutral
+command: la-typecheck
+expect:
+  exit: 2
+  stdout: ''
+  stderr:
+    contains:
+    - commands.typecheck
+golden: manual
+note: commands.typecheck as a plain string is a configuration error naming the key

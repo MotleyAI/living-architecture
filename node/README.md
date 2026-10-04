@@ -67,8 +67,9 @@ refactoring and architecture gates compare against its recorded baseline).
 | `la-config get <key>` / `la-config show` | Print resolved repo config |
 | `la-arch-check` | Architecture cross-check (exit 0 OK, 1 findings, 2 broken setup) |
 | `la-arch-diagrams` | Regenerate the mermaid view diagrams embedded in arc42 docs |
-| `la-check-conventions <PR>` / `--base BRANCH` | Imports-at-top and text-ratio gate on changed `.py` files |
-| `la-count-comments` | Count comment/docstring lines, or the net change vs a git ref |
+| `la-check-conventions <PR>` / `--base BRANCH` | Imports-at-top, text-ratio and test-assertion gate on changed `.py` and TS/JS files |
+| `la-count-comments` | Count comment and doc (docstring, JSDoc) lines, or the net change vs a git ref |
+| `la-typecheck [--write-baseline]` | Type-check each applicable language against a baseline that only shrinks |
 | `la-wait-for-reviews <PR>` | Wait for CI and the CodeRabbit review to settle |
 | `la-fetch-failed-pr-checks <PR>` | Failed checks plus their failed-step logs |
 | `la-fetch-coderabbit-threads <PR>` | Unresolved CodeRabbit threads, nitpicks, outside-diff comments |
@@ -90,6 +91,9 @@ issue_key_pattern: "[A-Z][A-Z0-9]+-\\d+"   # ids allowed in arc42 [target: …] 
 commands:
   test: pytest -m "not integration" # the full suite the flow runs; unset = the repo's documented one
   lint: ruff check .
+  typecheck:                        # la-typecheck's checker per language; null turns one off
+    python: basedpyright            # basedpyright-compatible (--writebaseline, .basedpyright/baseline.json)
+    typescript: tsc --noEmit        # --pretty false is appended
 conventions:
   text_ratio_max: 0.15              # max share of comment/docstring-only lines
   exempt: []                        # repo-relative globs skipped by la-check-conventions
@@ -98,6 +102,27 @@ conventions:
 Types are strict: `coderabbit: 'true'` or `text_ratio_max: '0.2'` is an error
 naming the key, not a coerced value. `issue_key_pattern` must use the portable
 regex subset in [`shared/regex-subset.md`](shared/regex-subset.md).
+
+## Conventions gate and type checks
+
+`la-check-conventions` and `la-count-comments` route each file to its language
+by extension (`.py`; `.ts/.tsx/.mts/.cts/.js/.jsx/.mjs/.cjs`) and print one
+report whichever twin runs them; the other language's files are analysed by
+its twin. **Breaking:** a Python repo whose diff touches TS/JS files now has
+them checked, which needs the npm twin (`npx` is enough). List generated or
+vendored TS/JS (for example `docs/static/*`) under `conventions.exempt`. An
+explicit path with an unknown extension is skipped with a warning. Waive a
+flagged line with `# ALLOW(<rule>): <reason>` or `// ALLOW(<rule>): <reason>`.
+
+`la-typecheck` checks a language when `commands.typecheck` sets it, or when
+the repo has its files and a root marker (`pyproject.toml`/`setup.py`;
+`tsconfig.json`). The checker is looked up in `.venv/bin` or
+`node_modules/.bin` first, then on `PATH`. Python keeps basedpyright's own
+baseline; TypeScript keeps `.tsc-baseline.json`, a multiset of diagnostics
+keyed by file, code and message, so moved lines are not new errors. New
+errors exit 1; fixed ones shrink the baseline. Run `la-typecheck
+--write-baseline` once to create the missing baselines. Suppress a genuine
+false positive with `// @ts-expect-error — <reason>`, never `@ts-ignore`.
 
 ## Upgrading to language roots
 
@@ -190,7 +215,7 @@ command settings.
 |---|---|
 | `plugin/` | the Claude Code plugin: skills |
 | `python/` | the PyPI twin (`living-architecture`): every `la-*`/`dr-*` command |
-| `node/` | the npm twin (`living-architecture`): the language-neutral commands and the TypeScript arch-check; forwards the Python-only commands |
+| `node/` | the npm twin (`living-architecture`): the language-neutral commands and the TypeScript arch-check, conventions and type check; forwards the Python-only `dr-*` commands |
 | `shared/` | the contract the commands obey: config and index schemas, finding texts, the CLI manifest, conventions and language registries, review scripts, test vectors |
 | `conformance/` | the byte-exact corpus pinning every command's observable output |
 | `architecture/` | this repo's own LikeC4 model and arc42 principles |

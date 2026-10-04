@@ -1,0 +1,2 @@
+la-typecheck: checking python with nosuchchecker --strict
+la-typecheck: python: nosuchchecker not found in .venv/bin or on PATH

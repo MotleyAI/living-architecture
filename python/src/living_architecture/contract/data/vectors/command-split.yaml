@@ -1,0 +1,69 @@
+# Splitting a configured command (`commands.typecheck.*`) into words without a shell: POSIX shell-word rules
+# as Python's `shlex.split` applies them (no expansion, no comments). `error: true` means the text is rejected.
+cases:
+- name: plain words
+  text: tsc --noEmit
+  words: [tsc, --noEmit]
+- name: single quotes keep spaces
+  text: basedpyright -p 'my dir'
+  words: [basedpyright, -p, my dir]
+- name: double quotes keep spaces
+  text: a "b c" d
+  words: [a, b c, d]
+- name: double quote inside single quotes
+  text: a 'b"c'
+  words: [a, b"c]
+- name: single quote inside double quotes
+  text: a "b'c"
+  words: [a, b'c]
+- name: escaped double quote inside double quotes
+  text: a "b\"c"
+  words: [a, b"c]
+- name: escaped backslash inside double quotes
+  text: '"a\\b"'
+  words: ['a\b']
+- name: other backslash inside double quotes is kept
+  text: '"a\b"'
+  words: ['a\b']
+- name: backslash inside single quotes is literal
+  text: "'a\\b'"
+  words: ['a\b']
+- name: backslash outside quotes escapes the next character
+  text: a\b
+  words: [ab]
+- name: escaped space joins words
+  text: a b\ c
+  words: [a, b c]
+- name: adjacent quoted and bare parts concatenate
+  text: a 'b'c"d"
+  words: [a, bcd]
+- name: empty single-quoted word
+  text: "a ''"
+  words: [a, '']
+- name: empty double-quoted word
+  text: a ""
+  words: [a, '']
+- name: surrounding and repeated spaces
+  text: '  a   b  '
+  words: [a, b]
+- name: tab and newline separate words
+  text: "a\tb\nc"
+  words: [a, b, c]
+- name: dollar sign is not expanded
+  text: echo '$HOME' $PATH
+  words: [echo, $HOME, $PATH]
+- name: empty text
+  text: ''
+  words: []
+- name: whitespace only
+  text: "  \t "
+  words: []
+- name: unterminated single quote
+  text: a 'b
+  error: true
+- name: unterminated double quote
+  text: a "b
+  error: true
+- name: trailing backslash
+  text: a b\
+  error: true

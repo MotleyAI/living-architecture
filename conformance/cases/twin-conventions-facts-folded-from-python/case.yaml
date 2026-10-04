@@ -1,0 +1,45 @@
+kind: adapter
+languages:
+- typescript
+twin: typescript
+other_twin: absent
+command: la-check-conventions
+args:
+- --file
+- a.py
+- --file
+- src/b.ts
+bins:
+- dir: pypi-twin
+  files:
+    la-doctor: |
+      #!/bin/sh
+      [ "$*" = "--twin" ] || { echo "fake la-doctor: unexpected $*" >&2; exit 99; }
+      echo "python <VERSION> <CONTRACT_HASH>"
+    la-check-conventions: |
+      #!/bin/sh
+      case " $* " in *" --language python "*) ;; *) echo "fake la-check-conventions: not a python facts request: $*" >&2; exit 99 ;; esac
+      case " $* " in *" --emit facts "*) ;; *) echo "fake la-check-conventions: not a facts request: $*" >&2; exit 99 ;; esac
+      [ "$LA_FORWARDED" = 1 ] || { echo "fake la-check-conventions: LA_FORWARDED is not 1" >&2; exit 99; }
+      tr -d ' \n' > <ROOT>/repo/stdin.log
+      cat <<'EOF'
+      {
+        "language": "python",
+        "version": "<VERSION>",
+        "contract_hash": "<CONTRACT_HASH>",
+        "files": [
+          {"path": "a.py", "status": "ok",
+           "detections": [
+             {"line": 2, "rule": "import-not-top", "message_id": "conventions.import-after-code", "values": {}, "text": "import os"},
+             {"line": 3, "rule": "import-not-top", "message_id": "conventions.import-after-code", "values": {}, "text": "import sys  # ALLOW(import-not-top): cycle"}
+           ],
+           "text_lines": 0, "total_lines": 3, "comment_lines": 1, "doc_lines": 0}
+        ]
+      }
+      EOF
+expect:
+  exit: 1
+  files:
+  - stdin.log
+note: the npm twin asks the PyPI twin for Python facts (never a wholesale forward) and folds them into its own report
+golden: manual

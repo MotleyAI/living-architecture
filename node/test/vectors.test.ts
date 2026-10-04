@@ -106,17 +106,22 @@ describe('regex-subset.yaml', () => {
   }
 });
 
-describe('facts.yaml', () => {
-  const v = vectors('facts.yaml') ?? {};
-  const schemaFile = join(SHARED, 'schema', 'facts.schema.json');
-  for (const { name, document } of present('facts.yaml accept', v.accept) as { name: string; document: unknown }[]) {
-    it(`accepts ${name}`, () => {
-      expect(validate(readJson(schemaFile), document)).toEqual([]);
-    });
-  }
-  for (const { name, document } of present('facts.yaml reject', v.reject) as { name: string; document: unknown }[]) {
-    it(`rejects ${name}`, () => {
-      expect(validate(readJson(schemaFile), document)).not.toEqual([]);
-    });
-  }
-});
+for (const [file, schemaName] of [
+  ['facts.yaml', 'facts.schema.json'],
+  ['conventions-facts.yaml', 'conventions-facts.schema.json'],
+] as const) {
+  describe(file, () => {
+    const v = vectors(file) ?? {};
+    const schemaFile = join(SHARED, 'schema', schemaName);
+    for (const { name, document } of present(`${file} accept`, v.accept) as { name: string; document: unknown }[]) {
+      it(`accepts ${name}`, () => {
+        expect(validate(readJson(schemaFile), document)).toEqual([]);
+      });
+    }
+    for (const { name, document } of present(`${file} reject`, v.reject) as { name: string; document: unknown }[]) {
+      it(`rejects ${name}`, () => {
+        expect(validate(readJson(schemaFile), document)).not.toEqual([]);
+      });
+    }
+  });
+}

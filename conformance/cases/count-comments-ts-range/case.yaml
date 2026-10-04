@@ -1,0 +1,27 @@
+kind: adapter
+languages:
+- typescript
+command: la-count-comments
+args:
+- --range
+- HEAD
+- src/a.ts
+- src/b.ts
+- src/new.ts
+git:
+- commit: init
+- write:
+    src/a.ts: |
+      /**
+       * Adds.
+       * Really.
+       */
+      export const a = 1;
+    src/new.ts: |
+      // fresh
+- delete:
+  - src/b.ts
+expect:
+  exit: 0
+golden: manual
+note: '--range on TS files: one added JSDoc line, a deleted file and a new file against HEAD'

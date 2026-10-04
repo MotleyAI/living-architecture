@@ -1,0 +1,11 @@
+kind: adapter
+languages:
+- python
+command: la-count-comments
+args:
+- notes.md
+- a.py
+expect:
+  exit: 0
+note: an argument with an unknown extension is skipped with one warning
+golden: manual

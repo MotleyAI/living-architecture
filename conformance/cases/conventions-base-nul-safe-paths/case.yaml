@@ -1,0 +1,33 @@
+kind: adapter
+languages:
+- python
+command: la-check-conventions
+args:
+- --base
+- main
+git:
+- commit: init
+- origin:
+  - main
+- branch: feat
+- write:
+    src/my file.py: 'X = 1
+
+      import os
+
+      '
+    src/données.py: 'X = 1
+
+      import os
+
+      '
+    -dash.py: 'X = 1
+
+      import os
+
+      '
+- commit: work
+expect:
+  exit: 1
+note: 'changed files listed NUL-delimited: a space, non-ASCII characters and a leading dash keep their real names'
+golden: manual

@@ -6,6 +6,8 @@ import ast
 import io
 import tokenize
 from collections.abc import Iterator
+from pathlib import Path
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -172,3 +174,29 @@ def comment_doc_counts(src: str | None) -> tuple[int, int]:
             if isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant) and isinstance(first.value.value, str):
                 doc += (first.end_lineno or first.lineno) - first.lineno + 1
     return comment, doc
+
+
+def _file_facts(path: Path, rel: str) -> dict[str, Any]:
+    if not path.exists():
+        return {"path": rel, "status": "missing"}
+    try:
+        source = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
+        return {"path": rel, "status": "unreadable", "line": 1, "message": str(exc)}
+    comment, doc = comment_doc_counts(source)
+    try:
+        analysis = analyze(source)
+    except ParseFailure as exc:
+        failure = {"path": rel, "status": "syntax-error", "line": exc.line, "message": exc.msg}
+        return {**failure, "comment_lines": comment, "doc_lines": doc}
+    lines = source.splitlines()
+    detections = [
+        {**d.model_dump(), "text": lines[d.line - 1] if 1 <= d.line <= len(lines) else ""} for d in analysis.detections
+    ]
+    counts = {"text_lines": analysis.text_lines, "total_lines": analysis.total_lines}
+    return {"path": rel, "status": "ok", "detections": detections, **counts, "comment_lines": comment, "doc_lines": doc}
+
+
+def conventions_facts(root: Path, rels: list[str]) -> list[dict[str, Any]]:
+    """One conventions-facts entry per path (relative to `root`), in input order."""
+    return [_file_facts(root / rel, rel) for rel in rels]

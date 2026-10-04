@@ -38,9 +38,15 @@ class ReviewersConfig(_Strict):
     sonar: SonarConfig
 
 
+class TypecheckConfig(_Strict):
+    python: str | None
+    typescript: str | None
+
+
 class CommandsConfig(_Strict):
     test: str | None
     lint: str | None
+    typecheck: TypecheckConfig
 
 
 class ConventionsConfig(_Strict):
@@ -85,16 +91,28 @@ def find_repo_root(start: Path) -> Path:
     return start
 
 
+def _raw(path: Path) -> Any:
+    if not path.is_file():
+        return None
+    try:
+        return load_yaml(path.read_text(encoding="utf-8"))
+    except YAMLError as exc:
+        raise ConfigError(f"{path}: invalid YAML: {exc}") from exc
+
+
 def load_config(root: Path) -> LaConfig:
     """Config at `root`; defaults when the file is absent."""
     path = root / CONFIG_FILENAME
-    data = None
-    if path.is_file():
-        try:
-            data = load_yaml(path.read_text(encoding="utf-8"))
-        except YAMLError as exc:
-            raise ConfigError(f"{path}: invalid YAML: {exc}") from exc
+    data = _raw(path)
     try:
         return resolve(data)
     except ValueError as exc:
         raise ConfigError(f"{path}: {exc}") from exc
+
+
+def explicit_typecheck(root: Path) -> set[str]:
+    """The languages `commands.typecheck` sets explicitly (to a command or null); the config must be valid."""
+    data = _raw(root / CONFIG_FILENAME)
+    commands = data.get("commands") if isinstance(data, dict) else None
+    typecheck = commands.get("typecheck") if isinstance(commands, dict) else None
+    return set(typecheck) if isinstance(typecheck, dict) else set()

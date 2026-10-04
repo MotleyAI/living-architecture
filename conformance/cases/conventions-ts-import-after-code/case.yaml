@@ -1,0 +1,13 @@
+kind: adapter
+languages:
+- typescript
+command: la-check-conventions
+args:
+- --file
+- src/a.ts
+- --file
+- src/b.ts
+expect:
+  exit: 1
+golden: manual
+note: 'import/first: a static import, `import type` or `import x = require()` after any other statement (incl. `export … from`) is flagged'

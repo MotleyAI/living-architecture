@@ -1,0 +1,2 @@
+la-typecheck: checking typescript with tsc --noEmit
+la-typecheck: typescript: the checker reported an error without a file

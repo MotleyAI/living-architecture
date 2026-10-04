@@ -7,3 +7,8 @@ args:
 - src/pkg.py
 expect:
   exit: 1
+  stdout:
+    contains:
+    - 'src/pkg.py:1: [unreadable] '
+    - 'gate: RED'
+note: OS error wording is not part of the contract

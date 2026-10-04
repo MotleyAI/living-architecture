@@ -1,8 +1,8 @@
-// Reaching the other twin: identity handshake, discovery on PATH, runner probe, forwarding and facts transport.
-import { spawnSync } from 'node:child_process';
+// Reaching the other twin: identity handshake, discovery on PATH, runner probe, forwarding, facts and language runs.
+import { spawnSync, type SpawnSyncReturns } from 'node:child_process';
 import { accessSync, constants, realpathSync, statSync } from 'node:fs';
 import { constants as osConstants } from 'node:os';
-import { delimiter, join } from 'node:path';
+import { delimiter, dirname, join } from 'node:path';
 import { contractHash, language, message, renderTemplate, schema, validate, which } from '../contract/index.js';
 import { VERSION } from '../index.js';
 
@@ -45,8 +45,27 @@ function executable(path: string): boolean {
   }
 }
 
-/** The first directory (each real path once) whose executable `la-doctor` qualifies. */
+/** The real path of the running entry point's sibling `la-doctor.js`; null when it is not a file. */
+function ownDoctor(): string | null {
+  try {
+    const doctor = realpathSync(join(dirname(realpathSync(process.argv[1] ?? '')), 'la-doctor.js'));
+    return statSync(doctor).isFile() ? doctor : null;
+  } catch {
+    return null;
+  }
+}
+
+function isOwn(doctor: string, own: string | null): boolean {
+  try {
+    return own !== null && realpathSync(doctor) === own;
+  } catch {
+    return false;
+  }
+}
+
+/** The first directory (each real path once, never our own) whose executable `la-doctor` qualifies. */
 function discoverDir(lang: string, repoRoot: string): string | null {
+  const own = ownDoctor();
   const dirs = [...(process.env.PATH ?? '').split(delimiter).filter(Boolean), join(repoRoot, 'node_modules', '.bin')];
   const probed = new Set<string>();
   for (const dir of dirs) {
@@ -59,6 +78,7 @@ function discoverDir(lang: string, repoRoot: string): string | null {
     if (probed.has(real)) continue;
     probed.add(real);
     const doctor = join(dir, 'la-doctor');
+    if (isOwn(doctor, own)) continue;
     if (executable(doctor) && qualifies([doctor, '--twin'], lang)) return dir;
   }
   return null;
@@ -86,12 +106,20 @@ export function forward(command: string, lang: string, argv: string[], repoRoot:
   return proc.status ?? 1;
 }
 
-function validFacts(document: any, lang: string, expectedUnits: string[]): boolean {
-  if (document === null || typeof document !== 'object' || Array.isArray(document)) return false;
-  if (validate(schema('facts'), document).length > 0) return false;
-  if (document.language !== lang || document.version !== VERSION || document.contract_hash !== contractHash()) return false;
-  const units = new Set<string>(document.units.map((u: { unit: string }) => u.unit));
-  return expectedUnits.every((unit) => units.has(unit));
+/** The run's stdout as a schema-valid document of `lang` at this version, or null; RelayedFailure on a non-zero exit. */
+function documentOf(proc: SpawnSyncReturns<Buffer>, schemaName: string, lang: string): any {
+  if (proc.signal === null && proc.status !== null && proc.status > 0) throw new RelayedFailure();
+  let document: any = null;
+  try {
+    document = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(proc.stdout));
+  } catch {
+    return null;
+  }
+  if (proc.signal !== null || proc.error !== undefined) return null;
+  if (document === null || typeof document !== 'object' || Array.isArray(document)) return null;
+  if (validate(schema(schemaName), document).length > 0) return null;
+  const identityOk = document.language === lang && document.version === VERSION && document.contract_hash === contractHash();
+  return identityOk ? document : null;
 }
 
 /** `lang`'s facts from its twin, schema-checked; RelayedFailure when its run fails, TwinError otherwise. */
@@ -103,15 +131,33 @@ export function requestFacts(lang: string, repoRoot: string, expectedUnits: stri
     stdio: ['inherit', 'pipe', 'inherit'],
     maxBuffer: 1 << 30,
   });
-  if (proc.signal === null && proc.status !== null && proc.status > 0) throw new RelayedFailure();
-  let document: unknown = null;
-  try {
-    document = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(proc.stdout));
-  } catch {
-    document = null;
-  }
-  if (proc.signal !== null || proc.error !== undefined || !validFacts(document, lang, expectedUnits)) {
-    throw new TwinError(hint('twin.facts-invalid', lang));
-  }
+  const document = documentOf(proc, 'facts', lang);
+  const units = new Set<string>((document?.units ?? []).map((u: { unit: string }) => u.unit));
+  if (document === null || !expectedUnits.every((unit) => units.has(unit))) throw new TwinError(hint('twin.facts-invalid', lang));
   return document;
+}
+
+/** `lang`'s conventions facts for `paths` (relative to `cwd`), one per path in order; errors as `requestFacts`. */
+export function requestConventionsFacts(lang: string, cwd: string, paths: string[], repoRoot: string): any[] {
+  refuseIfForwarded(lang);
+  const [cmd = '', ...args] = launcher(lang, repoRoot)('la-check-conventions');
+  const proc = spawnSync(cmd, [...args, '--language', lang, '--emit', 'facts'], {
+    cwd,
+    env: env(),
+    input: JSON.stringify(paths),
+    stdio: ['pipe', 'pipe', 'inherit'],
+    maxBuffer: 1 << 30,
+  });
+  const document = documentOf(proc, 'conventions-facts', lang);
+  const inOrder = (files: { path: string }[]): boolean => files.length === paths.length && files.every((f, i) => f.path === paths[i]);
+  if (document === null || !inOrder(document.files)) throw new TwinError(hint('twin.facts-invalid', lang));
+  return document.files;
+}
+
+/** `command --language lang ARGS` in the `lang` twin, streams relayed; its exit code (a signal: 2). */
+export function runLanguage(command: string, lang: string, args: string[], cwd: string, repoRoot: string): number {
+  refuseIfForwarded(lang);
+  const [cmd = '', ...rest] = launcher(lang, repoRoot)(command);
+  const proc = spawnSync(cmd, [...rest, '--language', lang, ...args], { cwd, env: env(), stdio: 'inherit' });
+  return proc.signal !== null || proc.status === null ? 2 : proc.status;
 }

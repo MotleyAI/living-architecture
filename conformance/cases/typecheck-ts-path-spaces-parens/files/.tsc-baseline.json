@@ -1,0 +1,18 @@
+{
+  "files": {
+    "src/my file (copy).ts": [
+      {
+        "code": "TS2304",
+        "message": "Cannot find name 'x'.",
+        "count": 1
+      }
+    ],
+    "src/odd (1,2).ts": [
+      {
+        "code": "TS2304",
+        "message": "Cannot find name 'y'.",
+        "count": 1
+      }
+    ]
+  }
+}

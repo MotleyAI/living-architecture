@@ -9,7 +9,11 @@
   "issue_key_pattern": "[A-Z][A-Z0-9]+-\\d+",
   "commands": {
     "test": "",
-    "lint": null
+    "lint": null,
+    "typecheck": {
+      "python": "basedpyright",
+      "typescript": "tsc --noEmit"
+    }
   },
   "conventions": {
     "text_ratio_max": 0.15,

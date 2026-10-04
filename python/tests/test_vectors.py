@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import shlex
 import subprocess
 import sys
 from pathlib import Path
@@ -50,3 +51,12 @@ def test_default_vectors_through_la_config_show(vector: dict, tmp_path: Path) ->
         (tmp_path / "living-architecture.yaml").write_text(vector["config"], encoding="utf-8")
     out = subprocess.run([str(LA_CONFIG), "--root", str(tmp_path), "show"], capture_output=True, text=True, check=True)
     assert json.loads(out.stdout) == vector["resolved"]
+
+
+@pytest.mark.parametrize("vector", _load("command-split.yaml")["cases"], ids=lambda v: v["name"])
+def test_command_split_vectors_are_shlex_split(vector: dict) -> None:
+    if vector.get("error"):
+        with pytest.raises(ValueError):
+            shlex.split(vector["text"])
+    else:
+        assert shlex.split(vector["text"]) == vector["words"]

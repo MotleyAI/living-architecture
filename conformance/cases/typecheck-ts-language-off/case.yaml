@@ -1,0 +1,8 @@
+kind: adapter
+languages:
+- typescript
+command: la-typecheck
+expect:
+  exit: 0
+golden: manual
+note: 'commands.typecheck.typescript: null turns TypeScript off; nothing else applies'

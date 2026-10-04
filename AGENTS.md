@@ -35,7 +35,7 @@ case format is in `conformance/README.md`.
 Write goldens only with `LA_UPDATE_GOLDENS=1`, and only with a stated reason in the commit message (a
 deliberate behaviour change, or a new case). Review the golden diff like code. Never regenerate a golden to
 absorb a difference you cannot explain. Cases marked `golden: manual` pin new behaviour and are edited by
-hand.
+hand. The update mode always runs serially, even with `-n`.
 
 ## Versions and the contract hash
 
@@ -50,7 +50,7 @@ Python twin, in `python/`:
 
 ```bash
 uv sync
-uv run pytest -q                  # full suite, including the conformance corpus
+uv run pytest -q                  # full suite in parallel (-n auto), including the conformance corpus
 uv run ruff check src tests
 uv run basedpyright src tests
 ```
@@ -64,10 +64,19 @@ npm test                          # Vitest, including the npm pack smoke test
 npm run build && npm run conformance   # the corpus through the npm twin's bins
 ```
 
-Repo-wide: `scripts/sync-shared [--check]`, `scripts/conformance-cross` (every case through both twins),
-`la-arch-check` (this repo's own architecture, from either twin), and
+Repo-wide: `scripts/sync-shared [--check]`, `scripts/conformance-cross [--twin <python|typescript>]` (every
+case through both twins, or through one), `la-arch-check` (this repo's own architecture, from either twin), and
 `npx -y @anthropic-ai/claude-code plugin validate plugin`.
 
+Tests run in parallel by default; pass `-n 0` to pytest (also through `npm run conformance` and
+`scripts/conformance-cross`) to debug serially. A test never writes to a shared checkout path or a fixed
+external path, only under its own temporary directory.
+
 A language-specific command run through a twin that does not implement it natively forwards to the other
-twin (found by `la-doctor --twin` on `PATH`, else `uvx`/`npx`); the npm twin forwards the Python-only
-commands in this release.
+twin (found by `la-doctor --twin` on `PATH`, else `uvx`/`npx`); the npm twin forwards the `dr-*` commands in
+this release. `la-check-conventions` and `la-count-comments` are neutral: the other language's files come back
+as a conventions-facts document (`la-check-conventions --language L --emit facts`, paths on stdin).
+`la-typecheck` runs the other language's section as `la-typecheck --language L` in its twin.
+
+Integration tests run a real checker and are deselected by default: `uv run pytest -m integration` in
+`python/`, `npm run build && npm run test:integration` in `node/`.

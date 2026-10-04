@@ -1,0 +1,14 @@
+kind: neutral
+languages:
+- python
+- typescript
+command: la-typecheck
+args:
+- --write-baseline
+expect:
+  exit: 0
+  files:
+  - .tsc-baseline.json
+  - .basedpyright/baseline.json
+golden: manual
+note: '--write-baseline writes the missing TS baseline and skips Python''s existing one: exit 0'

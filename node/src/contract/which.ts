@@ -14,10 +14,15 @@ function executable(path: string): boolean {
   }
 }
 
-/** Whether `name` is executable: as given when it has a directory part, else in a PATH directory ('' is the cwd). */
-export function which(name: string, env: NodeJS.ProcessEnv = process.env): boolean {
-  if (name.includes(sep)) return executable(name);
+/** The executable `name`: as given when it has a directory part, else the first in a PATH directory ('' is the cwd). */
+export function whichPath(name: string, env: NodeJS.ProcessEnv = process.env): string | null {
+  if (name.includes(sep)) return executable(name) ? name : null;
   const search = env.PATH ?? DEFAULT_PATH;
-  if (search === '') return false;
-  return [...new Set(search.split(delimiter))].some((dir) => executable(join(dir, name)));
+  if (search === '') return null;
+  return [...new Set(search.split(delimiter))].map((dir) => join(dir, name)).find(executable) ?? null;
+}
+
+/** Whether `name` is executable (see `whichPath`). */
+export function which(name: string, env: NodeJS.ProcessEnv = process.env): boolean {
+  return whichPath(name, env) !== null;
 }

@@ -1,0 +1,7 @@
+#!/bin/sh
+[ -d .git ] || { echo "fake basedpyright: not run at the repo root: $(pwd)" >&2; exit 99; }
+[ "$*" = "-p python" ] || { echo "fake basedpyright: unexpected args: $*" >&2; exit 99; }
+cat <<'EOF'
+0 errors, 0 warnings, 0 notes
+EOF
+exit 0

@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 from typing import NoReturn
 
-from living_architecture import archcheck, c4, config, conventions, doctor, refactor, review, twin
+from living_architecture import archcheck, c4, config, conventions, doctor, refactor, review, twin, typecheck
 from living_architecture.cli.parser import parse
 
 
@@ -44,6 +44,8 @@ def la_arch_diagrams(argv: list[str] | None = None) -> int:
 
 def la_check_conventions(argv: list[str] | None = None) -> int:
     args = parse("la-check-conventions", _argv(argv))
+    if args.emit:
+        return conventions.emit(args.language or twin.NATIVE_LANGUAGE, cwd=Path.cwd())
     return conventions.check_conventions(
         repo_root=config.find_repo_root(Path.cwd()),
         pr=args.pr,
@@ -57,6 +59,11 @@ def la_check_conventions(argv: list[str] | None = None) -> int:
 
 def la_count_comments(argv: list[str] | None = None) -> int:
     return conventions.count_comments(_argv(argv))
+
+
+def la_typecheck(argv: list[str] | None = None) -> int:
+    args = parse("la-typecheck", _argv(argv))
+    return typecheck.run(cwd=Path.cwd(), write=args.write_baseline, language_id=args.language)
 
 
 def la_fetch_coderabbit_threads(argv: list[str] | None = None) -> NoReturn:

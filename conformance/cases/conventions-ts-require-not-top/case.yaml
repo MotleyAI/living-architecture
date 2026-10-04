@@ -1,0 +1,11 @@
+kind: adapter
+languages:
+- typescript
+command: la-check-conventions
+args:
+- --file
+- src/a.cjs
+expect:
+  exit: 1
+golden: manual
+note: 'n/global-require: require() in a function, arrow, block or object literal is flagged; declarations, member access, calls, conditionals and module.require are not'

@@ -23,7 +23,11 @@ export class ConfigError extends Error {}
 export interface LaConfig {
   reviewers: { coderabbit: boolean; sonar: { enabled: boolean; project_key: string | null } };
   issue_key_pattern: string;
-  commands: { test: string | null; lint: string | null };
+  commands: {
+    test: string | null;
+    lint: string | null;
+    typecheck: { python: string | null; typescript: string | null };
+  };
   conventions: { text_ratio_max: number; exempt: string[] };
 }
 
@@ -51,23 +55,33 @@ export function findRepoRoot(start: string): string {
   }
 }
 
+function raw(path: string): unknown {
+  if (!existsSync(path) || !statSync(path).isFile()) return null;
+  try {
+    return loadYaml(readFileSync(path, 'utf8'));
+  } catch (error) {
+    if (error instanceof YAMLError) throw new ConfigError(`${path}: invalid YAML: ${error.message}`);
+    throw error;
+  }
+}
+
 /** Config at `root`; defaults when the file is absent. */
 export function loadConfig(root: string): LaConfig {
   const path = join(root, CONFIG_FILENAME);
-  let data: unknown = null;
-  if (existsSync(path) && statSync(path).isFile()) {
-    try {
-      data = loadYaml(readFileSync(path, 'utf8'));
-    } catch (error) {
-      if (error instanceof YAMLError) throw new ConfigError(`${path}: invalid YAML: ${error.message}`);
-      throw error;
-    }
-  }
+  const data = raw(path);
   try {
     return resolveConfig(data);
   } catch (error) {
     throw new ConfigError(`${path}: ${(error as Error).message}`);
   }
+}
+
+/** The languages `commands.typecheck` sets explicitly (to a command or null); the config must be valid. */
+export function explicitTypecheck(root: string): Set<string> {
+  const data = raw(join(root, CONFIG_FILENAME));
+  const commands = data instanceof Map ? data.get('commands') : undefined;
+  const typecheck = commands instanceof Map ? commands.get('typecheck') : undefined;
+  return new Set(typecheck instanceof Map ? [...typecheck.keys()].map(String) : []);
 }
 
 /** `value` with its keys in the schema's property order, as the typed config dumps it. */

@@ -1,0 +1,17 @@
+kind: adapter
+languages:
+- typescript
+twin: typescript
+command: la-check-conventions
+args:
+- --language
+- typescript
+- --emit
+- facts
+stdin: |
+  ["src/ok.ts", "src/gone.ts", "src/bin.ts", "src/bad.ts", "src/a.test.ts", "src/plain.ts", "src/w.ts"]
+expect:
+  exit: 0
+  stdout: json
+golden: manual
+note: 'the npm twin emits TypeScript conventions facts natively: one entry per stdin path in input order, every detection (waived or tests-only too) with its line text, line and comment counts'

@@ -1,7 +1,7 @@
 // Mermaid blocks in arc42 docs: regeneration (`la-arch-diagrams`) and the diagrams-fresh check.
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { canonicalRepr, message } from '../contract/index.js';
+import { message } from '../contract/index.js';
 import { readIndex } from './index-file.js';
 import { renderMermaid } from './mermaid.js';
 import { type ModelParse, parseModel, project } from './model.js';
@@ -107,27 +107,13 @@ export function generate(root: string): string[] {
   return changed;
 }
 
-/** Python's OSError text for a failed file operation. */
-export function osErrorText(error: NodeJS.ErrnoException): string {
-  const known: Record<string, [number, string]> = {
-    ENOENT: [2, 'No such file or directory'],
-    EACCES: [13, 'Permission denied'],
-    EISDIR: [21, 'Is a directory'],
-    ENOTDIR: [20, 'Not a directory'],
-  };
-  const entry = error.code === undefined ? undefined : known[error.code];
-  if (entry === undefined || error.path === undefined) return error.message;
-  return `[Errno ${entry[0]}] ${entry[1]}: ${canonicalRepr(error.path)}`;
-}
-
 /** `la-arch-diagrams`: print each rewritten doc. */
 export function run(root: string): number {
   let changed: string[];
   try {
     changed = generate(root);
   } catch (error) {
-    const text = (error as NodeJS.ErrnoException).code !== undefined ? osErrorText(error as NodeJS.ErrnoException) : (error as Error).message;
-    process.stderr.write(`${message('arch-diagrams.error', { error: text })}\n`);
+    process.stderr.write(`${message('arch-diagrams.error', { error: (error as Error).message })}\n`);
     return 1;
   }
   for (const docKey of changed) process.stdout.write(`${docKey}\n`);

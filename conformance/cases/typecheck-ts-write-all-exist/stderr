@@ -1,0 +1,3 @@
+la-typecheck: checking typescript with tsc --noEmit
+la-typecheck: typescript: .tsc-baseline.json exists, skipped
+la-typecheck: every applicable language already has a baseline; nothing written

@@ -1,0 +1,5 @@
+#!/bin/sh
+[ "$*" = "src --writebaseline" ] || { echo "fake mypy: unexpected args: $*" >&2; exit 99; }
+echo "usage: mypy [-h] [-v] [-V] [more options; see below]" >&2
+echo "mypy: error: unrecognized arguments: --writebaseline" >&2
+exit 2

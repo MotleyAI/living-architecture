@@ -3,10 +3,12 @@ import { resolve } from 'node:path';
 import * as archcheck from '../archcheck/index.js';
 import * as c4 from '../c4/index.js';
 import * as config from '../config/index.js';
+import * as conventions from '../conventions/index.js';
 import { manifest, message } from '../contract/index.js';
 import * as doctor from '../doctor/index.js';
 import * as review from '../review/index.js';
 import * as twin from '../twin/index.js';
+import * as typecheck from '../typecheck/index.js';
 import { type Args, HelpRequested, UsageError, parse } from './parser.js';
 
 const root = (value: unknown): string =>
@@ -30,6 +32,20 @@ const HANDLERS: Record<string, (args: Args) => number> = {
     return archcheck.run(root(args.root), language, emit);
   },
   'la-arch-diagrams': (args) => c4.run(root(args.root)),
+  'la-check-conventions': (args) => {
+    if (optional(args.emit) !== null) return conventions.emit(optional(args.language) ?? twin.NATIVE_LANGUAGE, process.cwd());
+    return conventions.checkConventions({
+      repoRoot: config.findRepoRoot(process.cwd()),
+      pr: optional(args.pr),
+      repo: optional(args.repo),
+      base: optional(args.base),
+      files: args.files as string[],
+      excludes: args.exclude as string[],
+      capPct: typeof args.text_ratio_cap === 'number' ? args.text_ratio_cap : null,
+    });
+  },
+  'la-count-comments': (args) => conventions.countComments(args.argv as string[]),
+  'la-typecheck': (args) => typecheck.run(process.cwd(), Boolean(args.write_baseline), optional(args.language)),
 };
 
 /** Run a command another twin implements: forward the raw argv, or exit 2 with the hint. */

@@ -1,0 +1,32 @@
+kind: neutral
+languages:
+- python
+- typescript
+command: la-check-conventions
+args:
+- --base
+- main
+git:
+- commit: init
+- origin:
+  - main
+- branch: feat
+- rename:
+    src/a.js: src/a.py
+    src/b.py: src/b.ts
+- write:
+    src/a.py: 'X = 1
+
+      import os
+
+      '
+    src/b.ts: 'const v = 1;
+
+      import { y } from ''./y'';
+
+      '
+- commit: work
+expect:
+  exit: 1
+note: a file renamed across languages is checked under its new path by its new language's adapter
+golden: manual

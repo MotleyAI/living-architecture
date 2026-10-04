@@ -1,0 +1,21 @@
+kind: adapter
+languages:
+- typescript
+command: la-check-conventions
+args:
+- --file
+- src/a-block-beside-code.ts
+- --file
+- src/b-trailing.ts
+- --file
+- src/c-blank-in-block.ts
+- --file
+- src/d-strings.ts
+- --file
+- src/e-jsdoc.ts
+- --text-ratio-cap
+- '1'
+expect:
+  exit: 1
+golden: manual
+note: 'text-only lines: comment-only lines incl. every line a block spans, except blank ones and lines with code; trailing comments/JSDoc and comment-like strings are not text'

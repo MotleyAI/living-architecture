@@ -1,11 +1,12 @@
 // Runtime import edges of every visible source, resolved under the repo's tsconfig and classified.
 import { readFileSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
-import ts from 'typescript';
+import type * as TS from 'typescript';
 import { canonical, DECLARATION_RE, isUnder, posix, stripSourceExtension, Tree } from './files.js';
 import { loadProjects, owner, type Project, type Projects } from './projects.js';
 import { runtimeSpecifiers } from './specifiers.js';
 import type { ModuleImports, TsLayout } from './types.js';
+import { ts } from './ts.js';
 
 class Resolver {
   readonly projects: Projects;
@@ -32,8 +33,8 @@ class Resolver {
     return rel.startsWith(`${this.tree.layout.rootPackage}/`) ? stripSourceExtension(rel) : undefined;
   }
 
-  target(spec: string, importer: string, project: Project, mode: ts.ResolutionMode): string | undefined {
-    const { resolvedModule } = ts.resolveModuleName(
+  target(spec: string, importer: string, project: Project, mode: TS.ResolutionMode): string | undefined {
+    const { resolvedModule } = ts().resolveModuleName(
       spec,
       importer,
       project.options,
@@ -45,26 +46,26 @@ class Resolver {
     if (resolvedModule !== undefined) {
       return resolvedModule.isExternalLibraryImport ? undefined : this.resolved(resolvedModule.resolvedFileName);
     }
-    return ts.isExternalModuleNameRelative(spec) ? this.lexical(spec, importer) : undefined;
+    return ts().isExternalModuleNameRelative(spec) ? this.lexical(spec, importer) : undefined;
   }
 
   targets(file: string): string[] {
     const project = owner(this.projects, file);
-    const format = ts.getImpliedNodeFormatForFile(
+    const format = ts().getImpliedNodeFormatForFile(
       file,
       project.cache.getPackageJsonInfoCache(),
       this.projects.host,
       project.options,
     );
-    const source = ts.createSourceFile(
+    const source = ts().createSourceFile(
       file,
       readFileSync(file, 'utf8'),
-      { languageVersion: ts.ScriptTarget.Latest, impliedNodeFormat: format, jsDocParsingMode: ts.JSDocParsingMode.ParseNone },
+      { languageVersion: ts().ScriptTarget.Latest, impliedNodeFormat: format, jsDocParsingMode: ts().JSDocParsingMode.ParseNone },
       true,
     );
     const targets = new Set<string>();
     for (const literal of runtimeSpecifiers(source)) {
-      const mode = ts.getModeForUsageLocation(source, literal, project.options);
+      const mode = ts().getModeForUsageLocation(source, literal, project.options);
       const target = this.target(literal.text, file, project, mode);
       if (target !== undefined) targets.add(target);
     }

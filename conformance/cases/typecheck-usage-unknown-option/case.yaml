@@ -1,0 +1,10 @@
+kind: neutral
+command: la-typecheck
+args:
+- --bogus
+expect:
+  exit: 2
+  stdout: ignore
+  stderr: ignore
+golden: manual
+note: an unknown option is a usage error

@@ -20,6 +20,8 @@ cases:
     files: []
     exclude: []
     text_ratio_cap: null
+    language: null
+    emit: null
 - name: repeatable options keep order
   command: la-check-conventions
   argv: [--file, b.py, --file, a.py, --exclude, gen/*, --exclude, x/*]
@@ -30,6 +32,8 @@ cases:
     files: [b.py, a.py]
     exclude: [gen/*, x/*]
     text_ratio_cap: null
+    language: null
+    emit: null
 - name: optional positional
   command: la-check-conventions
   argv: ['42']
@@ -40,6 +44,8 @@ cases:
     files: []
     exclude: []
     text_ratio_cap: null
+    language: null
+    emit: null
 - name: double dash before an optional positional
   command: la-check-conventions
   argv: [--, --odd]
@@ -50,6 +56,8 @@ cases:
     files: []
     exclude: []
     text_ratio_cap: null
+    language: null
+    emit: null
 - name: option value may start with a dash
   command: la-check-conventions
   argv: [--base=-x]
@@ -60,6 +68,8 @@ cases:
     files: []
     exclude: []
     text_ratio_cap: null
+    language: null
+    emit: null
 - name: require_one_of with none given
   command: la-check-conventions
   argv: [--repo, o/r]
@@ -78,6 +88,8 @@ cases:
     files: []
     exclude: []
     text_ratio_cap: 12.5
+    language: null
+    emit: null
 - name: float option type error
   command: la-check-conventions
   argv: [--base, main, --text-ratio-cap, abc]

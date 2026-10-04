@@ -1,5 +1,5 @@
 // Living-architecture cross-walk checker: code, LikeC4 model, arc42 docs and specs agree.
-import { type ModelParse, checkDiagramsFresh, osErrorText, parseModel, parseViews } from '../c4/index.js';
+import { type ModelParse, checkDiagramsFresh, parseModel, parseViews } from '../c4/index.js';
 import { ConfigError, loadConfig } from '../config/index.js';
 import { message } from '../contract/index.js';
 import { LangError } from '../lang/index.js';
@@ -76,7 +76,7 @@ function setupErrorText(error: unknown): string | null {
   if (error instanceof ArchCheckError || error instanceof ConfigError || error instanceof TwinError) return error.message;
   if (error instanceof LangError) return error.message;
   const code = (error as NodeJS.ErrnoException)?.code;
-  if (typeof code === 'string' && code.startsWith('E')) return osErrorText(error as NodeJS.ErrnoException);
+  if (typeof code === 'string' && code.startsWith('E')) return (error as Error).message;
   return null;
 }
 

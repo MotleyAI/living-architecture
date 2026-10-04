@@ -67,6 +67,7 @@ def test_installed_artifact_runs_every_command(kind, artifacts, tmp_path, fake_g
         (("la-arch-diagrams", "--root", str(_materialize("arch-diagrams", tmp_path / "diagrams"))), 0, ""),
         (("la-check-conventions", "--file", "a.py"), 0, None),
         (("la-count-comments", "a.py"), 0, None),
+        (("la-typecheck",), 2, ""),
         (("dr-compliance", "a.py"), 0, ""),
         (("dr-mock-lint", "a.py"), 0, ""),
         (("dr-refactor", "--help"), 0, None),

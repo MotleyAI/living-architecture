@@ -1,0 +1,6 @@
+    5  comment=   2 doc=   3  src/a.ts
+    7  comment=   5 doc=   2  src/b.ts
+    4  comment=   1 doc=   3  src/c.ts
+    0  comment=   0 doc=   0  gone.ts
+==================================================
+TOTAL=16 (comment 8, docstring 8)

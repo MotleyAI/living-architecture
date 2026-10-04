@@ -1,0 +1,13 @@
+kind: adapter
+languages:
+- typescript
+command: la-check-conventions
+args:
+- --file
+- src/a.test.ts
+- --file
+- src/a.ts
+expect:
+  exit: 1
+golden: manual
+note: expect/assert/assert.ok of a (parenthesized) `&&` in test files; `||`, a mixed `||` and a negation are not flagged, nor any non-test file

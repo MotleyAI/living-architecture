@@ -1,0 +1,8 @@
+#!/bin/sh
+[ -d .git ] && [ -f pyproject.toml ] || { echo "fake basedpyright: not run at the repo root: $(pwd)" >&2; exit 99; }
+[ "$*" = "" ] || { echo "fake basedpyright: unexpected args: $*" >&2; exit 99; }
+cat <<'EOF'
+0 errors, 0 warnings, 0 notes
+updated ./.basedpyright/baseline.json with 1 fixed error
+EOF
+exit 0

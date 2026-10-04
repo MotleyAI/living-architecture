@@ -3,3 +3,8 @@ command: la-arch-diagrams
 fixture: arch-diagrams
 expect:
   exit: 1
+  stderr:
+    contains:
+    - 'la-arch-diagrams: '
+    - <ROOT>/repo/architecture/gone.arc42.md
+note: OS error wording is not part of the contract

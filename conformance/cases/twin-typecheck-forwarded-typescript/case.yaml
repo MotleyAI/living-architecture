@@ -1,0 +1,31 @@
+kind: neutral
+languages:
+- python
+- typescript
+twin: python
+other_twin: absent
+command: la-typecheck
+bins:
+- dir: npm-twin
+  files:
+    la-doctor: |
+      #!/bin/sh
+      [ "$*" = "--twin" ] || { echo "fake la-doctor: unexpected $*" >&2; exit 99; }
+      echo "typescript <VERSION> <CONTRACT_HASH>"
+    la-typecheck: |
+      #!/bin/sh
+      case " $* " in *" --language typescript "*) ;; *) echo "fake la-typecheck: not a typescript request: $*" >&2; exit 99 ;; esac
+      case " $* " in *" --write-baseline "*) echo "fake la-typecheck: unexpected --write-baseline" >&2; exit 99 ;; esac
+      [ "$LA_FORWARDED" = 1 ] || { echo "fake la-typecheck: LA_FORWARDED is not 1" >&2; exit 99; }
+      cat <<'EOF'
+      src/a.ts(1,14): error TS2322: Type 'string' is not assignable to type 'number'.
+      EOF
+      cat >&2 <<'EOF'
+      la-typecheck: typescript: 1 new error(s) not in .tsc-baseline.json (from the fake npm twin)
+      EOF
+      exit 1
+expect:
+  exit: 1
+golden: manual
+note: the PyPI twin runs the TypeScript section as `la-typecheck --language typescript` in the npm twin (LA_FORWARDED=1);
+  its streams are relayed unchanged and the exit is the maximum

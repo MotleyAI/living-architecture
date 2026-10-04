@@ -1,0 +1,19 @@
+kind: adapter
+languages:
+- typescript
+command: la-check-conventions
+args:
+- --file
+- src/lf.ts
+- --file
+- src/bom-crlf.ts
+- --file
+- src/cr.ts
+- --file
+- src/no-final-newline.ts
+- --text-ratio-cap
+- '1'
+expect:
+  exit: 1
+golden: manual
+note: a leading BOM is ignored, CRLF and lone CR break lines, a missing final newline still counts the last line

@@ -1,0 +1,195 @@
+# Conventions facts documents (`la-check-conventions --language L --emit facts`) checked against
+# schema/conventions-facts.schema.json. Order (one entry per input path, in input order) is the emitter's duty.
+accept:
+- name: every status
+  document:
+    language: typescript
+    version: 0.2.1
+    contract_hash: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    files:
+    - path: web/b.ts
+      status: ok
+      detections:
+      - {line: 2, rule: import-not-top, message_id: conventions.ts-import-after-code, values: {}, text: "import { y } from './y';"}
+      - {line: 4, rule: composite-assert, message_id: conventions.ts-composite-assert, values: {}, text: 'assert(a && b);'}
+      text_lines: 1
+      total_lines: 4
+      comment_lines: 1
+      doc_lines: 0
+    - {path: web/gone.ts, status: missing}
+    - {path: web/bin.ts, status: unreadable, line: 1, message: not valid UTF-8}
+    - {path: web/bad.ts, status: syntax-error, line: 3, message: "';' expected.", comment_lines: 2, doc_lines: 0}
+- name: python detections with string and integer values
+  document:
+    language: python
+    version: 1.0.0
+    contract_hash: ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+    files:
+    - path: pkg/a.py
+      status: ok
+      detections:
+      - {line: 3, rule: import-not-top, message_id: conventions.import-in-function, values: {function: f}, text: '    import os'}
+      - {line: 6, rule: raises-single-throw, message_id: conventions.raises-single-throw, values: {calls: 2}, text: 'with pytest.raises(E):'}
+      text_lines: 0
+      total_lines: 7
+      comment_lines: 0
+      doc_lines: 0
+- name: empty files list
+  document:
+    language: python
+    version: 0.2.1
+    contract_hash: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    files: []
+- name: ok without detections on an empty file
+  document:
+    language: typescript
+    version: 0.2.1
+    contract_hash: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    files:
+    - {path: src/a.ts, status: ok, detections: [], text_lines: 0, total_lines: 0, comment_lines: 0, doc_lines: 0}
+reject:
+- name: not an object
+  document: []
+- name: missing files
+  document:
+    language: typescript
+    version: 0.2.1
+    contract_hash: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+- name: unknown language
+  document:
+    language: ruby
+    version: 0.2.1
+    contract_hash: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    files: []
+- name: short contract hash
+  document:
+    language: typescript
+    version: 0.2.1
+    contract_hash: 0123456789abcdef
+    files: []
+- name: extra top-level property
+  document:
+    language: typescript
+    version: 0.2.1
+    contract_hash: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    files: []
+    units: []
+- name: unknown status
+  document:
+    language: typescript
+    version: 0.2.1
+    contract_hash: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    files:
+    - {path: a.ts, status: skipped}
+- name: missing path
+  document:
+    language: typescript
+    version: 0.2.1
+    contract_hash: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    files:
+    - {status: missing}
+- name: ok without counts
+  document:
+    language: typescript
+    version: 0.2.1
+    contract_hash: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    files:
+    - {path: a.ts, status: ok, detections: []}
+- name: ok without detections
+  document:
+    language: typescript
+    version: 0.2.1
+    contract_hash: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    files:
+    - {path: a.ts, status: ok, text_lines: 0, total_lines: 1, comment_lines: 0, doc_lines: 0}
+- name: missing with counts
+  document:
+    language: typescript
+    version: 0.2.1
+    contract_hash: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    files:
+    - {path: a.ts, status: missing, comment_lines: 0}
+- name: unreadable without message
+  document:
+    language: typescript
+    version: 0.2.1
+    contract_hash: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    files:
+    - {path: a.ts, status: unreadable, line: 1}
+- name: syntax error without comment counts
+  document:
+    language: typescript
+    version: 0.2.1
+    contract_hash: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    files:
+    - {path: a.ts, status: syntax-error, line: 1, message: x}
+- name: detection rule text-ratio
+  document:
+    language: typescript
+    version: 0.2.1
+    contract_hash: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    files:
+    - path: a.ts
+      status: ok
+      detections:
+      - {line: 1, rule: text-ratio, message_id: conventions.ratio, values: {}, text: '// x'}
+      text_lines: 1
+      total_lines: 1
+      comment_lines: 1
+      doc_lines: 0
+- name: detection line 0
+  document:
+    language: typescript
+    version: 0.2.1
+    contract_hash: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    files:
+    - path: a.ts
+      status: ok
+      detections:
+      - {line: 0, rule: import-not-top, message_id: conventions.ts-import-after-code, values: {}, text: import x from 'y';}
+      text_lines: 0
+      total_lines: 1
+      comment_lines: 0
+      doc_lines: 0
+- name: detection without text
+  document:
+    language: typescript
+    version: 0.2.1
+    contract_hash: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    files:
+    - path: a.ts
+      status: ok
+      detections:
+      - {line: 1, rule: import-not-top, message_id: conventions.ts-import-after-code, values: {}}
+      text_lines: 0
+      total_lines: 1
+      comment_lines: 0
+      doc_lines: 0
+- name: non-scalar detection value
+  document:
+    language: typescript
+    version: 0.2.1
+    contract_hash: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    files:
+    - path: a.test.ts
+      status: ok
+      detections:
+      - {line: 1, rule: raises-single-throw, message_id: conventions.ts-raises-single-throw, values: {calls: [2]}, text: 'expect(f).toThrow();'}
+      text_lines: 0
+      total_lines: 1
+      comment_lines: 0
+      doc_lines: 0
+- name: negative count
+  document:
+    language: typescript
+    version: 0.2.1
+    contract_hash: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    files:
+    - {path: a.ts, status: ok, detections: [], text_lines: -1, total_lines: 1, comment_lines: 0, doc_lines: 0}
+- name: extra file property
+  document:
+    language: typescript
+    version: 0.2.1
+    contract_hash: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    files:
+    - {path: a.ts, status: missing, test: true}

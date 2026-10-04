@@ -1,0 +1,8 @@
+kind: adapter
+languages:
+- python
+command: la-typecheck
+expect:
+  exit: 0
+golden: manual
+note: an explicit commands.typecheck.python entry checks Python without a root marker, with that command
