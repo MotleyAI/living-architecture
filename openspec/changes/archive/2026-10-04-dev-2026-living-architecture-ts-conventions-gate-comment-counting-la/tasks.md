@@ -38,4 +38,4 @@
 
 - [x] 7.1 `python/`: full non-integration suite, `ruff check src tests`, `basedpyright src tests`. `node/`: lint, typecheck, Vitest, conformance. `scripts/conformance-cross`. Verify all green.
 - [x] 7.2 `la-check-conventions --base main` clear from both twins; `la-typecheck` on this repo (with `commands.typecheck` set for its layout); `openspec validate dev-2026-living-architecture-ts-conventions-gate-comment-counting-la --strict`; `la-arch-check` exits 0 from both twins.
-- [ ] 7.3 (pr-review, at archive time) Map `conventions` on `python.conventions` and `typecheck` on `python.typecheck` in model metadata (exact edit presented for approval). Verify `la-arch-check` exits 0 after `openspec archive`.
+- [x] 7.3 (pr-review, at archive time) Map `conventions` on `python.conventions` and `typecheck` on `python.typecheck` in model metadata (exact edit presented for approval). Verify `la-arch-check` exits 0 after `openspec archive`.
