@@ -51,9 +51,9 @@ findings:
 
   spec-mapping.mapped-twice: 'spec-mapping: {group} mapped by both {first} and {second}'
   spec-mapping.unknown-node: 'spec-mapping: {group} touches unknown node {node}'
-  spec-mapping.unmapped: 'spec-mapping: openspec/specs/{group} is mapped by no node and not cross-cutting'
-  spec-mapping.dir-missing: 'spec-mapping: {group} is mapped but openspec/specs/{group} does not exist'
-  spec-mapping.no-spec-md: 'spec-mapping: openspec/specs/{group} contains no spec.md'
+  spec-mapping.unmapped: 'spec-mapping: spec group {group} is mapped by no node and not cross-cutting'
+  spec-mapping.dir-missing: 'spec-mapping: {group} is mapped but has no spec dir in openspec/specs or a live change'
+  spec-mapping.no-spec-md: 'spec-mapping: spec group {group} contains no spec.md'
 
   baseline-ratchet.missing: 'baseline-ratchet: legacy_arrows.baseline is missing from index.yaml'
   baseline-ratchet.invalid: 'baseline-ratchet: legacy_arrows.baseline must be a non-negative integer, got {value!r}'
@@ -165,6 +165,9 @@ findings:
   doctor.fail: 'FAIL: {problem}'
   doctor.version-mismatch: installed la tools are {installed} but the plugin expects {expected}; reinstall the tools from the same checkout/tag as the plugin
   doctor.missing-executable: '`{exe}` not found on PATH'
+  doctor.plugin-not-found: no .claude-plugin/plugin.json at or above {dir}
+  doctor.plugin-invalid: '{path} is not valid JSON with a string "version"'
+  doctor.plugin-unreadable: cannot inspect {path}
   doctor.config-missing: no living-architecture.yaml at the repo root; run /la:init to onboard this repo
   doctor.openspec-absent: 'openspec is true but the repo has no openspec/ directory; run /la:openspec-init or set openspec: false'
   doctor.openspec-present: 'openspec is false but the repo has an openspec/ directory; set openspec: true or remove the directory'

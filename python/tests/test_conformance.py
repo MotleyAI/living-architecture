@@ -152,7 +152,7 @@ def _write_files(repo: Path, files: dict[str, str]) -> None:
 def _apply_step(step: dict, *, repo: Path, root: Path, env: dict[str, str]) -> None:
     [(op, arg)] = step.items()
     if op == "write":
-        _write_files(repo, arg)
+        _write_files(repo, {rel: substitute(text, root) for rel, text in arg.items()})
     elif op == "commit":
         _git(repo, env, "add", "-A")
         _git(repo, env, "commit", "-q", "-m", arg)

@@ -34,7 +34,7 @@ golden: manual                     # hand-written goldens; the update mode never
 note: why this case exists
 ```
 
-Git steps, applied in order after `git init`: `write: {path: text}`, `commit: message` (stages everything),
+Git steps, applied in order after `git init`: `write: {path: text}` (placeholders substituted), `commit: message` (stages everything),
 `branch: name`, `checkout: name`, `stage: [path]`, `delete: [path]`, `git_rm: [path]`,
 `rename: {from: to}`, `origin: [branch]` (creates a local bare `origin` and pushes).
 

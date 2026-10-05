@@ -3,7 +3,7 @@ name: pr
 description: Spec-driven change flow for a task given to an agent. Pulls in the tracker issue (Linear or GitHub, per `living-architecture.yaml`) that the current git branch belongs to, and combines it with whatever the user typed when invoking the skill. Rehydrates context, detects the current stage, and dispatches to the stage skills la:pr-plan → la:pr-tests → la:pr-implement → la:pr-review.
 ---
 
-**Preflight:** run `la-doctor --expect 0.2.1 --require-config` once per session before using any `la-*` or `dr-*` command. If it reports the missing-config finding (the one naming `/la:init`), run the fast path of the `la:init` skill, then re-run this preflight; stop and show the user its output on anything it still reports, or on any other failure.
+**Preflight:** run `la-doctor --plugin <this skill's base directory> --require-config` once per session before using any `la-*` or `dr-*` command. If it reports the missing-config finding (the one naming `/la:init`), run the fast path of the `la:init` skill, then re-run this preflight; stop and show the user its output on anything it still reports, or on any other failure.
 
 I want a detailed spec-driven flow. The brief is the union of:
 1. The tracker issue tied to the current branch (see "Rehydrate" below), AND

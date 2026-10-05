@@ -3,7 +3,7 @@ name: arch-init
 description: Build a repo's first living-architecture model — write the language sections of architecture/index.yaml, scaffold the as-is model from the measured imports (la-arch-scaffold), choose the wedge with the user, draft the principles from the repo's own instructions, map the specs, and get la-arch-check green. Syntax and maintenance are in the la:living-architecture reference.
 ---
 
-**Preflight:** run `la-doctor --expect 0.2.1 --require-config` once per session before using any `la-*` or `dr-*` command. If it reports the missing-config finding (the one naming `/la:init`), run the fast path of the `la:init` skill, then re-run this preflight; stop and show the user its output on anything it still reports, or on any other failure.
+**Preflight:** run `la-doctor --plugin <this skill's base directory> --require-config` once per session before using any `la-*` or `dr-*` command. If it reports the missing-config finding (the one naming `/la:init`), run the fast path of the `la:init` skill, then re-run this preflight; stop and show the user its output on anything it still reports, or on any other failure.
 
 # Build the first architecture model
 
@@ -68,5 +68,5 @@ the model) and `la-arch-check`, and fix until all are green.
 
 ## 8. Flip the gate
 
-Set `architecture: true` in `living-architecture.yaml` and run `la-doctor --expect 0.2.1 --require-config`
+Set `architecture: true` in `living-architecture.yaml` and run `la-doctor --plugin <this skill's base directory> --require-config`
 until it passes. Do not wire CI. The user commits.

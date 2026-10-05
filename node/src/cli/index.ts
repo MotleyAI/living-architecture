@@ -24,7 +24,13 @@ const HANDLERS: Record<string, (args: Args) => number> = {
       process.stdout.write(`${twin.identity()}\n`);
       return 0;
     }
-    return doctor.run(root(args.root), optional(args.expect), Boolean(args.contract_hash), Boolean(args.require_config));
+    return doctor.run(
+      root(args.root),
+      optional(args.expect),
+      optional(args.plugin),
+      Boolean(args.contract_hash),
+      Boolean(args.require_config),
+    );
   },
   'la-arch-check': (args) => {
     const emit = optional(args.emit);

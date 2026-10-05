@@ -1,5 +1,6 @@
 """arch_check cross-walk checks against tmp-dir repo fixtures."""
 
+import shutil
 import textwrap
 from pathlib import Path
 
@@ -271,6 +272,105 @@ def test_spec_group_without_spec_md(tmp_path):
     root = make_repo(tmp_path)
     (root / "openspec" / "specs" / "queries" / "foo" / "spec.md").unlink()
     assert any("no spec.md" in f for f in findings_for(root, "spec-mapping"))
+
+
+def write_files(root: Path, files: dict[str, str]) -> None:
+    for rel, content in files.items():
+        path = root / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8")
+
+
+def test_mapped_group_only_in_live_change_is_present(tmp_path):
+    root = make_repo(tmp_path)
+    shutil.rmtree(root / "openspec" / "specs" / "queries")
+    write_files(root, {"openspec/changes/add-queries/specs/queries/spec.md": "# spec\n"})
+    assert findings_for(root, "spec-mapping") == []
+
+
+def test_mapped_group_only_in_archived_change_is_missing(tmp_path):
+    root = make_repo(tmp_path)
+    shutil.rmtree(root / "openspec" / "specs" / "queries")
+    write_files(root, {"openspec/changes/archive/2026-01-01-add-queries/specs/queries/spec.md": "# spec\n"})
+    assert findings_for(root, "spec-mapping") == [
+        "spec-mapping: queries is mapped but has no spec dir in openspec/specs or a live change"
+    ]
+
+
+def test_archive_dir_with_its_own_specs_is_not_a_change(tmp_path):
+    root = make_repo(tmp_path)
+    write_files(root, {"openspec/changes/archive/specs/models/spec.md": "# spec\n"})
+    assert findings_for(root, "spec-mapping") == []
+
+
+def test_unmapped_group_in_live_change(tmp_path):
+    root = make_repo(tmp_path)
+    write_files(root, {"openspec/changes/add-models/specs/models/spec.md": "# spec\n"})
+    assert findings_for(root, "spec-mapping") == [
+        "spec-mapping: spec group models is mapped by no node and not cross-cutting"
+    ]
+
+
+def test_group_in_corpus_and_live_changes_is_reported_once(tmp_path):
+    root = make_repo(tmp_path)
+    write_files(
+        root,
+        {
+            "openspec/specs/models/spec.md": "# spec\n",
+            "openspec/changes/a/specs/models/spec.md": "# spec\n",
+            "openspec/changes/b/specs/models/spec.md": "# spec\n",
+        },
+    )
+    assert findings_for(root, "spec-mapping") == [
+        "spec-mapping: spec group models is mapped by no node and not cross-cutting"
+    ]
+
+
+def test_spec_md_in_any_live_change_counts(tmp_path):
+    root = make_repo(tmp_path)
+    shutil.rmtree(root / "openspec" / "specs" / "queries")
+    write_files(
+        root,
+        {
+            "openspec/changes/a/specs/queries/notes.md": "x\n",
+            "openspec/changes/b/specs/queries/deep/spec.md": "# spec\n",
+        },
+    )
+    assert findings_for(root, "spec-mapping") == []
+
+
+def test_spec_md_only_in_live_change_counts_for_corpus_group(tmp_path):
+    root = make_repo(tmp_path)
+    (root / "openspec" / "specs" / "queries" / "foo" / "spec.md").unlink()
+    write_files(root, {"openspec/changes/a/specs/queries/spec.md": "# spec\n"})
+    assert findings_for(root, "spec-mapping") == []
+
+
+def test_live_change_group_without_spec_md(tmp_path):
+    root = make_repo(tmp_path)
+    shutil.rmtree(root / "openspec" / "specs" / "queries")
+    write_files(root, {"openspec/changes/a/specs/queries/foo/notes.md": "x\n"})
+    assert findings_for(root, "spec-mapping") == ["spec-mapping: spec group queries contains no spec.md"]
+
+
+def test_archived_spec_md_does_not_count(tmp_path):
+    root = make_repo(tmp_path)
+    (root / "openspec" / "specs" / "queries" / "foo" / "spec.md").unlink()
+    write_files(root, {"openspec/changes/archive/2026-01-01-a/specs/queries/spec.md": "# spec\n"})
+    assert findings_for(root, "spec-mapping") == ["spec-mapping: spec group queries contains no spec.md"]
+
+
+def test_changes_without_spec_groups_are_ignored(tmp_path):
+    root = make_repo(tmp_path)
+    write_files(
+        root,
+        {
+            "openspec/changes/README.md": "x\n",
+            "openspec/changes/no-specs/proposal.md": "x\n",
+            "openspec/changes/stray/specs/spec.md": "x\n",
+        },
+    )
+    assert findings_for(root, "spec-mapping") == []
 
 
 def test_node_removed_from_model_claims_nothing(tmp_path):

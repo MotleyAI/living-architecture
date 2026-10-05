@@ -4,7 +4,7 @@ The skills drive these commands; you can also run them directly. `<command> --he
 
 | Command | Purpose |
 |---|---|
-| `la-doctor [--require-config]` | Check tool/plugin versions, the repo config against the disk, and `git`/`gh` |
+| `la-doctor [--plugin DIR] [--require-config]` | Check tool/plugin versions, the repo config against the disk, and `git`/`gh` |
 | `la-config get <key>` / `la-config show` | Print the resolved repo config |
 | `la-arch-check` | Architecture cross-check (exit 0 OK, 1 findings, 2 broken setup) |
 | `la-arch-scaffold` | Write a starter model, views and `system.arc42.md` from the measured top-level units and imports |
@@ -51,5 +51,5 @@ prebuilt wheels:
 
 ```yaml
 - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-- run: uvx --no-build --from living-architecture==0.2.1 la-arch-check
+- run: uvx --no-build --from living-architecture==0.2.2 la-arch-check
 ```

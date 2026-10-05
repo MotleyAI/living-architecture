@@ -28,6 +28,8 @@ commands:
     exit: {0: healthy, 1: problems found, 2: usage error}
     options:
       - {name: --expect, type: string, help: plugin version the calling skill was written for}
+      - {name: --plugin, type: path, metavar: DIR,
+         help: "directory inside the calling plugin (e.g. a skill's base directory); expect its plugin.json version"}
       - {name: --root, type: path, help: 'repo root (default: nearest git root of cwd)'}
       - {name: --contract-hash, type: flag, help: print the bundled contract hash and exit}
       - {name: --require-config, type: flag, help: 'report a missing living-architecture.yaml (the repo is not onboarded)'}

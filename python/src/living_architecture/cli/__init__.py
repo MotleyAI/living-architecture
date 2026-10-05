@@ -30,7 +30,11 @@ def la_doctor(argv: list[str] | None = None) -> int:
         print(twin.identity())
         return 0
     return doctor.run(
-        root=_root(args.root), expect=args.expect, print_hash=args.contract_hash, require_config=args.require_config
+        root=_root(args.root),
+        expect=args.expect,
+        plugin=args.plugin,
+        print_hash=args.contract_hash,
+        require_config=args.require_config,
     )
 
 

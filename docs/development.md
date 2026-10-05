@@ -45,8 +45,8 @@ read your shell aliases need that flag added to their own command settings.
 
 ## Releasing
 
-In `python/`, bump the version with `uv version <new>`, then in `node/package.json`,
-`plugin/.claude-plugin/plugin.json` and every skill's `la-doctor --expect` pin (the tests fail until all agree),
+In `python/`, bump the version with `uv version <new>`, then in `node/package.json` and
+`plugin/.claude-plugin/plugin.json` (skills read it through `la-doctor --plugin`; the tests fail until all agree),
 and update the pins in the README and [commands.md](commands.md). Run `scripts/sync-shared` and commit the
 refreshed copies. Tag `v<version>` and publish a GitHub release for it; the `Publish` workflow first runs
 `scripts/release-check` (every version equals the tag, both contract hashes agree) and publishes neither twin

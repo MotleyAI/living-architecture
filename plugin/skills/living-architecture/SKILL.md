@@ -3,7 +3,7 @@ name: living-architecture
 description: Reference for the living-architecture layer (LikeC4 structure model + arc42 principles + model-truth import enforcement + cross-check) — its syntax, the checks, and how to maintain it alongside the /la:pr + OpenSpec flow. Building the first model is la:arch-init; carving a boundary is la:arch-cleanup.
 ---
 
-**Preflight:** run `la-doctor --expect 0.2.1` once per session before using any `la-*` or `dr-*` command; if it fails, stop and show the user its output.
+**Preflight:** run `la-doctor --plugin <this skill's base directory>` once per session before using any `la-*` or `dr-*` command; if it fails, stop and show the user its output.
 
 # Living architecture
 
@@ -202,9 +202,9 @@ its committed baseline. It runs, blocking, in:
   elements; every `arc42` path exists;
 - every top-level unit of each language's `root_package` is claimed by exactly
   one node — no orphan packages;
-- every directory under `openspec/specs/` appears exactly once: in exactly one
-  node's `specs` or in `cross_cutting_specs:`; every node named in a
-  `touches:` list exists;
+- every spec group (a directory under `openspec/specs/` or under a non-archived
+  change's `specs/`) is mapped exactly once: in exactly one node's `specs` or in
+  `cross_cutting_specs:`; every node named in a `touches:` list exists;
 - model-truth holds at every declared granularity, the `#legacy` count equals
   `legacy_arrows.baseline`, and each mapped doc's embedded view diagram is
   byte-fresh;

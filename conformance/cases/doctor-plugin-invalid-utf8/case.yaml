@@ -1,0 +1,6 @@
+kind: neutral
+command: la-doctor
+args: [--plugin, plugin]
+normalize: [version]
+expect:
+  exit: 1

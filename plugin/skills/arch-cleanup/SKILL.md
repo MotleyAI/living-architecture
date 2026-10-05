@@ -3,7 +3,7 @@ name: arch-cleanup
 description: Use to carve or tighten ONE architecture boundary in a repo with the living-architecture setup — take a coherent batch of grandfathered `#legacy` arrows (or extract a new node), refactor them away with verified moves (deterministic-refactor), and shrink the legacy-arrow baseline monotonically. Behaviour-preserving by definition; one slice = one branch/PR.
 ---
 
-**Preflight:** run `la-doctor --expect 0.2.1 --require-config` once per session before using any `la-*` or `dr-*` command. If it reports the missing-config finding (the one naming `/la:init`), run the fast path of the `la:init` skill, then re-run this preflight; stop and show the user its output on anything it still reports, or on any other failure.
+**Preflight:** run `la-doctor --plugin <this skill's base directory> --require-config` once per session before using any `la-*` or `dr-*` command. If it reports the missing-config finding (the one naming `/la:init`), run the fast path of the `la:init` skill, then re-run this preflight; stop and show the user its output on anything it still reports, or on any other failure.
 
 # Carve one boundary slice
 

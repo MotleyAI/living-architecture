@@ -1,0 +1,11 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+fixture: arch-ok
+remove:
+- openspec/specs/logging
+expect:
+  exit: 1
+golden: manual
+note: 'a live-change group with no spec.md at any depth'
