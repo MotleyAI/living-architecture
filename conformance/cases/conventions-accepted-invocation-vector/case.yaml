@@ -9,5 +9,6 @@ args:
 - b.py
 - --exclude
 - gen/*
+fixture: conventions-python-files
 expect:
   exit: 0

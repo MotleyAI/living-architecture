@@ -2,6 +2,7 @@ kind: neutral
 command: la-doctor
 args:
 - --require-config
+fixture: config-invalid
 normalize:
 - version
 expect:

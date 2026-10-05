@@ -6,5 +6,6 @@ args:
 - --select
 - zeta,untyped-def,alpha
 - src/k.py
+fixture: compliance
 expect:
   exit: 2

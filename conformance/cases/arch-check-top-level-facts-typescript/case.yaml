@@ -9,6 +9,7 @@ args:
 - --emit
 - facts
 - --top-level
+fixture: scaffold-ts
 expect:
   exit: 0
   stdout: json

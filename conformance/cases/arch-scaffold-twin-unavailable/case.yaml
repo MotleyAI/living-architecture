@@ -2,6 +2,7 @@ kind: adapter
 languages:
 - python
 twin: python
+fixture: scaffold-minimal
 other_twin: absent
 command: la-arch-scaffold
 normalize:

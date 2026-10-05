@@ -10,6 +10,7 @@ args:
 - foo
 - --new-name
 - bar
+fixture: refactor-pkg
 git:
 - commit: init
 expect:

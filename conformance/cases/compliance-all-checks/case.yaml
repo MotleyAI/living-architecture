@@ -4,6 +4,7 @@ languages:
 command: dr-compliance
 args:
 - src/k.py
+fixture: compliance
 expect:
   exit: 1
 note: output is sorted as strings, so line 10 precedes line 9

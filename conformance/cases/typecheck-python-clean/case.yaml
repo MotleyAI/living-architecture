@@ -2,6 +2,7 @@ kind: adapter
 languages:
 - python
 command: la-typecheck
+fixture: typecheck-python
 bins:
 - dir: path-basedpyright
   position: before

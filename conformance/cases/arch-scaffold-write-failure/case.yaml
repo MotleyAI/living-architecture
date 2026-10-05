@@ -2,6 +2,7 @@ kind: adapter
 languages:
 - python
 command: la-arch-scaffold
+fixture: scaffold-python
 expect:
   exit: 2
   stderr: {contains: ['la-arch-scaffold: ', views.c4]}

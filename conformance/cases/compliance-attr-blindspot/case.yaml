@@ -8,5 +8,6 @@ args:
 - --attr
 - name
 - src/k.py
+fixture: compliance
 expect:
   exit: 1

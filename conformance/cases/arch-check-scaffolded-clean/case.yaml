@@ -2,6 +2,7 @@ kind: adapter
 languages:
 - python
 command: la-arch-check
+fixture: scaffold-python
 expect:
   exit: 0
 golden: manual

@@ -12,6 +12,7 @@ args:
 - tests/test_w.py
 - --file
 - a/x.ts
+fixture: conventions-mixed
 expect:
   exit: 1
 golden: manual

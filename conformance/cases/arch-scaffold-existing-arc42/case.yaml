@@ -2,6 +2,7 @@ kind: adapter
 languages:
 - python
 command: la-arch-scaffold
+fixture: scaffold-minimal
 expect:
   exit: 2
   files:

@@ -8,6 +8,7 @@ args:
 - --repo
 - o/r
 stdin: x
+fixture: config-invalid
 gh:
 - match:
   - repos/o/r/pulls/3/comments/9/replies

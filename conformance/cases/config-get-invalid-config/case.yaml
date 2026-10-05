@@ -3,6 +3,7 @@ command: la-config
 args:
 - get
 - issue_key_pattern
+fixture: config-invalid
 expect:
   exit: 1
   stdout: ''

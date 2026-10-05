@@ -3,6 +3,7 @@ languages:
 - python
 - typescript
 command: la-arch-scaffold
+fixture: scaffold-mixed
 expect:
   exit: 0
   files:

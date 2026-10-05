@@ -2,6 +2,7 @@ kind: adapter
 languages:
 - typescript
 command: la-typecheck
+fixture: typecheck-ts-src
 expect:
   exit: 0
 golden: manual

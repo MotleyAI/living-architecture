@@ -9,6 +9,7 @@ args:
 - pkg/solo.py
 - --dest
 - pkg/sub
+fixture: refactor-pkg
 git: []
 expect:
   exit: 0

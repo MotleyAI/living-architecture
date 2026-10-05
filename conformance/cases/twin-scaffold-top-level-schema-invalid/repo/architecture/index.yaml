@@ -1,4 +1,0 @@
-python:
-  root_package: pkg
-typescript:
-  root_package: src

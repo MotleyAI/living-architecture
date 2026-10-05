@@ -5,6 +5,7 @@ command: la-check-conventions
 args:
 - --file
 - a.py
+fixture: config-invalid
 expect:
   exit: 2
   stdout: ''
