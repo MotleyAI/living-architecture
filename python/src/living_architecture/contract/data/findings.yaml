@@ -51,9 +51,9 @@ findings:
 
   spec-mapping.mapped-twice: 'spec-mapping: {group} mapped by both {first} and {second}'
   spec-mapping.unknown-node: 'spec-mapping: {group} touches unknown node {node}'
-  spec-mapping.unmapped: 'spec-mapping: openspec/specs/{group} is mapped by no node and not cross-cutting'
-  spec-mapping.dir-missing: 'spec-mapping: {group} is mapped but openspec/specs/{group} does not exist'
-  spec-mapping.no-spec-md: 'spec-mapping: openspec/specs/{group} contains no spec.md'
+  spec-mapping.unmapped: 'spec-mapping: spec group {group} is mapped by no node and not cross-cutting'
+  spec-mapping.dir-missing: 'spec-mapping: {group} is mapped but has no spec dir in openspec/specs or a live change'
+  spec-mapping.no-spec-md: 'spec-mapping: spec group {group} contains no spec.md'
 
   baseline-ratchet.missing: 'baseline-ratchet: legacy_arrows.baseline is missing from index.yaml'
   baseline-ratchet.invalid: 'baseline-ratchet: legacy_arrows.baseline must be a non-negative integer, got {value!r}'
