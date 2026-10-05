@@ -52,17 +52,32 @@ def _mapped_spec_groups(index: dict, node_map: NodeMap, findings: list[str]) -> 
     return mapped
 
 
+def _subdirs(path: Path) -> list[Path]:
+    return [p for p in path.iterdir() if p.is_dir()] if path.is_dir() else []
+
+
+def _present_spec_groups(root: Path) -> dict[str, list[Path]]:
+    """Spec group -> its dirs under openspec/specs/ and every non-archived change's specs/."""
+    openspec = root / "openspec"
+    specs_dirs = [openspec / "specs"]
+    specs_dirs += [change / "specs" for change in _subdirs(openspec / "changes") if change.name != "archive"]
+    present: dict[str, list[Path]] = {}
+    for specs_dir in specs_dirs:
+        for group_dir in _subdirs(specs_dir):
+            present.setdefault(group_dir.name, []).append(group_dir)
+    return present
+
+
 def check_spec_mapping(root: Path, index: dict, node_map: NodeMap) -> list[str]:
     findings: list[str] = []
     mapped = _mapped_spec_groups(index, node_map, findings)
-    specs_dir = root / "openspec" / "specs"
-    on_disk = {p.name for p in specs_dir.iterdir() if p.is_dir()} if specs_dir.is_dir() else set()
-    for group in sorted(on_disk - set(mapped)):
+    present = _present_spec_groups(root)
+    for group in sorted(set(present) - set(mapped)):
         findings.append(message("spec-mapping.unmapped", group=group))
-    for group in sorted(set(mapped) - on_disk):
+    for group in sorted(set(mapped) - set(present)):
         findings.append(message("spec-mapping.dir-missing", group=group))
-    for group in sorted(set(mapped) & on_disk):
-        if not any((specs_dir / group).rglob("spec.md")):
+    for group in sorted(set(mapped) & set(present)):
+        if not any(any(group_dir.rglob("spec.md")) for group_dir in present[group]):
             findings.append(message("spec-mapping.no-spec-md", group=group))
     return findings
 

@@ -82,17 +82,33 @@ function containsSpecMd(dir: string): boolean {
   return readdirSync(dir, { recursive: true, encoding: 'utf8' }).some((entry) => entry.split('/').pop() === 'spec.md');
 }
 
+function subdirNames(path: string): string[] {
+  return isDir(path) ? readdirSync(path).filter((name) => isDir(join(path, name))) : [];
+}
+
+/** Spec group -> its dirs under openspec/specs/ and every non-archived change's specs/. */
+function presentSpecGroups(root: string): Map<string, string[]> {
+  const openspec = join(root, 'openspec');
+  const changes = join(openspec, 'changes');
+  const specsDirs = [join(openspec, 'specs')];
+  for (const change of subdirNames(changes)) if (change !== 'archive') specsDirs.push(join(changes, change, 'specs'));
+  const present = new Map<string, string[]>();
+  for (const specsDir of specsDirs) {
+    for (const group of subdirNames(specsDir)) present.set(group, [...(present.get(group) ?? []), join(specsDir, group)]);
+  }
+  return present;
+}
+
 export function checkSpecMapping(root: string, index: Index, nodeMap: NodeMap): string[] {
   const findings: string[] = [];
   const mapped = mappedSpecGroups(index, nodeMap, findings);
-  const specsDir = join(root, 'openspec', 'specs');
-  const onDisk = new Set(isDir(specsDir) ? readdirSync(specsDir).filter((name) => isDir(join(specsDir, name))) : []);
-  for (const group of [...onDisk].filter((g) => !mapped.has(g)).sort()) findings.push(message('spec-mapping.unmapped', { group }));
-  for (const group of [...mapped.keys()].filter((g) => !onDisk.has(g)).sort()) {
+  const present = presentSpecGroups(root);
+  for (const group of [...present.keys()].filter((g) => !mapped.has(g)).sort()) findings.push(message('spec-mapping.unmapped', { group }));
+  for (const group of [...mapped.keys()].filter((g) => !present.has(g)).sort()) {
     findings.push(message('spec-mapping.dir-missing', { group }));
   }
-  for (const group of [...mapped.keys()].filter((g) => onDisk.has(g)).sort()) {
-    if (!containsSpecMd(join(specsDir, group))) findings.push(message('spec-mapping.no-spec-md', { group }));
+  for (const group of [...mapped.keys()].filter((g) => present.has(g)).sort()) {
+    if (!(present.get(group) ?? []).some(containsSpecMd)) findings.push(message('spec-mapping.no-spec-md', { group }));
   }
   return findings;
 }

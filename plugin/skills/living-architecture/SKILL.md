@@ -201,9 +201,9 @@ baseline. It runs, blocking, in:
   elements; every `arc42` path exists;
 - every top-level unit of each language's `root_package` is claimed by exactly
   one node — no orphan packages;
-- every directory under `openspec/specs/` appears exactly once: in exactly one
-  node's `specs` or in `cross_cutting_specs:`; every node named in a
-  `touches:` list exists;
+- every spec group (a directory under `openspec/specs/` or under a non-archived
+  change's `specs/`) is mapped exactly once: in exactly one node's `specs` or in
+  `cross_cutting_specs:`; every node named in a `touches:` list exists;
 - model-truth holds at every declared granularity, the `#legacy` count equals
   `legacy_arrows.baseline`, and each mapped doc's embedded view diagram is
   byte-fresh;
