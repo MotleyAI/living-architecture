@@ -1,3 +1,4 @@
+architecture: true
 conventions:
   exempt: ['conformance/*']   # fixtures and goldens that break the rules on purpose
 commands:
