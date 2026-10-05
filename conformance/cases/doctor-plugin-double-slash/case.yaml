@@ -1,0 +1,7 @@
+kind: neutral
+command: la-doctor
+args: [--plugin, //nonexistent-la-doctor-dir]
+normalize: [version]
+expect:
+  exit: 1
+note: a leading `//` collapses to `/`

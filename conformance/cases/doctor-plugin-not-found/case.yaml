@@ -1,0 +1,6 @@
+kind: neutral
+command: la-doctor
+args: [--plugin, <ROOT>/repo/nowhere]
+normalize: [version]
+expect:
+  exit: 1

@@ -1,0 +1,9 @@
+kind: neutral
+command: la-doctor
+args: [--plugin, plugin]
+git:
+- write:
+    plugin/.claude-plugin/plugin.json: '{"version": '
+normalize: [version]
+expect:
+  exit: 1
