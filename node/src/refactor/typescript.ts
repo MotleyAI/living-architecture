@@ -87,6 +87,7 @@ class Refactor {
     }
     for (const [from, to] of moves) entries.push({ path: this.rel(from), text: message('refactor.ts-moved', { old: this.rel(from), new: this.rel(to) }) });
     entries.sort((a, b) => byCodePoint(a.path, b.path));
+    const paths = [...new Set(entries.map((e) => e.path))];
     let out = `${header}\n\n\n${entries.map((e) => `${e.text}\n`).join('')}\n`;
     if (this.args.apply) {
       for (const [path, text] of written.sort((a, b) => byCodePoint(a[0], b[0]))) writeFileSync(path, text);
@@ -94,10 +95,10 @@ class Refactor {
         mkdirSync(dirname(to), { recursive: true });
         renameSync(from, to);
       }
-      out += `${message('refactor.applied', { count: entries.length })}\n`;
-      out += entries.map((e) => `${message('refactor.applied-file', { path: e.path })}\n`).join('');
+      out += `${message('refactor.applied', { count: paths.length })}\n`;
+      out += paths.map((path) => `${message('refactor.applied-file', { path })}\n`).join('');
     } else {
-      out += `${message('refactor.dry-run', { count: entries.length })}\n`;
+      out += `${message('refactor.dry-run', { count: paths.length })}\n`;
     }
     process.stdout.write(out);
     return 0;

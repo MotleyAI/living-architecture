@@ -83,6 +83,16 @@ jobs:
         working-directory: node
       - run: scripts/conformance-cross --twin ${{ matrix.twin }}
 
+  # The TypeScript flow with only Node: the packed npm twin in a container without python or uv, with a PATH trap
+  # that fails the run on any call to python, python3, uv or uvx.
+  acceptance-node-only:
+    runs-on: ubuntu-latest
+    container: node:22-slim
+    steps:
+      - run: apt-get update && apt-get install -y --no-install-recommends git ca-certificates
+      - uses: actions/checkout@v4
+      - run: scripts/acceptance-node-only
+
   plugin:
     runs-on: ubuntu-latest
     steps:
