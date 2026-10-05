@@ -9,8 +9,10 @@
 - [ ] 2.3 `arch-check-spec-live-change-unmapped`: add `openspec/changes/add-metrics/specs/metrics/spec.md`; exit 1, `unmapped` for `metrics`
 - [ ] 2.4 `arch-check-spec-md-in-live-change`: remove `openspec/specs/logging/spec.md` (directory kept, as in `arch-check-spec-dir-without-spec-md`); add `openspec/changes/add-logging/specs/logging/spec.md`; exit 0
 - [ ] 2.5 `arch-check-spec-live-change-without-spec-md`: remove `openspec/specs/logging`; add a non-`spec.md` file under `openspec/changes/add-logging/specs/logging/`; exit 1, `no-spec-md` for `logging`
-- [ ] 2.6 List 2.1–2.5 in `conformance/INVENTORY.md`
-- [ ] 2.7 Write goldens with `LA_UPDATE_GOLDENS=1` for the new cases and re-bless every case printing a reworded finding; review the diff (only the three texts change in existing goldens)
+- [ ] 2.6 `arch-check-spec-live-changes-merged`: remove `openspec/specs/logging`; add `openspec/changes/a/specs/logging/notes.md`, `openspec/changes/b/specs/logging/deep/spec.md`, `openspec/changes/archive/specs/metrics/spec.md`, `openspec/changes/stray/specs/spec.md`, `openspec/changes/README.md`; exit 0
+- [ ] 2.7 `arch-check-spec-unmapped-in-corpus-and-changes`: add `openspec/specs/metrics/spec.md`, `openspec/changes/a/specs/metrics/spec.md`, `openspec/changes/b/specs/metrics/spec.md`; exit 1, one `unmapped` for `metrics`
+- [ ] 2.8 List 2.1–2.7 in `conformance/INVENTORY.md`
+- [ ] 2.9 Write goldens with `LA_UPDATE_GOLDENS=1` for the new cases and re-bless every case printing a reworded finding; review the diff (only the three texts change in existing goldens)
 
 ## 3. Twins
 

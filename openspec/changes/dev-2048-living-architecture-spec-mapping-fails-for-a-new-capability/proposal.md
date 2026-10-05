@@ -27,5 +27,5 @@ therefore fails the gate at every point: `spec-mapping.dir-missing` if it maps t
 - `python/src/living_architecture/archcheck/docs.py`, `node/src/archcheck/docs.ts`.
 - `shared/findings.yaml` (three templates) and the twins' vendored snapshots; goldens of every case printing
   one of those findings.
-- `conformance/cases/` (five new cases), `conformance/INVENTORY.md`.
+- `conformance/cases/` (seven new cases), `conformance/INVENTORY.md`.
 - `plugin/skills/living-architecture/SKILL.md`.

@@ -1,6 +1,6 @@
 claims-exactly-once: top-level pkg.extra is claimed by no node
 arc42-exists: architecture/notes.arc42.md is orphaned — not architecture/system.arc42.md, a node arc42 entry, or in cross_cutting_arc42
-spec-mapping: openspec/specs/extra is mapped by no node and not cross-cutting
+spec-mapping: spec group extra is mapped by no node and not cross-cutting
 baseline-ratchet: model has 1 legacy arrow(s), baseline is 2
 model-truth: measured runtime edge python.core -> python.api is missing from the model (import pkg.core.extra_dep -> pkg.api)
 model-truth: modeled relation python.store -> python.legacy has no measured runtime edge

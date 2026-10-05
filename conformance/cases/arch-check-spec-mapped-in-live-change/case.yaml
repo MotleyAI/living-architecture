@@ -1,0 +1,11 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+fixture: arch-ok
+remove:
+- openspec/specs/logging
+expect:
+  exit: 0
+golden: manual
+note: 'a group mapped while its spec exists only in a live change is present'
