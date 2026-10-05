@@ -1,0 +1,10 @@
+kind: adapter
+languages:
+- python
+command: dr-compliance
+args:
+- src
+expect:
+  exit: 1
+golden: manual
+note: 'a Python-only repo: a stray .js under the directory is not expanded; output equals compliance-directory-recursion'

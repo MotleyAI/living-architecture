@@ -1,0 +1,9 @@
+kind: neutral
+command: la-config
+args:
+- get
+- languages
+expect:
+  exit: 0
+golden: manual
+note: a .js file without a tsconfig.json does not make TypeScript a repo language

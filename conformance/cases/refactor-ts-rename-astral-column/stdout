@@ -1,0 +1,14 @@
+Renaming <foo> to <bar>:
+
+
+--- a/src/emoji.ts
++++ b/src/emoji.ts
+@@ -1,2 +1,2 @@
+-const s = "😀"; const foo = 1;
+-export const both = s + foo;
++const s = "😀"; const bar = 1;
++export const both = s + bar;
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

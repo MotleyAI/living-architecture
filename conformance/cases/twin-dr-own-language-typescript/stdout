@@ -1,0 +1,1 @@
+web/a.test.ts:3: vi.fn() without a type argument or implementation — type it as vi.fn<typeof real>()

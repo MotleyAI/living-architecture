@@ -1,0 +1,2 @@
+src/bad.ts:2: parse-error: Expression expected.
+src/later.ts:1: explicit-any: an `any` type — use a real type or `unknown`

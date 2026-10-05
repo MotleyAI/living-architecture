@@ -1,0 +1,4 @@
+{
+  "compilerOptions": {"strict": true, "module": "esnext", "moduleResolution": "bundler", "noEmit": true},
+  "include": ["web/src"]
+}

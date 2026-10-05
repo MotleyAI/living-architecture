@@ -1,0 +1,12 @@
+kind: neutral
+command: la-doctor
+twin: python
+hide:
+- node
+git: none
+normalize:
+- version
+expect:
+  exit: 0
+golden: manual
+note: outside a git repository the language-dependent checks are skipped

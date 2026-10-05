@@ -1,0 +1,21 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- move-symbol
+- --file
+- src/a.ts
+- --name
+- foo
+- --dest
+- src/b.ts
+fixture: refactor-ts
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - src/index.ts
+golden: manual
+note: a barrel that already has export * from the new file gets no explicit re-export

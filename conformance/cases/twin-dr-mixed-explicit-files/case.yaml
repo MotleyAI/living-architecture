@@ -1,0 +1,13 @@
+kind: neutral
+languages:
+- python
+- typescript
+fixture: dr-mixed
+golden: manual
+command: dr-mock-lint
+args:
+- tests/test_a.py
+- web/a.test.ts
+expect:
+  exit: 1
+note: one block per language in registry order, byte-identical from either invoking twin

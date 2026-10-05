@@ -1,0 +1,34 @@
+Renaming <foo> to <bar>:
+
+
+--- a/src/a.ts
++++ b/src/a.ts
+@@ -1,9 +1,9 @@
+-export function foo(): number {
++export function bar(): number {
+   return 1;
+ }
+ 
+ export class Base {
+   run(): number {
+-    return foo();
++    return bar();
+   }
+ }
+
+--- a/src/b.ts
++++ b/src/b.ts
+@@ -1,7 +1,7 @@
+-import { Base, foo } from './a';
++import { Base, bar } from './a';
+ 
+ export class Child extends Base {
+   override run(): number {
+-    return foo() + 1;
++    return bar() + 1;
+   }
+ }
+
+
+
+DRY-RUN. 2 file(s) would change. Re-run with --apply.

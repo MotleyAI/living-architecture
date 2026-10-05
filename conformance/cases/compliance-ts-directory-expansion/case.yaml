@@ -1,0 +1,12 @@
+kind: adapter
+languages:
+- typescript
+command: dr-compliance
+args:
+- --select
+- explicit-any
+- src
+expect:
+  exit: 1
+golden: manual
+note: a directory expands to the repo languages' files (TypeScript only here), minus declaration files and node_modules

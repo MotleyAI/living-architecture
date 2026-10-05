@@ -69,6 +69,10 @@ is no rollback after a mid-write I/O failure, which matches rope's `project.do`.
 takes the refactor and action named "Move to file". If none applies, the finding is `not-movable`. The
 action's file edits are taken as is (imports included). `move-module` uses `getEditsForFileRename` for a file
 or every file under a directory, then moves on disk.
+Re-exports are ours: every named or default re-export of the moved symbol is rewritten to the new file (a
+re-export that also lists symbols that stay is split), and a barrel that reached the symbol through
+`export * from` the old file gets an explicit `export { <name> } from` the new file, unless it already has
+`export * from` the new file.
 
 ### D7 — Stable texts only
 Headers mirror rope's (`Renaming <a> to <b>:`, `Moving global <a>:`, `Moving module <a>:`) and come from
@@ -91,15 +95,9 @@ or the unshadowed global.
 Absent means every check of each file's language (from `languages.yaml` `compliance_checks`). An explicit
 `''` keeps today's Python behaviour (nothing selected, exit 0).
 
-### D11 — Init bootstraps the model through `la-arch-check`
-1. Write the `index.yaml` language section and a model root with no nodes, then run `la-arch-check`: the
-   claims findings list every top-level unit.
-2. Add one stub node per unit and run it again: every runtime edge comes back as `model-truth.missing-edge`
-   with a witness. Stub top-level nodes can be neither shadowed nor dead, so turning those findings into
-   arrows makes the check green on the third run.
-3. Cycles are just arrows both ways.
-
-The user then chooses the wedge (precise vs buckets) as today.
+### D11 — Init is `la:arch-init`
+`la:arch-init` already wires `la-typecheck --write-baseline` and builds the as-is model with `la-arch-scaffold` in
+both twins; this change only removes its language idioms.
 
 ### D12 — Skill facts and idioms
 Skills name `la-config get languages` and `la-config get lang.<language>.<key>`, and read

@@ -12,7 +12,7 @@ decided by the registry's source extensions. `dr-refactor`'s language SHALL be t
 (`rename`, `move-symbol`) or `--module` (`move-module`); a source of an unregistered extension, or a `--dest`
 of another language, SHALL exit 1 with a finding. For `dr-compliance` and `dr-mock-lint`, an explicit file of
 an unregistered extension, or matching the language's `declaration_globs`, SHALL be skipped with a warning on
-stderr; a directory SHALL expand only to files of the repo's languages, excluding `declaration_globs` and
+stderr; a directory SHALL expand only to files of the repo's languages, or of every registered language when the repo has none, excluding `declaration_globs` and
 `excluded_dirs`. The other language's files SHALL run in its twin with the same working directory. Output
 SHALL be one block per language in registry id order, each exactly as that language's twin prints it alone;
 stderr SHALL be relayed; the exit code SHALL be the maximum. When the other twin cannot run or fails with exit
@@ -121,7 +121,8 @@ such as one declared in a library or a declaration file, SHALL exit 1 with a sta
 
 ### Requirement: TypeScript move-symbol and move-module
 `move-symbol` SHALL apply the language service's move-to-file refactor for a top-level declaration into the
-existing `--dest` file, rewriting every import of it. A location with no applicable move SHALL exit 1 with a
+existing `--dest` file, rewriting every import of it. Every re-export of the moved symbol, named, default or
+through `export *`, SHALL resolve to the new file. A location with no applicable move SHALL exit 1 with a
 not-movable finding. `move-module` SHALL move a file or directory into the existing `--dest` directory and
 rewrite every import of it.
 
@@ -132,6 +133,10 @@ rewrite every import of it.
 #### Scenario: Default export and re-export
 - **WHEN** the moved symbol is a default export re-exported by `src/index.ts`
 - **THEN** every importer and the re-export resolve to the new file
+
+#### Scenario: Barrel re-export
+- **WHEN** `src/index.ts` has `export * from './a'` and `foo` moves from `src/a.ts` to `src/b.ts`
+- **THEN** `src/index.ts` re-exports `foo` from `./b`
 
 #### Scenario: Not movable
 - **WHEN** the location is inside a function body

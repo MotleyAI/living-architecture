@@ -1,0 +1,7 @@
+src/k.ts:7: untyped-def: a is implicitly any
+src/k.ts:7: untyped-def: b is implicitly any
+src/k.ts:7: untyped-def: ...rest is implicitly any
+src/k.ts:15: explicit-any: an `any` type — use a real type or `unknown`
+src/k.ts:15: explicit-any: an `any` type — use a real type or `unknown`
+src/k.ts:16: explicit-any: an `any` type — use a real type or `unknown`
+src/k.ts:21: vi.fn() without a type argument or implementation — type it as vi.fn<typeof real>()

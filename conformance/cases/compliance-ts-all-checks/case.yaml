@@ -1,0 +1,12 @@
+kind: adapter
+languages:
+- typescript
+command: dr-compliance
+args:
+- src/k.ts
+fixture: compliance-ts
+expect:
+  exit: 1
+golden: manual
+note: 'every TS check: checker-based untyped-def (a contextually typed callback is not reported), explicit-any for every `any`,
+  mock; findings in line order'

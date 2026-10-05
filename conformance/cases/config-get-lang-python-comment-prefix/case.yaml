@@ -1,0 +1,9 @@
+kind: neutral
+command: la-config
+args:
+- get
+- lang.python.comment_prefix
+expect:
+  exit: 0
+golden: manual
+note: 'a public language fact, served in any repo; a list prints as JSON, a string as text'

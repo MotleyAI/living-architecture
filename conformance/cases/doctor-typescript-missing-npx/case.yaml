@@ -1,0 +1,8 @@
+kind: neutral
+command: la-doctor
+normalize:
+- version
+expect:
+  exit: 1
+golden: manual
+note: 'TypeScript is a repo language and node is present: npx alone is reported'

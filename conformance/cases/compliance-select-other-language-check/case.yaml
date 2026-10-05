@@ -1,0 +1,13 @@
+kind: adapter
+languages:
+- python
+command: dr-compliance
+args:
+- --select
+- explicit-any
+- src/k.py
+fixture: compliance
+expect:
+  exit: 0
+golden: manual
+note: a check only TypeScript lists is known but does not apply to a Python file

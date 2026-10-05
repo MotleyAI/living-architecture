@@ -1,0 +1,22 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- move-symbol
+- --file
+- pkg/a.py
+- --name
+- foo
+- --dest
+- web/b.ts
+fixture: refactor-pkg
+git:
+- commit: init
+expect:
+  exit: 1
+  files:
+  - pkg/a.py
+  - web/b.ts
+golden: manual
+note: 'a --dest of another language than the source: exit 1 before any refactor runs'

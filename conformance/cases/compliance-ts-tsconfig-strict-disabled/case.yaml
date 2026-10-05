@@ -1,0 +1,11 @@
+kind: adapter
+languages:
+- typescript
+command: dr-compliance
+args:
+- src/ok.ts
+fixture: compliance-ts
+expect:
+  exit: 1
+golden: manual
+note: 'noImplicitAny is a strict-family flag: false overrides strict; noImplicitOverride is unset'

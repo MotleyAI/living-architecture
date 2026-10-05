@@ -1,0 +1,14 @@
+kind: neutral
+languages:
+- python
+- typescript
+command: dr-compliance
+args:
+- --select
+- untyped-def,explicit-any
+- src
+expect:
+  exit: 1
+golden: manual
+note: 'no root marker and no commands.typecheck: a directory expands to every registered language''s files; one block per
+  language in registry order'

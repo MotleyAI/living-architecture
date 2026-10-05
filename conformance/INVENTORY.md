@@ -155,6 +155,10 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | *(new)* non-portable `issue_key_pattern` | 1 | `config-error-non-portable-lookbehind`, `config-error-non-portable-named-group`, `config-error-non-portable-inline-flag`, `config-error-non-portable-possessive`, `config-error-non-portable-atomic` |
 | repo root: `--root`, discovery from a subdir, no `.git` | 0 | `config-root-flag`, `config-root-discovery-from-subdir`, `config-root-without-git-is-cwd` |
 | usage errors; `--help`; *(new)* `--` honoured | 2/0 | `config-usage-no-args`, `config-usage-unknown-subcommand`, `config-usage-get-without-key`, `config-usage-root-after-subcommand`, `config-usage-unknown-flag`, `config-usage-show-extra-positional`, `config-help`, `config-double-dash` |
+| *(new)* `get languages`: repo languages in registry order (both markers; stray script; `null` keeps the language; explicit command without markers; exempt and git-ignored files not counted) | 0 | `config-get-languages-mixed`, `config-get-languages-stray-script`, `config-get-languages-typecheck-null`, `config-get-languages-explicit`, `config-get-languages-exempt-not-counted` |
+| *(new)* `get languages` outside a git repository | 2 | `config-get-languages-not-git` |
+| *(new)* `get lang.<language>.<key>`: every public key of both languages, in any repo (lists as JSON, strings as text) | 0 | `config-get-lang-python-source-extensions`, `config-get-lang-python-source-globs`, `config-get-lang-python-test-globs`, `config-get-lang-python-declaration-globs`, `config-get-lang-python-comment-prefix`, `config-get-lang-python-suppression`, `config-get-lang-python-waiver`, `config-get-lang-python-baseline-file`, `config-get-lang-python-markers`, `config-get-lang-typescript-source-extensions`, `config-get-lang-typescript-source-globs`, `config-get-lang-typescript-test-globs`, `config-get-lang-typescript-declaration-globs`, `config-get-lang-typescript-comment-prefix`, `config-get-lang-typescript-suppression`, `config-get-lang-typescript-waiver`, `config-get-lang-typescript-baseline-file`, `config-get-lang-typescript-markers` |
+| *(new)* `get lang.…`: internal field, unregistered language, no key | 2 | `config-get-lang-internal-key-refused`, `config-get-lang-unknown-language`, `config-get-lang-without-key` |
 
 ## la-doctor
 
@@ -172,6 +176,7 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | *(new)* `--require-config`: missing file is a finding naming `/la:init`; a valid, consistent file is healthy; an invalid file reports the config error | 1/0/1 | `doctor-require-config-missing`, `doctor-require-config-present`, `doctor-require-config-invalid` |
 | *(new)* config vs disk: `openspec` true without / false with `openspec/`; `architecture` true without / false with `architecture/index.yaml`; `tracker: none` with `openspec: false`; several findings in a fixed order | 1 | `doctor-openspec-enabled-absent`, `doctor-openspec-disabled-present`, `doctor-architecture-enabled-absent`, `doctor-architecture-disabled-present`, `doctor-no-plan-store`, `doctor-several-inconsistencies` |
 | *(new)* an `architecture/` directory without `index.yaml` is not a setup | 0 | `doctor-architecture-unrelated-dir` |
+| *(new)* TypeScript repo language: `node` and `npx` required (both missing; only `npx`); a Python-only repo and a non-git directory need neither | 1/0 | `doctor-typescript-missing-node`, `doctor-typescript-missing-npx`, `doctor-python-without-node`, `doctor-not-git-skips-languages` |
 
 `--contract-hash` *(new)* prints a value that changes with `shared/`; it is pinned by `tests/test_contract.py`.
 
@@ -267,6 +272,21 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | directory recursion; parse error; clean | 1/0 | `compliance-directory-recursion`, `compliance-parse-error`, `compliance-clean` |
 | `--` before paths | 0/1 | `compliance-double-dash`, `compliance-double-dash-dash-path` |
 | usage error; `--help` | 2/0 | `compliance-usage-no-paths`, `compliance-help` |
+| *(new)* a check only another language lists is known but does not apply | 0 | `compliance-select-other-language-check` |
+| *(new)* an explicit file of no registered language skipped with a warning | 0 | `compliance-unknown-extension-skipped` |
+| *(new)* directory expansion: a Python-only repo ignores a stray `.js`; with no repo language every registered language's files | 1 | `compliance-directory-skips-other-language`, `compliance-directory-no-repo-language` |
+
+## dr-compliance: TypeScript
+
+| Branch | Exit | Cases |
+|---|---|---|
+| *(new)* every check: checker-based `untyped-def` (parameter, binding element, rest; a contextually typed callback is not reported), `explicit-any` for every `any`, the mock check; line order | 1 | `compliance-ts-all-checks` |
+| *(new)* `--select` subset / empty / Python-only id / unknown id | 1/0/0/2 | `compliance-ts-select-subset`, `compliance-ts-select-empty`, `compliance-ts-select-python-only-check`, `compliance-ts-select-unknown` |
+| *(new)* `tsconfig`: `noImplicitAny: false` overrides `strict`, unset `noImplicitOverride`; flags inherited through `extends` | 1/0 | `compliance-ts-tsconfig-strict-disabled`, `compliance-ts-tsconfig-inherited` |
+| *(new)* `tsconfig`: two referenced projects include the file; the first in depth-first preorder governs | 1 | `compliance-ts-tsconfig-owner` |
+| *(new)* `--attr`: receiver typed `any` by the checker | 1 | `compliance-ts-attr-blindspot` |
+| *(new)* parse error (first parse diagnostic), later files still checked | 1 | `compliance-ts-parse-error` |
+| *(new)* explicit declaration file skipped with a warning; directory expansion skips `.d.ts`, `node_modules` and non-repo languages | 0/1 | `compliance-ts-declaration-skipped`, `compliance-ts-directory-expansion` |
 
 ## dr-mock-lint
 
@@ -276,6 +296,15 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | directory recursion; clean | 1/0 | `mock-lint-directory-recursion`, `mock-lint-clean` |
 | usage error | 2 | `mock-lint-usage-no-args` |
 
+## dr-mock-lint: TypeScript
+
+| Branch | Exit | Cases |
+|---|---|---|
+| *(new)* `fn()` untyped (import, alias, `@jest/globals`, unshadowed global; typed and implemented forms pass); module factories untyped or unresolved (`.mock`, `.doMock`, `.unstable_mockModule`; typed forms, no factory, options only pass); double assertions in a test file | 1 | `mock-lint-ts-violations` |
+| *(new)* a shadowed receiver is not Vitest's | 0 | `mock-lint-ts-shadowed-receiver` |
+| *(new)* double assertions only in test-glob files; directory recursion | 1 | `mock-lint-ts-cast-only-in-tests` |
+| *(new)* explicit declaration file or unknown extension skipped with a warning; directory expansion skips `.d.ts`, `node_modules` and non-repo languages | 0/1 | `mock-lint-ts-declaration-skipped`, `mock-lint-unknown-extension-skipped`, `mock-lint-ts-directory-expansion` |
+
 ## dr-refactor
 
 | Branch | Exit | Cases |
@@ -284,6 +313,22 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | move-symbol (*(new)* sorted by path); move-module (tracked, untracked); `--project` | 0 | `refactor-move-symbol-apply`, `refactor-move-module-apply`, `refactor-move-module-uncommitted`, `refactor-project-flag` |
 | no locator; line out of range; symbol not found; path outside the project | 1 | `refactor-no-locator`, `refactor-line-out-of-range`, `refactor-symbol-not-found`, `refactor-path-outside-project` |
 | usage errors; `--help` | 2/0 | `refactor-usage-no-subcommand`, `refactor-usage-rename-without-new-name`, `refactor-usage-rename-without-file`, `refactor-usage-bad-unsure-choice`, `refactor-usage-offset-not-int`, `refactor-help` |
+| *(new)* a source of no registered language; a `--dest` of another language | 1 | `refactor-unsupported-extension`, `refactor-cross-language-dest` |
+| *(new)* a package directory moves through the Python twin | 0 | `refactor-move-module-package` |
+
+## dr-refactor: TypeScript
+
+| Branch | Exit | Cases |
+|---|---|---|
+| *(new)* rename: dry-run by name (diffs in path order), apply by line/col renaming an override, shorthand and export keep their external names (strings and comments untouched) by offset, astral column, `--name` prefers a declaration, explicit `--unsure skip` | 0 | `refactor-ts-rename-dry-run`, `refactor-ts-rename-apply-override`, `refactor-ts-rename-shapes`, `refactor-ts-rename-astral-column`, `refactor-ts-rename-name-prefers-declaration`, `refactor-ts-unsure-skip-accepted` |
+| *(new)* rename across project references, each project with its own options (a `paths` alias); paths from a subdirectory with `--project ..`; the tsconfig `index.yaml` names | 0 | `refactor-ts-project-references`, `refactor-ts-from-subdirectory`, `refactor-ts-index-tsconfig` |
+| *(new)* move-symbol: importers rewritten; default re-export rewritten; `export *` barrel gets an explicit re-export (none when it already re-exports the new file) and a mixed named re-export is split | 0 | `refactor-ts-move-symbol-apply`, `refactor-ts-move-symbol-default-reexport`, `refactor-ts-move-symbol-barrel`, `refactor-ts-move-symbol-barrel-covered` |
+| *(new)* move-module: a file (apply, dry-run), a directory | 0 | `refactor-ts-move-module-apply`, `refactor-ts-move-module-dry-run`, `refactor-ts-move-module-directory` |
+| *(new)* locator errors: line, column, offset out of range; no locator; symbol not found | 1 | `refactor-ts-line-out-of-range`, `refactor-ts-col-out-of-range`, `refactor-ts-offset-out-of-range`, `refactor-ts-no-locator`, `refactor-ts-symbol-not-found` |
+| *(new)* unsupported flags `--no-in-hierarchy`, `--unsure include` | 1 | `refactor-ts-hierarchy-flag-refused`, `refactor-ts-unsure-include-refused` |
+| *(new)* cannot rename: standard library, `node_modules`, a keyword | 1 | `refactor-ts-library-symbol`, `refactor-ts-node-modules-symbol`, `refactor-ts-keyword` |
+| *(new)* not movable: inside a function body, a use of an imported symbol | 1 | `refactor-ts-not-movable-inside-body`, `refactor-ts-not-movable-imported-use` |
+| *(new)* file in no project; destination exists; destination missing (module, symbol); `--dest` of another language | 1 | `refactor-ts-outside-project`, `refactor-ts-move-module-collision`, `refactor-ts-dest-missing`, `refactor-ts-move-symbol-dest-missing`, `refactor-ts-cross-language-dest` |
 
 ## Review shims and their bundled scripts
 
@@ -330,6 +375,11 @@ time or many paged responses. Those branches are pinned by `tests/test_review_sc
 | *(new)* the npm twin refuses a Python top-level facts request without starting any process | 2 | `twin-facts-top-level-non-native-python` |
 | *(new)* `la-arch-scaffold` through the PyPI twin gets TypeScript top-level facts from the npm twin | 0 | `twin-scaffold-forwarded-top-level` |
 | *(new)* schema-invalid top-level facts from the npm twin: protocol failure | 2 | `twin-scaffold-top-level-schema-invalid` |
+| *(new)* `dr-*` mixed inputs through real twins: explicit files, a directory, exit max; one block per language in registry order | 1 | `twin-dr-mixed-explicit-files`, `twin-dr-mixed-directory`, `twin-dr-mixed-exit-max` |
+| *(new)* `dr-*` hand-off protocol: `dr-refactor` raw args from the same cwd; `dr-compliance` options, `--`, the other language's files; `dr-mock-lint` the files; captured block printed in registry order | 0/1 | `twin-dr-refactor-forwarded-typescript`, `twin-dr-compliance-forwarded-files`, `twin-dr-mock-lint-forwarded-files` |
+| *(new)* `dr-*` other twin exits 2 or is killed: nothing on stdout, exit 2 | 2 | `twin-dr-other-twin-exit-2`, `twin-dr-other-twin-signal` |
+| *(new)* `dr-*` other twin unreachable; `LA_FORWARDED=1` refusal | 2 | `twin-dr-unavailable-typescript`, `twin-dr-unavailable-python`, `twin-dr-refused-when-forwarded-typescript`, `twin-dr-refused-when-forwarded-python` |
+| *(new)* `dr-*` own-language inputs never probe the other twin | 1 | `twin-dr-own-language-python`, `twin-dr-own-language-typescript` |
 
 ## Excluded: crashes
 

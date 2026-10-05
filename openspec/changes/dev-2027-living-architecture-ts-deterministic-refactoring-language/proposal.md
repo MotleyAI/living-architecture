@@ -20,8 +20,8 @@ public npm release and the acceptance runs.
 - `la-config get languages` and `la-config get lang.<language>.<key>` serve curated language facts to skills.
 - `la-doctor` requires `node` and `npx` when TypeScript is a repo language.
 - Skills become language-neutral: facts via `la-config`, idioms in `plugin/languages/<language>.md`, a leak
-  test in both suites. Init measures the AS-IS graph with an `la-arch-check` bootstrap loop and wires
-  `la-typecheck --write-baseline`; the CI snippet comes in `uvx` and `npx` forms.
+  test in both suites. `la:arch-init` loses its language idioms (its baseline and `la-arch-scaffold` steps are
+  already neutral); the CI snippet in `la:living-architecture` comes in `uvx` and `npx` forms.
 - README and AGENTS.md describe both twins; version 0.3.0; the npm package becomes public.
 - A Node-only container acceptance run in CI with a PATH trap for `python`, `python3`, `uv` and `uvx`.
 

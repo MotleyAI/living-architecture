@@ -1,0 +1,11 @@
+kind: adapter
+languages:
+- typescript
+command: dr-compliance
+args:
+- types/api.d.ts
+fixture: compliance-ts
+expect:
+  exit: 0
+golden: manual
+note: an explicit declaration file is skipped with a warning

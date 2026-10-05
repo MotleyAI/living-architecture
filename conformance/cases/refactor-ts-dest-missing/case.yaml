@@ -1,0 +1,20 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- --apply
+- move-module
+- --module
+- src/solo.ts
+- --dest
+- src/nope
+fixture: refactor-ts
+git:
+- commit: init
+expect:
+  exit: 1
+  files:
+  - src/main.ts
+  - src/solo.ts
+golden: manual

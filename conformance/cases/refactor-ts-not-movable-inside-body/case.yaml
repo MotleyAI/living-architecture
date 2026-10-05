@@ -1,0 +1,23 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- --apply
+- move-symbol
+- --file
+- src/body.ts
+- --name
+- inner
+- --dest
+- src/lib/keep.ts
+fixture: refactor-ts
+git:
+- commit: init
+expect:
+  exit: 1
+  files:
+  - src/body.ts
+  - src/lib/keep.ts
+golden: manual
+note: TS's own move-to-file would move the enclosing function; a non-top-level name is refused

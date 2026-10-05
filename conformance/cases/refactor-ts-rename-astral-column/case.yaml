@@ -1,0 +1,23 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- rename
+- --file
+- src/emoji.ts
+- --line
+- '1'
+- --col
+- '22'
+- --new-name
+- bar
+fixture: refactor-ts
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - src/emoji.ts
+golden: manual
+note: 'columns count code points: the emoji before foo is one column'

@@ -1,0 +1,12 @@
+kind: adapter
+languages:
+- typescript
+command: dr-mock-lint
+args:
+- tests/m.test.ts
+fixture: mock-lint-ts
+expect:
+  exit: 1
+golden: manual
+note: fn without type argument or implementation (import, alias, @jest/globals, unshadowed global); untyped or unresolved
+  module factories; double assertions in a test file

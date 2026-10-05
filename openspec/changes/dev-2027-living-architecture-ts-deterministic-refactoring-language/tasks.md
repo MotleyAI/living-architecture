@@ -47,20 +47,20 @@
 
 - [ ] 8.1 Write `plugin/languages/python.md` and `plugin/languages/typescript.md` (test, mock, override, type-only import, env, formatter, string-only references, suppression and baseline idioms); verify `npx -y @anthropic-ai/claude-code plugin validate plugin` passes
 - [ ] 8.2 Rewrite every skill with a language idiom to use `la-config get languages` / `lang.<language>.<key>` and the language docs; the refactor gate becomes `la-typecheck` + `dr-mock-lint` + `commands.test`; verify the 2.4 skills tests pass
-- [ ] 8.3 `living-architecture` Init: `la-typecheck --write-baseline`, the bootstrap loop of design D11, CI snippet in `uvx` and `npx` forms (`actions/setup-node` pinned by SHA); verify the leak test passes
+- [ ] 8.3 `arch-init` and `living-architecture` skills: language-neutral wording; the CI snippet in `uvx` and `npx` forms (`actions/setup-node` pinned by SHA); verify the leak test passes
 - [ ] 8.4 README: two twins, install per ecosystem, prerequisites per language, TS `index.yaml` shape and multi-language form, CI snippets, Deterministic refactoring for both languages; AGENTS.md: forwarding paragraph rewritten; verify `scripts/sync-shared --check` passes (vendored README)
 
 ## 9. Node-only acceptance
 
-- [ ] 9.1 In-repo TS fixture repo (several nodes, an import cycle, tests with Vitest, one violation per TS compliance and mock rule) and `scripts/acceptance-node-only`: PATH trap for `python`, `python3`, `uv`, `uvx`; packed twin installed into an isolated prefix with resolved bin paths asserted; `la-doctor`, `la-config get languages`, the Init bootstrap loop to green, `la-typecheck --write-baseline` then `la-typecheck`, `npx likec4 validate`, `la-check-conventions --base`, `la-count-comments`, the compliance and mock findings then their fixes, dry-run and `--apply` of all three refactors, then `la-typecheck` and Vitest green; verify the trap log is empty and the script exits 0 locally under docker
+- [ ] 9.1 In-repo TS fixture repo (several nodes, an import cycle, tests with Vitest, one violation per TS compliance and mock rule) and `scripts/acceptance-node-only`: PATH trap for `python`, `python3`, `uv`, `uvx`; packed twin installed into an isolated prefix with resolved bin paths asserted; `la-doctor`, `la-config get languages`, `la-arch-scaffold`, then `la-arch-check` green, `la-typecheck --write-baseline` then `la-typecheck`, `npx likec4 validate`, `la-check-conventions --base`, `la-count-comments`, the compliance and mock findings then their fixes, dry-run and `--apply` of all three refactors, then `la-typecheck` and Vitest green; verify the trap log is empty and the script exits 0 locally under docker
 - [ ] 9.2 CI job running it in a `node:22-slim` container; verify the job is green on the PR
 
 ## 10. Release
 
-- [ ] 10.1 Version 0.3.0 in `python/pyproject.toml`, `node/package.json` (no longer `private`), `plugin/.claude-plugin/plugin.json`, every skill's `--expect` pin and README; verify the version tests pass
+- [ ] 10.1 Version 0.3.0 in `python/pyproject.toml`, `node/package.json` (no longer `private`), `plugin/.claude-plugin/plugin.json`, and README; verify the version tests pass
 - [ ] 10.2 Full suites: `uv run pytest -q`, ruff, basedpyright in `python/`; `npm run lint && npm run typecheck && npm test && npm run build && npm run conformance` in `node/`; `scripts/conformance-cross`; `la-arch-check`; verify all green
 
 ## 11. Manual acceptance on worktree-term (pr-review stage, before merge)
 
-- [ ] 11.1 Once worktree-term has its daemon skeleton: install this branch's twins (`uv tool install -e python`, `npm install -g ./node` after build) and point `~/.claude/skills/la` at this branch's `plugin/`; run `/la:living-architecture` Init on worktree-term until `la-arch-check`, `likec4 validate` and `la-typecheck` are green; fix every gap found in this PR
+- [ ] 11.1 Once worktree-term has its daemon skeleton: install this branch's twins (`uv tool install -e python`, `npm install -g ./node` after build) and point `~/.claude/skills/la` at this branch's `plugin/`; run `/la:arch-init` on worktree-term until `la-arch-check`, `likec4 validate` and `la-typecheck` are green; fix every gap found in this PR
 - [ ] 11.2 Take worktree-term's next change through all four `/la:pr` stages with Vitest as `commands.test`; fix every gap found in this PR; merge this PR only after it passes

@@ -1,0 +1,9 @@
+Moving module <sub>:
+
+
+rename from pkg/sub
+rename to other/sub
+
+
+APPLIED. 1 file(s) changed:
+  pkg/sub

@@ -1,0 +1,17 @@
+Moving module <solo>:
+
+
+--- a/src/main.ts
++++ b/src/main.ts
+@@ -1,4 +1,4 @@
+-import { alone } from './solo';
++import { alone } from './lib/solo';
+ import { fmt } from './util/fmt';
+ 
+ export const shown = fmt(alone());
+
+rename from src/solo.ts
+rename to src/lib/solo.ts
+
+
+DRY-RUN. 2 file(s) would change. Re-run with --apply.

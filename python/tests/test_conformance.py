@@ -520,10 +520,12 @@ def test_language_free_case_is_native_to_both_twins() -> None:
     assert selected(case, NEUTRAL, "typescript", cross=False)
 
 
-def test_python_only_command_is_not_native_to_the_npm_twin() -> None:
-    case = _case(command="dr-mock-lint")
-    assert selected(case, NEUTRAL, "python", cross=False)
-    assert not selected(case, NEUTRAL, "typescript", cross=False)
+@pytest.mark.parametrize("command", ["dr-refactor", "dr-compliance", "dr-mock-lint"])
+def test_dr_commands_are_native_to_both_twins(command: str) -> None:
+    case = _case(command=command, kind="adapter", languages=["typescript"])
+    [variant] = variants(case)
+    assert selected(case, variant, "typescript", cross=False)
+    assert not selected(case, variant, "python", cross=False)
 
 
 @pytest.mark.parametrize("command", ["la-check-conventions", "la-count-comments", "la-typecheck"])

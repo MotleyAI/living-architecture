@@ -1,0 +1,2 @@
+src/a.ts:1: explicit-any: an `any` type — use a real type or `unknown`
+src/b/a.ts:1: explicit-any: an `any` type — use a real type or `unknown`

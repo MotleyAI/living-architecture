@@ -1,0 +1,23 @@
+Renaming <foo> to <bar>:
+
+
+--- a/web/src/a.ts
++++ b/web/src/a.ts
+@@ -1,3 +1,3 @@
+-export function foo(): number {
++export function bar(): number {
+   return 1;
+ }
+
+--- a/web/src/b.ts
++++ b/web/src/b.ts
+@@ -1,3 +1,3 @@
+-import { foo } from './a';
++import { bar } from './a';
+ 
+-export const two = foo() + 1;
++export const two = bar() + 1;
+
+
+
+DRY-RUN. 2 file(s) would change. Re-run with --apply.

@@ -1,0 +1,13 @@
+kind: neutral
+languages:
+- python
+- typescript
+fixture: dr-mixed
+golden: manual
+command: dr-compliance
+args:
+- src/clean.py
+- src/b.ts
+expect:
+  exit: 1
+note: a clean Python block prints nothing; the exit code is the maximum

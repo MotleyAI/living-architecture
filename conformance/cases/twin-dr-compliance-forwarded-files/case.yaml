@@ -1,0 +1,31 @@
+kind: neutral
+languages:
+- python
+- typescript
+fixture: dr-mixed
+golden: manual
+twin: python
+other_twin: absent
+command: dr-compliance
+args:
+- --select
+- untyped-def,explicit-any
+- src/a.py
+- src/b.ts
+bins:
+- dir: npm-twin
+  files:
+    la-doctor: |
+      #!/bin/sh
+      [ "$*" = "--twin" ] || { echo "fake la-doctor: unexpected $*" >&2; exit 99; }
+      echo "typescript <VERSION> <CONTRACT_HASH>"
+    dr-compliance: |
+      #!/bin/sh
+      echo "npm-twin: dr-compliance pwd=$(pwd) forwarded=$LA_FORWARDED args=$*" >> <ROOT>/repo/probe.log
+      echo "src/b.ts:1: fake npm finding"
+      exit 1
+expect:
+  exit: 1
+  files:
+  - probe.log
+note: the npm twin gets the options unchanged, then --, then only the TS files; its captured block follows the Python block

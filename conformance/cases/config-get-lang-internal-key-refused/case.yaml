@@ -1,0 +1,9 @@
+kind: neutral
+command: la-config
+args:
+- get
+- lang.python.runner
+expect:
+  exit: 2
+golden: manual
+note: an internal registry field is not a public key

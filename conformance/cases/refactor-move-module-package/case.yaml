@@ -1,0 +1,20 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- --apply
+- move-module
+- --module
+- pkg/sub
+- --dest
+- other
+fixture: refactor-pkg
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - pkg/sub/__init__.py
+  - other/sub/__init__.py
+note: a package directory routes to the Python twin (its source files are Python), from either twin

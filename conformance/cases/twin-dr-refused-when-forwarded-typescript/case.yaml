@@ -1,0 +1,29 @@
+kind: neutral
+languages:
+- python
+- typescript
+fixture: dr-mixed
+golden: manual
+twin: python
+other_twin: absent
+command: dr-compliance
+args:
+- src/b.ts
+env:
+  LA_FORWARDED: '1'
+bins:
+- dir: npm-twin
+  files:
+    la-doctor: |
+      #!/bin/sh
+      [ "$*" = "--twin" ] || { echo "fake la-doctor: unexpected $*" >&2; exit 99; }
+      echo "typescript <VERSION> <CONTRACT_HASH>"
+    dr-compliance: |
+      #!/bin/sh
+      echo "npm-twin: dr-compliance pwd=$(pwd) forwarded=$LA_FORWARDED args=$*" >> <ROOT>/repo/probe.log
+      exit 99
+expect:
+  exit: 2
+  files:
+  - probe.log
+note: 'LA_FORWARDED=1: a TS input is refused without probing'

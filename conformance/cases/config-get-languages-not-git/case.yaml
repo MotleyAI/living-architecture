@@ -1,0 +1,10 @@
+kind: neutral
+command: la-config
+args:
+- get
+- languages
+git: none
+expect:
+  exit: 2
+golden: manual
+note: repo languages need git

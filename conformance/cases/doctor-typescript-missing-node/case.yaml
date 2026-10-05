@@ -1,0 +1,12 @@
+kind: neutral
+command: la-doctor
+twin: python
+hide:
+- node
+normalize:
+- version
+expect:
+  exit: 1
+golden: manual
+note: 'TypeScript is a repo language: node and npx are required (npx is never on the corpus PATH); pinned to the PyPI twin
+  since the npm twin needs node'

@@ -1,0 +1,44 @@
+Moving global <foo>:
+
+
+--- a/src/a.ts
++++ b/src/a.ts
+@@ -1,6 +1,4 @@
+-export function foo(): number {
+-  return 1;
+-}
++import { foo } from "./b";
+ 
+ export class Base {
+   run(): number {
+
+--- a/src/b.ts
++++ b/src/b.ts
+@@ -1,7 +1,11 @@
+-import { Base, foo } from './a';
++import { Base } from './a';
+ 
+ export class Child extends Base {
+   override run(): number {
+     return foo() + 1;
+   }
+ }
++
++export function foo(): number {
++    return 1;
++}
+
+--- a/src/c.ts
++++ b/src/c.ts
+@@ -1,3 +1,3 @@
+-import { foo } from './a';
++import { foo } from "./b";
+ 
+ export const twice = foo() * 2;
+
+
+
+APPLIED. 3 file(s) changed:
+  src/a.ts
+  src/b.ts
+  src/c.ts

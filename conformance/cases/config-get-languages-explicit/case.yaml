@@ -1,0 +1,9 @@
+kind: neutral
+command: la-config
+args:
+- get
+- languages
+expect:
+  exit: 0
+golden: manual
+note: an explicit commands.typecheck command makes a language a repo language without markers or files

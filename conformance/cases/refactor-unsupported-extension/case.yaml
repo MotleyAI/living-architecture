@@ -1,0 +1,16 @@
+kind: neutral
+command: dr-refactor
+args:
+- rename
+- --file
+- notes.txt
+- --name
+- foo
+- --new-name
+- bar
+git:
+- commit: init
+expect:
+  exit: 1
+golden: manual
+note: a source of no registered language is refused by either twin without forwarding

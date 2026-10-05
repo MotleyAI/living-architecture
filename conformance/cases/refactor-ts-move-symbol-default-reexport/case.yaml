@@ -1,0 +1,25 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- --apply
+- move-symbol
+- --file
+- src/greet.ts
+- --name
+- greet
+- --dest
+- src/lib/keep.ts
+fixture: refactor-ts
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - src/greet.ts
+  - src/index.ts
+  - src/lib/keep.ts
+  - src/use.ts
+golden: manual
+note: a default export moves; TS rewrites the importer, our code rewrites the default re-export (quotes kept)

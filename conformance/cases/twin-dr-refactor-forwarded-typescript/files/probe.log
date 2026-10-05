@@ -1,0 +1,1 @@
+npm-twin: dr-refactor pwd=<ROOT>/repo/web forwarded=1 args=--project .. rename --file src/a.ts --name foo --new-name bar

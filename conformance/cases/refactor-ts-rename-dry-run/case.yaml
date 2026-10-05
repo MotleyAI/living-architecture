@@ -1,0 +1,24 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- rename
+- --file
+- src/a.ts
+- --name
+- foo
+- --new-name
+- bar
+remove:
+- src/c.ts
+fixture: refactor-ts
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - src/a.ts
+  - src/b.ts
+golden: manual
+note: 'TS rename dry-run: header, diffs in path order, footer; nothing written'
