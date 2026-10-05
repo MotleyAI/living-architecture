@@ -76,8 +76,8 @@ its committed baseline, and exit 1 means this change added errors outside it.
 The baseline is a ratchet:
 - never re-record it (`--write-baseline` exists only to adopt the gate once);
 - fix every new error at its root, never by loosening types or adding a
-  suppression; a per-line suppression with a reason (`# pyright: ignore[rule]`,
-  `// @ts-expect-error`) is a solve only when the checker is wrong (a false
+  suppression; a per-line suppression with a reason
+  (`la-config get lang.<language>.suppression`) is a solve only when the checker is wrong (a false
   positive) or the wrongness is deliberate (e.g. an invalid-input test);
 - it only shrinks: when a file you touch carries baselined errors that
   root-fix without much churn, fix those too, and commit the baseline

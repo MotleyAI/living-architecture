@@ -57,6 +57,7 @@ model {
     refactor = node 'Deterministic refactoring' {
       metadata {
         package 'living_architecture.refactor'
+        specs ['refactor']
       }
     }
     twin = node 'Twin forwarding' {
@@ -102,6 +103,8 @@ model {
     typecheck -> contract
     typecheck -> twin
     conventions -> twin
+    refactor -> config
+    refactor -> twin
   }
   typescript = system 'npm twin' {
     contract = node 'Shared contract' {
@@ -159,6 +162,11 @@ model {
         package 'src/typecheck'
       }
     }
+    refactor = node 'Deterministic refactoring' {
+      metadata {
+        package 'src/refactor'
+      }
+    }
 
     cli -> contract
     cli -> config
@@ -189,5 +197,10 @@ model {
     typecheck -> config
     typecheck -> contract
     typecheck -> twin
+    cli -> refactor
+    refactor -> contract
+    refactor -> lang
+    refactor -> config
+    refactor -> twin
   }
 }

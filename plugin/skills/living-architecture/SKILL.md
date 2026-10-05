@@ -103,7 +103,8 @@ model {
 TypeScript units are extensionless paths relative to the section's
 `source_root` (`package 'src/daemon'`, nested `pty` maps to `src/daemon/pty`); a
 unit is a directory with a visible source file or exactly one module file, and a
-unit naming both is ambiguous. Test files, `*.d.ts` and `node_modules` are
+unit naming both is ambiguous. Test files, declaration files
+(`la-config get lang.typescript.declaration_globs`) and installed dependencies are
 invisible; type-only imports never count.
 
 Keys and types come from the shared node schema; values are `key 'value'` or
@@ -121,7 +122,7 @@ python:                               # one section per language; at least one
 typescript:
   root_package: src
   source_root: web                    # optional
-  tsconfig: web/tsconfig.json         # optional: default the nearest tsconfig.json
+  tsconfig: web/tsconfig.app.json     # optional: default the nearest root marker
 
 legacy_arrows: {baseline: 8}          # exact count of #legacy arrows in the model (ratchet)
 
@@ -164,7 +165,7 @@ every granularity the model declares:
 - a measured edge with no covering arrow, a declared arrow with no measured
   edge, and an undeclared edge between two nested elements are all findings.
 
-TYPE_CHECKING-only imports are excluded. Grandfathered crossings are dashed
+Type-only imports are excluded. Grandfathered crossings are dashed
 `#legacy` arrows in the model itself (one arrow per real edge, no wildcards);
 "layer direction" is just *no upward arrow declared*, and a child boundary is
 just *no arrow declared between those nested elements* — so one law subsumes what used
@@ -182,9 +183,11 @@ its committed baseline. It runs, blocking, in:
 - the **pr-review** gate (that stage runs it when `architecture: true`),
 - the **arch-cleanup** move gate,
 - CI — `arch_check` is cheap and deterministic, so wire it there once the setup
-  has settled (not at init), pinned to a release:
-  `uvx --no-build --from living-architecture==<version> la-arch-check` (after
-  `astral-sh/setup-uv`, pinned by commit SHA).
+  has settled (not at init), pinned to a release, in the form of the repo's
+  ecosystem: `uvx --no-build --from living-architecture==<version> la-arch-check`
+  (after `astral-sh/setup-uv`, pinned by commit SHA) or
+  `npx -y -p living-architecture@<version> la-arch-check` (after
+  `actions/setup-node`, pinned by commit SHA).
 
 **Ratchet rules (hard):**
 - `#legacy` arrows may only ever be REMOVED, never added. Wanting to add one

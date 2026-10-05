@@ -41,9 +41,10 @@ each slice still gets its own issue, branch, and PR.
    so offer to set one up (`commands.typecheck` and `la-typecheck
    --write-baseline`) first; `la-arch-check` green; the repo's test command (`la-config get commands.test`; if unset, the repo's documented full non-integration suite) green.
 4. **Execute the moves** via the `la:deterministic-refactor` skill (dry-run →
-   apply → format). The rope project scope must include `tests/` so test
-   imports are rewritten too. New destination packages are created first
-   (plain file + `__init__.py` — destinations must exist before moving).
+   apply → format). The refactor's project scope must include the tests so
+   test imports are rewritten too. New destination packages are created first
+   (destinations must exist before moving; the language doc says what a new
+   package needs).
 5. **Move gate — done only when ALL pass:**
    - `la-typecheck`: **no new errors** vs baseline. A stale `from old import X`
      or `old_mod.X` surfaces here even in untyped code — module members are
