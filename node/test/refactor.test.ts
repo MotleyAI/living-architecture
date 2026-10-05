@@ -28,12 +28,12 @@ describe('mergeEdits', () => {
   });
 
   it('refuses differing edits to one span', () => {
-    expect(() => mergeEdits([edit(0, 'bar'), edit(0, 'baz')])).toThrow(
-      new RefactorError('projects disagree on an edit in src/a.ts'),
-    );
+    const edits = [edit(0, 'bar'), edit(0, 'baz')];
+    expect(() => mergeEdits(edits)).toThrow(new RefactorError('projects disagree on an edit in src/a.ts'));
   });
 
   it('refuses overlapping spans', () => {
-    expect(() => mergeEdits([edit(0, 'bar', 5), edit(2, 'baz')])).toThrow(RefactorError);
+    const edits = [edit(0, 'bar', 5), edit(2, 'baz')];
+    expect(() => mergeEdits(edits)).toThrow(RefactorError);
   });
 });
