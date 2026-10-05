@@ -135,6 +135,7 @@ findings:
   arch-scaffold.error: 'la-arch-scaffold: {error}'
   arch-scaffold.exists: '{path} already exists'
   arch-scaffold.id-collision: '{language} units {first} and {second} both yield node id {id}'
+  arch-scaffold.unquotable-unit: "{language} unit {unit} contains ', which a model string cannot hold"
   arch-scaffold.written: '{path}'
   # The written system.arc42.md: the head, then one generated diagram block per view, then the tail.
   arch-scaffold.arc42-head: |

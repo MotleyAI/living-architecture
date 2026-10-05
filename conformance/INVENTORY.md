@@ -129,6 +129,9 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | *(new)* mixed repo: one shared `specification.c4`, one model file and one view per language, both diagrams in `system.arc42.md` | 0 | `arch-scaffold-mixed`, `twin-scaffold-forwarded-top-level` |
 | *(new)* id derivation: hyphen to `_` with the raw title; leading digit gets `n_`; order follows unit names | 0 | `arch-scaffold-ts-hyphenated`, `arch-scaffold-leading-digit` |
 | *(new)* id collision between two units of one language: names both, writes nothing | 2 | `arch-scaffold-id-collision` |
+| *(new)* a unit name containing `'` cannot be a model string: refused by name, nothing written | 2 | `arch-scaffold-unquotable-unit` |
+| *(new)* a write failing after earlier writes succeeded undoes them: repo unchanged, no paths printed | 2 | `arch-scaffold-write-failure` |
+| *(new)* an index with CRLF lines keeps them byte for byte; the additions use LF | 0 | `arch-scaffold-crlf-index` |
 | *(new)* an existing `model/*.c4`, `views.c4` or `*.arc42.md` refused by name, repo unchanged | 2 | `arch-scaffold-existing-model`, `arch-scaffold-existing-views`, `arch-scaffold-existing-arc42` |
 | *(new)* `architecture/index.yaml` missing or not valid YAML, nothing written | 2 | `arch-scaffold-index-missing`, `arch-scaffold-index-invalid` |
 | *(new)* other twin unreachable: install hint, nothing written | 2 | `arch-scaffold-twin-unavailable` |

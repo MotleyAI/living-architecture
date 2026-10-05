@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import re
 import sys
 import tempfile
@@ -50,7 +51,7 @@ def _existing_output(root: Path) -> str | None:
 
 def node_id(unit: str, language: str) -> str:
     """The unit's last segment with non-identifier characters as `_`, prefixed `n_` when it starts with a digit."""
-    ident = re.sub(r"[^A-Za-z0-9_]", "_", unit.split(separator(language))[-1])
+    ident = re.sub(r"\W", "_", unit.split(separator(language))[-1], flags=re.ASCII)
     return f"n_{ident}" if ident[:1].isdigit() else ident
 
 
@@ -58,6 +59,8 @@ def _ids(facts: Facts) -> dict[str, str]:
     ids: dict[str, str] = {}
     owners: dict[str, str] = {}
     for unit in facts.top_level_units:
+        if "'" in unit:
+            raise ArchCheckError(message("arch-scaffold.unquotable-unit", language=facts.language, unit=unit))
         ident = node_id(unit, facts.language)
         if ident in owners:
             raise ArchCheckError(
@@ -96,7 +99,7 @@ def _render_views(languages: list[str]) -> str:
 
 
 def _index_text(root: Path, index: dict[str, Any], languages: list[str]) -> str:
-    text = (root / INDEX_REL).read_text(encoding="utf-8")
+    text = (root / INDEX_REL).read_bytes().decode("utf-8")
     if text and not text.endswith("\n"):
         text += "\n"
     if "legacy_arrows" not in index:
@@ -146,18 +149,46 @@ def scaffold(root: Path) -> dict[str, str]:
     return files
 
 
+def write_scaffold(root: Path, files: dict[str, str]) -> None:
+    """Write every output, creating all but the index exclusively; on an OSError undo the writes made so far, then re-raise."""
+    index = root / INDEX_REL
+    index_before = index.read_bytes().decode("utf-8")
+    new_dirs = sorted({(root / rel).parent for rel in files if not (root / rel).parent.exists()}, key=lambda d: -len(str(d)))
+    touched: list[Path] = []
+    try:
+        for rel, text in files.items():
+            path = root / rel
+            path.parent.mkdir(parents=True, exist_ok=True)
+            if path == index:
+                touched.append(path)
+                path.write_text(text, encoding="utf-8", newline="")
+                continue
+            with path.open("x", encoding="utf-8", newline="") as out:
+                touched.append(path)
+                out.write(text)
+    except OSError:
+        for path in touched:
+            with contextlib.suppress(OSError):
+                if path == index:
+                    path.write_text(index_before, encoding="utf-8", newline="")
+                else:
+                    path.unlink()
+        for directory in new_dirs:
+            with contextlib.suppress(OSError):
+                directory.rmdir()
+        raise
+
+
 def run_scaffold(root: Path) -> int:
     """`la-arch-scaffold`: write the outputs and print each path, or exit 2 having written nothing."""
     try:
         files = scaffold(root)
+        write_scaffold(root, files)
     except (ArchCheckError, twin.TwinError, OSError) as exc:
         print(message("arch-scaffold.error", error=str(exc)), file=sys.stderr)
         return 2
     except twin.RelayedFailure:
         return 2
-    for rel, text in files.items():
-        path = root / rel
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(text, encoding="utf-8")
+    for rel in files:
         print(message("arch-scaffold.written", path=rel))
     return 0

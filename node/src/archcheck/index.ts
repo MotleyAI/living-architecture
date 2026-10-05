@@ -1,6 +1,4 @@
 // Living-architecture cross-walk checker: code, LikeC4 model, arc42 docs and specs agree.
-import { mkdirSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
 import { type ModelParse, checkDiagramsFresh, parseModel, parseViews } from '../c4/index.js';
 import { ConfigError, loadConfig } from '../config/index.js';
 import { message } from '../contract/index.js';
@@ -11,7 +9,7 @@ import { checkArc42, checkLegacyRatchet, checkSpecMapping } from './docs.js';
 import { type Facts, nativeFacts, nativeTopLevelFacts } from './facts.js';
 import { ArchCheckError, type Index, declaredLanguages, loadIndex, resolveLayout, resolveTsconfig, section } from './index-file.js';
 import { type NodeMap, buildNodeMap } from './nodes.js';
-import { scaffold } from './scaffold.js';
+import { scaffold, writeScaffold } from './scaffold.js';
 import { checkEnforcedTags } from './tags.js';
 import { type Witnesses, checkModelTruth } from './truth.js';
 
@@ -57,12 +55,14 @@ function findings(root: string): string[] {
   const legacyCount = s.model.relations.filter((r) => r.legacy).length;
   const out: string[] = [];
   for (const languageFacts of all) out.push(...checkClaims(s.nodeMap, languageFacts));
-  out.push(...checkArc42(root, s.index, s.nodeMap));
-  out.push(...checkSpecMapping(root, s.index, s.nodeMap));
-  out.push(...checkLegacyRatchet(s.index, legacyCount));
-  out.push(...checkModelTruth(witnesses, arrows));
-  out.push(...checkEnforcedTags(root, loadConfig(root).issue_key_pattern, s.languages));
-  out.push(...checkDiagramsFresh(root, s.model, views));
+  out.push(
+    ...checkArc42(root, s.index, s.nodeMap),
+    ...checkSpecMapping(root, s.index, s.nodeMap),
+    ...checkLegacyRatchet(s.index, legacyCount),
+    ...checkModelTruth(witnesses, arrows),
+    ...checkEnforcedTags(root, loadConfig(root).issue_key_pattern, s.languages),
+    ...checkDiagramsFresh(root, s.model, views),
+  );
   return out;
 }
 
@@ -119,6 +119,7 @@ export function runScaffold(root: string): number {
   let files: Map<string, string>;
   try {
     files = scaffold(root);
+    writeScaffold(root, files);
   } catch (error) {
     if (error instanceof RelayedFailure) return 2;
     const text = setupErrorText(error);
@@ -126,10 +127,6 @@ export function runScaffold(root: string): number {
     process.stderr.write(`${message('arch-scaffold.error', { error: text })}\n`);
     return 2;
   }
-  for (const [rel, text] of files) {
-    mkdirSync(dirname(join(root, rel)), { recursive: true });
-    writeFileSync(join(root, rel), text, 'utf8');
-    process.stdout.write(`${message('arch-scaffold.written', { path: rel })}\n`);
-  }
+  for (const rel of files.keys()) process.stdout.write(`${message('arch-scaffold.written', { path: rel })}\n`);
   return 0;
 }

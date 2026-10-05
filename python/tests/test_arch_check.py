@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from living_architecture import archcheck, c4, cli
+from living_architecture.archcheck.scaffold import write_scaffold
 from living_architecture.contract import check_ids
 
 INDEX = """
@@ -1413,3 +1414,27 @@ def test_scaffolded_check_cases_run_on_the_scaffold_golden(check_case):
     files = sorted(p.relative_to(golden) for p in golden.rglob("*") if p.is_file())
     assert files == sorted(p.relative_to(checked) for p in checked.rglob("*") if p.is_file())
     assert all((golden / rel).read_bytes() == (checked / rel).read_bytes() for rel in files)
+
+
+def test_failed_scaffold_write_restores_index_and_removes_new_files(tmp_path):
+    arch = tmp_path / "architecture"
+    (arch / "views.c4").mkdir(parents=True)
+    (arch / "index.yaml").write_text("python: {}\r\n", encoding="utf-8")
+    files = {"architecture/model/specification.c4": "spec", "architecture/index.yaml": "changed\n", "architecture/views.c4": "v"}
+    with pytest.raises(OSError):
+        write_scaffold(tmp_path, files)
+    assert (arch / "index.yaml").read_bytes() == b"python: {}\r\n"
+    assert not (arch / "model").exists()
+    assert (arch / "views.c4").is_dir()
+
+
+def test_failed_scaffold_write_keeps_a_target_it_did_not_create(tmp_path):
+    arch = tmp_path / "architecture"
+    arch.mkdir()
+    (arch / "index.yaml").write_text("python: {}\r\n", encoding="utf-8")
+    (arch / "views.c4").write_text("theirs", encoding="utf-8")
+    files = {"architecture/model/specification.c4": "spec", "architecture/views.c4": "v"}
+    with pytest.raises(FileExistsError):
+        write_scaffold(tmp_path, files)
+    assert (arch / "views.c4").read_text(encoding="utf-8") == "theirs"
+    assert not (arch / "model").exists()

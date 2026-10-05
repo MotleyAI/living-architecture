@@ -1,0 +1,10 @@
+kind: adapter
+languages:
+- python
+command: la-arch-scaffold
+expect:
+  exit: 0
+  files:
+  - architecture/index.yaml
+golden: manual
+note: the index's existing CRLF lines are kept byte for byte; only the additions use LF

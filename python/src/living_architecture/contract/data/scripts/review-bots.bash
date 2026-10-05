@@ -4,7 +4,9 @@
 
 # The PR's status-check rollup as a JSON array; fails when gh does.
 rb_rollup() {
-    gh pr view "$1" --repo "$2" --json statusCheckRollup --jq '.statusCheckRollup'
+    local pr=$1 repo=$2
+    gh pr view "$pr" --repo "$repo" --json statusCheckRollup --jq '.statusCheckRollup'
+    return
 }
 
 # "true" when CodeRabbit is on the PR (rollup JSON in $3); fails when gh does.
@@ -21,7 +23,9 @@ rb_coderabbit() {
 
 # The first Sonar check of the rollup JSON in $1, as JSON; empty when there is none.
 rb_sonar_check() {
-    jq -c 'map(select((.context // .name // "") | ascii_downcase | test("sonar"))) | first // empty' <<<"$1"
+    local rollup=$1
+    jq -c 'map(select((.context // .name // "") | ascii_downcase | test("sonar"))) | first // empty' <<<"$rollup"
+    return
 }
 
 # The Sonar project key: config, then sonar-project.properties, then the check URL's `id`; empty when none.

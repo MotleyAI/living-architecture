@@ -1,5 +1,17 @@
 // `la-arch-scaffold`: a starter model, views and arc42 from the measured top-level units and import edges.
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import {
+  closeSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  openSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  rmdirSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { diagramBlock, parseModel, parseViews, readIndex } from '../c4/index.js';
@@ -48,14 +60,17 @@ const lastSegment = (unit: string, language: string): string => unit.split(separ
 
 /** The unit's last segment with non-identifier characters as `_`, prefixed `n_` when it starts with a digit. */
 export function nodeId(unit: string, language: string): string {
-  const ident = lastSegment(unit, language).replace(/[^A-Za-z0-9_]/g, '_');
-  return /^[0-9]/.test(ident) ? `n_${ident}` : ident;
+  const ident = lastSegment(unit, language).replace(/\W/g, '_');
+  return /^\d/.test(ident) ? `n_${ident}` : ident;
 }
 
 function ids(facts: Facts): Map<string, string> {
   const out = new Map<string, string>();
   const owners = new Map<string, string>();
   for (const unit of facts.top_level_units) {
+    if (unit.includes("'")) {
+      throw new ArchCheckError(message('arch-scaffold.unquotable-unit', { language: facts.language, unit }));
+    }
     const id = nodeId(unit, facts.language);
     const first = owners.get(id);
     if (first !== undefined) {
@@ -145,4 +160,48 @@ export function scaffold(root: string): Map<string, string> {
   files.set(ARC42_REL, arc42(new Map([...files, [INDEX_REL, newIndex]]), languages));
   files.set(INDEX_REL, newIndex);
   return files;
+}
+
+const attempt = (step: () => void): void => {
+  try {
+    step();
+  } catch {
+    // best-effort undo
+  }
+};
+
+/** Write every output, creating all but the index exclusively; on an error undo the writes made so far, then rethrow. */
+export function writeScaffold(root: string, files: Map<string, string>): void {
+  const indexPath = join(root, INDEX_REL);
+  const indexBefore = readFileSync(indexPath, 'utf8');
+  const parents = [...new Set([...files.keys()].map((rel) => dirname(join(root, rel))))];
+  const newDirs = parents.filter((dir) => !existsSync(dir)).sort((a, b) => b.length - a.length);
+  const touched: string[] = [];
+  try {
+    for (const [rel, text] of files) {
+      const path = join(root, rel);
+      mkdirSync(dirname(path), { recursive: true });
+      if (path === indexPath) {
+        touched.push(path);
+        writeFileSync(path, text, 'utf8');
+        continue;
+      }
+      const fd = openSync(path, 'wx');
+      touched.push(path);
+      try {
+        writeFileSync(fd, text, 'utf8');
+      } finally {
+        closeSync(fd);
+      }
+    }
+  } catch (error) {
+    for (const path of touched) {
+      attempt(() => {
+        if (path === indexPath) writeFileSync(path, indexBefore, 'utf8');
+        else rmSync(path);
+      });
+    }
+    for (const dir of newDirs) attempt(() => rmdirSync(dir));
+    throw error;
+  }
 }
