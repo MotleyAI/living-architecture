@@ -24,11 +24,11 @@ development with an enforced living architecture**:
 /plugin install la@living-architecture
 
 # the commands (la-*, dr-*), pinned to the same version as the plugin
-uv tool install living-architecture==0.2.1
+uv tool install living-architecture==0.2.2
 ```
 
-Skills run `la-doctor --expect <version>` first and stop if the installed
-commands don't match the plugin.
+Skills run `la-doctor --plugin <skill dir>` first and stop if the installed
+commands don't match the plugin's version.
 
 The commands have two native implementations (twins) with one contract: the PyPI
 package serves Python repos, and the npm package `living-architecture` (Node ≥ 22,
@@ -175,7 +175,7 @@ Pin the checker to a release; it needs no per-repo code beyond
 
 ```yaml
 - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-- run: uvx --no-build --from living-architecture==0.2.1 la-arch-check
+- run: uvx --no-build --from living-architecture==0.2.2 la-arch-check
 ```
 
 ## Working from a local checkout
@@ -228,9 +228,8 @@ See [AGENTS.md](AGENTS.md) for how to change any of them.
 ## Releasing
 
 In `python/`, bump the version with `uv version <new>`, then in
-`node/package.json`, `plugin/.claude-plugin/plugin.json` and every skill's
-`la-doctor --expect` pin (the tests fail until all agree), and update the pins in
-this README. Run `scripts/sync-shared` and commit the refreshed copies. Tag
+`node/package.json` and `plugin/.claude-plugin/plugin.json` (the tests fail
+until all agree), and update the pins in this README. Run `scripts/sync-shared` and commit the refreshed copies. Tag
 `v<version>` and publish a GitHub release for it; the `Publish` workflow first
 runs `scripts/release-check` (every version equals the tag, both contract hashes
 agree) and publishes neither twin otherwise. The npm job skips while

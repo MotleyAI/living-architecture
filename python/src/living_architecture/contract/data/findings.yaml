@@ -141,6 +141,9 @@ findings:
   doctor.fail: 'FAIL: {problem}'
   doctor.version-mismatch: installed la tools are {installed} but the plugin expects {expected}; reinstall the tools from the same checkout/tag as the plugin
   doctor.missing-executable: '`{exe}` not found on PATH'
+  doctor.plugin-not-found: no .claude-plugin/plugin.json at or above {dir}
+  doctor.plugin-invalid: '{path} is not valid JSON with a string "version"'
+  doctor.plugin-unreadable: cannot inspect {path}
 
   # ---- twin forwarding
   twin.error: '{prog}: {error}'

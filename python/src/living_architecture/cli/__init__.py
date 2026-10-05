@@ -29,7 +29,7 @@ def la_doctor(argv: list[str] | None = None) -> int:
     if args.twin:
         print(twin.identity())
         return 0
-    return doctor.run(root=_root(args.root), expect=args.expect, print_hash=args.contract_hash)
+    return doctor.run(root=_root(args.root), expect=args.expect, plugin=args.plugin, print_hash=args.contract_hash)
 
 
 def la_arch_check(argv: list[str] | None = None) -> int:

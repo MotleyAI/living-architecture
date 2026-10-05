@@ -153,11 +153,15 @@ cases:
 - name: defaults
   command: la-doctor
   argv: []
-  args: {expect: null, root: null, contract_hash: false, twin: false}
+  args: {expect: null, plugin: null, root: null, contract_hash: false, twin: false}
 - name: flag and string options
   command: la-doctor
   argv: [--expect, 0.2.1, --contract-hash]
-  args: {expect: 0.2.1, root: null, contract_hash: true, twin: false}
+  args: {expect: 0.2.1, plugin: null, root: null, contract_hash: true, twin: false}
+- name: plugin directory
+  command: la-doctor
+  argv: [--plugin, skills/pr]
+  args: {expect: null, plugin: skills/pr, root: null, contract_hash: false, twin: false}
 - name: defaults
   command: la-arch-check
   argv: []
@@ -219,7 +223,7 @@ cases:
 - name: internal flag
   command: la-doctor
   argv: [--twin]
-  args: {expect: null, root: null, contract_hash: false, twin: true}
+  args: {expect: null, plugin: null, root: null, contract_hash: false, twin: true}
 - name: internal flag not abbreviable
   command: la-doctor
   argv: [--tw]
