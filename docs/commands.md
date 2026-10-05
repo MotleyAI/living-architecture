@@ -4,8 +4,8 @@ The skills drive these commands; you can also run them directly. `<command> --he
 
 | Command | Purpose |
 |---|---|
-| `la-doctor [--plugin DIR] [--require-config]` | Check tool/plugin versions, the repo config against the disk, and `git`/`gh` |
-| `la-config get <key>` / `la-config show` | Print the resolved repo config |
+| `la-doctor [--plugin DIR] [--require-config]` | Check tool/plugin versions, the repo config against the disk, `git`/`gh`, and each repo language's executables (`node`/`npx` for TypeScript) |
+| `la-config get <key>` / `la-config show` | Print the resolved repo config; `get languages` prints the repo languages, `get lang.<language>.<key>` a language fact |
 | `la-arch-check` | Architecture cross-check (exit 0 OK, 1 findings, 2 broken setup) |
 | `la-arch-scaffold` | Write a starter model, views and `system.arc42.md` from the measured top-level units and imports |
 | `la-arch-diagrams` | Regenerate the mermaid view diagrams embedded in arc42 docs |
@@ -25,7 +25,19 @@ The commands have two native implementations (twins) with one contract: the PyPI
 and the npm package `living-architecture` (Node ≥ 22, same command names) serves TypeScript/JavaScript repos.
 Either twin checks a Python, TypeScript or mixed repo with identical output: it hands the other language's work
 to the other twin at the same version, found on `PATH` (or `<repo>/node_modules/.bin`) or run through
-`uvx`/`npx`, and exits 2 with an install hint when that twin is unreachable.
+`uvx`/`npx`, and exits 2 with an install hint when that twin is unreachable. A single-language repo never needs
+the other twin.
+
+A repo language is one with a root marker (`pyproject.toml`/`setup.py`; `tsconfig.json`) and a tracked or
+unignored, non-exempt file, or with an explicit `commands.typecheck` command; `commands.typecheck.<language>:
+null` turns its type check off but keeps the language. `la-config get languages` prints them, and skills read
+the language facts they need with `la-config get lang.<language>.<key>` (`source_extensions`, `source_globs`,
+`test_globs`, `declaration_globs`, `comment_prefix`, `suppression`, `waiver`, `baseline_file`, `markers`).
+
+The `dr-*` commands route each input by file language: `dr-compliance` and `dr-mock-lint` print one block per
+language, in registry order, and exit with the highest code; a directory expands to the repo languages' files
+(every registered language's when the repo has none), never declaration files or `node_modules`.
+`dr-refactor` runs in the language of its `--file` or `--module`.
 
 ## Conventions gate and type checks
 
@@ -36,8 +48,7 @@ the npm twin (`npx` is enough). List generated or vendored files under `conventi
 enforced rules with `conventions.rules`. An explicit path with an unknown extension is skipped with a warning.
 Waive a flagged line with `# ALLOW(<rule>): <reason>` or `// ALLOW(<rule>): <reason>`.
 
-`la-typecheck` checks a language when `commands.typecheck` sets it, or when the repo has its files and a root
-marker (`pyproject.toml`/`setup.py`; `tsconfig.json`). The checker is looked up in `.venv/bin` or
+`la-typecheck` checks every repo language whose `commands.typecheck` entry is not `null`. The checker is looked up in `.venv/bin` or
 `node_modules/.bin` first, then on `PATH`. Python keeps basedpyright's own baseline; TypeScript keeps
 `.tsc-baseline.json`, a multiset of diagnostics keyed by file, code and message, so moved lines are not new
 errors. New errors exit 1; fixed ones shrink the baseline. Run `la-typecheck --write-baseline` once to create
@@ -46,10 +57,14 @@ the missing baselines. Suppress a genuine false positive with `// @ts-expect-err
 
 ## Architecture checks in CI
 
-Pin the checker to a release; it needs no per-repo code beyond `architecture/`. `--no-build` installs only
-prebuilt wheels:
+Pin the checker to a release; it needs no per-repo code beyond `architecture/`. Use your ecosystem's twin
+(`--no-build` installs only prebuilt wheels):
 
 ```yaml
+# Python
 - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-- run: uvx --no-build --from living-architecture==0.2.3 la-arch-check
+- run: uvx --no-build --from living-architecture==0.3.0 la-arch-check
+# TypeScript
+- uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+- run: npx -y -p living-architecture@0.3.0 la-arch-check
 ```
