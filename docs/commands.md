@@ -51,5 +51,5 @@ prebuilt wheels:
 
 ```yaml
 - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-- run: uvx --no-build --from living-architecture==0.2.2 la-arch-check
+- run: uvx --no-build --from living-architecture==0.2.3 la-arch-check
 ```
