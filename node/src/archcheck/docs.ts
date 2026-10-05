@@ -1,9 +1,10 @@
 // arc42-exists, spec-mapping and baseline-ratchet (all read from the repo root).
 import { existsSync, readdirSync, statSync } from 'node:fs';
-import { isAbsolute, join } from 'node:path';
+import { basename, isAbsolute, join } from 'node:path';
 import { message } from '../contract/index.js';
 import type { Index } from './index-file.js';
 import type { NodeMap } from './nodes.js';
+import { compareStrings } from './order.js';
 
 export const SYSTEM_DOC = 'architecture/system.arc42.md';
 
@@ -29,7 +30,7 @@ function isDir(path: string): boolean {
 /** `architecture/*.arc42.md`, sorted. */
 export function arc42Docs(root: string): string[] {
   const dir = join(root, 'architecture');
-  return existsSync(dir) ? readdirSync(dir).filter((name) => name.endsWith('.arc42.md')).sort() : [];
+  return existsSync(dir) ? readdirSync(dir).filter((name) => name.endsWith('.arc42.md')).sort(compareStrings) : [];
 }
 
 export function checkArc42(root: string, index: Index, nodeMap: NodeMap): string[] {
@@ -79,7 +80,7 @@ function mappedSpecGroups(index: Index, nodeMap: NodeMap, findings: string[]): M
 }
 
 function containsSpecMd(dir: string): boolean {
-  return readdirSync(dir, { recursive: true, encoding: 'utf8' }).some((entry) => entry.split('/').pop() === 'spec.md');
+  return readdirSync(dir, { recursive: true, encoding: 'utf8' }).some((entry) => basename(entry) === 'spec.md');
 }
 
 function subdirNames(path: string): string[] {
@@ -103,11 +104,13 @@ export function checkSpecMapping(root: string, index: Index, nodeMap: NodeMap): 
   const findings: string[] = [];
   const mapped = mappedSpecGroups(index, nodeMap, findings);
   const present = presentSpecGroups(root);
-  for (const group of [...present.keys()].filter((g) => !mapped.has(g)).sort()) findings.push(message('spec-mapping.unmapped', { group }));
-  for (const group of [...mapped.keys()].filter((g) => !present.has(g)).sort()) {
+  for (const group of [...present.keys()].filter((g) => !mapped.has(g)).sort(compareStrings)) {
+    findings.push(message('spec-mapping.unmapped', { group }));
+  }
+  for (const group of [...mapped.keys()].filter((g) => !present.has(g)).sort(compareStrings)) {
     findings.push(message('spec-mapping.dir-missing', { group }));
   }
-  for (const group of [...mapped.keys()].filter((g) => present.has(g)).sort()) {
+  for (const group of [...mapped.keys()].filter((g) => present.has(g)).sort(compareStrings)) {
     if (!(present.get(group) ?? []).some(containsSpecMd)) findings.push(message('spec-mapping.no-spec-md', { group }));
   }
   return findings;
