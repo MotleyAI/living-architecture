@@ -24,7 +24,7 @@ The longer version is in
 /plugin install la@living-architecture
 
 # the commands (la-*, dr-*), pinned to the same version as the plugin
-uv tool install living-architecture==0.2.2
+uv tool install living-architecture==0.2.3
 ```
 
 The commands ship as a PyPI package and as an npm package of the same name; each serves its own ecosystem and
