@@ -1,0 +1,21 @@
+model {
+  python = system 'python' {
+    api = node 'api' {
+      metadata {
+        package 'pkg.api'
+      }
+    }
+    core = node 'core' {
+      metadata {
+        package 'pkg.core'
+      }
+    }
+    lone = node 'lone' {
+      metadata {
+        package 'pkg.lone'
+      }
+    }
+
+    api -> core
+  }
+}

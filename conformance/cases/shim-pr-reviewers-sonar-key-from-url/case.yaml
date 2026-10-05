@@ -1,0 +1,31 @@
+kind: neutral
+command: la-pr-reviewers
+args:
+- '7'
+- --repo
+- o/r
+gh:
+- match:
+  - pr
+  - view
+  - statusCheckRollup
+  stdout:
+    statusCheckRollup:
+    - __typename: CheckRun
+      name: tests
+      status: COMPLETED
+      conclusion: SUCCESS
+      detailsUrl: https://github.com/o/r/actions/runs/1/job/2
+    - __typename: CheckRun
+      name: SonarCloud Code Analysis
+      status: COMPLETED
+      conclusion: SUCCESS
+      detailsUrl: https://sonarcloud.io/dashboard?id=url_key&pullRequest=7
+- match:
+  - repos/o/r/issues/7/comments
+  stdout: []
+expect:
+  exit: 0
+  stdout: json
+golden: manual
+note: the `id` query parameter of the Sonar check's details URL

@@ -6,5 +6,6 @@ args:
 - --select
 - unannotated-attr
 - src/k.py
+fixture: compliance
 expect:
   exit: 1

@@ -1,7 +1,7 @@
 // `la-doctor`: check the installed tools match the plugin and the repo config is valid.
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
-import { CONFIG_FILENAME, ConfigError, loadConfig } from '../config/index.js';
+import { CONFIG_FILENAME, ConfigError, type LaConfig, loadConfig } from '../config/index.js';
 import { contractHash, message, which } from '../contract/index.js';
 import { VERSION } from '../index.js';
 
@@ -51,32 +51,55 @@ function pluginProblem(plugin: string): string | null {
   }
 }
 
-/** Problems found; empty means healthy. */
-export function runChecks(root: string, expect: string | null, plugin: string | null = null): string[] {
-  const versions = [expect !== null ? versionProblem(expect) : null, plugin !== null ? pluginProblem(plugin) : null];
-  const problems = versions.filter((problem): problem is string => problem !== null);
+const isDir = (path: string): boolean => existsSync(path) && statSync(path).isDirectory();
+
+/** The config's gate decisions that the disk contradicts, in a fixed order. */
+function consistency(root: string, config: LaConfig): string[] {
+  const problems: string[] = [];
+  const hasOpenspec = isDir(join(root, 'openspec'));
+  const hasArchitecture = isFile(join(root, 'architecture', 'index.yaml'));
+  if (config.openspec !== hasOpenspec) {
+    problems.push(message(config.openspec ? 'doctor.openspec-absent' : 'doctor.openspec-present'));
+  }
+  if (config.architecture !== hasArchitecture) {
+    problems.push(message(config.architecture ? 'doctor.architecture-absent' : 'doctor.architecture-present'));
+  }
+  if (config.tracker === 'none' && !config.openspec) problems.push(message('doctor.no-plan-store'));
+  return problems;
+}
+
+function configProblems(root: string, requireConfig: boolean): string[] {
+  if (!isFile(join(root, CONFIG_FILENAME))) return requireConfig ? [message('doctor.config-missing')] : [];
+  let config: LaConfig;
   try {
-    loadConfig(root);
+    config = loadConfig(root);
   } catch (error) {
     if (!(error instanceof ConfigError)) throw error;
-    problems.push(error.message);
+    return [error.message];
   }
+  return consistency(root, config);
+}
+
+/** Problems found; empty means healthy. Config-vs-disk checks run only when the config file exists. */
+export function runChecks(root: string, expect: string | null, plugin: string | null = null, requireConfig = false): string[] {
+  const versions = [expect !== null ? versionProblem(expect) : null, plugin !== null ? pluginProblem(plugin) : null];
+  const problems = versions.filter((problem): problem is string => problem !== null);
+  problems.push(...configProblems(root, requireConfig));
   for (const exe of REQUIRED_EXECUTABLES) {
     if (!which(exe)) problems.push(message('doctor.missing-executable', { exe }));
   }
   return problems;
 }
 
-export function run(root: string, expect: string | null, plugin: string | null, printHash: boolean): number {
+export function run(root: string, expect: string | null, plugin: string | null, printHash: boolean, requireConfig = false): number {
   if (printHash) {
     process.stdout.write(`${contractHash()}\n`);
     return 0;
   }
-  const problems = runChecks(root, expect, plugin);
+  const problems = runChecks(root, expect, plugin, requireConfig);
   for (const problem of problems) process.stdout.write(`${message('doctor.fail', { problem })}\n`);
   if (problems.length === 0) {
-    const configPath = join(root, CONFIG_FILENAME);
-    const source = existsSync(configPath) && statSync(configPath).isFile() ? CONFIG_FILENAME : message('doctor.no-config-file');
+    const source = isFile(join(root, CONFIG_FILENAME)) ? CONFIG_FILENAME : message('doctor.no-config-file');
     process.stdout.write(`${message('doctor.ok', { version: VERSION, source })}\n`);
   }
   return problems.length > 0 ? 1 : 0;

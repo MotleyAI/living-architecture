@@ -1,0 +1,10 @@
+{
+  "language": "python",
+  "version": "<VERSION>",
+  "contract_hash": "<CONTRACT_HASH>",
+  "units": [],
+  "top_level_units": ["pkg.a", "pkg.b"],
+  "edges": [
+    {"src": "pkg.a", "dst": "pkg.b", "src_module": "pkg.a.w", "dst_module": "pkg.b.n"}
+  ]
+}

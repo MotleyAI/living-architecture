@@ -138,12 +138,21 @@ def _document(proc: subprocess.CompletedProcess[bytes], schema_name: str, lang: 
     return document if _identity_ok(document, lang) else None
 
 
-def request_facts(lang: str, repo_root: Path, expected_units: list[str]) -> dict[str, Any]:
+def _facts_consistent(document: dict[str, Any], expected_units: list[str], top_level: bool) -> bool:
+    if not top_level:
+        return {u["unit"] for u in document["units"]} >= set(expected_units)
+    tops = set(document["top_level_units"])
+    return not document["units"] and all({e["src"], e["dst"]} <= tops for e in document["edges"])
+
+
+def request_facts(lang: str, repo_root: Path, expected_units: list[str], *, top_level: bool = False) -> dict[str, Any]:
     """`lang`'s facts from its twin, schema-checked; RelayedFailure when its run fails, TwinError otherwise."""
     refuse_if_forwarded(lang)
     argv = [*_launcher(lang, repo_root).argv("la-arch-check"), "--root", str(repo_root), "--language", lang, "--emit", "facts"]
+    if top_level:
+        argv.append("--top-level")
     document = _document(subprocess.run(argv, stdout=subprocess.PIPE, env=_env(), check=False), "facts", lang)
-    if document is None or not {u["unit"] for u in document["units"]} >= set(expected_units):
+    if document is None or not _facts_consistent(document, expected_units, top_level):
         raise TwinError(_hint("twin.facts-invalid", lang))
     return document
 

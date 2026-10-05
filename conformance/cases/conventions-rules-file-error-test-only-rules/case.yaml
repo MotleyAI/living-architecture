@@ -1,0 +1,14 @@
+kind: adapter
+languages:
+- python
+command: la-check-conventions
+args:
+- --file
+- src/bad.py
+- --file
+- tests/test_bad.py
+expect:
+  exit: 1
+golden: manual
+note: 'only test-only rules are configured: a source file''s syntax-error is dropped,
+  a test file''s is reported'

@@ -2,6 +2,7 @@ kind: adapter
 languages:
 - python
 command: dr-refactor
+fixture: refactor-pkg
 git:
 - commit: init
 expect:

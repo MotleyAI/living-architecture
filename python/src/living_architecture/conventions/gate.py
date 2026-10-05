@@ -76,28 +76,37 @@ def _waiver_examples(languages: list[str]) -> str:
     return message("conventions.waiver-separator").join(examples)
 
 
-def _violations(entry: dict[str, Any]) -> list[Violation]:
+def _applies(rule: str, *, test_file: bool) -> bool:
+    return test_file or not conventions()["rules"][rule]["tests_only"]
+
+
+def _violations(entry: dict[str, Any], rules: list[str]) -> list[Violation]:
+    """The entry's findings for the configured `rules`; a file error only when one of them applies to the file."""
     rel = entry["path"]
+    test_file = is_test_file(rel)
     if entry["status"] in _FAILURES:
+        if not any(_applies(rule, test_file=test_file) for rule in rules):
+            return []
         return [Violation(path=rel, line=entry["line"], rule=entry["status"], message=entry["message"])]
     if entry["status"] != "ok":
         return []
     lang_id = language_of(rel) or ""
-    rules = conventions()["rules"]
-    test_file = is_test_file(rel)
     return [
         Violation(path=rel, line=d["line"], rule=d["rule"], message=message(d["message_id"], **d["values"]))
         for d in entry["detections"]
-        if (test_file or not rules[d["rule"]]["tests_only"]) and not waived(text=d["text"], rule=d["rule"], language=lang_id)
+        if d["rule"] in rules
+        and _applies(d["rule"], test_file=test_file)
+        and not waived(text=d["text"], rule=d["rule"], language=lang_id)
     ]
 
 
-def check_file(path: Path, *, rel: str) -> tuple[list[Violation], FileCounts | None]:
-    """One native-language file's violations and text/total counts (None when it cannot be analysed)."""
+def check_file(path: Path, *, rel: str, rules: list[str] | None = None) -> tuple[list[Violation], FileCounts | None]:
+    """One native-language file's violations (default: every rule) and text/total counts (None when unanalysable)."""
     [entry] = lang.conventions_facts(path.parent, [path.name])
     entry = {**entry, "path": rel}
     counts = FileCounts(rel=rel, text=entry["text_lines"], total=entry["total_lines"]) if entry["status"] == "ok" else None
-    return sorted(_violations(entry), key=lambda v: (v.line, v.rule)), counts
+    selected = list(conventions()["rules"]) if rules is None else rules
+    return sorted(_violations(entry, selected), key=lambda v: (v.line, v.rule)), counts
 
 
 def _git(args: list[str], *, cwd: Path) -> str:
@@ -172,20 +181,20 @@ def _select(rels: list[str], *, explicit: bool, excludes: list[str]) -> list[str
     return [r for r in known if not _is_excluded(r, patterns=excludes)]
 
 
-def report(rels: list[str], facts: dict[str, dict[str, Any]], *, cap_pct: float) -> int:
-    """Violations in path order, the ratio groups, the summary and the verdict; the exit code."""
+def report(rels: list[str], facts: dict[str, dict[str, Any]], *, cap_pct: float, rules: list[str]) -> int:
+    """Violations of the configured `rules` in path order, the ratio groups, the summary and the verdict."""
     violations: list[Violation] = []
     groups: dict[str, list[FileCounts]] = {"source": [], "tests": []}
     for rel in rels:
         entry = facts[rel]
-        violations.extend(_violations(entry))
+        violations.extend(_violations(entry, rules))
         if entry["status"] == "ok":
             counts = FileCounts(rel=rel, text=entry["text_lines"], total=entry["total_lines"])
             groups["tests" if is_test_file(rel) else "source"].append(counts)
     violations.sort(key=lambda v: (v.path, v.line, v.rule))
     for v in violations:
         print(v.render())
-    ratio_red = _ratio_report(groups, cap_pct=cap_pct)
+    ratio_red = "text-ratio" in rules and _ratio_report(groups, cap_pct=cap_pct)
     languages = [language_of(rel) or "" for rel in rels]
     label = files_label(languages)
     print(message("conventions.summary", count=len(violations), files=len(rels), label=label), file=sys.stderr)
@@ -224,4 +233,4 @@ def check_conventions(
             print(message("conventions.error", error=str(exc)), file=sys.stderr)
         return 2
     cap = cap_pct if cap_pct is not None else config.conventions.text_ratio_max * 100
-    return report(rels, facts, cap_pct=cap)
+    return report(rels, facts, cap_pct=cap, rules=config.conventions.rules)

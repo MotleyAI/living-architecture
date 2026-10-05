@@ -1,0 +1,12 @@
+kind: adapter
+languages:
+- python
+command: la-check-conventions
+args:
+- --file
+- tests/test_a.py
+expect:
+  exit: 0
+golden: manual
+note: composite-assert and raises-single-throw are not configured, so a test file
+  breaching both is clear

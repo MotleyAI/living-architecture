@@ -1,0 +1,10 @@
+kind: neutral
+command: la-doctor
+args:
+- --require-config
+normalize:
+- version
+expect:
+  exit: 0
+golden: manual
+note: with --require-config a valid, consistent config file is healthy

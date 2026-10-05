@@ -3,6 +3,7 @@ languages:
 - python
 - typescript
 command: la-typecheck
+fixture: typecheck-ts-src
 expect:
   exit: 1
 golden: manual

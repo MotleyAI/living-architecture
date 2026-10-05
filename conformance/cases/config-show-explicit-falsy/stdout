@@ -1,8 +1,10 @@
 {
+  "tracker": "linear",
+  "openspec": true,
+  "architecture": false,
   "reviewers": {
-    "coderabbit": false,
+    "codex": false,
     "sonar": {
-      "enabled": false,
       "project_key": null
     }
   },
@@ -17,6 +19,7 @@
   },
   "conventions": {
     "text_ratio_max": 0.15,
-    "exempt": []
+    "exempt": [],
+    "rules": []
   }
 }

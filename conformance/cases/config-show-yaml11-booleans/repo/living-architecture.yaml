@@ -1,3 +1,4 @@
+openspec: off
+architecture: yes
 reviewers:
-  coderabbit: yes
-  sonar: {enabled: off}
+  codex: no

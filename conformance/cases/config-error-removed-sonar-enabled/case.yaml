@@ -1,0 +1,12 @@
+kind: neutral
+command: la-config
+args:
+- show
+expect:
+  exit: 1
+  stdout: ''
+  stderr:
+    contains:
+    - enabled
+golden: manual
+note: reviewers.sonar.enabled was removed; Sonar is detected per PR and only project_key remains

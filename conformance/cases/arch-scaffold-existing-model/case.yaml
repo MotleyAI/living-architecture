@@ -1,0 +1,16 @@
+kind: adapter
+languages:
+- python
+command: la-arch-scaffold
+fixture: scaffold-minimal
+expect:
+  exit: 2
+  files:
+  - architecture/model/specification.c4
+  - architecture/model/app.c4
+  - architecture/model/python.c4
+  - architecture/views.c4
+  - architecture/system.arc42.md
+  - architecture/index.yaml
+golden: manual
+note: an existing model file is refused by name and the repo is unchanged

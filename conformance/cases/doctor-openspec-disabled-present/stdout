@@ -1,0 +1,1 @@
+FAIL: openspec is false but the repo has an openspec/ directory; set openspec: true or remove the directory

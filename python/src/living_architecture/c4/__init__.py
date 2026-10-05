@@ -1,6 +1,7 @@
 """The LikeC4 model: the single parser of the constrained `.c4` convention, views, and mermaid diagrams."""
 
-from living_architecture.c4.diagrams import DiagramsError, check_diagrams_fresh, generate, run
+from living_architecture.c4.diagrams import DiagramsError, check_diagrams_fresh, diagram_block, generate, run
+from living_architecture.c4.index import read_index
 from living_architecture.c4.mermaid import render_mermaid
 from living_architecture.c4.model import (
     Element,
@@ -23,11 +24,13 @@ __all__ = [
     "View",
     "ViewsParse",
     "check_diagrams_fresh",
+    "diagram_block",
     "generate",
     "is_or_ancestor",
     "parse_model",
     "parse_views",
     "project",
+    "read_index",
     "render_mermaid",
     "roots",
     "run",

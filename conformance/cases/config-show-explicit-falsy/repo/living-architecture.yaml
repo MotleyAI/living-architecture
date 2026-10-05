@@ -1,3 +1,3 @@
-conventions: {exempt: []}
-reviewers: {coderabbit: false}
+conventions: {exempt: [], rules: []}
+reviewers: {codex: false}
 commands: {test: ''}

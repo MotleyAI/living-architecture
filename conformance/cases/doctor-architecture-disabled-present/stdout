@@ -1,0 +1,1 @@
+FAIL: architecture is false but the repo has architecture/index.yaml; set architecture: true or remove the file

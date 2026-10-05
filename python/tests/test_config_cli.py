@@ -10,7 +10,7 @@ from living_architecture.config import CONFIG_FILENAME, format_value
 @pytest.fixture
 def repo(tmp_path: Path) -> Path:
     (tmp_path / CONFIG_FILENAME).write_text(
-        "reviewers:\n  coderabbit: true\n  sonar: {enabled: true, project_key: k}\n"
+        "reviewers:\n  codex: false\n  sonar: {project_key: k}\n"
         "conventions: {exempt: [a.py]}\n",
         encoding="utf-8",
     )
@@ -26,8 +26,8 @@ def test_format_value(value: object, expected: str) -> None:
 
 
 def test_get_bool(repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    assert main(["--root", str(repo), "get", "reviewers.coderabbit"]) == 0
-    assert capsys.readouterr().out == "true\n"
+    assert main(["--root", str(repo), "get", "reviewers.codex"]) == 0
+    assert capsys.readouterr().out == "false\n"
 
 
 def test_get_nested_string(repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -53,12 +53,12 @@ def test_get_unknown_key(repo: Path, capsys: pytest.CaptureFixture[str]) -> None
 def test_show(repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
     assert main(["--root", str(repo), "show"]) == 0
     data = json.loads(capsys.readouterr().out)
-    assert data["reviewers"]["sonar"] == {"enabled": True, "project_key": "k"}
+    assert data["reviewers"] == {"codex": False, "sonar": {"project_key": "k"}}
 
 
 def test_defaults_without_file(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    assert main(["--root", str(tmp_path), "get", "reviewers.sonar.enabled"]) == 0
-    assert capsys.readouterr().out == "false\n"
+    assert main(["--root", str(tmp_path), "get", "tracker"]) == 0
+    assert capsys.readouterr().out == "linear\n"
 
 
 def test_invalid_config_exits_1(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

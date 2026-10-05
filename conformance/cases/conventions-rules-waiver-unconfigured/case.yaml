@@ -1,0 +1,14 @@
+kind: adapter
+languages:
+- python
+command: la-check-conventions
+args:
+- --file
+- src/m.py
+- --file
+- tests/test_a.py
+expect:
+  exit: 1
+golden: manual
+note: a waiver for an unconfigured rule neither waives a configured rule nor reports
+  anything

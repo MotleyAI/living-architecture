@@ -33,7 +33,8 @@ def _is_arc42_doc_key(doc_key: object) -> bool:
     return len(parts) == 2 and parts[0] == "architecture"
 
 
-def _canonical_block(view: View, model: ModelParse) -> str:
+def diagram_block(view: View, model: ModelParse) -> str:
+    """A view's marker-wrapped mermaid block, exactly as la-arch-diagrams writes it."""
     return f"<!-- likec4:{view.id} -->\n{render_mermaid(view, project(model, view.root))}\n<!-- /likec4:{view.id} -->"
 
 
@@ -78,7 +79,7 @@ def _rewrite_markers(text: str, vids: Any, by_id: dict[str, View], model: ModelP
         if error is not None or span is None:
             raise DiagramsError(message("arch-diagrams.marker", doc=doc_key, problem=error, view=vid))
         start, end = span
-        text = text[:start] + _canonical_block(view, model) + text[end:]
+        text = text[:start] + diagram_block(view, model) + text[end:]
     return text
 
 
@@ -182,7 +183,7 @@ def _check_freshness(root: Path, model: ModelParse, views: ViewsParse, mapping: 
             span, error = _marker_span(text=text, vid=vid)
             if error is not None:
                 findings.append(message(f"diagrams-fresh.marker-{error}", doc=doc_key, view=vid))
-            elif span is not None and text[span[0] : span[1]] != _canonical_block(view, model):
+            elif span is not None and text[span[0] : span[1]] != diagram_block(view, model):
                 findings.append(message("diagrams-fresh.stale", doc=doc_key, view=vid))
     return findings
 

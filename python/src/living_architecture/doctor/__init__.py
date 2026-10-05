@@ -10,7 +10,7 @@ import stat
 from pathlib import Path
 
 from living_architecture import __version__
-from living_architecture.config import CONFIG_FILENAME, ConfigError, load_config
+from living_architecture.config import CONFIG_FILENAME, ConfigError, LaConfig, load_config
 from living_architecture.contract import contract_hash, message
 
 REQUIRED_EXECUTABLES = ("git", "gh")
@@ -63,26 +63,47 @@ def _plugin_problem(plugin: str) -> str | None:
     return message("doctor.plugin-not-found", dir=start)
 
 
-def run_checks(*, root: Path, expect: str | None, plugin: str | None = None) -> list[str]:
-    """Problems found; empty means healthy."""
+def _consistency(root: Path, cfg: LaConfig) -> list[str]:
+    """The config's gate decisions that the disk contradicts, in a fixed order."""
+    problems: list[str] = []
+    has_openspec = (root / "openspec").is_dir()
+    has_architecture = _is_file(root / "architecture" / "index.yaml")
+    if cfg.openspec != has_openspec:
+        problems.append(message("doctor.openspec-absent" if cfg.openspec else "doctor.openspec-present"))
+    if cfg.architecture != has_architecture:
+        problems.append(message("doctor.architecture-absent" if cfg.architecture else "doctor.architecture-present"))
+    if cfg.tracker == "none" and not cfg.openspec:
+        problems.append(message("doctor.no-plan-store"))
+    return problems
+
+
+def _config_problems(root: Path, *, require_config: bool) -> list[str]:
+    if not _is_file(root / CONFIG_FILENAME):
+        return [message("doctor.config-missing")] if require_config else []
+    try:
+        cfg = load_config(root)
+    except ConfigError as exc:
+        return [str(exc)]
+    return _consistency(root, cfg)
+
+
+def run_checks(*, root: Path, expect: str | None, plugin: str | None = None, require_config: bool = False) -> list[str]:
+    """Problems found; empty means healthy. Config-vs-disk checks run only when the config file exists."""
     versions = (
         _version_problem(expect) if expect is not None else None,
         _plugin_problem(plugin) if plugin is not None else None,
     )
     problems = [problem for problem in versions if problem is not None]
-    try:
-        load_config(root)
-    except ConfigError as exc:
-        problems.append(str(exc))
+    problems += _config_problems(root, require_config=require_config)
     problems += [message("doctor.missing-executable", exe=exe) for exe in REQUIRED_EXECUTABLES if shutil.which(exe) is None]
     return problems
 
 
-def run(*, root: Path, expect: str | None, plugin: str | None, print_hash: bool) -> int:
+def run(*, root: Path, expect: str | None, plugin: str | None, print_hash: bool, require_config: bool = False) -> int:
     if print_hash:
         print(contract_hash())
         return 0
-    problems = run_checks(root=root, expect=expect, plugin=plugin)
+    problems = run_checks(root=root, expect=expect, plugin=plugin, require_config=require_config)
     for problem in problems:
         print(message("doctor.fail", problem=problem))
     if not problems:

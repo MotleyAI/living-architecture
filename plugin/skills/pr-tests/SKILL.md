@@ -1,18 +1,20 @@
 ---
 name: pr-tests
-description: Stage 2 of 4 of the /la:pr flow — write the full failing test suite for the agreed plan (TDD-first), then Codex-review the tests against the plan. Normally dispatched by /la:pr; if the /la:pr context (BRANCH, CHANGE_ID, OPENSPEC, Linear issue) is not already loaded in this session, invoke the la:pr skill instead.
+description: Stage 2 of 4 of the /la:pr flow — write the full failing test suite for the agreed plan (TDD-first), then Codex-review the tests against the plan. Normally dispatched by /la:pr; if the /la:pr context (BRANCH, CHANGE_ID, OPENSPEC, tracker issue) is not already loaded in this session, invoke the la:pr skill instead.
 ---
 
+**Preflight:** run `la-doctor --plugin <this skill's base directory> --require-config` once per session before using any `la-*` or `dr-*` command. If it reports the missing-config finding (the one naming `/la:init`), run the fast path of the `la:init` skill, then re-run this preflight; stop and show the user its output on anything it still reports, or on any other failure.
+
 **Stage 2 of 4 of the `/la:pr` flow.** Prerequisite: `/la:pr` has run in this
-session and established `BRANCH`, `CHANGE_ID`, `OPENSPEC`, and the full Linear
-issue (body + comments). If any of that is missing, invoke the `la:pr` skill
+session and established `BRANCH`, `CHANGE_ID`, `OPENSPEC`, and the full tracker
+issue (body + comments), if there is one. If any of that is missing, invoke the `la:pr` skill
 instead — it rehydrates and dispatches back here. The `/la:pr` stopping policy
 applies throughout this stage.
 
 Before writing anything, recover the durable plan from `pr-plan`:
 - `OPENSPEC=1` — read the whole change folder
   `openspec/changes/<CHANGE_ID>/` (proposal, design, tasks, delta specs).
-- `OPENSPEC=0` — the finalized plan is a comment on the Linear issue.
+- `OPENSPEC=0` — the finalized plan is a comment on the tracker issue.
 
 ## Step 1 — Write the tests first
 
@@ -26,10 +28,12 @@ If `OPENSPEC=1`, derive the test cases from the delta scenarios in
 
 When writing tests, follow the `la:concise-comments` skill: no design essays,
 ticket-ID-on-every-line, or code-restating comments; docstrings to a line.
-Rationale belongs in the spec / PR description / the Linear issue — not in
+Rationale belongs in the spec / PR description / the tracker issue — not in
 code — so verbose comments never get written in the first place.
 
 ## Step 2 — Codex review of the tests against the plan
+
+**Codex follows `reviewers.codex`.** If `la-config get reviewers.codex` prints `false`, skip this step. Otherwise, if the Codex MCP server (`mcp__codex__codex`) is not available, STOP and tell me: this repo requires Codex reviews, so never skip one silently.
 
 Hand both the plan (from `pr-plan`, post-discussion) and the new tests
 to `mcp__codex__codex` and ask it to verify that the tests faithfully cover

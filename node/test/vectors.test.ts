@@ -86,9 +86,9 @@ describe('materialize.yaml', () => {
   }
 
   it('does not mutate its input', () => {
-    const data = { reviewers: { coderabbit: true } };
+    const data = { reviewers: { codex: true } };
     materializeDefaults(CONFIG_SCHEMA, data);
-    expect(data).toEqual({ reviewers: { coderabbit: true } });
+    expect(data).toEqual({ reviewers: { codex: true } });
   });
 });
 
@@ -125,3 +125,13 @@ for (const [file, schemaName] of [
     }
   });
 }
+
+describe('validation messages', () => {
+  it('name the offending value', () => {
+    expect(validate(CONFIG_SCHEMA, { tracker: 'jira', conventions: { rules: ['no-such-rule'], exempt: 'a' } })).toEqual([
+      "conventions.exempt: 'a' is not of type 'array'",
+      "conventions.rules.0: 'no-such-rule' is not one of ['import-not-top', 'text-ratio', 'composite-assert', 'raises-single-throw']",
+      "tracker: 'jira' is not one of ['linear', 'github', 'none']",
+    ]);
+  });
+});

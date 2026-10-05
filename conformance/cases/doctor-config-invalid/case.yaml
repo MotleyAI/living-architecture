@@ -1,5 +1,6 @@
 kind: neutral
 command: la-doctor
+fixture: config-invalid
 normalize:
 - version
 expect:

@@ -1,0 +1,9 @@
+kind: neutral
+command: la-config
+args:
+- get
+- conventions.rules
+expect:
+  exit: 0
+golden: manual
+note: conventions.rules defaults to every registry rule id, in registry order

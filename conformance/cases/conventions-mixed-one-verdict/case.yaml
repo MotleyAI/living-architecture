@@ -14,6 +14,7 @@ args:
 - tests/test_w.py
 - --file
 - a/x.ts
+fixture: conventions-mixed
 expect:
   exit: 1
 note: 'one report over .py and TS/JS files: path order across languages, cross-language ratio groups, one summary and verdict'

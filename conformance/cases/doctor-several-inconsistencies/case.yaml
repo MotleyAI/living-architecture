@@ -1,0 +1,8 @@
+kind: neutral
+command: la-doctor
+normalize:
+- version
+expect:
+  exit: 1
+golden: manual
+note: each inconsistency is its own finding, in a fixed order

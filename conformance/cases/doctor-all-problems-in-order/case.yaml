@@ -3,6 +3,7 @@ command: la-doctor
 args:
 - --expect
 - 0.0.0
+fixture: config-invalid
 hide:
 - gh
 normalize:

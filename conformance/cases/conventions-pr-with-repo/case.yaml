@@ -6,6 +6,7 @@ args:
 - '7'
 - --repo
 - o/r
+fixture: conventions-base
 git:
 - commit: init
 - origin:

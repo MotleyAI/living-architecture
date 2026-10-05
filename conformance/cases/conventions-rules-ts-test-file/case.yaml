@@ -1,0 +1,11 @@
+kind: adapter
+languages:
+- typescript
+command: la-check-conventions
+args:
+- --file
+- src/a.test.ts
+expect:
+  exit: 0
+golden: manual
+note: with only text-ratio configured, `expect(a && b)` in a test file is not reported

@@ -1,1 +1,0 @@
-expect(() => a(b())).toThrow();

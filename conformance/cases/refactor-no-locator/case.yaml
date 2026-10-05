@@ -8,6 +8,7 @@ args:
 - pkg/a.py
 - --new-name
 - bar
+fixture: refactor-pkg
 git:
 - commit: init
 expect:

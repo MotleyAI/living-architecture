@@ -1,20 +1,23 @@
 ---
 name: pr-review
-description: Stage 4 of 4 of the /la:pr flow — run /la:process-reviews in a loop until every source is green, then (OpenSpec repos only) archive the change and push so the PR can merge. Normally dispatched by /la:pr; if the /la:pr context (BRANCH, CHANGE_ID, OPENSPEC, Linear issue) is not already loaded in this session, invoke the la:pr skill instead.
+description: Stage 4 of 4 of the /la:pr flow — run /la:process-reviews in a loop until every source is green, then (OpenSpec repos only) archive the change and push so the PR can merge. Normally dispatched by /la:pr; if the /la:pr context (BRANCH, CHANGE_ID, OPENSPEC, tracker issue) is not already loaded in this session, invoke the la:pr skill instead.
 ---
 
-**Preflight:** run `la-doctor --plugin <this skill's base directory>` once per session before using any `la-*` or `dr-*` command; if it fails, stop and show the user its output.
+**Preflight:** run `la-doctor --plugin <this skill's base directory> --require-config` once per session before using any `la-*` or `dr-*` command. If it reports the missing-config finding (the one naming `/la:init`), run the fast path of the `la:init` skill, then re-run this preflight; stop and show the user its output on anything it still reports, or on any other failure.
 
 **Stage 4 of 4 of the `/la:pr` flow.** Prerequisite: `/la:pr` has run in this
-session and established `BRANCH`, `CHANGE_ID`, `OPENSPEC`, and the full Linear
-issue (body + comments), and the PR for `BRANCH` exists. If any of that is
+session and established `BRANCH`, `CHANGE_ID`, `OPENSPEC`, and the full tracker
+issue (body + comments, if there is one), and the PR for `BRANCH` exists. If any of that is
 missing, invoke the `la:pr` skill instead — it rehydrates and dispatches back
 here. The `/la:pr` stopping policy applies throughout this stage.
 
-**Enabled review bots.** CodeRabbit and Sonar are per-repo opt-ins: read
-`la-config get reviewers.coderabbit` and `la-config get reviewers.sonar.enabled`
-once, and skip every step below that names a disabled bot (its gates, fetches,
-replies, and convergence conditions).
+**Review sources.** `la:process-reviews` owns everything per source: which bots
+are on this PR (`la-pr-reviewers`), waiting for them, fetching, validating, and
+handling invalid findings. Every step below that names CodeRabbit or Sonar
+applies only when that bot is on the PR. Codex follows `reviewers.codex`: when
+`la-config get reviewers.codex` prints `false` there is no Codex gate; when it
+is on and the Codex MCP server (`mcp__codex__codex`) is missing, STOP and tell
+me — never skip it silently.
 
 ## Step 1 — Review loop (batch local fixes; push only once per batch)
 
@@ -39,36 +42,25 @@ Split the gates into two tiers:
   run against the working tree / local diff:
   - the repo's test command (`la-config get commands.test`; if unset, the repo's documented full non-integration suite) and the linter (`la-config get commands.lint`, else the
     repo's usual linter);
-  - conventions gate (`la-check-conventions <PR>`).
-    It checks the WHOLE of every touched file ON PURPOSE, to force each file you
-    touch fully compliant. Fix every flagged line; never dodge it (moving code to
-    another file, splitting tests out, …) and never offer a dodge as an option.
-    Mechanical, assertion-preserving test fixes (hoisting imports or setup out of
-    `pytest.raises`, splitting asserts, …) need no separate OK;
-  - Codex on the local diff (`mcp__codex__codex`, read-only) — it analyses the
-    working tree, so it needs no push;
-  - (Sonar enabled) local Sonar pre-check: `mcp__sonarqube__analyze_code_snippet`
+  - conventions gate (`la-check-conventions <PR>`), handled as the
+    `la:process-reviews` conventions gate section describes;
+  - type check (`la-typecheck`), under the ratchet rule described at the
+    type-check gate of the `la:pr-implement` skill;
+  - Codex on the local diff (`mcp__codex__codex`, read-only; when
+    `reviewers.codex` is on) — it analyses the working tree, so it needs no push;
+  - (Sonar on the PR) local Sonar pre-check: `mcp__sonarqube__analyze_code_snippet`
     on each changed source file (single-file only — no cross-file, coverage, or
     duplication analysis; a fast pre-filter, NOT a substitute for the pushed
     Sonar gate);
   - `openspec validate <CHANGE_ID> --strict` (OpenSpec repos);
-  - **living-architecture repos** (an `architecture/` directory at the repo
-    root): the arc42 reads and normative-harness rules in the `la:pr` skill
-    apply to every fix in this loop. Then the enforcement
-    bundle — `la-arch-check` (the one import law,
-    model-truth at every declared granularity), LikeC4 model validation, and the
-    type checker at its recorded baseline (see the `la:living-architecture` skill).
-    The baseline is a RATCHET: NEVER re-record it (`--writebaseline`) to absorb
-    errors the gate surfaces — ROOT-FIX them instead. A per-line
-    `pyright: ignore[rule] — <reason>` counts as a solve ONLY when the checker
-    is actually wrong (false positive) or the wrongness is deliberate (e.g. an
-    invalid-input rejection test); otherwise fix the types. When a file you are
-    touching carries pre-existing baselined errors that root-fix without much
-    churn, fix those too — the baseline auto-shrinks on the next run; commit
-    the shrink (only ever downward).
+  - **living-architecture repos** (`architecture: true`): the arc42 reads and
+    normative-harness rules in the `la:pr` skill apply to every fix in this
+    loop. Then `la-arch-check` (the one import law, model-truth at every
+    declared granularity) and LikeC4 model validation (see the
+    `la:living-architecture` skill).
 - **Remote gates** — slow and/or quota-limited; only a push produces them:
   CI (GitHub Actions), CodeRabbit, and the Sonar PR-decorated quality gate
-  + new-issues count (the bots only when enabled).
+  + new-issues count (the bots only when on the PR).
 
 The loop:
 
@@ -82,8 +74,8 @@ The loop:
    include uncommitted changes via `git diff origin/<base>`). Do NOT push and
    do NOT re-trigger CI / CodeRabbit / Sonar in this sub-loop. Repeat
    until ALL local gates converge on the same tree state — tests, linter,
-   conventions, Sonar pre-check, openspec/enforcement bundle green AND Codex
-   returning no new valid findings. NEVER push a fix Codex has not reviewed —
+   conventions, type check, Sonar pre-check, openspec/architecture checks green
+   AND Codex returning no new valid findings. NEVER push a fix Codex has not reviewed —
    a gap in the fix itself otherwise ships and costs a full extra CI round.
 3. **Push once.** Only after step 2 has fully converged (Codex included),
    commit and push — this re-triggers the remote gates a single time for the
@@ -125,27 +117,9 @@ policy). If the finding is genuinely local with no structural cause, just fix
 it. Never silently ship a band-aid over a structural problem, and never
 undertake a large structural refactor without my go-ahead.
 
-**Convergence also requires zero dangling CodeRabbit threads (CodeRabbit
-enabled).** Before the loop
-counts as done, every unresolved CR thread — including ones opened *before* the
-latest commit that are still open — must have a reply: either why-won't-fix, or
-a pointer to the commit that already fixed it. Use `la-reply-to-pr-thread` /
-`la-reply-invalid-coderabbit`; never resolve the thread yourself. A
-fixed-but-unreplied thread reads as unaddressed to the human reviewer and keeps
-CodeRabbit from re-evaluating, so "all sources green" alone is not enough.
-
-**Hard rule — reply to every CR thread CodeRabbit has not resolved after the next
-commit's CI.** At EVERY remote sweep, list ALL CodeRabbit threads on the PR,
-including outdated ones and ones from reviews several commits back. Any thread that
-CodeRabbit has still not marked resolved once CI has completed on a commit pushed
-AFTER the thread was opened MUST get a reply in that sweep. Say which later commit(s)
-fixed it (SHA plus a one-line how and the test that pins it), or why no fix was or
-will be made. Start every such reply with `@coderabbitai` so CodeRabbit re-evaluates
-the thread. A thread you already replied to that CodeRabbit left unresolved after a
-later CI run needs a new reply that answers its latest comment. Never skip a thread
-because it is outdated, old, or was "already addressed" in a commit message; the
-reply on the thread is the only record that counts. Review-summary nitpicks are
-exempt: never reply to them.
+**Convergence also requires zero dangling CodeRabbit threads** (CodeRabbit on
+the PR): every thread `la:process-reviews` says needs a reply has one. "All
+sources green" alone is not enough.
 
 ## Step 2 — Archive the OpenSpec change, then I merge (OpenSpec repos only)
 
@@ -155,7 +129,8 @@ fresh, explicit say-so. It is NEVER covered by any "keep going until clean" /
 for the fix loop (fixing findings, pushing fix batches) and STOPS at the archive.
 Do NOT archive on your own judgment, ever, even when every gate is green.** Once
 the Step 1 loop has CONVERGED — every source ACTUALLY green (CI a complete
-passing run per the definition above, Sonar, CodeRabbit, Codex, conventions) — do
+passing run per the definition above, Sonar, CodeRabbit, Codex, conventions,
+type check) — do
 NOT archive: STOP, tell me the loop is clean, and ASK my permission to archive.
 
 **Before offering to archive, the branch MUST include the PR's base.** If

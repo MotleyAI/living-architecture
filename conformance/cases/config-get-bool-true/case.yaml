@@ -2,6 +2,6 @@ kind: neutral
 command: la-config
 args:
 - get
-- reviewers.coderabbit
+- architecture
 expect:
   exit: 0

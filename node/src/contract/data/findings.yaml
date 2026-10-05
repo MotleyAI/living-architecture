@@ -131,6 +131,30 @@ findings:
   arch-diagrams.view-undefined: view {view} mapped to {doc} is not defined in views.c4
   arch-diagrams.marker: '{doc}: {problem} marker(s) for view {view}'
 
+  # ---- la-arch-scaffold
+  arch-scaffold.error: 'la-arch-scaffold: {error}'
+  arch-scaffold.exists: '{path} already exists'
+  arch-scaffold.id-collision: '{language} units {first} and {second} both yield node id {id}'
+  arch-scaffold.unquotable-unit: "{language} unit {unit} contains ', which a model string cannot hold"
+  arch-scaffold.written: '{path}'
+  # The written system.arc42.md: the head, then one generated diagram block per view, then the tail.
+  arch-scaffold.arc42-head: |
+    # System
+
+    ## Purpose and context
+
+    TODO: what the system is for, who uses it, and what lies outside it.
+
+    ## Building blocks
+  arch-scaffold.arc42-tail: |
+    ## Principles
+
+    TODO: one numbered item per principle, each with a status tag.
+
+    ## Rationale
+
+    TODO: why the boundaries sit where they do.
+
   # ---- la-config
   config.error: 'la-config: {error}'
   config.unknown-key: 'la-config: unknown key {key!r}'
@@ -144,6 +168,12 @@ findings:
   doctor.plugin-not-found: no .claude-plugin/plugin.json at or above {dir}
   doctor.plugin-invalid: '{path} is not valid JSON with a string "version"'
   doctor.plugin-unreadable: cannot inspect {path}
+  doctor.config-missing: no living-architecture.yaml at the repo root; run /la:init to onboard this repo
+  doctor.openspec-absent: 'openspec is true but the repo has no openspec/ directory; run /la:openspec-init or set openspec: false'
+  doctor.openspec-present: 'openspec is false but the repo has an openspec/ directory; set openspec: true or remove the directory'
+  doctor.architecture-absent: 'architecture is true but the repo has no architecture/index.yaml; run /la:arch-init or set architecture: false'
+  doctor.architecture-present: 'architecture is false but the repo has architecture/index.yaml; set architecture: true or remove the file'
+  doctor.no-plan-store: 'tracker is none and openspec is false, so no plan survives a session reset; set a tracker or openspec: true'
 
   # ---- twin forwarding
   twin.error: '{prog}: {error}'
@@ -151,9 +181,6 @@ findings:
   twin.facts-invalid: 'the {language} twin (living-architecture {version}) returned invalid facts; reinstall it with: {install}'
   twin.forward-refused: refusing to forward to the {language} twin from a forwarded process (LA_FORWARDED=1)
   twin.not-native: '{language} facts are served only by the {language} twin'
-
-  # ---- review shims
-  review.config-error: '{prog}: {error}'
 
   # ---- la-check-conventions
   conventions.violation: '{path}:{line}: [{rule}] {message}'

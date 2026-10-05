@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict
 
@@ -29,12 +29,11 @@ class _Strict(BaseModel):
 
 
 class SonarConfig(_Strict):
-    enabled: bool
     project_key: str | None
 
 
 class ReviewersConfig(_Strict):
-    coderabbit: bool
+    codex: bool
     sonar: SonarConfig
 
 
@@ -52,11 +51,15 @@ class CommandsConfig(_Strict):
 class ConventionsConfig(_Strict):
     text_ratio_max: float
     exempt: list[str]
+    rules: list[str]
 
 
 class LaConfig(_Strict):
     """The resolved config; built only by `resolve`, so every default comes from the schema."""
 
+    tracker: Literal["linear", "github", "none"]
+    openspec: bool
+    architecture: bool
     reviewers: ReviewersConfig
     issue_key_pattern: str
     commands: CommandsConfig

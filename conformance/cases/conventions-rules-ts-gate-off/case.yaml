@@ -1,0 +1,14 @@
+kind: adapter
+languages:
+- typescript
+command: la-check-conventions
+args:
+- --file
+- src/m.cjs
+- --file
+- src/a.test.ts
+expect:
+  exit: 0
+golden: manual
+note: an empty rule list reports no finding and no ratio line, keeping the summary
+  and the CLEAR verdict

@@ -1,0 +1,14 @@
+kind: adapter
+languages:
+- python
+command: la-check-conventions
+args:
+- --file
+- src/m.py
+- --file
+- tests/test_a.py
+expect:
+  exit: 0
+golden: manual
+note: an empty rule list reports no finding and no ratio line, keeping the summary
+  and the CLEAR verdict

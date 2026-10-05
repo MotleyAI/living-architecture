@@ -1,0 +1,29 @@
+kind: neutral
+command: la-wait-for-reviews
+args:
+- '7'
+- --repo
+- o/r
+gh:
+- match:
+  - pr
+  - view
+  - statusCheckRollup
+  stdout:
+    statusCheckRollup:
+    - __typename: CheckRun
+      name: tests
+      status: COMPLETED
+      conclusion: SUCCESS
+      detailsUrl: https://github.com/o/r/actions/runs/1/job/2
+- match:
+  - repos/o/r/issues/7/comments
+  stdout:
+  - user:
+      login: alice
+    updated_at: '2026-01-02T00:00:00Z'
+    body: LGTM
+expect:
+  exit: 0
+golden: manual
+note: 'no CodeRabbit check and no CodeRabbit comment: settle skipped'

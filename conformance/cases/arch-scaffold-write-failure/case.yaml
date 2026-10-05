@@ -1,0 +1,15 @@
+kind: adapter
+languages:
+- python
+command: la-arch-scaffold
+fixture: scaffold-python
+expect:
+  exit: 2
+  stderr: {contains: ['la-arch-scaffold: ', views.c4]}
+  files:
+  - architecture/model/specification.c4
+  - architecture/model/python.c4
+  - architecture/system.arc42.md
+  - architecture/index.yaml
+golden: manual
+note: a write that fails after others succeeded undoes them, so the repo is unchanged

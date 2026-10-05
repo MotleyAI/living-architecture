@@ -1,0 +1,10 @@
+kind: neutral
+command: la-pr-reviewers
+args:
+- abc
+- --repo
+- o/r
+expect:
+  exit: 2
+  stderr: ignore
+golden: manual

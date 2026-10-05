@@ -12,6 +12,7 @@ args:
 - bar
 - --unsure
 - include
+fixture: refactor-pkg
 git:
 - commit: init
 expect:
