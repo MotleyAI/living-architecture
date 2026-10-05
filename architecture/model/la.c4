@@ -88,7 +88,6 @@ model {
     conventions -> contract
     c4 -> contract
     config -> contract
-    review -> config
     review -> contract
     doctor -> config
     doctor -> contract
@@ -175,7 +174,6 @@ model {
     lang -> contract
     c4 -> contract
     config -> contract
-    review -> config
     review -> contract
     doctor -> config
     doctor -> contract

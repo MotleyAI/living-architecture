@@ -59,16 +59,18 @@ CONFIG_FREE = [
 @pytest.mark.parametrize(("shim", "script"), CONFIG_FREE)
 def test_config_free_commands(repo, execvp, shim, script, setup):
     setup(repo)
+    entry = getattr(cli, shim)
     with pytest.raises(Execd):
-        getattr(cli, shim)(["7", "--repo", "o/r"])
+        entry(["7", "--repo", "o/r"])
     assert execvp == [["bash", str(SCRIPTS_DIR / script), "7", "--repo", "o/r"]]
 
 
 @pytest.mark.parametrize(("shim", "script"), CONFIG_FREE)
 def test_config_free_commands_run_outside_a_git_repo(tmp_path, monkeypatch, execvp, shim, script):
     monkeypatch.chdir(tmp_path)
+    entry = getattr(cli, shim)
     with pytest.raises(Execd):
-        getattr(cli, shim)(["7"])
+        entry(["7"])
     assert execvp == [["bash", str(SCRIPTS_DIR / script), "7"]]
 
 

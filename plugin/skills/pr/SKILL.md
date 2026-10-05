@@ -1,26 +1,27 @@
 ---
 name: pr
-description: Spec-driven change flow for a task given to an agent. Always pulls in the Linear issue whose `gitBranchName` matches the current git branch exactly, and combines it with whatever the user typed when invoking the skill. Rehydrates context, detects the current stage, and dispatches to the stage skills la:pr-plan → la:pr-tests → la:pr-implement → la:pr-review.
+description: Spec-driven change flow for a task given to an agent. Pulls in the tracker issue (Linear or GitHub, per `living-architecture.yaml`) that the current git branch belongs to, and combines it with whatever the user typed when invoking the skill. Rehydrates context, detects the current stage, and dispatches to the stage skills la:pr-plan → la:pr-tests → la:pr-implement → la:pr-review.
 ---
 
-**Preflight:** run `la-doctor --expect 0.2.1` once per session before using any `la-*` or `dr-*` command; if it fails, stop and show the user its output.
+**Preflight:** run `la-doctor --expect 0.2.1 --require-config` once per session before using any `la-*` or `dr-*` command. If it reports the missing-config finding (the one naming `/la:init`), run the fast path of the `la:init` skill, then re-run this preflight; stop and show the user its output on anything it still reports, or on any other failure.
 
 I want a detailed spec-driven flow. The brief is the union of:
-1. The Linear issue tied to the current branch (see "Rehydrate" below), AND
+1. The tracker issue tied to the current branch (see "Rehydrate" below), AND
 2. Whatever I just typed when invoking this skill.
 
 ## The four stages
 
 The flow runs as four stage skills in this fixed order, and I reset the
 session (`/clear`) between stages. Each stage ends at a hard stop; everything
-a fresh session needs is on disk or in Linear, so any stage can resume from
+a fresh session needs is on disk or in the tracker, so any stage can resume from
 just the branch name:
 
-1. **`pr-plan`** — interview me, Codex-review the plan, emit the
+1. **`pr-plan`** — interview me, Codex-review the plan (when
+   `reviewers.codex` is on), emit the
    OpenSpec change (OpenSpec repos only), make the plan durable.
    Ends at 🛑 reset point 1 (before tests).
 2. **`pr-tests`** — write the full failing test suite for the plan,
-   Codex-review the tests against the plan.
+   Codex-review the tests against the plan (when `reviewers.codex` is on).
    Ends at 🛑 reset point 2 (before implementation).
 3. **`pr-implement`** — implement until every test passes, then (with my
    go-ahead) commit, push, and open the PR.
@@ -54,9 +55,9 @@ proceed.** The only other permitted pauses are:
   that looks pre-existing or outside this change's scope (a bind-level refusal, an
   allowlist, a fixture that cannot express a scenario, …). Whether it is unrelated
   and what to do about it is MY call, never yours: STOP and ask, presenting what
-  you found, the existing Linear issues you searched for (search first, cite ids
+  you found, the existing tracker issues you searched for (search first, cite ids
   and titles), and the options (treat as in-scope / xfail against an EXISTING issue
-  / narrow the scenario) with a recommendation. NEVER create a Linear issue, mark a
+  / narrow the scenario) with a recommendation. NEVER create a tracker issue, mark a
   scenario xfail, or narrow a scenario on your own to route around it — even when a
   tasks.md line or an earlier plan says "file its own issue".
 
@@ -66,7 +67,7 @@ something you can determine yourself.
 ## The plan is frozen once pr-plan ends
 
 The plan — the OpenSpec change folder (proposal, design, tasks, delta specs) or,
-without OpenSpec, the finalized-plan comment on the Linear issue — is MINE once
+without OpenSpec, the finalized-plan comment on the tracker issue — is MINE once
 `pr-plan` reaches its hard stop. In EVERY later stage, NEVER change it without
 my explicit confirmation of the exact edit: no added or amended decisions, no
 rewritten or added scenarios, no "corrections" after a probe, no re-scoping, no
@@ -89,14 +90,14 @@ STOP and put it in one of these instead:
   (the next stage works through this file);
 - **design.md / proposal.md / the spec delta** — a decision, rationale, or a
   constraint on how something must be built;
-- **the Linear issue** — the spec in the body, resume state and probe outcomes
+- **the tracker issue** — the spec in the body, resume state and probe outcomes
   in a handoff comment;
 - **the code itself** — a test's assertions plus a terse comment, or a
   pointer to a FUTURE issue that will change it (the only issue reference
   allowed in code) — for anything about how the code must behave.
 
 A hard stop then states only which reset point we're at: everything the next
-stage needs is already on disk or in Linear, by construction.
+stage needs is already on disk or in the tracker, by construction.
 
 ## Commit at the end of every stage
 
@@ -141,44 +142,52 @@ planning, writing tests, implementing, and fixing review findings:
   exact edit and wait for my OK. A broader approved plan that mentions the
   edit does NOT count; the concrete edit itself needs the OK.
 
-## Rehydrate — pull in the Linear issue for the current branch
+## Rehydrate — pull in the tracker issue for the current branch
 
-Look up the Linear issue whose `gitBranchName` equals the current git branch
-**exactly**. I create branches by clicking "Copy git branch name" in the
-Linear issue UI and `git checkout -b`-ing them, so the local branch name is
+Read the repo's decisions from its config: `TRACKER=$(la-config get tracker)`
+(`linear`, `github` or `none`) and `la-config get openspec`. Capture
+`BRANCH=$(git rev-parse --abbrev-ref HEAD)`.
+
+**`TRACKER=linear`.** Look up the Linear issue whose `gitBranchName` equals
+`BRANCH` **exactly**. I create branches by clicking "Copy git branch name" in
+the Linear issue UI and `git checkout -b`-ing them, so the local branch name is
 byte-equal to the issue's `gitBranchName`. That equality is the join key.
 
-1. Capture `BRANCH=$(git rev-parse --abbrev-ref HEAD)`.
-2. Try the cheap path first: Linear's auto-generated branch name is
+1. Try the cheap path first: Linear's auto-generated branch name is
    `<user>/<lowercased-key>-<title-slug>` (e.g.
    `alice/abc-123-add-storage-layer`). Pull out the `<key>` chunk
    (`abc-123`), uppercase it (`ABC-123`), and call
    `mcp__linear__get_issue(id="ABC-123")`.
-3. If that returns an issue **and** the returned issue's `gitBranchName`
+2. If that returns an issue **and** the returned issue's `gitBranchName`
    equals `BRANCH` exactly, use it. Otherwise fall back to
    `mcp__linear__list_issues(team="<KEY-PREFIX>", query="<key-or-slug>",
    includeArchived=false)` (`<KEY-PREFIX>` = the key's team part, e.g. `ABC`)
    and walk the results, comparing each issue's
    `gitBranchName` to `BRANCH`. Pick the unique exact match.
-4. If 0 exact matches: tell me no Linear issue maps to this branch and ask
-   whether to proceed with only my typed input as the brief. If >1 exact
-   matches: list them and ask which one.
-5. Once a match is confirmed, read the issue body in full
+3. Once a match is confirmed, read the issue body in full
    (`mcp__linear__get_issue` already returns it) plus any comments via
    `mcp__linear__list_comments`.
-6. **Set the change-id and resolve OpenSpec.** `CHANGE_ID` = `$BRANCH` with any
-   leading `<user>/` segment stripped (Linear's copied branch names look like
-   `alice/abc-123-add-storage-layer`, so `CHANGE_ID=abc-123-add-storage-layer`;
-   OpenSpec change ids forbid underscores, so replace any with `-`). This
-   keeps Linear issue ↔ git branch ↔ OpenSpec change 1:1:1. Then resolve OpenSpec:
-   - If an `openspec/` directory exists at the repo root and it's healthy, set
-     `OPENSPEC=1`.
-   - If `openspec/` is **absent or invalid**, ask me whether to initialize this
-     repo for OpenSpec now (one-time) or run this change without it. If yes,
-     invoke the **`la:openspec-init`** skill (it resolves the CLI and scaffolds the
-     corpus), then set `OPENSPEC=1`. If no, set `OPENSPEC=0`.
-   - When `OPENSPEC=0`, skip everything marked *"OpenSpec repos only"* in the
-     stage skills.
+
+**`TRACKER=github`.** GitHub's "Create a branch" names the branch
+`<N>-<title-slug>`, so take the leading `<N>-` of `BRANCH` (after any
+`<user>/` segment). The issue is `#<N>` iff `gh issue develop --list <N>` lists
+`BRANCH` among its linked branches; GitHub has no reverse lookup, so this is
+the only join. Read the issue with `gh issue view <N> --comments`.
+
+**`TRACKER=none`.** There is no issue: the brief is my typed input alone.
+
+If no issue maps to the branch (Linear: 0 exact matches; GitHub: no leading
+number, or the branch is not linked to that issue), tell me so and ask whether
+to proceed with only my typed input as the brief. If Linear gives >1 exact
+matches, list them and ask which one.
+
+**Set the change-id and OpenSpec.** `CHANGE_ID` = `$BRANCH` with any leading
+`<user>/` segment stripped (`alice/abc-123-add-storage-layer` gives
+`CHANGE_ID=abc-123-add-storage-layer`; OpenSpec change ids forbid underscores,
+so replace any with `-`). This keeps issue ↔ git branch ↔ OpenSpec change
+1:1:1. `OPENSPEC=1` iff `la-config get openspec` prints `true` (the preflight
+already checked that `openspec/` agrees); otherwise `OPENSPEC=0`, and skip
+everything marked *"OpenSpec repos only"* in the stage skills.
 
 ## Detect the stage
 
@@ -189,8 +198,9 @@ Work out which stage this session should run — first match wins:
 2. **No durable plan yet?** The plan is durable iff:
    - `OPENSPEC=1`: `openspec/changes/<CHANGE_ID>/` exists and
      `openspec validate <CHANGE_ID> --strict` passes; or
-   - `OPENSPEC=0`: the Linear issue has a comment containing the finalized
-     plan.
+   - `OPENSPEC=0`: the tracker issue has a comment containing the finalized
+     plan (Linear: `mcp__linear__list_comments`; GitHub: `gh issue view <N>
+     --comments`).
    If not durable → **`pr-plan`**.
 3. **No tests for this change yet?** Look for test files added/changed for
    this change: the working tree (`git status`) plus commits since the

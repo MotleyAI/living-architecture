@@ -1,6 +1,6 @@
 ---
 name: living-architecture
-description: Use to set up or maintain the living-architecture layer (LikeC4 structure model + arc42 principles + model-truth import enforcement + cross-check) in a repo that uses the /la:pr + OpenSpec flow. Sibling of /la:pr — OpenSpec owns per-capability behaviour; this owns cross-cutting structure. Dispatches to init (scaffold) or maintenance; carving a boundary is the arch-slice skill.
+description: Reference for the living-architecture layer (LikeC4 structure model + arc42 principles + model-truth import enforcement + cross-check) — its syntax, the checks, and how to maintain it alongside the /la:pr + OpenSpec flow. Building the first model is la:arch-init; carving a boundary is la:arch-cleanup.
 ---
 
 **Preflight:** run `la-doctor --expect 0.2.1` once per session before using any `la-*` or `dr-*` command; if it fails, stop and show the user its output.
@@ -48,12 +48,13 @@ maps nodes to code; `index.yaml` holds only repo-wide settings.
 repo/
   openspec/specs/<spec-id>/spec.md
   architecture/
+    model/specification.c4           # element kinds and tags, declared once
     model/<subsystem>.c4             # ONE LikeC4 model, split across files
     views.c4                         # views, each scoped to one language root
     index.yaml                       # repo-wide settings (below)
     system.arc42.md                  # root narrative + global principles
     <node>.arc42.md                  # only where a node earns prose
-  living-architecture.yaml           # repo config for the la-* tools (optional)
+  living-architecture.yaml           # repo config (architecture: true once the model exists)
 ```
 
 The checker is `la-arch-check` (the one import law + cross-check, run by the
@@ -176,10 +177,10 @@ model-truth runs once over all of them.
 
 **The enforcement bundle** = `la-arch-check` + LikeC4 model validation
 (`npx likec4 validate`; if the installed CLI version lacks it, use the lightest
-command that parses the model, e.g. `npx likec4 build`) + the repo's type-check
-baseline. It runs, blocking, in:
-- the **pr-review** gate (that stage runs it in repos with `architecture/`),
-- the **arch-slice** move gate,
+command that parses the model, e.g. `npx likec4 build`) + `la-typecheck` against
+its committed baseline. It runs, blocking, in:
+- the **pr-review** gate (that stage runs it when `architecture: true`),
+- the **arch-cleanup** move gate,
 - CI — `arch_check` is cheap and deterministic, so wire it there once the setup
   has settled (not at init), pinned to a release:
   `uvx --no-build --from living-architecture==<version> la-arch-check` (after
@@ -213,73 +214,13 @@ baseline. It runs, blocking, in:
   repo's `issue_key_pattern`); an item may add one `[lang: <language>]` naming
   a declared language it alone binds.
 
-## Dispatch
+## Maintenance
 
-- `architecture/` absent or invalid → run **Init** below.
-- Present, but `index.yaml` still has `nodes:` or a top-level `root_package` →
-  run **Migrate** below.
-- Present → maintenance: keep the model, `index.yaml`, and arc42 in sync IN
-  THE SAME PR as any structural change; deepen buckets / add views for new
-  subsystems; tighten boundaries via the **la:arch-slice** skill.
-
-## Init (one-time per repo)
-
-1. Preconditions: `openspec/` healthy (else run `la:openspec-init` first). Wire a
-   type checker against the project venv with a committed baseline if absent
-   (basedpyright: `--writebaseline` → `.basedpyright/baseline.json`) — the
-   arch-slice move gate needs it. That initial `--writebaseline` is the ONLY
-   legitimate re-record: thereafter the baseline is a RATCHET — errors the
-   gate surfaces are root-fixed, never re-baselined (per-line
-   `pyright: ignore[rule] — <reason>` only for a genuine false positive or
-   deliberate wrongness, e.g. an invalid-input test); fixes auto-shrink the
-   baseline — commit the shrink, only ever downward.
-2. **Measure the AS-IS import graph** between top-level packages (ast-based
-   script; separate runtime edges from TYPE_CHECKING-only edges).
-3. **Choose the wedge with the user**: which nodes are precise (usually the
-   subsystem about to be worked on plus its neighbours), which are buckets.
-4. **Model the AS-IS in LikeC4**: precise elements + bucket elements, each
-   with its `metadata { }` mapping; relations = the measured runtime edges.
-   Tag edges slated to die `#legacy`.
-   Model truth, not aspiration — the model must be correct at every commit.
-5. **The model IS the law** — no separate contracts: declared arrows are the
-   allowed imports, silence a ban. Where you want the law enforced child-level,
-   nest elements under the node in the model; grandfather every current
-   violation as an exact `#legacy` arrow (no wildcards), and record their count
-   as `legacy_arrows.baseline`. The enforcement bundle must be green on the
-   scaffold commit.
-6. `index.yaml` (`legacy_arrows.baseline`, `cross_cutting_specs`, the
-   `diagrams` view mapping) +
-   `system.arc42.md` (global principles — promote the structural conventions
-   already in CLAUDE.md) + node arc42 only for the 1–3 nodes that earn prose
-   now.
-7. Run `la-arch-check` until green. Do NOT touch CI at init — the pr-review
-   and arch-slice gates carry enforcement until the user asks to wire CI.
-8. If the repo has a legacy decisions/ADR file: fold its present-tense rules
-   into the arc42 principles of the owning nodes, then delete the file
-   (history stays in git + the openspec archive). Confirm with the user
-   before deleting.
-
-## Migrate (once per repo)
-
-From `index.yaml` `nodes:` to model metadata:
-
-1. For each `nodes.<id>` entry, add a `metadata { }` block to model element
-   `<id>` with its `package`, `claims`, `packages`, `arc42` and `specs`
-   (`arc42: null` is simply omitted).
-2. Drop `children:` and `virtual:`: nest the children as elements under the
-   node instead (most models already do), and keep virtual-ness on the
-   element kind (`#virtual`).
-3. Delete `nodes:` from `index.yaml`.
-
-To language roots:
-
-1. Move `root_package`/`source_root` into a `python:` (or `typescript:`)
-   section of `index.yaml`; rename repo-owned keys to `x-…`.
-2. Wrap every top-level model element and relation, unchanged, in
-   `<language> = system '<title>' { … }`.
-3. Add `of <language>` to every view, and qualify `cross_cutting_specs`
-   `touches` (`core` → `python.core`).
-4. Run `la-arch-check` until green; diagrams need no regeneration.
+- No model yet (`architecture/index.yaml` absent) → run the **la:arch-init**
+  skill; it builds the first model from a measured scaffold.
+- Otherwise keep the model, `index.yaml`, and arc42 in sync IN THE SAME PR as
+  any structural change; deepen buckets / add views for new subsystems; tighten
+  boundaries via the **la:arch-cleanup** skill.
 
 ## Interaction with /la:pr
 
@@ -292,4 +233,4 @@ To language roots:
   metadata `specs`, or `cross_cutting_specs` in `index.yaml` with a `touches:`
   list) and record it in the same change.
 - Pure structural refactors (moving code across boundaries) are their own
-  changes via **la:arch-slice** — never smuggled into feature PRs.
+  changes via **la:arch-cleanup** — never smuggled into feature PRs.

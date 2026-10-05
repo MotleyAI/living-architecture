@@ -119,7 +119,8 @@ def test_preflight_requires_config_only_in_main_skills_and_stages(path):
     if path.parent.name in REQUIRE_CONFIG:
         assert len(preflight) == 1
         assert f"`la-doctor --expect {PLUGIN['version']} --require-config`" in preflight[0]
-        assert "la:init" in text and "fast path" in text
+        assert "la:init" in text
+        assert "fast path" in text
     else:
         assert all("--require-config" not in line for line in preflight)
 

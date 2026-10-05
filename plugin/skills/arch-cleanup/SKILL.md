@@ -1,9 +1,9 @@
 ---
-name: arch-slice
+name: arch-cleanup
 description: Use to carve or tighten ONE architecture boundary in a repo with the living-architecture setup — take a coherent batch of grandfathered `#legacy` arrows (or extract a new node), refactor them away with verified moves (deterministic-refactor), and shrink the legacy-arrow baseline monotonically. Behaviour-preserving by definition; one slice = one branch/PR.
 ---
 
-**Preflight:** run `la-doctor --expect 0.2.1` once per session before using any `la-*` or `dr-*` command; if it fails, stop and show the user its output.
+**Preflight:** run `la-doctor --expect 0.2.1 --require-config` once per session before using any `la-*` or `dr-*` command. If it reports the missing-config finding (the one naming `/la:init`), run the fast path of the `la:init` skill, then re-run this preflight; stop and show the user its output on anything it still reports, or on any other failure.
 
 # Carve one boundary slice
 
@@ -35,14 +35,17 @@ each slice still gets its own issue, branch, and PR.
 
    Present the per-edge resolution table BEFORE mutating anything — this is a
    nontrivial design decision, the one permitted pause.
-3. **Baseline the gate:** type checker green vs its recorded baseline against
-   the project venv; `la-arch-check` green; the repo's test command (`la-config get commands.test`; if unset, the repo's documented full non-integration suite) green.
+3. **Baseline the gate:** `la-typecheck` green (the type checker against its
+   committed baseline, in the project env) — if it prints "nothing to check",
+   STOP and tell the user: without a type check the moves cannot be verified,
+   so offer to set one up (`commands.typecheck` and `la-typecheck
+   --write-baseline`) first; `la-arch-check` green; the repo's test command (`la-config get commands.test`; if unset, the repo's documented full non-integration suite) green.
 4. **Execute the moves** via the `la:deterministic-refactor` skill (dry-run →
    apply → format). The rope project scope must include `tests/` so test
    imports are rewritten too. New destination packages are created first
    (plain file + `__init__.py` — destinations must exist before moving).
 5. **Move gate — done only when ALL pass:**
-   - type checker: **no new errors** vs baseline. A stale `from old import X`
+   - `la-typecheck`: **no new errors** vs baseline. A stale `from old import X`
      or `old_mod.X` surfaces here even in untyped code — module members are
      statically resolvable without annotations;
    - delete the slice's now-dead `#legacy` arrows from the model and lower
