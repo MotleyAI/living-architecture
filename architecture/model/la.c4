@@ -29,7 +29,7 @@ model {
     archcheck = node 'Architecture check' {
       metadata {
         package 'living_architecture.archcheck'
-        specs ['arch-check']
+        specs ['arch-check', 'arch-scaffold']
       }
     }
     lang = node 'Language adapter' {
@@ -46,6 +46,7 @@ model {
     review = node 'Review shims' {
       metadata {
         package 'living_architecture.review'
+        specs ['review-detection']
       }
     }
     doctor = node 'Doctor' {

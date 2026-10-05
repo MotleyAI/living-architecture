@@ -6,6 +6,8 @@ typescript:
   source_root: node
 legacy_arrows: {baseline: 0}
 cross_cutting_specs:
+  repo-config:
+    touches: [python.config, python.doctor]
   shared-contract:
     touches: [python.contract, python.config, python.cli, python.c4, python.archcheck, python.lang, python.conventions,
       python.review, python.doctor, python.refactor]

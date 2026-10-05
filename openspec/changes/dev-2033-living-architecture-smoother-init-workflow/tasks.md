@@ -50,4 +50,4 @@ it does not, stop at the group boundary, tick what is done, commit, and ask the 
 ## 8. Final gate
 
 - [x] 8.1 Full suites of both twins, ruff, basedpyright, `scripts/sync-shared --check`, `npx -y @anthropic-ai/claude-code plugin validate plugin`, `la-arch-check`, and `openspec validate dev-2033-living-architecture-smoother-init-workflow --strict`, all green.
-- [ ] 8.2 In the archive commit (pr-review Step 2), add the spec placement from design.md Context: repo-config under cross_cutting_specs in index.yaml; review-detection and arch-scaffold in the specs metadata of python.review and python.archcheck. Verify: la-arch-check exits 0.
+- [x] 8.2 Add the spec placement from design.md Context (before the archive, since live-change spec groups count for spec-mapping): repo-config under cross_cutting_specs in index.yaml; review-detection and arch-scaffold in the specs metadata of python.review and python.archcheck. Verify: la-arch-check exits 0.
