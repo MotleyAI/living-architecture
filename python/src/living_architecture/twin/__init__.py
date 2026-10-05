@@ -180,3 +180,22 @@ def run_language(command: str, lang: str, args: list[str], *, cwd: Path, repo_ro
     sys.stderr.flush()
     code = subprocess.run(argv, cwd=cwd, env=_env(), check=False).returncode
     return code if code >= 0 else 2
+
+
+def forward(command: str, lang: str, argv: list[str], *, repo_root: Path) -> int:
+    """`command ARGV` in the `lang` twin from the current directory, streams relayed; its exit code (a signal: 128+N)."""
+    refuse_if_forwarded(lang)
+    sys.stdout.flush()
+    sys.stderr.flush()
+    code = subprocess.run([*_launcher(lang, repo_root).argv(command), *argv], env=_env(), check=False).returncode
+    return code if code >= 0 else 128 - code
+
+
+def run_captured(command: str, lang: str, args: list[str], *, repo_root: Path) -> tuple[int, bytes]:
+    """`command ARGS` in the `lang` twin from the current directory: its exit code (a signal: 2) and stdout; stderr relayed."""
+    refuse_if_forwarded(lang)
+    sys.stdout.flush()
+    sys.stderr.flush()
+    argv = [*_launcher(lang, repo_root).argv(command), *args]
+    proc = subprocess.run(argv, stdout=subprocess.PIPE, env=_env(), check=False)
+    return (proc.returncode if proc.returncode >= 0 else 2), proc.stdout

@@ -1,8 +1,8 @@
 // `la-doctor`: check the installed tools match the plugin and the repo config is valid.
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
-import { CONFIG_FILENAME, ConfigError, type LaConfig, loadConfig } from '../config/index.js';
-import { contractHash, message, which } from '../contract/index.js';
+import { CONFIG_FILENAME, ConfigError, type LaConfig, loadConfig, repoLanguages } from '../config/index.js';
+import { contractHash, language, message, which } from '../contract/index.js';
 import { VERSION } from '../index.js';
 
 const REQUIRED_EXECUTABLES = ['git', 'gh'];
@@ -80,12 +80,25 @@ function configProblems(root: string, requireConfig: boolean): string[] {
   return consistency(root, config);
 }
 
+/** What the repo languages need on PATH; none outside git or with an invalid config. */
+function languageExecutables(root: string): string[] {
+  if (!existsSync(join(root, '.git'))) return [];
+  let config: LaConfig;
+  try {
+    config = loadConfig(root);
+  } catch (error) {
+    if (!(error instanceof ConfigError)) throw error;
+    return [];
+  }
+  return repoLanguages(root, config).flatMap((id) => language(id).executables as string[]);
+}
+
 /** Problems found; empty means healthy. Config-vs-disk checks run only when the config file exists. */
 export function runChecks(root: string, expect: string | null, plugin: string | null = null, requireConfig = false): string[] {
   const versions = [expect !== null ? versionProblem(expect) : null, plugin !== null ? pluginProblem(plugin) : null];
   const problems = versions.filter((problem): problem is string => problem !== null);
   problems.push(...configProblems(root, requireConfig));
-  for (const exe of REQUIRED_EXECUTABLES) {
+  for (const exe of [...REQUIRED_EXECUTABLES, ...languageExecutables(root)]) {
     if (!which(exe)) problems.push(message('doctor.missing-executable', { exe }));
   }
   return problems;

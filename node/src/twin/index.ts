@@ -106,6 +106,14 @@ export function forward(command: string, lang: string, argv: string[], repoRoot:
   return proc.status ?? 1;
 }
 
+/** `command ARGS` in the `lang` twin from the current directory: its exit code (a signal: 2) and stdout; stderr relayed. */
+export function runCaptured(command: string, lang: string, args: string[], repoRoot: string): [number, Buffer] {
+  refuseIfForwarded(lang);
+  const [cmd = '', ...rest] = launcher(lang, repoRoot)(command);
+  const proc = spawnSync(cmd, [...rest, ...args], { env: env(), stdio: ['inherit', 'pipe', 'inherit'], maxBuffer: 1 << 30 });
+  return [proc.signal !== null || proc.status === null ? 2 : proc.status, proc.stdout];
+}
+
 /** The run's stdout as a schema-valid document of `lang` at this version, or null; RelayedFailure on a non-zero exit. */
 function documentOf(proc: SpawnSyncReturns<Buffer>, schemaName: string, lang: string): any {
   if (proc.signal === null && proc.status !== null && proc.status > 0) throw new RelayedFailure();

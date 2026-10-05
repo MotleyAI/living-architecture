@@ -13,6 +13,7 @@ export {
   findings,
   language,
   languageIds,
+  languageOf,
   manifest,
   schema,
   scriptPath,

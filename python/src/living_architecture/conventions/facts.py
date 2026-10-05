@@ -8,19 +8,13 @@ from pathlib import Path
 from typing import Any
 
 from living_architecture import __version__, lang, twin
-from living_architecture.contract import contract_hash, language, language_ids, message
+from living_architecture.contract import contract_hash, language_of, message
+
+__all__ = ["FactsError", "collect", "emit", "language_of"]
 
 
 class FactsError(Exception):
     """The facts of another language could not be had; the message (if any) is printed, exit 2."""
-
-
-def language_of(path: str) -> str | None:
-    """The registry language whose source extensions contain the path's extension, else None."""
-    for lang_id in language_ids():
-        if any(path.endswith(ext) for ext in language(lang_id)["source_extensions"]):
-            return lang_id
-    return None
 
 
 def by_language(paths: list[str]) -> dict[str, list[str]]:

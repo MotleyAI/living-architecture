@@ -445,13 +445,13 @@ def test_manifest_declares_the_passthrough_commands() -> None:
     }
 
 
-PYTHON_ONLY = {"dr-refactor", "dr-compliance", "dr-mock-lint"}
+DR_COMMANDS = {"dr-refactor", "dr-compliance", "dr-mock-lint"}
 
 
 def test_manifest_declares_native_languages() -> None:
     commands = _shared_yaml("cli.yaml")["commands"]
     native = {name: spec["native"] for name, spec in commands.items() if "native" in spec}
-    assert native == {name: ["python"] for name in PYTHON_ONLY}
+    assert native == {name: ["python", "typescript"] for name in DR_COMMANDS}
 
 
 def _option(command: str, name: str) -> dict:

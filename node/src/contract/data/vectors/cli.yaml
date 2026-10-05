@@ -218,7 +218,7 @@ cases:
   argv: [--, -a.py, b.py]
   args:
     paths: [-a.py, b.py]
-    select: untyped-def,unannotated-attr,mock
+    select: null
     attr: null
 - name: internal flag
   command: la-doctor

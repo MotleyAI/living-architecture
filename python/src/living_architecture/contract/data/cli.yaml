@@ -8,6 +8,9 @@
 # command:     help, exit (code -> meaning), options, positionals, subcommands, passthrough, usage,
 #              require_one_of (dests; none given is a usage error), script (the bundled review script it
 #              runs), native (the languages whose twin implements the command; absent: neutral, every twin runs it)
+# la-config get: language_keys are the public `lang.<language>.<key>` keys; source_globs (one `**/*<ext>` glob per
+#              source extension) and waiver (the language's waiver comment) are derived, the rest come from
+#              languages.yaml.
 
 commands:
   la-config:
@@ -17,9 +20,13 @@ commands:
       - {name: --root, type: path, help: 'repo root (default: nearest git root of cwd)'}
     subcommands:
       get:
-        help: print one value by dotted key, e.g. reviewers.codex
+        help: >-
+          print one value by dotted key, e.g. reviewers.codex; `languages` prints the repo languages and
+          lang.<language>.<key> a language fact
         positionals:
           - {name: key, help: dotted config key}
+        language_keys: [source_extensions, source_globs, test_globs, declaration_globs, comment_prefix, suppression,
+          waiver, baseline_file, markers]
       show:
         help: print the whole resolved config as JSON
 
@@ -139,11 +146,12 @@ commands:
     script: pr-reviewers.sh
 
   dr-refactor:
-    native: [python]
+    native: [python, typescript]
     help: >-
-      IDE-grade Python refactors via rope: rename, move-symbol, move-module. Rewrites every import and
-      reference across the project. Dry-run by default; pass --apply to write. Symbol location comes from
-      --offset, --line/--col (1-based, as an editor/LSP reports), or --name (first def/class/use).
+      IDE-grade refactors (Python via rope, TypeScript via its language service): rename, move-symbol,
+      move-module. Rewrites every import and reference across the project. Dry-run by default; pass --apply to
+      write. Symbol location comes from --offset, --line/--col (1-based, as an editor/LSP reports), or --name
+      (first declaration, else first use).
     exit: {0: ok, 1: refactor error, 2: usage error}
     options:
       - {name: --project, type: path, default: ., help: 'project root (default: cwd)'}
@@ -156,44 +164,45 @@ commands:
           - {name: --offset, type: int, help: 0-based character offset}
           - {name: --line, type: int, help: 1-based line}
           - {name: --col, type: int, help: 1-based column}
-          - {name: --name, type: string, help: first def/class/use of this name}
+          - {name: --name, type: string, help: first declaration (else use) of this name}
           - {name: --new-name, type: string, required: true, help: the new name}
           - {name: --no-in-hierarchy, type: flag, dest: in_hierarchy, store: false,
-             help: 'disable hierarchy rename (on by default: also renames overrides in sub/superclasses)'}
+             help: 'disable hierarchy rename (on by default: also renames overrides in sub/superclasses; Python only)'}
           - {name: --unsure, type: string, choices: [skip, include], default: skip,
-             help: 'occurrences rope cannot resolve: skip (default) or include (risky)'}
+             help: 'occurrences rope cannot resolve: skip (default) or include (risky; Python only)'}
       move-symbol:
-        help: move a top-level function/class/global to another module
+        help: move a top-level declaration to another module
         options:
           - {name: --file, type: path, required: true, help: file holding the symbol}
           - {name: --offset, type: int, help: 0-based character offset}
           - {name: --line, type: int, help: 1-based line}
           - {name: --col, type: int, help: 1-based column}
-          - {name: --name, type: string, help: first def/class/use of this name}
-          - {name: --dest, type: path, required: true, help: destination module .py (must exist)}
+          - {name: --name, type: string, help: first declaration (else use) of this name}
+          - {name: --dest, type: path, required: true, help: destination module of the same language (must exist)}
       move-module:
-        help: move a module file into a package/dir
+        help: move a module file or directory into a package/dir
         options:
-          - {name: --module, type: path, required: true, help: source module .py}
+          - {name: --module, type: path, required: true, help: source module file or directory}
           - {name: --dest, type: path, required: true, help: destination package directory (must exist)}
 
   dr-compliance:
-    native: [python]
+    native: [python, typescript]
     help: >-
-      Report constructs that make a rename un-verifiable: untyped-def, unannotated-attr, and mock (a mock or
-      patch not bound to a spec). With --attr NAME it also reports x.NAME accesses whose receiver is an
-      unannotated parameter.
+      Report constructs that make a rename un-verifiable, with each file's language's checks (Python:
+      untyped-def, unannotated-attr, mock; TypeScript: tsconfig, explicit-any, untyped-def, mock). With --attr
+      NAME it also reports x.NAME accesses whose receiver is untyped.
     exit: {0: clean, 1: violations, 2: usage error}
     positionals:
       - {name: paths, nargs: '+', help: files or directories}
     options:
-      - {name: --select, type: string, default: 'untyped-def,unannotated-attr,mock',
-         help: 'comma-separated checks (default: all of untyped-def,unannotated-attr,mock)'}
-      - {name: --attr, type: string, help: also report x.ATTR accesses on unannotated receivers}
+      - {name: --select, type: string, help: 'comma-separated checks (default: every check of each file''s language)'}
+      - {name: --attr, type: string, help: also report x.ATTR accesses on untyped receivers}
 
   dr-mock-lint:
-    native: [python]
-    help: Every unittest.mock double must be bound to a spec.
+    native: [python, typescript]
+    help: >-
+      Every test double must be bound to the real type: a unittest.mock double to a spec; a Vitest/Jest fn() or
+      module factory to a type.
     exit: {0: clean, 1: violations, 2: usage error}
     passthrough: true
     usage: 'dr-mock-lint <path> [<path> ...]'
