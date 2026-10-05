@@ -4,10 +4,11 @@
 #   Stage 0a — status-check rollup gate: poll ``gh pr view --json statusCheckRollup``
 #     until no check is still PENDING / EXPECTED / QUEUED / IN_PROGRESS /
 #     WAITING / REQUESTED. Cap at 30 minutes; non-zero exit on timeout.
-#   Stage 0b — CodeRabbit settle: if a coderabbit ``StatusContext`` exists in
-#     the rollup, poll ``repos/<repo>/issues/<PR>/comments`` until any
-#     ``coderabbitai[bot]`` summary comment's ``updated_at`` advances past
-#     the HEAD commit's ``committedDate``. Cap at 10 minutes (best-effort —
+#   Stage 0b — CodeRabbit settle: if CodeRabbit is on the PR (a status check or
+#     any comment of its bot, as la-pr-reviewers detects it), poll
+#     ``repos/<repo>/issues/<PR>/comments`` until any ``coderabbitai[bot]``
+#     summary comment's ``updated_at`` advances past the HEAD commit's
+#     ``committedDate``. Cap at 10 minutes (best-effort —
 #     after that we proceed without a fresh review).
 #
 # Stdout reports progress; the script exits 0 on success (both stages clear or
@@ -15,38 +16,33 @@
 # only).
 #
 # Usage:
-#   la-wait-for-reviews <PR_NUMBER> [--repo OWNER/REPO] [--skip-coderabbit]
+#   la-wait-for-reviews <PR_NUMBER> [--repo OWNER/REPO]
 #
 # Defaults the repo to the current git working directory via ``gh repo view``.
-# --skip-coderabbit (passed by la-wait-for-reviews when the repo config disables
-# CodeRabbit) skips Stage 0b.
 
 set -euo pipefail
 
+# shellcheck source=review-bots.bash
+source "$(dirname "${BASH_SOURCE[0]}")/review-bots.bash"
+
 usage() {
     cat >&2 <<EOF
-usage: la-wait-for-reviews <PR_NUMBER> [--repo OWNER/REPO] [--skip-coderabbit]
+usage: la-wait-for-reviews <PR_NUMBER> [--repo OWNER/REPO]
 
   <PR_NUMBER>           required, the PR number
   --repo OWNER/REPO     optional, defaults to the repo of the current git directory
-  --skip-coderabbit     don't wait for a fresh CodeRabbit review
 EOF
     exit 64
 }
 
 PR=""
 REPO=""
-SKIP_CODERABBIT=0
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --repo)
             REPO="$2"
             shift 2
-            ;;
-        --skip-coderabbit)
-            SKIP_CODERABBIT=1
-            shift
             ;;
         -h|--help)
             usage
@@ -120,18 +116,11 @@ done
 # Stage 0b — CodeRabbit summary-comment settle (cap 10 minutes; best-effort)
 # ---------------------------------------------------------------------------
 
-if (( SKIP_CODERABBIT )); then
-    echo "Stage 0b: CodeRabbit disabled for this repo — skipping settle."
-    exit 0
-fi
-
-has_coderabbit=$(gh pr view "$PR" --repo "$REPO" --json statusCheckRollup --jq '
-    any(.statusCheckRollup[];
-        (.__typename == "StatusContext")
-        and ((.context // .name // "") | ascii_downcase | test("coderabbit")))')
+rollup=$(rb_rollup "$PR" "$REPO")
+has_coderabbit=$(rb_coderabbit "$PR" "$REPO" "$rollup")
 
 if [[ "$has_coderabbit" != "true" ]]; then
-    echo "Stage 0b: no CodeRabbit StatusContext on this PR — skipping settle."
+    echo "Stage 0b: CodeRabbit is not on this PR — skipping settle."
     exit 0
 fi
 

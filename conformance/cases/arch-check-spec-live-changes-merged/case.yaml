@@ -1,0 +1,11 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+fixture: arch-ok
+remove:
+- openspec/specs/logging
+expect:
+  exit: 0
+golden: manual
+note: a group's live-change directories are merged and searched at any depth; archive/specs and stray files are no groups

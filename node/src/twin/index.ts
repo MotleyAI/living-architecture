@@ -122,18 +122,23 @@ function documentOf(proc: SpawnSyncReturns<Buffer>, schemaName: string, lang: st
   return identityOk ? document : null;
 }
 
+function factsConsistent(document: any, expectedUnits: string[], topLevel: boolean): boolean {
+  if (!topLevel) {
+    const units = new Set<string>(document.units.map((u: { unit: string }) => u.unit));
+    return expectedUnits.every((unit) => units.has(unit));
+  }
+  const tops = new Set<string>(document.top_level_units);
+  return document.units.length === 0 && document.edges.every((e: { src: string; dst: string }) => tops.has(e.src) && tops.has(e.dst));
+}
+
 /** `lang`'s facts from its twin, schema-checked; RelayedFailure when its run fails, TwinError otherwise. */
-export function requestFacts(lang: string, repoRoot: string, expectedUnits: string[]): any {
+export function requestFacts(lang: string, repoRoot: string, expectedUnits: string[], topLevel = false): any {
   refuseIfForwarded(lang);
   const [cmd = '', ...args] = launcher(lang, repoRoot)('la-arch-check');
-  const proc = spawnSync(cmd, [...args, '--root', repoRoot, '--language', lang, '--emit', 'facts'], {
-    env: env(),
-    stdio: ['inherit', 'pipe', 'inherit'],
-    maxBuffer: 1 << 30,
-  });
+  const argv = [...args, '--root', repoRoot, '--language', lang, '--emit', 'facts', ...(topLevel ? ['--top-level'] : [])];
+  const proc = spawnSync(cmd, argv, { env: env(), stdio: ['inherit', 'pipe', 'inherit'], maxBuffer: 1 << 30 });
   const document = documentOf(proc, 'facts', lang);
-  const units = new Set<string>((document?.units ?? []).map((u: { unit: string }) => u.unit));
-  if (document === null || !expectedUnits.every((unit) => units.has(unit))) throw new TwinError(hint('twin.facts-invalid', lang));
+  if (document === null || !factsConsistent(document, expectedUnits, topLevel)) throw new TwinError(hint('twin.facts-invalid', lang));
   return document;
 }
 

@@ -6,9 +6,10 @@ import { LangError } from '../lang/index.js';
 import { NATIVE_LANGUAGE, RelayedFailure, TwinError, requestFacts } from '../twin/index.js';
 import { checkClaims } from './claims.js';
 import { checkArc42, checkLegacyRatchet, checkSpecMapping } from './docs.js';
-import { type Facts, nativeFacts } from './facts.js';
+import { type Facts, nativeFacts, nativeTopLevelFacts } from './facts.js';
 import { ArchCheckError, type Index, declaredLanguages, loadIndex, resolveLayout, resolveTsconfig, section } from './index-file.js';
 import { type NodeMap, buildNodeMap } from './nodes.js';
+import { scaffold, writeScaffold } from './scaffold.js';
 import { checkEnforcedTags } from './tags.js';
 import { type Witnesses, checkModelTruth } from './truth.js';
 
@@ -54,18 +55,26 @@ function findings(root: string): string[] {
   const legacyCount = s.model.relations.filter((r) => r.legacy).length;
   const out: string[] = [];
   for (const languageFacts of all) out.push(...checkClaims(s.nodeMap, languageFacts));
-  out.push(...checkArc42(root, s.index, s.nodeMap));
-  out.push(...checkSpecMapping(root, s.index, s.nodeMap));
-  out.push(...checkLegacyRatchet(s.index, legacyCount));
-  out.push(...checkModelTruth(witnesses, arrows));
-  out.push(...checkEnforcedTags(root, loadConfig(root).issue_key_pattern, s.languages));
-  out.push(...checkDiagramsFresh(root, s.model, views));
+  out.push(
+    ...checkArc42(root, s.index, s.nodeMap),
+    ...checkSpecMapping(root, s.index, s.nodeMap),
+    ...checkLegacyRatchet(s.index, legacyCount),
+    ...checkModelTruth(witnesses, arrows),
+    ...checkEnforcedTags(root, loadConfig(root).issue_key_pattern, s.languages),
+    ...checkDiagramsFresh(root, s.model, views),
+  );
   return out;
 }
 
-/** The native language's facts document; ArchCheckError on a broken setup. */
-export function emitFacts(root: string, language: string): Facts {
+/** The native language's facts document (`topLevel`: edges between top-level units, no model). */
+export function emitFacts(root: string, language: string, topLevel = false): Facts {
   if (language !== NATIVE_LANGUAGE) throw new ArchCheckError(message('twin.not-native', { language }));
+  if (topLevel) {
+    const index = loadIndex(root);
+    if (!declaredLanguages(index).includes(language)) throw new ArchCheckError(message('arch-check.no-language-section'));
+    const values = section(index, language);
+    return nativeTopLevelFacts({ ...resolveLayout(root, values), tsconfig: resolveTsconfig(root, values.tsconfig) }, language);
+  }
   const s = setup(root);
   if (!s.languages.includes(language)) throw new ArchCheckError(message('arch-check.no-language-section'));
   return facts(root, s, language);
@@ -81,11 +90,11 @@ function setupErrorText(error: unknown): string | null {
 }
 
 /** `la-arch-check`: print the findings and a summary, or (`--emit facts`) one language's facts. */
-export function run(root: string, language: string | null, emit: string | null): number {
+export function run(root: string, language: string | null, emit: string | null, topLevel = false): number {
   let out: string[];
   try {
     if (emit === 'facts' && language !== null) {
-      process.stdout.write(`${JSON.stringify(emitFacts(root, language), null, 2)}\n`);
+      process.stdout.write(`${JSON.stringify(emitFacts(root, language, topLevel), null, 2)}\n`);
       return 0;
     }
     out = findings(root);
@@ -102,5 +111,22 @@ export function run(root: string, language: string | null, emit: string | null):
     return 1;
   }
   process.stdout.write(`${message('arch-check.ok')}\n`);
+  return 0;
+}
+
+/** `la-arch-scaffold`: write the outputs and print each path, or exit 2 having written nothing. */
+export function runScaffold(root: string): number {
+  let files: Map<string, string>;
+  try {
+    files = scaffold(root);
+    writeScaffold(root, files);
+  } catch (error) {
+    if (error instanceof RelayedFailure) return 2;
+    const text = setupErrorText(error);
+    if (text === null) throw error;
+    process.stderr.write(`${message('arch-scaffold.error', { error: text })}\n`);
+    return 2;
+  }
+  for (const rel of files.keys()) process.stdout.write(`${message('arch-scaffold.written', { path: rel })}\n`);
   return 0;
 }

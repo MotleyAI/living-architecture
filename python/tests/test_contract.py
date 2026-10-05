@@ -56,6 +56,8 @@ SHARED_FILES = (
     "scripts/reply-invalid-coderabbit.sh",
     "scripts/reply-to-pr-thread.sh",
     "scripts/wait-for-reviews.sh",
+    "scripts/pr-reviewers.sh",
+    "scripts/review-bots.bash",
 )
 
 
@@ -225,6 +227,13 @@ def test_every_rule_has_a_description_per_language() -> None:
     }
 
 
+def test_config_rules_match_the_conventions_registry() -> None:
+    registry = list(_shared_yaml("conventions.yaml")["rules"])
+    rules = _schema("living-architecture")["properties"]["conventions"]["properties"]["rules"]
+    assert rules["items"]["enum"] == registry
+    assert rules["default"] == registry
+
+
 @pytest.mark.parametrize("vector", _vectors("repr.yaml")["cases"], ids=lambda v: v["repr"])
 def test_canonical_repr(vector: dict) -> None:
     assert canonical_repr(vector["value"]) == vector["repr"]
@@ -278,9 +287,9 @@ def test_generic_materialization(vector: dict) -> None:
 
 def test_materialization_does_not_mutate_its_input() -> None:
     schema = json.loads((SHARED / "schema" / "living-architecture.schema.json").read_text(encoding="utf-8"))
-    data = {"reviewers": {"coderabbit": True}}
+    data = {"reviewers": {"codex": False}}
     materialize_defaults(schema, data)
-    assert data == {"reviewers": {"coderabbit": True}}
+    assert data == {"reviewers": {"codex": False}}
 
 
 @pytest.mark.parametrize("pattern", _vectors("regex-subset.yaml")["accept"])
@@ -449,7 +458,7 @@ def test_only_the_twin_options_are_internal() -> None:
     commands = _shared_yaml("cli.yaml")["commands"]
     specs = [*commands.values(), *(sub for spec in commands.values() for sub in spec.get("subcommands", {}).values())]
     internal = {o["name"] for spec in specs for o in spec.get("options", []) if o.get("internal")}
-    assert internal == {"--twin", "--language", "--emit"}
+    assert internal == {"--twin", "--language", "--emit", "--top-level"}
 
 
 # ---- vendored snapshot and contract hash

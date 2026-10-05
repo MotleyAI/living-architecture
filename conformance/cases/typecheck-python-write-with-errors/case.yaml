@@ -4,6 +4,7 @@ languages:
 command: la-typecheck
 args:
 - --write-baseline
+fixture: typecheck-python
 expect:
   exit: 0
   files:

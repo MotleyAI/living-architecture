@@ -2,7 +2,7 @@ kind: neutral
 command: la-config
 args:
 - get
-- reviewers.coderabbit
+- reviewers.codex
 git: none
 expect:
   exit: 0

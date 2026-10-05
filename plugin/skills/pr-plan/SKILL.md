@@ -1,17 +1,19 @@
 ---
 name: pr-plan
-description: Stage 1 of 4 of the /la:pr flow — interview the user to turn the Linear issue + typed brief into a detailed spec, Codex-review the plan, emit the OpenSpec change (OpenSpec repos only), and make the plan durable. Normally dispatched by /la:pr; if the /la:pr context (BRANCH, CHANGE_ID, OPENSPEC, Linear issue) is not already loaded in this session, invoke the la:pr skill instead.
+description: Stage 1 of 4 of the /la:pr flow — interview the user to turn the tracker issue + typed brief into a detailed spec, Codex-review the plan, emit the OpenSpec change (OpenSpec repos only), and make the plan durable. Normally dispatched by /la:pr; if the /la:pr context (BRANCH, CHANGE_ID, OPENSPEC, tracker issue) is not already loaded in this session, invoke the la:pr skill instead.
 ---
 
+**Preflight:** run `la-doctor --plugin <this skill's base directory> --require-config` once per session before using any `la-*` or `dr-*` command. If it reports the missing-config finding (the one naming `/la:init`), run the fast path of the `la:init` skill, then re-run this preflight; stop and show the user its output on anything it still reports, or on any other failure.
+
 **Stage 1 of 4 of the `/la:pr` flow.** Prerequisite: `/la:pr` has run in this
-session and established `BRANCH`, `CHANGE_ID`, `OPENSPEC`, and the full Linear
-issue (body + comments). If any of that is missing, invoke the `la:pr` skill
+session and established `BRANCH`, `CHANGE_ID`, `OPENSPEC`, and the full tracker
+issue (body + comments), if there is one. If any of that is missing, invoke the `la:pr` skill
 instead — it rehydrates and dispatches back here. The `/la:pr` stopping policy
 applies throughout this stage.
 
 ## Step 1 — Combine and interview
 
-Treat the Linear issue body + comments AND whatever I typed when invoking
+Treat the tracker issue body + comments AND whatever I typed when invoking
 `/la:pr` as the combined brief. In case of conflict, what I typed has higher
 priority but ask to be sure.
 
@@ -68,10 +70,12 @@ extensions to the original requirements without asking me about each one first.
 
 ## Step 2 — Codex review of the plan
 
+**Codex follows `reviewers.codex`.** If `la-config get reviewers.codex` prints `false`, skip this step. Otherwise, if the Codex MCP server (`mcp__codex__codex`) is not available, STOP and tell me: this repo requires Codex reviews, so never skip one silently.
+
 Once I've approved the spec/plan, hand the plan text to the codex MCP server
 (`mcp__codex__codex`) and ask it to review the plan itself — not a diff —
 focusing on correctness of approach, missed edge cases, risky design choices,
-test coverage gaps, and anything that contradicts the Linear issue. Codex
+test coverage gaps, and anything that contradicts the tracker issue. Codex
 should not modify files; it should return actionable findings.
 
 Bring Codex's findings back to me and discuss them. For each finding, decide
@@ -92,7 +96,7 @@ instructions; follow them so the output passes `validate --strict`.
    and obey the emitted `<instruction>` + `<template>`, writing to the `<output>`
    path it names. `openspec status --change <CHANGE_ID>` shows what's done/blocked.
    Most of this is a reformat of the plan — don't re-derive it:
-   - **proposal.md** — `## Why` + `## What Changes` (from the Linear issue +
+   - **proposal.md** — `## Why` + `## What Changes` (from the tracker issue +
      plan), plus `## Capabilities` (New/Modified — this list decides which delta
      files must exist) and `## Impact`.
    - **specs/<capability-path>/spec.md** (the delta — the crux) — one file per
@@ -128,7 +132,8 @@ instructions; follow them so the output passes `validate --strict`.
 
 > **🛑 HARD STOP (reset point 1 of 3) — before tests.** First make the plan
 > durable: if `OPENSPEC=1` it's the validated change folder; if `OPENSPEC=0`,
-> post the finalized plan to the Linear issue (a comment) so a reset recovers
-> it. Then say we're at reset point 1 and STOP — do not start writing tests.
+> post the finalized plan as a comment on the tracker issue (Linear:
+> `mcp__linear__save_comment`; GitHub: `gh issue comment <N>`) so a reset
+> recovers it. Then say we're at reset point 1 and STOP — do not start writing tests.
 > I'll `/clear` and re-invoke `/la:pr`, which will detect and run
 > `pr-tests`.

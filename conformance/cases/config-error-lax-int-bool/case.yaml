@@ -7,5 +7,5 @@ expect:
   stdout: ''
   stderr:
     contains:
-    - coderabbit
+    - codex
 note: 'deliberate change: strict config types (pydantic used to coerce this scalar)'

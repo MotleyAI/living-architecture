@@ -4,6 +4,7 @@ languages:
 command: la-check-conventions
 args:
 - '7'
+fixture: conventions-base
 git:
 - commit: init
 - origin:

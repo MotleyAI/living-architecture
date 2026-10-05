@@ -1,0 +1,8 @@
+kind: neutral
+command: la-doctor
+normalize:
+- version
+expect:
+  exit: 0
+golden: manual
+note: an architecture/ directory without index.yaml is not a living-architecture setup

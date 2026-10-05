@@ -4,6 +4,7 @@ args:
 - '7'
 - --repo
 - o/r
+fixture: config-invalid
 gh:
 - match:
   - graphql

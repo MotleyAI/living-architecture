@@ -1,0 +1,30 @@
+kind: neutral
+command: la-pr-reviewers
+args:
+- '7'
+- --repo
+- o/r
+gh:
+- match:
+  - pr
+  - view
+  - statusCheckRollup
+  stdout:
+    statusCheckRollup:
+    - __typename: CheckRun
+      name: tests
+      status: COMPLETED
+      conclusion: SUCCESS
+      detailsUrl: https://github.com/o/r/actions/runs/1/job/2
+- match:
+  - repos/o/r/issues/7/comments
+  stdout:
+  - user:
+      login: coderabbitai[bot]
+    updated_at: '2026-01-02T00:00:00Z'
+    body: '## Summary'
+expect:
+  exit: 0
+  stdout: json
+golden: manual
+note: a CodeRabbit comment counts before its status check appears

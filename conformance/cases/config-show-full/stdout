@@ -1,12 +1,14 @@
 {
+  "tracker": "github",
+  "openspec": false,
+  "architecture": true,
   "reviewers": {
-    "coderabbit": true,
+    "codex": false,
     "sonar": {
-      "enabled": true,
       "project_key": "acme_widgets"
     }
   },
-  "issue_key_pattern": "[A-Z]{2,5}-\\d+",
+  "issue_key_pattern": "#\\d+",
   "commands": {
     "test": "uv run pytest -q",
     "lint": "uv run ruff check .",
@@ -20,6 +22,10 @@
     "exempt": [
       "gen/*",
       "*_pb2.py"
+    ],
+    "rules": [
+      "import-not-top",
+      "text-ratio"
     ]
   }
 }

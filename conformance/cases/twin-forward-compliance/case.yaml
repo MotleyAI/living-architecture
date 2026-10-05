@@ -5,6 +5,7 @@ twin: typescript
 command: dr-compliance
 args:
 - src/k.py
+fixture: compliance
 expect:
   exit: 1
 golden: manual

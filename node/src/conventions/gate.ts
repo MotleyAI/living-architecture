@@ -52,15 +52,20 @@ function waiverExamples(languages: (string | null)[]): string {
   return examples.join(message('conventions.waiver-separator'));
 }
 
-function violations(entry: Facts): Violation[] {
+const applies = (rule: string, testFile: boolean): boolean => testFile || !conventions().rules[rule].tests_only;
+
+/** The entry's findings for the configured `rules`; a file error only when one of them applies to the file. */
+function violations(entry: Facts, rules: string[]): Violation[] {
   const rel: string = entry.path;
-  if (FAILURES.has(entry.status)) return [{ path: rel, line: entry.line, rule: entry.status, message: entry.message }];
+  const testFile = isTestFile(rel);
+  if (FAILURES.has(entry.status)) {
+    if (!rules.some((rule) => applies(rule, testFile))) return [];
+    return [{ path: rel, line: entry.line, rule: entry.status, message: entry.message }];
+  }
   if (entry.status !== 'ok') return [];
   const id = languageOf(rel) ?? '';
-  const rules = conventions().rules;
-  const testFile = isTestFile(rel);
   return (entry.detections as Facts[])
-    .filter((d) => (testFile || !rules[d.rule].tests_only) && !waived({ text: d.text, rule: d.rule, language: id }))
+    .filter((d) => rules.includes(d.rule) && applies(d.rule, testFile) && !waived({ text: d.text, rule: d.rule, language: id }))
     .map((d) => ({ path: rel, line: d.line, rule: d.rule, message: message(d.message_id, d.values) }));
 }
 
@@ -132,18 +137,18 @@ function select(rels: string[], explicit: boolean, excludes: string[]): string[]
   return known.filter((rel) => !isExcluded(rel, excludes));
 }
 
-/** Violations in path order, the ratio groups, the summary and the verdict; the exit code. */
-function report(rels: string[], facts: Map<string, Facts>, capPct: number): number {
+/** Violations of the configured `rules` in path order, the ratio groups, the summary and the verdict. */
+function report(rels: string[], facts: Map<string, Facts>, capPct: number, rules: string[]): number {
   const found: Violation[] = [];
   const groups: Record<string, FileCounts[]> = { source: [], tests: [] };
   for (const rel of rels) {
     const entry = facts.get(rel) as Facts;
-    found.push(...violations(entry));
+    found.push(...violations(entry, rules));
     if (entry.status === 'ok') groups[isTestFile(rel) ? 'tests' : 'source']?.push({ rel, text: entry.text_lines, total: entry.total_lines });
   }
   found.sort((a, b) => byCodePoint(a.path, b.path) || a.line - b.line || byCodePoint(a.rule, b.rule));
   for (const v of found) out(message('conventions.violation', { ...v }));
-  const ratioRed = ratioReport(groups, capPct);
+  const ratioRed = rules.includes('text-ratio') && ratioReport(groups, capPct);
   const languages = rels.map(languageOf);
   const label = filesLabel(languages);
   err(message('conventions.summary', { count: found.length, files: rels.length, label }));
@@ -184,5 +189,5 @@ export function checkConventions(options: GateOptions): number {
     if (error.message) err(message('conventions.error', { error: error.message }));
     return 2;
   }
-  return report(rels, facts, options.capPct ?? config.conventions.text_ratio_max * 100);
+  return report(rels, facts, options.capPct ?? config.conventions.text_ratio_max * 100, config.conventions.rules);
 }

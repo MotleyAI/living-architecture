@@ -1,6 +1,9 @@
+tracker: github
+openspec: false
+architecture: true
 reviewers:
-  coderabbit: true
-  sonar: {enabled: true, project_key: acme_widgets}
-issue_key_pattern: '[A-Z]{2,5}-\d+'
+  codex: false
+  sonar: {project_key: acme_widgets}
+issue_key_pattern: '#\d+'
 commands: {test: 'uv run pytest -q', lint: 'uv run ruff check .'}
-conventions: {text_ratio_max: 0.3, exempt: ['gen/*', '*_pb2.py']}
+conventions: {text_ratio_max: 0.3, exempt: ['gen/*', '*_pb2.py'], rules: [import-not-top, text-ratio]}

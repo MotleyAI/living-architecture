@@ -7,8 +7,7 @@
 # positional:  name, help; optional: nargs ('?' | '*' | '+'; default exactly one)
 # command:     help, exit (code -> meaning), options, positionals, subcommands, passthrough, usage,
 #              require_one_of (dests; none given is a usage error), script (the bundled review script it
-#              runs), gate (skip-coderabbit: append --skip-coderabbit unless reviewers.coderabbit is on),
-#              native (the languages whose twin implements the command; absent: neutral, every twin runs it)
+#              runs), native (the languages whose twin implements the command; absent: neutral, every twin runs it)
 
 commands:
   la-config:
@@ -18,7 +17,7 @@ commands:
       - {name: --root, type: path, help: 'repo root (default: nearest git root of cwd)'}
     subcommands:
       get:
-        help: print one value by dotted key, e.g. reviewers.sonar.enabled
+        help: print one value by dotted key, e.g. reviewers.codex
         positionals:
           - {name: key, help: dotted config key}
       show:
@@ -29,8 +28,11 @@ commands:
     exit: {0: healthy, 1: problems found, 2: usage error}
     options:
       - {name: --expect, type: string, help: plugin version the calling skill was written for}
+      - {name: --plugin, type: path, metavar: DIR,
+         help: "directory inside the calling plugin (e.g. a skill's base directory); expect its plugin.json version"}
       - {name: --root, type: path, help: 'repo root (default: nearest git root of cwd)'}
       - {name: --contract-hash, type: flag, help: print the bundled contract hash and exit}
+      - {name: --require-config, type: flag, help: 'report a missing living-architecture.yaml (the repo is not onboarded)'}
       - {name: --twin, type: flag, internal: true, help: 'print this twin''s language, version and contract hash'}
 
   la-arch-check:
@@ -41,6 +43,17 @@ commands:
       - {name: --language, type: string, choices: [python, typescript], internal: true,
          help: the language whose facts to emit}
       - {name: --emit, type: string, choices: [facts], internal: true, help: print the language's facts as JSON}
+      - {name: --top-level, type: flag, internal: true,
+         help: attribute the facts' edges to top-level units; reads no model}
+
+  la-arch-scaffold:
+    help: >-
+      Write a starter architecture (model, views, system.arc42.md, index additions) from the measured top-level
+      units and import edges of every language declared in architecture/index.yaml. Writes everything or
+      nothing; prints each written path.
+    exit: {0: written, 2: setup error, nothing written}
+    options:
+      - {name: --root, type: path, help: 'repo root (default: nearest git root of cwd)'}
 
   la-arch-diagrams:
     help: Generate mermaid diagrams in arc42 docs from the LikeC4 model; prints each rewritten doc.
@@ -115,10 +128,15 @@ commands:
 
   la-wait-for-reviews:
     help: Wait until CodeRabbit, Sonar and CI on a PR are terminal (bundled script).
-    exit: {0: ok, 1: failed, 2: usage or config error, 3: rate limited, 64: gate failed closed}
+    exit: {0: ok, 1: gate timed out, 2: repo lookup failed, 3: rate limited, 64: usage error}
     passthrough: true
     script: wait-for-reviews.sh
-    gate: skip-coderabbit
+
+  la-pr-reviewers:
+    help: 'Report which review bots ran on a PR, as JSON: CodeRabbit, and Sonar with its project key (bundled script).'
+    exit: {0: ok, 2: usage or gh error}
+    passthrough: true
+    script: pr-reviewers.sh
 
   dr-refactor:
     native: [python]

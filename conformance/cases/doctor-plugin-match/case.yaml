@@ -1,0 +1,12 @@
+kind: neutral
+command: la-doctor
+args: [--plugin, <ROOT>/repo/plugin/skills/pr]
+git:
+- write:
+    plugin/.claude-plugin/plugin.json: '{"name": "la", "version": "<VERSION>"}'
+    plugin/skills/pr/SKILL.md: skill
+    plugin/skills/pr/.claude-plugin/plugin.json/not-a-file: x
+normalize: [version]
+expect:
+  exit: 0
+note: walks up from the skill dir past a plugin.json that is not a file to the plugin's manifest

@@ -5,6 +5,7 @@ command: la-check-conventions
 args:
 - --base
 - main
+fixture: conventions-base
 git: none
 expect:
   exit: 2

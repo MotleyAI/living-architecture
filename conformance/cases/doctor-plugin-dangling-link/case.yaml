@@ -1,0 +1,12 @@
+kind: neutral
+command: la-doctor
+args: [--plugin, plugin/skills/pr]
+symlinks:
+  plugin/skills/pr/.claude-plugin/plugin.json: missing.json
+git:
+- write:
+    plugin/.claude-plugin/plugin.json: '{"version": "<VERSION>"}'
+normalize: [version]
+expect:
+  exit: 0
+note: a dangling manifest symlink is absent; the walk continues upward

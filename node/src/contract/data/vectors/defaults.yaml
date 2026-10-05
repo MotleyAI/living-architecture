@@ -4,10 +4,12 @@ cases:
 - name: missing file
   config: null
   resolved:
+    tracker: linear
+    openspec: true
+    architecture: false
     reviewers:
-      coderabbit: false
+      codex: true
       sonar:
-        enabled: false
         project_key: null
     issue_key_pattern: '[A-Z][A-Z0-9]+-\d+'
     commands:
@@ -19,13 +21,20 @@ cases:
     conventions:
       text_ratio_max: 0.15
       exempt: []
+      rules:
+      - import-not-top
+      - text-ratio
+      - composite-assert
+      - raises-single-throw
 - name: empty file
   config: ''
   resolved:
+    tracker: linear
+    openspec: true
+    architecture: false
     reviewers:
-      coderabbit: false
+      codex: true
       sonar:
-        enabled: false
         project_key: null
     issue_key_pattern: '[A-Z][A-Z0-9]+-\d+'
     commands:
@@ -37,14 +46,21 @@ cases:
     conventions:
       text_ratio_max: 0.15
       exempt: []
+      rules:
+      - import-not-top
+      - text-ratio
+      - composite-assert
+      - raises-single-throw
 - name: comments only
   config: |
     # nothing yet
   resolved:
+    tracker: linear
+    openspec: true
+    architecture: false
     reviewers:
-      coderabbit: false
+      codex: true
       sonar:
-        enabled: false
         project_key: null
     issue_key_pattern: '[A-Z][A-Z0-9]+-\d+'
     commands:
@@ -56,14 +72,21 @@ cases:
     conventions:
       text_ratio_max: 0.15
       exempt: []
+      rules:
+      - import-not-top
+      - text-ratio
+      - composite-assert
+      - raises-single-throw
 - name: empty mapping
   config: |
     {}
   resolved:
+    tracker: linear
+    openspec: true
+    architecture: false
     reviewers:
-      coderabbit: false
+      codex: true
       sonar:
-        enabled: false
         project_key: null
     issue_key_pattern: '[A-Z][A-Z0-9]+-\d+'
     commands:
@@ -75,15 +98,22 @@ cases:
     conventions:
       text_ratio_max: 0.15
       exempt: []
+      rules:
+      - import-not-top
+      - text-ratio
+      - composite-assert
+      - raises-single-throw
 - name: absent parents are created
   config: |
-    reviewers: {sonar: {enabled: false}}
+    reviewers: {sonar: {project_key: k}}
   resolved:
+    tracker: linear
+    openspec: true
+    architecture: false
     reviewers:
-      coderabbit: false
+      codex: true
       sonar:
-        enabled: false
-        project_key: null
+        project_key: k
     issue_key_pattern: '[A-Z][A-Z0-9]+-\d+'
     commands:
       test: null
@@ -94,16 +124,24 @@ cases:
     conventions:
       text_ratio_max: 0.15
       exempt: []
+      rules:
+      - import-not-top
+      - text-ratio
+      - composite-assert
+      - raises-single-throw
 - name: explicit falsy values are kept
   config: |
-    conventions: {exempt: []}
-    reviewers: {coderabbit: false, sonar: {enabled: false}}
+    conventions: {exempt: [], rules: []}
+    reviewers: {codex: false}
+    openspec: false
     commands: {test: ''}
   resolved:
+    tracker: linear
+    openspec: false
+    architecture: false
     reviewers:
-      coderabbit: false
+      codex: false
       sonar:
-        enabled: false
         project_key: null
     issue_key_pattern: '[A-Z][A-Z0-9]+-\d+'
     commands:
@@ -115,17 +153,23 @@ cases:
     conventions:
       text_ratio_max: 0.15
       exempt: []
+      rules: []
 - name: explicit values are never replaced
   config: |
-    reviewers: {coderabbit: true, sonar: {enabled: true, project_key: k}}
+    tracker: github
+    openspec: false
+    architecture: true
+    reviewers: {codex: false, sonar: {project_key: k}}
     issue_key_pattern: 'X-\d+'
     commands: {test: t, lint: l}
-    conventions: {text_ratio_max: 0.5, exempt: ['a/*']}
+    conventions: {text_ratio_max: 0.5, exempt: ['a/*'], rules: [text-ratio]}
   resolved:
+    tracker: github
+    openspec: false
+    architecture: true
     reviewers:
-      coderabbit: true
+      codex: false
       sonar:
-        enabled: true
         project_key: k
     issue_key_pattern: X-\d+
     commands:
@@ -138,14 +182,18 @@ cases:
       text_ratio_max: 0.5
       exempt:
       - a/*
+      rules:
+      - text-ratio
 - name: sibling defaults filled
   config: |
     conventions: {exempt: ['gen/*']}
   resolved:
+    tracker: linear
+    openspec: true
+    architecture: false
     reviewers:
-      coderabbit: false
+      codex: true
       sonar:
-        enabled: false
         project_key: null
     issue_key_pattern: '[A-Z][A-Z0-9]+-\d+'
     commands:
@@ -158,14 +206,21 @@ cases:
       text_ratio_max: 0.15
       exempt:
       - gen/*
+      rules:
+      - import-not-top
+      - text-ratio
+      - composite-assert
+      - raises-single-throw
 - name: typecheck partial map keeps explicit values and null
   config: |
     commands: {typecheck: {typescript: null}}
   resolved:
+    tracker: linear
+    openspec: true
+    architecture: false
     reviewers:
-      coderabbit: false
+      codex: true
       sonar:
-        enabled: false
         project_key: null
     issue_key_pattern: '[A-Z][A-Z0-9]+-\d+'
     commands:
@@ -177,14 +232,21 @@ cases:
     conventions:
       text_ratio_max: 0.15
       exempt: []
+      rules:
+      - import-not-top
+      - text-ratio
+      - composite-assert
+      - raises-single-throw
 - name: typecheck custom command
   config: |
     commands: {typecheck: {python: basedpyright -p python}}
   resolved:
+    tracker: linear
+    openspec: true
+    architecture: false
     reviewers:
-      coderabbit: false
+      codex: true
       sonar:
-        enabled: false
         project_key: null
     issue_key_pattern: '[A-Z][A-Z0-9]+-\d+'
     commands:
@@ -196,3 +258,34 @@ cases:
     conventions:
       text_ratio_max: 0.15
       exempt: []
+      rules:
+      - import-not-top
+      - text-ratio
+      - composite-assert
+      - raises-single-throw
+- name: tracker none kept
+  config: |
+    tracker: none
+  resolved:
+    tracker: none
+    openspec: true
+    architecture: false
+    reviewers:
+      codex: true
+      sonar:
+        project_key: null
+    issue_key_pattern: '[A-Z][A-Z0-9]+-\d+'
+    commands:
+      test: null
+      lint: null
+      typecheck:
+        python: basedpyright
+        typescript: tsc --noEmit
+    conventions:
+      text_ratio_max: 0.15
+      exempt: []
+      rules:
+      - import-not-top
+      - text-ratio
+      - composite-assert
+      - raises-single-throw

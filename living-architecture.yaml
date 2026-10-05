@@ -1,7 +1,13 @@
+tracker: linear
+openspec: true
 architecture: true
-conventions:
-  exempt: ['conformance/*']   # fixtures and goldens that break the rules on purpose
+reviewers:
+  codex: true
 commands:
+  test: uv run --project python pytest -q python
+  lint: uv run --project python ruff check python/src python/tests
   typecheck:
     python: uv run --project python basedpyright -p python
     typescript: node/node_modules/.bin/tsc -p node --noEmit
+conventions:
+  exempt: ['conformance/*']   # fixtures and goldens that break the rules on purpose

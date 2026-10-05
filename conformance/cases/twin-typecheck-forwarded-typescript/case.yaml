@@ -3,6 +3,7 @@ languages:
 - python
 - typescript
 twin: python
+fixture: typecheck-ts-src
 other_twin: absent
 command: la-typecheck
 bins:

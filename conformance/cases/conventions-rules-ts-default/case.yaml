@@ -1,0 +1,11 @@
+kind: adapter
+languages:
+- typescript
+command: la-check-conventions
+args:
+- --file
+- src/a.test.ts
+expect:
+  exit: 1
+golden: manual
+note: a conventions section without `rules` keeps every registry rule

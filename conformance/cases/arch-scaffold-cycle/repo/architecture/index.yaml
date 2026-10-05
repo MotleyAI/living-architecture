@@ -1,0 +1,4 @@
+# Python only for now.
+python:
+  root_package: pkg
+legacy_arrows: {baseline: 0}

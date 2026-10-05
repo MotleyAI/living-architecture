@@ -1,0 +1,10 @@
+kind: neutral
+command: la-doctor
+args:
+- --require-config
+normalize:
+- version
+expect:
+  exit: 1
+golden: manual
+note: with --require-config a missing config file is a finding naming /la:init

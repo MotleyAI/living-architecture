@@ -7,51 +7,13 @@ observable output so the twins cannot drift.
 
 ## Requirements
 
-### Requirement: Configuration parameters come from the shared schemas
-Every key, type, constraint and default of `living-architecture.yaml` SHALL be defined only by the shared
-JSON Schema for that file, every key and type of `architecture/index.yaml` SHALL be defined only by the
-shared index schema, and every key and type of a node's model metadata SHALL be defined only by the shared
-node schema. A resolved configuration SHALL equal the input with schema defaults filled in
-recursively. Filling SHALL also fill absent parent objects, and SHALL keep explicit `false`, `0`, empty
-lists and empty strings. A missing file or an empty file SHALL resolve to all defaults. The index schema
-SHALL NOT constrain the values whose problems the arch-check reports as findings (`legacy_arrows`,
-`diagrams`, `view_depth`).
-
-#### Scenario: Missing config resolves to schema defaults
-- **WHEN** a repo has no `living-architecture.yaml` and `la-config show` runs
-- **THEN** it prints the resolved configuration built only from the schema defaults, byte-identical to the frozen golden, and exits 0
-
-#### Scenario: Partial nested config is completed
-- **WHEN** the config sets only `reviewers: {sonar: {enabled: false}}` and `la-config show` runs
-- **THEN** every other key, including `reviewers.coderabbit` and `reviewers.sonar.project_key`, carries its schema default
-
-#### Scenario: Explicit falsy values are kept
-- **WHEN** the config sets `conventions: {exempt: []}` and `reviewers: {coderabbit: false}`
-- **THEN** the resolved configuration keeps the empty list and `false` rather than substituting defaults
-
-#### Scenario: Unknown key is rejected
-- **WHEN** the config contains a key the schema does not define and `la-config show` runs
-- **THEN** the command exits 1 and its error names the offending key
-
-#### Scenario: Cross-field rule is enforced
-- **WHEN** the config sets `reviewers.sonar.enabled: true` without `project_key`
-- **THEN** validation fails, the command exits with the configuration-error code, and the error names `project_key`
-
-#### Scenario: A finding-level index problem stays a finding
-- **WHEN** `index.yaml` sets `legacy_arrows.baseline: -1` and `la-arch-check` runs
-- **THEN** it reports the `baseline-ratchet` finding and exits 1, exactly as the frozen golden records, not a schema error with exit 2
-
-#### Scenario: Node metadata validated by the node schema
-- **WHEN** a node's model metadata carries a key the shared node schema does not define
-- **THEN** `la-arch-check` exits 2 and its error names the element and the key
-
 ### Requirement: YAML is read with one fixed profile
 Every YAML input SHALL be read as YAML 1.1, exactly as PyYAML's safe loader reads it: `yes`/`no`/`on`/`off`
 are booleans, and a duplicate mapping key takes the last value.
 
 #### Scenario: YAML 1.1 boolean
-- **WHEN** the config sets `reviewers: {coderabbit: yes}`
-- **THEN** the resolved `reviewers.coderabbit` is `true`
+- **WHEN** the config sets `reviewers: {codex: no}`
+- **THEN** the resolved `reviewers.codex` is `false`
 
 #### Scenario: Duplicate key
 - **WHEN** a mapping in the config repeats a key
@@ -210,3 +172,68 @@ SHALL be excluded from byte comparison; a twin SHALL NOT imitate another runtime
 #### Scenario: OS error detail is the runtime's own
 - **WHEN** `la-arch-check` cannot read `architecture/index.yaml`, or `la-arch-diagrams` cannot read a mapped arc42 doc (missing, or a directory), through either twin
 - **THEN** both twins exit with the same code, and stderr starts with the contract prefix (`arch_check: ` / `la-arch-diagrams: `) followed by the runtime's own wording, which names the offending path when the file is missing, with no CPython errno text in the npm twin
+
+### Requirement: la-doctor checks the tools against the calling plugin
+`la-doctor --plugin DIR` SHALL resolve DIR against the working directory and read the nearest
+`.claude-plugin/plugin.json` file at or above it, skipping a missing entry or one that is not a regular file. When
+none exists it SHALL report `doctor.plugin-not-found`; when an entry on the way cannot be inspected (any other
+stat or read error) it SHALL report `doctor.plugin-unreadable`;
+when the file is not valid UTF-8 JSON (no BOM, no `NaN`/`Infinity`) whose top level is an object with a string
+`version` free of lone surrogates, it SHALL report `doctor.plugin-invalid`; when that version differs from the installed tools' version
+it SHALL report `doctor.version-mismatch`. Given both `--expect` and `--plugin`, each SHALL be checked,
+`--expect` first. Every skill that uses an `la-*` or `dr-*` command SHALL run
+`la-doctor --plugin <this skill's base directory>` as its preflight and SHALL NOT pin a version.
+
+#### Scenario: Version read from the enclosing plugin
+- **WHEN** `la-doctor --plugin <plugin>/skills/pr` runs and `<plugin>/.claude-plugin/plugin.json` declares the installed version
+- **THEN** it reports healthy and exits 0
+
+#### Scenario: Plugin version differs
+- **WHEN** the nearest `plugin.json` declares `0.0.0`
+- **THEN** it prints the `doctor.version-mismatch` problem and exits 1
+
+#### Scenario: No plugin manifest
+- **WHEN** no `.claude-plugin/plugin.json` exists at or above DIR
+- **THEN** it prints `no .claude-plugin/plugin.json at or above <DIR>` and exits 1
+
+#### Scenario: Skill pins a version
+- **WHEN** a SKILL.md contains `la-doctor --expect`
+- **THEN** the skills test fails
+
+### Requirement: Configuration parameters are defined only by the shared schemas
+Every key, type, constraint and default of `living-architecture.yaml` SHALL be defined only by the shared
+JSON Schema for that file, every key and type of `architecture/index.yaml` SHALL be defined only by the
+shared index schema, and every key and type of a node's model metadata SHALL be defined only by the shared
+node schema. A resolved configuration SHALL equal the input with schema defaults filled in
+recursively. Filling SHALL also fill absent parent objects, and SHALL keep explicit `false`, `0`, empty
+lists and empty strings. A missing file or an empty file SHALL resolve to all defaults. The index schema
+SHALL NOT constrain the values whose problems the arch-check reports as findings (`legacy_arrows`,
+`diagrams`, `view_depth`).
+
+#### Scenario: Missing config resolves to schema defaults
+- **WHEN** a repo has no `living-architecture.yaml` and `la-config show` runs
+- **THEN** it prints the resolved configuration built only from the schema defaults, byte-identical to the frozen golden, and exits 0
+
+#### Scenario: Partial nested config is completed
+- **WHEN** the config sets only `reviewers: {sonar: {project_key: o_r}}` and `la-config show` runs
+- **THEN** every other key, including `reviewers.codex` and `tracker`, carries its schema default
+
+#### Scenario: Explicit falsy values are kept
+- **WHEN** the config sets `conventions: {exempt: [], rules: []}` and `reviewers: {codex: false}`
+- **THEN** the resolved configuration keeps the empty lists and `false` rather than substituting defaults
+
+#### Scenario: Unknown key is rejected
+- **WHEN** the config contains a key the schema does not define and `la-config show` runs
+- **THEN** the command exits 1 and its error names the offending key
+
+#### Scenario: Enumerated value is enforced
+- **WHEN** the config sets `tracker: jira`
+- **THEN** validation fails, the command exits with the configuration-error code, and the error names `tracker`
+
+#### Scenario: A finding-level index problem stays a finding
+- **WHEN** `index.yaml` sets `legacy_arrows.baseline: -1` and `la-arch-check` runs
+- **THEN** it reports the `baseline-ratchet` finding and exits 1, exactly as the frozen golden records, not a schema error with exit 2
+
+#### Scenario: Node metadata validated by the node schema
+- **WHEN** a node's model metadata carries a key the shared node schema does not define
+- **THEN** `la-arch-check` exits 2 and its error names the element and the key

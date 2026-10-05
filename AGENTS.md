@@ -40,7 +40,7 @@ hand. The update mode always runs serially, even with `-n`.
 ## Versions and the contract hash
 
 The package versions (`python/pyproject.toml`, `node/package.json`) and
-`plugin/.claude-plugin/plugin.json` always move together, as do the skills' `la-doctor --expect` pins. Each
+`plugin/.claude-plugin/plugin.json` always move together; skills read the expected version from `plugin.json` (`la-doctor --plugin`). Each
 snapshot's `CONTRACT_HASH` must equal the hash of `shared/`; `la-doctor --contract-hash` prints the bundled
 one. Release only when every twin's version and contract hash agree.
 

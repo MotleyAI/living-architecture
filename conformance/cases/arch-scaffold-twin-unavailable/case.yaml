@@ -1,0 +1,20 @@
+kind: adapter
+languages:
+- python
+twin: python
+fixture: scaffold-minimal
+other_twin: absent
+command: la-arch-scaffold
+normalize:
+- version
+expect:
+  exit: 2
+  files:
+  - architecture/model/specification.c4
+  - architecture/model/python.c4
+  - architecture/model/typescript.c4
+  - architecture/views.c4
+  - architecture/system.arc42.md
+  - architecture/index.yaml
+golden: manual
+note: 'PyPI twin, typescript declared, no npm twin and no npx on PATH: exit 2 with the install hint, nothing written'

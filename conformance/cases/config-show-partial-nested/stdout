@@ -1,9 +1,11 @@
 {
+  "tracker": "linear",
+  "openspec": true,
+  "architecture": false,
   "reviewers": {
-    "coderabbit": false,
+    "codex": true,
     "sonar": {
-      "enabled": false,
-      "project_key": null
+      "project_key": "o_r"
     }
   },
   "issue_key_pattern": "[A-Z][A-Z0-9]+-\\d+",
@@ -17,6 +19,12 @@
   },
   "conventions": {
     "text_ratio_max": 0.15,
-    "exempt": []
+    "exempt": [],
+    "rules": [
+      "import-not-top",
+      "text-ratio",
+      "composite-assert",
+      "raises-single-throw"
+    ]
   }
 }

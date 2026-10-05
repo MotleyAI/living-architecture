@@ -1,0 +1,6 @@
+kind: neutral
+command: la-pr-reviewers
+expect:
+  exit: 2
+  stderr: ignore
+golden: manual

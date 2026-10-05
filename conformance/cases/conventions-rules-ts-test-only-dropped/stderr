@@ -1,0 +1,2 @@
+check-conventions: tests text-only ratio 0.0% (0/6, cap 15.0%)
+check-conventions: 0 violation(s) across 1 changed TS/JS file(s)

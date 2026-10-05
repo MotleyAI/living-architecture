@@ -42,7 +42,6 @@ flowchart TD
   conventions --> contract
   c4 --> contract
   config --> contract
-  review --> config
   review --> contract
   doctor --> config
   doctor --> contract
@@ -89,7 +88,6 @@ flowchart TD
   lang --> contract
   c4 --> contract
   config --> contract
-  review --> config
   review --> contract
   doctor --> config
   doctor --> contract

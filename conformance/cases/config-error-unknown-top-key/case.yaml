@@ -2,6 +2,7 @@ kind: neutral
 command: la-config
 args:
 - show
+fixture: config-invalid
 expect:
   exit: 1
   stdout: ''

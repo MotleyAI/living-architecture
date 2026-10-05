@@ -1,1 +1,1 @@
-reviewers: {sonar: {enabled: false}}
+reviewers: {sonar: {project_key: o_r}}

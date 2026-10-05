@@ -1,0 +1,12 @@
+kind: adapter
+languages:
+- typescript
+command: la-check-conventions
+args:
+- --file
+- src/m.cjs
+expect:
+  exit: 1
+golden: manual
+note: 'only the configured rule reports: the text-ratio breach prints neither a finding
+  nor a ratio line'

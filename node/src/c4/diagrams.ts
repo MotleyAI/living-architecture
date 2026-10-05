@@ -30,7 +30,8 @@ function isArc42DocKey(key: unknown): key is string {
   return parts.length === 2 && parts[0] === 'architecture';
 }
 
-function canonicalBlock(view: View, model: ModelParse): string {
+/** A view's marker-wrapped mermaid block, exactly as la-arch-diagrams writes it. */
+export function diagramBlock(view: View, model: ModelParse): string {
   return `<!-- likec4:${view.id} -->\n${renderMermaid(view, project(model, view.root))}\n<!-- /likec4:${view.id} -->`;
 }
 
@@ -79,7 +80,7 @@ function rewriteMarkers(text: string, vids: unknown, byId: Map<unknown, View>, m
     if (error !== null || span === null) {
       throw new DiagramsError(message('arch-diagrams.marker', { doc: docKey, problem: error, view: vid }));
     }
-    out = out.slice(0, span[0]) + canonicalBlock(view, model) + out.slice(span[1]);
+    out = out.slice(0, span[0]) + diagramBlock(view, model) + out.slice(span[1]);
   }
   return out;
 }
@@ -176,7 +177,7 @@ function checkFreshness(root: string, model: ModelParse, views: ViewsParse, mapp
       }
       const [span, error] = markerSpan(text, vid);
       if (error !== null) findings.push(message(`diagrams-fresh.marker-${error}`, { doc: docKey, view: vid }));
-      else if (span !== null && text.slice(span[0], span[1]) !== canonicalBlock(view, model)) {
+      else if (span !== null && text.slice(span[0], span[1]) !== diagramBlock(view, model)) {
         findings.push(message('diagrams-fresh.stale', { doc: docKey, view: vid }));
       }
     }

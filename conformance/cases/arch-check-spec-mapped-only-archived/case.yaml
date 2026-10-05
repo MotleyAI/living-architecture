@@ -1,0 +1,11 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+fixture: arch-ok
+remove:
+- openspec/specs/logging
+expect:
+  exit: 1
+golden: manual
+note: 'an archived change does not make a group present'

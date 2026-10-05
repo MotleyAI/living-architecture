@@ -21,14 +21,17 @@ export const CONFIG_FILENAME = 'living-architecture.yaml';
 export class ConfigError extends Error {}
 
 export interface LaConfig {
-  reviewers: { coderabbit: boolean; sonar: { enabled: boolean; project_key: string | null } };
+  tracker: 'linear' | 'github' | 'none';
+  openspec: boolean;
+  architecture: boolean;
+  reviewers: { codex: boolean; sonar: { project_key: string | null } };
   issue_key_pattern: string;
   commands: {
     test: string | null;
     lint: string | null;
     typecheck: { python: string | null; typescript: string | null };
   };
-  conventions: { text_ratio_max: number; exempt: string[] };
+  conventions: { text_ratio_max: number; exempt: string[]; rules: string[] };
 }
 
 /** Validate raw config data (null = no file) and fill the schema defaults; Error if invalid. */

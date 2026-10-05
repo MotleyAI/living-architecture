@@ -1,0 +1,12 @@
+kind: neutral
+command: la-config
+args:
+- show
+expect:
+  exit: 1
+  stdout: ''
+  stderr:
+    contains:
+    - coderabbit
+golden: manual
+note: reviewers.coderabbit was removed; CodeRabbit is detected per PR

@@ -12,7 +12,7 @@ from pydantic import BaseModel, ConfigDict
 from living_architecture import twin
 from living_architecture.archcheck.claims import check_claims
 from living_architecture.archcheck.docs import check_arc42, check_legacy_ratchet, check_spec_mapping
-from living_architecture.archcheck.facts import Facts, native_facts
+from living_architecture.archcheck.facts import Facts, native_facts, native_top_level_facts
 from living_architecture.archcheck.index import (
     ArchCheckError,
     Layout,
@@ -21,6 +21,7 @@ from living_architecture.archcheck.index import (
     resolve_layout,
 )
 from living_architecture.archcheck.nodes import NodeMap, build_node_map, unit_to_element
+from living_architecture.archcheck.scaffold import run_scaffold
 from living_architecture.archcheck.tags import check_enforced_tags
 from living_architecture.archcheck.truth import check_model_truth, license, measure_runtime_edges
 from living_architecture.c4 import ModelParse, check_diagrams_fresh, parse_model, parse_views
@@ -38,6 +39,7 @@ __all__ = [
     "resolve_layout",
     "run",
     "run_checks",
+    "run_scaffold",
     "unit_to_element",
 ]
 
@@ -98,15 +100,24 @@ def run_checks(root: Path) -> list[str]:
         raise ArchCheckError(str(exc)) from exc
 
 
-def emit_facts(root: Path, language: str) -> dict[str, Any]:
-    """The native language's facts document; ArchCheckError on a broken setup."""
+def _emit(root: Path, language: str, *, top_level: bool) -> Facts:
+    if top_level:
+        index = load_index(root)
+        if language not in declared_languages(index):
+            raise ArchCheckError(message("arch-check.no-language-section"))
+        return native_top_level_facts(resolve_layout(root, index[language]), language)
+    setup = _setup(root)
+    if language not in setup.languages:
+        raise ArchCheckError(message("arch-check.no-language-section"))
+    return _facts(root, setup, language)
+
+
+def emit_facts(root: Path, language: str, *, top_level: bool = False) -> dict[str, Any]:
+    """The native language's facts document (`top_level`: edges between top-level units, no model)."""
     if language != twin.NATIVE_LANGUAGE:
         raise ArchCheckError(message("twin.not-native", language=language))
     try:
-        setup = _setup(root)
-        if language not in setup.languages:
-            raise ArchCheckError(message("arch-check.no-language-section"))
-        return _facts(root, setup, language).document()
+        return _emit(root, language, top_level=top_level).document()
     except OSError as exc:
         raise ArchCheckError(str(exc)) from exc
 
@@ -116,11 +127,11 @@ def _setup_error(error: str) -> int:
     return 2
 
 
-def run(root: Path, *, language: str | None = None, emit: str | None = None) -> int:
+def run(root: Path, *, language: str | None = None, emit: str | None = None, top_level: bool = False) -> int:
     """`la-arch-check`: print the findings and a summary, or (`--emit facts`) one language's facts."""
     try:
         if emit == "facts" and language is not None:
-            print(json.dumps(emit_facts(root, language), indent=2))
+            print(json.dumps(emit_facts(root, language, top_level=top_level), indent=2))
             return 0
         findings = run_checks(root)
     except (ArchCheckError, ConfigError, twin.TwinError) as exc:

@@ -1,0 +1,11 @@
+kind: adapter
+languages:
+- typescript
+command: la-check-conventions
+args:
+- --file
+- src/bad.ts
+expect:
+  exit: 1
+golden: manual
+note: text-ratio applies to every file, so the file's syntax-error is reported

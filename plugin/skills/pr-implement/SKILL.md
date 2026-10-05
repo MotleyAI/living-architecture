@@ -1,19 +1,19 @@
 ---
 name: pr-implement
-description: Stage 3 of 4 of the /la:pr flow — implement until every test from the pr-tests stage passes, then with the user's explicit go-ahead commit, push, and open the PR. Normally dispatched by /la:pr; if the /la:pr context (BRANCH, CHANGE_ID, OPENSPEC, Linear issue) is not already loaded in this session, invoke the la:pr skill instead.
+description: Stage 3 of 4 of the /la:pr flow — implement until every test from the pr-tests stage passes, then with the user's explicit go-ahead commit, push, and open the PR. Normally dispatched by /la:pr; if the /la:pr context (BRANCH, CHANGE_ID, OPENSPEC, tracker issue) is not already loaded in this session, invoke the la:pr skill instead.
 ---
 
-**Preflight:** run `la-doctor --expect 0.2.1` once per session before using any `la-*` or `dr-*` command; if it fails, stop and show the user its output.
+**Preflight:** run `la-doctor --plugin <this skill's base directory> --require-config` once per session before using any `la-*` or `dr-*` command. If it reports the missing-config finding (the one naming `/la:init`), run the fast path of the `la:init` skill, then re-run this preflight; stop and show the user its output on anything it still reports, or on any other failure.
 
 **Stage 3 of 4 of the `/la:pr` flow.** Prerequisite: `/la:pr` has run in this
-session and established `BRANCH`, `CHANGE_ID`, `OPENSPEC`, and the full Linear
-issue (body + comments). If any of that is missing, invoke the `la:pr` skill
+session and established `BRANCH`, `CHANGE_ID`, `OPENSPEC`, and the full tracker
+issue (body + comments), if there is one. If any of that is missing, invoke the `la:pr` skill
 instead — it rehydrates and dispatches back here. The `/la:pr` stopping policy
 applies throughout this stage.
 
 Before writing anything, recover the durable plan (the
 `openspec/changes/<CHANGE_ID>/` folder when `OPENSPEC=1`, else the plan
-comment on the Linear issue) and the failing tests already on disk from
+comment on the tracker issue) and the failing tests already on disk from
 `pr-tests`.
 
 ## Step 1 — Implement until tests pass
@@ -50,39 +50,45 @@ each task (the same checklist authored in `pr-plan` — this is the
 
 When writing code, follow the `la:concise-comments` skill: no design essays,
 ticket-ID-on-every-line, or code-restating comments; docstrings to a line.
-Rationale belongs in the spec / PR description / the Linear issue — not in
+Rationale belongs in the spec / PR description / the tracker issue — not in
 code — so verbose comments never get written in the first place.
 
-## Step 2 — Conventions gate (before commit)
+## Step 2 — Local gates (before commit)
 
-Once the suite is green, run the SAME deterministic conventions gate
-`pr-review` uses, so the review bots don't have to redo it and the first
-push is already clean. There is no PR yet at this stage, so diff against the
-default branch with `--base`:
+Once the suite is green, run the SAME deterministic gates `pr-review` uses, so
+the review bots don't have to redo them and the first push is already clean.
+Both are HARD GATES: do not proceed to Step 3 while either is RED.
+
+**Conventions.** There is no PR yet at this stage, so diff against the default
+branch with `--base`:
 
 ```
 la-check-conventions --base <default-branch>
 ```
 
-It AST-checks every `.py` file this change touches (whole file, committed ∪
-working tree) for `[import-not-top]` (no imports inside functions/classes; a
-`TYPE_CHECKING` / optional-dep `try:` wrapper is fine) and `[text-ratio]`
-(docstring/comment-only lines at most `conventions.text_ratio_max` of the total,
-default 15%, aggregated separately over the change's test files and its source
-files). Exit 0 = clear, 1 = RED.
+What it checks and how to fix each finding is described once, in the
+`la:process-reviews` skill (its conventions gate section); follow it. An
+`import-not-top` waiver must be confirmed with me BEFORE landing it. Re-run
+until green.
 
-This is a HARD GATE: do not proceed to Step 3 while it is RED. Fix every
-finding — hoist the flagged imports, and trim comments/docstrings in the
-flagged file group per `la:concise-comments` (internal modules carry the
-bulk; leave outward-facing docstrings — tool schemas, CLI help, API docs — alone,
-and list such files under `conventions.exempt`) until the ratio fits. An
-`import-not-top` waiver (`# ALLOW(import-not-top): <reason>`) is only for a
-genuine circular/optional import and must be confirmed with me BEFORE landing
-it. Re-run until green.
+**Type check.** Run `la-typecheck`. It checks each applicable language against
+its committed baseline, and exit 1 means this change added errors outside it.
+The baseline is a ratchet:
+- never re-record it (`--write-baseline` exists only to adopt the gate once);
+- fix every new error at its root, never by loosening types or adding a
+  suppression; a per-line suppression with a reason (`# pyright: ignore[rule]`,
+  `// @ts-expect-error`) is a solve only when the checker is wrong (a false
+  positive) or the wrongness is deliberate (e.g. an invalid-input test);
+- it only shrinks: when a file you touch carries baselined errors that
+  root-fix without much churn, fix those too, and commit the baseline
+  `la-typecheck` shrinks.
+
+`la-typecheck` printing "nothing to check" means no language applies, which is
+not a failure. Re-run until green.
 
 ## Step 3 — Ask me to push and open the PR
 
-Once all tests pass AND the conventions gate is green, stop and ask me whether
+Once all tests pass AND both local gates are green, stop and ask me whether
 to push and open a PR (folding in any final commit of the implementation).
 Intermediate local commits along the way were fine (Step 1), but **pushing** and
 **opening the PR** need my explicit go-ahead — do not do either on your own.
@@ -102,7 +108,7 @@ CI runs on, the current destination rather than a stale base: `git fetch origin
 merge — NEVER stash, NEVER rebase; the merge message's
 first line must name the merged ref in single quotes, e.g. `Merge branch
 'origin/main' into <BRANCH>`. Resolve any conflicts, re-run the local gates
-(full non-integration suite + conventions) on the merged tree, and only then
+(full non-integration suite, conventions and type check) on the merged tree, and only then
 push and `gh pr create`. If the base has not advanced since your last merge the
 merge is a no-op — proceed straight to the push.
 
@@ -113,12 +119,12 @@ or two (a query plus what it now returns, or a before/after). Cover anything a
 reviewer needs to understand and evaluate the change; skip what they don't.
 Do NOT paste `openspec show --diff`, the raw delta specs, or the tasks
 checklist — the change folder is committed in this PR, so whoever wants the full
-spec surface reads it there. Link the Linear issue.
+spec surface reads it there. Link the tracker issue (GitHub: `Closes #<N>`).
 
 ## Step 4 — Hard stop
 
 > **🛑 HARD STOP (reset point 3 of 3) — just after the PR is created.** Code,
-> tests (green, conventions gate clean), and the change folder are committed and
+> tests (green, local gates clean), and the change folder are committed and
 > the PR exists. Say we're at reset point 3 and STOP — do not start the review
 > loop. I'll `/clear` and re-invoke `/la:pr`, which will detect and run
 > `pr-review`.

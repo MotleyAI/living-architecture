@@ -1,0 +1,5 @@
+arc42-exists: architecture/～.arc42.md is orphaned — not architecture/system.arc42.md, a node arc42 entry, or in cross_cutting_arc42
+arc42-exists: architecture/😀.arc42.md is orphaned — not architecture/system.arc42.md, a node arc42 entry, or in cross_cutting_arc42
+spec-mapping: spec group ～ is mapped by no node and not cross-cutting
+spec-mapping: spec group 😀 is mapped by no node and not cross-cutting
+arch_check: 4 finding(s)

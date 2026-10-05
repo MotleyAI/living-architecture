@@ -1,0 +1,17 @@
+kind: neutral
+languages:
+- python
+- typescript
+command: la-arch-scaffold
+fixture: scaffold-mixed
+expect:
+  exit: 0
+  files:
+  - architecture/model/specification.c4
+  - architecture/model/python.c4
+  - architecture/model/typescript.c4
+  - architecture/views.c4
+  - architecture/system.arc42.md
+  - architecture/index.yaml
+golden: manual
+note: one model file and one view per declared language, in sorted order; both diagrams in system.arc42.md

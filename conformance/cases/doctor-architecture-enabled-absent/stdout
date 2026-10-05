@@ -1,0 +1,1 @@
+FAIL: architecture is true but the repo has no architecture/index.yaml; run /la:arch-init or set architecture: false

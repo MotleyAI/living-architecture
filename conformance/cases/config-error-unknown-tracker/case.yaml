@@ -1,0 +1,12 @@
+kind: neutral
+command: la-config
+args:
+- show
+expect:
+  exit: 1
+  stdout: ''
+  stderr:
+    contains:
+    - tracker
+golden: manual
+note: tracker is an enum (linear, github, none); exit code and offending key are the contract

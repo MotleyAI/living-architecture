@@ -1,0 +1,9 @@
+kind: neutral
+command: la-wait-for-reviews
+args:
+- '7'
+- --skip-coderabbit
+expect:
+  exit: 64
+golden: manual
+note: the removed flag is an unknown flag

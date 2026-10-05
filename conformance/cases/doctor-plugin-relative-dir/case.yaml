@@ -1,0 +1,12 @@
+kind: neutral
+command: la-doctor
+args: [--plugin, ../plugin/skills/./pr]
+cwd: sub
+git:
+- write:
+    plugin/.claude-plugin/plugin.json: '{"version": "<VERSION>"}'
+    sub/file: x
+normalize: [version]
+expect:
+  exit: 0
+note: a relative DIR resolves against the cwd

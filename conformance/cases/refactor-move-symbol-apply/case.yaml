@@ -11,6 +11,7 @@ args:
 - foo
 - --dest
 - pkg/sub/__init__.py
+fixture: refactor-pkg
 git:
 - commit: init
 expect:

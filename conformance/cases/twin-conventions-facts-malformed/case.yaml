@@ -2,6 +2,7 @@ kind: adapter
 languages:
 - python
 twin: python
+fixture: twin-conventions-facts
 other_twin: absent
 command: la-check-conventions
 args:

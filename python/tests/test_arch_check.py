@@ -1,11 +1,13 @@
 """arch_check cross-walk checks against tmp-dir repo fixtures."""
 
+import shutil
 import textwrap
 from pathlib import Path
 
 import pytest
 
 from living_architecture import archcheck, c4, cli
+from living_architecture.archcheck.scaffold import write_scaffold
 from living_architecture.contract import check_ids
 
 INDEX = """
@@ -270,6 +272,105 @@ def test_spec_group_without_spec_md(tmp_path):
     root = make_repo(tmp_path)
     (root / "openspec" / "specs" / "queries" / "foo" / "spec.md").unlink()
     assert any("no spec.md" in f for f in findings_for(root, "spec-mapping"))
+
+
+def write_files(root: Path, files: dict[str, str]) -> None:
+    for rel, content in files.items():
+        path = root / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8")
+
+
+def test_mapped_group_only_in_live_change_is_present(tmp_path):
+    root = make_repo(tmp_path)
+    shutil.rmtree(root / "openspec" / "specs" / "queries")
+    write_files(root, {"openspec/changes/add-queries/specs/queries/spec.md": "# spec\n"})
+    assert findings_for(root, "spec-mapping") == []
+
+
+def test_mapped_group_only_in_archived_change_is_missing(tmp_path):
+    root = make_repo(tmp_path)
+    shutil.rmtree(root / "openspec" / "specs" / "queries")
+    write_files(root, {"openspec/changes/archive/2026-01-01-add-queries/specs/queries/spec.md": "# spec\n"})
+    assert findings_for(root, "spec-mapping") == [
+        "spec-mapping: queries is mapped but has no spec dir in openspec/specs or a live change"
+    ]
+
+
+def test_archive_dir_with_its_own_specs_is_not_a_change(tmp_path):
+    root = make_repo(tmp_path)
+    write_files(root, {"openspec/changes/archive/specs/models/spec.md": "# spec\n"})
+    assert findings_for(root, "spec-mapping") == []
+
+
+def test_unmapped_group_in_live_change(tmp_path):
+    root = make_repo(tmp_path)
+    write_files(root, {"openspec/changes/add-models/specs/models/spec.md": "# spec\n"})
+    assert findings_for(root, "spec-mapping") == [
+        "spec-mapping: spec group models is mapped by no node and not cross-cutting"
+    ]
+
+
+def test_group_in_corpus_and_live_changes_is_reported_once(tmp_path):
+    root = make_repo(tmp_path)
+    write_files(
+        root,
+        {
+            "openspec/specs/models/spec.md": "# spec\n",
+            "openspec/changes/a/specs/models/spec.md": "# spec\n",
+            "openspec/changes/b/specs/models/spec.md": "# spec\n",
+        },
+    )
+    assert findings_for(root, "spec-mapping") == [
+        "spec-mapping: spec group models is mapped by no node and not cross-cutting"
+    ]
+
+
+def test_spec_md_in_any_live_change_counts(tmp_path):
+    root = make_repo(tmp_path)
+    shutil.rmtree(root / "openspec" / "specs" / "queries")
+    write_files(
+        root,
+        {
+            "openspec/changes/a/specs/queries/notes.md": "x\n",
+            "openspec/changes/b/specs/queries/deep/spec.md": "# spec\n",
+        },
+    )
+    assert findings_for(root, "spec-mapping") == []
+
+
+def test_spec_md_only_in_live_change_counts_for_corpus_group(tmp_path):
+    root = make_repo(tmp_path)
+    (root / "openspec" / "specs" / "queries" / "foo" / "spec.md").unlink()
+    write_files(root, {"openspec/changes/a/specs/queries/spec.md": "# spec\n"})
+    assert findings_for(root, "spec-mapping") == []
+
+
+def test_live_change_group_without_spec_md(tmp_path):
+    root = make_repo(tmp_path)
+    shutil.rmtree(root / "openspec" / "specs" / "queries")
+    write_files(root, {"openspec/changes/a/specs/queries/foo/notes.md": "x\n"})
+    assert findings_for(root, "spec-mapping") == ["spec-mapping: spec group queries contains no spec.md"]
+
+
+def test_archived_spec_md_does_not_count(tmp_path):
+    root = make_repo(tmp_path)
+    (root / "openspec" / "specs" / "queries" / "foo" / "spec.md").unlink()
+    write_files(root, {"openspec/changes/archive/2026-01-01-a/specs/queries/spec.md": "# spec\n"})
+    assert findings_for(root, "spec-mapping") == ["spec-mapping: spec group queries contains no spec.md"]
+
+
+def test_changes_without_spec_groups_are_ignored(tmp_path):
+    root = make_repo(tmp_path)
+    write_files(
+        root,
+        {
+            "openspec/changes/README.md": "x\n",
+            "openspec/changes/no-specs/proposal.md": "x\n",
+            "openspec/changes/stray/specs/spec.md": "x\n",
+        },
+    )
+    assert findings_for(root, "spec-mapping") == []
 
 
 def test_node_removed_from_model_claims_nothing(tmp_path):
@@ -1400,3 +1501,40 @@ def test_invalid_root_package_is_a_setup_error(tmp_path, section, error):
     with pytest.raises(archcheck.ArchCheckError) as excinfo:
         archcheck.run_checks(repo)
     assert str(excinfo.value) == f"architecture/index.yaml: {error}"
+
+
+CASES = next(p for p in Path(__file__).resolve().parents if (p / "conformance").is_dir()) / "conformance" / "cases"
+
+
+@pytest.mark.parametrize("check_case", ["arch-check-scaffolded-clean", "arch-check-scaffolded-unmapped-spec"])
+def test_scaffolded_check_cases_run_on_the_scaffold_golden(check_case):
+    """The scaffold-then-check cases check exactly what arch-scaffold-python writes."""
+    golden = CASES / "arch-scaffold-python" / "files" / "architecture"
+    checked = CASES / check_case / "repo" / "architecture"
+    files = sorted(p.relative_to(golden) for p in golden.rglob("*") if p.is_file())
+    assert files == sorted(p.relative_to(checked) for p in checked.rglob("*") if p.is_file())
+    assert all((golden / rel).read_bytes() == (checked / rel).read_bytes() for rel in files)
+
+
+def test_failed_scaffold_write_restores_index_and_removes_new_files(tmp_path):
+    arch = tmp_path / "architecture"
+    (arch / "views.c4").mkdir(parents=True)
+    (arch / "index.yaml").write_text("python: {}\r\n", encoding="utf-8")
+    files = {"architecture/model/specification.c4": "spec", "architecture/index.yaml": "changed\n", "architecture/views.c4": "v"}
+    with pytest.raises(OSError):
+        write_scaffold(tmp_path, files)
+    assert (arch / "index.yaml").read_bytes() == b"python: {}\r\n"
+    assert not (arch / "model").exists()
+    assert (arch / "views.c4").is_dir()
+
+
+def test_failed_scaffold_write_keeps_a_target_it_did_not_create(tmp_path):
+    arch = tmp_path / "architecture"
+    arch.mkdir()
+    (arch / "index.yaml").write_text("python: {}\r\n", encoding="utf-8")
+    (arch / "views.c4").write_text("theirs", encoding="utf-8")
+    files = {"architecture/model/specification.c4": "spec", "architecture/views.c4": "v"}
+    with pytest.raises(FileExistsError):
+        write_scaffold(tmp_path, files)
+    assert (arch / "views.c4").read_text(encoding="utf-8") == "theirs"
+    assert not (arch / "model").exists()

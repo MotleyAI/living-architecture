@@ -1,0 +1,8 @@
+kind: neutral
+command: la-doctor
+normalize:
+- version
+expect:
+  exit: 1
+golden: manual
+note: 'tracker: none with openspec: false leaves nowhere to persist the plan'

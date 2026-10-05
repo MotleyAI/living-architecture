@@ -1,9 +1,12 @@
 // Manifest parser vectors, through src/cli/parser.ts: parse(command, argv) returns the parsed mapping keyed by dest
 // (defaults and `subcommand` included; a passthrough command gives {argv}) or throws UsageError (exitCode 2);
 // help(command) returns the command's --help text.
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { HelpRequested, UsageError, help, parse } from '../src/cli/parser.js';
-import { plain, vectors } from './helpers.js';
+import { manifest } from '../src/contract/index.js';
+import { SNAPSHOT, plain, vectors } from './helpers.js';
 
 type Vector = { name: string; command: string; argv: string[]; args?: unknown; exit?: number };
 
@@ -65,5 +68,17 @@ describe('internal options', () => {
       language: 'typescript',
       emit: 'facts',
     });
+  });
+});
+
+describe('manifest', () => {
+  it('has no per-command gate', () => {
+    expect(Object.entries(manifest()).filter(([, spec]) => 'gate' in (spec as object)).map(([name]) => name)).toEqual([]);
+    const header = readFileSync(join(SNAPSHOT, 'cli.yaml'), 'utf8').split('\ncommands:')[0];
+    expect(header).not.toContain('gate');
+  });
+
+  it('runs la-pr-reviewers through its bundled script', () => {
+    expect(manifest()['la-pr-reviewers']?.script).toBe('pr-reviewers.sh');
   });
 });

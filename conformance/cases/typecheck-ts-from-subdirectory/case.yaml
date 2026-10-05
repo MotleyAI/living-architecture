@@ -3,6 +3,7 @@ languages:
 - typescript
 command: la-typecheck
 cwd: src
+fixture: typecheck-ts-src
 expect:
   exit: 0
   files:

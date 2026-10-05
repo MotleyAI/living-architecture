@@ -1,0 +1,15 @@
+kind: neutral
+command: la-doctor
+args:
+- --require-config
+fixture: config-invalid
+normalize:
+- version
+expect:
+  exit: 1
+  stdout:
+    contains:
+    - 'FAIL: '
+    - bogus
+golden: manual
+note: with --require-config an existing but invalid file reports the config error; config validation wording is not part of the contract

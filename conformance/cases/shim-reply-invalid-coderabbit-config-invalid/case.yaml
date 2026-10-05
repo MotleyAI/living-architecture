@@ -3,6 +3,7 @@ command: la-reply-invalid-coderabbit
 args:
 - https://github.com/o/r/pull/5#discussion_r1
 stdin: not a bug
+fixture: config-invalid
 gh:
 - match:
   - api
