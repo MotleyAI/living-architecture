@@ -1,0 +1,12 @@
+kind: neutral
+command: la-doctor
+args: [--plugin, plugin/skills/pr]
+symlinks:
+  plugin/skills/pr/.claude-plugin/plugin.json: plugin.json
+git:
+- write:
+    plugin/.claude-plugin/plugin.json: '{"version": "<VERSION>"}'
+normalize: [version]
+expect:
+  exit: 1
+note: a nearer manifest that cannot be inspected (symlink loop) fails instead of falling through to an outer one

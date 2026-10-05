@@ -2,7 +2,9 @@
 
 ### Requirement: la-doctor checks the tools against the calling plugin
 `la-doctor --plugin DIR` SHALL resolve DIR against the working directory and read the nearest
-`.claude-plugin/plugin.json` file at or above it. When none exists it SHALL report `doctor.plugin-not-found`;
+`.claude-plugin/plugin.json` file at or above it, skipping a missing entry or one that is not a regular file. When
+none exists it SHALL report `doctor.plugin-not-found`; when an entry on the way cannot be inspected (any other
+stat or read error) it SHALL report `doctor.plugin-unreadable`;
 when the file is not valid UTF-8 JSON (no BOM, no `NaN`/`Infinity`) whose top level is an object with a string
 `version` free of lone surrogates, it SHALL report `doctor.plugin-invalid`; when that version differs from the installed tools' version
 it SHALL report `doctor.version-mismatch`. Given both `--expect` and `--plugin`, each SHALL be checked,

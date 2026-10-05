@@ -6,6 +6,7 @@ import json
 import os
 import re
 import shutil
+import stat
 from pathlib import Path
 
 from living_architecture import __version__
@@ -27,21 +28,39 @@ def _reject_constant(name: str) -> None:
     raise ValueError(name)
 
 
-def _plugin_problem(plugin: str) -> str | None:
-    """Check against the version in the nearest `.claude-plugin/plugin.json` at or above `plugin`."""
-    # Collapse POSIX's leading `//` as Node's resolve() does.
-    start = Path(re.sub(r"^//(?=[^/])", "/", os.path.abspath(plugin)))
-    manifest = next((d / PLUGIN_MANIFEST for d in (start, *start.parents) if (d / PLUGIN_MANIFEST).is_file()), None)
-    if manifest is None:
-        return message("doctor.plugin-not-found", dir=start)
+def _is_file(path: Path) -> bool:
+    """A missing entry is absent; other stat errors propagate."""
     try:
-        data = json.loads(manifest.read_bytes().decode("utf-8"), parse_constant=_reject_constant)
-    except (OSError, ValueError):
+        return stat.S_ISREG(path.stat().st_mode)
+    except (FileNotFoundError, NotADirectoryError):
+        return False
+
+
+def _manifest_problem(manifest: Path, raw: bytes) -> str | None:
+    try:
+        data = json.loads(raw.decode("utf-8"), parse_constant=_reject_constant)
+    except ValueError:
         data = None
     version = data.get("version") if isinstance(data, dict) else None
     if not isinstance(version, str) or _LONE_SURROGATE.search(version):
         return message("doctor.plugin-invalid", path=manifest)
     return _version_problem(version)
+
+
+def _plugin_problem(plugin: str) -> str | None:
+    """Check against the version in the nearest `.claude-plugin/plugin.json` at or above `plugin`."""
+    # Collapse POSIX's leading `//` as Node's resolve() does.
+    start = Path(re.sub(r"^//(?=[^/])", "/", os.path.abspath(plugin)))
+    for directory in (start, *start.parents):
+        manifest = directory / PLUGIN_MANIFEST
+        try:
+            if not _is_file(manifest):
+                continue
+            raw = manifest.read_bytes()
+        except OSError:
+            return message("doctor.plugin-unreadable", path=manifest)
+        return _manifest_problem(manifest, raw)
+    return message("doctor.plugin-not-found", dir=start)
 
 
 def run_checks(*, root: Path, expect: str | None, plugin: str | None = None) -> list[str]:

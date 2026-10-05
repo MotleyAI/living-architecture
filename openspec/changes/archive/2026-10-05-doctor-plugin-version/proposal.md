@@ -7,7 +7,7 @@ rewrote the same pin in every skill. The plugin already declares its version in 
 
 - `la-doctor --plugin DIR` checks the installed tools against the `version` of the nearest
   `.claude-plugin/plugin.json` at or above DIR. `--expect` stays for skills of older plugins.
-- Two new problem texts: `doctor.plugin-not-found`, `doctor.plugin-invalid`.
+- Three new problem texts: `doctor.plugin-not-found`, `doctor.plugin-invalid`, `doctor.plugin-unreadable`.
 - Every skill's preflight becomes `la-doctor --plugin <this skill's base directory>`; the skills test forbids
   `--expect` pins.
 - The conformance runner substitutes placeholders in `write` step texts.

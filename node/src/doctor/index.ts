@@ -8,11 +8,14 @@ import { VERSION } from '../index.js';
 const REQUIRED_EXECUTABLES = ['git', 'gh'];
 const PLUGIN_MANIFEST = join('.claude-plugin', 'plugin.json');
 
+/** A missing entry is absent; other stat errors propagate. */
 function isFile(path: string): boolean {
   try {
     return statSync(path).isFile();
-  } catch {
-    return false;
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT' || code === 'ENOTDIR') return false;
+    throw error;
   }
 }
 
@@ -20,13 +23,16 @@ function versionProblem(expected: string): string | null {
   return expected === VERSION ? null : message('doctor.version-mismatch', { installed: VERSION, expected });
 }
 
-function manifestVersion(path: string): unknown {
+function manifestProblem(manifest: string, raw: Buffer): string | null {
+  let version: unknown = null;
   try {
-    const data: unknown = JSON.parse(new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(readFileSync(path)));
-    return data !== null && typeof data === 'object' && !Array.isArray(data) ? (data as Record<string, unknown>).version : null;
+    const data: unknown = JSON.parse(new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(raw));
+    if (data !== null && typeof data === 'object' && !Array.isArray(data)) version = (data as Record<string, unknown>).version;
   } catch {
-    return null;
+    version = null;
   }
+  if (typeof version !== 'string' || /\p{Surrogate}/u.test(version)) return message('doctor.plugin-invalid', { path: manifest });
+  return versionProblem(version);
 }
 
 /** Check against the version in the nearest `.claude-plugin/plugin.json` at or above `plugin`. */
@@ -34,11 +40,13 @@ function pluginProblem(plugin: string): string | null {
   const start = resolve(plugin);
   for (let dir = start; ; dir = dirname(dir)) {
     const manifest = join(dir, PLUGIN_MANIFEST);
-    if (isFile(manifest)) {
-      const version = manifestVersion(manifest);
-      const valid = typeof version === 'string' && !/\p{Surrogate}/u.test(version);
-      return valid ? versionProblem(version) : message('doctor.plugin-invalid', { path: manifest });
+    let raw: Buffer | null;
+    try {
+      raw = isFile(manifest) ? readFileSync(manifest) : null;
+    } catch {
+      return message('doctor.plugin-unreadable', { path: manifest });
     }
+    if (raw !== null) return manifestProblem(manifest, raw);
     if (dirname(dir) === dir) return message('doctor.plugin-not-found', { dir: start });
   }
 }

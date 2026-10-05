@@ -143,6 +143,7 @@ findings:
   doctor.missing-executable: '`{exe}` not found on PATH'
   doctor.plugin-not-found: no .claude-plugin/plugin.json at or above {dir}
   doctor.plugin-invalid: '{path} is not valid JSON with a string "version"'
+  doctor.plugin-unreadable: cannot inspect {path}
 
   # ---- twin forwarding
   twin.error: '{prog}: {error}'
