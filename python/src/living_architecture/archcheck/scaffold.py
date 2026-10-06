@@ -19,11 +19,17 @@ from living_architecture.archcheck.index import (
     resolve_layout,
 )
 from living_architecture.archcheck.nodes import separator
-from living_architecture.c4 import diagram_block, parse_model, parse_views, read_index
+from living_architecture.c4 import (
+    diagram_block,
+    model_file,
+    parse_model,
+    parse_views,
+    read_index,
+    sources,
+    views_file,
+)
 from living_architecture.contract import message
 
-SPECIFICATION_REL = "architecture/model/specification.c4"
-VIEWS_REL = "architecture/views.c4"
 ARC42_REL = "architecture/system.arc42.md"
 
 SPECIFICATION = """specification {
@@ -38,15 +44,10 @@ SPECIFICATION = """specification {
 """
 
 
-def _model_rel(language: str) -> str:
-    return f"architecture/model/{language}.c4"
-
-
 def _existing_output(root: Path) -> str | None:
-    """The first file the scaffold would clash with, repo-relative; None when the model is still unwritten."""
-    arch = root / "architecture"
-    candidates = [*sorted((arch / "model").glob("*.c4")), arch / "views.c4", *sorted(arch.glob("*.arc42.md"))]
-    return next((p.relative_to(root).as_posix() for p in candidates if p.is_file()), None)
+    """The first file the scaffold would clash with, repo-relative in code-point order; None when there is none."""
+    arc42 = [p.relative_to(root).as_posix() for p in (root / "architecture").glob("*.arc42.md") if p.is_file()]
+    return min([*sources(root), *arc42], default=None)
 
 
 def node_id(unit: str, language: str) -> str:
@@ -71,9 +72,9 @@ def _ids(facts: Facts) -> dict[str, str]:
     return ids
 
 
-def _render_model(facts: Facts) -> str:
+def _render_root(facts: Facts) -> list[str]:
     ids = _ids(facts)
-    lines = ["model {", f"  {facts.language} = system '{facts.language}' {{"]
+    lines = [f"  {facts.language} = system '{facts.language}' {{"]
     for unit in facts.top_level_units:
         title = unit.split(separator(facts.language))[-1]
         lines += [
@@ -86,8 +87,13 @@ def _render_model(facts: Facts) -> str:
     if facts.edges:
         lines.append("")
         lines += [f"    {ids[edge.src]} -> {ids[edge.dst]}" for edge in facts.edges]
-    lines += ["  }", "}"]
-    return "\n".join(lines) + "\n"
+    lines.append("  }")
+    return lines
+
+
+def _render_model(roots: list[list[str]]) -> str:
+    lines = ["model {", *(line for root in roots for line in root), "}"]
+    return SPECIFICATION + "\n".join(lines) + "\n"
 
 
 def _render_views(languages: list[str]) -> str:
@@ -139,10 +145,10 @@ def scaffold(root: Path) -> dict[str, str]:
     if existing is not None:
         raise ArchCheckError(message("arch-scaffold.exists", path=existing))
     languages = declared_languages(index)
-    files = {SPECIFICATION_REL: SPECIFICATION}
-    for language in languages:
-        files[_model_rel(language)] = _render_model(_facts(root, index, language))
-    files[VIEWS_REL] = _render_views(languages)
+    files = {
+        model_file(): _render_model([_render_root(_facts(root, index, language)) for language in languages]),
+        views_file(): _render_views(languages),
+    }
     index_text = _index_text(root, index, languages)
     files[ARC42_REL] = _arc42({**files, INDEX_REL: index_text}, languages)
     files[INDEX_REL] = index_text

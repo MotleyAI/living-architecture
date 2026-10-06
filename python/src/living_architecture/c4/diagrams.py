@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from living_architecture.c4.index import read_index
+from living_architecture.c4.layout import layout_problem
 from living_architecture.c4.mermaid import render_mermaid
 from living_architecture.c4.model import ModelParse, parse_model, project
 from living_architecture.c4.views import View, ViewsParse, parse_views
@@ -85,6 +86,9 @@ def _rewrite_markers(text: str, vids: Any, by_id: dict[str, View], model: ModelP
 
 def generate(root: Path) -> list[str]:
     """Rewrite each mapped doc's marker blocks from the model; return changed repo-relative paths."""
+    problem = layout_problem(root)
+    if problem is not None:
+        raise DiagramsError(problem)
     diagrams = _diagrams_map(root)
     if not isinstance(diagrams, dict):
         raise DiagramsError(_bad_diagrams_reason(diagrams))

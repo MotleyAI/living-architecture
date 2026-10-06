@@ -24,6 +24,7 @@ model {
     c4 = node 'LikeC4 model' {
       metadata {
         package 'living_architecture.c4'
+        specs ['c4-layout']
       }
     }
     archcheck = node 'Architecture check' {

@@ -52,6 +52,10 @@ def la_arch_diagrams(argv: list[str] | None = None) -> int:
     return c4.run(_root(parse("la-arch-diagrams", _argv(argv)).root))
 
 
+def la_arch_migrate(argv: list[str] | None = None) -> int:
+    return c4.run_migrate(_root(parse("la-arch-migrate", _argv(argv)).root))
+
+
 def la_check_conventions(argv: list[str] | None = None) -> int:
     args = parse("la-check-conventions", _argv(argv))
     if args.emit:

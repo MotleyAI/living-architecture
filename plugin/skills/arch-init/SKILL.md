@@ -28,10 +28,11 @@ reports `architecture: false` against the new index; that is expected.
 
 ## 3. Scaffold
 
-Run `la-arch-scaffold`. It writes, atomically, the as-is model (one node per top-level unit, one arrow per
-measured runtime import edge), one view per language, `system.arc42.md` with the generated diagrams and TODO
-sections, and `legacy_arrows` / `diagrams` in `index.yaml`. It refuses (exit 2, writing nothing) when any
-model, views or arc42 file already exists. Show the user the model and the arrow list.
+Run `la-arch-scaffold`. It writes, atomically, the as-is model in `architecture/model.c4` (one node per
+top-level unit, one arrow per measured runtime import edge), one view per language in `architecture/views.c4`,
+`system.arc42.md` with the generated diagrams and TODO sections, and `legacy_arrows` / `diagrams` in
+`index.yaml`. It refuses (exit 2, writing nothing) when any LikeC4 file (`.c4`, `.likec4`) or arc42 file
+already exists under `architecture/`. Show the user the model and the arrow list.
 
 ## 4. Choose the wedge
 

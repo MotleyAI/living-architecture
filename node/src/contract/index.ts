@@ -6,6 +6,7 @@ export { message, renderTemplate } from './render.js';
 export { materializeDefaults, validate } from './schema.js';
 export {
   HASH_FILE,
+  architecture,
   checkIds,
   computeHash,
   contractHash,

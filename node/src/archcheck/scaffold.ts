@@ -14,7 +14,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { diagramBlock, parseModel, parseViews, readIndex } from '../c4/index.js';
+import { diagramBlock, modelFile, parseModel, parseViews, readIndex, sources, viewsFile } from '../c4/index.js';
 import { message } from '../contract/index.js';
 import { NATIVE_LANGUAGE, requestFacts } from '../twin/index.js';
 import { type Facts, nativeTopLevelFacts } from './facts.js';
@@ -22,8 +22,6 @@ import { ArchCheckError, INDEX_REL, type Index, declaredLanguages, loadIndex, re
 import { separator } from './nodes.js';
 import { compareStrings } from './order.js';
 
-const SPECIFICATION_REL = 'architecture/model/specification.c4';
-const VIEWS_REL = 'architecture/views.c4';
 const ARC42_REL = 'architecture/system.arc42.md';
 
 const SPECIFICATION = `specification {
@@ -39,21 +37,16 @@ const SPECIFICATION = `specification {
 
 const isFile = (path: string): boolean => existsSync(path) && statSync(path).isFile();
 
-function sortedFiles(dir: string, suffix: string): string[] {
-  if (!existsSync(dir) || !statSync(dir).isDirectory()) return [];
-  return readdirSync(dir)
-    .filter((name) => name.endsWith(suffix) && isFile(join(dir, name)))
-    .sort(compareStrings);
-}
-
-/** The first file the scaffold would clash with, repo-relative; null when the model is still unwritten. */
+/** The first file the scaffold would clash with, repo-relative in code-point order; null when there is none. */
 function existingOutput(root: string): string | null {
-  const candidates = [
-    ...sortedFiles(join(root, 'architecture', 'model'), '.c4').map((name) => `architecture/model/${name}`),
-    VIEWS_REL,
-    ...sortedFiles(join(root, 'architecture'), '.arc42.md').map((name) => `architecture/${name}`),
-  ];
-  return candidates.find((rel) => isFile(join(root, rel))) ?? null;
+  const arch = join(root, 'architecture');
+  const arc42 =
+    existsSync(arch) && statSync(arch).isDirectory()
+      ? readdirSync(arch)
+          .filter((name) => name.endsWith('.arc42.md') && isFile(join(arch, name)))
+          .map((name) => `architecture/${name}`)
+      : [];
+  return [...sources(root), ...arc42].sort(compareStrings)[0] ?? null;
 }
 
 const lastSegment = (unit: string, language: string): string => unit.split(separator(language)).pop() ?? '';
@@ -82,9 +75,9 @@ function ids(facts: Facts): Map<string, string> {
   return out;
 }
 
-function renderModel(facts: Facts): string {
+function renderRoot(facts: Facts): string[] {
   const byUnit = ids(facts);
-  const lines = ['model {', `  ${facts.language} = system '${facts.language}' {`];
+  const lines = [`  ${facts.language} = system '${facts.language}' {`];
   for (const unit of facts.top_level_units) {
     lines.push(
       `    ${byUnit.get(unit)} = node '${lastSegment(unit, facts.language)}' {`,
@@ -97,8 +90,12 @@ function renderModel(facts: Facts): string {
   if (facts.edges.length > 0) {
     lines.push('', ...facts.edges.map((edge) => `    ${byUnit.get(edge.src)} -> ${byUnit.get(edge.dst)}`));
   }
-  lines.push('  }', '}');
-  return `${lines.join('\n')}\n`;
+  lines.push('  }');
+  return lines;
+}
+
+function renderModel(roots: string[][]): string {
+  return `${SPECIFICATION}${['model {', ...roots.flat(), '}'].join('\n')}\n`;
 }
 
 function renderViews(languages: string[]): string {
@@ -153,9 +150,10 @@ export function scaffold(root: string): Map<string, string> {
   const existing = existingOutput(root);
   if (existing !== null) throw new ArchCheckError(message('arch-scaffold.exists', { path: existing }));
   const languages = declaredLanguages(index);
-  const files = new Map<string, string>([[SPECIFICATION_REL, SPECIFICATION]]);
-  for (const language of languages) files.set(`architecture/model/${language}.c4`, renderModel(languageFacts(root, index, language)));
-  files.set(VIEWS_REL, renderViews(languages));
+  const files = new Map<string, string>([
+    [modelFile(), renderModel(languages.map((language) => renderRoot(languageFacts(root, index, language))))],
+    [viewsFile(), renderViews(languages)],
+  ]);
   const newIndex = indexText(root, index, languages);
   files.set(ARC42_REL, arc42(new Map([...files, [INDEX_REL, newIndex]]), languages));
   files.set(INDEX_REL, newIndex);
