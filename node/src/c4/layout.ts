@@ -1,10 +1,11 @@
 // The canonical LikeC4 layout: exactly `architecture/model.c4` and `architecture/views.c4`, each with its blocks.
 import { lstatSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { architecture, byCodePoint, message } from '../contract/index.js';
+import { architecture, byCodePoint, decodeUtf8, message } from '../contract/index.js';
 import { stripLineComment } from './model.js';
 
-const WORD_RE = /[A-Za-z0-9_]+/y;
+const WORD_RE = /\w+/y;
+const UNBALANCED = 'c4-layout.unbalanced-braces';
 export const WHITESPACE = ' \t\n\r\f\v';
 
 /** Strip WHITESPACE (only) from both ends. */
@@ -74,70 +75,76 @@ function skipTrivia(text: string, pos: number): number {
   return pos;
 }
 
+/** Past a `'` string (closed by `'` or the end of line) or a `//` comment at `pos`; null at anything else. */
+function skipOpaque(text: string, pos: number): number | null {
+  if (text[pos] === "'") {
+    const eol = lineEnd(text, pos + 1);
+    const close = text.indexOf("'", pos + 1);
+    return close < 0 || close >= eol ? eol : close + 1;
+  }
+  return text.startsWith('//', pos) ? lineEnd(text, pos) : null;
+}
+
 /**
  * Walk from `pos` at brace `depth` (quote- and comment-aware) to where depth returns to 0.
  * `stopAtEol`: also stop at a newline or an unmatched `}` reached at depth 0. Returns [offset, final depth].
  */
 function balancedEnd(text: string, pos: number, depth: number, stopAtEol: boolean): [number, number] {
-  let inQuote = false;
   while (pos < text.length) {
-    const ch = text[pos];
-    if (ch === '\n') {
-      inQuote = false;
-      if (stopAtEol && depth === 0) return [pos, 0];
-    } else if (inQuote) {
-      inQuote = ch !== "'";
-    } else if (ch === "'") {
-      inQuote = true;
-    } else if (text.startsWith('//', pos)) {
-      pos = lineEnd(text, pos);
+    const skipped = skipOpaque(text, pos);
+    if (skipped !== null) {
+      pos = skipped;
       continue;
-    } else if (ch === '{') {
+    }
+    const ch = text[pos];
+    if (ch === '\n' && stopAtEol && depth === 0) return [pos, 0];
+    if (ch === '{') {
       depth += 1;
     } else if (ch === '}') {
-      if (depth === 0) return [pos, 0];
+      if (depth === 0 || (depth === 1 && !stopAtEol)) return [pos, 0];
       depth -= 1;
-      if (depth === 0 && !stopAtEol) return [pos, 0];
     }
     pos += 1;
   }
   return [pos, depth];
 }
 
+function addProblem(fileScan: FileScan, offset: number, id: string, shown = ''): void {
+  fileScan.problems.push({ offset, line: lineOf(fileScan.text, offset), id, text: shown });
+}
+
+/** Scan the top-level block, stray `}` or text line at `pos`; the next position, null after an unclosed block. */
+function scanItem(fileScan: FileScan, pos: number): number | null {
+  const { text } = fileScan;
+  WORD_RE.lastIndex = pos;
+  const word = WORD_RE.exec(text);
+  const brace = word ? skipTrivia(text, pos + word[0].length) : pos;
+  if (word && text[brace] === '{') {
+    const [close, depth] = balancedEnd(text, brace + 1, 1, false);
+    const closed = depth === 0 && close < text.length;
+    fileScan.blocks.push({ kind: word[0], line: lineOf(text, pos), start: pos, open: brace, close: closed ? close : null });
+    if (!closed) {
+      addProblem(fileScan, pos, UNBALANCED);
+      return null;
+    }
+    return skipTrivia(text, close + 1);
+  }
+  if (text[pos] === '}') {
+    addProblem(fileScan, pos, UNBALANCED);
+    return skipTrivia(text, pos + 1);
+  }
+  const [end, depth] = balancedEnd(text, pos, 0, true);
+  addProblem(fileScan, pos, 'c4-layout.top-level-text', stripWhitespace(stripLineComment(text.slice(pos, end).split('\n')[0] ?? '')));
+  if (depth > 0) addProblem(fileScan, pos, UNBALANCED);
+  return skipTrivia(text, end);
+}
+
 /** Split `text` into top-level blocks; anything else but whitespace and comments is a problem. */
 export function scan(text: string): FileScan {
-  const blocks: Block[] = [];
-  const problems: Problem[] = [];
-  const problem = (offset: number, id: string, shown = ''): void => {
-    problems.push({ offset, line: lineOf(text, offset), id, text: shown });
-  };
-  let pos = skipTrivia(text, 0);
-  while (pos < text.length) {
-    WORD_RE.lastIndex = pos;
-    const word = WORD_RE.exec(text);
-    const brace = word ? skipTrivia(text, pos + word[0].length) : pos;
-    if (word && text[brace] === '{') {
-      const [close, depth] = balancedEnd(text, brace + 1, 1, false);
-      const closed = depth === 0 && close < text.length;
-      blocks.push({ kind: word[0], line: lineOf(text, pos), start: pos, open: brace, close: closed ? close : null });
-      if (!closed) {
-        problem(pos, 'c4-layout.unbalanced-braces');
-        break;
-      }
-      pos = skipTrivia(text, close + 1);
-      continue;
-    }
-    if (text[pos] === '}') {
-      problem(pos, 'c4-layout.unbalanced-braces');
-      pos = skipTrivia(text, pos + 1);
-      continue;
-    }
-    const [end, depth] = balancedEnd(text, pos, 0, true);
-    problem(pos, 'c4-layout.top-level-text', stripWhitespace(stripLineComment(text.slice(pos, end).split('\n')[0] ?? '')));
-    if (depth > 0) problem(pos, 'c4-layout.unbalanced-braces');
-    pos = skipTrivia(text, end);
-  }
-  return { text, blocks, problems };
+  const fileScan: FileScan = { text, blocks: [], problems: [] };
+  let pos: number | null = skipTrivia(text, 0);
+  while (pos !== null && pos < text.length) pos = scanItem(fileScan, pos);
+  return fileScan;
 }
 
 function isFile(path: string): boolean {
@@ -194,7 +201,7 @@ function blockViolations(rel: string, fileScan: FileScan): string[] {
     else if (seen.has(block.kind)) found.push([block.start, message('c4-layout.block-duplicate', values)]);
     seen.add(block.kind);
   }
-  const lines = found.sort((a, b) => a[0] - b[0]).map(([, text]) => text);
+  const lines = found.toSorted((a, b) => a[0] - b[0]).map(([, text]) => text);
   return [
     ...lines,
     ...allowed.filter((kind) => !seen.has(kind)).map((kind) => message('c4-layout.block-missing', { path: rel, block: kind })),
@@ -207,16 +214,40 @@ function strayViolations(rel: string, fileScan: FileScan): string[] {
   return [message('c4-layout.stray', { path: rel, blocks: holding }), ...fileScan.problems.map((p) => render(rel, p))];
 }
 
-function canonicalState(root: string, rel: string): 'file' | 'missing' | 'not-a-file' {
+type CanonicalState = 'file' | 'missing' | 'not-a-file';
+
+function canonicalState(root: string, rel: string): CanonicalState {
   const path = join(root, rel);
   if (isFile(path)) return 'file';
   return lexists(path) ? 'not-a-file' : 'missing';
 }
 
-function isLegacyFile(rel: string, fileScan: FileScan): boolean {
+/** The scan of the file at `path`, or null when it is not valid UTF-8. */
+function read(path: string): FileScan | null {
+  let text: string;
+  try {
+    text = decodeUtf8(readFileSync(path));
+  } catch (error) {
+    if (error instanceof TypeError) return null;
+    throw error;
+  }
+  return scan(text);
+}
+
+function isLegacyFile(rel: string, fileScan: FileScan | undefined): boolean {
+  if (fileScan === undefined) return false;
   const directlyInModelDir = rel.slice(0, rel.lastIndexOf('/')) === legacyModelDir() && rel.endsWith('.c4');
   const allowed = allowedBlocks(modelFile());
   return directlyInModelDir && fileScan.problems.length === 0 && fileScan.blocks.every((b) => allowed.includes(b.kind));
+}
+
+/** The violations of one file (`state` undefined for a stray); records its scan in `scans` when it decodes. */
+function fileViolations(root: string, rel: string, state: CanonicalState | undefined, scans: Map<string, FileScan>): string[] {
+  if (state !== undefined && state !== 'file') return [message(`c4-layout.${state}`, { path: rel })];
+  const fileScan = read(join(root, rel));
+  if (fileScan === null) return [message('c4-layout.not-utf8', { path: rel })];
+  scans.set(rel, fileScan);
+  return state === undefined ? strayViolations(rel, fileScan) : blockViolations(rel, fileScan);
 }
 
 /** Discover, scan and classify every LikeC4 source under `architecture/`. */
@@ -225,23 +256,14 @@ export function classify(root: string): Layout {
   const states = new Map(canonical.map((rel) => [rel, canonicalState(root, rel)]));
   const strays = sources(root).filter((rel) => !canonical.includes(rel));
   const scans = new Map<string, FileScan>();
-  for (const rel of [...strays, ...canonical.filter((r) => states.get(r) === 'file')]) {
-    scans.set(rel, scan(readFileSync(join(root, rel), 'utf8')));
-  }
-  const scanOf = (rel: string): FileScan => scans.get(rel) as FileScan;
-  const violations = new Map<string, string[]>();
-  for (const rel of canonical) {
-    const state = states.get(rel);
-    violations.set(rel, state === 'file' ? blockViolations(rel, scanOf(rel)) : [message(`c4-layout.${state}`, { path: rel })]);
-  }
-  for (const rel of strays) violations.set(rel, strayViolations(rel, scanOf(rel)));
+  const violations = new Map([...canonical, ...strays].map((rel) => [rel, fileViolations(root, rel, states.get(rel), scans)]));
   const lines = [...violations.keys()].sort(byCodePoint).flatMap((rel) => violations.get(rel) ?? []);
   const viewsExists = states.get(viewsFile()) === 'file';
   if (lines.length === 0) return { state: 'canonical', message: null, legacyFiles: [], scans, viewsExists };
   const legacy =
     strays.length > 0 &&
     states.get(modelFile()) === 'missing' &&
-    strays.every((rel) => isLegacyFile(rel, scanOf(rel))) &&
+    strays.every((rel) => isLegacyFile(rel, scans.get(rel))) &&
     (states.get(viewsFile()) === 'missing' || (viewsExists && (violations.get(viewsFile()) ?? []).length === 0));
   const tail = message(legacy ? 'c4-layout.migrate' : 'c4-layout.merge-by-hand');
   return {

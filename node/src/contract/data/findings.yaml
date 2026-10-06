@@ -134,6 +134,7 @@ findings:
   c4-layout.header: 'the LikeC4 model must be exactly architecture/model.c4 and the views exactly architecture/views.c4:'
   c4-layout.missing: '  {path}: missing'
   c4-layout.not-a-file: '  {path}: not a file'
+  c4-layout.not-utf8: '  {path}: not valid UTF-8'
   c4-layout.stray: '  {path}: stray LikeC4 file holding {blocks}'
   c4-layout.no-blocks: no blocks
   c4-layout.block-missing: '  {path}: no `{block}` block'

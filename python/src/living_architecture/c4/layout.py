@@ -12,7 +12,8 @@ from pydantic import BaseModel
 from living_architecture.c4.model import strip_line_comment
 from living_architecture.contract import architecture, message
 
-_WORD_RE = re.compile(r"[A-Za-z0-9_]+")
+_WORD_RE = re.compile(r"\w+", re.ASCII)
+_UNBALANCED = "c4-layout.unbalanced-braces"
 WHITESPACE = " \t\n\r\f\v"
 
 
@@ -67,17 +68,32 @@ def _line(text: str, offset: int) -> int:
     return text.count("\n", 0, offset) + 1
 
 
+def _line_end(text: str, pos: int) -> int:
+    end = text.find("\n", pos)
+    return len(text) if end < 0 else end
+
+
 def _skip_trivia(text: str, pos: int) -> int:
     """Past whitespace and `//` comments."""
     while pos < len(text):
         if text[pos] in WHITESPACE:
             pos += 1
         elif text.startswith("//", pos):
-            end = text.find("\n", pos)
-            pos = len(text) if end < 0 else end
+            pos = _line_end(text, pos)
         else:
             break
     return pos
+
+
+def _skip_opaque(text: str, pos: int) -> int | None:
+    """Past a `'` string (closed by `'` or the end of line) or a `//` comment at `pos`; None at anything else."""
+    if text[pos] == "'":
+        eol = _line_end(text, pos + 1)
+        close = text.find("'", pos + 1, eol)
+        return eol if close < 0 else close + 1
+    if text.startswith("//", pos):
+        return _line_end(text, pos)
+    return None
 
 
 def _balanced_end(text: str, pos: int, depth: int, *, stop_at_eol: bool) -> tuple[int, int]:
@@ -85,63 +101,61 @@ def _balanced_end(text: str, pos: int, depth: int, *, stop_at_eol: bool) -> tupl
 
     `stop_at_eol`: also stop at a newline or an unmatched `}` reached at depth 0. Returns (offset, final depth).
     """
-    in_q = False
     while pos < len(text):
-        ch = text[pos]
-        if ch == "\n":
-            in_q = False
-            if stop_at_eol and depth == 0:
-                return pos, 0
-        elif in_q:
-            in_q = ch != "'"
-        elif ch == "'":
-            in_q = True
-        elif text.startswith("//", pos):
-            end = text.find("\n", pos)
-            pos = len(text) if end < 0 else end
+        skipped = _skip_opaque(text, pos)
+        if skipped is not None:
+            pos = skipped
             continue
-        elif ch == "{":
+        ch = text[pos]
+        if ch == "\n" and stop_at_eol and depth == 0:
+            return pos, 0
+        if ch == "{":
             depth += 1
         elif ch == "}":
-            if depth == 0:
+            if depth == 0 or (depth == 1 and not stop_at_eol):
                 return pos, 0
             depth -= 1
-            if depth == 0 and not stop_at_eol:
-                return pos, 0
         pos += 1
     return pos, depth
 
 
+def _add_problem(file_scan: FileScan, offset: int, problem_id: str, shown: str = "") -> None:
+    file_scan.problems.append(_Problem(offset=offset, line=_line(file_scan.text, offset), id=problem_id, text=shown))
+
+
+def _scan_item(file_scan: FileScan, pos: int) -> int | None:
+    """Scan the top-level block, stray `}` or text line at `pos`; the next position, None after an unclosed block."""
+    text = file_scan.text
+    word = _WORD_RE.match(text, pos)
+    brace = _skip_trivia(text, word.end()) if word else pos
+    if word and brace < len(text) and text[brace] == "{":
+        close, depth = _balanced_end(text, brace + 1, 1, stop_at_eol=False)
+        closed = depth == 0 and close < len(text)
+        file_scan.blocks.append(
+            Block(kind=word.group(), line=_line(text, pos), start=pos, open=brace, close=close if closed else None)
+        )
+        if not closed:
+            _add_problem(file_scan, pos, _UNBALANCED)
+            return None
+        return _skip_trivia(text, close + 1)
+    if text[pos] == "}":
+        _add_problem(file_scan, pos, _UNBALANCED)
+        return _skip_trivia(text, pos + 1)
+    end, depth = _balanced_end(text, pos, 0, stop_at_eol=True)
+    shown = strip_line_comment(text[pos:end].split("\n")[0]).strip(WHITESPACE)
+    _add_problem(file_scan, pos, "c4-layout.top-level-text", shown)
+    if depth:
+        _add_problem(file_scan, pos, _UNBALANCED)
+    return _skip_trivia(text, end)
+
+
 def scan(text: str) -> FileScan:
     """Split `text` into top-level blocks; anything else but whitespace and comments is a problem."""
-    blocks: list[Block] = []
-    problems: list[_Problem] = []
-    pos = _skip_trivia(text, 0)
-    while pos < len(text):
-        word = _WORD_RE.match(text, pos)
-        brace = _skip_trivia(text, word.end()) if word else pos
-        if word and brace < len(text) and text[brace] == "{":
-            close, depth = _balanced_end(text, brace + 1, 1, stop_at_eol=False)
-            closed = depth == 0 and close < len(text)
-            blocks.append(
-                Block(kind=word.group(), line=_line(text, pos), start=pos, open=brace, close=close if closed else None)
-            )
-            if not closed:
-                problems.append(_Problem(offset=pos, line=_line(text, pos), id="c4-layout.unbalanced-braces"))
-                break
-            pos = _skip_trivia(text, close + 1)
-            continue
-        if text[pos] == "}":
-            problems.append(_Problem(offset=pos, line=_line(text, pos), id="c4-layout.unbalanced-braces"))
-            pos = _skip_trivia(text, pos + 1)
-            continue
-        end, depth = _balanced_end(text, pos, 0, stop_at_eol=True)
-        shown = strip_line_comment(text[pos:end].split("\n")[0]).strip(WHITESPACE)
-        problems.append(_Problem(offset=pos, line=_line(text, pos), id="c4-layout.top-level-text", text=shown))
-        if depth:
-            problems.append(_Problem(offset=pos, line=_line(text, pos), id="c4-layout.unbalanced-braces"))
-        pos = _skip_trivia(text, end)
-    return FileScan(text=text, blocks=blocks, problems=problems)
+    file_scan = FileScan(text=text, blocks=[], problems=[])
+    pos: int | None = _skip_trivia(text, 0)
+    while pos is not None and pos < len(text):
+        pos = _scan_item(file_scan, pos)
+    return file_scan
 
 
 def _walk_error(error: OSError) -> None:
@@ -163,8 +177,13 @@ def sources(root: Path) -> list[str]:
     return sorted(found)
 
 
-def _read(root: Path, rel: str) -> FileScan:
-    return scan((root / rel).read_bytes().decode("utf-8"))
+def _read(root: Path, rel: str) -> FileScan | None:
+    """The scan of `rel`, or None when it is not valid UTF-8."""
+    try:
+        text = (root / rel).read_bytes().decode("utf-8")
+    except UnicodeDecodeError:
+        return None
+    return scan(text)
 
 
 def _render(rel: str, problem: _Problem) -> str:
@@ -192,33 +211,42 @@ def _stray_violations(rel: str, file_scan: FileScan) -> list[str]:
     return [message("c4-layout.stray", path=rel, blocks=holding)] + [_render(rel, p) for p in file_scan.problems]
 
 
-def _canonical_state(root: Path, rel: str) -> Literal["file", "missing", "not-a-file"]:
+_CanonicalState = Literal["file", "missing", "not-a-file"]
+
+
+def _canonical_state(root: Path, rel: str) -> _CanonicalState:
     path = root / rel
     if path.is_file():
         return "file"
     return "not-a-file" if os.path.lexists(path) else "missing"
 
 
-def _is_legacy_file(rel: str, file_scan: FileScan) -> bool:
+def _is_legacy_file(rel: str, file_scan: FileScan | None) -> bool:
+    if file_scan is None:
+        return False
     directly_in_model_dir = rel.rsplit("/", 1)[0] == legacy_model_dir() and rel.endswith(".c4")
     allowed = architecture()["blocks"][model_file()]
     return directly_in_model_dir and not file_scan.problems and all(b.kind in allowed for b in file_scan.blocks)
 
 
+def _file_violations(root: Path, rel: str, state: _CanonicalState | None, scans: dict[str, FileScan]) -> list[str]:
+    """The violations of one file (`state` None for a stray); records its scan in `scans` when it decodes."""
+    if state is not None and state != "file":
+        return [message(f"c4-layout.{state}", path=rel)]
+    file_scan = _read(root, rel)
+    if file_scan is None:
+        return [message("c4-layout.not-utf8", path=rel)]
+    scans[rel] = file_scan
+    return _stray_violations(rel, file_scan) if state is None else _block_violations(rel, file_scan)
+
+
 def classify(root: Path) -> Layout:
     """Discover, scan and classify every LikeC4 source under `architecture/`."""
     canonical = [model_file(), views_file()]
-    states = {rel: _canonical_state(root, rel) for rel in canonical}
+    states: dict[str, _CanonicalState] = {rel: _canonical_state(root, rel) for rel in canonical}
     strays = [rel for rel in sources(root) if rel not in canonical]
-    scans = {rel: _read(root, rel) for rel in [*strays, *(r for r in canonical if states[r] == "file")]}
-    violations: dict[str, list[str]] = {}
-    for rel in canonical:
-        if states[rel] == "file":
-            violations[rel] = _block_violations(rel, scans[rel])
-        else:
-            violations[rel] = [message(f"c4-layout.{states[rel]}", path=rel)]
-    for rel in strays:
-        violations[rel] = _stray_violations(rel, scans[rel])
+    scans: dict[str, FileScan] = {}
+    violations = {rel: _file_violations(root, rel, states.get(rel), scans) for rel in [*canonical, *strays]}
     lines = [line for rel in sorted(violations) for line in violations[rel]]
     views_exists = states[views_file()] == "file"
     if not lines:
@@ -226,7 +254,7 @@ def classify(root: Path) -> Layout:
     legacy = (
         bool(strays)
         and states[model_file()] == "missing"
-        and all(_is_legacy_file(rel, scans[rel]) for rel in strays)
+        and all(_is_legacy_file(rel, scans.get(rel)) for rel in strays)
         and (states[views_file()] == "missing" or (views_exists and not violations[views_file()]))
     )
     tail = message("c4-layout.migrate" if legacy else "c4-layout.merge-by-hand")

@@ -34,6 +34,13 @@
 
 - [x] 6.1 `plugin/skills/living-architecture/SKILL.md`: the two-file layout, block rules, `la-arch-migrate`; `plugin/skills/arch-init/SKILL.md`: scaffold writes the two files; `plugin/skills/pr/SKILL.md`: name `architecture/model.c4` and `architecture/views.c4` instead of `architecture/**/*.c4`; README/docs wherever they describe the layout. Verify: `grep -rn "model/" plugin docs README.md` finds no legacy-layout description outside the migration docs; `npx -y @anthropic-ai/claude-code plugin validate plugin` passes.
 
+## 6b. Review fixes
+
+- [x] 6b.1 Undecodable LikeC4 source is a layout violation: `c4-layout.not-utf8` template
+  (`'  {path}: not valid UTF-8'`) in `shared/findings.yaml`; strict UTF-8 decoding in both twins'
+  layout scan; conformance case `arch-check-layout-not-utf8` listed in `conformance/INVENTORY.md`.
+  Verify: both twins produce the golden; `scripts/sync-shared --check` passes.
+
 ## 7. Final verification
 
 - [x] 7.1 Full suites: `uv run pytest -q` (python/), ruff, basedpyright, `npm run lint && npm run typecheck && npm test`, `npm run build && npm run conformance`, `scripts/sync-shared --check`, `la-arch-check`. Verify: all green.

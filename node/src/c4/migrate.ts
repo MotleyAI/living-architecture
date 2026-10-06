@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
-import { message } from '../contract/index.js';
+import { byCodePoint, message } from '../contract/index.js';
 import { type FileScan, classify, legacyModelDir, modelFile, stripWhitespace, viewsFile } from './layout.js';
 import { type ModelParse, parseModel, parseModelFiles } from './model.js';
 import { EMPTY_VIEWS, parseViews } from './views.js';
@@ -24,7 +24,7 @@ function outsideLines(fileScan: FileScan): string {
   }
   outside += text.slice(pos);
   const lines = outside.split('\n');
-  if (lines[lines.length - 1] === '') lines.pop();
+  if (lines.at(-1) === '') lines.pop();
   let kept = '';
   for (const line of lines) {
     if (!line.includes('\0')) kept += `${line}\n`;
@@ -50,7 +50,7 @@ export function mergedModel(scans: FileScan[]): string {
 
 /** `model` with findings as sorted multisets: merging spec blocks may reorder them. */
 function normalized(model: ModelParse): ModelParse {
-  return { ...model, findings: [...model.findings].sort(), metadataFindings: [...model.metadataFindings].sort() };
+  return { ...model, findings: model.findings.toSorted(byCodePoint), metadataFindings: model.metadataFindings.toSorted(byCodePoint) };
 }
 
 const isFile = (path: string): boolean => existsSync(path) && statSync(path).isFile();
@@ -83,6 +83,17 @@ const attempt = (step: () => void): void => {
   }
 };
 
+/** Create `path` exclusively, recording it in `created` unless it already existed. */
+function createExclusive(path: string, text: string, created: string[]): void {
+  created.push(path);
+  try {
+    writeFileSync(path, text, { encoding: 'utf8', flag: 'wx' });
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'EEXIST') created.pop();
+    throw error;
+  }
+}
+
 /** Create every output, delete the legacy files and an emptied model dir; undo it all on an error. */
 function write(root: string, outputs: Map<string, string>, legacy: Map<string, Buffer>): string[] {
   const created: string[] = [];
@@ -90,16 +101,7 @@ function write(root: string, outputs: Map<string, string>, legacy: Map<string, B
   const modelDir = join(root, legacyModelDir());
   let removedDir = false;
   try {
-    for (const [rel, text] of outputs) {
-      const path = join(root, rel);
-      created.push(path);
-      try {
-        writeFileSync(path, text, { encoding: 'utf8', flag: 'wx' });
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code === 'EEXIST') created.pop();
-        throw error;
-      }
-    }
+    for (const [rel, text] of outputs) createExclusive(join(root, rel), text, created);
     for (const rel of legacy.keys()) {
       unlinkSync(join(root, rel));
       deleted.push(rel);

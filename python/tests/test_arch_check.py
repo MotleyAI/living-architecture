@@ -708,6 +708,13 @@ def test_model_child_governs_license(tmp_path):
     assert not archcheck.license(root=root, src="pkg.api", dst="pkg.core")
 
 
+def test_license_refuses_a_violated_layout(tmp_path):
+    root = make_scenario_repo(tmp_path)
+    (root / "architecture" / "extra.c4").write_text("model {\n}\n", encoding="utf-8")
+    with pytest.raises(archcheck.ArchCheckError, match=r"architecture/extra\.c4: stray"):
+        archcheck.license(root=root, src="pkg.api.handlers", dst="pkg.core")
+
+
 def test_grandchild_governed(tmp_path):
     root = make_scenario_repo(
         tmp_path,

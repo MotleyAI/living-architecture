@@ -85,6 +85,17 @@ def _verify(root: Path, legacy: list[Path], outputs: dict[str, str]) -> None:
         raise MigrateError(message("arch-migrate.mismatch"))
 
 
+def _create_exclusive(path: Path, text: str, created: list[Path]) -> None:
+    """Create `path` exclusively, recording it in `created` unless it already existed."""
+    created.append(path)
+    try:
+        with path.open("x", encoding="utf-8", newline="") as out:
+            out.write(text)
+    except FileExistsError:
+        created.pop()
+        raise
+
+
 def _write(root: Path, outputs: dict[str, str], legacy: dict[Path, bytes]) -> list[str]:
     """Create every output, delete the legacy files and an emptied model dir; undo it all on an OSError."""
     created: list[Path] = []
@@ -93,14 +104,7 @@ def _write(root: Path, outputs: dict[str, str], legacy: dict[Path, bytes]) -> li
     removed_dir = False
     try:
         for rel, text in outputs.items():
-            path = root / rel
-            created.append(path)
-            try:
-                with path.open("x", encoding="utf-8", newline="") as out:
-                    out.write(text)
-            except FileExistsError:
-                created.pop()
-                raise
+            _create_exclusive(root / rel, text, created)
         for path in legacy:
             path.unlink()
             deleted.append(path)

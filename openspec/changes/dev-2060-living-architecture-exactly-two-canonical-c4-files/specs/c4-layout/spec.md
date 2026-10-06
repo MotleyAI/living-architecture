@@ -11,7 +11,9 @@ A LikeC4 source file is a file whose name ends, case-sensitively, in one of the 
 contract (`.c4`, `.likec4`). The following SHALL each be a layout violation:
 - a canonical file that does not exist, or whose path exists but is not a regular file (or a symlink to one);
 - any other LikeC4 source file under `architecture/`, at any depth; symlinks to files count as files, symlinked
-  directories are not descended into.
+  directories are not descended into;
+- a LikeC4 source file under `architecture/` whose bytes are not valid UTF-8; this is the only
+  violation reported for that file.
 
 #### Scenario: Canonical layout
 - **WHEN** `architecture/` holds `model.c4`, `views.c4`, `index.yaml` and arc42 docs only
@@ -48,6 +50,10 @@ contract (`.c4`, `.likec4`). The following SHALL each be a layout violation:
 #### Scenario: Symlinked stray file
 - **WHEN** `architecture/link.c4` is a symlink to a file
 - **THEN** the layout violation names `architecture/link.c4` as stray
+
+#### Scenario: Source that is not UTF-8
+- **WHEN** `architecture/model.c4` holds bytes that are not valid UTF-8
+- **THEN** the layout violation names `architecture/model.c4` as not valid UTF-8 and nothing else about it
 
 ### Requirement: Each canonical file holds only its blocks
 At top level, ignoring comments and whitespace, `architecture/model.c4` SHALL consist of exactly one
