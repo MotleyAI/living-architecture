@@ -1,0 +1,9 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+fixture: arch-ok
+expect:
+  exit: 0
+golden: manual
+note: the arch-migrate-multi-file output checks clean, as its legacy layout did

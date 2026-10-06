@@ -1,9 +1,0 @@
-kind: paired
-languages:
-- python
-command: la-arch-check
-fixture: arch-ok
-remove:
-- architecture/views.c4
-expect:
-  exit: 0

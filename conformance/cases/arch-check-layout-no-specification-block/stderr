@@ -1,0 +1,3 @@
+arch_check: the LikeC4 model must be exactly architecture/model.c4 and the views exactly architecture/views.c4:
+  architecture/model.c4: no `specification` block
+merge by hand: one specification and one model block into architecture/model.c4, one views block into architecture/views.c4

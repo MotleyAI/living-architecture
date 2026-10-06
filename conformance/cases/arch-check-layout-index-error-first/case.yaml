@@ -1,0 +1,11 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+fixture: arch-ok
+remove:
+- architecture/views.c4
+expect:
+  exit: 2
+golden: manual
+note: index.yaml is validated before the layout

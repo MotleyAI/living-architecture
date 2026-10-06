@@ -1,0 +1,11 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+fixture: arch-ok
+symlinks:
+  architecture/ext: ../elsewhere
+expect:
+  exit: 0
+golden: manual
+note: a symlinked directory under architecture/ is not descended into

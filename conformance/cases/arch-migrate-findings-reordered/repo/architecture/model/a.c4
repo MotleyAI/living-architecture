@@ -1,0 +1,9 @@
+specification {
+  element system
+  colour red
+}
+model {
+  python = system 'Python' {
+    this is junk
+  }
+}

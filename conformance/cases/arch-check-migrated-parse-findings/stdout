@@ -1,0 +1,3 @@
+model-truth: modeled relation python.core -> python.ghost has no measured runtime edge
+diagrams-fresh: relation python.core -> python.ghost has unknown endpoint python.ghost
+arch_check: 2 finding(s)

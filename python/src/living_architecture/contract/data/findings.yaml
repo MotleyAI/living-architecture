@@ -91,7 +91,6 @@ findings:
   c4.unexpected-include-token: 'view {view}: unexpected include token {token!r}'
   c4.title-not-string: view {view} title is not a string
   c4.unrecognized-directive: view {view} has unrecognized directive {token!r}
-  c4.no-views-block: views.c4 does not open with a `views {{` block
   c4.expected-view: expected `view` in views block
   c4.malformed-view: malformed view declaration
   c4.duplicate-view: duplicate view id {view}
@@ -130,6 +129,27 @@ findings:
   arch-diagrams.bad-key: diagrams key {key!r} must be an architecture/*.arc42.md path
   arch-diagrams.view-undefined: view {view} mapped to {doc} is not defined in views.c4
   arch-diagrams.marker: '{doc}: {problem} marker(s) for view {view}'
+
+  # ---- the LikeC4 layout: one message of the header, every violation in path then file order, and one tail
+  c4-layout.header: 'the LikeC4 model must be exactly architecture/model.c4 and the views exactly architecture/views.c4:'
+  c4-layout.missing: '  {path}: missing'
+  c4-layout.not-a-file: '  {path}: not a file'
+  c4-layout.stray: '  {path}: stray LikeC4 file holding {blocks}'
+  c4-layout.no-blocks: no blocks
+  c4-layout.block-missing: '  {path}: no `{block}` block'
+  c4-layout.block-duplicate: '  {path}:{line}: second `{block}` block'
+  c4-layout.block-not-allowed: '  {path}:{line}: `{block}` block does not belong in this file'
+  c4-layout.top-level-text: '  {path}:{line}: unexpected top-level text: {text}'
+  c4-layout.unbalanced-braces: '  {path}:{line}: unbalanced braces'
+  c4-layout.migrate: 'this is the legacy architecture/model/*.c4 layout: run la-arch-migrate to convert it'
+  c4-layout.merge-by-hand: 'merge by hand: one specification and one model block into architecture/model.c4, one views block into architecture/views.c4'
+
+  # ---- la-arch-migrate
+  arch-migrate.error: 'la-arch-migrate: {error}'
+  arch-migrate.nothing: 'nothing to migrate: architecture/ already holds exactly architecture/model.c4 and architecture/views.c4'
+  arch-migrate.written: 'wrote {path}'
+  arch-migrate.deleted: 'deleted {path}'
+  arch-migrate.mismatch: the merged files would not parse to the same model and views; nothing written
 
   # ---- la-arch-scaffold
   arch-scaffold.error: 'la-arch-scaffold: {error}'

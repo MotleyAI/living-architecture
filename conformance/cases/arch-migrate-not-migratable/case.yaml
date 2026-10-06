@@ -1,0 +1,13 @@
+kind: neutral
+command: la-arch-migrate
+fixture: arch-ok
+remove:
+- architecture/model.c4
+expect:
+  exit: 2
+  files:
+  - architecture/model.c4
+  - architecture/model/app.c4
+  - architecture/extra.likec4
+golden: manual
+note: 'a legacy layout plus another LikeC4 source: the layout message, repo unchanged'

@@ -61,7 +61,7 @@ SYSTEM_MD = (
 
 BASE_FILES = {
     "architecture/index.yaml": INDEX,
-    "architecture/model/pkg.c4": MODEL,
+    "architecture/model.c4": MODEL,
     "architecture/views.c4": VIEWS,
     "architecture/system.arc42.md": SYSTEM_MD,
     "architecture/engine.arc42.md": "# engine\n",
@@ -106,7 +106,7 @@ model {
 
 CHILD_FILES = {
     "architecture/index.yaml": CHILD_INDEX,
-    "architecture/model/pkg.c4": CHILD_MODEL,
+    "architecture/model.c4": CHILD_MODEL,
     "architecture/views.c4": VIEWS,
     "architecture/system.arc42.md": SYSTEM_MD,
     "architecture/engine.arc42.md": "# engine\n",
@@ -153,7 +153,7 @@ model {
 
 GRAND_FILES = {
     "architecture/index.yaml": GRAND_INDEX,
-    "architecture/model/pkg.c4": GRAND_MODEL,
+    "architecture/model.c4": GRAND_MODEL,
     "architecture/views.c4": VIEWS,
     "architecture/system.arc42.md": SYSTEM_MD,
     "architecture/engine.arc42.md": "# engine\n",
@@ -169,7 +169,7 @@ GRAND_FILES = {
 }
 
 
-MODEL_REL = "architecture/model/pkg.c4"
+MODEL_REL = "architecture/model.c4"
 INDEX_REL = "architecture/index.yaml"
 PY_SECTION = "python:\n  root_package: pkg\n"
 ROOT_OPEN = "  python = system 'Python' {\n"
@@ -193,7 +193,7 @@ def make_repo(tmp_path: Path) -> Path:
 
 
 def make_child_repo(tmp_path: Path, *, index: str = CHILD_INDEX, model: str = CHILD_MODEL) -> Path:
-    files = {**CHILD_FILES, "architecture/index.yaml": index, "architecture/model/pkg.c4": model}
+    files = {**CHILD_FILES, "architecture/index.yaml": index, "architecture/model.c4": model}
     return write_repo(tmp_path, files)
 
 
@@ -601,7 +601,7 @@ SCENARIO_INDEX = PY_SECTION + "legacy_arrows: {baseline: 0}\ndiagrams:\n  archit
 
 SCENARIO_FILES = {
     "architecture/index.yaml": SCENARIO_INDEX,
-    "architecture/model/pkg.c4": SCENARIO_MODEL,
+    "architecture/model.c4": SCENARIO_MODEL,
     "architecture/views.c4": VIEWS,
     "architecture/system.arc42.md": SYSTEM_MD,
     "pkg/__init__.py": "",
@@ -672,9 +672,22 @@ def test_multi_line_claims_read_like_one_line(tmp_path):
     assert "claims-exist: python.core claims pkg.b, which does not exist on disk" in archcheck.run_checks(split)
 
 
-def test_no_model_files_is_a_missing_root(tmp_path):
+def test_no_model_file_is_a_layout_error(tmp_path):
     root = make_scenario_repo(tmp_path)
     (root / MODEL_REL).unlink()
+    with pytest.raises(archcheck.ArchCheckError) as excinfo:
+        archcheck.run_checks(root)
+    assert str(excinfo.value) == (
+        "the LikeC4 model must be exactly architecture/model.c4 and the views exactly architecture/views.c4:\n"
+        "  architecture/model.c4: missing\n"
+        "merge by hand: one specification and one model block into architecture/model.c4, "
+        "one views block into architecture/views.c4"
+    )
+
+
+def test_model_without_roots_is_a_missing_root(tmp_path):
+    root = make_scenario_repo(tmp_path)
+    (root / MODEL_REL).write_text("specification {\n}\nmodel {\n}\n", encoding="utf-8")
     with pytest.raises(archcheck.ArchCheckError) as excinfo:
         archcheck.run_checks(root)
     assert str(excinfo.value) == "model has no root element for declared language python"
@@ -839,7 +852,7 @@ def test_metadata_on_a_root_is_a_setup_error(tmp_path):
 
 def test_root_setup_error_exits_2(tmp_path, capsys):
     root = make_repo(tmp_path)
-    (root / MODEL_REL).unlink()
+    (root / MODEL_REL).write_text("specification {\n}\nmodel {\n}\n", encoding="utf-8")
     assert cli.la_arch_check(["--root", str(root)]) == 2
     captured = capsys.readouterr()
     assert captured.out == ""
@@ -1446,6 +1459,7 @@ def layout_repo(tmp_path: Path, section: str) -> Path:
     files = {
         INDEX_REL: f"python: {section}\nlegacy_arrows: {{baseline: 0}}\n",
         MODEL_REL: "specification { element system }\nmodel {\n  python = system 'Python'\n}\n",
+        "architecture/views.c4": "views {\n}\n",
         "pkg/.keep": "",
     }
     root = tmp_path / "repo"

@@ -1,0 +1,8 @@
+arch_check: the LikeC4 model must be exactly architecture/model.c4 and the views exactly architecture/views.c4:
+  architecture/Z.c4: stray LikeC4 file holding no blocks
+  architecture/a.c4: stray LikeC4 file holding no blocks
+  architecture/sub.c4: stray LikeC4 file holding no blocks
+  architecture/sub/x.c4: stray LikeC4 file holding no blocks
+  architecture/ｚ.c4: stray LikeC4 file holding no blocks
+  architecture/😀.c4: stray LikeC4 file holding no blocks
+merge by hand: one specification and one model block into architecture/model.c4, one views block into architecture/views.c4

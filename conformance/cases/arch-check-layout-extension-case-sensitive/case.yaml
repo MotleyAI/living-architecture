@@ -1,0 +1,9 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+fixture: arch-ok
+expect:
+  exit: 0
+golden: manual
+note: 'extensions match case-sensitively: notes.C4 is no LikeC4 source'
