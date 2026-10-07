@@ -33,8 +33,8 @@ read your shell aliases need that flag added to their own command settings.
 | Path | Holds |
 |---|---|
 | `plugin/` | the Claude Code plugin: skills |
-| `python/` | the PyPI twin (`living-architecture`): every `la-*`/`dr-*` command |
-| `node/` | the npm twin (`living-architecture`): the language-neutral commands and the TypeScript arch-check, conventions and type check; forwards the Python-only `dr-*` commands |
+| `python/` | the PyPI twin (`living-architecture`): every `la-*`/`dr-*` command; `dr-*` natively for Python, TypeScript inputs in the npm twin |
+| `node/` | the npm twin (`living-architecture`): every `la-*`/`dr-*` command; `dr-*` natively for TypeScript, Python inputs in the PyPI twin |
 | `shared/` | the contract the commands obey: config and index schemas, finding texts, the CLI manifest, conventions and language registries, review scripts, test vectors |
 | `conformance/` | the byte-exact corpus pinning every command's observable output |
 | `architecture/` | this repo's own LikeC4 model and arc42 principles |
