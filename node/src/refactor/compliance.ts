@@ -50,7 +50,7 @@ function fileFindings(program: TS.Program, source: TS.SourceFile, shown: string,
       out.push({ position: node.getStart(source), text: message('compliance.explicit-any', { path: shown, line: line(node) }) });
     }
     if (attr !== null && ts().isPropertyAccessExpression(node) && node.name.text === attr) {
-      if ((checker.getTypeAtLocation(node.expression).flags & ts().TypeFlags.Any) !== 0) {
+      if ((checker.getTypeAtLocation(node.expression).flags & ts().TypeFlags.Any) !== 0) { // NOSONAR(S1529) — TypeFlags bitmask test
         const receiver = node.expression.getText(source);
         out.push({ position: node.getStart(source), text: message('compliance.ts-attr-blindspot', { path: shown, line: line(node), receiver, attr }) });
       }

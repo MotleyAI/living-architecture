@@ -1,0 +1,5 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+reviews:
+  path_filters:
+    # Conformance fixtures and goldens: generated or deliberately rule-breaking, and they push PRs past the file limit.
+    - "!conformance/**"

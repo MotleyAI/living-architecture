@@ -94,7 +94,7 @@ export function explicitTypecheck(root: string): Set<string> {
 
 /** Tracked and untracked-but-not-ignored files, minus the exempt globs. */
 export function sourceFiles(root: string, exempt: string[]): string[] {
-  const proc = spawnSync('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard'], { cwd: root, maxBuffer: 1 << 30 });
+  const proc = spawnSync('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard'], { cwd: root, maxBuffer: 1 << 30 }); // NOSONAR(S4036) — runs the user's own git from PATH by design
   const paths = (proc.stdout?.toString('utf8') ?? '').split('\0');
   return paths.filter((p) => p && !exempt.some((pattern) => fnmatch(p, pattern)));
 }

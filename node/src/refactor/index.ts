@@ -20,7 +20,7 @@ export function runRefactor(argv: string[], args: RefactorArgs): number {
   let id: string;
   try {
     const source = args.subcommand === 'move-module' ? args.module : args.file;
-    id = refactorLanguage(args.subcommand, source ?? '', args.dest ?? '');
+    id = refactorLanguage(args.subcommand, source ?? '', args.dest ?? '', args.project);
   } catch (error) {
     if (!(error instanceof RoutingError)) throw error;
     process.stderr.write(`${error.message}\n`);

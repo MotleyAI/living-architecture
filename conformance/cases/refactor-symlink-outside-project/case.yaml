@@ -1,0 +1,21 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- rename
+- --file
+- pkg/ext.py
+- --name
+- foo
+- --new-name
+- bar
+fixture: refactor-pkg
+symlinks:
+  pkg/ext.py: /etc/hosts
+git:
+- commit: init
+expect:
+  exit: 1
+golden: manual
+note: a source symlinked outside the project is refused before it is read

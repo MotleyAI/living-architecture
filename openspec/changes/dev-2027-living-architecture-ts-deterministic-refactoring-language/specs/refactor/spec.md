@@ -9,8 +9,9 @@ type-bound, so the type-check ratchet plus the tests prove nothing was missed.
 ### Requirement: dr-* inputs are routed by file language
 `dr-refactor`, `dr-compliance` and `dr-mock-lint` SHALL route each input file to the twin of its language,
 decided by the registry's source extensions. `dr-refactor`'s language SHALL be the language of `--file`
-(`rename`, `move-symbol`) or `--module` (`move-module`); a source of an unregistered extension, or a `--dest`
-of another language, SHALL exit 1 with a finding. For `dr-compliance` and `dr-mock-lint`, an explicit file of
+(`rename`, `move-symbol`) or `--module` (`move-module`); a source of an unregistered extension, a `--dest`
+of another language, or a `--module` directory whose expansion holds more than one language, SHALL exit 1 with a
+finding. For `dr-compliance` and `dr-mock-lint`, an explicit file of
 an unregistered extension, or matching the language's `declaration_globs`, SHALL be skipped with a warning on
 stderr; a directory SHALL expand only to files of the repo's languages, or of every registered language when the repo has none, excluding `declaration_globs` and
 `excluded_dirs`. The other language's files SHALL run in its twin with the same working directory. Output
@@ -38,6 +39,10 @@ define, and exit 2.
 #### Scenario: Cross-language destination
 - **WHEN** `dr-refactor move-symbol --file pkg/a.py --name foo --dest web/b.ts` runs
 - **THEN** it exits 1 with the cross-language finding and changes nothing
+
+#### Scenario: Mixed-language directory refused
+- **WHEN** `dr-refactor move-module --module pkg --dest lib` runs and `pkg` holds both `.py` and `.ts` sources
+- **THEN** it exits 1 with a mixed-language finding and changes nothing
 
 ### Requirement: Refactor output format
 `dr-refactor` SHALL print a header naming the refactor, then one unified diff per changed file sorted by

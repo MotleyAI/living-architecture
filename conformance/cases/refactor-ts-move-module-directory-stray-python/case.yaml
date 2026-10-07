@@ -1,0 +1,16 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- move-module
+- --module
+- src/util
+- --dest
+- src/lib
+fixture: refactor-ts
+git:
+- commit: init
+expect:
+  exit: 0
+note: a Python file in a TypeScript-only repo does not route the directory to the Python twin

@@ -314,7 +314,9 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | no locator; line out of range; symbol not found; path outside the project | 1 | `refactor-no-locator`, `refactor-line-out-of-range`, `refactor-symbol-not-found`, `refactor-path-outside-project` |
 | usage errors; `--help` | 2/0 | `refactor-usage-no-subcommand`, `refactor-usage-rename-without-new-name`, `refactor-usage-rename-without-file`, `refactor-usage-bad-unsure-choice`, `refactor-usage-offset-not-int`, `refactor-help` |
 | *(new)* a source of no registered language; a `--dest` of another language | 1 | `refactor-unsupported-extension`, `refactor-cross-language-dest` |
-| *(new)* a package directory moves through the Python twin | 0 | `refactor-move-module-package` |
+| *(new)* a missing source (rename, move-module file, move-module directory); a directory holding sources of more than one repo language | 1 | `refactor-source-missing`, `refactor-move-module-source-missing`, `refactor-move-module-missing-directory`, `refactor-mixed-language-directory` |
+| *(new)* a source symlinked outside the project; a symlink loop (the source, a parent); a symlink followed before `..`; a module directory symlinked outside | 1 | `refactor-symlink-outside-project`, `refactor-symlink-loop`, `refactor-symlink-loop-parent`, `refactor-symlink-dotdot`, `refactor-move-module-symlink-outside` |
+| *(new)* a package directory moves through the Python twin; its expansion takes `--project`'s repo languages | 0 | `refactor-move-module-package`, `refactor-move-module-project-languages` |
 
 ## dr-refactor: TypeScript
 
@@ -323,12 +325,14 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | *(new)* rename: dry-run by name (diffs in path order), apply by line/col renaming an override, shorthand and export keep their external names (strings and comments untouched) by offset, astral column, `--name` prefers a declaration, explicit `--unsure skip` | 0 | `refactor-ts-rename-dry-run`, `refactor-ts-rename-apply-override`, `refactor-ts-rename-shapes`, `refactor-ts-rename-astral-column`, `refactor-ts-rename-name-prefers-declaration`, `refactor-ts-unsure-skip-accepted` |
 | *(new)* rename across project references, each project with its own options (a `paths` alias); paths from a subdirectory with `--project ..`; the tsconfig `index.yaml` names | 0 | `refactor-ts-project-references`, `refactor-ts-from-subdirectory`, `refactor-ts-index-tsconfig` |
 | *(new)* move-symbol: importers rewritten; default re-export rewritten; `export *` barrel gets an explicit re-export (none when it already re-exports the new file) and a mixed named re-export is split | 0 | `refactor-ts-move-symbol-apply`, `refactor-ts-move-symbol-default-reexport`, `refactor-ts-move-symbol-barrel`, `refactor-ts-move-symbol-barrel-covered` |
-| *(new)* move-module: a file (apply, dry-run), a directory | 0 | `refactor-ts-move-module-apply`, `refactor-ts-move-module-dry-run`, `refactor-ts-move-module-directory` |
+| *(new)* move-module: a file (apply, dry-run), a directory, a directory with a file of a non-repo language | 0 | `refactor-ts-move-module-apply`, `refactor-ts-move-module-dry-run`, `refactor-ts-move-module-directory`, `refactor-ts-move-module-directory-stray-python` |
 | *(new)* locator errors: line, column, offset out of range; no locator; symbol not found | 1 | `refactor-ts-line-out-of-range`, `refactor-ts-col-out-of-range`, `refactor-ts-offset-out-of-range`, `refactor-ts-no-locator`, `refactor-ts-symbol-not-found` |
 | *(new)* unsupported flags `--no-in-hierarchy`, `--unsure include` | 1 | `refactor-ts-hierarchy-flag-refused`, `refactor-ts-unsure-include-refused` |
 | *(new)* cannot rename: standard library, `node_modules`, a keyword | 1 | `refactor-ts-library-symbol`, `refactor-ts-node-modules-symbol`, `refactor-ts-keyword` |
 | *(new)* not movable: inside a function body, a use of an imported symbol | 1 | `refactor-ts-not-movable-inside-body`, `refactor-ts-not-movable-imported-use` |
 | *(new)* file in no project; destination exists; destination missing (module, symbol); `--dest` of another language | 1 | `refactor-ts-outside-project`, `refactor-ts-move-module-collision`, `refactor-ts-dest-missing`, `refactor-ts-move-symbol-dest-missing`, `refactor-ts-cross-language-dest` |
+| *(new)* a missing source (rename, move-symbol, move-module file, move-module directory) | 1 | `refactor-ts-source-missing`, `refactor-ts-move-symbol-source-missing`, `refactor-ts-move-module-source-missing`, `refactor-ts-move-module-missing-directory` |
+| *(new)* a source symlinked outside the project (existing, dangling target); a symlink loop (the source, a parent); a symlink followed before `..`; a module directory symlinked outside | 1 | `refactor-ts-symlink-outside-project`, `refactor-ts-dangling-symlink-outside-project`, `refactor-ts-symlink-loop`, `refactor-ts-symlink-loop-parent`, `refactor-ts-symlink-dotdot`, `refactor-ts-move-module-symlink-outside` |
 
 ## Review shims and their bundled scripts
 

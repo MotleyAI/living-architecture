@@ -1,0 +1,19 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- move-module
+- --module
+- pkg/ext
+- --dest
+- pkg
+fixture: refactor-pkg
+symlinks:
+  pkg/ext: /etc
+git:
+- commit: init
+expect:
+  exit: 1
+golden: manual
+note: a directory symlinked outside the project is refused before it is scanned

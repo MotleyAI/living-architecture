@@ -20,7 +20,7 @@ export function mergeEdits(edits: Edit[]): Map<string, Edit[]> {
   for (const edit of edits) {
     const kept = byPath.get(edit.path) ?? [];
     const same = kept.find((e) => e.start === edit.start && e.length === edit.length);
-    if (same !== undefined && same.newText === edit.newText) continue;
+    if (same?.newText === edit.newText) continue;
     const collides = (e: Edit): boolean => e.start < end(edit) && edit.start < end(e);
     if (same !== undefined || kept.some(collides)) throw new RefactorError(message('refactor.conflicting-edits', { path: edit.path }));
     byPath.set(edit.path, [...kept, edit]);

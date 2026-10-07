@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import sys
 from collections.abc import Callable
 from pathlib import Path, PurePosixPath
@@ -86,19 +87,38 @@ def run_split(
     return max(codes, default=0)
 
 
-def source_language(path: str) -> str | None:
-    """A file's language by extension; a directory's is the first language with a source file under it."""
+def source_language(path: str, project: str) -> str | None:
+    """A file's language by extension; a directory's is its expansion's one language, else the first with a source.
+
+    The expansion takes the languages of `project`'s repo; RoutingError when it holds more than one language.
+    """
     directory = Path(path)
     if not directory.is_dir():
         return language_of(path)
+    ids = {lang_id for lang_id, _ in _expand(directory, _expansion_languages(find_repo_root(Path(project))))}
+    expanded = [lang_id for lang_id in language_ids() if lang_id in ids]
+    if len(expanded) > 1:
+        raise RoutingError(message("refactor.mixed-languages", path=path, languages=", ".join(expanded)))
+    if expanded:
+        return expanded[0]
     found = {language_of(p.name) for p in directory.rglob("*") if p.is_file()}
     return next((lang_id for lang_id in language_ids() if lang_id in found), None)
 
 
+def check_source(source: str, project: str, *, allow_dir: bool) -> None:
+    """RoutingError unless `source` is in the project and a file (or a directory when `allow_dir`)."""
+    resolved = Path(os.path.realpath(source))
+    if not resolved.is_relative_to(os.path.realpath(project)):
+        raise RoutingError(message("refactor.outside-project", path=source))
+    if not (resolved.is_file() or (allow_dir and resolved.is_dir())):
+        raise RoutingError(message("refactor.source-missing", path=source))
+
+
 def refactor_language(args: Any) -> str:
-    """The language `dr-refactor` runs in; RoutingError (exit 1) for an unsupported source or a cross-language dest."""
+    """The language `dr-refactor` runs in; RoutingError (exit 1) for a bad or unsupported source or a cross-language dest."""
     source = args.module if args.subcommand == "move-module" else args.file
-    lang_id = source_language(source)
+    check_source(source, args.project, allow_dir=args.subcommand == "move-module")
+    lang_id = source_language(source, args.project)
     if lang_id is None:
         raise RoutingError(message("refactor.unsupported-extension", path=source))
     if args.subcommand == "move-symbol" and language_of(args.dest) != lang_id:

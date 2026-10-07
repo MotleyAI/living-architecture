@@ -12,6 +12,13 @@ function lines(text: string): string[] {
   return [...text.matchAll(LINE)].map((m) => m[0]).filter((line) => line !== '');
 }
 
+/** The opcode tag for a gap that skips `a` lines (`inA`) and/or `b` lines (`inB`); null when neither. */
+function changeTag(inA: boolean, inB: boolean): string | null {
+  if (inA && inB) return 'replace';
+  if (inA) return 'delete';
+  return inB ? 'insert' : null;
+}
+
 class SequenceMatcher {
   private readonly b2j = new Map<string, number[]>();
 
@@ -26,25 +33,31 @@ class SequenceMatcher {
     });
     if (b.length >= 200) {
       const ntest = Math.floor(b.length / 100) + 1;
-      for (const [elt, indices] of [...this.b2j]) if (indices.length > ntest) this.b2j.delete(elt);
+      for (const [elt, indices] of this.b2j) if (indices.length > ntest) this.b2j.delete(elt);
     }
   }
 
-  private longestMatch(alo: number, ahi: number, blo: number, bhi: number): Block {
-    const { a, b } = this;
-    let [besti, bestj, bestsize] = [alo, blo, 0];
+  /** The longest junk-free match in a[alo:ahi] × b[blo:bhi], before extension. */
+  private longestRawMatch(alo: number, ahi: number, blo: number, bhi: number): Block {
+    let best: Block = [alo, blo, 0];
     let j2len = new Map<number, number>();
     for (let i = alo; i < ahi; i++) {
       const next = new Map<number, number>();
-      for (const j of this.b2j.get(a[i] ?? '') ?? []) {
+      for (const j of this.b2j.get(this.a[i] ?? '') ?? []) {
         if (j < blo) continue;
         if (j >= bhi) break;
         const k = (j2len.get(j - 1) ?? 0) + 1;
         next.set(j, k);
-        if (k > bestsize) [besti, bestj, bestsize] = [i - k + 1, j - k + 1, k];
+        if (k > best[2]) best = [i - k + 1, j - k + 1, k];
       }
       j2len = next;
     }
+    return best;
+  }
+
+  private longestMatch(alo: number, ahi: number, blo: number, bhi: number): Block {
+    const { a, b } = this;
+    let [besti, bestj, bestsize] = this.longestRawMatch(alo, ahi, blo, bhi);
     while (besti > alo && bestj > blo && a[besti - 1] === b[bestj - 1]) [besti, bestj, bestsize] = [besti - 1, bestj - 1, bestsize + 1];
     while (besti + bestsize < ahi && bestj + bestsize < bhi && a[besti + bestsize] === b[bestj + bestsize]) bestsize++;
     return [besti, bestj, bestsize];
@@ -62,6 +75,11 @@ class SequenceMatcher {
       if (i + k < ahi && j + k < bhi) queue.push([i + k, ahi, j + k, bhi]);
     }
     blocks.sort((x, y) => x[0] - y[0] || x[1] - y[1] || x[2] - y[2]);
+    return this.coalesced(blocks);
+  }
+
+  /** Adjacent blocks merged, then the (len(a), len(b), 0) sentinel. */
+  private coalesced(blocks: Block[]): Block[] {
     const out: Block[] = [];
     let [i1, j1, k1] = [0, 0, 0];
     for (const [i2, j2, k2] of blocks) {
@@ -81,8 +99,8 @@ class SequenceMatcher {
     const out: Opcode[] = [];
     let [i, j] = [0, 0];
     for (const [ai, bj, size] of this.matchingBlocks()) {
-      const tag = i < ai && j < bj ? 'replace' : i < ai ? 'delete' : j < bj ? 'insert' : '';
-      if (tag) out.push([tag, i, ai, j, bj]);
+      const tag = changeTag(i < ai, j < bj);
+      if (tag !== null) out.push([tag, i, ai, j, bj]);
       [i, j] = [ai + size, bj + size];
       if (size > 0) out.push(['equal', ai, i, bj, j]);
     }
@@ -94,7 +112,7 @@ class SequenceMatcher {
     if (codes.length === 0) codes.push(['equal', 0, 1, 0, 1]);
     const first = codes[0] as Opcode;
     if (first[0] === 'equal') codes[0] = ['equal', Math.max(first[1], first[2] - n), first[2], Math.max(first[3], first[4] - n), first[4]];
-    const last = codes[codes.length - 1] as Opcode;
+    const last = codes.at(-1) as Opcode;
     if (last[0] === 'equal') {
       codes[codes.length - 1] = ['equal', last[1], Math.min(last[2], last[1] + n), last[3], Math.min(last[4], last[3] + n)];
     }
@@ -128,7 +146,7 @@ export function unifiedDiff(oldText: string, newText: string, path: string): str
   if (groups.length === 0) return '';
   let out = `--- a/${path}\n+++ b/${path}\n`;
   for (const group of groups) {
-    const [first, last] = [group[0] as Opcode, group[group.length - 1] as Opcode];
+    const [first, last] = [group[0] as Opcode, group.at(-1) as Opcode];
     out += `@@ -${range(first[1], last[2])} +${range(first[3], last[4])} @@\n`;
     for (const [tag, i1, i2, j1, j2] of group) {
       if (tag === 'equal') {

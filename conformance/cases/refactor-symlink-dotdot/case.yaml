@@ -1,0 +1,21 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- rename
+- --file
+- pkg/link/../a.py
+- --name
+- foo
+- --new-name
+- bar
+fixture: refactor-pkg
+symlinks:
+  pkg/link: /etc
+git:
+- commit: init
+expect:
+  exit: 1
+golden: manual
+note: a symlink before .. is followed first, so the source lies outside the project

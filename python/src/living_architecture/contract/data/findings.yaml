@@ -273,6 +273,8 @@ findings:
   refactor.conflicting-edits: projects disagree on an edit in {path}
   refactor.destination-exists: 'destination already exists: {path}'
   refactor.destination-missing: 'destination does not exist: {path}'
+  refactor.source-missing: 'source does not exist: {path}'
+  refactor.mixed-languages: '{path} holds sources of more than one language: {languages}'
 
   # ---- dr-compliance
   compliance.untyped-def: '{path}:{line}: untyped-def: {name}() missing {missing}'

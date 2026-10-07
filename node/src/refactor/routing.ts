@@ -1,8 +1,12 @@
 // Routing `dr-*` inputs by file language: own-language files run here, the other language's in its twin.
-import { readdirSync, statSync } from 'node:fs';
+import { lstatSync, readdirSync, readlinkSync, realpathSync, statSync } from 'node:fs';
+import { basename, dirname, isAbsolute, join, relative, sep } from 'node:path';
 import { ConfigError, findRepoRoot, loadConfig, repoLanguages } from '../config/index.js';
 import { byCodePoint, globMatch, language, languageIds, languageOf, message } from '../contract/index.js';
 import * as twin from '../twin/index.js';
+
+// The kernel's own symlink limit (Linux MAXSYMLINKS); past it every file call fails with ELOOP anyway.
+const MAX_SYMLINK_HOPS = 40;
 
 /** The inputs cannot be routed; the message is printed (exit 2 for dr-compliance/dr-mock-lint, 1 for dr-refactor). */
 export class RoutingError extends Error {}
@@ -19,6 +23,29 @@ function stat(path: string): ReturnType<typeof statSync> | undefined {
   } catch {
     return undefined;
   }
+}
+
+const isSymlink = (path: string): boolean => {
+  try {
+    return lstatSync(path).isSymbolicLink();
+  } catch {
+    return false;
+  }
+};
+
+/** `rel` under `base` without collapsing `..`, so a symlink before it is followed first. */
+export const under = (base: string, rel: string): string => (isAbsolute(rel) ? rel : `${base}${sep}${rel}`);
+
+/** `path` with its symlinks resolved component by component as far as it exists, like `os.path.realpath`. */
+export function realPath(path: string, hops = 0): string {
+  try {
+    return realpathSync.native(path);
+  } catch {
+    // missing, dangling or a loop: resolve what can be resolved
+  }
+  const parent = dirname(path);
+  if (hops < MAX_SYMLINK_HOPS && isSymlink(path)) return realPath(under(parent, readlinkSync(path)), hops + 1);
+  return parent === path ? path : join(realPath(parent, hops), basename(path));
 }
 
 const isDir = (path: string): boolean => stat(path)?.isDirectory() === true;
@@ -70,7 +97,9 @@ function expand(dir: string, languages: string[]): [string, string][] {
 /** Paths grouped by language; directories expanded, non-source files skipped with a warning. */
 export function split(prog: string, rawPaths: string[]): Map<string, string[]> {
   const groups = new Map<string, string[]>();
-  const add = (id: string, path: string): void => void groups.set(id, [...(groups.get(id) ?? []), path]);
+  const add = (id: string, path: string): void => {
+    groups.set(id, [...(groups.get(id) ?? []), path]);
+  };
   let languages: string[] | null = null;
   for (const raw of rawPaths) {
     const path = purePath(raw);
@@ -119,16 +148,37 @@ export function runSplit(
   return Math.max(0, ...codes);
 }
 
-/** A file's language by extension; a directory's is the first language with a source file under it. */
-function sourceLanguage(path: string): string | null {
+/**
+ * A file's language by extension; a directory's is its expansion's one language, else the first language with a
+ * source file under it. The expansion takes the languages of `project`'s repo; RoutingError when it holds more than one.
+ */
+function sourceLanguage(path: string, project: string): string | null {
   if (!isDir(path)) return languageOf(path);
+  const root = findRepoRoot(realPath(under(process.cwd(), project)));
+  const ids = new Set(expand(purePath(path), expansionLanguages(root)).map(([id]) => id));
+  const expanded = languageIds().filter((id) => ids.has(id));
+  if (expanded.length > 1) throw new RoutingError(message('refactor.mixed-languages', { path, languages: expanded.join(', ') }));
+  if (expanded.length === 1) return expanded[0] ?? null;
   const found = new Set(filesUnder(purePath(path)).map((f) => languageOf(f.split('/').pop() ?? '')));
   return languageIds().find((id) => found.has(id)) ?? null;
 }
 
-/** The language `dr-refactor` runs in; RoutingError for an unsupported source or a cross-language dest. */
-export function refactorLanguage(subcommand: string, source: string, dest: string): string {
-  const id = sourceLanguage(source);
+/** RoutingError unless `source` is in `project` and a file (or a directory when `allowDir`). */
+function checkSource(source: string, project: string, allowDir: boolean): void {
+  const cwd = process.cwd();
+  const path = realPath(under(cwd, source));
+  const rel = relative(realPath(under(cwd, project)), path);
+  if (rel.split(sep)[0] === '..' || isAbsolute(rel)) throw new RoutingError(message('refactor.outside-project', { path: source }));
+  const found = stat(path);
+  if (found?.isFile() !== true && !(allowDir && found?.isDirectory() === true)) {
+    throw new RoutingError(message('refactor.source-missing', { path: source }));
+  }
+}
+
+/** The language `dr-refactor` runs in; RoutingError for a bad or unsupported source or a cross-language dest. */
+export function refactorLanguage(subcommand: string, source: string, dest: string, project: string): string {
+  checkSource(source, project, subcommand === 'move-module');
+  const id = sourceLanguage(source, project);
   if (id === null) throw new RoutingError(message('refactor.unsupported-extension', { path: source }));
   if (subcommand === 'move-symbol' && languageOf(dest) !== id) {
     throw new RoutingError(message('refactor.cross-language-dest', { dest, language: id }));

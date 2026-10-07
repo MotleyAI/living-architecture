@@ -44,7 +44,7 @@ cd "$WORK/repo"
 git init -q -b main
 git config user.email acceptance@example.com
 git config user.name acceptance
-npm install --no-audit --no-fund
+npm ci --no-audit --no-fund
 git add -A
 git commit -q -m fixture
 git init -q --bare "$WORK/origin.git"

@@ -20,7 +20,7 @@ const MODULE_MOCKS = new Set(['mock', 'doMock', 'unstable_mockModule']);
 function framework(checker: TS.TypeChecker, receiver: TS.Identifier): Framework | null {
   const symbol = checker.getSymbolAtLocation(receiver);
   const declarations = symbol?.declarations ?? [];
-  if (declarations.length === 0 || declarations.every((d) => d.getSourceFile().isDeclarationFile)) {
+  if (declarations.every((d) => d.getSourceFile().isDeclarationFile)) {
     return GLOBALS[receiver.text] ?? null;
   }
   const [declaration] = declarations;
@@ -77,23 +77,25 @@ export function mockFindings(program: TS.Program, file: string, shown: string, r
   for (const node of walk(source)) {
     const via = inTests ? doubleAssertion(node) : null;
     if (via !== null) out.push({ position: node.getStart(source), text: message('mock-lint.cast', { path: shown, line: line(node), via }) });
-    if (!ts().isCallExpression(node) || !ts().isPropertyAccessExpression(node.expression)) continue;
-    const { expression: receiver, name } = node.expression;
-    if (!ts().isIdentifier(receiver)) continue;
-    const kind = framework(checker, receiver);
-    if (kind === null) continue;
-    const call = `${receiver.text}.${name.text}`;
-    const values = { path: shown, line: line(node), call };
-    if (name.text === 'fn' && node.typeArguments === undefined && node.arguments.length === 0) {
-      out.push({ position: node.getStart(source), text: message('mock-lint.fn', values) });
-    }
-    const factory = node.arguments[1];
-    if (MODULE_MOCKS.has(name.text) && factory !== undefined && !ts().isObjectLiteralExpression(factory)) {
-      const module = typedModule(node, kind);
-      if (module === null || !resolves(program, source, module)) {
-        out.push({ position: node.getStart(source), text: message('mock-lint.module', values) });
-      }
-    }
+    const template = ts().isCallExpression(node) ? mockCallTemplate(program, source, checker, node) : null;
+    if (template === null) continue;
+    const access = (node as TS.CallExpression).expression as TS.PropertyAccessExpression;
+    const call = `${(access.expression as TS.Identifier).text}.${access.name.text}`;
+    out.push({ position: node.getStart(source), text: message(template, { path: shown, line: line(node), call }) });
   }
   return out;
+}
+
+/** The finding template for an untyped `vi`/`jest` mock call, else null. */
+function mockCallTemplate(program: TS.Program, source: TS.SourceFile, checker: TS.TypeChecker, node: TS.CallExpression): string | null {
+  if (!ts().isPropertyAccessExpression(node.expression)) return null;
+  const { expression: receiver, name } = node.expression;
+  if (!ts().isIdentifier(receiver)) return null;
+  const kind = framework(checker, receiver);
+  if (kind === null) return null;
+  if (name.text === 'fn' && node.typeArguments === undefined && node.arguments.length === 0) return 'mock-lint.fn';
+  const factory = node.arguments[1];
+  if (!MODULE_MOCKS.has(name.text) || factory === undefined || ts().isObjectLiteralExpression(factory)) return null;
+  const module = typedModule(node, kind);
+  return module === null || !resolves(program, source, module) ? 'mock-lint.module' : null;
 }
