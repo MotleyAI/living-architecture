@@ -7,6 +7,7 @@ set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 WORK=$(mktemp -d)
+trap 'rm -rf "$WORK"' EXIT
 TRAP_LOG=$WORK/trap.log
 COMMANDS=(la-doctor la-config la-arch-scaffold la-arch-check la-typecheck la-check-conventions la-count-comments
   dr-compliance dr-mock-lint dr-refactor)

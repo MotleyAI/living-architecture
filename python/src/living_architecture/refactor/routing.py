@@ -37,15 +37,27 @@ def _files_under(directory: Path, pruned: set[str]) -> list[Path]:
     return files
 
 
+def _pruned(languages: list[str]) -> set[str]:
+    """The directory names every one of `languages` excludes."""
+    excluded = [set(language(lang_id)["excluded_dirs"]) for lang_id in languages]
+    return set.intersection(*excluded) if excluded else set()
+
+
+def _parts_below_root(directory: Path, root: Path) -> tuple[str, ...]:
+    """`directory`'s names from the repo `root` down; none when it is outside the repo."""
+    real = Path(os.path.realpath(directory))
+    return real.relative_to(root).parts if real.is_relative_to(root) else ()
+
+
 def _expand(directory: Path, languages: list[str], root: Path) -> list[tuple[str, str]]:
     """(language, path) of each file under `directory` the languages check, in path order.
 
     Excluded directory names count from the repo `root` down (from `directory` when it is outside the repo).
     """
-    excluded = [set(language(lang_id)["excluded_dirs"]) for lang_id in languages]
-    pruned = set.intersection(*excluded) if excluded else set()
-    real = Path(os.path.realpath(directory))
-    prefix = real.relative_to(root).parts if real.is_relative_to(root) else ()
+    pruned = _pruned(languages)
+    prefix = _parts_below_root(directory, root)
+    if pruned & set(prefix):
+        return []
     out = []
     for path in sorted(_files_under(directory, pruned)):
         lang_id = language_of(path.name)
@@ -112,13 +124,17 @@ def source_language(path: str, project: str) -> str | None:
     if not directory.is_dir():
         return language_of(path)
     root = find_repo_root(Path(project))
-    ids = {lang_id for lang_id, _ in _expand(directory, _expansion_languages(root), root)}
+    languages = _expansion_languages(root)
+    ids = {lang_id for lang_id, _ in _expand(directory, languages, root)}
     expanded = [lang_id for lang_id in language_ids() if lang_id in ids]
     if len(expanded) > 1:
         raise RoutingError(message("refactor.mixed-languages", path=path, languages=", ".join(expanded)))
     if expanded:
         return expanded[0]
-    found = {language_of(p.name) for p in directory.rglob("*") if p.is_file()}
+    pruned = _pruned(languages)
+    if pruned & set(_parts_below_root(directory, root)):
+        return None
+    found = {language_of(p.name) for p in _files_under(directory, pruned)}
     return next((lang_id for lang_id in language_ids() if lang_id in found), None)
 
 
