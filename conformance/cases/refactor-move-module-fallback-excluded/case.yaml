@@ -1,0 +1,16 @@
+kind: neutral
+languages:
+- python
+- typescript
+fixture: dr-mixed
+command: dr-refactor
+args:
+- move-module
+- --module
+- vendor
+- --dest
+- web
+expect:
+  exit: 1
+golden: manual
+note: a directory whose only source sits under an excluded directory of its language has no language

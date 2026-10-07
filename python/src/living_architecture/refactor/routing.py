@@ -49,6 +49,11 @@ def _parts_below_root(directory: Path, root: Path) -> tuple[str, ...]:
     return real.relative_to(root).parts if real.is_relative_to(root) else ()
 
 
+def _excluded(lang_id: str, parts: tuple[str, ...]) -> bool:
+    """A file of `lang_id` under the directory names `parts` is excluded."""
+    return bool(set(parts) & set(language(lang_id)["excluded_dirs"]))
+
+
 def _expand(directory: Path, languages: list[str], root: Path) -> list[tuple[str, str]]:
     """(language, path) of each file under `directory` the languages check, in path order.
 
@@ -63,7 +68,7 @@ def _expand(directory: Path, languages: list[str], root: Path) -> list[tuple[str
         lang_id = language_of(path.name)
         if lang_id not in languages or _declaration(str(path), lang_id):
             continue
-        if {*prefix, *path.relative_to(directory).parts[:-1]} & set(language(lang_id)["excluded_dirs"]):
+        if _excluded(lang_id, (*prefix, *path.relative_to(directory).parts[:-1])):
             continue
         out.append((lang_id, str(path)))
     return out
@@ -132,9 +137,14 @@ def source_language(path: str, project: str) -> str | None:
     if expanded:
         return expanded[0]
     pruned = _pruned(languages)
-    if pruned & set(_parts_below_root(directory, root)):
+    prefix = _parts_below_root(directory, root)
+    if pruned & set(prefix):
         return None
-    found = {language_of(p.name) for p in _files_under(directory, pruned)}
+    found: set[str] = set()
+    for file in _files_under(directory, pruned):
+        lang_id = language_of(file.name)
+        if lang_id is not None and not _excluded(lang_id, (*prefix, *file.relative_to(directory).parts[:-1])):
+            found.add(lang_id)
     return next((lang_id for lang_id in language_ids() if lang_id in found), None)
 
 

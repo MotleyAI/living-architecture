@@ -95,6 +95,12 @@ function segmentsBelowRoot(dir: string, root: string): string[] {
   return rel === '' || rel.split(sep)[0] === '..' || isAbsolute(rel) ? [] : rel.split(sep);
 }
 
+/** A file of language `id` under the directory names `segments` is excluded. */
+const isExcluded = (id: string, segments: string[]): boolean => segments.some((segment) => excludedDirs(id).includes(segment));
+
+/** `path`'s directory names below `dir`. */
+const dirsBelow = (dir: string, path: string): string[] => (dir === '.' ? path : path.slice(dir.length + 1)).split('/').slice(0, -1);
+
 /** The directory names every one of `languages` excludes. */
 function prunedDirs(languages: string[]): Set<string> {
   const [first, ...rest] = languages;
@@ -111,8 +117,7 @@ function expand(dir: string, languages: string[], root: string): [string, string
     const name = path.split('/').pop() ?? '';
     const id = languageOf(name);
     if (id === null || !languages.includes(id) || declaration(path, id)) continue;
-    const below = (dir === '.' ? path : path.slice(dir.length + 1)).split('/').slice(0, -1);
-    if ([...prefix, ...below].some((segment) => excludedDirs(id).includes(segment))) continue;
+    if (isExcluded(id, [...prefix, ...dirsBelow(dir, path)])) continue;
     out.push([id, path]);
   }
   return out;
@@ -186,8 +191,14 @@ function sourceLanguage(path: string, project: string): string | null {
   if (expanded.length > 1) throw new RoutingError(message('refactor.mixed-languages', { path, languages: expanded.join(', ') }));
   if (expanded.length === 1) return expanded[0] ?? null;
   const pruned = prunedDirs(languages);
-  if (segmentsBelowRoot(purePath(path), root).some((segment) => pruned.has(segment))) return null;
-  const found = new Set(filesUnder(purePath(path), pruned).map((f) => languageOf(f.split('/').pop() ?? '')));
+  const dir = purePath(path);
+  const prefix = segmentsBelowRoot(dir, root);
+  if (prefix.some((segment) => pruned.has(segment))) return null;
+  const found = new Set<string>();
+  for (const file of filesUnder(dir, pruned)) {
+    const id = languageOf(file.split('/').pop() ?? '');
+    if (id !== null && !isExcluded(id, [...prefix, ...dirsBelow(dir, file)])) found.add(id);
+  }
   return languageIds().find((id) => found.has(id)) ?? null;
 }
 
