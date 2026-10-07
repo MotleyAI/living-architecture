@@ -1,0 +1,25 @@
+specification {
+  element system
+  element node
+  element bucket {
+    #virtual
+  }
+  tag legacy
+  tag virtual
+}
+model {
+  typescript = system 'typescript' {
+    n_3d = node '3d' {
+      metadata {
+        package 'src/3d'
+      }
+    }
+    api = node 'api' {
+      metadata {
+        package 'src/api'
+      }
+    }
+
+    n_3d -> api
+  }
+}

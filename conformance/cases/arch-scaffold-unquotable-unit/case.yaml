@@ -6,8 +6,7 @@ fixture: scaffold-ts
 expect:
   exit: 2
   files:
-  - architecture/model/specification.c4
-  - architecture/model/typescript.c4
+  - architecture/model.c4
   - architecture/index.yaml
 golden: manual
 note: a unit name with `'` cannot be a model string, so the scaffold refuses it and writes nothing

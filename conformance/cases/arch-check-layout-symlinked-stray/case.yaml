@@ -1,0 +1,11 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+fixture: arch-ok
+symlinks:
+  architecture/link.c4: model.c4
+expect:
+  exit: 2
+golden: manual
+note: a symlink to a file counts as a file

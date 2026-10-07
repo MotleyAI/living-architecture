@@ -97,6 +97,15 @@ describe('installed npm package', () => {
     expect(proc.status, proc.stderr).toBe(0);
   });
 
+  it('la-arch-migrate merges a legacy model', () => {
+    const repo = join(TMP, 'legacy');
+    mkdirSync(join(repo, 'architecture', 'model'), { recursive: true });
+    writeFileSync(join(repo, 'architecture', 'model', 'm.c4'), 'specification {\n}\nmodel {\n}\n');
+    const proc = run(bin('la-arch-migrate'), ['--root', repo], WORK);
+    expect(proc.status, proc.stderr).toBe(0);
+    expect(readFileSync(join(repo, 'architecture', 'model.c4'), 'utf8')).toBe('specification {\n}\nmodel {\n}\n');
+  });
+
   it('a review shim runs its bundled script', () => {
     const argv = ['--comment-id', '9', '--pr', '3', '--repo', 'o/r'];
     const proc = run(join(PREFIX, 'bin', 'la-reply-to-pr-thread'), argv, WORK, 'body');

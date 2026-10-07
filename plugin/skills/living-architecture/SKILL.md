@@ -48,14 +48,19 @@ maps nodes to code; `index.yaml` holds only repo-wide settings.
 repo/
   openspec/specs/<spec-id>/spec.md
   architecture/
-    model/specification.c4           # element kinds and tags, declared once
-    model/<subsystem>.c4             # ONE LikeC4 model, split across files
-    views.c4                         # views, each scoped to one language root
+    model.c4                         # the ONE LikeC4 model: one specification and one model block
+    views.c4                         # one views block; each view scoped to one language root
     index.yaml                       # repo-wide settings (below)
     system.arc42.md                  # root narrative + global principles
     <node>.arc42.md                  # only where a node earns prose
   living-architecture.yaml           # repo config (architecture: true once the model exists)
 ```
+
+These are the only LikeC4 files allowed anywhere under `architecture/` (`.c4` or
+`.likec4`). Nothing else may sit at their top level. Any other layout makes
+`la-arch-check` exit 2 and `la-arch-diagrams` exit 1, with one message naming
+every violation. A repo on the legacy `architecture/model/*.c4` layout converts
+with `la-arch-migrate` (verified, all-or-nothing).
 
 The checker is `la-arch-check` (the one import law + cross-check, run by the
 gates); it needs no per-repo code. `la-arch-diagrams` regenerates the embedded
@@ -198,6 +203,7 @@ its committed baseline. It runs, blocking, in:
   as arrows are retired. Progress is monotonic and machine-checked.
 
 **`la-arch-check` verifies, from the model and `index.yaml`:**
+- `architecture/` holds exactly `model.c4` and `views.c4`, each with only its blocks (else exit 2);
 - every node's metadata matches the node schema (else exit 2);
 - every precise node's `package` and `claims` (and every bucket's `packages`)
   exist on disk; every nested element's unit exists under its node's package

@@ -5,7 +5,6 @@ command: la-arch-scaffold
 expect:
   exit: 0
   files:
-  - architecture/model/specification.c4
-  - architecture/model/python.c4
+  - architecture/model.c4
 golden: manual
 note: a top-level unit that neither imports nor is imported still gets a node

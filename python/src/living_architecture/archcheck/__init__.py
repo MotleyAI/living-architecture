@@ -24,7 +24,7 @@ from living_architecture.archcheck.nodes import NodeMap, build_node_map, unit_to
 from living_architecture.archcheck.scaffold import run_scaffold
 from living_architecture.archcheck.tags import check_enforced_tags
 from living_architecture.archcheck.truth import check_model_truth, license, measure_runtime_edges
-from living_architecture.c4 import ModelParse, check_diagrams_fresh, parse_model, parse_views
+from living_architecture.c4 import ModelParse, check_diagrams_fresh, layout_problem, parse_model, parse_views
 from living_architecture.config import ConfigError, load_config
 from living_architecture.contract import message
 
@@ -58,6 +58,9 @@ class _Setup(BaseModel):
 def _setup(root: Path) -> _Setup:
     index = load_index(root)
     languages = declared_languages(index)
+    problem = layout_problem(root)
+    if problem is not None:
+        raise ArchCheckError(problem)
     model = parse_model(root)
     return _Setup(index=index, languages=languages, model=model, node_map=build_node_map(model, languages))
 

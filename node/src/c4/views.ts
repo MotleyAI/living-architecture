@@ -1,7 +1,7 @@
 // The constrained `views.c4` include grammar and view expansion over a root-local projection.
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { isWordStart, message, splitLines } from '../contract/index.js';
+import { architecture, isWordStart, message, splitLines } from '../contract/index.js';
 import { readIndex } from './index-file.js';
 import { type ModelParse, project, roots, stripLineComment } from './model.js';
 
@@ -85,7 +85,7 @@ const same = (a: Token, b: Token): boolean => a[0] === b[0] && a[1] === b[1];
 
 /** The include grammar over one token stream; findings accumulate in order. */
 class Parser {
-  private pos = 0;
+  pos = 0;
   readonly findings: string[] = [];
 
   constructor(private readonly tokens: Token[]) {}
@@ -188,18 +188,17 @@ class Parser {
   }
 }
 
-/** Parse `architecture/views.c4`: views scoped to a language root, includes relative to it. */
+export const EMPTY_VIEWS = 'views {\n}\n';
+
+/** Parse `architecture/views.c4` (absent: an empty `views` block); the layout check guarantees its one block. */
 export function parseViews(root: string, model: ModelParse): ViewsParse {
-  const path = join(root, 'architecture', 'views.c4');
-  if (!existsSync(path)) return { views: [], findings: [] };
-  const parser = new Parser(tokenize(readFileSync(path, 'utf8')));
+  const path = join(root, architecture().views_file);
+  const isFile = existsSync(path) && statSync(path).isFile();
+  const parser = new Parser(tokenize(isFile ? readFileSync(path, 'utf8') : EMPTY_VIEWS));
   const scopes = new Map(roots(model).map((r) => [r, scopeOf(model, r)]));
   const raw: RawView[] = [];
   const seenIds = new Set<string>();
-  if (!same(parser.advance(), ['word', 'views']) || parser.advance()[0] !== '{') {
-    parser.findings.push(message('c4.no-views-block'));
-    return { views: [], findings: parser.findings };
-  }
+  parser.pos = 2; // past `views {`
   while (!['}', 'eof'].includes(parser.cur()[0])) {
     if (!same(parser.advance(), ['word', 'view'])) {
       parser.findings.push(message('c4.expected-view'));

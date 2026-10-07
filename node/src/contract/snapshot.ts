@@ -79,6 +79,10 @@ export function conventions(): Record<string, any> {
   return yamlFile('conventions.yaml');
 }
 
+export function architecture(): Record<string, any> {
+  return yamlFile('architecture.yaml');
+}
+
 export function scriptPath(name: string): string {
   return join(snapshotDir(), 'scripts', name);
 }

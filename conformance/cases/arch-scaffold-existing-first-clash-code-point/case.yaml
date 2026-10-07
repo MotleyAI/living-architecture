@@ -1,0 +1,17 @@
+kind: adapter
+languages:
+- python
+command: la-arch-scaffold
+fixture: scaffold-minimal
+expect:
+  exit: 2
+  files:
+  - architecture/model.c4
+  - architecture/views.c4
+  - architecture/system.arc42.md
+  - architecture/index.yaml
+  - architecture/a.arc42.md
+  - architecture/B/x.c4
+  - architecture/B.c4
+golden: manual
+note: 'the first clash in code-point order is named: uppercase before lowercase, `.` before `/`'

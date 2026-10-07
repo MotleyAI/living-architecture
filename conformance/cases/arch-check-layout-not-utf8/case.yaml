@@ -1,0 +1,9 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+fixture: arch-ok
+expect:
+  exit: 2
+golden: manual
+note: a canonical and a stray LikeC4 file that are not valid UTF-8, each reported only as such

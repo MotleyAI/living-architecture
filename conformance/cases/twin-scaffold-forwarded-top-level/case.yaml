@@ -33,8 +33,6 @@ bins:
 expect:
   exit: 0
   files:
-  - architecture/model/specification.c4
-  - architecture/model/python.c4
-  - architecture/model/typescript.c4
+  - architecture/model.c4
 golden: manual
 note: the PyPI twin gets TypeScript top-level facts from the npm twin's top-level facts run

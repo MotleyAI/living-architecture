@@ -1,0 +1,32 @@
+kind: neutral
+other_twin: absent
+command: la-arch-migrate
+fixture: twin-mixed
+remove:
+- architecture/model.c4
+bins:
+- dir: watch
+  files:
+    la-doctor: |
+      #!/bin/sh
+      echo "watch: la-doctor $*" >> <ROOT>/repo/probe.log
+      echo "watch la-doctor must not run" >&2
+      exit 99
+    npx: |
+      #!/bin/sh
+      echo "watch: npx $*" >> <ROOT>/repo/probe.log
+      echo "watch npx must not run" >&2
+      exit 99
+    uvx: |
+      #!/bin/sh
+      echo "watch: uvx $*" >> <ROOT>/repo/probe.log
+      echo "watch uvx must not run" >&2
+      exit 99
+expect:
+  exit: 0
+  files:
+  - architecture/model.c4
+  - architecture/model/m.c4
+  - probe.log
+golden: manual
+note: la-arch-migrate converts a mixed repo natively in either twin with the other twin unreachable

@@ -116,8 +116,8 @@ skills. What still holds:
 ## Normative harnesses (living-architecture repos)
 
 In a repo with an `architecture/` directory at its root,
-`architecture/**/*.arc42.md` and `architecture/**/*.c4` files are normative
-harnesses, exactly like tests. This applies at EVERY stage of the flow —
+`architecture/**/*.arc42.md`, `architecture/model.c4` and `architecture/views.c4`
+files are normative harnesses, exactly like tests. This applies at EVERY stage of the flow —
 planning, writing tests, implementing, and fixing review findings:
 
 - **Read them first.** Before doing the stage's work, read

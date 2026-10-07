@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 from living_architecture.c4.index import read_index
 from living_architecture.c4.model import ModelParse, Relation, project, roots, strip_line_comment
-from living_architecture.contract import message
+from living_architecture.contract import architecture, message
 
 
 class Edge(BaseModel):
@@ -47,6 +47,8 @@ class _RawView(BaseModel):
 _TOKEN_RE = re.compile(r"'[^']*'|->|[\w.]+|\S")
 
 DEFAULT_VIEW_DEPTH = 3
+
+EMPTY_VIEWS = "views {\n}\n"
 
 
 def _top(eid: str) -> str:
@@ -207,18 +209,14 @@ def _add_base(raw: _RawView, name: str) -> None:
 
 
 def parse_views(root: Path, model: ModelParse) -> ViewsParse:
-    """Parse `architecture/views.c4`: views scoped to a language root, includes relative to it."""
-    path = root / "architecture" / "views.c4"
-    if not path.exists():
-        return ViewsParse(views=[], findings=[])
-    parser = _Parser(_tokenize(path.read_text(encoding="utf-8")))
+    """Parse `architecture/views.c4` (absent: an empty `views` block); the layout check guarantees its one block."""
+    path = root / architecture()["views_file"]
+    parser = _Parser(_tokenize(path.read_text(encoding="utf-8") if path.is_file() else EMPTY_VIEWS))
     model_roots = roots(model)
     scopes = {r: _scope(model, r) for r in model_roots}
     raw: list[_RawView] = []
     seen_ids: set[str] = set()
-    if parser.advance() != ("word", "views") or parser.advance()[0] != "{":
-        parser.findings.append(message("c4.no-views-block"))
-        return ViewsParse(views=[], findings=parser.findings)
+    parser.pos = 2  # past `views {`
     while parser.cur()[0] not in ("}", "eof"):
         if parser.advance() != ("word", "view"):
             parser.findings.append(message("c4.expected-view"))

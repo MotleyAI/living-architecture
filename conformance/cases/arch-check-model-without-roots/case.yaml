@@ -1,0 +1,9 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+fixture: arch-ok
+expect:
+  exit: 2
+golden: manual
+note: a model.c4 with empty blocks has no root for the declared language

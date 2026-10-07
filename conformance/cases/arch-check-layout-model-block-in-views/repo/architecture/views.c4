@@ -1,0 +1,8 @@
+views {
+  view system of python {
+    title 'System'
+    include *
+  }
+}
+model {
+}

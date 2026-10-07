@@ -6,8 +6,7 @@ fixture: scaffold-ts
 expect:
   exit: 2
   files:
-  - architecture/model/specification.c4
-  - architecture/model/typescript.c4
+  - architecture/model.c4
   - architecture/views.c4
   - architecture/system.arc42.md
   - architecture/index.yaml

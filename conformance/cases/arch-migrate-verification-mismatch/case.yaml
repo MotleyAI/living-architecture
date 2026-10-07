@@ -1,0 +1,12 @@
+kind: neutral
+command: la-arch-migrate
+fixture: arch-ok
+remove:
+- architecture/model.c4
+expect:
+  exit: 2
+  files:
+  - architecture/model.c4
+  - architecture/model/app.c4
+golden: manual
+note: 'the parser skips a `model` block whose brace is on the next line, so the merged model would differ: nothing written'

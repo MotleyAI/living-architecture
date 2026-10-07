@@ -13,6 +13,7 @@ The source of truth both twins obey. Each package vendors a byte-copy of this di
 | `cli.yaml` | every command's options, positionals, subcommands, exit codes and native languages |
 | `conventions.yaml` | conventions-gate rules and the waiver syntax |
 | `languages.yaml` | per-language extensions, test globs, comment prefix, suppression syntax, twin runner and install command |
+| `architecture.yaml` | the LikeC4 layout: the canonical model and views files, their blocks, the source extensions |
 | `regex-subset.md` | the portable `issue_key_pattern` subset |
 | `vectors/` | input/output vectors both test suites consume |
 | `scripts/` | the review helpers (bash, `gh`, `jq`) |
@@ -47,6 +48,13 @@ non-printable characters become `\xNN`, `\uNNNN` or `\UNNNNNNNN`. Floats use the
 Matched against the POSIX repo-relative path, case-sensitively. A pattern is split on `/`; a `**` segment
 matches zero or more whole path segments; inside any other segment `*` matches any run of characters
 (dots included) and every other character is literal. Pinned by `vectors/glob.yaml`.
+
+## LikeC4 layout
+
+A LikeC4 source is a file under `architecture/`, at any depth, whose name ends in one of `source_extensions`
+(case-sensitive). A symlink to a file counts as a file; a symlinked directory is not descended into. A
+canonical path that exists but is not a regular file (or a symlink to one) is "not a file". Paths are listed
+repo-relative, in ascending code-point order (never UTF-16 order); violations within one file follow file order.
 
 ## Contract hash
 

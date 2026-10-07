@@ -248,6 +248,18 @@ cases:
   command: la-arch-scaffold
   argv: [--root, r]
   args: {root: r}
+- name: migrate defaults
+  command: la-arch-migrate
+  argv: []
+  args: {root: null}
+- name: migrate root
+  command: la-arch-migrate
+  argv: [--root, r]
+  args: {root: r}
+- name: migrate unknown option
+  command: la-arch-migrate
+  argv: [--dry-run]
+  exit: 2
 - name: unknown language
   command: la-arch-check
   argv: [--language, rust]

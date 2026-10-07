@@ -1,0 +1,25 @@
+specification {
+  element system
+  element node
+  element bucket {
+    #virtual
+  }
+  tag legacy
+  tag virtual
+}
+model {
+  typescript = system 'typescript' {
+    api = node 'api' {
+      metadata {
+        package 'src/api'
+      }
+    }
+    data_access = node 'data-access' {
+      metadata {
+        package 'src/data-access'
+      }
+    }
+
+    api -> data_access
+  }
+}

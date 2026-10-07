@@ -1,8 +1,9 @@
 // Mermaid blocks in arc42 docs: regeneration (`la-arch-diagrams`) and the diagrams-fresh check.
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { message } from '../contract/index.js';
+import { decodeUtf8, message } from '../contract/index.js';
 import { readIndex } from './index-file.js';
+import { layoutProblem } from './layout.js';
 import { renderMermaid } from './mermaid.js';
 import { type ModelParse, parseModel, project } from './model.js';
 import { type View, type ViewsParse, parseViews } from './views.js';
@@ -14,7 +15,7 @@ export class DiagramsError extends Error {}
 
 /** Read preserving exact bytes (no newline translation) for byte-for-byte checks. */
 function readExact(path: string): string {
-  return new TextDecoder('utf-8', { fatal: true }).decode(readFileSync(path));
+  return decodeUtf8(readFileSync(path));
 }
 
 /** pathlib's parts: empty and `.` segments dropped, a leading `/` its own part. */
@@ -87,6 +88,8 @@ function rewriteMarkers(text: string, vids: unknown, byId: Map<unknown, View>, m
 
 /** Rewrite each mapped doc's marker blocks from the model; return changed repo-relative paths. */
 export function generate(root: string): string[] {
+  const problem = layoutProblem(root);
+  if (problem !== null) throw new DiagramsError(problem);
   const diagrams = diagramsMap(root);
   if (!(diagrams instanceof Map)) throw new DiagramsError(badDiagramsReason(diagrams));
   const model = parseModel(root);

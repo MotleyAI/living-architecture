@@ -1,0 +1,4 @@
+arch_check: the LikeC4 model must be exactly architecture/model.c4 and the views exactly architecture/views.c4:
+  architecture/model.c4: missing
+  architecture/model/app.c4: stray LikeC4 file holding `specification`, `model`
+this is the legacy architecture/model/*.c4 layout: run la-arch-migrate to convert it

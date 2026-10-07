@@ -62,7 +62,11 @@ spec-mapping and model-truth SHALL take node ids, units, docs and spec groups on
 - **THEN** the claims are read exactly as the one-line form would be
 
 #### Scenario: No model files
-- **WHEN** `architecture/model/` has no `.c4` file
+- **WHEN** `architecture/` holds no `model.c4` and no other LikeC4 source file
+- **THEN** `la-arch-check` exits 2 with the layout message naming `architecture/model.c4` as missing
+
+#### Scenario: Model without roots
+- **WHEN** `architecture/model.c4` holds an empty `specification { }` and an empty `model { }` block
 - **THEN** `la-arch-check` exits 2 naming the first declared language whose root element is missing
 
 ### Requirement: Nested elements map to units by convention

@@ -1,2 +1,0 @@
-diagrams-fresh: views.c4 does not open with a `views {` block
-arch_check: 1 finding(s)

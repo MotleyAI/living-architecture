@@ -2,7 +2,9 @@
 
 from living_architecture.c4.diagrams import DiagramsError, check_diagrams_fresh, diagram_block, generate, run
 from living_architecture.c4.index import read_index
+from living_architecture.c4.layout import layout_problem, model_file, sources, views_file
 from living_architecture.c4.mermaid import render_mermaid
+from living_architecture.c4.migrate import run as run_migrate
 from living_architecture.c4.model import (
     Element,
     ModelParse,
@@ -27,6 +29,8 @@ __all__ = [
     "diagram_block",
     "generate",
     "is_or_ancestor",
+    "layout_problem",
+    "model_file",
     "parse_model",
     "parse_views",
     "project",
@@ -34,4 +38,7 @@ __all__ = [
     "render_mermaid",
     "roots",
     "run",
+    "run_migrate",
+    "sources",
+    "views_file",
 ]

@@ -44,6 +44,7 @@ const HANDLERS: Record<string, (args: Args, argv: string[]) => number> = {
   },
   'la-arch-scaffold': (args) => archcheck.runScaffold(root(args.root)),
   'la-arch-diagrams': (args) => c4.run(root(args.root)),
+  'la-arch-migrate': (args) => c4.runMigrate(root(args.root)),
   'la-check-conventions': (args) => {
     if (optional(args.emit) !== null) return conventions.emit(optional(args.language) ?? twin.NATIVE_LANGUAGE, process.cwd());
     return conventions.checkConventions({

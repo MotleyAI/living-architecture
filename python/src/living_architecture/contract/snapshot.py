@@ -83,5 +83,9 @@ def conventions() -> dict[str, Any]:
     return _yaml("conventions.yaml")
 
 
+def architecture() -> dict[str, Any]:
+    return _yaml("architecture.yaml")
+
+
 def script_path(name: str) -> Path:
     return snapshot_dir() / "scripts" / name

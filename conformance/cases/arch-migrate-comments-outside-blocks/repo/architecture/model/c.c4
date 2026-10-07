@@ -1,0 +1,3 @@
+model { // the typescript root
+  typescript = system 'TS'
+}

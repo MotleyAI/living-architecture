@@ -7,8 +7,9 @@ The skills drive these commands; you can also run them directly. `<command> --he
 | `la-doctor [--plugin DIR] [--require-config]` | Check tool/plugin versions, the repo config against the disk, `git`/`gh`, and each repo language's executables (`node`/`npx` for TypeScript) |
 | `la-config get <key>` / `la-config show` | Print the resolved repo config; `get languages` prints the repo languages, `get lang.<language>.<key>` a language fact |
 | `la-arch-check` | Architecture cross-check (exit 0 OK, 1 findings, 2 broken setup) |
-| `la-arch-scaffold` | Write a starter model, views and `system.arc42.md` from the measured top-level units and imports |
+| `la-arch-scaffold` | Write a starter `architecture/model.c4`, `architecture/views.c4` and `system.arc42.md` from the measured top-level units and imports |
 | `la-arch-diagrams` | Regenerate the mermaid view diagrams embedded in arc42 docs |
+| `la-arch-migrate` | Merge a legacy `architecture/model/*.c4` model into `architecture/model.c4` (verified, all-or-nothing) |
 | `la-check-conventions <PR>` / `--base BRANCH` | Imports-at-top, text-ratio and test-assertion gate on changed `.py` and TS/JS files |
 | `la-count-comments` | Count comment and doc (docstring, JSDoc) lines, or the net change vs a git ref |
 | `la-typecheck [--write-baseline]` | Type-check each applicable language against a baseline that only shrinks |

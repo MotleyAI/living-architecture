@@ -13,4 +13,4 @@ expect:
   exit: 0
   stdout: json
 golden: manual
-note: 'top-level facts need no model: no units, sorted top-level units, edges between top-level units with the first witness'
+note: 'top-level facts need no model and ignore a violated layout: no units, sorted top-level units, edges between top-level units with the first witness'

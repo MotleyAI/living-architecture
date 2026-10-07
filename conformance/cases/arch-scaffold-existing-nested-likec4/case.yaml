@@ -1,0 +1,15 @@
+kind: adapter
+languages:
+- python
+command: la-arch-scaffold
+fixture: scaffold-minimal
+expect:
+  exit: 2
+  files:
+  - architecture/model.c4
+  - architecture/views.c4
+  - architecture/system.arc42.md
+  - architecture/index.yaml
+  - architecture/sub/x.likec4
+golden: manual
+note: a LikeC4 source at any depth is refused by name

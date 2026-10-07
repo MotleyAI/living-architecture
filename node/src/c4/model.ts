@@ -1,7 +1,7 @@
 // The constrained `.c4` model parser (element FQN = dotted path; relations resolve inside their root).
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { WORD, message, splitLines } from '../contract/index.js';
+import { WORD, architecture, message, splitLines } from '../contract/index.js';
 
 export interface Element {
   id: string;
@@ -84,20 +84,6 @@ function logicalLines(text: string): string[] {
     .filter((line) => line !== '');
 }
 
-function modelFiles(root: string): string[] {
-  const dir = join(root, 'architecture', 'model');
-  let names: string[];
-  try {
-    names = readdirSync(dir);
-  } catch {
-    return [];
-  }
-  return names
-    .filter((name) => name.endsWith('.c4') && statSync(join(dir, name)).isFile())
-    .sort()
-    .map((name) => join(dir, name));
-}
-
 interface Scan {
   kinds: Map<string, boolean>;
   byId: Map<string, Element>;
@@ -115,8 +101,13 @@ interface MetadataBlock {
   lines: string[];
 }
 
-/** Parse `architecture/model/*.c4` under the constrained authoring convention. */
+/** Parse `architecture/model.c4` under the constrained authoring convention. */
 export function parseModel(root: string): ModelParse {
+  return parseModelFiles([join(root, architecture().model_file)]);
+}
+
+/** Parse `paths` in order as one model. */
+export function parseModelFiles(paths: string[]): ModelParse {
   const scan: Scan = {
     kinds: new Map(),
     byId: new Map(),
@@ -126,7 +117,7 @@ export function parseModel(root: string): ModelParse {
     findings: [],
     metadataFindings: [],
   };
-  for (const path of modelFiles(root)) scanModelFile(readFileSync(path, 'utf8'), scan);
+  for (const path of paths) scanModelFile(readFileSync(path, 'utf8'), scan);
   const elements = [...scan.byId.values()];
   for (const element of elements) {
     if (!scan.kinds.has(element.kind)) {

@@ -295,6 +295,8 @@ def materialize(
         _git(repo, env, "init", "-q", "-b", "main")
         for step in git:
             _apply_step(step, repo=repo, root=root, env=env)
+    for rel, mode in case.get("chmod", {}).items():
+        (repo / rel).chmod(int(mode, 8))
     return repo, env
 
 
@@ -330,6 +332,8 @@ def run_case(case_dir: Path, root: Path, variant: Variant = NEUTRAL, twin: str =
         rel: _normalize((repo / rel).read_bytes().decode("utf-8"), root, case) if (repo / rel).is_file() else "<MISSING>\n"
         for rel in case.get("expect", {}).get("files", [])
     }
+    for rel in case.get("chmod", {}):
+        (repo / rel).chmod(0o755)
     return CaseResult(
         exit_code=proc.returncode,
         stdout=_normalize(proc.stdout.decode("utf-8"), root, case),

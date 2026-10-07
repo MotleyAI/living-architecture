@@ -13,11 +13,10 @@ PY_INDEX = "python:\n  root_package: pkg\n"
 
 def parse(tmp_path: Path, model_body: str) -> c4.ModelParse:
     """Parse `model_body` as the children of the `python` root."""
-    model_dir = tmp_path / "architecture" / "model"
-    model_dir.mkdir(parents=True, exist_ok=True)
+    (tmp_path / "architecture").mkdir(parents=True, exist_ok=True)
     (tmp_path / "architecture" / "index.yaml").write_text(PY_INDEX, encoding="utf-8")
     body = textwrap.indent(textwrap.dedent(model_body), "    ")
-    (model_dir / "m.c4").write_text(
+    (tmp_path / "architecture" / "model.c4").write_text(
         SPEC + "model {\n  python = system 'Python' {\n" + body + "  }\n}\n", encoding="utf-8"
     )
     return c4.parse_model(tmp_path)
@@ -247,7 +246,7 @@ def diagrams_repo(tmp_path: Path, model: str) -> Path:
         "architecture/index.yaml": INDEX,
         "architecture/views.c4": VIEWS,
         "architecture/system.arc42.md": SYSTEM_MD,
-        "architecture/model/m.c4": SPEC + model,
+        "architecture/model.c4": SPEC + model,
     }
     for rel, text in files.items():
         (tmp_path / rel).parent.mkdir(parents=True, exist_ok=True)

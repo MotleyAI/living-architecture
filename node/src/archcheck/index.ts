@@ -1,5 +1,5 @@
 // Living-architecture cross-walk checker: code, LikeC4 model, arc42 docs and specs agree.
-import { type ModelParse, checkDiagramsFresh, parseModel, parseViews } from '../c4/index.js';
+import { type ModelParse, checkDiagramsFresh, layoutProblem, parseModel, parseViews } from '../c4/index.js';
 import { ConfigError, loadConfig } from '../config/index.js';
 import { message } from '../contract/index.js';
 import { LangError } from '../lang/index.js';
@@ -26,6 +26,8 @@ interface Setup {
 function setup(root: string): Setup {
   const index = loadIndex(root);
   const languages = declaredLanguages(index);
+  const problem = layoutProblem(root);
+  if (problem !== null) throw new ArchCheckError(problem);
   const model = parseModel(root);
   return { index, languages, model, nodeMap: buildNodeMap(model, languages) };
 }

@@ -7,7 +7,7 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
-from living_architecture.contract import message
+from living_architecture.contract import architecture, message
 
 
 class Element(BaseModel):
@@ -100,10 +100,6 @@ def _c4_logical_lines(text: str) -> list[str]:
     return [line.strip() for line in "".join(out).splitlines() if line.strip()]
 
 
-def _model_files(root: Path) -> list[Path]:
-    return sorted((root / "architecture" / "model").glob("*.c4"))
-
-
 class _Scan(BaseModel):
     """Accumulators shared by every model file of one parse."""
 
@@ -125,9 +121,14 @@ class _MetadataBlock(BaseModel):
 
 
 def parse_model(root: Path) -> ModelParse:
-    """Parse `architecture/model/*.c4` under the constrained authoring convention."""
+    """Parse `architecture/model.c4` under the constrained authoring convention."""
+    return parse_model_files([root / architecture()["model_file"]])
+
+
+def parse_model_files(paths: list[Path]) -> ModelParse:
+    """Parse `paths` in order as one model."""
     scan = _Scan()
-    for path in _model_files(root):
+    for path in paths:
         _scan_model_file(path=path, scan=scan)
     elements = list(scan.by_id.values())
     for element in elements:

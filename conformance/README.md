@@ -19,6 +19,7 @@ stdin: text
 fixture: arch-ok                   # copies fixtures/<name>/{repo,<overlays>}/ first
 remove: [path]                     # deleted after the overlays are applied
 symlinks: {link: target}
+chmod: {path: '0555'}              # octal mode set after the git steps; restored to 0755 after the run
 env: {NAME: value}                 # placeholders substituted
 hide: [gh]                         # executables removed from PATH
 bins: [{dir: name, position: before | after, files: {exe: text}, nonexec: [exe], link: other-dir}]   # fake executables
