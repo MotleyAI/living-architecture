@@ -64,3 +64,9 @@
 
 - [x] 11.1 Once worktree-term has its daemon skeleton: install this branch's twins (`uv tool install -e python`, `npm install -g ./node` after build) and point `~/.claude/skills/la` at this branch's `plugin/`; run `/la:arch-init` on worktree-term until `la-arch-check`, `likec4 validate` and `la-typecheck` are green; fix every gap found in this PR
 - [x] 11.2 Take worktree-term's next change through all four `/la:pr` stages with Vitest as `commands.test`; fix every gap found in this PR; merge this PR only after it passes
+
+## 12. tsconfig lookup (pr-review stage)
+
+- [x] 12.1 Per-file tsconfig lookup in the npm twin's `Workspace` (outermost containing ancestor, else nearest)
+  for `dr-refactor`, `dr-compliance` and `dr-mock-lint`; conformance cases for a nested tsconfig with no root
+  one; verify every existing TS refactor, compliance and mock-lint golden is unchanged

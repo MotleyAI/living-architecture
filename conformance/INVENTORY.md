@@ -313,6 +313,8 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | *(new)* parse error (first parse diagnostic), later files still checked | 1 | `compliance-ts-parse-error` |
 | *(new)* explicit declaration file skipped with a warning; directory expansion skips `.d.ts`, `node_modules` and non-repo languages | 0/1 | `compliance-ts-declaration-skipped`, `compliance-ts-directory-expansion` |
 | *(new)* a requested directory inside `node_modules` expands to nothing | 0 | `compliance-ts-excluded-directory-requested` |
+| *(new)* the governing tsconfig is the file's nearest tsconfig.json when the project root has none | 1 | `compliance-ts-nested-tsconfig` |
+| *(new)* the tsconfig `index.yaml` names does not exist | 2 | `compliance-ts-index-tsconfig-missing` |
 
 ## dr-mock-lint
 
@@ -329,6 +331,8 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | *(new)* `fn()` untyped (import, alias, `@jest/globals`, unshadowed global; typed and implemented forms pass); module factories untyped or unresolved (`.mock`, `.doMock`, `.unstable_mockModule`; typed forms, no factory, options only pass); double assertions in a test file | 1 | `mock-lint-ts-violations` |
 | *(new)* a shadowed receiver is not Vitest's | 0 | `mock-lint-ts-shadowed-receiver` |
 | *(new)* a factory typed against an ambient module (exact, wildcard pattern) passes; an unresolved one is flagged | 1 | `mock-lint-ts-ambient-module` |
+| *(new)* the file's nearest tsconfig.json (no root one) supplies an ambient module | 0 | `mock-lint-ts-nested-tsconfig` |
+| *(new)* the tsconfig `index.yaml` names does not exist | 2 | `mock-lint-ts-index-tsconfig-missing` |
 | *(new)* double assertions only in test-glob files; directory recursion | 1 | `mock-lint-ts-cast-only-in-tests` |
 | *(new)* explicit declaration file or unknown extension skipped with a warning; directory expansion skips `.d.ts`, `node_modules` and non-repo languages | 0/1 | `mock-lint-ts-declaration-skipped`, `mock-lint-unknown-extension-skipped`, `mock-lint-ts-directory-expansion` |
 
@@ -351,6 +355,8 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 |---|---|---|
 | *(new)* rename: dry-run by name (diffs in path order), apply by line/col renaming an override, shorthand and export keep their external names (strings and comments untouched) by offset, astral column, `--name` prefers a declaration, explicit `--unsure skip` | 0 | `refactor-ts-rename-dry-run`, `refactor-ts-rename-apply-override`, `refactor-ts-rename-shapes`, `refactor-ts-rename-astral-column`, `refactor-ts-rename-name-prefers-declaration`, `refactor-ts-unsure-skip-accepted` |
 | *(new)* rename across project references, each project with its own options (a `paths` alias); paths from a subdirectory with `--project ..`; the tsconfig `index.yaml` names | 0 | `refactor-ts-project-references`, `refactor-ts-from-subdirectory`, `refactor-ts-index-tsconfig` |
+| *(new)* no `index.yaml` tsconfig: the file's nearest tsconfig.json (no root one; a root one that does not contain the file) | 0 | `refactor-ts-nested-tsconfig`, `refactor-ts-nested-tsconfig-root-elsewhere` |
+| *(new)* the tsconfig `index.yaml` names does not exist | 1 | `refactor-ts-index-tsconfig-missing` |
 | *(new)* move-symbol: importers rewritten; default re-export rewritten; `export *` barrel gets an explicit re-export (none when it already re-exports the new file) and a mixed named re-export is split | 0 | `refactor-ts-move-symbol-apply`, `refactor-ts-move-symbol-default-reexport`, `refactor-ts-move-symbol-barrel`, `refactor-ts-move-symbol-barrel-covered` |
 | *(new)* move-module: a file (apply, dry-run), a directory, a directory with a file of a non-repo language | 0 | `refactor-ts-move-module-apply`, `refactor-ts-move-module-dry-run`, `refactor-ts-move-module-directory`, `refactor-ts-move-module-directory-stray-python` |
 | *(new)* locator errors: line, column, offset out of range; no locator; symbol not found | 1 | `refactor-ts-line-out-of-range`, `refactor-ts-col-out-of-range`, `refactor-ts-offset-out-of-range`, `refactor-ts-no-locator`, `refactor-ts-symbol-not-found` |

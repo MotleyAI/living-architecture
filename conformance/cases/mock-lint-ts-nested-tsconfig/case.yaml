@@ -1,0 +1,12 @@
+kind: adapter
+languages:
+- typescript
+command: dr-mock-lint
+args:
+- web/src/a.test.ts
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: the file's nearest tsconfig.json supplies the ambient module its factory is typed against

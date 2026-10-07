@@ -4,6 +4,7 @@ import { language, manifest, message } from '../contract/index.js';
 import * as twin from '../twin/index.js';
 import { typescriptCompliance, typescriptMockLint } from './compliance.js';
 import { complianceSelection, refactorLanguage, RoutingError, runSplit, split } from './routing.js';
+import { RefactorError } from './edits.js';
 import { type RefactorArgs, runTypescriptRefactor } from './typescript.js';
 
 export { unifiedDiff } from './diff.js';
@@ -14,6 +15,17 @@ const print = (lines: string[]): number => {
   for (const line of lines) process.stdout.write(`${line}\n`);
   return lines.length > 0 ? 1 : 0;
 };
+
+/** The native block's findings printed (exit 1 if any); a tsconfig that cannot be loaded is reported, exit 2. */
+function native(findings: () => string[]): number {
+  try {
+    return print(findings());
+  } catch (error) {
+    if (!(error instanceof RefactorError)) throw error;
+    process.stderr.write(`${error.message}\n`);
+    return 2;
+  }
+}
 
 /** `dr-refactor`: run natively, or hand the raw ARGV to the source language's twin. */
 export function runRefactor(argv: string[], args: RefactorArgs): number {
@@ -51,7 +63,7 @@ export function runCompliance(paths: string[], select: string | null, attr: stri
   const options = [...(select !== null ? ['--select', select] : []), ...(attr !== null ? ['--attr', attr] : [])];
   const checks: string[] = language(twin.NATIVE_LANGUAGE).compliance_checks;
   const own = new Set(checks.filter((check) => selected === null || selected.has(check)));
-  return runSplit('dr-compliance', groups, (files) => [...options, '--', ...files], (files) => print(typescriptCompliance(files, own, attr)));
+  return runSplit('dr-compliance', groups, (files) => [...options, '--', ...files], (files) => native(() => typescriptCompliance(files, own, attr)));
 }
 
 /** `dr-mock-lint` with raw argv: paths to files or directories, each file linted in its language's twin. */
@@ -68,5 +80,5 @@ export function runMockLint(argv: string[]): number {
     process.stderr.write(`${error.message}\n`);
     return 2;
   }
-  return runSplit('dr-mock-lint', groups, (files) => files, (files) => print(typescriptMockLint(files)));
+  return runSplit('dr-mock-lint', groups, (files) => files, (files) => native(() => typescriptMockLint(files)));
 }

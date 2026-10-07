@@ -289,6 +289,7 @@ findings:
   refactor.ts-moved: "rename from {old}\nrename to {new}"
   refactor.ts-outside-project: no TypeScript project includes {path}
   refactor.ts-not-supported: '{option} is not supported for TypeScript'
+  refactor.ts-tsconfig-missing: 'architecture/index.yaml names tsconfig {path}, which does not exist'
   refactor.col-out-of-range: column {col} out of range (line {line} has {count} characters)
   refactor.offset-out-of-range: offset {offset} out of range (file has {count} characters)
   refactor.cannot-rename: the element at this location cannot be renamed

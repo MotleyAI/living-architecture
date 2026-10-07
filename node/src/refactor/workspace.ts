@@ -1,21 +1,33 @@
 // The TypeScript projects a refactor or check runs in: the reference graph, one language service per project.
 import { existsSync, readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, isAbsolute, join, relative, sep } from 'node:path';
 import type * as TS from 'typescript';
-import { loadYaml, toPlain } from '../contract/index.js';
-import { canonical, LangError, loadProjectsFrom, type Project, type Projects, ts } from '../lang/index.js';
+import { loadYaml, message, toPlain } from '../contract/index.js';
+import { canonical, LangError, loadProjectsFrom, posix, type Project, type Projects, ts } from '../lang/index.js';
 import { RefactorError } from './edits.js';
 
-/** `typescript.tsconfig` of the root's architecture/index.yaml, else `<root>/tsconfig.json`, if it exists. */
-function rootConfig(root: string): string | undefined {
+/** `typescript.tsconfig` of the root's architecture/index.yaml, else null. */
+function namedConfig(root: string): string | null {
   let named: unknown;
   try {
-    named = (toPlain(loadYaml(readFileSync(join(root, 'architecture', 'index.yaml'), 'utf8'))) as any)?.typescript?.tsconfig;
+    const index = toPlain(loadYaml(readFileSync(join(root, 'architecture', 'index.yaml'), 'utf8'))) as { typescript?: { tsconfig?: unknown } } | null;
+    named = index?.typescript?.tsconfig;
   } catch {
     named = undefined;
   }
-  const config = typeof named === 'string' ? join(root, named) : join(root, 'tsconfig.json');
-  return existsSync(config) ? config : undefined;
+  return typeof named === 'string' ? join(root, named) : null;
+}
+
+/** The tsconfig.json files from `file`'s directory up to `root`, outermost first. */
+function ancestorConfigs(file: string, root: string): string[] {
+  const out: string[] = [];
+  for (let dir = dirname(file); ; dir = dirname(dir)) {
+    const rel = relative(root, dir);
+    if (rel.split(sep)[0] === '..' || isAbsolute(rel)) break;
+    if (existsSync(join(dir, 'tsconfig.json'))) out.unshift(join(dir, 'tsconfig.json'));
+    if (rel === '') break;
+  }
+  return out;
 }
 
 /** The hook (internal in TypeScript's typings) that resolves a referenced project to its sources, not its outputs. */
@@ -47,46 +59,71 @@ function host(parsed: TS.ParsedCommandLine, options: TS.CompilerOptions, extra: 
 export class Workspace {
   private readonly services = new Map<Project, TS.LanguageService>();
   private readonly registry = ts().createDocumentRegistry();
-  private readonly projects: Projects;
+  private readonly graphs = new Map<string, Projects>();
+  private readonly named: string | null;
 
-  /** The projects of `root` (a refactor's --project, or the repo root); RefactorError on an unreadable tsconfig. */
+  /** The projects under `root` (a refactor's --project, or the repo root), loaded per file on first use. */
   constructor(readonly root: string) {
-    try {
-      this.projects = loadProjectsFrom(rootConfig(root), root);
-    } catch (error) {
-      if (error instanceof LangError) throw new RefactorError(error.message);
-      throw error;
-    }
+    this.named = namedConfig(root);
   }
 
-  /** The first project in depth-first preorder that includes `file`, else null. */
+  /** The reference graph from `config` (none: inferred defaults); RefactorError on an unreadable tsconfig. */
+  private load(config: string | undefined): Projects {
+    const key = config ?? '';
+    let graph = this.graphs.get(key);
+    if (graph === undefined) {
+      try {
+        graph = loadProjectsFrom(config, this.root);
+      } catch (error) {
+        if (error instanceof LangError) throw new RefactorError(error.message);
+        throw error;
+      }
+      this.graphs.set(key, graph);
+    }
+    return graph;
+  }
+
+  /** `file`'s graph: index.yaml's tsconfig; else the outermost ancestor tsconfig.json whose graph contains it, else the nearest. */
+  private graph(file: string): Projects {
+    if (this.named !== null) {
+      if (!existsSync(this.named)) throw new RefactorError(message('refactor.ts-tsconfig-missing', { path: posix(relative(this.root, this.named)) }));
+      return this.load(this.named);
+    }
+    const key = canonical(file);
+    const configs = ancestorConfigs(file, this.root);
+    const owning = configs.find((config) => this.load(config).ordered.some((p) => p.files.has(key)));
+    return this.load(owning ?? configs.at(-1));
+  }
+
+  /** The first project of `file`'s graph in depth-first preorder that includes it, else null. */
   owner(file: string): Project | null {
     const key = canonical(file);
-    return this.projects.ordered.find((p) => p.files.has(key)) ?? null;
+    return this.graph(file).ordered.find((p) => p.files.has(key)) ?? null;
   }
 
-  /** The project that governs `file`: its owner, else the root project. */
+  /** The project that governs `file`: its owner, else its graph's root project. */
   governing(file: string): Project {
-    return this.owner(file) ?? this.projects.root;
+    return this.owner(file) ?? this.graph(file).root;
   }
 
-  private references(project: Project): Project[] {
+  private static references(graph: Projects, project: Project): Project[] {
     const configs = new Set((project.parsed?.projectReferences ?? []).map((ref) => canonical(ts().resolveProjectReferencePath(ref))));
-    return this.projects.ordered.filter((p) => p.config !== null && configs.has(p.config));
+    return graph.ordered.filter((p) => p.config !== null && configs.has(p.config));
   }
 
   /** The owner of `file` and every project that includes it or references the owner, in preorder. */
   relevant(file: string): Project[] {
     const owner = this.owner(file);
     if (owner === null) return [];
+    const graph = this.graph(file);
     const reach = new Set<Project>([owner]);
     let size = 0;
     while (size !== reach.size) {
       size = reach.size;
-      for (const p of this.projects.ordered) if (this.references(p).some((ref) => reach.has(ref))) reach.add(p);
+      for (const p of graph.ordered) if (Workspace.references(graph, p).some((ref) => reach.has(ref))) reach.add(p);
     }
     const key = canonical(file);
-    return this.projects.ordered.filter((p) => reach.has(p) || p.files.has(key));
+    return graph.ordered.filter((p) => reach.has(p) || p.files.has(key));
   }
 
   private parsed(project: Project): TS.ParsedCommandLine {

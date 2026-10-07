@@ -61,8 +61,11 @@ and deleted files, and paths with spaces or non-ASCII characters.
 - **THEN** its diff formatter reproduces every shared diff vector byte for byte
 
 ### Requirement: TypeScript refactors are computed per project
-The TypeScript `dr-refactor` SHALL load the tsconfig named by `index.yaml`'s `typescript.tsconfig` when set,
-else `<project>/tsconfig.json`, and every project in its reference graph, each with its own compiler options.
+The TypeScript `dr-refactor` SHALL load the tsconfig named by `index.yaml`'s `typescript.tsconfig` when set;
+otherwise, as TypeScript's own tooling does, it SHALL look at the `tsconfig.json` files from the source file's
+directory up to `<project>` and take the outermost one whose reference graph contains the file (a solution
+config), else the nearest one. It SHALL load every project in that reference graph, each with its own compiler
+options. `dr-compliance` and `dr-mock-lint` SHALL pick each input file's tsconfig the same way.
 A source file SHALL belong to the first project in depth-first preorder that contains it; a file in no project
 SHALL exit 1. A rename SHALL be computed in every project that contains or references the owning project;
 identical edits SHALL be merged, and differing edits to one span SHALL exit 1. The whole change set SHALL be
@@ -73,6 +76,11 @@ twin's bundled one; target-repo code SHALL never be loaded.
 #### Scenario: Rename across project references
 - **WHEN** a solution tsconfig references `core` and `app`, `app` imports `foo` from `core`, and `foo` is renamed in `core`
 - **THEN** the edits in both projects are printed
+
+#### Scenario: tsconfig below the project root
+- **WHEN** `index.yaml` names no tsconfig, `<project>` has no `tsconfig.json`, and `web/tsconfig.json`
+  includes `web/src`
+- **THEN** `dr-refactor` and `dr-compliance` on `web/src/a.ts` use `web/tsconfig.json`'s project and options
 
 #### Scenario: Projects with different compiler options
 - **WHEN** `app` uses a `paths` alias that `core` does not declare

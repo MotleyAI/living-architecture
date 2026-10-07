@@ -1,0 +1,4 @@
+{
+  "compilerOptions": {"strict": true, "module": "nodenext", "moduleResolution": "nodenext", "noEmit": true},
+  "include": ["src"]
+}

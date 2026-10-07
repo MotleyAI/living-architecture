@@ -1,0 +1,18 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- rename
+- --file
+- web/src/a.ts
+- --name
+- foo
+- --new-name
+- bar
+git:
+- commit: init
+expect:
+  exit: 0
+note: a root tsconfig.json that does not contain the file gives way to the nearest one that does
+golden: manual
