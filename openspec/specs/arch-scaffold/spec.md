@@ -27,9 +27,9 @@ top-level units under L's root, with one witness each, excluding self-edges. All
 ### Requirement: la-arch-scaffold writes a starter architecture
 `la-arch-scaffold [--root DIR]` SHALL read `architecture/index.yaml`, obtain the top-level facts of every
 declared language, and write:
-- `architecture/model/specification.c4`, declaring the element kinds `system`, `node` and a `#virtual`
-  bucket kind, plus the tags `legacy` and `virtual`.
-- `architecture/model/<language>.c4` per declared language. Its model holds the root `<language> = system '<language>'`, with one `node` per top-level unit carrying
+- `architecture/model.c4`, holding one `specification { }` block that declares the element kinds `system`, `node`
+  and a `#virtual` bucket kind, plus the tags `legacy` and `virtual`, and one `model { }` block holding, per
+  declared language, the root `<language> = system '<language>'`, with one `node` per top-level unit carrying
   `metadata { package '<unit>' }`, and one relation per measured edge written inside the root.
 - `architecture/views.c4` with one `view <language> of <language>` per declared language.
 - `architecture/system.arc42.md` with the sections Purpose and context, Building blocks, Principles and
@@ -55,7 +55,7 @@ per line, in a fixed order, and exit 0.
 
 #### Scenario: Mixed repo
 - **WHEN** `index.yaml` declares `python` and `typescript`
-- **THEN** one model file and one view are written per language, the kinds and tags are declared only in `architecture/model/specification.c4`, and both diagrams sit in `system.arc42.md`
+- **THEN** `architecture/model.c4` holds one `specification` block and one `model` block containing both language roots, one view is written per language, and both diagrams sit in `system.arc42.md`
 
 #### Scenario: Scaffold passes the check
 - **WHEN** a repo with no `openspec/specs/` directories is scaffolded and `la-arch-check` then runs
@@ -86,14 +86,23 @@ naming both units.
 ### Requirement: la-arch-scaffold writes everything or nothing
 The command SHALL refuse with exit 2 and write nothing when:
 - `architecture/index.yaml` is missing or invalid;
-- any `architecture/model/*.c4`, `architecture/views.c4` or `architecture/*.arc42.md` exists;
+- any LikeC4 source file (see `c4-layout`) exists anywhere under `architecture/`, or any
+  `architecture/*.arc42.md` exists — naming the first such path in repo-relative code-point order;
 - facts cannot be obtained;
 - any other setup error occurs.
 
 It SHALL compute every output before writing any file.
 
 #### Scenario: Existing model refused
+- **WHEN** `architecture/model.c4` exists and `la-arch-scaffold` runs
+- **THEN** it exits 2 naming that file and the repo is unchanged
+
+#### Scenario: Legacy model refused
 - **WHEN** `architecture/model/app.c4` exists and `la-arch-scaffold` runs
+- **THEN** it exits 2 naming that file and the repo is unchanged
+
+#### Scenario: Nested LikeC4 source refused
+- **WHEN** `architecture/sub/x.likec4` exists and `la-arch-scaffold` runs
 - **THEN** it exits 2 naming that file and the repo is unchanged
 
 #### Scenario: Missing index
