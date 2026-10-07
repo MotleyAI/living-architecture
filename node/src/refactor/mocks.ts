@@ -30,9 +30,22 @@ function framework(checker: TS.TypeChecker, receiver: TS.Identifier): Framework 
   return from !== undefined && GLOBALS[(declaration.propertyName ?? declaration.name).text] === from ? from : null;
 }
 
+/** An ambient module name (`foo`, or a pattern with one `*` like `*.css`) matching `specifier`. */
+function ambientMatch(name: string, specifier: string): boolean {
+  const star = name.indexOf('*');
+  if (star === -1) return name === specifier;
+  const [prefix, suffix] = [name.slice(0, star), name.slice(star + 1)];
+  return specifier.length >= prefix.length + suffix.length && specifier.startsWith(prefix) && specifier.endsWith(suffix);
+}
+
+/** `specifier` resolves to a module file or matches an ambient module (`declare module '…'`). */
 function resolves(program: TS.Program, file: TS.SourceFile, specifier: string): boolean {
   const resolved = ts().resolveModuleName(specifier, file.fileName, program.getCompilerOptions(), ts().sys);
-  return resolved.resolvedModule !== undefined;
+  if (resolved.resolvedModule !== undefined) return true;
+  return program
+    .getTypeChecker()
+    .getAmbientModules()
+    .some((m) => ambientMatch(m.getName().slice(1, -1), specifier));
 }
 
 /** The module the factory is typed against (Vitest: `import('m')` first argument; Jest: `<typeof import('m')>`). */

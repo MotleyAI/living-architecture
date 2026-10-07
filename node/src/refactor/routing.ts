@@ -62,11 +62,11 @@ function bySegments(a: string, b: string): number {
   return x.length - y.length;
 }
 
-/** Every file under `dir` (symlinked directories not entered), as `dir`-joined paths. */
-function filesUnder(dir: string): string[] {
+/** Every file under `dir` (symlinked directories not entered, `pruned` directory names skipped), as `dir`-joined paths. */
+function filesUnder(dir: string, pruned: Set<string> = new Set()): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
     const path = dir === '.' ? entry.name : `${dir}/${entry.name}`;
-    if (entry.isDirectory()) return filesUnder(path);
+    if (entry.isDirectory()) return pruned.has(entry.name) ? [] : filesUnder(path, pruned);
     return stat(path)?.isFile() === true ? [path] : [];
   });
 }
@@ -81,14 +81,26 @@ function expansionLanguages(root: string): string[] {
   }
 }
 
-function expand(dir: string, languages: string[]): [string, string][] {
+const excludedDirs = (id: string): string[] => language(id).excluded_dirs as string[];
+
+/** `dir`'s directory names from the repo `root` down; none when it is outside the repo. */
+function segmentsBelowRoot(dir: string, root: string): string[] {
+  const rel = relative(root, realPath(under(process.cwd(), dir)));
+  return rel === '' || rel.split(sep)[0] === '..' || isAbsolute(rel) ? [] : rel.split(sep);
+}
+
+/** (language, path) of each file under `dir` the languages check, in path order; excluded names count from `root` down. */
+function expand(dir: string, languages: string[], root: string): [string, string][] {
+  const prefix = segmentsBelowRoot(dir, root);
+  const [first, ...rest] = languages;
+  const pruned = new Set(first === undefined ? [] : excludedDirs(first).filter((d) => rest.every((id) => excludedDirs(id).includes(d))));
   const out: [string, string][] = [];
-  for (const path of filesUnder(dir).sort(bySegments)) {
+  for (const path of filesUnder(dir, pruned).sort(bySegments)) {
     const name = path.split('/').pop() ?? '';
     const id = languageOf(name);
     if (id === null || !languages.includes(id) || declaration(path, id)) continue;
     const below = (dir === '.' ? path : path.slice(dir.length + 1)).split('/').slice(0, -1);
-    if (below.some((segment) => (language(id).excluded_dirs as string[]).includes(segment))) continue;
+    if ([...prefix, ...below].some((segment) => excludedDirs(id).includes(segment))) continue;
     out.push([id, path]);
   }
   return out;
@@ -101,11 +113,12 @@ export function split(prog: string, rawPaths: string[]): Map<string, string[]> {
     groups.set(id, [...(groups.get(id) ?? []), path]);
   };
   let languages: string[] | null = null;
+  const root = realPath(findRepoRoot(process.cwd()));
   for (const raw of rawPaths) {
     const path = purePath(raw);
     if (isDir(raw)) {
-      languages ??= expansionLanguages(findRepoRoot(process.cwd()));
-      for (const [id, file] of expand(path, languages)) add(id, file);
+      languages ??= expansionLanguages(root);
+      for (const [id, file] of expand(path, languages, root)) add(id, file);
       continue;
     }
     const id = languageOf(raw);
@@ -154,8 +167,8 @@ export function runSplit(
  */
 function sourceLanguage(path: string, project: string): string | null {
   if (!isDir(path)) return languageOf(path);
-  const root = findRepoRoot(realPath(under(process.cwd(), project)));
-  const ids = new Set(expand(purePath(path), expansionLanguages(root)).map(([id]) => id));
+  const root = realPath(findRepoRoot(realPath(under(process.cwd(), project))));
+  const ids = new Set(expand(purePath(path), expansionLanguages(root), root).map(([id]) => id));
   const expanded = languageIds().filter((id) => ids.has(id));
   if (expanded.length > 1) throw new RoutingError(message('refactor.mixed-languages', { path, languages: expanded.join(', ') }));
   if (expanded.length === 1) return expanded[0] ?? null;

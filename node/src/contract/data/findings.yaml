@@ -180,6 +180,7 @@ findings:
   config.error: 'la-config: {error}'
   config.unknown-key: 'la-config: unknown key {key!r}'
   config.not-git: 'la-config: not inside a git repository'
+  config.git-failed: git ls-files failed, so the repo's files cannot be listed
   # `la-config get lang.<language>.waiver`: the language's waiver comment.
   config.waiver: '{prefix} ALLOW(<rule>): <reason>'
 
@@ -205,6 +206,7 @@ findings:
   twin.facts-invalid: 'the {language} twin (living-architecture {version}) returned invalid facts; reinstall it with: {install}'
   twin.forward-refused: refusing to forward to the {language} twin from a forwarded process (LA_FORWARDED=1)
   twin.not-native: '{language} facts are served only by the {language} twin'
+  twin.launch-failed: 'the {language} twin could not run {command}'
 
   # ---- la-check-conventions
   conventions.violation: '{path}:{line}: [{rule}] {message}'

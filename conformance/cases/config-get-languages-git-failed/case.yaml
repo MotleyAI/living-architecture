@@ -1,0 +1,12 @@
+kind: neutral
+command: la-config
+args:
+- get
+- languages
+git:
+- commit: init
+- write:
+    .git/index: "not an index\n"
+expect:
+  exit: 2
+note: a git failure inside a repo is reported, not taken as an empty file list

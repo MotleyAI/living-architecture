@@ -7,15 +7,26 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-from living_architecture.config.load import LaConfig, explicit_typecheck
+from living_architecture.config.load import ConfigError, LaConfig, explicit_typecheck
 from living_architecture.contract import language, language_ids, manifest, message
 
 
 def source_files(root: Path, exempt: list[str]) -> list[str]:
-    """Tracked and untracked-but-not-ignored files, minus the exempt globs."""
-    proc = subprocess.run(
-        ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"], cwd=root, capture_output=True, check=False
-    )
+    """Tracked and untracked-but-not-ignored files, minus the exempt globs; none outside git.
+
+    ConfigError when git fails inside a repo.
+    """
+    in_repo = (root / ".git").exists()
+    try:
+        proc = subprocess.run(
+            ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"], cwd=root, capture_output=True, check=False
+        )
+    except OSError as exc:
+        if in_repo:
+            raise ConfigError(message("config.git-failed")) from exc
+        return []
+    if proc.returncode != 0 and in_repo:
+        raise ConfigError(message("config.git-failed"))
     paths = proc.stdout.decode("utf-8", "surrogateescape").split("\0")
     return [p for p in paths if p and not any(fnmatch.fnmatch(p, pat) for pat in exempt)]
 

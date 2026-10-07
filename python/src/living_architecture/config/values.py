@@ -54,7 +54,12 @@ def _languages(root: Path, config: LaConfig) -> int:
     if not (root / ".git").exists():
         print(message("config.not-git"), file=sys.stderr)
         return 2
-    print(format_value(repo_languages(root, config)))
+    try:
+        languages = repo_languages(root, config)
+    except ConfigError as exc:
+        print(message("config.error", error=str(exc)), file=sys.stderr)
+        return 2
+    print(format_value(languages))
     return 0
 
 

@@ -106,7 +106,11 @@ def run_checks(*, root: Path, expect: str | None, plugin: str | None = None, req
     )
     problems = [problem for problem in versions if problem is not None]
     problems += _config_problems(root, require_config=require_config)
-    executables = [*REQUIRED_EXECUTABLES, *_language_executables(root)]
+    try:
+        executables = [*REQUIRED_EXECUTABLES, *_language_executables(root)]
+    except ConfigError as exc:
+        problems.append(str(exc))
+        executables = list(REQUIRED_EXECUTABLES)
     problems += [message("doctor.missing-executable", exe=exe) for exe in executables if shutil.which(exe) is None]
     return problems
 

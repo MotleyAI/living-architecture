@@ -53,7 +53,7 @@
 ## 9. Node-only acceptance
 
 - [x] 9.1 In-repo TS fixture repo (several nodes, an import cycle, tests with Vitest, one violation per TS compliance and mock rule) and `scripts/acceptance-node-only`: PATH trap for `python`, `python3`, `uv`, `uvx`; packed twin installed into an isolated prefix with resolved bin paths asserted; `la-doctor`, `la-config get languages`, `la-arch-scaffold`, then `la-arch-check` green, `la-typecheck --write-baseline` then `la-typecheck`, `npx likec4 validate`, `la-check-conventions --base`, `la-count-comments`, the compliance and mock findings then their fixes, dry-run and `--apply` of all three refactors, then `la-typecheck` and Vitest green; verify the trap log is empty and the script exits 0 locally under docker
-- [ ] 9.2 CI job running it in a `node:22-slim` container; verify the job is green on the PR
+- [x] 9.2 CI job running it in a `node:22-slim` container; verify the job is green on the PR
 
 ## 10. Release
 

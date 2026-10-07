@@ -98,7 +98,14 @@ export function runChecks(root: string, expect: string | null, plugin: string | 
   const versions = [expect !== null ? versionProblem(expect) : null, plugin !== null ? pluginProblem(plugin) : null];
   const problems = versions.filter((problem): problem is string => problem !== null);
   problems.push(...configProblems(root, requireConfig));
-  for (const exe of [...REQUIRED_EXECUTABLES, ...languageExecutables(root)]) {
+  let executables: string[] = [...REQUIRED_EXECUTABLES];
+  try {
+    executables = [...executables, ...languageExecutables(root)];
+  } catch (error) {
+    if (!(error instanceof ConfigError)) throw error;
+    problems.push(error.message);
+  }
+  for (const exe of executables) {
     if (!which(exe)) problems.push(message('doctor.missing-executable', { exe }));
   }
   return problems;

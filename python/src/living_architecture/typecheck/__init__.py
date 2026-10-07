@@ -117,7 +117,11 @@ def run(*, cwd: Path, write: bool, language_id: str | None) -> int:
             _err(message("typecheck.error", error=message("typecheck.not-native", language=language_id)))
             return 2
         return _check_native(root, _command(config, language_id) or "", write=write)
-    languages = applicable(root, config)
+    try:
+        languages = applicable(root, config)
+    except ConfigError as exc:
+        _err(message("typecheck.error", error=str(exc)))
+        return 2
     if not languages:
         _err(message("typecheck.no-languages"))
         return 0

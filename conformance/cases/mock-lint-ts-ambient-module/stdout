@@ -1,0 +1,1 @@
+tests/ambient.test.ts:4: vi.mock() factory not typed against a resolvable module — pass import('<module>') (Vitest) or <typeof import('<module>')> (Jest)

@@ -23,20 +23,35 @@ def _declaration(path: str, lang_id: str) -> bool:
 
 def _expansion_languages(root: Path) -> list[str]:
     try:
-        config = load_config(root)
+        return repo_languages(root, load_config(root)) or language_ids()
     except ConfigError as exc:
         raise RoutingError(str(exc)) from exc
-    return repo_languages(root, config) or language_ids()
 
 
-def _expand(directory: Path, languages: list[str]) -> list[tuple[str, str]]:
-    """(language, path) of each file under `directory` the languages check, in path order."""
+def _files_under(directory: Path, pruned: set[str]) -> list[Path]:
+    """Every file under `directory`, symlinked directories not entered and `pruned` directory names skipped."""
+    files: list[Path] = []
+    for top, dirs, names in os.walk(directory):
+        dirs[:] = [d for d in dirs if d not in pruned]
+        files.extend(p for p in (Path(top) / name for name in names) if p.is_file())
+    return files
+
+
+def _expand(directory: Path, languages: list[str], root: Path) -> list[tuple[str, str]]:
+    """(language, path) of each file under `directory` the languages check, in path order.
+
+    Excluded directory names count from the repo `root` down (from `directory` when it is outside the repo).
+    """
+    excluded = [set(language(lang_id)["excluded_dirs"]) for lang_id in languages]
+    pruned = set.intersection(*excluded) if excluded else set()
+    real = Path(os.path.realpath(directory))
+    prefix = real.relative_to(root).parts if real.is_relative_to(root) else ()
     out = []
-    for path in sorted(p for p in directory.rglob("*") if p.is_file()):
+    for path in sorted(_files_under(directory, pruned)):
         lang_id = language_of(path.name)
         if lang_id not in languages or _declaration(str(path), lang_id):
             continue
-        if set(path.relative_to(directory).parts[:-1]) & set(language(lang_id)["excluded_dirs"]):
+        if {*prefix, *path.relative_to(directory).parts[:-1]} & set(language(lang_id)["excluded_dirs"]):
             continue
         out.append((lang_id, str(path)))
     return out
@@ -46,11 +61,12 @@ def split(prog: str, raw_paths: list[str], cwd: Path) -> dict[str, list[str]]:
     """Paths grouped by language; directories expanded, non-source files skipped with a warning."""
     groups: dict[str, list[str]] = {}
     languages: list[str] | None = None
+    root = find_repo_root(cwd)
     for raw in raw_paths:
         path = Path(raw)
         if path.is_dir():
-            languages = _expansion_languages(find_repo_root(cwd)) if languages is None else languages
-            for lang_id, file in _expand(path, languages):
+            languages = _expansion_languages(root) if languages is None else languages
+            for lang_id, file in _expand(path, languages, root):
                 groups.setdefault(lang_id, []).append(file)
             continue
         lang_id = language_of(raw)
@@ -95,7 +111,8 @@ def source_language(path: str, project: str) -> str | None:
     directory = Path(path)
     if not directory.is_dir():
         return language_of(path)
-    ids = {lang_id for lang_id, _ in _expand(directory, _expansion_languages(find_repo_root(Path(project))))}
+    root = find_repo_root(Path(project))
+    ids = {lang_id for lang_id, _ in _expand(directory, _expansion_languages(root), root)}
     expanded = [lang_id for lang_id in language_ids() if lang_id in ids]
     if len(expanded) > 1:
         raise RoutingError(message("refactor.mixed-languages", path=path, languages=", ".join(expanded)))

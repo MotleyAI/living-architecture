@@ -179,6 +179,7 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | usage errors; `--help`; *(new)* `--` honoured | 2/0 | `config-usage-no-args`, `config-usage-unknown-subcommand`, `config-usage-get-without-key`, `config-usage-root-after-subcommand`, `config-usage-unknown-flag`, `config-usage-show-extra-positional`, `config-help`, `config-double-dash` |
 | *(new)* `get languages`: repo languages in registry order (both markers; stray script; `null` keeps the language; explicit command without markers; exempt and git-ignored files not counted) | 0 | `config-get-languages-mixed`, `config-get-languages-stray-script`, `config-get-languages-typecheck-null`, `config-get-languages-explicit`, `config-get-languages-exempt-not-counted` |
 | *(new)* `get languages` outside a git repository | 2 | `config-get-languages-not-git` |
+| *(new)* `get languages` when git fails to list the repo's files | 2 | `config-get-languages-git-failed` |
 | *(new)* `get lang.<language>.<key>`: every public key of both languages, in any repo (lists as JSON, strings as text) | 0 | `config-get-lang-python-source-extensions`, `config-get-lang-python-source-globs`, `config-get-lang-python-test-globs`, `config-get-lang-python-declaration-globs`, `config-get-lang-python-comment-prefix`, `config-get-lang-python-suppression`, `config-get-lang-python-waiver`, `config-get-lang-python-baseline-file`, `config-get-lang-python-markers`, `config-get-lang-typescript-source-extensions`, `config-get-lang-typescript-source-globs`, `config-get-lang-typescript-test-globs`, `config-get-lang-typescript-declaration-globs`, `config-get-lang-typescript-comment-prefix`, `config-get-lang-typescript-suppression`, `config-get-lang-typescript-waiver`, `config-get-lang-typescript-baseline-file`, `config-get-lang-typescript-markers` |
 | *(new)* `get lang.…`: internal field, unregistered language, no key | 2 | `config-get-lang-internal-key-refused`, `config-get-lang-unknown-language`, `config-get-lang-without-key` |
 
@@ -199,6 +200,7 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | *(new)* config vs disk: `openspec` true without / false with `openspec/`; `architecture` true without / false with `architecture/index.yaml`; `tracker: none` with `openspec: false`; several findings in a fixed order | 1 | `doctor-openspec-enabled-absent`, `doctor-openspec-disabled-present`, `doctor-architecture-enabled-absent`, `doctor-architecture-disabled-present`, `doctor-no-plan-store`, `doctor-several-inconsistencies` |
 | *(new)* an `architecture/` directory without `index.yaml` is not a setup | 0 | `doctor-architecture-unrelated-dir` |
 | *(new)* TypeScript repo language: `node` and `npx` required (both missing; only `npx`); a Python-only repo and a non-git directory need neither | 1/0 | `doctor-typescript-missing-node`, `doctor-typescript-missing-npx`, `doctor-python-without-node`, `doctor-not-git-skips-languages` |
+| *(new)* git fails to list the repo's files: a problem | 1 | `doctor-git-failed` |
 
 `--contract-hash` *(new)* prints a value that changes with `shared/`; it is pinned by `tests/test_contract.py`.
 
@@ -274,7 +276,7 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | Branch | Exit | Cases |
 |---|---|---|
 | *(new)* applicability: stray JS in a Python repo, explicit entry without markers, `null` off, exempt and git-ignored files not counted, nothing to check | 0 | `typecheck-python-stray-js`, `typecheck-python-explicit-without-markers`, `typecheck-ts-language-off`, `typecheck-ts-exempt-and-ignored-not-counted`, `typecheck-no-languages` |
-| *(new)* not a git repo; checker not found (first word named); `commands.typecheck` as a string | 2 | `typecheck-not-a-git-repo`, `typecheck-ts-not-found`, `typecheck-python-not-found`, `typecheck-config-string-rejected` |
+| *(new)* not a git repo; git fails to list the repo's files; checker not found (first word named); `commands.typecheck` as a string | 2 | `typecheck-not-a-git-repo`, `typecheck-git-failed`, `typecheck-ts-not-found`, `typecheck-python-not-found`, `typecheck-config-string-rejected` |
 | *(new)* configured command that does not split into shell words | 2 | `typecheck-python-command-unsplittable` |
 | *(new)* usage error; `--help` | 2/0 | `typecheck-usage-unknown-option`, `typecheck-help` |
 | *(new)* Python passthrough: clean (local bin preferred), new errors, shrink, write with errors, exit >= 2, a non-basedpyright command in write mode | 0/1/2 | `typecheck-python-clean`, `typecheck-python-new-errors`, `typecheck-python-shrink`, `typecheck-python-write-with-errors`, `typecheck-python-checker-crash`, `typecheck-python-custom-command-write` |
@@ -297,6 +299,7 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | *(new)* a check only another language lists is known but does not apply | 0 | `compliance-select-other-language-check` |
 | *(new)* an explicit file of no registered language skipped with a warning | 0 | `compliance-unknown-extension-skipped` |
 | *(new)* directory expansion: a Python-only repo ignores a stray `.js`; with no repo language every registered language's files | 1 | `compliance-directory-skips-other-language`, `compliance-directory-no-repo-language` |
+| *(new)* directory expansion when git fails to list the repo's files | 2 | `dr-compliance-git-failed` |
 
 ## dr-compliance: TypeScript
 
@@ -309,6 +312,7 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | *(new)* `--attr`: receiver typed `any` by the checker | 1 | `compliance-ts-attr-blindspot` |
 | *(new)* parse error (first parse diagnostic), later files still checked | 1 | `compliance-ts-parse-error` |
 | *(new)* explicit declaration file skipped with a warning; directory expansion skips `.d.ts`, `node_modules` and non-repo languages | 0/1 | `compliance-ts-declaration-skipped`, `compliance-ts-directory-expansion` |
+| *(new)* a requested directory inside `node_modules` expands to nothing | 0 | `compliance-ts-excluded-directory-requested` |
 
 ## dr-mock-lint
 
@@ -324,6 +328,7 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 |---|---|---|
 | *(new)* `fn()` untyped (import, alias, `@jest/globals`, unshadowed global; typed and implemented forms pass); module factories untyped or unresolved (`.mock`, `.doMock`, `.unstable_mockModule`; typed forms, no factory, options only pass); double assertions in a test file | 1 | `mock-lint-ts-violations` |
 | *(new)* a shadowed receiver is not Vitest's | 0 | `mock-lint-ts-shadowed-receiver` |
+| *(new)* a factory typed against an ambient module (exact, wildcard pattern) passes; an unresolved one is flagged | 1 | `mock-lint-ts-ambient-module` |
 | *(new)* double assertions only in test-glob files; directory recursion | 1 | `mock-lint-ts-cast-only-in-tests` |
 | *(new)* explicit declaration file or unknown extension skipped with a warning; directory expansion skips `.d.ts`, `node_modules` and non-repo languages | 0/1 | `mock-lint-ts-declaration-skipped`, `mock-lint-unknown-extension-skipped`, `mock-lint-ts-directory-expansion` |
 
@@ -404,6 +409,7 @@ time or many paged responses. Those branches are pinned by `tests/test_review_sc
 | *(new)* `dr-*` mixed inputs through real twins: explicit files, a directory, exit max; one block per language in registry order | 1 | `twin-dr-mixed-explicit-files`, `twin-dr-mixed-directory`, `twin-dr-mixed-exit-max` |
 | *(new)* `dr-*` hand-off protocol: `dr-refactor` raw args from the same cwd; `dr-compliance` options, `--`, the other language's files; `dr-mock-lint` the files; captured block printed in registry order | 0/1 | `twin-dr-refactor-forwarded-typescript`, `twin-dr-compliance-forwarded-files`, `twin-dr-mock-lint-forwarded-files` |
 | *(new)* `dr-*` other twin exits 2 or is killed: nothing on stdout, exit 2 | 2 | `twin-dr-other-twin-exit-2`, `twin-dr-other-twin-signal` |
+| *(new)* `dr-*` other twin qualifies but cannot run the command (captured, forwarded; from either twin): a twin error, exit 2 | 2 | `twin-dr-launch-failed-captured-python`, `twin-dr-launch-failed-captured-typescript`, `twin-dr-launch-failed-forward-python`, `twin-dr-launch-failed-forward-typescript` |
 | *(new)* `dr-*` other twin unreachable; `LA_FORWARDED=1` refusal | 2 | `twin-dr-unavailable-typescript`, `twin-dr-unavailable-python`, `twin-dr-refused-when-forwarded-typescript`, `twin-dr-refused-when-forwarded-python` |
 | *(new)* `dr-*` own-language inputs never probe the other twin | 1 | `twin-dr-own-language-python`, `twin-dr-own-language-typescript` |
 

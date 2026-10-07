@@ -63,7 +63,8 @@ These skills call helper skills that you can also run on their own; see
 ## Languages
 
 A repo's languages are those with a root marker (`pyproject.toml`/`setup.py`; `tsconfig.json`) and source
-files, or a `commands.typecheck` entry; `la-config get languages` lists them. The architecture model declares
+files, or a `commands.typecheck` entry, which a language needs when its marker is not at the root (like the
+`web/tsconfig.json` below); `la-config get languages` lists them. The architecture model declares
 one section per language in `architecture/index.yaml`, and a mixed repo has both:
 
 ```yaml

@@ -1,9 +1,11 @@
 // Repo languages: an explicit typecheck command, or a root marker plus a counted file of the language.
 import { execFileSync } from 'node:child_process';
-import { writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
-import { loadConfig, repoLanguages } from '../src/config/index.js';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { ConfigError, loadConfig, repoLanguages } from '../src/config/index.js';
+import { message } from '../src/contract/index.js';
 import { tempRepo } from './cli-run.js';
 
 const languagesOf = (files: Record<string, string>): string[] => {
@@ -56,5 +58,31 @@ describe('repoLanguages', () => {
     execFileSync('git', ['add', 'out/b.ts'], { cwd: root });
     writeFileSync(join(root, '.gitignore'), 'out/\n');
     expect(repoLanguages(root, loadConfig(root))).toEqual(['typescript']);
+  });
+
+  describe('without git on PATH', () => {
+    afterEach(() => {
+      vi.unstubAllEnvs();
+    });
+
+    const bare = (repo: boolean): string => {
+      const root = mkdtempSync(join(tmpdir(), 'la-nogit-'));
+      writeFileSync(join(root, 'pyproject.toml'), '');
+      writeFileSync(join(root, 'a.py'), 'X = 1\n');
+      if (repo) mkdirSync(join(root, '.git'));
+      vi.stubEnv('PATH', join(root, 'no-bin'));
+      return root;
+    };
+
+    it('inside a repo is an error', () => {
+      const root = bare(true);
+      const config = loadConfig(root);
+      expect(() => repoLanguages(root, config)).toThrow(new ConfigError(message('config.git-failed')));
+    });
+
+    it('outside a repo lists nothing', () => {
+      const root = bare(false);
+      expect(repoLanguages(root, loadConfig(root))).toEqual([]);
+    });
   });
 });

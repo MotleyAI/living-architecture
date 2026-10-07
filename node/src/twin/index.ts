@@ -1,5 +1,5 @@
 // Reaching the other twin: identity handshake, discovery on PATH, runner probe, forwarding, facts and language runs.
-import { spawnSync, type SpawnSyncReturns } from 'node:child_process';
+import { spawnSync, type SpawnSyncOptions, type SpawnSyncReturns } from 'node:child_process';
 import { accessSync, constants, realpathSync, statSync } from 'node:fs';
 import { constants as osConstants } from 'node:os';
 import { delimiter, dirname, join } from 'node:path';
@@ -97,11 +97,18 @@ export function refuseIfForwarded(lang: string): void {
   if (process.env[FORWARDED_ENV] === '1') throw new TwinError(message('twin.forward-refused', { language: lang }));
 }
 
+/** `cmd ARGS`, the `lang` twin's `command`; TwinError when it cannot start. */
+function spawnTwin(lang: string, command: string, cmd: string, args: string[], options: SpawnSyncOptions): SpawnSyncReturns<Buffer> {
+  const proc = spawnSync(cmd, args, options) as SpawnSyncReturns<Buffer>;
+  if (proc.error !== undefined) throw new TwinError(message('twin.launch-failed', { language: lang, command }));
+  return proc;
+}
+
 /** Run `command` through the `lang` twin with the raw argv; its streams pass through, its exit code returns. */
 export function forward(command: string, lang: string, argv: string[], repoRoot: string): number {
   refuseIfForwarded(lang);
   const [cmd = '', ...args] = launcher(lang, repoRoot)(command);
-  const proc = spawnSync(cmd, [...args, ...argv], { env: env(), stdio: 'inherit' });
+  const proc = spawnTwin(lang, command, cmd, [...args, ...argv], { env: env(), stdio: 'inherit' });
   if (proc.signal !== null) return 128 + (osConstants.signals[proc.signal] ?? 0);
   return proc.status ?? 1;
 }
@@ -110,7 +117,7 @@ export function forward(command: string, lang: string, argv: string[], repoRoot:
 export function runCaptured(command: string, lang: string, args: string[], repoRoot: string): [number, Buffer] {
   refuseIfForwarded(lang);
   const [cmd = '', ...rest] = launcher(lang, repoRoot)(command);
-  const proc = spawnSync(cmd, [...rest, ...args], { env: env(), stdio: ['inherit', 'pipe', 'inherit'], maxBuffer: 1 << 30 });
+  const proc = spawnTwin(lang, command, cmd, [...rest, ...args], { env: env(), stdio: ['inherit', 'pipe', 'inherit'], maxBuffer: 1 << 30 });
   return [proc.signal !== null || proc.status === null ? 2 : proc.status, proc.stdout];
 }
 
@@ -144,7 +151,7 @@ export function requestFacts(lang: string, repoRoot: string, expectedUnits: stri
   refuseIfForwarded(lang);
   const [cmd = '', ...args] = launcher(lang, repoRoot)('la-arch-check');
   const argv = [...args, '--root', repoRoot, '--language', lang, '--emit', 'facts', ...(topLevel ? ['--top-level'] : [])];
-  const proc = spawnSync(cmd, argv, { env: env(), stdio: ['inherit', 'pipe', 'inherit'], maxBuffer: 1 << 30 });
+  const proc = spawnTwin(lang, 'la-arch-check', cmd, argv, { env: env(), stdio: ['inherit', 'pipe', 'inherit'], maxBuffer: 1 << 30 });
   const document = documentOf(proc, 'facts', lang);
   if (document === null || !factsConsistent(document, expectedUnits, topLevel)) throw new TwinError(hint('twin.facts-invalid', lang));
   return document;
@@ -154,7 +161,7 @@ export function requestFacts(lang: string, repoRoot: string, expectedUnits: stri
 export function requestConventionsFacts(lang: string, cwd: string, paths: string[], repoRoot: string): any[] {
   refuseIfForwarded(lang);
   const [cmd = '', ...args] = launcher(lang, repoRoot)('la-check-conventions');
-  const proc = spawnSync(cmd, [...args, '--language', lang, '--emit', 'facts'], {
+  const proc = spawnTwin(lang, 'la-check-conventions', cmd, [...args, '--language', lang, '--emit', 'facts'], {
     cwd,
     env: env(),
     input: JSON.stringify(paths),
@@ -171,6 +178,6 @@ export function requestConventionsFacts(lang: string, cwd: string, paths: string
 export function runLanguage(command: string, lang: string, args: string[], cwd: string, repoRoot: string): number {
   refuseIfForwarded(lang);
   const [cmd = '', ...rest] = launcher(lang, repoRoot)(command);
-  const proc = spawnSync(cmd, [...rest, '--language', lang, ...args], { cwd, env: env(), stdio: 'inherit' });
+  const proc = spawnTwin(lang, command, cmd, [...rest, '--language', lang, ...args], { cwd, env: env(), stdio: 'inherit' });
   return proc.signal !== null || proc.status === null ? 2 : proc.status;
 }

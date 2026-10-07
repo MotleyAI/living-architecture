@@ -92,9 +92,10 @@ export function explicitTypecheck(root: string): Set<string> {
   return new Set(typecheck instanceof Map ? [...typecheck.keys()].map(String) : []);
 }
 
-/** Tracked and untracked-but-not-ignored files, minus the exempt globs. */
+/** Tracked and untracked-but-not-ignored files, minus the exempt globs; none outside git. ConfigError when git fails inside a repo. */
 export function sourceFiles(root: string, exempt: string[]): string[] {
   const proc = spawnSync('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard'], { cwd: root, maxBuffer: 1 << 30 }); // NOSONAR(S4036) — runs the user's own git from PATH by design
+  if (proc.status !== 0 && existsSync(join(root, '.git'))) throw new ConfigError(message('config.git-failed'));
   const paths = (proc.stdout?.toString('utf8') ?? '').split('\0');
   return paths.filter((p) => p && !exempt.some((pattern) => fnmatch(p, pattern)));
 }
@@ -188,7 +189,15 @@ function printLanguages(root: string, config: LaConfig): number {
     process.stderr.write(`${message('config.not-git')}\n`);
     return 2;
   }
-  process.stdout.write(`${formatValue(repoLanguages(root, config))}\n`);
+  let languages: string[];
+  try {
+    languages = repoLanguages(root, config);
+  } catch (error) {
+    if (!(error instanceof ConfigError)) throw error;
+    process.stderr.write(`${message('config.error', { error: error.message })}\n`);
+    return 2;
+  }
+  process.stdout.write(`${formatValue(languages)}\n`);
   return 0;
 }
 

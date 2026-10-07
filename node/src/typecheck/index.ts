@@ -139,7 +139,14 @@ export function run(cwd: string, write: boolean, languageId: string | null): num
     }
     return checkNative(root, commandOf(config, languageId) ?? '', write);
   }
-  const languages = applicable(root, config);
+  let languages: string[];
+  try {
+    languages = applicable(root, config);
+  } catch (error) {
+    if (!(error instanceof ConfigError)) throw error;
+    err(message('typecheck.error', { error: error.message }));
+    return 2;
+  }
   if (languages.length === 0) {
     err(message('typecheck.no-languages'));
     return 0;
