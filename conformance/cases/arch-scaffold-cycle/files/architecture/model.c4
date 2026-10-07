@@ -1,0 +1,26 @@
+specification {
+  element system
+  element node
+  element bucket {
+    #virtual
+  }
+  tag legacy
+  tag virtual
+}
+model {
+  python = system 'python' {
+    a = node 'a' {
+      metadata {
+        package 'pkg.a'
+      }
+    }
+    b = node 'b' {
+      metadata {
+        package 'pkg.b'
+      }
+    }
+
+    a -> b
+    b -> a
+  }
+}

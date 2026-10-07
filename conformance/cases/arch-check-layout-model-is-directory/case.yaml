@@ -1,0 +1,14 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+fixture: arch-ok
+remove:
+- architecture/model.c4
+git:
+- write:
+    architecture/model.c4/keep: ''
+expect:
+  exit: 2
+golden: manual
+note: a canonical path that is a directory is not a file

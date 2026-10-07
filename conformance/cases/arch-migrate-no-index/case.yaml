@@ -1,0 +1,14 @@
+kind: neutral
+command: la-arch-migrate
+fixture: arch-ok
+remove:
+- architecture/model.c4
+- architecture/index.yaml
+expect:
+  exit: 0
+  files:
+  - architecture/model.c4
+  - architecture/model/python.c4
+  - architecture/model/specification.c4
+golden: manual
+note: migration needs no architecture/index.yaml

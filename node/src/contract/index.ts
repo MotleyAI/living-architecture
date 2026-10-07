@@ -6,6 +6,7 @@ export { message, renderTemplate } from './render.js';
 export { materializeDefaults, validate } from './schema.js';
 export {
   HASH_FILE,
+  architecture,
   checkIds,
   computeHash,
   contractHash,
@@ -20,5 +21,5 @@ export {
 } from './snapshot.js';
 export { PyFloat, PyTimestamp, canonicalRepr, fixed1, normalize, reprFloat, toPlain } from './values.js';
 export { YAMLError, loadYaml } from './yaml.js';
-export { WORD, byCodePoint, isWordStart, splitLines } from './text.js';
+export { WORD, byCodePoint, decodeUtf8, isWordStart, splitLines } from './text.js';
 export { which, whichPath } from './which.js';

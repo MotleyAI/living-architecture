@@ -5,3 +5,7 @@ remove:
 - architecture/views.c4
 expect:
   exit: 1
+  files:
+  - architecture/system.arc42.md
+golden: manual
+note: a violated layout cannot be regenerated; no doc is rewritten

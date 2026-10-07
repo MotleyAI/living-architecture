@@ -50,6 +50,7 @@ SHARED_FILES = (
     "cli.yaml",
     "conventions.yaml",
     "languages.yaml",
+    "architecture.yaml",
     "regex-subset.md",
     "scripts/fetch-coderabbit-threads.sh",
     "scripts/fetch-failed-pr-checks.sh",

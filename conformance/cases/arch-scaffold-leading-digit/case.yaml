@@ -6,7 +6,6 @@ fixture: scaffold-ts
 expect:
   exit: 0
   files:
-  - architecture/model/specification.c4
-  - architecture/model/typescript.c4
+  - architecture/model.c4
 golden: manual
 note: 'an id that would start with a digit gets `n_`; nodes and relations follow the sorted unit names, not the ids'

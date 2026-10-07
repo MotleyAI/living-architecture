@@ -62,6 +62,9 @@ def test_installed_artifact_runs_every_command(kind, artifacts, tmp_path, fake_g
     for module in ("pkg/__init__.py", "pkg/a/__init__.py", "pkg/b.py"):
         (scaffold / module).parent.mkdir(parents=True, exist_ok=True)
         (scaffold / module).write_text("from pkg import b\n" if module.startswith("pkg/a") else "", encoding="utf-8")
+    legacy = tmp_path / "legacy"
+    (legacy / "architecture" / "model").mkdir(parents=True)
+    (legacy / "architecture" / "model" / "m.c4").write_text("specification {\n}\nmodel {\n}\n", encoding="utf-8")
 
     def run(*argv: str, stdin: str = "") -> subprocess.CompletedProcess[str]:
         return subprocess.run([str(bin_dir / argv[0]), *argv[1:]], cwd=work, env=env, input=stdin,
@@ -83,10 +86,12 @@ def test_installed_artifact_runs_every_command(kind, artifacts, tmp_path, fake_g
         (("la-pr-reviewers", "7", "--repo", "o/r"), 0,
          '{"coderabbit":false,"sonar":{"present":false,"project_key":null}}\n'),
         (("la-arch-scaffold", "--root", str(scaffold)), 0, None),
+        (("la-arch-migrate", "--root", str(legacy)), 0, None),
     ]
     for argv, code, stdout in expectations:
         proc = run(*argv, stdin="body")
         assert proc.returncode == code, (argv, proc.stdout, proc.stderr)
         if stdout is not None:
             assert proc.stdout == stdout, argv
-    assert "    a -> b\n" in (scaffold / "architecture" / "model" / "python.c4").read_text(encoding="utf-8")
+    assert "    a -> b\n" in (scaffold / "architecture" / "model.c4").read_text(encoding="utf-8")
+    assert (legacy / "architecture" / "model.c4").read_text(encoding="utf-8") == "specification {\n}\nmodel {\n}\n"

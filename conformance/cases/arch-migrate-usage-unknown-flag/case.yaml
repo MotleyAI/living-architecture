@@ -1,0 +1,10 @@
+kind: neutral
+command: la-arch-migrate
+args:
+- --bogus
+fixture: arch-ok
+expect:
+  exit: 2
+  stdout: ignore
+  stderr: ignore
+note: an unknown flag is a usage error

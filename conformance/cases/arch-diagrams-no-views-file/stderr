@@ -1,1 +1,3 @@
-la-arch-diagrams: view system mapped to architecture/system.arc42.md is not defined in views.c4
+la-arch-diagrams: the LikeC4 model must be exactly architecture/model.c4 and the views exactly architecture/views.c4:
+  architecture/views.c4: missing
+merge by hand: one specification and one model block into architecture/model.c4, one views block into architecture/views.c4

@@ -14,4 +14,4 @@ expect:
   exit: 0
   stdout: json
 golden: manual
-note: native TS top-level facts without a model; the import inside src/data-access yields no self-edge
+note: native TS top-level facts without a model, ignoring a violated layout; the import inside src/data-access yields no self-edge

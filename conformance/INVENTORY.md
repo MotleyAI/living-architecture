@@ -8,7 +8,7 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 
 | Branch | Exit | Cases |
 |---|---|---|
-| clean model | 0 | `arch-check-ok`, `arch-check-claims-child-module-file`, `arch-check-diagrams-fresh`, `arch-check-parse-spec-inline-statements`, `arch-check-parse-views-absent`, `arch-check-spec-nested-spec-md-counts`, `arch-check-spec-no-openspec-dir-nothing-mapped`, `arch-check-tags-fences`, `arch-check-tags-id-on-next-line` |
+| clean model | 0 | `arch-check-ok`, `arch-check-claims-child-module-file`, `arch-check-diagrams-fresh`, `arch-check-parse-spec-inline-statements`, `arch-check-spec-nested-spec-md-counts`, `arch-check-spec-no-openspec-dir-nothing-mapped`, `arch-check-tags-fences`, `arch-check-tags-id-on-next-line` |
 | repo root: `--root`, `.git` discovery from a subdir, no `.git` (cwd) | 0 | `arch-check-root-flag`, `arch-check-root-discovery-from-subdir`, `arch-check-root-without-git-is-cwd` |
 | `index.yaml` missing (OSError) | 2 | `arch-check-index-missing` |
 | `index.yaml` invalid YAML | 2 | `arch-check-index-invalid-yaml` |
@@ -26,7 +26,13 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | claims-exist: a model element's unit missing on disk, at any depth | 1 | `arch-check-claims-child-missing`, `arch-check-claims-model-child-missing`, `arch-check-model-grandchild-missing` |
 | claims-exist: virtual node containing elements (one finding; they map to no unit) | 1 | `arch-check-claims-virtual-children` |
 | *(new)* model elements governed by convention with no `index.yaml` entry: child, grandchild, virtual kind nested under a precise node; multi-line metadata arrays | 0/1 | `arch-check-model-child-governed`, `arch-check-model-grandchild-governed`, `arch-check-model-virtual-kind-nested`, `arch-check-metadata-multiline-array` |
-| *(new)* no model files: the declared language has no root element | 2 | `arch-check-identity-no-model-files` |
+| *(new)* `model.c4` with empty blocks: the declared language has no root element | 2 | `arch-check-model-without-roots` |
+| *(new)* LikeC4 layout: canonical model and views missing or not a file; stray `.c4`/`.likec4` at any depth, symlinked file | 2 | `arch-check-layout-model-missing`, `arch-check-layout-views-missing`, `arch-check-layout-model-is-directory`, `arch-check-layout-stray-c4`, `arch-check-layout-stray-likec4`, `arch-check-layout-nested-stray`, `arch-check-layout-symlinked-stray` |
+| *(new)* LikeC4 layout: a canonical or stray source that is not valid UTF-8 is reported only as such | 2 | `arch-check-layout-not-utf8` |
+| *(new)* LikeC4 layout: case-sensitive extensions, symlinked directory not descended, braces in strings and comments | 0 | `arch-check-layout-extension-case-sensitive`, `arch-check-layout-symlinked-dir-not-followed`, `arch-check-layout-braces-in-strings-and-comments` |
+| *(new)* LikeC4 layout blocks: block in the wrong file, second block, missing block, top-level text, unclosed block | 2 | `arch-check-layout-views-block-in-model`, `arch-check-layout-model-block-in-views`, `arch-check-layout-two-model-blocks`, `arch-check-layout-no-specification-block`, `arch-check-layout-views-only-comments`, `arch-check-layout-top-level-text`, `arch-check-layout-unclosed-block` |
+| *(new)* LikeC4 layout message: every violation in code-point path order; legacy layout points to `la-arch-migrate`, otherwise merge by hand; `index.yaml` errors first | 2 | `arch-check-layout-every-violation`, `arch-check-layout-code-point-order`, `arch-check-layout-legacy`, `arch-check-layout-legacy-not-migratable`, `arch-check-layout-index-error-first` |
+| *(new)* a migrated model checks exactly as its legacy layout did | 0/1 | `arch-check-migrated-ok`, `arch-check-migrated-parse-findings` |
 | arc42-exists: system doc / node doc / cross-cutting doc missing; orphan doc | 1 | `arch-check-arc42-system-missing`, `arch-check-arc42-node-doc-missing`, `arch-check-arc42-cross-cutting-missing`, `arch-check-arc42-orphan` |
 | spec-mapping: mapped twice; node and cross-cutting; unknown touched node | 1 | `arch-check-spec-mapped-twice`, `arch-check-spec-node-and-cross-cutting`, `arch-check-spec-touches-unknown-node` |
 | spec-mapping: unmapped dir; mapped dir missing; dir without spec.md; no openspec dir | 1 | `arch-check-spec-dir-unmapped`, `arch-check-spec-mapped-dir-missing`, `arch-check-spec-dir-without-spec-md`, `arch-check-spec-no-openspec-dir` |
@@ -47,7 +53,7 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | diagrams-fresh: marker pair missing / duplicate / out of order; orphan markers | 1 | `arch-check-diagrams-marker-missing`, `arch-check-diagrams-marker-duplicate`, `arch-check-diagrams-marker-order`, `arch-check-diagrams-orphan-markers` |
 | diagrams-fresh: stale diagram (incl. CRLF bytes) | 1 | `arch-check-diagrams-stale`, `arch-check-diagrams-crlf-is-stale` |
 | diagrams-fresh: every model-parse finding | 1 | `arch-check-parse-model-findings`, `arch-check-parse-spec-inline-before-brace` |
-| diagrams-fresh: every views-parse finding; no `views {` block | 1 | `arch-check-parse-views-findings`, `arch-check-parse-views-no-views-block` |
+| diagrams-fresh: every views-parse finding | 1 | `arch-check-parse-views-findings` |
 | diagrams-fresh: `view_depth` not a mapping; unknown view; non-positive / non-integer values | 1 | `arch-check-view-depth-not-mapping`, `arch-check-view-depth-findings`, `arch-check-view-depth-bad-string`, `arch-check-view-depth-bad-bool`, `arch-check-view-depth-bad-float`, `arch-check-view-depth-bad-negative` |
 | *(new)* `source_root`: src layout, prefix-free ids, architecture/specs stay at the repo root, `.`, symlink inside the repo | 0/1 | `arch-check-source-root-src-layout`, `arch-check-source-root-src-layout-findings`, `arch-check-source-root-control-findings`, `arch-check-source-root-architecture-stays-at-repo-root`, `arch-check-source-root-dot`, `arch-check-source-root-symlink-inside-repo` |
 | *(new)* `source_root` invalid: absolute, `..`, escapes the repo, symlink escape, not a dir, missing, NUL, lacks `root_package`, not a string | 2 | `arch-check-source-root-invalid-absolute`, `arch-check-source-root-invalid-parent-segment`, `arch-check-source-root-invalid-escapes-repo`, `arch-check-source-root-invalid-symlink-escape`, `arch-check-source-root-invalid-not-a-directory`, `arch-check-source-root-invalid-missing`, `arch-check-source-root-invalid-lacks-root-package`, `arch-check-source-root-invalid-nul`, `arch-check-source-root-invalid-not-a-string` |
@@ -62,7 +68,7 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | *(new)* single-language findings keep the pre-change order, with qualified ids | 1 | `arch-check-order-single-language` |
 | *(new)* enforced-tags `[lang:]`: declared language; undeclared language; second or malformed tag; never a status tag | 0/1 | `arch-check-tags-lang-declared`, `arch-check-tags-lang-undeclared`, `arch-check-tags-lang-duplicate`, `arch-check-tags-lang-malformed`, `arch-check-tags-lang-not-a-status-tag` |
 | *(new)* enforced-tags: a non-ASCII target id never matches | 1 | `arch-check-tags-target-non-ascii` |
-| *(new)* top-level facts (`--top-level`): no model read, no units, edges between top-level units with the first witness | 0 | `arch-check-top-level-facts-python`, `arch-check-top-level-facts-typescript` |
+| *(new)* top-level facts (`--top-level`): no model read and no layout check, no units, edges between top-level units with the first witness | 0 | `arch-check-top-level-facts-python`, `arch-check-top-level-facts-typescript` |
 | *(new)* top-level facts: an import inside one top-level unit yields no self-edge | 0 | `arch-check-top-level-facts-intra-unit`, `arch-check-top-level-facts-typescript` |
 | *(new)* top-level facts: several modules of one unit importing another give one edge, witnessed by the first sorted source module | 0 | `arch-check-top-level-facts-one-witness` |
 | *(new)* the arch-scaffold-python output passes the check; with an existing spec directory only the unmapped-spec finding remains | 0/1 | `arch-check-scaffolded-clean`, `arch-check-scaffolded-unmapped-spec` |
@@ -113,7 +119,8 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | index missing / invalid YAML / not a mapping / no diagrams block / block not a mapping | 1 | `arch-diagrams-index-missing`, `arch-diagrams-index-invalid-yaml`, `arch-diagrams-index-not-mapping`, `arch-diagrams-no-diagrams-block`, `arch-diagrams-diagrams-not-mapping` |
 | model/views findings block generation (incl. *(new)* malformed metadata) | 1 | `arch-diagrams-parse-findings-block-generation`, `arch-diagrams-malformed-metadata` |
 | key not an arc42 path (`!r`) | 1 | `arch-diagrams-key-not-arc42-path` |
-| view not defined (incl. no views.c4, string view list) | 1 | `arch-diagrams-view-not-defined`, `arch-diagrams-no-views-file`, `arch-diagrams-view-ids-string-iterates` |
+| view not defined (incl. string view list) | 1 | `arch-diagrams-view-not-defined`, `arch-diagrams-view-ids-string-iterates` |
+| *(new)* a violated LikeC4 layout: the layout message, no doc rewritten | 1 | `arch-diagrams-no-views-file` |
 | missing / duplicate / out-of-order markers; earlier docs already written | 1 | `arch-diagrams-marker-missing`, `arch-diagrams-marker-duplicate`, `arch-diagrams-marker-order`, `arch-diagrams-first-error-stops-later-docs` |
 | mapped doc missing or a directory (OSError) | 1 | `arch-diagrams-doc-missing`, `arch-diagrams-doc-is-directory` |
 | usage error; `--help` | 2/0 | `arch-diagrams-usage-unknown-flag`, `arch-diagrams-help` |
@@ -125,19 +132,34 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 
 | Branch | Exit | Cases |
 |---|---|---|
-| *(new)* kinds and tags in `model/specification.c4`, one node per top-level unit and one relation per measured edge in `model/<language>.c4`, views, arc42 with diagrams, index additions; written paths in fixed order | 0 | `arch-scaffold-python` |
+| *(new)* `model.c4` with kinds and tags in one `specification` block and, in one `model` block, one node per top-level unit and one relation per measured edge; views, arc42 with diagrams, index additions; written paths in fixed order | 0 | `arch-scaffold-python` |
 | *(new)* cycle keeps both arrows; an index already setting `legacy_arrows` gets only `diagrams`, the rest byte-identical | 0 | `arch-scaffold-cycle` |
 | *(new)* a unit without edges still gets a node | 0 | `arch-scaffold-unit-without-edges` |
-| *(new)* mixed repo: one shared `specification.c4`, one model file and one view per language, both diagrams in `system.arc42.md` | 0 | `arch-scaffold-mixed`, `twin-scaffold-forwarded-top-level` |
+| *(new)* mixed repo: one `specification` block, both language roots in one `model` block, one view per language, both diagrams in `system.arc42.md` | 0 | `arch-scaffold-mixed`, `twin-scaffold-forwarded-top-level` |
 | *(new)* id derivation: hyphen to `_` with the raw title; leading digit gets `n_`; order follows unit names | 0 | `arch-scaffold-ts-hyphenated`, `arch-scaffold-leading-digit` |
 | *(new)* id collision between two units of one language: names both, writes nothing | 2 | `arch-scaffold-id-collision` |
 | *(new)* a unit name containing `'` cannot be a model string: refused by name, nothing written | 2 | `arch-scaffold-unquotable-unit` |
 | *(new)* a write failing after earlier writes succeeded undoes them: repo unchanged, no paths printed | 2 | `arch-scaffold-write-failure` |
 | *(new)* an index with CRLF lines keeps them byte for byte; the additions use LF | 0 | `arch-scaffold-crlf-index` |
-| *(new)* an existing `model/*.c4`, `views.c4` or `*.arc42.md` refused by name, repo unchanged | 2 | `arch-scaffold-existing-model`, `arch-scaffold-existing-views`, `arch-scaffold-existing-arc42` |
+| *(new)* an existing LikeC4 source at any depth (canonical, legacy `model/*.c4`, nested `.likec4`) or `*.arc42.md` refused by name, the first in code-point order; repo unchanged | 2 | `arch-scaffold-existing-model`, `arch-scaffold-existing-legacy-model`, `arch-scaffold-existing-nested-likec4`, `arch-scaffold-existing-views`, `arch-scaffold-existing-arc42`, `arch-scaffold-existing-first-clash-code-point` |
 | *(new)* `architecture/index.yaml` missing or not valid YAML, nothing written | 2 | `arch-scaffold-index-missing`, `arch-scaffold-index-invalid` |
 | *(new)* other twin unreachable: install hint, nothing written | 2 | `arch-scaffold-twin-unavailable` |
 | *(new)* other twin returns schema-invalid top-level facts: protocol failure, nothing written | 2 | `twin-scaffold-top-level-schema-invalid` |
+
+## la-arch-migrate
+
+| Branch | Exit | Cases |
+|---|---|---|
+| *(new)* legacy layout merged into one `specification` and one `model` block (several files, one `model/model.c4`); `views.c4` kept or created empty; written and deleted paths printed | 0 | `arch-migrate-multi-file`, `arch-migrate-single-file`, `arch-migrate-views-created` |
+| *(new)* comments and blank lines outside blocks go to the top; each opening-line comment stays with its interior | 0 | `arch-migrate-comments-outside-blocks` |
+| *(new)* no `index.yaml` needed | 0 | `arch-migrate-no-index` |
+| *(new)* parse findings inside blocks do not prevent migration; reordered findings compare as a multiset | 0 | `arch-migrate-parse-findings`, `arch-migrate-findings-reordered` |
+| *(new)* other files keep `architecture/model/` | 0 | `arch-migrate-keeps-other-files` |
+| *(new)* canonical layout: nothing to migrate | 0 | `arch-migrate-already-canonical` |
+| *(new)* not migratable (another LikeC4 source, a `views` block or top-level text in a legacy file): layout message, nothing written | 2 | `arch-migrate-not-migratable`, `arch-migrate-views-block-in-legacy-file`, `arch-migrate-top-level-text` |
+| *(new)* the merged files would parse differently: nothing written | 2 | `arch-migrate-verification-mismatch` |
+| *(new)* a failing delete after both writes: created files removed, repo unchanged | 2 | `arch-migrate-write-failure` |
+| *(new)* usage error; `--help` | 2/0 | `arch-migrate-usage-unknown-flag`, `arch-migrate-help` |
 
 ## la-config
 
@@ -319,7 +341,7 @@ time or many paged responses. Those branches are pinned by `tests/test_review_sc
 | *(new)* conventions facts: twin unreachable for a mixed diff; request for a non-owned language; `LA_FORWARDED=1` refusal | 2 | `twin-conventions-facts-unavailable`, `twin-conventions-facts-non-native-typescript`, `twin-conventions-facts-non-native-python`, `twin-conventions-facts-refused-when-forwarded` |
 | *(new)* conventions commands on own-language files never probe the other twin | 0 | `twin-conventions-own-language-typescript`, `twin-conventions-own-language-python`, `twin-count-comments-own-language-typescript` |
 | *(new)* `la-typecheck`: the other language runs through its twin (`--language L`, streams relayed, exit max); `--language` for a non-owned language refused without a process; twin unreachable | 1/2 | `twin-typecheck-forwarded-typescript`, `twin-typecheck-non-native-typescript`, `twin-typecheck-non-native-python`, `twin-typecheck-unavailable` |
-| *(new)* neutral commands never forward (other twin unreachable) | 0 | `twin-neutral-config-show`, `twin-neutral-doctor`, `twin-neutral-arch-diagrams` |
+| *(new)* neutral commands never forward (other twin unreachable) | 0 | `twin-neutral-config-show`, `twin-neutral-doctor`, `twin-neutral-arch-diagrams`, `twin-neutral-arch-migrate` |
 | *(new)* own-language inputs never probe or run the other twin | 0 | `twin-own-language-python`, `twin-own-language-typescript` |
 | *(new)* facts emitted natively (Python): unit statuses in model order, sorted top-level units, sorted edges with first witness | 0 | `twin-facts-emit-python` |
 | *(new)* facts request for a non-owned language, no process started | 2 | `twin-facts-non-native-typescript`, `twin-facts-non-native-python` |

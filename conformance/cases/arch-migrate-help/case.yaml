@@ -1,0 +1,10 @@
+kind: neutral
+command: la-arch-migrate
+args:
+- --help
+fixture: arch-ok
+expect:
+  exit: 0
+  stdout: ignore
+  stderr: ignore
+note: help exits 0

@@ -1,0 +1,9 @@
+# The LikeC4 layout under architecture/: the two canonical files, the top-level blocks each holds, which files
+# count as LikeC4 sources (case-sensitive name suffixes), and the legacy model directory la-arch-migrate converts.
+model_file: architecture/model.c4
+views_file: architecture/views.c4
+blocks:
+  architecture/model.c4: [specification, model]
+  architecture/views.c4: [views]
+source_extensions: ['.c4', '.likec4']
+legacy_model_dir: architecture/model

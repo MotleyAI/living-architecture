@@ -1,0 +1,11 @@
+kind: neutral
+command: la-arch-migrate
+fixture: arch-ok
+remove:
+- architecture/model.c4
+expect:
+  exit: 0
+  files:
+  - architecture/model.c4
+golden: manual
+note: parse findings inside the blocks do not prevent migration

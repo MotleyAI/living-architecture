@@ -1,0 +1,20 @@
+kind: neutral
+command: la-arch-migrate
+fixture: arch-ok
+remove:
+- architecture/model.c4
+- architecture/views.c4
+chmod:
+  architecture/model: '0555'
+expect:
+  exit: 2
+  stderr:
+    contains:
+    - 'la-arch-migrate: '
+    - architecture/model/m.c4
+  files:
+  - architecture/model.c4
+  - architecture/views.c4
+  - architecture/model/m.c4
+golden: manual
+note: 'deleting a legacy file fails after both new files were written: they are removed and the repo is unchanged'

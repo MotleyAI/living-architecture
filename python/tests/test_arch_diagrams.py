@@ -16,10 +16,9 @@ PY_SECTION = "python:\n  root_package: pkg\n"
 def arch_only(
     tmp_path: Path, model_text: str, views_text: str | None = None, index_text: str | None = None
 ) -> Path:
-    """Write architecture/model, optional views and an index declaring `python` (plus `index_text`)."""
-    model_dir = tmp_path / "architecture" / "model"
-    model_dir.mkdir(parents=True)
-    (model_dir / "m.c4").write_text(textwrap.dedent(model_text), encoding="utf-8")
+    """Write architecture/model.c4, optional views and an index declaring `python` (plus `index_text`)."""
+    (tmp_path / "architecture").mkdir(parents=True)
+    (tmp_path / "architecture" / "model.c4").write_text(textwrap.dedent(model_text), encoding="utf-8")
     if views_text is not None:
         (tmp_path / "architecture" / "views.c4").write_text(textwrap.dedent(views_text), encoding="utf-8")
     index = PY_SECTION + textwrap.dedent(index_text or "")
@@ -835,7 +834,7 @@ def make_repo(
     files = {
         "pyproject.toml": PYPROJECT,
         "architecture/index.yaml": index,
-        "architecture/model/pkg.c4": model,
+        "architecture/model.c4": model,
         "architecture/views.c4": views,
         "architecture/system.arc42.md": system_md,
         "architecture/engine.arc42.md": engine_md,
@@ -1029,7 +1028,7 @@ def test_diagrams_fresh_stale_content_flagged_with_fix_command(tmp_path):
 
 def test_diagrams_fresh_model_edit_without_regen_flagged(tmp_path):
     root = make_repo(tmp_path)
-    model = root / "architecture" / "model" / "pkg.c4"
+    model = root / "architecture" / "model.c4"
     model.write_text(model.read_text(encoding="utf-8").replace("core = node 'Core'", "core = node 'Kore'"), encoding="utf-8")
     findings = fresh_findings(root)
     assert findings
@@ -1399,7 +1398,7 @@ def test_diagrams_fresh_child_model_healthy(tmp_path):
 
 def test_diagrams_fresh_child_edit_without_regen_flagged(tmp_path):
     root = make_repo(tmp_path, model=MODEL_WITH_CHILD)
-    model = root / "architecture" / "model" / "pkg.c4"
+    model = root / "architecture" / "model.c4"
     model.write_text(
         model.read_text(encoding="utf-8").replace("query = node 'Query'", "query = node 'Q2'"), encoding="utf-8"
     )

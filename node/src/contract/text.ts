@@ -19,6 +19,11 @@ export function isWordStart(ch: string): boolean {
   return new RegExp(`^${WORD}$`, 'u').test(ch);
 }
 
+/** Python's `bytes.decode('utf-8')`: keeps a BOM, throws a TypeError on invalid UTF-8. */
+export function decodeUtf8(bytes: Uint8Array): string {
+  return new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes);
+}
+
 /** Python's str ordering: by code point (JS's default compares UTF-16 units). */
 export function byCodePoint(a: string, b: string): number {
   const [x, y] = [[...a], [...b]];

@@ -1,0 +1,9 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+fixture: arch-ok
+expect:
+  exit: 2
+golden: manual
+note: 'paths in code-point order: uppercase first, `.` before `/`, U+FF5A before U+1F600 (not UTF-16 order)'

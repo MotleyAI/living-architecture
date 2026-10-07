@@ -61,6 +61,15 @@ commands:
     options:
       - {name: --root, type: path, help: 'repo root (default: nearest git root of cwd)'}
 
+  la-arch-migrate:
+    help: >-
+      Merge a legacy architecture/model/*.c4 model into architecture/model.c4 (creating an empty
+      architecture/views.c4 when absent), verified to parse identically; writes everything or nothing and
+      prints each written and deleted path.
+    exit: {0: migrated or nothing to migrate, 2: not migratable, verification mismatch or filesystem error}
+    options:
+      - {name: --root, type: path, help: 'repo root (default: nearest git root of cwd)'}
+
   la-check-conventions:
     help: >-
       Deterministic convention gate over a PR's changed source files: import-not-top, text-ratio, and (tests)

@@ -14,6 +14,7 @@
     "dr-refactor": "dist/bin/dr-refactor.js",
     "la-arch-check": "dist/bin/la-arch-check.js",
     "la-arch-diagrams": "dist/bin/la-arch-diagrams.js",
+    "la-arch-migrate": "dist/bin/la-arch-migrate.js",
     "la-arch-scaffold": "dist/bin/la-arch-scaffold.js",
     "la-check-conventions": "dist/bin/la-check-conventions.js",
     "la-config": "dist/bin/la-config.js",

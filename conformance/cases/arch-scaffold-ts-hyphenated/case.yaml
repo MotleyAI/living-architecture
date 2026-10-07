@@ -6,7 +6,6 @@ fixture: scaffold-ts
 expect:
   exit: 0
   files:
-  - architecture/model/specification.c4
-  - architecture/model/typescript.c4
+  - architecture/model.c4
 golden: manual
 note: a hyphen in the unit's last segment becomes `_` in the id; the title keeps the raw name

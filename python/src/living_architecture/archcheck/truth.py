@@ -5,9 +5,9 @@ from __future__ import annotations
 from functools import cache
 from pathlib import Path
 
-from living_architecture.archcheck.index import Layout, declared_languages, load_index
+from living_architecture.archcheck.index import ArchCheckError, Layout, declared_languages, load_index
 from living_architecture.archcheck.nodes import build_node_map, unit_to_element
-from living_architecture.c4 import is_or_ancestor, parse_model
+from living_architecture.c4 import is_or_ancestor, layout_problem, parse_model
 from living_architecture.contract import message
 from living_architecture.lang import import_targets, source_modules
 
@@ -89,8 +89,11 @@ def check_model_truth(witnesses: dict[tuple[str, str], tuple[str, str]], arrows:
 
 @cache
 def _license_model(root_str: str) -> tuple[tuple[tuple[str, str], ...], tuple[tuple[str, str], ...]]:
-    """Cached (unit, element) pairs plus arrow set for `license`, keyed by repo root."""
+    """Cached (unit, element) pairs plus arrow set for `license`, keyed by repo root; ArchCheckError on a bad layout."""
     root = Path(root_str)
+    problem = layout_problem(root)
+    if problem is not None:
+        raise ArchCheckError(problem)
     model = parse_model(root)
     mapping = tuple(unit_to_element(build_node_map(model, declared_languages(load_index(root))), "python").items())
     arrows = tuple((r.src, r.dst) for r in model.relations if not _internal(r.src, r.dst))

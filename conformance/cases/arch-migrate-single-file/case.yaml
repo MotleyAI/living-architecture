@@ -1,0 +1,12 @@
+kind: neutral
+command: la-arch-migrate
+fixture: arch-ok
+remove:
+- architecture/model.c4
+expect:
+  exit: 0
+  files:
+  - architecture/model.c4
+  - architecture/model/model.c4
+golden: manual
+note: one legacy model/model.c4; the blank line between its blocks moves to the top

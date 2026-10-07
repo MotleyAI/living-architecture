@@ -5,8 +5,7 @@ command: la-arch-scaffold
 expect:
   exit: 0
   files:
-  - architecture/model/specification.c4
-  - architecture/model/python.c4
+  - architecture/model.c4
   - architecture/index.yaml
 golden: manual
 note: 'a cycle keeps both arrows; an index that already sets legacy_arrows gets only the diagrams entry, the rest byte-identical'

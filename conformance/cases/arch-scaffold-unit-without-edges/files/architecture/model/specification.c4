@@ -1,9 +1,0 @@
-specification {
-  element system
-  element node
-  element bucket {
-    #virtual
-  }
-  tag legacy
-  tag virtual
-}

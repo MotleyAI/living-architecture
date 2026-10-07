@@ -1,0 +1,39 @@
+specification {
+  element system
+  element node
+  element bucket {
+    #virtual
+  }
+  tag legacy
+  tag virtual
+}
+model {
+  python = system 'python' {
+    api = node 'api' {
+      metadata {
+        package 'pkg.api'
+      }
+    }
+    core = node 'core' {
+      metadata {
+        package 'pkg.core'
+      }
+    }
+
+    api -> core
+  }
+  typescript = system 'typescript' {
+    shared = node 'shared' {
+      metadata {
+        package 'src/shared'
+      }
+    }
+    web = node 'web' {
+      metadata {
+        package 'src/web'
+      }
+    }
+
+    web -> shared
+  }
+}
