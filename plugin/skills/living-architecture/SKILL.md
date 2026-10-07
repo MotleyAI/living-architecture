@@ -127,7 +127,7 @@ python:                               # one section per language; at least one
 typescript:
   root_package: src
   source_root: web                    # optional
-  tsconfig: web/tsconfig.app.json     # optional: default the nearest root marker
+  tsconfig: web/tsconfig.app.json     # optional: default the nearest tsconfig.json
 
 legacy_arrows: {baseline: 8}          # exact count of #legacy arrows in the model (ratchet)
 
