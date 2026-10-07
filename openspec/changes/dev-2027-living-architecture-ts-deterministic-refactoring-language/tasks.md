@@ -62,5 +62,5 @@
 
 ## 11. Manual acceptance on worktree-term (pr-review stage, before merge)
 
-- [ ] 11.1 Once worktree-term has its daemon skeleton: install this branch's twins (`uv tool install -e python`, `npm install -g ./node` after build) and point `~/.claude/skills/la` at this branch's `plugin/`; run `/la:arch-init` on worktree-term until `la-arch-check`, `likec4 validate` and `la-typecheck` are green; fix every gap found in this PR
-- [ ] 11.2 Take worktree-term's next change through all four `/la:pr` stages with Vitest as `commands.test`; fix every gap found in this PR; merge this PR only after it passes
+- [x] 11.1 Once worktree-term has its daemon skeleton: install this branch's twins (`uv tool install -e python`, `npm install -g ./node` after build) and point `~/.claude/skills/la` at this branch's `plugin/`; run `/la:arch-init` on worktree-term until `la-arch-check`, `likec4 validate` and `la-typecheck` are green; fix every gap found in this PR
+- [x] 11.2 Take worktree-term's next change through all four `/la:pr` stages with Vitest as `commands.test`; fix every gap found in this PR; merge this PR only after it passes
