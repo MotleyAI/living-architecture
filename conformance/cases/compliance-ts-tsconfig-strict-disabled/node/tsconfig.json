@@ -1,0 +1,4 @@
+{
+  "compilerOptions": {"strict": true, "noImplicitAny": false, "noEmit": true},
+  "include": ["src"]
+}

@@ -1,0 +1,10 @@
+kind: adapter
+languages:
+- typescript
+command: dr-compliance
+args:
+- src/shared.ts
+expect:
+  exit: 1
+golden: manual
+note: two referenced projects include the file; the first in preorder (p2, not strict) governs, so its flags are reported

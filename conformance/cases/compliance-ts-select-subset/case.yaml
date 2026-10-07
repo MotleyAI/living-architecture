@@ -1,0 +1,12 @@
+kind: adapter
+languages:
+- typescript
+command: dr-compliance
+args:
+- --select
+- explicit-any
+- src/k.ts
+fixture: compliance-ts
+expect:
+  exit: 1
+golden: manual

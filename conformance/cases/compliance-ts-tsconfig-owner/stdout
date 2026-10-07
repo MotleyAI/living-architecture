@@ -1,0 +1,3 @@
+p2/tsconfig.json: tsconfig: strict is not enabled
+p2/tsconfig.json: tsconfig: noImplicitAny is not enabled
+p2/tsconfig.json: tsconfig: noImplicitOverride is not enabled

@@ -1,0 +1,18 @@
+Renaming <foo> to <bar>:
+
+
+--- a/src/order.ts
++++ b/src/order.ts
+@@ -3,6 +3,6 @@
+ export const viaImport = foo();
+ 
+ export function wrap(): number {
+-  const foo = 2;
+-  return foo;
++  const bar = 2;
++  return bar;
+ }
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

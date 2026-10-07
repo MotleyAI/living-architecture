@@ -1,0 +1,17 @@
+kind: neutral
+languages:
+- python
+- typescript
+fixture: dr-mixed
+golden: manual
+twin: python
+other_twin: absent
+command: dr-compliance
+args:
+- src/a.py
+- src/b.ts
+normalize:
+- version
+expect:
+  exit: 2
+note: 'no npm twin and no npx: nothing on stdout, the install hint, exit 2'

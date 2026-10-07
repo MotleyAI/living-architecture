@@ -1,0 +1,12 @@
+kind: neutral
+languages:
+- python
+- typescript
+fixture: dr-mixed
+golden: manual
+command: dr-compliance
+args:
+- src
+expect:
+  exit: 1
+note: a directory expands to both repo languages' files (declaration files excluded); every check of each file's language

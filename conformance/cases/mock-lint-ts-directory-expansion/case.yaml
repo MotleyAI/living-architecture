@@ -1,0 +1,10 @@
+kind: adapter
+languages:
+- typescript
+command: dr-mock-lint
+args:
+- tests
+expect:
+  exit: 1
+golden: manual
+note: a directory expands to the repo languages' files, minus declaration files and node_modules

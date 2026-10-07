@@ -1,0 +1,21 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- rename
+- --file
+- pkg/loop.py
+- --name
+- foo
+- --new-name
+- bar
+fixture: refactor-pkg
+symlinks:
+  pkg/loop.py: loop.py
+git:
+- commit: init
+expect:
+  exit: 1
+golden: manual
+note: a source that is a symlink loop is missing, not a traceback

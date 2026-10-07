@@ -1,0 +1,21 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- rename
+- --file
+- src/order.ts
+- --name
+- foo
+- --new-name
+- bar
+fixture: refactor-ts
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - src/order.ts
+golden: manual
+note: --name takes the first declaration (the local const), not the earlier import use

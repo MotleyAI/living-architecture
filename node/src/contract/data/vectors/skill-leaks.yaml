@@ -1,0 +1,6 @@
+# Tokens only one language's idioms use. No SKILL.md may contain one; they belong in
+# plugin/languages/<language>.md. A token matches where no word character touches it on either side.
+python: [basedpyright, rope, TYPE_CHECKING, '*.py', pyproject.toml, MagicMock, unittest.mock, pytest, ruff, .venv,
+  __init__.py, mypy, '@override']
+typescript: [tsc, tsconfig.json, vitest, Vitest, vi.fn, jest, Jest, '*.ts', .d.ts, node_modules, '@ts-expect-error',
+  eslint, prettier]

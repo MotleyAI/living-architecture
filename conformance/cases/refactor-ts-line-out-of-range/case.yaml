@@ -1,0 +1,18 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- rename
+- --file
+- src/a.ts
+- --line
+- '99'
+- --new-name
+- bar
+fixture: refactor-ts
+git:
+- commit: init
+expect:
+  exit: 1
+golden: manual

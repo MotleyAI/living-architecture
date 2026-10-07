@@ -1,6 +1,8 @@
 """Skills reference only real skills and commands, and check the tools against their own plugin."""
 
 import re
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -10,6 +12,10 @@ REPO_ROOT = next(p for p in Path(__file__).resolve().parents if (p / "plugin" / 
 SKILLS_DIR = REPO_ROOT / "plugin" / "skills"
 SKILL_FILES = sorted(SKILLS_DIR.glob("*/SKILL.md"))
 MANIFEST = REPO_ROOT / "shared" / "cli.yaml"
+LEAKS = yaml.safe_load((REPO_ROOT / "shared" / "vectors" / "skill-leaks.yaml").read_text(encoding="utf-8"))
+LANGUAGE_IDS = list(yaml.safe_load((REPO_ROOT / "shared" / "languages.yaml").read_text(encoding="utf-8")))
+LA_CONFIG = Path(sys.executable).parent / "la-config"
+CONFIG_GET_RE = re.compile(r"la-config get ([A-Za-z0-9_.<>-]*[A-Za-z0-9_>])")
 
 COMMAND_RE = re.compile(r"(?<![\w/.-])((?:la|dr)-[a-z][a-z-]*[a-z])\b")
 SKILL_REF_RE = re.compile(r"\bla:([a-z][a-z-]*[a-z])\b")
@@ -202,3 +208,51 @@ def test_pr_follows_tracker_and_openspec_config():
     assert "la-config get tracker" in text
     assert "la-config get openspec" in text
     assert "gh issue develop --list" in text
+
+
+def _leaks(text: str) -> list[str]:
+    tokens = sorted({token for tokens in LEAKS.values() for token in tokens})
+    return [token for token in tokens if re.search(rf"(?<!\w){re.escape(token)}(?!\w)", text)]
+
+
+def _invalid_keys(text: str, root: Path) -> list[str]:
+    """`la-config get` keys in `text` that fail, `<language>` standing for each registered language."""
+    bad = []
+    for key in sorted(set(CONFIG_GET_RE.findall(text))):
+        for concrete in [key.replace("<language>", lang) for lang in LANGUAGE_IDS] if "<language>" in key else [key]:
+            proc = subprocess.run([str(LA_CONFIG), "--root", str(root), "get", concrete], capture_output=True, check=False)
+            if proc.returncode != 0:
+                bad.append(key)
+                break
+    return bad
+
+
+@pytest.fixture
+def git_root(tmp_path: Path) -> Path:
+    subprocess.run(["git", "init", "-q", "-b", "main"], cwd=tmp_path, check=True)
+    return tmp_path
+
+
+def test_leak_matcher_needs_whole_tokens():
+    assert _leaks("run basedpyright, then `*.py` files") == ["*.py", "basedpyright"]
+    assert _leaks("europe tscx jester") == []
+
+
+@pytest.mark.parametrize("path", SKILL_FILES, ids=_id)
+def test_no_language_only_token(path):
+    assert _leaks(path.read_text(encoding="utf-8")) == [], f"{path.parent.name} names language-only tokens"
+
+
+def test_config_key_checker(git_root: Path):
+    assert _invalid_keys("`la-config get lang.<language>.runner`", git_root) == ["lang.<language>.runner"]
+    assert _invalid_keys("`la-config get languages` and `la-config get lang.<language>.markers`", git_root) == []
+
+
+@pytest.mark.parametrize("path", SKILL_FILES, ids=_id)
+def test_config_keys_are_valid(path, git_root: Path):
+    assert _invalid_keys(path.read_text(encoding="utf-8"), git_root) == []
+
+
+@pytest.mark.parametrize("language", LANGUAGE_IDS)
+def test_language_idioms_doc_exists(language):
+    assert (REPO_ROOT / "plugin" / "languages" / f"{language}.md").is_file()

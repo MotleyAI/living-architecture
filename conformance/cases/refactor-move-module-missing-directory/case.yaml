@@ -1,0 +1,17 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- move-module
+- --module
+- pkg/nope
+- --dest
+- pkg
+fixture: refactor-pkg
+git:
+- commit: init
+expect:
+  exit: 1
+golden: manual
+note: a missing extensionless module is missing, not of an unsupported language

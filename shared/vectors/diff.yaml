@@ -1,0 +1,287 @@
+# (path, old, new) -> the unified diff dr-refactor prints for one changed file, as rope prints it:
+# difflib.unified_diff over str.splitlines(keepends=True), labels a/<path> and b/<path>, three context
+# lines, no end-of-file marker. Every twin's formatter reproduces each `diff` byte for byte.
+cases:
+- name: one changed line, three context lines
+  path: src/a.ts
+  old: |
+    line 1
+    line 2
+    line 3
+    line 4
+    line 5
+    line 6
+    line 7
+    line 8
+    line 9
+    line 10
+    line 11
+    line 12
+    line 13
+    line 14
+    line 15
+    line 16
+    line 17
+    line 18
+    line 19
+    line 20
+  new: |
+    line 1
+    line 2
+    line 3
+    line 4
+    line 5
+    line 6
+    line 7
+    line 8
+    line 9
+    line ten
+    line 11
+    line 12
+    line 13
+    line 14
+    line 15
+    line 16
+    line 17
+    line 18
+    line 19
+    line 20
+  diff: |
+    --- a/src/a.ts
+    +++ b/src/a.ts
+    @@ -7,7 +7,7 @@
+     line 7
+     line 8
+     line 9
+    -line 10
+    +line ten
+     line 11
+     line 12
+     line 13
+- name: distant changes make two hunks
+  path: src/a.ts
+  old: |
+    line 1
+    line 2
+    line 3
+    line 4
+    line 5
+    line 6
+    line 7
+    line 8
+    line 9
+    line 10
+    line 11
+    line 12
+    line 13
+    line 14
+    line 15
+    line 16
+    line 17
+    line 18
+    line 19
+    line 20
+  new: |
+    line 1
+    line two
+    line 3
+    line 4
+    line 5
+    line 6
+    line 7
+    line 8
+    line 9
+    line 10
+    line 11
+    line 12
+    line 13
+    line 14
+    line 15
+    line 16
+    line 17
+    line eighteen
+    line 19
+    line 20
+  diff: |
+    --- a/src/a.ts
+    +++ b/src/a.ts
+    @@ -1,5 +1,5 @@
+     line 1
+    -line 2
+    +line two
+     line 3
+     line 4
+     line 5
+    @@ -15,6 +15,6 @@
+     line 15
+     line 16
+     line 17
+    -line 18
+    +line eighteen
+     line 19
+     line 20
+- name: nearby changes share one hunk
+  path: src/a.ts
+  old: |
+    line 1
+    line 2
+    line 3
+    line 4
+    line 5
+    line 6
+    line 7
+    line 8
+    line 9
+    line 10
+    line 11
+    line 12
+    line 13
+    line 14
+    line 15
+    line 16
+    line 17
+    line 18
+    line 19
+    line 20
+  new: |
+    line 1
+    line 2
+    line 3
+    line 4
+    line five
+    line 6
+    line 7
+    line 8
+    line 9
+    line 10
+    line eleven
+    line 12
+    line 13
+    line 14
+    line 15
+    line 16
+    line 17
+    line 18
+    line 19
+    line 20
+  diff: |
+    --- a/src/a.ts
+    +++ b/src/a.ts
+    @@ -2,13 +2,13 @@
+     line 2
+     line 3
+     line 4
+    -line 5
+    +line five
+     line 6
+     line 7
+     line 8
+     line 9
+     line 10
+    -line 11
+    +line eleven
+     line 12
+     line 13
+     line 14
+- name: insertion at the start
+  path: src/a.ts
+  old: |
+    b
+    c
+  new: |
+    a
+    b
+    c
+  diff: |
+    --- a/src/a.ts
+    +++ b/src/a.ts
+    @@ -1,2 +1,3 @@
+    +a
+     b
+     c
+- name: no final newline on either side
+  path: src/a.ts
+  old: |-
+    a
+    b
+  new: |-
+    a
+    c
+  diff: |-
+    --- a/src/a.ts
+    +++ b/src/a.ts
+    @@ -1,2 +1,2 @@
+     a
+    -b+c
+- name: final newline added
+  path: src/a.ts
+  old: |-
+    a
+    b
+  new: |
+    a
+    b
+  diff: |
+    --- a/src/a.ts
+    +++ b/src/a.ts
+    @@ -1,2 +1,2 @@
+     a
+    -b+b
+- name: CRLF line endings
+  path: src/a.ts
+  old: "a\r\nb\r\nc\r\n"
+  new: "a\r\nB\r\nc\r\n"
+  diff: "--- a/src/a.ts\n+++ b/src/a.ts\n@@ -1,3 +1,3 @@\n a\r\n-b\r\n+B\r\n c\r\n"
+- name: lone CR and U+2028 end lines as Python's splitlines does
+  path: src/a.ts
+  old: "a\rb\u2028c\n"
+  new: "a\rB\u2028c\n"
+  diff: "--- a/src/a.ts\n+++ b/src/a.ts\n@@ -1,3 +1,3 @@\n a\r-b\u2028+B\u2028 c\n"
+- name: created file
+  path: src/new.ts
+  old: ''
+  new: |
+    export const a = 1;
+    export const b = 2;
+  diff: |
+    --- a/src/new.ts
+    +++ b/src/new.ts
+    @@ -0,0 +1,2 @@
+    +export const a = 1;
+    +export const b = 2;
+- name: deleted file
+  path: src/old.ts
+  old: |
+    export const a = 1;
+    export const b = 2;
+  new: ''
+  diff: |
+    --- a/src/old.ts
+    +++ b/src/old.ts
+    @@ -1,2 +0,0 @@
+    -export const a = 1;
+    -export const b = 2;
+- name: path with spaces
+  path: src/my file.ts
+  old: |
+    a
+  new: |
+    b
+  diff: |
+    --- a/src/my file.ts
+    +++ b/src/my file.ts
+    @@ -1 +1 @@
+    -a
+    +b
+- name: non-ASCII path and text
+  path: src/naïve/ü.ts
+  old: |
+    const s = 'ä';
+  new: |
+    const s = 'ö';
+  diff: |
+    --- a/src/naïve/ü.ts
+    +++ b/src/naïve/ü.ts
+    @@ -1 +1 @@
+    -const s = 'ä';
+    +const s = 'ö';

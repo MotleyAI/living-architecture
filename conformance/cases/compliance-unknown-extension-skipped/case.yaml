@@ -1,0 +1,8 @@
+kind: neutral
+command: dr-compliance
+args:
+- notes.txt
+expect:
+  exit: 0
+golden: manual
+note: an explicit file of no registered language is skipped with a warning by either twin

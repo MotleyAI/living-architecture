@@ -71,6 +71,14 @@ def language_ids() -> list[str]:
     return sorted(_yaml("languages.yaml"))
 
 
+def language_of(path: str) -> str | None:
+    """The registry language whose source extensions contain the path's extension, else None."""
+    for lang_id in language_ids():
+        if any(path.endswith(ext) for ext in language(lang_id)["source_extensions"]):
+            return lang_id
+    return None
+
+
 def conventions() -> dict[str, Any]:
     return _yaml("conventions.yaml")
 

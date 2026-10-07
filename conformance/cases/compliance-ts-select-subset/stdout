@@ -1,0 +1,3 @@
+src/k.ts:15: explicit-any: an `any` type — use a real type or `unknown`
+src/k.ts:15: explicit-any: an `any` type — use a real type or `unknown`
+src/k.ts:16: explicit-any: an `any` type — use a real type or `unknown`

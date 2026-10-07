@@ -1,0 +1,17 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- rename
+- --file
+- web/src/a.ts
+- --name
+- foo
+- --new-name
+- bar
+git:
+- commit: init
+expect:
+  exit: 0
+note: with no index.yaml tsconfig and no root tsconfig.json, the file's nearest tsconfig.json is its project

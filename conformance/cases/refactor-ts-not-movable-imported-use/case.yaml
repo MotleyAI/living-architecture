@@ -1,0 +1,25 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- --apply
+- move-symbol
+- --file
+- src/c.ts
+- --line
+- '3'
+- --col
+- '22'
+- --dest
+- src/lib/keep.ts
+fixture: refactor-ts
+git:
+- commit: init
+expect:
+  exit: 1
+  files:
+  - src/c.ts
+  - src/lib/keep.ts
+golden: manual
+note: a use of an imported symbol is not a declaration of --file

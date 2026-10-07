@@ -105,8 +105,13 @@ def la_pr_reviewers(argv: list[str] | None = None) -> NoReturn:
 
 
 def dr_refactor(argv: list[str] | None = None) -> int:
-    args = parse("dr-refactor", _argv(argv))
-    return refactor.run_refactor(project_root=args.project, command=args.subcommand, apply=args.apply, options=vars(args))
+    raw = _argv(argv)
+    args = parse("dr-refactor", raw)
+    return refactor.route_refactor(
+        raw,
+        args,
+        lambda: refactor.run_refactor(project_root=args.project, command=args.subcommand, apply=args.apply, options=vars(args)),
+    )
 
 
 def dr_compliance(argv: list[str] | None = None) -> int:

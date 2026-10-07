@@ -55,6 +55,8 @@ flowchart TD
   typecheck --> contract
   typecheck --> twin
   conventions --> twin
+  refactor --> config
+  refactor --> twin
 ```
 <!-- /likec4:system -->
 
@@ -73,6 +75,7 @@ flowchart TD
   twin["Twin forwarding"]
   conventions["Conventions and comments"]
   typecheck["Type check"]
+  refactor["Deterministic refactoring"]
   cli --> contract
   cli --> config
   cli --> archcheck
@@ -102,6 +105,11 @@ flowchart TD
   typecheck --> config
   typecheck --> contract
   typecheck --> twin
+  cli --> refactor
+  refactor --> contract
+  refactor --> lang
+  refactor --> config
+  refactor --> twin
 ```
 <!-- /likec4:npm -->
 

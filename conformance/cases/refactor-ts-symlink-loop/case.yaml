@@ -1,0 +1,21 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- rename
+- --file
+- src/loop.ts
+- --name
+- foo
+- --new-name
+- bar
+fixture: refactor-ts
+symlinks:
+  src/loop.ts: loop.ts
+git:
+- commit: init
+expect:
+  exit: 1
+golden: manual
+note: a source that is a symlink loop is missing, not a traceback

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import difflib
 import json
 import shlex
 import subprocess
@@ -60,3 +61,10 @@ def test_command_split_vectors_are_shlex_split(vector: dict) -> None:
             shlex.split(vector["text"])
     else:
         assert shlex.split(vector["text"]) == vector["words"]
+
+
+@pytest.mark.parametrize("vector", _load("diff.yaml")["cases"], ids=lambda v: v["name"])
+def test_diff_vectors_are_what_rope_prints(vector: dict) -> None:
+    old, new, path = vector["old"], vector["new"], vector["path"]
+    printed = "".join(difflib.unified_diff(old.splitlines(True), new.splitlines(True), "a/" + path, "b/" + path))
+    assert printed == vector["diff"]

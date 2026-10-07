@@ -1,0 +1,12 @@
+kind: adapter
+languages:
+- typescript
+command: dr-compliance
+args:
+- src/bad.ts
+- src/later.ts
+fixture: compliance-ts
+expect:
+  exit: 1
+golden: manual
+note: the first parse diagnostic, as the conventions gate reports it; later files are still checked

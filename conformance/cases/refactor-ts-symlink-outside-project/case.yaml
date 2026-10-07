@@ -1,0 +1,21 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- rename
+- --file
+- src/ext.ts
+- --name
+- foo
+- --new-name
+- bar
+fixture: refactor-ts
+symlinks:
+  src/ext.ts: /etc/hosts
+git:
+- commit: init
+expect:
+  exit: 1
+golden: manual
+note: a source symlinked outside the project is refused before it is read

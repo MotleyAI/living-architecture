@@ -1,0 +1,11 @@
+tests/m.test.ts:6: vi.fn() without a type argument or implementation — type it as vi.fn<typeof real>()
+tests/m.test.ts:9: v.fn() without a type argument or implementation — type it as v.fn<typeof real>()
+tests/m.test.ts:10: j.fn() without a type argument or implementation — type it as j.fn<typeof real>()
+tests/m.test.ts:11: jest.fn() without a type argument or implementation — type it as jest.fn<typeof real>()
+tests/m.test.ts:13: vi.mock() factory not typed against a resolvable module — pass import('<module>') (Vitest) or <typeof import('<module>')> (Jest)
+tests/m.test.ts:17: vi.mock() factory not typed against a resolvable module — pass import('<module>') (Vitest) or <typeof import('<module>')> (Jest)
+tests/m.test.ts:18: vi.doMock() factory not typed against a resolvable module — pass import('<module>') (Vitest) or <typeof import('<module>')> (Jest)
+tests/m.test.ts:20: j.mock() factory not typed against a resolvable module — pass import('<module>') (Vitest) or <typeof import('<module>')> (Jest)
+tests/m.test.ts:21: j.unstable_mockModule() factory not typed against a resolvable module — pass import('<module>') (Vitest) or <typeof import('<module>')> (Jest)
+tests/m.test.ts:26: double assertion through unknown — build a typed double instead
+tests/m.test.ts:27: double assertion through any — build a typed double instead

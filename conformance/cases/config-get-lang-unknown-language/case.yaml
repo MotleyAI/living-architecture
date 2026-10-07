@@ -1,0 +1,9 @@
+kind: neutral
+command: la-config
+args:
+- get
+- lang.ruby.markers
+expect:
+  exit: 2
+golden: manual
+note: an unregistered language

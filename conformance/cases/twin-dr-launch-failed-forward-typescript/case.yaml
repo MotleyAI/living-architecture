@@ -1,0 +1,31 @@
+kind: neutral
+languages:
+- python
+- typescript
+fixture: dr-mixed
+golden: manual
+twin: typescript
+other_twin: absent
+command: dr-refactor
+args:
+- rename
+- --file
+- src/a.py
+- --name
+- foo
+- --new-name
+- bar
+bins:
+- dir: other-twin
+  files:
+    la-doctor: |
+      #!/bin/sh
+      echo "python <VERSION> <CONTRACT_HASH>"
+    dr-refactor: |
+      #!/bin/sh
+      exit 0
+  nonexec:
+  - dr-refactor
+expect:
+  exit: 2
+note: 'the other twin qualifies but cannot run dr-refactor: a twin error, exit 2, nothing on stdout'

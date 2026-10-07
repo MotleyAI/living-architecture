@@ -1,0 +1,11 @@
+kind: neutral
+command: la-doctor
+normalize:
+- version
+git:
+- commit: init
+- write:
+    .git/index: "not an index\n"
+expect:
+  exit: 1
+note: a git failure inside a repo is a doctor problem

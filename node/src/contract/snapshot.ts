@@ -70,6 +70,11 @@ export function languageIds(): string[] {
   return Object.keys(yamlFile('languages.yaml')).sort();
 }
 
+/** The registry language whose source extensions contain the path's extension, else null. */
+export function languageOf(path: string): string | null {
+  return languageIds().find((id) => (language(id).source_extensions as string[]).some((ext) => path.endsWith(ext))) ?? null;
+}
+
 export function conventions(): Record<string, any> {
   return yamlFile('conventions.yaml');
 }

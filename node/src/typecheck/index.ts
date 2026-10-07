@@ -1,9 +1,8 @@
 // `la-typecheck`: each applicable language's checker against its committed, only-shrinking baseline.
-import { spawnSync } from 'node:child_process';
 import { accessSync, constants, existsSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { ConfigError, explicitTypecheck, findRepoRoot, type LaConfig, loadConfig } from '../config/index.js';
-import { fnmatch, language, languageIds, message, whichPath } from '../contract/index.js';
+import { ConfigError, findRepoRoot, type LaConfig, loadConfig, repoLanguages } from '../config/index.js';
+import { language, message, whichPath } from '../contract/index.js';
 import { checkTypescript } from '../lang/index.js';
 import * as twin from '../twin/index.js';
 
@@ -58,33 +57,9 @@ export function combinedExit(codes: number[]): number {
 
 const commandOf = (config: LaConfig, id: string): string | null => config.commands.typecheck[id as Lang] ?? null;
 
-/** Tracked and untracked-but-not-ignored files, minus the exempt globs. */
-function sourceFiles(root: string, exempt: string[]): string[] {
-  const proc = spawnSync('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard'], { cwd: root, maxBuffer: 1 << 30 });
-  const paths = (proc.stdout?.toString('utf8') ?? '').split('\0');
-  return paths.filter((p) => p && !exempt.some((pattern) => fnmatch(p, pattern)));
-}
-
-const isFile = (path: string): boolean => existsSync(path) && statSync(path).isFile();
-
-/** Languages set to a command explicitly, or with files and a root marker; `null` turns one off. */
+/** The repo languages whose typecheck command is not `null`. */
 export function applicable(root: string, config: LaConfig): string[] {
-  const explicit = explicitTypecheck(root);
-  let files: string[] | null = null;
-  const out: string[] = [];
-  for (const id of languageIds()) {
-    if (commandOf(config, id) === null) continue;
-    if (explicit.has(id)) {
-      out.push(id);
-      continue;
-    }
-    const entry = language(id);
-    if (!(entry.markers as string[]).some((marker) => isFile(join(root, marker)))) continue;
-    files ??= sourceFiles(root, config.conventions.exempt);
-    const extensions = entry.source_extensions as string[];
-    if (files.some((f) => extensions.some((ext) => f.endsWith(ext)))) out.push(id);
-  }
-  return out;
+  return repoLanguages(root, config).filter((id) => commandOf(config, id) !== null);
 }
 
 function executable(path: string): boolean {
@@ -164,7 +139,14 @@ export function run(cwd: string, write: boolean, languageId: string | null): num
     }
     return checkNative(root, commandOf(config, languageId) ?? '', write);
   }
-  const languages = applicable(root, config);
+  let languages: string[];
+  try {
+    languages = applicable(root, config);
+  } catch (error) {
+    if (!(error instanceof ConfigError)) throw error;
+    err(message('typecheck.error', { error: error.message }));
+    return 2;
+  }
   if (languages.length === 0) {
     err(message('typecheck.no-languages'));
     return 0;

@@ -1,0 +1,1 @@
+src/b.ts:1: explicit-any: an `any` type — use a real type or `unknown`

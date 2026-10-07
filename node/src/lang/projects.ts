@@ -14,6 +14,10 @@ export interface Project {
   options: TS.CompilerOptions;
   files: Set<string>;
   cache: TS.ModuleResolutionCache;
+  /** The parsed tsconfig, or null for the default project of a repo without one. */
+  parsed: TS.ParsedCommandLine | null;
+  /** The tsconfig's real path, or null. */
+  config: string | null;
 }
 
 export interface Projects {
@@ -40,8 +44,8 @@ function diagnosticText(diagnostic: TS.Diagnostic): string {
   return ts().flattenDiagnosticMessageText(diagnostic.messageText, '\n');
 }
 
-function parseConfig(path: string, layout: TsLayout): TS.ParsedCommandLine {
-  const shown = posix(relative(layout.repoRoot, path));
+function parseConfig(path: string, repoRoot: string): TS.ParsedCommandLine {
+  const shown = posix(relative(repoRoot, path));
   const { config, error } = ts().readConfigFile(path, ts().sys.readFile);
   if (error !== undefined) throw new LangError(`${shown}: ${diagnosticText(error)}`);
   const parsed = ts().parseJsonConfigFileContent(config, ts().sys, dirname(path), undefined, path);
@@ -50,16 +54,24 @@ function parseConfig(path: string, layout: TsLayout): TS.ParsedCommandLine {
   return parsed;
 }
 
-function project(options: TS.CompilerOptions, fileNames: readonly string[], repoRoot: string): Project {
+function project(parsed: TS.ParsedCommandLine | null, config: string | null, repoRoot: string): Project {
+  const options = parsed?.options ?? { moduleResolution: ts().ModuleResolutionKind.Bundler };
   const resolutionOptions = { ...options, allowJs: true };
   return {
     options: resolutionOptions,
-    files: new Set(fileNames.map(canonical)),
+    files: new Set((parsed?.fileNames ?? []).map(canonical)),
     cache: ts().createModuleResolutionCache(repoRoot, (name) => name, resolutionOptions),
+    parsed,
+    config,
   };
 }
 
 export function loadProjects(layout: TsLayout): Projects {
+  return loadProjectsFrom(selectConfig(layout), layout.repoRoot);
+}
+
+/** The project of `config` (else a default one) and every project it references, depth-first preorder. */
+export function loadProjectsFrom(config: string | undefined, repoRoot: string): Projects {
   const ordered: Project[] = [];
   const outputs = new Map<string, string>();
   const outputDirs = new Set<string>();
@@ -86,15 +98,14 @@ export function loadProjects(layout: TsLayout): Projects {
     const key = canonical(path);
     if (seen.has(key)) return;
     seen.add(key);
-    const parsed = parseConfig(path, layout);
-    ordered.push(project(parsed.options, parsed.fileNames, layout.repoRoot));
+    const parsed = parseConfig(path, repoRoot);
+    ordered.push(project(parsed, key, repoRoot));
     if (referenced) mapOutputs(parsed);
     for (const ref of parsed.projectReferences ?? []) visit(ts().resolveProjectReferencePath(ref), true);
   };
 
-  const config = selectConfig(layout);
   if (config === undefined) {
-    ordered.push(project({ moduleResolution: ts().ModuleResolutionKind.Bundler }, [], layout.repoRoot));
+    ordered.push(project(null, null, repoRoot));
   } else {
     visit(config, false);
   }
@@ -103,7 +114,7 @@ export function loadProjects(layout: TsLayout): Projects {
     readFile: (name) => ts().sys.readFile(name),
     directoryExists: (name) => ts().sys.directoryExists(name) || outputDirs.has(resolve(name)),
     realpath: (name) => ts().sys.realpath?.(name) ?? name,
-    getCurrentDirectory: () => layout.repoRoot,
+    getCurrentDirectory: () => repoRoot,
     getDirectories: (name) => ts().sys.getDirectories(name),
   };
   return { root: ordered[0] as Project, ordered, outputs, outputDirs, host };

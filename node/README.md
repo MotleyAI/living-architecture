@@ -10,8 +10,8 @@ spaghetti, and keep each change on a reviewed plan.
 - **A four-stage PR flow.** `/la:pr` interviews you into a Codex-reviewed OpenSpec plan, writes the failing
   tests, implements until they pass, and then loops CI, Codex, CodeRabbit and Sonar reviews until every gate
   is clean. Each stage resumes from the branch name alone, and the plan is archived with the code.
-- **Refactoring without import churn.** Python moves and renames rewrite every import automatically, and the
-  type checker proves nothing was left dangling.
+- **Refactoring without import churn.** Python and TypeScript moves and renames rewrite every import
+  automatically, and the type checker proves nothing was left dangling.
 
 The longer version is in
 [Living architecture, explained](https://github.com/MotleyAI/living-architecture/blob/main/docs/living-architecture-explained.md).
@@ -23,12 +23,14 @@ The longer version is in
 /plugin marketplace add MotleyAI/living-architecture
 /plugin install la@living-architecture
 
-# the commands (la-*, dr-*), pinned to the same version as the plugin
-uv tool install living-architecture==0.2.3
+# the commands (la-*, dr-*), pinned to the same version as the plugin, from your repo's ecosystem
+uv tool install living-architecture==0.3.0      # Python repos
+npm install -g living-architecture@0.3.0        # TypeScript/JavaScript repos (Node >= 22)
 ```
 
-The commands ship as a PyPI package and as an npm package of the same name; each serves its own ecosystem and
-calls the other for mixed repos
+The commands ship as two twins with one contract: a PyPI package and an npm package of the same name. Each
+serves its own ecosystem natively, needs nothing from the other in a single-language repo, and calls the other
+for the other language's files in a mixed repo
 ([details](https://github.com/MotleyAI/living-architecture/blob/main/docs/commands.md#two-twins)). Skills
 check that the installed commands match the plugin before they run.
 
@@ -53,14 +55,50 @@ then offers to set up OpenSpec, record the type-check baseline and build the arc
 | `la:pr` | Run a change through plan → failing tests → implementation → review |
 | `la:arch-init` | Build the first architecture model from the measured code, then its principles |
 | `la:arch-cleanup` | Retire a batch of `#legacy` arrows, or carve a new boundary, with verified moves |
-| `la:deterministic-refactor` | Rename or move Python code, proven complete by the type checker |
+| `la:deterministic-refactor` | Rename or move Python or TypeScript code, proven complete by the type checker |
 
 These skills call helper skills that you can also run on their own; see
 [Skills](https://github.com/MotleyAI/living-architecture/blob/main/docs/skills.md).
 
+## Languages
+
+A repo's languages are those with a root marker (`pyproject.toml`/`setup.py`; `tsconfig.json`) and source
+files, or a `commands.typecheck` entry, which a language needs when its marker is not at the root (like the
+`web/tsconfig.json` below); `la-config get languages` lists them. The architecture model declares
+one section per language in `architecture/index.yaml`, and a mixed repo has both:
+
+```yaml
+python:
+  root_package: mypkg                 # the package the python root maps to
+  source_root: src                    # optional
+typescript:
+  root_package: src                   # the directory the typescript root maps to
+  source_root: web                    # optional
+  tsconfig: web/tsconfig.json         # optional: default the nearest tsconfig.json
+legacy_arrows: {baseline: 0}
+```
+
+Pin the architecture check in CI to a release, in your ecosystem's form:
+
+```yaml
+# Python
+- uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+- run: uvx --no-build --from living-architecture==0.3.0 la-arch-check
+# TypeScript
+- uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+- run: npx -y -p living-architecture@0.3.0 la-arch-check
+```
+
 ## Prerequisites
 
 Always: `git`, `bash`, `gh` (authenticated) and `jq`.
+
+Per repo language (`la-doctor` checks them):
+
+| Language | Needs |
+|---|---|
+| Python | the PyPI twin; basedpyright in the project env for the type-check gate |
+| TypeScript | `node` (>= 22) and `npx`; the npm twin; `tsc` in `node_modules` for the type-check gate |
 
 Per gate, as `living-architecture.yaml` enables it:
 
@@ -69,10 +107,9 @@ Per gate, as `living-architecture.yaml` enables it:
 | `tracker: linear` | the Linear MCP server |
 | `tracker: github` | nothing beyond `gh` |
 | `openspec: true` | `npx` (the OpenSpec CLI) |
-| `architecture: true` | `npx` (the LikeC4 CLI); the npm twin for TypeScript code |
+| `architecture: true` | `npx` (the LikeC4 CLI) |
 | `reviewers.codex: true` | the Codex MCP server (`mcp__codex__codex`) |
 | Sonar on your PRs | the SonarQube MCP server |
-| type-check gate | the repo's type checker (basedpyright, `tsc`) |
 
 ## Documentation
 

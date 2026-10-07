@@ -1,0 +1,19 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- rename
+- --file
+- src/usepkg.ts
+- --name
+- helper
+- --new-name
+- x
+fixture: refactor-ts
+git:
+- commit: init
+expect:
+  exit: 1
+golden: manual
+note: a symbol declared in a node_modules declaration file

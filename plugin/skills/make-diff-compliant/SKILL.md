@@ -1,6 +1,6 @@
 ---
 name: make-diff-compliant
-description: Use to bring exactly the Python files a PR/branch touches up to the deterministic-refactor compliance conditions (typed, @override, spec-bound mocks), so a future refactor over them is verifiable. Scoped to the diff — grows compliance monotonically, no repo-wide migration.
+description: Use to bring exactly the source files a PR/branch touches up to the deterministic-refactor compliance conditions (typed, overrides marked, typed test doubles), so a future refactor over them is verifiable. Scoped to the diff — grows compliance monotonically, no repo-wide migration.
 ---
 
 **Preflight:** run `la-doctor --plugin <this skill's base directory>` once per session before using any `la-*` or `dr-*` command; if it fails, stop and show the user its output.
@@ -12,22 +12,20 @@ leaves the files it touched fully refactor-verifiable.
 
 ## Steps
 
-1. **Changed Python files:**
-   `git diff --name-only <base>...HEAD -- '*.py'` (base = the PR's target branch).
-2. **Report:** `dr-compliance <changed files>` → `untyped-def` /
-   `unannotated-attr` / `mock` violations.
-3. **Fix each, within the changed files:**
-   - `untyped-def` → add param and return annotations.
-   - `unannotated-attr` → annotate the attribute (class-body `x: T`, or
-     `self.x: T = ...`).
-   - `mock` → bind to a spec: `create_autospec(X, spec_set=True)`,
-     `MagicMock(spec_set=X)`, `patch(..., autospec=True)`, or a `Protocol` fake.
-   - Add `@typing.override` to any override among the changed methods.
+1. **Changed source files:**
+   `git diff --name-only <base>...HEAD` (base = the PR's target branch), kept to
+   the repo languages' sources (`la-config get languages`, then
+   `la-config get lang.<language>.source_globs`).
+2. **Report:** `dr-compliance <changed files>` — each file gets its language's
+   checks.
+3. **Fix each, within the changed files,** following the compliance fixes in
+   `<this skill's base directory>/../../languages/<language>.md`; mark every
+   override among the changed methods.
 4. **Re-check until clean:**
    - `dr-compliance <changed files>` exits 0;
-   - the project's type checker shows no new errors on those files;
+   - `la-typecheck` shows no new errors;
    - `dr-mock-lint <changed tests>` passes.
-5. Run the non-integration test suite. Review. The user commits.
+5. Run the non-integration test suite (`la-config get commands.test`). Review. The user commits.
 
 Never weaken existing annotations. Keep edits within the diff's files unless a
 fix requires annotating an immediate caller.

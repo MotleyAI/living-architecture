@@ -1,0 +1,26 @@
+kind: neutral
+languages:
+- python
+- typescript
+fixture: dr-mixed
+golden: manual
+twin: typescript
+other_twin: absent
+command: dr-compliance
+args:
+- src/a.py
+- src/b.ts
+bins:
+- dir: other-twin
+  files:
+    la-doctor: |
+      #!/bin/sh
+      echo "python <VERSION> <CONTRACT_HASH>"
+    dr-compliance: |
+      #!/bin/sh
+      exit 0
+  nonexec:
+  - dr-compliance
+expect:
+  exit: 2
+note: 'the other twin qualifies but cannot run dr-compliance: a twin error, exit 2, nothing on stdout'

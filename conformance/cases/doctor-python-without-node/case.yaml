@@ -1,0 +1,11 @@
+kind: neutral
+command: la-doctor
+twin: python
+hide:
+- node
+normalize:
+- version
+expect:
+  exit: 0
+golden: manual
+note: 'a Python-only repo needs neither node nor npx: today''s output'

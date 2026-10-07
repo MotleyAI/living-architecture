@@ -1,0 +1,117 @@
+#!/usr/bin/env bash
+# Node-only acceptance: the packed npm twin, installed into an isolated prefix, runs the TypeScript flow on
+# acceptance/node-only/repo while `python`, `python3`, `uv` and `uvx` are trapped; any call to them fails the run.
+#
+# Usage: scripts/acceptance-node-only   (needs node >= 22, npm, git and network for npm installs)
+set -euo pipefail
+
+ROOT=$(cd "$(dirname "$0")/.." && pwd)
+WORK=$(mktemp -d)
+trap 'rm -rf "$WORK"' EXIT
+TRAP_LOG=$WORK/trap.log
+COMMANDS=(la-doctor la-config la-arch-scaffold la-arch-check la-typecheck la-check-conventions la-count-comments
+  dr-compliance dr-mock-lint dr-refactor)
+
+step() { printf '\n== %s\n' "$*"; }
+fail() { printf 'acceptance-node-only: %s\n' "$*" >&2; exit 1; }
+expect_exit() {
+  local want=$1; shift
+  local got=0
+  "$@" || got=$?
+  [ "$got" = "$want" ] || fail "$* exited $got, expected $want"
+}
+contains() { grep -qF -- "$2" "$1" || fail "$1 lacks: $2"; }
+
+step "trap python, python3, uv and uvx"
+mkdir -p "$WORK/trap" "$WORK/stub"
+for exe in python python3 uv uvx; do
+  printf '#!/bin/sh\necho "%s $*" >> %s\nexit 97\n' "$exe" "$TRAP_LOG" > "$WORK/trap/$exe"
+  chmod +x "$WORK/trap/$exe"
+done
+printf '#!/bin/sh\nexit 0\n' > "$WORK/stub/gh"
+chmod +x "$WORK/stub/gh"
+export PATH="$WORK/trap:$WORK/prefix/bin:$PATH:$WORK/stub"
+
+step "pack the npm twin and install it into an isolated prefix"
+(cd "$ROOT/node" && npm ci --no-audit --no-fund && npm run build && npm pack --pack-destination "$WORK")
+npm install -g --no-audit --no-fund --prefix "$WORK/prefix" "$WORK"/living-architecture-*.tgz
+for command in "${COMMANDS[@]}"; do
+  [ "$(command -v "$command")" = "$WORK/prefix/bin/$command" ] || fail "$command resolves to $(command -v "$command")"
+done
+
+step "the fixture repo"
+cp -r "$ROOT/acceptance/node-only/repo" "$WORK/repo"
+cd "$WORK/repo"
+git init -q -b main
+git config user.email acceptance@example.com
+git config user.name acceptance
+npm ci --no-audit --no-fund
+git add -A
+git commit -q -m fixture
+git init -q --bare "$WORK/origin.git"
+git remote add origin "$WORK/origin.git"
+git push -q origin main
+git checkout -q -b accept
+
+step "la-doctor and la-config"
+la-doctor --require-config
+[ "$(la-config get languages)" = '["typescript"]' ] || fail "la-config get languages: $(la-config get languages)"
+
+step "architecture: scaffold, check, validate"
+la-arch-scaffold
+la-arch-check
+npx -y likec4 validate architecture
+
+step "type check: baseline, then the gate"
+la-typecheck --write-baseline
+la-typecheck
+git add -A
+git commit -q -m scaffold
+
+step "compliance and mock findings"
+expect_exit 1 dr-compliance src tests > "$WORK/compliance.txt"
+cat "$WORK/compliance.txt"
+contains "$WORK/compliance.txt" 'tsconfig.json: tsconfig: noImplicitOverride is not enabled'
+contains "$WORK/compliance.txt" 'src/api/handler.ts:4: explicit-any'
+contains "$WORK/compliance.txt" 'src/api/handler.ts:8: untyped-def: label is implicitly any'
+contains "$WORK/compliance.txt" 'tests/handler.test.ts:5: vi.mock() factory not typed'
+contains "$WORK/compliance.txt" 'tests/handler.test.ts:13: vi.fn() without a type argument'
+contains "$WORK/compliance.txt" 'tests/handler.test.ts:15: double assertion through unknown'
+expect_exit 1 dr-mock-lint tests
+
+step "fixes"
+cp -r "$ROOT/acceptance/node-only/fixes/." .
+dr-compliance src tests
+dr-mock-lint tests
+la-typecheck
+npx vitest run
+git add -A
+git commit -q -m fixes
+
+step "refactors: dry-run writes nothing, then apply"
+refactor() {
+  local before
+  before=$(git diff)
+  dr-refactor "$@"
+  [ "$(git diff)" = "$before" ] || fail "dry-run of $* changed files"
+  dr-refactor --apply "$@"
+}
+refactor rename --file src/util/fmt.ts --name formatAmount --new-name formatMoney
+refactor move-symbol --file src/util/fmt.ts --name shout --dest src/util/text.ts
+refactor move-module --module src/api/handler.ts --dest src/api/routes
+grep -q 'formatMoney' src/core/ledger.ts || fail "rename did not reach src/core/ledger.ts"
+grep -qE "from ['\"]\.\./\.\./util/text['\"]" src/api/routes/handler.ts || fail "move-symbol did not rewrite the import of shout"
+grep -q "src/api/routes/handler" tests/handler.test.ts || fail "move-module did not rewrite the test import"
+
+step "the gate after the refactors"
+la-typecheck
+npx vitest run
+la-arch-check
+git add -A
+git commit -q -m refactors
+la-check-conventions --base main
+git ls-files -z 'src/*.ts' | xargs -0 la-count-comments --range main
+
+step "nothing called python, python3, uv or uvx"
+[ ! -s "$TRAP_LOG" ] || fail "trapped: $(cat "$TRAP_LOG")"
+echo "acceptance-node-only: OK"

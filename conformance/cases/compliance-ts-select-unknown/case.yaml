@@ -1,0 +1,13 @@
+kind: adapter
+languages:
+- typescript
+command: dr-compliance
+args:
+- --select
+- bogus,explicit-any
+- src/k.ts
+fixture: compliance-ts
+expect:
+  exit: 2
+golden: manual
+note: an id no language lists

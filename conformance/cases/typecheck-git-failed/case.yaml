@@ -1,0 +1,9 @@
+kind: neutral
+command: la-typecheck
+git:
+- commit: init
+- write:
+    .git/index: "not an index\n"
+expect:
+  exit: 2
+note: a git failure inside a repo is reported, not taken as no applicable language

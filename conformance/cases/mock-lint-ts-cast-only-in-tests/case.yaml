@@ -1,0 +1,11 @@
+kind: adapter
+languages:
+- typescript
+command: dr-mock-lint
+args:
+- src
+fixture: mock-lint-ts
+expect:
+  exit: 1
+golden: manual
+note: the double-assertion rule applies only to files matching the test globs; a directory recurses

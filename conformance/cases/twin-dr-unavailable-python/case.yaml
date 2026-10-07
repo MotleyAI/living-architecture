@@ -1,0 +1,17 @@
+kind: neutral
+languages:
+- python
+- typescript
+fixture: dr-mixed
+golden: manual
+twin: typescript
+other_twin: absent
+command: dr-mock-lint
+args:
+- tests/test_a.py
+- web/a.test.ts
+normalize:
+- version
+expect:
+  exit: 2
+note: 'no PyPI twin and no uvx: nothing on stdout (the TS block is withheld), the install hint, exit 2'

@@ -1,0 +1,21 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- rename
+- --file
+- src/shapes.ts
+- --offset
+- '6'
+- --new-name
+- bar
+fixture: refactor-ts
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - src/shapes.ts
+golden: manual
+note: shorthand property and export keep their external names; strings and comments untouched; --offset

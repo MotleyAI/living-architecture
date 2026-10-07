@@ -1,0 +1,10 @@
+kind: adapter
+languages:
+- typescript
+command: dr-mock-lint
+args:
+- tests/ambient.test.ts
+fixture: mock-lint-ts
+expect:
+  exit: 1
+note: factories typed against an ambient module (exact or a wildcard pattern) pass; an unresolved one is flagged

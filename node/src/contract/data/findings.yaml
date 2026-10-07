@@ -179,6 +179,10 @@ findings:
   # ---- la-config
   config.error: 'la-config: {error}'
   config.unknown-key: 'la-config: unknown key {key!r}'
+  config.not-git: 'la-config: not inside a git repository'
+  config.git-failed: git ls-files failed, so the repo's files cannot be listed
+  # `la-config get lang.<language>.waiver`: the language's waiver comment.
+  config.waiver: '{prefix} ALLOW(<rule>): <reason>'
 
   # ---- la-doctor
   doctor.ok: 'ok: la tools {version}; config from {source}'
@@ -202,6 +206,7 @@ findings:
   twin.facts-invalid: 'the {language} twin (living-architecture {version}) returned invalid facts; reinstall it with: {install}'
   twin.forward-refused: refusing to forward to the {language} twin from a forwarded process (LA_FORWARDED=1)
   twin.not-native: '{language} facts are served only by the {language} twin'
+  twin.launch-failed: 'the {language} twin could not run {command}'
 
   # ---- la-check-conventions
   conventions.violation: '{path}:{line}: [{rule}] {message}'
@@ -274,6 +279,26 @@ findings:
   refactor.applied: "\nAPPLIED. {count} file(s) changed:"
   refactor.applied-file: '  {path}'
   refactor.dry-run: "\nDRY-RUN. {count} file(s) would change. Re-run with --apply."
+  refactor.unsupported-extension: 'not a source file of a supported language: {path}'
+  refactor.cross-language-dest: '--dest {dest} is not a {language} file'
+  refactor.skipped: '{prog}: not a source file, skipped: {path}'
+  # The TypeScript twin's texts (rope prints the Python ones).
+  refactor.ts-rename-header: 'Renaming <{old}> to <{new}>:'
+  refactor.ts-move-symbol-header: 'Moving global <{name}>:'
+  refactor.ts-move-module-header: 'Moving module <{name}>:'
+  refactor.ts-moved: "rename from {old}\nrename to {new}"
+  refactor.ts-outside-project: no TypeScript project includes {path}
+  refactor.ts-not-supported: '{option} is not supported for TypeScript'
+  refactor.ts-tsconfig-missing: 'architecture/index.yaml names tsconfig {path}, which does not exist'
+  refactor.col-out-of-range: column {col} out of range (line {line} has {count} characters)
+  refactor.offset-out-of-range: offset {offset} out of range (file has {count} characters)
+  refactor.cannot-rename: the element at this location cannot be renamed
+  refactor.not-movable: 'nothing to move here: the location must name a top-level declaration of {path}'
+  refactor.conflicting-edits: projects disagree on an edit in {path}
+  refactor.destination-exists: 'destination already exists: {path}'
+  refactor.destination-missing: 'destination does not exist: {path}'
+  refactor.source-missing: 'source does not exist: {path}'
+  refactor.mixed-languages: '{path} holds sources of more than one language: {languages}'
 
   # ---- dr-compliance
   compliance.untyped-def: '{path}:{line}: untyped-def: {name}() missing {missing}'
@@ -283,7 +308,14 @@ findings:
   compliance.attr-blindspot: '{path}:{line}: attr-blindspot: {receiver}.{attr} — annotate parameter ''{receiver}'' so a rename of .{attr} is verifiable'
   compliance.parse-error: '{path}:{line}: parse-error: {error}'
   compliance.unknown-checks: 'unknown check(s): {checks}'
+  compliance.tsconfig: '{path}: tsconfig: {flag} is not enabled'
+  compliance.explicit-any: '{path}:{line}: explicit-any: an `any` type — use a real type or `unknown`'
+  compliance.ts-untyped-def: '{path}:{line}: untyped-def: {name} is implicitly any'
+  compliance.ts-attr-blindspot: '{path}:{line}: attr-blindspot: {receiver}.{attr} — {receiver} is any, so a rename of .{attr} is unverifiable'
 
   # ---- dr-mock-lint
   mock-lint.patch: '{path}:{line}: {call}() without autospec=True/new=/spec= — stale members go undetected'
   mock-lint.mock: '{path}:{line}: {call}() without spec=/spec_set= — bind it to the real class (or use create_autospec)'
+  mock-lint.fn: '{path}:{line}: {call}() without a type argument or implementation — type it as {call}<typeof real>()'
+  mock-lint.module: "{path}:{line}: {call}() factory not typed against a resolvable module — pass import('<module>') (Vitest) or <typeof import('<module>')> (Jest)"
+  mock-lint.cast: '{path}:{line}: double assertion through {via} — build a typed double instead'

@@ -1,0 +1,7 @@
+tracker: github
+openspec: false
+architecture: true
+reviewers:
+  codex: false
+commands:
+  test: npx vitest run

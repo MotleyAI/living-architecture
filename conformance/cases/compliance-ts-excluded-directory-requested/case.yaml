@@ -1,0 +1,10 @@
+kind: adapter
+languages:
+- typescript
+command: dr-compliance
+args:
+- node_modules/dep
+fixture: compliance-ts
+expect:
+  exit: 0
+note: a requested directory inside an excluded directory (node_modules) expands to nothing

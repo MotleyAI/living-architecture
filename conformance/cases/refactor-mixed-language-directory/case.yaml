@@ -1,0 +1,19 @@
+kind: neutral
+languages:
+- python
+- typescript
+fixture: dr-mixed
+command: dr-refactor
+args:
+- move-module
+- --module
+- src
+- --dest
+- web
+expect:
+  exit: 1
+  files:
+  - src/a.py
+  - src/b.ts
+golden: manual
+note: a directory holding sources of both repo languages is refused before either twin moves it

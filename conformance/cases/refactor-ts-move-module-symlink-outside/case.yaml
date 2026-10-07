@@ -1,0 +1,19 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- move-module
+- --module
+- src/ext
+- --dest
+- src/lib
+fixture: refactor-ts
+symlinks:
+  src/ext: /etc
+git:
+- commit: init
+expect:
+  exit: 1
+golden: manual
+note: a directory symlinked outside the project is refused before it is scanned

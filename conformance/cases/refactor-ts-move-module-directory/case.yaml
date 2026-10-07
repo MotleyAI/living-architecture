@@ -1,0 +1,22 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- --apply
+- move-module
+- --module
+- src/util
+- --dest
+- src/lib
+fixture: refactor-ts
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - src/main.ts
+  - src/util/fmt.ts
+  - src/lib/util/fmt.ts
+golden: manual
+note: 'a directory moves: one rename pair per file, importers rewritten'

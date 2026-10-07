@@ -1,0 +1,20 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- move-symbol
+- --file
+- src/a.ts
+- --name
+- foo
+- --dest
+- pkg/x.py
+fixture: refactor-ts
+git:
+- commit: init
+expect:
+  exit: 1
+  files:
+  - src/a.ts
+golden: manual

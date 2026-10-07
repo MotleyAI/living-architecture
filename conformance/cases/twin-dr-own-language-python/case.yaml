@@ -1,0 +1,28 @@
+kind: neutral
+languages:
+- python
+- typescript
+fixture: dr-mixed
+golden: manual
+twin: python
+other_twin: absent
+command: dr-compliance
+args:
+- src/a.py
+- src/clean.py
+bins:
+- dir: npm-twin
+  files:
+    la-doctor: |
+      #!/bin/sh
+      [ "$*" = "--twin" ] || { echo "fake la-doctor: unexpected $*" >&2; exit 99; }
+      echo "typescript <VERSION> <CONTRACT_HASH>"
+    dr-compliance: |
+      #!/bin/sh
+      echo "npm-twin: dr-compliance pwd=$(pwd) forwarded=$LA_FORWARDED args=$*" >> <ROOT>/repo/probe.log
+      exit 99
+expect:
+  exit: 1
+  files:
+  - probe.log
+note: 'only Python inputs through the PyPI twin: the npm twin is never probed or run'

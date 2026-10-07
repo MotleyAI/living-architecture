@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import ast
 import sys
-from collections.abc import Iterator
 from pathlib import Path
 
 from living_architecture.contract import manifest, message
+from living_architecture.refactor.routing import RoutingError, run_split, split
 
 MOCK_CTORS = {"Mock", "MagicMock", "NonCallableMock", "NonCallableMagicMock", "AsyncMock"}
 SPEC_KWARGS = {"spec", "spec_set"}
@@ -63,21 +63,21 @@ def check_file(path: Path) -> list[str]:
     return out
 
 
-def iter_py(paths: list[str]) -> Iterator[Path]:
-    for raw in paths:
-        p = Path(raw)
-        if p.is_dir():
-            yield from sorted(p.rglob("*.py"))
-        else:
-            yield p
-
-
-def run_mock_lint(argv: list[str]) -> int:
-    """Handler for raw argv: paths to files or directories."""
-    if not argv:
-        print(f"usage: {manifest()['dr-mock-lint']['usage']}", file=sys.stderr)
-        return 2
-    problems = [msg for f in iter_py(argv) for msg in check_file(f)]
+def _lint_native(paths: list[str]) -> int:
+    problems = [msg for f in paths for msg in check_file(Path(f))]
     for msg in problems:
         print(msg)
     return 1 if problems else 0
+
+
+def run_mock_lint(argv: list[str]) -> int:
+    """Handler for raw argv: paths to files or directories, each file linted in its language's twin."""
+    if not argv:
+        print(f"usage: {manifest()['dr-mock-lint']['usage']}", file=sys.stderr)
+        return 2
+    try:
+        groups = split("dr-mock-lint", argv, Path.cwd())
+    except RoutingError as exc:
+        print(exc, file=sys.stderr)
+        return 2
+    return run_split("dr-mock-lint", groups, list, _lint_native)

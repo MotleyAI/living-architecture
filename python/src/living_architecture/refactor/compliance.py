@@ -12,11 +12,11 @@ import sys
 from pathlib import Path
 from typing import TypeGuard
 
-from living_architecture.contract import message
+from living_architecture.contract import language, message
 from living_architecture.refactor.mock_spec_lint import check_file as _mock_check
-from living_architecture.refactor.mock_spec_lint import iter_py
+from living_architecture.refactor.routing import RoutingError, compliance_selection, run_split, split
 
-ALL_CHECKS = ("untyped-def", "unannotated-attr", "mock")
+ALL_CHECKS = tuple(language("python")["compliance_checks"])
 FuncDef = (ast.FunctionDef, ast.AsyncFunctionDef)
 
 
@@ -119,13 +119,21 @@ def check_path(path: Path, selected: set[str], attr: str | None) -> list[str]:
     return sorted(out)
 
 
-def run_compliance(*, paths: list[str], select: str, attr: str | None) -> int:
-    selected = {c.strip() for c in select.split(",") if c.strip()}
-    unknown = selected - set(ALL_CHECKS)
-    if unknown:
-        print(message("compliance.unknown-checks", checks=", ".join(sorted(unknown))), file=sys.stderr)
-        return 2
-    problems = [msg for f in iter_py(paths) for msg in check_path(f, selected, attr)]
+def _check_native(paths: list[str], selected: set[str], attr: str | None) -> int:
+    problems = [msg for f in paths for msg in check_path(Path(f), selected, attr)]
     for msg in problems:
         print(msg)
     return 1 if problems else 0
+
+
+def run_compliance(*, paths: list[str], select: str | None, attr: str | None) -> int:
+    """`dr-compliance`: each file with its language's checks, the other language's in its twin."""
+    try:
+        selected = compliance_selection(select)
+        groups = split("dr-compliance", paths, Path.cwd())
+    except RoutingError as exc:
+        print(exc, file=sys.stderr)
+        return 2
+    options = [*(["--select", select] if select is not None else []), *(["--attr", attr] if attr is not None else [])]
+    own = set(ALL_CHECKS) if selected is None else selected & set(ALL_CHECKS)
+    return run_split("dr-compliance", groups, lambda files: [*options, "--", *files], lambda files: _check_native(files, own, attr))

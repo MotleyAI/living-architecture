@@ -1,0 +1,11 @@
+kind: neutral
+command: dr-compliance
+args:
+- .
+git:
+- commit: init
+- write:
+    .git/index: "not an index\n"
+expect:
+  exit: 2
+note: a directory cannot expand when git fails to list the repo's files

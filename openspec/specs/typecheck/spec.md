@@ -7,11 +7,9 @@ under one exit-code contract in both twins.
 ## Requirements
 
 ### Requirement: Applicable languages
-`la-typecheck` SHALL check a language when its `commands.typecheck` entry is set explicitly to a command, or when
-the repo has at least one file of that language (tracked, or untracked and not ignored, minus
-`conventions.exempt`) and one of the language's marker files at the repo root. An entry set to `null` SHALL turn
-the language off. With no applicable language it SHALL print a notice and exit 0. Outside a git repository it
-SHALL exit 2.
+`la-typecheck` SHALL check every repo language, as the shared contract defines it, except a language whose
+`commands.typecheck` entry is set to `null`. With no applicable language it SHALL print a notice and exit 0.
+Outside a git repository it SHALL exit 2.
 
 #### Scenario: Stray script in a Python repo
 - **WHEN** a repo with `pyproject.toml` and no `tsconfig.json` tracks `docs/static/app.js`

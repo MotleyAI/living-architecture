@@ -1,6 +1,6 @@
 // Routing files to their language and collecting each language's conventions facts, natively or from its twin.
 import { readFileSync } from 'node:fs';
-import { contractHash, language, languageIds, message } from '../contract/index.js';
+import { contractHash, languageOf, message } from '../contract/index.js';
 import { VERSION } from '../index.js';
 import { conventionsFacts } from '../lang/index.js';
 import * as twin from '../twin/index.js';
@@ -10,13 +10,7 @@ export type Facts = Record<string, any>;
 /** The facts of another language could not be had; the message (if any) is printed, exit 2. */
 export class FactsError extends Error {}
 
-/** The registry language whose source extensions contain the path's extension, else null. */
-export function languageOf(path: string): string | null {
-  for (const id of languageIds()) {
-    if ((language(id).source_extensions as string[]).some((ext) => path.endsWith(ext))) return id;
-  }
-  return null;
-}
+export { languageOf };
 
 /** Known-extension paths grouped by language, each in input order. */
 function byLanguage(paths: string[]): Map<string, string[]> {

@@ -1,0 +1,21 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- rename
+- --file
+- src/gone.ts
+- --name
+- foo
+- --new-name
+- bar
+fixture: refactor-ts
+symlinks:
+  src/gone.ts: ../../gone.ts
+git:
+- commit: init
+expect:
+  exit: 1
+golden: manual
+note: 'a dangling symlink is resolved like an existing one, so its target is outside the project'

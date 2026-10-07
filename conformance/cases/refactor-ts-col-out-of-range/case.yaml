@@ -1,0 +1,21 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- rename
+- --file
+- src/emoji.ts
+- --line
+- '1'
+- --col
+- '31'
+- --new-name
+- bar
+fixture: refactor-ts
+git:
+- commit: init
+expect:
+  exit: 1
+golden: manual
+note: the column limit is the line's code points plus one

@@ -1,0 +1,17 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- move-module
+- --module
+- src/nope.ts
+- --dest
+- src/lib
+fixture: refactor-ts
+git:
+- commit: init
+expect:
+  exit: 1
+golden: manual
+note: a missing source exits 1 with a finding instead of a traceback

@@ -1,0 +1,11 @@
+kind: adapter
+languages:
+- typescript
+command: dr-mock-lint
+args:
+- types/api.d.ts
+fixture: mock-lint-ts
+expect:
+  exit: 0
+golden: manual
+note: an explicit declaration file is skipped with a warning

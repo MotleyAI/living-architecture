@@ -1,0 +1,13 @@
+kind: adapter
+languages:
+- typescript
+command: dr-compliance
+args:
+- --select
+- ''
+- src/k.ts
+fixture: compliance-ts
+expect:
+  exit: 0
+golden: manual
+note: an explicit empty --select selects nothing

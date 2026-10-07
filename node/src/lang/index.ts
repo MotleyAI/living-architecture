@@ -5,6 +5,9 @@ import type { TsLayout, UnitStatus } from './types.js';
 export { conventionsFacts, type ConventionsFileFacts, type Detection } from './conventions.js';
 export { moduleImports } from './imports.js';
 export { checkTypescript, parseTscOutput, type TscDiagnostic, type TscRun } from './tsc.js';
+export { canonical, DECLARATION_RE, posix, stripSourceExtension } from './files.js';
+export { loadProjectsFrom, owner, type Project, type Projects } from './projects.js';
+export { ts } from './ts.js';
 export { LangError, type ModuleImports, type TsLayout, type UnitStatus } from './types.js';
 
 /** Whether `unit` (a sourceRoot-relative extensionless path) is present, missing or ambiguous (sorted candidates). */

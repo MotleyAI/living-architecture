@@ -1,0 +1,13 @@
+kind: adapter
+languages:
+- typescript
+command: dr-compliance
+args:
+- src/a.ts
+fixture: refactor-ts
+git:
+- commit: init
+expect:
+  exit: 2
+golden: manual
+note: a tsconfig index.yaml names that does not exist is an error, not inferred defaults

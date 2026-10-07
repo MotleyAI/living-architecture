@@ -1,0 +1,11 @@
+kind: adapter
+languages:
+- typescript
+command: dr-compliance
+args:
+- web/src/a.ts
+git:
+- commit: init
+expect:
+  exit: 1
+note: the governing tsconfig is the file's nearest tsconfig.json when the project root has none

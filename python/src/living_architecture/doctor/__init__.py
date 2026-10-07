@@ -10,8 +10,8 @@ import stat
 from pathlib import Path
 
 from living_architecture import __version__
-from living_architecture.config import CONFIG_FILENAME, ConfigError, LaConfig, load_config
-from living_architecture.contract import contract_hash, message
+from living_architecture.config import CONFIG_FILENAME, ConfigError, LaConfig, load_config, repo_languages
+from living_architecture.contract import contract_hash, language, message
 
 REQUIRED_EXECUTABLES = ("git", "gh")
 PLUGIN_MANIFEST = Path(".claude-plugin") / "plugin.json"
@@ -87,6 +87,17 @@ def _config_problems(root: Path, *, require_config: bool) -> list[str]:
     return _consistency(root, cfg)
 
 
+def _language_executables(root: Path) -> list[str]:
+    """What the repo languages need on PATH; none outside git or with an invalid config."""
+    if not (root / ".git").exists():
+        return []
+    try:
+        cfg = load_config(root)
+    except ConfigError:
+        return []
+    return [exe for lang_id in repo_languages(root, cfg) for exe in language(lang_id)["executables"]]
+
+
 def run_checks(*, root: Path, expect: str | None, plugin: str | None = None, require_config: bool = False) -> list[str]:
     """Problems found; empty means healthy. Config-vs-disk checks run only when the config file exists."""
     versions = (
@@ -95,7 +106,12 @@ def run_checks(*, root: Path, expect: str | None, plugin: str | None = None, req
     )
     problems = [problem for problem in versions if problem is not None]
     problems += _config_problems(root, require_config=require_config)
-    problems += [message("doctor.missing-executable", exe=exe) for exe in REQUIRED_EXECUTABLES if shutil.which(exe) is None]
+    try:
+        executables = [*REQUIRED_EXECUTABLES, *_language_executables(root)]
+    except ConfigError as exc:
+        problems.append(str(exc))
+        executables = list(REQUIRED_EXECUTABLES)
+    problems += [message("doctor.missing-executable", exe=exe) for exe in executables if shutil.which(exe) is None]
     return problems
 
 

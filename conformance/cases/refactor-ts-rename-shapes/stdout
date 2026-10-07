@@ -1,0 +1,18 @@
+Renaming <foo> to <bar>:
+
+
+--- a/src/shapes.ts
++++ b/src/shapes.ts
+@@ -1,5 +1,5 @@
+-const foo = 1;
+-export const o = { foo };
+-export { foo };
++const bar = 1;
++export const o = { foo: bar };
++export { bar as foo };
+ // foo in a comment
+ export const s = 'foo';
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

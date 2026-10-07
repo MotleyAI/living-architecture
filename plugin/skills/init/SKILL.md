@@ -33,18 +33,19 @@ Read, don't ask. For each key note the value and where it came from:
 - **`reviewers.sonar.project_key`.** Only needed when it cannot be inferred: Sonar in CI
   (`.github/workflows/*`) with no `sonar-project.properties` key. `la-pr-reviewers <PR>` on a recent PR shows
   what is inferred.
-- **`commands.test` / `commands.lint`.** From `pyproject.toml`, `package.json` scripts, a `Makefile`, the CI
+- **`commands.test` / `commands.lint`.** From the package manifests (`la-config get lang.<language>.markers`, `package.json` scripts), a `Makefile`, the CI
   workflows and `CLAUDE.md`/`AGENTS.md`. The test command must be the full non-integration suite.
 - **`commands.typecheck`.** Each language's checker. Propose an entry only where the default
-  (`basedpyright`, `tsc --noEmit`) does not fit, e.g. `basedpyright -p python` in a subdirectory project, or
-  `null` for a language whose checker is not basedpyright/tsc-compatible.
+  (`la-config get commands.typecheck.<language>`) does not fit — a subdirectory project, or `null` for a
+  checker that is not compatible with the default (the language docs in `<this skill's base
+  directory>/../../languages/` give examples).
 - **`conventions`.** Keep the defaults unless the repo's own instructions say otherwise; propose
   `conventions.exempt` globs for generated or vendored code you find.
 
 ## 2. Propose
 
 Show the complete proposed `living-architecture.yaml`, every key on its own line with a trailing comment
-naming its source (`# detected: pyproject.toml`, `# default`, `# your answer`). Omit keys whose value equals
+naming its source (`# detected: package.json`, `# default`, `# your answer`). Omit keys whose value equals
 the default only when the source is `default`.
 
 ## 3. One question round

@@ -1,0 +1,25 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- --apply
+- rename
+- --file
+- src/a.ts
+- --line
+- '6'
+- --col
+- '3'
+- --new-name
+- execute
+fixture: refactor-ts
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - src/a.ts
+  - src/b.ts
+golden: manual
+note: renaming Base.run renames the override in Child and every call site

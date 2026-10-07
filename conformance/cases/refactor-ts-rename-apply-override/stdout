@@ -1,0 +1,32 @@
+Renaming <run> to <execute>:
+
+
+--- a/src/a.ts
++++ b/src/a.ts
+@@ -3,7 +3,7 @@
+ }
+ 
+ export class Base {
+-  run(): number {
++  execute(): number {
+     return foo();
+   }
+ }
+
+--- a/src/b.ts
++++ b/src/b.ts
+@@ -1,7 +1,7 @@
+ import { Base, foo } from './a';
+ 
+ export class Child extends Base {
+-  override run(): number {
++  override execute(): number {
+     return foo() + 1;
+   }
+ }
+
+
+
+APPLIED. 2 file(s) changed:
+  src/a.ts
+  src/b.ts

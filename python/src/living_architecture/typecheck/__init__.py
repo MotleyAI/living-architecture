@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import fnmatch
 import os
 import shlex
 import shutil
@@ -11,8 +10,8 @@ import sys
 from pathlib import Path
 
 from living_architecture import lang, twin
-from living_architecture.config import ConfigError, LaConfig, explicit_typecheck, find_repo_root, load_config
-from living_architecture.contract import language, language_ids, message
+from living_architecture.config import ConfigError, LaConfig, find_repo_root, load_config, repo_languages
+from living_architecture.contract import language, message
 
 
 class CommandError(Exception):
@@ -36,33 +35,9 @@ def _command(config: LaConfig, lang_id: str) -> str | None:
     return getattr(config.commands.typecheck, lang_id)
 
 
-def _source_files(root: Path, exempt: list[str]) -> list[str]:
-    """Tracked and untracked-but-not-ignored files, minus the exempt globs."""
-    proc = subprocess.run(
-        ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"], cwd=root, capture_output=True, check=False
-    )
-    paths = proc.stdout.decode("utf-8", "surrogateescape").split("\0")
-    return [p for p in paths if p and not any(fnmatch.fnmatch(p, pat) for pat in exempt)]
-
-
 def applicable(root: Path, config: LaConfig) -> list[str]:
-    """Languages set to a command explicitly, or with files and a root marker; `null` turns one off."""
-    explicit = explicit_typecheck(root)
-    files: list[str] | None = None
-    out = []
-    for lang_id in language_ids():
-        if _command(config, lang_id) is None:
-            continue
-        if lang_id in explicit:
-            out.append(lang_id)
-            continue
-        entry = language(lang_id)
-        if not any((root / marker).is_file() for marker in entry["markers"]):
-            continue
-        files = _source_files(root, config.conventions.exempt) if files is None else files
-        if any(f.endswith(tuple(entry["source_extensions"])) for f in files):
-            out.append(lang_id)
-    return out
+    """The repo languages whose typecheck command is not `null`."""
+    return [lang_id for lang_id in repo_languages(root, config) if _command(config, lang_id) is not None]
 
 
 def _executable(path: Path) -> bool:
@@ -142,7 +117,11 @@ def run(*, cwd: Path, write: bool, language_id: str | None) -> int:
             _err(message("typecheck.error", error=message("typecheck.not-native", language=language_id)))
             return 2
         return _check_native(root, _command(config, language_id) or "", write=write)
-    languages = applicable(root, config)
+    try:
+        languages = applicable(root, config)
+    except ConfigError as exc:
+        _err(message("typecheck.error", error=str(exc)))
+        return 2
     if not languages:
         _err(message("typecheck.no-languages"))
         return 0

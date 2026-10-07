@@ -1,0 +1,24 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- --apply
+- move-symbol
+- --file
+- src/a.ts
+- --name
+- foo
+- --dest
+- src/b.ts
+fixture: refactor-ts
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - src/a.ts
+  - src/b.ts
+  - src/c.ts
+golden: manual
+note: 'TS move-to-file: importers rewritten, applied footer lists the files'

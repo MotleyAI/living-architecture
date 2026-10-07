@@ -1,12 +1,17 @@
-// Per-repo config: `living-architecture.yaml`, validated and completed by the shared schema.
+// Per-repo config: `living-architecture.yaml`, validated and completed by the shared schema; the repo's languages.
+import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import {
   PyFloat,
   YAMLError,
   canonicalRepr,
+  fnmatch,
   isPortableRegex,
+  language,
+  languageIds,
   loadYaml,
+  manifest,
   materializeDefaults,
   message,
   pyJson,
@@ -87,6 +92,45 @@ export function explicitTypecheck(root: string): Set<string> {
   return new Set(typecheck instanceof Map ? [...typecheck.keys()].map(String) : []);
 }
 
+/** Tracked and untracked-but-not-ignored files, minus the exempt globs; none outside git. ConfigError when git fails inside a repo. */
+export function sourceFiles(root: string, exempt: string[]): string[] {
+  const proc = spawnSync('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard'], { cwd: root, maxBuffer: 1 << 30 }); // NOSONAR(S4036) — runs the user's own git from PATH by design
+  if (proc.status !== 0 && existsSync(join(root, '.git'))) throw new ConfigError(message('config.git-failed'));
+  const paths = (proc.stdout?.toString('utf8') ?? '').split('\0');
+  return paths.filter((p) => p && !exempt.some((pattern) => fnmatch(p, pattern)));
+}
+
+const isFile = (path: string): boolean => existsSync(path) && statSync(path).isFile();
+
+/** Languages with an explicit typecheck command, or with a root marker and a counted file; registry order. */
+export function repoLanguages(root: string, config: LaConfig): string[] {
+  const explicit = explicitTypecheck(root);
+  let files: string[] | null = null;
+  const out: string[] = [];
+  for (const id of languageIds()) {
+    if (explicit.has(id) && config.commands.typecheck[id as 'python' | 'typescript'] !== null) {
+      out.push(id);
+      continue;
+    }
+    const entry = language(id);
+    if (!(entry.markers as string[]).some((marker) => isFile(join(root, marker)))) continue;
+    files ??= sourceFiles(root, config.conventions.exempt);
+    const extensions = entry.source_extensions as string[];
+    if (files.some((f) => extensions.some((ext) => f.endsWith(ext)))) out.push(id);
+  }
+  return out;
+}
+
+/** A public fact of a registered language; RangeError for any other language or key. */
+export function languageFact(id: string, key: string): unknown {
+  const keys: string[] = manifest()['la-config'].subcommands.get.language_keys;
+  if (!languageIds().includes(id) || !keys.includes(key)) throw new RangeError(key);
+  const entry = language(id);
+  if (key === 'source_globs') return (entry.source_extensions as string[]).map((ext) => `**/*${ext}`);
+  if (key === 'waiver') return message('config.waiver', { prefix: entry.comment_prefix });
+  return entry[key];
+}
+
 /** `value` with its keys in the schema's property order, as the typed config dumps it. */
 function ordered(sub: any, value: any): any {
   if (value === null || typeof value !== 'object' || Array.isArray(value) || sub?.properties === undefined) return value;
@@ -121,35 +165,61 @@ export function formatValue(value: unknown): string {
   return String(value);
 }
 
-function withConfig(root: string, action: (data: unknown) => number): number {
-  let data: unknown;
+function withConfig(root: string, action: (config: LaConfig) => number): number {
+  let config: LaConfig;
   try {
-    data = dumpable(loadConfig(root));
+    config = loadConfig(root);
   } catch (error) {
     if (!(error instanceof ConfigError)) throw error;
     process.stderr.write(`${message('config.error', { error: error.message })}\n`);
     return 1;
   }
-  return action(data);
+  return action(config);
 }
 
 export function runShow(root: string): number {
-  return withConfig(root, (data) => {
-    process.stdout.write(`${pyJson(data, 2)}\n`);
+  return withConfig(root, (config) => {
+    process.stdout.write(`${pyJson(dumpable(config), 2)}\n`);
     return 0;
   });
 }
 
+function printLanguages(root: string, config: LaConfig): number {
+  if (!existsSync(join(root, '.git'))) {
+    process.stderr.write(`${message('config.not-git')}\n`);
+    return 2;
+  }
+  let languages: string[];
+  try {
+    languages = repoLanguages(root, config);
+  } catch (error) {
+    if (!(error instanceof ConfigError)) throw error;
+    process.stderr.write(`${message('config.error', { error: error.message })}\n`);
+    return 2;
+  }
+  process.stdout.write(`${formatValue(languages)}\n`);
+  return 0;
+}
+
+function value(config: LaConfig, key: string): unknown {
+  const parts = key.split('.');
+  if (parts[0] === 'lang' && parts.length === 3) return languageFact(parts[1] ?? '', parts[2] ?? '');
+  if (parts[0] === 'lang') throw new RangeError(key);
+  return lookup(dumpable(config), key);
+}
+
 export function runGet(root: string, key: string): number {
-  return withConfig(root, (data) => {
-    let value: unknown;
+  return withConfig(root, (config) => {
+    if (key === 'languages') return printLanguages(root, config);
+    let found: unknown;
     try {
-      value = lookup(data, key);
-    } catch {
+      found = value(config, key);
+    } catch (error) {
+      if (!(error instanceof RangeError)) throw error;
       process.stderr.write(`${message('config.unknown-key', { key })}\n`);
       return 2;
     }
-    process.stdout.write(`${formatValue(value)}\n`);
+    process.stdout.write(`${formatValue(found)}\n`);
     return 0;
   });
 }

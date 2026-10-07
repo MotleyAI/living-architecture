@@ -1,0 +1,23 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- move-symbol
+- --file
+- src/a.ts
+- --name
+- foo
+- --dest
+- src/b.ts
+fixture: refactor-ts
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - src/index.ts
+  - src/pkg.ts
+golden: manual
+note: 're-exports: a barrel reaching foo through export * gets an explicit re-export from the new file; a named re-export
+  listing a symbol that stays is split'

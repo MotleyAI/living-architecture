@@ -376,6 +376,36 @@ NEW_TEMPLATES = {
     "typecheck.baseline-invalid": "la-typecheck: {language}: {baseline} is malformed",
     "typecheck.not-native": "{language} type checks run only in the {language} twin",
     "typecheck.error": "la-typecheck: {error}",
+    "refactor.ts-rename-header": "Renaming <{old}> to <{new}>:",
+    "refactor.ts-move-symbol-header": "Moving global <{name}>:",
+    "refactor.ts-move-module-header": "Moving module <{name}>:",
+    "refactor.unsupported-extension": "not a source file of a supported language: {path}",
+    "refactor.cross-language-dest": "--dest {dest} is not a {language} file",
+    "refactor.ts-outside-project": "no TypeScript project includes {path}",
+    "refactor.col-out-of-range": "column {col} out of range (line {line} has {count} characters)",
+    "refactor.offset-out-of-range": "offset {offset} out of range (file has {count} characters)",
+    "refactor.ts-not-supported": "{option} is not supported for TypeScript",
+    "refactor.cannot-rename": "the element at this location cannot be renamed",
+    "refactor.not-movable": "nothing to move here: the location must name a top-level declaration of {path}",
+    "refactor.conflicting-edits": "projects disagree on an edit in {path}",
+    "refactor.destination-exists": "destination already exists: {path}",
+    "refactor.destination-missing": "destination does not exist: {path}",
+    "refactor.skipped": "{prog}: not a source file, skipped: {path}",
+    "compliance.tsconfig": "{path}: tsconfig: {flag} is not enabled",
+    "compliance.explicit-any": "{path}:{line}: explicit-any: an `any` type — use a real type or `unknown`",
+    "compliance.ts-untyped-def": "{path}:{line}: untyped-def: {name} is implicitly any",
+    "compliance.ts-attr-blindspot":
+        "{path}:{line}: attr-blindspot: {receiver}.{attr} — {receiver} is any, so a rename of .{attr} is unverifiable",
+    "mock-lint.fn": "{path}:{line}: {call}() without a type argument or implementation — type it as {call}<typeof real>()",
+    "mock-lint.module":
+        "{path}:{line}: {call}() factory not typed against a resolvable module"
+        " — pass import('<module>') (Vitest) or <typeof import('<module>')> (Jest)",
+    "mock-lint.cast": "{path}:{line}: double assertion through {via} — build a typed double instead",
+    "config.not-git": "la-config: not inside a git repository",
+}
+# Defensive findings no real input reaches; each is pinned by a unit test instead of a golden.
+UNPRODUCED_BY_DESIGN = {
+    "refactor.conflicting-edits": "TypeScript never returns differing rename edits across projects (node/test/refactor.test.ts)",
 }
 
 
@@ -388,7 +418,7 @@ def test_every_registry_template_is_produced_by_a_golden() -> None:
     records = _golden_records()
     registry = _shared_yaml("findings.yaml")["findings"]
     unproduced = sorted(fid for fid, template in registry.items() if not _produced(template, records))
-    assert unproduced == []
+    assert unproduced == sorted(UNPRODUCED_BY_DESIGN)
 
 
 # ---- CLI manifest
@@ -416,13 +446,13 @@ def test_manifest_declares_the_passthrough_commands() -> None:
     }
 
 
-PYTHON_ONLY = {"dr-refactor", "dr-compliance", "dr-mock-lint"}
+DR_COMMANDS = {"dr-refactor", "dr-compliance", "dr-mock-lint"}
 
 
 def test_manifest_declares_native_languages() -> None:
     commands = _shared_yaml("cli.yaml")["commands"]
     native = {name: spec["native"] for name, spec in commands.items() if "native" in spec}
-    assert native == {name: ["python"] for name in PYTHON_ONLY}
+    assert native == {name: ["python", "typescript"] for name in DR_COMMANDS}
 
 
 def _option(command: str, name: str) -> dict:

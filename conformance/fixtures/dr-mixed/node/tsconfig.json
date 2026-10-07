@@ -1,0 +1,4 @@
+{
+  "compilerOptions": {"strict": true, "noImplicitOverride": true, "noEmit": true},
+  "include": ["src", "web"]
+}

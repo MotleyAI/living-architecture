@@ -1,0 +1,19 @@
+Moving module <util>:
+
+
+--- a/src/main.ts
++++ b/src/main.ts
+@@ -1,4 +1,4 @@
+ import { alone } from './solo';
+-import { fmt } from './util/fmt';
++import { fmt } from './lib/util/fmt';
+ 
+ export const shown = fmt(alone());
+
+rename from src/util/fmt.ts
+rename to src/lib/util/fmt.ts
+
+
+APPLIED. 2 file(s) changed:
+  src/main.ts
+  src/util/fmt.ts

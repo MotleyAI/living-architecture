@@ -1,0 +1,9 @@
+kind: neutral
+command: la-config
+args:
+- get
+- languages
+expect:
+  exit: 0
+golden: manual
+note: 'commands.typecheck.typescript: null turns the check off but keeps the language'

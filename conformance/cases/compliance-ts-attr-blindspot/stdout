@@ -1,0 +1,2 @@
+src/g.ts:1: explicit-any: an `any` type — use a real type or `unknown`
+src/g.ts:2: attr-blindspot: o.id — o is any, so a rename of .id is unverifiable

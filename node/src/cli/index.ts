@@ -6,6 +6,7 @@ import * as config from '../config/index.js';
 import * as conventions from '../conventions/index.js';
 import { manifest, message } from '../contract/index.js';
 import * as doctor from '../doctor/index.js';
+import * as refactor from '../refactor/index.js';
 import * as review from '../review/index.js';
 import * as twin from '../twin/index.js';
 import * as typecheck from '../typecheck/index.js';
@@ -16,7 +17,11 @@ const root = (value: unknown): string =>
 
 const optional = (value: unknown): string | null => (typeof value === 'string' ? value : null);
 
-const HANDLERS: Record<string, (args: Args) => number> = {
+/** The parsed options with null (not given) as undefined. */
+const given = (args: Args): Record<string, any> =>
+  Object.fromEntries(Object.entries(args).map(([key, value]) => [key, value === null ? undefined : value]));
+
+const HANDLERS: Record<string, (args: Args, argv: string[]) => number> = {
   'la-config': (args) =>
     args.subcommand === 'show' ? config.runShow(root(args.root)) : config.runGet(root(args.root), String(args.key)),
   'la-doctor': (args) => {
@@ -54,6 +59,9 @@ const HANDLERS: Record<string, (args: Args) => number> = {
   },
   'la-count-comments': (args) => conventions.countComments(args.argv as string[]),
   'la-typecheck': (args) => typecheck.run(process.cwd(), Boolean(args.write_baseline), optional(args.language)),
+  'dr-refactor': (args, argv) => refactor.runRefactor(argv, given(args) as refactor.RefactorArgs),
+  'dr-compliance': (args) => refactor.runCompliance(args.paths as string[], optional(args.select), optional(args.attr)),
+  'dr-mock-lint': (args) => refactor.runMockLint(args.argv as string[]),
 };
 
 /** Run a command another twin implements: forward the raw argv, or exit 2 with the hint. */
@@ -87,7 +95,7 @@ export function dispatch(command: string, argv: string[]): number {
   }
   const handler = HANDLERS[command];
   if (handler === undefined) throw new Error(`no handler for ${command}`);
-  return handler(args);
+  return handler(args, argv);
 }
 
 /** A bin's entry: run `command` with the process argv and exit with its code once output is flushed. */

@@ -1,9 +1,8 @@
 {
   "name": "living-architecture",
-  "version": "0.2.3",
+  "version": "0.3.0",
   "description": "The npm twin of the living-architecture la-* commands.",
   "license": "MIT",
-  "private": true,
   "type": "module",
   "engines": {
     "node": ">=22"

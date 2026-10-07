@@ -17,7 +17,7 @@ The plugin's skills come in two roles.
 | `la:pr` | Run a change through plan → failing tests → implementation → review, resumable from the branch name |
 | `la:arch-init` | Build the first architecture model from a measured scaffold, then the principles and spec mapping |
 | `la:arch-cleanup` | Retire a batch of `#legacy` arrows, or carve a new boundary, with verified moves |
-| `la:deterministic-refactor` | Rename or move Python code, with a type-check gate that proves nothing was missed |
+| `la:deterministic-refactor` | Rename or move Python or TypeScript code, with a type-check gate that proves nothing was missed |
 
 ## Helper skills
 
@@ -35,5 +35,5 @@ The plugin's skills come in two roles.
 | `la:openspec-init` | Initialize or repair OpenSpec in a repo |
 | `la:living-architecture` | Reference for the architecture layer: model syntax, arc42 tags, maintenance |
 | `la:concise-comments` | Rules for concise comments and docstrings, and a trimming pass |
-| `la:make-diff-compliant` | Bring the Python files a PR touches up to the refactor-compliance conditions |
+| `la:make-diff-compliant` | Bring the source files a PR touches up to the refactor-compliance conditions |
 | `la:make-refactor-target-compliant` | Make a planned rename's blast radius verifiable before running it |

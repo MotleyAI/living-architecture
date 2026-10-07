@@ -1,0 +1,11 @@
+kind: adapter
+languages:
+- typescript
+command: dr-compliance
+args:
+- src/ok.ts
+fixture: compliance-ts
+expect:
+  exit: 0
+golden: manual
+note: flags inherited through extends count

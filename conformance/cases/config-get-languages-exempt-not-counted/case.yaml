@@ -1,0 +1,17 @@
+kind: neutral
+command: la-config
+args:
+- get
+- languages
+git:
+- write:
+    .gitignore: 'out/
+
+      '
+    out/b.ts: 'export {};
+
+      '
+expect:
+  exit: 0
+golden: manual
+note: exempt and git-ignored files do not count

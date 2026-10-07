@@ -145,13 +145,24 @@ def _facts_consistent(document: dict[str, Any], expected_units: list[str], top_l
     return not document["units"] and all({e["src"], e["dst"]} <= tops for e in document["edges"])
 
 
+def _run(
+    lang: str, command: str, argv: list[str], *, cwd: Path | None = None, stdin: bytes | None = None, capture: bool = False
+) -> subprocess.CompletedProcess[bytes]:
+    """`argv`, the `lang` twin's `command`; TwinError when it cannot start."""
+    stdout = subprocess.PIPE if capture else None
+    try:
+        return subprocess.run(argv, input=stdin, stdout=stdout, cwd=cwd, env=_env(), check=False)
+    except OSError as exc:
+        raise TwinError(message("twin.launch-failed", language=lang, command=command)) from exc
+
+
 def request_facts(lang: str, repo_root: Path, expected_units: list[str], *, top_level: bool = False) -> dict[str, Any]:
     """`lang`'s facts from its twin, schema-checked; RelayedFailure when its run fails, TwinError otherwise."""
     refuse_if_forwarded(lang)
     argv = [*_launcher(lang, repo_root).argv("la-arch-check"), "--root", str(repo_root), "--language", lang, "--emit", "facts"]
     if top_level:
         argv.append("--top-level")
-    document = _document(subprocess.run(argv, stdout=subprocess.PIPE, env=_env(), check=False), "facts", lang)
+    document = _document(_run(lang, "la-arch-check", argv, capture=True), "facts", lang)
     if document is None or not _facts_consistent(document, expected_units, top_level):
         raise TwinError(_hint("twin.facts-invalid", lang))
     return document
@@ -163,9 +174,7 @@ def request_conventions_facts(lang: str, *, cwd: Path, paths: list[str], repo_ro
     argv = [*_launcher(lang, repo_root).argv("la-check-conventions"), "--language", lang, "--emit", "facts"]
     sys.stdout.flush()
     sys.stderr.flush()
-    proc = subprocess.run(
-        argv, input=json.dumps(paths).encode("utf-8"), stdout=subprocess.PIPE, cwd=cwd, env=_env(), check=False
-    )
+    proc = _run(lang, "la-check-conventions", argv, cwd=cwd, stdin=json.dumps(paths).encode("utf-8"), capture=True)
     document = _document(proc, "conventions-facts", lang)
     if document is None or [f["path"] for f in document["files"]] != paths:
         raise TwinError(_hint("twin.facts-invalid", lang))
@@ -178,5 +187,24 @@ def run_language(command: str, lang: str, args: list[str], *, cwd: Path, repo_ro
     argv = [*_launcher(lang, repo_root).argv(command), "--language", lang, *args]
     sys.stdout.flush()
     sys.stderr.flush()
-    code = subprocess.run(argv, cwd=cwd, env=_env(), check=False).returncode
+    code = _run(lang, command, argv, cwd=cwd).returncode
     return code if code >= 0 else 2
+
+
+def forward(command: str, lang: str, argv: list[str], *, repo_root: Path) -> int:
+    """`command ARGV` in the `lang` twin from the current directory, streams relayed; its exit code (a signal: 128+N)."""
+    refuse_if_forwarded(lang)
+    sys.stdout.flush()
+    sys.stderr.flush()
+    code = _run(lang, command, [*_launcher(lang, repo_root).argv(command), *argv]).returncode
+    return code if code >= 0 else 128 - code
+
+
+def run_captured(command: str, lang: str, args: list[str], *, repo_root: Path) -> tuple[int, bytes]:
+    """`command ARGS` in the `lang` twin from the current directory: its exit code (a signal: 2) and stdout; stderr relayed."""
+    refuse_if_forwarded(lang)
+    sys.stdout.flush()
+    sys.stderr.flush()
+    argv = [*_launcher(lang, repo_root).argv(command), *args]
+    proc = _run(lang, command, argv, capture=True)
+    return (proc.returncode if proc.returncode >= 0 else 2), proc.stdout

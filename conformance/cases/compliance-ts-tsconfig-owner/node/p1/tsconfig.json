@@ -1,0 +1,4 @@
+{
+  "compilerOptions": {"composite": true, "strict": true, "noImplicitOverride": true},
+  "include": ["../src"]
+}

@@ -1,0 +1,9 @@
+kind: neutral
+command: la-config
+args:
+- get
+- lang.typescript
+expect:
+  exit: 2
+golden: manual
+note: a language without a key

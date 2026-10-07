@@ -1,4 +1,6 @@
-# Per-language facts. `markers` are the repo-root files that make the language's type check apply; `local_bin`
+# Per-language facts. `markers` are the repo-root files that, with a file of the language, make it a repo language;
+# `executables` are what la-doctor requires on PATH when it is one; `compliance_checks` are its dr-compliance check
+# ids; `declaration_globs` and `excluded_dirs` (directory names) are never expanded or checked by dr-*; `local_bin`
 # is where the repo installs its checker; `baseline_file` is the checker's committed baseline. `runner` runs a command through the language's twin at `{version}` (the command is
 # appended); `install` is the hint shown when that twin is unreachable; `unit_separator` joins a unit's
 # segments (`pkg.api`, `src/api`). Test globs use the contract glob dialect (contract README: matched against the POSIX
@@ -15,6 +17,10 @@ python:
     - '**/test_*'
     - '**/*_test.py'
     - '**/conftest.py'
+  declaration_globs: []
+  excluded_dirs: []
+  compliance_checks: [untyped-def, unannotated-attr, mock]
+  executables: []
   comment_prefix: '#'
   suppression: '# pyright: ignore[<rule>]'
   local_bin: .venv/bin
@@ -34,6 +40,10 @@ typescript:
     - '**/__mocks__/**/*'
     - '**/tests/**/*'
     - '**/test/**/*'
+  declaration_globs: ['**/*.d.ts', '**/*.d.mts', '**/*.d.cts']
+  excluded_dirs: [node_modules]
+  compliance_checks: [tsconfig, explicit-any, untyped-def, mock]
+  executables: [node, npx]
   comment_prefix: '//'
   suppression: '// @ts-expect-error — <reason>'
   local_bin: node_modules/.bin
