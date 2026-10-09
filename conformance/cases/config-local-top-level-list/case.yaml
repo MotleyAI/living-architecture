@@ -1,0 +1,13 @@
+kind: neutral
+command: la-config
+args:
+- show
+expect:
+  exit: 1
+  stdout: ''
+  stderr:
+    contains:
+    - living-architecture.local.yaml
+note: a local file whose top level is not a mapping is a config error naming the local
+  file
+golden: manual

@@ -1,0 +1,14 @@
+kind: neutral
+command: la-config
+args:
+- show
+expect:
+  exit: 1
+  stdout: ''
+  stderr:
+    contains:
+    - openspec
+    - living-architecture.local.yaml
+note: a repo decision cannot be overridden locally; wording is not contract, the key
+  and the local file are
+golden: manual

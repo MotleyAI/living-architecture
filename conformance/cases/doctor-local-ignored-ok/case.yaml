@@ -1,0 +1,13 @@
+kind: neutral
+command: la-doctor
+git:
+- write:
+    .gitignore: 'living-architecture.local.yaml
+
+      '
+normalize:
+- version
+expect:
+  exit: 0
+note: a git-ignored local file is healthy and named as a second config source
+golden: manual

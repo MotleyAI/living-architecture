@@ -1,0 +1,14 @@
+kind: neutral
+command: la-config
+args:
+- show
+expect:
+  exit: 1
+  stdout: ''
+  stderr:
+    contains:
+    - sonar
+    - living-architecture.local.yaml
+note: only reviewers.codex may be set under reviewers; wording is not contract, the
+  key and the local file are
+golden: manual

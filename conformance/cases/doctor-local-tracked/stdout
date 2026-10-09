@@ -1,0 +1,1 @@
+FAIL: living-architecture.local.yaml is tracked by git, but it holds one contributor's overrides; run git rm --cached living-architecture.local.yaml and add it to .gitignore

@@ -256,3 +256,39 @@ def test_config_keys_are_valid(path, git_root: Path):
 @pytest.mark.parametrize("language", LANGUAGE_IDS)
 def test_language_idioms_doc_exists(language):
     assert (REPO_ROOT / "plugin" / "languages" / f"{language}.md").is_file()
+
+
+def _flat(text: str) -> str:
+    return " ".join(text.split())
+
+
+def _skill_step(name: str, number: int) -> str:
+    return _skill_text(name).split(f"\n## {number}. ", 1)[1].split("\n## ", 1)[0]
+
+
+def test_init_keeps_the_local_file_out_of_the_committed_config():
+    never_fold = (
+        "`living-architecture.local.yaml`, if present, holds one contributor's overrides;"
+        " never fold its values into the committed file."
+    )
+    offer_ignore = (
+        "If `git check-ignore -q living-architecture.local.yaml` exits 1 (not ignored), offer (yes/no) to add"
+        " `living-architecture.local.yaml` to `.gitignore`: it holds per-person overrides and must never be committed."
+    )
+    [existing_config] = [b for b in _flat(_skill_step("init", 1)).split("- **") if b.startswith("Existing config.**")]
+    assert never_fold in existing_config
+    assert offer_ignore in _flat(_skill_step("init", 5))
+    whole = _flat(_skill_text("init"))
+    assert (whole.count(never_fold), whole.count(offer_ignore)) == (1, 1)
+
+
+def test_docs_describe_the_local_override():
+    configuration = (DOCS_DIR / "configuration.md").read_text(encoding="utf-8")
+    assert "\n## Local overrides\n" in configuration
+    section = configuration.split("\n## Local overrides\n", 1)[1].split("\n## ", 1)[0]
+    for needle in ("living-architecture.local.yaml", "`tracker`", "`reviewers.codex`", "merge", "stderr", "la-doctor",
+                   "tracked", ".gitignore"):
+        assert needle in section
+    [row] = [line for line in (DOCS_DIR / "commands.md").read_text(encoding="utf-8").splitlines()
+             if line.startswith("| `la-config")]
+    assert "living-architecture.local.yaml" in row

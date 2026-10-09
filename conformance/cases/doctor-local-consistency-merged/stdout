@@ -1,0 +1,1 @@
+FAIL: tracker is none and openspec is false, so no plan survives a session reset; set a tracker or openspec: true

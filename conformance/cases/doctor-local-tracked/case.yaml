@@ -1,0 +1,10 @@
+kind: neutral
+command: la-doctor
+git:
+- commit: init
+normalize:
+- version
+expect:
+  exit: 1
+note: a committed local file is reported with the git rm --cached remedy
+golden: manual

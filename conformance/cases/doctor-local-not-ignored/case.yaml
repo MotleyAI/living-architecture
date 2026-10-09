@@ -1,0 +1,8 @@
+kind: neutral
+command: la-doctor
+normalize:
+- version
+expect:
+  exit: 1
+note: an untracked local file no ignore rule matches is reported
+golden: manual

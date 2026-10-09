@@ -65,3 +65,28 @@ def test_invalid_config_exits_1(tmp_path: Path, capsys: pytest.CaptureFixture[st
     (tmp_path / CONFIG_FILENAME).write_text("bogus: 1\n", encoding="utf-8")
     assert main(["--root", str(tmp_path), "show"]) == 1
     assert "bogus" in capsys.readouterr().err
+
+
+def test_show_notes_each_local_key_on_stderr(repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    (repo / "living-architecture.local.yaml").write_text("reviewers: {codex: true}\ntracker: none\n", encoding="utf-8")
+    assert main(["--root", str(repo), "show"]) == 0
+    captured = capsys.readouterr()
+    assert json.loads(captured.out)["tracker"] == "none"
+    assert captured.err == (
+        "la-config: tracker from living-architecture.local.yaml\n"
+        "la-config: reviewers.codex from living-architecture.local.yaml\n"
+    )
+
+
+def test_get_prints_no_local_note(repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    (repo / "living-architecture.local.yaml").write_text("tracker: none\n", encoding="utf-8")
+    assert main(["--root", str(repo), "get", "tracker"]) == 0
+    assert capsys.readouterr() == ("none\n", "")
+
+
+def test_refused_local_key_exits_1(repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    (repo / "living-architecture.local.yaml").write_text("openspec: false\n", encoding="utf-8")
+    assert main(["--root", str(repo), "show"]) == 1
+    err = capsys.readouterr().err
+    assert "openspec" in err
+    assert "living-architecture.local.yaml" in err

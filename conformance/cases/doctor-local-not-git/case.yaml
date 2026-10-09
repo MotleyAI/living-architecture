@@ -1,0 +1,10 @@
+kind: neutral
+command: la-doctor
+git: none
+normalize:
+- version
+expect:
+  exit: 0
+note: outside a git repository no local-file git check runs; the defaults source gains
+  the local file
+golden: manual

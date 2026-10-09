@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import json
 import os
 import re
@@ -42,6 +43,7 @@ BIN_DIR = Path(sys.executable).parent
 HASH_FILE = "CONTRACT_HASH"
 SHARED_FILES = (
     "schema/living-architecture.schema.json",
+    "schema/living-architecture.local.schema.json",
     "schema/index.schema.json",
     "schema/node.schema.json",
     "schema/facts.schema.json",
@@ -51,6 +53,7 @@ SHARED_FILES = (
     "conventions.yaml",
     "languages.yaml",
     "architecture.yaml",
+    "config.yaml",
     "regex-subset.md",
     "scripts/fetch-coderabbit-threads.sh",
     "scripts/fetch-failed-pr-checks.sh",
@@ -207,6 +210,86 @@ def test_config_schema_typecheck_commands() -> None:
 )
 def test_config_schema_typecheck_values(commands: dict, valid: bool) -> None:
     assert (validate(_schema("living-architecture"), {"commands": commands}) == []) is valid
+
+
+_CONFIG_NAME_RE = re.compile(r"living-architecture(?:\.local)?\.yaml")
+_TS_COMMENT_RE = re.compile(r"^\s*(?://|/?\*)")
+
+
+def _python_string_literals(path: Path) -> list[str]:
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    docstrings = {
+        id(node.body[0].value)
+        for node in ast.walk(tree)
+        if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef))
+        and node.body and isinstance(node.body[0], ast.Expr) and isinstance(node.body[0].value, ast.Constant)
+    }
+    return [n.value for n in ast.walk(tree)
+            if isinstance(n, ast.Constant) and isinstance(n.value, str) and id(n) not in docstrings]
+
+
+def _source_files(root: Path, suffix: str) -> list[Path]:
+    return [p for p in sorted(root.rglob(f"*{suffix}")) if "data" not in p.relative_to(root).parts]
+
+
+def test_no_twin_hard_codes_a_config_file_name() -> None:
+    python = [f"{p}: {s!r}" for p in _source_files(REPO_ROOT / "python" / "src", ".py")
+              for s in _python_string_literals(p) if _CONFIG_NAME_RE.search(s)]
+    node = [f"{p}: {line.strip()}" for p in _source_files(REPO_ROOT / "node" / "src", ".ts")
+            for line in p.read_text(encoding="utf-8").splitlines()
+            if _CONFIG_NAME_RE.search(line) and not _TS_COMMENT_RE.match(line)]
+    assert python + node == []
+
+
+def test_config_file_names() -> None:
+    assert _shared_yaml("config.yaml") == {
+        "file": "living-architecture.yaml",
+        "local_file": "living-architecture.local.yaml",
+    }
+
+
+def test_local_schema_references_the_main_schema() -> None:
+    local = _schema("living-architecture.local")
+    assert local["$id"] == "living-architecture.local.schema.json"
+    assert local["additionalProperties"] is False
+    assert set(local["properties"]) == {"tracker", "reviewers"}
+    assert local["properties"]["tracker"] == {"$ref": "living-architecture.schema.json#/properties/tracker"}
+    reviewers = local["properties"]["reviewers"]
+    assert reviewers["additionalProperties"] is False
+    assert reviewers["properties"] == {
+        "codex": {"$ref": "living-architecture.schema.json#/properties/reviewers/properties/codex"}
+    }
+
+
+_LOCAL_VALUES = [
+    *({"tracker": value} for value in ("linear", "github", "none", "jira", None, 1, True)),
+    *({"reviewers": {"codex": value}} for value in (True, False, None, "yes", 1)),
+    {"reviewers": {}},
+    {"reviewers": None},
+]
+
+
+@pytest.mark.parametrize("document", _LOCAL_VALUES, ids=repr)
+def test_local_schema_follows_the_main_schema(document: dict) -> None:
+    valid_main = validate(_schema("living-architecture"), document) == []
+    assert (validate(_schema("living-architecture.local"), document) == []) is valid_main
+
+
+@pytest.mark.parametrize(
+    ("document", "key"),
+    [
+        ({"openspec": False}, "openspec"),
+        ({"architecture": True}, "architecture"),
+        ({"issue_key_pattern": "X-\\d+"}, "issue_key_pattern"),
+        ({"commands": {"test": "pytest"}}, "commands"),
+        ({"conventions": {"exempt": []}}, "conventions"),
+        ({"reviewers": {"sonar": {"project_key": "o_r"}}}, "sonar"),
+    ],
+)
+def test_local_schema_refuses_repo_decisions(document: dict, key: str) -> None:
+    errors = validate(_schema("living-architecture.local"), document)
+    assert errors != []
+    assert key in "; ".join(errors)
 
 
 def test_language_facts() -> None:
@@ -402,6 +485,13 @@ NEW_TEMPLATES = {
         " — pass import('<module>') (Vitest) or <typeof import('<module>')> (Jest)",
     "mock-lint.cast": "{path}:{line}: double assertion through {via} — build a typed double instead",
     "config.not-git": "la-config: not inside a git repository",
+    "config.local-override": "la-config: {key} from {file}",
+    "doctor.local-tracked":
+        "{file} is tracked by git, but it holds one contributor's overrides;"
+        " run git rm --cached {file} and add it to .gitignore",
+    "doctor.local-not-ignored": "{file} is not git-ignored; add it to .gitignore",
+    "doctor.local-git-failed": "git failed, so whether {file} is git-ignored cannot be checked",
+    "doctor.local-source": "{source} + {local}",
 }
 # Defensive findings no real input reaches; each is pinned by a unit test instead of a golden.
 UNPRODUCED_BY_DESIGN = {

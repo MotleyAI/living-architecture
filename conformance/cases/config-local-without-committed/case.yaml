@@ -1,0 +1,8 @@
+kind: neutral
+command: la-config
+args:
+- show
+expect:
+  exit: 0
+note: without a committed file the local file merges over the schema defaults
+golden: manual

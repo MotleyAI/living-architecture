@@ -1,0 +1,8 @@
+kind: neutral
+command: la-config
+args:
+- show
+expect:
+  exit: 0
+note: an empty local file overrides nothing and prints no note
+golden: manual

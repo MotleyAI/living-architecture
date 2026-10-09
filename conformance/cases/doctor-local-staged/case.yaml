@@ -1,0 +1,15 @@
+kind: neutral
+command: la-doctor
+git:
+- stage:
+  - living-architecture.local.yaml
+- write:
+    .gitignore: 'living-architecture.local.yaml
+
+      '
+normalize:
+- version
+expect:
+  exit: 1
+note: a staged local file counts as tracked even though .gitignore lists it
+golden: manual

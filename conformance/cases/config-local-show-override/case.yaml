@@ -1,0 +1,9 @@
+kind: neutral
+command: la-config
+args:
+- show
+expect:
+  exit: 0
+note: the local file overrides tracker and reviewers.codex; one stderr note per key
+  it sets, in schema order, even when the value equals the committed one
+golden: manual

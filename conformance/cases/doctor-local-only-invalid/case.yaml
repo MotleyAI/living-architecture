@@ -1,0 +1,19 @@
+kind: neutral
+command: la-doctor
+git:
+- write:
+    .gitignore: 'living-architecture.local.yaml
+
+      '
+normalize:
+- version
+expect:
+  exit: 1
+  stdout:
+    contains:
+    - 'FAIL: '
+    - openspec
+    - living-architecture.local.yaml
+note: an invalid local file is validated without a committed file; wording is not
+  contract, the key and file are
+golden: manual
