@@ -1,4 +1,4 @@
-"""Per-repo config: `living-architecture.yaml`, validated and completed by the shared schema."""
+"""Per-repo config: `living-architecture.yaml` with its local overrides, validated and completed by the shared schema."""
 
 from living_architecture.config.languages import language_fact, repo_languages, source_files
 from living_architecture.config.load import (
@@ -7,12 +7,14 @@ from living_architecture.config.load import (
     ConfigError,
     ConventionsConfig,
     LaConfig,
+    RawConfig,
     ReviewersConfig,
     SonarConfig,
     TypecheckConfig,
     explicit_typecheck,
     find_repo_root,
     load_config,
+    load_raw,
     resolve,
 )
 from living_architecture.config.values import format_value, run_get, run_show
@@ -23,6 +25,7 @@ __all__ = [
     "ConfigError",
     "ConventionsConfig",
     "LaConfig",
+    "RawConfig",
     "ReviewersConfig",
     "SonarConfig",
     "TypecheckConfig",
@@ -31,6 +34,7 @@ __all__ = [
     "format_value",
     "language_fact",
     "load_config",
+    "load_raw",
     "repo_languages",
     "resolve",
     "run_get",

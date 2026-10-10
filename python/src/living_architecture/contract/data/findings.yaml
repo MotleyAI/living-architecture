@@ -183,10 +183,13 @@ findings:
   config.git-failed: git ls-files failed, so the repo's files cannot be listed
   # `la-config get lang.<language>.waiver`: the language's waiver comment.
   config.waiver: '{prefix} ALLOW(<rule>): <reason>'
+  # `la-config show`, on stderr: one per key the local file sets.
+  config.local-override: 'la-config: {key} from {file}'
 
   # ---- la-doctor
   doctor.ok: 'ok: la tools {version}; config from {source}'
   doctor.no-config-file: defaults (no config file)
+  doctor.local-source: '{source} + {local}'
   doctor.fail: 'FAIL: {problem}'
   doctor.version-mismatch: installed la tools are {installed} but the plugin expects {expected}; reinstall the tools from the same checkout/tag as the plugin
   doctor.missing-executable: '`{exe}` not found on PATH'
@@ -199,6 +202,9 @@ findings:
   doctor.architecture-absent: 'architecture is true but the repo has no architecture/index.yaml; run /la:arch-init or set architecture: false'
   doctor.architecture-present: 'architecture is false but the repo has architecture/index.yaml; set architecture: true or remove the file'
   doctor.no-plan-store: 'tracker is none and openspec is false, so no plan survives a session reset; set a tracker or openspec: true'
+  doctor.local-tracked: '{file} is tracked by git, but it holds one contributor''s overrides; run git rm --cached {file} and add it to .gitignore'
+  doctor.local-not-ignored: '{file} is not git-ignored; add it to .gitignore'
+  doctor.local-git-failed: 'git failed, so whether {file} is git-ignored cannot be checked'
 
   # ---- twin forwarding
   twin.error: '{prog}: {error}'

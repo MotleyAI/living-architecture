@@ -49,6 +49,14 @@ export function schema(name: string): Record<string, any> {
   return data(join('schema', `${name}.schema.json`), JSON.parse);
 }
 
+/** Every shared schema's name, as `schema` takes it. */
+export function schemaNames(): string[] {
+  return readdirSync(join(snapshotDir(), 'schema'))
+    .filter((name) => name.endsWith('.schema.json'))
+    .map((name) => name.slice(0, -'.schema.json'.length))
+    .sort();
+}
+
 export function findings(): Record<string, string> {
   return yamlFile('findings.yaml').findings;
 }
@@ -81,6 +89,16 @@ export function conventions(): Record<string, any> {
 
 export function architecture(): Record<string, any> {
   return yamlFile('architecture.yaml');
+}
+
+/** The committed per-repo config file, relative to the repo root. */
+export function configFile(): string {
+  return yamlFile('config.yaml').file;
+}
+
+/** One contributor's git-ignored overrides of it. */
+export function localConfigFile(): string {
+  return yamlFile('config.yaml').local_file;
 }
 
 export function scriptPath(name: string): string {

@@ -1,4 +1,5 @@
-// Per-repo config: `living-architecture.yaml`, validated and completed by the shared schema; the repo's languages.
+// Per-repo config: `living-architecture.yaml` with its local overrides, validated and completed by the shared schema; the
+// repo's languages.
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -6,11 +7,13 @@ import {
   PyFloat,
   YAMLError,
   canonicalRepr,
+  configFile,
   fnmatch,
   isPortableRegex,
   language,
   languageIds,
   loadYaml,
+  localConfigFile,
   manifest,
   materializeDefaults,
   message,
@@ -20,10 +23,18 @@ import {
   validate,
 } from '../contract/index.js';
 
-export const CONFIG_FILENAME = 'living-architecture.yaml';
+export const CONFIG_FILENAME = configFile();
 
 /** The config file is unreadable or invalid. */
 export class ConfigError extends Error {}
+
+/** The committed data with the local file merged over it, before `resolveConfig`. */
+export interface RawConfig {
+  data: unknown;
+  overrides: string[];
+  hasCommitted: boolean;
+  hasLocal: boolean;
+}
 
 export interface LaConfig {
   tracker: 'linear' | 'github' | 'none';
@@ -63,8 +74,10 @@ export function findRepoRoot(start: string): string {
   }
 }
 
+const isFile = (path: string): boolean => existsSync(path) && statSync(path).isFile();
+
 function raw(path: string): unknown {
-  if (!existsSync(path) || !statSync(path).isFile()) return null;
+  if (!isFile(path)) return null;
   try {
     return loadYaml(readFileSync(path, 'utf8'));
   } catch (error) {
@@ -73,20 +86,56 @@ function raw(path: string): unknown {
   }
 }
 
-/** Config at `root`; defaults when the file is absent. */
+function merge(base: unknown, over: unknown): unknown {
+  if (!(base instanceof Map && over instanceof Map)) return over;
+  const out = new Map(base);
+  for (const [key, value] of over) out.set(key, merge(base.get(key), value));
+  return out;
+}
+
+/** The dotted keys `data` sets, in the schema's property order. */
+function leaves(sub: Record<string, any>, data: Map<unknown, unknown>, prefix = ''): string[] {
+  const out: string[] = [];
+  for (const [key, prop] of Object.entries<any>(sub.properties)) {
+    if (!data.has(key)) continue;
+    const value = data.get(key);
+    if (prop.properties !== undefined && value instanceof Map) out.push(...leaves(prop, value, `${prefix}${key}.`));
+    else out.push(`${prefix}${key}`);
+  }
+  return out;
+}
+
+/** Both files read and the local one checked against its schema; ConfigError naming the faulty file. */
+export function loadRaw(root: string): RawConfig {
+  const committed = raw(join(root, configFile()));
+  const localPath = join(root, localConfigFile());
+  const local = raw(localPath);
+  let overrides: string[] = [];
+  let data = committed;
+  if (local !== null) {
+    if (!(local instanceof Map)) throw new ConfigError(`${localPath}: top level must be a mapping`);
+    const localSchema = schema('living-architecture.local');
+    const errors = validate(localSchema, local);
+    if (errors.length > 0) throw new ConfigError(`${localPath}: ${errors.join('; ')}`);
+    overrides = leaves(localSchema, local);
+    if (committed === null || committed instanceof Map) data = merge(committed ?? new Map(), local);
+  }
+  return { data, overrides, hasCommitted: isFile(join(root, configFile())), hasLocal: isFile(localPath) };
+}
+
+/** Config at `root`; defaults when neither file exists. */
 export function loadConfig(root: string): LaConfig {
-  const path = join(root, CONFIG_FILENAME);
-  const data = raw(path);
+  const { data } = loadRaw(root);
   try {
     return resolveConfig(data);
   } catch (error) {
-    throw new ConfigError(`${path}: ${(error as Error).message}`);
+    throw new ConfigError(`${join(root, configFile())}: ${(error as Error).message}`);
   }
 }
 
 /** The languages `commands.typecheck` sets explicitly (to a command or null); the config must be valid. */
 export function explicitTypecheck(root: string): Set<string> {
-  const data = raw(join(root, CONFIG_FILENAME));
+  const { data } = loadRaw(root);
   const commands = data instanceof Map ? data.get('commands') : undefined;
   const typecheck = commands instanceof Map ? commands.get('typecheck') : undefined;
   return new Set(typecheck instanceof Map ? [...typecheck.keys()].map(String) : []);
@@ -99,8 +148,6 @@ export function sourceFiles(root: string, exempt: string[]): string[] {
   const paths = (proc.stdout?.toString('utf8') ?? '').split('\0');
   return paths.filter((p) => p && !exempt.some((pattern) => fnmatch(p, pattern)));
 }
-
-const isFile = (path: string): boolean => existsSync(path) && statSync(path).isFile();
 
 /** Languages with an explicit typecheck command, or with a root marker and a counted file; registry order. */
 export function repoLanguages(root: string, config: LaConfig): string[] {
@@ -180,6 +227,9 @@ function withConfig(root: string, action: (config: LaConfig) => number): number 
 export function runShow(root: string): number {
   return withConfig(root, (config) => {
     process.stdout.write(`${pyJson(dumpable(config), 2)}\n`);
+    for (const key of loadRaw(root).overrides) {
+      process.stderr.write(`${message('config.local-override', { key, file: localConfigFile() })}\n`);
+    }
     return 0;
   });
 }

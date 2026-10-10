@@ -7,11 +7,12 @@ import os
 import re
 import shutil
 import stat
+import subprocess
 from pathlib import Path
 
 from living_architecture import __version__
-from living_architecture.config import CONFIG_FILENAME, ConfigError, LaConfig, load_config, repo_languages
-from living_architecture.contract import contract_hash, language, message
+from living_architecture.config import ConfigError, LaConfig, load_config, repo_languages
+from living_architecture.contract import config_file, contract_hash, language, local_config_file, message
 
 REQUIRED_EXECUTABLES = ("git", "gh")
 PLUGIN_MANIFEST = Path(".claude-plugin") / "plugin.json"
@@ -78,13 +79,41 @@ def _consistency(root: Path, cfg: LaConfig) -> list[str]:
 
 
 def _config_problems(root: Path, *, require_config: bool) -> list[str]:
-    if not _is_file(root / CONFIG_FILENAME):
-        return [message("doctor.config-missing")] if require_config else []
+    has_committed = _is_file(root / config_file())
+    if not has_committed and require_config:
+        return [message("doctor.config-missing")]
+    if not has_committed and not _is_file(root / local_config_file()):
+        return []
     try:
         cfg = load_config(root)
     except ConfigError as exc:
         return [str(exc)]
-    return _consistency(root, cfg)
+    return _consistency(root, cfg) if has_committed else []
+
+
+def _git(root: Path, *args: str) -> subprocess.CompletedProcess[bytes] | None:
+    """A quiet git run, or None when git cannot start."""
+    try:
+        return subprocess.run(["git", *args], cwd=root, capture_output=True, check=False)
+    except OSError:
+        return None
+
+
+def _local_problem(root: Path) -> str | None:
+    """A local file that git tracks or does not ignore; checked only inside git."""
+    local = local_config_file()
+    if not (root / ".git").exists() or not _is_file(root / local):
+        return None
+    listed = _git(root, "ls-files", "-z", "--", local)
+    if listed is None or listed.returncode != 0:
+        return message("doctor.local-git-failed", file=local)
+    if listed.stdout:
+        return message("doctor.local-tracked", file=local)
+    ignored = _git(root, "check-ignore", "-q", "--", local)
+    status = None if ignored is None else ignored.returncode
+    if status == 1:
+        return message("doctor.local-not-ignored", file=local)
+    return None if status == 0 else message("doctor.local-git-failed", file=local)
 
 
 def _language_executables(root: Path) -> list[str]:
@@ -99,13 +128,16 @@ def _language_executables(root: Path) -> list[str]:
 
 
 def run_checks(*, root: Path, expect: str | None, plugin: str | None = None, require_config: bool = False) -> list[str]:
-    """Problems found; empty means healthy. Config-vs-disk checks run only when the config file exists."""
+    """Problems found; empty means healthy. Config-vs-disk checks run only when the committed config file exists."""
     versions = (
         _version_problem(expect) if expect is not None else None,
         _plugin_problem(plugin) if plugin is not None else None,
     )
     problems = [problem for problem in versions if problem is not None]
     problems += _config_problems(root, require_config=require_config)
+    local = _local_problem(root)
+    if local is not None:
+        problems.append(local)
     try:
         executables = [*REQUIRED_EXECUTABLES, *_language_executables(root)]
     except ConfigError as exc:
@@ -123,6 +155,8 @@ def run(*, root: Path, expect: str | None, plugin: str | None, print_hash: bool,
     for problem in problems:
         print(message("doctor.fail", problem=problem))
     if not problems:
-        source = CONFIG_FILENAME if (root / CONFIG_FILENAME).is_file() else message("doctor.no-config-file")
+        source = config_file() if (root / config_file()).is_file() else message("doctor.no-config-file")
+        if (root / local_config_file()).is_file():
+            source = message("doctor.local-source", source=source, local=local_config_file())
         print(message("doctor.ok", version=__version__, source=source))
     return 1 if problems else 0

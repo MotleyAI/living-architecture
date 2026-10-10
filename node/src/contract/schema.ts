@@ -1,14 +1,31 @@
 // Schema validation (JSON Schema 2020-12) with jsonschema-style messages, and default materialization.
 import { Ajv2020, type ErrorObject, type ValidateFunction } from 'ajv/dist/2020.js';
+import { schema as sharedSchema, schemaNames } from './snapshot.js';
 import { canonicalRepr, toPlain } from './values.js';
 
+let store: Ajv2020 | null = null;
 const compiled = new Map<string, ValidateFunction>();
 
-function validator(schema: object): ValidateFunction {
+/** Every shared schema under its `$id`, so cross-file `$ref`s resolve. */
+function schemaStore(): Ajv2020 {
+  if (store === null) {
+    store = new Ajv2020({ allErrors: true, strict: false, verbose: true });
+    for (const name of schemaNames()) store.addSchema(sharedSchema(name));
+  }
+  return store;
+}
+
+/** A shared schema's validator by its `$id`; any other schema compiled without its `$id`, keyed by its text. */
+function validator(schema: Record<string, any>): ValidateFunction {
+  const ajv = schemaStore();
+  const shared = typeof schema.$id === 'string' ? ajv.getSchema(schema.$id) : undefined;
+  if (shared?.schema === schema) return shared;
   const key = JSON.stringify(schema);
   let fn = compiled.get(key);
   if (fn === undefined) {
-    fn = new Ajv2020({ allErrors: true, strict: false, verbose: true }).compile(schema);
+    const anonymous = { ...schema };
+    delete anonymous.$id;
+    fn = ajv.compile(anonymous);
     compiled.set(key, fn);
   }
   return fn;
@@ -43,7 +60,7 @@ function reported(error: ErrorObject): boolean {
 }
 
 /** Sorted `key.path: message` lines, one per violation; empty when valid. */
-export function validate(schema: object, data: unknown): string[] {
+export function validate(schema: Record<string, any>, data: unknown): string[] {
   const fn = validator(schema);
   if (fn(toPlain(data))) return [];
   return (fn.errors ?? [])

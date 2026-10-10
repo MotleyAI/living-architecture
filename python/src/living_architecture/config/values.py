@@ -9,8 +9,8 @@ from pathlib import Path
 from typing import Any
 
 from living_architecture.config.languages import language_fact, repo_languages
-from living_architecture.config.load import ConfigError, LaConfig, load_config
-from living_architecture.contract import message
+from living_architecture.config.load import ConfigError, LaConfig, load_config, load_raw
+from living_architecture.contract import local_config_file, message
 
 
 def _lookup(data: Any, dotted: str) -> Any:
@@ -45,6 +45,8 @@ def _with_config(root: Path, action: Callable[[LaConfig], int]) -> int:
 def run_show(root: Path) -> int:
     def show(config: LaConfig) -> int:
         print(json.dumps(config.model_dump(), indent=2))
+        for key in load_raw(root).overrides:
+            print(message("config.local-override", key=key, file=local_config_file()), file=sys.stderr)
         return 0
 
     return _with_config(root, show)
