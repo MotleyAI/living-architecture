@@ -202,9 +202,11 @@ it SHALL report `doctor.version-mismatch`. Given both `--expect` and `--plugin`,
 
 ### Requirement: Configuration parameters are defined only by the shared schemas
 Every key, type, constraint and default of `living-architecture.yaml` SHALL be defined only by the shared
-JSON Schema for that file, every key and type of `architecture/index.yaml` SHALL be defined only by the
-shared index schema, and every key and type of a node's model metadata SHALL be defined only by the shared
-node schema. A resolved configuration SHALL equal the input with schema defaults filled in
+JSON Schema for that file, the keys `living-architecture.local.yaml` may set SHALL be defined only by the
+shared local schema (which references the main schema's definitions of those keys), and both file names
+SHALL come only from the shared contract. Every key and type of `architecture/index.yaml` SHALL be defined
+only by the shared index schema, and every key and type of a node's model metadata SHALL be defined only by
+the shared node schema. A resolved configuration SHALL equal the input with schema defaults filled in
 recursively. Filling SHALL also fill absent parent objects, and SHALL keep explicit `false`, `0`, empty
 lists and empty strings. A missing file or an empty file SHALL resolve to all defaults. The index schema
 SHALL NOT constrain the values whose problems the arch-check reports as findings (`legacy_arrows`,
@@ -229,6 +231,10 @@ SHALL NOT constrain the values whose problems the arch-check reports as findings
 #### Scenario: Enumerated value is enforced
 - **WHEN** the config sets `tracker: jira`
 - **THEN** validation fails, the command exits with the configuration-error code, and the error names `tracker`
+
+#### Scenario: Local schema follows the main schema
+- **WHEN** a value is valid for `tracker` or `reviewers.codex` in `living-architecture.yaml`
+- **THEN** the same value is valid in `living-architecture.local.yaml`, and a value the main schema rejects is rejected there too
 
 #### Scenario: A finding-level index problem stays a finding
 - **WHEN** `index.yaml` sets `legacy_arrows.baseline: -1` and `la-arch-check` runs
