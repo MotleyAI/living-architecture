@@ -1,13 +1,19 @@
 // The git-ignored local override: file names from config.yaml, the local schema's cross-file `$ref`s, the raw
 // loader's merge and order of checks, and the `la-config` notes.
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import * as fs from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { ConfigError, explicitTypecheck, loadConfig, loadRaw, resolveConfig } from '../src/config/index.js';
 import { configFile, localConfigFile, schema, validate } from '../src/contract/index.js';
 import { run } from './cli-run.js';
 import { plain } from './helpers.js';
+
+vi.mock('node:fs', async (importOriginal) => {
+  const actual = await importOriginal<typeof fs>();
+  return { ...actual, readFileSync: vi.fn(actual.readFileSync) };
+});
 
 const COMMITTED = 'living-architecture.yaml';
 const LOCAL = 'living-architecture.local.yaml';
@@ -183,6 +189,13 @@ describe('la-config with a local file', () => {
     expect(result.code).toBe(0);
     expect(JSON.parse(result.out).tracker).toBe('none');
     expect(result.err).toBe(`la-config: tracker from ${LOCAL}\nla-config: reviewers.codex from ${LOCAL}\n`);
+  });
+
+  it('show reads the local file once', () => {
+    const root = repo({ committed: 'tracker: github\n', local: 'tracker: none\n' });
+    vi.mocked(readFileSync).mockClear();
+    expect(run(root, 'la-config', ['--root', root, 'show']).code).toBe(0);
+    expect(vi.mocked(readFileSync).mock.calls.filter(([path]) => path === join(root, LOCAL))).toHaveLength(1);
   });
 
   it('get prints no note', () => {

@@ -160,13 +160,17 @@ def load_raw(root: Path) -> RawConfig:
     )
 
 
-def load_config(root: Path) -> LaConfig:
-    """Config at `root`; defaults when neither file exists."""
-    data = load_raw(root).data
+def resolve_raw(root: Path, raw: RawConfig) -> LaConfig:
+    """`raw` resolved; ConfigError naming the committed file."""
     try:
-        return resolve(data)
+        return resolve(raw.data)
     except ValueError as exc:
         raise ConfigError(f"{root / config_file()}: {exc}") from exc
+
+
+def load_config(root: Path) -> LaConfig:
+    """Config at `root`; defaults when neither file exists."""
+    return resolve_raw(root, load_raw(root))
 
 
 def explicit_typecheck(root: Path) -> set[str]:

@@ -123,14 +123,18 @@ export function loadRaw(root: string): RawConfig {
   return { data, overrides, hasCommitted: isFile(join(root, configFile())), hasLocal: isFile(localPath) };
 }
 
-/** Config at `root`; defaults when neither file exists. */
-export function loadConfig(root: string): LaConfig {
-  const { data } = loadRaw(root);
+/** `raw` resolved; ConfigError naming the committed file. */
+export function resolveRaw(root: string, raw: RawConfig): LaConfig {
   try {
-    return resolveConfig(data);
+    return resolveConfig(raw.data);
   } catch (error) {
     throw new ConfigError(`${join(root, configFile())}: ${(error as Error).message}`);
   }
+}
+
+/** Config at `root`; defaults when neither file exists. */
+export function loadConfig(root: string): LaConfig {
+  return resolveRaw(root, loadRaw(root));
 }
 
 /** The languages `commands.typecheck` sets explicitly (to a command or null); the config must be valid. */
@@ -212,22 +216,25 @@ export function formatValue(value: unknown): string {
   return String(value);
 }
 
-function withConfig(root: string, action: (config: LaConfig) => number): number {
+/** Run `action` on the config and its local overrides, both from one read of the files. */
+function withConfig(root: string, action: (config: LaConfig, overrides: string[]) => number): number {
+  let raw: RawConfig;
   let config: LaConfig;
   try {
-    config = loadConfig(root);
+    raw = loadRaw(root);
+    config = resolveRaw(root, raw);
   } catch (error) {
     if (!(error instanceof ConfigError)) throw error;
     process.stderr.write(`${message('config.error', { error: error.message })}\n`);
     return 1;
   }
-  return action(config);
+  return action(config, raw.overrides);
 }
 
 export function runShow(root: string): number {
-  return withConfig(root, (config) => {
+  return withConfig(root, (config, overrides) => {
     process.stdout.write(`${pyJson(dumpable(config), 2)}\n`);
-    for (const key of loadRaw(root).overrides) {
+    for (const key of overrides) {
       process.stderr.write(`${message('config.local-override', { key, file: localConfigFile() })}\n`);
     }
     return 0;

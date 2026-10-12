@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -76,6 +77,24 @@ def test_show_notes_each_local_key_on_stderr(repo: Path, capsys: pytest.CaptureF
         "la-config: tracker from living-architecture.local.yaml\n"
         "la-config: reviewers.codex from living-architecture.local.yaml\n"
     )
+
+
+def test_show_reads_the_local_file_once(
+    repo: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    local = repo / "living-architecture.local.yaml"
+    local.write_text("tracker: none\n", encoding="utf-8")
+    reads: list[Path] = []
+    read_text = Path.read_text
+
+    def counting(path: Path, *args: Any, **kwargs: Any) -> str:
+        reads.append(path)
+        return read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", counting)
+    assert main(["--root", str(repo), "show"]) == 0
+    assert reads.count(local) == 1
+    assert "tracker from" in capsys.readouterr().err
 
 
 def test_get_prints_no_local_note(repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
