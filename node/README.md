@@ -24,8 +24,8 @@ The longer version is in
 /plugin install la@living-architecture
 
 # the commands (la-*, dr-*), pinned to the same version as the plugin, from your repo's ecosystem
-uv tool install living-architecture==0.3.0      # Python repos
-npm install -g living-architecture@0.3.0        # TypeScript/JavaScript repos (Node >= 22)
+uv tool install living-architecture==0.3.1      # Python repos
+npm install -g living-architecture@0.3.1        # TypeScript/JavaScript repos (Node >= 22)
 ```
 
 The commands ship as two twins with one contract: a PyPI package and an npm package of the same name. Each
@@ -83,10 +83,10 @@ Pin the architecture check in CI to a release, in your ecosystem's form:
 ```yaml
 # Python
 - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-- run: uvx --no-build --from living-architecture==0.3.0 la-arch-check
+- run: uvx --no-build --from living-architecture==0.3.1 la-arch-check
 # TypeScript
 - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-- run: npx -y -p living-architecture@0.3.0 la-arch-check
+- run: npx -y -p living-architecture@0.3.1 la-arch-check
 ```
 
 ## Prerequisites
