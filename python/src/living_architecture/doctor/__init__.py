@@ -80,15 +80,14 @@ def _consistency(root: Path, cfg: LaConfig) -> list[str]:
 
 def _config_problems(root: Path, *, require_config: bool) -> list[str]:
     has_committed = _is_file(root / config_file())
-    if not has_committed and require_config:
-        return [message("doctor.config-missing")]
+    missing = [message("doctor.config-missing")] if require_config and not has_committed else []
     if not has_committed and not _is_file(root / local_config_file()):
-        return []
+        return missing
     try:
         cfg = load_config(root)
     except ConfigError as exc:
-        return [str(exc)]
-    return _consistency(root, cfg) if has_committed else []
+        return [*missing, str(exc)]
+    return _consistency(root, cfg) if has_committed else missing
 
 
 def _git(root: Path, *args: str) -> subprocess.CompletedProcess[bytes] | None:

@@ -205,7 +205,7 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | *(new)* git fails to list the repo's files: a problem | 1 | `doctor-git-failed` |
 | *(new)* local file: git-ignored is healthy and named as a second source (after the committed file, or after the defaults outside git) | 0 | `doctor-local-ignored-ok`, `doctor-local-not-git` |
 | *(new)* local file: tracked (committed, staged), not ignored, git failure; placed after the consistency findings and before the missing executables | 1 | `doctor-local-tracked`, `doctor-local-staged`, `doctor-local-not-ignored`, `doctor-local-git-failed`, `doctor-local-finding-order` |
-| *(new)* local file: consistency on the merged config; validated without a committed file; alone it does not satisfy `--require-config` | 1 | `doctor-local-consistency-merged`, `doctor-local-only-invalid`, `doctor-require-config-local-only` |
+| *(new)* local file: consistency on the merged config; validated without a committed file; alone it does not satisfy `--require-config`, which still validates it | 1 | `doctor-local-consistency-merged`, `doctor-local-only-invalid`, `doctor-require-config-local-only`, `doctor-require-config-local-invalid` |
 
 `--contract-hash` *(new)* prints a value that changes with `shared/`; it is pinned by `tests/test_contract.py`.
 

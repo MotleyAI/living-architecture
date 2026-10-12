@@ -71,16 +71,16 @@ function consistency(root: string, config: LaConfig): string[] {
 
 function configProblems(root: string, requireConfig: boolean): string[] {
   const hasCommitted = isFile(join(root, configFile()));
-  if (!hasCommitted && requireConfig) return [message('doctor.config-missing')];
-  if (!hasCommitted && !isFile(join(root, localConfigFile()))) return [];
+  const missing = requireConfig && !hasCommitted ? [message('doctor.config-missing')] : [];
+  if (!hasCommitted && !isFile(join(root, localConfigFile()))) return missing;
   let config: LaConfig;
   try {
     config = loadConfig(root);
   } catch (error) {
     if (!(error instanceof ConfigError)) throw error;
-    return [error.message];
+    return [...missing, error.message];
   }
-  return hasCommitted ? consistency(root, config) : [];
+  return hasCommitted ? consistency(root, config) : missing;
 }
 
 /** A quiet git run's status and stdout; status null when git cannot start or is killed. */

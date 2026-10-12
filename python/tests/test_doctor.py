@@ -280,3 +280,14 @@ def test_invalid_local_without_committed(tmp_path: Path, capsys: pytest.CaptureF
     assert line.startswith("FAIL: ")
     assert "openspec" in line
     assert LOCAL in line
+
+
+@pytest.mark.usefixtures("all_tools")
+def test_require_config_still_validates_a_local_file(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    root = _repo(tmp_path, local="openspec: false\n", ignored=True)
+    code, out = _doctor(root, capsys, "--require-config")
+    assert code == 1
+    missing, invalid = out
+    assert missing == MISSING_CONFIG
+    assert "openspec" in invalid
+    assert LOCAL in invalid

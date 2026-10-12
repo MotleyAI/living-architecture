@@ -143,4 +143,15 @@ describe('la-doctor with a local file', () => {
     expect(lines[0]).toContain('openspec');
     expect(lines[0]).toContain(LOCAL);
   });
+
+  it('still validates a local file under --require-config', () => {
+    const root = localRepo({ local: 'openspec: false\n', ignored: true });
+    isolatePath();
+    const [code, lines] = doctor(root, '--require-config');
+    expect(code).toBe(1);
+    expect(lines).toHaveLength(2);
+    expect(lines[0]).toBe(MISSING_CONFIG);
+    expect(lines[1]).toContain('openspec');
+    expect(lines[1]).toContain(LOCAL);
+  });
 });

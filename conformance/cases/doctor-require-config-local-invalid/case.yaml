@@ -1,0 +1,21 @@
+kind: neutral
+command: la-doctor
+args:
+- --require-config
+git:
+- write:
+    .gitignore: 'living-architecture.local.yaml
+
+      '
+normalize:
+- version
+expect:
+  exit: 1
+  stdout:
+    contains:
+    - 'FAIL: no living-architecture.yaml at the repo root; run /la:init to onboard this repo'
+    - openspec
+    - living-architecture.local.yaml
+note: --require-config still validates a local-only file; wording is not contract, the
+  key and file are
+golden: manual
