@@ -1,0 +1,9 @@
+kind: neutral
+command: la-config
+args:
+- get
+- tracker
+expect:
+  exit: 0
+note: get sees the local override and prints no note
+golden: manual

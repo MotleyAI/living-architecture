@@ -6,11 +6,14 @@ import pytest
 
 from living_architecture.contract import (
     canonical_repr,
+    config_file,
     language,
+    local_config_file,
     manifest,
     message,
     normalize,
     render_template,
+    schema,
     script_path,
     validate,
 )
@@ -48,6 +51,26 @@ def test_validate_names_the_key_path() -> None:
 
 def test_validate_valid_is_empty() -> None:
     assert validate({"type": "object"}, {}) == []
+
+
+def test_validate_resolves_a_cross_file_ref() -> None:
+    local = schema("living-architecture.local")
+    assert validate(local, {"tracker": "github", "reviewers": {"codex": False}}) == []
+    [enum_error] = validate(local, {"tracker": "jira"})
+    assert enum_error.startswith("tracker: ")
+    [type_error] = validate(local, {"reviewers": {"codex": "yes"}})
+    assert type_error.startswith("reviewers.codex: ")
+
+
+def test_validate_keeps_each_schema_apart_after_a_cross_file_ref() -> None:
+    main = schema("living-architecture")
+    assert validate(schema("living-architecture.local"), {"tracker": "none"}) == []
+    assert validate(main, {"openspec": False}) == []
+    assert validate(schema("living-architecture.local"), {"openspec": False}) != []
+
+
+def test_config_file_names() -> None:
+    assert (config_file(), local_config_file()) == ("living-architecture.yaml", "living-architecture.local.yaml")
 
 
 @pytest.mark.parametrize("command", sorted(n for n, s in manifest().items() if "script" in s))

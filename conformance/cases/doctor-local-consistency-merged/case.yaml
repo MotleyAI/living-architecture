@@ -1,0 +1,14 @@
+kind: neutral
+command: la-doctor
+git:
+- write:
+    .gitignore: 'living-architecture.local.yaml
+
+      '
+normalize:
+- version
+expect:
+  exit: 1
+note: the config/disk checks evaluate the committed file with the local file over
+  it
+golden: manual

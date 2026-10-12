@@ -1,0 +1,12 @@
+kind: neutral
+command: la-config
+args:
+- show
+expect:
+  exit: 1
+  stdout: ''
+  stderr:
+    contains:
+    - living-architecture.local.yaml
+note: invalid local YAML is a config error naming the local file
+golden: manual

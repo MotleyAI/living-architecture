@@ -5,7 +5,7 @@ The skills drive these commands; you can also run them directly. `<command> --he
 | Command | Purpose |
 |---|---|
 | `la-doctor [--plugin DIR] [--require-config]` | Check tool/plugin versions, the repo config against the disk, `git`/`gh`, and each repo language's executables (`node`/`npx` for TypeScript) |
-| `la-config get <key>` / `la-config show` | Print the resolved repo config; `get languages` prints the repo languages, `get lang.<language>.<key>` a language fact |
+| `la-config get <key>` / `la-config show` | Print the resolved repo config (`living-architecture.local.yaml` merged over it); `get languages` prints the repo languages, `get lang.<language>.<key>` a language fact |
 | `la-arch-check` | Architecture cross-check (exit 0 OK, 1 findings, 2 broken setup) |
 | `la-arch-scaffold` | Write a starter `architecture/model.c4`, `architecture/views.c4` and `system.arc42.md` from the measured top-level units and imports |
 | `la-arch-diagrams` | Regenerate the mermaid view diagrams embedded in arc42 docs |

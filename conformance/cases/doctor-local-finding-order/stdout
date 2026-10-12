@@ -1,0 +1,3 @@
+FAIL: tracker is none and openspec is false, so no plan survives a session reset; set a tracker or openspec: true
+FAIL: living-architecture.local.yaml is not git-ignored; add it to .gitignore
+FAIL: `gh` not found on PATH

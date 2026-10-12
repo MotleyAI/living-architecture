@@ -21,7 +21,8 @@ Read, don't ask. For each key note the value and where it came from:
 - **Existing config.** If `living-architecture.yaml` exists, this run edits it in place: start from its
   values. Read it as raw YAML, not with `la-config` (which rejects removed keys). Under `reviewers`, the
   `coderabbit` flag and Sonar's `enabled` switch were removed (both bots are detected per PR): propose
-  deleting them and keeping Sonar's `project_key`.
+  deleting them and keeping Sonar's `project_key`. `living-architecture.local.yaml`, if present, holds one
+  contributor's overrides; never fold its values into the committed file.
 - **`tracker`.** `linear` when the Linear MCP server is available and branch names look like
   `<user>/<key>-<slug>` (`git branch -a`); `github` when branches look like `<N>-<slug>` or the repo uses
   GitHub issues (`gh issue list --limit 5`); otherwise undetected.
@@ -65,6 +66,8 @@ writing the file, so the flag matches the disk.
 
 Write `living-architecture.yaml` at the repo root, with the flags matching the disk (`architecture: false`
 until `la:arch-init` finishes). Check it with `la-config show`.
+If `git check-ignore -q living-architecture.local.yaml` exits 1 (not ignored), offer (yes/no) to add
+`living-architecture.local.yaml` to `.gitignore`: it holds per-person overrides and must never be committed.
 
 ## 6. Doctor
 

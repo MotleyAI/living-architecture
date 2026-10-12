@@ -461,6 +461,15 @@ def test_no_corpus_file_is_git_ignored() -> None:
 
 
 
+def _ignored(rel: str) -> bool:
+    return subprocess.run(["git", "check-ignore", "-q", "--no-index", "--", rel], cwd=REPO_ROOT, check=False).returncode == 0
+
+
+def test_only_the_root_local_config_is_git_ignored() -> None:
+    assert _ignored("living-architecture.local.yaml")
+    assert not _ignored("conformance/cases/config-local-empty/repo/living-architecture.local.yaml")
+
+
 def _wrong_golden_case(tmp_path: Path) -> Path:
     case_dir = tmp_path / "cases" / "wrong"
     case_dir.mkdir(parents=True)

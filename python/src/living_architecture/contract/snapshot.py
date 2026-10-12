@@ -50,6 +50,11 @@ def schema(name: str) -> dict[str, Any]:
     return json.loads((snapshot_dir() / "schema" / f"{name}.schema.json").read_text(encoding="utf-8"))
 
 
+def schema_names() -> list[str]:
+    """Every shared schema's name, as `schema` takes it."""
+    return sorted(p.name.removesuffix(".schema.json") for p in (snapshot_dir() / "schema").glob("*.schema.json"))
+
+
 def findings() -> dict[str, str]:
     return _yaml("findings.yaml")["findings"]
 
@@ -85,6 +90,16 @@ def conventions() -> dict[str, Any]:
 
 def architecture() -> dict[str, Any]:
     return _yaml("architecture.yaml")
+
+
+def config_file() -> str:
+    """The committed per-repo config file, relative to the repo root."""
+    return _yaml("config.yaml")["file"]
+
+
+def local_config_file() -> str:
+    """One contributor's git-ignored overrides of it."""
+    return _yaml("config.yaml")["local_file"]
 
 
 def script_path(name: str) -> Path:

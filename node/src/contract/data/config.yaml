@@ -1,0 +1,3 @@
+# The per-repo config files at the repo root: the committed one, and one contributor's git-ignored overrides.
+file: living-architecture.yaml
+local_file: living-architecture.local.yaml

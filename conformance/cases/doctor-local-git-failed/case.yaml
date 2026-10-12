@@ -1,0 +1,14 @@
+kind: neutral
+command: la-doctor
+git:
+- write:
+    .git/index: 'not an index
+
+      '
+normalize:
+- version
+expect:
+  exit: 1
+note: a git failure while checking the local file is reported; git's own stderr is
+  not passed through
+golden: manual

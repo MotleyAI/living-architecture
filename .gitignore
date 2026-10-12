@@ -6,6 +6,7 @@ build/
 *.egg-info/
 .ruff_cache/
 .pytest_cache/
+/living-architecture.local.yaml
 # conformance fixtures may contain these paths on purpose
 !conformance/cases/**/.venv/
 !conformance/cases/**/__pycache__/

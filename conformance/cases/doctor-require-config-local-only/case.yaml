@@ -1,0 +1,15 @@
+kind: neutral
+command: la-doctor
+args:
+- --require-config
+git:
+- write:
+    .gitignore: 'living-architecture.local.yaml
+
+      '
+normalize:
+- version
+expect:
+  exit: 1
+note: a local file alone does not onboard a repo
+golden: manual

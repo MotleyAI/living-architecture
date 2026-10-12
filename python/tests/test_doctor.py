@@ -1,3 +1,5 @@
+import os
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -130,3 +132,162 @@ def test_no_file_skips_consistency(tmp_path: Path, capsys: pytest.CaptureFixture
     (tmp_path / "architecture").mkdir()
     (tmp_path / "architecture" / "index.yaml").write_text("x: 1\n", encoding="utf-8")
     assert _doctor(tmp_path, capsys)[0] == 0
+
+
+# ---- living-architecture.local.yaml
+
+LOCAL = "living-architecture.local.yaml"
+LOCAL_TRACKED = (
+    f"FAIL: {LOCAL} is tracked by git, but it holds one contributor's overrides;"
+    f" run git rm --cached {LOCAL} and add it to .gitignore"
+)
+LOCAL_NOT_IGNORED = f"FAIL: {LOCAL} is not git-ignored; add it to .gitignore"
+LOCAL_GIT_FAILED = f"FAIL: git failed, so whether {LOCAL} is git-ignored cannot be checked"
+
+
+def _git(root: Path, *args: str) -> None:
+    subprocess.run(
+        ["git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args],
+        cwd=root, check=True, capture_output=True,
+    )
+
+
+def _repo(root: Path, *, local: str | None = "tracker: github\n", ignored: bool = False) -> Path:
+    _git(root, "init", "-q", "-b", "main")
+    if ignored:
+        (root / ".gitignore").write_text(f"{LOCAL}\n", encoding="utf-8")
+    if local is not None:
+        (root / LOCAL).write_text(local, encoding="utf-8")
+    return root
+
+
+def _fake_git(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, script: str) -> None:
+    bin_dir = tmp_path / "fakebin"
+    bin_dir.mkdir()
+    git = bin_dir / "git"
+    git.write_text(f"#!/bin/sh\n{script}", encoding="utf-8")
+    git.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{bin_dir}{os.pathsep}{os.environ['PATH']}")
+
+
+@pytest.mark.usefixtures("all_tools")
+def test_local_ignored_is_a_second_source(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    root = _repo(tmp_path, ignored=True)
+    (root / CONFIG_FILENAME).write_text("openspec: false\n", encoding="utf-8")
+    assert _doctor(root, capsys) == (0, [f"ok: la tools {__version__}; config from {CONFIG_FILENAME} + {LOCAL}"])
+
+
+@pytest.mark.usefixtures("all_tools")
+def test_local_outside_git_follows_the_defaults_source(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    (tmp_path / LOCAL).write_text("tracker: github\n", encoding="utf-8")
+    assert _doctor(tmp_path, capsys) == (0, [f"ok: la tools {__version__}; config from defaults (no config file) + {LOCAL}"])
+
+
+@pytest.mark.usefixtures("all_tools")
+def test_local_committed_is_tracked(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    root = _repo(tmp_path)
+    _git(root, "add", LOCAL)
+    _git(root, "commit", "-q", "-m", "init")
+    assert _doctor(root, capsys) == (1, [LOCAL_TRACKED])
+
+
+@pytest.mark.usefixtures("all_tools")
+def test_local_staged_is_tracked_even_when_ignored(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    root = _repo(tmp_path)
+    _git(root, "add", LOCAL)
+    (root / ".gitignore").write_text(f"{LOCAL}\n", encoding="utf-8")
+    assert _doctor(root, capsys) == (1, [LOCAL_TRACKED])
+
+
+@pytest.mark.usefixtures("all_tools")
+def test_local_not_ignored(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    assert _doctor(_repo(tmp_path), capsys) == (1, [LOCAL_NOT_IGNORED])
+
+
+@pytest.mark.usefixtures("all_tools")
+def test_local_ls_files_failure(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    root = _repo(tmp_path)
+    (root / ".git" / "index").write_text("not an index\n", encoding="utf-8")
+    assert _doctor(root, capsys) == (1, [LOCAL_GIT_FAILED])
+
+
+@pytest.mark.usefixtures("all_tools")
+@pytest.mark.parametrize("status", [2, 128])
+def test_local_check_ignore_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], status: int
+) -> None:
+    root = tmp_path / "repo"
+    root.mkdir()
+    _repo(root)
+    _fake_git(tmp_path, monkeypatch, f'for a in "$@"; do [ "$a" = check-ignore ] && exit {status}; done\nexit 0\n')
+    assert _doctor(root, capsys) == (1, [LOCAL_GIT_FAILED])
+
+
+@pytest.mark.usefixtures("all_tools")
+def test_no_local_file_runs_no_local_check(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = tmp_path / "repo"
+    root.mkdir()
+    _repo(root, local=None)
+    _fake_git(tmp_path, monkeypatch, "exit 128\n")
+    assert _doctor(root, capsys)[0] == 0
+
+
+@pytest.mark.usefixtures("all_tools")
+def test_local_not_git_runs_no_local_check(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = tmp_path / "repo"
+    root.mkdir()
+    (root / LOCAL).write_text("tracker: github\n", encoding="utf-8")
+    _fake_git(tmp_path, monkeypatch, "exit 128\n")
+    assert _doctor(root, capsys)[0] == 0
+
+
+def test_local_finding_order(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    monkeypatch.setattr(doctor.shutil, "which", lambda exe: None if exe == "gh" else f"/usr/bin/{exe}")
+    root = _repo(tmp_path, local="tracker: none\n")
+    (root / CONFIG_FILENAME).write_text("openspec: false\n", encoding="utf-8")
+    assert _doctor(root, capsys) == (1, [NO_PLAN_STORE, LOCAL_NOT_IGNORED, "FAIL: `gh` not found on PATH"])
+
+
+@pytest.mark.usefixtures("all_tools")
+def test_local_takes_part_in_consistency(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    root = _repo(tmp_path, local="tracker: none\n", ignored=True)
+    (root / CONFIG_FILENAME).write_text("openspec: false\n", encoding="utf-8")
+    assert _doctor(root, capsys) == (1, [NO_PLAN_STORE])
+
+
+@pytest.mark.usefixtures("all_tools")
+def test_local_alone_skips_consistency(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    root = _repo(tmp_path, local="tracker: none\n", ignored=True)
+    assert _doctor(root, capsys)[0] == 0
+
+
+@pytest.mark.usefixtures("all_tools")
+def test_require_config_ignores_a_local_file(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    root = _repo(tmp_path, ignored=True)
+    assert _doctor(root, capsys, "--require-config") == (1, [MISSING_CONFIG])
+
+
+@pytest.mark.usefixtures("all_tools")
+def test_invalid_local_without_committed(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    root = _repo(tmp_path, local="openspec: false\n", ignored=True)
+    code, out = _doctor(root, capsys)
+    assert code == 1
+    [line] = out
+    assert line.startswith("FAIL: ")
+    assert "openspec" in line
+    assert LOCAL in line
+
+
+@pytest.mark.usefixtures("all_tools")
+def test_require_config_still_validates_a_local_file(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    root = _repo(tmp_path, local="openspec: false\n", ignored=True)
+    code, out = _doctor(root, capsys, "--require-config")
+    assert code == 1
+    missing, invalid = out
+    assert missing == MISSING_CONFIG
+    assert "openspec" in invalid
+    assert LOCAL in invalid

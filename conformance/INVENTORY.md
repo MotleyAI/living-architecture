@@ -182,6 +182,8 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | *(new)* `get languages` when git fails to list the repo's files | 2 | `config-get-languages-git-failed` |
 | *(new)* `get lang.<language>.<key>`: every public key of both languages, in any repo (lists as JSON, strings as text) | 0 | `config-get-lang-python-source-extensions`, `config-get-lang-python-source-globs`, `config-get-lang-python-test-globs`, `config-get-lang-python-declaration-globs`, `config-get-lang-python-comment-prefix`, `config-get-lang-python-suppression`, `config-get-lang-python-waiver`, `config-get-lang-python-baseline-file`, `config-get-lang-python-markers`, `config-get-lang-typescript-source-extensions`, `config-get-lang-typescript-source-globs`, `config-get-lang-typescript-test-globs`, `config-get-lang-typescript-declaration-globs`, `config-get-lang-typescript-comment-prefix`, `config-get-lang-typescript-suppression`, `config-get-lang-typescript-waiver`, `config-get-lang-typescript-baseline-file`, `config-get-lang-typescript-markers` |
 | *(new)* `get lang.…`: internal field, unregistered language, no key | 2 | `config-get-lang-internal-key-refused`, `config-get-lang-unknown-language`, `config-get-lang-without-key` |
+| *(new)* `living-architecture.local.yaml`: deep-merged over the committed file (or the defaults), one stderr note per key it sets in schema order (`show` only); an empty file overrides nothing | 0 | `config-local-show-override`, `config-local-deep-merge`, `config-local-without-committed`, `config-local-empty`, `config-get-local-override` |
+| *(new)* `living-architecture.local.yaml`: a key outside `tracker`/`reviewers.codex` (top level, nested), an invalid value, invalid YAML, a non-mapping top level (local file named) | 1 | `config-local-refused-top-key`, `config-local-refused-nested-key`, `config-local-invalid-value`, `config-local-invalid-yaml`, `config-local-top-level-list` |
 
 ## la-doctor
 
@@ -201,6 +203,9 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | *(new)* an `architecture/` directory without `index.yaml` is not a setup | 0 | `doctor-architecture-unrelated-dir` |
 | *(new)* TypeScript repo language: `node` and `npx` required (both missing; only `npx`); a Python-only repo and a non-git directory need neither | 1/0 | `doctor-typescript-missing-node`, `doctor-typescript-missing-npx`, `doctor-python-without-node`, `doctor-not-git-skips-languages` |
 | *(new)* git fails to list the repo's files: a problem | 1 | `doctor-git-failed` |
+| *(new)* local file: git-ignored is healthy and named as a second source (after the committed file, or after the defaults outside git) | 0 | `doctor-local-ignored-ok`, `doctor-local-not-git` |
+| *(new)* local file: tracked (committed, staged), not ignored, git failure; placed after the consistency findings and before the missing executables | 1 | `doctor-local-tracked`, `doctor-local-staged`, `doctor-local-not-ignored`, `doctor-local-git-failed`, `doctor-local-finding-order` |
+| *(new)* local file: consistency on the merged config; validated without a committed file; alone it does not satisfy `--require-config`, which still validates it | 1 | `doctor-local-consistency-merged`, `doctor-local-only-invalid`, `doctor-require-config-local-only`, `doctor-require-config-local-invalid` |
 
 `--contract-hash` *(new)* prints a value that changes with `shared/`; it is pinned by `tests/test_contract.py`.
 

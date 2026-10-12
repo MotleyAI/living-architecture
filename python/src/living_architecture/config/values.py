@@ -9,8 +9,8 @@ from pathlib import Path
 from typing import Any
 
 from living_architecture.config.languages import language_fact, repo_languages
-from living_architecture.config.load import ConfigError, LaConfig, load_config
-from living_architecture.contract import message
+from living_architecture.config.load import ConfigError, LaConfig, load_raw, resolve_raw
+from living_architecture.contract import local_config_file, message
 
 
 def _lookup(data: Any, dotted: str) -> Any:
@@ -33,18 +33,22 @@ def format_value(value: Any) -> str:
     return str(value)
 
 
-def _with_config(root: Path, action: Callable[[LaConfig], int]) -> int:
+def _with_config(root: Path, action: Callable[[LaConfig, list[str]], int]) -> int:
+    """Run `action` on the config and its local overrides, both from one read of the files."""
     try:
-        config = load_config(root)
+        raw = load_raw(root)
+        config = resolve_raw(root, raw)
     except ConfigError as exc:
         print(message("config.error", error=str(exc)), file=sys.stderr)
         return 1
-    return action(config)
+    return action(config, raw.overrides)
 
 
 def run_show(root: Path) -> int:
-    def show(config: LaConfig) -> int:
+    def show(config: LaConfig, overrides: list[str]) -> int:
         print(json.dumps(config.model_dump(), indent=2))
+        for key in overrides:
+            print(message("config.local-override", key=key, file=local_config_file()), file=sys.stderr)
         return 0
 
     return _with_config(root, show)
@@ -73,7 +77,7 @@ def _value(config: LaConfig, key: str) -> Any:
 
 
 def run_get(root: Path, key: str) -> int:
-    def get(config: LaConfig) -> int:
+    def get(config: LaConfig, _overrides: list[str]) -> int:
         if key == "languages":
             return _languages(root, config)
         try:

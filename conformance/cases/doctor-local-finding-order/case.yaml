@@ -1,0 +1,11 @@
+kind: neutral
+command: la-doctor
+hide:
+- gh
+normalize:
+- version
+expect:
+  exit: 1
+note: the local-file finding comes after the consistency findings and before the missing
+  executables
+golden: manual

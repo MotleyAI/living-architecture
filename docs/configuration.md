@@ -44,6 +44,27 @@ configuration and `la-config get <dotted.key>` prints one value.
   directory without `index.yaml` is not a living-architecture setup);
 - `tracker: none` with `openspec: false`, which leaves no place for the plan to survive a session reset.
 
+## Local overrides
+
+A contributor who lacks the repo's tracker or Codex can override those settings in
+`living-architecture.local.yaml` at the repo root, without editing the committed file:
+
+```yaml
+tracker: none
+reviewers:
+  codex: false
+```
+
+It may set only `tracker` and `reviewers.codex`; any other key is an error naming the key and the file. It is a
+deep merge over `living-architecture.yaml` (or over the defaults when there is none): mappings merge key by key,
+so `reviewers.sonar` stays as committed. Every command sees the merged configuration. `la-config show` prints a
+note on stderr for each key the local file sets; `la-config get` prints none.
+
+The file holds one person's settings, so it must stay out of git: add `living-architecture.local.yaml` to
+`.gitignore` (`/la:init` offers to). `la-doctor` fails while git has it tracked (staged included) or does not
+ignore it. A local file alone does not onboard a repo: `la-doctor --require-config` still asks for the committed
+file.
+
 ## Review bots
 
 CodeRabbit and Sonar are not configured: `la-pr-reviewers <PR>` detects them on each PR. CodeRabbit counts as
