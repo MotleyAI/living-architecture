@@ -114,7 +114,7 @@ def test_rope_walk_lists_only_the_uncoverable_file(
     pkg = tmp_path / "pkg"
     pkg.mkdir()
     (pkg / "a.py").write_text(annotation_gap)
-    (pkg / "b.py").write_text("def f(p: int) -> int:\n    return p\n")
+    (pkg / "b.py").write_text("x = 1\n")  # an annotation would be a gap under rope's own `_arg`
     gap = message("compliance.rope-walk", path=str(pkg / "a.py"), line=3)
     assert main(["--select", "rope-walk", str(pkg / "a.py"), str(pkg / "b.py")]) == 1
     assert capsys.readouterr().out == gap + "\n"

@@ -7,7 +7,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 import pytest
-from rope.base import codeanalyze, pyscopes
+from rope.base import codeanalyze, pyscopes, simplify
 from rope.refactor import patchedast
 
 from living_architecture.refactor import rope_patches
@@ -165,6 +165,18 @@ def test_unpatched_rope_still_needs_the_patch(source: str) -> None:
     )
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip() in {"crash", "gap"}
+
+
+def test_unpatched_rope_still_blanks_tstrings() -> None:
+    script = "from rope.base import simplify; print(simplify.real_code('t\"{a}(\"'))"
+    result = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True, check=False)
+    assert result.returncode == 0, result.stderr
+    assert "a" not in result.stdout
+
+
+def test_patched_simplify_keeps_tstring_text() -> None:
+    rope_patches.apply_rope_patches()
+    assert simplify.real_code('x = t"{a}" + T"{b}" + "c"\n') == 'x = t"{a}" + T"{b}" + " "\n'
 
 
 def test_apply_resets_a_primed_string_pattern(monkeypatch: pytest.MonkeyPatch) -> None:

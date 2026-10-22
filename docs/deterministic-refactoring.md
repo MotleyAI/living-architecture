@@ -43,7 +43,7 @@ only when:
 
 | Language | Checks |
 |---|---|
-| Python | `untyped-def`, `unannotated-attr`, `mock` |
+| Python | `untyped-def`, `unannotated-attr`, `mock`, `rope-walk` |
 | TypeScript | `tsconfig` (`strict`, `noImplicitAny`, `noImplicitOverride` enabled), `explicit-any`, `untyped-def` (implicitly-`any` parameters, as the type checker sees them), `mock` |
 
 `--select` picks a subset; `--attr NAME` also reports `x.NAME` accesses on untyped receivers.

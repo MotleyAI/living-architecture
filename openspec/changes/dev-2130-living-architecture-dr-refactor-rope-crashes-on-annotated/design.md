@@ -66,8 +66,10 @@ listed in Non-Goals, so it is not done.
 - `_handle_function_def_node`: `"->", returns` before `":"`. Decorators and `type_params` keep their place.
 - `_ClassDef`: `bases` and `keywords` are merged into one source-ordered list inside the parentheses.
 - `_TryFinally`: `try:` body, handlers, then `else:` with `orelse`, then `finally:`.
-- `_JoinedStr`: computes the `consume_string` end first and runs rope's own logic. Then, if the offset is
-  before that end, it sets `source.offset` and the region end to it. Only when `sorted_children` is collected
+- `_JoinedStr`: takes the string's end first and runs rope's own logic. On Python 3.12+ the end is the node's
+  AST end, because PEP 701 lets a nested f-string reuse the outer quote (`f"{f"{a}("}" ")"`) and rope's string
+  regex stops there; below 3.12 it is the `consume_string` end. Then, if the offset is before that end, it sets
+  `source.offset` and the region end to it. Only when `sorted_children` is collected
   does it append the skipped text to the last child, so `write_ast` stays exact. This works independently of
   `sorted_children`, because production walks have it off.
 - `_TemplateStr`/`_Interpolation` (only where `ast.TemplateStr` exists) are handled like
@@ -75,6 +77,10 @@ listed in Non-Goals, so it is not done.
 - String prefixes: `codeanalyze.get_string_pattern` / `get_formatted_string_pattern` are patched to accept
   every legal prefix, in any order and case (`r`, `b`, `u`, `f`, `t`, `rb`, `br`, `fr`, `rf`, `tr`, `rt`).
   `_Source._string_pattern` is reset, because rope caches the compiled regex on first use.
+- t-strings outside the walker: rope's `simplify.real_code` blanks every string but f-strings before it finds a
+  word's range, so a rename inside a t-string edits the wrong offset (`t"{a}("` becomes `t"{ab}("`).
+  `codeanalyze.get_any_string_pattern` (and `simplify._str`, compiled from it) accept `t`, and
+  `simplify.real_code` keeps t-strings' text like f-strings'.
 
 Each patch has repro tests and a canary. The canary runs a subprocess with unpatched rope and asserts that
 the repro still crashes or violates D1. The canary's comment links the upstream issue (D8) as a forward
@@ -151,6 +157,10 @@ that later token searches mis-match**. Body:
 > 7. `else` of `try/except/else/finally` (`_TryFinally`): an `else:` body holding `x = "("`
 > 8. `rb`/`Rb` prefixes (string pattern `[uUbB]?[rR]?`): `x = rb"("`; the region starts after `r`
 > 9. 3.14 t-strings: `TemplateStr`/`Interpolation` are unknown nodes: `f(t"{a}(", ")")`
+> 10. 3.12+ nested f-strings that reuse the outer quote: `x = f"{f"{a}("}" ")"` (the string regex stops at
+>     the inner quote)
+> 11. outside `patchedast`: `simplify.real_code` blanks t-strings (`get_any_string_pattern` has no `t`), so
+>     renaming `a` in `t"{a}("` gives `t"{ab}("`
 >
 > Suggested regression test: after walking any module, every AST node except context/operator nodes,
 > `withitem` and f-string internals has a `region`, and every string literal's region covers its

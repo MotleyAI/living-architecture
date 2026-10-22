@@ -16,7 +16,7 @@ from rope.refactor.move import MoveGlobal, MoveModule, create_move
 from rope.refactor.rename import Rename
 
 from living_architecture.contract import message
-from living_architecture.refactor.rope_patches import apply_rope_patches
+from living_architecture.refactor.rope_patches import WalkerGap, apply_rope_patches
 
 apply_rope_patches()
 
@@ -91,11 +91,11 @@ def rename(
 ) -> None:
     offset = _resolve_offset(locator, Path(file).read_text())
     renamer = Rename(project, _resource(project, file), offset)
-    if unsure == "include":
-        print(message("refactor.unsure-warning"))
     changes = renamer.get_changes(
         new_name, in_hierarchy=in_hierarchy, unsure=(lambda *_: True) if unsure == "include" else None
     )
+    if unsure == "include":
+        print(message("refactor.unsure-warning"))
     _emit(project, changes, apply)
 
 
@@ -112,7 +112,8 @@ def move_module(project: Project, *, module: str, dest: str, apply: bool) -> Non
 
 def run_refactor(*, project_root: str, command: str, apply: bool, options: dict[str, Any]) -> int:
     """`dr-refactor` handler: 0 on success, 1 with the reason on stderr when rope cannot proceed."""
-    project = Project(str(Path(project_root).resolve()))
+    # rope documents `ropefolder=None` (no rope folder); its signature infers `str` from the default.
+    project = Project(str(Path(project_root).resolve()), ropefolder=None)  # pyright: ignore[reportArgumentType]
     try:
         locator = Locator(
             offset=options.get("offset"), line=options.get("line"), col=options.get("col"), name=options.get("name")
@@ -133,6 +134,9 @@ def run_refactor(*, project_root: str, command: str, apply: bool, options: dict[
             move_module(project, module=str(options["module"]), dest=str(options["dest"]), apply=apply)
     except RefactorError as exc:
         print(exc, file=sys.stderr)
+        return 1
+    except WalkerGap as gap:
+        print(message("refactor.rope-walk", path=gap.path, line=gap.line), file=sys.stderr)
         return 1
     finally:
         project.close()

@@ -198,7 +198,7 @@ commands:
     native: [python, typescript]
     help: >-
       Report constructs that make a rename un-verifiable, with each file's language's checks (Python:
-      untyped-def, unannotated-attr, mock; TypeScript: tsconfig, explicit-any, untyped-def, mock). With --attr
+      untyped-def, unannotated-attr, mock, rope-walk; TypeScript: tsconfig, explicit-any, untyped-def, mock). With --attr
       NAME it also reports x.NAME accesses whose receiver is untyped.
     exit: {0: clean, 1: violations, 2: usage error}
     positionals:

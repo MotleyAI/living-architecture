@@ -226,8 +226,9 @@ def test_silent_walker_gap_is_refused(
     project: Path, capsys: pytest.CaptureFixture[str], restore_rope_visitor: Callable[[str], None]
 ) -> None:
     restore_rope_visitor("_JoinedStr")
-    (project / "pkg" / "gap.py").write_text('from pkg.a import foo\n\nx = foo()\ny = f"{x}" "z"\n')
-    _gap_refused(project, capsys, 4)
+    # rope walks a module only to place offsets among its inner scopes, so the gap sits in a function.
+    (project / "pkg" / "gap.py").write_text('from pkg.a import foo\n\n\ndef use() -> None:\n    x = foo()\n    y = f"{x}" "z"\n')
+    _gap_refused(project, capsys, 6)
 
 
 def test_exception_inside_ropes_walker_is_a_gap(
@@ -246,7 +247,7 @@ def test_value_error_inside_ropes_walker_is_a_gap(
         self._handle(node, ["\x00"])  # rope's consume_joined_string raises ValueError
 
     monkeypatch.setattr(patchedast._PatchingASTWalker, "_JoinedStr", unmatched)
-    (project / "pkg" / "gap.py").write_text('from pkg.a import foo\n\nx = foo()\ny = f"{x}"\n')
+    (project / "pkg" / "gap.py").write_text('from pkg.a import foo\n\n\ndef use() -> None:\n    x = foo()\n    y = f"{x}"\n')
     _gap_refused(project, capsys, 4)
 
 

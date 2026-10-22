@@ -26,12 +26,12 @@ it with `uv sync --python 3.14`.
 - [x] 1.3 Test that `apply_rope_patches()` resets a primed `_Source._string_pattern` cache. Verify: it fails
   before the patch.
 - [x] 1.4 Stdlib sweep and this-repo sweep (design D9) in the default suite. Verify: they fail before the patches.
-- [ ] 1.5 Localization unit tests (design D3), with one original rope visitor restored by monkeypatch:
+- [x] 1.5 Localization unit tests (design D3), with one original rope visitor restored by monkeypatch:
   - the first-violation line after a crash (annotation gap: the annotation's line, not the drift line);
   - a silent gap (the string tail);
   - the top-level-statement fallback;
   - a clean module gives `None`.
-- [ ] 1.6 Guard tests through `run_refactor` / the real `Rename` path (design D4):
+- [x] 1.6 Guard tests through `run_refactor` / the real `Rename` path (design D4):
   - `refactor.rope-walk` text, path and line on stderr, exit 1, empty stdout;
   - the tree is unchanged with `--apply`;
   - a non-walker exception (also one raised in our own patch code) propagates.
@@ -56,33 +56,33 @@ it with `uv sync --python 3.14`.
 
 ## 2. Shared contract
 
-- [ ] 2.1 `shared/findings.yaml`: add `compliance.rope-walk` and `refactor.rope-walk` (design D7 wording).
-- [ ] 2.2 `shared/languages.yaml`: Python `compliance_checks: [untyped-def, unannotated-attr, mock, rope-walk]`.
-- [ ] 2.3 `shared/cli.yaml`: the dr-compliance help lists `rope-walk` among Python's checks. Re-bless the
+- [x] 2.1 `shared/findings.yaml`: add `compliance.rope-walk` and `refactor.rope-walk` (design D7 wording).
+- [x] 2.2 `shared/languages.yaml`: Python `compliance_checks: [untyped-def, unannotated-attr, mock, rope-walk]`.
+- [x] 2.3 `shared/cli.yaml`: the dr-compliance help lists `rope-walk` among Python's checks. Re-bless the
   `compliance-help` golden with `LA_UPDATE_GOLDENS=1`; the commit message states the reason (a deliberate
   help change).
-- [ ] 2.4 Run `scripts/sync-shared`. Verify: `scripts/sync-shared --check` exits 0 and the drift tests pass.
+- [x] 2.4 Run `scripts/sync-shared`. Verify: `scripts/sync-shared --check` exits 0 and the drift tests pass.
 
 ## 3. Python implementation
 
-- [ ] 3.1 `refactor/rope_patches.py`: the invariant, character offsets and violations (design D1), and every
+- [x] 3.1 `refactor/rope_patches.py`: the invariant, character offsets and violations (design D1), and every
   walker patch (design D2), including the pattern cache reset. Fix the stale "rope <= 1.14" docstring; keep
   docstrings concise. Verify: 1.1–1.4 pass.
-- [ ] 3.2 `walk_gap_line` (design D3) and the `GlobalScope._calculate_scope_regions` guard raising
+- [x] 3.2 `walk_gap_line` (design D3) and the `GlobalScope._calculate_scope_regions` guard raising
   `WalkerGap` (design D4), with narrow exception translation. Verify: 1.5 passes.
-- [ ] 3.3 `refactor/rope_refactor.py`: `Project(..., ropefolder=None)`; catch `WalkerGap` and print
+- [x] 3.3 `refactor/rope_refactor.py`: `Project(..., ropefolder=None)`; catch `WalkerGap` and print
   `refactor.rope-walk`, exit 1. Verify: 1.6, 1.7 and the existing refactor conformance goldens pass unchanged.
-- [ ] 3.4 `refactor/compliance.py`: the `rope-walk` check (design D5); update the module docstring's check
+- [x] 3.4 `refactor/compliance.py`: the `rope-walk` check (design D5); update the module docstring's check
   list. Verify: 1.8 passes, and the existing compliance goldens are unchanged.
 
 ## 4. Docs, CI, versions
 
-- [ ] 4.1 `docs/deterministic-refactoring.md`: the Python row of the checks table lists `rope-walk`.
-- [ ] 4.2 `plugin/languages/python.md`, under "Compliance fixes", add exactly this line (user-approved):
+- [x] 4.1 `docs/deterministic-refactoring.md`: the Python row of the checks table lists `rope-walk`.
+- [x] 4.2 `plugin/languages/python.md`, under "Compliance fixes", add exactly this line (user-approved):
   `` - `rope-walk` → rope cannot walk this construct, so `dr-refactor` refuses the file. It is a rope bug, not a source error: report it with the named line; rewriting the construct is only a stopgap. ``
-- [ ] 4.3 `.github/workflows/ci.yml`: add `"3.14"` to the Python matrix. Verify: the full Python suite passes
+- [x] 4.3 `.github/workflows/ci.yml`: add `"3.14"` to the Python matrix. Verify: the full Python suite passes
   locally on 3.11 and 3.14 (see the gotcha above).
-- [ ] 4.4 Bump to 0.3.3, mirroring commit 5d9752e:
+- [x] 4.4 Bump to 0.3.3, mirroring commit 5d9752e:
   - `python/pyproject.toml` and `python/uv.lock`;
   - `node/package.json` and `node/package-lock.json`;
   - `plugin/.claude-plugin/plugin.json`;
@@ -92,10 +92,10 @@ it with `uv sync --python 3.14`.
 
 ## 5. Full verification
 
-- [ ] 5.1 Python: `uv run pytest -q`, `uv run ruff check src tests` and `uv run basedpyright src tests` are
+- [x] 5.1 Python: `uv run pytest -q`, `uv run ruff check src tests` and `uv run basedpyright src tests` are
   green. npm: `npm run lint && npm run typecheck`, `npm test`, `npm run build && npm run conformance`.
   Repo-wide: `scripts/conformance-cross`, `la-arch-check`.
-- [ ] 5.2 Manual acceptance. Use the SLayer checkout at `/home/james/GitHub/SLayer/slayer`; it is read-only in
+- [x] 5.2 Manual acceptance. Use the SLayer checkout at `/home/james/GitHub/SLayer/slayer`; it is read-only in
   the sandbox, and a dry-run must not need to write.
   - Walk every `git ls-files '*.py'` file: all 1,222 pass `dr-compliance --select rope-walk`.
   - `dr-refactor --project /home/james/GitHub/SLayer/slayer rename --file slayer/core/keys.py --line 326 --col 5 --new-name source`
