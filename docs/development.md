@@ -50,4 +50,6 @@ In `python/`, bump the version with `uv version <new>`, then in `node/package.js
 and update the pins in the README and [commands.md](commands.md). Run `scripts/sync-shared` and commit the
 refreshed copies. Tag `v<version>` and publish a GitHub release for it; the `Publish` workflow first runs
 `scripts/release-check` (every version equals the tag, both contract hashes agree) and publishes neither twin
-otherwise. The npm job skips while `node/package.json` is `"private": true`.
+otherwise. The npm job skips while `node/package.json` is `"private": true`. It publishes through npm trusted
+publishing, which trusts `publish.yml` in this repository by name: renaming the workflow needs a new trusted
+publisher in the package's npmjs.com settings.

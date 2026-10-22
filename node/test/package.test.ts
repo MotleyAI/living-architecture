@@ -14,6 +14,15 @@ describe('package.json', () => {
     expect(PACKAGE.bin ?? {}).toEqual(Object.fromEntries(commands.map((c) => [c, `dist/bin/${c}.js`])));
   });
 
+  // Provenance publishing from publish.yml fails unless this names the publishing repository.
+  it('names the GitHub repository it is published from', () => {
+    expect(PACKAGE.repository).toEqual({
+      type: 'git',
+      url: 'git+https://github.com/MotleyAI/living-architecture.git',
+      directory: 'node',
+    });
+  });
+
   it('moves in lockstep with the PyPI twin and the plugin', () => {
     const pyproject = readFileSync(join(REPO_ROOT, 'python', 'pyproject.toml'), 'utf8');
     const project = pyproject.split(/^\[/m).find((section) => section.startsWith('project]')) ?? '';

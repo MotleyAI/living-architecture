@@ -3,6 +3,11 @@
   "version": "0.3.1",
   "description": "The npm twin of the living-architecture la-* commands.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MotleyAI/living-architecture.git",
+    "directory": "node"
+  },
   "type": "module",
   "engines": {
     "node": ">=22"

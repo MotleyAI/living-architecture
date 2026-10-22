@@ -1,4 +1,5 @@
 import json
+import re
 import tomllib
 from pathlib import Path
 
@@ -8,6 +9,8 @@ from living_architecture import __version__
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 REPO_ROOT = PROJECT_ROOT.parent
+# An install pin: `living-architecture==X` (PyPI) or `living-architecture@X` (npm).
+PIN = re.compile(r"living-architecture(?:==|@)(\d[\w.+-]*)")
 
 
 def _plugin_version() -> str:
@@ -39,6 +42,13 @@ def test_npm_package_version_agrees() -> None:
     package = REPO_ROOT / "node" / "package.json"
     assert package.is_file(), "node/package.json is missing"
     assert json.loads(package.read_text(encoding="utf-8"))["version"] == _plugin_version() == __version__
+
+
+def test_doc_pins_name_the_current_version() -> None:
+    docs = [REPO_ROOT / "README.md", *sorted((REPO_ROOT / "docs").glob("*.md"))]
+    pins = [(doc.name, version) for doc in docs for version in PIN.findall(doc.read_text(encoding="utf-8"))]
+    assert pins, "no living-architecture version pin found in README.md or docs/"
+    assert [pin for pin in pins if pin[1] != __version__] == []
 
 
 @pytest.mark.parametrize("name", ["README.md", "LICENSE"])
