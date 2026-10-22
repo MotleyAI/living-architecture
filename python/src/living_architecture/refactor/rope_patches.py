@@ -21,11 +21,12 @@ _rope_scope_regions = pyscopes.GlobalScope._calculate_scope_regions
 
 _PLAIN_PREFIX = r"(?:(?<!\w)(?:[uU]|[bB][rR]?|[rR][bB]?))?"
 _FORMATTED_PREFIX = r"(?<!\w)(?:[fFtT][rR]?|[rR][fFtT])"
-_ANY_PREFIX = r"[bBfFrRtTuU]{,4}"
+_ANY_PREFIX = r"(?:(?<!\w)[bBfFrRtTuU]{1,4})?"
 
 _UNREGIONED = (ast.expr_context, ast.operator, ast.boolop, ast.unaryop, ast.cmpop)
 _NEWLINE = re.compile(r"\r\n|\r|\n")
-_TRIVIA = re.compile(r"(?:[\s()]|\\(?:\r\n|\r|\n)|#[^\r\n]*)*")
+_COMMENT = re.compile(r"#[^\r\n]*")
+_TRIVIA = re.compile(r"(?:[\s()]|\\[\r\n])*")
 
 
 class WalkerGap(Exception):
@@ -88,7 +89,7 @@ def _handle_function_def_node(self, node, is_async):
     self._handle(node, children)
 
 
-def _ClassDef(self, node):
+def _class_def(self, node):
     children = []
     for decorator in node.decorator_list:
         children.extend(("@", decorator))
@@ -102,7 +103,7 @@ def _ClassDef(self, node):
     self._handle(node, children)
 
 
-def _TryFinally(self, node):
+def _try_finally(self, node):
     children = ["try", ":", *node.body, *node.handlers]
     if node.orelse:
         children.extend(["else", ":", *node.orelse])
@@ -110,7 +111,7 @@ def _TryFinally(self, node):
     self._handle(node, children)
 
 
-def _JoinedStr(self, node):
+def _joined_str(self, node):
     """rope's, with the region extended over every implicitly concatenated piece."""
     if sys.version_info >= (3, 12):
         _, end = self.ast_adapter[node]
@@ -130,7 +131,7 @@ def _JoinedStr(self, node):
 if sys.version_info >= (3, 14):
     _INTERPOLATED: tuple[type[ast.expr], ...] = (ast.JoinedStr, ast.TemplateStr)
 
-    def _TemplateStr(self, node):
+    def _template_str(self, node):
         """Walked as the equivalent f-string."""
         values: list[ast.expr] = [
             ast.copy_location(ast.FormattedValue(part.value, part.conversion, part.format_spec), part)
@@ -209,20 +210,29 @@ def coverage_violations(tree: ast.AST, source: str) -> list[tuple[int, str]]:
         line = getattr(node, "lineno", None)
         start: tuple[int, int] = parent_start if line is None else (line, getattr(node, "col_offset", 0))
         region: tuple[int, int] | None = vars(node).get("region")
-        walked = region is not None
         if isinstance(node, ast.withitem):
             walked = parent_walked
-        elif not walked:
-            if parent_walked:
-                found.append((*start, "unwalked"))
-        elif region is not None and _is_string(node) and not _covers(node, region, source, starts):
-            found.append((*start, "string"))
+        else:
+            walked = region is not None
+            kind = _violation(node, region, parent_walked, source, starts)
+            if kind is not None:
+                found.append((*start, kind))
         if not isinstance(node, _INTERPOLATED):
             for child in ast.iter_child_nodes(node):
                 visit(child, walked, start)
 
     visit(tree, False, (1, 0))
     return [(line, kind) for line, _, kind in sorted(found)]
+
+
+def _violation(
+    node: ast.AST, region: tuple[int, int] | None, parent_walked: bool, source: str, starts: list[int]
+) -> str | None:
+    if region is None:
+        return "unwalked" if parent_walked else None
+    if _is_string(node) and not _covers(node, region, source, starts):
+        return "string"
+    return None
 
 
 def _is_string(node: ast.AST) -> TypeGuard[ast.expr]:
@@ -236,7 +246,7 @@ def _covers(node: ast.expr, region: tuple[int, int], source: str, starts: list[i
     return (
         region_start <= start
         and end <= region_end
-        and _TRIVIA.fullmatch(source[region_start:start] + source[end:region_end]) is not None
+        and _TRIVIA.fullmatch(_COMMENT.sub("", source[region_start:start] + source[end:region_end])) is not None
     )
 
 
@@ -307,11 +317,11 @@ def apply_rope_patches() -> None:
     walker._arg = _arg
     walker._arguments = _arguments
     walker._handle_function_def_node = _handle_function_def_node
-    walker._ClassDef = _ClassDef
-    walker._TryFinally = _TryFinally
-    walker._JoinedStr = _JoinedStr
+    walker._ClassDef = _class_def
+    walker._TryFinally = _try_finally
+    walker._JoinedStr = _joined_str
     if sys.version_info >= (3, 14):
-        walker._TemplateStr = _TemplateStr
+        walker._TemplateStr = _template_str
     codeanalyze.get_string_pattern = _string_pattern
     codeanalyze.get_formatted_string_pattern = _formatted_string_pattern
     patchedast._Source._string_pattern = None

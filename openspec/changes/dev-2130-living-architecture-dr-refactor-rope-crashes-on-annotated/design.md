@@ -193,7 +193,7 @@ Each canary's comment links its issue: the walker canaries link the first, the `
 ## Risks / Trade-offs
 
 - [rope internals change between releases] → The canaries fail on an upstream fix, and the sweep fails on a
-  regression. `rope>=1.13` stays as is; CI tests the locked version.
+  regression. The patches use rope 1.15 internals, so the floor is `rope>=1.15`; CI tests the locked version.
 - [A new Python's stdlib exposes a gap and turns the suite red] → This is the intended signal. Fix the gap in
   `rope_patches.py`.
 - [Line fallback 3 is vague] → No known input reaches it. Fallback 2 still names the statement whenever a

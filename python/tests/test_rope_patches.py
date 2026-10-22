@@ -181,6 +181,20 @@ def test_patched_simplify_keeps_tstring_text() -> None:
     assert simplify.real_code('x = t"{a}" + T"{b}" + "c"\n') == 'x = t"{a}" + T"{b}" + " "\n'
 
 
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        ('assert"("\n', 'assert" "\n'),
+        ('x = not"("\n', 'x = not" "\n'),
+        ('if a:\n    pass\nelif"(":\n    pass\n', 'if a:\n    pass\nelif" ":\n    pass\n'),
+    ],
+    ids=["assert", "not", "elif"],
+)
+def test_patched_simplify_ignores_a_keyword_tail_as_prefix(source: str, expected: str) -> None:
+    rope_patches.apply_rope_patches()
+    assert simplify.real_code(source) == expected
+
+
 def test_apply_resets_a_primed_string_pattern(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(patchedast._Source, "_string_pattern", re.compile(r'"[^"\n]*"'))
     assert _violations('x = rb"("\n') == []
@@ -258,6 +272,15 @@ def test_gap_line_of_a_silent_gap_is_the_short_string(restore_rope_visitor: Call
     source = 'é = "😀"\nx = f"{é}" "y"\n'
     patchedast.get_patched_ast(source)
     assert rope_patches.walk_gap_line(source) == 2
+
+
+def test_string_region_gap_after_a_banner_comment_is_found_without_backtracking() -> None:
+    source = '"a"  # ' + "#" * 64 + "\nb\n"
+    tree = ast.parse(source)
+    expr = tree.body[0]
+    assert isinstance(expr, ast.Expr)
+    vars(expr.value)["region"] = (0, len(source))
+    assert rope_patches.coverage_violations(tree, source) == [(1, "string")]
 
 
 def test_gap_line_falls_back_to_the_top_level_statement(monkeypatch: pytest.MonkeyPatch) -> None:
