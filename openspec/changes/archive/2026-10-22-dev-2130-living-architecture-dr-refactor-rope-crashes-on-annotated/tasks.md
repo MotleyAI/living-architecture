@@ -110,6 +110,6 @@ it with `uv sync --python 3.14`.
 
 ## 7. After merge (the user)
 
-- [ ] 7.1 Publish the 0.3.3 GitHub release (`publish.yml` runs the release check).
-- [ ] 7.2 SLayer bumps its pinned `living-architecture` to 0.3.3 under DEV-2119. DEV-2130 closes only on the
-  user's call.
+- [x] ~~7.1 Publish the 0.3.3 GitHub release (`publish.yml` runs the release check).~~ Post-merge, tracked on DEV-2130.
+- [x] ~~7.2 SLayer bumps its pinned `living-architecture` to 0.3.3 under DEV-2119. DEV-2130 closes only on the
+  user's call.~~ Post-merge, moved to DEV-2119.
