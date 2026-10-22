@@ -127,7 +127,8 @@ def test_corpus_is_walked_fully_without_sorted_children(source: str) -> None:
     assert _violations(source) == []
 
 
-# Canaries: unpatched rope still mis-walks each repro; drop its patch once rope fixes the gap upstream.
+# Canaries: unpatched rope still mis-walks each repro; drop its patch when
+# https://github.com/python-rope/rope/issues/912 is fixed.
 UNPATCHED_WALK = """\
 import sys
 from rope.refactor import patchedast
@@ -167,6 +168,7 @@ def test_unpatched_rope_still_needs_the_patch(source: str) -> None:
     assert result.stdout.strip() in {"crash", "gap"}
 
 
+# Drop the simplify patch when https://github.com/python-rope/rope/issues/913 is fixed.
 def test_unpatched_rope_still_blanks_tstrings() -> None:
     script = "from rope.base import simplify; print(simplify.real_code('t\"{a}(\"'))"
     result = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True, check=False)

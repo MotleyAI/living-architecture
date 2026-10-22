@@ -105,8 +105,8 @@ it with `uv sync --python 3.14`.
 
 ## 6. Upstream (pr-implement, only after the user's explicit go-ahead)
 
-- [ ] 6.1 File design D8's issue with `gh issue create -R python-rope/rope`. Put its URL in each canary's
-  comment as a forward pointer ("drop this patch when <url> is fixed").
+- [x] 6.1 File design D8's two issues with `gh issue create -R python-rope/rope`. Put each URL in its canaries'
+  comments as a forward pointer ("drop this patch when <url> is fixed").
 
 ## 7. After merge (the user)
 

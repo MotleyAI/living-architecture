@@ -136,7 +136,7 @@ Once every known gap is fixed, no real input reaches either finding. Both go in 
 in-process (monkeypatch) and assert the exact text, line, exit code and an unchanged tree. Codex asked for
 goldens; the user chose this over a test hook in shipped code.
 
-### D8. Upstream issue (filed in pr-implement after the user's go-ahead)
+### D8. Upstream issues (filed in pr-implement after the user's go-ahead)
 `gh issue create -R python-rope/rope`, title: **patchedast: visitors that omit sub-nodes leave unconsumed text
 that later token searches mis-match**. Body:
 
@@ -159,8 +159,6 @@ that later token searches mis-match**. Body:
 > 9. 3.14 t-strings: `TemplateStr`/`Interpolation` are unknown nodes: `f(t"{a}(", ")")`
 > 10. 3.12+ nested f-strings that reuse the outer quote: `x = f"{f"{a}("}" ")"` (the string regex stops at
 >     the inner quote)
-> 11. outside `patchedast`: `simplify.real_code` blanks t-strings (`get_any_string_pattern` has no `t`), so
->     renaming `a` in `t"{a}("` gives `t"{ab}("`
 >
 > Suggested regression test: after walking any module, every AST node except context/operator nodes,
 > `withitem` and f-string internals has a `region`, and every string literal's region covers its
@@ -168,7 +166,14 @@ that later token searches mis-match**. Body:
 > fixed. We carry these patches in living-architecture's `rope_patches.py` and will drop each when it
 > lands upstream.
 
-The issue URL then goes into each canary's comment.
+A second issue, title: **simplify.real_code blanks t-strings, so renames inside them edit the wrong offset**. Body:
+
+> `simplify.real_code` replaces the text of every string except f-strings (`"f" in prefix`), and
+> `get_any_string_pattern`'s prefix `[bBfFrRuU]{,4}` has no `t`. On Python 3.14 a t-string's interpolations are
+> therefore blanked, and renaming `a` in `def h():\n    a = 1\n    f(t"{a}(", ")")` gives `t"{ab}("`. Accepting
+> `t` in the prefix and keeping t-strings' text like f-strings' fixes it.
+
+Each canary's comment links its issue: the walker canaries link the first, the `real_code` canary the second.
 
 ### D9. Tests and CI
 - `test_rope_patches.py`:
