@@ -1,11 +1,14 @@
+import importlib.util
 import json
 import os
 import subprocess
 import sys
 from collections.abc import Callable
+from functools import cache
 from pathlib import Path
 
 import pytest
+from rope.refactor import patchedast
 
 from living_architecture.contract import snapshot_dir
 
@@ -103,3 +106,40 @@ def run_script(fake_gh: FakeGh) -> Callable[..., subprocess.CompletedProcess[str
         )
 
     return run
+
+
+@cache
+def _unpatched_walker() -> type:
+    """rope's own `_PatchingASTWalker`, from a private copy of `patchedast` that no patch touches."""
+    spec = importlib.util.spec_from_file_location("_unpatched_patchedast", patchedast.__file__)
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module._PatchingASTWalker
+
+
+@pytest.fixture
+def restore_rope_visitor(monkeypatch: pytest.MonkeyPatch) -> Callable[[str], None]:
+    """Put one of rope's own walker visitors back in place of its patch, for this test."""
+
+    def restore(name: str) -> None:
+        monkeypatch.setattr(patchedast._PatchingASTWalker, name, getattr(_unpatched_walker(), name))
+
+    return restore
+
+
+@pytest.fixture
+def annotation_gap() -> str:
+    """rope's own `_arg` leaves the line-3 annotation unwalked; the walk then drifts and crashes on line 8."""
+    return (
+        "from pkg.a import foo\n"
+        "\n"
+        'def f(p: F("(") = None):\n'
+        "    a = 1\n"
+        "    b = 2\n"
+        "    c = 3\n"
+        "    d = 4\n"
+        "    e = foo()\n"
+        "    return g(a)\n"
+    )

@@ -117,8 +117,9 @@ preflight and `dr-refactor` cannot disagree. The cost is about 8 ms per file.
 
 ### D6. No rope folder
 `Project(root, ropefolder=None)`. rope then keeps its object DB in memory, and the refactor results are
-unchanged. In conformance, every Python refactor case lists `.ropeproject/config.py` in `expect.files` with
-golden `<MISSING>`. rope writes `config.py` first when it creates the folder.
+unchanged. In conformance, every Python refactor case lists `.ropeproject/history.json` in `expect.files` with
+golden `<MISSING>`. rope creates the folder when the `Project` opens and writes `history.json` into it when
+`dr-refactor` closes the project, which it always does.
 
 ### D7. Findings and goldens
 - `compliance.rope-walk: '{path}:{line}: rope-walk: rope cannot follow this construct, so dr-refactor would refuse this file (a rope bug, not a source error)'`

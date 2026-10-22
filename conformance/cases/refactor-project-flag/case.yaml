@@ -16,3 +16,5 @@ git:
 - commit: init
 expect:
   exit: 0
+  files:
+  - proj/.ropeproject/history.json

@@ -18,3 +18,4 @@ expect:
   exit: 0
   files:
   - pkg/solo.py
+  - .ropeproject/history.json

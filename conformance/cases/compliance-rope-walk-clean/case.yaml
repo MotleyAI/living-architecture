@@ -1,0 +1,12 @@
+kind: adapter
+languages:
+- python
+command: dr-compliance
+args:
+- --select
+- rope-walk
+- src/constructs.py
+expect:
+  exit: 0
+golden: manual
+note: every construct rope's walker used to crash on or leave uncovered passes the rope-walk check

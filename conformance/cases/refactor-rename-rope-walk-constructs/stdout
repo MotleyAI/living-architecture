@@ -1,0 +1,32 @@
+Renaming <field> to <describe>:
+
+
+--- a/pkg/api.py
++++ b/pkg/api.py
+@@ -1,11 +1,11 @@
+ from typing import Annotated
+ 
+ 
+-def field(description: str) -> str:
++def describe(description: str) -> str:
+     return description
+ 
+ 
+-async def probe(p: Annotated[str | None, field(description="param text")] = None) -> str:
++async def probe(p: Annotated[str | None, describe(description="param text")] = None) -> str:
+     """Docstring text."""
+     return query(f"{p}" "(")
+ 
+
+--- a/pkg/use.py
++++ b/pkg/use.py
+@@ -1,3 +1,3 @@
+-from pkg.api import field
++from pkg.api import describe
+ 
+-label = field(description="(")
++label = describe(description="(")
+
+
+
+DRY-RUN. 2 file(s) would change. Re-run with --apply.

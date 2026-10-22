@@ -17,4 +17,5 @@ expect:
   files:
   - pkg/solo.py
   - pkg/sub/solo.py
+  - .ropeproject/history.json
 note: rope's `git mv` fails on untracked files; git's own wording is not part of the contract

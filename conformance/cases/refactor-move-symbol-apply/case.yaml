@@ -20,5 +20,6 @@ expect:
   - pkg/a.py
   - pkg/b.py
   - pkg/sub/__init__.py
+  - .ropeproject/history.json
 golden: manual
 note: 'new behaviour: rope''s changes print sorted by path (today the order follows the hash seed)'

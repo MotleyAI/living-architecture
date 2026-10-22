@@ -17,4 +17,5 @@ expect:
   files:
   - pkg/sub/__init__.py
   - other/sub/__init__.py
+  - .ropeproject/history.json
 note: a package directory routes to the Python twin (its source files are Python), from either twin

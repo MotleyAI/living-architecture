@@ -1,14 +1,16 @@
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
 
 from living_architecture.cli import dr_compliance as main
+from living_architecture.contract import message
 from living_architecture.refactor.compliance import ALL_CHECKS, check_path
 
 
 def _check(tmp_path: Path, source: str, *, select: tuple[str, ...] = ALL_CHECKS, attr: str | None = None) -> list[str]:
     path = tmp_path / "m.py"
-    path.write_text(source)
+    path.write_text(source, encoding="utf-8")
     return check_path(path, set(select), attr)
 
 
@@ -73,3 +75,48 @@ def test_main_without_paths_is_a_usage_error() -> None:
     with pytest.raises(SystemExit) as exc:
         main([])
     assert exc.value.code == 2
+
+
+def test_rope_walk_is_a_default_check() -> None:
+    assert ALL_CHECKS == ("untyped-def", "unannotated-attr", "mock", "rope-walk")
+
+
+def test_rope_walk_clean_file(tmp_path: Path) -> None:
+    src = (
+        'async def probe(p: Annotated[_Payload | None, Field(description="param text")] = None) -> str:\n'
+        '    return g(f"{p}" "(")\n'
+        'class A(B, metaclass=M, x=")"):\n    y = rb"("\n'
+    )
+    assert _check(tmp_path, src, select=("rope-walk",)) == []
+
+
+def test_rope_walk_gap_reported_at_the_construct(
+    tmp_path: Path, restore_rope_visitor: Callable[[str], None], annotation_gap: str
+) -> None:
+    restore_rope_visitor("_arg")
+    assert _check(tmp_path, annotation_gap, select=("rope-walk",)) == [
+        message("compliance.rope-walk", path=str(tmp_path / "m.py"), line=3)
+    ]
+
+
+def test_rope_walk_parse_error_only(tmp_path: Path) -> None:
+    [msg] = _check(tmp_path, "def (:\n", select=("rope-walk",))
+    assert "parse-error" in msg
+
+
+def test_rope_walk_lists_only_the_uncoverable_file(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    restore_rope_visitor: Callable[[str], None],
+    annotation_gap: str,
+) -> None:
+    restore_rope_visitor("_arg")
+    pkg = tmp_path / "pkg"
+    pkg.mkdir()
+    (pkg / "a.py").write_text(annotation_gap)
+    (pkg / "b.py").write_text("def f(p: int) -> int:\n    return p\n")
+    gap = message("compliance.rope-walk", path=str(pkg / "a.py"), line=3)
+    assert main(["--select", "rope-walk", str(pkg / "a.py"), str(pkg / "b.py")]) == 1
+    assert capsys.readouterr().out == gap + "\n"
+    assert main([str(pkg / "a.py")]) == 1
+    assert gap in capsys.readouterr().out.splitlines()

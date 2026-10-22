@@ -305,6 +305,7 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | *(new)* an explicit file of no registered language skipped with a warning | 0 | `compliance-unknown-extension-skipped` |
 | *(new)* directory expansion: a Python-only repo ignores a stray `.js`; with no repo language every registered language's files | 1 | `compliance-directory-skips-other-language`, `compliance-directory-no-repo-language` |
 | *(new)* directory expansion when git fails to list the repo's files | 2 | `dr-compliance-git-failed` |
+| *(new)* `rope-walk`: every construct rope's walker used to fail on passes; the Python-only check does not apply to a TypeScript file | 0 | `compliance-rope-walk-clean`, `compliance-select-rope-walk-ts-file` |
 
 ## dr-compliance: TypeScript
 
@@ -353,6 +354,7 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | *(new)* a missing source (rename, move-module file, move-module directory); a directory holding sources of more than one repo language | 1 | `refactor-source-missing`, `refactor-move-module-source-missing`, `refactor-move-module-missing-directory`, `refactor-mixed-language-directory` |
 | *(new)* a source symlinked outside the project; a symlink loop (the source, a parent); a symlink followed before `..`; a module directory symlinked outside | 1 | `refactor-symlink-outside-project`, `refactor-symlink-loop`, `refactor-symlink-loop-parent`, `refactor-symlink-dotdot`, `refactor-move-module-symlink-outside` |
 | *(new)* a package directory moves through the Python twin; its expansion takes `--project`'s repo languages | 0 | `refactor-move-module-package`, `refactor-move-module-project-languages` |
+| *(new)* rename across annotated parameters and f-strings concatenated with literals | 0 | `refactor-rename-rope-walk-constructs` |
 
 ## dr-refactor: TypeScript
 

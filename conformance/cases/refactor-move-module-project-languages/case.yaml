@@ -16,4 +16,6 @@ git:
 - commit: init
 expect:
   exit: 0
+  files:
+  - .ropeproject/history.json
 note: a directory expands with the languages of --project's repo, not the working directory's

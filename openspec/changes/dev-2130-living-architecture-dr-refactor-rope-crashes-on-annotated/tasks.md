@@ -8,7 +8,7 @@ it with `uv sync --python 3.14`.
 
 ## 1. Tests first (pr-tests)
 
-- [ ] 1.1 `python/tests/test_rope_patches.py`: the checked-in grammar corpus (design D9). It holds every repro
+- [x] 1.1 `python/tests/test_rope_patches.py`: the checked-in grammar corpus (design D9). It holds every repro
   from the spec, the tracker issue and design D8, plus the edge cases:
   - `lambda` with posonly, kw-only and defaults;
   - PEP 695 bounds and defaults (skip below 3.12);
@@ -21,11 +21,11 @@ it with `uv sync --python 3.14`.
   - t-strings (skip below 3.14).
 
   Each case asserts the D1 invariant and `write_ast(tree) == source`. Verify: they fail before the patches.
-- [ ] 1.2 One subprocess canary per gap (design D2). Each asserts that unpatched rope still crashes on its
+- [x] 1.2 One subprocess canary per gap (design D2). Each asserts that unpatched rope still crashes on its
   repro or violates D1. Verify: each canary passes today.
-- [ ] 1.3 Test that `apply_rope_patches()` resets a primed `_Source._string_pattern` cache. Verify: it fails
+- [x] 1.3 Test that `apply_rope_patches()` resets a primed `_Source._string_pattern` cache. Verify: it fails
   before the patch.
-- [ ] 1.4 Stdlib sweep and this-repo sweep (design D9) in the default suite. Verify: they fail before the patches.
+- [x] 1.4 Stdlib sweep and this-repo sweep (design D9) in the default suite. Verify: they fail before the patches.
 - [ ] 1.5 Localization unit tests (design D3), with one original rope visitor restored by monkeypatch:
   - the first-violation line after a crash (annotation gap: the annotation's line, not the drift line);
   - a silent gap (the string tail);
@@ -35,19 +35,19 @@ it with `uv sync --python 3.14`.
   - `refactor.rope-walk` text, path and line on stderr, exit 1, empty stdout;
   - the tree is unchanged with `--apply`;
   - a non-walker exception (also one raised in our own patch code) propagates.
-- [ ] 1.7 Dry-run writes nothing: the Python refactor test asserts no `.ropeproject` after a dry-run and after
-  `--apply`. Every existing Python refactor conformance case lists `.ropeproject/config.py` in `expect.files`
-  with a `files/.ropeproject/config.py` golden of `<MISSING>`. Verify: they fail before the fix.
-- [ ] 1.8 `python/tests/test_compliance.py` for `rope-walk`:
+- [x] 1.7 Dry-run writes nothing: the Python refactor test asserts no `.ropeproject` after a dry-run and after
+  `--apply`. Every existing Python refactor conformance case lists `.ropeproject/history.json` in `expect.files`
+  with a `files/.ropeproject/history.json` golden of `<MISSING>`. Verify: they fail before the fix.
+- [x] 1.8 `python/tests/test_compliance.py` for `rope-walk`:
   - a clean file passes;
   - a gap file (monkeypatched) gets one finding at the D3 line;
   - parse-error precedence;
   - `rope-walk` runs by default and `--select rope-walk` selects it.
-- [ ] 1.9 `test_contract.py`:
+- [x] 1.9 `test_contract.py`:
   - `NEW_TEMPLATES` entries for both templates, with the exact design D7 wording;
   - both IDs in `UNPRODUCED_BY_DESIGN`, with the reason "no known input reaches a walker gap; pinned by the
     rope-walk unit tests".
-- [ ] 1.10 Conformance (hand-written goldens, `golden: manual`). List each in `conformance/INVENTORY.md`.
+- [x] 1.10 Conformance (hand-written goldens, `golden: manual`). List each in `conformance/INVENTORY.md`.
   - `compliance-rope-walk-clean` (adapter, Python): a fixture with every formerly failing construct that
     parses on 3.11; exit 0, empty stdout.
   - A neutral `dr-compliance --select rope-walk web/a.ts` case: exit 0, nothing printed, through both twins.
