@@ -1,0 +1,14 @@
+kind: neutral
+languages:
+- python
+- typescript
+fixture: dr-mixed
+command: dr-compliance
+args:
+- --select
+- rope-walk
+- web/a.ts
+expect:
+  exit: 0
+golden: manual
+note: the Python-only rope-walk check is known to either twin but does not apply to a TypeScript file

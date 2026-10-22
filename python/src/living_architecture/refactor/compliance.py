@@ -1,8 +1,9 @@
 """`dr-compliance`: report constructs that make a rename un-verifiable.
 
 A rename's completeness can only be proven by a type checker over code the checker can resolve. This flags
-the blind spots: untyped-def, unannotated-attr, and mock (a double not bound to a spec). With an attribute
-name it also reports `x.NAME` accesses whose receiver is an unannotated parameter.
+the blind spots: untyped-def, unannotated-attr, mock (a double not bound to a spec), and rope-walk (a file rope's
+walker cannot cover). With an attribute name it also reports `x.NAME` accesses whose receiver is an unannotated
+parameter.
 """
 
 from __future__ import annotations
@@ -14,7 +15,10 @@ from typing import TypeGuard
 
 from living_architecture.contract import language, message
 from living_architecture.refactor.mock_spec_lint import check_file as _mock_check
+from living_architecture.refactor.rope_patches import apply_rope_patches, walk_gap_line
 from living_architecture.refactor.routing import RoutingError, compliance_selection, run_split, split
+
+apply_rope_patches()
 
 ALL_CHECKS = tuple(language("python")["compliance_checks"])
 FuncDef = (ast.FunctionDef, ast.AsyncFunctionDef)
@@ -103,8 +107,9 @@ def _check_attr_blindspots(tree: ast.AST, path: Path, name: str) -> list[str]:
 
 
 def check_path(path: Path, selected: set[str], attr: str | None) -> list[str]:
+    source = path.read_text()
     try:
-        tree = ast.parse(path.read_text(), filename=str(path))
+        tree = ast.parse(source, filename=str(path))
     except SyntaxError as exc:
         return [message("compliance.parse-error", path=str(path), line=exc.lineno or 0, error=exc.msg)]
     out: list[str] = []
@@ -114,6 +119,8 @@ def check_path(path: Path, selected: set[str], attr: str | None) -> list[str]:
         out += _check_unannotated_attrs(tree, path)
     if "mock" in selected:
         out += _mock_check(path)
+    if "rope-walk" in selected and (line := walk_gap_line(source)) is not None:
+        out.append(message("compliance.rope-walk", path=str(path), line=line))
     if attr:
         out += _check_attr_blindspots(tree, path, attr)
     return sorted(out)

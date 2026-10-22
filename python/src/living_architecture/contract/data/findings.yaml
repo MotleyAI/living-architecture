@@ -305,6 +305,7 @@ findings:
   refactor.destination-missing: 'destination does not exist: {path}'
   refactor.source-missing: 'source does not exist: {path}'
   refactor.mixed-languages: '{path} holds sources of more than one language: {languages}'
+  refactor.rope-walk: 'rope cannot follow {path}:{line}, so nothing was refactored (a rope bug, not a source error); dr-compliance --select rope-walk lists every such file'
 
   # ---- dr-compliance
   compliance.untyped-def: '{path}:{line}: untyped-def: {name}() missing {missing}'
@@ -313,6 +314,7 @@ findings:
   compliance.unannotated-attr: '{path}:{line}: unannotated-attr: {cls}.{attr} assigned without a type annotation'
   compliance.attr-blindspot: '{path}:{line}: attr-blindspot: {receiver}.{attr} — annotate parameter ''{receiver}'' so a rename of .{attr} is verifiable'
   compliance.parse-error: '{path}:{line}: parse-error: {error}'
+  compliance.rope-walk: '{path}:{line}: rope-walk: rope cannot follow this construct, so dr-refactor would refuse this file (a rope bug, not a source error)'
   compliance.unknown-checks: 'unknown check(s): {checks}'
   compliance.tsconfig: '{path}: tsconfig: {flag} is not enabled'
   compliance.explicit-any: '{path}:{line}: explicit-any: an `any` type — use a real type or `unknown`'

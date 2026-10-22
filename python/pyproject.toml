@@ -1,13 +1,13 @@
 [project]
 name = "living-architecture"
-version = "0.3.2"
+version = "0.3.3"
 description = "Spec-driven development with an enforced living architecture, as a Claude Code plugin plus its CLI tools."
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [{ name = "MotleyAI" }]
-dependencies = ["rope>=1.13", "pydantic>=2.6", "pyyaml>=6", "jsonschema>=4.18", "referencing>=0.28.4"]
+dependencies = ["rope>=1.15", "pydantic>=2.6", "pyyaml>=6", "jsonschema>=4.18", "referencing>=0.28.4"]
 
 # The verifier. Point it at the target project's interpreter (see README).
 [project.optional-dependencies]

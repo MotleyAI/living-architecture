@@ -474,6 +474,12 @@ NEW_TEMPLATES = {
     "refactor.destination-exists": "destination already exists: {path}",
     "refactor.destination-missing": "destination does not exist: {path}",
     "refactor.skipped": "{prog}: not a source file, skipped: {path}",
+    "refactor.rope-walk":
+        "rope cannot follow {path}:{line}, so nothing was refactored (a rope bug, not a source error);"
+        " dr-compliance --select rope-walk lists every such file",
+    "compliance.rope-walk":
+        "{path}:{line}: rope-walk: rope cannot follow this construct, so dr-refactor would refuse this file"
+        " (a rope bug, not a source error)",
     "compliance.tsconfig": "{path}: tsconfig: {flag} is not enabled",
     "compliance.explicit-any": "{path}:{line}: explicit-any: an `any` type — use a real type or `unknown`",
     "compliance.ts-untyped-def": "{path}:{line}: untyped-def: {name} is implicitly any",
@@ -496,6 +502,8 @@ NEW_TEMPLATES = {
 # Defensive findings no real input reaches; each is pinned by a unit test instead of a golden.
 UNPRODUCED_BY_DESIGN = {
     "refactor.conflicting-edits": "TypeScript never returns differing rename edits across projects (node/test/refactor.test.ts)",
+    "refactor.rope-walk": "no known input reaches a walker gap; pinned by the rope-walk unit tests",
+    "compliance.rope-walk": "no known input reaches a walker gap; pinned by the rope-walk unit tests",
 }
 
 

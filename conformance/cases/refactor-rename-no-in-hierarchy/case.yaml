@@ -22,3 +22,4 @@ expect:
   files:
   - pkg/a.py
   - pkg/b.py
+  - .ropeproject/history.json

@@ -17,3 +17,4 @@ expect:
   files:
   - pkg/solo.py
   - pkg/sub/solo.py
+  - .ropeproject/history.json

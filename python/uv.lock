@@ -88,7 +88,7 @@ wheels = [
 
 [[package]]
 name = "living-architecture"
-version = "0.3.2"
+version = "0.3.3"
 source = { editable = "." }
 dependencies = [
     { name = "jsonschema" },
@@ -120,7 +120,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.6" },
     { name = "pyyaml", specifier = ">=6" },
     { name = "referencing", specifier = ">=0.28.4" },
-    { name = "rope", specifier = ">=1.13" },
+    { name = "rope", specifier = ">=1.15" },
 ]
 provides-extras = ["verify"]
 

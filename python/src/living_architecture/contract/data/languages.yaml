@@ -19,7 +19,7 @@ python:
     - '**/conftest.py'
   declaration_globs: []
   excluded_dirs: []
-  compliance_checks: [untyped-def, unannotated-attr, mock]
+  compliance_checks: [untyped-def, unannotated-attr, mock, rope-walk]
   executables: []
   comment_prefix: '#'
   suppression: '# pyright: ignore[<rule>]'

@@ -15,5 +15,7 @@ git:
 - commit: init
 expect:
   exit: 0
+  files:
+  - .ropeproject/history.json
 golden: manual
 note: 'new behaviour: rope''s changes print sorted by path (today the order follows the hash seed)'

@@ -19,5 +19,6 @@ expect:
   files:
   - pkg/a.py
   - pkg/b.py
+  - .ropeproject/history.json
 golden: manual
 note: 'npm twin forwards dr-refactor wholesale: output equals the PyPI twin''s own run'

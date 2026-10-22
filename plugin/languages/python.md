@@ -32,6 +32,7 @@ consumers keyed on the old name.
 - `mock` → bind the double to a spec: `create_autospec(X, spec_set=True)`, `MagicMock(spec_set=X)`,
   `patch(..., autospec=True)`, or a `Protocol` fake.
 - `attr-blindspot` → annotate the named parameter with the owning class (or its `Protocol`).
+- `rope-walk` → rope cannot walk this construct, so `dr-refactor` refuses the file. It is a rope bug, not a source error: report it with the named line; rewriting the construct is only a stopgap.
 - Overrides carry `@typing.override`, so a renamed base method orphans them visibly.
 
 ## Imports

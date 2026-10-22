@@ -1,0 +1,22 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- rename
+- --file
+- pkg/api.py
+- --name
+- field
+- --new-name
+- describe
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - pkg/api.py
+  - pkg/use.py
+  - .ropeproject/history.json
+golden: manual
+note: annotated parameters and f-strings concatenated with literals are renamed like any other code
