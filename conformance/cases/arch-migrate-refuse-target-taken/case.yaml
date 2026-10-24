@@ -1,0 +1,15 @@
+kind: neutral
+command: la-arch-migrate
+fixture: arch-ok
+expect:
+  exit: 2
+  files:
+  - architecture/index.yaml
+  - architecture/model.c4
+  - architecture/python.api.arc42.md
+  - architecture/security.arc42.md
+  - architecture/system.arc42.md
+  - architecture/views.c4
+  - architecture/api.arc42.md
+golden: manual
+note: the target doc already exists

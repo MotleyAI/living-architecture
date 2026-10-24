@@ -1,0 +1,14 @@
+kind: neutral
+command: la-arch-migrate
+fixture: arch-ok
+expect:
+  exit: 2
+  files:
+  - architecture/index.yaml
+  - architecture/model.c4
+  - architecture/python.api.arc42.md
+  - architecture/security.arc42.md
+  - architecture/system.arc42.md
+  - architecture/views.c4
+golden: manual
+note: 'a move that is refused twice reports its first check: source missing before target taken'

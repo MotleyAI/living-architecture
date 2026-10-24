@@ -1,0 +1,11 @@
+kind: neutral
+command: la-arch-migrate
+fixture: arch-ok
+expect:
+  exit: 0
+  files:
+  - architecture/model.c4
+  - architecture/index.yaml
+  - architecture/python.api.arc42.md
+golden: manual
+note: 'an arc42 key naming the doc''s own id name: only the key line goes'

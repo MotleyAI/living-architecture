@@ -94,28 +94,37 @@ def _schema(name: str) -> dict:
     return json.loads((SHARED / "schema" / f"{name}.schema.json").read_text(encoding="utf-8"))
 
 
-def test_node_schema_defines_both_node_varieties() -> None:
+def test_node_schema_defines_every_element_variety() -> None:
     defs = _schema("node")["$defs"]
     assert defs["precise"]["required"] == ["package"]
-    assert set(defs["precise"]["properties"]) == {"package", "claims", "arc42", "specs"}
-    assert set(defs["virtual"]["properties"]) == {"packages", "arc42", "specs"}
-    assert defs["precise"]["additionalProperties"] is False
-    assert defs["virtual"]["additionalProperties"] is False
+    assert set(defs["precise"]["properties"]) == {"package", "claims", "specs"}
+    assert set(defs["virtual"]["properties"]) == {"packages", "specs"}
+    assert set(defs["element"]["properties"]) == {"specs"}
+    for variety in ("precise", "virtual", "element"):
+        assert defs[variety]["additionalProperties"] is False
 
 
 @pytest.mark.parametrize(
     ("variety", "metadata", "valid"),
     [
-        ("precise", {"package": "p", "claims": ["a"], "arc42": "d.md", "specs": ["s"]}, True),
+        ("precise", {"package": "p", "claims": ["a"], "specs": ["s"]}, True),
+        ("precise", {"package": "p", "arc42": "d.md"}, False),
         ("precise", {"package": ["p"]}, False),
         ("precise", {"package": "p", "claims": "a"}, False),
         ("precise", {"package": "p", "claims": [1]}, False),
-        ("precise", {"package": "p", "arc42": ["d.md"]}, False),
         ("precise", {"package": "p", "specs": "s"}, False),
-        ("virtual", {"packages": ["a"], "arc42": "d.md", "specs": ["s"]}, True),
+        ("virtual", {"packages": ["a"], "specs": ["s"]}, True),
+        ("virtual", {"arc42": "d.md"}, False),
         ("virtual", {}, True),
         ("virtual", {"packages": "a"}, False),
         ("virtual", {"packages": [1]}, False),
+        ("element", {"specs": ["s"]}, True),
+        ("element", {}, True),
+        ("element", {"specs": "s"}, False),
+        ("element", {"package": "p"}, False),
+        ("element", {"claims": ["a"]}, False),
+        ("element", {"packages": ["a"]}, False),
+        ("element", {"arc42": "d.md"}, False),
     ],
 )
 def test_node_schema_value_types(variety: str, metadata: dict, valid: bool) -> None:
@@ -419,7 +428,27 @@ NEW_TEMPLATES = {
         "architecture/index.yaml: a language section is required (one of python, typescript)",
     "arch-check.root-undeclared": "model element {element}: top-level elements must be declared language roots",
     "arch-check.root-missing": "model has no root element for declared language {language}",
-    "arch-check.metadata-on-root": "model element {element}: language roots may not carry metadata",
+    "arch-check.arc42-key-retired":
+        "model element {element}: the arc42 key is retired; its doc is architecture/{element}.arc42.md — run la-arch-migrate",
+    "spec-mapping.unknown-element": "spec-mapping: {group} touches unknown element {element}",
+    "spec-mapping.unmapped": "spec-mapping: spec group {group} is mapped by no element and not cross-cutting",
+    "arc42-exists.orphan":
+        "arc42-exists: {doc} is orphaned — not {system}, the doc of a model element, or in cross_cutting_arc42",
+    "arc42-exists.nested-doc": "arc42-exists: {doc} must sit directly in architecture/",
+    "arc42-exists.cross-cutting-not-flat":
+        "arc42-exists: cross_cutting_arc42 names {doc}, which must sit directly in architecture/",
+    "arc42-exists.cross-cutting-is-element":
+        "arc42-exists: cross_cutting_arc42 names {doc}, the doc of model element {element}",
+    "arch-migrate.nothing":
+        "nothing to migrate: the layout is canonical, no element sets arc42 and every cross_cutting_arc42 entry"
+        " sits directly in architecture/",
+    "arch-migrate.moved": "moved {source} to {target}",
+    "arch-migrate.source-missing": "{source} does not exist; nothing written",
+    "arch-migrate.source-moved-twice": "{source} would move to both {first} and {second}; nothing written",
+    "arch-migrate.shared-target": "{first} and {second} would both move to {target}; nothing written",
+    "arch-migrate.target-taken": "{source} cannot move to {target}, which already exists; nothing written",
+    "arch-migrate.diagrams-key-taken":
+        "{source} cannot move to {target}: architecture/index.yaml already has the diagrams key {target}; nothing written",
     "c4.relation-outside-root": "relation {src} -> {dst} outside every language root",
     "c4.view-unscoped": "view {view} is not scoped to a language root",
     "c4.view-scope-unknown": "view {view} is scoped to {root}, which is not a language root",
@@ -507,9 +536,24 @@ UNPRODUCED_BY_DESIGN = {
 }
 
 
+REMOVED_TEMPLATES = [
+    "arch-check.metadata-on-root",
+    "arch-check.metadata-on-nested",
+    "arc42-exists.node-doc-missing",
+    "spec-mapping.unknown-node",
+    "c4.include-non-top-level",
+    "c4.view-includes-non-top-level",
+]
+
+
 @pytest.mark.parametrize(("template_id", "text"), NEW_TEMPLATES.items())
 def test_registry_template_text(template_id: str, text: str) -> None:
     assert _shared_yaml("findings.yaml")["findings"].get(template_id) == text
+
+
+@pytest.mark.parametrize("template_id", REMOVED_TEMPLATES)
+def test_removed_template_is_gone(template_id: str) -> None:
+    assert template_id not in _shared_yaml("findings.yaml")["findings"]
 
 
 def test_every_registry_template_is_produced_by_a_golden() -> None:

@@ -12,5 +12,5 @@ legacy_arrows:
 diagrams:
   architecture/system.arc42.md:
   - system
-  architecture/api.arc42.md:
+  architecture/python.api.arc42.md:
   - system

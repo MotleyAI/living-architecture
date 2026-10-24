@@ -32,6 +32,49 @@ def legacy_repo(tmp_path: Path, *, views: bool) -> Path:
     return tmp_path / "repo"
 
 
+ARC42_PYTHON = PYTHON.replace(
+    "    core = node 'Core'\n",
+    "    core = node 'Core' {\n      metadata {\n        arc42 'architecture/core.arc42.md'\n      }\n    }\n",
+)
+ARC42_DONE = PYTHON.replace("    core = node 'Core'\n", "    core = node 'Core' {\n    }\n")
+ARC42_INDEX = (
+    "python:\n  root_package: pkg  # kept\n"
+    "cross_cutting_arc42:\n- architecture/rules/rules.arc42.md\n"
+    "diagrams:\n  architecture/core.arc42.md: [land]\n"
+)
+ARC42_REPORT = (
+    "moved architecture/core.arc42.md to architecture/python.core.arc42.md\n"
+    "moved architecture/rules/rules.arc42.md to architecture/rules.arc42.md\n"
+)
+
+
+def arc42_repo(tmp_path: Path, *, legacy: bool) -> Path:
+    """A repo whose model sets an arc42 key and whose index lists a nested cross-cutting doc."""
+    root = tmp_path / "repo"
+    files = {
+        "architecture/index.yaml": ARC42_INDEX,
+        "architecture/views.c4": VIEWS,
+        "architecture/core.arc42.md": "# Core\n",
+        "architecture/rules/rules.arc42.md": "# Rules\n",
+    }
+    if legacy:
+        files |= {"architecture/model/specification.c4": SPEC, "architecture/model/python.c4": ARC42_PYTHON}
+    else:
+        files["architecture/model.c4"] = SPEC + ARC42_PYTHON
+    for rel, text in files.items():
+        (root / rel).parent.mkdir(parents=True, exist_ok=True)
+        (root / rel).write_text(text, encoding="utf-8")
+    return root
+
+
+REPOS: dict[str, Callable[[Path], Path]] = {
+    "views-created": lambda tmp: legacy_repo(tmp, views=False),
+    "views-kept": lambda tmp: legacy_repo(tmp, views=True),
+    "arc42-canonical": lambda tmp: arc42_repo(tmp, legacy=False),
+    "arc42-legacy": lambda tmp: arc42_repo(tmp, legacy=True),
+}
+
+
 def snapshot(root: Path) -> tuple[set[str], dict[str, bytes]]:
     """Every directory and every file's bytes under `root`."""
     dirs: set[str] = set()
@@ -105,20 +148,21 @@ def migrate(root: Path) -> int:
     return cli.la_arch_migrate(["--root", str(root)])
 
 
-@pytest.mark.parametrize("views", [False, True], ids=["views-created", "views-kept"])
-def test_every_failed_mutation_leaves_the_repo_unchanged(tmp_path, monkeypatch, capsys, views):
-    probe = legacy_repo(tmp_path / "probe", views=views)
+@pytest.mark.parametrize("kind", list(REPOS))
+def test_every_failed_mutation_leaves_the_repo_unchanged(tmp_path, monkeypatch, capsys, kind):
+    make = REPOS[kind]
+    probe = make(tmp_path / "probe")
     recorder = Faults(probe)
     with monkeypatch.context() as patch:
         recorder.install(patch)
         assert migrate(probe) == 0
     capsys.readouterr()
     assert recorder.ops, "the migration mutated nothing under the repo"
-    if views:
+    if kind != "views-created":
         assert ("open", "architecture/views.c4") not in recorder.ops
     for fail_at, (op, path) in enumerate(recorder.ops):
         for after in (False, True) if op == "open" else (False,):
-            repo = legacy_repo(tmp_path / f"run-{fail_at}-{after}", views=views)
+            repo = make(tmp_path / f"run-{fail_at}-{after}")
             before = snapshot(repo)
             with monkeypatch.context() as patch:
                 Faults(repo, fail_at=fail_at, after=after).install(patch)
@@ -144,15 +188,16 @@ def test_successful_migration_removes_the_emptied_model_directory(tmp_path, caps
     assert (repo / "architecture" / "model.c4").read_text(encoding="utf-8") == SPEC + PYTHON
 
 
-def test_verification_mismatch_writes_nothing(tmp_path, monkeypatch, capsys):
-    repo = legacy_repo(tmp_path, views=True)
+@pytest.mark.parametrize("kind", list(REPOS))
+def test_verification_mismatch_writes_nothing(tmp_path, monkeypatch, capsys, kind):
+    repo = REPOS[kind](tmp_path)
     before = snapshot(repo)
     real = c4_migrate.parse_views
 
     def skewed(*args: Any, **kwargs: Any) -> Any:
         parsed = real(*args, **kwargs)
         root = Path(kwargs.get("root", args[0] if args else ""))
-        if (root / "architecture" / "model.c4").is_file():
+        if root.resolve() != repo.resolve():
             return parsed.model_copy(update={"findings": [*parsed.findings, "skewed"]})
         return parsed
 
@@ -163,10 +208,46 @@ def test_verification_mismatch_writes_nothing(tmp_path, monkeypatch, capsys):
     assert snapshot(repo) == before
 
 
+def test_arc42_keys_convert_in_a_canonical_repo(tmp_path, capsys):
+    repo = arc42_repo(tmp_path, legacy=False)
+    assert migrate(repo) == 0
+    assert capsys.readouterr().out == "wrote architecture/model.c4\nwrote architecture/index.yaml\n" + ARC42_REPORT
+    assert (repo / "architecture" / "model.c4").read_text(encoding="utf-8") == SPEC + ARC42_DONE
+    assert (repo / "architecture" / "index.yaml").read_text(encoding="utf-8") == ARC42_INDEX.replace(
+        "architecture/rules/rules.arc42.md", "architecture/rules.arc42.md"
+    ).replace("architecture/core.arc42.md:", "architecture/python.core.arc42.md:")
+    assert (repo / "architecture" / "python.core.arc42.md").read_text(encoding="utf-8") == "# Core\n"
+    assert (repo / "architecture" / "rules.arc42.md").read_text(encoding="utf-8") == "# Rules\n"
+    assert not (repo / "architecture" / "core.arc42.md").exists()
+    assert (repo / "architecture" / "rules").is_dir()
+
+
+def test_legacy_layout_and_arc42_keys_convert_in_one_run(tmp_path, capsys):
+    repo = arc42_repo(tmp_path, legacy=True)
+    assert migrate(repo) == 0
+    assert capsys.readouterr().out == (
+        "wrote architecture/model.c4\nwrote architecture/index.yaml\n"
+        + ARC42_REPORT
+        + "deleted architecture/model/python.c4\ndeleted architecture/model/specification.c4\ndeleted architecture/model\n"
+    )
+    assert (repo / "architecture" / "model.c4").read_text(encoding="utf-8") == SPEC + ARC42_DONE
+
+
+def test_second_run_has_nothing_to_migrate(tmp_path, capsys):
+    repo = arc42_repo(tmp_path, legacy=True)
+    assert migrate(repo) == 0
+    capsys.readouterr()
+    before = snapshot(repo)
+    assert migrate(repo) == 0
+    assert capsys.readouterr().out.startswith("nothing to migrate: ")
+    assert snapshot(repo) == before
+
+
 @pytest.mark.parametrize(
     ("migrate_case", "check_case"),
     [("arch-migrate-multi-file", "arch-check-migrated-ok"),
-     ("arch-migrate-parse-findings", "arch-check-migrated-parse-findings")],
+     ("arch-migrate-parse-findings", "arch-check-migrated-parse-findings"),
+     ("arch-migrate-legacy-and-arc42-keys", "arch-check-migrated-arc42")],
 )
 def test_migrated_check_cases_check_the_migrate_golden(migrate_case, check_case):
     """The migrated-check cases check exactly what their migrate case writes."""

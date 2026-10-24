@@ -1,0 +1,14 @@
+kind: neutral
+command: la-arch-migrate
+fixture: arch-ok
+expect:
+  exit: 0
+  files:
+  - architecture/model.c4
+  - architecture/index.yaml
+  - architecture/rules.arc42.md
+  - architecture/guide.arc42.md
+  - architecture/rules/rules.arc42.md
+  - docs/guide.arc42.md
+golden: manual
+note: cross_cutting_arc42 entries outside the top level of architecture/ move there by basename, in file order

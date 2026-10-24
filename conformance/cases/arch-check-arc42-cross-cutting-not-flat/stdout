@@ -1,0 +1,2 @@
+arc42-exists: cross_cutting_arc42 names docs/security.arc42.md, which must sit directly in architecture/
+arch_check: 1 finding(s)

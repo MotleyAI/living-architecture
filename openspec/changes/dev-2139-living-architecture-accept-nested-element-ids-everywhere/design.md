@@ -59,6 +59,29 @@ moved docs; enforcing that any element has a doc.
 8. **Version 0.4.0** in `python/pyproject.toml`, `node/package.json`, `plugin/.claude-plugin/plugin.json` (breaking:
    the `arc42` key).
 
+## Finding texts and migrate output (exact)
+
+- `arc42-exists.cross-cutting-not-flat`: `arc42-exists: cross_cutting_arc42 names {doc}, which must sit directly in architecture/`
+- `arc42-exists.cross-cutting-is-element`: `arc42-exists: cross_cutting_arc42 names {doc}, the doc of model element {element}`
+- `arch-migrate.nothing`: `nothing to migrate: the layout is canonical, no element sets arc42 and every cross_cutting_arc42 entry sits directly in architecture/`
+- `arch-migrate.moved`: `moved {source} to {target}`
+- `arch-migrate.source-missing`: `{source} does not exist; nothing written`
+- `arch-migrate.source-moved-twice`: `{source} would move to both {first} and {second}; nothing written`
+- `arch-migrate.shared-target`: `{first} and {second} would both move to {target}; nothing written`
+- `arch-migrate.target-taken`: `{source} cannot move to {target}, which already exists; nothing written`
+- `arch-migrate.diagrams-key-taken`: `{source} cannot move to {target}: architecture/index.yaml already has the diagrams key {target}; nothing written`
+
+Refusals print through `arch-migrate.error`. Only the first one is reported. Moves are checked in plan order: element
+docs in model order, then `cross_cutting_arc42` entries in file order. For each move the checks run in this order:
+source missing, moved twice, shared target, target taken, diagrams key taken.
+
+On success the lines print as:
+1. `wrote`, for `architecture/model.c4`, `architecture/views.c4` and `architecture/index.yaml`, each only when written;
+2. `moved`, in plan order;
+3. `deleted`, in today's order.
+
+A directory that a cross-cutting move leaves empty is kept.
+
 ## Approved skill wording (exact; apply verbatim)
 
 **plugin/skills/living-architecture/SKILL.md**

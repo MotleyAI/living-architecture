@@ -1,0 +1,11 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+fixture: arch-ok
+symlinks:
+  architecture/sub/broken.arc42.md: ../gone.arc42.md
+expect:
+  exit: 0
+golden: manual
+note: a broken symlink in a subfolder is no doc

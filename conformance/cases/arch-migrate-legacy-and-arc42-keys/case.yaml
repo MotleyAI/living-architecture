@@ -1,0 +1,15 @@
+kind: neutral
+command: la-arch-migrate
+fixture: arch-ok
+remove:
+- architecture/model.c4
+- architecture/python.api.arc42.md
+expect:
+  exit: 0
+  files:
+  - architecture/model.c4
+  - architecture/model/model.c4
+  - architecture/python.api.arc42.md
+  - architecture/api.arc42.md
+golden: manual
+note: one run merges the legacy layout and converts its arc42 key; arch-check-migrated-arc42 checks the result

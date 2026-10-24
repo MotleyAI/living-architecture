@@ -1,0 +1,14 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+fixture: arch-ok
+expect:
+  exit: 2
+  stderr:
+    contains:
+    - 'model element python.api.handlers: the arc42 key is retired; its doc is architecture/python.api.handlers.arc42.md —
+      run la-arch-migrate; model element python.api.handlers: '
+    - claims
+golden: manual
+note: the retired-key error comes first, then the schema errors of the remaining keys

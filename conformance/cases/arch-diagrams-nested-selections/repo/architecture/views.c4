@@ -1,0 +1,22 @@
+views {
+  view nested of python {
+    title 'Nested'
+    include api.handlers
+  }
+  view overlap of python {
+    title 'Overlap'
+    include api, api.handlers
+  }
+  view anchored of python {
+    title 'Anchored'
+    include api.handlers -> *
+  }
+  view inbound of python {
+    title 'Inbound'
+    include * -> core
+  }
+  view descend of python {
+    title 'Descend'
+    include api.other -> *
+  }
+}

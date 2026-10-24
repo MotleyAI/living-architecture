@@ -1,0 +1,5 @@
+spec-mapping: a mapped by both python and python.api.handlers
+spec-mapping: b mapped by both python.api.handlers and python.core
+spec-mapping: api mapped by both python.api and cross_cutting_specs
+spec-mapping: c mapped by both python and cross_cutting_specs
+arch_check: 4 finding(s)

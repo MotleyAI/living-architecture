@@ -1,0 +1,11 @@
+kind: neutral
+command: la-arch-migrate
+fixture: arch-ok
+expect:
+  exit: 0
+  files:
+  - architecture/model.c4
+  - architecture/python.legacy.arc42.md
+  - architecture/legacy.arc42.md
+golden: manual
+note: a metadata block holding only the arc42 key is removed whole

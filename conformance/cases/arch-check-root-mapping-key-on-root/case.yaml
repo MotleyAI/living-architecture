@@ -1,0 +1,13 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+fixture: arch-ok
+expect:
+  exit: 2
+  stderr:
+    contains:
+    - 'model element python: '
+    - package
+golden: manual
+note: a language root carries no mapping keys; its unit is the section root_package

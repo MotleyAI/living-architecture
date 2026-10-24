@@ -36,7 +36,6 @@ model {
     engine = node 'Engine' {
       metadata {
         package 'pkg.engine'
-        arc42 'architecture/engine.arc42.md'
       }
     }
     core -> engine #legacy
@@ -64,7 +63,7 @@ BASE_FILES = {
     "architecture/model.c4": MODEL,
     "architecture/views.c4": VIEWS,
     "architecture/system.arc42.md": SYSTEM_MD,
-    "architecture/engine.arc42.md": "# engine\n",
+    "architecture/python.engine.arc42.md": "# engine\n",
     "openspec/specs/queries/foo/spec.md": "# spec\n",
     "pkg/__init__.py": "",
     "pkg/core/__init__.py": "",
@@ -93,7 +92,6 @@ model {
     engine = node 'Engine' {
       metadata {
         package 'pkg.engine'
-        arc42 'architecture/engine.arc42.md'
       }
       syntax = node 'Syntax'
     }
@@ -109,7 +107,7 @@ CHILD_FILES = {
     "architecture/model.c4": CHILD_MODEL,
     "architecture/views.c4": VIEWS,
     "architecture/system.arc42.md": SYSTEM_MD,
-    "architecture/engine.arc42.md": "# engine\n",
+    "architecture/python.engine.arc42.md": "# engine\n",
     "openspec/specs/queries/foo/spec.md": "# spec\n",
     "pkg/__init__.py": "",
     "pkg/core/__init__.py": "",
@@ -139,7 +137,6 @@ model {
     engine = node 'Engine' {
       metadata {
         package 'pkg.engine'
-        arc42 'architecture/engine.arc42.md'
       }
       syntax = node 'Syntax' {
         deep = node 'Deep'
@@ -156,7 +153,7 @@ GRAND_FILES = {
     "architecture/model.c4": GRAND_MODEL,
     "architecture/views.c4": VIEWS,
     "architecture/system.arc42.md": SYSTEM_MD,
-    "architecture/engine.arc42.md": "# engine\n",
+    "architecture/python.engine.arc42.md": "# engine\n",
     "openspec/specs/queries/foo/spec.md": "# spec\n",
     "pkg/__init__.py": "",
     "pkg/core/__init__.py": "",
@@ -174,7 +171,7 @@ INDEX_REL = "architecture/index.yaml"
 PY_SECTION = "python:\n  root_package: pkg\n"
 ROOT_OPEN = "  python = system 'Python' {\n"
 CORE_PKG = "        package 'pkg.core'\n"
-ENGINE_ARC42 = "        arc42 'architecture/engine.arc42.md'\n"
+ENGINE_PKG = "        package 'pkg.engine'\n"
 ENGINE_TO_CORE = "python.engine -> python.core"
 
 
@@ -242,22 +239,22 @@ def test_claimed_module_missing_on_disk(tmp_path):
     assert "claims-exist: python.core claims pkg.ghost, which does not exist on disk" in findings_for(root, "claims-exist")
 
 
-def test_missing_arc42_file(tmp_path):
+def test_element_without_a_doc_is_fine(tmp_path):
     root = make_repo(tmp_path)
-    (root / "architecture" / "engine.arc42.md").unlink()
-    assert findings_for(root, "arc42-exists")
+    (root / "architecture" / "python.engine.arc42.md").unlink()
+    assert findings_for(root, "arc42-exists") == []
 
 
-def test_unknown_touches_node(tmp_path):
+def test_unknown_touched_element(tmp_path):
     root = make_repo(tmp_path)
     edit(root, INDEX_REL, "[python.core, python.engine]", "[python.core, python.ghost]")
-    assert findings_for(root, "spec-mapping") == ["spec-mapping: queries touches unknown node python.ghost"]
+    assert findings_for(root, "spec-mapping") == ["spec-mapping: queries touches unknown element python.ghost"]
 
 
-def test_unqualified_touches_is_an_unknown_node(tmp_path):
+def test_unqualified_touches_is_an_unknown_element(tmp_path):
     root = make_repo(tmp_path)
     edit(root, INDEX_REL, "[python.core, python.engine]", "[core, python.engine]")
-    assert findings_for(root, "spec-mapping") == ["spec-mapping: queries touches unknown node core"]
+    assert findings_for(root, "spec-mapping") == ["spec-mapping: queries touches unknown element core"]
 
 
 def test_unmapped_spec_group(tmp_path):
@@ -307,7 +304,7 @@ def test_unmapped_group_in_live_change(tmp_path):
     root = make_repo(tmp_path)
     write_files(root, {"openspec/changes/add-models/specs/models/spec.md": "# spec\n"})
     assert findings_for(root, "spec-mapping") == [
-        "spec-mapping: spec group models is mapped by no node and not cross-cutting"
+        "spec-mapping: spec group models is mapped by no element and not cross-cutting"
     ]
 
 
@@ -322,7 +319,7 @@ def test_group_in_corpus_and_live_changes_is_reported_once(tmp_path):
         },
     )
     assert findings_for(root, "spec-mapping") == [
-        "spec-mapping: spec group models is mapped by no node and not cross-cutting"
+        "spec-mapping: spec group models is mapped by no element and not cross-cutting"
     ]
 
 
@@ -375,7 +372,7 @@ def test_changes_without_spec_groups_are_ignored(tmp_path):
 
 def test_node_removed_from_model_claims_nothing(tmp_path):
     root = make_repo(tmp_path)
-    engine = "    engine = node 'Engine' {\n      metadata {\n        package 'pkg.engine'\n" + ENGINE_ARC42 + "      }\n    }\n"
+    engine = "    engine = node 'Engine' {\n      metadata {\n" + ENGINE_PKG + "      }\n    }\n"
     edit(root, MODEL_REL, engine, "")
     edit(root, MODEL_REL, "    core -> engine #legacy\n    engine -> core\n", "")
     assert "claims-exactly-once: top-level pkg.engine is claimed by no node" in archcheck.run_checks(root)
@@ -817,7 +814,7 @@ def test_virtual_kind_element_nested_under_precise_node_maps_by_convention(tmp_p
 def test_duplicate_claim_attributes_to_the_first_node_in_model_order(tmp_path):
     root = make_repo(tmp_path)
     edit(root, MODEL_REL, CORE_PKG, CORE_PKG + "        claims ['pkg.shared']\n")
-    edit(root, MODEL_REL, ENGINE_ARC42, ENGINE_ARC42 + "        claims ['pkg.shared']\n")
+    edit(root, MODEL_REL, ENGINE_PKG, ENGINE_PKG + "        claims ['pkg.shared']\n")
     edit(root, MODEL_REL, "    engine -> core\n", "")
     (root / "pkg" / "engine" / "b.py").write_text("", encoding="utf-8")
     (root / "pkg" / "shared.py").write_text("import pkg.core.a\n", encoding="utf-8")
@@ -849,12 +846,12 @@ def test_undeclared_top_level_element_is_a_setup_error(tmp_path):
     assert str(excinfo.value) == "model element ghost: top-level elements must be declared language roots"
 
 
-def test_metadata_on_a_root_is_a_setup_error(tmp_path):
+@pytest.mark.parametrize("key", ["package 'pkg'", "claims ['pkg']", "packages ['pkg']"])
+def test_mapping_key_on_a_root_is_a_setup_error(tmp_path, key):
     root = make_repo(tmp_path)
-    edit(root, MODEL_REL, ROOT_OPEN, ROOT_OPEN + "    metadata {\n      package 'pkg'\n    }\n")
-    with pytest.raises(archcheck.ArchCheckError) as excinfo:
+    edit(root, MODEL_REL, ROOT_OPEN, ROOT_OPEN + f"    metadata {{\n      {key}\n    }}\n")
+    with pytest.raises(archcheck.ArchCheckError, match=rf"^model element python: .*{key.split()[0]}"):
         archcheck.run_checks(root)
-    assert str(excinfo.value) == "model element python: language roots may not carry metadata"
 
 
 def test_root_setup_error_exits_2(tmp_path, capsys):
@@ -872,15 +869,14 @@ def test_root_setup_error_exits_2(tmp_path, capsys):
 @pytest.mark.parametrize(
     ("old", "new", "pattern"),
     [
-        (CORE_PKG, "        arc42 'architecture/engine.arc42.md'\n", r"model element python\.core: .*package"),
+        (CORE_PKG, "", r"model element python\.core: .*package"),
         (CORE_PKG, CORE_PKG + "        pakage 'pkg.core'\n", r"model element python\.core: .*pakage"),
         (CORE_PKG, CORE_PKG + "        claims 'pkg.engine'\n", r"model element python\.core: .*claims"),
         (CORE_PKG, CORE_PKG + "        specs 'queries'\n", r"model element python\.core: .*specs"),
-        (ENGINE_ARC42, "        arc42 ['architecture/engine.arc42.md']\n", r"model element python\.engine: .*arc42"),
         (CORE_PKG, CORE_PKG + "        packages ['pkg.core']\n", r"model element python\.core: .*packages"),
         (CORE_PKG, CORE_PKG + "        virtual 'true'\n", r"model element python\.core: .*virtual"),
     ],
-    ids=["no-package", "unknown-key", "scalar-claims", "scalar-specs", "list-arc42", "packages-on-precise", "virtual-key"],
+    ids=["no-package", "unknown-key", "scalar-claims", "scalar-specs", "packages-on-precise", "virtual-key"],
 )
 def test_metadata_schema_violation_is_a_setup_error(tmp_path, old, new, pattern):
     root = make_repo(tmp_path)
@@ -915,13 +911,20 @@ def test_virtual_node_needs_no_metadata(tmp_path):
 QUERY = "      query = node 'Query'\n"
 
 
-@pytest.mark.parametrize("body", ["          package 'pkg.core.query'\n", ""], ids=["with-keys", "empty"])
-def test_metadata_on_a_nested_element_is_a_setup_error(tmp_path, body):
-    model = CHILD_MODEL.replace(QUERY, f"      query = node 'Query' {{\n        metadata {{\n{body}        }}\n      }}\n")
-    root = make_child_repo(tmp_path, model=model)
-    with pytest.raises(archcheck.ArchCheckError) as excinfo:
+def nested_metadata(body: str) -> str:
+    return CHILD_MODEL.replace(QUERY, f"      query = node 'Query' {{\n        metadata {{\n{body}        }}\n      }}\n")
+
+
+@pytest.mark.parametrize("key", ["package 'pkg.core.query'", "claims ['pkg.core.query']", "packages ['pkg.core.query']"])
+def test_mapping_key_on_a_nested_element_is_a_setup_error(tmp_path, key):
+    root = make_child_repo(tmp_path, model=nested_metadata(f"          {key}\n"))
+    with pytest.raises(archcheck.ArchCheckError, match=rf"^model element python\.core\.query: .*{key.split()[0]}"):
         archcheck.run_checks(root)
-    assert str(excinfo.value) == "model element python.core.query: nested elements may not carry metadata"
+
+
+def test_empty_metadata_on_a_nested_element_is_fine(tmp_path):
+    root = make_child_repo(tmp_path, model=nested_metadata(""))
+    assert archcheck.run_checks(root) == archcheck.run_checks(make_child_repo(tmp_path / "plain"))
 
 
 @pytest.mark.parametrize(
@@ -949,7 +952,7 @@ def test_malformed_metadata_is_a_setup_error(tmp_path, old, new, error):
 
 def test_metadata_problems_are_reported_together_in_model_order(tmp_path):
     root = make_repo(tmp_path)
-    edit(root, MODEL_REL, ENGINE_ARC42, ENGINE_ARC42 + "        colour 'red'\n")
+    edit(root, MODEL_REL, ENGINE_PKG, ENGINE_PKG + "        colour 'red'\n")
     edit(root, MODEL_REL, CORE_PKG, CORE_PKG + "        pakage 'pkg.core'\n")
     with pytest.raises(archcheck.ArchCheckError) as excinfo:
         archcheck.run_checks(root)
@@ -963,16 +966,15 @@ def test_metadata_problems_are_reported_together_in_model_order(tmp_path):
 def test_every_kind_of_metadata_problem_is_joined_in_model_order(tmp_path):
     model = CHILD_MODEL.replace(CORE_PKG, CORE_PKG + "        package 'pkg.other'\n").replace(
         QUERY, "      query = node 'Query' {\n        metadata {\n          package 'pkg.core.query'\n        }\n      }\n"
-    ).replace(ENGINE_ARC42, ENGINE_ARC42 + "        pakage 'pkg.engine'\n")
+    ).replace(ENGINE_PKG, ENGINE_PKG + "        pakage 'pkg.engine'\n")
     root = make_child_repo(tmp_path)
     (root / MODEL_REL).write_text(model, encoding="utf-8")
     with pytest.raises(archcheck.ArchCheckError) as excinfo:
         archcheck.run_checks(root)
     parts = str(excinfo.value).split("; ")
-    assert parts[:2] == [
-        "element python.core has malformed metadata: package 'pkg.other'",
-        "model element python.core.query: nested elements may not carry metadata",
-    ]
+    assert parts[0] == "element python.core has malformed metadata: package 'pkg.other'"
+    assert parts[1].startswith("model element python.core.query: ")
+    assert "package" in parts[1]
     assert len(parts) == 3
     assert parts[2].startswith("model element python.engine: ")
     assert "pakage" in parts[2]
@@ -1159,14 +1161,14 @@ def test_internal_arrow_not_licensed_by_license_helper(tmp_path):
 
 
 def test_child_path_colliding_with_claim_flagged(tmp_path):
-    model = CHILD_MODEL.replace(ENGINE_ARC42, ENGINE_ARC42 + "        claims ['pkg.core.query']\n")
+    model = CHILD_MODEL.replace(ENGINE_PKG, ENGINE_PKG + "        claims ['pkg.core.query']\n")
     root = make_child_repo(tmp_path, model=model)
     assert any("collides" in f and "pkg.core.query" in f for f in findings_for(root, "claims-exactly-once"))
 
 
 def test_child_path_nested_under_claim_flagged(tmp_path):
     """A claim nested inside a model child's subtree also splits it across nodes."""
-    model = CHILD_MODEL.replace(ENGINE_ARC42, ENGINE_ARC42 + "        claims ['pkg.core.query.helpers']\n")
+    model = CHILD_MODEL.replace(ENGINE_PKG, ENGINE_PKG + "        claims ['pkg.core.query.helpers']\n")
     root = make_child_repo(tmp_path, model=model)
     assert any("collides" in f and "pkg.core.query" in f for f in findings_for(root, "claims-exactly-once"))
 
@@ -1365,6 +1367,240 @@ def test_cross_cutting_arc42_missing_file_flagged(tmp_path):
     root = make_repo(tmp_path)
     append(root, INDEX_REL, "cross_cutting_arc42: [architecture/ghost.arc42.md]\n")
     assert any("ghost" in f for f in findings_for(root, "arc42-exists"))
+
+
+# --------------------------------------------------------------------------- element ids at any depth
+
+SPEC_MD = "# spec\n"
+QUERIES_TOUCH = "[python.core, python.engine]"
+RETIRED = "model element {e}: the arc42 key is retired; its doc is architecture/{e}.arc42.md — run la-arch-migrate"
+ORPHAN = "is orphaned — not architecture/system.arc42.md, the doc of a model element, or in cross_cutting_arc42"
+NOT_FLAT = "must sit directly in architecture/"
+
+
+def test_touches_names_a_nested_element(tmp_path):
+    root = make_child_repo(tmp_path, index=CHILD_INDEX.replace(QUERIES_TOUCH, "[python.core.query, python.engine.syntax]"))
+    assert findings_for(root, "spec-mapping") == []
+
+
+def test_touches_names_a_grandchild(tmp_path):
+    root = make_grandchild_repo(tmp_path)
+    edit(root, INDEX_REL, QUERIES_TOUCH, "[python.engine.syntax.deep]")
+    assert findings_for(root, "spec-mapping") == []
+
+
+def test_touches_names_a_root(tmp_path):
+    root = make_repo(tmp_path)
+    edit(root, INDEX_REL, QUERIES_TOUCH, "[python]")
+    assert findings_for(root, "spec-mapping") == []
+
+
+def test_unknown_nested_touched_element(tmp_path):
+    root = make_child_repo(tmp_path, index=CHILD_INDEX.replace(QUERIES_TOUCH, "[python.core.query, python.core.ghost]"))
+    assert findings_for(root, "spec-mapping") == ["spec-mapping: queries touches unknown element python.core.ghost"]
+
+
+def test_nested_element_owns_a_spec_group(tmp_path):
+    root = make_child_repo(tmp_path, model=nested_metadata("          specs ['models']\n"))
+    write_files(root, {"openspec/specs/models/spec.md": SPEC_MD})
+    assert findings_for(root, "spec-mapping") == []
+
+
+def test_spec_group_of_a_nested_element_needs_a_spec_dir(tmp_path):
+    root = make_child_repo(tmp_path, model=nested_metadata("          specs ['models']\n"))
+    assert findings_for(root, "spec-mapping") == [
+        "spec-mapping: models is mapped but has no spec dir in openspec/specs or a live change"
+    ]
+
+
+def test_grandchild_owns_a_spec_group(tmp_path):
+    deep = "        deep = node 'Deep' {\n          metadata {\n            specs ['deep']\n          }\n        }\n"
+    model = GRAND_MODEL.replace("        deep = node 'Deep'\n", deep)
+    root = write_repo(tmp_path, {**GRAND_FILES, MODEL_REL: model, "openspec/specs/deep/spec.md": SPEC_MD})
+    assert findings_for(root, "spec-mapping") == []
+
+
+def test_root_owns_a_spec_group(tmp_path):
+    root = make_repo(tmp_path)
+    edit(root, MODEL_REL, ROOT_OPEN, ROOT_OPEN + "    metadata {\n      specs ['twin']\n    }\n")
+    write_files(root, {"openspec/specs/twin/spec.md": SPEC_MD})
+    assert archcheck.run_checks(root) == []
+
+
+def test_spec_owners_in_declaration_order_then_cross_cutting(tmp_path):
+    model = (
+        CHILD_MODEL.replace(ROOT_OPEN, ROOT_OPEN + "    metadata {\n      specs ['a']\n    }\n")
+        .replace(CORE_PKG, CORE_PKG + "        specs ['b']\n")
+        .replace(QUERY, "      query = node 'Query' {\n        metadata {\n          specs ['a', 'b']\n        }\n      }\n")
+        .replace(ENGINE_PKG, ENGINE_PKG + "        specs ['queries']\n")
+    )
+    root = make_child_repo(tmp_path, model=model)
+    write_files(root, {"openspec/specs/a/spec.md": SPEC_MD, "openspec/specs/b/spec.md": SPEC_MD})
+    assert findings_for(root, "spec-mapping") == [
+        "spec-mapping: a mapped by both python and python.core.query",
+        "spec-mapping: b mapped by both python.core and python.core.query",
+        "spec-mapping: queries mapped by both python.engine and cross_cutting_specs",
+    ]
+
+
+@pytest.mark.parametrize(
+    ("old", "new", "element"),
+    [
+        (ROOT_OPEN, ROOT_OPEN + "    metadata {\n      arc42 'architecture/x.arc42.md'\n    }\n", "python"),
+        (CORE_PKG, CORE_PKG + "        arc42 'architecture/core.arc42.md'\n", "python.core"),
+        (CORE_PKG, CORE_PKG + "        arc42 ['architecture/core.arc42.md']\n", "python.core"),
+        (QUERY, "      query = node 'Query' {\n        metadata {\n          arc42 'architecture/q.arc42.md'\n        }\n      }\n",
+         "python.core.query"),
+    ],
+    ids=["root", "node", "node-list-value", "nested"],
+)
+def test_retired_arc42_key_is_a_setup_error(tmp_path, old, new, element):
+    root = make_child_repo(tmp_path, model=CHILD_MODEL.replace(old, new))
+    with pytest.raises(archcheck.ArchCheckError) as excinfo:
+        archcheck.run_checks(root)
+    assert str(excinfo.value) == RETIRED.format(e=element)
+
+
+def test_retired_arc42_key_precedes_the_schema_errors_of_other_keys(tmp_path):
+    body = "          arc42 'architecture/q.arc42.md'\n          claims ['pkg.core.query']\n"
+    root = make_child_repo(tmp_path, model=nested_metadata(body))
+    with pytest.raises(archcheck.ArchCheckError) as excinfo:
+        archcheck.run_checks(root)
+    parts = str(excinfo.value).split("; ")
+    assert parts[0] == RETIRED.format(e="python.core.query")
+    assert parts[1].startswith("model element python.core.query: ")
+    assert "claims" in parts[1]
+    assert len(parts) == 2
+
+
+def test_metadata_syntax_problem_is_reported_alone(tmp_path):
+    root = make_repo(tmp_path)
+    edit(root, MODEL_REL, CORE_PKG, CORE_PKG + '        arc42 "architecture/core.arc42.md"\n')
+    with pytest.raises(archcheck.ArchCheckError) as excinfo:
+        archcheck.run_checks(root)
+    assert str(excinfo.value) == 'element python.core has malformed metadata: arc42 "architecture/core.arc42.md"'
+
+
+def test_retired_arc42_key_exits_2(tmp_path, capsys):
+    root = make_repo(tmp_path)
+    edit(root, MODEL_REL, ENGINE_PKG, ENGINE_PKG + "        arc42 'architecture/engine.arc42.md'\n")
+    assert cli.la_arch_check(["--root", str(root)]) == 2
+    captured = capsys.readouterr()
+    assert (captured.out, captured.err) == ("", f"arch_check: {RETIRED.format(e='python.engine')}\n")
+
+
+def test_nested_element_doc_is_recognised_and_tag_checked(tmp_path):
+    root = make_child_repo(tmp_path)
+    write_files(root, {"architecture/python.core.query.arc42.md": "# Query\n\n1. Untagged.\n"})
+    assert findings_for(root, "arc42-exists") == []
+    assert findings_for(root, "enforced-tags") == [
+        "enforced-tags: python.core.query.arc42.md principle item 1 has no status tag"
+    ]
+
+
+def test_root_doc_is_recognised(tmp_path):
+    root = make_repo(tmp_path)
+    write_files(root, {"architecture/python.arc42.md": "# Python\n"})
+    assert findings_for(root, "arc42-exists") == []
+
+
+def test_doc_named_for_no_element_is_orphaned(tmp_path):
+    root = make_repo(tmp_path)
+    write_files(root, {"architecture/python.ghost.arc42.md": "# ghost\n", "architecture/engine.arc42.md": "# engine\n"})
+    assert findings_for(root, "arc42-exists") == [
+        f"arc42-exists: architecture/engine.arc42.md {ORPHAN}",
+        f"arc42-exists: architecture/python.ghost.arc42.md {ORPHAN}",
+    ]
+
+
+def test_docs_in_subfolders_are_reported_in_code_point_order(tmp_path):
+    root = make_repo(tmp_path)
+    write_files(
+        root,
+        {
+            "architecture/x/y/z.arc42.md": "# z\n",
+            "architecture/a/b.arc42.md": "# b\n",
+            "architecture/B/a.arc42.md": "# a\n",
+            "architecture/x/notes.md": "not a doc\n",
+        },
+    )
+    assert findings_for(root, "arc42-exists") == [
+        f"arc42-exists: architecture/B/a.arc42.md {NOT_FLAT}",
+        f"arc42-exists: architecture/a/b.arc42.md {NOT_FLAT}",
+        f"arc42-exists: architecture/x/y/z.arc42.md {NOT_FLAT}",
+    ]
+
+
+def test_symlinked_doc_in_a_subfolder_counts(tmp_path):
+    root = make_repo(tmp_path)
+    (root / "architecture" / "sub").mkdir()
+    (root / "architecture" / "sub" / "x.arc42.md").symlink_to("../system.arc42.md")
+    assert findings_for(root, "arc42-exists") == [f"arc42-exists: architecture/sub/x.arc42.md {NOT_FLAT}"]
+
+
+def test_symlinked_directory_is_not_descended(tmp_path):
+    root = make_repo(tmp_path)
+    write_files(root, {"elsewhere/x.arc42.md": "# x\n"})
+    (root / "architecture" / "link").symlink_to("../elsewhere")
+    assert findings_for(root, "arc42-exists") == []
+
+
+def test_broken_symlink_in_a_subfolder_is_no_doc(tmp_path):
+    root = make_repo(tmp_path)
+    (root / "architecture" / "sub").mkdir()
+    (root / "architecture" / "sub" / "broken.arc42.md").symlink_to("../gone.arc42.md")
+    assert findings_for(root, "arc42-exists") == []
+
+
+def test_cross_cutting_doc_outside_architecture(tmp_path):
+    root = make_repo(tmp_path)
+    write_files(root, {"docs/sec.arc42.md": "# sec\n"})
+    append(root, INDEX_REL, "cross_cutting_arc42: [docs/sec.arc42.md]\n")
+    assert findings_for(root, "arc42-exists") == [f"arc42-exists: cross_cutting_arc42 names docs/sec.arc42.md, which {NOT_FLAT}"]
+
+
+def test_cross_cutting_doc_in_a_subfolder(tmp_path):
+    root = make_repo(tmp_path)
+    write_files(root, {"architecture/sub/sec.arc42.md": "# sec\n"})
+    append(root, INDEX_REL, "cross_cutting_arc42: [architecture/sub/sec.arc42.md]\n")
+    assert findings_for(root, "arc42-exists") == [
+        f"arc42-exists: cross_cutting_arc42 names architecture/sub/sec.arc42.md, which {NOT_FLAT}",
+        f"arc42-exists: architecture/sub/sec.arc42.md {NOT_FLAT}",
+    ]
+
+
+def test_cross_cutting_doc_not_flat_and_missing(tmp_path):
+    root = make_repo(tmp_path)
+    append(root, INDEX_REL, "cross_cutting_arc42: [docs/gone.arc42.md]\n")
+    assert findings_for(root, "arc42-exists") == [
+        f"arc42-exists: cross_cutting_arc42 names docs/gone.arc42.md, which {NOT_FLAT}",
+        "arc42-exists: cross_cutting_arc42 names docs/gone.arc42.md, which does not exist",
+    ]
+
+
+@pytest.mark.parametrize("element", ["python.engine", "python.core.query"])
+def test_cross_cutting_doc_naming_an_element_doc(tmp_path, element):
+    root = make_child_repo(tmp_path)
+    write_files(root, {f"architecture/{element}.arc42.md": "# doc\n"})
+    append(root, INDEX_REL, f"cross_cutting_arc42: [architecture/{element}.arc42.md]\n")
+    assert findings_for(root, "arc42-exists") == [
+        f"arc42-exists: cross_cutting_arc42 names architecture/{element}.arc42.md, the doc of model element {element}"
+    ]
+
+
+def test_arc42_findings_in_kind_order(tmp_path):
+    root = make_repo(tmp_path)
+    (root / "architecture" / "system.arc42.md").unlink()
+    write_files(root, {"architecture/z/n.arc42.md": "# n\n", "architecture/orphan.arc42.md": "# o\n"})
+    append(root, INDEX_REL, "cross_cutting_arc42: [architecture/ghost.arc42.md, docs/x.arc42.md]\n")
+    assert findings_for(root, "arc42-exists") == [
+        "arc42-exists: architecture/system.arc42.md is missing",
+        "arc42-exists: cross_cutting_arc42 names architecture/ghost.arc42.md, which does not exist",
+        f"arc42-exists: cross_cutting_arc42 names docs/x.arc42.md, which {NOT_FLAT}",
+        "arc42-exists: cross_cutting_arc42 names docs/x.arc42.md, which does not exist",
+        f"arc42-exists: architecture/z/n.arc42.md {NOT_FLAT}",
+        f"arc42-exists: architecture/orphan.arc42.md {ORPHAN}",
+    ]
 
 
 # --------------------------------------------------------------------------- repo config + CLI
