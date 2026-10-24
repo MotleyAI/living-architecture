@@ -17,7 +17,7 @@ import {
 import { tmpdir } from 'node:os';
 import { basename, dirname, isAbsolute, join } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
-import { YAMLError, byCodePoint, loadYaml, message, splitLinesKeepEnds } from '../contract/index.js';
+import { YAMLError, byCodePoint, decodeUtf8OrNull, loadYaml, message, splitLinesKeepEnds } from '../contract/index.js';
 import {
   ARCH_DIR,
   type FileScan,
@@ -114,7 +114,8 @@ function lexists(path: string): boolean {
 function readIndex(root: string): Index {
   const path = join(root, INDEX_REL);
   if (!isFile(path)) return { text: null, data: null };
-  const text = readExact(path);
+  const text = decodeUtf8OrNull(readFileSync(path));
+  if (text === null) return { text: null, data: null };
   let data: unknown = null;
   try {
     data = loadYaml(text);

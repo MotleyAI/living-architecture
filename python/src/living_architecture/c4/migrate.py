@@ -101,7 +101,10 @@ def _read_index(root: Path) -> _Index:
     path = root / _INDEX_REL
     if not path.is_file():
         return _Index(text=None, data=None)
-    text = _read_exact(path)
+    try:
+        text = _read_exact(path)
+    except UnicodeDecodeError:
+        return _Index(text=None, data=None)
     try:
         data = load_yaml(text)
     except YAMLError:

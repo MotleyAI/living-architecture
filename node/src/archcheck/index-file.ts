@@ -1,7 +1,7 @@
 // Loading `architecture/index.yaml` and resolving where each language's code lives.
 import { readFileSync, realpathSync, statSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative, sep } from 'node:path';
-import { YAMLError, languageIds, loadYaml, message, schema, toPlain, validate } from '../contract/index.js';
+import { YAMLError, decodeUtf8OrNull, languageIds, loadYaml, message, schema, toPlain, validate } from '../contract/index.js';
 
 export const INDEX_REL = 'architecture/index.yaml';
 
@@ -23,9 +23,11 @@ export function declaredLanguages(index: Index): string[] {
 }
 
 export function loadIndex(root: string): Index {
+  const text = decodeUtf8OrNull(readFileSync(join(root, INDEX_REL)));
+  if (text === null) throw new ArchCheckError(message('c4.index-invalid-yaml'));
   let index: unknown;
   try {
-    index = loadYaml(readFileSync(join(root, INDEX_REL), 'utf8'));
+    index = loadYaml(text);
   } catch (error) {
     if (error instanceof YAMLError) throw new ArchCheckError(error.message);
     throw error;

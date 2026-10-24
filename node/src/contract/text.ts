@@ -11,6 +11,16 @@ export function splitLines(text: string): string[] {
   return lines;
 }
 
+/** `bytes.decode('utf-8')`, or null when the bytes are not valid UTF-8. */
+export function decodeUtf8OrNull(bytes: Uint8Array): string | null {
+  try {
+    return decodeUtf8(bytes);
+  } catch (error) {
+    if (error instanceof TypeError) return null;
+    throw error;
+  }
+}
+
 /** Python's str.splitlines(keepends=True). */
 export function splitLinesKeepEnds(text: string): string[] {
   const out: string[] = [];

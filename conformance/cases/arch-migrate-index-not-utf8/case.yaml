@@ -1,0 +1,12 @@
+kind: neutral
+command: la-arch-migrate
+fixture: arch-ok
+remove:
+- architecture/model.c4
+expect:
+  exit: 0
+  files:
+  - architecture/model.c4
+  - architecture/model/model.c4
+golden: manual
+note: a legacy layout migrates past an index.yaml that is not valid UTF-8, leaving the index untouched
