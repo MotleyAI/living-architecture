@@ -34,7 +34,8 @@ skill references SHALL be in the manifest.
 
 #### Scenario: Every non-exempt command runs the format check
 - **WHEN** either twin's test suite runs each manifest command not marked exempt in a repo whose config declares no `format`
-- **THEN** each exits 2 with the missing-format message, and each exempt command does not print it
+- **THEN** each exits 2 with the missing-format message, and no exempt command is refused by it (`la-doctor` reports
+  the missing format as one of its problems instead)
 
 ### Requirement: YAML is read with one fixed profile
 Every YAML input SHALL be read as YAML 1.1, exactly as PyYAML's safe loader reads it: `yes`/`no`/`on`/`off`

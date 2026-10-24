@@ -104,7 +104,8 @@ skill references SHALL be in the manifest.
 
 #### Scenario: Every non-exempt command runs the format check
 - **WHEN** either twin's test suite runs each manifest command not marked exempt in a repo whose config declares no `format`
-- **THEN** each exits 2 with the missing-format message, and each exempt command does not print it
+- **THEN** each exits 2 with the missing-format message, and no exempt command is refused by it (`la-doctor` reports
+  the missing format as one of its problems instead)
 
 ### Requirement: Test-file classification uses the shared glob dialect
 Classifying a file as a test file SHALL use the test globs that the shared languages registry declares for
