@@ -1,6 +1,6 @@
 ---
 name: pr-review
-description: Stage 4 of 4 of the /la:pr flow — run /la:process-reviews in a loop until every source is green, then (OpenSpec repos only) archive the change and push so the PR can merge. Normally dispatched by /la:pr; if the /la:pr context (BRANCH, CHANGE_ID, OPENSPEC, tracker issue) is not already loaded in this session, invoke the la:pr skill instead.
+description: Stage 4 of 4 of the /la:pr flow — run /la:process-reviews in a loop until every source is green, then (OpenSpec repos only) archive the change, push, and keep looping on the archived HEAD until every source is green again so the PR can merge. Normally dispatched by /la:pr; if the /la:pr context (BRANCH, CHANGE_ID, OPENSPEC, tracker issue) is not already loaded in this session, invoke the la:pr skill instead.
 ---
 
 **Preflight:** run `la-doctor --plugin <this skill's base directory> --require-config` once per session before using any `la-*` or `dr-*` command. If it reports the missing-config finding (the one naming `/la:init`), run the fast path of the `la:init` skill, then re-run this preflight; stop and show the user its output on anything it still reports, or on any other failure.
@@ -156,15 +156,30 @@ Only on my explicit go-ahead run:
 openspec archive <CHANGE_ID> --yes
 ```
 
-and commit + push the result as the final commit on the PR branch; I merge the PR
-immediately after. Archiving pre-merge (NOT post-merge) lands the corpus update
-atomically with the code in the same PR — the archive commit re-triggers CI, but
-it is docs-only (`openspec/**`) so it settles fast.
+and commit + push the result on the PR branch. Archiving pre-merge (NOT
+post-merge) lands the corpus update atomically with the code in the same PR.
+
+**The archive push re-triggers every remote gate. Keep reviewing until
+convergence.** The archive commit is docs-only, but CodeRabbit still reviews it
+(the new `openspec/specs/**` file is fresh text to it), and CI reruns. So after
+the push, go back into the Step 1 loop on the archived HEAD: run
+`/la:process-reviews` for a full remote sweep, fix or answer every finding, push
+each fix batch, and sweep again. Repeat until one full push cycle is green on
+every source, with zero dangling CodeRabbit threads. This applies equally to any
+later push before the merge. Only then tell me the PR is ready to merge. NEVER
+report "ready to merge" right after the archive push.
+
+The archive does not reopen the plan. A finding that would change the archived
+change folder or `openspec/specs/**` beyond a pure typo is a plan edit. Present
+the exact diff and wait for my OK, as the `/la:pr` frozen-plan rule requires.
+Fixes to code and tests stay autonomous.
 
 This merges the delta into `openspec/specs/` (ADDED appended, MODIFIED replaced,
 REMOVED deleted) and moves the change to
-`openspec/changes/archive/YYYY-MM-DD-<CHANGE_ID>/`. Commit the result with
-specific `git add` of the changed `openspec/specs/**` and the moved folder. This
+`openspec/changes/archive/YYYY-MM-DD-<CHANGE_ID>/`. Commit the result with one
+`git add` that names every changed `openspec/specs/` file and every moved file
+by explicit path, including the removed source paths under
+`openspec/changes/<CHANGE_ID>/`. This
 is the one step that keeps the behaviour corpus current — everything upstream is
 best-effort authoring; `validate` (in `pr-plan`) and `archive` here are
 the deterministic guarantees.
