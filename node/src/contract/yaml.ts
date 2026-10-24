@@ -146,7 +146,7 @@ function digitValue(char: string): number {
     while (DECIMAL_DIGIT.test(String.fromCodePoint(zero - 1))) zero -= 1;
     return (code - zero) % 10;
   }
-  return /^[a-zA-Z]$/.test(char) ? char.toLowerCase().charCodeAt(0) - 87 : 99;
+  return /^[a-zA-Z]$/.test(char) ? (char.toLowerCase().codePointAt(0) ?? 0) - 87 : 99;
 }
 
 const INT_PREFIX = { 2: '0b', 8: '0o', 10: '', 16: '0x' } as const;
@@ -166,18 +166,16 @@ function pyInt(source: string, base: 2 | 8 | 10 | 16): bigint {
   return negative ? -value : value;
 }
 
-const PY_FLOAT_RE = /^([-+]?)(inf|infinity|nan|(?:\d+(?:\.\d*)?|\.\d+)(?:e[-+]?\d+)?)$/;
+const PY_DECIMAL_RE = /^(?:\d+(?:\.\d*)?|\.\d+)(?:e[-+]?\d+)?$/;
+const PY_FLOAT_WORDS = new Map([['inf', Infinity], ['infinity', Infinity], ['nan', Number.NaN]]);
 
 /** Python's `float(text)`. */
 function pyFloat(source: string): number {
   const ascii = [...pyStrip(source)].map((char) => (DECIMAL_DIGIT.test(char) ? String(digitValue(char)) : char));
-  const m = PY_FLOAT_RE.exec(ascii.join('').toLowerCase());
-  if (m === null) throw new ConstructError(`could not convert string to float: '${source}'`);
-  const [, sign, body = ''] = m;
-  let magnitude = Number(body);
-  if (body === 'inf' || body === 'infinity') magnitude = Infinity;
-  else if (body === 'nan') magnitude = Number.NaN;
-  return sign === '-' ? -magnitude : magnitude;
+  const [body, negative] = unsigned(ascii.join('').toLowerCase());
+  const magnitude = PY_FLOAT_WORDS.get(body) ?? (PY_DECIMAL_RE.test(body) ? Number(body) : undefined);
+  if (magnitude === undefined) throw new ConstructError(`could not convert string to float: '${source}'`);
+  return negative ? -magnitude : magnitude;
 }
 
 /** `text` without one leading sign, and that sign. */
