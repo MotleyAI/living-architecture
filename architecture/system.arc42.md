@@ -41,6 +41,7 @@ flowchart TD
   conventions --> config
   conventions --> contract
   c4 --> contract
+  c4 --> config
   config --> contract
   review --> contract
   doctor --> config
@@ -90,6 +91,7 @@ flowchart TD
   archcheck --> twin
   lang --> contract
   c4 --> contract
+  c4 --> config
   config --> contract
   review --> contract
   doctor --> config

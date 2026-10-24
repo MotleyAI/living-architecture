@@ -33,54 +33,54 @@
 
 ## 2. shared/
 
-- [ ] 2.1 `config.yaml`: `format: 0.4.0` with a one-line comment (the repo format this la reads and writes: the la
+- [x] 2.1 `config.yaml`: `format: 0.4.0` with a one-line comment (the repo format this la reads and writes: the la
   version that introduced it).
-- [ ] 2.2 `schema/living-architecture.schema.json`: `format`, `["string","null"]`, default null, the version pattern
+- [x] 2.2 `schema/living-architecture.schema.json`: `format`, `["string","null"]`, default null, the version pattern
   anchored at both ends; the local schema does not gain it.
-- [ ] 2.3 `cli.yaml`: header documents `format: exempt` and "a format refusal exits 2"; mark `la-arch-migrate`,
+- [x] 2.3 `cli.yaml`: header documents `format: exempt` and "a format refusal exits 2"; mark `la-arch-migrate`,
   `la-doctor` and every review shim exempt; every gated command's exit map mentions the refusal under 2;
   `la-arch-migrate` help: "Convert the repo to the current format (`format` in living-architecture.yaml): for a repo
   that predates the key, merge a legacy architecture/model/*.c4 model into architecture/model.c4 (creating an empty
   architecture/views.c4 when absent), then stamp the format. Verified; writes everything or nothing and prints each
   written and deleted path." and its exit map (2 adds no config, newer, invalid or unknown format).
-- [ ] 2.4 `findings.yaml`: `format.missing`, `format.invalid` (value rendered with the shared renderer), `format.newer`,
+- [x] 2.4 `findings.yaml`: `format.missing`, `format.invalid` (value rendered with the shared renderer), `format.newer`,
   `format.older`, `arch-migrate.no-config`, `arch-migrate.unknown-format`, `arch-migrate.stamp-mismatch`,
   `arch-migrate.rollback-failed`; reword `arch-migrate.nothing` to name the format; remove `c4-layout.migrate`.
-- [ ] 2.5 `scripts/sync-shared`; verify the drift tests pass.
+- [x] 2.5 `scripts/sync-shared`; verify the drift tests pass.
 
 ## 3. Python twin
 
-- [ ] 3.1 `config`: current-format accessor, version comparison, `check_format(root)` (lenient read, rules per spec),
+- [x] 3.1 `config`: current-format accessor, version comparison, `check_format(root)` (lenient read, rules per spec),
   declared-format read and verified `stamp_format(text)`; `LaConfig` gains `format`. Verify the 1.8 unit tests.
-- [ ] 3.2 `cli`: one dispatch helper every wrapper calls — parse → root → format check (unless exempt) → handler.
+- [x] 3.2 `cli`: one dispatch helper every wrapper calls — parse → root → format check (unless exempt) → handler.
   Verify the manifest-parametrised gate test.
-- [ ] 3.3 `c4/migrate.py`: the format flow, the unversioned detection (including "no index and no LikeC4 source"),
+- [x] 3.3 `c4/migrate.py`: the format flow, the unversioned detection (including "no index and no LikeC4 source"),
   the write protocol (exclusive creates, deletes, config replaced last via temp file + rename, reverse rollback,
   failed restores named). Verify the migrate cases and rollback tests.
-- [ ] 3.4 `c4/layout.py`: the readers' message always ends with the merge-by-hand tail; `legacy` state kept for
+- [x] 3.4 `c4/layout.py`: the readers' message always ends with the merge-by-hand tail; `legacy` state kept for
   migrate. Verify the layout cases.
-- [ ] 3.5 `doctor`: format check first; on refusal skip the config-dependent checks. Verify the doctor cases.
-- [ ] 3.6 `uv run pytest -q`, `ruff check src tests`, `basedpyright src tests` green in `python/`.
+- [x] 3.5 `doctor`: format check first; on refusal skip the config-dependent checks. Verify the doctor cases.
+- [x] 3.6 `uv run pytest -q`, `ruff check src tests`, `basedpyright src tests` green in `python/`.
 
 ## 4. npm twin
 
-- [ ] 4.1 `node/src/config`: the same as 3.1, comparison without `Number`. Verify the twin unit tests.
-- [ ] 4.2 `node/src/cli`: format check after parsing and root resolution, before forwarding, scripts and handlers;
+- [x] 4.1 `node/src/config`: the same as 3.1, comparison without `Number`. Verify the twin unit tests.
+- [x] 4.2 `node/src/cli`: format check after parsing and root resolution, before forwarding, scripts and handlers;
   exempt per manifest. Verify the gate test.
-- [ ] 4.3 `node/src/c4/{migrate,layout}.ts` and `node/src/doctor`: as 3.3–3.5.
-- [ ] 4.4 `npm run lint && npm run typecheck && npm test`, `npm run build && npm run conformance`, and
+- [x] 4.3 `node/src/c4/{migrate,layout}.ts` and `node/src/doctor`: as 3.3–3.5.
+- [x] 4.4 `npm run lint && npm run typecheck && npm test`, `npm run build && npm run conformance`, and
   `scripts/conformance-cross` green.
 
 ## 5. Architecture (approved edits only)
 
-- [ ] 5.1 `architecture/model.c4`: add `c4 -> config` after `c4 -> contract` in both the `python` and `typescript`
+- [x] 5.1 `architecture/model.c4`: add `c4 -> config` after `c4 -> contract` in both the `python` and `typescript`
   roots; run `la-arch-diagrams` so `architecture/system.arc42.md` gains exactly `c4 --> config` in each mermaid block.
-- [ ] 5.2 `architecture/index.yaml`: `repo-config` touches gain `python.cli` and `python.c4`.
-- [ ] 5.3 `la-arch-check` green from either twin.
+- [x] 5.2 `architecture/index.yaml`: `repo-config` touches gain `python.cli` and `python.c4`.
+- [x] 5.3 `la-arch-check` green from either twin.
 
 ## 6. Skills and docs (skill wording approved; apply verbatim)
 
-- [ ] 6.1 `plugin/skills/init/SKILL.md`:
+- [x] 6.1 `plugin/skills/init/SKILL.md`:
   - Preflight, replace "…unless the only failure is the existing `living-architecture.yaml` being invalid, which this
     skill converts (step 1)." with "…unless the only failure is the existing `living-architecture.yaml` being invalid
     or declaring an older format, which this skill converts (steps 1 and 5)."
@@ -90,24 +90,26 @@
   - Step 5, first sentence: "Write `living-architecture.yaml` at the repo root, with the flags matching the disk
     (`architecture: false` until `la:arch-init` finishes), then run `la-arch-migrate`: it stamps the current `format`
     and converts an older repo. Check it with `la-config show`."
-- [ ] 6.2 `plugin/skills/living-architecture/SKILL.md`:
+- [x] 6.2 `plugin/skills/living-architecture/SKILL.md`:
   - Tree line: "`living-architecture.yaml           # repo config: format, and architecture: true once the model exists`"
   - Replace "A repo on the legacy `architecture/model/*.c4` layout converts with `la-arch-migrate` (verified,
     all-or-nothing)." with "The repo's format is `format` in `living-architecture.yaml`: the `la` version that
     introduced it. Every command refuses any other format, naming the `la` to upgrade to for a newer one and
     `la-arch-migrate` for an older or missing one; `la-arch-migrate` converts the repo (verified, all-or-nothing) and
     stamps the current format."
-- [ ] 6.3 `docs/configuration.md`: `format` line in the YAML block, a short "Format" section, "every key but `format`
+- [x] 6.3 `docs/configuration.md`: `format` line in the YAML block, a short "Format" section, "every key but `format`
   is optional" for committed files; `docs/commands.md` `la-arch-migrate` row; `docs/development.md`: a format change
   sets `format` in `shared/config.yaml` to its release version. Verify `npx -y @anthropic-ai/claude-code plugin
   validate plugin` and the skills test.
 
 ## 7. Versions and this repo
 
-- [ ] 7.1 Version 0.4.0 in `python/pyproject.toml`, `node/package.json`, `plugin/.claude-plugin/plugin.json`
+- [x] 7.1 Version 0.4.0 in `python/pyproject.toml`, `node/package.json`, `plugin/.claude-plugin/plugin.json`
   (`uv version 0.4.0`, lockfiles refreshed). Verify the version tests.
-- [ ] 7.2 Run `la-arch-migrate` on this repo and on `acceptance/node-only/repo`; verify each `living-architecture.yaml`
-  gains only `format: 0.4.0` and `la-doctor --require-config` is healthy.
+- [x] 7.2 Run `la-arch-migrate` on this repo, and add `format: 0.4.0` by hand to
+  `acceptance/node-only/repo/living-architecture.yaml` (its index.yaml has no model yet, which
+  `la-arch-migrate` refuses); verify each `living-architecture.yaml` gains only `format: 0.4.0`
+  and `la-doctor --require-config` is healthy.
 - [x] 7.3 Comment on DEV-2139 recording the ordering (this change is format 0.4.0; DEV-2139 becomes format 0.5.0 with a
   step keyed on declared `0.4.0`; its frozen plan needs the user's approval for that edit on its branch).
-- [ ] 7.4 Full suites of both twins and the cross-twin conformance run green.
+- [x] 7.4 Full suites of both twins and the cross-twin conformance run green.

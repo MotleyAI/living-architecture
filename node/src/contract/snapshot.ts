@@ -101,6 +101,11 @@ export function localConfigFile(): string {
   return yamlFile('config.yaml').local_file;
 }
 
+/** The repo format this la reads and writes. */
+export function configFormat(): string {
+  return yamlFile('config.yaml').format;
+}
+
 export function scriptPath(name: string): string {
   return join(snapshotDir(), 'scripts', name);
 }

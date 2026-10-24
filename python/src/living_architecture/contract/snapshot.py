@@ -102,5 +102,10 @@ def local_config_file() -> str:
     return _yaml("config.yaml")["local_file"]
 
 
+def config_format() -> str:
+    """The repo format this la reads and writes."""
+    return _yaml("config.yaml")["format"]
+
+
 def script_path(name: str) -> Path:
     return snapshot_dir() / "scripts" / name

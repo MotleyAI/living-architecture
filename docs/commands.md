@@ -9,7 +9,7 @@ The skills drive these commands; you can also run them directly. `<command> --he
 | `la-arch-check` | Architecture cross-check (exit 0 OK, 1 findings, 2 broken setup) |
 | `la-arch-scaffold` | Write a starter `architecture/model.c4`, `architecture/views.c4` and `system.arc42.md` from the measured top-level units and imports |
 | `la-arch-diagrams` | Regenerate the mermaid view diagrams embedded in arc42 docs |
-| `la-arch-migrate` | Merge a legacy `architecture/model/*.c4` model into `architecture/model.c4` (verified, all-or-nothing) |
+| `la-arch-migrate` | Convert the repo to the current `format`: merge a legacy `architecture/model/*.c4` model into `architecture/model.c4` and stamp `format` (verified, all-or-nothing) |
 | `la-check-conventions <PR>` / `--base BRANCH` | Imports-at-top, text-ratio and test-assertion gate on changed `.py` and TS/JS files |
 | `la-count-comments` | Count comment and doc (docstring, JSDoc) lines, or the net change vs a git ref |
 | `la-typecheck [--write-baseline]` | Type-check each applicable language against a baseline that only shrinks |
@@ -64,8 +64,8 @@ Pin the checker to a release; it needs no per-repo code beyond `architecture/`. 
 ```yaml
 # Python
 - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-- run: uvx --no-build --from living-architecture==0.3.3 la-arch-check
+- run: uvx --no-build --from living-architecture==0.4.0 la-arch-check
 # TypeScript
 - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-- run: npx -y -p living-architecture@0.3.3 la-arch-check
+- run: npx -y -p living-architecture@0.4.0 la-arch-check
 ```

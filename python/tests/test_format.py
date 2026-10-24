@@ -57,7 +57,7 @@ def test_stamp(vector: dict) -> None:
 @pytest.mark.parametrize("vector", [v for v in VECTORS["stamp"] if v["stamped"] is not None], ids=lambda v: v["name"])
 def test_stamp_adds_only_the_format(vector: dict) -> None:
     before = load_yaml(vector["text"]) or {}
-    assert load_yaml(config.stamp_format(vector["text"])) == {**before, "format": _current()}
+    assert load_yaml(config.stamp_format(vector["text"]) or "") == {**before, "format": _current()}
 
 
 def _repo(tmp_path: Path, committed: bytes | None, local: str | None = None) -> Path:

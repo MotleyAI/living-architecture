@@ -43,7 +43,7 @@ describe('format versions', () => {
   );
 
   it.each(vector('compare').map((entry) => [...(entry as Iterable<any>)]))('%s vs %s is %s', (a, b, sign) => {
-    expect([compareVersions(a, b), compareVersions(b, a)]).toEqual([Number(sign), -Number(sign)]);
+    expect([compareVersions(a, b), compareVersions(b, a)]).toEqual([Number(sign), 0 - Number(sign)]);
   });
 
   it('the current format is at most every package version', () => {

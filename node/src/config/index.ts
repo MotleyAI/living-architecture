@@ -22,11 +22,22 @@ import {
   schema,
   validate,
 } from '../contract/index.js';
+import { ConfigError } from './error.js';
+
+export { ConfigError } from './error.js';
+export {
+  type Committed,
+  FORMAT_KEY,
+  checkFormat,
+  compareVersions,
+  currentFormat,
+  formatProblem,
+  isVersion,
+  readCommitted,
+  stampFormat,
+} from './format.js';
 
 export const CONFIG_FILENAME = configFile();
-
-/** The config file is unreadable or invalid. */
-export class ConfigError extends Error {}
 
 /** The committed data with the local file merged over it, before `resolveConfig`. */
 export interface RawConfig {
@@ -37,6 +48,7 @@ export interface RawConfig {
 }
 
 export interface LaConfig {
+  format: string | null;
   tracker: 'linear' | 'github' | 'none';
   openspec: boolean;
   architecture: boolean;

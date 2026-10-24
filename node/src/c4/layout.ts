@@ -265,10 +265,9 @@ export function classify(root: string): Layout {
     states.get(modelFile()) === 'missing' &&
     strays.every((rel) => isLegacyFile(rel, scans.get(rel))) &&
     (states.get(viewsFile()) === 'missing' || (viewsExists && (violations.get(viewsFile()) ?? []).length === 0));
-  const tail = message(legacy ? 'c4-layout.migrate' : 'c4-layout.merge-by-hand');
   return {
     state: legacy ? 'legacy' : 'other',
-    message: [message('c4-layout.header'), ...lines, tail].join('\n'),
+    message: [message('c4-layout.header'), ...lines, message('c4-layout.merge-by-hand')].join('\n'),
     legacyFiles: legacy ? strays : [],
     scans,
     viewsExists,
