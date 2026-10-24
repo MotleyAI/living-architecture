@@ -2,7 +2,7 @@
 import { message } from '../contract/index.js';
 import { type Facts, unitFact } from './facts.js';
 import { compareStrings } from './order.js';
-import { type Derived, type NodeMap, separator } from './nodes.js';
+import { type MapElement, type NodeMap, separator } from './nodes.js';
 
 function declaredFindings(nodeMap: NodeMap, facts: Facts): string[] {
   const findings: string[] = [];
@@ -29,18 +29,17 @@ function declaredFindings(nodeMap: NodeMap, facts: Facts): string[] {
 /** a and b name the same subtree, or one nests inside the other. */
 const overlap = (a: string, b: string, sep: string): boolean => a === b || a.startsWith(b + sep) || b.startsWith(a + sep);
 
-function derivedFindings(element: Derived, candidates: string[], facts: Facts): string[] {
+function derivedFindings(element: MapElement, candidates: string[], facts: Facts): string[] {
   const findings: string[] = [];
   const sep = separator(facts.language);
-  const clash = candidates.find((c) => overlap(element.unit, c, sep));
-  if (clash !== undefined) {
-    findings.push(message('claims-exactly-once.child-collides', { element: element.id, unit: element.unit, clash }));
-  }
-  const fact = unitFact(facts, element.unit);
-  if (fact.status === 'missing') findings.push(message('claims-exist.child-missing', { element: element.id, unit: element.unit }));
+  const unit = String(element.unit);
+  const clash = candidates.find((c) => overlap(unit, c, sep));
+  if (clash !== undefined) findings.push(message('claims-exactly-once.child-collides', { element: element.id, unit, clash }));
+  const fact = unitFact(facts, unit);
+  if (fact.status === 'missing') findings.push(message('claims-exist.child-missing', { element: element.id, unit }));
   else if (fact.status === 'ambiguous') {
     const candidatesText = (fact.candidates ?? []).join(', ');
-    findings.push(message('claims-exist.child-ambiguous', { element: element.id, unit: element.unit, candidates: candidatesText }));
+    findings.push(message('claims-exist.child-ambiguous', { element: element.id, unit, candidates: candidatesText }));
   }
   return findings;
 }

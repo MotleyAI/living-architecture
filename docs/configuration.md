@@ -1,10 +1,11 @@
 # Configuration
 
 `living-architecture.yaml` at the repo root records which parts of the flow a repo uses. `/la:init` writes it.
-Every key is optional and takes the default shown below. Its presence means the repo is onboarded: main skills
-check for it with `la-doctor --require-config`.
+In a committed file every key but `format` is optional and takes the default shown below. Its presence means the
+repo is onboarded: main skills check for it with `la-doctor --require-config`.
 
 ```yaml
+format: 0.4.0                       # the repo format (below); la-arch-migrate stamps it
 tracker: linear                     # linear | github | none: where issues and (without OpenSpec) plans live
 openspec: true                      # the flow keeps specs and changes under openspec/
 architecture: false                 # the repo has a living-architecture model (architecture/index.yaml)
@@ -33,6 +34,14 @@ Types are strict: `codex: 'true'` or `text_ratio_max: '0.2'` is an error naming 
 YAML 1.1 booleans (`yes`, `no`, `on`, `off`) are booleans. `issue_key_pattern` must use the portable regex
 subset in [`shared/regex-subset.md`](../shared/regex-subset.md). `la-config show` prints the resolved
 configuration and `la-config get <dotted.key>` prints one value.
+
+## Format
+
+`format` is the repo format: the `la` version that introduced the format of this file and everything under
+`architecture/`. Every command except `la-arch-migrate`, `la-doctor` and the review shims checks it first and
+exits 2 on any other format: a newer one names the `la` to upgrade to, an older or missing one says to run
+`la-arch-migrate`, which converts the repo and stamps the current format. `la-doctor` reports the same refusal as
+a problem. Without a committed file there is nothing to check; the local file cannot set `format`.
 
 ## Languages
 

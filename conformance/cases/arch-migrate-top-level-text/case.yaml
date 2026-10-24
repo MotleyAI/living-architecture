@@ -8,5 +8,6 @@ expect:
   files:
   - architecture/model.c4
   - architecture/model/app.c4
+  - living-architecture.yaml
 golden: manual
 note: a legacy file with top-level text is not migratable

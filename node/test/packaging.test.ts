@@ -16,6 +16,7 @@ import {
 import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { currentFormat } from '../src/config/index.js';
 import { HASH_FILE, NODE_ROOT, readJson, REPO_ROOT } from './helpers.js';
 
 const TIMEOUT = 600_000;
@@ -101,9 +102,11 @@ describe('installed npm package', () => {
     const repo = join(TMP, 'legacy');
     mkdirSync(join(repo, 'architecture', 'model'), { recursive: true });
     writeFileSync(join(repo, 'architecture', 'model', 'm.c4'), 'specification {\n}\nmodel {\n}\n');
+    writeFileSync(join(repo, 'living-architecture.yaml'), 'tracker: linear\n');
     const proc = run(bin('la-arch-migrate'), ['--root', repo], WORK);
     expect(proc.status, proc.stderr).toBe(0);
     expect(readFileSync(join(repo, 'architecture', 'model.c4'), 'utf8')).toBe('specification {\n}\nmodel {\n}\n');
+    expect(readFileSync(join(repo, 'living-architecture.yaml'), 'utf8')).toBe(`format: ${currentFormat()}\ntracker: linear\n`);
   });
 
   it('a review shim runs its bundled script', () => {

@@ -22,11 +22,15 @@ bins:
       echo "watch: uvx $*" >> <ROOT>/repo/probe.log
       echo "watch uvx must not run" >&2
       exit 99
+normalize:
+- pattern: '(format"?: "?)[0-9]+\.[0-9]+\.[0-9]+'
+  replace: \1<FORMAT>
 expect:
   exit: 0
   files:
   - architecture/model.c4
   - architecture/model/m.c4
   - probe.log
+  - living-architecture.yaml
 golden: manual
 note: la-arch-migrate converts a mixed repo natively in either twin with the other twin unreachable

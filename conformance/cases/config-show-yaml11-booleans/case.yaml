@@ -2,5 +2,8 @@ kind: neutral
 command: la-config
 args:
 - show
+normalize:
+- pattern: '(format"?: "?)[0-9]+\.[0-9]+\.[0-9]+'
+  replace: '\1<FORMAT>'
 expect:
   exit: 0

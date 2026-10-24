@@ -1,3 +1,4 @@
+format: <FORMAT>
 conventions: {exempt: [], rules: []}
 reviewers: {codex: false}
 commands: {test: ''}

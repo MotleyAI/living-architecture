@@ -2,7 +2,7 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
-import { ConfigError, type LaConfig, loadConfig, repoLanguages } from '../config/index.js';
+import { ConfigError, type LaConfig, checkFormat, loadConfig, repoLanguages } from '../config/index.js';
 import { configFile, contractHash, language, localConfigFile, message, which } from '../contract/index.js';
 import { VERSION } from '../index.js';
 
@@ -114,16 +114,17 @@ function languageExecutables(root: string): string[] {
   return repoLanguages(root, config).flatMap((id) => language(id).executables as string[]);
 }
 
-/** Problems found; empty means healthy. Config-vs-disk checks run only when the committed config file exists. */
+/** Problems found; empty means healthy. A format refusal replaces every check that reads the config. */
 export function runChecks(root: string, expect: string | null, plugin: string | null = null, requireConfig = false): string[] {
   const versions = [expect !== null ? versionProblem(expect) : null, plugin !== null ? pluginProblem(plugin) : null];
   const problems = versions.filter((problem): problem is string => problem !== null);
-  problems.push(...configProblems(root, requireConfig));
+  const refusal = checkFormat(root);
+  problems.push(...(refusal !== null ? [refusal] : configProblems(root, requireConfig)));
   const local = localProblem(root);
   if (local !== null) problems.push(local);
   let executables: string[] = [...REQUIRED_EXECUTABLES];
   try {
-    executables = [...executables, ...languageExecutables(root)];
+    if (refusal === null) executables = [...executables, ...languageExecutables(root)];
   } catch (error) {
     if (!(error instanceof ConfigError)) throw error;
     problems.push(error.message);

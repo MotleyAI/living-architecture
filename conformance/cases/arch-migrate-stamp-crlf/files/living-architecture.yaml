@@ -1,0 +1,4 @@
+# config
+format: <FORMAT>
+tracker: linear
+openspec: false

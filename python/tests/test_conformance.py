@@ -22,7 +22,7 @@ import pytest
 import yaml
 
 from living_architecture import __version__
-from living_architecture.contract import contract_hash
+from living_architecture.contract import config_file, contract_hash, snapshot_dir
 
 
 def _repo_root() -> Path:
@@ -152,7 +152,7 @@ def _write_files(repo: Path, files: dict[str, str]) -> None:
 def _apply_step(step: dict, *, repo: Path, root: Path, env: dict[str, str]) -> None:
     [(op, arg)] = step.items()
     if op == "write":
-        _write_files(repo, {rel: substitute(text, root) for rel, text in arg.items()})
+        _write_files(repo, {rel: with_format(substitute(text, root)) for rel, text in arg.items()})
     elif op == "commit":
         _git(repo, env, "add", "-A")
         _git(repo, env, "commit", "-q", "-m", arg)
@@ -202,6 +202,25 @@ def _tools_dir(hidden: frozenset[str]) -> Path:
 def substitute(text: str, root: Path) -> str:
     """Placeholders allowed in args and fake executables."""
     return text.replace("<VERSION>", __version__).replace("<CONTRACT_HASH>", contract_hash()).replace("<ROOT>", str(root))
+
+
+def current_format() -> str:
+    """The repo format the bundled contract reads and writes."""
+    return yaml.safe_load((snapshot_dir() / "config.yaml").read_text(encoding="utf-8"))["format"]
+
+
+def with_format(text: str) -> str:
+    """`<FORMAT>` replaced by the current format; read only when the placeholder occurs."""
+    return text.replace("<FORMAT>", current_format()) if "<FORMAT>" in text else text
+
+
+def _substitute_config_files(repo: Path, case: dict) -> None:
+    """`<FORMAT>` in the committed config at the repo root and at the root a case passes with `--root`."""
+    args = [str(a) for a in case.get("args", [])]
+    roots = [repo, *([repo / args[args.index("--root") + 1]] if "--root" in args[:-1] else [])]
+    for path in (root / config_file() for root in roots):
+        if path.is_file() and not path.is_symlink() and b"<FORMAT>" in (data := path.read_bytes()):
+            path.write_bytes(data.replace(b"<FORMAT>", current_format().encode("utf-8")))
 
 
 def _fake_bins(root: Path, case: dict) -> tuple[list[str], list[str]]:
@@ -283,6 +302,7 @@ def materialize(
     repo.mkdir(parents=True)
     for overlay in _overlays(case_dir, case, variant):
         _copy_tree(overlay, repo)
+    _substitute_config_files(repo, case)
     for rel in case.get("remove", []):
         target = repo / rel
         shutil.rmtree(target) if target.is_dir() and not target.is_symlink() else target.unlink()
@@ -564,6 +584,42 @@ def test_later_overlay_overwrites_an_earlier_one(tmp_path: Path) -> None:
     [variant] = variants(case)
     repo, _ = materialize(case_dir, case, tmp_path / "run", variant)
     assert (repo / "shared.txt").read_text(encoding="utf-8") == "ts\n"
+
+
+def test_format_placeholder_fills_committed_configs_and_write_steps_only(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setitem(globals(), "current_format", lambda: "7.8.9")
+    case_dir = tmp_path / "cases" / "fmt"
+    texts = {
+        "living-architecture.yaml": "format: <FORMAT>\r\ntracker: linear\r\n",
+        "sub/living-architecture.yaml": "format: <FORMAT>\n",
+        "other/living-architecture.yaml": "format: <FORMAT>\n",
+        "living-architecture.local.yaml": "format: <FORMAT>\n",
+        "notes.md": "<FORMAT>\n",
+    }
+    for rel, text in texts.items():
+        (case_dir / "repo" / rel).parent.mkdir(parents=True, exist_ok=True)
+        (case_dir / "repo" / rel).write_bytes(text.encode("utf-8"))
+    case = _case(git=[{"write": {"written.txt": "<FORMAT> <VERSION>\n"}}], args=["--root", "sub", "<FORMAT>"])
+    repo, _ = materialize(case_dir, case, tmp_path / "run", NEUTRAL)
+    assert (repo / "living-architecture.yaml").read_bytes() == b"format: 7.8.9\r\ntracker: linear\r\n"
+    assert (repo / "sub" / "living-architecture.yaml").read_text(encoding="utf-8") == "format: 7.8.9\n"
+    assert (repo / "other" / "living-architecture.yaml").read_text(encoding="utf-8") == "format: <FORMAT>\n"
+    assert (repo / "living-architecture.local.yaml").read_text(encoding="utf-8") == "format: <FORMAT>\n"
+    assert (repo / "notes.md").read_text(encoding="utf-8") == "<FORMAT>\n"
+    assert (repo / "written.txt").read_text(encoding="utf-8") == f"7.8.9 {__version__}\n"
+    assert substitute("<FORMAT>", tmp_path) == "<FORMAT>"
+
+
+def test_format_is_read_only_when_a_placeholder_needs_it(tmp_path: Path, monkeypatch) -> None:
+    def unavailable() -> str:
+        raise AssertionError("current format read without a placeholder")
+
+    monkeypatch.setitem(globals(), "current_format", unavailable)
+    case_dir = tmp_path / "cases" / "plain"
+    (case_dir / "repo").mkdir(parents=True)
+    (case_dir / "repo" / "living-architecture.yaml").write_bytes(b"\xff tracker: linear\n")
+    repo, _ = materialize(case_dir, _case(git=[{"write": {"a.txt": "a\n"}}]), tmp_path / "run", NEUTRAL)
+    assert (repo / "living-architecture.yaml").read_bytes() == b"\xff tracker: linear\n"
 
 
 @pytest.mark.parametrize("case_dir", CASES, ids=lambda p: p.name)

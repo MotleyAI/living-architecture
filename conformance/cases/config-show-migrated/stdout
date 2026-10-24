@@ -1,0 +1,31 @@
+{
+  "format": "<FORMAT>",
+  "tracker": "linear",
+  "openspec": false,
+  "architecture": false,
+  "reviewers": {
+    "codex": true,
+    "sonar": {
+      "project_key": null
+    }
+  },
+  "issue_key_pattern": "[A-Z][A-Z0-9]+-\\d+",
+  "commands": {
+    "test": null,
+    "lint": null,
+    "typecheck": {
+      "python": "basedpyright",
+      "typescript": "tsc --noEmit"
+    }
+  },
+  "conventions": {
+    "text_ratio_max": 0.15,
+    "exempt": [],
+    "rules": [
+      "import-not-top",
+      "text-ratio",
+      "composite-assert",
+      "raises-single-throw"
+    ]
+  }
+}

@@ -5,7 +5,7 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
-import { ConfigError, explicitTypecheck, loadConfig, loadRaw, resolveConfig } from '../src/config/index.js';
+import { ConfigError, currentFormat, explicitTypecheck, loadConfig, loadRaw, resolveConfig } from '../src/config/index.js';
 import { configFile, localConfigFile, schema, validate } from '../src/contract/index.js';
 import { run } from './cli-run.js';
 import { plain } from './helpers.js';
@@ -184,7 +184,7 @@ describe('order of checks', () => {
 
 describe('la-config with a local file', () => {
   it('show notes each local key on stderr in schema order', () => {
-    const root = repo({ committed: 'tracker: github\n', local: 'reviewers: {codex: true}\ntracker: none\n' });
+    const root = repo({ committed: `format: ${currentFormat()}\ntracker: github\n`, local: 'reviewers: {codex: true}\ntracker: none\n' });
     const result = run(root, 'la-config', ['--root', root, 'show']);
     expect(result.code).toBe(0);
     expect(JSON.parse(result.out).tracker).toBe('none');
@@ -192,14 +192,14 @@ describe('la-config with a local file', () => {
   });
 
   it('show reads the local file once', () => {
-    const root = repo({ committed: 'tracker: github\n', local: 'tracker: none\n' });
+    const root = repo({ committed: `format: ${currentFormat()}\ntracker: github\n`, local: 'tracker: none\n' });
     vi.mocked(readFileSync).mockClear();
     expect(run(root, 'la-config', ['--root', root, 'show']).code).toBe(0);
     expect(vi.mocked(readFileSync).mock.calls.filter(([path]) => path === join(root, LOCAL))).toHaveLength(1);
   });
 
   it('get prints no note', () => {
-    const root = repo({ committed: 'tracker: github\n', local: 'tracker: none\n' });
+    const root = repo({ committed: `format: ${currentFormat()}\ntracker: github\n`, local: 'tracker: none\n' });
     expect(run(root, 'la-config', ['--root', root, 'get', 'tracker'])).toEqual({ code: 0, out: 'none\n', err: '' });
   });
 });

@@ -1,0 +1,12 @@
+kind: neutral
+command: la-config
+args:
+- show
+expect:
+  exit: 1
+  stdout: ''
+  stderr:
+    contains:
+    - living-architecture.yaml
+note: 'a scalar the YAML profile cannot construct (an impossible date, here as the format) is invalid YAML, not a
+  crash and not a format refusal; the wording is not contract'

@@ -9,7 +9,9 @@ observable output so the twins cannot drift.
 
 ### Requirement: YAML is read with one fixed profile
 Every YAML input SHALL be read as YAML 1.1, exactly as PyYAML's safe loader reads it: `yes`/`no`/`on`/`off`
-are booleans, and a duplicate mapping key takes the last value.
+are booleans, and a duplicate mapping key takes the last value. A scalar the safe loader cannot construct (an
+impossible date such as `2024-13-01`, or `!!int`/`!!float` content that is not a number) SHALL be a YAML error,
+reported like any other invalid YAML, never a crash.
 
 #### Scenario: YAML 1.1 boolean
 - **WHEN** the config sets `reviewers: {codex: no}`
@@ -18,6 +20,10 @@ are booleans, and a duplicate mapping key takes the last value.
 #### Scenario: Duplicate key
 - **WHEN** a mapping in the config repeats a key
 - **THEN** the last occurrence wins and no error is raised
+
+#### Scenario: Unconstructible scalar
+- **WHEN** the config holds `2024-13-01` as a plain scalar
+- **THEN** every command that reads it reports invalid YAML in the config and exits as for any other YAML error
 
 ### Requirement: Issue-key patterns use the portable regex subset
 `issue_key_pattern` SHALL be accepted only when it uses the portable subset documented in the contract:
@@ -71,7 +77,9 @@ build its parser from it. Parsing SHALL accept no abbreviated long options and S
 error SHALL exit 2. A command declared `passthrough` SHALL hand its raw arguments to its handler. Options the
 manifest marks internal SHALL be accepted but omitted from help. The manifest SHALL declare, for each
 language-specific command, the languages whose twin implements it natively; a command declaring none is
-neutral. Each package's installed entry points SHALL be exactly the manifest's command set, and every command a
+neutral. The manifest SHALL mark the commands exempt from the format check (`la-arch-migrate`, `la-doctor` and the
+review shims); every other command SHALL run the format check, and a format refusal SHALL exit 2 in every command.
+Each package's installed entry points SHALL be exactly the manifest's command set, and every command a
 skill references SHALL be in the manifest.
 
 #### Scenario: Entry points match the manifest
@@ -93,6 +101,11 @@ skill references SHALL be in the manifest.
 #### Scenario: Skill references only real commands
 - **WHEN** a SKILL.md mentions an `la-*` or `dr-*` command absent from the manifest
 - **THEN** the skills test fails naming the command
+
+#### Scenario: Every non-exempt command runs the format check
+- **WHEN** either twin's test suite runs each manifest command not marked exempt in a repo whose config declares no `format`
+- **THEN** each exits 2 with the missing-format message, and no exempt command is refused by it (`la-doctor` reports
+  the missing format as one of its problems instead)
 
 ### Requirement: Test-file classification uses the shared glob dialect
 Classifying a file as a test file SHALL use the test globs that the shared languages registry declares for

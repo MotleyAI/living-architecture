@@ -1,4 +1,5 @@
 {
+  "format": "<FORMAT>",
   "tracker": "github",
   "openspec": true,
   "architecture": false,

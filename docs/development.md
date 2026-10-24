@@ -49,7 +49,9 @@ read your shell aliases need that flag added to their own command settings.
 In `python/`, bump the version with `uv version <new>`, then in `node/package.json` and
 `plugin/.claude-plugin/plugin.json` (skills read it through `la-doctor --plugin`; the tests fail until all agree),
 and update the pins in the README and [commands.md](commands.md). Run `scripts/sync-shared` and commit the
-refreshed copies. Tag `v<version>` and publish a GitHub release for it; the `Publish` workflow first runs
+refreshed copies. A release that changes the repo format (`living-architecture.yaml` or anything under
+`architecture/`) also sets `format` in `shared/config.yaml` to its own version and adds the conversion to
+`la-arch-migrate`. Tag `v<version>` and publish a GitHub release for it; the `Publish` workflow first runs
 `scripts/release-check` (every version equals the tag, both contract hashes agree) and publishes neither twin
 otherwise. The npm job skips while `node/package.json` is `"private": true`. It publishes through npm trusted
 publishing, which trusts `publish.yml` in this repository by name: renaming the workflow needs a new trusted

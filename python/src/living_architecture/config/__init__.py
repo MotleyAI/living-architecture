@@ -1,5 +1,16 @@
 """Per-repo config: `living-architecture.yaml` with its local overrides, validated and completed by the shared schema."""
 
+from living_architecture.config.format import (
+    FORMAT_KEY,
+    Committed,
+    check_format,
+    compare_versions,
+    current_format,
+    format_problem,
+    is_version,
+    read_committed,
+    stamp_format,
+)
 from living_architecture.config.languages import language_fact, repo_languages, source_files
 from living_architecture.config.load import (
     CONFIG_FILENAME,
@@ -21,7 +32,9 @@ from living_architecture.config.values import format_value, run_get, run_show
 
 __all__ = [
     "CONFIG_FILENAME",
+    "FORMAT_KEY",
     "CommandsConfig",
+    "Committed",
     "ConfigError",
     "ConventionsConfig",
     "LaConfig",
@@ -29,15 +42,22 @@ __all__ = [
     "ReviewersConfig",
     "SonarConfig",
     "TypecheckConfig",
+    "check_format",
+    "compare_versions",
+    "current_format",
     "explicit_typecheck",
     "find_repo_root",
+    "format_problem",
     "format_value",
+    "is_version",
     "language_fact",
     "load_config",
     "load_raw",
+    "read_committed",
     "repo_languages",
     "resolve",
     "run_get",
     "run_show",
     "source_files",
+    "stamp_format",
 ]

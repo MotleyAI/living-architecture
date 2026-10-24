@@ -20,11 +20,18 @@ export interface Relation {
   legacy: boolean;
 }
 
+/** 0-based line indices (`splitLines`) of an element's metadata block and of each key's statement. */
+export interface MetadataSpan {
+  block: [number, number];
+  keys: Map<string, [number, number]>;
+}
+
 export interface ModelParse {
   elements: Element[];
   relations: Relation[];
   findings: string[];
   metadataFindings: string[];
+  spans: Map<string, MetadataSpan>;
 }
 
 const ELEMENT_RE = new RegExp(`^(${WORD}+)\\s*=\\s*(${WORD}+)\\s+'([^']*)'(?:\\s*\\{)?\\s*$`, 'u');
@@ -66,22 +73,25 @@ function braceDelta(code: string): number {
   return depth;
 }
 
-/** Comment-stripped lines with every unquoted `{`/`}` broken onto its own line. */
-function logicalLines(text: string): string[] {
-  const decommented = splitLines(text).map(stripLineComment).join('\n');
-  let out = '';
+/** Comment-stripped (line index, code) pieces with every unquoted `{`/`}` broken onto its own piece. */
+function logicalLines(text: string): [number, string][] {
+  const out: [number, string][] = [];
   let inQuote = false;
-  for (const ch of decommented) {
-    if (ch === "'") {
-      inQuote = !inQuote;
-      out += ch;
-    } else if (!inQuote && ch === '{') out += '{\n';
-    else if (!inQuote && ch === '}') out += '\n}\n';
-    else out += ch;
-  }
-  return splitLines(out)
-    .map((line) => line.trim())
-    .filter((line) => line !== '');
+  splitLines(text)
+    .map(stripLineComment)
+    .forEach((line, index) => {
+      let pieces = '';
+      for (const ch of line) {
+        if (ch === "'") {
+          inQuote = !inQuote;
+          pieces += ch;
+        } else if (!inQuote && ch === '{') pieces += '{\n';
+        else if (!inQuote && ch === '}') pieces += '\n}\n';
+        else pieces += ch;
+      }
+      for (const piece of pieces.split('\n')) if (piece.trim() !== '') out.push([index, piece.trim()]);
+    });
+  return out;
 }
 
 interface Scan {
@@ -92,13 +102,15 @@ interface Scan {
   relPairs: Set<string>;
   findings: string[];
   metadataFindings: string[];
+  spans: Map<string, MetadataSpan>;
 }
 
 /** An open `metadata { }` block; `element` is null when its content is discarded. */
 interface MetadataBlock {
   element: string | null;
+  openLine: number;
   depth: number;
-  lines: string[];
+  lines: [number, string][];
 }
 
 /** Parse `architecture/model.c4` under the constrained authoring convention. */
@@ -108,6 +120,11 @@ export function parseModel(root: string): ModelParse {
 
 /** Parse `paths` in order as one model. */
 export function parseModelFiles(paths: string[]): ModelParse {
+  return parseModelTexts(paths.map((path) => readFileSync(path, 'utf8')));
+}
+
+/** Parse `texts` in order as one model; `spans` index the lines of the text each element is declared in. */
+export function parseModelTexts(texts: string[]): ModelParse {
   const scan: Scan = {
     kinds: new Map(),
     byId: new Map(),
@@ -116,8 +133,9 @@ export function parseModelFiles(paths: string[]): ModelParse {
     relPairs: new Set(),
     findings: [],
     metadataFindings: [],
+    spans: new Map(),
   };
-  for (const path of paths) scanModelFile(readFileSync(path, 'utf8'), scan);
+  for (const text of texts) scanModelText(text, scan);
   const elements = [...scan.byId.values()];
   for (const element of elements) {
     if (!scan.kinds.has(element.kind)) {
@@ -132,16 +150,24 @@ export function parseModelFiles(paths: string[]): ModelParse {
       }
     }
   }
-  return { elements, relations: scan.relations, findings: scan.findings, metadataFindings: scan.metadataFindings };
+  return {
+    elements,
+    relations: scan.relations,
+    findings: scan.findings,
+    metadataFindings: scan.metadataFindings,
+    spans: scan.spans,
+  };
 }
 
-function scanModelFile(text: string, scan: Scan): void {
+function scanModelText(text: string, scan: Scan): void {
   let region: string | null = null;
   let depth = 0;
   const parents: string[] = [];
   let specKind: string | null = null;
   let meta: MetadataBlock | null = null;
-  for (const code of logicalLines(text)) {
+  let lineno = 0;
+  for (const [index, code] of logicalLines(text)) {
+    lineno = index;
     if (region === null) {
       const m = BLOCK_RE.exec(code);
       if (m !== null) {
@@ -155,16 +181,16 @@ function scanModelFile(text: string, scan: Scan): void {
     if (meta !== null) {
       depth += delta;
       meta.depth += delta;
-      if (meta.depth > 0) meta.lines.push(code);
+      if (meta.depth > 0) meta.lines.push([lineno, code]);
       else {
-        closeMetadata(meta, scan);
+        closeMetadata(meta, scan, lineno);
         meta = null;
       }
       continue;
     }
     if (region === 'model' && parents.length > 0 && METADATA_OPEN_RE.test(code)) {
       depth += delta;
-      meta = openMetadata(parents[parents.length - 1] ?? '', code, scan);
+      meta = openMetadata(parents[parents.length - 1] ?? '', code, scan, lineno);
       continue;
     }
     if (region === 'specification') {
@@ -184,26 +210,27 @@ function scanModelFile(text: string, scan: Scan): void {
       specKind = null;
     }
   }
-  if (meta !== null) closeMetadata(meta, scan);
+  if (meta !== null) closeMetadata(meta, scan, lineno);
 }
 
 /** Start a block for `element`; a duplicate element's block, or a second block, is discarded. */
-function openMetadata(element: string, code: string, scan: Scan): MetadataBlock {
+function openMetadata(element: string, code: string, scan: Scan, openLine: number): MetadataBlock {
   const target = scan.byId.get(element);
-  if (scan.duplicates.has(element) || target === undefined) return { element: null, depth: 1, lines: [] };
+  if (scan.duplicates.has(element) || target === undefined) return { element: null, openLine, depth: 1, lines: [] };
   if (target.hasMetadata) {
     metadataProblem(scan, element, code);
-    return { element: null, depth: 1, lines: [] };
+    return { element: null, openLine, depth: 1, lines: [] };
   }
   target.hasMetadata = true;
-  return { element, depth: 1, lines: [] };
+  return { element, openLine, depth: 1, lines: [] };
 }
 
-function closeMetadata(block: MetadataBlock, scan: Scan): void {
+function closeMetadata(block: MetadataBlock, scan: Scan, closeLine: number): void {
   if (block.element === null) return;
-  const [values, problems] = parseMetadata(block.lines);
+  const [values, problems, keys] = parseMetadata(block.lines);
   const target = scan.byId.get(block.element);
   if (target !== undefined) target.metadata = values;
+  scan.spans.set(block.element, { block: [block.openLine, closeLine], keys });
   for (const line of problems) metadataProblem(scan, block.element, line);
 }
 
@@ -213,12 +240,17 @@ function metadataProblem(scan: Scan, element: string, line: string): void {
   scan.metadataFindings.push(problem);
 }
 
-/** `key 'v'` / `key ['a', 'b']` statements (arrays may span lines) and the text of each bad one. */
-function parseMetadata(lines: string[]): [Record<string, string | string[]>, string[]] {
+/** `key 'v'` / `key ['a', 'b']` statements (arrays may span lines), the text of each bad one, and each key's lines. */
+function parseMetadata(
+  lines: [number, string][],
+): [Record<string, string | string[]>, string[], Map<string, [number, number]>] {
   const values = new Map<string, string | string[]>();
   const problems: string[] = [];
+  const keys = new Map<string, [number, number]>();
   let pending = '';
-  for (const line of lines) {
+  let first = 0;
+  for (const [lineno, line] of lines) {
+    if (!pending) first = lineno;
     const text = pending ? `${pending} ${line}` : line;
     pending = '';
     let pos = 0;
@@ -233,13 +265,17 @@ function parseMetadata(lines: string[]): [Record<string, string | string[]>, str
       }
       const [whole, key = '', raw = ''] = m;
       if (values.has(key)) problems.push(whole.trim());
-      else values.set(key, raw.startsWith("'") ? raw.slice(1, -1) : (raw.match(QUOTED_RE) ?? []).map((q) => q.slice(1, -1)));
+      else {
+        values.set(key, raw.startsWith("'") ? raw.slice(1, -1) : (raw.match(QUOTED_RE) ?? []).map((q) => q.slice(1, -1)));
+        keys.set(key, [first, lineno]);
+      }
       pos = META_STMT_RE.lastIndex;
+      first = lineno;
     }
   }
   if (pending) problems.push(pending);
   // fromEntries defines `__proto__` as an own key; assignment would hit the prototype setter.
-  return [Object.fromEntries(values), problems];
+  return [Object.fromEntries(values), problems, keys];
 }
 
 /** Split a brace-free specification line into its `element`/`tag` statements. */
@@ -325,6 +361,7 @@ export function project(model: ModelParse, root: string): ModelParse {
       .map((r) => ({ src: local(r.src), dst: local(r.dst), legacy: r.legacy })),
     findings: [],
     metadataFindings: [],
+    spans: new Map(),
   };
 }
 

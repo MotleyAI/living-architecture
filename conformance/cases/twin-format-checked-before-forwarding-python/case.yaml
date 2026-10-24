@@ -1,0 +1,19 @@
+kind: neutral
+languages:
+- python
+- typescript
+fixture: dr-mixed
+golden: manual
+twin: python
+other_twin: absent
+command: dr-compliance
+args:
+- src/a.py
+- src/b.ts
+normalize:
+- pattern: (this la reads format )[0-9]+\.[0-9]+\.[0-9]+
+  replace: \1<FORMAT>
+expect:
+  exit: 2
+note: 'the python twin checks the format before forwarding the typescript files: no
+  install hint'

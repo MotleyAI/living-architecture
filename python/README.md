@@ -72,8 +72,8 @@ or see the model this repo checks itself against in
 /plugin install la@living-architecture
 
 # the commands (la-*, dr-*), pinned to the same version as the plugin, from your repo's ecosystem
-uv tool install living-architecture==0.3.3      # Python repos (Python >= 3.11)
-npm install -g living-architecture@0.3.3        # TypeScript/JavaScript repos (Node >= 22)
+uv tool install living-architecture==0.4.0      # Python repos (Python >= 3.11)
+npm install -g living-architecture@0.4.0        # TypeScript/JavaScript repos (Node >= 22)
 ```
 
 The commands come as a PyPI package and an npm package of the same name, with identical behaviour. Each serves
@@ -116,10 +116,10 @@ Pin the check in CI to a release, in your ecosystem's form:
 ```yaml
 # Python
 - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-- run: uvx --no-build --from living-architecture==0.3.3 la-arch-check
+- run: uvx --no-build --from living-architecture==0.4.0 la-arch-check
 # TypeScript
 - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-- run: npx -y -p living-architecture@0.3.3 la-arch-check
+- run: npx -y -p living-architecture@0.4.0 la-arch-check
 ```
 
 ### The whole flow

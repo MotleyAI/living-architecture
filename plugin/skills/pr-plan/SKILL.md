@@ -18,11 +18,10 @@ Treat the tracker issue body + comments AND whatever I typed when invoking
 priority but ask to be sure.
 
 **Living-architecture repos**: the arc42 / LikeC4 reads and normative-harness
-rules in the `la:pr` skill apply before drafting. The plan MUST state which node
+rules in the `la:pr` skill apply before drafting. The plan MUST state which element
 principles apply, and any arc42 contradiction is raised as its own interview
-point. If the change adds a capability, the plan also records where its spec
-attaches in `index.yaml` (one node's `specs:`, or `cross_cutting_specs` with a
-`touches:` list). When an arc42 axiom edit is needed, keep the clause **concise
+point. If the change adds a capability, the plan also records where its spec attaches: one element's metadata `specs`
+(at any depth), or `cross_cutting_specs` in `index.yaml` with a `touches:` list. When an arc42 axiom edit is needed, keep the clause **concise
 and simple** — introduce a named concept (with a one-symbol gloss where it
 helps, e.g. `a.b.a ≡ a`) and reference it, rather than spelling the mechanism
 out inline. Present the exact wording for approval before it lands, and prefer
@@ -51,7 +50,7 @@ of the flow, not just planning.
 **Design bias — structural fix over band-aid.** When the brief is a bug, a
 gap, or an inconsistency, decide BEFORE designing the fix whether the reported
 symptom is one instance of a deeper structural cause — judged against the
-principles/axioms in the `architecture/**/*.arc42.md` files (an axiom-violating
+principles/axioms in the `architecture/*.arc42.md` files (an axiom-violating
 shape left standing, two code paths that must agree by hand, a missed
 normalization that a single canonical representation would obviate, a check
 repeated at every call site, etc. are all tells). Prefer a design that makes

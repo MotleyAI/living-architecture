@@ -1,0 +1,9 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+fixture: arch-ok
+expect:
+  exit: 1
+golden: manual
+note: an element under a virtual node owns a spec group; virtual-children is still reported

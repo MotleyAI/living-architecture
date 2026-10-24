@@ -3,7 +3,7 @@ import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { architecture, isWordStart, message, splitLines } from '../contract/index.js';
 import { readIndex } from './index-file.js';
-import { type ModelParse, project, roots, stripLineComment } from './model.js';
+import { type ModelParse, type Relation, isOrAncestor, project, roots, stripLineComment } from './model.js';
 
 export interface Edge {
   src: string;
@@ -41,7 +41,6 @@ const TOKEN_RE = /'[^']*'|->|[\p{L}\p{N}_.]+|\S/gu;
 
 export const DEFAULT_VIEW_DEPTH = 3;
 
-const top = (eid: string): string => eid.split('.')[0] ?? eid;
 const level = (eid: string): number => eid.split('.').length;
 const ancestorAtLevel = (eid: string, n: number): string => eid.split('.').slice(0, n).join('.');
 
@@ -105,10 +104,6 @@ class Parser {
       findings.push(message('c4.include-unknown', { form, name }));
       return false;
     }
-    if (!scope.topLevel.includes(name)) {
-      findings.push(message('c4.include-non-top-level', { form, name }));
-      return false;
-    }
     return true;
   }
 
@@ -136,8 +131,6 @@ class Parser {
         } else findings.push(message('c4.malformed-predicate', { view: vid }));
       } else if (!scope.known.has(tok[1])) {
         findings.push(message('c4.view-includes-unknown', { view: vid, name: tok[1] }));
-      } else if (!scope.topLevel.includes(tok[1])) {
-        findings.push(message('c4.view-includes-non-top-level', { view: vid, name: tok[1] }));
       } else addBase(raw, tok[1]);
     } else {
       findings.push(message('c4.unexpected-include-token', { view: vid, token: tok[1] }));
@@ -266,16 +259,29 @@ function subtree(root: string, kids: Map<string, string[]>): string[] {
   return [root, ...(kids.get(root) ?? []).flatMap((child) => subtree(child, kids))];
 }
 
-/** Each base's subtree down to `depth`, plus every predicate-matched endpoint collapsed to `depth` and its ancestors. */
+/** The deepest level a selection shows: `depth` levels counted from the selection itself. */
+const reach = (selection: string, depth: number): number => level(selection) + depth - 1;
+
+/** The predicate anchors matching `r`: a source anchor at or above its source, a target anchor at or above its target. */
+function anchors(r: Relation, spec: RawView): string[] {
+  return [...[...spec.srcAnchors].filter((a) => isOrAncestor(a, r.src)), ...[...spec.dstAnchors].filter((a) => isOrAncestor(a, r.dst))];
+}
+
+const inBase = (eid: string, spec: RawView): boolean => spec.base.some((selection) => isOrAncestor(selection, eid));
+
+/** Each include's subtree down to its reach, plus each predicate-matched endpoint cut to the anchor's reach, with its ancestors. */
 function shownIds(spec: RawView, depth: number, model: ModelParse, kids: Map<string, string[]>): Set<string> {
   const shown = new Set<string>();
-  for (const base of spec.base) {
-    for (const eid of subtree(base, kids)) if (level(eid) <= depth) shown.add(eid);
+  for (const selection of spec.base) {
+    const limit = reach(selection, depth);
+    for (const eid of subtree(selection, kids)) if (level(eid) <= limit) shown.add(eid);
   }
   for (const r of model.relations) {
-    if (!spec.srcAnchors.has(top(r.src)) && !spec.dstAnchors.has(top(r.dst))) continue;
-    for (const endpoint of [r.src, r.dst]) {
-      for (const anc of ancestorChain(ancestorAtLevel(endpoint, Math.min(depth, level(endpoint))))) shown.add(anc);
+    for (const anchor of anchors(r, spec)) {
+      const limit = reach(anchor, depth);
+      for (const endpoint of [r.src, r.dst]) {
+        for (const anc of ancestorChain(ancestorAtLevel(endpoint, Math.min(limit, level(endpoint))))) shown.add(anc);
+      }
     }
   }
   return shown;
@@ -287,12 +293,10 @@ function represent(eid: string, shown: Set<string>): string | null {
 }
 
 /** Relations projected onto shown representatives, deduped in first-seen order; legacy iff every contributor is. */
-function viewEdges(model: ModelParse, spec: RawView, among: Set<string>, shown: Set<string>): Edge[] {
+function viewEdges(model: ModelParse, spec: RawView, shown: Set<string>): Edge[] {
   const contributors = new Map<string, { src: string; dst: string; legacy: boolean[] }>();
   for (const r of model.relations) {
-    const inView =
-      (among.has(top(r.src)) && among.has(top(r.dst))) || spec.srcAnchors.has(top(r.src)) || spec.dstAnchors.has(top(r.dst));
-    if (!inView) continue;
+    if (!((inBase(r.src, spec) && inBase(r.dst, spec)) || anchors(r, spec).length > 0)) continue;
     const [src, dst] = [represent(r.src, shown), represent(r.dst, shown)];
     if (src === null || dst === null || src === dst) continue;
     const key = `${src}\0${dst}`;
@@ -303,10 +307,10 @@ function viewEdges(model: ModelParse, spec: RawView, among: Set<string>, shown: 
   return [...contributors.values()].map((e) => ({ src: e.src, dst: e.dst, legacy: e.legacy.every(Boolean) }));
 }
 
-/** Expand base includes to `depth`; predicate pulls add only the matched endpoint and its ancestor chain. */
+/** Expand includes to their reach; predicate pulls add only the matched endpoints and their ancestor chains. */
 function buildView(spec: RawView, depth: number, model: ModelParse): View {
   const shown = shownIds(spec, depth, model, childrenMap(model));
-  const edges = viewEdges(model, spec, new Set(spec.base), shown);
+  const edges = viewEdges(model, spec, shown);
   const nodeIds = model.elements.filter((e) => shown.has(e.id)).map((e) => e.id);
   return { id: spec.id, title: spec.title, root: spec.root, nodeIds, edges };
 }

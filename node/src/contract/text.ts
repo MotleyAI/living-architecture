@@ -11,6 +11,29 @@ export function splitLines(text: string): string[] {
   return lines;
 }
 
+/** `bytes.decode('utf-8')`, or null when the bytes are not valid UTF-8. */
+export function decodeUtf8OrNull(bytes: Uint8Array): string | null {
+  try {
+    return decodeUtf8(bytes);
+  } catch (error) {
+    if (error instanceof TypeError) return null;
+    throw error;
+  }
+}
+
+/** Python's str.splitlines(keepends=True). */
+export function splitLinesKeepEnds(text: string): string[] {
+  const out: string[] = [];
+  let pos = 0;
+  for (const m of text.matchAll(new RegExp(LINE_BREAK.source, 'g'))) {
+    const end = m.index + m[0].length;
+    out.push(text.slice(pos, end));
+    pos = end;
+  }
+  if (pos < text.length) out.push(text.slice(pos));
+  return out;
+}
+
 /** Python's `\w` for str patterns, for use inside a `u`-flagged RegExp. */
 export const WORD = '[\\p{L}\\p{N}_]';
 

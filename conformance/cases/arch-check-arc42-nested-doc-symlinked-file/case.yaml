@@ -1,0 +1,11 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+fixture: arch-ok
+symlinks:
+  architecture/sub/x.arc42.md: ../system.arc42.md
+expect:
+  exit: 1
+golden: manual
+note: a symlink to a file in a subfolder counts as a doc

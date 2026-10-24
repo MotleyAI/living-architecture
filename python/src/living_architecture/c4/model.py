@@ -27,11 +27,19 @@ class Relation(BaseModel):
     legacy: bool = False
 
 
+class MetadataSpan(BaseModel):
+    """0-based line indices (`splitlines`) of an element's metadata block and of each key's statement."""
+
+    block: tuple[int, int]
+    keys: dict[str, tuple[int, int]]
+
+
 class ModelParse(BaseModel):
     elements: list[Element]
     relations: list[Relation]
     findings: list[str]
     metadata_findings: list[str] = []
+    spans: dict[str, MetadataSpan] = {}
 
 
 _ELEMENT_RE = re.compile(r"^(\w+)\s*=\s*(\w+)\s+'([^']*)'(?:\s*\{)?\s*$")
@@ -82,22 +90,24 @@ def _brace_delta(code: str) -> int:
     return depth
 
 
-def _c4_logical_lines(text: str) -> list[str]:
-    """Comment-stripped lines with every unquoted `{`/`}` broken onto its own line."""
-    decommented = "\n".join(strip_line_comment(line) for line in text.splitlines())
-    out: list[str] = []
+def _c4_logical_lines(text: str) -> list[tuple[int, str]]:
+    """Comment-stripped (line index, code) pieces with every unquoted `{`/`}` broken onto its own piece."""
+    out: list[tuple[int, str]] = []
     in_q = False
-    for ch in decommented:
-        if ch == "'":
-            in_q = not in_q
-            out.append(ch)
-        elif not in_q and ch == "{":
-            out.append("{\n")
-        elif not in_q and ch == "}":
-            out.append("\n}\n")
-        else:
-            out.append(ch)
-    return [line.strip() for line in "".join(out).splitlines() if line.strip()]
+    for index, line in enumerate(strip_line_comment(raw) for raw in text.splitlines()):
+        pieces: list[str] = []
+        for ch in line:
+            if ch == "'":
+                in_q = not in_q
+                pieces.append(ch)
+            elif not in_q and ch == "{":
+                pieces.append("{\n")
+            elif not in_q and ch == "}":
+                pieces.append("\n}\n")
+            else:
+                pieces.append(ch)
+        out += [(index, piece.strip()) for piece in "".join(pieces).split("\n") if piece.strip()]
+    return out
 
 
 class _Scan(BaseModel):
@@ -110,14 +120,16 @@ class _Scan(BaseModel):
     rel_pairs: set[tuple[str, str]] = set()
     findings: list[str] = []
     metadata_findings: list[str] = []
+    spans: dict[str, MetadataSpan] = {}
 
 
 class _MetadataBlock(BaseModel):
     """An open `metadata { }` block; `element` is None when its content is discarded."""
 
     element: str | None
+    open_line: int
     depth: int = 1
-    lines: list[str] = []
+    lines: list[tuple[int, str]] = []
 
 
 def parse_model(root: Path) -> ModelParse:
@@ -127,9 +139,14 @@ def parse_model(root: Path) -> ModelParse:
 
 def parse_model_files(paths: list[Path]) -> ModelParse:
     """Parse `paths` in order as one model."""
+    return parse_model_texts([path.read_text(encoding="utf-8") for path in paths])
+
+
+def parse_model_texts(texts: list[str]) -> ModelParse:
+    """Parse `texts` in order as one model; `spans` index the lines of the text each element is declared in."""
     scan = _Scan()
-    for path in paths:
-        _scan_model_file(path=path, scan=scan)
+    for text in texts:
+        _scan_model_text(text=text, scan=scan)
     elements = list(scan.by_id.values())
     for element in elements:
         if element.kind not in scan.kinds:
@@ -142,17 +159,22 @@ def parse_model_files(paths: list[Path]) -> ModelParse:
                     message("c4.unknown-endpoint", src=relation.src, dst=relation.dst, endpoint=endpoint)
                 )
     return ModelParse(
-        elements=elements, relations=scan.relations, findings=scan.findings, metadata_findings=scan.metadata_findings
+        elements=elements,
+        relations=scan.relations,
+        findings=scan.findings,
+        metadata_findings=scan.metadata_findings,
+        spans=scan.spans,
     )
 
 
-def _scan_model_file(path: Path, scan: _Scan) -> None:  # NOSONAR(S3776) — cohesive brace/region state machine
+def _scan_model_text(text: str, scan: _Scan) -> None:  # NOSONAR(S3776) — cohesive brace/region state machine
     region: str | None = None
     depth = 0
     parents: list[str] = []
     spec_kind: str | None = None
     meta: _MetadataBlock | None = None
-    for code in _c4_logical_lines(path.read_text(encoding="utf-8")):
+    lineno = 0
+    for lineno, code in _c4_logical_lines(text):
         if region is None:
             m = _BLOCK_RE.match(code)
             if m:
@@ -166,14 +188,14 @@ def _scan_model_file(path: Path, scan: _Scan) -> None:  # NOSONAR(S3776) — coh
             depth += delta
             meta.depth += delta
             if meta.depth > 0:
-                meta.lines.append(code)
+                meta.lines.append((lineno, code))
             else:
-                _close_metadata(meta, scan)
+                _close_metadata(meta, scan, close_line=lineno)
                 meta = None
             continue
         if region == "model" and parents and _METADATA_OPEN_RE.match(code):
             depth += delta
-            meta = _open_metadata(element=parents[-1], code=code, scan=scan)
+            meta = _open_metadata(element=parents[-1], code=code, scan=scan, line=lineno)
             continue
         if region == "specification":
             for stmt in _split_spec_statements(code) if delta == 0 else [code]:
@@ -194,25 +216,26 @@ def _scan_model_file(path: Path, scan: _Scan) -> None:  # NOSONAR(S3776) — coh
         elif region == "specification" and depth == 1:
             spec_kind = None
     if meta is not None:
-        _close_metadata(meta, scan)
+        _close_metadata(meta, scan, close_line=lineno)
 
 
-def _open_metadata(element: str, code: str, scan: _Scan) -> _MetadataBlock:
+def _open_metadata(element: str, code: str, scan: _Scan, line: int) -> _MetadataBlock:
     """Start a block for `element`; a duplicate element's block, or a second block, is discarded."""
     if element in scan.duplicates:
-        return _MetadataBlock(element=None)
+        return _MetadataBlock(element=None, open_line=line)
     if scan.by_id[element].has_metadata:
         _metadata_problem(scan, element, code)
-        return _MetadataBlock(element=None)
+        return _MetadataBlock(element=None, open_line=line)
     scan.by_id[element].has_metadata = True
-    return _MetadataBlock(element=element)
+    return _MetadataBlock(element=element, open_line=line)
 
 
-def _close_metadata(block: _MetadataBlock, scan: _Scan) -> None:
+def _close_metadata(block: _MetadataBlock, scan: _Scan, close_line: int) -> None:
     if block.element is None:
         return
-    values, problems = _parse_metadata(block.lines)
+    values, problems, keys = _parse_metadata(block.lines)
     scan.by_id[block.element].metadata = values
+    scan.spans[block.element] = MetadataSpan(block=(block.open_line, close_line), keys=keys)
     for line in problems:
         _metadata_problem(scan, block.element, line)
 
@@ -223,12 +246,18 @@ def _metadata_problem(scan: _Scan, element: str, line: str) -> None:
     scan.metadata_findings.append(problem)
 
 
-def _parse_metadata(lines: list[str]) -> tuple[dict[str, str | list[str]], list[str]]:
-    """`key 'v'` / `key ['a', 'b']` statements (arrays may span lines) and the text of each bad one."""
+def _parse_metadata(
+    lines: list[tuple[int, str]],
+) -> tuple[dict[str, str | list[str]], list[str], dict[str, tuple[int, int]]]:
+    """`key 'v'` / `key ['a', 'b']` statements (arrays may span lines), the text of each bad one, and each key's lines."""
     values: dict[str, str | list[str]] = {}
     problems: list[str] = []
+    keys: dict[str, tuple[int, int]] = {}
     pending = ""
-    for line in lines:
+    first = 0
+    for lineno, line in lines:
+        if not pending:
+            first = lineno
         text = f"{pending} {line}" if pending else line
         pending = ""
         pos = 0
@@ -246,10 +275,12 @@ def _parse_metadata(lines: list[str]) -> tuple[dict[str, str | list[str]], list[
             else:
                 raw = m.group(2)
                 values[m.group(1)] = raw[1:-1] if raw.startswith("'") else [q[1:-1] for q in _QUOTED_RE.findall(raw)]
+                keys[m.group(1)] = (first, lineno)
             pos = m.end()
+            first = lineno
     if pending:
         problems.append(pending)
-    return values, problems
+    return values, problems, keys
 
 
 def _split_spec_statements(code: str) -> list[str]:

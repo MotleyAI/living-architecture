@@ -1,0 +1,11 @@
+kind: neutral
+command: la-doctor
+hide:
+- gh
+normalize:
+- pattern: (this la reads format )[0-9]+\.[0-9]+\.[0-9]+
+  replace: \1<FORMAT>
+expect:
+  exit: 1
+golden: manual
+note: 'beside a format refusal the local-file and required-executable checks still run, the language executables (npx for TypeScript) are skipped'

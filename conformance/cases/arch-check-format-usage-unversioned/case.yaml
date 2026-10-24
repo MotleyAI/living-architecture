@@ -1,0 +1,13 @@
+kind: neutral
+command: la-arch-check
+args:
+- --bogus
+fixture: arch-ok
+expect:
+  exit: 2
+  stdout: ignore
+  stderr:
+    contains:
+    - --bogus
+golden: manual
+note: a usage error is reported before the format check

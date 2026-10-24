@@ -1,0 +1,9 @@
+kind: neutral
+command: la-arch-diagrams
+fixture: arch-diagrams
+expect:
+  exit: 0
+  files:
+  - architecture/system.arc42.md
+golden: manual
+note: 'nested includes and predicate anchors reach view_depth levels below themselves: relative reach, overlapping includes, nested anchors, anchor equal to an endpoint, descendant vs unrelated sources, self-edge collapse, mixed legacy contributors, nested ids in a flat diagram'

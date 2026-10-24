@@ -1,13 +1,16 @@
-"""Every command's entry point: parse argv per the shared manifest, dispatch to the owning node's handler."""
+"""Every command's entry point: parse argv per the shared manifest, check the repo format, dispatch to the handler."""
 
 from __future__ import annotations
 
+import argparse
 import sys
+from collections.abc import Callable
 from pathlib import Path
 from typing import NoReturn
 
 from living_architecture import archcheck, c4, config, conventions, doctor, refactor, review, twin, typecheck
 from living_architecture.cli.parser import parse
+from living_architecture.contract import manifest
 
 
 def _argv(argv: list[str] | None) -> list[str]:
@@ -18,14 +21,35 @@ def _root(root: str | None) -> Path:
     return Path(root).resolve() if root else config.find_repo_root(Path.cwd())
 
 
-def la_config(argv: list[str] | None = None) -> int:
-    args = parse("la-config", _argv(argv))
+def _checked_root(args: argparse.Namespace) -> Path:
+    """The repo whose format a command checks: `--root`, else the git root of `--project`, else of the cwd."""
+    root: str | None = getattr(args, "root", None)
+    project: str | None = getattr(args, "project", None)
+    return _root(root) if root or not project else config.find_repo_root(Path(project))
+
+
+def _run(command: str, argv: list[str], handler: Callable[[argparse.Namespace], int]) -> int:
+    """Parse `argv` (not for a passthrough command), check the repo format unless exempt, then run `handler`."""
+    spec = manifest()[command]
+    args = argparse.Namespace() if spec.get("passthrough") else parse(command, argv)
+    if spec.get("format") != "exempt":
+        problem = config.check_format(_checked_root(args))
+        if problem is not None:
+            print(problem, file=sys.stderr)
+            return 2
+    return handler(args)
+
+
+def _config(args: argparse.Namespace) -> int:
     root = _root(args.root)
     return config.run_show(root) if args.subcommand == "show" else config.run_get(root, args.key)
 
 
-def la_doctor(argv: list[str] | None = None) -> int:
-    args = parse("la-doctor", _argv(argv))
+def la_config(argv: list[str] | None = None) -> int:
+    return _run("la-config", _argv(argv), _config)
+
+
+def _doctor(args: argparse.Namespace) -> int:
     if args.twin:
         print(twin.identity())
         return 0
@@ -38,26 +62,32 @@ def la_doctor(argv: list[str] | None = None) -> int:
     )
 
 
-def la_arch_check(argv: list[str] | None = None) -> int:
-    args = parse("la-arch-check", _argv(argv))
+def la_doctor(argv: list[str] | None = None) -> int:
+    return _run("la-doctor", _argv(argv), _doctor)
+
+
+def _arch_check(args: argparse.Namespace) -> int:
     language = args.language or (twin.NATIVE_LANGUAGE if args.emit else None)
     return archcheck.run(_root(args.root), language=language, emit=args.emit, top_level=args.top_level)
 
 
+def la_arch_check(argv: list[str] | None = None) -> int:
+    return _run("la-arch-check", _argv(argv), _arch_check)
+
+
 def la_arch_scaffold(argv: list[str] | None = None) -> int:
-    return archcheck.run_scaffold(_root(parse("la-arch-scaffold", _argv(argv)).root))
+    return _run("la-arch-scaffold", _argv(argv), lambda args: archcheck.run_scaffold(_root(args.root)))
 
 
 def la_arch_diagrams(argv: list[str] | None = None) -> int:
-    return c4.run(_root(parse("la-arch-diagrams", _argv(argv)).root))
+    return _run("la-arch-diagrams", _argv(argv), lambda args: c4.run(_root(args.root)))
 
 
 def la_arch_migrate(argv: list[str] | None = None) -> int:
-    return c4.run_migrate(_root(parse("la-arch-migrate", _argv(argv)).root))
+    return _run("la-arch-migrate", _argv(argv), lambda args: c4.run_migrate(_root(args.root)))
 
 
-def la_check_conventions(argv: list[str] | None = None) -> int:
-    args = parse("la-check-conventions", _argv(argv))
+def _check_conventions(args: argparse.Namespace) -> int:
     if args.emit:
         return conventions.emit(args.language or twin.NATIVE_LANGUAGE, cwd=Path.cwd())
     return conventions.check_conventions(
@@ -71,13 +101,21 @@ def la_check_conventions(argv: list[str] | None = None) -> int:
     )
 
 
+def la_check_conventions(argv: list[str] | None = None) -> int:
+    return _run("la-check-conventions", _argv(argv), _check_conventions)
+
+
 def la_count_comments(argv: list[str] | None = None) -> int:
-    return conventions.count_comments(_argv(argv))
+    raw = _argv(argv)
+    return _run("la-count-comments", raw, lambda _args: conventions.count_comments(raw))
 
 
 def la_typecheck(argv: list[str] | None = None) -> int:
-    args = parse("la-typecheck", _argv(argv))
-    return typecheck.run(cwd=Path.cwd(), write=args.write_baseline, language_id=args.language)
+    return _run(
+        "la-typecheck",
+        _argv(argv),
+        lambda args: typecheck.run(cwd=Path.cwd(), write=args.write_baseline, language_id=args.language),
+    )
 
 
 def la_fetch_coderabbit_threads(argv: list[str] | None = None) -> NoReturn:
@@ -104,9 +142,7 @@ def la_pr_reviewers(argv: list[str] | None = None) -> NoReturn:
     review.run_shim("la-pr-reviewers", _argv(argv))
 
 
-def dr_refactor(argv: list[str] | None = None) -> int:
-    raw = _argv(argv)
-    args = parse("dr-refactor", raw)
+def _refactor(raw: list[str], args: argparse.Namespace) -> int:
     return refactor.route_refactor(
         raw,
         args,
@@ -114,10 +150,17 @@ def dr_refactor(argv: list[str] | None = None) -> int:
     )
 
 
+def dr_refactor(argv: list[str] | None = None) -> int:
+    raw = _argv(argv)
+    return _run("dr-refactor", raw, lambda args: _refactor(raw, args))
+
+
 def dr_compliance(argv: list[str] | None = None) -> int:
-    args = parse("dr-compliance", _argv(argv))
-    return refactor.run_compliance(paths=args.paths, select=args.select, attr=args.attr)
+    return _run(
+        "dr-compliance", _argv(argv), lambda args: refactor.run_compliance(paths=args.paths, select=args.select, attr=args.attr)
+    )
 
 
 def dr_mock_lint(argv: list[str] | None = None) -> int:
-    return refactor.run_mock_lint(_argv(argv))
+    raw = _argv(argv)
+    return _run("dr-mock-lint", raw, lambda _args: refactor.run_mock_lint(raw))

@@ -1,0 +1,10 @@
+arc42-exists: architecture/system.arc42.md is missing
+arc42-exists: cross_cutting_arc42 names docs/z.arc42.md, which must sit directly in architecture/
+arc42-exists: cross_cutting_arc42 names docs/z.arc42.md, which does not exist
+arc42-exists: cross_cutting_arc42 names architecture/python.api.arc42.md, the doc of model element python.api
+arc42-exists: cross_cutting_arc42 names architecture/gone.arc42.md, which does not exist
+arc42-exists: architecture/B/y.arc42.md must sit directly in architecture/
+arc42-exists: architecture/b/x.arc42.md must sit directly in architecture/
+arc42-exists: architecture/Z.arc42.md is orphaned — not architecture/system.arc42.md, the doc of a model element, or in cross_cutting_arc42
+arc42-exists: architecture/a.arc42.md is orphaned — not architecture/system.arc42.md, the doc of a model element, or in cross_cutting_arc42
+arch_check: 9 finding(s)

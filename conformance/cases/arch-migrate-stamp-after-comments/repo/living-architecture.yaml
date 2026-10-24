@@ -1,0 +1,5 @@
+# Repo config for the la plugin.
+# Edit with care.
+
+tracker: linear
+openspec: false  # no specs yet

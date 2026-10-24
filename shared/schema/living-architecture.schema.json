@@ -2,10 +2,16 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "living-architecture.schema.json",
   "title": "living-architecture.yaml",
-  "description": "Per-repo configuration at the repo root. Every key is optional; absent keys take their defaults.",
+  "description": "Per-repo configuration at the repo root. Every key is optional in the schema; absent keys take their defaults, and the format check requires format.",
   "type": "object",
   "additionalProperties": false,
   "properties": {
+    "format": {
+      "type": ["string", "null"],
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$",
+      "default": null,
+      "description": "The repo format: the la version that introduced it. Every command but la-arch-migrate refuses any other format."
+    },
     "tracker": {
       "enum": ["linear", "github", "none"],
       "default": "linear",

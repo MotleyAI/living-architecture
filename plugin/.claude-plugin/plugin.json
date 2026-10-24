@@ -1,7 +1,7 @@
 {
   "name": "la",
   "description": "Keep coding agents from eroding your architecture: a Claude Code plugin and CLI that enforce a LikeC4 model as the import law for Python and TypeScript, with a spec-driven PR flow and verified refactoring.",
-  "version": "0.3.3",
+  "version": "0.4.0",
   "author": {
     "name": "MotleyAI"
   },

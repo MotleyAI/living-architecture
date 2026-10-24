@@ -21,7 +21,8 @@ The source of truth both twins obey. Each package vendors a byte-copy of this di
 ## YAML profile
 
 YAML 1.1 exactly as PyYAML's safe loader reads it: `yes`/`no`/`on`/`off` are booleans, sexagesimal and
-`0`-prefixed octal integers are numbers, merge keys apply, and a duplicate mapping key takes the last value.
+`0`-prefixed octal integers are numbers, merge keys apply, a duplicate mapping key takes the last value, and a
+scalar the safe loader cannot construct is a YAML error.
 
 ## Configuration
 

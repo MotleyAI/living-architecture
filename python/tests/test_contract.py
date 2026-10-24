@@ -17,6 +17,7 @@ import pytest
 import yaml
 
 from living_architecture.contract import (
+    YAMLError,
     canonical_repr,
     compute_hash,
     contract_hash,
@@ -94,28 +95,37 @@ def _schema(name: str) -> dict:
     return json.loads((SHARED / "schema" / f"{name}.schema.json").read_text(encoding="utf-8"))
 
 
-def test_node_schema_defines_both_node_varieties() -> None:
+def test_node_schema_defines_every_element_variety() -> None:
     defs = _schema("node")["$defs"]
     assert defs["precise"]["required"] == ["package"]
-    assert set(defs["precise"]["properties"]) == {"package", "claims", "arc42", "specs"}
-    assert set(defs["virtual"]["properties"]) == {"packages", "arc42", "specs"}
-    assert defs["precise"]["additionalProperties"] is False
-    assert defs["virtual"]["additionalProperties"] is False
+    assert set(defs["precise"]["properties"]) == {"package", "claims", "specs"}
+    assert set(defs["virtual"]["properties"]) == {"packages", "specs"}
+    assert set(defs["element"]["properties"]) == {"specs"}
+    for variety in ("precise", "virtual", "element"):
+        assert defs[variety]["additionalProperties"] is False
 
 
 @pytest.mark.parametrize(
     ("variety", "metadata", "valid"),
     [
-        ("precise", {"package": "p", "claims": ["a"], "arc42": "d.md", "specs": ["s"]}, True),
+        ("precise", {"package": "p", "claims": ["a"], "specs": ["s"]}, True),
+        ("precise", {"package": "p", "arc42": "d.md"}, False),
         ("precise", {"package": ["p"]}, False),
         ("precise", {"package": "p", "claims": "a"}, False),
         ("precise", {"package": "p", "claims": [1]}, False),
-        ("precise", {"package": "p", "arc42": ["d.md"]}, False),
         ("precise", {"package": "p", "specs": "s"}, False),
-        ("virtual", {"packages": ["a"], "arc42": "d.md", "specs": ["s"]}, True),
+        ("virtual", {"packages": ["a"], "specs": ["s"]}, True),
+        ("virtual", {"arc42": "d.md"}, False),
         ("virtual", {}, True),
         ("virtual", {"packages": "a"}, False),
         ("virtual", {"packages": [1]}, False),
+        ("element", {"specs": ["s"]}, True),
+        ("element", {}, True),
+        ("element", {"specs": "s"}, False),
+        ("element", {"package": "p"}, False),
+        ("element", {"claims": ["a"]}, False),
+        ("element", {"packages": ["a"]}, False),
+        ("element", {"arc42": "d.md"}, False),
     ],
 )
 def test_node_schema_value_types(variety: str, metadata: dict, valid: bool) -> None:
@@ -241,11 +251,30 @@ def test_no_twin_hard_codes_a_config_file_name() -> None:
     assert python + node == []
 
 
-def test_config_file_names() -> None:
+def test_config_file_names_and_format() -> None:
     assert _shared_yaml("config.yaml") == {
         "file": "living-architecture.yaml",
         "local_file": "living-architecture.local.yaml",
+        "format": "0.4.0",
     }
+
+
+def test_config_schema_declares_the_format_first() -> None:
+    config_schema = _schema("living-architecture")
+    prop = config_schema["properties"]["format"]
+    assert next(iter(config_schema["properties"])) == "format"
+    assert (prop["type"], prop["default"]) == (["string", "null"], None)
+    assert (prop["pattern"][0], prop["pattern"][-1]) == ("^", "$")
+
+
+@pytest.mark.parametrize(
+    ("value", "valid"),
+    [("0.4.0", True), ("99999999999999999999.0.0", True), (None, True), ("0.4", False), ("v0.4.0", False),
+     ("0.04.0", False), ("0.4.0.1", False), (0.4, False), (["0", "4", "0"], False)],
+    ids=repr,
+)
+def test_config_schema_format_values(value: object, valid: bool) -> None:
+    assert (validate(_schema("living-architecture"), {"format": value}) == []) is valid
 
 
 def test_local_schema_references_the_main_schema() -> None:
@@ -348,8 +377,20 @@ def test_typescript_test_globs_classify(vector: dict) -> None:
     assert any(glob_match(g, vector["path"]) for g in globs) is vector["test"]
 
 
+@pytest.mark.parametrize("tag", ["", "!!int "])
+def test_yaml_profile_caps_decimal_digits(tag: str) -> None:
+    """Python's 4300-digit cap on decimal integer strings; the npm twin mirrors it."""
+    assert load_yaml(f"x: {tag}{'9' * 4300}") == {"x": int("9" * 4300)}
+    with pytest.raises(YAMLError):
+        load_yaml(f"x: {tag}{'9' * 4301}")
+
+
 @pytest.mark.parametrize("vector", _vectors("yaml.yaml")["cases"], ids=lambda v: v["name"])
 def test_yaml_profile(vector: dict) -> None:
+    if vector.get("error"):
+        with pytest.raises(YAMLError):
+            load_yaml(vector["text"])
+        return
     value = load_yaml(vector["text"])
     if "json" in vector:
         assert value == json.loads(vector["json"])
@@ -419,7 +460,24 @@ NEW_TEMPLATES = {
         "architecture/index.yaml: a language section is required (one of python, typescript)",
     "arch-check.root-undeclared": "model element {element}: top-level elements must be declared language roots",
     "arch-check.root-missing": "model has no root element for declared language {language}",
-    "arch-check.metadata-on-root": "model element {element}: language roots may not carry metadata",
+    "arch-check.arc42-key-retired":
+        "model element {element}: the arc42 key is retired; its doc is architecture/{element}.arc42.md",
+    "spec-mapping.unknown-element": "spec-mapping: {group} touches unknown element {element}",
+    "spec-mapping.unmapped": "spec-mapping: spec group {group} is mapped by no element and not cross-cutting",
+    "arc42-exists.orphan":
+        "arc42-exists: {doc} is orphaned — not {system}, the doc of a model element, or in cross_cutting_arc42",
+    "arc42-exists.nested-doc": "arc42-exists: {doc} must sit directly in architecture/",
+    "arc42-exists.cross-cutting-not-flat":
+        "arc42-exists: cross_cutting_arc42 names {doc}, which must sit directly in architecture/",
+    "arc42-exists.cross-cutting-is-element":
+        "arc42-exists: cross_cutting_arc42 names {doc}, the doc of model element {element}",
+    "arch-migrate.moved": "moved {source} to {target}",
+    "arch-migrate.source-missing": "{source} does not exist; nothing written",
+    "arch-migrate.source-moved-twice": "{source} would move to both {first} and {second}; nothing written",
+    "arch-migrate.shared-target": "{first} and {second} would both move to {target}; nothing written",
+    "arch-migrate.target-taken": "{source} cannot move to {target}, which already exists; nothing written",
+    "arch-migrate.diagrams-key-taken":
+        "{source} cannot move to {target}: architecture/index.yaml already has the diagrams key {target}; nothing written",
     "c4.relation-outside-root": "relation {src} -> {dst} outside every language root",
     "c4.view-unscoped": "view {view} is not scoped to a language root",
     "c4.view-scope-unknown": "view {view} is scoped to {root}, which is not a language root",
@@ -498,18 +556,56 @@ NEW_TEMPLATES = {
     "doctor.local-not-ignored": "{file} is not git-ignored; add it to .gitignore",
     "doctor.local-git-failed": "git failed, so whether {file} is git-ignored cannot be checked",
     "doctor.local-source": "{source} + {local}",
+    "format.missing":
+        "living-architecture.yaml declares no format, but this la reads format {current}: run la-arch-migrate to convert"
+        " the repo",
+    "format.invalid":
+        "living-architecture.yaml: format {value!r} is not a version (three dot-separated integers); this la reads"
+        " format {current}",
+    "format.newer":
+        "living-architecture.yaml declares format {declared}, but this la reads format {current}: upgrade la to"
+        " {declared} or later",
+    "format.older":
+        "living-architecture.yaml declares format {declared}, but this la reads format {current}: run la-arch-migrate"
+        " to convert the repo",
+    "arch-migrate.nothing": "nothing to migrate: this la reads format {current}, which living-architecture.yaml already declares",
+    "arch-migrate.no-config":
+        "no living-architecture.yaml at the repo root, so there is no format to migrate; run /la:init to onboard this"
+        " repo",
+    "arch-migrate.unknown-format":
+        "cannot migrate from format {declared}; this la reads format {current} and converts only a repo that declares"
+        " no format",
+    "arch-migrate.stamp-mismatch": "cannot insert the format into living-architecture.yaml; add format: {current} by hand",
+    "arch-migrate.rollback-failed": "{error}; restoring failed, so these paths are left changed: {paths}",
 }
+REMOVED_TEMPLATES = {"c4-layout.migrate"}
 # Defensive findings no real input reaches; each is pinned by a unit test instead of a golden.
 UNPRODUCED_BY_DESIGN = {
+    "arch-migrate.rollback-failed": "no corpus case can fail a restore; pinned by the migrate rollback unit tests",
     "refactor.conflicting-edits": "TypeScript never returns differing rename edits across projects (node/test/refactor.test.ts)",
     "refactor.rope-walk": "no known input reaches a walker gap; pinned by the rope-walk unit tests",
     "compliance.rope-walk": "no known input reaches a walker gap; pinned by the rope-walk unit tests",
 }
 
 
+REMOVED_TEMPLATES = [
+    "arch-check.metadata-on-root",
+    "arch-check.metadata-on-nested",
+    "arc42-exists.node-doc-missing",
+    "spec-mapping.unknown-node",
+    "c4.include-non-top-level",
+    "c4.view-includes-non-top-level",
+]
+
+
 @pytest.mark.parametrize(("template_id", "text"), NEW_TEMPLATES.items())
 def test_registry_template_text(template_id: str, text: str) -> None:
     assert _shared_yaml("findings.yaml")["findings"].get(template_id) == text
+
+
+@pytest.mark.parametrize("template_id", sorted(REMOVED_TEMPLATES))
+def test_removed_template_is_gone(template_id: str) -> None:
+    assert template_id not in _shared_yaml("findings.yaml")["findings"]
 
 
 def test_every_registry_template_is_produced_by_a_golden() -> None:
@@ -581,6 +677,44 @@ def test_manifest_declares_la_typecheck() -> None:
     assert set(spec["exit"]) == {0, 1, 2}
     write = _option("la-typecheck", "--write-baseline")
     assert (write["type"], write.get("internal")) == ("flag", None)
+
+
+FORMAT_EXEMPT = {
+    "la-arch-migrate",
+    "la-doctor",
+    "la-fetch-coderabbit-threads",
+    "la-reply-invalid-coderabbit",
+    "la-reply-to-pr-thread",
+    "la-fetch-failed-pr-checks",
+    "la-wait-for-reviews",
+    "la-pr-reviewers",
+}
+
+
+def test_manifest_declares_the_format_exempt_commands() -> None:
+    commands = _shared_yaml("cli.yaml")["commands"]
+    assert {spec.get("format") for spec in commands.values()} <= {None, "exempt"}
+    assert {name for name, spec in commands.items() if spec.get("format") == "exempt"} == FORMAT_EXEMPT
+
+
+def test_every_checked_command_documents_the_format_refusal() -> None:
+    commands = _shared_yaml("cli.yaml")["commands"]
+    undocumented = [name for name, spec in commands.items()
+                    if name not in FORMAT_EXEMPT and "format" not in str(spec["exit"].get(2, ""))]
+    assert undocumented == []
+
+
+def test_manifest_la_arch_migrate_converts_to_the_current_format() -> None:
+    spec = _shared_yaml("cli.yaml")["commands"]["la-arch-migrate"]
+    assert spec["help"] == (
+        "Convert the repo to the current format (`format` in living-architecture.yaml): for a repo that predates the"
+        " key, merge a legacy architecture/model/*.c4 model into architecture/model.c4 (creating an empty"
+        " architecture/views.c4 when absent), convert the retired arc42 metadata key (move each element's doc to"
+        " architecture/<element id>.arc42.md, drop the key, flatten cross_cutting_arc42 docs into architecture/ and"
+        " rename their diagrams keys), then stamp the format. Verified; writes everything or nothing and prints each"
+        " written, moved and deleted path."
+    )
+    assert all(word in spec["exit"][2] for word in ("config", "newer", "invalid", "unknown"))
 
 
 def test_only_the_twin_options_are_internal() -> None:

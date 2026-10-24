@@ -13,7 +13,6 @@ model
     api = node 'API' {
       metadata {
         package 'pkg.api'
-        arc42 'architecture/api.arc42.md'
         specs ['api']
       }
       handlers = node 'Handlers'

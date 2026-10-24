@@ -587,9 +587,10 @@ def test_parse_views_local_child_name_is_finding(tmp_path):
     assert any("kid" in f for f in findings)
 
 
-def test_parse_views_child_fqn_is_finding(tmp_path):
-    _, findings = parsed_view(tmp_path, CHILD_MODEL, "views { view v of python { title 'V' include p.kid } }", "v")
-    assert any("p.kid" in f for f in findings)
+def test_parse_views_nested_include_is_accepted(tmp_path):
+    v, findings = parsed_view(tmp_path, CHILD_MODEL, "views { view v of python { title 'V' include p.kid } }", "v")
+    assert findings == []
+    assert v.node_ids == ["p.kid"]
 
 
 def test_parse_views_root_prefixed_include_is_finding(tmp_path):
@@ -602,9 +603,23 @@ def test_parse_views_unknown_predicate_anchor_is_finding(tmp_path):
     assert any("ghost" in f for f in findings)
 
 
-def test_parse_views_child_predicate_anchor_is_finding(tmp_path):
-    _, findings = parsed_view(tmp_path, CHILD_MODEL, "views { view v of python { title 'V' include p.kid -> * } }", "v")
-    assert any("p.kid" in f for f in findings)
+def test_parse_views_nested_predicate_anchor_is_accepted(tmp_path):
+    v, findings = parsed_view(tmp_path, CHILD_MODEL, "views { view v of python { title 'V' include p.kid -> * } }", "v")
+    assert findings == []
+    assert (v.node_ids, v.edges) == ([], [])
+
+
+@pytest.mark.parametrize(
+    ("include", "finding"),
+    [
+        ("python.p", "view v includes unknown id python.p"),
+        ("python.p -> *", "view include python.p -> * references unknown id python.p"),
+        ("* -> python.p.kid", "view include * -> python.p.kid references unknown id python.p.kid"),
+    ],
+)
+def test_parse_views_root_prefixed_name_is_unknown(tmp_path, include, finding):
+    _, findings = parsed_view(tmp_path, CHILD_MODEL, f"views {{ view v of python {{ title 'V' include {include} }} }}", "v")
+    assert findings == [finding]
 
 
 def test_parse_views_unsupported_predicate_is_finding(tmp_path):
@@ -776,7 +791,6 @@ model {
     engine = node 'Engine' {
       metadata {
         package 'pkg.engine'
-        arc42 'architecture/engine.arc42.md'
       }
     }
     core -> engine #legacy
@@ -837,7 +851,7 @@ def make_repo(
         "architecture/model.c4": model,
         "architecture/views.c4": views,
         "architecture/system.arc42.md": system_md,
-        "architecture/engine.arc42.md": engine_md,
+        "architecture/python.engine.arc42.md": engine_md,
         "openspec/specs/queries/foo/spec.md": "# spec\n",
         "pkg/__init__.py": "",
         "pkg/core/__init__.py": "",
@@ -1293,6 +1307,108 @@ def test_focus_predicate_pulls_ancestor_chain_not_whole_subtree(tmp_path):
     assert findings == []
 
 
+NESTED_MODEL = """
+specification { element system  element node  tag legacy }
+model {
+  python = system 'Python' {
+    api = node 'API' {
+      handlers = node 'Handlers' {
+        x = node 'X' {
+          y = node 'Y'
+          w = node 'W'
+        }
+      }
+      other = node 'Other' {
+        z = node 'Z'
+      }
+    }
+    core = node 'Core' {
+      store = node 'Store' {
+        sql = node 'SQL'
+      }
+    }
+    api.handlers.x -> core.store.sql
+    api.handlers -> core
+    api.other.z -> core
+    api.other -> core #legacy
+    api.handlers.x.y -> api.handlers.x.w
+  }
+}
+"""
+
+
+def nested_view(tmp_path, include: str, depth: int):
+    views = f"views {{ view v of python {{ title 'V' include {include} }} }}"
+    root = arch_only(tmp_path, NESTED_MODEL, views, index_text=f"view_depth:\n  v: {depth}\n")
+    vp = c4.parse_views(root, c4.parse_model(root))
+    assert vp.findings == []
+    return view_by_id(vp.views, "v")
+
+
+@pytest.mark.parametrize(
+    ("include", "depth", "nodes", "edges"),
+    [
+        ("api.handlers", 2, ["api.handlers", "api.handlers.x"], []),
+        (
+            "api.handlers",
+            3,
+            ["api.handlers", "api.handlers.x", "api.handlers.x.y", "api.handlers.x.w"],
+            [("api.handlers.x.y", "api.handlers.x.w", False)],
+        ),
+        ("api, api.handlers", 2, ["api", "api.handlers", "api.handlers.x", "api.other"], []),
+        (
+            "api.handlers -> *",
+            2,
+            ["api", "api.handlers", "api.handlers.x", "core", "core.store", "core.store.sql"],
+            [("api.handlers.x", "core.store.sql", False), ("api.handlers", "core", False)],
+        ),
+        ("* -> core", 1, ["api", "core"], [("api", "core", False)]),
+        ("* -> core.store", 1, ["api", "api.handlers", "core", "core.store"], [("api.handlers", "core.store", False)]),
+        ("api.other -> *", 1, ["api", "api.other", "core"], [("api.other", "core", False)]),
+        (
+            "api.other -> *",
+            2,
+            ["api", "api.other", "api.other.z", "core"],
+            [("api.other.z", "core", False), ("api.other", "core", True)],
+        ),
+    ],
+    ids=[
+        "include-reach", "include-deeper", "overlapping-includes", "nested-src-anchor", "anchor-is-endpoint",
+        "nested-dst-anchor", "unrelated-sources-excluded", "legacy-only-contributor",
+    ],
+)
+def test_nested_selection_reaches_view_depth_below_itself(tmp_path, include, depth, nodes, edges):
+    v = nested_view(tmp_path, include, depth)
+    assert v.node_ids == nodes
+    assert edge_tuples(v) == edges
+
+
+def test_nested_include_collapses_an_internal_relation_to_no_edge(tmp_path):
+    v = nested_view(tmp_path, "api.handlers", 2)
+    assert ("api.handlers.x", "api.handlers.x", False) not in edge_tuples(v)
+    assert edge_tuples(v) == []
+
+
+def test_render_nested_include_without_its_parent(tmp_path):
+    views = "views { view v of python { title 'V' include api.handlers } }"
+    root = arch_only(tmp_path, NESTED_MODEL, views, index_text="view_depth:\n  v: 2\n")
+    assert structural(render(root, "v")) == [
+        "```mermaid",
+        "flowchart TD",
+        "  %% v: V",
+        '  subgraph api__handlers["Handlers"]',
+        '    api__handlers__x["X"]',
+        "  end",
+        "```",
+    ]
+
+
+def test_diagrams_ignore_the_retired_arc42_key(tmp_path):
+    model = MODEL.replace("        package 'pkg.engine'\n", "        package 'pkg.engine'\n        arc42 'architecture/engine.arc42.md'\n")
+    root = make_repo(tmp_path, regenerate=False, model=model)
+    assert any("system.arc42.md" in c for c in c4.generate(root))
+
+
 def test_render_mermaid_subgraphs_golden(tmp_path):
     root = arch_only(tmp_path, CHILD_VIEW_MODEL, ONE_VIEW)
     expected = [
@@ -1371,7 +1487,6 @@ model {
     engine = node 'Engine' {
       metadata {
         package 'pkg.engine'
-        arc42 'architecture/engine.arc42.md'
       }
     }
     core.query -> engine #legacy
