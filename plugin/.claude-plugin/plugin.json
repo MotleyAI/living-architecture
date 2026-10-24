@@ -1,10 +1,28 @@
 {
   "name": "la",
-  "description": "Living architecture for agent-driven development: spec-driven change flow, arc42 + LikeC4 architecture enforcement, PR review processing, and deterministically verified Python and TypeScript refactoring.",
+  "description": "Keep coding agents from eroding your architecture: a Claude Code plugin and CLI that enforce a LikeC4 model as the import law for Python and TypeScript, with a spec-driven PR flow and verified refactoring.",
   "version": "0.3.3",
   "author": {
     "name": "MotleyAI"
   },
   "license": "MIT",
-  "repository": "https://github.com/MotleyAI/living-architecture"
+  "homepage": "https://github.com/MotleyAI/living-architecture",
+  "repository": "https://github.com/MotleyAI/living-architecture",
+  "keywords": [
+    "claude-code",
+    "claude-code-plugin",
+    "agent-skills",
+    "coding-agents",
+    "ai-coding",
+    "software-architecture",
+    "architecture-as-code",
+    "architecture-enforcement",
+    "import-boundaries",
+    "likec4",
+    "c4-model",
+    "arc42",
+    "openspec",
+    "spec-driven-development",
+    "refactoring"
+  ]
 }

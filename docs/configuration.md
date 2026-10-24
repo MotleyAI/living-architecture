@@ -34,6 +34,24 @@ YAML 1.1 booleans (`yes`, `no`, `on`, `off`) are booleans. `issue_key_pattern` m
 subset in [`shared/regex-subset.md`](../shared/regex-subset.md). `la-config show` prints the resolved
 configuration and `la-config get <dotted.key>` prints one value.
 
+## Languages
+
+A repo's languages are those with a root marker (`pyproject.toml`/`setup.py`; `tsconfig.json`) and source
+files, or a `commands.typecheck` entry, which a language needs when its marker is not at the root (like the
+`web/tsconfig.json` below); `la-config get languages` lists them. The architecture model declares one section
+per language in `architecture/index.yaml`, and a mixed repo has both:
+
+```yaml
+python:
+  root_package: mypkg                 # the package the python root maps to
+  source_root: src                    # optional
+typescript:
+  root_package: src                   # the directory the typescript root maps to
+  source_root: web                    # optional
+  tsconfig: web/tsconfig.json         # optional: default the nearest tsconfig.json
+legacy_arrows: {baseline: 0}
+```
+
 ## Gates and the disk
 
 `openspec` and `architecture` are decisions, and their directories are the result. When the file exists,
