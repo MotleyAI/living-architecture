@@ -165,11 +165,8 @@ convergence.** The archive commit is docs-only, but CodeRabbit still reviews it
 the push, go back into the Step 1 loop on the archived HEAD: run
 `/la:process-reviews` for a full remote sweep, fix or answer every finding, push
 each fix batch, and sweep again. Repeat until one full push cycle is green on
-every source, with zero dangling CodeRabbit threads. A sweep where the
-CodeRabbit wait hit its 10-minute cap ("proceeding anyway") does not count as
-green: CodeRabbit has not reviewed that HEAD yet. Run `/la:process-reviews`
-again until a fresh CodeRabbit summary for the current HEAD has arrived. This
-applies equally to any later push before the merge. Only then tell me the PR is ready to merge. NEVER
+every source, with zero dangling CodeRabbit threads. This applies equally to any
+later push before the merge. Only then tell me the PR is ready to merge. NEVER
 report "ready to merge" right after the archive push.
 
 The archive does not reopen the plan. A finding that would change the archived
