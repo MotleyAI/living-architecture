@@ -27,7 +27,8 @@ just the branch name:
    go-ahead) commit, push, and open the PR.
    Ends at 🛑 reset point 3 (just after the PR is created).
 4. **`pr-review`** — run `/la:process-reviews` until converged, then
-   archive the OpenSpec change (OpenSpec repos only) so I can merge.
+   archive the OpenSpec change (OpenSpec repos only), then keep sweeping the
+   gates on the archived HEAD until they converge again, so I can merge.
 
 This skill does NO stage work itself. It only: rehydrates context (below),
 detects which stage we're at, and invokes that stage's skill (`la:<stage>`) via
@@ -107,8 +108,9 @@ overrides any standing "don't commit, I'll commit" / "ask me each time"
 preference, and it supersedes any "do NOT commit" wording in the stage
 skills. What still holds:
 
-- Stage with **specific named paths** (`git add <path>`, one at a time) — NEVER
-  `git add -A`, `git add .`, or a whole directory.
+- Stage ONLY **specific named file paths**. Name every file explicitly, and put
+  them all in ONE command (`git add <path1> <path2> ...`), not one command per
+  file. NEVER use `git add -A`, `git add .`, a glob, or a whole directory.
 - **Commit only** — pushing and opening the PR still need my explicit go-ahead
   (`pr-implement` Step 3 / the stopping policy above); the end-of-stage
   commit does not.
