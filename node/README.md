@@ -99,9 +99,16 @@ python:
 legacy_arrows: {baseline: 0}
 ```
 
-Then write a first model from the imports the code has today, and check it:
+Then declare in `living-architecture.yaml`, at the repo root, that the repo has an architecture model:
+
+```yaml
+architecture: true
+```
+
+Stamp the repo format, write a first model from the imports the code has today, and check it:
 
 ```bash
+la-arch-migrate       # adds format: to living-architecture.yaml
 la-arch-scaffold      # writes architecture/model.c4, views.c4 and system.arc42.md from the measured imports
 la-arch-check
 ```
@@ -121,6 +128,9 @@ Pin the check in CI to a release, in your ecosystem's form:
 - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
 - run: npx -y -p living-architecture@0.4.0 la-arch-check
 ```
+
+When you move the pin to a release with a newer repo format, first run that release's `la-arch-migrate` and commit
+the result: the check refuses a repo in an older format.
 
 ### The whole flow
 
@@ -167,9 +177,6 @@ them:
   `[review]`), which `la-arch-check` verifies and every stage of the PR flow reads before it acts.
 
 If all you need is layer rules for one language and you don't want a diagram, those tools are lighter.
-
-When you move the pin to a release with a newer repo format, first run that release's `la-arch-migrate` and commit
-the result: the check refuses a repo in an older format.
 
 ## Prerequisites
 

@@ -1,4 +1,4 @@
-"""The quickstart example's walkthrough: every console block in its README is the real output of its step."""
+"""The README's architecture-check route and the quickstart walkthrough run as documented."""
 
 import re
 import shutil
@@ -15,7 +15,10 @@ CONSOLE_BLOCK_RE = re.compile(r"^```console\n(.*?)^```$", re.MULTILINE | re.DOTA
 COMMANDS: dict[str, Callable[[list[str]], int]] = {
     "la-arch-check": cli.la_arch_check,
     "la-arch-diagrams": cli.la_arch_diagrams,
+    "la-arch-migrate": cli.la_arch_migrate,
+    "la-arch-scaffold": cli.la_arch_scaffold,
 }
+FENCED_BLOCK_RE = re.compile(r"^```\w*\n(.*?)^```$", re.MULTILINE | re.DOTALL)
 API = "src/shop/api/__init__.py"
 MODEL = "architecture/model.c4"
 INDEX = "architecture/index.yaml"
@@ -124,3 +127,25 @@ def test_shipped_example_matches_its_diagram(example: Path) -> None:
     before = (example / "architecture" / "system.arc42.md").read_text(encoding="utf-8")
     _refresh_diagrams(example)
     assert (example / "architecture" / "system.arc42.md").read_text(encoding="utf-8") == before
+
+
+def _readme_route_blocks() -> list[str]:
+    """The fenced blocks of the root README's "Just the architecture check" route, before its CI snippet."""
+    text = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+    route = text.split("### Just the architecture check\n", 1)[1].split("Pin the check in CI", 1)[0]
+    return FENCED_BLOCK_RE.findall(route)
+
+
+def test_readme_route_ends_in_a_passing_check(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    index, config, commands = _readme_route_blocks()
+    shutil.copytree(QUICKSTART / "src", tmp_path / "src")
+    (tmp_path / "architecture").mkdir()
+    (tmp_path / INDEX).write_text(index.replace("mypkg", "shop"), encoding="utf-8")
+    (tmp_path / "living-architecture.yaml").write_text(config, encoding="utf-8")
+    exit_codes = []
+    for line in commands.splitlines():
+        name = line.split("#", 1)[0].strip()
+        exit_codes.append(COMMANDS[name](["--root", str(tmp_path)]))
+    assert exit_codes == [0, 0, 0]
+    assert capsys.readouterr().out.endswith("arch_check: OK\n")
+    assert "format:" in (tmp_path / "living-architecture.yaml").read_text(encoding="utf-8")
