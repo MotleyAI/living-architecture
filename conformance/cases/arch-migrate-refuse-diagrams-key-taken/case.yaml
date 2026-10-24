@@ -12,5 +12,6 @@ expect:
   - architecture/system.arc42.md
   - architecture/views.c4
   - architecture/api.arc42.md
+  - living-architecture.yaml
 golden: manual
 note: the target is already a diagrams key

@@ -11,5 +11,6 @@ expect:
   - architecture/system.arc42.md
   - architecture/views.c4
   - architecture/old.arc42.md
+  - living-architecture.yaml
 golden: manual
 note: a target that is another move's source is taken

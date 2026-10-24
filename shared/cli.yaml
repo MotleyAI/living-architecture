@@ -7,7 +7,9 @@
 # positional:  name, help; optional: nargs ('?' | '*' | '+'; default exactly one)
 # command:     help, exit (code -> meaning), options, positionals, subcommands, passthrough, usage,
 #              require_one_of (dests; none given is a usage error), script (the bundled review script it
-#              runs), native (the languages whose twin implements the command; absent: neutral, every twin runs it)
+#              runs), native (the languages whose twin implements the command; absent: neutral, every twin runs it),
+#              format (exempt: the command skips the repo format check; absent: it checks the format declared in
+#              living-architecture.yaml after parsing its arguments, and a format refusal exits 2)
 # la-config get: language_keys are the public `lang.<language>.<key>` keys; source_globs (one `**/*<ext>` glob per
 #              source extension) and waiver (the language's waiver comment) are derived, the rest come from
 #              languages.yaml.
@@ -15,7 +17,7 @@
 commands:
   la-config:
     help: Print resolved config values for skills and scripts.
-    exit: {0: ok, 1: invalid config, 2: usage error or unknown key}
+    exit: {0: ok, 1: invalid config, 2: 'usage error, unknown key or format refusal'}
     options:
       - {name: --root, type: path, help: 'repo root (default: nearest git root of cwd)'}
     subcommands:
@@ -33,6 +35,7 @@ commands:
   la-doctor:
     help: Check the installed tools match the plugin and the repo config is valid.
     exit: {0: healthy, 1: problems found, 2: usage error}
+    format: exempt
     options:
       - {name: --expect, type: string, help: plugin version the calling skill was written for}
       - {name: --plugin, type: path, metavar: DIR,
@@ -44,7 +47,7 @@ commands:
 
   la-arch-check:
     help: 'Living-architecture cross-walk checker: code, LikeC4 model, arc42 docs and specs agree.'
-    exit: {0: clean, 1: findings, 2: setup error}
+    exit: {0: clean, 1: findings, 2: setup error or format refusal}
     options:
       - {name: --root, type: path, help: 'repo root (default: nearest git root of cwd)'}
       - {name: --language, type: string, choices: [python, typescript], internal: true,
@@ -58,24 +61,27 @@ commands:
       Write a starter architecture (model, views, system.arc42.md, index additions) from the measured top-level
       units and import edges of every language declared in architecture/index.yaml. Writes everything or
       nothing; prints each written path.
-    exit: {0: written, 2: setup error, nothing written}
+    exit: {0: written, 2: 'setup error or format refusal, nothing written'}
     options:
       - {name: --root, type: path, help: 'repo root (default: nearest git root of cwd)'}
 
   la-arch-diagrams:
     help: Generate mermaid diagrams in arc42 docs from the LikeC4 model; prints each rewritten doc.
-    exit: {0: ok, 1: cannot regenerate, 2: usage error}
+    exit: {0: ok, 1: cannot regenerate, 2: usage error or format refusal}
     options:
       - {name: --root, type: path, help: 'repo root (default: nearest git root of cwd)'}
 
   la-arch-migrate:
     help: >-
-      Merge a legacy architecture/model/*.c4 model into architecture/model.c4 (creating an empty
-      architecture/views.c4 when absent), and convert the retired arc42 metadata key: move each element's
-      doc to architecture/<element id>.arc42.md, drop the key, flatten cross_cutting_arc42 docs into
-      architecture/ and rename their diagrams keys. Verified to parse identically; writes everything or
-      nothing and prints each written, moved and deleted path.
-    exit: {0: migrated or nothing to migrate, 2: not migratable, verification mismatch or filesystem error}
+      Convert the repo to the current format (`format` in living-architecture.yaml): for a repo that predates the
+      key, merge a legacy architecture/model/*.c4 model into architecture/model.c4 (creating an empty
+      architecture/views.c4 when absent), convert the retired arc42 metadata key (move each element's doc to
+      architecture/<element id>.arc42.md, drop the key, flatten cross_cutting_arc42 docs into architecture/ and
+      rename their diagrams keys), then stamp the format. Verified; writes everything or nothing and prints each
+      written, moved and deleted path.
+    exit: {0: migrated or nothing to migrate, 2: 'no config; a newer, invalid or unknown older format; not migratable;
+        a refused doc move; unstampable config; verification mismatch or filesystem error'}
+    format: exempt
     options:
       - {name: --root, type: path, help: 'repo root (default: nearest git root of cwd)'}
 
@@ -84,7 +90,7 @@ commands:
       Deterministic convention gate over a PR's changed source files: import-not-top, text-ratio, and (tests)
       composite-assert and raises-single-throw. Waive a flagged line with a trailing ALLOW(<rule>): <reason>
       comment (not for text-ratio).
-    exit: {0: clear, 1: violations, 2: usage, config or git error}
+    exit: {0: clear, 1: violations, 2: 'usage, config or git error, or format refusal'}
     positionals:
       - {name: pr, nargs: '?', help: PR number (resolves the base branch)}
     options:
@@ -103,7 +109,7 @@ commands:
 
   la-count-comments:
     help: Count comment and doc lines (docstrings, JSDoc) in source files.
-    exit: {0: ok, 2: usage error}
+    exit: {0: ok, 2: usage error or format refusal}
     passthrough: true
     usage: |
       la-count-comments FILE...                  per-file + total counts
@@ -113,7 +119,7 @@ commands:
     help: >-
       Run each applicable language's type checker against its committed baseline, which only ever shrinks.
       A language applies when commands.typecheck sets it, or when the repo has its files and a root marker.
-    exit: {0: no errors outside the baseline, 1: new errors, 2: 'usage, config or checker error'}
+    exit: {0: no errors outside the baseline, 1: new errors, 2: 'usage, config or checker error, or format refusal'}
     options:
       - {name: --write-baseline, type: flag,
          help: write the baseline of each applicable language that has none (once, when adopting the gate)}
@@ -125,36 +131,42 @@ commands:
     exit: {0: ok, 2: usage error}
     passthrough: true
     script: fetch-coderabbit-threads.sh
+    format: exempt
 
   la-reply-invalid-coderabbit:
     help: Reply to a CodeRabbit thread, mentioning @coderabbitai (bundled script).
     exit: {0: ok, 2: usage error}
     passthrough: true
     script: reply-invalid-coderabbit.sh
+    format: exempt
 
   la-reply-to-pr-thread:
     help: Reply to a PR review thread (bundled script).
     exit: {0: ok, 2: usage error}
     passthrough: true
     script: reply-to-pr-thread.sh
+    format: exempt
 
   la-fetch-failed-pr-checks:
     help: Fetch failed CI checks on a PR with their failed-step logs (bundled script).
     exit: {0: ok, 2: usage error}
     passthrough: true
     script: fetch-failed-pr-checks.sh
+    format: exempt
 
   la-wait-for-reviews:
     help: Wait until CodeRabbit, Sonar and CI on a PR are terminal (bundled script).
     exit: {0: ok, 1: gate timed out, 2: repo lookup failed, 3: rate limited, 64: usage error}
     passthrough: true
     script: wait-for-reviews.sh
+    format: exempt
 
   la-pr-reviewers:
     help: 'Report which review bots ran on a PR, as JSON: CodeRabbit, and Sonar with its project key (bundled script).'
     exit: {0: ok, 2: usage or gh error}
     passthrough: true
     script: pr-reviewers.sh
+    format: exempt
 
   dr-refactor:
     native: [python, typescript]
@@ -163,7 +175,7 @@ commands:
       move-module. Rewrites every import and reference across the project. Dry-run by default; pass --apply to
       write. Symbol location comes from --offset, --line/--col (1-based, as an editor/LSP reports), or --name
       (first declaration, else first use).
-    exit: {0: ok, 1: refactor error, 2: usage error}
+    exit: {0: ok, 1: refactor error, 2: usage error or format refusal}
     options:
       - {name: --project, type: path, default: ., help: 'project root (default: cwd)'}
       - {name: --apply, type: flag, help: 'write changes (default: dry-run)'}
@@ -202,7 +214,7 @@ commands:
       Report constructs that make a rename un-verifiable, with each file's language's checks (Python:
       untyped-def, unannotated-attr, mock, rope-walk; TypeScript: tsconfig, explicit-any, untyped-def, mock). With --attr
       NAME it also reports x.NAME accesses whose receiver is untyped.
-    exit: {0: clean, 1: violations, 2: usage error}
+    exit: {0: clean, 1: violations, 2: usage error or format refusal}
     positionals:
       - {name: paths, nargs: '+', help: files or directories}
     options:
@@ -214,6 +226,6 @@ commands:
     help: >-
       Every test double must be bound to the real type: a unittest.mock double to a spec; a Vitest/Jest fn() or
       module factory to a type.
-    exit: {0: clean, 1: violations, 2: usage error}
+    exit: {0: clean, 1: violations, 2: usage error or format refusal}
     passthrough: true
     usage: 'dr-mock-lint <path> [<path> ...]'

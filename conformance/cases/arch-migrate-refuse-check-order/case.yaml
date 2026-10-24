@@ -10,5 +10,6 @@ expect:
   - architecture/security.arc42.md
   - architecture/system.arc42.md
   - architecture/views.c4
+  - living-architecture.yaml
 golden: manual
 note: 'a move that is refused twice reports its first check: source missing before target taken'

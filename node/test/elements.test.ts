@@ -17,7 +17,7 @@ const LEGACY_PKGS = "        packages ['src/old']\n";
 const SPEC_MD = '# spec\n';
 const OK = 'arch_check: OK\n';
 const RETIRED = (e: string) =>
-  `model element ${e}: the arc42 key is retired; its doc is architecture/${e}.arc42.md — run la-arch-migrate`;
+  `model element ${e}: the arc42 key is retired; its doc is architecture/${e}.arc42.md`;
 const ORPHAN = 'is orphaned — not architecture/system.arc42.md, the doc of a model element, or in cross_cutting_arc42';
 const NOT_FLAT = 'must sit directly in architecture/';
 

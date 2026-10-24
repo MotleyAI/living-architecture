@@ -2,6 +2,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { currentFormat } from '../src/config/index.js';
 import { parseTscOutput } from '../src/lang/index.js';
 import { combinedExit, splitCommand } from '../src/typecheck/index.js';
 import { run, tempRepo } from './cli-run.js';
@@ -109,7 +110,7 @@ describe('applicable languages', () => {
     const root = tempRepo({
       'tsconfig.json': '{}',
       'src/a.ts': 'export {};\n',
-      'living-architecture.yaml': 'commands: {typecheck: {typescript: null}}\n',
+      'living-architecture.yaml': `format: ${currentFormat()}\ncommands: {typecheck: {typescript: null}}\n`,
       'node_modules/.bin/tsc': FAKE_TSC,
     });
     expect(run(root, 'la-typecheck', []).code).toBe(0);
@@ -118,7 +119,7 @@ describe('applicable languages', () => {
 
   it('an explicit command applies without a marker or files', () => {
     const root = tempRepo({
-      'living-architecture.yaml': "commands: {typecheck: {typescript: 'tsc -p web'}}\n",
+      'living-architecture.yaml': `format: ${currentFormat()}\ncommands: {typecheck: {typescript: 'tsc -p web'}}\n`,
       'node_modules/.bin/tsc': FAKE_TSC,
     });
     expect(run(root, 'la-typecheck', []).code).toBe(0);
@@ -129,7 +130,7 @@ describe('applicable languages', () => {
     const root = tempRepo({
       'tsconfig.json': '{}',
       'gen/a.ts': 'export {};\n',
-      'living-architecture.yaml': "conventions: {exempt: ['gen/*']}\n",
+      'living-architecture.yaml': `format: ${currentFormat()}\nconventions: {exempt: ['gen/*']}\n`,
       'node_modules/.bin/tsc': FAKE_TSC,
     });
     expect(run(root, 'la-typecheck', []).code).toBe(0);

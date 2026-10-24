@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from living_architecture import archcheck, c4, cli
+from living_architecture import archcheck, c4, cli, config
 from living_architecture.archcheck.scaffold import write_scaffold
 from living_architecture.contract import check_ids
 
@@ -1373,7 +1373,7 @@ def test_cross_cutting_arc42_missing_file_flagged(tmp_path):
 
 SPEC_MD = "# spec\n"
 QUERIES_TOUCH = "[python.core, python.engine]"
-RETIRED = "model element {e}: the arc42 key is retired; its doc is architecture/{e}.arc42.md — run la-arch-migrate"
+RETIRED = "model element {e}: the arc42 key is retired; its doc is architecture/{e}.arc42.md"
 ORPHAN = "is orphaned — not architecture/system.arc42.md, the doc of a model element, or in cross_cutting_arc42"
 NOT_FLAT = "must sit directly in architecture/"
 
@@ -1645,7 +1645,7 @@ def test_main_findings(tmp_path, capsys):
 
 def test_main_broken_setup(tmp_path, capsys):
     root = make_repo(tmp_path)
-    (root / "living-architecture.yaml").write_text("nope: 1\n", encoding="utf-8")
+    (root / "living-architecture.yaml").write_text(f"format: {config.current_format()}\nnope: 1\n", encoding="utf-8")
     assert cli.la_arch_check(["--root", str(root)]) == 2
     assert "nope" in capsys.readouterr().err
 

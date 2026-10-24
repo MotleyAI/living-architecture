@@ -5,6 +5,7 @@ import { chmodSync, mkdtempSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { currentFormat } from '../src/config/index.js';
 import { whichPath } from '../src/contract/index.js';
 import { VERSION } from '../src/index.js';
 import { run, tempRepo } from './cli-run.js';
@@ -41,7 +42,7 @@ function localRepo(options: { local?: string | null; ignored?: boolean; committe
   const files: Record<string, string> = {};
   if (options.local !== null) files[LOCAL] = options.local ?? 'tracker: github\n';
   if (options.ignored) files['.gitignore'] = `${LOCAL}\n`;
-  if (options.committed !== undefined) files[COMMITTED] = options.committed;
+  if (options.committed !== undefined) files[COMMITTED] = `format: ${currentFormat()}\n${options.committed}`;
   return tempRepo(files);
 }
 

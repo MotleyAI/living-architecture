@@ -1,0 +1,12 @@
+kind: neutral
+command: la-doctor
+args:
+- --require-config
+normalize:
+- pattern: (this la reads format )[0-9]+\.[0-9]+\.[0-9]+
+  replace: \1<FORMAT>
+expect:
+  exit: 1
+golden: manual
+note: a config without format is the problem line, and the config-against-disk checks
+  are skipped

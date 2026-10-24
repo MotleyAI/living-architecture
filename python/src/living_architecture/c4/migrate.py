@@ -1,5 +1,5 @@
-"""`la-arch-migrate`: merge the legacy `architecture/model/*.c4` model into `architecture/model.c4` and convert the
-retired `arc42` key format, verified and all-or-nothing."""
+"""`la-arch-migrate`: convert the repo to the current format: merge a legacy model layout, convert the retired `arc42`
+key format and stamp `format`, verified and all-or-nothing."""
 
 from __future__ import annotations
 
@@ -7,9 +7,10 @@ import contextlib
 import os
 import posixpath
 import re
+import secrets
+import stat
 import sys
 import tempfile
-import uuid
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -26,11 +27,22 @@ from living_architecture.c4.layout import (
     is_flat_doc,
     legacy_model_dir,
     model_file,
+    sources,
     views_file,
 )
 from living_architecture.c4.model import ModelParse, parse_model_files, parse_model_texts
 from living_architecture.c4.views import EMPTY_VIEWS, parse_views
-from living_architecture.contract import YAMLError, load_yaml, message
+from living_architecture.config import (
+    FORMAT_KEY,
+    ConfigError,
+    compare_versions,
+    current_format,
+    format_problem,
+    is_version,
+    read_committed,
+    stamp_format,
+)
+from living_architecture.contract import YAMLError, config_file, load_yaml, message
 
 _INDEX_REL = "architecture/index.yaml"
 
@@ -52,12 +64,13 @@ class _Index(BaseModel):
 
 
 class _Plan(BaseModel):
-    """What one run stages: new text per written path (in report order), doc moves, index renames."""
+    """What one run stages: new text per written path (in report order), doc moves, index renames, legacy files."""
 
     outputs: dict[str, str]
     created: set[str]
     moves: list[_Move]
     renames: dict[str, str]
+    legacy: dict[str, bytes]
 
 
 def _outside_lines(file_scan: FileScan) -> str:
@@ -266,82 +279,145 @@ def _index_as_expected(plan: _Plan, index: _Index, moved_entries: set[str]) -> b
     return load_yaml(written) == _expected_index(index.data, plan.renames, moved_entries)
 
 
-class _Commit:
-    """Filesystem changes with an undo log; `rollback` restores every touched path byte-for-byte."""
+class _Step(BaseModel):
+    """One applied change: the path it touched, how to undo it, and whether the path is back as it was."""
 
-    def __init__(self) -> None:
-        self.undo: list[Callable[[], object]] = []
-
-    def create(self, path: Path, text: str) -> None:
-        self.undo.append(path.unlink)
-        try:
-            with path.open("x", encoding="utf-8", newline="") as out:
-                out.write(text)
-        except FileExistsError:
-            self.undo.pop()
-            raise
-
-    def replace(self, path: Path, text: str) -> None:
-        original = path.read_bytes()
-        temp = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
-        self.create(temp, text)
-        os.replace(temp, path)
-        self.undo.append(lambda: path.write_bytes(original))
-
-    def move(self, source: Path, target: Path) -> None:
-        os.rename(source, target)
-        self.undo.append(lambda: os.rename(target, source))
-
-    def delete(self, path: Path) -> None:
-        original = path.read_bytes()
-        path.unlink()
-        self.undo.append(lambda: path.write_bytes(original))
-
-    def rmdir(self, path: Path) -> None:
-        path.rmdir()
-        self.undo.append(path.mkdir)
-
-    def rollback(self) -> None:
-        for undo in reversed(self.undo):
-            with contextlib.suppress(OSError):
-                undo()
+    rel: str
+    undo: Callable[[], object]
+    restored: Callable[[], bool]
 
 
-def _write(root: Path, plan: _Plan, legacy: list[str]) -> list[str]:
-    """Write the outputs, move the docs, delete the legacy files and an emptied model dir; undo it all on an OSError."""
-    commit = _Commit()
-    model_dir = root / legacy_model_dir()
-    removed_dir = False
+def _create_exclusive(root: Path, rel: str, text: str, steps: list[_Step]) -> None:
+    """Create `rel` exclusively, journalled before the open so a half-made file is undone too."""
+    path = root / rel
+    steps.append(_Step(rel=rel, undo=lambda: path.unlink(missing_ok=True), restored=lambda: not os.path.lexists(path)))
+    try:
+        with path.open("x", encoding="utf-8", newline="") as out:
+            out.write(text)
+    except FileExistsError:
+        steps.pop()
+        raise
+
+
+def _mode(path: Path) -> int:
+    return stat.S_IMODE(path.stat().st_mode)
+
+
+def _restore_file(path: Path, original: bytes, mode: int) -> None:
+    path.write_bytes(original)
+    path.chmod(mode)
+
+
+def _restore_dir(path: Path, mode: int) -> None:
+    path.mkdir()
+    path.chmod(mode)
+
+
+def _delete(root: Path, rel: str, original: bytes, steps: list[_Step]) -> None:
+    path = root / rel
+    mode = _mode(path)
+    path.unlink()
+    steps.append(
+        _Step(
+            rel=rel,
+            undo=lambda: _restore_file(path, original, mode),
+            restored=lambda: path.is_file() and _mode(path) == mode and path.read_bytes() == original,
+        )
+    )
+
+
+def _remove_dir(root: Path, rel: str, steps: list[_Step]) -> None:
+    path = root / rel
+    mode = _mode(path)
+    path.rmdir()
+    steps.append(_Step(rel=rel, undo=lambda: _restore_dir(path, mode), restored=lambda: path.is_dir() and _mode(path) == mode))
+
+
+def _swap_in(root: Path, rel: str, text: str, steps: list[_Step]) -> None:
+    """Replace `rel` with `text` through a sibling temp file and an atomic rename, keeping its mode."""
+    path = root / rel
+    temp = posixpath.join(posixpath.dirname(rel), f".{path.name}.{secrets.token_hex(4)}.tmp")
+    _create_exclusive(root, temp, text, steps)
+    os.chmod(root / temp, _mode(path))
+    os.replace(root / temp, path)
+
+
+def _replace(root: Path, rel: str, text: str, steps: list[_Step]) -> None:
+    """Replace `rel`, journalled so a rollback puts its bytes and mode back."""
+    path = root / rel
+    original, mode = path.read_bytes(), _mode(path)
+    _swap_in(root, rel, text, steps)
+    steps.append(
+        _Step(
+            rel=rel,
+            undo=lambda: _restore_file(path, original, mode),
+            restored=lambda: path.is_file() and _mode(path) == mode and path.read_bytes() == original,
+        )
+    )
+
+
+def _move(root: Path, move: _Move, steps: list[_Step]) -> None:
+    source, target = root / move.source, root / move.target
+    os.rename(source, target)
+    steps.append(
+        _Step(
+            rel=move.source,
+            undo=lambda: os.rename(target, source),
+            restored=lambda: source.is_file() and not os.path.lexists(target),
+        )
+    )
+
+
+def _rollback(steps: list[_Step], error: OSError) -> MigrateError | None:
+    """Undo `steps` in reverse; an error naming every path that could not be put back, None when all were."""
+    for step in reversed(steps):
+        with contextlib.suppress(OSError):
+            step.undo()
+    left = sorted({step.rel for step in steps if not step.restored()})
+    if not left:
+        return None
+    return MigrateError(message("arch-migrate.rollback-failed", error=str(error), paths=", ".join(left)))
+
+
+def _write(root: Path, plan: _Plan, stamped: str) -> list[str]:
+    """Write the layout files, move the docs, delete the legacy files and an emptied model dir, replace the config
+    last; all or nothing."""
+    steps: list[_Step] = []
+    deleted: list[str] = []
+    model_dir = legacy_model_dir()
     try:
         for rel, text in plan.outputs.items():
             if rel in plan.created:
-                commit.create(root / rel, text)
+                _create_exclusive(root, rel, text, steps)
             else:
-                commit.replace(root / rel, text)
+                _replace(root, rel, text, steps)
         for move in plan.moves:
-            commit.move(root / move.source, root / move.target)
-        for rel in legacy:
-            commit.delete(root / rel)
-        if legacy and not any(model_dir.iterdir()):
-            commit.rmdir(model_dir)
-            removed_dir = True
-    except OSError:
-        commit.rollback()
-        raise
-    report = [message("arch-migrate.written", path=rel) for rel in plan.outputs]
+            _move(root, move, steps)
+        for rel, original in plan.legacy.items():
+            _delete(root, rel, original, steps)
+            deleted.append(rel)
+        if plan.legacy and not any((root / model_dir).iterdir()):
+            _remove_dir(root, model_dir, steps)
+            deleted.append(model_dir)
+        _swap_in(root, config_file(), stamped, steps)
+    except OSError as exc:
+        failure = _rollback(steps, exc)
+        if failure is None:
+            raise
+        raise failure from exc
+    report = [message("arch-migrate.written", path=rel) for rel in [*plan.outputs, config_file()]]
     report += [message("arch-migrate.moved", source=m.source, target=m.target) for m in plan.moves]
-    report += [message("arch-migrate.deleted", path=rel) for rel in legacy]
-    if removed_dir:
-        report.append(message("arch-migrate.deleted", path=legacy_model_dir()))
-    return report
+    return report + [message("arch-migrate.deleted", path=rel) for rel in deleted]
 
 
-def migrate(root: Path) -> list[str]:
-    """Migrate the repo at `root`; the lines to print. MigrateError or OSError when nothing was written."""
+def _plan(root: Path) -> _Plan:
+    """The layout and arc42 conversions to apply; none when there is no model to convert."""
+    if not sources(root):
+        return _Plan(outputs={}, created=set(), moves=[], renames={}, legacy={})
     layout = classify(root)
     if layout.state not in ("canonical", "legacy"):
         raise MigrateError(layout.message)
-    legacy = layout.legacy_files
+    legacy = {rel: (root / rel).read_bytes() for rel in layout.legacy_files}
     if legacy:
         before = parse_model_files([root / rel for rel in legacy])
         model_text = merged_model([layout.scans[rel] for rel in legacy])
@@ -349,17 +425,14 @@ def migrate(root: Path) -> list[str]:
         model_text = _read_exact(root / model_file())
         before = parse_model_texts([model_text])
     index = _read_index(root)
-    entries = _cross_cutting(index)
-    has_key = any(RETIRED_ARC42_KEY in e.metadata for e in before.elements)
-    if not legacy and not has_key and all(is_flat_doc(e) for e in entries):
-        return [message("arch-migrate.nothing")]
     stripped, element_moves = _strip_arc42(model_text, parse_model_texts([model_text]))
-    entry_moves = _flattened(entries)
+    entry_moves = _flattened(_cross_cutting(index))
     moves = element_moves + entry_moves
-    refusal = _refusal(root, moves, _diagram_keys(index))
+    keys = _diagram_keys(index)
+    refusal = _refusal(root, moves, keys)
     if refusal is not None:
         raise MigrateError(refusal)
-    renamed = {m.source for m in entry_moves} | {k for k in _diagram_keys(index) if isinstance(k, str)}
+    renamed = {m.source for m in entry_moves} | {k for k in keys if isinstance(k, str)}
     renames = {m.source: m.target for m in moves if m.source in renamed}
     outputs: dict[str, str] = {}
     created: set[str] = set()
@@ -372,9 +445,41 @@ def migrate(root: Path) -> list[str]:
             created.add(views_file())
     if renames and index.text is not None:
         outputs[_INDEX_REL] = _renamed_index(index.text, renames)
-    plan = _Plan(outputs=outputs, created=created, moves=moves, renames=renames)
+    plan = _Plan(outputs=outputs, created=created, moves=moves, renames=renames, legacy=legacy)
     _verify(root, before, plan, index, {m.source for m in entry_moves})
-    return _write(root, plan, legacy)
+    return plan
+
+
+def _stamped(root: Path) -> str | None:
+    """The stamped config text, or None when the repo already declares the current format."""
+    try:
+        committed = read_committed(root)
+    except ConfigError as exc:
+        raise MigrateError(str(exc)) from exc
+    if committed is None:
+        raise MigrateError(message("arch-migrate.no-config"))
+    current = current_format()
+    data = committed.data or {}
+    if FORMAT_KEY in data:
+        problem = format_problem(data)
+        declared = data[FORMAT_KEY]
+        if problem is not None and is_version(declared) and compare_versions(declared, current) < 0:
+            raise MigrateError(message("arch-migrate.unknown-format", declared=declared, current=current))
+        if problem is not None:
+            raise MigrateError(problem)
+        return None
+    stamped = stamp_format(committed.text)
+    if stamped is None:
+        raise MigrateError(message("arch-migrate.stamp-mismatch", current=current))
+    return stamped
+
+
+def migrate(root: Path) -> list[str]:
+    """Migrate the repo at `root`; the lines to print. MigrateError or OSError having changed nothing, unless named."""
+    stamped = _stamped(root)
+    if stamped is None:
+        return [message("arch-migrate.nothing", current=current_format())]
+    return _write(root, _plan(root), stamped)
 
 
 def run(root: Path) -> int:

@@ -14,5 +14,6 @@ expect:
   - architecture/python.legacy.arc42.md
   - architecture/a/rules.arc42.md
   - architecture/b/rules.arc42.md
+  - living-architecture.yaml
 golden: manual
 note: 'only the first refusal in plan order: element docs in model order before cross_cutting_arc42 entries'

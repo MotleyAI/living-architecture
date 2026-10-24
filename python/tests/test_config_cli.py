@@ -4,6 +4,7 @@ from typing import Any
 
 import pytest
 
+from living_architecture import config
 from living_architecture.cli import la_config as main
 from living_architecture.config import CONFIG_FILENAME, format_value
 
@@ -11,6 +12,7 @@ from living_architecture.config import CONFIG_FILENAME, format_value
 @pytest.fixture
 def repo(tmp_path: Path) -> Path:
     (tmp_path / CONFIG_FILENAME).write_text(
+        f"format: {config.current_format()}\n"
         "reviewers:\n  codex: false\n  sonar: {project_key: k}\n"
         "conventions: {exempt: [a.py]}\n",
         encoding="utf-8",
@@ -63,7 +65,7 @@ def test_defaults_without_file(tmp_path: Path, capsys: pytest.CaptureFixture[str
 
 
 def test_invalid_config_exits_1(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    (tmp_path / CONFIG_FILENAME).write_text("bogus: 1\n", encoding="utf-8")
+    (tmp_path / CONFIG_FILENAME).write_text(f"format: {config.current_format()}\nbogus: 1\n", encoding="utf-8")
     assert main(["--root", str(tmp_path), "show"]) == 1
     assert "bogus" in capsys.readouterr().err
 

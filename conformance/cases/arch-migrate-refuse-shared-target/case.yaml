@@ -12,5 +12,6 @@ expect:
   - architecture/views.c4
   - architecture/a/rules.arc42.md
   - architecture/b/rules.arc42.md
+  - living-architecture.yaml
 golden: manual
 note: two cross-cutting docs with one basename

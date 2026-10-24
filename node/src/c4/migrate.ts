@@ -1,7 +1,9 @@
-// `la-arch-migrate`: merge the legacy `architecture/model/*.c4` model into `architecture/model.c4` and convert the
-// retired `arc42` key format, verified and all-or-nothing.
-import { randomUUID } from 'node:crypto';
+// `la-arch-migrate`: convert the repo to the current format: merge a legacy model layout, convert the retired `arc42`
+// key format and stamp `format`, verified and all-or-nothing.
+import { randomBytes } from 'node:crypto';
 import {
+  chmodSync,
+  existsSync,
   lstatSync,
   mkdirSync,
   mkdtempSync,
@@ -15,9 +17,19 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { basename, dirname, isAbsolute, join } from 'node:path';
+import { basename, isAbsolute, join, posix } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
-import { YAMLError, byCodePoint, decodeUtf8OrNull, loadYaml, message, splitLinesKeepEnds } from '../contract/index.js';
+import {
+  ConfigError,
+  FORMAT_KEY,
+  compareVersions,
+  currentFormat,
+  formatProblem,
+  isVersion,
+  readCommitted,
+  stampFormat,
+} from '../config/index.js';
+import { YAMLError, byCodePoint, configFile, decodeUtf8OrNull, loadYaml, message, splitLinesKeepEnds } from '../contract/index.js';
 import {
   ARCH_DIR,
   type FileScan,
@@ -27,6 +39,7 @@ import {
   isFlatDoc,
   legacyModelDir,
   modelFile,
+  sources,
   stripWhitespace,
   viewsFile,
 } from './layout.js';
@@ -49,12 +62,13 @@ interface Index {
   data: Map<unknown, unknown> | null;
 }
 
-/** What one run stages: new text per written path (in report order), doc moves, index renames. */
+/** What one run stages: new text per written path (in report order), doc moves, index renames, legacy files. */
 interface Plan {
   outputs: Map<string, string>;
   created: Set<string>;
   moves: Move[];
   renames: Map<string, string>;
+  legacy: Map<string, Buffer>;
 }
 
 /** The comment and blank lines outside every block; a comment sharing a line with a block keeps its own line. */
@@ -290,102 +304,150 @@ function indexAsExpected(plan: Plan, index: Index, movedEntries: Set<string>): b
   return isDeepStrictEqual(loadYaml(written), expectedIndex(index.data, plan.renames, movedEntries));
 }
 
-/** Filesystem changes with an undo log; `rollback` restores every touched path byte-for-byte. */
-class Commit {
-  private readonly undo: (() => void)[] = [];
-
-  create(path: string, text: string): void {
-    this.undo.push(() => unlinkSync(path));
-    try {
-      writeFileSync(path, text, { encoding: 'utf8', flag: 'wx' });
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === 'EEXIST') this.undo.pop();
-      throw error;
-    }
-  }
-
-  replace(path: string, text: string): void {
-    const original = readFileSync(path);
-    const temp = join(dirname(path), `.${basename(path)}.${randomUUID().replaceAll('-', '')}.tmp`);
-    this.create(temp, text);
-    renameSync(temp, path);
-    this.undo.push(() => writeFileSync(path, original));
-  }
-
-  move(source: string, target: string): void {
-    renameSync(source, target);
-    this.undo.push(() => renameSync(target, source));
-  }
-
-  delete(path: string): void {
-    const original = readFileSync(path);
-    unlinkSync(path);
-    this.undo.push(() => writeFileSync(path, original));
-  }
-
-  rmdir(path: string): void {
-    rmdirSync(path);
-    this.undo.push(() => mkdirSync(path));
-  }
-
-  rollback(): void {
-    for (const undo of this.undo.toReversed()) {
-      try {
-        undo();
-      } catch {
-        // best-effort undo
-      }
-    }
-  }
+/** One applied change: the path it touched, how to undo it, and whether the path is back as it was. */
+interface Step {
+  rel: string;
+  undo: () => void;
+  restored: () => boolean;
 }
 
-/** Write the outputs, move the docs, delete the legacy files and an emptied model dir; undo it all on an error. */
-function write(root: string, plan: Plan, legacy: string[]): string[] {
-  const commit = new Commit();
-  const modelDir = join(root, legacyModelDir());
-  let removedDir = false;
+/** Create `rel` exclusively, journalled before the open so a half-made file is undone too. */
+function createExclusive(root: string, rel: string, text: string, steps: Step[]): void {
+  const path = join(root, rel);
+  steps.push({ rel, undo: () => rmSync(path, { force: true }), restored: () => !lexists(path) });
   try {
-    for (const [rel, text] of plan.outputs) {
-      if (plan.created.has(rel)) commit.create(join(root, rel), text);
-      else commit.replace(join(root, rel), text);
-    }
-    for (const move of plan.moves) commit.move(join(root, move.source), join(root, move.target));
-    for (const rel of legacy) commit.delete(join(root, rel));
-    if (legacy.length > 0 && readdirSync(modelDir).length === 0) {
-      commit.rmdir(modelDir);
-      removedDir = true;
-    }
+    writeFileSync(path, text, { encoding: 'utf8', flag: 'wx' });
   } catch (error) {
-    commit.rollback();
+    if ((error as NodeJS.ErrnoException).code === 'EEXIST') steps.pop();
     throw error;
   }
-  const report = [...plan.outputs.keys()].map((rel) => message('arch-migrate.written', { path: rel }));
-  report.push(...plan.moves.map((m) => message('arch-migrate.moved', { source: m.source, target: m.target })));
-  report.push(...legacy.map((rel) => message('arch-migrate.deleted', { path: rel })));
-  if (removedDir) report.push(message('arch-migrate.deleted', { path: legacyModelDir() }));
-  return report;
 }
 
-/** Migrate the repo at `root`; the lines to print. Throws (having written nothing) when it cannot. */
-export function migrate(root: string): string[] {
+const modeOf = (path: string): number => statSync(path).mode & 0o7777;
+
+function remove(root: string, rel: string, original: Buffer, steps: Step[]): void {
+  const path = join(root, rel);
+  const mode = modeOf(path);
+  unlinkSync(path);
+  steps.push({
+    rel,
+    undo: () => {
+      writeFileSync(path, original);
+      chmodSync(path, mode);
+    },
+    restored: () => isFile(path) && modeOf(path) === mode && readFileSync(path).equals(original),
+  });
+}
+
+function removeDir(root: string, rel: string, steps: Step[]): void {
+  const path = join(root, rel);
+  const mode = modeOf(path);
+  rmdirSync(path);
+  steps.push({
+    rel,
+    undo: () => {
+      mkdirSync(path);
+      chmodSync(path, mode);
+    },
+    restored: () => existsSync(path) && statSync(path).isDirectory() && modeOf(path) === mode,
+  });
+}
+
+/** Replace `rel` with `text` through a sibling temp file and an atomic rename, keeping its mode. */
+function swapIn(root: string, rel: string, text: string, steps: Step[]): void {
+  const path = join(root, rel);
+  const temp = posix.join(posix.dirname(rel), `.${basename(rel)}.${randomBytes(4).toString('hex')}.tmp`);
+  createExclusive(root, temp, text, steps);
+  chmodSync(join(root, temp), modeOf(path));
+  renameSync(join(root, temp), path);
+}
+
+/** Replace `rel`, journalled so a rollback puts its bytes and mode back. */
+function replace(root: string, rel: string, text: string, steps: Step[]): void {
+  const path = join(root, rel);
+  const original = readFileSync(path);
+  const mode = modeOf(path);
+  swapIn(root, rel, text, steps);
+  steps.push({
+    rel,
+    undo: () => {
+      writeFileSync(path, original);
+      chmodSync(path, mode);
+    },
+    restored: () => isFile(path) && modeOf(path) === mode && readFileSync(path).equals(original),
+  });
+}
+
+function move(root: string, step: Move, steps: Step[]): void {
+  const [source, target] = [join(root, step.source), join(root, step.target)];
+  renameSync(source, target);
+  steps.push({ rel: step.source, undo: () => renameSync(target, source), restored: () => isFile(source) && !lexists(target) });
+}
+
+/** Undo `steps` in reverse; an error naming every path that could not be put back, null when all were. */
+function rollback(steps: Step[], error: Error): MigrateError | null {
+  for (const step of steps.toReversed()) {
+    try {
+      step.undo();
+    } catch {
+      // judged by `restored` below
+    }
+  }
+  const left = [...new Set(steps.filter((step) => !step.restored()).map((step) => step.rel))].sort(byCodePoint);
+  if (left.length === 0) return null;
+  return new MigrateError(message('arch-migrate.rollback-failed', { error: error.message, paths: left.join(', ') }));
+}
+
+/** Write the layout files, move the docs, delete the legacy files and an emptied model dir, replace the config last; all or nothing. */
+function write(root: string, plan: Plan, stamped: string): string[] {
+  const steps: Step[] = [];
+  const deleted: string[] = [];
+  const modelDir = legacyModelDir();
+  try {
+    for (const [rel, text] of plan.outputs) {
+      if (plan.created.has(rel)) createExclusive(root, rel, text, steps);
+      else replace(root, rel, text, steps);
+    }
+    for (const m of plan.moves) move(root, m, steps);
+    for (const [rel, original] of plan.legacy) {
+      remove(root, rel, original, steps);
+      deleted.push(rel);
+    }
+    if (plan.legacy.size > 0 && readdirSync(join(root, modelDir)).length === 0) {
+      removeDir(root, modelDir, steps);
+      deleted.push(modelDir);
+    }
+    swapIn(root, configFile(), stamped, steps);
+  } catch (error) {
+    throw rollback(steps, error as Error) ?? error;
+  }
+  return [
+    ...[...plan.outputs.keys(), configFile()].map((rel) => message('arch-migrate.written', { path: rel })),
+    ...plan.moves.map((m) => message('arch-migrate.moved', { source: m.source, target: m.target })),
+    ...deleted.map((rel) => message('arch-migrate.deleted', { path: rel })),
+  ];
+}
+
+const NO_PLAN = (): Plan => ({ outputs: new Map(), created: new Set(), moves: [], renames: new Map(), legacy: new Map() });
+
+/** The layout and arc42 conversions to apply; none when there is no model to convert. */
+function planOf(root: string): Plan {
+  if (sources(root).length === 0) return NO_PLAN();
   const layout = classify(root);
   if (layout.state !== 'canonical' && layout.state !== 'legacy') throw new MigrateError(layout.message ?? '');
-  const legacy = layout.legacyFiles;
+  const legacy = new Map(layout.legacyFiles.map((rel) => [rel, readFileSync(join(root, rel))]));
   let before: ModelParse;
   let modelText: string;
-  if (legacy.length > 0) {
-    before = parseModelFiles(legacy.map((rel) => join(root, rel)));
-    modelText = mergedModel(legacy.map((rel) => layout.scans.get(rel) as FileScan));
+  if (legacy.size > 0) {
+    before = parseModelFiles(layout.legacyFiles.map((rel) => join(root, rel)));
+    modelText = mergedModel(layout.legacyFiles.map((rel) => layout.scans.get(rel) as FileScan));
   } else {
     modelText = readExact(join(root, modelFile()));
     before = parseModelTexts([modelText]);
   }
   const index = readIndex(root);
-  const entries = crossCutting(index);
-  const keyed = before.elements.some((e) => hasKey(e.metadata));
-  if (legacy.length === 0 && !keyed && entries.every(isFlatDoc)) return [message('arch-migrate.nothing')];
   const [stripped, elementMoves] = stripArc42(modelText, parseModelTexts([modelText]));
-  const entryMoves = flattened(entries);
+  const entryMoves = flattened(crossCutting(index));
   const moves = [...elementMoves, ...entryMoves];
   const keys = diagramKeys(index);
   const refused = refusal(root, moves, keys);
@@ -394,8 +456,8 @@ export function migrate(root: string): string[] {
   const renames = new Map(moves.filter((m) => renamed.has(m.source)).map((m) => [m.source, m.target]));
   const outputs = new Map<string, string>();
   const created = new Set<string>();
-  if (legacy.length > 0 || stripped !== modelText) outputs.set(modelFile(), stripped);
-  if (legacy.length > 0) {
+  if (legacy.size > 0 || stripped !== modelText) outputs.set(modelFile(), stripped);
+  if (legacy.size > 0) {
     created.add(modelFile());
     if (!layout.viewsExists) {
       outputs.set(viewsFile(), EMPTY_VIEWS);
@@ -403,9 +465,42 @@ export function migrate(root: string): string[] {
     }
   }
   if (renames.size > 0 && index.text !== null) outputs.set(INDEX_REL, renamedIndex(index.text, renames));
-  const plan: Plan = { outputs, created, moves, renames };
+  const plan: Plan = { outputs, created, moves, renames, legacy };
   verify(root, before, plan, index, new Set(entryMoves.map((m) => m.source)));
-  return write(root, plan, legacy);
+  return plan;
+}
+
+/** The stamped config text, or null when the repo already declares the current format. */
+function stamped(root: string): string | null {
+  let committed;
+  try {
+    committed = readCommitted(root);
+  } catch (error) {
+    if (error instanceof ConfigError) throw new MigrateError(error.message);
+    throw error;
+  }
+  if (committed === null) throw new MigrateError(message('arch-migrate.no-config'));
+  const current = currentFormat();
+  const data = committed.data ?? new Map<unknown, unknown>();
+  if (data.has(FORMAT_KEY)) {
+    const problem = formatProblem(data);
+    const declared = data.get(FORMAT_KEY);
+    if (problem !== null && isVersion(declared) && compareVersions(declared, current) < 0) {
+      throw new MigrateError(message('arch-migrate.unknown-format', { declared, current }));
+    }
+    if (problem !== null) throw new MigrateError(problem);
+    return null;
+  }
+  const text = stampFormat(committed.text);
+  if (text === null) throw new MigrateError(message('arch-migrate.stamp-mismatch', { current }));
+  return text;
+}
+
+/** Migrate the repo at `root`; the lines to print. Throws having changed nothing, unless the error names the paths. */
+export function migrate(root: string): string[] {
+  const text = stamped(root);
+  if (text === null) return [message('arch-migrate.nothing', { current: currentFormat() })];
+  return write(root, planOf(root), text);
 }
 
 /** `la-arch-migrate`: print each written, moved and deleted path, or exit 2 having changed nothing. */

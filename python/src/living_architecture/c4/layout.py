@@ -280,8 +280,7 @@ def classify(root: Path) -> Layout:
         and all(_is_legacy_file(rel, scans.get(rel)) for rel in strays)
         and (states[views_file()] == "missing" or (views_exists and not violations[views_file()]))
     )
-    tail = message("c4-layout.migrate" if legacy else "c4-layout.merge-by-hand")
-    text = "\n".join([message("c4-layout.header"), *lines, tail])
+    text = "\n".join([message("c4-layout.header"), *lines, message("c4-layout.merge-by-hand")])
     return Layout(
         state="legacy" if legacy else "other",
         message=text,

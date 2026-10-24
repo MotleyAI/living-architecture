@@ -70,6 +70,7 @@ class ConventionsConfig(_Strict):
 class LaConfig(_Strict):
     """The resolved config; built only by `resolve`, so every default comes from the schema."""
 
+    format: str | None
     tracker: Literal["linear", "github", "none"]
     openspec: bool
     architecture: bool

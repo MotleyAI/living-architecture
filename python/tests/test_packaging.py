@@ -10,6 +10,7 @@ from pathlib import Path
 
 import pytest
 
+from living_architecture.config import current_format
 from living_architecture.contract import compute_hash
 
 
@@ -65,6 +66,7 @@ def test_installed_artifact_runs_every_command(kind, artifacts, tmp_path, fake_g
     legacy = tmp_path / "legacy"
     (legacy / "architecture" / "model").mkdir(parents=True)
     (legacy / "architecture" / "model" / "m.c4").write_text("specification {\n}\nmodel {\n}\n", encoding="utf-8")
+    (legacy / "living-architecture.yaml").write_text("tracker: linear\n", encoding="utf-8")
 
     def run(*argv: str, stdin: str = "") -> subprocess.CompletedProcess[str]:
         return subprocess.run([str(bin_dir / argv[0]), *argv[1:]], cwd=work, env=env, input=stdin,
@@ -95,3 +97,4 @@ def test_installed_artifact_runs_every_command(kind, artifacts, tmp_path, fake_g
             assert proc.stdout == stdout, argv
     assert "    a -> b\n" in (scaffold / "architecture" / "model.c4").read_text(encoding="utf-8")
     assert (legacy / "architecture" / "model.c4").read_text(encoding="utf-8") == "specification {\n}\nmodel {\n}\n"
+    assert (legacy / "living-architecture.yaml").read_text(encoding="utf-8") == f"format: {current_format()}\ntracker: linear\n"

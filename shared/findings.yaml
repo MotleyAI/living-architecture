@@ -32,7 +32,7 @@ findings:
   arch-check.no-language-section: 'architecture/index.yaml: a language section is required (one of python, typescript)'
   arch-check.root-undeclared: 'model element {element}: top-level elements must be declared language roots'
   arch-check.root-missing: model has no root element for declared language {language}
-  arch-check.arc42-key-retired: 'model element {element}: the arc42 key is retired; its doc is architecture/{element}.arc42.md — run la-arch-migrate'
+  arch-check.arc42-key-retired: 'model element {element}: the arc42 key is retired; its doc is architecture/{element}.arc42.md'
 
   claims-exist.unit-missing: 'claims-exist: {node} claims {unit}, which does not exist on disk'
   claims-exist.child-missing: 'claims-exist: element {element} maps to {unit}, which does not exist on disk'
@@ -141,12 +141,11 @@ findings:
   c4-layout.block-not-allowed: '  {path}:{line}: `{block}` block does not belong in this file'
   c4-layout.top-level-text: '  {path}:{line}: unexpected top-level text: {text}'
   c4-layout.unbalanced-braces: '  {path}:{line}: unbalanced braces'
-  c4-layout.migrate: 'this is the legacy architecture/model/*.c4 layout: run la-arch-migrate to convert it'
   c4-layout.merge-by-hand: 'merge by hand: one specification and one model block into architecture/model.c4, one views block into architecture/views.c4'
 
   # ---- la-arch-migrate
   arch-migrate.error: 'la-arch-migrate: {error}'
-  arch-migrate.nothing: 'nothing to migrate: the layout is canonical, no element sets arc42 and every cross_cutting_arc42 entry sits directly in architecture/'
+  arch-migrate.nothing: 'nothing to migrate: this la reads format {current}, which living-architecture.yaml already declares'
   arch-migrate.written: 'wrote {path}'
   arch-migrate.moved: 'moved {source} to {target}'
   arch-migrate.deleted: 'deleted {path}'
@@ -156,6 +155,17 @@ findings:
   arch-migrate.shared-target: '{first} and {second} would both move to {target}; nothing written'
   arch-migrate.target-taken: '{source} cannot move to {target}, which already exists; nothing written'
   arch-migrate.diagrams-key-taken: '{source} cannot move to {target}: architecture/index.yaml already has the diagrams key {target}; nothing written'
+  arch-migrate.no-config: no living-architecture.yaml at the repo root, so there is no format to migrate; run /la:init to onboard this repo
+  arch-migrate.unknown-format: cannot migrate from format {declared}; this la reads format {current} and converts only a repo that declares no format
+  arch-migrate.stamp-mismatch: 'cannot insert the format into living-architecture.yaml; add format: {current} by hand'
+  # A failed rollback: `paths` lists, repo-relative in code-point order, every path the restore could not put back.
+  arch-migrate.rollback-failed: '{error}; restoring failed, so these paths are left changed: {paths}'
+
+  # ---- the repo format check, before every command the CLI manifest does not mark `format: exempt`
+  format.missing: 'living-architecture.yaml declares no format, but this la reads format {current}: run la-arch-migrate to convert the repo'
+  format.invalid: 'living-architecture.yaml: format {value!r} is not a version (three dot-separated integers); this la reads format {current}'
+  format.newer: 'living-architecture.yaml declares format {declared}, but this la reads format {current}: upgrade la to {declared} or later'
+  format.older: 'living-architecture.yaml declares format {declared}, but this la reads format {current}: run la-arch-migrate to convert the repo'
 
   # ---- la-arch-scaffold
   arch-scaffold.error: 'la-arch-scaffold: {error}'

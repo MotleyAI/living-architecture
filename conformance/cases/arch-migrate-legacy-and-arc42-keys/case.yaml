@@ -4,6 +4,9 @@ fixture: arch-ok
 remove:
 - architecture/model.c4
 - architecture/python.api.arc42.md
+normalize:
+- pattern: '(format"?: "?)[0-9]+\.[0-9]+\.[0-9]+'
+  replace: \1<FORMAT>
 expect:
   exit: 0
   files:
@@ -11,5 +14,6 @@ expect:
   - architecture/model/model.c4
   - architecture/python.api.arc42.md
   - architecture/api.arc42.md
+  - living-architecture.yaml
 golden: manual
 note: one run merges the legacy layout and converts its arc42 key; arch-check-migrated-arc42 checks the result

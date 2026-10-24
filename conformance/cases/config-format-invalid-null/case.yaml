@@ -1,0 +1,11 @@
+kind: neutral
+command: la-config
+args:
+- show
+normalize:
+- pattern: (this la reads format )[0-9]+\.[0-9]+\.[0-9]+
+  replace: \1<FORMAT>
+expect:
+  exit: 2
+golden: manual
+note: 'format null is not a version: refused, showing the value'

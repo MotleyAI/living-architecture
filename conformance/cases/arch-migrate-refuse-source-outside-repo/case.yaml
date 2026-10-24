@@ -11,5 +11,6 @@ expect:
   - architecture/security.arc42.md
   - architecture/system.arc42.md
   - architecture/views.c4
+  - living-architecture.yaml
 golden: manual
 note: an arc42 key naming a path outside the repo is refused like a missing doc; nothing moves
