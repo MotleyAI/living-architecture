@@ -1,0 +1,18 @@
+kind: neutral
+command: la-arch-migrate
+fixture: arch-ok
+remove:
+- architecture/model.c4
+- architecture/views.c4
+normalize:
+- pattern: '(format"?: "?)[0-9]+\.[0-9]+\.[0-9]+'
+  replace: \1<FORMAT>
+expect:
+  exit: 0
+  files:
+  - living-architecture.yaml
+  - architecture/model.c4
+  - architecture/views.c4
+golden: manual
+note: 'an index.yaml without any LikeC4 source has no layout to convert: the format is stamped, la-arch-check
+  reports the missing model'

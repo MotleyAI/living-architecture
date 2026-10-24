@@ -1,11 +1,17 @@
-"""`la-arch-migrate`: merge the legacy `architecture/model/*.c4` model into `architecture/model.c4`, verified."""
+"""`la-arch-migrate`: convert the repo to the current format, merging a legacy model layout and stamping `format`."""
 
 from __future__ import annotations
 
 import contextlib
+import os
+import secrets
+import stat
 import sys
 import tempfile
+from collections.abc import Callable
 from pathlib import Path
+
+from pydantic import BaseModel
 
 from living_architecture.c4.layout import (
     WHITESPACE,
@@ -13,11 +19,22 @@ from living_architecture.c4.layout import (
     classify,
     legacy_model_dir,
     model_file,
+    sources,
     views_file,
 )
 from living_architecture.c4.model import ModelParse, parse_model, parse_model_files
 from living_architecture.c4.views import EMPTY_VIEWS, parse_views
-from living_architecture.contract import message
+from living_architecture.config import (
+    FORMAT_KEY,
+    ConfigError,
+    compare_versions,
+    current_format,
+    format_problem,
+    is_version,
+    read_committed,
+    stamp_format,
+)
+from living_architecture.contract import config_file, message
 
 _INDEX_REL = "architecture/index.yaml"
 
@@ -85,63 +102,154 @@ def _verify(root: Path, legacy: list[Path], outputs: dict[str, str]) -> None:
         raise MigrateError(message("arch-migrate.mismatch"))
 
 
-def _create_exclusive(path: Path, text: str, created: list[Path]) -> None:
-    """Create `path` exclusively, recording it in `created` unless it already existed."""
-    created.append(path)
+class _Step(BaseModel):
+    """One applied change: the path it touched, how to undo it, and whether the path is back as it was."""
+
+    rel: str
+    undo: Callable[[], object]
+    restored: Callable[[], bool]
+
+
+def _create_exclusive(root: Path, rel: str, text: str, steps: list[_Step]) -> None:
+    """Create `rel` exclusively, journalled before the open so a half-made file is undone too."""
+    path = root / rel
+    steps.append(_Step(rel=rel, undo=lambda: path.unlink(missing_ok=True), restored=lambda: not os.path.lexists(path)))
     try:
         with path.open("x", encoding="utf-8", newline="") as out:
             out.write(text)
     except FileExistsError:
-        created.pop()
+        steps.pop()
         raise
 
 
-def _write(root: Path, outputs: dict[str, str], legacy: dict[Path, bytes]) -> list[str]:
-    """Create every output, delete the legacy files and an emptied model dir; undo it all on an OSError."""
-    created: list[Path] = []
-    deleted: list[Path] = []
-    model_dir = root / legacy_model_dir()
-    removed_dir = False
+def _mode(path: Path) -> int:
+    return stat.S_IMODE(path.stat().st_mode)
+
+
+def _restore_file(path: Path, original: bytes, mode: int) -> None:
+    path.write_bytes(original)
+    path.chmod(mode)
+
+
+def _restore_dir(path: Path, mode: int) -> None:
+    path.mkdir()
+    path.chmod(mode)
+
+
+def _delete(root: Path, rel: str, original: bytes, steps: list[_Step]) -> None:
+    path = root / rel
+    mode = _mode(path)
+    path.unlink()
+    steps.append(
+        _Step(
+            rel=rel,
+            undo=lambda: _restore_file(path, original, mode),
+            restored=lambda: path.is_file() and _mode(path) == mode and path.read_bytes() == original,
+        )
+    )
+
+
+def _remove_dir(root: Path, rel: str, steps: list[_Step]) -> None:
+    path = root / rel
+    mode = _mode(path)
+    path.rmdir()
+    steps.append(_Step(rel=rel, undo=lambda: _restore_dir(path, mode), restored=lambda: path.is_dir() and _mode(path) == mode))
+
+
+def _replace_config(root: Path, stamped: str, steps: list[_Step]) -> None:
+    """Replace the config with `stamped` through a sibling temp file and an atomic rename."""
+    config = root / config_file()
+    temp = f".{config_file()}.{secrets.token_hex(4)}.tmp"
+    _create_exclusive(root, temp, stamped, steps)
+    os.chmod(root / temp, _mode(config))
+    os.replace(root / temp, config)
+
+
+def _rollback(steps: list[_Step], error: OSError) -> MigrateError | None:
+    """Undo `steps` in reverse; an error naming every path that could not be put back, None when all were."""
+    for step in reversed(steps):
+        with contextlib.suppress(OSError):
+            step.undo()
+    left = sorted({step.rel for step in steps if not step.restored()})
+    if not left:
+        return None
+    return MigrateError(message("arch-migrate.rollback-failed", error=str(error), paths=", ".join(left)))
+
+
+def _write(root: Path, outputs: dict[str, str], legacy: dict[str, bytes], stamped: str) -> list[str]:
+    """Create every output, delete the legacy files and an emptied model dir, replace the config last; all or nothing."""
+    steps: list[_Step] = []
+    deleted: list[str] = []
+    model_dir = legacy_model_dir()
     try:
         for rel, text in outputs.items():
-            _create_exclusive(root / rel, text, created)
-        for path in legacy:
-            path.unlink()
-            deleted.append(path)
-        if not any(model_dir.iterdir()):
-            model_dir.rmdir()
-            removed_dir = True
-    except OSError:
-        if removed_dir:
-            with contextlib.suppress(OSError):
-                model_dir.mkdir()
-        for path in deleted:
-            with contextlib.suppress(OSError):
-                path.write_bytes(legacy[path])
-        for path in created:
-            with contextlib.suppress(OSError):
-                path.unlink()
-        raise
-    report = [message("arch-migrate.written", path=rel) for rel in outputs]
-    report += [message("arch-migrate.deleted", path=path.relative_to(root).as_posix()) for path in deleted]
-    if removed_dir:
-        report.append(message("arch-migrate.deleted", path=legacy_model_dir()))
-    return report
+            _create_exclusive(root, rel, text, steps)
+        for rel, original in legacy.items():
+            _delete(root, rel, original, steps)
+            deleted.append(rel)
+        if legacy and not any((root / model_dir).iterdir()):
+            _remove_dir(root, model_dir, steps)
+            deleted.append(model_dir)
+        _replace_config(root, stamped, steps)
+    except OSError as exc:
+        failure = _rollback(steps, exc)
+        if failure is None:
+            raise
+        raise failure from exc
+    written = [*outputs, config_file()]
+    return [message("arch-migrate.written", path=rel) for rel in written] + [
+        message("arch-migrate.deleted", path=rel) for rel in deleted
+    ]
 
 
-def migrate(root: Path) -> list[str]:
-    """Migrate the repo at `root`; the lines to print. MigrateError or OSError when nothing was written."""
+def _layout(root: Path) -> tuple[dict[str, str], dict[str, bytes]]:
+    """The canonical files to write and the legacy files to delete; none when there is no layout to convert."""
+    if not sources(root):
+        return {}, {}
     layout = classify(root)
     if layout.state == "canonical":
-        return [message("arch-migrate.nothing")]
+        return {}, {}
     if layout.state != "legacy":
         raise MigrateError(layout.message)
-    legacy = {root / rel: (root / rel).read_bytes() for rel in layout.legacy_files}
+    legacy = {rel: (root / rel).read_bytes() for rel in layout.legacy_files}
     outputs = {model_file(): merged_model([layout.scans[rel] for rel in layout.legacy_files])}
     if not layout.views_exists:
         outputs[views_file()] = EMPTY_VIEWS
-    _verify(root, list(legacy), outputs)
-    return _write(root, outputs, legacy)
+    _verify(root, [root / rel for rel in legacy], outputs)
+    return outputs, legacy
+
+
+def _stamped(root: Path) -> str | None:
+    """The stamped config text, or None when the repo already declares the current format."""
+    try:
+        committed = read_committed(root)
+    except ConfigError as exc:
+        raise MigrateError(str(exc)) from exc
+    if committed is None:
+        raise MigrateError(message("arch-migrate.no-config"))
+    current = current_format()
+    data = committed.data or {}
+    if FORMAT_KEY in data:
+        problem = format_problem(data)
+        declared = data[FORMAT_KEY]
+        if problem is not None and is_version(declared) and compare_versions(declared, current) < 0:
+            raise MigrateError(message("arch-migrate.unknown-format", declared=declared, current=current))
+        if problem is not None:
+            raise MigrateError(problem)
+        return None
+    stamped = stamp_format(committed.text)
+    if stamped is None:
+        raise MigrateError(message("arch-migrate.stamp-mismatch", current=current))
+    return stamped
+
+
+def migrate(root: Path) -> list[str]:
+    """Migrate the repo at `root`; the lines to print. MigrateError or OSError having changed nothing, unless named."""
+    stamped = _stamped(root)
+    if stamped is None:
+        return [message("arch-migrate.nothing", current=current_format())]
+    outputs, legacy = _layout(root)
+    return _write(root, outputs, legacy, stamped)
 
 
 def run(root: Path) -> int:

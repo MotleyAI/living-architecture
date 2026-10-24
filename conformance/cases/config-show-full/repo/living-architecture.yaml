@@ -1,3 +1,4 @@
+format: <FORMAT>
 tracker: github
 openspec: false
 architecture: true

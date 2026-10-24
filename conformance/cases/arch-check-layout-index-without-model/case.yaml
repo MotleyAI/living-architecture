@@ -1,0 +1,12 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+fixture: arch-ok
+remove:
+- architecture/model.c4
+- architecture/views.c4
+expect:
+  exit: 2
+golden: manual
+note: 'the state la-arch-migrate leaves an index.yaml without any LikeC4 source in: the check names both missing files'

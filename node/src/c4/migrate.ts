@@ -1,10 +1,35 @@
-// `la-arch-migrate`: merge the legacy `architecture/model/*.c4` model into `architecture/model.c4`, verified.
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, rmdirSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
+// `la-arch-migrate`: convert the repo to the current format, merging a legacy model layout and stamping `format`.
+import { randomBytes } from 'node:crypto';
+import {
+  chmodSync,
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  renameSync,
+  rmSync,
+  rmdirSync,
+  statSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
-import { byCodePoint, message } from '../contract/index.js';
-import { type FileScan, classify, legacyModelDir, modelFile, stripWhitespace, viewsFile } from './layout.js';
+import {
+  ConfigError,
+  FORMAT_KEY,
+  compareVersions,
+  currentFormat,
+  formatProblem,
+  isVersion,
+  readCommitted,
+  stampFormat,
+} from '../config/index.js';
+import { byCodePoint, configFile, message } from '../contract/index.js';
+import { type FileScan, classify, legacyModelDir, modelFile, sources, stripWhitespace, viewsFile } from './layout.js';
 import { type ModelParse, parseModel, parseModelFiles } from './model.js';
 import { EMPTY_VIEWS, parseViews } from './views.js';
 
@@ -75,57 +100,118 @@ function verify(root: string, legacy: string[], outputs: Map<string, string>): v
   if (!isDeepStrictEqual(before, after)) throw new MigrateError(message('arch-migrate.mismatch'));
 }
 
-const attempt = (step: () => void): void => {
+/** One applied change: the path it touched, how to undo it, and whether the path is back as it was. */
+interface Step {
+  rel: string;
+  undo: () => void;
+  restored: () => boolean;
+}
+
+const lexists = (path: string): boolean => {
   try {
-    step();
+    lstatSync(path);
+    return true;
   } catch {
-    // best-effort undo
+    return false;
   }
 };
 
-/** Create `path` exclusively, recording it in `created` unless it already existed. */
-function createExclusive(path: string, text: string, created: string[]): void {
-  created.push(path);
+/** Create `rel` exclusively, journalled before the open so a half-made file is undone too. */
+function createExclusive(root: string, rel: string, text: string, steps: Step[]): void {
+  const path = join(root, rel);
+  steps.push({ rel, undo: () => rmSync(path, { force: true }), restored: () => !lexists(path) });
   try {
     writeFileSync(path, text, { encoding: 'utf8', flag: 'wx' });
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'EEXIST') created.pop();
+    if ((error as NodeJS.ErrnoException).code === 'EEXIST') steps.pop();
     throw error;
   }
 }
 
-/** Create every output, delete the legacy files and an emptied model dir; undo it all on an error. */
-function write(root: string, outputs: Map<string, string>, legacy: Map<string, Buffer>): string[] {
-  const created: string[] = [];
+const modeOf = (path: string): number => statSync(path).mode & 0o7777;
+
+function remove(root: string, rel: string, original: Buffer, steps: Step[]): void {
+  const path = join(root, rel);
+  const mode = modeOf(path);
+  unlinkSync(path);
+  steps.push({
+    rel,
+    undo: () => {
+      writeFileSync(path, original);
+      chmodSync(path, mode);
+    },
+    restored: () => isFile(path) && modeOf(path) === mode && readFileSync(path).equals(original),
+  });
+}
+
+function removeDir(root: string, rel: string, steps: Step[]): void {
+  const path = join(root, rel);
+  const mode = modeOf(path);
+  rmdirSync(path);
+  steps.push({
+    rel,
+    undo: () => {
+      mkdirSync(path);
+      chmodSync(path, mode);
+    },
+    restored: () => existsSync(path) && statSync(path).isDirectory() && modeOf(path) === mode,
+  });
+}
+
+/** Replace the config with `stamped` through a sibling temp file and an atomic rename. */
+function replaceConfig(root: string, stamped: string, steps: Step[]): void {
+  const config = join(root, configFile());
+  const temp = `.${configFile()}.${randomBytes(4).toString('hex')}.tmp`;
+  createExclusive(root, temp, stamped, steps);
+  chmodSync(join(root, temp), modeOf(config));
+  renameSync(join(root, temp), config);
+}
+
+/** Undo `steps` in reverse; an error naming every path that could not be put back, null when all were. */
+function rollback(steps: Step[], error: Error): MigrateError | null {
+  for (const step of steps.toReversed()) {
+    try {
+      step.undo();
+    } catch {
+      // judged by `restored` below
+    }
+  }
+  const left = [...new Set(steps.filter((step) => !step.restored()).map((step) => step.rel))].sort(byCodePoint);
+  if (left.length === 0) return null;
+  return new MigrateError(message('arch-migrate.rollback-failed', { error: error.message, paths: left.join(', ') }));
+}
+
+/** Create every output, delete the legacy files and an emptied model dir, replace the config last; all or nothing. */
+function write(root: string, outputs: Map<string, string>, legacy: Map<string, Buffer>, stamped: string): string[] {
+  const steps: Step[] = [];
   const deleted: string[] = [];
-  const modelDir = join(root, legacyModelDir());
-  let removedDir = false;
+  const modelDir = legacyModelDir();
   try {
-    for (const [rel, text] of outputs) createExclusive(join(root, rel), text, created);
-    for (const rel of legacy.keys()) {
-      unlinkSync(join(root, rel));
+    for (const [rel, text] of outputs) createExclusive(root, rel, text, steps);
+    for (const [rel, original] of legacy) {
+      remove(root, rel, original, steps);
       deleted.push(rel);
     }
-    if (readdirSync(modelDir).length === 0) {
-      rmdirSync(modelDir);
-      removedDir = true;
+    if (legacy.size > 0 && readdirSync(join(root, modelDir)).length === 0) {
+      removeDir(root, modelDir, steps);
+      deleted.push(modelDir);
     }
+    replaceConfig(root, stamped, steps);
   } catch (error) {
-    if (removedDir) attempt(() => mkdirSync(modelDir));
-    for (const rel of deleted) attempt(() => writeFileSync(join(root, rel), legacy.get(rel) as Buffer));
-    for (const path of created) attempt(() => unlinkSync(path));
-    throw error;
+    throw rollback(steps, error as Error) ?? error;
   }
-  const report = [...outputs.keys()].map((rel) => message('arch-migrate.written', { path: rel }));
-  report.push(...deleted.map((rel) => message('arch-migrate.deleted', { path: rel })));
-  if (removedDir) report.push(message('arch-migrate.deleted', { path: legacyModelDir() }));
-  return report;
+  const written = [...outputs.keys(), configFile()];
+  return [
+    ...written.map((rel) => message('arch-migrate.written', { path: rel })),
+    ...deleted.map((rel) => message('arch-migrate.deleted', { path: rel })),
+  ];
 }
 
-/** Migrate the repo at `root`; the lines to print. Throws (having written nothing) when it cannot. */
-export function migrate(root: string): string[] {
+/** The canonical files to write and the legacy files to delete; none when there is no layout to convert. */
+function layoutChange(root: string): [Map<string, string>, Map<string, Buffer>] {
+  if (sources(root).length === 0) return [new Map(), new Map()];
   const layout = classify(root);
-  if (layout.state === 'canonical') return [message('arch-migrate.nothing')];
+  if (layout.state === 'canonical') return [new Map(), new Map()];
   if (layout.state !== 'legacy') throw new MigrateError(layout.message ?? '');
   const legacy = new Map(layout.legacyFiles.map((rel) => [rel, readFileSync(join(root, rel))]));
   const outputs = new Map([[modelFile(), mergedModel(layout.legacyFiles.map((rel) => layout.scans.get(rel) as FileScan))]]);
@@ -135,7 +221,41 @@ export function migrate(root: string): string[] {
     layout.legacyFiles.map((rel) => join(root, rel)),
     outputs,
   );
-  return write(root, outputs, legacy);
+  return [outputs, legacy];
+}
+
+/** The stamped config text, or null when the repo already declares the current format. */
+function stamped(root: string): string | null {
+  let committed;
+  try {
+    committed = readCommitted(root);
+  } catch (error) {
+    if (error instanceof ConfigError) throw new MigrateError(error.message);
+    throw error;
+  }
+  if (committed === null) throw new MigrateError(message('arch-migrate.no-config'));
+  const current = currentFormat();
+  const data = committed.data ?? new Map<unknown, unknown>();
+  if (data.has(FORMAT_KEY)) {
+    const problem = formatProblem(data);
+    const declared = data.get(FORMAT_KEY);
+    if (problem !== null && isVersion(declared) && compareVersions(declared, current) < 0) {
+      throw new MigrateError(message('arch-migrate.unknown-format', { declared, current }));
+    }
+    if (problem !== null) throw new MigrateError(problem);
+    return null;
+  }
+  const text = stampFormat(committed.text);
+  if (text === null) throw new MigrateError(message('arch-migrate.stamp-mismatch', { current }));
+  return text;
+}
+
+/** Migrate the repo at `root`; the lines to print. Throws having changed nothing, unless the error names the paths. */
+export function migrate(root: string): string[] {
+  const text = stamped(root);
+  if (text === null) return [message('arch-migrate.nothing', { current: currentFormat() })];
+  const [outputs, legacy] = layoutChange(root);
+  return write(root, outputs, legacy, text);
 }
 
 /** `la-arch-migrate`: print each written and deleted path, or exit 2 having changed nothing. */

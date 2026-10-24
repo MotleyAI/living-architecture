@@ -11,7 +11,7 @@ import subprocess
 from pathlib import Path
 
 from living_architecture import __version__
-from living_architecture.config import ConfigError, LaConfig, load_config, repo_languages
+from living_architecture.config import ConfigError, LaConfig, check_format, load_config, repo_languages
 from living_architecture.contract import config_file, contract_hash, language, local_config_file, message
 
 REQUIRED_EXECUTABLES = ("git", "gh")
@@ -127,21 +127,23 @@ def _language_executables(root: Path) -> list[str]:
 
 
 def run_checks(*, root: Path, expect: str | None, plugin: str | None = None, require_config: bool = False) -> list[str]:
-    """Problems found; empty means healthy. Config-vs-disk checks run only when the committed config file exists."""
+    """Problems found; empty means healthy. A format refusal replaces every check that reads the config."""
     versions = (
         _version_problem(expect) if expect is not None else None,
         _plugin_problem(plugin) if plugin is not None else None,
     )
     problems = [problem for problem in versions if problem is not None]
-    problems += _config_problems(root, require_config=require_config)
+    refusal = check_format(root)
+    problems += [refusal] if refusal is not None else _config_problems(root, require_config=require_config)
     local = _local_problem(root)
     if local is not None:
         problems.append(local)
+    executables = list(REQUIRED_EXECUTABLES)
     try:
-        executables = [*REQUIRED_EXECUTABLES, *_language_executables(root)]
+        if refusal is None:
+            executables += _language_executables(root)
     except ConfigError as exc:
         problems.append(str(exc))
-        executables = list(REQUIRED_EXECUTABLES)
     problems += [message("doctor.missing-executable", exe=exe) for exe in executables if shutil.which(exe) is None]
     return problems
 

@@ -10,6 +10,7 @@ export {
   checkIds,
   computeHash,
   configFile,
+  configFormat,
   contractHash,
   conventions,
   findings,

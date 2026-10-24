@@ -3,9 +3,13 @@ command: la-arch-migrate
 fixture: arch-ok
 remove:
 - architecture/model.c4
+normalize:
+- pattern: '(format"?: "?)[0-9]+\.[0-9]+\.[0-9]+'
+  replace: \1<FORMAT>
 expect:
   exit: 0
   files:
   - architecture/model.c4
+  - living-architecture.yaml
 golden: manual
 note: merging reorders parse findings (b's spec line moves before a's model line); they compare as a multiset

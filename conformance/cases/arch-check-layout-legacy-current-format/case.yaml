@@ -1,0 +1,12 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+fixture: arch-ok
+remove:
+- architecture/model.c4
+expect:
+  exit: 2
+golden: manual
+note: a legacy-shaped layout in a current-format repo is merged by hand; the message
+  never suggests la-arch-migrate

@@ -1,0 +1,19 @@
+kind: neutral
+command: la-arch-migrate
+fixture: arch-ok
+remove:
+- architecture/model.c4
+expect:
+  exit: 2
+  stdout: ''
+  stderr:
+    contains:
+    - 'la-arch-migrate: '
+    - living-architecture.yaml
+  files:
+  - architecture/model.c4
+  - architecture/model/model.c4
+  - living-architecture.yaml
+golden: manual
+note: a config that is not valid YAML is refused, repo unchanged; the wording is not
+  contract

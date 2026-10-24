@@ -53,14 +53,17 @@ repo/
     index.yaml                       # repo-wide settings (below)
     system.arc42.md                  # root narrative + global principles
     <node>.arc42.md                  # only where a node earns prose
-  living-architecture.yaml           # repo config (architecture: true once the model exists)
+  living-architecture.yaml           # repo config: format, and architecture: true once the model exists
 ```
 
 These are the only LikeC4 files allowed anywhere under `architecture/` (`.c4` or
 `.likec4`). Nothing else may sit at their top level. Any other layout makes
 `la-arch-check` exit 2 and `la-arch-diagrams` exit 1, with one message naming
-every violation. A repo on the legacy `architecture/model/*.c4` layout converts
-with `la-arch-migrate` (verified, all-or-nothing).
+every violation. The repo's format is `format` in `living-architecture.yaml`:
+the `la` version that introduced it. Every command refuses any other format,
+naming the `la` to upgrade to for a newer one and `la-arch-migrate` for an older
+or missing one; `la-arch-migrate` converts the repo (verified, all-or-nothing)
+and stamps the current format.
 
 The checker is `la-arch-check` (the one import law + cross-check, run by the
 gates); it needs no per-repo code. `la-arch-diagrams` regenerates the embedded

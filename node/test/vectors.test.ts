@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
+  YAMLError,
   canonicalRepr,
   globMatch,
   isPortableRegex,
@@ -60,13 +61,29 @@ describe('test-files.yaml', () => {
 });
 
 describe('yaml.yaml', () => {
-  for (const v of present('yaml.yaml', vectors('yaml.yaml')?.cases) as { name: string; text: string; json?: string; repr?: string }[]) {
+  for (const v of present('yaml.yaml', vectors('yaml.yaml')?.cases) as {
+    name: string;
+    text: string;
+    json?: string;
+    repr?: string;
+    error?: true;
+  }[]) {
     it(v.name, () => {
-      expect((v.json === undefined) !== (v.repr === undefined)).toBe(true);
-      if (v.json !== undefined) expect(plain(loadYaml(v.text))).toEqual(JSON.parse(v.json));
+      expect([v.json, v.repr, v.error].filter((e) => e !== undefined)).toHaveLength(1);
+      if (v.error !== undefined) expect(() => loadYaml(v.text)).toThrow(YAMLError);
+      else if (v.json !== undefined) expect(plain(loadYaml(v.text))).toEqual(JSON.parse(v.json));
       else expect(canonicalRepr(normalize(loadYaml(v.text)))).toBe(v.repr);
     });
   }
+});
+
+// Python's 4300-digit cap on decimal integer strings, which PyYAML's safe loader inherits.
+describe.each(['', '!!int '])('the decimal digit cap (tag %j)', (tag) => {
+  it('accepts 4300 digits and refuses 4301', () => {
+    expect(field(loadYaml(`x: ${tag}${'9'.repeat(4300)}`), 'x')).toBe(BigInt('9'.repeat(4300)));
+    const tooLong = `x: ${tag}${'9'.repeat(4301)}`;
+    expect(() => loadYaml(tooLong)).toThrow(YAMLError);
+  });
 });
 
 describe('defaults.yaml', () => {

@@ -1,0 +1,12 @@
+kind: neutral
+command: la-arch-check
+args:
+- --help
+fixture: arch-ok
+expect:
+  exit: 0
+  stdout:
+    contains:
+    - la-arch-check
+golden: manual
+note: help is printed before the format check

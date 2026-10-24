@@ -142,15 +142,25 @@ findings:
   c4-layout.block-not-allowed: '  {path}:{line}: `{block}` block does not belong in this file'
   c4-layout.top-level-text: '  {path}:{line}: unexpected top-level text: {text}'
   c4-layout.unbalanced-braces: '  {path}:{line}: unbalanced braces'
-  c4-layout.migrate: 'this is the legacy architecture/model/*.c4 layout: run la-arch-migrate to convert it'
   c4-layout.merge-by-hand: 'merge by hand: one specification and one model block into architecture/model.c4, one views block into architecture/views.c4'
 
   # ---- la-arch-migrate
   arch-migrate.error: 'la-arch-migrate: {error}'
-  arch-migrate.nothing: 'nothing to migrate: architecture/ already holds exactly architecture/model.c4 and architecture/views.c4'
+  arch-migrate.nothing: 'nothing to migrate: this la reads format {current}, which living-architecture.yaml already declares'
   arch-migrate.written: 'wrote {path}'
   arch-migrate.deleted: 'deleted {path}'
   arch-migrate.mismatch: the merged files would not parse to the same model and views; nothing written
+  arch-migrate.no-config: no living-architecture.yaml at the repo root, so there is no format to migrate; run /la:init to onboard this repo
+  arch-migrate.unknown-format: cannot migrate from format {declared}; this la reads format {current} and converts only a repo that declares no format
+  arch-migrate.stamp-mismatch: 'cannot insert the format into living-architecture.yaml; add format: {current} by hand'
+  # A failed rollback: `paths` lists, repo-relative in code-point order, every path the restore could not put back.
+  arch-migrate.rollback-failed: '{error}; restoring failed, so these paths are left changed: {paths}'
+
+  # ---- the repo format check, before every command the CLI manifest does not mark `format: exempt`
+  format.missing: 'living-architecture.yaml declares no format, but this la reads format {current}: run la-arch-migrate to convert the repo'
+  format.invalid: 'living-architecture.yaml: format {value!r} is not a version (three dot-separated integers); this la reads format {current}'
+  format.newer: 'living-architecture.yaml declares format {declared}, but this la reads format {current}: upgrade la to {declared} or later'
+  format.older: 'living-architecture.yaml declares format {declared}, but this la reads format {current}: run la-arch-migrate to convert the repo'
 
   # ---- la-arch-scaffold
   arch-scaffold.error: 'la-arch-scaffold: {error}'

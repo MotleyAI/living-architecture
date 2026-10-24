@@ -16,5 +16,6 @@ expect:
   - architecture/model.c4
   - architecture/views.c4
   - architecture/model/m.c4
+  - living-architecture.yaml
 golden: manual
 note: 'deleting a legacy file fails after both new files were written: they are removed and the repo is unchanged'

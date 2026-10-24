@@ -1,7 +1,8 @@
 # The shared YAML profile: YAML 1.1 exactly as PyYAML's safe loader reads it (last duplicate key wins).
 # Each case has exactly one of: `json`, the expected value of `text` serialized as JSON (compared by value, so
 # mapping key order is not pinned); `repr`, the canonical repr of the normalized value, for values JSON cannot
-# hold (non-string keys, timestamps, inf, nan).
+# hold (non-string keys, timestamps, inf, nan); or `error: true`, a scalar the safe loader cannot construct, which
+# must be a YAML error.
 cases:
 - name: YAML 1.1 booleans
   text: '[yes, no, on, off, true, false, True, FALSE, Yes, NO, On, OFF]'
@@ -123,3 +124,95 @@ cases:
 - name: timestamp key
   text: '{2026-01-02: a}'
   repr: '{''2026-01-02'': ''a''}'
+- name: explicit tags construct as PyYAML does
+  text: '[!!int 12, !!int "12", !!int 0x1f, !!int 017, !!int 1:30, !!float 1, !!float 1e3, !!float inf, !!float 1:30.5,
+    !!bool yes, !!bool OFF, !!null abc, !!timestamp 2024-01-02]'
+  repr: '[12, 12, 31, 15, 90, 1.0, 1000.0, inf, 90.5, True, False, None, ''2024-01-02'']'
+- name: explicit int reads its text as Python's int() does
+  text: |
+    - !!int ' 12 '
+    - !!int |
+      12
+    - !!int ١٢
+    - !!int '--5'
+    - !!int 0o17
+    - !!int '1:-2'
+    - !!int '0x 1f'
+  repr: '[12, 12, 12, 5, 15, 58, 31]'
+- name: explicit float reads its text as Python's float() does
+  text: |
+    - !!float ' 1.5 '
+    - !!float 1.
+    - !!float INFINITY
+    - !!float '--1'
+    - !!float ١.٥
+    - !!float '1:-2'
+  repr: '[1.5, 1.0, inf, 1.0, 1.5, 58.0]'
+- name: explicit timestamp in a block scalar
+  text: |
+    x: !!timestamp |
+      2024-01-02
+  repr: '{''x'': ''2024-01-02''}'
+- name: leap day and offsets normalize
+  text: '[2024-02-29, 2024-01-01 10:00:00 -00:00, 2024-01-01 10:00:00 +05:75]'
+  repr: '[''2024-02-29'', ''2024-01-01T10:00:00+00:00'', ''2024-01-01T10:00:00+06:15'']'
+- name: impossible month
+  text: 'x: 2024-13-01'
+  error: true
+- name: impossible day
+  text: 'x: 2023-02-29'
+  error: true
+- name: year zero
+  text: 'x: 0000-01-01'
+  error: true
+- name: impossible hour
+  text: 'x: 2024-01-01 25:00:00'
+  error: true
+- name: impossible minute
+  text: 'x: 2024-01-01 10:61:00'
+  error: true
+- name: leap second
+  text: 'x: 2024-01-01 10:00:60'
+  error: true
+- name: offset of a day or more
+  text: 'x: 2024-01-01 10:00:00 +24:00'
+  error: true
+- name: explicit int that is not a number
+  text: 'x: !!int abc'
+  error: true
+- name: explicit int with a fraction
+  text: 'x: !!int 1.5'
+  error: true
+- name: empty explicit int
+  text: 'x: !!int'
+  error: true
+- name: explicit float that is not a number
+  text: 'x: !!float abc'
+  error: true
+- name: explicit float in hex
+  text: 'x: !!float 0x10'
+  error: true
+- name: explicit bool that is not a boolean
+  text: 'x: !!bool 1'
+  error: true
+- name: explicit timestamp that is not a date
+  text: 'x: !!timestamp abc'
+  error: true
+- name: unknown tag
+  text: 'x: !foo bar'
+  error: true
+- name: scalar tag on a sequence
+  text: 'x: !!int [1]'
+  error: true
+- name: explicit int with an uppercase hex prefix
+  text: 'x: !!int 0X1F'
+  error: true
+- name: explicit int with a digit beyond its base
+  text: 'x: !!int 0b102'
+  error: true
+- name: explicit float without exponent digits
+  text: 'x: !!float 1e'
+  error: true
+- name: explicit bool with surrounding space
+  text: "x: !!bool ' yes'"
+  error: true
