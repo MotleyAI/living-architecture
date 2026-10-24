@@ -1,0 +1,5 @@
+wrote architecture/model.c4
+wrote living-architecture.yaml
+moved architecture/api.arc42.md to architecture/python.api.arc42.md
+moved architecture/handlers.arc42.md to architecture/python.api.handlers.arc42.md
+moved architecture/core.arc42.md to architecture/python.core.arc42.md

@@ -29,7 +29,16 @@ import {
   readCommitted,
   stampFormat,
 } from '../config/index.js';
-import { YAMLError, byCodePoint, configFile, decodeUtf8OrNull, loadYaml, message, splitLinesKeepEnds } from '../contract/index.js';
+import {
+  YAMLError,
+  byCodePoint,
+  configFile,
+  decodeUtf8OrNull,
+  loadYaml,
+  message,
+  splitLines,
+  splitLinesKeepEnds,
+} from '../contract/index.js';
 import {
   ARCH_DIR,
   type FileScan,
@@ -37,13 +46,15 @@ import {
   classify,
   elementDoc,
   isFlatDoc,
+  leadingWhitespace,
   legacyModelDir,
   modelFile,
   sources,
   stripWhitespace,
+  trailingWhitespace,
   viewsFile,
 } from './layout.js';
-import { type ModelParse, parseModelFiles, parseModelTexts } from './model.js';
+import { type ModelParse, type Pos, parseModelFiles, parseModelTexts, stripLineComment } from './model.js';
 import { EMPTY_VIEWS, parseViews } from './views.js';
 
 const INDEX_REL = 'architecture/index.yaml';
@@ -151,28 +162,50 @@ function diagramKeys(index: Index): unknown[] {
 
 const hasKey = (metadata: object): boolean => Object.hasOwn(metadata, RETIRED_ARC42_KEY);
 
-/** `text` without each `arc42` line (and each metadata block it empties), and the element doc moves. */
+/**
+ * `text` without each `arc42` statement (or the metadata block it alone fills), and the element doc moves,
+ * a doc already at its target included.
+ */
 function stripArc42(text: string, model: ModelParse): [string, Move[]] {
-  const drop = new Set<number>();
+  const cuts: [Pos, Pos][] = [];
   const moves: Move[] = [];
-  const range = ([first, last]: [number, number]): void => {
-    for (let i = first; i <= last; i += 1) drop.add(i);
-  };
   for (const element of model.elements) {
     if (!hasKey(element.metadata)) continue;
     const span = model.spans.get(element.id);
-    if (span === undefined) continue;
-    range(span.keys.get(RETIRED_ARC42_KEY) ?? [0, -1]);
-    if (Object.keys(element.metadata).length === 1) range(span.block);
+    const keySpan = span?.keys.get(RETIRED_ARC42_KEY);
+    if (span === undefined || keySpan === undefined) continue;
+    cuts.push(Object.keys(element.metadata).length === 1 ? span.block : keySpan);
     const source = element.metadata[RETIRED_ARC42_KEY];
-    if (typeof source === 'string' && source !== elementDoc(element.id)) moves.push({ source, target: elementDoc(element.id) });
+    if (typeof source === 'string') moves.push({ source, target: elementDoc(element.id) });
   }
-  return [
-    splitLinesKeepEnds(text)
-      .filter((_, i) => !drop.has(i))
-      .join(''),
-    moves,
-  ];
+  return [cut(text, cuts), moves];
+}
+
+/** `text` without each span: with its lines when nothing else is on them, else with the whitespace on one side. */
+function cut(text: string, spans: [Pos, Pos][]): string {
+  const lines = splitLinesKeepEnds(text);
+  const starts = [0];
+  for (const line of lines) starts.push((starts.at(-1) ?? 0) + line.length);
+  const ranges = spans.map((span) => cutRange(text, lines, starts, span)).sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  let out = '';
+  let pos = 0;
+  for (const [start, end] of ranges) {
+    out += text.slice(pos, Math.max(pos, start));
+    pos = Math.max(pos, end);
+  }
+  return out + text.slice(pos);
+}
+
+function cutRange(text: string, lines: string[], starts: number[], [[first, firstCol], [last, lastCol]]: [Pos, Pos]): [number, number] {
+  const lineStart = starts[first] ?? 0;
+  const lastStart = starts[last] ?? 0;
+  const [start, end] = [lineStart + firstCol, lastStart + lastCol];
+  const before = text.slice(lineStart, start);
+  const after = text.slice(end, lastStart + (splitLines(lines[last] ?? '')[0] ?? '').length);
+  const blank = (part: string): boolean => stripWhitespace(part) === '';
+  if (blank(before) && blank(stripLineComment(after))) return [lineStart, starts[last + 1] ?? text.length];
+  if (blank(before)) return [start, end + leadingWhitespace(after)];
+  return [start - trailingWhitespace(before), end];
 }
 
 function flattened(entries: string[]): Move[] {
@@ -185,7 +218,7 @@ function flattened(entries: string[]): Move[] {
 /** `rel` is a relative path that stays inside the repo. */
 const contained = (rel: string): boolean => rel !== '' && !isAbsolute(rel) && !rel.split('/').includes('..');
 
-/** The first refused move's message, in plan order and check order. */
+/** The first refused move's message, in plan order and check order; a doc already at its target claims its path. */
 function refusal(root: string, moves: Move[], keys: unknown[]): string | null {
   const targetsOf = new Map<string, string>();
   const sourcesOf = new Map<string, string>();
@@ -195,8 +228,8 @@ function refusal(root: string, moves: Move[], keys: unknown[]): string | null {
     if (first !== undefined) return message('arch-migrate.source-moved-twice', { source, first, second: target });
     const other = sourcesOf.get(target);
     if (other !== undefined) return message('arch-migrate.shared-target', { first: other, second: source, target });
-    if (lexists(join(root, target))) return message('arch-migrate.target-taken', { source, target });
-    if (keys.includes(target)) return message('arch-migrate.diagrams-key-taken', { source, target });
+    if (source !== target && lexists(join(root, target))) return message('arch-migrate.target-taken', { source, target });
+    if (source !== target && keys.includes(target)) return message('arch-migrate.diagrams-key-taken', { source, target });
     targetsOf.set(source, target);
     sourcesOf.set(target, source);
   }
@@ -216,16 +249,23 @@ function codeEnd(line: string): number {
   return line.length;
 }
 
-const escapeRegExp = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const escapeRegExp = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
+
+/** `line` without its trailing `\r` and `\n` characters. */
+function withoutLineBreak(line: string): string {
+  let end = line.length;
+  while (end > 0 && (line[end - 1] === '\n' || line[end - 1] === '\r')) end -= 1;
+  return line.slice(0, end);
+}
 
 /** `text` with every scalar token equal to a rename source, outside comments, replaced by its target. */
 function renamedIndex(text: string, renames: Map<string, string>): string {
   const patterns = [...renames].map(
-    ([source, target]) => [new RegExp(`(?<![^\\s\\[{,'"])${escapeRegExp(source)}(?![^\\s\\]},:'"])`, 'gu'), target] as const,
+    ([source, target]) => [new RegExp(String.raw`(?<![^\s\[{,'"])${escapeRegExp(source)}(?![^\s\]},:'"])`, 'gu'), target] as const,
   );
   return splitLinesKeepEnds(text)
     .map((line) => {
-      const body = line.replace(/[\r\n]+$/, '');
+      const body = withoutLineBreak(line);
       const end = codeEnd(body);
       let code = body.slice(0, end);
       for (const [pattern, target] of patterns) code = code.replace(pattern, () => target);
@@ -448,10 +488,10 @@ function planOf(root: string): Plan {
   const index = readIndex(root);
   const [stripped, elementMoves] = stripArc42(modelText, parseModelTexts([modelText]));
   const entryMoves = flattened(crossCutting(index));
-  const moves = [...elementMoves, ...entryMoves];
   const keys = diagramKeys(index);
-  const refused = refusal(root, moves, keys);
+  const refused = refusal(root, [...elementMoves, ...entryMoves], keys);
   if (refused !== null) throw new MigrateError(refused);
+  const moves = [...elementMoves, ...entryMoves].filter((m) => m.source !== m.target);
   const renamed = new Set<unknown>([...entryMoves.map((m) => m.source), ...keys]);
   const renames = new Map(moves.filter((m) => renamed.has(m.source)).map((m) => [m.source, m.target]));
   const outputs = new Map<string, string>();

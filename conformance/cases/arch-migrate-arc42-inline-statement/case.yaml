@@ -1,0 +1,22 @@
+kind: neutral
+command: la-arch-migrate
+fixture: arch-ok
+remove:
+- architecture/python.api.arc42.md
+normalize:
+- pattern: '(format"?: "?)[0-9]+\.[0-9]+\.[0-9]+'
+  replace: \1<FORMAT>
+expect:
+  exit: 0
+  files:
+  - architecture/model.c4
+  - architecture/api.arc42.md
+  - architecture/handlers.arc42.md
+  - architecture/core.arc42.md
+  - architecture/python.api.arc42.md
+  - architecture/python.api.handlers.arc42.md
+  - architecture/python.core.arc42.md
+  - living-architecture.yaml
+golden: manual
+note: 'an arc42 statement sharing its line: only the statement goes, with the whitespace before it (after it when it
+  starts the line); a metadata block it alone fills goes the same way'

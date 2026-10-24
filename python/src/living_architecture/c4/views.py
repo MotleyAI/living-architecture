@@ -127,39 +127,46 @@ class _Parser:
             return False
         return True
 
-    def read_spec(self, vid: str, scope: _Scope, raw: _RawView, findings: list[str]) -> None:  # NOSONAR(S3776) — one include production
+    def read_spec(self, vid: str, scope: _Scope, raw: _RawView, findings: list[str]) -> None:
         tok = self.advance()
         if tok[0] == "star":
-            if self.cur()[0] == "arrow":
-                self.advance()
-                nxt = self.advance()
-                if nxt[0] == "star":
-                    findings.append(message("c4.star-to-star", view=vid))
-                elif nxt[0] == "word":
-                    if self.anchor_ok(scope, nxt[1], f"* -> {nxt[1]}", findings):
-                        raw.dst_anchors.add(nxt[1])
-                else:
-                    findings.append(message("c4.malformed-predicate", view=vid))
-            else:
-                for eid in scope.top_level:
-                    _add_base(raw, eid)
+            self._read_star(vid, scope, raw, findings)
         elif tok[0] == "word":
-            if self.cur()[0] == "arrow":
-                self.advance()
-                nxt = self.advance()
-                if nxt[0] == "star":
-                    if self.anchor_ok(scope, tok[1], f"{tok[1]} -> *", findings):
-                        raw.src_anchors.add(tok[1])
-                elif nxt[0] == "word":
-                    findings.append(message("c4.unsupported-predicate", view=vid, src=tok[1], dst=nxt[1]))
-                else:
-                    findings.append(message("c4.malformed-predicate", view=vid))
-            elif tok[1] not in scope.known:
-                findings.append(message("c4.view-includes-unknown", view=vid, name=tok[1]))
-            else:
-                _add_base(raw, tok[1])
+            self._read_word(tok[1], vid, scope, raw, findings)
         else:
             findings.append(message("c4.unexpected-include-token", view=vid, token=tok[1]))
+
+    def _read_star(self, vid: str, scope: _Scope, raw: _RawView, findings: list[str]) -> None:
+        """`*` or `* -> X`, past the `*`."""
+        if self.cur()[0] != "arrow":
+            for eid in scope.top_level:
+                _add_base(raw, eid)
+            return
+        self.advance()
+        nxt = self.advance()
+        if nxt[0] == "star":
+            findings.append(message("c4.star-to-star", view=vid))
+        elif nxt[0] != "word":
+            findings.append(message("c4.malformed-predicate", view=vid))
+        elif self.anchor_ok(scope, nxt[1], f"* -> {nxt[1]}", findings):
+            raw.dst_anchors.add(nxt[1])
+
+    def _read_word(self, name: str, vid: str, scope: _Scope, raw: _RawView, findings: list[str]) -> None:
+        """`X`, `X -> *` or `X -> Y`, past the `X`."""
+        if self.cur()[0] != "arrow":
+            if name in scope.known:
+                _add_base(raw, name)
+            else:
+                findings.append(message("c4.view-includes-unknown", view=vid, name=name))
+            return
+        self.advance()
+        nxt = self.advance()
+        if nxt[0] == "word":
+            findings.append(message("c4.unsupported-predicate", view=vid, src=name, dst=nxt[1]))
+        elif nxt[0] != "star":
+            findings.append(message("c4.malformed-predicate", view=vid))
+        elif self.anchor_ok(scope, name, f"{name} -> *", findings):
+            raw.src_anchors.add(name)
 
     def body(self, vid: str, scope: _Scope, findings: list[str]) -> _RawView:
         raw = _RawView(id=vid, title="", root=scope.root, base=[], src_anchors=set(), dst_anchors=set())
@@ -184,21 +191,20 @@ class _Parser:
 
     def header(self) -> tuple[str, str | None] | None:
         """`view <id> [of <root>] {` as (id, root); None (and a finding) when malformed."""
+        parsed = self._header()
+        if parsed is None:
+            self.findings.append(message("c4.malformed-view"))
+        return parsed
+
+    def _header(self) -> tuple[str, str | None] | None:
         idt = self.advance()
         if idt[0] != "word":
-            self.findings.append(message("c4.malformed-view"))
             return None
         nxt = self.advance()
         if nxt == ("word", "of"):
             scope = self.advance()
-            if scope[0] != "word" or self.advance()[0] != "{":
-                self.findings.append(message("c4.malformed-view"))
-                return None
-            return idt[1], scope[1]
-        if nxt[0] != "{":
-            self.findings.append(message("c4.malformed-view"))
-            return None
-        return idt[1], None
+            return (idt[1], scope[1]) if scope[0] == "word" and self.advance()[0] == "{" else None
+        return (idt[1], None) if nxt[0] == "{" else None
 
 
 def _add_base(raw: _RawView, name: str) -> None:
@@ -218,28 +224,37 @@ def parse_views(root: Path, model: ModelParse) -> ViewsParse:
     while parser.cur()[0] not in ("}", "eof"):
         if parser.advance() != ("word", "view"):
             parser.findings.append(message("c4.expected-view"))
-            continue
-        header = parser.header()
-        if header is None:
-            continue
-        vid, scope_id = header
-        if scope_id is None:
-            parser.findings.append(message("c4.view-unscoped", view=vid))
-        elif scope_id not in scopes:
-            parser.findings.append(message("c4.view-scope-unknown", view=vid, root=scope_id))
-        if scope_id in scopes:
-            raw.append(parser.body(vid, scopes[scope_id], parser.findings))
-        else:
-            parser.body(vid, _scope(model, ""), [])
-        if vid in seen_ids:
-            parser.findings.append(message("c4.duplicate-view", view=vid))
-        seen_ids.add(vid)
+        elif (header := parser.header()) is not None:
+            _read_view(parser, header, scopes, model, raw, seen_ids)
     depths = _view_depths(root=root, valid_ids=seen_ids, findings=parser.findings)
     views = [
         _build_view(spec=spec, depth=depths.get(spec.id, DEFAULT_VIEW_DEPTH), model=scopes[spec.root].model)
         for spec in raw
     ]
     return ViewsParse(views=views, findings=parser.findings)
+
+
+def _read_view(
+    parser: _Parser,
+    header: tuple[str, str | None],
+    scopes: dict[str, _Scope],
+    model: ModelParse,
+    raw: list[_RawView],
+    seen_ids: set[str],
+) -> None:
+    """A view's body past its header, kept in `raw` when it is scoped to a known root."""
+    vid, scope_id = header
+    if scope_id is None:
+        parser.findings.append(message("c4.view-unscoped", view=vid))
+    elif scope_id not in scopes:
+        parser.findings.append(message("c4.view-scope-unknown", view=vid, root=scope_id))
+    if scope_id in scopes:
+        raw.append(parser.body(vid, scopes[scope_id], parser.findings))
+    else:
+        parser.body(vid, _scope(model, ""), [])
+    if vid in seen_ids:
+        parser.findings.append(message("c4.duplicate-view", view=vid))
+    seen_ids.add(vid)
 
 
 def _view_depths(root: Path, valid_ids: set[str], findings: list[str]) -> dict[str, int]:
@@ -308,11 +323,18 @@ def _shown_ids(spec: _RawView, depth: int, model: ModelParse, kids: dict[str, li
         reach = _reach(selection, depth)
         shown.update(eid for eid in _subtree(root=selection, kids=kids) if _level(eid) <= reach)
     for r in model.relations:
-        for anchor in _anchors(r, spec):
-            reach = _reach(anchor, depth)
-            for endpoint in (r.src, r.dst):
-                shown.update(_ancestor_chain(_ancestor_at_level(eid=endpoint, level=min(reach, _level(endpoint)))))
+        shown.update(_anchored_ids(r, spec, depth))
     return shown
+
+
+def _anchored_ids(r: Relation, spec: _RawView, depth: int) -> list[str]:
+    """Both endpoints of `r` cut to the reach of each predicate anchor matching it, with their ancestors."""
+    out: list[str] = []
+    for anchor in _anchors(r, spec):
+        reach = _reach(anchor, depth)
+        for endpoint in (r.src, r.dst):
+            out += _ancestor_chain(_ancestor_at_level(eid=endpoint, level=min(reach, _level(endpoint))))
+    return out
 
 
 def _represent(eid: str, shown: set[str]) -> str | None:

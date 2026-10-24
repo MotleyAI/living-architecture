@@ -168,6 +168,9 @@ them:
 
 If all you need is layer rules for one language and you don't want a diagram, those tools are lighter.
 
+When you move the pin to a release with a newer repo format, first run that release's `la-arch-migrate` and commit
+the result: the check refuses a repo in an older format.
+
 ## Prerequisites
 
 Always: `git`, `bash`, `gh` (authenticated) and `jq`.

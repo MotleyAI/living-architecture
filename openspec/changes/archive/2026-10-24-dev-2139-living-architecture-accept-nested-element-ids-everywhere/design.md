@@ -51,7 +51,7 @@ moved docs; enforcing that any element has a doc.
    the full source→target plan (element docs, cross-cutting docs, `diagrams` keys), refuse duplicates/collisions,
    verify the staged result (model parse equal modulo removed keys/blocks, views equal, index equal modulo renames,
    moved docs byte-identical), then commit through the format migration's journal (temp files and renames, modes
-   kept, the config replaced last). `model.c4` and `index.yaml` are edited textually (line removal, scalar rename) so every other byte stays;
+   kept, the config replaced last). `model.c4` and `index.yaml` are edited textually (statement removal, scalar rename) so every other byte stays;
    verification proves the YAML/model equivalence. Lives in `c4` (it already owns migration, model parsing and index
    reading).
 7. **Findings.** `spec-mapping.unknown-node` → `spec-mapping.unknown-element` (id renamed); `unmapped` and `orphan`

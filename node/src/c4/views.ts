@@ -109,32 +109,36 @@ class Parser {
 
   private readSpec(vid: string, scope: Scope, raw: RawView, findings: string[]): void {
     const tok = this.advance();
-    if (tok[0] === 'star') {
-      if (this.cur()[0] === 'arrow') {
-        this.advance();
-        const next = this.advance();
-        if (next[0] === 'star') findings.push(message('c4.star-to-star', { view: vid }));
-        else if (next[0] === 'word') {
-          if (this.anchorOk(scope, next[1], `* -> ${next[1]}`, findings)) raw.dstAnchors.add(next[1]);
-        } else findings.push(message('c4.malformed-predicate', { view: vid }));
-      } else {
-        for (const eid of scope.topLevel) addBase(raw, eid);
-      }
-    } else if (tok[0] === 'word') {
-      if (this.cur()[0] === 'arrow') {
-        this.advance();
-        const next = this.advance();
-        if (next[0] === 'star') {
-          if (this.anchorOk(scope, tok[1], `${tok[1]} -> *`, findings)) raw.srcAnchors.add(tok[1]);
-        } else if (next[0] === 'word') {
-          findings.push(message('c4.unsupported-predicate', { view: vid, src: tok[1], dst: next[1] }));
-        } else findings.push(message('c4.malformed-predicate', { view: vid }));
-      } else if (!scope.known.has(tok[1])) {
-        findings.push(message('c4.view-includes-unknown', { view: vid, name: tok[1] }));
-      } else addBase(raw, tok[1]);
-    } else {
-      findings.push(message('c4.unexpected-include-token', { view: vid, token: tok[1] }));
+    if (tok[0] === 'star') this.readStar(vid, scope, raw, findings);
+    else if (tok[0] === 'word') this.readWord(tok[1], vid, scope, raw, findings);
+    else findings.push(message('c4.unexpected-include-token', { view: vid, token: tok[1] }));
+  }
+
+  /** `*` or `* -> X`, past the `*`. */
+  private readStar(vid: string, scope: Scope, raw: RawView, findings: string[]): void {
+    if (this.cur()[0] !== 'arrow') {
+      for (const eid of scope.topLevel) addBase(raw, eid);
+      return;
     }
+    this.advance();
+    const next = this.advance();
+    if (next[0] === 'star') findings.push(message('c4.star-to-star', { view: vid }));
+    else if (next[0] !== 'word') findings.push(message('c4.malformed-predicate', { view: vid }));
+    else if (this.anchorOk(scope, next[1], `* -> ${next[1]}`, findings)) raw.dstAnchors.add(next[1]);
+  }
+
+  /** `X`, `X -> *` or `X -> Y`, past the `X`. */
+  private readWord(name: string, vid: string, scope: Scope, raw: RawView, findings: string[]): void {
+    if (this.cur()[0] !== 'arrow') {
+      if (scope.known.has(name)) addBase(raw, name);
+      else findings.push(message('c4.view-includes-unknown', { view: vid, name }));
+      return;
+    }
+    this.advance();
+    const next = this.advance();
+    if (next[0] === 'word') findings.push(message('c4.unsupported-predicate', { view: vid, src: name, dst: next[1] }));
+    else if (next[0] !== 'star') findings.push(message('c4.malformed-predicate', { view: vid }));
+    else if (this.anchorOk(scope, name, `${name} -> *`, findings)) raw.srcAnchors.add(name);
   }
 
   body(vid: string, scope: Scope, findings: string[]): RawView {
@@ -159,25 +163,20 @@ class Parser {
 
   /** `view <id> [of <root>] {` as [id, root]; null (and a finding) when malformed. */
   header(): [string, string | null] | null {
+    const parsed = this.rawHeader();
+    if (parsed === null) this.findings.push(message('c4.malformed-view'));
+    return parsed;
+  }
+
+  private rawHeader(): [string, string | null] | null {
     const idt = this.advance();
-    if (idt[0] !== 'word') {
-      this.findings.push(message('c4.malformed-view'));
-      return null;
-    }
+    if (idt[0] !== 'word') return null;
     const next = this.advance();
     if (same(next, ['word', 'of'])) {
       const scope = this.advance();
-      if (scope[0] !== 'word' || this.advance()[0] !== '{') {
-        this.findings.push(message('c4.malformed-view'));
-        return null;
-      }
-      return [idt[1], scope[1]];
+      return scope[0] === 'word' && this.advance()[0] === '{' ? [idt[1], scope[1]] : null;
     }
-    if (next[0] !== '{') {
-      this.findings.push(message('c4.malformed-view'));
-      return null;
-    }
-    return [idt[1], null];
+    return next[0] === '{' ? [idt[1], null] : null;
   }
 }
 
@@ -193,26 +192,35 @@ export function parseViews(root: string, model: ModelParse): ViewsParse {
   const seenIds = new Set<string>();
   parser.pos = 2; // past `views {`
   while (!['}', 'eof'].includes(parser.cur()[0])) {
-    if (!same(parser.advance(), ['word', 'view'])) {
-      parser.findings.push(message('c4.expected-view'));
-      continue;
+    if (!same(parser.advance(), ['word', 'view'])) parser.findings.push(message('c4.expected-view'));
+    else {
+      const header = parser.header();
+      if (header !== null) readView(parser, header, scopes, model, raw, seenIds);
     }
-    const header = parser.header();
-    if (header === null) continue;
-    const [vid, scopeId] = header;
-    const scope = scopeId === null ? undefined : scopes.get(scopeId);
-    if (scopeId === null) parser.findings.push(message('c4.view-unscoped', { view: vid }));
-    else if (scope === undefined) parser.findings.push(message('c4.view-scope-unknown', { view: vid, root: scopeId }));
-    if (scope !== undefined) raw.push(parser.body(vid, scope, parser.findings));
-    else parser.body(vid, scopeOf(model, ''), []);
-    if (seenIds.has(vid)) parser.findings.push(message('c4.duplicate-view', { view: vid }));
-    seenIds.add(vid);
   }
   const depths = viewDepths(root, seenIds, parser.findings);
   const views = raw.map((spec) =>
     buildView(spec, depths.get(spec.id) ?? DEFAULT_VIEW_DEPTH, scopes.get(spec.root)?.model ?? model),
   );
   return { views, findings: parser.findings };
+}
+
+/** A view's body past its header, kept in `raw` when it is scoped to a known root. */
+function readView(
+  parser: Parser,
+  [vid, scopeId]: [string, string | null],
+  scopes: Map<string, Scope>,
+  model: ModelParse,
+  raw: RawView[],
+  seenIds: Set<string>,
+): void {
+  const scope = scopeId === null ? undefined : scopes.get(scopeId);
+  if (scopeId === null) parser.findings.push(message('c4.view-unscoped', { view: vid }));
+  else if (scope === undefined) parser.findings.push(message('c4.view-scope-unknown', { view: vid, root: scopeId }));
+  if (scope !== undefined) raw.push(parser.body(vid, scope, parser.findings));
+  else parser.body(vid, scopeOf(model, ''), []);
+  if (seenIds.has(vid)) parser.findings.push(message('c4.duplicate-view', { view: vid }));
+  seenIds.add(vid);
 }
 
 function isPositiveInt(value: unknown): value is number | bigint {
@@ -269,6 +277,14 @@ function anchors(r: Relation, spec: RawView): string[] {
 
 const inBase = (eid: string, spec: RawView): boolean => spec.base.some((selection) => isOrAncestor(selection, eid));
 
+/** Both endpoints of `r` cut to the reach of each predicate anchor matching it, with their ancestors. */
+function anchoredIds(r: Relation, spec: RawView, depth: number): string[] {
+  return anchors(r, spec).flatMap((anchor) => {
+    const limit = reach(anchor, depth);
+    return [r.src, r.dst].flatMap((endpoint) => ancestorChain(ancestorAtLevel(endpoint, Math.min(limit, level(endpoint)))));
+  });
+}
+
 /** Each include's subtree down to its reach, plus each predicate-matched endpoint cut to the anchor's reach, with its ancestors. */
 function shownIds(spec: RawView, depth: number, model: ModelParse, kids: Map<string, string[]>): Set<string> {
   const shown = new Set<string>();
@@ -276,14 +292,7 @@ function shownIds(spec: RawView, depth: number, model: ModelParse, kids: Map<str
     const limit = reach(selection, depth);
     for (const eid of subtree(selection, kids)) if (level(eid) <= limit) shown.add(eid);
   }
-  for (const r of model.relations) {
-    for (const anchor of anchors(r, spec)) {
-      const limit = reach(anchor, depth);
-      for (const endpoint of [r.src, r.dst]) {
-        for (const anc of ancestorChain(ancestorAtLevel(endpoint, Math.min(limit, level(endpoint))))) shown.add(anc);
-      }
-    }
-  }
+  for (const r of model.relations) for (const eid of anchoredIds(r, spec, depth)) shown.add(eid);
   return shown;
 }
 
