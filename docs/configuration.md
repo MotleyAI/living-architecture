@@ -43,6 +43,24 @@ exits 2 on any other format: a newer one names the `la` to upgrade to, an older 
 `la-arch-migrate`, which converts the repo and stamps the current format. `la-doctor` reports the same refusal as
 a problem. Without a committed file there is nothing to check; the local file cannot set `format`.
 
+## Languages
+
+A repo's languages are those with a root marker (`pyproject.toml`/`setup.py`; `tsconfig.json`) and source
+files, or a `commands.typecheck` entry, which a language needs when its marker is not at the root (like the
+`web/tsconfig.json` below); `la-config get languages` lists them. The architecture model declares one section
+per language in `architecture/index.yaml`, and a mixed repo has both:
+
+```yaml
+python:
+  root_package: mypkg                 # the package the python root maps to
+  source_root: src                    # optional
+typescript:
+  root_package: src                   # the directory the typescript root maps to
+  source_root: web                    # optional
+  tsconfig: web/tsconfig.json         # optional: default the nearest tsconfig.json
+legacy_arrows: {baseline: 0}
+```
+
 ## Gates and the disk
 
 `openspec` and `architecture` are decisions, and their directories are the result. When the file exists,

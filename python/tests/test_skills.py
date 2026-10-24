@@ -80,6 +80,7 @@ DOCS_PAGES = [
     "development.md",
 ]
 BLOB_PREFIX = "https://github.com/MotleyAI/living-architecture/blob/main/"
+RAW_PREFIX = "https://raw.githubusercontent.com/MotleyAI/living-architecture/main/"
 LINK_RE = re.compile(r"\]\(([^)\s]+)\)")
 TABLE_SKILL_RE = re.compile(r"^\|\s*`la:([a-z][a-z-]*[a-z])`\s*\|", re.MULTILINE)
 PREFLIGHT_RE = re.compile(r"^\*\*Preflight:\*\*.*$", re.MULTILINE)
@@ -133,17 +134,39 @@ def test_preflight_requires_config_only_in_main_skills_and_stages(path):
 
 
 def _doc_files() -> list[Path]:
-    return [REPO_ROOT / "README.md", *sorted(DOCS_DIR.glob("*.md"))]
+    community = [REPO_ROOT / name for name in ("README.md", "CONTRIBUTING.md", "SECURITY.md")]
+    return [*community, *sorted(DOCS_DIR.glob("*.md")), *sorted(REPO_ROOT.glob("examples/*/README.md"))]
 
 
-@pytest.mark.parametrize("doc", _doc_files(), ids=lambda p: p.name)
+def _anchors(doc: Path) -> set[str]:
+    """GitHub's heading anchors in `doc`, fenced code skipped."""
+    prose = re.sub(r"^```.*?^```$", "", doc.read_text(encoding="utf-8"), flags=re.MULTILINE | re.DOTALL)
+    headings = re.findall(r"^#+ (.+)$", prose, re.MULTILINE)
+    return {re.sub(r"[^\w\- ]", "", h.lower()).replace(" ", "-") for h in headings}
+
+
+@pytest.mark.parametrize("doc", _doc_files(), ids=lambda p: p.relative_to(REPO_ROOT).as_posix())
 def test_doc_links_resolve(doc):
     for target in LINK_RE.findall(doc.read_text(encoding="utf-8")):
-        path = target.split("#", 1)[0]
-        if target.startswith(BLOB_PREFIX):
-            assert (REPO_ROOT / path.removeprefix(BLOB_PREFIX)).exists(), target
-        elif path and not re.match(r"[a-z]+:", path):
-            assert (doc.parent / path).exists(), target
+        path, _, anchor = target.partition("#")
+        if target.startswith((BLOB_PREFIX, RAW_PREFIX)):
+            resolved = REPO_ROOT / path.removeprefix(BLOB_PREFIX).removeprefix(RAW_PREFIX)
+        elif re.match(r"[a-z]+:", path):
+            continue
+        else:
+            resolved = doc.parent / path if path else doc
+        assert resolved.exists(), target
+        if anchor and resolved.suffix == ".md":
+            assert anchor in _anchors(resolved), target
+
+
+def test_readme_image_is_absolute_and_in_the_repo():
+    # A bare image, not a badge (an image wrapped in a link).
+    images = re.findall(r"(?<!\[)!\[[^\]]+\]\(([^)\s]+)\)", (REPO_ROOT / "README.md").read_text(encoding="utf-8"))
+    assert images
+    for image in images:
+        assert image.startswith(RAW_PREFIX), image
+        assert (REPO_ROOT / image.removeprefix(RAW_PREFIX)).is_file(), image
 
 
 def test_readme_links_into_docs_are_absolute():

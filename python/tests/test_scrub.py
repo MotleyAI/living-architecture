@@ -8,12 +8,16 @@ REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 THIS_FILE = Path(__file__).resolve()
 
 BLOCKED = re.compile(r"\begor\b|\bjames\b|slayer|motley|\bdev-\d+|/home/", re.IGNORECASE)
-# The publisher may appear only as the copyright holder, author/owner, and in the repo URL.
+# The publisher may appear only as the copyright holder, author/owner, and in the repo URL; the maintainer only
+# as the packages' maintainer; the project that uses the plugin only as the README's link to it.
 PUBLISHER_ALLOWED = (
     "Copyright (c) 2026 MotleyAI",
     'authors = [{ name = "MotleyAI" }]',
     '"name": "MotleyAI"',
     "MotleyAI/living-architecture",
+    'maintainers = [{ name = "Egor Kraev" }]',
+    '"maintainers": [\n    "Egor Kraev"\n  ]',
+    "[SLayer](https://github.com/MotleyAI/slayer)",
 )
 
 
@@ -40,6 +44,8 @@ def test_blocklist_catches_the_real_cases():
     assert _violations("Motley's SLayer at /home/x") == ["/home/", "Motley", "SLayer"]
     assert _violations("Categories, Egor") == ["Egor"]
     assert _violations("Copyright (c) 2026 MotleyAI") == []
+    assert _violations("the [SLayer](https://github.com/MotleyAI/slayer) codebase, SLayer") == ["SLayer"]
+    assert _violations('maintainers = [{ name = "Egor Kraev" }], Egor') == ["Egor"]
 
 
 def test_change_docs_are_exempt_but_specs_are_not():

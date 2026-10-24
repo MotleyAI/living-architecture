@@ -1,0 +1,38 @@
+name: Bug report
+description: A wrong finding, a crash, or a command or skill that misbehaves
+labels: [bug]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: The version `la-doctor` prints, and which package you installed (PyPI or npm).
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: What you ran
+      description: The command or skill, with its arguments.
+      render: console
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: What happened
+      description: The full output, and the exit code for a command.
+      render: console
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: How to reproduce
+      description: A minimal repo, `architecture/` folder or source file that shows the problem, if you have one.
