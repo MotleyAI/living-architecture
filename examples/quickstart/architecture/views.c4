@@ -1,0 +1,6 @@
+views {
+  view python of python {
+    title 'python'
+    include *
+  }
+}
