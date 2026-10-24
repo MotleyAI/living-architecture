@@ -121,7 +121,7 @@ apply between mapped elements at every depth.
 - **WHEN** an element nested under a virtual node carries `metadata { specs ['old'] }`
 - **THEN** `old` is mapped to that element, and `claims-exist.virtual-children` is still reported for the node
 
-### Requirement: Malformed node metadata is a setup error
+### Requirement: Malformed element metadata is a setup error
 `la-arch-check` SHALL exit 2 with a setup error naming the element when element metadata is malformed: a line
 outside the metadata subset, a repeated key, a second `metadata` block, metadata that violates the shared node schema
 for the element's variety (a missing required key, an unknown key, a wrong value type, or a key of another variety,

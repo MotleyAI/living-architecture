@@ -186,7 +186,7 @@ For such a repo, `la-arch-migrate [--root DIR]` SHALL:
 - **THEN** only the `.c4` files are deleted and `architecture/model/` with `README.md` remains
 
 #### Scenario: Unversioned canonical repo
-- **WHEN** an unversioned repo is in the canonical layout and `la-arch-migrate` runs
+- **WHEN** an unversioned repo is in the canonical layout, no element sets `arc42` and every `cross_cutting_arc42` entry sits directly in `architecture/`, and `la-arch-migrate` runs
 - **THEN** it converts no layout, stamps the format, prints only `living-architecture.yaml` as written and exits 0
 
 #### Scenario: Unversioned repo without a model
