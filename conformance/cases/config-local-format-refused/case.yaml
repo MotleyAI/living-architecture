@@ -1,0 +1,13 @@
+kind: neutral
+command: la-config
+args:
+- show
+expect:
+  exit: 1
+  stdout: ''
+  stderr:
+    contains:
+    - format
+    - living-architecture.local.yaml
+golden: manual
+note: the repo format cannot be set locally

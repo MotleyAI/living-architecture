@@ -1,0 +1,13 @@
+kind: neutral
+command: la-arch-migrate
+fixture: arch-ok
+normalize:
+- pattern: '(format"?: "?)[0-9]+\.[0-9]+\.[0-9]+'
+  replace: \1<FORMAT>
+expect:
+  exit: 0
+  files:
+  - living-architecture.yaml
+golden: manual
+note: the line goes after the leading comments and blank lines; every other byte is
+  kept

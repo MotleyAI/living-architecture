@@ -9,5 +9,6 @@ expect:
   - architecture/model.c4
   - architecture/model/app.c4
   - architecture/extra.likec4
+  - living-architecture.yaml
 golden: manual
 note: 'a legacy layout plus another LikeC4 source: the layout message, repo unchanged'

@@ -1,0 +1,11 @@
+kind: neutral
+command: la-arch-check
+fixture: arch-ok
+normalize:
+- pattern: (this la reads format )[0-9]+\.[0-9]+\.[0-9]+
+  replace: \1<FORMAT>
+expect:
+  exit: 2
+golden: manual
+note: a newer format is refused with the la version to upgrade to, and nothing else
+  is printed

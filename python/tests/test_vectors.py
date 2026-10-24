@@ -48,10 +48,18 @@ def test_yaml_vectors_carry_one_expectation(vector: dict) -> None:
 
 @pytest.mark.parametrize("vector", _load("defaults.yaml")["cases"], ids=lambda v: v["name"])
 def test_default_vectors_through_la_config_show(vector: dict, tmp_path: Path) -> None:
+    """A mapping config also declares the current format, as the format check requires."""
+    expected = vector["resolved"]
     if vector["config"] is not None:
-        (tmp_path / "living-architecture.yaml").write_text(vector["config"], encoding="utf-8")
+        text = vector["config"]
+        data = yaml.safe_load(text)
+        if isinstance(data, dict):
+            current = yaml.safe_load((VECTORS.parent / "config.yaml").read_text(encoding="utf-8"))["format"]
+            text = yaml.safe_dump({"format": current, **data})
+            expected = {**expected, "format": current}
+        (tmp_path / "living-architecture.yaml").write_text(text, encoding="utf-8")
     out = subprocess.run([str(LA_CONFIG), "--root", str(tmp_path), "show"], capture_output=True, text=True, check=True)
-    assert json.loads(out.stdout) == vector["resolved"]
+    assert json.loads(out.stdout) == expected
 
 
 @pytest.mark.parametrize("vector", _load("command-split.yaml")["cases"], ids=lambda v: v["name"])

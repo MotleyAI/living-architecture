@@ -4,6 +4,7 @@ cases:
 - name: missing file
   config: null
   resolved:
+    format: null
     tracker: linear
     openspec: true
     architecture: false
@@ -29,6 +30,7 @@ cases:
 - name: empty file
   config: ''
   resolved:
+    format: null
     tracker: linear
     openspec: true
     architecture: false
@@ -55,6 +57,7 @@ cases:
   config: |
     # nothing yet
   resolved:
+    format: null
     tracker: linear
     openspec: true
     architecture: false
@@ -81,6 +84,7 @@ cases:
   config: |
     {}
   resolved:
+    format: null
     tracker: linear
     openspec: true
     architecture: false
@@ -107,6 +111,7 @@ cases:
   config: |
     reviewers: {sonar: {project_key: k}}
   resolved:
+    format: null
     tracker: linear
     openspec: true
     architecture: false
@@ -136,6 +141,7 @@ cases:
     openspec: false
     commands: {test: ''}
   resolved:
+    format: null
     tracker: linear
     openspec: false
     architecture: false
@@ -164,6 +170,7 @@ cases:
     commands: {test: t, lint: l}
     conventions: {text_ratio_max: 0.5, exempt: ['a/*'], rules: [text-ratio]}
   resolved:
+    format: null
     tracker: github
     openspec: false
     architecture: true
@@ -188,6 +195,7 @@ cases:
   config: |
     conventions: {exempt: ['gen/*']}
   resolved:
+    format: null
     tracker: linear
     openspec: true
     architecture: false
@@ -215,6 +223,7 @@ cases:
   config: |
     commands: {typecheck: {typescript: null}}
   resolved:
+    format: null
     tracker: linear
     openspec: true
     architecture: false
@@ -241,6 +250,7 @@ cases:
   config: |
     commands: {typecheck: {python: basedpyright -p python}}
   resolved:
+    format: null
     tracker: linear
     openspec: true
     architecture: false
@@ -267,6 +277,7 @@ cases:
   config: |
     tracker: none
   resolved:
+    format: null
     tracker: none
     openspec: true
     architecture: false

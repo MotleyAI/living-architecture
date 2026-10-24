@@ -4,6 +4,19 @@ Every output and exit branch of every command, as of the pre-restructure tool, m
 `cases/` that pin it. `tests/test_conformance.py` checks that every case is listed here and every listed id
 exists. Cases marked *(new)* pin behaviour introduced by this change; their goldens are hand-written.
 
+## The format check (every command but `la-arch-migrate`, `la-doctor` and the review shims)
+
+| Branch | Exit | Cases |
+|---|---|---|
+| *(new)* a newer `format`: refused naming the `la` to upgrade to, before anything else (no doc rewritten); a newer unknown key gives no schema error; components of any size | 2 | `arch-check-format-newer`, `arch-diagrams-format-newer`, `config-format-newer-get`, `config-format-newer-unknown-key`, `arch-check-format-huge-components` |
+| *(new)* an older or missing `format`: refused naming the current format and `la-arch-migrate` | 2 | `arch-check-format-older`, `arch-diagrams-format-older`, `config-format-older`, `arch-check-format-missing`, `arch-diagrams-format-missing`, `config-format-missing` |
+| *(new)* an invalid `format` (`0.4`, `v0.4.0`, `0.04.0`, null, a bool, a list, a mapping): refused showing the value | 2 | `config-format-invalid-short`, `config-format-invalid-v-prefix`, `config-format-invalid-leading-zero`, `config-format-invalid-null`, `config-format-invalid-bool`, `config-format-invalid-list`, `config-format-invalid-mapping` |
+| *(new)* the current format passes | 0 | `arch-check-format-current`, `config-get-format`, `config-show-migrated` |
+| *(new)* no committed config (with or without the local file), or one that is not valid YAML or not a mapping: no check, the command behaves as before | 0/1 | `config-show-defaults`, `config-local-without-committed`, `config-show-empty-file`, `config-show-comments-only`, `config-error-invalid-yaml`, `config-error-top-level-list`, `config-error-top-level-scalar` |
+| *(new)* `--help` and usage errors come before the check | 0/2 | `arch-check-format-help-unversioned`, `arch-check-format-usage-unversioned` |
+| *(new)* an exempt review shim runs in an unversioned repo | 0 | `shim-fetch-failed-pr-checks-unversioned` |
+| *(new)* the invoking twin checks before forwarding the other language's files (no install hint with the other twin absent) | 2 | `twin-format-checked-before-forwarding-python`, `twin-format-checked-before-forwarding-typescript` |
+
 ## la-arch-check
 
 | Branch | Exit | Cases |
@@ -31,7 +44,7 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | *(new)* LikeC4 layout: a canonical or stray source that is not valid UTF-8 is reported only as such | 2 | `arch-check-layout-not-utf8` |
 | *(new)* LikeC4 layout: case-sensitive extensions, symlinked directory not descended, braces in strings and comments | 0 | `arch-check-layout-extension-case-sensitive`, `arch-check-layout-symlinked-dir-not-followed`, `arch-check-layout-braces-in-strings-and-comments` |
 | *(new)* LikeC4 layout blocks: block in the wrong file, second block, missing block, top-level text, unclosed block | 2 | `arch-check-layout-views-block-in-model`, `arch-check-layout-model-block-in-views`, `arch-check-layout-two-model-blocks`, `arch-check-layout-no-specification-block`, `arch-check-layout-views-only-comments`, `arch-check-layout-top-level-text`, `arch-check-layout-unclosed-block` |
-| *(new)* LikeC4 layout message: every violation in code-point path order; legacy layout points to `la-arch-migrate`, otherwise merge by hand; `index.yaml` errors first | 2 | `arch-check-layout-every-violation`, `arch-check-layout-code-point-order`, `arch-check-layout-legacy`, `arch-check-layout-legacy-not-migratable`, `arch-check-layout-index-error-first` |
+| *(new)* LikeC4 layout message: every violation in code-point path order, always ending with what to merge by hand (also for a legacy-shaped layout in a current-format repo); an unversioned legacy repo gets the format check's `la-arch-migrate` message instead; `index.yaml` errors first | 2 | `arch-check-layout-every-violation`, `arch-check-layout-code-point-order`, `arch-check-layout-legacy`, `arch-check-layout-legacy-current-format`, `arch-check-layout-legacy-not-migratable`, `arch-check-layout-index-error-first` |
 | *(new)* a migrated model checks exactly as its legacy layout did | 0/1 | `arch-check-migrated-ok`, `arch-check-migrated-parse-findings` |
 | arc42-exists: system doc / node doc / cross-cutting doc missing; orphan doc | 1 | `arch-check-arc42-system-missing`, `arch-check-arc42-node-doc-missing`, `arch-check-arc42-cross-cutting-missing`, `arch-check-arc42-orphan` |
 | spec-mapping: mapped twice; node and cross-cutting; unknown touched node | 1 | `arch-check-spec-mapped-twice`, `arch-check-spec-node-and-cross-cutting`, `arch-check-spec-touches-unknown-node` |
@@ -150,15 +163,18 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 
 | Branch | Exit | Cases |
 |---|---|---|
-| *(new)* legacy layout merged into one `specification` and one `model` block (several files, one `model/model.c4`); `views.c4` kept or created empty; written and deleted paths printed | 0 | `arch-migrate-multi-file`, `arch-migrate-single-file`, `arch-migrate-views-created` |
+| *(new)* an unversioned legacy layout merged into one `specification` and one `model` block (several files, one `model/model.c4`); `views.c4` kept or created empty; the format stamped; written paths (layout files, then the config) and deleted paths printed | 0 | `arch-migrate-multi-file`, `arch-migrate-single-file`, `arch-migrate-views-created` |
 | *(new)* comments and blank lines outside blocks go to the top; each opening-line comment stays with its interior | 0 | `arch-migrate-comments-outside-blocks` |
 | *(new)* no `index.yaml` needed | 0 | `arch-migrate-no-index` |
 | *(new)* parse findings inside blocks do not prevent migration; reordered findings compare as a multiset | 0 | `arch-migrate-parse-findings`, `arch-migrate-findings-reordered` |
 | *(new)* other files keep `architecture/model/` | 0 | `arch-migrate-keeps-other-files` |
-| *(new)* canonical layout: nothing to migrate | 0 | `arch-migrate-already-canonical` |
-| *(new)* not migratable (another LikeC4 source, a `views` block or top-level text in a legacy file): layout message, nothing written | 2 | `arch-migrate-not-migratable`, `arch-migrate-views-block-in-legacy-file`, `arch-migrate-top-level-text` |
+| *(new)* the current format: nothing to migrate, naming the format | 0 | `arch-migrate-already-canonical` |
+| *(new)* unversioned without a layout to convert (canonical; no `architecture/`; no index and no LikeC4 source): only the format stamped | 0 | `arch-migrate-unversioned-canonical`, `arch-migrate-no-architecture`, `arch-migrate-no-model` |
+| *(new)* stamp placement: after leading comments and blank lines, after a directive and `---`, the file's CRLF, an empty file, a comment-only file without a final line break; a removed key does not block it | 0 | `arch-migrate-stamp-after-comments`, `arch-migrate-stamp-document-marker`, `arch-migrate-stamp-crlf`, `arch-migrate-stamp-empty`, `arch-migrate-stamp-comment-only`, `arch-migrate-schema-errors-kept` |
+| *(new)* refused, repo unchanged: no committed config (names `/la:init`); a newer or invalid format (the format check's message); an older format with no conversion; a config that cannot be read, is not valid YAML or not a mapping; a config the stamp cannot edit (add `format` by hand); an index without any LikeC4 source (layout message) | 2 | `arch-migrate-no-config`, `arch-migrate-format-newer`, `arch-migrate-format-invalid`, `arch-migrate-format-unknown-older`, `arch-migrate-config-invalid-yaml`, `arch-migrate-config-not-utf8`, `arch-migrate-config-scalar`, `arch-migrate-config-list`, `arch-migrate-stamp-flow-refused`, `arch-migrate-index-without-model` |
+| *(new)* not migratable (another LikeC4 source, a `views` block or top-level text in a legacy file): layout message, nothing written, the config not stamped | 2 | `arch-migrate-not-migratable`, `arch-migrate-views-block-in-legacy-file`, `arch-migrate-top-level-text` |
 | *(new)* the merged files would parse differently: nothing written | 2 | `arch-migrate-verification-mismatch` |
-| *(new)* a failing delete after both writes: created files removed, repo unchanged | 2 | `arch-migrate-write-failure` |
+| *(new)* a failing delete after both writes: created files removed, repo and config unchanged (every failure point and failed restores: the migrate unit tests) | 2 | `arch-migrate-write-failure` |
 | *(new)* usage error; `--help` | 2/0 | `arch-migrate-usage-unknown-flag`, `arch-migrate-help` |
 
 ## la-config
@@ -183,7 +199,8 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | *(new)* `get lang.<language>.<key>`: every public key of both languages, in any repo (lists as JSON, strings as text) | 0 | `config-get-lang-python-source-extensions`, `config-get-lang-python-source-globs`, `config-get-lang-python-test-globs`, `config-get-lang-python-declaration-globs`, `config-get-lang-python-comment-prefix`, `config-get-lang-python-suppression`, `config-get-lang-python-waiver`, `config-get-lang-python-baseline-file`, `config-get-lang-python-markers`, `config-get-lang-typescript-source-extensions`, `config-get-lang-typescript-source-globs`, `config-get-lang-typescript-test-globs`, `config-get-lang-typescript-declaration-globs`, `config-get-lang-typescript-comment-prefix`, `config-get-lang-typescript-suppression`, `config-get-lang-typescript-waiver`, `config-get-lang-typescript-baseline-file`, `config-get-lang-typescript-markers` |
 | *(new)* `get lang.…`: internal field, unregistered language, no key | 2 | `config-get-lang-internal-key-refused`, `config-get-lang-unknown-language`, `config-get-lang-without-key` |
 | *(new)* `living-architecture.local.yaml`: deep-merged over the committed file (or the defaults), one stderr note per key it sets in schema order (`show` only); an empty file overrides nothing | 0 | `config-local-show-override`, `config-local-deep-merge`, `config-local-without-committed`, `config-local-empty`, `config-get-local-override` |
-| *(new)* `living-architecture.local.yaml`: a key outside `tracker`/`reviewers.codex` (top level, nested), an invalid value, invalid YAML, a non-mapping top level (local file named) | 1 | `config-local-refused-top-key`, `config-local-refused-nested-key`, `config-local-invalid-value`, `config-local-invalid-yaml`, `config-local-top-level-list` |
+| *(new)* `living-architecture.local.yaml`: a key outside `tracker`/`reviewers.codex` (top level, nested, `format`), an invalid value, invalid YAML, a non-mapping top level (local file named) | 1 | `config-local-refused-top-key`, `config-local-refused-nested-key`, `config-local-format-refused`, `config-local-invalid-value`, `config-local-invalid-yaml`, `config-local-top-level-list` |
+| *(new)* `format`: `null` in the defaults (shown in every `show` golden), `get format` | 0 | `config-show-defaults`, `config-get-format` |
 
 ## la-doctor
 
@@ -206,6 +223,7 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | *(new)* local file: git-ignored is healthy and named as a second source (after the committed file, or after the defaults outside git) | 0 | `doctor-local-ignored-ok`, `doctor-local-not-git` |
 | *(new)* local file: tracked (committed, staged), not ignored, git failure; placed after the consistency findings and before the missing executables | 1 | `doctor-local-tracked`, `doctor-local-staged`, `doctor-local-not-ignored`, `doctor-local-git-failed`, `doctor-local-finding-order` |
 | *(new)* local file: consistency on the merged config; validated without a committed file; alone it does not satisfy `--require-config`, which still validates it | 1 | `doctor-local-consistency-merged`, `doctor-local-only-invalid`, `doctor-require-config-local-only`, `doctor-require-config-local-invalid` |
+| *(new)* a format refusal is the problem line and skips the config checks (no schema error for a newer key, no config-vs-disk findings, no language executables); the version, local-file and required-executable checks still run | 1 | `doctor-format-newer-unknown-key`, `doctor-format-older`, `doctor-format-missing-require-config`, `doctor-format-missing-expect-mismatch`, `doctor-format-missing-other-checks-run` |
 
 `--contract-hash` *(new)* prints a value that changes with `shared/`; it is pinned by `tests/test_contract.py`.
 

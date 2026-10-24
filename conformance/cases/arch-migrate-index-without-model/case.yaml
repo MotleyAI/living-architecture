@@ -1,0 +1,14 @@
+kind: neutral
+command: la-arch-migrate
+fixture: arch-ok
+remove:
+- architecture/model.c4
+- architecture/views.c4
+expect:
+  exit: 2
+  files:
+  - living-architecture.yaml
+  - architecture/model.c4
+  - architecture/views.c4
+golden: manual
+note: 'an index.yaml without any LikeC4 source is a layout violation: nothing written'

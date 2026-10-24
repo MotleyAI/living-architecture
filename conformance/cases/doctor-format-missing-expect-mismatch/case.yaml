@@ -1,0 +1,13 @@
+kind: neutral
+command: la-doctor
+args:
+- --expect
+- 0.0.1
+normalize:
+- pattern: (this la reads format )[0-9]+\.[0-9]+\.[0-9]+
+  replace: \1<FORMAT>
+- version
+expect:
+  exit: 1
+golden: manual
+note: the version check still runs beside a format refusal

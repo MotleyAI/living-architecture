@@ -1,1 +1,2 @@
+format: <FORMAT>
 commands: {typecheck: {python: nosuchchecker --strict}}

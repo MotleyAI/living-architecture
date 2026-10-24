@@ -1,35 +1,35 @@
 ## 1. Tests (pr-tests stage; failing until implemented)
 
-- [ ] 1.1 Conformance runner: substitute `<FORMAT>` (the bundled `shared/config.yaml` `format`) in root
+- [x] 1.1 Conformance runner: substitute `<FORMAT>` (the bundled `shared/config.yaml` `format`) in root
   `living-architecture.yaml` overlays and `write:` steps only; README line. Runner unit tests prove other files and
   unrelated `<FORMAT>` text stay untouched. Verify the runner tests pass.
-- [ ] 1.2 Add `format: <FORMAT>` to every fixture/case `living-architecture.yaml` that is not itself a format case;
+- [x] 1.2 Add `format: <FORMAT>` to every fixture/case `living-architecture.yaml` that is not itself a format case;
   goldens that echo the config get a version-agnostic `{pattern, replace}` normalization (never a blanket `0.4.0`
   replacement: the package version is also `0.4.0`). Verify with `rg -L '^format:' -g living-architecture.yaml conformance`.
-- [ ] 1.3 Neutral conformance cases for "Every command checks the declared format" (repo-config delta): newer
+- [x] 1.3 Neutral conformance cases for "Every command checks the declared format" (repo-config delta): newer
   (`9.0.0`) through `la-arch-check`, `la-arch-diagrams`, `la-config`; older (`0.3.0`) and missing through the same
   three; newer plus an unknown key; very large components; invalid values (`0.4`, `v0.4.0`, `0.04.0`, null, `true`,
   list, mapping); no committed file (with and without the local file); malformed YAML keeps its old error; `--help` and
   a usage error in an unversioned repo; an exempt review shim in an unversioned repo; current format passes. Each in
   `conformance/INVENTORY.md`.
-- [ ] 1.4 Conformance cases for "la-doctor reports the format check": newer with unknown key, older, missing with
+- [x] 1.4 Conformance cases for "la-doctor reports the format check": newer with unknown key, older, missing with
   `--require-config`, missing plus `--expect` mismatch.
-- [ ] 1.5 Conformance cases for `format` in the local file (`la-config show` exit 1 naming `format`), `la-config get
+- [x] 1.5 Conformance cases for `format` in the local file (`la-config show` exit 1 naming `format`), `la-config get
   format`, and the updated defaults golden (`format: null`; re-bless reason: new key).
-- [ ] 1.6 Conformance cases for "la-arch-migrate converts the repo to the current format" and the modified legacy
+- [x] 1.6 Conformance cases for "la-arch-migrate converts the repo to the current format" and the modified legacy
   requirement (c4-layout delta): every scenario, including unversioned canonical / no model / index without a model /
   legacy (multi-file, single, no views) / non-migratable, no config, current, newer, invalid, unknown older,
   malformed YAML and scalar/list top levels, schema errors not blocking, stamp placement (comments, `%YAML`+`---`, CRLF,
   empty, comment-only without final newline), flow-style refusal, stamped repo passes `la-config show`.
   Existing migrate cases get an unversioned config.
-- [ ] 1.7 Reader case: a current-format repo with a legacy-shaped layout → merge-by-hand message without
+- [x] 1.7 Reader case: a current-format repo with a legacy-shaped layout → merge-by-hand message without
   `la-arch-migrate`; existing "legacy layout points to the migration" goldens updated (reason: deliberate change).
-- [ ] 1.8 Twin unit tests (both twins): rollback on a failure injected at each step (create, delete, rmdir, config
+- [x] 1.8 Twin unit tests (both twins): rollback on a failure injected at each step (create, delete, rmdir, config
   replace) leaves every path byte-identical; a failed restore is named in the message; version comparison
   (digit-count then lexical, huge components); stamp placement and verification; every non-exempt manifest command
   exits 2 with the missing-format message and every exempt one does not (parametrised over `shared/cli.yaml`, real
   argv per command); current format <= each package version and the `plugin.json` version.
-- [ ] 1.9 Codex review of the tests against this change (pr-tests Step 2); resolve findings with the user.
+- [x] 1.9 Codex review of the tests against this change (pr-tests Step 2); resolve findings with the user.
 
 ## 2. shared/
 

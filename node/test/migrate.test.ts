@@ -13,11 +13,13 @@ import { tmpdir } from 'node:os';
 import { join, relative, resolve, sep } from 'node:path';
 import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
 import { run as runMigrate } from '../src/c4/migrate.js';
+import { currentFormat } from '../src/config/index.js';
 
 const faults = vi.hoisted(() => ({
   root: '',
   failAt: -1,
   after: false,
+  failFrom: false,
   skewViews: false,
   ops: [] as [string, string][],
 }));
@@ -33,7 +35,8 @@ vi.mock('node:fs', async (importOriginal) => {
   };
   const hit = (op: string, path: string): boolean => {
     faults.ops.push([op, relative(faults.root, path)]);
-    return faults.ops.length - 1 === faults.failAt;
+    const index = faults.ops.length - 1;
+    return faults.failAt >= 0 && (faults.failFrom ? index >= faults.failAt : index === faults.failAt);
   };
   const injected = (op: string, path: string) => Object.assign(new Error(`injected failure: ${op} ${path}`), { code: 'EIO' });
   const writes = (flag: unknown): boolean =>
@@ -94,6 +97,8 @@ const SPEC = 'specification {\n  element system\n  element node\n}\n';
 const PYTHON = "model {\n  python = system 'Python' {\n    core = node 'Core'\n    db = node 'DB'\n    core -> db\n  }\n}\n";
 const VIEWS = 'views {\n  view land of python {\n    include *\n  }\n}\n';
 const MISMATCH = 'la-arch-migrate: the merged files would not parse to the same model and views; nothing written\n';
+const CONFIG = 'living-architecture.yaml';
+const UNVERSIONED = '# repo config\ntracker: linear\n';
 
 function legacyRepo(where: string, views: boolean): string {
   const repo = join(where, 'repo');
@@ -101,6 +106,7 @@ function legacyRepo(where: string, views: boolean): string {
   writeFileSync(join(repo, 'architecture', 'model', 'specification.c4'), SPEC);
   writeFileSync(join(repo, 'architecture', 'model', 'python.c4'), PYTHON);
   writeFileSync(join(repo, 'architecture', 'index.yaml'), 'python:\n  root_package: pkg\n');
+  writeFileSync(join(repo, CONFIG), UNVERSIONED);
   if (views) writeFileSync(join(repo, 'architecture', 'views.c4'), VIEWS);
   return repo;
 }
@@ -136,14 +142,23 @@ function capture(): () => { out: string; err: string } {
   };
 }
 
-function armed(root: string, failAt: number, after: boolean): void {
-  Object.assign(faults, { root: resolve(root), failAt, after, ops: [] });
+function armed(root: string, failAt: number, after: boolean, failFrom = false): void {
+  Object.assign(faults, { root: resolve(root), failAt, after, failFrom, ops: [] });
+}
+
+/** The directories and files that differ between two snapshots. */
+function changedPaths(before: ReturnType<typeof snapshot>, after: ReturnType<typeof snapshot>): string[] {
+  const dirs = [...before.dirs.filter((d) => !after.dirs.includes(d)), ...after.dirs.filter((d) => !before.dirs.includes(d))];
+  const files = [...new Set([...Object.keys(before.files), ...Object.keys(after.files)])].filter(
+    (rel) => before.files[rel] !== after.files[rel],
+  );
+  return [...dirs, ...files].sort();
 }
 
 describe('la-arch-migrate', () => {
   const tmp = mkdtempSync(join(tmpdir(), 'la-migrate-'));
   afterEach(() => {
-    Object.assign(faults, { root: '', failAt: -1, after: false, skewViews: false, ops: [] });
+    Object.assign(faults, { root: '', failAt: -1, after: false, failFrom: false, skewViews: false, ops: [] });
     vi.restoreAllMocks();
   });
   afterAll(() => rmSync(tmp, { recursive: true, force: true }));
@@ -178,18 +193,62 @@ describe('la-arch-migrate', () => {
     });
   });
 
+  /** The mutations of one successful migration of a legacy repo without views. */
+  function recordedOps(label: string): [string, string][] {
+    const output = capture();
+    const probe = legacyRepo(join(tmp, `${label}-probe`), false);
+    armed(probe, -1, false);
+    expect(runMigrate(probe)).toBe(0);
+    const ops = [...faults.ops];
+    faults.root = '';
+    output();
+    return ops;
+  }
+
+  it('replaces the config last, from a temp file beside it', () => {
+    const ops = recordedOps('last');
+    const [op, path] = ops[ops.length - 1] ?? ['', ''];
+    expect(op).toBe('rename');
+    expect(path.includes('/') || path === CONFIG).toBe(false);
+    expect(ops.slice(0, -1)).toContainEqual(['open', path]);
+    expect(ops.slice(0, -1).filter(([, p]) => p === CONFIG)).toEqual([]);
+  });
+
+  it('names every path a failed restore left changed', () => {
+    const ops = recordedOps('restore');
+    let namedAny = false;
+    ops.forEach((_, failAt) => {
+      const output = capture();
+      const repo = legacyRepo(join(tmp, `restore-${failAt}`), false);
+      const before = snapshot(repo);
+      armed(repo, failAt, false, true);
+      const code = runMigrate(repo);
+      faults.root = '';
+      const { out, err } = output();
+      const left = changedPaths(before, snapshot(repo));
+      expect([code, out], String(failAt)).toEqual([2, '']);
+      expect(err, String(failAt)).toMatch(/^la-arch-migrate: /);
+      expect(left.filter((rel) => !err.includes(rel)), err).toEqual([]);
+      expect(err.includes('left changed'), err).toBe(left.length > 0);
+      namedAny ||= left.length > 0;
+    });
+    expect(namedAny).toBe(true);
+  });
+
   it('removes the emptied model directory', () => {
     const output = capture();
     const repo = legacyRepo(join(tmp, 'success'), true);
     expect(runMigrate(repo)).toBe(0);
     expect(output().out).toBe(
       'wrote architecture/model.c4\n' +
+        'wrote living-architecture.yaml\n' +
         'deleted architecture/model/python.c4\n' +
         'deleted architecture/model/specification.c4\n' +
         'deleted architecture/model\n',
     );
     expect(existsSync(join(repo, 'architecture', 'model'))).toBe(false);
     expect(readFileSync(join(repo, 'architecture', 'model.c4'), 'utf8')).toBe(SPEC + PYTHON);
+    expect(readFileSync(join(repo, CONFIG), 'utf8')).toBe(`# repo config\nformat: ${currentFormat()}\ntracker: linear\n`);
   });
 
   it('writes nothing when the merged files would parse differently', () => {

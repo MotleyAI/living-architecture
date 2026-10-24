@@ -1,0 +1,97 @@
+# The repo format (`format` in living-architecture.yaml): which values are versions, how versions compare, and
+# how la-arch-migrate stamps the current format into a config text.
+# `valid` and `invalid` values are read with the shared YAML profile. `compare` is [a, b, sign of a - b], compared
+# component by component as integers of any size. `stamp` maps a config `text` to its `stamped` text, `<FORMAT>`
+# standing for the current format; `stamped: null` means the format must be added by hand.
+valid:
+- '0.4.0'
+- '0.0.0'
+- '10.20.30'
+- '99999999999999999999.0.0'
+invalid:
+- '0.4'
+- '0.4.0.0'
+- 'v0.4.0'
+- '0.04.0'
+- '00.4.0'
+- '-1.0.0'
+- '+1.0.0'
+- '1.0.0-rc1'
+- ' 0.4.0'
+- '0.4.0 '
+- "0.4.0\n"
+- '0..0'
+- '0.4.'
+- ''
+- '١.٠.٠'
+- '１.0.0'
+- 0.4
+- 400
+- true
+- null
+- [0, 4, 0]
+- {major: 0}
+compare:
+- ['0.4.0', '0.4.0', 0]
+- ['0.3.0', '0.4.0', -1]
+- ['0.4.0', '0.3.9', 1]
+- ['0.10.0', '0.9.0', 1]
+- ['0.4.10', '0.4.9', 1]
+- ['1.0.0', '0.99.99', 1]
+- ['9.0.0', '10.0.0', -1]
+- ['9007199254740993.0.0', '9007199254740992.0.0', 1]
+- ['99999999999999999999.0.0', '99999999999999999998.0.0', 1]
+- ['99999999999999999999.0.0', '100000000000000000000.0.0', -1]
+- ['0.0.99999999999999999999', '0.1.0', -1]
+stamp:
+- name: block mapping
+  text: "tracker: linear\n"
+  stamped: "format: <FORMAT>\ntracker: linear\n"
+- name: leading comments and blank lines
+  text: "# a\n  # b\n\ntracker: linear\nopenspec: false\n"
+  stamped: "# a\n  # b\n\nformat: <FORMAT>\ntracker: linear\nopenspec: false\n"
+- name: whitespace-only line counts as blank
+  text: "# a\n  \ntracker: linear\n"
+  stamped: "# a\n  \nformat: <FORMAT>\ntracker: linear\n"
+- name: directive and document marker
+  text: "%YAML 1.1\n---\ntracker: linear\n"
+  stamped: "%YAML 1.1\n---\nformat: <FORMAT>\ntracker: linear\n"
+- name: document marker alone
+  text: "---\ntracker: linear\n"
+  stamped: "---\nformat: <FORMAT>\ntracker: linear\n"
+- name: no final line break after the keys
+  text: "tracker: linear"
+  stamped: "format: <FORMAT>\ntracker: linear"
+- name: removed key kept
+  text: "reviewers: {coderabbit: true}\n"
+  stamped: "format: <FORMAT>\nreviewers: {coderabbit: true}\n"
+- name: crlf
+  text: "# a\r\ntracker: linear\r\nopenspec: false\r\n"
+  stamped: "# a\r\nformat: <FORMAT>\r\ntracker: linear\r\nopenspec: false\r\n"
+- name: crlf comment-only without final line break
+  text: "# a\r\n# b"
+  stamped: "# a\r\n# b\r\nformat: <FORMAT>\r\n"
+- name: empty
+  text: ""
+  stamped: "format: <FORMAT>\n"
+- name: blank lines only
+  text: "\n\n"
+  stamped: "\n\nformat: <FORMAT>\n"
+- name: comment-only without final line break
+  text: "# nothing yet"
+  stamped: "# nothing yet\nformat: <FORMAT>\n"
+- name: comment-only with final line break
+  text: "# nothing yet\n"
+  stamped: "# nothing yet\nformat: <FORMAT>\n"
+- name: flow mapping
+  text: "{tracker: linear}\n"
+  stamped: null
+- name: indented top-level mapping
+  text: "  tracker: linear\n"
+  stamped: null
+- name: top-level list
+  text: "- tracker\n"
+  stamped: null
+- name: top-level scalar
+  text: "42\n"
+  stamped: null

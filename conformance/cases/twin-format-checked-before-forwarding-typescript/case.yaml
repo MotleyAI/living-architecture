@@ -1,0 +1,19 @@
+kind: neutral
+languages:
+- python
+- typescript
+fixture: dr-mixed
+golden: manual
+twin: typescript
+other_twin: absent
+command: dr-mock-lint
+args:
+- tests/test_a.py
+- web/a.test.ts
+normalize:
+- pattern: (this la reads format )[0-9]+\.[0-9]+\.[0-9]+
+  replace: \1<FORMAT>
+expect:
+  exit: 2
+note: 'the typescript twin checks the format before forwarding the python files: no
+  install hint'

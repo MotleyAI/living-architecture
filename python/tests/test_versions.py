@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from living_architecture import __version__
+from living_architecture import __version__, config
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 REPO_ROOT = PROJECT_ROOT.parent
@@ -56,3 +56,11 @@ def test_npm_vendored_root_files_are_current(name: str) -> None:
     vendored = REPO_ROOT / "node" / name
     current = vendored.is_file() and vendored.read_bytes() == (REPO_ROOT / name).read_bytes()
     assert current, f"node/{name} is stale; run scripts/sync-shared"
+
+
+def test_current_format_is_at_most_every_package_version() -> None:
+    """The format is the version of the release that introduced it, so it never runs ahead of a package."""
+    current = config.current_format()
+    package = json.loads((REPO_ROOT / "node" / "package.json").read_text(encoding="utf-8"))["version"]
+    for version in (__version__, package, _plugin_version()):
+        assert config.compare_versions(current, version) <= 0, version
