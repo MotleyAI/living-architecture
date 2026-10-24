@@ -6,15 +6,17 @@ and runs only for a repo whose `living-architecture.yaml` declares no `format`, 
 canonical model or the one the layout conversion stages; it converts nothing when `architecture/` holds no LikeC4
 source file. It SHALL:
 - for each element setting `arc42 '<p>'`, in model order, stage the move of `<p>` to
-  `architecture/<element id>.arc42.md` (no move when they are equal), the removal of the `arc42` line, and the
-  removal of the element's `metadata` block when it is then empty;
+  `architecture/<element id>.arc42.md` (no move when they are equal), the removal of the `arc42` statement, and the
+  removal of the element's `metadata` block when it is then empty; a removed statement or block takes its whole
+  lines when nothing but whitespace and a comment shares them, else only itself and the whitespace before it (after
+  it when it starts its line);
 - for each `cross_cutting_arc42` entry `<p>` in `architecture/index.yaml` that is not `architecture/<name>.arc42.md`
   with no `/` in `<name>`, stage the move of `<p>` to `architecture/<basename of p>` and the rewrite of the entry;
 - stage the rename of every `diagrams` key equal to a moved source to its target;
 - keep every other byte of `architecture/model.c4` and `architecture/index.yaml` unchanged;
 - exit 2 writing nothing, naming the paths, when a source does not exist in the repo, a source is moved more than
-  once, two sources share a target, or a target already exists as a file or as a `diagrams` key; only the first
-  refusal is reported, moves checked in plan order (element docs in model order, then `cross_cutting_arc42` entries
+  once, two sources share a target, or a target already exists as a file or as a `diagrams` key, a `<p>` already at
+  its target counting as a source moved there for the first three; only the first refusal is reported, moves checked in plan order (element docs in model order, then `cross_cutting_arc42` entries
   in file order) and, per move, in that check order;
 - before writing, verify that the staged result parses to the same model as the input apart from the removed `arc42`
   keys and emptied `metadata` blocks (elements with metadata, kinds, virtual flags and metadata problems, and
@@ -71,6 +73,18 @@ A directory that a cross-cutting move leaves empty SHALL be kept.
 #### Scenario: Source moved twice refused
 - **WHEN** two nodes set `arc42` to the same path
 - **THEN** `la-arch-migrate` exits 2 naming that path and the repo is unchanged
+
+#### Scenario: Statement sharing its line
+- **WHEN** a node's metadata reads `metadata { package 'pkg.api' arc42 'architecture/api.arc42.md' }` on one line
+- **THEN** that line becomes `metadata { package 'pkg.api' }`, the doc moves, and every other byte is unchanged
+
+#### Scenario: Doc already at its target claimed by another element
+- **WHEN** node `python.api` sets `arc42 'architecture/python.api.arc42.md'` and node `python.core` sets the same path
+- **THEN** `la-arch-migrate` exits 2 naming that path and the repo is unchanged
+
+#### Scenario: Doc already at its target missing
+- **WHEN** node `python.api` sets `arc42 'architecture/python.api.arc42.md'` and that file does not exist
+- **THEN** `la-arch-migrate` exits 2 naming it and the repo is unchanged
 
 ## MODIFIED Requirements
 

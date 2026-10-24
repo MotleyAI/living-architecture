@@ -4,6 +4,7 @@ key format and stamp `format`, verified and all-or-nothing."""
 from __future__ import annotations
 
 import contextlib
+import itertools
 import os
 import posixpath
 import re
@@ -30,7 +31,13 @@ from living_architecture.c4.layout import (
     sources,
     views_file,
 )
-from living_architecture.c4.model import ModelParse, parse_model_files, parse_model_texts
+from living_architecture.c4.model import (
+    ModelParse,
+    Pos,
+    parse_model_files,
+    parse_model_texts,
+    strip_line_comment,
+)
 from living_architecture.c4.views import EMPTY_VIEWS, parse_views
 from living_architecture.config import (
     FORMAT_KEY,
@@ -136,22 +143,43 @@ def _diagram_keys(index: _Index) -> list[Any]:
 
 
 def _strip_arc42(text: str, model: ModelParse) -> tuple[str, list[_Move]]:
-    """`text` without each `arc42` line (and each metadata block it empties), and the element doc moves."""
-    drop: set[int] = set()
+    """`text` without each `arc42` statement (or the metadata block it alone fills), and the element doc moves,
+    a doc already at its target included."""
+    cuts: list[tuple[Pos, Pos]] = []
     moves: list[_Move] = []
     for element in model.elements:
         if RETIRED_ARC42_KEY not in element.metadata:
             continue
         span = model.spans[element.id]
-        first, last = span.keys[RETIRED_ARC42_KEY]
-        drop.update(range(first, last + 1))
-        if set(element.metadata) == {RETIRED_ARC42_KEY}:
-            drop.update(range(span.block[0], span.block[1] + 1))
+        cuts.append(span.block if set(element.metadata) == {RETIRED_ARC42_KEY} else span.keys[RETIRED_ARC42_KEY])
         source = element.metadata[RETIRED_ARC42_KEY]
-        if isinstance(source, str) and source != element_doc(element.id):
+        if isinstance(source, str):
             moves.append(_Move(source=source, target=element_doc(element.id)))
+    return _cut(text, cuts), moves
+
+
+def _cut(text: str, spans: list[tuple[Pos, Pos]]) -> str:
+    """`text` without each span: with its lines when nothing else is on them, else with the whitespace on one side."""
     lines = text.splitlines(keepends=True)
-    return "".join(line for i, line in enumerate(lines) if i not in drop), moves
+    starts = [0, *itertools.accumulate(len(line) for line in lines)]
+    out: list[str] = []
+    pos = 0
+    for start, end in sorted(_cut_range(text, lines, starts, span) for span in spans):
+        out.append(text[pos : max(pos, start)])
+        pos = max(pos, end)
+    return "".join(out) + text[pos:]
+
+
+def _cut_range(text: str, lines: list[str], starts: list[int], span: tuple[Pos, Pos]) -> tuple[int, int]:
+    (first, first_col), (last, last_col) = span
+    start, end = starts[first] + first_col, starts[last] + last_col
+    before = text[starts[first] : start]
+    after = text[end : starts[last] + len(lines[last].splitlines()[0])]
+    if not before.strip(WHITESPACE) and not strip_line_comment(after).strip(WHITESPACE):
+        return starts[first], starts[last + 1]
+    if not before.strip(WHITESPACE):
+        return start, end + len(after) - len(after.lstrip(WHITESPACE))
+    return start - (len(before) - len(before.rstrip(WHITESPACE))), end
 
 
 def _flattened(entries: list[str]) -> list[_Move]:
@@ -166,7 +194,7 @@ def _contained(rel: str) -> bool:
 
 
 def _refusal(root: Path, moves: list[_Move], diagram_keys: list[Any]) -> str | None:
-    """The first refused move's message, in plan order and check order."""
+    """The first refused move's message, in plan order and check order; a doc already at its target claims its path."""
     targets_of: dict[str, str] = {}
     sources_of: dict[str, str] = {}
     for move in moves:
@@ -177,9 +205,9 @@ def _refusal(root: Path, moves: list[_Move], diagram_keys: list[Any]) -> str | N
             return message("arch-migrate.source-moved-twice", source=source, first=targets_of[source], second=target)
         if target in sources_of:
             return message("arch-migrate.shared-target", first=sources_of[target], second=source, target=target)
-        if os.path.lexists(root / target):
+        if source != target and os.path.lexists(root / target):
             return message("arch-migrate.target-taken", source=source, target=target)
-        if target in diagram_keys:
+        if source != target and target in diagram_keys:
             return message("arch-migrate.diagrams-key-taken", source=source, target=target)
         targets_of[source] = target
         sources_of[target] = source
@@ -221,7 +249,7 @@ def _expected_index(data: dict[Any, Any], renames: dict[str, str], moved_entries
     expected = dict(data)
     entries = data.get("cross_cutting_arc42")
     if isinstance(entries, list):
-        expected["cross_cutting_arc42"] = [renames[e] if e in moved_entries else e for e in entries]
+        expected["cross_cutting_arc42"] = [renames[e] if isinstance(e, str) and e in moved_entries else e for e in entries]
     diagrams = data.get("diagrams")
     if isinstance(diagrams, dict):
         expected["diagrams"] = {renames.get(k, k) if isinstance(k, str) else k: v for k, v in diagrams.items()}
@@ -432,6 +460,7 @@ def _plan(root: Path) -> _Plan:
     refusal = _refusal(root, moves, keys)
     if refusal is not None:
         raise MigrateError(refusal)
+    moves = [m for m in moves if m.source != m.target]
     renamed = {m.source for m in entry_moves} | {k for k in keys if isinstance(k, str)}
     renames = {m.source: m.target for m in moves if m.source in renamed}
     outputs: dict[str, str] = {}

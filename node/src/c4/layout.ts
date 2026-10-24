@@ -8,13 +8,24 @@ const WORD_RE = /\w+/y;
 const UNBALANCED = 'c4-layout.unbalanced-braces';
 export const WHITESPACE = ' \t\n\r\f\v';
 
+/** How many WHITESPACE characters `text` starts with. */
+export function leadingWhitespace(text: string): number {
+  let start = 0;
+  while (start < text.length && WHITESPACE.includes(text[start] ?? '')) start += 1;
+  return start;
+}
+
+/** How many WHITESPACE characters `text` ends with. */
+export function trailingWhitespace(text: string): number {
+  let end = text.length;
+  while (end > 0 && WHITESPACE.includes(text[end - 1] ?? '')) end -= 1;
+  return text.length - end;
+}
+
 /** Strip WHITESPACE (only) from both ends. */
 export function stripWhitespace(text: string): string {
-  let start = 0;
-  let end = text.length;
-  while (start < end && WHITESPACE.includes(text[start] ?? '')) start += 1;
-  while (end > start && WHITESPACE.includes(text[end - 1] ?? '')) end -= 1;
-  return text.slice(start, end);
+  const start = leadingWhitespace(text);
+  return start === text.length ? '' : text.slice(start, text.length - trailingWhitespace(text));
 }
 
 /** A top-level `<kind> { }` block; `close` is the offset of its `}`, null when unclosed. */
