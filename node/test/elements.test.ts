@@ -163,11 +163,12 @@ describe('element ids at any depth', () => {
 
   it('the retired key comes before the schema errors of the other keys', () => {
     const root = repo([[MODEL, HANDLERS, handlersWith("          arc42 'architecture/x.arc42.md'\n          claims ['src/x']\n")]]);
-    const parts = check(root).err.replace(/^arch_check: /, '').trimEnd().split('; ');
-    expect(parts).toHaveLength(2);
-    const [retired, schema] = parts;
-    expect(retired).toBe(RETIRED('typescript.api.handlers'));
+    const err = check(root).err.replace(/^arch_check: /, '').trimEnd();
+    const prefix = `${RETIRED('typescript.api.handlers')}; `;
+    expect(err.startsWith(prefix)).toBe(true);
+    const schema = err.slice(prefix.length);
     expect(schema).toMatch(/^model element typescript\.api\.handlers: .*claims/);
+    expect(schema).not.toContain('; ');
   });
 
   it('a metadata syntax problem is reported alone', () => {

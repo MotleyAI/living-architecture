@@ -9,9 +9,11 @@ diagrams:
   - anchored
   - inbound
   - descend
+  - flat
 view_depth:
   nested: 2
   overlap: 2
   anchored: 2
   inbound: 1
   descend: 1
+  flat: 1

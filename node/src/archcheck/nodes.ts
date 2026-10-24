@@ -1,49 +1,45 @@
-// The canonical node/unit map: one root per language, nodes from model metadata, nested elements by convention.
-import type { Element, ModelParse } from '../c4/index.js';
+// The canonical element map: every model element, with node mappings from metadata and nested units by convention.
+import { type Element, type ModelParse, RETIRED_ARC42_KEY } from '../c4/index.js';
 import { language, message, schema, validate } from '../contract/index.js';
 import { ArchCheckError } from './index-file.js';
 
-/** A child of a language root; `units` are its declared units in metadata order. */
-export interface Node {
+/**
+ * One model element: a language root (`node` null), a node (`node === id`), or nested under `node`.
+ * A node's `units` are its declared units in metadata order; `unit` is a nested element's convention unit.
+ */
+export interface MapElement {
   id: string;
   language: string;
+  node: string | null;
+  specs: string[];
   virtual: boolean;
   package: string | null;
   units: string[];
-  arc42: string | null;
-  specs: string[];
+  unit: string | null;
   hasElements: boolean;
 }
 
-/** An element nested under a precise node and the unit it maps to by convention. */
-export interface Derived {
-  id: string;
-  node: string;
-  language: string;
-  unit: string;
-}
+export const isNode = (element: MapElement): boolean => element.node === element.id;
 
 export class NodeMap {
-  constructor(
-    readonly nodes: Node[],
-    readonly derived: Derived[],
-  ) {}
+  constructor(readonly elements: MapElement[]) {}
 
-  nodeIds(): Set<string> {
-    return new Set(this.nodes.map((n) => n.id));
+  elementIds(): Set<string> {
+    return new Set(this.elements.map((e) => e.id));
   }
 
-  languageNodes(lang: string): Node[] {
-    return this.nodes.filter((n) => n.language === lang);
+  languageNodes(lang: string): MapElement[] {
+    return this.elements.filter((e) => isNode(e) && e.language === lang);
   }
 
-  languageDerived(lang: string): Derived[] {
-    return this.derived.filter((d) => d.language === lang);
+  /** `lang`'s nested elements that map to a unit, in model order. */
+  languageDerived(lang: string): MapElement[] {
+    return this.elements.filter((e) => e.unit !== null && e.language === lang);
   }
 
   /** Every declared, then derived unit of `lang`, in model order, each once. */
   units(lang: string): string[] {
-    const all = [...this.languageNodes(lang).flatMap((n) => n.units), ...this.languageDerived(lang).map((d) => d.unit)];
+    const all = [...this.languageNodes(lang).flatMap((n) => n.units), ...this.languageDerived(lang).map((d) => String(d.unit))];
     return [...new Set(all)];
   }
 }
@@ -52,46 +48,49 @@ export function separator(lang: string): string {
   return language(lang).unit_separator;
 }
 
-function metadataErrors(element: Element): string[] {
-  const variety = element.virtual ? 'virtual' : 'precise';
-  const errors = validate({ ...schema('node'), $ref: `#/$defs/${variety}` }, element.metadata);
-  return errors.map((error) => message('arch-check.metadata-invalid', { element: element.id, error }));
+function variety(element: Element, roots: Set<string>): string {
+  if (element.parent !== null && roots.has(element.parent)) return element.virtual ? 'virtual' : 'precise';
+  return 'element';
+}
+
+/** The retired-key error first, then the schema errors of the other keys. */
+function metadataErrors(element: Element, roots: Set<string>): string[] {
+  const errors: string[] = [];
+  if (Object.hasOwn(element.metadata, RETIRED_ARC42_KEY)) errors.push(message('arch-check.arc42-key-retired', { element: element.id }));
+  const rest = Object.fromEntries(Object.entries(element.metadata).filter(([key]) => key !== RETIRED_ARC42_KEY));
+  const found = validate({ ...schema('node'), $ref: `#/$defs/${variety(element, roots)}` }, rest);
+  return [...errors, ...found.map((error) => message('arch-check.metadata-invalid', { element: element.id, error }))];
 }
 
 const strings = (value: unknown): string[] => (Array.isArray(value) ? value.map(String) : []);
-
-function toNode(element: Element, lang: string): Node {
-  const meta = element.metadata;
-  const pkg = meta.package;
-  const units = element.virtual ? strings(meta.packages) : [String(pkg), ...strings(meta.claims)];
-  return {
-    id: element.id,
-    language: lang,
-    virtual: element.virtual,
-    package: typeof pkg === 'string' ? pkg : null,
-    units,
-    arc42: typeof meta.arc42 === 'string' ? meta.arc42 : null,
-    specs: strings(meta.specs),
-    hasElements: false,
-  };
-}
 
 function problems(model: ModelParse, languages: string[]): string[] {
   const out: string[] = [];
   const roots = new Set(model.elements.filter((e) => e.parent === null).map((e) => e.id));
   for (const element of model.elements) {
-    if (element.parent === null) {
-      if (!languages.includes(element.id)) out.push(message('arch-check.root-undeclared', { element: element.id }));
-      else if (element.hasMetadata || element.metadataProblems.length > 0) {
-        out.push(message('arch-check.metadata-on-root', { element: element.id }));
-      }
+    if (element.parent === null && !languages.includes(element.id)) {
+      out.push(message('arch-check.root-undeclared', { element: element.id }));
     } else if (element.metadataProblems.length > 0) out.push(...element.metadataProblems);
-    else if (!roots.has(element.parent)) {
-      if (element.hasMetadata) out.push(message('arch-check.metadata-on-nested', { element: element.id }));
-    } else out.push(...metadataErrors(element));
+    else out.push(...metadataErrors(element, roots));
   }
   for (const lang of languages) if (!roots.has(lang)) out.push(message('arch-check.root-missing', { language: lang }));
   return out;
+}
+
+function entry(id: string, lang: string, node: string | null, specs: string[]): MapElement {
+  return { id, language: lang, node, specs, virtual: false, package: null, units: [], unit: null, hasElements: false };
+}
+
+function toNode(element: Element, lang: string): MapElement {
+  const meta = element.metadata;
+  const pkg = meta.package;
+  const units = element.virtual ? strings(meta.packages) : [String(pkg), ...strings(meta.claims)];
+  return {
+    ...entry(element.id, lang, element.id, strings(meta.specs)),
+    virtual: element.virtual,
+    package: typeof pkg === 'string' ? pkg : null,
+    units,
+  };
 }
 
 /** The map for `model`; ArchCheckError naming every root and metadata problem, in model order. */
@@ -99,21 +98,29 @@ export function buildNodeMap(model: ModelParse, languages: string[]): NodeMap {
   const found = problems(model, languages);
   if (found.length > 0) throw new ArchCheckError(found.join('; '));
   const roots = new Set(model.elements.filter((e) => e.parent === null).map((e) => e.id));
-  const nodes = new Map<string, Node>();
-  for (const e of model.elements) if (e.parent !== null && roots.has(e.parent)) nodes.set(e.id, toNode(e, e.parent));
-  const derived: Derived[] = [];
+  const byId = new Map<string, MapElement>();
   for (const element of model.elements) {
-    if (element.parent === null || roots.has(element.parent)) continue;
+    const specs = strings(element.metadata.specs);
+    if (element.parent === null) {
+      byId.set(element.id, entry(element.id, element.id, null, specs));
+      continue;
+    }
+    if (roots.has(element.parent)) {
+      byId.set(element.id, toNode(element, element.parent));
+      continue;
+    }
     const [lang = '', local = '', ...path] = element.id.split('.');
-    const node = nodes.get(`${lang}.${local}`);
+    const node = byId.get(`${lang}.${local}`);
     if (node === undefined) continue;
+    const nested = entry(element.id, lang, node.id, specs);
     if (node.virtual) node.hasElements = true;
     else {
       const sep = separator(lang);
-      derived.push({ id: element.id, node: node.id, language: lang, unit: `${node.package}${sep}${path.join(sep)}` });
+      nested.unit = `${node.package}${sep}${path.join(sep)}`;
     }
+    byId.set(element.id, nested);
   }
-  return new NodeMap([...nodes.values()], derived);
+  return new NodeMap([...byId.values()]);
 }
 
 /** `lang`'s unit -> element FQN: declared units first-wins in model order, then derived units. */
@@ -122,6 +129,9 @@ export function unitToElement(nodeMap: NodeMap, lang: string): Map<string, strin
   for (const node of nodeMap.languageNodes(lang)) {
     for (const unit of node.units) if (!mapping.has(unit)) mapping.set(unit, node.id);
   }
-  for (const element of nodeMap.languageDerived(lang)) if (!mapping.has(element.unit)) mapping.set(element.unit, element.id);
+  for (const element of nodeMap.languageDerived(lang)) {
+    const unit = String(element.unit);
+    if (!mapping.has(unit)) mapping.set(unit, element.id);
+  }
   return mapping;
 }

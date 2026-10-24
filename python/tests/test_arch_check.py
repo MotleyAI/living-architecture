@@ -1466,11 +1466,11 @@ def test_retired_arc42_key_precedes_the_schema_errors_of_other_keys(tmp_path):
     root = make_child_repo(tmp_path, model=nested_metadata(body))
     with pytest.raises(archcheck.ArchCheckError) as excinfo:
         archcheck.run_checks(root)
-    parts = str(excinfo.value).split("; ")
-    assert parts[0] == RETIRED.format(e="python.core.query")
-    assert parts[1].startswith("model element python.core.query: ")
-    assert "claims" in parts[1]
-    assert len(parts) == 2
+    retired, _, schema_error = str(excinfo.value).partition(RETIRED.format(e="python.core.query") + "; ")
+    assert retired == ""
+    assert schema_error.startswith("model element python.core.query: ")
+    assert "claims" in schema_error
+    assert "; " not in schema_error
 
 
 def test_metadata_syntax_problem_is_reported_alone(tmp_path):

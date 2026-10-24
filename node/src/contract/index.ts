@@ -25,5 +25,5 @@ export {
 } from './snapshot.js';
 export { PyFloat, PyTimestamp, canonicalRepr, fixed1, normalize, reprFloat, toPlain } from './values.js';
 export { YAMLError, loadYaml } from './yaml.js';
-export { WORD, byCodePoint, decodeUtf8, isWordStart, splitLines } from './text.js';
+export { WORD, byCodePoint, decodeUtf8, isWordStart, splitLines, splitLinesKeepEnds } from './text.js';
 export { which, whichPath } from './which.js';

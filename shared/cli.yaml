@@ -71,8 +71,10 @@ commands:
   la-arch-migrate:
     help: >-
       Merge a legacy architecture/model/*.c4 model into architecture/model.c4 (creating an empty
-      architecture/views.c4 when absent), verified to parse identically; writes everything or nothing and
-      prints each written and deleted path.
+      architecture/views.c4 when absent), and convert the retired arc42 metadata key: move each element's
+      doc to architecture/<element id>.arc42.md, drop the key, flatten cross_cutting_arc42 docs into
+      architecture/ and rename their diagrams keys. Verified to parse identically; writes everything or
+      nothing and prints each written, moved and deleted path.
     exit: {0: migrated or nothing to migrate, 2: not migratable, verification mismatch or filesystem error}
     options:
       - {name: --root, type: path, help: 'repo root (default: nearest git root of cwd)'}

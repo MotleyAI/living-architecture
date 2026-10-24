@@ -71,3 +71,13 @@ flowchart TD
   class api__other,core leaf;
 ```
 <!-- /likec4:descend -->
+
+<!-- likec4:flat -->
+```mermaid
+flowchart TD
+  %% flat: Flat
+  api__handlers["Handlers"]
+  core__store["Store"]
+  api__handlers --> core__store
+```
+<!-- /likec4:flat -->

@@ -8,7 +8,14 @@ from pathlib import Path
 from pydantic import BaseModel
 
 from living_architecture.c4.index import read_index
-from living_architecture.c4.model import ModelParse, Relation, project, roots, strip_line_comment
+from living_architecture.c4.model import (
+    ModelParse,
+    Relation,
+    is_or_ancestor,
+    project,
+    roots,
+    strip_line_comment,
+)
 from living_architecture.contract import architecture, message
 
 
@@ -49,10 +56,6 @@ _TOKEN_RE = re.compile(r"'[^']*'|->|[\w.]+|\S")
 DEFAULT_VIEW_DEPTH = 3
 
 EMPTY_VIEWS = "views {\n}\n"
-
-
-def _top(eid: str) -> str:
-    return eid.split(".")[0]
 
 
 def _level(eid: str) -> int:
@@ -122,9 +125,6 @@ class _Parser:
         if name not in scope.known:
             findings.append(message("c4.include-unknown", form=form, name=name))
             return False
-        if name not in scope.top_level:
-            findings.append(message("c4.include-non-top-level", form=form, name=name))
-            return False
         return True
 
     def read_spec(self, vid: str, scope: _Scope, raw: _RawView, findings: list[str]) -> None:  # NOSONAR(S3776) — one include production
@@ -156,8 +156,6 @@ class _Parser:
                     findings.append(message("c4.malformed-predicate", view=vid))
             elif tok[1] not in scope.known:
                 findings.append(message("c4.view-includes-unknown", view=vid, name=tok[1]))
-            elif tok[1] not in scope.top_level:
-                findings.append(message("c4.view-includes-non-top-level", view=vid, name=tok[1]))
             else:
                 _add_base(raw, tok[1])
         else:
@@ -286,19 +284,34 @@ def _subtree(root: str, kids: dict[str, list[str]]) -> list[str]:
     return out
 
 
+def _reach(selection: str, depth: int) -> int:
+    """The deepest level a selection shows: `depth` levels counted from the selection itself."""
+    return _level(selection) + depth - 1
+
+
+def _anchors(r: Relation, spec: _RawView) -> list[str]:
+    """The predicate anchors matching `r`: a source anchor at or above its source, a target anchor at or above its target."""
+    return [a for a in spec.src_anchors if is_or_ancestor(a, r.src)] + [
+        a for a in spec.dst_anchors if is_or_ancestor(a, r.dst)
+    ]
+
+
+def _in_base(eid: str, spec: _RawView) -> bool:
+    return any(is_or_ancestor(selection, eid) for selection in spec.base)
+
+
 def _shown_ids(spec: _RawView, depth: int, model: ModelParse, kids: dict[str, list[str]]) -> set[str]:
-    """Each base's subtree down to `depth`, plus every predicate-matched endpoint collapsed to `depth`
-    and its ancestor chain."""
+    """Each include's subtree down to its reach, plus each predicate-matched endpoint cut to the anchor's
+    reach, with its ancestor chain."""
     shown: set[str] = set()
-    for top in spec.base:
-        for eid in _subtree(root=top, kids=kids):
-            if _level(eid) <= depth:
-                shown.add(eid)
+    for selection in spec.base:
+        reach = _reach(selection, depth)
+        shown.update(eid for eid in _subtree(root=selection, kids=kids) if _level(eid) <= reach)
     for r in model.relations:
-        if _top(r.src) not in spec.src_anchors and _top(r.dst) not in spec.dst_anchors:
-            continue
-        for endpoint in (r.src, r.dst):
-            shown.update(_ancestor_chain(_ancestor_at_level(eid=endpoint, level=min(depth, _level(endpoint)))))
+        for anchor in _anchors(r, spec):
+            reach = _reach(anchor, depth)
+            for endpoint in (r.src, r.dst):
+                shown.update(_ancestor_chain(_ancestor_at_level(eid=endpoint, level=min(reach, _level(endpoint)))))
     return shown
 
 
@@ -310,14 +323,13 @@ def _represent(eid: str, shown: set[str]) -> str | None:
     return None
 
 
-def _view_edges(model: ModelParse, spec: _RawView, among: set[str], shown: set[str]) -> list[Edge]:
+def _view_edges(model: ModelParse, spec: _RawView, shown: set[str]) -> list[Edge]:
     """Relations projected onto shown representatives, deduped in first-seen order; an edge is legacy
     iff every contributing relation is."""
     contributors: dict[tuple[str, str], list[Relation]] = {}
     order: list[tuple[str, str]] = []
     for r in model.relations:
-        in_view = (_top(r.src) in among and _top(r.dst) in among) or _top(r.src) in spec.src_anchors or _top(r.dst) in spec.dst_anchors
-        if not in_view:
+        if not ((_in_base(r.src, spec) and _in_base(r.dst, spec)) or _anchors(r, spec)):
             continue
         rep_src, rep_dst = _represent(eid=r.src, shown=shown), _represent(eid=r.dst, shown=shown)
         if rep_src is None or rep_dst is None or rep_src == rep_dst:
@@ -331,10 +343,10 @@ def _view_edges(model: ModelParse, spec: _RawView, among: set[str], shown: set[s
 
 
 def _build_view(spec: _RawView, depth: int, model: ModelParse) -> View:
-    """Expand base includes to `depth`; predicate pulls add only the matched endpoint and its ancestor
-    chain. Deeper edges roll up to the cutoff."""
+    """Expand includes to their reach; predicate pulls add only the matched endpoints and their ancestor
+    chains. Deeper edges roll up to the nearest shown ancestor."""
     kids = _children_map(model)
     shown = _shown_ids(spec=spec, depth=depth, model=model, kids=kids)
-    edges = _view_edges(model=model, spec=spec, among=set(spec.base), shown=shown)
+    edges = _view_edges(model=model, spec=spec, shown=shown)
     node_ids = [e.id for e in model.elements if e.id in shown]
     return View(id=spec.id, title=spec.title, root=spec.root, node_ids=node_ids, edges=edges)

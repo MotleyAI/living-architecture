@@ -19,4 +19,8 @@ views {
     title 'Descend'
     include api.other -> *
   }
+  view flat of python {
+    title 'Flat'
+    include api.handlers, core.store
+  }
 }

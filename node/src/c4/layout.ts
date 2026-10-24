@@ -49,6 +49,20 @@ export interface Layout {
   viewsExists: boolean;
 }
 
+export const ARCH_DIR = 'architecture/';
+export const DOC_SUFFIX = '.arc42.md';
+export const RETIRED_ARC42_KEY = 'arc42';
+
+/** The arc42 doc of the model element `element`. */
+export const elementDoc = (element: string): string => `${ARCH_DIR}${element}${DOC_SUFFIX}`;
+
+/** `architecture/<name>.arc42.md` with no `/` in `<name>`. */
+export function isFlatDoc(path: string): boolean {
+  if (!path.startsWith(ARCH_DIR) || !path.endsWith(DOC_SUFFIX)) return false;
+  const name = path.slice(ARCH_DIR.length, path.length - DOC_SUFFIX.length);
+  return name !== '' && !name.includes('/');
+}
+
 export const modelFile = (): string => architecture().model_file;
 export const viewsFile = (): string => architecture().views_file;
 export const legacyModelDir = (): string => architecture().legacy_model_dir;
@@ -173,19 +187,27 @@ function isDirectory(path: string): boolean {
 }
 
 /** Every LikeC4 source file under `architecture/`, repo-relative, in code-point order. */
-export function sources(root: string): string[] {
+/**
+ * Every file under `architecture/` ending in one of `suffixes`, repo-relative, in code-point order.
+ * A symlink to a file counts; a symlinked directory is not descended into.
+ */
+export function architectureFiles(root: string, suffixes: string[]): string[] {
   if (!isDirectory(join(root, 'architecture'))) return [];
-  const extensions: string[] = architecture().source_extensions;
   const found: string[] = [];
   const walk = (rel: string): void => {
     for (const entry of readdirSync(join(root, rel), { withFileTypes: true })) {
       const child = `${rel}/${entry.name}`;
       if (entry.isDirectory()) walk(child);
-      else if (extensions.some((ext) => entry.name.endsWith(ext)) && isFile(join(root, child))) found.push(child);
+      else if (suffixes.some((ext) => entry.name.endsWith(ext)) && isFile(join(root, child))) found.push(child);
     }
   };
   walk('architecture');
   return found.sort(byCodePoint);
+}
+
+/** Every LikeC4 source file under `architecture/`, repo-relative, in code-point order. */
+export function sources(root: string): string[] {
+  return architectureFiles(root, architecture().source_extensions);
 }
 
 const render = (rel: string, p: Problem): string => message(p.id, { path: rel, line: p.line, text: p.text });

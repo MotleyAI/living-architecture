@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from living_architecture.archcheck.facts import Facts
-from living_architecture.archcheck.nodes import Derived, NodeMap, separator
+from living_architecture.archcheck.nodes import MapElement, NodeMap, separator
 from living_architecture.contract import message
 
 
@@ -34,25 +34,19 @@ def _overlap(a: str, b: str, sep: str) -> bool:
     return a == b or a.startswith(b + sep) or b.startswith(a + sep)
 
 
-def _derived_findings(element: Derived, candidates: list[str], facts: Facts) -> list[str]:
+def _derived_findings(element: MapElement, candidates: list[str], facts: Facts) -> list[str]:
     findings: list[str] = []
     sep = separator(facts.language)
-    clash = next((c for c in candidates if _overlap(element.unit, c, sep)), None)
+    unit = str(element.unit)
+    clash = next((c for c in candidates if _overlap(unit, c, sep)), None)
     if clash is not None:
-        findings.append(
-            message("claims-exactly-once.child-collides", element=element.id, unit=element.unit, clash=clash)
-        )
-    fact = facts.unit(element.unit)
+        findings.append(message("claims-exactly-once.child-collides", element=element.id, unit=unit, clash=clash))
+    fact = facts.unit(unit)
     if fact.status == "missing":
-        findings.append(message("claims-exist.child-missing", element=element.id, unit=element.unit))
+        findings.append(message("claims-exist.child-missing", element=element.id, unit=unit))
     elif fact.status == "ambiguous":
         findings.append(
-            message(
-                "claims-exist.child-ambiguous",
-                element=element.id,
-                unit=element.unit,
-                candidates=", ".join(fact.candidates),
-            )
+            message("claims-exist.child-ambiguous", element=element.id, unit=unit, candidates=", ".join(fact.candidates))
         )
     return findings
 
