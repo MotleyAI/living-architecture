@@ -29,7 +29,7 @@ reveals that the planned fix is a band-aid after all — the same change must be
 repeated in N places, two code paths have to agree by hand, a missed
 normalization that a single canonical representation would obviate, an
 axiom-violating shape left standing (judged against the principles/axioms in
-the `architecture/**/*.arc42.md` files) — STOP and present the case to me: the
+the `architecture/*.arc42.md` files) — STOP and present the case to me: the
 symptom, the structural cause, the band-aid vs. structural options with
 PROS/CONS, the arc42 grounding, and your RECOMMENDATION (leaning structural —
 a bigger diff is an acceptable cost). Wait for my call (this is the

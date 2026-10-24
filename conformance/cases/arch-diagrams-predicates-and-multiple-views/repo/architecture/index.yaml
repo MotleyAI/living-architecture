@@ -14,7 +14,7 @@ diagrams:
   - system
   - out
   - into
-  architecture/api.arc42.md:
+  architecture/python.api.arc42.md:
   - pair
 view_depth:
   into: 1

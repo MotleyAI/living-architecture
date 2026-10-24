@@ -1,0 +1,9 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+fixture: arch-ok
+expect:
+  exit: 0
+golden: manual
+note: a language root's doc beside system.arc42.md

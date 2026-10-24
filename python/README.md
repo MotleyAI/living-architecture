@@ -89,6 +89,9 @@ Pin the architecture check in CI to a release, in your ecosystem's form:
 - run: npx -y -p living-architecture@0.4.0 la-arch-check
 ```
 
+When you move the pin to a release with a newer repo format, first run that release's `la-arch-migrate` and commit
+the result: the check refuses a repo in an older format.
+
 ## Prerequisites
 
 Always: `git`, `bash`, `gh` (authenticated) and `jq`.

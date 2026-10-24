@@ -1,0 +1,2 @@
+arc42-exists: architecture/sub/x.arc42.md must sit directly in architecture/
+arch_check: 1 finding(s)

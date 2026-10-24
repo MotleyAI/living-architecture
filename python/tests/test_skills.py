@@ -292,3 +292,19 @@ def test_docs_describe_the_local_override():
     [row] = [line for line in (DOCS_DIR / "commands.md").read_text(encoding="utf-8").splitlines()
              if line.startswith("| `la-config")]
     assert "living-architecture.local.yaml" in row
+
+
+RETIRED_ARC42_FORMS = ["architecture/**/*.arc42.md", "arc42 '", "<node>.arc42.md", "touches unknown node"]
+
+
+@pytest.mark.parametrize("path", SKILL_FILES, ids=_id)
+def test_skills_name_only_flat_id_named_arc42_docs(path):
+    text = path.read_text(encoding="utf-8")
+    assert [form for form in RETIRED_ARC42_FORMS if form in text] == []
+
+
+def test_living_architecture_skill_names_elements():
+    text = (SKILLS_DIR / "living-architecture" / "SKILL.md").read_text(encoding="utf-8")
+    assert "Four layers, one element id everywhere." in text
+    assert "`architecture/<id>.arc42.md`" in text
+    assert "Every arc42 file sits directly in `architecture/`, never in a subfolder." in text

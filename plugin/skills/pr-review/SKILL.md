@@ -106,7 +106,7 @@ re-triggered yet).
 finding, before writing the fix, ask whether it is merely a *symptom* of a
 deeper structural issue and whether a *structural* fix would be more correct
 than a local band-aid — judged against the principles/axioms in the
-`architecture/**/*.arc42.md` files (a band-aid that leaves an axiom-violating
+`architecture/*.arc42.md` files (a band-aid that leaves an axiom-violating
 shape standing, a bug that recurs because two code paths must agree by hand, a
 missed-normalization that a single canonical representation would obviate, etc.
 are all tells). When a structural fix appears warranted, STOP and present the

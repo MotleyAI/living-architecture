@@ -1,0 +1,9 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+fixture: arch-ok
+expect:
+  exit: 1
+golden: manual
+note: owners read over elements in declaration order (root, node, nested), then cross_cutting_specs in file order

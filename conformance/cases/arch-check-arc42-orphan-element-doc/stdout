@@ -1,0 +1,3 @@
+arc42-exists: architecture/api.arc42.md is orphaned — not architecture/system.arc42.md, the doc of a model element, or in cross_cutting_arc42
+arc42-exists: architecture/python.gone.arc42.md is orphaned — not architecture/system.arc42.md, the doc of a model element, or in cross_cutting_arc42
+arch_check: 2 finding(s)

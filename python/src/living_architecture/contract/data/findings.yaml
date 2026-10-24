@@ -29,11 +29,10 @@ findings:
   arch-check.root-package-not-a-directory: 'architecture/index.yaml: root_package {value!r} is not a directory under source_root {source_root!r}'
   arch-check.tsconfig-escapes: 'architecture/index.yaml: tsconfig {value!r} resolves outside the repo'
   arch-check.metadata-invalid: 'model element {element}: {error}'
-  arch-check.metadata-on-nested: 'model element {element}: nested elements may not carry metadata'
   arch-check.no-language-section: 'architecture/index.yaml: a language section is required (one of python, typescript)'
   arch-check.root-undeclared: 'model element {element}: top-level elements must be declared language roots'
   arch-check.root-missing: model has no root element for declared language {language}
-  arch-check.metadata-on-root: 'model element {element}: language roots may not carry metadata'
+  arch-check.arc42-key-retired: 'model element {element}: the arc42 key is retired; its doc is architecture/{element}.arc42.md'
 
   claims-exist.unit-missing: 'claims-exist: {node} claims {unit}, which does not exist on disk'
   claims-exist.child-missing: 'claims-exist: element {element} maps to {unit}, which does not exist on disk'
@@ -45,13 +44,15 @@ findings:
   claims-exactly-once.child-collides: 'claims-exactly-once: element {element} ({unit}) collides with declared unit {clash}'
 
   arc42-exists.system-missing: 'arc42-exists: {doc} is missing'
-  arc42-exists.node-doc-missing: 'arc42-exists: {node} names {doc}, which does not exist'
+  arc42-exists.cross-cutting-not-flat: 'arc42-exists: cross_cutting_arc42 names {doc}, which must sit directly in architecture/'
   arc42-exists.cross-cutting-missing: 'arc42-exists: cross_cutting_arc42 names {doc}, which does not exist'
-  arc42-exists.orphan: 'arc42-exists: {doc} is orphaned — not {system}, a node arc42 entry, or in cross_cutting_arc42'
+  arc42-exists.cross-cutting-is-element: 'arc42-exists: cross_cutting_arc42 names {doc}, the doc of model element {element}'
+  arc42-exists.nested-doc: 'arc42-exists: {doc} must sit directly in architecture/'
+  arc42-exists.orphan: 'arc42-exists: {doc} is orphaned — not {system}, the doc of a model element, or in cross_cutting_arc42'
 
   spec-mapping.mapped-twice: 'spec-mapping: {group} mapped by both {first} and {second}'
-  spec-mapping.unknown-node: 'spec-mapping: {group} touches unknown node {node}'
-  spec-mapping.unmapped: 'spec-mapping: spec group {group} is mapped by no node and not cross-cutting'
+  spec-mapping.unknown-element: 'spec-mapping: {group} touches unknown element {element}'
+  spec-mapping.unmapped: 'spec-mapping: spec group {group} is mapped by no element and not cross-cutting'
   spec-mapping.dir-missing: 'spec-mapping: {group} is mapped but has no spec dir in openspec/specs or a live change'
   spec-mapping.no-spec-md: 'spec-mapping: spec group {group} contains no spec.md'
 
@@ -82,12 +83,10 @@ findings:
   c4.unrecognized-model-line: 'unrecognized model line: {line}'
   c4.malformed-metadata: 'element {element} has malformed metadata: {line}'
   c4.include-unknown: view include {form} references unknown id {name}
-  c4.include-non-top-level: view include {form} references non-top-level id {name}
   c4.star-to-star: 'view {view}: ''* -> *'' is not supported'
   c4.malformed-predicate: 'view {view}: malformed predicate'
   c4.unsupported-predicate: 'view {view}: unsupported predicate {src} -> {dst}'
   c4.view-includes-unknown: view {view} includes unknown id {name}
-  c4.view-includes-non-top-level: view {view} includes non-top-level id {name}
   c4.unexpected-include-token: 'view {view}: unexpected include token {token!r}'
   c4.title-not-string: view {view} title is not a string
   c4.unrecognized-directive: view {view} has unrecognized directive {token!r}
@@ -148,8 +147,14 @@ findings:
   arch-migrate.error: 'la-arch-migrate: {error}'
   arch-migrate.nothing: 'nothing to migrate: this la reads format {current}, which living-architecture.yaml already declares'
   arch-migrate.written: 'wrote {path}'
+  arch-migrate.moved: 'moved {source} to {target}'
   arch-migrate.deleted: 'deleted {path}'
   arch-migrate.mismatch: the merged files would not parse to the same model and views; nothing written
+  arch-migrate.source-missing: '{source} does not exist; nothing written'
+  arch-migrate.source-moved-twice: '{source} would move to both {first} and {second}; nothing written'
+  arch-migrate.shared-target: '{first} and {second} would both move to {target}; nothing written'
+  arch-migrate.target-taken: '{source} cannot move to {target}, which already exists; nothing written'
+  arch-migrate.diagrams-key-taken: '{source} cannot move to {target}: architecture/index.yaml already has the diagrams key {target}; nothing written'
   arch-migrate.no-config: no living-architecture.yaml at the repo root, so there is no format to migrate; run /la:init to onboard this repo
   arch-migrate.unknown-format: cannot migrate from format {declared}; this la reads format {current} and converts only a repo that declares no format
   arch-migrate.stamp-mismatch: 'cannot insert the format into living-architecture.yaml; add format: {current} by hand'
