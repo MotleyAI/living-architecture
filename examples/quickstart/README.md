@@ -49,8 +49,8 @@ arch_check: OK
 
 ## Or: grandfather it as legacy
 
-Sometimes the code is already like that and the fix has to wait. Add the arrow to `architecture/model.c4`,
-marked `#legacy`:
+Sometimes the shortcut is already in the code when you first write the model, and the fix has to wait. Add the
+arrow to `architecture/model.c4`, marked `#legacy`:
 
 ```
 api -> core
@@ -67,8 +67,9 @@ diagrams-fresh: architecture/system.arc42.md diagram python is stale; run la-arc
 arch_check: 2 finding(s)
 ```
 
-Every legacy arrow has to be counted in `architecture/index.yaml`. Raise the baseline to
-`legacy_arrows: {baseline: 1}`, which is an edit a reviewer sees, then refresh the diagram:
+Every legacy arrow has to be counted in `architecture/index.yaml`. Set the baseline to
+`legacy_arrows: {baseline: 1}`, then refresh the diagram. This is part of setting up the model: from then on the
+baseline only goes down.
 
 ```console
 $ la-arch-diagrams --root .

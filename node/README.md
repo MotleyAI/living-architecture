@@ -114,8 +114,10 @@ la-arch-check
 ```
 
 The scaffold allows every import that exists, so the first check passes once any OpenSpec specs you have are
-mapped to elements. Tighten it from there: delete the arrows you don't want, or mark them `#legacy`, raise the
-baseline to match and run `la-arch-diagrams`. TypeScript and mixed repos are set up the same way; see
+mapped to elements. Then mark the arrows you don't want as `#legacy`, set `legacy_arrows.baseline` to their count
+and run `la-arch-diagrams`. That is the one time the baseline goes up. From then on it only goes down: an arrow
+leaves the model together with the imports behind it, since the check fails on either one alone. TypeScript and
+mixed repos are set up the same way; see
 [Configuration](https://github.com/MotleyAI/living-architecture/blob/main/docs/configuration.md#languages).
 
 Pin the check in CI to a release, in your ecosystem's form:
@@ -171,8 +173,8 @@ them:
   so the picture and the check can't disagree.
 - The model must match the code exactly: an import with no arrow fails, and so does an arrow with no import.
 - One model covers Python and TypeScript, in the same repo.
-- Grandfathered arrows are pinned to a baseline in `architecture/index.yaml`, so adding one is a visible edit in
-  review, never a silent one.
+- Grandfathered arrows are counted against a baseline in `architecture/index.yaml` that only goes down after
+  setup, so the list of known violations can shrink but never quietly grow.
 - Each element carries principles with status tags (the test that enforces it, the issue that will, or
   `[review]`), which `la-arch-check` verifies and every stage of the PR flow reads before it acts.
 
