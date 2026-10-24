@@ -1,0 +1,33 @@
+specification {
+  element system
+  element node
+  tag legacy
+  tag virtual
+}
+
+model {
+  python = system 'Python' {
+    api = node 'API' {
+      handlers = node 'Handlers' {
+        x = node 'X' {
+          y = node 'Y'
+          w = node 'W'
+        }
+      }
+      other = node 'Other' {
+        z = node 'Z'
+      }
+    }
+    core = node 'Core' {
+      store = node 'Store' {
+        sql = node 'SQL'
+      }
+    }
+
+    api.handlers.x -> core.store.sql
+    api.handlers -> core
+    api.other.z -> core
+    api.other -> core #legacy
+    api.handlers.x.y -> api.handlers.x.w
+  }
+}

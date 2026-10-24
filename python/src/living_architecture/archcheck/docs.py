@@ -5,41 +5,51 @@ from __future__ import annotations
 from pathlib import Path
 
 from living_architecture.archcheck.nodes import NodeMap
+from living_architecture.c4 import ARCH_DIR, DOC_SUFFIX, architecture_files, element_doc, is_flat_doc
 from living_architecture.contract import message
 
-SYSTEM_DOC = "architecture/system.arc42.md"
+SYSTEM_DOC = f"{ARCH_DIR}system{DOC_SUFFIX}"
+
+
+def _cross_cutting_findings(root: Path, entry: str, element_docs: dict[str, str]) -> list[str]:
+    findings: list[str] = []
+    if not is_flat_doc(entry):
+        findings.append(message("arc42-exists.cross-cutting-not-flat", doc=entry))
+    if not (root / entry).is_file():
+        findings.append(message("arc42-exists.cross-cutting-missing", doc=entry))
+    if entry in element_docs:
+        findings.append(message("arc42-exists.cross-cutting-is-element", doc=entry, element=element_docs[entry]))
+    return findings
 
 
 def check_arc42(root: Path, index: dict, node_map: NodeMap) -> list[str]:
     findings: list[str] = []
     if not (root / SYSTEM_DOC).is_file():
         findings.append(message("arc42-exists.system-missing", doc=SYSTEM_DOC))
-    registered = {SYSTEM_DOC}
-    for node in node_map.nodes:
-        if node.arc42:
-            registered.add(node.arc42)
-            if not (root / node.arc42).is_file():
-                findings.append(message("arc42-exists.node-doc-missing", node=node.id, doc=node.arc42))
-    for entry in index.get("cross_cutting_arc42", []):
-        registered.add(entry)
-        if not (root / entry).is_file():
-            findings.append(message("arc42-exists.cross-cutting-missing", doc=entry))
-    for path in sorted((root / "architecture").glob("*.arc42.md")):
-        rel = f"architecture/{path.name}"
+    element_docs = {element_doc(e.id): e.id for e in node_map.elements}
+    entries = index.get("cross_cutting_arc42", [])
+    for entry in entries:
+        findings += _cross_cutting_findings(root, entry, element_docs)
+    for doc in architecture_files(root, (DOC_SUFFIX,)):
+        if "/" in doc.removeprefix(ARCH_DIR):
+            findings.append(message("arc42-exists.nested-doc", doc=doc))
+    registered = {SYSTEM_DOC, *element_docs, *entries}
+    for path in sorted((root / "architecture").glob(f"*{DOC_SUFFIX}")):
+        rel = f"{ARCH_DIR}{path.name}"
         if rel not in registered:
             findings.append(message("arc42-exists.orphan", doc=rel, system=SYSTEM_DOC))
     return findings
 
 
 def _mapped_spec_groups(index: dict, node_map: NodeMap, findings: list[str]) -> dict[str, str]:
-    """Spec group -> owning node (or cross_cutting_specs), appending duplicate-mapping findings."""
-    nodes = node_map.node_ids()
+    """Spec group -> owning element (or cross_cutting_specs), appending duplicate-mapping findings."""
+    elements = node_map.element_ids()
     mapped: dict[str, str] = {}
-    for node in node_map.nodes:
-        for group in node.specs:
+    for element in node_map.elements:
+        for group in element.specs:
             if group in mapped:
-                findings.append(message("spec-mapping.mapped-twice", group=group, first=mapped[group], second=node.id))
-            mapped[group] = node.id
+                findings.append(message("spec-mapping.mapped-twice", group=group, first=mapped[group], second=element.id))
+            mapped[group] = element.id
     for group, spec in index.get("cross_cutting_specs", {}).items():
         if group in mapped:
             findings.append(
@@ -47,8 +57,8 @@ def _mapped_spec_groups(index: dict, node_map: NodeMap, findings: list[str]) -> 
             )
         mapped[group] = "cross_cutting_specs"
         for touched in spec.get("touches", []):
-            if touched not in nodes:
-                findings.append(message("spec-mapping.unknown-node", group=group, node=touched))
+            if touched not in elements:
+                findings.append(message("spec-mapping.unknown-element", group=group, element=touched))
     return mapped
 
 

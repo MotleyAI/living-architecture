@@ -52,6 +52,22 @@ class Layout(BaseModel):
     views_exists: bool
 
 
+ARCH_DIR = "architecture/"
+DOC_SUFFIX = ".arc42.md"
+RETIRED_ARC42_KEY = "arc42"
+
+
+def element_doc(element: str) -> str:
+    """The arc42 doc of the model element `element`."""
+    return f"{ARCH_DIR}{element}{DOC_SUFFIX}"
+
+
+def is_flat_doc(path: str) -> bool:
+    """`architecture/<name>.arc42.md` with no `/` in `<name>`."""
+    name = path.removeprefix(ARCH_DIR).removesuffix(DOC_SUFFIX)
+    return path.startswith(ARCH_DIR) and path.endswith(DOC_SUFFIX) and bool(name) and "/" not in name
+
+
 def model_file() -> str:
     return architecture()["model_file"]
 
@@ -162,19 +178,26 @@ def _walk_error(error: OSError) -> None:
     raise error
 
 
-def sources(root: Path) -> list[str]:
-    """Every LikeC4 source file under `architecture/`, repo-relative, in code-point order."""
+def architecture_files(root: Path, suffixes: tuple[str, ...]) -> list[str]:
+    """Every file under `architecture/` ending in one of `suffixes`, repo-relative, in code-point order.
+
+    A symlink to a file counts; a symlinked directory is not descended into.
+    """
     arch = root / "architecture"
     if not arch.is_dir():
         return []
-    extensions = tuple(architecture()["source_extensions"])
     found: list[str] = []
     for here, _dirs, names in os.walk(arch, onerror=_walk_error):
         for name in names:
             path = Path(here) / name
-            if name.endswith(extensions) and path.is_file():
+            if name.endswith(suffixes) and path.is_file():
                 found.append(path.relative_to(root).as_posix())
     return sorted(found)
+
+
+def sources(root: Path) -> list[str]:
+    """Every LikeC4 source file under `architecture/`, repo-relative, in code-point order."""
+    return architecture_files(root, tuple(architecture()["source_extensions"]))
 
 
 def _read(root: Path, rel: str) -> FileScan | None:

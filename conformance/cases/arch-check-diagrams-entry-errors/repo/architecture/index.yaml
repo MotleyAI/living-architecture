@@ -16,5 +16,5 @@ diagrams:
   - system
   architecture/sub/y.arc42.md:
   - system
-  architecture/api.arc42.md: system
+  architecture/python.api.arc42.md: system
   architecture/security.arc42.md: []

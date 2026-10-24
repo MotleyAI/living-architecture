@@ -1,0 +1,12 @@
+# The architecture index.
+python:
+  root_package: pkg  # top-level package
+cross_cutting_arc42:
+- architecture/security.arc42.md
+cross_cutting_specs:
+  logging:
+    touches: [python.api, python.core]
+legacy_arrows: {baseline: 1}
+diagrams:
+  # docs and the views they embed
+  architecture/python.api.arc42.md: [system]   # the API doc

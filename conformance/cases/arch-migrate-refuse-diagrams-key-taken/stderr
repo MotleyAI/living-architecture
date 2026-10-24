@@ -1,0 +1,1 @@
+la-arch-migrate: architecture/api.arc42.md cannot move to architecture/python.api.arc42.md: architecture/index.yaml already has the diagrams key architecture/python.api.arc42.md; nothing written

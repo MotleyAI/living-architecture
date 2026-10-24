@@ -116,17 +116,17 @@ skills. What still holds:
 ## Normative harnesses (living-architecture repos)
 
 In a repo with an `architecture/` directory at its root,
-`architecture/**/*.arc42.md`, `architecture/model.c4` and `architecture/views.c4`
+`architecture/*.arc42.md`, `architecture/model.c4` and `architecture/views.c4`
 files are normative harnesses, exactly like tests. This applies at EVERY stage of the flow —
 planning, writing tests, implementing, and fixing review findings:
 
 - **Read them first.** Before doing the stage's work, read
   `architecture/index.yaml` plus **every** `*.arc42.md` file relevant to the
-  modules the change touches — the node file of each touched node AND
-  `system.arc42.md` (cross-cutting principles) — plus the LikeC4 view of every
-  touched node (see the `la:living-architecture` skill).
+  modules the change touches — the arc42 file of each touched element and of each of its ancestors (`architecture/<element
+  id>.arc42.md`, where present) AND `system.arc42.md` (cross-cutting principles) — plus the LikeC4 view of every
+  touched element (see the `la:living-architecture` skill).
 - **Obey them.** Every plan, test, implementation, and review fix MUST obey the
-  node principles and the model's import law — or explicitly include the
+  element principles and the model's import law — or explicitly include the
   model + arc42 update as part of the change.
 - **Flag, never deviate.** If anything in an arc42 file seems wrong,
   contradictory, or makes the task impossible or substantially harder, FLAG IT

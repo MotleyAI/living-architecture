@@ -7,31 +7,31 @@ description: Reference for the living-architecture layer (LikeC4 structure model
 
 # Living architecture
 
-Four layers, one node id everywhere. Behaviour lives in OpenSpec; everything
+Four layers, one element id everywhere. Behaviour lives in OpenSpec; everything
 cross-cutting lives here:
 
 | Layer | Question | Artifact | Property |
 |---|---|---|---|
 | Behaviour | what does it do, now? | `openspec/specs/<id>/spec.md` | living, merged by OpenSpec |
 | Structure | how is it arranged, now? | LikeC4 model + views | living; ONE model, diagrams are projected views |
-| Rationale | why is it this way, and what must all code here obey? | arc42 file per node | living, edited in place |
+| Rationale | why is it this way, and what must all code here obey? | arc42 file per element that earns prose | living, edited in place |
 | Enforcement | is the code actually like this? | `arch_check` model-truth (the one import law) + LikeC4 model validation, run in the flow gates | executable, blocking |
 
 **History is NOT a layer here.** The openspec archive (per-change design +
 deltas, dated, immutable) plus git history IS the decision trail. Never create
 ADR files or append-only decision logs (they are merge hell). "Why it is like
-this now" belongs in the node's arc42, present tense; "how we got here" is the
+this now" belongs in the element's arc42, present tense; "how we got here" is the
 archive.
 
 ## Alignment rules
 
-- **arc42 = LikeC4 = module structure align perfectly.** A *precise* node's id
-  is its LikeC4 element id, its arc42 filename, and its package name — the same
-  string.
-- **OpenSpec is looser.** A spec either belongs to one node (listed in that
-  node's metadata `specs` — the node is then a behaviour *leaf*) or is
-  **cross-cutting** (listed once in `index.yaml` with the fully qualified nodes it touches).
-  Never duplicate a spec across nodes; `arch_check` enforces exactly-once.
+- **arc42 = LikeC4 = module structure align perfectly.** An element's fully qualified id is its LikeC4 id
+  and names its arc42 file, `architecture/<id>.arc42.md`; a precise element's package is its node's `package` plus
+  its path below the node.
+- **OpenSpec is looser.** A spec either belongs to one element at any depth (listed in that element's
+  metadata `specs` — the element is then a behaviour *leaf*) or is **cross-cutting** (listed once in `index.yaml`
+  with the fully qualified elements it touches, at any depth). Never duplicate a spec across elements; `arch_check`
+  enforces exactly-once.
 - **Model depth is a dial, not an obligation.** Model precisely where you are
   actively enforcing boundaries; sweep the rest into a few *virtual bucket
   nodes* (tagged `#virtual`, claiming several packages, no alignment claim,
@@ -52,9 +52,11 @@ repo/
     views.c4                         # one views block; each view scoped to one language root
     index.yaml                       # repo-wide settings (below)
     system.arc42.md                  # root narrative + global principles
-    <node>.arc42.md                  # only where a node earns prose
+    <element id>.arc42.md            # e.g. python.sql.arc42.md; only where an element earns prose
   living-architecture.yaml           # repo config: format, and architecture: true once the model exists
 ```
+
+Every arc42 file sits directly in `architecture/`, never in a subfolder.
 
 These are the only LikeC4 files allowed anywhere under `architecture/` (`.c4` or
 `.likec4`). Nothing else may sit at their top level. Any other layout makes
@@ -70,12 +72,13 @@ gates); it needs no per-repo code. `la-arch-diagrams` regenerates the embedded
 view diagrams.
 
 The model has one top-level **root element per language** `index.yaml` declares,
-whose id is the language (`python`, `typescript`); it carries no metadata. A node
+whose id is the language (`python`, `typescript`); it carries no mapping metadata. A node
 is a direct child of a root; it is virtual iff its element kind is declared
 `#virtual`. Relations are written inside a root with names relative to it
 (`sql -> core` inside `python { }` is `python.sql -> python.core`), so a relation
 across roots cannot be written. Element ids are fully qualified in findings and
-in `touches:`. A node declares its mapping in one `metadata { }` block:
+in `touches:`. Any element — root, node or nested — MAY list the `specs` it owns in one `metadata { }`
+block; a node also declares its mapping there:
 
 ```
 specification {
@@ -92,10 +95,10 @@ model {
       metadata {
         package 'mypkg.sql'                  // required
         claims ['mypkg.sqlutil']             // optional: further units it owns
-        arc42 'architecture/sql.arc42.md'    // optional
         specs ['sql-dialects']               // specs owned by THIS node alone
       }
-      render = node 'Render'                 // maps to mypkg.sql.render
+      // arc42 doc, if any: architecture/python.sql.arc42.md
+      render = node 'Render' { metadata { specs ['sql-render'] } }  // maps to mypkg.sql.render; nested elements may own specs
       dialects = node 'Dialects'             // maps to mypkg.sql.dialects
     }
     surfaces = bucket 'Surfaces' {           // virtual bucket
@@ -117,9 +120,9 @@ invisible; type-only imports never count.
 
 Keys and types come from the shared node schema; values are `key 'value'` or
 `key ['a', 'b']` — single quotes, no escapes, arrays may span lines, no trailing
-comma. Nested elements, at any depth, carry no metadata: `<node>.a.b` maps to
-`<package>.a.b`, and the import law applies wherever the model nests. Malformed
-metadata is a setup error (exit 2) naming the element.
+comma. Nested elements, at any depth, carry no mapping keys: `<node>.a.b` maps to `<package>.a.b`, and the
+import law applies wherever the model nests. Malformed metadata is a setup error (exit 2) naming the element; a
+model still using the retired `arc42` key converts with `la-arch-migrate`.
 
 `index.yaml`:
 
@@ -140,17 +143,18 @@ cross_cutting_specs:
 x-anything: {}                        # repo-owned keys start with x-; the tools ignore them
 ```
 
-`views.c4` scopes each view to a root, `view <id> of <root> { ... }`, with
-include names relative to the root; the root itself is never drawn.
+`views.c4` scopes each view to a root, `view <id> of <root> { ... }`, with include names and predicate
+anchors relative to the root at any depth (`include api.handlers`, `api.handlers -> *`); the root itself is never
+drawn.
 
-## arc42 node file — required shape
+## arc42 element file — required shape
 
-arc42-lite, per node, always present tense, updated in place:
+arc42-lite, per element, always present tense, updated in place:
 
 1. **Purpose & context** — 3–10 lines.
 2. **Building blocks** — pointer to the node's LikeC4 view. Never a duplicate
    drawing, never a prose restatement of the model.
-3. **Principles** — numbered rules that ALL code in this node, old and new,
+3. **Principles** — numbered rules that ALL code in this element and its descendants, old and new,
    MUST obey. Each tagged `[enforced: <check|test id>]` or
    `[review]`. Prefer enforced; every `[review]` principle is a standing
    candidate for a new fitness function. Keep them normative and minimal: when
@@ -207,16 +211,17 @@ its committed baseline. It runs, blocking, in:
 
 **`la-arch-check` verifies, from the model and `index.yaml`:**
 - `architecture/` holds exactly `model.c4` and `views.c4`, each with only its blocks (else exit 2);
-- every node's metadata matches the node schema (else exit 2);
+- every element's metadata matches the shared schema (else exit 2);
 - every precise node's `package` and `claims` (and every bucket's `packages`)
   exist on disk; every nested element's unit exists under its node's package
   and does not collide with another declared unit; a bucket contains no
-  elements; every `arc42` path exists;
+  elements; every arc42 file sits directly in `architecture/` and is `system.arc42.md`,
+  `<element id>.arc42.md` of a model element, or listed in `cross_cutting_arc42`;
 - every top-level unit of each language's `root_package` is claimed by exactly
   one node — no orphan packages;
 - every spec group (a directory under `openspec/specs/` or under a non-archived
-  change's `specs/`) is mapped exactly once: in exactly one node's `specs` or in
-  `cross_cutting_specs:`; every node named in a `touches:` list exists;
+  change's `specs/`) is mapped exactly once: in exactly one element's `specs`
+  or in `cross_cutting_specs:`; every element named in a `touches:` list exists;
 - model-truth holds at every declared granularity, the `#legacy` count equals
   `legacy_arrows.baseline`, and each mapped doc's embedded view diagram is
   byte-fresh;
@@ -236,13 +241,12 @@ its committed baseline. It runs, blocking, in:
 
 ## Interaction with /la:pr
 
-- At pr-plan time, read `architecture/index.yaml` and the model plus the arc42 and view of
-  every node the change touches. The plan must state which principles apply,
+- At pr-plan time, read `architecture/index.yaml` and the model plus the arc42 file and view of every element the change
+  touches and of each of its ancestors. The plan must state which principles apply,
   and must not violate the model's import law — or must explicitly include the
   model + arc42 change as part of the same change.
 - At pr-review time, the enforcement bundle is part of the convergence gate.
-- New capability → decide with the user where its spec attaches (one node's
-  metadata `specs`, or `cross_cutting_specs` in `index.yaml` with a `touches:`
-  list) and record it in the same change.
+- New capability → decide with the user where its spec attaches (one element's metadata `specs`, at any depth, or `cross_cutting_specs` in `index.yaml` with a
+  `touches:` list) and record it in the same change.
 - Pure structural refactors (moving code across boundaries) are their own
   changes via **la:arch-cleanup** — never smuggled into feature PRs.

@@ -21,7 +21,7 @@ each slice still gets its own issue, branch, and PR.
    or one node extraction. Arrows live inside their language root, so a slice
    stays within one language.
    Keep it ≤ ~10 edges. Confirm the choice with the user.
-2. **Read the touched nodes' arc42 + LikeC4 view.** The principles decide the
+2. **Read the touched elements' arc42 (and their ancestors') + LikeC4 view.** The principles decide the
    resolution per edge:
    - **move down** — the imported thing is a lower-level utility on the wrong
      side → `dr-refactor move-symbol` / `move-module` into the lower package;
@@ -59,7 +59,8 @@ each slice still gets its own issue, branch, and PR.
 6. **Sync views & arc42:** adjust views if the node shape changed (an
    extracted node is a child of its language root with its own
    `metadata { package '…' }`; a nested element maps to `<package>.<path>` by
-   convention, with no `index.yaml` entry; views stay `of <root>`); re-validate
+   convention and may carry only `specs` metadata; views stay `of <root>`; an element whose id changed takes its arc42
+   file along as `architecture/<new id>.arc42.md`); re-validate
    the model (`la-arch-diagrams` refreshes the embedded view diagrams); update
    arc42 rationale/principles if the slice established a new
    rule — ideally tagged `[enforced: <the check/test that now holds>]`.

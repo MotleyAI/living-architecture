@@ -51,15 +51,15 @@ never omitted.
 
 Draft `system.arc42.md` from the repo's own `CLAUDE.md` / `AGENTS.md` and the structure you measured:
 Purpose and context, numbered Principles (each with a status tag: `[enforced: …]`, `[review]` or
-`[target: …]`), and Rationale. Present the principles ONE BY ONE and land each only on the user's OK. Write a
-node arc42 file only for the 1–3 nodes that earn prose now.
+`[target: …]`), and Rationale. Present the principles ONE BY ONE and land each only on the user's OK. Write an
+element arc42 file (`architecture/<element id>.arc42.md`) only for the 1–3 elements that earn prose now.
 
-If the repo has an ADR or decisions file, fold its present-tense rules into the owning nodes' principles,
+If the repo has an ADR or decisions file, fold its present-tense rules into the owning elements' principles,
 then, with the user's OK, delete it (history stays in git and the OpenSpec archive).
 
 ## 6. Spec mapping
 
-The scaffold maps no specs. Map every `openspec/specs/<id>` exactly once: in one node's metadata `specs`, or
+The scaffold maps no specs. Map every `openspec/specs/<id>` exactly once: in one element's metadata `specs` (at any depth), or
 in `cross_cutting_specs` with its `touches:` list. Decide each with the user.
 
 ## 7. Green
