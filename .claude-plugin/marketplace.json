@@ -3,12 +3,12 @@
   "owner": {
     "name": "MotleyAI"
   },
-  "description": "Claude Code plugin for spec-driven development with an enforced living architecture.",
+  "description": "Claude Code plugin that keeps coding agents from eroding your architecture: an enforced LikeC4 import law, a spec-driven PR flow and verified refactoring.",
   "plugins": [
     {
       "name": "la",
       "source": "./plugin",
-      "description": "Living architecture for agent-driven development: spec-driven change flow, arc42 + LikeC4 architecture enforcement, PR review processing, and deterministically verified Python and TypeScript refactoring."
+      "description": "Keep coding agents from eroding your architecture: a Claude Code plugin and CLI that enforce a LikeC4 model as the import law for Python and TypeScript, with a spec-driven PR flow and verified refactoring."
     }
   ]
 }

@@ -1,0 +1,31 @@
+specification {
+  element system
+  element node
+  element bucket {
+    #virtual
+  }
+  tag legacy
+  tag virtual
+}
+model {
+  python = system 'python' {
+    api = node 'api' {
+      metadata {
+        package 'shop.api'
+      }
+    }
+    core = node 'core' {
+      metadata {
+        package 'shop.core'
+      }
+    }
+    store = node 'store' {
+      metadata {
+        package 'shop.store'
+      }
+    }
+
+    api -> core
+    core -> store
+  }
+}
