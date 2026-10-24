@@ -5,8 +5,14 @@ from pathlib import Path
 import pytest
 
 from living_architecture import __version__, cli, doctor
+from living_architecture import config as la_config
 from living_architecture.config import CONFIG_FILENAME
 from living_architecture.contract import contract_hash
+
+
+def _declared(text: str) -> str:
+    """`text` as a committed config declaring the current format."""
+    return f"format: {la_config.current_format()}\n{text}"
 
 
 @pytest.fixture
@@ -34,7 +40,7 @@ def test_no_expect_skips_version_check(tmp_path: Path) -> None:
 
 @pytest.mark.usefixtures("all_tools")
 def test_invalid_config(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    (tmp_path / CONFIG_FILENAME).write_text("tracker: jira\n", encoding="utf-8")
+    (tmp_path / CONFIG_FILENAME).write_text(_declared("tracker: jira\n"), encoding="utf-8")
     assert cli.la_doctor(["--root", str(tmp_path)]) == 1
     assert "FAIL:" in capsys.readouterr().out
 
@@ -80,7 +86,7 @@ def test_require_config_missing(tmp_path: Path, capsys: pytest.CaptureFixture[st
 
 @pytest.mark.usefixtures("all_tools")
 def test_require_config_present(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    (tmp_path / CONFIG_FILENAME).write_text("openspec: false\n", encoding="utf-8")
+    (tmp_path / CONFIG_FILENAME).write_text(_declared("openspec: false\n"), encoding="utf-8")
     code, out = _doctor(tmp_path, capsys, "--require-config")
     assert code == 0
     assert out == [f"ok: la tools {__version__}; config from {CONFIG_FILENAME}"]
@@ -116,7 +122,7 @@ def test_config_disk_consistency(
     files: list[str],
     expected: list[str],
 ) -> None:
-    (tmp_path / CONFIG_FILENAME).write_text(config, encoding="utf-8")
+    (tmp_path / CONFIG_FILENAME).write_text(_declared(config), encoding="utf-8")
     for d in dirs:
         (tmp_path / d).mkdir()
     for f in files:
@@ -173,7 +179,7 @@ def _fake_git(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, script: str) -> N
 @pytest.mark.usefixtures("all_tools")
 def test_local_ignored_is_a_second_source(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     root = _repo(tmp_path, ignored=True)
-    (root / CONFIG_FILENAME).write_text("openspec: false\n", encoding="utf-8")
+    (root / CONFIG_FILENAME).write_text(_declared("openspec: false\n"), encoding="utf-8")
     assert _doctor(root, capsys) == (0, [f"ok: la tools {__version__}; config from {CONFIG_FILENAME} + {LOCAL}"])
 
 
@@ -248,14 +254,14 @@ def test_local_not_git_runs_no_local_check(
 def test_local_finding_order(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     monkeypatch.setattr(doctor.shutil, "which", lambda exe: None if exe == "gh" else f"/usr/bin/{exe}")
     root = _repo(tmp_path, local="tracker: none\n")
-    (root / CONFIG_FILENAME).write_text("openspec: false\n", encoding="utf-8")
+    (root / CONFIG_FILENAME).write_text(_declared("openspec: false\n"), encoding="utf-8")
     assert _doctor(root, capsys) == (1, [NO_PLAN_STORE, LOCAL_NOT_IGNORED, "FAIL: `gh` not found on PATH"])
 
 
 @pytest.mark.usefixtures("all_tools")
 def test_local_takes_part_in_consistency(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     root = _repo(tmp_path, local="tracker: none\n", ignored=True)
-    (root / CONFIG_FILENAME).write_text("openspec: false\n", encoding="utf-8")
+    (root / CONFIG_FILENAME).write_text(_declared("openspec: false\n"), encoding="utf-8")
     assert _doctor(root, capsys) == (1, [NO_PLAN_STORE])
 
 

@@ -1,0 +1,9 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+fixture: arch-ok
+expect:
+  exit: 2
+golden: manual
+note: the retired arc42 key on a root, a precise node, a nested element and a virtual node, in model order

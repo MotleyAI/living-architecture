@@ -26,7 +26,7 @@ export function renderMermaid(view: View, model: ModelParse): string {
   if (shownKids.size > 0) lines.push(...hierarchicalBody(view, byId, shown, shownKids));
   else {
     for (const nid of view.nodeIds) lines.push(nodeLine(byId.get(nid), nid, 2));
-    for (const edge of view.edges) lines.push(`  ${edge.src} ${edge.legacy ? '-.->' : '-->'} ${edge.dst}`);
+    for (const edge of view.edges) lines.push(`  ${mangle(edge.src)} ${edge.legacy ? '-.->' : '-->'} ${mangle(edge.dst)}`);
   }
   lines.push('```');
   if (view.edges.some((edge) => edge.legacy)) lines.push(message('c4.legacy-legend'));

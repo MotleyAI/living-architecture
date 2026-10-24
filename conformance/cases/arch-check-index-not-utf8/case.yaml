@@ -1,0 +1,7 @@
+kind: neutral
+command: la-arch-check
+fixture: arch-ok
+expect:
+  exit: 2
+golden: manual
+note: an index.yaml that is not valid UTF-8 is a setup error, reported as invalid YAML

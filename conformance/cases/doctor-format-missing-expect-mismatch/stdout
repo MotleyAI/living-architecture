@@ -1,0 +1,2 @@
+FAIL: installed la tools are <VERSION> but the plugin expects 0.0.1; reinstall the tools from the same checkout/tag as the plugin
+FAIL: living-architecture.yaml declares no format, but this la reads format <FORMAT>: run la-arch-migrate to convert the repo

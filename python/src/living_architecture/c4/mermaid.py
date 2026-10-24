@@ -36,7 +36,7 @@ def render_mermaid(view: View, model: ModelParse) -> str:
         for nid in view.node_ids:
             lines.append(_node_line(element=by_id.get(nid), nid=nid, indent=2))
         for edge in view.edges:
-            lines.append(f"  {edge.src} {'-.->' if edge.legacy else '-->'} {edge.dst}")
+            lines.append(f"  {_mangle(edge.src)} {'-.->' if edge.legacy else '-->'} {_mangle(edge.dst)}")
     lines.append("```")
     if any(edge.legacy for edge in view.edges):
         lines.append(message("c4.legacy-legend"))

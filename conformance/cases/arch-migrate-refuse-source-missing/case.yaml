@@ -1,0 +1,16 @@
+kind: neutral
+command: la-arch-migrate
+fixture: arch-ok
+remove:
+- architecture/python.api.arc42.md
+expect:
+  exit: 2
+  files:
+  - architecture/index.yaml
+  - architecture/model.c4
+  - architecture/security.arc42.md
+  - architecture/system.arc42.md
+  - architecture/views.c4
+  - living-architecture.yaml
+golden: manual
+note: an arc42 key naming a missing doc

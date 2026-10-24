@@ -35,6 +35,9 @@ golden: manual                     # hand-written goldens; the update mode never
 note: why this case exists
 ```
 
+`<FORMAT>` (the bundled current repo format) is substituted in the overlaid `living-architecture.yaml` at the repo
+root and at the `--root` the case passes, and in `write:` steps; nowhere else.
+
 Git steps, applied in order after `git init`: `write: {path: text}` (placeholders substituted), `commit: message` (stages everything),
 `branch: name`, `checkout: name`, `stage: [path]`, `delete: [path]`, `git_rm: [path]`,
 `rename: {from: to}`, `origin: [branch]` (creates a local bare `origin` and pushes).

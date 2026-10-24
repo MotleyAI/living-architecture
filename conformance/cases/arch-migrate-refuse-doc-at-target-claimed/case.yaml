@@ -1,0 +1,13 @@
+kind: neutral
+command: la-arch-migrate
+fixture: arch-ok
+expect:
+  exit: 2
+  files:
+  - architecture/model.c4
+  - architecture/index.yaml
+  - architecture/python.api.arc42.md
+  - architecture/python.core.arc42.md
+  - living-architecture.yaml
+golden: manual
+note: 'a doc already at its target claims its path: another element naming it is refused'

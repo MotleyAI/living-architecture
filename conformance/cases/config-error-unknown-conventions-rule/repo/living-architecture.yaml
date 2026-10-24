@@ -1,1 +1,2 @@
+format: <FORMAT>
 conventions: {rules: [import-not-top, no-such-rule]}

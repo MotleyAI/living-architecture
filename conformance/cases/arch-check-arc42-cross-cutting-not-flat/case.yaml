@@ -1,0 +1,11 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+fixture: arch-ok
+remove:
+- architecture/security.arc42.md
+expect:
+  exit: 1
+golden: manual
+note: a cross_cutting_arc42 entry outside architecture/

@@ -5,8 +5,8 @@ views {
   }
   view a of python {
     title 42
-    include ghost, api.handlers, * -> *, api -> core, core -> ghost
-    include ghost -> *, * -> api.handlers, * -> (, api -> (
+    include ghost, python.api, * -> *, api -> core, core -> ghost
+    include ghost -> *, * -> python.api, * -> (, api -> (
     include (
     colour red
   }

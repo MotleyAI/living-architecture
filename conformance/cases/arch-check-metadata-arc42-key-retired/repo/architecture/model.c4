@@ -1,0 +1,51 @@
+specification {
+  element system
+  element node
+  element bucket {
+    #virtual
+  }
+  tag legacy
+  tag virtual
+}
+
+model {
+  python = system 'Python' {
+    metadata {
+      arc42 'architecture/python.arc42.md'
+    }
+    api = node 'API' {
+      metadata {
+        package 'pkg.api'
+        arc42 'architecture/api.arc42.md'
+        specs ['api']
+      }
+      handlers = node 'Handlers' {
+        metadata {
+          arc42 'architecture/handlers.arc42.md'
+        }
+      }
+    }
+    core = node 'Core' {
+      metadata {
+        package 'pkg.core'
+        claims ['pkg.util']
+      }
+    }
+    store = node 'Store' {
+      metadata {
+        package 'pkg.store'
+      }
+    }
+    legacy = bucket 'Legacy' {
+      metadata {
+        packages ['pkg.old']
+        arc42 'architecture/legacy.arc42.md'
+      }
+    }
+
+    api.handlers -> core
+    core -> store
+    api -> store #legacy
+    legacy -> core
+  }
+}

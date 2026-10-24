@@ -8,13 +8,24 @@ const WORD_RE = /\w+/y;
 const UNBALANCED = 'c4-layout.unbalanced-braces';
 export const WHITESPACE = ' \t\n\r\f\v';
 
+/** How many WHITESPACE characters `text` starts with. */
+export function leadingWhitespace(text: string): number {
+  let start = 0;
+  while (start < text.length && WHITESPACE.includes(text[start] ?? '')) start += 1;
+  return start;
+}
+
+/** How many WHITESPACE characters `text` ends with. */
+export function trailingWhitespace(text: string): number {
+  let end = text.length;
+  while (end > 0 && WHITESPACE.includes(text[end - 1] ?? '')) end -= 1;
+  return text.length - end;
+}
+
 /** Strip WHITESPACE (only) from both ends. */
 export function stripWhitespace(text: string): string {
-  let start = 0;
-  let end = text.length;
-  while (start < end && WHITESPACE.includes(text[start] ?? '')) start += 1;
-  while (end > start && WHITESPACE.includes(text[end - 1] ?? '')) end -= 1;
-  return text.slice(start, end);
+  const start = leadingWhitespace(text);
+  return start === text.length ? '' : text.slice(start, text.length - trailingWhitespace(text));
 }
 
 /** A top-level `<kind> { }` block; `close` is the offset of its `}`, null when unclosed. */
@@ -47,6 +58,20 @@ export interface Layout {
   legacyFiles: string[];
   scans: Map<string, FileScan>;
   viewsExists: boolean;
+}
+
+export const ARCH_DIR = 'architecture/';
+export const DOC_SUFFIX = '.arc42.md';
+export const RETIRED_ARC42_KEY = 'arc42';
+
+/** The arc42 doc of the model element `element`. */
+export const elementDoc = (element: string): string => `${ARCH_DIR}${element}${DOC_SUFFIX}`;
+
+/** `architecture/<name>.arc42.md` with no `/` in `<name>`. */
+export function isFlatDoc(path: string): boolean {
+  if (!path.startsWith(ARCH_DIR) || !path.endsWith(DOC_SUFFIX)) return false;
+  const name = path.slice(ARCH_DIR.length, path.length - DOC_SUFFIX.length);
+  return name !== '' && !name.includes('/');
 }
 
 export const modelFile = (): string => architecture().model_file;
@@ -173,19 +198,27 @@ function isDirectory(path: string): boolean {
 }
 
 /** Every LikeC4 source file under `architecture/`, repo-relative, in code-point order. */
-export function sources(root: string): string[] {
+/**
+ * Every file under `architecture/` ending in one of `suffixes`, repo-relative, in code-point order.
+ * A symlink to a file counts; a symlinked directory is not descended into.
+ */
+export function architectureFiles(root: string, suffixes: string[]): string[] {
   if (!isDirectory(join(root, 'architecture'))) return [];
-  const extensions: string[] = architecture().source_extensions;
   const found: string[] = [];
   const walk = (rel: string): void => {
     for (const entry of readdirSync(join(root, rel), { withFileTypes: true })) {
       const child = `${rel}/${entry.name}`;
       if (entry.isDirectory()) walk(child);
-      else if (extensions.some((ext) => entry.name.endsWith(ext)) && isFile(join(root, child))) found.push(child);
+      else if (suffixes.some((ext) => entry.name.endsWith(ext)) && isFile(join(root, child))) found.push(child);
     }
   };
   walk('architecture');
   return found.sort(byCodePoint);
+}
+
+/** Every LikeC4 source file under `architecture/`, repo-relative, in code-point order. */
+export function sources(root: string): string[] {
+  return architectureFiles(root, architecture().source_extensions);
 }
 
 const render = (rel: string, p: Problem): string => message(p.id, { path: rel, line: p.line, text: p.text });
@@ -265,10 +298,9 @@ export function classify(root: string): Layout {
     states.get(modelFile()) === 'missing' &&
     strays.every((rel) => isLegacyFile(rel, scans.get(rel))) &&
     (states.get(viewsFile()) === 'missing' || (viewsExists && (violations.get(viewsFile()) ?? []).length === 0));
-  const tail = message(legacy ? 'c4-layout.migrate' : 'c4-layout.merge-by-hand');
   return {
     state: legacy ? 'legacy' : 'other',
-    message: [message('c4-layout.header'), ...lines, tail].join('\n'),
+    message: [message('c4-layout.header'), ...lines, message('c4-layout.merge-by-hand')].join('\n'),
     legacyFiles: legacy ? strays : [],
     scans,
     viewsExists,

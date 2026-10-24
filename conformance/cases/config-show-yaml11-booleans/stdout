@@ -1,4 +1,5 @@
 {
+  "format": "<FORMAT>",
   "tracker": "linear",
   "openspec": false,
   "architecture": true,

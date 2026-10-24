@@ -1,4 +1,4 @@
-// Every command's entry point: parse argv per the shared manifest, dispatch to the owning node's handler.
+// Every command's entry point: parse argv per the shared manifest, check the repo format, dispatch to the handler.
 import { resolve } from 'node:path';
 import * as archcheck from '../archcheck/index.js';
 import * as c4 from '../c4/index.js';
@@ -16,6 +16,12 @@ const root = (value: unknown): string =>
   typeof value === 'string' && value ? resolve(value) : config.findRepoRoot(process.cwd());
 
 const optional = (value: unknown): string | null => (typeof value === 'string' ? value : null);
+
+/** The repo whose format a command checks: `--root`, else the git root of `--project`, else of the cwd. */
+const checkedRoot = (args: Args): string => {
+  const project = optional(args.project);
+  return optional(args.root) || !project ? root(args.root) : config.findRepoRoot(project);
+};
 
 /** The parsed options with null (not given) as undefined. */
 const given = (args: Args): Record<string, any> =>
@@ -92,6 +98,13 @@ export function dispatch(command: string, argv: string[]): number {
     if (!(error instanceof UsageError)) throw error;
     process.stderr.write(`usage: ${command} [-h] ...\n${error.command}: error: ${error.message}\n`);
     return error.exitCode;
+  }
+  if (spec.format !== 'exempt') {
+    const problem = config.checkFormat(checkedRoot(args));
+    if (problem !== null) {
+      process.stderr.write(`${problem}\n`);
+      return 2;
+    }
   }
   const handler = HANDLERS[command];
   if (handler === undefined) throw new Error(`no handler for ${command}`);

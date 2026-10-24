@@ -7,6 +7,7 @@ import pytest
 import yaml
 
 from living_architecture import cli, typecheck
+from living_architecture import config as la_config
 
 VECTORS = next(p for p in Path(__file__).resolve().parents if (p / "shared" / "vectors").is_dir()) / "shared" / "vectors"
 SPLITS = yaml.safe_load((VECTORS / "command-split.yaml").read_text(encoding="utf-8"))["cases"]
@@ -65,14 +66,14 @@ def test_stray_script_checks_only_python(tmp_path: Path, run) -> None:
 
 
 def test_explicit_entry_without_markers(tmp_path: Path, run) -> None:
-    config = "commands: {typecheck: {python: basedpyright -p python}}\n"
+    config = f"format: {la_config.current_format()}\ncommands: {{typecheck: {{python: basedpyright -p python}}}}\n"
     root = _repo(tmp_path, {"living-architecture.yaml": config, "python/a.py": "X = 1\n"})
     assert run(root)[0] == 0
     assert _checker_calls(root) == ["-p python"]
 
 
 def test_null_turns_a_language_off(tmp_path: Path, run) -> None:
-    config = "commands: {typecheck: {python: null}}\n"
+    config = f"format: {la_config.current_format()}\ncommands: {{typecheck: {{python: null}}}}\n"
     root = _repo(tmp_path, {"living-architecture.yaml": config, "pyproject.toml": "", "a.py": "X = 1\n"})
     code, _, err = run(root)
     assert (code, _checker_calls(root)) == (0, [])

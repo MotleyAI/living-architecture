@@ -34,6 +34,8 @@ def declared_languages(index: dict[str, Any]) -> list[str]:
 def load_index(root: Path) -> dict[str, Any]:
     try:
         index = load_yaml((root / INDEX_REL).read_text(encoding="utf-8"))
+    except UnicodeDecodeError as exc:
+        raise ArchCheckError(message("c4.index-invalid-yaml")) from exc
     except (OSError, YAMLError) as exc:
         raise ArchCheckError(str(exc)) from exc
     if not isinstance(index, dict):

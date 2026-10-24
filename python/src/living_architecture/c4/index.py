@@ -15,6 +15,6 @@ def read_index(root: Path) -> dict[Any, Any] | str:
         return message("c4.index-missing")
     try:
         index = load_yaml(index_path.read_text(encoding="utf-8"))
-    except YAMLError:
+    except (YAMLError, UnicodeDecodeError):
         return message("c4.index-invalid-yaml")
     return index if isinstance(index, dict) else message("c4.index-not-mapping")

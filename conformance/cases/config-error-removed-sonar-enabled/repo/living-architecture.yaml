@@ -1,1 +1,2 @@
+format: <FORMAT>
 reviewers: {sonar: {enabled: true, project_key: o_r}}

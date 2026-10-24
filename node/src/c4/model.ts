@@ -20,25 +20,35 @@ export interface Relation {
   legacy: boolean;
 }
 
+/** A 0-based (line, column) position: the `splitLines` line index and the offset within that line. */
+export type Pos = [number, number];
+
+/** (start, end) positions, end exclusive, of an element's metadata block and of each key's statement. */
+export interface MetadataSpan {
+  block: [Pos, Pos];
+  keys: Map<string, [Pos, Pos]>;
+}
+
 export interface ModelParse {
   elements: Element[];
   relations: Relation[];
   findings: string[];
   metadataFindings: string[];
+  spans: Map<string, MetadataSpan>;
 }
 
-const ELEMENT_RE = new RegExp(`^(${WORD}+)\\s*=\\s*(${WORD}+)\\s+'([^']*)'(?:\\s*\\{)?\\s*$`, 'u');
-const RELATION_RE = new RegExp(`^([\\p{L}\\p{N}_.]+)\\s*->\\s*([\\p{L}\\p{N}_.]+)(\\s+#legacy)?\\s*$`, 'u');
-const SPEC_ELEMENT_RE = new RegExp(`^element\\s+(${WORD}+)(?:\\s*\\{)?\\s*$`, 'u');
-const TAG_DECL_RE = new RegExp(`^tag\\s+${WORD}+$`, 'u');
+const ELEMENT_RE = new RegExp(String.raw`^(${WORD}+)\s*=\s*(${WORD}+)\s+'([^']*)'(?:\s*\{)?\s*$`, 'u');
+const RELATION_RE = /^([\p{L}\p{N}_.]+)\s*->\s*([\p{L}\p{N}_.]+)(\s+#legacy)?\s*$/u;
+const SPEC_ELEMENT_RE = new RegExp(String.raw`^element\s+(${WORD}+)(?:\s*\{)?\s*$`, 'u');
+const TAG_DECL_RE = new RegExp(String.raw`^tag\s+${WORD}+$`, 'u');
 const BLOCK_RE = new RegExp(`^(specification|model|views)(?!${WORD})`, 'u');
 const BRACES_ONLY_RE = /^[{}]+$/;
 const METADATA_OPEN_RE = /^metadata\s*\{$/;
 const QUOTED = "'[^']*'";
-const META_STMT_RE = new RegExp(`\\s*(${WORD}+)\\s+(${QUOTED}|\\[\\s*(?:${QUOTED}(?:\\s*,\\s*${QUOTED})*)?\\s*\\])`, 'uy');
-const META_OPEN_ARRAY_RE = new RegExp(`^\\s*${WORD}+\\s+\\[\\s*(?:${QUOTED}(?:\\s*,\\s*${QUOTED})*\\s*,?)?\\s*$`, 'u');
+const META_STMT_RE = new RegExp(String.raw`\s*(${WORD}+)\s+(${QUOTED}|\[\s*(?:${QUOTED}(?:\s*,\s*${QUOTED})*)?\s*\])`, 'uy');
+const META_OPEN_ARRAY_RE = new RegExp(String.raw`^\s*${WORD}+\s+\[\s*(?:${QUOTED}(?:\s*,\s*${QUOTED})*\s*,?)?\s*$`, 'u');
 const QUOTED_RE = new RegExp(QUOTED, 'g');
-const SPEC_SPLIT_RE = new RegExp(`\\s+(?=(?:element|tag)(?!${WORD}))`, 'u');
+const SPEC_SPLIT_RE = new RegExp(String.raw`\s+(?=(?:element|tag)(?!${WORD}))`, 'u');
 
 export function isOrAncestor(anc: string, eid: string): boolean {
   return anc === eid || eid.startsWith(`${anc}.`);
@@ -66,22 +76,34 @@ function braceDelta(code: string): number {
   return depth;
 }
 
-/** Comment-stripped lines with every unquoted `{`/`}` broken onto its own line. */
-function logicalLines(text: string): string[] {
-  const decommented = splitLines(text).map(stripLineComment).join('\n');
-  let out = '';
+/** Comment-stripped (line index, column, code) pieces with every unquoted `{`/`}` broken onto its own piece. */
+function logicalLines(text: string): [number, number, string][] {
+  const out: [number, number, string][] = [];
   let inQuote = false;
-  for (const ch of decommented) {
-    if (ch === "'") {
-      inQuote = !inQuote;
-      out += ch;
-    } else if (!inQuote && ch === '{') out += '{\n';
-    else if (!inQuote && ch === '}') out += '\n}\n';
-    else out += ch;
-  }
-  return splitLines(out)
-    .map((line) => line.trim())
-    .filter((line) => line !== '');
+  splitLines(text)
+    .map(stripLineComment)
+    .forEach((line, index) => {
+      let start = 0;
+      for (let i = 0; i < line.length; i += 1) {
+        const ch = line[i];
+        if (ch === "'") inQuote = !inQuote;
+        else if (!inQuote && ch === '{') {
+          addPiece(out, index, line.slice(start, i + 1), start);
+          start = i + 1;
+        } else if (!inQuote && ch === '}') {
+          addPiece(out, index, line.slice(start, i), start);
+          addPiece(out, index, ch, i);
+          start = i + 1;
+        }
+      }
+      addPiece(out, index, line.slice(start), start);
+    });
+  return out;
+}
+
+function addPiece(out: [number, number, string][], index: number, piece: string, start: number): void {
+  const code = piece.trim();
+  if (code !== '') out.push([index, start + piece.length - piece.trimStart().length, code]);
 }
 
 interface Scan {
@@ -92,14 +114,44 @@ interface Scan {
   relPairs: Set<string>;
   findings: string[];
   metadataFindings: string[];
+  spans: Map<string, MetadataSpan>;
 }
 
 /** An open `metadata { }` block; `element` is null when its content is discarded. */
 interface MetadataBlock {
   element: string | null;
+  start: Pos;
   depth: number;
-  lines: string[];
+  lines: [number, number, string][];
 }
+
+/** Where the scan of one model text stands: open region, brace depth, enclosing elements, open metadata block. */
+interface TextState {
+  region: string | null;
+  depth: number;
+  parents: string[];
+  specKind: string | null;
+  meta: MetadataBlock | null;
+}
+
+/** A metadata block's statements: the values, the text of each bad one, and each key's span. */
+interface Statements {
+  values: Map<string, string | string[]>;
+  problems: string[];
+  keys: Map<string, [Pos, Pos]>;
+}
+
+/** One metadata line at `at`, prefixed (up to `base`) by an unfinished array statement that starts at `carried`. */
+interface MetadataText {
+  text: string;
+  base: number;
+  at: Pos;
+  carried: Pos;
+}
+
+/** Where `offset` in `piece.text` sits; any offset in the carried prefix maps to the carried statement's start. */
+const posIn = (piece: MetadataText, offset: number): Pos =>
+  offset < piece.base ? piece.carried : [piece.at[0], piece.at[1] + offset - piece.base];
 
 /** Parse `architecture/model.c4` under the constrained authoring convention. */
 export function parseModel(root: string): ModelParse {
@@ -108,6 +160,11 @@ export function parseModel(root: string): ModelParse {
 
 /** Parse `paths` in order as one model. */
 export function parseModelFiles(paths: string[]): ModelParse {
+  return parseModelTexts(paths.map((path) => readFileSync(path, 'utf8')));
+}
+
+/** Parse `texts` in order as one model; `spans` index the lines of the text each element is declared in. */
+export function parseModelTexts(texts: string[]): ModelParse {
   const scan: Scan = {
     kinds: new Map(),
     byId: new Map(),
@@ -116,8 +173,9 @@ export function parseModelFiles(paths: string[]): ModelParse {
     relPairs: new Set(),
     findings: [],
     metadataFindings: [],
+    spans: new Map(),
   };
-  for (const path of paths) scanModelFile(readFileSync(path, 'utf8'), scan);
+  for (const text of texts) scanModelText(text, scan);
   const elements = [...scan.byId.values()];
   for (const element of elements) {
     if (!scan.kinds.has(element.kind)) {
@@ -132,79 +190,89 @@ export function parseModelFiles(paths: string[]): ModelParse {
       }
     }
   }
-  return { elements, relations: scan.relations, findings: scan.findings, metadataFindings: scan.metadataFindings };
+  return {
+    elements,
+    relations: scan.relations,
+    findings: scan.findings,
+    metadataFindings: scan.metadataFindings,
+    spans: scan.spans,
+  };
 }
 
-function scanModelFile(text: string, scan: Scan): void {
-  let region: string | null = null;
-  let depth = 0;
-  const parents: string[] = [];
-  let specKind: string | null = null;
-  let meta: MetadataBlock | null = null;
-  for (const code of logicalLines(text)) {
-    if (region === null) {
-      const m = BLOCK_RE.exec(code);
-      if (m !== null) {
-        region = m[1] === 'specification' || m[1] === 'model' ? (m[1] ?? null) : 'other';
-        depth = braceDelta(code);
-        if (depth <= 0) region = null;
-      }
-      continue;
-    }
-    const delta = braceDelta(code);
-    if (meta !== null) {
-      depth += delta;
-      meta.depth += delta;
-      if (meta.depth > 0) meta.lines.push(code);
-      else {
-        closeMetadata(meta, scan);
-        meta = null;
-      }
-      continue;
-    }
-    if (region === 'model' && parents.length > 0 && METADATA_OPEN_RE.test(code)) {
-      depth += delta;
-      meta = openMetadata(parents[parents.length - 1] ?? '', code, scan);
-      continue;
-    }
-    if (region === 'specification') {
-      for (const stmt of delta === 0 ? splitSpecStatements(code) : [code]) {
-        specKind = scanSpecLine(stmt, scan, specKind, delta);
-      }
-    } else if (region === 'model') {
-      scanModelLine(code, scan, parents, delta);
-    }
-    if (delta < 0) for (let i = 0; i < -delta; i += 1) parents.pop();
-    depth += delta;
-    if (depth <= 0) {
-      region = null;
-      parents.length = 0;
-      specKind = null;
-    } else if (region === 'specification' && depth === 1) {
-      specKind = null;
-    }
+function scanModelText(text: string, scan: Scan): void {
+  const state: TextState = { region: null, depth: 0, parents: [], specKind: null, meta: null };
+  let end: Pos = [0, 0];
+  for (const [lineno, col, code] of logicalLines(text)) {
+    end = [lineno, col + code.length];
+    if (state.region === null) enterRegion(state, code);
+    else if (state.meta !== null) metadataLine(state, state.meta, scan, [lineno, col], code);
+    else if (state.region === 'model' && state.parents.length > 0 && METADATA_OPEN_RE.test(code)) {
+      state.depth += braceDelta(code);
+      state.meta = openMetadata(state.parents.at(-1) ?? '', code, scan, [lineno, col]);
+    } else regionLine(state, scan, code);
   }
-  if (meta !== null) closeMetadata(meta, scan);
+  if (state.meta !== null) closeMetadata(state.meta, scan, end);
+}
+
+function enterRegion(state: TextState, code: string): void {
+  const m = BLOCK_RE.exec(code);
+  if (m === null) return;
+  state.region = m[1] === 'specification' || m[1] === 'model' ? (m[1] ?? null) : 'other';
+  state.depth = braceDelta(code);
+  if (state.depth <= 0) state.region = null;
+}
+
+function metadataLine(state: TextState, meta: MetadataBlock, scan: Scan, at: Pos, code: string): void {
+  const delta = braceDelta(code);
+  state.depth += delta;
+  meta.depth += delta;
+  if (meta.depth > 0) meta.lines.push([at[0], at[1], code]);
+  else {
+    closeMetadata(meta, scan, [at[0], at[1] + code.length]);
+    state.meta = null;
+  }
+}
+
+function regionLine(state: TextState, scan: Scan, code: string): void {
+  const delta = braceDelta(code);
+  if (state.region === 'specification') {
+    for (const stmt of delta === 0 ? splitSpecStatements(code) : [code]) {
+      state.specKind = scanSpecLine(stmt, scan, state.specKind, delta);
+    }
+  } else if (state.region === 'model') {
+    scanModelLine(code, scan, state.parents, delta);
+  }
+  if (delta < 0) state.parents.splice(Math.max(0, state.parents.length + delta));
+  state.depth += delta;
+  if (state.depth <= 0) {
+    state.region = null;
+    state.parents.length = 0;
+    state.specKind = null;
+  } else if (state.region === 'specification' && state.depth === 1) {
+    state.specKind = null;
+  }
 }
 
 /** Start a block for `element`; a duplicate element's block, or a second block, is discarded. */
-function openMetadata(element: string, code: string, scan: Scan): MetadataBlock {
+function openMetadata(element: string, code: string, scan: Scan, start: Pos): MetadataBlock {
   const target = scan.byId.get(element);
-  if (scan.duplicates.has(element) || target === undefined) return { element: null, depth: 1, lines: [] };
+  if (scan.duplicates.has(element) || target === undefined) return { element: null, start, depth: 1, lines: [] };
   if (target.hasMetadata) {
     metadataProblem(scan, element, code);
-    return { element: null, depth: 1, lines: [] };
+    return { element: null, start, depth: 1, lines: [] };
   }
   target.hasMetadata = true;
-  return { element, depth: 1, lines: [] };
+  return { element, start, depth: 1, lines: [] };
 }
 
-function closeMetadata(block: MetadataBlock, scan: Scan): void {
+function closeMetadata(block: MetadataBlock, scan: Scan, end: Pos): void {
   if (block.element === null) return;
-  const [values, problems] = parseMetadata(block.lines);
+  const parsed = parseMetadata(block.lines);
   const target = scan.byId.get(block.element);
-  if (target !== undefined) target.metadata = values;
-  for (const line of problems) metadataProblem(scan, block.element, line);
+  // fromEntries defines `__proto__` as an own key; assignment would hit the prototype setter.
+  if (target !== undefined) target.metadata = Object.fromEntries(parsed.values);
+  scan.spans.set(block.element, { block: [block.start, end], keys: parsed.keys });
+  for (const line of parsed.problems) metadataProblem(scan, block.element, line);
 }
 
 function metadataProblem(scan: Scan, element: string, line: string): void {
@@ -213,33 +281,53 @@ function metadataProblem(scan: Scan, element: string, line: string): void {
   scan.metadataFindings.push(problem);
 }
 
-/** `key 'v'` / `key ['a', 'b']` statements (arrays may span lines) and the text of each bad one. */
-function parseMetadata(lines: string[]): [Record<string, string | string[]>, string[]] {
-  const values = new Map<string, string | string[]>();
-  const problems: string[] = [];
-  let pending = '';
-  for (const line of lines) {
-    const text = pending ? `${pending} ${line}` : line;
-    pending = '';
-    let pos = 0;
-    while (pos < text.length) {
-      META_STMT_RE.lastIndex = pos;
-      const m = META_STMT_RE.exec(text);
-      if (m === null) {
-        const rest = text.slice(pos).trim();
-        if (META_OPEN_ARRAY_RE.test(rest)) pending = rest;
-        else if (rest) problems.push(rest);
-        break;
-      }
-      const [whole, key = '', raw = ''] = m;
-      if (values.has(key)) problems.push(whole.trim());
-      else values.set(key, raw.startsWith("'") ? raw.slice(1, -1) : (raw.match(QUOTED_RE) ?? []).map((q) => q.slice(1, -1)));
-      pos = META_STMT_RE.lastIndex;
-    }
+/** `key 'v'` / `key ['a', 'b']` statements (arrays may span lines) of (line, column, code) pieces. */
+function parseMetadata(lines: [number, number, string][]): Statements {
+  const out: Statements = { values: new Map(), problems: [], keys: new Map() };
+  let carried = '';
+  let carriedAt: Pos = [0, 0];
+  for (const [lineno, col, line] of lines) {
+    const piece: MetadataText = {
+      text: carried ? `${carried} ${line}` : line,
+      base: carried ? carried.length + 1 : 0,
+      at: [lineno, col],
+      carried: carriedAt,
+    };
+    [carried, carriedAt] = parseStatements(piece, out);
   }
-  if (pending) problems.push(pending);
-  // fromEntries defines `__proto__` as an own key; assignment would hit the prototype setter.
-  return [Object.fromEntries(values), problems];
+  if (carried) out.problems.push(carried);
+  return out;
+}
+
+/** Record `piece`'s statements in `out`; the unfinished array statement it ends with ('' if none) and its start. */
+function parseStatements(piece: MetadataText, out: Statements): [string, Pos] {
+  const { text } = piece;
+  let pos = 0;
+  while (pos < text.length) {
+    META_STMT_RE.lastIndex = pos;
+    const m = META_STMT_RE.exec(text);
+    if (m === null) {
+      const tail = text.slice(pos);
+      const rest = tail.trim();
+      if (META_OPEN_ARRAY_RE.test(rest)) return [rest, posIn(piece, pos + tail.length - tail.trimStart().length)];
+      if (rest) out.problems.push(rest);
+      break;
+    }
+    recordStatement(m, piece, out);
+    pos = META_STMT_RE.lastIndex;
+  }
+  return ['', [0, 0]];
+}
+
+function recordStatement(m: RegExpExecArray, piece: MetadataText, out: Statements): void {
+  const [whole, key = '', raw = ''] = m;
+  if (out.values.has(key)) {
+    out.problems.push(whole.trim());
+    return;
+  }
+  out.values.set(key, raw.startsWith("'") ? raw.slice(1, -1) : (raw.match(QUOTED_RE) ?? []).map((q) => q.slice(1, -1)));
+  const start = m.index + whole.length - whole.trimStart().length;
+  out.keys.set(key, [posIn(piece, start), posIn(piece, m.index + whole.length)]);
 }
 
 /** Split a brace-free specification line into its `element`/`tag` statements. */
@@ -264,7 +352,7 @@ function scanSpecLine(code: string, scan: Scan, specKind: string | null, delta: 
 }
 
 function scanModelLine(code: string, scan: Scan, parents: string[], delta: number): void {
-  const parent = parents[parents.length - 1] ?? null;
+  const parent = parents.at(-1) ?? null;
   const m = ELEMENT_RE.exec(code);
   if (m !== null) {
     const [, local = '', kind = '', title = ''] = m;
@@ -288,28 +376,29 @@ function scanModelLine(code: string, scan: Scan, parents: string[], delta: numbe
     return;
   }
   const rel = RELATION_RE.exec(code);
-  if (rel !== null) {
-    let [, src = '', dst = ''] = rel;
-    const legacy = rel[3] !== undefined;
-    if (parent === null) {
-      scan.findings.push(message('c4.relation-outside-root', { src, dst }));
-      return;
-    }
-    if (parents.length > 1) {
-      scan.findings.push(message('c4.relation-in-body', { src, dst, parent }));
-      return;
-    }
-    [src, dst] = [`${parents[0]}.${src}`, `${parents[0]}.${dst}`];
-    const pair = `${src}\0${dst}`;
-    if (scan.relPairs.has(pair)) scan.findings.push(message('c4.duplicate-relation', { src, dst }));
-    else {
-      scan.relPairs.add(pair);
-      scan.relations.push({ src, dst, legacy });
-    }
+  if (rel !== null) scanRelation(rel, scan, parents);
+  else if (!BRACES_ONLY_RE.test(code)) scan.findings.push(message('c4.unrecognized-model-line', { line: code }));
+}
+
+function scanRelation(rel: RegExpExecArray, scan: Scan, parents: string[]): void {
+  let [, src = '', dst = ''] = rel;
+  const legacy = rel[3] !== undefined;
+  const parent = parents.at(-1);
+  if (parent === undefined) {
+    scan.findings.push(message('c4.relation-outside-root', { src, dst }));
     return;
   }
-  if (BRACES_ONLY_RE.test(code)) return;
-  scan.findings.push(message('c4.unrecognized-model-line', { line: code }));
+  if (parents.length > 1) {
+    scan.findings.push(message('c4.relation-in-body', { src, dst, parent }));
+    return;
+  }
+  [src, dst] = [`${parent}.${src}`, `${parent}.${dst}`];
+  const pair = `${src}\0${dst}`;
+  if (scan.relPairs.has(pair)) scan.findings.push(message('c4.duplicate-relation', { src, dst }));
+  else {
+    scan.relPairs.add(pair);
+    scan.relations.push({ src, dst, legacy });
+  }
 }
 
 /** The elements and relations under `root`, with the root prefix stripped (the root itself dropped). */
@@ -325,6 +414,7 @@ export function project(model: ModelParse, root: string): ModelParse {
       .map((r) => ({ src: local(r.src), dst: local(r.dst), legacy: r.legacy })),
     findings: [],
     metadataFindings: [],
+    spans: new Map(),
   };
 }
 

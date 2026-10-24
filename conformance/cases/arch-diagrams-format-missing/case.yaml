@@ -1,0 +1,13 @@
+kind: neutral
+command: la-arch-diagrams
+args: []
+fixture: arch-diagrams
+normalize:
+- pattern: (this la reads format )[0-9]+\.[0-9]+\.[0-9]+
+  replace: \1<FORMAT>
+expect:
+  exit: 2
+  files:
+  - architecture/system.arc42.md
+golden: manual
+note: a config without format is refused before anything else, naming la-arch-migrate

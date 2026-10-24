@@ -1,7 +1,0 @@
-kind: paired
-languages:
-- python
-command: la-arch-check
-fixture: arch-ok
-expect:
-  exit: 1

@@ -1,0 +1,3 @@
+arc42-exists: architecture/a/b/c.arc42.md must sit directly in architecture/
+arc42-exists: architecture/python/api.arc42.md must sit directly in architecture/
+arch_check: 2 finding(s)

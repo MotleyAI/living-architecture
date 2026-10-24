@@ -1,0 +1,12 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+fixture: arch-ok
+remove:
+- architecture/system.arc42.md
+expect:
+  exit: 1
+golden: manual
+note: system-missing; per cross_cutting_arc42 entry in file order not-flat, missing, is-element; nested docs; orphans; code-point
+  order within each kind

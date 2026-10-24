@@ -3,7 +3,7 @@ name: init
 description: Onboard a repo to the la plugin — detect its tracker, test/lint/type-check commands, Codex, Sonar and any existing OpenSpec or architecture setup, propose a complete living-architecture.yaml with a source for every key, ask only what cannot be detected, write the file, then offer the type-check baseline and la:arch-init. Also the fast path other skills run when a repo has no config, and the way to edit or convert an existing config.
 ---
 
-**Preflight:** run `la-doctor --plugin <this skill's base directory>` once per session before using any `la-*` or `dr-*` command; if it fails, stop and show the user its output — unless the only failure is the existing `living-architecture.yaml` being invalid, which this skill converts (step 1).
+**Preflight:** run `la-doctor --plugin <this skill's base directory>` once per session before using any `la-*` or `dr-*` command; if it fails, stop and show the user its output — unless the only failure is the existing `living-architecture.yaml` being invalid or declaring an older format, which this skill converts (steps 1 and 5).
 
 # Onboard a repo
 
@@ -19,7 +19,7 @@ to that skill. A full run (the user invoked `/la:init`) continues to step 7.
 Read, don't ask. For each key note the value and where it came from:
 
 - **Existing config.** If `living-architecture.yaml` exists, this run edits it in place: start from its
-  values. Read it as raw YAML, not with `la-config` (which rejects removed keys). Under `reviewers`, the
+  values. Read it as raw YAML, not with `la-config` (which rejects removed keys and an older format). Under `reviewers`, the
   `coderabbit` flag and Sonar's `enabled` switch were removed (both bots are detected per PR): propose
   deleting them and keeping Sonar's `project_key`. `living-architecture.local.yaml`, if present, holds one
   contributor's overrides; never fold its values into the committed file.
@@ -47,7 +47,7 @@ Read, don't ask. For each key note the value and where it came from:
 
 Show the complete proposed `living-architecture.yaml`, every key on its own line with a trailing comment
 naming its source (`# detected: package.json`, `# default`, `# your answer`). Omit keys whose value equals
-the default only when the source is `default`.
+the default only when the source is `default`. Leave out `format`: step 5 stamps it.
 
 ## 3. One question round
 
@@ -65,7 +65,8 @@ writing the file, so the flag matches the disk.
 ## 5. Write the file
 
 Write `living-architecture.yaml` at the repo root, with the flags matching the disk (`architecture: false`
-until `la:arch-init` finishes). Check it with `la-config show`.
+until `la:arch-init` finishes), then run `la-arch-migrate`: it stamps the current `format` and converts an
+older repo. Check it with `la-config show`.
 If `git check-ignore -q living-architecture.local.yaml` exits 1 (not ignored), offer (yes/no) to add
 `living-architecture.local.yaml` to `.gitignore`: it holds per-person overrides and must never be committed.
 

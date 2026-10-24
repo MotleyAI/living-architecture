@@ -1,0 +1,1 @@
+living-architecture.yaml declares format 0.3.0, but this la reads format <FORMAT>: run la-arch-migrate to convert the repo

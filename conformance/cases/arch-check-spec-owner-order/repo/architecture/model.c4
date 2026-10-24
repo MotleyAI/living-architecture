@@ -1,0 +1,50 @@
+specification {
+  element system
+  element node
+  element bucket {
+    #virtual
+  }
+  tag legacy
+  tag virtual
+}
+
+model {
+  python = system 'Python' {
+    metadata {
+      specs ['a', 'c']
+    }
+    api = node 'API' {
+      metadata {
+        package 'pkg.api'
+        specs ['api']
+      }
+      handlers = node 'Handlers' {
+        metadata {
+          specs ['a', 'b']
+        }
+      }
+    }
+    core = node 'Core' {
+      metadata {
+        package 'pkg.core'
+        claims ['pkg.util']
+        specs ['b']
+      }
+    }
+    store = node 'Store' {
+      metadata {
+        package 'pkg.store'
+      }
+    }
+    legacy = bucket 'Legacy' {
+      metadata {
+        packages ['pkg.old']
+      }
+    }
+
+    api.handlers -> core
+    core -> store
+    api -> store #legacy
+    legacy -> core
+  }
+}

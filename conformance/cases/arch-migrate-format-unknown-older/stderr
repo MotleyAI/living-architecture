@@ -1,0 +1,1 @@
+la-arch-migrate: cannot migrate from format 0.3.0; this la reads format <FORMAT> and converts only a repo that declares no format

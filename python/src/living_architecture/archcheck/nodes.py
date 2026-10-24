@@ -1,53 +1,53 @@
-"""The canonical node/unit map: one root per language, nodes from model metadata, nested elements by convention."""
+"""The canonical element map: every model element, with node mappings from metadata and nested units by convention."""
 
 from __future__ import annotations
 
 from pydantic import BaseModel
 
 from living_architecture.archcheck.index import ArchCheckError
-from living_architecture.c4 import Element, ModelParse
+from living_architecture.c4 import RETIRED_ARC42_KEY, Element, ModelParse
 from living_architecture.contract import language, message, schema, validate
 
 
-class Node(BaseModel):
-    """A child of a language root; `units` are its declared units in metadata order."""
+class MapElement(BaseModel):
+    """One model element: a language root (`node` None), a node (`node == id`), or nested under `node`.
+
+    A node's `units` are its declared units in metadata order; `unit` is a nested element's convention unit.
+    """
 
     id: str
     language: str
-    virtual: bool
-    package: str | None
-    units: list[str]
-    arc42: str | None
+    node: str | None
     specs: list[str]
+    virtual: bool = False
+    package: str | None = None
+    units: list[str] = []
+    unit: str | None = None
     has_elements: bool = False
 
-
-class Derived(BaseModel):
-    """An element nested under a precise node and the unit it maps to by convention."""
-
-    id: str
-    node: str
-    language: str
-    unit: str
+    @property
+    def is_node(self) -> bool:
+        return self.node == self.id
 
 
 class NodeMap(BaseModel):
-    nodes: list[Node]
-    derived: list[Derived]
+    elements: list[MapElement]
 
-    def node_ids(self) -> set[str]:
-        return {n.id for n in self.nodes}
+    def element_ids(self) -> set[str]:
+        return {e.id for e in self.elements}
 
-    def language_nodes(self, lang: str) -> list[Node]:
-        return [n for n in self.nodes if n.language == lang]
+    def language_nodes(self, lang: str) -> list[MapElement]:
+        return [e for e in self.elements if e.is_node and e.language == lang]
 
-    def language_derived(self, lang: str) -> list[Derived]:
-        return [d for d in self.derived if d.language == lang]
+    def language_derived(self, lang: str) -> list[MapElement]:
+        """`lang`'s nested elements that map to a unit, in model order."""
+        return [e for e in self.elements if e.unit is not None and e.language == lang]
 
     def units(self, lang: str) -> list[str]:
         """Every declared, then derived unit of `lang`, in model order, each once."""
         out: list[str] = []
-        for unit in [u for n in self.language_nodes(lang) for u in n.units] + [d.unit for d in self.language_derived(lang)]:
+        declared = [u for n in self.language_nodes(lang) for u in n.units]
+        for unit in declared + [str(d.unit) for d in self.language_derived(lang)]:
             if unit not in out:
                 out.append(unit)
         return out
@@ -57,49 +57,52 @@ def separator(lang: str) -> str:
     return language(lang)["unit_separator"]
 
 
-def _metadata_errors(element: Element) -> list[str]:
-    variety = "virtual" if element.virtual else "precise"
-    errors = validate({**schema("node"), "$ref": f"#/$defs/{variety}"}, element.metadata)
-    return [message("arch-check.metadata-invalid", element=element.id, error=e) for e in errors]
+def _variety(element: Element, roots: set[str]) -> str:
+    if element.parent in roots:
+        return "virtual" if element.virtual else "precise"
+    return "element"
 
 
-def _node(element: Element, lang: str) -> Node:
-    meta = element.metadata
-    package = meta.get("package")
-    if element.virtual:
-        units = list(meta.get("packages", []))
-    else:
-        units = [str(package), *meta.get("claims", [])]
-    arc42 = meta.get("arc42")
-    return Node(
-        id=element.id,
-        language=lang,
-        virtual=element.virtual,
-        package=package if isinstance(package, str) else None,
-        units=units,
-        arc42=arc42 if isinstance(arc42, str) else None,
-        specs=list(meta.get("specs", [])),
-    )
+def _metadata_errors(element: Element, roots: set[str]) -> list[str]:
+    """The retired-key error first, then the schema errors of the other keys."""
+    errors: list[str] = []
+    if RETIRED_ARC42_KEY in element.metadata:
+        errors.append(message("arch-check.arc42-key-retired", element=element.id))
+    rest = {k: v for k, v in element.metadata.items() if k != RETIRED_ARC42_KEY}
+    found = validate({**schema("node"), "$ref": f"#/$defs/{_variety(element, roots)}"}, rest)
+    return errors + [message("arch-check.metadata-invalid", element=element.id, error=e) for e in found]
 
 
 def _problems(model: ModelParse, languages: list[str]) -> list[str]:
     problems: list[str] = []
     roots = {e.id for e in model.elements if e.parent is None}
     for element in model.elements:
-        if element.parent is None:
-            if element.id not in languages:
-                problems.append(message("arch-check.root-undeclared", element=element.id))
-            elif element.has_metadata or element.metadata_problems:
-                problems.append(message("arch-check.metadata-on-root", element=element.id))
+        if element.parent is None and element.id not in languages:
+            problems.append(message("arch-check.root-undeclared", element=element.id))
         elif element.metadata_problems:
             problems += element.metadata_problems
-        elif element.parent not in roots:
-            if element.has_metadata:
-                problems.append(message("arch-check.metadata-on-nested", element=element.id))
         else:
-            problems += _metadata_errors(element)
+            problems += _metadata_errors(element, roots)
     problems += [message("arch-check.root-missing", language=lang) for lang in languages if lang not in roots]
     return problems
+
+
+def _node(element: Element, lang: str) -> MapElement:
+    meta = element.metadata
+    package = meta.get("package")
+    if element.virtual:
+        units = list(meta.get("packages", []))
+    else:
+        units = [str(package), *meta.get("claims", [])]
+    return MapElement(
+        id=element.id,
+        language=lang,
+        node=element.id,
+        specs=list(meta.get("specs", [])),
+        virtual=element.virtual,
+        package=package if isinstance(package, str) else None,
+        units=units,
+    )
 
 
 def build_node_map(model: ModelParse, languages: list[str]) -> NodeMap:
@@ -108,21 +111,25 @@ def build_node_map(model: ModelParse, languages: list[str]) -> NodeMap:
     if problems:
         raise ArchCheckError("; ".join(problems))
     roots = {e.id for e in model.elements if e.parent is None}
-    nodes = {e.id: _node(e, e.parent) for e in model.elements if e.parent in roots}
-    derived: list[Derived] = []
+    by_id: dict[str, MapElement] = {}
     for element in model.elements:
-        if element.parent is None or element.parent in roots:
+        specs = list(element.metadata.get("specs", []))
+        if element.parent is None:
+            by_id[element.id] = MapElement(id=element.id, language=element.id, node=None, specs=specs)
+            continue
+        if element.parent in roots:
+            by_id[element.id] = _node(element, element.parent)
             continue
         lang, local, path = element.id.split(".", 2)
-        node = nodes[f"{lang}.{local}"]
+        node = by_id[f"{lang}.{local}"]
+        entry = MapElement(id=element.id, language=lang, node=node.id, specs=specs)
         if node.virtual:
             node.has_elements = True
         else:
             sep = separator(lang)
-            derived.append(
-                Derived(id=element.id, node=node.id, language=lang, unit=f"{node.package}{sep}{path.replace('.', sep)}")
-            )
-    return NodeMap(nodes=list(nodes.values()), derived=derived)
+            entry.unit = f"{node.package}{sep}{path.replace('.', sep)}"
+        by_id[element.id] = entry
+    return NodeMap(elements=list(by_id.values()))
 
 
 def unit_to_element(node_map: NodeMap, lang: str) -> dict[str, str]:
@@ -132,5 +139,5 @@ def unit_to_element(node_map: NodeMap, lang: str) -> dict[str, str]:
         for unit in node.units:
             mapping.setdefault(unit, node.id)
     for element in node_map.language_derived(lang):
-        mapping.setdefault(element.unit, element.id)
+        mapping.setdefault(str(element.unit), element.id)
     return mapping
