@@ -115,8 +115,9 @@ la-arch-check
 
 The scaffold allows every import that exists, so the first check passes once any OpenSpec specs you have are
 mapped to elements. Then mark the arrows you don't want as `#legacy`, set `legacy_arrows.baseline` to their count
-and run `la-arch-diagrams`. That is the one time the baseline goes up. From then on it only goes down: an arrow
-leaves the model together with the imports behind it, since the check fails on either one alone. TypeScript and
+and run `la-arch-diagrams`. That is the one time the baseline goes up. To retire a legacy arrow later, remove it
+together with the imports behind it and lower the baseline to the new count, all in one change: the check fails
+on an arrow or an import left alone, and on any difference between the count and the baseline. TypeScript and
 mixed repos are set up the same way; see
 [Configuration](https://github.com/MotleyAI/living-architecture/blob/main/docs/configuration.md#languages).
 
