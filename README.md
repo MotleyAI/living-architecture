@@ -115,7 +115,7 @@ la-arch-check
 
 The scaffold allows every import that exists, so the first check passes once any OpenSpec specs you have are
 mapped to elements. Then mark the arrows you don't want as `#legacy`, set `legacy_arrows.baseline` to their count
-and run `la-arch-diagrams`. That is the one time the baseline goes up. To retire a legacy arrow later, remove it
+and run `la-arch-diagrams`. That is the one time to raise the baseline. To retire a legacy arrow later, remove it
 together with the imports behind it and lower the baseline to the new count, all in one change: the check fails
 on an arrow or an import left alone, and on any difference between the count and the baseline. TypeScript and
 mixed repos are set up the same way; see
@@ -174,8 +174,8 @@ them:
   so the picture and the check can't disagree.
 - The model must match the code exactly: an import with no arrow fails, and so does an arrow with no import.
 - One model covers Python and TypeScript, in the same repo.
-- Grandfathered arrows are counted against a baseline in `architecture/index.yaml` that only goes down after
-  setup, so the list of known violations can shrink but never quietly grow.
+- Grandfathered arrows are counted against a baseline in `architecture/index.yaml`, so a new one also changes
+  the baseline, an edit that shows in review. After setup the plugin's skills only ever lower it.
 - Each element carries principles with status tags (the test that enforces it, the issue that will, or
   `[review]`), which `la-arch-check` verifies and every stage of the PR flow reads before it acts.
 

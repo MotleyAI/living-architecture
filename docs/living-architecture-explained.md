@@ -15,8 +15,9 @@ merely drawn.
 
 ### The code today does not match the architecture I want
 
-Mark an arrow `#legacy`: it is allowed for now and flagged for removal. A ratchet in `index.yaml` keeps the
-number of legacy arrows from growing. `/la:arch-cleanup` retires them a batch at a time.
+Mark an arrow `#legacy`: it is allowed for now and flagged for removal. A baseline in `index.yaml` counts the
+legacy arrows, so a new one also changes the baseline, an edit that shows in review; the skills only ever lower
+it. `/la:arch-cleanup` retires them a batch at a time.
 
 ### Aligning modules with the target causes a lot of import churn, which costs tokens and time
 

@@ -116,11 +116,16 @@ def test_dropping_the_dead_arrow_passes(example: Path, capsys: pytest.CaptureFix
     assert _run("la-arch-check --root .", capsys) == (0, "arch_check: OK\n")
 
 
-def test_root_readme_shows_outputs_the_walkthrough_produces() -> None:
-    walkthrough = {output for block in _console_blocks() for _, output in block}
-    shown = [output for block in _console_blocks(REPO_ROOT / "README.md") for _, output in block]
-    assert shown
-    assert [output for output in shown if output not in walkthrough] == []
+# The root README's console blocks, in order, as the WALKTHROUGH steps that produce them: the shortcut import,
+# then the legacy arrow left after its import is gone.
+ROOT_README_STEPS = [0, 4]
+
+
+def test_root_readme_shows_the_walkthrough_outputs_of_its_scenarios() -> None:
+    walkthrough = _console_blocks()
+    shown = [(command, output) for [(command, output)] in _console_blocks(REPO_ROOT / "README.md")]
+    expected = [walkthrough[step][-1] for step in ROOT_README_STEPS]
+    assert shown == [(command.removesuffix(" --root ."), output) for command, output in expected]
 
 
 def test_shipped_example_matches_its_diagram(example: Path) -> None:

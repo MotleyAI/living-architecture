@@ -68,8 +68,8 @@ arch_check: 2 finding(s)
 ```
 
 Every legacy arrow has to be counted in `architecture/index.yaml`. Set the baseline to
-`legacy_arrows: {baseline: 1}`, then refresh the diagram. This is part of setting up the model: from then on the
-baseline only goes down.
+`legacy_arrows: {baseline: 1}`, then refresh the diagram. This is part of setting up the model: after that, only
+lower the baseline.
 
 ```console
 $ la-arch-diagrams --root .

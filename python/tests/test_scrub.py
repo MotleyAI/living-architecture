@@ -8,17 +8,21 @@ REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 THIS_FILE = Path(__file__).resolve()
 
 BLOCKED = re.compile(r"\begor\b|\bjames\b|slayer|motley|\bdev-\d+|/home/", re.IGNORECASE)
-# The publisher may appear only as the copyright holder, author/owner, and in the repo URL; the maintainer only
-# as the packages' maintainer; the project that uses the plugin only as the README's link to it.
+# The publisher may appear only as the copyright holder, author/owner, and in the repo URL.
 PUBLISHER_ALLOWED = (
     "Copyright (c) 2026 MotleyAI",
     'authors = [{ name = "MotleyAI" }]',
     '"name": "MotleyAI"',
     "MotleyAI/living-architecture",
-    'maintainers = [{ name = "Egor Kraev" }]',
-    '"maintainers": [\n    "Egor Kraev"\n  ]',
-    "[SLayer](https://github.com/MotleyAI/slayer)",
 )
+README_COPIES = ("README.md", "python/README.md", "node/README.md")
+# Per file: the maintainer only as the packages' maintainer, the project that uses the plugin only as the README's
+# link to it.
+FILE_ALLOWED = {
+    "python/pyproject.toml": ('maintainers = [{ name = "Egor Kraev" }]',),
+    "node/package.json": ('"maintainers": [\n    "Egor Kraev"\n  ]',),
+    **{readme: ("[SLayer](https://github.com/MotleyAI/slayer)",) for readme in README_COPIES},
+}
 
 
 # OpenSpec change folders (active and archived) keep their issue references.
@@ -33,8 +37,8 @@ def _published_files() -> list[Path]:
     return [REPO_ROOT / rel for rel in listing if (REPO_ROOT / rel).is_file() and not rel.startswith(CHANGE_DOCS)]
 
 
-def _violations(text: str) -> list[str]:
-    for allowed in PUBLISHER_ALLOWED:
+def _violations(text: str, rel: str = "") -> list[str]:
+    for allowed in (*PUBLISHER_ALLOWED, *FILE_ALLOWED.get(rel, ())):
         text = text.replace(allowed, "")
     return sorted({m.group(0) for m in BLOCKED.finditer(text)})
 
@@ -44,8 +48,16 @@ def test_blocklist_catches_the_real_cases():
     assert _violations("Motley's SLayer at /home/x") == ["/home/", "Motley", "SLayer"]
     assert _violations("Categories, Egor") == ["Egor"]
     assert _violations("Copyright (c) 2026 MotleyAI") == []
-    assert _violations("the [SLayer](https://github.com/MotleyAI/slayer) codebase, SLayer") == ["SLayer"]
-    assert _violations('maintainers = [{ name = "Egor Kraev" }], Egor') == ["Egor"]
+    assert _violations("the [SLayer](https://github.com/MotleyAI/slayer) codebase, SLayer", "README.md") == ["SLayer"]
+    assert _violations('maintainers = [{ name = "Egor Kraev" }], Egor', "python/pyproject.toml") == ["Egor"]
+
+
+def test_file_exemptions_hold_only_in_their_own_file():
+    link = "[SLayer](https://github.com/MotleyAI/slayer)"
+    maintainer = 'maintainers = [{ name = "Egor Kraev" }]'
+    assert _violations(link, "docs/commands.md") == ["Motley", "SLayer", "slayer"]
+    assert _violations(maintainer, "README.md") == ["Egor"]
+    assert set(FILE_ALLOWED) <= {p.relative_to(REPO_ROOT).as_posix() for p in _published_files()}
 
 
 def test_change_docs_are_exempt_but_specs_are_not():
@@ -63,7 +75,7 @@ def test_no_blocked_terms_in_published_files():
             text = path.read_text(encoding="utf-8")
         except UnicodeDecodeError:
             continue
-        found = _violations(text)
+        found = _violations(text, path.relative_to(REPO_ROOT).as_posix())
         if found:
             offenders[str(path.relative_to(REPO_ROOT))] = found
     assert offenders == {}

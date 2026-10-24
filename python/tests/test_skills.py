@@ -146,7 +146,8 @@ def _anchors(doc: Path) -> set[str]:
 
 
 @pytest.mark.parametrize("doc", _doc_files(), ids=lambda p: p.relative_to(REPO_ROOT).as_posix())
-def test_doc_links_resolve(doc):
+def test_doc_links_into_the_repo_resolve(doc):
+    """Relative and GitHub blob/raw links name an existing repo file and heading; other URLs are not fetched."""
     for target in LINK_RE.findall(doc.read_text(encoding="utf-8")):
         path, _, anchor = target.partition("#")
         if target.startswith((BLOB_PREFIX, RAW_PREFIX)):

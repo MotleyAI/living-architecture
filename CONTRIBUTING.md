@@ -24,8 +24,8 @@ the repository layout.
 
 This repo is developed with its own plugin: each change goes through `/la:pr` on a branch named after its
 issue, and the review loop runs CI, Codex, CodeRabbit and Sonar. You don't need the plugin to contribute, but a
-PR has to pass CI and the CodeRabbit and Sonar reviews. If you lack the repo's tracker (Linear) or Codex, override them for yourself in a
-git-ignored `living-architecture.local.yaml`
+PR has to pass CI, and the CodeRabbit and Sonar reviews when they run on it. If you lack the repo's tracker
+(Linear) or Codex, override them for yourself in a git-ignored `living-architecture.local.yaml`
 ([details](docs/configuration.md#local-overrides)).
 
 The rules that matter most are in [AGENTS.md](AGENTS.md):
