@@ -92,19 +92,23 @@ def architecture() -> dict[str, Any]:
     return _yaml("architecture.yaml")
 
 
+def _config() -> dict[str, Any]:
+    return _yaml("config.yaml")
+
+
 def config_file() -> str:
     """The committed per-repo config file, relative to the repo root."""
-    return _yaml("config.yaml")["file"]
+    return _config()["file"]
 
 
 def local_config_file() -> str:
     """One contributor's git-ignored overrides of it."""
-    return _yaml("config.yaml")["local_file"]
+    return _config()["local_file"]
 
 
 def config_format() -> str:
     """The repo format this la reads and writes."""
-    return _yaml("config.yaml")["format"]
+    return _config()["format"]
 
 
 def script_path(name: str) -> Path:

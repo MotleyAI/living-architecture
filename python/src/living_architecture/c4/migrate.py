@@ -122,18 +122,38 @@ def _create_exclusive(root: Path, rel: str, text: str, steps: list[_Step]) -> No
         raise
 
 
+def _mode(path: Path) -> int:
+    return stat.S_IMODE(path.stat().st_mode)
+
+
+def _restore_file(path: Path, original: bytes, mode: int) -> None:
+    path.write_bytes(original)
+    path.chmod(mode)
+
+
+def _restore_dir(path: Path, mode: int) -> None:
+    path.mkdir()
+    path.chmod(mode)
+
+
 def _delete(root: Path, rel: str, original: bytes, steps: list[_Step]) -> None:
     path = root / rel
+    mode = _mode(path)
     path.unlink()
     steps.append(
-        _Step(rel=rel, undo=lambda: path.write_bytes(original), restored=lambda: path.is_file() and path.read_bytes() == original)
+        _Step(
+            rel=rel,
+            undo=lambda: _restore_file(path, original, mode),
+            restored=lambda: path.is_file() and _mode(path) == mode and path.read_bytes() == original,
+        )
     )
 
 
 def _remove_dir(root: Path, rel: str, steps: list[_Step]) -> None:
     path = root / rel
+    mode = _mode(path)
     path.rmdir()
-    steps.append(_Step(rel=rel, undo=path.mkdir, restored=path.is_dir))
+    steps.append(_Step(rel=rel, undo=lambda: _restore_dir(path, mode), restored=lambda: path.is_dir() and _mode(path) == mode))
 
 
 def _replace_config(root: Path, stamped: str, steps: list[_Step]) -> None:
@@ -141,7 +161,7 @@ def _replace_config(root: Path, stamped: str, steps: list[_Step]) -> None:
     config = root / config_file()
     temp = f".{config_file()}.{secrets.token_hex(4)}.tmp"
     _create_exclusive(root, temp, stamped, steps)
-    os.chmod(root / temp, stat.S_IMODE(config.stat().st_mode))
+    os.chmod(root / temp, _mode(config))
     os.replace(root / temp, config)
 
 
@@ -184,7 +204,7 @@ def _write(root: Path, outputs: dict[str, str], legacy: dict[str, bytes], stampe
 
 def _layout(root: Path) -> tuple[dict[str, str], dict[str, bytes]]:
     """The canonical files to write and the legacy files to delete; none when there is no layout to convert."""
-    if not os.path.lexists(root / _INDEX_REL) and not sources(root):
+    if not sources(root):
         return {}, {}
     layout = classify(root)
     if layout.state == "canonical":

@@ -51,7 +51,7 @@ conversion is a step of `la-arch-migrate` (see "la-arch-migrate converts the rep
 only for a repo whose `living-architecture.yaml` declares no `format`.
 
 For such a repo, `la-arch-migrate [--root DIR]` SHALL:
-- when `architecture/` holds neither `index.yaml` nor any LikeC4 source file, convert no layout;
+- when `architecture/` holds no LikeC4 source file, convert no layout;
 - in the canonical layout, convert no layout;
 - in any layout that is neither canonical nor legacy, print the layout message and exit 2, writing nothing;
 - in the legacy layout, write `architecture/model.c4` holding one `specification { }` block with the interiors of
@@ -100,7 +100,7 @@ For such a repo, `la-arch-migrate [--root DIR]` SHALL:
 
 #### Scenario: Index without a model
 - **WHEN** an unversioned repo has `architecture/index.yaml` but no LikeC4 source and `la-arch-migrate` runs
-- **THEN** it exits 2 with the layout message and the repo is unchanged
+- **THEN** it converts no layout, stamps the format and exits 0, and `la-arch-check` then reports the missing model files
 
 #### Scenario: Not migratable
 - **WHEN** an unversioned legacy repo also holds `architecture/extra.likec4`

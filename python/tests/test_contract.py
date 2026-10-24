@@ -17,6 +17,7 @@ import pytest
 import yaml
 
 from living_architecture.contract import (
+    YAMLError,
     canonical_repr,
     compute_hash,
     contract_hash,
@@ -367,8 +368,20 @@ def test_typescript_test_globs_classify(vector: dict) -> None:
     assert any(glob_match(g, vector["path"]) for g in globs) is vector["test"]
 
 
+@pytest.mark.parametrize("tag", ["", "!!int "])
+def test_yaml_profile_caps_decimal_digits(tag: str) -> None:
+    """Python's 4300-digit cap on decimal integer strings; the npm twin mirrors it."""
+    assert load_yaml(f"x: {tag}{'9' * 4300}") == {"x": int("9" * 4300)}
+    with pytest.raises(YAMLError):
+        load_yaml(f"x: {tag}{'9' * 4301}")
+
+
 @pytest.mark.parametrize("vector", _vectors("yaml.yaml")["cases"], ids=lambda v: v["name"])
 def test_yaml_profile(vector: dict) -> None:
+    if vector.get("error"):
+        with pytest.raises(YAMLError):
+            load_yaml(vector["text"])
+        return
     value = load_yaml(vector["text"])
     if "json" in vector:
         assert value == json.loads(vector["json"])

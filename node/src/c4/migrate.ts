@@ -128,20 +128,34 @@ function createExclusive(root: string, rel: string, text: string, steps: Step[])
   }
 }
 
+const modeOf = (path: string): number => statSync(path).mode & 0o7777;
+
 function remove(root: string, rel: string, original: Buffer, steps: Step[]): void {
   const path = join(root, rel);
+  const mode = modeOf(path);
   unlinkSync(path);
   steps.push({
     rel,
-    undo: () => writeFileSync(path, original),
-    restored: () => isFile(path) && readFileSync(path).equals(original),
+    undo: () => {
+      writeFileSync(path, original);
+      chmodSync(path, mode);
+    },
+    restored: () => isFile(path) && modeOf(path) === mode && readFileSync(path).equals(original),
   });
 }
 
 function removeDir(root: string, rel: string, steps: Step[]): void {
   const path = join(root, rel);
+  const mode = modeOf(path);
   rmdirSync(path);
-  steps.push({ rel, undo: () => mkdirSync(path), restored: () => existsSync(path) && statSync(path).isDirectory() });
+  steps.push({
+    rel,
+    undo: () => {
+      mkdirSync(path);
+      chmodSync(path, mode);
+    },
+    restored: () => existsSync(path) && statSync(path).isDirectory() && modeOf(path) === mode,
+  });
 }
 
 /** Replace the config with `stamped` through a sibling temp file and an atomic rename. */
@@ -149,7 +163,7 @@ function replaceConfig(root: string, stamped: string, steps: Step[]): void {
   const config = join(root, configFile());
   const temp = `.${configFile()}.${randomBytes(4).toString('hex')}.tmp`;
   createExclusive(root, temp, stamped, steps);
-  chmodSync(join(root, temp), statSync(config).mode & 0o7777);
+  chmodSync(join(root, temp), modeOf(config));
   renameSync(join(root, temp), config);
 }
 
@@ -195,7 +209,7 @@ function write(root: string, outputs: Map<string, string>, legacy: Map<string, B
 
 /** The canonical files to write and the legacy files to delete; none when there is no layout to convert. */
 function layoutChange(root: string): [Map<string, string>, Map<string, Buffer>] {
-  if (!lexists(join(root, INDEX_REL)) && sources(root).length === 0) return [new Map(), new Map()];
+  if (sources(root).length === 0) return [new Map(), new Map()];
   const layout = classify(root);
   if (layout.state === 'canonical') return [new Map(), new Map()];
   if (layout.state !== 'legacy') throw new MigrateError(layout.message ?? '');

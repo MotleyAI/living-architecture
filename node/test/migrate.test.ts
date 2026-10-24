@@ -1,5 +1,6 @@
 // la-arch-migrate: all-or-nothing writes under injected filesystem failures, and the verification guard.
 import {
+  chmodSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -105,25 +106,29 @@ function legacyRepo(where: string, views: boolean): string {
   mkdirSync(join(repo, 'architecture', 'model'), { recursive: true });
   writeFileSync(join(repo, 'architecture', 'model', 'specification.c4'), SPEC);
   writeFileSync(join(repo, 'architecture', 'model', 'python.c4'), PYTHON);
+  // Non-default modes, so a rollback that loses them changes the snapshot.
+  for (const name of ['specification.c4', 'python.c4']) chmodSync(join(repo, 'architecture', 'model', name), 0o600);
+  chmodSync(join(repo, 'architecture', 'model'), 0o700);
   writeFileSync(join(repo, 'architecture', 'index.yaml'), 'python:\n  root_package: pkg\n');
   writeFileSync(join(repo, CONFIG), UNVERSIONED);
   if (views) writeFileSync(join(repo, 'architecture', 'views.c4'), VIEWS);
   return repo;
 }
 
-/** Every directory and every file's bytes under `root`. */
-function snapshot(root: string): { dirs: string[]; files: Record<string, string> } {
-  const dirs: string[] = [];
+/** Every directory's mode and every file's mode and bytes under `root`. */
+function snapshot(root: string): { dirs: Record<string, number>; files: Record<string, string> } {
+  const dirs: Record<string, number> = {};
   const files: Record<string, string> = {};
   const walk = (dir: string): void => {
     for (const name of readdirSync(dir).sort()) {
       const path = join(dir, name);
       const rel = relative(root, path).split(sep).join('/');
-      if (statSync(path).isDirectory()) {
-        dirs.push(rel);
+      const stats = statSync(path);
+      if (stats.isDirectory()) {
+        dirs[rel] = stats.mode & 0o7777;
         walk(path);
       } else {
-        files[rel] = readFileSync(path).toString('base64');
+        files[rel] = `${stats.mode & 0o7777}:${readFileSync(path).toString('base64')}`;
       }
     }
   };
@@ -148,11 +153,9 @@ function armed(root: string, failAt: number, after: boolean, failFrom = false): 
 
 /** The directories and files that differ between two snapshots. */
 function changedPaths(before: ReturnType<typeof snapshot>, after: ReturnType<typeof snapshot>): string[] {
-  const dirs = [...before.dirs.filter((d) => !after.dirs.includes(d)), ...after.dirs.filter((d) => !before.dirs.includes(d))];
-  const files = [...new Set([...Object.keys(before.files), ...Object.keys(after.files)])].filter(
-    (rel) => before.files[rel] !== after.files[rel],
-  );
-  return [...dirs, ...files].sort();
+  const differing = (a: Record<string, unknown>, b: Record<string, unknown>): string[] =>
+    [...new Set([...Object.keys(a), ...Object.keys(b)])].filter((rel) => a[rel] !== b[rel]);
+  return [...differing(before.dirs, after.dirs), ...differing(before.files, after.files)].sort();
 }
 
 describe('la-arch-migrate', () => {

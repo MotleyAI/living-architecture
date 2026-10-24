@@ -35,3 +35,21 @@ skill references SHALL be in the manifest.
 #### Scenario: Every non-exempt command runs the format check
 - **WHEN** either twin's test suite runs each manifest command not marked exempt in a repo whose config declares no `format`
 - **THEN** each exits 2 with the missing-format message, and each exempt command does not print it
+
+### Requirement: YAML is read with one fixed profile
+Every YAML input SHALL be read as YAML 1.1, exactly as PyYAML's safe loader reads it: `yes`/`no`/`on`/`off`
+are booleans, and a duplicate mapping key takes the last value. A scalar the safe loader cannot construct (an
+impossible date such as `2024-13-01`, or `!!int`/`!!float` content that is not a number) SHALL be a YAML error,
+reported like any other invalid YAML, never a crash.
+
+#### Scenario: YAML 1.1 boolean
+- **WHEN** the config sets `reviewers: {codex: no}`
+- **THEN** the resolved `reviewers.codex` is `false`
+
+#### Scenario: Duplicate key
+- **WHEN** a mapping in the config repeats a key
+- **THEN** the last occurrence wins and no error is raised
+
+#### Scenario: Unconstructible scalar
+- **WHEN** the config holds `2024-13-01` as a plain scalar
+- **THEN** every command that reads it reports invalid YAML in the config and exits as for any other YAML error

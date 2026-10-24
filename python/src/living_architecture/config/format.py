@@ -20,7 +20,7 @@ from living_architecture.contract import (
 )
 
 FORMAT_KEY = "format"
-_VERSION_RE = re.compile(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)")
+_VERSION_RE = re.compile(r"(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)", re.ASCII)
 _BLANK = " \t\r"
 
 

@@ -15,7 +15,8 @@ import {
 import { ConfigError } from './error.js';
 
 export const FORMAT_KEY = 'format';
-const VERSION_RE = /^(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)$/;
+const VERSION_RE = /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/;
+const BLANK = ' \t\r';
 
 /** The committed config file: its exact text and its top-level mapping, null for an empty document. */
 export interface Committed {
@@ -98,21 +99,30 @@ export function checkFormat(root: string): string | null {
 function unorderedRepr(value: unknown): string {
   if (value instanceof Map) {
     const entries = [...value].map(([k, v]) => `${unorderedRepr(k)}: ${unorderedRepr(v)}`);
-    return `{${entries.sort(byCodePoint).join(', ')}}`;
+    return `{${entries.toSorted(byCodePoint).join(', ')}}`;
   }
   if (Array.isArray(value)) return `[${value.map(unorderedRepr).join(', ')}]`;
   return canonicalRepr(value);
 }
 
-const stripStart = (text: string): string => text.replace(/^[ \t\r]+/, '');
-const stripEnd = (text: string): string => text.replace(/[ \t\r]+$/, '');
+function stripStart(text: string, chars: string): string {
+  let start = 0;
+  while (start < text.length && chars.includes(text.charAt(start))) start += 1;
+  return text.slice(start);
+}
+
+function stripEnd(text: string, chars: string): string {
+  let end = text.length;
+  while (end > 0 && chars.includes(text.charAt(end - 1))) end -= 1;
+  return text.slice(0, end);
+}
 
 /** The index of the first line after the leading comments, blank lines, directives and a `---` marker. */
 function insertAt(lines: string[]): number {
   for (const [index, line] of lines.entries()) {
-    const content = line.replace(/[\r\n]+$/, '');
-    if (stripEnd(content) === '---') return index + 1;
-    const stripped = stripStart(content);
+    const content = stripEnd(line, '\r\n');
+    if (stripEnd(content, BLANK) === '---') return index + 1;
+    const stripped = stripStart(content, BLANK);
     if (stripped && !stripped.startsWith('#') && !content.startsWith('%')) return index;
   }
   return lines.length;

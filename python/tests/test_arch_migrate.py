@@ -3,6 +3,7 @@
 import builtins
 import io
 import os
+import stat
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -28,6 +29,10 @@ def legacy_repo(tmp_path: Path, *, views: bool) -> Path:
     model.mkdir(parents=True)
     (model / "specification.c4").write_text(SPEC, encoding="utf-8")
     (model / "python.c4").write_text(PYTHON, encoding="utf-8")
+    # Non-default modes, so a rollback that loses them changes the snapshot.
+    for legacy in model.iterdir():
+        legacy.chmod(0o600)
+    model.chmod(0o700)
     (tmp_path / "repo" / "architecture" / "index.yaml").write_text("python:\n  root_package: pkg\n", encoding="utf-8")
     (tmp_path / "repo" / CONFIG).write_text(UNVERSIONED, encoding="utf-8")
     if views:
@@ -35,20 +40,30 @@ def legacy_repo(tmp_path: Path, *, views: bool) -> Path:
     return tmp_path / "repo"
 
 
-def snapshot(root: Path) -> tuple[set[str], dict[str, bytes]]:
-    """Every directory and every file's bytes under `root`."""
-    dirs: set[str] = set()
-    files: dict[str, bytes] = {}
+Snapshot = tuple[dict[str, int], dict[str, tuple[int, bytes]]]
+
+
+def _mode(path: Path) -> int:
+    return stat.S_IMODE(path.stat().st_mode)
+
+
+def snapshot(root: Path) -> Snapshot:
+    """Every directory's mode and every file's mode and bytes under `root`."""
+    dirs: dict[str, int] = {}
+    files: dict[str, tuple[int, bytes]] = {}
     for here, subdirs, names in os.walk(root):
-        dirs.update(os.path.relpath(Path(here) / d, root) for d in subdirs)
-        files.update({os.path.relpath(Path(here) / n, root): (Path(here) / n).read_bytes() for n in names})
+        dirs.update({os.path.relpath(Path(here) / d, root): _mode(Path(here) / d) for d in subdirs})
+        files.update({os.path.relpath(Path(here) / n, root): (_mode(Path(here) / n), (Path(here) / n).read_bytes()) for n in names})
     return dirs, files
 
 
-def changed_paths(before: tuple[set[str], dict[str, bytes]], after: tuple[set[str], dict[str, bytes]]) -> set[str]:
+def changed_paths(before: Snapshot, after: Snapshot) -> set[str]:
     """The directories and files that differ between two snapshots."""
+    dirs = before[0].keys() | after[0].keys()
     files = before[1].keys() | after[1].keys()
-    return (before[0] ^ after[0]) | {rel for rel in files if before[1].get(rel) != after[1].get(rel)}
+    return {rel for rel in dirs if before[0].get(rel) != after[0].get(rel)} | {
+        rel for rel in files if before[1].get(rel) != after[1].get(rel)
+    }
 
 
 class Faults:

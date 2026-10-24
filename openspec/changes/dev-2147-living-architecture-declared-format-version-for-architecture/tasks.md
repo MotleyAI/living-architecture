@@ -106,10 +106,13 @@
 
 - [x] 7.1 Version 0.4.0 in `python/pyproject.toml`, `node/package.json`, `plugin/.claude-plugin/plugin.json`
   (`uv version 0.4.0`, lockfiles refreshed). Verify the version tests.
-- [x] 7.2 Run `la-arch-migrate` on this repo, and add `format: 0.4.0` by hand to
-  `acceptance/node-only/repo/living-architecture.yaml` (its index.yaml has no model yet, which
-  `la-arch-migrate` refuses); verify each `living-architecture.yaml` gains only `format: 0.4.0`
+- [x] 7.2 Run `la-arch-migrate` on this repo and on `acceptance/node-only/repo` (its index.yaml has no model yet,
+  so only the format is stamped); verify each `living-architecture.yaml` gains only `format: 0.4.0`
   and `la-doctor --require-config` is healthy.
 - [x] 7.3 Comment on DEV-2139 recording the ordering (this change is format 0.4.0; DEV-2139 becomes format 0.5.0 with a
   step keyed on declared `0.4.0`; its frozen plan needs the user's approval for that edit on its branch).
 - [x] 7.4 Full suites of both twins and the cross-twin conformance run green.
+- [x] 7.5 `la-arch-migrate` stamps an unversioned repo whose `architecture/` has `index.yaml` but no LikeC4 source,
+  in both twins; flip `arch-migrate-index-without-model` to the stamp and add a following `la-arch-check` case.
+- [x] 7.6 Both twins' YAML profile raise a YAML error on a scalar PyYAML's safe loader cannot construct: shared
+  vectors in `vectors/yaml.yaml`, unit tests, a conformance case, and the profile line in `shared/README.md`.
