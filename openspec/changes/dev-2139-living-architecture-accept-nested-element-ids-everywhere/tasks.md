@@ -1,7 +1,7 @@
 ## 1. Shared contract
 
 - [x] 1.1 `shared/schema/node.schema.json`: add `$defs/element` `{specs}`, drop `arc42` from `precise`/`virtual`; verify the schema tests in both twins.
-- [x] 1.2 `shared/findings.yaml`: rename `spec-mapping.unknown-node` → `spec-mapping.unknown-element` (`{element}`); reword `spec-mapping.unmapped`, `arc42-exists.orphan`, `arch-migrate.nothing`; remove `arc42-exists.node-doc-missing`, `arch-check.metadata-on-root`, `arch-check.metadata-on-nested`, `c4.include-non-top-level`, `c4.view-includes-non-top-level`; add `arch-check.arc42-key-retired`, `arc42-exists.nested-doc`, `arc42-exists.cross-cutting-not-flat`, `arc42-exists.cross-cutting-is-element`, `arch-migrate` move line and refusals (source missing, source moved twice, shared target, target taken, diagrams key taken) — texts exactly as in design.md / the spec deltas.
+- [x] 1.2 `shared/findings.yaml`: rename `spec-mapping.unknown-node` → `spec-mapping.unknown-element` (`{element}`); reword `spec-mapping.unmapped`, `arc42-exists.orphan`; remove `arc42-exists.node-doc-missing`, `arch-check.metadata-on-root`, `arch-check.metadata-on-nested`, `c4.include-non-top-level`, `c4.view-includes-non-top-level`; add `arch-check.arc42-key-retired`, `arc42-exists.nested-doc`, `arc42-exists.cross-cutting-not-flat`, `arc42-exists.cross-cutting-is-element`, `arch-migrate` move line and refusals (source missing, source moved twice, shared target, target taken, diagrams key taken) — texts exactly as in design.md / the spec deltas.
 - [x] 1.3 `shared/cli.yaml`: `la-arch-migrate` help covers both steps.
 - [x] 1.4 Run `scripts/sync-shared`; verify `scripts/sync-shared --check` and the drift tests pass.
 
@@ -35,3 +35,8 @@
 
 - [x] 6.1 Python: `uv run pytest -q`, `uv run ruff check src tests`, `uv run basedpyright src tests` green.
 - [x] 6.2 `scripts/conformance-cross` green through both twins; `la-arch-check` green on this repo.
+
+## 7. Declared format (merge of origin/main)
+
+- [x] 7.1 Run the arc42 conversion as a step of the unversioned → 0.4.0 format migration (after the layout conversion, before the stamp) in both twins, through the format migration's journal; drop `— run la-arch-migrate` from `arch-check.arc42-key-retired`; take main's `arch-migrate.nothing`.
+- [x] 7.2 Give every arc42 migrate case an unversioned `living-architecture.yaml` and the stamped (or, when refused, unchanged) config golden.

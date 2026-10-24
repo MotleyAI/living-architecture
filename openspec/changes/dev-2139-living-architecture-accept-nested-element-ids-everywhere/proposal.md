@@ -13,12 +13,13 @@ of `architecture/` escape the orphan and tag checks.
   (`package`, `claims`, `packages`) stay node-only. A mapping key on a root or nested element is a setup error.
 - `cross_cutting_specs.touches` accepts any element id at any depth, roots included.
 - **BREAKING**: the `arc42` metadata key is retired. An element's arc42 doc is `architecture/<element id>.arc42.md`
-  (optional). A model still using the key makes `la-arch-check` exit 2 pointing to `la-arch-migrate`.
+  (optional). A model still using the key makes `la-arch-check` exit 2.
 - **BREAKING**: every arc42 doc sits directly in `architecture/`; a `*.arc42.md` in a subfolder, a
   `cross_cutting_arc42` entry elsewhere, or one naming an element's doc is a finding. The orphan check recognises
   element docs by id.
 - `la-arch-migrate` converts the `arc42` key format (moving docs, dropping the key, renaming `diagrams` keys,
-  flattening cross-cutting docs) in canonical as well as legacy repos, all-or-nothing.
+  flattening cross-cutting docs) in canonical as well as legacy repos, all-or-nothing, as a step of migrating a repo
+  that declares no `format` to format 0.4.0.
 - Views: `include X`, `X -> *` and `* -> X` accept elements at any depth, relative to the root; depth counts from the
   selected element. `view ... of` stays root-only.
 - Findings say "element" where they apply: `spec-mapping.unknown-node` becomes `spec-mapping.unknown-element`;
@@ -35,7 +36,8 @@ of `architecture/` escape the orphan and tag checks.
 ### Modified Capabilities
 - `arch-check`: element metadata, spec ownership and `touches` at any depth; id-named flat arc42 docs; nested ids in
   views.
-- `c4-layout`: `la-arch-migrate` also converts the retired `arc42` key format, in canonical repos too.
+- `c4-layout`: migrating an unversioned repo to the current format also converts the retired `arc42` key format, in
+  canonical repos too.
 
 ## Impact
 

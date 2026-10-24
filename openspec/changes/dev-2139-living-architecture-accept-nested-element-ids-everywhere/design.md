@@ -43,27 +43,29 @@ moved docs; enforcing that any element has a doc.
    top-level selections this equals today's behaviour, so existing diagrams are unchanged. Names stay root-relative
    only (a strict subset of LikeC4, whose resolution agrees on every accepted name), matching relation endpoints and
    keeping cross-root references inexpressible.
-6. **Migration as two independently detected steps** (legacy layout, then arc42 key) over one staged result: build
+6. **Migration as one more step of the format migration.** The retired key ships in format 0.4.0, the format
+   `la-arch-migrate` stamps (DEV-2147, unreleased with this change), so for a repo declaring no `format` the arc42
+   conversion runs after the layout conversion and before the stamp; a repo declaring 0.4.0 has nothing to migrate,
+   and the retired-key error does not name `la-arch-migrate` (the format check already sends an unversioned repo
+   there). Both steps work over one staged result: build
    the full source→target plan (element docs, cross-cutting docs, `diagrams` keys), refuse duplicates/collisions,
    verify the staged result (model parse equal modulo removed keys/blocks, views equal, index equal modulo renames,
-   moved docs byte-identical), then commit via temp files and renames with a snapshot of every changed path for
-   rollback. `model.c4` and `index.yaml` are edited textually (line removal, scalar rename) so every other byte stays;
+   moved docs byte-identical), then commit through the format migration's journal (temp files and renames, modes
+   kept, the config replaced last). `model.c4` and `index.yaml` are edited textually (line removal, scalar rename) so every other byte stays;
    verification proves the YAML/model equivalence. Lives in `c4` (it already owns migration, model parsing and index
    reading).
 7. **Findings.** `spec-mapping.unknown-node` → `spec-mapping.unknown-element` (id renamed); `unmapped` and `orphan`
    texts say element; removed: `arc42-exists.node-doc-missing`, `arch-check.metadata-on-root`,
    `arch-check.metadata-on-nested`, `c4.include-non-top-level`, `c4.view-includes-non-top-level`; added:
    `arch-check.arc42-key-retired`, `arc42-exists.nested-doc`, `arc42-exists.cross-cutting-not-flat`,
-   `arc42-exists.cross-cutting-is-element`, and `arch-migrate` texts for moves and each refusal; `arch-migrate.nothing`
-   reworded to cover both steps.
+   `arc42-exists.cross-cutting-is-element`, and `arch-migrate` texts for moves and each refusal.
 8. **Version 0.4.0** in `python/pyproject.toml`, `node/package.json`, `plugin/.claude-plugin/plugin.json` (breaking:
-   the `arc42` key).
+   the `arc42` key), and format 0.4.0 in `shared/config.yaml`, shared with the declared-format change.
 
 ## Finding texts and migrate output (exact)
 
 - `arc42-exists.cross-cutting-not-flat`: `arc42-exists: cross_cutting_arc42 names {doc}, which must sit directly in architecture/`
 - `arc42-exists.cross-cutting-is-element`: `arc42-exists: cross_cutting_arc42 names {doc}, the doc of model element {element}`
-- `arch-migrate.nothing`: `nothing to migrate: the layout is canonical, no element sets arc42 and every cross_cutting_arc42 entry sits directly in architecture/`
 - `arch-migrate.moved`: `moved {source} to {target}`
 - `arch-migrate.source-missing`: `{source} does not exist; nothing written`
 - `arch-migrate.source-moved-twice`: `{source} would move to both {first} and {second}; nothing written`
@@ -76,7 +78,8 @@ docs in model order, then `cross_cutting_arc42` entries in file order. For each 
 source missing, moved twice, shared target, target taken, diagrams key taken.
 
 On success the lines print as:
-1. `wrote`, for `architecture/model.c4`, `architecture/views.c4` and `architecture/index.yaml`, each only when written;
+1. `wrote`, for `architecture/model.c4`, `architecture/views.c4` and `architecture/index.yaml`, each only when written,
+   then `living-architecture.yaml`;
 2. `moved`, in plan order;
 3. `deleted`, in today's order.
 
@@ -161,5 +164,6 @@ A directory that a cross-cutting move leaves empty is kept.
 
 ## Migration Plan
 
-Adopters (today only this org's repos) run `la-arch-migrate` once after upgrading to 0.4.0; `la-arch-check` exits 2
-naming the migration until they do. This repo has no `arc42` keys, so nothing to migrate here.
+Adopters (today only this org's repos) run `la-arch-migrate` once after upgrading to 0.4.0; the format check refuses
+every other command, naming the migration, until they do. This repo already declares format 0.4.0 and has no `arc42`
+keys, nested arc42 docs or `cross_cutting_arc42` entries, so it is in the current format.

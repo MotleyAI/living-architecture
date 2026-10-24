@@ -178,7 +178,7 @@ outside the metadata subset, a repeated key, a second `metadata` block, metadata
 for the element's variety (a missing required key, an unknown key, a wrong value type, or a key of another variety,
 such as a mapping key on a root or a nested element), or the retired `arc42` key on any element
 (`arch-check.arc42-key-retired`: `model element {element}: the arc42 key is retired; its doc is
-architecture/{element}.arc42.md — run la-arch-migrate`). For each element, syntax problems SHALL be reported alone;
+architecture/{element}.arc42.md`). For each element, syntax problems SHALL be reported alone;
 otherwise the retired-key error SHALL come first, followed by the schema errors of its other keys; elements SHALL be
 reported in model order. `la-arch-diagrams` SHALL report malformed metadata syntax as a model parse finding and refuse
 to regenerate, and SHALL otherwise ignore metadata. A malformed metadata block SHALL NOT produce any other model parse
@@ -210,7 +210,7 @@ finding, and the elements around it SHALL keep their nesting.
 
 #### Scenario: Retired arc42 key
 - **WHEN** the node `python.api` sets `arc42 'architecture/api.arc42.md'`
-- **THEN** `la-arch-check` exits 2 with `model element python.api: the arc42 key is retired; its doc is architecture/python.api.arc42.md — run la-arch-migrate`
+- **THEN** `la-arch-check` exits 2 with `model element python.api: the arc42 key is retired; its doc is architecture/python.api.arc42.md`
 
 #### Scenario: Retired key beside an invalid key
 - **WHEN** a nested element sets both `arc42 'architecture/x.arc42.md'` and `claims ['pkg.x']`
