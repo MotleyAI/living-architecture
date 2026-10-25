@@ -8,10 +8,16 @@
 
 ![living-architecture: a LikeC4 model allows api → core → store and rejects the api → store shortcut; the arc42 principles of core carry enforced, review and target status tags](https://raw.githubusercontent.com/MotleyAI/living-architecture/main/docs/images/living-architecture.png)
 
-**A Claude Code plugin for Python and TypeScript code that agents write: normative principles attached to a
-[LikeC4](https://likec4.dev) architecture model, which also serves as an import whitelist. Enforced by a complete
+A Claude Code plugin + CLI for agents writing Python and TypeScript code:
+
+* **Normative principles attached to a
+[LikeC4](https://likec4.dev) architecture model, which also serves as an import whitelist.** 
+
+* **Enforced by a complete
 PR workflow that generates [OpenSpec](https://github.com/Fission-AI/OpenSpec) changes, whose archives double as
 ADRs.**
+
+## Introduction
 
 Every PR an agent writes can be reasonable on its own while the codebase still drifts, one shortcut at a time.
 Rules in `CLAUDE.md` don't hold: the agent quotes a principle back to you and then breaks it. And six months later,
