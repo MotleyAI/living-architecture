@@ -1,5 +1,7 @@
 # living-architecture
 
+A Claude Code plugin + CLI for agents writing Python and TypeScript code
+
 [![CI](https://github.com/MotleyAI/living-architecture/actions/workflows/ci.yml/badge.svg)](https://github.com/MotleyAI/living-architecture/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/living-architecture)](https://pypi.org/project/living-architecture/)
 [![npm](https://img.shields.io/npm/v/living-architecture)](https://www.npmjs.com/package/living-architecture)
@@ -7,8 +9,6 @@
 [![License: MIT](https://img.shields.io/github/license/MotleyAI/living-architecture)](https://github.com/MotleyAI/living-architecture/blob/main/LICENSE)
 
 ![living-architecture: a LikeC4 model allows api → core → store and rejects the api → store shortcut; the arc42 principles of core carry enforced, review and target status tags](https://raw.githubusercontent.com/MotleyAI/living-architecture/main/docs/images/living-architecture.png)
-
-A Claude Code plugin + CLI for agents writing Python and TypeScript code:
 
 * **Normative principles attached to a
 [LikeC4](https://likec4.dev) architecture model, which also serves as an import whitelist.** 
@@ -19,27 +19,31 @@ ADRs.**
 
 ## Introduction
 
-Every PR an agent writes can be reasonable on its own while the codebase still drifts, one shortcut at a time.
-Rules in `CLAUDE.md` don't hold: the agent quotes a principle back to you and then breaks it. And six months later,
-nobody can say why the code is the way it is. The plugin, `la`, answers all three with files in your repo that have the status
-of tests:
+Every PR an agent writes can be reasonable on its own while the codebase still drifts, one random decision at a time.
+Putting every rule for every component into CLAUDE.md bloats context to the point where they are all ignored anyway.
+Random agent decisions from one PR are treated as design patterns by the next session, with the codebase gradually growing 
+bizarre structure no one wanted. And six months later, nobody can say why the code is the way it is. 
+
+The plugin, `la`, prevents architectural drifts via these interlocking components:
 
 - **Principles attached to the parts of your code.** A [LikeC4](https://likec4.dev) model maps your packages to
   elements, and each element carries its own [arc42](https://arc42.org) file of normative principles, each tagged
   with how it is enforced. Every stage of a change starts by reading the principles of what it touches, and
   changing a principle needs your approval.
 - **A complete PR workflow.** `/la:pr` interviews you into a Codex-reviewed plan, writes the failing tests,
-  implements until they pass, then loops CI, Codex, CodeRabbit and Sonar until every gate is clean. Each stage
-  ends at a hard stop and resumes from the branch name alone.
-- **A decision record for every PR.** The plan is a validated OpenSpec change. Before the PR merges, its specs
-  are folded into the repo's living behaviour specs, and its design, with the decisions and the alternatives it
-  rejected, is archived in the same PR as the code: an ADR you never had to write.
-- **An architecture that is enforced, not just drawn.** The model's arrows decide which modules may import which,
+  implements until they pass, then loops deterministic checks (lint, typing, share of comment lines in the code, and more),
+  CI, Codex, CodeRabbit and Sonar until every gate is clean.
+  Each stage ends at a hard stop and resumes from the branch name alone.
+- **A decision record for every PR.** The plan is a validated OpenSpec change. Before the PR merges, it is archived in
+  the same PR as the code, with the decisions and the alternatives 
+  rejected: an ADR you never had to write.
+- **An architecture that is enforced, not just drawn.** The model's arrows are also a whitelist for which modules can import which,
   and `la-arch-check` fails when the real imports disagree.
 
 For the details, see [How it works](https://github.com/MotleyAI/living-architecture/blob/main/docs/how-it-works.md) and
 [Living architecture in questions and answers](https://github.com/MotleyAI/living-architecture/blob/main/docs/living-architecture-in-questions-and-answers.md).
 
+For an example of a project using this, look at [SLayer](https://github.com/MotleyAI/slayer), here is a [juicy example of a real-world principles document](https://github.com/MotleyAI/slayer/blob/main/architecture/sql.arc42.md).
 ## Install
 
 ```bash
@@ -80,6 +84,9 @@ After that, start each change on a branch named after its issue with:
 ```
 /la:pr
 ```
+
+This will guide you through each of the stages of the PR workflow; at the end of each stage it will tell you to 
+call `/clear` and start the next stage by calling `/la:pr` again. 
 
 ## Skills
 
