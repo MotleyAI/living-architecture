@@ -1,5 +1,7 @@
 # living-architecture
 
+A Claude Code plugin + CLI for agents writing Python and TypeScript code
+
 [![CI](https://github.com/MotleyAI/living-architecture/actions/workflows/ci.yml/badge.svg)](https://github.com/MotleyAI/living-architecture/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/living-architecture)](https://pypi.org/project/living-architecture/)
 [![npm](https://img.shields.io/npm/v/living-architecture)](https://www.npmjs.com/package/living-architecture)
@@ -8,62 +10,40 @@
 
 ![living-architecture: a LikeC4 model allows api → core → store and rejects the api → store shortcut; the arc42 principles of core carry enforced, review and target status tags](https://raw.githubusercontent.com/MotleyAI/living-architecture/main/docs/images/living-architecture.png)
 
-**living-architecture is a Claude Code plugin (`la`) and a CLI that keep coding agents from eroding the
-architecture of a Python or TypeScript codebase.** You draw the modules and the imports allowed between them as a
-[LikeC4](https://likec4.dev) model, and `la-arch-check` fails whenever the real imports and the model disagree.
+* **Normative principles attached to a
+[LikeC4](https://likec4.dev) architecture model, which also serves as an import whitelist.** 
 
-Every PR an agent writes can be reasonable on its own while the codebase still drifts into spaghetti, one small
-shortcut at a time. Telling the agent the rules in `CLAUDE.md` doesn't hold: it will quote a principle back to
-you and then add the import that breaks it. So `la` turns the architecture into a check, like a test. A declared
-arrow is the only thing that licenses an import, and no arrow means the import is banned.
+* **Enforced by a complete
+PR workflow that generates [OpenSpec](https://github.com/Fission-AI/OpenSpec) changes, whose archives double as
+ADRs.**
 
-- **An architecture that is enforced, not just drawn.** Elements of the model map to packages or directories,
-  and their arrows decide which may import which. Existing violations are marked `#legacy` and counted against a
-  baseline. Each element can carry [arc42](https://arc42.org) principles with status tags, and agents treat the
-  model and the principles like tests: changing them needs your approval.
-- **A four-stage PR flow.** `/la:pr` interviews you into a Codex-reviewed [OpenSpec](https://github.com/Fission-AI/OpenSpec)
-  plan, writes the failing tests, implements until they pass, then loops CI, Codex, CodeRabbit and Sonar reviews
-  until every gate is clean. Each stage resumes from the branch name alone, and the plan is archived with the code.
-- **Refactoring without import churn.** Python and TypeScript moves and renames rewrite every import
-  automatically, and the type checker proves nothing was left dangling.
+## Introduction
 
-## What it looks like
+Every PR an agent writes can be reasonable on its own while the codebase still drifts, one random decision at a time.
+Putting every rule for every component into CLAUDE.md bloats context to the point where they are all ignored anyway.
+Random agent decisions from one PR are treated as design patterns by the next session, with the codebase gradually growing 
+bizarre structure no one wanted. And six months later, nobody can say why the code is the way it is. 
 
-A model in `architecture/model.c4` with three packages, where `api` may use `core` and `core` may use `store`:
+The plugin, `la`, prevents architectural drifts via these interlocking components:
 
-```
-python = system 'python' {
-  api = node 'api' { metadata { package 'shop.api' } }
-  core = node 'core' { metadata { package 'shop.core' } }
-  store = node 'store' { metadata { package 'shop.store' } }
+- **Principles attached to the parts of your code.** A [LikeC4](https://likec4.dev) model maps your packages to
+  elements, and each element carries its own [arc42](https://arc42.org) file of normative principles, each tagged
+  with how it is enforced. Every stage of a change starts by reading the principles of what it touches, and
+  changing a principle needs your approval.
+- **A complete PR workflow.** `/la:pr` interviews you into a Codex-reviewed plan, writes the failing tests,
+  implements until they pass, then loops deterministic checks (lint, typing, share of comment lines in the code, and more),
+  CI, Codex, CodeRabbit and Sonar until every gate is clean.
+  Each stage ends at a hard stop and resumes from the branch name alone.
+- **A decision record for every PR.** The plan is a validated OpenSpec change. Before the PR merges, it is archived in
+  the same PR as the code, with the decisions and the alternatives 
+  rejected: an ADR you never had to write.
+- **An architecture that is enforced, not just drawn.** The model's arrows are also a whitelist for which modules can import which,
+  and `la-arch-check` fails when the real imports disagree.
 
-  api -> core
-  core -> store
-}
-```
+For the details, see [How it works](https://github.com/MotleyAI/living-architecture/blob/main/docs/how-it-works.md) and
+[Living architecture in questions and answers](https://github.com/MotleyAI/living-architecture/blob/main/docs/living-architecture-in-questions-and-answers.md).
 
-An agent adds a shortcut from `api` straight to `store`, and the check fails in its review loop and in CI:
-
-```console
-$ la-arch-check
-model-truth: measured runtime edge python.api -> python.store is missing from the model (import shop.api -> shop.store)
-arch_check: 1 finding(s)
-```
-
-The match is exact in both directions. An arrow that no import uses fails too, so the model can't go stale:
-
-```console
-$ la-arch-check
-model-truth: modeled relation python.api -> python.store has no measured runtime edge
-arch_check: 1 finding(s)
-```
-
-The model is also rendered as a mermaid diagram into the arc42 docs that agents read before every change, and the
-check fails when a diagram is out of date. Try the whole loop in five minutes with the
-[quickstart example](https://github.com/MotleyAI/living-architecture/blob/main/examples/quickstart/README.md),
-or see the model this repo checks itself against in
-[`architecture/system.arc42.md`](https://github.com/MotleyAI/living-architecture/blob/main/architecture/system.arc42.md).
-
+For an example of a project using this, look at [SLayer](https://github.com/MotleyAI/slayer), here is a [juicy example of a real-world principles document](https://github.com/MotleyAI/slayer/blob/main/architecture/sql.arc42.md).
 ## Install
 
 ```bash
@@ -87,56 +67,6 @@ commands refuse to run on the repo until you run `la-arch-migrate` once, and `la
 
 ## Quick start
 
-### Just the architecture check
-
-You don't need the plugin or the PR flow to enforce the architecture. Tell the checker where your code lives in
-`architecture/index.yaml`:
-
-```yaml
-python:
-  root_package: mypkg      # the package the model's python root maps to
-  source_root: src         # optional
-legacy_arrows: {baseline: 0}
-```
-
-Then declare in `living-architecture.yaml`, at the repo root, that the repo has an architecture model:
-
-```yaml
-architecture: true
-```
-
-Stamp the repo format, write a first model from the imports the code has today, and check it:
-
-```bash
-la-arch-migrate       # adds format: to living-architecture.yaml
-la-arch-scaffold      # writes architecture/model.c4, views.c4 and system.arc42.md from the measured imports
-la-arch-check
-```
-
-The scaffold allows every import that exists, so the first check passes once any OpenSpec specs you have are
-mapped to elements. Then mark the arrows you don't want as `#legacy`, set `legacy_arrows.baseline` to their count
-and run `la-arch-diagrams`. That is the one time to raise the baseline. To retire a legacy arrow later, remove it
-together with the imports behind it and lower the baseline to the new count, all in one change: the check fails
-on an arrow or an import left alone, and on any difference between the count and the baseline. TypeScript and
-mixed repos are set up the same way; see
-[Configuration](https://github.com/MotleyAI/living-architecture/blob/main/docs/configuration.md#languages).
-
-Pin the check in CI to a release, in your ecosystem's form:
-
-```yaml
-# Python
-- uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-- run: uvx --no-build --from living-architecture==0.4.0 la-arch-check
-# TypeScript
-- uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-- run: npx -y -p living-architecture@0.4.0 la-arch-check
-```
-
-When you move the pin to a release with a newer repo format, first run that release's `la-arch-migrate` and commit
-the result: the check refuses a repo in an older format.
-
-### The whole flow
-
 In the repo you want to onboard, run:
 
 ```
@@ -145,41 +75,43 @@ In the repo you want to onboard, run:
 
 It detects your tracker, test, lint and type-check commands, Codex, Sonar and any existing OpenSpec or
 architecture setup, then proposes a `living-architecture.yaml` and asks only about what it cannot detect. It then
-offers to set up OpenSpec, record the type-check baseline and build the architecture model with `/la:arch-init`.
-After that, start each change with `/la:pr` on a branch named after its issue.
+offers to set up OpenSpec, record the type-check baseline and build the architecture with `/la:arch-init`, which
+starts from a model measured from your code and then interviews you about the target structure and the
+principles.
+
+After that, start each change on a branch named after its issue with:
+
+```
+/la:pr
+```
+
+This will guide you through each of the stages of the PR workflow; at the end of each stage it will tell you to 
+call `/clear` and start the next stage by calling `/la:pr` again. 
 
 ## Skills
 
 | Skill | Purpose |
 |---|---|
-| `la:init` | Onboard a repo: detect its tools, write `living-architecture.yaml`, offer the next setup steps |
+| `la:init` | Onboard a repo: detect its tools, write `living-architecture.yaml`, then set up OpenSpec and build the first architecture model and its principles with `la:arch-init` |
 | `la:pr` | Run a change through plan → failing tests → implementation → review |
-| `la:arch-init` | Build the first architecture model from the measured code, then its principles |
-| `la:arch-cleanup` | Retire a batch of `#legacy` arrows, or carve a new boundary, with verified moves |
 | `la:deterministic-refactor` | Rename or move Python or TypeScript code, proven complete by the type checker |
 
 These skills call helper skills that you can also run on their own; see
 [Skills](https://github.com/MotleyAI/living-architecture/blob/main/docs/skills.md).
 
-## How it differs from other import checkers
+## How it relates to other tools
 
-Import-boundary checkers already exist: [import-linter](https://github.com/seddonym/import-linter) for Python,
-and [dependency-cruiser](https://github.com/sverweij/dependency-cruiser),
-[eslint-plugin-boundaries](https://github.com/javierbrea/eslint-plugin-boundaries) and
-[Nx module boundaries](https://nx.dev/docs/features/enforce-module-boundaries) for TypeScript. They check
-imports against rules you write in a config file. `la` differs in what the rules are and what else is held to
-them:
-
-- The rules are a diagram. The LikeC4 model is the check, and the same model is drawn into the docs agents read,
-  so the picture and the check can't disagree.
-- The model must match the code exactly: an import with no arrow fails, and so does an arrow with no import.
-- One model covers Python and TypeScript, in the same repo.
-- Grandfathered arrows are counted against a baseline in `architecture/index.yaml`, so a new one also changes
-  the baseline, an edit that shows in review. After setup the plugin's skills only ever lower it.
-- Each element carries principles with status tags (the test that enforces it, the issue that will, or
-  `[review]`), which `la-arch-check` verifies and every stage of the PR flow reads before it acts.
-
-If all you need is layer rules for one language and you don't want a diagram, those tools are lighter.
+- **Import-boundary checkers** ([import-linter](https://github.com/seddonym/import-linter) for Python;
+  [dependency-cruiser](https://github.com/sverweij/dependency-cruiser),
+  [eslint-plugin-boundaries](https://github.com/javierbrea/eslint-plugin-boundaries) and
+  [Nx module boundaries](https://nx.dev/docs/features/enforce-module-boundaries) for TypeScript) check imports
+  against rules in a config file. In `la` the rules are the same diagram the agent reads, they must match the code
+  in both directions, one model covers Python and TypeScript, and the import law is only the backbone that the
+  principles and the specs hang on. If all you need is layer rules for one language, those tools are lighter.
+- **OpenSpec on its own** gives you the spec format and the archive. `la` drives it: the plan stage writes and
+  validates the change, the later stages hold the code to it, and the review stage archives it with the PR.
+- **ADRs written by hand** tend to stop being written. Here the decision record is a by-product of planning the
+  change, so every PR has one.
 
 ## Prerequisites
 
@@ -218,10 +150,10 @@ which uses it:
 
 ## Documentation
 
-- [Living architecture, explained](https://github.com/MotleyAI/living-architecture/blob/main/docs/living-architecture-explained.md):
+- [How it works](https://github.com/MotleyAI/living-architecture/blob/main/docs/how-it-works.md): the principles, the PR workflow, its ADRs
+  and the import check, and how to use the check on its own
+- [Living architecture in questions and answers](https://github.com/MotleyAI/living-architecture/blob/main/docs/living-architecture-in-questions-and-answers.md):
   the problems it solves, one by one
-- [Quickstart example](https://github.com/MotleyAI/living-architecture/blob/main/examples/quickstart/README.md):
-  the architecture check on a toy repo
 - [Skills](https://github.com/MotleyAI/living-architecture/blob/main/docs/skills.md): main and helper skills
 - [Configuration](https://github.com/MotleyAI/living-architecture/blob/main/docs/configuration.md): `living-architecture.yaml` and the language sections of `architecture/index.yaml`
 - [Commands](https://github.com/MotleyAI/living-architecture/blob/main/docs/commands.md): the `la-*` and `dr-*` commands, and CI
