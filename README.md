@@ -8,14 +8,14 @@
 
 ![living-architecture: a LikeC4 model allows api → core → store and rejects the api → store shortcut; the arc42 principles of core carry enforced, review and target status tags](https://raw.githubusercontent.com/MotleyAI/living-architecture/main/docs/images/living-architecture.png)
 
-**living-architecture is a Claude Code plugin (`la`) for codebases that agents write most of. It gives your
-Python or TypeScript code an architecture with principles the agent must follow, and runs every change through a
-full PR workflow that plans it as an [OpenSpec](https://github.com/Fission-AI/OpenSpec) spec, tests it, implements
-it and reviews it until every gate is clean.**
+**A Claude Code plugin for Python and TypeScript code that agents write: normative principles attached to a
+[LikeC4](https://likec4.dev) architecture model, which also serves as an import whitelist. Enforced by a complete
+PR workflow that generates [OpenSpec](https://github.com/Fission-AI/OpenSpec) changes, whose archives double as
+ADRs.**
 
 Every PR an agent writes can be reasonable on its own while the codebase still drifts, one shortcut at a time.
 Rules in `CLAUDE.md` don't hold: the agent quotes a principle back to you and then breaks it. And six months later,
-nobody can say why the code is the way it is. `la` answers all three with files in your repo that have the status
+nobody can say why the code is the way it is. The plugin, `la`, answers all three with files in your repo that have the status
 of tests:
 
 - **Principles attached to the parts of your code.** A [LikeC4](https://likec4.dev) model maps your packages to
