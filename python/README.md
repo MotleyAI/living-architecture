@@ -63,8 +63,6 @@ commands refuse to run on the repo until you run `la-arch-migrate` once, and `la
 
 ## Quick start
 
-### The whole flow
-
 In the repo you want to onboard, run:
 
 ```
@@ -87,10 +85,8 @@ After that, start each change on a branch named after its issue with:
 
 | Skill | Purpose |
 |---|---|
-| `la:init` | Onboard a repo: detect its tools, write `living-architecture.yaml`, offer the next setup steps |
+| `la:init` | Onboard a repo: detect its tools, write `living-architecture.yaml`, then set up OpenSpec and build the first architecture model and its principles with `la:arch-init` |
 | `la:pr` | Run a change through plan → failing tests → implementation → review |
-| `la:arch-init` | Build the first architecture model from the measured code, then its principles |
-| `la:arch-cleanup` | Retire a batch of `#legacy` arrows, or carve a new boundary, with verified moves |
 | `la:deterministic-refactor` | Rename or move Python or TypeScript code, proven complete by the type checker |
 
 These skills call helper skills that you can also run on their own; see
