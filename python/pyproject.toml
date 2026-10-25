@@ -44,7 +44,7 @@ dependencies = ["rope>=1.15", "pydantic>=2.6", "pyyaml>=6", "jsonschema>=4.18", 
 
 [project.urls]
 Homepage = "https://github.com/MotleyAI/living-architecture"
-Documentation = "https://github.com/MotleyAI/living-architecture/blob/main/docs/living-architecture-explained.md"
+Documentation = "https://github.com/MotleyAI/living-architecture/blob/main/docs/living-architecture-in-questions-and-answers.md"
 Repository = "https://github.com/MotleyAI/living-architecture"
 Issues = "https://github.com/MotleyAI/living-architecture/issues"
 Changelog = "https://github.com/MotleyAI/living-architecture/releases"

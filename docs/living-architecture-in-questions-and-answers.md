@@ -1,8 +1,7 @@
-# Living architecture, explained
+# Living architecture in questions and answers
 
 Each part below is a list of problems you hit when agents write most of your code, and how the `la` plugin
-handles each one. For a hands-on start, run the
-[quickstart example](../examples/quickstart/README.md).
+handles each one. For how the parts fit together, see [How it works](how-it-works.md).
 
 ## Part 1: a top-down architecture that is enforced
 

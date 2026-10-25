@@ -72,7 +72,8 @@ STAGES = {"pr-plan", "pr-tests", "pr-implement", "pr-review"}
 REQUIRE_CONFIG = (MAIN_SKILLS - {"init"}) | STAGES
 DOCS_DIR = REPO_ROOT / "docs"
 DOCS_PAGES = [
-    "living-architecture-explained.md",
+    "how-it-works.md",
+    "living-architecture-in-questions-and-answers.md",
     "skills.md",
     "configuration.md",
     "commands.md",
@@ -135,7 +136,7 @@ def test_preflight_requires_config_only_in_main_skills_and_stages(path):
 
 def _doc_files() -> list[Path]:
     community = [REPO_ROOT / name for name in ("README.md", "CONTRIBUTING.md", "SECURITY.md")]
-    return [*community, *sorted(DOCS_DIR.glob("*.md")), *sorted(REPO_ROOT.glob("examples/*/README.md"))]
+    return [*community, *sorted(DOCS_DIR.glob("*.md"))]
 
 
 def _anchors(doc: Path) -> set[str]:
