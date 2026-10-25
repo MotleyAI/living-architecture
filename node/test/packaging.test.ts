@@ -1,5 +1,5 @@
-// The packed npm package carries the contract: `npm run build`, `npm pack`, install the tarball into a clean global
-// prefix outside the checkout, then run its bins from a directory outside any repo.
+// The packed npm package carries the root README.md and LICENSE, and the contract: `npm run build`, `npm pack`, install
+// the tarball into a clean global prefix outside the checkout, then run its bins from a directory outside any repo.
 import { spawnSync, type SpawnSyncReturns } from 'node:child_process';
 import {
   chmodSync,
@@ -28,6 +28,8 @@ const GH_LOG = join(TMP, 'gh.log');
 const PROBE = join(TMP, 'probe.cjs');
 const NODE_BIN = join(TMP, 'nodebin');
 const CONFORMANCE = join(REPO_ROOT, 'conformance');
+const ROOT_FILES = ['README.md', 'LICENSE'];
+let TARBALL = '';
 
 // Preloaded into every node process: logs `start <script>`, and `typescript <script>` at exit if the compiler loaded.
 const PROBE_SOURCE = `const { appendFileSync, realpathSync } = require('node:fs');
@@ -61,8 +63,11 @@ beforeAll(() => {
   mkdirSync(NODE_BIN);
   symlinkSync(process.execPath, join(NODE_BIN, 'node'));
   npm(['run', 'build'], NODE_ROOT);
+  // Leftovers from an earlier pack must not stand in for prepack's copies.
+  for (const name of ROOT_FILES) rmSync(join(NODE_ROOT, name), { force: true });
   const [packed] = JSON.parse(npm(['pack', '--json', '--pack-destination', TMP], NODE_ROOT));
-  npm(['install', '-g', '--prefix', PREFIX, '--no-audit', '--no-fund', join(TMP, packed.filename)], WORK);
+  TARBALL = join(TMP, packed.filename);
+  npm(['install', '-g', '--prefix', PREFIX, '--no-audit', '--no-fund', TARBALL], WORK);
 }, TIMEOUT);
 
 afterAll(() => rmSync(TMP, { recursive: true, force: true }));
@@ -84,6 +89,16 @@ function probed(command: string, args: string[], cwd: string, path?: string[]) {
   const lines = existsSync(log) ? readFileSync(log, 'utf8').trim().split('\n') : [];
   return { proc, lines };
 }
+
+describe('packed npm package', () => {
+  it.each(ROOT_FILES)('carries the root %s', (name) => {
+    const unpacked = mkdtempSync(join(TMP, 'unpacked-'));
+    expect(spawnSync('tar', ['-xzf', TARBALL, '-C', unpacked]).status).toBe(0);
+    const packed = join(unpacked, 'package', name);
+    expect(existsSync(packed), `package/${name} is missing`).toBe(true);
+    expect(readFileSync(packed).equals(readFileSync(join(REPO_ROOT, name)))).toBe(true);
+  });
+});
 
 describe('installed npm package', () => {
   it('la-doctor --contract-hash prints the PyPI twin hash', () => {

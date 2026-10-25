@@ -1,28 +1,28 @@
 ## 1. Tests (pr-tests stage; failing until implemented)
 
-- [ ] 1.1 `python/tests/test_versions.py`: remove `test_vendored_root_files_are_current` and
+- [x] 1.1 `python/tests/test_versions.py`: remove `test_vendored_root_files_are_current` and
   `test_npm_vendored_root_files_are_current`; add a test that `python/README.md` and `python/LICENSE` are symlinks
   whose `resolve()` is the root `README.md` / `LICENSE`. Verify it fails before 2.1.
-- [ ] 1.2 `python/tests/test_sync_shared.py`: remove `test_sync_vendors_the_root_files`; the `tree` fixture mirrors
+- [x] 1.2 `python/tests/test_sync_shared.py`: remove `test_sync_vendors_the_root_files`; the `tree` fixture mirrors
   the real layout (root `README.md`/`LICENSE`, `python/README.md`/`python/LICENSE` as relative symlinks to them, no
   `node/` copies) instead of copying the twin files. New test: `--check` passes, and a normal sync leaves both
   `python/` paths symlinks resolving to the root files, creates no `node/README.md`/`node/LICENSE`, and leaves the
   root files' bytes unchanged. Verify it fails against the current script.
-- [ ] 1.3 `python/tests/test_packaging.py` (module-scoped `artifacts` fixture): the sdist contains `README.md` and
+- [x] 1.3 `python/tests/test_packaging.py` (module-scoped `artifacts` fixture): the sdist contains `README.md` and
   `LICENSE` with the root files' bytes; the wheel `METADATA` description (body after the header block) equals the
   root README; the wheel's `*.dist-info/licenses/LICENSE` equals the root LICENSE byte-for-byte.
 - [ ] 1.4 `python/tests/test_scrub.py`: `README_COPIES = ("README.md", "python/README.md")`, so
   `test_file_exemptions_hold_only_in_their_own_file` holds once `node/README.md` is ignored. Verify the scrub tests
   pass after 2.2.
-- [ ] 1.5 `node/test/package.test.ts`: remove the `vendored files › %s equals the root copy` test and drop "vendored
+- [x] 1.5 `node/test/package.test.ts`: remove the `vendored files › %s equals the root copy` test and drop "vendored
   root files" from the header comment. Add: `scripts.prepack`, run with `npm run prepack` in a temp root holding
   `README.md`, `LICENSE` and a `node/` with a copy of `package.json`, leaves byte-equal copies of both files in that
   `node/`; per path, `git check-ignore --no-index -q` exits 0 for `node/README.md` and `node/LICENSE` and 1 for
   `python/README.md` and `python/LICENSE`. Verify both fail before 2.2.
-- [ ] 1.6 `node/test/packaging.test.ts`: `beforeAll` deletes `node/README.md`/`node/LICENSE` (`force`) before
+- [x] 1.6 `node/test/packaging.test.ts`: `beforeAll` deletes `node/README.md`/`node/LICENSE` (`force`) before
   `npm pack`, so leftovers cannot mask a broken `prepack`; a test extracts the packed tarball under TMP and asserts
   `package/README.md` and `package/LICENSE` equal the root files' bytes.
-- [ ] 1.7 Codex review of the tests against this change (pr-tests Step 2); resolve findings with the user.
+- [x] 1.7 Codex review of the tests against this change (pr-tests Step 2); resolve findings with the user.
 
 ## 2. Implementation
 

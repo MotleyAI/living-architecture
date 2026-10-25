@@ -1,8 +1,10 @@
-// Package invariants that need no source module: bin set, version lockstep, vendored root files and snapshot.
-import { existsSync, readFileSync } from 'node:fs';
+// Package invariants that need no source module: bin set, version lockstep, the root files' prepack copy, snapshot.
+import { spawnSync } from 'node:child_process';
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
-import { describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
 import { HASH_FILE, NODE_ROOT, REPO_ROOT, SHARED, SNAPSHOT, loadYamlFile, readJson, tree } from './helpers.js';
 
 const PACKAGE = readJson(join(NODE_ROOT, 'package.json'));
@@ -32,13 +34,32 @@ describe('package.json', () => {
   });
 });
 
-describe('vendored files', () => {
-  it.each(['README.md', 'LICENSE'])('%s equals the root copy', (name) => {
-    const copy = join(NODE_ROOT, name);
-    const current = existsSync(copy) && readFileSync(copy).equals(readFileSync(join(REPO_ROOT, name)));
-    expect(current, `node/${name} is stale; run scripts/sync-shared`).toBe(true);
+describe('root README.md and LICENSE', () => {
+  const TMP = mkdtempSync(join(tmpdir(), 'la-prepack-'));
+  afterAll(() => rmSync(TMP, { recursive: true, force: true }));
+
+  it('prepack copies them from the parent directory', () => {
+    mkdirSync(join(TMP, 'node'));
+    copyFileSync(join(NODE_ROOT, 'package.json'), join(TMP, 'node', 'package.json'));
+    for (const name of ['README.md', 'LICENSE']) writeFileSync(join(TMP, name), `root ${name}\n`);
+    const proc = spawnSync('npm', ['run', 'prepack'], { cwd: join(TMP, 'node'), encoding: 'utf8' });
+    expect(proc.status, proc.stderr).toBe(0);
+    for (const name of ['README.md', 'LICENSE']) {
+      expect(readFileSync(join(TMP, 'node', name), 'utf8')).toBe(`root ${name}\n`);
+    }
   });
 
+  it.each([
+    ['node/README.md', 0],
+    ['node/LICENSE', 0],
+    ['python/README.md', 1],
+    ['python/LICENSE', 1],
+  ])('git check-ignore %s exits %i', (path, status) => {
+    expect(spawnSync('git', ['check-ignore', '--no-index', '-q', path], { cwd: REPO_ROOT }).status).toBe(status);
+  });
+});
+
+describe('vendored files', () => {
   it('the contract snapshot is byte-identical to shared/ with modes preserved', () => {
     const current = isDeepStrictEqual(tree(SNAPSHOT), tree(SHARED));
     expect(current, 'the vendored contract snapshot is stale; run scripts/sync-shared').toBe(true);

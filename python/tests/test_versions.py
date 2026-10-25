@@ -1,4 +1,5 @@
 import json
+import os
 import re
 import tomllib
 from pathlib import Path
@@ -48,9 +49,11 @@ def test_marketplace_lists_the_plugin() -> None:
 
 
 @pytest.mark.parametrize("name", ["README.md", "LICENSE"])
-def test_vendored_root_files_are_current(name: str) -> None:
-    current = (PROJECT_ROOT / name).read_bytes() == (REPO_ROOT / name).read_bytes()
-    assert current, f"python/{name} is stale; run scripts/sync-shared"
+def test_root_files_are_relative_symlinks(name: str) -> None:
+    link = PROJECT_ROOT / name
+    assert link.is_symlink(), f"python/{name} is not a symlink"
+    assert os.readlink(link) == f"../{name}"
+    assert link.resolve() == (REPO_ROOT / name).resolve()
 
 
 def test_npm_package_version_agrees() -> None:
@@ -91,13 +94,6 @@ def test_doc_pins_name_the_current_version() -> None:
     pins = [(doc.name, version) for doc in docs for version in PIN.findall(doc.read_text(encoding="utf-8"))]
     assert pins, "no living-architecture version pin found in README.md or docs/"
     assert [pin for pin in pins if pin[1] != __version__] == []
-
-
-@pytest.mark.parametrize("name", ["README.md", "LICENSE"])
-def test_npm_vendored_root_files_are_current(name: str) -> None:
-    vendored = REPO_ROOT / "node" / name
-    current = vendored.is_file() and vendored.read_bytes() == (REPO_ROOT / name).read_bytes()
-    assert current, f"node/{name} is stale; run scripts/sync-shared"
 
 
 def test_current_format_is_at_most_every_package_version() -> None:
