@@ -413,3 +413,101 @@ cases:
     x: &k s
     y: *k@
   error: true
+- name: non-specific tag on a quoted scalar resolves its text
+  text: "x: [! '12', ! \"yes\"]"
+  json: '{"x": [12, true]}'
+- name: non-specific tag on a block scalar resolves its text
+  text: |
+    x: ! |
+      12
+  json: '{"x": 12}'
+- name: non-specific tag on a block scalar keeps its final newline for the constructor
+  text: |
+    x: ! |
+      yes
+  error: true
+- name: non-specific tag on a block scalar float keeps its final newline
+  text: |
+    x: ! |
+      .inf
+  error: true
+- name: non-specific tag on a quoted merge spelling as a value
+  text: "x: ! '<<'"
+  error: true
+- name: non-specific tag on a quoted merge spelling merges as a key
+  text: |
+    a: &a {p: 1}
+    b:
+      ! '<<': *a
+  json: '{"a": {"p": 1}, "b": {"p": 1}}'
+- name: non-specific tag on an equals sign
+  text: 'x: ! ='
+  error: true
+- name: value tag
+  text: 'x: !!value ='
+  error: true
+- name: string tag on a sequence
+  text: 'x: !!str [1]'
+  error: true
+- name: sequence tag on a scalar
+  text: 'x: !!seq a'
+  error: true
+- name: mapping tag on a sequence
+  text: 'x: !!map [1]'
+  error: true
+- name: merge tag on a quoted key merges
+  text: |
+    a: &a {p: 1}
+    b:
+      !!merge 'y': *a
+  json: '{"a": {"p": 1}, "b": {"p": 1}}'
+- name: merge tag on a collection key merges
+  text: '{? !!merge [1] : {p: 1}}'
+  json: '{"p": 1}'
+- name: aliased merge key merges
+  text: |
+    a: &a {p: 1}
+    b: {&m <<: *a, *m : {q: 1}}
+  json: '{"a": {"p": 1}, "b": {"p": 1, "q": 1}}'
+- name: aliased merge key as a value
+  text: |
+    a: &a {p: 1}
+    b: {&m <<: *a}
+    c: *m
+  error: true
+- name: alias name ends at a colon in a flow mapping
+  text: |
+    a: &k s
+    b: [{*k:x}, {*k:}]
+  json: '{"a": "s", "b": [{"s": "x"}, {"s": null}]}'
+- name: alias name ends at a colon in a flow sequence
+  text: |
+    a: &k s
+    b: [*k:x]
+  json: '{"a": "s", "b": [{"s": "x"}]}'
+- name: anchor name ends at a colon in a flow sequence
+  text: 'x: [&k:x]'
+  repr: '{''x'': [{None: ''x''}]}'
+- name: anchor name ends at a colon before a block plain scalar
+  text: 'x: &k:x'
+  json: '{"x": ":x"}'
+- name: anchor name ends at a question mark before a block plain scalar
+  text: 'x: &k?x'
+  json: '{"x": "?x"}'
+- name: anchor name ends at a question mark in a flow sequence
+  text: 'x: [&k?x]'
+  error: true
+- name: anchor name followed by a flow sequence
+  text: 'x: &k[1]'
+  error: true
+- name: anchor name followed by a flow mapping
+  text: 'x: &k{a: 1}'
+  error: true
+- name: alias name followed by a flow sequence
+  text: |
+    a: &k s
+    b: *k[
+  error: true
+- name: anchor name starting with a dot
+  text: 'x: &.b s'
+  error: true

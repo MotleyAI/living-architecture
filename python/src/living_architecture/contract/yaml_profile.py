@@ -1,4 +1,4 @@
-"""The shared YAML profile: YAML 1.1 as PyYAML's safe loader reads it (last duplicate key wins)."""
+"""The shared YAML profile: YAML 1.1 as PyYAML's safe loader reads it, within a closed tag set (last duplicate key wins)."""
 
 from __future__ import annotations
 
@@ -12,8 +12,16 @@ YAMLError = yaml.YAMLError
 _CONSTRUCT_ERRORS = (ValueError, KeyError, IndexError, AttributeError, TypeError, OverflowError)
 
 
+class _ProfileLoader(yaml.SafeLoader):
+    """The safe loader without the tags outside the profile's closed set."""
+
+
+for _name in ("binary", "set", "omap", "pairs"):
+    _ProfileLoader.add_constructor(f"tag:yaml.org,2002:{_name}", _ProfileLoader.construct_undefined)
+
+
 def load_yaml(text: str) -> Any:
     try:
-        return yaml.safe_load(text)
+        return yaml.load(text, Loader=_ProfileLoader)
     except _CONSTRUCT_ERRORS as exc:
         raise YAMLError(f"cannot construct a scalar: {exc}") from exc

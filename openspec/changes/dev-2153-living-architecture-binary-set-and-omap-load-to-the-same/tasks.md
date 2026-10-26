@@ -35,20 +35,20 @@
   by `vectors/yaml.yaml`."
 - [ ] 2.2 Run `scripts/sync-shared`; verify `scripts/sync-shared --check` passes and both snapshots' `CONTRACT_HASH`
   match.
-- [ ] 2.3 Check the repo `README.md`, `docs/` and `plugin/` for a claim that the profile is "exactly" PyYAML's and
+- [x] 2.3 Check the repo `README.md`, `docs/` and `plugin/` for a claim that the profile is "exactly" PyYAML's and
   align it (verify with `rg -n -i "exactly as PyYAML|yaml profile"`).
 
 ## 3. Python twin
 
-- [ ] 3.1 `contract/yaml_profile.py`: `load_yaml` reads through a `SafeLoader` subclass whose `binary`, `set`, `omap`
+- [x] 3.1 `contract/yaml_profile.py`: `load_yaml` reads through a `SafeLoader` subclass whose `binary`, `set`, `omap`
   and `pairs` constructors raise the undefined-tag error. Verify the vector tests pass.
 
 ## 4. npm twin
 
-- [ ] 4.1 `contract/yaml.ts`: one validation pass over the parsed document before `toJS`: resolved tag outside the
+- [x] 4.1 `contract/yaml.ts`: one validation pass over the parsed document before `toJS`: resolved tag outside the
   set, plain `=`, merge key outside a key position, collection key (aliases dereferenced, cycle-safe) are YAML
   errors; `!` resolves as untagged on every node kind; `!!str <<` is a plain key. Verify the vector tests pass.
-- [ ] 4.2 Anchor and alias names lexed as YAML 1.1 (design.md: hook settled here; a parser fork means stop and ask).
+- [x] 4.2 Anchor and alias names lexed as YAML 1.1 (design.md: hook settled here; a parser fork means stop and ask).
   Verify the anchor vectors pass.
 
 ## 5. Verify
