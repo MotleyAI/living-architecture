@@ -68,4 +68,4 @@
   are not)." Run `scripts/sync-shared`.
 - [x] 6.3 Python `load_yaml` and npm `loadYaml` refuse the three raw characters before parsing. Verify the vector
   tests pass in both twins.
-- [ ] 6.4 Re-run 5.1–5.3.
+- [x] 6.4 Re-run 5.1–5.3.
