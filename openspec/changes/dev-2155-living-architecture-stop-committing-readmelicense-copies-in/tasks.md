@@ -11,7 +11,7 @@
 - [x] 1.3 `python/tests/test_packaging.py` (module-scoped `artifacts` fixture): the sdist contains `README.md` and
   `LICENSE` with the root files' bytes; the wheel `METADATA` description (body after the header block) equals the
   root README; the wheel's `*.dist-info/licenses/LICENSE` equals the root LICENSE byte-for-byte.
-- [ ] 1.4 `python/tests/test_scrub.py`: `README_COPIES = ("README.md", "python/README.md")`, so
+- [x] 1.4 `python/tests/test_scrub.py`: `README_COPIES = ("README.md", "python/README.md")`, so
   `test_file_exemptions_hold_only_in_their_own_file` holds once `node/README.md` is ignored. Verify the scrub tests
   pass after 2.2.
 - [x] 1.5 `node/test/package.test.ts`: remove the `vendored files › %s equals the root copy` test and drop "vendored
@@ -26,27 +26,27 @@
 
 ## 2. Implementation
 
-- [ ] 2.1 `python/`: replace `README.md` and `LICENSE` with `ln -s ../README.md` / `ln -s ../LICENSE`;
+- [x] 2.1 `python/`: replace `README.md` and `LICENSE` with `ln -s ../README.md` / `ln -s ../LICENSE`;
   `git ls-files -s python/README.md python/LICENSE` shows mode 120000. `pyproject.toml` unchanged. Verify 1.1 and
   1.3 pass.
-- [ ] 2.2 `node/`: add `"prepack": "node -e \"for (const f of ['README.md', 'LICENSE']) require('node:fs').copyFileSync('../' + f, f)\""`
+- [x] 2.2 `node/`: add `"prepack": "node -e \"for (const f of ['README.md', 'LICENSE']) require('node:fs').copyFileSync('../' + f, f)\""`
   to `package.json` (`files` unchanged); `git rm --cached node/README.md node/LICENSE`; add `/node/README.md` and
   `/node/LICENSE` to the root `.gitignore`. Verify 1.5 and 1.6 pass.
-- [ ] 2.3 `scripts/sync-shared`: drop `VENDORED`, its `--check` staleness entries and its copy loop; the docstring
+- [x] 2.3 `scripts/sync-shared`: drop `VENDORED`, its `--check` staleness entries and its copy loop; the docstring
   loses ", plus README.md and LICENSE". Verify 1.2 passes and `scripts/sync-shared --check` exits 0.
 
 ## 3. Docs
 
-- [ ] 3.1 `AGENTS.md` step 2: drop " (and the vendored `README.md`/`LICENSE`)".
-- [ ] 3.2 `docs/development.md`: the `scripts/sync-shared` layout row becomes "vendors `shared/` into both twins";
+- [x] 3.1 `AGENTS.md` step 2: drop " (and the vendored `README.md`/`LICENSE`)".
+- [x] 3.2 `docs/development.md`: the `scripts/sync-shared` layout row becomes "vendors `shared/` into both twins";
   one sentence near the layout table that `python/README.md` and `python/LICENSE` are symlinks to the root files and
   `node/` copies them at pack time (`prepack`).
 
 ## 4. Verification
 
-- [ ] 4.1 Python twin in `python/`: `uv run pytest -q`, `uv run ruff check src tests`, `uv run basedpyright src tests`
+- [x] 4.1 Python twin in `python/`: `uv run pytest -q`, `uv run ruff check src tests`, `uv run basedpyright src tests`
   all green.
-- [ ] 4.2 npm twin in `node/`: `npm run lint && npm run typecheck`, `npm test` (incl. the pack smoke test),
+- [x] 4.2 npm twin in `node/`: `npm run lint && npm run typecheck`, `npm test` (incl. the pack smoke test),
   `npm run build && npm run conformance` all green.
-- [ ] 4.3 Repo-wide: `scripts/conformance-cross` and `scripts/sync-shared --check` green; `git status` shows no
+- [x] 4.3 Repo-wide: `scripts/conformance-cross` and `scripts/sync-shared --check` green; `git status` shows no
   `node/README.md`/`node/LICENSE` after the pack test.

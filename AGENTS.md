@@ -14,7 +14,7 @@ Code never hard-codes them; each twin loads its vendored copy of `shared/` at ru
 
 1. Edit `shared/`: a schema under `schema/`, a template in `findings.yaml`, a command in `cli.yaml`, a rule
    in `conventions.yaml`, a language fact in `languages.yaml`, or a script under `scripts/`.
-2. Run `scripts/sync-shared` to refresh every twin's snapshot (and the vendored `README.md`/`LICENSE`).
+2. Run `scripts/sync-shared` to refresh every twin's snapshot.
    A drift test fails until you do.
 3. Update every twin's code to match.
 4. Add or adjust a conformance case under `conformance/cases/` and list it in `conformance/INVENTORY.md`.

@@ -40,9 +40,12 @@ read your shell aliases need that flag added to their own command settings.
 | `architecture/` | this repo's own LikeC4 model and arc42 principles |
 | `docs/` | the user documentation linked from the README; `docs/images/living-architecture.png` (the README image and the repo's social preview) is a headless-Chrome screenshot of its `.html` source at 1280×640 |
 | `examples/` | runnable examples for users; `python/tests/test_examples.py` pins each walkthrough's output |
-| `scripts/sync-shared` | vendors `shared/`, `README.md` and `LICENSE` into both twins |
+| `scripts/sync-shared` | vendors `shared/` into both twins |
 | `scripts/conformance-cross` | runs every conformance case through both twins' entry points |
 | `scripts/release-check` | checks a release tag against both twins' versions and contract hashes |
+
+`python/README.md` and `python/LICENSE` are symlinks to the root files; `node/` copies them at pack time
+(`prepack`).
 
 ## Releasing
 

@@ -73,7 +73,8 @@ def test_sync_leaves_the_root_files_and_their_links_alone(tree: Path) -> None:
     assert _sync(tree).returncode == 0
     for name in ROOT_FILES:
         link = tree / "python" / name
-        assert link.is_symlink() and link.resolve() == (tree / name).resolve(), name
+        assert link.is_symlink(), name
+        assert link.resolve() == (tree / name).resolve(), name
         assert not (tree / "node" / name).exists(), name
         assert (tree / name).read_bytes() == before[name], name
 
