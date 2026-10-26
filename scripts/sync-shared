@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Vendor shared/ into each twin's contract snapshot (with CONTRACT_HASH), plus README.md and LICENSE.
+"""Vendor shared/ into each twin's contract snapshot (with CONTRACT_HASH).
 
 Usage: scripts/sync-shared [--check]   (--check: exit 1 if any copy is stale, writing nothing)
 """
@@ -15,7 +15,6 @@ ROOT = Path(__file__).resolve().parent.parent
 SHARED = ROOT / "shared"
 HASH_FILE = "CONTRACT_HASH"
 SNAPSHOTS = [ROOT / "python" / "src" / "living_architecture" / "contract" / "data", ROOT / "node" / "src" / "contract" / "data"]
-VENDORED = {ROOT / twin / name: ROOT / name for twin in ("python", "node") for name in ("README.md", "LICENSE")}
 
 
 def _files(root: Path) -> list[Path]:
@@ -54,7 +53,6 @@ def main(argv: list[str]) -> int:
         return 2
     expected = compute_hash(SHARED)
     stale = [s for s in SNAPSHOTS if not _snapshot_is_current(s, expected)]
-    stale += [dst for dst, src in VENDORED.items() if not dst.is_file() or dst.read_bytes() != src.read_bytes()]
     if check:
         for path in stale:
             print(f"stale: {path.relative_to(ROOT)}; run scripts/sync-shared", file=sys.stderr)
@@ -64,8 +62,6 @@ def main(argv: list[str]) -> int:
             shutil.rmtree(snapshot)
         shutil.copytree(SHARED, snapshot)
         (snapshot / HASH_FILE).write_text(expected + "\n", encoding="utf-8")
-    for dst, src in VENDORED.items():
-        shutil.copy2(src, dst)
     for path in stale:
         print(f"synced: {path.relative_to(ROOT)}")
     return 0

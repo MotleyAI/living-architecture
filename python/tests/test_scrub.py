@@ -15,7 +15,7 @@ PUBLISHER_ALLOWED = (
     '"name": "MotleyAI"',
     "MotleyAI/living-architecture",
 )
-README_COPIES = ("README.md", "python/README.md", "node/README.md")
+README_COPIES = ("README.md", "python/README.md")
 # Per file: the maintainer only as the packages' maintainer, the project that uses the plugin only as the README's
 # links to it and to its example principles document.
 FILE_ALLOWED = {
