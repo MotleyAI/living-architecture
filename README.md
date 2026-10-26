@@ -52,8 +52,8 @@ For an example of a project using this, look at [SLayer](https://github.com/Motl
 /plugin install la@living-architecture
 
 # the commands (la-*, dr-*), pinned to the same version as the plugin, from your repo's ecosystem
-uv tool install living-architecture==0.4.0      # Python repos (Python >= 3.11)
-npm install -g living-architecture@0.4.0        # TypeScript/JavaScript repos (Node >= 22)
+uv tool install living-architecture==0.4.1      # Python repos (Python >= 3.11)
+npm install -g living-architecture@0.4.1        # TypeScript/JavaScript repos (Node >= 22)
 ```
 
 The commands come as a PyPI package and an npm package of the same name, with identical behaviour. Each serves
