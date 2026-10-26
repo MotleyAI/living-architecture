@@ -122,7 +122,7 @@ instructions; follow them so the output passes `validate --strict`.
      acceptance criteria for the `pr-tests` stage.
    - **design.md** — its `## Decisions` is the decisions log, keeping each
      entry's tag; approved scope cuts also go under Non-Goals. Skip design.md
-     only if the log holds nothing but obvious defaults.
+     only if the log is empty.
    - **tasks.md** — the `- [ ]` checklist that also drives the
      `pr-tests` and `pr-implement` stages; maintain it here, not twice.
 3. **No spec-level behaviour change?** (pure refactor, tooling, docs, or a fix
