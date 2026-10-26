@@ -142,7 +142,9 @@ planning, writing tests, implementing, and fixing review findings:
 - **Never edit without per-change approval.** NEVER create, modify, or delete
   one without my explicit approval for each specific change — present the
   exact edit and wait for my OK. A broader approved plan that mentions the
-  edit does NOT count; the concrete edit itself needs the OK.
+  edit does NOT count; the concrete edit itself needs the OK. Wording quoted
+  verbatim in the plan's decisions log as `(user, approved wording)` is that
+  OK: apply it verbatim, and ask again only if it has to change.
 
 ## Rehydrate — pull in the tracker issue for the current branch
 
