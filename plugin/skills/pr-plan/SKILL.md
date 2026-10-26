@@ -67,6 +67,14 @@ When you think you have enough information, return a detailed, complete spec.
 In the spec you write, NEVER take shortcuts or make simplifications or
 extensions to the original requirements without asking me about each one first.
 
+The spec ends with a **decisions log**: one entry per choice made while
+planning, giving the decision, the options weighed, the one taken and why, and
+who took it: `(user)` for a choice I made, `(default)` for one you took because
+it had an obvious default, `(codex)` for a Codex finding folded in. Every
+shortcut, simplification or extension I approved is an entry too. Every exact
+wording I approved (an arc42 clause, a skill or finding text) is quoted
+verbatim and tagged `(user, approved wording)`.
+
 ## Step 2 — Codex review of the plan
 
 **Codex follows `reviewers.codex`.** If `la-config get reviewers.codex` prints `false`, skip this step. Otherwise, if the Codex MCP server (`mcp__codex__codex`) is not available, STOP and tell me: this repo requires Codex reviews, so never skip one silently.
@@ -79,7 +87,10 @@ should not modify files; it should return actionable findings.
 
 Bring Codex's findings back to me and discuss them. For each finding, decide
 together whether to fold it into the plan, defer it, or reject it. Update the
-written spec to reflect the resolved decisions before moving on.
+written spec to reflect the resolved decisions before moving on, and log every
+finding in the decisions log: folded ones as `(codex)` entries, rejected ones
+as `rejected (codex)` with the reason, and deferred ones with the existing
+tracker issue that covers them (search first; a new issue needs my yes).
 
 ## Step 3 — Emit the OpenSpec change (OpenSpec repos only)
 
@@ -109,8 +120,9 @@ instructions; follow them so the output passes `validate --strict`.
      silently); MODIFIED must contain the FULL updated requirement; REMOVED needs
      **Reason** + **Migration**; RENAMED uses FROM:/TO:. These scenarios ARE the
      acceptance criteria for the `pr-tests` stage.
-   - **design.md** — only for non-obvious design (the Codex-resolved decisions);
-     skip if there's nothing to say.
+   - **design.md** — its `## Decisions` is the decisions log, keeping each
+     entry's tag; approved scope cuts also go under Non-Goals. Skip design.md
+     only if the log holds nothing but obvious defaults.
    - **tasks.md** — the `- [ ]` checklist that also drives the
      `pr-tests` and `pr-implement` stages; maintain it here, not twice.
 3. **No spec-level behaviour change?** (pure refactor, tooling, docs, or a fix
@@ -131,7 +143,7 @@ instructions; follow them so the output passes `validate --strict`.
 
 > **🛑 HARD STOP (reset point 1 of 3) — before tests.** First make the plan
 > durable: if `OPENSPEC=1` it's the validated change folder; if `OPENSPEC=0`,
-> post the finalized plan as a comment on the tracker issue (Linear:
+> post the finalized plan, decisions log included, as a comment on the tracker issue (Linear:
 > `mcp__linear__save_comment`; GitHub: `gh issue comment <N>`) so a reset
 > recovers it. Then say we're at reset point 1 and STOP — do not start writing tests.
 > I'll `/clear` and re-invoke `/la:pr`, which will detect and run
