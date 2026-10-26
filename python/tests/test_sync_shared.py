@@ -13,22 +13,17 @@ REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 SNAPSHOT_REL = Path("python/src/living_architecture/contract/data")
 NODE_SNAPSHOT_REL = Path("node/src/contract/data")
 SNAPSHOTS = [SNAPSHOT_REL, NODE_SNAPSHOT_REL]
-TWINS = ["python", "node"]
+ROOT_FILES = ["README.md", "LICENSE"]
 
 
 @pytest.fixture
 def tree(tmp_path: Path) -> Path:
-    """A copy of just what sync-shared reads and writes (node parts only where they exist yet)."""
-    for rel in ("scripts", "shared", SNAPSHOT_REL):
+    """The real layout around sync-shared: snapshots, root files, `python/` symlinks to them, no `node/` copies."""
+    for rel in ("scripts", "shared", SNAPSHOT_REL, NODE_SNAPSHOT_REL):
         shutil.copytree(REPO_ROOT / rel, tmp_path / rel)
-    (tmp_path / "node").mkdir()
-    if (REPO_ROOT / NODE_SNAPSHOT_REL).is_dir():
-        shutil.copytree(REPO_ROOT / NODE_SNAPSHOT_REL, tmp_path / NODE_SNAPSHOT_REL)
-    for name in ("README.md", "LICENSE"):
+    for name in ROOT_FILES:
         shutil.copy2(REPO_ROOT / name, tmp_path / name)
-        for twin in TWINS:
-            if (REPO_ROOT / twin / name).is_file():
-                shutil.copy2(REPO_ROOT / twin / name, tmp_path / twin / name)
+        (tmp_path / "python" / name).symlink_to(Path("..") / name)
     return tmp_path
 
 
@@ -72,13 +67,16 @@ def test_check_reports_a_stale_node_snapshot(tree: Path) -> None:
     assert str(NODE_SNAPSHOT_REL) in proc.stderr
 
 
-@pytest.mark.parametrize("twin", TWINS)
-def test_sync_vendors_the_root_files(tree: Path, twin: str) -> None:
-    (tree / "README.md").write_text("new readme\n", encoding="utf-8")
-    assert _sync(tree, "--check").returncode == 1
+def test_sync_leaves_the_root_files_and_their_links_alone(tree: Path) -> None:
+    before = {name: (tree / name).read_bytes() for name in ROOT_FILES}
+    assert _sync(tree, "--check").returncode == 0
     assert _sync(tree).returncode == 0
-    assert (tree / twin / "README.md").read_text(encoding="utf-8") == "new readme\n"
-    assert (tree / twin / "LICENSE").read_bytes() == (tree / "LICENSE").read_bytes()
+    for name in ROOT_FILES:
+        link = tree / "python" / name
+        assert link.is_symlink(), name
+        assert link.resolve() == (tree / name).resolve(), name
+        assert not (tree / "node" / name).exists(), name
+        assert (tree / name).read_bytes() == before[name], name
 
 
 @pytest.mark.parametrize("snapshot_rel", SNAPSHOTS, ids=str)

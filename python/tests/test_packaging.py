@@ -1,4 +1,4 @@
-"""The built wheel and sdist carry the contract when installed outside the checkout."""
+"""The built wheel and sdist carry the root README and LICENSE, and the contract when installed outside the checkout."""
 
 from __future__ import annotations
 
@@ -6,7 +6,9 @@ import os
 import shutil
 import subprocess
 import sys
-from pathlib import Path
+import tarfile
+import zipfile
+from pathlib import Path, PurePosixPath
 
 import pytest
 
@@ -31,6 +33,31 @@ def artifacts(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Path]:
     [wheel] = dist.glob("*.whl")
     [sdist] = dist.glob("*.tar.gz")
     return {"wheel": wheel, "sdist": sdist}
+
+
+@pytest.mark.parametrize("name", ["README.md", "LICENSE"])
+def test_sdist_carries_the_root_file(artifacts, name):
+    with tarfile.open(artifacts["sdist"]) as sdist:
+        [member] = [m for m in sdist.getmembers() if PurePosixPath(m.name).parts[1:] == (name,)]
+        assert member.isfile(), member.type
+        extracted = sdist.extractfile(member)
+        assert extracted is not None
+        assert extracted.read() == (REPO_ROOT / name).read_bytes()
+
+
+def _wheel_file(wheel: Path, suffix: str) -> bytes:
+    with zipfile.ZipFile(wheel) as archive:
+        [name] = [n for n in archive.namelist() if n.endswith(suffix)]
+        return archive.read(name)
+
+
+def test_wheel_description_is_the_root_readme(artifacts):
+    _, _, description = _wheel_file(artifacts["wheel"], ".dist-info/METADATA").decode("utf-8").partition("\n\n")
+    assert description == (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+
+
+def test_wheel_license_is_the_root_license(artifacts):
+    assert _wheel_file(artifacts["wheel"], ".dist-info/licenses/LICENSE") == (REPO_ROOT / "LICENSE").read_bytes()
 
 
 def _install(artifact: Path, where: Path) -> Path:

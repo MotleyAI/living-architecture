@@ -7,6 +7,9 @@ build/
 .ruff_cache/
 .pytest_cache/
 /living-architecture.local.yaml
+# copied from the root by node's prepack
+/node/README.md
+/node/LICENSE
 # conformance fixtures may contain these paths on purpose
 !conformance/cases/**/.venv/
 !conformance/cases/**/__pycache__/
