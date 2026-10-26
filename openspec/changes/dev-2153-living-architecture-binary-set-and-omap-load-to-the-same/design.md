@@ -39,7 +39,7 @@ Probe results (current state) that this change makes agree, all pinned by vector
   values would invent meanings (bytes, unordered sets) or add npm constructors for syntax nobody writes. Refusing
   them makes the class impossible with one rule. Alternative rejected: a pairs-list for `!!omap`/`!!pairs` and a
   representation for sets.
-- **`!` follows PyYAML** (resolved as if untagged, on every node kind), not the YAML spec's "string", because the
+- **`!` follows PyYAML** (resolved as if untagged on every node kind, a scalar as if plain whatever its style), not the YAML spec's "string", because the
   profile is PyYAML's.
 - **Vector marker `error: refused`.** An input raw PyYAML constructs but the profile refuses. The Python test that pins
   vectors against raw `yaml.safe_load` asserts it *succeeds* on these, so a refusal cannot be mislabelled; both

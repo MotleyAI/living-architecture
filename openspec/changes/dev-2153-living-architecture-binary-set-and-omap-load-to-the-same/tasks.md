@@ -24,16 +24,17 @@
 
 ## 2. shared/
 
-- [ ] 2.1 `shared/README.md` § YAML profile, replacing the paragraph:
+- [x] 2.1 `shared/README.md` § YAML profile, replacing the paragraph:
   "YAML 1.1 as PyYAML's safe loader reads it, within a closed tag set: `yes`/`no`/`on`/`off` are booleans,
   sexagesimal and `0`-prefixed octal integers are numbers, merge keys apply, a duplicate mapping key takes the last
   value, and a scalar the safe loader cannot construct is a YAML error. The tag set is `!!str`, `!!int`, `!!float`,
-  `!!bool`, `!!null`, `!!timestamp`, `!!seq`, `!!map` and `!!merge`, in any spelling; a non-specific `!` resolves as
-  if untagged. Any other tag (`!!binary`, `!!set`, `!!omap`, `!!pairs`, the `!!value` a plain `=` resolves to, a
-  local or unknown tag) is a YAML error, as is a merge key (`<<` or `!!merge`) anywhere but a mapping key, and a
+  `!!bool`, `!!null`, `!!timestamp`, `!!seq`, `!!map` and `!!merge`, in any spelling; a non-specific `!` resolves a
+  node as if it were untagged, and a scalar as if it were plain whatever its style (`! '12'` is `12`). Any other tag
+  (`!!binary`, `!!set`, `!!omap`, `!!pairs`, the `!!value` a plain `=` resolves to, a local or unknown tag) is a
+  YAML error, as is a merge key (`<<` or `!!merge`) anywhere but a mapping key, and a
   mapping key that is a sequence or mapping. Anchor and alias names are ASCII letters, digits, `-` and `_`. Pinned
   by `vectors/yaml.yaml`."
-- [ ] 2.2 Run `scripts/sync-shared`; verify `scripts/sync-shared --check` passes and both snapshots' `CONTRACT_HASH`
+- [x] 2.2 Run `scripts/sync-shared`; verify `scripts/sync-shared --check` passes and both snapshots' `CONTRACT_HASH`
   match.
 - [x] 2.3 Check the repo `README.md`, `docs/` and `plugin/` for a claim that the profile is "exactly" PyYAML's and
   align it (verify with `rg -n -i "exactly as PyYAML|yaml profile"`).
@@ -53,6 +54,6 @@
 
 ## 5. Verify
 
-- [ ] 5.1 Python: `uv run pytest -q`, `ruff check src tests`, `basedpyright src tests` green.
-- [ ] 5.2 npm: `npm run lint && npm run typecheck`, `npm test`, `npm run build && npm run conformance` green.
-- [ ] 5.3 `scripts/conformance-cross` green; `la-arch-check` green.
+- [x] 5.1 Python: `uv run pytest -q`, `ruff check src tests`, `basedpyright src tests` green.
+- [x] 5.2 npm: `npm run lint && npm run typecheck`, `npm test`, `npm run build && npm run conformance` green.
+- [x] 5.3 `scripts/conformance-cross` green; `la-arch-check` green.

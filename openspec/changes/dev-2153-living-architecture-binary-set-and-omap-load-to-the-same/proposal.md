@@ -10,7 +10,8 @@ difference (`reviewers: !!set {codex}` passes in npm and fails in Python).
 ## What Changes
 
 - The profile gets a closed tag set: `!!str`, `!!int`, `!!float`, `!!bool`, `!!null`, `!!timestamp`, `!!seq`,
-  `!!map` and `!!merge`, in any spelling; a non-specific `!` resolves as if untagged. Every other tag (`!!binary`,
+  `!!map` and `!!merge`, in any spelling; a non-specific `!` resolves a node as if it were untagged, and a scalar as if
+  it were plain whatever its style (`! '12'` is `12`). Every other tag (`!!binary`,
   `!!set`, `!!omap`, `!!pairs`, the `!!value` a plain `=` resolves to, a local or unknown tag) is a YAML error,
   as is a merge key anywhere but a mapping key and a mapping key that is a sequence or mapping.
 - Anchor and alias names are YAML 1.1's: ASCII letters, digits, `-` and `_`.

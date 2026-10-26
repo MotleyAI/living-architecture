@@ -8,8 +8,8 @@ error, reported like any other invalid YAML, never a crash.
 
 The tag set SHALL be `!!str`, `!!int`, `!!float`, `!!bool`, `!!null`, `!!timestamp`, `!!seq`, `!!map` and
 `!!merge`, in any spelling (shorthand, verbatim or through a `%TAG` handle); a non-specific `!` on any node SHALL
-resolve as if the node were untagged. Any other tag (`!!binary`, `!!set`, `!!omap`, `!!pairs`, the `!!value` a plain
-`=` resolves to, a local or unknown tag) SHALL be a YAML error, as SHALL a merge key (a plain `<<` or a `!!merge`
+resolve as if the node were untagged, and on a scalar as if the scalar were plain whatever its style. Any other tag
+(`!!binary`, `!!set`, `!!omap`, `!!pairs`, the `!!value` a plain `=` resolves to, a local or unknown tag) SHALL be a YAML error, as SHALL a merge key (a plain `<<` or a `!!merge`
 node) anywhere but a mapping key, and a mapping key that is a sequence or mapping, directly or through an alias. An
 anchor or alias name SHALL consist of ASCII letters, digits, `-` and `_`, and end at whitespace or one of
 ``?:,]}%@` ``; any other character there SHALL be a YAML error. Both twins SHALL load every input to the same value or both SHALL report it as a YAML error.
@@ -44,8 +44,8 @@ anchor or alias name SHALL consist of ASCII letters, digits, `-` and `_`, and en
 - **THEN** both twins report a YAML error
 
 #### Scenario: Non-specific tag
-- **WHEN** a YAML input holds `! 12`, `! [1]` or `! {a: 1}`
-- **THEN** both twins load the integer `12`, the list `[1]` and the mapping `{a: 1}`
+- **WHEN** a YAML input holds `! 12`, `! '12'`, `! [1]` or `! {a: 1}`
+- **THEN** both twins load the integer `12` (twice), the list `[1]` and the mapping `{a: 1}`
 
 #### Scenario: YAML 1.1 anchor names
 - **WHEN** an anchored scalar `&k s` is aliased as a flow mapping key directly followed by a colon (`{*k: a}`)
