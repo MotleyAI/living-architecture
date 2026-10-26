@@ -66,10 +66,11 @@ describe('yaml.yaml', () => {
     text: string;
     json?: string;
     repr?: string;
-    error?: true;
+    error?: true | 'refused';
   }[]) {
     it(v.name, () => {
       expect([v.json, v.repr, v.error].filter((e) => e !== undefined)).toHaveLength(1);
+      expect([undefined, true, 'refused']).toContain(v.error);
       if (v.error !== undefined) expect(() => loadYaml(v.text)).toThrow(YAMLError);
       else if (v.json !== undefined) expect(plain(loadYaml(v.text))).toEqual(JSON.parse(v.json));
       else expect(canonicalRepr(normalize(loadYaml(v.text)))).toBe(v.repr);
