@@ -22,6 +22,7 @@ Probe results (current state) that this change makes agree, all pinned by vector
 | `{[1]: a}`, `{{a: 1}: b}`, `{? [1]}`, block `? [1]`, alias of a collection as a key | error | accepted |
 | `{*k: a}` | `{'s': 'a'}` | error |
 | `&a.b`, `&a/b`, `&é`, `&k: s` | error | accepted |
+| `a: b\x85c: d`, `x: {a: &k\x85s, b: *k}` | line break | ordinary character / error |
 
 ## Goals / Non-Goals
 
@@ -31,7 +32,8 @@ Probe results (current state) that this change makes agree, all pinned by vector
 
 **Non-Goals:**
 - YAML library error wording stays outside the contract (shared-contract: runtime-supplied error detail).
-- No other YAML 1.1 vs 1.2 lexing difference is chased beyond what the probe found.
+- No other YAML 1.1 vs 1.2 lexing difference is chased beyond what the probes found (the anchor names and the three
+  non-ASCII line breaks).
 
 ## Decisions
 
@@ -51,6 +53,10 @@ Probe results (current state) that this change makes agree, all pinned by vector
   it resolves `!` as untagged and keeps `!!str <<` a plain key. Anchor names are checked where the library lexes
   them; the exact hook (a lexer-token check or a source check of anchor/alias tokens) is settled in implementation.
   If it needs a parser fork, stop and ask the user.
+- **Refuse the non-ASCII line breaks.** PyYAML breaks lines on NEL, U+2028 and U+2029 (NEL becomes `\n`; the other
+  two stay in scalar content), while the npm library reads them as content. Matching that would need a lexer-level
+  port for characters no config contains, so both twins refuse the raw characters before parsing. Alternative
+  rejected: rewriting them in the npm pre-pass, which cannot keep U+2028/U+2029 in scalar content.
 - **The vectors are the differential probe.** Every probed input is a vector, and both twins run every vector
   against one expectation, so agreement on every probed input is the vector suite passing in both twins (the
   issue's acceptance). No separate cross-twin harness.

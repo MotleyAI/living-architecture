@@ -12,7 +12,8 @@ resolve as if the node were untagged, and on a scalar as if the scalar were plai
 (`!!binary`, `!!set`, `!!omap`, `!!pairs`, the `!!value` a plain `=` resolves to, a local or unknown tag) SHALL be a YAML error, as SHALL a merge key (a plain `<<` or a `!!merge`
 node) anywhere but a mapping key, and a mapping key that is a sequence or mapping, directly or through an alias. An
 anchor or alias name SHALL consist of ASCII letters, digits, `-` and `_`, and end at whitespace or one of
-``?:,]}%@` ``; any other character there SHALL be a YAML error. Both twins SHALL load every input to the same value or both SHALL report it as a YAML error.
+``?:,]}%@` ``; any other character there SHALL be a YAML error. A raw NEL (U+0085), U+2028 or U+2029 anywhere in
+the input SHALL be a YAML error; the `\N`, `\L` and `\P` escapes in a double-quoted scalar SHALL NOT. Both twins SHALL load every input to the same value or both SHALL report it as a YAML error.
 
 #### Scenario: YAML 1.1 boolean
 - **WHEN** the config sets `reviewers: {codex: no}`
@@ -50,3 +51,7 @@ anchor or alias name SHALL consist of ASCII letters, digits, `-` and `_`, and en
 #### Scenario: YAML 1.1 anchor names
 - **WHEN** an anchored scalar `&k s` is aliased as a flow mapping key directly followed by a colon (`{*k: a}`)
 - **THEN** both twins load the mapping `{s: a}`, and an anchor named `a.b` is a YAML error in both
+
+#### Scenario: Non-ASCII line breaks
+- **WHEN** a YAML input contains a raw NEL, U+2028 or U+2029 (as a line break, after an anchor name, or inside a scalar)
+- **THEN** both twins report a YAML error, and `"\N\L\P"` loads to those three characters in both

@@ -57,3 +57,15 @@
 - [x] 5.1 Python: `uv run pytest -q`, `ruff check src tests`, `basedpyright src tests` green.
 - [x] 5.2 npm: `npm run lint && npm run typecheck`, `npm test`, `npm run build && npm run conformance` green.
 - [x] 5.3 `scripts/conformance-cross` green; `la-arch-check` green.
+
+## 6. Non-ASCII line breaks (found in review)
+
+- [x] 6.1 `shared/vectors/yaml.yaml`: `error: refused` vectors `x: {a: &k\x85s, b: *k}`, `a: b\x85c: d`,
+  `a: "x y"`, block literal `a: |` with `x   y`; `error: true` vector `a: x\x85y`; value vector
+  `a: "\N\L\P"` → the three characters. Verify each against raw `yaml.safe_load`.
+- [x] 6.2 `shared/README.md` § YAML profile: append "Line breaks are `\n`, `\r` and `\r\n`: a raw NEL (U+0085),
+  U+2028 or U+2029 anywhere in the text is a YAML error (the `\N`, `\L` and `\P` escapes in a double-quoted scalar
+  are not)." Run `scripts/sync-shared`.
+- [x] 6.3 Python `load_yaml` and npm `loadYaml` refuse the three raw characters before parsing. Verify the vector
+  tests pass in both twins.
+- [ ] 6.4 Re-run 5.1–5.3.

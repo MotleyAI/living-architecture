@@ -396,8 +396,16 @@ function checkProfile(doc: Document.Parsed): void {
   });
 }
 
+// Line breaks to YAML 1.1 that the library, reading YAML 1.2, takes as content.
+const UNICODE_BREAKS = /[\x85\u2028\u2029]/;
+
 /** The first document of `text` in the shared profile (null when empty); YAMLError when invalid. */
 export function loadYaml(text: string): unknown {
+  const found = UNICODE_BREAKS.exec(text);
+  if (found !== null) {
+    const code = (found[0].codePointAt(0) ?? 0).toString(16).toUpperCase().padStart(4, '0');
+    throw new YAMLError(`a raw U+${code} line break at offset ${found.index}`);
+  }
   let docs;
   try {
     docs = parseAllDocuments(yaml11AnchorNames(text), {
