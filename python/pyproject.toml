@@ -1,13 +1,53 @@
 [project]
 name = "living-architecture"
 version = "0.4.0"
-description = "Spec-driven development with an enforced living architecture, as a Claude Code plugin plus its CLI tools."
+description = "A Claude Code plugin for Python and TypeScript code that agents write: normative principles attached to a LikeC4 architecture model, which also serves as an import whitelist. Enforced by a complete PR workflow that generates OpenSpec changes, whose archives double as ADRs."
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [{ name = "MotleyAI" }]
+maintainers = [{ name = "Egor Kraev" }]
+keywords = [
+    "claude-code",
+    "claude-code-plugin",
+    "agent-skills",
+    "coding-agents",
+    "ai-coding",
+    "software-architecture",
+    "architecture-as-code",
+    "architecture-enforcement",
+    "import-boundaries",
+    "likec4",
+    "c4-model",
+    "arc42",
+    "openspec",
+    "spec-driven-development",
+    "refactoring",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Operating System :: POSIX",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: JavaScript",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Software Development :: Documentation",
+]
 dependencies = ["rope>=1.15", "pydantic>=2.6", "pyyaml>=6", "jsonschema>=4.18", "referencing>=0.28.4"]
+
+[project.urls]
+Homepage = "https://github.com/MotleyAI/living-architecture"
+Documentation = "https://github.com/MotleyAI/living-architecture/blob/main/docs/living-architecture-in-questions-and-answers.md"
+Repository = "https://github.com/MotleyAI/living-architecture"
+Issues = "https://github.com/MotleyAI/living-architecture/issues"
+Changelog = "https://github.com/MotleyAI/living-architecture/releases"
 
 # The verifier. Point it at the target project's interpreter (see README).
 [project.optional-dependencies]

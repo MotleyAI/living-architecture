@@ -38,7 +38,7 @@ read your shell aliases need that flag added to their own command settings.
 | `shared/` | the contract the commands obey: config and index schemas, finding texts, the CLI manifest, conventions and language registries, review scripts, test vectors |
 | `conformance/` | the byte-exact corpus pinning every command's observable output |
 | `architecture/` | this repo's own LikeC4 model and arc42 principles |
-| `docs/` | the user documentation linked from the README |
+| `docs/` | the user documentation linked from the README; `docs/images/living-architecture.png` (the README image and the repo's social preview) is a headless-Chrome screenshot of its `.html` source at 1280×640 |
 | `scripts/sync-shared` | vendors `shared/`, `README.md` and `LICENSE` into both twins |
 | `scripts/conformance-cross` | runs every conformance case through both twins' entry points |
 | `scripts/release-check` | checks a release tag against both twins' versions and contract hashes |

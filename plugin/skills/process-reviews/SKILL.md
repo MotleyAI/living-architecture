@@ -55,7 +55,7 @@ Run `la-wait-for-reviews` — it bundles the status-check rollup gate (Stage 0a)
 la-wait-for-reviews <PR>
 ```
 
-The script exits 0 when both stages clear (or when CodeRabbit is not on the PR, detected the same way as `la-pr-reviewers`), exit 1 if the status-check gate doesn't clear within 30 minutes. Stage 0b (CodeRabbit settle) is best-effort with a 10-minute cap — the script reports "proceeding anyway" on the cap and still exits 0, matching the prior inline behaviour.
+The script exits 0 when both stages clear (or when CodeRabbit is not on the PR, detected the same way as `la-pr-reviewers`), exit 1 if the status-check gate doesn't clear within 30 minutes. Stage 0b (CodeRabbit settle) is best-effort with a 10-minute cap — the script reports "proceeding anyway" on the cap and still exits 0; see the "CodeRabbit did not review this HEAD" rule below.
 
 A check is **non-terminal** if it's:
 - a `StatusContext` with `state` ∈ {`PENDING`, `EXPECTED`} — CodeRabbit reports this way, OR
@@ -88,11 +88,12 @@ those at once (Steps 1–4 for that source), without waiting for the rest:
 Only Step 5, the fix plan, waits for the script to exit, so the plan covers
 every source. When it exits, re-fetch CodeRabbit to pick up late threads.
 
-**CodeRabbit rate limit (script exit 3).** If CodeRabbit has already posted at
-least one real review on this PR (on any earlier HEAD), a rate-limited later pass
-is NOT a blocker. Treat CodeRabbit as done for this HEAD, fetch and triage its
-existing threads, and carry on without re-triggering. Only when there has never
-been a real review on the PR does the rate limit block, and then you report it.
+**CodeRabbit did not review this HEAD (rate limit, script exit 3, or the
+10-minute settle cap).** If CodeRabbit has already posted at least one real
+review on this PR (on any earlier HEAD), this is NOT a blocker. Treat CodeRabbit
+as done for this HEAD, fetch and triage its existing threads, and carry on
+without re-triggering. Only when there has never been a real review on the PR
+does it block, and then you report it.
 
 Once the script exits, finish Step 1 for any source not yet fetched.
 
