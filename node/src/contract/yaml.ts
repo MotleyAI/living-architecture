@@ -312,33 +312,52 @@ const ANCHOR_NAME = /^[0-9A-Za-z_-]*/;
 // What may follow a YAML 1.1 anchor name (`%`, `@` and `` ` `` end one too, but cannot start the next token).
 const ANCHOR_END = new Set([' ', '\t', '\r', '\n', ',', ']', '}', '?', ':']);
 
-/**
- * `text` with every anchor and alias name ending where YAML 1.1 ends it: the library reads `?` and `:` into a
- * name, so a space goes before them, and in flow context after them too, where YAML 1.1 reads them as indicators.
- */
-function yaml11AnchorNames(text: string): string {
-  const pieces: string[] = [];
-  let [offset, last, flow, scalar] = [0, 0, 0, false];
+/** The lexemes of `text` outside scalars, each with its offset and the flow depth after it. */
+function* structureLexemes(text: string): Generator<[lexeme: string, offset: number, flow: number]> {
+  let [offset, flow, scalar] = [0, 0, false];
   for (const lexeme of new Lexer().lex(text)) {
     if (LEXER_CONTROL.has(lexeme)) {
       scalar = lexeme === '\x1f';
       continue;
     }
     if (scalar) scalar = false;
-    else if (lexeme === '{' || lexeme === '[') flow += 1;
-    else if (lexeme === '}' || lexeme === ']') flow -= 1;
-    else if (lexeme.startsWith('&') || lexeme.startsWith('*')) {
-      const end = offset + 1 + (ANCHOR_NAME.exec(lexeme.slice(1))?.[0].length ?? 0);
-      const next = text[end];
-      if (end === offset + 1 || (next !== undefined && !ANCHOR_END.has(next))) {
-        throw new YAMLError(`invalid YAML 1.1 anchor or alias name: ${lexeme}`);
-      }
-      if (end < offset + lexeme.length) {
-        pieces.push(text.slice(last, end), flow > 0 ? ` ${next} ` : ' ');
-        last = flow > 0 ? end + 1 : end;
-      }
+    else {
+      if (lexeme === '{' || lexeme === '[') flow += 1;
+      else if (lexeme === '}' || lexeme === ']') flow -= 1;
+      yield [lexeme, offset, flow];
     }
     offset += lexeme.length;
+  }
+}
+
+/** Where the YAML 1.1 name of the anchor or alias `lexeme` at `offset` ends; YAMLError when it has none. */
+function anchorNameEnd(text: string, lexeme: string, offset: number): number {
+  const end = offset + 1 + (ANCHOR_NAME.exec(lexeme.slice(1))?.[0].length ?? 0);
+  const next = text[end];
+  if (end === offset + 1 || (next !== undefined && !ANCHOR_END.has(next))) {
+    throw new YAMLError(`invalid YAML 1.1 anchor or alias name: ${lexeme}`);
+  }
+  return end;
+}
+
+/**
+ * `text` with every anchor and alias name ending where YAML 1.1 ends it: the library reads `?` and `:` into a
+ * name, so a space goes before them, and in flow context after them too, where YAML 1.1 reads them as indicators.
+ */
+function yaml11AnchorNames(text: string): string {
+  const pieces: string[] = [];
+  let last = 0;
+  for (const [lexeme, offset, flow] of structureLexemes(text)) {
+    if (!lexeme.startsWith('&') && !lexeme.startsWith('*')) continue;
+    const end = anchorNameEnd(text, lexeme, offset);
+    if (end === offset + lexeme.length) continue;
+    if (flow > 0) {
+      pieces.push(text.slice(last, end), ` ${text[end]} `);
+      last = end + 1;
+    } else {
+      pieces.push(text.slice(last, end), ' ');
+      last = end;
+    }
   }
   return pieces.join('') + text.slice(last);
 }
