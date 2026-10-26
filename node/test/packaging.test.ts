@@ -1,4 +1,4 @@
-// The packed npm package carries the root README.md and LICENSE, and the contract: `npm run build`, `npm pack`, install
+// The packed npm package carries the root README.md and LICENSE, and the contract: `npm run build`, `npm pack` a staged copy, install
 // the tarball into a clean global prefix outside the checkout, then run its bins from a directory outside any repo.
 import { spawnSync, type SpawnSyncReturns } from 'node:child_process';
 import {
@@ -27,6 +27,7 @@ const FAKE_BIN = join(TMP, 'fakebin');
 const GH_LOG = join(TMP, 'gh.log');
 const PROBE = join(TMP, 'probe.cjs');
 const NODE_BIN = join(TMP, 'nodebin');
+const STAGE = join(TMP, 'stage');
 const CONFORMANCE = join(REPO_ROOT, 'conformance');
 const ROOT_FILES = ['README.md', 'LICENSE'];
 let TARBALL = '';
@@ -63,9 +64,11 @@ beforeAll(() => {
   mkdirSync(NODE_BIN);
   symlinkSync(process.execPath, join(NODE_BIN, 'node'));
   npm(['run', 'build'], NODE_ROOT);
-  // Leftovers from an earlier pack must not stand in for prepack's copies.
-  for (const name of ROOT_FILES) rmSync(join(NODE_ROOT, name), { force: true });
-  const [packed] = JSON.parse(npm(['pack', '--json', '--pack-destination', TMP], NODE_ROOT));
+  // Pack a staged copy so the checkout stays untouched; without leftovers there, only prepack can supply the root files.
+  for (const name of ROOT_FILES) cpSync(join(REPO_ROOT, name), join(STAGE, name));
+  const skipped = new Set(['node_modules', ...ROOT_FILES].map((name) => join(NODE_ROOT, name)));
+  cpSync(NODE_ROOT, join(STAGE, 'node'), { recursive: true, filter: (src) => !skipped.has(src) });
+  const [packed] = JSON.parse(npm(['pack', '--json', '--pack-destination', TMP], join(STAGE, 'node')));
   TARBALL = join(TMP, packed.filename);
   npm(['install', '-g', '--prefix', PREFIX, '--no-audit', '--no-fund', TARBALL], WORK);
 }, TIMEOUT);
