@@ -1,5 +1,6 @@
-// The packed npm package carries the root README.md and LICENSE, and the contract: `npm run build`, `npm pack` a staged copy, install
-// the tarball into a clean global prefix outside the checkout, then run its bins from a directory outside any repo.
+// The packed npm package carries the root README.md and LICENSE, and the contract: `npm run build` and `npm pack` a
+// staged copy, install the tarball into a clean global prefix outside the checkout, then run its bins from a directory
+// outside any repo.
 import { spawnSync, type SpawnSyncReturns } from 'node:child_process';
 import {
   chmodSync,
@@ -63,12 +64,15 @@ beforeAll(() => {
   writeFileSync(PROBE, PROBE_SOURCE);
   mkdirSync(NODE_BIN);
   symlinkSync(process.execPath, join(NODE_BIN, 'node'));
-  npm(['run', 'build'], NODE_ROOT);
-  // Pack a staged copy so the checkout stays untouched; without leftovers there, only prepack can supply the root files.
+  // Build and pack a staged copy so the checkout stays untouched; without leftovers there, only prepack can supply the
+  // root files.
+  const staged = join(STAGE, 'node');
   for (const name of ROOT_FILES) cpSync(join(REPO_ROOT, name), join(STAGE, name));
-  const skipped = new Set(['node_modules', ...ROOT_FILES].map((name) => join(NODE_ROOT, name)));
-  cpSync(NODE_ROOT, join(STAGE, 'node'), { recursive: true, filter: (src) => !skipped.has(src) });
-  const [packed] = JSON.parse(npm(['pack', '--json', '--pack-destination', TMP], join(STAGE, 'node')));
+  const skipped = new Set(['node_modules', 'dist', ...ROOT_FILES].map((name) => join(NODE_ROOT, name)));
+  cpSync(NODE_ROOT, staged, { recursive: true, filter: (src) => !skipped.has(src) });
+  symlinkSync(join(NODE_ROOT, 'node_modules'), join(staged, 'node_modules'));
+  npm(['run', 'build'], staged);
+  const [packed] = JSON.parse(npm(['pack', '--json', '--pack-destination', TMP], staged));
   TARBALL = join(TMP, packed.filename);
   npm(['install', '-g', '--prefix', PREFIX, '--no-audit', '--no-fund', TARBALL], WORK);
 }, TIMEOUT);
