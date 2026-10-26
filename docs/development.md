@@ -39,7 +39,6 @@ read your shell aliases need that flag added to their own command settings.
 | `conformance/` | the byte-exact corpus pinning every command's observable output |
 | `architecture/` | this repo's own LikeC4 model and arc42 principles |
 | `docs/` | the user documentation linked from the README; `docs/images/living-architecture.png` (the README image and the repo's social preview) is a headless-Chrome screenshot of its `.html` source at 1280×640 |
-| `examples/` | runnable examples for users; `python/tests/test_examples.py` pins each walkthrough's output |
 | `scripts/sync-shared` | vendors `shared/` into both twins |
 | `scripts/conformance-cross` | runs every conformance case through both twins' entry points |
 | `scripts/release-check` | checks a release tag against both twins' versions and contract hashes |
@@ -55,6 +54,6 @@ and update the pins in the README and [commands.md](commands.md). A release that
 (`living-architecture.yaml` or anything under `architecture/`) also sets `format` in `shared/config.yaml` to its
 own version and adds the conversion to `la-arch-migrate`. Tag `v<version>` and publish a GitHub release for it;
 the `Publish` workflow first runs `scripts/release-check` (every version equals the tag, both contract hashes
-agree) and publishes neither twin otherwise. The npm job skips while `node/package.json` is `"private": true`. It publishes through npm trusted
-publishing, which trusts `publish.yml` in this repository by name: renaming the workflow needs a new trusted
-publisher in the package's npmjs.com settings.
+agree) and publishes neither twin otherwise. The npm job skips while `node/package.json` is `"private": true`. It
+publishes through npm trusted publishing, which trusts `publish.yml` in this repository by name: renaming the
+workflow needs a new trusted publisher in the package's npmjs.com settings.

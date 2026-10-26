@@ -68,11 +68,14 @@ def test_no_hardcoded_version_pin(path):
 
 
 MAIN_SKILLS = {"init", "pr", "arch-init", "arch-cleanup", "deterministic-refactor"}
+# The README's table: la:init names la:arch-init in its purpose; docs/skills.md lists every main skill.
+README_SKILLS = {"init", "pr", "deterministic-refactor"}
 STAGES = {"pr-plan", "pr-tests", "pr-implement", "pr-review"}
 REQUIRE_CONFIG = (MAIN_SKILLS - {"init"}) | STAGES
 DOCS_DIR = REPO_ROOT / "docs"
 DOCS_PAGES = [
-    "living-architecture-explained.md",
+    "how-it-works.md",
+    "living-architecture-in-questions-and-answers.md",
     "skills.md",
     "configuration.md",
     "commands.md",
@@ -114,10 +117,10 @@ def test_docs_skills_lists_every_skill_once_in_its_role():
     assert set(TABLE_SKILL_RE.findall(_section(text, "## Helper skills"))) == helpers
 
 
-def test_readme_skills_table_lists_exactly_the_main_skills():
+def test_readme_skills_table_lists_exactly_the_entry_skills():
     text = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
     listed = TABLE_SKILL_RE.findall(_section(text, "## Skills"))
-    assert sorted(listed) == sorted(MAIN_SKILLS)
+    assert sorted(listed) == sorted(README_SKILLS)
 
 
 @pytest.mark.parametrize("path", SKILL_FILES, ids=_id)
@@ -135,7 +138,7 @@ def test_preflight_requires_config_only_in_main_skills_and_stages(path):
 
 def _doc_files() -> list[Path]:
     community = [REPO_ROOT / name for name in ("README.md", "CONTRIBUTING.md", "SECURITY.md")]
-    return [*community, *sorted(DOCS_DIR.glob("*.md")), *sorted(REPO_ROOT.glob("examples/*/README.md"))]
+    return [*community, *sorted(DOCS_DIR.glob("*.md"))]
 
 
 def _anchors(doc: Path) -> set[str]:

@@ -17,11 +17,17 @@ PUBLISHER_ALLOWED = (
 )
 README_COPIES = ("README.md", "python/README.md")
 # Per file: the maintainer only as the packages' maintainer, the project that uses the plugin only as the README's
-# link to it.
+# links to it and to its example principles document.
 FILE_ALLOWED = {
     "python/pyproject.toml": ('maintainers = [{ name = "Egor Kraev" }]',),
     "node/package.json": ('"maintainers": [\n    "Egor Kraev"\n  ]',),
-    **{readme: ("[SLayer](https://github.com/MotleyAI/slayer)",) for readme in README_COPIES},
+    **{
+        readme: (
+            "[SLayer](https://github.com/MotleyAI/slayer)",
+            "(https://github.com/MotleyAI/slayer/blob/main/architecture/sql.arc42.md)",
+        )
+        for readme in README_COPIES
+    },
 }
 
 
