@@ -1,0 +1,12 @@
+kind: neutral
+command: la-config
+args:
+- show
+expect:
+  exit: 1
+  stdout: ''
+  stderr:
+    contains:
+    - living-architecture.yaml
+note: 'a tag outside the YAML profile''s closed set (here `!!set`) is invalid YAML in both twins; the wording is not
+  contract'
