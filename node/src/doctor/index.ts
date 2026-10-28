@@ -8,7 +8,7 @@ import { NATIVE_LANGUAGE, VERSION } from '../index.js';
 
 const REQUIRED_EXECUTABLES = ['git', 'gh'];
 const PLUGIN_MANIFEST = join('.claude-plugin', 'plugin.json');
-const VERSION_FORM = /^([0-9]+)\.([0-9]+)\..+$/s;
+const VERSION_FORM = /^(\d+)\.(\d+)\..+$/s;
 
 /** A missing entry is absent; other stat errors propagate. */
 function isFile(path: string): boolean {

@@ -12,6 +12,11 @@ def _accepted(proc: subprocess.CompletedProcess[str]) -> None:
     assert proc.returncode == 0, proc.stderr
 
 
+def _pinned(manifest: str, version: str) -> str:
+    """A dependency spec pinning `version` in `manifest`."""
+    return f"=={version}" if manifest.endswith(".toml") else version
+
+
 def _refused(proc: subprocess.CompletedProcess[str], *needles: str) -> None:
     assert proc.returncode == 1, proc.stderr
     for needle in needles:
@@ -81,6 +86,22 @@ def test_a_dependency_change_counts(release_repo, manifest: str) -> None:
     release_repo.deps[manifest] = "9.9.9"
     release_repo.release("0.4.1")
     _refused(release_repo.release_check("v0.4.1"), "v0.4.0", manifest)
+
+
+@pytest.mark.parametrize("manifest", MANIFESTS)
+def test_a_dependency_moving_to_the_new_version_counts(release_repo, manifest: str) -> None:
+    release_repo.deps[manifest] = _pinned(manifest, "0.4.0")
+    release_repo.release("0.4.0")
+    release_repo.deps[manifest] = _pinned(manifest, "0.4.1")
+    release_repo.release("0.4.1")
+    _refused(release_repo.release_check("v0.4.1"), "v0.4.0", manifest)
+
+
+def test_a_dependency_staying_at_the_previous_version_does_not_count(release_repo) -> None:
+    release_repo.deps = {manifest: _pinned(manifest, "0.4.0") for manifest in MANIFESTS}
+    release_repo.release("0.4.0")
+    release_repo.release("0.4.1")
+    _accepted(release_repo.release_check("v0.4.1"))
 
 
 def test_a_major_bump_is_accepted(release_repo) -> None:

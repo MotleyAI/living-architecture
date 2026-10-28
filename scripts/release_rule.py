@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import json
 import re
 import subprocess
+import tomllib
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 TOOL_PATHSPECS = (
     "shared",
@@ -14,9 +18,35 @@ TOOL_PATHSPECS = (
     "node/scripts",
     ":(glob)node/tsconfig*.json",
 )
-# Tool inputs compared with the package's own version substituted.
-MANIFESTS = ("python/pyproject.toml", "python/uv.lock", "node/package.json", "node/package-lock.json")
-_RELEASE = re.compile(r"([0-9]+)\.([0-9]+)\.([0-9]+)")
+PACKAGE = "living-architecture"
+
+
+def _set_pyproject(data: dict[str, Any], version: str) -> None:
+    data["project"]["version"] = version
+
+
+def _set_uv_lock(data: dict[str, Any], version: str) -> None:
+    for package in data["package"]:
+        if package["name"] == PACKAGE:
+            package["version"] = version
+
+
+def _set_package_json(data: dict[str, Any], version: str) -> None:
+    data["version"] = version
+
+
+def _set_package_lock(data: dict[str, Any], version: str) -> None:
+    data["version"] = data["packages"][""]["version"] = version
+
+
+# Tool inputs compared as parsed data, with the package's own version fields set to the release's.
+MANIFESTS: dict[str, tuple[Callable[[str], dict[str, Any]], Callable[[dict[str, Any], str], None]]] = {
+    "python/pyproject.toml": (tomllib.loads, _set_pyproject),
+    "python/uv.lock": (tomllib.loads, _set_uv_lock),
+    "node/package.json": (json.loads, _set_package_json),
+    "node/package-lock.json": (json.loads, _set_package_lock),
+}
+_RELEASE = re.compile(r"(\d+)\.(\d+)\.(\d+)", re.ASCII)
 
 
 def git(root: Path, *args: str) -> str:
@@ -50,10 +80,12 @@ def changed_tool_inputs(root: Path, version: str, previous: str) -> list[str]:
     """Tool inputs that differ between `previous` and HEAD, manifests beyond their own version."""
     listed = git(root, "diff", "--name-only", "--no-renames", "-z", previous, "HEAD", "--", *TOOL_PATHSPECS)
     changed = [path for path in listed.split("\0") if path]
-    for path in MANIFESTS:
-        before = _show(root, previous, path)
-        rebased = None if before is None else before.replace(previous.removeprefix("v"), version)
-        if rebased != _show(root, "HEAD", path):
+    for path, (parse, set_version) in MANIFESTS.items():
+        before, after = _show(root, previous, path), _show(root, "HEAD", path)
+        rebased = None if before is None else parse(before)
+        if rebased is not None:
+            set_version(rebased, version)
+        if rebased != (None if after is None else parse(after)):
             changed.append(path)
     return sorted(changed)
 

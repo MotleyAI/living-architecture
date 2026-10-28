@@ -42,9 +42,10 @@ release breaking the rule is caught on its bump PR, before a tag exists.
    options were publish time only, or also PR time. PR time catches a wrong bump before a tag exists. (user)
 9. **Tool inputs include the build inputs** (`node/scripts/`, `node/tsconfig*.json`) and the manifests and
    lockfiles (`python/pyproject.toml`, `python/uv.lock`, `node/package.json`, `node/package-lock.json`), the latter
-   compared after replacing the previous release's version string with V in the previous release's text. Options:
-   the issue's four source roots only (a dependency bump could ship as a patch) or these too. A dependency sharing
-   our version number only makes the rule over-report, the safe direction. (codex, user)
+   compared as parsed data after setting the package's own version fields to V in the previous release's copy.
+   Options: the issue's four source roots only (a dependency bump could ship as a patch) or these too; a textual
+   replace of the version string was rejected, as a dependency moving from the previous version to V cancels out.
+   (codex, user)
 10. **ASCII digits only; major/minor compared without numeric conversion** (strip leading zeros, then compare
     digit strings by length then value, as `compare_versions` does), so a component beyond 2^53 compares the same in
     JS; lone surrogates stay invalid because the version is printed in the install command and Python cannot print
@@ -78,7 +79,5 @@ release breaking the rule is caught on its bump PR, before a tag exists.
 - [A tools hotfix cannot ship as a patch] → versions climb faster; cosmetic before 1.0.
 - [A plugin released before this change meets newer tools, or newer plugin meets older tools] → the older side's
   doctor compares exact versions and reports a mismatch with that side's advice; reinstalling fixes it.
-- [A dependency matching our version string] → the rule over-reports and asks for a minor bump; a minor bump is
-  always allowed.
 - [Between the bump commit and the published packages, main's plugin names a version not yet on PyPI/npm] → same
   window as today.

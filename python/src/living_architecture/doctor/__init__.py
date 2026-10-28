@@ -24,7 +24,7 @@ from living_architecture.contract import (
 REQUIRED_EXECUTABLES = ("git", "gh")
 PLUGIN_MANIFEST = Path(".claude-plugin") / "plugin.json"
 _LONE_SURROGATE = re.compile("[\ud800-\udfff]")
-_VERSION_FORM = re.compile(r"([0-9]+)\.([0-9]+)\..+", re.DOTALL)
+_VERSION_FORM = re.compile(r"(\d+)\.(\d+)\..+", re.ASCII | re.DOTALL)
 
 
 def _series(version: str) -> tuple[str, str] | None:
