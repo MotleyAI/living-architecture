@@ -206,10 +206,10 @@ findings:
   doctor.no-config-file: defaults (no config file)
   doctor.local-source: '{source} + {local}'
   doctor.fail: 'FAIL: {problem}'
-  doctor.version-mismatch: installed la tools are {installed} but the plugin expects {expected}; reinstall the tools from the same checkout/tag as the plugin
+  doctor.version-mismatch: 'installed la tools are {installed}, but plugin {expected} needs {series}.x; reinstall them with: {install}'
   doctor.missing-executable: '`{exe}` not found on PATH'
   doctor.plugin-not-found: no .claude-plugin/plugin.json at or above {dir}
-  doctor.plugin-invalid: '{path} is not valid JSON with a string "version"'
+  doctor.plugin-invalid: '{path} is not valid JSON with a "version" of the form <major>.<minor>.<rest>'
   doctor.plugin-unreadable: cannot inspect {path}
   doctor.config-missing: no living-architecture.yaml at the repo root; run /la:init to onboard this repo
   doctor.openspec-absent: 'openspec is true but the repo has no openspec/ directory; run /la:openspec-init or set openspec: false'

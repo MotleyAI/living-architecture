@@ -1,4 +1,4 @@
-"""`la-doctor`: check the installed tools match the plugin and the repo config is valid."""
+"""`la-doctor`: check the installed tools match the plugin's minor series and the repo config is valid."""
 
 from __future__ import annotations
 
@@ -10,19 +10,41 @@ import stat
 import subprocess
 from pathlib import Path
 
-from living_architecture import __version__
+from living_architecture import NATIVE_LANGUAGE, __version__
 from living_architecture.config import ConfigError, LaConfig, check_format, load_config, repo_languages
-from living_architecture.contract import config_file, contract_hash, language, local_config_file, message
+from living_architecture.contract import (
+    config_file,
+    contract_hash,
+    language,
+    local_config_file,
+    message,
+    render_template,
+)
 
 REQUIRED_EXECUTABLES = ("git", "gh")
 PLUGIN_MANIFEST = Path(".claude-plugin") / "plugin.json"
 _LONE_SURROGATE = re.compile("[\ud800-\udfff]")
+_VERSION_FORM = re.compile(r"([0-9]+)\.([0-9]+)\..+", re.DOTALL)
 
 
-def _version_problem(expected: str) -> str | None:
-    if expected == __version__:
+def _series(version: str) -> tuple[str, str] | None:
+    """Major and minor of `<digits>.<digits>.<rest>` as written, or None."""
+    match = _VERSION_FORM.fullmatch(version)
+    return (match[1], match[2]) if match else None
+
+
+def _canonical(series: tuple[str, str]) -> tuple[str, ...]:
+    return tuple(part.lstrip("0") or "0" for part in series)
+
+
+def _version_problem(expected: str, series: tuple[str, str]) -> str | None:
+    installed = _series(__version__)
+    if installed is not None and _canonical(installed) == _canonical(series):
         return None
-    return message("doctor.version-mismatch", installed=__version__, expected=expected)
+    install = render_template(language(NATIVE_LANGUAGE)["install"], {"version": expected})
+    return message(
+        "doctor.version-mismatch", installed=__version__, expected=expected, series=".".join(series), install=install
+    )
 
 
 def _reject_constant(name: str) -> None:
@@ -43,9 +65,9 @@ def _manifest_problem(manifest: Path, raw: bytes) -> str | None:
     except ValueError:
         data = None
     version = data.get("version") if isinstance(data, dict) else None
-    if not isinstance(version, str) or _LONE_SURROGATE.search(version):
+    if not isinstance(version, str) or _LONE_SURROGATE.search(version) or (series := _series(version)) is None:
         return message("doctor.plugin-invalid", path=manifest)
-    return _version_problem(version)
+    return _version_problem(version, series)
 
 
 def _plugin_problem(plugin: str) -> str | None:
@@ -126,13 +148,10 @@ def _language_executables(root: Path) -> list[str]:
     return [exe for lang_id in repo_languages(root, cfg) for exe in language(lang_id)["executables"]]
 
 
-def run_checks(*, root: Path, expect: str | None, plugin: str | None = None, require_config: bool = False) -> list[str]:
+def run_checks(*, root: Path, plugin: str | None = None, require_config: bool = False) -> list[str]:
     """Problems found; empty means healthy. A format refusal replaces every check that reads the config."""
-    versions = (
-        _version_problem(expect) if expect is not None else None,
-        _plugin_problem(plugin) if plugin is not None else None,
-    )
-    problems = [problem for problem in versions if problem is not None]
+    version = _plugin_problem(plugin) if plugin is not None else None
+    problems = [version] if version is not None else []
     refusal = check_format(root)
     problems += [refusal] if refusal is not None else _config_problems(root, require_config=require_config)
     local = _local_problem(root)
@@ -148,11 +167,11 @@ def run_checks(*, root: Path, expect: str | None, plugin: str | None = None, req
     return problems
 
 
-def run(*, root: Path, expect: str | None, plugin: str | None, print_hash: bool, require_config: bool = False) -> int:
+def run(*, root: Path, plugin: str | None, print_hash: bool, require_config: bool = False) -> int:
     if print_hash:
         print(contract_hash())
         return 0
-    problems = run_checks(root=root, expect=expect, plugin=plugin, require_config=require_config)
+    problems = run_checks(root=root, plugin=plugin, require_config=require_config)
     for problem in problems:
         print(message("doctor.fail", problem=problem))
     if not problems:

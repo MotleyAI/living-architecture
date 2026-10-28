@@ -57,32 +57,32 @@
 
 ## 2. Implementation
 
-- [ ] 2.1 `shared/cli.yaml`: remove `--expect` from `la-doctor`, reword the `--plugin` help (check the tools against
+- [x] 2.1 `shared/cli.yaml`: remove `--expect` from `la-doctor`, reword the `--plugin` help (check the tools against
   its plugin.json version); `shared/findings.yaml`: the two approved wordings (design.md decisions 6–7) verbatim;
   run `scripts/sync-shared`. Verify 1.5 passes.
-- [ ] 2.2 Python twin: `doctor` parses both versions by the spec's form, compares major/minor as canonical digit
+- [x] 2.2 Python twin: `doctor` parses both versions by the spec's form, compares major/minor as canonical digit
   strings (design.md decision 10), drops `expect`/`_version_problem`; CLI drops `expect`. Verify `uv run pytest -q`
   doctor, parser and conformance tests pass.
-- [ ] 2.3 npm twin: same in `node/src/doctor/index.ts` and the CLI; `prepack` runs `npm run build` then copies
+- [x] 2.3 npm twin: same in `node/src/doctor/index.ts` and the CLI; `prepack` runs `npm run build` then copies
   README/LICENSE. Verify 1.10 and `npm run build && npm run conformance`.
-- [ ] 2.4 Release-rule module under `scripts/` (design.md decisions 9, 12); `scripts/release-check` calls it and adds
+- [x] 2.4 Release-rule module under `scripts/` (design.md decisions 9, 12); `scripts/release-check` calls it and adds
   the shallow / missing-release / HEAD-is-tag checks (decision 13). Verify 1.8 and 1.9.
-- [ ] 2.5 `.github/workflows/ci.yml` and `publish.yml`: `fetch-depth: 0` on the checkouts that run tests or
+- [x] 2.5 `.github/workflows/ci.yml` and `publish.yml`: `fetch-depth: 0` on the checkouts that run tests or
   `release-check`. Verify by reading the workflows.
 
 ## 3. Docs
 
-- [ ] 3.1 `AGENTS.md` "Versions and the contract hash": versions still move together; a release that changes the tool
+- [x] 3.1 `AGENTS.md` "Versions and the contract hash": versions still move together; a release that changes the tool
   inputs raises the minor version, checked on the bump PR and by `scripts/release-check`; `la-doctor --plugin`
   compares major.minor.
-- [ ] 3.2 `docs/development.md` "Releasing": choosing minor vs patch (what counts as a tool input), the PR-time
+- [x] 3.2 `docs/development.md` "Releasing": choosing minor vs patch (what counts as a tool input), the PR-time
   check, and `release-check`'s new refusals.
-- [ ] 3.3 `docs/commands.md` `la-doctor` row: "Check the installed tools' minor version matches the plugin, …".
-- [ ] 3.4 README Install: one sentence that a plugin update within the same minor version needs no reinstall.
+- [x] 3.3 `docs/commands.md` `la-doctor` row: "Check the installed tools' minor version matches the plugin, …".
+- [x] 3.4 README Install: one sentence that a plugin update within the same minor version needs no reinstall.
 
 ## 4. Verification
 
-- [ ] 4.1 Python twin in `python/`: `uv run pytest -q`, `uv run ruff check src tests`, `uv run basedpyright src tests`.
-- [ ] 4.2 npm twin in `node/`: `npm run lint && npm run typecheck`, `npm test`, `npm run build && npm run conformance`.
-- [ ] 4.3 Repo-wide: `scripts/conformance-cross`, `scripts/sync-shared --check`, `la-arch-check` green,
+- [x] 4.1 Python twin in `python/`: `uv run pytest -q`, `uv run ruff check src tests`, `uv run basedpyright src tests`.
+- [x] 4.2 npm twin in `node/`: `npm run lint && npm run typecheck`, `npm test`, `npm run build && npm run conformance`.
+- [x] 4.3 Repo-wide: `scripts/conformance-cross`, `scripts/sync-shared --check`, `la-arch-check` green,
   `npx -y @anthropic-ai/claude-code plugin validate plugin` with no new warning.

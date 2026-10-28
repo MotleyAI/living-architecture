@@ -40,8 +40,11 @@ hand. The update mode always runs serially, even with `-n`.
 ## Versions and the contract hash
 
 The package versions (`python/pyproject.toml`, `node/package.json`) and
-`plugin/.claude-plugin/plugin.json` always move together; skills read the expected version from `plugin.json` (`la-doctor --plugin`). Each
-snapshot's `CONTRACT_HASH` must equal the hash of `shared/`; `la-doctor --contract-hash` prints the bundled
+`plugin/.claude-plugin/plugin.json` always move together. A release that changes the tool inputs (`shared/`,
+`conformance/`, the twins' sources and build inputs, their manifests and lockfiles beyond the version) raises the
+minor or major version, so every release in a minor series ships the same tools; a test checks it on the bump PR
+and `scripts/release-check` at publish time. Skills compare only major.minor of the tools against `plugin.json`
+(`la-doctor --plugin`). Each snapshot's `CONTRACT_HASH` must equal the hash of `shared/`; `la-doctor --contract-hash` prints the bundled
 one. Release only when every twin's version and contract hash agree.
 
 ## Dev and test commands

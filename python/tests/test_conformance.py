@@ -201,7 +201,9 @@ def _tools_dir(hidden: frozenset[str]) -> Path:
 
 def substitute(text: str, root: Path) -> str:
     """Placeholders allowed in args and fake executables."""
-    return text.replace("<VERSION>", __version__).replace("<CONTRACT_HASH>", contract_hash()).replace("<ROOT>", str(root))
+    major, minor = __version__.split(".")[:2]
+    text = text.replace("<VERSION>", __version__).replace("<MAJOR>", major).replace("<MINOR>", minor)
+    return text.replace("<CONTRACT_HASH>", contract_hash()).replace("<ROOT>", str(root))
 
 
 def current_format() -> str:
