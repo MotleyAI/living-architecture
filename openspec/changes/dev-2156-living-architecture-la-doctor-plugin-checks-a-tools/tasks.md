@@ -1,14 +1,14 @@
 ## 1. Tests (pr-tests stage; failing until implemented)
 
-- [ ] 1.1 Conformance runner (`python/tests/test_conformance.py`, `substitute`): `<MAJOR>` and `<MINOR>` (the
+- [x] 1.1 Conformance runner (`python/tests/test_conformance.py`, `substitute`): `<MAJOR>` and `<MINOR>` (the
   installed version's first two components as written) are substituted wherever `<VERSION>` is (args, env, fake
   executables, git `write` content). Runner unit tests per place, like the existing `<FORMAT> <VERSION>` one;
   document both in `conformance/README.md`. Verify the unit tests fail before 2.x.
-- [ ] 1.2 Reword the `doctor.plugin-invalid` goldens (design.md decision 6) of `doctor-plugin-invalid-json`, `-nan`,
+- [x] 1.2 Reword the `doctor.plugin-invalid` goldens (design.md decision 6) of `doctor-plugin-invalid-json`, `-nan`,
   `-bom`, `-invalid-utf8`, `-not-an-object`, `-no-version`, `-version-not-string`, `-lone-surrogate`; turn
   `doctor-plugin-surrogate-pair` (`😀`) into an invalid case (golden and note). Cases whose plugin is `<VERSION>`
   stay as they are.
-- [ ] 1.3 New cases (`golden: manual`, listed in `conformance/INVENTORY.md` under la-doctor):
+- [x] 1.3 New cases (`golden: manual`, listed in `conformance/INVENTORY.md` under la-doctor):
   - healthy, exit 0: `doctor-plugin-same-series-other-patch` (`<MAJOR>.<MINOR>.999`),
     `doctor-plugin-same-series-prerelease` (`<MAJOR>.<MINOR>.0-rc1`), `doctor-plugin-same-series-leading-zeros`
     (`0<MAJOR>.0<MINOR>.7`), `doctor-plugin-huge-components` (`<MAJOR>` and `<MINOR>` each behind 400 leading
@@ -23,21 +23,21 @@
   - mismatch, neutral (`normalize` pattern `(reinstall them with: ).*` → `\1<INSTALL>`, plus a pattern for any
     installed series in the output): `doctor-plugin-newer-minor` (`<MAJOR>.999.0`),
     `doctor-plugin-other-major` (`99<MAJOR>.<MINOR>.0`).
-- [ ] 1.4 Rewrite `doctor-plugin-mismatch` as the neutral, normalized `0.0.0` mismatch. Convert
+- [x] 1.4 Rewrite `doctor-plugin-mismatch` as the neutral, normalized `0.0.0` mismatch. Convert
   `doctor-format-missing-expect-mismatch` → `doctor-format-missing-plugin-mismatch` (`--plugin plugin`, plugin
   `0.0.1`, install normalized) and `doctor-all-problems-in-order` to `--plugin` (plugin `0.0.0`; its `contains` on
   `FAIL: installed la tools are` holds). Delete `doctor-expect-match`, `doctor-expect-mismatch`,
   `doctor-plugin-and-expect`, `doctor-usage-expect-without-value`; add `doctor-usage-expect-removed`
   (`--expect 0.4.1` → exit 2). Update `INVENTORY.md` rows (drop `--expect` wording).
-- [ ] 1.5 `shared/vectors/cli.yaml`: drop `expect` from every `la-doctor` `args`; the `flag and string options` vector
+- [x] 1.5 `shared/vectors/cli.yaml`: drop `expect` from every `la-doctor` `args`; the `flag and string options` vector
   becomes `argv: [--root, r, --contract-hash]`; add `argv: [--expect, 0.4.1]` → `exit: 2`. Verify
   `test_cli_parser.py` / `parser.test.ts` fail until 2.1.
-- [ ] 1.6 `python/tests/test_skills.py`: remove the `la-doctor --expect` assertion and its test.
-- [ ] 1.7 Doctor unit tests: `python/tests/test_doctor.py` drops `expect` (`run_checks(root=...)`, no `--expect` in
+- [x] 1.6 `python/tests/test_skills.py`: remove the `la-doctor --expect` assertion and its test.
+- [x] 1.7 Doctor unit tests: `python/tests/test_doctor.py` drops `expect` (`run_checks(root=...)`, no `--expect` in
   `test_healthy`; delete `test_version_mismatch`/`test_no_expect_skips_version_check`); both twins get unit tests for
   the series comparison where conformance cannot reach (e.g. the installed version itself prerelease-style, via a
   patched version).
-- [ ] 1.8 Release rule (new `python/tests/test_release_scripts.py`; temp git repos mirroring the layout with tags,
+- [x] 1.8 Release rule (new `python/tests/test_release_scripts.py`; temp git repos mirroring the layout with tags,
   driving the copied `scripts/release-check` on the tagged commit): tool change → minor tag accepted; then an
   unchanged patch accepted; then a tool change → patch refused naming the previous tag and inputs; plugin/docs-only
   patch accepted; each tool-input kind counts (a file under each root, `node/scripts/`, `node/tsconfig.json`, a
@@ -46,14 +46,14 @@
   (`v0.9.0` vs `v0.10.0`), non-`vX.Y.Z` tags (`v0.4.1-rc1`, `other`) and unreachable tags ignored; shallow clone,
   no reachable release tag, and HEAD ≠ tag commit (lightweight and annotated tags) each refused; the existing
   version-equality and contract-hash checks still fail on their own (one test each).
-- [ ] 1.9 `python/tests/test_versions.py`: a test applying the rule (through the `scripts/` module) to the repo's
+- [x] 1.9 `python/tests/test_versions.py`: a test applying the rule (through the `scripts/` module) to the repo's
   current version when no `v<current>` tag exists; skips without reachable release tags unless `GITHUB_ACTIONS` is
   set, then fails. Unit-test that gating with a temp repo (tag exists → not applied; no tags → skip / fail on
   Actions).
-- [ ] 1.10 npm packaging: `node/test/packaging.test.ts` packs a staged copy without `dist/` and without running
+- [x] 1.10 npm packaging: `node/test/packaging.test.ts` packs a staged copy without `dist/` and without running
   `npm run build` first, and asserts the tarball carries `dist/bin/<command>.js` for every manifest command; drop the
   `package.test.ts` prepack-copy test (it runs `prepack` in a tree without sources).
-- [ ] 1.11 Codex review of the tests against this change (pr-tests Step 2); resolve findings with the user.
+- [x] 1.11 Codex review of the tests against this change (pr-tests Step 2); resolve findings with the user.
 
 ## 2. Implementation
 

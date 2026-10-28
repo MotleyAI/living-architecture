@@ -610,6 +610,21 @@ def test_format_placeholder_fills_committed_configs_and_write_steps_only(tmp_pat
     assert substitute("<FORMAT>", tmp_path) == "<FORMAT>"
 
 
+def test_series_placeholders_fill_args_env_fake_executables_and_write_steps(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setitem(globals(), "__version__", "012.34.5-rc1")
+    case = _case(
+        env={"SERIES": "<MAJOR>|<MINOR>"},
+        bins=[{"dir": "fake", "files": {"exe": "<MAJOR>.<MINOR>.x\n"}}],
+        git=[{"write": {"written.txt": "<MAJOR> <MINOR> <VERSION>\n"}}],
+    )
+    root = tmp_path / "run"
+    repo, env = materialize(tmp_path / "cases" / "series", case, root, NEUTRAL)
+    assert substitute("--plugin=<MAJOR>.<MINOR>.0", root) == "--plugin=012.34.0"
+    assert env["SERIES"] == "012|34"
+    assert (root / "bins" / "fake" / "exe").read_text(encoding="utf-8") == "012.34.x\n"
+    assert (repo / "written.txt").read_text(encoding="utf-8") == "012 34 012.34.5-rc1\n"
+
+
 def test_format_is_read_only_when_a_placeholder_needs_it(tmp_path: Path, monkeypatch) -> None:
     def unavailable() -> str:
         raise AssertionError("current format read without a placeholder")

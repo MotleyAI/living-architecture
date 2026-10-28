@@ -1,0 +1,12 @@
+kind: neutral
+twin: typescript
+command: la-doctor
+args: [--plugin, plugin]
+git:
+- write:
+    plugin/.claude-plugin/plugin.json: '{"version": "0.0.0-rc1"}'
+normalize: [version]
+expect:
+  exit: 1
+golden: manual
+note: the mismatch names the typescript twin's install command at the plugin's version

@@ -13,7 +13,7 @@ languages: [python]                # the fixture languages; required unless neut
 twin: python | typescript          # only this twin invokes the command (forwarding and facts cases)
 other_twin: absent                 # the other twin's bin dir is kept off PATH
 command: la-arch-check
-args: [--root, .]                  # `<VERSION>`, `<CONTRACT_HASH>`, `<ROOT>` are substituted
+args: [--root, .]                  # `<VERSION>`, `<MAJOR>`, `<MINOR>`, `<CONTRACT_HASH>`, `<ROOT>` are substituted
 cwd: sub/dir                       # relative to the repo; default: the repo root
 stdin: text
 fixture: arch-ok                   # copies fixtures/<name>/{repo,<overlays>}/ first
@@ -34,6 +34,10 @@ expect:
 golden: manual                     # hand-written goldens; the update mode never writes them
 note: why this case exists
 ```
+
+`<MAJOR>` and `<MINOR>` are the installed version's first two components as written, substituted wherever
+`<VERSION>` is (args, env, fake executables, `write:` steps). A golden that would show the installed series uses a
+`normalize` pattern instead, so it survives a major or minor bump.
 
 `<FORMAT>` (the bundled current repo format) is substituted in the overlaid `living-architecture.yaml` at the repo
 root and at the `--root` the case passes, and in `write:` steps; nowhere else.

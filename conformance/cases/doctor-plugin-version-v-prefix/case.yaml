@@ -1,0 +1,11 @@
+kind: neutral
+command: la-doctor
+args: [--plugin, plugin]
+git:
+- write:
+    plugin/.claude-plugin/plugin.json: '{"version": "v0.4.1"}'
+normalize: [version]
+expect:
+  exit: 1
+golden: manual
+note: a version with a v prefix is invalid, not a mismatch
