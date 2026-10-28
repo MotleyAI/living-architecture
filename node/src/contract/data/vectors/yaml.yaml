@@ -1,8 +1,9 @@
-# The shared YAML profile: YAML 1.1 exactly as PyYAML's safe loader reads it (last duplicate key wins).
-# Each case has exactly one of: `json`, the expected value of `text` serialized as JSON (compared by value, so
+# The shared YAML profile: YAML 1.1 as PyYAML's safe loader reads it, within a closed tag set (last duplicate key
+# wins). Each case has exactly one of: `json`, the expected value of `text` serialized as JSON (compared by value, so
 # mapping key order is not pinned); `repr`, the canonical repr of the normalized value, for values JSON cannot
-# hold (non-string keys, timestamps, inf, nan); or `error: true`, a scalar the safe loader cannot construct, which
-# must be a YAML error.
+# hold (non-string keys, timestamps, inf, nan); `error: true`, an input the safe loader cannot load, which must be a
+# YAML error; or `error: refused`, an input the safe loader constructs but the profile refuses, which must be a YAML
+# error.
 cases:
 - name: YAML 1.1 booleans
   text: '[yes, no, on, off, true, false, True, FALSE, Yes, NO, On, OFF]'
@@ -216,3 +217,315 @@ cases:
 - name: explicit bool with surrounding space
   text: "x: !!bool ' yes'"
   error: true
+- name: binary tag is refused
+  text: 'x: !!binary aGk='
+  error: refused
+- name: set tag is refused
+  text: 'x: !!set {a, b}'
+  error: refused
+- name: omap tag is refused
+  text: 'x: !!omap [{a: 1}]'
+  error: refused
+- name: pairs tag is refused
+  text: 'x: !!pairs [{a: 1}]'
+  error: refused
+- name: pairs tag with a repeated key is refused
+  text: 'x: !!pairs [{a: 1}, {a: 2}]'
+  error: refused
+- name: verbatim set tag is refused
+  text: 'x: !<tag:yaml.org,2002:set> {a}'
+  error: refused
+- name: omap tag through a TAG handle is refused
+  text: |
+    %TAG !y! tag:yaml.org,2002:
+    ---
+    x: !y!omap [{a: 1}]
+  error: refused
+- name: binary that is not base64
+  text: 'x: !!binary aGk'
+  error: true
+- name: binary tag on a sequence
+  text: 'x: !!binary [1]'
+  error: true
+- name: set tag on a sequence
+  text: 'x: !!set [a]'
+  error: true
+- name: plain equals sign is a value key
+  text: 'x: ='
+  error: true
+- name: merge tag on a value
+  text: 'x: !!merge a'
+  error: true
+- name: merge key as a value
+  text: 'x: <<'
+  error: true
+- name: merge key as a sequence item
+  text: 'x: [<<]'
+  error: true
+- name: timestamp tag on a sequence
+  text: 'x: !!timestamp [1]'
+  error: true
+- name: flow sequence as a key
+  text: '{[1]: a}'
+  error: true
+- name: flow mapping as a key
+  text: '{{a: 1}: b}'
+  error: true
+- name: explicit flow sequence key
+  text: '{? [1]}'
+  error: true
+- name: explicit block sequence key
+  text: |
+    ? [1]
+    : a
+  error: true
+- name: aliased sequence as a flow key
+  text: |
+    a: &k [1]
+    b: {*k : a}
+  error: true
+- name: aliased sequence as a block key
+  text: |
+    a: &k [1]
+    b:
+      *k : a
+  error: true
+- name: aliased mapping as a flow key
+  text: |
+    a: &k {p: 1}
+    b: {*k : a}
+  error: true
+- name: aliased mapping as a block key
+  text: |
+    a: &k {p: 1}
+    b:
+      *k : a
+  error: true
+- name: anchor name with a dot
+  text: 'x: &a.b s'
+  error: true
+- name: anchor name with a slash
+  text: 'x: &a/b s'
+  error: true
+- name: anchor name with a non-ASCII letter
+  text: 'x: &é s'
+  error: true
+- name: anchor name ends at a colon
+  text: 'a: &k: s'
+  error: true
+- name: non-specific tag on a scalar resolves as untagged
+  text: 'x: ! 12'
+  json: '{"x": 12}'
+- name: non-specific tag on a sequence
+  text: 'x: ! [1]'
+  json: '{"x": [1]}'
+- name: non-specific tag on a mapping
+  text: 'x: ! {a: 1}'
+  json: '{"x": {"a": 1}}'
+- name: string-tagged merge spelling as a value
+  text: 'x: !!str <<'
+  json: '{"x": "<<"}'
+- name: string-tagged merge spelling is a plain key
+  text: '{!!str <<: {p: 1}}'
+  json: '{"<<": {"p": 1}}'
+- name: quoted merge spelling is a plain key
+  text: '{''<<'': {p: 1}}'
+  json: '{"<<": {"p": 1}}'
+- name: merge tag on any key merges
+  text: |
+    a: &a {p: 1}
+    b:
+      !!merge y: *a
+  json: '{"a": {"p": 1}, "b": {"p": 1}}'
+- name: string tag through a TAG handle
+  text: |
+    %TAG !y! tag:yaml.org,2002:
+    ---
+    x: !y!str 12
+  json: '{"x": "12"}'
+- name: verbatim string tag
+  text: 'x: !<tag:yaml.org,2002:str> 12'
+  json: '{"x": "12"}'
+- name: aliased scalar as a flow key before a colon
+  text: |
+    a: &k s
+    b: {*k: a}
+  json: '{"a": "s", "b": {"s": "a"}}'
+- name: aliased scalar as a block key
+  text: |
+    a: &k s
+    b:
+      *k : a
+  json: '{"a": "s", "b": {"s": "a"}}'
+- name: anchor name with digits, hyphen and underscore
+  text: |
+    a: &k-1_x s
+    b: *k-1_x
+  json: '{"a": "s", "b": "s"}'
+- name: verbatim merge tag on a key merges
+  text: |
+    a: &a {p: 1}
+    b:
+      !<tag:yaml.org,2002:merge> y: *a
+  json: '{"a": {"p": 1}, "b": {"p": 1}}'
+- name: merge tag through a TAG handle merges
+  text: |
+    %TAG !y! tag:yaml.org,2002:
+    ---
+    a: &a {p: 1}
+    b:
+      !y!merge y: *a
+  json: '{"a": {"p": 1}, "b": {"p": 1}}'
+- name: aliased recursive sequence as a key
+  text: |
+    a: &k [*k]
+    b: {*k : a}
+  error: true
+- name: aliased recursive mapping as a key
+  text: |
+    a: &k {p: *k}
+    b:
+      *k : a
+  error: true
+- name: alias names end at flow indicators
+  text: |
+    a: &k s
+    b: [*k, *k]
+    c: {x: *k}
+  json: '{"a": "s", "b": ["s", "s"], "c": {"x": "s"}}'
+- name: anchor names end at flow indicators
+  text: '[&k, *k, {a: &j}, [&i]]'
+  json: '[null, null, {"a": null}, [null]]'
+- name: anchor name ends at an at sign
+  text: 'x: &k@ s'
+  error: true
+- name: anchor name ends at a percent sign
+  text: 'x: &k% s'
+  error: true
+- name: anchor name ends at a backtick
+  text: 'x: &k` s'
+  error: true
+- name: anchor name ends at a question mark
+  text: 'x: &k? s'
+  error: true
+- name: alias name ends at an at sign
+  text: |
+    x: &k s
+    y: *k@
+  error: true
+- name: non-specific tag on a quoted scalar resolves its text
+  text: "x: [! '12', ! \"yes\"]"
+  json: '{"x": [12, true]}'
+- name: non-specific tag on a block scalar resolves its text
+  text: |
+    x: ! |
+      12
+  json: '{"x": 12}'
+- name: non-specific tag on a block scalar keeps its final newline for the constructor
+  text: |
+    x: ! |
+      yes
+  error: true
+- name: non-specific tag on a block scalar float keeps its final newline
+  text: |
+    x: ! |
+      .inf
+  error: true
+- name: non-specific tag on a quoted merge spelling as a value
+  text: "x: ! '<<'"
+  error: true
+- name: non-specific tag on a quoted merge spelling merges as a key
+  text: |
+    a: &a {p: 1}
+    b:
+      ! '<<': *a
+  json: '{"a": {"p": 1}, "b": {"p": 1}}'
+- name: non-specific tag on an equals sign
+  text: 'x: ! ='
+  error: true
+- name: value tag
+  text: 'x: !!value ='
+  error: true
+- name: string tag on a sequence
+  text: 'x: !!str [1]'
+  error: true
+- name: sequence tag on a scalar
+  text: 'x: !!seq a'
+  error: true
+- name: mapping tag on a sequence
+  text: 'x: !!map [1]'
+  error: true
+- name: merge tag on a quoted key merges
+  text: |
+    a: &a {p: 1}
+    b:
+      !!merge 'y': *a
+  json: '{"a": {"p": 1}, "b": {"p": 1}}'
+- name: merge tag on a collection key merges
+  text: '{? !!merge [1] : {p: 1}}'
+  json: '{"p": 1}'
+- name: aliased merge key merges
+  text: |
+    a: &a {p: 1}
+    b: {&m <<: *a, *m : {q: 1}}
+  json: '{"a": {"p": 1}, "b": {"p": 1, "q": 1}}'
+- name: aliased merge key as a value
+  text: |
+    a: &a {p: 1}
+    b: {&m <<: *a}
+    c: *m
+  error: true
+- name: alias name ends at a colon in a flow mapping
+  text: |
+    a: &k s
+    b: [{*k:x}, {*k:}]
+  json: '{"a": "s", "b": [{"s": "x"}, {"s": null}]}'
+- name: alias name ends at a colon in a flow sequence
+  text: |
+    a: &k s
+    b: [*k:x]
+  json: '{"a": "s", "b": [{"s": "x"}]}'
+- name: anchor name ends at a colon in a flow sequence
+  text: 'x: [&k:x]'
+  repr: '{''x'': [{None: ''x''}]}'
+- name: anchor name ends at a colon before a block plain scalar
+  text: 'x: &k:x'
+  json: '{"x": ":x"}'
+- name: anchor name ends at a question mark before a block plain scalar
+  text: 'x: &k?x'
+  json: '{"x": "?x"}'
+- name: anchor name ends at a question mark in a flow sequence
+  text: 'x: [&k?x]'
+  error: true
+- name: anchor name followed by a flow sequence
+  text: 'x: &k[1]'
+  error: true
+- name: anchor name followed by a flow mapping
+  text: 'x: &k{a: 1}'
+  error: true
+- name: alias name followed by a flow sequence
+  text: |
+    a: &k s
+    b: *k[
+  error: true
+- name: anchor name starting with a dot
+  text: 'x: &.b s'
+  error: true
+- name: NEL ending an anchor name is refused
+  text: "x: {a: &k\x85s, b: *k}"
+  error: refused
+- name: NEL as a line break is refused
+  text: "a: b\x85c: d"
+  error: refused
+- name: line separator in a quoted scalar is refused
+  text: "a: \"x\u2028y\""
+  error: refused
+- name: paragraph separator in a block literal is refused
+  text: "a: |\n  x\u2029  y\n"
+  error: refused
+- name: NEL inside a plain scalar
+  text: "a: x\x85y"
+  error: true
+- name: line-break escapes in a double-quoted scalar
+  text: 'a: "\N\L\P"'
+  json: '{"a": "\u0085\u2028\u2029"}'
