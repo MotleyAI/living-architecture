@@ -1,0 +1,11 @@
+kind: neutral
+command: la-doctor
+args: [--plugin, plugin]
+git:
+- write:
+    plugin/.claude-plugin/plugin.json: '{"version": "<MAJOR>.<MINOR>.999"}'
+normalize: [version]
+expect:
+  exit: 0
+golden: manual
+note: another patch of the installed series is healthy

@@ -1,13 +1,14 @@
-// `la-doctor`: check the installed tools match the plugin and the repo config is valid.
+// `la-doctor`: check the installed tools match the plugin's minor series and the repo config is valid.
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { ConfigError, type LaConfig, checkFormat, loadConfig, repoLanguages } from '../config/index.js';
-import { configFile, contractHash, language, localConfigFile, message, which } from '../contract/index.js';
-import { VERSION } from '../index.js';
+import { configFile, contractHash, language, localConfigFile, message, renderTemplate, which } from '../contract/index.js';
+import { NATIVE_LANGUAGE, VERSION } from '../index.js';
 
 const REQUIRED_EXECUTABLES = ['git', 'gh'];
 const PLUGIN_MANIFEST = join('.claude-plugin', 'plugin.json');
+const VERSION_FORM = /^(\d+)\.(\d+)\..+$/s;
 
 /** A missing entry is absent; other stat errors propagate. */
 function isFile(path: string): boolean {
@@ -20,8 +21,19 @@ function isFile(path: string): boolean {
   }
 }
 
-function versionProblem(expected: string): string | null {
-  return expected === VERSION ? null : message('doctor.version-mismatch', { installed: VERSION, expected });
+/** Major and minor of `<digits>.<digits>.<rest>` as written, or null. */
+function series(version: string): [string, string] | null {
+  const match = VERSION_FORM.exec(version);
+  return match === null ? null : [match[1] ?? '', match[2] ?? ''];
+}
+
+const canonical = (parts: [string, string]): string => parts.map((part) => part.replace(/^0+/, '') || '0').join('.');
+
+function versionProblem(expected: string, plugin: [string, string]): string | null {
+  const installed = series(VERSION);
+  if (installed !== null && canonical(installed) === canonical(plugin)) return null;
+  const install = renderTemplate(language(NATIVE_LANGUAGE).install, { version: expected });
+  return message('doctor.version-mismatch', { installed: VERSION, expected, series: plugin.join('.'), install });
 }
 
 function manifestProblem(manifest: string, raw: Buffer): string | null {
@@ -32,8 +44,9 @@ function manifestProblem(manifest: string, raw: Buffer): string | null {
   } catch {
     version = null;
   }
-  if (typeof version !== 'string' || /\p{Surrogate}/u.test(version)) return message('doctor.plugin-invalid', { path: manifest });
-  return versionProblem(version);
+  const parts = typeof version === 'string' && !/\p{Surrogate}/u.test(version) ? series(version) : null;
+  if (typeof version !== 'string' || parts === null) return message('doctor.plugin-invalid', { path: manifest });
+  return versionProblem(version, parts);
 }
 
 /** Check against the version in the nearest `.claude-plugin/plugin.json` at or above `plugin`. */
@@ -115,9 +128,9 @@ function languageExecutables(root: string): string[] {
 }
 
 /** Problems found; empty means healthy. A format refusal replaces every check that reads the config. */
-export function runChecks(root: string, expect: string | null, plugin: string | null = null, requireConfig = false): string[] {
-  const versions = [expect !== null ? versionProblem(expect) : null, plugin !== null ? pluginProblem(plugin) : null];
-  const problems = versions.filter((problem): problem is string => problem !== null);
+export function runChecks(root: string, plugin: string | null = null, requireConfig = false): string[] {
+  const version = plugin !== null ? pluginProblem(plugin) : null;
+  const problems = version !== null ? [version] : [];
   const refusal = checkFormat(root);
   problems.push(...(refusal !== null ? [refusal] : configProblems(root, requireConfig)));
   const local = localProblem(root);
@@ -135,12 +148,12 @@ export function runChecks(root: string, expect: string | null, plugin: string | 
   return problems;
 }
 
-export function run(root: string, expect: string | null, plugin: string | null, printHash: boolean, requireConfig = false): number {
+export function run(root: string, plugin: string | null, printHash: boolean, requireConfig = false): number {
   if (printHash) {
     process.stdout.write(`${contractHash()}\n`);
     return 0;
   }
-  const problems = runChecks(root, expect, plugin, requireConfig);
+  const problems = runChecks(root, plugin, requireConfig);
   for (const problem of problems) process.stdout.write(`${message('doctor.fail', { problem })}\n`);
   if (problems.length === 0) {
     let source = isFile(join(root, configFile())) ? configFile() : message('doctor.no-config-file');

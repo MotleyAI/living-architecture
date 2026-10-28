@@ -11,10 +11,9 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from living_architecture import __version__
+from living_architecture import NATIVE_LANGUAGE, __version__
 from living_architecture.contract import contract_hash, language, message, render_template, schema, validate
 
-NATIVE_LANGUAGE = "python"
 FORWARDED_ENV = "LA_FORWARDED"
 
 

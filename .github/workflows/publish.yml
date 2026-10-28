@@ -5,12 +5,14 @@ on:
     types: [published]
 
 jobs:
-  # Both twins publish only if every version equals the tag and both contract hashes agree.
+  # Both twins publish only if every version equals the tag, both contract hashes agree and the release rule holds.
   check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Check versions and contract hashes against the tag
+        with:
+          fetch-depth: 0  # the release rule diffs against the previous release tag
+      - name: Check the tag, versions, contract hashes and release rule
         run: scripts/release-check "${{ github.event.release.tag_name }}"
       - name: Check the vendored contract snapshots are current
         run: scripts/sync-shared --check

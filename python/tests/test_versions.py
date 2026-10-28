@@ -1,8 +1,11 @@
+import importlib.util
 import json
 import os
 import re
+import subprocess
 import tomllib
 from pathlib import Path
+from types import ModuleType
 
 import pytest
 
@@ -12,6 +15,8 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 REPO_ROOT = PROJECT_ROOT.parent
 # An install pin: `living-architecture==X` (PyPI) or `living-architecture@X` (npm).
 PIN = re.compile(r"living-architecture(?:==|@)(\d[\w.+-]*)")
+# A tool input of the release rule.
+TOOL = "python/src/living_architecture/__init__.py"
 
 
 def _json(rel: str) -> dict:
@@ -102,3 +107,72 @@ def test_current_format_is_at_most_every_package_version() -> None:
     package = json.loads((REPO_ROOT / "node" / "package.json").read_text(encoding="utf-8"))["version"]
     for version in (__version__, package, _plugin_version()):
         assert config.compare_versions(current, version) <= 0, version
+
+
+@pytest.fixture(scope="session")
+def release_rule() -> ModuleType:
+    """scripts/release_rule.py, the release rule `scripts/release-check` applies."""
+    spec = importlib.util.spec_from_file_location("release_rule", REPO_ROOT / "scripts" / "release_rule.py")
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _unreleased_bump_problem(root: Path, version: str, rule: ModuleType, *, on_actions: bool) -> str | None:
+    """The release rule's problem with `version` while it has no tag; skips (fails on Actions) without a release tag."""
+    tagged = subprocess.run(
+        ["git", "rev-parse", "-q", "--verify", f"refs/tags/v{version}"], cwd=root, capture_output=True, check=False
+    )
+    if tagged.returncode == 0:
+        return None
+    previous = rule.previous_release(root, version)
+    if previous is None:
+        reason = f"no release tag below {version} is reachable; fetch the full history with tags"
+        if on_actions:
+            pytest.fail(reason)
+        pytest.skip(reason)
+    return rule.bump_problem(root, version, previous)
+
+
+def test_an_unreleased_version_obeys_the_release_rule(release_rule: ModuleType) -> None:
+    on_actions = os.environ.get("GITHUB_ACTIONS") == "true"
+    assert _unreleased_bump_problem(REPO_ROOT, __version__, release_rule, on_actions=on_actions) is None
+
+
+
+def test_the_rule_is_not_applied_once_the_version_is_tagged(release_repo, release_rule: ModuleType) -> None:
+    release_repo.release("0.4.0")
+    release_repo.change(TOOL)
+    release_repo.release("0.4.1")
+    assert _unreleased_bump_problem(release_repo.root, "0.4.1", release_rule, on_actions=True) is None
+
+
+def test_a_tool_change_without_a_minor_bump_fails_before_tagging(release_repo, release_rule: ModuleType) -> None:
+    release_repo.release("0.4.0")
+    release_repo.change(TOOL)
+    release_repo.bump("0.4.1")
+    problem = _unreleased_bump_problem(release_repo.root, "0.4.1", release_rule, on_actions=False)
+    assert problem is not None
+    assert "v0.4.0" in problem
+    assert TOOL in problem
+
+
+def test_a_tool_change_with_a_minor_bump_passes_before_tagging(release_repo, release_rule: ModuleType) -> None:
+    release_repo.release("0.4.0")
+    release_repo.change(TOOL)
+    release_repo.bump("0.5.0")
+    assert _unreleased_bump_problem(release_repo.root, "0.5.0", release_rule, on_actions=False) is None
+
+
+def test_no_release_tag_skips_locally(release_repo, release_rule: ModuleType) -> None:
+    release_repo.bump("0.4.1")
+    with pytest.raises(pytest.skip.Exception):
+        _unreleased_bump_problem(release_repo.root, "0.4.1", release_rule, on_actions=False)
+
+
+def test_no_release_tag_fails_on_github_actions(release_repo, release_rule: ModuleType) -> None:
+    release_repo.bump("0.4.1")
+    with pytest.raises(pytest.fail.Exception):
+        _unreleased_bump_problem(release_repo.root, "0.4.1", release_rule, on_actions=True)

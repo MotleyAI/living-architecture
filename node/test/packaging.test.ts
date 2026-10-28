@@ -1,6 +1,6 @@
-// The packed npm package carries the root README.md and LICENSE, and the contract: `npm run build` and `npm pack` a
-// staged copy, install the tarball into a clean global prefix outside the checkout, then run its bins from a directory
-// outside any repo.
+// The packed npm package carries the built bins, the root README.md and LICENSE, and the contract: `npm pack` a staged
+// copy without `dist/` (prepack builds it), install the tarball into a clean global prefix outside the checkout, then run
+// its bins from a directory outside any repo.
 import { spawnSync, type SpawnSyncReturns } from 'node:child_process';
 import {
   chmodSync,
@@ -18,7 +18,7 @@ import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { currentFormat } from '../src/config/index.js';
-import { HASH_FILE, NODE_ROOT, readJson, REPO_ROOT } from './helpers.js';
+import { HASH_FILE, loadYamlFile, NODE_ROOT, readJson, REPO_ROOT, SHARED } from './helpers.js';
 
 const TIMEOUT = 600_000;
 const TMP = mkdtempSync(join(tmpdir(), 'la-pack-'));
@@ -64,14 +64,13 @@ beforeAll(() => {
   writeFileSync(PROBE, PROBE_SOURCE);
   mkdirSync(NODE_BIN);
   symlinkSync(process.execPath, join(NODE_BIN, 'node'));
-  // Build and pack a staged copy so the checkout stays untouched; without leftovers there, only prepack can supply the
+  // Pack a staged copy so the checkout stays untouched; without leftovers there, only prepack can supply `dist/` and the
   // root files.
   const staged = join(STAGE, 'node');
   for (const name of ROOT_FILES) cpSync(join(REPO_ROOT, name), join(STAGE, name));
   const skipped = new Set(['node_modules', 'dist', ...ROOT_FILES].map((name) => join(NODE_ROOT, name)));
   cpSync(NODE_ROOT, staged, { recursive: true, filter: (src) => !skipped.has(src) });
   symlinkSync(join(NODE_ROOT, 'node_modules'), join(staged, 'node_modules'));
-  npm(['run', 'build'], staged);
   const [packed] = JSON.parse(npm(['pack', '--json', '--pack-destination', TMP], staged));
   TARBALL = join(TMP, packed.filename);
   npm(['install', '-g', '--prefix', PREFIX, '--no-audit', '--no-fund', TARBALL], WORK);
@@ -98,6 +97,14 @@ function probed(command: string, args: string[], cwd: string, path?: string[]) {
 }
 
 describe('packed npm package', () => {
+  it('carries dist/bin/<command>.js for every manifest command', () => {
+    const listed = spawnSync('tar', ['-tzf', TARBALL], { encoding: 'utf8' });
+    expect(listed.status, listed.stderr).toBe(0);
+    const entries = new Set(listed.stdout.split('\n'));
+    const commands = Object.keys(loadYamlFile(join(SHARED, 'cli.yaml')).commands);
+    expect(commands.filter((command) => !entries.has(`package/dist/bin/${command}.js`))).toEqual([]);
+  });
+
   it.each(ROOT_FILES)('carries the root %s', (name) => {
     const unpacked = mkdtempSync(join(TMP, 'unpacked-'));
     expect(spawnSync('tar', ['-xzf', TARBALL, '-C', unpacked]).status).toBe(0);
