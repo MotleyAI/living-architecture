@@ -108,9 +108,41 @@ function contained(
   return joined;
 }
 
-/** Where one language's code lives; ArchCheckError unless `source_root` and `root_package` are dirs in the repo. */
+/** Returns whether `candidate` is the same path as, or nested beneath, `parent`. */
+function containsPath(parent: string, candidate: string): boolean {
+  const rel = relative(parent, candidate);
+  return rel === '' || (rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel));
+}
+
+/** Returns whether two resolved roots share any directory path. */
+function rootsOverlap(first: string, second: string): boolean {
+  return containsPath(first, second) || containsPath(second, first);
+}
+
+/** Validates and resolves one configured package root under `sourceRoot`. */
+function resolveRootPackage(
+  sourceRoot: string,
+  rootPackage: string,
+  sourceRootDisplay: string,
+  multiple: boolean,
+): { value: string; path: string } {
+  if (multiple && rootPackage.split('/').some((segment) => segment === '' || segment === '.')) {
+    throw new ArchCheckError(message('arch-check.root-packages-not-canonical', { value: rootPackage }));
+  }
+  const key = multiple ? 'root_packages' : 'root_package';
+  const escapedId = multiple ? 'arch-check.root-packages-escapes' : 'arch-check.root-package-escapes';
+  const packageDir = contained(sourceRoot, key, rootPackage, escapedId, true, { source_root: sourceRootDisplay });
+  if (rootPackage.includes('\0') || !isDir(packageDir)) {
+    const id = multiple ? 'arch-check.root-packages-not-a-directory' : 'arch-check.root-package-not-a-directory';
+    throw new ArchCheckError(message(id, { value: rootPackage, source_root: sourceRootDisplay }));
+  }
+  return { value: rootPackage, path: resolveLenient(packageDir) };
+}
+
+/** Resolves one language's code roots; configured roots must be disjoint directories under `source_root`. */
 export function resolveLayout(repoRoot: string, sectionValues: Record<string, unknown>): Layout {
   const rawRoots = sectionValues.root_packages;
+  const multiple = rawRoots !== undefined;
   const roots = Array.isArray(rawRoots) ? rawRoots as string[] : [sectionValues.root_package as string];
   const value = sectionValues.source_root as string | undefined;
   let sourceRoot = repoRoot;
@@ -121,23 +153,13 @@ export function resolveLayout(repoRoot: string, sectionValues: Record<string, un
   const shown = value === undefined || value === null ? '.' : value;
   const resolvedRoots: { value: string; path: string }[] = [];
   for (const rootPackage of roots) {
-    const key = rawRoots === undefined ? 'root_package' : 'root_packages';
-    const noncanonical = rawRoots !== undefined && rootPackage.split('/').some((s) => s === '' || s === '.');
-    if (noncanonical) throw new ArchCheckError(message('arch-check.root-packages-not-canonical', { value: rootPackage }));
-    const packageDir = contained(sourceRoot, key, rootPackage, rawRoots === undefined ? 'arch-check.root-package-escapes' : 'arch-check.root-packages-escapes', true, { source_root: shown });
-    if (rootPackage.includes('\0') || !isDir(packageDir)) {
-      const id = rawRoots === undefined ? 'arch-check.root-package-not-a-directory' : 'arch-check.root-packages-not-a-directory';
-      throw new ArchCheckError(message(id, { value: rootPackage, source_root: shown }));
-    }
-    const resolved = resolveLenient(packageDir);
+    const current = resolveRootPackage(sourceRoot, rootPackage, shown, multiple);
     for (const previous of resolvedRoots) {
-      const rel = relative(previous.path, resolved);
-      const reverse = relative(resolved, previous.path);
-      if (rel === '' || reverse === '' || (!rel.startsWith(`..${sep}`) && rel !== '..' && !isAbsolute(rel)) || (!reverse.startsWith(`..${sep}`) && reverse !== '..' && !isAbsolute(reverse))) {
+      if (rootsOverlap(previous.path, current.path)) {
         throw new ArchCheckError(message('arch-check.root-packages-overlap', { first: previous.value, second: rootPackage }));
       }
     }
-    resolvedRoots.push({ value: rootPackage, path: resolved });
+    resolvedRoots.push(current);
   }
   return { repoRoot, sourceRoot, rootPackages: roots, rootPackage: roots[0] ?? '' };
 }
