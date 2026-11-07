@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -57,6 +57,10 @@ def load_index(root: Path) -> dict[str, Any]:
             raise ArchCheckError(message("arch-check.root-package-missing"))
         if has_package and has_packages:
             raise ArchCheckError(message("arch-check.root-config-required"))
+        if has_packages:
+            roots = section["root_packages"]
+            if not isinstance(roots, list) or not roots or any(not isinstance(root, str) for root in roots):
+                raise ArchCheckError(message("arch-check.root-packages-invalid"))
     errors = validate(schema("index"), index)
     if errors:
         raise ArchCheckError(f"{INDEX_REL}: " + "; ".join(errors))
@@ -83,7 +87,14 @@ def _contained(base: Path, key: str, value: str, escapes_id: str, *, canonical: 
 
 def resolve_layout(repo_root: Path, section: dict[str, Any]) -> Layout:
     """Where one language's code lives; all configured roots must be disjoint directories under source_root."""
-    roots = section.get("root_packages", [section.get("root_package", "")])
+    multiple = "root_packages" in section
+    if multiple:
+        raw_roots = section.get("root_packages")
+        if not isinstance(raw_roots, list) or not raw_roots or any(not isinstance(root, str) for root in raw_roots):
+            raise ArchCheckError(message("arch-check.root-packages-invalid"))
+        roots = cast(list[str], raw_roots)
+    else:
+        roots = [section.get("root_package", "")]
     value = section.get("source_root")
     source_root = repo_root
     if value is not None:

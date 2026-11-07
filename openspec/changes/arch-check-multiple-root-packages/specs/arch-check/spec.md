@@ -29,8 +29,8 @@ Each `root_packages` path SHALL resolve to a directory beneath `source_root` (de
 after symlink resolution. Paths SHALL be pairwise disjoint; equal or nested roots SHALL be rejected. Invalid paths
 and overlap SHALL produce a setup error naming the affected `root_packages` entries.
 
-#### Scenario: Missing roots are rejected
-- **WHEN** any configured root is absolute, contains a parent segment, is non-canonical, escapes by symlink, is not a directory, or the list is empty or contains duplicates
+#### Scenario: Invalid roots are rejected
+- **WHEN** `root_packages` is not a non-empty list of strings, or any configured root is absolute, contains a parent segment, is non-canonical, escapes by symlink, is not a directory, or duplicates another root
 - **THEN** `la-arch-check` exits 2 with a finding naming `root_packages`
 
 #### Scenario: Overlapping roots are rejected

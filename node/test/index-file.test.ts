@@ -60,6 +60,13 @@ describe('resolveLayout root_packages', () => {
     expect(() => resolveLayout(repo, { source_root: 'src', root_packages: rootPackages })).toThrow(ArchCheckError);
     expect(() => resolveLayout(repo, { source_root: 'src', root_packages: rootPackages })).toThrow(error);
   });
+
+  it.each([{ roots: 'app' }, { roots: ['app', 42] }, { roots: [] }])('rejects malformed root_packages $roots', ({ roots }) => {
+    expect(() => resolveLayout(repo, { source_root: 'src', root_packages: roots })).toThrow(ArchCheckError);
+    expect(() => resolveLayout(repo, { source_root: 'src', root_packages: roots })).toThrow(
+      'architecture/index.yaml: root_packages must be a non-empty list of strings',
+    );
+  });
 });
 
 describe('loadIndex root configuration', () => {
@@ -85,5 +92,10 @@ describe('loadIndex root configuration', () => {
     expect(() => loadIndex(repo)).toThrow(/root_packages/);
     writeFileSync(join(repo, 'architecture', 'index.yaml'), 'typescript:\n  root_packages: [src, src]\n');
     expect(() => loadIndex(repo)).toThrow(/root_packages/);
+  });
+
+  it.each(['app', '[app, 42]', '[]'])('rejects malformed root_packages %s with the shared finding', (rootPackages) => {
+    writeFileSync(join(repo, 'architecture', 'index.yaml'), `typescript:\n  root_packages: ${rootPackages}\n`);
+    expect(() => loadIndex(repo)).toThrow('architecture/index.yaml: root_packages must be a non-empty list of strings');
   });
 });

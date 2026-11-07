@@ -43,6 +43,12 @@ export function loadIndex(root: string): Index {
     const hasPackages = section instanceof Map && section.has('root_packages');
     if (!hasPackage && !hasPackages) throw new ArchCheckError(message('arch-check.root-package-missing'));
     if (hasPackage && hasPackages) throw new ArchCheckError(message('arch-check.root-config-required'));
+    if (hasPackages) {
+      const roots = (section as Map<unknown, unknown>).get('root_packages');
+      if (!Array.isArray(roots) || roots.length === 0 || roots.some((root) => typeof root !== 'string')) {
+        throw new ArchCheckError(message('arch-check.root-packages-invalid'));
+      }
+    }
   }
   const errors = validate(schema('index'), index);
   if (errors.length > 0) throw new ArchCheckError(`${INDEX_REL}: ${errors.join('; ')}`);
@@ -142,8 +148,11 @@ function resolveRootPackage(
 /** Resolves one language's code roots; configured roots must be disjoint directories under `source_root`. */
 export function resolveLayout(repoRoot: string, sectionValues: Record<string, unknown>): Layout {
   const rawRoots = sectionValues.root_packages;
-  const multiple = rawRoots !== undefined;
-  const roots = Array.isArray(rawRoots) ? rawRoots as string[] : [sectionValues.root_package as string];
+  const multiple = Object.hasOwn(sectionValues, 'root_packages');
+  if (multiple && (!Array.isArray(rawRoots) || rawRoots.length === 0 || rawRoots.some((root) => typeof root !== 'string'))) {
+    throw new ArchCheckError(message('arch-check.root-packages-invalid'));
+  }
+  const roots = multiple ? rawRoots as string[] : [sectionValues.root_package as string];
   const value = sectionValues.source_root as string | undefined;
   let sourceRoot = repoRoot;
   if (value !== undefined && value !== null) {

@@ -1747,6 +1747,19 @@ def test_nested_root_packages_are_rejected(tmp_path):
         archcheck.emit_facts(root, "python", top_level=True)
 
 
+@pytest.mark.parametrize("roots", ["app", "[app, 42]", "[]"])
+def test_malformed_root_packages_are_setup_errors(tmp_path, roots):
+    root = layout_repo(tmp_path, f"{{root_packages: {roots}}}")
+    with pytest.raises(archcheck.ArchCheckError, match="root_packages must be a non-empty list of strings"):
+        archcheck.load_index(root)
+
+
+@pytest.mark.parametrize("roots", ["app", ["app", 42], []])
+def test_resolve_layout_rejects_malformed_root_packages_directly(tmp_path, roots):
+    with pytest.raises(archcheck.ArchCheckError, match="root_packages must be a non-empty list of strings"):
+        archcheck.resolve_layout(tmp_path, {"root_packages": roots})
+
+
 @pytest.mark.parametrize("value", ["''", "/abs", "a/../b", "missing"])
 def test_invalid_source_root_is_a_setup_error(tmp_path, value):
     root = layout_repo(tmp_path, f"{{root_package: pkg, source_root: {value}}}")
