@@ -24,6 +24,19 @@ export function declaredLanguages(index: Index): string[] {
   return languageIds().filter((id) => index.has(id));
 }
 
+/** Requires one supported root form and validates the shape of `root_packages` before schema validation. */
+function validateRootConfiguration(section: unknown): void {
+  const hasPackage = section instanceof Map && section.has('root_package');
+  const hasPackages = section instanceof Map && section.has('root_packages');
+  if (!hasPackage && !hasPackages) throw new ArchCheckError(message('arch-check.root-package-missing'));
+  if (hasPackage && hasPackages) throw new ArchCheckError(message('arch-check.root-config-required'));
+  if (!hasPackages) return;
+  const roots = (section as Map<unknown, unknown>).get('root_packages');
+  if (!Array.isArray(roots) || roots.length === 0 || roots.some((root) => typeof root !== 'string')) {
+    throw new ArchCheckError(message('arch-check.root-packages-invalid'));
+  }
+}
+
 export function loadIndex(root: string): Index {
   const text = decodeUtf8OrNull(readFileSync(join(root, INDEX_REL)));
   if (text === null) throw new ArchCheckError(message('c4.index-invalid-yaml'));
@@ -37,19 +50,7 @@ export function loadIndex(root: string): Index {
   if (!(index instanceof Map)) throw new ArchCheckError(message('arch-check.index-not-mapping'));
   const languages = declaredLanguages(index);
   if (languages.length === 0) throw new ArchCheckError(message('arch-check.no-language-section'));
-  for (const language of languages) {
-    const section = index.get(language);
-    const hasPackage = section instanceof Map && section.has('root_package');
-    const hasPackages = section instanceof Map && section.has('root_packages');
-    if (!hasPackage && !hasPackages) throw new ArchCheckError(message('arch-check.root-package-missing'));
-    if (hasPackage && hasPackages) throw new ArchCheckError(message('arch-check.root-config-required'));
-    if (hasPackages) {
-      const roots = (section as Map<unknown, unknown>).get('root_packages');
-      if (!Array.isArray(roots) || roots.length === 0 || roots.some((root) => typeof root !== 'string')) {
-        throw new ArchCheckError(message('arch-check.root-packages-invalid'));
-      }
-    }
-  }
+  for (const language of languages) validateRootConfiguration(index.get(language));
   const errors = validate(schema('index'), index);
   if (errors.length > 0) throw new ArchCheckError(`${INDEX_REL}: ${errors.join('; ')}`);
   return index;

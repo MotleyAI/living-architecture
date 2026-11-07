@@ -37,6 +37,21 @@ def declared_languages(index: dict[str, Any]) -> list[str]:
     return sorted(key for key in index if key in language_ids())
 
 
+def _validate_root_configuration(section: Any) -> None:
+    """Require one supported root form and validate `root_packages` before schema validation."""
+    has_package = isinstance(section, dict) and "root_package" in section
+    has_packages = isinstance(section, dict) and "root_packages" in section
+    if not has_package and not has_packages:
+        raise ArchCheckError(message("arch-check.root-package-missing"))
+    if has_package and has_packages:
+        raise ArchCheckError(message("arch-check.root-config-required"))
+    if not has_packages:
+        return
+    roots = section["root_packages"]
+    if not isinstance(roots, list) or not roots or any(not isinstance(root, str) for root in roots):
+        raise ArchCheckError(message("arch-check.root-packages-invalid"))
+
+
 def load_index(root: Path) -> dict[str, Any]:
     try:
         index = load_yaml((root / INDEX_REL).read_text(encoding="utf-8"))
@@ -50,17 +65,7 @@ def load_index(root: Path) -> dict[str, Any]:
     if not languages:
         raise ArchCheckError(message("arch-check.no-language-section"))
     for language in languages:
-        section = index[language]
-        has_package = isinstance(section, dict) and "root_package" in section
-        has_packages = isinstance(section, dict) and "root_packages" in section
-        if not has_package and not has_packages:
-            raise ArchCheckError(message("arch-check.root-package-missing"))
-        if has_package and has_packages:
-            raise ArchCheckError(message("arch-check.root-config-required"))
-        if has_packages:
-            roots = section["root_packages"]
-            if not isinstance(roots, list) or not roots or any(not isinstance(root, str) for root in roots):
-                raise ArchCheckError(message("arch-check.root-packages-invalid"))
+        _validate_root_configuration(index[language])
     errors = validate(schema("index"), index)
     if errors:
         raise ArchCheckError(f"{INDEX_REL}: " + "; ".join(errors))
@@ -85,16 +90,49 @@ def _contained(base: Path, key: str, value: str, escapes_id: str, *, canonical: 
     return base / rel
 
 
+def _root_configuration(section: dict[str, Any]) -> tuple[list[str], bool]:
+    """Return validated root names and whether they use the multi-root form."""
+    multiple = "root_packages" in section
+    if not multiple:
+        return [section.get("root_package", "")], False
+    raw_roots = section.get("root_packages")
+    if not isinstance(raw_roots, list) or not raw_roots or any(not isinstance(root, str) for root in raw_roots):
+        raise ArchCheckError(message("arch-check.root-packages-invalid"))
+    return cast(list[str], raw_roots), True
+
+
+def _resolve_root_package(source_root: Path, root_package: str, shown: str, multiple: bool) -> Path:
+    """Validate one configured root and return its resolved directory."""
+    key = "root_packages" if multiple else "root_package"
+    if multiple and any(part in ("", ".") for part in root_package.split("/")):
+        raise ArchCheckError(message("arch-check.root-packages-not-canonical", value=root_package))
+    escape_id = "arch-check.root-packages-escapes" if multiple else "arch-check.root-package-escapes"
+    package_dir = _contained(source_root, key, root_package, escape_id, canonical=True, source_root=shown)
+    if not package_dir.is_dir():
+        error_id = "arch-check.root-packages-not-a-directory" if multiple else "arch-check.root-package-not-a-directory"
+        raise ArchCheckError(message(error_id, value=root_package, source_root=shown))
+    return package_dir.resolve()
+
+
+def _roots_overlap(first: Path, second: Path) -> bool:
+    """Return whether two resolved roots are equal or nested."""
+    return first == second or first in second.parents or second in first.parents
+
+
+def _resolve_roots(source_root: Path, roots: list[str], shown: str, multiple: bool) -> None:
+    """Validate every root and reject equal or nested resolved directories."""
+    resolved_roots: list[tuple[str, Path]] = []
+    for root_package in roots:
+        resolved = _resolve_root_package(source_root, root_package, shown, multiple)
+        for previous, previous_path in resolved_roots:
+            if _roots_overlap(previous_path, resolved):
+                raise ArchCheckError(message("arch-check.root-packages-overlap", first=previous, second=root_package))
+        resolved_roots.append((root_package, resolved))
+
+
 def resolve_layout(repo_root: Path, section: dict[str, Any]) -> Layout:
     """Where one language's code lives; all configured roots must be disjoint directories under source_root."""
-    multiple = "root_packages" in section
-    if multiple:
-        raw_roots = section.get("root_packages")
-        if not isinstance(raw_roots, list) or not raw_roots or any(not isinstance(root, str) for root in raw_roots):
-            raise ArchCheckError(message("arch-check.root-packages-invalid"))
-        roots = cast(list[str], raw_roots)
-    else:
-        roots = [section.get("root_package", "")]
+    roots, multiple = _root_configuration(section)
     value = section.get("source_root")
     source_root = repo_root
     if value is not None:
@@ -102,19 +140,5 @@ def resolve_layout(repo_root: Path, section: dict[str, Any]) -> Layout:
         if not source_root.is_dir():
             raise ArchCheckError(message("arch-check.source-root-not-a-directory", value=value))
     shown = "." if value is None else value
-    resolved_roots: list[tuple[str, Path]] = []
-    for root_package in roots:
-        key = "root_packages" if "root_packages" in section else "root_package"
-        if key == "root_packages" and any(part in ("", ".") for part in root_package.split("/")):
-            raise ArchCheckError(message("arch-check.root-packages-not-canonical", value=root_package))
-        escape_id = "arch-check.root-packages-escapes" if key == "root_packages" else "arch-check.root-package-escapes"
-        package_dir = _contained(source_root, key, root_package, escape_id, canonical=True, source_root=shown)
-        if not package_dir.is_dir():
-            err_id = "arch-check.root-packages-not-a-directory" if key == "root_packages" else "arch-check.root-package-not-a-directory"
-            raise ArchCheckError(message(err_id, value=root_package, source_root=shown))
-        resolved = package_dir.resolve()
-        for previous, previous_path in resolved_roots:
-            if resolved == previous_path or resolved in previous_path.parents or previous_path in resolved.parents:
-                raise ArchCheckError(message("arch-check.root-packages-overlap", first=previous, second=root_package))
-        resolved_roots.append((root_package, resolved))
+    _resolve_roots(source_root, roots, shown, multiple)
     return Layout(repo_root=repo_root, source_root=source_root, root_package=roots[0], root_packages=roots)
