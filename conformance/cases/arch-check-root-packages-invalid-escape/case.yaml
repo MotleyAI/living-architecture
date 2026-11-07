@@ -1,0 +1,10 @@
+kind: adapter
+languages: [python]
+twin: python
+command: la-arch-check
+args: [--language, python, --emit, facts, --top-level]
+fixture: arch-ok
+symlinks: {escape: ..}
+expect:
+  exit: 2
+note: every root_packages path must resolve within source_root including through symlinks

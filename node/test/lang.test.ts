@@ -219,8 +219,20 @@ describe('inline repos', () => {
       mkdirSync(dirname(join(root, rel)), { recursive: true });
       writeFileSync(join(root, rel), text);
     }
-    return { repoRoot: root, sourceRoot: root, rootPackage: 'src', tsconfig: null, ...extra };
+    return { repoRoot: root, sourceRoot: root, rootPackage: 'src', rootPackages: ['src'], tsconfig: null, ...extra };
   }
+
+  it('combines top-level units and imports from disjoint source roots', () => {
+    const layout = inline({
+      'app/api.ts': "import { button } from '../packages/ui/button.js'; export { button };",
+      'packages/ui/button.ts': 'export const button = 1;',
+    }, { rootPackages: ['app', 'packages/ui'] });
+    expect(topLevelUnits(layout)).toEqual(['app/api', 'packages/ui/button']);
+    expect(moduleImports(layout)).toEqual([
+      { module: 'app/api', targets: ['packages/ui/button'] },
+      { module: 'packages/ui/button', targets: [] },
+    ]);
+  });
 
   it('a missing tsconfig key is a setup error naming it', () => {
     const layout = inline({ 'src/a.ts': '' }, { tsconfig: 'nope.json' });

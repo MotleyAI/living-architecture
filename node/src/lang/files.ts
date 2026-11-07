@@ -58,6 +58,14 @@ export class Tree {
     this.realSourceRoot = realpath(layout.sourceRoot) ?? layout.sourceRoot;
   }
 
+  get rootPackages(): string[] {
+    return this.layout.rootPackages ?? [this.layout.rootPackage];
+  }
+
+  get packageDirs(): string[] {
+    return this.rootPackages.map((root) => join(this.layout.sourceRoot, root));
+  }
+
   get packageDir(): string {
     return join(this.layout.sourceRoot, this.layout.rootPackage);
   }
@@ -117,13 +125,21 @@ export class Tree {
 
   topLevelUnits(): string[] {
     const units = new Set<string>();
-    for (const name of readdirSync(this.packageDir)) {
-      const path = join(this.packageDir, name);
-      const isBarrel = stripSourceExtension(name) === 'index';
-      if ((this.visible(path) && !isBarrel) || this.hasSource(path)) {
-        units.add(posix(join(this.layout.rootPackage, stripSourceExtension(name))));
+    for (const [index, packageDir] of this.packageDirs.entries()) {
+      const root = this.rootPackages[index]!;
+      for (const name of readdirSync(packageDir)) {
+        const path = join(packageDir, name);
+        const isBarrel = stripSourceExtension(name) === 'index';
+        if ((this.visible(path) && !isBarrel) || this.hasSource(path)) {
+          units.add(posix(join(root, stripSourceExtension(name))));
+        }
       }
     }
     return [...units].sort();
+  }
+
+  *sourceFiles(): Generator<string> {
+    const visited = new Set<string>();
+    for (const packageDir of this.packageDirs) yield* this.files(packageDir, visited);
   }
 }

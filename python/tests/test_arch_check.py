@@ -1721,6 +1721,32 @@ def test_src_layout_resolves_under_source_root(tmp_path):
     assert findings_for(root, "claims-exactly-once") == ["claims-exactly-once: top-level pkg.extra is claimed by no node"]
 
 
+def test_multiple_root_packages_emit_combined_top_level_facts(tmp_path):
+    root = tmp_path / "repo"
+    (root / "architecture").mkdir(parents=True)
+    (root / "src" / "app").mkdir(parents=True)
+    (root / "src" / "groups" / "shared").mkdir(parents=True)
+    (root / "architecture" / "index.yaml").write_text(
+        "python:\n  source_root: src\n  root_packages: [app, groups/shared]\n", encoding="utf-8"
+    )
+    (root / "src" / "app" / "__init__.py").write_text("", encoding="utf-8")
+    (root / "src" / "app" / "api.py").write_text("import groups.shared.util\n", encoding="utf-8")
+    (root / "src" / "groups" / "shared" / "__init__.py").write_text("", encoding="utf-8")
+    (root / "src" / "groups" / "shared" / "util.py").write_text("import app.api\n", encoding="utf-8")
+    facts = archcheck.emit_facts(root, "python", top_level=True)
+    assert facts["top_level_units"] == ["app.api", "groups.shared.util"]
+    assert [(edge["src"], edge["dst"]) for edge in facts["edges"]] == [
+        ("app.api", "groups.shared.util"), ("groups.shared.util", "app.api")
+    ]
+
+
+def test_nested_root_packages_are_rejected(tmp_path):
+    root = layout_repo(tmp_path, "{root_packages: [pkg, pkg/sub]}")
+    (root / "pkg" / "sub").mkdir()
+    with pytest.raises(archcheck.ArchCheckError, match="root_packages entries 'pkg' and 'pkg/sub' overlap"):
+        archcheck.emit_facts(root, "python", top_level=True)
+
+
 @pytest.mark.parametrize("value", ["''", "/abs", "a/../b", "missing"])
 def test_invalid_source_root_is_a_setup_error(tmp_path, value):
     root = layout_repo(tmp_path, f"{{root_package: pkg, source_root: {value}}}")

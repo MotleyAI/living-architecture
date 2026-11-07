@@ -155,6 +155,7 @@ _SETTINGS = {"cross_cutting_arc42": [], "cross_cutting_specs": {}, "legacy_arrow
     ("document", "valid"),
     [
         ({"python": {"root_package": "pkg"}}, True),
+        ({"python": {"root_packages": ["app", "packages/ui"]}}, True),
         ({"python": {"root_package": "pkg", "source_root": "python/src"}}, True),
         ({"typescript": {"root_package": "src", "source_root": "node", "tsconfig": "node/tsconfig.json"}}, True),
         ({"python": {"root_package": "pkg"}, "typescript": {"root_package": "src"}, "x-foo": 1, **_SETTINGS}, True),
@@ -169,6 +170,10 @@ _SETTINGS = {"cross_cutting_arc42": [], "cross_cutting_specs": {}, "legacy_arrow
         ({"python": {"root_package": "pkg"}, "guards": {"baseline": 0}}, False),
         ({"python": {"root_package": "pkg"}, "rust": {"root_package": "src"}}, False),
         ({"python": {}}, False),
+        ({"python": {"root_packages": []}}, False),
+        ({"python": {"root_packages": ["pkg", "pkg"]}}, False),
+        ({"python": {"root_package": "pkg", "root_packages": ["pkg"]}}, False),
+        ({"python": {"root_packages": "pkg"}}, False),
         ({"python": {"root_package": ""}}, False),
         ({"python": {"root_package": "pkg", "tsconfig": "tsconfig.json"}}, False),
         ({"python": {"root_package": "pkg", "extra": 1}}, False),

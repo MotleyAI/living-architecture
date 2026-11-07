@@ -1,0 +1,1 @@
+arch_check: architecture/index.yaml: set exactly one of root_package or root_packages

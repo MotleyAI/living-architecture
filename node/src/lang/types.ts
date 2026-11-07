@@ -9,6 +9,8 @@ export interface TsLayout {
   repoRoot: string;
   /** Absolute `<repoRoot>/<source_root>` (not realpath'd). */
   sourceRoot: string;
+  /** The section's configured roots, relative to sourceRoot. */
+  rootPackages?: string[];
   /** The section's `root_package`, e.g. `src`. */
   rootPackage: string;
   /** The section's `tsconfig` (repo-relative), or null. */

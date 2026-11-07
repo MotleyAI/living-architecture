@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from living_architecture.contract import YAMLError, language_ids, load_yaml, message, schema, validate
 
@@ -24,6 +24,12 @@ class Layout(BaseModel):
     repo_root: Path
     source_root: Path
     root_package: str
+    root_packages: list[str] = Field(default_factory=list)
+
+    @property
+    def configured_roots(self) -> list[str]:
+        """The resolved roots, falling back to the original public single-root constructor shape."""
+        return self.root_packages or [self.root_package]
 
 
 def declared_languages(index: dict[str, Any]) -> list[str]:
@@ -45,9 +51,12 @@ def load_index(root: Path) -> dict[str, Any]:
         raise ArchCheckError(message("arch-check.no-language-section"))
     for language in languages:
         section = index[language]
-        pkg = section.get("root_package") if isinstance(section, dict) else None
-        if not isinstance(pkg, str) or not pkg:
+        has_package = isinstance(section, dict) and "root_package" in section
+        has_packages = isinstance(section, dict) and "root_packages" in section
+        if not has_package and not has_packages:
             raise ArchCheckError(message("arch-check.root-package-missing"))
+        if has_package and has_packages:
+            raise ArchCheckError(message("arch-check.root-config-required"))
     errors = validate(schema("index"), index)
     if errors:
         raise ArchCheckError(f"{INDEX_REL}: " + "; ".join(errors))
@@ -73,8 +82,8 @@ def _contained(base: Path, key: str, value: str, escapes_id: str, *, canonical: 
 
 
 def resolve_layout(repo_root: Path, section: dict[str, Any]) -> Layout:
-    """Where one language's code lives; ArchCheckError unless `source_root` and `root_package` are dirs in the repo."""
-    root_package = section["root_package"]
+    """Where one language's code lives; all configured roots must be disjoint directories under source_root."""
+    roots = section.get("root_packages", [section.get("root_package", "")])
     value = section.get("source_root")
     source_root = repo_root
     if value is not None:
@@ -82,7 +91,19 @@ def resolve_layout(repo_root: Path, section: dict[str, Any]) -> Layout:
         if not source_root.is_dir():
             raise ArchCheckError(message("arch-check.source-root-not-a-directory", value=value))
     shown = "." if value is None else value
-    package_dir = _contained(source_root, "root_package", root_package, "arch-check.root-package-escapes", canonical=True, source_root=shown)
-    if not package_dir.is_dir():
-        raise ArchCheckError(message("arch-check.root-package-not-a-directory", value=root_package, source_root=shown))
-    return Layout(repo_root=repo_root, source_root=source_root, root_package=root_package)
+    resolved_roots: list[tuple[str, Path]] = []
+    for root_package in roots:
+        key = "root_packages" if "root_packages" in section else "root_package"
+        if key == "root_packages" and any(part in ("", ".") for part in root_package.split("/")):
+            raise ArchCheckError(message("arch-check.root-packages-not-canonical", value=root_package))
+        escape_id = "arch-check.root-packages-escapes" if key == "root_packages" else "arch-check.root-package-escapes"
+        package_dir = _contained(source_root, key, root_package, escape_id, canonical=True, source_root=shown)
+        if not package_dir.is_dir():
+            err_id = "arch-check.root-packages-not-a-directory" if key == "root_packages" else "arch-check.root-package-not-a-directory"
+            raise ArchCheckError(message(err_id, value=root_package, source_root=shown))
+        resolved = package_dir.resolve()
+        for previous, previous_path in resolved_roots:
+            if resolved == previous_path or resolved in previous_path.parents or previous_path in resolved.parents:
+                raise ArchCheckError(message("arch-check.root-packages-overlap", first=previous, second=root_package))
+        resolved_roots.append((root_package, resolved))
+    return Layout(repo_root=repo_root, source_root=source_root, root_package=roots[0], root_packages=roots)
