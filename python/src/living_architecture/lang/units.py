@@ -27,15 +27,14 @@ def unit_exists(source_root: Path, dotted: str) -> bool:
     return (base / _INIT_PY).is_file() or base.with_suffix(".py").is_file()
 
 
-def top_level_units(source_root: Path, root_packages: str | list[str]) -> set[str]:
+def top_level_units(source_root: Path, root_packages: list[str]) -> set[str]:
     """Immediate children of every root package: subpackages and loose modules."""
-    roots = [root_packages] if isinstance(root_packages, str) else root_packages
     units: set[str] = set()
-    for root_package in roots:
+    for root_package in root_packages:
+        module_root = ".".join(root_package.split("/"))
         for child in (source_root / root_package).iterdir():
             if child.name == "__pycache__":
                 continue
-            module_root = ".".join(root_package.split("/"))
             if child.is_dir() and (child / _INIT_PY).is_file():
                 units.add(f"{module_root}.{child.name}")
             elif child.is_file() and child.suffix == ".py" and child.name != _INIT_PY:
@@ -43,11 +42,10 @@ def top_level_units(source_root: Path, root_packages: str | list[str]) -> set[st
     return units
 
 
-def source_modules(source_root: Path, root_packages: str | list[str]) -> list[SourceModule]:
-    """Every module under configured roots in path order; each root `__init__.py` is exempt."""
-    roots = [root_packages] if isinstance(root_packages, str) else root_packages
+def source_modules(source_root: Path, root_packages: list[str]) -> list[SourceModule]:
+    """Every module under the root packages in path order; each root's own `__init__.py` is exempt."""
     out: list[SourceModule] = []
-    for root_package in roots:
+    for root_package in root_packages:
         for py in sorted((source_root / root_package).rglob("*.py")):
             rel = py.relative_to(source_root)
             if "__pycache__" in rel.parts:

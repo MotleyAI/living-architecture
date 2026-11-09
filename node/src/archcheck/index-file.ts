@@ -8,13 +8,11 @@ export const INDEX_REL = 'architecture/index.yaml';
 /** The architecture setup is too broken to check. */
 export class ArchCheckError extends Error {}
 
-/** Architecture, docs and specs live under `repoRoot`; one language's code lives under `sourceRoot`. */
+/** Architecture, docs and specs live under `repoRoot`; one language's code lives in disjoint roots under `sourceRoot`. */
 export interface Layout {
   repoRoot: string;
   sourceRoot: string;
   rootPackages: string[];
-  /** First configured root, retained for consumers that operate on legacy single-root layouts. */
-  rootPackage: string;
 }
 
 export type Index = Map<unknown, unknown>;
@@ -24,17 +22,30 @@ export function declaredLanguages(index: Index): string[] {
   return languageIds().filter((id) => index.has(id));
 }
 
-/** Requires one supported root form and validates the shape of `root_packages` before schema validation. */
-function validateRootConfiguration(section: unknown): void {
-  const hasPackage = section instanceof Map && section.has('root_package');
-  const hasPackages = section instanceof Map && section.has('root_packages');
-  if (!hasPackage && !hasPackages) throw new ArchCheckError(message('arch-check.root-package-missing'));
+function firstDuplicate(roots: string[]): string | undefined {
+  return roots.find((root, index) => roots.indexOf(root) !== index);
+}
+
+/** The section's root key and roots; ArchCheckError, never a schema error, unless one well-formed form is set. */
+function rootConfiguration(values: unknown): { key: string; roots: string[] } {
+  const record = values !== null && typeof values === 'object' && !Array.isArray(values) ? (values as Record<string, unknown>) : {};
+  const hasPackage = Object.hasOwn(record, 'root_package');
+  const hasPackages = Object.hasOwn(record, 'root_packages');
   if (hasPackage && hasPackages) throw new ArchCheckError(message('arch-check.root-config-required'));
-  if (!hasPackages) return;
-  const roots = (section as Map<unknown, unknown>).get('root_packages');
-  if (!Array.isArray(roots) || roots.length === 0 || roots.some((root) => typeof root !== 'string')) {
+  if (!hasPackages) {
+    const root = record.root_package;
+    if (typeof root !== 'string' || !root) throw new ArchCheckError(message('arch-check.root-package-missing'));
+    return { key: 'root_package', roots: [root] };
+  }
+  const roots = record.root_packages;
+  if (!Array.isArray(roots) || roots.length === 0 || !roots.every((root) => typeof root === 'string' && root)) {
     throw new ArchCheckError(message('arch-check.root-packages-invalid'));
   }
+  const duplicate = firstDuplicate(roots as string[]);
+  if (duplicate !== undefined) {
+    throw new ArchCheckError(message('arch-check.root-packages-overlap', { first: duplicate, second: duplicate }));
+  }
+  return { key: 'root_packages', roots: roots as string[] };
 }
 
 export function loadIndex(root: string): Index {
@@ -50,7 +61,7 @@ export function loadIndex(root: string): Index {
   if (!(index instanceof Map)) throw new ArchCheckError(message('arch-check.index-not-mapping'));
   const languages = declaredLanguages(index);
   if (languages.length === 0) throw new ArchCheckError(message('arch-check.no-language-section'));
-  for (const language of languages) validateRootConfiguration(index.get(language));
+  for (const language of languages) rootConfiguration(section(index, language));
   const errors = validate(schema('index'), index);
   if (errors.length > 0) throw new ArchCheckError(`${INDEX_REL}: ${errors.join('; ')}`);
   return index;
@@ -86,19 +97,19 @@ function isDir(path: string): boolean {
   }
 }
 
-/** `base/value`, which must stay under `base` (symlinks included); `canonical`: no empty or `.` segments. */
+/** `base/value`, which must stay under `base` (symlinks included); with `canonicalId`, no empty or `.` segments. */
 function contained(
   base: string,
   key: string,
   value: string,
   escapesId: string,
-  canonical: boolean,
+  canonicalId: string | null,
   values: Record<string, unknown> = {},
 ): string {
   if (!value || isAbsolute(value)) throw new ArchCheckError(message('arch-check.layout-not-relative', { key, value }));
   if (value.split('/').includes('..')) throw new ArchCheckError(message('arch-check.layout-parent-segment', { key, value }));
-  if (canonical && value.split('/').some((s) => s === '' || s === '.')) {
-    throw new ArchCheckError(message('arch-check.root-package-not-canonical', { value }));
+  if (canonicalId !== null && value.split('/').some((s) => s === '' || s === '.')) {
+    throw new ArchCheckError(message(canonicalId, { value }));
   }
   const joined = join(base, value);
   if (value.includes('\0')) return joined;
@@ -115,69 +126,56 @@ function contained(
   return joined;
 }
 
-/** Returns whether `candidate` is the same path as, or nested beneath, `parent`. */
 function containsPath(parent: string, candidate: string): boolean {
   const rel = relative(parent, candidate);
   return rel === '' || (rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel));
 }
 
-/** Returns whether two resolved roots share any directory path. */
 function rootsOverlap(first: string, second: string): boolean {
   return containsPath(first, second) || containsPath(second, first);
 }
 
-/** Validates and resolves one configured package root under `sourceRoot`. */
-function resolveRootPackage(
-  sourceRoot: string,
-  rootPackage: string,
-  sourceRootDisplay: string,
-  multiple: boolean,
-): { value: string; path: string } {
-  if (multiple && rootPackage.split('/').some((segment) => segment === '' || segment === '.')) {
-    throw new ArchCheckError(message('arch-check.root-packages-not-canonical', { value: rootPackage }));
+/** One root's real directory; ArchCheckError, naming `key`, unless it is a directory under `sourceRoot`. */
+function resolveRoot(sourceRoot: string, key: string, root: string, shown: string): string {
+  const ids = `arch-check.${key.replaceAll('_', '-')}`;
+  const packageDir = contained(sourceRoot, key, root, `${ids}-escapes`, `${ids}-not-canonical`, { source_root: shown });
+  if (root.includes('\0') || !isDir(packageDir)) {
+    throw new ArchCheckError(message(`${ids}-not-a-directory`, { value: root, source_root: shown }));
   }
-  const key = multiple ? 'root_packages' : 'root_package';
-  const escapedId = multiple ? 'arch-check.root-packages-escapes' : 'arch-check.root-package-escapes';
-  const packageDir = contained(sourceRoot, key, rootPackage, escapedId, true, { source_root: sourceRootDisplay });
-  if (rootPackage.includes('\0') || !isDir(packageDir)) {
-    const id = multiple ? 'arch-check.root-packages-not-a-directory' : 'arch-check.root-package-not-a-directory';
-    throw new ArchCheckError(message(id, { value: rootPackage, source_root: sourceRootDisplay }));
-  }
-  return { value: rootPackage, path: resolveLenient(packageDir) };
+  return resolveLenient(packageDir);
 }
 
-/** Resolves one language's code roots; configured roots must be disjoint directories under `source_root`. */
-export function resolveLayout(repoRoot: string, sectionValues: Record<string, unknown>): Layout {
-  const rawRoots = sectionValues.root_packages;
-  const multiple = Object.hasOwn(sectionValues, 'root_packages');
-  if (multiple && (!Array.isArray(rawRoots) || rawRoots.length === 0 || rawRoots.some((root) => typeof root !== 'string'))) {
-    throw new ArchCheckError(message('arch-check.root-packages-invalid'));
+/** ArchCheckError unless every root resolves under `sourceRoot` and no two are equal or nested. */
+function resolveRoots(sourceRoot: string, key: string, roots: string[], shown: string): void {
+  const resolved: { root: string; path: string }[] = [];
+  for (const root of roots) {
+    const path = resolveRoot(sourceRoot, key, root, shown);
+    const previous = resolved.find((entry) => rootsOverlap(entry.path, path));
+    if (previous !== undefined) {
+      throw new ArchCheckError(message('arch-check.root-packages-overlap', { first: previous.root, second: root }));
+    }
+    resolved.push({ root, path });
   }
-  const roots = multiple ? rawRoots as string[] : [sectionValues.root_package as string];
+}
+
+/** Where one language's code lives; ArchCheckError unless its roots are disjoint directories under `source_root`. */
+export function resolveLayout(repoRoot: string, sectionValues: Record<string, unknown>): Layout {
+  const { key, roots } = rootConfiguration(sectionValues);
   const value = sectionValues.source_root as string | undefined;
   let sourceRoot = repoRoot;
   if (value !== undefined && value !== null) {
-    sourceRoot = contained(repoRoot, 'source_root', value, 'arch-check.source-root-escapes', false);
+    sourceRoot = contained(repoRoot, 'source_root', value, 'arch-check.source-root-escapes', null);
     if (!isDir(sourceRoot)) throw new ArchCheckError(message('arch-check.source-root-not-a-directory', { value }));
   }
   const shown = value === undefined || value === null ? '.' : value;
-  const resolvedRoots: { value: string; path: string }[] = [];
-  for (const rootPackage of roots) {
-    const current = resolveRootPackage(sourceRoot, rootPackage, shown, multiple);
-    for (const previous of resolvedRoots) {
-      if (rootsOverlap(previous.path, current.path)) {
-        throw new ArchCheckError(message('arch-check.root-packages-overlap', { first: previous.value, second: rootPackage }));
-      }
-    }
-    resolvedRoots.push(current);
-  }
-  return { repoRoot, sourceRoot, rootPackages: roots, rootPackage: roots[0] ?? '' };
+  resolveRoots(sourceRoot, key, roots, shown);
+  return { repoRoot, sourceRoot, rootPackages: roots };
 }
 
 /** The section's `tsconfig`, or null; ArchCheckError unless it stays in the repo. */
 export function resolveTsconfig(repoRoot: string, rawValue: unknown): string | null {
   const value = typeof rawValue === 'string' ? rawValue : undefined;
   if (value === undefined) return null;
-  contained(repoRoot, 'tsconfig', value, 'arch-check.tsconfig-escapes', false);
+  contained(repoRoot, 'tsconfig', value, 'arch-check.tsconfig-escapes', null);
   return value;
 }

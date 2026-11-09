@@ -31,7 +31,7 @@ findings:
   arch-check.root-packages-escapes: 'architecture/index.yaml: root_packages entry {value!r} resolves outside source_root {source_root!r}'
   arch-check.root-packages-not-a-directory: 'architecture/index.yaml: root_packages entry {value!r} is not a directory under source_root {source_root!r}'
   arch-check.root-packages-overlap: 'architecture/index.yaml: root_packages entries {first!r} and {second!r} overlap'
-  arch-check.root-packages-invalid: 'architecture/index.yaml: root_packages must be a non-empty list of strings'
+  arch-check.root-packages-invalid: 'architecture/index.yaml: root_packages must be a non-empty list of non-empty strings'
   arch-check.root-config-required: 'architecture/index.yaml: set exactly one of root_package or root_packages'
   arch-check.tsconfig-escapes: 'architecture/index.yaml: tsconfig {value!r} resolves outside the repo'
   arch-check.metadata-invalid: 'model element {element}: {error}'

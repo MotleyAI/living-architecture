@@ -1,9 +1,8 @@
-kind: adapter
-languages: [typescript]
-twin: typescript
+kind: paired
+languages:
+- typescript
 command: la-arch-check
-args: [--language, typescript, --emit, facts, --top-level]
 fixture: arch-ok
 expect:
   exit: 2
-note: root_packages must be a non-empty list of strings
+note: an empty root_packages entry is a shape error, reported before the schema so both twins agree

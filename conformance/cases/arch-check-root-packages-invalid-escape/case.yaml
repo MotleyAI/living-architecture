@@ -1,8 +1,7 @@
-kind: adapter
-languages: [python]
-twin: python
+kind: paired
+languages:
+- python
 command: la-arch-check
-args: [--language, python, --emit, facts, --top-level]
 fixture: arch-ok
 symlinks: {escape: ..}
 expect:

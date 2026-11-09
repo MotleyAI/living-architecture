@@ -21,7 +21,7 @@ function repo(caseName: string): TsLayout {
 function edges(layout: TsLayout): Record<string, string[]> {
   return Object.fromEntries(
     moduleImports(layout)
-      .filter((m) => m.targets.length > 0 && m.module !== layout.rootPackage)
+      .filter((m) => m.targets.length > 0 && !layout.rootPackages.includes(m.module))
       .map((m) => [m.module, m.targets]),
   );
 }
@@ -219,7 +219,7 @@ describe('inline repos', () => {
       mkdirSync(dirname(join(root, rel)), { recursive: true });
       writeFileSync(join(root, rel), text);
     }
-    return { repoRoot: root, sourceRoot: root, rootPackage: 'src', rootPackages: ['src'], tsconfig: null, ...extra };
+    return { repoRoot: root, sourceRoot: root, rootPackages: ['src'], tsconfig: null, ...extra };
   }
 
   it('combines top-level units and imports from disjoint source roots', () => {
@@ -231,6 +231,19 @@ describe('inline repos', () => {
     expect(moduleImports(layout)).toEqual([
       { module: 'app/api', targets: ['packages/ui/button'] },
       { module: 'packages/ui/button', targets: [] },
+    ]);
+  });
+
+  it('each root resolves under its own nearest tsconfig', () => {
+    const layout = inline({
+      'app/tsconfig.json': '{"compilerOptions": {"paths": {"@lib/*": ["../lib/*"]}}}',
+      'app/main.ts': "import { util } from '@lib/util'; export { util };",
+      'lib/tsconfig.json': '{"compilerOptions": {"paths": {"@app/*": ["../app/*"]}}}',
+      'lib/util.ts': "import { main } from '@app/main'; export const util = main;",
+    }, { rootPackages: ['app', 'lib'] });
+    expect(moduleImports(layout)).toEqual([
+      { module: 'app/main', targets: ['lib/util'] },
+      { module: 'lib/util', targets: ['app/main'] },
     ]);
   });
 

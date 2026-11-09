@@ -1,4 +1,4 @@
-// The index.yaml `tsconfig` key: repo-relative, never resolving outside the repo.
+// index.yaml root configuration, and the `tsconfig` key: repo-relative, never resolving outside the repo.
 import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -46,7 +46,6 @@ describe('resolveLayout root_packages', () => {
       repoRoot: repo,
       sourceRoot: join(repo, 'src'),
       rootPackages: ['app', 'shared'],
-      rootPackage: 'app',
     });
   });
 
@@ -61,12 +60,15 @@ describe('resolveLayout root_packages', () => {
     expect(() => resolveLayout(repo, { source_root: 'src', root_packages: rootPackages })).toThrow(error);
   });
 
-  it.each([{ roots: 'app' }, { roots: ['app', 42] }, { roots: [] }])('rejects malformed root_packages $roots', ({ roots }) => {
-    expect(() => resolveLayout(repo, { source_root: 'src', root_packages: roots })).toThrow(ArchCheckError);
-    expect(() => resolveLayout(repo, { source_root: 'src', root_packages: roots })).toThrow(
-      'architecture/index.yaml: root_packages must be a non-empty list of strings',
-    );
-  });
+  it.each([{ roots: 'app' }, { roots: ['app', 42] }, { roots: [] }, { roots: ['app', ''] }])(
+    'rejects malformed root_packages $roots',
+    ({ roots }) => {
+      expect(() => resolveLayout(repo, { source_root: 'src', root_packages: roots })).toThrow(ArchCheckError);
+      expect(() => resolveLayout(repo, { source_root: 'src', root_packages: roots })).toThrow(
+        'architecture/index.yaml: root_packages must be a non-empty list of non-empty strings',
+      );
+    },
+  );
 });
 
 describe('loadIndex root configuration', () => {
@@ -87,15 +89,20 @@ describe('loadIndex root configuration', () => {
     expect(() => loadIndex(repo)).toThrow('set exactly one of root_package or root_packages');
   });
 
-  it('rejects empty and duplicate root lists through the shared schema', () => {
-    writeFileSync(join(repo, 'architecture', 'index.yaml'), 'typescript:\n  root_packages: []\n');
-    expect(() => loadIndex(repo)).toThrow(/root_packages/);
+  it('rejects a duplicate root as an overlap before the schema', () => {
     writeFileSync(join(repo, 'architecture', 'index.yaml'), 'typescript:\n  root_packages: [src, src]\n');
-    expect(() => loadIndex(repo)).toThrow(/root_packages/);
+    expect(() => loadIndex(repo)).toThrow("architecture/index.yaml: root_packages entries 'src' and 'src' overlap");
   });
 
-  it.each(['app', '[app, 42]', '[]'])('rejects malformed root_packages %s with the shared finding', (rootPackages) => {
+  it.each(['app', '[app, 42]', '[]', "['']"])('rejects malformed root_packages %s with the shared finding', (rootPackages) => {
     writeFileSync(join(repo, 'architecture', 'index.yaml'), `typescript:\n  root_packages: ${rootPackages}\n`);
-    expect(() => loadIndex(repo)).toThrow('architecture/index.yaml: root_packages must be a non-empty list of strings');
+    expect(() => loadIndex(repo)).toThrow(
+      'architecture/index.yaml: root_packages must be a non-empty list of non-empty strings',
+    );
+  });
+
+  it.each(["''", '5', '[src]'])('rejects a malformed root_package %s with the shared finding', (rootPackage) => {
+    writeFileSync(join(repo, 'architecture', 'index.yaml'), `typescript:\n  root_package: ${rootPackage}\n`);
+    expect(() => loadIndex(repo)).toThrow('architecture/index.yaml must set root_package to the top-level package name');
   });
 });

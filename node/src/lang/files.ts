@@ -58,16 +58,8 @@ export class Tree {
     this.realSourceRoot = realpath(layout.sourceRoot) ?? layout.sourceRoot;
   }
 
-  get rootPackages(): string[] {
-    return this.layout.rootPackages ?? [this.layout.rootPackage];
-  }
-
   get packageDirs(): string[] {
-    return this.rootPackages.map((root) => join(this.layout.sourceRoot, root));
-  }
-
-  get packageDir(): string {
-    return join(this.layout.sourceRoot, this.layout.rootPackage);
+    return this.layout.rootPackages.map((root) => join(this.layout.sourceRoot, root));
   }
 
   inside(path: string): boolean {
@@ -125,8 +117,8 @@ export class Tree {
 
   topLevelUnits(): string[] {
     const units = new Set<string>();
-    for (const [index, packageDir] of this.packageDirs.entries()) {
-      const root = this.rootPackages[index]!;
+    for (const root of this.layout.rootPackages) {
+      const packageDir = join(this.layout.sourceRoot, root);
       for (const name of readdirSync(packageDir)) {
         const path = join(packageDir, name);
         const isBarrel = stripSourceExtension(name) === 'index';
@@ -136,10 +128,5 @@ export class Tree {
       }
     }
     return [...units].sort();
-  }
-
-  *sourceFiles(): Generator<string> {
-    const visited = new Set<string>();
-    for (const packageDir of this.packageDirs) yield* this.files(packageDir, visited);
   }
 }

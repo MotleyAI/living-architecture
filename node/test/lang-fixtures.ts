@@ -29,7 +29,6 @@ export function materialize(caseName: string): TsLayout {
     repoRoot: repo,
     sourceRoot: section.source_root ? join(repo, section.source_root) : repo,
     rootPackages: section.root_packages ?? [section.root_package],
-    rootPackage: section.root_package ?? section.root_packages[0],
     tsconfig: section.tsconfig ?? null,
   };
 }

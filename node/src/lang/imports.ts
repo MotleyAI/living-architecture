@@ -9,11 +9,12 @@ import type { ModuleImports, TsLayout } from './types.js';
 import { ts } from './ts.js';
 
 class Resolver {
-  readonly projects: Projects;
   readonly realPackages: string[];
 
-  constructor(readonly tree: Tree) {
-    this.projects = loadProjects(tree.layout);
+  constructor(
+    readonly tree: Tree,
+    readonly projects: Projects,
+  ) {
     this.realPackages = tree.packageDirs.map(canonical);
   }
 
@@ -30,7 +31,7 @@ class Resolver {
   private lexical(spec: string, importer: string): string | undefined {
     const path = resolve(dirname(importer), spec.replace(/[?#][\s\S]*$/, ''));
     const rel = posix(relative(this.tree.layout.sourceRoot, path));
-    return this.tree.rootPackages.some((root) => rel.startsWith(`${root}/`)) ? stripSourceExtension(rel) : undefined;
+    return this.tree.layout.rootPackages.some((root) => rel.startsWith(`${root}/`)) ? stripSourceExtension(rel) : undefined;
   }
 
   target(spec: string, importer: string, project: Project, mode: TS.ResolutionMode): string | undefined {
@@ -73,11 +74,15 @@ class Resolver {
   }
 }
 
+/** Each root's sources resolve under that root's projects. */
 export function moduleImports(layout: TsLayout): ModuleImports[] {
   const tree = new Tree(layout);
-  const resolver = new Resolver(tree);
-  return [...tree.sourceFiles()].map((file) => ({
-    module: tree.moduleId(file),
-    targets: resolver.targets(file),
-  }));
+  const visited = new Set<string>();
+  return loadProjects(layout).flatMap((projects, index) => {
+    const resolver = new Resolver(tree, projects);
+    return [...tree.files(tree.packageDirs[index]!, visited)].map((file) => ({
+      module: tree.moduleId(file),
+      targets: resolver.targets(file),
+    }));
+  });
 }

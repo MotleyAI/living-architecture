@@ -1,2 +1,2 @@
 typescript:
-  root_packages: app
+  root_packages: [app, '']
