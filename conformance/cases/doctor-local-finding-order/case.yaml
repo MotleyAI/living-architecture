@@ -1,5 +1,7 @@
 kind: neutral
 command: la-doctor
+args:
+- --require-plan-store
 hide:
 - gh
 normalize:
