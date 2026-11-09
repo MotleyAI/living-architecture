@@ -1,0 +1,48 @@
+kind: neutral
+command: la-fetch-failed-pr-checks
+args:
+- '7'
+- --repo
+- o/r
+gh:
+- match: [pr, view, statusCheckRollup]
+  stdout:
+    statusCheckRollup:
+    - __typename: CheckRun
+      name: tests
+      workflowName: CI
+      conclusion: FAILURE
+      status: COMPLETED
+      detailsUrl: https://github.com/o/r/actions/runs/11/job/22
+- match: [run, view, --job, '22', --log-failed]
+  stdout: ''
+- match: [run, view, --job, '22', --log]
+  stdout: ''
+- match: [api, repos/o/r/actions/jobs/22/logs]
+  stdout: "2026-01-01T00:00:01.0000000Z ##[group]Run actions/checkout@v4\n\
+    2026-01-01T00:00:09.0000000Z ##[endgroup]\n\
+    2026-01-01T00:00:10.5000000Z ##[group]Run actions/setup-node@v4\n\
+    2026-01-01T00:00:10.6000000Z with:\n\
+    2026-01-01T00:00:10.7000000Z ##[endgroup]\n\
+    2026-01-01T00:00:15.0000000Z Attempting to download 99.x...\n\
+    2026-01-01T00:00:19.0000000Z ##[error]Unable to find Node version '99' for platform linux.\n\
+    Available versions: 18, 20, 22\n\
+    See https://github.com/actions/node-versions\n\
+    2026-01-01T00:00:20.1000000Z Post job cleanup.\n\
+    2026-01-01T00:00:21.0000000Z Cleaning up orphan processes\n"
+- match: [api, repos/o/r/actions/jobs/22]
+  stdout:
+    steps:
+    - {number: 1, name: Run actions/checkout@v4, conclusion: success, started_at: '2026-01-01T00:00:01Z',
+       completed_at: '2026-01-01T00:00:10Z'}
+    - {number: 2, name: Setup Node, conclusion: failure, started_at: '2026-01-01T00:00:10Z',
+       completed_at: '2026-01-01T00:00:20Z'}
+    - {number: 3, name: Post Run actions/checkout@v4, conclusion: success, started_at: '2026-01-01T00:00:20Z',
+       completed_at: '2026-01-01T00:00:21Z'}
+normalize:
+- pattern: -[0-9]{8}-[0-9]{6}\.json
+  replace: -<TS>.json
+expect:
+  exit: 0
+golden: manual
+note: the failed action's last ##[error] spans several lines; its untimestamped continuation stays in the excerpt

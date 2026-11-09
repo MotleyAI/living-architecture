@@ -1,0 +1,35 @@
+kind: neutral
+command: la-fetch-failed-pr-checks
+args:
+- '7'
+- --repo
+- o/r
+gh:
+- match: [pr, view, statusCheckRollup]
+  stdout:
+    statusCheckRollup:
+    - __typename: CheckRun
+      name: tests
+      workflowName: CI
+      conclusion: FAILURE
+      status: COMPLETED
+      detailsUrl: https://github.com/o/r/actions/runs/11/job/22
+- match: [run, view, --job, '22', --log-failed]
+  stdout: ''
+  stderr: |
+    HTTP 502
+  exit: 1
+- match: [run, view, --job, '22', --log]
+  stdout: ''
+- match: [api, repos/o/r/actions/jobs/22/logs]
+  stdout: ''
+  stderr: |
+    gh: Not Found (HTTP 404)
+  exit: 1
+normalize:
+- pattern: -[0-9]{8}-[0-9]{6}\.json
+  replace: -<TS>.json
+expect:
+  exit: 0
+golden: manual
+note: every log attempt gives nothing; each is listed with its reason instead of the external-CI guess

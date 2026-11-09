@@ -1,0 +1,12 @@
+# Failed CI checks on o/r PR #7
+
+## Check 1 — CI / tests
+Conclusion: FAILURE   Status: COMPLETED   Type: CheckRun
+Details: https://github.com/o/r/actions/runs/11/job/22
+Run: 11  Job: 22
+
+_No log excerpt: log fetching is off (--max-log-lines 0)._
+
+---
+
+JSON: <ROOT>/tmp/failed-pr-checks-7-<TS>.json

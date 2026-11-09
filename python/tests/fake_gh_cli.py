@@ -40,6 +40,7 @@ for index, route in enumerate(routes):
                 sys.stderr.write(jq.stderr)
                 out = jq.stdout
         sys.stdout.write(out)
+        sys.stderr.write(response["stderr"])
         sys.exit(response["exit"])
 sys.stderr.write("fake gh: no route for " + " ".join(argv) + "\\n")
 sys.exit(1)
@@ -48,11 +49,12 @@ sys.exit(1)
 
 def _response(spec: dict) -> dict:
     stdout = spec.get("stdout", "")
-    return {"stdout": stdout if isinstance(stdout, str) else json.dumps(stdout), "exit": spec.get("exit", 0)}
+    return {"stdout": stdout if isinstance(stdout, str) else json.dumps(stdout), "stderr": spec.get("stderr", ""),
+            "exit": spec.get("exit", 0)}
 
 
 def write_routes(path: Path, specs: list[dict]) -> None:
-    """Case-format routes (`match` with `stdout`/`exit`, or `responses`) as the fake reads them; resets counts."""
+    """Case-format routes (`match` with `stdout`/`stderr`/`exit`, or `responses`) as the fake reads them; resets counts."""
     routes = [{"match": s["match"], "responses": [_response(r) for r in s.get("responses") or [s]]} for s in specs]
     path.write_text(json.dumps(routes), encoding="utf-8")
     path.with_name(path.name + ".counts").unlink(missing_ok=True)

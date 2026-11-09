@@ -24,6 +24,8 @@ def pytest_configure(config: pytest.Config) -> None:
         config.option.dist = "no"
         config.option.tx = []
 
+Route = tuple[list[str], object] | tuple[list[str], object, int] | tuple[list[str], object, int, str]
+
 
 class FakeGh:
     def __init__(self, tmp_path: Path) -> None:
@@ -35,9 +37,10 @@ class FakeGh:
         fake_gh_cli.install(self.bin)
         self.route()
 
-    def route(self, *routes: tuple[list[str], object] | tuple[list[str], object, int] | dict) -> None:
-        """Each route: (argv tokens, stdout as str or JSON-able, [exit code]), or a case-format route dict."""
-        specs = [r if isinstance(r, dict) else {"match": r[0], "stdout": r[1], "exit": r[2] if len(r) > 2 else 0}
+    def route(self, *routes: Route | dict) -> None:
+        """Each route: (argv tokens, stdout as str or JSON-able, [exit code, [stderr]]), or a case-format route dict."""
+        specs = [r if isinstance(r, dict) else {"match": r[0], "stdout": r[1], "exit": r[2] if len(r) > 2 else 0,
+                                                "stderr": r[3] if len(r) > 3 else ""}
                  for r in routes]
         fake_gh_cli.write_routes(self.routes_file, specs)
 

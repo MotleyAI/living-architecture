@@ -1,0 +1,43 @@
+kind: neutral
+command: la-fetch-failed-pr-checks
+args:
+- '7'
+- --repo
+- o/r
+- --max-log-lines
+- '3'
+gh:
+- match: [pr, view, statusCheckRollup]
+  stdout:
+    statusCheckRollup:
+    - __typename: CheckRun
+      name: tests
+      workflowName: CI
+      conclusion: FAILURE
+      status: COMPLETED
+      detailsUrl: https://github.com/o/r/actions/runs/11/job/22
+- match: [run, view, --job, '22', --log-failed]
+  stdout: ''
+- match: [run, view, --job, '22', --log]
+  stdout: ''
+- match: [api, repos/o/r/actions/jobs/22/logs]
+  stdout: |
+    2026-01-01T00:00:01.0000000Z ##[error]Service container postgres failed.
+    2026-01-01T00:00:02.0000000Z line a
+    2026-01-01T00:00:03.0000000Z line b
+    2026-01-01T00:00:04.0000000Z line c
+    2026-01-01T00:00:05.0000000Z line d
+    2026-01-01T00:00:06.0000000Z line e
+    2026-01-01T00:00:07.0000000Z line f
+- match: [api, repos/o/r/actions/jobs/22]
+  stdout:
+    steps:
+    - {number: 1, name: Set up job, conclusion: success, started_at: '2026-01-01T00:00:01Z',
+       completed_at: '2026-01-01T00:00:07Z'}
+normalize:
+- pattern: -[0-9]{8}-[0-9]{6}\.json
+  replace: -<TS>.json
+expect:
+  exit: 0
+golden: manual
+note: no failed step in the job's metadata; the whole job log gives its early ##[error] line and its last N lines
