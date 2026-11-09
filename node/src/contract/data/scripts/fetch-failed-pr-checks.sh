@@ -245,26 +245,24 @@ while [ "$i" -lt "$n" ]; do
     i=$((i + 1))
 done
 
-enriched="$(cat "$enriched_file")"
-
 ts="$(date -u +%Y%m%d-%H%M%S)"
 json_out="${TMPDIR:-/tmp}/failed-pr-checks-${PR}-${ts}.json"
 jq -n \
     --argjson pr "$PR" \
     --arg repo "$REPO" \
-    --argjson failed "$enriched" \
-    '{pr: $pr, repo: $repo, failed_checks: $failed}' \
+    --slurpfile failed "$enriched_file" \
+    '{pr: $pr, repo: $repo, failed_checks: $failed[0]}' \
     > "$json_out"
 
 # Markdown
 echo "# Failed CI checks on $REPO PR #$PR"
 echo
-fail_count=$(echo "$enriched" | jq 'length')
+fail_count=$(jq 'length' "$enriched_file")
 if [ "$fail_count" = "0" ]; then
     echo "_No failed checks._"
     echo
 else
-    echo "$enriched" | jq -r --argjson max "$MAX_LOG" '
+    jq -r --argjson max "$MAX_LOG" '
         to_entries[]
         | (.key + 1) as $i
         | .value as $c
@@ -299,7 +297,7 @@ else
             "---",
             ""
           )
-    '
+    ' "$enriched_file"
 fi
 
 echo "JSON: $json_out"

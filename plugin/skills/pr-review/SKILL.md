@@ -3,7 +3,7 @@ name: pr-review
 description: Stage 4 of 4 of the /la:pr flow — run /la:process-reviews in a loop until every source is green, then (OpenSpec repos only) archive the change, push, and keep looping on the archived HEAD until every source is green again so the PR can merge. Normally dispatched by /la:pr; if the /la:pr context (BRANCH, CHANGE_ID, OPENSPEC, tracker issue) is not already loaded in this session, invoke the la:pr skill instead.
 ---
 
-**Preflight:** run `la-doctor --plugin <this skill's base directory> --require-config` once per session before using any `la-*` or `dr-*` command. If it reports the missing-config finding (the one naming `/la:init`), run the fast path of the `la:init` skill, then re-run this preflight; stop and show the user its output on anything it still reports, or on any other failure.
+**Preflight:** run `la-doctor --plugin <this skill's base directory> --require-config --require-plan-store` once per session before using any `la-*` or `dr-*` command. If it reports the missing-config finding (the one naming `/la:init`), run the fast path of the `la:init` skill, then re-run this preflight; stop and show the user its output on anything it still reports, or on any other failure.
 
 **Stage 4 of 4 of the `/la:pr` flow.** Prerequisite: `/la:pr` has run in this
 session and established `BRANCH`, `CHANGE_ID`, `OPENSPEC`, and the full tracker
@@ -53,9 +53,9 @@ Split the gates into two tiers:
     duplication analysis; a fast pre-filter, NOT a substitute for the pushed
     Sonar gate);
   - `openspec validate <CHANGE_ID> --strict` (OpenSpec repos);
-  - **living-architecture repos** (`architecture: true`): the arc42 reads and
-    normative-harness rules in the `la:pr` skill apply to every fix in this
-    loop. Then `la-arch-check` (the one import law, model-truth at every
+  - **living-architecture repos** (`architecture: true`): the
+    `la:living-architecture` skill's "Working under the architecture" rules
+    apply to every fix in this loop. Then `la-arch-check` (the one import law, model-truth at every
     declared granularity) and LikeC4 model validation (see the
     `la:living-architecture` skill).
 - **Remote gates** — slow and/or quota-limited; only a push produces them:

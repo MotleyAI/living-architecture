@@ -347,6 +347,17 @@ def test_failed_checks_usage_names_the_error_lines(run_script):
             "a job-log API excerpt also keeps the earlier ##[error] lines") in r.stderr
 
 
+def test_failed_checks_with_a_log_larger_than_an_argument(fake_gh, run_script):
+    log = "".join(f"line {n} {'x' * 200}\n" for n in range(1000))
+    fake_gh.route(
+        (["pr", "view", "statusCheckRollup"], ROLLUP),
+        (["run", "view", "--job", "22", "--log-failed"], log),
+    )
+    r = run_script("fetch-failed-pr-checks.sh", "7", *REPO, "--max-log-lines", "1000")
+    assert r.returncode == 0, r.stderr
+    assert "line 999" in json.loads(_json_path(r.stdout).read_text())["failed_checks"][0]["log_excerpt"]
+
+
 def test_failed_checks_none(fake_gh, run_script):
     fake_gh.route((["pr", "view", "statusCheckRollup"], {"statusCheckRollup": []}))
     r = run_script("fetch-failed-pr-checks.sh", "7", *REPO)
@@ -406,6 +417,18 @@ def test_coderabbit_threads_nitpicks_and_outside_diff(fake_gh, run_script):
     assert "Outside finding text" in r.stdout
     data = json.loads(_json_path(r.stdout).read_text())
     assert [t["path"] for t in data["threads"]] == ["src/a.py"]
+
+
+def test_coderabbit_threads_with_a_body_larger_than_an_argument(fake_gh, run_script):
+    body = "big " * 50_000
+    graphql = {"data": {"repository": {"pullRequest": {"reviewThreads": {
+        "pageInfo": {"hasNextPage": False, "endCursor": None},
+        "nodes": [_thread(resolved=False, login="coderabbitai", body=body, path="src/a.py")],
+    }}}}}
+    fake_gh.route((["graphql"], graphql), (["repos/o/r/pulls/7/reviews"], []))
+    r = run_script("fetch-coderabbit-threads.sh", "7", *REPO)
+    assert r.returncode == 0, r.stderr
+    assert json.loads(_json_path(r.stdout).read_text())["threads"][0]["comments"]["nodes"][0]["body"] == body
 
 
 def test_coderabbit_threads_all_authors(fake_gh, run_script):
