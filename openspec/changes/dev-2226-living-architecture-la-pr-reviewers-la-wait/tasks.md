@@ -58,29 +58,29 @@ and, where it covers a commit, `<!-- final_review_risk_coverage:{"sourceCommitId
 
 ## 3. shared/ (pr-implement stage)
 
-- [ ] 3.1 `review-bots.bash`: snapshot helper (`gh pr view --json headRefOid,statusCheckRollup`), Sonar suites of a
+- [x] 3.1 `review-bots.bash`: snapshot helper (`gh pr view --json headRefOid,statusCheckRollup`), Sonar suites of a
   SHA (`--paginate --jq '.check_suites[]'`, slug match local), shared paginated-list read; keep `rb_coderabbit`
   semantics. Header comment updated.
-- [ ] 3.2 `pr-reviewers.sh`: Sonar presence by check or suite (suites read only without a rollup Sonar check); key
+- [x] 3.2 `pr-reviewers.sh`: Sonar presence by check or suite (suites read only without a rollup Sonar check); key
   chain unchanged; suite read failure → exit 2.
-- [ ] 3.3 `wait-for-reviews.sh`: Stage 0a from the snapshot + always the Sonar suites, failed read = unknown; record
+- [x] 3.3 `wait-for-reviews.sh`: Stage 0a from the snapshot + always the Sonar suites, failed read = unknown; record
   the cleared SHA. Stage 0b per design.md decisions 1–6, 11–15, messages per decision 18, `LA_WAIT_CR_SETTLE`;
   remove the committer-date threshold and the text grep. Header comment rewritten (stages, evidence, env knobs
   `LA_WAIT_GATE_TIMEOUT` / `LA_WAIT_POLL_SECONDS` / `LA_WAIT_CR_SETTLE`, exits 0/1/2/3/64).
-- [ ] 3.4 `shared/cli.yaml`: `la-wait-for-reviews` exit `3: CodeRabbit rate limited or paused`.
-- [ ] 3.5 `scripts/sync-shared`; `scripts/sync-shared --check` passes, both snapshots' `CONTRACT_HASH` agree.
+- [x] 3.4 `shared/cli.yaml`: `la-wait-for-reviews` exit `3: CodeRabbit rate limited or paused`.
+- [x] 3.5 `scripts/sync-shared`; `scripts/sync-shared --check` passes, both snapshots' `CONTRACT_HASH` agree.
 
 ## 4. Docs
 
-- [ ] 4.1 `plugin/skills/process-reviews/SKILL.md`: apply design.md decision 19 verbatim.
-- [ ] 4.2 Check `plugin/skills/pr-review/SKILL.md`, `docs/commands.md` and `README.md` for wording implying a
+- [x] 4.1 `plugin/skills/process-reviews/SKILL.md`: apply design.md decision 19 verbatim.
+- [x] 4.2 Check `plugin/skills/pr-review/SKILL.md`, `docs/commands.md` and `README.md` for wording implying a
   timestamp settle or any-comment summary; align (`rg -n -i "updated_at|committedDate|summary comment"`).
 
 ## 5. Verify
 
-- [ ] 5.1 Python: `uv run pytest -q`, `uv run ruff check src tests`, `uv run basedpyright src tests` green.
-- [ ] 5.2 npm: `npm run lint && npm run typecheck`, `npm test`, `npm run build && npm run conformance` green.
-- [ ] 5.3 `scripts/conformance-cross` green; `la-arch-check` green; `shellcheck` clean on the three scripts.
+- [x] 5.1 Python: `uv run pytest -q`, `uv run ruff check src tests`, `uv run basedpyright src tests` green.
+- [x] 5.2 npm: `npm run lint && npm run typecheck`, `npm test`, `npm run build && npm run conformance` green.
+- [x] 5.3 `scripts/conformance-cross` green; `la-arch-check` green; `shellcheck` clean on the three scripts.
 
 ## 6. After merge
 

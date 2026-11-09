@@ -158,7 +158,7 @@ commands:
 
   la-wait-for-reviews:
     help: Wait until CodeRabbit, Sonar and CI on a PR are terminal (bundled script).
-    exit: {0: ok, 1: gate timed out, 2: repo lookup failed, 3: rate limited, 64: usage error}
+    exit: {0: ok, 1: gate timed out, 2: repo lookup failed, 3: CodeRabbit rate limited or paused, 64: usage error}
     passthrough: true
     script: wait-for-reviews.sh
     format: exempt
