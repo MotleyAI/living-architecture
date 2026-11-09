@@ -273,6 +273,16 @@ SOURCE_REMAINING_USE = [
         '__all__ = ["g"]\n\n\ndef g() -> str:\n    return "g"\n',
         id="all-entry",
     ),
+    pytest.param(
+        '__all__ = ("f",)\n\n\ndef f() -> str:\n    return "f"\n',
+        "__all__ = ()\n\n\n",
+        id="all-only-entry-tuple",
+    ),
+    pytest.param(
+        '__all__ = [\n    "f",  # moved\n]\n\n\ndef f() -> str:\n    return "f"\n',
+        "__all__ = [\n]\n\n\n",
+        id="all-only-entry-own-line",
+    ),
 ]
 
 
@@ -294,6 +304,38 @@ def test_destination_binding_the_same_module_gets_no_import(tmp_path: Path) -> N
     assert dest.startswith("import sys\nimport os\n\nX = os.sep\nimport json\n")
     assert dest.count("import os") == 1
     assert "def f() -> str:" in dest
+
+
+def test_destination_binding_only_the_package_root_gets_the_dotted_import(tmp_path: Path) -> None:
+    root = _write(tmp_path, {
+        **SYMBOL_PROJECT,
+        "pkg/a.py": "import xml.etree.ElementTree\n\n\ndef f() -> str:\n    return xml.etree.ElementTree.__name__\n",
+        "pkg/b.py": "import xml.dom\n\nX = xml.dom.__name__\n",
+    })
+    assert _move_f(root, "--apply") == 0
+    assert (root / "pkg/b.py").read_text().startswith("import xml.dom\nimport xml.etree.ElementTree\n")
+
+
+@pytest.mark.parametrize(
+    ("needed", "alias"),
+    [
+        ("import xml.etree.ElementTree", "xml"),
+        ("from os.path import join as helper", "helper"),
+    ],
+    ids=["plain-dotted", "from-import"],
+)
+def test_destination_import_of_the_symbol_frees_its_name_for_a_needed_import(
+    tmp_path: Path, needed: str, alias: str
+) -> None:
+    root = _write(tmp_path, {
+        **SYMBOL_PROJECT,
+        "pkg/a.py": f"{needed}\n\n\ndef f() -> object:\n    return {alias}\n",
+        "pkg/b.py": f"from pkg.a import f as {alias}\n\nX = {alias}()\n",
+    })
+    assert _move_f(root, "--apply") == 0
+    dest = (root / "pkg/b.py").read_text()
+    assert dest.startswith(needed + "\n")
+    assert dest.endswith("X = f()\n")
 
 
 @pytest.mark.parametrize("flags", [(), ("--apply",)], ids=["dry-run", "apply"])

@@ -345,8 +345,11 @@ class _File:
                 self.edits.add(line_start, line_end, "")
             elif first:
                 self.edits.add(spans[first - 1][1], end, "")
-            else:
+            elif last + 1 < len(spans):
                 self.edits.add(start, spans[last + 1][0], "")
+            else:
+                comma = re.match(r"[ \t]*,", self.text[end:])
+                self.edits.add(start, end + (comma.end() if comma else 0), "")
 
     def remove_stmt(self, stmt: ast.stmt) -> None:
         start, end = self.span(stmt)
@@ -432,7 +435,7 @@ class _File:
         added: set[tuple[str, int]] = set()
         for module, binding, scope in self.needs:
             key = (module, id(binding.stmt) if binding is not None else 0)
-            if key in added or self._binds_module(scope, module):
+            if key in added or self.binds_module(scope, module):
                 continue
             added.add(key)
             self.check_free(module.split(".")[0], module.split(".")[0], scope)
@@ -441,7 +444,7 @@ class _File:
             else:
                 self.edits.insert_line(leading_block_end(self.text), f"import {module}")
 
-    def _binds_module(self, scope: _Scope, module: str) -> bool:
+    def binds_module(self, scope: _Scope, module: str) -> bool:
         root = module.split(".")[0]
         found = scope.lookup(root)
         if found is None:
@@ -625,10 +628,7 @@ def _all_entry(file: _File, name: str) -> None:
         index = next((i for i, e in enumerate(elements) if isinstance(e, ast.Constant) and e.value == name), None)
         if index is None:
             continue
-        if len(elements) == 1:
-            file.edits.add(*file.span(elements[0]), "")
-        else:
-            file.remove_elements([file.span(e) for e in elements], {index}, True)
+        file.remove_elements([file.span(e) for e in elements], {index}, True)
         return
 
 
@@ -710,7 +710,11 @@ def _symbol_imports(file: _File, old: str, new: str, name: str, is_dest: bool) -
 
 
 def _unalias(file: _File, stmt: ast.ImportFrom, hits: list[int], scope: _Scope, obj: str) -> None:
-    """In the destination, each use of an alias the removed import bound becomes the symbol's name."""
+    """Destination: free the removed import's names; each use of an alias it bound becomes the symbol's name."""
+    for hit in hits:
+        binding = file.binding_of(stmt, hit, scope)
+        if binding is not None:
+            binding.removed = True
     name = obj.rpartition(".")[2]
     for alias in {a for i in hits if (a := stmt.names[i].asname) and a != name}:
         other = next((b for b in scope.bindings[alias] if b.stmt is not stmt or b.item not in hits), None)
@@ -782,11 +786,17 @@ def _needed_import(file: _File, info: ImportInfo, read: set[str]) -> list[str]:
         bound, obj = _import_binding(info, imported, alias)
         if bound not in read:
             continue
-        if bound in module.bindings:
+        live = any(not b.removed for b in module.bindings.get(bound, []))
+        if live:
             file.check_free(bound, obj, module)
-        else:
+        if not live or _plain_unbound(file, info, imported, alias):
             keep.append((imported, alias))
     return [_import_lines(info, keep)] if keep else []
+
+
+def _plain_unbound(file: _File, info: ImportInfo, imported: str, alias: str | None) -> bool:
+    """An unaliased `import a.b` whose root the destination binds, but not `a.b` itself."""
+    return not alias and not isinstance(info, FromImport) and not file.binds_module(file.scopes.module, imported)
 
 
 def _import_binding(info: ImportInfo, imported: str, alias: str | None) -> tuple[str, str]:
