@@ -1,11 +1,11 @@
 ---
 name: fetch-failed-pr-checks
-description: Use when the user asks to check / fetch / list / show failed CI checks (GitHub Actions, external CI) on a GitHub PR — including details/logs of the failures. Pulls the statusCheckRollup, filters to non-passing terminal states, and (for GitHub Actions runs) appends the failed-step log excerpt.
+description: Use when the user asks to check / fetch / list / show failed CI checks (GitHub Actions, external CI) on a GitHub PR — including details/logs of the failures. Pulls the statusCheckRollup, filters to non-passing terminal states, and (for GitHub Actions runs) appends a log excerpt, or why there is none.
 ---
 
 **Preflight:** run `la-doctor --plugin <this skill's base directory>` once per session before using any `la-*` or `dr-*` command; if it fails, stop and show the user its output.
 
-# Fetch failed CI checks (and their failed-step logs) for a PR
+# Fetch failed CI checks (and their log excerpts) for a PR
 
 ## How to run
 
@@ -68,7 +68,7 @@ In-progress / pending / skipped checks are excluded.
 
 ## Why use this instead of `gh pr checks` / `gh run view` directly
 
-- One call gives you all failed checks plus their failed-step logs, in both Markdown and JSON form.
+- One call gives you all failed checks plus a log excerpt of each, in both Markdown and JSON form.
 - Handles the three `statusCheckRollup` typenames (CheckRun / StatusContext / WorkflowRun) — `gh pr checks` doesn't expose StatusContext cleanly.
 - Truncated logs (default 200 lines per job) keep output bounded; raise with `--max-log-lines` when you need more.
 

@@ -148,7 +148,7 @@ commands:
     format: exempt
 
   la-fetch-failed-pr-checks:
-    help: Fetch failed CI checks on a PR with their failed-step logs (bundled script).
+    help: Fetch failed CI checks on a PR with a log excerpt of each (bundled script).
     exit: {0: ok, 2: usage error}
     passthrough: true
     script: fetch-failed-pr-checks.sh

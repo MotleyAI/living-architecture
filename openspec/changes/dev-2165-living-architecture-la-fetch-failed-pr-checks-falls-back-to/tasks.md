@@ -75,7 +75,7 @@ times like `2026-01-01T00:00:10Z`), served through the fake's `--jq` support.
 - [x] 4.2 `plugin/skills/fetch-failed-pr-checks/SKILL.md`: apply the approved wording verbatim (design decision 11):
   output bullet, the two JSON fields, step 3's first sentence. Verify
   `npx -y @anthropic-ai/claude-code plugin validate plugin`.
-- [ ] 4.3 Check `docs/commands.md`, `docs/skills.md`, `plugin/skills/process-reviews/SKILL.md` for wording that now
+- [x] 4.3 Check `docs/commands.md`, `docs/skills.md`, `plugin/skills/process-reviews/SKILL.md` for wording that now
   misdescribes the excerpt (e.g. "failed-step logs" only); raise any needed skill edit with exact wording before
   applying it.
 
