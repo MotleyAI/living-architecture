@@ -1,0 +1,37 @@
+Moving module <client>:
+
+
+--- a/pkg/api/handler.py
++++ b/pkg/api/handler.py
+@@ -1,4 +1,4 @@
+-from ..sql import client
++from other import client
+ 
+ 
+ def handle() -> int:
+
+--- a/pkg/sql/client.py
++++ b/pkg/sql/client.py
+@@ -1,5 +1,5 @@
+-from . import dialects, engine_factory
+-from .dialects import D
++from pkg.sql import dialects, engine_factory
++from pkg.sql.dialects import D
+ 
+ X = 1
+ 
+
+rename from pkg/sql/client.py
+rename to other/client.py
+--- a/pkg/sql/engine.py
++++ b/pkg/sql/engine.py
+@@ -1,4 +1,4 @@
+-from . import client
++from other import client
+ 
+ 
+ def connect() -> int:
+
+
+
+DRY-RUN. 4 file(s) would change. Re-run with --apply.

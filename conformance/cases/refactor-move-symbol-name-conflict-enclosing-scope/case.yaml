@@ -1,0 +1,24 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- --apply
+- move-symbol
+- --file
+- pkg/a.py
+- --name
+- f
+- --dest
+- pkg/b.py
+fixture: refactor-references
+git:
+- commit: init
+expect:
+  exit: 1
+  files:
+  - pkg/a.py
+  - pkg/b.py
+  - tests/test_sym_enclosing.py
+golden: manual
+note: a rewritten use needs an import binding a name an enclosing function binds

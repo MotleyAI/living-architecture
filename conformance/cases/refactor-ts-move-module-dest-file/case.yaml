@@ -1,0 +1,21 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- --apply
+- move-module
+- --module
+- src/solo.ts
+- --dest
+- src/b.ts
+fixture: refactor-ts
+git:
+- commit: init
+expect:
+  exit: 1
+  files:
+  - src/solo.ts
+  - src/b.ts
+golden: manual
+note: a file destination is no directory to move into, so it is missing

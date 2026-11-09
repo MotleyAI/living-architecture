@@ -327,6 +327,7 @@ findings:
   refactor.source-missing: 'source does not exist: {path}'
   refactor.mixed-languages: '{path} holds sources of more than one language: {languages}'
   refactor.rope-walk: 'rope cannot follow {path}:{line}, so nothing was refactored (a rope bug, not a source error); dr-compliance --select rope-walk lists every such file'
+  refactor.name-conflict: '{name} already names something else at {path}:{line}, so nothing was refactored'
 
   # ---- dr-compliance
   compliance.untyped-def: '{path}:{line}: untyped-def: {name}() missing {missing}'

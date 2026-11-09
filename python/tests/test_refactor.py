@@ -100,7 +100,8 @@ def test_move_symbol(project: Path) -> None:
     assert "def foo()" in (project / "pkg" / "c.py").read_text()
     assert "def foo()" not in (project / "pkg" / "a.py").read_text()
     b = (project / "pkg" / "b.py").read_text()
-    assert "pkg.c.foo()" in b
+    assert "from pkg.c import foo" in b
+    assert "return foo()" in b
     assert "pkg.a" not in b
 
 
