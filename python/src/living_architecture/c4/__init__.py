@@ -1,7 +1,7 @@
 """The LikeC4 model: the single parser of the constrained `.c4` convention, views, and mermaid diagrams."""
 
 from living_architecture.c4.diagrams import DiagramsError, check_diagrams_fresh, diagram_block, generate, run
-from living_architecture.c4.index import read_index
+from living_architecture.c4.index import INDEX_REL, read_index
 from living_architecture.c4.layout import (
     ARCH_DIR,
     DOC_SUFFIX,
@@ -31,6 +31,7 @@ __all__ = [
     "ARCH_DIR",
     "DEFAULT_VIEW_DEPTH",
     "DOC_SUFFIX",
+    "INDEX_REL",
     "RETIRED_ARC42_KEY",
     "DiagramsError",
     "Edge",

@@ -1,20 +1,26 @@
 // The TypeScript projects a refactor or check runs in: the reference graph, one language service per project.
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative, sep } from 'node:path';
 import type * as TS from 'typescript';
-import { loadYaml, message, toPlain } from '../contract/index.js';
+import { DuplicateKeyError, YAMLError, decodeUtf8OrNull, loadYaml, message, toPlain } from '../contract/index.js';
 import { canonical, LangError, loadProjectsFrom, posix, type Project, type Projects, ts } from '../lang/index.js';
 import { RefactorError } from './edits.js';
 
-/** `typescript.tsconfig` of the root's architecture/index.yaml, else null. */
+/** `typescript.tsconfig` of the root's architecture/index.yaml, else null; RefactorError when the index is unreadable. */
 function namedConfig(root: string): string | null {
-  let named: unknown;
+  const path = join(root, 'architecture', 'index.yaml');
+  if (!existsSync(path) || !statSync(path).isFile()) return null;
+  const text = decodeUtf8OrNull(readFileSync(path));
+  if (text === null) throw new RefactorError(message('c4.index-invalid-yaml'));
+  let index: { typescript?: { tsconfig?: unknown } } | null;
   try {
-    const index = toPlain(loadYaml(readFileSync(join(root, 'architecture', 'index.yaml'), 'utf8'))) as { typescript?: { tsconfig?: unknown } } | null;
-    named = index?.typescript?.tsconfig;
-  } catch {
-    named = undefined;
+    index = toPlain(loadYaml(text)) as typeof index;
+  } catch (error) {
+    if (error instanceof DuplicateKeyError) throw new RefactorError(message('c4.index-duplicate-key', { error: error.message }));
+    if (error instanceof YAMLError) throw new RefactorError(message('c4.index-invalid-yaml'));
+    throw error;
   }
+  const named = index?.typescript?.tsconfig;
   return typeof named === 'string' ? join(root, named) : null;
 }
 
@@ -60,12 +66,10 @@ export class Workspace {
   private readonly services = new Map<Project, TS.LanguageService>();
   private readonly registry = ts().createDocumentRegistry();
   private readonly graphs = new Map<string, Projects>();
-  private readonly named: string | null;
+  private named: string | null | undefined;
 
   /** The projects under `root` (a refactor's --project, or the repo root), loaded per file on first use. */
-  constructor(readonly root: string) {
-    this.named = namedConfig(root);
-  }
+  constructor(readonly root: string) {}
 
   /** The reference graph from `config` (none: inferred defaults); RefactorError on an unreadable tsconfig. */
   private load(config: string | undefined): Projects {
@@ -85,6 +89,7 @@ export class Workspace {
 
   /** `file`'s graph: index.yaml's tsconfig; else the outermost ancestor tsconfig.json whose graph contains it, else the nearest. */
   private graph(file: string): Projects {
+    if (this.named === undefined) this.named = namedConfig(this.root);
     if (this.named !== null) {
       if (!existsSync(this.named)) throw new RefactorError(message('refactor.ts-tsconfig-missing', { path: posix(relative(this.root, this.named)) }));
       return this.load(this.named);

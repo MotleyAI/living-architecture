@@ -18,6 +18,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
+from living_architecture.c4.index import INDEX_REL, Index, load_index
 from living_architecture.c4.layout import (
     ARCH_DIR,
     RETIRED_ARC42_KEY,
@@ -49,9 +50,7 @@ from living_architecture.config import (
     read_committed,
     stamp_format,
 )
-from living_architecture.contract import YAMLError, config_file, load_yaml, message
-
-_INDEX_REL = "architecture/index.yaml"
+from living_architecture.contract import config_file, load_yaml, message
 
 
 class MigrateError(Exception):
@@ -61,13 +60,6 @@ class MigrateError(Exception):
 class _Move(BaseModel):
     source: str
     target: str
-
-
-class _Index(BaseModel):
-    """`architecture/index.yaml` as text and as data; `data` is None when it is absent or not a mapping."""
-
-    text: str | None
-    data: dict[Any, Any] | None
 
 
 class _Plan(BaseModel):
@@ -117,28 +109,21 @@ def _read_exact(path: Path) -> str:
     return path.read_bytes().decode("utf-8")
 
 
-def _read_index(root: Path) -> _Index:
-    path = root / _INDEX_REL
-    if not path.is_file():
-        return _Index(text=None, data=None)
-    try:
-        text = _read_exact(path)
-    except UnicodeDecodeError:
-        return _Index(text=None, data=None)
-    try:
-        data = load_yaml(text)
-    except YAMLError:
-        data = None
-    return _Index(text=text, data=data if isinstance(data, dict) else None)
+def _read_index(root: Path) -> Index | None:
+    """The index, None when absent; MigrateError when it is unusable."""
+    index = load_index(root)
+    if isinstance(index, str):
+        raise MigrateError(index)
+    return index
 
 
-def _cross_cutting(index: _Index) -> list[str]:
-    entries = index.data.get("cross_cutting_arc42") if index.data else None
+def _cross_cutting(index: Index | None) -> list[str]:
+    entries = index.data.get("cross_cutting_arc42") if index is not None else None
     return [e for e in entries if isinstance(e, str)] if isinstance(entries, list) else []
 
 
-def _diagram_keys(index: _Index) -> list[Any]:
-    diagrams = index.data.get("diagrams") if index.data else None
+def _diagram_keys(index: Index | None) -> list[Any]:
+    diagrams = index.data.get("diagrams") if index is not None else None
     return list(diagrams) if isinstance(diagrams, dict) else []
 
 
@@ -275,18 +260,18 @@ def _without_arc42(model: ModelParse) -> ModelParse:
     return model.model_copy(update={"elements": elements})
 
 
-def _verify(root: Path, before: ModelParse, plan: _Plan, index: _Index, moved_entries: set[str]) -> None:
+def _verify(root: Path, before: ModelParse, plan: _Plan, index: Index | None, moved_entries: set[str]) -> None:
     """MigrateError unless the staged result parses like the input, apart from the converted arc42 format.
 
     A doc moves by rename, so it stays byte-identical by construction.
     """
     expected = (_comparable(_without_arc42(before)), parse_views(root, before))
-    staged_index = plan.outputs.get(_INDEX_REL, index.text)
+    staged_index = plan.outputs.get(INDEX_REL, index.text if index is not None else None)
     with tempfile.TemporaryDirectory() as tmp:
         staging = Path(tmp)
         (staging / "architecture").mkdir()
         if staged_index is not None:
-            (staging / _INDEX_REL).write_text(staged_index, encoding="utf-8", newline="")
+            (staging / INDEX_REL).write_text(staged_index, encoding="utf-8", newline="")
         views = root / views_file()
         if views_file() in plan.outputs:
             (staging / views_file()).write_text(plan.outputs[views_file()], encoding="utf-8", newline="")
@@ -299,10 +284,10 @@ def _verify(root: Path, before: ModelParse, plan: _Plan, index: _Index, moved_en
         raise MigrateError(message("arch-migrate.mismatch"))
 
 
-def _index_as_expected(plan: _Plan, index: _Index, moved_entries: set[str]) -> bool:
+def _index_as_expected(plan: _Plan, index: Index | None, moved_entries: set[str]) -> bool:
     """The staged index parses to the input's, with only the planned renames."""
-    written = plan.outputs.get(_INDEX_REL)
-    if written is None or index.data is None:
+    written = plan.outputs.get(INDEX_REL)
+    if written is None or index is None:
         return True
     return load_yaml(written) == _expected_index(index.data, plan.renames, moved_entries)
 
@@ -472,8 +457,8 @@ def _plan(root: Path) -> _Plan:
         if not layout.views_exists:
             outputs[views_file()] = EMPTY_VIEWS
             created.add(views_file())
-    if renames and index.text is not None:
-        outputs[_INDEX_REL] = _renamed_index(index.text, renames)
+    if renames and index is not None:
+        outputs[INDEX_REL] = _renamed_index(index.text, renames)
     plan = _Plan(outputs=outputs, created=created, moves=moves, renames=renames, legacy=legacy)
     _verify(root, before, plan, index, {m.source for m in entry_moves})
     return plan

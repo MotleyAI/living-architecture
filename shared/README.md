@@ -21,8 +21,15 @@ The source of truth both twins obey. Each package vendors a byte-copy of this di
 ## YAML profile
 
 YAML 1.1 as PyYAML's safe loader reads it, within a closed tag set: `yes`/`no`/`on`/`off` are booleans,
-sexagesimal and `0`-prefixed octal integers are numbers, merge keys apply, a duplicate mapping key takes the last
-value, and a scalar the safe loader cannot construct is a YAML error. The tag set is `!!str`, `!!int`, `!!float`,
+sexagesimal and `0`-prefixed octal integers are numbers, merge keys apply, and a scalar the safe loader cannot
+construct is a YAML error. A mapping that repeats a key, at any depth, is a YAML error worded by `yaml.duplicate-key`:
+two keys are the same when their loaded values, normalized (a timestamp to its ISO string), are equal: strings by
+code points, `null` only with `null`, booleans, integers and floats as exact numbers (`false`/`true` as `0`/`1`,
+`-0.0` as `0`), `.inf` and `-.inf` only with themselves, a NaN with a NaN, and a merge key only with another merge
+key. An alias key counts as the value it resolves to; keys a merge brings in never count. The error names the first
+occurrence's normalized key and the 1-based lines where the two occurrences start (an alias key where the alias
+stands); with several repeats, the repeat that comes first in the document, paired with that key's first
+occurrence. The tag set is `!!str`, `!!int`, `!!float`,
 `!!bool`, `!!null`, `!!timestamp`, `!!seq`, `!!map` and `!!merge`, in any spelling; a non-specific `!` resolves a
 node as if it were untagged, and a scalar as if it were plain whatever its style (`! '12'` is `12`). Any other tag
 (`!!binary`, `!!set`, `!!omap`, `!!pairs`, the `!!value` a plain `=` resolves to, a local or unknown tag) is a YAML

@@ -1,20 +1,40 @@
 // The shared YAML profile: YAML 1.1 as PyYAML's safe loader reads it, within a closed tag set (its implicit resolvers,
-// merge keys, the last duplicate key wins). Mappings load as Maps, floats as PyFloat, timestamps as PyTimestamp.
+// merge keys), refusing a repeated mapping key. Mappings load as Maps, floats as PyFloat, timestamps as PyTimestamp.
 import {
+  CST,
   type CollectionTag,
   type Document,
   Lexer,
   YAMLError as LibYAMLError,
   Scalar,
   type ScalarTag,
+  isAlias,
   isCollection,
+  isMap,
+  isPair,
   isScalar,
+  isSeq,
   parseAllDocuments,
   visit,
 } from 'yaml';
+import { message } from './render.js';
 import { PyFloat, PyTimestamp } from './values.js';
 
 export class YAMLError extends Error {}
+
+/** A mapping repeats a key: the first occurrence's normalized key and the 1-based lines of both. */
+export class DuplicateKeyError extends YAMLError {
+  readonly key: unknown;
+  readonly first: number;
+  readonly second: number;
+
+  constructor(key: unknown, first: number, second: number) {
+    super(message('yaml.duplicate-key', { key, first, second }));
+    this.key = key;
+    this.first = first;
+    this.second = second;
+  }
+}
 
 const BOOL_RE = /^(?:yes|Yes|YES|no|No|NO|true|True|TRUE|false|False|FALSE|on|On|ON|off|Off|OFF)$/;
 const NULL_RE = /^(?:~|null|Null|NULL|)$/;
@@ -391,9 +411,77 @@ function checkProfile(doc: Document.Parsed): void {
       if (key === 'key' && isCollection(target)) throw new YAMLError('a mapping key that is a sequence or mapping');
       if (!isScalar(target) || typeof target.value !== 'symbol') return undefined;
       if (key !== 'key') throw new YAMLError('a merge key outside a mapping key');
-      return new Scalar(MERGE);
+      const merge = new Scalar(MERGE);
+      merge.range = node.range;
+      return merge;
     },
   });
+}
+
+/** A key's identity under the profile's comparator: strings by code points, numbers (booleans as 0/1) exactly. */
+function keyIdentity(value: unknown): string {
+  if (value === MERGE) return '<<';
+  if (value === null) return 'null';
+  if (typeof value === 'string') return `s:${value}`;
+  if (value instanceof PyTimestamp) return `s:${value.iso}`;
+  if (typeof value === 'boolean') return value ? 'n:1' : 'n:0';
+  if (typeof value === 'bigint') return `n:${value}`;
+  const x = value instanceof PyFloat ? value.value : Number(value);
+  if (Number.isNaN(x)) return 'nan';
+  // An integral double prints exactly as a bigint; any other double's shortest form never reads as an integer.
+  return Number.isInteger(x) ? `n:${BigInt(x)}` : `n:${x}`;
+}
+
+/** A key's value as the duplicate-key error names it. */
+function normalizedKey(value: unknown): unknown {
+  if (value === MERGE) return '<<';
+  return value instanceof PyTimestamp ? value.iso : value;
+}
+
+const PROPS = new Set(['anchor', 'tag']);
+
+/** Where each mapping key starts, by its content's offset: at its first anchor or tag, as PyYAML marks it. */
+function keyStarts(doc: Document.Parsed): Map<number, number> {
+  const starts = new Map<number, number>();
+  const root = doc.contents?.srcToken;
+  if (root === undefined) return starts;
+  CST.visit({ start: [], value: root }, (item) => {
+    if (item.key === undefined || item.key === null) return;
+    starts.set(item.key.offset, item.start.find((token) => PROPS.has(token.type))?.offset ?? item.key.offset);
+  });
+  return starts;
+}
+
+const lineAt = (text: string, offset: number): number => (text.slice(0, offset).match(/\r\n|\r|\n/g)?.length ?? 0) + 1;
+
+/** Throws DuplicateKeyError for the first repeated mapping key in document order. */
+function checkKeys(doc: Document.Parsed, text: string): void {
+  const starts = keyStarts(doc);
+  const walk = (node: unknown): void => {
+    if (isMap(node)) {
+      const firsts = new Map<string, [key: unknown, offset: number]>();
+      for (const pair of node.items) {
+        if (isScalar(pair.key) || isAlias(pair.key)) {
+          const target = isAlias(pair.key) ? pair.key.resolve(doc) : pair.key;
+          const offset = pair.key.range?.[0] ?? 0;
+          const start = starts.get(offset) ?? offset;
+          const value = isScalar(target) ? target.value : null;
+          const identity = keyIdentity(value);
+          const first = firsts.get(identity);
+          if (first !== undefined) throw new DuplicateKeyError(first[0], lineAt(text, first[1]), lineAt(text, start));
+          firsts.set(identity, [normalizedKey(value), start]);
+        }
+        walk(pair.key);
+        walk(pair.value);
+      }
+    } else if (isSeq(node)) {
+      for (const item of node.items) walk(item);
+    } else if (isPair(node)) {
+      walk(node.key);
+      walk(node.value);
+    }
+  };
+  walk(doc.contents);
 }
 
 // Line breaks to YAML 1.1 that the library, reading YAML 1.2, takes as content.
@@ -406,14 +494,17 @@ export function loadYaml(text: string): unknown {
     const code = (found[0].codePointAt(0) ?? 0).toString(16).toUpperCase().padStart(4, '0');
     throw new YAMLError(`a raw U+${code} line break at offset ${found.index}`);
   }
+  let source;
   let docs;
   try {
-    docs = parseAllDocuments(yaml11AnchorNames(text), {
+    source = yaml11AnchorNames(text);
+    docs = parseAllDocuments(source, {
       schema: 'failsafe',
       customTags: PROFILE_TAGS,
       merge: true,
       resolveKnownTags: false,
       uniqueKeys: false,
+      keepSourceTokens: true,
     });
   } catch (error) {
     if (error instanceof YAMLError) throw error;
@@ -426,6 +517,7 @@ export function loadYaml(text: string): unknown {
   const problem = doc.errors[0] ?? doc.warnings.find((warning) => warning.code === 'TAG_RESOLVE_FAILED');
   if (problem !== undefined) throw new YAMLError(problem.message);
   checkProfile(doc);
+  checkKeys(doc, source);
   try {
     return doc.toJS({ mapAsMap: true, maxAliasCount: -1 });
   } catch (error) {

@@ -295,6 +295,14 @@ cases:
     a: 2
   error: duplicate
   message: duplicate key 'a' at lines 2 and 4
+- name: duplicate key, explicit key with its anchor on the line before
+  text: |
+    a: 1
+    ? &p
+      a
+    : 2
+  error: duplicate
+  message: duplicate key 'a' at lines 1 and 2
 - name: duplicate key, anchored and tagged keys
   text: |
     &p !!str a: 1
@@ -695,7 +703,8 @@ cases:
   text: |
     a: &a {p: 1}
     b: {&m <<: *a, *m : {q: 1}}
-  json: '{"a": {"p": 1}, "b": {"p": 1, "q": 1}}'
+  error: duplicate
+  message: duplicate key '<<' at lines 2 and 2
 - name: aliased merge key as a value
   text: |
     a: &a {p: 1}

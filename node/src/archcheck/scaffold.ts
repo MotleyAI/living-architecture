@@ -14,11 +14,11 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { diagramBlock, modelFile, parseModel, parseViews, readIndex, sources, viewsFile } from '../c4/index.js';
+import { INDEX_REL, diagramBlock, modelFile, parseModel, parseViews, readIndex, sources, viewsFile } from '../c4/index.js';
 import { message } from '../contract/index.js';
 import { NATIVE_LANGUAGE, requestFacts } from '../twin/index.js';
 import { type Facts, nativeTopLevelFacts } from './facts.js';
-import { ArchCheckError, INDEX_REL, type Index, declaredLanguages, loadIndex, resolveLayout, resolveTsconfig, section } from './index-file.js';
+import { ArchCheckError, type Index, declaredLanguages, loadIndex, resolveLayout, resolveTsconfig, section } from './index-file.js';
 import { separator } from './nodes.js';
 import { compareStrings } from './order.js';
 

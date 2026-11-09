@@ -40,7 +40,7 @@ classifiers = [
     "Topic :: Software Development :: Quality Assurance",
     "Topic :: Software Development :: Documentation",
 ]
-dependencies = ["rope>=1.15", "pydantic>=2.6", "pyyaml>=6", "jsonschema>=4.18", "referencing>=0.28.4"]
+dependencies = ["rope>=1.15", "pydantic>=2.6", "pyyaml>=6", "jsonschema>=4.18", "referencing>=0.28.4", "typing-extensions>=4.4"]
 
 [project.urls]
 Homepage = "https://github.com/MotleyAI/living-architecture"

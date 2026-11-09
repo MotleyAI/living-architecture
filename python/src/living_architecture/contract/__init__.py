@@ -22,9 +22,10 @@ from living_architecture.contract.snapshot import (
     script_path,
     snapshot_dir,
 )
-from living_architecture.contract.yaml_profile import YAMLError, load_yaml
+from living_architecture.contract.yaml_profile import DuplicateKeyError, YAMLError, load_yaml
 
 __all__ = [
+    "DuplicateKeyError",
     "YAMLError",
     "architecture",
     "canonical_repr",
