@@ -563,6 +563,20 @@ def test_wait_gate_fails_closed_when_gh_errors(fake_gh, run_script):
     assert "could not read the check rollup" in r.stdout
 
 
+MALFORMED_SNAPSHOTS = [{"headRefOid": HEAD, "statusCheckRollup": {}}, {"headRefOid": HEAD, "statusCheckRollup": "x"},
+                       {"headRefOid": HEAD, "statusCheckRollup": None}, {"headRefOid": HEAD}, {"statusCheckRollup": []}]
+
+
+@pytest.mark.usefixtures("fast_wait")
+@pytest.mark.parametrize("snapshot", MALFORMED_SNAPSHOTS)
+def test_wait_gate_fails_closed_on_a_malformed_snapshot(fake_gh, run_script, snapshot):
+    fake_gh.route((SNAPSHOT, snapshot))
+    r = run_script("wait-for-reviews.sh", "7", *REPO)
+    assert r.returncode == 1
+    assert "gate clear" not in r.stdout
+    assert "could not read the check rollup" in r.stdout
+
+
 def test_wait_requires_pr(run_script):
     assert run_script("wait-for-reviews.sh").returncode == 64
 
@@ -906,6 +920,14 @@ def test_pr_reviewers_gh_failure(fake_gh, run_script):
     r = run_script("pr-reviewers.sh", "7", *REPO)
     assert r.returncode == 2
     assert r.stdout == ""
+
+
+@pytest.mark.usefixtures("git_repo")
+@pytest.mark.parametrize("snapshot", MALFORMED_SNAPSHOTS)
+def test_pr_reviewers_malformed_snapshot(fake_gh, run_script, snapshot):
+    fake_gh.route((SNAPSHOT, snapshot))
+    r = run_script("pr-reviewers.sh", "7", *REPO)
+    assert (r.returncode, r.stdout) == (2, "")
 
 
 @pytest.mark.parametrize("args", [[], ["abc", *REPO], ["-3", *REPO]])

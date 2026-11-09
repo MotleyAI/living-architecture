@@ -7,8 +7,8 @@
 rb_snapshot() {
     local out
     out=$(gh pr view "$1" --repo "$2" --json headRefOid,statusCheckRollup) || return 1
-    jq -ce 'select(.headRefOid | type == "string")
-        | {headRefOid, statusCheckRollup: (.statusCheckRollup // [])}' <<<"$out"
+    jq -ce 'select((.headRefOid | type == "string") and (.statusCheckRollup | type == "array"))
+        | {headRefOid, statusCheckRollup}' <<<"$out"
 }
 
 # A paginated list endpoint ($1) as one JSON array of the items $2 picks from each page.
