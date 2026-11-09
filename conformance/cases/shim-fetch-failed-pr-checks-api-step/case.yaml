@@ -1,0 +1,54 @@
+kind: neutral
+command: la-fetch-failed-pr-checks
+args:
+- '7'
+- --repo
+- o/r
+gh:
+- match: [pr, view, statusCheckRollup]
+  stdout:
+    statusCheckRollup:
+    - __typename: CheckRun
+      name: tests
+      workflowName: CI
+      conclusion: FAILURE
+      status: COMPLETED
+      detailsUrl: https://github.com/o/r/actions/runs/11/job/22
+- match: [run, view, --job, '22', --log-failed]
+  stdout: ''
+- match: [run, view, --job, '22', --log]
+  stdout: ''
+- match: [api, repos/o/r/actions/jobs/22/logs]
+  stdout: "﻿2026-01-01T00:00:01.0000000Z ##[group]Run actions/checkout@v4\n\
+    2026-01-01T00:00:02.0000000Z Syncing repository: o/r\n\
+    2026-01-01T00:00:09.0000000Z ##[endgroup]\n\
+    2026-01-01T00:00:10.1000000Z Checked out ref main\n\
+    2026-01-01T00:00:10.5000000Z ##[group]Run ./.github/actions/test\n\
+    2026-01-01T00:00:10.6000000Z ##[endgroup]\n\
+    2026-01-01T00:00:11.0000000Z ##[group]Run pnpm exec vitest run\n\
+    2026-01-01T00:00:11.1000000Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}\n\
+    2026-01-01T00:00:11.2000000Z ##[endgroup]\n\
+    2026-01-01T00:00:15.0000000Z FAIL src/a.test.ts > adds\n\
+    2026-01-01T00:00:19.0000000Z ##[error]AssertionError: expected 1 to be 2\n\
+    - Expected\n\
+    + Received\n\
+    2026-01-01T00:00:20.0000000Z ##[error]Process completed with exit code 1.\n\
+    2026-01-01T00:00:20.1000000Z Post job cleanup.\n\
+    2026-01-01T00:00:20.2000000Z [command]/usr/bin/git version\n\
+    2026-01-01T00:00:21.0000000Z Cleaning up orphan processes\n"
+- match: [api, repos/o/r/actions/jobs/22]
+  stdout:
+    steps:
+    - {number: 1, name: Run actions/checkout@v4, conclusion: success, started_at: '2026-01-01T00:00:01Z',
+       completed_at: '2026-01-01T00:00:10Z'}
+    - {number: 2, name: Test, conclusion: failure, started_at: '2026-01-01T00:00:10Z',
+       completed_at: '2026-01-01T00:00:20Z'}
+    - {number: 3, name: Post Run actions/checkout@v4, conclusion: success, started_at: '2026-01-01T00:00:20Z',
+       completed_at: '2026-01-01T00:00:21Z'}
+normalize:
+- pattern: -[0-9]{8}-[0-9]{6}\.json
+  replace: -<TS>.json
+expect:
+  exit: 0
+golden: manual
+note: both gh run view attempts are empty; the job-log API excerpt is the failed composite step, from its own header to its last ##[error] line

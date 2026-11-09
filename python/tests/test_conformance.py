@@ -66,6 +66,7 @@ for route in routes:
                 sys.stderr.write(jq.stderr)
                 out = jq.stdout
         sys.stdout.write(out)
+        sys.stderr.write(route.get("stderr", ""))
         sys.exit(route.get("exit", 0))
 sys.stderr.write("fake gh: no route for " + " ".join(argv) + "\\n")
 sys.exit(1)
@@ -265,7 +266,7 @@ def _environment(root: Path, case: dict, twin: str) -> dict[str, str]:
         gh.chmod(0o755)
     routes = [
         {"match": r["match"], "stdout": r["stdout"] if isinstance(r.get("stdout"), str) else json.dumps(r.get("stdout", "")),
-         "exit": r.get("exit", 0)}
+         "stderr": r.get("stderr", ""), "exit": r.get("exit", 0)}
         for r in case.get("gh", [])
     ]
     (root / "gh-routes.json").write_text(json.dumps(routes), encoding="utf-8")
