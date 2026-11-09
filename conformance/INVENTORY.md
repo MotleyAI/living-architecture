@@ -427,14 +427,21 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | *(new)* fetch-failed-pr-checks: job-log API `##[error]` lines + tail (no failed step; step metadata unreadable) | 0 | `shim-fetch-failed-pr-checks-api-errors-tail`, `shim-fetch-failed-pr-checks-api-no-metadata` |
 | *(new)* fetch-failed-pr-checks: no excerpt, each attempt with its reason (job; run only) | 0 | `shim-fetch-failed-pr-checks-no-log`, `shim-fetch-failed-pr-checks-run-only` |
 | *(new)* fetch-failed-pr-checks: log fetching off (`--max-log-lines 0`) | 0 | `shim-fetch-failed-pr-checks-max-log-zero` |
-| wait-for-reviews: CodeRabbit absent (no check, no comment); fresh summary; rate limited; gate fails closed; no PR; repo auto-detect fails | 0/3/1/64/2 | `shim-wait-for-reviews-coderabbit-absent`, `shim-wait-for-reviews-fresh-summary`, `shim-wait-for-reviews-rate-limited`, `shim-wait-for-reviews-gate-fails-closed`, `shim-wait-for-reviews-requires-pr`, `shim-wait-for-reviews-repo-autodetect-fails` |
+| wait-for-reviews: CodeRabbit absent (no check, no comment); summary covers HEAD; rate limited (latest status on HEAD, beside stale summary text and a newer reply); gate fails closed (gh error; malformed rollup); no PR; repo auto-detect fails | 0/3/1/64/2 | `shim-wait-for-reviews-coderabbit-absent`, `shim-wait-for-reviews-summary-covers-head`, `shim-wait-for-reviews-rate-limited`, `shim-wait-for-reviews-gate-fails-closed`, `shim-wait-for-reviews-malformed-rollup`, `shim-wait-for-reviews-requires-pr`, `shim-wait-for-reviews-repo-autodetect-fails` |
 | *(new)* wait-for-reviews: CodeRabbit present by comment only runs the settle; `--skip-coderabbit` is an unknown flag | 0/64 | `shim-wait-for-reviews-coderabbit-by-comment`, `shim-wait-for-reviews-skip-coderabbit-rejected` |
 | *(new)* pr-reviewers: CodeRabbit by status check / by comment; no bots | 0 | `shim-pr-reviewers-coderabbit-by-status`, `shim-pr-reviewers-coderabbit-by-comment`, `shim-pr-reviewers-no-bots` |
 | *(new)* pr-reviewers: Sonar check (run or status context, case-insensitive); key from config, properties file, check URL, none | 0 | `shim-pr-reviewers-sonar-key-from-config`, `shim-pr-reviewers-sonar-key-from-properties`, `shim-pr-reviewers-sonar-key-from-url`, `shim-pr-reviewers-sonar-status-context`, `shim-pr-reviewers-sonar-without-key` |
 | *(new)* pr-reviewers: gh failure relayed, no JSON; missing or non-numeric PR | 2 | `shim-pr-reviewers-gh-fails`, `shim-pr-reviewers-requires-pr`, `shim-pr-reviewers-bad-pr` |
+| *(new)* pr-reviewers: Sonar by a check suite on HEAD alone (no Sonar check run yet) | 0 | `shim-pr-reviewers-sonar-suite-only` |
+| *(new)* wait-for-reviews Stage 0a: a Sonar check suite on HEAD that is not `completed` is pending (alone, beside a completed Sonar check); a failed suites read never clears the gate | 1 | `shim-wait-for-reviews-sonar-suite-queued`, `shim-wait-for-reviews-sonar-suite-beside-completed-check`, `shim-wait-for-reviews-suite-read-fails` |
+| *(new)* wait-for-reviews Stage 0b reviewed: `Review completed` status on HEAD; CodeRabbit review on HEAD; completed, then rate limited on the same HEAD | 0 | `shim-wait-for-reviews-status-completed`, `shim-wait-for-reviews-review-on-head`, `shim-wait-for-reviews-reviewed-then-rate-limited` |
+| *(new)* wait-for-reviews Stage 0b: prior review carried forward | 0 | `shim-wait-for-reviews-carried-forward` |
+| *(new)* wait-for-reviews Stage 0b: paused; the latest status decides between paused and rate limited | 3 | `shim-wait-for-reviews-paused`, `shim-wait-for-reviews-latest-status-decides` |
+| *(new)* wait-for-reviews Stage 0b without HEAD evidence reaches the cap: placeholder summary; empty-body review; stale rate-limit text with a newer reply; failed statuses read | 0 | `shim-wait-for-reviews-placeholder-summary`, `shim-wait-for-reviews-empty-review-ignored`, `shim-wait-for-reviews-stale-summary-fresh-reply`, `shim-wait-for-reviews-statuses-read-fails` |
+| *(new)* wait-for-reviews: HEAD moves during Stage 0b, the wait restarts at Stage 0a | 0 | `shim-wait-for-reviews-head-moves` |
 
 The scripts are shared byte-for-byte between the twins. Their remaining internal branches (thread and
-comment pagination, the polling loops' sleep-and-retry paths, the 10-minute CodeRabbit cap) depend on wall
+comment pagination, the polling loops' sleep-and-retry paths, the default 10-minute CodeRabbit cap) depend on wall
 time or many paged responses. Those branches are pinned by `tests/test_review_scripts.py`, not by the corpus.
 
 ## Twin forwarding

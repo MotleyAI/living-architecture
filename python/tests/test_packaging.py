@@ -82,7 +82,8 @@ def test_installed_artifact_runs_every_command(kind, artifacts, tmp_path, fake_g
     (work / "a.py").write_text(CLEAN, encoding="utf-8")
     env = {**fake_gh.env(), "PATH": os.pathsep.join([str(fake_gh.bin), str(bin_dir), os.environ["PATH"]])}
     fake_gh.route((["repos/o/r/pulls/3/comments/9/replies"], {"html_url": "u"}),
-                  (["pr", "view", "statusCheckRollup"], {"statusCheckRollup": []}),
+                  (["pr", "view", "headRefOid,statusCheckRollup"], {"headRefOid": "abc", "statusCheckRollup": []}),
+                  (["repos/o/r/commits/abc/check-suites"], {"check_suites": []}),
                   (["repos/o/r/issues/7/comments"], []))
     scaffold = tmp_path / "scaffold"
     (scaffold / "architecture").mkdir(parents=True)
@@ -97,7 +98,7 @@ def test_installed_artifact_runs_every_command(kind, artifacts, tmp_path, fake_g
 
     def run(*argv: str, stdin: str = "") -> subprocess.CompletedProcess[str]:
         return subprocess.run([str(bin_dir / argv[0]), *argv[1:]], cwd=work, env=env, input=stdin,
-                              capture_output=True, text=True, check=False)
+                              capture_output=True, text=True, timeout=120, check=False)
 
     expectations = [
         (("la-doctor", "--contract-hash"), 0, f"{compute_hash(REPO_ROOT / 'shared')}\n"),

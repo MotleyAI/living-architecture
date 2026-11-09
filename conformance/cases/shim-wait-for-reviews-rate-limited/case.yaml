@@ -8,33 +8,46 @@ gh:
 - match:
   - pr
   - view
-  - statusCheckRollup
+  - headRefOid,statusCheckRollup
   stdout:
+    headRefOid: abc
     statusCheckRollup:
     - __typename: CheckRun
       name: tests
       status: COMPLETED
+      conclusion: SUCCESS
+      detailsUrl: https://github.com/o/r/actions/runs/1/job/2
     - __typename: StatusContext
       context: CodeRabbit
       state: SUCCESS
 - match:
-  - pr
-  - view
-  - headRefOid
+  - repos/o/r/commits/abc/check-suites
   stdout:
-    headRefOid: abc
-- match:
-  - repos/o/r/commits/abc
-  stdout:
-    commit:
-      committer:
-        date: '2026-01-01T00:00:00Z'
+    check_suites: []
 - match:
   - repos/o/r/issues/7/comments
   stdout:
   - user:
       login: coderabbitai[bot]
     updated_at: '2026-01-02T00:00:00Z'
-    body: Review limit reached for this PR
+    body: |-
+      <!-- This is an auto-generated comment: summarize by coderabbit.ai -->
+      Review limit reached
+      <!-- final_review_risk_coverage:{"sourceCommitId":"prev","coveredCommitId":"prev","kind":"reviewed"} -->
+  - user:
+      login: coderabbitai[bot]
+    updated_at: '2026-01-03T00:00:00Z'
+    body: '@coderabbitai review: on it.'
+- match:
+  - repos/o/r/commits/abc/statuses
+  stdout:
+  - context: CodeRabbit
+    state: success
+    description: Review rate limited
+- match:
+  - repos/o/r/pulls/7/reviews
+  stdout: []
 expect:
   exit: 3
+golden: manual
+note: HEAD's latest status is rate limited; the summary covers the previous commit and a newer reply exists

@@ -60,14 +60,22 @@ if [[ -z "$REPO" ]]; then
         || { echo "could not resolve --repo from gh repo view" >&2; exit 2; })
 fi
 
-rollup=$(rb_rollup "$PR" "$REPO") || exit 2
+snapshot=$(rb_snapshot "$PR" "$REPO") || exit 2
+rollup=$(jq -c '.statusCheckRollup' <<<"$snapshot")
 coderabbit=$(rb_coderabbit "$PR" "$REPO" "$rollup") || exit 2
 sonar_check=$(rb_sonar_check "$rollup")
-key=""
+present=false
 if [[ -n "$sonar_check" ]]; then
+    present=true
+else
+    suites=$(rb_sonar_suites "$(jq -r '.headRefOid' <<<"$snapshot")" "$REPO") || exit 2
+    if [[ "$suites" != "[]" ]]; then present=true; fi
+fi
+key=""
+if [[ "$present" == "true" ]]; then
     key=$(rb_sonar_key "$sonar_check") || exit 2
 fi
 
-jq -nc --argjson coderabbit "$coderabbit" --arg present "$([[ -n "$sonar_check" ]] && echo true || echo false)" \
+jq -nc --argjson coderabbit "$coderabbit" --arg present "$present" \
     --arg key "$key" \
     '{coderabbit: $coderabbit, sonar: {present: ($present == "true"), project_key: (if $key == "" then null else $key end)}}'

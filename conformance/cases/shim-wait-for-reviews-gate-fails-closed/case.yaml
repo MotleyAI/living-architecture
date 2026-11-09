@@ -11,7 +11,7 @@ gh:
 - match:
   - pr
   - view
-  - statusCheckRollup
+  - headRefOid,statusCheckRollup
   stdout: ''
   exit: 1
 expect:

@@ -1,0 +1,47 @@
+kind: neutral
+command: la-wait-for-reviews
+args:
+- '7'
+- --repo
+- o/r
+env:
+  LA_WAIT_GATE_TIMEOUT: '0'
+  LA_WAIT_POLL_SECONDS: '0'
+gh:
+- match:
+  - pr
+  - view
+  - headRefOid,statusCheckRollup
+  stdout:
+    headRefOid: abc
+    statusCheckRollup:
+    - __typename: CheckRun
+      name: tests
+      status: COMPLETED
+      conclusion: SUCCESS
+      detailsUrl: https://github.com/o/r/actions/runs/1/job/2
+- match:
+  - repos/o/r/commits/abc/check-suites
+  stdout: ''
+  exit: 1
+- match:
+  - repos/o/r/issues/7/comments
+  stdout:
+  - user:
+      login: alice
+    updated_at: '2026-01-02T00:00:00Z'
+    body: LGTM
+- match:
+  - repos/o/r/commits/abc/statuses
+  stdout: []
+- match:
+  - repos/o/r/pulls/7/reviews
+  stdout: []
+expect:
+  exit: 1
+  stdout: ignore
+  stderr:
+    contains:
+    - 'Stage 0a: gate timed out'
+golden: manual
+note: a failed check-suites read never clears the gate
