@@ -3,7 +3,7 @@ name: pr
 description: Spec-driven change flow for a task given to an agent. Pulls in the tracker issue (Linear or GitHub, per `living-architecture.yaml`) that the current git branch belongs to, and combines it with whatever the user typed when invoking the skill. Rehydrates context, detects the current stage, and dispatches to the stage skills la:pr-plan → la:pr-tests → la:pr-implement → la:pr-review.
 ---
 
-**Preflight:** run `la-doctor --plugin <this skill's base directory> --require-config` once per session before using any `la-*` or `dr-*` command. If it reports the missing-config finding (the one naming `/la:init`), run the fast path of the `la:init` skill, then re-run this preflight; stop and show the user its output on anything it still reports, or on any other failure.
+**Preflight:** run `la-doctor --plugin <this skill's base directory> --require-config --require-plan-store` once per session before using any `la-*` or `dr-*` command. If it reports the missing-config finding (the one naming `/la:init`), run the fast path of the `la:init` skill, then re-run this preflight; stop and show the user its output on anything it still reports, or on any other failure.
 
 I want a detailed spec-driven flow. The brief is the union of:
 1. The tracker issue tied to the current branch (see "Rehydrate" below), AND
@@ -122,34 +122,12 @@ skills. What still holds:
 
 ## Normative harnesses (living-architecture repos)
 
-In a repo with an `architecture/` directory at its root,
-`architecture/*.arc42.md`, `architecture/model.c4` and `architecture/views.c4`
-files are normative harnesses, exactly like tests. This applies at EVERY stage of the flow —
-planning, writing tests, implementing, and fixing review findings:
-
-- **Read them first.** Before doing the stage's work, read
-  `architecture/index.yaml` plus **every** `*.arc42.md` file relevant to the
-  modules the change touches — the arc42 file of each touched element and of each of its ancestors (`architecture/<element
-  id>.arc42.md`, where present) AND `system.arc42.md` (cross-cutting principles) — plus the LikeC4 view of every
-  touched element (see the `la:living-architecture` skill).
-- **Obey them.** Every plan, test, implementation, and review fix MUST obey the
-  element principles and the model's import law — or explicitly include the
-  model + arc42 update as part of the change.
-- **Flag, never deviate.** If anything in an arc42 file seems wrong,
-  contradictory, or makes the task impossible or substantially harder, FLAG IT
-  TO ME EXPLICITLY and wait for my call — NEVER silently deviate from,
-  reinterpret, or ignore a principle, and never produce work that quietly
-  conflicts with one.
-- **Keep them normative and minimal.** When work strains a principle, first make
-  the code comply; propose an edit only when the principle genuinely forbids
-  something needed, in the smallest general wording — never descriptive text or
-  implementation detail (function names, mechanisms).
-- **Never edit without per-change approval.** NEVER create, modify, or delete
-  one without my explicit approval for each specific change — present the
-  exact edit and wait for my OK. A broader approved plan that mentions the
-  edit does NOT count; the concrete edit itself needs the OK. Wording quoted
-  verbatim in the plan's decisions log as `(user, approved wording)` is that
-  OK: apply it verbatim, and ask again only if it has to change.
+In a repo with an `architecture/` directory at its root, load the
+`la:living-architecture` skill at EVERY stage of the flow and follow its
+"Working under the architecture" rules; "the user" there is me. One addition
+for this flow: wording quoted verbatim in the plan's decisions log as
+`(user, approved wording)` is the per-change OK for that edit. Apply it
+verbatim, and ask again only if it has to change.
 
 ## Rehydrate — pull in the tracker issue for the current branch
 

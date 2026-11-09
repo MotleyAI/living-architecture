@@ -82,17 +82,17 @@ principles.
 ### Just enforce the architecture
 
 You don't need the PR workflow or OpenSpec to hold an agent to the model and its principles: decline OpenSpec in
-`/la:init`, build the model with `/la:arch-init`, then point the agent at the `la:living-architecture` skill and
-the three checks, for example in your `CLAUDE.md` or `AGENTS.md`:
+`/la:init`, build the model with `/la:arch-init`, then point the agent at the `la:living-architecture` skill, for
+example in your `CLAUDE.md` or `AGENTS.md`:
 
 ```markdown
-Before changing code, use the la:living-architecture skill to read the arc42 principles of every architecture
-element the change touches, and of its ancestors. Before finishing, run `la-arch-check`,
-`npx likec4 validate architecture` and `la-typecheck`, and fix until all three pass.
+For every change, load the la:living-architecture skill and follow its "Working under the architecture" rules.
 ```
 
-`la-arch-check` holds the imports to the model's arrows and checks the principles' tags, `likec4 validate` checks
-the model itself, and `la-typecheck` runs basedpyright (or `tsc`) against a baseline that only shrinks.
+The skill has the agent read the principles of every part of the code it touches before changing it, and run three
+checks before it finishes: `la-arch-check` holds the imports to the model's arrows and checks the principles' tags,
+`likec4 validate` checks the model itself, and `la-typecheck` runs basedpyright (or `tsc`) against a baseline that
+only shrinks.
 
 <details>
 <summary>Running the checks in CI</summary>
