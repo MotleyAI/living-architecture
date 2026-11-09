@@ -20,15 +20,15 @@ PR=""
 REPO=""
 MAX_LOG=200
 
-while [ $# -gt 0 ]; do
+while [[ $# -gt 0 ]]; do
     case "$1" in
         --repo)
-            [ $# -ge 2 ] || usage
+            [[ $# -ge 2 ]] || usage
             REPO="$2"; shift 2 ;;
         --repo=*)
             REPO="${1#--repo=}"; shift ;;
         --max-log-lines)
-            [ $# -ge 2 ] || usage
+            [[ $# -ge 2 ]] || usage
             MAX_LOG="$2"; shift 2 ;;
         --max-log-lines=*)
             MAX_LOG="${1#--max-log-lines=}"; shift ;;
@@ -40,7 +40,7 @@ while [ $# -gt 0 ]; do
             echo "error: unknown flag: $1" >&2
             usage ;;
         *)
-            if [ -z "$PR" ]; then
+            if [[ -z "$PR" ]]; then
                 PR="$1"; shift
             else
                 echo "error: unexpected positional arg: $1" >&2
@@ -50,13 +50,13 @@ while [ $# -gt 0 ]; do
     esac
 done
 
-[ -n "$PR" ] || usage
+[[ -n "$PR" ]] || usage
 [[ "$PR"     =~ ^[0-9]+$ ]] || { echo "error: PR_NUMBER must be a positive integer, got: $PR" >&2; exit 2; }
 [[ "$MAX_LOG" =~ ^[0-9]+$ ]] || { echo "error: --max-log-lines must be a non-negative integer, got: $MAX_LOG" >&2; exit 2; }
 
-if [ -z "$REPO" ]; then
+if [[ -z "$REPO" ]]; then
     REPO="$(gh repo view --json owner,name -q '.owner.login + "/" + .name' 2>/dev/null || true)"
-    [ -n "$REPO" ] || { echo "error: --repo not given and could not auto-detect (cwd is not a gh-recognised repo)" >&2; exit 2; }
+    [[ -n "$REPO" ]] || { echo "error: --repo not given and could not auto-detect (cwd is not a gh-recognised repo)" >&2; exit 2; }
 fi
 
 command -v gh >/dev/null 2>&1 || { echo "error: gh is required" >&2; exit 127; }
@@ -103,26 +103,29 @@ run_gh() {
 
 # Why a call gave no log: its last non-empty stderr line, else its exit code, else "empty log".
 failure_reason() {
-    local reason
-    reason="$(awk 'NF { last = $0 } END { print last }' "$1")"
-    if [ -n "$reason" ]; then echo "$reason"
-    elif [ "$rc" -ne 0 ]; then echo "exit $rc"
+    local err="$1" reason
+    reason="$(awk 'NF { last = $0 } END { print last }' "$err")"
+    if [[ -n "$reason" ]]; then echo "$reason"
+    elif [[ "$rc" -ne 0 ]]; then echo "exit $rc"
     else echo "empty log"
     fi
 }
 
 has_log() {
-    LC_ALL=C grep -q '[^[:space:]]' "$1"
+    local file="$1"
+    LC_ALL=C grep -q '[^[:space:]]' "$file"
 }
 
 record() {
-    jq -nc --arg command "$1" --arg outcome "$2" '{command: $command, outcome: $outcome}' >> "$attempts"
+    local command="$1" outcome="$2"
+    jq -nc --arg command "$command" --arg outcome "$outcome" '{command: $command, outcome: $outcome}' >> "$attempts"
 }
 
-# The failed step's section: log lines stamped within [$2, $3] to the second (an unstamped line takes the
+# The failed step's section: log lines stamped within [start, end] to the second (an unstamped line takes the
 # previous stamp), from the first `##[group]Run ` line to the last `##[error]` line.
 step_section() {
-    LC_ALL=C awk -v s="$2" -v e="$3" '
+    local log="$1" start="$2" end="$3"
+    LC_ALL=C awk -v s="$start" -v e="$end" '
         function is_error(l) { return index(l, "##[error]") == 1 || index(l, " ##[error]") > 0 }
         function is_run(l) { return index(l, "##[group]Run ") == 1 || index(l, " ##[group]Run ") > 0 }
         /^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9]/ { ts = substr($0, 1, 19) }
@@ -133,11 +136,12 @@ step_section() {
             last = n
             for (i = n; i >= first; i--) if (is_error(line[i])) { last = i; break }
             for (i = first; i <= last; i++) print line[i]
-        }' "$1"
+        }' "$log"
 }
 
 # The `##[error]` lines before the last N lines, then the last N lines; each gap one omitted-lines line.
 errors_and_tail() {
+    local log="$1"
     LC_ALL=C awk -v n="$MAX_LOG" '
         function is_error(l) { return index(l, "##[error]") == 1 || index(l, " ##[error]") > 0 }
         { line[NR] = $0 }
@@ -152,12 +156,13 @@ errors_and_tail() {
             }
             if (cut > last) print "[... " (cut - last) " lines omitted ...]"
             for (i = (cut > 0 ? cut + 1 : 1); i <= NR; i++) print line[i]
-        }' "$1"
+        }' "$log"
 }
 
-# Job-log API attempt for $1 (a job id): sets source and writes the excerpt.
+# Job-log API attempt for a job id: sets source and writes the excerpt.
 api_excerpt() {
-    local logs="repos/$REPO/actions/jobs/$1/logs" meta="repos/$REPO/actions/jobs/$1" outcome start end
+    local job="$1"
+    local logs="repos/$REPO/actions/jobs/$job/logs" meta="repos/$REPO/actions/jobs/$job" outcome start end
     local section="$work/log"
     run_gh "$work/out" "$work/err" api "$logs"
     if ! has_log "$work/out"; then
@@ -169,13 +174,13 @@ api_excerpt() {
         "$work/out" > "$work/log"
     source=api-errors-tail
     run_gh "$work/meta" "$work/err" api "$meta" --jq "$FAILED_STEP_JQ"
-    if [ "$rc" -ne 0 ]; then
+    if [[ "$rc" -ne 0 ]]; then
         outcome="$(failure_reason "$work/err")"
     elif ! read -r start end < "$work/meta"; then
         outcome="no failed step"
     else
         step_section "$work/log" "$start" "$end" > "$work/section"
-        if [ -s "$work/section" ]; then
+        if [[ -s "$work/section" ]]; then
             outcome=ok
             source=api-step
             section="$work/section"
@@ -191,7 +196,7 @@ api_excerpt() {
 # (only resolvable when the details URL is a GitHub Actions URL we recognise).
 n=$(echo "$failed" | jq 'length')
 i=0
-while [ "$i" -lt "$n" ]; do
+while [[ "$i" -lt "$n" ]]; do
     check="$(echo "$failed" | jq -c ".[$i]")"
     url="$(echo "$check" | jq -r '.details_url // ""')"
     run_id=""
@@ -209,8 +214,8 @@ while [ "$i" -lt "$n" ]; do
         job_id="${BASH_REMATCH[1]}"
     fi
 
-    if [ "$MAX_LOG" -gt 0 ] && [ -n "$run_id" ]; then
-        if [ -n "$job_id" ]; then target=(--job "$job_id"); else target=("$run_id"); fi
+    if [[ "$MAX_LOG" -gt 0 ]] && [[ -n "$run_id" ]]; then
+        if [[ -n "$job_id" ]]; then target=(--job "$job_id"); else target=("$run_id"); fi
         # `--log-failed` emits only steps GitHub marked as failed; a job can fail with none (a service
         # container that never came up, a runner-level abort), so the full log's tail comes next.
         for flag in --log-failed --log; do
@@ -224,7 +229,7 @@ while [ "$i" -lt "$n" ]; do
             record "gh run view ${target[*]} $flag" "$(failure_reason "$work/err")"
         done
         # Both can be empty for a plain Actions job whose log GitHub still serves through the REST API.
-        if [ -z "$source" ] && [ -n "$job_id" ]; then
+        if [[ -z "$source" ]] && [[ -n "$job_id" ]]; then
             api_excerpt "$job_id"
         fi
     fi
@@ -258,7 +263,7 @@ jq -n \
 echo "# Failed CI checks on $REPO PR #$PR"
 echo
 fail_count=$(jq 'length' "$enriched_file")
-if [ "$fail_count" = "0" ]; then
+if [[ "$fail_count" = "0" ]]; then
     echo "_No failed checks._"
     echo
 else
