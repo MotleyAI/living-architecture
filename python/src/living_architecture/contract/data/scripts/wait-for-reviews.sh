@@ -74,9 +74,9 @@ if [[ -z "$REPO" ]]; then
         || { echo "could not resolve --repo from gh repo view" >&2; exit 2; })
 fi
 
-GATE_TIMEOUT=${LA_WAIT_GATE_TIMEOUT:-$((30 * 60))}
+GATE_TIMEOUT=${LA_WAIT_GATE_TIMEOUT:-1800}
 POLL=${LA_WAIT_POLL_SECONDS:-60}
-CR_SETTLE=${LA_WAIT_CR_SETTLE:-$((10 * 60))}
+CR_SETTLE=${LA_WAIT_CR_SETTLE:-600}
 CR_POLL=30
 
 # HEAD's snapshot into HEAD_SHA and ROLLUP, then its Sonar suites into SUITES. Returns 1 when the snapshot read
@@ -196,6 +196,7 @@ cr_poll() {
             *"carried forward"*) OUTCOME=carried ;;
             *"rate limited"*) OUTCOME=rate-limited ;;
             *"paused"*) OUTCOME=paused ;;
+            *) ;;
         esac
     fi
 }
@@ -239,6 +240,7 @@ while :; do
                     echo "Stage 0b: re-trigger with 'gh pr comment $PR --repo $REPO --body \"@coderabbitai review\"' once the window clears." >&2
                     exit 3
                     ;;
+                *) ;;
             esac
         fi
 
