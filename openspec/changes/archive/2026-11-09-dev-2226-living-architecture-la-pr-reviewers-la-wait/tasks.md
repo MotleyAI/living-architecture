@@ -84,4 +84,4 @@ and, where it covers a commit, `<!-- final_review_risk_coverage:{"sourceCommitId
 
 ## 6. After merge
 
-- [ ] 6.1 Mark DEV-2084 as a Duplicate of DEV-2226 in Linear (user approved in pr-plan, 2026-11-09).
+- [x] 6.1 Mark DEV-2084 as a Duplicate of DEV-2226 in Linear (user approved in pr-plan, 2026-11-09).
