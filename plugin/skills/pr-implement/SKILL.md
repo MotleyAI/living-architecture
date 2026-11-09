@@ -20,6 +20,9 @@ comment on the tracker issue) and the failing tests already on disk from
 
 Implement the plan. Run the repo's test command (`la-config get commands.test`; if unset, the repo's documented full non-integration suite) after changes and fix any failures. Do not
 declare done until every test from the `pr-tests` stage passes.
+An existing test that breaks because it pins what the plan changes is not a
+design fork: ask only for approval to align it with the plan (the `/la:pr`
+stopping policy), never with alternative options.
 
 **Symptom vs. structural cause — decide before you patch.** The plan already
 chose between a band-aid and a structural fix; implement the structural shape

@@ -61,6 +61,11 @@ proceed.** The only other permitted pauses are:
   / narrow the scenario) with a recommendation. NEVER create a tracker issue, mark a
   scenario xfail, or narrow a scenario on your own to route around it — even when a
   tasks.md line or an earlier plan says "file its own issue".
+- an **existing test that contradicts the plan** — it pins a shape or behaviour the
+  plan changes: ask ONLY for my approval to align that test with the plan, naming
+  each file and what changes in it. This is an approval request, not a choice:
+  NEVER pose alternatives beside it (a workaround the plan rejected, keeping the
+  old shape to spare the test, …).
 
 Never stop just to report progress, to confirm an obvious next step, or to ask
 something you can determine yourself.
