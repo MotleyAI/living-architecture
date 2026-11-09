@@ -1,0 +1,21 @@
+# Failed CI checks on o/r PR #7
+
+## Check 1 — CI / tests
+Conclusion: FAILURE   Status: COMPLETED   Type: CheckRun
+Details: https://github.com/o/r/actions/runs/11/job/22
+Run: 11  Job: 22
+
+<details><summary>Job log from the job-log API (##[error] lines + last 200 lines)</summary>
+
+```
+2026-01-01T00:00:01.0000000Z ##[group]Run make test
+2026-01-01T00:00:02.0000000Z FAIL test_x
+2026-01-01T00:00:03.0000000Z ##[error]Process completed with exit code 2.
+
+```
+
+</details>
+
+---
+
+JSON: <ROOT>/tmp/failed-pr-checks-7-<TS>.json

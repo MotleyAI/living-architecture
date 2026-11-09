@@ -47,10 +47,13 @@ for route in routes:
                 sys.stderr.write(jq.stderr)
                 out = jq.stdout
         sys.stdout.write(out)
+        sys.stderr.write(route.get("stderr", ""))
         sys.exit(route.get("exit", 0))
 sys.stderr.write("fake gh: no route for " + " ".join(argv) + "\\n")
 sys.exit(1)
 """
+
+Route = tuple[list[str], object] | tuple[list[str], object, int] | tuple[list[str], object, int, str]
 
 
 class FakeGh:
@@ -65,12 +68,13 @@ class FakeGh:
         gh.chmod(0o755)
         self.route()
 
-    def route(self, *routes: tuple[list[str], object] | tuple[list[str], object, int]) -> None:
-        """Each route: (argv tokens, stdout as str or JSON-able, [exit code])."""
+    def route(self, *routes: Route) -> None:
+        """Each route: (argv tokens, stdout as str or JSON-able, [exit code, [stderr]])."""
         out = []
         for r in routes:
             stdout = r[1] if isinstance(r[1], str) else json.dumps(r[1])
-            out.append({"match": r[0], "stdout": stdout, "exit": r[2] if len(r) > 2 else 0})
+            out.append({"match": r[0], "stdout": stdout, "exit": r[2] if len(r) > 2 else 0,
+                        "stderr": r[3] if len(r) > 3 else ""})
         self.routes_file.write_text(json.dumps(out))
 
     def calls(self) -> list[dict]:

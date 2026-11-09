@@ -5,7 +5,7 @@ Conclusion: FAILURE   Status: COMPLETED   Type: CheckRun
 Details: https://github.com/o/r/actions/runs/11/job/22
 Run: 11  Job: 22
 
-<details><summary>Failed-step log (last 5 lines)</summary>
+<details><summary>Full log (last 5 lines)</summary>
 
 ```
 container never started

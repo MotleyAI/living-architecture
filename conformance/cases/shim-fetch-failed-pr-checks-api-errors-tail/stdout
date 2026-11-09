@@ -1,0 +1,23 @@
+# Failed CI checks on o/r PR #7
+
+## Check 1 — CI / tests
+Conclusion: FAILURE   Status: COMPLETED   Type: CheckRun
+Details: https://github.com/o/r/actions/runs/11/job/22
+Run: 11  Job: 22
+
+<details><summary>Job log from the job-log API (##[error] lines + last 3 lines)</summary>
+
+```
+2026-01-01T00:00:01.0000000Z ##[error]Service container postgres failed.
+[... 3 lines omitted ...]
+2026-01-01T00:00:05.0000000Z line d
+2026-01-01T00:00:06.0000000Z line e
+2026-01-01T00:00:07.0000000Z line f
+
+```
+
+</details>
+
+---
+
+JSON: <ROOT>/tmp/failed-pr-checks-7-<TS>.json
