@@ -52,8 +52,8 @@ For an example of a project using this, look at [SLayer](https://github.com/Motl
 /plugin install la@living-architecture
 
 # the commands (la-*, dr-*), pinned to the same version as the plugin, from your repo's ecosystem
-uv tool install living-architecture==0.4.1      # Python repos (Python >= 3.11)
-npm install -g living-architecture@0.4.1        # TypeScript/JavaScript repos (Node >= 22)
+uv tool install living-architecture==0.4.2      # Python repos (Python >= 3.11)
+npm install -g living-architecture@0.4.2        # TypeScript/JavaScript repos (Node >= 22)
 ```
 
 The commands come as a PyPI package and an npm package of the same name, with identical behaviour. Each serves
@@ -115,18 +115,18 @@ jobs:
         with:
           node-version: 22
       - run: uv sync    # the project env, with basedpyright in it
-      - run: uvx --no-build --from living-architecture==0.4.1 la-arch-check
+      - run: uvx --no-build --from living-architecture==0.4.2 la-arch-check
       - run: npx -y likec4@1.60.0 validate architecture
-      - run: uvx --no-build --from living-architecture==0.4.1 la-typecheck
+      - run: uvx --no-build --from living-architecture==0.4.2 la-typecheck
 ```
 
 For a TypeScript repo, drop `setup-uv` and use these steps after `setup-node`:
 
 ```yaml
       - run: npm ci     # puts tsc in node_modules
-      - run: npx -y -p living-architecture@0.4.1 la-arch-check
+      - run: npx -y -p living-architecture@0.4.2 la-arch-check
       - run: npx -y likec4@1.60.0 validate architecture
-      - run: npx -y -p living-architecture@0.4.1 la-typecheck
+      - run: npx -y -p living-architecture@0.4.2 la-typecheck
 ```
 
 `la-typecheck` takes the checker from `.venv/bin` or `node_modules/.bin` first, so install the project before it
