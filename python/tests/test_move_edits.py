@@ -394,6 +394,26 @@ def test_destination_alias_that_cannot_become_the_name_is_refused(
     assert capsys.readouterr().err.strip() == message("refactor.name-conflict", name=name, path="pkg/b.py", line=line)
 
 
+def test_module_move_rewrite_shadowed_in_the_use_scope_is_refused(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    use = "import pkg.sql as s\n\n\ndef use(pkg: int) -> int:\n    return s.client.X + pkg\n"
+    root = _write(tmp_path, {**MODULE_PROJECT, "use.py": use})
+    before = _tree(root)
+    assert _move_module(root, "--apply") == 1
+    assert _tree(root) == before
+    assert capsys.readouterr().err.strip() == message("refactor.name-conflict", name="pkg", path="use.py", line=4)
+
+
+def test_destination_use_shadowed_in_its_scope_is_refused(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    dest = "import pkg.a as pa\n\n\ndef use(f: int) -> int:\n    return pa.f() + f\n"
+    root = _write(tmp_path, {**SYMBOL_PROJECT, "pkg/b.py": dest})
+    before = _tree(root)
+    assert _move_f(root, "--apply") == 1
+    assert _tree(root) == before
+    assert capsys.readouterr().err.strip() == message("refactor.name-conflict", name="f", path="pkg/b.py", line=4)
+
+
 def test_moved_code_follows_leading_comments_of_a_destination_without_imports(tmp_path: Path) -> None:
     root = _write(tmp_path, {**SYMBOL_PROJECT, "pkg/b.py": "# header\n# more\nX = 1\n"})
     assert _move_f(root, "--apply") == 0

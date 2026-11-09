@@ -370,8 +370,10 @@ class _File:
         col = len(self.text[_line_start(self.text, offset) : offset].encode())
         return self.scopes.loads.get((line, col))
 
-    def rewrite_use(self, occurrence: occurrences.Occurrence, new: str, needs: str | None) -> None:
-        """Rule 3: the chain becomes `new`; `needs` is the module an import must bind for it."""
+    def rewrite_use(
+        self, occurrence: occurrences.Occurrence, new: str, needs: str | None, obj: str | None = None
+    ) -> None:
+        """Rule 3: the chain becomes `new`, its root free for `obj` (default: itself); `needs` is the module to import."""
         start, end = _primary_range(occurrence)
         if not _CHAIN.fullmatch(self.text[start:end]):
             return
@@ -379,6 +381,8 @@ class _File:
         if use is None:
             return
         name, scope = use
+        root = new.split(".")[0]
+        self.check_free(root, obj or root, scope)
         found = scope.lookup(name.id)
         binding = None
         if found is not None:
@@ -668,7 +672,7 @@ class _SymbolMove:
         for occurrence in self.finder.find_occurrences(resource=file.resource):
             if _module_object(occurrence) == self.source:
                 if is_dest:
-                    file.rewrite_use(occurrence, self.name, None)
+                    file.rewrite_use(occurrence, self.name, None, f"{self.old}.{self.name}")
                 else:
                     file.rewrite_use(occurrence, f"{self.new}.{self.name}", self.new)
             elif _primary(occurrence) is None and not is_dest:
