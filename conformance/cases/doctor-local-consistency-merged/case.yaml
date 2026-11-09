@@ -1,5 +1,7 @@
 kind: neutral
 command: la-doctor
+args:
+- --require-plan-store
 git:
 - write:
     .gitignore: 'living-architecture.local.yaml

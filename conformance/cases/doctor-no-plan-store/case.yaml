@@ -1,8 +1,10 @@
 kind: neutral
 command: la-doctor
+args:
+- --require-plan-store
 normalize:
 - version
 expect:
   exit: 1
 golden: manual
-note: 'tracker: none with openspec: false leaves nowhere to persist the plan'
+note: 'with --require-plan-store, tracker: none with openspec: false leaves nowhere to persist the plan'

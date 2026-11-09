@@ -3,7 +3,7 @@ name: pr-implement
 description: Stage 3 of 4 of the /la:pr flow — implement until every test from the pr-tests stage passes, then with the user's explicit go-ahead commit, push, and open the PR. Normally dispatched by /la:pr; if the /la:pr context (BRANCH, CHANGE_ID, OPENSPEC, tracker issue) is not already loaded in this session, invoke the la:pr skill instead.
 ---
 
-**Preflight:** run `la-doctor --plugin <this skill's base directory> --require-config` once per session before using any `la-*` or `dr-*` command. If it reports the missing-config finding (the one naming `/la:init`), run the fast path of the `la:init` skill, then re-run this preflight; stop and show the user its output on anything it still reports, or on any other failure.
+**Preflight:** run `la-doctor --plugin <this skill's base directory> --require-config --require-plan-store` once per session before using any `la-*` or `dr-*` command. If it reports the missing-config finding (the one naming `/la:init`), run the fast path of the `la:init` skill, then re-run this preflight; stop and show the user its output on anything it still reports, or on any other failure.
 
 **Stage 3 of 4 of the `/la:pr` flow.** Prerequisite: `/la:pr` has run in this
 session and established `BRANCH`, `CHANGE_ID`, `OPENSPEC`, and the full tracker
@@ -20,6 +20,9 @@ comment on the tracker issue) and the failing tests already on disk from
 
 Implement the plan. Run the repo's test command (`la-config get commands.test`; if unset, the repo's documented full non-integration suite) after changes and fix any failures. Do not
 declare done until every test from the `pr-tests` stage passes.
+An existing test that breaks because it pins what the plan changes is not a
+design fork: ask only for approval to align it with the plan (the `/la:pr`
+stopping policy), never with alternative options.
 
 **Symptom vs. structural cause — decide before you patch.** The plan already
 chose between a band-aid and a structural fix; implement the structural shape

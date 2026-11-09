@@ -1,0 +1,10 @@
+kind: neutral
+command: la-doctor
+args:
+- --require-config
+normalize:
+- version
+expect:
+  exit: 0
+golden: manual
+note: 'without --require-plan-store, tracker: none with openspec: false is healthy (no /la:pr flow to persist a plan)'
