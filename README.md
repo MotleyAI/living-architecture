@@ -60,7 +60,8 @@ The commands come as a PyPI package and an npm package of the same name, with id
 its own ecosystem natively, needs nothing from the other in a single-language repo, and calls the other for the
 other language's files in a mixed repo
 ([details](https://github.com/MotleyAI/living-architecture/blob/main/docs/commands.md#two-twins)). Skills check
-that the installed commands match the plugin before they run.
+that the installed commands match the plugin before they run; a plugin update within the same minor version needs no
+reinstall.
 
 `living-architecture.yaml` records the repo's format version. After an upgrade that changes the format, most
 commands refuse to run on the repo until you run `la-arch-migrate` once, and `la-doctor` says so.

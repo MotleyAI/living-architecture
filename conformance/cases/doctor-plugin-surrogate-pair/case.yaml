@@ -7,3 +7,4 @@ git:
 normalize: [version]
 expect:
   exit: 1
+note: an escaped surrogate pair decodes to one character, which is not of the version form

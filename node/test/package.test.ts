@@ -1,10 +1,9 @@
-// Package invariants that need no source module: bin set, version lockstep, the root files' prepack copy, snapshot.
+// Package invariants that need no source module: bin set, version lockstep, the root files' ignore rules, snapshot.
 import { spawnSync } from 'node:child_process';
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
-import { afterAll, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { HASH_FILE, NODE_ROOT, REPO_ROOT, SHARED, SNAPSHOT, loadYamlFile, readJson, tree } from './helpers.js';
 
 const PACKAGE = readJson(join(NODE_ROOT, 'package.json'));
@@ -35,20 +34,6 @@ describe('package.json', () => {
 });
 
 describe('root README.md and LICENSE', () => {
-  const TMP = mkdtempSync(join(tmpdir(), 'la-prepack-'));
-  afterAll(() => rmSync(TMP, { recursive: true, force: true }));
-
-  it('prepack copies them from the parent directory', () => {
-    mkdirSync(join(TMP, 'node'));
-    copyFileSync(join(NODE_ROOT, 'package.json'), join(TMP, 'node', 'package.json'));
-    for (const name of ['README.md', 'LICENSE']) writeFileSync(join(TMP, name), `root ${name}\n`);
-    const proc = spawnSync('npm', ['run', 'prepack'], { cwd: join(TMP, 'node'), encoding: 'utf8' });
-    expect(proc.status, proc.stderr).toBe(0);
-    for (const name of ['README.md', 'LICENSE']) {
-      expect(readFileSync(join(TMP, 'node', name), 'utf8')).toBe(`root ${name}\n`);
-    }
-  });
-
   it.each([
     ['node/README.md', 0],
     ['node/LICENSE', 0],

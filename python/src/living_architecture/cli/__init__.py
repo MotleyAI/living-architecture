@@ -55,7 +55,6 @@ def _doctor(args: argparse.Namespace) -> int:
         return 0
     return doctor.run(
         root=_root(args.root),
-        expect=args.expect,
         plugin=args.plugin,
         print_hash=args.contract_hash,
         require_config=args.require_config,

@@ -1,0 +1,11 @@
+kind: neutral
+command: la-doctor
+args: [--plugin, plugin]
+git:
+- write:
+    plugin/.claude-plugin/plugin.json: '{"version": "0<MAJOR>.0<MINOR>.7"}'
+normalize: [version]
+expect:
+  exit: 0
+golden: manual
+note: leading zeros in major and minor are insignificant
