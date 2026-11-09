@@ -1,6 +1,6 @@
 ## 1. Tests (pr-tests stage; failing until implemented)
 
-- [ ] 1.1 New fixture `conformance/fixtures/refactor-references/` (Python, git-initialised as the existing
+- [x] 1.1 New fixture `conformance/fixtures/refactor-references/` (Python, git-initialised as the existing
   `refactor-pkg` cases are): `pkg/sql/{__init__,client,dialects,engine_factory,engine}.py`, an empty
   `pkg/database/__init__.py`, and one file per shape under `tests/`. The shapes are: an importorskip-gated import, an
   interleaved `sys.path.insert`, an unsorted block, a single-line and a parenthesized multi-name from-import (a trailing
@@ -10,33 +10,33 @@
   moved module's own `from . import dialects`, and the import edit forms (a backslash continuation, a semicolon tail, a
   CRLF file, a file without a final newline, non-ASCII text before the import on its line). Verify by running today's
   `dr-refactor` on it and seeing the reflow and the self-alias crash.
-- [ ] 1.2 Python adapter cases (`golden: manual`, hand-written diffs per the spec scenarios):
+- [x] 1.2 Python adapter cases (`golden: manual`, hand-written diffs per the spec scenarios):
   `refactor-move-module-references` (dry-run of `pkg/sql/client.py` → `pkg/database` over 1.1);
   `refactor-move-module-references-apply` (same with `--apply`, `expect.files` pinning the written files);
   `refactor-move-module-package-relative` (package `pkg/sql` → `pkg/database`, internal relative imports unchanged);
   `refactor-move-module-cross-top-level` (relative import becomes absolute);
   `refactor-rename-module-references` (`rename` of module `client` → `cli2` over 1.1, rope's current output).
   Verify that each fails today, except `refactor-rename-module-references`, which must pass today.
-- [ ] 1.3 `move-symbol` fixture overlay plus adapter cases (`golden: manual`): `refactor-move-symbol-references` moves `f`
+- [x] 1.3 `move-symbol` fixture overlay plus adapter cases (`golden: manual`): `refactor-move-symbol-references` moves `f`
   from `pkg/a.py` to `pkg/b.py`. It covers a gated importer, a multi-name split, a function-local import, an alias used
   only as `pa.f()`, an alias with a surviving `pa.g()`, a star-import consumer, `pkg/__init__.py` with
   `from pkg.a import f as public_f`, `pkg/a.py`'s `__all__` listing `"f"`, the source still calling `f` after the move,
   `f` using `os` and `sys`, and a destination with an unsorted, importorskip-gated block that already has `import sys`.
   Then the `refactor-move-symbol-name-conflict-{assignment,parameter,aliased-import,enclosing-scope}` cases: exit 1
   with the name-conflict finding on stderr, stdout empty, no file changed. Verify that each fails today.
-- [ ] 1.4 TS adapter cases (`golden: manual`, pinning today's npm output; run the commands first and check the diffs
+- [x] 1.4 TS adapter cases (`golden: manual`, pinning today's npm output; run the commands first and check the diffs
   match the spec): `refactor-ts-move-symbol-split-in-place` and `refactor-ts-move-module-references` (a multi-name
   import, a statement between import groups, an unsorted block). Verify that they pass today.
-- [ ] 1.5 List every new case in `conformance/INVENTORY.md` under `dr-refactor` / `dr-refactor: TypeScript`, marked
+- [x] 1.5 List every new case in `conformance/INVENTORY.md` under `dr-refactor` / `dr-refactor: TypeScript`, marked
   *(new)*. Verify `tests/test_conformance.py`'s inventory check passes.
-- [ ] 1.6 Python unit tests for the planner (new `python/tests/test_move_edits.py`). Cover rule classification by
+- [x] 1.6 Python unit tests for the planner (new `python/tests/test_move_edits.py`). Cover rule classification by
   resolved object (rules 1–3, an explicit `__init__` binding versus an implicit package attribute); token-level import
   edits (comma and comment ownership, the parenthesized own-line removal, a semicolon tail, a backslash continuation,
   CRLF, no final newline); the new-statement position; byte-to-character offsets on non-ASCII lines; relative import
   recomputation (same package, parent, files moving together, across top-level packages); exact import removal; the
   leading import block (docstring, `__future__`, a gate); and the same-object check for added imports. Verify that
   they fail today.
-- [ ] 1.7 Codex review of the tests against this change (pr-tests Step 2); resolve findings with the user.
+- [x] 1.7 Codex review of the tests against this change (pr-tests Step 2); resolve findings with the user.
 
 ## 2. shared/
 

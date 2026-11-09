@@ -1,0 +1,19 @@
+Moving module <sql>:
+
+
+--- a/pkg/api/handler.py
++++ b/pkg/api/handler.py
+@@ -1,4 +1,4 @@
+-from ..sql import client
++from ..database.sql import client
+ 
+ 
+ def handle() -> int:
+
+rename from pkg/sql
+rename to pkg/database/sql
+
+
+APPLIED. 2 file(s) changed:
+  pkg/api/handler.py
+  pkg/sql

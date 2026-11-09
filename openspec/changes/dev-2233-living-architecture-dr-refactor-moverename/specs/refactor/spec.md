@@ -148,5 +148,7 @@ added import or the moved code would bind a name that already resolves to a diff
 
 #### Scenario: Name conflict refused
 - **WHEN** `move-symbol` moves `f`, which uses module `os`, into a destination where `os` is assigned another value
-  (or bound as a parameter, by an aliased import of another module, or in an enclosing scope)
-- **THEN** it exits 1 with the name-conflict finding naming the destination and line, and no file changes
+  or bound by an aliased import of another module; or a function-local `import pkg.a as pa`, whose `pa.f()` needs
+  `import pkg.b`, sits in a function where `pkg` is a parameter or is bound by an enclosing function
+- **THEN** it exits 1 with the name-conflict finding naming that file and the existing binding's line, and no file
+  changes

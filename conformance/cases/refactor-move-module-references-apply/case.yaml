@@ -1,0 +1,40 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- --apply
+- move-module
+- --module
+- pkg/sql/client.py
+- --dest
+- pkg/database
+fixture: refactor-references
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - pkg/api/handler.py
+  - pkg/sql/engine.py
+  - tests/test_backslash.py
+  - tests/test_chain.py
+  - tests/test_crlf.py
+  - tests/test_dotted.py
+  - tests/test_gated.py
+  - tests/test_interleaved.py
+  - tests/test_local_import.py
+  - tests/test_multi_name.py
+  - tests/test_no_final_newline.py
+  - tests/test_non_ascii.py
+  - tests/test_package_attr.py
+  - tests/test_parenthesized.py
+  - tests/test_self_alias.py
+  - tests/test_semicolon.py
+  - tests/test_star.py
+  - tests/test_unsorted.py
+  - pkg/sql/client.py
+  - pkg/database/client.py
+  - .ropeproject/history.json
+golden: manual
+note: the written files keep every byte outside the references, including CRLF endings and a missing final newline

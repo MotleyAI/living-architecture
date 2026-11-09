@@ -1,0 +1,31 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- --apply
+- move-symbol
+- --file
+- pkg/a.py
+- --name
+- f
+- --dest
+- pkg/b.py
+fixture: refactor-references
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - pkg/__init__.py
+  - pkg/a.py
+  - pkg/b.py
+  - tests/test_sym_alias_kept.py
+  - tests/test_sym_alias_only.py
+  - tests/test_sym_gated.py
+  - tests/test_sym_local_import.py
+  - tests/test_sym_multi_name.py
+  - tests/test_sym_star.py
+  - .ropeproject/history.json
+golden: manual
+note: importers change only at their references; the moved code lands after the destination's last top-level import

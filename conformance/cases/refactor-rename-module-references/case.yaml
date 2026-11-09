@@ -1,0 +1,19 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- rename
+- --file
+- tests/test_multi_name.py
+- --name
+- client
+- --new-name
+- cli2
+fixture: refactor-references
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: rename edits only the module name tokens and the uses bound to them (rope's own edits)
