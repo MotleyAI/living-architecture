@@ -40,25 +40,25 @@
 
 ## 2. shared/
 
-- [ ] 2.1 `shared/findings.yaml`: add, after `refactor.rope-walk`, the approved wording `refactor.name-conflict: '{name}
+- [x] 2.1 `shared/findings.yaml`: add, after `refactor.rope-walk`, the approved wording `refactor.name-conflict: '{name}
   already names something else at {path}:{line}, so nothing was refactored'` (user, approved wording). Run
   `scripts/sync-shared`, and verify `scripts/sync-shared --check` passes and both snapshots' `CONTRACT_HASH` match.
 
 ## 3. Python twin
 
-- [ ] 3.1 New planner module in `python/src/living_architecture/refactor/`. It classifies each rope occurrence
+- [x] 3.1 New planner module in `python/src/living_architecture/refactor/`. It classifies each rope occurrence
   (`create_finder(..., imports=True)`, `get_primary_and_pyname()`) into rules 1–3 by resolved objects (design
   decisions 10 and 12). Verify the 1.6 classification tests pass.
-- [ ] 3.2 Import statement edits on `tokenize` tokens: a path rewrite, the removal of one name, an inserted
+- [x] 3.2 Import statement edits on `tokenize` tokens: a path rewrite, the removal of one name, an inserted
   statement after the statement's physical end line, and positions through `rope_patches.char_offset` (design 15 and
   16). Verify the 1.6 token and offset tests pass.
-- [ ] 3.3 Relative import recomputation (design 5 and 17). Verify the 1.6 relative tests pass.
-- [ ] 3.4 Rule-3 rewrites, the adjacent import, the exact removal (design 3 and 14), and the same-object check with the
+- [x] 3.3 Relative import recomputation (design 5 and 17). Verify the 1.6 relative tests pass.
+- [x] 3.4 Rule-3 rewrites, the adjacent import, the exact removal (design 3 and 14), and the same-object check with the
   `refactor.name-conflict` refusal (design 11, exit 1, nothing written). Verify the 1.6 tests pass.
-- [ ] 3.5 `rope_refactor.move_module` builds its `ChangeSet` from the planner (`ChangeContents` per touched file,
+- [x] 3.5 `rope_refactor.move_module` builds its `ChangeSet` from the planner (`ChangeContents` per touched file,
   including the moved module's own relative imports, plus `MoveResource`). Verify the `refactor-move-module-*` cases
   and the existing `refactor-move-module-*` goldens pass.
-- [ ] 3.6 `rope_refactor.move_symbol` builds its `ChangeSet` from the planner. It reuses rope's moving region and
+- [x] 3.6 `rope_refactor.move_symbol` builds its `ChangeSet` from the planner. It reuses rope's moving region and
   `moving_code_with_imports` for what moves (design 6 and the Risks section). Destination imports go after the leading
   import block, the destination's import of the symbol is removed, and the source's `__all__` entry and remaining use
   are handled (design 13). Verify `refactor-move-symbol-*` and the existing `refactor-move-symbol-apply` golden pass.
@@ -69,12 +69,12 @@
 
 ## 4. Verify
 
-- [ ] 4.1 Python: in `python/`, `uv run pytest -q`, `uv run ruff check src tests` and `uv run basedpyright src tests`
+- [x] 4.1 Python: in `python/`, `uv run pytest -q`, `uv run ruff check src tests` and `uv run basedpyright src tests`
   are green.
-- [ ] 4.2 npm: in `node/`, `npm run lint && npm run typecheck`, `npm test`, and `npm run build && npm run conformance`
+- [x] 4.2 npm: in `node/`, `npm run lint && npm run typecheck`, `npm test`, and `npm run build && npm run conformance`
   are green.
-- [ ] 4.3 `scripts/conformance-cross`, `scripts/sync-shared --check` and `la-arch-check` are green.
-- [ ] 4.4 SLayer acceptance. Clone `~/GitHub/SLayer/slayer` `main` into the scratchpad, add an empty
+- [x] 4.3 `scripts/conformance-cross`, `scripts/sync-shared --check` and `la-arch-check` are green.
+- [x] 4.4 SLayer acceptance. Clone `~/GitHub/SLayer/slayer` `main` into the scratchpad, add an empty
   `slayer/database/__init__.py`, commit it there, and run `dr-refactor move-module --module slayer/sql/client.py --dest
   slayer/database` (a dry-run). Verify the diff holds only `slayer.sql.client` → `slayer.database.client` edits, plus
   any rule-3 adjacent import (design 8). It must not hoist the `importorskip`-gated imports in

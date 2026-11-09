@@ -10,12 +10,14 @@ from typing import Any, cast
 from pydantic import BaseModel
 from rope.base import libutils
 from rope.base.change import ChangeSet
+from rope.base.exceptions import RefactoringError
 from rope.base.project import Project
-from rope.base.resources import Resource
+from rope.base.resources import File, Folder, Resource
 from rope.refactor.move import MoveGlobal, MoveModule, create_move
 from rope.refactor.rename import Rename
 
 from living_architecture.contract import message
+from living_architecture.refactor.move_edits import NameConflict, module_move_changes, symbol_move_changes
 from living_architecture.refactor.rope_patches import WalkerGap, apply_rope_patches
 
 apply_rope_patches()
@@ -102,12 +104,22 @@ def rename(
 def move_symbol(project: Project, *, file: str, locator: Locator, dest: str, apply: bool) -> None:
     offset = _resolve_offset(locator, Path(file).read_text())
     mover = cast(MoveGlobal, create_move(project, _resource(project, file), offset))
-    _emit(project, mover.get_changes(_resource(project, dest)), apply)
+    target = _resource(project, dest)
+    if isinstance(target, Folder) and target.has_child("__init__.py"):
+        target = target.get_child("__init__.py")
+    if target.is_folder():
+        raise RefactoringError("Move destination for non-modules should not be folders.")
+    if target == mover.source:
+        raise RefactoringError("Moving global elements to the same module.")
+    _emit(project, symbol_move_changes(project, mover, cast(File, target)), apply)
 
 
 def move_module(project: Project, *, module: str, dest: str, apply: bool) -> None:
     mover = cast(MoveModule, create_move(project, _resource(project, module)))
-    _emit(project, mover.get_changes(_resource(project, dest)), apply)
+    target = _resource(project, dest)
+    if not target.is_folder():
+        raise RefactoringError("Move destination for modules should be packages.")
+    _emit(project, module_move_changes(project, mover, target), apply)
 
 
 def run_refactor(*, project_root: str, command: str, apply: bool, options: dict[str, Any]) -> int:
@@ -137,6 +149,9 @@ def run_refactor(*, project_root: str, command: str, apply: bool, options: dict[
         return 1
     except WalkerGap as gap:
         print(message("refactor.rope-walk", path=gap.path, line=gap.line), file=sys.stderr)
+        return 1
+    except NameConflict as conflict:
+        print(message("refactor.name-conflict", name=conflict.name, path=conflict.path, line=conflict.line), file=sys.stderr)
         return 1
     finally:
         project.close()

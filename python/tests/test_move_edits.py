@@ -296,3 +296,48 @@ def test_name_conflict_is_refused_and_writes_nothing(
     assert captured.out == ""
     assert captured.err == message("refactor.name-conflict", name=name, path="pkg/b.py", line=3) + "\n"
     assert _tree(root) == before
+
+
+@pytest.mark.parametrize(
+    ("imports", "kept"),
+    [("import os, json\n", ""), ("import os, sys, json\n", "import sys\n"), ("import sys, os, json\n", "import sys\n")],
+    ids=["whole-statement", "first-run", "last-run"],
+)
+def test_names_used_only_by_moved_code_are_removed_together(tmp_path: Path, imports: str, kept: str) -> None:
+    tail = "\n\ndef f() -> str:\n    return os.sep + json.__name__\n\n\ndef g() -> str:\n    return sys.platform\n"
+    root = _write(tmp_path, {**SYMBOL_PROJECT, "pkg/a.py": "import sys\n" + imports + tail})
+    assert _move_f(root, "--apply") == 0
+    assert (root / "pkg/a.py").read_text() == "import sys\n" + kept + "\n\ndef g() -> str:\n    return sys.platform\n"
+
+
+def test_move_to_the_project_root_imports_the_module_by_name(tmp_path: Path) -> None:
+    use = "from pkg.sql import client\nfrom pkg.sql import client as c, dialects\n\nprint(client.X, c.X, dialects.D)\n"
+    root = _write(tmp_path, {**MODULE_PROJECT, "use.py": use})
+    assert main(["--project", str(root), "--apply", "move-module", "--module", str(root / "pkg/sql/client.py"),
+                 "--dest", str(root)]) == 0
+    assert (root / "use.py").read_text() == (
+        "import client\nfrom pkg.sql import dialects\nimport client as c\n\nprint(client.X, c.X, dialects.D)\n"
+    )
+
+
+def test_moved_code_follows_leading_comments_of_a_destination_without_imports(tmp_path: Path) -> None:
+    root = _write(tmp_path, {**SYMBOL_PROJECT, "pkg/b.py": "# header\n# more\nX = 1\n"})
+    assert _move_f(root, "--apply") == 0
+    assert (root / "pkg/b.py").read_text() == "# header\n# more\n\n\ndef f() -> int:\n    return 1\nX = 1\n"
+
+
+def test_uses_inside_every_scope_kind_are_resolved(tmp_path: Path) -> None:
+    body = (
+        "\n\nclass K:\n    v = [s.client.X for _ in range(1)]\n\n\n"
+        "def use(n: int) -> object:\n"
+        "    gen = (s.client.X for _ in range(n))\n"
+        "    both = {k: s.client.X for k in {s.client.X for _ in range(n)}}\n"
+        "    lam = lambda m=n: s.client.X + m\n"
+        "    try:\n        pass\n    except ValueError as err:\n        del err\n"
+        "    match n:\n        case [1, *rest]:\n            del rest\n"
+        "        case {'k': 1, **more}:\n            del more\n        case other:\n            del other\n"
+        "    return gen, both, lam\n"
+    )
+    root = _write(tmp_path, {**MODULE_PROJECT, "use.py": "import pkg.sql as s" + body})
+    assert _move_module(root, "--apply") == 0
+    assert (root / "use.py").read_text() == "import pkg.database.client" + body.replace("s.client", "pkg.database.client")
