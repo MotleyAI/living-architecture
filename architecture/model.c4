@@ -47,7 +47,7 @@ model {
     review = node 'Review shims' {
       metadata {
         package 'living_architecture.review'
-        specs ['review-detection']
+        specs ['review-detection', 'failed-pr-checks']
       }
     }
     doctor = node 'Doctor' {

@@ -110,7 +110,7 @@ Once the script exits, finish Step 1 for any source not yet fetched.
   - Optional but useful when the gate cites a metric you don't recognise: `mcp__sonarqube__get_component_measures(component=..., metricKeys=[...], pullRequest="<PR>")` and `mcp__sonarqube__search_metrics(...)` to look up what the metric means.
 
   If `mcp__sonarqube__*` tools are not registered in this session, stop and ask the user to load the MCP — do not fall back to the CLI or `gh api`.
-- **Failed CI** — run `la-fetch-failed-pr-checks <PR>` (see the `la:fetch-failed-pr-checks` skill). Read its JSON for the failed checks plus failed-step log excerpts.
+- **Failed CI** — run `la-fetch-failed-pr-checks <PR>` (see the `la:fetch-failed-pr-checks` skill). Read its JSON for the failed checks plus their log excerpts (or why each has none).
 - **Conventions gate (deterministic)** — run `la-check-conventions <PR>` from the repo root; see "Conventions gate" below.
 
 Run the three GitHub-side fetches and the conventions gate in parallel — they're independent. Codex is already done (Step 0). Inside SonarQube, the gate-status call comes first so you know which secondary tools (duplications / coverage / hotspots) are actually load-bearing; everything else can run in parallel.
@@ -136,7 +136,7 @@ Build a single in-memory list. Each entry:
 - `severity`: `critical` | `major` | `minor` | `info` (best-effort mapping; CodeRabbit emoji → severity: 🔴/⚠️ Potential issue → major, 🟡/💡 → minor, 💤 → info; CI failures default to `major`; gate-condition entries inherit from the failing condition's severity field; hotspots default to `major`; codex findings use the severity the model assigned)
 - `rule`: Sonar rule key (issues / hotspots), the metric key (`new_duplicated_lines_density`, `new_coverage`, ...) for gate / duplication / coverage entries, the CodeRabbit thread/comment ID, the CI workflow/job name, or `"codex"` + a short tag for codex findings (codex doesn't issue rule keys)
 - `summary`: one-line description (for CI: `<workflow> / <job>` failed at conclusion `<X>`; for gate conditions: `<metric>: <actual> vs <threshold>`; for codex: the model's one-sentence summary line)
-- `body`: full text (CodeRabbit comment body, Sonar issue/hotspot message + rule description, duplication block range + duplicate locations, coverage's uncovered-line list, the failed-step log excerpt, or codex's one-paragraph rationale)
+- `body`: full text (CodeRabbit comment body, Sonar issue/hotspot message + rule description, duplication block range + duplicate locations, coverage's uncovered-line list, the check's log excerpt, or codex's one-paragraph rationale)
 - `ref`: thread URL (CodeRabbit), Sonar issue/hotspot key, run/job URL (CI), or `null` for codex (no remote thread to link)
 
 Don't dedupe across sources blindly — if multiple sources flag the same area, keep them all. They need separate invalid-handling channels. **Don't drop a failing quality-gate condition just because no individual issue is filed** — duplication and coverage conditions routinely fail the gate without producing any `search_sonar_issues_in_projects` rows.
@@ -148,7 +148,7 @@ Don't dedupe across sources blindly — if multiple sources flag the same area, 
 For each entry, classify as VALID or INVALID using a source-appropriate signal:
 
 - **CodeRabbit / Sonar / Codex** — READ the cited file at the cited line(s). Apply the repo's and the user's standing rules (their CLAUDE.md files: e.g. trust internal code, validate only at boundaries; imports at the top). Lean toward VALID when uncertain — false positives are easier to defend later than missed bugs now. Over-verbose comments/docstrings in the diff (design essays, ticket-ID-on-every-line, code-restating comments, name-echo docstrings) are a valid maintainability finding per the `la:concise-comments` skill — flag them even if no bot did.
-- **CI failure** — READ the failed-step log excerpt in the JSON. Classify as INVALID only when the failure is clearly unrelated to this PR's changes (network blip / runner died / well-known flaky test that the user has previously confirmed is flaky / out-of-date Action that times out before doing anything). Otherwise VALID. **A test failure that points at code this PR touched is always VALID** — don't argue your way out of it.
+- **CI failure** — READ the log excerpt in the JSON. Classify as INVALID only when the failure is clearly unrelated to this PR's changes (network blip / runner died / well-known flaky test that the user has previously confirmed is flaky / out-of-date Action that times out before doing anything). Otherwise VALID. **A test failure that points at code this PR touched is always VALID** — don't argue your way out of it.
 - **A finding that proposes an option the plan's decisions log rejected** (when the branch has a plan): VALID only if it raises something the logged reason does not answer, and then it is a plan edit to put to me under the `/la:pr` frozen-plan rule. Otherwise INVALID, and the rationale cites the decision. The rule covers that proposal only: any other claim in the same finding is its own entry, validated on its own.
 - **Conventions** — always VALID (the check is deterministic; there is nothing to second-guess); fix per "Conventions gate" below. Severity `minor`, `rule` = the bracketed rule name, `ref` = `null`.
 
