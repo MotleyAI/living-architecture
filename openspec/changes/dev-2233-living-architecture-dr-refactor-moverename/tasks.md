@@ -62,7 +62,7 @@
   `moving_code_with_imports` for what moves (design 6 and the Risks section). Destination imports go after the leading
   import block, the destination's import of the symbol is removed, and the source's `__all__` entry and remaining use
   are handled (design 13). Verify `refactor-move-symbol-*` and the existing `refactor-move-symbol-apply` golden pass.
-- [ ] 3.7 Check `docs/deterministic-refactoring.md`, the repo `README.md` and the `deterministic-refactor` /
+- [x] 3.7 Check `docs/deterministic-refactoring.md`, the repo `README.md` and the `deterministic-refactor` /
   `arch-cleanup` skills for text that mentions the old reflow, or a workaround such as restoring import blocks after
   a move. Docs: align them. Skills: present the exact wording to the user before editing (never edit a skill
   unapproved). Verify with `rg -n -i "reflow|import block|restore.*import" docs plugin README.md`.

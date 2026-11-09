@@ -13,8 +13,7 @@ sets `basedpyright -p <dir>`, and a checker that is not basedpyright-compatible 
 
 `dr-refactor` runs rope. Its project scope (`--project`) must include `tests/` so test imports are rewritten
 too. Move destinations must exist: a new package is a directory with an `__init__.py`. For refactors that hinge
-on third-party types, run `dr-refactor` under the project's venv Python. rope reflows imports: run the
-formatter (ruff/black) afterwards.
+on third-party types, run `dr-refactor` under the project's venv Python.
 
 Known rope misses the type-check gate catches: receivers narrowed by `isinstance` rather than annotation
 (e.g. `other.attr` inside `__eq__`), and constructor keyword arguments of dataclass/Pydantic fields
