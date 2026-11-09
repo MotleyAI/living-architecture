@@ -79,7 +79,65 @@ offers to set up OpenSpec, record the type-check baseline and build the architec
 starts from a model measured from your code and then interviews you about the target structure and the
 principles.
 
-After that, start each change on a branch named after its issue with:
+### Just enforce the architecture
+
+You don't need the PR workflow or OpenSpec to hold an agent to the model and its principles: decline OpenSpec in
+`/la:init`, build the model with `/la:arch-init`, then point the agent at the `la:living-architecture` skill and
+the three checks, for example in your `CLAUDE.md` or `AGENTS.md`:
+
+```markdown
+Before changing code, use the la:living-architecture skill to read the arc42 principles of every architecture
+element the change touches, and of its ancestors. Before finishing, run `la-arch-check`,
+`npx likec4 validate architecture` and `la-typecheck`, and fix until all three pass.
+```
+
+`la-arch-check` holds the imports to the model's arrows and checks the principles' tags, `likec4 validate` checks
+the model itself, and `la-typecheck` runs basedpyright (or `tsc`) against a baseline that only shrinks.
+
+<details>
+<summary>Running the checks in CI</summary>
+
+Commit `living-architecture.yaml`, `architecture/` and the type-check baseline (`.basedpyright/baseline.json` for
+Python, `.tsc-baseline.json` for TypeScript; `la-typecheck --write-baseline` creates a missing one). Then add a
+workflow that pins the commands to the release your plugin uses. For a Python repo:
+
+```yaml
+# .github/workflows/architecture.yml
+name: architecture
+on: [push, pull_request]
+jobs:
+  architecture:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+      - run: uv sync    # the project env, with basedpyright in it
+      - run: uvx --no-build --from living-architecture==0.4.1 la-arch-check
+      - run: npx -y likec4@1.60.0 validate architecture
+      - run: uvx --no-build --from living-architecture==0.4.1 la-typecheck
+```
+
+For a TypeScript repo, drop `setup-uv` and use these steps after `setup-node`:
+
+```yaml
+      - run: npm ci     # puts tsc in node_modules
+      - run: npx -y -p living-architecture@0.4.1 la-arch-check
+      - run: npx -y likec4@1.60.0 validate architecture
+      - run: npx -y -p living-architecture@0.4.1 la-typecheck
+```
+
+`la-typecheck` takes the checker from `.venv/bin` or `node_modules/.bin` first, so install the project before it
+runs. When you move the pin to a release with a newer repo format, first run that release's `la-arch-migrate` and
+commit the result: the commands refuse a repo in an older format.
+
+</details>
+
+### Use the PR workflow that enforces architecture and creates OpenSpec
+
+Start each change on a branch named after its issue with:
 
 ```
 /la:pr
