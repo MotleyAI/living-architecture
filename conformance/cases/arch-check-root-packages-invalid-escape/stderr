@@ -1,0 +1,1 @@
+arch_check: architecture/index.yaml: root_packages entry 'escape' resolves outside source_root '.'

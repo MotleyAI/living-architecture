@@ -1,7 +1,7 @@
 // Visible TypeScript source files, units and module ids under a section's source_root.
 import { readdirSync, realpathSync, statSync, type Stats } from 'node:fs';
 import { basename, dirname, join, relative, resolve, sep } from 'node:path';
-import { globMatch, language } from '../contract/index.js';
+import { byCodePoint, globMatch, language } from '../contract/index.js';
 import type { TsLayout, UnitStatus } from './types.js';
 
 export const DECLARATION_RE = /\.d\.[cm]?ts$/;
@@ -58,8 +58,8 @@ export class Tree {
     this.realSourceRoot = realpath(layout.sourceRoot) ?? layout.sourceRoot;
   }
 
-  get packageDir(): string {
-    return join(this.layout.sourceRoot, this.layout.rootPackage);
+  get packageDirs(): string[] {
+    return this.layout.rootPackages.map((root) => join(this.layout.sourceRoot, root));
   }
 
   inside(path: string): boolean {
@@ -87,7 +87,7 @@ export class Tree {
     const real = realpath(dir);
     if (real === undefined || visited.has(real)) return;
     visited.add(real);
-    for (const name of readdirSync(dir).sort()) {
+    for (const name of readdirSync(dir).sort(byCodePoint)) {
       const path = join(dir, name);
       if (this.enterable(path)) yield* this.files(path, visited);
       else if (this.visible(path)) yield path;
@@ -110,20 +110,23 @@ export class Tree {
       .filter((ext) => this.visible(base + ext))
       .map((ext) => unit + ext);
     if (this.hasSource(base)) candidates.push(`${unit}/`);
-    candidates.sort();
+    candidates.sort(byCodePoint);
     if (candidates.length > 1) return { status: 'ambiguous', candidates };
     return { status: candidates.length === 1 ? 'present' : 'missing', candidates: [] };
   }
 
   topLevelUnits(): string[] {
     const units = new Set<string>();
-    for (const name of readdirSync(this.packageDir)) {
-      const path = join(this.packageDir, name);
-      const isBarrel = stripSourceExtension(name) === 'index';
-      if ((this.visible(path) && !isBarrel) || this.hasSource(path)) {
-        units.add(posix(join(this.layout.rootPackage, stripSourceExtension(name))));
+    for (const root of this.layout.rootPackages) {
+      const packageDir = join(this.layout.sourceRoot, root);
+      for (const name of readdirSync(packageDir)) {
+        const path = join(packageDir, name);
+        const isBarrel = stripSourceExtension(name) === 'index';
+        if ((this.visible(path) && !isBarrel) || this.hasSource(path)) {
+          units.add(posix(join(root, stripSourceExtension(name))));
+        }
       }
     }
-    return [...units].sort();
+    return [...units].sort(byCodePoint);
   }
 }

@@ -128,12 +128,12 @@ model still using the retired `arc42` key converts with `la-arch-migrate`.
 
 ```yaml
 python:                               # one section per language; at least one
-  root_package: mypkg                 # required: the unit of the python root
-  source_root: src                    # optional: directory containing root_package
+  root_package: mypkg                 # required, or root_packages: the unit of the python root
+  source_root: src                    # optional: directory containing the roots
 typescript:
   root_package: src
   source_root: web                    # optional
-  tsconfig: web/tsconfig.app.json     # optional: default the nearest tsconfig
+  tsconfig: web/tsconfig.app.json     # optional: default each root's nearest tsconfig
 
 legacy_arrows: {baseline: 8}          # exact count of #legacy arrows in the model (ratchet)
 
@@ -142,6 +142,9 @@ cross_cutting_specs:
 
 x-anything: {}                        # repo-owned keys start with x-; the tools ignore them
 ```
+
+`root_packages: [app, packages/ui]` replaces `root_package` when a language's code sits in several sibling
+directories under one `source_root`; the roots are disjoint and unit ids stay relative to `source_root`.
 
 `views.c4` scopes each view to a root, `view <id> of <root> { ... }`, with include names and predicate
 anchors relative to the root at any depth (`include api.handlers`, `api.handlers -> *`); the root itself is never
@@ -215,7 +218,7 @@ ecosystem: `uvx --no-build --from living-architecture==<version> la-arch-check`
   and does not collide with another declared unit; a bucket contains no
   elements; every arc42 file sits directly in `architecture/` and is `system.arc42.md`,
   `<element id>.arc42.md` of a model element, or listed in `cross_cutting_arc42`;
-- every top-level unit of each language's `root_package` is claimed by exactly
+- every top-level unit of each language's roots is claimed by exactly
   one node — no orphan packages;
 - every spec group (a directory under `openspec/specs/` or under a non-archived
   change's `specs/`) is mapped exactly once: in exactly one element's `specs`

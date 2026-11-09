@@ -1,0 +1,10 @@
+kind: adapter
+languages: [typescript]
+twin: typescript
+command: la-arch-check
+args: [--language, typescript, --emit, facts, --top-level]
+expect:
+  exit: 0
+  stdout: json
+  stderr: ignore
+note: combines TypeScript units and import edges from disjoint root_packages while keeping source_root-relative path IDs

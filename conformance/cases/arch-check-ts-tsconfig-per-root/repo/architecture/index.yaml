@@ -1,0 +1,3 @@
+typescript:
+  source_root: web
+  root_packages: [app, lib]

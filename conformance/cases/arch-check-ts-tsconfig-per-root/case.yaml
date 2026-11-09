@@ -1,0 +1,10 @@
+kind: adapter
+languages: [typescript]
+twin: typescript
+command: la-arch-check
+args: [--language, typescript, --emit, facts, --top-level]
+expect:
+  exit: 0
+  stdout: json
+  stderr: ignore
+note: without a tsconfig key, each root resolves under its own nearest tsconfig.json, so each root's path aliases apply to its own sources
