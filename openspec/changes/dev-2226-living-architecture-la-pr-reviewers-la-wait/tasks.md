@@ -1,6 +1,6 @@
 ## 1. Test harness (pr-tests stage)
 
-- [ ] 1.1 Merge the two fake `gh` copies (`python/tests/conftest.py` `FAKE_GH`, `python/tests/test_conformance.py`
+- [x] 1.1 Merge the two fake `gh` copies (`python/tests/conftest.py` `FAKE_GH`, `python/tests/test_conformance.py`
   `FAKE_GH`) into one test module both import. Add sequenced responses: a route may carry `responses` (a list of
   `{stdout, exit}`) served in call order per route, the last repeating; call counts live in a file under the case's
   own temp dir. `FakeGh.route` accepts the same; the conformance case loader passes `responses` through. Document
@@ -14,19 +14,19 @@ endpoints are read with `--paginate --jq '.[]'` (suites `'.check_suites[]'`), so
 array/object. The summary body carries `<!-- This is an auto-generated comment: summarize by coderabbit.ai -->`
 and, where it covers a commit, `<!-- final_review_risk_coverage:{"sourceCommitId":"<sha>","coveredCommitId":"<sha>","kind":"reviewed"} -->`.
 
-- [ ] 2.1 Align existing fixtures (approved by the plan, decision 11): every wait/pr-reviewers rollup route matches
+- [x] 2.1 Align existing fixtures (approved by the plan, decision 11): every wait/pr-reviewers rollup route matches
   the snapshot call; the wait cases and `_cr_routes` drop the committer-date route and gain suites/statuses/reviews
   routes; summary bodies gain the summarize marker. Rename `shim-wait-for-reviews-fresh-summary` →
   `shim-wait-for-reviews-summary-covers-head` (its summary covers `abc`; new stdout golden). No other assertion or
   exit code changes except the `fresh-summary` / rate-limited stdout/stderr texts the plan's messages replace.
-- [ ] 2.2 `python/tests/test_review_scripts.py` + neutral case, pr-reviewers: `shim-pr-reviewers-sonar-suite-only` —
+- [x] 2.2 `python/tests/test_review_scripts.py` + neutral case, pr-reviewers: `shim-pr-reviewers-sonar-suite-only` —
   rollup without Sonar, `sonarqubecloud` suite `queued`, config key `cfg_key` → `{"present": true, "project_key": "cfg_key"}`.
   Also a pr-reviewers test where the suites read fails → exit 2, no JSON.
-- [ ] 2.3 Stage 0a (with `LA_WAIT_GATE_TIMEOUT=0`, `LA_WAIT_POLL_SECONDS=0` where it must time out):
+- [x] 2.3 Stage 0a (with `LA_WAIT_GATE_TIMEOUT=0`, `LA_WAIT_POLL_SECONDS=0` where it must time out):
   `shim-wait-for-reviews-sonar-suite-queued` (exit 1, stdout lists `sonarqubecloud (check suite)`, no "gate clear");
   `shim-wait-for-reviews-sonar-suite-beside-completed-check` (completed Sonar run + queued suite → exit 1);
   completed suite clears (Python test); `shim-wait-for-reviews-suite-read-fails` (exit 1, never "gate clear").
-- [ ] 2.4 Stage 0b cases, each a Python test and a neutral case:
+- [x] 2.4 Stage 0b cases, each a Python test and a neutral case:
   `shim-wait-for-reviews-placeholder-summary` (`LA_WAIT_CR_SETTLE=0`, summary newer than the commit without a
   coverage marker → cap on stderr, exit 0, no "reviewed");
   `shim-wait-for-reviews-status-completed` (status `Review completed`, marker on a previous SHA → exit 0);
@@ -41,20 +41,20 @@ and, where it covers a commit, `<!-- final_review_risk_coverage:{"sourceCommitId
   `shim-wait-for-reviews-stale-summary-fresh-reply` (`LA_WAIT_CR_SETTLE=0`, summary with rate-limit text covering
   a previous SHA, a newer reply, no status on `abc` → cap, exit 0, not 3);
   `shim-wait-for-reviews-statuses-read-fails` (`LA_WAIT_CR_SETTLE=0`, statuses read fails, no other evidence → cap).
-- [ ] 2.5 Python only: parametrized failure test — each Stage 0b read (snapshot, comments, statuses, reviews,
+- [x] 2.5 Python only: parametrized failure test — each Stage 0b read (snapshot, comments, statuses, reviews,
   suites) failing, and one returning invalid JSON, with `LA_WAIT_CR_SETTLE=0`: the script never crashes, never
   exits 3, never reports reviewed off the failed source; with a covering summary and a failing statuses read it
   still settles as reviewed (summary covers HEAD).
-- [ ] 2.6 HEAD moves (sequenced responses): snapshot returns `abc` for Stage 0a then `def` in Stage 0b → stdout
+- [x] 2.6 HEAD moves (sequenced responses): snapshot returns `abc` for Stage 0a then `def` in Stage 0b → stdout
   `Stage 0b: HEAD moved from abc to def — restarting Stage 0a.`, then Stage 0a and 0b run for `def` (evidence for
   `abc` must not settle; evidence for `def` settles). One Python test and neutral case
   `shim-wait-for-reviews-head-moves`.
-- [ ] 2.7 `shim-wait-for-reviews-coderabbit-by-comment`: summary covers `abc` → "reviewed HEAD abc (summary covers
+- [x] 2.7 `shim-wait-for-reviews-coderabbit-by-comment`: summary covers `abc` → "reviewed HEAD abc (summary covers
   HEAD)".
-- [ ] 2.8 List every new or renamed case in `conformance/INVENTORY.md` beside the wait-for-reviews / pr-reviewers
-  rows. New goldens via `LA_UPDATE_GOLDENS=1`, reason in the commit message. Verify each new test/case fails
-  against the current scripts.
-- [ ] 2.9 Codex review of the tests against this change (pr-tests Step 2); resolve findings with the user.
+- [x] 2.8 List every new or renamed case in `conformance/INVENTORY.md` beside the wait-for-reviews / pr-reviewers
+  rows. New goldens hand-written (`golden: manual`), reason in the commit message. Verify each new test/case fails
+  against the current scripts (`shim-wait-for-reviews-suite-read-fails` exits 1 there too; its Python test fails).
+- [x] 2.9 Codex review of the tests against this change (pr-tests Step 2); resolve findings with the user.
 
 ## 3. shared/ (pr-implement stage)
 

@@ -1,0 +1,34 @@
+kind: neutral
+command: la-pr-reviewers
+args:
+- '7'
+- --repo
+- o/r
+gh:
+- match:
+  - pr
+  - view
+  - headRefOid,statusCheckRollup
+  stdout:
+    headRefOid: abc
+    statusCheckRollup:
+    - __typename: CheckRun
+      name: tests
+      status: COMPLETED
+      conclusion: SUCCESS
+      detailsUrl: https://github.com/o/r/actions/runs/1/job/2
+- match:
+  - repos/o/r/commits/abc/check-suites
+  stdout:
+    check_suites:
+    - app:
+        slug: sonarqubecloud
+      status: queued
+- match:
+  - repos/o/r/issues/7/comments
+  stdout: []
+expect:
+  exit: 0
+  stdout: json
+golden: manual
+note: 'a queued Sonar check suite without a check run: Sonar present, key from the config'
