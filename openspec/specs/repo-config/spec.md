@@ -77,7 +77,7 @@ with `living-architecture.local.yaml` over it) and report each of the following 
 - `openspec: false` with an `openspec/` directory
 - `architecture: true` without `architecture/index.yaml` (text names `/la:arch-init`)
 - `architecture: false` with `architecture/index.yaml`
-- `tracker: none` with `openspec: false`
+- `tracker: none` with `openspec: false`, only under `--require-plan-store`
 
 A directory named `architecture/` without `index.yaml` SHALL NOT count as a living-architecture setup. When
 the file does not exist, none of these checks SHALL run.
@@ -103,11 +103,15 @@ the file does not exist, none of these checks SHALL run.
 - **THEN** `la-doctor` reports no architecture finding
 
 #### Scenario: Nowhere to persist the plan
-- **WHEN** the config sets `tracker: none` and `openspec: false` and `la-doctor` runs
+- **WHEN** the config sets `tracker: none` and `openspec: false` and `la-doctor --require-plan-store` runs
 - **THEN** it prints the no-plan-store finding and exits 1
 
+#### Scenario: Plan store not required
+- **WHEN** the config sets `tracker: none` and `openspec: false` and `la-doctor` runs without `--require-plan-store`
+- **THEN** it reports no no-plan-store finding
+
 #### Scenario: Local override takes part in the checks
-- **WHEN** the committed file sets `openspec: false`, the repo has no `openspec/` directory, the git-ignored local file sets `tracker: none`, and `la-doctor` runs
+- **WHEN** the committed file sets `openspec: false`, the repo has no `openspec/` directory, the git-ignored local file sets `tracker: none`, and `la-doctor --require-plan-store` runs
 - **THEN** it prints the no-plan-store finding and exits 1
 
 #### Scenario: Several inconsistencies

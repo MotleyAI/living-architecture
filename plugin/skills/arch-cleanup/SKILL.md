@@ -11,7 +11,7 @@ A slice moves code until a batch of grandfathered edges dies, with a
 deterministic gate proving nothing dangles. It is behaviour-preserving: no new
 behaviour, no new tests, no OpenSpec spec deltas. The legacy-arrow ratchet plus
 the green suite ARE the spec, so the /la:pr stage flow does not apply — but
-each slice still gets its own issue, branch, and PR.
+each slice still gets its own branch and PR, and its own issue when the repo has a tracker.
 
 ## Procedure
 

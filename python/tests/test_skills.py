@@ -20,7 +20,7 @@ CONFIG_GET_RE = re.compile(r"la-config get ([A-Za-z0-9_.<>-]*[A-Za-z0-9_>])")
 COMMAND_RE = re.compile(r"(?<![\w/.-])((?:la|dr)-[a-z][a-z-]*[a-z])\b")
 SKILL_REF_RE = re.compile(r"\bla:([a-z][a-z-]*[a-z])\b")
 PREFLIGHT = "la-doctor --plugin <this skill's base directory>"
-PREFLIGHT_CMD_RE = re.compile(rf"`{re.escape(PREFLIGHT)}(?: --require-config)?`")
+PREFLIGHT_CMD_RE = re.compile(rf"`{re.escape(PREFLIGHT)}(?: --require-config)?(?: --require-plan-store)?`")
 
 
 def _id(path: Path) -> str:
@@ -62,16 +62,12 @@ def test_tool_users_run_the_plugin_preflight(path):
         assert PREFLIGHT_CMD_RE.search(text), "uses la-*/dr-* commands without the la-doctor preflight"
 
 
-@pytest.mark.parametrize("path", SKILL_FILES, ids=_id)
-def test_no_hardcoded_version_pin(path):
-    assert "la-doctor --expect" not in path.read_text(encoding="utf-8")
-
-
 MAIN_SKILLS = {"init", "pr", "arch-init", "arch-cleanup", "deterministic-refactor"}
 # The README's table: la:init names la:arch-init in its purpose; docs/skills.md lists every main skill.
 README_SKILLS = {"init", "pr", "deterministic-refactor"}
 STAGES = {"pr-plan", "pr-tests", "pr-implement", "pr-review"}
 REQUIRE_CONFIG = (MAIN_SKILLS - {"init"}) | STAGES
+REQUIRE_PLAN_STORE = {"pr"} | STAGES
 DOCS_DIR = REPO_ROOT / "docs"
 DOCS_PAGES = [
     "how-it-works.md",
@@ -129,7 +125,8 @@ def test_preflight_requires_config_only_in_main_skills_and_stages(path):
     preflight = PREFLIGHT_RE.findall(text)
     if path.parent.name in REQUIRE_CONFIG:
         assert len(preflight) == 1
-        assert f"`{PREFLIGHT} --require-config`" in preflight[0]
+        flags = " --require-plan-store" if path.parent.name in REQUIRE_PLAN_STORE else ""
+        assert f"`{PREFLIGHT} --require-config{flags}`" in preflight[0]
         assert "la:init" in text
         assert "fast path" in text
     else:

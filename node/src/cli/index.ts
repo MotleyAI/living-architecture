@@ -37,10 +37,10 @@ const HANDLERS: Record<string, (args: Args, argv: string[]) => number> = {
     }
     return doctor.run(
       root(args.root),
-      optional(args.expect),
       optional(args.plugin),
       Boolean(args.contract_hash),
       Boolean(args.require_config),
+      Boolean(args.require_plan_store),
     );
   },
   'la-arch-check': (args) => {

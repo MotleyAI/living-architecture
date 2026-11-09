@@ -52,15 +52,16 @@ For an example of a project using this, look at [SLayer](https://github.com/Motl
 /plugin install la@living-architecture
 
 # the commands (la-*, dr-*), pinned to the same version as the plugin, from your repo's ecosystem
-uv tool install living-architecture==0.4.1      # Python repos (Python >= 3.11)
-npm install -g living-architecture@0.4.1        # TypeScript/JavaScript repos (Node >= 22)
+uv tool install living-architecture==0.4.2      # Python repos (Python >= 3.11)
+npm install -g living-architecture@0.4.2        # TypeScript/JavaScript repos (Node >= 22)
 ```
 
 The commands come as a PyPI package and an npm package of the same name, with identical behaviour. Each serves
 its own ecosystem natively, needs nothing from the other in a single-language repo, and calls the other for the
 other language's files in a mixed repo
 ([details](https://github.com/MotleyAI/living-architecture/blob/main/docs/commands.md#two-twins)). Skills check
-that the installed commands match the plugin before they run.
+that the installed commands match the plugin before they run; a plugin update within the same minor version needs no
+reinstall.
 
 `living-architecture.yaml` records the repo's format version. After an upgrade that changes the format, most
 commands refuse to run on the repo until you run `la-arch-migrate` once, and `la-doctor` says so.
@@ -79,7 +80,65 @@ offers to set up OpenSpec, record the type-check baseline and build the architec
 starts from a model measured from your code and then interviews you about the target structure and the
 principles.
 
-After that, start each change on a branch named after its issue with:
+### Just enforce the architecture
+
+You don't need the PR workflow or OpenSpec to hold an agent to the model and its principles: decline OpenSpec in
+`/la:init`, build the model with `/la:arch-init`, then point the agent at the `la:living-architecture` skill, for
+example in your `CLAUDE.md` or `AGENTS.md`:
+
+```markdown
+For every change, load the la:living-architecture skill and follow its "Working under the architecture" rules.
+```
+
+The skill has the agent read the principles of every part of the code it touches before changing it, and run three
+checks before it finishes: `la-arch-check` holds the imports to the model's arrows and checks the principles' tags,
+`likec4 validate` checks the model itself, and `la-typecheck` runs basedpyright (or `tsc`) against a baseline that
+only shrinks.
+
+<details>
+<summary>Running the checks in CI</summary>
+
+Commit `living-architecture.yaml`, `architecture/` and the type-check baseline (`.basedpyright/baseline.json` for
+Python, `.tsc-baseline.json` for TypeScript; `la-typecheck --write-baseline` creates a missing one). Then add a
+workflow that pins the commands to the release your plugin uses. For a Python repo:
+
+```yaml
+# .github/workflows/architecture.yml
+name: architecture
+on: [push, pull_request]
+jobs:
+  architecture:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+      - run: uv sync    # the project env, with basedpyright in it
+      - run: uvx --no-build --from living-architecture==0.4.2 la-arch-check
+      - run: npx -y likec4@1.60.0 validate architecture
+      - run: uvx --no-build --from living-architecture==0.4.2 la-typecheck
+```
+
+For a TypeScript repo, drop `setup-uv` and use these steps after `setup-node`:
+
+```yaml
+      - run: npm ci     # puts tsc in node_modules
+      - run: npx -y -p living-architecture@0.4.2 la-arch-check
+      - run: npx -y likec4@1.60.0 validate architecture
+      - run: npx -y -p living-architecture@0.4.2 la-typecheck
+```
+
+`la-typecheck` takes the checker from `.venv/bin` or `node_modules/.bin` first, so install the project before it
+runs. When you move the pin to a release with a newer repo format, first run that release's `la-arch-migrate` and
+commit the result: the commands refuse a repo in an older format.
+
+</details>
+
+### Use the PR workflow that enforces architecture and creates OpenSpec
+
+Start each change on a branch named after its issue with:
 
 ```
 /la:pr

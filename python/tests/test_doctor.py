@@ -22,20 +22,34 @@ def all_tools(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.mark.usefixtures("all_tools")
 def test_healthy(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    assert cli.la_doctor(["--root", str(tmp_path), "--expect", __version__]) == 0
+    assert cli.la_doctor(["--root", str(tmp_path)]) == 0
     assert "defaults (no config file)" in capsys.readouterr().out
 
 
-@pytest.mark.usefixtures("all_tools")
-def test_version_mismatch(tmp_path: Path) -> None:
-    problems = doctor.run_checks(root=tmp_path, expect="0.0.0-other")
-    assert len(problems) == 1
-    assert "expects 0.0.0-other" in problems[0]
+def _plugin(root: Path, version: str) -> str:
+    """A plugin dir whose plugin.json declares `version`."""
+    (root / "plugin" / ".claude-plugin").mkdir(parents=True)
+    (root / "plugin" / ".claude-plugin" / "plugin.json").write_text(f'{{"version": "{version}"}}', encoding="utf-8")
+    return str(root / "plugin")
 
 
 @pytest.mark.usefixtures("all_tools")
-def test_no_expect_skips_version_check(tmp_path: Path) -> None:
-    assert doctor.run_checks(root=tmp_path, expect=None) == []
+@pytest.mark.parametrize("plugin_version", ["1.2.0", "1.2.3rc1", "01.002.9-rc.1"])
+def test_prerelease_installed_version_matches_its_series(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, plugin_version: str
+) -> None:
+    monkeypatch.setattr(doctor, "__version__", "1.2.3rc1")
+    assert doctor.run_checks(root=tmp_path, plugin=_plugin(tmp_path, plugin_version)) == []
+
+
+@pytest.mark.usefixtures("all_tools")
+def test_prerelease_installed_version_reports_another_series(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(doctor, "__version__", "1.2.3rc1")
+    mismatch = (
+        "installed la tools are 1.2.3rc1, but plugin 1.3.0 needs 1.3.x;"
+        " reinstall them with: uv tool install living-architecture==1.3.0"
+    )
+    assert doctor.run_checks(root=tmp_path, plugin=_plugin(tmp_path, "1.3.0")) == [mismatch]
 
 
 @pytest.mark.usefixtures("all_tools")
@@ -47,7 +61,7 @@ def test_invalid_config(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> N
 
 def test_missing_executable(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(doctor.shutil, "which", lambda exe: None if exe == "gh" else "/bin/x")
-    assert doctor.run_checks(root=tmp_path, expect=None) == ["`gh` not found on PATH"]
+    assert doctor.run_checks(root=tmp_path) == ["`gh` not found on PATH"]
 
 
 def test_twin_identity_line(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
@@ -128,9 +142,15 @@ def test_config_disk_consistency(
     for f in files:
         (tmp_path / f).parent.mkdir(parents=True, exist_ok=True)
         (tmp_path / f).write_text("x: 1\n", encoding="utf-8")
-    code, out = _doctor(tmp_path, capsys)
+    code, out = _doctor(tmp_path, capsys, "--require-plan-store")
     assert code == (1 if expected else 0)
     assert [line for line in out if line.startswith("FAIL:")] == expected
+
+
+@pytest.mark.usefixtures("all_tools")
+def test_plan_store_not_required_without_flag(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    (tmp_path / CONFIG_FILENAME).write_text(_declared("tracker: none\nopenspec: false\n"), encoding="utf-8")
+    assert _doctor(tmp_path, capsys, "--require-config")[0] == 0
 
 
 @pytest.mark.usefixtures("all_tools")
@@ -255,14 +275,14 @@ def test_local_finding_order(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, ca
     monkeypatch.setattr(doctor.shutil, "which", lambda exe: None if exe == "gh" else f"/usr/bin/{exe}")
     root = _repo(tmp_path, local="tracker: none\n")
     (root / CONFIG_FILENAME).write_text(_declared("openspec: false\n"), encoding="utf-8")
-    assert _doctor(root, capsys) == (1, [NO_PLAN_STORE, LOCAL_NOT_IGNORED, "FAIL: `gh` not found on PATH"])
+    assert _doctor(root, capsys, "--require-plan-store") == (1, [NO_PLAN_STORE, LOCAL_NOT_IGNORED, "FAIL: `gh` not found on PATH"])
 
 
 @pytest.mark.usefixtures("all_tools")
 def test_local_takes_part_in_consistency(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     root = _repo(tmp_path, local="tracker: none\n", ignored=True)
     (root / CONFIG_FILENAME).write_text(_declared("openspec: false\n"), encoding="utf-8")
-    assert _doctor(root, capsys) == (1, [NO_PLAN_STORE])
+    assert _doctor(root, capsys, "--require-plan-store") == (1, [NO_PLAN_STORE])
 
 
 @pytest.mark.usefixtures("all_tools")

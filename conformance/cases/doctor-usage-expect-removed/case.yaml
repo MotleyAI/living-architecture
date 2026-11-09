@@ -1,0 +1,10 @@
+kind: neutral
+command: la-doctor
+args: [--expect, 0.4.1]
+normalize: [version]
+expect:
+  exit: 2
+  stdout: ignore
+  stderr: ignore
+golden: manual
+note: --expect is no longer an option

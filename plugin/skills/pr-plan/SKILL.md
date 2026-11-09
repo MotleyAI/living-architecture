@@ -3,7 +3,7 @@ name: pr-plan
 description: Stage 1 of 4 of the /la:pr flow — interview the user to turn the tracker issue + typed brief into a detailed spec, Codex-review the plan, emit the OpenSpec change (OpenSpec repos only), and make the plan durable. Normally dispatched by /la:pr; if the /la:pr context (BRANCH, CHANGE_ID, OPENSPEC, tracker issue) is not already loaded in this session, invoke the la:pr skill instead.
 ---
 
-**Preflight:** run `la-doctor --plugin <this skill's base directory> --require-config` once per session before using any `la-*` or `dr-*` command. If it reports the missing-config finding (the one naming `/la:init`), run the fast path of the `la:init` skill, then re-run this preflight; stop and show the user its output on anything it still reports, or on any other failure.
+**Preflight:** run `la-doctor --plugin <this skill's base directory> --require-config --require-plan-store` once per session before using any `la-*` or `dr-*` command. If it reports the missing-config finding (the one naming `/la:init`), run the fast path of the `la:init` skill, then re-run this preflight; stop and show the user its output on anything it still reports, or on any other failure.
 
 **Stage 1 of 4 of the `/la:pr` flow.** Prerequisite: `/la:pr` has run in this
 session and established `BRANCH`, `CHANGE_ID`, `OPENSPEC`, and the full tracker
@@ -17,8 +17,8 @@ Treat the tracker issue body + comments AND whatever I typed when invoking
 `/la:pr` as the combined brief. In case of conflict, what I typed has higher
 priority but ask to be sure.
 
-**Living-architecture repos**: the arc42 / LikeC4 reads and normative-harness
-rules in the `la:pr` skill apply before drafting. The plan MUST state which element
+**Living-architecture repos**: the `la:living-architecture` skill's "Working
+under the architecture" rules apply before drafting. The plan MUST state which element
 principles apply, and any arc42 contradiction is raised as its own interview
 point. If the change adds a capability, the plan also records where its spec attaches: one element's metadata `specs`
 (at any depth), or `cross_cutting_specs` in `index.yaml` with a `touches:` list. When an arc42 axiom edit is needed, keep the clause **concise

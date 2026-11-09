@@ -1,0 +1,14 @@
+kind: neutral
+command: la-doctor
+args: [--plugin, plugin]
+git:
+- write:
+    plugin/.claude-plugin/plugin.json: '{"version": "99<MAJOR>.<MINOR>.0"}'
+normalize:
+- {pattern: '(reinstall them with: ).*', replace: '\1<INSTALL>'}
+- {pattern: '(plugin 99)[0-9]+\.[0-9]+(\.0 needs 99)[0-9]+\.[0-9]+(\.x)', replace: '\1<MAJOR>.<MINOR>\2<MAJOR>.<MINOR>\3'}
+- version
+expect:
+  exit: 1
+golden: manual
+note: another major with the installed minor is a mismatch
