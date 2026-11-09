@@ -106,7 +106,7 @@ You can enforce the model without the plugin or the PR flow. Tell the checker wh
 
 ```yaml
 python:
-  root_package: mypkg      # the package the model's python root maps to
+  root_package: mypkg      # the package the model's python root maps to; root_packages: [a, b] for several
   source_root: src         # optional
 legacy_arrows: {baseline: 0}
 ```

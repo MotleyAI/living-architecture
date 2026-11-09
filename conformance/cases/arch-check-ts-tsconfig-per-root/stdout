@@ -1,0 +1,11 @@
+{
+  "language": "typescript",
+  "version": "<VERSION>",
+  "contract_hash": "<CONTRACT_HASH>",
+  "units": [],
+  "top_level_units": ["app/main", "lib/util"],
+  "edges": [
+    {"src": "app/main", "dst": "lib/util", "src_module": "app/main", "dst_module": "lib/util"},
+    {"src": "lib/util", "dst": "app/main", "src_module": "lib/util", "dst_module": "app/main"}
+  ]
+}

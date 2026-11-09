@@ -1,0 +1,9 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+fixture: arch-ok
+symlinks: {escape: ..}
+expect:
+  exit: 2
+note: every root_packages path must resolve within source_root including through symlinks

@@ -1,0 +1,8 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+fixture: arch-ok
+expect:
+  exit: 2
+note: nested roots are rejected so the combined source walk has no duplicate ownership

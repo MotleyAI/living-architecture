@@ -1,0 +1,1 @@
+arch_check: architecture/index.yaml: root_packages entry 'architecture/index.yaml' is not a directory under source_root '.'

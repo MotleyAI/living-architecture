@@ -9,8 +9,8 @@ export interface TsLayout {
   repoRoot: string;
   /** Absolute `<repoRoot>/<source_root>` (not realpath'd). */
   sourceRoot: string;
-  /** The section's `root_package`, e.g. `src`. */
-  rootPackage: string;
+  /** The section's disjoint roots, relative to sourceRoot, e.g. `['src']`. */
+  rootPackages: string[];
   /** The section's `tsconfig` (repo-relative), or null. */
   tsconfig: string | null;
 }
@@ -22,6 +22,6 @@ export type UnitStatus =
 export interface ModuleImports {
   /** The source's module id (extensionless, relative to sourceRoot; `<dir>/index.<ext>` is `<dir>`). */
   module: string;
-  /** Module ids of its runtime import targets under root_package (resolved, or lexical when unresolved relative). */
+  /** Module ids of its runtime import targets under the roots (resolved, or lexical when unresolved relative). */
   targets: string[];
 }
