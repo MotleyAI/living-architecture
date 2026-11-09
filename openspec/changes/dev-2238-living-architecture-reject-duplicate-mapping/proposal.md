@@ -11,7 +11,7 @@ index.
 
 - **BREAKING**: the shared YAML profile refuses a duplicate mapping key, at any depth, in both twins: a mapping whose
   loaded value cannot hold two of its keys is invalid YAML. Key identity is defined by the contract (strings and
-  timestamps by their normalized string, numbers by exact value with booleans as `0`/`1`, each NaN distinct); a
+  timestamps by their normalized string, numbers by exact value with booleans as `0`/`1`, every NaN equal); a
   second merge key in one mapping is a duplicate. Merge overrides stay legal.
 - The error names the key and both lines, worded by a new contract template `yaml.duplicate-key`.
 - Every reader names the file and carries the duplicate error to the user:

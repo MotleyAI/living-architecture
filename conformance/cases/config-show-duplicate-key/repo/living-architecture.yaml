@@ -1,3 +1,6 @@
 format: <FORMAT>
-issue_key_pattern: 'A-\d+'
-issue_key_pattern: 'B-\d+'
+conventions:
+  exempt: [a.py]
+tracker: linear
+conventions:
+  exempt: [b.py]

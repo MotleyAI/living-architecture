@@ -10,7 +10,7 @@ A mapping that repeats a key SHALL be a YAML error, at any depth, including insi
 of one mapping are the same key when their loaded values, normalized (a timestamp to its ISO string), are equal
 under these rules: two strings are equal when their code points are; `null` equals only `null`; booleans, integers
 and floats compare as exact numbers, `false` and `true` counting as `0` and `1` and `-0.0` as `0`; `.inf` and
-`-.inf` equal only themselves; a NaN equals nothing; a string never equals a number or `null`. An alias key counts
+`-.inf` equal only themselves; a NaN equals a NaN; a string never equals a number or `null`. An alias key counts
 as the value it resolves to. A second merge key (a plain `<<` or a `!!merge` node) in one mapping SHALL be a
 repeated key too. A key that a merge brings in SHALL NOT count: an explicit key overriding a merged one, and keys
 shared by the mappings of one merge, stay as PyYAML merges them. The error SHALL be worded by the shared
@@ -43,11 +43,11 @@ the input SHALL be a YAML error; the `\N`, `\L` and `\P` escapes in a double-quo
 #### Scenario: Keys equal by loaded value
 - **WHEN** a mapping holds the keys `a` and `"a"`, `0x1` and `1`, `1` and `1.0`, `1` and `true`, `false` and `0`,
   `~` and `null`, `-0.0` and `0`, `1:30` and `90`, `9007199254740992` and `9007199254740992.0`, `!!int "1"` and
-  `1`, or a timestamp and the quoted string of its ISO form
+  `1`, two `.nan` keys, or a timestamp and the quoted string of its ISO form
 - **THEN** both twins report a duplicate key
 
 #### Scenario: Keys that differ
-- **WHEN** a mapping holds the keys `!!str 1` and `1`, two `.nan` keys, `9007199254740993` and
+- **WHEN** a mapping holds the keys `!!str 1` and `1`, `9007199254740993` and
   `9007199254740992.0`, or `.inf` and a large integer
 - **THEN** both twins load every key
 

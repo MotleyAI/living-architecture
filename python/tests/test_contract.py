@@ -17,6 +17,7 @@ import pytest
 import yaml
 
 from living_architecture.contract import (
+    DuplicateKeyError,
     YAMLError,
     canonical_repr,
     compute_hash,
@@ -385,8 +386,45 @@ def test_yaml_profile_caps_decimal_digits(tag: str) -> None:
         load_yaml(f"x: {tag}{'9' * 4301}")
 
 
+DUPLICATE_KEYS = [
+    ('a: 1\n"a": 2\n', "'a'", 1, 2),
+    ("1: a\ntrue: b\n", "1", 1, 2),
+    ("true: a\n1: b\n", "True", 1, 2),
+    ("false: a\n0.0: b\n", "False", 1, 2),
+    ("1.0: a\n1: b\n", "1.0", 1, 2),
+    ("-0.0: a\n0: b\n", "-0.0", 1, 2),
+    ("~: a\nnull: b\n", "None", 1, 2),
+    (".nan: a\n.nan: b\n", "nan", 1, 2),
+    ("-.inf: a\n-.Inf: b\n", "-inf", 1, 2),
+    ("9007199254740993: a\n9007199254740993: b\n", "9007199254740993", 1, 2),
+    ('2026-01-02: a\n"2026-01-02": b\n', "'2026-01-02'", 1, 2),
+    ('"2026-01-02T03:04:05+00:00": a\n2026-01-02T03:04:05Z: b\n', "'2026-01-02T03:04:05+00:00'", 1, 2),
+    ("x: &x {k: 1}\nz:\n  <<: *x\n  !!merge <<: *x\n", "'<<'", 3, 4),
+    ("a: &k s\nm:\n  *k : 1\n  *k : 2\n", "'s'", 3, 4),
+    ("r:\n  s:\n    - {t: 1,\n       t: 2}\n", "'t'", 3, 4),
+]
+
+
+@pytest.mark.parametrize(("text", "key", "first", "second"), DUPLICATE_KEYS)
+def test_duplicate_key_error_carries_key_and_lines(text: str, key: str, first: int, second: int) -> None:
+    with pytest.raises(DuplicateKeyError) as caught:
+        load_yaml(text)
+    assert canonical_repr(caught.value.key) == key
+    assert (caught.value.first, caught.value.second) == (first, second)
+    assert str(caught.value) == f"duplicate key {key} at lines {first} and {second}"
+
+
+def test_duplicate_key_error_is_a_yaml_error() -> None:
+    assert issubclass(DuplicateKeyError, YAMLError)
+
+
 @pytest.mark.parametrize("vector", _vectors("yaml.yaml")["cases"], ids=lambda v: v["name"])
 def test_yaml_profile(vector: dict) -> None:
+    if vector.get("error") == "duplicate":
+        with pytest.raises(DuplicateKeyError) as caught:
+            load_yaml(vector["text"])
+        assert str(caught.value) == vector["message"]
+        return
     if vector.get("error"):
         with pytest.raises(YAMLError):
             load_yaml(vector["text"])
@@ -480,6 +518,8 @@ NEW_TEMPLATES = {
         "{source} cannot move to {target}: architecture/index.yaml already has the diagrams key {target}; nothing written",
     "c4.relation-outside-root": "relation {src} -> {dst} outside every language root",
     "c4.view-unscoped": "view {view} is not scoped to a language root",
+    "c4.index-duplicate-key": "index.yaml is not valid YAML: {error}",
+    "yaml.duplicate-key": "duplicate key {key!r} at lines {first} and {second}",
     "c4.view-scope-unknown": "view {view} is scoped to {root}, which is not a language root",
     "claims-exist.unit-ambiguous": "claims-exist: {node} claims {unit}, which is ambiguous: {candidates}",
     "claims-exist.child-ambiguous": "claims-exist: element {element} maps to {unit}, which is ambiguous: {candidates}",

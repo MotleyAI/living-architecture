@@ -1167,6 +1167,12 @@ def test_diagrams_map_fails_closed_without_raising(tmp_path, content):
     assert isinstance(_diagrams_map(tmp_path), str)  # a reason string, never a raise
 
 
+def test_diagrams_map_reports_a_duplicate_key(tmp_path):
+    (tmp_path / "architecture").mkdir()
+    (tmp_path / "architecture" / "index.yaml").write_text("diagrams: {}\ndiagrams: {}\n", encoding="utf-8")
+    assert _diagrams_map(tmp_path) == "index.yaml is not valid YAML: duplicate key 'diagrams' at lines 1 and 2"
+
+
 def test_diagrams_fresh_crlf_block_is_stale(tmp_path):
     root = make_repo(tmp_path)
     doc = root / "architecture" / "system.arc42.md"

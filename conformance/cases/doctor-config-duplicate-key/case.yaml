@@ -1,0 +1,12 @@
+kind: neutral
+command: la-doctor
+normalize:
+- version
+expect:
+  exit: 1
+  stdout:
+    contains:
+    - 'FAIL: '
+    - "living-architecture.yaml: invalid YAML: duplicate key 'tracker' at lines 2 and 3"
+golden: manual
+note: a repeated config key fails the doctor, naming the file, the key and both lines

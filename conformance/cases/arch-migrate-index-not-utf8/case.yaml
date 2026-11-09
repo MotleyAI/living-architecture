@@ -3,14 +3,11 @@ command: la-arch-migrate
 fixture: arch-ok
 remove:
 - architecture/model.c4
-normalize:
-- pattern: '(format"?: "?)[0-9]+\.[0-9]+\.[0-9]+'
-  replace: \1<FORMAT>
 expect:
-  exit: 0
+  exit: 2
   files:
   - architecture/model.c4
   - architecture/model/model.c4
   - living-architecture.yaml
 golden: manual
-note: a legacy layout migrates past an index.yaml that is not valid UTF-8, leaving the index untouched
+note: a legacy layout whose index.yaml is not valid UTF-8 is refused as invalid YAML; repo unchanged

@@ -1,0 +1,5 @@
+typescript:
+  root_package: src
+typescript:
+  root_package: src
+  tsconfig: tsconfig.json

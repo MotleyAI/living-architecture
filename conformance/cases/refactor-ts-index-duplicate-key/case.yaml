@@ -1,0 +1,22 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- --apply
+- rename
+- --file
+- src/a.ts
+- --name
+- foo
+- --new-name
+- bar
+fixture: refactor-ts
+git:
+- commit: init
+expect:
+  exit: 1
+  files:
+  - src/a.ts
+golden: manual
+note: a repeated index key is an error naming the key and both lines, never a fallback to another tsconfig

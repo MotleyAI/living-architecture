@@ -1,9 +1,10 @@
-# The shared YAML profile: YAML 1.1 as PyYAML's safe loader reads it, within a closed tag set (last duplicate key
-# wins). Each case has exactly one of: `json`, the expected value of `text` serialized as JSON (compared by value, so
-# mapping key order is not pinned); `repr`, the canonical repr of the normalized value, for values JSON cannot
-# hold (non-string keys, timestamps, inf, nan); `error: true`, an input the safe loader cannot load, which must be a
-# YAML error; or `error: refused`, an input the safe loader constructs but the profile refuses, which must be a YAML
-# error.
+# The shared YAML profile: YAML 1.1 as PyYAML's safe loader reads it, within a closed tag set, refusing a repeated
+# mapping key. Each case has exactly one of: `json`, the expected value of `text` serialized as JSON (compared by
+# value, so mapping key order is not pinned); `repr`, the canonical repr of the normalized value, for values JSON
+# cannot hold (non-string keys, timestamps, inf, nan); `error: true`, an input the safe loader cannot load, which must
+# be a YAML error; `error: refused`, an input the safe loader constructs but the profile refuses, which must be a YAML
+# error; or `error: duplicate` with `message`, an input the safe loader constructs but that repeats a mapping key,
+# which must be the profile's duplicate-key error worded exactly `message`.
 cases:
 - name: YAML 1.1 booleans
   text: '[yes, no, on, off, true, false, True, FALSE, Yes, NO, On, OFF]'
@@ -26,16 +27,18 @@ cases:
 - name: floats
   text: '[1.0, -0.5, 1.0e+3, .5, 6.8523015e+5]'
   json: '[1.0, -0.5, 1000.0, 0.5, 685230.15]'
-- name: duplicate key keeps the last value
+- name: duplicate key
   text: |
     a: 1
     b: 2
     a: 3
-  json: '{"a": 3, "b": 2}'
+  error: duplicate
+  message: duplicate key 'a' at lines 1 and 3
 - name: duplicate nested key
   text: |
     r: {c: true, c: false}
-  json: '{"r": {"c": false}}'
+  error: duplicate
+  message: duplicate key 'c' at lines 1 and 1
 - name: merge key
   text: |
     base: &b {x: 1, y: 2}
@@ -113,12 +116,236 @@ cases:
         t: 1
         t: 2
       s2: {u: [1, {v: a, v: b}]}
-  json: '{"r": {"s": {"t": 2}, "s2": {"u": [1, {"v": "b"}]}}}'
-- name: duplicate mapping value replaced, not merged
+  error: duplicate
+  message: duplicate key 't' at lines 3 and 4
+- name: duplicate key with mapping values
   text: |
     a: {x: 1}
     a: {y: 2}
-  json: '{"a": {"y": 2}}'
+  error: duplicate
+  message: duplicate key 'a' at lines 1 and 2
+- name: duplicate key in a one-line flow mapping
+  text: |
+    {a: 1, b: 2, a: 3}
+  error: duplicate
+  message: duplicate key 'a' at lines 1 and 1
+- name: duplicate key, plain and quoted
+  text: |
+    a: 1
+    "a": 2
+  error: duplicate
+  message: duplicate key 'a' at lines 1 and 2
+- name: duplicate key, hex and decimal
+  text: |
+    0x1: a
+    1: b
+  error: duplicate
+  message: duplicate key 1 at lines 1 and 2
+- name: duplicate key, integer and float
+  text: |
+    1: a
+    1.0: b
+  error: duplicate
+  message: duplicate key 1 at lines 1 and 2
+- name: duplicate key, integer and true
+  text: |
+    1: a
+    true: b
+  error: duplicate
+  message: duplicate key 1 at lines 1 and 2
+- name: duplicate key, true and integer
+  text: |
+    true: a
+    1: b
+  error: duplicate
+  message: duplicate key True at lines 1 and 2
+- name: duplicate key, false and zero
+  text: |
+    false: a
+    0: b
+  error: duplicate
+  message: duplicate key False at lines 1 and 2
+- name: duplicate key, false and float zero
+  text: |
+    false: a
+    0.0: b
+  error: duplicate
+  message: duplicate key False at lines 1 and 2
+- name: duplicate key, null spellings
+  text: |
+    ~: a
+    null: b
+  error: duplicate
+  message: duplicate key None at lines 1 and 2
+- name: duplicate key, zero and negative zero
+  text: |
+    0: a
+    -0.0: b
+  error: duplicate
+  message: duplicate key 0 at lines 1 and 2
+- name: duplicate key, sexagesimal and decimal
+  text: |
+    1:30: a
+    90: b
+  error: duplicate
+  message: duplicate key 90 at lines 1 and 2
+- name: duplicate key, integer at 2^53 and its float
+  text: |
+    9007199254740992: a
+    9007199254740992.0: b
+  error: duplicate
+  message: duplicate key 9007199254740992 at lines 1 and 2
+- name: duplicate key, explicit int tag on a quoted scalar
+  text: |
+    !!int "1": a
+    1: b
+  error: duplicate
+  message: duplicate key 1 at lines 1 and 2
+- name: duplicate key, non-specific tag
+  text: |
+    ! 1: a
+    1: b
+  error: duplicate
+  message: duplicate key 1 at lines 1 and 2
+- name: duplicate key, timestamp and its ISO string
+  text: |
+    2026-01-02T03:04:05Z: a
+    "2026-01-02T03:04:05+00:00": b
+  error: duplicate
+  message: duplicate key '2026-01-02T03:04:05+00:00' at lines 1 and 2
+- name: duplicate key, date and its string
+  text: |
+    "2026-01-02": a
+    2026-01-02: b
+  error: duplicate
+  message: duplicate key '2026-01-02' at lines 1 and 2
+- name: duplicate key, infinities
+  text: |
+    .inf: a
+    +.INF: b
+  error: duplicate
+  message: duplicate key inf at lines 1 and 2
+- name: duplicate key, two nan
+  text: |
+    .nan: a
+    .NaN: b
+  error: duplicate
+  message: duplicate key nan at lines 1 and 2
+- name: keys that differ by type or value
+  text: '{!!str 1: a, 1: b, 9007199254740993: c, 9007199254740992.0: d, .inf: e, -.inf: f, 1e400: g, "null": h, ~: i}'
+  repr: '{''1'': ''a'', 1: ''b'', 9007199254740993: ''c'', 9007199254740992.0: ''d'', inf: ''e'', -inf: ''f'', ''1e400'': ''g'', ''null'': ''h'', None: ''i''}'
+- name: infinity and a large integer differ
+  text: |
+    .inf: a
+    1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000: b
+  repr: '{inf: ''a'', 1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000: ''b''}'
+- name: repeated merge key
+  text: |
+    x: &x {k: 1}
+    y: &y {j: 2}
+    z:
+      <<: *x
+      <<: *y
+  error: duplicate
+  message: duplicate key '<<' at lines 4 and 5
+- name: repeated merge key, plain and merge-tagged
+  text: |
+    x: &x {k: 1}
+    y: &y {j: 2}
+    z:
+      <<: *x
+      !!merge <<: *y
+  error: duplicate
+  message: duplicate key '<<' at lines 4 and 5
+- name: quoted merge spelling beside a merge key is no repeat
+  text: |
+    x: &x {k: 1}
+    z:
+      '<<': {a: 1}
+      <<: *x
+  json: '{"x": {"k": 1}, "z": {"<<": {"a": 1}, "k": 1}}'
+- name: duplicate key in an anchored mapping
+  text: |
+    base: &b {x: 1, x: 2}
+    d:
+      <<: *b
+  error: duplicate
+  message: duplicate key 'x' at lines 1 and 1
+- name: duplicate key, alias second
+  text: |
+    a: &k s
+    m:
+      s: 1
+      *k : 2
+  error: duplicate
+  message: duplicate key 's' at lines 3 and 4
+- name: duplicate key, alias first
+  text: |
+    a: &k s
+    m:
+      *k : 1
+      s: 2
+  error: duplicate
+  message: duplicate key 's' at lines 3 and 4
+- name: duplicate key, explicit key indicator
+  text: |
+    ?
+      a
+    : 1
+    a: 2
+  error: duplicate
+  message: duplicate key 'a' at lines 2 and 4
+- name: duplicate key, anchored and tagged keys
+  text: |
+    &p !!str a: 1
+    b: 2
+    !!str a: 3
+  error: duplicate
+  message: duplicate key 'a' at lines 1 and 3
+- name: several repeats name the first two occurrences
+  text: |
+    a: 1
+    a: 2
+    a: 3
+  error: duplicate
+  message: duplicate key 'a' at lines 1 and 2
+- name: several repeated nan keys name the first two
+  text: |
+    .nan: a
+    .nan: b
+    .nan: c
+  error: duplicate
+  message: duplicate key nan at lines 1 and 2
+- name: the first repeat in the document is reported
+  text: |
+    a: 1
+    b: 1
+    b: 2
+    a: 2
+  error: duplicate
+  message: duplicate key 'b' at lines 2 and 3
+- name: a nested repeat before an outer one is reported first
+  text: |
+    a:
+      b: 1
+      b: 2
+    a: 3
+  error: duplicate
+  message: duplicate key 'b' at lines 2 and 3
+- name: an outer repeat before a nested one is reported first
+  text: |
+    x: 1
+    x:
+      y: 1
+      y: 2
+  error: duplicate
+  message: duplicate key 'x' at lines 1 and 2
+- name: the same key in sibling mappings is no repeat
+  text: |
+    a: {k: 1}
+    b: {k: 2}
+    c: [{k: 3}, {k: 4}]
+  json: '{"a": {"k": 1}, "b": {"k": 2}, "c": [{"k": 3}, {"k": 4}]}'
 - name: non-string keys
   text: '{1: a, 2.5: b, ~: c, false: d, -3: e, 0x10: f}'
   repr: '{1: ''a'', 2.5: ''b'', None: ''c'', False: ''d'', -3: ''e'', 16: ''f''}'

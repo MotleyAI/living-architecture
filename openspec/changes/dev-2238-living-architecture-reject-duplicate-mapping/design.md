@@ -48,8 +48,8 @@ The decisions log of the planning interview, each entry tagged with who took it.
    Python equality (`a`≡`"a"`, `0x1`≡`1`≡`1.0`≡`true`, a timestamp ≡ its ISO string), and a second merge key in one
    mapping is a duplicate. Weighed against comparing string keys only, which leaves both twin divergences and
    Python's silent `{1: a, true: b}` collapse in place. (user)
-4. **Two `.nan` keys are not duplicates; with three or more occurrences the first repeat in the document is
-   reported**, paired with that key's first occurrence (fail fast, one error). (default)
+4. **Two NaN keys are duplicates** (PyYAML loads every `.nan` as one shared float, so its `dict` keeps only the
+   last); **with several repeats the first repeat in the document is reported**, paired with that key's first occurrence (fail fast, one error). (default)
 5. **Wording** (user, approved wording):
    - `yaml.duplicate-key: 'duplicate key {key!r} at lines {first} and {second}'`
    - `c4.index-duplicate-key: 'index.yaml is not valid YAML: {error}'`
@@ -74,7 +74,7 @@ The decisions log of the planning interview, each entry tagged with who took it.
 13. **Key identity is a contract-level comparator implemented by each twin**, never by `dict`/`Map` membership:
     strings (timestamps as their normalized ISO string) by code points; `null` only with `null`; booleans, integers
     and floats by exact numeric value (`false`/`true` as `0`/`1`, `-0.0` as `0`, an integral float equal to that
-    exact integer, so `9007199254740993` ≠ `9007199254740992.0`); `±inf` only with themselves; NaN with nothing;
+    exact integer, so `9007199254740993` ≠ `9007199254740992.0`); `±inf` only with themselves; NaN with NaN;
     merge keys only with each other. JS `Map` treats all NaNs as equal and compares wrapper objects by identity, so
     it cannot serve. (codex)
 14. **Both vector runners learn `error: duplicate`**: PyYAML's `safe_load` loads the input, and the profile raises

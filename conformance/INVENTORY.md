@@ -24,7 +24,8 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | clean model | 0 | `arch-check-ok`, `arch-check-claims-child-module-file`, `arch-check-diagrams-fresh`, `arch-check-parse-spec-inline-statements`, `arch-check-spec-nested-spec-md-counts`, `arch-check-spec-no-openspec-dir-nothing-mapped`, `arch-check-tags-fences`, `arch-check-tags-id-on-next-line` |
 | repo root: `--root`, `.git` discovery from a subdir, no `.git` (cwd) | 0 | `arch-check-root-flag`, `arch-check-root-discovery-from-subdir`, `arch-check-root-without-git-is-cwd` |
 | `index.yaml` missing (OSError) | 2 | `arch-check-index-missing` |
-| `index.yaml` invalid YAML | 2 | `arch-check-index-invalid-yaml` |
+| `index.yaml` invalid YAML, *(new)* the error naming `architecture/index.yaml` | 2 | `arch-check-index-invalid-yaml` |
+| *(new)* `index.yaml` repeats a key: the duplicate-key error naming `architecture/index.yaml` | 2 | `arch-check-index-duplicate-key` |
 | *(new)* `index.yaml` top level not a mapping | 2 | `arch-check-index-not-mapping` |
 | `root_package` absent / empty / not a string | 2 | `arch-check-root-package-absent`, `arch-check-root-package-empty`, `arch-check-root-package-not-string` |
 | `root_package` dir missing (layout validation) | 2 | `arch-check-root-package-dir-missing` |
@@ -44,7 +45,7 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | *(new)* `model.c4` with empty blocks: the declared language has no root element | 2 | `arch-check-model-without-roots` |
 | *(new)* LikeC4 layout: canonical model and views missing (one or both) or not a file; stray `.c4`/`.likec4` at any depth, symlinked file | 2 | `arch-check-layout-model-missing`, `arch-check-layout-views-missing`, `arch-check-layout-index-without-model`, `arch-check-layout-model-is-directory`, `arch-check-layout-stray-c4`, `arch-check-layout-stray-likec4`, `arch-check-layout-nested-stray`, `arch-check-layout-symlinked-stray` |
 | *(new)* LikeC4 layout: a canonical or stray source that is not valid UTF-8 is reported only as such | 2 | `arch-check-layout-not-utf8` |
-| *(new)* an `index.yaml` that is not valid UTF-8 reads as invalid YAML: a setup error for the arch-check, a blocked regeneration for diagrams, left untouched by a legacy migration | 2, 1, 0 | `arch-check-index-not-utf8`, `arch-diagrams-index-not-utf8`, `arch-migrate-index-not-utf8` |
+| *(new)* an `index.yaml` that is not valid UTF-8 reads as invalid YAML: a setup error for the arch-check, a blocked regeneration for diagrams, a refused legacy migration | 2, 1, 2 | `arch-check-index-not-utf8`, `arch-diagrams-index-not-utf8`, `arch-migrate-index-not-utf8` |
 | *(new)* LikeC4 layout: case-sensitive extensions, symlinked directory not descended, braces in strings and comments | 0 | `arch-check-layout-extension-case-sensitive`, `arch-check-layout-symlinked-dir-not-followed`, `arch-check-layout-braces-in-strings-and-comments` |
 | *(new)* LikeC4 layout blocks: block in the wrong file, second block, missing block, top-level text, unclosed block | 2 | `arch-check-layout-views-block-in-model`, `arch-check-layout-model-block-in-views`, `arch-check-layout-two-model-blocks`, `arch-check-layout-no-specification-block`, `arch-check-layout-views-only-comments`, `arch-check-layout-top-level-text`, `arch-check-layout-unclosed-block` |
 | *(new)* LikeC4 layout message: every violation in code-point path order, always ending with what to merge by hand (also for a legacy-shaped layout in a current-format repo); an unversioned legacy repo gets the format check's `la-arch-migrate` message instead; `index.yaml` errors first | 2 | `arch-check-layout-every-violation`, `arch-check-layout-code-point-order`, `arch-check-layout-legacy`, `arch-check-layout-legacy-current-format`, `arch-check-layout-legacy-not-migratable`, `arch-check-layout-index-error-first` |
@@ -136,6 +137,7 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | fresh docs: nothing printed, nothing written | 0 | `arch-diagrams-noop-when-fresh` |
 | rewritten docs printed; rendering (nested, flat, predicates, several views and docs, title escape, virtual shape, legacy dashing) | 0 | `arch-diagrams-rewrite-hierarchical`, `arch-diagrams-rewrite-flat-depth-1`, `arch-diagrams-root-flag`, `arch-diagrams-predicates-and-multiple-views`, `arch-diagrams-title-escape-and-virtual-shape`, `arch-diagrams-legacy-only-when-all-contributors-are`, `arch-diagrams-crlf-outside-block-preserved` |
 | index missing / invalid YAML / not a mapping / no diagrams block / block not a mapping | 1 | `arch-diagrams-index-missing`, `arch-diagrams-index-invalid-yaml`, `arch-diagrams-index-not-mapping`, `arch-diagrams-no-diagrams-block`, `arch-diagrams-diagrams-not-mapping` |
+| *(new)* index repeats a key: invalid YAML with the duplicate-key error, no doc rewritten | 1 | `arch-diagrams-index-duplicate-key` |
 | model/views findings block generation (incl. *(new)* malformed metadata) | 1 | `arch-diagrams-parse-findings-block-generation`, `arch-diagrams-malformed-metadata` |
 | key not an arc42 path (`!r`) | 1 | `arch-diagrams-key-not-arc42-path` |
 | view not defined (incl. string view list) | 1 | `arch-diagrams-view-not-defined`, `arch-diagrams-view-ids-string-iterates` |
@@ -163,6 +165,7 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | *(new)* an index with CRLF lines keeps them byte for byte; the additions use LF | 0 | `arch-scaffold-crlf-index` |
 | *(new)* an existing LikeC4 source at any depth (canonical, legacy `model/*.c4`, nested `.likec4`) or `*.arc42.md` refused by name, the first in code-point order; repo unchanged | 2 | `arch-scaffold-existing-model`, `arch-scaffold-existing-legacy-model`, `arch-scaffold-existing-nested-likec4`, `arch-scaffold-existing-views`, `arch-scaffold-existing-arc42`, `arch-scaffold-existing-first-clash-code-point` |
 | *(new)* `architecture/index.yaml` missing or not valid YAML, nothing written | 2 | `arch-scaffold-index-missing`, `arch-scaffold-index-invalid` |
+| *(new)* `architecture/index.yaml` repeats a key: invalid YAML with the duplicate-key error, nothing written | 2 | `arch-scaffold-index-duplicate-key` |
 | *(new)* other twin unreachable: install hint, nothing written | 2 | `arch-scaffold-twin-unavailable` |
 | *(new)* other twin returns schema-invalid top-level facts: protocol failure, nothing written | 2 | `twin-scaffold-top-level-schema-invalid` |
 
@@ -177,8 +180,10 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | *(new)* other files keep `architecture/model/` | 0 | `arch-migrate-keeps-other-files` |
 | *(new)* the current format: nothing to migrate, naming the format | 0 | `arch-migrate-already-canonical` |
 | *(new)* unversioned without a layout to convert (canonical; no `architecture/`; no LikeC4 source, with or without an index): only the format stamped | 0 | `arch-migrate-unversioned-canonical`, `arch-migrate-no-architecture`, `arch-migrate-no-model`, `arch-migrate-index-without-model` |
+| *(new)* unversioned without a LikeC4 source: the index is never read, so a repeated key in it does not block the stamp | 0 | `arch-migrate-index-duplicate-key-without-model` |
 | *(new)* stamp placement: after leading comments and blank lines, after a directive and `---`, the file's CRLF, an empty file, a comment-only file without a final line break; a removed key does not block it | 0 | `arch-migrate-stamp-after-comments`, `arch-migrate-stamp-document-marker`, `arch-migrate-stamp-crlf`, `arch-migrate-stamp-empty`, `arch-migrate-stamp-comment-only`, `arch-migrate-schema-errors-kept` |
 | *(new)* refused, repo unchanged: no committed config (names `/la:init`); a newer or invalid format (the format check's message); an older format with no conversion; a config that cannot be read, is not valid YAML or not a mapping; a config the stamp cannot edit (add `format` by hand) | 2 | `arch-migrate-no-config`, `arch-migrate-format-newer`, `arch-migrate-format-invalid`, `arch-migrate-format-unknown-older`, `arch-migrate-config-invalid-yaml`, `arch-migrate-config-not-utf8`, `arch-migrate-config-scalar`, `arch-migrate-config-list`, `arch-migrate-stamp-flow-refused` |
+| *(new)* refused, repo unchanged: a legacy layout whose `index.yaml` is not valid UTF-8, not valid YAML, repeats a key (the duplicate-key error) or is not a mapping | 2 | `arch-migrate-index-not-utf8`, `arch-migrate-index-invalid-yaml`, `arch-migrate-index-duplicate-key`, `arch-migrate-index-not-mapping` |
 | *(new)* arc42 keys converted: doc moved to its id name, key line removed, emptied metadata block removed, diagrams key renamed, other bytes kept; doc already at its target; a statement or block sharing its line removed alone; cross-cutting docs flattened (a non-string entry left as is); legacy layout and arc42 keys in one run | 0 | `arch-migrate-arc42-keys-canonical`, `arch-migrate-arc42-doc-at-target`, `arch-migrate-arc42-emptied-metadata`, `arch-migrate-arc42-inline-statement`, `arch-migrate-cross-cutting-flattened`, `arch-migrate-cross-cutting-non-string-entry`, `arch-migrate-legacy-and-arc42-keys` |
 | *(new)* refused moves, nothing written: source missing (or outside the repo, or a doc already at its target), source moved twice (also a doc already at its target), shared target, target taken (also by another move's source), diagrams key taken; only the first refusal, by plan order then check order | 2 | `arch-migrate-refuse-source-missing`, `arch-migrate-refuse-source-outside-repo`, `arch-migrate-refuse-doc-at-target-missing`, `arch-migrate-refuse-source-moved-twice`, `arch-migrate-refuse-doc-at-target-claimed`, `arch-migrate-refuse-shared-target`, `arch-migrate-refuse-target-taken`, `arch-migrate-refuse-target-is-other-source`, `arch-migrate-refuse-diagrams-key-taken`, `arch-migrate-refuse-check-order`, `arch-migrate-refuse-elements-first` |
 | *(new)* not migratable (another LikeC4 source, a `views` block or top-level text in a legacy file): layout message, nothing written, the config not stamped | 2 | `arch-migrate-not-migratable`, `arch-migrate-views-block-in-legacy-file`, `arch-migrate-top-level-text` |
@@ -190,7 +195,7 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 
 | Branch | Exit | Cases |
 |---|---|---|
-| `show`: defaults (no file, empty, comments, `{}`), partial, falsy kept, YAML 1.1, duplicate keys, full, integer float, non-ASCII, portable pattern | 0 | `config-show-defaults`, `config-show-empty-file`, `config-show-empty-mapping`, `config-show-comments-only`, `config-show-partial-nested`, `config-show-explicit-falsy`, `config-show-yaml11-booleans`, `config-show-duplicate-key`, `config-show-full`, `config-show-integer-ratio`, `config-show-non-ascii`, `config-show-portable-patterns` |
+| `show`: defaults (no file, empty, comments, `{}`), partial, falsy kept, YAML 1.1, full, integer float, non-ASCII, portable pattern | 0 | `config-show-defaults`, `config-show-empty-file`, `config-show-empty-mapping`, `config-show-comments-only`, `config-show-partial-nested`, `config-show-explicit-falsy`, `config-show-yaml11-booleans`, `config-show-full`, `config-show-integer-ratio`, `config-show-non-ascii`, `config-show-portable-patterns` |
 | *(new)* `commands.typecheck`: per-language defaults (shown in every `show` golden), explicit `null` kept, `get` of a default | 0 | `config-show-typecheck-null`, `config-get-typecheck-default` |
 | *(new)* `commands.typecheck` as a plain string, or with an unknown language key | 1 | `config-error-typecheck-string`, `config-error-typecheck-unknown-language` |
 | *(new)* gate keys: `tracker`, `openspec`, `architecture`, `reviewers.codex`, `conventions.rules` with their defaults (shown in every `show` golden), explicit values and falsy values kept, YAML 1.1 `codex: no`, `get` of the rules default | 0 | `config-show-defaults`, `config-show-full`, `config-show-explicit-falsy`, `config-show-yaml11-booleans`, `config-get-conventions-rules-default` |
@@ -209,6 +214,7 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | *(new)* `get lang.…`: internal field, unregistered language, no key | 2 | `config-get-lang-internal-key-refused`, `config-get-lang-unknown-language`, `config-get-lang-without-key` |
 | *(new)* `living-architecture.local.yaml`: deep-merged over the committed file (or the defaults), one stderr note per key it sets in schema order (`show` only); an empty file overrides nothing | 0 | `config-local-show-override`, `config-local-deep-merge`, `config-local-without-committed`, `config-local-empty`, `config-get-local-override` |
 | *(new)* `living-architecture.local.yaml`: a key outside `tracker`/`reviewers.codex` (top level, nested, `format`), an invalid value, invalid YAML, a non-mapping top level (local file named) | 1 | `config-local-refused-top-key`, `config-local-refused-nested-key`, `config-local-format-refused`, `config-local-invalid-value`, `config-local-invalid-yaml`, `config-local-top-level-list` |
+| *(new)* a repeated key in `living-architecture.yaml` or `living-architecture.local.yaml`: a config error naming the file, the key and both lines | 1 | `config-show-duplicate-key`, `config-local-duplicate-key` |
 | *(new)* `format`: `null` in the defaults (shown in every `show` golden), `get format` | 0 | `config-show-defaults`, `config-get-format` |
 
 ## la-doctor
@@ -217,6 +223,7 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 |---|---|---|
 | healthy (defaults / config file / `--root`); no config file means no consistency checks | 0 | `doctor-ok-defaults`, `doctor-ok-config-file`, `doctor-root-flag` |
 | invalid config; `git`/`gh` missing; all problems in order | 1 | `doctor-config-invalid`, `doctor-missing-git`, `doctor-missing-gh`, `doctor-missing-both`, `doctor-all-problems-in-order` |
+| *(new)* a repeated config key: the failure names the file, the key and both lines | 1 | `doctor-config-duplicate-key` |
 | usage errors (`--expect` is no option); `--help` | 2/0 | `doctor-usage-unknown-flag`, `doctor-usage-expect-removed`, `doctor-help` |
 | *(new)* `--plugin DIR` matches the nearest `.claude-plugin/plugin.json` at or above DIR (absolute, past a non-file or dangling `plugin.json`; relative to the cwd) | 0 | `doctor-plugin-match`, `doctor-plugin-relative-dir`, `doctor-plugin-dangling-link` |
 | *(new)* `--plugin` DIR with a leading `//` resolves as `/` | 1 | `doctor-plugin-double-slash` |
@@ -350,6 +357,7 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | *(new)* a requested directory inside `node_modules` expands to nothing | 0 | `compliance-ts-excluded-directory-requested` |
 | *(new)* the governing tsconfig is the file's nearest tsconfig.json when the project root has none | 1 | `compliance-ts-nested-tsconfig` |
 | *(new)* the tsconfig `index.yaml` names does not exist | 2 | `compliance-ts-index-tsconfig-missing` |
+| *(new)* `index.yaml` repeats a key: the duplicate-key error, no fallback | 2 | `compliance-ts-index-duplicate-key` |
 
 ## dr-mock-lint
 
@@ -368,6 +376,7 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | *(new)* a factory typed against an ambient module (exact, wildcard pattern) passes; an unresolved one is flagged | 1 | `mock-lint-ts-ambient-module` |
 | *(new)* the file's nearest tsconfig.json (no root one) supplies an ambient module | 0 | `mock-lint-ts-nested-tsconfig` |
 | *(new)* the tsconfig `index.yaml` names does not exist | 2 | `mock-lint-ts-index-tsconfig-missing` |
+| *(new)* `index.yaml` repeats a key: the duplicate-key error, no fallback | 2 | `mock-lint-ts-index-duplicate-key` |
 | *(new)* double assertions only in test-glob files; directory recursion | 1 | `mock-lint-ts-cast-only-in-tests` |
 | *(new)* explicit declaration file or unknown extension skipped with a warning; directory expansion skips `.d.ts`, `node_modules` and non-repo languages | 0/1 | `mock-lint-ts-declaration-skipped`, `mock-lint-unknown-extension-skipped`, `mock-lint-ts-directory-expansion` |
 
@@ -393,6 +402,7 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | *(new)* rename across project references, each project with its own options (a `paths` alias); paths from a subdirectory with `--project ..`; the tsconfig `index.yaml` names | 0 | `refactor-ts-project-references`, `refactor-ts-from-subdirectory`, `refactor-ts-index-tsconfig` |
 | *(new)* no `index.yaml` tsconfig: the file's nearest tsconfig.json (no root one; a root one that does not contain the file) | 0 | `refactor-ts-nested-tsconfig`, `refactor-ts-nested-tsconfig-root-elsewhere` |
 | *(new)* the tsconfig `index.yaml` names does not exist | 1 | `refactor-ts-index-tsconfig-missing` |
+| *(new)* `index.yaml` repeats a key (the duplicate-key error), is not valid YAML or not valid UTF-8: an error, nothing written, no fallback | 1 | `refactor-ts-index-duplicate-key`, `refactor-ts-index-invalid-yaml`, `refactor-ts-index-not-utf8` |
 | *(new)* move-symbol: importers rewritten; default re-export rewritten; `export *` barrel gets an explicit re-export (none when it already re-exports the new file) and a mixed named re-export is split | 0 | `refactor-ts-move-symbol-apply`, `refactor-ts-move-symbol-default-reexport`, `refactor-ts-move-symbol-barrel`, `refactor-ts-move-symbol-barrel-covered` |
 | *(new)* move-module: a file (apply, dry-run), a directory, a directory with a file of a non-repo language | 0 | `refactor-ts-move-module-apply`, `refactor-ts-move-module-dry-run`, `refactor-ts-move-module-directory`, `refactor-ts-move-module-directory-stray-python` |
 | *(new)* locator errors: line, column, offset out of range; no locator; symbol not found | 1 | `refactor-ts-line-out-of-range`, `refactor-ts-col-out-of-range`, `refactor-ts-offset-out-of-range`, `refactor-ts-no-locator`, `refactor-ts-symbol-not-found` |
