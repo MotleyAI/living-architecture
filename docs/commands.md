@@ -15,7 +15,7 @@ The skills drive these commands; you can also run them directly. `<command> --he
 | `la-typecheck [--write-baseline]` | Type-check each applicable language against a baseline that only shrinks |
 | `la-pr-reviewers <PR>` | Which review bots ran on a PR (CodeRabbit, Sonar and its project key), as JSON |
 | `la-wait-for-reviews <PR>` | Wait for CI and, when it is on the PR, the CodeRabbit review to settle |
-| `la-fetch-failed-pr-checks <PR>` | Failed checks plus their failed-step logs |
+| `la-fetch-failed-pr-checks <PR>` | Failed checks plus a log excerpt of each |
 | `la-fetch-coderabbit-threads <PR>` | Unresolved CodeRabbit threads, nitpicks, outside-diff comments |
 | `la-reply-to-pr-thread`, `la-reply-invalid-coderabbit` | Reply to a review thread (body on stdin) |
 | `dr-refactor`, `dr-compliance`, `dr-mock-lint` | See [Deterministic refactoring](deterministic-refactoring.md) |
@@ -64,8 +64,8 @@ Pin the checker to a release; it needs no per-repo code beyond `architecture/`. 
 ```yaml
 # Python
 - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-- run: uvx --no-build --from living-architecture==0.4.2 la-arch-check
+- run: uvx --no-build --from living-architecture==0.5.0 la-arch-check
 # TypeScript
 - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-- run: npx -y -p living-architecture@0.4.2 la-arch-check
+- run: npx -y -p living-architecture@0.5.0 la-arch-check
 ```

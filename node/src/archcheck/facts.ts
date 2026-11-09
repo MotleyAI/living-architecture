@@ -3,7 +3,7 @@ import { contractHash } from '../contract/index.js';
 import { moduleImports, topLevelUnits, unitStatus, type TsLayout } from '../lang/index.js';
 import { VERSION } from '../index.js';
 import { type NodeMap, unitToElement } from './nodes.js';
-import { compareEdge } from './order.js';
+import { compareEdge, compareStrings } from './order.js';
 import { measureEdges } from './truth.js';
 
 export interface UnitFact {
@@ -42,7 +42,7 @@ function facts(layout: TsLayout, language: string, units: UnitFact[], attributio
     version: VERSION,
     contract_hash: contractHash(),
     units,
-    top_level_units: [...topLevelUnits(layout)].sort(),
+    top_level_units: [...topLevelUnits(layout)].sort(compareStrings),
     edges: [...witnesses]
       .sort(([a], [b]) => compareEdge(a, b))
       .map(([key, [srcModule, dstModule]]) => {

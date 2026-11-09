@@ -1,0 +1,17 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- move-module
+- --module
+- pkg/sql/client.py
+- --dest
+- pkg/database
+fixture: refactor-references
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: each importer changes only at its reference to the moved module; no import is reordered, hoisted or reflowed

@@ -1,0 +1,34 @@
+Moving global <foo>:
+
+
+--- a/pkg/a.py
++++ b/pkg/a.py
+@@ -1,7 +1,4 @@
+-def foo():
+-    return 1
+-
+-
++from pkg.b import foo
+ class Base:
+     def run(self):
+         return foo()
+
+--- a/pkg/b.py
++++ b/pkg/b.py
+@@ -1,5 +1,8 @@
+-from pkg.a import foo as bar
++
++
++def foo():
++    return 1
+ 
+ 
+ def child():
+-    return bar() + 1
++    return foo() + 1
+
+
+
+APPLIED. 2 file(s) changed:
+  pkg/a.py
+  pkg/b.py

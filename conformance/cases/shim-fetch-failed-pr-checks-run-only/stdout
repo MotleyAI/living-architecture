@@ -1,0 +1,14 @@
+# Failed CI checks on o/r PR #7
+
+## Check 1 — CI / tests
+Conclusion: FAILURE   Status: COMPLETED   Type: CheckRun
+Details: https://github.com/o/r/actions/runs/11
+Run: 11
+
+_No log excerpt — every attempt failed:_
+- `gh run view 11 --log-failed`: empty log
+- `gh run view 11 --log`: empty log
+
+---
+
+JSON: <ROOT>/tmp/failed-pr-checks-7-<TS>.json

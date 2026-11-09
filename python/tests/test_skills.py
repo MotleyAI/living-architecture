@@ -215,6 +215,14 @@ def test_process_reviews_detects_bots_per_pr():
     assert "la-pr-reviewers" in _skill_text("process-reviews")
 
 
+def test_process_reviews_settle_is_keyed_to_head():
+    text = _skill_text("process-reviews")
+    assert "Sonar counts as present once HEAD has a Sonar check suite, before its check run exists." in text
+    assert "Why Stage 0b is keyed to HEAD's SHA:" in text
+    assert "**Rate limited or paused** (exit 3)" in text
+    assert "updated_at" not in text
+
+
 @pytest.mark.parametrize("path", SKILL_FILES, ids=_id)
 def test_codex_steps_follow_the_config(path):
     text = path.read_text(encoding="utf-8")

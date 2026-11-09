@@ -1,0 +1,31 @@
+Moving module <engine_factory>:
+
+
+--- a/pkg/sql/client.py
++++ b/pkg/sql/client.py
+@@ -1,4 +1,5 @@
+-from . import dialects, engine_factory
++from . import dialects
++from ..database import engine_factory
+ from .dialects import D
+ 
+ X = 1
+
+rename from pkg/sql/engine_factory.py
+rename to pkg/database/engine_factory.py
+--- a/tests/test_parenthesized.py
++++ b/tests/test_parenthesized.py
+@@ -1,8 +1,8 @@
+ from pkg.sql import (
+     dialects,  # the dialect table
+     client,  # the client
+-    engine_factory,  # builds engines
+ )
++from pkg.database import engine_factory
+ 
+ 
+ def test_parenthesized() -> None:
+
+
+
+DRY-RUN. 3 file(s) would change. Re-run with --apply.

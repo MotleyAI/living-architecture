@@ -27,33 +27,36 @@ def unit_exists(source_root: Path, dotted: str) -> bool:
     return (base / _INIT_PY).is_file() or base.with_suffix(".py").is_file()
 
 
-def top_level_units(source_root: Path, root_package: str) -> set[str]:
-    """Immediate children of the root package: subpackages and loose modules."""
+def top_level_units(source_root: Path, root_packages: list[str]) -> set[str]:
+    """Immediate children of every root package: subpackages and loose modules."""
     units: set[str] = set()
-    for child in (source_root / root_package).iterdir():
-        if child.name == "__pycache__":
-            continue
-        if child.is_dir() and (child / _INIT_PY).is_file():
-            units.add(f"{root_package}.{child.name}")
-        elif child.is_file() and child.suffix == ".py" and child.name != _INIT_PY:
-            units.add(f"{root_package}.{child.stem}")
+    for root_package in root_packages:
+        module_root = ".".join(root_package.split("/"))
+        for child in (source_root / root_package).iterdir():
+            if child.name == "__pycache__":
+                continue
+            if child.is_dir() and (child / _INIT_PY).is_file():
+                units.add(f"{module_root}.{child.name}")
+            elif child.is_file() and child.suffix == ".py" and child.name != _INIT_PY:
+                units.add(f"{module_root}.{child.stem}")
     return units
 
 
-def source_modules(source_root: Path, root_package: str) -> list[SourceModule]:
-    """Every module under the root package in path order; the root `__init__.py` is exempt."""
+def source_modules(source_root: Path, root_packages: list[str]) -> list[SourceModule]:
+    """Every module under the root packages in path order; each root's own `__init__.py` is exempt."""
     out: list[SourceModule] = []
-    for py in sorted((source_root / root_package).rglob("*.py")):
-        rel = py.relative_to(source_root)
-        if "__pycache__" in rel.parts:
-            continue
-        parts = list(rel.with_suffix("").parts)
-        is_package = parts[-1] == "__init__"
-        if is_package:
-            parts = parts[:-1]
-        if parts == [root_package]:
-            continue
-        out.append(SourceModule(module=".".join(parts), path=py, is_package=is_package))
+    for root_package in root_packages:
+        for py in sorted((source_root / root_package).rglob("*.py")):
+            rel = py.relative_to(source_root)
+            if "__pycache__" in rel.parts:
+                continue
+            parts = list(rel.with_suffix("").parts)
+            is_package = parts[-1] == "__init__"
+            if is_package:
+                parts = parts[:-1]
+            if parts == root_package.split("/"):
+                continue
+            out.append(SourceModule(module=".".join(parts), path=py, is_package=is_package))
     return out
 
 

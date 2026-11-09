@@ -1,0 +1,3 @@
+python:
+  source_root: python/src
+  root_packages: [app, shared]

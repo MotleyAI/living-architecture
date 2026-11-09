@@ -1,0 +1,23 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- --apply
+- move-symbol
+- --file
+- pkg/a.py
+- --name
+- foo
+- --dest
+- pkg/nope.py
+fixture: refactor-pkg
+git:
+- commit: init
+expect:
+  exit: 1
+  files:
+  - pkg/a.py
+  - pkg/nope.py
+golden: manual
+note: a missing destination module is refused before rope runs

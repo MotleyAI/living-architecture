@@ -18,6 +18,7 @@ import sys
 import tempfile
 from pathlib import Path
 
+import fake_gh_cli
 import pytest
 import yaml
 
@@ -49,28 +50,6 @@ FIXED_DATE = "2026-01-01T00:00:00+00:00"
 _COMMAND_PREFIXES = {
     "arch", "config", "doctor", "conventions", "count", "compliance", "mock", "refactor", "shim", "twin", "typecheck"
 }
-
-FAKE_GH = """\
-import json, os, subprocess, sys
-
-argv = sys.argv[1:]
-with open(os.environ["FAKE_GH_ROUTES"]) as fh:
-    routes = json.load(fh)
-for route in routes:
-    if all(tok in argv for tok in route["match"]):
-        out = route.get("stdout", "")
-        for flag in ("--jq", "-q"):
-            if flag in argv:
-                jq = subprocess.run(["jq", "-rc", argv[argv.index(flag) + 1]], input=out,
-                                    capture_output=True, text=True, check=False)
-                sys.stderr.write(jq.stderr)
-                out = jq.stdout
-        sys.stdout.write(out)
-        sys.exit(route.get("exit", 0))
-sys.stderr.write("fake gh: no route for " + " ".join(argv) + "\\n")
-sys.exit(1)
-"""
-
 
 class CaseResult:
     def __init__(self, exit_code: int, stdout: str, stderr: str, files: dict[str, str]) -> None:
@@ -260,15 +239,8 @@ def _environment(root: Path, case: dict, twin: str) -> dict[str, str]:
     fake_bin.mkdir()
     hidden = case.get("hide", [])
     if "gh" not in hidden:
-        gh = fake_bin / "gh"
-        gh.write_text(f"#!{sys.executable}\n{FAKE_GH}", encoding="utf-8")
-        gh.chmod(0o755)
-    routes = [
-        {"match": r["match"], "stdout": r["stdout"] if isinstance(r.get("stdout"), str) else json.dumps(r.get("stdout", "")),
-         "exit": r.get("exit", 0)}
-        for r in case.get("gh", [])
-    ]
-    (root / "gh-routes.json").write_text(json.dumps(routes), encoding="utf-8")
+        fake_gh_cli.install(fake_bin)
+    fake_gh_cli.write_routes(root / "gh-routes.json", case.get("gh", []))
     before, after = _fake_bins(root, case)
     tools = _tools_dir(frozenset({*hidden, *_ALWAYS_HIDDEN}))
     env = {

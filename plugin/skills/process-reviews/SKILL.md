@@ -9,7 +9,7 @@ description: Use when the user asks to process / triage / address / handle PR re
 
 Combine CodeRabbit, SonarQube, Codex, and failed CI feedback into a single triage workflow: one sweep over every source. Run standalone, it stops at a written plan and does not start fixing. Invoked from `la:pr-review`, it returns the triaged list and `la:pr-review` fixes it.
 
-**Sources on this PR.** Run `la-pr-reviewers <PR>` first. It prints `{"coderabbit": <bool>, "sonar": {"present": <bool>, "project_key": <key|null>}}`, detected from the PR itself, never from the repo config. Skip every step for a bot that is not on the PR (its fetches, validation, invalid-handling, and plan header count — show it as `off`). Re-run it at each sweep: CodeRabbit can first appear after a push.
+**Sources on this PR.** Run `la-pr-reviewers <PR>` first. It prints `{"coderabbit": <bool>, "sonar": {"present": <bool>, "project_key": <key|null>}}`, detected from the PR itself, never from the repo config. Sonar counts as present once HEAD has a Sonar check suite, before its check run exists. Skip every step for a bot that is not on the PR (its fetches, validation, invalid-handling, and plan header count — show it as `off`). Re-run it at each sweep: CodeRabbit can first appear after a push.
 
 **Codex follows `reviewers.codex`.** If `la-config get reviewers.codex` prints `false`, skip every Codex step and show Codex as `off`. Otherwise, if the Codex MCP server (`mcp__codex__codex`) is not available, STOP and tell me: this repo requires Codex reviews, so never skip one silently.
 
@@ -49,34 +49,27 @@ Never fall back to a different review tool when Codex is on (see "Codex follows 
 
 #### 0a + 0b. Wait for status checks + CodeRabbit settle
 
-Run `la-wait-for-reviews` — it bundles the status-check rollup gate (Stage 0a) AND the CodeRabbit summary-comment settle (Stage 0b) into a single invocation. No inline bash.
+Run `la-wait-for-reviews` — it bundles the status-check rollup gate (Stage 0a) AND the CodeRabbit settle on HEAD (Stage 0b) into a single invocation. No inline bash.
 
 ```bash
 la-wait-for-reviews <PR>
 ```
 
-The script exits 0 when both stages clear (or when CodeRabbit is not on the PR, detected the same way as `la-pr-reviewers`), exit 1 if the status-check gate doesn't clear within 30 minutes. Stage 0b (CodeRabbit settle) is best-effort with a 10-minute cap — the script reports "proceeding anyway" on the cap and still exits 0; see the "CodeRabbit did not review this HEAD" rule below.
+The script exits 0 when both stages clear (or when CodeRabbit is not on the PR, detected the same way as `la-pr-reviewers`), 1 if the status-check gate doesn't clear within 30 minutes, and 3 when CodeRabbit is rate limited or paused on HEAD. Stage 0b is best-effort with a 10-minute cap: on the cap the script reports "proceeding anyway" and still exits 0; see the "CodeRabbit did not review this HEAD" rule below.
 
 A check is **non-terminal** if it's:
 - a `StatusContext` with `state` ∈ {`PENDING`, `EXPECTED`} — CodeRabbit reports this way, OR
-- a `CheckRun` or `WorkflowRun` with `status` ∈ {`QUEUED`, `IN_PROGRESS`, `WAITING`, `REQUESTED`, `PENDING`} — Sonar and GitHub Actions jobs report this way.
+- a `CheckRun` or `WorkflowRun` with `status` ∈ {`QUEUED`, `IN_PROGRESS`, `WAITING`, `REQUESTED`, `PENDING`} — Sonar and GitHub Actions jobs report this way, OR
+- a Sonar check suite on HEAD that is not `completed` — SonarQube Cloud creates its check run only when the analysis finishes.
 
 Anything else (`SUCCESS` / `FAILURE` / `ERROR` / `COMPLETED`) counts as terminal — even a failed check is "done". Checks that are *missing entirely* from the rollup (e.g. CodeRabbit not installed on the repo) do not block — only checks that exist AND are non-terminal do.
 
-Why the CodeRabbit settle is needed even after the status check flips to SUCCESS:
+Why Stage 0b is keyed to HEAD's SHA: CodeRabbit refreshes its summary as a placeholder seconds after a push, and its status reaches the rollup only when it finishes, so neither the rollup nor a timestamp shows whether HEAD was reviewed. Stage 0b reads only evidence tied to HEAD's SHA. The summary is the comment carrying the `summarize by coderabbit.ai` marker; command replies never count.
 
-The `statusCheckRollup` only covers the CodeRabbit *status check* — the bot's `StatusContext` flips to `SUCCESS` when it finishes analysing, but the actual review content (top-level summary + line-level threads) is delivered on separate GitHub timelines that can lag the status flip by 1–5 minutes. If you fetch threads in that window you get an empty (or partial) view and incorrectly declare the PR clean.
-
-The authoritative signal is the **top-level summary comment** that CodeRabbit maintains on the PR: it's posted by `coderabbitai[bot]` on the issue-comments endpoint, contains the `summarize by coderabbit.ai` HTML marker, and CodeRabbit **updates the same comment** for every push (it does not create a new one). The summary comment's `updated_at` reliably advances past the push, and line-level review threads are visible by then.
-
-Do **not** rely on `Review.submittedAt`: CodeRabbit typically submits one `PullRequestReview` per PR — the first one — and pushes thereafter only update the summary comment and (when applicable) the line-level review threads. `Review.submittedAt` is therefore stuck on the original review and never advances past subsequent HEADs.
-
-Why summary `updated_at` and not other signals:
-
-- **Status check flip**: too early — the bot's CheckRun terminalizes when its analysis is queued, not when its output is fully delivered.
-- **`Review.submittedAt`**: only set on the *first* review; subsequent pushes update the existing comment without producing a new Review object, so the timestamp never advances.
-- **Line-level review comments (`pulls/N/comments`)**: only exist when there are findings; on a clean PR they never appear, so polling them would always hit the 10-minute cap.
-- **Summary `updated_at`**: advances on every CodeRabbit pass (whether it found anything or not), is monotonic with respect to HEAD, and is set after the bot has finished posting line-level threads (the summary is the last thing the bot writes).
+- **Reviewed** (exit 0): a CodeRabbit status on HEAD described `Review completed`, the summary's `final_review_risk_coverage` marker naming HEAD as `coveredCommitId`, or a CodeRabbit review on HEAD with a body (empty-body reviews are thread replies). Reviewed wins over every other outcome.
+- **Carried forward** (exit 0): HEAD's latest CodeRabbit status is `Prior review carried forward`; the existing threads stand for HEAD.
+- **Rate limited or paused** (exit 3): HEAD's latest CodeRabbit status is `Review rate limited` or `Review paused`. The summary's rate-limit text is not used: it stays from an earlier HEAD until CodeRabbit reaches the new one.
+- Anything else: keep polling until the cap.
 
 **Don't idle while the script runs.** Run it in the background, and on each of
 its progress polls check which sources are already terminal. Fetch and triage
@@ -88,7 +81,7 @@ those at once (Steps 1–4 for that source), without waiting for the rest:
 Only Step 5, the fix plan, waits for the script to exit, so the plan covers
 every source. When it exits, re-fetch CodeRabbit to pick up late threads.
 
-**CodeRabbit did not review this HEAD (rate limit, script exit 3, or the
+**CodeRabbit did not review this HEAD (rate limited or paused, script exit 3, or the
 10-minute settle cap).** If CodeRabbit has already posted at least one real
 review on this PR (on any earlier HEAD), this is NOT a blocker. Treat CodeRabbit
 as done for this HEAD, fetch and triage its existing threads, and carry on
@@ -110,7 +103,7 @@ Once the script exits, finish Step 1 for any source not yet fetched.
   - Optional but useful when the gate cites a metric you don't recognise: `mcp__sonarqube__get_component_measures(component=..., metricKeys=[...], pullRequest="<PR>")` and `mcp__sonarqube__search_metrics(...)` to look up what the metric means.
 
   If `mcp__sonarqube__*` tools are not registered in this session, stop and ask the user to load the MCP — do not fall back to the CLI or `gh api`.
-- **Failed CI** — run `la-fetch-failed-pr-checks <PR>` (see the `la:fetch-failed-pr-checks` skill). Read its JSON for the failed checks plus failed-step log excerpts.
+- **Failed CI** — run `la-fetch-failed-pr-checks <PR>` (see the `la:fetch-failed-pr-checks` skill). Read its JSON for the failed checks plus their log excerpts (or why each has none).
 - **Conventions gate (deterministic)** — run `la-check-conventions <PR>` from the repo root; see "Conventions gate" below.
 
 Run the three GitHub-side fetches and the conventions gate in parallel — they're independent. Codex is already done (Step 0). Inside SonarQube, the gate-status call comes first so you know which secondary tools (duplications / coverage / hotspots) are actually load-bearing; everything else can run in parallel.
@@ -136,7 +129,7 @@ Build a single in-memory list. Each entry:
 - `severity`: `critical` | `major` | `minor` | `info` (best-effort mapping; CodeRabbit emoji → severity: 🔴/⚠️ Potential issue → major, 🟡/💡 → minor, 💤 → info; CI failures default to `major`; gate-condition entries inherit from the failing condition's severity field; hotspots default to `major`; codex findings use the severity the model assigned)
 - `rule`: Sonar rule key (issues / hotspots), the metric key (`new_duplicated_lines_density`, `new_coverage`, ...) for gate / duplication / coverage entries, the CodeRabbit thread/comment ID, the CI workflow/job name, or `"codex"` + a short tag for codex findings (codex doesn't issue rule keys)
 - `summary`: one-line description (for CI: `<workflow> / <job>` failed at conclusion `<X>`; for gate conditions: `<metric>: <actual> vs <threshold>`; for codex: the model's one-sentence summary line)
-- `body`: full text (CodeRabbit comment body, Sonar issue/hotspot message + rule description, duplication block range + duplicate locations, coverage's uncovered-line list, the failed-step log excerpt, or codex's one-paragraph rationale)
+- `body`: full text (CodeRabbit comment body, Sonar issue/hotspot message + rule description, duplication block range + duplicate locations, coverage's uncovered-line list, the check's log excerpt, or codex's one-paragraph rationale)
 - `ref`: thread URL (CodeRabbit), Sonar issue/hotspot key, run/job URL (CI), or `null` for codex (no remote thread to link)
 
 Don't dedupe across sources blindly — if multiple sources flag the same area, keep them all. They need separate invalid-handling channels. **Don't drop a failing quality-gate condition just because no individual issue is filed** — duplication and coverage conditions routinely fail the gate without producing any `search_sonar_issues_in_projects` rows.
@@ -148,7 +141,7 @@ Don't dedupe across sources blindly — if multiple sources flag the same area, 
 For each entry, classify as VALID or INVALID using a source-appropriate signal:
 
 - **CodeRabbit / Sonar / Codex** — READ the cited file at the cited line(s). Apply the repo's and the user's standing rules (their CLAUDE.md files: e.g. trust internal code, validate only at boundaries; imports at the top). Lean toward VALID when uncertain — false positives are easier to defend later than missed bugs now. Over-verbose comments/docstrings in the diff (design essays, ticket-ID-on-every-line, code-restating comments, name-echo docstrings) are a valid maintainability finding per the `la:concise-comments` skill — flag them even if no bot did.
-- **CI failure** — READ the failed-step log excerpt in the JSON. Classify as INVALID only when the failure is clearly unrelated to this PR's changes (network blip / runner died / well-known flaky test that the user has previously confirmed is flaky / out-of-date Action that times out before doing anything). Otherwise VALID. **A test failure that points at code this PR touched is always VALID** — don't argue your way out of it.
+- **CI failure** — READ the log excerpt in the JSON. Classify as INVALID only when the failure is clearly unrelated to this PR's changes (network blip / runner died / well-known flaky test that the user has previously confirmed is flaky / out-of-date Action that times out before doing anything). Otherwise VALID. **A test failure that points at code this PR touched is always VALID** — don't argue your way out of it.
 - **A finding that proposes an option the plan's decisions log rejected** (when the branch has a plan): VALID only if it raises something the logged reason does not answer, and then it is a plan edit to put to me under the `/la:pr` frozen-plan rule. Otherwise INVALID, and the rationale cites the decision. The rule covers that proposal only: any other claim in the same finding is its own entry, validated on its own.
 - **Conventions** — always VALID (the check is deterministic; there is nothing to second-guess); fix per "Conventions gate" below. Severity `minor`, `rule` = the bracketed rule name, `ref` = `null`.
 

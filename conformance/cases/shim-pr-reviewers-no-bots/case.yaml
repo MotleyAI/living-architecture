@@ -8,8 +8,9 @@ gh:
 - match:
   - pr
   - view
-  - statusCheckRollup
+  - headRefOid,statusCheckRollup
   stdout:
+    headRefOid: abc
     statusCheckRollup:
     - __typename: CheckRun
       name: tests
@@ -21,6 +22,13 @@ gh:
       status: COMPLETED
       conclusion: SUCCESS
       detailsUrl: https://github.com/o/r/actions/runs/1/job/3
+- match:
+  - repos/o/r/commits/abc/check-suites
+  stdout:
+    check_suites:
+    - app:
+        slug: github-actions
+      status: completed
 - match:
   - repos/o/r/issues/7/comments
   stdout:

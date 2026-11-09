@@ -1,0 +1,19 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- move-module
+- --module
+- pkg/sql/client.py
+- --dest
+- other
+fixture: refactor-references
+remove:
+- tests
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: a relative import whose target lands in another top-level package becomes absolute

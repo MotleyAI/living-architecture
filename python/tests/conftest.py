@@ -8,6 +8,7 @@ from collections.abc import Callable
 from functools import cache
 from pathlib import Path
 
+import fake_gh_cli
 import pytest
 from rope.refactor import patchedast
 
@@ -23,34 +24,7 @@ def pytest_configure(config: pytest.Config) -> None:
         config.option.dist = "no"
         config.option.tx = []
 
-# Stand-in `gh`: first route whose tokens all appear in argv wins; `--jq`/`-q`
-# filters are applied with the real jq; every call is logged with any --input payload.
-FAKE_GH = """\
-import json, os, subprocess, sys
-
-argv = sys.argv[1:]
-with open(os.environ["FAKE_GH_ROUTES"]) as fh:
-    routes = json.load(fh)
-entry = {"argv": argv}
-if "--input" in argv:
-    with open(argv[argv.index("--input") + 1]) as fh:
-        entry["input"] = fh.read()
-with open(os.environ["FAKE_GH_LOG"], "a") as fh:
-    fh.write(json.dumps(entry) + "\\n")
-for route in routes:
-    if all(tok in argv for tok in route["match"]):
-        out = route.get("stdout", "")
-        for flag in ("--jq", "-q"):
-            if flag in argv:
-                jq = subprocess.run(["jq", "-rc", argv[argv.index(flag) + 1]], input=out,
-                                    capture_output=True, text=True, check=False)
-                sys.stderr.write(jq.stderr)
-                out = jq.stdout
-        sys.stdout.write(out)
-        sys.exit(route.get("exit", 0))
-sys.stderr.write("fake gh: no route for " + " ".join(argv) + "\\n")
-sys.exit(1)
-"""
+Route = tuple[list[str], object] | tuple[list[str], object, int] | tuple[list[str], object, int, str]
 
 
 class FakeGh:
@@ -60,18 +34,15 @@ class FakeGh:
         self.routes_file = tmp_path / "routes.json"
         self.log_file = tmp_path / "gh.log"
         self.tmp = tmp_path
-        gh = self.bin / "gh"
-        gh.write_text(f"#!{sys.executable}\n{FAKE_GH}")
-        gh.chmod(0o755)
+        fake_gh_cli.install(self.bin)
         self.route()
 
-    def route(self, *routes: tuple[list[str], object] | tuple[list[str], object, int]) -> None:
-        """Each route: (argv tokens, stdout as str or JSON-able, [exit code])."""
-        out = []
-        for r in routes:
-            stdout = r[1] if isinstance(r[1], str) else json.dumps(r[1])
-            out.append({"match": r[0], "stdout": stdout, "exit": r[2] if len(r) > 2 else 0})
-        self.routes_file.write_text(json.dumps(out))
+    def route(self, *routes: Route | dict) -> None:
+        """Each route: (argv tokens, stdout as str or JSON-able, [exit code, [stderr]]), or a case-format route dict."""
+        specs = [r if isinstance(r, dict) else {"match": r[0], "stdout": r[1], "exit": r[2] if len(r) > 2 else 0,
+                                                "stderr": r[3] if len(r) > 3 else ""}
+                 for r in routes]
+        fake_gh_cli.write_routes(self.routes_file, specs)
 
     def calls(self) -> list[dict]:
         if not self.log_file.exists():
@@ -103,6 +74,7 @@ def run_script(fake_gh: FakeGh) -> Callable[..., subprocess.CompletedProcess[str
             text=True,
             env=fake_gh.env(),
             cwd=fake_gh.tmp,
+            timeout=90,
             check=False,
         )
 

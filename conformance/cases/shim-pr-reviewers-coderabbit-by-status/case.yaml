@@ -8,8 +8,9 @@ gh:
 - match:
   - pr
   - view
-  - statusCheckRollup
+  - headRefOid,statusCheckRollup
   stdout:
+    headRefOid: abc
     statusCheckRollup:
     - __typename: CheckRun
       name: tests
@@ -19,6 +20,10 @@ gh:
     - __typename: StatusContext
       context: CodeRabbit
       state: SUCCESS
+- match:
+  - repos/o/r/commits/abc/check-suites
+  stdout:
+    check_suites: []
 - match:
   - repos/o/r/issues/7/comments
   stdout:

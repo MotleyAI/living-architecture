@@ -1721,6 +1721,66 @@ def test_src_layout_resolves_under_source_root(tmp_path):
     assert findings_for(root, "claims-exactly-once") == ["claims-exactly-once: top-level pkg.extra is claimed by no node"]
 
 
+def test_multiple_root_packages_emit_combined_top_level_facts(tmp_path):
+    root = tmp_path / "repo"
+    (root / "architecture").mkdir(parents=True)
+    (root / "src" / "app").mkdir(parents=True)
+    (root / "src" / "groups" / "shared").mkdir(parents=True)
+    (root / "architecture" / "index.yaml").write_text(
+        "python:\n  source_root: src\n  root_packages: [app, groups/shared]\n", encoding="utf-8"
+    )
+    (root / "src" / "app" / "__init__.py").write_text("", encoding="utf-8")
+    (root / "src" / "app" / "api.py").write_text("import groups.shared.util\n", encoding="utf-8")
+    (root / "src" / "groups" / "shared" / "__init__.py").write_text("", encoding="utf-8")
+    (root / "src" / "groups" / "shared" / "util.py").write_text("import app.api\n", encoding="utf-8")
+    facts = archcheck.emit_facts(root, "python", top_level=True)
+    assert facts["top_level_units"] == ["app.api", "groups.shared.util"]
+    assert [(edge["src"], edge["dst"]) for edge in facts["edges"]] == [
+        ("app.api", "groups.shared.util"), ("groups.shared.util", "app.api")
+    ]
+
+
+def test_nested_root_packages_are_rejected(tmp_path):
+    root = layout_repo(tmp_path, "{root_packages: [pkg, pkg/sub]}")
+    (root / "pkg" / "sub").mkdir()
+    with pytest.raises(archcheck.ArchCheckError, match="root_packages entries 'pkg' and 'pkg/sub' overlap"):
+        archcheck.emit_facts(root, "python", top_level=True)
+
+
+ROOT_PACKAGES_INVALID = "architecture/index.yaml: root_packages must be a non-empty list of non-empty strings"
+ROOT_PACKAGE_MISSING = "architecture/index.yaml must set root_package to the top-level package name"
+
+
+@pytest.mark.parametrize("roots", ["app", "[app, 42]", "[]", "['']", "[app, '']"])
+def test_malformed_root_packages_are_setup_errors(tmp_path, roots):
+    root = layout_repo(tmp_path, f"{{root_packages: {roots}}}")
+    with pytest.raises(archcheck.ArchCheckError) as excinfo:
+        archcheck.load_index(root)
+    assert str(excinfo.value) == ROOT_PACKAGES_INVALID
+
+
+@pytest.mark.parametrize("roots", ["app", ["app", 42], [], ["app", ""]])
+def test_resolve_layout_rejects_malformed_root_packages_directly(tmp_path, roots):
+    with pytest.raises(archcheck.ArchCheckError) as excinfo:
+        archcheck.resolve_layout(tmp_path, {"root_packages": roots})
+    assert str(excinfo.value) == ROOT_PACKAGES_INVALID
+
+
+@pytest.mark.parametrize("value", ["''", "5", "[pkg]"])
+def test_malformed_root_package_keeps_the_missing_finding(tmp_path, value):
+    root = layout_repo(tmp_path, f"{{root_package: {value}}}")
+    with pytest.raises(archcheck.ArchCheckError) as excinfo:
+        archcheck.load_index(root)
+    assert str(excinfo.value) == ROOT_PACKAGE_MISSING
+
+
+def test_duplicate_root_packages_overlap_before_the_schema(tmp_path):
+    root = layout_repo(tmp_path, "{root_packages: [pkg, pkg]}")
+    with pytest.raises(archcheck.ArchCheckError) as excinfo:
+        archcheck.load_index(root)
+    assert str(excinfo.value) == "architecture/index.yaml: root_packages entries 'pkg' and 'pkg' overlap"
+
+
 @pytest.mark.parametrize("value", ["''", "/abs", "a/../b", "missing"])
 def test_invalid_source_root_is_a_setup_error(tmp_path, value):
     root = layout_repo(tmp_path, f"{{root_package: pkg, source_root: {value}}}")
@@ -1755,6 +1815,28 @@ def test_invalid_root_package_is_a_setup_error(tmp_path, section, error):
     (repo / "escape").symlink_to(tmp_path)
     (repo / "src" / "link").symlink_to(repo / "pkg")
     (repo / "loop").symlink_to("loop")
+    with pytest.raises(archcheck.ArchCheckError) as excinfo:
+        archcheck.run_checks(repo)
+    assert str(excinfo.value) == f"architecture/index.yaml: {error}"
+
+
+@pytest.mark.parametrize(
+    ("section", "error"),
+    [
+        ("{root_packages: [pkg, /abs]}", "root_packages '/abs' must be a relative path"),
+        ("{root_packages: [pkg, ../x]}", "root_packages '../x' must not contain '..'"),
+        ("{root_packages: [pkg, ./x]}", "root_packages './x' must not have empty or '.' segments"),
+        ("{root_packages: [pkg, escape]}", "root_packages entry 'escape' resolves outside source_root '.'"),
+        ("{root_packages: [pkg, file.py]}", "root_packages entry 'file.py' is not a directory under source_root '.'"),
+        ("{root_packages: [pkg, link]}", "root_packages entries 'pkg' and 'link' overlap"),
+    ],
+    ids=["absolute", "parent-segment", "dot-prefix", "symlink-escape", "file", "symlink-alias"],
+)
+def test_invalid_root_packages_entry_is_a_setup_error(tmp_path, section, error):
+    repo = layout_repo(tmp_path, section)
+    (repo / "file.py").write_text("", encoding="utf-8")
+    (repo / "escape").symlink_to(tmp_path)
+    (repo / "link").symlink_to(repo / "pkg")
     with pytest.raises(archcheck.ArchCheckError) as excinfo:
         archcheck.run_checks(repo)
     assert str(excinfo.value) == f"architecture/index.yaml: {error}"

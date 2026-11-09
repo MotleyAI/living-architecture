@@ -15,7 +15,7 @@ export function unitStatus(layout: TsLayout, unit: string): UnitStatus {
   return new Tree(layout).unitStatus(unit);
 }
 
-/** The top-level units under root_package, sorted. */
+/** The top-level units under every root, sorted. */
 export function topLevelUnits(layout: TsLayout): string[] {
   return new Tree(layout).topLevelUnits();
 }

@@ -1,4 +1,4 @@
-import pkg.sub
+from pkg.sub import foo
 class Base:
     def run(self):
-        return pkg.sub.foo()
+        return foo()
