@@ -77,7 +77,7 @@ with `living-architecture.local.yaml` over it) and report each of the following 
 - `openspec: false` with an `openspec/` directory
 - `architecture: true` without `architecture/index.yaml` (text names `/la:arch-init`)
 - `architecture: false` with `architecture/index.yaml`
-- `tracker: none` with `openspec: false`
+- `tracker: none` with `openspec: false`, only under `--require-plan-store`
 
 A directory named `architecture/` without `index.yaml` SHALL NOT count as a living-architecture setup. When
 the file does not exist, none of these checks SHALL run.

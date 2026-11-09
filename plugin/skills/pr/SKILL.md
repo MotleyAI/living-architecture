@@ -122,7 +122,7 @@ skills. What still holds:
 
 ## Normative harnesses (living-architecture repos)
 
-In a repo with an `architecture/` directory at its root, load the
+In a repo whose `living-architecture.yaml` sets `architecture: true`, load the
 `la:living-architecture` skill at EVERY stage of the flow and follow its
 "Working under the architecture" rules; "the user" there is me. One addition
 for this flow: wording quoted verbatim in the plan's decisions log as

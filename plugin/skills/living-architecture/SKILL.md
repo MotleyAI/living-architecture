@@ -239,8 +239,8 @@ ecosystem: `uvx --no-build --from living-architecture==<version> la-arch-check`
 
 ## Working under the architecture
 
-These rules bind a coding agent at every step of any change in a repo with an
-`architecture/` directory at its root: planning, writing tests, implementing,
+These rules bind a coding agent at every step of any change in a repo whose
+`living-architecture.yaml` sets `architecture: true`: planning, writing tests, implementing,
 and fixing review findings. `architecture/*.arc42.md`, `architecture/model.c4`
 and `architecture/views.c4` are normative harnesses, exactly like tests.
 
