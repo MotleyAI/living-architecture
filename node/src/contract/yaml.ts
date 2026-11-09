@@ -454,34 +454,44 @@ function keyStarts(doc: Document.Parsed): Map<number, number> {
 
 const lineAt = (text: string, offset: number): number => (text.slice(0, offset).match(/\r\n|\r|\n/g)?.length ?? 0) + 1;
 
+interface KeyScan {
+  doc: Document.Parsed;
+  text: string;
+  starts: Map<number, number>;
+}
+
+/** Records `key` in `firsts`; DuplicateKeyError when an earlier key of the same mapping has its identity. */
+function recordKey(scan: KeyScan, firsts: Map<string, [key: unknown, offset: number]>, key: unknown): void {
+  if (!isScalar(key) && !isAlias(key)) return;
+  const target = isAlias(key) ? key.resolve(scan.doc) : key;
+  const offset = key.range?.[0] ?? 0;
+  const start = scan.starts.get(offset) ?? offset;
+  const value = isScalar(target) ? target.value : null;
+  const identity = keyIdentity(value);
+  const first = firsts.get(identity);
+  if (first !== undefined) throw new DuplicateKeyError(first[0], lineAt(scan.text, first[1]), lineAt(scan.text, start));
+  firsts.set(identity, [normalizedKey(value), start]);
+}
+
+function walkKeys(scan: KeyScan, node: unknown): void {
+  if (isMap(node)) {
+    const firsts = new Map<string, [key: unknown, offset: number]>();
+    for (const pair of node.items) {
+      recordKey(scan, firsts, pair.key);
+      walkKeys(scan, pair.key);
+      walkKeys(scan, pair.value);
+    }
+  } else if (isSeq(node)) {
+    for (const item of node.items) walkKeys(scan, item);
+  } else if (isPair(node)) {
+    walkKeys(scan, node.key);
+    walkKeys(scan, node.value);
+  }
+}
+
 /** Throws DuplicateKeyError for the first repeated mapping key in document order. */
 function checkKeys(doc: Document.Parsed, text: string): void {
-  const starts = keyStarts(doc);
-  const walk = (node: unknown): void => {
-    if (isMap(node)) {
-      const firsts = new Map<string, [key: unknown, offset: number]>();
-      for (const pair of node.items) {
-        if (isScalar(pair.key) || isAlias(pair.key)) {
-          const target = isAlias(pair.key) ? pair.key.resolve(doc) : pair.key;
-          const offset = pair.key.range?.[0] ?? 0;
-          const start = starts.get(offset) ?? offset;
-          const value = isScalar(target) ? target.value : null;
-          const identity = keyIdentity(value);
-          const first = firsts.get(identity);
-          if (first !== undefined) throw new DuplicateKeyError(first[0], lineAt(text, first[1]), lineAt(text, start));
-          firsts.set(identity, [normalizedKey(value), start]);
-        }
-        walk(pair.key);
-        walk(pair.value);
-      }
-    } else if (isSeq(node)) {
-      for (const item of node.items) walk(item);
-    } else if (isPair(node)) {
-      walk(node.key);
-      walk(node.value);
-    }
-  };
-  walk(doc.contents);
+  walkKeys({ doc, text, starts: keyStarts(doc) }, doc.contents);
 }
 
 // Line breaks to YAML 1.1 that the library, reading YAML 1.2, takes as content.
