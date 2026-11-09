@@ -1,0 +1,25 @@
+# Failed CI checks on o/r PR #7
+
+## Check 1 — CI / tests
+Conclusion: FAILURE   Status: COMPLETED   Type: CheckRun
+Details: https://github.com/o/r/actions/runs/11/job/22
+Run: 11  Job: 22
+
+<details><summary>Failed-step log from the job-log API (##[error] lines + last 200 lines)</summary>
+
+```
+2026-01-01T00:00:10.5000000Z ##[group]Run actions/setup-node@v4
+2026-01-01T00:00:10.6000000Z with:
+2026-01-01T00:00:10.7000000Z ##[endgroup]
+2026-01-01T00:00:15.0000000Z Attempting to download 99.x...
+2026-01-01T00:00:19.0000000Z ##[error]Unable to find Node version '99' for platform linux.
+Available versions: 18, 20, 22
+See https://github.com/actions/node-versions
+
+```
+
+</details>
+
+---
+
+JSON: <ROOT>/tmp/failed-pr-checks-7-<TS>.json

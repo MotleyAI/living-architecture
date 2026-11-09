@@ -46,6 +46,8 @@ Each entry: the decision, the options weighed, the one taken and why, and who to
    The `##[error]` end cuts the post-step lines that share the step's completion second: a failed `run:`
    step always ends with the runner's `##[error]Process completed with exit code N.`, a failing action
    emits its own `##[error]`.
+   Untimestamped lines right after that last `##[error]` are its message's continuation and stay in the
+   section.
 2. **One excerpt rule for the section and the whole log** (default). `##[error]` lines before the last N
    lines, then the last N lines, in log order, each gap one `[... K lines omitted ...]` line. Over a plain
    tail of the section, a long section no longer hides an earlier error.

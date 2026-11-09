@@ -49,6 +49,10 @@ times like `2026-01-01T00:00:10Z`), served through the fake's `--jq` support.
   - run-only and `--max-log-lines 0`: no `gh api` call; `--max-log-lines 0` makes no `gh run view` call;
   - StatusContext: `log_source` null, `log_attempts` empty.
 - [x] 2.10 Codex review of the tests against this change (pr-tests Step 2); resolve findings with the user.
+- [x] 2.11 Neutral case `shim-fetch-failed-pr-checks-api-step-error-continuation`: step 2 is a failing action
+  whose last `##[error]` spans several lines (continuation unstamped, no `Process completed` after it), followed
+  by post-step lines in its completion second. Golden: the excerpt ends with the error's last continuation line.
+  List it in `conformance/INVENTORY.md`.
 
 ## 3. Script
 

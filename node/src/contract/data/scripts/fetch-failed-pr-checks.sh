@@ -122,19 +122,21 @@ record() {
 }
 
 # The failed step's section: log lines stamped within [start, end] to the second (an unstamped line takes the
-# previous stamp), from the first `##[group]Run ` line to the last `##[error]` line.
+# previous stamp), from the first `##[group]Run ` line to the last `##[error]` line and its unstamped continuation.
 step_section() {
     local log="$1" start="$2" end="$3"
     LC_ALL=C awk -v s="$start" -v e="$end" '
         function is_error(l) { return index(l, "##[error]") == 1 || index(l, " ##[error]") > 0 }
         function is_run(l) { return index(l, "##[group]Run ") == 1 || index(l, " ##[group]Run ") > 0 }
-        /^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9]/ { ts = substr($0, 1, 19) }
-        ts != "" && (ts "") >= (s "") && (ts "") <= (e "") { line[++n] = $0 }
+        { stamped = 0 }
+        /^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9]/ { ts = substr($0, 1, 19); stamped = 1 }
+        ts != "" && (ts "") >= (s "") && (ts "") <= (e "") { line[++n] = $0; own[n] = stamped }
         END {
             first = 1
             for (i = 1; i <= n; i++) if (is_run(line[i])) { first = i; break }
             last = n
             for (i = n; i >= first; i--) if (is_error(line[i])) { last = i; break }
+            while (last < n && !own[last + 1]) last++
             for (i = first; i <= last; i++) print line[i]
         }' "$log"
 }

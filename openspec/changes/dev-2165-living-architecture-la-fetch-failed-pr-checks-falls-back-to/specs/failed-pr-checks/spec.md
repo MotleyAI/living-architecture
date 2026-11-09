@@ -46,8 +46,8 @@ otherwise be kept as they are. The command SHALL read the job's steps (`gh api r
 and take the first step whose conclusion is neither `success`, `skipped`, `neutral` nor null. Its section
 SHALL be the log lines whose timestamp, to the second, lies within the step's `started_at` and
 `completed_at` (a line with no timestamp takes the preceding line's), starting at the first `##[group]Run `
-line among them (else the first of them) and ending at the last `##[error]` line among them (else the last
-of them). When the steps cannot be read, no step qualifies, or the section is empty, the whole job log SHALL
+line among them (else the first of them) and ending at the last `##[error]` line among them together with the
+untimestamped lines right after it (else the last of them). When the steps cannot be read, no step qualifies, or the section is empty, the whole job log SHALL
 be used instead.
 
 From the section or the whole log, the excerpt SHALL be: all of it when it has at most N lines; otherwise
@@ -64,7 +64,7 @@ lines replaced by one `[... K lines omitted ...]` line.
 
 #### Scenario: Untimestamped error continuation kept
 - **WHEN** the failed step's last `##[error]` message spans several lines, only the first with a timestamp
-- **THEN** the excerpt keeps the lines up to the last `##[error]` line, as in the log
+- **THEN** the excerpt ends with that message's last line, as in the log
 
 #### Scenario: Cancelled step counts as the failed step
 - **WHEN** the job timed out and its running step has conclusion `cancelled`
