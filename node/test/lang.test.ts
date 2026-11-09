@@ -1,9 +1,10 @@
 // The TypeScript adapter, through src/lang/index.ts, on the conformance cases' repos and on small inline repos.
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import ts from 'typescript';
 import { afterAll, describe, expect, it } from 'vitest';
+import { nativeTopLevelFacts } from '../src/archcheck/facts.js';
 import { LangError, moduleImports, topLevelUnits, unitStatus, type TsLayout } from '../src/lang/index.js';
 import { runtimeSpecifiers } from '../src/lang/specifiers.js';
 import { cleanup, materialize } from './lang-fixtures.js';
@@ -245,6 +246,33 @@ describe('inline repos', () => {
       { module: 'app/main', targets: ['lib/util'] },
       { module: 'lib/util', targets: ['app/main'] },
     ]);
+  });
+
+  it('a symlink into a later root is walked as the linking root\'s code and leaves that root its own files', () => {
+    const layout = inline({
+      'app/main.ts': 'export const main = 1;',
+      'lib/tsconfig.json': '{"compilerOptions": {"paths": {"@app/*": ["../app/*"]}}}',
+      'lib/util.ts': "import { main } from '@app/main'; export const util = main;",
+    }, { rootPackages: ['app', 'lib'] });
+    symlinkSync('../lib', join(layout.repoRoot, 'app/link'));
+    expect(moduleImports(layout)).toEqual([
+      { module: 'app/link/util', targets: [] },
+      { module: 'app/main', targets: [] },
+      { module: 'lib/util', targets: ['app/main'] },
+    ]);
+  });
+
+  it('units, sources, targets and facts sort by code point, as in Python', () => {
+    const layout = inline({
+      'src/\u{1D4B6}.ts': 'export const a = 1;',
+      'src/ｱ.ts': "import { a } from './\u{1D4B6}.js'; import { b } from './b.js'; export { a, b };",
+      'src/b.ts': 'export const b = 1;',
+    });
+    const order = ['src/b', 'src/ｱ', 'src/\u{1D4B6}'];
+    expect(topLevelUnits(layout)).toEqual(order);
+    expect(moduleImports(layout).map((m) => m.module)).toEqual(order);
+    expect(edges(layout)['src/ｱ']).toEqual(['src/b', 'src/\u{1D4B6}']);
+    expect(nativeTopLevelFacts(layout, 'typescript').top_level_units).toEqual(order);
   });
 
   it('a missing tsconfig key is a setup error naming it', () => {

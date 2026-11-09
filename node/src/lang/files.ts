@@ -1,7 +1,7 @@
 // Visible TypeScript source files, units and module ids under a section's source_root.
 import { readdirSync, realpathSync, statSync, type Stats } from 'node:fs';
 import { basename, dirname, join, relative, resolve, sep } from 'node:path';
-import { globMatch, language } from '../contract/index.js';
+import { byCodePoint, globMatch, language } from '../contract/index.js';
 import type { TsLayout, UnitStatus } from './types.js';
 
 export const DECLARATION_RE = /\.d\.[cm]?ts$/;
@@ -87,7 +87,7 @@ export class Tree {
     const real = realpath(dir);
     if (real === undefined || visited.has(real)) return;
     visited.add(real);
-    for (const name of readdirSync(dir).sort()) {
+    for (const name of readdirSync(dir).sort(byCodePoint)) {
       const path = join(dir, name);
       if (this.enterable(path)) yield* this.files(path, visited);
       else if (this.visible(path)) yield path;
@@ -110,7 +110,7 @@ export class Tree {
       .filter((ext) => this.visible(base + ext))
       .map((ext) => unit + ext);
     if (this.hasSource(base)) candidates.push(`${unit}/`);
-    candidates.sort();
+    candidates.sort(byCodePoint);
     if (candidates.length > 1) return { status: 'ambiguous', candidates };
     return { status: candidates.length === 1 ? 'present' : 'missing', candidates: [] };
   }
@@ -127,6 +127,6 @@ export class Tree {
         }
       }
     }
-    return [...units].sort();
+    return [...units].sort(byCodePoint);
   }
 }

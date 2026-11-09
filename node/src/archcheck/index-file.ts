@@ -167,7 +167,7 @@ export function resolveLayout(repoRoot: string, sectionValues: Record<string, un
     sourceRoot = contained(repoRoot, 'source_root', value, 'arch-check.source-root-escapes', null);
     if (!isDir(sourceRoot)) throw new ArchCheckError(message('arch-check.source-root-not-a-directory', { value }));
   }
-  const shown = value === undefined || value === null ? '.' : value;
+  const shown = value ?? '.';
   resolveRoots(sourceRoot, key, roots, shown);
   return { repoRoot, sourceRoot, rootPackages: roots };
 }

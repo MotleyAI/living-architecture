@@ -2,6 +2,7 @@
 import { readFileSync } from 'node:fs';
 import { dirname, relative, resolve, sep } from 'node:path';
 import type * as TS from 'typescript';
+import { byCodePoint } from '../contract/index.js';
 import { canonical, DECLARATION_RE, isUnder, posix, stripSourceExtension, Tree } from './files.js';
 import { loadProjects, owner, type Project, type Projects } from './projects.js';
 import { runtimeSpecifiers } from './specifiers.js';
@@ -70,17 +71,16 @@ class Resolver {
       const target = this.target(literal.text, file, project, mode);
       if (target !== undefined) targets.add(target);
     }
-    return [...targets].sort();
+    return [...targets].sort(byCodePoint);
   }
 }
 
 /** Each root's sources resolve under that root's projects. */
 export function moduleImports(layout: TsLayout): ModuleImports[] {
   const tree = new Tree(layout);
-  const visited = new Set<string>();
   return loadProjects(layout).flatMap((projects, index) => {
     const resolver = new Resolver(tree, projects);
-    return [...tree.files(tree.packageDirs[index]!, visited)].map((file) => ({
+    return [...tree.files(tree.packageDirs[index]!)].map((file) => ({
       module: tree.moduleId(file),
       targets: resolver.targets(file),
     }));
