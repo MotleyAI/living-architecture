@@ -170,13 +170,14 @@ while [ "$i" -lt "$n_threads" ]; do
                 }
               }
             }')"
-        thread="$(jq -n --argjson t "$thread" --argjson p "$(echo "$cpage" | jq '.data.node.comments')" \
-            '$t | .comments.nodes += $p.nodes
-                 | .comments.pageInfo = $p.pageInfo')"
+        # Pass payloads as files, not argv: large ones exceed MAX_ARG_STRLEN.
+        thread="$(echo "$thread" | jq --slurpfile p <(echo "$cpage" | jq '.data.node.comments') \
+            '.comments.nodes += $p[0].nodes
+             | .comments.pageInfo = $p[0].pageInfo')"
         has_more="$(echo "$thread" | jq -r '.comments.pageInfo.hasNextPage // false')"
         cursor="$(echo "$thread" | jq -r '.comments.pageInfo.endCursor // ""')"
     done
-    jq --argjson t "$thread" '. + [$t]' "$threads_paginated" > "$threads_paginated.tmp"
+    jq --slurpfile t <(echo "$thread") '. + $t' "$threads_paginated" > "$threads_paginated.tmp"
     mv "$threads_paginated.tmp" "$threads_paginated"
     i=$((i + 1))
 done
@@ -282,10 +283,10 @@ json_out="${TMPDIR:-/tmp}/coderabbit-threads-${PR}-${ts}.json"
 jq -n \
     --argjson pr "$PR" \
     --arg repo "$REPO" \
-    --argjson threads "$threads_filtered" \
-    --argjson nitpicks "$nitpicks" \
-    --argjson outside_diff "$outside_diff" \
-    '{pr: $pr, repo: $repo, threads: $threads, nitpicks: $nitpicks, outside_diff: $outside_diff}' \
+    --slurpfile threads <(echo "$threads_filtered") \
+    --slurpfile nitpicks <(echo "$nitpicks") \
+    --slurpfile outside_diff <(echo "$outside_diff") \
+    '{pr: $pr, repo: $repo, threads: $threads[0], nitpicks: $nitpicks[0], outside_diff: $outside_diff[0]}' \
     > "$json_out"
 
 # ---- Render Markdown ----
