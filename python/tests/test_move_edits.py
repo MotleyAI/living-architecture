@@ -355,6 +355,45 @@ def test_move_to_the_project_root_keeps_the_items_and_comments(tmp_path: Path, b
     assert (root / "use.py").read_text() == after
 
 
+@pytest.mark.parametrize(
+    ("dest", "after"),
+    [
+        (
+            "from pkg.a import f as h\n\nZ = h()\n",
+            "\n\ndef f() -> int:\n    return 1\n\nZ = f()\n",
+        ),
+        (
+            "import os\n\n\ndef use() -> int:\n    from pkg.a import f as h\n\n    return h() + len(os.sep)\n",
+            "import os\n\n\ndef f() -> int:\n    return 1\n\n\ndef use() -> int:\n\n    return f() + len(os.sep)\n",
+        ),
+    ],
+    ids=["module-level", "function-local"],
+)
+def test_destination_alias_of_the_symbol_becomes_its_name(tmp_path: Path, dest: str, after: str) -> None:
+    root = _write(tmp_path, {**SYMBOL_PROJECT, "pkg/b.py": dest})
+    assert _move_f(root, "--apply") == 0
+    assert (root / "pkg/b.py").read_text() == after
+
+
+@pytest.mark.parametrize(
+    ("dest", "name", "line"),
+    [
+        ("from pkg.a import f as h\n\n\ndef use(f: int) -> int:\n    return h() + f\n", "f", 4),
+        ("from pkg.a import f as h\n\nh = print\nh()\n", "h", 3),
+        ("from pkg.a import f as h, g as h\n\nh()\n", "h", 1),
+    ],
+    ids=["symbol-name-taken", "alias-rebound", "alias-rebound-in-statement"],
+)
+def test_destination_alias_that_cannot_become_the_name_is_refused(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], dest: str, name: str, line: int
+) -> None:
+    root = _write(tmp_path, {**SYMBOL_PROJECT, "pkg/b.py": dest})
+    before = _tree(root)
+    assert _move_f(root, "--apply") == 1
+    assert _tree(root) == before
+    assert capsys.readouterr().err.strip() == message("refactor.name-conflict", name=name, path="pkg/b.py", line=line)
+
+
 def test_moved_code_follows_leading_comments_of_a_destination_without_imports(tmp_path: Path) -> None:
     root = _write(tmp_path, {**SYMBOL_PROJECT, "pkg/b.py": "# header\n# more\nX = 1\n"})
     assert _move_f(root, "--apply") == 0

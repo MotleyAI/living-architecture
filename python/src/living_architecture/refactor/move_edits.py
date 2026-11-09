@@ -694,12 +694,28 @@ def symbol_move_changes(project: Project, mover: MoveGlobal, dest: File) -> Chan
 
 
 def _symbol_imports(file: _File, old: str, new: str, name: str, is_dest: bool) -> None:
-    for stmt, _ in file.scopes.imports:
+    for stmt, scope in file.scopes.imports:
         if not isinstance(stmt, ast.ImportFrom) or _absolute(stmt.level, stmt.module or "", file.package) != old:
             continue
         hits = [i for i, alias in enumerate(stmt.names) if alias.name == name]
-        if hits:
-            _move_items(file, stmt, hits, None if is_dest else _from(stmt, file.package, new))
+        if not hits:
+            continue
+        _move_items(file, stmt, hits, None if is_dest else _from(stmt, file.package, new))
+        if is_dest:
+            _unalias(file, stmt, hits, scope, f"{old}.{name}")
+
+
+def _unalias(file: _File, stmt: ast.ImportFrom, hits: list[int], scope: _Scope, obj: str) -> None:
+    """In the destination, each use of an alias the removed import bound becomes the symbol's name."""
+    name = obj.rpartition(".")[2]
+    for alias in {a for i in hits if (a := stmt.names[i].asname) and a != name}:
+        other = next((b for b in scope.bindings[alias] if b.stmt is not stmt or b.item not in hits), None)
+        if other is not None:
+            raise NameConflict(alias, file.resource.path, other.line)
+        for node, at in file.scopes.loads.values():
+            if node.id == alias and at.lookup(alias) is scope:
+                file.check_free(name, obj, at)
+                file.edits.add(*file.span(node), name)
 
 
 def _move_items(file: _File, stmt: ast.ImportFrom, hits: list[int], target: str | None) -> None:

@@ -383,6 +383,7 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | *(new)* a missing source (rename, move-module file, move-module directory); a directory holding sources of more than one repo language | 1 | `refactor-source-missing`, `refactor-move-module-source-missing`, `refactor-move-module-missing-directory`, `refactor-mixed-language-directory` |
 | *(new)* a missing destination (move-module, move-symbol); a file destination for move-module | 1 | `refactor-move-module-dest-missing`, `refactor-move-symbol-dest-missing`, `refactor-move-module-dest-file` |
 | *(new)* move-symbol into its own module changes nothing | 0 | `refactor-move-symbol-same-module` |
+| *(new)* move-symbol: the destination's aliased import of the symbol is removed and each use of the alias becomes the symbol's name | 0 | `refactor-move-symbol-dest-alias` |
 | *(new)* a source symlinked outside the project; a symlink loop (the source, a parent); a symlink followed before `..`; a module directory symlinked outside | 1 | `refactor-symlink-outside-project`, `refactor-symlink-loop`, `refactor-symlink-loop-parent`, `refactor-symlink-dotdot`, `refactor-move-module-symlink-outside` |
 | *(new)* a package directory moves through the Python twin; its expansion takes `--project`'s repo languages | 0 | `refactor-move-module-package`, `refactor-move-module-project-languages` |
 | *(new)* rename across annotated parameters and f-strings concatenated with literals | 0 | `refactor-rename-rope-walk-constructs` |

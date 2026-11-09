@@ -56,8 +56,9 @@ An import binding SHALL be removed in place only when every use of it was rewrit
 code. In the source module, a `__all__` entry naming the moved symbol SHALL be removed, and a remaining use of the
 symbol SHALL get `from <dest> import <name>` after the leading import block. In the destination, the imports the moved
 code needs SHALL be added after the leading import block. An import of the symbol from the source SHALL be removed in
-place. The leading import block is the first contiguous run of import statements, ending at the first non-import
-statement; in a file without imports it is the position after the module docstring and `__future__` imports. Edits
+place, and each use of a name it bound under an alias SHALL become the symbol's name. The leading import block is the
+first contiguous run of import statements, ending at the first non-import statement; in a file without imports it is
+the position after the module docstring and `__future__` imports. Edits
 SHALL be located by source character, so non-ASCII text before them on the line does not shift them. When an
 added import or the moved code would bind a name that already resolves to a different object in that scope,
 `dr-refactor` SHALL exit 1 with the name-conflict finding naming the file and line, and SHALL write nothing.
