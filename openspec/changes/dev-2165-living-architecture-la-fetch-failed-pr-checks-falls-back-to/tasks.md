@@ -31,7 +31,7 @@ times like `2026-01-01T00:00:10Z`), served through the fake's `--jq` support.
   lines with `empty log`.
 - [x] 2.6 Neutral case `shim-fetch-failed-pr-checks-max-log-zero`: `--max-log-lines 0` with a failed Actions job.
   Golden: `_No log excerpt: log fetching is off (--max-log-lines 0)._`.
-- [ ] 2.7 Re-bless `shim-fetch-failed-pr-checks-full-log-fallback` (`LA_UPDATE_GOLDENS=1`; reason in the commit:
+- [x] 2.7 Re-bless `shim-fetch-failed-pr-checks-full-log-fallback` (`LA_UPDATE_GOLDENS=1`; reason in the commit:
   deliberate label change) so its summary is `Full log (last 5 lines)`; review the golden diff is only that line.
 - [x] 2.8 List 2.1–2.6 in `conformance/INVENTORY.md` on the fetch-failed-pr-checks row (and a row per new output
   branch: API step, API errors+tail, no-log reasons, log fetching off).
@@ -52,27 +52,27 @@ times like `2026-01-01T00:00:10Z`), served through the fake's `--jq` support.
 
 ## 3. Script
 
-- [ ] 3.1 `shared/scripts/fetch-failed-pr-checks.sh`: one per-run temp dir under `${TMPDIR:-/tmp}` with a single
+- [x] 3.1 `shared/scripts/fetch-failed-pr-checks.sh`: one per-run temp dir under `${TMPDIR:-/tmp}` with a single
   `EXIT` trap (final JSON outside it); each `gh` call as `if gh … >"$out" 2>"$err"; then rc=0; else rc=$?; fi`,
   outcome from stdout (non-whitespace), last non-empty stderr line, `exit <code>`, else `empty log`; record
   `log_attempts` (command without `--repo`) and `log_source`.
-- [ ] 3.2 Job-log API attempt (job id only), BOM dropped with `printf '\357\273\277'` under `LC_ALL=C`; metadata
+- [x] 3.2 Job-log API attempt (job id only), BOM dropped with `printf '\357\273\277'` under `LC_ALL=C`; metadata
   call picks the first step whose conclusion is not `success`/`skipped`/`neutral`/null; portable awk (digits
   spelled out, no `{n}` intervals) slices on 19-character timestamps, untimestamped lines inheriting the previous
   timestamp, from the first `##[group]Run ` to the last `^##[error]`/` ##[error]` line; fall back to the whole log;
   excerpt rule with `[... K lines omitted ...]` gaps. Verify the awk under `mawk` and `gawk` (and `busybox awk` if
   available) on the 2.1 fixture.
-- [ ] 3.3 Markdown: summary by `log_source`; no-excerpt lines (`--max-log-lines 0`, no run id, every attempt
+- [x] 3.3 Markdown: summary by `log_source`; no-excerpt lines (`--max-log-lines 0`, no run id, every attempt
   failed with one ``- `<command>`: <reason>`` line per attempt). Usage line:
   `--max-log-lines N    tail each failed job's log excerpt at N lines (default: 200); a job-log API excerpt also keeps the earlier ##[error] lines`.
-- [ ] 3.4 Run `scripts/sync-shared`; verify `scripts/sync-shared --check` passes and both snapshots' `CONTRACT_HASH`
+- [x] 3.4 Run `scripts/sync-shared`; verify `scripts/sync-shared --check` passes and both snapshots' `CONTRACT_HASH`
   match `la-doctor --contract-hash`.
 
 ## 4. Model, skill, docs
 
 - [x] 4.1 `architecture/model.c4`, Python `review` node: `specs ['review-detection']` →
   `specs ['review-detection', 'failed-pr-checks']` (approved, design decision 9). Verify `la-arch-check` passes.
-- [ ] 4.2 `plugin/skills/fetch-failed-pr-checks/SKILL.md`: apply the approved wording verbatim (design decision 11):
+- [x] 4.2 `plugin/skills/fetch-failed-pr-checks/SKILL.md`: apply the approved wording verbatim (design decision 11):
   output bullet, the two JSON fields, step 3's first sentence. Verify
   `npx -y @anthropic-ai/claude-code plugin validate plugin`.
 - [ ] 4.3 Check `docs/commands.md`, `docs/skills.md`, `plugin/skills/process-reviews/SKILL.md` for wording that now
@@ -81,9 +81,9 @@ times like `2026-01-01T00:00:10Z`), served through the fake's `--jq` support.
 
 ## 5. Gates
 
-- [ ] 5.1 Python twin: `uv run pytest -q`, `uv run ruff check src tests`, `uv run basedpyright src tests`.
-- [ ] 5.2 npm twin: `npm run lint && npm run typecheck`, `npm test`, `npm run build && npm run conformance`.
-- [ ] 5.3 `scripts/conformance-cross` (every case through both twins) and `la-arch-check`.
-- [ ] 5.4 Reproduce on the real job: `la-fetch-failed-pr-checks 17 --repo MotleyAI/worktree-term` shows the
+- [x] 5.1 Python twin: `uv run pytest -q`, `uv run ruff check src tests`, `uv run basedpyright src tests`.
+- [x] 5.2 npm twin: `npm run lint && npm run typecheck`, `npm test`, `npm run build && npm run conformance`.
+- [x] 5.3 `scripts/conformance-cross` (every case through both twins) and `la-arch-check`.
+- [x] 5.4 Reproduce on the real job: `la-fetch-failed-pr-checks 17 --repo MotleyAI/worktree-term` shows the
   `vitest (2)` excerpt from the job-log API ending at `##[error]Process completed with exit code 1.` (while GitHub
   still serves that log).
