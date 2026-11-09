@@ -10,9 +10,8 @@ from typing import Any, cast
 from pydantic import BaseModel
 from rope.base import libutils
 from rope.base.change import ChangeSet
-from rope.base.exceptions import RefactoringError
 from rope.base.project import Project
-from rope.base.resources import File, Folder, Resource
+from rope.base.resources import File, Resource
 from rope.refactor.move import MoveGlobal, MoveModule, create_move
 from rope.refactor.rename import Rename
 
@@ -74,6 +73,16 @@ def _resource(project: Project, path: str) -> Resource:
     return resource
 
 
+def _destination(project: Project, dest: str, *, folder: bool) -> Resource:
+    """`--dest` as an existing directory (`folder`) or file in the project."""
+    resolved = Path(dest).resolve()
+    if resolved.is_relative_to(Path(project.address).resolve()) and not (
+        resolved.is_dir() if folder else resolved.is_file()
+    ):
+        raise RefactorError(message("refactor.destination-missing", path=dest))
+    return _resource(project, dest)
+
+
 def _emit(project: Project, changes: ChangeSet, apply: bool) -> None:
     """Print the changes sorted by path (rope's own order follows the hash seed); apply in rope's order."""
     ordered = sorted(changes.changes, key=lambda c: c.resource.path)
@@ -104,22 +113,16 @@ def rename(
 def move_symbol(project: Project, *, file: str, locator: Locator, dest: str, apply: bool) -> None:
     offset = _resolve_offset(locator, Path(file).read_text())
     mover = cast(MoveGlobal, create_move(project, _resource(project, file), offset))
-    target = _resource(project, dest)
-    if isinstance(target, Folder) and target.has_child("__init__.py"):
-        target = target.get_child("__init__.py")
-    if target.is_folder():
-        raise RefactoringError("Move destination for non-modules should not be folders.")
+    target = cast(File, _destination(project, dest, folder=False))
     if target == mover.source:
-        raise RefactoringError("Moving global elements to the same module.")
-    _emit(project, symbol_move_changes(project, mover, cast(File, target)), apply)
+        _emit(project, ChangeSet(f"Moving global <{mover.old_name}>"), apply)
+        return
+    _emit(project, symbol_move_changes(project, mover, target), apply)
 
 
 def move_module(project: Project, *, module: str, dest: str, apply: bool) -> None:
     mover = cast(MoveModule, create_move(project, _resource(project, module)))
-    target = _resource(project, dest)
-    if not target.is_folder():
-        raise RefactoringError("Move destination for modules should be packages.")
-    _emit(project, module_move_changes(project, mover, target), apply)
+    _emit(project, module_move_changes(project, mover, _destination(project, dest, folder=True)), apply)
 
 
 def run_refactor(*, project_root: str, command: str, apply: bool, options: dict[str, Any]) -> int:

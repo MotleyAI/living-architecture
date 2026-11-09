@@ -21,7 +21,8 @@ from living_architecture.refactor.rope_patches import char_offset
 
 _CHAIN = re.compile(r"[^\W\d]\w*(?:\s*\.\s*[^\W\d]\w*)+")
 _LINE_TAIL = re.compile(r"[ \t]*(?:#[^\n]*)?\n?")
-_ITEM_TAIL = re.compile(r"[ \t]*,?[ \t]*(?:#[^\n]*)?\n?")
+_ITEM_TAIL = re.compile(r"[ \t]*(?:,[ \t]*)?(?:#[^\n]*)?\n?")
+_INIT = "__init__.py"
 _SKIPPED_TOKENS = {tokenize.NL, tokenize.NEWLINE, tokenize.COMMENT, tokenize.ENDMARKER, tokenize.INDENT, tokenize.DEDENT}
 
 
@@ -68,6 +69,10 @@ def _line_start(text: str, pos: int) -> int:
 def _span(text: str, node: ast.stmt | ast.expr | ast.alias) -> tuple[int, int]:
     end_line = node.end_lineno or node.lineno
     return char_offset(text, node.lineno, node.col_offset), char_offset(text, end_line, node.end_col_offset or 0)
+
+
+def _named(aliases: list[ast.alias]) -> str:
+    return ", ".join(f"{a.name} as {a.asname}" if a.asname else a.name for a in aliases)
 
 
 def _is_docstring(node: ast.stmt) -> bool:
@@ -134,10 +139,22 @@ class _Scopes:
         self.visit(tree)
 
     def visit(self, node: ast.AST) -> None:
-        handler = getattr(self, f"visit_{type(node).__name__}", None)
-        if handler is not None:
-            handler(node)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            self._function_def(node)
+        elif isinstance(node, ast.Lambda):
+            self._function(node, [node.body])
+        elif isinstance(node, ast.ClassDef):
+            self._class_def(node)
+        elif isinstance(node, (ast.ListComp, ast.SetComp, ast.GeneratorExp, ast.DictComp)):
+            self._comprehension(node)
+        elif isinstance(node, ast.Import):
+            self._import(node)
+        elif isinstance(node, ast.ImportFrom):
+            self._import_from(node)
+        elif isinstance(node, ast.Name):
+            self._name(node)
         else:
+            self._bind_pattern(node)
             self.generic_visit(node)
 
     def generic_visit(self, node: ast.AST) -> None:
@@ -165,7 +182,7 @@ class _Scopes:
                     self.visit(arg.annotation)
         self._inside(scope, body)
 
-    def visit_FunctionDef(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
+    def _function_def(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
         self._bind(node.name, _Binding(node.lineno))
         for decorator in node.decorator_list:
             self.visit(decorator)
@@ -173,12 +190,7 @@ class _Scopes:
             self.visit(node.returns)
         self._function(node, node.body)
 
-    visit_AsyncFunctionDef = visit_FunctionDef
-
-    def visit_Lambda(self, node: ast.Lambda) -> None:
-        self._function(node, [node.body])
-
-    def visit_ClassDef(self, node: ast.ClassDef) -> None:
+    def _class_def(self, node: ast.ClassDef) -> None:
         self._bind(node.name, _Binding(node.lineno))
         for child in [*node.decorator_list, *node.bases, *node.keywords]:
             self.visit(child)
@@ -188,9 +200,7 @@ class _Scopes:
         elements = [node.key, node.value] if isinstance(node, ast.DictComp) else [node.elt]
         self._inside(_Scope(self.current, False), [*node.generators, *elements])
 
-    visit_ListComp = visit_SetComp = visit_GeneratorExp = visit_DictComp = _comprehension
-
-    def visit_Import(self, node: ast.Import) -> None:
+    def _import(self, node: ast.Import) -> None:
         self.imports.append((node, self.current))
         for index, alias in enumerate(node.names):
             if alias.asname:
@@ -199,7 +209,7 @@ class _Scopes:
                 root = alias.name.split(".")[0]
                 self._bind(root, _Binding(node.lineno, root, alias.name, node, index))
 
-    def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
+    def _import_from(self, node: ast.ImportFrom) -> None:
         self.imports.append((node, self.current))
         base = _absolute(node.level, node.module or "", self.package)
         for index, alias in enumerate(node.names):
@@ -209,40 +219,32 @@ class _Scopes:
                 obj = f"{base}.{alias.name}" if base else None
                 self._bind(alias.asname or alias.name, _Binding(node.lineno, obj, None, node, index))
 
-    def visit_Name(self, node: ast.Name) -> None:
+    def _name(self, node: ast.Name) -> None:
         if isinstance(node.ctx, ast.Load):
             self.loads[(node.lineno, node.col_offset)] = (node, self.current)
         else:
             self._bind(node.id, _Binding(node.lineno))
 
-    def visit_ExceptHandler(self, node: ast.ExceptHandler) -> None:
-        if node.name:
-            self._bind(node.name, _Binding(node.lineno))
-        self.generic_visit(node)
-
-    def visit_MatchAs(self, node: ast.MatchAs) -> None:
-        if node.name:
-            self._bind(node.name, _Binding(node.lineno))
-        self.generic_visit(node)
-
-    def visit_MatchStar(self, node: ast.MatchStar) -> None:
-        if node.name:
-            self._bind(node.name, _Binding(node.lineno))
-
-    def visit_MatchMapping(self, node: ast.MatchMapping) -> None:
-        if node.rest:
-            self._bind(node.rest, _Binding(node.lineno))
-        self.generic_visit(node)
+    def _bind_pattern(self, node: ast.AST) -> None:
+        """The name an `except ... as` clause or a match capture pattern binds."""
+        if isinstance(node, (ast.ExceptHandler, ast.MatchAs, ast.MatchStar)):
+            name = node.name
+        elif isinstance(node, ast.MatchMapping):
+            name = node.rest
+        else:
+            return
+        if name:
+            self._bind(name, _Binding(node.lineno))
 
 
 class _Edits:
     def __init__(self, text: str) -> None:
         self.text = text
-        self._edits: list[tuple[int, int, int, str]] = []
+        self._pending: list[tuple[int, int, int, str]] = []
 
     def add(self, start: int, end: int, new: str) -> None:
-        if not any(e[0] == start and e[1] == end and e[3] == new for e in self._edits):
-            self._edits.append((start, end, len(self._edits), new))
+        if not any(e[0] == start and e[1] == end and e[3] == new for e in self._pending):
+            self._pending.append((start, end, len(self._pending), new))
 
     def insert_line(self, pos: int, line: str) -> None:
         """`line` as its own line at line start `pos`, keeping a missing final newline missing."""
@@ -254,7 +256,7 @@ class _Edits:
     def apply(self) -> str:
         out: list[str] = []
         cursor = 0
-        for start, end, _, new in sorted(self._edits):
+        for start, end, _, new in sorted(self._pending):
             if start < cursor:
                 raise AssertionError(f"overlapping edits at {start}")
             out.append(self.text[cursor:start] + new)
@@ -291,6 +293,11 @@ class _File:
             if tok.type not in _SKIPPED_TOKENS
         ]
 
+    def comments(self, node: ast.stmt) -> list[str]:
+        start, end = self.span(node)
+        tokens = tokenize.generate_tokens(io.StringIO(self.text[start:end]).readline)
+        return [tok.string for tok in tokens if tok.type == tokenize.COMMENT]
+
     def binding_of(self, stmt: ast.Import | ast.ImportFrom, item: int, scope: _Scope) -> _Binding | None:
         alias = stmt.names[item]
         name = alias.asname or (alias.name.split(".")[0] if isinstance(stmt, ast.Import) else alias.name)
@@ -300,9 +307,9 @@ class _File:
         tokens = self.tokens(stmt)
         cut = next(i for i, tok in enumerate(tokens) if i and tok[0] == "import")
         if not new:
-            alias = stmt.names[0]
             start, end = self.span(stmt)
-            self.edits.add(start, end, f"import {alias.name}" + (f" as {alias.asname}" if alias.asname else ""))
+            comments = "".join(f"  {c}" for c in self.comments(stmt))
+            self.edits.add(start, end, f"import {_named(stmt.names)}{comments}")
             return
         self.edits.add(tokens[1][1], tokens[cut - 1][2], new)
 
@@ -402,11 +409,22 @@ class _File:
         """Remove imports whose every use was rewritten, add the imports rewritten uses need, and apply."""
         for scope in self._all_scopes():
             for name, binding in self.bound(scope):
-                count = self.uses_rewritten.get(id(binding), 0)
-                stmt = binding.stmt
-                if count and stmt is not None and id(stmt) not in self.rewritten and self._uses(name, scope) == count:
-                    binding.removed = True
-                    self.remove_item(stmt, binding.item)
+                self._drop_if_all_rewritten(name, binding, scope)
+        self._add_needed_imports()
+        for stmt, line in self.after:
+            self.insert_after(stmt, line)
+        for stmt, items in self.drops.values():
+            self._remove_items(stmt, items)
+        return self.edits.apply()
+
+    def _drop_if_all_rewritten(self, name: str, binding: _Binding, scope: _Scope) -> None:
+        count = self.uses_rewritten.get(id(binding), 0)
+        stmt = binding.stmt
+        if count and stmt is not None and id(stmt) not in self.rewritten and self._uses(name, scope) == count:
+            binding.removed = True
+            self.remove_item(stmt, binding.item)
+
+    def _add_needed_imports(self) -> None:
         added: set[tuple[str, int]] = set()
         for module, binding, scope in self.needs:
             key = (module, id(binding.stmt) if binding is not None else 0)
@@ -418,11 +436,6 @@ class _File:
                 self.insert_after(binding.stmt, f"import {module}")
             else:
                 self.edits.insert_line(leading_block_end(self.text), f"import {module}")
-        for stmt, line in self.after:
-            self.insert_after(stmt, line)
-        for stmt, items in self.drops.values():
-            self._remove_items(stmt, items)
-        return self.edits.apply()
 
     def _binds_module(self, scope: _Scope, module: str) -> bool:
         root = module.split(".")[0]
@@ -446,15 +459,15 @@ class _File:
 
 def _package(resource: Resource) -> str:
     name = libutils.modname(resource)
-    return name if resource.name == "__init__.py" else name.rpartition(".")[0]
+    return name if resource.name == _INIT else name.rpartition(".")[0]
 
 
 def _explicitly_binds(resource: Resource, name: str) -> bool:
     """Whether the module (a package: its `__init__`) binds `name` at module level, by import or assignment."""
     if isinstance(resource, Folder):
-        if not resource.has_child("__init__.py"):
+        if not resource.has_child(_INIT):
             return False
-        resource = resource.get_child("__init__.py")
+        resource = resource.get_child(_INIT)
     if not isinstance(resource, File):
         return False
     scopes = _Scopes(ast.parse(resource.read()), _package(resource))
@@ -488,97 +501,131 @@ def _finder(project: Project, name: str, pyname: object) -> occurrences.Finder:
     return occurrences.create_finder(project, name, pyname, imports=False, keywords=False)
 
 
-def module_move_changes(project: Project, mover: MoveModule, dest: Resource) -> ChangeSet:
-    """`move-module`: each import of the module rewritten in place, each broken use rewritten, then the move."""
-    source = mover.source
-    basename = mover.old_name
-    old = libutils.modname(source)
-    dest_name = libutils.modname(dest)
-    new = f"{dest_name}.{basename}" if dest_name else basename
-    new_parent = new.rpartition(".")[0]
-    old_parent = old.rpartition(".")[0]
-    prefix = source.path + "/"
+class _ModuleMove:
+    """The paths of one `move-module` and the per-file rewrites of its imports and uses."""
 
-    def mapped(name: str) -> str | None:
-        return new + name[len(old) :] if name == old or name.startswith(old + ".") else None
+    def __init__(self, project: Project, mover: MoveModule, dest: Resource) -> None:
+        self.source = mover.source
+        self.basename = mover.old_name
+        self.old = libutils.modname(self.source)
+        dest_name = libutils.modname(dest)
+        self.new = f"{dest_name}.{self.basename}" if dest_name else self.basename
+        self.new_parent = self.new.rpartition(".")[0]
+        self.old_parent = self.old.rpartition(".")[0]
+        self.finder = _finder(project, self.basename, mover.old_pyname)
+        self.binds: dict[str, bool] = {}
 
-    finder = _finder(project, basename, mover.old_pyname)
-    binds: dict[str, bool] = {}
-    changes = ChangeSet(f"Moving module <{basename}>")
-    for resource in project.get_python_files():
-        moved = resource == source or resource.path.startswith(prefix)
-        text = resource.read()
-        if not moved and basename not in text:
-            continue
-        old_package = _package(resource)
-        new_package = old_package
-        if moved:
-            new_name = mapped(libutils.modname(resource)) or libutils.modname(resource)
-            new_package = new_name if resource.name == "__init__.py" else new_name.rpartition(".")[0]
-        file = _File(resource, old_package)
-        for stmt, scope in file.scopes.imports:
-            if isinstance(stmt, ast.Import):
-                for index, alias in enumerate(stmt.names):
-                    target = mapped(alias.name)
-                    if target is not None:
-                        file.rewrite_dotted(stmt, index, target)
-                        file.rewritten.add(id(stmt))
-                        binding = file.binding_of(stmt, index, scope)
-                        if binding is not None and binding.plain is not None:
-                            binding.plain = target
+    def mapped(self, name: str) -> str | None:
+        return self.new + name[len(self.old) :] if name == self.old or name.startswith(self.old + ".") else None
+
+    def moves(self, resource: Resource) -> bool:
+        return resource == self.source or resource.path.startswith(self.source.path + "/")
+
+    def new_package(self, resource: Resource) -> str:
+        name = libutils.modname(resource)
+        new_name = self.mapped(name) or name
+        return new_name if resource.name == _INIT else new_name.rpartition(".")[0]
+
+    def rewrite_import(self, file: _File, stmt: ast.Import, scope: _Scope) -> None:
+        for index, alias in enumerate(stmt.names):
+            target = self.mapped(alias.name)
+            if target is None:
                 continue
-            base = _absolute(stmt.level, stmt.module or "", old_package)
-            if base is None:
-                continue
-            current = "." * stmt.level + (stmt.module or "")
-            target = mapped(base)
-            hits = [i for i, alias in enumerate(stmt.names) if base == old_parent and alias.name == basename]
-            if target is not None:
-                if not (moved and stmt.level) and _from(stmt, new_package, target) != current:
-                    file.rewrite_module(stmt, _from(stmt, new_package, target))
-                    file.rewritten.add(id(stmt))
-            elif hits and len(stmt.names) == 1:
-                file.rewrite_module(stmt, _from(stmt, new_package, new_parent) if new_parent else "")
+            file.rewrite_dotted(stmt, index, target)
+            file.rewritten.add(id(stmt))
+            binding = file.binding_of(stmt, index, scope)
+            if binding is not None and binding.plain is not None:
+                binding.plain = target
+
+    def rewrite_from(self, file: _File, stmt: ast.ImportFrom, moved: bool, package: str) -> None:
+        base = _absolute(stmt.level, stmt.module or "", file.package)
+        if base is None:
+            return
+        current = "." * stmt.level + (stmt.module or "")
+        relocated = moved and stmt.level > 0
+        target = self.mapped(base)
+        hits = self._hits(stmt, base)
+        if target is not None:
+            if not relocated and _from(stmt, package, target) != current:
+                file.rewrite_module(stmt, _from(stmt, package, target))
                 file.rewritten.add(id(stmt))
-            else:
-                if hits:
-                    alias = stmt.names[hits[0]]
-                    file.remove_item(stmt, hits[0])
-                    named = f"{alias.name} as {alias.asname}" if alias.asname else alias.name
-                    file.after.append(
-                        (stmt, f"from {_from(stmt, new_package, new_parent)} import {named}" if new_parent else f"import {named}")
-                    )
-                if moved and stmt.level and _from(stmt, new_package, base) != current:
-                    file.rewrite_module(stmt, _from(stmt, new_package, base))
-        for occurrence in finder.find_occurrences(resource=resource):
+            return
+        if hits and len(hits) == len(stmt.names):
+            file.rewrite_module(stmt, _from(stmt, package, self.new_parent) if self.new_parent else "")
+            file.rewritten.add(id(stmt))
+            return
+        if hits:
+            self._split(file, stmt, hits, package)
+        if relocated and _from(stmt, package, base) != current:
+            file.rewrite_module(stmt, _from(stmt, package, base))
+
+    def _hits(self, stmt: ast.ImportFrom, base: str) -> list[int]:
+        if base != self.old_parent:
+            return []
+        return [i for i, alias in enumerate(stmt.names) if alias.name == self.basename]
+
+    def _split(self, file: _File, stmt: ast.ImportFrom, hits: list[int], package: str) -> None:
+        for hit in hits:
+            file.remove_item(stmt, hit)
+        named = _named([stmt.names[i] for i in hits])
+        line = f"from {_from(stmt, package, self.new_parent)} import {named}" if self.new_parent else f"import {named}"
+        file.after.append((stmt, line))
+
+    def rewrite_uses(self, file: _File) -> None:
+        for occurrence in self.finder.find_occurrences(resource=file.resource):
             holder = _module_object(occurrence)
             if holder is None:
                 continue
-            if holder.path not in binds:
-                binds[holder.path] = _explicitly_binds(holder, basename)
-            if not binds[holder.path]:
-                file.rewrite_use(occurrence, new, new)
+            if holder.path not in self.binds:
+                self.binds[holder.path] = _explicitly_binds(holder, self.basename)
+            if not self.binds[holder.path]:
+                file.rewrite_use(occurrence, self.new, self.new)
+
+
+def module_move_changes(project: Project, mover: MoveModule, dest: Resource) -> ChangeSet:
+    """`move-module`: each import of the module rewritten in place, each broken use rewritten, then the move."""
+    move = _ModuleMove(project, mover, dest)
+    changes = ChangeSet(f"Moving module <{move.basename}>")
+    for resource in project.get_python_files():
+        moved = move.moves(resource)
+        text = resource.read()
+        if not moved and move.basename not in text:
+            continue
+        file = _File(resource, _package(resource))
+        package = move.new_package(resource) if moved else file.package
+        for stmt, scope in file.scopes.imports:
+            if isinstance(stmt, ast.Import):
+                move.rewrite_import(file, stmt, scope)
+            else:
+                move.rewrite_from(file, stmt, moved, package)
+        move.rewrite_uses(file)
         result = file.finish()
         if result != text:
             changes.add_change(ChangeContents(resource, result))
-    changes.add_change(MoveResource(source, dest.path))
+    changes.add_change(MoveResource(move.source, dest.path))
     return changes
 
 
+def _all_lists(tree: ast.Module) -> Iterator[list[ast.expr]]:
+    for stmt in tree.body:
+        if (
+            isinstance(stmt, ast.Assign)
+            and isinstance(stmt.value, (ast.List, ast.Tuple))
+            and any(isinstance(t, ast.Name) and t.id == "__all__" for t in stmt.targets)
+        ):
+            yield stmt.value.elts
+
+
 def _all_entry(file: _File, name: str) -> None:
-    for stmt in file.tree.body:
-        if not (isinstance(stmt, ast.Assign) and any(isinstance(t, ast.Name) and t.id == "__all__" for t in stmt.targets)):
+    for elements in _all_lists(file.tree):
+        index = next((i for i, e in enumerate(elements) if isinstance(e, ast.Constant) and e.value == name), None)
+        if index is None:
             continue
-        if not isinstance(stmt.value, (ast.List, ast.Tuple)):
-            continue
-        elements = stmt.value.elts
-        for index, element in enumerate(elements):
-            if isinstance(element, ast.Constant) and element.value == name:
-                if len(elements) == 1:
-                    file.edits.add(*file.span(element), "")
-                else:
-                    file.remove_elements([file.span(e) for e in elements], {index}, True)
-                return
+        if len(elements) == 1:
+            file.edits.add(*file.span(elements[0]), "")
+        else:
+            file.remove_elements([file.span(e) for e in elements], {index}, True)
+        return
 
 
 def _import_lines(info: ImportInfo, keep: list[tuple[str, str | None]]) -> str:
@@ -588,39 +635,58 @@ def _import_lines(info: ImportInfo, keep: list[tuple[str, str | None]]) -> str:
     return "\n".join(f"import {n}" for n in named)
 
 
+class _SymbolMove:
+    """The paths of one `move-symbol` and the per-file edits of its references."""
+
+    def __init__(self, project: Project, mover: MoveGlobal, dest: File) -> None:
+        self.mover = mover
+        self.source = mover.source
+        self.dest = dest
+        self.name = mover.old_name
+        self.old = libutils.modname(self.source)
+        self.new = libutils.modname(dest)
+        self.region = cast(tuple[int, int], mover._get_moving_region())
+        self.finder = _finder(project, self.name, mover.old_pyname)
+
+    def edit(self, file: _File) -> None:
+        is_dest = file.resource == self.dest
+        _symbol_imports(file, self.old, self.new, self.name, is_dest)
+        if file.resource == self.source:
+            remaining = any(self._outside(o) for o in self.finder.find_occurrences(resource=file.resource))
+            _source_edits(file, self.region, self.name, self.new, remaining)
+        else:
+            self._rewrite_uses(file, is_dest)
+        if is_dest:
+            _dest_edits(file, self.mover, self.old, self.new, self.name)
+
+    def _outside(self, occurrence: occurrences.Occurrence) -> bool:
+        start = _primary_range(occurrence)[0]
+        return not (self.region[0] <= start < self.region[1] or occurrence.is_defined())
+
+    def _rewrite_uses(self, file: _File, is_dest: bool) -> None:
+        stars: list[ast.ImportFrom] = []
+        for occurrence in self.finder.find_occurrences(resource=file.resource):
+            if _module_object(occurrence) == self.source:
+                if is_dest:
+                    file.rewrite_use(occurrence, self.name, None)
+                else:
+                    file.rewrite_use(occurrence, f"{self.new}.{self.name}", self.new)
+            elif _primary(occurrence) is None and not is_dest:
+                stars.extend(_star_imports(file, _primary_range(occurrence)[0], self.old))
+        for stmt in dict.fromkeys(stars):
+            file.after.append((stmt, f"from {_from(stmt, file.package, self.new)} import {self.name}"))
+
+
 def symbol_move_changes(project: Project, mover: MoveGlobal, dest: File) -> ChangeSet:
     """`move-symbol`: the moved code, its imports, and each reference edited in place."""
-    source = mover.source
-    name = mover.old_name
-    old = libutils.modname(source)
-    new = libutils.modname(dest)
-    region_start, region_end = mover._get_moving_region()
-    finder = _finder(project, name, mover.old_pyname)
-    changes = ChangeSet(f"Moving global <{name}>")
+    move = _SymbolMove(project, mover, dest)
+    changes = ChangeSet(f"Moving global <{move.name}>")
     for resource in project.get_python_files():
         text = resource.read()
-        if resource not in (source, dest) and name not in text:
+        if resource not in (move.source, dest) and move.name not in text:
             continue
-        package = _package(resource)
-        file = _File(resource, package)
-        _symbol_imports(file, old, new, name, resource == dest)
-        stars: list[ast.ImportFrom] = []
-        remaining = False
-        for occurrence in finder.find_occurrences(resource=resource):
-            start = _primary_range(occurrence)[0]
-            if resource == source:
-                remaining = remaining or not (region_start <= start < region_end or occurrence.is_defined())
-                continue
-            if _module_object(occurrence) == source:
-                file.rewrite_use(occurrence, name if resource == dest else f"{new}.{name}", None if resource == dest else new)
-            elif _primary(occurrence) is None and resource != dest:
-                stars.extend(_star_imports(file, start, old))
-        for stmt in dict.fromkeys(stars):
-            file.after.append((stmt, f"from {_from(stmt, package, new)} import {name}"))
-        if resource == source:
-            _source_edits(file, (region_start, region_end), name, new, remaining)
-        if resource == dest:
-            _dest_edits(file, mover, old, new, name)
+        file = _File(resource, _package(resource))
+        move.edit(file)
         result = file.finish()
         if result != text:
             changes.add_change(ChangeContents(resource, result))
@@ -632,18 +698,20 @@ def _symbol_imports(file: _File, old: str, new: str, name: str, is_dest: bool) -
         if not isinstance(stmt, ast.ImportFrom) or _absolute(stmt.level, stmt.module or "", file.package) != old:
             continue
         hits = [i for i, alias in enumerate(stmt.names) if alias.name == name]
-        if not hits:
-            continue
-        target = _from(stmt, file.package, new)
-        if is_dest:
-            file.remove_item(stmt, hits[0])
-        elif len(stmt.names) == 1:
-            file.rewrite_module(stmt, target)
-        else:
-            alias = stmt.names[hits[0]]
-            file.remove_item(stmt, hits[0])
-            file.after.append((stmt, f"from {target} import {alias.name}" + (f" as {alias.asname}" if alias.asname else "")))
-        file.rewritten.add(id(stmt))
+        if hits:
+            _move_items(file, stmt, hits, None if is_dest else _from(stmt, file.package, new))
+
+
+def _move_items(file: _File, stmt: ast.ImportFrom, hits: list[int], target: str | None) -> None:
+    """Point the `hits` items of `stmt` at `target`, or drop them when `target` is None."""
+    if target is not None and len(hits) == len(stmt.names):
+        file.rewrite_module(stmt, target)
+    else:
+        for hit in hits:
+            file.remove_item(stmt, hit)
+        if target is not None:
+            file.after.append((stmt, f"from {target} import {_named([stmt.names[i] for i in hits])}"))
+    file.rewritten.add(id(stmt))
 
 
 def _star_imports(file: _File, offset: int, old: str) -> list[ast.ImportFrom]:
@@ -675,31 +743,45 @@ def _dest_edits(file: _File, mover: MoveGlobal, old: str, new: str, name: str) -
             raise NameConflict(name, file.resource.path, binding.line)
     moving, infos = mover._get_moving_element_with_imports()
     read = {node.id for node in ast.walk(ast.parse(moving)) if isinstance(node, ast.Name)}
-    lines: list[str] = []
-    for info in infos:
-        if isinstance(info, FromImport) and info.module_name == new:
-            continue
-        keep: list[tuple[str, str | None]] = []
-        for imported, alias in info.names_and_aliases:
-            if isinstance(info, FromImport):
-                bound, obj = alias or imported, f"{info.module_name}.{imported}"
-            else:
-                bound = alias or imported.split(".")[0]
-                obj = imported if alias else bound
-            if bound not in read:
-                continue
-            if bound in module.bindings:
-                file.check_free(bound, obj, module)
-            else:
-                keep.append((imported, alias))
-        if keep:
-            lines.append(_import_lines(info, keep))
+    lines = [line for info in infos if not _from_module(info, new) for line in _needed_import(file, info, read)]
     block_end = leading_block_end(file.text)
     for line in lines:
         file.edits.insert_line(block_end, line)
+    _insert_moving(file, moving, block_end if lines else None)
+
+
+def _from_module(info: ImportInfo, module: str) -> bool:
+    return isinstance(info, FromImport) and info.module_name == module
+
+
+def _needed_import(file: _File, info: ImportInfo, read: set[str]) -> list[str]:
+    """The import the moved code needs from `info`, minus names the destination already binds to the same object."""
+    module = file.scopes.module
+    keep: list[tuple[str, str | None]] = []
+    for imported, alias in info.names_and_aliases:
+        bound, obj = _import_binding(info, imported, alias)
+        if bound not in read:
+            continue
+        if bound in module.bindings:
+            file.check_free(bound, obj, module)
+        else:
+            keep.append((imported, alias))
+    return [_import_lines(info, keep)] if keep else []
+
+
+def _import_binding(info: ImportInfo, imported: str, alias: str | None) -> tuple[str, str]:
+    """The name an import binds and the object it binds it to."""
+    if isinstance(info, FromImport):
+        return alias or imported, f"{info.module_name}.{imported}"
+    bound = alias or imported.split(".")[0]
+    return bound, imported if alias else bound
+
+
+def _insert_moving(file: _File, moving: str, block_end: int | None) -> None:
+    """Rope's position: after the last top-level import (or added import), else after the leading comments."""
     tops = [stmt for stmt in file.tree.body if isinstance(stmt, (ast.Import, ast.ImportFrom))]
-    if tops or lines:
-        at = max(_after_line(file.text, file.span(tops[-1])[1]) if tops else 0, block_end if lines else 0)
+    if tops or block_end is not None:
+        at = max(_after_line(file.text, file.span(tops[-1])[1]) if tops else 0, block_end or 0)
         file.edits.add(at, at, "\n\n" + moving)
         return
     comments = 0

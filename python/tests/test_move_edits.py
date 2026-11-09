@@ -156,6 +156,16 @@ MODULE_IMPORT_EDITS = [
         "import pkg.database.client\n\n\ndef use() -> int:\n    return pkg.database.client.X\n",
         id="implicit-package-attribute",
     ),
+    pytest.param(
+        "from pkg.sql import client, dialects, client as c\n",
+        "from pkg.sql import dialects\nfrom pkg.database import client, client as c\n",
+        id="same-name-twice",
+    ),
+    pytest.param(
+        "from pkg.sql import client, client as c\n",
+        "from pkg.database import client, client as c\n",
+        id="same-name-twice-only",
+    ),
 ]
 
 
@@ -204,6 +214,16 @@ SYMBOL_IMPORTER_EDITS = [
         "from pkg import a\n\n\ndef use() -> int:\n    return a.f()\n",
         "import pkg.b\n\n\ndef use() -> int:\n    return pkg.b.f()\n",
         id="module-from-package",
+    ),
+    pytest.param(
+        "from pkg.a import f, g, f as h\n\nprint(f(), g(), h())\n",
+        "from pkg.a import g\nfrom pkg.b import f, f as h\n\nprint(f(), g(), h())\n",
+        id="same-name-twice",
+    ),
+    pytest.param(
+        "from pkg.a import f, f as h\n\nprint(f(), h())\n",
+        "from pkg.b import f, f as h\n\nprint(f(), h())\n",
+        id="same-name-twice-only",
     ),
 ]
 
@@ -318,6 +338,21 @@ def test_move_to_the_project_root_imports_the_module_by_name(tmp_path: Path) -> 
     assert (root / "use.py").read_text() == (
         "import client\nfrom pkg.sql import dialects\nimport client as c\n\nprint(client.X, c.X, dialects.D)\n"
     )
+
+
+@pytest.mark.parametrize(
+    ("before", "after"),
+    [
+        ("from pkg.sql import client, client as c\n", "import client, client as c\n"),
+        ("from pkg.sql import (\n    client,  # why\n    client as c,  # alias\n)\n", "import client, client as c  # why  # alias\n"),
+    ],
+    ids=["every-item", "comments-kept"],
+)
+def test_move_to_the_project_root_keeps_the_items_and_comments(tmp_path: Path, before: str, after: str) -> None:
+    root = _write(tmp_path, {**MODULE_PROJECT, "use.py": before})
+    assert main(["--project", str(root), "--apply", "move-module", "--module", str(root / "pkg/sql/client.py"),
+                 "--dest", str(root)]) == 0
+    assert (root / "use.py").read_text() == after
 
 
 def test_moved_code_follows_leading_comments_of_a_destination_without_imports(tmp_path: Path) -> None:
