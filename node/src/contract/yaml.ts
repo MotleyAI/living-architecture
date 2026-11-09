@@ -1,6 +1,17 @@
-// The shared YAML profile: YAML 1.1 as PyYAML's safe loader reads it (its implicit resolvers, merge keys, the last
-// duplicate key wins). Mappings load as Maps, floats as PyFloat, timestamps as PyTimestamp.
-import { YAMLError as LibYAMLError, parseAllDocuments, type ScalarTag } from 'yaml';
+// The shared YAML profile: YAML 1.1 as PyYAML's safe loader reads it, within a closed tag set (its implicit resolvers,
+// merge keys, the last duplicate key wins). Mappings load as Maps, floats as PyFloat, timestamps as PyTimestamp.
+import {
+  type CollectionTag,
+  type Document,
+  Lexer,
+  YAMLError as LibYAMLError,
+  Scalar,
+  type ScalarTag,
+  isCollection,
+  isScalar,
+  parseAllDocuments,
+  visit,
+} from 'yaml';
 import { PyFloat, PyTimestamp } from './values.js';
 
 export class YAMLError extends Error {}
@@ -232,6 +243,15 @@ const reporting =
 
 const TAG = (name: string): string => `tag:yaml.org,2002:${name}`;
 
+/** A merge key's value; the library merges a plain key whose value is a `<<` symbol. */
+const MERGE = Symbol('<<');
+
+const VALUE_RE = /^=$/;
+
+function refuseValue(): never {
+  throw new ConstructError('no constructor for the tag tag:yaml.org,2002:value');
+}
+
 /** An implicitly resolved scalar type. */
 const implicit = (name: string, test: RegExp, construct: Construct): ScalarTag => ({
   tag: TAG(name),
@@ -243,25 +263,160 @@ const implicit = (name: string, test: RegExp, construct: Construct): ScalarTag =
 /** The constructor an explicit `!!name` tag uses whatever the text; listed first, it wins over the implicit one. */
 const explicit = (name: string, construct: Construct): ScalarTag => ({ tag: TAG(name), resolve: reporting(construct) });
 
-const PROFILE_TAGS: ScalarTag[] = [
+/** `!!merge` on a collection, which PyYAML reads as a merge key like any other `!!merge` node. */
+const mergeCollection = (collection: 'map' | 'seq'): CollectionTag => ({ tag: TAG('merge'), collection, resolve: () => MERGE });
+
+const PROFILE_TAGS: (ScalarTag | CollectionTag)[] = [
   explicit('bool', constructBool),
   explicit('null', () => null),
   explicit('int', constructInt),
   explicit('float', constructFloat),
   explicit('timestamp', resolveTimestamp),
+  explicit('merge', () => MERGE),
+  mergeCollection('map'),
+  mergeCollection('seq'),
   implicit('bool', BOOL_RE, (text) => ['yes', 'true', 'on'].includes(text.toLowerCase())),
   implicit('null', NULL_RE, () => null),
   implicit('int', INT_RE, resolveInt),
   implicit('float', FLOAT_RE, resolveFloat),
   implicit('timestamp', TIMESTAMP_RE, resolveTimestamp),
+  implicit('value', VALUE_RE, refuseValue),
 ];
+
+/** PyYAML's implicit resolvers in its order, each with its tag's constructor. */
+const RESOLVERS: [RegExp, Construct][] = [
+  [BOOL_RE, constructBool],
+  [NULL_RE, () => null],
+  [INT_RE, constructInt],
+  [FLOAT_RE, constructFloat],
+  [TIMESTAMP_RE, resolveTimestamp],
+  [VALUE_RE, refuseValue],
+];
+
+/** A `!`-tagged scalar, which PyYAML resolves implicitly whatever its style. */
+function resolveNonSpecific(text: string): unknown {
+  // Python's `$` also matches before a final newline.
+  const bare = text.endsWith('\n') ? text.slice(0, -1) : text;
+  if (bare === '<<') return MERGE;
+  const construct = RESOLVERS.find(([test]) => test.test(bare))?.[1];
+  try {
+    return construct === undefined ? text : construct(text);
+  } catch (error) {
+    if (error instanceof ConstructError) throw new YAMLError(error.message);
+    throw error;
+  }
+}
+
+const LEXER_CONTROL = new Set(['\x02', '\x18', '\x1f']);
+const ANCHOR_NAME = /^[0-9A-Za-z_-]*/;
+// What may follow a YAML 1.1 anchor name (`%`, `@` and `` ` `` end one too, but cannot start the next token).
+const ANCHOR_END = new Set([' ', '\t', '\r', '\n', ',', ']', '}', '?', ':']);
+
+/** The lexemes of `text` outside scalars, each with its offset and the flow depth after it. */
+function* structureLexemes(text: string): Generator<[lexeme: string, offset: number, flow: number]> {
+  let [offset, flow, scalar] = [0, 0, false];
+  for (const lexeme of new Lexer().lex(text)) {
+    if (LEXER_CONTROL.has(lexeme)) {
+      scalar = lexeme === '\x1f';
+      continue;
+    }
+    if (scalar) scalar = false;
+    else {
+      if (lexeme === '{' || lexeme === '[') flow += 1;
+      else if (lexeme === '}' || lexeme === ']') flow -= 1;
+      yield [lexeme, offset, flow];
+    }
+    offset += lexeme.length;
+  }
+}
+
+/** Where the YAML 1.1 name of the anchor or alias `lexeme` at `offset` ends; YAMLError when it has none. */
+function anchorNameEnd(text: string, lexeme: string, offset: number): number {
+  const end = offset + 1 + (ANCHOR_NAME.exec(lexeme.slice(1))?.[0].length ?? 0);
+  const next = text[end];
+  if (end === offset + 1 || (next !== undefined && !ANCHOR_END.has(next))) {
+    throw new YAMLError(`invalid YAML 1.1 anchor or alias name: ${lexeme}`);
+  }
+  return end;
+}
+
+/**
+ * `text` with every anchor and alias name ending where YAML 1.1 ends it: the library reads `?` and `:` into a
+ * name, so a space goes before them, and in flow context after them too, where YAML 1.1 reads them as indicators.
+ */
+function yaml11AnchorNames(text: string): string {
+  const pieces: string[] = [];
+  let last = 0;
+  for (const [lexeme, offset, flow] of structureLexemes(text)) {
+    if (!lexeme.startsWith('&') && !lexeme.startsWith('*')) continue;
+    const end = anchorNameEnd(text, lexeme, offset);
+    if (end === offset + lexeme.length) continue;
+    if (flow > 0) {
+      pieces.push(text.slice(last, end), ` ${text[end]} `);
+      last = end + 1;
+    } else {
+      pieces.push(text.slice(last, end), ' ');
+      last = end;
+    }
+  }
+  return pieces.join('') + text.slice(last);
+}
+
+const isMerge = (node: Scalar): boolean =>
+  typeof node.value === 'symbol' || (node.tag === undefined && node.type === Scalar.PLAIN && node.value === '<<');
+
+/** Holds `doc` to the profile's tag and key rules, and sets merge keys up as PyYAML reads them. */
+function checkProfile(doc: Document.Parsed): void {
+  visit(doc, {
+    Scalar(key, node) {
+      if (node.tag === '!') {
+        node.value = resolveNonSpecific(node.source as string);
+        node.tag = undefined;
+      }
+      if (key !== 'key') {
+        if (isMerge(node)) throw new YAMLError('a merge key outside a mapping key');
+      } else if (isMerge(node)) {
+        node.value = MERGE;
+        node.type = Scalar.PLAIN;
+      } else if (node.value === '<<') {
+        // The library merges any plain `<<` key.
+        node.type = Scalar.QUOTE_DOUBLE;
+      }
+    },
+    Collection(key) {
+      if (key === 'key') throw new YAMLError('a mapping key that is a sequence or mapping');
+    },
+    Alias(key, node) {
+      const target = node.resolve(doc);
+      if (key === 'key' && isCollection(target)) throw new YAMLError('a mapping key that is a sequence or mapping');
+      if (!isScalar(target) || typeof target.value !== 'symbol') return undefined;
+      if (key !== 'key') throw new YAMLError('a merge key outside a mapping key');
+      return new Scalar(MERGE);
+    },
+  });
+}
+
+// Line breaks to YAML 1.1 that the library, reading YAML 1.2, takes as content.
+const UNICODE_BREAKS = /[\x85\u2028\u2029]/;
 
 /** The first document of `text` in the shared profile (null when empty); YAMLError when invalid. */
 export function loadYaml(text: string): unknown {
+  const found = UNICODE_BREAKS.exec(text);
+  if (found !== null) {
+    const code = (found[0].codePointAt(0) ?? 0).toString(16).toUpperCase().padStart(4, '0');
+    throw new YAMLError(`a raw U+${code} line break at offset ${found.index}`);
+  }
   let docs;
   try {
-    docs = parseAllDocuments(text, { schema: 'failsafe', customTags: PROFILE_TAGS, merge: true, uniqueKeys: false });
+    docs = parseAllDocuments(yaml11AnchorNames(text), {
+      schema: 'failsafe',
+      customTags: PROFILE_TAGS,
+      merge: true,
+      resolveKnownTags: false,
+      uniqueKeys: false,
+    });
   } catch (error) {
+    if (error instanceof YAMLError) throw error;
     throw new YAMLError(String(error));
   }
   if (docs.length > 1) throw new YAMLError('expected a single document in the stream');
@@ -270,6 +425,7 @@ export function loadYaml(text: string): unknown {
   // An unresolved tag is only a warning to the library; PyYAML's safe loader cannot construct it.
   const problem = doc.errors[0] ?? doc.warnings.find((warning) => warning.code === 'TAG_RESOLVE_FAILED');
   if (problem !== undefined) throw new YAMLError(problem.message);
+  checkProfile(doc);
   try {
     return doc.toJS({ mapAsMap: true, maxAliasCount: -1 });
   } catch (error) {

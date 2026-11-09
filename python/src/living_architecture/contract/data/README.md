@@ -20,9 +20,16 @@ The source of truth both twins obey. Each package vendors a byte-copy of this di
 
 ## YAML profile
 
-YAML 1.1 exactly as PyYAML's safe loader reads it: `yes`/`no`/`on`/`off` are booleans, sexagesimal and
-`0`-prefixed octal integers are numbers, merge keys apply, a duplicate mapping key takes the last value, and a
-scalar the safe loader cannot construct is a YAML error.
+YAML 1.1 as PyYAML's safe loader reads it, within a closed tag set: `yes`/`no`/`on`/`off` are booleans,
+sexagesimal and `0`-prefixed octal integers are numbers, merge keys apply, a duplicate mapping key takes the last
+value, and a scalar the safe loader cannot construct is a YAML error. The tag set is `!!str`, `!!int`, `!!float`,
+`!!bool`, `!!null`, `!!timestamp`, `!!seq`, `!!map` and `!!merge`, in any spelling; a non-specific `!` resolves a
+node as if it were untagged, and a scalar as if it were plain whatever its style (`! '12'` is `12`). Any other tag
+(`!!binary`, `!!set`, `!!omap`, `!!pairs`, the `!!value` a plain `=` resolves to, a local or unknown tag) is a YAML
+error, as is a merge key (`<<` or `!!merge`) anywhere but a mapping key, and a mapping key that is a sequence or
+mapping. Anchor and alias names are ASCII letters, digits, `-` and `_`. Line breaks are `\n`, `\r` and `\r\n`: a
+raw NEL (U+0085), U+2028 or U+2029 anywhere in the text is a YAML error (the `\N`, `\L` and `\P` escapes in a
+double-quoted scalar are not). Pinned by `vectors/yaml.yaml`.
 
 ## Configuration
 
