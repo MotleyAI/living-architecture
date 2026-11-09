@@ -3,6 +3,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 from collections.abc import Callable
 from functools import cache
 from pathlib import Path
