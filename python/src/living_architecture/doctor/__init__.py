@@ -86,7 +86,7 @@ def _plugin_problem(plugin: str) -> str | None:
     return message("doctor.plugin-not-found", dir=start)
 
 
-def _consistency(root: Path, cfg: LaConfig) -> list[str]:
+def _consistency(root: Path, cfg: LaConfig, *, require_plan_store: bool) -> list[str]:
     """The config's gate decisions that the disk contradicts, in a fixed order."""
     problems: list[str] = []
     has_openspec = (root / "openspec").is_dir()
@@ -95,12 +95,12 @@ def _consistency(root: Path, cfg: LaConfig) -> list[str]:
         problems.append(message("doctor.openspec-absent" if cfg.openspec else "doctor.openspec-present"))
     if cfg.architecture != has_architecture:
         problems.append(message("doctor.architecture-absent" if cfg.architecture else "doctor.architecture-present"))
-    if cfg.tracker == "none" and not cfg.openspec:
+    if require_plan_store and cfg.tracker == "none" and not cfg.openspec:
         problems.append(message("doctor.no-plan-store"))
     return problems
 
 
-def _config_problems(root: Path, *, require_config: bool) -> list[str]:
+def _config_problems(root: Path, *, require_config: bool, require_plan_store: bool) -> list[str]:
     has_committed = _is_file(root / config_file())
     missing = [message("doctor.config-missing")] if require_config and not has_committed else []
     if not has_committed and not _is_file(root / local_config_file()):
@@ -109,7 +109,7 @@ def _config_problems(root: Path, *, require_config: bool) -> list[str]:
         cfg = load_config(root)
     except ConfigError as exc:
         return [*missing, str(exc)]
-    return _consistency(root, cfg) if has_committed else missing
+    return _consistency(root, cfg, require_plan_store=require_plan_store) if has_committed else missing
 
 
 def _git(root: Path, *args: str) -> subprocess.CompletedProcess[bytes] | None:
@@ -148,12 +148,17 @@ def _language_executables(root: Path) -> list[str]:
     return [exe for lang_id in repo_languages(root, cfg) for exe in language(lang_id)["executables"]]
 
 
-def run_checks(*, root: Path, plugin: str | None = None, require_config: bool = False) -> list[str]:
+def run_checks(
+    *, root: Path, plugin: str | None = None, require_config: bool = False, require_plan_store: bool = False
+) -> list[str]:
     """Problems found; empty means healthy. A format refusal replaces every check that reads the config."""
     version = _plugin_problem(plugin) if plugin is not None else None
     problems = [version] if version is not None else []
     refusal = check_format(root)
-    problems += [refusal] if refusal is not None else _config_problems(root, require_config=require_config)
+    if refusal is not None:
+        problems.append(refusal)
+    else:
+        problems += _config_problems(root, require_config=require_config, require_plan_store=require_plan_store)
     local = _local_problem(root)
     if local is not None:
         problems.append(local)
@@ -167,11 +172,15 @@ def run_checks(*, root: Path, plugin: str | None = None, require_config: bool = 
     return problems
 
 
-def run(*, root: Path, plugin: str | None, print_hash: bool, require_config: bool = False) -> int:
+def run(
+    *, root: Path, plugin: str | None, print_hash: bool, require_config: bool = False, require_plan_store: bool = False
+) -> int:
     if print_hash:
         print(contract_hash())
         return 0
-    problems = run_checks(root=root, plugin=plugin, require_config=require_config)
+    problems = run_checks(
+        root=root, plugin=plugin, require_config=require_config, require_plan_store=require_plan_store
+    )
     for problem in problems:
         print(message("doctor.fail", problem=problem))
     if not problems:

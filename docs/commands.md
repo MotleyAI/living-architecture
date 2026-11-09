@@ -4,7 +4,7 @@ The skills drive these commands; you can also run them directly. `<command> --he
 
 | Command | Purpose |
 |---|---|
-| `la-doctor [--plugin DIR] [--require-config]` | Check the installed tools' minor version matches the plugin, the repo config against the disk, `git`/`gh`, and each repo language's executables (`node`/`npx` for TypeScript) |
+| `la-doctor [--plugin DIR] [--require-config] [--require-plan-store]` | Check the installed tools' minor version matches the plugin, the repo config against the disk, `git`/`gh`, and each repo language's executables (`node`/`npx` for TypeScript) |
 | `la-config get <key>` / `la-config show` | Print the resolved repo config (`living-architecture.local.yaml` merged over it); `get languages` prints the repo languages, `get lang.<language>.<key>` a language fact |
 | `la-arch-check` | Architecture cross-check (exit 0 OK, 1 findings, 2 broken setup) |
 | `la-arch-scaffold` | Write a starter `architecture/model.c4`, `architecture/views.c4` and `system.arc42.md` from the measured top-level units and imports |
@@ -64,8 +64,8 @@ Pin the checker to a release; it needs no per-repo code beyond `architecture/`. 
 ```yaml
 # Python
 - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-- run: uvx --no-build --from living-architecture==0.4.1 la-arch-check
+- run: uvx --no-build --from living-architecture==0.4.2 la-arch-check
 # TypeScript
 - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-- run: npx -y -p living-architecture@0.4.1 la-arch-check
+- run: npx -y -p living-architecture@0.4.2 la-arch-check
 ```

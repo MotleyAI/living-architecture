@@ -68,7 +68,7 @@ function pluginProblem(plugin: string): string | null {
 const isDir = (path: string): boolean => existsSync(path) && statSync(path).isDirectory();
 
 /** The config's gate decisions that the disk contradicts, in a fixed order. */
-function consistency(root: string, config: LaConfig): string[] {
+function consistency(root: string, config: LaConfig, requirePlanStore: boolean): string[] {
   const problems: string[] = [];
   const hasOpenspec = isDir(join(root, 'openspec'));
   const hasArchitecture = isFile(join(root, 'architecture', 'index.yaml'));
@@ -78,11 +78,11 @@ function consistency(root: string, config: LaConfig): string[] {
   if (config.architecture !== hasArchitecture) {
     problems.push(message(config.architecture ? 'doctor.architecture-absent' : 'doctor.architecture-present'));
   }
-  if (config.tracker === 'none' && !config.openspec) problems.push(message('doctor.no-plan-store'));
+  if (requirePlanStore && config.tracker === 'none' && !config.openspec) problems.push(message('doctor.no-plan-store'));
   return problems;
 }
 
-function configProblems(root: string, requireConfig: boolean): string[] {
+function configProblems(root: string, requireConfig: boolean, requirePlanStore: boolean): string[] {
   const hasCommitted = isFile(join(root, configFile()));
   const missing = requireConfig && !hasCommitted ? [message('doctor.config-missing')] : [];
   if (!hasCommitted && !isFile(join(root, localConfigFile()))) return missing;
@@ -93,7 +93,7 @@ function configProblems(root: string, requireConfig: boolean): string[] {
     if (!(error instanceof ConfigError)) throw error;
     return [...missing, error.message];
   }
-  return hasCommitted ? consistency(root, config) : missing;
+  return hasCommitted ? consistency(root, config, requirePlanStore) : missing;
 }
 
 /** A quiet git run's status and stdout; status null when git cannot start or is killed. */
@@ -128,11 +128,16 @@ function languageExecutables(root: string): string[] {
 }
 
 /** Problems found; empty means healthy. A format refusal replaces every check that reads the config. */
-export function runChecks(root: string, plugin: string | null = null, requireConfig = false): string[] {
+export function runChecks(
+  root: string,
+  plugin: string | null = null,
+  requireConfig = false,
+  requirePlanStore = false,
+): string[] {
   const version = plugin !== null ? pluginProblem(plugin) : null;
   const problems = version !== null ? [version] : [];
   const refusal = checkFormat(root);
-  problems.push(...(refusal !== null ? [refusal] : configProblems(root, requireConfig)));
+  problems.push(...(refusal !== null ? [refusal] : configProblems(root, requireConfig, requirePlanStore)));
   const local = localProblem(root);
   if (local !== null) problems.push(local);
   let executables: string[] = [...REQUIRED_EXECUTABLES];
@@ -148,12 +153,18 @@ export function runChecks(root: string, plugin: string | null = null, requireCon
   return problems;
 }
 
-export function run(root: string, plugin: string | null, printHash: boolean, requireConfig = false): number {
+export function run(
+  root: string,
+  plugin: string | null,
+  printHash: boolean,
+  requireConfig = false,
+  requirePlanStore = false,
+): number {
   if (printHash) {
     process.stdout.write(`${contractHash()}\n`);
     return 0;
   }
-  const problems = runChecks(root, plugin, requireConfig);
+  const problems = runChecks(root, plugin, requireConfig, requirePlanStore);
   for (const problem of problems) process.stdout.write(`${message('doctor.fail', { problem })}\n`);
   if (problems.length === 0) {
     let source = isFile(join(root, configFile())) ? configFile() : message('doctor.no-config-file');

@@ -153,15 +153,15 @@ cases:
 - name: defaults
   command: la-doctor
   argv: []
-  args: {plugin: null, root: null, contract_hash: false, twin: false, require_config: false}
+  args: {plugin: null, root: null, contract_hash: false, twin: false, require_config: false, require_plan_store: false}
 - name: flag and string options
   command: la-doctor
   argv: [--root, r, --contract-hash]
-  args: {plugin: null, root: r, contract_hash: true, twin: false, require_config: false}
+  args: {plugin: null, root: r, contract_hash: true, twin: false, require_config: false, require_plan_store: false}
 - name: plugin directory
   command: la-doctor
   argv: [--plugin, skills/pr]
-  args: {plugin: skills/pr, root: null, contract_hash: false, twin: false, require_config: false}
+  args: {plugin: skills/pr, root: null, contract_hash: false, twin: false, require_config: false, require_plan_store: false}
 - name: removed option rejected
   command: la-doctor
   argv: [--expect, 0.4.1]
@@ -227,7 +227,7 @@ cases:
 - name: internal flag
   command: la-doctor
   argv: [--twin]
-  args: {plugin: null, root: null, contract_hash: false, twin: true, require_config: false}
+  args: {plugin: null, root: null, contract_hash: false, twin: true, require_config: false, require_plan_store: false}
 - name: internal flag not abbreviable
   command: la-doctor
   argv: [--tw]
@@ -247,7 +247,11 @@ cases:
 - name: require config
   command: la-doctor
   argv: [--require-config]
-  args: {plugin: null, root: null, contract_hash: false, twin: false, require_config: true}
+  args: {plugin: null, root: null, contract_hash: false, twin: false, require_config: true, require_plan_store: false}
+- name: require plan store
+  command: la-doctor
+  argv: [--require-config, --require-plan-store]
+  args: {plugin: null, root: null, contract_hash: false, twin: false, require_config: true, require_plan_store: true}
 - name: scaffold root
   command: la-arch-scaffold
   argv: [--root, r]

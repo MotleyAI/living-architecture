@@ -58,6 +58,7 @@ def _doctor(args: argparse.Namespace) -> int:
         plugin=args.plugin,
         print_hash=args.contract_hash,
         require_config=args.require_config,
+        require_plan_store=args.require_plan_store,
     )
 
 

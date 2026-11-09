@@ -142,9 +142,15 @@ def test_config_disk_consistency(
     for f in files:
         (tmp_path / f).parent.mkdir(parents=True, exist_ok=True)
         (tmp_path / f).write_text("x: 1\n", encoding="utf-8")
-    code, out = _doctor(tmp_path, capsys)
+    code, out = _doctor(tmp_path, capsys, "--require-plan-store")
     assert code == (1 if expected else 0)
     assert [line for line in out if line.startswith("FAIL:")] == expected
+
+
+@pytest.mark.usefixtures("all_tools")
+def test_plan_store_not_required_without_flag(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    (tmp_path / CONFIG_FILENAME).write_text(_declared("tracker: none\nopenspec: false\n"), encoding="utf-8")
+    assert _doctor(tmp_path, capsys, "--require-config")[0] == 0
 
 
 @pytest.mark.usefixtures("all_tools")
@@ -269,14 +275,14 @@ def test_local_finding_order(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, ca
     monkeypatch.setattr(doctor.shutil, "which", lambda exe: None if exe == "gh" else f"/usr/bin/{exe}")
     root = _repo(tmp_path, local="tracker: none\n")
     (root / CONFIG_FILENAME).write_text(_declared("openspec: false\n"), encoding="utf-8")
-    assert _doctor(root, capsys) == (1, [NO_PLAN_STORE, LOCAL_NOT_IGNORED, "FAIL: `gh` not found on PATH"])
+    assert _doctor(root, capsys, "--require-plan-store") == (1, [NO_PLAN_STORE, LOCAL_NOT_IGNORED, "FAIL: `gh` not found on PATH"])
 
 
 @pytest.mark.usefixtures("all_tools")
 def test_local_takes_part_in_consistency(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     root = _repo(tmp_path, local="tracker: none\n", ignored=True)
     (root / CONFIG_FILENAME).write_text(_declared("openspec: false\n"), encoding="utf-8")
-    assert _doctor(root, capsys) == (1, [NO_PLAN_STORE])
+    assert _doctor(root, capsys, "--require-plan-store") == (1, [NO_PLAN_STORE])
 
 
 @pytest.mark.usefixtures("all_tools")

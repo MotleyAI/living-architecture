@@ -69,7 +69,8 @@ legacy_arrows: {baseline: 0}
 - `openspec: true` without an `openspec/` directory, or `openspec: false` with one;
 - `architecture: true` without `architecture/index.yaml`, or `architecture: false` with it (an `architecture/`
   directory without `index.yaml` is not a living-architecture setup);
-- `tracker: none` with `openspec: false`, which leaves no place for the plan to survive a session reset.
+- with `--require-plan-store`, which the `/la:pr` skills pass: `tracker: none` with `openspec: false`, which leaves
+  no place for the plan to survive a session reset.
 
 ## Local overrides
 
