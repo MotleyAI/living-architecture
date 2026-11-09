@@ -1,9 +1,10 @@
 kind: neutral
 command: la-doctor
-args:
-- --expect
-- 0.0.0
+args: [--plugin, plugin]
 fixture: config-invalid
+git:
+- write:
+    plugin/.claude-plugin/plugin.json: '{"version": "0.0.0"}'
 hide:
 - gh
 normalize:

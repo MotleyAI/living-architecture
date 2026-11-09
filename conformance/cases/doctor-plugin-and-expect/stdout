@@ -1,2 +1,0 @@
-FAIL: installed la tools are <VERSION> but the plugin expects 0.0.1; reinstall the tools from the same checkout/tag as the plugin
-FAIL: installed la tools are <VERSION> but the plugin expects 0.0.0; reinstall the tools from the same checkout/tag as the plugin

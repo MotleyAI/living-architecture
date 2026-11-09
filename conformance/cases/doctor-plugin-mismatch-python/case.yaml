@@ -1,0 +1,12 @@
+kind: neutral
+twin: python
+command: la-doctor
+args: [--plugin, plugin]
+git:
+- write:
+    plugin/.claude-plugin/plugin.json: '{"version": "0.0.0"}'
+normalize: [version]
+expect:
+  exit: 1
+golden: manual
+note: the mismatch names the python twin's install command at the plugin's version

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Check a release tag against both twins: every version equals the tag, both contract hashes agree.
+"""Check a release tag: HEAD is its commit, every version equals it, both contract hashes agree, and the release rule
+holds against the previous release.
 
 Usage: scripts/release-check <tag>   (e.g. v0.2.1; exit 1 naming every mismatch, so neither twin publishes)
 """
@@ -8,8 +9,11 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
+
+from release_rule import bump_problem, git, previous_release
 
 ROOT = Path(__file__).resolve().parent.parent
 HASHES = {
@@ -35,12 +39,27 @@ def _versions() -> dict[str, str | None]:
     }
 
 
+def _history_problems(tag: str, version: str) -> list[str]:
+    """HEAD is the tag's commit, and the release rule holds against the previous release in the full history."""
+    verify = ["git", "rev-parse", "-q", "--verify", f"refs/tags/{tag}^{{commit}}"]
+    tagged = subprocess.run(verify, cwd=ROOT, capture_output=True, text=True, check=False).stdout.strip()
+    problems = [] if tagged == git(ROOT, "rev-parse", "HEAD").strip() else [f"HEAD is not the commit of tag {tag}"]
+    if git(ROOT, "rev-parse", "--is-shallow-repository").strip() == "true":
+        return [*problems, "the repository is a shallow clone; check out the full history with tags"]
+    previous = previous_release(ROOT, version)
+    if previous is None:
+        return [*problems, f"no previous release below {version} is reachable from HEAD"]
+    rule = bump_problem(ROOT, version, previous)
+    return [*problems, *([rule] if rule is not None else [])]
+
+
 def main(argv: list[str]) -> int:
     if len(argv) != 1:
         print(__doc__, file=sys.stderr)
         return 2
     expected = argv[0].removeprefix("v")
-    problems = [f"{path} is {version}, the tag is {argv[0]}" for path, version in _versions().items() if version != expected]
+    problems = _history_problems(argv[0], expected)
+    problems += [f"{path} is {version}, the tag is {argv[0]}" for path, version in _versions().items() if version != expected]
     hashes = {twin: path.read_text(encoding="utf-8").strip() if path.is_file() else None for twin, path in HASHES.items()}
     if len(set(hashes.values())) != 1 or None in hashes.values():
         problems.append(f"contract hashes differ: {hashes}; run scripts/sync-shared")

@@ -113,13 +113,19 @@ describe('la-doctor with a local file', () => {
   it('places the local finding after consistency and before missing executables', () => {
     const root = localRepo({ local: 'tracker: none\n', committed: 'openspec: false\n' });
     isolatePath({ gh: false });
-    expect(doctor(root)).toEqual([1, [NO_PLAN_STORE, NOT_IGNORED, 'FAIL: `gh` not found on PATH']]);
+    expect(doctor(root, '--require-plan-store')).toEqual([1, [NO_PLAN_STORE, NOT_IGNORED, 'FAIL: `gh` not found on PATH']]);
   });
 
   it('runs the consistency checks on the merged config', () => {
     const root = localRepo({ local: 'tracker: none\n', ignored: true, committed: 'openspec: false\n' });
     isolatePath();
-    expect(doctor(root)).toEqual([1, [NO_PLAN_STORE]]);
+    expect(doctor(root, '--require-plan-store')).toEqual([1, [NO_PLAN_STORE]]);
+  });
+
+  it('reports no plan store only under --require-plan-store', () => {
+    const root = localRepo({ local: 'tracker: none\n', ignored: true, committed: 'openspec: false\n' });
+    isolatePath();
+    expect(doctor(root)[0]).toBe(0);
   });
 
   it('skips the consistency checks for a local file alone', () => {
