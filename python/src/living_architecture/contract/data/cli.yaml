@@ -43,6 +43,8 @@ commands:
       - {name: --root, type: path, help: 'repo root (default: nearest git root of cwd)'}
       - {name: --contract-hash, type: flag, help: print the bundled contract hash and exit}
       - {name: --require-config, type: flag, help: 'report a missing living-architecture.yaml (the repo is not onboarded)'}
+      - {name: --require-plan-store, type: flag,
+         help: 'report tracker none with openspec false (the /la:pr flow keeps its plan in one of them)'}
       - {name: --twin, type: flag, internal: true, help: 'print this twin''s language, version and contract hash'}
 
   la-arch-check:

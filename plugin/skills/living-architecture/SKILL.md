@@ -1,13 +1,13 @@
 ---
 name: living-architecture
-description: Reference for the living-architecture layer (LikeC4 structure model + arc42 principles + model-truth import enforcement + cross-check) — its syntax, the checks, and how to maintain it alongside the /la:pr + OpenSpec flow. Building the first model is la:arch-init; carving a boundary is la:arch-cleanup.
+description: 'Reference for the living-architecture layer (LikeC4 structure model + arc42 principles + model-truth import enforcement + cross-check): its syntax, the checks, the rules a coding agent follows when it changes code under it, and how to maintain it. Building the first model is la:arch-init; carving a boundary is la:arch-cleanup.'
 ---
 
 **Preflight:** run `la-doctor --plugin <this skill's base directory>` once per session before using any `la-*` or `dr-*` command; if it fails, stop and show the user its output.
 
 # Living architecture
 
-Four layers, one element id everywhere. Behaviour lives in OpenSpec; everything
+Four layers, one element id everywhere. Behaviour lives in OpenSpec (in repos that use it); everything
 cross-cutting lives here:
 
 | Layer | Question | Artifact | Property |
@@ -15,13 +15,13 @@ cross-cutting lives here:
 | Behaviour | what does it do, now? | `openspec/specs/<id>/spec.md` | living, merged by OpenSpec |
 | Structure | how is it arranged, now? | LikeC4 model + views | living; ONE model, diagrams are projected views |
 | Rationale | why is it this way, and what must all code here obey? | arc42 file per element that earns prose | living, edited in place |
-| Enforcement | is the code actually like this? | `arch_check` model-truth (the one import law) + LikeC4 model validation, run in the flow gates | executable, blocking |
+| Enforcement | is the code actually like this? | `arch_check` model-truth (the one import law) + LikeC4 model validation, run before a change is done and in CI | executable, blocking |
 
-**History is NOT a layer here.** The openspec archive (per-change design +
-deltas, dated, immutable) plus git history IS the decision trail. Never create
+**History is NOT a layer here.** Git history, plus the OpenSpec archive (per-change
+design + deltas, dated, immutable) in repos that use it, IS the decision trail. Never create
 ADR files or append-only decision logs (they are merge hell). "Why it is like
-this now" belongs in the element's arc42, present tense; "how we got here" is the
-archive.
+this now" belongs in the element's arc42, present tense; "how we got here" is
+history.
 
 ## Alignment rules
 
@@ -191,15 +191,13 @@ model-truth runs once over all of them.
 **The enforcement bundle** = `la-arch-check` + LikeC4 model validation
 (`npx likec4 validate`; if the installed CLI version lacks it, use the lightest
 command that parses the model, e.g. `npx likec4 build`) + `la-typecheck` against
-its committed baseline. It runs, blocking, in:
-- the **pr-review** gate (that stage runs it when `architecture: true`),
-- the **arch-cleanup** move gate,
-- CI — `arch_check` is cheap and deterministic, so wire it there once the setup
-  has settled (not at init), pinned to a release, in the form of the repo's
-  ecosystem: `uvx --no-build --from living-architecture==<version> la-arch-check`
-  (after `astral-sh/setup-uv`, pinned by commit SHA) or
-  `npx -y -p living-architecture@<version> la-arch-check` (after
-  `actions/setup-node`, pinned by commit SHA).
+its committed baseline. It is blocking: run it before declaring any change done,
+and in CI. `arch_check` is cheap and deterministic, so wire it there once the setup
+has settled (not at init), pinned to a release, in the form of the repo's
+ecosystem: `uvx --no-build --from living-architecture==<version> la-arch-check`
+(after `astral-sh/setup-uv`, pinned by commit SHA) or
+`npx -y -p living-architecture@<version> la-arch-check` (after
+`actions/setup-node`, pinned by commit SHA).
 
 **Ratchet rules (hard):**
 - `#legacy` arrows may only ever be REMOVED, never added. Wanting to add one
@@ -239,14 +237,38 @@ its committed baseline. It runs, blocking, in:
   any structural change; deepen buckets / add views for new subsystems; tighten
   boundaries via the **la:arch-cleanup** skill.
 
-## Interaction with /la:pr
+## Working under the architecture
 
-- At pr-plan time, read `architecture/index.yaml` and the model plus the arc42 file and view of every element the change
-  touches and of each of its ancestors. The plan must state which principles apply,
-  and must not violate the model's import law — or must explicitly include the
-  model + arc42 change as part of the same change.
-- At pr-review time, the enforcement bundle is part of the convergence gate.
-- New capability → decide with the user where its spec attaches (one element's metadata `specs`, at any depth, or `cross_cutting_specs` in `index.yaml` with a
-  `touches:` list) and record it in the same change.
-- Pure structural refactors (moving code across boundaries) are their own
-  changes via **la:arch-cleanup** — never smuggled into feature PRs.
+These rules bind a coding agent at every step of any change in a repo whose
+`living-architecture.yaml` sets `architecture: true`: planning, writing tests, implementing,
+and fixing review findings. `architecture/*.arc42.md`, `architecture/model.c4`
+and `architecture/views.c4` are normative harnesses, exactly like tests.
+
+- **Read them first.** Before the work, read `architecture/index.yaml`, the
+  arc42 file of each element the change touches and of each of its ancestors
+  (`architecture/<element id>.arc42.md`, where present), `system.arc42.md`
+  (cross-cutting principles), and the LikeC4 view of every touched element.
+- **Obey them.** Every plan, test, implementation and fix obeys the element
+  principles and the model's import law, or explicitly includes the model +
+  arc42 update as part of the change. A plan states which principles apply.
+- **Flag, never deviate.** If anything in an arc42 file seems wrong,
+  contradictory, or makes the task impossible or substantially harder, flag it
+  to the user explicitly and wait for their call. Never silently deviate from,
+  reinterpret, or ignore a principle, and never produce work that quietly
+  conflicts with one.
+- **Keep them normative and minimal.** When work strains a principle, first make
+  the code comply; propose an edit only when the principle genuinely forbids
+  something needed, in the smallest general wording. Never use descriptive text
+  or implementation detail (function names, mechanisms).
+- **Never edit without per-change approval.** Never create, modify, or delete a
+  harness without the user's explicit approval of that specific edit: present
+  the exact edit and wait for the OK. An approved plan that mentions the edit
+  does not count.
+- **Finish green.** Before declaring the change done, run the enforcement bundle
+  and fix until it passes.
+- **New capability** (OpenSpec repos): decide with the user where its spec
+  attaches (one element's metadata `specs`, at any depth, or
+  `cross_cutting_specs` in `index.yaml` with a `touches:` list) and record it in
+  the same change.
+- **Pure structural refactors** (moving code across boundaries) are their own
+  changes via **la:arch-cleanup**, never smuggled into feature changes.
