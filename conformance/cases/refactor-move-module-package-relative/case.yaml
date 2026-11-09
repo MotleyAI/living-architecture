@@ -1,0 +1,26 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- --apply
+- move-module
+- --module
+- pkg/sql
+- --dest
+- pkg/database
+fixture: refactor-references
+remove:
+- tests
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - pkg/api/handler.py
+  - pkg/database/sql/client.py
+  - pkg/database/sql/engine.py
+  - pkg/sql/client.py
+  - .ropeproject/history.json
+golden: manual
+note: relative imports between files that move together are unchanged; an outside relative importer is recomputed

@@ -1,0 +1,126 @@
+Moving global <f>:
+
+
+--- a/pkg/__init__.py
++++ b/pkg/__init__.py
+@@ -1 +1 @@
+-from pkg.a import f as public_f
++from pkg.b import f as public_f
+
+--- a/pkg/a.py
++++ b/pkg/a.py
+@@ -1,13 +1,9 @@
+ """Source module."""
+ 
+-import os
+ import sys
++from pkg.b import f
+ 
+-__all__ = ["f", "g"]
+-
+-
+-def f() -> str:
+-    return os.sep + sys.platform
++__all__ = ["g"]
+ 
+ 
+ def g() -> str:
+
+--- a/pkg/b.py
++++ b/pkg/b.py
+@@ -1,12 +1,16 @@
+ """Destination module."""
+ 
+ import sys
+-from pkg.a import f
+ import pytest
++import os
+ 
+ yaml = pytest.importorskip("yaml")
+ import yaml.constructor
+ 
+ 
++def f() -> str:
++    return os.sep + sys.platform
++
++
+ def h() -> str:
+     return f() + sys.prefix + str(yaml.constructor)
+
+--- a/tests/test_sym_alias_kept.py
++++ b/tests/test_sym_alias_kept.py
+@@ -1,5 +1,6 @@
+ import pkg.a as pa
++import pkg.b
+ 
+ 
+ def test_sym_alias_kept() -> None:
+-    assert pa.f() + pa.g()
++    assert pkg.b.f() + pa.g()
+
+--- a/tests/test_sym_alias_only.py
++++ b/tests/test_sym_alias_only.py
+@@ -1,7 +1,7 @@
+ import sys
+-import pkg.a as pa
++import pkg.b
+ import os
+ 
+ 
+ def test_sym_alias_only() -> None:
+-    assert pa.f() and os.sep and sys.path
++    assert pkg.b.f() and os.sep and sys.path
+
+--- a/tests/test_sym_gated.py
++++ b/tests/test_sym_gated.py
+@@ -2,7 +2,7 @@
+ 
+ yaml = pytest.importorskip("yaml")
+ import yaml.constructor
+-from pkg.a import f
++from pkg.b import f
+ 
+ 
+ def test_sym_gated() -> None:
+
+--- a/tests/test_sym_local_import.py
++++ b/tests/test_sym_local_import.py
+@@ -1,4 +1,4 @@
+ def test_sym_local_import() -> None:
+-    from pkg.a import f  # ALLOW(import-not-top)
++    from pkg.b import f  # ALLOW(import-not-top)
+ 
+     assert f()
+
+--- a/tests/test_sym_multi_name.py
++++ b/tests/test_sym_multi_name.py
+@@ -1,5 +1,6 @@
+ import sys
+-from pkg.a import g, f
++from pkg.a import g
++from pkg.b import f
+ import os
+ 
+ 
+
+--- a/tests/test_sym_star.py
++++ b/tests/test_sym_star.py
+@@ -1,4 +1,5 @@
+ from pkg.a import *
++from pkg.b import f
+ 
+ 
+ def test_sym_star() -> None:
+
+
+
+APPLIED. 9 file(s) changed:
+  pkg/__init__.py
+  pkg/a.py
+  pkg/b.py
+  tests/test_sym_alias_kept.py
+  tests/test_sym_alias_only.py
+  tests/test_sym_gated.py
+  tests/test_sym_local_import.py
+  tests/test_sym_multi_name.py
+  tests/test_sym_star.py

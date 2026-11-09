@@ -1,0 +1,223 @@
+Moving module <client>:
+
+
+--- a/pkg/api/handler.py
++++ b/pkg/api/handler.py
+@@ -1,4 +1,4 @@
+-from ..sql import client
++from ..database import client
+ 
+ 
+ def handle() -> int:
+
+--- a/pkg/sql/client.py
++++ b/pkg/sql/client.py
+@@ -1,5 +1,5 @@
+-from . import dialects, engine_factory
+-from .dialects import D
++from ..sql import dialects, engine_factory
++from ..sql.dialects import D
+ 
+ X = 1
+ 
+
+rename from pkg/sql/client.py
+rename to pkg/database/client.py
+--- a/pkg/sql/engine.py
++++ b/pkg/sql/engine.py
+@@ -1,4 +1,4 @@
+-from . import client
++from ..database import client
+ 
+ 
+ def connect() -> int:
+
+--- a/tests/test_backslash.py
++++ b/tests/test_backslash.py
+@@ -1,4 +1,4 @@
+-from pkg.sql.client import \
++from pkg.database.client import \
+     X
+ 
+ 
+
+--- a/tests/test_chain.py
++++ b/tests/test_chain.py
+@@ -1,4 +1,4 @@
+-from pkg.sql import client as sql_client
++from pkg.database import client as sql_client
+ from pkg.sql import engine as sql_engine
+ 
+ 
+
+--- a/tests/test_crlf.py
++++ b/tests/test_crlf.py
+@@ -1,4 +1,4 @@
+-from pkg.sql.client import X
++from pkg.database.client import X
+ import os
+ 
+ 
+
+--- a/tests/test_dotted.py
++++ b/tests/test_dotted.py
+@@ -1,5 +1,5 @@
+-import pkg.sql.client
++import pkg.database.client
+ 
+ 
+ def test_dotted() -> None:
+-    assert pkg.sql.client.X == 1
++    assert pkg.database.client.X == 1
+
+--- a/tests/test_gated.py
++++ b/tests/test_gated.py
+@@ -1,10 +1,10 @@
+ import pytest
+ 
+-from pkg.sql.client import Client
++from pkg.database.client import Client
+ 
+ docker = pytest.importorskip("docker")
+ import docker.errors
+-from pkg.sql.client import X
++from pkg.database.client import X
+ 
+ 
+ def test_gated() -> None:
+
+--- a/tests/test_interleaved.py
++++ b/tests/test_interleaved.py
+@@ -2,7 +2,7 @@
+ 
+ sys.path.insert(0, ".")
+ 
+-from pkg.sql.client import X
++from pkg.database.client import X
+ import os
+ 
+ 
+
+--- a/tests/test_local_import.py
++++ b/tests/test_local_import.py
+@@ -1,4 +1,4 @@
+ def test_local_import() -> None:
+-    from pkg.sql import client  # ALLOW(import-not-top)
++    from pkg.database import client  # ALLOW(import-not-top)
+ 
+     assert client.X == 1
+
+--- a/tests/test_multi_name.py
++++ b/tests/test_multi_name.py
+@@ -1,5 +1,6 @@
+ import sys
+-from pkg.sql import dialects, client
++from pkg.sql import dialects
++from pkg.database import client
+ import os
+ 
+ 
+
+--- a/tests/test_no_final_newline.py
++++ b/tests/test_no_final_newline.py
+@@ -1,4 +1,4 @@
+-from pkg.sql.client import X
++from pkg.database.client import X
+ import os
+ 
+ 
+
+--- a/tests/test_non_ascii.py
++++ b/tests/test_non_ascii.py
+@@ -1,4 +1,4 @@
+-greeting = "héllo 😀"; from pkg.sql.client import X
++greeting = "héllo 😀"; from pkg.database.client import X
+ 
+ 
+ def test_non_ascii() -> None:
+
+--- a/tests/test_package_attr.py
++++ b/tests/test_package_attr.py
+@@ -1,5 +1,6 @@
+ import pkg.sql as sql_pkg
++import pkg.database.client
+ 
+ 
+ def test_package_attr() -> None:
+-    assert sql_pkg.client.X == 1 and sql_pkg.VERSION
++    assert pkg.database.client.X == 1 and sql_pkg.VERSION
+
+--- a/tests/test_parenthesized.py
++++ b/tests/test_parenthesized.py
+@@ -1,8 +1,8 @@
+ from pkg.sql import (
+     dialects,  # the dialect table
+-    client,  # the client
+     engine_factory,  # builds engines
+ )
++from pkg.database import client
+ 
+ 
+ def test_parenthesized() -> None:
+
+--- a/tests/test_self_alias.py
++++ b/tests/test_self_alias.py
+@@ -1,4 +1,4 @@
+-import pkg.sql.client as client
++import pkg.database.client as client
+ 
+ 
+ def test_self_alias() -> None:
+
+--- a/tests/test_semicolon.py
++++ b/tests/test_semicolon.py
+@@ -1,4 +1,4 @@
+-import os; from pkg.sql.client import X
++import os; from pkg.database.client import X
+ 
+ 
+ def test_semicolon() -> None:
+
+--- a/tests/test_star.py
++++ b/tests/test_star.py
+@@ -1,4 +1,4 @@
+-from pkg.sql.client import *
++from pkg.database.client import *
+ 
+ 
+ def test_star() -> None:
+
+--- a/tests/test_unsorted.py
++++ b/tests/test_unsorted.py
+@@ -1,6 +1,6 @@
+ import sys
+ import os
+-from pkg.sql.client import Client
++from pkg.database.client import Client
+ import json
+ from pkg.sql import dialects
+ 
+
+
+
+APPLIED. 20 file(s) changed:
+  pkg/api/handler.py
+  pkg/sql/client.py
+  pkg/sql/client.py
+  pkg/sql/engine.py
+  tests/test_backslash.py
+  tests/test_chain.py
+  tests/test_crlf.py
+  tests/test_dotted.py
+  tests/test_gated.py
+  tests/test_interleaved.py
+  tests/test_local_import.py
+  tests/test_multi_name.py
+  tests/test_no_final_newline.py
+  tests/test_non_ascii.py
+  tests/test_package_attr.py
+  tests/test_parenthesized.py
+  tests/test_self_alias.py
+  tests/test_semicolon.py
+  tests/test_star.py
+  tests/test_unsorted.py

@@ -8,24 +8,20 @@ Moving global <foo>:
 -    return 1
 -
 -
-+import pkg.sub
++from pkg.sub import foo
  class Base:
      def run(self):
--        return foo()
-+        return pkg.sub.foo()
+         return foo()
 
 --- a/pkg/b.py
 +++ b/pkg/b.py
-@@ -1,6 +1,7 @@
+@@ -1,4 +1,5 @@
 -from pkg.a import Base, foo
 +from pkg.a import Base
-+import pkg.sub
++from pkg.sub import foo
  
  
  class Child(Base):
-     def run(self):
--        return foo() + 1
-+        return pkg.sub.foo() + 1
 
 --- a/pkg/sub/__init__.py
 +++ b/pkg/sub/__init__.py

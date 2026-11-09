@@ -331,6 +331,8 @@ function moveSymbol(r: Refactor): number {
   const services = r.services(file);
   const statement = services[0] === undefined ? null : topLevelStatement(services[0], file, position);
   if (statement === null) throw notMovable();
+  const header = message('refactor.ts-move-symbol-header', { name: declaredName(statement) });
+  if (dest === file) return r.emit(header, new Map(), []);
   const source = statement.getSourceFile();
   const range = { pos: statement.getStart(source), end: statement.end };
   const edits: Edit[] = [];
@@ -341,7 +343,7 @@ function moveSymbol(r: Refactor): number {
     const program = service.getProgram();
     if (program !== undefined) edits.push(...reexportEdits(program, file, dest, exportedNames(statement)));
   }
-  return r.emit(message('refactor.ts-move-symbol-header', { name: declaredName(statement) }), mergeEdits(edits), []);
+  return r.emit(header, mergeEdits(edits), []);
 }
 
 /** Every file under `dir`, in path order. */
