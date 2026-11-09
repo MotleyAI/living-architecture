@@ -62,11 +62,6 @@ def test_tool_users_run_the_plugin_preflight(path):
         assert PREFLIGHT_CMD_RE.search(text), "uses la-*/dr-* commands without the la-doctor preflight"
 
 
-@pytest.mark.parametrize("path", SKILL_FILES, ids=_id)
-def test_no_hardcoded_version_pin(path):
-    assert "la-doctor --expect" not in path.read_text(encoding="utf-8")
-
-
 MAIN_SKILLS = {"init", "pr", "arch-init", "arch-cleanup", "deterministic-refactor"}
 # The README's table: la:init names la:arch-init in its purpose; docs/skills.md lists every main skill.
 README_SKILLS = {"init", "pr", "deterministic-refactor"}

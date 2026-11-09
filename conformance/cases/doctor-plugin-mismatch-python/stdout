@@ -1,0 +1,1 @@
+FAIL: installed la tools are <VERSION>, but plugin 0.0.0 needs 0.0.x; reinstall them with: uv tool install living-architecture==0.0.0

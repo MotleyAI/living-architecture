@@ -4,9 +4,9 @@ import { accessSync, constants, realpathSync, statSync } from 'node:fs';
 import { constants as osConstants } from 'node:os';
 import { delimiter, dirname, join } from 'node:path';
 import { contractHash, language, message, renderTemplate, schema, validate, which } from '../contract/index.js';
-import { VERSION } from '../index.js';
+import { NATIVE_LANGUAGE, VERSION } from '../index.js';
 
-export const NATIVE_LANGUAGE = 'typescript';
+export { NATIVE_LANGUAGE };
 const FORWARDED_ENV = 'LA_FORWARDED';
 
 /** The other twin cannot serve the request; the message is the hint to print. */

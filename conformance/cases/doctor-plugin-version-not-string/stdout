@@ -1,1 +1,1 @@
-FAIL: <ROOT>/repo/plugin/.claude-plugin/plugin.json is not valid JSON with a string "version"
+FAIL: <ROOT>/repo/plugin/.claude-plugin/plugin.json is not valid JSON with a "version" of the form <major>.<minor>.<rest>
