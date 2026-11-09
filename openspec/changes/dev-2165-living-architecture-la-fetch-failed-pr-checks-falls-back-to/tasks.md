@@ -1,6 +1,6 @@
 ## 1. Test harness
 
-- [ ] 1.1 Both fake `gh` programs write an optional per-route `stderr` before exiting: the conformance `FAKE_GH` in
+- [x] 1.1 Both fake `gh` programs write an optional per-route `stderr` before exiting: the conformance `FAKE_GH` in
   `python/tests/test_conformance.py` and `FAKE_GH` + `FakeGh.route` in `python/tests/conftest.py` (route tuples or
   keyword for stderr, existing callers unchanged). Document it in `conformance/README.md`'s `gh:` line
   (`gh: [{match: [argv tokens], stdout: text-or-json, stderr: text, exit: 0}]`). Verify every existing test and
@@ -12,30 +12,30 @@ Fixture log lines use the real format `YYYY-MM-DDTHH:MM:SS.fffffffZ <text>`; ste
 `gh api repos/o/r/actions/jobs/22` JSON (`{"steps": [{"number", "name", "conclusion", "started_at", "completed_at"}]}`,
 times like `2026-01-01T00:00:10Z`), served through the fake's `--jq` support.
 
-- [ ] 2.1 Neutral conformance case `shim-fetch-failed-pr-checks-api-step`: both `gh run view --job 22` attempts
+- [x] 2.1 Neutral conformance case `shim-fetch-failed-pr-checks-api-step`: both `gh run view --job 22` attempts
   empty; the API log starts with a UTF-8 BOM and holds three steps; step 2 (`failure`) starts in the same second as
   step 1's last lines, contains a composite action's nested `##[group]Run ` line, and ends with a multi-line
   `##[error]` whose continuation lines have no timestamp, followed by post-step lines in its completion second.
   Golden: summary `Failed-step log from the job-log API (##[error] lines + last N lines)`, excerpt from step 2's own
   header to its last `##[error]` line, BOM gone.
-- [ ] 2.2 Neutral case `shim-fetch-failed-pr-checks-api-errors-tail`: metadata has no failed step; the log has more
+- [x] 2.2 Neutral case `shim-fetch-failed-pr-checks-api-errors-tail`: metadata has no failed step; the log has more
   than N lines with an early `##[error]`. Golden: the `Job log from the job-log API …` summary, the early error line,
   one `[... K lines omitted ...]` line, the last N lines.
-- [ ] 2.3 Neutral case `shim-fetch-failed-pr-checks-api-no-metadata`: the metadata call exits 1 with stderr, the
+- [x] 2.3 Neutral case `shim-fetch-failed-pr-checks-api-no-metadata`: the metadata call exits 1 with stderr, the
   log is usable. Golden: `api-errors-tail` excerpt, exit 0.
-- [ ] 2.4 Neutral case `shim-fetch-failed-pr-checks-no-log`: `--log-failed` exits 1 with stderr `HTTP 502`, `--log`
+- [x] 2.4 Neutral case `shim-fetch-failed-pr-checks-no-log`: `--log-failed` exits 1 with stderr `HTTP 502`, `--log`
   empty, the API log exits 1 with `gh: Not Found (HTTP 404)`. Golden: `_No log excerpt — every attempt failed:_` and
   the three attempt lines.
-- [ ] 2.5 Neutral case `shim-fetch-failed-pr-checks-run-only`: a CheckRun whose Details URL is
+- [x] 2.5 Neutral case `shim-fetch-failed-pr-checks-run-only`: a CheckRun whose Details URL is
   `https://github.com/o/r/actions/runs/11`, both `gh run view 11` attempts empty. Golden: exactly the two attempt
   lines with `empty log`.
-- [ ] 2.6 Neutral case `shim-fetch-failed-pr-checks-max-log-zero`: `--max-log-lines 0` with a failed Actions job.
+- [x] 2.6 Neutral case `shim-fetch-failed-pr-checks-max-log-zero`: `--max-log-lines 0` with a failed Actions job.
   Golden: `_No log excerpt: log fetching is off (--max-log-lines 0)._`.
 - [ ] 2.7 Re-bless `shim-fetch-failed-pr-checks-full-log-fallback` (`LA_UPDATE_GOLDENS=1`; reason in the commit:
   deliberate label change) so its summary is `Full log (last 5 lines)`; review the golden diff is only that line.
-- [ ] 2.8 List 2.1–2.6 in `conformance/INVENTORY.md` on the fetch-failed-pr-checks row (and a row per new output
+- [x] 2.8 List 2.1–2.6 in `conformance/INVENTORY.md` on the fetch-failed-pr-checks row (and a row per new output
   branch: API step, API errors+tail, no-log reasons, log fetching off).
-- [ ] 2.9 Unit tests in `python/tests/test_review_scripts.py`, each asserting `fake_gh.calls()` (order, exact
+- [x] 2.9 Unit tests in `python/tests/test_review_scripts.py`, each asserting `fake_gh.calls()` (order, exact
   endpoints, `--repo o/r`) and the JSON's `log_source` / `log_attempts`:
   - API-step path: `log_source == "api-step"`, attempts `empty log`, `empty log`, `ok` (logs), `ok` (metadata);
   - whitespace-only `--log-failed` (`"\n"`) falls through to `--log`;
@@ -48,7 +48,7 @@ times like `2026-01-01T00:00:10Z`), served through the fake's `--jq` support.
   - a non-zero `gh run view` with stdout still gives the excerpt (`log_source == "log-failed"`);
   - run-only and `--max-log-lines 0`: no `gh api` call; `--max-log-lines 0` makes no `gh run view` call;
   - StatusContext: `log_source` null, `log_attempts` empty.
-- [ ] 2.10 Codex review of the tests against this change (pr-tests Step 2); resolve findings with the user.
+- [x] 2.10 Codex review of the tests against this change (pr-tests Step 2); resolve findings with the user.
 
 ## 3. Script
 

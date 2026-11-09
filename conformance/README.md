@@ -24,7 +24,7 @@ env: {NAME: value}                 # placeholders substituted
 hide: [gh]                         # executables removed from PATH
 bins: [{dir: name, position: before | after, files: {exe: text}, nonexec: [exe], link: other-dir}]   # fake executables
 git: none | [step, ...]            # default: `git init -b main` with no commits
-gh: [{match: [argv tokens], stdout: text-or-json, exit: 0}]   # the fake `gh`; first match wins
+gh: [{match: [argv tokens], stdout: text-or-json, stderr: text, exit: 0}]   # the fake `gh`; first match wins
 normalize: [version, contract_hash, {pattern: regex, replace: text}]
 expect:
   exit: 0
