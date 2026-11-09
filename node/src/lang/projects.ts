@@ -7,7 +7,7 @@ import { LangError, type TsLayout } from './types.js';
 import { ts } from './ts.js';
 
 const CONFIG_NAME = 'tsconfig.json';
-/** "No inputs were found": harmless, sources are enumerated from root_package, not the config's file list. */
+/** "No inputs were found": harmless, sources are enumerated from the roots, not the config's file list. */
 const NO_INPUTS = 18003;
 
 export interface Project {
@@ -30,10 +30,10 @@ export interface Projects {
   host: TS.ModuleResolutionHost;
 }
 
-/** The section's tsconfig, else the nearest tsconfig.json from root_package up to the repo root. */
-function selectConfig(layout: TsLayout): string | undefined {
+/** The section's tsconfig, else the nearest tsconfig.json from `root` up to the repo root. */
+function selectConfig(layout: TsLayout, root: string): string | undefined {
   if (layout.tsconfig !== null) return join(layout.repoRoot, layout.tsconfig);
-  for (let dir = join(layout.sourceRoot, layout.rootPackage); isUnder(dir, layout.repoRoot); dir = dirname(dir)) {
+  for (let dir = join(layout.sourceRoot, root); isUnder(dir, layout.repoRoot); dir = dirname(dir)) {
     if (existsSync(join(dir, CONFIG_NAME))) return join(dir, CONFIG_NAME);
     if (dir === layout.repoRoot) break;
   }
@@ -66,8 +66,15 @@ function project(parsed: TS.ParsedCommandLine | null, config: string | null, rep
   };
 }
 
-export function loadProjects(layout: TsLayout): Projects {
-  return loadProjectsFrom(selectConfig(layout), layout.repoRoot);
+/** Each root's projects, in root order; roots selecting the same tsconfig share them. */
+export function loadProjects(layout: TsLayout): Projects[] {
+  const byConfig = new Map<string | undefined, Projects>();
+  return layout.rootPackages.map((root) => {
+    const config = selectConfig(layout, root);
+    const projects = byConfig.get(config) ?? loadProjectsFrom(config, layout.repoRoot);
+    byConfig.set(config, projects);
+    return projects;
+  });
 }
 
 /** The project of `config` (else a default one) and every project it references, depth-first preorder. */

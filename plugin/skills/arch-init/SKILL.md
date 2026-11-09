@@ -22,7 +22,8 @@ show each model, arc42 and `index.yaml` edit and get the user's OK before landin
 
 ## 2. Language sections
 
-Write `architecture/index.yaml` with one section per language the repo has: `root_package`, and
+Write `architecture/index.yaml` with one section per language the repo has: `root_package` (or
+`root_packages` when the language's code sits in several sibling directories under one `source_root`), and
 `source_root` / `tsconfig` where needed. Confirm them with the user. From now until step 8 `la-doctor`
 reports `architecture: false` against the new index; that is expected.
 

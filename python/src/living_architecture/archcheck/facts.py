@@ -54,7 +54,7 @@ def _facts(layout: Layout, language: str, units: list[UnitFact], attribution: di
         version=__version__,
         contract_hash=contract_hash(),
         units=units,
-        top_level_units=sorted(top_level_units(layout.source_root, layout.root_package)),
+        top_level_units=sorted(top_level_units(layout.source_root, layout.root_packages)),
         edges=[
             EdgeFact(src=src, dst=dst, src_module=src_module, dst_module=dst_module)
             for (src, dst), (src_module, dst_module) in sorted(witnesses.items())
@@ -73,5 +73,5 @@ def native_facts(layout: Layout, node_map: NodeMap, language: str) -> Facts:
 
 def native_top_level_facts(layout: Layout, language: str) -> Facts:
     """The Python facts with edges between top-level units; no model involved."""
-    tops = top_level_units(layout.source_root, layout.root_package)
+    tops = top_level_units(layout.source_root, layout.root_packages)
     return _facts(layout, language, [], {unit: unit for unit in tops})

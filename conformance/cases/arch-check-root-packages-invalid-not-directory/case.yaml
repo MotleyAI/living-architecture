@@ -1,0 +1,8 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+fixture: arch-ok
+expect:
+  exit: 2
+note: root_packages entries must resolve to directories

@@ -1,0 +1,1 @@
+arch_check: architecture/index.yaml: root_packages entries 'pkg' and 'pkg/sub' overlap

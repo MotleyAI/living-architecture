@@ -61,6 +61,11 @@ typescript:
 legacy_arrows: {baseline: 0}
 ```
 
+When a language's code sits in several sibling directories under one `source_root`, list them with
+`root_packages: [app, packages/ui]` instead of `root_package`. The roots must be disjoint directories; unit ids stay
+relative to `source_root`, and without a `tsconfig` key each TypeScript root resolves imports under its own nearest
+`tsconfig.json`.
+
 ## Gates and the disk
 
 `openspec` and `architecture` are decisions, and their directories are the result. When the file exists,

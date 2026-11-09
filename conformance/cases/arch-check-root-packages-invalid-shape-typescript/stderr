@@ -1,0 +1,1 @@
+arch_check: architecture/index.yaml: root_packages must be a non-empty list of non-empty strings
