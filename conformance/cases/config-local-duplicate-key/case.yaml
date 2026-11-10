@@ -1,0 +1,11 @@
+kind: neutral
+command: la-config
+args:
+- show
+expect:
+  exit: 1
+  stderr:
+    contains:
+    - "living-architecture.local.yaml: invalid YAML: duplicate key 'reviewers' at lines 1 and 3"
+golden: manual
+note: a repeated key in the local file is a config error naming the local file, the key and both lines

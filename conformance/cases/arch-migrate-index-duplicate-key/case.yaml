@@ -1,0 +1,14 @@
+kind: neutral
+command: la-arch-migrate
+fixture: arch-ok
+remove:
+- architecture/model.c4
+expect:
+  exit: 2
+  files:
+  - architecture/model.c4
+  - architecture/model/model.c4
+  - architecture/index.yaml
+  - living-architecture.yaml
+golden: manual
+note: a legacy layout with a repeated index key is refused, naming the key and both lines; repo unchanged

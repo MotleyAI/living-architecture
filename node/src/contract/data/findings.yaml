@@ -14,6 +14,9 @@ check_ids:
   - diagrams-fresh
 
 findings:
+  # ---- the YAML profile
+  yaml.duplicate-key: 'duplicate key {key!r} at lines {first} and {second}'
+
   # ---- la-arch-check
   arch-check.ok: 'arch_check: OK'
   arch-check.summary: 'arch_check: {count} finding(s)'
@@ -109,6 +112,7 @@ findings:
   # ---- diagrams: why the index.yaml diagrams block is unusable
   c4.index-missing: index.yaml is missing
   c4.index-invalid-yaml: index.yaml is not valid YAML
+  c4.index-duplicate-key: 'index.yaml is not valid YAML: {error}'
   c4.index-not-mapping: index.yaml is not a mapping
   c4.no-diagrams-block: index.yaml has no diagrams block
   c4.diagrams-not-mapping: diagrams block in index.yaml must be a mapping of doc -> view-id list

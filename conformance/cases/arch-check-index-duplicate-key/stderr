@@ -1,0 +1,1 @@
+arch_check: architecture/index.yaml: duplicate key 'cross_cutting_specs' at lines 5 and 12

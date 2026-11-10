@@ -1,0 +1,9 @@
+kind: neutral
+command: la-arch-diagrams
+fixture: arch-diagrams
+expect:
+  exit: 1
+  files:
+  - architecture/system.arc42.md
+golden: manual
+note: a repeated index key blocks the regeneration, naming the key and both lines; the stale doc is not rewritten

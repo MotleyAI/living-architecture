@@ -1,0 +1,13 @@
+kind: adapter
+languages:
+- typescript
+command: dr-compliance
+args:
+- src/a.ts
+fixture: refactor-ts
+git:
+- commit: init
+expect:
+  exit: 2
+golden: manual
+note: a repeated index key is an error naming the key and both lines, never a fallback to another tsconfig

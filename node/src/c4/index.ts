@@ -1,6 +1,6 @@
 // The LikeC4 model: the single parser of the constrained `.c4` convention, views, and mermaid diagrams.
 export { DiagramsError, checkDiagramsFresh, diagramBlock, generate, run } from './diagrams.js';
-export { readIndex } from './index-file.js';
+export { INDEX_REL, readIndex } from './index-file.js';
 export {
   ARCH_DIR,
   DOC_SUFFIX,

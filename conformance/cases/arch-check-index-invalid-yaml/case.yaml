@@ -7,5 +7,5 @@ expect:
   exit: 2
   stderr:
     contains:
-    - 'arch_check: '
-note: YAML parser wording is not part of the contract
+    - 'arch_check: architecture/index.yaml: '
+note: the file is named; YAML parser wording is not part of the contract

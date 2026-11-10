@@ -2,8 +2,10 @@ kind: neutral
 command: la-config
 args:
 - show
-normalize:
-- pattern: '(format"?: "?)[0-9]+\.[0-9]+\.[0-9]+'
-  replace: '\1<FORMAT>'
 expect:
-  exit: 0
+  exit: 1
+  stderr:
+    contains:
+    - "living-architecture.yaml: invalid YAML: duplicate key 'conventions' at lines 2 and 5"
+golden: manual
+note: a repeated top-level key is a config error naming the file, the key and both lines

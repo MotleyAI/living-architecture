@@ -34,7 +34,7 @@ def test_repr_vectors_are_python_repr(vector: dict) -> None:
 
 @pytest.mark.parametrize("vector", _load("yaml.yaml")["cases"], ids=lambda v: v["name"])
 def test_yaml_vectors_are_pyyaml_safe_load(vector: dict) -> None:
-    if vector.get("error") == "refused":
+    if vector.get("error") in ("refused", "duplicate"):
         yaml.safe_load(vector["text"])
         return
     if vector.get("error"):
@@ -50,8 +50,9 @@ def test_yaml_vectors_are_pyyaml_safe_load(vector: dict) -> None:
 
 @pytest.mark.parametrize("vector", _load("yaml.yaml")["cases"], ids=lambda v: v["name"])
 def test_yaml_vectors_carry_one_expectation(vector: dict) -> None:
-    assert set(vector) - {"name", "text"} in ({"json"}, {"repr"}, {"error"})
-    assert vector.get("error", True) is True or vector["error"] == "refused"
+    assert set(vector) - {"name", "text"} in ({"json"}, {"repr"}, {"error"}, {"error", "message"})
+    assert vector.get("error", True) is True or vector["error"] in ("refused", "duplicate")
+    assert ("message" in vector) == (vector.get("error") == "duplicate")
 
 
 @pytest.mark.parametrize("vector", _load("defaults.yaml")["cases"], ids=lambda v: v["name"])

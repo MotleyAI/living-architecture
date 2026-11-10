@@ -20,16 +20,25 @@ The source of truth both twins obey. Each package vendors a byte-copy of this di
 
 ## YAML profile
 
-YAML 1.1 as PyYAML's safe loader reads it, within a closed tag set: `yes`/`no`/`on`/`off` are booleans,
-sexagesimal and `0`-prefixed octal integers are numbers, merge keys apply, a duplicate mapping key takes the last
-value, and a scalar the safe loader cannot construct is a YAML error. The tag set is `!!str`, `!!int`, `!!float`,
+The config files (`living-architecture.yaml`, `living-architecture.local.yaml`, `architecture/index.yaml`) and the
+bundled data are read as YAML 1.1 as PyYAML's safe loader reads it, within a closed tag set: `yes`/`no`/`on`/`off` are booleans,
+sexagesimal and `0`-prefixed octal integers are numbers, merge keys apply, and a scalar the safe loader cannot
+construct is a YAML error. A mapping that repeats a key, at any depth, is a YAML error worded by `yaml.duplicate-key`:
+two keys are the same when their loaded values, normalized (a timestamp to its ISO string), are equal: strings by
+code points, `null` only with `null`, booleans, integers and floats as exact numbers (`false`/`true` as `0`/`1`,
+`-0.0` as `0`), `.inf` and `-.inf` only with themselves, a NaN with a NaN, and a merge key only with another merge
+key. An alias key counts as the value it resolves to; keys a merge brings in never count. The error names the first
+occurrence's normalized key and the 1-based lines where the two occurrences start (an alias key where the alias
+stands); with several repeats, the repeat that comes first in the document, paired with that key's first
+occurrence. The tag set is `!!str`, `!!int`, `!!float`,
 `!!bool`, `!!null`, `!!timestamp`, `!!seq`, `!!map` and `!!merge`, in any spelling; a non-specific `!` resolves a
 node as if it were untagged, and a scalar as if it were plain whatever its style (`! '12'` is `12`). Any other tag
 (`!!binary`, `!!set`, `!!omap`, `!!pairs`, the `!!value` a plain `=` resolves to, a local or unknown tag) is a YAML
 error, as is a merge key (`<<` or `!!merge`) anywhere but a mapping key, and a mapping key that is a sequence or
 mapping. Anchor and alias names are ASCII letters, digits, `-` and `_`. Line breaks are `\n`, `\r` and `\r\n`: a
 raw NEL (U+0085), U+2028 or U+2029 anywhere in the text is a YAML error (the `\N`, `\L` and `\P` escapes in a
-double-quoted scalar are not). Pinned by `vectors/yaml.yaml`.
+double-quoted scalar are not). The twins agree on all YAML real configs use; YAML no config uses, such as a sequence
+or mapping tagged `!!merge` as a key, carries no such guarantee. Pinned by `vectors/yaml.yaml`.
 
 ## Configuration
 

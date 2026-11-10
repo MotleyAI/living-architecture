@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
+  DuplicateKeyError,
   YAMLError,
   canonicalRepr,
   globMatch,
@@ -66,13 +67,26 @@ describe('yaml.yaml', () => {
     text: string;
     json?: string;
     repr?: string;
-    error?: true | 'refused';
+    error?: true | 'refused' | 'duplicate';
+    message?: string;
   }[]) {
     it(v.name, () => {
       expect([v.json, v.repr, v.error].filter((e) => e !== undefined)).toHaveLength(1);
-      expect([undefined, true, 'refused']).toContain(v.error);
-      if (v.error !== undefined) expect(() => loadYaml(v.text)).toThrow(YAMLError);
-      else if (v.json !== undefined) expect(plain(loadYaml(v.text))).toEqual(JSON.parse(v.json));
+      expect([undefined, true, 'refused', 'duplicate']).toContain(v.error);
+      expect(v.message !== undefined).toBe(v.error === 'duplicate');
+      if (v.error === 'duplicate') {
+        let error: unknown;
+        try {
+          loadYaml(v.text);
+        } catch (e) {
+          error = e;
+        }
+        expect(error).toBeInstanceOf(DuplicateKeyError);
+        expect((error as DuplicateKeyError).message).toBe(v.message);
+      } else if (v.error !== undefined) {
+        expect(() => loadYaml(v.text)).toThrow(YAMLError);
+        expect(() => loadYaml(v.text)).not.toThrow(DuplicateKeyError);
+      } else if (v.json !== undefined) expect(plain(loadYaml(v.text))).toEqual(JSON.parse(v.json));
       else expect(canonicalRepr(normalize(loadYaml(v.text)))).toBe(v.repr);
     });
   }

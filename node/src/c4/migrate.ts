@@ -30,15 +30,14 @@ import {
   stampFormat,
 } from '../config/index.js';
 import {
-  YAMLError,
   byCodePoint,
   configFile,
-  decodeUtf8OrNull,
   loadYaml,
   message,
   splitLines,
   splitLinesKeepEnds,
 } from '../contract/index.js';
+import { INDEX_REL, type Index, loadIndex } from './index-file.js';
 import {
   ARCH_DIR,
   type FileScan,
@@ -57,20 +56,12 @@ import {
 import { type ModelParse, type Pos, parseModelFiles, parseModelTexts, stripLineComment } from './model.js';
 import { EMPTY_VIEWS, parseViews } from './views.js';
 
-const INDEX_REL = 'architecture/index.yaml';
-
 /** The repo cannot be migrated; nothing was written. */
 export class MigrateError extends Error {}
 
 interface Move {
   source: string;
   target: string;
-}
-
-/** `architecture/index.yaml` as text and as data; `data` is null when it is absent or not a mapping. */
-interface Index {
-  text: string | null;
-  data: Map<unknown, unknown> | null;
 }
 
 /** What one run stages: new text per written path (in report order), doc moves, index renames, legacy files. */
@@ -136,27 +127,22 @@ function lexists(path: string): boolean {
   }
 }
 
-function readIndex(root: string): Index {
-  const path = join(root, INDEX_REL);
-  if (!isFile(path)) return { text: null, data: null };
-  const text = decodeUtf8OrNull(readFileSync(path));
-  if (text === null) return { text: null, data: null };
-  let data: unknown = null;
-  try {
-    data = loadYaml(text);
-  } catch (error) {
-    if (!(error instanceof YAMLError)) throw error;
-  }
-  return { text, data: data instanceof Map ? data : null };
+/** The index, null when absent; MigrateError when it is unusable. */
+function readIndex(root: string): Index | null {
+  const index = loadIndex(root);
+  if (typeof index === 'string') throw new MigrateError(index);
+  return index;
 }
 
-function crossCutting(index: Index): string[] {
-  const entries = index.data?.get('cross_cutting_arc42');
+/** The index's `cross_cutting_arc42` paths; empty without an index or that list. */
+function crossCutting(index: Index | null): string[] {
+  const entries = index?.data.get('cross_cutting_arc42');
   return Array.isArray(entries) ? entries.filter((e): e is string => typeof e === 'string') : [];
 }
 
-function diagramKeys(index: Index): unknown[] {
-  const diagrams = index.data?.get('diagrams');
+/** The keys of the index's `diagrams` mapping; empty without an index or that mapping. */
+function diagramKeys(index: Index | null): unknown[] {
+  const diagrams = index?.data.get('diagrams');
   return diagrams instanceof Map ? [...diagrams.keys()] : [];
 }
 
@@ -315,9 +301,9 @@ function withoutArc42(model: ModelParse): ModelParse {
  * MigrateError unless the staged result parses like the input, apart from the converted arc42 format.
  * A doc moves by rename, so it stays byte-identical by construction.
  */
-function verify(root: string, before: ModelParse, plan: Plan, index: Index, movedEntries: Set<string>): void {
+function verify(root: string, before: ModelParse, plan: Plan, index: Index | null, movedEntries: Set<string>): void {
   const expected = [comparable(withoutArc42(before)), parseViews(root, before)];
-  const stagedIndex = plan.outputs.get(INDEX_REL) ?? index.text;
+  const stagedIndex = plan.outputs.get(INDEX_REL) ?? index?.text ?? null;
   const staging = mkdtempSync(join(tmpdir(), 'la-arch-migrate-'));
   let after: unknown[];
   try {
@@ -338,9 +324,9 @@ function verify(root: string, before: ModelParse, plan: Plan, index: Index, move
 }
 
 /** The staged index parses to the input's, with only the planned renames. */
-function indexAsExpected(plan: Plan, index: Index, movedEntries: Set<string>): boolean {
+function indexAsExpected(plan: Plan, index: Index | null, movedEntries: Set<string>): boolean {
   const written = plan.outputs.get(INDEX_REL);
-  if (written === undefined || index.data === null) return true;
+  if (written === undefined || index === null) return true;
   return isDeepStrictEqual(loadYaml(written), expectedIndex(index.data, plan.renames, movedEntries));
 }
 
@@ -504,7 +490,7 @@ function planOf(root: string): Plan {
       created.add(viewsFile());
     }
   }
-  if (renames.size > 0 && index.text !== null) outputs.set(INDEX_REL, renamedIndex(index.text, renames));
+  if (renames.size > 0 && index !== null) outputs.set(INDEX_REL, renamedIndex(index.text, renames));
   const plan: Plan = { outputs, created, moves, renames, legacy };
   verify(root, before, plan, index, new Set(entryMoves.map((m) => m.source)));
   return plan;
