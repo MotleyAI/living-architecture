@@ -99,7 +99,13 @@ def load_yaml(text: str) -> Any:
         node = loader.get_single_node()
         if node is None:
             return None
-        _check_keys(loader, node, set())
+        try:
+            _check_keys(loader, node, set())
+        except DuplicateKeyError:
+            # A document that cannot be constructed reports that before a repeat; construction flattens merges, so it
+            # runs after the check.
+            loader.construct_document(node)
+            raise
         return loader.construct_document(node)
     except _CONSTRUCT_ERRORS as exc:
         raise YAMLError(f"cannot construct a scalar: {exc}") from exc

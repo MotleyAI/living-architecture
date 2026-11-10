@@ -71,6 +71,10 @@ the input SHALL be a YAML error; the `\N`, `\L` and `\P` escapes in a double-quo
 - **WHEN** the config holds `2024-13-01` as a plain scalar
 - **THEN** every command that reads it reports invalid YAML in the config and exits as for any other YAML error
 
+#### Scenario: Unconstructible scalar beside a duplicate key
+- **WHEN** a YAML input holds a scalar the safe loader cannot construct and also repeats a mapping key
+- **THEN** both twins report the scalar as invalid YAML, not the duplicate key
+
 #### Scenario: Tag outside the closed set
 - **WHEN** the config sets `reviewers: !!set {codex}`, or any value tagged `!!binary`, `!!omap` or `!!pairs`
 - **THEN** every command that reads it, through either twin, reports invalid YAML in the config and exits as for any

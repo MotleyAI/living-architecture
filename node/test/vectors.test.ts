@@ -83,8 +83,10 @@ describe('yaml.yaml', () => {
         }
         expect(error).toBeInstanceOf(DuplicateKeyError);
         expect((error as DuplicateKeyError).message).toBe(v.message);
-      } else if (v.error !== undefined) expect(() => loadYaml(v.text)).toThrow(YAMLError);
-      else if (v.json !== undefined) expect(plain(loadYaml(v.text))).toEqual(JSON.parse(v.json));
+      } else if (v.error !== undefined) {
+        expect(() => loadYaml(v.text)).toThrow(YAMLError);
+        expect(() => loadYaml(v.text)).not.toThrow(DuplicateKeyError);
+      } else if (v.json !== undefined) expect(plain(loadYaml(v.text))).toEqual(JSON.parse(v.json));
       else expect(canonicalRepr(normalize(loadYaml(v.text)))).toBe(v.repr);
     });
   }

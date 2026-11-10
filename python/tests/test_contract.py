@@ -431,8 +431,9 @@ def test_yaml_profile(vector: dict) -> None:
         assert str(caught.value) == vector["message"]
         return
     if vector.get("error"):
-        with pytest.raises(YAMLError):
+        with pytest.raises(YAMLError) as caught:
             load_yaml(vector["text"])
+        assert not isinstance(caught.value, DuplicateKeyError)
         return
     value = load_yaml(vector["text"])
     if "json" in vector:

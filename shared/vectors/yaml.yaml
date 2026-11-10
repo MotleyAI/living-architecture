@@ -2,8 +2,8 @@
 # mapping key. Each case has exactly one of: `json`, the expected value of `text` serialized as JSON (compared by
 # value, so mapping key order is not pinned); `repr`, the canonical repr of the normalized value, for values JSON
 # cannot hold (non-string keys, timestamps, inf, nan); `error: true`, an input the safe loader cannot load, which must
-# be a YAML error; `error: refused`, an input the safe loader constructs but the profile refuses, which must be a YAML
-# error; or `error: duplicate` with `message`, an input the safe loader constructs but that repeats a mapping key,
+# be a YAML error other than the duplicate-key error, even beside a repeated key; `error: refused`, an input the safe
+# loader constructs but the profile refuses, which must be a YAML error other than the duplicate-key error; or `error: duplicate` with `message`, an input the safe loader constructs but that repeats a mapping key,
 # which must be the profile's duplicate-key error worded exactly `message`.
 cases:
 - name: YAML 1.1 booleans
@@ -354,6 +354,47 @@ cases:
     b: {k: 2}
     c: [{k: 3}, {k: 4}]
   json: '{"a": {"k": 1}, "b": {"k": 2}, "c": [{"k": 3}, {"k": 4}]}'
+- name: an unconstructible value before a repeat is reported, not the repeat
+  text: |
+    a: !!int invalid
+    a: 2
+  error: true
+- name: an unconstructible value after a repeat is reported, not the repeat
+  text: |
+    a: 1
+    a: 2
+    b: !!int invalid
+  error: true
+- name: an impossible nested date beside a repeat is reported, not the repeat
+  text: |
+    x:
+      y: 2024-13-01
+    x: 1
+  error: true
+- name: an unconstructible key after a repeat is reported, not the repeat
+  text: |
+    a: 1
+    a: 2
+    !!int bad: 1
+  error: true
+- name: a merge of a scalar after a repeat is reported, not the repeat
+  text: |
+    a: 1
+    a: 2
+    b: {<<: 1}
+  error: true
+- name: a syntax error after a repeat is reported, not the repeat
+  text: |
+    a: 1
+    a: 2
+    b: [1
+  error: true
+- name: a refused tag after a repeat is reported, not the repeat
+  text: |
+    a: 1
+    a: 2
+    b: !!set {x}
+  error: refused
 - name: non-string keys
   text: '{1: a, 2.5: b, ~: c, false: d, -3: e, 0x10: f}'
   repr: '{1: ''a'', 2.5: ''b'', None: ''c'', False: ''d'', -3: ''e'', 16: ''f''}'

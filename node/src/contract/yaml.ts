@@ -527,7 +527,17 @@ export function loadYaml(text: string): unknown {
   const problem = doc.errors[0] ?? doc.warnings.find((warning) => warning.code === 'TAG_RESOLVE_FAILED');
   if (problem !== undefined) throw new YAMLError(problem.message);
   checkProfile(doc);
-  checkKeys(doc, source);
+  try {
+    checkKeys(doc, source);
+  } catch (error) {
+    // A document that cannot be constructed reports that before a repeat.
+    if (error instanceof DuplicateKeyError) construct(doc);
+    throw error;
+  }
+  return construct(doc);
+}
+
+function construct(doc: Document.Parsed): unknown {
   try {
     return doc.toJS({ mapAsMap: true, maxAliasCount: -1 });
   } catch (error) {
