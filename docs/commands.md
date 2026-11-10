@@ -58,14 +58,4 @@ the missing baselines. Suppress a genuine false positive with `// @ts-expect-err
 
 ## Architecture checks in CI
 
-Pin the checker to a release; it needs no per-repo code beyond `architecture/`. Use your ecosystem's twin
-(`--no-build` installs only prebuilt wheels):
-
-```yaml
-# Python
-- uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-- run: uvx --no-build --from living-architecture==0.4.2 la-arch-check
-# TypeScript
-- uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-- run: npx -y -p living-architecture@0.4.2 la-arch-check
-```
+See [Running the checks in CI](ci.md).
