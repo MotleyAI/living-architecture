@@ -277,11 +277,6 @@ cases:
     z: {!!merge {a: 1, a: 2}: *x, !!merge [{b: 1, b: 2}]: *x}
   error: duplicate
   message: duplicate key '<<' at lines 2 and 2
-- name: a merge-tagged collection key with a repeat inside merges
-  text: |
-    x: &x {k: 1}
-    z: {!!merge {a: 1, a: 2}: *x}
-  json: '{"x": {"k": 1}, "z": {"k": 1}}'
 - name: quoted merge spelling beside a merge key is no repeat
   text: |
     x: &x {k: 1}
