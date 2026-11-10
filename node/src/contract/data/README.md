@@ -20,7 +20,8 @@ The source of truth both twins obey. Each package vendors a byte-copy of this di
 
 ## YAML profile
 
-YAML 1.1 as PyYAML's safe loader reads it, within a closed tag set: `yes`/`no`/`on`/`off` are booleans,
+The config files (`living-architecture.yaml`, `living-architecture.local.yaml`, `architecture/index.yaml`) and the
+bundled data are read as YAML 1.1 as PyYAML's safe loader reads it, within a closed tag set: `yes`/`no`/`on`/`off` are booleans,
 sexagesimal and `0`-prefixed octal integers are numbers, merge keys apply, and a scalar the safe loader cannot
 construct is a YAML error. A mapping that repeats a key, at any depth, is a YAML error worded by `yaml.duplicate-key`:
 two keys are the same when their loaded values, normalized (a timestamp to its ISO string), are equal: strings by
@@ -36,7 +37,8 @@ node as if it were untagged, and a scalar as if it were plain whatever its style
 error, as is a merge key (`<<` or `!!merge`) anywhere but a mapping key, and a mapping key that is a sequence or
 mapping. Anchor and alias names are ASCII letters, digits, `-` and `_`. Line breaks are `\n`, `\r` and `\r\n`: a
 raw NEL (U+0085), U+2028 or U+2029 anywhere in the text is a YAML error (the `\N`, `\L` and `\P` escapes in a
-double-quoted scalar are not). Pinned by `vectors/yaml.yaml`.
+double-quoted scalar are not). The twins agree on all YAML real configs use; YAML no config uses, such as a sequence
+or mapping as a key, carries no such guarantee. Pinned by `vectors/yaml.yaml`.
 
 ## Configuration
 

@@ -8,7 +8,8 @@ observable output so the twins cannot drift.
 ## Requirements
 
 ### Requirement: YAML is read with one fixed profile
-Every YAML input SHALL be read as YAML 1.1 as PyYAML's safe loader reads it, within a closed tag set:
+The YAML files the tools read (`living-architecture.yaml`, `living-architecture.local.yaml`, `architecture/index.yaml`
+and the bundled `shared/` data) SHALL be read as YAML 1.1 as PyYAML's safe loader reads them, within a closed tag set:
 `yes`/`no`/`on`/`off` are booleans. A scalar the safe loader cannot construct (an impossible date such as
 `2024-13-01`, or `!!int`/`!!float` content that is not a number) SHALL be a YAML error, reported like any other
 invalid YAML, never a crash.
@@ -32,7 +33,8 @@ resolve as if the node were untagged, and on a scalar as if the scalar were plai
 node) anywhere but a mapping key, and a mapping key that is a sequence or mapping, directly or through an alias. An
 anchor or alias name SHALL consist of ASCII letters, digits, `-` and `_`, and end at whitespace or one of
 ``?:,]}%@` ``; any other character there SHALL be a YAML error. A raw NEL (U+0085), U+2028 or U+2029 anywhere in
-the input SHALL be a YAML error; the `\N`, `\L` and `\P` escapes in a double-quoted scalar SHALL NOT. Both twins SHALL load every input to the same value or both SHALL report it as a YAML error.
+the input SHALL be a YAML error; the `\N`, `\L` and `\P` escapes in a double-quoted scalar SHALL NOT. For every such file a repo actually writes, both twins SHALL load the same value or both SHALL report a YAML error;
+YAML no real config uses, such as a sequence or mapping as a key, is outside this guarantee.
 
 #### Scenario: YAML 1.1 boolean
 - **WHEN** the config sets `reviewers: {codex: no}`
