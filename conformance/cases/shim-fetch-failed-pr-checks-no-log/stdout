@@ -1,0 +1,15 @@
+# Failed CI checks on o/r PR #7
+
+## Check 1 — CI / tests
+Conclusion: FAILURE   Status: COMPLETED   Type: CheckRun
+Details: https://github.com/o/r/actions/runs/11/job/22
+Run: 11  Job: 22
+
+_No log excerpt — every attempt failed:_
+- `gh run view --job 22 --log-failed`: HTTP 502
+- `gh run view --job 22 --log`: empty log
+- `gh api repos/o/r/actions/jobs/22/logs`: gh: Not Found (HTTP 404)
+
+---
+
+JSON: <ROOT>/tmp/failed-pr-checks-7-<TS>.json

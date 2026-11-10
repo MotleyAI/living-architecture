@@ -11,11 +11,12 @@ from pydantic import BaseModel
 from rope.base import libutils
 from rope.base.change import ChangeSet
 from rope.base.project import Project
-from rope.base.resources import Resource
+from rope.base.resources import File, Resource
 from rope.refactor.move import MoveGlobal, MoveModule, create_move
 from rope.refactor.rename import Rename
 
 from living_architecture.contract import message
+from living_architecture.refactor.move_edits import NameConflict, module_move_changes, symbol_move_changes
 from living_architecture.refactor.rope_patches import WalkerGap, apply_rope_patches
 
 apply_rope_patches()
@@ -72,6 +73,16 @@ def _resource(project: Project, path: str) -> Resource:
     return resource
 
 
+def _destination(project: Project, dest: str, *, folder: bool) -> Resource:
+    """`--dest` as an existing directory (`folder`) or file in the project."""
+    resolved = Path(dest).resolve()
+    if resolved.is_relative_to(Path(project.address).resolve()) and not (
+        resolved.is_dir() if folder else resolved.is_file()
+    ):
+        raise RefactorError(message("refactor.destination-missing", path=dest))
+    return _resource(project, dest)
+
+
 def _emit(project: Project, changes: ChangeSet, apply: bool) -> None:
     """Print the changes sorted by path (rope's own order follows the hash seed); apply in rope's order."""
     ordered = sorted(changes.changes, key=lambda c: c.resource.path)
@@ -102,12 +113,16 @@ def rename(
 def move_symbol(project: Project, *, file: str, locator: Locator, dest: str, apply: bool) -> None:
     offset = _resolve_offset(locator, Path(file).read_text())
     mover = cast(MoveGlobal, create_move(project, _resource(project, file), offset))
-    _emit(project, mover.get_changes(_resource(project, dest)), apply)
+    target = cast(File, _destination(project, dest, folder=False))
+    if target == mover.source:
+        _emit(project, ChangeSet(f"Moving global <{mover.old_name}>"), apply)
+        return
+    _emit(project, symbol_move_changes(project, mover, target), apply)
 
 
 def move_module(project: Project, *, module: str, dest: str, apply: bool) -> None:
     mover = cast(MoveModule, create_move(project, _resource(project, module)))
-    _emit(project, mover.get_changes(_resource(project, dest)), apply)
+    _emit(project, module_move_changes(project, mover, _destination(project, dest, folder=True)), apply)
 
 
 def run_refactor(*, project_root: str, command: str, apply: bool, options: dict[str, Any]) -> int:
@@ -137,6 +152,9 @@ def run_refactor(*, project_root: str, command: str, apply: bool, options: dict[
         return 1
     except WalkerGap as gap:
         print(message("refactor.rope-walk", path=gap.path, line=gap.line), file=sys.stderr)
+        return 1
+    except NameConflict as conflict:
+        print(message("refactor.name-conflict", name=conflict.name, path=conflict.path, line=conflict.line), file=sys.stderr)
         return 1
     finally:
         project.close()

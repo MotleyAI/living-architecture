@@ -1,0 +1,17 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- move-module
+- --module
+- pkg/sql/engine_factory.py
+- --dest
+- pkg/database
+fixture: refactor-references
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: a use through another module that imports the moved module by name (sql_client.engine_factory) is untouched

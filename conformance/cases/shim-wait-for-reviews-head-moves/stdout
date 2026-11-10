@@ -1,0 +1,4 @@
+Stage 0a: gate clear.
+Stage 0b: HEAD moved from abc to def — restarting Stage 0a.
+Stage 0a: gate clear.
+Stage 0b: CodeRabbit reviewed HEAD def (status "Review completed").

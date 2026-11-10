@@ -1,7 +1,7 @@
 from pkg.a import Base
-import pkg.sub
+from pkg.sub import foo
 
 
 class Child(Base):
     def run(self):
-        return pkg.sub.foo() + 1
+        return foo() + 1

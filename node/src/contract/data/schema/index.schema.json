@@ -25,22 +25,25 @@
   },
   "$defs": {
     "root_package": {"type": "string", "minLength": 1, "description": "The language root's unit, under source_root."},
-    "source_root": {"type": "string", "description": "Repo-relative directory containing root_package; default: the repo root."},
+    "root_packages": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/root_package"}, "description": "Disjoint language root units under source_root."},
+    "source_root": {"type": "string", "description": "Repo-relative directory containing root_package or root_packages; default: the repo root."},
     "python": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["root_package"],
+      "oneOf": [{"required": ["root_package"], "not": {"required": ["root_packages"]}}, {"required": ["root_packages"], "not": {"required": ["root_package"]}}],
       "properties": {
         "root_package": {"$ref": "#/$defs/root_package"},
+        "root_packages": {"$ref": "#/$defs/root_packages"},
         "source_root": {"$ref": "#/$defs/source_root"}
       }
     },
     "typescript": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["root_package"],
+      "oneOf": [{"required": ["root_package"], "not": {"required": ["root_packages"]}}, {"required": ["root_packages"], "not": {"required": ["root_package"]}}],
       "properties": {
         "root_package": {"$ref": "#/$defs/root_package"},
+        "root_packages": {"$ref": "#/$defs/root_packages"},
         "source_root": {"$ref": "#/$defs/source_root"},
         "tsconfig": {"type": "string", "description": "Repo-relative tsconfig for module resolution; default: the nearest tsconfig.json."}
       }

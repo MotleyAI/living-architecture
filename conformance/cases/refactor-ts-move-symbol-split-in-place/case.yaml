@@ -1,0 +1,24 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- --apply
+- move-symbol
+- --file
+- src/a.ts
+- --name
+- f
+- --dest
+- src/b.ts
+fixture: refactor-ts-references
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - src/a.ts
+  - src/b.ts
+  - test/t.ts
+golden: manual
+note: a multi-name import is split in place, the moved name on the next line; every other line is byte-identical

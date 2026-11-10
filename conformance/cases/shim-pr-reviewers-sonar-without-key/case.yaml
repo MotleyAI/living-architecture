@@ -8,8 +8,9 @@ gh:
 - match:
   - pr
   - view
-  - statusCheckRollup
+  - headRefOid,statusCheckRollup
   stdout:
+    headRefOid: abc
     statusCheckRollup:
     - __typename: CheckRun
       name: tests

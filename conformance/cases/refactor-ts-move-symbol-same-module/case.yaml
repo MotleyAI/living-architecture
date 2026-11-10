@@ -1,0 +1,22 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- --apply
+- move-symbol
+- --file
+- src/a.ts
+- --name
+- foo
+- --dest
+- src/a.ts
+fixture: refactor-ts
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - src/a.ts
+golden: manual
+note: moving a symbol into its own file changes nothing

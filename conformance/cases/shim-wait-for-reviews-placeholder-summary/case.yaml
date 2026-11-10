@@ -1,0 +1,47 @@
+kind: neutral
+command: la-wait-for-reviews
+args:
+- '7'
+- --repo
+- o/r
+env:
+  LA_WAIT_CR_SETTLE: '0'
+gh:
+- match:
+  - pr
+  - view
+  - headRefOid,statusCheckRollup
+  stdout:
+    headRefOid: abc
+    statusCheckRollup:
+    - __typename: CheckRun
+      name: tests
+      status: COMPLETED
+      conclusion: SUCCESS
+      detailsUrl: https://github.com/o/r/actions/runs/1/job/2
+    - __typename: StatusContext
+      context: CodeRabbit
+      state: SUCCESS
+- match:
+  - repos/o/r/commits/abc/check-suites
+  stdout:
+    check_suites: []
+- match:
+  - repos/o/r/issues/7/comments
+  stdout:
+  - user:
+      login: coderabbitai[bot]
+    updated_at: '2026-01-02T00:00:00Z'
+    body: |-
+      <!-- This is an auto-generated comment: summarize by coderabbit.ai -->
+      ## Summary
+- match:
+  - repos/o/r/commits/abc/statuses
+  stdout: []
+- match:
+  - repos/o/r/pulls/7/reviews
+  stdout: []
+expect:
+  exit: 0
+golden: manual
+note: a summary newer than the commit but without HEAD coverage does not settle

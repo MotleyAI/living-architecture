@@ -8,10 +8,11 @@ repo's single import law. This delta covers where source code is located relativ
 
 ### Requirement: Source root is separate from the repo root
 Each language section of `architecture/index.yaml` MAY set `source_root`. This is a relative path from the repo
-root to the directory that contains that section's `root_package`; when absent it defaults to the repo root. All
-source discovery for a language SHALL resolve under its `source_root`: claims, model-derived child units,
-top-level units and import-edge measurement. Architecture files, arc42 docs and OpenSpec specs SHALL resolve from
-the repo root. Module ids, and therefore findings, SHALL NOT include the `source_root` prefix.
+root to the directory that contains that section's roots (`root_package` or `root_packages`); when absent it
+defaults to the repo root. All source discovery for a language SHALL resolve under its `source_root`: claims,
+model-derived child units, top-level units and import-edge measurement. Architecture files, arc42 docs and OpenSpec
+specs SHALL resolve from the repo root. Module ids, and therefore findings, SHALL NOT include the `source_root`
+prefix.
 
 #### Scenario: Absent source_root behaves as before
 - **WHEN** a language section without `source_root` is checked
@@ -26,7 +27,7 @@ the repo root. Module ids, and therefore findings, SHALL NOT include the `source
 - **THEN** `architecture/`, the arc42 files and `openspec/specs/` are still read from the repo root
 
 #### Scenario: Invalid source_root
-- **WHEN** a section's `source_root` is absolute, contains `..`, resolves (including via symlinks) outside the repo, is not a directory, or does not contain `root_package`
+- **WHEN** a section's `source_root` is absolute, contains `..`, resolves (including via symlinks) outside the repo, is not a directory, or does not contain a configured root
 - **THEN** `la-arch-check` exits 2 with an error naming `source_root`
 
 #### Scenario: Invalid root_package
@@ -177,10 +178,10 @@ finding, and the elements around it SHALL keep their nesting.
 `architecture/index.yaml` SHALL NOT declare nodes. Its keys SHALL be one section per declared language, keyed by
 a language id of the shared languages registry (`python`, `typescript`), plus `cross_cutting_arc42`,
 `cross_cutting_specs`, `legacy_arrows`, `diagrams` and `view_depth`, plus any number of repo-owned keys starting
-with `x-`, which the tools SHALL ignore. A language section SHALL hold `root_package` and MAY hold `source_root`;
-the `typescript` section MAY also hold `tsconfig`. At least one language section SHALL be present; `x-` keys do
-not count. An `index.yaml` carrying `nodes`, a top-level `root_package` or `source_root`, or any other unknown
-key SHALL be a setup error naming the key.
+with `x-`, which the tools SHALL ignore. A language section SHALL hold exactly one of `root_package` and
+`root_packages` and MAY hold `source_root`; the `typescript` section MAY also hold `tsconfig`. At least one
+language section SHALL be present; `x-` keys do not count. An `index.yaml` carrying `nodes`, a top-level
+`root_package` or `source_root`, or any other unknown key SHALL be a setup error naming the key.
 
 #### Scenario: Legacy nodes block rejected
 - **WHEN** `index.yaml` still contains a `nodes:` block
@@ -212,14 +213,14 @@ The arch-check SHALL NOT report model-identity findings, and `model-identity` SH
 
 ### Requirement: Each declared language has one root element
 For each language section of `index.yaml` the model SHALL have exactly one top-level element whose id equals the
-language id, of any element kind; it is that language's root, and its unit is the section's `root_package`. A
+language id, of any element kind; it is that language's root, and it stands for the section's configured roots. A
 root SHALL carry no mapping keys and MAY carry `specs`. A top-level element whose id is not a declared language, a
 declared language with no root element, and a mapping key on a root SHALL each be a setup error (exit 2) naming the
 element or language.
 
 #### Scenario: Single-language model
 - **WHEN** `index.yaml` declares only `python` and the model wraps every node in `python = system 'App' { ... }`
-- **THEN** the nodes are checked against the `python` section's `root_package`
+- **THEN** the nodes are checked against the `python` section's configured roots
 
 #### Scenario: Undeclared top-level element
 - **WHEN** the model has a top-level element `core` and `index.yaml` declares only `python`
@@ -347,8 +348,8 @@ and a module file, or module files with more than one extension, SHALL be ambigu
 ambiguity finding listing the sorted candidate paths (one template for declared units, one for derived elements).
 Visible source files SHALL exclude files matching the shared TypeScript test globs, `*.d.ts` files, and anything
 under a `node_modules` directory. Symlinks SHALL be followed only while their real path stays under the section's
-`source_root`. The top-level units SHALL be every visible source file directly under `root_package` other than the
-root barrel `<root_package>/index.<ext>`, and every directory directly under it that contains a visible source
+`source_root`. The top-level units SHALL be, for each configured root, every visible source file directly under it
+other than its barrel `<root>/index.<ext>`, and every directory directly under it that contains a visible source
 file. A module id SHALL be its extensionless path, with `<dir>/index.<ext>` shown as `<dir>`.
 
 #### Scenario: Directory unit
@@ -403,20 +404,21 @@ positions.
 
 ### Requirement: TypeScript module resolution
 Specifiers SHALL be resolved with the compiler options of the repo's tsconfig: the section's `tsconfig` when set
-(repo-relative), else the nearest `tsconfig.json` from `<source_root>/<root_package>` up to the repo root, else
-the TypeScript defaults with `moduleResolution: bundler`. Resolution SHALL honour `paths`, `baseUrl`,
-`moduleResolution`, `.js` specifiers naming `.ts` sources, directory index files and project references, and
-SHALL resolve JavaScript files even when the tsconfig disables `allowJs`. With project references, each file
-SHALL resolve with the options of the first project, in depth-first reference order, whose file list contains
-it, else the root config's; reference cycles SHALL be tolerated. A resolution to a referenced project's emitted
-declaration file SHALL be mapped to the source that emits it. tsconfig files SHALL be read, never executed.
+(repo-relative), else, for the sources of each configured root, the nearest `tsconfig.json` from
+`<source_root>/<root>` up to the repo root, else the TypeScript defaults with `moduleResolution: bundler`.
+Resolution SHALL honour `paths`, `baseUrl`, `moduleResolution`, `.js` specifiers naming `.ts` sources, directory
+index files and project references, and SHALL resolve JavaScript files even when the tsconfig disables `allowJs`.
+With project references, each file SHALL resolve with the options of the first project, in depth-first reference
+order, whose file list contains it, else the root config's; reference cycles SHALL be tolerated. A resolution to a
+referenced project's emitted declaration file SHALL be mapped to the source that emits it. tsconfig files SHALL be
+read, never executed.
 Classification:
-- a target whose real path lies under the section's `root_package` is internal and attributes to its element;
+- a target whose real path lies under one of the section's roots is internal and attributes to its element;
 - a Node builtin, a target resolved into `node_modules`, and an unresolved bare specifier are external (no edge);
-- a target whose real path lies outside `root_package` is unattributed (no edge);
+- a target whose real path lies outside every root is unattributed (no edge);
 - an unresolved relative specifier is attributed lexically: the importer's directory joined with the specifier,
   normalized, with a trailing `?…`/`#…` suffix and a known source extension stripped, and unattributed if it
-  leaves `root_package`.
+  leaves every root.
 
 #### Scenario: paths alias resolves internally
 - **WHEN** the tsconfig maps `@app/*` to `src/*` and `src/a/x.ts` imports `@app/b/y`
@@ -441,6 +443,10 @@ Classification:
 #### Scenario: Escaping relative import unattributed
 - **WHEN** `src/a/x.ts` imports `../../outside/y`
 - **THEN** no edge is measured from that import
+
+#### Scenario: Each root uses its own tsconfig
+- **WHEN** no `tsconfig` key is set and the roots `app` and `lib` each hold a `tsconfig.json` with its own `paths` alias
+- **THEN** each root's imports resolve under its own tsconfig's aliases
 
 ### Requirement: Mixed-language repos are checked as one
 `la-arch-check` SHALL check every declared language. For each language it SHALL obtain that language's facts
@@ -580,3 +586,57 @@ is-element; nested docs; orphans; paths in code-point order within each kind. en
 #### Scenario: Cross-cutting entry naming an element doc
 - **WHEN** `cross_cutting_arc42` lists `architecture/python.api.arc42.md` and `python.api` is a model element
 - **THEN** `arc42-exists.cross-cutting-is-element` is reported naming the doc and `python.api`
+
+### Requirement: A language has one root configuration form
+Each language section SHALL set exactly one of `root_package` or `root_packages`. The legacy scalar form SHALL
+retain its existing behavior. `root_packages` SHALL be a non-empty array of unique canonical relative paths. Every
+root-configuration error SHALL be a setup error reported with a shared finding before schema validation, so both
+twins print the same text.
+
+#### Scenario: Legacy scalar remains compatible
+- **WHEN** a language section sets `root_package: src`
+- **THEN** the checker discovers sources and edges under `src` exactly as before
+
+#### Scenario: Both configuration forms are rejected
+- **WHEN** a language section sets both `root_package` and `root_packages`
+- **THEN** `la-arch-check` exits 2 with a finding naming the required exclusive root configuration
+
+#### Scenario: Missing configuration remains an error
+- **WHEN** a language section sets neither root configuration form
+- **THEN** `la-arch-check` exits 2 with a finding naming the required `root_package`
+
+#### Scenario: Malformed scalar keeps its finding
+- **WHEN** a language section sets `root_package` to an empty string or a non-string
+- **THEN** `la-arch-check` exits 2 with the same finding as a missing `root_package`
+
+#### Scenario: TypeScript roots are combined
+- **WHEN** a TypeScript section sets `root_packages: [app, packages/ui]` and both directories contain visible source
+- **THEN** top-level units and imports are discovered in both directories, with module IDs relative to `source_root`
+
+#### Scenario: Python roots are combined
+- **WHEN** a Python section sets `root_packages: [service, shared]` and both directories contain Python modules
+- **THEN** facts include units and runtime imports from both directory trees using the existing dotted module IDs
+
+### Requirement: Configured roots are contained and disjoint
+Each `root_packages` path SHALL resolve to a directory beneath `source_root` (defaulting to the repo root), including
+after symlink resolution; all roots of a section SHALL share its one `source_root`. Paths SHALL be pairwise
+disjoint; equal (including a repeated entry) or nested roots SHALL be rejected. Invalid paths and overlap SHALL
+produce a setup error naming the affected `root_packages` entries.
+
+#### Scenario: Invalid roots are rejected
+- **WHEN** `root_packages` is not a non-empty list of non-empty strings, or any configured root is absolute, contains a parent segment, is non-canonical, escapes by symlink, or is not a directory
+- **THEN** `la-arch-check` exits 2 with a finding naming `root_packages`
+
+#### Scenario: Overlapping roots are rejected
+- **WHEN** two configured roots are equal (including a repeated entry) or one is nested under the other
+- **THEN** `la-arch-check` exits 2 with a finding naming both conflicting `root_packages`
+
+### Requirement: Facts cover the configured source union
+Source discovery, top-level units, claims and runtime import measurement SHALL cover the union of configured roots.
+Unit identifiers SHALL remain relative to `source_root`, with no configured-root rewriting. Architecture files and
+OpenSpec specs SHALL remain relative to the repository root. Python and TypeScript twins SHALL produce equivalent
+facts for equivalent layouts.
+
+#### Scenario: Combined facts retain source-root-relative IDs
+- **WHEN** a language section configures multiple roots below `source_root`
+- **THEN** facts include all roots' units and import edges using IDs relative to `source_root`, and architecture documentation remains repo-root-relative

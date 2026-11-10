@@ -1,0 +1,11 @@
+{
+  "language": "python",
+  "version": "<VERSION>",
+  "contract_hash": "<CONTRACT_HASH>",
+  "units": [],
+  "top_level_units": ["app.api", "shared.util"],
+  "edges": [
+    {"src": "app.api", "dst": "shared.util", "src_module": "app.api", "dst_module": "shared.util"},
+    {"src": "shared.util", "dst": "app.api", "src_module": "shared.util", "dst_module": "app.api"}
+  ]
+}

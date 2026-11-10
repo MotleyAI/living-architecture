@@ -15,7 +15,7 @@ The skills drive these commands; you can also run them directly. `<command> --he
 | `la-typecheck [--write-baseline]` | Type-check each applicable language against a baseline that only shrinks |
 | `la-pr-reviewers <PR>` | Which review bots ran on a PR (CodeRabbit, Sonar and its project key), as JSON |
 | `la-wait-for-reviews <PR>` | Wait for CI and, when it is on the PR, the CodeRabbit review to settle |
-| `la-fetch-failed-pr-checks <PR>` | Failed checks plus their failed-step logs |
+| `la-fetch-failed-pr-checks <PR>` | Failed checks plus a log excerpt of each |
 | `la-fetch-coderabbit-threads <PR>` | Unresolved CodeRabbit threads, nitpicks, outside-diff comments |
 | `la-reply-to-pr-thread`, `la-reply-invalid-coderabbit` | Reply to a review thread (body on stdin) |
 | `dr-refactor`, `dr-compliance`, `dr-mock-lint` | See [Deterministic refactoring](deterministic-refactoring.md) |

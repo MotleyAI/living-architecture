@@ -8,7 +8,7 @@ itself) and `la-typecheck` (types against a baseline that only shrinks).
 
 1. Commit `living-architecture.yaml`, `architecture/` and the type-check baseline (`.basedpyright/baseline.json`
    for Python, `.tsc-baseline.json` for TypeScript). `la-typecheck --write-baseline` creates a missing one.
-2. Find the version to pin: `la-doctor` prints it as `ok: la tools X.Y.Z`. Pin that exact version everywhere
+2. Find the version to pin: `la-doctor` prints it as `ok: la tools X.Y.Z; …`. Pin that exact version everywhere
    below.
 
 ## The workflow
@@ -31,19 +31,19 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22    # the TypeScript twin and likec4 both need it
-      - run: uvx --no-build --from living-architecture==0.4.2 la-arch-check
+      - run: uvx --no-build --from living-architecture==0.5.0 la-arch-check
       - run: npx -y likec4@1.60.0 validate architecture
       - run: uv sync          # the project env, with basedpyright in it; only la-typecheck needs it
-      - run: uvx --no-build --from living-architecture==0.4.2 la-typecheck
+      - run: uvx --no-build --from living-architecture==0.5.0 la-typecheck
 ```
 
 For a TypeScript-only repo, drop `setup-uv` and use these steps after `setup-node`:
 
 ```yaml
-      - run: npx -y -p living-architecture@0.4.2 la-arch-check
+      - run: npx -y -p living-architecture@0.5.0 la-arch-check
       - run: npx -y likec4@1.60.0 validate architecture
       - run: npm ci           # puts tsc in node_modules; only la-typecheck needs it
-      - run: npx -y -p living-architecture@0.4.2 la-typecheck
+      - run: npx -y -p living-architecture@0.5.0 la-typecheck
 ```
 
 Replace `main` with the repo's default branch. `--no-build` installs only prebuilt wheels.
@@ -51,8 +51,9 @@ Replace `main` with the repo's default branch. `--no-build` installs only prebui
 ## Mixed repos
 
 Use the Python workflow above; it is enough for `la-arch-check`. The Python twin hands the TypeScript files to
-the npm twin through `npx`, at the same version. `la-typecheck` checks every repo language, so in a mixed repo
-it needs both project environments: add the TypeScript install (`npm ci`) before it.
+the npm twin through `npx`, at the same version. `la-typecheck` checks every repo language whose
+`commands.typecheck` entry is not `null`, so in a mixed repo it usually needs both project environments: add the
+TypeScript install (`npm ci`) before it.
 
 ## Node 22 is required
 
@@ -70,14 +71,16 @@ which needs Node 22 or later. On the runner's older default Node it crashes (on 
 ## Poetry and projects outside the repo root
 
 `uv sync` assumes a uv project at the repo root. Otherwise install the project the way the repo's CI already does
-(for example `poetry install`, or `npm ci` in `web/`) and make the checker findable, in one of two ways:
+(for example `poetry install`, or `npm ci` in `web/`) and make the checker findable. `la-typecheck` runs
+`commands.typecheck.<language>` from the repo root, so either:
 
-- Put the environment's `bin` directory on `PATH` for later steps, for example
-  `echo "$PWD/backend/.venv/bin" >> "$GITHUB_PATH"` or `echo "$PWD/web/node_modules/.bin" >> "$GITHUB_PATH"`.
-  For Poetry, `poetry env info --path` prints the environment's directory.
-- Or set the checker's path in `living-architecture.yaml`, for example
-  `commands.typecheck.python: backend/.venv/bin/basedpyright`. A command with a `/` is resolved from the repo
-  root, so this also works locally.
+- Set the command in `living-architecture.yaml`, which also works locally. Run it through the project's tool
+  (`uv run --project backend basedpyright -p backend`), or give the checker's path
+  (`backend/.venv/bin/basedpyright`, `web/node_modules/.bin/tsc -p web --noEmit`); a path is resolved from the
+  repo root.
+- Or put the environment's `bin` directory on `PATH` for later CI steps, for example
+  `echo "$PWD/backend/.venv/bin" >> "$GITHUB_PATH"`. For Poetry, `poetry env info --path` prints the
+  environment's directory.
 
 ## Repos that already type-check in CI
 

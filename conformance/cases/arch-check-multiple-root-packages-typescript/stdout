@@ -1,0 +1,10 @@
+{
+  "language": "typescript",
+  "version": "<VERSION>",
+  "contract_hash": "<CONTRACT_HASH>",
+  "units": [],
+  "top_level_units": ["app/api", "packages/ui/button"],
+  "edges": [
+    {"src": "app/api", "dst": "packages/ui/button", "src_module": "app/api", "dst_module": "packages/ui/button"}
+  ]
+}

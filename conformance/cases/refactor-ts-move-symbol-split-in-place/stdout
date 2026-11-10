@@ -1,0 +1,39 @@
+Moving global <f>:
+
+
+--- a/src/a.ts
++++ b/src/a.ts
+@@ -1,7 +1,3 @@
+-export function f(): number {
+-  return 1;
+-}
+-
+ export function g(): number {
+   return 2;
+ }
+
+--- a/src/b.ts
++++ b/src/b.ts
+@@ -1 +1,4 @@
+ export const B = 0;
++export function f(): number {
++    return 1;
++}
+
+--- a/test/t.ts
++++ b/test/t.ts
+@@ -1,5 +1,6 @@
+ import { util } from "../src/util.js";
+-import { g, f } from "../src/a.js";
++import { g } from "../src/a.js";
++import { f } from "../src/b.js";
+ import { B } from "../src/b.js";
+ 
+ const before = util + 1;
+
+
+
+APPLIED. 3 file(s) changed:
+  src/a.ts
+  src/b.ts
+  test/t.ts

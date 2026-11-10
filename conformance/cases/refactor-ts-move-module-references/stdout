@@ -1,0 +1,18 @@
+Moving module <a>:
+
+
+rename from src/a.ts
+rename to src/lib/a.ts
+--- a/test/t.ts
++++ b/test/t.ts
+@@ -1,5 +1,5 @@
+ import { util } from "../src/util.js";
+-import { g, f } from "../src/a.js";
++import { g, f } from "../src/lib/a.js";
+ import { B } from "../src/b.js";
+ 
+ const before = util + 1;
+
+
+
+DRY-RUN. 2 file(s) would change. Re-run with --apply.
