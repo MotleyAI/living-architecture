@@ -257,6 +257,31 @@ cases:
       !!merge <<: *y
   error: duplicate
   message: duplicate key '<<' at lines 4 and 5
+- name: repeated merge key, merge-tagged collection first
+  text: |
+    x: &x {k: 1}
+    z:
+      !!merge [1]: *x
+      <<: *x
+  error: duplicate
+  message: duplicate key '<<' at lines 3 and 4
+- name: repeated merge key, merge-tagged collections in a flow mapping
+  text: |
+    x: &x {k: 1}
+    z: {!!merge [1]: *x, !!merge {a: 1}: *x}
+  error: duplicate
+  message: duplicate key '<<' at lines 2 and 2
+- name: a repeat inside a merge-tagged collection key is never read
+  text: |
+    x: &x {k: 1}
+    z: {!!merge {a: 1, a: 2}: *x, !!merge [{b: 1, b: 2}]: *x}
+  error: duplicate
+  message: duplicate key '<<' at lines 2 and 2
+- name: a merge-tagged collection key with a repeat inside merges
+  text: |
+    x: &x {k: 1}
+    z: {!!merge {a: 1, a: 2}: *x}
+  json: '{"x": {"k": 1}, "z": {"k": 1}}'
 - name: quoted merge spelling beside a merge key is no repeat
   text: |
     x: &x {k: 1}

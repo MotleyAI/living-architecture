@@ -54,8 +54,8 @@ for _name in ("binary", "set", "omap", "pairs"):
     _ProfileLoader.add_constructor(f"tag:yaml.org,2002:{_name}", _ProfileLoader.construct_undefined)
 
 
-def _key(loader: _ProfileLoader, node: yaml.ScalarNode) -> tuple[object, object]:
-    """A scalar key's normalized value and its identity under the profile's key comparator."""
+def _key(loader: _ProfileLoader, node: yaml.Node) -> tuple[object, object]:
+    """A scalar or merge key's normalized value and its identity under the profile's key comparator."""
     if node.tag == _MERGE_TAG:
         return "<<", _MERGE_KEY
     value = loader.construct_object(node)
@@ -77,13 +77,16 @@ def _check_keys(loader: _ProfileLoader, node: yaml.Node, seen: set[yaml.Node]) -
     elif isinstance(node, yaml.MappingNode):
         firsts: dict[object, tuple[object, int]] = {}
         for (key_node, value_node), mark in zip(node.value, loader.key_marks.get(node, [])):
-            if isinstance(key_node, yaml.ScalarNode):
+            # PyYAML merges on any key tagged merge, a collection included, and never reads that key's content.
+            merge = key_node.tag == _MERGE_TAG
+            if merge or isinstance(key_node, yaml.ScalarNode):
                 key, identity = _key(loader, key_node)
                 if identity in firsts:
                     first_key, first_line = firsts[identity]
                     raise DuplicateKeyError(first_key, first_line, mark.line + 1)
                 firsts[identity] = (key, mark.line + 1)
-            _check_keys(loader, key_node, seen)
+            if not merge:
+                _check_keys(loader, key_node, seen)
             _check_keys(loader, value_node, seen)
 
 
