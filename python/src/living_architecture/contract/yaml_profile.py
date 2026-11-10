@@ -77,17 +77,25 @@ def _check_keys(loader: _ProfileLoader, node: yaml.Node, seen: set[yaml.Node]) -
     elif isinstance(node, yaml.MappingNode):
         firsts: dict[object, tuple[object, int]] = {}
         for (key_node, value_node), mark in zip(node.value, loader.key_marks.get(node, [])):
-            # PyYAML merges on any key tagged merge, a collection included, and never reads that key's content.
-            merge = key_node.tag == _MERGE_TAG
-            if merge or isinstance(key_node, yaml.ScalarNode):
-                key, identity = _key(loader, key_node)
-                if identity in firsts:
-                    first_key, first_line = firsts[identity]
-                    raise DuplicateKeyError(first_key, first_line, mark.line + 1)
-                firsts[identity] = (key, mark.line + 1)
-            if not merge:
+            _record_key(loader, firsts, key_node, mark)
+            # PyYAML never reads a merge key's content.
+            if key_node.tag != _MERGE_TAG:
                 _check_keys(loader, key_node, seen)
             _check_keys(loader, value_node, seen)
+
+
+def _record_key(
+    loader: _ProfileLoader, firsts: dict[object, tuple[object, int]], key_node: yaml.Node, mark: yaml.Mark
+) -> None:
+    """Record a scalar or merge key in `firsts`; DuplicateKeyError when its mapping already holds that key."""
+    # PyYAML merges on any key tagged merge, a collection included.
+    if key_node.tag != _MERGE_TAG and not isinstance(key_node, yaml.ScalarNode):
+        return
+    key, identity = _key(loader, key_node)
+    if identity in firsts:
+        first_key, first_line = firsts[identity]
+        raise DuplicateKeyError(first_key, first_line, mark.line + 1)
+    firsts[identity] = (key, mark.line + 1)
 
 
 # Line breaks to YAML 1.1 that the npm twin's YAML 1.2 library reads as content.
