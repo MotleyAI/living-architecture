@@ -46,7 +46,8 @@ For a TypeScript-only repo, drop `setup-uv` and use these steps after `setup-nod
       - run: npx -y -p living-architecture@0.5.0 la-typecheck
 ```
 
-Replace `main` with the repo's default branch. `--no-build` installs only prebuilt wheels.
+Replace `main` with the repo's default branch, and `uv sync` or `npm ci` with the repo's own install command
+(`pnpm install --frozen-lockfile`, `yarn install --immutable`, …). `--no-build` installs only prebuilt wheels.
 
 ## Mixed repos
 
@@ -64,8 +65,10 @@ which needs Node 22 or later. On the runner's older default Node it crashes (on 
 ## What needs a project install
 
 - `la-arch-check` and `likec4 validate` need none. TypeScript imports resolve through the `tsconfig` paths
-  without `node_modules`. Run them before any install step.
-- `la-typecheck` needs the checker and the project's dependencies. It looks for the checker in `.venv/bin` or
+  without `node_modules`, so run them before any install step. The exception: a `tsconfig.json` that `extends` a
+  package (`@tsconfig/node22/tsconfig.json`) cannot be read without `node_modules`, so install first.
+- `la-typecheck` needs the checker and the project's dependencies, so the install must include the checker:
+  declare `basedpyright` and `typescript` as dev dependencies. It looks for the checker in `.venv/bin` or
   `node_modules/.bin` at the repo root, then on `PATH`.
 
 ## Poetry and projects outside the repo root
@@ -75,9 +78,10 @@ which needs Node 22 or later. On the runner's older default Node it crashes (on 
 `commands.typecheck.<language>` from the repo root, so either:
 
 - Set the command in `living-architecture.yaml`, which also works locally. Run it through the project's tool
-  (`uv run --project backend basedpyright -p backend`), or give the checker's path
-  (`backend/.venv/bin/basedpyright`, `web/node_modules/.bin/tsc -p web --noEmit`); a path is resolved from the
-  repo root.
+  (`uv run --project backend basedpyright -p backend --baselinefile .basedpyright/baseline.json`), or give the
+  checker's path (`web/node_modules/.bin/tsc -p web --noEmit`); a path is resolved from the repo root. With `-p`,
+  basedpyright keeps its baseline in that directory unless `--baselinefile` points it to the repo root, where
+  `la-typecheck` expects it.
 - Or put the environment's `bin` directory on `PATH` for later CI steps, for example
   `echo "$PWD/backend/.venv/bin" >> "$GITHUB_PATH"`. For Poetry, `poetry env info --path` prints the
   environment's directory.
