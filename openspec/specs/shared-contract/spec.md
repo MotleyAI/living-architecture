@@ -34,7 +34,7 @@ node) anywhere but a mapping key, and a mapping key that is a sequence or mappin
 anchor or alias name SHALL consist of ASCII letters, digits, `-` and `_`, and end at whitespace or one of
 ``?:,]}%@` ``; any other character there SHALL be a YAML error. A raw NEL (U+0085), U+2028 or U+2029 anywhere in
 the input SHALL be a YAML error; the `\N`, `\L` and `\P` escapes in a double-quoted scalar SHALL NOT. For every such file a repo actually writes, both twins SHALL load the same value or both SHALL report a YAML error;
-YAML no real config uses, such as a sequence or mapping as a key, is outside this guarantee.
+YAML no real config uses, such as a `!!merge`-tagged sequence or mapping as a key, is outside this guarantee.
 
 #### Scenario: YAML 1.1 boolean
 - **WHEN** the config sets `reviewers: {codex: no}`

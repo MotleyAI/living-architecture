@@ -38,7 +38,7 @@ error, as is a merge key (`<<` or `!!merge`) anywhere but a mapping key, and a m
 mapping. Anchor and alias names are ASCII letters, digits, `-` and `_`. Line breaks are `\n`, `\r` and `\r\n`: a
 raw NEL (U+0085), U+2028 or U+2029 anywhere in the text is a YAML error (the `\N`, `\L` and `\P` escapes in a
 double-quoted scalar are not). The twins agree on all YAML real configs use; YAML no config uses, such as a sequence
-or mapping as a key, carries no such guarantee. Pinned by `vectors/yaml.yaml`.
+or mapping tagged `!!merge` as a key, carries no such guarantee. Pinned by `vectors/yaml.yaml`.
 
 ## Configuration
 
