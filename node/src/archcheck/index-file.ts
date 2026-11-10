@@ -47,6 +47,7 @@ function rootConfiguration(values: unknown): { key: string; roots: string[] } {
   return { key: 'root_packages', roots: roots as string[] };
 }
 
+/** The validated index mapping; ArchCheckError when it is unusable. */
 export function loadIndex(root: string): Index {
   const text = decodeUtf8OrNull(readFileSync(join(root, INDEX_REL)));
   if (text === null) throw new ArchCheckError(message('c4.index-invalid-yaml'));

@@ -118,11 +118,13 @@ def _read_index(root: Path) -> Index | None:
 
 
 def _cross_cutting(index: Index | None) -> list[str]:
+    """The index's `cross_cutting_arc42` paths; empty without an index or that list."""
     entries = index.data.get("cross_cutting_arc42") if index is not None else None
     return [e for e in entries if isinstance(e, str)] if isinstance(entries, list) else []
 
 
 def _diagram_keys(index: Index | None) -> list[Any]:
+    """The keys of the index's `diagrams` mapping; empty without an index or that mapping."""
     diagrams = index.data.get("diagrams") if index is not None else None
     return list(diagrams) if isinstance(diagrams, dict) else []
 

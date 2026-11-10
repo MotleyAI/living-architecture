@@ -61,6 +61,7 @@ def _root_configuration(section: Any) -> tuple[str, list[str]]:
 
 
 def load_index(root: Path) -> dict[str, Any]:
+    """The validated index mapping; ArchCheckError when it is unusable."""
     try:
         index = load_yaml((root / INDEX_REL).read_text(encoding="utf-8"))
     except UnicodeDecodeError as exc:

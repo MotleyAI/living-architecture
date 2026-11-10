@@ -134,11 +134,13 @@ function readIndex(root: string): Index | null {
   return index;
 }
 
+/** The index's `cross_cutting_arc42` paths; empty without an index or that list. */
 function crossCutting(index: Index | null): string[] {
   const entries = index?.data.get('cross_cutting_arc42');
   return Array.isArray(entries) ? entries.filter((e): e is string => typeof e === 'string') : [];
 }
 
+/** The keys of the index's `diagrams` mapping; empty without an index or that mapping. */
 function diagramKeys(index: Index | null): unknown[] {
   const diagrams = index?.data.get('diagrams');
   return diagrams instanceof Map ? [...diagrams.keys()] : [];

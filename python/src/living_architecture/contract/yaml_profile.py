@@ -103,6 +103,7 @@ _UNICODE_BREAKS = re.compile("[\x85\u2028\u2029]")
 
 
 def load_yaml(text: str) -> Any:
+    """The single document of `text` in the shared profile (None when empty); YAMLError when invalid."""
     if (found := _UNICODE_BREAKS.search(text)) is not None:
         raise YAMLError(f"a raw U+{ord(found.group()):04X} line break at offset {found.start()}")
     loader = _ProfileLoader(text)

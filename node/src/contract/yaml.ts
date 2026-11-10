@@ -382,6 +382,7 @@ function yaml11AnchorNames(text: string): string {
   return pieces.join('') + text.slice(last);
 }
 
+/** Whether `node` is a merge key as PyYAML reads one: a plain `<<` or a `!!merge` scalar. */
 const isMerge = (node: Scalar): boolean =>
   typeof node.value === 'symbol' || (node.tag === undefined && node.type === Scalar.PLAIN && node.value === '<<');
 
@@ -473,6 +474,7 @@ function recordKey(scan: KeyScan, firsts: Map<string, [key: unknown, offset: num
   firsts.set(identity, [normalizedKey(value), start]);
 }
 
+/** Checks the keys of every mapping in `node`, in document order. */
 function walkKeys(scan: KeyScan, node: unknown): void {
   if (isMap(node)) {
     const firsts = new Map<string, [key: unknown, offset: number]>();
@@ -537,6 +539,7 @@ export function loadYaml(text: string): unknown {
   return construct(doc);
 }
 
+/** `doc` as its value; YAMLError when it cannot be constructed. */
 function construct(doc: Document.Parsed): unknown {
   try {
     return doc.toJS({ mapAsMap: true, maxAliasCount: -1 });
