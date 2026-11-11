@@ -70,6 +70,11 @@ export function manifest(): Record<string, any> {
   return yamlFile('cli.yaml').commands;
 }
 
+/** Seconds after which the best-effort fetch of a base branch is killed. */
+export function baseFetchTimeout(): number {
+  return Number(yamlFile('cli.yaml').base_fetch_timeout_seconds);
+}
+
 export function language(id: string): Record<string, any> {
   return yamlFile('languages.yaml')[id];
 }

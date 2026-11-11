@@ -104,11 +104,12 @@ function languageTests(repoRoot: string, lang: string, changes: Change[]): strin
 }
 
 function fail(error: unknown): number {
-  if (error instanceof AffectedError || error instanceof ConfigError || error instanceof LangError) {
-    if (error.message) process.stderr.write(`${message('affected.error', { error: error.message })}\n`);
-    return 2;
-  }
-  throw error;
+  const code = (error as NodeJS.ErrnoException)?.code;
+  const osError = typeof code === 'string' && code.startsWith('E');
+  if (!(error instanceof AffectedError || error instanceof ConfigError || error instanceof LangError || osError)) throw error;
+  const text = (error as Error).message;
+  if (text) process.stderr.write(`${message('affected.error', { error: text })}\n`);
+  return 2;
 }
 
 /** Print the affected test files of the change against `origin/<base>`, one per line in code-point order. */

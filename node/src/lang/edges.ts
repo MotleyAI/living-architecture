@@ -10,12 +10,23 @@ import { ts } from './ts.js';
 
 const CONFIG_NAME = 'tsconfig.json';
 const NODE_MODULES = 'node_modules';
+const NO_TARGET = new Set(['ENOENT', 'ENOTDIR', 'EBADF', 'ELOOP']);
 
 function realpath(path: string): string | undefined {
   try {
     return realpathSync(path);
   } catch {
     return undefined;
+  }
+}
+
+/** Whether `path` resolves to a regular file; stat errors other than a missing or looping target propagate. */
+function isRegularFile(path: string): boolean {
+  try {
+    return statSync(path).isFile();
+  } catch (error) {
+    if (NO_TARGET.has((error as NodeJS.ErrnoException).code ?? '')) return false;
+    throw error;
   }
 }
 
@@ -95,13 +106,8 @@ class EdgeResolver {
 
   targets(rel: string): string[] {
     const file = resolve(this.root, rel);
-    let text: string;
-    try {
-      if (!statSync(file).isFile()) return [];
-      text = readFileSync(file, 'utf8');
-    } catch {
-      return [];
-    }
+    if (!isRegularFile(file)) return [];
+    const text = readFileSync(file, 'utf8');
     const { projects, host } = this.loaded(this.config(dirname(file)));
     const project = owner(projects, file);
     const format = ts().getImpliedNodeFormatForFile(file, project.cache.getPackageJsonInfoCache(), host, project.options);
@@ -131,7 +137,7 @@ class EdgeResolver {
   }
 }
 
-/** Edges `[importer, target]` (repo-relative POSIX) from each of `files`; `deleted` paths resolve as if present. */
+/** Edges `[importer, target]` (repo-relative POSIX) from each regular file of `files`, whose read errors propagate; `deleted` paths resolve as if present. */
 export function dependencyEdges(repoRoot: string, files: string[], deleted: string[]): [string, string][] {
   const resolver = new EdgeResolver(resolve(repoRoot), files, deleted);
   return files.flatMap((file) => resolver.targets(file).map((target): [string, string] => [file, target]));

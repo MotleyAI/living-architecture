@@ -135,7 +135,7 @@ def run(*, base: str, cwd: Path) -> int:
                 selected.update(select(lang_id, changed, repo_root, repo_files))
             else:
                 selected.update(_request(lang_id, changed, repo_root))
-    except (ConfigError, AffectedError) as exc:
+    except (ConfigError, AffectedError, OSError) as exc:
         return _fail(str(exc))
     for path in sorted(selected):
         print(path)
@@ -156,7 +156,7 @@ def serve(lang_id: str, *, cwd: Path) -> int:
     repo_root = find_repo_root(cwd)
     try:
         tests = select(lang_id, changed, repo_root, _repo_files(repo_root))
-    except (ConfigError, AffectedError) as exc:
+    except (ConfigError, AffectedError, OSError) as exc:
         return _fail(str(exc))
     print(json.dumps({"language": lang_id, "version": __version__, "contract_hash": contract_hash(), "tests": tests}))
     return 0

@@ -1,7 +1,7 @@
 // The change set: base-ref resolution and the NUL-delimited git change listing.
 import { spawnSync } from 'node:child_process';
 import { ConfigError } from '../config/index.js';
-import { byCodePoint, message } from '../contract/index.js';
+import { baseFetchTimeout, byCodePoint, message } from '../contract/index.js';
 
 export interface ListingOptions {
   baseRef: string;
@@ -46,9 +46,22 @@ export function prBaseBranch(pr: string | null, repo: string | null, repoRoot: s
   return branch;
 }
 
-/** `origin/<base>` after a best-effort fetch; ConfigError when it does not resolve. */
-export function resolveBaseRef(base: string, repoRoot: string): string {
-  spawnSync('git', ['fetch', 'origin', base, '--quiet'], { cwd: repoRoot, stdio: 'ignore' }); // NOSONAR(S4036) — runs the user's own git from PATH by design
+/** `git fetch origin <base>` in its own process group, the whole group killed after `timeout` seconds. */
+function boundedFetch(base: string, repoRoot: string, timeout: number): void {
+  const env = { ...process.env, GIT_TERMINAL_PROMPT: '0' };
+  const options = { cwd: repoRoot, stdio: 'ignore' as const, env, detached: true, timeout: timeout * 1000, killSignal: 'SIGKILL' as const };
+  const proc = spawnSync('git', ['fetch', 'origin', base, '--quiet'], options); // NOSONAR(S4036) — runs the user's own git from PATH by design
+  if ((proc.error as NodeJS.ErrnoException | undefined)?.code !== 'ETIMEDOUT' || proc.pid === undefined) return;
+  try {
+    process.kill(-proc.pid, 'SIGKILL');
+  } catch {
+    // the group is already gone, or the platform has no process groups
+  }
+}
+
+/** `origin/<base>` after a best-effort, bounded, non-prompting fetch; ConfigError when it does not resolve. */
+export function resolveBaseRef(base: string, repoRoot: string, fetchTimeout: number = baseFetchTimeout()): string {
+  boundedFetch(base, repoRoot, fetchTimeout);
   const ref = `origin/${base}`;
   git(['rev-parse', '--verify', '--quiet', ref], repoRoot);
   return ref;

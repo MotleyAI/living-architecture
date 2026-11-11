@@ -13,6 +13,10 @@
 # la-config get: language_keys are the public `lang.<language>.<key>` keys; source_globs (one `**/*<ext>` glob per
 #              source extension) and waiver (the language's waiver comment) are derived, the rest come from
 #              languages.yaml.
+# base_fetch_timeout_seconds: the best-effort `git fetch origin <base>` before a command compares with
+#              origin/<base> is killed after this many seconds; the command then uses the ref as it stands.
+
+base_fetch_timeout_seconds: 30
 
 commands:
   la-config:

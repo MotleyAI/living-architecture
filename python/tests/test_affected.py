@@ -199,6 +199,21 @@ def test_missing_base_ref(repo, capsys):
     assert (code, out, err) == (2, [], "la-affected-tests: git rev-parse --verify --quiet origin/nope failed\n")
 
 
+def test_git_missing_from_path(repo, capsys, monkeypatch, tmp_path):
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    monkeypatch.setenv("PATH", str(empty))
+    assert _affected(capsys, "--base", "main") == (2, [], "la-affected-tests: git rev-parse --verify --quiet origin/main failed\n")
+
+
+@pytest.mark.skipif(not hasattr(os, "geteuid") or os.geteuid() == 0, reason="needs a non-root POSIX user")
+def test_an_unreadable_importer_fails(repo, capsys):
+    _write(repo, {"src/pkg/b.py": "X = 2\n"})
+    (repo / "src/pkg/a.py").chmod(0)
+    code, out, err = _affected(capsys, "--base", "main")
+    assert (code, out, err.startswith("la-affected-tests: "), "a.py" in err) == (2, [], True, True)
+
+
 def test_not_a_git_repository(tmp_path, monkeypatch, capsys):
     monkeypatch.chdir(tmp_path)
     code, out, err = _affected(capsys, "--base", "main")

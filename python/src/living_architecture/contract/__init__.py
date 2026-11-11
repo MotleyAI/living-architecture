@@ -6,6 +6,7 @@ from living_architecture.contract.render import canonical_repr, message, normali
 from living_architecture.contract.schema import materialize_defaults, validate
 from living_architecture.contract.snapshot import (
     architecture,
+    base_fetch_timeout,
     check_ids,
     compute_hash,
     config_file,
@@ -29,6 +30,7 @@ __all__ = [
     "DuplicateKeyError",
     "YAMLError",
     "architecture",
+    "base_fetch_timeout",
     "canonical_repr",
     "check_ids",
     "compute_hash",

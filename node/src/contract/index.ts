@@ -7,6 +7,7 @@ export { materializeDefaults, validate } from './schema.js';
 export {
   HASH_FILE,
   architecture,
+  baseFetchTimeout,
   checkIds,
   computeHash,
   configFile,

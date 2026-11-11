@@ -2,17 +2,23 @@
 
 from __future__ import annotations
 
+import contextlib
+import os
+import signal
 import subprocess
 from pathlib import Path
 
 from living_architecture.config import ConfigError
-from living_architecture.contract import message
+from living_architecture.contract import base_fetch_timeout, message
 
 __all__ = ["changed_paths", "git_paths", "pr_base", "resolve_base_ref"]
 
 
 def _git(args: list[str], *, cwd: Path) -> bytes:
-    proc = subprocess.run(["git", *args], cwd=cwd, capture_output=True, check=False)
+    try:
+        proc = subprocess.run(["git", *args], cwd=cwd, capture_output=True, check=False)
+    except OSError as exc:
+        raise ConfigError(message("changes.git-failed", args=" ".join(args))) from exc
     if proc.returncode != 0:
         detail = proc.stderr.decode("utf-8", "replace").strip()
         raise ConfigError(detail or message("changes.git-failed", args=" ".join(args)))
@@ -29,16 +35,38 @@ def pr_base(*, pr: str | None, repo: str | None, repo_root: Path) -> str:
     cmd = ["gh", "pr", "view", str(pr), "--json", "baseRefName", "--jq", ".baseRefName"]
     if repo:
         cmd += ["--repo", repo]
-    proc = subprocess.run(cmd, cwd=repo_root, capture_output=True, text=True, check=False)
+    try:
+        proc = subprocess.run(cmd, cwd=repo_root, capture_output=True, text=True, check=False)
+    except OSError as exc:
+        raise ConfigError(message("changes.pr-base-unresolved", pr=pr)) from exc
     base = proc.stdout.strip()
     if proc.returncode != 0 or not base:
         raise ConfigError(message("changes.pr-base-unresolved", pr=pr))
     return base
 
 
-def resolve_base_ref(*, base: str, repo_root: Path) -> str:
-    """`origin/<base>` after a best-effort fetch; ConfigError when it does not resolve."""
-    subprocess.run(["git", "fetch", "origin", base, "--quiet"], cwd=repo_root, capture_output=True, check=False)
+def _bounded_fetch(base: str, repo_root: Path, timeout: float) -> None:
+    """`git fetch origin <base>` in its own process group, the whole group killed after `timeout` seconds."""
+    env = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
+    try:
+        proc = subprocess.Popen(["git", "fetch", "origin", base, "--quiet"], cwd=repo_root, stdin=subprocess.DEVNULL,
+                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=env, start_new_session=True)
+    except OSError:
+        return
+    try:
+        proc.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        if hasattr(os, "killpg"):
+            with contextlib.suppress(ProcessLookupError):
+                os.killpg(proc.pid, signal.SIGKILL)
+        else:
+            proc.kill()
+        proc.wait()
+
+
+def resolve_base_ref(*, base: str, repo_root: Path, fetch_timeout: float | None = None) -> str:
+    """`origin/<base>` after a best-effort, bounded, non-prompting fetch; ConfigError when it does not resolve."""
+    _bounded_fetch(base, repo_root, base_fetch_timeout() if fetch_timeout is None else fetch_timeout)
     ref = f"origin/{base}"
     _git(["rev-parse", "--verify", "--quiet", ref], cwd=repo_root)
     return ref

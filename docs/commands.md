@@ -59,7 +59,8 @@ the missing baselines. Suppress a genuine false positive with `// @ts-expect-err
 
 ## Affected tests
 
-`la-affected-tests --base BRANCH` compares the working tree with `origin/BRANCH` (after a best-effort fetch) and
+`la-affected-tests --base BRANCH` compares the working tree with `origin/BRANCH` (after a best-effort fetch, killed after
+`base_fetch_timeout_seconds` in `shared/cli.yaml` and never prompting for credentials) and
 prints, one repo-relative path per line in code-point order, the test files the change can affect: the tests it
 added or changed (committed, staged, unstaged or untracked) and every test whose imports, type-only ones included,
 reach a changed or deleted file. Python imports resolve by dotted suffix against every file in the repo;

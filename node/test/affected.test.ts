@@ -6,9 +6,9 @@ import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, w
 import { tmpdir } from 'node:os';
 import { delimiter, dirname, join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { changedPaths, resolveBaseRef } from '../src/changes/index.js';
+import { changedPaths, prBaseBranch, resolveBaseRef } from '../src/changes/index.js';
 import { ConfigError } from '../src/config/index.js';
-import { contractHash, isTestFile, language, message, schema, validate } from '../src/contract/index.js';
+import { baseFetchTimeout, contractHash, isTestFile, language, message, schema, validate } from '../src/contract/index.js';
 import { VERSION } from '../src/index.js';
 import { run, tempRepo, type Run } from './cli-run.js';
 import { SHARED, loadYamlFile, vectors } from './helpers.js';
@@ -188,6 +188,59 @@ describe('setup and git failures', () => {
   it('a missing base ref', () => {
     const result = affected(repo(), '--base', 'nope');
     expect([result.code, result.out, result.err]).toEqual([2, '', 'la-affected-tests: git rev-parse --verify --quiet origin/nope failed\n']);
+  });
+
+  it('git missing from PATH', () => {
+    const root = repo();
+    process.env.PATH = mkdtempSync(join(tmpdir(), 'la-empty-'));
+    const result = affected(root, '--base', 'main');
+    expect([result.code, result.out, result.err]).toEqual([2, '', 'la-affected-tests: git rev-parse --verify --quiet origin/main failed\n']);
+  });
+
+  it.skipIf(process.platform === 'win32')('a stalled fetch is bounded, never prompts and leaves no helper behind', () => {
+    const root = repo();
+    const which = (tool: string): string => execFileSync('sh', ['-c', `command -v ${tool}`], { encoding: 'utf8' }).trim();
+    const fake = mkdtempSync(join(tmpdir(), 'la-slow-git-'));
+    writeFileSync(
+      join(fake, 'git'),
+      `#!/bin/sh\nif [ "$1" = fetch ]; then echo "$GIT_TERMINAL_PROMPT" > "${fake}/prompt"\n` +
+        `  "${which('sleep')}" 30 & echo $! > "${fake}/helper"; wait; fi\nexec "${which('git')}" "$@"\n`,
+    );
+    chmodSync(join(fake, 'git'), 0o755);
+    process.env.PATH = fake;
+    const start = Date.now();
+    expect(resolveBaseRef('main', root, 0.5)).toBe('origin/main');
+    const elapsed = Date.now() - start;
+    const helper = Number(readFileSync(join(fake, 'helper'), 'utf8'));
+    const alive = (): boolean => {
+      try {
+        process.kill(helper, 0);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+    const deadline = Date.now() + 5000;
+    while (alive() && Date.now() < deadline) execFileSync(which('sleep'), ['0.05']);
+    expect([elapsed < 10_000, readFileSync(join(fake, 'prompt'), 'utf8'), alive()]).toEqual([true, '0\n', false]);
+  });
+
+  it('the fetch timeout comes from the shared contract', () => {
+    expect(baseFetchTimeout()).toBe(30);
+  });
+
+  it('gh missing from PATH', () => {
+    const root = repo();
+    process.env.PATH = mkdtempSync(join(tmpdir(), 'la-empty-'));
+    expect(() => prBaseBranch('7', null, root)).toThrow(new ConfigError('could not resolve the base branch of PR 7'));
+  });
+
+  it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)('an unreadable importer fails', () => {
+    const root = repo();
+    write(root, { 'src/b.ts': 'export const b = 2;\n' });
+    chmodSync(join(root, 'src/a.ts'), 0);
+    const result = affected(root, '--base', 'main');
+    expect([...failure(result), result.err.includes('a.ts')]).toEqual([2, '', true, true]);
   });
 
   it('not a git repository', () => {

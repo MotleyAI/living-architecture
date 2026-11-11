@@ -68,6 +68,11 @@ def manifest() -> dict[str, Any]:
     return _yaml("cli.yaml")["commands"]
 
 
+def base_fetch_timeout() -> float:
+    """Seconds after which the best-effort fetch of a base branch is killed."""
+    return float(_yaml("cli.yaml")["base_fetch_timeout_seconds"])
+
+
 def language(name: str) -> dict[str, Any]:
     return _yaml("languages.yaml")[name]
 
