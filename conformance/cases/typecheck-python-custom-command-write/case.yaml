@@ -9,4 +9,4 @@ expect:
   files:
   - .basedpyright/baseline.json
 golden: manual
-note: 'a non-basedpyright Python command rejects --writebaseline: exit 2, nothing written'
+note: 'a non-basedpyright Python command rejects --writebaseline and loads no basedpyright: exit 2, nothing written'

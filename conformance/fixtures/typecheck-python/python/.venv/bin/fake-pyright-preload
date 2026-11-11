@@ -1,0 +1,9 @@
+#!/bin/sh
+# fake-pyright-preload <outcome> <version> <count>: asserts la set up its pyright#11919 preload, then records its result.
+case "$NODE_OPTIONS" in *'--require "'*'/living_architecture/lang/pyright_patch.cjs"') ;; *) echo "fake preload: NODE_OPTIONS is $NODE_OPTIONS" >&2; exit 99 ;; esac
+preload=${NODE_OPTIONS##*--require \"}
+[ -f "${preload%\"}" ] || { echo "fake preload: no file at ${preload%\"}" >&2; exit 99; }
+[ "$LA_PYRIGHT_PATCH_VERSIONS" = '["1.40.2"]' ] || { echo "fake preload: LA_PYRIGHT_PATCH_VERSIONS is $LA_PYRIGHT_PATCH_VERSIONS" >&2; exit 99; }
+case "$LA_PYRIGHT_PATCH_RESULT" in /*) ;; *) echo "fake preload: LA_PYRIGHT_PATCH_RESULT is $LA_PYRIGHT_PATCH_RESULT" >&2; exit 99 ;; esac
+[ -d "${LA_PYRIGHT_PATCH_RESULT%/*}" ] && [ ! -e "$LA_PYRIGHT_PATCH_RESULT" ] || { echo "fake preload: bad result path $LA_PYRIGHT_PATCH_RESULT" >&2; exit 99; }
+printf '{"outcome": "%s", "version": "%s", "count": %s}' "$1" "$2" "$3" > "$LA_PYRIGHT_PATCH_RESULT"

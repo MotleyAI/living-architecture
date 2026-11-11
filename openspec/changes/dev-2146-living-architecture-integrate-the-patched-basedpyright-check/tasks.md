@@ -24,7 +24,7 @@
 
 ## 1. Shared contract
 
-- [ ] 1.1 Add the python fact `checker_patch_versions: ['1.40.2']` to `shared/languages.yaml` and document it in the
+- [x] 1.1 Add the python fact `checker_patch_versions: ['1.40.2']` to `shared/languages.yaml` and document it in the
       header comment; add the three approved texts (design.md decision 17, verbatim) to `shared/findings.yaml`;
       extend the `commands.typecheck.python` description in `shared/schema/living-architecture.schema.json` (must
       run a verified basedpyright under Node and keep `NODE_OPTIONS`); run `scripts/sync-shared`; verify
@@ -32,21 +32,21 @@
 
 ## 2. Tests (pr-tests stage)
 
-- [ ] 2.1 Unit tests in `python/tests/test_typecheck.py` (or a new `test_pyright_patch.py`): child environment
+- [x] 2.1 Unit tests in `python/tests/test_typecheck.py` (or a new `test_pyright_patch.py`): child environment
       (appends to an inherited `NODE_OPTIONS`, quotes a preload path with spaces, sets both variables), result
       reading and the exit precedence above, write mode writes no baseline on a patch failure.
-- [ ] 2.2 Preload tests run under `nodejs_wheel`'s Node against fake bundle directories (`<pkg>/dist/pyright.js`
+- [x] 2.2 Preload tests run under `nodejs_wheel`'s Node against fake bundle directories (`<pkg>/dist/pyright.js`
       requiring nothing, defining the version module): verified + once → patched (the compiled code sees the
       condition replaced, the file on disk is unchanged); unlisted version (1.39.10) → `unverified`, Node exits
       non-zero; count 0 and 2 → `mismatch`; a `pyright.js` without the version module and an unrelated file → no
       result; a worker thread compiling the bundle is patched and writes nothing.
-- [ ] 2.3 Wheel test in `python/tests/test_packaging.py`: the built wheel contains the preload, and the installed
+- [x] 2.3 Wheel test in `python/tests/test_packaging.py`: the built wheel contains the preload, and the installed
       package locates it.
-- [ ] 2.4 Conformance: update every fake Python checker per the calibration note; add cases for not-applied,
+- [x] 2.4 Conformance: update every fake Python checker per the calibration note; add cases for not-applied,
       unverified, mismatch (with checker output relayed first), patched with new errors (exit 1), write mode
       refused on unverified (no baseline written), a preset `NODE_OPTIONS` kept first, and a mixed-repo patch
       failure run through both twins; list them in `conformance/INVENTORY.md`; each new findings text has a golden.
-- [ ] 2.5 Integration tests in `python/tests/integration/test_typecheck_real.py` with the real basedpyright
+- [x] 2.5 Integration tests in `python/tests/integration/test_typecheck_real.py` with the real basedpyright
       1.40.2: the minimal repro (`for k in ["a"]: assert k in d, k` then `x: str = d["a"]` with
       `d: dict[str, int]`) reports its error and exits 1; 13 copies with `--threads 4` in the command report 13
       errors; a wrapper command (a script in the temp repo that execs the venv's basedpyright) is patched; every

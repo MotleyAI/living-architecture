@@ -1,3 +1,4 @@
 la-typecheck: checking python with mypy src
 usage: mypy [-h] [-v] [-V] [more options; see below]
 mypy: error: unrecognized arguments: --writebaseline
+la-typecheck: python: mypy src loaded no basedpyright, so the pyright#11919 patch was not applied; run basedpyright under Node and keep NODE_OPTIONS

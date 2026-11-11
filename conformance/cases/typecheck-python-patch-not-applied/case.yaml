@@ -1,0 +1,9 @@
+kind: adapter
+languages:
+- python
+command: la-typecheck
+fixture: typecheck-python
+expect:
+  exit: 2
+golden: manual
+note: 'a command that clears NODE_OPTIONS loads no patched basedpyright: output relayed, then the not-applied text, exit 2'

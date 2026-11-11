@@ -2,6 +2,9 @@ kind: adapter
 languages:
 - python
 command: la-typecheck
+fixture: typecheck-python
+remove:
+- pyproject.toml
 expect:
   exit: 0
 golden: manual

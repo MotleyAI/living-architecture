@@ -1,0 +1,13 @@
+kind: adapter
+languages:
+- python
+command: la-typecheck
+args:
+- --write-baseline
+fixture: typecheck-python
+expect:
+  exit: 2
+  files:
+  - .basedpyright/baseline.json
+golden: manual
+note: 'write mode with an unverified basedpyright: exit 2 and no baseline written'

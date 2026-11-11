@@ -300,6 +300,9 @@ findings:
   typecheck.global-diagnostic: 'la-typecheck: {language}: the checker reported an error without a file'
   typecheck.checker-failed: 'la-typecheck: {language}: {command} exited {code} without a parsable diagnostic'
   typecheck.baseline-invalid: 'la-typecheck: {language}: {baseline} is malformed'
+  typecheck.patch-not-applied: 'la-typecheck: python: {command} loaded no basedpyright, so the pyright#11919 patch was not applied; run basedpyright under Node and keep NODE_OPTIONS'
+  typecheck.patch-unverified: 'la-typecheck: python: the pyright#11919 patch is verified for basedpyright {verified}, but {version} is installed; pin a verified version'
+  typecheck.patch-mismatch: 'la-typecheck: python: basedpyright {version} has the pyright#11919 line {count} times, not once; reinstall basedpyright'
 
   # ---- dr-refactor
   refactor.line-out-of-range: line {line} out of range (file has {count} lines)

@@ -1,0 +1,6 @@
+#!/bin/sh
+[ -d .git ] && [ -f pyproject.toml ] || { echo "fake basedpyright: not run at the repo root: $(pwd)" >&2; exit 99; }
+[ "$*" = "" ] || { echo "fake basedpyright: unexpected args: $*" >&2; exit 99; }
+echo "fake basedpyright: output before the refusal" >&2
+"$(dirname "$0")/fake-pyright-preload" mismatch 1.40.2 0 || exit 99
+exit 2
