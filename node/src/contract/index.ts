@@ -16,6 +16,7 @@ export {
   findings,
   language,
   languageIds,
+  isTestFile,
   languageOf,
   localConfigFile,
   manifest,

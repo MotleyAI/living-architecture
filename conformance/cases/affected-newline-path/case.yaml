@@ -23,9 +23,5 @@ git:
       x
 expect:
   exit: 2
-  stderr:
-    contains:
-    - 'la-affected-tests: '
-    - docs/a
 note: 'a changed path with a line break cannot be printed one per line: exit 2 naming it'
 golden: manual

@@ -43,6 +43,7 @@
     "dr-compliance": "dist/bin/dr-compliance.js",
     "dr-mock-lint": "dist/bin/dr-mock-lint.js",
     "dr-refactor": "dist/bin/dr-refactor.js",
+    "la-affected-tests": "dist/bin/la-affected-tests.js",
     "la-arch-check": "dist/bin/la-arch-check.js",
     "la-arch-diagrams": "dist/bin/la-arch-diagrams.js",
     "la-arch-migrate": "dist/bin/la-arch-migrate.js",

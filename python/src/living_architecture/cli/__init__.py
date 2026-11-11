@@ -8,7 +8,18 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import NoReturn
 
-from living_architecture import archcheck, c4, config, conventions, doctor, refactor, review, twin, typecheck
+from living_architecture import (
+    affected,
+    archcheck,
+    c4,
+    config,
+    conventions,
+    doctor,
+    refactor,
+    review,
+    twin,
+    typecheck,
+)
 from living_architecture.cli.parser import parse
 from living_architecture.contract import manifest
 
@@ -116,6 +127,16 @@ def la_typecheck(argv: list[str] | None = None) -> int:
         _argv(argv),
         lambda args: typecheck.run(cwd=Path.cwd(), write=args.write_baseline, language_id=args.language),
     )
+
+
+def _affected_tests(args: argparse.Namespace) -> int:
+    if args.base is None:
+        return affected.serve(args.language, cwd=Path.cwd())
+    return affected.run(base=args.base, cwd=Path.cwd())
+
+
+def la_affected_tests(argv: list[str] | None = None) -> int:
+    return _run("la-affected-tests", _argv(argv), _affected_tests)
 
 
 def la_fetch_coderabbit_threads(argv: list[str] | None = None) -> NoReturn:

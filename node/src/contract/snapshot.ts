@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { globMatch } from './glob.js';
 import { toPlain } from './values.js';
 import { loadYaml } from './yaml.js';
 
@@ -81,6 +82,12 @@ export function languageIds(): string[] {
 /** The registry language whose source extensions contain the path's extension, else null. */
 export function languageOf(path: string): string | null {
   return languageIds().find((id) => (language(id).source_extensions as string[]).some((ext) => path.endsWith(ext))) ?? null;
+}
+
+/** A path with a registry language's source extension matching that language's test globs. */
+export function isTestFile(rel: string): boolean {
+  const id = languageOf(rel);
+  return id !== null && (language(id).test_globs as string[]).some((glob) => globMatch(glob, rel));
 }
 
 export function conventions(): Record<string, any> {

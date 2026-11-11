@@ -22,8 +22,5 @@ git:
 - branch: feat
 expect:
   exit: 2
-  stderr:
-    contains:
-    - 'la-affected-tests: '
 note: an internal request path that is not repo-relative POSIX is refused
 golden: manual

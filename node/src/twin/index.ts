@@ -174,6 +174,22 @@ export function requestConventionsFacts(lang: string, cwd: string, paths: string
   return document.files;
 }
 
+/** `lang`'s affected tests for the change set, from its twin run at `repoRoot`; errors as `requestFacts`. */
+export function requestAffected(lang: string, changes: { path: string; deleted: boolean }[], repoRoot: string): string[] {
+  refuseIfForwarded(lang);
+  const [cmd = '', ...args] = launcher(lang, repoRoot)('la-affected-tests');
+  const proc = spawnTwin(lang, 'la-affected-tests', cmd, [...args, '--language', lang], {
+    cwd: repoRoot,
+    env: env(),
+    input: JSON.stringify({ changes }),
+    stdio: ['pipe', 'pipe', 'inherit'],
+    maxBuffer: 1 << 30,
+  });
+  const document = documentOf(proc, 'affected-response', lang);
+  if (document === null) throw new TwinError(hint('twin.facts-invalid', lang));
+  return document.tests;
+}
+
 /** `command --language lang ARGS` in the `lang` twin, streams relayed; its exit code (a signal: 2). */
 export function runLanguage(command: string, lang: string, args: string[], cwd: string, repoRoot: string): number {
   refuseIfForwarded(lang);

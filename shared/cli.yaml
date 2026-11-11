@@ -127,6 +127,17 @@ commands:
       - {name: --language, type: string, choices: [python, typescript], internal: true,
          help: check only this language}
 
+  la-affected-tests:
+    help: >-
+      Print the test files a change against a base branch can affect: the tests it added or changed and every
+      test whose imports reach a changed file. Never runs them.
+    exit: {0: ok, 2: 'usage, config or git error, other twin unreachable, or format refusal'}
+    options:
+      - {name: --base, type: string, help: base branch (compared as origin/BRANCH)}
+      - {name: --language, type: string, choices: [python, typescript], internal: true,
+         help: print this language's selection of the stdin JSON change list as JSON}
+    require_one_of: [base, language]
+
   la-fetch-coderabbit-threads:
     help: Fetch unresolved CodeRabbit review threads on a PR (bundled script).
     exit: {0: ok, 2: usage error}

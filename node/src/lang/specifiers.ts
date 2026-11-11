@@ -1,4 +1,4 @@
-// The module specifiers of a source file's runtime imports; type-only forms are excluded by syntax alone.
+// The module specifiers of a source file: its runtime imports (type-only forms excluded by syntax alone), or every import.
 import type * as TS from 'typescript';
 import { ts } from './ts.js';
 
@@ -48,6 +48,34 @@ export function runtimeSpecifiers(file: TS.SourceFile): TS.StringLiteral[] {
   const found: TS.StringLiteral[] = [];
   const visit = (node: TS.Node): void => {
     const spec = specifier(node);
+    if (spec !== undefined) found.push(spec);
+    ts().forEachChild(node, visit);
+  };
+  visit(file);
+  return found;
+}
+
+function anySpecifier(node: TS.Node): TS.StringLiteral | undefined {
+  if (ts().isImportDeclaration(node) || ts().isExportDeclaration(node)) {
+    const spec = node.moduleSpecifier;
+    return spec !== undefined && ts().isStringLiteral(spec) ? spec : undefined;
+  }
+  if (ts().isImportEqualsDeclaration(node)) {
+    const ref = node.moduleReference;
+    return ts().isExternalModuleReference(ref) && ts().isStringLiteral(ref.expression) ? ref.expression : undefined;
+  }
+  if (ts().isImportTypeNode(node)) {
+    const arg = node.argument;
+    return ts().isLiteralTypeNode(arg) && ts().isStringLiteral(arg.literal) ? arg.literal : undefined;
+  }
+  return ts().isCallExpression(node) ? callSpecifier(node) : undefined;
+}
+
+/** Specifier literals of every import form, type-only ones and `import('x')` types included. */
+export function allSpecifiers(file: TS.SourceFile): TS.StringLiteral[] {
+  const found: TS.StringLiteral[] = [];
+  const visit = (node: TS.Node): void => {
+    const spec = anySpecifier(node);
     if (spec !== undefined) found.push(spec);
     ts().forEachChild(node, visit);
   };

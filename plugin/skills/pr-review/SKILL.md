@@ -36,11 +36,15 @@ scope. Fix it, or, only for a genuine false positive, suppress it through that
 gate's sanctioned channel with a written reason. "It predates my change" / "the
 gate is still green overall" is NEVER a reason to skip a flagged item.**
 
+Never ask before pushing to this PR's own branch: push as soon as a batch is
+ready. Only opening a PR needs my approval.
+
 Split the gates into two tiers:
 
 - **Local gates** — fast, deterministic, need no push and no network trigger;
   run against the working tree / local diff:
-  - the repo's test command (`la-config get commands.test`; if unset, the repo's documented full non-integration suite) and the linter (`la-config get commands.lint`, else the
+  - the tests in the `/la:pr` local test scope (which includes every test CI
+    reported failing) and the linter (`la-config get commands.lint`, else the
     repo's usual linter);
   - conventions gate (`la-check-conventions <PR>`), handled as the
     `la:process-reviews` conventions gate section describes;

@@ -1,7 +1,7 @@
 // `la-check-conventions`: the deterministic conventions gate over a change's source files, every language.
-import { spawnSync } from 'node:child_process';
+import { changedPaths, prBaseBranch, resolveBaseRef } from '../changes/index.js';
 import { ConfigError, loadConfig } from '../config/index.js';
-import { byCodePoint, conventions, fixed1, fnmatch, globMatch, language, languageIds, message } from '../contract/index.js';
+import { byCodePoint, conventions, fixed1, fnmatch, isTestFile, language, languageIds, message } from '../contract/index.js';
 import { collect, FactsError, type Facts, languageOf } from './facts.js';
 
 const FAILURES = new Set(['unreadable', 'syntax-error']);
@@ -21,11 +21,6 @@ interface FileCounts {
 
 const out = (text: string): void => void process.stdout.write(`${text}\n`);
 const err = (text: string): void => void process.stderr.write(`${text}\n`);
-
-export function isTestFile(rel: string): boolean {
-  const id = languageOf(rel);
-  return id !== null && (language(id).test_globs as string[]).some((glob) => globMatch(glob, rel));
-}
 
 export function isExcluded(rel: string, patterns: string[]): boolean {
   return patterns.some((pattern) => fnmatch(rel, pattern));
@@ -69,39 +64,11 @@ function violations(entry: Facts, rules: string[]): Violation[] {
     .map((d) => ({ path: rel, line: d.line, rule: d.rule, message: message(d.message_id, d.values) }));
 }
 
-function git(args: string[], cwd: string): string {
-  const proc = spawnSync('git', args, { cwd, maxBuffer: 1 << 30 });
-  if (proc.status !== 0) {
-    const detail = proc.stderr?.toString('utf8').trim() ?? '';
-    throw new ConfigError(detail || message('conventions.git-failed', { args: args.join(' ') }));
-  }
-  return proc.stdout.toString('utf8');
-}
-
 /** Changed files with a known extension: merge-base committed diff plus working-tree edits, sorted. */
-export function changedSourceFiles(baseRef: string, repoRoot: string): string[] {
-  const found = new Set<string>();
-  for (const target of [`${baseRef}...HEAD`, 'HEAD']) {
-    for (const path of git(['diff', '--name-only', '-z', '--diff-filter=ACMR', target], repoRoot).split('\0')) {
-      if (path && languageOf(path) !== null) found.add(path);
-    }
-  }
-  return [...found].sort(byCodePoint);
-}
-
-/** `origin/<branch>` for --base, or for the PR's base branch; best-effort fetch first. */
-export function resolveBaseRef(pr: string | null, repo: string | null, base: string | null, repoRoot: string): string {
-  let branch = base;
-  if (branch === null) {
-    const cmd = ['pr', 'view', String(pr), '--json', 'baseRefName', '--jq', '.baseRefName', ...(repo ? ['--repo', repo] : [])];
-    const proc = spawnSync('gh', cmd, { cwd: repoRoot, encoding: 'utf8' });
-    branch = (proc.stdout ?? '').trim();
-    if (proc.status !== 0 || !branch) throw new ConfigError(message('conventions.pr-base-unresolved', { pr }));
-  }
-  spawnSync('git', ['fetch', 'origin', branch, '--quiet'], { cwd: repoRoot, stdio: 'ignore' });
-  const ref = `origin/${branch}`;
-  git(['rev-parse', '--verify', '--quiet', ref], repoRoot);
-  return ref;
+function changedSourceFiles(options: GateOptions): string[] {
+  const base = options.base ?? prBaseBranch(options.pr, options.repo, options.repoRoot);
+  const baseRef = resolveBaseRef(base, options.repoRoot);
+  return changedPaths({ baseRef, repoRoot: options.repoRoot, deletions: false, untracked: false }).filter((path) => languageOf(path) !== null);
 }
 
 const pct = (text: number, total: number): string => fixed1((100 * text) / total);
@@ -174,7 +141,7 @@ export function checkConventions(options: GateOptions): number {
   let rels: string[];
   try {
     config = loadConfig(repoRoot);
-    rels = files.length > 0 ? files : changedSourceFiles(resolveBaseRef(options.pr, options.repo, options.base, repoRoot), repoRoot);
+    rels = files.length > 0 ? files : changedSourceFiles(options);
   } catch (error) {
     if (!(error instanceof ConfigError)) throw error;
     err(message('conventions.error', { error: error.message }));

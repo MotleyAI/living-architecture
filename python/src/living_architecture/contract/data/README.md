@@ -9,6 +9,7 @@ The source of truth both twins obey. Each package vendors a byte-copy of this di
 | `schema/index.schema.json` | the `architecture/index.yaml` shape |
 | `schema/node.schema.json` | a node's `metadata { }` block in the LikeC4 model |
 | `schema/facts.schema.json` | one language's architecture facts, as one twin hands them to the other |
+| `schema/affected-request.schema.json`, `schema/affected-response.schema.json` | the change set one twin hands the other for `la-affected-tests`, and that language's selected tests |
 | `findings.yaml` | every finding, verdict and hint, by id; the arch-check ids |
 | `cli.yaml` | every command's options, positionals, subcommands, exit codes and native languages |
 | `conventions.yaml` | conventions-gate rules and the waiver syntax |

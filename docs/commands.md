@@ -13,6 +13,7 @@ The skills drive these commands; you can also run them directly. `<command> --he
 | `la-check-conventions <PR>` / `--base BRANCH` | Imports-at-top, text-ratio and test-assertion gate on changed `.py` and TS/JS files |
 | `la-count-comments` | Count comment and doc (docstring, JSDoc) lines, or the net change vs a git ref |
 | `la-typecheck [--write-baseline]` | Type-check each applicable language against a baseline that only shrinks |
+| `la-affected-tests --base BRANCH` | Print the test files a change can affect, one per line, without running them |
 | `la-pr-reviewers <PR>` | Which review bots ran on a PR (CodeRabbit, Sonar and its project key), as JSON |
 | `la-wait-for-reviews <PR>` | Wait for CI and, when it is on the PR, the CodeRabbit review to settle |
 | `la-fetch-failed-pr-checks <PR>` | Failed checks plus a log excerpt of each |
@@ -55,6 +56,20 @@ Waive a flagged line with `# ALLOW(<rule>): <reason>` or `// ALLOW(<rule>): <rea
 errors. New errors exit 1; fixed ones shrink the baseline. Run `la-typecheck --write-baseline` once to create
 the missing baselines. Suppress a genuine false positive with `// @ts-expect-error — <reason>`, never
 `@ts-ignore`.
+
+## Affected tests
+
+`la-affected-tests --base BRANCH` compares the working tree with `origin/BRANCH` (after a best-effort fetch) and
+prints, one repo-relative path per line in code-point order, the test files the change can affect: the tests it
+added or changed (committed, staged, unstaged or untracked) and every test whose imports, type-only ones included,
+reach a changed or deleted file. Python imports resolve by dotted suffix against every file in the repo;
+TypeScript ones under each file's nearest `tsconfig.json`. It needs no architecture index or config, never runs
+a test, and exits 0 even when nothing is selected. A change touching both languages needs both twins.
+
+The selection is exact only for imports. Goldens, snapshots, data files read at runtime, fixtures and conftest
+fan-out, dynamic imports and code run in a subprocess are left to judgement; the `/la:pr` skills add them to the
+local test scope and leave the full suite to CI. Printed helpers and fixtures that match a test glob are not
+filtered out.
 
 ## Architecture checks in CI
 

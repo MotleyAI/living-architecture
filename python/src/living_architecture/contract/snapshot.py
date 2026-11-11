@@ -8,6 +8,7 @@ from functools import cache
 from pathlib import Path
 from typing import Any
 
+from living_architecture.contract.glob import glob_match
 from living_architecture.contract.yaml_profile import load_yaml
 
 HASH_FILE = "CONTRACT_HASH"
@@ -82,6 +83,12 @@ def language_of(path: str) -> str | None:
         if any(path.endswith(ext) for ext in language(lang_id)["source_extensions"]):
             return lang_id
     return None
+
+
+def is_test_file(path: str) -> bool:
+    """The path has a registry language's source extension and matches that language's test globs."""
+    lang_id = language_of(path)
+    return lang_id is not None and any(glob_match(g, path) for g in language(lang_id)["test_globs"])
 
 
 def conventions() -> dict[str, Any]:

@@ -180,6 +180,19 @@ def request_conventions_facts(lang: str, *, cwd: Path, paths: list[str], repo_ro
     return document["files"]
 
 
+def request_affected(lang: str, changes: list[dict[str, Any]], *, repo_root: Path) -> list[str]:
+    """`lang`'s selected tests for the change list, from its twin run at the repo root; errors as `request_facts`."""
+    refuse_if_forwarded(lang)
+    argv = [*_launcher(lang, repo_root).argv("la-affected-tests"), "--language", lang]
+    sys.stdout.flush()
+    sys.stderr.flush()
+    stdin = json.dumps({"changes": changes}).encode("utf-8")
+    document = _document(_run(lang, "la-affected-tests", argv, cwd=repo_root, stdin=stdin, capture=True), "affected-response", lang)
+    if document is None:
+        raise TwinError(_hint("twin.facts-invalid", lang))
+    return document["tests"]
+
+
 def run_language(command: str, lang: str, args: list[str], *, cwd: Path, repo_root: Path) -> int:
     """`command --language lang ARGS` in the `lang` twin, streams relayed; its exit code (a signal: 2)."""
     refuse_if_forwarded(lang)

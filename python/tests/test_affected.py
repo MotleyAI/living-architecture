@@ -263,14 +263,16 @@ def test_data_change_in_a_repo_with_typescript_needs_the_npm_twin(repo, capsys, 
 def _stub_twin(directory: Path, response: str) -> Path:
     """An npm twin whose `la-affected-tests` records its argv, stdin and LA_FORWARDED, then prints `response`."""
     directory.mkdir()
+    cat = shutil.which("cat")
+    assert cat is not None
     doctor = directory / "la-doctor"
     doctor.write_text(f"#!/bin/sh\necho '{TYPESCRIPT_IDENTITY}'\n")
     affected = directory / "la-affected-tests"
     affected.write_text(
         "#!/bin/sh\n"
         f'echo "$* $LA_FORWARDED" > "{directory}/argv"\n'
-        f'cat > "{directory}/stdin"\n'
-        f"cat <<'EOF'\n{response}\nEOF\n"
+        f'{cat} > "{directory}/stdin"\n'
+        f"{cat} <<'EOF'\n{response}\nEOF\n"
     )
     for path in (doctor, affected):
         path.chmod(0o755)

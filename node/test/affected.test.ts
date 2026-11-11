@@ -23,6 +23,7 @@ const BASE = {
 };
 const JSON_TSCONFIG = '{"compilerOptions": {"module": "esnext", "moduleResolution": "bundler", "resolveJsonModule": true}}\n';
 const savedPath = process.env.PATH;
+const CAT = execFileSync('sh', ['-c', 'command -v cat'], { encoding: 'utf8' }).trim();
 
 afterEach(() => {
   process.env.PATH = savedPath;
@@ -228,7 +229,7 @@ describe('the other language', () => {
     writeFileSync(doctor, `#!/bin/sh\necho '${PYTHON_IDENTITY}'\n`);
     writeFileSync(
       command,
-      `#!/bin/sh\necho "$* $LA_FORWARDED" > '${dir}/argv'\ncat > '${dir}/stdin'\ncat <<'EOF'\n${response}\nEOF\n`,
+      `#!/bin/sh\necho "$* $LA_FORWARDED" > '${dir}/argv'\n${CAT} > '${dir}/stdin'\n${CAT} <<'EOF'\n${response}\nEOF\n`,
     );
     chmodSync(doctor, 0o755);
     chmodSync(command, 0o755);
@@ -307,7 +308,8 @@ describe('changes', () => {
   });
 
   it('a missing base ref is a ConfigError with the shared text', () => {
-    expect(() => resolveBaseRef('nope', repo())).toThrow(new ConfigError('git rev-parse --verify --quiet origin/nope failed'));
+    const root = repo();
+    expect(() => resolveBaseRef('nope', root)).toThrow(new ConfigError('git rev-parse --verify --quiet origin/nope failed'));
   });
 
   it('lists without deletions or untracked files', () => {

@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "affected-response.schema.json",
+  "title": "la-affected-tests --language L stdout",
+  "description": "One language's selected test files for an affected-request change set, as a twin hands them back, with its identity.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["language", "version", "contract_hash", "tests"],
+  "properties": {
+    "language": {"enum": ["python", "typescript"]},
+    "version": {"type": "string"},
+    "contract_hash": {"type": "string"},
+    "tests": {"type": "array", "items": {"$ref": "affected-request.schema.json#/$defs/path"}}
+  }
+}
