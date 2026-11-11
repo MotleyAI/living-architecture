@@ -3,14 +3,17 @@
 # ids; `declaration_globs` and `excluded_dirs` (directory names) are never expanded or checked by dr-*; `local_bin`
 # is where the repo installs its checker; `baseline_file` is the checker's committed baseline. `runner` runs a command through the language's twin at `{version}` (the command is
 # appended); `install` is the hint shown when that twin is unreachable; `unit_separator` joins a unit's
-# segments (`pkg.api`, `src/api`). `checker_patch_versions` (python) lists the basedpyright versions la-typecheck's
-# pyright#11919 patch is verified for; any other installed version is refused. Test globs use the contract glob dialect (contract README: matched against the POSIX
-# repo-relative path; case-sensitive; `*` stays within one segment; `**` is zero or more whole segments).
+# segments (`pkg.api`, `src/api`); `imports_non_source` means its imports can reach files of no language (JSON
+# modules), so la-affected-tests computes it for a change to such a file. `checker_patch_versions` (python) lists
+# the basedpyright versions la-typecheck's pyright#11919 patch is verified for; any other installed version is
+# refused. Test globs use the contract glob dialect (contract README: matched against the POSIX repo-relative
+# path; case-sensitive; `*` stays within one segment; `**` is zero or more whole segments).
 
 python:
   markers: [pyproject.toml, setup.py]
   source_extensions: [.py]
   files_label: .py
+  imports_non_source: false
   unit_separator: .
   test_globs:
     - '**/tests/**/*'
@@ -34,6 +37,7 @@ typescript:
   markers: [tsconfig.json]
   source_extensions: [.ts, .tsx, .mts, .cts, .js, .jsx, .mjs, .cjs]
   files_label: TS/JS
+  imports_non_source: true
   unit_separator: /
   test_globs:
     - '**/*.test.*'

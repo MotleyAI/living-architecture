@@ -46,15 +46,6 @@ def test_test_only_rules(tmp_path):
     assert _violations(tmp_path, src, rel="pkg/x.py") == []
 
 
-@pytest.mark.parametrize(
-    ("rel", "expected"),
-    [("tests/a.py", True), ("pkg/test_a.py", True), ("pkg/a_test.py", True), ("conftest.py", True),
-     ("pkg/a.py", False)],
-)
-def test_is_test_file(rel, expected):
-    assert conventions.is_test_file(rel) is expected
-
-
 def test_syntax_error_reported(tmp_path):
     assert _violations(tmp_path, "def (:\n") == ["1:syntax-error"]
 

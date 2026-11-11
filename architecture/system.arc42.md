@@ -25,6 +25,8 @@ flowchart TD
   refactor["Deterministic refactoring"]
   twin["Twin forwarding"]
   typecheck["Type check"]
+  changes["Change set"]
+  affected["Affected tests"]
   cli --> contract
   cli --> config
   cli --> archcheck
@@ -58,6 +60,15 @@ flowchart TD
   conventions --> twin
   refactor --> config
   refactor --> twin
+  cli --> affected
+  affected --> changes
+  affected --> lang
+  affected --> config
+  affected --> contract
+  affected --> twin
+  conventions --> changes
+  changes --> config
+  changes --> contract
 ```
 <!-- /likec4:system -->
 
@@ -77,6 +88,8 @@ flowchart TD
   conventions["Conventions and comments"]
   typecheck["Type check"]
   refactor["Deterministic refactoring"]
+  changes["Change set"]
+  affected["Affected tests"]
   cli --> contract
   cli --> config
   cli --> archcheck
@@ -112,6 +125,15 @@ flowchart TD
   refactor --> lang
   refactor --> config
   refactor --> twin
+  cli --> affected
+  affected --> changes
+  affected --> lang
+  affected --> config
+  affected --> contract
+  affected --> twin
+  conventions --> changes
+  changes --> config
+  changes --> contract
 ```
 <!-- /likec4:npm -->
 

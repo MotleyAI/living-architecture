@@ -302,6 +302,21 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | *(new)* `conventions.rules` on TS/JS files: one rule dropped, test-only rules dropped, `expect(a && b)` with only text-ratio, `[]`, unconfigured-rule waiver, default | 1/0 | `conventions-rules-ts-one-rule-dropped`, `conventions-rules-ts-test-only-dropped`, `conventions-rules-ts-test-file`, `conventions-rules-ts-gate-off`, `conventions-rules-ts-waiver-unconfigured`, `conventions-rules-ts-default` |
 | *(new)* `conventions.rules` on TS/JS file errors: none reported with `[]`, syntax-error reported with text-ratio | 0/1 | `conventions-rules-ts-file-errors-gate-off`, `conventions-rules-ts-syntax-error-rule-on` |
 
+## la-affected-tests
+
+| Branch | Exit | Cases |
+|---|---|---|
+| *(new)* nothing changed; only a non-source file changed in a repo without TypeScript files: empty stdout | 0 | `affected-no-changes`, `affected-non-source-only` |
+| *(new)* changed tests: committed, staged-only, unstaged-only, untracked (an ignored one left out); a deleted test not printed | 0 | `affected-py-changed-test-only`, `affected-ts-changed-test-only`, `affected-py-staged-and-unstaged`, `affected-py-untracked-and-ignored`, `affected-py-deleted-test` |
+| *(new)* import reach: transitive with an unrelated test absent, a changed test helper, a type-only edge, a cycle, a deleted or renamed module still imported | 0 | `affected-py-transitive`, `affected-ts-transitive`, `affected-py-changed-helper`, `affected-py-type-only-edge`, `affected-ts-type-only-edge`, `affected-py-cycle`, `affected-py-deleted-module`, `affected-ts-deleted-module`, `affected-py-rename` |
+| *(new)* Python resolution: the same module under two roots, a parent package initializer, a relative import in a package initializer, a file the interpreter cannot parse | 0 | `affected-py-same-module-two-roots`, `affected-py-parent-init`, `affected-py-relative-from-init`, `affected-py-relative-from-init-sibling`, `affected-py-unparseable-test` |
+| *(new)* TypeScript resolution: a paths alias, a JSON-only change (`imports_non_source`), a deleted JSON module still imported, a deleted directory index | 0 | `affected-ts-path-alias`, `affected-ts-json-module`, `affected-ts-deleted-json-module`, `affected-ts-deleted-directory-index` |
+| *(new)* output independent of the working directory and of an architecture index; real names in code-point order; a base branch with a slash | 0 | `affected-py-nested-cwd`, `affected-py-with-architecture-index`, `affected-py-unusual-names`, `affected-py-base-branch-with-slash` |
+| *(new)* both languages: the union, identical through either twin | 0 | `affected-two-languages` |
+| *(new)* missing `--base`; base ref missing; not a git repo; unborn HEAD; a changed path with a line break: exit 2, empty stdout | 2 | `affected-usage-no-base`, `affected-base-ref-missing`, `affected-not-a-git-repo`, `affected-unborn-head`, `affected-newline-path` |
+| *(new)* internal request (`--language L`, change list on stdin): the native selection as a JSON response, also with `--base`; another language or an unsafe path refused | 0/2 | `affected-internal-request-python`, `affected-internal-request-typescript`, `affected-internal-request-with-base-python`, `affected-internal-request-with-base-typescript`, `affected-internal-request-non-native-python`, `affected-internal-request-non-native-typescript`, `affected-internal-request-unsafe-path-python`, `affected-internal-request-unsafe-path-typescript` |
+| *(new)* the other twin: never probed for an own-language change; its selection unioned; unreachable or an invalid response: exit 2, empty stdout | 0/2 | `twin-affected-own-language-python`, `twin-affected-own-language-typescript`, `twin-affected-folded-python`, `twin-affected-folded-typescript`, `twin-affected-unavailable`, `twin-affected-response-invalid-python`, `twin-affected-response-invalid-typescript` |
+
 ## la-count-comments
 
 | Branch | Exit | Cases |

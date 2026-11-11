@@ -1,5 +1,6 @@
-"""The Python language adapter: units, import targets, conventions facts, the basedpyright specifics."""
+"""The Python language adapter: units, import targets, dependency edges, conventions facts, the basedpyright specifics."""
 
+from living_architecture.lang.edges import dependency_edges
 from living_architecture.lang.source import (
     Detection,
     ParseFailure,
@@ -37,6 +38,7 @@ __all__ = [
     "basedpyright_exit",
     "comment_doc_counts",
     "conventions_facts",
+    "dependency_edges",
     "empty_basedpyright_baseline",
     "import_targets",
     "pyright_patch_env",

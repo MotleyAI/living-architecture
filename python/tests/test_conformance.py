@@ -48,7 +48,8 @@ MANIFEST = yaml.safe_load((REPO_ROOT / "shared" / "cli.yaml").read_text(encoding
 _ALWAYS_HIDDEN = {*MANIFEST, "npx", "uvx"}
 FIXED_DATE = "2026-01-01T00:00:00+00:00"
 _COMMAND_PREFIXES = {
-    "arch", "config", "doctor", "conventions", "count", "compliance", "mock", "refactor", "shim", "twin", "typecheck"
+    "affected", "arch", "config", "doctor", "conventions", "count", "compliance", "mock", "refactor", "shim", "twin",
+    "typecheck",
 }
 
 class CaseResult:
@@ -139,6 +140,8 @@ def _apply_step(step: dict, *, repo: Path, root: Path, env: dict[str, str]) -> N
         _git(repo, env, "checkout", "-q", "-b", arg)
     elif op == "checkout":
         _git(repo, env, "checkout", "-q", arg)
+    elif op == "orphan":
+        _git(repo, env, "checkout", "-q", "--orphan", arg)
     elif op == "stage":
         _git(repo, env, "add", "--", *arg)
     elif op == "delete":
@@ -609,6 +612,16 @@ def test_format_is_read_only_when_a_placeholder_needs_it(tmp_path: Path, monkeyp
     (case_dir / "repo" / "living-architecture.yaml").write_bytes(b"\xff tracker: linear\n")
     repo, _ = materialize(case_dir, _case(git=[{"write": {"a.txt": "a\n"}}]), tmp_path / "run", NEUTRAL)
     assert (repo / "living-architecture.yaml").read_bytes() == b"\xff tracker: linear\n"
+
+
+def test_orphan_step_leaves_head_unborn_with_the_index_kept(tmp_path: Path) -> None:
+    case_dir = tmp_path / "cases" / "orphan"
+    case_dir.mkdir(parents=True)
+    steps = [{"write": {"a.txt": "a\n"}}, {"commit": "init"}, {"orphan": "fresh"}]
+    repo, env = materialize(case_dir, _case(git=steps), tmp_path / "run", NEUTRAL)
+    head = subprocess.run(["git", "rev-parse", "--verify", "-q", "HEAD"], cwd=repo, env=env, capture_output=True, check=False)
+    staged = subprocess.run(["git", "ls-files"], cwd=repo, env=env, capture_output=True, text=True, check=True).stdout
+    assert (head.returncode, staged) == (1, "a.txt\n")
 
 
 @pytest.mark.parametrize("case_dir", CASES, ids=lambda p: p.name)

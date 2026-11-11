@@ -1,0 +1,25 @@
+kind: neutral
+command: la-affected-tests
+args: []
+git:
+- write:
+    src/pkg/__init__.py: ''
+    src/pkg/a.py: |
+      from pkg import b
+    src/pkg/b.py: |
+      X = 1
+    tests/test_a.py: |
+      import pkg.a
+    tests/test_c.py: |
+      import os
+- commit: init
+- origin:
+  - main
+- branch: feat
+expect:
+  exit: 2
+  stderr:
+    contains:
+    - la-affected-tests
+note: --base is required for a public invocation
+golden: manual

@@ -31,7 +31,7 @@ branch and dispatches to it:
 |---|---|
 | 1. Plan | Interviews you, knowing the code, to find the edge cases and the interactions with the rest of it. Names the principles that apply. Codex reviews the plan, and it is written as a validated OpenSpec change: proposal, design, tasks and scenarios. |
 | 2. Tests | Writes failing tests from the plan's scenarios. Codex reviews them for completeness against the plan. |
-| 3. Implement | Implements until every test passes, then commits, pushes and opens the PR on your go-ahead. If the plan turns out wrong, it stops and asks: the plan has the status of the tests. |
+| 3. Implement | Implements until every test passes, then commits and pushes, and opens the PR on your go-ahead. If the plan turns out wrong, it stops and asks: the plan has the status of the tests. |
 | 4. Review | Loops the deterministic gates (conventions, type check, architecture), CI, CodeRabbit, Sonar and Codex, triaging and fixing every finding until all of them are clean. Then archives the OpenSpec change on your go-ahead. |
 
 Every stage ends at a hard stop, so you can reset the session between stages: everything the next stage needs is
@@ -138,10 +138,10 @@ Pin the check in CI to a release, in your ecosystem's form:
 ```yaml
 # Python
 - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-- run: uvx --no-build --from living-architecture==0.5.0 la-arch-check
+- run: uvx --no-build --from living-architecture==0.6.0 la-arch-check
 # TypeScript
 - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-- run: npx -y -p living-architecture@0.5.0 la-arch-check
+- run: npx -y -p living-architecture@0.6.0 la-arch-check
 ```
 
 When you move the pin to a release with a newer repo format, first run that release's `la-arch-migrate` and commit

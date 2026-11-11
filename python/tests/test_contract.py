@@ -16,6 +16,7 @@ from pathlib import Path
 import pytest
 import yaml
 
+from living_architecture import contract
 from living_architecture.contract import (
     DuplicateKeyError,
     YAMLError,
@@ -50,6 +51,8 @@ SHARED_FILES = (
     "schema/node.schema.json",
     "schema/facts.schema.json",
     "schema/conventions-facts.schema.json",
+    "schema/affected-request.schema.json",
+    "schema/affected-response.schema.json",
     "findings.yaml",
     "cli.yaml",
     "conventions.yaml",
@@ -390,6 +393,26 @@ def test_python_test_globs_reproduce_classification(vector: dict) -> None:
 def test_typescript_test_globs_classify(vector: dict) -> None:
     globs = _shared_yaml("languages.yaml")["typescript"]["test_globs"]
     assert any(glob_match(g, vector["path"]) for g in globs) is vector["test"]
+
+
+@pytest.mark.parametrize(
+    ("language", "vector"),
+    [(lang, v) for lang in ("python", "typescript") for v in _vectors("test-files.yaml")[lang]],
+    ids=lambda v: v if isinstance(v, str) else v["path"],
+)
+def test_is_test_file_reproduces_the_vectors(language: str, vector: dict) -> None:
+    extensions = _shared_yaml("languages.yaml")[language]["source_extensions"]
+    expected = vector["test"] and any(vector["path"].endswith(ext) for ext in extensions)
+    assert contract.is_test_file(vector["path"]) is expected
+
+
+@pytest.mark.parametrize(
+    ("rel", "expected"),
+    [("tests/a.py", True), ("pkg/test_a.py", True), ("pkg/a_test.py", True), ("conftest.py", True),
+     ("pkg/a.py", False), ("tests/data.json", False), ("web/a.test.ts", True), ("web/a.ts", False)],
+)
+def test_is_test_file(rel: str, expected: bool) -> None:
+    assert contract.is_test_file(rel) is expected
 
 
 @pytest.mark.parametrize("tag", ["", "!!int "])

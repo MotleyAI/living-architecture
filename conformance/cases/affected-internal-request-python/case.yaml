@@ -1,0 +1,29 @@
+kind: adapter
+languages:
+- python
+twin: python
+stdin: '{"changes": [{"path": "src/pkg/b.py", "deleted": false}]}'
+command: la-affected-tests
+args:
+- --language
+- python
+git:
+- write:
+    src/pkg/__init__.py: ''
+    src/pkg/a.py: |
+      from pkg import b
+    src/pkg/b.py: |
+      X = 1
+    tests/test_a.py: |
+      import pkg.a
+    tests/test_c.py: |
+      import os
+- commit: init
+- origin:
+  - main
+- branch: feat
+expect:
+  exit: 0
+  stdout: json
+note: 'the internal request: the stdin change list''s selection of the native language as a JSON response with the twin''s identity'
+golden: manual

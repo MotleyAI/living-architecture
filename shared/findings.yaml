@@ -261,8 +261,6 @@ findings:
   conventions.label-separator: ' and '
   conventions.empty-label: source
   conventions.error: 'la-check-conventions: {error}'
-  conventions.pr-base-unresolved: could not resolve the base branch of PR {pr}
-  conventions.git-failed: git {args} failed
   conventions.clear: 'gate: CLEAR — conventions hold on the PR''s modified {label} files.'
   conventions.red: |-
 
@@ -275,6 +273,15 @@ findings:
   # The RED verdict's {waivers}: one example per checked language's comment prefix, joined with the separator.
   conventions.waiver-example: '''{prefix} ALLOW(import-not-top): <reason>'''
   conventions.waiver-separator: ' or '
+
+  # ---- the change set (la-check-conventions, la-affected-tests)
+  changes.pr-base-unresolved: could not resolve the base branch of PR {pr}
+  changes.git-failed: git {args} failed
+
+  # ---- la-affected-tests
+  affected.error: 'la-affected-tests: {error}'
+  affected.unrepresentable-path: 'a path that is not UTF-8 or holds a line break cannot be printed one per line: {path!r}'
+  affected.request-invalid: 'stdin must be a JSON change list (affected-request schema)'
 
   # ---- la-count-comments
   count-comments.file: '{total}  comment={comment} doc={doc}  {path}'
