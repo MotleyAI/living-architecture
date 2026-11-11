@@ -70,6 +70,8 @@ which needs Node 22 or later. On the runner's older default Node it crashes (on 
 - `la-typecheck` needs the checker and the project's dependencies, so the install must include the checker:
   declare `basedpyright` and `typescript` as dev dependencies. It looks for the checker in `.venv/bin` or
   `node_modules/.bin` at the repo root, then on `PATH`.
+- Pin `basedpyright` to a version la has verified its pyright#11919 patch for (today `1.40.2`). `la-typecheck`
+  applies the patch in memory and exits 2 on any other version.
 
 ## Poetry and projects outside the repo root
 
@@ -81,7 +83,8 @@ which needs Node 22 or later. On the runner's older default Node it crashes (on 
   (`uv run --project backend basedpyright -p backend --baselinefile .basedpyright/baseline.json`), or give the
   checker's path (`web/node_modules/.bin/tsc -p web --noEmit`); a path is resolved from the repo root. With `-p`,
   basedpyright keeps its baseline in that directory unless `--baselinefile` points it to the repo root, where
-  `la-typecheck` expects it.
+  `la-typecheck` expects it. A Python command must run basedpyright under Node and keep `NODE_OPTIONS`, which
+  carries la's patch.
 - Or put the environment's `bin` directory on `PATH` for later CI steps, for example
   `echo "$PWD/backend/.venv/bin" >> "$GITHUB_PATH"`. For Poetry, `poetry env info --path` prints the
   environment's directory.

@@ -54,21 +54,21 @@
 
 ## 3. Implementation
 
-- [ ] 3.1 Add the preload `.cjs` to `python/src/living_architecture/lang/` as package data, with a forward-pointer
+- [x] 3.1 Add the preload `.cjs` to `python/src/living_architecture/lang/` as package data, with a forward-pointer
       comment to microsoft/pyright#11919 for its removal; verify 2.2 and 2.3 pass.
-- [ ] 3.2 Add the patch environment and result reading to `lang/typecheck.py`, export them from `lang`, and wire
+- [x] 3.2 Add the patch environment and result reading to `lang/typecheck.py`, export them from `lang`, and wire
       them into `_run_python` in `typecheck/__init__.py`; verify 2.1 and 2.4 pass, and the integration tests 2.5
       pass with `uv run pytest -m integration`.
-- [ ] 3.3 Pin `basedpyright==1.40.2` in `python/pyproject.toml` (dev group and the `verify` extra), refresh
+- [x] 3.3 Pin `basedpyright==1.40.2` in `python/pyproject.toml` (dev group and the `verify` extra), refresh
       `python/uv.lock` with `uv lock`; verify `uv run basedpyright --version` reports 1.40.2 and
       `la-typecheck` passes on this repo.
-- [ ] 3.4 Update `docs/ci.md`, `docs/configuration.md`, `docs/commands.md` and `plugin/languages/python.md`:
+- [x] 3.4 Update `docs/ci.md`, `docs/configuration.md`, `docs/commands.md` and `plugin/languages/python.md`:
       pin basedpyright to a verified version; la applies the pyright#11919 patch in memory; the command must run
       basedpyright under Node and keep `NODE_OPTIONS`; verify `test_skills.py` and `test_how_it_works.py` pass.
 
 ## 4. Verification
 
-- [ ] 4.1 Python twin: `uv run pytest -q`, `uv run ruff check src tests`, `uv run basedpyright src tests`; npm
+- [x] 4.1 Python twin: `uv run pytest -q`, `uv run ruff check src tests`, `uv run basedpyright src tests`; npm
       twin: `npm run lint && npm run typecheck`, `npm test`, `npm run build && npm run conformance`;
       `scripts/conformance-cross`; `scripts/sync-shared --check`.
-- [ ] 4.2 Enforcement bundle: `la-arch-check`, `npx likec4 validate architecture`, `la-typecheck` all green.
+- [x] 4.2 Enforcement bundle: `la-arch-check`, `npx likec4 validate architecture`, `la-typecheck` all green.

@@ -50,8 +50,10 @@ enforced rules with `conventions.rules`. An explicit path with an unknown extens
 Waive a flagged line with `# ALLOW(<rule>): <reason>` or `// ALLOW(<rule>): <reason>`.
 
 `la-typecheck` checks every repo language whose `commands.typecheck` entry is not `null`. The checker is looked up in `.venv/bin` or
-`node_modules/.bin` first, then on `PATH`. Python keeps basedpyright's own baseline; TypeScript keeps
-`.tsc-baseline.json`, a multiset of diagnostics keyed by file, code and message, so moved lines are not new
+`node_modules/.bin` first, then on `PATH`. For Python it patches basedpyright in memory against pyright#11919,
+whose dropped diagnostics depend on file order and thread count; the command must run a verified basedpyright
+(today `1.40.2`) under Node and keep `NODE_OPTIONS`, else the run exits 2. Python keeps basedpyright's own
+baseline; TypeScript keeps `.tsc-baseline.json`, a multiset of diagnostics keyed by file, code and message, so moved lines are not new
 errors. New errors exit 1; fixed ones shrink the baseline. Run `la-typecheck --write-baseline` once to create
 the missing baselines. Suppress a genuine false positive with `// @ts-expect-error — <reason>`, never
 `@ts-ignore`.
