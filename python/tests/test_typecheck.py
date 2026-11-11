@@ -19,6 +19,8 @@ printf '%s\\n' "$LA_PYRIGHT_PATCH_RESULT" > result_path.log
 case "$NODE_OPTIONS" in *'--require "'*'/pyright_patch.cjs"') ;; *) echo "fake: NODE_OPTIONS $NODE_OPTIONS" >&2; exit 99 ;; esac
 [ "$LA_PYRIGHT_PATCH_VERSIONS" = '["1.40.2"]' ] || { echo "fake: versions $LA_PYRIGHT_PATCH_VERSIONS" >&2; exit 99; }
 [ -z '@RESULT@' ] || printf '%s' '@RESULT@' > "$LA_PYRIGHT_PATCH_RESULT"
+case "$*" in *--writebaseline*) mkdir -p .basedpyright && echo '{"written": true}' > .basedpyright/baseline.json ;; esac
+[ ! -f .basedpyright/baseline.json ] || echo '{"shrunk": true}' > .basedpyright/baseline.json
 echo "0 errors, 0 warnings, 0 notes"
 exit @CODE@
 """
@@ -248,6 +250,29 @@ def test_write_mode_writes_no_baseline_on_a_patch_failure(
     assert not (root / ".basedpyright" / "baseline.json").exists()
     assert "wrote" not in err
     assert err.splitlines()[-1] == text
+
+
+@pytest.mark.parametrize("result", ["", UNVERIFIED, MISMATCH])
+def test_check_mode_restores_the_baseline_on_a_patch_failure(tmp_path: Path, run, result: str) -> None:
+    original = '{\n  "files": {"a.py": []}\n}\n'
+    root = _repo(tmp_path, {**PYTHON_REPO, ".basedpyright/baseline.json": original}, result=result)
+    assert run(root)[0] == 2
+    assert (root / ".basedpyright" / "baseline.json").read_text(encoding="utf-8") == original
+
+
+def test_baseline_removed_by_the_checker_is_restored_on_a_patch_failure(tmp_path: Path, run) -> None:
+    root = _repo(tmp_path, {**PYTHON_REPO, ".basedpyright/baseline.json": "{}\n"}, result=UNVERIFIED)
+    fake = root / ".venv" / "bin" / "basedpyright"
+    fake.write_text(fake.read_text(encoding="utf-8").replace('echo "0 errors', 'rm -r .basedpyright\necho "0 errors'),
+                    encoding="utf-8")
+    assert run(root)[0] == 2
+    assert (root / ".basedpyright" / "baseline.json").read_text(encoding="utf-8") == "{}\n"
+
+
+def test_patched_check_keeps_the_checkers_baseline_update(tmp_path: Path, run) -> None:
+    root = _repo(tmp_path, {**PYTHON_REPO, ".basedpyright/baseline.json": "{}\n"})
+    assert run(root)[0] == 0
+    assert (root / ".basedpyright" / "baseline.json").read_text(encoding="utf-8") == '{"shrunk": true}\n'
 
 
 def test_write_mode_writes_the_baseline_when_patched(tmp_path: Path, run) -> None:

@@ -32,6 +32,11 @@ def _err(text: str) -> None:
     print(text, file=sys.stderr, flush=True)
 
 
+def _error(error: str) -> int:
+    _err(message("typecheck.error", error=error))
+    return 2
+
+
 def _command(config: LaConfig, lang_id: str) -> str | None:
     return getattr(config.commands.typecheck, lang_id)
 
@@ -73,8 +78,17 @@ def _patch_failure(patch: lang.PyrightPatch | None, command: str, versions: list
     return None
 
 
+def _restore(path: Path, content: bytes | None) -> None:
+    if content is not None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(content)
+    elif path.exists():
+        path.unlink()
+
+
 def _run_python(root: Path, command: str, argv: list[str], *, write: bool) -> int:
     baseline = root / language("python")["baseline_file"]
+    before = baseline.read_bytes() if baseline.exists() else None
     flag = [lang.BASEDPYRIGHT_WRITE_FLAG] if write else []
     versions: list[str] = language("python")["checker_patch_versions"]
     with tempfile.TemporaryDirectory(prefix="la-pyright-patch-") as tmp:
@@ -84,6 +98,7 @@ def _run_python(root: Path, command: str, argv: list[str], *, write: bool) -> in
         patch = lang.read_pyright_patch(result)
     failure = _patch_failure(patch, command, versions)
     if failure is not None:
+        _restore(baseline, before)
         _err(failure)
         return 2
     code = lang.basedpyright_exit(returncode, write=write)
@@ -111,8 +126,7 @@ def _check(root: Path, lang_id: str, command: str, *, write: bool) -> int:
     try:
         return twin.run_language("la-typecheck", lang_id, ["--write-baseline"] if write else [], cwd=root, repo_root=root)
     except twin.TwinError as exc:
-        _err(message("typecheck.error", error=str(exc)))
-        return 2
+        return _error(str(exc))
 
 
 def _setup(cwd: Path) -> tuple[Path, LaConfig] | int:
@@ -123,8 +137,7 @@ def _setup(cwd: Path) -> tuple[Path, LaConfig] | int:
     try:
         return root, load_config(root)
     except ConfigError as exc:
-        _err(message("typecheck.error", error=str(exc)))
-        return 2
+        return _error(str(exc))
 
 
 def run(*, cwd: Path, write: bool, language_id: str | None) -> int:
@@ -135,14 +148,12 @@ def run(*, cwd: Path, write: bool, language_id: str | None) -> int:
     root, config = setup
     if language_id is not None:
         if language_id != twin.NATIVE_LANGUAGE:
-            _err(message("typecheck.error", error=message("typecheck.not-native", language=language_id)))
-            return 2
+            return _error(message("typecheck.not-native", language=language_id))
         return _check_native(root, _command(config, language_id) or "", write=write)
     try:
         languages = applicable(root, config)
     except ConfigError as exc:
-        _err(message("typecheck.error", error=str(exc)))
-        return 2
+        return _error(str(exc))
     if not languages:
         _err(message("typecheck.no-languages"))
         return 0

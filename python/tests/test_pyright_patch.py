@@ -74,6 +74,14 @@ def test_result_dir_holds_only_the_result(tmp_path: Path, result: Path) -> None:
     assert [p.name for p in result.parent.iterdir()] == [result.name]
 
 
+@pytest.mark.parametrize("versions", [("1.39.10", "1.40.2"), ("1.40.2", "1.39.10")])
+def test_a_failure_in_any_checker_process_stands(tmp_path: Path, result: Path, versions: tuple[str, str]) -> None:
+    for i, version in enumerate(versions):
+        _node(_package(tmp_path / f"pkg{i}", version=version), result)
+    assert lang.read_pyright_patch(result) == lang.PyrightPatch(outcome="unverified", version="1.39.10", count=1)
+    assert [p.name for p in result.parent.iterdir()] == [result.name]
+
+
 def test_unlisted_version_is_unverified_and_node_exits_2(tmp_path: Path, result: Path) -> None:
     proc = _node(_package(tmp_path / "pkg", version="1.39.10"), result)
     assert proc.returncode == 2
