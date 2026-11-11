@@ -81,14 +81,15 @@ def _computed(changed: list[Change], repo_root: Path, repo_files: list[str]) -> 
 
 def select(lang_id: str, changed: list[Change], repo_root: Path, repo_files: list[str]) -> list[str]:
     """`lang_id`'s changed tests and the tests whose imports reach a changed file."""
-    deleted = sorted(c.path for c in changed if c.deleted and language_of(c.path) == lang_id)
+    non_source = language(lang_id)["imports_non_source"]
+    owned = [c for c in changed if language_of(c.path) == lang_id or (non_source and language_of(c.path) is None)]
+    deleted = sorted(c.path for c in owned if c.deleted)
     candidates = [_check_path(p) for p in repo_files if _has_extension(p, lang_id)]
     files = sorted(p for p in candidates if os.path.lexists(repo_root / p))
     importers: dict[str, set[str]] = defaultdict(set)
     for src, dst in lang.dependency_edges(repo_root, files=files, deleted=deleted):
         importers[dst].add(src)
-    non_source = language(lang_id)["imports_non_source"]
-    starts = [c.path for c in changed if language_of(c.path) == lang_id or (non_source and language_of(c.path) is None)]
+    starts = [c.path for c in owned]
     reached = set(starts)
     queue = list(starts)
     while queue:

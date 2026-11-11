@@ -1,5 +1,6 @@
 // TypeScript dependency edges for `la-affected-tests`, through src/lang/index.ts:
 // dependencyEdges(repoRoot, files, deleted): [importer, target][] as repo-relative POSIX paths.
+import { spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -13,8 +14,14 @@ afterAll(() => roots.forEach((root) => rmSync(root, { recursive: true, force: tr
 
 const BUNDLER = JSON.stringify({ compilerOptions: { module: 'esnext', moduleResolution: 'bundler', jsx: 'react-jsx' } });
 
-/** Targets of `importer` in a temp repo of `files`; graph files are the source files among them. */
-function targets(files: Record<string, string>, importer: string, deleted: string[] = [], links: Record<string, string> = {}): string[] {
+/** Targets of `importer` in a temp repo of `files` and `links`; graph files are the source files among `files`, plus `extra`. */
+function targets(
+  files: Record<string, string>,
+  importer: string,
+  deleted: string[] = [],
+  links: Record<string, string> = {},
+  extra: string[] = [],
+): string[] {
   const root = mkdtempSync(join(tmpdir(), 'la-edges-'));
   roots.push(root);
   for (const [rel, text] of Object.entries(files)) {
@@ -25,7 +32,7 @@ function targets(files: Record<string, string>, importer: string, deleted: strin
     mkdirSync(dirname(join(root, link)), { recursive: true });
     symlinkSync(target, join(root, link));
   }
-  const graph = Object.keys(files).filter((rel) => /\.(ts|tsx|mts|cts|js|jsx|mjs|cjs)$/.test(rel)).sort();
+  const graph = [...Object.keys(files).filter((rel) => /\.(ts|tsx|mts|cts|js|jsx|mjs|cjs)$/.test(rel)), ...extra].sort();
   const edges = dependencyEdges(root, graph, [...deleted].sort());
   return [...new Set(edges.filter(([src]) => src === importer).map(([, dst]) => dst))].sort();
 }
@@ -196,5 +203,19 @@ describe('edge targets', () => {
       'src/b.ts': "import { a } from './a';\nexport const b = 1;\nexport const y = a;\n",
     };
     expect([targets(files, 'src/a.ts'), targets(files, 'src/b.ts')]).toEqual([['src/b.ts'], ['src/a.ts']]);
+  });
+});
+
+describe('a graph file that is not a regular file', () => {
+  it.skipIf(process.platform === 'win32')('is not read', () => {
+    const outside = mkdtempSync(join(tmpdir(), 'la-pipe-'));
+    roots.push(outside);
+    expect(spawnSync('mkfifo', [join(outside, 'pipe')]).status).toBe(0);
+    const files = { 'tsconfig.json': BUNDLER, 'src/b.ts': 'export const b = 1;\n', 'test/a.test.ts': "import { b } from '../src/b';\n" };
+    const links = { 'test/pipe.test.ts': join(outside, 'pipe') };
+    expect([targets(files, 'test/pipe.test.ts', [], links, ['test/pipe.test.ts']), targets(files, 'test/a.test.ts', [], links, ['test/pipe.test.ts'])]).toEqual([
+      [],
+      ['src/b.ts'],
+    ]);
   });
 });

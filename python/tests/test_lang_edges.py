@@ -1,5 +1,7 @@
 """Python dependency edges for `la-affected-tests`: every import, resolved to repo files by dotted suffix."""
 
+import os
+import threading
 from pathlib import Path
 
 import pytest
@@ -7,11 +9,14 @@ import pytest
 from living_architecture import lang
 
 
-def _edges(root: Path, files: dict[str, str], deleted: tuple[str, ...] = ()) -> set[tuple[str, str]]:
+def _edges(
+    root: Path, files: dict[str, str], deleted: tuple[str, ...] = (), extra: tuple[str, ...] = ()
+) -> set[tuple[str, str]]:
+    """Edges over `files` (written) plus `extra` graph files already on disk."""
     for rel, text in files.items():
         (root / rel).parent.mkdir(parents=True, exist_ok=True)
         (root / rel).write_text(text, encoding="utf-8")
-    return set(lang.dependency_edges(root, files=sorted(files), deleted=sorted(deleted)))
+    return set(lang.dependency_edges(root, files=sorted([*files, *extra]), deleted=sorted(deleted)))
 
 
 def _targets(edges: set[tuple[str, str]], importer: str) -> set[str]:
@@ -123,3 +128,19 @@ def test_edges_are_repo_relative_posix_pairs(tmp_path):
     edges = _edges(tmp_path, files)
     assert ("src/pkg/a.py", "src/pkg/b.py") in edges
     assert all(not Path(p).is_absolute() and "\\" not in p for edge in edges for p in edge)
+
+
+@pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="needs FIFOs")
+def test_a_file_that_is_not_regular_is_not_read(tmp_path):
+    os.mkfifo(tmp_path / "pipe")
+    root = tmp_path / "repo"
+    (root / "tests").mkdir(parents=True)
+    (root / "tests/test_pipe.py").symlink_to(tmp_path / "pipe")
+    files = {"src/pkg/__init__.py": "", "src/pkg/b.py": "", "tests/test_a.py": "from pkg import b\n"}
+    found: list[set[tuple[str, str]]] = []
+    worker = threading.Thread(target=lambda: found.append(_edges(root, files, extra=("tests/test_pipe.py",))), daemon=True)
+    worker.start()
+    worker.join(timeout=30)
+    assert found, "reading a FIFO blocked"
+    assert _targets(found[0], "tests/test_pipe.py") == set()
+    assert "src/pkg/b.py" in _targets(found[0], "tests/test_a.py")

@@ -144,12 +144,13 @@ def _resolve(graph: _Graph, importer: str, stmt: ImportStmt) -> set[str]:
 
 
 def dependency_edges(repo_root: Path, *, files: list[str], deleted: list[str]) -> list[tuple[str, str]]:
-    """(importer, target) repo-relative pairs over `files` (read) and `deleted` (targets only); no self-edges."""
+    """(importer, target) repo-relative pairs over `files` (read when regular) and `deleted` (targets only); no self-edges."""
     graph = _Graph([*files, *deleted])
     edges: set[tuple[str, str]] = set()
     for path in files:
+        file = repo_root / path
         try:
-            source = (repo_root / path).read_bytes()
+            source = file.read_bytes() if file.is_file() else b""
         except OSError:
             source = b""
         targets = graph.package_chain(path)

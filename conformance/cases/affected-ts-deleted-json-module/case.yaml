@@ -1,0 +1,32 @@
+kind: adapter
+languages:
+- typescript
+command: la-affected-tests
+args:
+- --base
+- main
+git:
+- write:
+    src/a.ts: |
+      export const a = 1;
+    test/a.test.ts: |
+      import { a } from '../src/a';
+      export const t = a;
+    tsconfig.json: |
+      {"compilerOptions": {"module": "esnext", "moduleResolution": "bundler", "resolveJsonModule": true}}
+    src/data.json: |
+      {}
+    test/d.test.ts: |
+      import data from '../src/data.json';
+      export { data };
+- commit: init
+- origin:
+  - main
+- branch: feat
+- git_rm:
+  - src/data.json
+- commit: work
+expect:
+  exit: 0
+note: a deleted JSON module still imported selects its importers
+golden: manual

@@ -59,15 +59,15 @@ function repoFiles(repoRoot: string, lang: string): string[] {
 /** `lang`'s tests: changed ones and those whose imports reach a changed file. */
 function selection(repoRoot: string, lang: string, changes: Change[]): string[] {
   const files = repoFiles(repoRoot, lang);
-  const deleted = changes.filter((c) => c.deleted && hasExtension(c.path, lang)).map((c) => c.path);
   const nonSource = language(lang).imports_non_source === true;
-  const starts = changes.filter((c) => hasExtension(c.path, lang) || (nonSource && languageOf(c.path) === null)).map((c) => c.path);
+  const starts = changes.filter((c) => hasExtension(c.path, lang) || (nonSource && languageOf(c.path) === null));
+  const deleted = starts.filter((c) => c.deleted).map((c) => c.path);
   const importers = new Map<string, string[]>();
   for (const [src, dst] of dependencyEdges(repoRoot, files, [...deleted].sort(byCodePoint))) {
     importers.set(dst, [...(importers.get(dst) ?? []), src]);
   }
-  const reached = new Set(starts);
-  const queue = [...starts];
+  const reached = new Set(starts.map((c) => c.path));
+  const queue = [...reached];
   for (let path = queue.shift(); path !== undefined; path = queue.shift()) {
     for (const importer of importers.get(path) ?? []) {
       if (!reached.has(importer)) {
