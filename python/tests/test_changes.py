@@ -109,7 +109,8 @@ def test_a_stalled_fetch_is_bounded_and_never_prompts(repo, tmp_path, monkeypatc
     fake = tmp_path / "slow-git"
     fake.mkdir()
     (fake / "git").write_text(
-        f'#!/bin/sh\nif [ "$1" = fetch ]; then echo "$GIT_TERMINAL_PROMPT" > "{fake}/prompt"\n'
+        f'#!/bin/sh\nif [ "$1" = fetch ]; then echo "$GIT_TERMINAL_PROMPT|${{GIT_ASKPASS-unset}}|${{SSH_ASKPASS-unset}}|'
+        f'$SSH_ASKPASS_REQUIRE" > "{fake}/prompt"\n'
         f'  "{sleep}" 30 & echo $! > "{fake}/helper"; wait; fi\nexec "{git}" "$@"\n'
     )
     (fake / "git").chmod(0o755)
@@ -117,7 +118,7 @@ def test_a_stalled_fetch_is_bounded_and_never_prompts(repo, tmp_path, monkeypatc
     start = time.monotonic()
     assert changes.resolve_base_ref(base="main", repo_root=repo, fetch_timeout=0.5) == "origin/main"
     assert time.monotonic() - start < 10
-    assert (fake / "prompt").read_text() == "0\n"
+    assert (fake / "prompt").read_text() == "0|||never\n"
     helper = int((fake / "helper").read_text())
     deadline = time.monotonic() + 5
     while _alive(helper) and time.monotonic() < deadline:

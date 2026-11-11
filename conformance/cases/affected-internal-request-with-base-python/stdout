@@ -1,0 +1,1 @@
+{"language": "python", "version": "<VERSION>", "contract_hash": "<CONTRACT_HASH>", "tests": ["tests/test_a.py"]}

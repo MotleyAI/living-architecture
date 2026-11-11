@@ -5,13 +5,16 @@ import { execFileSync } from 'node:child_process';
 import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { delimiter, dirname, join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { changedPaths, prBaseBranch, resolveBaseRef } from '../src/changes/index.js';
 import { ConfigError } from '../src/config/index.js';
 import { baseFetchTimeout, contractHash, isTestFile, language, message, schema, validate } from '../src/contract/index.js';
 import { VERSION } from '../src/index.js';
 import { run, tempRepo, type Run } from './cli-run.js';
 import { SHARED, loadYamlFile, vectors } from './helpers.js';
+
+// Every test drives real git repos: the default 5 s is too tight under a parallel run.
+vi.setConfig({ testTimeout: 30_000 });
 
 const PYTHON_IDENTITY = `python ${VERSION} ${contractHash()}`;
 const LANGUAGES = loadYamlFile(join(SHARED, 'languages.yaml'));
@@ -200,11 +203,12 @@ describe('setup and git failures', () => {
   it.skipIf(process.platform === 'win32')('a stalled fetch is bounded, never prompts and leaves no helper behind', () => {
     const root = repo();
     const which = (tool: string): string => execFileSync('sh', ['-c', `command -v ${tool}`], { encoding: 'utf8' }).trim();
+    const sleep = which('sleep');
     const fake = mkdtempSync(join(tmpdir(), 'la-slow-git-'));
     writeFileSync(
       join(fake, 'git'),
-      `#!/bin/sh\nif [ "$1" = fetch ]; then echo "$GIT_TERMINAL_PROMPT" > "${fake}/prompt"\n` +
-        `  "${which('sleep')}" 30 & echo $! > "${fake}/helper"; wait; fi\nexec "${which('git')}" "$@"\n`,
+      `#!/bin/sh\nif [ "$1" = fetch ]; then echo "$GIT_TERMINAL_PROMPT|\${GIT_ASKPASS-unset}|\${SSH_ASKPASS-unset}|$SSH_ASKPASS_REQUIRE" > "${fake}/prompt"\n` +
+        `  "${sleep}" 30 & echo $! > "${fake}/helper"; wait; fi\nexec "${which('git')}" "$@"\n`,
     );
     chmodSync(join(fake, 'git'), 0o755);
     process.env.PATH = fake;
@@ -221,8 +225,8 @@ describe('setup and git failures', () => {
       }
     };
     const deadline = Date.now() + 5000;
-    while (alive() && Date.now() < deadline) execFileSync(which('sleep'), ['0.05']);
-    expect([elapsed < 10_000, readFileSync(join(fake, 'prompt'), 'utf8'), alive()]).toEqual([true, '0\n', false]);
+    while (alive() && Date.now() < deadline) execFileSync(sleep, ['0.05']);
+    expect([elapsed < 10_000, readFileSync(join(fake, 'prompt'), 'utf8'), alive()]).toEqual([true, '0|||never\n', false]);
   });
 
   it('the fetch timeout comes from the shared contract', () => {

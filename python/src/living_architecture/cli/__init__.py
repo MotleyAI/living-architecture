@@ -130,7 +130,7 @@ def la_typecheck(argv: list[str] | None = None) -> int:
 
 
 def _affected_tests(args: argparse.Namespace) -> int:
-    if args.base is None:
+    if args.language is not None:
         return affected.serve(args.language, cwd=Path.cwd())
     return affected.run(base=args.base, cwd=Path.cwd())
 

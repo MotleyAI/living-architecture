@@ -13,6 +13,9 @@ from living_architecture.contract import base_fetch_timeout, message
 
 __all__ = ["changed_paths", "git_paths", "pr_base", "resolve_base_ref"]
 
+# Neither git nor ssh may prompt during the fetch: no terminal prompt and no askpass helper.
+_NO_PROMPT = {"GIT_TERMINAL_PROMPT": "0", "GIT_ASKPASS": "", "SSH_ASKPASS": "", "SSH_ASKPASS_REQUIRE": "never"}
+
 
 def _git(args: list[str], *, cwd: Path) -> bytes:
     try:
@@ -47,7 +50,7 @@ def pr_base(*, pr: str | None, repo: str | None, repo_root: Path) -> str:
 
 def _bounded_fetch(base: str, repo_root: Path, timeout: float) -> None:
     """`git fetch origin <base>` in its own process group, the whole group killed after `timeout` seconds."""
-    env = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
+    env = {**os.environ, **_NO_PROMPT}
     try:
         proc = subprocess.Popen(["git", "fetch", "origin", base, "--quiet"], cwd=repo_root, stdin=subprocess.DEVNULL,
                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=env, start_new_session=True)

@@ -3,6 +3,9 @@ import { spawnSync } from 'node:child_process';
 import { ConfigError } from '../config/index.js';
 import { baseFetchTimeout, byCodePoint, message } from '../contract/index.js';
 
+/** Neither git nor ssh may prompt during the fetch: no terminal prompt and no askpass helper. */
+const NO_PROMPT = { GIT_TERMINAL_PROMPT: '0', GIT_ASKPASS: '', SSH_ASKPASS: '', SSH_ASKPASS_REQUIRE: 'never' };
+
 export interface ListingOptions {
   baseRef: string;
   repoRoot: string;
@@ -48,7 +51,7 @@ export function prBaseBranch(pr: string | null, repo: string | null, repoRoot: s
 
 /** `git fetch origin <base>` in its own process group, the whole group killed after `timeout` seconds. */
 function boundedFetch(base: string, repoRoot: string, timeout: number): void {
-  const env = { ...process.env, GIT_TERMINAL_PROMPT: '0' };
+  const env = { ...process.env, ...NO_PROMPT };
   const options = { cwd: repoRoot, stdio: 'ignore' as const, env, detached: true, timeout: timeout * 1000, killSignal: 'SIGKILL' as const };
   const proc = spawnSync('git', ['fetch', 'origin', base, '--quiet'], options); // NOSONAR(S4036) — runs the user's own git from PATH by design
   if ((proc.error as NodeJS.ErrnoException | undefined)?.code !== 'ETIMEDOUT' || proc.pid === undefined) return;
