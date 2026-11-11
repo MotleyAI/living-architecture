@@ -72,12 +72,15 @@ registry, and matches that language's `test_globs` SHALL be printed. A deleted t
 - **THEN** it exits 0 with empty stdout
 
 ### Requirement: Tests whose imports reach a changed file are selected
-For each language with at least one file in the changed set, the command SHALL build a graph over the repository's
+For each computed language — one with a file in the changed set, or one whose `imports_non_source` fact in the
+shared languages registry is true when a changed path has no source extension of any language and the repository
+has files of that language — the command SHALL build a graph over the repository's
 files of that language (tracked plus untracked-not-ignored) and that language's deleted changed paths, with an
 edge from each file to every file one of its imports resolves to. Every import SHALL count, including imports
 only for type checking (Python imports under `if TYPE_CHECKING:`; TypeScript `import type`, `export type`, type-only
 specifiers and `import('x')` types). It SHALL walk the reversed edges transitively from every changed or deleted
-file of the language, whether or not that file is a test file, and print every reached file that matches the
+file of the language (for a language with `imports_non_source`, also from every changed path with no source
+extension), whether or not that file is a test file, and print every reached file that matches the
 language's `test_globs`. Cycles SHALL terminate. No architecture index or configuration SHALL be needed.
 
 #### Scenario: Transitive reach
@@ -158,9 +161,9 @@ added, or at `<path>/index.<source extension>`.
 
 ### Requirement: Both languages are selected through either twin
 The invoking twin SHALL compute the changed set once and its own language's selection natively. For the other
-language, when the changed set has a file of it, it SHALL obtain that language's selection from the other twin
-through an internal request carrying the changed paths, and print the union. A language with no file in the
-changed set SHALL NOT be computed, and its twin SHALL NOT be probed. Stdout SHALL be byte-identical whichever twin
+language, when it is computed, it SHALL obtain that language's selection from the other twin
+through an internal request carrying the changed paths, and print the union. A language that is not computed
+SHALL NOT have its twin probed. Stdout SHALL be byte-identical whichever twin
 is invoked. When the other twin is needed and unreachable or its request fails, the command SHALL print nothing
 on stdout and exit 2 with the twin's hint.
 

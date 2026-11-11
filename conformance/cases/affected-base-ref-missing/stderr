@@ -1,0 +1,1 @@
+la-affected-tests: git rev-parse --verify --quiet origin/nope failed

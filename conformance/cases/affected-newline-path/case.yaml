@@ -1,0 +1,31 @@
+kind: neutral
+command: la-affected-tests
+args:
+- --base
+- main
+git:
+- write:
+    src/pkg/__init__.py: ''
+    src/pkg/a.py: |
+      from pkg import b
+    src/pkg/b.py: |
+      X = 1
+    tests/test_a.py: |
+      import pkg.a
+    tests/test_c.py: |
+      import os
+- commit: init
+- origin:
+  - main
+- branch: feat
+- write:
+    "docs/a\nb.md": |
+      x
+expect:
+  exit: 2
+  stderr:
+    contains:
+    - 'la-affected-tests: '
+    - docs/a
+note: 'a changed path with a line break cannot be printed one per line: exit 2 naming it'
+golden: manual

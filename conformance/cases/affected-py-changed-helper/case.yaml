@@ -1,0 +1,33 @@
+kind: adapter
+languages:
+- python
+command: la-affected-tests
+args:
+- --base
+- main
+git:
+- write:
+    src/pkg/__init__.py: ''
+    src/pkg/a.py: |
+      from pkg import b
+    src/pkg/b.py: |
+      X = 1
+    tests/test_a.py: |
+      import pkg.a
+    tests/test_c.py: |
+      import os
+    tests/helpers.py: |
+      Y = 1
+    tests/test_x.py: |
+      import helpers
+- commit: init
+- origin:
+  - main
+- branch: feat
+- write:
+    tests/helpers.py: |
+      Y = 2
+expect:
+  exit: 0
+note: a changed test helper is printed with the tests importing it
+golden: manual

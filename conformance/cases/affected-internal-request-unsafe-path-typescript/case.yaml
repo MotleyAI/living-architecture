@@ -1,0 +1,30 @@
+kind: neutral
+twin: typescript
+stdin: '{"changes": [{"path": "/abs/a.ts", "deleted": false}]}'
+command: la-affected-tests
+args:
+- --language
+- typescript
+git:
+- write:
+    src/a.ts: |
+      import { b } from './b';
+      export const a = b;
+    src/b.ts: |
+      export const b = 1;
+    test/a.test.ts: |
+      import { a } from '../src/a';
+      export const t = a;
+    test/c.test.ts: |
+      export const c = 1;
+- commit: init
+- origin:
+  - main
+- branch: feat
+expect:
+  exit: 2
+  stderr:
+    contains:
+    - 'la-affected-tests: '
+note: an internal request path that is not repo-relative POSIX is refused
+golden: manual

@@ -1,0 +1,29 @@
+kind: adapter
+languages:
+- python
+command: la-affected-tests
+args:
+- --base
+- main
+git:
+- write:
+    src/pkg/__init__.py: ''
+    src/pkg/a.py: |
+      from pkg import b
+    src/pkg/b.py: |
+      X = 1
+    tests/test_a.py: |
+      import pkg.a
+    tests/test_c.py: |
+      import os
+- commit: init
+- origin:
+  - main
+- branch: feat
+- rename:
+    src/pkg/b.py: src/pkg/b2.py
+- commit: work
+expect:
+  exit: 0
+note: 'a rename is the deletion of the old path: importers of the old name are printed'
+golden: manual

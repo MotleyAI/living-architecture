@@ -218,6 +218,13 @@ See proposal.md for motivation. Constraints that shape the approach:
 26. **Relative-import off-by-one for `__init__.py`.** rejected (codex, finding #2, first half): level 1 is the
     importer's own directory for `__init__.py` and ordinary modules alike. Its second half (probing imported
     names and the package `__init__.py` for `from . import x`) is folded in. (codex)
+27. **A language whose imports reach non-source files is also computed for a non-source change.** The JSON-module
+    scenario contradicted "a language with no file in the changed set is not computed" (found in pr-tests).
+    Options: narrow the scenario to a JSON change beside a TypeScript change (the JSON importer's selection then
+    depends on an unrelated change); a new `imports_non_source` fact in `shared/languages.yaml` (true for
+    TypeScript). Taken: the fact — a language with it is computed when a changed path has no source extension and
+    the repo has files of that language, and its walk also starts from those paths; a mixed repo's data-only change
+    may then need the npm twin. (user)
 
 ## Risks / Trade-offs
 

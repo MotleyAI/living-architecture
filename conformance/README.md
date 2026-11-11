@@ -44,7 +44,7 @@ note: why this case exists
 root and at the `--root` the case passes, and in `write:` steps; nowhere else.
 
 Git steps, applied in order after `git init`: `write: {path: text}` (placeholders substituted), `commit: message` (stages everything),
-`branch: name`, `checkout: name`, `stage: [path]`, `delete: [path]`, `git_rm: [path]`,
+`branch: name`, `checkout: name`, `orphan: name` (an unborn branch, index kept), `stage: [path]`, `delete: [path]`, `git_rm: [path]`,
 `rename: {from: to}`, `origin: [branch]` (creates a local bare `origin` and pushes).
 
 Overlays are `repo/` and one directory per fixture language (`python/`, `node/` for typescript), copied from

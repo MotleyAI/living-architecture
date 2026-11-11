@@ -3,7 +3,8 @@
 - [ ] 1.1 Add `la-affected-tests` to `shared/cli.yaml` (neutral; `--base` string, internal `--language {python,typescript}`, `require_one_of: [base, language]`, exit `{0: ok, 2: 'usage, config or git error, other twin unreachable, or format refusal'}`); verify both twins' parser tests list the command
 - [ ] 1.2 In `shared/findings.yaml`: move `conventions.pr-base-unresolved` and `conventions.git-failed` to `changes.*` with identical text; add `affected.error` and the unrepresentable-path text; verify `la-check-conventions` goldens are byte-identical
 - [ ] 1.3 Add the shared schema(s) for the internal request (changed paths with a deleted flag; repo-relative POSIX, no absolute/`.`/`..`/backslash segments) and response (`language`, `version`, `contract_hash`, `tests`); verify schema unit tests in both twins
-- [ ] 1.4 Run `scripts/sync-shared`; verify `scripts/sync-shared --check` and the drift tests pass
+- [ ] 1.4 Add `imports_non_source` to every language in `shared/languages.yaml` (typescript true, python false) and to its header comment (design.md decision 27); verify the languages-registry tests in both twins
+- [ ] 1.5 Run `scripts/sync-shared`; verify `scripts/sync-shared --check` and the drift tests pass
 
 ## 2. Architecture harness
 

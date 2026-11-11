@@ -300,3 +300,27 @@ cases:
   argv: ['12', --x]
   args:
     argv: ['12', --x]
+- name: affected tests against a base
+  command: la-affected-tests
+  argv: [--base, main]
+  args: {base: main, language: null}
+- name: affected tests base with a slash
+  command: la-affected-tests
+  argv: [--base=release/1.0]
+  args: {base: release/1.0, language: null}
+- name: affected tests internal language request
+  command: la-affected-tests
+  argv: [--language, typescript]
+  args: {base: null, language: typescript}
+- name: affected tests without a base
+  command: la-affected-tests
+  argv: []
+  exit: 2
+- name: affected tests unknown language
+  command: la-affected-tests
+  argv: [--language, ruby]
+  exit: 2
+- name: affected tests takes no positional
+  command: la-affected-tests
+  argv: [--base, main, '42']
+  exit: 2

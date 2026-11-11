@@ -1,0 +1,13 @@
+kind: neutral
+command: la-affected-tests
+args:
+- --base
+- main
+git: none
+expect:
+  exit: 2
+  stderr:
+    contains:
+    - 'la-affected-tests: '
+note: 'outside a git repository: exit 2; git''s own wording is not part of the contract'
+golden: manual

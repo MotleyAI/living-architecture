@@ -1,0 +1,30 @@
+kind: adapter
+languages:
+- python
+cwd: src/pkg
+command: la-affected-tests
+args:
+- --base
+- main
+git:
+- write:
+    src/pkg/__init__.py: ''
+    src/pkg/a.py: |
+      from pkg import b
+    src/pkg/b.py: |
+      X = 1
+    tests/test_a.py: |
+      import pkg.a
+    tests/test_c.py: |
+      import os
+- commit: init
+- origin:
+  - main
+- branch: feat
+- write:
+    src/pkg/b.py: |
+      X = 2
+expect:
+  exit: 0
+note: 'run from a nested directory: paths stay relative to the top level'
+golden: manual
