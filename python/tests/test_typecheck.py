@@ -269,6 +269,16 @@ def test_baseline_removed_by_the_checker_is_restored_on_a_patch_failure(tmp_path
     assert (root / ".basedpyright" / "baseline.json").read_text(encoding="utf-8") == "{}\n"
 
 
+def test_read_only_baseline_left_alone_on_a_patch_failure(tmp_path: Path, run) -> None:
+    root = _repo(tmp_path, {**PYTHON_REPO, ".basedpyright/baseline.json": "{}\n"}, result=UNVERIFIED)
+    baseline = root / ".basedpyright" / "baseline.json"
+    baseline.chmod(0o444)
+    code, _, err = run(root)
+    assert code == 2
+    assert err.splitlines()[-1] == UNVERIFIED_TEXT
+    assert baseline.read_text(encoding="utf-8") == "{}\n"
+
+
 def test_patched_check_keeps_the_checkers_baseline_update(tmp_path: Path, run) -> None:
     root = _repo(tmp_path, {**PYTHON_REPO, ".basedpyright/baseline.json": "{}\n"})
     assert run(root)[0] == 0

@@ -79,11 +79,12 @@ def _patch_failure(patch: lang.PyrightPatch | None, command: str, versions: list
 
 
 def _restore(path: Path, content: bytes | None) -> None:
-    if content is not None:
+    if content is None:
+        if path.exists():
+            path.unlink()
+    elif not path.exists() or path.read_bytes() != content:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(content)
-    elif path.exists():
-        path.unlink()
 
 
 def _run_python(root: Path, command: str, argv: list[str], *, write: bool) -> int:
