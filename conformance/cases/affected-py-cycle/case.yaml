@@ -1,0 +1,30 @@
+kind: adapter
+languages:
+- python
+command: la-affected-tests
+args:
+- --base
+- main
+git:
+- write:
+    src/pkg/__init__.py: ''
+    src/pkg/a.py: |
+      from pkg import b
+    src/pkg/b.py: |
+      from pkg import a
+    tests/test_a.py: |
+      import pkg.a
+    tests/test_c.py: |
+      import os
+- commit: init
+- origin:
+  - main
+- branch: feat
+- write:
+    src/pkg/b.py: |
+      from pkg import a
+      X = 2
+expect:
+  exit: 0
+note: 'two modules importing each other: the walk terminates'
+golden: manual

@@ -1,0 +1,31 @@
+kind: adapter
+languages:
+- python
+twin: python
+stdin: '{"changes": [{"path": "src/pkg/b.py", "deleted": false}]}'
+command: la-affected-tests
+args:
+- --base
+- main
+- --language
+- python
+git:
+- write:
+    src/pkg/__init__.py: ''
+    src/pkg/a.py: |
+      from pkg import b
+    src/pkg/b.py: |
+      X = 1
+    tests/test_a.py: |
+      import pkg.a
+    tests/test_c.py: |
+      import os
+- commit: init
+- origin:
+  - main
+- branch: feat
+expect:
+  exit: 0
+  stdout: json
+note: --language with --base still serves the internal request
+golden: manual

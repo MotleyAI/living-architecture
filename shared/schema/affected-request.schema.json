@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "affected-request.schema.json",
+  "title": "la-affected-tests --language L stdin",
+  "description": "The change set one twin hands the other: every changed path, repo-relative POSIX (no empty, `.` or `..` segment, no backslash), with whether it was deleted.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["changes"],
+  "properties": {
+    "changes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "deleted"],
+        "properties": {
+          "path": {"$ref": "#/$defs/path"},
+          "deleted": {"type": "boolean"}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "path": {
+      "type": "string",
+      "pattern": "^(?:[^/\\\\\\n\\r]*[^/\\\\\\n\\r.][^/\\\\\\n\\r]*|\\.\\.\\.+)(?:/(?:[^/\\\\\\n\\r]*[^/\\\\\\n\\r.][^/\\\\\\n\\r]*|\\.\\.\\.+))*$"
+    }
+  }
+}

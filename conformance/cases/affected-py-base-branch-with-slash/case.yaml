@@ -1,0 +1,31 @@
+kind: adapter
+languages:
+- python
+command: la-affected-tests
+args:
+- --base
+- release/1.0
+git:
+- write:
+    src/pkg/__init__.py: ''
+    src/pkg/a.py: |
+      from pkg import b
+    src/pkg/b.py: |
+      X = 1
+    tests/test_a.py: |
+      import pkg.a
+    tests/test_c.py: |
+      import os
+- commit: init
+- branch: release/1.0
+- origin:
+  - release/1.0
+- branch: feat
+- write:
+    tests/test_c.py: |
+      import sys
+- commit: work
+expect:
+  exit: 0
+note: a base branch name containing a slash
+golden: manual

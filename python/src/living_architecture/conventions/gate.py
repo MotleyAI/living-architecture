@@ -4,16 +4,15 @@ from __future__ import annotations
 
 import fnmatch
 import re
-import subprocess
 import sys
 from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
-from living_architecture import lang
+from living_architecture import changes, lang
 from living_architecture.config import ConfigError, load_config
-from living_architecture.contract import conventions, glob_match, language_ids, message
+from living_architecture.contract import conventions, is_test_file, language_ids, message
 from living_architecture.contract import language as registry
 from living_architecture.conventions.facts import FactsError, collect, language_of
 
@@ -38,13 +37,6 @@ class FileCounts(BaseModel):
     rel: str
     text: int
     total: int
-
-
-def is_test_file(rel: str) -> bool:
-    lang_id = language_of(rel)
-    if lang_id is None:
-        return False
-    return any(glob_match(g, Path(rel).as_posix()) for g in registry(lang_id)["test_globs"])
 
 
 def _is_excluded(rel: str, *, patterns: list[str]) -> bool:
@@ -109,37 +101,10 @@ def check_file(path: Path, *, rel: str, rules: list[str] | None = None) -> tuple
     return sorted(_violations(entry, selected), key=lambda v: (v.line, v.rule)), counts
 
 
-def _git(args: list[str], *, cwd: Path) -> str:
-    proc = subprocess.run(["git", *args], cwd=cwd, capture_output=True, check=False)
-    if proc.returncode != 0:
-        detail = proc.stderr.decode("utf-8", "replace").strip()
-        raise ConfigError(detail or message("conventions.git-failed", args=" ".join(args)))
-    return proc.stdout.decode("utf-8", "surrogateescape")
-
-
 def changed_source_files(*, base_ref: str, repo_root: Path) -> list[str]:
     """Changed files with a known extension: merge-base committed diff plus working-tree edits, sorted."""
-    out: set[str] = set()
-    for target in (f"{base_ref}...HEAD", "HEAD"):
-        listing = _git(["diff", "--name-only", "-z", "--diff-filter=ACMR", target], cwd=repo_root)
-        out.update(p for p in listing.split("\0") if p and language_of(p) is not None)
-    return sorted(out)
-
-
-def resolve_base_ref(*, pr: str | None, repo: str | None, base: str | None, repo_root: Path) -> str:
-    """`origin/<branch>` for --base, or for the PR's base branch; best-effort fetch first."""
-    if base is None:
-        cmd = ["gh", "pr", "view", str(pr), "--json", "baseRefName", "--jq", ".baseRefName"]
-        if repo:
-            cmd += ["--repo", repo]
-        proc = subprocess.run(cmd, cwd=repo_root, capture_output=True, text=True, check=False)
-        base = proc.stdout.strip()
-        if proc.returncode != 0 or not base:
-            raise ConfigError(message("conventions.pr-base-unresolved", pr=pr))
-    subprocess.run(["git", "fetch", "origin", base, "--quiet"], cwd=repo_root, capture_output=True, check=False)
-    ref = f"origin/{base}"
-    _git(["rev-parse", "--verify", "--quiet", ref], cwd=repo_root)
-    return ref
+    listed = changes.changed_paths(base_ref=base_ref, repo_root=repo_root, deletions=False, untracked=False)
+    return [p for p in listed if language_of(p) is not None]
 
 
 def _pct(text: int, total: int) -> str:
@@ -220,7 +185,8 @@ def check_conventions(
         if files:
             rels = files
         else:
-            base_ref = resolve_base_ref(pr=pr, repo=repo, base=base, repo_root=repo_root)
+            branch = base if base is not None else changes.pr_base(pr=pr, repo=repo, repo_root=repo_root)
+            base_ref = changes.resolve_base_ref(base=branch, repo_root=repo_root)
             rels = changed_source_files(base_ref=base_ref, repo_root=repo_root)
     except ConfigError as exc:
         print(message("conventions.error", error=str(exc)), file=sys.stderr)

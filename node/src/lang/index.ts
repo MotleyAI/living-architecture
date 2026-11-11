@@ -3,6 +3,7 @@ import { Tree } from './files.js';
 import type { TsLayout, UnitStatus } from './types.js';
 
 export { conventionsFacts, type ConventionsFileFacts, type Detection } from './conventions.js';
+export { dependencyEdges } from './edges.js';
 export { moduleImports } from './imports.js';
 export { checkTypescript, parseTscOutput, type TscDiagnostic, type TscRun } from './tsc.js';
 export { canonical, DECLARATION_RE, posix, stripSourceExtension } from './files.js';

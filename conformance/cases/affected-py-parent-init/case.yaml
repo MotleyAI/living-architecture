@@ -1,0 +1,27 @@
+kind: adapter
+languages:
+- python
+command: la-affected-tests
+args:
+- --base
+- main
+git:
+- write:
+    src/pkg/__init__.py: ''
+    src/pkg/sub/__init__.py: ''
+    src/pkg/sub/mod.py: ''
+    tests/test_x.py: |
+      import pkg.sub.mod
+    tests/test_y.py: |
+      import os
+- commit: init
+- origin:
+  - main
+- branch: feat
+- write:
+    src/pkg/__init__.py: |
+      X = 1
+expect:
+  exit: 0
+note: a changed parent package initializer selects a test importing pkg.sub.mod
+golden: manual

@@ -132,6 +132,7 @@ ARGV = {
     "la-check-conventions": ["--base", "main"],
     "la-count-comments": ["a.py"],
     "la-typecheck": [],
+    "la-affected-tests": ["--base", "main"],
     "la-fetch-coderabbit-threads": ["--help"],
     "la-reply-invalid-coderabbit": ["--help"],
     "la-reply-to-pr-thread": ["--help"],

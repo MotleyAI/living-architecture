@@ -1,0 +1,1 @@
+la-affected-tests: a path that is not UTF-8 or holds a line break cannot be printed one per line: 'docs/a\nb.md'

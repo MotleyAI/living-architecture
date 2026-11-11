@@ -1,0 +1,35 @@
+kind: adapter
+languages:
+- python
+command: la-affected-tests
+args:
+- --base
+- main
+git:
+- write:
+    src/pkg/__init__.py: ''
+    src/pkg/a.py: |
+      from pkg import b
+    src/pkg/b.py: |
+      X = 1
+    tests/test_a.py: |
+      import pkg.a
+    tests/test_c.py: |
+      import os
+- commit: init
+- origin:
+  - main
+- branch: feat
+- write:
+    tests/test_a.py: |
+      import pkg.a
+      import os
+- stage:
+  - tests/test_a.py
+- write:
+    tests/test_c.py: |
+      import sys
+expect:
+  exit: 0
+note: 'a staged-only and an unstaged-only edit, no commit: both printed'
+golden: manual

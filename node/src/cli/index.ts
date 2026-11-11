@@ -1,5 +1,6 @@
 // Every command's entry point: parse argv per the shared manifest, check the repo format, dispatch to the handler.
 import { resolve } from 'node:path';
+import * as affected from '../affected/index.js';
 import * as archcheck from '../archcheck/index.js';
 import * as c4 from '../c4/index.js';
 import * as config from '../config/index.js';
@@ -64,6 +65,10 @@ const HANDLERS: Record<string, (args: Args, argv: string[]) => number> = {
     });
   },
   'la-count-comments': (args) => conventions.countComments(args.argv as string[]),
+  'la-affected-tests': (args) => {
+    const language = optional(args.language);
+    return language !== null ? affected.serve(process.cwd(), language) : affected.run(process.cwd(), String(args.base));
+  },
   'la-typecheck': (args) => typecheck.run(process.cwd(), Boolean(args.write_baseline), optional(args.language)),
   'dr-refactor': (args, argv) => refactor.runRefactor(argv, given(args) as refactor.RefactorArgs),
   'dr-compliance': (args) => refactor.runCompliance(args.paths as string[], optional(args.select), optional(args.attr)),

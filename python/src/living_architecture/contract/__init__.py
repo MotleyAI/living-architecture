@@ -6,6 +6,7 @@ from living_architecture.contract.render import canonical_repr, message, normali
 from living_architecture.contract.schema import materialize_defaults, validate
 from living_architecture.contract.snapshot import (
     architecture,
+    base_fetch_timeout,
     check_ids,
     compute_hash,
     config_file,
@@ -13,6 +14,7 @@ from living_architecture.contract.snapshot import (
     contract_hash,
     conventions,
     findings,
+    is_test_file,
     language,
     language_ids,
     language_of,
@@ -28,6 +30,7 @@ __all__ = [
     "DuplicateKeyError",
     "YAMLError",
     "architecture",
+    "base_fetch_timeout",
     "canonical_repr",
     "check_ids",
     "compute_hash",
@@ -38,6 +41,7 @@ __all__ = [
     "findings",
     "glob_match",
     "is_portable_regex",
+    "is_test_file",
     "language",
     "language_ids",
     "language_of",
