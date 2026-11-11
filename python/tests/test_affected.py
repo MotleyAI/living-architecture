@@ -52,8 +52,10 @@ def _init(path: Path, files: dict[str, str]) -> Path:
 
 @pytest.fixture
 def repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    monkeypatch.chdir(tmp_path)
-    return _init(tmp_path, BASE)
+    root = tmp_path / "repo"
+    root.mkdir()
+    monkeypatch.chdir(root)
+    return _init(root, BASE)
 
 
 @pytest.fixture
@@ -284,8 +286,8 @@ def _response(tests: list[str], **overrides: str) -> str:
     return json.dumps({**document, **overrides})
 
 
-def test_two_languages_are_unioned(repo, capsys, restrict_path, tmp_path_factory):
-    stub = _stub_twin(tmp_path_factory.mktemp("npm") / "bin", _response(["web/b.test.ts", "web/a.test.ts"]))
+def test_two_languages_are_unioned(repo, capsys, restrict_path, tmp_path):
+    stub = _stub_twin(tmp_path / "npm", _response(["web/b.test.ts", "web/a.test.ts"]))
     _write(repo, {"src/pkg/b.py": "X = 2\n", "web/b.ts": "export const b = 1;\n"})
     _git(repo, "rm", "-q", "tests/test_c.py")
     restrict_path(stub)
@@ -307,8 +309,8 @@ def test_two_languages_are_unioned(repo, capsys, restrict_path, tmp_path_factory
      _response(["/abs/a.test.ts"])],
     ids=["wrong-version", "wrong-language", "wrong-contract-hash", "not-json", "schema-invalid", "absolute-path"],
 )
-def test_invalid_twin_response(repo, capsys, restrict_path, tmp_path_factory, response):
-    stub = _stub_twin(tmp_path_factory.mktemp("npm") / "bin", response)
+def test_invalid_twin_response(repo, capsys, restrict_path, tmp_path, response):
+    stub = _stub_twin(tmp_path / "npm", response)
     _write(repo, {"src/pkg/b.py": "X = 2\n", "web/b.ts": "export const b = 1;\n"})
     restrict_path(stub)
     code, out, err = _affected(capsys, "--base", "main")

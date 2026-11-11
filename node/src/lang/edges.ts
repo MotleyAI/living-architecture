@@ -5,7 +5,7 @@ import type * as TS from 'typescript';
 import { byCodePoint, language } from '../contract/index.js';
 import { isUnder, posix, stripSourceExtension } from './files.js';
 import { loadProjectsFrom, owner, type Projects } from './projects.js';
-import { allSpecifiers } from './specifiers.js';
+import { allSpecifiers, withoutQuery } from './specifiers.js';
 import { ts } from './ts.js';
 
 const CONFIG_NAME = 'tsconfig.json';
@@ -111,13 +111,15 @@ class EdgeResolver {
       true,
     );
     const found = new Set<string>();
-    const add = (target: string | undefined): void => void (target !== undefined && found.add(target));
+    const add = (target: string | undefined): void => {
+      if (target !== undefined) found.add(target);
+    };
     for (const literal of allSpecifiers(source)) {
       const spec = literal.text;
       const mode = ts().getModeForUsageLocation(source, literal, project.options);
       const { resolvedModule } = ts().resolveModuleName(spec, file, project.options, host, project.cache, undefined, mode);
       if (resolvedModule !== undefined) add(this.target(resolvedModule.resolvedFileName, projects));
-      else if (ts().isExternalModuleNameRelative(spec)) this.fallback(resolve(dirname(file), spec.replace(/[?#][\s\S]*$/, ''))).forEach(add);
+      else if (ts().isExternalModuleNameRelative(spec)) this.fallback(resolve(dirname(file), withoutQuery(spec))).forEach(add);
     }
     for (const ref of source.referencedFiles) {
       const path = resolve(dirname(file), ref.fileName);

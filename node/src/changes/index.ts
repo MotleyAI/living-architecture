@@ -12,7 +12,7 @@ export interface ListingOptions {
 
 /** git's stdout; ConfigError with git's stderr, else the shared text. */
 function git(args: string[], cwd: string): Buffer {
-  const proc = spawnSync('git', args, { cwd, maxBuffer: 1 << 30 });
+  const proc = spawnSync('git', args, { cwd, maxBuffer: 1 << 30 }); // NOSONAR(S4036) — runs the user's own git from PATH by design
   if (proc.status !== 0) {
     const detail = proc.stderr?.toString('utf8').trim() ?? '';
     throw new ConfigError(detail || message('changes.git-failed', { args: args.join(' ') }));
@@ -40,7 +40,7 @@ function uniqueSorted(paths: Buffer[]): Buffer[] {
 /** The base branch of PR `pr`; ConfigError when `gh` cannot tell. */
 export function prBaseBranch(pr: string | null, repo: string | null, repoRoot: string): string {
   const cmd = ['pr', 'view', String(pr), '--json', 'baseRefName', '--jq', '.baseRefName', ...(repo ? ['--repo', repo] : [])];
-  const proc = spawnSync('gh', cmd, { cwd: repoRoot, encoding: 'utf8' });
+  const proc = spawnSync('gh', cmd, { cwd: repoRoot, encoding: 'utf8' }); // NOSONAR(S4036) — runs the user's own gh from PATH by design
   const branch = (proc.stdout ?? '').trim();
   if (proc.status !== 0 || !branch) throw new ConfigError(message('changes.pr-base-unresolved', { pr }));
   return branch;
@@ -48,7 +48,7 @@ export function prBaseBranch(pr: string | null, repo: string | null, repoRoot: s
 
 /** `origin/<base>` after a best-effort fetch; ConfigError when it does not resolve. */
 export function resolveBaseRef(base: string, repoRoot: string): string {
-  spawnSync('git', ['fetch', 'origin', base, '--quiet'], { cwd: repoRoot, stdio: 'ignore' });
+  spawnSync('git', ['fetch', 'origin', base, '--quiet'], { cwd: repoRoot, stdio: 'ignore' }); // NOSONAR(S4036) — runs the user's own git from PATH by design
   const ref = `origin/${base}`;
   git(['rev-parse', '--verify', '--quiet', ref], repoRoot);
   return ref;

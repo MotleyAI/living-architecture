@@ -5,7 +5,7 @@ import type * as TS from 'typescript';
 import { byCodePoint } from '../contract/index.js';
 import { canonical, DECLARATION_RE, isUnder, posix, stripSourceExtension, Tree } from './files.js';
 import { loadProjects, owner, type Project, type Projects } from './projects.js';
-import { runtimeSpecifiers } from './specifiers.js';
+import { runtimeSpecifiers, withoutQuery } from './specifiers.js';
 import type { ModuleImports, TsLayout } from './types.js';
 import { ts } from './ts.js';
 
@@ -30,7 +30,7 @@ class Resolver {
 
   /** An unresolved relative specifier, attributed lexically unless it leaves every configured root. */
   private lexical(spec: string, importer: string): string | undefined {
-    const path = resolve(dirname(importer), spec.replace(/[?#][\s\S]*$/, ''));
+    const path = resolve(dirname(importer), withoutQuery(spec));
     const rel = posix(relative(this.tree.layout.sourceRoot, path));
     return this.tree.layout.rootPackages.some((root) => rel.startsWith(`${root}/`)) ? stripSourceExtension(rel) : undefined;
   }

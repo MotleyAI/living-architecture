@@ -82,3 +82,9 @@ export function allSpecifiers(file: TS.SourceFile): TS.StringLiteral[] {
   visit(file);
   return found;
 }
+
+/** `spec` cut before its first `?` or `#`. */
+export function withoutQuery(spec: string): string {
+  const cut = spec.search(/[?#]/);
+  return cut === -1 ? spec : spec.slice(0, cut);
+}
