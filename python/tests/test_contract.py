@@ -340,6 +340,15 @@ def test_language_facts() -> None:
     assert (typescript["local_bin"], typescript["baseline_file"]) == ("node_modules/.bin", ".tsc-baseline.json")
     assert "type_checker" not in python
     assert "type_checker" not in typescript
+    assert python["checker_patch_versions"] == ["1.40.2"]
+    assert "checker_patch_versions" not in typescript
+
+
+def test_python_typecheck_command_description_names_the_patch_obligations() -> None:
+    schema = _schema("living-architecture")
+    description = schema["properties"]["commands"]["properties"]["typecheck"]["properties"]["python"]["description"]
+    for needle in ("verified basedpyright", "checker_patch_versions", "under Node", "keep NODE_OPTIONS"):
+        assert needle in description
 
 
 def test_every_rule_has_a_description_per_language() -> None:
@@ -584,6 +593,15 @@ NEW_TEMPLATES = {
     "typecheck.global-diagnostic": "la-typecheck: {language}: the checker reported an error without a file",
     "typecheck.checker-failed": "la-typecheck: {language}: {command} exited {code} without a parsable diagnostic",
     "typecheck.baseline-invalid": "la-typecheck: {language}: {baseline} is malformed",
+    "typecheck.patch-not-applied":
+        "la-typecheck: python: {command} loaded no basedpyright, so the pyright#11919 patch was not applied;"
+        " run basedpyright under Node and keep NODE_OPTIONS",
+    "typecheck.patch-unverified":
+        "la-typecheck: python: the pyright#11919 patch is verified for basedpyright {verified}, but {version} is"
+        " installed; pin a verified version",
+    "typecheck.patch-mismatch":
+        "la-typecheck: python: basedpyright {version} has the pyright#11919 line {count} times, not once;"
+        " reinstall basedpyright",
     "typecheck.not-native": "{language} type checks run only in the {language} twin",
     "typecheck.error": "la-typecheck: {error}",
     "refactor.ts-rename-header": "Renaming <{old}> to <{new}>:",

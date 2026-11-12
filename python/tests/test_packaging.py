@@ -1,4 +1,4 @@
-"""The built wheel and sdist carry the root README and LICENSE, and the contract when installed outside the checkout."""
+"""The built wheel and sdist carry the root README and LICENSE, the contract and the pyright#11919 preload."""
 
 from __future__ import annotations
 
@@ -126,3 +126,15 @@ def test_installed_artifact_runs_every_command(kind, artifacts, tmp_path, fake_g
     assert "    a -> b\n" in (scaffold / "architecture" / "model.c4").read_text(encoding="utf-8")
     assert (legacy / "architecture" / "model.c4").read_text(encoding="utf-8") == "specification {\n}\nmodel {\n}\n"
     assert (legacy / "living-architecture.yaml").read_text(encoding="utf-8") == f"format: {current_format()}\ntracker: linear\n"
+
+
+def test_wheel_carries_the_pyright_patch_preload(artifacts, tmp_path):
+    source = PROJECT / "src" / "living_architecture" / "lang" / "pyright_patch.cjs"
+    assert _wheel_file(artifacts["wheel"], "living_architecture/lang/pyright_patch.cjs") == source.read_bytes()
+    bin_dir = _install(artifacts["wheel"], tmp_path)
+    located = subprocess.run(
+        [str(bin_dir / "python"), "-c", "from living_architecture import lang; print(lang.PYRIGHT_PATCH_PRELOAD)"],
+        capture_output=True, text=True, check=True,
+    ).stdout.strip()
+    assert Path(located).is_relative_to(tmp_path / "venv")
+    assert Path(located).read_bytes() == source.read_bytes()

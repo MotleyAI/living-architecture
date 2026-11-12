@@ -1,0 +1,9 @@
+#!/bin/sh
+[ -d .git ] && [ -f pyproject.toml ] || { echo "fake basedpyright: not run at the repo root: $(pwd)" >&2; exit 99; }
+[ "$*" = "" ] || { echo "fake basedpyright: unexpected args: $*" >&2; exit 99; }
+case "$NODE_OPTIONS" in '--max-old-space-size=4096 --require "'*) ;; *) echo "fake basedpyright: NODE_OPTIONS is $NODE_OPTIONS" >&2; exit 99 ;; esac
+"$(dirname "$0")/fake-pyright-preload" patched 1.40.2 1 || exit 99
+cat <<'EOF'
+0 errors, 0 warnings, 0 notes
+EOF
+exit 0

@@ -1,0 +1,9 @@
+kind: adapter
+languages:
+- python
+command: la-typecheck
+fixture: typecheck-python
+expect:
+  exit: 2
+golden: manual
+note: 'a verified bundle without the patched line exactly once (patched in place): the checker output is relayed first, then exit 2'

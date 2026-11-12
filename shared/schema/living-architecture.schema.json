@@ -60,7 +60,7 @@
             "python": {
               "type": ["string", "null"],
               "default": "basedpyright",
-              "description": "A basedpyright-compatible command: it must accept --writebaseline and keep its baseline at .basedpyright/baseline.json."
+              "description": "A basedpyright-compatible command: it must accept --writebaseline and keep its baseline at .basedpyright/baseline.json. It must run a verified basedpyright (languages.yaml checker_patch_versions) under Node and keep NODE_OPTIONS, so la can apply the pyright#11919 patch."
             },
             "typescript": {
               "type": ["string", "null"],

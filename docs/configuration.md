@@ -35,6 +35,10 @@ YAML 1.1 booleans (`yes`, `no`, `on`, `off`) are booleans. `issue_key_pattern` m
 subset in [`shared/regex-subset.md`](../shared/regex-subset.md). `la-config show` prints the resolved
 configuration and `la-config get <dotted.key>` prints one value.
 
+`commands.typecheck.python` must run basedpyright under Node and keep `NODE_OPTIONS`: `la-typecheck` loads its
+in-memory patch for pyright#11919 through it. The patch is verified only for the basedpyright versions in
+`shared/languages.yaml` (today `1.40.2`), so pin one; any other version, or a run the patch did not reach, exits 2.
+
 ## Format
 
 `format` is the repo format: the `la` version that introduced the format of this file and everything under
