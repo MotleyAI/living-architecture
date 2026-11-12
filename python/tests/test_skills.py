@@ -133,6 +133,14 @@ def test_preflight_requires_config_only_in_main_skills_and_stages(path):
         assert all("--require-config" not in line for line in preflight)
 
 
+@pytest.mark.parametrize("name", sorted(REQUIRE_PLAN_STORE))
+def test_pr_flow_preflight_migrates_an_unformatted_repo_without_asking(name):
+    preflight = PREFLIGHT_RE.findall(_skill_text(name))[0]
+    assert "missing-format finding" in preflight
+    assert "run `la-arch-migrate` without asking" in preflight
+    assert "end-of-stage commit" in preflight
+
+
 def _doc_files() -> list[Path]:
     community = [REPO_ROOT / name for name in ("README.md", "CONTRIBUTING.md", "SECURITY.md")]
     return [*community, *sorted(DOCS_DIR.glob("*.md"))]

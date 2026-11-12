@@ -260,6 +260,10 @@ End the plan with a one-line proposal:
 
 Do **not** start writing code until the user picks.
 
+Any further decision the plan needs (a design fork, an approval of a spec or
+test edit) is a question: ask every one of them, ONE per message, back to back,
+and start writing code only after the last answer.
+
 ## Constraints
 
 - NEVER call any "resolve" mutation on CodeRabbit threads (no `resolveReviewThread`, no UI-equivalent). Only `/replies`.
