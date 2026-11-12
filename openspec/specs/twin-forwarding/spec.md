@@ -50,9 +50,9 @@ command, and otherwise SHALL forward the raw arguments to the twin of the first 
 that process's exit code, passing stdout and stderr through unchanged. Neutral commands SHALL never forward.
 `dr-refactor`, `dr-compliance` and `dr-mock-lint` are native to both Python and TypeScript; each twin runs
 its own language's inputs natively and hands the other language's inputs to the other twin, with the same
-working directory, as the refactor capability's routing defines. `la-check-conventions`, `la-count-comments`
-and `la-typecheck` are neutral and reach the other language's adapter only through their facts or language
-requests. A forwarded process SHALL carry the environment marker `LA_FORWARDED=1`, and a twin that would
+working directory, as the refactor capability's routing defines. `la-check-conventions`, `la-count-comments`,
+`la-typecheck` and `la-affected-tests` are neutral and reach the other language's adapter only through their
+facts or language requests. A forwarded process SHALL carry the environment marker `LA_FORWARDED=1`, and a twin that would
 forward while the marker is set SHALL exit 2 instead.
 
 #### Scenario: npm twin forwards a Python-only command
@@ -82,6 +82,10 @@ forward while the marker is set SHALL exit 2 instead.
 #### Scenario: Forward loop refused
 - **WHEN** a twin receives a command it would forward while `LA_FORWARDED=1` is set
 - **THEN** it exits 2 without forwarding
+
+#### Scenario: Affected tests of own-language changes need no twin
+- **WHEN** `la-affected-tests --base main` runs through the npm twin, only TypeScript files changed, and the PyPI twin is unreachable
+- **THEN** it completes natively with its usual output
 
 ### Requirement: Architecture facts are exchanged as one schema-checked document
 `la-arch-check --language <L> --emit facts` (internal options) SHALL be served only natively: a twin asked for

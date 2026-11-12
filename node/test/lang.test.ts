@@ -6,7 +6,7 @@ import ts from 'typescript';
 import { afterAll, describe, expect, it } from 'vitest';
 import { nativeTopLevelFacts } from '../src/archcheck/facts.js';
 import { LangError, moduleImports, topLevelUnits, unitStatus, type TsLayout } from '../src/lang/index.js';
-import { runtimeSpecifiers } from '../src/lang/specifiers.js';
+import { runtimeSpecifiers, withoutQuery } from '../src/lang/specifiers.js';
 import { cleanup, materialize } from './lang-fixtures.js';
 
 const layouts: TsLayout[] = [];
@@ -362,5 +362,17 @@ describe('runtimeSpecifiers', () => {
     ["/// <reference path='a.ts' />\nexport {};", []],
   ])('%s', (text, expected) => {
     expect(specs(text)).toEqual(expected);
+  });
+});
+
+describe('withoutQuery', () => {
+  it.each([
+    ['./a', './a'],
+    ['./a?raw', './a'],
+    ['./a#frag?x', './a'],
+    ['./a?x#y', './a'],
+    ['?x', ''],
+  ])('%s', (spec, expected) => {
+    expect(withoutQuery(spec)).toBe(expected);
   });
 });

@@ -1,0 +1,2 @@
+la-typecheck: checking python with basedpyright
+la-typecheck: python: the pyright#11919 patch is verified for basedpyright 1.40.2, but 1.39.10 is installed; pin a verified version

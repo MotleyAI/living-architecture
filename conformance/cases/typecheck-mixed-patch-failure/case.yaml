@@ -1,0 +1,10 @@
+kind: neutral
+languages:
+- python
+- typescript
+command: la-typecheck
+fixture: typecheck-ts-src
+expect:
+  exit: 2
+golden: manual
+note: 'a Python patch failure in a mixed repo: identical through either twin (the npm twin relays the PyPI twin''s Python section)'

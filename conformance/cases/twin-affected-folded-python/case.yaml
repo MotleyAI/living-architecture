@@ -1,0 +1,50 @@
+kind: adapter
+languages:
+- python
+twin: python
+other_twin: absent
+bins:
+- dir: npm-twin
+  files:
+    la-doctor: |
+      #!/bin/sh
+      [ "$*" = "--twin" ] || { echo "fake la-doctor: unexpected $*" >&2; exit 99; }
+      echo "typescript <VERSION> <CONTRACT_HASH>"
+    la-affected-tests: |
+      #!/bin/sh
+      case " $* " in *" --language typescript "*) ;; *) echo "fake la-affected-tests: not a typescript request: $*" >&2; exit 99 ;; esac
+      [ "$LA_FORWARDED" = 1 ] || { echo "fake la-affected-tests: LA_FORWARDED is not 1" >&2; exit 99; }
+      tr -d ' \n' > <ROOT>/repo/stdin.log
+      cat <<'EOF'
+      {"language": "typescript", "version": "<VERSION>", "contract_hash": "<CONTRACT_HASH>", "tests": ["web/b.test.ts"]}
+      EOF
+command: la-affected-tests
+args:
+- --base
+- main
+git:
+- write:
+    src/pkg/__init__.py: ''
+    src/pkg/a.py: |
+      from pkg import b
+    src/pkg/b.py: |
+      X = 1
+    tests/test_a.py: |
+      import pkg.a
+    tests/test_c.py: |
+      import os
+- commit: init
+- origin:
+  - main
+- branch: feat
+- write:
+    src/pkg/b.py: |
+      X = 2
+    web/b.ts: |
+      export const b = 1;
+expect:
+  exit: 0
+  files:
+  - stdin.log
+note: the typescript twin's selection is unioned with the python one; the request carries every changed path with its deleted flag
+golden: manual

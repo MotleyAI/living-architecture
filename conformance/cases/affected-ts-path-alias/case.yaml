@@ -1,0 +1,37 @@
+kind: adapter
+languages:
+- typescript
+command: la-affected-tests
+args:
+- --base
+- main
+git:
+- write:
+    src/a.ts: |
+      import { b } from './b';
+      export const a = b;
+    src/b.ts: |
+      export const b = 1;
+    test/a.test.ts: |
+      import { a } from '../src/a';
+      export const t = a;
+    test/c.test.ts: |
+      export const c = 1;
+    tsconfig.json: |
+      {"compilerOptions": {"module": "esnext", "moduleResolution": "bundler", "paths": {"@lib/*": ["./src/lib/*"]}}}
+    src/lib/util.ts: |
+      export const u = 1;
+    test/u.test.ts: |
+      import { u } from '@lib/util';
+      export const t = u;
+- commit: init
+- origin:
+  - main
+- branch: feat
+- write:
+    src/lib/util.ts: |
+      export const u = 2;
+expect:
+  exit: 0
+note: a tsconfig paths alias resolves to the changed file
+golden: manual

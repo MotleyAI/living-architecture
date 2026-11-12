@@ -23,8 +23,8 @@ just the branch name:
 2. **`pr-tests`** — write the full failing test suite for the plan,
    Codex-review the tests against the plan (when `reviewers.codex` is on).
    Ends at 🛑 reset point 2 (before implementation).
-3. **`pr-implement`** — implement until every test passes, then (with my
-   go-ahead) commit, push, and open the PR.
+3. **`pr-implement`** — implement until every test passes, then commit and
+   push, and (with my go-ahead) open the PR.
    Ends at 🛑 reset point 3 (just after the PR is created).
 4. **`pr-review`** — run `/la:process-reviews` until converged, then
    archive the OpenSpec change (OpenSpec repos only), then keep sweeping the
@@ -50,8 +50,8 @@ proceed.** The only other permitted pauses are:
   option — raised with explicit PROS/CONS + RECOMMENDATION (per the interview
   rule in `pr-plan`). A choice with an obvious default is NOT this:
   take the default and move on;
-- the standing **go-ahead gate before push/PR** (`pr-implement`): never
-  push or open a PR without my explicit go-ahead;
+- the standing **go-ahead gate before opening a PR** (`pr-implement`): never
+  open a PR without my explicit go-ahead; pushing this change's own branch needs none;
 - a **suspected unrelated gap** — a failure, restriction, or missing capability
   that looks pre-existing or outside this change's scope (a bind-level refusal, an
   allowlist, a fixture that cannot express a scenario, …). Whether it is unrelated
@@ -125,9 +125,27 @@ skills. What still holds:
 - Stage ONLY **specific named file paths**. Name every file explicitly, and put
   them all in ONE command (`git add <path1> <path2> ...`), not one command per
   file. NEVER use `git add -A`, `git add .`, a glob, or a whole directory.
-- **Commit only** — pushing and opening the PR still need my explicit go-ahead
-  (`pr-implement` Step 3 / the stopping policy above); the end-of-stage
-  commit does not.
+- **Commit only** — opening the PR still needs my explicit go-ahead
+  (`pr-implement` Step 3 / the stopping policy above)
+
+## Local test scope
+
+Locally, run only the tests this change can affect; the full suite is CI's job.
+The scope is:
+
+- the files `la-affected-tests --base <base-branch>` prints (the PR's base
+  branch once a PR exists, else the default branch): the tests this change
+  added or changed, and every test whose imports reach a changed file;
+- whatever else you judge this change reaches: goldens, conformance cases and
+  snapshots pinning changed output, tests reading changed data or config files,
+  everything under a changed fixture or conftest;
+- every test CI reported failing on this PR.
+
+Run them with the repo's test runner (the one behind `la-config get
+commands.test`, keeping its usual options) narrowed to those files or test
+ids, leaving out printed files the runner does not collect as tests (helpers,
+fixtures). Never run the whole suite locally "to be safe"; a test missed here
+is caught by CI.
 
 ## Normative harnesses (living-architecture repos)
 
@@ -205,7 +223,7 @@ Work out which stage this session should run — first match wins:
    If none → **`pr-tests`**.
 4. **Otherwise** → **`pr-implement`** (plan and tests exist, no PR yet;
    this stage also covers the "all tests already pass, awaiting my
-   commit/push/PR go-ahead" case).
+   PR go-ahead" case).
 
 If the evidence is ambiguous (e.g. test files changed but they don't obviously
 belong to this change), say what you found and ask me which stage to run.

@@ -1,0 +1,40 @@
+kind: neutral
+languages:
+- python
+- typescript
+command: la-affected-tests
+args:
+- --base
+- main
+git:
+- write:
+    src/pkg/__init__.py: ''
+    src/pkg/a.py: |
+      from pkg import b
+    src/pkg/b.py: |
+      X = 1
+    tests/test_a.py: |
+      import pkg.a
+    tests/test_c.py: |
+      import os
+    web/a.ts: |
+      import { b } from './b';
+      export const a = b;
+    web/b.ts: |
+      export const b = 1;
+    web/a.test.ts: |
+      import { a } from './a';
+      export const t = a;
+- commit: init
+- origin:
+  - main
+- branch: feat
+- write:
+    src/pkg/b.py: |
+      X = 2
+    web/b.ts: |
+      export const b = 2;
+expect:
+  exit: 0
+note: 'a Python and a TypeScript module changed, each reached by a test: the union, identical through either twin'
+golden: manual

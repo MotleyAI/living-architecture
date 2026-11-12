@@ -348,3 +348,119 @@ def test_living_architecture_skill_names_elements():
     assert "Four layers, one element id everywhere." in text
     assert "`architecture/<id>.arc42.md`" in text
     assert "Every arc42 file sits directly in `architecture/`, never in a subfolder." in text
+
+
+LOCAL_TEST_SCOPE = """## Local test scope
+
+Locally, run only the tests this change can affect; the full suite is CI's job.
+The scope is:
+
+- the files `la-affected-tests --base <base-branch>` prints (the PR's base
+  branch once a PR exists, else the default branch): the tests this change
+  added or changed, and every test whose imports reach a changed file;
+- whatever else you judge this change reaches: goldens, conformance cases and
+  snapshots pinning changed output, tests reading changed data or config files,
+  everything under a changed fixture or conftest;
+- every test CI reported failing on this PR.
+
+Run them with the repo's test runner (the one behind `la-config get
+commands.test`, keeping its usual options) narrowed to those files or test
+ids, leaving out printed files the runner does not collect as tests (helpers,
+fixtures). Never run the whole suite locally "to be safe"; a test missed here
+is caught by CI.
+"""
+
+LOCAL_SCOPE_REWORDS = [
+    ("pr",
+     ("the standing **go-ahead gate before push/PR** (`pr-implement`): never push or open a PR without my explicit"
+     " go-ahead;"),
+     ("the standing **go-ahead gate before opening a PR** (`pr-implement`): never open a PR without my explicit"
+     " go-ahead; pushing this change's own branch needs none;")),
+    ("pr",
+     ("**Commit only** — pushing and opening the PR still need my explicit go-ahead (`pr-implement` Step 3 / the"
+     " stopping policy above); the end-of-stage commit does not."),
+     ("**Commit only** — opening the PR still needs my explicit go-ahead (`pr-implement` Step 3 / the stopping"
+     " policy above)")),
+    ("pr", "then (with my go-ahead) commit, push, and open the PR.", "then commit and push, and (with my go-ahead) open the PR."),
+    ("pr", "awaiting my commit/push/PR go-ahead", "awaiting my PR go-ahead"),
+    ("pr-implement",
+     "then with the user's explicit go-ahead commit, push, and open the PR",
+     "then commit, push and, with the user's explicit go-ahead, open the PR"),
+    ("pr-implement",
+     ("Run the repo's test command (`la-config get commands.test`; if unset, the repo's documented full"
+     " non-integration suite) after changes and fix any failures."),
+     "After changes, run the tests in the `/la:pr` local test scope and fix any failures."),
+    ("pr-implement",
+     "The go-ahead gate in Step 3 governs **pushing** and **opening the PR**, not every local commit.",
+     "The go-ahead gate in Step 3 governs **opening the PR** only."),
+    ("pr-implement", "Once the suite is green,", "Once the tests in scope are green,"),
+    ("pr-implement", "Ask me to push and open the PR", "Push, then ask me to open the PR"),
+    ("pr-implement",
+     ("Once all tests pass AND both local gates are green, stop and ask me whether to push and open a PR (folding in"
+     " any final commit of the implementation)."),
+     ("Once every test in scope passes AND both local gates are green, push the branch, then stop and ask me whether"
+     " to open a PR (folding in any final commit of the implementation).")),
+    ("pr-implement",
+     ("Intermediate local commits along the way were fine (Step 1), but **pushing** and **opening the PR** need my"
+     " explicit go-ahead — do not do either on your own."),
+     ("Intermediate local commits along the way were fine (Step 1); push the branch when ready, but **opening the"
+     " PR** needs my explicit go-ahead — never do it on your own.")),
+    ("pr-implement",
+     "re-run the local gates (full non-integration suite, conventions and type check) on the merged tree",
+     ("re-run the local gates (the local test scope plus the tests covering every file the merge conflicted on,"
+     " conventions and type check) on the merged tree")),
+    ("pr-review",
+     ("the repo's test command (`la-config get commands.test`; if unset, the repo's documented full non-integration"
+     " suite) and the linter"),
+     "the tests in the `/la:pr` local test scope (which includes every test CI reported failing) and the linter"),
+    ("pr-tests",
+     "Do NOT push — pushing waits for the `pr-implement` go-ahead gate.",
+     "Do NOT push — the first push happens in `pr-implement`."),
+]
+
+
+def test_pr_defines_the_local_test_scope_after_the_commit_section():
+    text = _skill_text("pr")
+    after_commit = text.split("\n## Commit at the end of every stage\n", 1)[1].split("\n## ", 1)[1]
+    assert after_commit.startswith(LOCAL_TEST_SCOPE.removeprefix("## "))
+
+
+@pytest.mark.parametrize(
+    ("name", "old", "new"), LOCAL_SCOPE_REWORDS, ids=[f"{name}-{i}" for i, (name, _, _) in enumerate(LOCAL_SCOPE_REWORDS)]
+)
+def test_stage_wording_is_reworded(name, old, new):
+    text = _flat(_skill_text(name))
+    assert (old in text, new in text) == (False, True)
+
+
+def test_pr_tests_confirms_failures_in_the_local_scope():
+    expected = "not for setup reasons. Run the tests in the `/la:pr` local test scope to confirm that."
+    assert expected in _flat(_skill_text("pr-tests"))
+
+
+def test_pr_review_pushes_without_asking():
+    text = _flat(_skill_text("pr-review"))
+    autonomous = text.index("**Run this loop autonomously — fix findings and push fix batches without asking.")
+    pushing = text.index(
+        "Never ask before pushing to this PR's own branch: push as soon as a batch is ready. Only opening a PR needs"
+        " my approval."
+    )
+    assert autonomous < pushing
+
+
+def test_how_it_works_stage_three_pushes_before_the_pr_go_ahead():
+    text = _flat((DOCS_DIR / "how-it-works.md").read_text(encoding="utf-8"))
+    old = "then commits, pushes and opens the PR on your go-ahead."
+    new = "then commits and pushes, and opens the PR on your go-ahead."
+    assert (old in text, new in text) == (False, True)
+
+
+@pytest.mark.parametrize("name", ["deterministic-refactor", "arch-cleanup", "make-diff-compliant"])
+def test_soundness_skills_keep_the_full_suite(name):
+    assert "local test scope" not in _skill_text(name)
+
+
+def test_commands_doc_lists_affected_tests():
+    rows = [line for line in (DOCS_DIR / "commands.md").read_text(encoding="utf-8").splitlines()
+            if line.startswith("| `la-affected-tests")]
+    assert len(rows) == 1

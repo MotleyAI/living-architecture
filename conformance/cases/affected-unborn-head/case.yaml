@@ -1,0 +1,28 @@
+kind: neutral
+command: la-affected-tests
+args:
+- --base
+- main
+git:
+- write:
+    src/pkg/__init__.py: ''
+    src/pkg/a.py: |
+      from pkg import b
+    src/pkg/b.py: |
+      X = 1
+    tests/test_a.py: |
+      import pkg.a
+    tests/test_c.py: |
+      import os
+- commit: init
+- origin:
+  - main
+- branch: feat
+- orphan: fresh
+expect:
+  exit: 2
+  stderr:
+    contains:
+    - 'la-affected-tests: '
+note: 'HEAD has no commit while origin/main exists: exit 2'
+golden: manual

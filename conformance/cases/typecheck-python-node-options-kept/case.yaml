@@ -1,0 +1,11 @@
+kind: adapter
+languages:
+- python
+command: la-typecheck
+fixture: typecheck-python
+env:
+  NODE_OPTIONS: --max-old-space-size=4096
+expect:
+  exit: 0
+golden: manual
+note: an inherited NODE_OPTIONS stays first, la's preload follows it

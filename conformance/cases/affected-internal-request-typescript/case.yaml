@@ -1,0 +1,30 @@
+kind: adapter
+languages:
+- typescript
+twin: typescript
+stdin: '{"changes": [{"path": "src/b.ts", "deleted": false}]}'
+command: la-affected-tests
+args:
+- --language
+- typescript
+git:
+- write:
+    src/a.ts: |
+      import { b } from './b';
+      export const a = b;
+    src/b.ts: |
+      export const b = 1;
+    test/a.test.ts: |
+      import { a } from '../src/a';
+      export const t = a;
+    test/c.test.ts: |
+      export const c = 1;
+- commit: init
+- origin:
+  - main
+- branch: feat
+expect:
+  exit: 0
+  stdout: json
+note: 'the internal request: the stdin change list''s selection of the native language as a JSON response with the twin''s identity'
+golden: manual

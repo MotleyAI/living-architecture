@@ -1,0 +1,34 @@
+kind: adapter
+languages:
+- python
+command: la-affected-tests
+args:
+- --base
+- main
+git:
+- write:
+    src/pkg/__init__.py: ''
+    src/pkg/a.py: |
+      from pkg import b
+    src/pkg/b.py: |
+      X = 1
+    tests/test_a.py: |
+      import pkg.a
+    tests/test_c.py: |
+      import os
+- commit: init
+- origin:
+  - main
+- branch: feat
+- write:
+    tests/test_é.py: ''
+    tests/test_my file.py: ''
+    tests/test_B.py: ''
+    tests/test_a.py: |
+      import pkg.a
+      import os
+- commit: work
+expect:
+  exit: 0
+note: 'spaces, non-ASCII and mixed case with core.quotePath at its default (true): printed verbatim in code-point order'
+golden: manual

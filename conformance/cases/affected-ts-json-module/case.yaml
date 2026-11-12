@@ -1,0 +1,37 @@
+kind: adapter
+languages:
+- typescript
+command: la-affected-tests
+args:
+- --base
+- main
+git:
+- write:
+    src/a.ts: |
+      import { b } from './b';
+      export const a = b;
+    src/b.ts: |
+      export const b = 1;
+    test/a.test.ts: |
+      import { a } from '../src/a';
+      export const t = a;
+    test/c.test.ts: |
+      export const c = 1;
+    tsconfig.json: |
+      {"compilerOptions": {"module": "esnext", "moduleResolution": "bundler", "resolveJsonModule": true}}
+    src/data.json: |
+      {}
+    test/d.test.ts: |
+      import data from '../src/data.json';
+      export { data };
+- commit: init
+- origin:
+  - main
+- branch: feat
+- write:
+    src/data.json: |
+      {"a": 1}
+expect:
+  exit: 0
+note: a JSON-only change computes TypeScript (imports_non_source) and selects the JSON's importers
+golden: manual

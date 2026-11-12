@@ -1,0 +1,3 @@
+la-typecheck: checking python with basedpyright
+fake basedpyright: output before the refusal
+la-typecheck: python: basedpyright 1.40.2 has the pyright#11919 line 0 times, not once; reinstall basedpyright

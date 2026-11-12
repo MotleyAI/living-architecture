@@ -1,0 +1,35 @@
+kind: adapter
+languages:
+- typescript
+command: la-affected-tests
+args:
+- --base
+- main
+git:
+- write:
+    src/a.ts: |
+      import { b } from './b';
+      export const a = b;
+    src/b.ts: |
+      export const b = 1;
+    test/a.test.ts: |
+      import { a } from '../src/a';
+      export const t = a;
+    test/c.test.ts: |
+      export const c = 1;
+    src/feature/index.ts: |
+      export const f = 1;
+    test/f.test.ts: |
+      import { f } from '../src/feature';
+      export const t = f;
+- commit: init
+- origin:
+  - main
+- branch: feat
+- git_rm:
+  - src/feature/index.ts
+- commit: work
+expect:
+  exit: 0
+note: a deleted directory index still imported as its directory
+golden: manual

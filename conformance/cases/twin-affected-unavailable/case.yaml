@@ -1,0 +1,35 @@
+kind: adapter
+languages:
+- python
+twin: python
+other_twin: absent
+normalize:
+- version
+command: la-affected-tests
+args:
+- --base
+- main
+git:
+- write:
+    src/pkg/__init__.py: ''
+    src/pkg/a.py: |
+      from pkg import b
+    src/pkg/b.py: |
+      X = 1
+    tests/test_a.py: |
+      import pkg.a
+    tests/test_c.py: |
+      import os
+- commit: init
+- origin:
+  - main
+- branch: feat
+- write:
+    src/pkg/b.py: |
+      X = 2
+    web/b.ts: |
+      export const b = 1;
+expect:
+  exit: 2
+note: 'a TypeScript file changed, no npm twin and no npx: exit 2 with the install hint and empty stdout'
+golden: manual

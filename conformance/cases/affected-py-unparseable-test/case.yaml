@@ -1,0 +1,35 @@
+kind: adapter
+languages:
+- python
+command: la-affected-tests
+args:
+- --base
+- main
+git:
+- write:
+    src/pkg/__init__.py: ''
+    src/pkg/a.py: |
+      from pkg import b
+    src/pkg/b.py: |
+      X = 1
+    tests/test_a.py: |
+      import pkg.a
+    tests/test_c.py: |
+      import os
+    tests/test_broken.py: |
+      from pkg import (
+          b,
+      )
+
+      def broken(:
+- commit: init
+- origin:
+  - main
+- branch: feat
+- write:
+    src/pkg/b.py: |
+      X = 2
+expect:
+  exit: 0
+note: a test the interpreter cannot parse keeps its lexically scanned imports
+golden: manual

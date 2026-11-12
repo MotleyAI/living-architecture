@@ -13,6 +13,7 @@ The skills drive these commands; you can also run them directly. `<command> --he
 | `la-check-conventions <PR>` / `--base BRANCH` | Imports-at-top, text-ratio and test-assertion gate on changed `.py` and TS/JS files |
 | `la-count-comments` | Count comment and doc (docstring, JSDoc) lines, or the net change vs a git ref |
 | `la-typecheck [--write-baseline]` | Type-check each applicable language against a baseline that only shrinks |
+| `la-affected-tests --base BRANCH` | Print the test files a change can affect, one per line, without running them |
 | `la-pr-reviewers <PR>` | Which review bots ran on a PR (CodeRabbit, Sonar and its project key), as JSON |
 | `la-wait-for-reviews <PR>` | Wait for CI and, when it is on the PR, the CodeRabbit review to settle |
 | `la-fetch-failed-pr-checks <PR>` | Failed checks plus a log excerpt of each |
@@ -50,11 +51,28 @@ enforced rules with `conventions.rules`. An explicit path with an unknown extens
 Waive a flagged line with `# ALLOW(<rule>): <reason>` or `// ALLOW(<rule>): <reason>`.
 
 `la-typecheck` checks every repo language whose `commands.typecheck` entry is not `null`. The checker is looked up in `.venv/bin` or
-`node_modules/.bin` first, then on `PATH`. Python keeps basedpyright's own baseline; TypeScript keeps
-`.tsc-baseline.json`, a multiset of diagnostics keyed by file, code and message, so moved lines are not new
+`node_modules/.bin` first, then on `PATH`. For Python it patches basedpyright in memory against pyright#11919,
+whose dropped diagnostics depend on file order and thread count; the command must run a verified basedpyright
+(today `1.40.2`) under Node and keep `NODE_OPTIONS`, else the run exits 2. Python keeps basedpyright's own
+baseline; TypeScript keeps `.tsc-baseline.json`, a multiset of diagnostics keyed by file, code and message, so moved lines are not new
 errors. New errors exit 1; fixed ones shrink the baseline. Run `la-typecheck --write-baseline` once to create
 the missing baselines. Suppress a genuine false positive with `// @ts-expect-error — <reason>`, never
 `@ts-ignore`.
+
+## Affected tests
+
+`la-affected-tests --base BRANCH` compares the working tree with `origin/BRANCH` (after a best-effort fetch, killed after
+`base_fetch_timeout_seconds` in `shared/cli.yaml` and never prompting for credentials) and
+prints, one repo-relative path per line in code-point order, the test files the change can affect: the tests it
+added or changed (committed, staged, unstaged or untracked) and every test whose imports, type-only ones included,
+reach a changed or deleted file. Python imports resolve by dotted suffix against every file in the repo;
+TypeScript ones under each file's nearest `tsconfig.json`. It needs no architecture index or config, never runs
+a test, and exits 0 even when nothing is selected. A change touching both languages needs both twins.
+
+The selection is exact only for imports. Goldens, snapshots, data files read at runtime, fixtures and conftest
+fan-out, dynamic imports and code run in a subprocess are left to judgement; the `/la:pr` skills add them to the
+local test scope and leave the full suite to CI. Printed helpers and fixtures that match a test glob are not
+filtered out.
 
 ## Architecture checks in CI
 

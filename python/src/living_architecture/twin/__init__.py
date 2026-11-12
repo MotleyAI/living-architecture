@@ -15,6 +15,7 @@ from living_architecture import NATIVE_LANGUAGE, __version__
 from living_architecture.contract import contract_hash, language, message, render_template, schema, validate
 
 FORWARDED_ENV = "LA_FORWARDED"
+_FACTS_INVALID = "twin.facts-invalid"
 
 
 class TwinError(Exception):
@@ -163,7 +164,7 @@ def request_facts(lang: str, repo_root: Path, expected_units: list[str], *, top_
         argv.append("--top-level")
     document = _document(_run(lang, "la-arch-check", argv, capture=True), "facts", lang)
     if document is None or not _facts_consistent(document, expected_units, top_level):
-        raise TwinError(_hint("twin.facts-invalid", lang))
+        raise TwinError(_hint(_FACTS_INVALID, lang))
     return document
 
 
@@ -176,8 +177,21 @@ def request_conventions_facts(lang: str, *, cwd: Path, paths: list[str], repo_ro
     proc = _run(lang, "la-check-conventions", argv, cwd=cwd, stdin=json.dumps(paths).encode("utf-8"), capture=True)
     document = _document(proc, "conventions-facts", lang)
     if document is None or [f["path"] for f in document["files"]] != paths:
-        raise TwinError(_hint("twin.facts-invalid", lang))
+        raise TwinError(_hint(_FACTS_INVALID, lang))
     return document["files"]
+
+
+def request_affected(lang: str, changes: list[dict[str, Any]], *, repo_root: Path) -> list[str]:
+    """`lang`'s selected tests for the change list, from its twin run at the repo root; errors as `request_facts`."""
+    refuse_if_forwarded(lang)
+    argv = [*_launcher(lang, repo_root).argv("la-affected-tests"), "--language", lang]
+    sys.stdout.flush()
+    sys.stderr.flush()
+    stdin = json.dumps({"changes": changes}).encode("utf-8")
+    document = _document(_run(lang, "la-affected-tests", argv, cwd=repo_root, stdin=stdin, capture=True), "affected-response", lang)
+    if document is None:
+        raise TwinError(_hint(_FACTS_INVALID, lang))
+    return document["tests"]
 
 
 def run_language(command: str, lang: str, args: list[str], *, cwd: Path, repo_root: Path) -> int:

@@ -1,0 +1,1 @@
+{"language": "typescript", "version": "<VERSION>", "contract_hash": "<CONTRACT_HASH>", "tests": ["test/a.test.ts"]}

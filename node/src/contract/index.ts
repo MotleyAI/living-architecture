@@ -7,6 +7,7 @@ export { materializeDefaults, validate } from './schema.js';
 export {
   HASH_FILE,
   architecture,
+  baseFetchTimeout,
   checkIds,
   computeHash,
   configFile,
@@ -16,6 +17,7 @@ export {
   findings,
   language,
   languageIds,
+  isTestFile,
   languageOf,
   localConfigFile,
   manifest,

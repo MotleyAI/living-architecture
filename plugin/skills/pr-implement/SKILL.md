@@ -1,6 +1,6 @@
 ---
 name: pr-implement
-description: Stage 3 of 4 of the /la:pr flow — implement until every test from the pr-tests stage passes, then with the user's explicit go-ahead commit, push, and open the PR. Normally dispatched by /la:pr; if the /la:pr context (BRANCH, CHANGE_ID, OPENSPEC, tracker issue) is not already loaded in this session, invoke the la:pr skill instead.
+description: Stage 3 of 4 of the /la:pr flow — implement until every test from the pr-tests stage passes, then commit, push and, with the user's explicit go-ahead, open the PR. Normally dispatched by /la:pr; if the /la:pr context (BRANCH, CHANGE_ID, OPENSPEC, tracker issue) is not already loaded in this session, invoke the la:pr skill instead.
 ---
 
 **Preflight:** run `la-doctor --plugin <this skill's base directory> --require-config --require-plan-store` once per session before using any `la-*` or `dr-*` command. If it reports the missing-config finding (the one naming `/la:init`), run the fast path of the `la:init` skill; if it reports the missing-format finding (the one naming `la-arch-migrate`), run `la-arch-migrate` without asking and include the files it writes in the end-of-stage commit. Then re-run this preflight; stop and show the user its output on anything it still reports, or on any other failure.
@@ -18,7 +18,7 @@ comment on the tracker issue) and the failing tests already on disk from
 
 ## Step 1 — Implement until tests pass
 
-Implement the plan. Run the repo's test command (`la-config get commands.test`; if unset, the repo's documented full non-integration suite) after changes and fix any failures. Do not
+Implement the plan. After changes, run the tests in the `/la:pr` local test scope and fix any failures. Do not
 declare done until every test from the `pr-tests` stage passes.
 An existing test that breaks because it pins what the plan changes is not a
 design fork: ask only for approval to align it with the plan (the `/la:pr`
@@ -44,8 +44,7 @@ large structural refactor the plan did not include without my go-ahead.
 Intermediate local commits during implementation are fine within reason — e.g.
 to merge origin/main before editing, or to checkpoint a coherent working state.
 Keep them tidy (specific `git add`, never `git add -A`); they can be reorganized
-before the push. The go-ahead gate in Step 3 governs **pushing** and **opening
-the PR**, not every local commit.
+before the push. The go-ahead gate in Step 3 governs **opening the PR** only.
 
 If `OPENSPEC=1`, tick off `openspec/changes/<CHANGE_ID>/tasks.md` as you complete
 each task (the same checklist authored in `pr-plan` — this is the
@@ -58,7 +57,7 @@ code — so verbose comments never get written in the first place.
 
 ## Step 2 — Local gates (before commit)
 
-Once the suite is green, run the SAME deterministic gates `pr-review` uses, so
+Once the tests in scope are green, run the SAME deterministic gates `pr-review` uses, so
 the review bots don't have to redo them and the first push is already clean.
 Both are HARD GATES: do not proceed to Step 3 while either is RED.
 
@@ -89,12 +88,13 @@ The baseline is a ratchet:
 `la-typecheck` printing "nothing to check" means no language applies, which is
 not a failure. Re-run until green.
 
-## Step 3 — Ask me to push and open the PR
+## Step 3 — Push, then ask me to open the PR
 
-Once all tests pass AND both local gates are green, stop and ask me whether
-to push and open a PR (folding in any final commit of the implementation).
-Intermediate local commits along the way were fine (Step 1), but **pushing** and
-**opening the PR** need my explicit go-ahead — do not do either on your own.
+Once every test in scope passes AND both local gates are green, push the branch,
+then stop and ask me whether to open a PR (folding in any final commit of the
+implementation). Intermediate local commits along the way were fine (Step 1);
+push the branch when ready, but **opening the PR** needs my explicit go-ahead —
+never do it on your own.
 Then follow the standard commit/PR workflow (specific `git add` for each new
 file, never `git add -A`).
 
@@ -111,7 +111,8 @@ CI runs on, the current destination rather than a stale base: `git fetch origin
 merge — NEVER stash, NEVER rebase; the merge message's
 first line must name the merged ref in single quotes, e.g. `Merge branch
 'origin/main' into <BRANCH>`. Resolve any conflicts, re-run the local gates
-(full non-integration suite, conventions and type check) on the merged tree, and only then
+(the local test scope plus the tests covering every file the merge conflicted on,
+conventions and type check) on the merged tree, and only then
 push and `gh pr create`. If the base has not advanced since your last merge the
 merge is a no-op — proceed straight to the push.
 

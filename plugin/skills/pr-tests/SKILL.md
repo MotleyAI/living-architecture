@@ -21,6 +21,7 @@ Before writing anything, recover the durable plan from `pr-plan`:
 TDD-first: land the **full**
 test suite for the agreed plan before writing any implementation. Tests
 should fail for the right reason (feature missing), not for setup reasons.
+Run the tests in the `/la:pr` local test scope to confirm that.
 
 If `OPENSPEC=1`, derive the test cases from the delta scenarios in
 `openspec/changes/<CHANGE_ID>/specs/<capability>/spec.md`: every
@@ -60,7 +61,7 @@ still hold:
 - NEVER `git add -A` / `git add .` / `git add tests/` — only specific named
   paths. Listing several named paths in one `git add` command is fine; a bulk
   add (all files, `.`, or a directory) is not.
-- Do NOT push — pushing waits for the `pr-implement` go-ahead gate.
+- Do NOT push — the first push happens in `pr-implement`.
 
 ## Step 4 — Hard stop
 

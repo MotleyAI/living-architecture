@@ -9,8 +9,6 @@ from living_architecture.conventions.gate import (
     check_conventions,
     check_file,
     files_label,
-    is_test_file,
-    resolve_base_ref,
     waived,
 )
 
@@ -23,8 +21,6 @@ __all__ = [
     "count_comments",
     "emit",
     "files_label",
-    "is_test_file",
     "language_of",
-    "resolve_base_ref",
     "waived",
 ]

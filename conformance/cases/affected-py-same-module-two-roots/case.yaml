@@ -1,0 +1,26 @@
+kind: adapter
+languages:
+- python
+command: la-affected-tests
+args:
+- --base
+- main
+git:
+- write:
+    one/a/b.py: ''
+    two/a/b.py: ''
+    tests/test_x.py: |
+      import a.b
+    tests/test_y.py: |
+      import os
+- commit: init
+- origin:
+  - main
+- branch: feat
+- write:
+    two/a/b.py: |
+      X = 1
+expect:
+  exit: 0
+note: 'a/b.py under two directories: a change to either selects the test'
+golden: manual

@@ -7,6 +7,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 from living_architecture import lang, twin
@@ -29,6 +30,11 @@ def combined_exit(codes: list[int]) -> int:
 
 def _err(text: str) -> None:
     print(text, file=sys.stderr, flush=True)
+
+
+def _error(error: str) -> int:
+    _err(message("typecheck.error", error=error))
+    return 2
 
 
 def _command(config: LaConfig, lang_id: str) -> str | None:
@@ -62,10 +68,41 @@ def resolve_argv(root: Path, lang_id: str, command: str) -> list[str]:
     return [found, *words[1:]]
 
 
-def _run_python(root: Path, argv: list[str], *, write: bool) -> int:
+def _patch_failure(patch: lang.PyrightPatch | None, command: str, versions: list[str]) -> str | None:
+    if patch is None:
+        return message("typecheck.patch-not-applied", command=command)
+    if patch.outcome == "unverified":
+        return message("typecheck.patch-unverified", verified=", ".join(versions), version=patch.version)
+    if patch.outcome == "mismatch":
+        return message("typecheck.patch-mismatch", version=patch.version, count=patch.count)
+    return None
+
+
+def _restore(path: Path, content: bytes | None) -> None:
+    if content is None:
+        if path.exists():
+            path.unlink()
+    elif not path.exists() or path.read_bytes() != content:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(content)
+
+
+def _run_python(root: Path, command: str, argv: list[str], *, write: bool) -> int:
     baseline = root / language("python")["baseline_file"]
+    before = baseline.read_bytes() if baseline.exists() else None
     flag = [lang.BASEDPYRIGHT_WRITE_FLAG] if write else []
-    code = lang.basedpyright_exit(subprocess.run([*argv, *flag], cwd=root, check=False).returncode, write=write)
+    versions: list[str] = language("python")["checker_patch_versions"]
+    with tempfile.TemporaryDirectory(prefix="la-pyright-patch-") as tmp:
+        result = Path(tmp) / "result.json"
+        env = lang.pyright_patch_env(os.environ, result=result, versions=versions)
+        returncode = subprocess.run([*argv, *flag], cwd=root, env=env, check=False).returncode
+        patch = lang.read_pyright_patch(result)
+    failure = _patch_failure(patch, command, versions)
+    if failure is not None:
+        _restore(baseline, before)
+        _err(failure)
+        return 2
+    code = lang.basedpyright_exit(returncode, write=write)
     if write and code == 0:
         if not baseline.exists():
             baseline.parent.mkdir(parents=True, exist_ok=True)
@@ -81,7 +118,7 @@ def _check_native(root: Path, command: str, *, write: bool) -> int:
         _err(str(exc))
         return 2
     sys.stdout.flush()
-    return _run_python(root, argv, write=write)
+    return _run_python(root, command, argv, write=write)
 
 
 def _check(root: Path, lang_id: str, command: str, *, write: bool) -> int:
@@ -90,8 +127,7 @@ def _check(root: Path, lang_id: str, command: str, *, write: bool) -> int:
     try:
         return twin.run_language("la-typecheck", lang_id, ["--write-baseline"] if write else [], cwd=root, repo_root=root)
     except twin.TwinError as exc:
-        _err(message("typecheck.error", error=str(exc)))
-        return 2
+        return _error(str(exc))
 
 
 def _setup(cwd: Path) -> tuple[Path, LaConfig] | int:
@@ -102,8 +138,7 @@ def _setup(cwd: Path) -> tuple[Path, LaConfig] | int:
     try:
         return root, load_config(root)
     except ConfigError as exc:
-        _err(message("typecheck.error", error=str(exc)))
-        return 2
+        return _error(str(exc))
 
 
 def run(*, cwd: Path, write: bool, language_id: str | None) -> int:
@@ -114,14 +149,12 @@ def run(*, cwd: Path, write: bool, language_id: str | None) -> int:
     root, config = setup
     if language_id is not None:
         if language_id != twin.NATIVE_LANGUAGE:
-            _err(message("typecheck.error", error=message("typecheck.not-native", language=language_id)))
-            return 2
+            return _error(message("typecheck.not-native", language=language_id))
         return _check_native(root, _command(config, language_id) or "", write=write)
     try:
         languages = applicable(root, config)
     except ConfigError as exc:
-        _err(message("typecheck.error", error=str(exc)))
-        return 2
+        return _error(str(exc))
     if not languages:
         _err(message("typecheck.no-languages"))
         return 0

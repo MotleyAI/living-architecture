@@ -51,7 +51,7 @@ Changelog = "https://github.com/MotleyAI/living-architecture/releases"
 
 # The verifier. Point it at the target project's interpreter (see README).
 [project.optional-dependencies]
-verify = ["basedpyright>=1.20"]
+verify = ["basedpyright==1.40.2"]
 
 # Must equal the command set of shared/cli.yaml.
 [project.scripts]
@@ -64,6 +64,7 @@ la-arch-migrate = "living_architecture.cli:la_arch_migrate"
 la-check-conventions = "living_architecture.cli:la_check_conventions"
 la-count-comments = "living_architecture.cli:la_count_comments"
 la-typecheck = "living_architecture.cli:la_typecheck"
+la-affected-tests = "living_architecture.cli:la_affected_tests"
 la-fetch-coderabbit-threads = "living_architecture.cli:la_fetch_coderabbit_threads"
 la-reply-invalid-coderabbit = "living_architecture.cli:la_reply_invalid_coderabbit"
 la-reply-to-pr-thread = "living_architecture.cli:la_reply_to_pr_thread"
@@ -75,7 +76,7 @@ dr-mock-lint = "living_architecture.cli:dr_mock_lint"
 dr-compliance = "living_architecture.cli:dr_compliance"
 
 [dependency-groups]
-dev = ["pytest>=8", "pytest-xdist>=3.8", "ruff>=0.6", "basedpyright>=1.20", "types-pyyaml>=6", "types-jsonschema>=4"]
+dev = ["pytest>=8", "pytest-xdist>=3.8", "ruff>=0.6", "basedpyright==1.40.2", "types-pyyaml>=6", "types-jsonschema>=4"]
 
 [build-system]
 requires = ["uv_build>=0.9,<0.13"]

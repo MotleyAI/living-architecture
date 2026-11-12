@@ -73,6 +73,17 @@ model {
         specs ['typecheck']
       }
     }
+    changes = node 'Change set' {
+      metadata {
+        package 'living_architecture.changes'
+      }
+    }
+    affected = node 'Affected tests' {
+      metadata {
+        package 'living_architecture.affected'
+        specs ['affected-tests']
+      }
+    }
 
     cli -> contract
     cli -> config
@@ -107,6 +118,15 @@ model {
     conventions -> twin
     refactor -> config
     refactor -> twin
+    cli -> affected
+    affected -> changes
+    affected -> lang
+    affected -> config
+    affected -> contract
+    affected -> twin
+    conventions -> changes
+    changes -> config
+    changes -> contract
   }
   typescript = system 'npm twin' {
     contract = node 'Shared contract' {
@@ -169,6 +189,16 @@ model {
         package 'src/refactor'
       }
     }
+    changes = node 'Change set' {
+      metadata {
+        package 'src/changes'
+      }
+    }
+    affected = node 'Affected tests' {
+      metadata {
+        package 'src/affected'
+      }
+    }
 
     cli -> contract
     cli -> config
@@ -205,5 +235,14 @@ model {
     refactor -> lang
     refactor -> config
     refactor -> twin
+    cli -> affected
+    affected -> changes
+    affected -> lang
+    affected -> config
+    affected -> contract
+    affected -> twin
+    conventions -> changes
+    changes -> config
+    changes -> contract
   }
 }
