@@ -136,7 +136,7 @@ only when the bundle's embedded basedpyright version is in the shared contract's
 condition occurs exactly once in the bundle. The run SHALL exit 2 with the shared `typecheck.patch-unverified`
 text for an unlisted version, with `typecheck.patch-mismatch` when the condition does not occur exactly once,
 and with `typecheck.patch-not-applied` when the command loaded no basedpyright bundle under the preload; the
-command's own output SHALL still be relayed. A patched run SHALL print nothing beyond the checker's output. The
+command's own output SHALL still be relayed. The patch SHALL add no output to a patched run. The
 verified-version table SHALL initially hold exactly `1.40.2`.
 
 #### Scenario: Dropped diagnostic is reported
