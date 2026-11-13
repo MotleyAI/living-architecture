@@ -6,8 +6,8 @@ The plugin's skills come in two roles.
   `la-doctor --plugin <skill dir> --require-config`. In a repo with no `living-architecture.yaml`, that preflight
   runs the fast path of `la:init` and then continues.
 - **Helper skills** are invoked by main skills, or by you for a single task. They never require the config file,
-  so they work in any repo. The four `la:pr` stages are helpers that `la:pr` dispatches to, and they run the
-  same preflight as the main skills.
+  so they work in any repo. The four `la:pr` stages are helpers that `la:pr` dispatches to; `la:pr`'s preflight
+  covers them.
 
 ## Main skills
 

@@ -261,8 +261,9 @@ End the plan with a one-line proposal:
 Do **not** start writing code until the user picks.
 
 Any further decision the plan needs (a design fork, an approval of a spec or
-test edit) is a question: ask every one of them, ONE per message, back to back,
-and start writing code only after the last answer.
+test edit), including one that surfaces mid-fix, is a question: stop, ask every
+one of them, ONE per message, back to back, and write code only after the last
+answer.
 
 ## Constraints
 

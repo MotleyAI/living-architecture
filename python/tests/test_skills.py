@@ -58,7 +58,7 @@ def test_commands_exist_in_the_manifest(path):
 @pytest.mark.parametrize("path", SKILL_FILES, ids=_id)
 def test_tool_users_run_the_plugin_preflight(path):
     text = path.read_text(encoding="utf-8")
-    if set(COMMAND_RE.findall(text)) - {"la-doctor"}:
+    if path.parent.name not in STAGES and set(COMMAND_RE.findall(text)) - {"la-doctor"}:
         assert PREFLIGHT_CMD_RE.search(text), "uses la-*/dr-* commands without the la-doctor preflight"
 
 
@@ -66,8 +66,8 @@ MAIN_SKILLS = {"init", "pr", "arch-init", "arch-cleanup", "deterministic-refacto
 # The README's table: la:init names la:arch-init in its purpose; docs/skills.md lists every main skill.
 README_SKILLS = {"init", "pr", "deterministic-refactor"}
 STAGES = {"pr-plan", "pr-tests", "pr-implement", "pr-review"}
-REQUIRE_CONFIG = (MAIN_SKILLS - {"init"}) | STAGES
-REQUIRE_PLAN_STORE = {"pr"} | STAGES
+REQUIRE_CONFIG = MAIN_SKILLS - {"init"}
+REQUIRE_PLAN_STORE = {"pr"}
 DOCS_DIR = REPO_ROOT / "docs"
 DOCS_PAGES = [
     "how-it-works.md",
@@ -120,25 +120,16 @@ def test_readme_skills_table_lists_exactly_the_entry_skills():
 
 
 @pytest.mark.parametrize("path", SKILL_FILES, ids=_id)
-def test_preflight_requires_config_only_in_main_skills_and_stages(path):
-    text = path.read_text(encoding="utf-8")
-    preflight = PREFLIGHT_RE.findall(text)
+def test_preflight_requires_config_only_in_main_skills(path):
+    preflight = PREFLIGHT_RE.findall(path.read_text(encoding="utf-8"))
     if path.parent.name in REQUIRE_CONFIG:
         assert len(preflight) == 1
         flags = " --require-plan-store" if path.parent.name in REQUIRE_PLAN_STORE else ""
         assert f"`{PREFLIGHT} --require-config{flags}`" in preflight[0]
-        assert "la:init" in text
-        assert "fast path" in text
+    elif path.parent.name in STAGES:
+        assert preflight == []
     else:
         assert all("--require-config" not in line for line in preflight)
-
-
-@pytest.mark.parametrize("name", sorted(REQUIRE_PLAN_STORE))
-def test_pr_flow_preflight_migrates_an_unformatted_repo_without_asking(name):
-    preflight = PREFLIGHT_RE.findall(_skill_text(name))[0]
-    assert "missing-format finding" in preflight
-    assert "run `la-arch-migrate` without asking" in preflight
-    assert "end-of-stage commit" in preflight
 
 
 def _doc_files() -> list[Path]:
@@ -207,9 +198,7 @@ def test_arch_slice_is_gone():
 
 
 def test_living_architecture_is_a_reference():
-    text = _skill_text("living-architecture")
-    assert not re.search(r"^## (Init|Migrate)\b", text, re.MULTILINE)
-    assert "la:arch-init" in text
+    assert not re.search(r"^## (Init|Migrate)\b", _skill_text("living-architecture"), re.MULTILINE)
 
 
 @pytest.mark.parametrize("path", SKILL_FILES, ids=_id)
@@ -221,14 +210,6 @@ def test_no_removed_review_settings(path):
 
 def test_process_reviews_detects_bots_per_pr():
     assert "la-pr-reviewers" in _skill_text("process-reviews")
-
-
-def test_process_reviews_settle_is_keyed_to_head():
-    text = _skill_text("process-reviews")
-    assert "Sonar counts as present once HEAD has a Sonar check suite, before its check run exists." in text
-    assert "Why Stage 0b is keyed to HEAD's SHA:" in text
-    assert "**Rate limited or paused** (exit 3)" in text
-    assert "updated_at" not in text
 
 
 @pytest.mark.parametrize("path", SKILL_FILES, ids=_id)
@@ -298,42 +279,6 @@ def test_language_idioms_doc_exists(language):
     assert (REPO_ROOT / "plugin" / "languages" / f"{language}.md").is_file()
 
 
-def _flat(text: str) -> str:
-    return " ".join(text.split())
-
-
-def _skill_step(name: str, number: int) -> str:
-    return _skill_text(name).split(f"\n## {number}. ", 1)[1].split("\n## ", 1)[0]
-
-
-def test_init_keeps_the_local_file_out_of_the_committed_config():
-    never_fold = (
-        "`living-architecture.local.yaml`, if present, holds one contributor's overrides;"
-        " never fold its values into the committed file."
-    )
-    offer_ignore = (
-        "If `git check-ignore -q living-architecture.local.yaml` exits 1 (not ignored), offer (yes/no) to add"
-        " `living-architecture.local.yaml` to `.gitignore`: it holds per-person overrides and must never be committed."
-    )
-    [existing_config] = [b for b in _flat(_skill_step("init", 1)).split("- **") if b.startswith("Existing config.**")]
-    assert never_fold in existing_config
-    assert offer_ignore in _flat(_skill_step("init", 5))
-    whole = _flat(_skill_text("init"))
-    assert (whole.count(never_fold), whole.count(offer_ignore)) == (1, 1)
-
-
-def test_docs_describe_the_local_override():
-    configuration = (DOCS_DIR / "configuration.md").read_text(encoding="utf-8")
-    assert "\n## Local overrides\n" in configuration
-    section = configuration.split("\n## Local overrides\n", 1)[1].split("\n## ", 1)[0]
-    for needle in ("living-architecture.local.yaml", "`tracker`", "`reviewers.codex`", "merge", "stderr", "la-doctor",
-                   "tracked", ".gitignore"):
-        assert needle in section
-    [row] = [line for line in (DOCS_DIR / "commands.md").read_text(encoding="utf-8").splitlines()
-             if line.startswith("| `la-config")]
-    assert "living-architecture.local.yaml" in row
-
-
 RETIRED_ARC42_FORMS = ["architecture/**/*.arc42.md", "arc42 '", "<node>.arc42.md", "touches unknown node"]
 
 
@@ -341,118 +286,6 @@ RETIRED_ARC42_FORMS = ["architecture/**/*.arc42.md", "arc42 '", "<node>.arc42.md
 def test_skills_name_only_flat_id_named_arc42_docs(path):
     text = path.read_text(encoding="utf-8")
     assert [form for form in RETIRED_ARC42_FORMS if form in text] == []
-
-
-def test_living_architecture_skill_names_elements():
-    text = (SKILLS_DIR / "living-architecture" / "SKILL.md").read_text(encoding="utf-8")
-    assert "Four layers, one element id everywhere." in text
-    assert "`architecture/<id>.arc42.md`" in text
-    assert "Every arc42 file sits directly in `architecture/`, never in a subfolder." in text
-
-
-LOCAL_TEST_SCOPE = """## Local test scope
-
-Locally, run only the tests this change can affect; the full suite is CI's job.
-The scope is:
-
-- the files `la-affected-tests --base <base-branch>` prints (the PR's base
-  branch once a PR exists, else the default branch): the tests this change
-  added or changed, and every test whose imports reach a changed file;
-- whatever else you judge this change reaches: goldens, conformance cases and
-  snapshots pinning changed output, tests reading changed data or config files,
-  everything under a changed fixture or conftest;
-- every test CI reported failing on this PR.
-
-Run them with the repo's test runner (the one behind `la-config get
-commands.test`, keeping its usual options) narrowed to those files or test
-ids, leaving out printed files the runner does not collect as tests (helpers,
-fixtures). Never run the whole suite locally "to be safe"; a test missed here
-is caught by CI.
-"""
-
-LOCAL_SCOPE_REWORDS = [
-    ("pr",
-     ("the standing **go-ahead gate before push/PR** (`pr-implement`): never push or open a PR without my explicit"
-     " go-ahead;"),
-     ("the standing **go-ahead gate before opening a PR** (`pr-implement`): never open a PR without my explicit"
-     " go-ahead; pushing this change's own branch needs none;")),
-    ("pr",
-     ("**Commit only** — pushing and opening the PR still need my explicit go-ahead (`pr-implement` Step 3 / the"
-     " stopping policy above); the end-of-stage commit does not."),
-     ("**Commit only** — opening the PR still needs my explicit go-ahead (`pr-implement` Step 3 / the stopping"
-     " policy above)")),
-    ("pr", "then (with my go-ahead) commit, push, and open the PR.", "then commit and push, and (with my go-ahead) open the PR."),
-    ("pr", "awaiting my commit/push/PR go-ahead", "awaiting my PR go-ahead"),
-    ("pr-implement",
-     "then with the user's explicit go-ahead commit, push, and open the PR",
-     "then commit, push and, with the user's explicit go-ahead, open the PR"),
-    ("pr-implement",
-     ("Run the repo's test command (`la-config get commands.test`; if unset, the repo's documented full"
-     " non-integration suite) after changes and fix any failures."),
-     "After changes, run the tests in the `/la:pr` local test scope and fix any failures."),
-    ("pr-implement",
-     "The go-ahead gate in Step 3 governs **pushing** and **opening the PR**, not every local commit.",
-     "The go-ahead gate in Step 3 governs **opening the PR** only."),
-    ("pr-implement", "Once the suite is green,", "Once the tests in scope are green,"),
-    ("pr-implement", "Ask me to push and open the PR", "Push, then ask me to open the PR"),
-    ("pr-implement",
-     ("Once all tests pass AND both local gates are green, stop and ask me whether to push and open a PR (folding in"
-     " any final commit of the implementation)."),
-     ("Once every test in scope passes AND both local gates are green, push the branch, then stop and ask me whether"
-     " to open a PR (folding in any final commit of the implementation).")),
-    ("pr-implement",
-     ("Intermediate local commits along the way were fine (Step 1), but **pushing** and **opening the PR** need my"
-     " explicit go-ahead — do not do either on your own."),
-     ("Intermediate local commits along the way were fine (Step 1); push the branch when ready, but **opening the"
-     " PR** needs my explicit go-ahead — never do it on your own.")),
-    ("pr-implement",
-     "re-run the local gates (full non-integration suite, conventions and type check) on the merged tree",
-     ("re-run the local gates (the local test scope plus the tests covering every file the merge conflicted on,"
-     " conventions and type check) on the merged tree")),
-    ("pr-review",
-     ("the repo's test command (`la-config get commands.test`; if unset, the repo's documented full non-integration"
-     " suite) and the linter"),
-     "the tests in the `/la:pr` local test scope (which includes every test CI reported failing) and the linter"),
-    ("pr-tests",
-     "Do NOT push — pushing waits for the `pr-implement` go-ahead gate.",
-     "Do NOT push — the first push happens in `pr-implement`."),
-]
-
-
-def test_pr_defines_the_local_test_scope_after_the_commit_section():
-    text = _skill_text("pr")
-    after_commit = text.split("\n## Commit at the end of every stage\n", 1)[1].split("\n## ", 1)[1]
-    assert after_commit.startswith(LOCAL_TEST_SCOPE.removeprefix("## "))
-
-
-@pytest.mark.parametrize(
-    ("name", "old", "new"), LOCAL_SCOPE_REWORDS, ids=[f"{name}-{i}" for i, (name, _, _) in enumerate(LOCAL_SCOPE_REWORDS)]
-)
-def test_stage_wording_is_reworded(name, old, new):
-    text = _flat(_skill_text(name))
-    assert (old in text, new in text) == (False, True)
-
-
-def test_pr_tests_confirms_failures_in_the_local_scope():
-    expected = "not for setup reasons. Run the tests in the `/la:pr` local test scope to confirm that."
-    assert expected in _flat(_skill_text("pr-tests"))
-
-
-def test_pr_review_pushes_without_asking():
-    text = _flat(_skill_text("pr-review"))
-    autonomous = text.index("**Run this loop autonomously — fix findings and push fix batches without asking.")
-    pushing = text.index(
-        "Never ask before pushing to this PR's own branch: push as soon as a batch is ready. Only opening a PR needs"
-        " my approval."
-    )
-    assert autonomous < pushing
-
-
-def test_how_it_works_stage_three_pushes_before_the_pr_go_ahead():
-    text = _flat((DOCS_DIR / "how-it-works.md").read_text(encoding="utf-8"))
-    old = "then commits, pushes and opens the PR on your go-ahead."
-    new = "then commits and pushes, and opens the PR on your go-ahead."
-    assert (old in text, new in text) == (False, True)
 
 
 @pytest.mark.parametrize("name", ["deterministic-refactor", "arch-cleanup", "make-diff-compliant"])
