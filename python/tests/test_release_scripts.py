@@ -261,6 +261,13 @@ def test_a_previous_release_without_the_config_then_an_older_format_is_refused(r
     _refused(release_repo.release_check("v0.7.0"), "[0.4.0]", "0.7.0")
 
 
+def test_a_failed_git_read_of_the_previous_formats_fails_naming_the_release(release_repo) -> None:
+    _release_with_formats(release_repo, "formats: [0.4.0]\n", "formats: [0.7.0]\n")
+    blob = release_repo.git("rev-parse", f"v0.6.0:{CONFIG}").strip()
+    (release_repo.root / ".git" / "objects" / blob[:2] / blob[2:]).unlink()
+    _refused(release_repo.release_check("v0.7.0"), "cannot read", "v0.6.0")
+
+
 @pytest.mark.parametrize(
     "previous", ["file: living-architecture.yaml\n", "formats:\n- 0.4.0\n", "format: [0.4.0]\n"],
     ids=["neither", "block-list", "format-list"],

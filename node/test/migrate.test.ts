@@ -30,6 +30,7 @@ const faults = vi.hoisted(() => ({
   after: false,
   failFrom: false,
   skewRoot: '',
+  unreadable: '',
   ops: [] as [string, string][],
 }));
 
@@ -67,6 +68,11 @@ vi.mock('node:fs', async (importOriginal) => {
         throw injected('open', path);
       }
       return actual.writeFileSync(file as string, data as string, options as never);
+    },
+    readFileSync: (file: unknown, ...rest: unknown[]) => {
+      const path = mine(file);
+      if (path && faults.unreadable && relative(faults.root, path) === faults.unreadable) throw injected('read', path);
+      return (actual.readFileSync as (...args: unknown[]) => unknown)(file, ...rest);
     },
     appendFileSync: guard('open', actual.appendFileSync),
     openSync: (file: unknown, flags?: unknown, mode?: unknown) => {
@@ -209,7 +215,7 @@ function changedPaths(before: ReturnType<typeof snapshot>, after: ReturnType<typ
 describe('la-arch-migrate', () => {
   const tmp = mkdtempSync(join(tmpdir(), 'la-migrate-'));
   afterEach(() => {
-    Object.assign(faults, { root: '', failAt: -1, after: false, failFrom: false, skewRoot: '', ops: [] });
+    Object.assign(faults, { root: '', failAt: -1, after: false, failFrom: false, skewRoot: '', unreadable: '', ops: [] });
     vi.restoreAllMocks();
   });
   afterAll(() => rmSync(tmp, { recursive: true, force: true }));
@@ -408,7 +414,7 @@ describe('la-arch-migrate step chain', () => {
   let n = 0;
   const fresh = (): string => join(tmp, String(n++));
   afterEach(() => {
-    Object.assign(faults, { root: '', failAt: -1, after: false, failFrom: false, skewRoot: '', ops: [] });
+    Object.assign(faults, { root: '', failAt: -1, after: false, failFrom: false, skewRoot: '', unreadable: '', ops: [] });
     vi.restoreAllMocks();
   });
   afterAll(() => rmSync(tmp, { recursive: true, force: true }));
@@ -523,6 +529,47 @@ describe('la-arch-migrate step chain', () => {
       expect(error).not.toBeInstanceOf(MigrateError);
       expect(error.message).toContain(text());
     }
+    expect(snapshot(root)).toEqual(before);
+  });
+
+  it('rolls back the chain when a step throws an unexpected error', () => {
+    const root = rollbackRepo(fresh());
+    const before = snapshot(root);
+    const crash: Apply = (_root, tx) => {
+      tx.create('later.txt', 'later\n');
+      throw new TypeError('the second step crashes');
+    };
+    const error = thrown(() => migrate(root, { steps: chain([everyChange, crash], [F1, F2]), formats: [F1, F2] }));
+    expect(error).toBeInstanceOf(TypeError);
+    expect(error.message).toBe('the second step crashes');
+    expect(snapshot(root)).toEqual(before);
+  });
+
+  it('restores a read-only replaced file on rollback', () => {
+    const root = chainRepo(fresh(), UNVERSIONED, { 'locked.txt': 'locked\n' });
+    chmodSync(join(root, 'locked.txt'), 0o444);
+    const before = snapshot(root);
+    const refuse: Apply = () => {
+      throw new MigrateError('the second step refuses');
+    };
+    const steps = chain([(_root, tx) => tx.replace('locked.txt', 'new\n'), refuse], [F1, F2]);
+    expect(thrown(() => migrate(root, { steps, formats: [F1, F2] })).message).toBe('the second step refuses');
+    expect(snapshot(root)).toEqual(before);
+  });
+
+  it('names a path whose restore cannot be verified, having inspected the rest', () => {
+    const root = rollbackRepo(fresh());
+    const before = snapshot(root);
+    armed(root, -1, false);
+    const unreadable: Apply = () => {
+      faults.unreadable = 'replaced.txt';
+      throw new MigrateError('the second step refuses');
+    };
+    const error = thrown(() => migrate(root, { steps: chain([everyChange, unreadable], [F1, F2]), formats: [F1, F2] }));
+    faults.unreadable = '';
+    expect(error.message).toBe(
+      message('arch-migrate.rollback-failed', { error: 'the second step refuses', paths: 'replaced.txt' }),
+    );
     expect(snapshot(root)).toEqual(before);
   });
 

@@ -348,11 +348,23 @@ function stateOf(path: string): PathState {
 const sameState = (a: PathState, b: PathState): boolean =>
   a.isDir === b.isDir && a.mode === b.mode && (a.data === null ? b.data === null : b.data !== null && a.data.equals(b.data));
 
-/** Put a file or directory back with its bytes and mode. */
+/** Put a file or directory back with its bytes and mode, over a read-only file too. */
 function restore(path: string, state: PathState): void {
   if (state.isDir) mkdirSync(path);
-  else writeFileSync(path, state.data ?? Buffer.alloc(0));
+  else {
+    if (statSync(path, { throwIfNoEntry: false })?.isFile()) chmodSync(path, modeOf(path) | 0o200);
+    writeFileSync(path, state.data ?? Buffer.alloc(0));
+  }
   if (state.mode !== null) chmodSync(path, state.mode);
+}
+
+/** Whether `path` is verifiably back in `state`. */
+function restored(path: string, state: PathState): boolean {
+  try {
+    return sameState(stateOf(path), state);
+  } catch {
+    return false;
+  }
 }
 
 /** The file at a path: its path before the run (null when the run created it) and whether the run wrote it. */
@@ -468,7 +480,7 @@ export class Transaction {
       }
     }
     const left = [...this.first]
-      .filter(([rel, state]) => !sameState(stateOf(join(this.root, rel)), state))
+      .filter(([rel, state]) => !restored(join(this.root, rel), state))
       .map(([rel]) => rel)
       .sort(byCodePoint);
     if (left.length === 0) return null;

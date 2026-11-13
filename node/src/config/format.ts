@@ -19,7 +19,7 @@ const VERSION_RE = /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/;
 const BLANK = ' \t\r';
 // A top-level `format` line with one single-line scalar value: its value, then its trailing whitespace and comment.
 const FORMAT_LINE = new RegExp(
-  `^${FORMAT_KEY}:[ \\t]+` +
+  String.raw`^${FORMAT_KEY}:[ \t]+` +
     String.raw`(?<value>'(?:[^']|'')*'|"(?:[^"\\]|\\.)*"|[^\s#'"|>{}\[\],&*!%@` + '`' + String.raw`](?:[^#]|(?<![ \t])#)*?)` +
     String.raw`(?<rest>[ \t]*(?:#.*)?)$`,
 );

@@ -507,6 +507,54 @@ def test_a_later_step_failure_rolls_back_the_earlier_steps(tmp_path, second, ref
     assert snapshot(root) == before
 
 
+def _crash(_root: Path, tx: c4_migrate.Transaction) -> None:
+    tx.create("later.txt", "later\n")
+    raise RuntimeError("the second step crashes")
+
+
+def test_an_unexpected_step_error_rolls_back_the_chain(tmp_path):
+    root = rollback_repo(tmp_path)
+    before = snapshot(root)
+    steps = chain(every_change, _crash, formats=[F1, F2])
+    with pytest.raises(RuntimeError, match="the second step crashes"):
+        run_chain(root, steps, [F1, F2])
+    assert snapshot(root) == before
+
+
+def test_a_read_only_replaced_file_is_restored(tmp_path):
+    root = chain_repo(tmp_path, UNVERSIONED, {"locked.txt": "locked\n"})
+    (root / "locked.txt").chmod(0o444)
+    before = snapshot(root)
+    steps = chain(lambda _r, tx: tx.replace("locked.txt", "new\n"), _refuse, formats=[F1, F2])
+    with pytest.raises(c4_migrate.MigrateError) as info:
+        run_chain(root, steps, [F1, F2])
+    assert str(info.value) == "the second step refuses"
+    assert snapshot(root) == before
+
+
+def test_a_path_whose_restore_cannot_be_verified_is_named(tmp_path, monkeypatch):
+    root = rollback_repo(tmp_path)
+    before = snapshot(root)
+    real_read = Path.read_bytes
+
+    def read(self: Path) -> bytes:
+        if self.name == "replaced.txt":
+            raise PermissionError(f"injected failure: read {self}")
+        return real_read(self)
+
+    def unreadable(_root: Path, _tx: c4_migrate.Transaction) -> None:
+        monkeypatch.setattr(Path, "read_bytes", read)
+        raise c4_migrate.MigrateError("the second step refuses")
+
+    steps = chain(every_change, unreadable, formats=[F1, F2])
+    with pytest.raises(c4_migrate.MigrateError) as info:
+        run_chain(root, steps, [F1, F2])
+    monkeypatch.undo()
+    expected = contract.message("arch-migrate.rollback-failed", error="the second step refuses", paths="replaced.txt")
+    assert str(info.value) == expected
+    assert snapshot(root) == before
+
+
 def _recorded_chain_ops(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, str]]:
     probe = rollback_repo(tmp_path / "probe")
     recorder = Faults(probe)

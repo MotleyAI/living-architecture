@@ -315,13 +315,23 @@ def _state(path: Path) -> _State:
 
 
 def _restore(path: Path, state: _State) -> None:
-    """Put a file or directory back with its bytes and mode."""
+    """Put a file or directory back with its bytes and mode, over a read-only file too."""
     if state.is_dir:
         path.mkdir()
     else:
+        if path.is_file():
+            path.chmod(_mode(path) | stat.S_IWUSR)
         path.write_bytes(state.data or b"")
     if state.mode is not None:
         path.chmod(state.mode)
+
+
+def _restored(path: Path, state: _State) -> bool:
+    """Whether `path` is verifiably back in `state`."""
+    try:
+        return _state(path) == state
+    except OSError:
+        return False
 
 
 class _Held(BaseModel):
@@ -429,7 +439,7 @@ class Transaction:
         for undo in reversed(self._undo):
             with contextlib.suppress(OSError):
                 undo()
-        left = sorted(rel for rel, state in self._first.items() if _state(self._root / rel) != state)
+        left = sorted(rel for rel, state in self._first.items() if not _restored(self._root / rel, state))
         if not left:
             return None
         return MigrateError(message("arch-migrate.rollback-failed", error=str(error), paths=", ".join(left)))
@@ -568,7 +578,7 @@ def migrate(root: Path, steps: list[MigrationStep] | None = None, formats: list[
         for source in sources:
             by_source[source].apply(root, tx)
         tx.replace(config_file(), stamped)
-    except (MigrateError, OSError) as exc:
+    except Exception as exc:
         failure = tx.rollback(exc)
         if failure is None:
             raise

@@ -99,11 +99,13 @@ def parse_formats(text: str) -> list[str] | None:
 
 def _formats_at(root: Path, rev: str) -> list[str] | str:
     """The released formats at `rev`, [] without the file there; else why they cannot be read."""
-    absent = subprocess.run(["git", "cat-file", "-e", f"{rev}:{FORMATS_FILE}"], cwd=root, capture_output=True, check=False)
-    if absent.returncode != 0:
+    listed = subprocess.run(
+        ["git", "ls-tree", "--name-only", rev, "--", FORMATS_FILE], cwd=root, capture_output=True, text=True, check=False
+    )
+    if listed.returncode == 0 and not listed.stdout:
         return []
     shown = subprocess.run(["git", "show", f"{rev}:{FORMATS_FILE}"], cwd=root, capture_output=True, text=True, check=False)
-    formats = parse_formats(shown.stdout) if shown.returncode == 0 else None
+    formats = parse_formats(shown.stdout) if listed.returncode == shown.returncode == 0 else None
     return f"cannot read the released formats of {rev} from {FORMATS_FILE}" if formats is None else formats
 
 
