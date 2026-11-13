@@ -356,8 +356,8 @@ def test_typeddict_arguments_bind_only_proven_parameters(typed_project: MakeProj
 def test_typeddict_arguments_follow_resolved_decorators(typed_project: MakeProject) -> None:
     use = (
         "import builtins\n"
-        "import functools\n"
-        "from typing import override\n\n"
+        "import functools\n\n"
+        "from typing_extensions import override\n\n"
         "from pkg.models import ModelDict\n\n\n"
         "class Base:\n"
         "    def run(self, payload: ModelDict) -> None: ...\n\n\n"
