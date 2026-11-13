@@ -1,0 +1,27 @@
+Renaming <Rec> to <Recommendation>:
+
+
+--- a/pkg/rec.py
++++ b/pkg/rec.py
+@@ -1,12 +1,12 @@
+ from typing import Optional
+ 
+ 
+-class Rec:
++class Recommendation:
+     pass
+ 
+ 
+-def make() -> "Rec":
+-    return Rec()
++def make() -> "Recommendation":
++    return Recommendation()
+ 
+ 
+-def opt(a: Optional["Rec"], b: list["Rec"], c: "Rec | None", d: 'Rec | None') -> None: ...
++def opt(a: Optional["Recommendation"], b: list["Recommendation"], c: "Recommendation | None", d: 'Recommendation | None') -> None: ...
+
+
+
+APPLIED. 1 file(s) changed:
+  pkg/rec.py

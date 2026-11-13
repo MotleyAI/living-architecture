@@ -1,0 +1,46 @@
+Renaming <type> to <kind>:
+
+
+--- a/pkg/models.py
++++ b/pkg/models.py
+@@ -5,7 +5,7 @@
+ 
+ class Member(BaseModel):
+     name: str = ""
+-    type: str = "STR"
++    kind: str = "STR"
+ 
+ 
+ class Model(BaseModel):
+
+--- a/pkg/use.py
++++ b/pkg/use.py
+@@ -1,13 +1,13 @@
+ from pkg.models import Holder, Model
+ 
+-a = Model.model_validate({"columns": [{"name": "a", "type": "INT"}]})
+-b = Model(columns=[{"type": "INT"}])
++a = Model.model_validate({"columns": [{"name": "a", "kind": "INT"}]})
++b = Model(columns=[{"kind": "INT"}])
+ c = Holder.model_validate({
+-    "by_name": {"x": {"type": "INT"}},
+-    "maybe": {"type": "INT"},
+-    "seq": [{"type": "INT"}],
+-    "tup": ({"type": "INT"},),
+-    "group": [{"type": "INT"}],
+-    "frozen": [{"type": "INT"}],
+-    "model": {"columns": [{"type": "INT"}]},
++    "by_name": {"x": {"kind": "INT"}},
++    "maybe": {"kind": "INT"},
++    "seq": [{"kind": "INT"}],
++    "tup": ({"kind": "INT"},),
++    "group": [{"kind": "INT"}],
++    "frozen": [{"kind": "INT"}],
++    "model": {"columns": [{"kind": "INT"}]},
+ })
+
+
+
+APPLIED. 2 file(s) changed:
+  pkg/models.py
+  pkg/use.py

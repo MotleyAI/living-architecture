@@ -1,0 +1,16 @@
+kind: adapter
+languages:
+- python
+command: dr-compliance
+args:
+- --select
+- ''
+- --attr
+- formula
+- src/formula.py
+fixture: compliance
+expect:
+  exit: 1
+golden: manual
+note: '--attr: a partially unknown union, a union with Any, a receiver spanning lines (whitespace collapsed), a chained receiver;
+  line then column order'

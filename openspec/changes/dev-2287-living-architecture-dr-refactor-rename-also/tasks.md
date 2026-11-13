@@ -30,22 +30,22 @@
 
 ## 2. Tests (pr-tests stage)
 
-- [ ] 2.1 Unit tests for the language-server session in `python.lang`: start with the patch (result `patched`), the
+- [x] 2.1 Unit tests for the language-server session in `python.lang`: start with the patch (result `patched`), the
       isolation environment and working directory, UTF-16 → character conversion (astral, BMP non-ASCII, CRLF, no
       final newline), failure to start, exit mid-session, an unpatched server, `workspace/configuration` answers.
-- [ ] 2.2 Preload tests: a fake `dist/pyright-langserver.js` defining the version module is patched like
+- [x] 2.2 Preload tests: a fake `dist/pyright-langserver.js` defining the version module is patched like
       `dist/pyright.js`; the CLI bundle tests still pass.
-- [ ] 2.3 Unit tests for the rename union: per-declaration seeding under both hierarchy modes, span merge, overlap
+- [x] 2.3 Unit tests for the rename union: per-declaration seeding under both hierarchy modes, span merge, overlap
       refusal, a file changed before the write aborts with nothing written, module renames untouched.
-- [ ] 2.4 Unit tests for the keyed-class rewrites: every target of "Python field renames rewrite typed dict keys"
+- [x] 2.4 Unit tests for the keyed-class rewrites: every target of "Python field renames rewrite typed dict keys"
       and "…keyword arguments of the owning class", each with its negative (Unknown, Any, type variable, other
       union, same-named field of another class, rebound `cls`, unrelated `model_construct`, alias, alias generator,
       non-plain literal, single-binding variable with each disqualifying use), nested containers, collisions.
-- [ ] 2.5 Unit tests for the `async def` patch (definition, override, inferred call, module-level function; each
+- [x] 2.5 Unit tests for the `async def` patch (definition, override, inferred call, module-level function; each
       locator) and for `RefactoringError` → `refactor.cannot-rename`.
-- [ ] 2.6 Unit tests for Python `--attr`: each receiver kind of the spec, `Model | Unknown`, multiline and chained
+- [x] 2.6 Unit tests for Python `--attr`: each receiver kind of the spec, `Model | Unknown`, multiline and chained
       receivers, collapsing, ordering, dedup, server failure exit 2.
-- [ ] 2.7 Conformance adapter cases (python), one per scenario of the delta spec's Python requirements, including
+- [x] 2.7 Conformance adapter cases (python), one per scenario of the delta spec's Python requirements, including
       `refactor.pyright-failed`, `refactor.unresolved-base` and `refactor.cannot-rename` goldens, dry-run and apply
       variants for failures after rope computed its changes, the whole-tree snapshot for dry-runs, and the
       `sitecustomize` marker case; update the existing Python `--attr` golden to the new text and add the

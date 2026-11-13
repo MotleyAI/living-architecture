@@ -1,0 +1,19 @@
+Renaming <fetch> to <load>:
+
+
+--- a/pkg/f.py
++++ b/pkg/f.py
+@@ -1,6 +1,6 @@
+-async def fetch() -> int:
++async def load() -> int:
+     return 1
+ 
+ 
+ async def g() -> int:
+-    return await fetch() + await fetch()
++    return await load() + await load()
+
+
+
+APPLIED. 1 file(s) changed:
+  pkg/f.py

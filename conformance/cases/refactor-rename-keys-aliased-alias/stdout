@@ -1,0 +1,19 @@
+Renaming <columns> to <fields>:
+
+
+--- a/pkg/models.py
++++ b/pkg/models.py
+@@ -2,7 +2,7 @@
+ 
+ 
+ class Model(BaseModel):
+-    columns: list[int] = Field(default=[], alias="cols")
++    fields: list[int] = Field(default=[], alias="cols")
+ 
+ 
+ class Gen(BaseModel):
+
+
+
+APPLIED. 1 file(s) changed:
+  pkg/models.py

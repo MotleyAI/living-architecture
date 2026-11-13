@@ -1,0 +1,19 @@
+Renaming <columns> to <fields>:
+
+
+--- a/pkg/models.py
++++ b/pkg/models.py
+@@ -7,7 +7,7 @@
+ 
+ class Gen(BaseModel):
+     model_config = ConfigDict(alias_generator=str.upper)
+-    columns: list[int] = []
++    fields: list[int] = []
+ 
+ 
+ class Val(BaseModel):
+
+
+
+APPLIED. 1 file(s) changed:
+  pkg/models.py

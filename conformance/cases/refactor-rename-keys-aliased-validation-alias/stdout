@@ -1,0 +1,16 @@
+Renaming <columns> to <fields>:
+
+
+--- a/pkg/models.py
++++ b/pkg/models.py
+@@ -11,4 +11,4 @@
+ 
+ 
+ class Val(BaseModel):
+-    columns: list[int] = Field(default=[], validation_alias="cols")
++    fields: list[int] = Field(default=[], validation_alias="cols")
+
+
+
+APPLIED. 1 file(s) changed:
+  pkg/models.py

@@ -1,0 +1,15 @@
+kind: adapter
+languages:
+- python
+command: dr-compliance
+args:
+- --select
+- ''
+- --attr
+- formula
+- src/formula.py
+fixture: compliance
+expect:
+  exit: 0
+golden: manual
+note: --attr reports nothing when every receiver is typed with a class declaring the attribute

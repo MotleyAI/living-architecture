@@ -1,0 +1,25 @@
+Renaming <get_model> to <get_dataset>:
+
+
+--- a/pkg/a.py
++++ b/pkg/a.py
+@@ -1,11 +1,11 @@
+ class A:
+-    async def get_model(self, x: int) -> None: ...
++    async def get_dataset(self, x: int) -> None: ...
+ 
+ 
+ class B(A):
+-    async def get_model(self, x: int) -> None: ...
++    async def get_dataset(self, x: int) -> None: ...
+ 
+ 
+ async def f() -> None:
+     a = A()
+-    await a.get_model(1)
++    await a.get_dataset(1)
+
+
+
+APPLIED. 1 file(s) changed:
+  pkg/a.py

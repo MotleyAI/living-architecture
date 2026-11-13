@@ -1,0 +1,22 @@
+Renaming <sync_model> to <sync_dataset>:
+
+
+--- a/pkg/a.py
++++ b/pkg/a.py
+@@ -1,8 +1,8 @@
+ class A:
+-    def sync_model(self, x: int) -> int:
++    def sync_dataset(self, x: int) -> int:
+         return x
+ 
+ 
+ class B(A):
+-    def sync_model(self, x: int) -> int:
+-        return super().sync_model(x)
++    def sync_dataset(self, x: int) -> int:
++        return super().sync_dataset(x)
+
+
+
+APPLIED. 1 file(s) changed:
+  pkg/a.py

@@ -1,0 +1,29 @@
+Renaming <columns> to <fields>:
+
+
+--- a/pkg/models.py
++++ b/pkg/models.py
+@@ -9,7 +9,7 @@
+ 
+ 
+ class Model(BaseModel):
+-    columns: list[Member] = []
++    fields: list[Member] = []
+     label: Optional[str] = None
+ 
+ 
+
+--- a/pkg/use.py
++++ b/pkg/use.py
+@@ -4,4 +4,4 @@
+ class Model2(Model):
+     @classmethod
+     def make(cls) -> "Model2":
+-        return cls(columns=[])
++        return cls(fields=[])
+
+
+
+APPLIED. 2 file(s) changed:
+  pkg/models.py
+  pkg/use.py
