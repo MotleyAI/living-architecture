@@ -34,6 +34,7 @@ export {
   formatProblem,
   isVersion,
   readCommitted,
+  releasedFormats,
   stampFormat,
 } from './format.js';
 

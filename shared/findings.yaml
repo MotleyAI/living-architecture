@@ -166,8 +166,8 @@ findings:
   arch-migrate.target-taken: '{source} cannot move to {target}, which already exists; nothing written'
   arch-migrate.diagrams-key-taken: '{source} cannot move to {target}: architecture/index.yaml already has the diagrams key {target}; nothing written'
   arch-migrate.no-config: no living-architecture.yaml at the repo root, so there is no format to migrate; run /la:init to onboard this repo
-  arch-migrate.unknown-format: cannot migrate from format {declared}; this la reads format {current} and converts only a repo that declares no format
-  arch-migrate.stamp-mismatch: 'cannot insert the format into living-architecture.yaml; add format: {current} by hand'
+  arch-migrate.unknown-format: cannot migrate from format {declared}, which no la release used; this la reads format {current}
+  arch-migrate.stamp-mismatch: 'cannot write the format into living-architecture.yaml; set format: {current} by hand'
   # A failed rollback: `paths` lists, repo-relative in code-point order, every path the restore could not put back.
   arch-migrate.rollback-failed: '{error}; restoring failed, so these paths are left changed: {paths}'
 

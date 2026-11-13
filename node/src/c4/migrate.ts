@@ -1,9 +1,8 @@
-// `la-arch-migrate`: convert the repo to the current format: merge a legacy model layout, convert the retired `arc42`
-// key format and stamp `format`, verified and all-or-nothing.
+// `la-arch-migrate`: convert the repo to the current format one released format at a time and stamp `format`,
+// verified and all-or-nothing.
 import { randomBytes } from 'node:crypto';
 import {
   chmodSync,
-  existsSync,
   lstatSync,
   mkdirSync,
   mkdtempSync,
@@ -23,10 +22,10 @@ import {
   ConfigError,
   FORMAT_KEY,
   compareVersions,
-  currentFormat,
   formatProblem,
   isVersion,
   readCommitted,
+  releasedFormats,
   stampFormat,
 } from '../config/index.js';
 import {
@@ -330,128 +329,196 @@ function indexAsExpected(plan: Plan, index: Index | null, movedEntries: Set<stri
   return isDeepStrictEqual(loadYaml(written), expectedIndex(index.data, plan.renames, movedEntries));
 }
 
-/** One applied change: the path it touched, how to undo it, and whether the path is back as it was. */
-interface Step {
-  rel: string;
-  undo: () => void;
-  restored: () => boolean;
+/** A path's state: a file's bytes and mode, a directory's mode, or absent. */
+interface PathState {
+  data: Buffer | null;
+  mode: number | null;
+  isDir: boolean;
 }
 
-/** Create `rel` exclusively, journalled before the open so a half-made file is undone too. */
-function createExclusive(root: string, rel: string, text: string, steps: Step[]): void {
-  const path = join(root, rel);
-  steps.push({ rel, undo: () => rmSync(path, { force: true }), restored: () => !lexists(path) });
-  try {
-    writeFileSync(path, text, { encoding: 'utf8', flag: 'wx' });
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'EEXIST') steps.pop();
-    throw error;
-  }
-}
-
+const ABSENT: PathState = { data: null, mode: null, isDir: false };
 const modeOf = (path: string): number => statSync(path).mode & 0o7777;
 
-function remove(root: string, rel: string, original: Buffer, steps: Step[]): void {
-  const path = join(root, rel);
-  const mode = modeOf(path);
-  unlinkSync(path);
-  steps.push({
-    rel,
-    undo: () => {
-      writeFileSync(path, original);
-      chmodSync(path, mode);
-    },
-    restored: () => isFile(path) && modeOf(path) === mode && readFileSync(path).equals(original),
-  });
+function stateOf(path: string): PathState {
+  if (!lexists(path)) return ABSENT;
+  if (lstatSync(path).isDirectory()) return { data: null, mode: modeOf(path), isDir: true };
+  return { data: readFileSync(path), mode: modeOf(path), isDir: false };
 }
 
-function removeDir(root: string, rel: string, steps: Step[]): void {
-  const path = join(root, rel);
-  const mode = modeOf(path);
-  rmdirSync(path);
-  steps.push({
-    rel,
-    undo: () => {
-      mkdirSync(path);
-      chmodSync(path, mode);
-    },
-    restored: () => existsSync(path) && statSync(path).isDirectory() && modeOf(path) === mode,
-  });
-}
+const sameState = (a: PathState, b: PathState): boolean =>
+  a.isDir === b.isDir && a.mode === b.mode && (a.data === null ? b.data === null : b.data !== null && a.data.equals(b.data));
 
-/** Replace `rel` with `text` through a sibling temp file and an atomic rename, keeping its mode. */
-function swapIn(root: string, rel: string, text: string, steps: Step[]): void {
-  const path = join(root, rel);
-  const temp = posix.join(posix.dirname(rel), `.${basename(rel)}.${randomBytes(4).toString('hex')}.tmp`);
-  createExclusive(root, temp, text, steps);
-  chmodSync(join(root, temp), modeOf(path));
-  renameSync(join(root, temp), path);
-}
-
-/** Replace `rel`, journalled so a rollback puts its bytes and mode back. */
-function replace(root: string, rel: string, text: string, steps: Step[]): void {
-  const path = join(root, rel);
-  const original = readFileSync(path);
-  const mode = modeOf(path);
-  swapIn(root, rel, text, steps);
-  steps.push({
-    rel,
-    undo: () => {
-      writeFileSync(path, original);
-      chmodSync(path, mode);
-    },
-    restored: () => isFile(path) && modeOf(path) === mode && readFileSync(path).equals(original),
-  });
-}
-
-function move(root: string, step: Move, steps: Step[]): void {
-  const [source, target] = [join(root, step.source), join(root, step.target)];
-  renameSync(source, target);
-  steps.push({ rel: step.source, undo: () => renameSync(target, source), restored: () => isFile(source) && !lexists(target) });
-}
-
-/** Undo `steps` in reverse; an error naming every path that could not be put back, null when all were. */
-function rollback(steps: Step[], error: Error): MigrateError | null {
-  for (const step of steps.toReversed()) {
-    try {
-      step.undo();
-    } catch {
-      // judged by `restored` below
-    }
+/** Put a file or directory back with its bytes and mode, over a read-only file too. */
+function restore(path: string, state: PathState): void {
+  if (state.isDir) mkdirSync(path);
+  else {
+    if (statSync(path, { throwIfNoEntry: false })?.isFile()) chmodSync(path, modeOf(path) | 0o200);
+    writeFileSync(path, state.data ?? Buffer.alloc(0));
   }
-  const left = [...new Set(steps.filter((step) => !step.restored()).map((step) => step.rel))].sort(byCodePoint);
-  if (left.length === 0) return null;
-  return new MigrateError(message('arch-migrate.rollback-failed', { error: error.message, paths: left.join(', ') }));
+  if (state.mode !== null) chmodSync(path, state.mode);
 }
 
-/** Write the layout files, move the docs, delete the legacy files and an emptied model dir, replace the config last; all or nothing. */
-function write(root: string, plan: Plan, stamped: string): string[] {
-  const steps: Step[] = [];
-  const deleted: string[] = [];
-  const modelDir = legacyModelDir();
+/** Whether `path` is verifiably back in `state`. */
+function restored(path: string, state: PathState): boolean {
   try {
-    for (const [rel, text] of plan.outputs) {
-      if (plan.created.has(rel)) createExclusive(root, rel, text, steps);
-      else replace(root, rel, text, steps);
-    }
-    for (const m of plan.moves) move(root, m, steps);
-    for (const [rel, original] of plan.legacy) {
-      remove(root, rel, original, steps);
-      deleted.push(rel);
-    }
-    if (plan.legacy.size > 0 && readdirSync(join(root, modelDir)).length === 0) {
-      removeDir(root, modelDir, steps);
-      deleted.push(modelDir);
-    }
-    swapIn(root, configFile(), stamped, steps);
-  } catch (error) {
-    throw rollback(steps, error as Error) ?? error;
+    return sameState(stateOf(path), state);
+  } catch {
+    return false;
   }
-  return [
-    ...[...plan.outputs.keys(), configFile()].map((rel) => message('arch-migrate.written', { path: rel })),
-    ...plan.moves.map((m) => message('arch-migrate.moved', { source: m.source, target: m.target })),
-    ...deleted.map((rel) => message('arch-migrate.deleted', { path: rel })),
-  ];
+}
+
+/** The file at a path: its path before the run (null when the run created it) and whether the run wrote it. */
+interface Held {
+  origin: string | null;
+  written: boolean;
+}
+
+/** The filesystem changes of one run, all undone on any failure, and their net effect. */
+export class Transaction {
+  readonly root: string;
+  private readonly undos: (() => void)[] = [];
+  private readonly first = new Map<string, PathState>();
+  private readonly held = new Map<string, Held | null>();
+  private readonly written: string[] = [];
+  private readonly moved: string[] = [];
+  private readonly vacated: string[] = [];
+
+  constructor(root: string) {
+    this.root = root;
+  }
+
+  private touch(rel: string): string {
+    const path = join(this.root, rel);
+    if (!this.first.has(rel)) this.first.set(rel, stateOf(path));
+    return path;
+  }
+
+  private holder(rel: string): Held | null {
+    if (this.held.has(rel)) return this.held.get(rel) ?? null;
+    return lexists(join(this.root, rel)) ? { origin: rel, written: false } : null;
+  }
+
+  private wrote(rel: string, held: Held | null): void {
+    this.held.set(rel, { origin: held?.origin ?? null, written: true });
+    if (!this.written.includes(rel)) this.written.push(rel);
+  }
+
+  /** Create `rel` exclusively, journalled before the open so a half-made file is undone too. */
+  private createExclusive(rel: string, text: string): void {
+    const path = this.touch(rel);
+    this.undos.push(() => rmSync(path, { force: true }));
+    try {
+      writeFileSync(path, text, { encoding: 'utf8', flag: 'wx' });
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'EEXIST') this.undos.pop();
+      throw error;
+    }
+  }
+
+  /** Create the new file `rel`. */
+  create(rel: string, text: string): void {
+    const held = this.holder(rel);
+    this.createExclusive(rel, text);
+    this.wrote(rel, held);
+  }
+
+  /** Replace `rel` through a sibling temp file and an atomic rename, keeping its mode. */
+  replace(rel: string, text: string): void {
+    const held = this.holder(rel);
+    const path = this.touch(rel);
+    const original = stateOf(path);
+    const temp = posix.join(posix.dirname(rel), `.${basename(rel)}.${randomBytes(4).toString('hex')}.tmp`);
+    this.createExclusive(temp, text);
+    chmodSync(join(this.root, temp), modeOf(path));
+    renameSync(join(this.root, temp), path);
+    this.undos.push(() => restore(path, original));
+    this.wrote(rel, held);
+  }
+
+  /** Move the file `source` to the free path `target`. */
+  move(source: string, target: string): void {
+    const held = this.holder(source);
+    const [sourcePath, targetPath] = [this.touch(source), this.touch(target)];
+    renameSync(sourcePath, targetPath);
+    this.undos.push(() => renameSync(targetPath, sourcePath));
+    this.held.set(source, null);
+    this.held.set(target, held);
+    if (held?.origin != null && !this.moved.includes(held.origin)) this.moved.push(held.origin);
+    if (held?.written && !this.written.includes(target)) this.written.push(target);
+    this.vacated.push(source);
+  }
+
+  /** Delete the file `rel`. */
+  delete(rel: string): void {
+    const path = this.touch(rel);
+    const original = stateOf(path);
+    unlinkSync(path);
+    this.vacate(rel, () => restore(path, original));
+  }
+
+  /** Remove the empty directory `rel`. */
+  removeDir(rel: string): void {
+    const path = this.touch(rel);
+    const original = stateOf(path);
+    rmdirSync(path);
+    this.vacate(rel, () => restore(path, original));
+  }
+
+  private vacate(rel: string, undo: () => void): void {
+    this.undos.push(undo);
+    this.held.set(rel, null);
+    this.vacated.push(rel);
+  }
+
+  /** Undo every change in reverse; an error naming every path left changed, null when all were put back. */
+  rollback(error: Error): MigrateError | null {
+    for (const undo of this.undos.toReversed()) {
+      try {
+        undo();
+      } catch {
+        // judged against the first-touch states below
+      }
+    }
+    const left = [...this.first]
+      .filter(([rel, state]) => !restored(join(this.root, rel), state))
+      .map(([rel]) => rel)
+      .sort(byCodePoint);
+    if (left.length === 0) return null;
+    return new MigrateError(message('arch-migrate.rollback-failed', { error: error.message, paths: left.join(', ') }));
+  }
+
+  /** The net effect: written paths (`last` last), then composed moves, then deleted paths. */
+  report(last: string): string[] {
+    const exists = (rel: string): boolean => lexists(join(this.root, rel));
+    const written = this.written.filter(exists);
+    const ordered = [...written.filter((rel) => rel !== last), ...written.filter((rel) => rel === last)];
+    const final = new Map<string, string>();
+    for (const [rel, held] of this.held) if (held?.origin != null) final.set(held.origin, rel);
+    const moves = this.moved.filter((origin) => (final.get(origin) ?? origin) !== origin).map((origin) => [origin, final.get(origin) as string]);
+    const movedFrom = new Set(moves.map(([origin]) => origin));
+    const deleted: string[] = [];
+    for (const rel of this.vacated) {
+      const before = this.first.get(rel) ?? ABSENT;
+      if (!sameState(before, ABSENT) && !exists(rel) && !movedFrom.has(rel) && !deleted.includes(rel)) deleted.push(rel);
+    }
+    return [
+      ...ordered.map((rel) => message('arch-migrate.written', { path: rel })),
+      ...moves.map(([source, target]) => message('arch-migrate.moved', { source, target })),
+      ...deleted.map((rel) => message('arch-migrate.deleted', { path: rel })),
+    ];
+  }
+}
+
+/** Write the layout files, move the docs, delete the legacy files and an emptied model dir. */
+function apply(plan: Plan, tx: Transaction): void {
+  for (const [rel, text] of plan.outputs) {
+    if (plan.created.has(rel)) tx.create(rel, text);
+    else tx.replace(rel, text);
+  }
+  for (const m of plan.moves) tx.move(m.source, m.target);
+  for (const rel of plan.legacy.keys()) tx.delete(rel);
+  const modelDir = legacyModelDir();
+  if (plan.legacy.size > 0 && readdirSync(join(tx.root, modelDir)).length === 0) tx.removeDir(modelDir);
 }
 
 const NO_PLAN = (): Plan => ({ outputs: new Map(), created: new Set(), moves: [], renames: new Map(), legacy: new Map() });
@@ -496,8 +563,17 @@ function planOf(root: string): Plan {
   return plan;
 }
 
-/** The stamped config text, or null when the repo already declares the current format. */
-function stamped(root: string): string | null {
+/** One conversion: from the `source` format (null: a repo that declares none) to the `target` format. */
+export interface MigrationStep {
+  source: string | null;
+  target: string;
+  apply: (root: string, tx: Transaction) => void;
+}
+
+export const STEPS: MigrationStep[] = [{ source: null, target: '0.4.0', apply: (root, tx) => apply(planOf(root), tx) }];
+
+/** The declared format (null when absent) and the config text; null when it is current; MigrateError when it cannot be migrated. */
+function declaredFormat(root: string, formats: string[]): [string | null, string] | null {
   let committed;
   try {
     committed = readCommitted(root);
@@ -506,27 +582,38 @@ function stamped(root: string): string | null {
     throw error;
   }
   if (committed === null) throw new MigrateError(message('arch-migrate.no-config'));
-  const current = currentFormat();
   const data = committed.data ?? new Map<unknown, unknown>();
-  if (data.has(FORMAT_KEY)) {
-    const problem = formatProblem(data);
-    const declared = data.get(FORMAT_KEY);
-    if (problem !== null && isVersion(declared) && compareVersions(declared, current) < 0) {
-      throw new MigrateError(message('arch-migrate.unknown-format', { declared, current }));
-    }
-    if (problem !== null) throw new MigrateError(problem);
-    return null;
-  }
-  const text = stampFormat(committed.text);
-  if (text === null) throw new MigrateError(message('arch-migrate.stamp-mismatch', { current }));
-  return text;
+  if (!data.has(FORMAT_KEY)) return [null, committed.text];
+  const current = formats.at(-1) as string;
+  const declared = data.get(FORMAT_KEY);
+  const problem = formatProblem(data, current);
+  if (problem === null) return null;
+  if (!isVersion(declared) || compareVersions(declared, current) > 0) throw new MigrateError(problem);
+  if (!formats.includes(declared)) throw new MigrateError(message('arch-migrate.unknown-format', { declared, current }));
+  return [declared, committed.text];
 }
 
-/** Migrate the repo at `root`; the lines to print. Throws having changed nothing, unless the error names the paths. */
-export function migrate(root: string): string[] {
-  const text = stamped(root);
-  if (text === null) return [message('arch-migrate.nothing', { current: currentFormat() })];
-  return write(root, planOf(root), text);
+/**
+ * Migrate the repo at `root` through `steps` (default: STEPS) up to the last of `formats` (default: the released
+ * ones); the lines to print. Throws having changed nothing, unless the error names the paths.
+ */
+export function migrate(root: string, { steps = STEPS, formats = releasedFormats() }: { steps?: MigrationStep[]; formats?: string[] } = {}): string[] {
+  const current = formats.at(-1) as string;
+  const found = declaredFormat(root, formats);
+  if (found === null) return [message('arch-migrate.nothing', { current })];
+  const [declared, text] = found;
+  const stamped = stampFormat(text, current);
+  if (stamped === null) throw new MigrateError(message('arch-migrate.stamp-mismatch', { current }));
+  const bySource = new Map(steps.map((step) => [step.source, step]));
+  const sources = declared === null ? [null, ...formats.slice(0, -1)] : formats.slice(formats.indexOf(declared), -1);
+  const tx = new Transaction(root);
+  try {
+    for (const source of sources) (bySource.get(source) as MigrationStep).apply(root, tx);
+    tx.replace(configFile(), stamped);
+  } catch (error) {
+    throw tx.rollback(error as Error) ?? error;
+  }
+  return tx.report(configFile());
 }
 
 /** `la-arch-migrate`: print each written, moved and deleted path, or exit 2 having changed nothing. */

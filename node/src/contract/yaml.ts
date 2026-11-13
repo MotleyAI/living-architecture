@@ -5,6 +5,7 @@ import {
   type CollectionTag,
   type Document,
   Lexer,
+  Parser,
   YAMLError as LibYAMLError,
   Scalar,
   type ScalarTag,
@@ -496,6 +497,70 @@ function checkKeys(doc: Document.Parsed, text: string): void {
   walkKeys({ doc, text, starts: keyStarts(doc) }, doc.contents);
 }
 
+/** A CST token with its text. */
+interface SourceToken {
+  type: string;
+  offset: number;
+  indent: number;
+  source: string;
+  props?: SourceToken[];
+}
+
+const isSourceToken = (node: object): node is SourceToken =>
+  typeof (node as SourceToken).type === 'string' &&
+  typeof (node as SourceToken).offset === 'number' &&
+  typeof (node as SourceToken).source === 'string';
+
+// Tokens PyYAML reads a tab inside of.
+const TAB_TOKENS = new Set(['comment', 'single-quoted-scalar', 'double-quoted-scalar']);
+
+const leadingSpaces = (line: string): number => line.length - line.replace(/^ +/, '').length;
+
+/** Whether a block scalar's content has a tab within a line's indentation, where PyYAML ends the scalar on it. */
+function blockIndentTab(token: SourceToken): boolean {
+  const header = token.props?.find((prop) => prop.type === 'block-scalar-header')?.source ?? '';
+  const increment = /[1-9]/.exec(header)?.[0];
+  const lines = token.source.split(/\r\n|\r|\n/);
+  let indent = token.indent + (increment === undefined ? 1 : Number(increment));
+  if (increment === undefined) {
+    for (const line of lines) {
+      indent = Math.max(indent, leadingSpaces(line));
+      if (leadingSpaces(line) < line.length) break;
+    }
+  }
+  return lines.some((line) => leadingSpaces(line) < indent && line[leadingSpaces(line)] === '\t');
+}
+
+/** The ranges of `text` a tab may sit in: comments, quoted scalars and block scalar content. */
+function tabRanges(text: string): [number, number][] {
+  const ranges: [number, number][] = [];
+  const walk = (node: unknown): void => {
+    if (node === null || typeof node !== 'object') return;
+    if (isSourceToken(node)) {
+      if (TAB_TOKENS.has(node.type)) ranges.push([node.offset, node.offset + node.source.length]);
+      if (node.type === 'block-scalar' && !blockIndentTab(node)) {
+        const last = node.props?.at(-1);
+        const start = last === undefined ? node.offset : last.offset + last.source.length;
+        ranges.push([start, start + node.source.length]);
+      }
+    }
+    for (const value of Object.values(node)) walk(value);
+  };
+  for (const token of new Parser().parse(text)) walk(token);
+  return ranges;
+}
+
+/** YAMLError at the first tab PyYAML's scanner refuses: any outside a comment, a quoted scalar or block scalar content. */
+function refuseTabs(text: string): void {
+  if (!text.includes('\t')) return;
+  const ranges = tabRanges(text);
+  for (let at = text.indexOf('\t'); at >= 0; at = text.indexOf('\t', at + 1)) {
+    if (!ranges.some(([start, end]) => start <= at && at < end)) {
+      throw new YAMLError(`a tab at line ${lineAt(text, at)}, where YAML 1.1 cannot start a token`);
+    }
+  }
+}
+
 // Line breaks to YAML 1.1 that the library, reading YAML 1.2, takes as content.
 const UNICODE_BREAKS = /[\x85\u2028\u2029]/;
 
@@ -510,6 +575,7 @@ export function loadYaml(text: string): unknown {
   let docs;
   try {
     source = yaml11AnchorNames(text);
+    refuseTabs(source);
     docs = parseAllDocuments(source, {
       schema: 'failsafe',
       customTags: PROFILE_TAGS,
