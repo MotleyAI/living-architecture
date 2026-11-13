@@ -1,0 +1,26 @@
+Renaming <model_name> to <dataset_name>:
+
+
+--- a/pkg/ovl_alias.py
++++ b/pkg/ovl_alias.py
+@@ -2,11 +2,11 @@
+ 
+ 
+ @ov
+-def f(*, model_name: str) -> str: ...
++def f(*, dataset_name: str) -> str: ...
+ @ov
+-def f(*, model_name: int) -> int: ...
+-def f(*, model_name: str | int) -> str | int:
+-    return model_name
++def f(*, dataset_name: int) -> int: ...
++def f(*, dataset_name: str | int) -> str | int:
++    return dataset_name
+ 
+ 
+-x = f(model_name="x")
++x = f(dataset_name="x")
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

@@ -1,0 +1,20 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- rename
+- --file
+- pkg/mixed.py
+- --line
+- '5'
+- --col
+- '32'
+- --new-name
+- options
+fixture: refactor-params
+git:
+- commit: init
+expect:
+  exit: 0
+note: '**kwargs: the `kwargs=` keyword is unchanged'

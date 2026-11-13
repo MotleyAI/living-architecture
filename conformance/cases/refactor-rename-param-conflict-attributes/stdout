@@ -1,0 +1,18 @@
+Renaming <model_name> to <dataset_name>:
+
+
+--- a/pkg/attrs.py
++++ b/pkg/attrs.py
+@@ -6,6 +6,6 @@
+     print(dataset_name)
+ 
+ 
+-def m(*, model_name: str, o: O) -> str:
++def m(*, dataset_name: str, o: O) -> str:
+     other(dataset_name=1)
+-    return o.dataset_name + model_name
++    return o.dataset_name + dataset_name
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

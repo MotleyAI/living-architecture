@@ -1,0 +1,26 @@
+Renaming <model_name> to <dataset_name>:
+
+
+--- a/pkg/methods.py
++++ b/pkg/methods.py
+@@ -2,8 +2,8 @@
+     def kmeth(self, *, model_name: str) -> str:
+         return model_name
+ 
+-    async def fetch(self, *, model_name: str) -> str:
+-        return model_name.upper()
++    async def fetch(self, *, dataset_name: str) -> str:
++        return dataset_name.upper()
+ 
+ 
+ def use(c: C) -> str:
+@@ -11,4 +11,4 @@
+ 
+ 
+ async def ause(c: C) -> str:
+-    return await c.fetch(model_name="y")
++    return await c.fetch(dataset_name="y")
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

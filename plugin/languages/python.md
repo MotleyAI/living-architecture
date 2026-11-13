@@ -21,13 +21,17 @@ resolve. Move destinations must exist: a new package is a directory with an `__i
 A rename rewrites every reference the type checker resolves, across the renamed hierarchy: calls through
 annotated or inferred receivers, `super()` calls, forward-reference strings, and keyword arguments of dataclass
 and Pydantic fields. For a field of a Pydantic model or `TypedDict`, it also rewrites the keys of dict literals
-whose static target is that class.
+whose static target is that class. A parameter rename covers every parameter kind: its uses, `name=` keywords at
+calls the checker resolves, and the same-named parameter of each override and each `@overload` signature. It
+refuses a new name the function already uses.
 
 What a rename leaves unrenamed:
 - `x.NAME` where the checker types `x` as `Unknown` or `Any`: `dr-compliance --attr NAME` lists these, so type
   them first (it misses only a subscript or call receiver typed `Model | Any` whose `Model.NAME` is itself `Any`);
 - string-only references: `importlib`, `getattr(`, `__all__`, `patch("dotted.path")`, entry points, config
   paths;
+- for a parameter rename: keywords that reach it unresolved (`**kwargs` forwarding, a dict unpacked into the
+  call). A lambda parameter is refused.
 - for a field rename: dict keys that reach the model untyped (through `Any` or `dict[str, Any]`, `**kwargs`
   forwarding, merges, loaded data, a module-level variable), a dict passed by position to an instance method
   whose receiver is not provably its class or an instance (a local `s = Service()`: annotate it or pass by

@@ -1,0 +1,21 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- rename
+- --file
+- pkg/hier_base.py
+- --line
+- '2'
+- --col
+- '22'
+- --new-name
+- dataset_name
+- --no-in-hierarchy
+fixture: refactor-params
+git:
+- commit: init
+expect:
+  exit: 0
+note: 'hierarchy off: the base, the super() keyword and the base''s call only'

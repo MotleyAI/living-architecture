@@ -1,0 +1,27 @@
+Renaming <model_name> to <dataset_name>:
+
+
+--- a/pkg/hier_pos.py
++++ b/pkg/hier_pos.py
+@@ -1,12 +1,12 @@
+ class A:
+-    def run(self, model_name: str) -> str:
+-        return model_name
++    def run(self, dataset_name: str) -> str:
++        return dataset_name
+ 
+ 
+ class B(A):
+-    def run(self, model_name: str) -> str:
+-        return model_name.upper()
++    def run(self, dataset_name: str) -> str:
++        return dataset_name.upper()
+ 
+ 
+ def calls(a: A, b: B) -> str:
+-    return a.run(model_name="x") + b.run(model_name="y") + a.run("z")
++    return a.run(dataset_name="x") + b.run(dataset_name="y") + a.run("z")
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.
