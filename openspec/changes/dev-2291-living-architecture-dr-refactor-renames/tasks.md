@@ -39,16 +39,16 @@
 
 ## 2. Implementation
 
-- [ ] 2.1 rope patch in `rope_patches.py` (design decision 2), installed by `apply_rope_patches`; verify 1.1 and the
+- [x] 2.1 rope patch in `rope_patches.py` (design decision 2), installed by `apply_rope_patches`; verify 1.1 and the
       keyword-only/positional-only scenarios of 1.5.
-- [ ] 2.2 Overload kind in the decorator resolution and overload-group discovery (decision 5); verify 1.3.
-- [ ] 2.3 A parameter's renamed declarations seeded into the reference pass (decision 3); verify 1.2 and the
+- [x] 2.2 Overload kind in the decorator resolution and overload-group discovery (decision 5); verify 1.3.
+- [x] 2.3 A parameter's renamed declarations seeded into the reference pass (decision 3); verify 1.2 and the
       hierarchy and overload cases of 1.5.
-- [ ] 2.4 The parameter conflict check raising `NameConflict` (decision 6); verify 1.4 and the conflict cases of 1.5.
-- [ ] 2.5 `plugin/languages/python.md`: apply design decision 12's approved wording verbatim.
-- [ ] 2.6 Generate the new goldens with `LA_UPDATE_GOLDENS=1`, review every golden diff, and verify the local test
+- [x] 2.4 The parameter conflict check raising `NameConflict` (decision 6); verify 1.4 and the conflict cases of 1.5.
+- [x] 2.5 `plugin/languages/python.md`: apply design decision 12's approved wording verbatim.
+- [x] 2.6 Generate the new goldens with `LA_UPDATE_GOLDENS=1`, review every golden diff, and verify the local test
       scope, `ruff`, `basedpyright`, `la-arch-check` and `la-typecheck` pass; confirm no existing golden changed.
-- [ ] 2.7 Re-run the issue's repro on SLayer's `slayer/storage/base.py` (`StorageBackend.update_column_sampled`'s
+- [x] 2.7 Re-run the issue's repro on SLayer's `slayer/storage/base.py` (`StorageBackend.update_column_sampled`'s
       `model_name`) as a dry-run from this checkout and confirm it renames the hierarchy and keyword call sites.
 
 ## 3. Post-merge (after the PR merges; not part of its diff)

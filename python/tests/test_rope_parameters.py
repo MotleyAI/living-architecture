@@ -173,6 +173,11 @@ def test_keyword_lookup_resolves_only_keyword_bindable_parameters(module, keywor
         assert pyname is None
 
 
+def test_keyword_of_an_unresolved_call_resolves_to_nothing(module) -> None:
+    source = "def f(model_name):\n    return unknown(model_name=model_name)\n"
+    assert evaluate.eval_location(module(source), source.index("model_name=")) is None
+
+
 # Canary: drop the parameter patch when rope's function model lists positional-only and keyword-only parameters.
 def test_unpatched_rope_still_omits_positional_only_and_keyword_only_parameters(tmp_path: Path) -> None:
     script = (

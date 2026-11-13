@@ -112,7 +112,8 @@ def test_keyword_only_parameter_located_anywhere(typed_project: MakeProject, rel
     assert _rename(root, rel, offset) == 0
     _expect(root, {
         "pkg/kw.py": KWONLY_RENAMED,
-        "pkg/use.py": KW_USE.replace('kwonly(model_name="x")', 'kwonly(dataset_name="x")'),
+        "pkg/use.py": KW_USE.replace('kwonly(model_name="x")', 'kwonly(dataset_name="x")')
+                            .replace('kwonly, model_name="x"', 'kwonly, dataset_name="x"'),
     })
 
 

@@ -7,7 +7,7 @@ declaration, at a use in its function or at a `name=` keyword of a call. It SHAL
 every use of it in its function including nested scopes, and every `name=` keyword at a call the checker resolves to
 a renamed declaration. A `name=` keyword SHALL resolve only to a positional-or-keyword or keyword-only parameter, never
 to a positional-only parameter, `*args` or `**kwargs`. Positional arguments, keywords that reach the function
-unresolved (`**mapping` unpacking, `**kwargs` forwarding, `functools.partial`) and every other text SHALL be unchanged.
+unresolved (`**mapping` unpacking, `**kwargs` forwarding) and every other text SHALL be unchanged.
 
 #### Scenario: Keyword-only parameter of a function
 - **WHEN** `def kwonly(*, model_name: str) -> str: return model_name` has its parameter renamed to `dataset_name`,
@@ -53,7 +53,8 @@ unresolved (`**mapping` unpacking, `**kwargs` forwarding, `functools.partial`) a
 - **WHEN** `kwonly`'s `model_name` is renamed and the project holds `kwonly(**{"model_name": "x"})`, a wrapper
   `def wrap(**kw: str) -> str: return kwonly(**kw)` called as `wrap(model_name="x")`, and
   `functools.partial(kwonly, model_name="x")`
-- **THEN** none of those three is changed
+- **THEN** the `**mapping` and `wrap` sites are unchanged, and the `functools.partial` keyword, which the checker
+  resolves to `kwonly`, is renamed
 
 #### Scenario: Other refactors over mixed-kind signatures
 - **WHEN** a module holds `def f(a: A, /, *, b: A) -> None` whose body calls `a.get_model()` and `b.get_model()`,

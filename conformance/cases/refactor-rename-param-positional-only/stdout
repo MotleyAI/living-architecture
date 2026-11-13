@@ -1,0 +1,17 @@
+Renaming <model_name> to <dataset_name>:
+
+
+--- a/pkg/kw.py
++++ b/pkg/kw.py
+@@ -6,5 +6,5 @@
+     return model_name + str(len(xs))
+ 
+ 
+-def posonly(model_name: str, /) -> str:
+-    return model_name
++def posonly(dataset_name: str, /) -> str:
++    return dataset_name
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

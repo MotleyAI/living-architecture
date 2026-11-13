@@ -3,6 +3,9 @@
 rope's walker hand-lists each node's tokens and sub-nodes and finds each token by forward text search, so text a
 visitor omits is skipped and a `(`, `=` or quote in it is matched as a later token. The visitors below walk the
 grammar rope omits; `coverage_violations` detects any gap left, and the scope-region guard refuses it.
+
+rope's function model lists only positional-or-keyword parameters plus `*args`/`**kwargs`; the patches below add
+positional-only parameters to its positional binding vector and keyword-only ones to its scope and keyword lookup.
 """
 
 from __future__ import annotations
@@ -13,11 +16,27 @@ import sys
 from typing import TypeGuard
 
 from rope.base import ast as rope_ast
-from rope.base import codeanalyze, pyscopes, simplify, utils, worder
+from rope.base import (
+    builtins,
+    codeanalyze,
+    evaluate,
+    pynames,
+    pynamesdef,
+    pyobjects,
+    pyobjectsdef,
+    pyscopes,
+    simplify,
+    utils,
+    worder,
+)
+from rope.base.oi.type_hinting.factory import get_type_hinting_factory
+from rope.base.pyobjects import PyObject
 from rope.refactor import patchedast
+from typing_extensions import override
 
 _rope_joined_str = patchedast._PatchingASTWalker._JoinedStr
 _rope_scope_regions = pyscopes.GlobalScope._calculate_scope_regions
+_rope_primary_and_pyname_at = evaluate.ScopeNameFinder.get_primary_and_pyname_at
 
 _PLAIN_PREFIX = r"(?:(?<!\w)(?:[uU]|[bB][rR]?|[rR][bB]?))?"
 _FORMATTED_PREFIX = r"(?<!\w)(?:[fFtT][rR]?|[rR][fFtT])"
@@ -319,6 +338,69 @@ def _check_scope_regions(self) -> None:
 _checked_scope_regions = utils.saveit(_check_scope_regions)
 
 
+def _positional(fn: pyobjectsdef.PyFunction) -> list[ast.arg]:
+    return [*fn.arguments.posonlyargs, *fn.arguments.args]
+
+
+def _get_param_names(self: pyobjectsdef.PyFunction, special_args: bool = True) -> list[str]:
+    """The positional binding vector: positional-only, positional-or-keyword, then `*args` and `**kwargs`."""
+    result = [arg.arg for arg in _positional(self)]
+    if special_args:
+        result += [arg.arg for arg in (self.arguments.vararg, self.arguments.kwarg) if arg is not None]
+    return result
+
+
+def _handle_special_args(self: pyobjectsdef.PyFunction, pyobjects: list[PyObject]) -> None:
+    if len(pyobjects) == len(_positional(self)):
+        if self.arguments.vararg:
+            pyobjects.append(builtins.get_list())
+        if self.arguments.kwarg:
+            pyobjects.append(builtins.get_dict())
+
+
+class _KeywordOnlyName(pynamesdef.ParameterName):
+    """A keyword-only parameter: never bound positionally, typed only by rope's parameter type-hint provider."""
+
+    def __init__(self, pyfunction: pyobjectsdef.PyFunction, name: str) -> None:
+        super().__init__(pyfunction, -1)
+        self.name = name
+
+    @override
+    def get_object(self) -> PyObject | None:
+        hint = get_type_hinting_factory(self.pyfunction.pycore.project).make_param_provider()(self.pyfunction, self.name)
+        return pyobjects.get_unknown() if hint is None else pyobjects.PyObject(hint)
+
+    @override
+    def get_objects(self) -> list[PyObject | None]:
+        return [self.get_object()]
+
+
+def _get_parameters(self: pyobjectsdef.PyFunction) -> dict[str, pynamesdef.ParameterName]:
+    """Every parameter of the function's scope, keyword-only ones included."""
+    if self.parameter_pynames is None:
+        result: dict[str, pynamesdef.ParameterName] = {
+            name: pynamesdef.ParameterName(self, index) for index, name in enumerate(self.get_param_names())
+        }
+        result.update((arg.arg, _KeywordOnlyName(self, arg.arg)) for arg in self.arguments.kwonlyargs)
+        self.parameter_pynames = result
+    return self.parameter_pynames
+
+
+def _primary_and_pyname_at(self, offset: int):
+    """rope's, resolving a call's `name=` keyword only to a positional-or-keyword or keyword-only parameter, never to
+    a variable of the enclosing scope."""
+    if not self.worder.is_function_keyword_parameter(offset):
+        return _rope_primary_and_pyname_at(self, offset)
+    function = self.get_enclosing_function(offset)
+    if isinstance(function, pyobjectsdef.PyFunction):
+        name = self.worder.get_word_at(offset)
+        bindable = {arg.arg for arg in (*function.arguments.args, *function.arguments.kwonlyargs)}
+        return None, function.get_parameters().get(name) if name in bindable else None
+    if isinstance(function, pyobjects.AbstractFunction):
+        return None, pynames.ParameterName()
+    return None, None
+
+
 def apply_rope_patches() -> None:
     walker = patchedast._PatchingASTWalker
     walker._arg = _arg
@@ -337,3 +419,8 @@ def apply_rope_patches() -> None:
     simplify.real_code = _real_code
     pyscopes.GlobalScope._calculate_scope_regions = _checked_scope_regions
     worder._RealFinder.is_a_class_or_function_name_in_header = _is_a_class_or_function_name_in_header
+    function = pyobjectsdef.PyFunction
+    function.get_param_names = _get_param_names
+    function._handle_special_args = _handle_special_args
+    function.get_parameters = _get_parameters
+    evaluate.ScopeNameFinder.get_primary_and_pyname_at = _primary_and_pyname_at

@@ -15,4 +15,4 @@ git:
 - commit: init
 expect:
   exit: 0
-note: located by --name; `**mapping` unpacking, `**kwargs` forwarding and `functools.partial` keywords unchanged
+note: located by --name; `**mapping` unpacking and `**kwargs` forwarding keywords unchanged, a `functools.partial` keyword renamed

@@ -5,14 +5,15 @@ from __future__ import annotations
 
 import ast
 import bisect
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
+from rope.base import pynamesdef
 from rope.base.change import ChangeContents, ChangeSet
 from rope.base.fscommands import read_str_coding
 from rope.base.project import Project
-from rope.base.pyobjectsdef import PyModule
+from rope.base.pyobjectsdef import PyClass, PyFunction, PyModule
 from rope.base.resources import File
 from rope.refactor import occurrences
 from rope.refactor.rename import Rename, _is_local
@@ -144,6 +145,60 @@ def _conflict(source: SourceFile, rel: str, edits: list[TextEdit], old: str, new
                 raise NameConflict(new, rel, line)
 
 
+Function = ast.FunctionDef | ast.AsyncFunctionDef
+_POSITIONED = (ast.stmt, ast.expr, ast.arg, ast.alias, ast.excepthandler, ast.pattern)
+
+
+def _parameter(fn: Function, name: str) -> ast.arg | None:
+    """`fn`'s parameter `name`, of any kind."""
+    args = fn.args
+    every = [*args.posonlyargs, *args.args, args.vararg, *args.kwonlyargs, args.kwarg]
+    return next((a for a in every if a is not None and a.arg == name), None)
+
+
+def _same_named(tree: ast.Module, fn: Function) -> list[Function]:
+    """The defs named like `fn` in the module or class body holding it; `[fn]` in any other body."""
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Module, ast.ClassDef)) and any(stmt is fn for stmt in node.body):
+            return [s for s in node.body if isinstance(s, (ast.FunctionDef, ast.AsyncFunctionDef)) and s.name == fn.name]
+    return [fn]
+
+
+def _keyword_spans(source: SourceFile) -> set[tuple[int, int]]:
+    """The name spans of every call keyword in `source`."""
+    if source.tree is None:
+        return set()
+    return {s for k in ast.walk(source.tree) if isinstance(k, ast.keyword) and (s := source.name_span(k)) is not None}
+
+
+def _bound_names(node: ast.AST) -> list[str]:
+    """The variable names `node` binds or reads."""
+    if isinstance(node, ast.Name):
+        return [node.id]
+    if isinstance(node, ast.arg):
+        return [node.arg]
+    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+        return [node.name]
+    if isinstance(node, ast.alias):
+        return [node.asname or node.name.split(".")[0]]
+    if isinstance(node, (ast.ExceptHandler, ast.MatchAs, ast.MatchStar)):
+        return [node.name] if node.name else []
+    if isinstance(node, ast.MatchMapping):
+        return [node.rest] if node.rest else []
+    if isinstance(node, (ast.Global, ast.Nonlocal)):
+        return node.names
+    return []
+
+
+def _variable_sites(source: SourceFile, fn: Function, name: str) -> Iterator[int]:
+    """The offsets where `fn`'s signature or body binds or reads variable `name`, nested scopes included."""
+    for root in [fn.args, *([fn.returns] if fn.returns else []), *fn.body]:
+        for node in ast.walk(root):
+            if isinstance(node, _POSITIONED) and name in _bound_names(node):
+                span = source.name_span(node)
+                yield span[0] if span else source.offset(node.lineno, node.col_offset)
+
+
 class SymbolRename:
     """A rename of a symbol other than a module: computes its edits, then prints and optionally writes them."""
 
@@ -156,6 +211,7 @@ class SymbolRename:
         self.snapshot = Snapshot(self.root)
         self.edits: list[TextEdit] = []
         self.seeds: set[tuple[str, int]] = set()
+        self.keywordless: set[tuple[str, int]] = set()
         self.candidates: list[str] = []
         self._in_hierarchy = in_hierarchy
         self._unsure = unsure
@@ -217,8 +273,11 @@ class SymbolRename:
                 if not span.path.is_relative_to(self.root):
                     continue
                 ref = span.path.relative_to(self.root).as_posix()
-                if ref in candidates and self.snapshot.text(ref)[span.start : span.end] == self.old:
-                    self.edits.append(TextEdit(path=ref, start=span.start, end=span.end, new_text=self.new))
+                if ref not in candidates or self.snapshot.text(ref)[span.start : span.end] != self.old:
+                    continue
+                if (rel, start) in self.keywordless and (span.start, span.end) in _keyword_spans(self.snapshot.source(ref)):
+                    continue
+                self.edits.append(TextEdit(path=ref, start=span.start, end=span.end, new_text=self.new))
 
     def _located_field(self) -> tuple[ClassRef, ast.AnnAssign | ast.Assign, Span] | None:
         pyname = self.renamer.old_pyname
@@ -242,14 +301,93 @@ class SymbolRename:
         self.edits += keyed.edits
         self.edits += bindings.edits()
 
+    def _function_at(self, fn: PyFunction) -> tuple[str, Function] | None:
+        """rope's function `fn` as a node of its file's snapshot."""
+        module = fn.get_module()
+        resource = module.get_resource() if isinstance(module, PyModule) else None
+        if resource is None or resource.path not in self.candidates:
+            return None
+        node = fn.get_ast()
+        tree = self.snapshot.source(resource.path).tree
+        found = (
+            n
+            for n in (ast.walk(tree) if tree is not None else ())
+            if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and (n.lineno, n.col_offset, n.name) == (node.lineno, node.col_offset, node.name)
+        )
+        return next(((resource.path, n) for n in found), None)
+
+    def _method_declarations(self, fn: PyFunction, cls: PyClass) -> list[tuple[str, Function]]:
+        """The declarations a rename of method `fn` renames."""
+        name = fn.get_name()
+        finder = occurrences.create_finder(self.project, name, cls[name], docs=False, in_hierarchy=self._in_hierarchy)
+        out: list[tuple[str, Function]] = []
+        for rel in self.candidates:
+            source = self.snapshot.source(rel)
+            if source.tree is None or name not in source.text:
+                continue
+            defs = {
+                source.name_span(n): n
+                for n in ast.walk(source.tree)
+                if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and n.name == name
+            }
+            to_raw = _raw_offsets(source.text)
+            for occurrence in finder.find_occurrences(resource=cast(File, self.project.get_resource(rel))):
+                start, end = (to_raw(i) for i in occurrence.get_word_range())
+                if (node := defs.get((start, end))) is not None:
+                    out.append((rel, node))
+        return out
+
+    def _parameter_declarations(self, facts: TypeFacts, fn: PyFunction) -> list[tuple[str, SourceFile, Function, ast.arg]]:
+        """The renamed parameters: those named `old` of the method hierarchy's declarations and their overload groups."""
+        located = self._function_at(fn)
+        if located is None:
+            return []
+        defs = [located]
+        if isinstance(fn.parent, PyClass):
+            defs += self._method_declarations(fn, fn.parent)
+        seen: set[tuple[str, int, int]] = set()
+        out: list[tuple[str, SourceFile, Function, ast.arg]] = []
+        for rel, node in defs:
+            source = self.snapshot.source(rel)
+            assert source.tree is not None
+            group = _same_named(source.tree, node)
+            for member in group if any(facts.is_overload(source, m) for m in group) else [node]:
+                key = (rel, member.lineno, member.col_offset)
+                if key not in seen and (arg := _parameter(member, self.old)) is not None:
+                    seen.add(key)
+                    out.append((rel, source, member, arg))
+        return out
+
+    def _parameter_seeds(self, facts: TypeFacts, fn: PyFunction) -> None:
+        """Seed every renamed parameter; `NameConflict` when a renamed function already uses the new name."""
+        declarations = self._parameter_declarations(facts, fn)
+        conflicts = sorted(
+            (rel, offset) for rel, source, node, _ in declarations for offset in _variable_sites(source, node, self.new)
+        )
+        if conflicts:
+            rel, offset = conflicts[0]
+            raise NameConflict(self.new, rel, self.snapshot.source(rel).line(offset))
+        for rel, source, node, arg in declarations:
+            span = source.name_span(arg)
+            if span is not None:
+                self.seeds.add((rel, span[0]))
+                if not any(arg is a for a in (*node.args.args, *node.args.kwonlyargs)):
+                    self.keywordless.add((rel, span[0]))
+
     def compute(self) -> None:
         """Every edit of the rename; raises `LanguageServerError`, `UnresolvedBase`, `NameConflict` or `FileChanged`."""
+        if self.new == self.old:
+            return
         self._rope_edits()
         field = self._located_field()
+        pyname = self.renamer.old_pyname
         with LanguageServer(self.root, read=self._read) as server:
             for rel in self.candidates:
                 server.open(self.root / rel, self.snapshot.text(rel))
             facts = TypeFacts(server, self._load)
+            if isinstance(pyname, pynamesdef.ParameterName):
+                self._parameter_seeds(facts, pyname.pyfunction)
             if field is not None:
                 facts.chain(field[0])
             self._reference_edits(server)

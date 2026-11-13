@@ -20,6 +20,7 @@ See proposal.md (Why). Facts measured during planning (scratch projects, rope 1.
 - Renaming an implementation's parameter leaves every `@overload` stub's parameter unchanged.
 - Renaming to a name the signature already holds produces `def g(*, dataset_name, dataset_name)`.
 - rope builds no scope for a lambda: every lambda parameter is refused with `cannot-rename`.
+- basedpyright resolves a `functools.partial(f, name=...)` keyword to `f`'s parameter.
 - `TypeFacts._decorator` in `keyed.py` already resolves a method's decorators through basedpyright (not by spelling).
 
 Element principles that apply (`architecture/system.arc42.md`):
@@ -45,7 +46,7 @@ edit.
 
 - Lambda parameter renames: they stay a `cannot-rename` refusal, pinned by a scenario (decision 7).
 - Body-capture conflict checks for renames of non-parameter symbols (decision 6).
-- Keyword sites the checker cannot resolve: `**mapping` unpacking, `**kwargs` forwarding, `functools.partial`.
+- Keyword sites the checker cannot resolve: `**mapping` unpacking, `**kwargs` forwarding.
 - Pairing a `.pyi` stub with its `.py` implementation in another file (rejected (codex), decision 11).
 - Upstreaming the rope patch.
 - The 0.8.0 release and the SLayer pin: post-merge steps in tasks.md (decision 8).
@@ -99,8 +100,8 @@ edit.
     same-named parameter of each override and each `@overload` signature. It refuses a new name the function already
     uses."
     Added to "What a rename leaves unrenamed", after the string-only references bullet:
-    "- for a parameter rename: keywords that reach it unresolved (`**kwargs` forwarding, `functools.partial`, a dict
-    unpacked into the call). A lambda parameter is refused."
+    "- for a parameter rename: keywords that reach it unresolved (`**kwargs` forwarding, a dict unpacked into the
+    call). A lambda parameter is refused."
 
 ## Risks / Trade-offs
 
