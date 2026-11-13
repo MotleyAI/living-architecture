@@ -78,7 +78,7 @@ relative to `source_root`, and without a `tsconfig` key each TypeScript root res
 - `openspec: true` without an `openspec/` directory, or `openspec: false` with one;
 - `architecture: true` without `architecture/index.yaml`, or `architecture: false` with it (an `architecture/`
   directory without `index.yaml` is not a living-architecture setup);
-- with `--require-plan-store`, which the `/la:pr` skills pass: `tracker: none` with `openspec: false`, which leaves
+- with `--require-plan-store`, which `la:pr` passes: `tracker: none` with `openspec: false`, which leaves
   no place for the plan to survive a session reset.
 
 ## Local overrides

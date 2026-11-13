@@ -3,10 +3,8 @@ name: pr-review
 description: Stage 4 of 4 of the /la:pr flow — run /la:process-reviews in a loop until every source is green, then (OpenSpec repos only) archive the change, push, and keep looping on the archived HEAD until every source is green again so the PR can merge. Normally dispatched by /la:pr; if the /la:pr context (BRANCH, CHANGE_ID, OPENSPEC, tracker issue) is not already loaded in this session, invoke the la:pr skill instead.
 ---
 
-**Preflight:** run `la-doctor --plugin <this skill's base directory> --require-config --require-plan-store` once per session before using any `la-*` or `dr-*` command. If it reports the missing-config finding (the one naming `/la:init`), run the fast path of the `la:init` skill, then re-run this preflight; stop and show the user its output on anything it still reports, or on any other failure.
-
 **Stage 4 of 4 of the `/la:pr` flow.** Prerequisite: `/la:pr` has run in this
-session and established `BRANCH`, `CHANGE_ID`, `OPENSPEC`, and the full tracker
+session, preflight included, and established `BRANCH`, `CHANGE_ID`, `OPENSPEC`, and the full tracker
 issue (body + comments, if there is one), and the PR for `BRANCH` exists. If any of that is
 missing, invoke the `la:pr` skill instead — it rehydrates and dispatches back
 here. The `/la:pr` stopping policy applies throughout this stage.

@@ -3,10 +3,8 @@ name: pr-tests
 description: Stage 2 of 4 of the /la:pr flow — write the full failing test suite for the agreed plan (TDD-first), then Codex-review the tests against the plan. Normally dispatched by /la:pr; if the /la:pr context (BRANCH, CHANGE_ID, OPENSPEC, tracker issue) is not already loaded in this session, invoke the la:pr skill instead.
 ---
 
-**Preflight:** run `la-doctor --plugin <this skill's base directory> --require-config --require-plan-store` once per session before using any `la-*` or `dr-*` command. If it reports the missing-config finding (the one naming `/la:init`), run the fast path of the `la:init` skill, then re-run this preflight; stop and show the user its output on anything it still reports, or on any other failure.
-
 **Stage 2 of 4 of the `/la:pr` flow.** Prerequisite: `/la:pr` has run in this
-session and established `BRANCH`, `CHANGE_ID`, `OPENSPEC`, and the full tracker
+session, preflight included, and established `BRANCH`, `CHANGE_ID`, `OPENSPEC`, and the full tracker
 issue (body + comments), if there is one. If any of that is missing, invoke the `la:pr` skill
 instead — it rehydrates and dispatches back here. The `/la:pr` stopping policy
 applies throughout this stage.

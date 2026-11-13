@@ -3,7 +3,7 @@ name: pr
 description: Spec-driven change flow for a task given to an agent. Pulls in the tracker issue (Linear or GitHub, per `living-architecture.yaml`) that the current git branch belongs to, and combines it with whatever the user typed when invoking the skill. Rehydrates context, detects the current stage, and dispatches to the stage skills la:pr-plan → la:pr-tests → la:pr-implement → la:pr-review.
 ---
 
-**Preflight:** run `la-doctor --plugin <this skill's base directory> --require-config --require-plan-store` once per session before using any `la-*` or `dr-*` command. If it reports the missing-config finding (the one naming `/la:init`), run the fast path of the `la:init` skill, then re-run this preflight; stop and show the user its output on anything it still reports, or on any other failure.
+**Preflight:** run `la-doctor --plugin <this skill's base directory> --require-config --require-plan-store` once per session before using any `la-*` or `dr-*` command; it also covers the stage skill this session dispatches. If it reports the missing-config finding (the one naming `/la:init`), run the fast path of the `la:init` skill; if it reports the missing-format finding (the one naming `la-arch-migrate`): when `git status --porcelain` prints anything, stop and show the user those paths; otherwise run `la-arch-migrate` without asking and commit the paths it prints at once, without a push of their own. Then re-run this preflight; stop and show the user its output on anything it still reports, or on any other failure.
 
 I want a detailed spec-driven flow. The brief is the union of:
 1. The tracker issue tied to the current branch (see "Rehydrate" below), AND
@@ -69,6 +69,15 @@ proceed.** The only other permitted pauses are:
 
 Never stop just to report progress, to confirm an obvious next step, or to ask
 something you can determine yourself.
+
+**Ask every question before acting on any answer, one question per message.**
+Every pause above is a question: a design choice, an approval to align a test, an
+approval of a plan, spec, harness or skill edit. When questions are pending —
+including ones that surface mid-stage — stop working, queue them all, and ask
+them back to back, exactly ONE per message, each self-contained. An answer is
+NEVER a go signal while another question is still queued: reply to it with the
+next question and nothing else. Act on the answers only after the LAST one; if
+acting raises new questions, stop and queue them the same way.
 
 ## The plan is frozen once pr-plan ends
 
