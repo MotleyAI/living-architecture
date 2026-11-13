@@ -1,0 +1,20 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- rename
+- --file
+- pkg/ovl_method.py
+- --line
+- '9'
+- --col
+- '22'
+- --new-name
+- dataset_name
+fixture: refactor-params
+git:
+- commit: init
+expect:
+  exit: 0
+note: 'an overloaded method in a hierarchy: the stubs, both implementations, every call keyword'

@@ -22,12 +22,14 @@ _PLAIN_STRING = re.compile(r"""(?:[rRuU])?(['"])(\w+)\1""")
 _LIST_LIKE = {"list", "List", "Sequence", "set", "Set", "frozenset", "FrozenSet"}
 _PYDANTIC_METHODS = {"model_validate", "model_construct", "model_copy", "model_dump", "model_dump_json"}
 _NONE_NAMES = {"None", "NoneType"}
-_DecoratorKind = Literal["static", "class", "plain"]
+_DecoratorKind = Literal["static", "class", "plain", "overload"]
 _DECORATORS: dict[str, _DecoratorKind] = {
     "builtins.staticmethod": "static",
     "builtins.classmethod": "class",
     "typing.override": "plain",
     "typing_extensions.override": "plain",
+    "typing.overload": "overload",
+    "typing_extensions.overload": "overload",
 }
 
 
@@ -230,7 +232,7 @@ class TypeFacts:
     ) -> Literal["static", "class", "instance"] | None:
         """How method `fn`'s first parameter binds, inside its body or `at_call`; at a call, None when a decorator other
         than `staticmethod`, `classmethod` or `override` may change it."""
-        kinds = {self._decorator(source, d) for d in fn.decorator_list} - {"plain"}
+        kinds = {self._decorator(source, d) for d in fn.decorator_list} - {"plain", "overload"}
         if at_call and None in kinds:
             return None
         kinds.discard(None)
@@ -239,6 +241,10 @@ class TypeFacts:
         if "static" in kinds:
             return "static"
         return "class" if "class" in kinds else "instance"
+
+    def is_overload(self, source: SourceFile, fn: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
+        """Whether a decorator of `fn` resolves to `typing.overload` or `typing_extensions.overload`."""
+        return any(self._decorator(source, d) == "overload" for d in fn.decorator_list)
 
     def annotation_class(self, source: SourceFile, expr: ast.expr) -> ClassRef | None:
         """The class an annotation expression names."""
