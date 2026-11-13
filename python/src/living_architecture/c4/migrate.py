@@ -1,5 +1,5 @@
-"""`la-arch-migrate`: convert the repo to the current format: merge a legacy model layout, convert the retired `arc42`
-key format and stamp `format`, verified and all-or-nothing."""
+"""`la-arch-migrate`: convert the repo to the current format one released format at a time and stamp `format`,
+verified and all-or-nothing."""
 
 from __future__ import annotations
 
@@ -44,10 +44,10 @@ from living_architecture.config import (
     FORMAT_KEY,
     ConfigError,
     compare_versions,
-    current_format,
     format_problem,
     is_version,
     read_committed,
+    released_formats,
     stamp_format,
 )
 from living_architecture.contract import config_file, load_yaml, message
@@ -294,135 +294,179 @@ def _index_as_expected(plan: _Plan, index: Index | None, moved_entries: set[str]
     return load_yaml(written) == _expected_index(index.data, plan.renames, moved_entries)
 
 
-class _Step(BaseModel):
-    """One applied change: the path it touched, how to undo it, and whether the path is back as it was."""
+class _State(BaseModel):
+    """A path's state: a file's bytes and mode, a directory's mode, or absent (both None)."""
 
-    rel: str
-    undo: Callable[[], object]
-    restored: Callable[[], bool]
-
-
-def _create_exclusive(root: Path, rel: str, text: str, steps: list[_Step]) -> None:
-    """Create `rel` exclusively, journalled before the open so a half-made file is undone too."""
-    path = root / rel
-    steps.append(_Step(rel=rel, undo=lambda: path.unlink(missing_ok=True), restored=lambda: not os.path.lexists(path)))
-    try:
-        with path.open("x", encoding="utf-8", newline="") as out:
-            out.write(text)
-    except FileExistsError:
-        steps.pop()
-        raise
+    data: bytes | None = None
+    mode: int | None = None
+    is_dir: bool = False
 
 
 def _mode(path: Path) -> int:
     return stat.S_IMODE(path.stat().st_mode)
 
 
-def _restore_file(path: Path, original: bytes, mode: int) -> None:
-    path.write_bytes(original)
-    path.chmod(mode)
+def _state(path: Path) -> _State:
+    if path.is_dir():
+        return _State(mode=_mode(path), is_dir=True)
+    if os.path.lexists(path):
+        return _State(data=path.read_bytes(), mode=_mode(path))
+    return _State()
 
 
-def _restore_dir(path: Path, mode: int) -> None:
-    path.mkdir()
-    path.chmod(mode)
+def _restore(path: Path, state: _State) -> None:
+    """Put a file or directory back with its bytes and mode."""
+    if state.is_dir:
+        path.mkdir()
+    else:
+        path.write_bytes(state.data or b"")
+    if state.mode is not None:
+        path.chmod(state.mode)
 
 
-def _delete(root: Path, rel: str, original: bytes, steps: list[_Step]) -> None:
-    path = root / rel
-    mode = _mode(path)
-    path.unlink()
-    steps.append(
-        _Step(
-            rel=rel,
-            undo=lambda: _restore_file(path, original, mode),
-            restored=lambda: path.is_file() and _mode(path) == mode and path.read_bytes() == original,
-        )
-    )
+class _Held(BaseModel):
+    """The file at a path: its path before the run (None when the run created it) and whether the run wrote it."""
+
+    origin: str | None
+    written: bool
 
 
-def _remove_dir(root: Path, rel: str, steps: list[_Step]) -> None:
-    path = root / rel
-    mode = _mode(path)
-    path.rmdir()
-    steps.append(_Step(rel=rel, undo=lambda: _restore_dir(path, mode), restored=lambda: path.is_dir() and _mode(path) == mode))
+class Transaction:
+    """The filesystem changes of one run, all undone on any failure, and their net effect."""
 
+    def __init__(self, root: Path) -> None:
+        self._root = root
+        self._undo: list[Callable[[], object]] = []
+        self._first: dict[str, _State] = {}
+        self._held: dict[str, _Held | None] = {}
+        self._written: list[str] = []
+        self._moved: list[str] = []
+        self._vacated: list[str] = []
 
-def _swap_in(root: Path, rel: str, text: str, steps: list[_Step]) -> None:
-    """Replace `rel` with `text` through a sibling temp file and an atomic rename, keeping its mode."""
-    path = root / rel
-    temp = posixpath.join(posixpath.dirname(rel), f".{path.name}.{secrets.token_hex(4)}.tmp")
-    _create_exclusive(root, temp, text, steps)
-    os.chmod(root / temp, _mode(path))
-    os.replace(root / temp, path)
+    @property
+    def root(self) -> Path:
+        return self._root
 
+    def _touch(self, rel: str) -> Path:
+        path = self._root / rel
+        if rel not in self._first:
+            self._first[rel] = _state(path)
+        return path
 
-def _replace(root: Path, rel: str, text: str, steps: list[_Step]) -> None:
-    """Replace `rel`, journalled so a rollback puts its bytes and mode back."""
-    path = root / rel
-    original, mode = path.read_bytes(), _mode(path)
-    _swap_in(root, rel, text, steps)
-    steps.append(
-        _Step(
-            rel=rel,
-            undo=lambda: _restore_file(path, original, mode),
-            restored=lambda: path.is_file() and _mode(path) == mode and path.read_bytes() == original,
-        )
-    )
+    def _holder(self, rel: str) -> _Held | None:
+        if rel in self._held:
+            return self._held[rel]
+        return _Held(origin=rel, written=False) if os.path.lexists(self._root / rel) else None
 
+    def _wrote(self, rel: str, held: _Held | None) -> None:
+        self._held[rel] = _Held(origin=held.origin if held else None, written=True)
+        if rel not in self._written:
+            self._written.append(rel)
 
-def _move(root: Path, move: _Move, steps: list[_Step]) -> None:
-    source, target = root / move.source, root / move.target
-    os.rename(source, target)
-    steps.append(
-        _Step(
-            rel=move.source,
-            undo=lambda: os.rename(target, source),
-            restored=lambda: source.is_file() and not os.path.lexists(target),
-        )
-    )
-
-
-def _rollback(steps: list[_Step], error: OSError) -> MigrateError | None:
-    """Undo `steps` in reverse; an error naming every path that could not be put back, None when all were."""
-    for step in reversed(steps):
-        with contextlib.suppress(OSError):
-            step.undo()
-    left = sorted({step.rel for step in steps if not step.restored()})
-    if not left:
-        return None
-    return MigrateError(message("arch-migrate.rollback-failed", error=str(error), paths=", ".join(left)))
-
-
-def _write(root: Path, plan: _Plan, stamped: str) -> list[str]:
-    """Write the layout files, move the docs, delete the legacy files and an emptied model dir, replace the config
-    last; all or nothing."""
-    steps: list[_Step] = []
-    deleted: list[str] = []
-    model_dir = legacy_model_dir()
-    try:
-        for rel, text in plan.outputs.items():
-            if rel in plan.created:
-                _create_exclusive(root, rel, text, steps)
-            else:
-                _replace(root, rel, text, steps)
-        for move in plan.moves:
-            _move(root, move, steps)
-        for rel, original in plan.legacy.items():
-            _delete(root, rel, original, steps)
-            deleted.append(rel)
-        if plan.legacy and not any((root / model_dir).iterdir()):
-            _remove_dir(root, model_dir, steps)
-            deleted.append(model_dir)
-        _swap_in(root, config_file(), stamped, steps)
-    except OSError as exc:
-        failure = _rollback(steps, exc)
-        if failure is None:
+    def _create_exclusive(self, rel: str, text: str) -> None:
+        """Create `rel` exclusively, journalled before the open so a half-made file is undone too."""
+        path = self._touch(rel)
+        self._undo.append(lambda: path.unlink(missing_ok=True))
+        try:
+            with path.open("x", encoding="utf-8", newline="") as out:
+                out.write(text)
+        except FileExistsError:
+            self._undo.pop()
             raise
-        raise failure from exc
-    report = [message("arch-migrate.written", path=rel) for rel in [*plan.outputs, config_file()]]
-    report += [message("arch-migrate.moved", source=m.source, target=m.target) for m in plan.moves]
-    return report + [message("arch-migrate.deleted", path=rel) for rel in deleted]
+
+    def create(self, rel: str, text: str) -> None:
+        """Create the new file `rel`."""
+        held = self._holder(rel)
+        self._create_exclusive(rel, text)
+        self._wrote(rel, held)
+
+    def replace(self, rel: str, text: str) -> None:
+        """Replace `rel` through a sibling temp file and an atomic rename, keeping its mode."""
+        held = self._holder(rel)
+        path = self._touch(rel)
+        original = _state(path)
+        temp = posixpath.join(posixpath.dirname(rel), f".{path.name}.{secrets.token_hex(4)}.tmp")
+        self._create_exclusive(temp, text)
+        os.chmod(self._root / temp, _mode(path))
+        os.replace(self._root / temp, path)
+        self._undo.append(lambda: _restore(path, original))
+        self._wrote(rel, held)
+
+    def move(self, source: str, target: str) -> None:
+        """Move the file `source` to the free path `target`."""
+        held = self._holder(source)
+        source_path, target_path = self._touch(source), self._touch(target)
+        os.rename(source_path, target_path)
+        self._undo.append(lambda: os.rename(target_path, source_path))
+        self._held[source] = None
+        self._held[target] = held
+        if held is not None and held.origin is not None and held.origin not in self._moved:
+            self._moved.append(held.origin)
+        if held is not None and held.written and target not in self._written:
+            self._written.append(target)
+        self._vacated.append(source)
+
+    def delete(self, rel: str) -> None:
+        """Delete the file `rel`."""
+        path = self._touch(rel)
+        original = _state(path)
+        path.unlink()
+        self._undo.append(lambda: _restore(path, original))
+        self._held[rel] = None
+        self._vacated.append(rel)
+
+    def remove_dir(self, rel: str) -> None:
+        """Remove the empty directory `rel`."""
+        path = self._touch(rel)
+        original = _state(path)
+        path.rmdir()
+        self._undo.append(lambda: _restore(path, original))
+        self._held[rel] = None
+        self._vacated.append(rel)
+
+    def rollback(self, error: BaseException) -> MigrateError | None:
+        """Undo every change in reverse; an error naming every path left changed, None when all were put back."""
+        for undo in reversed(self._undo):
+            with contextlib.suppress(OSError):
+                undo()
+        left = sorted(rel for rel, state in self._first.items() if _state(self._root / rel) != state)
+        if not left:
+            return None
+        return MigrateError(message("arch-migrate.rollback-failed", error=str(error), paths=", ".join(left)))
+
+    def report(self, last: str) -> list[str]:
+        """The net effect: written paths (`last` last), then composed moves, then deleted paths."""
+        exists = {rel: os.path.lexists(self._root / rel) for rel in self._first}
+        written = [rel for rel in self._written if exists[rel]]
+        written = [rel for rel in written if rel != last] + [rel for rel in written if rel == last]
+        final = {held.origin: rel for rel, held in self._held.items() if held is not None and held.origin is not None}
+        moves = [(origin, final[origin]) for origin in self._moved if final.get(origin, origin) != origin]
+        moved = {origin for origin, _ in moves}
+        deleted: list[str] = []
+        for rel in self._vacated:
+            if self._first[rel] != _State() and not exists[rel] and rel not in moved and rel not in deleted:
+                deleted.append(rel)
+        return [
+            *(message("arch-migrate.written", path=rel) for rel in written),
+            *(message("arch-migrate.moved", source=source, target=target) for source, target in moves),
+            *(message("arch-migrate.deleted", path=rel) for rel in deleted),
+        ]
+
+
+def _apply(plan: _Plan, tx: Transaction) -> None:
+    """Write the layout files, move the docs, delete the legacy files and an emptied model dir."""
+    for rel, text in plan.outputs.items():
+        if rel in plan.created:
+            tx.create(rel, text)
+        else:
+            tx.replace(rel, text)
+    for move in plan.moves:
+        tx.move(move.source, move.target)
+    for rel in plan.legacy:
+        tx.delete(rel)
+    model_dir = legacy_model_dir()
+    if plan.legacy and not any((tx.root / model_dir).iterdir()):
+        tx.remove_dir(model_dir)
 
 
 def _plan(root: Path) -> _Plan:
@@ -466,36 +510,70 @@ def _plan(root: Path) -> _Plan:
     return plan
 
 
-def _stamped(root: Path) -> str | None:
-    """The stamped config text, or None when the repo already declares the current format."""
+class MigrationStep(BaseModel):
+    """One conversion: from the `source` format (None: a repo that declares none) to the `target` format."""
+
+    source: str | None
+    target: str
+    apply: Callable[[Path, Transaction], None]
+
+
+def _unversioned(root: Path, tx: Transaction) -> None:
+    """The legacy layout and the retired arc42 key converted."""
+    _apply(_plan(root), tx)
+
+
+STEPS = [MigrationStep(source=None, target="0.4.0", apply=_unversioned)]
+
+
+def _declared(root: Path, formats: list[str]) -> tuple[str | None, str] | None:
+    """The declared format (None when absent) and the config text; None when it is current; MigrateError when it
+    cannot be migrated."""
     try:
         committed = read_committed(root)
     except ConfigError as exc:
         raise MigrateError(str(exc)) from exc
     if committed is None:
         raise MigrateError(message("arch-migrate.no-config"))
-    current = current_format()
     data = committed.data or {}
-    if FORMAT_KEY in data:
-        problem = format_problem(data)
-        declared = data[FORMAT_KEY]
-        if problem is not None and is_version(declared) and compare_versions(declared, current) < 0:
-            raise MigrateError(message("arch-migrate.unknown-format", declared=declared, current=current))
-        if problem is not None:
-            raise MigrateError(problem)
+    if FORMAT_KEY not in data:
+        return None, committed.text
+    current, declared = formats[-1], data[FORMAT_KEY]
+    problem = format_problem(data, current)
+    if problem is None:
         return None
-    stamped = stamp_format(committed.text)
+    if not is_version(declared) or compare_versions(declared, current) > 0:
+        raise MigrateError(problem)
+    if declared not in formats:
+        raise MigrateError(message("arch-migrate.unknown-format", declared=declared, current=current))
+    return declared, committed.text
+
+
+def migrate(root: Path, steps: list[MigrationStep] | None = None, formats: list[str] | None = None) -> list[str]:
+    """Migrate the repo at `root` through `steps` (default: STEPS) up to the last of `formats` (default: the released
+    ones); the lines to print. MigrateError or OSError having changed nothing, unless named."""
+    formats = formats or released_formats()
+    current = formats[-1]
+    found = _declared(root, formats)
+    if found is None:
+        return [message("arch-migrate.nothing", current=current)]
+    declared, text = found
+    stamped = stamp_format(text, current)
     if stamped is None:
         raise MigrateError(message("arch-migrate.stamp-mismatch", current=current))
-    return stamped
-
-
-def migrate(root: Path) -> list[str]:
-    """Migrate the repo at `root`; the lines to print. MigrateError or OSError having changed nothing, unless named."""
-    stamped = _stamped(root)
-    if stamped is None:
-        return [message("arch-migrate.nothing", current=current_format())]
-    return _write(root, _plan(root), stamped)
+    by_source = {step.source: step for step in steps or STEPS}
+    sources = [None, *formats[:-1]] if declared is None else formats[formats.index(declared) : -1]
+    tx = Transaction(root)
+    try:
+        for source in sources:
+            by_source[source].apply(root, tx)
+        tx.replace(config_file(), stamped)
+    except (MigrateError, OSError) as exc:
+        failure = tx.rollback(exc)
+        if failure is None:
+            raise
+        raise failure from exc
+    return tx.report(config_file())
 
 
 def run(root: Path) -> int:

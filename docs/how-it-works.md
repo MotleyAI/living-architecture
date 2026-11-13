@@ -145,4 +145,5 @@ Pin the check in CI to a release, in your ecosystem's form:
 ```
 
 When you move the pin to a release with a newer repo format, first run that release's `la-arch-migrate` and commit
-the result: the check refuses a repo in an older format.
+the result: it converts the repo step by step from the older released format, and the check refuses a repo in an
+older format.

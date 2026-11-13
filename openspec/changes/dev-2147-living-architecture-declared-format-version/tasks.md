@@ -32,7 +32,7 @@
   CRLF, with comments) reads as `[0.4.0]`; no `shared/config.yaml` at the tag reads as `[]`; an unrecognised file and
   a `git show` failure fail naming the release; the pre-tag `bump_problem` path applies the rule; the regex read of
   HEAD's `shared/config.yaml` equals its YAML read.
-- [ ] 1.8 Conformance: re-bless `arch-migrate-format-unknown-older` (and any golden echoing the `la-arch-migrate` help)
+- [x] 1.8 Conformance: re-bless `arch-migrate-format-unknown-older` (and any golden echoing the `la-arch-migrate` help)
   for the approved wordings — reason: deliberate wording change — only after 2.2 lands; no new case (design decision
   13).
 - [x] 1.9 Update existing tests that read the scalar `format` (`python/tests/test_conformance.py` `current_format`,
@@ -42,38 +42,40 @@
 
 ## 2. shared/
 
-- [ ] 2.1 `config.yaml`: `format: 0.4.0` → `formats: [0.4.0]` with the approved comment (design.md).
-- [ ] 2.2 `findings.yaml`: reword `arch-migrate.unknown-format` and `arch-migrate.stamp-mismatch`; `cli.yaml`: the
+- [x] 2.1 `config.yaml`: `format: 0.4.0` → `formats: [0.4.0]` with the approved comment (design.md).
+- [x] 2.2 `findings.yaml`: reword `arch-migrate.unknown-format` and `arch-migrate.stamp-mismatch`; `cli.yaml`: the
   approved `la-arch-migrate` help (exit map unchanged). Wordings verbatim from design.md.
-- [ ] 2.3 `scripts/sync-shared`, then `scripts/sync-shared --check`; both `CONTRACT_HASH` files equal the shared hash
+- [x] 2.3 `scripts/sync-shared`, then `scripts/sync-shared --check`; both `CONTRACT_HASH` files equal the shared hash
   (drift tests green).
 
 ## 3. Python twin
 
-- [ ] 3.1 `contract/snapshot.py`: the released-formats accessor; `config/format.py`: current = last entry, the
+- [x] 3.1 `contract/snapshot.py`: the released-formats accessor; `config/format.py`: current = last entry, the
   released list exposed, `stamp_format` inserts or replaces per design decision 8. Verify 1.1 and 1.2.
-- [ ] 3.2 `c4/migrate.py`: the step registry (`{source, target, apply}`; the unversioned step = today's layout and
+- [x] 3.2 `c4/migrate.py`: the step registry (`{source, target, apply}`; the unversioned step = today's layout and
   arc42 conversion, never writing the config); the outer transaction (design decisions 1–3, 5) with the logical
   record and the net-effect report; the format flow (stamp decided first, unreleased older refused). Verify 1.3–1.6
   and the existing `arch-migrate-*` conformance cases unchanged.
-- [ ] 3.3 `uv run pytest -q` (local test scope), `ruff check src tests`, `basedpyright src tests` green in `python/`.
+- [x] 3.3 `uv run pytest -q` (local test scope), `ruff check src tests`, `basedpyright src tests` green in `python/`.
 
 ## 4. npm twin
 
-- [ ] 4.1 `node/src/contract/snapshot.ts`, `node/src/config/format.ts`: as 3.1, comparison without `Number`.
-- [ ] 4.2 `node/src/c4/migrate.ts`: as 3.2.
-- [ ] 4.3 `npm run lint && npm run typecheck && npm test`, `npm run build && npm run conformance`, and
+- [x] 4.1 `node/src/contract/snapshot.ts`, `node/src/config/format.ts`: as 3.1, comparison without `Number`.
+- [x] 4.2 `node/src/c4/migrate.ts`: as 3.2.
+- [x] 4.3 `npm run lint && npm run typecheck && npm test`, `npm run build && npm run conformance`, and
   `scripts/conformance-cross` on the `arch-migrate-*` and `format-*` cases green.
+- [x] 4.4 `node/src/contract/yaml.ts`: refuse a tab wherever PyYAML's safe loader does (outside comments, quoted and
+  block scalars), with `error: true` cases in `shared/vectors/yaml.yaml`.
 
 ## 5. Release rule
 
-- [ ] 5.1 `scripts/release_rule.py`: read a release's formats (`formats`, else `[format]`, else `[]` when absent via
+- [x] 5.1 `scripts/release_rule.py`: read a release's formats (`formats`, else `[format]`, else `[]` when absent via
   `git cat-file -e`; fail closed otherwise) with a strict one-line regex; the formats rule inside the `bump_problem`
   path, so `scripts/release-check` and the pre-tag test apply it. Verify 1.7.
 
 ## 6. Skill and docs
 
-- [ ] 6.1 `plugin/skills/pr/SKILL.md` preflight: the approved replacement wording verbatim (design.md).
-- [ ] 6.2 `docs/development.md` releasing sentence (approved); `docs/configuration.md`, `docs/how-it-works.md` and the
+- [x] 6.1 `plugin/skills/pr/SKILL.md` preflight: the approved replacement wording verbatim (design.md).
+- [x] 6.2 `docs/development.md` releasing sentence (approved); `docs/configuration.md`, `docs/how-it-works.md` and the
   `la-arch-migrate` line in `docs/commands.md` name the step-by-step conversion of an older released format.
-- [ ] 6.3 `la-arch-check` green from either twin and `npx -y @anthropic-ai/claude-code plugin validate plugin`.
+- [x] 6.3 `la-arch-check` green from either twin and `npx -y @anthropic-ai/claude-code plugin validate plugin`.

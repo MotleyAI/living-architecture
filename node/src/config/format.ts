@@ -6,7 +6,7 @@ import {
   byCodePoint,
   canonicalRepr,
   configFile,
-  configFormat,
+  configFormats,
   decodeUtf8,
   loadYaml,
   message,
@@ -17,6 +17,12 @@ import { ConfigError } from './error.js';
 export const FORMAT_KEY = 'format';
 const VERSION_RE = /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/;
 const BLANK = ' \t\r';
+// A top-level `format` line with one single-line scalar value: its value, then its trailing whitespace and comment.
+const FORMAT_LINE = new RegExp(
+  `^${FORMAT_KEY}:[ \\t]+` +
+    String.raw`(?<value>'(?:[^']|'')*'|"(?:[^"\\]|\\.)*"|[^\s#'"|>{}\[\],&*!%@` + '`' + String.raw`](?:[^#]|(?<![ \t])#)*?)` +
+    String.raw`(?<rest>[ \t]*(?:#.*)?)$`,
+);
 
 /** The committed config file: its exact text and its top-level mapping, null for an empty document. */
 export interface Committed {
@@ -24,9 +30,14 @@ export interface Committed {
   data: Map<unknown, unknown> | null;
 }
 
-/** The repo format this la reads and writes. */
+/** Every released repo format, oldest first. */
+export function releasedFormats(): string[] {
+  return configFormats();
+}
+
+/** The repo format this la reads and writes: the last released one. */
 export function currentFormat(): string {
-  return configFormat();
+  return configFormats().at(-1) as string;
 }
 
 /** Three dot-separated decimal integers without leading zeros. */
@@ -72,9 +83,8 @@ export function readCommitted(root: string): Committed | null {
   return { text, data };
 }
 
-/** The refusal of a committed mapping's `format`, or null when it declares the current format. */
-export function formatProblem(data: Map<unknown, unknown>): string | null {
-  const current = currentFormat();
+/** The refusal of a committed mapping's `format`, or null when it declares `current` (default: the current format). */
+export function formatProblem(data: Map<unknown, unknown>, current: string = currentFormat()): string | null {
   if (!data.has(FORMAT_KEY)) return message('format.missing', { current });
   const declared = data.get(FORMAT_KEY);
   if (!isVersion(declared)) return message('format.invalid', { value: declared, current });
@@ -137,22 +147,52 @@ function parsed(text: string): { value: unknown } | null {
   }
 }
 
-/** `text` with a `format: <current>` line inserted, verified to add only that key; null when it cannot be. */
-export function stampFormat(text: string): string | null {
-  const before = parsed(text);
-  if (before === null || (before.value !== null && !(before.value instanceof Map))) return null;
-  const original = (before.value as Map<unknown, unknown> | null) ?? new Map<unknown, unknown>();
-  const firstBreak = text.indexOf('\n');
-  const newline = firstBreak > 0 && text[firstBreak - 1] === '\r' ? '\r\n' : '\n';
+/** `text` split after each line break; no empty last line. */
+function linesOf(text: string): string[] {
   const lines = text.split('\n').map((line) => `${line}\n`);
   lines[lines.length - 1] = (lines.at(-1) ?? '').slice(0, -1);
   if (lines.at(-1) === '') lines.pop();
+  return lines;
+}
+
+/** `text` with a `format: <current>` line after its leading comments, directives and document marker. */
+function inserted(text: string, current: string): string {
+  const firstBreak = text.indexOf('\n');
+  const newline = firstBreak > 0 && text[firstBreak - 1] === '\r' ? '\r\n' : '\n';
+  const lines = linesOf(text);
   const index = insertAt(lines);
   if (index === lines.length && lines.length > 0 && !(lines.at(-1) ?? '').endsWith('\n')) lines[lines.length - 1] += newline;
-  lines.splice(index, 0, `${FORMAT_KEY}: ${currentFormat()}${newline}`);
-  const stamped = lines.join('');
+  lines.splice(index, 0, `${FORMAT_KEY}: ${current}${newline}`);
+  return lines.join('');
+}
+
+/** `text` with the value on its one top-level `format` line replaced by `current`; null without exactly one. */
+function replaced(text: string, current: string): string | null {
+  const lines = linesOf(text);
+  const found = [...lines.keys()].filter((i) => (lines[i] ?? '').startsWith(`${FORMAT_KEY}:`));
+  const at = found[0];
+  if (found.length !== 1 || at === undefined) return null;
+  const line = lines[at] ?? '';
+  const content = stripEnd(line, '\r\n');
+  const match = FORMAT_LINE.exec(content);
+  if (match === null) return null;
+  const valueAt = content.length - (match.groups?.value ?? '').length - (match.groups?.rest ?? '').length;
+  lines[at] = content.slice(0, valueAt) + current + (match.groups?.rest ?? '') + line.slice(content.length);
+  return lines.join('');
+}
+
+/**
+ * `text` declaring `current` (default: the current format): a `format` line inserted or its value replaced,
+ * verified to change only that key; null when it cannot be.
+ */
+export function stampFormat(text: string, current: string = currentFormat()): string | null {
+  const before = parsed(text);
+  if (before === null || (before.value !== null && !(before.value instanceof Map))) return null;
+  const original = (before.value as Map<unknown, unknown> | null) ?? new Map<unknown, unknown>();
+  const stamped = original.has(FORMAT_KEY) ? replaced(text, current) : inserted(text, current);
+  if (stamped === null) return null;
   const after = parsed(stamped);
-  if (after === null || original.has(FORMAT_KEY)) return null;
-  const expected = new Map([...original, [FORMAT_KEY, currentFormat()]]);
+  if (after === null) return null;
+  const expected = new Map([...original, [FORMAT_KEY, current]]);
   return unorderedRepr(normalize(after.value)) === unorderedRepr(normalize(expected)) ? stamped : null;
 }

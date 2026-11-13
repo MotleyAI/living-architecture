@@ -1,1 +1,1 @@
-la-arch-migrate: cannot insert the format into living-architecture.yaml; add format: <FORMAT> by hand
+la-arch-migrate: cannot write the format into living-architecture.yaml; set format: <FORMAT> by hand

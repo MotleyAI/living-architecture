@@ -260,11 +260,11 @@ def test_no_twin_hard_codes_a_config_file_name() -> None:
     assert python + node == []
 
 
-def test_config_file_names_and_format() -> None:
+def test_config_file_names_and_formats() -> None:
     assert _shared_yaml("config.yaml") == {
         "file": "living-architecture.yaml",
         "local_file": "living-architecture.local.yaml",
-        "format": "0.4.0",
+        "formats": ["0.4.0"],
     }
 
 

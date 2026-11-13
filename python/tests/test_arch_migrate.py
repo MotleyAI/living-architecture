@@ -434,8 +434,9 @@ def test_the_current_format_of_the_injected_list_has_nothing_to_migrate(tmp_path
 
 def test_a_format_newer_than_the_injected_list_is_refused(tmp_path):
     root = chain_repo(tmp_path, f"format: {F3}\n")
+    steps = chain(_noop, _noop, formats=[F1, F2])
     with pytest.raises(c4_migrate.MigrateError) as info:
-        run_chain(root, chain(_noop, _noop, formats=[F1, F2]), [F1, F2])
+        run_chain(root, steps, [F1, F2])
     assert str(info.value) == contract.message("format.newer", declared=F3, current=F2)
 
 
@@ -499,8 +500,9 @@ def _fail_applying(_root: Path, tx: c4_migrate.Transaction) -> None:
 def test_a_later_step_failure_rolls_back_the_earlier_steps(tmp_path, second, refusal, text):
     root = rollback_repo(tmp_path)
     before = snapshot(root)
+    steps = chain(every_change, second, formats=[F1, F2])
     with pytest.raises(c4_migrate.MigrateError if refusal else OSError) as info:
-        run_chain(root, chain(every_change, second, formats=[F1, F2]), [F1, F2])
+        run_chain(root, steps, [F1, F2])
     assert (str(info.value) == text) if refusal else (text in str(info.value))
     assert snapshot(root) == before
 
@@ -524,8 +526,9 @@ def test_every_failed_mutation_of_a_chain_leaves_the_repo_unchanged(tmp_path, mo
             before = snapshot(root)
             with monkeypatch.context() as patch:
                 Faults(root, fail_at=fail_at, after=after).install(patch)
+                steps = chain(every_change, _noop, formats=[F1, F2])
                 with pytest.raises((c4_migrate.MigrateError, OSError)):
-                    run_chain(root, chain(every_change, _noop, formats=[F1, F2]), [F1, F2])
+                    run_chain(root, steps, [F1, F2])
             assert snapshot(root) == before, (fail_at, op, path, after)
 
 
@@ -537,8 +540,9 @@ def test_a_failed_restore_of_a_chain_names_every_path_left_changed(tmp_path, mon
         before = snapshot(root)
         with monkeypatch.context() as patch:
             Faults(root, fail_at=fail_at, fail_from=True).install(patch)
+            steps = chain(every_change, _noop, formats=[F1, F2])
             with pytest.raises((c4_migrate.MigrateError, OSError)) as info:
-                run_chain(root, chain(every_change, _noop, formats=[F1, F2]), [F1, F2])
+                run_chain(root, steps, [F1, F2])
         left = changed_paths(before, snapshot(root))
         text = str(info.value)
         assert [rel for rel in sorted(left) if rel not in text] == [], (fail_at, text)

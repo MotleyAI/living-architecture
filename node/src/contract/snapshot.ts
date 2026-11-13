@@ -113,9 +113,9 @@ export function localConfigFile(): string {
   return yamlFile('config.yaml').local_file;
 }
 
-/** The repo format this la reads and writes. */
-export function configFormat(): string {
-  return yamlFile('config.yaml').format;
+/** Every released repo format, oldest first. */
+export function configFormats(): string[] {
+  return [...yamlFile('config.yaml').formats];
 }
 
 export function scriptPath(name: string): string {

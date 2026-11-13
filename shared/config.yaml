@@ -1,5 +1,6 @@
 # The per-repo config files at the repo root: the committed one, and one contributor's git-ignored overrides.
 file: living-architecture.yaml
 local_file: living-architecture.local.yaml
-# The repo format this la reads and writes (`format` in the committed file): the la version that introduced it.
-format: 0.4.0
+# Every released repo format (`format` in living-architecture.yaml), oldest first: the la version that introduced
+# it. The last is the format this la reads and writes; la-arch-migrate converts from each earlier one.
+formats: [0.4.0]
