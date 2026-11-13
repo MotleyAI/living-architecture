@@ -7,6 +7,8 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from types import SimpleNamespace
+from typing import cast
 
 import pytest
 from project_files import file_tree
@@ -58,7 +60,10 @@ def test_utf16_positions_convert_to_character_indexes(text: str, line: int, char
     assert utf16_index(text, line, character) == index
 
 
-def test_session_runs_isolated_outside_the_workspace(workspace: Path, record: Path) -> None:
+def test_session_runs_isolated_outside_the_workspace(
+    workspace: Path, record: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PYTHONPATH", str(workspace))
     with _fake(workspace, record) as server:
         server.open(workspace / "m.py", "x = 1\n")
         server.hover(workspace / "m.py", 0)
@@ -66,6 +71,7 @@ def test_session_runs_isolated_outside_the_workspace(workspace: Path, record: Pa
     assert not Path(start["cwd"]).resolve().is_relative_to(workspace)
     env = start["env"]
     assert (env["PYTHONSAFEPATH"], env["PYTHONNOUSERSITE"], env["PYTHONDONTWRITEBYTECODE"]) == ("1", "1", "1")
+    assert env["PYTHONPATH"] is None
     assert str(PYRIGHT_PATCH_PRELOAD) in env["NODE_OPTIONS"]
     assert not Path(env["LA_PYRIGHT_PATCH_RESULT"]).resolve().is_relative_to(workspace)
     assert file_tree(workspace) == {}
@@ -89,6 +95,35 @@ def test_query_positions_round_trip_through_utf16(workspace: Path, record: Path)
         assert server.definition(path, offset) == expected
         assert server.type_definition(path, offset) == expected
         assert server.hover(path, offset) == "(variable) x: Unknown"
+
+
+def test_percent_signs_in_paths_are_decoded_once(workspace: Path, record: Path) -> None:
+    path = workspace / "repo%20copy" / "m.py"
+    with _fake(workspace, record) as server:
+        server.open(path, "x = 1\n")
+        assert server.references(path, 0) == [Span(path=path, start=0, end=3)]
+
+
+class _TrickleStdin:
+    """A pipe that accepts at most two bytes per write."""
+
+    def __init__(self) -> None:
+        self.data = b""
+
+    def write(self, data: bytes | memoryview) -> int:
+        self.data += bytes(data[:2])
+        return min(2, len(data))
+
+    def flush(self) -> None:
+        pass
+
+
+def test_short_writes_still_send_the_whole_frame(workspace: Path) -> None:
+    stdin = _TrickleStdin()
+    proc = cast(subprocess.Popen[bytes], SimpleNamespace(stdin=stdin))
+    LanguageServer(workspace, command=["unused"])._send({"jsonrpc": "2.0", "method": "x"}, proc)
+    body = b'{"jsonrpc": "2.0", "method": "x"}'
+    assert stdin.data == b"Content-Length: %d\r\n\r\n" % len(body) + body
 
 
 @pytest.mark.parametrize("mode", ["fail-start", "unpatched"])

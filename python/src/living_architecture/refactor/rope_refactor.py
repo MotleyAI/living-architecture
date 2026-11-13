@@ -126,7 +126,8 @@ def rename(
     except LanguageServerError:
         raise RefactorError(message("refactor.pyright-failed")) from None
     except UnresolvedBase as base:
-        path = base.path.relative_to(Path(project.address).resolve()).as_posix()
+        root = Path(project.address).resolve()
+        path = (base.path.relative_to(root) if base.path.is_relative_to(root) else base.path).as_posix()
         raise RefactorError(message("refactor.unresolved-base", name=base.name, path=path, line=base.line)) from None
     if unsure == "include":
         print(message("refactor.unsure-warning"))

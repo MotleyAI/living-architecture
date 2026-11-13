@@ -7,6 +7,7 @@ class's method resolution order; anything not proven so is left unchanged.
 from __future__ import annotations
 
 import ast
+import itertools
 import re
 from collections.abc import Callable, Iterator
 from pathlib import Path
@@ -45,14 +46,22 @@ class ClassRef:
     def field(self, name: str) -> tuple[Span, ast.AnnAssign | ast.Assign] | None:
         """The declaration of field `name` in this class's own body."""
         for stmt in self.node.body:
-            if not isinstance(stmt, (ast.AnnAssign, ast.Assign)):
-                continue
-            targets = [stmt.target] if isinstance(stmt, ast.AnnAssign) else stmt.targets
-            for target in targets:
-                if isinstance(target, ast.Name) and target.id == name:
-                    start, end = self.source.span(target)
-                    return Span(path=self.source.path, start=start, end=end), stmt
+            if (found := field_assignment(stmt, name)) is not None:
+                start, end = self.source.span(found[1])
+                return Span(path=self.source.path, start=start, end=end), found[0]
         return None
+
+
+def _targets(stmt: ast.AnnAssign | ast.Assign) -> list[ast.expr]:
+    return [stmt.target] if isinstance(stmt, ast.AnnAssign) else stmt.targets
+
+
+def field_assignment(stmt: ast.stmt, name: str) -> tuple[ast.AnnAssign | ast.Assign, ast.Name] | None:
+    """`stmt` with its target, when `stmt` assigns the bare name `name`."""
+    if not isinstance(stmt, (ast.AnnAssign, ast.Assign)):
+        return None
+    target = next((t for t in _targets(stmt) if isinstance(t, ast.Name) and t.id == name), None)
+    return (stmt, target) if target is not None else None
 
 
 class _Chain:
@@ -141,7 +150,7 @@ class TypeFacts:
         for base in cls.node.bases:
             target = _name_node(base)
             if target is None:
-                continue
+                raise UnresolvedBase(cls.node.name, cls.source.path, base.lineno)
             name = cls.source.name_span(target)
             spans = self.definition(cls.source.path, name[0]) if name else []
             if not spans:
@@ -190,17 +199,10 @@ class TypeFacts:
         spans = self.definition(source.path, offset)
         if len(spans) != 1 or spans[0].path != source.path or source.tree is None:
             return None
-        for cls in ast.walk(source.tree):
-            if not isinstance(cls, ast.ClassDef):
-                continue
-            for fn in cls.body:
-                if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)) or _is_static(fn):
-                    continue
-                params = [*fn.args.posonlyargs, *fn.args.args]
-                name = source.name_span(params[0]) if params else None
-                if name is not None and name[0] == spans[0].start:
-                    return ClassRef(source, cls)
-        return None
+        return next(
+            (ClassRef(source, cls) for cls, fn in _methods(source.tree) if _receiver_offset(source, fn) == spans[0].start),
+            None,
+        )
 
     def annotation_class(self, source: SourceFile, expr: ast.expr) -> ClassRef | None:
         """The class an annotation expression names."""
@@ -221,26 +223,49 @@ def _is_static(fn: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
     return any(isinstance(d, ast.Name) and d.id == "staticmethod" for d in fn.decorator_list)
 
 
+def _methods(tree: ast.AST) -> Iterator[tuple[ast.ClassDef, ast.FunctionDef | ast.AsyncFunctionDef]]:
+    """Every non-static method with its class."""
+    for cls in ast.walk(tree):
+        if isinstance(cls, ast.ClassDef):
+            for fn in cls.body:
+                if isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)) and not _is_static(fn):
+                    yield cls, fn
+
+
+def _receiver_offset(source: SourceFile, fn: ast.FunctionDef | ast.AsyncFunctionDef) -> int | None:
+    params = [*fn.args.posonlyargs, *fn.args.args]
+    name = source.name_span(params[0]) if params else None
+    return name[0] if name else None
+
+
 def _last_name(expr: ast.expr) -> str | None:
-    return expr.id if isinstance(expr, ast.Name) else expr.attr if isinstance(expr, ast.Attribute) else None
+    if isinstance(expr, ast.Name):
+        return expr.id
+    if isinstance(expr, ast.Attribute):
+        return expr.attr
+    return None
+
+
+def _subscript_args(ann: ast.Subscript) -> list[ast.expr]:
+    return list(ann.slice.elts) if isinstance(ann.slice, ast.Tuple) else [ann.slice]
+
+
+def _configures_alias_generator(value: ast.expr | None) -> bool:
+    if isinstance(value, ast.Call):
+        return any(k.arg == "alias_generator" for k in value.keywords)
+    if isinstance(value, ast.Dict):
+        return any(isinstance(k, ast.Constant) and k.value == "alias_generator" for k in value.keys)
+    return False
 
 
 def _sets_alias_generator(node: ast.ClassDef) -> bool:
     if any(k.arg == "alias_generator" for k in node.keywords):
         return True
-    for stmt in node.body:
-        if isinstance(stmt, (ast.Assign, ast.AnnAssign)):
-            targets = [stmt.target] if isinstance(stmt, ast.AnnAssign) else stmt.targets
-            if not any(isinstance(t, ast.Name) and t.id == "model_config" for t in targets):
-                continue
-            value = stmt.value
-            if isinstance(value, ast.Call) and any(k.arg == "alias_generator" for k in value.keywords):
-                return True
-            if isinstance(value, ast.Dict) and any(
-                isinstance(k, ast.Constant) and k.value == "alias_generator" for k in value.keys
-            ):
-                return True
-    return False
+    return any(
+        _configures_alias_generator(found[0].value)
+        for stmt in node.body
+        if (found := field_assignment(stmt, "model_config")) is not None
+    )
 
 
 def declares_alias(stmt: ast.AnnAssign | ast.Assign) -> bool:
@@ -269,7 +294,7 @@ def _without_none(expr: ast.expr) -> ast.expr | None:
     elif isinstance(expr, ast.Subscript) and _last_name(expr.value) == "Optional":
         members = [expr.slice]
     elif isinstance(expr, ast.Subscript) and _last_name(expr.value) == "Union":
-        members = list(expr.slice.elts) if isinstance(expr.slice, ast.Tuple) else [expr.slice]
+        members = _subscript_args(expr)
     else:
         return expr
     rest = [m for m in members if not (isinstance(m, ast.Constant) and m.value is None)]
@@ -280,6 +305,42 @@ def _union_members(expr: ast.expr) -> list[ast.expr]:
     if isinstance(expr, ast.BinOp) and isinstance(expr.op, ast.BitOr):
         return [*_union_members(expr.left), *_union_members(expr.right)]
     return [expr]
+
+
+def _element_annotation(ann: ast.Subscript) -> tuple[Literal["sequence", "mapping"], ast.expr] | None:
+    """The item annotation of a homogeneous collection annotation (`list[X]`, `tuple[X, ...]`, `dict[str, X]`)."""
+    base = _last_name(ann.value)
+    args = _subscript_args(ann)
+    homogeneous_tuple = len(args) == 1 or (len(args) == 2 and isinstance(args[1], ast.Constant) and args[1].value is Ellipsis)
+    if base in _LIST_LIKE or (base in ("tuple", "Tuple") and homogeneous_tuple):
+        return "sequence", args[0]
+    if base in ("dict", "Dict") and len(args) == 2 and _last_name(args[0]) == "str":
+        return "mapping", args[1]
+    return None
+
+
+def _elements(value: ast.expr, kind: Literal["sequence", "mapping"]) -> list[ast.expr]:
+    if kind == "sequence" and isinstance(value, (ast.List, ast.Tuple, ast.Set)):
+        return value.elts
+    if kind == "mapping" and isinstance(value, ast.Dict):
+        return value.values
+    return []
+
+
+def _string_items(value: ast.Dict) -> Iterator[tuple[ast.Constant, str, ast.expr]]:
+    """Each string-keyed item: the key node, the key and the value."""
+    for key, item in zip(value.keys, value.values):
+        if isinstance(key, ast.Constant) and isinstance(key.value, str):
+            yield key, key.value, item
+
+
+def _selects_items(key: ast.expr | None) -> bool:
+    """Whether a selection key addresses list items: an index or `"__all__"`."""
+    return isinstance(key, ast.Constant) and (isinstance(key.value, int) or key.value == "__all__")
+
+
+def _keyword_values(call: ast.Call, *names: str) -> list[ast.expr]:
+    return [k.value for k in call.keywords if k.arg in names]
 
 
 class KeyedRename:
@@ -313,20 +374,34 @@ class KeyedRename:
             return
         out.append(TextEdit(path=rel, start=m.start(2), end=m.end(2), new_text=self.new))
 
+    def _rename_key(self, source: SourceFile, rel: str, key: ast.expr, cls: ClassRef, out: list[TextEdit]) -> None:
+        if isinstance(key, ast.Constant) and key.value == self.old and self._renames(cls, self.old):
+            self._key_edit(source, key, rel, out)
+
+    def _keyed_keys(self, cls: ClassRef) -> bool:
+        return not self.aliased and not self.facts.generates_aliases(cls)
+
+    def _dict_items(
+        self, source: SourceFile, rel: str, value: ast.Dict, cls: ClassRef, out: list[TextEdit],
+        nested: Callable[[ast.expr, SourceFile, ast.expr | None], None],
+    ) -> None:
+        """Rename `cls`'s field keys of `value`, and hand each item naming `old` to `nested` with its field's annotation."""
+        keyed_keys = self._keyed_keys(cls)
+        for key, name, item in _string_items(value):
+            if keyed_keys:
+                self._rename_key(source, rel, key, cls, out)
+            if _mentions(item, self.old) and (found := self._lands(cls, name)) is not None:
+                nested(item, found[0].source, _annotation(found[2]))
+
     # ---- typed values
 
     def dict_value(self, source: SourceFile, rel: str, value: ast.expr, cls: ClassRef, out: list[TextEdit]) -> None:
         """A dict literal validated as `cls`."""
         if not isinstance(value, ast.Dict) or self.facts.chain(cls).kind is None:
             return
-        keyed_keys = not self.aliased and not self.facts.generates_aliases(cls)
-        for key, item in zip(value.keys, value.values):
-            if not (isinstance(key, ast.Constant) and isinstance(key.value, str)):
-                continue
-            if keyed_keys and key.value == self.old and self._renames(cls, key.value):
-                self._key_edit(source, key, rel, out)
-            if _mentions(item, self.old) and (found := self._lands(cls, key.value)) is not None:
-                self.typed_value(source, rel, item, found[0].source, _annotation(found[2]), out)
+        self._dict_items(
+            source, rel, value, cls, out, lambda item, ann_source, ann: self.typed_value(source, rel, item, ann_source, ann, out)
+        )
 
     def typed_value(
         self, source: SourceFile, rel: str, value: ast.expr, ann_source: SourceFile, ann: ast.expr | None,
@@ -335,45 +410,26 @@ class KeyedRename:
         """A literal assigned to a field annotated `ann` (in `ann_source`)."""
         if ann is None or (ann := _without_none(ann)) is None:
             return
-        if isinstance(ann, ast.Subscript):
-            base = _last_name(ann.value)
-            args = list(ann.slice.elts) if isinstance(ann.slice, ast.Tuple) else [ann.slice]
-            if base in _LIST_LIKE or base in ("tuple", "Tuple"):
-                if base in ("tuple", "Tuple") and not (
-                    len(args) == 1 or (len(args) == 2 and isinstance(args[1], ast.Constant) and args[1].value is Ellipsis)
-                ):
-                    return
-                if isinstance(value, (ast.List, ast.Tuple, ast.Set)):
-                    for elt in value.elts:
-                        self.typed_value(source, rel, elt, ann_source, args[0], out)
-                return
-            if base in ("dict", "Dict") and len(args) == 2 and _last_name(args[0]) == "str":
-                if isinstance(value, ast.Dict):
-                    for item in value.values:
-                        self.typed_value(source, rel, item, ann_source, args[1], out)
-                return
+        if not isinstance(ann, ast.Subscript):
+            if (cls := self.facts.annotation_class(ann_source, ann)) is not None:
+                self.dict_value(source, rel, value, cls, out)
             return
-        cls = self.facts.annotation_class(ann_source, ann)
-        if cls is not None:
-            self.dict_value(source, rel, value, cls, out)
+        if (element := _element_annotation(ann)) is not None:
+            kind, item_ann = element
+            for item in _elements(value, kind):
+                self.typed_value(source, rel, item, ann_source, item_ann, out)
 
     def field_selection(self, source: SourceFile, rel: str, value: ast.expr, cls: ClassRef, out: list[TextEdit]) -> None:
         """`include=`/`exclude=` of `model_dump`: a set or dict of `cls`'s field names."""
-        keyed_keys = not self.aliased and not self.facts.generates_aliases(cls)
         if isinstance(value, ast.Set):
-            for elt in value.elts:
-                if keyed_keys and isinstance(elt, ast.Constant) and elt.value == self.old and self._renames(cls, self.old):
-                    self._key_edit(source, elt, rel, out)
-            return
-        if not isinstance(value, ast.Dict):
-            return
-        for key, item in zip(value.keys, value.values):
-            if not (isinstance(key, ast.Constant) and isinstance(key.value, str)):
-                continue
-            if keyed_keys and key.value == self.old and self._renames(cls, key.value):
-                self._key_edit(source, key, rel, out)
-            if _mentions(item, self.old) and (found := self._lands(cls, key.value)) is not None:
-                self._nested_selection(source, rel, item, found[0].source, _annotation(found[2]), out)
+            if self._keyed_keys(cls):
+                for elt in value.elts:
+                    self._rename_key(source, rel, elt, cls, out)
+        elif isinstance(value, ast.Dict):
+            self._dict_items(
+                source, rel, value, cls, out,
+                lambda item, ann_source, ann: self._nested_selection(source, rel, item, ann_source, ann, out),
+            )
 
     def _nested_selection(
         self, source: SourceFile, rel: str, value: ast.expr, ann_source: SourceFile, ann: ast.expr | None,
@@ -381,16 +437,15 @@ class KeyedRename:
     ) -> None:
         if ann is None or (ann := _without_none(ann)) is None:
             return
-        if isinstance(ann, ast.Subscript):
-            args = list(ann.slice.elts) if isinstance(ann.slice, ast.Tuple) else [ann.slice]
-            if _last_name(ann.value) in _LIST_LIKE and isinstance(value, ast.Dict):
-                for key, item in zip(value.keys, value.values):
-                    if isinstance(key, ast.Constant) and (isinstance(key.value, int) or key.value == "__all__"):
-                        self._nested_selection(source, rel, item, ann_source, args[0], out)
+        if not isinstance(ann, ast.Subscript):
+            if (cls := self.facts.annotation_class(ann_source, ann)) is not None:
+                self.field_selection(source, rel, value, cls, out)
             return
-        cls = self.facts.annotation_class(ann_source, ann)
-        if cls is not None:
-            self.field_selection(source, rel, value, cls, out)
+        if _last_name(ann.value) in _LIST_LIKE and isinstance(value, ast.Dict):
+            item_ann = _subscript_args(ann)[0]
+            for key, item in zip(value.keys, value.values):
+                if _selects_items(key):
+                    self._nested_selection(source, rel, item, ann_source, item_ann, out)
 
     # ---- sinks
 
@@ -398,30 +453,34 @@ class KeyedRename:
         """Every sink in `source`: calls, TypedDict-annotated assignments and returns."""
         if source.tree is None:
             return
-        self._dict_names = {
-            t.id
-            for n in ast.walk(source.tree)
-            if isinstance(n, ast.Assign) and isinstance(n.value, ast.Dict) and _mentions(n.value, self.old)
-            for t in n.targets
-            if isinstance(t, ast.Name)
-        }
+        self._dict_names = _dict_names(source.tree, self.old)
         for node in ast.walk(source.tree):
             if isinstance(node, ast.Call) and self._relevant(node):
                 self._call(source, rel, node, bindings)
-            elif isinstance(node, ast.AnnAssign) and node.value is not None and _mentions(node.value, self.old):
+            elif isinstance(node, ast.AnnAssign) and node.value is not None and self._candidate(node.value):
                 self._typeddict_value(source, rel, node.value, node.annotation, bindings)
             elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.returns is not None:
-                for ret in _returns(node):
-                    if ret.value is not None and _mentions(ret.value, self.old):
-                        self._typeddict_value(source, rel, ret.value, node.returns, bindings)
+                self._typeddict_returns(source, rel, node, node.returns, bindings)
+
+    def _candidate(self, value: ast.expr) -> bool:
+        """Whether `value` may carry a renamed key: a literal naming it, or a name bound to such a dict."""
+        return _mentions(value, self.old) or (isinstance(value, ast.Name) and value.id in self._dict_names)
+
+    def _typeddict_returns(
+        self, source: SourceFile, rel: str, fn: ast.FunctionDef | ast.AsyncFunctionDef, returns: ast.expr,
+        bindings: Bindings,
+    ) -> None:
+        for ret in _returns(fn):
+            if ret.value is not None and self._candidate(ret.value):
+                self._typeddict_value(source, rel, ret.value, returns, bindings)
 
     def _typeddict_value(self, source: SourceFile, rel: str, value: ast.expr, ann: ast.expr, bindings: Bindings) -> None:
         cls = self.facts.annotation_class(source, ann)
         if cls is not None and self.facts.chain(cls).kind == "typeddict":
-            self._sink(source, rel, value, lambda v, out: self.dict_value(source, rel, v, cls, out), bindings)
+            self._sink(source, value, lambda v, out: self.dict_value(source, rel, v, cls, out), bindings)
 
     def _sink(
-        self, source: SourceFile, rel: str, value: ast.expr, rewrite: Callable[[ast.expr, list[TextEdit]], None],
+        self, source: SourceFile, value: ast.expr, rewrite: Callable[[ast.expr, list[TextEdit]], None],
         bindings: Bindings,
     ) -> None:
         if isinstance(value, ast.Name):
@@ -430,10 +489,7 @@ class KeyedRename:
             rewrite(value, self.edits)
 
     def _relevant(self, call: ast.Call) -> bool:
-        return (
-            any(k.arg == self.old for k in call.keywords)
-            or any(_mentions(a, self.old) or (isinstance(a, ast.Name) and a.id in self._dict_names) for a in _arguments(call))
-        )
+        return any(k.arg == self.old for k in call.keywords) or any(self._candidate(a) for a in _arguments(call))
 
     def _call(self, source: SourceFile, rel: str, call: ast.Call, bindings: Bindings) -> None:
         func = call.func
@@ -457,34 +513,73 @@ class KeyedRename:
     def _pydantic_call(
         self, source: SourceFile, rel: str, call: ast.Call, method: str, cls: ClassRef, bindings: Bindings
     ) -> None:
-        if method == "model_validate":
-            arg = call.args[0] if call.args else next((k.value for k in call.keywords if k.arg == "obj"), None)
-            if arg is not None:
-                self._sink(source, rel, arg, lambda v, out: self.dict_value(source, rel, v, cls, out), bindings)
-        elif method == "model_construct":
+        def validated(v: ast.expr, out: list[TextEdit]) -> None:
+            self.dict_value(source, rel, v, cls, out)
+
+        if method == "model_construct":
             self._construct(source, rel, call, cls, bindings, keywords=True)
+            return
+        if method == "model_validate":
+            dicts = call.args[:1] or _keyword_values(call, "obj")[:1]
         elif method == "model_copy":
-            for kw in call.keywords:
-                if kw.arg == "update":
-                    self._sink(source, rel, kw.value, lambda v, out: self.dict_value(source, rel, v, cls, out), bindings)
+            dicts = _keyword_values(call, "update")
         else:
-            for kw in call.keywords:
-                if kw.arg in ("include", "exclude"):
-                    self.field_selection(source, rel, kw.value, cls, self.edits)
+            for value in _keyword_values(call, "include", "exclude"):
+                self.field_selection(source, rel, value, cls, self.edits)
+            return
+        for value in dicts:
+            self._sink(source, value, validated, bindings)
 
     def _construct(
         self, source: SourceFile, rel: str, call: ast.Call, cls: ClassRef, bindings: Bindings, *, keywords: bool
     ) -> None:
         for kw in call.keywords:
             if kw.arg is None:
-                self._sink(source, rel, kw.value, lambda v, out: self.dict_value(source, rel, v, cls, out), bindings)
+                self._sink(source, kw.value, lambda v, out: self.dict_value(source, rel, v, cls, out), bindings)
                 continue
-            if keywords and kw.arg == self.old and self._renames(cls, kw.arg):
+            if keywords and not self.aliased and kw.arg == self.old and self._renames(cls, kw.arg):
                 span = source.name_span(kw)
                 if span is not None:
                     self.edits.append(TextEdit(path=rel, start=span[0], end=span[1], new_text=self.new))
             if _mentions(kw.value, self.old) and (found := self._lands(cls, kw.arg)) is not None:
                 self.typed_value(source, rel, kw.value, found[0].source, _annotation(found[2]), self.edits)
+
+    def _positional_parameters(
+        self, source: SourceFile, call: ast.Call, callee: SourceFile, fn: ast.FunctionDef | ast.AsyncFunctionDef
+    ) -> list[ast.arg]:
+        """The parameters `call`'s positional arguments fill; none when an instance method's binding is unproven."""
+        assert callee.tree is not None
+        params = [*fn.args.posonlyargs, *fn.args.args]
+        kind = _method_kind(callee.tree, fn)
+        if kind == "function":
+            return params
+        if kind == "class":
+            return params[1:]
+        binding = self._receiver_binding(source, call.func.value) if isinstance(call.func, ast.Attribute) else None
+        if binding == "class":
+            return params
+        return params[1:] if binding == "instance" else []
+
+    def _receiver_binding(self, source: SourceFile, receiver: ast.expr) -> Literal["class", "instance"] | None:
+        """Whether `receiver` is provably a class or an instance: a class, a method's own `self`, or a name or attribute
+        annotated with a class."""
+        if not isinstance(receiver, (ast.Name, ast.Attribute)) or (name := source.name_span(receiver)) is None:
+            return None
+        spans = self.facts.definition(source.path, name[0])
+        if len(spans) != 1:
+            return None
+        if self.facts.class_at(spans[0]) is not None:
+            return "class"
+        decl = self.facts.source(spans[0].path)
+        return "instance" if decl is not None and self._declares_instance(decl, spans[0]) else None
+
+    def _declares_instance(self, decl: SourceFile, span: Span) -> bool:
+        if decl.tree is None:
+            return False
+        if any(not _is_classmethod(fn) and _receiver_offset(decl, fn) == span.start for _, fn in _methods(decl.tree)):
+            return True
+        ann = next((a for n in ast.walk(decl.tree) if (a := _annotation_declared_at(decl, n, span)) is not None), None)
+        return isinstance(ann, (ast.Name, ast.Attribute)) and self.facts.annotation_class(decl, ann) is not None
 
     def _typeddict_arguments(self, source: SourceFile, rel: str, call: ast.Call, bindings: Bindings) -> None:
         node = _name_node(call.func)
@@ -503,16 +598,51 @@ class KeyedRename:
         )
         if fn is None:
             return
-        positional = [*fn.args.posonlyargs, *fn.args.args]
+        leading = itertools.takewhile(lambda a: not isinstance(a, ast.Starred), call.args)
+        pairs = list(zip(self._positional_parameters(source, call, callee, fn), leading))
         by_name = {a.arg: a for a in [*fn.args.args, *fn.args.kwonlyargs]}
-        pairs = [(positional[i], arg) for i, arg in enumerate(call.args) if i < len(positional) and not isinstance(arg, ast.Starred)]
         pairs += [(by_name[k.arg], k.value) for k in call.keywords if k.arg in by_name]
         for param, value in pairs:
             if param.annotation is None or not (_mentions(value, self.old) or isinstance(value, ast.Name)):
                 continue
             cls = self.facts.annotation_class(callee, param.annotation)
             if cls is not None and self.facts.chain(cls).kind == "typeddict":
-                self._sink(source, rel, value, lambda v, out, c=cls: self.dict_value(source, rel, v, c, out), bindings)
+                self._sink(source, value, lambda v, out, c=cls: self.dict_value(source, rel, v, c, out), bindings)
+
+
+def _is_classmethod(fn: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
+    return any(isinstance(d, ast.Name) and d.id == "classmethod" for d in fn.decorator_list)
+
+
+def _method_kind(tree: ast.AST, fn: ast.FunctionDef | ast.AsyncFunctionDef) -> Literal["function", "class", "instance"]:
+    """How a call binds `fn`'s leading parameter: not at all, to the class, or to the receiver instance."""
+    if _is_static(fn) or not any(isinstance(c, ast.ClassDef) and fn in c.body for c in ast.walk(tree)):
+        return "function"
+    return "class" if _is_classmethod(fn) else "instance"
+
+
+def _annotation_declared_at(source: SourceFile, node: ast.AST, span: Span) -> ast.expr | None:
+    """The annotation of `node` when it is the parameter or annotated assignment declaring the name starting at `span`
+    (a parameter's definition span covers its annotation too)."""
+    if isinstance(node, ast.arg):
+        target: ast.AST = node
+    elif isinstance(node, ast.AnnAssign):
+        target = node.target
+    else:
+        return None
+    name = source.name_span(target)
+    return node.annotation if name is not None and name[0] == span.start else None
+
+
+def _dict_names(tree: ast.AST, old: str) -> set[str]:
+    """Names assigned a dict literal mentioning `old`."""
+    return {
+        t.id
+        for n in ast.walk(tree)
+        if isinstance(n, ast.Assign) and isinstance(n.value, ast.Dict) and _mentions(n.value, old)
+        for t in n.targets
+        if isinstance(t, ast.Name)
+    }
 
 
 def _arguments(call: ast.Call) -> Iterator[ast.expr]:
@@ -618,8 +748,9 @@ def _binds_otherwise(node: ast.AST, var: str) -> bool:
 
 
 def _single_binding(scope: ast.AST, var: str, sink_loads: set[int]) -> ast.Dict | None:
-    """The dict literal of `var = {...}`, when that is `var`'s only binding in `scope` and every load is a sink."""
-    if not isinstance(scope, (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef)):
+    """The dict literal of `var = {...}`, when that is `var`'s only binding in function `scope` and every load is a
+    sink. A module-scope name is never one: other modules may import it."""
+    if not isinstance(scope, (ast.FunctionDef, ast.AsyncFunctionDef)):
         return None
     own = list(_own_nodes(scope))
     if any(_binds_otherwise(n, var) for n in own):

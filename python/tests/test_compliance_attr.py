@@ -100,6 +100,29 @@ def test_unions_multiline_and_chained_receivers(cwd: Path, capsys: pytest.Captur
     ]
 
 
+def test_expression_receivers_report_only_their_own_unknown_or_any(
+    cwd: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    (cwd / "m.py").write_text(
+        "from typing import Any\n\n\n"
+        "class Loose:\n"
+        "    formula: Any = None\n\n\n"
+        "class Strict:\n"
+        '    formula: str = ""\n\n\n'
+        "def make() -> Loose:\n"
+        "    return Loose()\n\n\n"
+        "def f(loose: list[Loose], mixed: list[Strict | Any], untyped: list) -> None:\n"
+        "    print(loose[0].formula, make().formula)\n"
+        "    print(mixed[0].formula, untyped[0].formula)\n",
+        encoding="utf-8",
+    )
+    assert _attr("m.py") == 1
+    assert capsys.readouterr().out.splitlines() == [
+        _blindspot("m.py", 18, "mixed[0]", "Any"),
+        _blindspot("m.py", 18, "untyped[0]", "Unknown"),
+    ]
+
+
 def test_findings_sort_by_path_across_files(cwd: Path, capsys: pytest.CaptureFixture[str]) -> None:
     (cwd / "b.py").write_text("def f(o) -> object:\n    return o.formula\n", encoding="utf-8")
     (cwd / "a.py").write_text("def f(o) -> object:\n    return o.formula\n", encoding="utf-8")

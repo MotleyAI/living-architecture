@@ -11,6 +11,7 @@ from __future__ import annotations
 import ast
 import re
 import sys
+from collections.abc import Iterator
 from pathlib import Path
 from typing import TypeGuard
 
@@ -65,27 +66,32 @@ def _check_untyped_defs(tree: ast.AST, path: Path) -> list[str]:
     return out
 
 
+def _self_attrs(node: ast.ClassDef) -> tuple[set[str], dict[str, int]]:
+    """The `self.x` attributes the class's methods annotate, and the first line assigning each."""
+    annotated: set[str] = set()
+    assigned: dict[str, int] = {}
+    for method in (s for s in node.body if isinstance(s, FuncDef)):
+        for sub in ast.walk(method):
+            if isinstance(sub, ast.AnnAssign) and _is_self_attr(sub.target):
+                annotated.add(sub.target.attr)
+            elif isinstance(sub, ast.Assign):
+                for tgt in filter(_is_self_attr, sub.targets):
+                    assigned.setdefault(tgt.attr, sub.lineno)
+    return annotated, assigned
+
+
 def _check_unannotated_attrs(tree: ast.AST, path: Path) -> list[str]:
-    out = []
+    out: list[str] = []
     for node in ast.walk(tree):
         if not isinstance(node, ast.ClassDef):
             continue
-        annotated: set[str] = set()
-        assigned: dict[str, int] = {}
-        for stmt in node.body:
-            if isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name):
-                annotated.add(stmt.target.id)
-        for method in (s for s in node.body if isinstance(s, FuncDef)):
-            for sub in ast.walk(method):
-                if isinstance(sub, ast.AnnAssign) and _is_self_attr(sub.target):
-                    annotated.add(sub.target.attr)
-                elif isinstance(sub, ast.Assign):
-                    for tgt in sub.targets:
-                        if _is_self_attr(tgt):
-                            assigned.setdefault(tgt.attr, sub.lineno)
-        for name, lineno in assigned.items():
-            if name not in annotated:
-                out.append(message("compliance.unannotated-attr", path=str(path), line=lineno, cls=node.name, attr=name))
+        annotated, assigned = _self_attrs(node)
+        annotated |= {s.target.id for s in node.body if isinstance(s, ast.AnnAssign) and isinstance(s.target, ast.Name)}
+        out += [
+            message("compliance.unannotated-attr", path=str(path), line=lineno, cls=node.name, attr=name)
+            for name, lineno in assigned.items()
+            if name not in annotated
+        ]
     return out
 
 
@@ -104,42 +110,58 @@ def _hover_type(hover: str | None) -> str | None:
             members.append(text[start:i])
             start = i + 3
     members = [t.strip() for t in [*members, text[start:]]]
-    return "Unknown" if "Unknown" in members else "Any" if "Any" in members else None
+    return next((kind for kind in ("Unknown", "Any") if kind in members), None)
 
 
-def _hover_offset(source: SourceFile, node: ast.Attribute) -> int | None:
-    """Where hovering shows the receiver's type: its own name, else the accessed attribute's."""
+def _receiver_kind(server: LanguageServer, path: Path, source: SourceFile, node: ast.Attribute) -> str | None:
+    """`Unknown` or `Any` in the type of `node`'s receiver: hovered when a name or attribute, else read from the access
+    when no declaration of the member is itself typed so."""
     receiver = node.value
-    span = source.name_span(receiver) if isinstance(receiver, (ast.Name, ast.Attribute)) else source.name_span(node)
-    return span[0] if span else None
+    if isinstance(receiver, (ast.Name, ast.Attribute)):
+        span = source.name_span(receiver)
+        return _hover_type(server.hover(path, span[0])) if span else None
+    span = source.name_span(node)
+    if span is None or (kind := _hover_type(server.hover(path, span[0]))) is None:
+        return None
+    declared = (_hover_type(server.hover(d.path, d.start)) for d in server.definition(path, span[0]))
+    return None if any(declared) else kind
 
 
-def attr_blindspots(paths: list[Path], name: str, workspace: Path) -> list[str]:
-    """`x.NAME` accesses whose receiver basedpyright types as Unknown or Any, by path, line and column."""
+def _read_sources(paths: list[Path]) -> dict[Path, tuple[str, SourceFile]]:
+    """Each distinct file once, keyed by its resolved path, with the path as given."""
     sources: dict[Path, tuple[str, SourceFile]] = {}
     for path in paths:
         resolved = path.resolve()
         if resolved not in sources:
             with open(resolved, encoding="utf-8", newline="") as fh:
                 sources[resolved] = (str(path), SourceFile(resolved, fh.read()))
+    return sources
+
+
+def _file_blindspots(
+    server: LanguageServer, resolved: Path, shown: str, source: SourceFile, name: str
+) -> Iterator[tuple[str, int, int, str]]:
+    if source.tree is None:
+        return
+    for node in ast.walk(source.tree):
+        if not (isinstance(node, ast.Attribute) and node.attr == name):
+            continue
+        if (kind := _receiver_kind(server, resolved, source, node)) is not None:
+            receiver = re.sub(r"\s+", " ", source.segment(node.value))
+            yield shown, node.lineno, node.col_offset, message(
+                "compliance.attr-blindspot", path=shown, line=node.lineno, receiver=receiver, attr=name, type=kind
+            )
+
+
+def attr_blindspots(paths: list[Path], name: str, workspace: Path) -> list[str]:
+    """`x.NAME` accesses whose receiver basedpyright types as Unknown or Any, by path, line and column."""
+    sources = _read_sources(paths)
     found: list[tuple[str, int, int, str]] = []
     with LanguageServer(workspace) as server:
         for resolved, (_, source) in sources.items():
             server.open(resolved, source.text)
         for resolved, (shown, source) in sources.items():
-            if source.tree is None:
-                continue
-            for node in ast.walk(source.tree):
-                if not (isinstance(node, ast.Attribute) and node.attr == name):
-                    continue
-                offset = _hover_offset(source, node)
-                kind = _hover_type(server.hover(resolved, offset)) if offset is not None else None
-                if kind is None:
-                    continue
-                receiver = re.sub(r"\s+", " ", source.segment(node.value))
-                found.append((shown, node.lineno, node.col_offset, message(
-                    "compliance.attr-blindspot", path=shown, line=node.lineno, receiver=receiver, attr=name, type=kind
-                )))
+            found += _file_blindspots(server, resolved, shown, source, name)
     return [text for *_, text in sorted(found)]
 
 

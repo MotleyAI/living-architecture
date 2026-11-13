@@ -18,7 +18,14 @@ from rope.refactor import occurrences
 from rope.refactor.rename import Rename, _is_local
 
 from living_architecture.lang import LanguageServer, Span
-from living_architecture.refactor.keyed import Bindings, ClassRef, KeyedRename, TypeFacts, declares_alias
+from living_architecture.refactor.keyed import (
+    Bindings,
+    ClassRef,
+    KeyedRename,
+    TypeFacts,
+    declares_alias,
+    field_assignment,
+)
 from living_architecture.refactor.move_edits import NameConflict
 from living_architecture.refactor.python_source import SourceFile
 from living_architecture.refactor.text_edits import TextEdit, apply_edits, merge_edits
@@ -97,18 +104,24 @@ def _field_of(source: SourceFile, line: int, name: str) -> tuple[ClassRef, ast.A
     """The class whose body declares field `name` at `line`, with the declaration."""
     if source.tree is None:
         return None
-    for cls in ast.walk(source.tree):
-        if not isinstance(cls, ast.ClassDef):
-            continue
+    classes = (n for n in ast.walk(source.tree) if isinstance(n, ast.ClassDef))
+    for cls in classes:
         for stmt in cls.body:
-            if not isinstance(stmt, (ast.AnnAssign, ast.Assign)) or stmt.lineno != line:
-                continue
-            targets = [stmt.target] if isinstance(stmt, ast.AnnAssign) else stmt.targets
-            for target in targets:
-                if isinstance(target, ast.Name) and target.id == name:
-                    start, end = source.span(target)
-                    return ClassRef(source, cls), stmt, Span(path=source.path, start=start, end=end)
+            found = field_assignment(stmt, name) if stmt.lineno == line else None
+            if found is not None:
+                start, end = source.span(found[1])
+                return ClassRef(source, cls), found[0], Span(path=source.path, start=start, end=end)
     return None
+
+
+def _named_items(source: SourceFile, node: ast.AST) -> list[tuple[object, int, tuple[int, int] | None]]:
+    """A call's keywords or a literal's constant keys: each name, line and span."""
+    if isinstance(node, ast.Call):
+        return [(k.arg, k.lineno, source.name_span(k)) for k in node.keywords]
+    if isinstance(node, (ast.Dict, ast.Set)):
+        keys = node.keys if isinstance(node, ast.Dict) else node.elts
+        return [(k.value, k.lineno, source.span(k)) for k in keys if isinstance(k, ast.Constant)]
+    return []
 
 
 def _conflict(source: SourceFile, rel: str, edits: list[TextEdit], old: str, new: str) -> None:
@@ -117,23 +130,18 @@ def _conflict(source: SourceFile, rel: str, edits: list[TextEdit], old: str, new
         return
     starts = sorted(e.start for e in edits)
 
-    def edited(start: int, end: int) -> bool:
-        i = bisect.bisect_left(starts, start)
-        return i < len(starts) and starts[i] < end
+    def edited(span: tuple[int, int] | None) -> bool:
+        if span is None:
+            return False
+        i = bisect.bisect_left(starts, span[0])
+        return i < len(starts) and starts[i] < span[1]
 
     for node in ast.walk(source.tree):
-        if isinstance(node, ast.Call):
-            names = [k.arg for k in node.keywords]
-            for kw in node.keywords:
-                span = source.name_span(kw)
-                if kw.arg == old and new in names and span is not None and edited(*span):
-                    raise NameConflict(new, rel, kw.lineno)
-        elif isinstance(node, (ast.Dict, ast.Set)):
-            items = [k for k in (node.keys if isinstance(node, ast.Dict) else node.elts) if isinstance(k, ast.Constant)]
-            values = [k.value for k in items]
-            for item in items:
-                if item.value == old and new in values and edited(*source.span(item)):
-                    raise NameConflict(new, rel, item.lineno)
+        items = _named_items(source, node)
+        if any(name == new for name, _, _ in items):
+            line = next((line for name, line, span in items if name == old and edited(span)), None)
+            if line is not None:
+                raise NameConflict(new, rel, line)
 
 
 class SymbolRename:

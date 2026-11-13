@@ -25,12 +25,14 @@ whose static target is that class.
 
 What a rename leaves unrenamed:
 - `x.NAME` where the checker types `x` as `Unknown` or `Any`: `dr-compliance --attr NAME` lists these, so type
-  them first;
+  them first (it misses only a subscript or call receiver typed `Model | Any` whose `Model.NAME` is itself `Any`);
 - string-only references: `importlib`, `getattr(`, `__all__`, `patch("dotted.path")`, entry points, config
   paths;
 - for a field rename: dict keys that reach the model untyped (through `Any` or `dict[str, Any]`, `**kwargs`
-  forwarding, merges, loaded data), consumers of `model_dump()` keyed on the old name, and keys of a field with
-  an alias or on a model with an alias generator. Fixtures in a legacy format, validated through a migrating
+  forwarding, merges, loaded data, a module-level variable), a dict passed by position to an instance method
+  whose receiver is not provably its class or an instance (a local `s = Service()`: annotate it or pass by
+  keyword), consumers of `model_dump()` keyed on the old name, keys and keyword arguments of a field with an
+  alias, and keys on a model with an alias generator. Fixtures in a legacy format, validated through a migrating
   `mode="before"` validator, are rewritten like any other typed dict: restore their old keys by hand.
 
 ## Compliance fixes (`dr-compliance`)

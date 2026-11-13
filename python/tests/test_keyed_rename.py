@@ -66,6 +66,10 @@ class Gen(BaseModel):
 
 class Val(BaseModel):
     columns: list[int] = Field(default=[], validation_alias="cols")
+
+
+class Same(BaseModel):
+    columns: list[int] = Field(default=[], alias="columns")
 """
 
 LEGACY = """\
@@ -296,6 +300,68 @@ def test_aliased_field_keys_are_unchanged(typed_project: MakeProject, owner: str
     assert _use_after(typed_project, use, owner=owner, models=ALIASED) == use
 
 
+def test_aliased_field_keywords_are_unchanged(typed_project: MakeProject) -> None:
+    use = (
+        "from pkg.models import Same\n\n\n"
+        "class Sub(Same):\n"
+        "    @classmethod\n"
+        '    def make(cls) -> "Sub":\n'
+        "        return cls(columns=[])\n\n\n"
+        "m = Same.model_construct(columns=[])\n"
+    )
+    assert _use_after(typed_project, use, owner="Same", models=ALIASED) == use
+
+
+def test_typeddict_named_dicts_returned_and_assigned(typed_project: MakeProject) -> None:
+    use = (
+        "from pkg.models import ModelDict\n\n\n"
+        "def g() -> ModelDict:\n"
+        '    data = {"columns": []}\n'
+        "    return data\n\n\n"
+        "def h() -> None:\n"
+        '    data = {"columns": []}\n'
+        "    x: ModelDict = data\n"
+    )
+    assert _use_after(typed_project, use, owner="ModelDict") == use.replace("columns", "fields")
+
+
+def test_typeddict_arguments_bind_only_proven_parameters(typed_project: MakeProject) -> None:
+    use = (
+        "from pkg.models import ModelDict\n\n\n"
+        "class Service:\n"
+        "    def take(self, payload: ModelDict, metadata: dict) -> None: ...\n\n"
+        "    @staticmethod\n"
+        "    def check(payload: ModelDict) -> None: ...\n\n"
+        "    @classmethod\n"
+        "    def make(cls, payload: ModelDict) -> None: ...\n\n"
+        "    def run(self) -> None:\n"
+        '        self.take({"columns": 9}, {"columns": 10})\n\n\n'
+        "def take(prefix: object, payload: ModelDict, metadata: dict) -> None: ...\n\n\n"
+        "def use(svc: Service) -> None:\n"
+        '    svc.take({"columns": 11}, {"columns": 12})\n'
+        '    Service.take(svc, {"columns": 13}, {"columns": 14})\n\n\n'
+        "s = Service()\n"
+        's.take({"columns": 1}, {"columns": 2})\n'
+        's.take(payload={"columns": 3}, metadata={"columns": 4})\n'
+        'Service.check({"columns": 5})\n'
+        'Service.make({"columns": 6})\n'
+        'take(*(0, {"columns": 7}), {"columns": 8})\n'
+    )
+    expected = use
+    for n in (3, 5, 6, 9, 11, 13):
+        expected = expected.replace(f'{{"columns": {n}}}', f'{{"fields": {n}}}')
+    assert _use_after(typed_project, use, owner="ModelDict") == expected
+
+
+def test_module_level_dict_variable_is_unchanged(typed_project: MakeProject) -> None:
+    use = 'from pkg.models import Model\n\nraw = {"columns": []}\nm = Model.model_validate(raw)\n'
+    root = typed_project({
+        "pkg/models.py": MODELS, "pkg/use.py": use, "pkg/reader.py": 'from pkg.use import raw\n\nprint(raw["columns"])\n'
+    })
+    assert _rename_field(root, "Model", "columns", "fields") == 0
+    assert (root / "pkg" / "use.py").read_text(encoding="utf-8") == use
+
+
 def test_only_plain_key_literals_change_and_only_their_name(typed_project: MakeProject) -> None:
     use = (
         "from pkg.models import Model\n\n"
@@ -353,6 +419,38 @@ def test_field_rename_refuses_an_unresolved_owner_chain(
     err = capsys.readouterr().err
     assert err == message("refactor.unresolved-base", name="Model", path="pkg/models.py", line=4) + "\n"
     assert file_tree(without_pydantic) == before
+
+
+def test_field_rename_refuses_a_base_expression(typed_project: MakeProject, capsys: pytest.CaptureFixture[str]) -> None:
+    models = MODELS + (
+        "\n\ndef make_base() -> type[BaseModel]:\n"
+        "    return BaseModel\n\n\n"
+        "class Child(make_base(), Model):\n"
+        "    pass\n"
+    )
+    root = typed_project({"pkg/models.py": models, "pkg/use.py": "from pkg.models import Child\n\nc = Child(columns=[])\n"})
+    before = file_tree(root)
+    assert _rename_field(root, "Model", "columns", "fields") == 1
+    line = models[: models.index("class Child(")].count("\n") + 1
+    err = capsys.readouterr().err
+    assert err == message("refactor.unresolved-base", name="Child", path="pkg/models.py", line=line) + "\n"
+    assert file_tree(root) == before
+
+
+def test_unresolved_base_outside_the_project_names_its_absolute_path(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    ext = tmp_path / "ext" / "extlib.py"
+    ext.parent.mkdir()
+    ext.write_text("from missing_lib import Base\n\n\nclass Ext(Base):\n    pass\n", encoding="utf-8")
+    root = write_project(tmp_path / "proj", {
+        "pkg/models.py": "from extlib import Ext\n\n\nclass Model(Ext):\n    columns: list[int] = []\n",
+    })
+    with open(root / "pyproject.toml", "a", encoding="utf-8") as fh:
+        fh.write('extraPaths = ["../ext"]\n')
+    assert _rename_field(root, "Model", "columns", "fields") == 1
+    err = capsys.readouterr().err
+    assert err == message("refactor.unresolved-base", name="Ext", path=ext.resolve().as_posix(), line=4) + "\n"
 
 
 def test_method_rename_proceeds_with_an_unresolved_base(without_pydantic: Path) -> None:

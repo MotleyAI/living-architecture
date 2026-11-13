@@ -9,7 +9,9 @@ import os
 import sys
 
 MODE, RECORD = sys.argv[1], sys.argv[2]
-ENV_KEYS = ("PYTHONSAFEPATH", "PYTHONNOUSERSITE", "PYTHONDONTWRITEBYTECODE", "NODE_OPTIONS", "LA_PYRIGHT_PATCH_RESULT")
+ENV_KEYS = (
+    "PYTHONSAFEPATH", "PYTHONNOUSERSITE", "PYTHONDONTWRITEBYTECODE", "PYTHONPATH", "NODE_OPTIONS", "LA_PYRIGHT_PATCH_RESULT"
+)
 QUERIES = ("textDocument/references", "textDocument/definition", "textDocument/typeDefinition", "textDocument/hover")
 
 

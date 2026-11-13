@@ -8,7 +8,7 @@ const { isMainThread } = require('node:worker_threads');
 
 const CONDITION = '!isGetTypeFromCodeFlowPending(referenceKeyWithSymbolId) &&';
 const REPLACEMENT = 'true &&';
-const BUNDLES = ['pyright.js', 'pyright-langserver.js'];
+const BUNDLES = new Set(['pyright.js', 'pyright-langserver.js']);
 const VERSION_MODULE = /"\.\.\/pyright-internal\/src\/version\.json"\(module\) \{\s*"use strict";\s*module\.exports = "([^"]*)"/;
 
 // A failure overwrites any result; `patched` never replaces one, so a failure in any checker process of the run stands.
@@ -51,7 +51,7 @@ if (resultPath && versionsJson) {
   const versions = JSON.parse(versionsJson);
   const compile = Module.prototype._compile;
   Module.prototype._compile = function (content, filename, ...rest) {
-    const isBundle = BUNDLES.includes(path.basename(filename)) && path.basename(path.dirname(filename)) === 'dist';
+    const isBundle = BUNDLES.has(path.basename(filename)) && path.basename(path.dirname(filename)) === 'dist';
     return compile.call(this, isBundle ? patch(content, resultPath, versions) : content, filename, ...rest);
   };
 }

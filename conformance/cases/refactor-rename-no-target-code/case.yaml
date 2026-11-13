@@ -12,6 +12,8 @@ args:
 - --new-name
 - Recommendation
 fixture: refactor-typed
+env:
+  PYTHONPATH: <ROOT>/repo
 git:
 - commit: init
 expect:
@@ -23,4 +25,4 @@ expect:
   - MARKER
   - .ropeproject/history.json
 golden: manual
-note: a repo-root sitecustomize.py is never imported by the language server's interpreter probe
+note: a repo-root sitecustomize.py is never imported by the language server's interpreter probe, even with the repo on PYTHONPATH

@@ -16,7 +16,8 @@ exit 1. A module rename SHALL keep rope's behaviour alone.
 basedpyright SHALL be the version the PyPI twin ships, started from la's own environment, run with la's
 pyright#11919 patch, reading the project's own configuration and finding the project's interpreter as basedpyright
 does. It SHALL run with its working directory outside the project, without the user site, without bytecode
-writing and without the working directory on the interpreter's path, so no target-repo code runs. A language server
+writing and with neither the working directory nor an inherited `PYTHONPATH` on the interpreter's path, so
+no target-repo code runs. A language server
 that cannot start, is not patched, fails or exits during the refactor SHALL make `dr-refactor` print the
 `refactor.pyright-failed` finding on stderr, write nothing and exit 1; no checker or library message text SHALL be
 printed. With or without `--apply`, the language server SHALL create no file in the project.
@@ -118,13 +119,14 @@ dict literal whose target is K or a subclass, at these targets:
 - the argument of `X.model_validate(...)`, of `X(**...)` and of `X.model_construct(**...)`, where `X` resolves to K
   or a subclass (including `cls` typed so);
 - the `update=` argument of `x.model_copy(update=...)` where `x` is typed K or a subclass;
-- for a `TypedDict` K, an argument to a parameter annotated K, a value assigned to a variable annotated K, and a value
-  returned from a function annotated to return K;
+- for a `TypedDict` K, an argument to a parameter annotated K (a positional argument only before any `*` unpacking,
+  and to an instance method only through a receiver proven to be its class or an instance of it), a value assigned
+  to a variable annotated K, and a value returned from a function annotated to return K;
 - a dict literal nested at the value of a rewritten-target key or keyword whose field type, after removing `None`
   from a union and unwrapping `list`, `Sequence`, `set`, `frozenset`, `tuple` and the values of `dict[str, ...]`, is
   a keyed class;
-- a name bound exactly once in its scope, by `name = {...}`, declared neither `global` nor `nonlocal`, not captured by
-  an inner scope, whose every use is one of the arguments above.
+- a name bound exactly once in its function scope, by `name = {...}`, declared neither `global` nor `nonlocal`, not
+  captured by an inner scope, whose every use is one of the arguments above.
 
 It SHALL also rewrite the string `"old"` among the elements of a set or dict literal given as `include=` or
 `exclude=` to `x.model_dump(...)` or `x.model_dump_json(...)` where `x` is typed K or a subclass, recursing into a

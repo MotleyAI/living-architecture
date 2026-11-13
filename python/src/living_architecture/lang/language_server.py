@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import queue
@@ -13,8 +14,8 @@ import threading
 from collections.abc import Callable
 from pathlib import Path
 from types import TracebackType
-from typing import IO, Any, Self
-from urllib.parse import unquote, urlparse
+from typing import IO, Any, Self, cast
+from urllib.parse import urlparse
 from urllib.request import url2pathname
 
 import basedpyright
@@ -81,7 +82,20 @@ def _read_text(path: Path) -> str:
 
 
 def _path_of(uri: str) -> Path:
-    return Path(url2pathname(unquote(urlparse(uri).path)))
+    return Path(url2pathname(urlparse(uri).path))
+
+
+def _close_streams(proc: subprocess.Popen[bytes]) -> None:
+    for stream in (proc.stdin, proc.stdout):
+        if stream is not None:
+            with contextlib.suppress(OSError):
+                stream.close()
+
+
+def _as_list(result: Any) -> list[Any]:
+    if isinstance(result, list):
+        return cast(list[Any], result)
+    return [result] if result else []
 
 
 class LanguageServer:
@@ -120,7 +134,8 @@ class LanguageServer:
         self._scratch = tempfile.mkdtemp(prefix="la-langserver-")
         result = Path(self._scratch) / "patch.json"
         versions: list[str] = language("python")["checker_patch_versions"]
-        env = {**pyright_patch_env(os.environ, result=result, versions=versions), **_ISOLATION}
+        inherited = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
+        env = {**pyright_patch_env(inherited, result=result, versions=versions), **_ISOLATION}
         try:
             self._proc = subprocess.Popen(
                 self._command,
@@ -154,23 +169,22 @@ class LanguageServer:
     def _stop(self) -> None:
         proc, self._proc = self._proc, None
         if proc is not None:
-            if proc.poll() is None:
-                try:
-                    self._send({"jsonrpc": "2.0", "id": self._new_id(), "method": "shutdown", "params": None}, proc)
-                    self._send({"jsonrpc": "2.0", "method": "exit", "params": None}, proc)
-                    proc.wait(timeout=10)
-                except (LanguageServerError, subprocess.TimeoutExpired):
-                    proc.kill()
-                    proc.wait()
-            for stream in (proc.stdin, proc.stdout):
-                if stream is not None:
-                    try:
-                        stream.close()
-                    except OSError:
-                        pass
+            self._terminate(proc)
+            _close_streams(proc)
         if self._scratch is not None:
             shutil.rmtree(self._scratch, ignore_errors=True)
             self._scratch = None
+
+    def _terminate(self, proc: subprocess.Popen[bytes]) -> None:
+        if proc.poll() is not None:
+            return
+        try:
+            self._send({"jsonrpc": "2.0", "id": self._new_id(), "method": "shutdown", "params": None}, proc)
+            self._send({"jsonrpc": "2.0", "method": "exit", "params": None}, proc)
+            proc.wait(timeout=10)
+        except (LanguageServerError, subprocess.TimeoutExpired):
+            proc.kill()
+            proc.wait()
 
     def _pump(self, stream: IO[bytes]) -> None:
         try:
@@ -198,8 +212,10 @@ class LanguageServer:
         if proc is None or proc.stdin is None:
             raise LanguageServerError("not running")
         body = json.dumps(payload).encode()
+        frame = memoryview(b"Content-Length: %d\r\n\r\n" % len(body) + body)
         try:
-            proc.stdin.write(b"Content-Length: %d\r\n\r\n" % len(body) + body)
+            while frame:
+                frame = frame[proc.stdin.write(frame) :]
             proc.stdin.flush()
         except OSError:
             raise LanguageServerError("exited") from None
@@ -276,8 +292,7 @@ class LanguageServer:
 
     def _locations(self, method: str, path: Path, offset: int, extra: dict[str, Any] | None = None) -> list[Span]:
         result = self._request(method, {**self._position(path, offset), **(extra or {})})
-        items = result if isinstance(result, list) else [result] if result else []
-        return [span for item in items if (span := self._span(item)) is not None]
+        return [span for item in _as_list(result) if (span := self._span(item)) is not None]
 
     def references(self, path: Path, offset: int) -> list[Span]:
         """Every reference to the symbol at `offset`, its declarations included."""
