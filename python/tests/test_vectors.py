@@ -63,7 +63,7 @@ def test_default_vectors_through_la_config_show(vector: dict, tmp_path: Path) ->
         text = vector["config"]
         data = yaml.safe_load(text)
         if isinstance(data, dict):
-            current = yaml.safe_load((VECTORS.parent / "config.yaml").read_text(encoding="utf-8"))["format"]
+            current = yaml.safe_load((VECTORS.parent / "config.yaml").read_text(encoding="utf-8"))["formats"][-1]
             text = yaml.safe_dump({"format": current, **data})
             expected = {**expected, "format": current}
         (tmp_path / "living-architecture.yaml").write_text(text, encoding="utf-8")

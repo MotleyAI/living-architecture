@@ -13,8 +13,16 @@ import {
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
-import { run as runMigrate } from '../src/c4/migrate.js';
-import { currentFormat } from '../src/config/index.js';
+import {
+  MigrateError,
+  type MigrationStep,
+  STEPS,
+  type Transaction,
+  migrate,
+  run as runMigrate,
+} from '../src/c4/migrate.js';
+import { compareVersions, currentFormat, releasedFormats } from '../src/config/index.js';
+import { message } from '../src/contract/index.js';
 
 const faults = vi.hoisted(() => ({
   root: '',
@@ -334,5 +342,310 @@ describe('la-arch-migrate', () => {
     expect(runMigrate(repo)).toBe(0);
     expect(output().out).toMatch(/^nothing to migrate: /);
     expect(snapshot(repo)).toEqual(before);
+  });
+});
+
+// ---- the chain of steps keyed by source format, with a fake registry and format list
+
+const [F1, F2, F3] = ['1.0.0', '2.0.0', '3.0.0'] as const;
+type Apply = (root: string, tx: Transaction) => void;
+const noop: Apply = () => {};
+const wrote = (rel: string): string => `wrote ${rel}`;
+
+/** One step per apply: the unversioned step to formats[0], then each released format to the next. */
+function chain(applies: Apply[], formats: string[], log?: (string | null)[]): MigrationStep[] {
+  const sources: (string | null)[] = [null, ...formats.slice(0, -1)];
+  return applies.map((apply, i) => ({
+    source: sources[i] ?? null,
+    target: formats[i] as string,
+    apply: (root: string, tx: Transaction) => {
+      log?.push(sources[i] ?? null);
+      apply(root, tx);
+    },
+  }));
+}
+
+function chainRepo(where: string, configText: string, files: Record<string, string> = {}): string {
+  const root = join(where, 'repo');
+  mkdirSync(root, { recursive: true });
+  writeFileSync(join(root, CONFIG), configText);
+  for (const [rel, text] of Object.entries(files)) writeFileSync(join(root, rel), text);
+  return root;
+}
+
+/** The error `fn` throws. */
+function thrown(fn: () => unknown): Error {
+  try {
+    fn();
+  } catch (error) {
+    return error as Error;
+  }
+  throw new Error('nothing was thrown');
+}
+
+const ROLLBACK_FILES = { 'moved.txt': 'moved\n', 'doomed.txt': 'doomed\n', 'replaced.txt': 'replaced\n' };
+
+function rollbackRepo(where: string): string {
+  const root = chainRepo(where, UNVERSIONED, ROLLBACK_FILES);
+  // Non-default modes, so a rollback that loses them changes the snapshot.
+  const modes: Record<string, number> = { 'moved.txt': 0o600, 'doomed.txt': 0o640, 'replaced.txt': 0o604, [CONFIG]: 0o640 };
+  for (const [rel, mode] of Object.entries(modes)) chmodSync(join(root, rel), mode);
+  mkdirSync(join(root, 'gone'));
+  chmodSync(join(root, 'gone'), 0o750);
+  return root;
+}
+
+const everyChange: Apply = (_root, tx) => {
+  tx.create('created.txt', 'created\n');
+  tx.move('moved.txt', 'arrived.txt');
+  tx.delete('doomed.txt');
+  tx.replace('replaced.txt', 'new\n');
+  tx.removeDir('gone');
+};
+
+describe('la-arch-migrate step chain', () => {
+  const tmp = mkdtempSync(join(tmpdir(), 'la-migrate-chain-'));
+  let n = 0;
+  const fresh = (): string => join(tmp, String(n++));
+  afterEach(() => {
+    Object.assign(faults, { root: '', failAt: -1, after: false, failFrom: false, skewRoot: '', ops: [] });
+    vi.restoreAllMocks();
+  });
+  afterAll(() => rmSync(tmp, { recursive: true, force: true }));
+
+  it('has every released older format step to the next one', () => {
+    const formats = releasedFormats();
+    expect(STEPS.filter((s) => s.source === null).map((s) => s.target)).toEqual([formats[0]]);
+    const versioned = STEPS.filter((s) => s.source !== null).map((s) => [s.source, s.target]);
+    const pairs = formats.slice(1).map((target, i) => [formats[i], target]);
+    const order = (a: unknown[], b: unknown[]): number => compareVersions(String(a[0]), String(b[0]));
+    expect(versioned.sort(order)).toEqual(pairs);
+  });
+
+  it('runs every step on an unversioned repo, each on what the earlier left', () => {
+    const root = chainRepo(fresh(), 'tracker: linear\n');
+    const log: (string | null)[] = [];
+    const second: Apply = (where, tx) => {
+      expect(readFileSync(join(where, 'a.txt'), 'utf8')).toBe('a\n');
+      tx.create('b.txt', 'b\n');
+    };
+    const steps = chain([(_r, tx) => tx.create('a.txt', 'a\n'), second], [F1, F2], log);
+    expect(migrate(root, { steps, formats: [F1, F2] })).toEqual([wrote('a.txt'), wrote('b.txt'), wrote(CONFIG)]);
+    expect(log).toEqual([null, F1]);
+    expect(readFileSync(join(root, CONFIG), 'utf8')).toBe(`format: ${F2}\ntracker: linear\n`);
+  });
+
+  it.each([
+    [F1, [F1, F2]],
+    [F2, [F2]],
+  ])('runs only the steps from a released older format (%s)', (declared, ran) => {
+    const root = chainRepo(fresh(), `tracker: linear\nformat: ${declared}  # repo format\n`);
+    const log: (string | null)[] = [];
+    const steps = chain([noop, noop, noop], [F1, F2, F3], log);
+    expect(migrate(root, { steps, formats: [F1, F2, F3] })).toEqual([wrote(CONFIG)]);
+    expect(log).toEqual(ran);
+    expect(readFileSync(join(root, CONFIG), 'utf8')).toBe(`tracker: linear\nformat: ${F3}  # repo format\n`);
+  });
+
+  it.each(['2.0.0', '0.5.0'])('refuses the unreleased older format %s', (declared) => {
+    const root = chainRepo(fresh(), `format: ${declared}\n`);
+    const before = snapshot(root);
+    const log: (string | null)[] = [];
+    const steps = chain([(_r, tx) => tx.create('a.txt', 'a\n'), (_r, tx) => tx.create('b.txt', 'b\n')], [F1, F3], log);
+    const error = thrown(() => migrate(root, { steps, formats: [F1, F3] }));
+    expect(error).toBeInstanceOf(MigrateError);
+    expect(error.message).toBe(message('arch-migrate.unknown-format', { declared, current: F3 }));
+    expect(log).toEqual([]);
+    expect(snapshot(root)).toEqual(before);
+  });
+
+  it('has nothing to migrate at the current format of the injected list', () => {
+    const root = chainRepo(fresh(), `format: ${F2}\n`);
+    const log: (string | null)[] = [];
+    const steps = chain([noop, noop], [F1, F2], log);
+    expect(migrate(root, { steps, formats: [F1, F2] })).toEqual([message('arch-migrate.nothing', { current: F2 })]);
+    expect(log).toEqual([]);
+  });
+
+  it('refuses a format newer than the injected list', () => {
+    const root = chainRepo(fresh(), `format: ${F3}\n`);
+    const error = thrown(() => migrate(root, { steps: chain([noop, noop], [F1, F2]), formats: [F1, F2] }));
+    expect(error.message).toBe(message('format.newer', { declared: F3, current: F2 }));
+  });
+
+  it.each(['{tracker: linear}\n', `format:\n  ${F1}\n`])('decides the stamp before any step writes (%j)', (text) => {
+    const root = chainRepo(fresh(), text, { 'kept.txt': 'kept\n' });
+    const before = snapshot(root);
+    const steps = chain([(_r, tx) => tx.create('a.txt', 'a\n'), (_r, tx) => tx.delete('kept.txt')], [F1, F2]);
+    const error = thrown(() => migrate(root, { steps, formats: [F1, F2] }));
+    expect(error.message).toBe(message('arch-migrate.stamp-mismatch', { current: F2 }));
+    expect(snapshot(root)).toEqual(before);
+  });
+
+  // ---- one transaction and one rollback across the chain
+
+  const mismatch = (): string => MISMATCH.replace(/^la-arch-migrate: /, '').replace(/\n$/, '');
+  it.each<[string, Apply, boolean, () => string]>([
+    [
+      'planning',
+      () => {
+        throw new MigrateError('the second step refuses');
+      },
+      true,
+      () => 'the second step refuses',
+    ],
+    [
+      'verification',
+      () => {
+        throw new MigrateError(message('arch-migrate.mismatch'));
+      },
+      true,
+      mismatch,
+    ],
+    [
+      'application',
+      (_root, tx) => {
+        tx.create('later.txt', 'later\n');
+        tx.replace('arrived.txt', 'rewritten\n');
+        tx.move('missing.txt', 'elsewhere.txt');
+      },
+      false,
+      () => 'missing.txt',
+    ],
+  ])('rolls back the earlier steps when a later one fails in %s', (_, second, refusal, text) => {
+    const root = rollbackRepo(fresh());
+    const before = snapshot(root);
+    const error = thrown(() => migrate(root, { steps: chain([everyChange, second], [F1, F2]), formats: [F1, F2] }));
+    if (refusal) {
+      expect(error).toBeInstanceOf(MigrateError);
+      expect(error.message).toBe(text());
+    } else {
+      expect(error).not.toBeInstanceOf(MigrateError);
+      expect(error.message).toContain(text());
+    }
+    expect(snapshot(root)).toEqual(before);
+  });
+
+  /** The mutations of one successful run of the fake chain. */
+  function recordedChainOps(): [string, string][] {
+    const probe = rollbackRepo(fresh());
+    armed(probe, -1, false);
+    migrate(probe, { steps: chain([everyChange, noop], [F1, F2]), formats: [F1, F2] });
+    const ops = [...faults.ops];
+    faults.root = '';
+    expect(ops).toContainEqual(['rename', 'moved.txt']);
+    return ops;
+  }
+
+  it('leaves the repo unchanged when any mutation of a chain fails', () => {
+    const ops = recordedChainOps();
+    expect(ops[ops.length - 1]?.[0]).toBe('rename');
+    ops.forEach(([op, path], failAt) => {
+      for (const after of op === 'open' ? [false, true] : [false]) {
+        const root = rollbackRepo(fresh());
+        const before = snapshot(root);
+        armed(root, failAt, after);
+        thrown(() => migrate(root, { steps: chain([everyChange, noop], [F1, F2]), formats: [F1, F2] }));
+        faults.root = '';
+        expect(snapshot(root), `${failAt} ${op} ${path} after=${after}`).toEqual(before);
+      }
+    });
+  });
+
+  it('names every path a failed restore of a chain left changed', () => {
+    const ops = recordedChainOps();
+    let namedAny = false;
+    ops.forEach((_, failAt) => {
+      const root = rollbackRepo(fresh());
+      const before = snapshot(root);
+      armed(root, failAt, false, true);
+      const error = thrown(() => migrate(root, { steps: chain([everyChange, noop], [F1, F2]), formats: [F1, F2] }));
+      faults.root = '';
+      const left = changedPaths(before, snapshot(root));
+      expect(left.filter((rel) => !error.message.includes(rel)), error.message).toEqual([]);
+      expect(error.message.includes('left changed'), error.message).toBe(left.length > 0);
+      namedAny ||= left.length > 0;
+    });
+    expect(namedAny).toBe(true);
+  });
+
+  // ---- the net-effect report
+
+  const NET_EFFECT: [string, Record<string, string>, Apply, Apply, string[]][] = [
+    ['one move', { a: 'A\n' }, (_r, tx) => tx.move('a', 'b'), noop, [wrote(CONFIG), 'moved a to b']],
+    [
+      'consecutive moves composed',
+      { a: 'A\n' },
+      (_r, tx) => tx.move('a', 'b'),
+      (_r, tx) => tx.move('b', 'c'),
+      [wrote(CONFIG), 'moved a to c'],
+    ],
+    ['moved back', { a: 'A\n' }, (_r, tx) => tx.move('a', 'b'), (_r, tx) => tx.move('b', 'a'), [wrote(CONFIG)]],
+    [
+      'moved then deleted',
+      { a: 'A\n' },
+      (_r, tx) => tx.move('a', 'b'),
+      (_r, tx) => tx.delete('b'),
+      [wrote(CONFIG), 'deleted a'],
+    ],
+    ['created then deleted', {}, (_r, tx) => tx.create('x', 'X\n'), (_r, tx) => tx.delete('x'), [wrote(CONFIG)]],
+    [
+      'rewritten then deleted',
+      { x: 'X\n' },
+      (_r, tx) => tx.replace('x', 'Y\n'),
+      (_r, tx) => tx.delete('x'),
+      [wrote(CONFIG), 'deleted x'],
+    ],
+    [
+      'rewritten twice',
+      { x: 'X\n' },
+      (_r, tx) => tx.replace('x', 'Y\n'),
+      (_r, tx) => tx.replace('x', 'Z\n'),
+      [wrote('x'), wrote(CONFIG)],
+    ],
+    [
+      'moved then rewritten',
+      { a: 'A\n' },
+      (_r, tx) => tx.move('a', 'b'),
+      (_r, tx) => tx.replace('b', 'B\n'),
+      [wrote('b'), wrote(CONFIG), 'moved a to b'],
+    ],
+    [
+      'moved source recreated',
+      { a: 'A\n' },
+      (_r, tx) => tx.move('a', 'b'),
+      (_r, tx) => tx.create('a', 'new\n'),
+      [wrote('a'), wrote(CONFIG), 'moved a to b'],
+    ],
+  ];
+
+  it.each(NET_EFFECT)('reports the net effect: %s', (_, files, first, second, report) => {
+    const root = chainRepo(fresh(), UNVERSIONED, files);
+    const log: (string | null)[] = [];
+    expect(migrate(root, { steps: chain([first, second], [F1, F2], log), formats: [F1, F2] })).toEqual(report);
+    expect(log).toEqual([null, F1]);
+    expect(Object.keys(snapshot(root).files).filter((rel) => rel.endsWith('.tmp'))).toEqual([]);
+  });
+
+  it('reports writes, then moves, then deletes', () => {
+    const root = chainRepo(fresh(), UNVERSIONED, { d: 'D\n', m: 'M\n' });
+    mkdirSync(join(root, 'e'));
+    const first: Apply = (_r, tx) => {
+      tx.delete('d');
+      tx.move('m', 'n');
+      tx.create('w1', '1\n');
+    };
+    const second: Apply = (_r, tx) => {
+      tx.removeDir('e');
+      tx.create('w2', '2\n');
+    };
+    expect(migrate(root, { steps: chain([first, second], [F1, F2]), formats: [F1, F2] })).toEqual([
+      wrote('w1'),
+      wrote('w2'),
+      wrote(CONFIG),
+      'moved m to n',
+      'deleted d',
+      'deleted e',
+    ]);
   });
 });

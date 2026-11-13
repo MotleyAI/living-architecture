@@ -98,6 +98,7 @@ RELEASE_MANIFESTS = {
 }
 RELEASE_FILES = {
     "shared/cli.yaml": "commands: {}\n",
+    "shared/config.yaml": "file: living-architecture.yaml\nformats: [0.4.0]\n",
     "conformance/README.md": "# corpus\n",
     "python/src/living_architecture/__init__.py": "",
     "python/src/living_architecture/contract/data/CONTRACT_HASH": "h\n",

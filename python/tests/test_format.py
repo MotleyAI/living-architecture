@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import itertools
 import os
 import subprocess
 import sys
@@ -21,7 +22,7 @@ CONFIG = "living-architecture.yaml"
 
 
 def _current() -> str:
-    return yaml.safe_load((SHARED / "config.yaml").read_text(encoding="utf-8"))["format"]
+    return yaml.safe_load((SHARED / "config.yaml").read_text(encoding="utf-8"))["formats"][-1]
 
 
 def _message(template_id: str, **values: object) -> str:
@@ -31,6 +32,18 @@ def _message(template_id: str, **values: object) -> str:
 
 def test_current_format_comes_from_the_contract() -> None:
     assert config.current_format() == _current()
+
+
+def test_released_formats_come_from_the_contract() -> None:
+    assert config.released_formats() == yaml.safe_load((SHARED / "config.yaml").read_text(encoding="utf-8"))["formats"]
+
+
+def test_released_formats_ascend_and_end_with_the_current_format() -> None:
+    formats = config.released_formats()
+    assert formats
+    assert all(config.is_version(f) for f in formats), formats
+    assert all(config.compare_versions(a, b) < 0 for a, b in itertools.pairwise(formats)), formats
+    assert formats[-1] == config.current_format()
 
 
 @pytest.mark.parametrize("value", VECTORS["valid"])

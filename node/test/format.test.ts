@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { checkFormat, compareVersions, currentFormat, isVersion, stampFormat } from '../src/config/index.js';
+import { checkFormat, compareVersions, currentFormat, isVersion, releasedFormats, stampFormat } from '../src/config/index.js';
 import { loadYaml, renderTemplate } from '../src/contract/index.js';
 import { run, tempRepo } from './cli-run.js';
 import { NODE_ROOT, REPO_ROOT, SHARED, VECTORS, field, loadYamlFile, readJson } from './helpers.js';
@@ -12,7 +12,8 @@ import { NODE_ROOT, REPO_ROOT, SHARED, VECTORS, field, loadYamlFile, readJson } 
 const VECTOR_FILE = loadYaml(readFileSync(join(VECTORS, 'format.yaml'), 'utf8'));
 const vector = (key: string): any[] => [...(field(VECTOR_FILE, key) as Iterable<any>)];
 const MANIFEST = loadYamlFile(join(SHARED, 'cli.yaml')).commands as Record<string, { format?: string }>;
-const CURRENT: string = loadYamlFile(join(SHARED, 'config.yaml')).format;
+const FORMATS: string[] = loadYamlFile(join(SHARED, 'config.yaml')).formats ?? [];
+const CURRENT = FORMATS.at(-1) as string;
 const FINDINGS = loadYamlFile(join(SHARED, 'findings.yaml')).findings as Record<string, string>;
 const CONFIG = 'living-architecture.yaml';
 
@@ -31,6 +32,20 @@ describe('format versions', () => {
     expect(currentFormat()).toBe(CURRENT);
   });
 
+  it('the released formats come from the contract', () => {
+    expect(releasedFormats()).toEqual(FORMATS);
+  });
+
+  it('the released formats ascend and end with the current format', () => {
+    const formats = releasedFormats();
+    expect(formats.length).toBeGreaterThan(0);
+    for (const format of formats) expect(isVersion(format), format).toBe(true);
+    for (let i = 1; i < formats.length; i++) {
+      expect(compareVersions(formats[i - 1] as string, formats[i] as string), String(formats)).toBe(-1);
+    }
+    expect(formats[formats.length - 1]).toBe(currentFormat());
+  });
+
   it.each(vector('valid'))('%s is a version', (value) => {
     expect(isVersion(value)).toBe(true);
   });
@@ -47,11 +62,14 @@ describe('format versions', () => {
   });
 
   it('the current format is at most every package version', () => {
+    const pyproject = readFileSync(join(REPO_ROOT, 'python', 'pyproject.toml'), 'utf8');
     const versions = [
+      /^\[project\][^[]*?^version = "([^"]+)"$/ms.exec(pyproject)?.[1],
       readJson(join(NODE_ROOT, 'package.json')).version,
       readJson(join(REPO_ROOT, 'plugin', '.claude-plugin', 'plugin.json')).version,
     ];
-    for (const version of versions) expect(compareVersions(currentFormat(), version), version).toBeLessThanOrEqual(0);
+    const last = releasedFormats()[releasedFormats().length - 1] as string;
+    for (const version of versions) expect(compareVersions(last, version), version).toBeLessThanOrEqual(0);
   });
 });
 

@@ -181,3 +181,90 @@ def test_differing_contract_hashes_are_refused(release_repo) -> None:
     release_repo.write("node/src/contract/data/CONTRACT_HASH", "other\n")
     release_repo.release("0.5.0")
     _refused(release_repo.release_check("v0.5.0"), "contract hashes differ")
+
+
+# ---- a release that changes the released formats appends exactly its own version
+
+CONFIG = "shared/config.yaml"
+
+
+def _release_with_formats(release_repo, previous: str, head: str, version: str = "0.7.0") -> None:
+    release_repo.write(CONFIG, previous)
+    release_repo.release("0.6.0")
+    release_repo.write(CONFIG, head)
+    release_repo.release(version)
+
+
+def test_formats_unchanged_pass(release_repo) -> None:
+    release_repo.release("0.6.0")
+    release_repo.change(TOOL)
+    release_repo.release("0.7.0")
+    _accepted(release_repo.release_check("v0.7.0"))
+
+
+def test_formats_appending_the_own_version_pass(release_repo) -> None:
+    _release_with_formats(release_repo, "formats: [0.4.0]\n", "formats: [0.4.0, 0.7.0]\n")
+    _accepted(release_repo.release_check("v0.7.0"))
+
+
+@pytest.mark.parametrize(
+    ("previous", "head"),
+    [
+        ("[0.4.0]", "[0.4.0, 0.8.0]"),
+        ("[0.4.0]", "[0.4.0, 0.6.5, 0.7.0]"),
+        ("[0.4.0]", "[0.4.1, 0.7.0]"),
+        ("[0.4.0, 0.5.0]", "[0.5.0, 0.7.0]"),
+        ("[0.4.0, 0.5.0]", "[0.4.0]"),
+    ],
+    ids=["another-version", "two-versions", "edited-entry", "dropped-entry-and-appended", "dropped-entry"],
+)
+def test_other_formats_changes_are_refused(release_repo, previous: str, head: str) -> None:
+    _release_with_formats(release_repo, f"formats: {previous}\n", f"formats: {head}\n")
+    _refused(release_repo.release_check("v0.7.0"), previous, head, "0.7.0")
+
+
+@pytest.mark.parametrize(
+    "previous",
+    [
+        "format: 0.4.0\n",
+        "format: '0.4.0'\n",
+        'format: "0.4.0"\n',
+        "file: living-architecture.yaml\r\nformat: 0.4.0\r\n",
+        "# The repo format.\nfile: living-architecture.yaml\nformat: 0.4.0  # current\n",
+    ],
+    ids=["plain", "single-quoted", "double-quoted", "crlf", "comments"],
+)
+def test_a_previous_single_format_reads_as_a_one_entry_list(release_repo, previous: str) -> None:
+    _release_with_formats(release_repo, previous, "formats: [0.4.0]\n")
+    _accepted(release_repo.release_check("v0.7.0"))
+
+
+def test_a_previous_single_format_then_the_own_version_appended_passes(release_repo) -> None:
+    _release_with_formats(release_repo, "format: 0.4.0\n", "formats: [0.4.0, 0.7.0]\n")
+    _accepted(release_repo.release_check("v0.7.0"))
+
+
+def _release_without_config(release_repo, head: str) -> None:
+    (release_repo.root / CONFIG).unlink()
+    release_repo.release("0.6.0")
+    release_repo.write(CONFIG, head)
+    release_repo.release("0.7.0")
+
+
+def test_a_previous_release_without_the_config_reads_as_no_formats(release_repo) -> None:
+    _release_without_config(release_repo, "formats: [0.7.0]\n")
+    _accepted(release_repo.release_check("v0.7.0"))
+
+
+def test_a_previous_release_without_the_config_then_an_older_format_is_refused(release_repo) -> None:
+    _release_without_config(release_repo, "formats: [0.4.0]\n")
+    _refused(release_repo.release_check("v0.7.0"), "[0.4.0]", "0.7.0")
+
+
+@pytest.mark.parametrize(
+    "previous", ["file: living-architecture.yaml\n", "formats:\n- 0.4.0\n", "format: [0.4.0]\n"],
+    ids=["neither", "block-list", "format-list"],
+)
+def test_unrecognised_previous_formats_fail_naming_the_release(release_repo, previous: str) -> None:
+    _release_with_formats(release_repo, previous, "formats: [0.4.0]\n")
+    _refused(release_repo.release_check("v0.7.0"), "v0.6.0")
