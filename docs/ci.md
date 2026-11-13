@@ -31,19 +31,19 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22    # the TypeScript twin and likec4 both need it
-      - run: uvx --no-build --from living-architecture==0.7.0 la-arch-check
+      - run: uvx --no-build --from living-architecture==0.8.0 la-arch-check
       - run: npx -y likec4@1.60.0 validate architecture
       - run: uv sync          # the project env, with basedpyright in it; only la-typecheck needs it
-      - run: uvx --no-build --from living-architecture==0.7.0 la-typecheck
+      - run: uvx --no-build --from living-architecture==0.8.0 la-typecheck
 ```
 
 For a TypeScript-only repo, drop `setup-uv` and use these steps after `setup-node`:
 
 ```yaml
-      - run: npx -y -p living-architecture@0.7.0 la-arch-check
+      - run: npx -y -p living-architecture@0.8.0 la-arch-check
       - run: npx -y likec4@1.60.0 validate architecture
       - run: npm ci           # puts tsc in node_modules; only la-typecheck needs it
-      - run: npx -y -p living-architecture@0.7.0 la-typecheck
+      - run: npx -y -p living-architecture@0.8.0 la-typecheck
 ```
 
 Replace `main` with the repo's default branch, and `uv sync` or `npm ci` with the repo's own install command
