@@ -13,18 +13,25 @@ patches basedpyright in memory for pyright#11919, so pin a verified version (tod
 
 ## Refactoring
 
-`dr-refactor` runs rope. Its project scope (`--project`) must include `tests/` so test imports are rewritten
-too. Move destinations must exist: a new package is a directory with an `__init__.py`. For refactors that hinge
-on third-party types, run `dr-refactor` under the project's venv Python.
+`dr-refactor` runs rope, plus the basedpyright bundled with la for every reference the type checker resolves.
+Its project scope (`--project`) must include `tests/` so test imports are rewritten too, and it must run in the
+project's environment (the `python` on PATH, or the venv in `[tool.basedpyright]`) so third-party types
+resolve. Move destinations must exist: a new package is a directory with an `__init__.py`.
 
-Known rope misses the type-check gate catches: receivers narrowed by `isinstance` rather than annotation
-(e.g. `other.attr` inside `__eq__`), and constructor keyword arguments of dataclass/Pydantic fields
-(`Cls(attr=...)`). A stale `from old import X` or `old_mod.X` surfaces even in untyped code — module members
-resolve without annotations.
+A rename rewrites every reference the type checker resolves, across the renamed hierarchy: calls through
+annotated or inferred receivers, `super()` calls, forward-reference strings, and keyword arguments of dataclass
+and Pydantic fields. For a field of a Pydantic model or `TypedDict`, it also rewrites the keys of dict literals
+whose static target is that class.
 
-String-only references no static tool sees: `importlib`, `getattr(`, `__all__`, `patch("dotted.path")`, entry
-points, config paths, and — for a Pydantic field rename — `model_copy(update={"NAME": ...})` / `model_dump`
-consumers keyed on the old name.
+What a rename leaves unrenamed:
+- `x.NAME` where the checker types `x` as `Unknown` or `Any`: `dr-compliance --attr NAME` lists these, so type
+  them first;
+- string-only references: `importlib`, `getattr(`, `__all__`, `patch("dotted.path")`, entry points, config
+  paths;
+- for a field rename: dict keys that reach the model untyped (through `Any` or `dict[str, Any]`, `**kwargs`
+  forwarding, merges, loaded data), consumers of `model_dump()` keyed on the old name, and keys of a field with
+  an alias or on a model with an alias generator. Fixtures in a legacy format, validated through a migrating
+  `mode="before"` validator, are rewritten like any other typed dict: restore their old keys by hand.
 
 ## Compliance fixes (`dr-compliance`)
 
@@ -32,7 +39,8 @@ consumers keyed on the old name.
 - `unannotated-attr` → annotate the attribute (class-body `x: T`, or `self.x: T = ...`).
 - `mock` → bind the double to a spec: `create_autospec(X, spec_set=True)`, `MagicMock(spec_set=X)`,
   `patch(..., autospec=True)`, or a `Protocol` fake.
-- `attr-blindspot` → annotate the named parameter with the owning class (or its `Protocol`).
+- `attr-blindspot` → type the named receiver (its parameter, variable, element type or the return it comes from)
+  with the owning class or its `Protocol`, so the checker no longer infers `Unknown` or `Any`.
 - `rope-walk` → rope cannot walk this construct, so `dr-refactor` refuses the file. It is a rope bug, not a source error: report it with the named line; rewriting the construct is only a stopgap.
 - Overrides carry `@typing.override`, so a renamed base method orphans them visibly.
 

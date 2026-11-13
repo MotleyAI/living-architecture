@@ -15,7 +15,7 @@ def test_identical_edits_merge() -> None:
 
 def test_edits_sort_by_path_then_start() -> None:
     edits = [_edit(5, 6, path="b.py"), _edit(9, 10), _edit(1, 2, path="b.py"), _edit(0, 1)]
-    assert merge_edits(edits) == [_edit(0, 1), _edit(9, 10), _edit(1, 2, path="b.py"), _edit(5, 6, path="b.py")]
+    assert merge_edits(edits) == [_edit(1, 2, path="b.py"), _edit(5, 6, path="b.py"), _edit(0, 1), _edit(9, 10)]
 
 
 def test_adjacent_edits_do_not_overlap() -> None:

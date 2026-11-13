@@ -127,6 +127,8 @@ model {
     conventions -> changes
     changes -> config
     changes -> contract
+    refactor -> lang
+    lang -> contract
   }
   typescript = system 'npm twin' {
     contract = node 'Shared contract' {

@@ -10,7 +10,8 @@ annotation (`self.x: T` or a class-body `x: T`), a return annotation or inferenc
 and `super().name(...)` calls. Every added edit SHALL replace exactly the old name, located by source character in
 the file's text as read; positions SHALL be correct after non-ASCII and astral characters and with CRLF line endings.
 Edits SHALL NOT overlap unless identical; identical edits SHALL be merged. When a file changes between its read and
-the write, nothing SHALL be written. A module rename SHALL keep rope's behaviour alone.
+the write, `dr-refactor` SHALL print the `refactor.file-changed` finding naming that file on stderr, write nothing and
+exit 1. A module rename SHALL keep rope's behaviour alone.
 
 basedpyright SHALL be the version the PyPI twin ships, started from la's own environment, run with la's
 pyright#11919 patch, reading the project's own configuration and finding the project's interpreter as basedpyright

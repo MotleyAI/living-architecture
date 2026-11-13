@@ -1,0 +1,62 @@
+"""A Python file's text and syntax tree, with AST positions as character offsets."""
+
+from __future__ import annotations
+
+import ast
+import bisect
+import re
+from pathlib import Path
+
+_NEWLINE = re.compile(r"\r\n|\r|\n")
+_DEF_NAME = re.compile(r"(?:async\s+)?(?:def|class)\s+(\w+)")
+
+Positioned = ast.expr | ast.stmt | ast.arg | ast.keyword
+
+
+class SourceFile:
+    """`text` of the file at `path` (absolute), parsed once; `tree` is None when it does not parse."""
+
+    def __init__(self, path: Path, text: str) -> None:
+        self.path = path
+        self.text = text
+        self._starts = [0, *(m.end() for m in _NEWLINE.finditer(text))]
+        try:
+            self.tree: ast.Module | None = ast.parse(text)
+        except (SyntaxError, ValueError):
+            self.tree = None
+
+    def offset(self, line: int, col: int) -> int:
+        """The character offset of an AST position (1-based line, UTF-8 byte column)."""
+        start = self._starts[line - 1]
+        head = self.text[start : start + col]
+        return start + (col if head.isascii() else len(head.encode()[:col].decode(errors="ignore")))
+
+    def line(self, offset: int) -> int:
+        """The 1-based line of a character offset."""
+        return bisect.bisect_right(self._starts, offset)
+
+    def span(self, node: Positioned) -> tuple[int, int]:
+        start = self.offset(node.lineno, node.col_offset)
+        return start, self.offset(node.end_lineno or node.lineno, node.end_col_offset or 0)
+
+    def segment(self, node: Positioned) -> str:
+        start, end = self.span(node)
+        return self.text[start:end]
+
+    def name_span(self, node: ast.AST) -> tuple[int, int] | None:
+        """The span of the identifier a node names or declares, or None."""
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            m = _DEF_NAME.match(self.text, self.offset(node.lineno, node.col_offset))
+            return (m.start(1), m.end(1)) if m and m.group(1) == node.name else None
+        if isinstance(node, ast.Name):
+            return self.span(node)
+        if isinstance(node, ast.Attribute):
+            end = self.span(node)[1]
+            return end - len(node.attr), end
+        if isinstance(node, ast.arg):
+            start = self.offset(node.lineno, node.col_offset)
+            return start, start + len(node.arg)
+        if isinstance(node, ast.keyword) and node.arg is not None:
+            start = self.offset(node.lineno, node.col_offset)
+            return start, start + len(node.arg)
+        return None

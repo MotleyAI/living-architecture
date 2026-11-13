@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -96,9 +98,21 @@ def test_a_server_that_fails_to_start_or_is_unpatched_is_an_error(workspace: Pat
 
 
 def test_a_server_exiting_mid_session_is_an_error(workspace: Path, record: Path) -> None:
-    with pytest.raises(LanguageServerError), _fake(workspace, record, "exit-on-query") as server:
+    with _fake(workspace, record, "exit-on-query") as server:
         server.open(workspace / "m.py", "x = 1\n")
-        server.references(workspace / "m.py", 0)
+        with pytest.raises(LanguageServerError):
+            server.references(workspace / "m.py", 0)
+
+
+def test_closing_a_server_that_is_still_exiting_is_quiet(
+    workspace: Path, record: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    with _fake(workspace, record, "exit-on-query") as server:
+        server.open(workspace / "m.py", "x = 1\n")
+        with pytest.raises(LanguageServerError):
+            server.references(workspace / "m.py", 0)
+        time.sleep(0.2)
+        monkeypatch.setattr(subprocess.Popen, "poll", lambda _self: None)
 
 
 def test_bundled_server_finds_forward_reference_strings(workspace: Path) -> None:

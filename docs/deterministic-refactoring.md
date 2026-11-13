@@ -9,8 +9,9 @@ static reference remains; marked overrides turn a missed override into an error;
 dynamic (mock) reference into a failure. Green ⇒ provably no dangling reference.
 
 Tools (both twins, routed by each file's language):
-- `dr-refactor` — the mutator: `rename` / `move-symbol` / `move-module`. Python runs rope; TypeScript runs the
-  bundled TypeScript language service, one per project of the tsconfig's reference graph.
+- `dr-refactor` — the mutator: `rename` / `move-symbol` / `move-module`. Python runs rope, and a rename adds
+  every reference the bundled basedpyright resolves; TypeScript runs the bundled TypeScript language service,
+  one per project of the tsconfig's reference graph.
 - `dr-mock-lint` — fail on test doubles not bound to the real type
 - `dr-compliance` — report the constructs that make a refactor un-verifiable
 
@@ -46,7 +47,8 @@ only when:
 | Python | `untyped-def`, `unannotated-attr`, `mock`, `rope-walk` |
 | TypeScript | `tsconfig` (`strict`, `noImplicitAny`, `noImplicitOverride` enabled), `explicit-any`, `untyped-def` (implicitly-`any` parameters, as the type checker sees them), `mock` |
 
-`--select` picks a subset; `--attr NAME` also reports `x.NAME` accesses on untyped receivers.
+`--select` picks a subset; `--attr NAME` also reports `x.NAME` accesses whose receiver the type checker cannot
+type: `Unknown` or `Any` in Python (through the bundled basedpyright), `any` in TypeScript.
 
 ## Using it on an existing repo
 
@@ -70,8 +72,9 @@ only when:
 - Record the current error set as the baseline (`la-typecheck --write-baseline`) — you do **not** need a clean
   whole repo, only "no *new* errors" per change — and add `la-typecheck` and `dr-mock-lint <tests>` to CI.
 
-The mutators do **not** belong in the project's dependencies — they read source and need nothing installed.
-Only the verifier needs the environment.
+The mutators do **not** belong in the project's dependencies. Python `dr-refactor` and `dr-compliance --attr`
+run the basedpyright bundled with la against the project's configuration and interpreter, so run them in the
+project's environment (the `python` on PATH, or the venv in `[tool.basedpyright]`).
 
 ### 2. Keep every PR compliant — skill `make-diff-compliant`
 

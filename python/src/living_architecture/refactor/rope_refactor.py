@@ -4,19 +4,24 @@ from __future__ import annotations
 
 import re
 import sys
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, cast
 
 from pydantic import BaseModel
 from rope.base import libutils
 from rope.base.change import ChangeSet
+from rope.base.exceptions import BadIdentifierError, RefactoringError
 from rope.base.project import Project
 from rope.base.resources import File, Resource
 from rope.refactor.move import MoveGlobal, MoveModule, create_move
 from rope.refactor.rename import Rename
 
 from living_architecture.contract import message
+from living_architecture.lang import LanguageServerError
+from living_architecture.refactor.keyed import UnresolvedBase
 from living_architecture.refactor.move_edits import NameConflict, module_move_changes, symbol_move_changes
+from living_architecture.refactor.rename_union import FileChanged, SymbolRename
 from living_architecture.refactor.rope_patches import WalkerGap, apply_rope_patches
 
 apply_rope_patches()
@@ -83,13 +88,17 @@ def _destination(project: Project, dest: str, *, folder: bool) -> Resource:
     return _resource(project, dest)
 
 
-def _emit(project: Project, changes: ChangeSet, apply: bool) -> None:
-    """Print the changes sorted by path (rope's own order follows the hash seed); apply in rope's order."""
+def _emit(project: Project, changes: ChangeSet, apply: bool, write: Callable[[], None] | None = None) -> None:
+    """Print the changes sorted by path (rope's own order follows the hash seed); apply them with `write`, else
+    through rope in its order."""
     ordered = sorted(changes.changes, key=lambda c: c.resource.path)
     print(f"{changes}:\n\n\n" + "".join(c.get_description() + "\n" for c in ordered))
     touched = [c.resource.path for c in ordered]
     if apply:
-        project.do(changes)
+        if write is None:
+            project.do(changes)
+        else:
+            write()
         print(message("refactor.applied", count=len(touched)))
         for p in touched:
             print(message("refactor.applied-file", path=p))
@@ -101,13 +110,34 @@ def rename(
     project: Project, *, file: str, locator: Locator, new_name: str, in_hierarchy: bool, unsure: str, apply: bool
 ) -> None:
     offset = _resolve_offset(locator, Path(file).read_text())
-    renamer = Rename(project, _resource(project, file), offset)
-    changes = renamer.get_changes(
-        new_name, in_hierarchy=in_hierarchy, unsure=(lambda *_: True) if unsure == "include" else None
-    )
+    changes = None
+    symbol = None
+    try:
+        renamer = Rename(project, _resource(project, file), offset)
+        if renamer._is_renaming_a_module():
+            changes = renamer.get_changes(
+                new_name, in_hierarchy=in_hierarchy, unsure=(lambda *_: True) if unsure == "include" else None
+            )
+        else:
+            symbol = SymbolRename(project, renamer, new_name, in_hierarchy=in_hierarchy, unsure=unsure == "include")
+            symbol.compute()
+    except (RefactoringError, BadIdentifierError):
+        raise RefactorError(message("refactor.cannot-rename")) from None
+    except LanguageServerError:
+        raise RefactorError(message("refactor.pyright-failed")) from None
+    except UnresolvedBase as base:
+        path = base.path.relative_to(Path(project.address).resolve()).as_posix()
+        raise RefactorError(message("refactor.unresolved-base", name=base.name, path=path, line=base.line)) from None
     if unsure == "include":
         print(message("refactor.unsure-warning"))
-    _emit(project, changes, apply)
+    if changes is not None:
+        _emit(project, changes, apply)
+        return
+    assert symbol is not None
+    changes, texts = symbol.changes()
+    if apply:
+        symbol.verify(texts)
+    _emit(project, changes, apply, lambda: symbol.write(texts))
 
 
 def move_symbol(project: Project, *, file: str, locator: Locator, dest: str, apply: bool) -> None:
@@ -152,6 +182,9 @@ def run_refactor(*, project_root: str, command: str, apply: bool, options: dict[
         return 1
     except WalkerGap as gap:
         print(message("refactor.rope-walk", path=gap.path, line=gap.line), file=sys.stderr)
+        return 1
+    except FileChanged as changed:
+        print(message("refactor.file-changed", path=changed.path), file=sys.stderr)
         return 1
     except NameConflict as conflict:
         print(message("refactor.name-conflict", name=conflict.name, path=conflict.path, line=conflict.line), file=sys.stderr)

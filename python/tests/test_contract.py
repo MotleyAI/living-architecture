@@ -628,8 +628,6 @@ NEW_TEMPLATES = {
     "compliance.tsconfig": "{path}: tsconfig: {flag} is not enabled",
     "compliance.explicit-any": "{path}:{line}: explicit-any: an `any` type — use a real type or `unknown`",
     "compliance.ts-untyped-def": "{path}:{line}: untyped-def: {name} is implicitly any",
-    "compliance.ts-attr-blindspot":
-        "{path}:{line}: attr-blindspot: {receiver}.{attr} — {receiver} is any, so a rename of .{attr} is unverifiable",
     "mock-lint.fn": "{path}:{line}: {call}() without a type argument or implementation — type it as {call}<typeof real>()",
     "mock-lint.module":
         "{path}:{line}: {call}() factory not typed against a resolvable module"
@@ -672,6 +670,7 @@ UNPRODUCED_BY_DESIGN = {
     "refactor.conflicting-edits": "TypeScript never returns differing rename edits across projects (node/test/refactor.test.ts)",
     "refactor.rope-walk": "no known input reaches a walker gap; pinned by the rope-walk unit tests",
     "compliance.rope-walk": "no known input reaches a walker gap; pinned by the rope-walk unit tests",
+    "refactor.file-changed": "needs a concurrent edit no corpus case can make; pinned by the rename-union unit tests",
 }
 
 
@@ -682,6 +681,7 @@ REMOVED_TEMPLATES = [
     "spec-mapping.unknown-node",
     "c4.include-non-top-level",
     "c4.view-includes-non-top-level",
+    "compliance.ts-attr-blindspot",
 ]
 
 

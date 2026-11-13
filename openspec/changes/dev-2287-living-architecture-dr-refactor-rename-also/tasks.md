@@ -19,13 +19,13 @@
 
 ## 1. Contract, architecture and packaging
 
-- [ ] 1.1 Add `refactor.pyright-failed`, `refactor.unresolved-base`, `compliance.pyright-failed` and the new
-      `compliance.attr-blindspot` (design decisions 35–38, verbatim) to `shared/findings.yaml`; remove
+- [x] 1.1 Add `refactor.pyright-failed`, `refactor.unresolved-base`, `compliance.pyright-failed`,
+      `refactor.file-changed` and the new `compliance.attr-blindspot` (design decisions 35–38 and 41, verbatim) to `shared/findings.yaml`; remove
       `compliance.ts-attr-blindspot`; run `scripts/sync-shared`; verify `scripts/sync-shared --check`,
       `test_contract.py` and `test_sync_shared.py` pass.
-- [ ] 1.2 Add `refactor -> lang` to the python root of `architecture/model.c4`; run `la-arch-diagrams` to refresh the
+- [x] 1.2 Add `refactor -> lang` to the python root of `architecture/model.c4`; run `la-arch-diagrams` to refresh the
       embedded diagram in `system.arc42.md`; verify `la-arch-check` and LikeC4 validation pass.
-- [ ] 1.3 Move `basedpyright==1.40.2` into `dependencies` in `python/pyproject.toml`, remove the `verify` extra,
+- [x] 1.3 Move `basedpyright==1.40.2` into `dependencies` in `python/pyproject.toml`, remove the `verify` extra,
       refresh `uv.lock`; verify `uv sync` and the packaging tests pass.
 
 ## 2. Tests (pr-tests stage)
@@ -50,46 +50,44 @@
       variants for failures after rope computed its changes, the whole-tree snapshot for dry-runs, and the
       `sitecustomize` marker case; update the existing Python `--attr` golden to the new text and add the
       `compliance.pyright-failed` golden.
-- [ ] 2.8 A TypeScript adapter case for contextually typed object-literal keys (renamed) next to an untyped literal
+- [x] 2.8 A TypeScript adapter case for contextually typed object-literal keys (renamed) next to an untyped literal
       (unchanged); confirm the existing TS `--attr` golden is unchanged under the shared template.
-- [ ] 2.9 List every new case in `conformance/INVENTORY.md`, and retire the `ts-attr-blindspot` row in favour of the
+- [x] 2.9 List every new case in `conformance/INVENTORY.md`, and retire the `ts-attr-blindspot` row in favour of the
       shared template; verify every findings template is produced by a golden.
 
 ## 3. Implementation
 
-- [ ] 3.1 Extend the pyright#11919 preload to `dist/pyright-langserver.js`; verify 2.2.
-- [ ] 3.2 Add the language-server session to `python.lang` (launch from la's environment, isolation environment,
+- [x] 3.1 Extend the pyright#11919 preload to `dist/pyright-langserver.js`; verify 2.2.
+- [x] 3.2 Add the language-server session to `python.lang` (launch from la's environment, isolation environment,
       patch, UTF-16 conversion, `references` / `definition` / `typeDefinition` / `hover`, one session per command);
       verify 2.1.
-- [ ] 3.3 Patch rope's function-header check for `async def` in `rope_patches.py`, with a comment naming the upstream
-      rope issue (task 5.1) as its removal trigger; map `RefactoringError` to `refactor.cannot-rename`; verify 2.5.
-- [ ] 3.4 Add the reference union to `rope_refactor.rename`: rope's edits as spans over one snapshot, basedpyright
+- [x] 3.3 Patch rope's function-header check for `async def` in `rope_patches.py`, with a comment naming
+      python-rope/rope#859 as its removal trigger; map `RefactoringError` to `refactor.cannot-rename`; verify 2.5.
+- [x] 3.4 Add the reference union to `rope_refactor.rename`: rope's edits as spans over one snapshot, basedpyright
       references for every renamed declaration, merge and validation, atomic write; verify 2.3 and the B1 scenarios.
-- [ ] 3.5 Add the keyed-class rewrites and the `refactor.unresolved-base` refusal (syntactic prefilter, then type
+- [x] 3.5 Add the keyed-class rewrites and the `refactor.unresolved-base` refusal (syntactic prefilter, then type
       queries, cached base chains); verify 2.4.
-- [ ] 3.6 Rewrite Python `--attr` in `compliance.py` on basedpyright with the shared template; switch the npm twin to
+- [x] 3.6 Rewrite Python `--attr` in `compliance.py` on basedpyright with the shared template; switch the npm twin to
       the shared template id; verify 2.6 and 2.8.
-- [ ] 3.7 Run the conformance cases of 2.7–2.9 through both twins (`scripts/conformance-cross` narrowed to them);
+- [x] 3.7 Run the conformance cases of 2.7–2.9 through both twins (`scripts/conformance-cross` narrowed to them);
       verify they pass.
 
 ## 4. Docs
 
-- [ ] 4.1 Replace the Refactoring section and the `attr-blindspot` bullet of `plugin/languages/python.md` with design
+- [x] 4.1 Replace the Refactoring section and the `attr-blindspot` bullet of `plugin/languages/python.md` with design
       decisions 39 and 40, verbatim.
-- [ ] 4.2 Update `docs/deterministic-refactoring.md` and `docs/commands.md` (dr-refactor's basedpyright, the project
+- [x] 4.2 Update `docs/deterministic-refactoring.md` and `docs/commands.md` (dr-refactor's basedpyright, the project
       environment, Python `--attr`) and any README mention of the `verify` extra; verify `la-check-conventions` and
       `la-count-comments` pass on the touched files.
 
 ## 5. Upstream
 
-- [ ] 5.1 Open an issue on python-rope/rope with the `async def` repro and the root cause in
-      `worder._RealFinder.is_a_class_or_function_name_in_header`; record its URL in the patch comment (3.3).
-- [ ] 5.2 Open a PR on python-rope/rope with the fix and a test following rope's conventions; record its URL in the
-      DEV-2287 handoff comment.
+- [x] 5.1 Comment on python-rope/rope#859 (the existing upstream fix) confirming it fixes `Rename` on `async def`
+      too, with the minimal repro; record the comment URL in the DEV-2287 handoff comment.
 
 ## 6. Verification
 
-- [ ] 6.1 Run the enforcement bundle (`la-arch-check`, LikeC4 validation, `la-typecheck`) and the local test scope;
+- [x] 6.1 Run the enforcement bundle (`la-arch-check`, LikeC4 validation, `la-typecheck`) and the local test scope;
       fix until green.
-- [ ] 6.2 Time a dry-run field rename (`SlayerModel.columns`) on the SLayer checkout and record the wall time and
+- [x] 6.2 Time a dry-run field rename (`SlayerModel.columns`) on the SLayer checkout and record the wall time and
       file count in the DEV-2287 handoff comment.

@@ -92,8 +92,9 @@ regenerated with `la-arch-diagrams`.
 9. **The second issue comment's `--attr` gap is in scope** (user): Python `--attr` reports `Unknown`/`Any` receivers
    through basedpyright, at parity with the TypeScript twin. Avoiding `Any` remains the fix: the skill types each
    reported receiver.
-10. **Upstream rope: an issue and a PR on python-rope/rope with the `async def` fix** (user), opened during
-    pr-implement; the patch's comment names the upstream issue as its removal trigger.
+10. **Upstream rope: the `async def` fix is already python-rope/rope#859** (user). Nothing is opened upstream; a
+    comment on #859 confirms it fixes rename too, with the minimal `Rename` repro. The patch's comment names #859 as
+    its removal trigger.
 11. **A Python `explicit-any` check is a separate change** (user): DEV-2289, with its own worktree.
 12. **The language server runs with la's pyright#11919 patch** (user). The preload in `python.lang` also patches
     `dist/pyright-langserver.js`, keyed on the same embedded version; an unpatched server is a failure. This needs
@@ -132,7 +133,8 @@ regenerated with `la-arch-diagrams`.
     go outside the project.
 26. **Every added or changed finding has a golden** (codex): `refactor.pyright-failed`, `refactor.unresolved-base`,
     `compliance.pyright-failed`, the changed `compliance.attr-blindspot`, and `refactor.cannot-rename` from the
-    Python twin; `compliance.ts-attr-blindspot` is retired.
+    Python twin; `compliance.ts-attr-blindspot` is retired. `refactor.file-changed` (decision 41) needs a concurrent
+    edit no corpus case can make, so it is pinned by a unit test and listed in `UNPRODUCED_BY_DESIGN`.
 27. **Each precondition and fail-closed branch is a named scenario** (codex), with dry-run and apply variants for
     failures that occur after rope computed its changes.
 28. **The interpreter probe is isolated** (codex): server working directory outside the project,
@@ -180,6 +182,8 @@ regenerated with `la-arch-diagrams`.
 40. **`plugin/languages/python.md`, compliance fix** (user, approved wording):
     "`attr-blindspot` → type the named receiver (its parameter, variable, element type or the return it comes from)
     with the owning class or its `Protocol`, so the checker no longer infers `Unknown` or `Any`."
+41. **`refactor.file-changed`** (user, approved wording), exit 1, nothing written:
+    `'{path} changed while dr-refactor ran, so nothing was refactored'`
 
 ## Risks / Trade-offs
 

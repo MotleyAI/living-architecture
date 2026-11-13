@@ -162,7 +162,7 @@ def test_language_server_failing_after_rope_computed_its_changes(
 
 
 def test_a_file_changed_before_the_write_aborts_with_nothing_written(
-    typed_project: MakeProject, monkeypatch: pytest.MonkeyPatch
+    typed_project: MakeProject, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     root = typed_project({"pkg/models.py": FORWARD_REFS, "pkg/use.py": FORWARD_USE})
     original = LanguageServer.references
@@ -174,7 +174,8 @@ def test_a_file_changed_before_the_write_aborts_with_nothing_written(
         return original(self, path, offset)
 
     monkeypatch.setattr(LanguageServer, "references", touching)
-    assert _rename(root, "pkg/models.py", "Recommendation", "--name", "Rec") != 0
+    assert _rename(root, "pkg/models.py", "Recommendation", "--name", "Rec") == 1
+    assert capsys.readouterr() == ("", message("refactor.file-changed", path="pkg/use.py") + "\n")
     assert _read(root, "pkg/models.py") == FORWARD_REFS
     assert _read(root, "pkg/use.py") == FORWARD_USE + "# edited\n"
 
