@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from collections.abc import Callable
 from pathlib import Path
 from string import Template
@@ -415,7 +416,27 @@ def test_new_name_the_function_already_uses_is_refused(
     _refused(root, "pkg/c.py", offset, capsys, "pkg/c.py", line)
 
 
-CLEAN_BASE = "class A:\n    def run(self, *, model_name: str) -> str:\n        return model_name\n"
+TYPE_PARAMETERS = (
+    "def f[T](*, model_name: int) -> int:\n    return model_name\n\n\n"
+    "def g(*, model_name: int) -> int:\n"
+    "    def inner[dataset_name]() -> None: ...\n"                       # 6
+    "    return model_name\n"
+)
+
+
+@pytest.mark.skipif(sys.version_info < (3, 12), reason="PEP 695 type parameters")
+@pytest.mark.parametrize(("nth", "new_name", "line"), [(0, "T", 1), (2, NEW, 6)], ids=["own", "nested"])
+def test_type_parameter_of_the_new_name_is_a_conflict(
+    typed_project: MakeProject, capsys: pytest.CaptureFixture[str], nth: int, new_name: str, line: int
+) -> None:
+    root = typed_project({"pkg/t.py": TYPE_PARAMETERS})
+    before = file_tree(root)
+    assert _rename(root, "pkg/t.py", _at(root, "pkg/t.py", OLD, nth=nth), new_name=new_name) == 1
+    assert capsys.readouterr() == ("", message("refactor.name-conflict", name=new_name, path="pkg/t.py", line=line) + "\n")
+    assert file_tree(root) == before
+
+
+CLEAN_BASE ="class A:\n    def run(self, *, model_name: str) -> str:\n        return model_name\n"
 READING_BASE = (
     'dataset_name = "d"\n\n\n'
     "class A:\n    def run(self, *, model_name: str) -> str:\n        return model_name + dataset_name\n"

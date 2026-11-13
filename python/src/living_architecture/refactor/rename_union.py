@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import ast
 import bisect
+import sys
 from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any, cast
@@ -150,6 +151,11 @@ Function = ast.FunctionDef | ast.AsyncFunctionDef
 _POSITIONED = (ast.stmt, ast.expr, ast.arg, ast.alias, ast.excepthandler, ast.pattern)
 
 
+def _type_params(fn: Function) -> list[ast.AST]:
+    """The PEP 695 type parameters `fn` declares."""
+    return list(fn.type_params) if sys.version_info >= (3, 12) else []
+
+
 def _parameter(fn: Function, name: str) -> ast.arg | None:
     """`fn`'s parameter `name`, of any kind."""
     return next((a for a in every_parameter(fn.args) if a.arg == name), None)
@@ -186,16 +192,27 @@ def _bound_names(node: ast.AST) -> list[str]:
         return [node.rest] if node.rest else []
     if isinstance(node, (ast.Global, ast.Nonlocal)):
         return node.names
+    if sys.version_info >= (3, 12) and isinstance(node, (ast.TypeVar, ast.ParamSpec, ast.TypeVarTuple)):
+        return [node.name]
     return []
+
+
+def _site(source: SourceFile, node: ast.AST) -> int | None:
+    """The offset of `node`, a positioned binding or read."""
+    if sys.version_info >= (3, 12) and isinstance(node, ast.type_param):
+        return source.offset(node.lineno, node.col_offset)
+    if isinstance(node, _POSITIONED):
+        span = source.name_span(node)
+        return span[0] if span else source.offset(node.lineno, node.col_offset)
+    return None
 
 
 def _variable_sites(source: SourceFile, fn: Function, name: str) -> Iterator[int]:
     """The offsets where `fn`'s signature or body binds or reads variable `name`, nested scopes included."""
-    for root in [fn.args, *([fn.returns] if fn.returns else []), *fn.body]:
+    for root in [*_type_params(fn), fn.args, *([fn.returns] if fn.returns else []), *fn.body]:
         for node in ast.walk(root):
-            if isinstance(node, _POSITIONED) and name in _bound_names(node):
-                span = source.name_span(node)
-                yield span[0] if span else source.offset(node.lineno, node.col_offset)
+            if name in _bound_names(node) and (site := _site(source, node)) is not None:
+                yield site
 
 
 class SymbolRename:
