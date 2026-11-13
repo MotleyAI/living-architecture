@@ -13,7 +13,7 @@ import sys
 from typing import TypeGuard
 
 from rope.base import ast as rope_ast
-from rope.base import codeanalyze, pyscopes, simplify, utils
+from rope.base import codeanalyze, pyscopes, simplify, utils, worder
 from rope.refactor import patchedast
 
 _rope_joined_str = patchedast._PatchingASTWalker._JoinedStr
@@ -296,6 +296,13 @@ def _gap(scope, source: str) -> WalkerGap:
     return WalkerGap(resource.path if resource is not None else "<string>", walk_gap_line(source) or 1)
 
 
+def _is_a_class_or_function_name_in_header(self, offset: int) -> bool:
+    """rope's, also accepting an `async def` header; remove once a rope release includes python-rope/rope#859."""
+    word_start = self._find_word_start(offset - 1)
+    line_start = self._get_line_start(word_start)
+    return " ".join(self.code[line_start:word_start].split()) in ("def", "class", "async def")
+
+
 def _check_scope_regions(self) -> None:
     """rope's scope-region walk, refusing a module it cannot cover."""
     source = self._get_source()
@@ -329,3 +336,4 @@ def apply_rope_patches() -> None:
     simplify._str = re.compile(f"{codeanalyze.get_comment_pattern()}|{_any_string_pattern()}")
     simplify.real_code = _real_code
     pyscopes.GlobalScope._calculate_scope_regions = _checked_scope_regions
+    worder._RealFinder.is_a_class_or_function_name_in_header = _is_a_class_or_function_name_in_header

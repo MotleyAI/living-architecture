@@ -7,7 +7,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 import pytest
-from rope.base import codeanalyze, pyscopes, simplify
+from rope.base import codeanalyze, pyscopes, simplify, worder
 from rope.refactor import patchedast
 
 from living_architecture.refactor import rope_patches
@@ -193,6 +193,28 @@ def test_patched_simplify_keeps_tstring_text() -> None:
 def test_patched_simplify_ignores_a_keyword_tail_as_prefix(source: str, expected: str) -> None:
     rope_patches.apply_rope_patches()
     assert simplify.real_code(source) == expected
+
+
+ASYNC_HEADERS = ["async def f(): pass\n", "class C:\n    async  def f(self): pass\n", "async\tdef f(): pass\n"]
+
+
+@pytest.mark.parametrize("source", ASYNC_HEADERS, ids=["module", "method-two-spaces", "tab"])
+def test_patched_header_check_accepts_async_def(source: str) -> None:
+    rope_patches.apply_rope_patches()
+    assert worder.Worder(source).is_a_class_or_function_name_in_header(source.index("f(") + 1)
+
+
+@pytest.mark.parametrize("source", ["x = f()\n", "await f()\n"], ids=["call", "await"])
+def test_patched_header_check_rejects_non_headers(source: str) -> None:
+    rope_patches.apply_rope_patches()
+    assert not worder.Worder(source).is_a_class_or_function_name_in_header(source.index("f(") + 1)
+
+
+def test_unpatched_rope_still_rejects_async_def() -> None:
+    script = "from rope.base import worder; s = 'async def f(): pass'; " \
+             "print(worder.Worder(s).is_a_class_or_function_name_in_header(11))"
+    result = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True, check=False)
+    assert (result.returncode, result.stdout) == (0, "False\n"), result.stderr
 
 
 def test_apply_resets_a_primed_string_pattern(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -39,7 +39,9 @@ the language facts they need with `la-config get lang.<language>.<key>` (`source
 The `dr-*` commands route each input by file language: `dr-compliance` and `dr-mock-lint` print one block per
 language, in registry order, and exit with the highest code; a directory expands to the repo languages' files
 (every registered language's when the repo has none), never declaration files or `node_modules`.
-`dr-refactor` runs in the language of its `--file` or `--module`.
+`dr-refactor` runs in the language of its `--file` or `--module`. A Python rename and Python `dr-compliance
+--attr` start the basedpyright bundled with the PyPI package as a language server, with the pyright#11919 patch,
+outside the project; it reads the project's own configuration and interpreter.
 
 ## Conventions gate and type checks
 

@@ -1,0 +1,22 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- --apply
+- rename
+- --file
+- src/keys.ts
+- --offset
+- '23'
+- --new-name
+- fields
+fixture: refactor-ts
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - src/keys.ts
+golden: manual
+note: contextually typed object-literal keys (a Partial<Model> argument, a constant typed Model) are renamed; an untyped literal is not

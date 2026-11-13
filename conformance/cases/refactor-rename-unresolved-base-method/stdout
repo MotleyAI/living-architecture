@@ -1,0 +1,17 @@
+Renaming <describe> to <summary>:
+
+
+--- a/pkg/models.py
++++ b/pkg/models.py
+@@ -4,5 +4,5 @@
+ class Model(BaseModel):
+     columns: list[int] = []
+ 
+-    def describe(self) -> str:
++    def summary(self) -> str:
+         return ""
+
+
+
+APPLIED. 1 file(s) changed:
+  pkg/models.py
