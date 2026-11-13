@@ -69,6 +69,24 @@ def test_verified_version_is_patched_in_memory(tmp_path: Path, result: Path) -> 
     assert bundle.read_bytes() == before
 
 
+def test_language_server_bundle_is_patched_like_the_cli_bundle(tmp_path: Path, result: Path) -> None:
+    entry = _package(tmp_path / "pkg", name="pyright-langserver.js")
+    proc = _node(entry, result)
+    assert (proc.returncode, proc.stdout) == (0, "main: patched\n"), proc.stderr
+    assert lang.read_pyright_patch(result) == lang.PyrightPatch(outcome="patched", version="1.40.2", count=1)
+
+
+@pytest.mark.parametrize("version", ["1.39.10", None])
+def test_language_server_bundle_follows_the_same_rules(tmp_path: Path, result: Path, version: str | None) -> None:
+    proc = _node(_package(tmp_path / "pkg", version=version, name="pyright-langserver.js"), result)
+    if version is None:
+        assert (proc.returncode, proc.stdout) == (0, "main: unpatched\n"), proc.stderr
+        assert not result.exists()
+    else:
+        assert proc.returncode == 2
+        assert lang.read_pyright_patch(result) == lang.PyrightPatch(outcome="unverified", version=version, count=1)
+
+
 def test_result_dir_holds_only_the_result(tmp_path: Path, result: Path) -> None:
     _node(_package(tmp_path / "pkg"), result)
     assert [p.name for p in result.parent.iterdir()] == [result.name]

@@ -1,0 +1,22 @@
+Renaming <Rec> to <Recommendation>:
+
+
+--- a/pkg/rec.py
++++ b/pkg/rec.py
+@@ -1,9 +1,9 @@
+-class Rec:
++class Recommendation:
+     pass
+ 
+ 
+-def make() -> Rec:
+-    return Rec()
++def make() -> Recommendation:
++    return Recommendation()
+ 
+ 
+-s = "😀é"; r: "Rec" = make()+s = "😀é"; r: "Recommendation" = make()
+
+
+APPLIED. 1 file(s) changed:
+  pkg/rec.py

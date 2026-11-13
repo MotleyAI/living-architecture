@@ -69,6 +69,8 @@ flowchart TD
   conventions --> changes
   changes --> config
   changes --> contract
+  refactor --> lang
+  lang --> contract
 ```
 <!-- /likec4:system -->
 

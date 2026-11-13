@@ -1,0 +1,24 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- --apply
+- rename
+- --file
+- pkg/a.py
+- --offset
+- '17'
+- --new-name
+- sync_dataset
+fixture: refactor-typed
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - pkg/a.py
+  - pkg/models.py
+  - .ropeproject/history.json
+golden: manual
+note: the override and its super() call are renamed

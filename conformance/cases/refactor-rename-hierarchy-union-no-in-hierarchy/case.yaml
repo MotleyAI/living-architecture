@@ -1,0 +1,25 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- --apply
+- rename
+- --file
+- pkg/a.py
+- --offset
+- '17'
+- --new-name
+- execute
+- --no-in-hierarchy
+fixture: refactor-typed
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - pkg/a.py
+  - pkg/models.py
+  - .ropeproject/history.json
+golden: manual
+note: '--no-in-hierarchy: only the located declaration and the calls resolving to it'

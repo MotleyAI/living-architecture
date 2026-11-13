@@ -1,0 +1,34 @@
+Renaming <columns> to <fields>:
+
+
+--- a/pkg/models.py
++++ b/pkg/models.py
+@@ -9,7 +9,7 @@
+ 
+ 
+ class Model(BaseModel):
+-    columns: list[Member] = []
++    fields: list[Member] = []
+     label: Optional[str] = None
+ 
+ 
+
+--- a/pkg/use.py
++++ b/pkg/use.py
+@@ -3,7 +3,7 @@
+ 
+ def f(m: Model) -> object:
+     return (
+-        m.model_copy(update={"columns": []}),
+-        m.model_dump(exclude={"columns"}),
+-        m.model_dump_json(include={"columns": True, "label": True}),
++        m.model_copy(update={"fields": []}),
++        m.model_dump(exclude={"fields"}),
++        m.model_dump_json(include={"fields": True, "label": True}),
+     )
+
+
+
+APPLIED. 2 file(s) changed:
+  pkg/models.py
+  pkg/use.py

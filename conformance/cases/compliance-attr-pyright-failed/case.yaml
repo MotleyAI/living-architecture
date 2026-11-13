@@ -1,0 +1,18 @@
+kind: adapter
+languages:
+- python
+twin: python
+command: dr-compliance
+args:
+- --select
+- ''
+- --attr
+- formula
+- src/formula.py
+fixture: compliance
+env:
+  NODE_OPTIONS: --require /nonexistent.js
+expect:
+  exit: 2
+golden: manual
+note: '--attr when the language server cannot start: the finding, exit 2'
