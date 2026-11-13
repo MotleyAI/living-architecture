@@ -42,10 +42,7 @@ gh:
     check_suites: []
 - match:
   - repos/o/r/commits/abc/statuses
-  stdout:
-  - context: CodeRabbit
-    state: success
-    description: Review completed
+  stdout: []
 - match:
   - repos/o/r/commits/def/statuses
   stdout:
@@ -64,7 +61,10 @@ gh:
 - match:
   - repos/o/r/pulls/7/reviews
   stdout: []
+- match:
+  - repos/o/r/pulls/7/comments
+  stdout: []
 expect:
   exit: 0
 golden: manual
-note: 'HEAD moves after Stage 0a: the wait restarts and settles only on evidence for the new HEAD'
+note: 'HEAD moves after its checks cleared without CodeRabbit evidence: the wait restarts and settles only on evidence for the new HEAD'

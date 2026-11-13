@@ -1,0 +1,62 @@
+kind: neutral
+command: la-wait-for-reviews
+args:
+- '7'
+- --repo
+- o/r
+env:
+  LA_WAIT_POLL_SECONDS: '0'
+gh:
+- match:
+  - pr
+  - view
+  - headRefOid,statusCheckRollup
+  responses:
+  - stdout:
+      headRefOid: abcdef0123
+      statusCheckRollup:
+      - &id001
+        __typename: CheckRun
+        name: tests
+        status: COMPLETED
+        conclusion: FAILURE
+        detailsUrl: https://github.com/o/r/actions/runs/1/job/2
+      - &id002
+        __typename: CheckRun
+        name: lint
+        status: IN_PROGRESS
+        detailsUrl: https://github.com/o/r/actions/runs/1/job/9
+  - stdout:
+      headRefOid: abcdef0123
+      statusCheckRollup:
+      - *id001
+      - *id002
+  - stdout:
+      headRefOid: abcdef0123
+      statusCheckRollup:
+      - __typename: CheckRun
+        name: tests
+        status: COMPLETED
+        conclusion: FAILURE
+        detailsUrl: https://github.com/o/r/actions/runs/1/job/5
+      - __typename: CheckRun
+        name: lint
+        status: COMPLETED
+        conclusion: SUCCESS
+        detailsUrl: https://github.com/o/r/actions/runs/1/job/9
+- match:
+  - repos/o/r/issues/7/comments
+  stdout:
+  - user:
+      login: alice
+    updated_at: '2026-01-02T00:00:00Z'
+    body: LGTM
+- match:
+  - repos/o/r/commits/abcdef0123/check-suites
+  stdout:
+    check_suites: []
+expect:
+  exit: 0
+  stderr: ignore
+golden: manual
+note: a re-run job (new Details URL) is a new item; the first job is not printed again
