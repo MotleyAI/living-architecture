@@ -14,26 +14,27 @@
 
 ## 1. Tests (pr-tests stage)
 
-- [ ] 1.1 Unit tests for the rope patch: `get_param_names` with and without special args for
+- [x] 1.1 Unit tests for the rope patch: `get_param_names` with and without special args for
       `def f(a, /, b, *xs, c=0, **kw)` and each single kind; `get_parameters` holds every kind; positional binding of
       `f(1, 2, 3, c=4, d=5)` and `f(1, b=2)` gives each parameter its argument (no keyword-only slot filled
-      positionally); a keyword-only parameter's object comes from its annotation; keyword lookup returns nothing for
+      positionally); a keyword-only parameter's object comes from rope's parameter type-hint provider (a docstring
+      `:type c:`), else unknown; keyword lookup returns nothing for
       a positional-only name, `args` or `kwargs`; instance, class and static method receivers bind the first
       parameter as before. Verify they fail before the patch.
-- [ ] 1.2 Unit tests for a parameter's renamed declarations: hierarchy seeding on and off, located at the base and at
+- [x] 1.2 Unit tests for a parameter's renamed declarations: hierarchy seeding on and off, located at the base and at
       an override; override with another name or no such parameter unchanged; class, static and `async def`
       methods.
-- [ ] 1.3 Unit tests for overload groups: resolved `typing.overload`, `typing_extensions.overload`, an aliased import,
+- [x] 1.3 Unit tests for overload groups: resolved `typing.overload`, `typing_extensions.overload`, an aliased import,
       a same-named non-overload redefinition (no group), located at each stub and at the implementation, a group
       without an implementation, an overloaded method in a hierarchy with `--no-in-hierarchy`.
-- [ ] 1.4 Unit tests for the conflict check: duplicate parameter, global read, local assignment, nested scope, conflict
+- [x] 1.4 Unit tests for the conflict check: duplicate parameter, global read, local assignment, nested scope, conflict
       in an override, deterministic first site across files and within a body, attributes and other calls' keywords
       ignored, rename to the old name a no-op (plain, hierarchy, overload group).
-- [ ] 1.5 Adapter (python) conformance cases, one per scenario of the delta spec (dry-run, plus `--apply` for the
+- [x] 1.5 Adapter (python) conformance cases, one per scenario of the delta spec (dry-run, plus `--apply` for the
       keyword-only function and the override hierarchy), including the lambda `cannot-rename` and the
       `name-conflict` refusals with every file unchanged; regression cases for `move-symbol` and a method rename over
       a mixed-kind signature.
-- [ ] 1.6 List every new case in `conformance/INVENTORY.md`; verify `test_conformance.py` collects them and they fail
+- [x] 1.6 List every new case in `conformance/INVENTORY.md`; verify `test_conformance.py` collects them and they fail
       before the implementation for the reasons the scenarios state.
 
 ## 2. Implementation

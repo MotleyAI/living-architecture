@@ -1,0 +1,20 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- rename
+- --file
+- pkg/attrs.py
+- --line
+- '9'
+- --col
+- '10'
+- --new-name
+- dataset_name
+fixture: refactor-params
+git:
+- commit: init
+expect:
+  exit: 0
+note: an attribute and another call's keyword of the new name are no conflict

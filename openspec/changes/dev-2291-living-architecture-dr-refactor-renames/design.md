@@ -60,8 +60,9 @@ edit.
    patch in `rope_patches.py` beside the other rope model fixes, installed by `apply_rope_patches`:
    - the *positional binding vector* (`get_param_names`) is positional-only then positional-or-keyword parameters,
      then `*args`/`**kwargs` as today (special-argument handling and indices follow it);
-   - keyword-only parameters join the *scope and keyword lookup* (`get_parameters`) only, with an object from their
-     annotation (rope's parameter type-hint provider) or unknown, never filled positionally;
+   - keyword-only parameters join the *scope and keyword lookup* (`get_parameters`) only, with the object rope's
+     parameter type-hint provider gives (docstring types; rope reads no parameter annotations) or unknown, never
+     filled positionally;
    - keyword lookup at a call returns only a positional-or-keyword or keyword-only parameter (codex).
    Alternatives: one signature-ordered list (corrupts positional binding and inference); a `rename`-local special case
    (leaves rope's scope wrong for every other path).
