@@ -88,8 +88,8 @@ def test_parameters_hold_every_kind(module, source: str, names: set[str]) -> Non
 
 @pytest.mark.parametrize(
     "call",
-    ["f(A(), B(), X(), c=C(), d=D())", "f(A(), b=B())"],
-    ids=["positional-then-keywords", "keyword-for-positional-or-keyword"],
+    ["f(A(), B(), X(), c=C(), d=D())", "f(A(), b=B())", "f(A(), B(), a=X())"],
+    ids=["positional-then-keywords", "keyword-for-positional-or-keyword", "keyword-named-like-positional-only"],
 )
 def test_call_arguments_bind_their_parameters(module, call: str) -> None:
     mod = module(f"{CLASSES}def f(a, /, b, *xs, c=0, **kw): pass\n{call}\n")
@@ -100,6 +100,17 @@ def test_call_arguments_bind_their_parameters(module, call: str) -> None:
     params = fn.get_param_names(special_args=False)
     bound = arguments.create_arguments(None, fn, node.value, mod.get_scope()).get_arguments(params)
     assert {name: _type(obj) for name, obj in zip(params, bound)} == {"a": "A", "b": "B"}
+
+
+def test_returned_positional_only_argument_ignores_a_same_named_keyword(module) -> None:
+    mod = module(f"{CLASSES}def identity(value, /, **kw):\n    return value\nx = identity(A(), value=B())\n")
+    assert _type(mod["x"].get_object()) == "A"
+
+
+@pytest.mark.parametrize("call", ["f(value=B())", "f(other=B())"], ids=["positional-only-name", "captured-keyword"])
+def test_a_keyword_takes_no_positional_slot(module, call: str) -> None:
+    mod = module(f"{CLASSES}def f(value, /, **kw):\n    return value\nx = {call}\n")
+    assert _type(mod["x"].get_object()) is None
 
 
 def test_parameter_objects_of_every_kind(module) -> None:
@@ -171,6 +182,39 @@ def test_keyword_lookup_resolves_only_keyword_bindable_parameters(module, keywor
         assert pyname is _function(mod, "f").get_parameters()[keyword]
     else:
         assert pyname is None
+
+
+@pytest.mark.parametrize("name", ["a", "b", "c"], ids=["positional-only", "positional-or-keyword", "keyword-only"])
+def test_defaulted_header_parameter_resolves_to_its_parameter(module, name: str) -> None:
+    source = "def f(a=0, /, b=0, *, c=0): pass\n"
+    mod = module(source)
+    assert evaluate.eval_location(mod, source.index(f"{name}=")) is _function(mod, "f").get_parameters()[name]
+
+
+LAMBDAS = "def f(p, q):\n    g = lambda p, *, r=q: (p, r, q)\n    h = lambda: p\n    return g, h, p\n"
+
+
+@pytest.mark.parametrize(
+    ("needle", "shift", "owner"),
+    [
+        ("lambda p", 7, None),
+        ("r=q", 0, None),
+        ("(p, r", 1, None),
+        (", r, ", 2, None),
+        ("=q", 1, "q"),
+        (", q)", 2, "q"),
+        ("lambda: p", 8, "p"),
+        ("h, p", 3, "p"),
+    ],
+    ids=[
+        "lambda-parameter", "lambda-keyword-only", "lambda-use", "lambda-keyword-only-use", "lambda-default",
+        "outer-use-in-lambda", "parameterless-lambda", "outer-use",
+    ],
+)
+def test_names_a_lambda_binds_resolve_to_nothing(module, needle: str, shift: int, owner: str | None) -> None:
+    mod = module(LAMBDAS)
+    pyname = evaluate.eval_location(mod, LAMBDAS.index(needle) + shift)
+    assert pyname is (None if owner is None else _function(mod, "f").get_parameters()[owner])
 
 
 def test_keyword_of_an_unresolved_call_resolves_to_nothing(module) -> None:

@@ -151,6 +151,41 @@ def test_positional_only_parameter_leaves_calls_unchanged(typed_project: MakePro
     })
 
 
+DEFAULTED_POSONLY = Template('def f($p="x", /) -> str:\n    return $p\n\n\nf("y")\n')
+
+
+def test_defaulted_positional_only_parameter_from_its_header(typed_project: MakeProject) -> None:
+    root = typed_project({"pkg/d.py": DEFAULTED_POSONLY.substitute(p=OLD)})
+    assert _rename(root, "pkg/d.py", _at(root, "pkg/d.py", OLD)) == 0
+    _expect(root, {"pkg/d.py": DEFAULTED_POSONLY.substitute(p=NEW)})
+
+
+SHADOWED = Template(
+    "def outer($star$p: str) -> object:\n"
+    "    return lambda model_name: model_name\n\n\n"
+    'outer($k="x")\n'
+)
+
+
+@pytest.mark.parametrize("star", ["*, ", ""], ids=["keyword-only", "positional-or-keyword"])
+@pytest.mark.parametrize("needle", ["lambda model_name", ": model_name\n"], ids=["lambda-parameter", "lambda-body"])
+def test_lambda_shadowing_a_parameter_is_refused(
+    typed_project: MakeProject, capsys: pytest.CaptureFixture[str], star: str, needle: str
+) -> None:
+    root = typed_project({"pkg/s.py": SHADOWED.substitute(star=star, p=OLD, k=OLD)})
+    before = file_tree(root)
+    assert _rename(root, "pkg/s.py", _at(root, "pkg/s.py", needle) + needle.index(OLD)) == 1
+    assert capsys.readouterr() == ("", message("refactor.cannot-rename") + "\n")
+    assert file_tree(root) == before
+
+
+@pytest.mark.parametrize("star", ["*, ", ""], ids=["keyword-only", "positional-or-keyword"])
+def test_parameter_rename_leaves_a_shadowing_lambda_unchanged(typed_project: MakeProject, star: str) -> None:
+    root = typed_project({"pkg/s.py": SHADOWED.substitute(star=star, p=OLD, k=OLD)})
+    assert _rename(root, "pkg/s.py", _at(root, "pkg/s.py", OLD)) == 0
+    _expect(root, {"pkg/s.py": SHADOWED.substitute(star=star, p=NEW, k=NEW)})
+
+
 # --- hierarchy ----------------------------------------------------------------------------------------------------
 
 BASE = Template(

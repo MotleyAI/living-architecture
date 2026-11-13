@@ -29,6 +29,7 @@ from living_architecture.refactor.keyed import (
 )
 from living_architecture.refactor.move_edits import NameConflict
 from living_architecture.refactor.python_source import SourceFile
+from living_architecture.refactor.rope_patches import every_parameter
 from living_architecture.refactor.text_edits import TextEdit, apply_edits, merge_edits
 
 
@@ -151,9 +152,7 @@ _POSITIONED = (ast.stmt, ast.expr, ast.arg, ast.alias, ast.excepthandler, ast.pa
 
 def _parameter(fn: Function, name: str) -> ast.arg | None:
     """`fn`'s parameter `name`, of any kind."""
-    args = fn.args
-    every = [*args.posonlyargs, *args.args, args.vararg, *args.kwonlyargs, args.kwarg]
-    return next((a for a in every if a is not None and a.arg == name), None)
+    return next((a for a in every_parameter(fn.args) if a.arg == name), None)
 
 
 def _same_named(tree: ast.Module, fn: Function) -> list[Function]:
