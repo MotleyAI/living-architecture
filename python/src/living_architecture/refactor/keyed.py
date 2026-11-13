@@ -22,6 +22,13 @@ _PLAIN_STRING = re.compile(r"""(?:[rRuU])?(['"])(\w+)\1""")
 _LIST_LIKE = {"list", "List", "Sequence", "set", "Set", "frozenset", "FrozenSet"}
 _PYDANTIC_METHODS = {"model_validate", "model_construct", "model_copy", "model_dump", "model_dump_json"}
 _NONE_NAMES = {"None", "NoneType"}
+_DecoratorKind = Literal["static", "class", "plain"]
+_DECORATORS: dict[str, _DecoratorKind] = {
+    "builtins.staticmethod": "static",
+    "builtins.classmethod": "class",
+    "typing.override": "plain",
+    "typing_extensions.override": "plain",
+}
 
 
 class UnresolvedBase(Exception):
@@ -200,9 +207,38 @@ class TypeFacts:
         if len(spans) != 1 or spans[0].path != source.path or source.tree is None:
             return None
         return next(
-            (ClassRef(source, cls) for cls, fn in _methods(source.tree) if _receiver_offset(source, fn) == spans[0].start),
+            (
+                ClassRef(source, cls)
+                for cls, fn in _methods(source.tree)
+                if _receiver_offset(source, fn) == spans[0].start
+                and self.method_kind(source, fn, at_call=False) in ("class", "instance")
+            ),
             None,
         )
+
+    def _decorator(self, source: SourceFile, decorator: ast.expr) -> _DecoratorKind | None:
+        """What `decorator` does to a method's binding, as the checker resolves it; None for any other decorator."""
+        if not isinstance(decorator, (ast.Name, ast.Attribute)) or (name := source.name_span(decorator)) is None:
+            return None
+        kinds: set[_DecoratorKind | None] = {
+            _DECORATORS.get(f"{s.path.stem}.{self.span_text(s)}") for s in self.definition(source.path, name[0])
+        }
+        return kinds.pop() if len(kinds) == 1 else None
+
+    def method_kind(
+        self, source: SourceFile, fn: ast.FunctionDef | ast.AsyncFunctionDef, *, at_call: bool
+    ) -> Literal["static", "class", "instance"] | None:
+        """How method `fn`'s first parameter binds, inside its body or `at_call`; at a call, None when a decorator other
+        than `staticmethod`, `classmethod` or `override` may change it."""
+        kinds = {self._decorator(source, d) for d in fn.decorator_list} - {"plain"}
+        if at_call and None in kinds:
+            return None
+        kinds.discard(None)
+        if len(kinds) > 1:
+            return None
+        if "static" in kinds:
+            return "static"
+        return "class" if "class" in kinds else "instance"
 
     def annotation_class(self, source: SourceFile, expr: ast.expr) -> ClassRef | None:
         """The class an annotation expression names."""
@@ -219,16 +255,12 @@ def _name_node(expr: ast.expr) -> ast.Name | ast.Attribute | None:
     return expr if isinstance(expr, (ast.Name, ast.Attribute)) else None
 
 
-def _is_static(fn: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
-    return any(isinstance(d, ast.Name) and d.id == "staticmethod" for d in fn.decorator_list)
-
-
 def _methods(tree: ast.AST) -> Iterator[tuple[ast.ClassDef, ast.FunctionDef | ast.AsyncFunctionDef]]:
-    """Every non-static method with its class."""
+    """Every function in a class body, with its class."""
     for cls in ast.walk(tree):
         if isinstance(cls, ast.ClassDef):
             for fn in cls.body:
-                if isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)) and not _is_static(fn):
+                if isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
                     yield cls, fn
 
 
@@ -550,12 +582,16 @@ class KeyedRename:
         """The parameters `call`'s positional arguments fill; none when an instance method's binding is unproven."""
         assert callee.tree is not None
         params = [*fn.args.posonlyargs, *fn.args.args]
-        kind = _method_kind(callee.tree, fn)
-        if kind == "function":
+        if not any(isinstance(c, ast.ClassDef) and fn in c.body for c in ast.walk(callee.tree)):
+            return params
+        kind = self.facts.method_kind(callee, fn, at_call=True)
+        if kind == "static":
             return params
         if kind == "class":
             return params[1:]
-        binding = self._receiver_binding(source, call.func.value) if isinstance(call.func, ast.Attribute) else None
+        if kind is None or not isinstance(call.func, ast.Attribute):
+            return []
+        binding = self._receiver_binding(source, call.func.value)
         if binding == "class":
             return params
         return params[1:] if binding == "instance" else []
@@ -576,7 +612,10 @@ class KeyedRename:
     def _declares_instance(self, decl: SourceFile, span: Span) -> bool:
         if decl.tree is None:
             return False
-        if any(not _is_classmethod(fn) and _receiver_offset(decl, fn) == span.start for _, fn in _methods(decl.tree)):
+        if any(
+            _receiver_offset(decl, fn) == span.start and self.facts.method_kind(decl, fn, at_call=False) == "instance"
+            for _, fn in _methods(decl.tree)
+        ):
             return True
         ann = next((a for n in ast.walk(decl.tree) if (a := _annotation_declared_at(decl, n, span)) is not None), None)
         return isinstance(ann, (ast.Name, ast.Attribute)) and self.facts.annotation_class(decl, ann) is not None
@@ -608,17 +647,6 @@ class KeyedRename:
             cls = self.facts.annotation_class(callee, param.annotation)
             if cls is not None and self.facts.chain(cls).kind == "typeddict":
                 self._sink(source, value, lambda v, out, c=cls: self.dict_value(source, rel, v, c, out), bindings)
-
-
-def _is_classmethod(fn: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
-    return any(isinstance(d, ast.Name) and d.id == "classmethod" for d in fn.decorator_list)
-
-
-def _method_kind(tree: ast.AST, fn: ast.FunctionDef | ast.AsyncFunctionDef) -> Literal["function", "class", "instance"]:
-    """How a call binds `fn`'s leading parameter: not at all, to the class, or to the receiver instance."""
-    if _is_static(fn) or not any(isinstance(c, ast.ClassDef) and fn in c.body for c in ast.walk(tree)):
-        return "function"
-    return "class" if _is_classmethod(fn) else "instance"
 
 
 def _annotation_declared_at(source: SourceFile, node: ast.AST, span: Span) -> ast.expr | None:

@@ -353,6 +353,35 @@ def test_typeddict_arguments_bind_only_proven_parameters(typed_project: MakeProj
     assert _use_after(typed_project, use, owner="ModelDict") == expected
 
 
+def test_typeddict_arguments_follow_resolved_decorators(typed_project: MakeProject) -> None:
+    use = (
+        "import builtins\n"
+        "import functools\n"
+        "from typing import override\n\n"
+        "from pkg.models import ModelDict\n\n\n"
+        "class Base:\n"
+        "    def run(self, payload: ModelDict) -> None: ...\n\n\n"
+        "class Service(Base):\n"
+        "    @builtins.staticmethod\n"
+        "    def take(prefix: dict, payload: ModelDict) -> None: ...\n\n"
+        "    @builtins.classmethod\n"
+        "    def make(cls, payload: ModelDict) -> None: ...\n\n"
+        "    @override\n"
+        "    def run(self, payload: ModelDict) -> None: ...\n\n"
+        "    @functools.cache\n"
+        "    def cached(self, payload: ModelDict) -> None: ...\n\n\n"
+        "def use(svc: Service) -> None:\n"
+        '    svc.take({"columns": 0}, {"columns": 1})\n'
+        '    svc.make({"columns": 2})\n'
+        '    svc.run({"columns": 3})\n'
+        '    svc.cached({"columns": 4})\n'
+    )
+    expected = use
+    for n in (1, 2, 3):
+        expected = expected.replace(f'{{"columns": {n}}}', f'{{"fields": {n}}}')
+    assert _use_after(typed_project, use, owner="ModelDict") == expected
+
+
 def test_module_level_dict_variable_is_unchanged(typed_project: MakeProject) -> None:
     use = 'from pkg.models import Model\n\nraw = {"columns": []}\nm = Model.model_validate(raw)\n'
     root = typed_project({

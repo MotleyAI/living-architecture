@@ -31,7 +31,8 @@ What a rename leaves unrenamed:
 - for a field rename: dict keys that reach the model untyped (through `Any` or `dict[str, Any]`, `**kwargs`
   forwarding, merges, loaded data, a module-level variable), a dict passed by position to an instance method
   whose receiver is not provably its class or an instance (a local `s = Service()`: annotate it or pass by
-  keyword), consumers of `model_dump()` keyed on the old name, keys and keyword arguments of a field with an
+  keyword) or to a method with a decorator other than `staticmethod`, `classmethod` or `override`, consumers of
+  `model_dump()` keyed on the old name, keys and keyword arguments of a field with an
   alias, and keys on a model with an alias generator. Fixtures in a legacy format, validated through a migrating
   `mode="before"` validator, are rewritten like any other typed dict: restore their old keys by hand.
 
