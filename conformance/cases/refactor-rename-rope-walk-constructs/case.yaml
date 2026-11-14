@@ -6,7 +6,7 @@ args:
 - rename
 - --file
 - pkg/api.py
-- --name
+- --symbol
 - field
 - --new-name
 - describe

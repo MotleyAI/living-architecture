@@ -19,7 +19,7 @@ const STORE = `export class Store {
 }
 
 export interface Shape {
-  getModel(): number;
+  measure(): number;
 }
 
 export enum Color {
@@ -31,7 +31,7 @@ export namespace Ns {
   export const value = 1;
 }
 
-export type Options = { getModel: number; other: string };
+export type Options = { modelCount: number; other: string };
 
 export type Kind = 'edit_model' | 'drop';
 
@@ -57,7 +57,7 @@ const USE = `import { Color, Ns, Store, build, inner, make, type Kind, type Opti
 export function use(s: Store, o: Options, k: Kind, sh: Shape): number {
   const kind: Kind = 'edit_model';
   const blue = Color.Blue === 'blue' ? 1 : 0;
-  return s.getModel('a') + s.count() + o.getModel + sh.getModel() + Ns.value + build() + inner() + make() + blue + (k === kind ? 1 : 0);
+  return s.getModel('a') + s.count() + o.modelCount + sh.measure() + Ns.value + build() + inner() + make() + blue + (k === kind ? 1 : 0);
 }
 `;
 
@@ -78,10 +78,10 @@ const project = { 'src/store.ts': STORE, 'src/use.ts': USE };
 describe('symbol paths', () => {
   it.each([
     ['Store.getModel', 'getModel(modelName', 'loadModel', 0, 0],
-    ['Shape.getModel', 'getModel(): number;', 'measure', 0, 0],
+    ['Shape.measure', 'measure(): number;', 'area', 0, 0],
     ['Color.Blue', 'Blue =', 'Navy', 0, 0],
     ['Ns.value', 'value = 1', 'amount', 0, 0],
-    ['Options.getModel', 'getModel: number', 'modelCount', 0, 0],
+    ['Options.modelCount', 'modelCount: number', 'modelTotal', 0, 0],
     ['build.<locals>.inner', 'inner(): number', 'nested', 0, 0],
     ['inner', 'inner(): number', 'outer', 1, 0],
     ['make.<locals>.local', 'local = 3', 'three', 0, 0],

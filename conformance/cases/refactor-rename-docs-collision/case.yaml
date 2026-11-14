@@ -7,8 +7,8 @@ args:
 - rename
 - --file
 - pkg/engine.py
-- --name
-- recommend_root_model
+- --symbol
+- AcmeQueryEngine.recommend_root_model
 - --new-name
 - pick_root_model
 - --docs

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -22,9 +21,11 @@ from living_architecture.contract import message
 from living_architecture.lang import LanguageServerError
 from living_architecture.refactor.keyed import UnresolvedBase
 from living_architecture.refactor.move_edits import NameConflict, module_move_changes, symbol_move_changes
+from living_architecture.refactor.python_source import SourceFile
 from living_architecture.refactor.rename_union import FileChanged, RenameOptions, SymbolRename
 from living_architecture.refactor.rope_patches import WalkerGap, apply_rope_patches
 from living_architecture.refactor.sites import SiteError
+from living_architecture.refactor.symbol_path import Located, LocatorError, locate
 
 apply_rope_patches()
 
@@ -34,12 +35,12 @@ class RefactorError(Exception):
 
 
 class Locator(BaseModel):
-    """Where the symbol is: an offset, a 1-based line/column, or the first def/class/use of a name."""
+    """Where the symbol is: an offset, a 1-based line/column, or a declaration's path in the file."""
 
     offset: int | None = None
     line: int | None = None
     col: int | None = None
-    name: str | None = None
+    symbol: str | None = None
 
 
 def _offset_from_line_col(text: str, line: int, col: int) -> int:
@@ -49,24 +50,16 @@ def _offset_from_line_col(text: str, line: int, col: int) -> int:
     return sum(len(lines[i]) for i in range(line - 1)) + (col - 1)
 
 
-def _find_symbol_offset(text: str, name: str) -> int:
-    escaped = re.escape(name)
-    m = re.search(rf"^\s*(?:async\s+def|def|class)\s+({escaped})\b", text, re.MULTILINE)
-    if m:
-        return m.start(1)
-    m = re.search(rf"\b{escaped}\b", text)
-    if not m:
-        raise RefactorError(message("refactor.symbol-not-found", name=name))
-    return m.start()
-
-
-def _resolve_offset(locator: Locator, text: str) -> int:
+def _resolve(locator: Locator, file: str) -> tuple[int, Located | None]:
+    """The offset in rope's newline-normalized text of `file`, with what a `--symbol` path names."""
+    text = Path(file).read_text()
     if locator.offset is not None:
-        return locator.offset
+        return locator.offset, None
     if locator.line is not None:
-        return _offset_from_line_col(text, locator.line, locator.col or 1)
-    if locator.name is not None:
-        return _find_symbol_offset(text, locator.name)
+        return _offset_from_line_col(text, locator.line, locator.col or 1), None
+    if locator.symbol is not None:
+        located = locate(SourceFile(Path(file).resolve(), text), locator.symbol, file)
+        return located.offset, located
     raise RefactorError(message("refactor.no-locator"))
 
 
@@ -120,7 +113,7 @@ def _refusal(symbol: SymbolRename) -> list[str]:
 
 def rename(project: Project, *, file: str, locator: Locator, new_name: str, options: RenameOptions, apply: bool) -> int:
     """0 when renamed (or dry-run), 1 when a member rename refuses; the refusal on stderr."""
-    offset = _resolve_offset(locator, Path(file).read_text())
+    offset, _ = _resolve(locator, file)
     changes = None
     symbol = None
     try:
@@ -161,7 +154,9 @@ def rename(project: Project, *, file: str, locator: Locator, new_name: str, opti
 
 
 def move_symbol(project: Project, *, file: str, locator: Locator, dest: str, apply: bool) -> None:
-    offset = _resolve_offset(locator, Path(file).read_text())
+    offset, located = _resolve(locator, file)
+    if located is not None and not located.top_level:
+        raise RefactorError(message("refactor.not-movable", path=file))
     mover = cast(MoveGlobal, create_move(project, _resource(project, file), offset))
     target = cast(File, _destination(project, dest, folder=False))
     if target == mover.source:
@@ -182,7 +177,7 @@ def run_refactor(*, project_root: str, command: str, apply: bool, options: dict[
     project = Project(str(Path(project_root).resolve()), ropefolder=None)  # pyright: ignore[reportArgumentType]
     try:
         locator = Locator(
-            offset=options.get("offset"), line=options.get("line"), col=options.get("col"), name=options.get("name")
+            offset=options.get("offset"), line=options.get("line"), col=options.get("col"), symbol=options.get("symbol")
         )
         if command == "rename":
             return rename(
@@ -207,6 +202,9 @@ def run_refactor(*, project_root: str, command: str, apply: bool, options: dict[
             move_module(project, module=str(options["module"]), dest=str(options["dest"]), apply=apply)
     except SiteError as exc:
         print(message(exc.template, site=exc.site), file=sys.stderr)
+        return 2
+    except LocatorError as exc:
+        print(exc, file=sys.stderr)
         return 2
     except RefactorError as exc:
         print(exc, file=sys.stderr)

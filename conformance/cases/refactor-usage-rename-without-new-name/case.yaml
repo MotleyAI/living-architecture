@@ -6,7 +6,7 @@ args:
 - rename
 - --file
 - pkg/a.py
-- --name
+- --symbol
 - foo
 fixture: refactor-pkg
 git:

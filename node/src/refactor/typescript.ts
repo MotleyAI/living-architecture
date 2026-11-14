@@ -20,6 +20,7 @@ import { anyReceivers, formCalls, isAny, type MemberDeclaration, memberDeclarati
 import { codeMarked, type Mention, mentions, type Owner, qualified, type Region, sourceRegions } from './mentions.js';
 import { realPath, under } from './routing.js';
 import { Site, SiteError } from './sites.js';
+import { type Located, locate as locateSymbol, LocatorError } from './symbols.js';
 import { Workspace } from './workspace.js';
 
 export interface RefactorArgs {
@@ -30,7 +31,7 @@ export interface RefactorArgs {
   offset?: number;
   line?: number;
   col?: number;
-  name?: string;
+  symbol?: string;
   new_name?: string;
   in_hierarchy?: boolean;
   unsure?: string;
@@ -140,35 +141,17 @@ function* nodes(node: TS.Node): Generator<TS.Node> {
   for (const child of node.getChildren()) yield* nodes(child);
 }
 
-const DECLARATIONS = new Set<number>();
-
-function isNamedDeclaration(node: TS.Node, name: string): node is TS.NamedDeclaration & { name: TS.Identifier } {
-  if (DECLARATIONS.size === 0) {
-    const k = ts().SyntaxKind;
-    for (const kind of [
-      k.FunctionDeclaration,
-      k.ClassDeclaration,
-      k.InterfaceDeclaration,
-      k.TypeAliasDeclaration,
-      k.EnumDeclaration,
-      k.VariableDeclaration,
-      k.MethodDeclaration,
-      k.PropertyDeclaration,
-      k.MethodSignature,
-      k.PropertySignature,
-    ]) {
-      DECLARATIONS.add(kind);
-    }
+/** Where the locator points: --offset, --line/--col (code points), else the declaration --symbol names. */
+function locate(r: Refactor, file: string, text: string): Located {
+  if (r.args.offset !== undefined) return { file, position: locateOffset(text, r.args.offset), topLevel: false };
+  if (r.args.line !== undefined) return { file, position: locateLine(text, r.args.line, r.args.col ?? 1), topLevel: false };
+  if (r.args.symbol !== undefined) {
+    r.owner(file);
+    const program = r.services(file)[0]?.getProgram();
+    const source = program?.getSourceFile(file);
+    if (program === undefined || source === undefined) throw new RefactorError(message('refactor.ts-outside-project', { path: r.rel(file) }));
+    return locateSymbol(program.getTypeChecker(), source, r.args.symbol, r.args.file ?? '');
   }
-  const declared = (node as TS.NamedDeclaration).name;
-  return DECLARATIONS.has(node.kind) && declared !== undefined && ts().isIdentifier(declared) && declared.text === name;
-}
-
-/** The UTF-16 position the locator names: --offset, --line/--col (code points), else --name's first declaration or use. */
-function locate(args: RefactorArgs, path: string, text: string): number {
-  if (args.offset !== undefined) return locateOffset(text, args.offset);
-  if (args.line !== undefined) return locateLine(text, args.line, args.col ?? 1);
-  if (args.name !== undefined) return locateName(path, text, args.name);
   throw new RefactorError(message('refactor.no-locator'));
 }
 
@@ -189,17 +172,6 @@ function locateLine(text: string, line: number, col: number): number {
   const start = lines.slice(0, line - 1).reduce((sum, l) => sum + l.length, 0);
   const breaks = [...text.matchAll(new RegExp(LINE_BREAK, 'gu'))].slice(0, line - 1).reduce((sum, m) => sum + m[0].length, 0);
   return start + breaks + utf16(lineText, col - 1);
-}
-
-function locateName(path: string, text: string, name: string): number {
-  const file = sourceFile(path, text);
-  const all = [...nodes(file)];
-  const starts = (found: TS.Node[]): number[] => found.map((n) => n.getStart(file)).sort((a, b) => a - b);
-  const [declared] = starts(all.filter((n) => isNamedDeclaration(n, name)).map((n) => (n as TS.NamedDeclaration).name as TS.Node));
-  const [used] = starts(all.filter((n) => ts().isIdentifier(n) && n.text === name));
-  const position = declared ?? used;
-  if (position === undefined) throw new RefactorError(message('refactor.symbol-not-found', { name }));
-  return position;
 }
 
 interface Finding {
@@ -416,9 +388,9 @@ class TypescriptRename {
 function rename(r: Refactor): number {
   if (r.args.in_hierarchy === false) throw new RefactorError(message('refactor.ts-not-supported', { option: '--no-in-hierarchy' }));
   if (r.args.unsure === 'include') throw new RefactorError(message('refactor.ts-not-supported', { option: '--unsure include' }));
-  const file = r.inProject(r.args.file ?? '');
+  const located = locate(r, r.inProject(r.args.file ?? ''), readFileSync(r.inProject(r.args.file ?? ''), 'utf8'));
+  const { file, position } = located;
   const text = readFileSync(file, 'utf8');
-  const position = locate(r.args, file, text);
   r.owner(file);
   const services = r.services(file);
   const info = services[0]?.getRenameInfo(file, position, { allowRenameOfImportPath: false });
@@ -557,10 +529,11 @@ function moveSymbol(r: Refactor): number {
   const file = r.inProject(r.args.file ?? '');
   const dest = r.inProject(r.args.dest ?? '');
   if (!existsSync(dest) || !statSync(dest).isFile()) throw new RefactorError(message('refactor.destination-missing', { path: r.args.dest }));
-  const text = readFileSync(file, 'utf8');
-  const position = locate(r.args, file, text);
+  const located = locate(r, file, readFileSync(file, 'utf8'));
+  const { position } = located;
   r.owner(file);
   const notMovable = (): RefactorError => new RefactorError(message('refactor.not-movable', { path: r.rel(file) }));
+  if (r.args.symbol !== undefined && (!located.topLevel || located.file !== file)) throw notMovable();
   const services = r.services(file);
   const statement = services[0] === undefined ? null : topLevelStatement(services[0], file, position);
   if (statement === null) throw notMovable();
@@ -631,6 +604,10 @@ export function runTypescriptRefactor(args: RefactorArgs): number {
   } catch (error) {
     if (error instanceof SiteError) {
       process.stderr.write(`${message(error.template, { site: error.site })}\n`);
+      return 2;
+    }
+    if (error instanceof LocatorError) {
+      process.stderr.write(`${error.message}\n`);
       return 2;
     }
     if (!(error instanceof RefactorError)) throw error;

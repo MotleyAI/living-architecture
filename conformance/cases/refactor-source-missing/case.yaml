@@ -6,7 +6,7 @@ args:
 - rename
 - --file
 - pkg/nope.py
-- --name
+- --symbol
 - foo
 - --new-name
 - bar
