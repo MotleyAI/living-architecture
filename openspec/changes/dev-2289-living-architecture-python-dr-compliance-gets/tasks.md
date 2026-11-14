@@ -42,6 +42,14 @@
 - [x] 5.1 `docs/deterministic-refactoring.md`: the Python checks row adds `explicit-any`
 - [x] 5.2 `plugin/languages/python.md`: add the approved fix line (design.md decision 5) after `unannotated-attr`
 
+## 7. Review fixes
+
+- [x] 7.1 PEP 695: type parameters get an annotation scope in the explicit-any binder (design.md decision 11), with
+      unit tests skipped below Python 3.12
+- [x] 7.2 Python `dr-compliance` prints each file's findings in line order; unit test; re-bless
+      `compliance-all-checks`, `twin-forward-compliance`, `compliance-select-whitespace` and
+      `compliance-explicit-any-spellings` with the reason in the commit message
+
 ## 6. Gates
 
 - [x] 6.1 The local test scope (`la-affected-tests` plus the conformance cases and contract tests reached) passes in

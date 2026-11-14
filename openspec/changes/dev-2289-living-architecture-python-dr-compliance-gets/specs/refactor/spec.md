@@ -4,13 +4,13 @@
 Each language's `dr-compliance` checks SHALL be listed in the language registry. Without `--select`, every
 check of each file's language SHALL run. A selected id that no language lists SHALL exit 2; a selected id that
 only another language lists SHALL not apply to a file. Python's checks SHALL be `untyped-def`,
-`unannotated-attr`, `explicit-any`, `mock` and `rope-walk`. On files rope's walker fully covers and that reference
-no `Any`, Python's output SHALL be unchanged.
+`unannotated-attr`, `explicit-any`, `mock` and `rope-walk`. Each file's findings SHALL print in line order. On files
+rope's walker fully covers and that reference no `Any`, Python's output SHALL be unchanged apart from that order.
 
 #### Scenario: Python default unchanged
 - **WHEN** `dr-compliance pkg` runs without `--select` in a Python repo whose files rope's walker fully covers and
   reference no `Any`
-- **THEN** stdout equals today's golden
+- **THEN** stdout holds today's golden's lines, each file's in line order
 
 #### Scenario: Python default reports Any
 - **WHEN** `dr-compliance pkg/a.py` runs without `--select` and `pkg/a.py` has `def f(x: Any) -> None`

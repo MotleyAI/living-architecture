@@ -211,6 +211,41 @@ def test_class_scope(tmp_path: Path) -> None:
     assert _check(tmp_path, source) == [3, 4, 6]
 
 
+_PEP695 = pytest.mark.skipif(sys.version_info < (3, 12), reason="PEP 695 syntax needs Python 3.12")
+
+
+@_PEP695
+def test_type_parameters(tmp_path: Path) -> None:
+    source = _src(
+        "from typing import Any",
+        "def f[T: Any](x: T) -> T: ...",
+        "def g[Any](x: Any) -> Any: ...",
+        "class C[T: dict[str, Any]](Base[Any]): ...",
+        "type A[Any] = list[Any]",
+        "type B = list[Any]",
+        'def h[T: (int, "Any")](x: T = Any) -> T: ...',
+        "class D[Any]:",
+        "    x: Any",
+        "    def m(self, y: Any) -> None: ...",
+        "@deco(Any)",
+        "def k[Any](x: Any) -> None: ...",
+        'type F = list["Any"]',
+    )
+    assert _check(tmp_path, source) == [2, 4, 4, 6, 7, 7, 11, 13]
+
+
+@_PEP695
+def test_type_parameter_scope_sees_its_class(tmp_path: Path) -> None:
+    source = _src(
+        "class E:",
+        "    from typing import Any",
+        "    def m[T](self, x: Any, y: T) -> T: ...",
+        "    def n[T](self) -> None:",
+        "        z: Any = 1",
+    )
+    assert _check(tmp_path, source) == [3]
+
+
 def test_global(tmp_path: Path) -> None:
     source = _src(
         "from typing import Any",

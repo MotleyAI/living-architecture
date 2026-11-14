@@ -16,13 +16,19 @@ from living_architecture.contract import language, message
 TYPING_MODULES = frozenset({"typing", "typing_extensions"})
 _TYPE_COMMENT = re.compile(r"#\s*type:\s*(.*)")
 _COMPREHENSIONS = (ast.ListComp, ast.SetComp, ast.GeneratorExp, ast.DictComp)
+_TYPE_ALIAS: type[ast.stmt] | None = getattr(ast, "TypeAlias", None)  # Python 3.12+
 
-ScopeKind = Literal["module", "class", "function", "comprehension"]
+ScopeKind = Literal["module", "class", "function", "comprehension", "annotation"]
 # ("typing", member) is a member of typing / typing_extensions; ("module", dotted) a module; None anything else.
 Value = tuple[Literal["typing", "module"], str] | None
 # ("module", dotted, "") is `import`, ("member", module, name) `from module import name`; None any other binding.
 Binding = tuple[Literal["module", "member"], str | None, str] | None
 ANY: Value = ("typing", "Any")
+
+
+def _field(node: ast.AST, name: str) -> object:
+    """A field of `node` that Python 3.11's `ast` may lack (PEP 695), else None."""
+    return getattr(node, name, None)
 
 
 def _combine(values: list[Value]) -> Value:
@@ -42,11 +48,12 @@ class _Scope:
         self.nonlocals: set[str] = set()
 
     def _enclosing(self) -> Iterator[_Scope]:
-        """The enclosing function scopes, innermost first; class scopes are skipped."""
-        scope = self.parent
+        """The enclosing non-module scopes, innermost first; a class is skipped unless an annotation scope sits in it."""
+        scope, sees_class = self.parent, self.kind == "annotation"
         while scope is not None and scope.kind != "module":
-            if scope.kind != "class":
+            if scope.kind != "class" or sees_class:
                 yield scope
+            sees_class = sees_class and scope.kind == "annotation"
             scope = scope.parent
 
     def owner(self, name: str) -> _Scope:
@@ -109,8 +116,21 @@ class _Binder:
         if text is not None:
             self.comments.append(_CommentRoot(node, text, scope, signature))
 
-    def _signature(self, args: ast.arguments, scope: _Scope) -> list[ast.arg]:
-        """`args`' defaults, annotations and type comments read in `scope`; the parameters."""
+    def _type_params(self, node: ast.AST, scope: _Scope) -> _Scope:
+        """The PEP 695 annotation scope binding `node`'s type parameters, their bounds read in it; else `scope`."""
+        params = _field(node, "type_params")
+        if not isinstance(params, list) or not params:
+            return scope
+        inner = self._new("annotation", scope)
+        for param in params:
+            inner.raw[str(_field(param, "name"))].append(None)
+            for expr in (_field(param, "bound"), _field(param, "default_value")):
+                parts = expr.elts if isinstance(expr, ast.Tuple) else [expr]
+                self.annotations += [(part, inner) for part in parts if isinstance(part, ast.expr)]
+        return inner
+
+    def _signature(self, args: ast.arguments, scope: _Scope, annotated: _Scope) -> list[ast.arg]:
+        """`args`' defaults read in `scope`, annotations and type comments in `annotated`; the parameters."""
         params = [*args.posonlyargs, *args.args, args.vararg, *args.kwonlyargs, args.kwarg]
         for default in [*args.defaults, *args.kw_defaults]:
             if default is not None:
@@ -118,31 +138,43 @@ class _Binder:
         present = [p for p in params if p is not None]
         for param in present:
             if param.annotation is not None:
-                self.annotations.append((param.annotation, scope))
-            self._comment(param, param.type_comment, scope)
+                self.annotations.append((param.annotation, annotated))
+            self._comment(param, param.type_comment, annotated)
         return present
 
     def _function(self, node: ast.FunctionDef | ast.AsyncFunctionDef | ast.Lambda, scope: _Scope) -> None:
+        annotated = scope
         if not isinstance(node, ast.Lambda):
             for decorator in node.decorator_list:
                 self.visit(decorator, scope)
+            annotated = self._type_params(node, scope)
             if node.returns is not None:
-                self.annotations.append((node.returns, scope))
-            self._comment(node, node.type_comment, scope, signature=True)
+                self.annotations.append((node.returns, annotated))
+            self._comment(node, node.type_comment, annotated, signature=True)
             scope.raw[node.name].append(None)
-        inner = self._new("function", scope)
-        for param in self._signature(node.args, scope):
+        inner = self._new("function", annotated)
+        for param in self._signature(node.args, scope, annotated):
             inner.raw[param.arg].append(None)
         for child in node.body if isinstance(node.body, list) else [node.body]:
             self.visit(child, inner)
 
     def _class(self, node: ast.ClassDef, scope: _Scope) -> None:
-        for expr in [*node.decorator_list, *node.bases, *(k.value for k in node.keywords)]:
-            self.visit(expr, scope)
+        for decorator in node.decorator_list:
+            self.visit(decorator, scope)
+        annotated = self._type_params(node, scope)
+        for expr in [*node.bases, *(k.value for k in node.keywords)]:
+            self.visit(expr, annotated)
         scope.raw[node.name].append(None)
-        inner = self._new("class", scope)
+        inner = self._new("class", annotated)
         for stmt in node.body:
             self.visit(stmt, inner)
+
+    def _type_alias(self, node: ast.stmt, scope: _Scope) -> None:
+        """A `type` statement: the name binds in `scope`, the value is a type expression in its parameters' scope."""
+        if isinstance(name := _field(node, "name"), ast.AST):
+            self.visit(name, scope)
+        if isinstance(value := _field(node, "value"), ast.expr):
+            self.annotations.append((value, self._type_params(node, scope)))
 
     def _comprehension(self, node: ast.ListComp | ast.SetComp | ast.GeneratorExp | ast.DictComp, scope: _Scope) -> None:
         self.visit(node.generators[0].iter, scope)
@@ -179,45 +211,62 @@ class _Binder:
         return None
 
     def visit(self, node: ast.AST, scope: _Scope) -> None:
+        if self._scoped(node, scope) or self._leaf(node, scope):
+            return
+        self._record(node, scope)
+        for child in ast.iter_child_nodes(node):
+            self.visit(child, scope)
+
+    def _scoped(self, node: ast.AST, scope: _Scope) -> bool:
+        """Visits a node that opens a scope or imports; whether it was one."""
         if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.Lambda):
-            return self._function(node, scope)
-        if isinstance(node, ast.ClassDef):
-            return self._class(node, scope)
-        if isinstance(node, _COMPREHENSIONS):
-            return self._comprehension(node, scope)
-        if isinstance(node, ast.Import | ast.ImportFrom):
-            return self._imports(node, scope)
-        if isinstance(node, ast.Global):
-            scope.globals.update(node.names)
-        elif isinstance(node, ast.Nonlocal):
-            scope.nonlocals.update(node.names)
+            self._function(node, scope)
+        elif isinstance(node, ast.ClassDef):
+            self._class(node, scope)
+        elif isinstance(node, _COMPREHENSIONS):
+            self._comprehension(node, scope)
+        elif isinstance(node, ast.Import | ast.ImportFrom):
+            self._imports(node, scope)
+        elif _TYPE_ALIAS is not None and isinstance(node, _TYPE_ALIAS):
+            self._type_alias(node, scope)
+        else:
+            return False
+        return True
+
+    def _leaf(self, node: ast.AST, scope: _Scope) -> bool:
+        """Visits a name, walrus or annotated assignment; whether it was one."""
+        if isinstance(node, ast.Name):
+            if isinstance(node.ctx, ast.Load):
+                self.loads.append((node, scope))
+            else:
+                scope.raw[node.id].append(None)
         elif isinstance(node, ast.NamedExpr):
             target = scope
             while target.kind == "comprehension" and target.parent is not None:
                 target = target.parent
             target.raw[node.target.id].append(None)
-            return self.visit(node.value, scope)
-        elif isinstance(node, ast.Name):
-            if isinstance(node.ctx, ast.Load):
-                self.loads.append((node, scope))
-            else:
-                scope.raw[node.id].append(None)
-            return None
-        elif isinstance(node, ast.Attribute) and isinstance(node.ctx, ast.Load):
-            self.loads.append((node, scope))
+            self.visit(node.value, scope)
         elif isinstance(node, ast.AnnAssign):
             self.annotations.append((node.annotation, scope))
             for part in [node.target, node.value]:
                 if part is not None:
                     self.visit(part, scope)
-            return None
+        else:
+            return False
+        return True
+
+    def _record(self, node: ast.AST, scope: _Scope) -> None:
+        """Records what any other node declares, binds or loads itself, before its children are visited."""
+        if isinstance(node, ast.Global):
+            scope.globals.update(node.names)
+        elif isinstance(node, ast.Nonlocal):
+            scope.nonlocals.update(node.names)
+        elif isinstance(node, ast.Attribute) and isinstance(node.ctx, ast.Load):
+            self.loads.append((node, scope))
         elif isinstance(node, ast.Assign | ast.For | ast.AsyncFor | ast.With | ast.AsyncWith):
             self._comment(node, node.type_comment, scope)
         if (name := self._named_target(node)) is not None:
             scope.raw[name].append(None)
-        for child in ast.iter_child_nodes(node):
-            self.visit(child, scope)
-        return None
 
 
 def _literal_all(tree: ast.Module) -> set[str] | None:
@@ -276,7 +325,7 @@ class _Resolver:
             if path.is_file():
                 try:
                     return _Module(ast.parse(path.read_text(encoding="utf-8")), parts, is_package)
-                except (OSError, UnicodeDecodeError, SyntaxError, ValueError):
+                except (OSError, SyntaxError, ValueError):
                     return None
         return None
 
@@ -372,31 +421,38 @@ class _Reader:
         value = self.resolver.resolve(self.module, scope, node)
         if value is not None and value[0] == "typing":
             return value[1]
-        return node.id if isinstance(node, ast.Name) else node.attr if isinstance(node, ast.Attribute) else None
+        if isinstance(node, ast.Name):
+            return node.id
+        return node.attr if isinstance(node, ast.Attribute) else None
 
     def type_expression(self, node: ast.AST, scope: _Scope, line: int | None, forward: bool = True) -> None:
         """Reads a type expression; a string is a forward reference where `forward` allows one."""
         if isinstance(node, ast.Constant):
             if forward and isinstance(node.value, str):
-                parsed = _parse_expression(node.value)
-                if isinstance(parsed, ast.expr):
-                    self.type_expression(parsed, scope, line if line is not None else node.lineno)
-            return
-        if isinstance(node, ast.Subscript):
-            self._plain(node.value, scope, line)
-            head = self._head(node.value, scope)
-            elements = node.slice.elts if isinstance(node.slice, ast.Tuple) else [node.slice]
-            for i, element in enumerate(elements):
-                if head == "Literal" or (head == "Annotated" and i > 0):
-                    self._plain(element, scope, line)
-                else:
-                    self._element(element, scope, line)
-            return
-        if isinstance(node, ast.BinOp):
+                self._forward(node.value, scope, line if line is not None else node.lineno)
+        elif isinstance(node, ast.Subscript):
+            self._subscript(node, scope, line)
+        elif isinstance(node, ast.BinOp):
             for side in (node.left, node.right):
                 self.type_expression(side, scope, line, forward=False)
-            return
-        self._plain(node, scope, line)
+        else:
+            self._plain(node, scope, line)
+
+    def _forward(self, text: str, scope: _Scope, line: int) -> None:
+        parsed = _parse_expression(text)
+        if isinstance(parsed, ast.expr):
+            self.type_expression(parsed, scope, line)
+
+    def _subscript(self, node: ast.Subscript, scope: _Scope, line: int | None) -> None:
+        """`X[...]`: `Literal` arguments and `Annotated` metadata are plain expressions, other elements types."""
+        self._plain(node.value, scope, line)
+        head = self._head(node.value, scope)
+        elements = node.slice.elts if isinstance(node.slice, ast.Tuple) else [node.slice]
+        for i, element in enumerate(elements):
+            if head == "Literal" or (head == "Annotated" and i > 0):
+                self._plain(element, scope, line)
+            else:
+                self._element(element, scope, line)
 
     def _element(self, node: ast.expr, scope: _Scope, line: int | None) -> None:
         if isinstance(node, ast.List):
@@ -468,8 +524,8 @@ def _location(path: Path) -> tuple[Path, list[str], bool]:
     return root, parts[:-1] if is_package else parts, is_package
 
 
-def check_explicit_any(path: Path, source: str) -> list[str]:
-    """One `compliance.explicit-any` finding per reference to `Any` in a file that parses."""
+def check_explicit_any(path: Path, source: str) -> list[tuple[int, str]]:
+    """One `compliance.explicit-any` finding, with its line, per reference to `Any` in a file that parses."""
     root, parts, is_package = _location(path.resolve())
     tree, text = _parse_typed(source)
     module = _Module(tree, parts, is_package)
@@ -482,6 +538,6 @@ def check_explicit_any(path: Path, source: str) -> list[str]:
         reader.comment(comment, line)
     facts = language("python")
     return [
-        message("compliance.explicit-any", path=str(path), line=line, any=facts["any_type"], top=facts["top_type"])
+        (line, message("compliance.explicit-any", path=str(path), line=line, any=facts["any_type"], top=facts["top_type"]))
         for line in reader.lines()
     ]
