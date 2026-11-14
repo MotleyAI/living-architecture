@@ -8,11 +8,11 @@
 
 ## 2. Implementation (pr-implement stage)
 
-- [ ] 2.1 `shared/scripts/fetch-failed-pr-checks.sh`: `--check X` keeps failed checks whose Details URL or name equals X; verify 1.3 passes
-- [ ] 2.2 `shared/scripts/wait-for-reviews.sh`: one poll loop at `LA_WAIT_POLL_SECONDS` reading the gate, Sonar suites, CodeRabbit comments/reviews and settle evidence on every poll; progress to stderr; item lines to stdout with the design's keys; exit codes per the MODIFIED settle requirement; verify 1.1–1.2 pass
-- [ ] 2.3 State file at `git rev-parse --git-path la/reviews/<owner>/<repo>/<PR>.json`: read (missing → empty; malformed → warn + empty), re-read + union + atomic rename on write, warn and continue on a failed write, in-memory with a stderr note outside git; verify the state scenarios and 1.4 pass
-- [ ] 2.4 `shared/cli.yaml` help texts per design decision 14; update the script header comments and usage to match
-- [ ] 2.5 Run `scripts/sync-shared`; `scripts/sync-shared --check` passes
-- [ ] 2.6 Update the `stderr` goldens of every existing `shim-wait-for-reviews-*` case to the new progress output: by hand for the `golden: manual` cases (the update mode never writes them), with `LA_UPDATE_GOLDENS=1` for the rest; review the diff so only progress lines moved to stderr appear (the `stdout` goldens were aligned to the item lines in pr-tests); state the reason in the commit message
+- [x] 2.1 `shared/scripts/fetch-failed-pr-checks.sh`: `--check X` keeps failed checks whose Details URL or name equals X; verify 1.3 passes
+- [x] 2.2 `shared/scripts/wait-for-reviews.sh`: one poll loop at `LA_WAIT_POLL_SECONDS` reading the gate, Sonar suites, CodeRabbit comments/reviews and settle evidence on every poll; progress to stderr; item lines to stdout with the design's keys; exit codes per the MODIFIED settle requirement; verify 1.1–1.2 pass
+- [x] 2.3 State file at `git rev-parse --git-path la/reviews/<owner>/<repo>/<PR>.json`: read (missing → empty; malformed → warn + empty), re-read + union + atomic rename on write, warn and continue on a failed write, in-memory with a stderr note outside git; verify the state scenarios and 1.4 pass
+- [x] 2.4 `shared/cli.yaml` help texts per design decision 14; update the script header comments and usage to match
+- [x] 2.5 Run `scripts/sync-shared`; `scripts/sync-shared --check` passes
+- [x] 2.6 Update the `stderr` goldens of every existing `shim-wait-for-reviews-*` case to the new progress output: by hand for the `golden: manual` cases (the update mode never writes them), with `LA_UPDATE_GOLDENS=1` for the rest; review the diff so only progress lines moved to stderr appear (the `stdout` goldens were aligned to the item lines in pr-tests); state the reason in the commit message
 - [ ] 2.7 Apply the skill edits of design decisions 15 (`plugin/skills/process-reviews/SKILL.md`) and 16 (`plugin/skills/pr-review/SKILL.md`) verbatim; `npx -y @anthropic-ai/claude-code plugin validate plugin` passes
-- [ ] 2.8 Run the local test scope (`la-affected-tests --base main` plus the conformance corpus through both twins: `uv run pytest -q` in `python/` for the shim cases, `npm run build && npm run conformance` in `node/`), lint, `la-typecheck`, `la-check-conventions --base main`, `la-arch-check`, `openspec validate dev-2290-living-architecture-pr-review-polls-the-pr --strict`; all green
+- [x] 2.8 Run the local test scope (`la-affected-tests --base main` plus the conformance corpus through both twins: `uv run pytest -q` in `python/` for the shim cases, `npm run build && npm run conformance` in `node/`), lint, `la-typecheck`, `la-check-conventions --base main`, `la-arch-check`, `openspec validate dev-2290-living-architecture-pr-review-polls-the-pr --strict`; all green

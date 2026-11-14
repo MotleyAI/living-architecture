@@ -5,11 +5,12 @@ set -euo pipefail
 
 usage() {
     cat >&2 <<EOF
-usage: la-fetch-failed-pr-checks <PR_NUMBER> [--repo OWNER/REPO] [--max-log-lines N]
+usage: la-fetch-failed-pr-checks <PR_NUMBER> [--repo OWNER/REPO] [--max-log-lines N] [--check NAME]
 
   <PR_NUMBER>          required, the PR number
   --repo OWNER/REPO    optional, defaults to the current repo via gh repo view
   --max-log-lines N    tail each failed job's log excerpt at N lines (default: 200); a job-log API excerpt also keeps the earlier ##[error] lines
+  --check NAME          only the failed check named NAME
 
 Output: Markdown to stdout, full JSON to \${TMPDIR:-/tmp}/failed-pr-checks-<pr>-<ts>.json.
 EOF
@@ -19,6 +20,7 @@ EOF
 PR=""
 REPO=""
 MAX_LOG=200
+CHECK=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -32,6 +34,11 @@ while [[ $# -gt 0 ]]; do
             MAX_LOG="$2"; shift 2 ;;
         --max-log-lines=*)
             MAX_LOG="${1#--max-log-lines=}"; shift ;;
+        --check)
+            [[ $# -ge 2 ]] || usage
+            CHECK="$2"; shift 2 ;;
+        --check=*)
+            CHECK="${1#--check=}"; shift ;;
         -h|--help)
             usage ;;
         --)
@@ -68,11 +75,12 @@ command -v jq >/dev/null 2>&1 || { echo "error: jq is required" >&2; exit 127; }
 # - WorkflowRun    (rare): treated like CheckRun via fallback fields
 all_checks="$(gh pr view "$PR" --repo "$REPO" --json statusCheckRollup -q '.statusCheckRollup // []')"
 
-# Normalise + filter to non-passing terminal states.
-failed="$(echo "$all_checks" | jq '[
+# Normalise + filter to non-passing terminal states (and, with --check, to the one whose Details URL or name is it).
+failed="$(echo "$all_checks" | jq --arg check "$CHECK" '[
     .[]
     | (.conclusion // .state // "") as $c
     | select(($c | ascii_upcase) | IN("FAILURE","TIMED_OUT","CANCELLED","ACTION_REQUIRED","STARTUP_FAILURE","ERROR"))
+    | select($check == "" or (.detailsUrl // .targetUrl) == $check or (.name // .context) == $check)
     | {
         typename:      .__typename,
         name:          (.name // .context // null),

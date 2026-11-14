@@ -1,2 +1,3 @@
+Stage 0a: gate clear.
 Stage 0b: CodeRabbit reviews are PAUSED — no review ran for HEAD abc.
 Stage 0b: re-trigger with 'gh pr comment 7 --repo o/r --body "@coderabbitai review"' once the window clears.

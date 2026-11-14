@@ -4,6 +4,8 @@ args:
 - '7'
 - --repo
 - o/r
+env:
+  LA_WAIT_POLL_SECONDS: '0'
 gh:
 - match:
   - pr
