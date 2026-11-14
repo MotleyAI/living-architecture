@@ -1,0 +1,122 @@
+// A member name's receivers the checker types as `any`, the calls naming a member by a string, and the class,
+// interface and type-literal members declaring it: one scan behind `dr-compliance --attr` and a rename's guards.
+import type * as TS from 'typescript';
+import { language } from '../contract/index.js';
+import { ts } from '../lang/index.js';
+
+interface StringForm {
+  call: string;
+  object: number;
+  member: number;
+}
+
+/** A string-member call naming the member: its literal's inner span and its object argument. */
+export interface FormCall {
+  call: TS.CallExpression;
+  start: number;
+  end: number;
+  object: TS.Expression;
+}
+
+/** A class member declaration of the name: its name's start, its line (1-based) and its owner's name. */
+export interface MemberDeclaration {
+  path: string;
+  start: number;
+  line: number;
+  owner: string;
+}
+
+const FORMS = (): StringForm[] => language('typescript').string_member_calls as StringForm[];
+
+export function* walk(node: TS.Node): Generator<TS.Node> {
+  yield node;
+  for (const child of node.getChildren()) yield* walk(child);
+}
+
+export const isAny = (checker: TS.TypeChecker, node: TS.Node): boolean =>
+  (checker.getTypeAtLocation(node).flags & ts().TypeFlags.Any) !== 0; // NOSONAR(S1529) — TypeFlags bitmask test
+
+/** A single- or double-quoted string literal's inner span and text, without escapes. */
+export function plainString(node: TS.Node | undefined, source: TS.SourceFile): [number, number, string] | null {
+  if (node === undefined || !ts().isStringLiteral(node)) return null;
+  const raw = node.getText(source);
+  if (raw.slice(1, -1) !== node.text || !`'"`.includes(raw[0] ?? '')) return null;
+  const start = node.getStart(source) + 1;
+  return [start, start + node.text.length, node.text];
+}
+
+/** `callee` spelled `call`, its head declared outside the project's sources (a library or declaration file). */
+function resolvesTo(checker: TS.TypeChecker, callee: TS.Expression, call: string, source: TS.SourceFile): boolean {
+  if (callee.getText(source) !== call) return false;
+  let head: TS.Expression = callee;
+  while (ts().isPropertyAccessExpression(head)) head = head.expression;
+  let symbol = checker.getSymbolAtLocation(head);
+  if (symbol !== undefined && (symbol.flags & ts().SymbolFlags.Alias) !== 0) symbol = checker.getAliasedSymbol(symbol); // NOSONAR(S1529) — SymbolFlags bitmask test
+  const declarations = symbol?.declarations ?? [];
+  return declarations.length > 0 && declarations.every((d) => d.getSourceFile().isDeclarationFile);
+}
+
+/** The registry's string-member calls whose member literal is `name`. */
+export function formCalls(checker: TS.TypeChecker, source: TS.SourceFile, name: string): FormCall[] {
+  const out: FormCall[] = [];
+  for (const node of walk(source)) {
+    if (!ts().isCallExpression(node)) continue;
+    for (const form of FORMS()) {
+      const literal = plainString(node.arguments[form.member], source);
+      const object = node.arguments[form.object];
+      if (literal === null || literal[2] !== name || object === undefined || ts().isSpreadElement(object)) continue;
+      if (!resolvesTo(checker, node.expression, form.call, source)) continue;
+      out.push({ call: node, start: literal[0], end: literal[1], object });
+      break;
+    }
+  }
+  return out;
+}
+
+/** A receiver of `.name` typed `any`: a property access or a string-member call's object. */
+export interface AnyReceiver {
+  position: number;
+  receiver: string;
+}
+
+/** Every `x.name` and string-member object typed `any`, in position order. */
+export function anyReceivers(checker: TS.TypeChecker, source: TS.SourceFile, name: string): AnyReceiver[] {
+  const out: AnyReceiver[] = [];
+  for (const node of walk(source)) {
+    if (ts().isPropertyAccessExpression(node) && node.name.text === name && isAny(checker, node.expression)) {
+      out.push({ position: node.getStart(source), receiver: node.expression.getText(source) });
+    }
+  }
+  for (const found of formCalls(checker, source, name)) {
+    if (isAny(checker, found.object)) out.push({ position: found.call.getStart(source), receiver: found.object.getText(source) });
+  }
+  return out.sort((a, b) => a.position - b.position);
+}
+
+const OWNERS = (): Set<number> => {
+  const k = ts().SyntaxKind;
+  return new Set([k.ClassDeclaration, k.ClassExpression, k.InterfaceDeclaration, k.TypeLiteral]);
+};
+
+/** The name of a class, interface or type literal (the type alias or declaration holding it). */
+function ownerName(owner: TS.Node, source: TS.SourceFile): string {
+  for (let node: TS.Node | undefined = owner; node !== undefined && !ts().isSourceFile(node); node = node.parent) {
+    const name = (node as TS.NamedDeclaration).name;
+    if (name !== undefined && ts().isIdentifier(name)) return name.text;
+  }
+  return owner.getText(source).slice(0, 20);
+}
+
+/** Every member named `name` that a class, an interface or a type literal of `source` declares. */
+export function memberDeclarations(source: TS.SourceFile, name: string, path: string): MemberDeclaration[] {
+  const owners = OWNERS();
+  const out: MemberDeclaration[] = [];
+  for (const node of walk(source)) {
+    const declared = (node as TS.NamedDeclaration).name;
+    if (declared === undefined || node.parent === undefined || !owners.has(node.parent.kind)) continue;
+    if (!(ts().isIdentifier(declared) || ts().isPrivateIdentifier(declared)) || declared.text !== name) continue;
+    const start = declared.getStart(source);
+    out.push({ path, start, line: source.getLineAndCharacterOfPosition(start).line + 1, owner: ownerName(node.parent, source) });
+  }
+  return out;
+}

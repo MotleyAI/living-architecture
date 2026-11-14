@@ -54,6 +54,8 @@ export function runCompliance(paths: string[], select: string | null, attr: stri
   let groups: Map<string, string[]>;
   try {
     selected = complianceSelection(select);
+    if (selected?.has('attr-blindspot') === true && attr === null) throw new RoutingError(message('compliance.attr-required'));
+    if (selected !== null && !selected.has('attr-blindspot') && attr !== null) throw new RoutingError(message('compliance.attr-unselected'));
     groups = split('dr-compliance', paths);
   } catch (error) {
     if (!(error instanceof RoutingError)) throw error;

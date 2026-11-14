@@ -40,13 +40,13 @@
 - [x] 2.1 Python: `attr-blindspot` runs iff selected and `--attr` given; `compliance.attr-required` /
       `compliance.attr-unselected` exit 2; default output without `--attr` unchanged. Verify with unit tests and the
       "Selecting attr-blindspot", "attr-blindspot without --attr", "--attr outside the selection" scenarios.
-- [ ] 2.2 TypeScript: the same in `node/src/refactor/compliance.ts` and the CLI. Verify with Vitest.
-- [ ] 2.3 Unit test (both twins) pinning that every kind a `compliance.*` template prints, other than
+- [x] 2.2 TypeScript: the same in `node/src/refactor/compliance.ts` and the CLI. Verify with Vitest.
+- [x] 2.3 Unit test (both twins) pinning that every kind a `compliance.*` template prints, other than
       `parse-error`, is a registry check id.
 - [x] 2.4 Python scan: extend the `--attr` scan to the string-member forms (untyped object, or unresolved callee
       with the form's syntax and the literal NAME) as one reusable scan the rename also calls. Verify with the
       "String-member forms on untyped objects" scenario and a lookalike-callee negative test.
-- [ ] 2.5 TypeScript scan: the same for the TS forms with an `any` object. Verify with the "spyOn on an any
+- [x] 2.5 TypeScript scan: the same for the TS forms with an `any` object. Verify with the "spyOn on an any
       object" scenario.
 
 ## 3. --keep (both twins)
@@ -54,7 +54,7 @@
 - [x] 3.1 Python: parse and normalize `--keep PATH[:LINE]` (real project-relative paths, directory by whole
       components), drop matching edits after all rules ran, `refactor.keep-unmatched` exit 2. Verify with the
       `--keep` scenarios incl. `tests/compatible.py` vs `tests/compat`, and file + line keep together.
-- [ ] 3.2 TypeScript: the same. Verify with Vitest.
+- [x] 3.2 TypeScript: the same. Verify with Vitest.
 
 ## 4. Blind-spot refusal (both twins)
 
@@ -62,7 +62,7 @@
       refuse with sorted `attr-blindspot` / `unresolved-target` lines + `refactor.blindspots`, exit 1, nothing on
       stdout, nothing written; `--allow-blindspots` proceeds; kept lines exempt; non-member renames skip the scan.
       Verify with the "Member renames refuse on untyped receivers" scenarios.
-- [ ] 4.2 TypeScript: the same with the TS scan. Verify with "TypeScript any receiver" and Vitest.
+- [x] 4.2 TypeScript: the same with the TS scan. Verify with "TypeScript any receiver" and Vitest.
 
 ## 5. Stand-ins and --with / --without (both twins)
 
@@ -70,7 +70,7 @@
       declaring OLD (def, property, class or `self.` attribute, field); classify by `PATH:LINE` (every stand-in on
       the line, plus its hierarchy); resolve the joined symbol set first, then run every rule once on one snapshot;
       `refactor.stand-in` refusal, `refactor.not-stand-in` exit 2. Verify with the stand-in scenarios.
-- [ ] 5.2 TypeScript: hierarchy = the language service's rename declarations (merged interfaces included);
+- [x] 5.2 TypeScript: hierarchy = the language service's rename declarations (merged interfaces included);
       stand-ins = class / interface / type-literal members named OLD outside it, never object literals; `--with`
       adds that declaration's rename locations to the same edit set. Verify with "TypeScript structural class and
       object literal" and a noise case (several unrelated same-named members, each needing `--without`).
@@ -95,7 +95,7 @@
       refuse" (two folders, conflicting bindings, `__all__`-excluded star import, cycle, unresolved base), a target
       through a star import honouring `__all__`, plus a test that a `sitecustomize.py` marker is never written.
       The tests for the scenarios added by the DEV-2289 merge come from task 0.1.
-- [ ] 6.4 TypeScript forms: rewrite the member literal of the listed calls on a typed object or prototype. Verify
+- [x] 6.4 TypeScript forms: rewrite the member literal of the listed calls on a typed object or prototype. Verify
       with "TypeScript spyOn".
 
 ## 7. --docs (both twins)
@@ -105,48 +105,54 @@
       unambiguous); code-marked bare mentions in declaring files; the rest as sorted `refactor.leftover` lines;
       prose files from `config.source_files` with the shared extensions, qualified only. Verify with the `--docs`
       scenarios.
-- [ ] 7.2 TypeScript: the same over comments (incl. JSDoc, `Owner#OLD`, `{@link …}`), string and template-literal
+- [x] 7.2 TypeScript: the same over comments (incl. JSDoc, `Owner#OLD`, `{@link …}`), string and template-literal
       text, and the same prose files via `sourceFiles`. Verify with "TypeScript JSDoc link" and Vitest.
-- [ ] 7.3 Both: a mention another rule rewrote is not listed; without `--docs` nothing is scanned or listed.
+- [x] 7.3 Both: a mention another rule rewrote is not listed; without `--docs` nothing is scanned or listed.
       Verify with "Without --docs" and "Comments and messages untouched by default".
 
 ## 8. Conformance corpus
 
-- [ ] 8.1 One adapter case per language (`refactor-rename-*` / `refactor-ts-rename-*`, the corpus's convention for
+- [x] 8.1 One adapter case per language (`refactor-rename-*` / `refactor-ts-rename-*`, the corpus's convention for
       `dr-refactor`) under `conformance/cases/` for: blind-spot refusal and
       `--allow-blindspots`; both refusals under `--apply` (tree unchanged); stand-in refusal, `--with`,
       `--without`, same-line classification, `not-stand-in`; string-member forms; `--keep` (line, file, directory,
       unmatched); `--docs` (qualified, code-marked, leftovers, prose, collision); paired cases for `dr-compliance
       --select attr-blindspot` and both usage errors. Python-only adapter cases for dotted targets.
-- [ ] 8.2 List every new case in `conformance/INVENTORY.md`.
-- [ ] 8.3 Verify every new findings template is produced by a golden and each case passes through both invoking
+- [x] 8.2 List every new case in `conformance/INVENTORY.md`.
+- [x] 8.3 Verify every new findings template is produced by a golden and each case passes through both invoking
       twins (`scripts/conformance-cross`).
 
 ## 9. Skills and docs
 
-- [ ] 9.1 Apply design.md "Approved wording" verbatim to `plugin/skills/deterministic-refactor/SKILL.md`,
+- [x] 9.1 Apply design.md "Approved wording" verbatim to `plugin/skills/deterministic-refactor/SKILL.md`,
       `plugin/skills/make-refactor-target-compliant/SKILL.md`, `plugin/languages/python.md`,
       `plugin/languages/typescript.md`. Verify `npx -y @anthropic-ai/claude-code plugin validate plugin`.
-- [ ] 9.2 `docs/deterministic-refactoring.md`: append `attr-blindspot` to both rows of the `dr-compliance` table
+- [x] 9.2 `docs/deterministic-refactoring.md`: append `attr-blindspot` to both rows of the `dr-compliance` table
       (the Python row already lists `explicit-any` from DEV-2289) and name the new
       `rename` options in the tools paragraph; `docs/commands.md` likewise if it lists `rename` options. Verify the
       docs build/link checks the repo runs.
 
 ## 10. Verification
 
-- [ ] 10.1 Local test scope green in both twins; `ruff`, `basedpyright`, `npm run lint && npm run typecheck`,
+- [x] 10.1 Local test scope green in both twins; `ruff`, `basedpyright`, `npm run lint && npm run typecheck`,
       `la-arch-check` and `la-typecheck` pass; no existing golden changed except where a scenario above says so.
-- [ ] 10.2 From this checkout, dry-run on SLayer's DEV-1607 branch: a storage method rename with untyped fixtures
+- [x] 10.2 From this checkout, dry-run on SLayer's DEV-1607 branch: a storage method rename with untyped fixtures
       (expect the blind-spot refusal), `_ModelReadCache` (expect a stand-in), a
       `patch.object(SlayerQueryEngine, "save_model")` site, and `--docs` on a method with ``` ``get_model`` ```
       mentions; record the blind-spot scan's wall time here.
+      Done on `86f9c538^` (SLayer venv of the DEV-1607 worktree): `StorageBackend.get_model` refuses with 206
+      untyped receivers and 6 stand-ins (`_ModelReadCache`, `SlayerClient`, four test fakes), 33.6 s wall for the
+      whole dry-run; `StorageBackend.save_model` with `--docs --allow-blindspots --without` the one stand-in
+      rewrites the `monkeypatch.setattr` strings and ``` ``save_model`` ``` mentions, lists 109 leftovers, 41.4 s;
+      no `patch.object(SlayerQueryEngine, "save_model")` exists on the branch, so the class-object form was checked
+      on `patch.object(SlayerQueryEngine, "_side_stats", …)`, which is rewritten.
 
 ## 11. DEV-2289 merge (design decisions 25–34)
 
 - [x] 11.1 Merge `origin/egor/dev-2289-living-architecture-python-dr-compliance-gets` into this branch; resolve the
       `CONTRACT_HASH` conflicts with `scripts/sync-shared`; align the Python check-list pins in
       `python/tests/test_contract.py` and `python/tests/test_compliance.py`.
-- [ ] 11.2 After implementation, merge verification (decision 33): `scripts/sync-shared --check`; both twins'
+- [x] 11.2 After implementation, merge verification (decision 33): `scripts/sync-shared --check`; both twins'
       contract, snapshot and render tests; `compliance-help`, `compliance-select-other-language-check` and every
       `compliance-explicit-any-*` case through both invoking twins (`scripts/conformance-cross`); the
       findings-coverage test.

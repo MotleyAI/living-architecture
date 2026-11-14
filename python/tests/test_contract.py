@@ -812,7 +812,8 @@ def test_typescript_string_member_calls() -> None:
 def test_python_string_member_calls() -> None:
     calls = _string_member_calls("python")
     assert {"getattr", "setattr", "hasattr", "delattr"} <= set(calls)
-    assert [c for c in calls if c.endswith("MonkeyPatch.setattr")] and [c for c in calls if c.endswith("MonkeyPatch.delattr")]
+    assert [c for c in calls if c.endswith("MonkeyPatch.setattr")]
+    assert [c for c in calls if c.endswith("MonkeyPatch.delattr")]
     assert len([c for c in calls if c.endswith("patch.object")]) == 2
     assert len([c for c in calls if c.endswith(".patch")]) == 2
 
