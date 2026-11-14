@@ -134,7 +134,8 @@ the Python `explicit-any` check: a name resolves only when every module-level bi
 a cycle ends unresolved. A class attribute SHALL be looked up along the class's method resolution order over its
 statically resolved bases; reaching a base that does not resolve before the attribute is found SHALL leave the
 target unresolved. A target whose first segment is not a project top-level package and one of whose segments is
-OLD SHALL be listed with `refactor.leftover` (`{where}` `patch target`) and leave the exit code unchanged.
+OLD SHALL be listed with `refactor.leftover` (`{where}` `patch target`) and leave the exit code unchanged. In a
+rename of a symbol other than a member, a project target that does not resolve SHALL be listed the same way.
 
 #### Scenario: Receiver forms on instances and class objects
 - **WHEN** `SearchQueryEngine.save_model` is renamed and tests hold `patch.object(SearchQueryEngine, "save_model")`,
@@ -166,6 +167,10 @@ OLD SHALL be listed with `refactor.leftover` (`{where}` `patch target`) and leav
 #### Scenario: Unresolved targets
 - **WHEN** a test holds `patch("pkg.engine.Missing.save_model")` and `patch("thirdparty.mod.save_model")`
 - **THEN** the first is a blind spot (`refactor.unresolved-target`) and the second is listed as a `leftover`
+
+#### Scenario: Unresolved target in a class rename
+- **WHEN** class `SearchQueryEngine` is renamed and a test holds `patch("pkg.engine.Missing.SearchQueryEngine")`
+- **THEN** the target is unchanged and listed as a `leftover` with `{where}` `patch target`, and the exit code is 0
 
 #### Scenario: Target from tests into a src layout
 - **WHEN** `src/pkg/engine.py` declares `SearchQueryEngine.save_model`, `src` is a source folder, and
@@ -227,6 +232,8 @@ contract (`.md`, `.rst`, `.txt`). A mention SHALL be an occurrence of OLD not ad
 - A qualified mention SHALL be rewritten in every scanned file: `Owner.OLD`, or `Owner#OLD` in TypeScript, where
   `Owner` names a class of the renamed hierarchy (or, for a module-level symbol, the declaring module's last
   segment), optionally preceded by dotted segments that SHALL form a suffix of the declaring module's dotted path.
+  With such a prefix it SHALL be rewritten only when no other project class with that simple name that declares
+  OLD sits in a module whose dotted path also ends with those segments; otherwise it SHALL be listed.
   Without such a prefix it SHALL be rewritten only when no other project class with that simple name declares OLD;
   otherwise it SHALL be listed.
 - In a declaring file (a source file holding a renamed declaration, `--with` stand-ins included), a code-marked
@@ -256,6 +263,12 @@ SHALL be unchanged and unlisted.
   `--without`, and a comment says `SearchQueryEngine.recommend_root_model`
 - **THEN** that mention is listed, not rewritten, while `engine.SearchQueryEngine.recommend_root_model` (matching
   the declaring module's path) is rewritten
+
+#### Scenario: Prefix shared by two modules
+- **WHEN** `pkg1.engine.SearchQueryEngine.recommend_root_model` is renamed, `pkg2.engine.SearchQueryEngine` also
+  declares `recommend_root_model` and is passed with `--without`, and a comment says
+  `engine.SearchQueryEngine.recommend_root_model`
+- **THEN** that mention is listed, while `pkg1.engine.SearchQueryEngine.recommend_root_model` is rewritten
 
 #### Scenario: Git-ignored prose skipped
 - **WHEN** `build/notes.md` is git-ignored and mentions `SearchQueryEngine.recommend_root_model`

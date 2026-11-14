@@ -97,16 +97,17 @@ export function mentions(text: string, old: string, regions: Region[]): Mention[
   return out;
 }
 
-/** `Owner.OLD` or `Owner#OLD`, with an optional dotted prefix naming the owner's module from its end. */
-export function qualified(text: string, start: number, owners: Owner[], colliding: Set<string>): boolean {
+/** Whether `path` ends with `segments`. */
+const endsWith = (path: string[], segments: string[]): boolean =>
+  segments.length <= path.length && path.slice(path.length - segments.length).join('.') === segments.join('.');
+
+/** `Owner.OLD` or `Owner#OLD`, with an optional dotted prefix naming the owner's module from its end, naming no
+ * `colliding` class (the qualifying paths of other classes declaring OLD). */
+export function qualified(text: string, start: number, owners: Owner[], colliding: string[][]): boolean {
   const segments = qualifierSegments(text, start);
   if (segments === null) return false;
-  const bare = segments.length === 1 ? segments[0] : undefined;
-  return owners.some((owner) => {
-    const tail = owner.path.slice(owner.path.length - segments.length);
-    if (segments.length > owner.path.length || tail.join('.') !== segments.join('.')) return false;
-    return bare === undefined || !owner.member || !colliding.has(bare);
-  });
+  const ambiguous = colliding.some((path) => endsWith(path, segments));
+  return owners.some((owner) => endsWith(owner.path, segments) && (!owner.member || !ambiguous));
 }
 
 /** In backticks (optionally followed by `()`), a `{@link}` or role target, or opening its string before `:`, `(` or

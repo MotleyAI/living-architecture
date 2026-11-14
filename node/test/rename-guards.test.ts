@@ -42,11 +42,14 @@ describe('mentions', () => {
   it('qualifies by owner, module suffix and collisions', () => {
     const at = (text: string) => text.lastIndexOf('saveModel');
     for (const text of ['Engine.saveModel', 'Engine#saveModel', 'engine.Engine.saveModel', 'src.engine.Engine#saveModel']) {
-      expect(qualified(text, at(text), owners, new Set())).toBe(true);
+      expect(qualified(text, at(text), owners, [])).toBe(true);
     }
-    expect(qualified('other.Engine.saveModel', at('other.Engine.saveModel'), owners, new Set())).toBe(false);
-    expect(qualified('Engine.saveModel', 7, owners, new Set(['Engine']))).toBe(false);
-    expect(qualified('e.saveModel', 2, owners, new Set())).toBe(false);
+    expect(qualified('other.Engine.saveModel', at('other.Engine.saveModel'), owners, [])).toBe(false);
+    expect(qualified('Engine.saveModel', 7, owners, [['lib', 'Engine']])).toBe(false);
+    expect(qualified('e.saveModel', 2, owners, [])).toBe(false);
+    const libEngine = [['lib', 'engine', 'Engine']];
+    expect(qualified('engine.Engine.saveModel', at('engine.Engine.saveModel'), owners, libEngine)).toBe(false);
+    expect(qualified('src.engine.Engine.saveModel', at('src.engine.Engine.saveModel'), owners, libEngine)).toBe(true);
   });
 
   it('marks backticks, links and a string opening with the name', () => {

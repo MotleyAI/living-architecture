@@ -559,22 +559,22 @@ class SymbolRename:
     def _target_edit(
         self, rel: str, line: int, call: FormCall, folders: SourceFolders, targets: TargetResolver, member: bool
     ) -> None:
-        """One dotted target's renamed segments rewritten; else listed, or refused when `member`."""
+        """One dotted target's renamed segments rewritten; an external target listed, an unresolved project one
+        refused when `member`, else listed."""
         start = call.literal[0]
         segments = call.text.split(".")
         offset = start
         for segment in segments:
             self._handled.add((rel, offset))
             offset += len(segment) + 1
-        if not folders.top_level(segments[0]):
+        resolved = targets.resolve(call.text) if folders.top_level(segments[0]) else None
+        if resolved is None and member and folders.top_level(segments[0]):
+            self.blindspots.append(Finding(path=rel, line=line, col=start, text=message(
+                "refactor.unresolved-target", path=rel, line=line, target=call.text, attr=self.old)))
+            return
+        if resolved is None:
             self.leftovers.append(Finding(path=rel, line=line, col=start, text=message(
                 "refactor.leftover", path=rel, line=line, where="patch target", old=self.old)))
-            return
-        resolved = targets.resolve(call.text)
-        if resolved is None:
-            if member:
-                self.blindspots.append(Finding(path=rel, line=line, col=start, text=message(
-                    "refactor.unresolved-target", path=rel, line=line, target=call.text, attr=self.old)))
             return
         offset = start
         for segment, declared in zip(segments, resolved, strict=True):
@@ -605,12 +605,22 @@ class SymbolRename:
                     out.add(Owner(path=module + tuple(c.name for c in chain), member=True))
         return out
 
+    def _class_path(self, d: Declaration) -> tuple[str, ...]:
+        """The qualifying path (module segments, then classes) of the class declaring `d`."""
+        module = tuple(libutils.modname(self.project.get_resource(d.rel)).split("."))
+        tree = self.snapshot.source(d.rel).tree
+        for chain in _class_chains(tree) if tree is not None else ():
+            source = self.snapshot.source(d.rel)
+            if any((span := source.name_span(n)) is not None and span[0] == d.start for n in member_declarations(chain[-1], self.old)):
+                return module + tuple(c.name for c in chain)
+        return (*module, d.cls)
+
     def _mention_edits(self) -> None:
         renamed = {(d.rel, d.start) for d in self._declarations} & self.seeds
         rules = MentionRules(
             old=self.old,
             owners=frozenset(self._owners()),
-            colliding=frozenset(d.cls for d in self._declarations if (d.rel, d.start) not in renamed),
+            colliding=frozenset(self._class_path(d) for d in self._declarations if (d.rel, d.start) not in renamed),
         )
         handled = self._handled | {(e.path, e.start) for e in self.edits}
         declaring = {rel for rel, _ in self.seeds}

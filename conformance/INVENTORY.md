@@ -450,8 +450,10 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | *(new)* stand-ins classified: `--with` renames one and its subclass, `--without` leaves several, one line classifies every stand-in on it; a line with none: `not-stand-in` | 0/2 | `refactor-rename-stand-in-with`, `refactor-rename-stand-in-without`, `refactor-rename-stand-in-same-line`, `refactor-rename-not-stand-in` |
 | *(new)* members named by string on typed objects (lookalike callees untouched); dotted patch targets (a member through a re-export, a class segment); an unresolved project target refuses; an external one is a `leftover` | 0/1 | `refactor-rename-string-members`, `refactor-rename-patch-targets`, `refactor-rename-patch-target-class`, `refactor-rename-patch-target-unresolved`, `refactor-rename-patch-target-external` |
 | *(new)* string-member forms through an imported alias; call objects in any source order, before the declaration; a union of a renamed and an unrenamed class refuses (`mixed-target`); `--docs` leaves a listed patch target whole | 0/1 | `refactor-rename-string-member-alias`, `refactor-rename-string-member-probe-order`, `refactor-rename-mixed-target`, `refactor-rename-patch-target-docs` |
+| *(new)* a class rename lists an unresolved project patch target as a `leftover` | 0 | `refactor-rename-patch-target-class-unresolved` |
 | *(new)* `--keep` a line, a file and a directory (whole components); an unmatched keep | 0/2 | `refactor-rename-keep`, `refactor-rename-keep-unmatched` |
 | *(new)* `--docs`: qualified, code-marked and prose mentions rewritten, the rest listed as `leftover`, git-ignored prose untouched; a simple-name collision listed; without `--docs` nothing changes | 0 | `refactor-rename-docs`, `refactor-rename-docs-collision`, `refactor-rename-without-docs` |
+| *(new)* `--docs`: a module prefix two same-named classes share is listed, one only the renamed class has is rewritten | 0 | `refactor-rename-docs-prefix-collision` |
 
 ## dr-refactor: TypeScript
 
@@ -467,6 +469,7 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | *(new)* `--keep` a line, a file and a directory (whole components); a line counted across U+2028 and a lone CR; an unmatched keep | 0/2 | `refactor-ts-rename-keep`, `refactor-ts-rename-keep-line-separators`, `refactor-ts-rename-keep-unmatched` |
 | *(new)* `--docs`: `{@link}`, `Owner#OLD`, backticks, a template-literal prefix and prose rewritten, the rest listed as `leftover`, git-ignored prose untouched; a simple-name collision listed; without `--docs` nothing changes | 0 | `refactor-ts-rename-docs`, `refactor-ts-rename-docs-collision`, `refactor-ts-rename-without-docs` |
 | *(new)* `--docs`: a non-ASCII letter after the old name makes another name | 0 | `refactor-ts-rename-docs-unicode-boundary` |
+| *(new)* `--docs`: a module prefix two same-named classes share is listed, one only the renamed class has is rewritten | 0 | `refactor-ts-rename-docs-prefix-collision` |
 | *(new)* rename across project references, each project with its own options (a `paths` alias); paths from a subdirectory with `--project ..`; the tsconfig `index.yaml` names | 0 | `refactor-ts-project-references`, `refactor-ts-from-subdirectory`, `refactor-ts-index-tsconfig` |
 | *(new)* no `index.yaml` tsconfig: the file's nearest tsconfig.json (no root one; a root one that does not contain the file) | 0 | `refactor-ts-nested-tsconfig`, `refactor-ts-nested-tsconfig-root-elsewhere` |
 | *(new)* the tsconfig `index.yaml` names does not exist | 1 | `refactor-ts-index-tsconfig-missing` |

@@ -43,27 +43,27 @@ class Mention(BaseModel):
 
 
 class MentionRules(BaseModel):
-    """What makes a mention rewritable: the renamed declarations' owners, and the simple class names other project
-    classes declaring the old name also use."""
+    """What makes a mention rewritable: the renamed declarations' owners, and the qualifying paths of the other
+    project classes declaring the old name."""
 
     model_config = ConfigDict(frozen=True)
 
     old: str
     owners: frozenset[Owner]
-    colliding: frozenset[str]
+    colliding: frozenset[tuple[str, ...]]
 
     def qualified(self, text: str, start: int) -> bool:
-        """`Owner.OLD` with an optional dotted prefix naming the owner's module from its end."""
+        """`Owner.OLD` with an optional dotted prefix naming the owner's module from its end, naming no other class."""
         segments = _qualifier_segments(text, start)
         if segments is None:
             return False
-        bare = segments[0] if len(segments) == 1 else None
-        for owner in self.owners:
-            if len(segments) > len(owner.path) or list(owner.path[len(owner.path) - len(segments) :]) != segments:
-                continue
-            if bare is None or not owner.member or bare not in self.colliding:
-                return True
-        return False
+        named = tuple(segments)
+        ambiguous = any(path[len(path) - len(named) :] == named for path in self.colliding if len(path) >= len(named))
+        return any(
+            owner.path[len(owner.path) - len(named) :] == named and (not owner.member or not ambiguous)
+            for owner in self.owners
+            if len(named) <= len(owner.path)
+        )
 
 
 def _qualifier_segments(text: str, start: int) -> list[str] | None:

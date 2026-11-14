@@ -1,0 +1,18 @@
+Renaming <recommend_root_model> to <suggest_root_model>:
+
+
+--- a/pkg1/engine.py
++++ b/pkg1/engine.py
+@@ -1,5 +1,5 @@
+ class SearchQueryEngine:
+-    """See engine.SearchQueryEngine.recommend_root_model and pkg1.engine.SearchQueryEngine.recommend_root_model."""
++    """See engine.SearchQueryEngine.recommend_root_model and pkg1.engine.SearchQueryEngine.suggest_root_model."""
+ 
+-    def recommend_root_model(self) -> None:
++    def suggest_root_model(self) -> None:
+         pass
+
+
+
+APPLIED. 1 file(s) changed:
+  pkg1/engine.py

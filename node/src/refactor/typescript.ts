@@ -403,7 +403,9 @@ class TypescriptRename {
   /** `--docs`: qualified and code-marked mentions rewritten, the rest listed. */
   docs(): void {
     const owners = this.owners();
-    const colliding = new Set(this.declarations.filter((d) => !this.renamed.has(keyOf(d.path, d.start))).map((d) => d.owner));
+    const colliding = this.declarations
+      .filter((d) => !this.renamed.has(keyOf(d.path, d.start)))
+      .map((d) => [...modulePath(this.r, d.path), d.owner]);
     for (const [path, found, declaring] of this.mentionFiles()) {
       const text = this.text(path);
       for (const m of found) {
