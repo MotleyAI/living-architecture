@@ -1,0 +1,42 @@
+kind: neutral
+command: la-wait-for-reviews
+args:
+- '7'
+- --repo
+- o/r
+env:
+  LA_WAIT_POLL_SECONDS: '0'
+git:
+- write:
+    .git/la/reviews/o/r/7.json: '{"printed": []}
+
+      '
+gh:
+- match:
+  - pr
+  - view
+  - headRefOid,statusCheckRollup
+  responses:
+  - stdout:
+      headRefOid: abcdef0123
+      statusCheckRollup:
+      - __typename: CheckRun
+        name: tests
+        status: COMPLETED
+        conclusion: FAILURE
+        detailsUrl: https://github.com/o/r/actions/runs/1/job/2
+- match:
+  - repos/o/r/issues/7/comments
+  stdout:
+  - user:
+      login: alice
+    updated_at: '2026-01-02T00:00:00Z'
+    body: LGTM
+- match:
+  - repos/o/r/commits/abcdef0123/check-suites
+  stdout:
+    check_suites: []
+expect:
+  exit: 0
+golden: manual
+note: a state file with no printed keys counts as empty

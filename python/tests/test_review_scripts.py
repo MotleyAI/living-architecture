@@ -836,7 +836,8 @@ def test_wait_failed_read_is_never_an_answer(fake_gh, run_script, source, termin
     r = _wait(fake_gh, run_script, routes)
     # A failed snapshot or suites read also keeps the gate closed until its timeout.
     expected = (1, "") if source in ("snapshot", "suites") else (0, _settled("cap"))
-    assert (r.returncode, r.stdout) == expected, r.stderr
+    actual = (r.returncode, r.stdout)
+    assert actual == expected, r.stderr
 
 
 @pytest.mark.usefixtures("fast_wait")

@@ -120,6 +120,7 @@ state_read() {
     while IFS= read -r key; do
         [[ -n "$key" ]] && SEEN[$key]=1
     done <<<"$keys"
+    return 0
 }
 
 # Re-reads the state file and replaces it atomically with its union with SEEN; a failed write warns.
@@ -138,13 +139,13 @@ state_write() {
 
 # Prints each "<key>\t<line>" of $1 whose key is unseen, then records the keys.
 emit() {
-    local key line new=0
+    local items=$1 key line new=0
     while IFS=$'\t' read -r key line; do
         [[ -n "$key" && -z "${SEEN[$key]:-}" ]] || continue
         SEEN[$key]=1
         printf '%s\n' "$line"
         new=1
-    done <<<"$1"
+    done <<<"$items"
     if (( new )); then
         state_write
     fi

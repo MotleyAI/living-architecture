@@ -57,7 +57,7 @@ Arm `la-wait-for-reviews <PR>` with the Monitor tool (`timeout_ms` at its maximu
 - `coderabbit-settled <sha> <outcome>`: reviewed, carried-forward, rate-limited, paused, or cap;
 - `head-moved <old> <new>`.
 
-On each event, run Steps 1–4 for that item alone, at once: `la-fetch-failed-pr-checks <PR> --check <check>` for a failed check, `la-fetch-coderabbit-threads <PR>` for a CodeRabbit item (triage only the named comment or review), the Sonar calls of Step 1 for `sonar-done`. If the Monitor expires before the command exits, re-arm the same command; it prints only what is new.
+On each event, run Steps 1–4 for that item alone, at once: `la-fetch-failed-pr-checks <PR> --check <url>` for a failed check (`--check <check>` when `<url>` is `-`), `la-fetch-coderabbit-threads <PR>` for a CodeRabbit item (triage only the named comment or review), the Sonar calls of Step 1 for `sonar-done`. If the Monitor expires before the command exits, re-arm the same command; it prints only what is new.
 
 It exits 0 when every check on HEAD is terminal and CodeRabbit has settled on HEAD (or is not on the PR, or the 10-minute settle cap after the checks finish ran out), 1 if the checks do not finish within 30 minutes, and 3 when CodeRabbit was rate limited or paused on HEAD, once the checks finish.
 

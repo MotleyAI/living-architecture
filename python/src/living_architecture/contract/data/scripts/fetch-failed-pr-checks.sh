@@ -21,6 +21,7 @@ PR=""
 REPO=""
 MAX_LOG=200
 CHECK=""
+HAS_CHECK=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -36,9 +37,9 @@ while [[ $# -gt 0 ]]; do
             MAX_LOG="${1#--max-log-lines=}"; shift ;;
         --check)
             [[ $# -ge 2 ]] || usage
-            CHECK="$2"; shift 2 ;;
+            CHECK="$2"; HAS_CHECK=true; shift 2 ;;
         --check=*)
-            CHECK="${1#--check=}"; shift ;;
+            CHECK="${1#--check=}"; HAS_CHECK=true; shift ;;
         -h|--help)
             usage ;;
         --)
@@ -76,11 +77,11 @@ command -v jq >/dev/null 2>&1 || { echo "error: jq is required" >&2; exit 127; }
 all_checks="$(gh pr view "$PR" --repo "$REPO" --json statusCheckRollup -q '.statusCheckRollup // []')"
 
 # Normalise + filter to non-passing terminal states (and, with --check, to the one whose Details URL or name is it).
-failed="$(echo "$all_checks" | jq --arg check "$CHECK" '[
+failed="$(echo "$all_checks" | jq --arg check "$CHECK" --argjson has_check "$HAS_CHECK" '[
     .[]
     | (.conclusion // .state // "") as $c
     | select(($c | ascii_upcase) | IN("FAILURE","TIMED_OUT","CANCELLED","ACTION_REQUIRED","STARTUP_FAILURE","ERROR"))
-    | select($check == "" or (.detailsUrl // .targetUrl) == $check or (.name // .context) == $check)
+    | select(($has_check | not) or (.detailsUrl // .targetUrl) == $check or (.name // .context) == $check)
     | {
         typename:      .__typename,
         name:          (.name // .context // null),
