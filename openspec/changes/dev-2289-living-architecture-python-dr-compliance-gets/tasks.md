@@ -19,31 +19,31 @@
 
 ## 2. Shared contract
 
-- [ ] 2.1 `shared/languages.yaml`: Python `compliance_checks` becomes `[untyped-def, unannotated-attr, explicit-any,
+- [x] 2.1 `shared/languages.yaml`: Python `compliance_checks` becomes `[untyped-def, unannotated-attr, explicit-any,
       mock, rope-walk]`; add `any_type` / `top_type` to both languages and document them in the header comment
-- [ ] 2.2 `shared/findings.yaml`: `compliance.explicit-any` takes `{any}` / `{top}` (approved wording in design.md
+- [x] 2.2 `shared/findings.yaml`: `compliance.explicit-any` takes `{any}` / `{top}` (approved wording in design.md
       decision 4); `shared/cli.yaml`: the `dr-compliance` help lists `explicit-any` among Python's checks
-- [ ] 2.3 Run `scripts/sync-shared`; `scripts/sync-shared --check` passes
+- [x] 2.3 Run `scripts/sync-shared`; `scripts/sync-shared --check` passes
 
 ## 3. Python twin
 
-- [ ] 3.1 New check module in `living_architecture.refactor` implementing resolution per the spec (reuse `lang`'s
+- [x] 3.1 New check module in `living_architecture.refactor` implementing resolution per the spec (reuse `lang`'s
       Python import helpers where they fit; AST only, no import of target code); wire it into `compliance.py`'s
       `check_path` under `explicit-any`; update the module docstring's check list; unit tests from 1.1/1.2 pass
-- [ ] 3.2 `uv run ruff check src tests` and `uv run basedpyright src tests` are clean in `python/`
+- [x] 3.2 `uv run ruff check src tests` and `uv run basedpyright src tests` are clean in `python/`
 
 ## 4. npm twin
 
-- [ ] 4.1 `node/src/refactor/compliance.ts` passes `any` / `top` from the TypeScript language facts; TypeScript
+- [x] 4.1 `node/src/refactor/compliance.ts` passes `any` / `top` from the TypeScript language facts; TypeScript
       goldens unchanged; `npm run lint && npm run typecheck` and the node contract test pass
 
 ## 5. Docs
 
-- [ ] 5.1 `docs/deterministic-refactoring.md`: the Python checks row adds `explicit-any`
-- [ ] 5.2 `plugin/languages/python.md`: add the approved fix line (design.md decision 5) after `unannotated-attr`
+- [x] 5.1 `docs/deterministic-refactoring.md`: the Python checks row adds `explicit-any`
+- [x] 5.2 `plugin/languages/python.md`: add the approved fix line (design.md decision 5) after `unannotated-attr`
 
 ## 6. Gates
 
-- [ ] 6.1 The local test scope (`la-affected-tests` plus the conformance cases and contract tests reached) passes in
+- [x] 6.1 The local test scope (`la-affected-tests` plus the conformance cases and contract tests reached) passes in
       both twins; `scripts/conformance-cross` for the new and changed cases passes
-- [ ] 6.2 Enforcement bundle green: `la-arch-check`, LikeC4 validation, `la-typecheck` against its baseline
+- [x] 6.2 Enforcement bundle green: `la-arch-check`, LikeC4 validation, `la-typecheck` against its baseline
