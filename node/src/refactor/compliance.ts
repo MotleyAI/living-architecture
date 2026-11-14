@@ -4,6 +4,7 @@ import type * as TS from 'typescript';
 import { language, message } from '../contract/index.js';
 import { findRepoRoot } from '../config/index.js';
 import { posix, ts } from '../lang/index.js';
+import { Lines } from './lines.js';
 import { anyReceivers } from './members.js';
 import { type Finding, mockFindings } from './mocks.js';
 import { Workspace } from './workspace.js';
@@ -25,6 +26,7 @@ function disabledFlags(options: TS.CompilerOptions): string[] {
 }
 
 function untypedDefs(program: TS.Program, source: TS.SourceFile, shown: string): Finding[] {
+  const lines = new Lines(source.text);
   const names = new Map<number, string>();
   for (const node of walk(source)) {
     if (!ts().isParameter(node) && !ts().isBindingElement(node)) continue;
@@ -37,14 +39,15 @@ function untypedDefs(program: TS.Program, source: TS.SourceFile, shown: string):
     .filter((d) => IMPLICIT_ANY.has(d.code) && d.start !== undefined && names.has(d.start))
     .map((d) => {
       const position = d.start as number;
-      const line = source.getLineAndCharacterOfPosition(position).line + 1;
+      const line = lines.lineOf(position);
       return { position, text: message('compliance.ts-untyped-def', { path: shown, line, name: names.get(position) }) };
     });
 }
 
 function fileFindings(program: TS.Program, source: TS.SourceFile, shown: string, selected: Set<string>, attr: string | null, repoRoot: string): Finding[] {
   const out: Finding[] = [];
-  const line = (node: TS.Node): number => source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1;
+  const lines = new Lines(source.text);
+  const line = (node: TS.Node): number => lines.lineOf(node.getStart(source));
   const checker = program.getTypeChecker();
   const { any_type: any, top_type: top } = language('typescript');
   for (const node of walk(source)) {
@@ -54,7 +57,7 @@ function fileFindings(program: TS.Program, source: TS.SourceFile, shown: string,
   }
   if (attr !== null) {
     for (const { position, receiver } of anyReceivers(checker, source, attr)) {
-      const at = source.getLineAndCharacterOfPosition(position).line + 1;
+      const at = lines.lineOf(position);
       out.push({ position, text: message('compliance.attr-blindspot', { path: shown, line: at, receiver, attr, type: 'any' }) });
     }
   }
@@ -84,7 +87,7 @@ export function typescriptCompliance(paths: string[], selected: Set<string>, att
     if (source === undefined) continue;
     const [syntax] = program.getSyntacticDiagnostics(source);
     if (syntax !== undefined) {
-      const line = source.getLineAndCharacterOfPosition(syntax.start ?? 0).line + 1;
+      const line = new Lines(source.text).lineOf(syntax.start ?? 0);
       out.push(message('compliance.parse-error', { path: shown, line, error: ts().flattenDiagnosticMessageText(syntax.messageText, '\n') }));
       continue;
     }

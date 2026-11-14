@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { ts } from '../src/lang/index.js';
 import { codeMarked, mentions, qualified, sourceRegions } from '../src/refactor/mentions.js';
+import { run, tempRepo } from './cli-run.js';
 import { Site } from '../src/refactor/sites.js';
 
 describe('Site', () => {
@@ -57,5 +58,27 @@ describe('mentions', () => {
     expect(marked('// `saveModel` and `saveModel()` and {@link saveModel} and saveModel\n')).toEqual([true, true, true, false]);
     expect(marked("const a = 'saveModel: x'; const b = 'x saveModel: y';\n")).toEqual([true, false]);
     expect(marked('const t = `saveModel: ${1} saveModel: `;\n')).toEqual([true, false]);
+  });
+});
+
+describe('file universe', () => {
+  it('a member rename refuses on exactly what dr-compliance reports over the project', () => {
+    const loose = 'export function g(o: any): number {\n  return o.getModel();\n}\n';
+    const root = tempRepo({
+      'tsconfig.json': '{"compilerOptions": {"strict": true}, "include": ["src"]}\n',
+      'src/store.ts': 'export class Store {\n  getModel(): number {\n    return 1;\n  }\n}\n',
+      'src/loose.ts': loose,
+      'scripts/tool.ts': loose,
+      'build/z.ts': loose,
+      'node_modules/dep/x.ts': loose,
+      'src/types.d.ts': 'declare function h(o: any): void;\n',
+    });
+    const renamed = run(root, 'dr-refactor', ['rename', '--file', 'src/store.ts', '--name', 'getModel', '--new-name', 'fetchModel']);
+    expect(renamed.code).toBe(1);
+    const lines = renamed.err.trimEnd().split('\n');
+    expect(lines.pop()).toMatch(/^3 blind spot/u);
+    const compliance = run(root, 'dr-compliance', ['--select', 'attr-blindspot', '--attr', 'getModel', '.']);
+    expect(compliance.code).toBe(1);
+    expect(lines).toEqual(compliance.out.trimEnd().split('\n'));
   });
 });

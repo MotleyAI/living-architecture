@@ -54,7 +54,7 @@ class MentionRules(BaseModel):
 
     def qualified(self, text: str, start: int) -> bool:
         """`Owner.OLD` with an optional dotted prefix naming the owner's module from its end, naming no other class."""
-        segments = _qualifier_segments(text, start)
+        segments = qualifier_segments(text, start)
         if segments is None:
             return False
         named = tuple(segments)
@@ -66,7 +66,7 @@ class MentionRules(BaseModel):
         )
 
 
-def _qualifier_segments(text: str, start: int) -> list[str] | None:
+def qualifier_segments(text: str, start: int) -> list[str] | None:
     """The segments of the `A.B.` or `A#` qualifier ending at `start`, or None when the run there is not one."""
 
     def in_run(i: int) -> bool:
@@ -146,15 +146,14 @@ def _masked_fstring(token: str) -> list[tuple[int, int]]:
 def source_regions(source: SourceFile) -> Iterator[Region]:
     """The comments and string literal contents of a Python file."""
     docstrings = [source.span(d) for d in _docstrings(source.tree)]
-    starts = [0, *(i + 1 for i, c in enumerate(source.text) if c == "\n")]
     try:
         tokens = list(tokenize.generate_tokens(io.StringIO(source.text, newline="").readline))
     except (tokenize.TokenError, SyntaxError):
         return
     previous = None
     for token in tokens:
-        offset = starts[token.start[0] - 1] + token.start[1]
-        end = starts[token.end[0] - 1] + token.end[1]
+        offset = source.line_start(token.start[0]) + token.start[1]
+        end = source.line_start(token.end[0]) + token.end[1]
         opening = previous in _FSTRING_STARTS
         previous = token.type
         if token.type == tokenize.COMMENT:

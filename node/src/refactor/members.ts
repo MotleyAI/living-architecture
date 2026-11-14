@@ -3,6 +3,7 @@
 import type * as TS from 'typescript';
 import { language } from '../contract/index.js';
 import { ts } from '../lang/index.js';
+import { Lines } from './lines.js';
 
 interface StringForm {
   call: string;
@@ -125,6 +126,7 @@ export function memberNameStart(declared: TS.Node, name: string, source: TS.Sour
 /** Every member named `name` that a class, an interface or a type literal of `source` declares. */
 export function memberDeclarations(source: TS.SourceFile, name: string, path: string): MemberDeclaration[] {
   const owners = OWNERS();
+  const lines = new Lines(source.text);
   const out: MemberDeclaration[] = [];
   for (const node of walk(source)) {
     const declared = (node as TS.NamedDeclaration).name;
@@ -132,7 +134,7 @@ export function memberDeclarations(source: TS.SourceFile, name: string, path: st
     if (declared === undefined || owner === undefined || !owners.has(owner.kind)) continue;
     const start = memberNameStart(declared, name, source);
     if (start === null) continue;
-    out.push({ path, start, line: source.getLineAndCharacterOfPosition(start).line + 1, owner: ownerName(owner, source) });
+    out.push({ path, start, line: lines.lineOf(start), owner: ownerName(owner, source) });
   }
   return out;
 }

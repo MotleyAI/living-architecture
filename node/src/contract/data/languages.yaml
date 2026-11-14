@@ -28,7 +28,7 @@ python:
     - '**/*_test.py'
     - '**/conftest.py'
   declaration_globs: []
-  excluded_dirs: []
+  excluded_dirs: [.git, .hg, .mypy_cache, .pytest_cache, .ropeproject, .svn, .tox, .venv, _svn, venv]
   compliance_checks: [untyped-def, unannotated-attr, explicit-any, mock, rope-walk, attr-blindspot]
   string_member_calls:
     - {call: getattr, module: builtins, qualname: getattr, syntax: getattr, object: 0, member: 1}

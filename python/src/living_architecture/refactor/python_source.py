@@ -13,13 +13,24 @@ _DEF_NAME = re.compile(r"(?:async\s+)?(?:def|class)\s+(\w+)")
 Positioned = ast.expr | ast.stmt | ast.arg | ast.keyword
 
 
+def line_starts(text: str) -> list[int]:
+    """The offset of each line of `text`; lines end at Python's terminators `\\r\\n`, `\\r` and `\\n`."""
+    return [0, *(m.end() for m in _NEWLINE.finditer(text))]
+
+
+def split_lines(text: str) -> list[str]:
+    """`text`'s lines with their terminators; a final terminator opens no line."""
+    starts = line_starts(text)
+    return [text[s:e] for s, e in zip(starts, [*starts[1:], len(text)], strict=True) if s < e]
+
+
 class SourceFile:
     """`text` of the file at `path` (absolute), parsed once; `tree` is None when it does not parse."""
 
     def __init__(self, path: Path, text: str) -> None:
         self.path = path
         self.text = text
-        self._starts = [0, *(m.end() for m in _NEWLINE.finditer(text))]
+        self._starts = line_starts(text)
         try:
             self.tree: ast.Module | None = ast.parse(text)
         except (SyntaxError, ValueError):
@@ -30,6 +41,10 @@ class SourceFile:
         start = self._starts[line - 1]
         head = self.text[start : start + col]
         return start + (col if head.isascii() else len(head.encode()[:col].decode(errors="ignore")))
+
+    def line_start(self, line: int) -> int:
+        """The offset of a 1-based line's first character."""
+        return self._starts[line - 1]
 
     def line(self, offset: int) -> int:
         """The 1-based line of a character offset."""

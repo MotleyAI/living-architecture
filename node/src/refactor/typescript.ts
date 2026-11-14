@@ -19,6 +19,7 @@ import { applyEdits, type Edit, mergeEdits, RefactorError } from './edits.js';
 import { anyReceivers, type FormCall, formCalls, isAny, type MemberDeclaration, memberDeclarations, memberNameStart } from './members.js';
 import { codeMarked, type Mention, mentions, type Owner, qualified, type Region, sourceRegions } from './mentions.js';
 import { CHECKER_OPTIONS } from './compliance.js';
+import { Lines } from './lines.js';
 import { languageFiles, realPath, under } from './routing.js';
 import { Site, SiteError } from './sites.js';
 import { Workspace } from './workspace.js';
@@ -52,8 +53,6 @@ interface Entry {
 const MOVE_TO_FILE = 'Move to file';
 const PREFERENCES: TS.UserPreferences = { allowTextChangesInNewFiles: true };
 const formatSettings = (): TS.FormatCodeSettings => ts().getDefaultFormatCodeSettings('\n');
-// The line terminators TypeScript recognizes.
-const LINE_BREAK = /\r\n|[\n\r\u2028\u2029]/u;
 
 class Refactor {
   readonly root: string;
@@ -180,16 +179,12 @@ function locateOffset(text: string, offset: number): number {
 }
 
 function locateLine(text: string, line: number, col: number): number {
-  const lines = text.split(LINE_BREAK);
-  if (lines.length > 1 && lines.at(-1) === '') lines.pop();
-  const count = text === '' ? 0 : lines.length;
-  if (line < 1 || line > count) throw new RefactorError(message('refactor.line-out-of-range', { line, count }));
-  const lineText = lines[line - 1] ?? '';
+  const lines = new Lines(text);
+  if (line < 1 || line > lines.count) throw new RefactorError(message('refactor.line-out-of-range', { line, count: lines.count }));
+  const lineText = lines.lineText(line);
   const width = codePoints(lineText).length;
   if (col < 1 || col > width + 1) throw new RefactorError(message('refactor.col-out-of-range', { col, line, count: width }));
-  const start = lines.slice(0, line - 1).reduce((sum, l) => sum + l.length, 0);
-  const breaks = [...text.matchAll(new RegExp(LINE_BREAK, 'gu'))].slice(0, line - 1).reduce((sum, m) => sum + m[0].length, 0);
-  return start + breaks + utf16(lineText, col - 1);
+  return lines.start(line) + utf16(lineText, col - 1);
 }
 
 function locateName(path: string, text: string, name: string): number {
@@ -218,7 +213,6 @@ interface ProjectSource {
 }
 
 const keyOf = (path: string, start: number): string => `${path}\0${start}`;
-const lineAt = (text: string, position: number): number => text.slice(0, position).split(LINE_BREAK).length;
 const byPosition = (a: Finding, b: Finding): number => byCodePoint(a.path, b.path) || a.line - b.line || a.position - b.position;
 
 /** Every service's rename locations of the symbol at `position` of `file`. */
@@ -233,21 +227,19 @@ function renameLocations(services: TS.LanguageService[], file: string, position:
   return edits;
 }
 
-/** The project sources of `services`' programs under the project root, then every other TypeScript file under it
- * holding `old`, from its governing project's program. */
+/** The project's TypeScript files holding `old` (the files `dr-compliance` expands the project to), each from the
+ * first of `services`' programs holding it, else from its governing project's program. */
 function projectSources(r: Refactor, services: TS.LanguageService[], old: string): Map<string, ProjectSource> {
   const out = new Map<string, ProjectSource>();
-  for (const service of services) {
-    const program = service.getProgram();
-    if (program === undefined) continue;
-    const checker = program.getTypeChecker();
-    for (const source of program.getSourceFiles()) {
-      const rel = r.rel(source.fileName);
-      if (source.isDeclarationFile || program.isSourceFileFromExternalLibrary(source) || rel.startsWith('..') || out.has(source.fileName)) continue;
-      out.set(source.fileName, { source, service, checker });
-    }
+  const rest: string[] = [];
+  for (const path of languageFiles(r.root, 'typescript')) {
+    if (!readFileSync(path, 'utf8').includes(old)) continue;
+    const found = services.find((service) => service.getProgram()?.getSourceFile(path) !== undefined);
+    const program = found?.getProgram();
+    const source = program?.getSourceFile(path);
+    if (found === undefined || program === undefined || source === undefined) rest.push(path);
+    else out.set(source.fileName, { source, service: found, checker: program.getTypeChecker() });
   }
-  const rest = languageFiles(r.root, 'typescript').filter((path) => !out.has(path) && readFileSync(path, 'utf8').includes(old));
   for (const [path, service] of r.workspace.servicesOf(rest, CHECKER_OPTIONS)) {
     const program = service.getProgram();
     const source = program?.getSourceFile(path);
@@ -269,6 +261,7 @@ class TypescriptRename {
   private readonly sources: Map<string, ProjectSource>;
   private readonly declarations: MemberDeclaration[];
   private readonly texts = new Map<string, string>();
+  private readonly lines = new Map<string, Lines>();
 
   constructor(
     readonly r: Refactor,
@@ -306,9 +299,19 @@ class TypescriptRename {
     return text;
   }
 
+  /** The 1-based line of `position` in the file at `path`. */
+  lineOf(path: string, position: number): number {
+    let lines = this.lines.get(path);
+    if (lines === undefined) {
+      lines = new Lines(this.text(path));
+      this.lines.set(path, lines);
+    }
+    return lines.lineOf(position);
+  }
+
   private finding(path: string, position: number, template: string, values: Record<string, unknown>): Finding {
     const rel = this.r.rel(path);
-    const line = lineAt(this.text(path), position);
+    const line = this.lineOf(path, position);
     return { path: rel, line, position, text: message(template, { ...values, path: rel, line }) };
   }
 
@@ -441,7 +444,7 @@ class TypescriptRename {
       if (mark) for (const i of hits) matched.add(i);
       return hits.length > 0;
     };
-    const edits = this.edits.filter((e) => !kept(this.r.rel(e.path), lineAt(this.text(e.path), e.start)));
+    const edits = this.edits.filter((e) => !kept(this.r.rel(e.path), this.lineOf(e.path, e.start)));
     this.blindspots = this.blindspots.filter((b) => !kept(b.path, b.line)).sort(byPosition);
     this.leftovers = this.leftovers.filter((f) => !kept(f.path, f.line, false)).sort(byPosition);
     this.standIns.sort(byPosition);

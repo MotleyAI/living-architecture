@@ -46,6 +46,7 @@ from living_architecture.refactor.move_edits import NameConflict
 from living_architecture.refactor.patch_targets import SourceFolders, TargetResolver
 from living_architecture.refactor.python_source import SourceFile
 from living_architecture.refactor.rope_patches import every_parameter
+from living_architecture.refactor.routing import language_files
 from living_architecture.refactor.sites import Site, SiteError
 from living_architecture.refactor.static_resolver import Module
 from living_architecture.refactor.text_edits import TextEdit, apply_edits, merge_edits
@@ -321,7 +322,9 @@ class SymbolRename:
 
     def _rope_edits(self) -> None:
         pyname = self.renamer.old_pyname
-        resources: list[File] = [self.renamer.resource] if _is_local(pyname) else self.project.get_python_files()
+        resources: list[File] = [self.renamer.resource] if _is_local(pyname) else [
+            cast(File, self.project.get_resource(path.relative_to(self.root).as_posix())) for path in language_files(self.root, "python")
+        ]
         self.renamer.validate_changes(self.new)
         for file_ in sorted(resources, key=lambda r: r.path):
             text = file_.read()

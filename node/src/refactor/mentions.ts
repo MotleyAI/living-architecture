@@ -40,7 +40,7 @@ function charBefore(text: string, end: number): string {
 }
 
 /** The segments of the `A.B.` or `A#` qualifier ending at `start`, or null when the run there is not one. */
-function qualifierSegments(text: string, start: number): string[] | null {
+export function qualifierSegments(text: string, start: number): string[] | null {
   let i = start;
   let chars = 0;
   for (let c = charBefore(text, i); chars < QUALIFIER_WINDOW && QUALIFIER_CHAR.test(c); c = charBefore(text, i)) {

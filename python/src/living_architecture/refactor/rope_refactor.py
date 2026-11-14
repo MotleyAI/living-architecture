@@ -23,6 +23,7 @@ from living_architecture.contract import message
 from living_architecture.lang import LanguageServerError
 from living_architecture.refactor.keyed import UnresolvedBase
 from living_architecture.refactor.move_edits import NameConflict, module_move_changes, symbol_move_changes
+from living_architecture.refactor.python_source import split_lines
 from living_architecture.refactor.rename_union import FileChanged, RenameOptions, SymbolRename
 from living_architecture.refactor.rope_patches import WalkerGap, apply_rope_patches
 from living_architecture.refactor.sites import Site, SiteError
@@ -44,7 +45,7 @@ class Locator(BaseModel):
 
 
 def _offset_from_line_col(text: str, line: int, col: int) -> int:
-    lines = text.splitlines(keepends=True)
+    lines = split_lines(text)
     if not 1 <= line <= len(lines):
         raise RefactorError(message("refactor.line-out-of-range", line=line, count=len(lines)))
     return sum(len(lines[i]) for i in range(line - 1)) + (col - 1)
@@ -170,7 +171,7 @@ def _kept(project: Project, changes: ChangeSet, keep: tuple[str, ...]) -> Change
 
 def _kept_lines(rel: str, old: str, new: str, kept: Callable[[str, int | None], bool]) -> str:
     """`new` with each changed block that holds a kept line of `old` restored."""
-    old_lines, new_lines = old.splitlines(keepends=True), new.splitlines(keepends=True)
+    old_lines, new_lines = split_lines(old), split_lines(new)
     out: list[str] = []
     for tag, i1, i2, j1, j2 in difflib.SequenceMatcher(None, old_lines, new_lines, autojunk=False).get_opcodes():
         if tag == "equal":
