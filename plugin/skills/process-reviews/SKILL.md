@@ -49,8 +49,6 @@ Never fall back to a different review tool when Codex is on (see "Codex follows 
 
 #### 0a + 0b. Watch status checks + CodeRabbit
 
-Run `la-wait-for-reviews` — it bundles the status-check rollup gate (Stage 0a) AND the CodeRabbit settle on HEAD (Stage 0b) into a single invocation. No inline bash.
-
 Arm `la-wait-for-reviews <PR>` with the Monitor tool (`timeout_ms` at its maximum). It polls the PR every minute and prints one stdout line per new item, never the same item twice, even across runs:
 
 - `ci-failed <sha> <url> <check>`: a check on HEAD failed;
