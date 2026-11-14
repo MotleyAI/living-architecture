@@ -30,6 +30,7 @@ change: `refactor -> config` exists in both twins, so prose files come from `con
 - `--keep` on `move-symbol` / `move-module`.
 - Dotted-path rewriting for module renames and moves.
 - An assignability filter on stand-ins (decision 3).
+- Changing how `explicit-any` finds first-party modules (decision 27).
 
 ## Decisions
 
@@ -85,9 +86,9 @@ textual mentions) to one outcome: rewrite, refuse naming the per-site flag, or l
     `Owner.OLD` is rewritten only when no other project class named `Owner` declares OLD, otherwise listed. (codex)
 19. **Unresolved project patch targets refuse**: a target whose first segment names a project top-level package,
     with a segment OLD, that does not resolve joins the blind-spot refusal as `refactor.unresolved-target`
-    (`--keep` / `--allow-blindspots` override); a target outside the project is listed as `leftover`. Resolution is
-    rope's static module lookup (explicit imports, aliases, `__init__` re-exports, star imports as rope follows
-    them). This reverses an earlier default that only listed them. (codex)
+    (`--keep` / `--allow-blindspots` override); a target outside the project is listed as `leftover`. This reverses
+    an earlier default that only listed them. Resolution is the shared static resolver of decision 27 (it replaced
+    rope's static module lookup). (codex)
 20. **Skill blind-spot command scans the repo**: `<paths>` → `<repo>` in the skill commands, matching the rename's
     project-wide scan. (codex; user, approved wording)
 21. **`--keep` normalization**: real project-relative paths; a directory matches on whole path components; an edit
@@ -100,6 +101,50 @@ textual mentions) to one outcome: rewrite, refuse naming the per-site flag, or l
     lookalike callees; TS structural noise; doc name collisions; a file keep plus a line keep; several `--with`
     stand-ins sharing references; each conformance case through both invoking twins. (codex)
 24. **Skill and language-doc wording**: applied verbatim from "Approved wording" below. (user, approved wording)
+
+Merging DEV-2289 (Python `explicit-any` in the default check set, PR #41) into this branch before implementation:
+
+25. **Merge it now, not after it lands**: its branch was merged into this one with the vendored `CONTRACT_HASH`
+    conflicts resolved by `scripts/sync-shared`; `main` is merged again once DEV-2289 lands. (user)
+26. **One combined check-set requirement**: the MODIFIED "Compliance check sets are per language" carries both
+    changes — Python `[untyped-def, unannotated-attr, explicit-any, mock, rope-walk, attr-blindspot]`, "Python
+    default unchanged" scoped to no `--attr` and no `Any`, DEV-2289's "Python default reports Any" scenario, and
+    "Language-specific id" on `--select tsconfig` (DEV-2289's switch). Our archive follows DEV-2289's, so our full
+    text is what the corpus keeps. Our contract pins of the Python list (`test_contract.py`,
+    `test_compliance.py`'s `ALL_CHECKS`) are aligned in the merge commit. (user)
+27. **One static resolver for `explicit-any` and dotted patch targets**: DEV-2289's scope/binding resolver moves
+    out of `explicit_any.py` into a shared module of `python.refactor`, generalised with (a) an injected module
+    finder — `explicit-any` keeps its import-root rule, the rename passes rope's source folders so `tests/` reaches
+    `src/pkg` — and (b) values that name project definitions (a class or function with its location), so a target
+    segment lands on a declaration. Weighed: a second resolver on rope's module lookup (two paths that must agree
+    by hand on star imports, `__all__`, aliases and cycles). Also weighed and rejected: switching `explicit-any`
+    to the project-wide finder (changes DEV-2289's approved behaviour, walks the tree on every default run, fixes
+    only a rare false negative). (user)
+28. **Module finder contract**: rope's source folders in order; zero files is unresolved, more than one distinct
+    file is ambiguous and unresolved; directories without `__init__.py` below a folder are allowed. Tested with a
+    `src/pkg` target patched from `tests/` and a module present in two folders. (codex)
+29. **Declarations vs `Any` resolution**: the shared binding layer keeps DEV-2289's conservative "every binding
+    agrees" rule (conflicting bindings are unresolved, so a project target refuses, loudly); class attributes use
+    a separate lookup along the C3 method resolution order over statically resolved bases, unresolved when an
+    unresolved base comes before the attribute. Tested: inherited, overridden (with and without
+    `--no-in-hierarchy`), diamond, unresolved base. (codex)
+30. **Extraction gate**: DEV-2289's `explicit-any` unit tests and conformance goldens pass unmodified after the
+    extraction. Rejected (codex): a second regression matrix for `explicit-any` — its suite already covers mixed
+    bindings, shadowing, relative imports, `__all__`, private names and cycles over the same code. (codex)
+31. **Star-import targets**: two target tests, through a star import honouring `__all__` and through an import
+    cycle (unresolved, refuses). Rejected (codex): repeating DEV-2289's full star-import matrix for targets, same
+    reason as decision 30. (codex)
+32. **Failure classification**: a target whose first segment names a project top-level package and that does not
+    resolve to exactly one declaration (ambiguous folders, conflicting bindings, unresolved base, cycle) is
+    `refactor.unresolved-target`; unit tests pin each class, the existing `refactor-rename-patch-target-unresolved`
+    case pins the command. Rejected (codex): one conformance case per ambiguity class. (codex)
+33. **Merge verification**: `scripts/sync-shared --check`; both twins' contract, snapshot and render tests;
+    `compliance-help`, `compliance-select-other-language-check` and every DEV-2289 `explicit-any` case through both
+    invoking twins (`scripts/conformance-cross`); the findings-coverage test; our failing set unchanged apart from
+    the aligned pins. (codex)
+34. **Archive order is a hard precondition**: this change archives only once `main` holds DEV-2289 archived (its
+    change folder gone); then merge `main`, read `openspec/specs/refactor/spec.md`, validate strictly, archive, and
+    check the archived requirement lists both `explicit-any` and `attr-blindspot`. Both ship in 0.9.0. (codex)
 
 ## Risks / Trade-offs
 
@@ -115,8 +160,8 @@ textual mentions) to one outcome: rewrite, refuse naming the per-site flag, or l
 ## Migration Plan
 
 `dr-compliance --select <ids without attr-blindspot> --attr NAME` now exits 2: use `--select attr-blindspot --attr
-NAME`. The skills change in the same PR. Release 0.9.0 after merge (tool inputs change, so the minor version moves),
-then pin it in SLayer.
+NAME`. The skills change in the same PR. Archive only after DEV-2289 is archived on `main` (decision 34). Release
+0.9.0 after merge (tool inputs change, so the minor version moves; it carries DEV-2289 too), then pin it in SLayer.
 
 ## Approved wording
 

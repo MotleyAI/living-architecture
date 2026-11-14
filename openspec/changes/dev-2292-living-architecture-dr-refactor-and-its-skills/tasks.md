@@ -14,7 +14,9 @@
       `'--keep {site} matches nothing this rename touches'`; `'{path}:{line}: leftover: {where} mentions {old}'`;
       `'--select attr-blindspot needs --attr NAME'`; `'--attr needs attr-blindspot among the selected checks'`.
       Verify every new template is produced by at least one golden (task 8.3).
-- [ ] 1.3 `shared/languages.yaml`: add `attr-blindspot` to both `compliance_checks`; add `string_member_calls` per
+- [ ] 1.3 `shared/languages.yaml`: add `attr-blindspot` to both `compliance_checks` (last; Python's list then
+      reads `[untyped-def, unannotated-attr, explicit-any, mock, rope-walk, attr-blindspot]`, design decision 26);
+      add `string_member_calls` per
       language (Python: the resolved qualified names of `getattr`, `setattr`, `hasattr`, `delattr`, pytest
       `MonkeyPatch.setattr`/`delattr`, typeshed `unittest.mock` `patch.object` and `patch`, pytest-mock
       `patch.object` and `patch`, each with its syntactic shape and member/target argument position; TypeScript:
@@ -68,12 +70,21 @@
       object's type (instance, class object, `type[...]`) looks OLD up onto a renamed declaration; quote style kept.
       Verify with "Receiver forms on instances and class objects", "Member of another class" and "Lookalike
       callee", using real pytest and pytest-mock typings.
-- [ ] 6.2 Python dotted targets: static resolver (longest project-module prefix via rope, then bindings, imports,
-      `__init__` re-exports, star imports, class attributes; no import or execution); rewrite each segment
-      resolving to a renamed declaration (class renames too); unresolved project target → blind spot; external
-      target with a segment OLD → `leftover`. Verify with "Dotted patch targets", "Class rename segment" and
-      "Unresolved targets", plus a test that a `sitecustomize.py` marker is never written.
-- [ ] 6.3 TypeScript forms: rewrite the member literal of the listed calls on a typed object or prototype. Verify
+- [ ] 6.2 Shared static resolver (design decisions 27–29): move DEV-2289's scope/binding resolver out of
+      `refactor/explicit_any.py` into a shared module of `living_architecture.refactor`, with an injected module
+      finder (`explicit-any`: its import-root rule, unchanged; rename: rope's source folders in order, zero or
+      several files → unresolved) and values naming project definitions (class/function with location). Gate:
+      `tests/test_compliance_explicit_any.py` and every `compliance-explicit-any-*` golden pass unmodified.
+- [ ] 6.3 Python dotted targets on that resolver: longest project-module prefix, then module bindings ("every
+      binding agrees"), then class attributes along the C3 MRO of statically resolved bases; no import or
+      execution; rewrite each segment resolving to a renamed declaration (class renames too); a project target not
+      resolving to exactly one declaration → `refactor.unresolved-target` blind spot; external target with a
+      segment OLD → `leftover`. Verify with "Dotted patch targets", "Class rename segment", "Unresolved targets",
+      "Target from tests into a src layout", "Target through inheritance" (incl. a diamond) and "Ambiguous targets
+      refuse" (two folders, conflicting bindings, `__all__`-excluded star import, cycle, unresolved base), a target
+      through a star import honouring `__all__`, plus a test that a `sitecustomize.py` marker is never written.
+      Write the tests these scenarios need that the pr-tests stage did not (they post-date it).
+- [ ] 6.4 TypeScript forms: rewrite the member literal of the listed calls on a typed object or prototype. Verify
       with "TypeScript spyOn".
 
 ## 7. --docs (both twins)
@@ -105,7 +116,8 @@
 - [ ] 9.1 Apply design.md "Approved wording" verbatim to `plugin/skills/deterministic-refactor/SKILL.md`,
       `plugin/skills/make-refactor-target-compliant/SKILL.md`, `plugin/languages/python.md`,
       `plugin/languages/typescript.md`. Verify `npx -y @anthropic-ai/claude-code plugin validate plugin`.
-- [ ] 9.2 `docs/deterministic-refactoring.md`: add `attr-blindspot` to the `dr-compliance` table and name the new
+- [ ] 9.2 `docs/deterministic-refactoring.md`: append `attr-blindspot` to both rows of the `dr-compliance` table
+      (the Python row already lists `explicit-any` from DEV-2289) and name the new
       `rename` options in the tools paragraph; `docs/commands.md` likewise if it lists `rename` options. Verify the
       docs build/link checks the repo runs.
 
@@ -118,8 +130,24 @@
       `patch.object(SlayerQueryEngine, "save_model")` site, and `--docs` on a method with ``` ``get_model`` ```
       mentions; record the blind-spot scan's wall time here.
 
-## 11. Post-merge (after the PR merges; not part of its diff)
+## 11. DEV-2289 merge (design decisions 25–34)
 
-- [ ] 11.1 Release 0.9.0: bump `python/pyproject.toml`, `node/package.json` and
+- [x] 11.1 Merge `origin/egor/dev-2289-living-architecture-python-dr-compliance-gets` into this branch; resolve the
+      `CONTRACT_HASH` conflicts with `scripts/sync-shared`; align the Python check-list pins in
+      `python/tests/test_contract.py` and `python/tests/test_compliance.py`.
+- [ ] 11.2 After implementation, merge verification (decision 33): `scripts/sync-shared --check`; both twins'
+      contract, snapshot and render tests; `compliance-help`, `compliance-select-other-language-check` and every
+      `compliance-explicit-any-*` case through both invoking twins (`scripts/conformance-cross`); the
+      findings-coverage test.
+- [ ] 11.3 Before archiving (hard precondition, decision 34): `main` holds DEV-2289 archived and
+      `openspec/changes/dev-2289-living-architecture-python-dr-compliance-gets/` is gone; merge `main`; read
+      `openspec/specs/refactor/spec.md`; `openspec validate dev-2292-living-architecture-dr-refactor-and-its-skills
+      --strict`; after archiving, the "Compliance check sets are per language" requirement in the corpus lists both
+      `explicit-any` and `attr-blindspot` for Python and keeps the "Python explicit-any compliance check"
+      requirement.
+
+## 12. Post-merge (after the PR merges; not part of its diff)
+
+- [ ] 12.1 Release 0.9.0: bump `python/pyproject.toml`, `node/package.json` and
       `plugin/.claude-plugin/plugin.json` together, run `scripts/release-check`, publish.
-- [ ] 11.2 Pin 0.9.0 in SLayer; DEV-2292 stays open until the pin lands.
+- [ ] 12.2 Pin 0.9.0 in SLayer; DEV-2292 stays open until the pin lands.

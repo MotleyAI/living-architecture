@@ -10,7 +10,7 @@ rename's language under the project:
 - a string-member form whose object argument is typed so, or whose callee the checker cannot resolve while the call
   has the form's syntax (the form's attribute path and the member argument a plain string literal exactly OLD);
 - a Python dotted patch target whose first segment names a project top-level package, one of whose segments is
-  OLD, and that does not resolve statically.
+  OLD, and that does not resolve statically to exactly one declaration.
 
 Before writing or printing a diff, a member rename SHALL find every blind spot outside a `--keep` site. With any,
 it SHALL print one line per site on stderr, sorted by path, line and column (`compliance.attr-blindspot` for an
@@ -121,9 +121,15 @@ A Python rename of a symbol other than a module SHALL also rewrite each segment 
 `unittest.mock`'s `patch`, pytest-mock's `patch`, or `MonkeyPatch.setattr` / `MonkeyPatch.delattr` with a string
 first argument, that resolves statically to a renamed declaration: the longest leading run of segments naming a
 project module, then each further segment through that module's bindings, imports and re-exports, then class
-attributes, without importing or executing project code. A target whose first segment is not a project top-level
-package and one of whose segments is OLD SHALL be listed with `refactor.leftover` (`{where}` `patch target`) and
-leave the exit code unchanged.
+attributes, without importing or executing project code. A project module SHALL be found under the project's
+source folders in order, `a.b` being `<folder>/a/b.py` or `<folder>/a/b/__init__.py` whether or not each directory
+has an `__init__.py`; a module found as more than one file SHALL be unresolved. Bindings SHALL follow the rules of
+the Python `explicit-any` check: a name resolves only when every module-level binding of it agrees, `from M import
+*` binds the names of a literal `__all__` in `M` when it has one, else every name without a leading underscore, and
+a cycle ends unresolved. A class attribute SHALL be looked up along the class's method resolution order over its
+statically resolved bases; reaching a base that does not resolve before the attribute is found SHALL leave the
+target unresolved. A target whose first segment is not a project top-level package and one of whose segments is
+OLD SHALL be listed with `refactor.leftover` (`{where}` `patch target`) and leave the exit code unchanged.
 
 #### Scenario: Receiver forms on instances and class objects
 - **WHEN** `SlayerQueryEngine.save_model` is renamed and tests hold `patch.object(SlayerQueryEngine, "save_model")`,
@@ -155,6 +161,21 @@ leave the exit code unchanged.
 #### Scenario: Unresolved targets
 - **WHEN** a test holds `patch("pkg.engine.Missing.save_model")` and `patch("thirdparty.mod.save_model")`
 - **THEN** the first is a blind spot (`refactor.unresolved-target`) and the second is listed as a `leftover`
+
+#### Scenario: Target from tests into a src layout
+- **WHEN** `src/pkg/engine.py` declares `SlayerQueryEngine.save_model`, `src` is a source folder, and
+  `tests/test_t.py` holds `patch("pkg.engine.SlayerQueryEngine.save_model")`
+- **THEN** the target ends in the new name
+
+#### Scenario: Target through inheritance
+- **WHEN** `Base.save_model` is renamed, `Sub(Base)` does not override it, `Over(Base)` does, and tests hold
+  `patch("pkg.engine.Sub.save_model")` and `patch("pkg.engine.Over.save_model")`
+- **THEN** both targets end in the new name; with `--no-in-hierarchy` only the `Sub` target does
+
+#### Scenario: Ambiguous targets refuse
+- **WHEN** `pkg/engine.py` exists in two source folders, or a target passes through a star import that `__all__`
+  excludes, an import cycle, or a class whose unresolved base precedes the attribute
+- **THEN** each such target is a blind spot (`refactor.unresolved-target`)
 
 #### Scenario: TypeScript spyOn
 - **WHEN** method `Engine.saveModel` is renamed and tests hold `vi.spyOn(engine, 'saveModel')` with `engine: Engine`
@@ -244,20 +265,25 @@ SHALL be unchanged and unlisted.
 Each language's `dr-compliance` checks SHALL be listed in the language registry. Without `--select`, every
 check of each file's language SHALL run. A selected id that no language lists SHALL exit 2; a selected id that
 only another language lists SHALL not apply to a file. Python's checks SHALL be `untyped-def`,
-`unannotated-attr`, `mock`, `rope-walk` and `attr-blindspot`; TypeScript's SHALL be `tsconfig`, `explicit-any`,
-`untyped-def`, `mock` and `attr-blindspot`. `attr-blindspot` SHALL run only when selected (or no `--select` is
-given) and `--attr NAME` is given. A `--select` naming `attr-blindspot` without `--attr` SHALL print
+`unannotated-attr`, `explicit-any`, `mock`, `rope-walk` and `attr-blindspot`; TypeScript's SHALL be `tsconfig`,
+`explicit-any`, `untyped-def`, `mock` and `attr-blindspot`. `attr-blindspot` SHALL run only when selected (or no
+`--select` is given) and `--attr NAME` is given. A `--select` naming `attr-blindspot` without `--attr` SHALL print
 `compliance.attr-required` on stderr and exit 2; `--attr` with a `--select` that does not name `attr-blindspot`
 SHALL print `compliance.attr-unselected` on stderr and exit 2. Every kind a `dr-compliance` finding prints, other
-than `parse-error`, SHALL be a registry check id. On files rope's walker fully covers, Python's output without
-`--attr` SHALL be unchanged.
+than `parse-error`, SHALL be a registry check id. On files rope's walker fully covers and that reference no `Any`,
+Python's output without `--attr` SHALL be unchanged.
 
 #### Scenario: Python default unchanged
-- **WHEN** `dr-compliance pkg` runs without `--select` in a Python repo whose files rope's walker fully covers
+- **WHEN** `dr-compliance pkg` runs without `--select` and without `--attr` in a Python repo whose files rope's
+  walker fully covers and reference no `Any`
 - **THEN** stdout equals today's golden
 
+#### Scenario: Python default reports Any
+- **WHEN** `dr-compliance pkg/a.py` runs without `--select` and `pkg/a.py` has `def f(x: Any) -> None`
+- **THEN** the `explicit-any` finding for that line is printed and the exit code is 1
+
 #### Scenario: Language-specific id
-- **WHEN** `dr-compliance --select explicit-any pkg/a.py` runs
+- **WHEN** `dr-compliance --select tsconfig pkg/a.py` runs
 - **THEN** nothing is reported and the exit code is 0
 
 #### Scenario: Python-only id on a TypeScript file

@@ -42,7 +42,10 @@ rename must instead be complete or say loudly what it could not do.
   `findings.yaml` (new `refactor.*` and `compliance.*` templates), `languages.yaml` (`attr-blindspot` in both
   `compliance_checks`, per-language `string_member_calls`); vendored snapshots via `scripts/sync-shared`.
 - Python twin: `living_architecture.refactor` (rename union, compliance scan, new stand-in / string-member / docs /
-  keep logic), CLI wiring; npm twin: `src/refactor` likewise.
+  keep logic, and DEV-2289's static resolver moved out of `explicit_any.py` into a module shared with the dotted
+  patch targets), CLI wiring; npm twin: `src/refactor` likewise.
+- Builds on DEV-2289 (Python `explicit-any`, merged into this branch): Python's check list becomes `untyped-def`,
+  `unannotated-attr`, `explicit-any`, `mock`, `rope-walk`, `attr-blindspot`; this change archives after DEV-2289's.
 - `conformance/cases/` paired cases and `conformance/INVENTORY.md`.
 - `plugin/skills/deterministic-refactor`, `plugin/skills/make-refactor-target-compliant`, `plugin/languages/*.md`,
   `docs/deterministic-refactoring.md`, `docs/commands.md`.
