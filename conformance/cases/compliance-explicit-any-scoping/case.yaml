@@ -1,0 +1,13 @@
+kind: adapter
+languages:
+- python
+command: dr-compliance
+args:
+- --select
+- explicit-any
+- src/scope.py
+- src/shadow.py
+expect:
+  exit: 1
+golden: manual
+note: 'Python scoping: try/except ImportError, class scope seen by parameter annotations but not method bodies, global; a parameter named Any and a rebound module alias shadow'

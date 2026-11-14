@@ -1,0 +1,5 @@
+src/m.py:2: explicit-any: an `Any` type — use a real type or `object`
+src/m.py:3: explicit-any: an `Any` type — use a real type or `object`
+src/m.py:4: explicit-any: an `Any` type — use a real type or `object`
+src/m.py:6: explicit-any: an `Any` type — use a real type or `object`
+src/m.py:6: explicit-any: an `Any` type — use a real type or `object`

@@ -49,6 +49,12 @@ def test_mock_check_included(tmp_path: Path) -> None:
     assert len(_check(tmp_path, "Mock()\n", select=("mock",))) == 1
 
 
+def test_findings_in_line_order(tmp_path: Path) -> None:
+    src = "\n".join(["def a(x): ...", *[""] * 7, "Mock()", "def b(o) -> None:", "    o.name"]) + "\n"
+    lines = [int(f.split(":")[1]) for f in _check(tmp_path, src, select=("untyped-def", "mock"), attr="name")]
+    assert lines == [1, 9, 10, 11]
+
+
 def test_attr_blindspot(tmp_path: Path) -> None:
     src = "def f(o, p: int) -> None:\n    o.name\n    p.name\n"
     [msg] = _check(tmp_path, src, select=(), attr="name")
@@ -78,7 +84,7 @@ def test_main_without_paths_is_a_usage_error() -> None:
 
 
 def test_rope_walk_is_a_default_check() -> None:
-    assert ALL_CHECKS == ("untyped-def", "unannotated-attr", "mock", "rope-walk")
+    assert ALL_CHECKS == ("untyped-def", "unannotated-attr", "explicit-any", "mock", "rope-walk")
 
 
 def test_rope_walk_clean_file(tmp_path: Path) -> None:

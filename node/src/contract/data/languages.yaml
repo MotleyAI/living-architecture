@@ -6,8 +6,9 @@
 # segments (`pkg.api`, `src/api`); `imports_non_source` means its imports can reach files of no language (JSON
 # modules), so la-affected-tests computes it for a change to such a file. `checker_patch_versions` (python) lists
 # the basedpyright versions la-typecheck's pyright#11919 patch is verified for; any other installed version is
-# refused. Test globs use the contract glob dialect (contract README: matched against the POSIX repo-relative
-# path; case-sensitive; `*` stays within one segment; `**` is zero or more whole segments).
+# refused. `any_type` and `top_type` spell the language's any type and its safe top type in explicit-any findings.
+# Test globs use the contract glob dialect (contract README: matched against the POSIX repo-relative path;
+# case-sensitive; `*` stays within one segment; `**` is zero or more whole segments).
 
 python:
   markers: [pyproject.toml, setup.py]
@@ -23,7 +24,9 @@ python:
     - '**/conftest.py'
   declaration_globs: []
   excluded_dirs: []
-  compliance_checks: [untyped-def, unannotated-attr, mock, rope-walk]
+  compliance_checks: [untyped-def, unannotated-attr, explicit-any, mock, rope-walk]
+  any_type: Any
+  top_type: object
   executables: []
   comment_prefix: '#'
   suppression: '# pyright: ignore[<rule>]'
@@ -49,6 +52,8 @@ typescript:
   declaration_globs: ['**/*.d.ts', '**/*.d.mts', '**/*.d.cts']
   excluded_dirs: [node_modules]
   compliance_checks: [tsconfig, explicit-any, untyped-def, mock]
+  any_type: any
+  top_type: unknown
   executables: [node, npx]
   comment_prefix: '//'
   suppression: '// @ts-expect-error — <reason>'

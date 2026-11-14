@@ -1,7 +1,7 @@
 // `dr-compliance` and `dr-mock-lint` for TypeScript files: what would make a rename unverifiable.
 import { relative, resolve } from 'node:path';
 import type * as TS from 'typescript';
-import { message } from '../contract/index.js';
+import { language, message } from '../contract/index.js';
 import { findRepoRoot } from '../config/index.js';
 import { posix, ts } from '../lang/index.js';
 import { type Finding, mockFindings } from './mocks.js';
@@ -45,9 +45,10 @@ function fileFindings(program: TS.Program, source: TS.SourceFile, shown: string,
   const out: Finding[] = [];
   const line = (node: TS.Node): number => source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1;
   const checker = program.getTypeChecker();
+  const { any_type: any, top_type: top } = language('typescript');
   for (const node of walk(source)) {
     if (selected.has('explicit-any') && node.kind === ts().SyntaxKind.AnyKeyword) {
-      out.push({ position: node.getStart(source), text: message('compliance.explicit-any', { path: shown, line: line(node) }) });
+      out.push({ position: node.getStart(source), text: message('compliance.explicit-any', { path: shown, line: line(node), any, top }) });
     }
     if (attr !== null && ts().isPropertyAccessExpression(node) && node.name.text === attr) {
       if ((checker.getTypeAtLocation(node.expression).flags & ts().TypeFlags.Any) !== 0) { // NOSONAR(S1529) — TypeFlags bitmask test
