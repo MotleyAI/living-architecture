@@ -286,25 +286,24 @@ class MemberScan:
         return found
 
 
-class Probe:
-    """`source` with each member call's literal replaced by `(obj).NAME`: its text, the offset where each call's
-    access names NAME, and the map from its offsets back to the file's own."""
+class TextProbe:
+    """`source` with spans replaced: its text, the probe offset of each substitution's anchor, and the map from its
+    offsets back to the file's own."""
 
-    def __init__(self, source: SourceFile, calls: list[FormCall], name: str) -> None:
+    def __init__(self, source: SourceFile, substitutions: list[tuple[int, int, str, int]]) -> None:
+        """`substitutions`: disjoint spans, each with its new text and an anchor offset inside that text."""
         self.path = source.path
-        self.accesses = [0] * len(calls)
+        self.accesses = [0] * len(substitutions)
         self._ends: list[int] = []
         self._growth: list[int] = []
         pieces: list[str] = []
         pos = 0
-        for i in sorted(range(len(calls)), key=lambda i: calls[i].literal[0]):
-            obj = calls[i].obj
-            assert obj is not None
-            start, end = calls[i].literal
-            pieces += [source.text[pos : start - 1], f"({source.segment(obj)})."]
-            self.accesses[i] = sum(map(len, pieces))
-            pieces.append(name)
-            pos = end + 1
+        for i in sorted(range(len(substitutions)), key=lambda i: substitutions[i][0]):
+            start, end, text, anchor = substitutions[i]
+            pieces.append(source.text[pos:start])
+            self.accesses[i] = sum(map(len, pieces)) + anchor
+            pieces.append(text)
+            pos = end
             self._ends.append(sum(map(len, pieces)))
             self._growth.append(self._ends[-1] - pos)
         self.text = "".join(pieces) + source.text[pos:]
@@ -318,6 +317,20 @@ class Probe:
     def _back(self, offset: int) -> int:
         i = bisect.bisect_right(self._ends, offset)
         return offset - self._growth[i - 1] if i else offset
+
+
+class Probe(TextProbe):
+    """`source` with each member call's literal replaced by `(obj).NAME`; `accesses[i]` is where call `i`'s access
+    names NAME."""
+
+    def __init__(self, source: SourceFile, calls: list[FormCall], name: str) -> None:
+        substitutions: list[tuple[int, int, str, int]] = []
+        for call in calls:
+            assert call.obj is not None
+            start, end = call.literal
+            receiver = f"({source.segment(call.obj)})."
+            substitutions.append((start - 1, end + 1, receiver + name, len(receiver)))
+        super().__init__(source, substitutions)
 
 
 def receiver_text(source: SourceFile, node: ast.expr) -> str:

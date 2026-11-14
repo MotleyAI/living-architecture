@@ -85,26 +85,50 @@ def test_python_contexts(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys
     assert read(root, "pkg/use.py") == CONTEXTS.replace("edit_model", "edit_master")
 
 
+def _leftovers(path: str, *lines: int) -> list[str]:
+    return [message("refactor.leftover", path=path, line=line, where="string", old="edit_model") for line in lines]
+
+
+@pytest.mark.parametrize("flags", [(), ("--docs",)], ids=["without-docs", "with-docs"])
 def test_unrelated_equal_strings_untouched(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], flags: tuple[str, ...]
 ) -> None:
     root = write_project(tmp_path / "proj", {"pkg/kinds.py": KINDS, "pkg/other.py": UNRELATED})
-    code, _out, err = run(root, _by_symbol(), monkeypatch, capsys)
-    assert (code, err) == (0, "")
-    assert read(root, "pkg/other.py") == UNRELATED
-
-
-def test_unrelated_equal_strings_are_leftovers_with_docs(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
-    root = write_project(tmp_path / "proj", {"pkg/kinds.py": KINDS, "pkg/other.py": UNRELATED})
-    code, _out, err = run(root, _by_symbol("edit_master", "--docs"), monkeypatch, capsys)
+    code, _out, err = run(root, _by_symbol("edit_master", *flags), monkeypatch, capsys)
     assert code == 0
     assert read(root, "pkg/other.py") == UNRELATED
-    assert err.splitlines() == [
-        message("refactor.leftover", path="pkg/other.py", line=line, where="string", old="edit_model")
-        for line in (4, 12, 13, 15)
-    ]
+    # The `Other` declaration, the `str` variable and `choices` are listed; the `Other`-typed argument is not.
+    assert err.splitlines() == _leftovers("pkg/other.py", 4, 13, 15)
+
+
+LOOSE = """\
+from typing import Literal
+
+Other = Literal["edit_model", "zzz"]
+
+
+def h(o: Other | str) -> None:
+    print(o)
+
+
+def n(o: int) -> None:
+    print(o)
+
+
+def calls() -> None:
+    h("edit_model")
+    n("edit_model")
+"""
+
+
+def test_position_that_accepts_any_string_is_listed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = write_project(tmp_path / "proj", {"pkg/kinds.py": KINDS, "pkg/loose.py": LOOSE})
+    code, _out, err = run(root, _by_symbol(), monkeypatch, capsys)
+    assert code == 0
+    assert read(root, "pkg/loose.py") == LOOSE
+    assert err.splitlines() == _leftovers("pkg/loose.py", 3, 15, 16)
 
 
 EXHAUSTIVE = """\

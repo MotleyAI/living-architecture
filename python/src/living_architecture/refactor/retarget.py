@@ -8,6 +8,7 @@ from collections.abc import Iterator
 
 from rope.base import libutils
 from rope.refactor.rename import Rename
+from typing_extensions import override
 
 from living_architecture.contract import message
 from living_architecture.refactor.outcomes import Finding
@@ -72,6 +73,7 @@ class AliasRetarget(SymbolRename):
         self.line = line
         self.refusals: list[Finding] = []
 
+    @override
     def header(self) -> str:
         return message("refactor.retarget-header", old=self.old, new=self.new)
 
@@ -138,8 +140,8 @@ class AliasRetarget(SymbolRename):
         for stmt in source.tree.body:
             if stmt is skip or self.new not in _stored(stmt):
                 continue
-            imported = isinstance(stmt, ast.ImportFrom) and self._from_alias_module(rel, stmt, alias_module)
-            if not (imported and any(a.name == self.new and a.asname in (None, self.new) for a in stmt.names)):
+            if not (isinstance(stmt, ast.ImportFrom) and self._from_alias_module(rel, stmt, alias_module)
+                    and any(a.name == self.new and a.asname in (None, self.new) for a in stmt.names)):
                 return True
         return False
 

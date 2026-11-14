@@ -178,7 +178,7 @@ def test_rename_walks_every_construct(
 ) -> None:
     target = project / "pkg" / "m.py"
     target.write_text(source, encoding="utf-8")
-    offset = m.start(1) if (m := re.search(rf"^\s*(?:def|class)\s+({re.escape(name)})\b", source, re.M)) else source.index(name)
+    offset = m.start(1) if (m := re.search(rf"^\s*(?:def|class)\s+({re.escape(name)})\b", source, re.MULTILINE)) else source.index(name)
     assert _run(project, "rename", "--file", str(target), "--offset", str(offset), "--new-name", new_name) == 0
     out = capsys.readouterr().out.splitlines()
     for line in added:

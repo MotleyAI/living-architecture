@@ -23,6 +23,7 @@ from rope.refactor.rename import Rename, _is_local
 from living_architecture.config import source_files
 from living_architecture.contract import manifest, message
 from living_architecture.lang import LanguageServer, Span
+from living_architecture.refactor.compound import is_compound
 from living_architecture.refactor.keyed import (
     Bindings,
     ClassRef,
@@ -31,7 +32,6 @@ from living_architecture.refactor.keyed import (
     declares_alias,
     field_assignment,
 )
-from living_architecture.refactor.compound import is_compound
 from living_architecture.refactor.member_scan import FormCall, MemberScan
 from living_architecture.refactor.members import classes, member_declarations
 from living_architecture.refactor.mentions import (
@@ -48,6 +48,7 @@ from living_architecture.refactor.outcomes import (
     Outcome,
     blindspot_outcome,
     compound_outcome,
+    file_outcome,
     literal_outcomes,
     mention_outcome,
     string_member_outcome,
@@ -546,13 +547,7 @@ class SymbolRename:
     def _file(self, outcome: Outcome) -> None:
         """Record an examined site and file what its rule decided."""
         self._examined.setdefault(outcome.rel, []).append(outcome.span)
-        self.edits += outcome.edits
-        if outcome.kind == "blindspot":
-            assert outcome.finding is not None
-            self.blindspots.append(outcome.finding)
-        elif outcome.kind == "leftover":
-            assert outcome.finding is not None
-            self.leftovers.append(outcome.finding)
+        file_outcome(outcome, edits=self.edits, blindspots=self.blindspots, leftovers=self.leftovers)
 
     def _overlaps(self, spans: dict[str, list[tuple[int, int]]], rel: str, start: int, end: int) -> bool:
         """`start:end` of `rel` overlaps one of `spans` or an edit."""

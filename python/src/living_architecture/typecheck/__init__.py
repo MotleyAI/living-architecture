@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import shlex
 import shutil
@@ -109,6 +110,30 @@ def _run_python(root: Path, command: str, argv: list[str], *, write: bool) -> in
             baseline.write_text(lang.empty_basedpyright_baseline(), encoding="utf-8")
         _err(message("typecheck.write", language="python", baseline=language("python")["baseline_file"]))
     return code
+
+
+def python_diagnostics(root: Path, command: str, extra: list[str]) -> dict[str, object]:
+    """The configured Python checker's `--outputjson` report with `extra` appended; CommandError when it fails."""
+    argv = resolve_argv(root, "python", command)
+    versions: list[str] = language("python")["checker_patch_versions"]
+    with tempfile.TemporaryDirectory(prefix="la-pyright-patch-") as tmp:
+        result = Path(tmp) / "result.json"
+        env = lang.pyright_patch_env(os.environ, result=result, versions=versions)
+        try:
+            proc = subprocess.run([*argv, "--outputjson", *extra], cwd=root, env=env, capture_output=True, check=False)
+        except OSError as exc:
+            raise CommandError(str(exc)) from None
+        patch = lang.read_pyright_patch(result)
+    failure = _patch_failure(patch, command, versions)
+    if failure is not None or lang.basedpyright_exit(proc.returncode, write=False) == 2:
+        raise CommandError(failure or proc.stderr.decode(errors="replace"))
+    try:
+        report = json.loads(proc.stdout)
+    except ValueError:
+        raise CommandError(command) from None
+    if not isinstance(report, dict):
+        raise CommandError(command)
+    return report
 
 
 def _check_native(root: Path, command: str, *, write: bool) -> int:

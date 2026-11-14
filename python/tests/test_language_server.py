@@ -164,6 +164,21 @@ def test_bundled_server_finds_forward_reference_strings(workspace: Path) -> None
     assert file_tree(workspace) == before
 
 
+def test_bundled_server_pulls_diagnostics_of_the_current_text(workspace: Path) -> None:
+    path = workspace / "m.py"
+    text = 'x: int = 1\n'
+    path.write_text(text, encoding="utf-8")
+    with LanguageServer(workspace) as server:
+        server.open(path, text)
+        assert server.diagnostics(path) == []
+        changed = 'x: int = "a😀"\n'
+        server.change(path, changed)
+        found = server.diagnostics(path)
+    assert [(d.code, d.severity, d.span.start, d.span.end) for d in found] == [
+        ("reportAssignmentType", 1, changed.index('"'), len(changed) - 1)
+    ]
+
+
 def test_bundled_server_that_cannot_start_is_an_error(workspace: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("NODE_OPTIONS", "--require /nonexistent.js")
     with pytest.raises(LanguageServerError), LanguageServer(workspace):

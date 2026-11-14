@@ -20,5 +20,5 @@ expect:
   - pkg/kinds.py
   - pkg/other.py
 golden: manual
-note: equal strings the checker does not type by DriftKind (another Literal's member and its argument, a str variable, argparse
-  choices) are untouched; with --docs each is a leftover
+note: 'equal strings the checker does not type by DriftKind are untouched: another Literal''s member, a str variable and
+  argparse choices are listed with or without --docs; the argument the checker types by the other Literal is not'

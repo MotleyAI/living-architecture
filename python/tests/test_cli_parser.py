@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from living_architecture import cli, conventions, refactor, review
+from living_architecture import cli, conventions, review
 from living_architecture.cli.parser import build_parser, parse
 from living_architecture.contract import manifest
 

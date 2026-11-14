@@ -192,7 +192,10 @@ def locate(source: SourceFile, raw: str, shown: str) -> Located:
         raise LocatorError(message("refactor.symbol-ambiguous", path=shown, symbol=raw, candidates=sites))
     group = groups[0]
     if path.param is not None:
-        return _parameter(source, group, path.param, unresolved)
+        located = _parameter(source, group, path.param, unresolved)
+        if path.value is not None:
+            return _literal_member(source, [(path.param, located.offset, located.nodes[0])], path.value, unresolved)
+        return located
     if path.value is not None:
         return _literal_member(source, group, path.value, unresolved)
     return Located(offset=group[0][1], nodes=tuple(n for _, _, n in group), top_level=len(segments) == 1)

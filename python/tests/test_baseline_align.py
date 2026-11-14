@@ -221,7 +221,8 @@ def test_moved_declaration(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caps
     code, _out, err = run(root, argv, monkeypatch, capsys)
     assert (code, err) == (0, "")
     files = json.loads(read(root, BASELINE))["files"]
-    assert files["./pkg/dest.py"] == [*dest_entries, moved_entry]
+    assert read(root, "pkg/dest.py").startswith("def moved(")  # rope puts it above the first statement
+    assert files["./pkg/dest.py"] == [moved_entry, *dest_entries]
     assert moved_entry not in files.get("./pkg/source.py", [])
     assert _typecheck(root)[0] == 0
 

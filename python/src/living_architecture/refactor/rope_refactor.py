@@ -16,6 +16,7 @@ from rope.refactor.move import MoveGlobal, MoveModule, create_move
 from rope.refactor.rename import Rename
 
 from living_architecture.contract import message
+from living_architecture.refactor.baseline_align import BaselineFailed
 from living_architecture.refactor.locators import (
     Locator,
     RefactorError,
@@ -57,10 +58,10 @@ def _destination(project: Project, dest: str, *, folder: bool) -> Resource:
     return resource(project, dest)
 
 
-def _emit(project: Project, changes: ChangeSet, apply: bool) -> None:
+def _emit(project: Project, changes: ChangeSet, apply: bool, *, moved_code: bool = False) -> None:
     """Print a rope change set sorted by path; write it all or nothing with `apply`."""
     writes, moves = change_set_writes(project, changes)
-    emit(project, [f"{changes}:"], changes, apply, writes, moves)
+    emit(project, [f"{changes}:"], changes, apply, writes, moves, moved_code=moved_code)
 
 
 def _kept(project: Project, changes: ChangeSet, keep: tuple[str, ...]) -> ChangeSet:
@@ -127,12 +128,17 @@ def move_symbol(project: Project, *, file: str, locator: Locator, dest: str, app
     if target == mover.source:
         _emit(project, ChangeSet(f"Moving global <{mover.old_name}>"), apply)
         return
-    _emit(project, symbol_move_changes(project, mover, target), apply)
+    _emit(project, symbol_move_changes(project, mover, target), apply, moved_code=True)
 
 
 def move_module(project: Project, *, module: str, dest: str, apply: bool) -> None:
     mover = cast(MoveModule, create_move(project, resource(project, module)))
     _emit(project, module_move_changes(project, mover, _destination(project, dest, folder=True)), apply)
+
+
+def _renamer(renamer: Rename | None) -> Rename:
+    assert renamer is not None
+    return renamer
 
 
 def _locator(options: dict[str, Any]) -> Locator:
@@ -155,7 +161,7 @@ def _run(project: Project, project_root: str, command: str, apply: bool, options
         rename_options = entry_options(options)
         return run_map(
             project, entries, rename_options, apply_=apply, map_shown=shown,
-            module_rename=lambda r: _module_rename(project, r.renamer, r.entry, rename_options, apply),
+            module_rename=lambda r: _module_rename(project, _renamer(r.renamer), r.entry, rename_options, apply),
         )
     if command == "move-symbol":
         move_symbol(project, file=str(options["file"]), locator=_locator(options), dest=str(options["dest"]), apply=apply)
@@ -191,6 +197,9 @@ def run_refactor(*, project_root: str, command: str, apply: bool, options: dict[
         return 1
     except FileChanged as changed:
         print(message("refactor.file-changed", path=changed.path), file=sys.stderr)
+        return 1
+    except BaselineFailed:
+        print(message("refactor.baseline-failed", language="python"), file=sys.stderr)
         return 1
     except WriteFailed as failed:
         print(message("refactor.write-failed", path=failed.path), file=sys.stderr)
