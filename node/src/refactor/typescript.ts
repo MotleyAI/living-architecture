@@ -16,8 +16,9 @@ import { byCodePoint, language, manifest, message } from '../contract/index.js';
 import { canonical, posix, stripSourceExtension, ts } from '../lang/index.js';
 import { unifiedDiff } from './diff.js';
 import { applyEdits, type Edit, mergeEdits, RefactorError } from './edits.js';
-import { anyReceivers, type FormCall, formCalls, isAny, type MemberDeclaration, memberDeclarations, memberNameStart } from './members.js';
+import { anyAccesses, type FormCall, formCalls, isAny, type MemberDeclaration, memberDeclarations, memberNameStart } from './members.js';
 import { codeMarked, type Mention, mentions, type Owner, qualified, type Region, sourceRegions } from './mentions.js';
+import { blindspotOutcome, formCallOutcome, literalOutcomes, mentionOutcome, type Outcome } from './outcomes.js';
 import { CHECKER_OPTIONS } from './compliance.js';
 import { Lines } from './lines.js';
 import { languageFiles, realPath, under } from './routing.js';
@@ -262,6 +263,7 @@ class TypescriptRename {
   private readonly declarations: MemberDeclaration[];
   private readonly texts = new Map<string, string>();
   private readonly lines = new Map<string, Lines>();
+  private readonly examined = new Map<string, [number, number][]>();
 
   constructor(
     readonly r: Refactor,
@@ -315,8 +317,26 @@ class TypescriptRename {
     return { path: rel, line, position, text: message(template, { ...values, path: rel, line }) };
   }
 
+  /** Record an examined site and file what its rule decided. */
+  private record(outcome: Outcome): void {
+    this.examined.set(outcome.path, [...(this.examined.get(outcome.path) ?? []), [outcome.start, outcome.end]]);
+    this.edits.push(...outcome.edits);
+    const pending = outcome.finding;
+    if (pending === undefined) return;
+    const found = this.finding(outcome.path, pending.position, pending.template, pending.values);
+    if (outcome.kind === 'blindspot') this.blindspots.push(found);
+    else this.leftovers.push(found);
+  }
+
+  /** `start`..`end` of `path` overlaps an examined site or an edit. */
+  private covered(path: string, start: number, end: number): boolean {
+    if ((this.examined.get(path) ?? []).some(([s, e]) => s < end && start < e)) return true;
+    return this.edits.some((e) => e.path === path && e.start < end && start < e.start + e.length);
+  }
+
   /** Join every `--with` stand-in's rename; record the stand-ins left unclassified. */
   classify(withSites: string[], withoutSites: string[]): void {
+    for (const d of this.declarations) this.examined.set(d.path, [...(this.examined.get(d.path) ?? []), [d.start, d.start + this.old.length]]);
     const declared = new Set(this.declarations.map((d) => keyOf(d.path, d.start)));
     const candidates = this.declarations.filter((d) => !this.renamed.has(keyOf(d.path, d.start)));
     const classified = new Set<string>();
@@ -350,26 +370,29 @@ class TypescriptRename {
    * renamed and unchanged declarations are blind spots. */
   scan(): void {
     for (const { source, checker } of this.sources.values()) {
-      if (!source.text.includes(this.old)) continue;
-      for (const { position, receiver } of anyReceivers(checker, source, this.old)) {
-        this.blindspots.push(this.finding(source.fileName, position, 'compliance.attr-blindspot', { receiver, attr: this.old, type: 'any' }));
-      }
+      const path = source.fileName;
+      for (const { position, receiver } of anyAccesses(checker, source, this.old)) this.record(blindspotOutcome(path, position, null, receiver, this.old));
       for (const found of formCalls(checker, source, this.old)) {
-        if (!isAny(checker, found.object)) this.formCall(checker, source, found);
+        const receiver = found.object.getText(source);
+        if (isAny(checker, found.object)) {
+          this.record(blindspotOutcome(path, found.call.getStart(source), [found.start, found.end], receiver, this.old));
+        } else {
+          this.record(formCallOutcome(path, found, this.landings(checker, found), receiver, this.old, this.newName));
+        }
       }
     }
   }
 
-  /** A typed string-member form: rewritten when it lands only on renamed declarations, a blind spot when on both. */
-  private formCall(checker: TS.TypeChecker, source: TS.SourceFile, found: FormCall): void {
+  /** Whether each declaration a typed member form's lookup lands on is renamed. */
+  private landings(checker: TS.TypeChecker, found: FormCall): boolean[] {
     const type = checker.getApparentType(checker.getTypeAtLocation(found.object));
-    const renamed = new Set((type.getProperty(this.old)?.declarations ?? []).map((d) => this.isRenamed(d)));
-    if (!renamed.has(true)) return;
-    if (renamed.has(false)) {
-      const receiver = found.object.getText(source);
-      this.blindspots.push(this.finding(source.fileName, found.call.getStart(source), 'refactor.mixed-target', { receiver, attr: this.old }));
-    } else {
-      this.edits.push({ path: source.fileName, start: found.start, length: found.end - found.start, newText: this.newName });
+    return (type.getProperty(this.old)?.declarations ?? []).map((d) => this.isRenamed(d));
+  }
+
+  /** Without `--docs`: each string literal exactly OLD that no rule examined, listed. */
+  literals(): void {
+    for (const { source } of this.sources.values()) {
+      for (const outcome of literalOutcomes(source.fileName, source, this.old, (s, e) => this.covered(source.fileName, s, e))) this.record(outcome);
     }
   }
 
@@ -413,11 +436,8 @@ class TypescriptRename {
       const text = this.text(path);
       for (const m of found) {
         if (this.edits.some((e) => e.path === path && e.start <= m.start && m.start < e.start + e.length)) continue;
-        if (qualified(text, m.start, owners, colliding) || (declaring && codeMarked(text, m))) {
-          this.edits.push({ path, start: m.start, length: m.end - m.start, newText: this.newName });
-        } else {
-          this.leftovers.push(this.finding(path, m.start, 'refactor.leftover', { where: m.where, old: this.old }));
-        }
+        const rewritten = qualified(text, m.start, owners, colliding) || (declaring && codeMarked(text, m));
+        this.record(mentionOutcome(path, m, rewritten, this.old, this.newName));
       }
     }
   }
@@ -478,6 +498,7 @@ function rename(r: Refactor): number {
   }
   if (r.args.docs === true) symbol.docs();
   else symbol.dropCommentEdits();
+  if (symbol.member && r.args.docs !== true) symbol.literals();
   const edits = symbol.keep(r.args.keep ?? []);
   const allowed = r.args.allow_blindspots === true;
   if ((symbol.blindspots.length > 0 && !allowed) || symbol.standIns.length > 0) {

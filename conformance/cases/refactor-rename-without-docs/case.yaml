@@ -23,4 +23,4 @@ expect:
   - pkg/engine.py
   - pkg/other.py
 golden: manual
-note: without --docs no comment, docstring, message or prose file changes and nothing is listed
+note: without --docs no comment, docstring, message or prose file changes and only exact-OLD string literals are listed

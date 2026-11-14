@@ -45,6 +45,7 @@ class Blindspot(BaseModel):
     col: int
     receiver: str
     kind: str
+    literal: tuple[int, int] | None = None
 
 
 class FormCall(BaseModel):
@@ -246,34 +247,18 @@ class MemberScan:
 
     def probe(self, path: Path, source: SourceFile, calls: list[FormCall]) -> list[tuple[str | None, list[Span]]]:
         """For each resolved member call, its object's kind when not a name or attribute, and the declarations
-        `obj.NAME` lands on (in the file's own offsets): read from the file with each literal replaced by
-        `(obj).NAME`, then restored."""
-        order = sorted(range(len(calls)), key=lambda i: calls[i].literal[0])
-        pieces: list[str] = []
-        offsets: dict[int, int] = {}
-        shifts: list[tuple[int, int]] = []
-        pos = 0
-        for i in order:
-            obj = calls[i].obj
-            assert obj is not None
-            start, end = calls[i].literal
-            prefix = f"({_SPACE.sub(' ', source.segment(obj))})."
-            pieces += [source.text[pos : start - 1], prefix]
-            offsets[i] = sum(map(len, pieces))
-            pieces.append(self.name)
-            pos = end + 1
-            shifts.append((sum(map(len, pieces)), sum(map(len, pieces)) - pos))
-        probe = "".join(pieces) + source.text[pos:]
-        self.server.change(path, probe)
+        `obj.NAME` lands on, in the file's own offsets."""
+        probe = Probe(source, calls, self.name)
+        self.server.change(path, probe.text)
         try:
-            probed = SourceFile(path, probe)
+            probed = SourceFile(path, probe.text)
             out: list[tuple[str | None, list[Span]]] = []
             for i, found in enumerate(calls):
-                access = _access_at(probed, offsets[i])
+                access = _access_at(probed, probe.accesses[i])
                 kind = None
                 if access is not None and not isinstance(found.obj, (ast.Name, ast.Attribute)):
                     kind = _access_kind(self.server, path, probed, access)
-                out.append((kind, [_unprobed(d, path, shifts) for d in self.server.definition(path, offsets[i])]))
+                out.append((kind, [probe.original(d) for d in self.server.definition(path, probe.accesses[i])]))
             return out
         finally:
             self.server.change(path, source.text)
@@ -289,21 +274,42 @@ class MemberScan:
             if kind is not None:
                 assert call.obj is not None
                 found.append(Blindspot(line=call.call.lineno, col=call.call.col_offset,
-                                       receiver=receiver_text(source, call.obj), kind=kind))
+                                       receiver=receiver_text(source, call.obj), kind=kind, literal=call.literal))
         return found
 
 
-def _unprobed(span: Span, path: Path, shifts: list[tuple[int, int]]) -> Span:
-    """`span` in the probed file's original offsets; `shifts` holds each replacement's probe end and the probe's
-    total growth up to it."""
-    if span.path.resolve() != path.resolve():
-        return span
+class Probe:
+    """`source` with each member call's literal replaced by `(obj).NAME`: its text, the offset where each call's
+    access names NAME, and the map from its offsets back to the file's own."""
 
-    def back(offset: int) -> int:
-        i = bisect.bisect_right([end for end, _ in shifts], offset)
-        return offset - shifts[i - 1][1] if i else offset
+    def __init__(self, source: SourceFile, calls: list[FormCall], name: str) -> None:
+        self.path = source.path
+        self.accesses = [0] * len(calls)
+        self._ends: list[int] = []
+        self._growth: list[int] = []
+        pieces: list[str] = []
+        pos = 0
+        for i in sorted(range(len(calls)), key=lambda i: calls[i].literal[0]):
+            obj = calls[i].obj
+            assert obj is not None
+            start, end = calls[i].literal
+            pieces += [source.text[pos : start - 1], f"({_SPACE.sub(' ', source.segment(obj))})."]
+            self.accesses[i] = sum(map(len, pieces))
+            pieces.append(name)
+            pos = end + 1
+            self._ends.append(sum(map(len, pieces)))
+            self._growth.append(self._ends[-1] - pos)
+        self.text = "".join(pieces) + source.text[pos:]
 
-    return Span(path=span.path, start=back(span.start), end=back(span.end))
+    def original(self, span: Span) -> Span:
+        """`span` in the file's own offsets; a span in another file unchanged."""
+        if span.path.resolve() != self.path.resolve():
+            return span
+        return Span(path=span.path, start=self._back(span.start), end=self._back(span.end))
+
+    def _back(self, offset: int) -> int:
+        i = bisect.bisect_right(self._ends, offset)
+        return offset - self._growth[i - 1] if i else offset
 
 
 def receiver_text(source: SourceFile, node: ast.expr) -> str:

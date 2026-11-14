@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 from collections.abc import Callable
 from pathlib import Path
 
@@ -10,6 +11,9 @@ from project_files import file_tree
 
 from living_architecture.cli import dr_refactor
 from living_architecture.contract import message
+from living_architecture.lang import Span
+from living_architecture.refactor.member_scan import FormCall, Probe, plain_literal
+from living_architecture.refactor.python_source import SourceFile
 
 MakeProject = Callable[..., Path]
 
@@ -138,12 +142,14 @@ def test_member_of_another_class_is_unchanged(project: MakeProject) -> None:
     assert _read(root, "pkg/use.py") == use
 
 
-def test_lookalike_callees_are_neither_rewritten_nor_blind_spots(
+def test_lookalike_callees_are_neither_rewritten_nor_blind_spots_but_listed(
     project: MakeProject, capsys: pytest.CaptureFixture[str]
 ) -> None:
     root = project({"pkg/engine.py": ENGINE, "pkg/use.py": LOOKALIKES})
     assert _rename_save_model(root) == 0
-    assert capsys.readouterr().err == ""
+    assert capsys.readouterr().err == "".join(
+        message("refactor.leftover", path="pkg/use.py", line=line, where="string", old="save_model") + "\n" for line in (13, 14)
+    )
     assert _read(root, "pkg/use.py") == LOOKALIKES
 
 
@@ -392,3 +398,56 @@ def test_resolving_targets_runs_no_project_code(
     monkeypatch.chdir(root)
     assert _rename_save_model(root, "--allow-blindspots") == 0
     assert not marker.exists()
+
+
+# ---- the probe: its text and the map back to the file's own offsets
+
+PROBED = 'a = 1\nx = getattr(eng, "save_model")\nb = 2\ny = getattr(eng.inner,  "save_model")\nc = 3\n'
+
+
+def _calls(source: SourceFile) -> list[FormCall]:
+    assert source.tree is not None
+    calls = [n for n in ast.walk(source.tree) if isinstance(n, ast.Call)]
+    out: list[FormCall] = []
+    for call in calls:
+        found = plain_literal(source, call.args[1])
+        assert found is not None
+        out.append(FormCall(call=call, literal=found[0], text=found[1], obj=call.args[0], forms=()))
+    return out
+
+
+@pytest.mark.parametrize("order", [[0, 1], [1, 0]], ids=["source-order", "reversed"])
+def test_probe_text_and_accesses_in_any_call_order(order: list[int]) -> None:
+    source = SourceFile(Path("/p/m.py"), PROBED)
+    calls = [_calls(source)[i] for i in order]
+    probe = Probe(source, calls, "save_model")
+    assert probe.text == 'a = 1\nx = getattr(eng, (eng).save_model)\nb = 2\ny = getattr(eng.inner,  (eng.inner).save_model)\nc = 3\n'
+    for i, call in enumerate(calls):
+        assert call.obj is not None
+        prefix = f"({source.segment(call.obj)})."
+        assert probe.text[probe.accesses[i] - len(prefix) :].startswith(f"{prefix}save_model")
+
+
+@pytest.mark.parametrize("name", ["a", "b", "c"], ids=["before", "between", "after"])
+def test_probe_maps_a_declaration_back(name: str) -> None:
+    source = SourceFile(Path("/p/m.py"), PROBED)
+    probe = Probe(source, _calls(source), "save_model")
+    at = probe.text.index(f"{name} = ")
+    assert probe.original(Span(path=Path("/p/m.py"), start=at, end=at + 1)) == Span(
+        path=Path("/p/m.py"), start=PROBED.index(f"{name} = "), end=PROBED.index(f"{name} = ") + 1)
+
+
+def test_probe_leaves_a_definition_in_another_file() -> None:
+    source = SourceFile(Path("/p/m.py"), PROBED)
+    probe = Probe(source, _calls(source), "save_model")
+    span = Span(path=Path("/p/other.py"), start=40, end=50)
+    assert probe.original(span) == span
+
+
+def test_a_function_rename_lists_no_exact_literal(project: MakeProject, capsys: pytest.CaptureFixture[str]) -> None:
+    funcs = 'def save_model() -> None:\n    pass\n\n\nNAME = "save_model"\n'
+    root = project({"pkg/funcs.py": funcs})
+    offset = funcs.index("save_model")
+    assert dr_refactor(["--project", str(root), "rename", "--file", "pkg/funcs.py", "--offset", str(offset),
+                        "--new-name", "store_model"]) == 0
+    assert capsys.readouterr().err == ""

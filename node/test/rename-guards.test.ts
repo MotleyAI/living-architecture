@@ -82,3 +82,14 @@ describe('file universe', () => {
     expect(lines).toEqual(compliance.out.trimEnd().split('\n'));
   });
 });
+
+describe('exact-OLD literals', () => {
+  it('a function rename lists none', () => {
+    const root = tempRepo({
+      'tsconfig.json': '{"compilerOptions": {"strict": true}, "include": ["src"]}\n',
+      'src/funcs.ts': "export function saveModel(): void {}\nexport const NAME = 'saveModel';\n",
+    });
+    const renamed = run(root, 'dr-refactor', ['rename', '--file', 'src/funcs.ts', '--name', 'saveModel', '--new-name', 'storeModel']);
+    expect([renamed.code, renamed.err]).toEqual([0, '']);
+  });
+});

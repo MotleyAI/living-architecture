@@ -80,14 +80,20 @@ export interface AnyReceiver {
   receiver: string;
 }
 
-/** Every `x.name` and string-member object typed `any`, in position order. */
-export function anyReceivers(checker: TS.TypeChecker, source: TS.SourceFile, name: string): AnyReceiver[] {
+/** Every `x.name` whose receiver is typed `any`. */
+export function anyAccesses(checker: TS.TypeChecker, source: TS.SourceFile, name: string): AnyReceiver[] {
   const out: AnyReceiver[] = [];
   for (const node of walk(source)) {
     if (ts().isPropertyAccessExpression(node) && node.name.text === name && isAny(checker, node.expression)) {
       out.push({ position: node.getStart(source), receiver: node.expression.getText(source) });
     }
   }
+  return out;
+}
+
+/** Every `x.name` and string-member object typed `any`, in position order. */
+export function anyReceivers(checker: TS.TypeChecker, source: TS.SourceFile, name: string): AnyReceiver[] {
+  const out = anyAccesses(checker, source, name);
   for (const found of formCalls(checker, source, name)) {
     if (isAny(checker, found.object)) out.push({ position: found.call.getStart(source), receiver: found.object.getText(source) });
   }

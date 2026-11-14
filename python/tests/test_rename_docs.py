@@ -124,10 +124,10 @@ def test_every_other_mention_is_listed_in_order(project: MakeProject, capsys: py
     ]
 
 
-def test_without_docs_nothing_is_scanned_or_listed(project: MakeProject, capsys: pytest.CaptureFixture[str]) -> None:
+def test_without_docs_only_exact_literals_are_listed(project: MakeProject, capsys: pytest.CaptureFixture[str]) -> None:
     root = project(FILES)
     assert _rename(root) == 0
-    assert capsys.readouterr().err == ""
+    assert capsys.readouterr().err == f"{_leftover('pkg/other.py', 8, 'string')}\n"
     assert _read(root, "pkg/engine.py") == ENGINE.replace(
         "    def recommend_root_model(", f"    def {NEW}("
     )

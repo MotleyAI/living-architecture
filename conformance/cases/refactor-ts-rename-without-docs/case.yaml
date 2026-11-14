@@ -21,4 +21,4 @@ expect:
   - src/engine.ts
   - src/use.ts
 golden: manual
-note: without --docs comments, JSDoc, messages and prose files are unchanged and nothing is listed
+note: without --docs comments, JSDoc, messages and prose files are unchanged and only exact-OLD string literals are listed

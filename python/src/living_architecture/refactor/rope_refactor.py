@@ -26,7 +26,7 @@ from living_architecture.refactor.move_edits import NameConflict, module_move_ch
 from living_architecture.refactor.python_source import split_lines
 from living_architecture.refactor.rename_union import FileChanged, RenameOptions, SymbolRename
 from living_architecture.refactor.rope_patches import WalkerGap, apply_rope_patches
-from living_architecture.refactor.sites import Site, SiteError
+from living_architecture.refactor.sites import Keeps, SiteError
 
 apply_rope_patches()
 
@@ -146,13 +146,10 @@ def _kept(project: Project, changes: ChangeSet, keep: tuple[str, ...]) -> Change
     for a keep that matches neither."""
     if not keep:
         return changes
-    sites = [Site.parse(raw, Path(project.address).resolve()) for raw in keep]
-    matched: set[int] = set()
+    keeps = Keeps(keep, Path(project.address).resolve())
 
     def kept(rel: str, line: int | None) -> bool:
-        hits = {i for i, s in enumerate(sites) if (line is not None or s.line is None) and s.covers(rel, line or 0)}
-        matched.update(hits)
-        return bool(hits)
+        return keeps.kept(rel, line)
 
     out = ChangeSet(changes.description)
     for change in changes.changes:
@@ -163,9 +160,7 @@ def _kept(project: Project, changes: ChangeSet, keep: tuple[str, ...]) -> Change
                 out.add_change(ChangeContents(change.resource, new))
         elif not kept(change.resource.path, None):
             out.add_change(change)
-    unmatched = next((s for i, s in enumerate(sites) if i not in matched), None)
-    if unmatched is not None:
-        raise SiteError("refactor.keep-unmatched", unmatched.raw)
+    keeps.check()
     return out
 
 

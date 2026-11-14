@@ -108,7 +108,8 @@ def mentions(text: str, old: str, regions: Iterator[Region], line: Callable[[int
     ]
 
 
-def _docstrings(tree: ast.Module | None) -> list[ast.Constant]:
+def docstrings(tree: ast.Module | None) -> list[ast.Constant]:
+    """The module, class and function docstrings of `tree`."""
     if tree is None:
         return []
     owners = [tree, *(n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef))]
@@ -145,7 +146,7 @@ def _masked_fstring(token: str) -> list[tuple[int, int]]:
 
 def source_regions(source: SourceFile) -> Iterator[Region]:
     """The comments and string literal contents of a Python file."""
-    docstrings = [source.span(d) for d in _docstrings(source.tree)]
+    spans = [source.span(d) for d in docstrings(source.tree)]
     try:
         tokens = list(tokenize.generate_tokens(io.StringIO(source.text, newline="").readline))
     except (tokenize.TokenError, SyntaxError):
@@ -161,7 +162,7 @@ def source_regions(source: SourceFile) -> Iterator[Region]:
         elif token.type in _FSTRING_PARTS:
             yield offset, offset + len(token.string), "string", opening
         elif token.type == tokenize.STRING:
-            where = "docstring" if any(s <= offset < e for s, e in docstrings) else "string"
+            where = "docstring" if any(s <= offset < e for s, e in spans) else "string"
             yield from _string_regions(token.string, offset, end, where)
 
 
