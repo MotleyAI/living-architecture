@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 from collections.abc import Callable
 from pathlib import Path
 
@@ -94,11 +95,42 @@ def _field_offset(text: str, owner: str, field: str) -> int:
     return text.index(f"    {field}:", text.index(f"class {owner}(")) + 4
 
 
+def _declares(cls: ast.ClassDef, field: str) -> int | None:
+    for node in cls.body:
+        if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name) and node.target.id == field:
+            return node.lineno
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == field:
+            return node.lineno
+    return None
+
+
+def _without_unrelated(root: Path, owner: str, field: str) -> list[str]:
+    """`--without` for every class declaring `field` outside `owner`'s hierarchy, as the stand-in check requires."""
+    classes = [
+        (rel, node)
+        for rel in ("pkg/models.py", "pkg/use.py")
+        if (root / rel).is_file()
+        for node in ast.walk(ast.parse((root / rel).read_text(encoding="utf-8")))
+        if isinstance(node, ast.ClassDef)
+    ]
+    bases = {node.name: {b.id for b in node.bases if isinstance(b, ast.Name)} for _, node in classes}
+    related = {owner}
+    while (grown := related | {n for n, of in bases.items() if of & related}
+           | {b for n in related for b in bases.get(n, ())}) != related:
+        related = grown
+    flags: list[str] = []
+    for rel, node in classes:
+        line = _declares(node, field)
+        if line is not None and node.name not in related:
+            flags += ["--without", f"{rel}:{line}"]
+    return flags
+
+
 def _rename_field(root: Path, owner: str, field: str, new_name: str) -> int:
     path = root / "pkg" / "models.py"
     offset = _field_offset(path.read_text(encoding="utf-8"), owner, field)
     return dr_refactor(["--project", str(root), "--apply", "rename", "--file", str(path), "--offset", str(offset),
-                        "--new-name", new_name])
+                        "--new-name", new_name, *_without_unrelated(root, owner, field)])
 
 
 def _use_after(typed_project: MakeProject, use: str, owner: str = "Model", field: str = "columns",

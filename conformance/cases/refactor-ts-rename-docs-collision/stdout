@@ -1,0 +1,17 @@
+Renaming <saveModel> to <persistModel>:
+
+
+--- a/src/engine.ts
++++ b/src/engine.ts
+@@ -1,5 +1,5 @@
+ export class Engine {
+-  saveModel(name: string): void {
++  persistModel(name: string): void {
+     void name;
+   }
+ }
+
+
+
+APPLIED. 1 file(s) changed:
+  src/engine.ts

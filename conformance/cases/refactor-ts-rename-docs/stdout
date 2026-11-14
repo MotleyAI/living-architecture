@@ -1,0 +1,49 @@
+Renaming <saveModel> to <persistModel>:
+
+
+--- a/docs/api.md
++++ b/docs/api.md
+@@ -1,4 +1,4 @@
+ # API
+ 
+-Use `Engine.saveModel`.
++Use `Engine.persistModel`.
+ Then saveModel runs.
+
+--- a/src/engine.ts
++++ b/src/engine.ts
+@@ -1,8 +1,8 @@
+-/** The engine; see {@link Engine#saveModel} and `saveModel()`. */
++/** The engine; see {@link Engine#persistModel} and `persistModel()`. */
+ export class Engine {
+-  /** Saves; see `saveModel`. */
+-  saveModel(name: string): void {
++  /** Saves; see `persistModel`. */
++  persistModel(name: string): void {
+     // then saveModel runs
+-    throw new Error(`saveModel: ${name}`);
++    throw new Error(`persistModel: ${name}`);
+   }
+ }
+
+--- a/src/use.ts
++++ b/src/use.ts
+@@ -1,8 +1,8 @@
+ import { Engine } from './engine';
+ 
+-/** Calls {@link Engine.saveModel}; saveModel is async. */
++/** Calls {@link Engine.persistModel}; saveModel is async. */
+ export function f(e: Engine): void {
+-  // see Engine#saveModel
++  // see Engine#persistModel
+   console.log('saveModel');
+-  e.saveModel('x');
++  e.persistModel('x');
+ }
+
+
+
+APPLIED. 3 file(s) changed:
+  docs/api.md
+  src/engine.ts
+  src/use.ts

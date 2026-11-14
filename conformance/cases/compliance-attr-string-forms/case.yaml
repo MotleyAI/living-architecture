@@ -1,0 +1,15 @@
+kind: adapter
+languages:
+- python
+command: dr-compliance
+args:
+- --select
+- attr-blindspot
+- --attr
+- formula
+- src/forms.py
+fixture: compliance
+expect:
+  exit: 1
+golden: manual
+note: string-member forms on an untyped object, or with an unresolved callee, are blind spots

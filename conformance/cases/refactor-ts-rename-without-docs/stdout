@@ -1,0 +1,30 @@
+Renaming <saveModel> to <persistModel>:
+
+
+--- a/src/engine.ts
++++ b/src/engine.ts
+@@ -1,7 +1,7 @@
+ /** The engine; see {@link Engine#saveModel} and `saveModel()`. */
+ export class Engine {
+   /** Saves; see `saveModel`. */
+-  saveModel(name: string): void {
++  persistModel(name: string): void {
+     // then saveModel runs
+     throw new Error(`saveModel: ${name}`);
+   }
+
+--- a/src/use.ts
++++ b/src/use.ts
+@@ -4,5 +4,5 @@
+ export function f(e: Engine): void {
+   // see Engine#saveModel
+   console.log('saveModel');
+-  e.saveModel('x');
++  e.persistModel('x');
+ }
+
+
+
+APPLIED. 2 file(s) changed:
+  src/engine.ts
+  src/use.ts

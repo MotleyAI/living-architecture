@@ -1,0 +1,28 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- --apply
+- rename
+- --file
+- src/store.ts
+- --name
+- getModel
+- --new-name
+- getDataset
+- --docs
+- --with
+- src/caches.ts:4
+- --with
+- src/caches.ts:10
+fixture: refactor-ts
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - src/caches.ts
+  - src/store.ts
+golden: manual
+note: 'several --with stand-ins sharing a call through a union and a --docs mention: each site rewritten once'

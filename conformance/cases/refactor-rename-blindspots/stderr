@@ -1,0 +1,2 @@
+tests/test_a.py:2: attr-blindspot: storage.get_model — storage is Unknown, so a rename of .get_model is unverifiable
+1 untyped receiver(s) of .get_model: type them, or pass --allow-blindspots

@@ -1,0 +1,28 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- --apply
+- rename
+- --file
+- pkg/engine.py
+- --name
+- recommend_root_model
+- --new-name
+- pick_root_model
+- --docs
+- --without
+- pkg/legacy.py:2
+fixture: refactor-typed
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - pkg/engine.py
+  - pkg/legacy.py
+  - pkg/notes.py
+golden: manual
+note: '--docs: another class with the owner''s simple name declares the member, so a bare Owner.OLD is listed; a prefix matching
+  the declaring module is rewritten, another prefix listed'

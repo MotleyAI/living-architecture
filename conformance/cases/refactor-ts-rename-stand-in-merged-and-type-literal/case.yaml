@@ -1,0 +1,22 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- rename
+- --file
+- src/store.ts
+- --name
+- getModel
+- --new-name
+- getDataset
+fixture: refactor-ts
+git:
+- commit: init
+expect:
+  exit: 1
+  files:
+  - src/shapes.ts
+  - src/store.ts
+golden: manual
+note: a merged interface declaration is in the hierarchy; a type literal is a stand-in, an object literal is not

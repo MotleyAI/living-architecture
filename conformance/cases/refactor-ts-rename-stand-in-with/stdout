@@ -1,0 +1,43 @@
+Renaming <getModel> to <getDataset>:
+
+
+--- a/src/store.ts
++++ b/src/store.ts
+@@ -1,17 +1,17 @@
+ export interface StorageBackend {
+-  getModel(name: string): number;
++  getDataset(name: string): number;
+ }
+ 
+ export class ModelReadCache {
+   constructor(private readonly inner: StorageBackend) {}
+ 
+-  getModel(name: string): number {
+-    return this.inner.getModel(name);
++  getDataset(name: string): number {
++    return this.inner.getDataset(name);
+   }
+ }
+ 
+ export class SubCache extends ModelReadCache {
+-  override getModel(name: string): number {
++  override getDataset(name: string): number {
+     return name.length;
+   }
+ }
+
+--- a/src/use.ts
++++ b/src/use.ts
+@@ -1,5 +1,5 @@
+ import { ModelReadCache, StorageBackend } from './store';
+ 
+ export function f(s: StorageBackend, c: ModelReadCache): number {
+-  return s.getModel('a') + c.getModel('b');
++  return s.getDataset('a') + c.getDataset('b');
+ }
+
+
+
+APPLIED. 2 file(s) changed:
+  src/store.ts
+  src/use.ts

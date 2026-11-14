@@ -5,7 +5,7 @@ twin: python
 command: dr-compliance
 args:
 - --select
-- ''
+- attr-blindspot
 - --attr
 - formula
 - src/formula.py

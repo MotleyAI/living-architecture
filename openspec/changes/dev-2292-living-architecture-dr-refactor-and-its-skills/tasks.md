@@ -90,11 +90,12 @@
 
 ## 8. Conformance corpus
 
-- [ ] 8.1 Paired cases (`python/`, `node/` overlays) under `conformance/cases/` for: blind-spot refusal and
+- [ ] 8.1 One adapter case per language (`refactor-rename-*` / `refactor-ts-rename-*`, the corpus's convention for
+      `dr-refactor`) under `conformance/cases/` for: blind-spot refusal and
       `--allow-blindspots`; both refusals under `--apply` (tree unchanged); stand-in refusal, `--with`,
       `--without`, same-line classification, `not-stand-in`; string-member forms; `--keep` (line, file, directory,
-      unmatched); `--docs` (qualified, code-marked, leftovers, prose, collision); `dr-compliance --select
-      attr-blindspot` and both usage errors. Python-only adapter cases for dotted targets.
+      unmatched); `--docs` (qualified, code-marked, leftovers, prose, collision); paired cases for `dr-compliance
+      --select attr-blindspot` and both usage errors. Python-only adapter cases for dotted targets.
 - [ ] 8.2 List every new case in `conformance/INVENTORY.md`.
 - [ ] 8.3 Verify every new findings template is produced by a golden and each case passes through both invoking
       twins (`scripts/conformance-cross`).
