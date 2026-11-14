@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import ast
 import sys
+from collections import defaultdict
 from pathlib import Path
 from typing import TypeGuard
 
@@ -17,7 +18,7 @@ from living_architecture.contract import language, message
 from living_architecture.lang import LanguageServer, LanguageServerError
 from living_architecture.refactor.explicit_any import check_explicit_any
 from living_architecture.refactor.member_scan import MemberScan
-from living_architecture.refactor.mock_spec_lint import check_file as _mock_check
+from living_architecture.refactor.mock_spec_lint import mock_findings
 from living_architecture.refactor.python_source import SourceFile
 from living_architecture.refactor.rope_patches import apply_rope_patches, walk_gap_line
 from living_architecture.refactor.routing import RoutingError, compliance_selection, run_split, split
@@ -48,8 +49,8 @@ def _unannotated_params(fn: ast.FunctionDef | ast.AsyncFunctionDef) -> list[str]
     return out
 
 
-def _check_untyped_defs(tree: ast.AST, path: Path) -> list[str]:
-    out = []
+def _check_untyped_defs(tree: ast.AST, path: Path) -> list[tuple[int, str]]:
+    out: list[tuple[int, str]] = []
     for node in ast.walk(tree):
         if isinstance(node, FuncDef):
             miss = _unannotated_params(node)
@@ -59,9 +60,8 @@ def _check_untyped_defs(tree: ast.AST, path: Path) -> list[str]:
             if node.returns is None:
                 bits.append(message("compliance.untyped-return"))
             if bits:
-                out.append(
-                    message("compliance.untyped-def", path=str(path), line=node.lineno, name=node.name, missing="; ".join(bits))
-                )
+                text = message("compliance.untyped-def", path=str(path), line=node.lineno, name=node.name, missing="; ".join(bits))
+                out.append((node.lineno, text))
     return out
 
 
@@ -79,15 +79,15 @@ def _self_attrs(node: ast.ClassDef) -> tuple[set[str], dict[str, int]]:
     return annotated, assigned
 
 
-def _check_unannotated_attrs(tree: ast.AST, path: Path) -> list[str]:
-    out: list[str] = []
+def _check_unannotated_attrs(tree: ast.AST, path: Path) -> list[tuple[int, str]]:
+    out: list[tuple[int, str]] = []
     for node in ast.walk(tree):
         if not isinstance(node, ast.ClassDef):
             continue
         annotated, assigned = _self_attrs(node)
         annotated |= {s.target.id for s in node.body if isinstance(s, ast.AnnAssign) and isinstance(s.target, ast.Name)}
         out += [
-            message("compliance.unannotated-attr", path=str(path), line=lineno, cls=node.name, attr=name)
+            (lineno, message("compliance.unannotated-attr", path=str(path), line=lineno, cls=node.name, attr=name))
             for name, lineno in assigned.items()
             if name not in annotated
         ]
@@ -106,7 +106,7 @@ def _read_sources(paths: list[Path]) -> dict[Path, tuple[str, SourceFile]]:
 
 
 def _outside(path: Path) -> SourceFile | None:
-    """A file outside the checked ones (a callee's declaration), read once per scan."""
+    """A file outside the checked ones (a callee's declaration)."""
     try:
         with open(path, encoding="utf-8", newline="") as fh:
             return SourceFile(path, fh.read())
@@ -114,9 +114,9 @@ def _outside(path: Path) -> SourceFile | None:
         return None
 
 
-def attr_blindspots(paths: list[Path], name: str, workspace: Path) -> list[str]:
-    """Receivers of `.NAME` and string-member objects basedpyright types as Unknown or Any, and string-member
-    calls whose callee it cannot resolve; by path, line and column."""
+def _blindspots(paths: list[Path], name: str, workspace: Path) -> dict[str, list[tuple[int, str]]]:
+    """Each file's receivers of `.NAME` and string-member objects basedpyright types as Unknown or Any, and
+    string-member calls whose callee it cannot resolve, in line and column order, keyed by the path as given."""
     sources = _read_sources(paths)
     loaded: dict[Path, SourceFile | None] = {}
 
@@ -127,27 +127,29 @@ def attr_blindspots(paths: list[Path], name: str, workspace: Path) -> list[str]:
             loaded[path] = _outside(path)
         return loaded[path]
 
-    found: list[tuple[str, int, int, str]] = []
+    found: defaultdict[str, list[tuple[int, str]]] = defaultdict(list)
     with LanguageServer(workspace) as server:
         for resolved, (_, source) in sources.items():
             server.open(resolved, source.text)
         scan = MemberScan(server, name, load)
         for resolved, (shown, source) in sources.items():
-            found += [
-                (shown, b.line, b.col, message("compliance.attr-blindspot", path=shown, line=b.line, receiver=b.receiver,
-                                               attr=name, type=b.kind))
-                for b in scan.blindspots(resolved, source)
+            spots = sorted(scan.blindspots(resolved, source), key=lambda b: (b.line, b.col))
+            found[shown] += [
+                (b.line, message("compliance.attr-blindspot", path=shown, line=b.line, receiver=b.receiver, attr=name,
+                                 type=b.kind))
+                for b in spots
             ]
-    return [text for *_, text in sorted(found)]
+    return found
 
 
-def check_path(path: Path, selected: set[str], attr: str | None) -> list[str]:
+def _findings(path: Path, selected: set[str], spots: list[tuple[int, str]]) -> list[str]:
+    """The file's findings, its blind `spots` last among them, in line order; ties keep check order."""
     source = path.read_text()
     try:
         tree = ast.parse(source, filename=str(path))
     except SyntaxError as exc:
         return [message("compliance.parse-error", path=str(path), line=exc.lineno or 0, error=exc.msg)]
-    out: list[str] = []
+    out: list[tuple[int, str]] = []
     if "untyped-def" in selected:
         out += _check_untyped_defs(tree, path)
     if "unannotated-attr" in selected:
@@ -155,22 +157,27 @@ def check_path(path: Path, selected: set[str], attr: str | None) -> list[str]:
     if "explicit-any" in selected:
         out += check_explicit_any(path, source)
     if "mock" in selected:
-        out += _mock_check(path)
+        out += mock_findings(path)
     if "rope-walk" in selected and (line := walk_gap_line(source)) is not None:
-        out.append(message("compliance.rope-walk", path=str(path), line=line))
-    if attr:
-        out += attr_blindspots([path], attr, Path.cwd())
-    return sorted(out)
+        out.append((line, message("compliance.rope-walk", path=str(path), line=line)))
+    return [text for _, text in sorted([*out, *spots], key=lambda found: found[0])]
+
+
+def check_path(path: Path, selected: set[str], attr: str | None) -> list[str]:
+    """The file's findings in line order."""
+    spots = _blindspots([path], attr, Path.cwd()).get(str(path), []) if attr else []
+    return _findings(path, selected, spots)
 
 
 def _check_native(paths: list[str], selected: set[str], attr: str | None) -> int:
-    problems = [msg for f in paths for msg in check_path(Path(f), selected, None)]
-    if attr and "attr-blindspot" in selected:
+    spots: dict[str, list[tuple[int, str]]] = {}
+    if attr:
         try:
-            problems += attr_blindspots([Path(f) for f in paths], attr, Path.cwd())
+            spots = _blindspots([Path(f) for f in paths], attr, Path.cwd())
         except LanguageServerError:
             print(message("compliance.pyright-failed", attr=attr), file=sys.stderr)
             return 2
+    problems = [msg for f in paths for msg in _findings(Path(f), selected, spots.pop(str(Path(f)), []))]
     for msg in problems:
         print(msg)
     return 1 if problems else 0

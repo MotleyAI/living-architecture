@@ -62,31 +62,38 @@ class _Reader:
         value = self.resolver.resolve(self.module, scope, node)
         if value is not None and value[0] == "typing":
             return value[1]
-        return node.id if isinstance(node, ast.Name) else node.attr if isinstance(node, ast.Attribute) else None
+        if isinstance(node, ast.Name):
+            return node.id
+        return node.attr if isinstance(node, ast.Attribute) else None
 
     def type_expression(self, node: ast.AST, scope: Scope, line: int | None, forward: bool = True) -> None:
         """Reads a type expression; a string is a forward reference where `forward` allows one."""
         if isinstance(node, ast.Constant):
             if forward and isinstance(node.value, str):
-                parsed = _parse_expression(node.value)
-                if isinstance(parsed, ast.expr):
-                    self.type_expression(parsed, scope, line if line is not None else node.lineno)
-            return
-        if isinstance(node, ast.Subscript):
-            self._plain(node.value, scope, line)
-            head = self._head(node.value, scope)
-            elements = node.slice.elts if isinstance(node.slice, ast.Tuple) else [node.slice]
-            for i, element in enumerate(elements):
-                if head == "Literal" or (head == "Annotated" and i > 0):
-                    self._plain(element, scope, line)
-                else:
-                    self._element(element, scope, line)
-            return
-        if isinstance(node, ast.BinOp):
+                self._forward(node.value, scope, line if line is not None else node.lineno)
+        elif isinstance(node, ast.Subscript):
+            self._subscript(node, scope, line)
+        elif isinstance(node, ast.BinOp):
             for side in (node.left, node.right):
                 self.type_expression(side, scope, line, forward=False)
-            return
-        self._plain(node, scope, line)
+        else:
+            self._plain(node, scope, line)
+
+    def _forward(self, text: str, scope: Scope, line: int) -> None:
+        parsed = _parse_expression(text)
+        if isinstance(parsed, ast.expr):
+            self.type_expression(parsed, scope, line)
+
+    def _subscript(self, node: ast.Subscript, scope: Scope, line: int | None) -> None:
+        """`X[...]`: `Literal` arguments and `Annotated` metadata are plain expressions, other elements types."""
+        self._plain(node.value, scope, line)
+        head = self._head(node.value, scope)
+        elements = node.slice.elts if isinstance(node.slice, ast.Tuple) else [node.slice]
+        for i, element in enumerate(elements):
+            if head == "Literal" or (head == "Annotated" and i > 0):
+                self._plain(element, scope, line)
+            else:
+                self._element(element, scope, line)
 
     def _element(self, node: ast.expr, scope: Scope, line: int | None) -> None:
         if isinstance(node, ast.List):
@@ -158,8 +165,8 @@ def _location(path: Path) -> tuple[Path, list[str], bool]:
     return root, parts[:-1] if is_package else parts, is_package
 
 
-def check_explicit_any(path: Path, source: str) -> list[str]:
-    """One `compliance.explicit-any` finding per reference to `Any` in a file that parses."""
+def check_explicit_any(path: Path, source: str) -> list[tuple[int, str]]:
+    """One `compliance.explicit-any` finding, with its line, per reference to `Any` in a file that parses."""
     root, parts, is_package = _location(path.resolve())
     tree, text = _parse_typed(source)
     module = Module(tree, parts, is_package)
@@ -172,6 +179,6 @@ def check_explicit_any(path: Path, source: str) -> list[str]:
         reader.comment(comment, line)
     facts = language("python")
     return [
-        message("compliance.explicit-any", path=str(path), line=line, any=facts["any_type"], top=facts["top_type"])
+        (line, message("compliance.explicit-any", path=str(path), line=line, any=facts["any_type"], top=facts["top_type"]))
         for line in reader.lines()
     ]

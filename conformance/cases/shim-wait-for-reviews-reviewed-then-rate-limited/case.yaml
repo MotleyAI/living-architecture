@@ -45,6 +45,9 @@ gh:
 - match:
   - repos/o/r/pulls/7/reviews
   stdout: []
+- match:
+  - repos/o/r/pulls/7/comments
+  stdout: []
 expect:
   exit: 0
 golden: manual
