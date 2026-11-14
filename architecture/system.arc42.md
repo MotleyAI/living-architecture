@@ -71,6 +71,7 @@ flowchart TD
   changes --> contract
   refactor --> lang
   refactor --> changes
+  refactor --> typecheck
   lang --> contract
 ```
 <!-- /likec4:system -->

@@ -129,6 +129,7 @@ model {
     changes -> contract
     refactor -> lang
     refactor -> changes
+    refactor -> typecheck
     lang -> contract
   }
   typescript = system 'npm twin' {
