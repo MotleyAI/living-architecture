@@ -6,7 +6,7 @@ class ModelMeasures:
     pass
 
 
-class SlayerModels:
+class AcmeModels:
     pass
 
 

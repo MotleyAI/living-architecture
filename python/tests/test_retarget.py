@@ -45,7 +45,7 @@ def test_dry_run_writes_nothing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
     assert file_tree(root) == before
 
 
-MODELS = "class Model:\n    pass\n\n\nSlayerModel = Model\n"
+MODELS = "class Model:\n    pass\n\n\nAcmeModel = Model\n"
 
 
 def test_class_twin_and_its_imports(
@@ -53,10 +53,10 @@ def test_class_twin_and_its_imports(
 ) -> None:
     root = write_project(tmp_path / "proj", {
         "pkg/models.py": MODELS,
-        "pkg/both.py": "from pkg.models import Model, SlayerModel\n\n\ndef make() -> Model:\n    return SlayerModel()\n",
-        "pkg/only.py": "from pkg.models import SlayerModel\n\n\ndef make() -> object:\n    return SlayerModel()\n",
+        "pkg/both.py": "from pkg.models import Model, AcmeModel\n\n\ndef make() -> Model:\n    return AcmeModel()\n",
+        "pkg/only.py": "from pkg.models import AcmeModel\n\n\ndef make() -> object:\n    return AcmeModel()\n",
     })
-    code, _out, err = run(root, _retarget("pkg/models.py", "SlayerModel", "Model"), monkeypatch, capsys)
+    code, _out, err = run(root, _retarget("pkg/models.py", "AcmeModel", "Model"), monkeypatch, capsys)
     assert (code, err) == (0, "")
     assert read(root, "pkg/models.py") == MODELS
     assert read(root, "pkg/both.py") == "from pkg.models import Model\n\n\ndef make() -> Model:\n    return Model()\n"
@@ -68,9 +68,9 @@ def test_import_alias_keeps_its_local_name(
 ) -> None:
     root = write_project(tmp_path / "proj", {
         "pkg/models.py": MODELS,
-        "pkg/aliased.py": "from pkg.models import SlayerModel as SM\n\n\ndef make() -> object:\n    return SM()\n",
+        "pkg/aliased.py": "from pkg.models import AcmeModel as SM\n\n\ndef make() -> object:\n    return SM()\n",
     })
-    code, _out, err = run(root, _retarget("pkg/models.py", "SlayerModel", "Model"), monkeypatch, capsys)
+    code, _out, err = run(root, _retarget("pkg/models.py", "AcmeModel", "Model"), monkeypatch, capsys)
     assert (code, err) == (0, "")
     assert read(root, "pkg/aliased.py") == "from pkg.models import Model as SM\n\n\ndef make() -> object:\n    return SM()\n"
 
@@ -78,12 +78,12 @@ def test_import_alias_keeps_its_local_name(
 def test_other_scope_refused(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     root = write_project(tmp_path / "proj", {
         "pkg/core.py": "class Model:\n    pass\n",
-        "pkg/compat.py": "from pkg.core import Model\n\nSlayerModel = Model\n",
-        "pkg/use.py": "from pkg.compat import SlayerModel\n\nX = SlayerModel()\n",
+        "pkg/compat.py": "from pkg.core import Model\n\nAcmeModel = Model\n",
+        "pkg/use.py": "from pkg.compat import AcmeModel\n\nX = AcmeModel()\n",
     })
     before = file_tree(root)
-    expected = message("refactor.retarget-scope", target="Model", alias="SlayerModel")
-    assert run(root, _retarget("pkg/compat.py", "SlayerModel", "Model"), monkeypatch, capsys) == (2, "", f"{expected}\n")
+    expected = message("refactor.retarget-scope", target="Model", alias="AcmeModel")
+    assert run(root, _retarget("pkg/compat.py", "AcmeModel", "Model"), monkeypatch, capsys) == (2, "", f"{expected}\n")
     assert file_tree(root) == before
 
 
@@ -104,12 +104,12 @@ def test_overridden_alias_refused(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
 def test_shadowed_target_refused(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     root = write_project(tmp_path / "proj", {
         "pkg/models.py": MODELS,
-        "pkg/use.py": "from pkg.models import SlayerModel\n\n\ndef make() -> object:\n    Model = 3\n"
-                      "    return SlayerModel(), Model\n",
+        "pkg/use.py": "from pkg.models import AcmeModel\n\n\ndef make() -> object:\n    Model = 3\n"
+                      "    return AcmeModel(), Model\n",
     })
     before = file_tree(root)
     expected = message("refactor.retarget-shadowed", path="pkg/use.py", line=6, name="Model")
-    assert run(root, _retarget("pkg/models.py", "SlayerModel", "Model"), monkeypatch, capsys) == (1, "", f"{expected}\n")
+    assert run(root, _retarget("pkg/models.py", "AcmeModel", "Model"), monkeypatch, capsys) == (1, "", f"{expected}\n")
     assert file_tree(root) == before
 
 
@@ -139,8 +139,8 @@ def test_name_already_in_use_is_not_a_conflict(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     root = write_project(tmp_path / "proj", {
-        "pkg/models.py": MODELS + "\n\ndef build() -> Model:\n    return SlayerModel()\n",
+        "pkg/models.py": MODELS + "\n\ndef build() -> Model:\n    return AcmeModel()\n",
     })
-    code, _out, err = run(root, _retarget("pkg/models.py", "SlayerModel", "Model"), monkeypatch, capsys)
+    code, _out, err = run(root, _retarget("pkg/models.py", "AcmeModel", "Model"), monkeypatch, capsys)
     assert (code, err) == (0, "")
     assert read(root, "pkg/models.py") == MODELS + "\n\ndef build() -> Model:\n    return Model()\n"

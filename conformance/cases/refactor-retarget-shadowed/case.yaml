@@ -8,7 +8,7 @@ args:
 - --file
 - pkg/models.py
 - --symbol
-- SlayerModel
+- AcmeModel
 - --target
 - Model
 git:
@@ -19,4 +19,4 @@ expect:
   - pkg/models.py
   - pkg/use.py
 golden: manual
-note: 'a function binds a local Model and uses SlayerModel(): retarget-shadowed at that use, exit 1, nothing written'
+note: 'a function binds a local Model and uses AcmeModel(): retarget-shadowed at that use, exit 1, nothing written'

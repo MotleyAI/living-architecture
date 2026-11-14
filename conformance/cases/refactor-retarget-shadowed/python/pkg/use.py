@@ -1,6 +1,6 @@
-from pkg.models import SlayerModel
+from pkg.models import AcmeModel
 
 
 def make() -> object:
     Model = 1
-    return Model, SlayerModel()
+    return Model, AcmeModel()

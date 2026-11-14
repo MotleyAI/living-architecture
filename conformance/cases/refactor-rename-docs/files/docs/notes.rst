@@ -1,1 +1,1 @@
-See :meth:`SlayerQueryEngine.pick_root_model`.
+See :meth:`AcmeQueryEngine.pick_root_model`.

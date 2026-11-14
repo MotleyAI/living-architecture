@@ -132,8 +132,8 @@ target unresolved. A target whose first segment is not a project top-level packa
 OLD SHALL be listed with `refactor.leftover` (`{where}` `patch target`) and leave the exit code unchanged.
 
 #### Scenario: Receiver forms on instances and class objects
-- **WHEN** `SlayerQueryEngine.save_model` is renamed and tests hold `patch.object(SlayerQueryEngine, "save_model")`,
-  `monkeypatch.setattr(engine, "save_model", fake)` with `engine: SlayerQueryEngine` and `monkeypatch:
+- **WHEN** `AcmeQueryEngine.save_model` is renamed and tests hold `patch.object(AcmeQueryEngine, "save_model")`,
+  `monkeypatch.setattr(engine, "save_model", fake)` with `engine: AcmeQueryEngine` and `monkeypatch:
   pytest.MonkeyPatch`, `mocker.patch.object(engine, "save_model")` with `mocker: MockerFixture`, and
   `getattr(engine, "save_model")`
 - **THEN** each `"save_model"` becomes the new name with its quote style kept
@@ -148,14 +148,14 @@ OLD SHALL be listed with `refactor.leftover` (`{where}` `patch target`) and leav
 - **THEN** neither string changes and neither is a blind spot
 
 #### Scenario: Dotted patch targets
-- **WHEN** `SlayerQueryEngine.save_model` is renamed, `pkg/__init__.py` re-exports `SlayerQueryEngine` from
-  `pkg.engine`, and tests hold `patch("pkg.engine.SlayerQueryEngine.save_model")` and
-  `patch("pkg.SlayerQueryEngine.save_model")`
+- **WHEN** `AcmeQueryEngine.save_model` is renamed, `pkg/__init__.py` re-exports `AcmeQueryEngine` from
+  `pkg.engine`, and tests hold `patch("pkg.engine.AcmeQueryEngine.save_model")` and
+  `patch("pkg.AcmeQueryEngine.save_model")`
 - **THEN** both targets end in the new name
 
 #### Scenario: Class rename segment
-- **WHEN** class `SlayerQueryEngine` is renamed to `QueryEngine` and a test holds
-  `patch("pkg.engine.SlayerQueryEngine.save_model")`
+- **WHEN** class `AcmeQueryEngine` is renamed to `QueryEngine` and a test holds
+  `patch("pkg.engine.AcmeQueryEngine.save_model")`
 - **THEN** the target becomes `"pkg.engine.QueryEngine.save_model"`
 
 #### Scenario: Unresolved targets
@@ -163,8 +163,8 @@ OLD SHALL be listed with `refactor.leftover` (`{where}` `patch target`) and leav
 - **THEN** the first is a blind spot (`refactor.unresolved-target`) and the second is listed as a `leftover`
 
 #### Scenario: Target from tests into a src layout
-- **WHEN** `src/pkg/engine.py` declares `SlayerQueryEngine.save_model`, `src` is a source folder, and
-  `tests/test_t.py` holds `patch("pkg.engine.SlayerQueryEngine.save_model")`
+- **WHEN** `src/pkg/engine.py` declares `AcmeQueryEngine.save_model`, `src` is a source folder, and
+  `tests/test_t.py` holds `patch("pkg.engine.AcmeQueryEngine.save_model")`
 - **THEN** the target ends in the new name
 
 #### Scenario: Target through inheritance
@@ -230,10 +230,10 @@ Without `--docs`, comments, docstrings, prose files and strings other than the f
 SHALL be unchanged and unlisted.
 
 #### Scenario: Qualified and code-marked mentions
-- **WHEN** `SlayerQueryEngine.recommend_root_model` is renamed with `--docs`, a docstring elsewhere holds
-  ``:meth:`SlayerQueryEngine.recommend_root_model` ``, the engine's module holds ``` ``recommend_root_model`` ``` in a
+- **WHEN** `AcmeQueryEngine.recommend_root_model` is renamed with `--docs`, a docstring elsewhere holds
+  ``:meth:`AcmeQueryEngine.recommend_root_model` ``, the engine's module holds ``` ``recommend_root_model`` ``` in a
   docstring and `"recommend_root_model: no candidates"` as a message, and `docs/api.md` holds
-  `pkg.engine.SlayerQueryEngine.recommend_root_model`
+  `pkg.engine.AcmeQueryEngine.recommend_root_model`
 - **THEN** all four mentions are rewritten
 
 #### Scenario: Bare words listed
@@ -242,13 +242,13 @@ SHALL be unchanged and unlisted.
 - **THEN** neither changes and both are listed as `leftover` with `{where}` `comment`
 
 #### Scenario: Simple-name collision
-- **WHEN** another project class also named `SlayerQueryEngine` declares `recommend_root_model` and is passed with
-  `--without`, and a comment says `SlayerQueryEngine.recommend_root_model`
-- **THEN** that mention is listed, not rewritten, while `engine.SlayerQueryEngine.recommend_root_model` (matching
+- **WHEN** another project class also named `AcmeQueryEngine` declares `recommend_root_model` and is passed with
+  `--without`, and a comment says `AcmeQueryEngine.recommend_root_model`
+- **THEN** that mention is listed, not rewritten, while `engine.AcmeQueryEngine.recommend_root_model` (matching
   the declaring module's path) is rewritten
 
 #### Scenario: Git-ignored prose skipped
-- **WHEN** `build/notes.md` is git-ignored and mentions `SlayerQueryEngine.recommend_root_model`
+- **WHEN** `build/notes.md` is git-ignored and mentions `AcmeQueryEngine.recommend_root_model`
 - **THEN** it is unchanged and unlisted
 
 #### Scenario: TypeScript JSDoc link

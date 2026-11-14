@@ -8,7 +8,7 @@ args:
 - --file
 - pkg/models.py
 - --symbol
-- SlayerModel
+- AcmeModel
 - --target
 - Model
 git:

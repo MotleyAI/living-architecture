@@ -3,15 +3,15 @@ from unittest.mock import patch
 import pytest
 from pytest_mock import MockerFixture
 
-from pkg.engine import SlayerQueryEngine
+from pkg.engine import AcmeQueryEngine
 
 
-class Sub(SlayerQueryEngine):
+class Sub(AcmeQueryEngine):
     pass
 
 
-def test_forms(engine: SlayerQueryEngine, sub: Sub, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture) -> None:
-    patch.object(SlayerQueryEngine, "persist_model")
+def test_forms(engine: AcmeQueryEngine, sub: Sub, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture) -> None:
+    patch.object(AcmeQueryEngine, "persist_model")
     monkeypatch.setattr(engine, "persist_model", lambda name: None)
     mocker.patch.object(engine, 'persist_model')
     getattr(engine, "persist_model")

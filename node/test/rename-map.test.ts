@@ -32,7 +32,7 @@ describe('rename-map schema', () => {
     [[{ file: 'src/a.ts', line: 3, new_name: 'fresh' }]],
     [[{ file: 'src/a.ts', line: 3, col: 9, new_name: 'fresh' }]],
     [[{ file: 'src/a.ts', offset: 120, new_name: 'fresh' }]],
-    [[{ file: 'src/models.ts', symbol: 'SlayerModel', retarget: 'Model' }]],
+    [[{ file: 'src/models.ts', symbol: 'AcmeModel', retarget: 'Model' }]],
     [[{ file: 'src/a.ts', symbol: 'A.old', new_name: 'fresh' }, { file: 'src/a.ts', symbol: "Kind['edit_model']", new_name: 'edit master' }]],
   ])('accepts %j', (document) => {
     expect(validate(schema('rename-map'), document)).toEqual([]);

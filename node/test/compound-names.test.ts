@@ -7,7 +7,7 @@ const MODEL = `export class Model {}
 
 export class ModelMeasures {}
 
-export const SlayerModels = [new Model()];
+export const AcmeModels = [new Model()];
 
 export function TestModelMeasurePosition(): void {}
 
@@ -44,7 +44,7 @@ describe('compound names', () => {
     expect(result.err).toBe(
       [
         compound('src/model.ts', 3, 'ModelMeasures', 'Model'),
-        compound('src/model.ts', 5, 'SlayerModels', 'Model'),
+        compound('src/model.ts', 5, 'AcmeModels', 'Model'),
         compound('src/model.ts', 7, 'TestModelMeasurePosition', 'Model'),
         compound('src/model.ts', 9, 'model_name', 'Model'),
         '',
@@ -76,7 +76,7 @@ describe('compound names', () => {
     const result = refactor(root, '--apply', 'rename-map', 'map.yaml', '--docs');
     expect(result.code).toBe(0);
     expect(result.err.split('\n')).not.toContain(compound('src/model.ts', 3, 'ModelMeasures', 'Model'));
-    expect(result.err.split('\n')).toContain(compound('src/model.ts', 5, 'SlayerModels', 'Model'));
-    expect(read(root, 'src/model.ts')).toContain('export const SlayerModels = [new Dataset()];');
+    expect(result.err.split('\n')).toContain(compound('src/model.ts', 5, 'AcmeModels', 'Model'));
+    expect(read(root, 'src/model.ts')).toContain('export const AcmeModels = [new Dataset()];');
   });
 });

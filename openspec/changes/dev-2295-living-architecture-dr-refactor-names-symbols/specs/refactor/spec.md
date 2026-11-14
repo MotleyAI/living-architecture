@@ -139,9 +139,9 @@ duplicate of an import of TARGET from the same module SHALL be removed instead.
 - **THEN** the call becomes `engine.save_model(m)` and `Engine.save` is unchanged
 
 #### Scenario: Class twin and its imports
-- **WHEN** `models.py` declares `SlayerModel = Model` and a module holds `from pkg.models import Model,
-  SlayerModel` and uses `SlayerModel()`
-- **THEN** after retargeting `SlayerModel` to `Model` the import is `from pkg.models import Model` and the use is
+- **WHEN** `models.py` declares `AcmeModel = Model` and a module holds `from pkg.models import Model,
+  AcmeModel` and uses `AcmeModel()`
+- **THEN** after retargeting `AcmeModel` to `Model` the import is `from pkg.models import Model` and the use is
   `Model()`
 
 #### Scenario: Other scope refused
@@ -153,7 +153,7 @@ duplicate of an import of TARGET from the same module SHALL be removed instead.
 - **THEN** stderr names that override with `refactor.retarget-override`, the exit code is 1 and nothing changes
 
 #### Scenario: Shadowed target refused
-- **WHEN** a function binds a local `Model` and uses `SlayerModel()` in its body
+- **WHEN** a function binds a local `Model` and uses `AcmeModel()` in its body
 - **THEN** stderr names that use with `refactor.retarget-shadowed` and the exit code is 1
 
 #### Scenario: TypeScript merged alias
@@ -299,7 +299,7 @@ boundaries (a run of capitals is one word), compared case-insensitively, the las
 `s` or `es` suffix. OLD itself and every name the refactor renames SHALL NOT be listed.
 
 #### Scenario: Compound names listed
-- **WHEN** `Model` is renamed to `Dataset` with `--docs` and the project declares `ModelMeasures`, `SlayerModels`,
+- **WHEN** `Model` is renamed to `Dataset` with `--docs` and the project declares `ModelMeasures`, `AcmeModels`,
   `TestModelMeasurePosition`, `model_name` and `Modelling`
 - **THEN** the first four are listed with `refactor.compound` and `Modelling` is not
 

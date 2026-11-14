@@ -7,7 +7,7 @@ args:
 - --file
 - pkg/compat.py
 - --symbol
-- SlayerModel
+- AcmeModel
 - --target
 - Model
 git:

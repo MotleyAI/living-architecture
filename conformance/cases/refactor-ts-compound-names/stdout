@@ -9,8 +9,8 @@ Renaming <Model> to <Dataset>:
  
  export class ModelMeasures {}
  
--export const slayerModels: Model[] = [];
-+export const slayerModels: Dataset[] = [];
+-export const acmeModels: Model[] = [];
++export const acmeModels: Dataset[] = [];
  
 -export function getModelName(m: Model): string {
 +export function getModelName(m: Dataset): string {

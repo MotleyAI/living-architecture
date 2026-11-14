@@ -19,7 +19,7 @@ class ModelMeasures:
     pass
 
 
-class SlayerModels:
+class AcmeModels:
     pass
 
 
@@ -49,7 +49,7 @@ def test_compound_names_listed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, 
     assert code == 0
     assert err.splitlines() == [
         _compound("pkg/names.py", 4, "ModelMeasures", "Model"),
-        _compound("pkg/names.py", 8, "SlayerModels", "Model"),
+        _compound("pkg/names.py", 8, "AcmeModels", "Model"),
         _compound("pkg/names.py", 12, "TestModelMeasurePosition", "Model"),
         _compound("pkg/names.py", 16, "model_name", "Model"),
     ]
@@ -112,9 +112,9 @@ def test_retarget_lists_compound_names(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     root = write_project(tmp_path / "proj", {
-        "pkg/models.py": "class Model:\n    pass\n\n\nSlayerModel = Model\n\n\nclass SlayerModelCache:\n    pass\n",
+        "pkg/models.py": "class Model:\n    pass\n\n\nAcmeModel = Model\n\n\nclass AcmeModelCache:\n    pass\n",
     })
-    argv = ["--apply", "retarget", "--file", "pkg/models.py", "--symbol", "SlayerModel", "--target", "Model", "--docs"]
+    argv = ["--apply", "retarget", "--file", "pkg/models.py", "--symbol", "AcmeModel", "--target", "Model", "--docs"]
     code, _out, err = run(root, argv, monkeypatch, capsys)
     assert code == 0
-    assert err.splitlines() == [_compound("pkg/models.py", 8, "SlayerModelCache", "SlayerModel")]
+    assert err.splitlines() == [_compound("pkg/models.py", 8, "AcmeModelCache", "AcmeModel")]

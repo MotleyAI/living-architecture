@@ -1,8 +1,8 @@
-from pkg.engine import SlayerQueryEngine
+from pkg.engine import AcmeQueryEngine
 
 
-def f(e: SlayerQueryEngine) -> str:
-    """Wraps :meth:`SlayerQueryEngine.recommend_root_model` and ``recommend_root_model``."""
+def f(e: AcmeQueryEngine) -> str:
+    """Wraps :meth:`AcmeQueryEngine.recommend_root_model` and ``recommend_root_model``."""
     # calls recommend_root_model first
     getattr(e, "recommend_root_model")
     print("recommend_root_model")

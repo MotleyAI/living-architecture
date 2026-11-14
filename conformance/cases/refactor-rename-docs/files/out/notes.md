@@ -1,1 +1,1 @@
-See SlayerQueryEngine.recommend_root_model.
+See AcmeQueryEngine.recommend_root_model.

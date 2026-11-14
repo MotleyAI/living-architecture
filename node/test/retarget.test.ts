@@ -22,7 +22,7 @@ export function use(engine: Engine): void {
   engine.save('m');
 }
 `;
-const MODELS = 'export class Model {}\n\n/** @deprecated use Model */\nexport const SlayerModel = Model;\n';
+const MODELS = 'export class Model {}\n\n/** @deprecated use Model */\nexport const AcmeModel = Model;\n';
 
 const header = (old: string, next: string): string => message('refactor.retarget-header', { old, new: next });
 
@@ -36,17 +36,17 @@ describe('retarget', () => {
   });
 
   it('removes the import the rewrite would duplicate', () => {
-    const use = "import { Model, SlayerModel } from './models';\n\nexport const m = new SlayerModel();\nexport const n: Model = m;\n";
+    const use = "import { Model, AcmeModel } from './models';\n\nexport const m = new AcmeModel();\nexport const n: Model = m;\n";
     const root = tsProject({ 'src/models.ts': MODELS, 'src/use.ts': use });
-    expect(refactor(root, '--apply', 'retarget', '--file', 'src/models.ts', '--symbol', 'SlayerModel', '--target', 'Model').code).toBe(0);
+    expect(refactor(root, '--apply', 'retarget', '--file', 'src/models.ts', '--symbol', 'AcmeModel', '--target', 'Model').code).toBe(0);
     expect(read(root, 'src/use.ts')).toBe("import { Model } from './models';\n\nexport const m = new Model();\nexport const n: Model = m;\n");
     expect(read(root, 'src/models.ts')).toBe(MODELS);
   });
 
   it('keeps an import alias, naming the target under it', () => {
-    const use = "import { SlayerModel as SM } from './models';\n\nexport const k = new SM();\n";
+    const use = "import { AcmeModel as SM } from './models';\n\nexport const k = new SM();\n";
     const root = tsProject({ 'src/models.ts': MODELS, 'src/use.ts': use });
-    expect(refactor(root, '--apply', 'retarget', '--file', 'src/models.ts', '--symbol', 'SlayerModel', '--target', 'Model').code).toBe(0);
+    expect(refactor(root, '--apply', 'retarget', '--file', 'src/models.ts', '--symbol', 'AcmeModel', '--target', 'Model').code).toBe(0);
     expect(read(root, 'src/use.ts')).toBe("import { Model as SM } from './models';\n\nexport const k = new SM();\n");
   });
 
@@ -60,19 +60,19 @@ describe('retarget', () => {
   });
 
   it('moves value and type uses of a merged const-and-type alias and leaves both declarations', () => {
-    const models = 'export class Model {}\n\n/** @deprecated */\nexport const SlayerModel = Model;\n/** @deprecated */\nexport type SlayerModel = Model;\n';
-    const use = "import { SlayerModel } from './models';\n\nexport const m: SlayerModel = new SlayerModel();\n";
+    const models = 'export class Model {}\n\n/** @deprecated */\nexport const AcmeModel = Model;\n/** @deprecated */\nexport type AcmeModel = Model;\n';
+    const use = "import { AcmeModel } from './models';\n\nexport const m: AcmeModel = new AcmeModel();\n";
     const root = tsProject({ 'src/models.ts': models, 'src/use.ts': use });
-    expect(refactor(root, '--apply', 'retarget', '--file', 'src/models.ts', '--symbol', 'SlayerModel', '--target', 'Model').code).toBe(0);
+    expect(refactor(root, '--apply', 'retarget', '--file', 'src/models.ts', '--symbol', 'AcmeModel', '--target', 'Model').code).toBe(0);
     expect(read(root, 'src/use.ts')).toBe("import { Model } from './models';\n\nexport const m: Model = new Model();\n");
     expect(read(root, 'src/models.ts')).toBe(models);
   });
 
   it('refuses a target declared in another module', () => {
-    const compat = "import { Model } from './core';\n\n/** @deprecated */\nexport const SlayerModel = Model;\n";
+    const compat = "import { Model } from './core';\n\n/** @deprecated */\nexport const AcmeModel = Model;\n";
     const root = tsProject({ 'src/core.ts': 'export class Model {}\n', 'src/compat.ts': compat });
-    const result = refactor(root, 'retarget', '--file', 'src/compat.ts', '--symbol', 'SlayerModel', '--target', 'Model');
-    expect(result).toEqual({ code: 2, out: '', err: `${message('refactor.retarget-scope', { target: 'Model', alias: 'SlayerModel' })}\n` });
+    const result = refactor(root, 'retarget', '--file', 'src/compat.ts', '--symbol', 'AcmeModel', '--target', 'Model');
+    expect(result).toEqual({ code: 2, out: '', err: `${message('refactor.retarget-scope', { target: 'Model', alias: 'AcmeModel' })}\n` });
   });
 
   it('refuses an alias a subclass overrides, naming each override', () => {
@@ -86,9 +86,9 @@ describe('retarget', () => {
   });
 
   it('refuses a use where the target name is bound to something else', () => {
-    const use = "import { SlayerModel } from './models';\n\nexport function f(): object {\n  const Model = 1;\n  return [Model, new SlayerModel()];\n}\n";
+    const use = "import { AcmeModel } from './models';\n\nexport function f(): object {\n  const Model = 1;\n  return [Model, new AcmeModel()];\n}\n";
     const root = tsProject({ 'src/models.ts': MODELS, 'src/use.ts': use });
-    const result = refactor(root, '--apply', 'retarget', '--file', 'src/models.ts', '--symbol', 'SlayerModel', '--target', 'Model');
+    const result = refactor(root, '--apply', 'retarget', '--file', 'src/models.ts', '--symbol', 'AcmeModel', '--target', 'Model');
     const shadowed = message('refactor.retarget-shadowed', { path: 'src/use.ts', line: 5, name: 'Model' });
     expect(result).toEqual({ code: 1, out: '', err: `${shadowed}\n` });
     expect(read(root, 'src/use.ts')).toBe(use);

@@ -2,4 +2,4 @@ class Model:
     pass
 
 
-SlayerModel = Model
+AcmeModel = Model

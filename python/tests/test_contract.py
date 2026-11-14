@@ -861,7 +861,7 @@ def _rename_map_valid(document: object) -> bool:
         [{"file": "pkg/a.py", "line": 3, "new_name": "new"}],
         [{"file": "pkg/a.py", "line": 3, "col": 9, "new_name": "new"}],
         [{"file": "src/a.ts", "offset": 120, "new_name": "next"}],
-        [{"file": "pkg/models.py", "symbol": "SlayerModel", "retarget": "Model"}],
+        [{"file": "pkg/models.py", "symbol": "AcmeModel", "retarget": "Model"}],
         [
             {"file": "pkg/a.py", "symbol": "A.old", "new_name": "new"},
             {"file": "pkg/a.py", "symbol": "A.old(x)", "new_name": "y"},
