@@ -2,10 +2,12 @@
 import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import type * as TS from 'typescript';
 import { describe, expect, it } from 'vitest';
 import { ts } from '../src/lang/index.js';
 import { codeMarked, mentions, qualified, sourceRegions } from '../src/refactor/mentions.js';
 import { run, tempRepo } from './cli-run.js';
+import { memberDeclarations } from '../src/refactor/members.js';
 import { Site } from '../src/refactor/sites.js';
 
 describe('Site', () => {
@@ -91,5 +93,61 @@ describe('exact-OLD literals', () => {
     });
     const renamed = run(root, 'dr-refactor', ['rename', '--file', 'src/funcs.ts', '--name', 'saveModel', '--new-name', 'storeModel']);
     expect([renamed.code, renamed.err]).toEqual([0, '']);
+  });
+});
+
+describe('memberDeclarations', () => {
+  const text = [
+    "const KEY = 'saveModel';",
+    'export class Base { saveModel(): void {} }',
+    'export class Sub extends Base {}',
+    'export class Param { constructor(public saveModel: number) {} }',
+    "export class Quoted { 'saveModel'(): void {} }",
+    'export class Computed { [KEY](): void {} }',
+    'export class Stat { static saveModel(): void {} }',
+    'export interface Merged { a: number }',
+    'export interface Merged { saveModel(): void }',
+    'export type Lit = { saveModel: () => void };',
+    'export const obj = { saveModel() {} };',
+    'export class Acc { get saveModel(): number { return 1; } }',
+    'export class Priv { #saveModel = 1; }',
+    '',
+  ].join('\n');
+  const dir = realpathSync(mkdtempSync(join(tmpdir(), 'la-members-')));
+  const file = join(dir, 'a.ts');
+  writeFileSync(file, text);
+  const program = ts().createProgram([file], { strict: true, noEmit: true });
+  const source = program.getSourceFile(file) as TS.SourceFile;
+  const found = memberDeclarations(program.getTypeChecker(), source, 'saveModel', file);
+
+  it('finds every own member declaration of classes, interfaces and type literals from the checker', () => {
+    expect(found.map((d) => [d.owner, d.line, d.computed])).toEqual([
+      ['Base', 2, false],
+      ['Param', 4, false],
+      ['Quoted', 5, false],
+      ['Computed', 6, true],
+      ['Stat', 7, false],
+      ['Merged', 9, false],
+      ['Lit', 10, false],
+      ['Acc', 12, false],
+    ]);
+  });
+
+  it('starts each at its name, or a computed name at its bracket', () => {
+    const at = (d: { start: number }) => text.slice(d.start, d.start + 9);
+    expect(found.filter((d) => !d.computed).every((d) => at(d) === 'saveModel')).toBe(true);
+    expect(found.filter((d) => d.computed).map((d) => text.slice(d.start, d.start + 5))).toEqual(['[KEY]']);
+  });
+});
+
+describe('--docs module paths', () => {
+  it('a qualifier spelled with the full project-relative path is rewritten', () => {
+    const root = tempRepo({
+      'tsconfig.json': '{"compilerOptions": {"strict": true}, "include": ["src"]}\n',
+      'src/pkg/engine.ts': 'export class Engine {\n  saveModel(): void {}\n}\n// see src.pkg.engine.Engine.saveModel and pkg.engine.Engine.saveModel\n',
+    });
+    const renamed = run(root, 'dr-refactor', ['rename', '--file', 'src/pkg/engine.ts', '--name', 'saveModel', '--new-name', 'storeModel', '--docs']);
+    expect([renamed.code, renamed.err]).toEqual([0, '']);
+    expect(renamed.out).toContain('+// see src.pkg.engine.Engine.storeModel and pkg.engine.Engine.storeModel');
   });
 });

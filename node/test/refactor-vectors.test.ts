@@ -2,6 +2,7 @@
 import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import type * as TS from 'typescript';
 import { describe, expect, it } from 'vitest';
 import { ts } from '../src/lang/index.js';
 import { Lines } from '../src/refactor/lines.js';
@@ -72,8 +73,11 @@ describe('sites', () => {
 describe('the line index users', () => {
   it('a stand-in declaration and a finding on a CR-only file agree on lines', () => {
     const text = 'export class A {\r  a = 1;\r  saveModel(): void {}\r}\r';
-    const source = ts().createSourceFile('a.ts', text, ts().ScriptTarget.Latest, true);
-    const [declared] = memberDeclarations(source, 'saveModel', 'a.ts');
+    const dir = realpathSync(mkdtempSync(join(tmpdir(), 'la-cr-lines-')));
+    writeFileSync(join(dir, 'a.ts'), text);
+    const program = ts().createProgram([join(dir, 'a.ts')], { noEmit: true });
+    const source = program.getSourceFile(join(dir, 'a.ts')) as TS.SourceFile;
+    const [declared] = memberDeclarations(program.getTypeChecker(), source, 'saveModel', 'a.ts');
     expect(declared?.line).toBe(3);
     expect(new Lines(text).lineOf(text.indexOf('saveModel'))).toBe(3);
   });

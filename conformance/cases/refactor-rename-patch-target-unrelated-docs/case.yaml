@@ -1,0 +1,22 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- rename
+- --file
+- pkg/engine.py
+- --name
+- save_model
+- --new-name
+- persist_model
+- --without
+- pkg/other.py:2
+- --docs
+fixture: refactor-typed
+git:
+- commit: init
+expect:
+  exit: 0
+note: with --docs, a patch target resolving to a --without stand-in is neither rewritten nor listed; one resolving to
+  the renamed declaration is rewritten

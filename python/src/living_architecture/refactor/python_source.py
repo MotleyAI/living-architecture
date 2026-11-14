@@ -74,4 +74,27 @@ class SourceFile:
         if isinstance(node, ast.keyword) and node.arg is not None:
             start = self.offset(node.lineno, node.col_offset)
             return start, start + len(node.arg)
+        return self._bound_name_span(node)
+
+    def _bound_name_span(self, node: ast.AST) -> tuple[int, int] | None:
+        """The span of the name an import alias, an `except ... as` or a `match` capture binds."""
+        if isinstance(node, ast.alias):
+            return self._word(node, node.asname or node.name.split(".")[0], last=node.asname is not None)
+        if isinstance(node, ast.ExceptHandler) and node.name:
+            m = re.compile(rf"\bas\s+({re.escape(node.name)})\b").search(self.text, self.offset(node.lineno, node.col_offset))
+            return (m.start(1), m.end(1)) if m else None
+        if isinstance(node, ast.MatchAs | ast.MatchStar) and node.name:
+            return self._word(node, node.name, last=True)
+        if isinstance(node, ast.MatchMapping) and node.rest:
+            return self._word(node, node.rest, last=True)
         return None
+
+    def _word(self, node: ast.alias | ast.pattern, word: str, *, last: bool) -> tuple[int, int] | None:
+        """The first or last whole-word `word` within `node`'s span."""
+        start = self.offset(node.lineno, node.col_offset)
+        end = self.offset(node.end_lineno or node.lineno, node.end_col_offset or 0)
+        found = [m.span() for m in re.finditer(rf"(?<!\w){re.escape(word)}(?!\w)", self.text[start:end])]
+        if not found:
+            return None
+        s, e = found[-1] if last else found[0]
+        return start + s, start + e

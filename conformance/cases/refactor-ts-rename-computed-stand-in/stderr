@@ -1,0 +1,1 @@
+src/store.ts:8: stand-in: Keyed.getModel is outside the renamed hierarchy; pass --with src/store.ts:8 to rename it too or --without src/store.ts:8 to leave it

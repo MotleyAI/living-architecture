@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import sys
 from collections.abc import Iterator
 
 FunctionDef = ast.FunctionDef | ast.AsyncFunctionDef
@@ -53,13 +54,57 @@ def _class_level(body: list[ast.stmt]) -> Iterator[ast.stmt]:
             yield from _class_level(case.body)
 
 
+_BLOCK_FIELDS = frozenset({"body", "orelse", "finalbody", "handlers", "cases"})
+
+
+def _bound_targets(stmt: ast.stmt) -> list[ast.expr]:
+    """The names a statement binds by assignment, `for`, `with ... as` or a `type` alias."""
+    targets = _targets(stmt)
+    if isinstance(stmt, ast.For | ast.AsyncFor):
+        targets += _flatten(stmt.target)
+    if isinstance(stmt, ast.With | ast.AsyncWith):
+        targets += [t for item in stmt.items if item.optional_vars is not None for t in _flatten(item.optional_vars)]
+    if sys.version_info >= (3, 12) and isinstance(stmt, ast.TypeAlias):
+        targets.append(stmt.name)
+    return targets
+
+
+def _own_expressions(stmt: ast.stmt) -> Iterator[ast.AST]:
+    """The nodes of a statement's own expressions, not of its nested blocks or scopes."""
+    for field, value in ast.iter_fields(stmt):
+        if field in _BLOCK_FIELDS or isinstance(stmt, FunctionDef | ast.ClassDef) and field == "body":
+            continue
+        for node in value if isinstance(value, list) else [value]:
+            if isinstance(node, ast.AST):
+                yield from ast.walk(node)
+    for case in getattr(stmt, "cases", []):
+        yield from ast.walk(case.pattern)
+        if case.guard is not None:
+            yield from ast.walk(case.guard)
+
+
+def _bindings(stmt: ast.stmt, name: str) -> Iterator[ast.AST]:
+    """The nodes through which a class-level statement binds `name` in the class's scope."""
+    if isinstance(stmt, FunctionDef | ast.ClassDef) and stmt.name == name:
+        yield stmt
+    yield from (t for t in _bound_targets(stmt) if isinstance(t, ast.Name) and t.id == name)
+    if isinstance(stmt, ast.Import | ast.ImportFrom):
+        yield from (a for a in stmt.names if (a.asname or a.name.split(".")[0]) == name)
+    yield from (h for h in getattr(stmt, "handlers", []) if h.name == name)
+    for node in _own_expressions(stmt):
+        if isinstance(node, ast.NamedExpr) and node.target.id == name:
+            yield node.target
+        elif (isinstance(node, ast.MatchAs | ast.MatchStar) and node.name == name) or (
+            isinstance(node, ast.MatchMapping) and node.rest == name
+        ):
+            yield node
+
+
 def member_declarations(cls: ast.ClassDef, name: str) -> list[ast.AST]:
     """Every declaration of member `name` in `cls`'s body and its methods, in source order."""
     out: list[ast.AST] = []
     for stmt in _class_level(cls.body):
-        if isinstance(stmt, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef) and stmt.name == name:
-            out.append(stmt)
-        out += [t for t in _targets(stmt) if isinstance(t, ast.Name) and t.id == name]
+        out += _bindings(stmt, name)
         if isinstance(stmt, ast.FunctionDef | ast.AsyncFunctionDef):
             out += _self_attributes(stmt, name)
     return sorted(out, key=lambda n: (getattr(n, "lineno", 0), getattr(n, "col_offset", 0)))

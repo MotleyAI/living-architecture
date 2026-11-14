@@ -276,7 +276,7 @@ class TypescriptRename {
     this.sources = projectSources(r, r.services(file), old);
     this.declarations = [...this.sources.values()]
       .filter(({ source }) => source.text.includes(old))
-      .flatMap(({ source }) => memberDeclarations(source, old, source.fileName));
+      .flatMap(({ source, checker }) => memberDeclarations(checker, source, old, source.fileName));
     const declared = new Set(this.declarations.map((d) => keyOf(d.path, d.start)));
     for (const e of this.edits) if (declared.has(keyOf(e.path, e.start))) this.renamed.add(keyOf(e.path, e.start));
   }
@@ -345,6 +345,10 @@ class TypescriptRename {
       const matched = candidates.filter((d) => site.line !== null && site.covers(this.r.rel(d.path), d.line));
       if (matched.length === 0) throw new SiteError('refactor.not-stand-in', raw);
       for (const d of matched) {
+        if (joined && d.computed) {
+          const values = { path: this.r.rel(d.path), line: d.line, cls: d.owner, attr: this.old };
+          throw new SiteError('refactor.computed-stand-in', raw, values);
+        }
         const theirs = renameLocations(this.servicesFor(d.path), d.path, d.start, this.newName);
         const keys = [keyOf(d.path, d.start), ...theirs.map((e) => keyOf(e.path, e.start)).filter((k) => declared.has(k))];
         for (const k of keys) classified.add(k);
@@ -692,7 +696,7 @@ export function runTypescriptRefactor(args: RefactorArgs): number {
     return moveModule(r);
   } catch (error) {
     if (error instanceof SiteError) {
-      process.stderr.write(`${message(error.template, { site: error.site })}\n`);
+      process.stderr.write(`${message(error.template, { site: error.site, ...error.values })}\n`);
       return 2;
     }
     if (!(error instanceof RefactorError)) throw error;

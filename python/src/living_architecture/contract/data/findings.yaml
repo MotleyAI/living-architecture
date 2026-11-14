@@ -350,6 +350,7 @@ findings:
   refactor.mixed-target: '{path}:{line}: mixed-target: {receiver}.{attr} lands on renamed and unchanged declarations'
   refactor.stand-in: '{path}:{line}: stand-in: {cls}.{attr} is outside the renamed hierarchy; pass --with {path}:{line} to rename it too or --without {path}:{line} to leave it'
   refactor.not-stand-in: '{site} is not a stand-in of this rename'
+  refactor.computed-stand-in: '{path}:{line}: computed-stand-in: {cls}.{attr} is declared by a computed name; pass --without {path}:{line} and rename it by hand'
   refactor.keep-unmatched: '--keep {site} matches nothing this rename touches'
   refactor.leftover: '{path}:{line}: leftover: {where} mentions {old}'
 

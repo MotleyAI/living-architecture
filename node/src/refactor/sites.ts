@@ -7,6 +7,7 @@ export class SiteError extends Error {
   constructor(
     readonly template: string,
     readonly site: string,
+    readonly values: Record<string, unknown> = {},
   ) {
     super(site);
   }

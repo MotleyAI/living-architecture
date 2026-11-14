@@ -451,3 +451,42 @@ def test_a_function_rename_lists_no_exact_literal(project: MakeProject, capsys: 
     assert dr_refactor(["--project", str(root), "rename", "--file", "pkg/funcs.py", "--offset", str(offset),
                         "--new-name", "store_model"]) == 0
     assert capsys.readouterr().err == ""
+
+
+def test_a_callee_resolves_by_any_spelling_and_syntax_decides_only_when_unresolved(
+    project: MakeProject, capsys: pytest.CaptureFixture[str]
+) -> None:
+    forms = (
+        "from builtins import getattr as read\n\n"
+        "from pkg.engine import SearchQueryEngine\n\n\n"
+        "def getattr(o: object, n: str) -> object:\n"
+        "    return o\n\n\n"
+        "def f(engine: SearchQueryEngine, mocker) -> None:\n"
+        '    read(engine, "save_model")\n'
+        '    getattr(engine, "save_model")\n'
+        '    mocker.patch.object(engine, "save_model")\n'
+    )
+    root = project({"pkg/engine.py": ENGINE, "pkg/use.py": forms})
+    assert _rename_save_model(root, "--allow-blindspots") == 0
+    after = _read(root, "pkg/use.py").splitlines()
+    assert after[10:13] == [
+        '    read(engine, "persist_model")',
+        '    getattr(engine, "save_model")',
+        '    mocker.patch.object(engine, "save_model")',
+    ]
+    err = capsys.readouterr().err.splitlines()
+    assert err == [
+        message("compliance.attr-blindspot", path="pkg/use.py", line=13, receiver="engine", attr="save_model", type="Unknown"),
+        message("refactor.leftover", path="pkg/use.py", line=12, where="string", old="save_model"),
+    ]
+
+
+@pytest.mark.parametrize("docs", [False, True], ids=["plain", "docs"])
+def test_a_target_resolving_to_an_unchanged_declaration_is_unchanged_and_unlisted(
+    project: MakeProject, capsys: pytest.CaptureFixture[str], docs: bool
+) -> None:
+    test = _patch_test("pkg.other.Other.save_model")
+    root = project({"pkg/engine.py": ENGINE, "pkg/other.py": OTHER, "tests/test_t.py": test})
+    assert _rename_save_model(root, "--without", "pkg/other.py:2", *(["--docs"] if docs else [])) == 0
+    assert _read(root, "tests/test_t.py") == test
+    assert "tests/test_t.py" not in capsys.readouterr().err

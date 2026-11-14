@@ -19,12 +19,14 @@ export interface FormCall {
   object: TS.Expression;
 }
 
-/** A class member declaration of the name: its name's start, its line (1-based) and its owner's name. */
+/** A class member declaration of the name: its name's start (a computed name's bracket), its line (1-based), its
+ * owner's name and whether a computed name declares it. */
 export interface MemberDeclaration {
   path: string;
   start: number;
   line: number;
   owner: string;
+  computed: boolean;
 }
 
 const FORMS = (): StringForm[] => language('typescript').string_member_calls as StringForm[];
@@ -129,18 +131,36 @@ export function memberNameStart(declared: TS.Node, name: string, source: TS.Sour
   return null;
 }
 
-/** Every member named `name` that a class, an interface or a type literal of `source` declares. */
-export function memberDeclarations(source: TS.SourceFile, name: string, path: string): MemberDeclaration[] {
+/** The declarations of member `name` that `owner` itself declares: the checker's properties of its instance and
+ * static sides, and `#private` names by their syntax (they are not properties). */
+function ownDeclarations(checker: TS.TypeChecker, owner: TS.Node, name: string): Set<TS.Declaration> {
+  const type = checker.getTypeAtLocation(owner);
+  const types = [type];
+  const symbol = type.getSymbol();
+  if (ts().isClassLike(owner) && symbol !== undefined) types.push(checker.getDeclaredTypeOfSymbol(symbol), checker.getTypeOfSymbolAtLocation(symbol, owner));
+  const out = new Set<TS.Declaration>();
+  for (const t of types) for (const d of t.getProperty(name)?.declarations ?? []) if (memberOwner(d) === owner) out.add(d);
+  for (const child of walk(owner)) {
+    const declared = (child as TS.NamedDeclaration).name;
+    if (declared !== undefined && ts().isPrivateIdentifier(declared) && declared.text === name && memberOwner(child) === owner) out.add(child as TS.Declaration);
+  }
+  return out;
+}
+
+/** Every member named `name` that a class, an interface or a type literal of `source` declares, in position order. */
+export function memberDeclarations(checker: TS.TypeChecker, source: TS.SourceFile, name: string, path: string): MemberDeclaration[] {
   const owners = OWNERS();
   const lines = new Lines(source.text);
   const out: MemberDeclaration[] = [];
   for (const node of walk(source)) {
-    const declared = (node as TS.NamedDeclaration).name;
-    const owner = memberOwner(node);
-    if (declared === undefined || owner === undefined || !owners.has(owner.kind)) continue;
-    const start = memberNameStart(declared, name, source);
-    if (start === null) continue;
-    out.push({ path, start, line: lines.lineOf(start), owner: ownerName(owner, source) });
+    if (!owners.has(node.kind)) continue;
+    for (const declaration of ownDeclarations(checker, node, name)) {
+      const declared = ts().getNameOfDeclaration(declaration);
+      if (declared === undefined) continue;
+      const named = memberNameStart(declared, name, source);
+      const start = named ?? declared.getStart(source);
+      out.push({ path, start, line: lines.lineOf(start), owner: ownerName(node, source), computed: named === null });
+    }
   }
-  return out;
+  return out.sort((a, b) => a.start - b.start);
 }
