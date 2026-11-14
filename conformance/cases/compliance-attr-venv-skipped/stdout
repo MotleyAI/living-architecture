@@ -1,0 +1,1 @@
+pkg/k.py:2: attr-blindspot: o.get_model — o is Unknown, so a rename of .get_model is unverifiable

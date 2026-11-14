@@ -1,0 +1,45 @@
+Renaming <get_model> to <get_dataset>:
+
+
+--- a/pkg/store.py
++++ b/pkg/store.py
+@@ -2,7 +2,7 @@
+ 
+ 
+ class StorageBackend:
+-    def get_model(self, name: str) -> int:
++    def get_dataset(self, name: str) -> int:
+         return 1
+ 
+ 
+@@ -10,12 +10,12 @@
+     def __init__(self, inner: StorageBackend) -> None:
+         self.inner = inner
+ 
+-    def get_model(self, name: str) -> int:
+-        return self.inner.get_model(name)
++    def get_dataset(self, name: str) -> int:
++        return self.inner.get_dataset(name)
+ 
+ 
+ class _SubCache(_ModelReadCache):
+-    def get_model(self, name: str) -> int:
++    def get_dataset(self, name: str) -> int:
+         return 2
+ 
+ 
+
+--- a/pkg/use.py
++++ b/pkg/use.py
+@@ -2,4 +2,4 @@
+ 
+ 
+ def f(s: StorageBackend, c: _ModelReadCache) -> int:
+-    return s.get_model("a") + c.get_model("b")
++    return s.get_dataset("a") + c.get_dataset("b")
+
+
+
+APPLIED. 2 file(s) changed:
+  pkg/store.py
+  pkg/use.py

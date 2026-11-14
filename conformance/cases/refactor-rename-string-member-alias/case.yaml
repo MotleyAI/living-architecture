@@ -1,0 +1,22 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- --apply
+- rename
+- --file
+- pkg/engine.py
+- --name
+- save_model
+- --new-name
+- persist_model
+fixture: refactor-typed
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - pkg/engine.py
+  - tests/test_alias.py
+note: string-member forms called through an imported alias are renamed

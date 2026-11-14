@@ -123,6 +123,9 @@ function expand(dir: string, languages: string[], root: string): [string, string
   return out;
 }
 
+/** Every file of language `id` under `dir` that `dr-*` checks, in path order. */
+export const languageFiles = (dir: string, id: string): string[] => expand(dir, [id], dir).map(([, path]) => path);
+
 /** Paths grouped by language; directories expanded, non-source files skipped with a warning. */
 export function split(prog: string, rawPaths: string[]): Map<string, string[]> {
   const groups = new Map<string, string[]>();

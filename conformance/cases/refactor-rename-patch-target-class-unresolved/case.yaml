@@ -1,0 +1,22 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- --apply
+- rename
+- --file
+- pkg/engine.py
+- --name
+- SearchQueryEngine
+- --new-name
+- QueryEngine
+fixture: refactor-typed
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - pkg/engine.py
+  - tests/test_t.py
+note: a class rename lists an unresolved project patch target as a leftover and leaves it unchanged

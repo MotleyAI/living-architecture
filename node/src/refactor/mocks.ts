@@ -3,6 +3,7 @@ import { relative } from 'node:path';
 import type * as TS from 'typescript';
 import { globMatch, language, message } from '../contract/index.js';
 import { posix, ts } from '../lang/index.js';
+import { Lines } from './lines.js';
 
 /** A finding at a UTF-16 position of its file. */
 export interface Finding {
@@ -85,7 +86,8 @@ export function mockFindings(program: TS.Program, file: string, shown: string, r
   const checker = program.getTypeChecker();
   const testGlobs: string[] = language('typescript').test_globs;
   const inTests = testGlobs.some((glob) => globMatch(glob, posix(relative(repoRoot, file))));
-  const line = (node: TS.Node): number => source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1;
+  const lines = new Lines(source.text);
+  const line = (node: TS.Node): number => lines.lineOf(node.getStart(source));
   const out: Finding[] = [];
   for (const node of walk(source)) {
     const via = inTests ? doubleAssertion(node) : null;

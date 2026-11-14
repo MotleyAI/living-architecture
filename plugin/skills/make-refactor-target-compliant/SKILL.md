@@ -16,26 +16,26 @@ The idioms for each language are in
 
 1. **Identify the target:** the symbol, and for a member rename the attribute
    NAME and its owning class.
-2. **Enumerate blind spots (checking machinery):**
-   - `dr-compliance --attr NAME <repo>` → `attr-blindspot` sites: `x.NAME` where
-     `x` is untyped. Each names the receiver to type.
-   - LSP `workspaceSymbol` / `findReferences` on the class and on NAME to map
-     the real reference set; compare against what the checker resolves today.
-   - Grep `\.NAME\b` for accesses on receivers the checker treats as untyped
-     (untyped locals, results of untyped calls) — the "right-looking" names.
+2. **Enumerate blind spots:**
+   - `dr-compliance --select attr-blindspot --attr NAME <repo>` → `x.NAME`,
+     `getattr(x, "NAME")` and the like where `x` is untyped. Each names the
+     receiver to type.
+   - A `dr-refactor` dry-run of the rename lists the stand-ins: classes outside
+     the hierarchy that declare NAME. Make a real implementation a subclass or
+     a `Protocol` implementation now, or classify it at the rename (`--with` /
+     `--without`, see `la:deterministic-refactor`).
 3. **Make them resolvable (do NOT rename yet):**
    - Type the flagged parameters/variables with the owning class (or its
      interface/protocol); type the class's own attributes.
    - Mark the overrides in the hierarchy.
    - Type any test doubles of the class (`dr-mock-lint`).
 4. **Re-check until the blast radius is typed:**
-   - `dr-compliance --attr NAME <repo>` reports no `attr-blindspot`;
+   - `dr-compliance --select attr-blindspot --attr NAME <repo>` reports nothing;
    - `la-typecheck` shows no new errors over the touched files.
 5. **Then run `la:deterministic-refactor`.** Every real reference is now
-   type-visible; anything left is a genuinely dynamic string reference, which
-   that skill's grep step catches.
+   type-visible; what is left is a string the rename lists as a `leftover`
+   or the language doc names.
 
-The `attr-blindspot` report and the `\.NAME\b` grep are heuristics for *finding*
-candidates. The guarantee still comes from the type checker after the rename —
-this skill's job is to shrink the checker's untyped surface over the blast
-radius to zero.
+The guarantee still comes from the type checker after the rename; this
+skill's job is to shrink the checker's untyped surface over the blast radius
+to zero.

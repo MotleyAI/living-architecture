@@ -1,0 +1,4 @@
+src/loose.ts:2: attr-blindspot: o.getModel — o is any, so a rename of .getModel is unverifiable
+src/other.ts:2: stand-in: Other.getModel is outside the renamed hierarchy; pass --with src/other.ts:2 to rename it too or --without src/other.ts:2 to leave it
+src/other.ts:6: stand-in: Unrelated.getModel is outside the renamed hierarchy; pass --with src/other.ts:6 to rename it too or --without src/other.ts:6 to leave it
+1 blind spot(s) of .getModel: type or resolve them, or pass --allow-blindspots

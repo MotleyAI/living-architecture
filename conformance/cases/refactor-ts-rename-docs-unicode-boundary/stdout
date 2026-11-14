@@ -1,0 +1,19 @@
+Renaming <getModel> to <getDataset>:
+
+
+--- a/src/engine.ts
++++ b/src/engine.ts
+@@ -1,6 +1,6 @@
+-/** Calls Engine.getModelé, not Engine.getModel. */
++/** Calls Engine.getModelé, not Engine.getDataset. */
+ export class Engine {
+-  getModel(): number {
++  getDataset(): number {
+     return 1;
+   }
+ }
+
+
+
+APPLIED. 1 file(s) changed:
+  src/engine.ts

@@ -1,0 +1,56 @@
+Renaming <recommend_root_model> to <pick_root_model>:
+
+
+--- a/docs/api.md
++++ b/docs/api.md
+@@ -1,4 +1,4 @@
+ # API
+ 
+-Use `pkg.engine.SearchQueryEngine.recommend_root_model` or `engine.SearchQueryEngine.recommend_root_model`.
++Use `pkg.engine.SearchQueryEngine.pick_root_model` or `engine.SearchQueryEngine.pick_root_model`.
+ Then recommend_root_model runs.
+
+--- a/docs/notes.rst
++++ b/docs/notes.rst
+@@ -1 +1 @@
+-See :meth:`SearchQueryEngine.recommend_root_model`.
++See :meth:`SearchQueryEngine.pick_root_model`.
+
+--- a/pkg/engine.py
++++ b/pkg/engine.py
+@@ -1,7 +1,7 @@
+ class SearchQueryEngine:
+-    def recommend_root_model(self, x: int) -> str:
+-        """See ``recommend_root_model`` and :meth:`recommend_root_model`."""
+-        # then recommend_root_model runs; `recommend_root_model()` returns
++    def pick_root_model(self, x: int) -> str:
++        """See ``pick_root_model`` and :meth:`pick_root_model`."""
++        # then recommend_root_model runs; `pick_root_model()` returns
+         if x:
+-            raise ValueError(f"recommend_root_model: no candidates for {x}")
+-        raise ValueError("recommend_root_model: no candidates")
++            raise ValueError(f"pick_root_model: no candidates for {x}")
++        raise ValueError("pick_root_model: no candidates")
+
+--- a/pkg/other.py
++++ b/pkg/other.py
+@@ -2,8 +2,8 @@
+ 
+ 
+ def f(e: SearchQueryEngine) -> str:
+-    """Wraps :meth:`SearchQueryEngine.recommend_root_model` and ``recommend_root_model``."""
++    """Wraps :meth:`SearchQueryEngine.pick_root_model` and ``recommend_root_model``."""
+     # calls recommend_root_model first
+-    getattr(e, "recommend_root_model")
++    getattr(e, "pick_root_model")
+     print("recommend_root_model")
+-    return e.recommend_root_model(1)
++    return e.pick_root_model(1)
+
+
+
+APPLIED. 4 file(s) changed:
+  docs/api.md
+  docs/notes.rst
+  pkg/engine.py
+  pkg/other.py

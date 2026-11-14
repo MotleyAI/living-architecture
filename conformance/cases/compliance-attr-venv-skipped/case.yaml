@@ -1,0 +1,13 @@
+kind: adapter
+languages:
+- python
+command: dr-compliance
+args:
+- --select
+- attr-blindspot
+- --attr
+- get_model
+- .
+expect:
+  exit: 1
+note: a directory expands without virtualenv and tool directories, so only the project's own receiver is reported

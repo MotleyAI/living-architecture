@@ -148,16 +148,21 @@ export class Workspace {
     return service;
   }
 
-  /** Each file's program: one per governing project, over its files plus `files`, with `overrides` on its options. */
-  programs(files: string[], overrides: TS.CompilerOptions): Map<string, TS.Program> {
+  /** Each file's language service: one per governing project, over its files plus `files`, with `overrides` on its options. */
+  servicesOf(files: string[], overrides: TS.CompilerOptions): Map<string, TS.LanguageService> {
     const groups = new Map<Project, string[]>();
     for (const file of files) groups.set(this.governing(file), [...(groups.get(this.governing(file)) ?? []), file]);
-    const out = new Map<string, TS.Program>();
+    const out = new Map<string, TS.LanguageService>();
     for (const [project, group] of groups) {
       const parsed = this.parsed(project);
       const service = ts().createLanguageService(host(parsed, { ...parsed.options, ...overrides }, group), this.registry);
-      for (const file of group) out.set(file, service.getProgram() as TS.Program);
+      for (const file of group) out.set(file, service);
     }
     return out;
+  }
+
+  /** Each file's program, from `servicesOf`. */
+  programs(files: string[], overrides: TS.CompilerOptions): Map<string, TS.Program> {
+    return new Map([...this.servicesOf(files, overrides)].map(([file, service]) => [file, service.getProgram() as TS.Program]));
   }
 }

@@ -10,6 +10,7 @@
 #              runs), native (the languages whose twin implements the command; absent: neutral, every twin runs it),
 #              format (exempt: the command skips the repo format check; absent: it checks the format declared in
 #              living-architecture.yaml after parsing its arguments, and a format refusal exits 2)
+# dr-refactor's prose_extensions are the non-source files `rename --docs` scans for mentions.
 # la-config get: language_keys are the public `lang.<language>.<key>` keys; source_globs (one `**/*<ext>` glob per
 #              source extension) and waiver (the language's waiver comment) are derived, the rest come from
 #              languages.yaml.
@@ -193,6 +194,7 @@ commands:
       write. Symbol location comes from --offset, --line/--col (1-based, as an editor/LSP reports), or --name
       (first declaration, else first use).
     exit: {0: ok, 1: refactor error, 2: usage error or format refusal}
+    prose_extensions: [.md, .rst, .txt]
     options:
       - {name: --project, type: path, default: ., help: 'project root (default: cwd)'}
       - {name: --apply, type: flag, help: 'write changes (default: dry-run)'}
@@ -210,6 +212,16 @@ commands:
              help: 'disable hierarchy rename (on by default: also renames overrides in sub/superclasses; Python only)'}
           - {name: --unsure, type: string, choices: [skip, include], default: skip,
              help: 'occurrences rope cannot resolve: skip (default) or include (risky; Python only)'}
+          - {name: --allow-blindspots, type: flag,
+             help: 'list the untyped receivers of a member''s old name and rename anyway (default: refuse)'}
+          - {name: --with, type: string, dest: with_stand_ins, metavar: PATH:LINE, repeatable: true,
+             help: 'rename the stand-ins declared on this line too, with their hierarchies (repeatable)'}
+          - {name: --without, type: string, dest: without_stand_ins, metavar: PATH:LINE, repeatable: true,
+             help: 'leave the stand-ins declared on this line, with their hierarchies (repeatable)'}
+          - {name: --keep, type: string, metavar: 'PATH[:LINE]', repeatable: true,
+             help: 'leave every edit on this line, in this file or under this directory (repeatable)'}
+          - {name: --docs, type: flag,
+             help: 'also rewrite mentions in comments, docstrings, strings and prose files; list the rest'}
       move-symbol:
         help: move a top-level declaration to another module
         options:
@@ -229,14 +241,15 @@ commands:
     native: [python, typescript]
     help: >-
       Report constructs that make a rename un-verifiable, with each file's language's checks (Python:
-      untyped-def, unannotated-attr, explicit-any, mock, rope-walk; TypeScript: tsconfig, explicit-any, untyped-def, mock). With --attr
-      NAME it also reports x.NAME accesses whose receiver is untyped.
+      untyped-def, unannotated-attr, explicit-any, mock, rope-walk, attr-blindspot; TypeScript: tsconfig, explicit-any,
+      untyped-def, mock, attr-blindspot). attr-blindspot needs --attr NAME: x.NAME accesses and member strings naming NAME
+      whose receiver is untyped.
     exit: {0: clean, 1: violations, 2: usage error or format refusal}
     positionals:
       - {name: paths, nargs: '+', help: files or directories}
     options:
       - {name: --select, type: string, help: 'comma-separated checks (default: every check of each file''s language)'}
-      - {name: --attr, type: string, help: also report x.ATTR accesses on untyped receivers}
+      - {name: --attr, type: string, help: 'the member name attr-blindspot checks (requires attr-blindspot selected)'}
 
   dr-mock-lint:
     native: [python, typescript]

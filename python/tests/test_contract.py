@@ -669,6 +669,16 @@ NEW_TEMPLATES = {
     "arch-migrate.unknown-format": "cannot migrate from format {declared}, which no la release used; this la reads format {current}",
     "arch-migrate.stamp-mismatch": "cannot write the format into living-architecture.yaml; set format: {current} by hand",
     "arch-migrate.rollback-failed": "{error}; restoring failed, so these paths are left changed: {paths}",
+    "refactor.blindspots": "{count} blind spot(s) of .{attr}: type or resolve them, or pass --allow-blindspots",
+    "refactor.unresolved-target": "{path}:{line}: unresolved-target: {target} names .{attr} but does not resolve",
+    "refactor.stand-in":
+        "{path}:{line}: stand-in: {cls}.{attr} is outside the renamed hierarchy; pass --with {path}:{line} to rename"
+        " it too or --without {path}:{line} to leave it",
+    "refactor.not-stand-in": "{site} is not a stand-in of this rename",
+    "refactor.keep-unmatched": "--keep {site} matches nothing this rename touches",
+    "refactor.leftover": "{path}:{line}: leftover: {where} mentions {old}",
+    "compliance.attr-required": "--select attr-blindspot needs --attr NAME",
+    "compliance.attr-unselected": "--attr needs attr-blindspot among the selected checks",
 }
 REMOVED_TEMPLATES = {"c4-layout.migrate"}
 # Defensive findings no real input reaches; each is pinned by a unit test instead of a golden.
@@ -745,6 +755,68 @@ def test_manifest_declares_native_languages() -> None:
     commands = _shared_yaml("cli.yaml")["commands"]
     native = {name: spec["native"] for name, spec in commands.items() if "native" in spec}
     assert native == {name: ["python", "typescript"] for name in DR_COMMANDS}
+
+
+RENAME_GUARD_OPTIONS = {
+    "--allow-blindspots": ("flag", "allow_blindspots", False),
+    "--with": ("string", "with_stand_ins", True),
+    "--without": ("string", "without_stand_ins", True),
+    "--keep": ("string", "keep", True),
+    "--docs": ("flag", "docs", False),
+}
+
+
+@pytest.mark.parametrize(("name", "expected"), RENAME_GUARD_OPTIONS.items())
+def test_rename_guard_options(name: str, expected: tuple[str, str, bool]) -> None:
+    options = _shared_yaml("cli.yaml")["commands"]["dr-refactor"]["subcommands"]["rename"]["options"]
+    [option] = [o for o in options if o["name"] == name]
+    actual = (option["type"], option.get("dest", name[2:].replace("-", "_")), option.get("repeatable", False))
+    assert actual == expected
+
+
+def test_refactor_prose_extensions() -> None:
+    assert _shared_yaml("cli.yaml")["commands"]["dr-refactor"]["prose_extensions"] == [".md", ".rst", ".txt"]
+
+
+def test_attr_blindspot_is_a_check_of_both_languages() -> None:
+    languages = _shared_yaml("languages.yaml")
+    assert languages["python"]["compliance_checks"] == ["untyped-def", "unannotated-attr", "explicit-any", "mock",
+                                                        "rope-walk", "attr-blindspot"]
+    assert languages["typescript"]["compliance_checks"] == ["tsconfig", "explicit-any", "untyped-def", "mock",
+                                                            "attr-blindspot"]
+
+
+def test_every_printed_compliance_kind_is_a_check_id() -> None:
+    languages = _shared_yaml("languages.yaml")
+    checks = {c for lang in ("python", "typescript") for c in languages[lang]["compliance_checks"]}
+    kinds = {
+        m.group(1)
+        for fid, text in _shared_yaml("findings.yaml")["findings"].items()
+        if fid.startswith("compliance.") and (m := re.match(r"\{path\}(?::\{line\})?: ([a-z-]+):", text))
+    }
+    assert "attr-blindspot" in kinds
+    assert kinds - {"parse-error"} <= checks
+
+
+def _string_member_calls(language: str) -> list[str]:
+    return [form["call"] for form in _shared_yaml("languages.yaml")[language]["string_member_calls"]]
+
+
+def test_typescript_string_member_calls() -> None:
+    assert sorted(_string_member_calls("typescript")) == sorted([
+        "vi.spyOn", "jest.spyOn", "Reflect.get", "Reflect.set", "Reflect.has", "Reflect.deleteProperty",
+        "Reflect.defineProperty", "Reflect.getOwnPropertyDescriptor", "Object.defineProperty",
+        "Object.getOwnPropertyDescriptor",
+    ])
+
+
+def test_python_string_member_calls() -> None:
+    calls = _string_member_calls("python")
+    assert {"getattr", "setattr", "hasattr", "delattr"} <= set(calls)
+    assert [c for c in calls if c.endswith("MonkeyPatch.setattr")]
+    assert [c for c in calls if c.endswith("MonkeyPatch.delattr")]
+    assert len([c for c in calls if c.endswith("patch.object")]) == 2
+    assert len([c for c in calls if c.endswith(".patch")]) == 2
 
 
 def _option(command: str, name: str) -> dict:

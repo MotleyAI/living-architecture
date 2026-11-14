@@ -1,0 +1,26 @@
+Renaming <getModel> to <getDataset>:
+
+
+--- a/src/store.ts
++++ b/src/store.ts
+@@ -1,5 +1,5 @@
+ export class Store {
+-  getModel(name: string): number {
++  getDataset(name: string): number {
+     return name.length;
+   }
+ }
+
+--- a/src/use.ts
++++ b/src/use.ts
+@@ -2,5 +2,5 @@
+ 
+ export function f(s: Store, pick: (key: string) => unknown): unknown[] {
+   const slow = 'getModel is slow';
+-  return [pick('getModel'), pick(`getModel`), s['getModel']('a'), slow];
++  return [pick('getModel'), pick(`getModel`), s['getDataset']('a'), slow];
+ }
+
+
+
+DRY-RUN. 2 file(s) would change. Re-run with --apply.

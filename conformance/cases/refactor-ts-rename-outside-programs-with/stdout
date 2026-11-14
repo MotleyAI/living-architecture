@@ -1,0 +1,41 @@
+Renaming <getModel> to <getDataset>:
+
+
+--- a/scripts/tool.ts
++++ b/scripts/tool.ts
+@@ -3,7 +3,7 @@
+ }
+ 
+ export class FakeStorage {
+-  getModel(name: string): number {
++  getDataset(name: string): number {
+     return name.length;
+   }
+ }
+
+--- a/src/store.ts
++++ b/src/store.ts
+@@ -1,5 +1,5 @@
+ export class Storage {
+-  getModel(name: string): number {
++  getDataset(name: string): number {
+     return name.length;
+   }
+ }
+
+--- a/src/use.ts
++++ b/src/use.ts
+@@ -1,5 +1,5 @@
+ import { Storage } from './store';
+ 
+ export function f(s: Storage): number {
+-  return s.getModel('a');
++  return s.getDataset('a');
+ }
+
+
+
+APPLIED. 3 file(s) changed:
+  scripts/tool.ts
+  src/store.ts
+  src/use.ts

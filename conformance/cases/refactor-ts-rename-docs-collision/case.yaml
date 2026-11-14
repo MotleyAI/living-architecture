@@ -1,0 +1,27 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- --apply
+- rename
+- --file
+- src/engine.ts
+- --name
+- saveModel
+- --new-name
+- persistModel
+- --docs
+- --without
+- src/legacy.ts:2
+fixture: refactor-ts
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - src/engine.ts
+  - src/legacy.ts
+  - src/notes.ts
+golden: manual
+note: '--docs: another class with the owner''s simple name declares the member, so Owner.OLD and Owner#OLD are listed'

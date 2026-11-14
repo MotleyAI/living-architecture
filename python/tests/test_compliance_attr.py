@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from project_files import write_project
 
 from living_architecture.cli import dr_compliance
 from living_architecture.contract import message
@@ -69,7 +70,7 @@ def cwd(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 
 def _attr(*paths: str) -> int:
-    return dr_compliance(["--select", "", "--attr", "formula", *paths])
+    return dr_compliance(["--select", "attr-blindspot", "--attr", "formula", *paths])
 
 
 def test_receivers_the_checker_cannot_type(cwd: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -154,7 +155,7 @@ def test_one_finding_per_access_position(cwd: Path, capsys: pytest.CaptureFixtur
 def test_blindspots_merge_into_each_files_line_order(cwd: Path, capsys: pytest.CaptureFixture[str]) -> None:
     (cwd / "a.py").write_text("def f(o) -> object:\n    return o.formula\n\n\ndef g(x): ...\n", encoding="utf-8")
     (cwd / "b.py").write_text("def h(x): ...\n", encoding="utf-8")
-    assert dr_compliance(["--select", "untyped-def", "--attr", "formula", "a.py", "b.py"]) == 1
+    assert dr_compliance(["--select", "untyped-def,attr-blindspot", "--attr", "formula", "a.py", "b.py"]) == 1
     assert [line.split(": ")[0] for line in capsys.readouterr().out.splitlines()] == ["a.py:1", "a.py:2", "a.py:5", "b.py:1"]
 
 
@@ -174,3 +175,121 @@ def test_language_server_starts_only_with_attr(
     monkeypatch.setenv("NODE_OPTIONS", "--require /nonexistent.js")
     assert dr_compliance(["m.py"]) == 0
     assert capsys.readouterr() == ("", "")
+
+
+def test_selecting_attr_blindspot_prints_only_its_findings(cwd: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    (cwd / "m.py").write_text("def f(o):\n    return o.formula\n", encoding="utf-8")
+    assert dr_compliance(["--select", "attr-blindspot", "--attr", "formula", "m.py"]) == 1
+    assert capsys.readouterr() == (_blindspot("m.py", 2, "o", "Unknown") + "\n", "")
+
+
+def test_attr_blindspot_without_attr_is_a_usage_error(cwd: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    (cwd / "m.py").write_text("def f(o):\n    return o.formula\n", encoding="utf-8")
+    assert dr_compliance(["--select", "attr-blindspot", "m.py"]) == 2
+    assert capsys.readouterr() == ("", message("compliance.attr-required") + "\n")
+
+
+@pytest.mark.parametrize("select", ["untyped-def", ""], ids=["other-check", "empty"])
+def test_attr_outside_the_selection_is_a_usage_error(
+    cwd: Path, capsys: pytest.CaptureFixture[str], select: str
+) -> None:
+    (cwd / "m.py").write_text("def f(o):\n    return o.formula\n", encoding="utf-8")
+    assert dr_compliance(["--select", select, "--attr", "formula", "m.py"]) == 2
+    assert capsys.readouterr() == ("", message("compliance.attr-unselected") + "\n")
+
+
+def test_default_selection_with_attr_runs_attr_blindspot(cwd: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    (cwd / "m.py").write_text("def f(o) -> object:\n    return o.formula\n", encoding="utf-8")
+    assert dr_compliance(["--attr", "formula", "m.py"]) == 1
+    assert _blindspot("m.py", 2, "o", "Unknown") in capsys.readouterr().out.splitlines()
+
+
+STRING_FORMS = """\
+from unittest.mock import patch
+
+import pytest
+from pytest_mock import MockerFixture
+
+
+class Model:
+    formula: str = ""
+
+
+obj = Model()
+
+
+def t(m) -> object:
+    return getattr(m, "formula")
+
+
+def u(monkeypatch) -> None:
+    monkeypatch.setattr(obj, "formula", 1)
+
+
+def v(mocker) -> None:
+    mocker.patch.object(obj, "formula")
+
+
+def w(o, x) -> None:
+    setattr(o, 'formula', 1)
+    hasattr(x, "formula")
+    delattr(x, "formula")
+    patch.object(o, "formula")
+
+
+def typed(m: Model, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture) -> None:
+    getattr(m, "formula")
+    monkeypatch.setattr(m, "formula", "a")
+    monkeypatch.delattr(Model, "formula")
+    mocker.patch.object(Model, "formula")
+    patch.object(m, "formula")
+    getattr(m, "other")
+    getattr(m, f"formula")
+"""
+
+
+def test_string_member_forms_on_untyped_objects_or_callees(cwd: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    write_project(cwd, {"m.py": STRING_FORMS})
+    assert _attr("m.py") == 1
+    assert capsys.readouterr().out.splitlines() == [
+        _blindspot("m.py", 15, "m", "Unknown"),
+        _blindspot("m.py", 19, "obj", "Unknown"),
+        _blindspot("m.py", 23, "obj", "Unknown"),
+        _blindspot("m.py", 27, "o", "Unknown"),
+        _blindspot("m.py", 28, "x", "Unknown"),
+        _blindspot("m.py", 29, "x", "Unknown"),
+        _blindspot("m.py", 30, "o", "Unknown"),
+    ]
+
+
+def test_string_member_form_on_an_any_object(cwd: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    write_project(cwd, {"m.py": 'from typing import Any\n\n\ndef f(o: Any) -> object:\n    return getattr(o, "formula")\n'})
+    assert _attr("m.py") == 1
+    assert capsys.readouterr().out.splitlines() == [_blindspot("m.py", 5, "o", "Any")]
+
+
+LOOKALIKES = """\
+class Model:
+    formula: str = ""
+
+
+class Cfg:
+    def setattr(self, o: object, n: str) -> None: ...
+
+
+def getattr(o: object, n: str) -> object:
+    return o
+
+
+def f(engine: Model, cfg: Cfg, loose) -> None:
+    getattr(engine, "formula")
+    getattr(loose, "formula")
+    cfg.setattr(engine, "formula")
+    cfg.setattr(loose, "formula")
+"""
+
+
+def test_lookalike_callees_are_not_string_member_forms(cwd: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    write_project(cwd, {"m.py": LOOKALIKES})
+    assert _attr("m.py") == 0
+    assert capsys.readouterr().out == ""

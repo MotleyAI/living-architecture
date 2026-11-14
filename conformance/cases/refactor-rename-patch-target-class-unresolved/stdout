@@ -1,0 +1,15 @@
+Renaming <SearchQueryEngine> to <QueryEngine>:
+
+
+--- a/pkg/engine.py
++++ b/pkg/engine.py
+@@ -1,3 +1,3 @@
+-class SearchQueryEngine:
++class QueryEngine:
+     def save_model(self, name: str) -> None:
+         pass
+
+
+
+APPLIED. 1 file(s) changed:
+  pkg/engine.py

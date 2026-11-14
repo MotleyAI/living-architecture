@@ -1,0 +1,43 @@
+Renaming <SearchQueryEngine> to <QueryEngine>:
+
+
+--- a/pkg/__init__.py
++++ b/pkg/__init__.py
+@@ -1,3 +1,3 @@
+-from pkg.engine import SearchQueryEngine
++from pkg.engine import QueryEngine
+ 
+-__all__ = ["SearchQueryEngine"]
++__all__ = ["QueryEngine"]
+
+--- a/pkg/engine.py
++++ b/pkg/engine.py
+@@ -1,3 +1,3 @@
+-class SearchQueryEngine:
++class QueryEngine:
+     def save_model(self, name: str) -> None:
+         pass
+
+--- a/tests/test_patch.py
++++ b/tests/test_patch.py
+@@ -5,8 +5,8 @@
+ 
+ 
+ def test_targets(mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch) -> None:
+-    patch("pkg.engine.SearchQueryEngine.save_model")
+-    patch("pkg.SearchQueryEngine.save_model")
+-    mocker.patch("pkg.engine.SearchQueryEngine.save_model")
+-    monkeypatch.setattr("pkg.engine.SearchQueryEngine.save_model", None)
+-    monkeypatch.delattr('pkg.SearchQueryEngine.save_model')
++    patch("pkg.engine.QueryEngine.save_model")
++    patch("pkg.QueryEngine.save_model")
++    mocker.patch("pkg.engine.QueryEngine.save_model")
++    monkeypatch.setattr("pkg.engine.QueryEngine.save_model", None)
++    monkeypatch.delattr('pkg.QueryEngine.save_model')
+
+
+
+APPLIED. 3 file(s) changed:
+  pkg/__init__.py
+  pkg/engine.py
+  tests/test_patch.py

@@ -1,0 +1,28 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- --apply
+- rename
+- --file
+- pkg/store.py
+- --name
+- get_model
+- --new-name
+- get_dataset
+- --without
+- pkg/store.py:13
+- --without
+- pkg/other.py:2
+fixture: refactor-typed
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - pkg/other.py
+  - pkg/store.py
+  - pkg/use.py
+golden: manual
+note: --without leaves each stand-in, its subclass and calls through it

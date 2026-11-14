@@ -112,6 +112,7 @@ class LanguageServer:
         self._command = command or _bundled_command()
         self._read = read or _read_text
         self._texts: dict[Path, str] = {}
+        self._versions: dict[Path, int] = {}
         self._next_id = 0
         self._messages: queue.Queue[Any] = queue.Queue()
         self._proc: subprocess.Popen[bytes] | None = None
@@ -265,8 +266,18 @@ class LanguageServer:
     def open(self, path: Path, text: str) -> None:
         """Hand the server `text` as the content of `path`."""
         self._texts[path] = text
+        self._versions[path] = 1
         self._notify("textDocument/didOpen", {
             "textDocument": {"uri": path.as_uri(), "languageId": "python", "version": 1, "text": text}
+        })
+
+    def change(self, path: Path, text: str) -> None:
+        """Replace the content of `path`, opened before, with `text`."""
+        self._texts[path] = text
+        self._versions[path] += 1
+        self._notify("textDocument/didChange", {
+            "textDocument": {"uri": path.as_uri(), "version": self._versions[path]},
+            "contentChanges": [{"text": text}],
         })
 
     def _position(self, path: Path, offset: int) -> dict[str, Any]:

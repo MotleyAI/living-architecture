@@ -1,0 +1,25 @@
+Renaming <getModel> to <getDataset>:
+
+
+--- a/src/store.ts
++++ b/src/store.ts
+@@ -1,7 +1,7 @@
+ const KEY = 'getModel';
+ 
+ export interface Store {
+-  getModel(name: string): number;
++  getDataset(name: string): number;
+ }
+ 
+ export class Keyed {
+@@ -11,5 +11,5 @@
+ }
+ 
+ export function use(s: Store): number {
+-  return s.getModel('a');
++  return s.getDataset('a');
+ }
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

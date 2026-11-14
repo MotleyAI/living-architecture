@@ -1,0 +1,30 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- --apply
+- rename
+- --file
+- src/store.ts
+- --name
+- getModel
+- --new-name
+- getDataset
+- --without
+- src/store.ts:8
+- --without
+- src/other.ts:2
+- --without
+- src/other.ts:6
+fixture: refactor-ts
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - src/other.ts
+  - src/store.ts
+  - src/use.ts
+golden: manual
+note: --without leaves each stand-in (several unrelated same-named members, one flag each)

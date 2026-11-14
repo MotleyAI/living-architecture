@@ -25,11 +25,20 @@ whose static target is that class. A parameter rename covers every parameter kin
 calls the checker resolves, and the same-named parameter of each override and each `@overload` signature. It
 refuses a new name the function already uses.
 
+A rename also rewrites a member named by string on an object the checker types: `getattr`, `setattr`, `hasattr`,
+`delattr`, `monkeypatch.setattr` / `delattr` and `patch.object` (also `mocker.patch.object`), and each segment of a
+`patch`, `mocker.patch` or `monkeypatch.setattr` / `delattr` target that resolves statically to a renamed
+declaration. A member rename refuses while a receiver of the old name is `Unknown` or `Any` (`--allow-blindspots`
+overrides) or a class outside the hierarchy declares the old name (`--with` / `--without`).
+
 What a rename leaves unrenamed:
-- `x.NAME` where the checker types `x` as `Unknown` or `Any`: `dr-compliance --attr NAME` lists these, so type
-  them first (it misses only a subscript or call receiver typed `Model | Any` whose `Model.NAME` is itself `Any`);
-- string-only references: `importlib`, `getattr(`, `__all__`, `patch("dotted.path")`, entry points, config
-  paths;
+- receivers `--allow-blindspots` let through; `dr-compliance --attr` misses only a subscript or call receiver typed
+  `Model | Any` whose `Model.NAME` is itself `Any`;
+- string-only references: `importlib`, `__all__`, entry points, config paths, a member named by a computed string
+  (`getattr(obj, name)`, `patch.object(obj, name)`), and a `patch` target that does not resolve into the project
+  (listed as a `leftover`);
+- mentions in comments, docstrings, messages and prose files: all of them without `--docs`; with it, the ones it
+  lists as `leftover`;
 - for a parameter rename: keywords that reach it unresolved (`**kwargs` forwarding, a dict unpacked into the
   call). A lambda parameter is refused.
 - for a field rename: dict keys that reach the model untyped (through `Any` or `dict[str, Any]`, `**kwargs`

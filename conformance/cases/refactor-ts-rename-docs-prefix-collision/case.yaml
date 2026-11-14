@@ -1,0 +1,25 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- --apply
+- rename
+- --file
+- src/pkg1/engine.ts
+- --name
+- saveModel
+- --new-name
+- persistModel
+- --without
+- src/pkg2/engine.ts:2
+- --docs
+fixture: refactor-ts
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - src/pkg1/engine.ts
+  - src/pkg2/engine.ts
+note: '--docs: a module prefix two same-named classes share is listed; one only the renamed class has is rewritten'

@@ -1,0 +1,19 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- rename
+- --file
+- src/store.ts
+- --name
+- getModel
+- --new-name
+- getDataset
+fixture: refactor-ts
+git:
+- commit: init
+expect:
+  exit: 0
+note: without --docs a member rename lists a string or plain template literal exactly OLD that no rule handled; a
+  message and an element access the rename rewrites are not listed

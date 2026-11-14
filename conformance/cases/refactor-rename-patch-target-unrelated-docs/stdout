@@ -1,0 +1,23 @@
+Renaming <save_model> to <persist_model>:
+
+
+--- a/pkg/engine.py
++++ b/pkg/engine.py
+@@ -1,3 +1,3 @@
+ class SearchQueryEngine:
+-    def save_model(self, name: str) -> None:
++    def persist_model(self, name: str) -> None:
+         pass
+
+--- a/tests/test_t.py
++++ b/tests/test_t.py
+@@ -3,4 +3,4 @@
+ 
+ def test_t() -> None:
+     patch("pkg.other.Other.save_model")
+-    patch("pkg.engine.SearchQueryEngine.save_model")
++    patch("pkg.engine.SearchQueryEngine.persist_model")
+
+
+
+DRY-RUN. 2 file(s) would change. Re-run with --apply.

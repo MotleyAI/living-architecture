@@ -1,0 +1,32 @@
+Renaming <recommend_root_model> to <pick_root_model>:
+
+
+--- a/pkg/engine.py
++++ b/pkg/engine.py
+@@ -1,7 +1,7 @@
+ class SearchQueryEngine:
+-    def recommend_root_model(self, x: int) -> str:
+-        """See ``recommend_root_model`` and :meth:`recommend_root_model`."""
+-        # then recommend_root_model runs; `recommend_root_model()` returns
++    def pick_root_model(self, x: int) -> str:
++        """See ``pick_root_model`` and :meth:`pick_root_model`."""
++        # then recommend_root_model runs; `pick_root_model()` returns
+         if x:
+-            raise ValueError(f"recommend_root_model: no candidates for {x}")
+-        raise ValueError("recommend_root_model: no candidates")
++            raise ValueError(f"pick_root_model: no candidates for {x}")
++        raise ValueError("pick_root_model: no candidates")
+
+--- a/pkg/notes.py
++++ b/pkg/notes.py
+@@ -1,3 +1,3 @@
+ # SearchQueryEngine.recommend_root_model
+-# engine.SearchQueryEngine.recommend_root_model
++# engine.SearchQueryEngine.pick_root_model
+ # legacy.SearchQueryEngine.recommend_root_model
+
+
+
+APPLIED. 2 file(s) changed:
+  pkg/engine.py
+  pkg/notes.py

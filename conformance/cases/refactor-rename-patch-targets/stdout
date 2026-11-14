@@ -1,0 +1,33 @@
+Renaming <save_model> to <persist_model>:
+
+
+--- a/pkg/engine.py
++++ b/pkg/engine.py
+@@ -1,3 +1,3 @@
+ class SearchQueryEngine:
+-    def save_model(self, name: str) -> None:
++    def persist_model(self, name: str) -> None:
+         pass
+
+--- a/tests/test_patch.py
++++ b/tests/test_patch.py
+@@ -5,8 +5,8 @@
+ 
+ 
+ def test_targets(mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch) -> None:
+-    patch("pkg.engine.SearchQueryEngine.save_model")
+-    patch("pkg.SearchQueryEngine.save_model")
+-    mocker.patch("pkg.engine.SearchQueryEngine.save_model")
+-    monkeypatch.setattr("pkg.engine.SearchQueryEngine.save_model", None)
+-    monkeypatch.delattr('pkg.SearchQueryEngine.save_model')
++    patch("pkg.engine.SearchQueryEngine.persist_model")
++    patch("pkg.SearchQueryEngine.persist_model")
++    mocker.patch("pkg.engine.SearchQueryEngine.persist_model")
++    monkeypatch.setattr("pkg.engine.SearchQueryEngine.persist_model", None)
++    monkeypatch.delattr('pkg.SearchQueryEngine.persist_model')
+
+
+
+APPLIED. 2 file(s) changed:
+  pkg/engine.py
+  tests/test_patch.py

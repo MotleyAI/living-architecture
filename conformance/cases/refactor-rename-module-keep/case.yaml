@@ -1,0 +1,22 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- rename
+- --file
+- tests/test_multi_name.py
+- --name
+- client
+- --new-name
+- cli2
+- --keep
+- pkg/api/handler.py
+- --keep
+- tests/test_chain.py:1
+fixture: refactor-references
+git:
+- commit: init
+expect:
+  exit: 0
+note: '--keep on a module rename: a kept file and a kept line keep the old name, other lines of the file change'

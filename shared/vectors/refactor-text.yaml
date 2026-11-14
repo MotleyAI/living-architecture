@@ -1,0 +1,186 @@
+# The text primitives of `dr-refactor rename`, run by both twins. Offsets count code points. A key named after a
+# language (`python`, `typescript`) overrides the shared expectation where the languages differ: their line
+# terminators (Python `\r\n`, `\r`, `\n`; TypeScript adds U+2028 and U+2029) and their identifier characters
+# (TypeScript adds `$`).
+
+# The 1-based line of each offset; `count` is the number of lines, a final terminator opening none.
+lines:
+- name: lf
+  text: "a\nbc\n"
+  offsets: [0, 1, 2, 4, 5]
+  lines: [1, 1, 2, 2, 3]
+  count: 2
+- name: crlf counts once
+  text: "a\r\nb"
+  offsets: [0, 1, 2, 3]
+  lines: [1, 1, 1, 2]
+  count: 2
+- name: lone cr
+  text: "a\rb\r"
+  offsets: [0, 2, 4]
+  lines: [1, 2, 3]
+  count: 2
+- name: mixed terminators
+  text: "a\nb\r\nc\rd"
+  offsets: [0, 2, 5, 7]
+  lines: [1, 2, 3, 4]
+  count: 4
+- name: empty text
+  text: ""
+  offsets: [0]
+  lines: [1]
+  count: 0
+- name: no final terminator
+  text: "a\n\nb"
+  offsets: [0, 2, 3]
+  lines: [1, 2, 3]
+  count: 3
+- name: form feed, vertical tab and next line are not terminators
+  text: "a\fb\vc\x85d\ne"
+  offsets: [0, 2, 4, 6, 8]
+  lines: [1, 1, 1, 1, 2]
+  count: 2
+- name: line and paragraph separators
+  text: "a b c"
+  offsets: [0, 2, 4]
+  lines: [1, 1, 1]
+  count: 1
+  typescript:
+    lines: [1, 2, 3]
+    count: 3
+- name: astral characters count once
+  text: "\U0001F600\n\U0001F600x"
+  offsets: [0, 1, 2, 3]
+  lines: [1, 1, 2, 2]
+  count: 2
+
+# The starts of each mention of `old` in `regions` ([start, end] pairs; default: the whole text).
+mentions:
+- name: ascii boundaries
+  text: "save_model, save_modelX, xsave_model, _save_model, save_model."
+  old: save_model
+  starts: [0, 51]
+- name: digits are identifier characters
+  text: "save_model2 2save_model save_model"
+  old: save_model
+  starts: [24]
+- name: dollar is an identifier character in TypeScript only
+  text: "$save_model save_model$ save_model"
+  old: save_model
+  starts: [1, 12, 24]
+  typescript:
+    starts: [24]
+- name: non-ascii letters and digits
+  text: "ésave_model save_modelé save_model٣ save_model"
+  old: save_model
+  starts: [36]
+- name: astral letter before
+  text: "\U0001D49Csave_model \U0001F600save_model"
+  old: save_model
+  starts: [13]
+- name: a combining mark continues an identifier
+  text: "save_model\u0301 \u0301save_model save_model"
+  old: save_model
+  starts: [24]
+- name: connector punctuation continues an identifier
+  text: "save_model\u203F save_model"
+  old: save_model
+  starts: [12]
+- name: zero-width joiners continue an identifier
+  text: "save_model\u200D save_model\u200C save_model"
+  old: save_model
+  starts: [24]
+- name: region start sees the character before it
+  text: "xsave_model save_model"
+  old: save_model
+  regions: [[1, 11], [12, 22]]
+  starts: [12]
+- name: region end hides the character after it
+  text: "save_modelx"
+  old: save_model
+  regions: [[0, 10]]
+  starts: [0]
+
+# The qualifier segments ending at `at` (the mention's start); null when the run there is not a qualifier.
+qualifiers:
+- name: owner
+  text: "A.save"
+  at: 2
+  segments: [A]
+- name: dotted prefix
+  text: "see a.b.C.save"
+  at: 10
+  segments: [a, b, C]
+- name: hash owner
+  text: "A#save"
+  at: 2
+  segments: [A]
+- name: no qualifier
+  text: "x save"
+  at: 2
+  segments: null
+- name: run continues before the window
+  text: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.A.save"
+  at: 303
+  segments: null
+- name: run fits the window
+  text: " aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.A.save"
+  at: 300
+  segments: [aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa, A]
+- name: segment starting with a digit
+  text: "1a.save"
+  at: 3
+  segments: null
+- name: empty segment
+  text: "a..save"
+  at: 3
+  segments: null
+- name: non-ascii segment
+  text: "é.save"
+  at: 2
+  segments: null
+- name: non-ascii after the first character
+  text: "aé.save"
+  at: 3
+  segments: [aé]
+- name: combining mark in a segment
+  text: "e\u0301.save"
+  at: 3
+  segments: ["e\u0301"]
+- name: combining mark before the run
+  text: "\u0301A.save"
+  at: 3
+  segments: null
+- name: dollar segment
+  text: "$a.save"
+  at: 3
+  segments: [a]
+  typescript:
+    segments: [$a]
+
+# `--keep` / `--with` sites: `files` exist under the project; each check is [path, line, covered].
+sites:
+- name: file line
+  files: [tests/shim.py]
+  site: tests/shim.py:4
+  checks: [[tests/shim.py, 4, true], [tests/shim.py, 5, false]]
+- name: whole file
+  files: [tests/shim.py]
+  site: tests/shim.py
+  checks: [[tests/shim.py, 1, true], [tests/shim.py, 99, true]]
+- name: directory by whole components
+  files: [tests/compat/old.py, tests/compatible.py]
+  site: tests/compat
+  checks: [[tests/compat/old.py, 1, true], [tests/compatible.py, 1, false]]
+- name: normalized path
+  files: [tests/shim.py]
+  site: ./tests/../tests/shim.py:2
+  checks: [[tests/shim.py, 2, true]]
+- name: missing path
+  files: []
+  site: tests/missing.py
+  checks: [[tests/missing.py, 1, false]]
+- name: outside the project
+  files: []
+  site: ../x.py
+  checks: [[../x.py, 1, false]]

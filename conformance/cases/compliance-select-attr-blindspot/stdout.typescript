@@ -1,0 +1,1 @@
+src/m.ts:2: attr-blindspot: o.formula — o is any, so a rename of .formula is unverifiable

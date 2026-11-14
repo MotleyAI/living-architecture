@@ -1,0 +1,19 @@
+Renaming <saveModel> to <persistModel>:
+
+
+--- a/src/pkg1/engine.ts
++++ b/src/pkg1/engine.ts
+@@ -1,6 +1,6 @@
+-/** See engine.Engine.saveModel and pkg1.engine.Engine.saveModel. */
++/** See engine.Engine.saveModel and pkg1.engine.Engine.persistModel. */
+ export class Engine {
+-  saveModel(): number {
++  persistModel(): number {
+     return 1;
+   }
+ }
+
+
+
+APPLIED. 1 file(s) changed:
+  src/pkg1/engine.ts

@@ -1,0 +1,15 @@
+kind: adapter
+languages:
+- typescript
+command: dr-compliance
+args:
+- --select
+- attr-blindspot
+- --attr
+- id
+- src/h.ts
+fixture: compliance-ts
+expect:
+  exit: 1
+golden: manual
+note: a spyOn member string on an any object is a blind spot

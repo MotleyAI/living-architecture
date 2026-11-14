@@ -1,0 +1,22 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- rename
+- --file
+- src/store.ts
+- --name
+- getModel
+- --new-name
+- getDataset
+fixture: refactor-ts
+git:
+- commit: init
+expect:
+  exit: 1
+  files:
+  - src/store.ts
+  - src/use.ts
+golden: manual
+note: a structural class outside the hierarchy is a stand-in; an untyped object literal is not

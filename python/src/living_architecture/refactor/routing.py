@@ -74,6 +74,11 @@ def _expand(directory: Path, languages: list[str], root: Path) -> list[tuple[str
     return out
 
 
+def language_files(directory: Path, lang_id: str) -> list[Path]:
+    """Every file of language `lang_id` under `directory` that `dr-*` checks, in path order."""
+    return [Path(path) for _, path in _expand(directory, [lang_id], directory)]
+
+
 def split(prog: str, raw_paths: list[str], cwd: Path) -> dict[str, list[str]]:
     """Paths grouped by language; directories expanded, non-source files skipped with a warning."""
     groups: dict[str, list[str]] = {}

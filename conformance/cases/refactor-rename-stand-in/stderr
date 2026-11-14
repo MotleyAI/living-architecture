@@ -1,0 +1,2 @@
+pkg/store.py:13: stand-in: _ModelReadCache.get_model is outside the renamed hierarchy; pass --with pkg/store.py:13 to rename it too or --without pkg/store.py:13 to leave it
+pkg/store.py:18: stand-in: _SubCache.get_model is outside the renamed hierarchy; pass --with pkg/store.py:18 to rename it too or --without pkg/store.py:18 to leave it

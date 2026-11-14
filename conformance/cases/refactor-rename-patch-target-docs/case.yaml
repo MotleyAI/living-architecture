@@ -1,0 +1,23 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- --apply
+- rename
+- --file
+- pkg/engine.py
+- --name
+- save_model
+- --new-name
+- persist_model
+- --docs
+fixture: refactor-typed
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - pkg/engine.py
+  - tests/test_t.py
+note: '--docs leaves a listed patch target whole: its qualified segment is not rewritten'

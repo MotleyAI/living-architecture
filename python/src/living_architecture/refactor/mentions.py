@@ -1,0 +1,205 @@
+"""`rename --docs`: the old name's mentions in comments, docstrings, strings and prose files, rewritten when
+qualified or code-marked, else listed."""
+
+from __future__ import annotations
+
+import ast
+import io
+import re
+import sys
+import tokenize
+from collections.abc import Callable, Iterator
+
+from pydantic import BaseModel, ConfigDict
+
+from living_architecture.refactor.python_source import SourceFile
+
+_QUALIFIER_WINDOW = 300
+_PREFIX = re.compile(r"[A-Za-z]*")
+_FSTRING_PARTS = {getattr(tokenize, name) for name in ("FSTRING_MIDDLE", "TSTRING_MIDDLE") if hasattr(tokenize, name)}
+_FSTRING_STARTS = {getattr(tokenize, name) for name in ("FSTRING_START", "TSTRING_START") if hasattr(tokenize, name)}
+
+
+class Owner(BaseModel):
+    """A renamed declaration's qualifying path (module segments, then classes) and whether a class declares it."""
+
+    model_config = ConfigDict(frozen=True)
+
+    path: tuple[str, ...]
+    member: bool
+
+
+class Mention(BaseModel):
+    """An occurrence of the old name: its span, its line and where it is."""
+
+    model_config = ConfigDict(frozen=True)
+
+    start: int
+    end: int
+    line: int
+    where: str
+    opens: bool
+
+
+class MentionRules(BaseModel):
+    """What makes a mention rewritable: the renamed declarations' owners, and the qualifying paths of the other
+    project classes declaring the old name."""
+
+    model_config = ConfigDict(frozen=True)
+
+    old: str
+    owners: frozenset[Owner]
+    colliding: frozenset[tuple[str, ...]]
+
+    def qualified(self, text: str, start: int) -> bool:
+        """`Owner.OLD` with an optional dotted prefix naming the owner's module from its end, naming no other class."""
+        segments = qualifier_segments(text, start)
+        if segments is None:
+            return False
+        named = tuple(segments)
+        ambiguous = any(path[len(path) - len(named) :] == named for path in self.colliding if len(path) >= len(named))
+        return any(
+            owner.path[len(owner.path) - len(named) :] == named and (not owner.member or not ambiguous)
+            for owner in self.owners
+            if len(named) <= len(owner.path)
+        )
+
+
+def _continues(char: str) -> bool:
+    """`char` can continue an identifier: Python's own rule, plus the zero-width joiners whatever its Unicode version."""
+    return char in "\u200c\u200d" or ("a" + char).isidentifier()
+
+
+def _identifier(segment: str) -> bool:
+    """An ASCII letter or `_`, then identifier-continuation characters."""
+    return bool(segment) and (segment[0] == "_" or segment[0].isascii() and segment[0].isalpha()) and all(map(_continues, segment[1:]))
+
+
+def qualifier_segments(text: str, start: int) -> list[str] | None:
+    """The segments of the `A.B.` or `A#` qualifier ending at `start`, or None when the run there is not one."""
+
+    def in_run(i: int) -> bool:
+        return i >= 0 and (_continues(text[i]) or text[i] in ".#")
+
+    i = start
+    while start - i < _QUALIFIER_WINDOW and in_run(i - 1):
+        i -= 1
+    if in_run(i - 1):
+        return None
+    *segments, last = re.split(r"[.#]", text[i:start])
+    if last or not segments or not all(map(_identifier, segments)):
+        return None
+    return segments
+
+
+def _code_marked(text: str, mention: Mention) -> bool:
+    """In backticks (optionally followed by `()`), a role or `{@link}` target, or opening its string before `:`,
+    `(` or whitespace."""
+    before, after = text[max(0, mention.start - 20) : mention.start], text[mention.end : mention.end + 3]
+    if before.endswith(("`", "`~", "`!")) and after.startswith(("`", "()`")):
+        return True
+    if re.search(r"\{@link\s+$", before) and re.match(r"[}\s|]", after):
+        return True
+    return mention.opens and re.match(r"[:(\s]", after) is not None
+
+
+Region = tuple[int, int, str, bool]
+
+
+def mentions(text: str, old: str, regions: Iterator[Region], line: Callable[[int], int]) -> list[Mention]:
+    """Occurrences of `old` not adjacent to an identifier character inside each region (start, end, where, whether
+    it opens a string literal)."""
+    pattern = re.compile(re.escape(old))
+
+    def bounded(s: int, e: int, end: int) -> bool:
+        return not (s > 0 and _continues(text[s - 1])) and not (e < end and _continues(text[e]))
+
+    return [
+        Mention(start=m.start(), end=m.end(), line=line(m.start()), where=where, opens=opens and m.start() == start)
+        for start, end, where, opens in regions
+        for m in pattern.finditer(text, start, end)
+        if bounded(m.start(), m.end(), end)
+    ]
+
+
+def docstrings(tree: ast.Module | None) -> list[ast.Constant]:
+    """The module, class and function docstrings of `tree`."""
+    if tree is None:
+        return []
+    owners = [tree, *(n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef))]
+    return [
+        o.body[0].value
+        for o in owners
+        if o.body
+        and isinstance(o.body[0], ast.Expr)
+        and isinstance(o.body[0].value, ast.Constant)
+        and isinstance(o.body[0].value.value, str)
+    ]
+
+
+def _masked_fstring(token: str) -> list[tuple[int, int]]:
+    """The literal runs of a whole f-string token (Python before 3.12), relative to the token."""
+    runs: list[tuple[int, int]] = []
+    depth, start, i = 0, 0, 0
+    while i < len(token):
+        if token.startswith(("{{", "}}"), i) and depth == 0:
+            i += 2
+            continue
+        if token[i] == "{":
+            if depth == 0:
+                runs.append((start, i))
+            depth += 1
+        elif token[i] == "}" and depth:
+            depth -= 1
+            if depth == 0:
+                start = i + 1
+        i += 1
+    runs.append((start, len(token)))
+    return runs
+
+
+def source_regions(source: SourceFile) -> Iterator[Region]:
+    """The comments and string literal contents of a Python file."""
+    spans = [source.span(d) for d in docstrings(source.tree)]
+    try:
+        tokens = list(tokenize.generate_tokens(io.StringIO(source.text, newline="").readline))
+    except (tokenize.TokenError, SyntaxError):
+        return
+    previous = None
+    for token in tokens:
+        opening = previous in _FSTRING_STARTS
+        previous = token.type
+        if token.type not in (tokenize.COMMENT, tokenize.STRING, *_FSTRING_PARTS):
+            continue
+        offset = source.line_start(token.start[0]) + token.start[1]
+        end = source.line_start(token.end[0]) + token.end[1]
+        if token.type == tokenize.COMMENT:
+            yield offset, end, "comment", False
+        elif token.type in _FSTRING_PARTS:
+            yield offset, offset + len(token.string), "string", opening
+        elif token.type == tokenize.STRING:
+            where = "docstring" if any(s <= offset < e for s, e in spans) else "string"
+            yield from _string_regions(token.string, offset, end, where)
+
+
+def _string_regions(literal: str, offset: int, end: int, where: str) -> Iterator[Region]:
+    """The contents of a string literal token spanning `offset` to `end`; before 3.12, an f-string's literal parts."""
+    prefix = len(_PREFIX.match(literal).group())  # type: ignore[union-attr]
+    quote = 3 if literal[prefix : prefix + 3] in ('"""', "'''") else 1
+    if "f" in literal[:prefix].lower() and sys.version_info < (3, 12):
+        for i, (s, e) in enumerate(_masked_fstring(literal[prefix + quote : len(literal) - quote])):
+            yield offset + prefix + quote + s, offset + prefix + quote + e, where, i == 0
+    else:
+        yield offset + prefix + quote, end - quote, where, True
+
+
+def classify(text: str, found: list[Mention], rules: MentionRules, *, declaring: bool) -> tuple[list[Mention], list[Mention]]:
+    """The mentions to rewrite and the ones to list."""
+    rewrite: list[Mention] = []
+    listed: list[Mention] = []
+    for mention in found:
+        if rules.qualified(text, mention.start) or (declaring and _code_marked(text, mention)):
+            rewrite.append(mention)
+        else:
+            listed.append(mention)
+    return rewrite, listed
