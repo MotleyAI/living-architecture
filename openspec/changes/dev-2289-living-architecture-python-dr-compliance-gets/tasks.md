@@ -1,20 +1,20 @@
 ## 1. Tests (pr-tests stage)
 
-- [ ] 1.1 Python unit tests for every scenario of "Python explicit-any compliance check" (spellings, non-annotation
+- [x] 1.1 Python unit tests for every scenario of "Python explicit-any compliance check" (spellings, non-annotation
       sites, aliases not followed, forward references and type comments, non-forward strings, shadowing and mixed
       bindings, scoping incl. comprehension / `nonlocal` / except-handler / match bindings, first-party re-exports,
       `__all__` and private names, cycle, non-first-party modules incl. a local `typing.py`, `src/` layout, a
       directory without `__init__.py` below the root, parse error); they fail before implementation
-- [ ] 1.2 Python test that the finding renders `Any` / `object`; contract tests of both twins pin `any_type` /
+- [x] 1.2 Python test that the finding renders `Any` / `object`; contract tests of both twins pin `any_type` /
       `top_type` and the parameterised `compliance.explicit-any` template (`python/tests/test_contract.py` and the
       node contract test)
-- [ ] 1.3 Conformance: new Python adapter cases covering the spec scenarios at command level (at least: nested and
+- [x] 1.3 Conformance: new Python adapter cases covering the spec scenarios at command level (at least: nested and
       variadic, every spelling, outside annotations, forward refs and type comments, first-party re-exports, a
       default run without `--select` that reports `Any`), listed in `conformance/INVENTORY.md`; goldens hand-written
       (`golden: manual`)
-- [ ] 1.4 Switch `compliance-select-other-language-check` to `--select tsconfig` and its spec scenario wording;
+- [x] 1.4 Switch `compliance-select-other-language-check` to `--select tsconfig` and its spec scenario wording;
       `compliance-all-checks` and its `k.py` stay unchanged
-- [ ] 1.5 Review every golden the change reaches (e.g. `twin-dr-compliance-forwarded-files`, `compliance-help`) and
+- [x] 1.5 Review every golden the change reaches (e.g. `twin-dr-compliance-forwarded-files`, `compliance-help`) and
       adjust only with a stated reason
 
 ## 2. Shared contract

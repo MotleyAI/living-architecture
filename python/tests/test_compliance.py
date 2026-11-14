@@ -78,7 +78,7 @@ def test_main_without_paths_is_a_usage_error() -> None:
 
 
 def test_rope_walk_is_a_default_check() -> None:
-    assert ALL_CHECKS == ("untyped-def", "unannotated-attr", "mock", "rope-walk")
+    assert ALL_CHECKS == ("untyped-def", "unannotated-attr", "explicit-any", "mock", "rope-walk")
 
 
 def test_rope_walk_clean_file(tmp_path: Path) -> None:

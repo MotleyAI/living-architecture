@@ -39,4 +39,13 @@ describe('message', () => {
   it('renders a template without placeholders', () => {
     expect(message('arch-check.ok')).toBe('arch_check: OK');
   });
+
+  it('renders explicit-any with the language spellings of the any and top types', () => {
+    expect(message('compliance.explicit-any', { path: 'a.ts', line: 3, any: 'any', top: 'unknown' })).toBe(
+      'a.ts:3: explicit-any: an `any` type — use a real type or `unknown`',
+    );
+    expect(message('compliance.explicit-any', { path: 'm.py', line: 2, any: 'Any', top: 'object' })).toBe(
+      'm.py:2: explicit-any: an `Any` type — use a real type or `object`',
+    );
+  });
 });

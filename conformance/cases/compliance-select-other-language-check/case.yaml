@@ -4,7 +4,7 @@ languages:
 command: dr-compliance
 args:
 - --select
-- explicit-any
+- tsconfig
 - src/k.py
 fixture: compliance
 expect:
