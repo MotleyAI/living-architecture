@@ -7,6 +7,11 @@
 # modules), so la-affected-tests computes it for a change to such a file. `checker_patch_versions` (python) lists
 # the basedpyright versions la-typecheck's pyright#11919 patch is verified for; any other installed version is
 # refused. `any_type` and `top_type` spell the language's any type and its safe top type in explicit-any findings.
+# `string_member_calls` are the calls that name a member by a string, which a rename rewrites and attr-blindspot
+# checks: `call` names the form; the callee resolves to it when its declaration is `qualname` in `module` (python)
+# or when it is spelled `call` with a head declared outside the project's sources (typescript); `syntax` is the
+# callee's dotted tail an unresolved callee must still match (python); `object` and `member` are the argument
+# positions of the object and its member's name, `target` the position of a dotted target string (python).
 # Test globs use the contract glob dialect (contract README: matched against the POSIX repo-relative path;
 # case-sensitive; `*` stays within one segment; `**` is zero or more whole segments).
 
@@ -24,7 +29,23 @@ python:
     - '**/conftest.py'
   declaration_globs: []
   excluded_dirs: []
-  compliance_checks: [untyped-def, unannotated-attr, explicit-any, mock, rope-walk]
+  compliance_checks: [untyped-def, unannotated-attr, explicit-any, mock, rope-walk, attr-blindspot]
+  string_member_calls:
+    - {call: getattr, module: builtins, qualname: getattr, syntax: getattr, object: 0, member: 1}
+    - {call: setattr, module: builtins, qualname: setattr, syntax: setattr, object: 0, member: 1}
+    - {call: hasattr, module: builtins, qualname: hasattr, syntax: hasattr, object: 0, member: 1}
+    - {call: delattr, module: builtins, qualname: delattr, syntax: delattr, object: 0, member: 1}
+    - {call: pytest.MonkeyPatch.setattr, module: _pytest.monkeypatch, qualname: MonkeyPatch.setattr, syntax: setattr,
+       object: 0, member: 1, target: 0}
+    - {call: pytest.MonkeyPatch.delattr, module: _pytest.monkeypatch, qualname: MonkeyPatch.delattr, syntax: delattr,
+       object: 0, member: 1, target: 0}
+    - {call: unittest.mock.patch.object, module: unittest.mock, qualname: _patcher.object, syntax: patch.object,
+       object: 0, member: 1}
+    - {call: pytest_mock.MockerFixture.patch.object, module: pytest_mock.plugin, qualname: MockerFixture._Patcher.object,
+       syntax: patch.object, object: 0, member: 1}
+    - {call: unittest.mock.patch, module: unittest.mock, qualname: patch, syntax: patch, target: 0}
+    - {call: pytest_mock.MockerFixture.patch, module: pytest_mock.plugin, qualname: MockerFixture.patch, syntax: patch,
+       target: 0}
   any_type: Any
   top_type: object
   executables: []
@@ -51,7 +72,18 @@ typescript:
     - '**/test/**/*'
   declaration_globs: ['**/*.d.ts', '**/*.d.mts', '**/*.d.cts']
   excluded_dirs: [node_modules]
-  compliance_checks: [tsconfig, explicit-any, untyped-def, mock]
+  compliance_checks: [tsconfig, explicit-any, untyped-def, mock, attr-blindspot]
+  string_member_calls:
+    - {call: vi.spyOn, object: 0, member: 1}
+    - {call: jest.spyOn, object: 0, member: 1}
+    - {call: Reflect.get, object: 0, member: 1}
+    - {call: Reflect.set, object: 0, member: 1}
+    - {call: Reflect.has, object: 0, member: 1}
+    - {call: Reflect.deleteProperty, object: 0, member: 1}
+    - {call: Reflect.defineProperty, object: 0, member: 1}
+    - {call: Reflect.getOwnPropertyDescriptor, object: 0, member: 1}
+    - {call: Object.defineProperty, object: 0, member: 1}
+    - {call: Object.getOwnPropertyDescriptor, object: 0, member: 1}
   any_type: any
   top_type: unknown
   executables: [node, npx]

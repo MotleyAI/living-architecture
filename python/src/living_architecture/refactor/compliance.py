@@ -2,22 +2,21 @@
 
 A rename's completeness can only be proven by a type checker over code the checker can resolve. This flags
 the blind spots: untyped-def, unannotated-attr, explicit-any (a reference to `typing.Any`), mock (a double not bound
-to a spec), and rope-walk (a file rope's walker cannot cover). With an attribute name it also reports `x.NAME` accesses whose receiver basedpyright types as
-`Unknown` or `Any`.
+to a spec), rope-walk (a file rope's walker cannot cover) and, given an attribute name, attr-blindspot (`x.NAME`
+accesses and member strings whose receiver basedpyright types as `Unknown` or `Any`).
 """
 
 from __future__ import annotations
 
 import ast
-import re
 import sys
-from collections.abc import Iterator
 from pathlib import Path
 from typing import TypeGuard
 
 from living_architecture.contract import language, message
 from living_architecture.lang import LanguageServer, LanguageServerError
 from living_architecture.refactor.explicit_any import check_explicit_any
+from living_architecture.refactor.member_scan import MemberScan
 from living_architecture.refactor.mock_spec_lint import check_file as _mock_check
 from living_architecture.refactor.python_source import SourceFile
 from living_architecture.refactor.rope_patches import apply_rope_patches, walk_gap_line
@@ -27,7 +26,6 @@ apply_rope_patches()
 
 ALL_CHECKS = tuple(language("python")["compliance_checks"])
 FuncDef = (ast.FunctionDef, ast.AsyncFunctionDef)
-_HOVER = re.compile(r"\([\w ]+\) [\w.]+: (.*)", re.DOTALL)
 
 
 def _is_self_attr(node: ast.AST) -> TypeGuard[ast.Attribute]:
@@ -96,38 +94,6 @@ def _check_unannotated_attrs(tree: ast.AST, path: Path) -> list[str]:
     return out
 
 
-def _hover_type(hover: str | None) -> str | None:
-    """`Unknown` or `Any` when a hover's declared type is, or is a union holding, either; else None."""
-    if hover is None or (m := _HOVER.match(hover.split("\n\n")[0])) is None:
-        return None
-    members: list[str] = []
-    depth, start, text = 0, 0, m.group(1)
-    for i, char in enumerate(text):
-        if char in "[(":
-            depth += 1
-        elif char in "])":
-            depth -= 1
-        elif depth == 0 and text.startswith(" | ", i):
-            members.append(text[start:i])
-            start = i + 3
-    members = [t.strip() for t in [*members, text[start:]]]
-    return next((kind for kind in ("Unknown", "Any") if kind in members), None)
-
-
-def _receiver_kind(server: LanguageServer, path: Path, source: SourceFile, node: ast.Attribute) -> str | None:
-    """`Unknown` or `Any` in the type of `node`'s receiver: hovered when a name or attribute, else read from the access
-    when no declaration of the member is itself typed so."""
-    receiver = node.value
-    if isinstance(receiver, (ast.Name, ast.Attribute)):
-        span = source.name_span(receiver)
-        return _hover_type(server.hover(path, span[0])) if span else None
-    span = source.name_span(node)
-    if span is None or (kind := _hover_type(server.hover(path, span[0]))) is None:
-        return None
-    declared = (_hover_type(server.hover(d.path, d.start)) for d in server.definition(path, span[0]))
-    return None if any(declared) else kind
-
-
 def _read_sources(paths: list[Path]) -> dict[Path, tuple[str, SourceFile]]:
     """Each distinct file once, keyed by its resolved path, with the path as given."""
     sources: dict[Path, tuple[str, SourceFile]] = {}
@@ -139,30 +105,39 @@ def _read_sources(paths: list[Path]) -> dict[Path, tuple[str, SourceFile]]:
     return sources
 
 
-def _file_blindspots(
-    server: LanguageServer, resolved: Path, shown: str, source: SourceFile, name: str
-) -> Iterator[tuple[str, int, int, str]]:
-    if source.tree is None:
-        return
-    for node in ast.walk(source.tree):
-        if not (isinstance(node, ast.Attribute) and node.attr == name):
-            continue
-        if (kind := _receiver_kind(server, resolved, source, node)) is not None:
-            receiver = re.sub(r"\s+", " ", source.segment(node.value))
-            yield shown, node.lineno, node.col_offset, message(
-                "compliance.attr-blindspot", path=shown, line=node.lineno, receiver=receiver, attr=name, type=kind
-            )
+def _outside(path: Path) -> SourceFile | None:
+    """A file outside the checked ones (a callee's declaration), read once per scan."""
+    try:
+        with open(path, encoding="utf-8", newline="") as fh:
+            return SourceFile(path, fh.read())
+    except (OSError, UnicodeDecodeError):
+        return None
 
 
 def attr_blindspots(paths: list[Path], name: str, workspace: Path) -> list[str]:
-    """`x.NAME` accesses whose receiver basedpyright types as Unknown or Any, by path, line and column."""
+    """Receivers of `.NAME` and string-member objects basedpyright types as Unknown or Any, and string-member
+    calls whose callee it cannot resolve; by path, line and column."""
     sources = _read_sources(paths)
+    loaded: dict[Path, SourceFile | None] = {}
+
+    def load(path: Path) -> SourceFile | None:
+        if path in sources:
+            return sources[path][1]
+        if path not in loaded:
+            loaded[path] = _outside(path)
+        return loaded[path]
+
     found: list[tuple[str, int, int, str]] = []
     with LanguageServer(workspace) as server:
         for resolved, (_, source) in sources.items():
             server.open(resolved, source.text)
+        scan = MemberScan(server, name, load)
         for resolved, (shown, source) in sources.items():
-            found += _file_blindspots(server, resolved, shown, source, name)
+            found += [
+                (shown, b.line, b.col, message("compliance.attr-blindspot", path=shown, line=b.line, receiver=b.receiver,
+                                               attr=name, type=b.kind))
+                for b in scan.blindspots(resolved, source)
+            ]
     return [text for *_, text in sorted(found)]
 
 
@@ -190,7 +165,7 @@ def check_path(path: Path, selected: set[str], attr: str | None) -> list[str]:
 
 def _check_native(paths: list[str], selected: set[str], attr: str | None) -> int:
     problems = [msg for f in paths for msg in check_path(Path(f), selected, None)]
-    if attr:
+    if attr and "attr-blindspot" in selected:
         try:
             problems += attr_blindspots([Path(f) for f in paths], attr, Path.cwd())
         except LanguageServerError:
@@ -205,6 +180,10 @@ def run_compliance(*, paths: list[str], select: str | None, attr: str | None) ->
     """`dr-compliance`: each file with its language's checks, the other language's in its twin."""
     try:
         selected = compliance_selection(select)
+        if selected is not None and "attr-blindspot" in selected and attr is None:
+            raise RoutingError(message("compliance.attr-required"))
+        if selected is not None and "attr-blindspot" not in selected and attr is not None:
+            raise RoutingError(message("compliance.attr-unselected"))
         groups = split("dr-compliance", paths, Path.cwd())
     except RoutingError as exc:
         print(exc, file=sys.stderr)
