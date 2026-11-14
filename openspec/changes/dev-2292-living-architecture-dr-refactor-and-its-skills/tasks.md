@@ -1,3 +1,14 @@
+## 0. Tests for the DEV-2289 merge (pr-tests stage, before any implementation)
+
+- [ ] 0.1 Failing tests (unit tests in `python/tests/test_rename_strings.py`; a conformance case only where the
+      command-level output is new, listed in `conformance/INVENTORY.md`) for the scenarios the merge added to
+      "Members named by string are renamed": "Target from tests into a src layout"; "Target through inheritance"
+      (inherited, overridden, overridden with `--no-in-hierarchy`, diamond); "Ambiguous targets refuse" (a module
+      in two source folders, conflicting bindings, a star import that `__all__` excludes, an import cycle, an
+      unresolved base before the attribute), each a `refactor.unresolved-target` blind spot; and a target that
+      resolves through a star import honouring `__all__`. Then a Codex review of these tests against the plan.
+      Run this stage by naming `pr-tests` when invoking `/la:pr` (detection would pick `pr-implement`).
+
 ## 1. Shared contract
 
 - [ ] 1.1 `shared/cli.yaml`: add to `dr-refactor rename` the options `--allow-blindspots` (flag), `--with`,
@@ -83,7 +94,7 @@
       "Target from tests into a src layout", "Target through inheritance" (incl. a diamond) and "Ambiguous targets
       refuse" (two folders, conflicting bindings, `__all__`-excluded star import, cycle, unresolved base), a target
       through a star import honouring `__all__`, plus a test that a `sitecustomize.py` marker is never written.
-      Write the tests these scenarios need that the pr-tests stage did not (they post-date it).
+      The tests for the scenarios added by the DEV-2289 merge come from task 0.1.
 - [ ] 6.4 TypeScript forms: rewrite the member literal of the listed calls on a typed object or prototype. Verify
       with "TypeScript spyOn".
 
