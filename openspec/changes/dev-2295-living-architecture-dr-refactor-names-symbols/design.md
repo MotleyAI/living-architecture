@@ -1,8 +1,10 @@
 ## Context
 
-See proposal.md (Why). This change builds on DEV-2292's planned rename pipeline (its change folder in this branch):
-one symbol set per rename, blind-spot and stand-in refusals, string members, `--keep`, `--docs`. Its
-implementation is merged into this branch before this change's implementation starts.
+See proposal.md (Why). This change builds on DEV-2292's rename pipeline, which is on `main` and archived: one
+symbol set per rename, blind-spot and stand-in refusals, string members, `--keep`, `--docs`, and its shared
+mechanisms: one outcome per examined site (`refactor/outcomes`), one line index and one file universe per twin,
+the probe object, and `shared/vectors/refactor-text.yaml`. `origin/main` is merged into this branch (tasks section
+0) before implementation continues; decisions 38–46 fit this change to those mechanisms.
 
 Today a Python rename is `rename_union.SymbolRename` (rope + basedpyright references + keyed rewrites over one
 `Snapshot`); a TypeScript rename is the language service's rename locations; both are located by `--offset`,
@@ -141,6 +143,51 @@ diagnostic through it, for every subcommand. Grounded in principles 1 and 2.
     failures, `--base`), adapter cases for language-only semantics, every case run through both invoking twins.
     (codex)
 
+38. **Merging `origin/main`**: commit the working tree, then merge (no stash, no rebase). Files git merges cleanly
+    stay as merged (`shared/findings.yaml`, `shared/cli.yaml`, `compliance.ts`, `test_contract.py` hold both
+    sides). Every conflicted file takes `main`'s side (DEV-2292's fixtures, goldens, tests and archived change,
+    with `main`'s fixture names); this change's edits to those files are then redone on top (`--name` → `--symbol`, the `dr-mock-lint` and overlay
+    changes in `mocks.ts` / `workspace.ts`); generated files are regenerated, never hand-merged (`CONTRACT_HASH` by
+    `scripts/sync-shared`; `conformance/INVENTORY.md` is the union of both sides' rows). Files only this change
+    owns keep their `Acme` names. Weighed: keeping this branch's `Acme` spelling in DEV-2292's files (re-blesses
+    goldens `main` already reviewed, for no behaviour). (default)
+39. **New rules return outcomes**: the `Literal` probe, retarget, the compound-name scan and the map engine use
+    DEV-2292's outcome model: each returns one outcome per examined site and the one driver files them. In a map,
+    "a declaration the rename leaves unchanged" is judged against the whole map's symbol set. Weighed: none; a
+    rule with its own reporting path is the shape DEV-2292's decision 35 removed. (default)
+40. **Equal strings of a `Literal` rename are always listed**: A) every other string literal whose whole value is
+    OLD is a `leftover` with or without `--docs`, except one the checker types by another literal type, which is
+    unrelated and unlisted; B) list them only with `--docs`, as the issue's item 6 says. Took A, a change to the
+    issue's item 6: one rule with DEV-2292's exact-OLD listing (its decisions 35, 36 and 44), and a stale
+    `choices=[...]` is never silent. (user) Unlisted means one criterion in both twins: the position accepts no
+    other string (a sentinel is rejected there, by a diagnostic absent before); a position typed `Other | str`, or
+    one that already had an error, is listed, since listing never blocks. (codex)
+41. **New twin primitives are pinned by shared vectors**: symbol-path parsing, the compound-name word split and
+    match (decision 20) and the range transform (decision 33) get `shared/vectors/` files run by both twins; every
+    line number this change prints or reads (candidates, `--keep`, `--with`, findings) goes through each twin's one
+    line index. Weighed: per-twin unit tests only (two implementations that agree by hand). (default)
+42. **One file universe**: the map engine's scans, the `Literal` probe, the compound-name scan and retarget read
+    project sources only through each twin's file-universe function, so they see the files `dr-compliance` and
+    the blind-spot scan see. (default)
+    Tests added for decisions 39, 42 and 44 (codex): a map whose other entry renames the declaration a patch target
+    resolves to; a `Literal`, compound-name and retarget run with a file in an excluded directory and (TypeScript)
+    one outside every program; a map `--with` / `--without` on a computed-name stand-in.
+43. **One probe object**: the Python `Literal` probe extends DEV-2292's probe object (it owns the rewritten text
+    and its offset map and returns original-file spans); the sentinel rounds, including the one that tests each
+    remaining equal string for another literal type (decision 40), are rounds of that object. Weighed: a second
+    sentinel/offset mechanism beside it. (default)
+44. **A member declared by a computed name is not a path candidate**: a symbol path names a declaration by its name
+    span, and such a member has none, so `--symbol Owner.OLD` on it is `refactor.symbol-unresolved`; it stays a
+    stand-in handled by `--without`, and `--with` on it exits 2 with `refactor.computed-stand-in` in a map as in a
+    single rename. (default)
+45. **`--name` migration covers `main`'s cases and tests**: every conformance case and test `main` added with
+    `--name` migrates to `--symbol` with its golden unchanged (30 cases at the merge). (default)
+46. **Repeatable `--attr` covers every access form**: with several names, each of DEV-2292's access forms
+    (attribute access, the string-member forms, TypeScript element access on an `any` receiver) is reported per
+    name in the one scan. (default)
+47. **`python.md` wording for decision 40**: "strings equal to a renamed `Literal` member that the checker does not
+    type by it (`str` variables, `argparse` `choices`; each listed as a `leftover`)," (user, approved wording)
+
 ## Mechanisms
 
 - **Position map**: each refactor yields per-file edit lists, file renames (move-module) and moved spans
@@ -155,15 +202,18 @@ diagnostic through it, for every subcommand. Grounded in principles 1 and 2.
 - **`Literal` probe (Python)**: open every project source in the language server; record diagnostics and the hover
   types of every comparison operand, `in` container and `match` subject next to an OLD literal; replace the member
   with a sentinel through `didChange`; collect candidates (decision 30); set every candidate to the sentinel;
-  remaining new diagnostics are blind spots.
+  remaining new diagnostics are blind spots. A last round puts a sentinel in each remaining equal string: one that
+  draws a diagnostic on itself is typed by another literal type (unrelated), the rest are leftovers (decision 40).
+  All rounds run on DEV-2292's probe object (decision 43).
 - **Map engine**: resolve every locator (decision 31), build one symbol set, run each rename rule once over the set
-  on one snapshot, merge edits, apply `--keep`, then the aligner, then print or write (decision 28).
+  on one snapshot, file each rule's outcomes through DEV-2292's driver (decision 39), merge edits, apply `--keep`,
+  then the aligner, then print or write (decision 28).
 
 ## Risks / Trade-offs
 
 - [A project that turns `reportArgumentType` / `reportAssignmentType` / `reportReturnType` off blinds the `Literal`
   probe at those sites] → the gate runs with the same config, so such a project already accepts those mismatches;
-  with `--docs` the unrewritten equal strings are still listed as leftovers.
+  the unrewritten equal strings are still listed as leftovers.
 - [The bundled TypeScript differs in version from the project's tsc] → mismatched messages leave entries
   unaligned, which is today's behaviour; the parity test pins the matched case.
 - [basedpyright changes its baseline auto-pruning] → decision 25's tests run the real checker and fail on a change.
@@ -278,7 +328,7 @@ and in DEV-2292's "string-only references" bullet, after `config paths,`:
 
 ```markdown
 strings equal to a renamed `Literal` member that the checker does not type by it (`str` variables, `argparse`
-`choices`),
+`choices`; each listed as a `leftover`),
 ```
 
 ### plugin/languages/typescript.md — `## Refactoring`: appended to DEV-2292's "A member rename refuses …" paragraph

@@ -253,7 +253,10 @@ keep its quote style.
   member and every such literal set to the sentinel, each diagnostic absent before the probe SHALL be a blind spot,
   `refactor.literal-unresolved`, joining the blind-spot refusal (`--keep` and `--allow-blindspots` apply).
 
-With `--docs`, every other string equal to OLD SHALL be listed as a `leftover` with `{where}` `string`.
+Every other string literal whose whole value is OLD SHALL be unchanged and listed as a `leftover` with `{where}`
+`string`, with or without `--docs`, except one at a position where the checker accepts no other string (TypeScript:
+a sentinel string is not assignable to its contextual type; Python: a sentinel in its place draws a diagnostic on it
+that was absent before), which is typed by a literal type the rename leaves unchanged and SHALL NOT be listed.
 
 #### Scenario: Python contexts
 - **WHEN** `DriftKind = Literal["edit_model", "drop"]` is renamed at `DriftKind['edit_model']` to `edit_master`, and
@@ -266,7 +269,13 @@ With `--docs`, every other string equal to OLD SHALL be listed as a `leftover` w
 #### Scenario: Unrelated equal strings untouched
 - **WHEN** the project also holds `Other = Literal["edit_model", "zzz"]` with `g("edit_model")` for `g(o: Other)`,
   `s: str = "edit_model"` and `choices=["edit_model"]`
-- **THEN** none of them changes, and with `--docs` the `str` and `choices` strings are listed as `leftover`
+- **THEN** none of them changes, the `str` and `choices` strings are listed as `leftover` with and without
+  `--docs`, and the `Other` argument is not listed
+
+#### Scenario: Position that accepts any string is listed
+- **WHEN** the project also holds `h("edit_model")` for `h(o: Other | str)`, and `g("edit_model")` on a line whose
+  argument already has a checker error
+- **THEN** both are unchanged and listed as `leftover`
 
 #### Scenario: Exhaustive match does not refuse
 - **WHEN** a `match` on a `DriftKind` subject handles every value and ends with `assert_never(kind)`

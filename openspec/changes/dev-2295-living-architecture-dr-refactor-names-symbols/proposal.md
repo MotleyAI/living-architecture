@@ -21,7 +21,7 @@ baseline aligned.
   baseline aligned, in dry-run and apply: Python through the configured basedpyright command, TypeScript through
   the bundled language service.
 - A `Literal` member rename rewrites the strings the checker types by that literal type (Python: a checker probe;
-  TypeScript: the language service's rename).
+  TypeScript: the language service's rename) and lists every other string equal to the old value as a leftover.
 - With `--docs`, declarations whose name contains the old name as a word sequence are listed as leftovers.
 - `dr-compliance --attr` is repeatable, one scan for every name.
 - `dr-mock-lint` becomes a parsed command (`--help` works) with `--base BRANCH`, reporting only findings the base
