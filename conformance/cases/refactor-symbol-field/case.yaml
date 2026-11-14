@@ -1,0 +1,22 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- --apply
+- rename
+- --file
+- pkg/plan.py
+- --symbol
+- _ProjectionPlan.measures
+- --new-name
+- metrics
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - pkg/__init__.py
+  - pkg/plan.py
+golden: manual
+note: '--symbol Class.field: the class-body field and its typed read; the module-level measures unchanged'

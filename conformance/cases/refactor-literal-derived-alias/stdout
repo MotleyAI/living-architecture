@@ -1,0 +1,25 @@
+Renaming <edit_model> to <edit_master>:
+
+
+--- a/pkg/ext.py
++++ b/pkg/ext.py
+@@ -10,4 +10,4 @@
+ 
+ 
+ def run() -> None:
+-    h("edit_model")
++    h("edit_master")
+
+--- a/pkg/kinds.py
++++ b/pkg/kinds.py
+@@ -1,3 +1,3 @@
+ from typing import Literal
+ 
+-DriftKind = Literal["edit_model", "drop"]
++DriftKind = Literal["edit_master", "drop"]
+
+
+
+APPLIED. 2 file(s) changed:
+  pkg/ext.py
+  pkg/kinds.py

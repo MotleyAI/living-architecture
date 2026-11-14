@@ -1,0 +1,2 @@
+def f() -> int:
+    return len(1)

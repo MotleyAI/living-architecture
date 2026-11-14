@@ -1,0 +1,55 @@
+Moving module <a>:
+
+
+--- a/.basedpyright/baseline.json
++++ b/.basedpyright/baseline.json
+@@ -1,15 +1,5 @@
+ {
+     "files": {
+-        "./pkg/a.py": [
+-            {
+-                "code": "reportArgumentType",
+-                "range": {
+-                    "startColumn": 15,
+-                    "endColumn": 16,
+-                    "lineCount": 1
+-                }
+-            }
+-        ],
+         "./pkg/b.py": [
+             {
+                 "code": "reportArgumentType",
+@@ -19,6 +9,16 @@
+                     "lineCount": 1
+                 }
+             }
++        ],
++        "./pkg/sub/a.py": [
++            {
++                "code": "reportArgumentType",
++                "range": {
++                    "startColumn": 15,
++                    "endColumn": 16,
++                    "lineCount": 1
++                }
++            }
+         ]
+     }
+ }
+rename from pkg/a.py
+rename to pkg/sub/a.py
+--- a/pkg/b.py
++++ b/pkg/b.py
+@@ -1,4 +1,4 @@
+-from pkg.a import f
++from pkg.sub.a import f
+ 
+ 
+ def g() -> int:
+
+
+
+APPLIED. 3 file(s) changed:
+  .basedpyright/baseline.json
+  pkg/a.py
+  pkg/b.py

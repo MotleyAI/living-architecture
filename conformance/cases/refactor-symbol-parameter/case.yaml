@@ -1,0 +1,24 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- --apply
+- rename
+- --file
+- pkg/storage.py
+- --symbol
+- StorageBackend.get_model(model_name)
+- --new-name
+- name
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - pkg/__init__.py
+  - pkg/storage.py
+  - pkg/use.py
+golden: manual
+note: '--symbol Class.method(param): that parameter, its body use and its keyword; the same-named parameters of the other
+  methods unchanged'

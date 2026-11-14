@@ -1,0 +1,23 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- --apply
+- rename
+- --file
+- pkg/kinds.py
+- --symbol
+- DriftKind['edit_model']
+- --new-name
+- edit_master
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - pkg/kinds.py
+  - pkg/use.py
+golden: manual
+note: 'a Literal member by Alias[''value'']: the declaration and every string the checker types by it (argument, typed assignment,
+  return, default, list element, ==, in, match case), quote style kept'

@@ -1,6 +1,6 @@
 ## 0. Stage order (read first)
 
-- [ ] 0.1 pr-tests: write the failing tests for every scenario of this change's delta specs (unit tests in both
+- [x] 0.1 pr-tests: write the failing tests for every scenario of this change's delta specs (unit tests in both
       twins; conformance cases per design decision 37, listed in `conformance/INVENTORY.md`), then a Codex review of
       the tests against the plan. This branch already holds DEV-2292's failing tests, so `/la:pr` stage detection
       picks `pr-implement`: run this stage by naming `pr-tests` when invoking `/la:pr`. DEV-2292's tests stay

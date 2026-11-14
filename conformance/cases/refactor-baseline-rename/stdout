@@ -1,0 +1,38 @@
+Renaming <get_model> to <load>:
+
+
+--- a/.basedpyright/baseline.json
++++ b/.basedpyright/baseline.json
+@@ -12,8 +12,8 @@
+             {
+                 "code": "reportArgumentType",
+                 "range": {
+-                    "startColumn": 43,
+-                    "endColumn": 44,
++                    "startColumn": 38,
++                    "endColumn": 39,
+                     "lineCount": 1
+                 }
+             },
+
+--- a/pkg/store.py
++++ b/pkg/store.py
+@@ -1,10 +1,10 @@
+ class StorageBackend:
+-    def get_model(self, name: str) -> int:
++    def load(self, name: str) -> int:
+         return len(name)
+ 
+ 
+ def use(s: StorageBackend) -> int:
+-    return len(3) + s.get_model("m") + len(1)
++    return len(3) + s.load("m") + len(1)
+ 
+ 
+ def other() -> int:
+
+
+
+APPLIED. 2 file(s) changed:
+  .basedpyright/baseline.json
+  pkg/store.py

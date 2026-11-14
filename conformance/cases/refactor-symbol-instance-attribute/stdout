@@ -1,0 +1,24 @@
+Renaming <cache> to <store>:
+
+
+--- a/pkg/c.py
++++ b/pkg/c.py
+@@ -1,10 +1,10 @@
+ class C:
+     def __init__(self) -> None:
+-        self.cache = {}
++        self.store = {}
+ 
+     def size(self) -> int:
+-        return len(self.cache)
++        return len(self.store)
+ 
+ 
+ def peek(c: C) -> int:
+-    return len(c.cache)
++    return len(c.store)
+
+
+
+APPLIED. 1 file(s) changed:
+  pkg/c.py

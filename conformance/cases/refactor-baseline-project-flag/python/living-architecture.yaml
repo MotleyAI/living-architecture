@@ -1,0 +1,2 @@
+format: <FORMAT>
+commands: {typecheck: {python: basedpyright -p .}}

@@ -1,0 +1,21 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- rename
+- --file
+- pkg/dup.py
+- --symbol
+- C.run
+- --new-name
+- go
+git:
+- commit: init
+expect:
+  exit: 2
+  files:
+  - pkg/dup.py
+golden: manual
+note: 'a path that resolves to declarations of two symbols (a method of each of two class C definitions): symbol-ambiguous
+  listing each path:line'

@@ -1,0 +1,23 @@
+Renaming <inner> to <helper>:
+
+
+--- a/pkg/build.py
++++ b/pkg/build.py
+@@ -3,10 +3,10 @@
+ 
+ 
+ def build() -> int:
+-    def inner() -> int:
++    def helper() -> int:
+         return 2
+ 
+-    return inner() + 1
++    return helper() + 1
+ 
+ 
+ def other() -> int:
+
+
+
+APPLIED. 1 file(s) changed:
+  pkg/build.py

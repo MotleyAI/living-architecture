@@ -1,0 +1,28 @@
+Renaming <size> to <volume>:
+
+
+--- a/pkg/box.py
++++ b/pkg/box.py
+@@ -3,13 +3,13 @@
+         self._size = 0
+ 
+     @property
+-    def size(self) -> int:
++    def volume(self) -> int:
+         return self._size
+ 
+-    @size.setter
+-    def size(self, value: int) -> None:
++    @volume.setter
++    def volume(self, value: int) -> None:
+         self._size = value
+ 
+ 
+ def grow(b: Box) -> None:
+-    b.size = b.size + 1
++    b.volume = b.volume + 1
+
+
+
+APPLIED. 1 file(s) changed:
+  pkg/box.py

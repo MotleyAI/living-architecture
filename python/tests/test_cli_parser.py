@@ -87,7 +87,7 @@ def test_repeatable_option_collects_in_order() -> None:
 
 
 def test_store_false_flag() -> None:
-    base = ["rename", "--file", "a.py", "--name", "f", "--new-name", "g"]
+    base = ["rename", "--file", "a.py", "--symbol", "f", "--new-name", "g"]
     assert parse("dr-refactor", base).in_hierarchy is True
     assert parse("dr-refactor", [*base, "--no-in-hierarchy"]).in_hierarchy is False
 
@@ -105,6 +105,26 @@ def test_require_one_of() -> None:
     with pytest.raises(SystemExit) as exc:
         parse("la-check-conventions", ["--repo", "o/r"])
     assert exc.value.code == 2
+
+
+@pytest.mark.parametrize("subcommand", ["rename", "move-symbol", "retarget"])
+def test_exclusive_locators_name_both_options(subcommand: str, capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit) as exc:
+        parse("dr-refactor", [subcommand, "--file", "a.py", "--offset", "0", "--symbol", "f"])
+    assert exc.value.code == 2
+    err = capsys.readouterr().err
+    assert "--offset" in err
+    assert "--symbol" in err
+
+
+def test_mock_lint_help_prints_help(capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit) as exc:
+        cli.dr_mock_lint(["--help"])
+    assert exc.value.code == 0
+    out, err = capsys.readouterr()
+    assert "dr-mock-lint" in out
+    assert "--base" in out
+    assert err == ""
 
 
 def test_choices_enforced() -> None:

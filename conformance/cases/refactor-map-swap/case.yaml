@@ -1,0 +1,17 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- --apply
+- rename-map
+- renames.yaml
+git:
+- commit: init
+expect:
+  exit: 1
+  files:
+  - pkg/f.py
+golden: manual
+note: 'a swap of two parameters in one scope: name conflicts are checked against the code before the map, so the existing
+  name-conflict refusal; nothing written'

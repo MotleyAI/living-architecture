@@ -1,0 +1,22 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- --apply
+- retarget
+- --file
+- pkg/engine.py
+- --symbol
+- Engine.save
+- --target
+- Engine.save_model
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - pkg/engine.py
+  - pkg/use.py
+golden: manual
+note: 'a deprecated method twin: the typed call is retargeted to the target, the alias declaration unchanged'

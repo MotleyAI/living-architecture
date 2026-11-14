@@ -1,0 +1,26 @@
+Renaming <Engine> to <Motor>:
+
+
+--- a/pkg/engine.py
++++ b/pkg/engine.py
+@@ -1,3 +1,3 @@
+-class Engine:
++class Motor:
+     def start(self) -> None:
+         pass
+
+--- a/pkg/run.py
++++ b/pkg/run.py
+@@ -1,5 +1,5 @@
+-from pkg.engine import Engine
++from pkg.engine import Motor
+ 
+ 
+-def make() -> Engine:
+-    return Engine()
++def make() -> Motor:
++    return Motor()
+
+
+
+DRY-RUN. 2 file(s) would change. Re-run with --apply.

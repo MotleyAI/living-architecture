@@ -1,0 +1,27 @@
+Renaming <parse> to <decode>:
+
+
+--- a/pkg/ovl.py
++++ b/pkg/ovl.py
+@@ -2,12 +2,12 @@
+ 
+ 
+ @overload
+-def parse(x: int) -> int: ...
++def decode(x: int) -> int: ...
+ @overload
+-def parse(x: str) -> str: ...
+-def parse(x: int | str) -> int | str:
++def decode(x: str) -> str: ...
++def decode(x: int | str) -> int | str:
+     return x
+ 
+ 
+ def use() -> int:
+-    return parse(1)
++    return decode(1)
+
+
+
+APPLIED. 1 file(s) changed:
+  pkg/ovl.py

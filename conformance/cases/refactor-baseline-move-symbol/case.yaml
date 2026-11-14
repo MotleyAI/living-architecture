@@ -1,0 +1,24 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- --apply
+- move-symbol
+- --file
+- pkg/a.py
+- --symbol
+- f
+- --dest
+- pkg/b.py
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - .basedpyright/baseline.json
+  - pkg/a.py
+  - pkg/b.py
+golden: manual
+note: 'move-symbol of a function with a baselined error into a file with entries of its own: the entry moves to the destination
+  at its sorted position'

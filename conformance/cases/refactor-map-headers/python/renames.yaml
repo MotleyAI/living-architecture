@@ -1,0 +1,2 @@
+- {file: pkg/engine.py, symbol: Engine.get_model, new_name: load_model}
+- {file: pkg/engine.py, symbol: Engine.save, retarget: Engine.save_model}

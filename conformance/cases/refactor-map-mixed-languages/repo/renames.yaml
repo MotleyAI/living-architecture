@@ -1,0 +1,2 @@
+- {file: src/a.py, symbol: f, new_name: g}
+- {file: web/a.test.ts, symbol: f, new_name: g}

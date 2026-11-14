@@ -1,0 +1,28 @@
+Renaming <getModel> to <loadModel>:
+
+
+--- a/src/store.ts
++++ b/src/store.ts
+@@ -1,5 +1,5 @@
+ export class Store {
+-  getModel(name: string): number {
++  loadModel(name: string): number {
+     return name.length;
+   }
+ 
+
+--- a/src/use.ts
++++ b/src/use.ts
+@@ -1,5 +1,5 @@
+ import { Store } from './store';
+ 
+ export function load(s: Store): number {
+-  return s.getModel('m');
++  return s.loadModel('m');
+ }
+
+
+
+APPLIED. 2 file(s) changed:
+  src/store.ts
+  src/use.ts

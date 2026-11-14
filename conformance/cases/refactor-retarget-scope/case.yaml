@@ -1,0 +1,21 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- retarget
+- --file
+- pkg/compat.py
+- --symbol
+- SlayerModel
+- --target
+- Model
+git:
+- commit: init
+expect:
+  exit: 2
+  files:
+  - pkg/compat.py
+  - pkg/core.py
+golden: manual
+note: 'the alias in compat.py, its target declared in core.py: retarget-scope, exit 2'

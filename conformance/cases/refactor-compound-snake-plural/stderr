@@ -1,0 +1,2 @@
+pkg/col.py:4: leftover: declaration get_columns contains column
+pkg/col.py:8: leftover: declaration ColumnCycleError contains column

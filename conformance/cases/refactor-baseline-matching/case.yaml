@@ -1,0 +1,24 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- --apply
+- rename
+- --file
+- pkg/store.py
+- --symbol
+- StorageBackend.get_model
+- --new-name
+- load
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - .basedpyright/baseline.json
+  - pkg/store.py
+golden: manual
+note: 'three identical-shaped entries, a stale one, and an unbaselined error (line 12) above a baselined one (line 13): exactly
+  the entries basedpyright matches (lines 10-12) are rewritten, the stale one kept, so la-typecheck reports the same new error
+  (line 13) as before'

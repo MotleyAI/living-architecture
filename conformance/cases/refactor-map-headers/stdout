@@ -1,0 +1,28 @@
+Renaming <get_model> to <load_model>:
+Retargeting <save> to <save_model>:
+
+
+--- a/pkg/engine.py
++++ b/pkg/engine.py
+@@ -3,7 +3,7 @@
+ 
+ 
+ class Engine:
+-    def get_model(self) -> Model:
++    def load_model(self) -> Model:
+         return Model()
+ 
+     def save_model(self, m: Model) -> None:
+
+--- a/pkg/use.py
++++ b/pkg/use.py
+@@ -2,4 +2,4 @@
+ 
+ 
+ def run(engine: Engine) -> None:
+-    engine.save(engine.get_model())
++    engine.save_model(engine.load_model())
+
+
+
+DRY-RUN. 2 file(s) would change. Re-run with --apply.

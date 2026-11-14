@@ -372,6 +372,7 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | *(new)* `explicit-any`: forward references and type comments read; `Literal` and `Annotated` metadata strings, `# type: ignore` and an unparsable type comment skipped | 1 | `compliance-explicit-any-forward-refs` |
 | *(new)* `explicit-any`: first-party re-exports (named, star through `__init__.py`, module alias) reported where used, not where re-exported | 1 | `compliance-explicit-any-first-party` |
 | *(new)* `explicit-any` scoping: `try`/`except ImportError`, class scope (parameter annotations, not method bodies), `global`; a parameter named `Any` and a rebound module alias shadow | 1 | `compliance-explicit-any-scoping` |
+| *(new)* `--attr` repeated: one scan reports every name's blind spots in one block sorted by path, line, column and name (paired) | 1 | `compliance-attr-two-names` |
 
 ## dr-compliance: TypeScript
 
@@ -397,6 +398,8 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | every mock and patch form | 1 | `mock-lint-violations` |
 | directory recursion; clean | 1/0 | `mock-lint-directory-recursion`, `mock-lint-clean` |
 | usage error | 2 | `mock-lint-usage-no-args` |
+| *(new)* a parsed command: `--help` prints its help and exits 0 (neutral) | 0 | `mock-lint-help` |
+| *(new)* `--base`: only findings whose count (by path, template and parameters but the line) exceeds the base's, a moved one not printed; a file renamed since the base; both languages, each block its own new findings (neutral); `origin/BRANCH` unresolvable (paired) | 1/0/2 | `mock-lint-base-new-only`, `mock-lint-base-renamed-file`, `mock-lint-base-both-blocks`, `mock-lint-base-unresolved` |
 
 ## dr-mock-lint: TypeScript
 
@@ -410,6 +413,7 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | *(new)* `index.yaml` repeats a key: the duplicate-key error, no fallback | 2 | `mock-lint-ts-index-duplicate-key` |
 | *(new)* double assertions only in test-glob files; directory recursion | 1 | `mock-lint-ts-cast-only-in-tests` |
 | *(new)* explicit declaration file or unknown extension skipped with a warning; directory expansion skips `.d.ts`, `node_modules` and non-repo languages | 0/1 | `mock-lint-ts-declaration-skipped`, `mock-lint-unknown-extension-skipped`, `mock-lint-ts-directory-expansion` |
+| *(new)* TypeScript `--base`: a double untyped at the base and still untyped is not printed | 0 | `mock-lint-ts-base` |
 
 ## dr-refactor
 
@@ -450,6 +454,17 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | *(new)* members named by string on typed objects (lookalike callees untouched); dotted patch targets (a member through a re-export, a class segment); an unresolved project target refuses; an external one is a `leftover` | 0/1 | `refactor-rename-string-members`, `refactor-rename-patch-targets`, `refactor-rename-patch-target-class`, `refactor-rename-patch-target-unresolved`, `refactor-rename-patch-target-external` |
 | *(new)* `--keep` a line, a file and a directory (whole components); an unmatched keep | 0/2 | `refactor-rename-keep`, `refactor-rename-keep-unmatched` |
 | *(new)* `--docs`: qualified, code-marked and prose mentions rewritten, the rest listed as `leftover`, git-ignored prose untouched; a simple-name collision listed; without `--docs` nothing changes | 0 | `refactor-rename-docs`, `refactor-rename-docs-collision`, `refactor-rename-without-docs` |
+| *(new)* `--symbol` paths: a method, a parameter (same-named parameters elsewhere unchanged), a nested function (`<locals>`), a class field, a `self.` attribute by its class path, an import binding, an async method, a keyword-only parameter; overloads and a property with its setter are one symbol | 0 | `refactor-symbol-method`, `refactor-symbol-parameter`, `refactor-symbol-nested-function`, `refactor-symbol-field`, `refactor-symbol-instance-attribute`, `refactor-symbol-import-binding`, `refactor-symbol-async-method`, `refactor-symbol-keyword-only-param`, `refactor-symbol-overloads`, `refactor-symbol-property-setter` |
+| *(new)* `--symbol` resolving to no declaration (candidates listed) or to declarations of two symbols (each `path:line`); more than one of `--offset`, `--line`, `--symbol` (neutral usage error) | 2 | `refactor-symbol-unresolved`, `refactor-symbol-ambiguous`, `refactor-exclusive-locators` |
+| *(new)* `rename-map`: related renames in one pass (one header per entry); entries name old names; a one-entry map equals `rename`; a rename entry then a retarget entry (headers in map order) | 0 | `refactor-map-related`, `refactor-map-old-names`, `refactor-map-one-entry`, `refactor-map-headers` |
+| *(new)* `rename-map` refusals: one combined blind-spot refusal; conflicting edits to one site; a swap in one scope (`name-conflict`); nothing written | 1 | `refactor-map-combined-refusal`, `refactor-map-conflict`, `refactor-map-swap` |
+| *(new)* `rename-map` errors: an invalid entry, duplicate entries (paired); entries of two languages (neutral) | 2 | `refactor-map-invalid`, `refactor-map-duplicate`, `refactor-map-mixed-languages` |
+| *(new)* `retarget`: a method twin, a class alias (duplicate import removed); refused: target in another module, an overridden alias, a shadowed target name | 0/2/1 | `refactor-retarget-method`, `refactor-retarget-class-imports`, `refactor-retarget-scope`, `refactor-retarget-override`, `refactor-retarget-shadowed` |
+| *(new)* a failed write restores the files already written: `write-failed` | 1 | `refactor-write-rollback` |
+| *(new)* `.basedpyright/baseline.json` kept aligned through the configured checker: a rename shifting baselined columns (apply, dry-run, a `-p` command), entries basedpyright matches (identical shapes, a stale entry, an unbaselined error above a baselined one), a moved module, a moved declaration; no baseline file or a null command (no checker runs) | 0 | `refactor-baseline-rename`, `refactor-baseline-dry-run`, `refactor-baseline-project-flag`, `refactor-baseline-matching`, `refactor-baseline-move-module`, `refactor-baseline-move-symbol`, `refactor-baseline-absent`, `refactor-baseline-checker-null` |
+| *(new)* the configured checker cannot run: `baseline-failed`, nothing written | 1 | `refactor-baseline-failed` |
+| *(new)* a `Literal` member (`Alias['value']`): every string the checker types by it, quote style kept; a derived alias; an exhaustive match; unrelated equal strings untouched (with `--docs` listed); a narrowed local refuses (`literal-unresolved`); a value with a quote (`literal-value`) | 0/1/2 | `refactor-literal-contexts`, `refactor-literal-derived-alias`, `refactor-literal-exhaustive-match`, `refactor-literal-unrelated`, `refactor-literal-narrowed-local`, `refactor-literal-value-quote` |
+| *(new)* `--docs` lists compound declarations (CamelCase, plural, snake case; a longer word is not one); none without `--docs` | 0 | `refactor-compound-names`, `refactor-compound-snake-plural`, `refactor-compound-without-docs` |
 
 ## dr-refactor: TypeScript
 
@@ -477,6 +492,13 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | *(new)* move-symbol into its own file changes nothing | 0 | `refactor-ts-move-symbol-same-module` |
 | *(new)* a missing source (rename, move-symbol, move-module file, move-module directory) | 1 | `refactor-ts-source-missing`, `refactor-ts-move-symbol-source-missing`, `refactor-ts-move-module-source-missing`, `refactor-ts-move-module-missing-directory` |
 | *(new)* a source symlinked outside the project (existing, dangling target); a symlink loop (the source, a parent); a symlink followed before `..`; a module directory symlinked outside | 1 | `refactor-ts-symlink-outside-project`, `refactor-ts-dangling-symlink-outside-project`, `refactor-ts-symlink-loop`, `refactor-ts-symlink-loop-parent`, `refactor-ts-symlink-dotdot`, `refactor-ts-move-module-symlink-outside` |
+| *(new)* `--symbol` paths: a class member (a same-named function unchanged), a local function (`<locals>`); a path resolving to no declaration | 0/2 | `refactor-ts-symbol-member`, `refactor-ts-symbol-local`, `refactor-ts-symbol-unresolved` |
+| *(new)* a TypeScript one-entry `rename-map` equals `rename` (through either twin) | 0 | `refactor-ts-map-one-entry` |
+| *(new)* `retarget` of a deprecated getter: reads name the target, the accessor unchanged | 0 | `refactor-ts-retarget-accessor` |
+| *(new)* a failed write restores the files already written: `write-failed` | 1 | `refactor-ts-write-rollback` |
+| *(new)* `.tsc-baseline.json`: a message naming the renamed type follows it; a key whose instances split, one baselined: unchanged with `baseline-ambiguous` | 0 | `refactor-ts-baseline-message`, `refactor-ts-baseline-ambiguous` |
+| *(new)* a string-literal union member (`Kind['value']`): the language service's rename locations; a value with a quote (`literal-value`) | 0/2 | `refactor-ts-literal-contexts`, `refactor-ts-literal-value-quote` |
+| *(new)* `--docs` lists compound declarations | 0 | `refactor-ts-compound-names` |
 
 ## Review shims and their bundled scripts
 

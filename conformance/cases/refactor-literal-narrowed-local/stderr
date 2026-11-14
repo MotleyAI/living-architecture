@@ -1,0 +1,2 @@
+pkg/run.py:10: literal-unresolved: the checker needs 'edit_model' here, where no string literal can be rewritten
+1 untyped receiver(s) of .edit_model: type them, or pass --allow-blindspots

@@ -1,0 +1,21 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- rename
+- --file
+- src/storage.ts
+- --symbol
+- StorageBackend.get_modle
+- --new-name
+- x
+fixture: refactor-ts
+git:
+- commit: init
+expect:
+  exit: 2
+  files:
+  - src/storage.ts
+golden: manual
+note: 'TypeScript: a path that resolves to no declaration lists the class''s member names; exit 2'

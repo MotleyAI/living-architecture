@@ -1,0 +1,2 @@
+tests/test_a.py:3: MagicMock() without spec=/spec_set= — bind it to the real class (or use create_autospec)
+web/a.test.ts:8: double assertion through unknown — build a typed double instead

@@ -148,7 +148,7 @@ const ARGV: Record<string, string[]> = {
   'la-fetch-failed-pr-checks': ['--help'],
   'la-wait-for-reviews': ['--help'],
   'la-pr-reviewers': ['--help'],
-  'dr-refactor': ['rename', '--file', 'a.ts', '--name', 'f', '--new-name', 'g'],
+  'dr-refactor': ['rename', '--file', 'a.ts', '--symbol', 'f', '--new-name', 'g'],
   'dr-compliance': ['a.ts'],
   'dr-mock-lint': ['a.ts'],
 };

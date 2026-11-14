@@ -1,0 +1,23 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- --apply
+- rename
+- --file
+- pkg/storage.py
+- --symbol
+- StorageBackend.get_model
+- --new-name
+- load_model
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - pkg/__init__.py
+  - pkg/storage.py
+  - pkg/use.py
+golden: manual
+note: '--symbol Class.method: the result equals the rename located by --line/--col at the method''s name'

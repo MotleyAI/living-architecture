@@ -1,0 +1,19 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- rename
+- --file
+- pkg/kw.py
+- --symbol
+- kwonly(model_name)
+- --new-name
+- dataset_name
+fixture: refactor-params
+git:
+- commit: init
+expect:
+  exit: 0
+note: 'a keyword-only parameter by --symbol kwonly(model_name): equals the rename located at its declaration (refactor-rename-param-keyword-only)'
+golden: manual

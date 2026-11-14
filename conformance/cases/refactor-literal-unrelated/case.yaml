@@ -1,0 +1,24 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- --apply
+- rename
+- --file
+- pkg/kinds.py
+- --symbol
+- DriftKind['edit_model']
+- --new-name
+- edit_master
+- --docs
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - pkg/kinds.py
+  - pkg/other.py
+golden: manual
+note: equal strings the checker does not type by DriftKind (another Literal's member and its argument, a str variable, argparse
+  choices) are untouched; with --docs each is a leftover

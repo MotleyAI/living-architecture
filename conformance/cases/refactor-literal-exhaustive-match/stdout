@@ -1,0 +1,28 @@
+Renaming <edit_model> to <edit_master>:
+
+
+--- a/pkg/handle.py
++++ b/pkg/handle.py
+@@ -5,7 +5,7 @@
+ 
+ def handle(kind: DriftKind) -> int:
+     match kind:
+-        case "edit_model":
++        case "edit_master":
+             return 1
+         case "drop":
+             return 2
+
+--- a/pkg/kinds.py
++++ b/pkg/kinds.py
+@@ -1,3 +1,3 @@
+ from typing import Literal
+ 
+-DriftKind = Literal["edit_model", "drop"]
++DriftKind = Literal["edit_master", "drop"]
+
+
+
+APPLIED. 2 file(s) changed:
+  pkg/handle.py
+  pkg/kinds.py

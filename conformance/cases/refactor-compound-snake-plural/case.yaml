@@ -1,0 +1,22 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- --apply
+- rename
+- --file
+- pkg/col.py
+- --symbol
+- column
+- --new-name
+- field
+- --docs
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - pkg/col.py
+golden: manual
+note: '--docs: a snake_case plural and a CamelCase segment of the old name are listed'

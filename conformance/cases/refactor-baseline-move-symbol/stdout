@@ -1,0 +1,49 @@
+Moving global <f>:
+
+
+--- a/.basedpyright/baseline.json
++++ b/.basedpyright/baseline.json
+@@ -1,6 +1,6 @@
+ {
+     "files": {
+-        "./pkg/a.py": [
++        "./pkg/b.py": [
+             {
+                 "code": "reportArgumentType",
+                 "range": {
+@@ -8,9 +8,7 @@
+                     "endColumn": 16,
+                     "lineCount": 1
+                 }
+-            }
+-        ],
+-        "./pkg/b.py": [
++            },
+             {
+                 "code": "reportArgumentType",
+                 "range": {
+
+--- a/pkg/a.py
++++ b/pkg/a.py
+@@ -1,6 +1,2 @@
+-def f() -> int:
+-    return len(1)
+-
+-
+ def keep() -> int:
+     return 0
+
+--- a/pkg/b.py
++++ b/pkg/b.py
+@@ -1,2 +1,4 @@
++def f() -> int:
++    return len(1)
+ def g() -> int:
+     return len(2)
+
+
+
+APPLIED. 3 file(s) changed:
+  .basedpyright/baseline.json
+  pkg/a.py
+  pkg/b.py

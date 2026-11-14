@@ -1,0 +1,22 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- rename
+- --file
+- src/kinds.ts
+- --symbol
+- Kind['edit_model']
+- --new-name
+- it's
+fixture: refactor-ts
+git:
+- commit: init
+expect:
+  exit: 2
+  files:
+  - src/kinds.ts
+  - src/use.ts
+golden: manual
+note: 'TypeScript: a literal member''s new value holding a quote: literal-value, exit 2'

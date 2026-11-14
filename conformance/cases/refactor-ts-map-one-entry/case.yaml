@@ -1,0 +1,19 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- --apply
+- rename-map
+- renames.yaml
+fixture: refactor-ts
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - src/store.ts
+  - src/use.ts
+golden: manual
+note: a TypeScript one-entry map equals rename --symbol of that entry (refactor-ts-symbol-member); through the PyPI twin the
+  map runs in the npm twin

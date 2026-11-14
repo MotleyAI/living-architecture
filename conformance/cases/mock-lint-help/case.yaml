@@ -1,0 +1,12 @@
+kind: neutral
+command: dr-mock-lint
+args:
+- --help
+expect:
+  exit: 0
+  stdout:
+    contains:
+    - dr-mock-lint
+    - --base
+golden: manual
+note: 'dr-mock-lint is a parsed command: --help prints its help (with --base) and exits 0, nothing on stderr'
