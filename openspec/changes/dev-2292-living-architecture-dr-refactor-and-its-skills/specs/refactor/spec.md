@@ -149,6 +149,8 @@ statically resolved bases; reaching a base that does not resolve before the attr
 target unresolved. A target whose first segment is not a project top-level package and one of whose segments is
 OLD SHALL be listed with `refactor.leftover` (`{where}` `patch target`) and leave the exit code unchanged. In a
 rename of a symbol other than a member, a project target that does not resolve SHALL be listed the same way.
+A target segment OLD that resolves to a declaration the rename leaves unchanged SHALL be unchanged and unlisted,
+with or without `--docs`.
 
 #### Scenario: Receiver forms on instances and class objects
 - **WHEN** `SearchQueryEngine.save_model` is renamed and tests hold `patch.object(SearchQueryEngine, "save_model")`,
@@ -244,7 +246,9 @@ contract (`.md`, `.rst`, `.txt`). A mention SHALL be an occurrence of OLD not ad
 
 - A qualified mention SHALL be rewritten in every scanned file: `Owner.OLD`, or `Owner#OLD` in TypeScript, where
   `Owner` names a class of the renamed hierarchy (or, for a module-level symbol, the declaring module's last
-  segment), optionally preceded by dotted segments that SHALL form a suffix of the declaring module's dotted path.
+  segment), optionally preceded by dotted segments that SHALL form a suffix of the declaring module's dotted path
+  (Python: the module's name from its source folder; TypeScript: the file's project-relative path without its
+  source extension, `/` read as `.`).
   With such a prefix it SHALL be rewritten only when no other project class with that simple name that declares
   OLD sits in a module whose dotted path also ends with those segments; otherwise it SHALL be listed.
   Without such a prefix it SHALL be rewritten only when no other project class with that simple name declares OLD;

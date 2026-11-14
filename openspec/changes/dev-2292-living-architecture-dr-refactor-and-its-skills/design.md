@@ -188,7 +188,16 @@ ways, and a probe leaking its coordinate space. Decisions 35–41 close each cau
 43. **Computed-name stand-ins**: the checker index includes members declared by a constant computed name; they are
     stand-ins, `--without` classifies them, and `--with` exits 2 with `refactor.computed-stand-in`, because the
     language service cannot rename them (a use-site rename returns nothing; one at `[KEY]` renames the constant).
-    Rejected: leaving them out (a silent miss). (user)
+    Rejected: leaving them out (a silent miss). The finding tells the user to pass `--without` and rename by hand,
+    in that order: after a hand rename the class no longer declares OLD and the line is `not-stand-in`. (user)
+44. **A target resolving to an unchanged declaration is unrelated**: a patch-target segment OLD that resolves to a
+    declaration the rename leaves alone (another class, a `--without` stand-in) is neither rewritten nor listed,
+    with or without `--docs`: the tool knows what it names. Weighed: listing it under `--docs` as any unrewritten
+    mention (noise about a site known to be unrelated). (codex; user)
+45. **Module path per language**: the dotted path a `--docs` prefix is matched against is the Python module name
+    from its source folder, and the TypeScript file's project-relative path without extension. Matching is by
+    suffix, so the two differ only on a prefix that spells a source folder. Rejected: deriving a TypeScript source
+    root from the tsconfig (no single root in a solution-style project). (codex; user)
 
 ## Risks / Trade-offs
 

@@ -174,6 +174,13 @@
       with "Exact string literal listed without --docs".
 - [ ] 13.3 TypeScript membership (decision 37): the spike, then the checker-based stand-in index. Verify with the
       parameter-property, quoted and merged/type-literal cases unmodified, plus a constant computed name.
+      Spike done (2026-11-14, TypeScript in `node/node_modules`): `checker.getTypeAtLocation(owner).getProperty(OLD)`
+      returns the declarations for classes (parameter properties, quoted and constant computed names, accessors),
+      merged interfaces and type literals. Three things to handle: it also returns inherited declarations, so keep
+      only those whose parent is the owner (a parameter property's parent chain ends at its class); static members
+      are on the class symbol's `exports`, not the instance type; `#private` names are not reachable through
+      `getProperty` and stay on the syntax path. Object literals also answer `getProperty`, so the owner kinds stay
+      class, interface and type literal.
 - [ ] 13.4 Python membership (decision 37): the `symtable` cross-check test and its fixes; a callee unit test for a
       form resolved under any spelling, a lookalike, and an unresolved callee with the form's syntax.
 - [ ] 13.5 Shared vectors and one line index per twin (decision 38). Verify with the vectors in both twins, and
@@ -189,9 +196,12 @@
       registry pins; the rename's candidate files from the routing expansion. Verify with "Virtualenv skipped by
       both": cases `refactor-rename-venv-skipped` and `compliance-attr-venv-skipped` in `conformance/INVENTORY.md`.
 - [ ] 13.10 `refactor.computed-stand-in` (decision 43): `shared/findings.yaml`
-      (`'{path}:{line}: computed-stand-in: {cls}.{attr} is declared by a computed name; rename it by hand, then pass
-      --without {path}:{line}'`), sync, the TypeScript twin. Verify with "Computed-name stand-in": case
+      (`'{path}:{line}: computed-stand-in: {cls}.{attr} is declared by a computed name; pass --without {path}:{line}
+      and rename it by hand'`; after a hand rename the class no longer declares OLD, so the flag comes first), sync, the TypeScript twin. Verify with "Computed-name stand-in": case
       `refactor-ts-rename-computed-stand-in` (refusal, `--without`, `--with` exit 2) in `conformance/INVENTORY.md`.
+- [ ] 13.11 Decisions 44–45, tests only unless one fails: a unit test and a `--docs` case row for a patch target
+      resolving to a `--without` stand-in (unchanged, unlisted, with and without `--docs`); a Vitest case for a
+      `--docs` qualifier spelled with the full project-relative path (`src.pkg.engine.Owner.OLD`, rewritten).
 
 ## 14. Post-merge (after the PR merges; not part of its diff)
 
