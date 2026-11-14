@@ -248,8 +248,8 @@ keep its quote style.
 - TypeScript: the rewritten strings SHALL be the language service's rename locations for that string.
 - Python: the rename SHALL probe the checker in la's language server, in memory, with the member replaced by a
   sentinel. A string literal exactly OLD SHALL be rewritten when, under the probe, a new diagnostic's range is that
-  literal or a list, tuple, set or dict display holding it as an element or key, or when the hover type of its
-  comparison operand (`==`, `!=`, `is`, `is not`), `in` container or `match` subject contains the sentinel. With the
+  literal or a list, tuple, set or dict display holding it as an element or key, or when the type the checker gives
+  its comparison operand (`==`, `!=`, `is`, `is not`), `in` container or `match` subject contains the sentinel. With the
   member and every such literal set to the sentinel, each diagnostic absent before the probe SHALL be a blind spot,
   `refactor.literal-unresolved`, joining the blind-spot refusal (`--keep` and `--allow-blindspots` apply).
 

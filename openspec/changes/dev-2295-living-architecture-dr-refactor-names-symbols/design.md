@@ -102,10 +102,12 @@ diagnostic through it, for every subcommand. Grounded in principles 1 and 2.
 24. **Python checker scope**: the configured command runs over the affected files only; a Python key has no message,
     so an unedited file's entries cannot shift. Probed: `basedpyright -p . file.py --outputjson` works. Tests cover a
     `-p` command and one with positional paths. Rejected (codex): running the whole project. (codex)
-25. **Python matching is basedpyright's own**: probed, a run without `--writebaseline` prunes the baseline file it is
-    given to exactly the entries it matched, in order. The aligner runs on a temporary copy, then pairs that pruned
-    list 1:1 with the baselined diagnostics (the empty-baseline run's minus the copy run's, by position). Tests:
-    identical-shaped entries, a stale entry, a diagnostic inserted earlier, multiline ranges. (codex)
+25. **Python matching is basedpyright's own**: the baselined diagnostics are the empty-baseline run's minus the copy
+    run's, by position; each, in position order, is paired with the first unpaired entry of its file after the last
+    one paired whose code, columns and line count equal it, as basedpyright's order-preserving diff pairs them.
+    Probed (basedpyright 1.40.2): a run without `--writebaseline` rewrites the baseline it is given only when the file
+    has no unbaselined diagnostic, so its pruned copy cannot be read back. Tests: identical-shaped entries, a stale
+    entry, a diagnostic inserted earlier, multiline ranges. (codex)
 26. **TypeScript diagnostics are pre-emit diagnostics** (`ts.getPreEmitDiagnostics`: syntactic, semantic, options,
     declaration) from every project holding the file, over every file the baseline lists; a parity test runs real
     tsc on an unedited consumer whose message changes. Rejected (codex): running tsc (decision 3). (codex)
@@ -117,7 +119,8 @@ diagnostic through it, for every subcommand. Grounded in principles 1 and 2.
 29. **Retarget validation**: new-name collision checks do not apply; a bare-name reference where the target's name
     is bound to something else refuses (`refactor.retarget-shadowed`). Tests: shadowing, import aliases, accessors,
     TS merged declarations. (codex)
-30. **`Literal` probe refinements**: positive identity (the operand's hover type contains the sentinel); a
+30. **`Literal` probe refinements**: positive identity (the type the checker reveals for the operand, wrapped in
+    `reveal_type(...)` in the probe text, contains the sentinel; probed: hover names an alias, not its members); a
     diagnostic counts only when its range is the literal or a display holding it as an element or key; a
     verification pass with every candidate set to the sentinel turns any remaining new diagnostic into a blind spot
     (no false refusal at `assert_never`). Rejected (codex): replacing the probe with syntactic contexts (decision
@@ -199,9 +202,9 @@ diagnostic through it, for every subcommand. Grounded in principles 1 and 2.
   baseline. Decision 25 pairs entries with diagnostics; mapped entries are rewritten or moved, the rest kept.
 - **TypeScript aligner**: decisions 26 and 27; keys rendered through tsc's non-pretty formatter and parsed with the
   parser `la-typecheck` uses (`lang/tsc.ts`), so they compare byte for byte.
-- **`Literal` probe (Python)**: open every project source in the language server; record diagnostics and the hover
-  types of every comparison operand, `in` container and `match` subject next to an OLD literal; replace the member
-  with a sentinel through `didChange`; collect candidates (decision 30); set every candidate to the sentinel;
+- **`Literal` probe (Python)**: open every project source in the language server; record diagnostics; replace the
+  member with a sentinel and wrap every comparison operand, `in` element and `match` subject next to an OLD literal
+  in `reveal_type(...)` through `didChange`; collect candidates (decision 30); set every candidate to the sentinel;
   remaining new diagnostics are blind spots. A last round puts a sentinel in each remaining equal string: one that
   draws a diagnostic on itself is typed by another literal type (unrelated), the rest are leftovers (decision 40).
   All rounds run on DEV-2292's probe object (decision 43).

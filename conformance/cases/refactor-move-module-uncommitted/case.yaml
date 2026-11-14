@@ -18,4 +18,4 @@ expect:
   - pkg/solo.py
   - pkg/sub/solo.py
   - .ropeproject/history.json
-note: rope's `git mv` fails on untracked files; git's own wording is not part of the contract
+note: an untracked module is moved by a plain rename (a tracked one by `git mv`)

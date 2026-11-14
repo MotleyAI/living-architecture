@@ -1,2 +1,1 @@
-def alone():
-    return 2
+<MISSING>

@@ -1,1 +1,2 @@
-<MISSING>
+def alone():
+    return 2
