@@ -312,3 +312,13 @@ def test_two_names_in_one_sorted_block(cwd: Path, capsys: pytest.CaptureFixture[
         spot("tests/test_b.py", 2, "o", "get_model"),
     ]
 
+
+
+def test_two_names_cover_string_member_forms(cwd: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    write_project(cwd, {"m.py": 'def f(o):\n    getattr(o, "get_model")\n    return o.save_model()\n'}, package=False)
+    assert dr_compliance(["--select", "attr-blindspot", "--attr", "save_model", "--attr", "get_model", "m.py"]) == 1
+    out = capsys.readouterr().out.splitlines()
+    assert out == [
+        message("compliance.attr-blindspot", path="m.py", line=2, receiver="o", attr="get_model", type="Unknown"),
+        message("compliance.attr-blindspot", path="m.py", line=3, receiver="o", attr="save_model", type="Unknown"),
+    ]
