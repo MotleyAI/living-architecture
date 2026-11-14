@@ -156,7 +156,7 @@
       contract, snapshot and render tests; `compliance-help`, `compliance-select-other-language-check` and every
       `compliance-explicit-any-*` case through both invoking twins (`scripts/conformance-cross`); the
       findings-coverage test.
-- [ ] 11.3 Before archiving (hard precondition, decision 34): `main` holds DEV-2289 archived and
+- [x] 11.3 Before archiving (hard precondition, decision 34): `main` holds DEV-2289 archived and
       `openspec/changes/dev-2289-living-architecture-python-dr-compliance-gets/` is gone; merge `main`; read
       `openspec/specs/refactor/spec.md`; `openspec validate dev-2292-living-architecture-dr-refactor-and-its-skills
       --strict`; after archiving, the "Compliance check sets are per language" requirement in the corpus lists both
