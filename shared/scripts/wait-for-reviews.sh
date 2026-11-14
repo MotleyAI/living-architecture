@@ -311,6 +311,7 @@ while :; do
 
     now=$(date +%s)
     if [[ -n "$pending" ]]; then
+        cleared_at=""
         elapsed=$(( now - start ))
         if (( elapsed >= GATE_TIMEOUT )); then
             echo "Stage 0a: gate timed out after $((GATE_TIMEOUT / 60)) min. Still pending: $pending." >&2
