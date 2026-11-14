@@ -1,6 +1,6 @@
 ## 0. Tests for the DEV-2289 merge (pr-tests stage, before any implementation)
 
-- [ ] 0.1 Failing tests (unit tests in `python/tests/test_rename_strings.py`; a conformance case only where the
+- [x] 0.1 Failing tests (unit tests in `python/tests/test_rename_strings.py`; a conformance case only where the
       command-level output is new, listed in `conformance/INVENTORY.md`) for the scenarios the merge added to
       "Members named by string are renamed": "Target from tests into a src layout"; "Target through inheritance"
       (inherited, overridden, overridden with `--no-in-hierarchy`, diamond); "Ambiguous targets refuse" (a module
