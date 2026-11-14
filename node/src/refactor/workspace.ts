@@ -41,20 +41,31 @@ interface Host extends TS.LanguageServiceHost {
   useSourceOfProjectReferenceRedirect(): boolean;
 }
 
-function host(parsed: TS.ParsedCommandLine, options: TS.CompilerOptions, extra: string[]): Host {
+/** A file's text in place of the disk's: a string, null when the file is absent, undefined to read the disk. */
+export type Overlay = (path: string) => string | null | undefined;
+
+function host(parsed: TS.ParsedCommandLine, options: TS.CompilerOptions, extra: string[], overlay: Overlay): Host {
   const sys = ts().sys;
   const names = [...parsed.fileNames, ...extra];
+  const fileExists = (name: string): boolean => {
+    const text = overlay(name);
+    return text === undefined ? sys.fileExists(name) : text !== null;
+  };
+  const readFile = (name: string): string | undefined => {
+    const text = overlay(name);
+    return text === undefined ? sys.readFile(name) : (text ?? undefined);
+  };
   return {
     getScriptFileNames: () => names,
     getScriptVersion: () => '0',
-    getScriptSnapshot: (name) => (sys.fileExists(name) ? ts().ScriptSnapshot.fromString(sys.readFile(name) ?? '') : undefined),
+    getScriptSnapshot: (name) => (fileExists(name) ? ts().ScriptSnapshot.fromString(readFile(name) ?? '') : undefined),
     getCurrentDirectory: () => dirname(parsed.options.configFilePath as string),
     getCompilationSettings: () => options,
     getDefaultLibFileName: (opts) => ts().getDefaultLibFilePath(opts),
     getProjectReferences: () => parsed.projectReferences,
     useSourceOfProjectReferenceRedirect: () => true,
-    fileExists: sys.fileExists,
-    readFile: sys.readFile,
+    fileExists,
+    readFile,
     readDirectory: sys.readDirectory,
     directoryExists: sys.directoryExists,
     getDirectories: sys.getDirectories,
@@ -68,8 +79,12 @@ export class Workspace {
   private readonly graphs = new Map<string, Projects>();
   private named: string | null | undefined;
 
-  /** The projects under `root` (a refactor's --project, or the repo root), loaded per file on first use. */
-  constructor(readonly root: string) {}
+  /** The projects under `root` (a refactor's --project, or the repo root), loaded per file on first use; programs
+   * and services read files through `overlay`. */
+  constructor(
+    readonly root: string,
+    private readonly overlay: Overlay = () => undefined,
+  ) {}
 
   /** The reference graph from `config` (none: inferred defaults); RefactorError on an unreadable tsconfig. */
   private load(config: string | undefined): Projects {
@@ -142,7 +157,7 @@ export class Workspace {
     let service = this.services.get(project);
     if (service === undefined) {
       const parsed = this.parsed(project);
-      service = ts().createLanguageService(host(parsed, parsed.options, []), this.registry);
+      service = ts().createLanguageService(host(parsed, parsed.options, [], this.overlay), this.registry);
       this.services.set(project, service);
     }
     return service;
@@ -155,7 +170,7 @@ export class Workspace {
     const out = new Map<string, TS.Program>();
     for (const [project, group] of groups) {
       const parsed = this.parsed(project);
-      const service = ts().createLanguageService(host(parsed, { ...parsed.options, ...overrides }, group), this.registry);
+      const service = ts().createLanguageService(host(parsed, { ...parsed.options, ...overrides }, group, this.overlay), this.registry);
       for (const file of group) out.set(file, service.getProgram() as TS.Program);
     }
     return out;

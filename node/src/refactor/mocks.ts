@@ -10,6 +10,12 @@ export interface Finding {
   text: string;
 }
 
+/** A mock-lint finding with its line and its template and parameters other than path and line, as a key. */
+export interface MockFinding extends Finding {
+  line: number;
+  key: string;
+}
+
 type Framework = 'vitest' | 'jest';
 
 const FRAMEWORK_MODULES: Record<string, Framework> = { vitest: 'vitest', '@jest/globals': 'jest' };
@@ -79,22 +85,26 @@ function doubleAssertion(node: TS.Node): string | null {
 }
 
 /** `shown`'s mock-lint findings (`shown` is the path as printed; casts only in test-glob files under `repoRoot`). */
-export function mockFindings(program: TS.Program, file: string, shown: string, repoRoot: string): Finding[] {
+export function mockFindings(program: TS.Program, file: string, shown: string, repoRoot: string): MockFinding[] {
   const source = program.getSourceFile(file);
   if (source === undefined) return [];
   const checker = program.getTypeChecker();
   const testGlobs: string[] = language('typescript').test_globs;
   const inTests = testGlobs.some((glob) => globMatch(glob, posix(relative(repoRoot, file))));
   const line = (node: TS.Node): number => source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1;
-  const out: Finding[] = [];
+  const out: MockFinding[] = [];
+  const add = (node: TS.Node, template: string, values: Record<string, string>): void => {
+    const at = line(node);
+    out.push({ position: node.getStart(source), line: at, key: JSON.stringify([template, values]), text: message(template, { ...values, path: shown, line: at }) });
+  };
   for (const node of walk(source)) {
     const via = inTests ? doubleAssertion(node) : null;
-    if (via !== null) out.push({ position: node.getStart(source), text: message('mock-lint.cast', { path: shown, line: line(node), via }) });
+    if (via !== null) add(node, 'mock-lint.cast', { via });
     const template = ts().isCallExpression(node) ? mockCallTemplate(program, source, checker, node) : null;
     if (template === null) continue;
     const access = (node as TS.CallExpression).expression as TS.PropertyAccessExpression;
     const call = `${(access.expression as TS.Identifier).text}.${access.name.text}`;
-    out.push({ position: node.getStart(source), text: message(template, { path: shown, line: line(node), call }) });
+    add(node, template, { call });
   }
   return out;
 }

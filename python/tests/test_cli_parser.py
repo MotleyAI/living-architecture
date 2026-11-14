@@ -36,7 +36,6 @@ def test_parser_vector(case: dict) -> None:
 def test_passthrough_vector(case: dict, monkeypatch: pytest.MonkeyPatch) -> None:
     received: list[list[str]] = []
     monkeypatch.setattr(conventions, "count_comments", lambda argv: received.append(argv) or 0)
-    monkeypatch.setattr(refactor, "run_mock_lint", lambda argv: received.append(argv) or 0)
     monkeypatch.setattr(review, "run_shim", lambda _command, argv: received.append(argv))
     getattr(cli, case["command"].replace("-", "_"))(list(case["argv"]))
     assert received == [case["args"]["argv"]]

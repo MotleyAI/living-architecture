@@ -5,12 +5,12 @@
       the tests against the plan. This branch already holds DEV-2292's failing tests, so `/la:pr` stage detection
       picks `pr-implement`: run this stage by naming `pr-tests` when invoking `/la:pr`. DEV-2292's tests stay
       failing alongside; do not touch them.
-- [ ] 0.2 Precondition for pr-implement: DEV-2292's implementation is merged into this branch (merge its branch, or
+- [x] 0.2 Precondition for pr-implement: DEV-2292's implementation is merged into this branch (merge its branch, or
       `origin/main` once it has landed), and DEV-2292's tests pass here. Do not start section 1 before that.
 
 ## 1. Shared contract
 
-- [ ] 1.1 `shared/cli.yaml`: `--symbol` on `rename` and `move-symbol`, `--name` removed; an `exclusive` group
+- [x] 1.1 `shared/cli.yaml`: `--symbol` on `rename` and `move-symbol`, `--name` removed; an `exclusive` group
       `[offset, line, symbol]` on both, and the manifest header comment documents `exclusive`; subcommand `rename-map`
       (positional `map`, `rename`'s options minus the locator and `--new-name`); subcommand `retarget` (`--file`,
       the locators, `--target`, `--allow-blindspots`, `--with`, `--without`, `--keep`, `--docs`); `--attr`
@@ -22,13 +22,13 @@
       `refactor.write-failed`, `refactor.baseline-ambiguous`, `refactor.baseline-failed`, `refactor.literal-value`,
       `refactor.literal-unresolved`, `refactor.compound`; drop templates only `--name` used. Verify every new
       template is produced by a golden (task 10.3).
-- [ ] 1.3 `shared/schema/rename-map.schema.json` (decision 13). Verify with schema unit tests in both twins (valid
+- [x] 1.3 `shared/schema/rename-map.schema.json` (decision 13). Verify with schema unit tests in both twins (valid
       entries, both intents, two locators, unknown key).
-- [ ] 1.4 `scripts/sync-shared`; verify `scripts/sync-shared --check` and the drift tests pass.
+- [x] 1.4 `scripts/sync-shared`; verify `scripts/sync-shared --check` and the drift tests pass.
 
 ## 2. CLI manifest `exclusive` (both twins)
 
-- [ ] 2.1 Both parser builders reject more than one option of an `exclusive` group with exit 2. Verify with the
+- [x] 2.1 Both parser builders reject more than one option of an `exclusive` group with exit 2. Verify with the
       "Exclusive options rejected together" scenario through both twins.
 
 ## 3. Symbol paths (both twins)
@@ -91,12 +91,12 @@
 
 - [ ] 8.1 Word split and match (decision 20), `refactor.compound` lines sorted with the leftovers, only with
       `--docs`. Verify with the "--docs lists compound names" scenarios.
-- [ ] 8.2 `--attr` repeatable, one scan, sorted by path, line, column, name. Verify with "Two names" through both
+- [x] 8.2 `--attr` repeatable, one scan, sorted by path, line, column, name. Verify with "Two names" through both
       twins.
 
 ## 9. dr-mock-lint --base (both twins)
 
-- [ ] 9.1 Parsed command (help works); `--base` through `changes` (a file-at-ref helper and rename mapping added
+- [x] 9.1 Parsed command (help works); `--base` through `changes` (a file-at-ref helper and rename mapping added
       there in both twins); structured findings compared by path, template and non-line parameters (decision 36).
       Python lints the base text; TypeScript builds the base program through a host serving tracked files at the
       base. Verify with the "dr-mock-lint compares with a base branch" scenarios and "Base comparison in both

@@ -178,10 +178,9 @@ def dr_refactor(argv: list[str] | None = None) -> int:
 
 def dr_compliance(argv: list[str] | None = None) -> int:
     return _run(
-        "dr-compliance", _argv(argv), lambda args: refactor.run_compliance(paths=args.paths, select=args.select, attr=args.attr)
+        "dr-compliance", _argv(argv), lambda args: refactor.run_compliance(paths=args.paths, select=args.select, attrs=args.attr)
     )
 
 
 def dr_mock_lint(argv: list[str] | None = None) -> int:
-    raw = _argv(argv)
-    return _run("dr-mock-lint", raw, lambda _args: refactor.run_mock_lint(raw))
+    return _run("dr-mock-lint", _argv(argv), lambda args: refactor.run_mock_lint(paths=args.paths, base=args.base))
