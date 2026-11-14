@@ -29,8 +29,9 @@ def test_writes_then_moves(tmp_path: Path) -> None:
 def test_a_file_changed_since_it_was_read_writes_nothing(tmp_path: Path) -> None:
     root = write_project(tmp_path / "p", {"a.py": "edited\n", "b.py": "b\n"})
     before = file_tree(root)
+    writes = [_write("b.py", "b\n", "B\n"), _write("a.py", "a\n", "A\n")]
     with pytest.raises(FileChanged):
-        apply(root, [_write("b.py", "b\n", "B\n"), _write("a.py", "a\n", "A\n")], [])
+        apply(root, writes, [])
     assert file_tree(root) == before
 
 
@@ -40,8 +41,9 @@ def test_a_failed_move_restores_every_write(tmp_path: Path) -> None:
     before = file_tree(root)
     (root / "locked").chmod(0o555)
     try:
+        writes, moves = [_write("a.py", "a\n", "A\n")], [FileMove(rel="b.py", dest="locked/b.py")]
         with pytest.raises(WriteFailed) as failed:
-            apply(root, [_write("a.py", "a\n", "A\n")], [FileMove(rel="b.py", dest="locked/b.py")])
+            apply(root, writes, moves)
     finally:
         (root / "locked").chmod(0o755)
     assert failed.value.path == "b.py"
