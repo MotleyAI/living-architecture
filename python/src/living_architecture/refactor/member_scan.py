@@ -301,7 +301,7 @@ class Probe:
             obj = calls[i].obj
             assert obj is not None
             start, end = calls[i].literal
-            pieces += [source.text[pos : start - 1], f"({_SPACE.sub(' ', source.segment(obj))})."]
+            pieces += [source.text[pos : start - 1], f"({source.segment(obj)})."]
             self.accesses[i] = sum(map(len, pieces))
             pieces.append(name)
             pos = end + 1

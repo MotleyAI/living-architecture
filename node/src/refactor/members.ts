@@ -76,19 +76,26 @@ export function formCalls(checker: TS.TypeChecker, source: TS.SourceFile, name: 
   return out;
 }
 
-/** A receiver of `.name` typed `any`: a property access or a string-member call's object. */
+/** A receiver of `.name` typed `any`: a property or element access, or a string-member call's object; `literal` is
+ * an element access's or a string form's literal span. */
 export interface AnyReceiver {
   position: number;
   receiver: string;
+  literal?: [number, number];
 }
 
-/** Every `x.name` whose receiver is typed `any`. */
+/** Every `x.name`, and `x['name']` by a plain string literal, whose receiver is typed `any`. */
 export function anyAccesses(checker: TS.TypeChecker, source: TS.SourceFile, name: string): AnyReceiver[] {
   const out: AnyReceiver[] = [];
   for (const node of walk(source)) {
-    if (ts().isPropertyAccessExpression(node) && node.name.text === name && isAny(checker, node.expression)) {
-      out.push({ position: node.getStart(source), receiver: node.expression.getText(source) });
-    }
+    const property = ts().isPropertyAccessExpression(node) && node.name.text === name;
+    const element = ts().isElementAccessExpression(node) ? plainString(node.argumentExpression, source) : null;
+    if (!(property || element?.[2] === name)) continue;
+    const receiver = (node as TS.PropertyAccessExpression | TS.ElementAccessExpression).expression;
+    if (!isAny(checker, receiver)) continue;
+    const found: AnyReceiver = { position: node.getStart(source), receiver: receiver.getText(source) };
+    if (element !== null) found.literal = [element[0], element[1]];
+    out.push(found);
   }
   return out;
 }

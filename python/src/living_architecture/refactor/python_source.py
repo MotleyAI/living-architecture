@@ -80,8 +80,9 @@ class SourceFile:
         """The span of the name an import alias, an `except ... as` or a `match` capture binds."""
         if isinstance(node, ast.alias):
             return self._word(node, node.asname or node.name.split(".")[0], last=node.asname is not None)
-        if isinstance(node, ast.ExceptHandler) and node.name:
-            m = re.compile(rf"\bas\s+({re.escape(node.name)})\b").search(self.text, self.offset(node.lineno, node.col_offset))
+        if isinstance(node, ast.ExceptHandler) and node.name and node.type is not None:
+            after = self.span(node.type)[1]
+            m = re.compile(rf"(?:\s|\)|#[^\r\n]*+|\\\r?\n)*+as\s+({re.escape(node.name)})\b").match(self.text, after)
             return (m.start(1), m.end(1)) if m else None
         if isinstance(node, ast.MatchAs | ast.MatchStar) and node.name:
             return self._word(node, node.name, last=True)

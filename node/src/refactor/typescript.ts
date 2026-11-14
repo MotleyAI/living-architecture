@@ -228,13 +228,12 @@ function renameLocations(services: TS.LanguageService[], file: string, position:
   return edits;
 }
 
-/** The project's TypeScript files holding `old` (the files `dr-compliance` expands the project to), each from the
- * first of `services`' programs holding it, else from its governing project's program. */
-function projectSources(r: Refactor, services: TS.LanguageService[], old: string): Map<string, ProjectSource> {
+/** The project's TypeScript files (the files `dr-compliance` expands the project to), each from the first of
+ * `services`' programs holding it, else from its governing project's program. */
+function projectSources(r: Refactor, services: TS.LanguageService[]): Map<string, ProjectSource> {
   const out = new Map<string, ProjectSource>();
   const rest: string[] = [];
   for (const path of languageFiles(r.root, 'typescript')) {
-    if (!readFileSync(path, 'utf8').includes(old)) continue;
     const found = services.find((service) => service.getProgram()?.getSourceFile(path) !== undefined);
     const program = found?.getProgram();
     const source = program?.getSourceFile(path);
@@ -260,6 +259,8 @@ class TypescriptRename {
   standIns: Finding[] = [];
   leftovers: Finding[] = [];
   private readonly sources: Map<string, ProjectSource>;
+  /** The sources spelling OLD: the only ones a reference, a string form or a mention can be in. */
+  private readonly holding: ProjectSource[];
   private readonly declarations: MemberDeclaration[];
   private readonly texts = new Map<string, string>();
   private readonly lines = new Map<string, Lines>();
@@ -273,10 +274,9 @@ class TypescriptRename {
     readonly newName: string,
   ) {
     this.edits = renameLocations(r.services(file), file, position, newName);
-    this.sources = projectSources(r, r.services(file), old);
-    this.declarations = [...this.sources.values()]
-      .filter(({ source }) => source.text.includes(old))
-      .flatMap(({ source, checker }) => memberDeclarations(checker, source, old, source.fileName));
+    this.sources = projectSources(r, r.services(file));
+    this.holding = [...this.sources.values()].filter(({ source }) => source.text.includes(old));
+    this.declarations = [...this.sources.values()].flatMap(({ source, checker }) => memberDeclarations(checker, source, old, source.fileName));
     const declared = new Set(this.declarations.map((d) => keyOf(d.path, d.start)));
     for (const e of this.edits) if (declared.has(keyOf(e.path, e.start))) this.renamed.add(keyOf(e.path, e.start));
   }
@@ -377,9 +377,9 @@ class TypescriptRename {
   /** Member strings landing only on renamed declarations are rewritten; `any` receivers and strings landing on
    * renamed and unchanged declarations are blind spots. */
   scan(): void {
-    for (const { source, checker } of this.sources.values()) {
+    for (const { source, checker } of this.holding) {
       const path = source.fileName;
-      for (const { position, receiver } of anyAccesses(checker, source, this.old)) this.record(blindspotOutcome(path, position, null, receiver, this.old));
+      for (const { position, receiver, literal } of anyAccesses(checker, source, this.old)) this.record(blindspotOutcome(path, position, literal ?? null, receiver, this.old));
       for (const found of formCalls(checker, source, this.old)) {
         const receiver = found.object.getText(source);
         if (isAny(checker, found.object)) {
@@ -399,7 +399,7 @@ class TypescriptRename {
 
   /** Without `--docs`: each string literal exactly OLD that no rule examined, listed. */
   literals(): void {
-    for (const { source } of this.sources.values()) {
+    for (const { source } of this.holding) {
       for (const outcome of literalOutcomes(source.fileName, source, this.old, (s, e) => this.covered(source.fileName, s, e))) this.record(outcome);
     }
   }
@@ -421,8 +421,8 @@ class TypescriptRename {
   /** Each scanned file's mentions of OLD, and whether it declares the rename: sources, then prose files. */
   private mentionFiles(): [string, Mention[], boolean][] {
     const files: [string, Mention[], boolean][] = [];
-    for (const { source } of this.sources.values()) {
-      if (source.text.includes(this.old)) files.push([source.fileName, mentions(source.text, this.old, sourceRegions(source)), this.declaring.has(source.fileName)]);
+    for (const { source } of this.holding) {
+      files.push([source.fileName, mentions(source.text, this.old, sourceRegions(source)), this.declaring.has(source.fileName)]);
     }
     const extensions: string[] = manifest()['dr-refactor'].prose_extensions;
     for (const rel of sourceFiles(this.r.root, []).sort(byCodePoint)) {

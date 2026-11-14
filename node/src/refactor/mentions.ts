@@ -25,10 +25,10 @@ export interface Mention {
   opens: boolean;
 }
 
-// Word characters as Python's `\w` reads them (letters, numbers, `_`), plus `$`.
-const WORD = String.raw`\p{L}\p{N}_$`;
-const QUALIFIER_CHAR = new RegExp(`^[${WORD}.#]$`, 'u');
-const IDENTIFIER = new RegExp(`^[A-Za-z_$][${WORD}]*$`, 'u');
+// Identifier-continuation characters: Unicode's, the zero-width joiners and `$`.
+const WORD = String.raw`(?:[\p{ID_Continue}$]|\u200C|\u200D)`;
+const QUALIFIER_CHAR = new RegExp(`^(?:${WORD}|[.#])$`, 'u');
+const IDENTIFIER = new RegExp(`^[A-Za-z_$]${WORD}*$`, 'u');
 const QUALIFIER_WINDOW = 300;
 const escape = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/gu, String.raw`\$&`);
 
@@ -85,7 +85,7 @@ export function sourceRegions(source: TS.SourceFile): Region[] {
 
 /** Occurrences of `old` not adjacent to an identifier character inside each region; a region ends the text. */
 export function mentions(text: string, old: string, regions: Region[]): Mention[] {
-  const pattern = new RegExp(`(?<![${WORD}])${escape(old)}(?![${WORD}])`, 'gu');
+  const pattern = new RegExp(`(?<!${WORD})${escape(old)}(?!${WORD})`, 'gu');
   const out: Mention[] = [];
   for (const region of regions) {
     const upToEnd = text.slice(0, region.end);

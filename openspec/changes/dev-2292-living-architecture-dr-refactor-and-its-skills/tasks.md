@@ -205,7 +205,7 @@
 - [x] 13.12 Unresolved target-form callees (decision 46): `target_calls` keeps a syntactic target call whose callee
       does not resolve; the rename gives it the unresolved-target outcome. Verify with "Target form with an
       unresolved callee": case `refactor-rename-patch-target-unresolved-callee` in `conformance/INVENTORY.md`.
-- [ ] 13.13 TypeScript element access (decision 47): `anyAccesses` reports `x['OLD']` on an `any` receiver, with the
+- [x] 13.13 TypeScript element access (decision 47): `anyAccesses` reports `x['OLD']` on an `any` receiver, with the
       literal's span as the examined site. Verify with "TypeScript element access on an any receiver": case
       `refactor-ts-rename-element-blindspot` and the TypeScript twin's `compliance-ts-attr-element` in
       `conformance/INVENTORY.md`.

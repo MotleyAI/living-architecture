@@ -190,6 +190,8 @@ def _compute_rename(
     try:
         renamer = Rename(project, _resource(project, file), offset)
         if renamer._is_renaming_a_module():
+            if options.with_sites or options.without_sites:
+                raise SiteError("refactor.not-stand-in", (*options.with_sites, *options.without_sites)[0])
             changes = _kept(project, renamer.get_changes(
                 new_name, in_hierarchy=options.in_hierarchy, unsure=(lambda *_: True) if options.unsure else None
             ), options.keep)

@@ -407,7 +407,7 @@ PROBED = 'a = 1\nx = getattr(eng, "save_model")\nb = 2\ny = getattr(eng.inner,  
 
 def _calls(source: SourceFile) -> list[FormCall]:
     assert source.tree is not None
-    calls = [n for n in ast.walk(source.tree) if isinstance(n, ast.Call)]
+    calls = [n for n in ast.walk(source.tree) if isinstance(n, ast.Call) and len(n.args) == 2]
     out: list[FormCall] = []
     for call in calls:
         found = plain_literal(source, call.args[1])
@@ -521,3 +521,11 @@ def test_a_callee_bound_to_a_form_and_to_something_else_is_unresolved(
                          target="pkg.engine.SearchQueryEngine.save_model", attr="save_model")
     assert capsys.readouterr().err.splitlines() == [unresolved, message("refactor.blindspots", count=1, attr="save_model")]
     assert _read(root, "tests/test_t.py") == test
+
+
+def test_probe_keeps_a_receiver_holding_a_comment() -> None:
+    text = 'x = getattr(\n    receiver(  # explanation\n    ),\n    "save_model",\n)\n'
+    source = SourceFile(Path("/p/m.py"), text)
+    probe = Probe(source, _calls(source), "save_model")
+    ast.parse(probe.text)
+    assert probe.text[probe.accesses[0] - 2 : probe.accesses[0]] == ")."

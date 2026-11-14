@@ -151,3 +151,17 @@ describe('--docs module paths', () => {
     expect(renamed.out).toContain('+// see src.pkg.engine.Engine.storeModel and pkg.engine.Engine.storeModel');
   });
 });
+
+describe('computed-name stand-ins', () => {
+  it('a class whose file never spells OLD is still a stand-in', () => {
+    const root = tempRepo({
+      'tsconfig.json': '{"compilerOptions": {"strict": true}, "include": ["src"]}\n',
+      'src/store.ts': 'export interface Store {\n  getModel(): number;\n}\n',
+      'src/keys.ts': "export const KEY = 'getModel';\n",
+      'src/fake.ts': "import { KEY } from './keys';\n\nexport class Fake {\n  [KEY](): number {\n    return 1;\n  }\n}\n",
+    });
+    const renamed = run(root, 'dr-refactor', ['rename', '--file', 'src/store.ts', '--name', 'getModel', '--new-name', 'getDataset']);
+    expect(renamed.code).toBe(1);
+    expect(renamed.err).toContain('src/fake.ts:4: stand-in: Fake.getModel is outside the renamed hierarchy');
+  });
+});

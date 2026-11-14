@@ -34,6 +34,9 @@ FORMS = {
     "match-as": "match 1:\n    case int() as save_model: ...",
     "match-star": "match [1]:\n    case [*save_model]: ...",
     "match-rest": "match {}:\n    case {**save_model}: ...",
+    "except-nested-parens": "try:\n    pass\nexcept (((Exception))) as save_model:\n    pass",
+    "except-comment": "try:\n    pass\nexcept (\n    Exception  # not as save_model\n) as save_model:\n    pass",
+    "lambda-default-walrus": "factory = lambda x=(save_model := 0): x",
 }
 if sys.version_info >= (3, 12):
     FORMS["type-alias"] = "type save_model = int"
@@ -87,8 +90,9 @@ def test_every_class_level_binding_is_a_declaration(form: str, block: str) -> No
         # PEP 709 inlines the comprehension into the class's table; its variable is still no class attribute.
         ("x = [save_model for save_model in ()]", sys.version_info < (3, 12)),
         ("def f(self, save_model: int) -> None: ...", True),
+        ("factory = lambda: (save_model := 0)", True),
     ],
-    ids=["read", "method-local", "comprehension", "parameter"],
+    ids=["read", "method-local", "comprehension", "parameter", "lambda-walrus"],
 )
 def test_names_bound_elsewhere_are_not_declarations(body: str, symtable_agrees: bool) -> None:
     text = f"class C:\n    {body}\n"

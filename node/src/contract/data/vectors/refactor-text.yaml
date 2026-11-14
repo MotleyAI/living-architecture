@@ -78,6 +78,18 @@ mentions:
   text: "\U0001D49Csave_model \U0001F600save_model"
   old: save_model
   starts: [13]
+- name: a combining mark continues an identifier
+  text: "save_model\u0301 \u0301save_model save_model"
+  old: save_model
+  starts: [24]
+- name: connector punctuation continues an identifier
+  text: "save_model\u203F save_model"
+  old: save_model
+  starts: [12]
+- name: zero-width joiners continue an identifier
+  text: "save_model\u200D save_model\u200C save_model"
+  old: save_model
+  starts: [24]
 - name: region start sees the character before it
   text: "xsave_model save_model"
   old: save_model
@@ -131,6 +143,14 @@ qualifiers:
   text: "aé.save"
   at: 3
   segments: [aé]
+- name: combining mark in a segment
+  text: "e\u0301.save"
+  at: 3
+  segments: ["e\u0301"]
+- name: combining mark before the run
+  text: "\u0301A.save"
+  at: 3
+  segments: null
 - name: dollar segment
   text: "$a.save"
   at: 3

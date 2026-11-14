@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -75,3 +76,21 @@ def test_docs_regions_in_a_cr_only_file() -> None:
 def test_a_kept_line_counts_python_lines_only() -> None:
     old, new = "a\fb = 1\nc = 1\n", "a\fB = 1\nc = 1\n"
     assert _kept_lines("a.py", old, new, lambda _, line: line == 1) == old
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["x = 'save_model'", "if x:\n    y = 'save_model'", "class A:\n    def f(self):\n        return 'save_model'"],
+    ids=["no-final-newline", "dedent-at-eof", "nested-dedents-at-eof"],
+)
+def test_docs_regions_ignore_synthetic_end_tokens(text: str) -> None:
+    found = mentions(text, "save_model", source_regions(SourceFile(Path("a.py"), text)), lambda _: 1)
+    assert [m.start for m in found] == [text.index("save_model")]
+
+
+def test_an_except_binding_is_located_after_its_type() -> None:
+    text = 'try:\n    pass\nexcept errors["as save_model"] as save_model:\n    pass\n'
+    source = SourceFile(Path("a.py"), text)
+    assert source.tree is not None
+    handler = next(n for n in ast.walk(source.tree) if isinstance(n, ast.ExceptHandler))
+    assert source.name_span(handler) == (text.rindex("save_model"), text.rindex("save_model") + len("save_model"))

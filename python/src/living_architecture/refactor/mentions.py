@@ -14,7 +14,6 @@ from pydantic import BaseModel, ConfigDict
 
 from living_architecture.refactor.python_source import SourceFile
 
-_IDENTIFIER = re.compile(r"[A-Za-z_]\w*")
 _QUALIFIER_WINDOW = 300
 _PREFIX = re.compile(r"[A-Za-z]*")
 _FSTRING_PARTS = {getattr(tokenize, name) for name in ("FSTRING_MIDDLE", "TSTRING_MIDDLE") if hasattr(tokenize, name)}
@@ -66,11 +65,21 @@ class MentionRules(BaseModel):
         )
 
 
+def _continues(char: str) -> bool:
+    """`char` can continue an identifier: Python's own rule, plus the zero-width joiners whatever its Unicode version."""
+    return char in "\u200c\u200d" or ("a" + char).isidentifier()
+
+
+def _identifier(segment: str) -> bool:
+    """An ASCII letter or `_`, then identifier-continuation characters."""
+    return bool(segment) and (segment[0] == "_" or segment[0].isascii() and segment[0].isalpha()) and all(map(_continues, segment[1:]))
+
+
 def qualifier_segments(text: str, start: int) -> list[str] | None:
     """The segments of the `A.B.` or `A#` qualifier ending at `start`, or None when the run there is not one."""
 
     def in_run(i: int) -> bool:
-        return i >= 0 and (text[i].isalnum() or text[i] in "_.#")
+        return i >= 0 and (_continues(text[i]) or text[i] in ".#")
 
     i = start
     while start - i < _QUALIFIER_WINDOW and in_run(i - 1):
@@ -78,7 +87,7 @@ def qualifier_segments(text: str, start: int) -> list[str] | None:
     if in_run(i - 1):
         return None
     *segments, last = re.split(r"[.#]", text[i:start])
-    if last or not segments or not all(_IDENTIFIER.fullmatch(s) for s in segments):
+    if last or not segments or not all(map(_identifier, segments)):
         return None
     return segments
 
@@ -100,11 +109,16 @@ Region = tuple[int, int, str, bool]
 def mentions(text: str, old: str, regions: Iterator[Region], line: Callable[[int], int]) -> list[Mention]:
     """Occurrences of `old` not adjacent to an identifier character inside each region (start, end, where, whether
     it opens a string literal)."""
-    pattern = re.compile(rf"(?<!\w){re.escape(old)}(?!\w)")
+    pattern = re.compile(re.escape(old))
+
+    def bounded(s: int, e: int, end: int) -> bool:
+        return not (s > 0 and _continues(text[s - 1])) and not (e < end and _continues(text[e]))
+
     return [
         Mention(start=m.start(), end=m.end(), line=line(m.start()), where=where, opens=opens and m.start() == start)
         for start, end, where, opens in regions
         for m in pattern.finditer(text, start, end)
+        if bounded(m.start(), m.end(), end)
     ]
 
 
@@ -153,10 +167,12 @@ def source_regions(source: SourceFile) -> Iterator[Region]:
         return
     previous = None
     for token in tokens:
-        offset = source.line_start(token.start[0]) + token.start[1]
-        end = source.line_start(token.end[0]) + token.end[1]
         opening = previous in _FSTRING_STARTS
         previous = token.type
+        if token.type not in (tokenize.COMMENT, tokenize.STRING, *_FSTRING_PARTS):
+            continue
+        offset = source.line_start(token.start[0]) + token.start[1]
+        end = source.line_start(token.end[0]) + token.end[1]
         if token.type == tokenize.COMMENT:
             yield offset, end, "comment", False
         elif token.type in _FSTRING_PARTS:

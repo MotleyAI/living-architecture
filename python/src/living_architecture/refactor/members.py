@@ -69,6 +69,20 @@ def _bound_targets(stmt: ast.stmt) -> list[ast.expr]:
     return targets
 
 
+_SCOPES = (ast.Lambda, ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)
+
+
+def _in_scope(node: ast.AST) -> Iterator[ast.AST]:
+    """`node` and its descendants in the enclosing scope: a lambda's defaults, not its body; no comprehension."""
+    yield node
+    if isinstance(node, ast.Lambda):
+        for default in [*node.args.defaults, *(d for d in node.args.kw_defaults if d is not None)]:
+            yield from _in_scope(default)
+    elif not isinstance(node, _SCOPES):
+        for child in ast.iter_child_nodes(node):
+            yield from _in_scope(child)
+
+
 def _own_expressions(stmt: ast.stmt) -> Iterator[ast.AST]:
     """The nodes of a statement's own expressions, not of its nested blocks or scopes."""
     for field, value in ast.iter_fields(stmt):
@@ -76,11 +90,11 @@ def _own_expressions(stmt: ast.stmt) -> Iterator[ast.AST]:
             continue
         for node in value if isinstance(value, list) else [value]:
             if isinstance(node, ast.AST):
-                yield from ast.walk(node)
+                yield from _in_scope(node)
     for case in getattr(stmt, "cases", []):
-        yield from ast.walk(case.pattern)
+        yield from _in_scope(case.pattern)
         if case.guard is not None:
-            yield from ast.walk(case.guard)
+            yield from _in_scope(case.guard)
 
 
 def _bindings(stmt: ast.stmt, name: str) -> Iterator[ast.AST]:
