@@ -118,3 +118,11 @@ def test_retarget_lists_compound_names(
     code, _out, err = run(root, argv, monkeypatch, capsys)
     assert code == 0
     assert err.splitlines() == [_compound("pkg/models.py", 8, "AcmeModelCache", "AcmeModel")]
+
+
+def test_a_source_in_an_excluded_directory_is_not_listed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = write_project(tmp_path / "proj", {"pkg/models.py": MODELS, ".venv/lib/names.py": NAMES})
+    code, _out, err = run(root, _rename("pkg/models.py", "Model", "Dataset", "--docs"), monkeypatch, capsys)
+    assert (code, err) == (0, "")

@@ -144,3 +144,13 @@ def test_name_already_in_use_is_not_a_conflict(
     code, _out, err = run(root, _retarget("pkg/models.py", "AcmeModel", "Model"), monkeypatch, capsys)
     assert (code, err) == (0, "")
     assert read(root, "pkg/models.py") == MODELS + "\n\ndef build() -> Model:\n    return Model()\n"
+
+
+def test_a_source_in_an_excluded_directory_is_not_rewritten(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    vendored = "from pkg.models import AcmeModel\n\nX = AcmeModel()\n"
+    root = write_project(tmp_path / "proj", {"pkg/models.py": MODELS, "venv/lib/use.py": vendored})
+    code, _out, err = run(root, _retarget("pkg/models.py", "AcmeModel", "Model"), monkeypatch, capsys)
+    assert (code, err) == (0, "")
+    assert read(root, "venv/lib/use.py") == vendored

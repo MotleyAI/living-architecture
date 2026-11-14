@@ -273,3 +273,12 @@ def test_located_through_a_parameter_annotation(
 def test_double_quoted_member_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     files = {"pkg/kinds.py": KINDS, "pkg/use.py": CONTEXTS}
     assert_same_run(tmp_path, files, _by_symbol(), _by_symbol(symbol='DriftKind["edit_model"]'), monkeypatch, capsys)
+
+
+def test_a_source_in_an_excluded_directory_is_not_probed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = write_project(tmp_path / "proj", {"pkg/kinds.py": KINDS, "pkg/use.py": CONTEXTS, "venv/lib/use.py": CONTEXTS})
+    code, _out, err = run(root, _by_symbol(), monkeypatch, capsys)
+    assert (code, err) == (0, "")
+    assert read(root, "venv/lib/use.py") == CONTEXTS

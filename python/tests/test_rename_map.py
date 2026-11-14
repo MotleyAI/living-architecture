@@ -344,3 +344,25 @@ def test_failed_write_rolls_back(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     assert err == f"{message('refactor.write-failed', path='pkg/zz/c.py')}\n"
     assert message("refactor.applied", count=3).strip() not in out
     assert file_tree(root) == before
+
+
+PATCHED = """\
+from unittest.mock import patch
+
+
+def test_patched() -> None:
+    with patch("pkg.engine.Engine.save_model"):
+        pass
+"""
+
+
+def test_a_later_entry_renaming_a_target_segment_rewrites_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = _project(tmp_path, {"pkg/engine.py": ENGINE, "tests/test_p.py": PATCHED}, [
+        {"file": "pkg/engine.py", "symbol": "Engine.save_model", "new_name": "store_model"},
+        {"file": "pkg/engine.py", "symbol": "Engine", "new_name": "Motor"},
+    ])
+    code, _out, err = run(root, _rename_map(), monkeypatch, capsys)
+    assert (code, err) == (0, "")
+    assert 'patch("pkg.engine.Motor.store_model")' in read(root, "tests/test_p.py")
