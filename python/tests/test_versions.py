@@ -6,8 +6,10 @@ import subprocess
 import tomllib
 from pathlib import Path
 from types import ModuleType
+from typing import Any
 
 import pytest
+import yaml
 
 from living_architecture import __version__, config
 
@@ -103,7 +105,8 @@ def test_doc_pins_name_the_current_version() -> None:
 
 def test_current_format_is_at_most_every_package_version() -> None:
     """The format is the version of the release that introduced it, so it never runs ahead of a package."""
-    current = config.current_format()
+    current = config.released_formats()[-1]
+    assert current == config.current_format()
     package = json.loads((REPO_ROOT / "node" / "package.json").read_text(encoding="utf-8"))["version"]
     for version in (__version__, package, _plugin_version()):
         assert config.compare_versions(current, version) <= 0, version
@@ -176,3 +179,80 @@ def test_no_release_tag_fails_on_github_actions(release_repo, release_rule: Modu
     release_repo.bump("0.4.1")
     with pytest.raises(pytest.fail.Exception):
         _unreleased_bump_problem(release_repo.root, "0.4.1", release_rule, on_actions=True)
+
+
+SHARED_CONFIG = "shared/config.yaml"
+
+
+def test_the_formats_reader_reads_the_shared_config_like_yaml(release_rule: ModuleType) -> None:
+    text = (REPO_ROOT / SHARED_CONFIG).read_text(encoding="utf-8")
+    assert release_rule.parse_formats(text) == yaml.safe_load(text)["formats"]
+
+
+@pytest.mark.parametrize(
+    ("text", "formats"),
+    [
+        ("formats: [0.4.0]\n", ["0.4.0"]),
+        ("formats: [0.4.0, 0.7.0]\n", ["0.4.0", "0.7.0"]),
+        ("# released\nfile: x\nformats: [0.4.0, 0.7.0]  # oldest first\r\n", ["0.4.0", "0.7.0"]),
+        ("format: 0.4.0\n", ["0.4.0"]),
+        ("format: '0.4.0'\n", ["0.4.0"]),
+        ('format: "0.4.0"\n', ["0.4.0"]),
+        ("format: 0.4.0\r\nfile: x\r\n", ["0.4.0"]),
+        ("# The repo format.\nfile: x\nformat: 0.4.0  # current\nlocal_file: y\n", ["0.4.0"]),
+        ("file: x\n", None),
+        ("formats:\n- 0.4.0\n", None),
+        ("format: [0.4.0]\n", None),
+        ("format: 0.4\n", None),
+        ("formats: [0.4]\n", None),
+    ],
+    ids=["one", "two", "comments-crlf", "single", "single-quoted", "double-quoted", "single-crlf",
+         "single-comments", "neither", "block-list", "format-list", "invalid", "invalid-entry"],
+)
+def test_the_formats_reader(release_rule: ModuleType, text: str, formats: list[str] | None) -> None:
+    assert release_rule.parse_formats(text) == formats
+
+
+def test_formats_appending_another_version_fail_before_tagging(release_repo, release_rule: ModuleType) -> None:
+    release_repo.release("0.6.0")
+    release_repo.write(SHARED_CONFIG, "formats: [0.4.0, 0.8.0]\n")
+    release_repo.bump("0.7.0")
+    problem = _unreleased_bump_problem(release_repo.root, "0.7.0", release_rule, on_actions=False)
+    assert problem is not None
+    assert all(needle in problem for needle in ("[0.4.0]", "[0.4.0, 0.8.0]", "0.7.0")), problem
+
+
+def test_formats_appending_the_own_version_pass_before_tagging(release_repo, release_rule: ModuleType) -> None:
+    release_repo.release("0.6.0")
+    release_repo.write(SHARED_CONFIG, "formats: [0.4.0, 0.7.0]\n")
+    release_repo.bump("0.7.0")
+    assert _unreleased_bump_problem(release_repo.root, "0.7.0", release_rule, on_actions=False) is None
+
+
+def test_a_formats_change_fails_even_with_a_minor_bump_and_no_other_change(release_repo, release_rule: ModuleType) -> None:
+    release_repo.release("0.6.0")
+    release_repo.write(SHARED_CONFIG, "formats: [0.4.1]\n")
+    release_repo.bump("0.7.0")
+    problem = _unreleased_bump_problem(release_repo.root, "0.7.0", release_rule, on_actions=False)
+    assert problem is not None
+    assert "[0.4.1]" in problem, problem
+
+
+def test_an_unreadable_previous_formats_list_fails_naming_the_release(
+    release_repo, release_rule: ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    release_repo.release("0.6.0")
+    release_repo.bump("0.7.0")
+    real = subprocess.run
+
+    def failing_show(args: Any, *rest: Any, **kwargs: Any) -> Any:
+        if list(args[:2]) == ["git", "show"] and str(args[2]) == f"v0.6.0:{SHARED_CONFIG}":
+            if kwargs.get("check"):
+                raise subprocess.CalledProcessError(128, args, "", "fatal: bad object")
+            return subprocess.CompletedProcess(args, 128, "", "fatal: bad object")
+        return real(args, *rest, **kwargs)
+
+    monkeypatch.setattr(release_rule.subprocess, "run", failing_show)
+    problem = release_rule.bump_problem(release_repo.root, "0.7.0", "v0.6.0")
+    assert problem is not None
+    assert "v0.6.0" in problem, problem

@@ -1,0 +1,30 @@
+Renaming <model_name> to <dataset_name>:
+
+
+--- a/pkg/ovl.py
++++ b/pkg/ovl.py
+@@ -2,8 +2,8 @@
+ 
+ 
+ @overload
+-def f(*, model_name: str) -> str: ...
++def f(*, dataset_name: str) -> str: ...
+ @overload
+-def f(*, model_name: int) -> int: ...
+-def f(*, model_name: str | int) -> str | int:
+-    return model_name
++def f(*, dataset_name: int) -> int: ...
++def f(*, dataset_name: str | int) -> str | int:
++    return dataset_name
+
+--- a/pkg/ovl_use.py
++++ b/pkg/ovl_use.py
+@@ -1,3 +1,3 @@
+ from pkg.ovl import f
+ 
+-x = f(model_name="x")
++x = f(dataset_name="x")
+
+
+
+DRY-RUN. 2 file(s) would change. Re-run with --apply.

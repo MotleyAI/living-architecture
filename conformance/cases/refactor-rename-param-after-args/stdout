@@ -1,0 +1,32 @@
+Renaming <model_name> to <dataset_name>:
+
+
+--- a/pkg/kw.py
++++ b/pkg/kw.py
+@@ -2,8 +2,8 @@
+     return model_name
+ 
+ 
+-def star(*xs: int, model_name: str) -> str:
+-    return model_name + str(len(xs))
++def star(*xs: int, dataset_name: str) -> str:
++    return dataset_name + str(len(xs))
+ 
+ 
+ def posonly(model_name: str, /) -> str:
+
+--- a/pkg/kw_use.py
++++ b/pkg/kw_use.py
+@@ -10,7 +10,7 @@
+ def calls() -> list[object]:
+     return [
+         kwonly(model_name="x"),
+-        star(1, 2, model_name="x"),
++        star(1, 2, dataset_name="x"),
+         posonly("x"),
+         kwonly(**{"model_name": "x"}),
+         wrap(model_name="x"),
+
+
+
+DRY-RUN. 2 file(s) would change. Re-run with --apply.

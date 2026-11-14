@@ -166,8 +166,8 @@ findings:
   arch-migrate.target-taken: '{source} cannot move to {target}, which already exists; nothing written'
   arch-migrate.diagrams-key-taken: '{source} cannot move to {target}: architecture/index.yaml already has the diagrams key {target}; nothing written'
   arch-migrate.no-config: no living-architecture.yaml at the repo root, so there is no format to migrate; run /la:init to onboard this repo
-  arch-migrate.unknown-format: cannot migrate from format {declared}; this la reads format {current} and converts only a repo that declares no format
-  arch-migrate.stamp-mismatch: 'cannot insert the format into living-architecture.yaml; add format: {current} by hand'
+  arch-migrate.unknown-format: cannot migrate from format {declared}, which no la release used; this la reads format {current}
+  arch-migrate.stamp-mismatch: 'cannot write the format into living-architecture.yaml; set format: {current} by hand'
   # A failed rollback: `paths` lists, repo-relative in code-point order, every path the restore could not put back.
   arch-migrate.rollback-failed: '{error}; restoring failed, so these paths are left changed: {paths}'
 
@@ -342,20 +342,23 @@ findings:
   refactor.mixed-languages: '{path} holds sources of more than one language: {languages}'
   refactor.rope-walk: 'rope cannot follow {path}:{line}, so nothing was refactored (a rope bug, not a source error); dr-compliance --select rope-walk lists every such file'
   refactor.name-conflict: '{name} already names something else at {path}:{line}, so nothing was refactored'
+  refactor.pyright-failed: 'basedpyright could not find the references, so nothing was refactored'
+  refactor.unresolved-base: '{name} has a base basedpyright cannot resolve at {path}:{line}, so nothing was refactored; run dr-refactor in the project environment'
+  refactor.file-changed: '{path} changed while dr-refactor ran, so nothing was refactored'
 
   # ---- dr-compliance
   compliance.untyped-def: '{path}:{line}: untyped-def: {name}() missing {missing}'
   compliance.untyped-params: params {params}
   compliance.untyped-return: return
   compliance.unannotated-attr: '{path}:{line}: unannotated-attr: {cls}.{attr} assigned without a type annotation'
-  compliance.attr-blindspot: '{path}:{line}: attr-blindspot: {receiver}.{attr} — annotate parameter ''{receiver}'' so a rename of .{attr} is verifiable'
+  compliance.attr-blindspot: '{path}:{line}: attr-blindspot: {receiver}.{attr} — {receiver} is {type}, so a rename of .{attr} is unverifiable'
+  compliance.pyright-failed: 'basedpyright could not type the receivers of .{attr}'
   compliance.parse-error: '{path}:{line}: parse-error: {error}'
   compliance.rope-walk: '{path}:{line}: rope-walk: rope cannot follow this construct, so dr-refactor would refuse this file (a rope bug, not a source error)'
   compliance.unknown-checks: 'unknown check(s): {checks}'
   compliance.tsconfig: '{path}: tsconfig: {flag} is not enabled'
   compliance.explicit-any: '{path}:{line}: explicit-any: an `any` type — use a real type or `unknown`'
   compliance.ts-untyped-def: '{path}:{line}: untyped-def: {name} is implicitly any'
-  compliance.ts-attr-blindspot: '{path}:{line}: attr-blindspot: {receiver}.{attr} — {receiver} is any, so a rename of .{attr} is unverifiable'
 
   # ---- dr-mock-lint
   mock-lint.patch: '{path}:{line}: {call}() without autospec=True/new=/spec= — stale members go undetected'

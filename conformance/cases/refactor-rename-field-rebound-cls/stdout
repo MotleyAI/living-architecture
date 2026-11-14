@@ -1,0 +1,19 @@
+Renaming <columns> to <fields>:
+
+
+--- a/pkg/models.py
++++ b/pkg/models.py
+@@ -9,7 +9,7 @@
+ 
+ 
+ class Model(BaseModel):
+-    columns: list[Member] = []
++    fields: list[Member] = []
+     label: Optional[str] = None
+ 
+ 
+
+
+
+APPLIED. 1 file(s) changed:
+  pkg/models.py

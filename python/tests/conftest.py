@@ -9,6 +9,7 @@ from functools import cache
 from pathlib import Path
 
 import fake_gh_cli
+import project_files
 import pytest
 from rope.refactor import patchedast
 
@@ -98,6 +99,7 @@ RELEASE_MANIFESTS = {
 }
 RELEASE_FILES = {
     "shared/cli.yaml": "commands: {}\n",
+    "shared/config.yaml": "file: living-architecture.yaml\nformats: [0.4.0]\n",
     "conformance/README.md": "# corpus\n",
     "python/src/living_architecture/__init__.py": "",
     "python/src/living_architecture/contract/data/CONTRACT_HASH": "h\n",
@@ -179,6 +181,12 @@ class ReleaseRepo:
 @pytest.fixture
 def release_repo(tmp_path: Path) -> ReleaseRepo:
     return ReleaseRepo(tmp_path / "repo")
+
+
+@pytest.fixture
+def typed_project(tmp_path: Path) -> Callable[..., Path]:
+    """`project_files.write_project` at `<tmp>/proj`."""
+    return lambda files, **kw: project_files.write_project(tmp_path / "proj", files, **kw)
 
 
 @cache

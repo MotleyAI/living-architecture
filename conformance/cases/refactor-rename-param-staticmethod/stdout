@@ -1,0 +1,36 @@
+Renaming <model_name> to <dataset_name>:
+
+
+--- a/pkg/kinds.py
++++ b/pkg/kinds.py
+@@ -4,8 +4,8 @@
+         return model_name
+ 
+     @staticmethod
+-    def sm(*, model_name: str) -> str:
+-        return model_name
++    def sm(*, dataset_name: str) -> str:
++        return dataset_name
+ 
+     async def am(self, *, model_name: str) -> str:
+         return model_name
+@@ -17,12 +17,12 @@
+         return model_name.upper()
+ 
+     @staticmethod
+-    def sm(*, model_name: str) -> str:
+-        return model_name.upper()
++    def sm(*, dataset_name: str) -> str:
++        return dataset_name.upper()
+ 
+     async def am(self, *, model_name: str) -> str:
+         return model_name.upper()
+ 
+ 
+ async def calls(b: B) -> str:
+-    return A.cm(model_name="x") + A.sm(model_name="y") + await b.am(model_name="z")
++    return A.cm(model_name="x") + A.sm(dataset_name="y") + await b.am(model_name="z")
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

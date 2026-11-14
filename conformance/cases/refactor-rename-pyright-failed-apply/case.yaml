@@ -1,0 +1,27 @@
+kind: adapter
+languages:
+- python
+twin: python
+command: dr-refactor
+args:
+- --apply
+- rename
+- --file
+- pkg/rec.py
+- --name
+- Rec
+- --new-name
+- Recommendation
+fixture: refactor-typed
+env:
+  NODE_OPTIONS: --require /nonexistent.js
+git:
+- commit: init
+expect:
+  exit: 1
+  files:
+  - pkg/models.py
+  - pkg/rec.py
+  - .ropeproject/history.json
+golden: manual
+note: 'the language server cannot start (apply): the finding, nothing written'

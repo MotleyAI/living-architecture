@@ -11,7 +11,7 @@ export {
   checkIds,
   computeHash,
   configFile,
-  configFormat,
+  configFormats,
   contractHash,
   conventions,
   findings,

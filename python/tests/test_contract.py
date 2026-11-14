@@ -260,11 +260,11 @@ def test_no_twin_hard_codes_a_config_file_name() -> None:
     assert python + node == []
 
 
-def test_config_file_names_and_format() -> None:
+def test_config_file_names_and_formats() -> None:
     assert _shared_yaml("config.yaml") == {
         "file": "living-architecture.yaml",
         "local_file": "living-architecture.local.yaml",
-        "format": "0.4.0",
+        "formats": ["0.4.0"],
     }
 
 
@@ -628,8 +628,6 @@ NEW_TEMPLATES = {
     "compliance.tsconfig": "{path}: tsconfig: {flag} is not enabled",
     "compliance.explicit-any": "{path}:{line}: explicit-any: an `any` type — use a real type or `unknown`",
     "compliance.ts-untyped-def": "{path}:{line}: untyped-def: {name} is implicitly any",
-    "compliance.ts-attr-blindspot":
-        "{path}:{line}: attr-blindspot: {receiver}.{attr} — {receiver} is any, so a rename of .{attr} is unverifiable",
     "mock-lint.fn": "{path}:{line}: {call}() without a type argument or implementation — type it as {call}<typeof real>()",
     "mock-lint.module":
         "{path}:{line}: {call}() factory not typed against a resolvable module"
@@ -659,10 +657,8 @@ NEW_TEMPLATES = {
     "arch-migrate.no-config":
         "no living-architecture.yaml at the repo root, so there is no format to migrate; run /la:init to onboard this"
         " repo",
-    "arch-migrate.unknown-format":
-        "cannot migrate from format {declared}; this la reads format {current} and converts only a repo that declares"
-        " no format",
-    "arch-migrate.stamp-mismatch": "cannot insert the format into living-architecture.yaml; add format: {current} by hand",
+    "arch-migrate.unknown-format": "cannot migrate from format {declared}, which no la release used; this la reads format {current}",
+    "arch-migrate.stamp-mismatch": "cannot write the format into living-architecture.yaml; set format: {current} by hand",
     "arch-migrate.rollback-failed": "{error}; restoring failed, so these paths are left changed: {paths}",
 }
 REMOVED_TEMPLATES = {"c4-layout.migrate"}
@@ -672,6 +668,7 @@ UNPRODUCED_BY_DESIGN = {
     "refactor.conflicting-edits": "TypeScript never returns differing rename edits across projects (node/test/refactor.test.ts)",
     "refactor.rope-walk": "no known input reaches a walker gap; pinned by the rope-walk unit tests",
     "compliance.rope-walk": "no known input reaches a walker gap; pinned by the rope-walk unit tests",
+    "refactor.file-changed": "needs a concurrent edit no corpus case can make; pinned by the rename-union unit tests",
 }
 
 
@@ -682,6 +679,7 @@ REMOVED_TEMPLATES = [
     "spec-mapping.unknown-node",
     "c4.include-non-top-level",
     "c4.view-includes-non-top-level",
+    "compliance.ts-attr-blindspot",
 ]
 
 
@@ -798,12 +796,13 @@ def test_every_checked_command_documents_the_format_refusal() -> None:
 def test_manifest_la_arch_migrate_converts_to_the_current_format() -> None:
     spec = _shared_yaml("cli.yaml")["commands"]["la-arch-migrate"]
     assert spec["help"] == (
-        "Convert the repo to the current format (`format` in living-architecture.yaml): for a repo that predates the"
-        " key, merge a legacy architecture/model/*.c4 model into architecture/model.c4 (creating an empty"
-        " architecture/views.c4 when absent), convert the retired arc42 metadata key (move each element's doc to"
-        " architecture/<element id>.arc42.md, drop the key, flatten cross_cutting_arc42 docs into architecture/ and"
-        " rename their diagrams keys), then stamp the format. Verified; writes everything or nothing and prints each"
-        " written, moved and deleted path."
+        "Convert the repo to the current format (`format` in living-architecture.yaml) one released format at a time,"
+        " starting from the declared one. A repo that predates the key first gets its legacy architecture/model/*.c4"
+        " model merged into architecture/model.c4 (creating an empty architecture/views.c4 when absent) and the"
+        " retired arc42 metadata key converted (each element's doc moved to architecture/<element id>.arc42.md, the"
+        " key dropped, cross_cutting_arc42 docs flattened into architecture/ and their diagrams keys renamed). Then"
+        " the current format is stamped. Verified; writes everything or nothing and prints each changed path once, by"
+        " its final state."
     )
     assert all(word in spec["exit"][2] for word in ("config", "newer", "invalid", "unknown"))
 

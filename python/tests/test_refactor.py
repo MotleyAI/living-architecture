@@ -4,6 +4,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 import pytest
+from project_files import file_tree
 from rope.refactor import patchedast
 
 from living_architecture.cli import dr_refactor as main
@@ -32,10 +33,6 @@ def _run(project: Path, *args: str) -> int:
     return main(["--project", str(project), *args])
 
 
-def _tree(root: Path) -> dict[str, bytes]:
-    return {p.relative_to(root).as_posix(): p.read_bytes() for p in root.rglob("*") if p.is_file()}
-
-
 def _rename_foo(project: Path, *flags: str) -> int:
     return _run(project, *flags, "rename", "--file", str(project / "pkg" / "a.py"), "--name", "foo", "--new-name", "bar")
 
@@ -60,17 +57,17 @@ def test_find_symbol_missing() -> None:
 
 
 def test_rename_dry_run_writes_nothing(project: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    before = _tree(project)
+    before = file_tree(project)
     assert _rename_foo(project) == 0
     assert "DRY-RUN. 2 file(s) would change" in capsys.readouterr().out
-    assert _tree(project) == before
+    assert file_tree(project) == before
     assert not (project / ".ropeproject").exists()
 
 
 def test_rename_apply_changes_only_the_renamed_files(project: Path) -> None:
-    before = _tree(project)
+    before = file_tree(project)
     assert _rename_foo(project, "--apply") == 0
-    after = _tree(project)
+    after = file_tree(project)
     assert sorted(k for k in before.keys() | after.keys() if before.get(k) != after.get(k)) == ["pkg/a.py", "pkg/b.py"]
     assert not (project / ".ropeproject").exists()
 
@@ -201,13 +198,59 @@ def test_rename_walks_every_construct(
         assert line in out
 
 
+ASYNC_METHODS = (
+    "class A:\n    async def get_model(self, x: int) -> None: ...\n\n\n"
+    "class B(A):\n    async def get_model(self, x: int) -> None: ...\n\n\n"
+    "async def f() -> None:\n    a = A()\n    await a.get_model(1)\n"
+)
+ASYNC_FUNCTION = (
+    "async def fetch() -> int:\n    return 1\n\n\n"
+    "async def g() -> int:\n    return await fetch() + await fetch()\n"
+)
+
+
+def _async_locators(text: str, name: str) -> list[list[str]]:
+    definition = text.index(name)
+    line = text.count("\n", 0, definition) + 1
+    col = definition - text.rfind("\n", 0, definition)
+    call = text.rindex(name)
+    return [["--line", str(line), "--col", str(col)], ["--offset", str(definition)], ["--name", name],
+            ["--offset", str(call)]]
+
+
+@pytest.mark.parametrize("which", range(4), ids=["definition-line-col", "definition-offset", "name", "call-offset"])
+@pytest.mark.parametrize(
+    ("source", "name", "new_name"),
+    [(ASYNC_METHODS, "get_model", "get_dataset"), (ASYNC_FUNCTION, "fetch", "load")],
+    ids=["method", "function"],
+)
+def test_async_definitions_rename_like_sync_ones(
+    project: Path, source: str, name: str, new_name: str, which: int
+) -> None:
+    target = project / "pkg" / "m.py"
+    target.write_text(source, encoding="utf-8")
+    locator = _async_locators(source, name)[which]
+    assert _run(project, "--apply", "rename", "--file", str(target), *locator, "--new-name", new_name) == 0
+    assert target.read_text(encoding="utf-8") == source.replace(name, new_name)
+
+
+def test_rope_refusal_is_the_cannot_rename_finding(project: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    before = file_tree(project)
+    text = (project / "pkg" / "a.py").read_text()
+    offset = text.index("\nclass")
+    assert _run(project, "--apply", "rename", "--file", str(project / "pkg" / "a.py"), "--offset", str(offset),
+                "--new-name", "x") == 1
+    assert capsys.readouterr() == ("", message("refactor.cannot-rename") + "\n")
+    assert file_tree(project) == before
+
+
 def _gap_refused(project: Path, capsys: pytest.CaptureFixture[str], line: int, *flags: str) -> None:
-    before = _tree(project)
+    before = file_tree(project)
     assert _rename_foo(project, *flags) == 1
     captured = capsys.readouterr()
     assert captured.out == ""
     assert captured.err == message("refactor.rope-walk", path="pkg/gap.py", line=line) + "\n"
-    assert _tree(project) == before
+    assert file_tree(project) == before
 
 
 @pytest.mark.parametrize("flags", [(), ("--apply",)], ids=["dry-run", "apply"])

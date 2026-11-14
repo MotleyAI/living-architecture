@@ -1,16 +1,19 @@
 """la-arch-migrate: all-or-nothing writes under injected filesystem failures, and the verification guard."""
 
+from __future__ import annotations
+
 import builtins
 import io
+import itertools
 import os
 import stat
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeAlias
 
 import pytest
 
-from living_architecture import cli, config
+from living_architecture import cli, config, contract
 from living_architecture.c4 import migrate as c4_migrate
 
 CASES = next(p for p in Path(__file__).resolve().parents if (p / "conformance").is_dir()) / "conformance" / "cases"
@@ -326,3 +329,329 @@ def test_migrated_check_cases_check_the_migrate_golden(migrate_case, check_case,
     written = CASES / migrate_case / "files" / rel
     checked = CASES / check_case / "repo" / rel
     assert written.read_bytes() == checked.read_bytes()
+
+
+# ---- the chain of steps keyed by source format, with a fake registry and format list
+
+F1, F2, F3 = "1.0.0", "2.0.0", "3.0.0"
+Apply: TypeAlias = "Callable[[Path, c4_migrate.Transaction], None]"
+
+
+def _noop(_root: Path, _tx: c4_migrate.Transaction) -> None:
+    pass
+
+
+def chain(*applies: Apply, formats: list[str], log: list[str | None] | None = None) -> list[c4_migrate.MigrationStep]:
+    """One step per apply: the unversioned step to formats[0], then each released format to the next."""
+    sources: list[str | None] = [None, *formats[:-1]]
+
+    def logged(source: str | None, apply: Apply) -> Apply:
+        def run(root: Path, tx: c4_migrate.Transaction) -> None:
+            if log is not None:
+                log.append(source)
+            apply(root, tx)
+
+        return run
+
+    return [
+        c4_migrate.MigrationStep(source=source, target=target, apply=logged(source, apply))
+        for source, target, apply in zip(sources, formats, applies, strict=True)
+    ]
+
+
+def chain_repo(tmp_path: Path, config_text: str, files: dict[str, str] | None = None) -> Path:
+    root = tmp_path / "repo"
+    root.mkdir(parents=True)
+    (root / CONFIG).write_text(config_text, encoding="utf-8")
+    for rel, text in (files or {}).items():
+        (root / rel).write_text(text, encoding="utf-8")
+    return root
+
+
+def run_chain(root: Path, steps: list[c4_migrate.MigrationStep], formats: list[str]) -> list[str]:
+    return c4_migrate.migrate(root, steps=steps, formats=formats)
+
+
+def wrote(rel: str) -> str:
+    return f"wrote {rel}"
+
+
+def test_every_released_older_format_has_a_step_to_the_next() -> None:
+    formats = config.released_formats()
+    steps = c4_migrate.STEPS
+    unversioned = [s for s in steps if s.source is None]
+    assert [s.target for s in unversioned] == [formats[0]]
+    versioned = [(s.source, s.target) for s in steps if s.source is not None]
+    assert len({source for source, _ in versioned}) == len(versioned), versioned
+    assert dict(versioned) == dict(itertools.pairwise(formats))
+
+
+def test_an_unversioned_repo_runs_every_step_on_what_the_earlier_left(tmp_path):
+    root = chain_repo(tmp_path, "tracker: linear\n")
+    log: list[str | None] = []
+
+    def second(root: Path, tx: c4_migrate.Transaction) -> None:
+        assert (root / "a.txt").read_text(encoding="utf-8") == "a\n"
+        tx.create("b.txt", "b\n")
+
+    steps = chain(lambda _r, tx: tx.create("a.txt", "a\n"), second, formats=[F1, F2], log=log)
+    assert run_chain(root, steps, [F1, F2]) == [wrote("a.txt"), wrote("b.txt"), wrote(CONFIG)]
+    assert log == [None, F1]
+    assert (root / CONFIG).read_text(encoding="utf-8") == f"format: {F2}\ntracker: linear\n"
+
+
+@pytest.mark.parametrize(("declared", "ran"), [(F1, [F1, F2]), (F2, [F2])])
+def test_a_released_older_format_runs_only_the_steps_from_it(tmp_path, declared, ran):
+    root = chain_repo(tmp_path, f"tracker: linear\nformat: {declared}  # repo format\n")
+    log: list[str | None] = []
+    steps = chain(_noop, _noop, _noop, formats=[F1, F2, F3], log=log)
+    assert run_chain(root, steps, [F1, F2, F3]) == [wrote(CONFIG)]
+    assert log == ran
+    assert (root / CONFIG).read_text(encoding="utf-8") == f"tracker: linear\nformat: {F3}  # repo format\n"
+
+
+@pytest.mark.parametrize("declared", ["2.0.0", "0.5.0"], ids=["between-released", "before-the-first"])
+def test_an_unreleased_older_format_is_refused(tmp_path, declared):
+    root = chain_repo(tmp_path, f"format: {declared}\n")
+    before = snapshot(root)
+    log: list[str | None] = []
+    steps = chain(lambda _r, tx: tx.create("a.txt", "a\n"), lambda _r, tx: tx.create("b.txt", "b\n"),
+                  formats=[F1, F3], log=log)
+    with pytest.raises(c4_migrate.MigrateError) as info:
+        run_chain(root, steps, [F1, F3])
+    assert str(info.value) == contract.message("arch-migrate.unknown-format", declared=declared, current=F3)
+    assert log == []
+    assert snapshot(root) == before
+
+
+def test_the_current_format_of_the_injected_list_has_nothing_to_migrate(tmp_path):
+    root = chain_repo(tmp_path, f"format: {F2}\n")
+    log: list[str | None] = []
+    steps = chain(_noop, _noop, formats=[F1, F2], log=log)
+    assert run_chain(root, steps, [F1, F2]) == [contract.message("arch-migrate.nothing", current=F2)]
+    assert log == []
+
+
+def test_a_format_newer_than_the_injected_list_is_refused(tmp_path):
+    root = chain_repo(tmp_path, f"format: {F3}\n")
+    steps = chain(_noop, _noop, formats=[F1, F2])
+    with pytest.raises(c4_migrate.MigrateError) as info:
+        run_chain(root, steps, [F1, F2])
+    assert str(info.value) == contract.message("format.newer", declared=F3, current=F2)
+
+
+@pytest.mark.parametrize("text", ["{tracker: linear}\n", f"format:\n  {F1}\n"], ids=["unversioned", "versioned"])
+def test_the_stamp_is_decided_before_any_step_writes(tmp_path, text):
+    root = chain_repo(tmp_path, text, {"kept.txt": "kept\n"})
+    before = snapshot(root)
+    steps = chain(lambda _r, tx: tx.create("a.txt", "a\n"), lambda _r, tx: tx.delete("kept.txt"), formats=[F1, F2])
+    with pytest.raises(c4_migrate.MigrateError) as info:
+        run_chain(root, steps, [F1, F2])
+    assert str(info.value) == contract.message("arch-migrate.stamp-mismatch", current=F2)
+    assert snapshot(root) == before
+
+
+# ---- one transaction and one rollback across the chain
+
+ROLLBACK_FILES = {"moved.txt": "moved\n", "doomed.txt": "doomed\n", "replaced.txt": "replaced\n"}
+
+
+def rollback_repo(tmp_path: Path) -> Path:
+    root = chain_repo(tmp_path, UNVERSIONED, ROLLBACK_FILES)
+    # Non-default modes, so a rollback that loses them changes the snapshot.
+    for rel, mode in {"moved.txt": 0o600, "doomed.txt": 0o640, "replaced.txt": 0o604, CONFIG: 0o640}.items():
+        (root / rel).chmod(mode)
+    (root / "gone").mkdir()
+    (root / "gone").chmod(0o750)
+    return root
+
+
+def every_change(_root: Path, tx: c4_migrate.Transaction) -> None:
+    tx.create("created.txt", "created\n")
+    tx.move("moved.txt", "arrived.txt")
+    tx.delete("doomed.txt")
+    tx.replace("replaced.txt", "new\n")
+    tx.remove_dir("gone")
+
+
+def _refuse(_root: Path, _tx: c4_migrate.Transaction) -> None:
+    raise c4_migrate.MigrateError("the second step refuses")
+
+
+def _mismatch(_root: Path, _tx: c4_migrate.Transaction) -> None:
+    raise c4_migrate.MigrateError(contract.message("arch-migrate.mismatch"))
+
+
+def _fail_applying(_root: Path, tx: c4_migrate.Transaction) -> None:
+    tx.create("later.txt", "later\n")
+    tx.replace("arrived.txt", "rewritten\n")
+    tx.move("missing.txt", "elsewhere.txt")
+
+
+@pytest.mark.parametrize(
+    ("second", "refusal", "text"),
+    [
+        (_refuse, True, "the second step refuses"),
+        (_mismatch, True, MISMATCH.removeprefix("la-arch-migrate: ").rstrip("\n")),
+        (_fail_applying, False, "missing.txt"),
+    ],
+    ids=["planning", "verification", "application"],
+)
+def test_a_later_step_failure_rolls_back_the_earlier_steps(tmp_path, second, refusal, text):
+    root = rollback_repo(tmp_path)
+    before = snapshot(root)
+    steps = chain(every_change, second, formats=[F1, F2])
+    with pytest.raises(c4_migrate.MigrateError if refusal else OSError) as info:
+        run_chain(root, steps, [F1, F2])
+    assert (str(info.value) == text) if refusal else (text in str(info.value))
+    assert snapshot(root) == before
+
+
+def _crash(_root: Path, tx: c4_migrate.Transaction) -> None:
+    tx.create("later.txt", "later\n")
+    raise RuntimeError("the second step crashes")
+
+
+def test_an_unexpected_step_error_rolls_back_the_chain(tmp_path):
+    root = rollback_repo(tmp_path)
+    before = snapshot(root)
+    steps = chain(every_change, _crash, formats=[F1, F2])
+    with pytest.raises(RuntimeError, match="the second step crashes"):
+        run_chain(root, steps, [F1, F2])
+    assert snapshot(root) == before
+
+
+def test_a_read_only_replaced_file_is_restored(tmp_path):
+    root = chain_repo(tmp_path, UNVERSIONED, {"locked.txt": "locked\n"})
+    (root / "locked.txt").chmod(0o444)
+    before = snapshot(root)
+    steps = chain(lambda _r, tx: tx.replace("locked.txt", "new\n"), _refuse, formats=[F1, F2])
+    with pytest.raises(c4_migrate.MigrateError) as info:
+        run_chain(root, steps, [F1, F2])
+    assert str(info.value) == "the second step refuses"
+    assert snapshot(root) == before
+
+
+def test_a_path_whose_restore_cannot_be_verified_is_named(tmp_path, monkeypatch):
+    root = rollback_repo(tmp_path)
+    before = snapshot(root)
+    real_read = Path.read_bytes
+
+    def read(self: Path) -> bytes:
+        if self.name == "replaced.txt":
+            raise PermissionError(f"injected failure: read {self}")
+        return real_read(self)
+
+    def unreadable(_root: Path, _tx: c4_migrate.Transaction) -> None:
+        monkeypatch.setattr(Path, "read_bytes", read)
+        raise c4_migrate.MigrateError("the second step refuses")
+
+    steps = chain(every_change, unreadable, formats=[F1, F2])
+    with pytest.raises(c4_migrate.MigrateError) as info:
+        run_chain(root, steps, [F1, F2])
+    monkeypatch.undo()
+    expected = contract.message("arch-migrate.rollback-failed", error="the second step refuses", paths="replaced.txt")
+    assert str(info.value) == expected
+    assert snapshot(root) == before
+
+
+def _recorded_chain_ops(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, str]]:
+    probe = rollback_repo(tmp_path / "probe")
+    recorder = Faults(probe)
+    with monkeypatch.context() as patch:
+        recorder.install(patch)
+        run_chain(probe, chain(every_change, _noop, formats=[F1, F2]), [F1, F2])
+    assert ("rename", "moved.txt") in recorder.ops, recorder.ops
+    return recorder.ops
+
+
+def test_every_failed_mutation_of_a_chain_leaves_the_repo_unchanged(tmp_path, monkeypatch):
+    ops = _recorded_chain_ops(tmp_path, monkeypatch)
+    assert ops[-1][0] in ("rename", "replace"), ops
+    for fail_at, (op, path) in enumerate(ops):
+        for after in (False, True) if op == "open" else (False,):
+            root = rollback_repo(tmp_path / f"run-{fail_at}-{after}")
+            before = snapshot(root)
+            with monkeypatch.context() as patch:
+                Faults(root, fail_at=fail_at, after=after).install(patch)
+                steps = chain(every_change, _noop, formats=[F1, F2])
+                with pytest.raises((c4_migrate.MigrateError, OSError)):
+                    run_chain(root, steps, [F1, F2])
+            assert snapshot(root) == before, (fail_at, op, path, after)
+
+
+def test_a_failed_restore_of_a_chain_names_every_path_left_changed(tmp_path, monkeypatch):
+    ops = _recorded_chain_ops(tmp_path, monkeypatch)
+    named_any = False
+    for fail_at in range(len(ops)):
+        root = rollback_repo(tmp_path / f"run-{fail_at}")
+        before = snapshot(root)
+        with monkeypatch.context() as patch:
+            Faults(root, fail_at=fail_at, fail_from=True).install(patch)
+            steps = chain(every_change, _noop, formats=[F1, F2])
+            with pytest.raises((c4_migrate.MigrateError, OSError)) as info:
+                run_chain(root, steps, [F1, F2])
+        left = changed_paths(before, snapshot(root))
+        text = str(info.value)
+        assert [rel for rel in sorted(left) if rel not in text] == [], (fail_at, text)
+        assert ("left changed" in text) is bool(left), (fail_at, text)
+        named_any = named_any or bool(left)
+    assert named_any, "no failure point left a path changed"
+
+
+# ---- the net-effect report
+
+NET_EFFECT: dict[str, tuple[dict[str, str], Apply, Apply, list[str]]] = {
+    "one move": ({"a": "A\n"}, lambda _r, tx: tx.move("a", "b"), _noop, [wrote(CONFIG), "moved a to b"]),
+    "consecutive moves composed": (
+        {"a": "A\n"}, lambda _r, tx: tx.move("a", "b"), lambda _r, tx: tx.move("b", "c"), [wrote(CONFIG), "moved a to c"],
+    ),
+    "moved back": ({"a": "A\n"}, lambda _r, tx: tx.move("a", "b"), lambda _r, tx: tx.move("b", "a"), [wrote(CONFIG)]),
+    "moved then deleted": (
+        {"a": "A\n"}, lambda _r, tx: tx.move("a", "b"), lambda _r, tx: tx.delete("b"), [wrote(CONFIG), "deleted a"],
+    ),
+    "created then deleted": ({}, lambda _r, tx: tx.create("x", "X\n"), lambda _r, tx: tx.delete("x"), [wrote(CONFIG)]),
+    "rewritten then deleted": (
+        {"x": "X\n"}, lambda _r, tx: tx.replace("x", "Y\n"), lambda _r, tx: tx.delete("x"), [wrote(CONFIG), "deleted x"],
+    ),
+    "rewritten twice": (
+        {"x": "X\n"}, lambda _r, tx: tx.replace("x", "Y\n"), lambda _r, tx: tx.replace("x", "Z\n"),
+        [wrote("x"), wrote(CONFIG)],
+    ),
+    "moved then rewritten": (
+        {"a": "A\n"}, lambda _r, tx: tx.move("a", "b"), lambda _r, tx: tx.replace("b", "B\n"),
+        [wrote("b"), wrote(CONFIG), "moved a to b"],
+    ),
+    "moved source recreated": (
+        {"a": "A\n"}, lambda _r, tx: tx.move("a", "b"), lambda _r, tx: tx.create("a", "new\n"),
+        [wrote("a"), wrote(CONFIG), "moved a to b"],
+    ),
+}
+
+
+def _first_of_each_kind(_root: Path, tx: c4_migrate.Transaction) -> None:
+    tx.delete("d")
+    tx.move("m", "n")
+    tx.create("w1", "1\n")
+
+
+def _second_of_each_kind(_root: Path, tx: c4_migrate.Transaction) -> None:
+    tx.remove_dir("e")
+    tx.create("w2", "2\n")
+
+
+@pytest.mark.parametrize("name", list(NET_EFFECT))
+def test_the_report_is_the_net_effect(tmp_path, name):
+    files, first, second, report = NET_EFFECT[name]
+    root = chain_repo(tmp_path, UNVERSIONED, files)
+    log: list[str | None] = []
+    assert run_chain(root, chain(first, second, formats=[F1, F2], log=log), [F1, F2]) == report
+    assert log == [None, F1]
+    assert not [rel for rel in snapshot(root)[1] if rel.endswith(".tmp")]
+
+
+def test_the_report_lists_writes_then_moves_then_deletes(tmp_path):
+    root = chain_repo(tmp_path, UNVERSIONED, {"d": "D\n", "m": "M\n"})
+    (root / "e").mkdir()
+    report = run_chain(root, chain(_first_of_each_kind, _second_of_each_kind, formats=[F1, F2]), [F1, F2])
+    assert report == [wrote("w1"), wrote("w2"), wrote(CONFIG), "moved m to n", "deleted d", "deleted e"]

@@ -69,6 +69,8 @@ flowchart TD
   conventions --> changes
   changes --> config
   changes --> contract
+  refactor --> lang
+  lang --> contract
 ```
 <!-- /likec4:system -->
 
@@ -140,7 +142,8 @@ flowchart TD
 ## Principles
 
 1. Twins: every behaviour observable through a command is identical in both implementations for the
-   languages they share; the conformance corpus decides. [enforced: test:python/tests/test_conformance.py]
+   languages they share, on every input in the forms the tools and docs write; the conformance corpus
+   decides. [enforced: test:python/tests/test_conformance.py]
    [enforced: test:node/scripts/conformance.mjs]
 2. Parameters, defaults, user-facing texts and command surfaces come only from the shared contract.
    [review]

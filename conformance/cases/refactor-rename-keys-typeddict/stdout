@@ -1,0 +1,32 @@
+Renaming <columns> to <fields>:
+
+
+--- a/pkg/models.py
++++ b/pkg/models.py
+@@ -32,4 +32,4 @@
+ 
+ 
+ class ModelDict(TypedDict):
+-    columns: list[int]
++    fields: list[int]
+
+--- a/pkg/use.py
++++ b/pkg/use.py
+@@ -5,8 +5,8 @@
+ 
+ 
+ def g() -> ModelDict:
+-    return {"columns": []}
++    return {"fields": []}
+ 
+ 
+-f({"columns": []})
+-x: ModelDict = {"columns": []}
++f({"fields": []})
++x: ModelDict = {"fields": []}
+
+
+
+APPLIED. 2 file(s) changed:
+  pkg/models.py
+  pkg/use.py

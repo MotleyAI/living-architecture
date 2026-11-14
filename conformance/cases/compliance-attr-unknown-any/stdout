@@ -1,0 +1,4 @@
+src/formula.py:11: attr-blindspot: m.formula — m is Unknown, so a rename of .formula is unverifiable
+src/formula.py:16: attr-blindspot: mdl.formula — mdl is Unknown, so a rename of .formula is unverifiable
+src/formula.py:18: attr-blindspot: h.formula — h is Unknown, so a rename of .formula is unverifiable
+src/formula.py:22: attr-blindspot: o.formula — o is Any, so a rename of .formula is unverifiable

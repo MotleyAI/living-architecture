@@ -1,0 +1,20 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- rename
+- --file
+- pkg/hier_other.py
+- --line
+- '2'
+- --col
+- '22'
+- --new-name
+- dataset_name
+fixture: refactor-params
+git:
+- commit: init
+expect:
+  exit: 0
+note: an override naming the parameter otherwise is unchanged

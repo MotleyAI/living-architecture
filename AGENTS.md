@@ -4,7 +4,7 @@
 
 The `la-*`/`dr-*` commands have one contract and one implementation per ecosystem: the PyPI package in
 `python/` (Python target repos) and the npm package in `node/` (TS/JS target repos). Every behaviour observable through a command must be identical in both twins for the languages they
-share. The conformance corpus decides: an output that differs from its golden is a bug in the twin, never
+share, on every input in the forms the tools and docs write. The conformance corpus decides: an output that differs from its golden is a bug in the twin, never
 in the golden.
 
 Only `shared/` is the source of truth for parameters, defaults, user-facing texts and command surfaces.

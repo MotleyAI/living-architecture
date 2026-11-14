@@ -1,0 +1,16 @@
+kind: adapter
+languages:
+- python
+command: dr-compliance
+args:
+- --select
+- ''
+- --attr
+- formula
+- src/formula.py
+fixture: compliance
+expect:
+  exit: 1
+golden: manual
+note: '--attr reports receivers basedpyright types as Unknown or Any: a bare-list element, a local from an unresolved call,
+  a lambda parameter over list[Unknown], an Any parameter'

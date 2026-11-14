@@ -1,0 +1,24 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- --apply
+- rename
+- --file
+- pkg/f.py
+- --offset
+- '40'
+- --new-name
+- x
+fixture: refactor-typed
+git:
+- commit: init
+expect:
+  exit: 1
+  files:
+  - pkg/f.py
+  - pkg/models.py
+  - .ropeproject/history.json
+golden: manual
+note: 'rope refuses the location (whitespace between statements): the finding, no traceback'

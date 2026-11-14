@@ -1,0 +1,29 @@
+Renaming <columns> to <fields>:
+
+
+--- a/pkg/models.py
++++ b/pkg/models.py
+@@ -9,7 +9,7 @@
+ 
+ 
+ class Model(BaseModel):
+-    columns: list[Member] = []
++    fields: list[Member] = []
+     label: Optional[str] = None
+ 
+ 
+
+--- a/pkg/use.py
++++ b/pkg/use.py
+@@ -3,4 +3,4 @@
+ a = Model.model_validate({"col" "umns": []})
+ b = Model.model_validate({"\x63olumns": []})
+ c = Model.model_validate({f"columns": []})
+-d = Model.model_validate({r'columns': []})
++d = Model.model_validate({r'fields': []})
+
+
+
+APPLIED. 2 file(s) changed:
+  pkg/models.py
+  pkg/use.py

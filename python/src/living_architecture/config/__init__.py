@@ -9,6 +9,7 @@ from living_architecture.config.format import (
     format_problem,
     is_version,
     read_committed,
+    released_formats,
     stamp_format,
 )
 from living_architecture.config.languages import language_fact, repo_languages, source_files
@@ -54,6 +55,7 @@ __all__ = [
     "load_config",
     "load_raw",
     "read_committed",
+    "released_formats",
     "repo_languages",
     "resolve",
     "run_get",

@@ -1,0 +1,25 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- --apply
+- rename
+- --file
+- pkg/hier_base.py
+- --line
+- '2'
+- --col
+- '22'
+- --new-name
+- model_name
+fixture: refactor-params
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - pkg/hier_base.py
+  - pkg/hier_sub.py
+  - .ropeproject/history.json
+note: a rename to the old name across an override changes nothing

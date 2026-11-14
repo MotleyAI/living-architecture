@@ -190,7 +190,7 @@ def substitute(text: str, root: Path) -> str:
 
 def current_format() -> str:
     """The repo format the bundled contract reads and writes."""
-    return yaml.safe_load((snapshot_dir() / "config.yaml").read_text(encoding="utf-8"))["format"]
+    return yaml.safe_load((snapshot_dir() / "config.yaml").read_text(encoding="utf-8"))["formats"][-1]
 
 
 def with_format(text: str) -> str:

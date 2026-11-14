@@ -9,7 +9,7 @@ The skills drive these commands; you can also run them directly. `<command> --he
 | `la-arch-check` | Architecture cross-check (exit 0 OK, 1 findings, 2 broken setup) |
 | `la-arch-scaffold` | Write a starter `architecture/model.c4`, `architecture/views.c4` and `system.arc42.md` from the measured top-level units and imports |
 | `la-arch-diagrams` | Regenerate the mermaid view diagrams embedded in arc42 docs |
-| `la-arch-migrate` | Convert the repo to the current `format`: merge a legacy `architecture/model/*.c4` model into `architecture/model.c4`, convert the retired `arc42` key format and stamp `format` (verified, all-or-nothing) |
+| `la-arch-migrate` | Convert the repo to the current `format` one released format at a time: a repo without one first gets a legacy `architecture/model/*.c4` model merged into `architecture/model.c4` and the retired `arc42` key format converted; then stamp `format` (verified, all-or-nothing) |
 | `la-check-conventions <PR>` / `--base BRANCH` | Imports-at-top, text-ratio and test-assertion gate on changed `.py` and TS/JS files |
 | `la-count-comments` | Count comment and doc (docstring, JSDoc) lines, or the net change vs a git ref |
 | `la-typecheck [--write-baseline]` | Type-check each applicable language against a baseline that only shrinks |
@@ -39,7 +39,9 @@ the language facts they need with `la-config get lang.<language>.<key>` (`source
 The `dr-*` commands route each input by file language: `dr-compliance` and `dr-mock-lint` print one block per
 language, in registry order, and exit with the highest code; a directory expands to the repo languages' files
 (every registered language's when the repo has none), never declaration files or `node_modules`.
-`dr-refactor` runs in the language of its `--file` or `--module`.
+`dr-refactor` runs in the language of its `--file` or `--module`. A Python rename and Python `dr-compliance
+--attr` start the basedpyright bundled with the PyPI package as a language server, with the pyright#11919 patch,
+outside the project; it reads the project's own configuration and interpreter.
 
 ## Conventions gate and type checks
 

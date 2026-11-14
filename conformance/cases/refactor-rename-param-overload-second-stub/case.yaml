@@ -1,0 +1,20 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- rename
+- --file
+- pkg/ovl.py
+- --line
+- '7'
+- --col
+- '10'
+- --new-name
+- dataset_name
+fixture: refactor-params
+git:
+- commit: init
+expect:
+  exit: 0
+note: 'located at the second stub: the same edits'

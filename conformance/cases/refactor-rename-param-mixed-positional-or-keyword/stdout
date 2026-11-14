@@ -1,0 +1,28 @@
+Renaming <b> to <bb>:
+
+
+--- a/pkg/mixed.py
++++ b/pkg/mixed.py
+@@ -1,5 +1,5 @@
+-def f(a: int, /, b: int, *xs: int, c: int = 0, **kw: int) -> int:
+-    return a + b + sum(xs) + c + sum(kw.values())
++def f(a: int, /, bb: int, *xs: int, c: int = 0, **kw: int) -> int:
++    return a + bb + sum(xs) + c + sum(kw.values())
+ 
+ 
+ def g(a: int, /, *args: int, **kwargs: int) -> None:
+
+--- a/pkg/mixed_use.py
++++ b/pkg/mixed_use.py
+@@ -3,6 +3,6 @@
+ 
+ def calls() -> None:
+     f(1, 2, 3, c=4, d=5)
+-    f(1, b=2)
++    f(1, bb=2)
+     f(1, 2, a=3)
+     g(1, a=2, args=3, kwargs=4)
+
+
+
+DRY-RUN. 2 file(s) would change. Re-run with --apply.

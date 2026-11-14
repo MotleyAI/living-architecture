@@ -1,0 +1,19 @@
+Renaming <get_model> to <get_dataset>:
+
+
+--- a/pkg/mixed_kind.py
++++ b/pkg/mixed_kind.py
+@@ -1,7 +1,7 @@
+ class A:
+-    def get_model(self) -> int:
++    def get_dataset(self) -> int:
+         return 1
+ 
+ 
+ def f(a: A, /, *, b: A) -> None:
+-    print(a.get_model() + b.get_model())
++    print(a.get_dataset() + b.get_dataset())
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.
