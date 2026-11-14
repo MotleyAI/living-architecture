@@ -31,6 +31,7 @@ from living_architecture.refactor.keyed import (
     declares_alias,
     field_assignment,
 )
+from living_architecture.refactor.compound import is_compound
 from living_architecture.refactor.member_scan import FormCall, MemberScan
 from living_architecture.refactor.members import classes, member_declarations
 from living_architecture.refactor.mentions import (
@@ -46,6 +47,7 @@ from living_architecture.refactor.outcomes import (
     Finding,
     Outcome,
     blindspot_outcome,
+    compound_outcome,
     literal_outcomes,
     mention_outcome,
     string_member_outcome,
@@ -313,6 +315,7 @@ class SymbolRename:
         self.matched_sites: set[str] = set()
         self.member = False
         self.check_names = True
+        self.renamed_names: set[str] = {self.old}
         self._fields: list[tuple[ClassRef, ast.AnnAssign | ast.Assign, Span]] = []
         self.edits: list[TextEdit] = []
         self.seeds: set[tuple[str, int]] = set()
@@ -654,6 +657,22 @@ class SymbolRename:
             for m in sorted([*rewrite, *listed], key=lambda m: m.start):
                 self._file(mention_outcome(rel, m, rewrite=m in rewrite, old=self.old, new=self.new))
 
+    def _compound_names(self) -> None:
+        """Each declaration in a project source whose name holds OLD as a word sequence, listed."""
+        for path in language_files(self.root, "python"):
+            rel = path.relative_to(self.root).as_posix()
+            try:
+                source = self.snapshot.source(rel)
+            except (OSError, UnicodeDecodeError, LookupError):
+                continue
+            if source.tree is None:
+                continue
+            for node in ast.walk(source.tree):
+                name = _declared_name(node)
+                span = source.name_span(node) if name is not None else None
+                if name is not None and span is not None and name not in self.renamed_names and is_compound(name, self.old):
+                    self._file(compound_outcome(rel, source, span, name, self.old))
+
     def _literal_leftovers(self) -> None:
         """Without `--docs`: each string literal exactly OLD that no rule examined, listed; every project file, as an
         escape can spell OLD."""
@@ -697,6 +716,7 @@ class SymbolRename:
         """The rules that read text only: mentions with `--docs`, else a member's exact-OLD string literals."""
         if self.options.docs:
             self._mention_edits()
+            self._compound_names()
         elif self.member:
             self._literal_leftovers()
 
@@ -706,6 +726,19 @@ class SymbolRename:
             return
         for rel in sorted({e.path for e in edits}):
             _conflict(self.snapshot.source(rel), rel, [e for e in edits if e.path == rel], self.old, self.new)
+
+
+def _declared_name(node: ast.AST) -> str | None:
+    """The name a def, class, parameter or assignment target declares."""
+    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+        return node.name
+    if isinstance(node, ast.arg):
+        return node.arg
+    if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
+        return node.id
+    if isinstance(node, ast.Attribute) and isinstance(node.ctx, ast.Store):
+        return node.attr
+    return None
 
 
 def _top_declarations(stmt: ast.stmt, name: str) -> list[ast.AST]:

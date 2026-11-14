@@ -128,6 +128,7 @@ model {
     changes -> config
     changes -> contract
     refactor -> lang
+    refactor -> changes
     lang -> contract
   }
   typescript = system 'npm twin' {
@@ -237,6 +238,7 @@ model {
     refactor -> lang
     refactor -> config
     refactor -> twin
+    refactor -> changes
     cli -> affected
     affected -> changes
     affected -> lang

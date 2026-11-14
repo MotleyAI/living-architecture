@@ -203,7 +203,9 @@ class RenameMap:
                 r.is_renamed = renamed.__contains__
             for r in active:
                 r.rules(server, facts)
+        olds = {r.old for r in active}
         for r in active:
+            r.renamed_names = olds
             r.finish()
             r.edits = merge_edits(r.edits)
             if isinstance(r, AliasRetarget):

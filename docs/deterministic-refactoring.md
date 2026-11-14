@@ -9,18 +9,25 @@ static reference remains; marked overrides turn a missed override into an error;
 dynamic (mock) reference into a failure. Green ⇒ provably no dangling reference.
 
 Tools (both twins, routed by each file's language):
-- `dr-refactor` — the mutator: `rename` / `move-symbol` / `move-module`. Python runs rope, and a rename adds
-  every reference the bundled basedpyright resolves; TypeScript runs the bundled TypeScript language service,
-  one per project of the tsconfig's reference graph.
-- `dr-mock-lint` — fail on test doubles not bound to the real type
+- `dr-refactor` — the mutator: `rename` / `rename-map` / `retarget` / `move-symbol` / `move-module`. Python runs
+  rope, and a rename adds every reference the bundled basedpyright resolves; TypeScript runs the bundled
+  TypeScript language service, one per project of the tsconfig's reference graph.
+- `dr-mock-lint` — fail on test doubles not bound to the real type; `--base BRANCH` prints only the findings the
+  base branch lacks
 - `dr-compliance` — report the constructs that make a refactor un-verifiable
 
-`dr-refactor` prints one unified diff per changed file (and a `rename from`/`rename to` pair per moved file);
-it is a dry run unless `--apply` comes before the subcommand. Locate the symbol with `--line [--col]`
-(1-based), `--offset` (0-based) or `--name` (first declaration, else first use). A member rename refuses while a
-receiver of the old name is untyped (`--allow-blindspots` overrides) or a class outside the renamed hierarchy
-declares it (`--with` / `--without PATH:LINE` classify each); `--keep PATH[:LINE]` leaves sites untouched, and
-`--docs` also rewrites mentions in comments, docstrings, strings and prose files, listing the rest as `leftover`.
+`dr-refactor` prints one unified diff per changed file (and a `rename from`/`rename to` pair per moved file); it
+is a dry run unless `--apply` comes before the subcommand. Locate the symbol with `--symbol` (its path in
+`--file`: `Class.method`, `func.<locals>.inner`, `func(param)`, `Alias['value']` for a `Literal` member; no match
+or several exit 2 listing the candidates), `--line [--col]` (1-based) or `--offset` (0-based). `rename-map MAP`
+applies a YAML list of rename and retarget entries as one refactor: every entry resolved before any is renamed,
+one diff, one refusal report, written all or nothing. `retarget` rewrites what resolves to a back-compat alias so
+it names the alias's target, leaving the alias. Every refactor keeps the type-check baseline aligned (Python
+through `commands.typecheck.python`, TypeScript through the bundled language service), in dry-run and `--apply`. A
+member rename refuses while a receiver of the old name is untyped (`--allow-blindspots` overrides) or a class
+outside the renamed hierarchy declares it (`--with` / `--without PATH:LINE` classify each); `--keep PATH[:LINE]`
+leaves sites untouched, and `--docs` also rewrites mentions in comments, docstrings, strings and prose files,
+listing the rest as `leftover`.
 
 ## What a fully compliant repo must fulfill
 

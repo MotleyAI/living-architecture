@@ -70,6 +70,7 @@ flowchart TD
   changes --> config
   changes --> contract
   refactor --> lang
+  refactor --> changes
   lang --> contract
 ```
 <!-- /likec4:system -->
@@ -127,6 +128,7 @@ flowchart TD
   refactor --> lang
   refactor --> config
   refactor --> twin
+  refactor --> changes
   cli --> affected
   affected --> changes
   affected --> lang
