@@ -44,7 +44,8 @@ in-memory patch for pyright#11919 through it. The patch is verified only for the
 `format` is the repo format: the `la` version that introduced the format of this file and everything under
 `architecture/`. Every command except `la-arch-migrate`, `la-doctor` and the review shims checks it first and
 exits 2 on any other format: a newer one names the `la` to upgrade to, an older or missing one says to run
-`la-arch-migrate`, which converts the repo and stamps the current format. `la-doctor` reports the same refusal as
+`la-arch-migrate`, which converts the repo one released format at a time, starting from the declared one, and
+stamps the current format. `la-doctor` reports the same refusal as
 a problem. Without a committed file there is nothing to check; the local file cannot set `format`.
 
 ## Languages

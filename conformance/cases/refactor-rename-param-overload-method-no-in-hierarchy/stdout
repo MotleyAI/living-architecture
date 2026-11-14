@@ -1,0 +1,31 @@
+Renaming <model_name> to <dataset_name>:
+
+
+--- a/pkg/ovl_method.py
++++ b/pkg/ovl_method.py
+@@ -3,11 +3,11 @@
+ 
+ class A:
+     @overload
+-    def run(self, *, model_name: str) -> str: ...
++    def run(self, *, dataset_name: str) -> str: ...
+     @overload
+-    def run(self, *, model_name: int) -> int: ...
+-    def run(self, *, model_name: str | int) -> str | int:
+-        return model_name
++    def run(self, *, dataset_name: int) -> int: ...
++    def run(self, *, dataset_name: str | int) -> str | int:
++        return dataset_name
+ 
+ 
+ class B(A):
+@@ -16,4 +16,4 @@
+ 
+ 
+ def calls(a: A, b: B) -> object:
+-    return a.run(model_name="x"), b.run(model_name=1)
++    return a.run(dataset_name="x"), b.run(model_name=1)
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

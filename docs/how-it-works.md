@@ -138,11 +138,12 @@ Pin the check in CI to a release, in your ecosystem's form:
 ```yaml
 # Python
 - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-- run: uvx --no-build --from living-architecture==0.7.0 la-arch-check
+- run: uvx --no-build --from living-architecture==0.8.0 la-arch-check
 # TypeScript
 - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-- run: npx -y -p living-architecture@0.7.0 la-arch-check
+- run: npx -y -p living-architecture@0.8.0 la-arch-check
 ```
 
 When you move the pin to a release with a newer repo format, first run that release's `la-arch-migrate` and commit
-the result: the check refuses a repo in an older format.
+the result: it converts the repo step by step from the older released format, and the check refuses a repo in an
+older format.

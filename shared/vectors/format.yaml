@@ -2,7 +2,8 @@
 # how la-arch-migrate stamps the current format into a config text.
 # `valid` and `invalid` values are read with the shared YAML profile. `compare` is [a, b, sign of a - b], compared
 # component by component as integers of any size. `stamp` maps a config `text` to its `stamped` text, `<FORMAT>`
-# standing for the current format; `stamped: null` means the format must be added by hand.
+# standing for the current format: inserted when `text` declares no format, else replacing the declared value;
+# `stamped: null` means the format must be set by hand.
 valid:
 - '0.4.0'
 - '0.0.0'
@@ -96,4 +97,64 @@ stamp:
   stamped: null
 - name: top-level scalar
   text: "42\n"
+  stamped: null
+- name: replace the first key
+  text: "format: 0.3.0\ntracker: linear\n"
+  stamped: "format: <FORMAT>\ntracker: linear\n"
+- name: replace a later key
+  text: "tracker: linear\nformat: 0.3.0\nopenspec: false\n"
+  stamped: "tracker: linear\nformat: <FORMAT>\nopenspec: false\n"
+- name: replace a single-quoted value
+  text: "format: '0.3.0'\n"
+  stamped: "format: <FORMAT>\n"
+- name: replace a double-quoted value
+  text: "format: \"0.3.0\"\n"
+  stamped: "format: <FORMAT>\n"
+- name: replace keeps extra spaces after the colon
+  text: "format:   0.3.0\n"
+  stamped: "format:   <FORMAT>\n"
+- name: replace keeps the trailing comment
+  text: "tracker: linear\nformat: '0.3.0'  # repo format\n"
+  stamped: "tracker: linear\nformat: <FORMAT>  # repo format\n"
+- name: replace a quoted value containing a hash
+  text: "format: 'a # b' # c\n"
+  stamped: "format: <FORMAT> # c\n"
+- name: replace an invalid version
+  text: "format: 0.4\n"
+  stamped: "format: <FORMAT>\n"
+- name: replace without a final line break
+  text: "tracker: linear\nformat: 0.3.0"
+  stamped: "tracker: linear\nformat: <FORMAT>"
+- name: replace with crlf
+  text: "format: 0.3.0\r\ntracker: linear\r\n"
+  stamped: "format: <FORMAT>\r\ntracker: linear\r\n"
+- name: replace after leading comments and a document marker
+  text: "# a\n---\nformat: 0.3.0\n"
+  stamped: "# a\n---\nformat: <FORMAT>\n"
+- name: replace a tab after the colon
+  text: "format:\t0.3.0\n"
+  stamped: null
+- name: replace a value on the next line
+  text: "format:\n  0.3.0\n"
+  stamped: null
+- name: replace a block scalar
+  text: "format: |\n  0.3.0\n"
+  stamped: null
+- name: replace a flow mapping value
+  text: "format: {major: 0}\n"
+  stamped: null
+- name: replace a flow sequence value
+  text: "format: [0, 3, 0]\n"
+  stamped: null
+- name: replace inside a flow mapping
+  text: "{format: 0.3.0}\n"
+  stamped: null
+- name: replace a spaced key
+  text: "format : 0.3.0\n"
+  stamped: null
+- name: replace a quoted key
+  text: "'format': 0.3.0\n"
+  stamped: null
+- name: replace two format lines
+  text: "format: 0.3.0\ntracker: linear\nformat: 0.3.0\n"
   stamped: null

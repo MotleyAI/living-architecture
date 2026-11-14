@@ -57,8 +57,9 @@ needs no reinstall, since `la-doctor --plugin` compares only major.minor. The to
 `python/uv.lock`, `node/package.json` and `node/package-lock.json` beyond their own version. The rule lives in
 `scripts/release_rule.py`; the Python suite applies it to the bump PR while the new version has no tag (it skips
 without release tags locally, and fails without them on GitHub Actions). A release that changes the repo format
-(`living-architecture.yaml` or anything under `architecture/`) also sets `format` in `shared/config.yaml` to its
-own version and adds the conversion to `la-arch-migrate`. Tag `v<version>` and publish a GitHub release for it;
+(`living-architecture.yaml` or anything under `architecture/`) also appends its own version to `formats` in
+`shared/config.yaml` and adds, in both twins, the `la-arch-migrate` step from the previous format; the tests check
+that every older format has a step, and `scripts/release-check` that the release appended exactly its own version. Tag `v<version>` and publish a GitHub release for it;
 the `Publish` workflow first runs `scripts/release-check` (HEAD is the tag's commit, every version equals the
 tag, both contract hashes agree, and the release rule holds against the highest reachable `vX.Y.Z` tag below it; it
 also refuses a shallow clone or no reachable previous release) and publishes neither twin otherwise. The npm job skips while `node/package.json` is `"private": true`. It

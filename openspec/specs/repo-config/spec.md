@@ -223,8 +223,10 @@ Outside a git repository, or when the local file does not exist, no such check S
 
 ### Requirement: Every command checks the declared format
 The repo format is the `format` key of the committed `living-architecture.yaml`: the `la` version that introduced
-the format, three dot-separated decimal integers without leading zeros (`0.4.0`). The current format SHALL come
-from the shared contract. Versions SHALL compare component by component as integers of any size.
+the format, three dot-separated decimal integers without leading zeros (`0.4.0`). The shared contract SHALL list the
+released formats, every format an `la` release introduced, as a non-empty list of such versions in strictly
+ascending order; the current format SHALL be its last entry. Versions SHALL compare component by component as
+integers of any size.
 
 Every command the CLI manifest does not mark exempt SHALL check the declared format after parsing its arguments
 (so `--help` and usage errors behave as before) and before anything else, reading the committed file with the
@@ -241,6 +243,10 @@ shared YAML profile and before its schema is checked:
 
 A refusal SHALL print its message on stderr and exit 2, with no other output. `living-architecture.local.yaml`
 SHALL NOT take part in the check. A command run by the other twin SHALL be checked by that twin.
+
+#### Scenario: Released formats well-formed
+- **WHEN** either twin's test suite reads the released formats from its contract snapshot
+- **THEN** the list is non-empty, every entry is a version, the entries ascend strictly, and the last entry is the current format and is no newer than either package version or the `plugin.json` version
 
 #### Scenario: Newer format refused by the checker
 - **WHEN** the config declares `format: 9.0.0` and `la-arch-check` runs

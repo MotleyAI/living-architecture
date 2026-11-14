@@ -118,9 +118,9 @@ def local_config_file() -> str:
     return _config()["local_file"]
 
 
-def config_format() -> str:
-    """The repo format this la reads and writes."""
-    return _config()["format"]
+def config_formats() -> list[str]:
+    """Every released repo format, oldest first."""
+    return list(_config()["formats"])
 
 
 def script_path(name: str) -> Path:

@@ -1,0 +1,24 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- --apply
+- rename
+- --file
+- pkg/lam.py
+- --line
+- '1'
+- --col
+- '18'
+- --new-name
+- dataset_name
+fixture: refactor-params
+git:
+- commit: init
+expect:
+  exit: 1
+  files:
+  - pkg/lam.py
+  - .ropeproject/history.json
+note: 'a lambda parameter is refused: cannot-rename, nothing written'

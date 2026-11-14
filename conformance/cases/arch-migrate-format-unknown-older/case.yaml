@@ -13,4 +13,4 @@ expect:
   - architecture/model/model.c4
   - living-architecture.yaml
 golden: manual
-note: 'no conversion from a declared older format exists: refused, repo unchanged'
+note: 'a declared older format no la release used: refused, repo unchanged'

@@ -826,3 +826,33 @@ cases:
 - name: line-break escapes in a double-quoted scalar
   text: 'a: "\N\L\P"'
   json: '{"a": "\u0085\u2028\u2029"}'
+- name: a tab after a mapping colon
+  text: "a:\tb"
+  error: true
+- name: a tab inside a plain scalar
+  text: "a: b\tc"
+  error: true
+- name: a tab before a comment
+  text: "a: b\t# c"
+  error: true
+- name: a trailing tab after a quoted scalar
+  text: "a: 'x'\t"
+  error: true
+- name: a tab between flow sequence items
+  text: "[a,\tb]"
+  error: true
+- name: a tab after a sequence indicator
+  text: "- \ta"
+  error: true
+- name: a tab on a blank line
+  text: "a: b\n\t\nc: d"
+  error: true
+- name: a tab within a block scalar's indentation
+  text: "a: |\n  x\n \ty\n"
+  error: true
+- name: a tab after a block scalar header
+  text: "a: |\t\n  x\n"
+  error: true
+- name: tabs in comments, quoted scalars and block scalar content
+  text: "# a\tb\na: 'x\ty'\nb: \"x\ty\"\nc: |\n  x\ty\nd: |\n \tz\ne: x  # \tc\n"
+  json: '{"a": "x\ty", "b": "x\ty", "c": "x\ty\n", "d": "\tz\n", "e": "x"}'

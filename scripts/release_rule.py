@@ -47,6 +47,11 @@ MANIFESTS: dict[str, tuple[Callable[[str], dict[str, Any]], Callable[[dict[str, 
     "node/package-lock.json": (json.loads, _set_package_lock),
 }
 _RELEASE = re.compile(r"(\d+)\.(\d+)\.(\d+)", re.ASCII)
+FORMATS_FILE = "shared/config.yaml"
+_V = r"(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)"
+_TAIL = r"[ \t]*(?:#.*)?"
+_FORMATS = re.compile(rf"formats: \[({_V}(?:, {_V})*)?\]{_TAIL}", re.ASCII)
+_FORMAT = re.compile(rf"format: (?:({_V})|'({_V})'|\"({_V})\"){_TAIL}", re.ASCII)
 
 
 def git(root: Path, *args: str) -> str:
@@ -76,6 +81,54 @@ def _show(root: Path, rev: str, path: str) -> str | None:
     return shown.stdout if shown.returncode == 0 else None
 
 
+def parse_formats(text: str) -> list[str] | None:
+    """The released formats of a `shared/config.yaml` text: its one-line `formats` list, else its single `format`;
+    None when it declares neither in that form."""
+    lines = [line.rstrip("\r") for line in text.split("\n")]
+    for key, pattern in (("formats:", _FORMATS), ("format:", _FORMAT)):
+        found = [line for line in lines if line.startswith(key)]
+        if found:
+            match = pattern.fullmatch(found[0]) if len(found) == 1 else None
+            if match is None:
+                return None
+            if key == "format:":
+                return [next(group for group in match.groups() if group)]
+            return match[1].split(", ") if match[1] else []
+    return None
+
+
+def _formats_at(root: Path, rev: str) -> list[str] | str:
+    """The released formats at `rev`, [] without the file there; else why they cannot be read."""
+    listed = subprocess.run(
+        ["git", "ls-tree", "--name-only", rev, "--", FORMATS_FILE], cwd=root, capture_output=True, text=True, check=False
+    )
+    if listed.returncode == 0 and not listed.stdout:
+        return []
+    shown = subprocess.run(["git", "show", f"{rev}:{FORMATS_FILE}"], cwd=root, capture_output=True, text=True, check=False)
+    formats = parse_formats(shown.stdout) if listed.returncode == shown.returncode == 0 else None
+    return f"cannot read the released formats of {rev} from {FORMATS_FILE}" if formats is None else formats
+
+
+def _listed(formats: list[str]) -> str:
+    return f"[{', '.join(formats)}]"
+
+
+def formats_problem(root: Path, version: str, previous: str) -> str | None:
+    """Why HEAD's released formats are neither `previous`'s nor those followed by exactly `version`, or None."""
+    before = _formats_at(root, previous)
+    if isinstance(before, str):
+        return before
+    after = _formats_at(root, "HEAD")
+    if isinstance(after, str):
+        return after
+    if after in (before, [*before, version]):
+        return None
+    return (
+        f"the released formats changed from {_listed(before)} at {previous} to {_listed(after)}; a release may only"
+        f" append its own version {version}"
+    )
+
+
 def changed_tool_inputs(root: Path, version: str, previous: str) -> list[str]:
     """Tool inputs that differ between `previous` and HEAD, manifests beyond their own version."""
     listed = git(root, "diff", "--name-only", "--no-renames", "-z", previous, "HEAD", "--", *TOOL_PATHSPECS)
@@ -95,9 +148,10 @@ def bump_problem(root: Path, version: str, previous: str) -> str | None:
     current, last = _parse(version), _parse(previous.removeprefix("v"))
     if current is None or last is None:
         return f"{version} is not of the form X.Y.Z"
-    if current[:2] > last[:2]:
-        return None
-    changed = changed_tool_inputs(root, version, previous)
-    if not changed:
-        return None
-    return f"tool inputs changed since {previous}, so {version} must raise the minor or major version: {', '.join(changed)}"
+    problems = [problem] if (problem := formats_problem(root, version, previous)) is not None else []
+    changed = [] if current[:2] > last[:2] else changed_tool_inputs(root, version, previous)
+    if changed:
+        problems.append(
+            f"tool inputs changed since {previous}, so {version} must raise the minor or major version: {', '.join(changed)}"
+        )
+    return "; ".join(problems) or None
