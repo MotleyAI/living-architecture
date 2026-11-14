@@ -501,3 +501,23 @@ def test_a_target_form_with_an_unresolved_callee_is_listed_in_a_class_rename(
     assert _read(root, "tests/test_t.py") == test
     leftover = message("refactor.leftover", path="tests/test_t.py", line=2, where="patch target", old="SearchQueryEngine")
     assert capsys.readouterr().err == f"{leftover}\n"
+
+
+def test_a_callee_bound_to_a_form_and_to_something_else_is_unresolved(
+    project: MakeProject, capsys: pytest.CaptureFixture[str]
+) -> None:
+    helpers = "def patch(target: str) -> None: ...\n"
+    test = (
+        "try:\n"
+        "    from unittest.mock import patch\n"
+        "except ImportError:\n"
+        "    from pkg.helpers import patch\n\n\n"
+        "def test_t() -> None:\n"
+        '    patch("pkg.engine.SearchQueryEngine.save_model")\n'
+    )
+    root = project({"pkg/engine.py": ENGINE, "pkg/helpers.py": helpers, "tests/test_t.py": test})
+    assert _rename_save_model(root) == 1
+    unresolved = message("refactor.unresolved-target", path="tests/test_t.py", line=8,
+                         target="pkg.engine.SearchQueryEngine.save_model", attr="save_model")
+    assert capsys.readouterr().err.splitlines() == [unresolved, message("refactor.blindspots", count=1, attr="save_model")]
+    assert _read(root, "tests/test_t.py") == test

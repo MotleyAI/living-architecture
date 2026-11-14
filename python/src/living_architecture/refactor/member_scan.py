@@ -147,7 +147,8 @@ class FormResolver:
         return ".".join([*(c.name for c in chain), source.text[span.start : span.end]])
 
     def forms(self, path: Path, source: SourceFile, call: ast.Call) -> tuple[StringForm, ...] | None:
-        """The forms the callee resolves to; None when basedpyright finds no declaration of it."""
+        """The forms the callee resolves to; None when basedpyright finds no declaration of it, or declarations of
+        which some are forms and some are not (ambiguous)."""
         span = source.name_span(call.func)
         if span is None:
             return ()
@@ -155,10 +156,15 @@ class FormResolver:
         if not definitions:
             return None
         found: dict[str, StringForm] = {}
+        others = 0
         for d in definitions:
             module = _module_of(d.path)
-            if module is not None and (qualname := self._qualname(d)) is not None:
-                found |= {f.call: f for f in FORMS if (f.module, f.qualname) == (module, qualname)}
+            qualname = self._qualname(d) if module is not None else None
+            matched = {f.call: f for f in FORMS if (f.module, f.qualname) == (module, qualname)}
+            found |= matched
+            others += not matched
+        if found and others:
+            return None
         return tuple(found[call] for call in sorted(found))
 
 
