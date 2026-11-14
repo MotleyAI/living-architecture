@@ -163,8 +163,31 @@
       `explicit-any` and `attr-blindspot` for Python and keeps the "Python explicit-any compliance check"
       requirement.
 
-## 12. Post-merge (after the PR merges; not part of its diff)
+## 13. Review-round causes (design decisions 35–41)
 
-- [ ] 12.1 Release 0.9.0: bump `python/pyproject.toml`, `node/package.json` and
+- [ ] 13.1 Outcomes (decision 35): Python `_string_member_edits`, `_target_edit`, `_blindspot_scan`,
+      `_mention_edits`, `_keep` and TypeScript `scan`, `formCall`, `classify`, `docs`, `keep` return one outcome per
+      examined site; module renames share `--keep` and edit emission. Verify with a unit test per rule asserting
+      every branch yields an outcome, and every existing conformance case unmodified.
+- [ ] 13.2 Exact OLD literals (decision 36), both twins: cases `refactor-rename-exact-literal` and
+      `refactor-ts-rename-exact-literal` in `conformance/INVENTORY.md`, a function rename listing nothing. Verify
+      with "Exact string literal listed without --docs".
+- [ ] 13.3 TypeScript membership (decision 37): the spike, then the checker-based stand-in index. Verify with the
+      parameter-property, quoted and merged/type-literal cases unmodified, plus a constant computed name.
+- [ ] 13.4 Python membership (decision 37): the `symtable` cross-check test and its fixes; a callee unit test for a
+      form resolved under any spelling, a lookalike, and an unresolved callee with the form's syntax.
+- [ ] 13.5 Shared vectors and one line index per twin (decision 38). Verify with the vectors in both twins, and
+      stand-in and finding lines agreeing on a CR-only TypeScript file.
+- [ ] 13.6 One file universe per twin (decision 39). Verify per twin: with a file outside the tsconfig `include` /
+      rope's default set, the rename's blind-spot lines equal `dr-compliance --select attr-blindspot --attr OLD
+      <project>` plus the unresolved and mixed targets.
+- [ ] 13.7 Probe object (decision 40). Verify with calls in arbitrary order, a declaration before, between and after
+      replaced literals, and a definition in another file.
+- [ ] 13.8 Local gates, then one Codex pass with decision 41's brief; push once; reply to CodeRabbit r4575115899
+      and r4575115901.
+
+## 14. Post-merge (after the PR merges; not part of its diff)
+
+- [ ] 14.1 Release 0.9.0: bump `python/pyproject.toml`, `node/package.json` and
       `plugin/.claude-plugin/plugin.json` together, run `scripts/release-check`, publish.
-- [ ] 12.2 Pin 0.9.0 in SLayer; DEV-2292 stays open until the pin lands.
+- [ ] 14.2 Pin 0.9.0 in SLayer; DEV-2292 stays open until the pin lands.

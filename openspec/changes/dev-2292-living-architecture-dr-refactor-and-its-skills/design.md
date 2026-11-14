@@ -146,6 +146,41 @@ Merging DEV-2289 (Python `explicit-any` in the default check set, PR #41) into t
     change folder gone); then merge `main`, read `openspec/specs/refactor/spec.md`, validate strictly, archive, and
     check the archived requirement lists both `explicit-any` and `attr-blindspot`. Both ship in 0.9.0. (codex)
 
+Review-round causes (2026-11-14). About 19 review findings were instances of five causes: syntax standing in for
+what the checker knows, rules with a silent default, text primitives written twice, project files defined several
+ways, and a probe leaking its coordinate space. Decisions 35–41 close each cause once.
+
+35. **One outcome per examined site**: each rule returns, for every site it examines, one of rewrite, blind spot,
+    leftover or unrelated, and the driver files it; no rule leaves a site naming OLD without one. Anything ambiguous
+    in code is never rewritten: a member rename refuses on it, any other rename lists it; an ambiguous `--docs`
+    mention is listed. Module renames share `--keep` and edit emission with symbol renames. Behaviour-preserving
+    apart from decision 36. (user)
+36. **Exact OLD literals listed by default**: A) a member rename lists every string literal whose whole value is OLD
+    that no rule handled, even without `--docs`, B) keep "unchanged and unlisted" and record the limit in Risks.
+    Took A: it closes string forms no rule anticipates (`operator.attrgetter`, `obj['saveModel']`, home-made
+    `getattr` wrappers), and listing never blocks. (user)
+37. **Membership from the checker**: the TypeScript stand-in index comes from each class, interface and type
+    literal's property symbol for OLD and its declarations (parameter properties, quoted and constant computed names
+    by construction); syntax only locates the name span. A spike first confirms the symbol route covers interfaces,
+    type literals and merged declarations and keeps object literals out; if it does not, stop and ask. Python keeps
+    its declaration walker, cross-checked by a test against stdlib `symtable` over every class-level binding form,
+    directly and inside `if`/`try`/`with`/`for`/`while`/`match`; `self.x` attributes stay on the walker. Callees:
+    resolution decides, syntax only for an unresolved callee. (user)
+38. **One primitive per twin, pinned by shared vectors**: new `shared/vectors/` files, run by both twins, for line
+    of offset, mention boundaries, qualifier segments and site matching, with per-language expectations where line
+    conventions differ (Python `\n`, `\r\n`, `\r`; TypeScript adds U+2028/U+2029). Each twin keeps one line index
+    and routes every line computation through it. (user)
+39. **One file universe per twin**: one function per twin returns a language's source files under the project; the
+    rename (blind spots, stand-ins, string forms, `--docs`) and `dr-compliance` directory expansion both use it. If
+    rope's file set and the routing expansion differ in a way the spec does not settle, stop and ask. (user)
+40. **Probe encapsulated**: the probe is one object owning the rewritten text and its offset map, and returns only
+    original-file spans. (user)
+41. **Review rules for the remaining rounds**: a finding that is an instance of causes 1–5 gets a vector or case and
+    a fix inside the shared mechanism; one that opens a new cause stops for a decision; an edge case outside the
+    spec gets a reply citing the rule, no code. The pre-push Codex brief adds: a site naming OLD that ends with no
+    edit and no printed line; an input where the twins differ; a line number or project file list computed by its
+    own means. (user)
+
 ## Risks / Trade-offs
 
 - [Common member names (`run`, `name`, `type`) produce many stand-ins] → one `--without PATH:LINE` per class
@@ -156,6 +191,8 @@ Merging DEV-2289 (Python `explicit-any` in the default check set, PR #41) into t
   declaring files; the diff shows each rewrite.
 - [pytest / pytest-mock typings change their qualified names] → the names live in `languages.yaml`, pinned by tests
   using the real packages.
+- [Exact-OLD string listing on common names (`name`, `type`) produces long leftover lists] → member renames and
+  whole-value matches only; listing never blocks.
 
 ## Migration Plan
 

@@ -244,7 +244,10 @@ contract (`.md`, `.rst`, `.txt`). A mention SHALL be an occurrence of OLD not ad
 - Only the characters of OLD SHALL change. A mention another rule already rewrote SHALL NOT be listed.
 
 Without `--docs`, comments, docstrings, prose files and strings other than the forms of the other requirements
-SHALL be unchanged and unlisted.
+SHALL be unchanged and unlisted, with one exception: a member rename SHALL list, as `refactor.leftover` with
+`{where}` `string`, each string literal whose whole value is OLD (Python: not a docstring or f-string; TypeScript: a
+string literal or a template literal without substitutions) that no other rule rewrote or refused on and that is
+not the member or target argument of a string-member form or patch target. Listing SHALL NOT change the exit code.
 
 #### Scenario: Qualified and code-marked mentions
 - **WHEN** `SearchQueryEngine.recommend_root_model` is renamed with `--docs`, a docstring elsewhere holds
@@ -281,6 +284,12 @@ SHALL be unchanged and unlisted.
 #### Scenario: Without --docs
 - **WHEN** the same rename runs without `--docs`
 - **THEN** no comment, docstring, message or prose file changes and nothing is listed
+
+#### Scenario: Exact string literal listed without --docs
+- **WHEN** `Storage.get_model` is renamed without `--docs` and a module holds `attrgetter("get_model")` and
+  `"get_model is slow"`
+- **THEN** both are unchanged, the first is listed as `leftover` with `{where}` `string`, the second is not, and the
+  exit code is 0
 
 ## MODIFIED Requirements
 
