@@ -44,9 +44,9 @@ interface Host extends TS.LanguageServiceHost {
 /** A file's text in place of the disk's: a string, null when the file is absent, undefined to read the disk. */
 export type Overlay = (path: string) => string | null | undefined;
 
-function host(parsed: TS.ParsedCommandLine, options: TS.CompilerOptions, extra: string[], overlay: Overlay): Host {
+function host(parsed: TS.ParsedCommandLine, options: TS.CompilerOptions, extra: string[], overlay: Overlay, moved: Map<string, string>): Host {
   const sys = ts().sys;
-  const names = [...parsed.fileNames, ...extra];
+  const names = [...parsed.fileNames.map((name) => moved.get(canonical(name)) ?? name), ...extra];
   const fileExists = (name: string): boolean => {
     const text = overlay(name);
     return text === undefined ? sys.fileExists(name) : text !== null;
@@ -80,10 +80,11 @@ export class Workspace {
   private named: string | null | undefined;
 
   /** The projects under `root` (a refactor's --project, or the repo root), loaded per file on first use; programs
-   * and services read files through `overlay`. */
+   * and services read files through `overlay`, each project file under its `moved` path (by canonical old path). */
   constructor(
     readonly root: string,
     private readonly overlay: Overlay = () => undefined,
+    private readonly moved: Map<string, string> = new Map(),
   ) {}
 
   /** The reference graph from `config` (none: inferred defaults); RefactorError on an unreadable tsconfig. */
@@ -146,6 +147,15 @@ export class Workspace {
     return graph.ordered.filter((p) => reach.has(p) || p.files.has(key));
   }
 
+  /** The services of the projects relevant to `file` whose program includes `as` (`file` after a move), the owner's first. */
+  holding(file: string, as: string = file): TS.LanguageService[] {
+    const owner = this.owner(file);
+    return this.relevant(file)
+      .sort((a, b) => Number(b === owner) - Number(a === owner))
+      .map((project) => this.service(project))
+      .filter((service) => service.getProgram()?.getSourceFile(as) !== undefined);
+  }
+
   private parsed(project: Project): TS.ParsedCommandLine {
     const parsed = project.parsed ?? ts().parseJsonConfigFileContent({ files: [] }, ts().sys, this.root);
     parsed.options.configFilePath ??= join(this.root, 'tsconfig.json');
@@ -157,7 +167,7 @@ export class Workspace {
     let service = this.services.get(project);
     if (service === undefined) {
       const parsed = this.parsed(project);
-      service = ts().createLanguageService(host(parsed, parsed.options, [], this.overlay), this.registry);
+      service = ts().createLanguageService(host(parsed, parsed.options, [], this.overlay, this.moved), this.registry);
       this.services.set(project, service);
     }
     return service;
@@ -170,7 +180,7 @@ export class Workspace {
     const out = new Map<string, TS.LanguageService>();
     for (const [project, group] of groups) {
       const parsed = this.parsed(project);
-      const service = ts().createLanguageService(host(parsed, { ...parsed.options, ...overrides }, group, this.overlay), this.registry);
+      const service = ts().createLanguageService(host(parsed, { ...parsed.options, ...overrides }, group, this.overlay, this.moved), this.registry);
       for (const file of group) out.set(file, service);
     }
     return out;

@@ -6,8 +6,10 @@ args:
 - rename
 - --file
 - src/lib.ts
-- --name
-- map
+- --line
+- '1'
+- --col
+- '31'
 - --new-name
 - mapped
 fixture: refactor-ts

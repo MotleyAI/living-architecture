@@ -8,7 +8,7 @@ args:
 - rename
 - --file
 - src/a.ts
-- --name
+- --symbol
 - foo
 - --new-name
 - bar

@@ -7,8 +7,8 @@ args:
 - move-symbol
 - --file
 - src/body.ts
-- --name
-- inner
+- --symbol
+- outer.<locals>.inner
 - --dest
 - src/lib/keep.ts
 fixture: refactor-ts

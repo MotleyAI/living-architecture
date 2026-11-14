@@ -6,7 +6,7 @@ args:
 - rename
 - --file
 - scripts/x.ts
-- --name
+- --symbol
 - x
 - --new-name
 - y

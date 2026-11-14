@@ -6,8 +6,8 @@ args:
 - rename
 - --file
 - src/store.ts
-- --name
-- saveModel
+- --symbol
+- A.saveModel
 - --new-name
 - persistModel
 - --without

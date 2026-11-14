@@ -106,7 +106,7 @@ describe('rename-map', () => {
       message('compliance.attr-blindspot', { path: 'src/loose.ts', line: 2, receiver: 'b', attr: 'getModel', type: 'any' }),
     ]);
     expect(lines).toHaveLength(3);
-    expect(lines[2]).toMatch(/^2 untyped receiver\(s\) of /);
+    expect(lines[2]).toBe(message('refactor.blindspots', { count: 2, attr: 'getModel, .getModelSync' }));
     expect(files(root)).toEqual(before);
   });
 

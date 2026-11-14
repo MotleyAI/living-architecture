@@ -78,18 +78,33 @@ describe('Literal member rename', () => {
     expect(files(root)).toEqual(before);
   });
 
-  it('with --docs lists the other equal strings as leftovers', () => {
+  it.each([[[]], [['--docs']]])('lists the other equal strings as leftovers, not one typed by another union (flags %j)', (flags) => {
     const root = tsProject(project);
-    const result = renameKind(root, 'edit_master', '--docs');
+    const result = renameKind(root, 'edit_master', ...flags);
     expect(result.code).toBe(0);
     const leftover = (path: string, line: number): string => message('refactor.leftover', { path, line, where: 'string', old: 'edit_model' });
-    for (const line of [leftover('src/kinds.ts', 2), leftover('src/use.ts', 16), leftover('src/use.ts', 17), leftover('src/use.ts', 18)]) {
-      expect(result.err.split('\n')).toContain(line);
-    }
+    expect(result.err).toBe([leftover('src/kinds.ts', 2), leftover('src/use.ts', 17), leftover('src/use.ts', 18), ''].join('\n'));
   });
 
-  it('without --docs lists nothing', () => {
-    const root = tsProject(project);
-    expect(renameKind(root, 'edit_master')).toMatchObject({ code: 0, err: '' });
+  it('lists a string where any string is accepted, or that already has an error', () => {
+    const loose = `import type { Other } from './kinds';
+
+export function h(o: Other | string): string {
+  return o;
+}
+
+export function n(o: number): number {
+  return o;
+}
+
+export const wide = h('edit_model');
+export const wrong = n('edit_model');
+`;
+    const root = tsProject({ ...project, 'src/loose.ts': loose });
+    const result = renameKind(root, 'edit_master');
+    const leftover = (line: number): string => message('refactor.leftover', { path: 'src/loose.ts', line, where: 'string', old: 'edit_model' });
+    expect(result.code).toBe(0);
+    expect(result.err.split('\n')).toEqual(expect.arrayContaining([leftover(11), leftover(12)]));
+    expect(read(root, 'src/loose.ts')).toBe(loose);
   });
 });

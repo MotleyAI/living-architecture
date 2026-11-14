@@ -6,8 +6,8 @@ args:
 - rename
 - --file
 - src/store.ts
-- --name
-- getModel
+- --symbol
+- StorageBackend.getModel
 - --new-name
 - getDataset
 - --with

@@ -6,7 +6,7 @@ args:
 - rename
 - --file
 - core/src/foo.ts
-- --name
+- --symbol
 - foo
 - --new-name
 - bar

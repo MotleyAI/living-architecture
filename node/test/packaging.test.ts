@@ -194,7 +194,7 @@ describe('installed npm package: forwarding', () => {
     writeFileSync(join(stub, 'dr-refactor'), `#!/bin/sh\necho "dr-refactor $*" >> '${stubLog}'\nexit 7\n`);
     chmodSync(join(stub, 'la-doctor'), 0o755);
     chmodSync(join(stub, 'dr-refactor'), 0o755);
-    const args = ['rename', '--file', 'a.py', '--name', 'x', '--new-name', 'y'];
+    const args = ['rename', '--file', 'a.py', '--symbol', 'x', '--new-name', 'y'];
     writeFileSync(join(WORK, 'a.py'), 'x = 1\n');
     const { proc, lines } = probed('dr-refactor', args, WORK, [join(PREFIX, 'bin'), stub, NODE_BIN]);
     expect(proc.status, proc.stderr).toBe(7);

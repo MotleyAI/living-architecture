@@ -1,4 +1,4 @@
-"""`dr-refactor`: IDE-grade Python refactors via rope (rename, move-symbol, move-module)."""
+"""`dr-refactor`: IDE-grade Python refactors via rope (rename, rename-map, retarget, move-symbol, move-module)."""
 
 from __future__ import annotations
 
@@ -8,8 +8,6 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any, cast
 
-from pydantic import BaseModel
-from rope.base import libutils
 from rope.base.change import ChangeContents, ChangeSet
 from rope.base.exceptions import BadIdentifierError, RefactoringError
 from rope.base.project import Project
@@ -17,61 +15,36 @@ from rope.base.resources import File, Resource
 from rope.refactor.move import MoveGlobal, MoveModule, create_move
 from rope.refactor.rename import Rename
 
-from living_architecture.config import ConfigError
 from living_architecture.contract import message
-from living_architecture.lang import LanguageServerError
-from living_architecture.refactor.keyed import UnresolvedBase
+from living_architecture.refactor.locators import (
+    Locator,
+    RefactorError,
+    offset_from_line_col,
+    resolve,
+    resource,
+)
+from living_architecture.refactor.map_file import MapEntry, MapError, load_map
 from living_architecture.refactor.move_edits import NameConflict, module_move_changes, symbol_move_changes
-from living_architecture.refactor.python_source import SourceFile, split_lines
-from living_architecture.refactor.rename_union import FileChanged, RenameOptions, SymbolRename
+from living_architecture.refactor.python_source import split_lines
+from living_architecture.refactor.rename_map import (
+    MapConflict,
+    Refused,
+    change_set_writes,
+    emit,
+    entry_options,
+    run_map,
+)
+from living_architecture.refactor.rename_union import RenameOptions
 from living_architecture.refactor.rope_patches import WalkerGap, apply_rope_patches
 from living_architecture.refactor.sites import Keeps, SiteError
-from living_architecture.refactor.symbol_path import Located, LocatorError, locate
+from living_architecture.refactor.symbol_path import LocatorError
+from living_architecture.refactor.writer import FileChanged, WriteFailed
 
 apply_rope_patches()
 
+__all__ = ["Locator", "RefactorError", "run_refactor"]
 
-class RefactorError(Exception):
-    """The refactor cannot be computed; the message is user-facing."""
-
-
-class Locator(BaseModel):
-    """Where the symbol is: an offset, a 1-based line/column, or a declaration's path in the file."""
-
-    offset: int | None = None
-    line: int | None = None
-    col: int | None = None
-    symbol: str | None = None
-
-
-def _offset_from_line_col(text: str, line: int, col: int) -> int:
-    lines = split_lines(text)
-    if not 1 <= line <= len(lines):
-        raise RefactorError(message("refactor.line-out-of-range", line=line, count=len(lines)))
-    return sum(len(lines[i]) for i in range(line - 1)) + (col - 1)
-
-
-def _resolve(locator: Locator, file: str) -> tuple[int, Located | None]:
-    """The offset in rope's newline-normalized text of `file`, with what a `--symbol` path names."""
-    text = Path(file).read_text()
-    if locator.offset is not None:
-        return locator.offset, None
-    if locator.line is not None:
-        return _offset_from_line_col(text, locator.line, locator.col or 1), None
-    if locator.symbol is not None:
-        located = locate(SourceFile(Path(file).resolve(), text), locator.symbol, file)
-        return located.offset, located
-    raise RefactorError(message("refactor.no-locator"))
-
-
-def _resource(project: Project, path: str) -> Resource:
-    resolved = Path(path).resolve()
-    resource = None
-    if resolved.is_relative_to(Path(project.address).resolve()):
-        resource = libutils.path_to_resource(project, str(resolved))
-    if resource is None:
-        raise RefactorError(message("refactor.outside-project", path=path))
-    return resource
+_offset_from_line_col = offset_from_line_col
 
 
 def _destination(project: Project, dest: str, *, folder: bool) -> Resource:
@@ -81,56 +54,13 @@ def _destination(project: Project, dest: str, *, folder: bool) -> Resource:
         resolved.is_dir() if folder else resolved.is_file()
     ):
         raise RefactorError(message("refactor.destination-missing", path=dest))
-    return _resource(project, dest)
+    return resource(project, dest)
 
 
-def _emit(project: Project, changes: ChangeSet, apply: bool, write: Callable[[], None] | None = None) -> None:
-    """Print the changes sorted by path (rope's own order follows the hash seed); apply them with `write`, else
-    through rope in its order."""
-    ordered = sorted(changes.changes, key=lambda c: c.resource.path)
-    print(f"{changes}:\n\n\n" + "".join(c.get_description() + "\n" for c in ordered))
-    touched = [c.resource.path for c in ordered]
-    if apply:
-        if write is None:
-            project.do(changes)
-        else:
-            write()
-        print(message("refactor.applied", count=len(touched)))
-        for p in touched:
-            print(message("refactor.applied-file", path=p))
-    else:
-        print(message("refactor.dry-run", count=len(touched)))
-
-
-def _refusal(symbol: SymbolRename) -> list[str]:
-    """The lines refusing a member rename, or none when it may proceed."""
-    blind = [] if symbol.options.allow_blindspots else [f.text for f in symbol.blindspots]
-    if not blind and not symbol.stand_ins:
-        return []
-    closing = [message("refactor.blindspots", count=len(blind), attr=symbol.old)] if blind else []
-    shown = blind or [f.text for f in symbol.blindspots]
-    return [*shown, *(f.text for f in symbol.stand_ins), *closing]
-
-
-def rename(project: Project, *, file: str, locator: Locator, new_name: str, options: RenameOptions, apply: bool) -> int:
-    """0 when renamed (or dry-run), 1 when a member rename refuses; the refusal on stderr."""
-    changes, symbol = _compute_rename(project, file, locator, new_name, options)
-    if symbol is not None and (refusal := _refusal(symbol)):
-        print("\n".join(refusal), file=sys.stderr)
-        return 1
-    if options.unsure:
-        print(message("refactor.unsure-warning"))
-    if changes is not None:
-        _emit(project, changes, apply)
-        return 0
-    assert symbol is not None
-    for finding in [*symbol.blindspots, *symbol.leftovers]:
-        print(finding.text, file=sys.stderr)
-    changes, texts = symbol.changes()
-    if apply:
-        symbol.verify(texts)
-    _emit(project, changes, apply, lambda: symbol.write(texts))
-    return 0
+def _emit(project: Project, changes: ChangeSet, apply: bool) -> None:
+    """Print a rope change set sorted by path; write it all or nothing with `apply`."""
+    writes, moves = change_set_writes(project, changes)
+    emit(project, [f"{changes}:"], changes, apply, writes, moves)
 
 
 def _kept(project: Project, changes: ChangeSet, keep: tuple[str, ...]) -> ChangeSet:
@@ -172,42 +102,27 @@ def _kept_lines(rel: str, old: str, new: str, kept: Callable[[str, int | None], 
     return "".join(out)
 
 
-def _compute_rename(
-    project: Project, file: str, locator: Locator, new_name: str, options: RenameOptions
-) -> tuple[ChangeSet | None, SymbolRename | None]:
-    """A module rename's rope changes, or a symbol rename computed; RefactorError when rope or the server refuses."""
-    offset, _ = _resolve(locator, file)
-    changes = None
-    symbol = None
+def _module_rename(project: Project, renamer: Rename, entry: MapEntry, options: RenameOptions, apply: bool) -> int:
+    """rope's rename of a module, its `--keep` sites left."""
+    if entry.new_name is None:
+        raise RefactorError(message("refactor.cannot-rename"))
+    if options.with_sites or options.without_sites:
+        raise SiteError("refactor.not-stand-in", (*options.with_sites, *options.without_sites)[0])
     try:
-        renamer = Rename(project, _resource(project, file), offset)
-        if renamer._is_renaming_a_module():
-            if options.with_sites or options.without_sites:
-                raise SiteError("refactor.not-stand-in", (*options.with_sites, *options.without_sites)[0])
-            changes = _kept(project, renamer.get_changes(
-                new_name, in_hierarchy=options.in_hierarchy, unsure=(lambda *_: True) if options.unsure else None
-            ), options.keep)
-        else:
-            symbol = SymbolRename(project, renamer, new_name, options)
-            symbol.compute()
+        changes = renamer.get_changes(
+            entry.new_name, in_hierarchy=options.in_hierarchy, unsure=(lambda *_: True) if options.unsure else None
+        )
     except (RefactoringError, BadIdentifierError):
         raise RefactorError(message("refactor.cannot-rename")) from None
-    except LanguageServerError:
-        raise RefactorError(message("refactor.pyright-failed")) from None
-    except ConfigError as exc:
-        raise RefactorError(str(exc)) from None
-    except UnresolvedBase as base:
-        root = Path(project.address).resolve()
-        path = (base.path.relative_to(root) if base.path.is_relative_to(root) else base.path).as_posix()
-        raise RefactorError(message("refactor.unresolved-base", name=base.name, path=path, line=base.line)) from None
-    return changes, symbol
+    _emit(project, _kept(project, changes, options.keep), apply)
+    return 0
 
 
 def move_symbol(project: Project, *, file: str, locator: Locator, dest: str, apply: bool) -> None:
-    offset, located = _resolve(locator, file)
+    offset, located = resolve(locator, file)
     if located is not None and not located.top_level:
         raise RefactorError(message("refactor.not-movable", path=file))
-    mover = cast(MoveGlobal, create_move(project, _resource(project, file), offset))
+    mover = cast(MoveGlobal, create_move(project, resource(project, file), offset))
     target = cast(File, _destination(project, dest, folder=False))
     if target == mover.source:
         _emit(project, ChangeSet(f"Moving global <{mover.old_name}>"), apply)
@@ -216,46 +131,58 @@ def move_symbol(project: Project, *, file: str, locator: Locator, dest: str, app
 
 
 def move_module(project: Project, *, module: str, dest: str, apply: bool) -> None:
-    mover = cast(MoveModule, create_move(project, _resource(project, module)))
+    mover = cast(MoveModule, create_move(project, resource(project, module)))
     _emit(project, module_move_changes(project, mover, _destination(project, dest, folder=True)), apply)
 
 
+def _locator(options: dict[str, Any]) -> Locator:
+    return Locator(offset=options.get("offset"), line=options.get("line"), col=options.get("col"),
+                   symbol=options.get("symbol"))
+
+
+def _entries(command: str, project_root: str, options: dict[str, Any]) -> tuple[list[MapEntry], str]:
+    """The map a `rename`, `retarget` or `rename-map` runs, and the map as named in findings."""
+    if command == "rename-map":
+        return load_map(str(options["map"]), project_root), str(options["map"])
+    file = str(options["file"])
+    intent = {"new_name": str(options["new_name"])} if command == "rename" else {"retarget": str(options["target"])}
+    return [MapEntry(index=1, file=file, path=file, locator=_locator(options), **intent)], ""
+
+
+def _run(project: Project, project_root: str, command: str, apply: bool, options: dict[str, Any]) -> int:
+    if command in ("rename", "retarget", "rename-map"):
+        entries, shown = _entries(command, project_root, options)
+        rename_options = entry_options(options)
+        return run_map(
+            project, entries, rename_options, apply_=apply, map_shown=shown,
+            module_rename=lambda r: _module_rename(project, r.renamer, r.entry, rename_options, apply),
+        )
+    if command == "move-symbol":
+        move_symbol(project, file=str(options["file"]), locator=_locator(options), dest=str(options["dest"]), apply=apply)
+    else:
+        move_module(project, module=str(options["module"]), dest=str(options["dest"]), apply=apply)
+    return 0
+
+
 def run_refactor(*, project_root: str, command: str, apply: bool, options: dict[str, Any]) -> int:
-    """`dr-refactor` handler: 0 on success, 1 with the reason on stderr when the refactor cannot proceed or a member
-    rename refuses, 2 for a `--keep`, `--with` or `--without` site that matches nothing it must."""
+    """`dr-refactor` handler: 0 on success, 1 with the reason on stderr when the refactor cannot proceed or refuses,
+    2 for a locator or map error, or a `--keep`, `--with` or `--without` site that matches nothing it must."""
     # rope documents `ropefolder=None` (no rope folder); its signature infers `str` from the default.
     project = Project(str(Path(project_root).resolve()), ropefolder=None)  # pyright: ignore[reportArgumentType]
     try:
-        locator = Locator(
-            offset=options.get("offset"), line=options.get("line"), col=options.get("col"), symbol=options.get("symbol")
-        )
-        if command == "rename":
-            return rename(
-                project,
-                file=str(options["file"]),
-                locator=locator,
-                new_name=str(options["new_name"]),
-                options=RenameOptions(
-                    in_hierarchy=bool(options["in_hierarchy"]),
-                    unsure=options["unsure"] == "include",
-                    allow_blindspots=bool(options.get("allow_blindspots")),
-                    with_sites=tuple(options.get("with_stand_ins") or ()),
-                    without_sites=tuple(options.get("without_stand_ins") or ()),
-                    keep=tuple(options.get("keep") or ()),
-                    docs=bool(options.get("docs")),
-                ),
-                apply=apply,
-            )
-        if command == "move-symbol":
-            move_symbol(project, file=str(options["file"]), locator=locator, dest=str(options["dest"]), apply=apply)
-        else:
-            move_module(project, module=str(options["module"]), dest=str(options["dest"]), apply=apply)
+        return _run(project, project_root, command, apply, options)
     except SiteError as exc:
         print(message(exc.template, site=exc.site), file=sys.stderr)
         return 2
-    except LocatorError as exc:
+    except (LocatorError, MapError) as exc:
         print(exc, file=sys.stderr)
         return 2
+    except Refused as exc:
+        print("\n".join(exc.lines), file=sys.stderr)
+        return 1
+    except MapConflict as exc:
+        print(exc.text, file=sys.stderr)
+        return 1
     except RefactorError as exc:
         print(exc, file=sys.stderr)
         return 1
@@ -265,9 +192,11 @@ def run_refactor(*, project_root: str, command: str, apply: bool, options: dict[
     except FileChanged as changed:
         print(message("refactor.file-changed", path=changed.path), file=sys.stderr)
         return 1
+    except WriteFailed as failed:
+        print(message("refactor.write-failed", path=failed.path), file=sys.stderr)
+        return 1
     except NameConflict as conflict:
         print(message("refactor.name-conflict", name=conflict.name, path=conflict.path, line=conflict.line), file=sys.stderr)
         return 1
     finally:
         project.close()
-    return 0

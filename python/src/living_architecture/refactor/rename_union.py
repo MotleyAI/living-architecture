@@ -13,7 +13,6 @@ from typing import Any, cast
 
 from pydantic import BaseModel, ConfigDict
 from rope.base import libutils, pynamesdef
-from rope.base.change import ChangeContents, ChangeSet
 from rope.base.fscommands import read_str_coding
 from rope.base.project import Project
 from rope.base.pyobjectsdef import PyClass, PyFunction, PyModule
@@ -56,17 +55,10 @@ from living_architecture.refactor.patch_targets import SourceFolders, TargetReso
 from living_architecture.refactor.python_source import SourceFile
 from living_architecture.refactor.rope_patches import every_parameter
 from living_architecture.refactor.routing import language_files
-from living_architecture.refactor.sites import Keeps, Site, SiteError
+from living_architecture.refactor.sites import Site
 from living_architecture.refactor.static_resolver import Module
-from living_architecture.refactor.text_edits import TextEdit, apply_edits, merge_edits
-
-
-class FileChanged(Exception):
-    """The file at `path` changed after the rename read it."""
-
-    def __init__(self, path: str) -> None:
-        super().__init__(path)
-        self.path = path
+from living_architecture.refactor.text_edits import TextEdit
+from living_architecture.refactor.writer import FileChanged
 
 
 def _normalize(text: str) -> str:
@@ -101,9 +93,40 @@ class Snapshot:
     def encode(self, rel: str, text: str) -> bytes:
         return text.encode(self._encodings[rel])
 
-    def changed(self, rel: str) -> bool:
-        path = self.root / rel
-        return not path.is_file() or path.read_bytes() != self._data[rel]
+    def data(self, rel: str) -> bytes:
+        """The bytes `rel` was read as."""
+        self.text(rel)
+        return self._data[rel]
+
+
+class Session:
+    """One refactor's view of the project: rope's project, the snapshot, and files read outside it."""
+
+    def __init__(self, project: Project) -> None:
+        self.project = project
+        self.root = Path(project.address).resolve()
+        self.snapshot = Snapshot(self.root)
+        self._outside: dict[Path, SourceFile | None] = {}
+
+    def rel(self, path: Path) -> str | None:
+        return path.relative_to(self.root).as_posix() if path.is_relative_to(self.root) else None
+
+    def load(self, path: Path) -> SourceFile | None:
+        if path.is_relative_to(self.root) and path.suffix in (".py", ".pyi") and path.is_file():
+            return self.snapshot.source(path.relative_to(self.root).as_posix())
+        if path not in self._outside:
+            try:
+                with open(path, encoding="utf-8", newline="") as fh:
+                    self._outside[path] = SourceFile(path, fh.read())
+            except (OSError, UnicodeDecodeError):
+                self._outside[path] = None
+        return self._outside[path]
+
+    def read(self, path: Path) -> str:
+        source = self.load(path)
+        if source is None:
+            raise OSError(path)
+        return source.text
 
 
 def _raw_offsets(raw: str) -> Callable[[int], int]:
@@ -274,16 +297,23 @@ def _rope_offset(raw: str, offset: int) -> int:
 
 
 class SymbolRename:
-    """A rename of a symbol other than a module: computes its edits, then prints and optionally writes them."""
+    """A rename of a symbol other than a module, as phases a map runs over all its entries: `prepare` (rope's
+    edits and the stand-ins), `seed` and `rules` (on the shared language server), `finish` (mentions, leftovers)."""
 
-    def __init__(self, project: Project, renamer: Rename, new_name: str, options: RenameOptions | None = None) -> None:
-        self.project = project
+    def __init__(self, session: Session, renamer: Rename, new_name: str, options: RenameOptions | None = None) -> None:
+        self.session = session
+        self.project = session.project
         self.renamer = renamer
         self.options = options or RenameOptions()
         self.old: str = renamer.get_old_name()
         self.new = new_name
-        self.root = Path(project.address).resolve()
-        self.snapshot = Snapshot(self.root)
+        self.root = session.root
+        self.snapshot = session.snapshot
+        self.is_renamed: Callable[[tuple[str, int]], bool] = lambda site: site in self.seeds
+        self.matched_sites: set[str] = set()
+        self.member = False
+        self.check_names = True
+        self._fields: list[tuple[ClassRef, ast.AnnAssign | ast.Assign, Span]] = []
         self.edits: list[TextEdit] = []
         self.seeds: set[tuple[str, int]] = set()
         self.keywordless: set[tuple[str, int]] = set()
@@ -294,11 +324,11 @@ class SymbolRename:
         self.stand_ins: list[Finding] = []
         self.leftovers: list[Finding] = []
         self._declarations: list[Declaration] = []
+        self._unclassified: list[Declaration] = []
         self._examined: dict[str, list[tuple[int, int]]] = {}
         self._targets: dict[str, list[tuple[int, int]]] = {}
         self._in_hierarchy = self.options.in_hierarchy
         self._unsure = self.options.unsure
-        self._outside: dict[Path, SourceFile | None] = {}
 
     def _finder(self, renamer: Rename, in_hierarchy: bool) -> Any:
         return occurrences.create_finder(
@@ -325,7 +355,7 @@ class SymbolRename:
         resources: list[File] = [self.renamer.resource] if _is_local(pyname) else [
             cast(File, self.project.get_resource(path.relative_to(self.root).as_posix())) for path in language_files(self.root, "python")
         ]
-        self.renamer.validate_changes(self.new)
+        self._validate()
         self._files = sorted(r.path for r in resources)
         for file_ in sorted(resources, key=lambda r: r.path):
             text = file_.read()
@@ -337,6 +367,9 @@ class SymbolRename:
             self.candidates.append(rel)
         for renamer in self.renamers:
             self._add_occurrences(renamer)
+
+    def _validate(self) -> None:
+        self.renamer.validate_changes(self.new)
 
     def _add_occurrences(self, renamer: Rename) -> None:
         declarations: dict[str, set[tuple[int, int]]] = {}
@@ -359,6 +392,9 @@ class SymbolRename:
                         out.append(Declaration(rel=rel, start=span[0], line=source.line(span[0]), cls=cls.name))
         return sorted(out, key=lambda d: (d.rel, d.start))
 
+    def header(self) -> str:
+        return f"Renaming <{self.old}> to <{self.new}>:"
+
     def is_member(self) -> bool:
         """The symbol is declared in a class body (or as a `self.` attribute): a declaration rope renames is one."""
         if isinstance(self.renamer.old_pyname, pynamesdef.ParameterName):
@@ -378,48 +414,30 @@ class SymbolRename:
         for raw, joined in [*((s, True) for s in self.options.with_sites), *((s, False) for s in self.options.without_sites)]:
             site = Site.parse(raw, self.root, base=self.root)
             matched = [d for d in stand_ins if site.line is not None and site.covers(d.rel, d.line)]
-            if not matched:
-                raise SiteError("refactor.not-stand-in", raw)
+            if matched:
+                self.matched_sites.add(raw)
             for d in matched:
                 raw_text = self.snapshot.text(d.rel)
                 renamer = Rename(self.project, self.project.get_resource(d.rel), _rope_offset(raw_text, d.start))
                 classified |= self._hierarchy(renamer) | {(d.rel, d.start)}
                 if joined:
                     self.renamers.append(renamer)
-        self.stand_ins = [
+        self._unclassified = [d for d in stand_ins if (d.rel, d.start) not in classified]
+
+    def stand_in_findings(self) -> list[Finding]:
+        """The unclassified stand-ins no entry of the map renames."""
+        return [
             Finding(path=d.rel, line=d.line, col=d.start, text=message(
                 "refactor.stand-in", path=d.rel, line=d.line, cls=d.cls, attr=self.old))
-            for d in stand_ins
-            if (d.rel, d.start) not in classified
+            for d in self._unclassified
+            if not self.is_renamed((d.rel, d.start))
         ]
-
-    def _load(self, path: Path) -> SourceFile | None:
-        if path.is_relative_to(self.root):
-            rel = path.relative_to(self.root).as_posix()
-            if rel in self.candidates or (path.suffix in (".py", ".pyi") and path.is_file()):
-                return self.snapshot.source(rel)
-        if path not in self._outside:
-            try:
-                with open(path, encoding="utf-8", newline="") as fh:
-                    self._outside[path] = SourceFile(path, fh.read())
-            except (OSError, UnicodeDecodeError):
-                self._outside[path] = None
-        return self._outside[path]
-
-    def _read(self, path: Path) -> str:
-        source = self._load(path)
-        if source is None:
-            raise OSError(path)
-        return source.text
-
-    def _rel(self, path: Path) -> str | None:
-        return path.relative_to(self.root).as_posix() if path.is_relative_to(self.root) else None
 
     def _reference_edits(self, server: LanguageServer) -> None:
         candidates = set(self.candidates)
         for rel, start in sorted(self.seeds):
             for span in server.references(self.root / rel, start):
-                ref = self._rel(span.path)
+                ref = self.session.rel(span.path)
                 if ref is None or ref not in candidates or self.snapshot.text(ref)[span.start : span.end] != self.old:
                     continue
                 if (rel, start) in self.keywordless and (span.start, span.end) in _keyword_spans(self.snapshot.source(ref)):
@@ -512,7 +530,7 @@ class SymbolRename:
         conflicts = sorted(
             (rel, offset) for rel, source, node, _ in declarations for offset in _variable_sites(source, node, self.new)
         )
-        if conflicts:
+        if conflicts and self.check_names:
             rel, offset = conflicts[0]
             raise NameConflict(self.new, rel, self.snapshot.source(rel).line(offset))
         for rel, source, node, arg in declarations:
@@ -547,18 +565,19 @@ class SymbolRename:
             if not calls:
                 continue
             for call, (_, definitions) in zip(calls, scan.probe(path, source, calls), strict=True):
-                renamed = [(self._rel(d.path), d.start) in self.seeds for d in definitions]
+                sites = [(self.session.rel(d.path) or "", d.start) for d in definitions]
+                renamed = [self.is_renamed(s) for s in sites] if any(s in self.seeds for s in sites) else []
                 self._file(string_member_outcome(rel, source, call, renamed, self.old, self.new))
 
     def _declared(self, module: Module, node: ast.AST) -> tuple[str, int] | None:
-        rel = self._rel(module.path) if module.path is not None else None
+        rel = self.session.rel(module.path) if module.path is not None else None
         span = self.snapshot.source(rel).name_span(node) if rel is not None else None
         return (rel, span[0]) if rel is not None and span is not None else None
 
     def _target_edits(self, scan: MemberScan, member: bool) -> None:
         """Rewrite dotted target segments that resolve to a renamed declaration; refuse or list the rest."""
         folders = SourceFolders([Path(f.real_path) for f in self.project.get_source_folders()])
-        targets = TargetResolver(folders, lambda path: self._read(path))
+        targets = TargetResolver(folders, self.session.read)
         for rel in self.candidates:
             source = self.snapshot.source(rel)
             for call in scan.target_calls(self.root / rel, source):
@@ -607,7 +626,7 @@ class SymbolRename:
         return (*module, d.cls)
 
     def _mention_edits(self) -> None:
-        renamed = {(d.rel, d.start) for d in self._declarations} & self.seeds
+        renamed = {(d.rel, d.start) for d in self._declarations if self.is_renamed((d.rel, d.start))}
         rules = MentionRules(
             old=self.old,
             owners=frozenset(self._owners()),
@@ -643,85 +662,50 @@ class SymbolRename:
             for outcome in literal_outcomes(rel, source, self.old, lambda s, e, rel=rel: self._overlaps(self._examined, rel, s, e)):
                 self._file(outcome)
 
-    def _keep(self) -> None:
-        """Drop every edit, blind spot and leftover at a kept site; `SiteError` for a keep that matches no edit and
-        no blind spot."""
-        keeps = Keeps(self.options.keep, self.root)
-        self.edits = [e for e in self.edits if not keeps.kept(e.path, self.snapshot.source(e.path).line(e.start))]
-        self.blindspots = [b for b in self.blindspots if not keeps.kept(b.path, b.line)]
-        self.leftovers = [f for f in self.leftovers if not keeps.kept(f.path, f.line, mark=False)]
-        keeps.check()
-
-    def compute(self) -> None:
-        """Every edit of the rename; raises `LanguageServerError`, `UnresolvedBase`, `NameConflict`, `FileChanged`
-        or `SiteError`."""
-        if self.new == self.old:
-            return
+    def prepare(self) -> None:
+        """rope's edits, the member declarations and the stand-in classification; raises `FileChanged`."""
         self._rope_edits()
         self._declarations = self._member_declarations()
-        member = self.is_member()
-        if member:
+        self.member = self.is_member()
+        if self.member:
             self._classify()
             for renamer in self.renamers[1:]:
                 self._add_occurrences(renamer)
-        elif self.options.with_sites or self.options.without_sites:
-            raise SiteError("refactor.not-stand-in", (*self.options.with_sites, *self.options.without_sites)[0])
-        fields = [f for r in self.renamers if (f := self._located_field(r)) is not None]
+        self._fields = [f for r in self.renamers if (f := self._located_field(r)) is not None]
+
+    def seed(self, facts: TypeFacts) -> None:
+        """The declarations only the checker's facts add; raises `NameConflict`, `UnresolvedBase`."""
         pyname = self.renamer.old_pyname
-        with LanguageServer(self.root, read=self._read) as server:
-            for rel in self.candidates:
-                server.open(self.root / rel, self.snapshot.text(rel))
-            facts = TypeFacts(server, self._load)
-            if isinstance(pyname, pynamesdef.ParameterName):
-                self._parameter_seeds(facts, pyname.pyfunction)
-            for field in fields:
-                facts.chain(field[0])
-            self._reference_edits(server)
-            for field in fields:
-                self._keyed_edits(facts, field)
-            scan = MemberScan(server, self.old, self._load)
-            if member:
-                self._string_member_edits(scan)
-            self._target_edits(scan, member)
-            if member:
-                self._blindspot_scan(scan)
+        if isinstance(pyname, pynamesdef.ParameterName):
+            self._parameter_seeds(facts, pyname.pyfunction)
+        for field in self._fields:
+            facts.chain(field[0])
+
+    def rules(self, server: LanguageServer, facts: TypeFacts) -> None:
+        """Every rule that asks the checker: references, keyed classes, member strings, targets, blind spots."""
+        self._reference_edits(server)
+        for field in self._fields:
+            self._keyed_edits(facts, field)
+        scan = MemberScan(server, self.old, self.session.load)
+        if self.member:
+            self._string_member_edits(scan)
+        self._target_edits(scan, self.member)
+        if self.member:
+            self._blindspot_scan(scan)
+
+    def finish(self) -> None:
+        """The rules that read text only: mentions with `--docs`, else a member's exact-OLD string literals."""
         if self.options.docs:
             self._mention_edits()
-        elif member:
+        elif self.member:
             self._literal_leftovers()
-        self.edits = merge_edits(self.edits)
-        self._keep()
-        self.blindspots.sort(key=lambda f: (f.path, f.line, f.col))
-        self.stand_ins.sort(key=lambda f: (f.path, f.line, f.col))
-        self.leftovers.sort(key=lambda f: (f.path, f.line, f.col))
-        for rel in sorted({e.path for e in self.edits}):
-            _conflict(self.snapshot.source(rel), rel, [e for e in self.edits if e.path == rel], self.old, self.new)
 
-    def changes(self) -> tuple[ChangeSet, dict[str, str]]:
-        """The rope change set to print, and each touched file's new text."""
-        changes = ChangeSet(f"Renaming <{self.old}> to <{self.new}>")
-        texts: dict[str, str] = {}
-        for rel in sorted({e.path for e in self.edits}):
-            raw = self.snapshot.text(rel)
-            texts[rel] = apply_edits(raw, [e for e in self.edits if e.path == rel])
-            if texts[rel] == raw:
-                del texts[rel]
-                continue
-            resource: Any = self.project.get_resource(rel)
-            changes.add_change(ChangeContents(resource, _normalize(texts[rel]), old_contents=_normalize(raw)))
-        return changes, texts
-
-    def verify(self, texts: dict[str, str]) -> None:
-        """Raise `FileChanged` when a file to write changed since it was read."""
-        for rel in texts:
-            if self.snapshot.changed(rel):
-                raise FileChanged(rel)
-
-    def write(self, texts: dict[str, str]) -> None:
-        """Write every new text, or nothing when a file changed since it was read."""
-        self.verify(texts)
-        for rel, text in texts.items():
-            (self.root / rel).write_bytes(self.snapshot.encode(rel, text))
+    def check_conflicts(self, edits: list[TextEdit]) -> None:
+        """`NameConflict` where one of `edits` (this rename's, merged) meets the new name."""
+        if not self.check_names:
+            return
+        for rel in sorted({e.path for e in edits}):
+            _conflict(self.snapshot.source(rel), rel, [e for e in edits if e.path == rel], self.old, self.new)
 
 
 def _top_declarations(stmt: ast.stmt, name: str) -> list[ast.AST]:

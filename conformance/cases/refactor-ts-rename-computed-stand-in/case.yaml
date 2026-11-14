@@ -6,8 +6,8 @@ args:
 - rename
 - --file
 - src/store.ts
-- --name
-- getModel
+- --symbol
+- Store.getModel
 - --new-name
 - getDataset
 fixture: refactor-ts-computed

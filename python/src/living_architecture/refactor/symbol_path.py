@@ -250,3 +250,32 @@ def _statement_of(source: SourceFile, node: ast.AST) -> ast.stmt | None:
         ):
             return stmt
     return None
+
+
+def declaration_scope(source: SourceFile, name: str, line: int) -> tuple[ast.AST, ast.AST] | None:
+    """The scope declaring `name` on `line` (a class's `self.` attributes in the class) and the declaring node."""
+    if source.tree is None:
+        return None
+    stack: list[Scope] = [Scope(kind="module", node=source.tree)]
+    while stack:
+        scope = stack.pop()
+        for found, offset, node in _declarations(source, scope):
+            if found == name and source.line(offset) == line:
+                return scope.node, node
+        stack += _child_scopes(scope.node)
+    return None
+
+
+def _child_scopes(node: ast.AST) -> list[Scope]:
+    """The classes and functions directly nested in `node`'s body, not inside one another."""
+    out: list[Scope] = []
+    pending = list(ast.iter_child_nodes(node))
+    while pending:
+        child = pending.pop()
+        if isinstance(child, ast.ClassDef):
+            out.append(Scope(kind="class", node=child))
+        elif isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            out.append(Scope(kind="function", node=child))
+        else:
+            pending += ast.iter_child_nodes(child)
+    return out

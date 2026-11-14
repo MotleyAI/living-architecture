@@ -35,14 +35,14 @@ export function parseTscOutput(text: string): { diagnostics: TscDiagnostic[]; gl
   return { diagnostics, globals };
 }
 
-type Counts = Map<string, number>;
+export type Counts = Map<string, number>;
 
-const keyOf = (file: string, code: string, msg: string): string => JSON.stringify([file, code, msg]);
+export const keyOf = (file: string, code: string, msg: string): string => JSON.stringify([file, code, msg]);
 
-const posixRel = (root: string, file: string): string => (isAbsolute(file) ? relative(root, file) : file).split(sep).join('/');
+export const posixRel = (root: string, file: string): string => (isAbsolute(file) ? relative(root, file) : file).split(sep).join('/');
 
 /** The baseline JSON: keys sorted by file, code and message, 2-space indented, trailing newline. */
-function render(counts: Counts): string {
+export function render(counts: Counts): string {
   const keys = [...counts.keys()].map((k) => JSON.parse(k) as [string, string, string]);
   keys.sort((a, b) => byCodePoint(a[0], b[0]) || byCodePoint(a[1], b[1]) || byCodePoint(a[2], b[2]));
   const files: Record<string, { code: string; message: string; count: number }[]> = {};
@@ -60,7 +60,7 @@ function validEntry(entry: unknown): entry is { code: string; message: string; c
 }
 
 /** The baseline multiset; empty when the file is absent, null when it is malformed. */
-function load(path: string): Counts | null {
+export function load(path: string): Counts | null {
   if (!existsSync(path)) return new Map();
   let data: unknown;
   try {

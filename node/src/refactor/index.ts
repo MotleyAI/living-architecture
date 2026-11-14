@@ -1,11 +1,12 @@
 // The `dr-*` commands: TypeScript refactors and lints natively, the other language's inputs in its twin.
 import { ConfigError, findRepoRoot } from '../config/index.js';
 import { basePaths, mergeBase, pathsAt, resolveBaseRef } from '../changes/index.js';
-import { language, message } from '../contract/index.js';
+import { language, languageIds, languageOf, message } from '../contract/index.js';
 import * as twin from '../twin/index.js';
 import { type MockBase, typescriptCompliance, typescriptMockLint } from './compliance.js';
 import { complianceSelection, refactorLanguage, RoutingError, runSplit, split } from './routing.js';
 import { RefactorError } from './edits.js';
+import { loadMap, MapError } from './map.js';
 import { type RefactorArgs, runTypescriptRefactor } from './typescript.js';
 
 export { unifiedDiff } from './diff.js';
@@ -28,16 +29,26 @@ function native(findings: () => string[]): number {
   }
 }
 
+/** The one language of a map's entries, by their files' extensions; MapError for an invalid map or several languages. */
+function mapLanguage(map: string): string {
+  const files = loadMap(map, map).map((entry) => entry.file);
+  const unsupported = files.find((file) => languageOf(file) === null);
+  if (unsupported !== undefined) throw new RoutingError(message('refactor.unsupported-extension', { path: unsupported }));
+  const languages = languageIds().filter((id) => files.some((file) => languageOf(file) === id));
+  if (languages.length > 1) throw new MapError(message('refactor.map-mixed-languages', { map, languages: languages.join(', ') }));
+  return languages[0] ?? '';
+}
+
 /** `dr-refactor`: run natively, or hand the raw ARGV to the source language's twin. */
 export function runRefactor(argv: string[], args: RefactorArgs): number {
   let id: string;
   try {
     const source = args.subcommand === 'move-module' ? args.module : args.file;
-    id = refactorLanguage(args.subcommand, source ?? '', args.dest ?? '', args.project);
+    id = args.subcommand === 'rename-map' ? mapLanguage(args.map ?? '') : refactorLanguage(args.subcommand, source ?? '', args.dest ?? '', args.project);
   } catch (error) {
-    if (!(error instanceof RoutingError)) throw error;
+    if (!(error instanceof RoutingError) && !(error instanceof MapError)) throw error;
     process.stderr.write(`${error.message}\n`);
-    return 1;
+    return error instanceof MapError ? 2 : 1;
   }
   if (id === twin.NATIVE_LANGUAGE) return runTypescriptRefactor(args);
   try {

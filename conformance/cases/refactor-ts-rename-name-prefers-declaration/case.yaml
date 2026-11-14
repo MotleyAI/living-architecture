@@ -6,8 +6,8 @@ args:
 - rename
 - --file
 - src/order.ts
-- --name
-- foo
+- --symbol
+- wrap.<locals>.foo
 - --new-name
 - bar
 fixture: refactor-ts
@@ -18,4 +18,4 @@ expect:
   files:
   - src/order.ts
 golden: manual
-note: --name takes the first declaration (the local const), not the earlier import use
+note: a local by its path (the const inside wrap), not the import binding of the same name

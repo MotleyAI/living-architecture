@@ -6,7 +6,7 @@ args:
 - rename
 - --file
 - src/nope.ts
-- --name
+- --symbol
 - foo
 - --new-name
 - bar

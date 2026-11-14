@@ -3,6 +3,7 @@
 import type * as TS from 'typescript';
 import { message } from '../contract/index.js';
 import { ts } from '../lang/index.js';
+import { Lines } from './lines.js';
 
 export const LOCALS = '<locals>';
 const PATH = /^(?<path>[^()[\]]+?)(?:\((?<param>[^()]+)\))?(?:\[(?<quote>['"])(?<value>.*)\k<quote>\])?$/su;
@@ -203,7 +204,8 @@ export function locate(checker: TS.TypeChecker, source: TS.SourceFile, raw: stri
     }
   }
   if (groups.length > 1) {
-    const sites = groups.map((g) => `${shown}:${source.getLineAndCharacterOfPosition((g[0] as Declaration).nameNode.getStart(source)).line + 1}`);
+    const lines = new Lines(source.text);
+    const sites = groups.map((g) => `${shown}:${lines.lineOf((g[0] as Declaration).nameNode.getStart(source))}`);
     throw new LocatorError(message('refactor.symbol-ambiguous', { path: shown, symbol: raw, candidates: sites.join(', ') }));
   }
   const group = groups[0] as Declaration[];

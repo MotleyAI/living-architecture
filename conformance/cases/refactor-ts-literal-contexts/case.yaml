@@ -21,4 +21,5 @@ expect:
   - src/use.ts
 golden: manual
 note: 'a string-literal union member by Kind[''value'']: the declaration, a typed variable, an argument, ===, a case, a typed
-  array element and an imported use; another union''s string and a string variable untouched'
+  array element and an imported use; another union''s member and a string variable untouched and listed as leftovers, a
+  string typed by the other union untouched and unlisted'
