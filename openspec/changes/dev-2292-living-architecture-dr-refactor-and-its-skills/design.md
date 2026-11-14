@@ -180,6 +180,15 @@ ways, and a probe leaking its coordinate space. Decisions 35–41 close each cau
     spec gets a reply citing the rule, no code. The pre-push Codex brief adds: a site naming OLD that ends with no
     edit and no printed line; an input where the twins differ; a line number or project file list computed by its
     own means. (user)
+42. **Python file universe = the routing expansion**: Python's `excluded_dirs` takes rope's default ignored
+    directory names (`.venv`, `venv`, `.tox`, `.git`, `.hg`, `.svn`, `_svn`, `.mypy_cache`, `.pytest_cache`,
+    `.ropeproject`), and the rename's candidate files come from the routing expansion of the project root, so the
+    rename and `dr-compliance` scan one set. Rejected: `dr-compliance` on rope's file set (ties a neutral command to
+    rope's configuration); the rename over virtualenvs (refuses on third-party code). (user)
+43. **Computed-name stand-ins**: the checker index includes members declared by a constant computed name; they are
+    stand-ins, `--without` classifies them, and `--with` exits 2 with `refactor.computed-stand-in`, because the
+    language service cannot rename them (a use-site rename returns nothing; one at `[KEY]` renames the constant).
+    Rejected: leaving them out (a silent miss). (user)
 
 ## Risks / Trade-offs
 

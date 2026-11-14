@@ -17,8 +17,9 @@ it SHALL print one line per site on stderr, sorted by path, line and column (`co
 access or string form, `refactor.unresolved-target` for a dotted target), then `refactor.blindspots`, print
 nothing on stdout, write nothing and exit 1, with or without `--apply`. With `--allow-blindspots` the same lines
 SHALL be printed on stderr and the rename SHALL proceed. The set of blind spots SHALL equal what
-`dr-compliance --select attr-blindspot --attr OLD` reports over the same files, plus the unresolved targets
-and the mixed targets.
+`dr-compliance --select attr-blindspot --attr OLD <project>` reports, the
+project directory expanded as the routing rules expand a directory (Python's `excluded_dirs` naming virtualenv,
+version-control and tool-cache directories), plus the unresolved targets and the mixed targets.
 
 #### Scenario: Untyped fixture parameter refuses the rename
 - **WHEN** method `Storage.get_model` is renamed and a test function holds `def test_a(storage): storage.get_model("m")`
@@ -51,6 +52,10 @@ and the mixed targets.
 - **WHEN** property `Store.getModel` is renamed in TypeScript and a file holds `function g(o: any) { return o.getModel() }`
 - **THEN** the rename refuses with that site's `attr-blindspot` line, `{type}` `any`
 
+#### Scenario: Virtualenv skipped by both
+- **WHEN** a Python member rename's project holds `.venv/lib/x.py` with an untyped `o.OLD`
+- **THEN** neither the rename nor `dr-compliance --select attr-blindspot --attr OLD <project>` reports it
+
 ### Requirement: Member renames refuse on unclassified stand-ins
 The renamed hierarchy SHALL be every declaration the rename renames with hierarchy on (Python: rope's hierarchy;
 TypeScript: the declarations the language service's rename returns, merged interface declarations included),
@@ -69,6 +74,8 @@ hierarchy joins the renamed hierarchy, and every rule of the rename (references,
 forms, `--docs`, `--keep`, blind spots) SHALL run once over the joined set, on one snapshot of the files, identical
 edits merged. A `--without` stand-in SHALL be unchanged. A `--with` or `--without` line holding no stand-in member
 declaration of this rename SHALL print `refactor.not-stand-in` on stderr, write nothing and exit 2.
+A TypeScript stand-in member declared by a computed name SHALL be classified by `--without` like any other;
+`--with` naming its line SHALL print `refactor.computed-stand-in` on stderr, write nothing and exit 2.
 
 #### Scenario: Cast stand-in refuses until classified
 - **WHEN** `StorageBackend.get_model` is renamed and `class _ModelReadCache` (no base in the hierarchy) defines
@@ -105,6 +112,12 @@ declaration of this rename SHALL print `refactor.not-stand-in` on stderr, write 
 - **WHEN** interface `Store.getModel` is renamed, `class Fake { getModel() {} }` does not implement `Store`, and an
   untyped constant holds `{ getModel() {} }`
 - **THEN** `Fake.getModel` is reported as a stand-in and the object literal is not
+
+#### Scenario: Computed-name stand-in
+- **WHEN** interface `Store.getModel` is renamed and `class Keyed { [KEY]() {} }` declares it through
+  `const KEY = 'getModel'`
+- **THEN** `Keyed.getModel` is reported as a stand-in; `--without` its line classifies it, and `--with` its line
+  prints `refactor.computed-stand-in`, writes nothing and exits 2
 
 ### Requirement: Members named by string are renamed
 A rename of a member SHALL rewrite the member argument of each string-member form listed for its language in the

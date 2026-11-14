@@ -185,6 +185,13 @@
       replaced literals, and a definition in another file.
 - [ ] 13.8 Local gates, then one Codex pass with decision 41's brief; push once; reply to CodeRabbit r4575115899
       and r4575115901.
+- [ ] 13.9 Python `excluded_dirs` (decision 42): `shared/languages.yaml`, `scripts/sync-shared`, both twins'
+      registry pins; the rename's candidate files from the routing expansion. Verify with "Virtualenv skipped by
+      both": cases `refactor-rename-venv-skipped` and `compliance-attr-venv-skipped` in `conformance/INVENTORY.md`.
+- [ ] 13.10 `refactor.computed-stand-in` (decision 43): `shared/findings.yaml`
+      (`'{path}:{line}: computed-stand-in: {cls}.{attr} is declared by a computed name; rename it by hand, then pass
+      --without {path}:{line}'`), sync, the TypeScript twin. Verify with "Computed-name stand-in": case
+      `refactor-ts-rename-computed-stand-in` (refusal, `--without`, `--with` exit 2) in `conformance/INVENTORY.md`.
 
 ## 14. Post-merge (after the PR merges; not part of its diff)
 
