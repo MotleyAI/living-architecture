@@ -8,7 +8,7 @@
 - [x] 0.2 Precondition for pr-implement: DEV-2292's implementation is merged into this branch (merge its branch, or
       `origin/main` once it has landed), and DEV-2292's tests pass here. Do not start section 1 before that.
 
-- [ ] 0.3 Merge `origin/main` (decision 38), before any other open task. In order: (a) commit the working tree
+- [x] 0.3 Merge `origin/main` (decision 38), before any other open task. In order: (a) commit the working tree
       (the `--name` → `--symbol` case migrations and the symbol-path work in progress), naming each file;
       (b) `git merge origin/main` with a message whose first line holds `'origin/main'` in single quotes;
       (c) keep what git merges cleanly; resolve conflicts with `main`'s side for every conflicted file (the eight `refactor-rename-*` case directories,
@@ -41,7 +41,7 @@
       the locators, `--target`, `--allow-blindspots`, `--with`, `--without`, `--keep`, `--docs`); `--attr`
       `repeatable: true` on `dr-compliance`; `dr-mock-lint` not `passthrough`, with positional `paths` (`+`) and
       `--base`. Verify with both twins' CLI vector and manifest tests.
-- [ ] 1.2 `shared/findings.yaml`: `refactor.symbol-unresolved`, `refactor.symbol-ambiguous`, `refactor.map-invalid`,
+- [x] 1.2 `shared/findings.yaml`: `refactor.symbol-unresolved`, `refactor.symbol-ambiguous`, `refactor.map-invalid`,
       `refactor.map-mixed-languages`, `refactor.map-duplicate`, `refactor.map-conflict`, `refactor.retarget-header`,
       `refactor.retarget-scope`, `refactor.retarget-override`, `refactor.retarget-shadowed`,
       `refactor.write-failed`, `refactor.baseline-ambiguous`, `refactor.baseline-failed`, `refactor.literal-value`,
@@ -58,79 +58,79 @@
 
 ## 3. Symbol paths (both twins)
 
-- [ ] 3.1 Python: parse Q, walk the module AST (module, class, `self.NAME`, `<locals>`, `(param)`, `['value']`),
+- [x] 3.1 Python: parse Q, walk the module AST (module, class, `self.NAME`, `<locals>`, `(param)`, `['value']`),
       group declarations by checker symbol (decision 32), candidates on failure, exit 2. Verify with the "Symbols are
       located by their path in a file" scenarios and one test per grouping construct.
-- [ ] 3.2 TypeScript: the same over the TypeScript AST and checker symbols (members, enums, namespaces, type
+- [x] 3.2 TypeScript: the same over the TypeScript AST and checker symbols (members, enums, namespaces, type
       literals through aliases, locals, parameters, `['value']`). Verify with Vitest and "TypeScript member and
       local by path".
-- [ ] 3.3 Remove `--name` from both twins; migrate every conformance case using it to `--symbol` (the goldens are
+- [x] 3.3 Remove `--name` from both twins; migrate every conformance case using it to `--symbol` (the goldens are
       unchanged except where a case pinned `--name`'s guess, e.g. `refactor-ts-rename-name-prefers-declaration`,
       `refactor-ts-symbol-not-found`, which change to the new findings), including every case and test `main`
       brought in (decision 45); no `--name` remains under `conformance/`, `python/tests`, `node/test`, `docs` or
       `plugin`. Verify with `scripts/conformance-cross`.
-- [ ] 3.4 Path parsing passes the shared symbol-path vectors in both twins; candidate lines come from the twin's
+- [x] 3.4 Path parsing passes the shared symbol-path vectors in both twins; candidate lines come from the twin's
       line index (decision 41); a computed-name member is not a candidate (decision 44).
 
 ## 4. Map engine (both twins)
 
-- [ ] 4.1 Python: load and validate MAP; one language; resolve every locator first; canonicalise symbols
+- [x] 4.1 Python: load and validate MAP; one language; resolve every locator first; canonicalise symbols
       (decision 31); one snapshot, one language server, each rename rule once over the union; one blind-spot scan
       for every member entry's old name; every rule's outcomes filed by DEV-2292's driver, "unchanged declaration"
       judged against the whole symbol set (decision 39); sources read through the file universe (decision 42);
       merge edits, `refactor.map-conflict`; `rename` routed through it. Verify
       with the "Rename maps apply many renames as one" scenarios and "Single rename equals its map".
-- [ ] 4.2 TypeScript: the same over one workspace session. Verify with Vitest.
-- [ ] 4.3 Routing: `rename-map` routes by its entries' files, forwarding raw argv to the other twin. Verify with
+- [x] 4.2 TypeScript: the same over one workspace session. Verify with Vitest.
+- [x] 4.3 Routing: `rename-map` routes by its entries' files, forwarding raw argv to the other twin. Verify with
       "TypeScript map through the PyPI twin".
-- [ ] 4.4 Writer (both twins): re-check every file, write through same-directory temp files and renames, restore on
+- [x] 4.4 Writer (both twins): re-check every file, write through same-directory temp files and renames, restore on
       failure, `refactor.write-failed`. Verify with "Failed write rolls back" (injected failure).
 
 ## 5. Retarget (both twins)
 
-- [ ] 5.1 Python: same-scope check, the rename of ALIAS to TARGET's name minus ALIAS's declaration edits, no
+- [x] 5.1 Python: same-scope check, the rename of ALIAS to TARGET's name minus ALIAS's declaration edits, no
       new-name collision check, override and shadowing refusals, duplicate-import removal, map retarget entries
       writing the target's final name; outcomes per site as any rename rule (decision 39). Verify with the
       "Retarget rewrites references to an alias" scenarios.
-- [ ] 5.2 TypeScript: the same (merged declarations, duplicate import specifiers). Verify with "TypeScript merged
+- [x] 5.2 TypeScript: the same (merged declarations, duplicate import specifiers). Verify with "TypeScript merged
       alias" and Vitest.
 
 ## 6. Baseline alignment (both twins)
 
-- [ ] 6.1 Position maps from every subcommand: edits, moved files, moved declarations (decision 33). Verify with
+- [x] 6.1 Position maps from every subcommand: edits, moved files, moved declarations (decision 33). Verify with
       unit tests over boundary, inside-span and multiline ranges, and the shared range-transform vectors in both
       twins (decision 41).
-- [ ] 6.2 Python aligner through `living_architecture.typecheck`'s runner (decisions 24, 25): two runs with temporary
+- [x] 6.2 Python aligner through `living_architecture.typecheck`'s runner (decisions 24, 25): two runs with temporary
       baselines, pairing, rewrite and sorted insert, `refactor.baseline-failed`, `refactor.baseline-ambiguous`.
       Verify with the Python baseline scenarios using the real basedpyright, incl. `-p` and positional-path
       commands.
-- [ ] 6.3 TypeScript aligner (decisions 26, 27): pre-emit diagnostics before and after in memory, keys via
+- [x] 6.3 TypeScript aligner (decisions 26, 27): pre-emit diagnostics before and after in memory, keys via
       `lang/tsc.ts`'s formatter and parser (exported), count moves. Verify with "TypeScript message names the
       symbol" (parity against real tsc) and "Ambiguous split".
-- [ ] 6.4 Every subcommand prints and writes the baseline with the sources, in dry-run and apply. Verify with "Dry-run
+- [x] 6.4 Every subcommand prints and writes the baseline with the sources, in dry-run and apply. Verify with "Dry-run
       shows the baseline", "Moved module", "Moved declaration", "No baseline".
 
 ## 7. Literal members
 
-- [ ] 7.1 Python probe (decision 30) in la's language server: sentinel `didChange`, diagnostics and hover diff,
+- [x] 7.1 Python probe (decision 30) in la's language server: sentinel `didChange`, diagnostics and hover diff,
       candidates, verification pass, `refactor.literal-unresolved` joining the blind-spot refusal; new-value rule;
       built as rounds of DEV-2292's probe object over the file universe (decisions 42, 43). Verify with the Python
       `Literal` scenarios.
-- [ ] 7.2 TypeScript: `['value']` locator to the string, the language service's rename, the new-value rule. Verify
+- [x] 7.2 TypeScript: `['value']` locator to the string, the language service's rename, the new-value rule. Verify
       with "TypeScript contexts" (decision 34's contexts plus aliases and imported types).
-- [ ] 7.3 Both: every other string equal to OLD gets an outcome through DEV-2292's exact-OLD literal rule, with or
+- [x] 7.3 Both: every other string equal to OLD gets an outcome through DEV-2292's exact-OLD literal rule, with or
       without `--docs`: unrelated when the checker types it by another literal type (TypeScript: contextual type;
       Python: the last probe round), else `leftover` (decision 40). Verify with "Unrelated equal strings
       untouched".
 
 ## 8. Compound names and repeatable --attr (both twins)
 
-- [ ] 8.1 Word split and match (decision 20), `refactor.compound` lines sorted with the leftovers, only with
+- [x] 8.1 Word split and match (decision 20), `refactor.compound` lines sorted with the leftovers, only with
       `--docs`; declarations from the file universe, outcomes through the driver (decisions 39, 42). Verify with
       the "--docs lists compound names" scenarios and the shared word-split vectors in both twins (decision 41).
 - [x] 8.2 `--attr` repeatable, one scan, sorted by path, line, column, name. Verify with "Two names" through both
       twins.
-- [ ] 8.3 After the merge, the repeatable `--attr` covers `main`'s access forms (decision 46). Verify with task
+- [x] 8.3 After the merge, the repeatable `--attr` covers `main`'s access forms (decision 46). Verify with task
       0.4's two-name test.
 
 ## 9. dr-mock-lint --base (both twins)
@@ -143,24 +143,24 @@
 
 ## 10. Conformance corpus
 
-- [ ] 10.1 Cases per decision 37: paired or neutral cases for help, `--attr`, map errors, locator failures,
+- [x] 10.1 Cases per decision 37: paired or neutral cases for help, `--attr`, map errors, locator failures,
       `exclusive`, `--base`; adapter cases for language-only semantics (`Literal`, baseline formats, retarget forms).
-- [ ] 10.2 List every new and migrated case in `conformance/INVENTORY.md`.
-- [ ] 10.3 Verify every new findings template is produced by a golden and every case passes through both invoking
+- [x] 10.2 List every new and migrated case in `conformance/INVENTORY.md`.
+- [x] 10.3 Verify every new findings template is produced by a golden and every case passes through both invoking
       twins (`scripts/conformance-cross`).
 
 ## 11. Architecture, skills and docs
 
-- [ ] 11.1 `architecture/model.c4`: add `refactor -> typecheck` and `refactor -> changes` in `python { }`, and
+- [x] 11.1 `architecture/model.c4`: add `refactor -> typecheck` and `refactor -> changes` in `python { }`, and
       `refactor -> changes` in `typescript { }` (decision 8); run `la-arch-diagrams`. Verify `la-arch-check` passes.
-- [ ] 11.2 Apply design.md "Approved wording" verbatim, after DEV-2292's wording is in place. Verify
+- [x] 11.2 Apply design.md "Approved wording" verbatim, after DEV-2292's wording is in place. Verify
       `npx -y @anthropic-ai/claude-code plugin validate plugin`.
-- [ ] 11.3 `docs/deterministic-refactoring.md` and `docs/commands.md`: name `rename-map`, `retarget`, `--symbol`, the
+- [x] 11.3 `docs/deterministic-refactoring.md` and `docs/commands.md`: name `rename-map`, `retarget`, `--symbol`, the
       baseline alignment and `dr-mock-lint --base`; drop `--name`. Verify the docs' link checks pass.
 
 ## 12. Verification
 
-- [ ] 12.1 Local test scope green in both twins; `ruff`, `basedpyright`, `npm run lint && npm run typecheck`,
+- [x] 12.1 Local test scope green in both twins; `ruff`, `basedpyright`, `npm run lint && npm run typecheck`,
       `la-arch-check` and `la-typecheck` pass; `scripts/sync-shared --check` passes.
 - [ ] 12.2 From this checkout, dry-run on SLayer's DEV-1607 branch: a map of related method renames, a retarget map
       of DEV-2294-style twins, a rename shifting baselined columns, and a `Literal["edit_model"]` member rename;
