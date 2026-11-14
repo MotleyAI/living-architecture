@@ -1,0 +1,87 @@
+kind: neutral
+command: la-wait-for-reviews
+args:
+- '7'
+- --repo
+- o/r
+env:
+  LA_WAIT_POLL_SECONDS: '0'
+gh:
+- match:
+  - pr
+  - view
+  - headRefOid,statusCheckRollup
+  responses:
+  - stdout:
+      headRefOid: abcdef0123
+      statusCheckRollup:
+      - __typename: CheckRun
+        name: tests
+        status: COMPLETED
+        conclusion: SUCCESS
+        detailsUrl: https://github.com/o/r/actions/runs/1/job/2
+      - __typename: StatusContext
+        context: CodeRabbit
+        state: SUCCESS
+- match:
+  - repos/o/r/commits/abcdef0123/check-suites
+  stdout:
+    check_suites: []
+- match:
+  - repos/o/r/commits/abcdef0123/statuses
+  stdout:
+  - context: CodeRabbit
+    state: success
+    description: Review completed
+- match:
+  - repos/o/r/issues/7/comments
+  stdout:
+  - user:
+      login: coderabbitai[bot]
+    updated_at: '2026-01-02T00:00:00Z'
+    body: '<!-- This is an auto-generated comment: summarize by coderabbit.ai -->
+
+      ## Summary'
+- match:
+  - repos/o/r/pulls/7/reviews
+  stdout:
+  - id: 21
+    user:
+      login: coderabbitai[bot]
+    commit_id: prev
+    body: '**Actionable comments posted: 1**'
+    html_url: https://github.com/o/r/pull/7#pullrequestreview-21
+  - id: 22
+    user:
+      login: coderabbitai[bot]
+    commit_id: prev
+    body: ''
+    html_url: https://github.com/o/r/pull/7#pullrequestreview-22
+- match:
+  - repos/o/r/pulls/7/comments
+  stdout:
+  - id: 11
+    user:
+      login: coderabbitai[bot]
+    html_url: https://github.com/o/r/pull/7#discussion_r11
+    updated_at: '2026-01-02T00:00:00Z'
+    body: comment 11
+  - id: 12
+    user:
+      login: coderabbitai[bot]
+    html_url: https://github.com/o/r/pull/7#discussion_r12
+    updated_at: '2026-01-02T00:00:00Z'
+    body: comment 12
+    in_reply_to_id: 11
+  - id: 13
+    user:
+      login: alice
+    html_url: https://github.com/o/r/pull/7#discussion_r13
+    updated_at: '2026-01-02T00:00:00Z'
+    body: comment 13
+expect:
+  exit: 0
+  stderr: ignore
+golden: manual
+note: CodeRabbit review comments (thread, reply) and reviews with a body are items;
+  a human comment and an empty-body review are not

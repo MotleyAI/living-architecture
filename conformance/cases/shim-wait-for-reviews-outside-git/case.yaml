@@ -1,0 +1,41 @@
+kind: neutral
+command: la-wait-for-reviews
+args:
+- '7'
+- --repo
+- o/r
+env:
+  LA_WAIT_POLL_SECONDS: '0'
+git: none
+gh:
+- match:
+  - pr
+  - view
+  - headRefOid,statusCheckRollup
+  responses:
+  - stdout:
+      headRefOid: abcdef0123
+      statusCheckRollup:
+      - __typename: CheckRun
+        name: tests
+        status: COMPLETED
+        conclusion: FAILURE
+        detailsUrl: https://github.com/o/r/actions/runs/1/job/2
+- match:
+  - repos/o/r/issues/7/comments
+  stdout:
+  - user:
+      login: alice
+    updated_at: '2026-01-02T00:00:00Z'
+    body: LGTM
+- match:
+  - repos/o/r/commits/abcdef0123/check-suites
+  stdout:
+    check_suites: []
+expect:
+  exit: 0
+  stderr:
+    contains:
+    - not persisted
+golden: manual
+note: outside a git repository the keys persist only for the run, with a note
