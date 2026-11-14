@@ -39,12 +39,17 @@ gh:
 - match:
   - repos/o/r/pulls/7/reviews
   stdout:
-  - user:
+  - id: 21
+    html_url: https://github.com/o/r/pull/7#pullrequestreview-21
+    user:
       login: coderabbitai[bot]
     commit_id: abc
     body: |-
       <!-- coderabbit-ai-generated:v1 -->
       **Actionable comments posted: 1**
+- match:
+  - repos/o/r/pulls/7/comments
+  stdout: []
 expect:
   exit: 0
 golden: manual

@@ -1,0 +1,65 @@
+kind: neutral
+command: la-wait-for-reviews
+args:
+- '7'
+- --repo
+- o/r
+env:
+  LA_WAIT_POLL_SECONDS: '0'
+gh:
+- match:
+  - pr
+  - view
+  - headRefOid,statusCheckRollup
+  responses:
+  - stdout:
+      headRefOid: abcdef0123
+      statusCheckRollup:
+      - __typename: CheckRun
+        name: lint
+        status: IN_PROGRESS
+        detailsUrl: https://github.com/o/r/actions/runs/1/job/9
+      - &id001
+        __typename: StatusContext
+        context: CodeRabbit
+        state: SUCCESS
+  - stdout:
+      headRefOid: abcdef0123
+      statusCheckRollup:
+      - __typename: CheckRun
+        name: lint
+        status: COMPLETED
+        conclusion: FAILURE
+        detailsUrl: https://github.com/o/r/actions/runs/1/job/9
+      - *id001
+- match:
+  - repos/o/r/commits/abcdef0123/check-suites
+  stdout:
+    check_suites: []
+- match:
+  - repos/o/r/commits/abcdef0123/statuses
+  stdout:
+  - context: CodeRabbit
+    state: success
+    description: Review rate limited
+- match:
+  - repos/o/r/issues/7/comments
+  stdout:
+  - user:
+      login: coderabbitai[bot]
+    updated_at: '2026-01-02T00:00:00Z'
+    body: '<!-- This is an auto-generated comment: summarize by coderabbit.ai -->
+
+      ## Summary'
+- match:
+  - repos/o/r/pulls/7/reviews
+  stdout: []
+- match:
+  - repos/o/r/pulls/7/comments
+  stdout: []
+expect:
+  exit: 3
+  stderr: ignore
+golden: manual
+note: rate limited is printed at once; exit 3 waits for the checks (the poll-2 failure
+  proves the second poll)
