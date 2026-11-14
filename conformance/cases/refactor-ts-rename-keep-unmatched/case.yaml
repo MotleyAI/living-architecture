@@ -1,0 +1,24 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- rename
+- --file
+- src/store.ts
+- --name
+- getModel
+- --new-name
+- getDataset
+- --keep
+- src/use.ts:99
+fixture: refactor-ts
+git:
+- commit: init
+expect:
+  exit: 2
+  files:
+  - src/store.ts
+  - src/use.ts
+golden: manual
+note: 'a --keep that matches nothing the rename touches: usage error, nothing written'

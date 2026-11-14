@@ -1,0 +1,25 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- --apply
+- rename
+- --file
+- src/store.ts
+- --name
+- getModel
+- --new-name
+- getDataset
+- --allow-blindspots
+fixture: refactor-ts
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - src/loose.ts
+  - src/store.ts
+  - src/use.ts
+golden: manual
+note: --allow-blindspots lists the any receivers and proceeds, leaving them

@@ -1,0 +1,15 @@
+kind: paired
+languages:
+- python
+- typescript
+command: dr-compliance
+args:
+- --select
+- untyped-def
+- --attr
+- formula
+- src
+expect:
+  exit: 2
+golden: manual
+note: '--attr with a selection that omits attr-blindspot: usage error'

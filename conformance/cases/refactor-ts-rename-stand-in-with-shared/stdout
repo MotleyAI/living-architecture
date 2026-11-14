@@ -1,0 +1,44 @@
+Renaming <getModel> to <getDataset>:
+
+
+--- a/src/caches.ts
++++ b/src/caches.ts
+@@ -1,18 +1,18 @@
+ import { Storage } from './store';
+ 
+ export class CacheA {
+-  getModel(name: string): number {
++  getDataset(name: string): number {
+     return name.length;
+   }
+ }
+ 
+ export class CacheB {
+-  getModel(name: string): number {
++  getDataset(name: string): number {
+     return name.length + 1;
+   }
+ }
+ 
+-/** Calls `getModel` on either cache. */
++/** Calls `getDataset` on either cache. */
+ export function h(x: CacheA | CacheB, s: Storage): number {
+-  return x.getModel('a') + s.getModel('b');
++  return x.getDataset('a') + s.getDataset('b');
+ }
+
+--- a/src/store.ts
++++ b/src/store.ts
+@@ -1,5 +1,5 @@
+ export class Storage {
+-  getModel(name: string): number {
++  getDataset(name: string): number {
+     return name.length;
+   }
+ }
+
+
+
+APPLIED. 2 file(s) changed:
+  src/caches.ts
+  src/store.ts

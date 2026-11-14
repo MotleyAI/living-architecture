@@ -1,0 +1,4 @@
+src/scope.py:10: explicit-any: an `Any` type — use a real type or `object`
+src/scope.py:16: explicit-any: an `Any` type — use a real type or `object`
+src/scope.py:17: explicit-any: an `Any` type — use a real type or `object`
+src/shadow.py:12: explicit-any: an `Any` type — use a real type or `object`

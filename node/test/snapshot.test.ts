@@ -45,6 +45,11 @@ describe('vendored snapshot', () => {
     expect(Object.keys(plain(manifest())).sort()).toEqual(Object.keys(loadYamlFile(join(SHARED, 'cli.yaml')).commands).sort());
     expect(plain(language('typescript')).test_globs).toEqual(loadYamlFile(join(SHARED, 'languages.yaml')).typescript.test_globs);
   });
+
+  it('serves the any and top type spellings of each language', () => {
+    expect([language('typescript').any_type, language('typescript').top_type]).toEqual(['any', 'unknown']);
+    expect([language('python').any_type, language('python').top_type]).toEqual(['Any', 'object']);
+  });
 });
 
 describe('computeHash', () => {

@@ -1,0 +1,46 @@
+Renaming <getModel> to <getDataset>:
+
+
+--- a/src/compatible.ts
++++ b/src/compatible.ts
+@@ -1,9 +1,9 @@
+ import { Storage } from './store';
+ 
+ export function f(s: Storage): number {
+-  return s.getModel('a');
++  return s.getDataset('a');
+ }
+ 
+ export function g(s: Storage): number {
+-  return s.getModel('b');
++  return s.getDataset('b');
+ }
+
+--- a/src/store.ts
++++ b/src/store.ts
+@@ -1,5 +1,5 @@
+ export class Storage {
+-  getModel(name: string): number {
++  getDataset(name: string): number {
+     return name.length;
+   }
+ }
+
+--- a/src/use.ts
++++ b/src/use.ts
+@@ -1,7 +1,7 @@
+ import { Storage } from './store';
+ 
+ export function f(s: Storage): number {
+-  return s.getModel('a');
++  return s.getDataset('a');
+ }
+ 
+ export function g(s: Storage): number {
+
+
+
+APPLIED. 3 file(s) changed:
+  src/compatible.ts
+  src/store.ts
+  src/use.ts

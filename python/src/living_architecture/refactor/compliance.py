@@ -1,8 +1,8 @@
 """`dr-compliance`: report constructs that make a rename un-verifiable.
 
 A rename's completeness can only be proven by a type checker over code the checker can resolve. This flags
-the blind spots: untyped-def, unannotated-attr, mock (a double not bound to a spec), and rope-walk (a file rope's
-walker cannot cover). With an attribute name it also reports `x.NAME` accesses whose receiver basedpyright types as
+the blind spots: untyped-def, unannotated-attr, explicit-any (a reference to `typing.Any`), mock (a double not bound
+to a spec), and rope-walk (a file rope's walker cannot cover). With an attribute name it also reports `x.NAME` accesses whose receiver basedpyright types as
 `Unknown` or `Any`.
 """
 
@@ -17,6 +17,7 @@ from typing import TypeGuard
 
 from living_architecture.contract import language, message
 from living_architecture.lang import LanguageServer, LanguageServerError
+from living_architecture.refactor.explicit_any import check_explicit_any
 from living_architecture.refactor.mock_spec_lint import check_file as _mock_check
 from living_architecture.refactor.python_source import SourceFile
 from living_architecture.refactor.rope_patches import apply_rope_patches, walk_gap_line
@@ -176,6 +177,8 @@ def check_path(path: Path, selected: set[str], attr: str | None) -> list[str]:
         out += _check_untyped_defs(tree, path)
     if "unannotated-attr" in selected:
         out += _check_unannotated_attrs(tree, path)
+    if "explicit-any" in selected:
+        out += check_explicit_any(path, source)
     if "mock" in selected:
         out += _mock_check(path)
     if "rope-walk" in selected and (line := walk_gap_line(source)) is not None:

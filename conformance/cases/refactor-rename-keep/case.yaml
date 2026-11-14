@@ -1,0 +1,32 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- --apply
+- rename
+- --file
+- pkg/store.py
+- --name
+- get_model
+- --new-name
+- get_dataset
+- --keep
+- tests/compat
+- --keep
+- tests/test_shim.py
+- --keep
+- tests/test_compat.py:9
+fixture: refactor-typed
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - pkg/store.py
+  - tests/compat/test_old.py
+  - tests/compatible.py
+  - tests/test_compat.py
+  - tests/test_shim.py
+golden: manual
+note: '--keep a line, a file and a directory (whole path components: tests/compatible.py is renamed)'

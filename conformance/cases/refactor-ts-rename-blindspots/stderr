@@ -1,0 +1,2 @@
+src/loose.ts:2: attr-blindspot: o.getModel — o is any, so a rename of .getModel is unverifiable
+1 untyped receiver(s) of .getModel: type them, or pass --allow-blindspots

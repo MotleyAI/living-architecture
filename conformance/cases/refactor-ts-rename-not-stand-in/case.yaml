@@ -1,0 +1,25 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- rename
+- --file
+- src/store.ts
+- --name
+- getModel
+- --new-name
+- getDataset
+- --with
+- src/store.ts:8
+- --without
+- src/store.ts:6
+fixture: refactor-ts
+git:
+- commit: init
+expect:
+  exit: 2
+  files:
+  - src/store.ts
+golden: manual
+note: 'a classification line declaring no stand-in of this rename: usage error, nothing written'

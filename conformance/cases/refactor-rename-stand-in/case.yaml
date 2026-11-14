@@ -1,0 +1,22 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- rename
+- --file
+- pkg/store.py
+- --name
+- get_model
+- --new-name
+- get_dataset
+fixture: refactor-typed
+git:
+- commit: init
+expect:
+  exit: 1
+  files:
+  - pkg/store.py
+  - pkg/use.py
+golden: manual
+note: a class outside the hierarchy declaring the old name (a cast() target) refuses until classified

@@ -1,0 +1,34 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- --apply
+- rename
+- --file
+- src/engine.ts
+- --name
+- saveModel
+- --new-name
+- persistModel
+- --docs
+fixture: refactor-ts
+git:
+- write:
+    .gitignore: 'out/
+
+      '
+    out/notes.md: 'See Engine.saveModel.
+
+      '
+- commit: init
+expect:
+  exit: 0
+  files:
+  - docs/api.md
+  - out/notes.md
+  - src/engine.ts
+  - src/use.ts
+golden: manual
+note: '--docs: {@link Owner#OLD}, {@link Owner.OLD}, Owner#OLD, backticks and a template-literal message prefix are rewritten;
+  bare words listed; git-ignored prose untouched'

@@ -1,0 +1,12 @@
+kind: adapter
+languages:
+- python
+command: dr-compliance
+args:
+- --select
+- explicit-any
+- src/m.py
+expect:
+  exit: 1
+golden: manual
+note: '`Any` outside annotations: a TypeVar bound, a generic base, an alias value, a cast, a generic call and a plain reference'

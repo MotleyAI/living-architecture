@@ -1,0 +1,12 @@
+kind: adapter
+languages:
+- python
+command: dr-compliance
+args:
+- --select
+- explicit-any
+- src/m.py
+expect:
+  exit: 1
+golden: manual
+note: every `Any` in nested and variadic annotations is its own finding, so one line can give several

@@ -44,6 +44,8 @@ What a rename leaves unrenamed:
 
 - `untyped-def` → annotate every parameter and the return.
 - `unannotated-attr` → annotate the attribute (class-body `x: T`, or `self.x: T = ...`).
+- `explicit-any` → a real type (a dict of known keys becomes a `TypedDict` or a Pydantic model), or `object`
+  narrowed where it is used.
 - `mock` → bind the double to a spec: `create_autospec(X, spec_set=True)`, `MagicMock(spec_set=X)`,
   `patch(..., autospec=True)`, or a `Protocol` fake.
 - `attr-blindspot` → type the named receiver (its parameter, variable, element type or the return it comes from)

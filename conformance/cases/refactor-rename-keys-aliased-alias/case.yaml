@@ -11,6 +11,10 @@ args:
 - '80'
 - --new-name
 - fields
+- --without
+- pkg/models.py:10
+- --without
+- pkg/models.py:14
 fixture: refactor-typed
 git:
 - commit: init

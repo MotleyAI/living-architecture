@@ -1,0 +1,34 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- --apply
+- rename
+- --file
+- src/store.ts
+- --name
+- getModel
+- --new-name
+- getDataset
+- --keep
+- src/compat
+- --keep
+- src/shim.ts
+- --keep
+- src/shim.ts:4
+- --keep
+- src/use.ts:8
+fixture: refactor-ts
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - src/compat/old.ts
+  - src/compatible.ts
+  - src/shim.ts
+  - src/store.ts
+  - src/use.ts
+golden: manual
+note: '--keep a line, a file (with a line keep inside it) and a directory (whole path components: src/compatible.ts is renamed)'

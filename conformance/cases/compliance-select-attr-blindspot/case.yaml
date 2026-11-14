@@ -1,0 +1,15 @@
+kind: paired
+languages:
+- python
+- typescript
+command: dr-compliance
+args:
+- --select
+- attr-blindspot
+- --attr
+- formula
+- src
+expect:
+  exit: 1
+golden: manual
+note: --select attr-blindspot runs only that check (no untyped-def / explicit-any findings)

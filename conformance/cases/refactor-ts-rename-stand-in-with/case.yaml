@@ -1,0 +1,25 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- --apply
+- rename
+- --file
+- src/store.ts
+- --name
+- getModel
+- --new-name
+- getDataset
+- --with
+- src/store.ts:8
+fixture: refactor-ts
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - src/store.ts
+  - src/use.ts
+golden: manual
+note: --with renames the stand-in and its subclass in the same diff; the object literal keeps its key

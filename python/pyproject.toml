@@ -80,7 +80,7 @@ dr-mock-lint = "living_architecture.cli:dr_mock_lint"
 dr-compliance = "living_architecture.cli:dr_compliance"
 
 [dependency-groups]
-dev = ["pytest>=8", "pytest-xdist>=3.8", "ruff>=0.6", "types-pyyaml>=6", "types-jsonschema>=4"]
+dev = ["pytest>=8", "pytest-mock>=3.14", "pytest-xdist>=3.8", "ruff>=0.6", "types-pyyaml>=6", "types-jsonschema>=4"]
 
 [build-system]
 requires = ["uv_build>=0.9,<0.13"]

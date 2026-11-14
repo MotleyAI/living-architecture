@@ -44,7 +44,7 @@ only when:
 
 | Language | Checks |
 |---|---|
-| Python | `untyped-def`, `unannotated-attr`, `mock`, `rope-walk` |
+| Python | `untyped-def`, `unannotated-attr`, `explicit-any`, `mock`, `rope-walk` |
 | TypeScript | `tsconfig` (`strict`, `noImplicitAny`, `noImplicitOverride` enabled), `explicit-any`, `untyped-def` (implicitly-`any` parameters, as the type checker sees them), `mock` |
 
 `--select` picks a subset; `--attr NAME` also reports `x.NAME` accesses whose receiver the type checker cannot

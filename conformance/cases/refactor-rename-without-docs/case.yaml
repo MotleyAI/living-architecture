@@ -1,0 +1,26 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- --apply
+- rename
+- --file
+- pkg/engine.py
+- --name
+- recommend_root_model
+- --new-name
+- pick_root_model
+fixture: refactor-typed
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - docs/api.md
+  - docs/data.json
+  - docs/notes.rst
+  - pkg/engine.py
+  - pkg/other.py
+golden: manual
+note: without --docs no comment, docstring, message or prose file changes and nothing is listed

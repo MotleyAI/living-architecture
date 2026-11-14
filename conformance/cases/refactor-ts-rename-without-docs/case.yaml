@@ -1,0 +1,24 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- --apply
+- rename
+- --file
+- src/engine.ts
+- --name
+- saveModel
+- --new-name
+- persistModel
+fixture: refactor-ts
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - docs/api.md
+  - src/engine.ts
+  - src/use.ts
+golden: manual
+note: without --docs comments, JSDoc, messages and prose files are unchanged and nothing is listed

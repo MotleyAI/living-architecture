@@ -1,0 +1,13 @@
+kind: paired
+languages:
+- python
+- typescript
+command: dr-compliance
+args:
+- --select
+- attr-blindspot
+- src
+expect:
+  exit: 2
+golden: manual
+note: 'attr-blindspot selected without --attr: usage error'

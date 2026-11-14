@@ -1,0 +1,36 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- --apply
+- rename
+- --file
+- pkg/engine.py
+- --name
+- recommend_root_model
+- --new-name
+- pick_root_model
+- --docs
+fixture: refactor-typed
+git:
+- write:
+    .gitignore: 'out/
+
+      '
+    out/notes.md: 'See SlayerQueryEngine.recommend_root_model.
+
+      '
+- commit: init
+expect:
+  exit: 0
+  files:
+  - docs/api.md
+  - docs/data.json
+  - docs/notes.rst
+  - out/notes.md
+  - pkg/engine.py
+  - pkg/other.py
+golden: manual
+note: '--docs: qualified mentions everywhere, code-marked ones in the declaring file (backticks, a Sphinx role, a message
+  prefix, an f-string), prose files git lists; the rest listed; git-ignored and .json files untouched'

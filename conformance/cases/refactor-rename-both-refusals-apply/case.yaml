@@ -1,0 +1,24 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- --apply
+- rename
+- --file
+- pkg/store.py
+- --name
+- get_model
+- --new-name
+- get_dataset
+fixture: refactor-typed
+git:
+- commit: init
+expect:
+  exit: 1
+  files:
+  - pkg/other.py
+  - pkg/store.py
+  - tests/test_a.py
+golden: manual
+note: 'both refusals under --apply: the blind spot, then the stand-in, then the closing finding; nothing written'

@@ -1,0 +1,49 @@
+Renaming <saveModel> to <persistModel>:
+
+
+--- a/src/engine.test.ts
++++ b/src/engine.test.ts
+@@ -2,16 +2,16 @@
+ import { Engine } from './engine';
+ 
+ export function spies(engine: Engine): void {
+-  vi.spyOn(engine, 'saveModel');
+-  vi.spyOn(Engine.prototype, 'saveModel');
+-  jest.spyOn(engine, "saveModel");
+-  Reflect.get(engine, 'saveModel');
+-  Reflect.has(Engine.prototype, 'saveModel');
+-  Object.defineProperty(engine, 'saveModel', { value: () => undefined });
+-  Object.getOwnPropertyDescriptor(Engine.prototype, 'saveModel');
+-  Reflect.set(engine, 'saveModel', () => undefined);
+-  Reflect.deleteProperty(engine, 'saveModel');
+-  Reflect.defineProperty(engine, 'saveModel', { value: () => undefined });
+-  Reflect.getOwnPropertyDescriptor(Engine.prototype, 'saveModel');
++  vi.spyOn(engine, 'persistModel');
++  vi.spyOn(Engine.prototype, 'persistModel');
++  jest.spyOn(engine, "persistModel");
++  Reflect.get(engine, 'persistModel');
++  Reflect.has(Engine.prototype, 'persistModel');
++  Object.defineProperty(engine, 'persistModel', { value: () => undefined });
++  Object.getOwnPropertyDescriptor(Engine.prototype, 'persistModel');
++  Reflect.set(engine, 'persistModel', () => undefined);
++  Reflect.deleteProperty(engine, 'persistModel');
++  Reflect.defineProperty(engine, 'persistModel', { value: () => undefined });
++  Reflect.getOwnPropertyDescriptor(Engine.prototype, 'persistModel');
+   Reflect.get(engine, 'saveModelX');
+ }
+
+--- a/src/engine.ts
++++ b/src/engine.ts
+@@ -1,5 +1,5 @@
+ export class Engine {
+-  saveModel(name: string): void {
++  persistModel(name: string): void {
+     void name;
+   }
+ }
+
+
+
+APPLIED. 2 file(s) changed:
+  src/engine.test.ts
+  src/engine.ts

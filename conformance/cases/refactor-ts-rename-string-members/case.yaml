@@ -1,0 +1,24 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- --apply
+- rename
+- --file
+- src/engine.ts
+- --name
+- saveModel
+- --new-name
+- persistModel
+fixture: refactor-ts
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - src/engine.test.ts
+  - src/engine.ts
+  - src/shims.d.ts
+golden: manual
+note: spyOn, Reflect and Object member strings on a typed object or prototype are renamed, quotes kept

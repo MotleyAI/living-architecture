@@ -1,0 +1,39 @@
+Renaming <save_model> to <persist_model>:
+
+
+--- a/pkg/engine.py
++++ b/pkg/engine.py
+@@ -1,3 +1,3 @@
+ class SlayerQueryEngine:
+-    def save_model(self, name: str) -> None:
++    def persist_model(self, name: str) -> None:
+         pass
+
+--- a/tests/test_engine.py
++++ b/tests/test_engine.py
+@@ -11,12 +11,12 @@
+ 
+ 
+ def test_forms(engine: SlayerQueryEngine, sub: Sub, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture) -> None:
+-    patch.object(SlayerQueryEngine, "save_model")
+-    monkeypatch.setattr(engine, "save_model", lambda name: None)
+-    mocker.patch.object(engine, 'save_model')
+-    getattr(engine, "save_model")
+-    setattr(sub, "save_model", None)
+-    hasattr(type(engine), "save_model")
+-    delattr(Sub, "save_model")
++    patch.object(SlayerQueryEngine, "persist_model")
++    monkeypatch.setattr(engine, "persist_model", lambda name: None)
++    mocker.patch.object(engine, 'persist_model')
++    getattr(engine, "persist_model")
++    setattr(sub, "persist_model", None)
++    hasattr(type(engine), "persist_model")
++    delattr(Sub, "persist_model")
+     getattr(engine, f"save_model")
+     getattr(engine, "save_model_x")
+
+
+
+APPLIED. 2 file(s) changed:
+  pkg/engine.py
+  tests/test_engine.py

@@ -1,0 +1,3 @@
+src/pkg/a.py:4: explicit-any: an `Any` type — use a real type or `object`
+src/pkg/a.py:5: explicit-any: an `Any` type — use a real type or `object`
+src/pkg/a.py:6: explicit-any: an `Any` type — use a real type or `object`
