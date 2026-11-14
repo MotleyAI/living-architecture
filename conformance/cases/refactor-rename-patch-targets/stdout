@@ -4,7 +4,7 @@ Renaming <save_model> to <persist_model>:
 --- a/pkg/engine.py
 +++ b/pkg/engine.py
 @@ -1,3 +1,3 @@
- class SlayerQueryEngine:
+ class SearchQueryEngine:
 -    def save_model(self, name: str) -> None:
 +    def persist_model(self, name: str) -> None:
          pass
@@ -15,16 +15,16 @@ Renaming <save_model> to <persist_model>:
  
  
  def test_targets(mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch) -> None:
--    patch("pkg.engine.SlayerQueryEngine.save_model")
--    patch("pkg.SlayerQueryEngine.save_model")
--    mocker.patch("pkg.engine.SlayerQueryEngine.save_model")
--    monkeypatch.setattr("pkg.engine.SlayerQueryEngine.save_model", None)
--    monkeypatch.delattr('pkg.SlayerQueryEngine.save_model')
-+    patch("pkg.engine.SlayerQueryEngine.persist_model")
-+    patch("pkg.SlayerQueryEngine.persist_model")
-+    mocker.patch("pkg.engine.SlayerQueryEngine.persist_model")
-+    monkeypatch.setattr("pkg.engine.SlayerQueryEngine.persist_model", None)
-+    monkeypatch.delattr('pkg.SlayerQueryEngine.persist_model')
+-    patch("pkg.engine.SearchQueryEngine.save_model")
+-    patch("pkg.SearchQueryEngine.save_model")
+-    mocker.patch("pkg.engine.SearchQueryEngine.save_model")
+-    monkeypatch.setattr("pkg.engine.SearchQueryEngine.save_model", None)
+-    monkeypatch.delattr('pkg.SearchQueryEngine.save_model')
++    patch("pkg.engine.SearchQueryEngine.persist_model")
++    patch("pkg.SearchQueryEngine.persist_model")
++    mocker.patch("pkg.engine.SearchQueryEngine.persist_model")
++    monkeypatch.setattr("pkg.engine.SearchQueryEngine.persist_model", None)
++    monkeypatch.delattr('pkg.SearchQueryEngine.persist_model')
 
 
 

@@ -18,7 +18,7 @@
 - [x] 1.2 `shared/findings.yaml`: add `refactor.blindspots`, `refactor.unresolved-target`, `refactor.stand-in`,
       `refactor.not-stand-in`, `refactor.keep-unmatched`, `refactor.leftover`, `compliance.attr-required`,
       `compliance.attr-unselected`. Proposed texts (ids fixed; texts may tighten):
-      `'{count} untyped receiver(s) of .{attr}: type them, or pass --allow-blindspots'`;
+      `'{count} blind spot(s) of .{attr}: type or resolve them, or pass --allow-blindspots'`;
       `'{path}:{line}: unresolved-target: {target} names .{attr} but does not resolve'`;
       `'{path}:{line}: stand-in: {cls}.{attr} is outside the renamed hierarchy; pass --with {path}:{line} to rename
       it too or --without {path}:{line} to leave it'`; `'{site} is not a stand-in of this rename'`;

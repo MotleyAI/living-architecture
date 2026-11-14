@@ -14,7 +14,8 @@ from pydantic import BaseModel, ConfigDict
 
 from living_architecture.refactor.python_source import SourceFile
 
-_QUALIFIER = re.compile(r"((?:[A-Za-z_]\w*[.#])*[A-Za-z_]\w*)[.#]$")
+_IDENTIFIER = re.compile(r"[A-Za-z_]\w*")
+_QUALIFIER_WINDOW = 300
 _PREFIX = re.compile(r"[A-Za-z]*")
 _FSTRING_PARTS = {getattr(tokenize, name) for name in ("FSTRING_MIDDLE", "TSTRING_MIDDLE") if hasattr(tokenize, name)}
 _FSTRING_STARTS = {getattr(tokenize, name) for name in ("FSTRING_START", "TSTRING_START") if hasattr(tokenize, name)}
@@ -53,10 +54,9 @@ class MentionRules(BaseModel):
 
     def qualified(self, text: str, start: int) -> bool:
         """`Owner.OLD` with an optional dotted prefix naming the owner's module from its end."""
-        m = _QUALIFIER.search(text, max(0, start - 300), start)
-        if m is None or m.end() != start or (m.start() > 0 and (text[m.start() - 1].isalnum() or text[m.start() - 1] in "_.#")):
+        segments = _qualifier_segments(text, start)
+        if segments is None:
             return False
-        segments = re.split(r"[.#]", m.group(1))
         bare = segments[0] if len(segments) == 1 else None
         for owner in self.owners:
             if len(segments) > len(owner.path) or list(owner.path[len(owner.path) - len(segments) :]) != segments:
@@ -64,6 +64,23 @@ class MentionRules(BaseModel):
             if bare is None or not owner.member or bare not in self.colliding:
                 return True
         return False
+
+
+def _qualifier_segments(text: str, start: int) -> list[str] | None:
+    """The segments of the `A.B.` or `A#` qualifier ending at `start`, or None when the run there is not one."""
+
+    def in_run(i: int) -> bool:
+        return i >= 0 and (text[i].isalnum() or text[i] in "_.#")
+
+    i = start
+    while start - i < _QUALIFIER_WINDOW and in_run(i - 1):
+        i -= 1
+    if in_run(i - 1):
+        return None
+    *segments, last = re.split(r"[.#]", text[i:start])
+    if last or not segments or not all(_IDENTIFIER.fullmatch(s) for s in segments):
+        return None
+    return segments
 
 
 def _code_marked(text: str, mention: Mention) -> bool:
@@ -145,14 +162,19 @@ def source_regions(source: SourceFile) -> Iterator[Region]:
         elif token.type in _FSTRING_PARTS:
             yield offset, offset + len(token.string), "string", opening
         elif token.type == tokenize.STRING:
-            prefix = len(_PREFIX.match(token.string).group())  # type: ignore[union-attr]
-            quote = 3 if token.string[prefix : prefix + 3] in ('"""', "'''") else 1
             where = "docstring" if any(s <= offset < e for s, e in docstrings) else "string"
-            if "f" in token.string[:prefix].lower() and sys.version_info < (3, 12):
-                for i, (s, e) in enumerate(_masked_fstring(token.string[prefix + quote : len(token.string) - quote])):
-                    yield offset + prefix + quote + s, offset + prefix + quote + e, where, i == 0
-            else:
-                yield offset + prefix + quote, end - quote, where, True
+            yield from _string_regions(token.string, offset, end, where)
+
+
+def _string_regions(literal: str, offset: int, end: int, where: str) -> Iterator[Region]:
+    """The contents of a string literal token spanning `offset` to `end`; before 3.12, an f-string's literal parts."""
+    prefix = len(_PREFIX.match(literal).group())  # type: ignore[union-attr]
+    quote = 3 if literal[prefix : prefix + 3] in ('"""', "'''") else 1
+    if "f" in literal[:prefix].lower() and sys.version_info < (3, 12):
+        for i, (s, e) in enumerate(_masked_fstring(literal[prefix + quote : len(literal) - quote])):
+            yield offset + prefix + quote + s, offset + prefix + quote + e, where, i == 0
+    else:
+        yield offset + prefix + quote, end - quote, where, True
 
 
 def classify(text: str, found: list[Mention], rules: MentionRules, *, declaring: bool) -> tuple[list[Mention], list[Mention]]:

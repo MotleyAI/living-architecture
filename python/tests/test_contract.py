@@ -669,7 +669,7 @@ NEW_TEMPLATES = {
     "arch-migrate.unknown-format": "cannot migrate from format {declared}, which no la release used; this la reads format {current}",
     "arch-migrate.stamp-mismatch": "cannot write the format into living-architecture.yaml; set format: {current} by hand",
     "arch-migrate.rollback-failed": "{error}; restoring failed, so these paths are left changed: {paths}",
-    "refactor.blindspots": "{count} untyped receiver(s) of .{attr}: type them, or pass --allow-blindspots",
+    "refactor.blindspots": "{count} blind spot(s) of .{attr}: type or resolve them, or pass --allow-blindspots",
     "refactor.unresolved-target": "{path}:{line}: unresolved-target: {target} names .{attr} but does not resolve",
     "refactor.stand-in":
         "{path}:{line}: stand-in: {cls}.{attr} is outside the renamed hierarchy; pass --with {path}:{line} to rename"
@@ -770,7 +770,8 @@ RENAME_GUARD_OPTIONS = {
 def test_rename_guard_options(name: str, expected: tuple[str, str, bool]) -> None:
     options = _shared_yaml("cli.yaml")["commands"]["dr-refactor"]["subcommands"]["rename"]["options"]
     [option] = [o for o in options if o["name"] == name]
-    assert (option["type"], option.get("dest", name[2:].replace("-", "_")), option.get("repeatable", False)) == expected
+    actual = (option["type"], option.get("dest", name[2:].replace("-", "_")), option.get("repeatable", False))
+    assert actual == expected
 
 
 def test_refactor_prose_extensions() -> None:

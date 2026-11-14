@@ -17,7 +17,8 @@ it SHALL print one line per site on stderr, sorted by path, line and column (`co
 access or string form, `refactor.unresolved-target` for a dotted target), then `refactor.blindspots`, print
 nothing on stdout, write nothing and exit 1, with or without `--apply`. With `--allow-blindspots` the same lines
 SHALL be printed on stderr and the rename SHALL proceed. The set of blind spots SHALL equal what
-`dr-compliance --select attr-blindspot --attr OLD` reports over the same files, plus the unresolved targets.
+`dr-compliance --select attr-blindspot --attr OLD` reports over the same files, plus the unresolved targets
+and the mixed targets.
 
 #### Scenario: Untyped fixture parameter refuses the rename
 - **WHEN** method `Storage.get_model` is renamed and a test function holds `def test_a(storage): storage.get_model("m")`
@@ -116,6 +117,10 @@ TypeScript's property lookup) lands on a renamed declaration. The Python forms S
 `jest.spyOn`, `Reflect.get`, `Reflect.set`, `Reflect.has`, `Reflect.deleteProperty`, `Reflect.defineProperty`,
 `Reflect.getOwnPropertyDescriptor`, `Object.defineProperty` and `Object.getOwnPropertyDescriptor`. Only the
 characters of OLD SHALL change.
+A string-member form whose lookup lands on a renamed declaration and also on a declaration the rename leaves
+unchanged (a union of the renamed hierarchy with another class or type) SHALL NOT be rewritten; it SHALL be a blind
+spot, printed as `refactor.mixed-target` among the blind-spot lines and counted by `refactor.blindspots`, with
+`--keep` and `--allow-blindspots` acting on it as on any blind spot.
 
 A Python rename of a symbol other than a module SHALL also rewrite each segment of the target string of
 `unittest.mock`'s `patch`, pytest-mock's `patch`, or `MonkeyPatch.setattr` / `MonkeyPatch.delattr` with a string
@@ -132,8 +137,8 @@ target unresolved. A target whose first segment is not a project top-level packa
 OLD SHALL be listed with `refactor.leftover` (`{where}` `patch target`) and leave the exit code unchanged.
 
 #### Scenario: Receiver forms on instances and class objects
-- **WHEN** `SlayerQueryEngine.save_model` is renamed and tests hold `patch.object(SlayerQueryEngine, "save_model")`,
-  `monkeypatch.setattr(engine, "save_model", fake)` with `engine: SlayerQueryEngine` and `monkeypatch:
+- **WHEN** `SearchQueryEngine.save_model` is renamed and tests hold `patch.object(SearchQueryEngine, "save_model")`,
+  `monkeypatch.setattr(engine, "save_model", fake)` with `engine: SearchQueryEngine` and `monkeypatch:
   pytest.MonkeyPatch`, `mocker.patch.object(engine, "save_model")` with `mocker: MockerFixture`, and
   `getattr(engine, "save_model")`
 - **THEN** each `"save_model"` becomes the new name with its quote style kept
@@ -148,14 +153,14 @@ OLD SHALL be listed with `refactor.leftover` (`{where}` `patch target`) and leav
 - **THEN** neither string changes and neither is a blind spot
 
 #### Scenario: Dotted patch targets
-- **WHEN** `SlayerQueryEngine.save_model` is renamed, `pkg/__init__.py` re-exports `SlayerQueryEngine` from
-  `pkg.engine`, and tests hold `patch("pkg.engine.SlayerQueryEngine.save_model")` and
-  `patch("pkg.SlayerQueryEngine.save_model")`
+- **WHEN** `SearchQueryEngine.save_model` is renamed, `pkg/__init__.py` re-exports `SearchQueryEngine` from
+  `pkg.engine`, and tests hold `patch("pkg.engine.SearchQueryEngine.save_model")` and
+  `patch("pkg.SearchQueryEngine.save_model")`
 - **THEN** both targets end in the new name
 
 #### Scenario: Class rename segment
-- **WHEN** class `SlayerQueryEngine` is renamed to `QueryEngine` and a test holds
-  `patch("pkg.engine.SlayerQueryEngine.save_model")`
+- **WHEN** class `SearchQueryEngine` is renamed to `QueryEngine` and a test holds
+  `patch("pkg.engine.SearchQueryEngine.save_model")`
 - **THEN** the target becomes `"pkg.engine.QueryEngine.save_model"`
 
 #### Scenario: Unresolved targets
@@ -163,8 +168,8 @@ OLD SHALL be listed with `refactor.leftover` (`{where}` `patch target`) and leav
 - **THEN** the first is a blind spot (`refactor.unresolved-target`) and the second is listed as a `leftover`
 
 #### Scenario: Target from tests into a src layout
-- **WHEN** `src/pkg/engine.py` declares `SlayerQueryEngine.save_model`, `src` is a source folder, and
-  `tests/test_t.py` holds `patch("pkg.engine.SlayerQueryEngine.save_model")`
+- **WHEN** `src/pkg/engine.py` declares `SearchQueryEngine.save_model`, `src` is a source folder, and
+  `tests/test_t.py` holds `patch("pkg.engine.SearchQueryEngine.save_model")`
 - **THEN** the target ends in the new name
 
 #### Scenario: Target through inheritance
@@ -181,6 +186,11 @@ OLD SHALL be listed with `refactor.leftover` (`{where}` `patch target`) and leav
 - **WHEN** method `Engine.saveModel` is renamed and tests hold `vi.spyOn(engine, 'saveModel')` with `engine: Engine`
   and `vi.spyOn(Engine.prototype, 'saveModel')`
 - **THEN** both strings become the new name
+
+#### Scenario: Union with an unrenamed class
+- **WHEN** `A.saveModel` is renamed in TypeScript, unrelated `B` declaring `saveModel` is passed with `--without`,
+  and a file holds `Reflect.get(x, 'saveModel')` with `x: A | B`
+- **THEN** stderr holds that site's `refactor.mixed-target` line, the exit code is 1 and no file changes
 
 ### Requirement: --keep leaves sites untouched
 `dr-refactor rename` SHALL accept `--keep PATH[:LINE]` (repeatable). PATH SHALL be resolved against the working
@@ -230,10 +240,10 @@ Without `--docs`, comments, docstrings, prose files and strings other than the f
 SHALL be unchanged and unlisted.
 
 #### Scenario: Qualified and code-marked mentions
-- **WHEN** `SlayerQueryEngine.recommend_root_model` is renamed with `--docs`, a docstring elsewhere holds
-  ``:meth:`SlayerQueryEngine.recommend_root_model` ``, the engine's module holds ``` ``recommend_root_model`` ``` in a
+- **WHEN** `SearchQueryEngine.recommend_root_model` is renamed with `--docs`, a docstring elsewhere holds
+  ``:meth:`SearchQueryEngine.recommend_root_model` ``, the engine's module holds ``` ``recommend_root_model`` ``` in a
   docstring and `"recommend_root_model: no candidates"` as a message, and `docs/api.md` holds
-  `pkg.engine.SlayerQueryEngine.recommend_root_model`
+  `pkg.engine.SearchQueryEngine.recommend_root_model`
 - **THEN** all four mentions are rewritten
 
 #### Scenario: Bare words listed
@@ -242,13 +252,13 @@ SHALL be unchanged and unlisted.
 - **THEN** neither changes and both are listed as `leftover` with `{where}` `comment`
 
 #### Scenario: Simple-name collision
-- **WHEN** another project class also named `SlayerQueryEngine` declares `recommend_root_model` and is passed with
-  `--without`, and a comment says `SlayerQueryEngine.recommend_root_model`
-- **THEN** that mention is listed, not rewritten, while `engine.SlayerQueryEngine.recommend_root_model` (matching
+- **WHEN** another project class also named `SearchQueryEngine` declares `recommend_root_model` and is passed with
+  `--without`, and a comment says `SearchQueryEngine.recommend_root_model`
+- **THEN** that mention is listed, not rewritten, while `engine.SearchQueryEngine.recommend_root_model` (matching
   the declaring module's path) is rewritten
 
 #### Scenario: Git-ignored prose skipped
-- **WHEN** `build/notes.md` is git-ignored and mentions `SlayerQueryEngine.recommend_root_model`
+- **WHEN** `build/notes.md` is git-ignored and mentions `SearchQueryEngine.recommend_root_model`
 - **THEN** it is unchanged and unlisted
 
 #### Scenario: TypeScript JSDoc link

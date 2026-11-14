@@ -1,3 +1,3 @@
-from pkg.engine import SlayerQueryEngine
+from pkg.engine import SearchQueryEngine
 
-__all__ = ["SlayerQueryEngine"]
+__all__ = ["SearchQueryEngine"]

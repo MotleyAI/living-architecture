@@ -1,0 +1,22 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- rename
+- --file
+- src/store.ts
+- --name
+- saveModel
+- --new-name
+- persistModel
+- --without
+- src/store.ts:8
+fixture: refactor-ts
+git:
+- commit: init
+expect:
+  exit: 1
+  files:
+  - src/store.ts
+note: a string member on a union of a renamed and a --without class refuses the rename

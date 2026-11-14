@@ -16,9 +16,10 @@ import { byCodePoint, language, manifest, message } from '../contract/index.js';
 import { canonical, posix, stripSourceExtension, ts } from '../lang/index.js';
 import { unifiedDiff } from './diff.js';
 import { applyEdits, type Edit, mergeEdits, RefactorError } from './edits.js';
-import { anyReceivers, formCalls, isAny, type MemberDeclaration, memberDeclarations } from './members.js';
+import { anyReceivers, type FormCall, formCalls, isAny, type MemberDeclaration, memberDeclarations, memberNameStart } from './members.js';
 import { codeMarked, type Mention, mentions, type Owner, qualified, type Region, sourceRegions } from './mentions.js';
-import { realPath, under } from './routing.js';
+import { CHECKER_OPTIONS } from './compliance.js';
+import { languageFiles, realPath, under } from './routing.js';
 import { Site, SiteError } from './sites.js';
 import { Workspace } from './workspace.js';
 
@@ -209,20 +210,21 @@ interface Finding {
   text: string;
 }
 
-/** A source of the rename's projects with the checker of the first program holding it. */
+/** A source of the rename's projects with the service and checker of the first program holding it. */
 interface ProjectSource {
   source: TS.SourceFile;
+  service: TS.LanguageService;
   checker: TS.TypeChecker;
 }
 
 const keyOf = (path: string, start: number): string => `${path}\0${start}`;
-const lineAt = (text: string, position: number): number => text.slice(0, position).split('\n').length;
+const lineAt = (text: string, position: number): number => text.slice(0, position).split(LINE_BREAK).length;
 const byPosition = (a: Finding, b: Finding): number => byCodePoint(a.path, b.path) || a.line - b.line || a.position - b.position;
 
-/** Every project's rename locations of the symbol at `position` of `file`. */
-function renameLocations(r: Refactor, file: string, position: number, newName: string): Edit[] {
+/** Every service's rename locations of the symbol at `position` of `file`. */
+function renameLocations(services: TS.LanguageService[], file: string, position: number, newName: string): Edit[] {
   const edits: Edit[] = [];
-  for (const service of r.services(file)) {
+  for (const service of services) {
     for (const location of service.findRenameLocations(file, position, false, false, { providePrefixAndSuffixTextForRename: true }) ?? []) {
       const newText = `${location.prefixText ?? ''}${newName}${location.suffixText ?? ''}`;
       edits.push({ path: location.fileName, start: location.textSpan.start, length: location.textSpan.length, newText });
@@ -231,8 +233,9 @@ function renameLocations(r: Refactor, file: string, position: number, newName: s
   return edits;
 }
 
-/** The project sources of `services`' programs under the project root. */
-function projectSources(r: Refactor, services: TS.LanguageService[]): Map<string, ProjectSource> {
+/** The project sources of `services`' programs under the project root, then every other TypeScript file under it
+ * holding `old`, from its governing project's program. */
+function projectSources(r: Refactor, services: TS.LanguageService[], old: string): Map<string, ProjectSource> {
   const out = new Map<string, ProjectSource>();
   for (const service of services) {
     const program = service.getProgram();
@@ -241,8 +244,14 @@ function projectSources(r: Refactor, services: TS.LanguageService[]): Map<string
     for (const source of program.getSourceFiles()) {
       const rel = r.rel(source.fileName);
       if (source.isDeclarationFile || program.isSourceFileFromExternalLibrary(source) || rel.startsWith('..') || out.has(source.fileName)) continue;
-      out.set(source.fileName, { source, checker });
+      out.set(source.fileName, { source, service, checker });
     }
+  }
+  const rest = languageFiles(r.root, 'typescript').filter((path) => !out.has(path) && readFileSync(path, 'utf8').includes(old));
+  for (const [path, service] of r.workspace.servicesOf(rest, CHECKER_OPTIONS)) {
+    const program = service.getProgram();
+    const source = program?.getSourceFile(path);
+    if (program !== undefined && source !== undefined) out.set(source.fileName, { source, service, checker: program.getTypeChecker() });
   }
   return out;
 }
@@ -268,13 +277,20 @@ class TypescriptRename {
     readonly old: string,
     readonly newName: string,
   ) {
-    this.edits = renameLocations(r, file, position, newName);
-    this.sources = projectSources(r, r.services(file));
+    this.edits = renameLocations(r.services(file), file, position, newName);
+    this.sources = projectSources(r, r.services(file), old);
     this.declarations = [...this.sources.values()]
       .filter(({ source }) => source.text.includes(old))
       .flatMap(({ source }) => memberDeclarations(source, old, source.fileName));
     const declared = new Set(this.declarations.map((d) => keyOf(d.path, d.start)));
     for (const e of this.edits) if (declared.has(keyOf(e.path, e.start))) this.renamed.add(keyOf(e.path, e.start));
+  }
+
+  /** `path`'s relevant services, else the one its source came from. */
+  private servicesFor(path: string): TS.LanguageService[] {
+    const services = this.r.services(path);
+    const own = this.sources.get(path)?.service;
+    return services.length > 0 || own === undefined ? services : [own];
   }
 
   get member(): boolean {
@@ -306,7 +322,7 @@ class TypescriptRename {
       const matched = candidates.filter((d) => site.line !== null && site.covers(this.r.rel(d.path), d.line));
       if (matched.length === 0) throw new SiteError('refactor.not-stand-in', raw);
       for (const d of matched) {
-        const theirs = renameLocations(this.r, d.path, d.start, this.newName);
+        const theirs = renameLocations(this.servicesFor(d.path), d.path, d.start, this.newName);
         const keys = [keyOf(d.path, d.start), ...theirs.map((e) => keyOf(e.path, e.start)).filter((k) => declared.has(k))];
         for (const k of keys) classified.add(k);
         if (!joined) continue;
@@ -319,7 +335,16 @@ class TypescriptRename {
       .map((d) => this.finding(d.path, d.start, 'refactor.stand-in', { cls: d.owner, attr: this.old }));
   }
 
-  /** Member strings landing on a renamed declaration are rewritten; `any` receivers are blind spots. */
+  /** Whether declaration `d` of OLD is renamed. */
+  private isRenamed(d: TS.Declaration): boolean {
+    const file = d.getSourceFile();
+    const name = ts().getNameOfDeclaration(d);
+    if (name === undefined) return false;
+    return this.renamed.has(keyOf(file.fileName, memberNameStart(name, this.old, file) ?? name.getStart(file)));
+  }
+
+  /** Member strings landing only on renamed declarations are rewritten; `any` receivers and strings landing on
+   * renamed and unchanged declarations are blind spots. */
   scan(): void {
     for (const { source, checker } of this.sources.values()) {
       if (!source.text.includes(this.old)) continue;
@@ -327,15 +352,21 @@ class TypescriptRename {
         this.blindspots.push(this.finding(source.fileName, position, 'compliance.attr-blindspot', { receiver, attr: this.old, type: 'any' }));
       }
       for (const found of formCalls(checker, source, this.old)) {
-        if (isAny(checker, found.object)) continue;
-        const type = checker.getApparentType(checker.getTypeAtLocation(found.object));
-        const declarations = type.getProperty(this.old)?.declarations ?? [];
-        const lands = declarations.some((d) => {
-          const name = ts().getNameOfDeclaration(d);
-          return name !== undefined && this.renamed.has(keyOf(d.getSourceFile().fileName, name.getStart(d.getSourceFile())));
-        });
-        if (lands) this.edits.push({ path: source.fileName, start: found.start, length: found.end - found.start, newText: this.newName });
+        if (!isAny(checker, found.object)) this.formCall(checker, source, found);
       }
+    }
+  }
+
+  /** A typed string-member form: rewritten when it lands only on renamed declarations, a blind spot when on both. */
+  private formCall(checker: TS.TypeChecker, source: TS.SourceFile, found: FormCall): void {
+    const type = checker.getApparentType(checker.getTypeAtLocation(found.object));
+    const renamed = new Set((type.getProperty(this.old)?.declarations ?? []).map((d) => this.isRenamed(d)));
+    if (!renamed.has(true)) return;
+    if (renamed.has(false)) {
+      const receiver = found.object.getText(source);
+      this.blindspots.push(this.finding(source.fileName, found.call.getStart(source), 'refactor.mixed-target', { receiver, attr: this.old }));
+    } else {
+      this.edits.push({ path: source.fileName, start: found.start, length: found.end - found.start, newText: this.newName });
     }
   }
 
@@ -353,10 +384,8 @@ class TypescriptRename {
       });
   }
 
-  /** `--docs`: qualified and code-marked mentions rewritten, the rest listed. */
-  docs(): void {
-    const owners = this.owners();
-    const colliding = new Set(this.declarations.filter((d) => !this.renamed.has(keyOf(d.path, d.start))).map((d) => d.owner));
+  /** Each scanned file's mentions of OLD, and whether it declares the rename: sources, then prose files. */
+  private mentionFiles(): [string, Mention[], boolean][] {
     const files: [string, Mention[], boolean][] = [];
     for (const { source } of this.sources.values()) {
       if (source.text.includes(this.old)) files.push([source.fileName, mentions(source.text, this.old, sourceRegions(source)), this.declaring.has(source.fileName)]);
@@ -368,7 +397,14 @@ class TypescriptRename {
       const text = this.text(path);
       if (text.includes(this.old)) files.push([path, mentions(text, this.old, [{ start: 0, end: text.length, where: 'prose', opens: false }]), false]);
     }
-    for (const [path, found, declaring] of files) {
+    return files;
+  }
+
+  /** `--docs`: qualified and code-marked mentions rewritten, the rest listed. */
+  docs(): void {
+    const owners = this.owners();
+    const colliding = new Set(this.declarations.filter((d) => !this.renamed.has(keyOf(d.path, d.start))).map((d) => d.owner));
+    for (const [path, found, declaring] of this.mentionFiles()) {
       const text = this.text(path);
       for (const m of found) {
         if (this.edits.some((e) => e.path === path && e.start <= m.start && m.start < e.start + e.length)) continue;

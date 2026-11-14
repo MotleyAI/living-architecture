@@ -25,8 +25,33 @@ export interface Mention {
   opens: boolean;
 }
 
-const QUALIFIER = /((?:[A-Za-z_$][\w$]*[.#])*[A-Za-z_$][\w$]*)[.#]$/u;
-const escape = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+// Word characters as Python's `\w` reads them (letters, numbers, `_`), plus `$`.
+const WORD = String.raw`\p{L}\p{N}_$`;
+const QUALIFIER_CHAR = new RegExp(`^[${WORD}.#]$`, 'u');
+const IDENTIFIER = new RegExp(`^[A-Za-z_$][${WORD}]*$`, 'u');
+const QUALIFIER_WINDOW = 300;
+const escape = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/gu, String.raw`\$&`);
+
+/** The code point ending at UTF-16 offset `end` of `text`, or '' at the start. */
+function charBefore(text: string, end: number): string {
+  if (end <= 0) return '';
+  const pair = end >= 2 ? text.slice(end - 2, end) : '';
+  return pair.length === 2 && [...pair].length === 1 ? pair : text.slice(end - 1, end);
+}
+
+/** The segments of the `A.B.` or `A#` qualifier ending at `start`, or null when the run there is not one. */
+function qualifierSegments(text: string, start: number): string[] | null {
+  let i = start;
+  let chars = 0;
+  for (let c = charBefore(text, i); chars < QUALIFIER_WINDOW && QUALIFIER_CHAR.test(c); c = charBefore(text, i)) {
+    i -= c.length;
+    chars++;
+  }
+  if (QUALIFIER_CHAR.test(charBefore(text, i))) return null;
+  const segments = text.slice(i, start).split(/[.#]/u);
+  if (segments.pop() !== '' || segments.length === 0) return null;
+  return segments.every((s) => IDENTIFIER.test(s)) ? segments : null;
+}
 
 /** The comments, string contents and template-literal text of a TypeScript file. */
 export function sourceRegions(source: TS.SourceFile): Region[] {
@@ -58,13 +83,14 @@ export function sourceRegions(source: TS.SourceFile): Region[] {
   return out;
 }
 
-/** Occurrences of `old` not adjacent to an identifier character inside each region. */
+/** Occurrences of `old` not adjacent to an identifier character inside each region; a region ends the text. */
 export function mentions(text: string, old: string, regions: Region[]): Mention[] {
-  const pattern = new RegExp(`(?<![\\w$])${escape(old)}(?![\\w$])`, 'gu');
+  const pattern = new RegExp(`(?<![${WORD}])${escape(old)}(?![${WORD}])`, 'gu');
   const out: Mention[] = [];
   for (const region of regions) {
+    const upToEnd = text.slice(0, region.end);
     pattern.lastIndex = region.start;
-    for (let m = pattern.exec(text); m !== null && m.index + old.length <= region.end; m = pattern.exec(text)) {
+    for (let m = pattern.exec(upToEnd); m !== null; m = pattern.exec(upToEnd)) {
       out.push({ start: m.index, end: m.index + old.length, where: region.where, opens: region.opens && m.index === region.start });
     }
   }
@@ -73,11 +99,8 @@ export function mentions(text: string, old: string, regions: Region[]): Mention[
 
 /** `Owner.OLD` or `Owner#OLD`, with an optional dotted prefix naming the owner's module from its end. */
 export function qualified(text: string, start: number, owners: Owner[], colliding: Set<string>): boolean {
-  const m = QUALIFIER.exec(text.slice(Math.max(0, start - 300), start));
-  if (m === null) return false;
-  const before = text[start - m[0].length - 1] ?? '';
-  if (/[\w$.#]/u.test(before)) return false;
-  const segments = (m[1] ?? '').split(/[.#]/u);
+  const segments = qualifierSegments(text, start);
+  if (segments === null) return false;
   const bare = segments.length === 1 ? segments[0] : undefined;
   return owners.some((owner) => {
     const tail = owner.path.slice(owner.path.length - segments.length);

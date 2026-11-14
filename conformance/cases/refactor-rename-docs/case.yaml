@@ -18,7 +18,7 @@ git:
     .gitignore: 'out/
 
       '
-    out/notes.md: 'See SlayerQueryEngine.recommend_root_model.
+    out/notes.md: 'See SearchQueryEngine.recommend_root_model.
 
       '
 - commit: init

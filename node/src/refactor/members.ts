@@ -64,7 +64,7 @@ export function formCalls(checker: TS.TypeChecker, source: TS.SourceFile, name: 
     for (const form of FORMS()) {
       const literal = plainString(node.arguments[form.member], source);
       const object = node.arguments[form.object];
-      if (literal === null || literal[2] !== name || object === undefined || ts().isSpreadElement(object)) continue;
+      if (literal?.[2] !== name || object === undefined || ts().isSpreadElement(object)) continue;
       if (!resolvesTo(checker, node.expression, form.call, source)) continue;
       out.push({ call: node, start: literal[0], end: literal[1], object });
       break;
@@ -107,16 +107,32 @@ function ownerName(owner: TS.Node, source: TS.SourceFile): string {
   return owner.getText(source).slice(0, 20);
 }
 
+/** The class, interface or type literal declaring member `node`: its parent, or a parameter property's class. */
+function memberOwner(node: TS.Node): TS.Node | undefined {
+  const parent = node.parent as TS.Node | undefined;
+  if (parent !== undefined && ts().isParameter(node) && ts().isParameterPropertyDeclaration(node, parent)) return parent.parent;
+  return parent;
+}
+
+/** The start of the text `name` names a member by: an identifier, or the inside of a string literal or computed string. */
+export function memberNameStart(declared: TS.Node, name: string, source: TS.SourceFile): number | null {
+  if ((ts().isIdentifier(declared) || ts().isPrivateIdentifier(declared)) && declared.text === name) return declared.getStart(source);
+  const literal = ts().isComputedPropertyName(declared) ? declared.expression : declared;
+  if ((ts().isStringLiteral(literal) || ts().isNoSubstitutionTemplateLiteral(literal)) && literal.text === name) return literal.getStart(source) + 1;
+  return null;
+}
+
 /** Every member named `name` that a class, an interface or a type literal of `source` declares. */
 export function memberDeclarations(source: TS.SourceFile, name: string, path: string): MemberDeclaration[] {
   const owners = OWNERS();
   const out: MemberDeclaration[] = [];
   for (const node of walk(source)) {
     const declared = (node as TS.NamedDeclaration).name;
-    if (declared === undefined || node.parent === undefined || !owners.has(node.parent.kind)) continue;
-    if (!(ts().isIdentifier(declared) || ts().isPrivateIdentifier(declared)) || declared.text !== name) continue;
-    const start = declared.getStart(source);
-    out.push({ path, start, line: source.getLineAndCharacterOfPosition(start).line + 1, owner: ownerName(node.parent, source) });
+    const owner = memberOwner(node);
+    if (declared === undefined || owner === undefined || !owners.has(owner.kind)) continue;
+    const start = memberNameStart(declared, name, source);
+    if (start === null) continue;
+    out.push({ path, start, line: source.getLineAndCharacterOfPosition(start).line + 1, owner: ownerName(owner, source) });
   }
   return out;
 }

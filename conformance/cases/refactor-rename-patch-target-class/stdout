@@ -1,19 +1,19 @@
-Renaming <SlayerQueryEngine> to <QueryEngine>:
+Renaming <SearchQueryEngine> to <QueryEngine>:
 
 
 --- a/pkg/__init__.py
 +++ b/pkg/__init__.py
 @@ -1,3 +1,3 @@
--from pkg.engine import SlayerQueryEngine
+-from pkg.engine import SearchQueryEngine
 +from pkg.engine import QueryEngine
  
--__all__ = ["SlayerQueryEngine"]
+-__all__ = ["SearchQueryEngine"]
 +__all__ = ["QueryEngine"]
 
 --- a/pkg/engine.py
 +++ b/pkg/engine.py
 @@ -1,3 +1,3 @@
--class SlayerQueryEngine:
+-class SearchQueryEngine:
 +class QueryEngine:
      def save_model(self, name: str) -> None:
          pass
@@ -24,11 +24,11 @@ Renaming <SlayerQueryEngine> to <QueryEngine>:
  
  
  def test_targets(mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch) -> None:
--    patch("pkg.engine.SlayerQueryEngine.save_model")
--    patch("pkg.SlayerQueryEngine.save_model")
--    mocker.patch("pkg.engine.SlayerQueryEngine.save_model")
--    monkeypatch.setattr("pkg.engine.SlayerQueryEngine.save_model", None)
--    monkeypatch.delattr('pkg.SlayerQueryEngine.save_model')
+-    patch("pkg.engine.SearchQueryEngine.save_model")
+-    patch("pkg.SearchQueryEngine.save_model")
+-    mocker.patch("pkg.engine.SearchQueryEngine.save_model")
+-    monkeypatch.setattr("pkg.engine.SearchQueryEngine.save_model", None)
+-    monkeypatch.delattr('pkg.SearchQueryEngine.save_model')
 +    patch("pkg.engine.QueryEngine.save_model")
 +    patch("pkg.QueryEngine.save_model")
 +    mocker.patch("pkg.engine.QueryEngine.save_model")

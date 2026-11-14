@@ -8,7 +8,7 @@ args:
 - --file
 - pkg/engine.py
 - --name
-- SlayerQueryEngine
+- SearchQueryEngine
 - --new-name
 - QueryEngine
 fixture: refactor-typed

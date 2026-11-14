@@ -15,7 +15,7 @@ MakeProject = Callable[..., Path]
 OLD, NEW = "recommend_root_model", "pick_root_model"
 
 ENGINE = '''\
-class SlayerQueryEngine:
+class SearchQueryEngine:
     def recommend_root_model(self, x: int) -> str:
         """See ``recommend_root_model`` and :meth:`recommend_root_model`."""
         # then recommend_root_model runs; `recommend_root_model()` returns
@@ -24,7 +24,7 @@ class SlayerQueryEngine:
         raise ValueError("recommend_root_model: no candidates")
 '''
 ENGINE_AFTER = '''\
-class SlayerQueryEngine:
+class SearchQueryEngine:
     def pick_root_model(self, x: int) -> str:
         """See ``pick_root_model`` and :meth:`pick_root_model`."""
         # then recommend_root_model runs; `pick_root_model()` returns
@@ -34,22 +34,22 @@ class SlayerQueryEngine:
 '''
 
 OTHER = '''\
-from pkg.engine import SlayerQueryEngine
+from pkg.engine import SearchQueryEngine
 
 
-def f(e: SlayerQueryEngine) -> str:
-    """Wraps :meth:`SlayerQueryEngine.recommend_root_model` and ``recommend_root_model``."""
+def f(e: SearchQueryEngine) -> str:
+    """Wraps :meth:`SearchQueryEngine.recommend_root_model` and ``recommend_root_model``."""
     # calls recommend_root_model first
     getattr(e, "recommend_root_model")
     print("recommend_root_model")
     return e.recommend_root_model(1)
 '''
 OTHER_AFTER = '''\
-from pkg.engine import SlayerQueryEngine
+from pkg.engine import SearchQueryEngine
 
 
-def f(e: SlayerQueryEngine) -> str:
-    """Wraps :meth:`SlayerQueryEngine.pick_root_model` and ``recommend_root_model``."""
+def f(e: SearchQueryEngine) -> str:
+    """Wraps :meth:`SearchQueryEngine.pick_root_model` and ``recommend_root_model``."""
     # calls recommend_root_model first
     getattr(e, "pick_root_model")
     print("recommend_root_model")
@@ -58,11 +58,11 @@ def f(e: SlayerQueryEngine) -> str:
 
 API_MD = (
     "# API\n\n"
-    "Use `pkg.engine.SlayerQueryEngine.recommend_root_model` or `engine.SlayerQueryEngine.recommend_root_model`.\n"
+    "Use `pkg.engine.SearchQueryEngine.recommend_root_model` or `engine.SearchQueryEngine.recommend_root_model`.\n"
     "Then recommend_root_model runs.\n"
 )
-NOTES_RST = "See :meth:`SlayerQueryEngine.recommend_root_model`.\n"
-DATA_JSON = '{"call": "SlayerQueryEngine.recommend_root_model"}\n'
+NOTES_RST = "See :meth:`SearchQueryEngine.recommend_root_model`.\n"
+DATA_JSON = '{"call": "SearchQueryEngine.recommend_root_model"}\n'
 
 
 @pytest.fixture
@@ -107,7 +107,7 @@ def test_qualified_and_code_marked_mentions_are_rewritten(project: MakeProject) 
     assert _rename(root, "--docs") == 0
     assert _read(root, "pkg/engine.py") == ENGINE_AFTER
     assert _read(root, "pkg/other.py") == OTHER_AFTER
-    assert _read(root, "docs/api.md") == API_MD.replace(f"SlayerQueryEngine.{OLD}", f"SlayerQueryEngine.{NEW}")
+    assert _read(root, "docs/api.md") == API_MD.replace(f"SearchQueryEngine.{OLD}", f"SearchQueryEngine.{NEW}")
     assert _read(root, "docs/notes.rst") == NOTES_RST.replace(OLD, NEW)
     assert _read(root, "docs/data.json") == DATA_JSON
 
@@ -138,16 +138,16 @@ def test_without_docs_nothing_is_scanned_or_listed(project: MakeProject, capsys:
 
 
 def test_a_simple_name_collision_is_listed(project: MakeProject, capsys: pytest.CaptureFixture[str]) -> None:
-    legacy = 'class SlayerQueryEngine:\n    def recommend_root_model(self) -> str:\n        return ""\n'
+    legacy = 'class SearchQueryEngine:\n    def recommend_root_model(self) -> str:\n        return ""\n'
     notes = (
-        "# SlayerQueryEngine.recommend_root_model\n"
-        "# engine.SlayerQueryEngine.recommend_root_model\n"
-        "# legacy.SlayerQueryEngine.recommend_root_model\n"
+        "# SearchQueryEngine.recommend_root_model\n"
+        "# engine.SearchQueryEngine.recommend_root_model\n"
+        "# legacy.SearchQueryEngine.recommend_root_model\n"
     )
     root = project({"pkg/engine.py": ENGINE, "pkg/legacy.py": legacy, "pkg/notes.py": notes})
     assert _rename(root, "--docs", "--without", "pkg/legacy.py:2") == 0
-    assert _read(root, "pkg/notes.py") == notes.replace(f"# engine.SlayerQueryEngine.{OLD}",
-                                                         f"# engine.SlayerQueryEngine.{NEW}")
+    assert _read(root, "pkg/notes.py") == notes.replace(f"# engine.SearchQueryEngine.{OLD}",
+                                                         f"# engine.SearchQueryEngine.{NEW}")
     err = capsys.readouterr().err.splitlines()
     assert _leftover("pkg/notes.py", 1, "comment") in err
     assert _leftover("pkg/notes.py", 3, "comment") in err
@@ -155,7 +155,7 @@ def test_a_simple_name_collision_is_listed(project: MakeProject, capsys: pytest.
 
 
 def test_git_ignored_prose_is_skipped(project: MakeProject, capsys: pytest.CaptureFixture[str]) -> None:
-    mention = "See SlayerQueryEngine.recommend_root_model.\n"
+    mention = "See SearchQueryEngine.recommend_root_model.\n"
     root = project({"pkg/engine.py": ENGINE, ".gitignore": "out/\n", "out/notes.md": mention})
     assert _rename(root, "--docs") == 0
     assert _read(root, "out/notes.md") == mention

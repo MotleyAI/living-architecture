@@ -4,7 +4,7 @@ Renaming <recommend_root_model> to <pick_root_model>:
 --- a/pkg/engine.py
 +++ b/pkg/engine.py
 @@ -1,7 +1,7 @@
- class SlayerQueryEngine:
+ class SearchQueryEngine:
 -    def recommend_root_model(self, x: int) -> str:
 -        """See ``recommend_root_model`` and :meth:`recommend_root_model`."""
 -        # then recommend_root_model runs; `recommend_root_model()` returns
@@ -20,10 +20,10 @@ Renaming <recommend_root_model> to <pick_root_model>:
 --- a/pkg/notes.py
 +++ b/pkg/notes.py
 @@ -1,3 +1,3 @@
- # SlayerQueryEngine.recommend_root_model
--# engine.SlayerQueryEngine.recommend_root_model
-+# engine.SlayerQueryEngine.pick_root_model
- # legacy.SlayerQueryEngine.recommend_root_model
+ # SearchQueryEngine.recommend_root_model
+-# engine.SearchQueryEngine.recommend_root_model
++# engine.SearchQueryEngine.pick_root_model
+ # legacy.SearchQueryEngine.recommend_root_model
 
 
 

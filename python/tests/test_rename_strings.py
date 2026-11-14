@@ -13,8 +13,8 @@ from living_architecture.contract import message
 
 MakeProject = Callable[..., Path]
 
-ENGINE = "class SlayerQueryEngine:\n    def save_model(self, name: str) -> None:\n        pass\n"
-REEXPORT = "from pkg.engine import SlayerQueryEngine\n\n__all__ = [\"SlayerQueryEngine\"]\n"
+ENGINE = "class SearchQueryEngine:\n    def save_model(self, name: str) -> None:\n        pass\n"
+REEXPORT = "from pkg.engine import SearchQueryEngine\n\n__all__ = [\"SearchQueryEngine\"]\n"
 
 RECEIVER_FORMS = """\
 from unittest.mock import patch
@@ -22,30 +22,30 @@ from unittest.mock import patch
 import pytest
 from pytest_mock import MockerFixture
 
-from pkg.engine import SlayerQueryEngine
+from pkg.engine import SearchQueryEngine
 
 
-class Sub(SlayerQueryEngine):
+class Sub(SearchQueryEngine):
     pass
 
 
-def test_forms(engine: SlayerQueryEngine, sub: Sub, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture) -> None:
-    patch.object(SlayerQueryEngine, "save_model")
+def test_forms(engine: SearchQueryEngine, sub: Sub, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture) -> None:
+    patch.object(SearchQueryEngine, "save_model")
     monkeypatch.setattr(engine, "save_model", lambda name: None)
     mocker.patch.object(engine, 'save_model')
     getattr(engine, "save_model")
     setattr(sub, "save_model", None)
     hasattr(type(engine), "save_model")
     delattr(Sub, "save_model")
-    monkeypatch.delattr(SlayerQueryEngine, "save_model")
+    monkeypatch.delattr(SearchQueryEngine, "save_model")
     mocker.patch.object(Sub, "save_model", autospec=True)
 """
 
 NOT_FORMS = """\
-from pkg.engine import SlayerQueryEngine
+from pkg.engine import SearchQueryEngine
 
 
-def f(engine: SlayerQueryEngine) -> None:
+def f(engine: SearchQueryEngine) -> None:
     getattr(engine, f"save_model")
     getattr(engine, "save_" "model")
     getattr(engine, "save_model_x")
@@ -56,7 +56,7 @@ def f(engine: SlayerQueryEngine) -> None:
 OTHER = "class Other:\n    def save_model(self) -> None:\n        pass\n"
 
 LOOKALIKES = """\
-from pkg.engine import SlayerQueryEngine
+from pkg.engine import SearchQueryEngine
 
 
 class Cfg:
@@ -67,7 +67,7 @@ def getattr(o: object, n: str) -> object:
     return o
 
 
-def f(engine: SlayerQueryEngine, cfg: Cfg) -> None:
+def f(engine: SearchQueryEngine, cfg: Cfg) -> None:
     getattr(engine, "save_model")
     cfg.setattr(engine, "save_model")
 """
@@ -80,11 +80,11 @@ from pytest_mock import MockerFixture
 
 
 def test_targets(mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch) -> None:
-    patch("pkg.engine.SlayerQueryEngine.save_model")
-    patch("pkg.SlayerQueryEngine.save_model")
-    mocker.patch("pkg.engine.SlayerQueryEngine.save_model")
-    monkeypatch.setattr("pkg.engine.SlayerQueryEngine.save_model", None)
-    monkeypatch.delattr('pkg.SlayerQueryEngine.save_model')
+    patch("pkg.engine.SearchQueryEngine.save_model")
+    patch("pkg.SearchQueryEngine.save_model")
+    mocker.patch("pkg.engine.SearchQueryEngine.save_model")
+    monkeypatch.setattr("pkg.engine.SearchQueryEngine.save_model", None)
+    monkeypatch.delattr('pkg.SearchQueryEngine.save_model')
 """
 
 
@@ -170,8 +170,8 @@ def test_dotted_patch_targets_through_modules_and_re_exports(project: MakeProjec
 
 def test_class_rename_rewrites_its_target_segment(project: MakeProject) -> None:
     root = project({"pkg/__init__.py": REEXPORT, "pkg/engine.py": ENGINE, "tests/test_patch.py": TARGETS})
-    assert _rename(root, "pkg/engine.py", "SlayerQueryEngine", "QueryEngine") == 0
-    assert _read(root, "tests/test_patch.py") == TARGETS.replace("SlayerQueryEngine", "QueryEngine")
+    assert _rename(root, "pkg/engine.py", "SearchQueryEngine", "QueryEngine") == 0
+    assert _read(root, "tests/test_patch.py") == TARGETS.replace("SearchQueryEngine", "QueryEngine")
 
 
 def test_function_rename_rewrites_its_target_segment(project: MakeProject) -> None:
@@ -183,7 +183,7 @@ def test_function_rename_rewrites_its_target_segment(project: MakeProject) -> No
 
 
 def test_a_target_naming_another_member_is_unchanged(project: MakeProject) -> None:
-    test = _patch_test("pkg.other.Other.save_model", "pkg.engine.SlayerQueryEngine.save_model_x")
+    test = _patch_test("pkg.other.Other.save_model", "pkg.engine.SearchQueryEngine.save_model_x")
     root = project({"pkg/engine.py": ENGINE, "pkg/other.py": OTHER, "tests/test_t.py": test})
     assert _rename_save_model(root, "--without", "pkg/other.py:2") == 0
     assert _read(root, "tests/test_t.py") == test
@@ -225,7 +225,7 @@ def test_a_kept_unresolved_target_does_not_block(project: MakeProject) -> None:
 @pytest.mark.parametrize("engine", ["src/pkg/engine.py", "src/pkg/sub/engine.py"], ids=["package", "no-init-below"])
 def test_target_from_tests_into_a_src_layout(project: MakeProject, engine: str) -> None:
     module = engine.removeprefix("src/").removesuffix(".py").replace("/", ".")
-    test = _patch_test(f"{module}.SlayerQueryEngine.save_model")
+    test = _patch_test(f"{module}.SearchQueryEngine.save_model")
     root = project({"src/pkg/__init__.py": "", engine: ENGINE, "tests/test_t.py": test}, package=False)
     assert _rename_save_model(root, file=engine) == 0
     assert _read(root, "tests/test_t.py") == test.replace("save_model", "persist_model")
@@ -287,10 +287,21 @@ def test_target_through_inheritance(
     assert _read(root, "tests/test_t.py") == expected
 
 
+def test_target_override_in_a_class_level_block_shadows_the_base(project: MakeProject) -> None:
+    engine = (
+        "class Base:\n    def save_model(self) -> None:\n        pass\n\n\n"
+        "class Child(Base):\n    if True:\n        def save_model(self) -> None:\n            pass\n"
+    )
+    test = _patch_test("pkg.engine.Child.save_model")
+    root = project({"pkg/engine.py": engine, "tests/test_t.py": test})
+    assert _rename_save_model(root, "--no-in-hierarchy") == 0
+    assert _read(root, "tests/test_t.py") == test
+
+
 def test_target_through_a_star_import_honouring_all(project: MakeProject) -> None:
-    test = _patch_test("pkg.api.SlayerQueryEngine.save_model")
+    test = _patch_test("pkg.api.SearchQueryEngine.save_model")
     root = project({
-        "pkg/engine.py": ENGINE + '\n__all__ = ["SlayerQueryEngine"]\n',
+        "pkg/engine.py": ENGINE + '\n__all__ = ["SearchQueryEngine"]\n',
         "pkg/api.py": "from pkg.engine import *\n",
         "tests/test_t.py": test,
     })
@@ -301,11 +312,11 @@ def test_target_through_a_star_import_honouring_all(project: MakeProject) -> Non
 BASES = """\
 
 
-class Blocked(Mixin, SlayerQueryEngine):
+class Blocked(Mixin, SearchQueryEngine):
     pass
 
 
-class Reached(SlayerQueryEngine, Mixin):
+class Reached(SearchQueryEngine, Mixin):
     pass
 """
 
@@ -316,25 +327,25 @@ class Reached(SlayerQueryEngine, Mixin):
         pytest.param(
             {"src/pkg/__init__.py": "", "src/pkg/engine.py": ENGINE,
              "lib/pkg/__init__.py": "", "lib/pkg/engine.py": "VALUE = 1\n"},
-            "src/pkg/engine.py", ["pkg.engine.SlayerQueryEngine.save_model"], ["pkg.engine.SlayerQueryEngine.save_model"],
+            "src/pkg/engine.py", ["pkg.engine.SearchQueryEngine.save_model"], ["pkg.engine.SearchQueryEngine.save_model"],
             id="module-in-two-source-folders",
         ),
         pytest.param(
-            {"pkg/engine.py": ENGINE, "pkg/legacy.py": "class SlayerQueryEngine:\n    pass\n",
-             "pkg/api.py": "try:\n    from pkg.engine import SlayerQueryEngine\nexcept ImportError:\n"
-                           "    from pkg.legacy import SlayerQueryEngine\n"},
-            "pkg/engine.py", ["pkg.api.SlayerQueryEngine.save_model"], ["pkg.api.SlayerQueryEngine.save_model"],
+            {"pkg/engine.py": ENGINE, "pkg/legacy.py": "class SearchQueryEngine:\n    pass\n",
+             "pkg/api.py": "try:\n    from pkg.engine import SearchQueryEngine\nexcept ImportError:\n"
+                           "    from pkg.legacy import SearchQueryEngine\n"},
+            "pkg/engine.py", ["pkg.api.SearchQueryEngine.save_model"], ["pkg.api.SearchQueryEngine.save_model"],
             id="conflicting-bindings",
         ),
         pytest.param(
             {"pkg/engine.py": ENGINE + '\n__all__ = ["VERSION"]\nVERSION = 1\n', "pkg/api.py": "from pkg.engine import *\n"},
-            "pkg/engine.py", ["pkg.api.SlayerQueryEngine.save_model"], ["pkg.api.SlayerQueryEngine.save_model"],
+            "pkg/engine.py", ["pkg.api.SearchQueryEngine.save_model"], ["pkg.api.SearchQueryEngine.save_model"],
             id="star-import-excluded-by-all",
         ),
         pytest.param(
-            {"pkg/engine.py": ENGINE, "pkg/a.py": "from pkg.b import SlayerQueryEngine\n",
-             "pkg/b.py": "from pkg.a import SlayerQueryEngine\n"},
-            "pkg/engine.py", ["pkg.a.SlayerQueryEngine.save_model"], ["pkg.a.SlayerQueryEngine.save_model"],
+            {"pkg/engine.py": ENGINE, "pkg/a.py": "from pkg.b import SearchQueryEngine\n",
+             "pkg/b.py": "from pkg.a import SearchQueryEngine\n"},
+            "pkg/engine.py", ["pkg.a.SearchQueryEngine.save_model"], ["pkg.a.SearchQueryEngine.save_model"],
             id="import-cycle",
         ),
         pytest.param(

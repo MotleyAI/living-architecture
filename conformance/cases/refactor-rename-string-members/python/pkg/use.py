@@ -1,4 +1,4 @@
-from pkg.engine import SlayerQueryEngine
+from pkg.engine import SearchQueryEngine
 
 
 class Cfg:
@@ -9,6 +9,6 @@ def getattr(o: object, n: str) -> object:
     return o
 
 
-def f(engine: SlayerQueryEngine, cfg: Cfg) -> None:
+def f(engine: SearchQueryEngine, cfg: Cfg) -> None:
     getattr(engine, "save_model")
     cfg.setattr(engine, "save_model")

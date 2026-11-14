@@ -1,0 +1,17 @@
+Renaming <getModel> to <getDataset>:
+
+
+--- a/src/store.ts
++++ b/src/store.ts
+@@ -1,5 +1,5 @@
+ export class Storage {
+-  getModel(name: string): number {
++  getDataset(name: string): number {
+     return name.length;
+   }
+ }
+
+
+
+APPLIED. 1 file(s) changed:
+  src/store.ts

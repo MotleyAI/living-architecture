@@ -11,7 +11,7 @@ import { Workspace } from './workspace.js';
 /** Implicit-any diagnostics of a parameter, a binding element and a rest parameter. */
 const IMPLICIT_ANY = new Set([7006, 7031, 7019]);
 const TSCONFIG_FLAGS = ['strict', 'noImplicitAny', 'noImplicitOverride'] as const;
-const CHECKER_OPTIONS: TS.CompilerOptions = { noImplicitAny: true, allowJs: true, checkJs: true, noEmit: true };
+export const CHECKER_OPTIONS: TS.CompilerOptions = { noImplicitAny: true, allowJs: true, checkJs: true, noEmit: true };
 
 function* walk(node: TS.Node): Generator<TS.Node> {
   yield node;

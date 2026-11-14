@@ -1,0 +1,22 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- rename
+- --file
+- pkg/engine.py
+- --name
+- save_model
+- --new-name
+- persist_model
+- --without
+- pkg/engine.py:7
+fixture: refactor-typed
+git:
+- commit: init
+expect:
+  exit: 1
+  files:
+  - pkg/engine.py
+note: a string member on a union of a renamed and a --without class refuses the rename

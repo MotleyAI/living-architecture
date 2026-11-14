@@ -32,7 +32,7 @@ from living_architecture.refactor.keyed import (
     declares_alias,
     field_assignment,
 )
-from living_architecture.refactor.member_scan import MemberScan
+from living_architecture.refactor.member_scan import FormCall, MemberScan, receiver_text
 from living_architecture.refactor.members import classes, member_declarations
 from living_architecture.refactor.mentions import (
     Mention,
@@ -523,15 +523,24 @@ class SymbolRename:
         self._handled.add((rel, start))
 
     def _string_member_edits(self, scan: MemberScan) -> None:
-        """Rewrite member strings whose object's lookup lands on a renamed declaration."""
+        """Rewrite member strings whose object's lookup lands only on renamed declarations; one landing on renamed
+        and unchanged declarations is a blind spot."""
         for rel in self.candidates:
             path, source = self.root / rel, self.snapshot.source(rel)
             calls = [c for c in scan.member_calls(path, source) if c.forms]
             if not calls:
                 continue
             for call, (_, definitions) in zip(calls, scan.probe(path, source, calls), strict=True):
-                if any((self._rel(d.path), d.start) in self.seeds for d in definitions):
+                renamed = [(self._rel(d.path), d.start) in self.seeds for d in definitions]
+                if not any(renamed):
+                    continue
+                if all(renamed):
                     self._edit(rel, *call.literal)
+                    continue
+                assert call.obj is not None
+                line = call.call.lineno
+                self.blindspots.append(Finding(path=rel, line=line, col=source.offset(line, call.call.col_offset), text=message(
+                    "refactor.mixed-target", path=rel, line=line, receiver=receiver_text(source, call.obj), attr=self.old)))
 
     def _declared(self, module: Module, node: ast.AST) -> tuple[str, int] | None:
         rel = self._rel(module.path) if module.path is not None else None
@@ -545,25 +554,33 @@ class SymbolRename:
         for rel in self.candidates:
             source = self.snapshot.source(rel)
             for call in scan.target_calls(self.root / rel, source):
-                start = call.literal[0]
-                line = source.line(start)
-                segments = call.text.split(".")
-                self._handled.add((rel, start))
-                if not folders.top_level(segments[0]):
-                    self.leftovers.append(Finding(path=rel, line=line, col=start, text=message(
-                        "refactor.leftover", path=rel, line=line, where="patch target", old=self.old)))
-                    continue
-                resolved = targets.resolve(call.text)
-                if resolved is None:
-                    if member:
-                        self.blindspots.append(Finding(path=rel, line=line, col=start, text=message(
-                            "refactor.unresolved-target", path=rel, line=line, target=call.text, attr=self.old)))
-                    continue
-                offset = start
-                for segment, declared in zip(segments, resolved, strict=True):
-                    if any(self._declared(m, n) in self.seeds for m, n in declared):
-                        self._edit(rel, offset, offset + len(segment))
-                    offset += len(segment) + 1
+                self._target_edit(rel, source.line(call.literal[0]), call, folders, targets, member)
+
+    def _target_edit(
+        self, rel: str, line: int, call: FormCall, folders: SourceFolders, targets: TargetResolver, member: bool
+    ) -> None:
+        """One dotted target's renamed segments rewritten; else listed, or refused when `member`."""
+        start = call.literal[0]
+        segments = call.text.split(".")
+        offset = start
+        for segment in segments:
+            self._handled.add((rel, offset))
+            offset += len(segment) + 1
+        if not folders.top_level(segments[0]):
+            self.leftovers.append(Finding(path=rel, line=line, col=start, text=message(
+                "refactor.leftover", path=rel, line=line, where="patch target", old=self.old)))
+            return
+        resolved = targets.resolve(call.text)
+        if resolved is None:
+            if member:
+                self.blindspots.append(Finding(path=rel, line=line, col=start, text=message(
+                    "refactor.unresolved-target", path=rel, line=line, target=call.text, attr=self.old)))
+            return
+        offset = start
+        for segment, declared in zip(segments, resolved, strict=True):
+            if any(self._declared(m, n) in self.seeds for m, n in declared):
+                self._edit(rel, offset, offset + len(segment))
+            offset += len(segment) + 1
 
     def _blindspot_scan(self, scan: MemberScan) -> None:
         for rel in self.candidates:
@@ -713,7 +730,12 @@ def _top_declarations(stmt: ast.stmt, name: str) -> list[ast.AST]:
     """The module-level declarations of `name` a statement makes."""
     if isinstance(stmt, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
         return [stmt] if stmt.name == name else []
-    targets = stmt.targets if isinstance(stmt, ast.Assign) else [stmt.target] if isinstance(stmt, ast.AnnAssign) else []
+    if isinstance(stmt, ast.Assign):
+        targets = stmt.targets
+    elif isinstance(stmt, ast.AnnAssign):
+        targets = [stmt.target]
+    else:
+        return []
     return [t for t in targets if isinstance(t, ast.Name) and t.id == name]
 
 

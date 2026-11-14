@@ -39,10 +39,24 @@ def _self_attributes(method: FunctionDef, name: str) -> Iterator[ast.Attribute]:
             yield node
 
 
+def _class_level(body: list[ast.stmt]) -> Iterator[ast.stmt]:
+    """A class body's statements, those inside class-level compound blocks too, not nested scopes' bodies."""
+    for stmt in body:
+        yield stmt
+        if isinstance(stmt, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+            continue
+        for field in ("body", "orelse", "finalbody"):
+            yield from _class_level(getattr(stmt, field, []))
+        for handler in getattr(stmt, "handlers", []):
+            yield from _class_level(handler.body)
+        for case in getattr(stmt, "cases", []):
+            yield from _class_level(case.body)
+
+
 def member_declarations(cls: ast.ClassDef, name: str) -> list[ast.AST]:
     """Every declaration of member `name` in `cls`'s body and its methods, in source order."""
     out: list[ast.AST] = []
-    for stmt in cls.body:
+    for stmt in _class_level(cls.body):
         if isinstance(stmt, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef) and stmt.name == name:
             out.append(stmt)
         out += [t for t in _targets(stmt) if isinstance(t, ast.Name) and t.id == name]

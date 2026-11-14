@@ -1,4 +1,4 @@
-class SlayerQueryEngine:
+class SearchQueryEngine:
     def recommend_root_model(self, x: int) -> str:
         """See ``recommend_root_model`` and :meth:`recommend_root_model`."""
         # then recommend_root_model runs; `recommend_root_model()` returns
