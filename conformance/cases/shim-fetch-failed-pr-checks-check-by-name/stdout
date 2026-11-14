@@ -1,0 +1,11 @@
+# Failed CI checks on o/r PR #7
+
+## Check 1 — ext-ci
+Conclusion: ERROR   Status: n/a   Type: StatusContext
+Details: n/a
+
+_No log excerpt available — likely an external CI; follow Details URL._
+
+---
+
+JSON: <ROOT>/tmp/failed-pr-checks-7-<TS>.json

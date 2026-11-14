@@ -113,7 +113,8 @@ def _without_unrelated(root: Path, owner: str, field: str) -> list[str]:
         for node in ast.walk(ast.parse((root / rel).read_text(encoding="utf-8")))
         if isinstance(node, ast.ClassDef)
     ]
-    bases = {node.name: {b.id for b in node.bases if isinstance(b, ast.Name)} for _, node in classes}
+    names = {node.name for _, node in classes}
+    bases = {node.name: {b.id for b in node.bases if isinstance(b, ast.Name) and b.id in names} for _, node in classes}
     related = {owner}
     while (grown := related | {n for n, of in bases.items() if of & related}
            | {b for n in related for b in bases.get(n, ())}) != related:

@@ -1,0 +1,65 @@
+kind: neutral
+command: la-wait-for-reviews
+args:
+- '7'
+- --repo
+- o/r
+env:
+  LA_WAIT_POLL_SECONDS: '0'
+gh:
+- match:
+  - pr
+  - view
+  - headRefOid,statusCheckRollup
+  responses:
+  - stdout:
+      headRefOid: abcdef0123
+      statusCheckRollup:
+      - __typename: StatusContext
+        context: ext-ci
+        state: FAILURE
+        targetUrl: https://ci.example/1
+        startedAt: '2026-01-01T00:00:00Z'
+      - &id001
+        __typename: CheckRun
+        name: lint
+        status: IN_PROGRESS
+        detailsUrl: https://github.com/o/r/actions/runs/1/job/9
+  - stdout:
+      headRefOid: abcdef0123
+      statusCheckRollup:
+      - __typename: StatusContext
+        context: ext-ci
+        state: FAILURE
+        targetUrl: https://ci.example/1
+        startedAt: '2026-01-02T00:00:00Z'
+      - *id001
+  - stdout:
+      headRefOid: abcdef0123
+      statusCheckRollup:
+      - __typename: StatusContext
+        context: ext-ci
+        state: FAILURE
+        targetUrl: https://ci.example/1
+        startedAt: '2026-01-02T00:00:00Z'
+      - __typename: CheckRun
+        name: lint
+        status: COMPLETED
+        conclusion: SUCCESS
+        detailsUrl: https://github.com/o/r/actions/runs/1/job/9
+- match:
+  - repos/o/r/issues/7/comments
+  stdout:
+  - user:
+      login: alice
+    updated_at: '2026-01-02T00:00:00Z'
+    body: LGTM
+- match:
+  - repos/o/r/commits/abcdef0123/check-suites
+  stdout:
+    check_suites: []
+expect:
+  exit: 0
+  stderr: ignore
+golden: manual
+note: an external status failing again with a new startedAt is a new item

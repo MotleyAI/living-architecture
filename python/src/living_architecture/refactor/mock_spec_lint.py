@@ -45,22 +45,29 @@ def _kwargs(call: ast.Call) -> set[str]:
 
 
 def check_file(path: Path) -> list[str]:
-    out: list[str] = []
+    return [text for _, text in mock_findings(path)]
+
+
+def _call_finding(node: ast.Call, path: Path) -> str | None:
+    """The finding for an unspecced double built or patched by `node`, if it is one."""
+    kind = _patch_kind(node)
+    if kind is not None:
+        new_pos = kind in PATCH_NEW_POS and len(node.args) >= PATCH_NEW_POS[kind]
+        if _kwargs(node) & PATCH_OK_KWARGS or new_pos:
+            return None
+        shown = "patch" if kind == "patch" else f"patch.{kind}"
+        return message("mock-lint.patch", path=str(path), line=node.lineno, call=shown)
+    name = _name(node.func)
+    if name in MOCK_CTORS and not (_kwargs(node) & SPEC_KWARGS):
+        return message("mock-lint.mock", path=str(path), line=node.lineno, call=name)
+    return None
+
+
+def mock_findings(path: Path) -> list[tuple[int, str]]:
+    """Each unspecced double's line and finding."""
     tree = ast.parse(path.read_text(), filename=str(path))
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.Call):
-            continue
-        kind = _patch_kind(node)
-        if kind is not None:
-            new_pos = kind in PATCH_NEW_POS and len(node.args) >= PATCH_NEW_POS[kind]
-            if not (_kwargs(node) & PATCH_OK_KWARGS) and not new_pos:
-                shown = "patch" if kind == "patch" else f"patch.{kind}"
-                out.append(message("mock-lint.patch", path=str(path), line=node.lineno, call=shown))
-            continue
-        name = _name(node.func)
-        if name in MOCK_CTORS and not (_kwargs(node) & SPEC_KWARGS):
-            out.append(message("mock-lint.mock", path=str(path), line=node.lineno, call=name))
-    return out
+    calls = (node for node in ast.walk(tree) if isinstance(node, ast.Call))
+    return [(node.lineno, text) for node in calls if (text := _call_finding(node, path)) is not None]
 
 
 def _lint_native(paths: list[str]) -> int:

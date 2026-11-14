@@ -1,0 +1,60 @@
+kind: neutral
+command: la-wait-for-reviews
+args:
+- '7'
+- --repo
+- o/r
+env:
+  LA_WAIT_POLL_SECONDS: '0'
+gh:
+- match:
+  - pr
+  - view
+  - headRefOid,statusCheckRollup
+  responses:
+  - stdout:
+      headRefOid: abcdef0123
+      statusCheckRollup:
+      - __typename: StatusContext
+        context: CodeRabbit
+        state: FAILURE
+      - __typename: CheckRun
+        name: SonarCloud Code Analysis
+        status: COMPLETED
+        conclusion: FAILURE
+        detailsUrl: https://sonarcloud.io/dashboard?id=k&pullRequest=7
+      - __typename: CheckRun
+        name: tests
+        status: COMPLETED
+        conclusion: SUCCESS
+        detailsUrl: https://github.com/o/r/actions/runs/1/job/2
+- match:
+  - repos/o/r/commits/abcdef0123/check-suites
+  stdout:
+    check_suites: []
+- match:
+  - repos/o/r/commits/abcdef0123/statuses
+  stdout:
+  - context: CodeRabbit
+    state: success
+    description: Review completed
+- match:
+  - repos/o/r/issues/7/comments
+  stdout:
+  - user:
+      login: coderabbitai[bot]
+    updated_at: '2026-01-02T00:00:00Z'
+    body: '<!-- This is an auto-generated comment: summarize by coderabbit.ai -->
+
+      ## Summary'
+- match:
+  - repos/o/r/pulls/7/reviews
+  stdout: []
+- match:
+  - repos/o/r/pulls/7/comments
+  stdout: []
+expect:
+  exit: 0
+  stderr: ignore
+golden: manual
+note: failed CodeRabbit and Sonar checks are not ci-failed items

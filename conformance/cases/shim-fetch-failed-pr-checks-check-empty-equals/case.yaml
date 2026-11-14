@@ -1,0 +1,27 @@
+kind: neutral
+command: la-fetch-failed-pr-checks
+args:
+- '7'
+- --repo
+- o/r
+- --check=
+gh:
+- match:
+  - pr
+  - view
+  - statusCheckRollup
+  stdout:
+    statusCheckRollup:
+    - __typename: CheckRun
+      name: tests
+      workflowName: CI
+      conclusion: FAILURE
+      status: COMPLETED
+      detailsUrl: https://github.com/o/r/actions/runs/1/job/2
+normalize:
+- pattern: -[0-9]{8}-[0-9]{6}\.json
+  replace: -<TS>.json
+expect:
+  exit: 0
+golden: manual
+note: '--check= with an empty value matches no failed check'

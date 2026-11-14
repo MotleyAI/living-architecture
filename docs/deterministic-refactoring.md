@@ -17,7 +17,10 @@ Tools (both twins, routed by each file's language):
 
 `dr-refactor` prints one unified diff per changed file (and a `rename from`/`rename to` pair per moved file);
 it is a dry run unless `--apply` comes before the subcommand. Locate the symbol with `--line [--col]`
-(1-based), `--offset` (0-based) or `--name` (first declaration, else first use).
+(1-based), `--offset` (0-based) or `--name` (first declaration, else first use). A member rename refuses while a
+receiver of the old name is untyped (`--allow-blindspots` overrides) or a class outside the renamed hierarchy
+declares it (`--with` / `--without PATH:LINE` classify each); `--keep PATH[:LINE]` leaves sites untouched, and
+`--docs` also rewrites mentions in comments, docstrings, strings and prose files, listing the rest as `leftover`.
 
 ## What a fully compliant repo must fulfill
 
@@ -44,11 +47,12 @@ only when:
 
 | Language | Checks |
 |---|---|
-| Python | `untyped-def`, `unannotated-attr`, `explicit-any`, `mock`, `rope-walk` |
-| TypeScript | `tsconfig` (`strict`, `noImplicitAny`, `noImplicitOverride` enabled), `explicit-any`, `untyped-def` (implicitly-`any` parameters, as the type checker sees them), `mock` |
+| Python | `untyped-def`, `unannotated-attr`, `explicit-any`, `mock`, `rope-walk`, `attr-blindspot` |
+| TypeScript | `tsconfig` (`strict`, `noImplicitAny`, `noImplicitOverride` enabled), `explicit-any`, `untyped-def` (implicitly-`any` parameters, as the type checker sees them), `mock`, `attr-blindspot` |
 
-`--select` picks a subset; `--attr NAME` also reports `x.NAME` accesses whose receiver the type checker cannot
-type: `Unknown` or `Any` in Python (through the bundled basedpyright), `any` in TypeScript.
+`--select` picks a subset. `attr-blindspot` runs only with `--attr NAME`: it reports `x.NAME` accesses and member
+strings (`getattr(x, "NAME")`, `vi.spyOn(x, 'NAME')`, …) whose receiver the type checker cannot type: `Unknown`
+or `Any` in Python (through the bundled basedpyright), `any` in TypeScript.
 
 ## Using it on an existing repo
 
@@ -86,7 +90,8 @@ See [`la:make-diff-compliant`](../plugin/skills/make-diff-compliant/SKILL.md).
 ### 3. Do a refactor — skill `deterministic-refactor`
 
 Locate the symbol with the editor/LSP → `dr-refactor` dry-run → apply → run the gate (`la-typecheck` shows no
-new errors, `dr-mock-lint` passes, tests pass, grep the string-only references no static tool sees) → review
+new errors, `dr-mock-lint` passes, tests pass, check the printed `leftover` lines and the string-only references
+the language doc lists) → review
 the diff. See [`la:deterministic-refactor`](../plugin/skills/deterministic-refactor/SKILL.md).
 
 ### 4. Make a refactor's blast radius compliant first — skill `make-refactor-target-compliant`
@@ -94,7 +99,7 @@ the diff. See [`la:deterministic-refactor`](../plugin/skills/deterministic-refac
 Before renaming `X` or `X.attr`, close the blind spots the gate would otherwise miss: code that *might*
 reference the target but is currently invisible to the checker — untyped parameters/variables that could hold
 an `X`, classes whose attribute names match the target ("right-looking" names), unmarked overrides. The skill
-drives `dr-compliance --attr <name>` to enumerate those sites, types them, and re-checks until the blast radius
+drives `dr-compliance --select attr-blindspot --attr <name>` to enumerate those sites, types them, and re-checks until the blast radius
 is fully typed — so the post-rename gate is sound. See
 [`la:make-refactor-target-compliant`](../plugin/skills/make-refactor-target-compliant/SKILL.md).
 

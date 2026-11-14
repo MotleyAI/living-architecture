@@ -14,15 +14,19 @@ sets e.g. `tsc --noEmit -p web/tsconfig.json`, and a checker that is not tsc-com
 ## Refactoring
 
 `dr-refactor` drives the bundled TypeScript language service, one per project of the tsconfig's reference
-graph: `rename` renames every reference the service finds (overrides and implementations included; strings and
-comments untouched), `move-symbol` is the "Move to file" refactor into an existing file (re-exports
+graph: `rename` renames every reference the service finds (overrides and implementations included, plus the member string of `vi.spyOn` / `jest.spyOn`, `Reflect.*` and
+`Object.defineProperty` / `getOwnPropertyDescriptor` on a typed object; comments and other strings only with
+`--docs`), `move-symbol` is the "Move to file" refactor into an existing file (re-exports
 included), `move-module` moves a file or directory and rewrites its importers. `--no-in-hierarchy` and
 `--unsure include` are refused. Run the repo's formatter (prettier, eslint `--fix`) afterwards — moved code
 comes out in TypeScript's default formatting.
 
+A member rename refuses while a receiver of the old name is `any` (`--allow-blindspots` overrides) or a class,
+interface or type literal outside the hierarchy declares the old name (`--with` / `--without`).
+
 String-only references no static tool sees: dynamic `import()` of a computed path, `require()` of a computed
-path, `vi.mock('path')` / `jest.mock('path')` strings, property access by a computed key (`obj[name]`), JSON
-and config files, and package `exports` maps.
+path, `vi.mock('path')` / `jest.mock('path')` strings, property access by a computed key (`obj[name]`), an
+object literal outside any declared type holding the old key, JSON and config files, and package `exports` maps.
 
 ## Compliance fixes (`dr-compliance`)
 

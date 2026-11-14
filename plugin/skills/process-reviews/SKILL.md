@@ -1,6 +1,6 @@
 ---
 name: process-reviews
-description: Use when the user asks to process / triage / address / handle PR reviews from CodeRabbit, SonarQube, Codex, and CI all together (CodeRabbit and Sonar only when they ran on the PR). First waits (polling every 1 min, max 30 min) until CodeRabbit, Sonar, and every CI check on the PR are in a terminal state — while a Codex review runs concurrently against the local diff. Then fetches unresolved threads from all three code-review sources plus failed CI checks, validates each against the actual code / log, handles invalid ones in place (reply on thread / NOSONAR comment), and presents a unified plan for fixing the valid ones (split into logical groups if more than 3). Invoked from la:pr-review, it returns the triaged list instead.
+description: Use when the user asks to process / triage / address / handle PR reviews from CodeRabbit, SonarQube, Codex, and CI all together (CodeRabbit and Sonar only when they ran on the PR). Watches the PR every minute (30 min cap) and triages each new failed CI check, CodeRabbit comment and finished Sonar analysis as it appears, while a Codex review runs concurrently against the local diff. Once everything is terminal, fetches unresolved threads from all three code-review sources plus failed CI checks, validates each against the actual code / log, handles invalid ones in place (reply on thread / NOSONAR comment), and presents a unified plan for fixing the valid ones (split into logical groups if more than 3). Invoked from la:pr-review, it returns the triaged list instead.
 ---
 
 **Preflight:** run `la-doctor --plugin <this skill's base directory>` once per session before using any `la-*` or `dr-*` command; if it fails, stop and show the user its output.
@@ -23,11 +23,11 @@ Combine CodeRabbit, SonarQube, Codex, and failed CI feedback into a single triag
 
 ## Steps
 
-### 0. Wait until reviews and CI are done (and kick off Codex in parallel)
+### 0. Watch the PR (and kick off Codex in parallel)
 
-Don't fetch anything until every status check on the PR is in a terminal state. Mid-flight checks mean late-arriving CodeRabbit nitpicks, Sonar issues that haven't been computed yet, or test failures that haven't reported — triaging that is wasted work.
+Triage each source as soon as it reports, never a source that is still running: mid-flight CodeRabbit, Sonar or CI output is incomplete.
 
-**Run Codex in parallel with the gate-wait.** Codex doesn't depend on GitHub — it analyses the local working-tree diff against the PR's base branch. Kick it off in the SAME assistant turn that arms the gate-wait Monitor, so the two run concurrently. By the time the gate clears (often 5–15 minutes), Codex has already returned and you save that whole window.
+**Run Codex in parallel with the gate-wait.** Codex doesn't depend on GitHub — it analyses the local working-tree diff against the PR's base branch. Kick it off in the SAME assistant turn that arms the watch Monitor, so the two run concurrently. By the time the watch exits (often 5–15 minutes), Codex has already returned and you save that whole window.
 
 Call `mcp__codex__codex` directly (don't shell out to the `la:codex-review` skill, which is the single-call form). Use `sandbox: "read-only"`, `approval-policy: "never"`, and `cwd` set to the repo root. Prompt template:
 
@@ -47,15 +47,19 @@ Substitute the actual base branch (`main`, `master`, or what `gh pr view --json 
 
 Never fall back to a different review tool when Codex is on (see "Codex follows `reviewers.codex`" above).
 
-#### 0a + 0b. Wait for status checks + CodeRabbit settle
+#### 0a + 0b. Watch status checks + CodeRabbit
 
-Run `la-wait-for-reviews` — it bundles the status-check rollup gate (Stage 0a) AND the CodeRabbit settle on HEAD (Stage 0b) into a single invocation. No inline bash.
+Arm `la-wait-for-reviews <PR>` with the Monitor tool (`timeout_ms` at its maximum). It polls the PR every minute and prints one stdout line per new item, never the same item twice, even across runs:
 
-```bash
-la-wait-for-reviews <PR>
-```
+- `ci-failed <sha> <url> <check>`: a check on HEAD failed;
+- `coderabbit-comment <url>` / `coderabbit-review <url>`: a new CodeRabbit thread, reply, or review body;
+- `sonar-done <sha> <conclusion>`: HEAD's Sonar analysis finished;
+- `coderabbit-settled <sha> <outcome>`: reviewed, carried-forward, rate-limited, paused, or cap;
+- `head-moved <old> <new>`.
 
-The script exits 0 when both stages clear (or when CodeRabbit is not on the PR, detected the same way as `la-pr-reviewers`), 1 if the status-check gate doesn't clear within 30 minutes, and 3 when CodeRabbit is rate limited or paused on HEAD. Stage 0b is best-effort with a 10-minute cap: on the cap the script reports "proceeding anyway" and still exits 0; see the "CodeRabbit did not review this HEAD" rule below.
+On each event, run Steps 1–4 for that item alone, at once: `la-fetch-failed-pr-checks <PR> --check <url>` for a failed check (`--check <check>` when `<url>` is `-`), `la-fetch-coderabbit-threads <PR>` for a CodeRabbit item (triage only the named comment or review), the Sonar calls of Step 1 for `sonar-done`. If the Monitor expires before the command exits, re-arm the same command; it prints only what is new.
+
+It exits 0 when every check on HEAD is terminal and CodeRabbit has settled on HEAD (or is not on the PR, or the 10-minute settle cap after the checks finish ran out), 1 if the checks do not finish within 30 minutes, and 3 when CodeRabbit was rate limited or paused on HEAD, once the checks finish.
 
 A check is **non-terminal** if it's:
 - a `StatusContext` with `state` ∈ {`PENDING`, `EXPECTED`} — CodeRabbit reports this way, OR
@@ -71,15 +75,7 @@ Why Stage 0b is keyed to HEAD's SHA: CodeRabbit refreshes its summary as a place
 - **Rate limited or paused** (exit 3): HEAD's latest CodeRabbit status is `Review rate limited` or `Review paused`. The summary's rate-limit text is not used: it stays from an earlier HEAD until CodeRabbit reaches the new one.
 - Anything else: keep polling until the cap.
 
-**Don't idle while the script runs.** Run it in the background, and on each of
-its progress polls check which sources are already terminal. Fetch and triage
-those at once (Steps 1–4 for that source), without waiting for the rest:
-- CodeRabbit once its StatusContext is done,
-- Sonar once its check is done,
-- each CI job's failure log as soon as that job fails.
-
-Only Step 5, the fix plan, waits for the script to exit, so the plan covers
-every source. When it exits, re-fetch CodeRabbit to pick up late threads.
+Only Step 5, the fix plan, waits for the command to exit, so the plan covers every source. When it exits, run Step 1 for every source once more and triage whatever no event named: edited CodeRabbit comments, and older threads that need a reply.
 
 **CodeRabbit did not review this HEAD (rate limited or paused, script exit 3, or the
 10-minute settle cap).** If CodeRabbit has already posted at least one real
@@ -87,8 +83,6 @@ review on this PR (on any earlier HEAD), this is NOT a blocker. Treat CodeRabbit
 as done for this HEAD, fetch and triage its existing threads, and carry on
 without re-triggering. Only when there has never been a real review on the PR
 does it block, and then you report it.
-
-Once the script exits, finish Step 1 for any source not yet fetched.
 
 ### 1. Fetch all unresolved feedback (in parallel)
 

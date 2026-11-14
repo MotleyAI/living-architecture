@@ -1,0 +1,5 @@
+Stage 0a: gate clear.
+Stage 0b: waiting for CodeRabbit on HEAD abc (elapsed 0m). Sleeping 0s.
+HEAD moved from abc to def — restarting the gate and the CodeRabbit settle.
+Stage 0a: gate clear.
+Stage 0b: CodeRabbit reviewed HEAD def (status "Review completed").

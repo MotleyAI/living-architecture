@@ -1,0 +1,3 @@
+ci-failed abcdef0 - build
+ci-failed abcdef0 https://ci.example/1 ext-ci
+ci-failed abcdef0 https://ci.example/2 ext-ci

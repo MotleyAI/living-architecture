@@ -1,0 +1,12 @@
+kind: neutral
+command: la-fetch-failed-pr-checks
+args:
+- '7'
+- --repo
+- o/r
+- --check
+expect:
+  exit: 2
+  stderr: ignore
+golden: manual
+note: '--check without a value is a usage error'

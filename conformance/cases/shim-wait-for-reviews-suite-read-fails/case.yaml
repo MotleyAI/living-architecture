@@ -39,7 +39,6 @@ gh:
   stdout: []
 expect:
   exit: 1
-  stdout: ignore
   stderr:
     contains:
     - 'Stage 0a: gate timed out'

@@ -60,8 +60,10 @@ No model or arc42 change. The behaviour attaches to the existing `refactor` spec
 9. **The "Language-specific id" scenario and `compliance-select-other-language-check` switch to `tsconfig`**, which
    stays TypeScript-only. (default)
 10. **No version bump in this PR.** (default)
-11. PEP 695 is not promised: Python 3.11, in the CI matrix and the supported range, cannot parse it; such a file
-    gets `parse-error` like every check, and no case uses it. (codex)
+11. PEP 695 syntax follows Python's annotation scopes where the interpreter parses it: type parameters bind in their
+    own scope, which holds bounds, constraints, annotations and class bases, and sees an enclosing class's names. On
+    Python 3.11 such a file gets `parse-error` like every check, so no conformance case uses it; unit tests skip
+    below 3.12. (codex)
 12. Resolution follows Python's real scoping, not statement order: annotations are often deferred, so a scope's
     bindings decide. Function locals, class scope (visible to a method's parameter annotations and decorators, not
     to its body), comprehensions, `global` / `nonlocal`, except-handler and match bindings are each tested,
@@ -76,9 +78,9 @@ No model or arc42 change. The behaviour attaches to the existing `refactor` spec
 16. Aliases are not followed: the site is where `Any` is written, as TypeScript's `type A = any`. (codex)
 17. Both twins' contract tests pin the new facts; a Python test pins the `Any` / `object` rendering; the unchanged
     TypeScript goldens pin TypeScript. (codex)
-18. `compliance-all-checks` and its fixture stay unchanged as the "no `Any`, output unchanged" proof; a new
-    default-run case (no `--select`) shows `Any` reported. Supersedes the earlier plan to re-bless that golden.
-    (codex)
+18. `compliance-all-checks` and its fixture stay unchanged as the "no `Any`, output unchanged" proof, except that
+    findings now print in line order (a file's findings were sorted as text, putting line 16 before line 4); a new
+    default-run case (no `--select`) shows `Any` reported. (codex, user)
 19. `typing` / `typing_extensions` always mean the real modules, even with a first-party module of that name; tested
     with a local `typing.py`, a third-party re-export and a rebound module alias. (codex)
 20. Rejected (codex): narrowing the check to annotations only — decision 3 is the user's.

@@ -11,11 +11,15 @@ import {
 } from 'node:fs';
 import { basename, dirname, isAbsolute, join, relative, sep } from 'node:path';
 import type * as TS from 'typescript';
-import { byCodePoint, language, message } from '../contract/index.js';
+import { sourceFiles } from '../config/index.js';
+import { byCodePoint, language, manifest, message } from '../contract/index.js';
 import { canonical, posix, stripSourceExtension, ts } from '../lang/index.js';
 import { unifiedDiff } from './diff.js';
 import { applyEdits, type Edit, mergeEdits, RefactorError } from './edits.js';
+import { anyReceivers, formCalls, isAny, type MemberDeclaration, memberDeclarations } from './members.js';
+import { codeMarked, type Mention, mentions, type Owner, qualified, type Region, sourceRegions } from './mentions.js';
 import { realPath, under } from './routing.js';
+import { Site, SiteError } from './sites.js';
 import { Workspace } from './workspace.js';
 
 export interface RefactorArgs {
@@ -30,6 +34,11 @@ export interface RefactorArgs {
   new_name?: string;
   in_hierarchy?: boolean;
   unsure?: string;
+  allow_blindspots?: boolean;
+  with_stand_ins?: string[];
+  without_stand_ins?: string[];
+  keep?: string[];
+  docs?: boolean;
   dest?: string;
   module?: string;
 }
@@ -193,6 +202,217 @@ function locateName(path: string, text: string, name: string): number {
   return position;
 }
 
+interface Finding {
+  path: string;
+  line: number;
+  position: number;
+  text: string;
+}
+
+/** A source of the rename's projects with the checker of the first program holding it. */
+interface ProjectSource {
+  source: TS.SourceFile;
+  checker: TS.TypeChecker;
+}
+
+const keyOf = (path: string, start: number): string => `${path}\0${start}`;
+const lineAt = (text: string, position: number): number => text.slice(0, position).split('\n').length;
+const byPosition = (a: Finding, b: Finding): number => byCodePoint(a.path, b.path) || a.line - b.line || a.position - b.position;
+
+/** Every project's rename locations of the symbol at `position` of `file`. */
+function renameLocations(r: Refactor, file: string, position: number, newName: string): Edit[] {
+  const edits: Edit[] = [];
+  for (const service of r.services(file)) {
+    for (const location of service.findRenameLocations(file, position, false, false, { providePrefixAndSuffixTextForRename: true }) ?? []) {
+      const newText = `${location.prefixText ?? ''}${newName}${location.suffixText ?? ''}`;
+      edits.push({ path: location.fileName, start: location.textSpan.start, length: location.textSpan.length, newText });
+    }
+  }
+  return edits;
+}
+
+/** The project sources of `services`' programs under the project root. */
+function projectSources(r: Refactor, services: TS.LanguageService[]): Map<string, ProjectSource> {
+  const out = new Map<string, ProjectSource>();
+  for (const service of services) {
+    const program = service.getProgram();
+    if (program === undefined) continue;
+    const checker = program.getTypeChecker();
+    for (const source of program.getSourceFiles()) {
+      const rel = r.rel(source.fileName);
+      if (source.isDeclarationFile || program.isSourceFileFromExternalLibrary(source) || rel.startsWith('..') || out.has(source.fileName)) continue;
+      out.set(source.fileName, { source, checker });
+    }
+  }
+  return out;
+}
+
+/** The module path of a source for qualified mentions: its project-relative path without extension. */
+const modulePath = (r: Refactor, path: string): string[] => r.rel(stripSourceExtension(path)).split('/');
+
+class TypescriptRename {
+  readonly edits: Edit[];
+  readonly renamed = new Set<string>();
+  readonly declaring = new Set<string>();
+  blindspots: Finding[] = [];
+  standIns: Finding[] = [];
+  leftovers: Finding[] = [];
+  private readonly sources: Map<string, ProjectSource>;
+  private readonly declarations: MemberDeclaration[];
+  private readonly texts = new Map<string, string>();
+
+  constructor(
+    readonly r: Refactor,
+    readonly file: string,
+    readonly position: number,
+    readonly old: string,
+    readonly newName: string,
+  ) {
+    this.edits = renameLocations(r, file, position, newName);
+    this.sources = projectSources(r, r.services(file));
+    this.declarations = [...this.sources.values()]
+      .filter(({ source }) => source.text.includes(old))
+      .flatMap(({ source }) => memberDeclarations(source, old, source.fileName));
+    const declared = new Set(this.declarations.map((d) => keyOf(d.path, d.start)));
+    for (const e of this.edits) if (declared.has(keyOf(e.path, e.start))) this.renamed.add(keyOf(e.path, e.start));
+  }
+
+  get member(): boolean {
+    return this.renamed.size > 0;
+  }
+
+  text(path: string): string {
+    let text = this.texts.get(path);
+    if (text === undefined) {
+      text = this.sources.get(path)?.source.text ?? readFileSync(path, 'utf8');
+      this.texts.set(path, text);
+    }
+    return text;
+  }
+
+  private finding(path: string, position: number, template: string, values: Record<string, unknown>): Finding {
+    const rel = this.r.rel(path);
+    const line = lineAt(this.text(path), position);
+    return { path: rel, line, position, text: message(template, { ...values, path: rel, line }) };
+  }
+
+  /** Join every `--with` stand-in's rename; record the stand-ins left unclassified. */
+  classify(withSites: string[], withoutSites: string[]): void {
+    const declared = new Set(this.declarations.map((d) => keyOf(d.path, d.start)));
+    const candidates = this.declarations.filter((d) => !this.renamed.has(keyOf(d.path, d.start)));
+    const classified = new Set<string>();
+    for (const [raw, joined] of [...withSites.map((s) => [s, true] as const), ...withoutSites.map((s) => [s, false] as const)]) {
+      const site = Site.parse(raw, this.r.root, this.r.root);
+      const matched = candidates.filter((d) => site.line !== null && site.covers(this.r.rel(d.path), d.line));
+      if (matched.length === 0) throw new SiteError('refactor.not-stand-in', raw);
+      for (const d of matched) {
+        const theirs = renameLocations(this.r, d.path, d.start, this.newName);
+        const keys = [keyOf(d.path, d.start), ...theirs.map((e) => keyOf(e.path, e.start)).filter((k) => declared.has(k))];
+        for (const k of keys) classified.add(k);
+        if (!joined) continue;
+        this.edits.push(...theirs);
+        for (const k of keys) this.renamed.add(k);
+      }
+    }
+    this.standIns = candidates
+      .filter((d) => !classified.has(keyOf(d.path, d.start)))
+      .map((d) => this.finding(d.path, d.start, 'refactor.stand-in', { cls: d.owner, attr: this.old }));
+  }
+
+  /** Member strings landing on a renamed declaration are rewritten; `any` receivers are blind spots. */
+  scan(): void {
+    for (const { source, checker } of this.sources.values()) {
+      if (!source.text.includes(this.old)) continue;
+      for (const { position, receiver } of anyReceivers(checker, source, this.old)) {
+        this.blindspots.push(this.finding(source.fileName, position, 'compliance.attr-blindspot', { receiver, attr: this.old, type: 'any' }));
+      }
+      for (const found of formCalls(checker, source, this.old)) {
+        if (isAny(checker, found.object)) continue;
+        const type = checker.getApparentType(checker.getTypeAtLocation(found.object));
+        const declarations = type.getProperty(this.old)?.declarations ?? [];
+        const lands = declarations.some((d) => {
+          const name = ts().getNameOfDeclaration(d);
+          return name !== undefined && this.renamed.has(keyOf(d.getSourceFile().fileName, name.getStart(d.getSourceFile())));
+        });
+        if (lands) this.edits.push({ path: source.fileName, start: found.start, length: found.end - found.start, newText: this.newName });
+      }
+    }
+  }
+
+  private owners(): Owner[] {
+    if (!this.member) {
+      const declarations = this.r.services(this.file)[0]?.getDefinitionAtPosition(this.file, this.position) ?? [];
+      for (const d of declarations) this.declaring.add(d.fileName);
+      return [...this.declaring].map((path) => ({ path: modulePath(this.r, path), member: false }));
+    }
+    return this.declarations
+      .filter((d) => this.renamed.has(keyOf(d.path, d.start)))
+      .map((d) => {
+        this.declaring.add(d.path);
+        return { path: [...modulePath(this.r, d.path), d.owner], member: true };
+      });
+  }
+
+  /** `--docs`: qualified and code-marked mentions rewritten, the rest listed. */
+  docs(): void {
+    const owners = this.owners();
+    const colliding = new Set(this.declarations.filter((d) => !this.renamed.has(keyOf(d.path, d.start))).map((d) => d.owner));
+    const files: [string, Mention[], boolean][] = [];
+    for (const { source } of this.sources.values()) {
+      if (source.text.includes(this.old)) files.push([source.fileName, mentions(source.text, this.old, sourceRegions(source)), this.declaring.has(source.fileName)]);
+    }
+    const extensions: string[] = manifest()['dr-refactor'].prose_extensions;
+    for (const rel of sourceFiles(this.r.root, []).sort(byCodePoint)) {
+      const path = join(this.r.root, rel);
+      if (!extensions.some((ext) => rel.endsWith(ext)) || !existsSync(path)) continue;
+      const text = this.text(path);
+      if (text.includes(this.old)) files.push([path, mentions(text, this.old, [{ start: 0, end: text.length, where: 'prose', opens: false }]), false]);
+    }
+    for (const [path, found, declaring] of files) {
+      const text = this.text(path);
+      for (const m of found) {
+        if (this.edits.some((e) => e.path === path && e.start <= m.start && m.start < e.start + e.length)) continue;
+        if (qualified(text, m.start, owners, colliding) || (declaring && codeMarked(text, m))) {
+          this.edits.push({ path, start: m.start, length: m.end - m.start, newText: this.newName });
+        } else {
+          this.leftovers.push(this.finding(path, m.start, 'refactor.leftover', { where: m.where, old: this.old }));
+        }
+      }
+    }
+  }
+
+  /** Without `--docs`, comments stay: drop the language service's edits inside them (JSDoc links and tags). */
+  dropCommentEdits(): void {
+    const comments = new Map<string, Region[]>();
+    const inComment = (e: Edit): boolean => {
+      const source = this.sources.get(e.path)?.source;
+      if (source === undefined) return false;
+      if (!comments.has(e.path)) comments.set(e.path, sourceRegions(source).filter((region) => region.where === 'comment'));
+      return (comments.get(e.path) ?? []).some((region) => region.start <= e.start && e.start < region.end);
+    };
+    const kept = this.edits.filter((e) => !inComment(e));
+    this.edits.splice(0, this.edits.length, ...kept);
+  }
+
+  /** Drop every edit and blind spot at a kept site; SiteError for a keep that matches neither. */
+  keep(raws: string[]): Edit[] {
+    const sites = raws.map((raw) => Site.parse(raw, this.r.root));
+    const matched = new Set<number>();
+    const kept = (rel: string, line: number, mark = true): boolean => {
+      const hits = sites.flatMap((site, i) => (site.covers(rel, line) ? [i] : []));
+      if (mark) for (const i of hits) matched.add(i);
+      return hits.length > 0;
+    };
+    const edits = this.edits.filter((e) => !kept(this.r.rel(e.path), lineAt(this.text(e.path), e.start)));
+    this.blindspots = this.blindspots.filter((b) => !kept(b.path, b.line)).sort(byPosition);
+    this.leftovers = this.leftovers.filter((f) => !kept(f.path, f.line, false)).sort(byPosition);
+    this.standIns.sort(byPosition);
+    const unmatched = sites.find((_, i) => !matched.has(i));
+    if (unmatched !== undefined) throw new SiteError('refactor.keep-unmatched', unmatched.raw);
+    return edits;
+  }
+}
+
 function rename(r: Refactor): number {
   if (r.args.in_hierarchy === false) throw new RefactorError(message('refactor.ts-not-supported', { option: '--no-in-hierarchy' }));
   if (r.args.unsure === 'include') throw new RefactorError(message('refactor.ts-not-supported', { option: '--unsure include' }));
@@ -205,14 +425,27 @@ function rename(r: Refactor): number {
   const named = info?.canRename === true && info.triggerSpan.start <= position && position <= info.triggerSpan.start + info.triggerSpan.length;
   if (info === undefined || !info.canRename || !named) throw new RefactorError(message('refactor.cannot-rename'));
   const newName = r.args.new_name ?? '';
-  const edits: Edit[] = [];
-  for (const service of services) {
-    for (const location of service.findRenameLocations(file, position, false, false, { providePrefixAndSuffixTextForRename: true }) ?? []) {
-      const newText = `${location.prefixText ?? ''}${newName}${location.suffixText ?? ''}`;
-      edits.push({ path: location.fileName, start: location.textSpan.start, length: location.textSpan.length, newText });
-    }
-  }
   const old = text.slice(info.triggerSpan.start, info.triggerSpan.start + info.triggerSpan.length);
+  const symbol = new TypescriptRename(r, file, position, old, newName);
+  const withSites = r.args.with_stand_ins ?? [];
+  const withoutSites = r.args.without_stand_ins ?? [];
+  if (symbol.member) {
+    symbol.classify(withSites, withoutSites);
+    symbol.scan();
+  } else if (withSites.length > 0 || withoutSites.length > 0) {
+    throw new SiteError('refactor.not-stand-in', [...withSites, ...withoutSites][0] ?? '');
+  }
+  if (r.args.docs === true) symbol.docs();
+  else symbol.dropCommentEdits();
+  const edits = symbol.keep(r.args.keep ?? []);
+  const allowed = r.args.allow_blindspots === true;
+  if ((symbol.blindspots.length > 0 && !allowed) || symbol.standIns.length > 0) {
+    const closing = allowed || symbol.blindspots.length === 0 ? [] : [message('refactor.blindspots', { count: symbol.blindspots.length, attr: old })];
+    const lines = [...symbol.blindspots.map((f) => f.text), ...symbol.standIns.map((f) => f.text), ...closing];
+    process.stderr.write(lines.map((line) => `${line}\n`).join(''));
+    return 1;
+  }
+  process.stderr.write([...symbol.blindspots, ...symbol.leftovers].map((f) => `${f.text}\n`).join(''));
   return r.emit(message('refactor.ts-rename-header', { old, new: newName }), mergeEdits(edits), []);
 }
 
@@ -388,7 +621,7 @@ function removeEmptyDirs(dir: string): void {
   if (readdirSync(dir).length === 0) rmdirSync(dir);
 }
 
-/** `dr-refactor` on a TypeScript source: 0, or 1 with the finding on stderr. */
+/** `dr-refactor` on a TypeScript source: 0, 1 with the finding or refusal on stderr, 2 for a site matching nothing. */
 export function runTypescriptRefactor(args: RefactorArgs): number {
   try {
     const r = new Refactor(args);
@@ -396,6 +629,10 @@ export function runTypescriptRefactor(args: RefactorArgs): number {
     if (args.subcommand === 'move-symbol') return moveSymbol(r);
     return moveModule(r);
   } catch (error) {
+    if (error instanceof SiteError) {
+      process.stderr.write(`${message(error.template, { site: error.site })}\n`);
+      return 2;
+    }
     if (!(error instanceof RefactorError)) throw error;
     process.stderr.write(`${error.message}\n`);
     return 1;

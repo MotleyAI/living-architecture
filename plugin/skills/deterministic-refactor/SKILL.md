@@ -26,25 +26,38 @@ the refactor touches (`la-config get languages` lists the repo's).
    check", STOP and tell the user: with no type check there is no guarantee,
    so offer to set one up (`commands.typecheck` and
    `la-typecheck --write-baseline`) first.
-3. **Dry-run** (default):
-   `dr-refactor --project <repo> rename --file F --line L --col C --new-name N`.
-   Show the diff. Method renames rename the hierarchy by default.
-4. **Apply**: `--apply` is a GLOBAL flag and goes before the subcommand
+3. **Type the receivers** (member renames): `dr-compliance --select attr-blindspot --attr OLD <repo>`
+   lists each receiver of `OLD` the checker cannot type. Type them
+   (`la:make-refactor-target-compliant`) until it reports nothing; `dr-refactor`
+   refuses a member rename while any remain.
+4. **Dry-run** (default):
+   `dr-refactor --project <repo> rename --file F --line L --col C --new-name N --docs`.
+   Method renames rename the hierarchy by default. Re-run until it is the rename you want:
+   - `stand-in`: a class outside the hierarchy declares `OLD`. `--with PATH:LINE` renames it too
+     (a duck-typed implementation: a cache, a fake, a `cast()` target); `--without PATH:LINE` leaves it
+     (an unrelated class).
+   - `attr-blindspot` on a receiver that cannot be typed (a third-party `Any`): `--allow-blindspots`,
+     and tell the user which.
+   - a site that must keep the old name (a back-compat test or shim): `--keep PATH:LINE`, or
+     `--keep PATH` for a whole file.
+   Show the diff.
+5. **Apply**: `--apply` is a GLOBAL flag and goes before the subcommand
    (`dr-refactor --project <repo> --apply rename ...`); trailing it errors.
-5. **GATE — done only when ALL pass:**
-   - `la-typecheck` passes: **no new errors** vs the baseline (a missed
-     annotated usage, `super()` call, or orphaned override surfaces here; the
-     language doc lists the mutator's known misses);
+6. **GATE — done only when ALL pass:**
+   - `la-typecheck` passes: **no new errors** vs the baseline;
    - `dr-mock-lint <tests>` passes;
    - the full non-integration test suite (`la-config get commands.test`) passes;
-   - grep the string-only references no static tool sees (listed per language
-     in the language doc).
-6. Review the diff. The user commits — never commit or `git add -A`.
+   - by hand, only these: each `leftover` line the apply printed, each receiver
+     `--allow-blindspots` let through, and the string-only references the language doc lists.
+7. Review the diff. The user commits — never commit or `git add -A`.
 
 ## Commands
 
 `dr-refactor` subcommands: `rename` / `move-symbol` / `move-module`. Dry-run is
 default; `--apply` writes; `--project` defaults to cwd. Locator: `--line [--col]`
 (1-based), `--offset N` (0-based), or `--name` (first declaration, else first
-use). Move destinations must already exist, and a `move-symbol` destination is
-a file of the same language. Run the repo's formatter afterwards.
+use). `rename` also takes `--with` / `--without PATH:LINE`, `--keep PATH[:LINE]`,
+`--allow-blindspots` and `--docs` (comments, docstrings, strings and prose files:
+qualified mentions everywhere, code-marked ones in the declaring files, the rest
+listed as `leftover`). Move destinations must already exist, and a `move-symbol`
+destination is a file of the same language. Run the repo's formatter afterwards.

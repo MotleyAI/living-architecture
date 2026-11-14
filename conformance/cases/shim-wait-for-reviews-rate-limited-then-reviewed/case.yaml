@@ -1,0 +1,78 @@
+kind: neutral
+command: la-wait-for-reviews
+args:
+- '7'
+- --repo
+- o/r
+env:
+  LA_WAIT_POLL_SECONDS: '0'
+gh:
+- match:
+  - pr
+  - view
+  - headRefOid,statusCheckRollup
+  responses:
+  - stdout:
+      headRefOid: abcdef0123
+      statusCheckRollup:
+      - &id001
+        __typename: CheckRun
+        name: lint
+        status: IN_PROGRESS
+        detailsUrl: https://github.com/o/r/actions/runs/1/job/9
+      - &id002
+        __typename: StatusContext
+        context: CodeRabbit
+        state: SUCCESS
+  - stdout:
+      headRefOid: abcdef0123
+      statusCheckRollup:
+      - *id001
+      - *id002
+  - stdout:
+      headRefOid: abcdef0123
+      statusCheckRollup:
+      - __typename: CheckRun
+        name: lint
+        status: COMPLETED
+        conclusion: SUCCESS
+        detailsUrl: https://github.com/o/r/actions/runs/1/job/9
+      - *id002
+- match:
+  - repos/o/r/commits/abcdef0123/check-suites
+  stdout:
+    check_suites: []
+- match:
+  - repos/o/r/commits/abcdef0123/statuses
+  responses:
+  - stdout:
+    - context: CodeRabbit
+      state: success
+      description: Review rate limited
+  - stdout:
+    - context: CodeRabbit
+      state: success
+      description: Review completed
+    - context: CodeRabbit
+      state: success
+      description: Review rate limited
+- match:
+  - repos/o/r/issues/7/comments
+  stdout:
+  - user:
+      login: coderabbitai[bot]
+    updated_at: '2026-01-02T00:00:00Z'
+    body: '<!-- This is an auto-generated comment: summarize by coderabbit.ai -->
+
+      ## Summary'
+- match:
+  - repos/o/r/pulls/7/reviews
+  stdout: []
+- match:
+  - repos/o/r/pulls/7/comments
+  stdout: []
+expect:
+  exit: 0
+  stderr: ignore
+golden: manual
+note: a rate limit then a review on the same HEAD prints both outcomes and exits 0

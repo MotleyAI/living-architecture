@@ -1,0 +1,5 @@
+Stage 0a: gate clear.
+Stage 0b: waiting for CodeRabbit on HEAD abcdef0 (elapsed 0m). Sleeping 0s.
+Stage 0a: pending — lint (elapsed 0m). Sleeping 0s.
+Stage 0a: gate clear.
+Stage 0b: CodeRabbit reviewed HEAD abcdef0 (status "Review completed").

@@ -4,6 +4,7 @@ import type * as TS from 'typescript';
 import { language, message } from '../contract/index.js';
 import { findRepoRoot } from '../config/index.js';
 import { posix, ts } from '../lang/index.js';
+import { anyReceivers } from './members.js';
 import { type Finding, mockFindings } from './mocks.js';
 import { Workspace } from './workspace.js';
 
@@ -50,11 +51,11 @@ function fileFindings(program: TS.Program, source: TS.SourceFile, shown: string,
     if (selected.has('explicit-any') && node.kind === ts().SyntaxKind.AnyKeyword) {
       out.push({ position: node.getStart(source), text: message('compliance.explicit-any', { path: shown, line: line(node), any, top }) });
     }
-    if (attr !== null && ts().isPropertyAccessExpression(node) && node.name.text === attr) {
-      if ((checker.getTypeAtLocation(node.expression).flags & ts().TypeFlags.Any) !== 0) { // NOSONAR(S1529) — TypeFlags bitmask test
-        const receiver = node.expression.getText(source);
-        out.push({ position: node.getStart(source), text: message('compliance.attr-blindspot', { path: shown, line: line(node), receiver, attr, type: 'any' }) });
-      }
+  }
+  if (attr !== null) {
+    for (const { position, receiver } of anyReceivers(checker, source, attr)) {
+      const at = source.getLineAndCharacterOfPosition(position).line + 1;
+      out.push({ position, text: message('compliance.attr-blindspot', { path: shown, line: at, receiver, attr, type: 'any' }) });
     }
   }
   if (selected.has('untyped-def')) out.push(...untypedDefs(program, source, shown));

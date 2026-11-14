@@ -66,9 +66,7 @@ Split the gates into two tiers:
 
 The loop:
 
-1. **Initial full sweep.** Run `/la:process-reviews` to wait for and fetch the
-   remote gates on the current pushed HEAD, and run every local gate. This is
-   the complete failing set.
+1. **Initial full sweep.** Run `/la:process-reviews` on the current pushed HEAD. Fix each valid item in the working tree as soon as it is triaged, while the watch keeps running; push nothing. Run every local gate. When the watch exits, the failing set is complete.
 2. **Local fix sub-loop — NO push.** Fix the failures, then re-run (a) the
    specific gates that failed AND (b) every local gate above — INCLUDING a
    fresh full-PR Codex pass over the fixed working tree (Codex is a local
@@ -79,19 +77,17 @@ The loop:
    conventions, type check, Sonar pre-check, openspec/architecture checks green
    AND Codex returning no new valid findings. NEVER push a fix Codex has not reviewed —
    a gap in the fix itself otherwise ships and costs a full extra CI round.
+   Run the local gates on these fixes as you go; the full convergence, Codex included, runs once the watch has exited.
 3. **Push once.** Only after step 2 has fully converged (Codex included),
    commit and push — this re-triggers the remote gates a single time for the
    whole batch. Never push while a question to me is pending (or about to be
    asked) — ask first, push after I answer, even if the batch excludes the
    disputed change.
-4. **Full remote sweep.** Run `/la:process-reviews` again to wait for + fetch every
-   remote gate on the new HEAD (it also re-runs Codex). Any new failure sends
-   you back to step 2, then step 3. Repeat until one full push cycle returns
-   every source green with nothing left to fix.
+4. **Full remote sweep.** Run `/la:process-reviews` again on the new HEAD (it also re-runs Codex), fixing each valid item as it is triaged, without pushing, until its watch exits. Any new failure sends you back to step 2, then step 3. Repeat until one full push cycle returns every source green with nothing left to fix.
 
 **"Green" for CI means an actually-COMPLETE, PASSING run — every check finished
 with a pass conclusion.** "No *failed* checks" is NOT green while any check is
-still QUEUED / IN_PROGRESS, and `la-wait-for-reviews` printing "gate clear" only
+still QUEUED / IN_PROGRESS, and `la-wait-for-reviews` exiting 0 only
 means the checks it saw were terminal at that poll — it can fire before slow
 jobs (the full test matrix, integration/example jobs) even start or finish.
 Before treating CI as green, confirm EVERY check shows `pass` (e.g.
@@ -99,9 +95,9 @@ Before treating CI as green, confirm EVERY check shows `pass` (e.g.
 still-running CI run.
 
 Use `/la:process-reviews` for the remote sweeps (steps 1 and 4) — it owns the
-wait-for-settle + fetch of CI/CodeRabbit/Sonar and the Codex pass. Run the local
+watch + fetch of CI/CodeRabbit/Sonar and the Codex pass. Run the local
 sub-loop (step 2) directly against the working tree; do not invoke
-`/la:process-reviews` there (its gate-poll is about remote state you have not
+`/la:process-reviews` there (its watch is about remote state you have not
 re-triggered yet).
 
 **Symptom vs. structural cause — decide before you patch.** For EACH valid

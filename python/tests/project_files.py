@@ -9,11 +9,13 @@ def file_tree(root: Path) -> dict[str, bytes]:
     return {p.relative_to(root).as_posix(): p.read_bytes() for p in root.rglob("*") if p.is_file()}
 
 
-def write_project(root: Path, files: dict[str, str], *, venv: bool = True) -> Path:
-    """`files` (text kept byte for byte) plus `pkg/__init__.py`; with `venv`, the basedpyright config names this
-    interpreter's environment, so pydantic resolves wherever PATH points."""
-    (root / "pkg").mkdir(parents=True, exist_ok=True)
-    (root / "pkg" / "__init__.py").write_text("", encoding="utf-8")
+def write_project(root: Path, files: dict[str, str], *, venv: bool = True, package: bool = True) -> Path:
+    """`files` (text kept byte for byte), plus `pkg/__init__.py` with `package`; with `venv`, the basedpyright config
+    names this interpreter's environment, so pydantic resolves wherever PATH points."""
+    root.mkdir(parents=True, exist_ok=True)
+    if package:
+        (root / "pkg").mkdir(exist_ok=True)
+        (root / "pkg" / "__init__.py").write_text("", encoding="utf-8")
     if venv:
         prefix = Path(sys.prefix)
         (root / "pyproject.toml").write_text(
