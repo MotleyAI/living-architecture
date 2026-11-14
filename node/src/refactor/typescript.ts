@@ -344,22 +344,26 @@ class TypescriptRename {
       const site = Site.parse(raw, this.r.root, this.r.root);
       const matched = candidates.filter((d) => site.line !== null && site.covers(this.r.rel(d.path), d.line));
       if (matched.length === 0) throw new SiteError('refactor.not-stand-in', raw);
-      for (const d of matched) {
-        if (joined && d.computed) {
-          const values = { path: this.r.rel(d.path), line: d.line, cls: d.owner, attr: this.old };
-          throw new SiteError('refactor.computed-stand-in', raw, values);
-        }
-        const theirs = renameLocations(this.servicesFor(d.path), d.path, d.start, this.newName);
-        const keys = [keyOf(d.path, d.start), ...theirs.map((e) => keyOf(e.path, e.start)).filter((k) => declared.has(k))];
-        for (const k of keys) classified.add(k);
-        if (!joined) continue;
-        this.edits.push(...theirs);
-        for (const k of keys) this.renamed.add(k);
-      }
+      for (const d of matched) this.classifyStandIn(d, raw, joined, declared, classified);
     }
     this.standIns = candidates
       .filter((d) => !classified.has(keyOf(d.path, d.start)))
       .map((d) => this.finding(d.path, d.start, 'refactor.stand-in', { cls: d.owner, attr: this.old }));
+  }
+
+  /** Classify stand-in `d` and its hierarchy by site `raw`; with `joined` its rename joins this one, which a computed
+   * name cannot. */
+  private classifyStandIn(d: MemberDeclaration, raw: string, joined: boolean, declared: Set<string>, classified: Set<string>): void {
+    if (joined && d.computed) {
+      const values = { path: this.r.rel(d.path), line: d.line, cls: d.owner, attr: this.old };
+      throw new SiteError('refactor.computed-stand-in', raw, values);
+    }
+    const theirs = renameLocations(this.servicesFor(d.path), d.path, d.start, this.newName);
+    const keys = [keyOf(d.path, d.start), ...theirs.map((e) => keyOf(e.path, e.start)).filter((k) => declared.has(k))];
+    for (const k of keys) classified.add(k);
+    if (!joined) return;
+    this.edits.push(...theirs);
+    for (const k of keys) this.renamed.add(k);
   }
 
   /** Whether declaration `d` of OLD is renamed. */

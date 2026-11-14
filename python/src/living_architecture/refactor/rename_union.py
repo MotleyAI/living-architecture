@@ -567,7 +567,7 @@ class SymbolRename:
         self, rel: str, source: SourceFile, call: FormCall, folders: SourceFolders, targets: TargetResolver, member: bool
     ) -> Outcome:
         project_target = folders.top_level(call.text.split(".")[0])
-        resolved = targets.resolve(call.text) if project_target else None
+        resolved = targets.resolve(call.text) if project_target and call.forms is not None else None
         renamed = None if resolved is None else [any(self._declared(m, n) in self.seeds for m, n in d) for d in resolved]
         return target_outcome(rel, source, call, project_target=project_target, renamed=renamed, member=member,
                               old=self.old, new=self.new)

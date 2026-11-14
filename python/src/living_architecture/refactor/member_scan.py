@@ -220,18 +220,20 @@ class MemberScan:
         return out
 
     def target_calls(self, path: Path, source: SourceFile) -> list[FormCall]:
-        """Calls resolving to a target form whose dotted target has a segment NAME."""
+        """Calls whose dotted target has a segment NAME: resolving to a target form, or with a target form's syntax
+        and an unresolved callee (`forms` None)."""
         out: list[FormCall] = []
+        targets = [f for f in FORMS if f.target is not None]
         for call in _calls(source):
             callee = _dotted(call.func)
-            targets = [f for f in FORMS if f.target is not None]
-            matching = [f for f in targets if callee is not None and _syntax(callee, f)] or targets
-            found = next(((f, t) for f in matching if (t := _target_literal(source, call, f, self.name)) is not None), None)
+            syntactic = [f for f in targets if callee is not None and _syntax(callee, f)]
+            found = next(((f, t) for f in syntactic or targets if (t := _target_literal(source, call, f, self.name)) is not None), None)
             if found is None:
                 continue
             forms = self.callees.forms(path, source, call)
-            resolved = tuple(f for f in forms or () if f.target is not None)
-            if resolved:
+            if forms is None and syntactic:
+                out.append(FormCall(call=call, literal=found[1][0], text=found[1][1], obj=None, forms=None))
+            elif resolved := tuple(f for f in forms or () if f.target is not None):
                 out.append(FormCall(call=call, literal=found[1][0], text=found[1][1], obj=None, forms=resolved))
         return out
 

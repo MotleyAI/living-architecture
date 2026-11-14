@@ -490,3 +490,14 @@ def test_a_target_resolving_to_an_unchanged_declaration_is_unchanged_and_unliste
     assert _rename_save_model(root, "--without", "pkg/other.py:2", *(["--docs"] if docs else [])) == 0
     assert _read(root, "tests/test_t.py") == test
     assert "tests/test_t.py" not in capsys.readouterr().err
+
+
+def test_a_target_form_with_an_unresolved_callee_is_listed_in_a_class_rename(
+    project: MakeProject, capsys: pytest.CaptureFixture[str]
+) -> None:
+    test = 'def test_t(mocker):\n    mocker.patch("pkg.engine.SearchQueryEngine.save_model")\n'
+    root = project({"pkg/engine.py": ENGINE, "tests/test_t.py": test})
+    assert _rename(root, "pkg/engine.py", "SearchQueryEngine", "QueryEngine") == 0
+    assert _read(root, "tests/test_t.py") == test
+    leftover = message("refactor.leftover", path="tests/test_t.py", line=2, where="patch target", old="SearchQueryEngine")
+    assert capsys.readouterr().err == f"{leftover}\n"
