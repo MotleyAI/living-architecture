@@ -202,6 +202,9 @@ ways, and a probe leaking its coordinate space. Decisions 35–41 close each cau
     callee does not resolve is refused in a member rename (a project target) or listed (otherwise), like a target
     that does not resolve. Rejected: listing it always (the one ambiguous code site a member rename would let
     through). (codex; user)
+47. **TypeScript element access is an attribute access**: `x['OLD']` with a plain string literal on an `any`
+    receiver is an `attr-blindspot`, in `dr-compliance --attr` and the rename alike. Rejected: listing it only
+    (decision 36), which lets a property access through a member rename unrenamed. (coderabbit; user)
 
 ## Risks / Trade-offs
 

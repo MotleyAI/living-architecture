@@ -5,8 +5,8 @@ A member rename SHALL be a `dr-refactor rename` whose symbol is declared in a cl
 or async), property, class attribute, instance attribute (`self.x`) or field; in TypeScript a property, method or
 accessor of a class, interface or type literal. A blind spot of the old name OLD SHALL be, in a source file of the
 rename's language under the project:
-- an attribute access `x.OLD` whose receiver the checker types as unknown (Python `Unknown`, `Any` or a union
-  holding either; TypeScript `any`);
+- an attribute access `x.OLD` (in TypeScript also `x['OLD']`, the element a plain string literal) whose receiver
+  the checker types as unknown (Python `Unknown`, `Any` or a union holding either; TypeScript `any`);
 - a string-member form whose object argument is typed so, or whose callee the checker cannot resolve while the call
   has the form's syntax (the form's attribute path and the member argument a plain string literal exactly OLD);
 - a Python dotted patch target whose first segment names a project top-level package, one of whose segments is
@@ -52,6 +52,11 @@ version-control and tool-cache directories), plus the unresolved targets and the
 #### Scenario: TypeScript any receiver
 - **WHEN** property `Store.getModel` is renamed in TypeScript and a file holds `function g(o: any) { return o.getModel() }`
 - **THEN** the rename refuses with that site's `attr-blindspot` line, `{type}` `any`
+
+#### Scenario: TypeScript element access on an any receiver
+- **WHEN** property `Store.getModel` is renamed and a file holds `function g(o: any) { return o['getModel']('a') }`
+- **THEN** the rename refuses with that site's `attr-blindspot` line, and `dr-compliance --select attr-blindspot
+  --attr getModel` reports the same line
 
 #### Scenario: Virtualenv skipped by both
 - **WHEN** a Python member rename's project holds `.venv/lib/x.py` with an untyped `o.OLD`
@@ -364,7 +369,7 @@ value after `extends` resolution is not true, among `strict`, `noImplicitAny` an
 `explicit-any`, every `any` type in the file; `untyped-def`, every parameter, binding element or rest parameter
 whose type is implicitly `any` as the type checker determines it with `noImplicitAny` in force (return types
 are not required); `mock`, the TypeScript mock-lint rules; and `attr-blindspot`, which with `--attr NAME` SHALL
-report `x.NAME` accesses whose receiver's type is `any`, and each TypeScript string-member form of the language
+report `x.NAME` and `x['NAME']` (a plain string literal) accesses whose receiver's type is `any`, and each TypeScript string-member form of the language
 registry whose member argument is the plain string literal `NAME` and whose object argument's type is `any`.
 Findings SHALL be sorted per file; a file that does not parse SHALL produce the parse-error finding.
 
