@@ -165,14 +165,14 @@
 
 ## 13. Review-round causes (design decisions 35–41)
 
-- [ ] 13.1 Outcomes (decision 35): Python `_string_member_edits`, `_target_edit`, `_blindspot_scan`,
+- [x] 13.1 Outcomes (decision 35): Python `_string_member_edits`, `_target_edit`, `_blindspot_scan`,
       `_mention_edits`, `_keep` and TypeScript `scan`, `formCall`, `classify`, `docs`, `keep` return one outcome per
       examined site; module renames share `--keep` and edit emission. Verify with a unit test per rule asserting
       every branch yields an outcome, and every existing conformance case unmodified.
-- [ ] 13.2 Exact OLD literals (decision 36), both twins: cases `refactor-rename-exact-literal` and
+- [x] 13.2 Exact OLD literals (decision 36), both twins: cases `refactor-rename-exact-literal` and
       `refactor-ts-rename-exact-literal` in `conformance/INVENTORY.md`, a function rename listing nothing. Verify
       with "Exact string literal listed without --docs".
-- [ ] 13.3 TypeScript membership (decision 37): the spike, then the checker-based stand-in index. Verify with the
+- [x] 13.3 TypeScript membership (decision 37): the spike, then the checker-based stand-in index. Verify with the
       parameter-property, quoted and merged/type-literal cases unmodified, plus a constant computed name.
       Spike done (2026-11-14, TypeScript in `node/node_modules`): `checker.getTypeAtLocation(owner).getProperty(OLD)`
       returns the declarations for classes (parameter properties, quoted and constant computed names, accessors),
@@ -181,28 +181,28 @@
       are on the class symbol's `exports`, not the instance type; `#private` names are not reachable through
       `getProperty` and stay on the syntax path. Object literals also answer `getProperty`, so the owner kinds stay
       class, interface and type literal.
-- [ ] 13.4 Python membership (decision 37): the `symtable` cross-check test and its fixes; a callee unit test for a
+- [x] 13.4 Python membership (decision 37): the `symtable` cross-check test and its fixes; a callee unit test for a
       form resolved under any spelling, a lookalike, and an unresolved callee with the form's syntax.
-- [ ] 13.5 Shared vectors and one line index per twin (decision 38). Verify with the vectors in both twins, and
+- [x] 13.5 Shared vectors and one line index per twin (decision 38). Verify with the vectors in both twins, and
       stand-in and finding lines agreeing on a CR-only TypeScript file.
-- [ ] 13.6 One file universe per twin (decision 39). Verify per twin: with a file outside the tsconfig `include` /
+- [x] 13.6 One file universe per twin (decision 39). Verify per twin: with a file outside the tsconfig `include` /
       rope's default set, the rename's blind-spot lines equal `dr-compliance --select attr-blindspot --attr OLD
       <project>` plus the unresolved and mixed targets.
-- [ ] 13.7 Probe object (decision 40). Verify with calls in arbitrary order, a declaration before, between and after
+- [x] 13.7 Probe object (decision 40). Verify with calls in arbitrary order, a declaration before, between and after
       replaced literals, and a definition in another file.
 - [ ] 13.8 Local gates, then one Codex pass with decision 41's brief; push once; reply to CodeRabbit r4575115899
       and r4575115901.
-- [ ] 13.9 Python `excluded_dirs` (decision 42): `shared/languages.yaml`, `scripts/sync-shared`, both twins'
+- [x] 13.9 Python `excluded_dirs` (decision 42): `shared/languages.yaml`, `scripts/sync-shared`, both twins'
       registry pins; the rename's candidate files from the routing expansion. Verify with "Virtualenv skipped by
       both": cases `refactor-rename-venv-skipped` and `compliance-attr-venv-skipped` in `conformance/INVENTORY.md`.
-- [ ] 13.10 `refactor.computed-stand-in` (decision 43): `shared/findings.yaml`
+- [x] 13.10 `refactor.computed-stand-in` (decision 43): `shared/findings.yaml`
       (`'{path}:{line}: computed-stand-in: {cls}.{attr} is declared by a computed name; pass --without {path}:{line}
       and rename it by hand'`; after a hand rename the class no longer declares OLD, so the flag comes first), sync, the TypeScript twin. Verify with "Computed-name stand-in": case
       `refactor-ts-rename-computed-stand-in` (refusal, `--without`, `--with` exit 2) in `conformance/INVENTORY.md`.
-- [ ] 13.11 Decisions 44–45, tests only unless one fails: a unit test and a `--docs` case row for a patch target
+- [x] 13.11 Decisions 44–45, tests only unless one fails: a unit test and a `--docs` case row for a patch target
       resolving to a `--without` stand-in (unchanged, unlisted, with and without `--docs`); a Vitest case for a
       `--docs` qualifier spelled with the full project-relative path (`src.pkg.engine.Owner.OLD`, rewritten).
-- [ ] 13.12 Unresolved target-form callees (decision 46): `target_calls` keeps a syntactic target call whose callee
+- [x] 13.12 Unresolved target-form callees (decision 46): `target_calls` keeps a syntactic target call whose callee
       does not resolve; the rename gives it the unresolved-target outcome. Verify with "Target form with an
       unresolved callee": case `refactor-rename-patch-target-unresolved-callee` in `conformance/INVENTORY.md`.
 
