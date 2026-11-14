@@ -1,1 +1,1 @@
-symbol 'nothing' not found in file
+pkg/a.py: nothing names no declaration; candidates: Base, foo

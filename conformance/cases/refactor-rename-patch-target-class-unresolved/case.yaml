@@ -7,7 +7,7 @@ args:
 - rename
 - --file
 - pkg/engine.py
-- --name
+- --symbol
 - SearchQueryEngine
 - --new-name
 - QueryEngine

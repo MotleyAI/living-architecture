@@ -43,7 +43,7 @@ def _move_module(root: Path, *flags: str) -> int:
 
 
 def _move_f(root: Path, *flags: str) -> int:
-    return main(["--project", str(root), *flags, "move-symbol", "--file", str(root / "pkg/a.py"), "--name", "f",
+    return main(["--project", str(root), *flags, "move-symbol", "--file", str(root / "pkg/a.py"), "--symbol", "f",
                  "--dest", str(root / "pkg/b.py")])
 
 

@@ -11,7 +11,7 @@ args:
 - rename
 - --file
 - src/b.ts
-- --name
+- --symbol
 - foo
 - --new-name
 - bar

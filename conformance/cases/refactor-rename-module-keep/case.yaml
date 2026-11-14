@@ -6,7 +6,7 @@ args:
 - rename
 - --file
 - tests/test_multi_name.py
-- --name
+- --symbol
 - client
 - --new-name
 - cli2

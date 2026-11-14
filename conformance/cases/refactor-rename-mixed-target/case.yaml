@@ -6,8 +6,8 @@ args:
 - rename
 - --file
 - pkg/engine.py
-- --name
-- save_model
+- --symbol
+- A.save_model
 - --new-name
 - persist_model
 - --without

@@ -9,11 +9,7 @@ from rope.refactor import patchedast
 
 from living_architecture.cli import dr_refactor as main
 from living_architecture.contract import message
-from living_architecture.refactor.rope_refactor import (
-    RefactorError,
-    _find_symbol_offset,
-    _offset_from_line_col,
-)
+from living_architecture.refactor.rope_refactor import RefactorError, _offset_from_line_col
 
 
 @pytest.fixture
@@ -34,7 +30,7 @@ def _run(project: Path, *args: str) -> int:
 
 
 def _rename_foo(project: Path, *flags: str) -> int:
-    return _run(project, *flags, "rename", "--file", str(project / "pkg" / "a.py"), "--name", "foo", "--new-name", "bar")
+    return _run(project, *flags, "rename", "--file", str(project / "pkg" / "a.py"), "--symbol", "foo", "--new-name", "bar")
 
 
 def test_offset_from_line_col() -> None:
@@ -44,16 +40,6 @@ def test_offset_from_line_col() -> None:
 def test_offset_line_out_of_range() -> None:
     with pytest.raises(RefactorError, match="out of range"):
         _offset_from_line_col("ab\n", 5, 1)
-
-
-def test_find_symbol_prefers_definition() -> None:
-    text = "x = foo\n\ndef foo():\n    pass\n"
-    assert text[_find_symbol_offset(text, "foo") :].startswith("foo():")
-
-
-def test_find_symbol_missing() -> None:
-    with pytest.raises(RefactorError, match="not found"):
-        _find_symbol_offset("x = 1\n", "foo")
 
 
 def test_rename_dry_run_writes_nothing(project: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -73,7 +59,7 @@ def test_rename_apply_changes_only_the_renamed_files(project: Path) -> None:
 
 
 def test_rename_apply_rewrites_references(project: Path) -> None:
-    _run(project, "--apply", "rename", "--file", str(project / "pkg" / "a.py"), "--name", "foo", "--new-name", "bar")
+    _run(project, "--apply", "rename", "--file", str(project / "pkg" / "a.py"), "--symbol", "foo", "--new-name", "bar")
     assert "def bar()" in (project / "pkg" / "a.py").read_text()
     b = (project / "pkg" / "b.py").read_text()
     assert "from pkg.a import bar" in b
@@ -92,7 +78,7 @@ def test_rename_needs_a_locator(project: Path, capsys: pytest.CaptureFixture[str
 
 
 def test_move_symbol(project: Path) -> None:
-    _run(project, "--apply", "move-symbol", "--file", str(project / "pkg" / "a.py"), "--name", "foo",
+    _run(project, "--apply", "move-symbol", "--file", str(project / "pkg" / "a.py"), "--symbol", "foo",
          "--dest", str(project / "pkg" / "c.py"))
     assert "def foo()" in (project / "pkg" / "c.py").read_text()
     assert "def foo()" not in (project / "pkg" / "a.py").read_text()
@@ -115,7 +101,7 @@ def test_path_outside_project(
 ) -> None:
     outside = tmp_path_factory.mktemp("elsewhere") / "x.py"
     outside.write_text("def foo():\n    pass\n")
-    assert _run(project, "rename", "--file", str(outside), "--name", "foo", "--new-name", "bar") == 1
+    assert _run(project, "rename", "--file", str(outside), "--symbol", "foo", "--new-name", "bar") == 1
     assert "not inside the project" in capsys.readouterr().err
 
 
@@ -123,7 +109,7 @@ def test_rename_in_file_with_kwonly_string_default(project: Path) -> None:
     # Regression: unpatched rope raises MismatchedTokenError on this signature.
     target = project / "pkg" / "k.py"
     target.write_text('def f(*, m: str = "(host)") -> str:\n    return m\n\n\ndef g() -> str:\n    return f()\n')
-    _run(project, "--apply", "rename", "--file", str(target), "--name", "g", "--new-name", "h")
+    _run(project, "--apply", "rename", "--file", str(target), "--symbol", "g", "--new-name", "h")
     assert "def h()" in target.read_text()
 
 
@@ -192,7 +178,8 @@ def test_rename_walks_every_construct(
 ) -> None:
     target = project / "pkg" / "m.py"
     target.write_text(source, encoding="utf-8")
-    assert _run(project, "rename", "--file", str(target), "--name", name, "--new-name", new_name) == 0
+    offset = m.start(1) if (m := re.search(rf"^\s*(?:def|class)\s+({re.escape(name)})\b", source, re.M)) else source.index(name)
+    assert _run(project, "rename", "--file", str(target), "--offset", str(offset), "--new-name", new_name) == 0
     out = capsys.readouterr().out.splitlines()
     for line in added:
         assert line in out
@@ -209,27 +196,27 @@ ASYNC_FUNCTION = (
 )
 
 
-def _async_locators(text: str, name: str) -> list[list[str]]:
+def _async_locators(text: str, name: str, symbol: str) -> list[list[str]]:
     definition = text.index(name)
     line = text.count("\n", 0, definition) + 1
     col = definition - text.rfind("\n", 0, definition)
     call = text.rindex(name)
-    return [["--line", str(line), "--col", str(col)], ["--offset", str(definition)], ["--name", name],
+    return [["--line", str(line), "--col", str(col)], ["--offset", str(definition)], ["--symbol", symbol],
             ["--offset", str(call)]]
 
 
-@pytest.mark.parametrize("which", range(4), ids=["definition-line-col", "definition-offset", "name", "call-offset"])
+@pytest.mark.parametrize("which", range(4), ids=["definition-line-col", "definition-offset", "symbol", "call-offset"])
 @pytest.mark.parametrize(
-    ("source", "name", "new_name"),
-    [(ASYNC_METHODS, "get_model", "get_dataset"), (ASYNC_FUNCTION, "fetch", "load")],
+    ("source", "name", "new_name", "symbol"),
+    [(ASYNC_METHODS, "get_model", "get_dataset", "A.get_model"), (ASYNC_FUNCTION, "fetch", "load", "fetch")],
     ids=["method", "function"],
 )
 def test_async_definitions_rename_like_sync_ones(
-    project: Path, source: str, name: str, new_name: str, which: int
+    project: Path, source: str, name: str, new_name: str, symbol: str, which: int
 ) -> None:
     target = project / "pkg" / "m.py"
     target.write_text(source, encoding="utf-8")
-    locator = _async_locators(source, name)[which]
+    locator = _async_locators(source, name, symbol)[which]
     assert _run(project, "--apply", "rename", "--file", str(target), *locator, "--new-name", new_name) == 0
     assert target.read_text(encoding="utf-8") == source.replace(name, new_name)
 
