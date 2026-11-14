@@ -529,3 +529,11 @@ def test_probe_keeps_a_receiver_holding_a_comment() -> None:
     probe = Probe(source, _calls(source), "save_model")
     ast.parse(probe.text)
     assert probe.text[probe.accesses[0] - 2 : probe.accesses[0]] == ")."
+
+
+def test_an_escaped_exact_literal_in_a_file_never_spelling_old_is_listed(
+    project: MakeProject, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = project({"pkg/engine.py": ENGINE, "pkg/names.py": 'VALUE = "\\x73ave_model"\n'})
+    assert _rename_save_model(root) == 0
+    assert capsys.readouterr().err == message("refactor.leftover", path="pkg/names.py", line=1, where="string", old="save_model") + "\n"

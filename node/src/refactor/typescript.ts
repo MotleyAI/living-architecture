@@ -259,7 +259,8 @@ class TypescriptRename {
   standIns: Finding[] = [];
   leftovers: Finding[] = [];
   private readonly sources: Map<string, ProjectSource>;
-  /** The sources spelling OLD: the only ones a reference, a string form or a mention can be in. */
+  /** The sources spelling OLD, or holding a unicode escape that may spell it: the only ones a reference, a string
+   * form or a mention can be in. */
   private readonly holding: ProjectSource[];
   private readonly declarations: MemberDeclaration[];
   private readonly texts = new Map<string, string>();
@@ -275,7 +276,7 @@ class TypescriptRename {
   ) {
     this.edits = renameLocations(r.services(file), file, position, newName);
     this.sources = projectSources(r, r.services(file));
-    this.holding = [...this.sources.values()].filter(({ source }) => source.text.includes(old));
+    this.holding = [...this.sources.values()].filter(({ source }) => source.text.includes(old) || source.text.includes(String.raw`\u`));
     this.declarations = [...this.sources.values()].flatMap(({ source, checker }) => memberDeclarations(checker, source, old, source.fileName));
     const declared = new Set(this.declarations.map((d) => keyOf(d.path, d.start)));
     for (const e of this.edits) if (declared.has(keyOf(e.path, e.start))) this.renamed.add(keyOf(e.path, e.start));
@@ -397,9 +398,10 @@ class TypescriptRename {
     return (type.getProperty(this.old)?.declarations ?? []).map((d) => this.isRenamed(d));
   }
 
-  /** Without `--docs`: each string literal exactly OLD that no rule examined, listed. */
+  /** Without `--docs`: each string literal exactly OLD that no rule examined, listed; every project file, as an
+   * escape can spell OLD. */
   literals(): void {
-    for (const { source } of this.holding) {
+    for (const { source } of this.sources.values()) {
       for (const outcome of literalOutcomes(source.fileName, source, this.old, (s, e) => this.covered(source.fileName, s, e))) this.record(outcome);
     }
   }

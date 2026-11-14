@@ -1,0 +1,19 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- rename
+- --file
+- src/store.ts
+- --name
+- getModel
+- --new-name
+- getDataset
+fixture: refactor-ts
+git:
+- commit: init
+expect:
+  exit: 1
+golden: manual
+note: a file spelling the member only through a unicode escape is still scanned, so its any receiver is a blind spot

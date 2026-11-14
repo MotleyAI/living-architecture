@@ -288,6 +288,7 @@ class SymbolRename:
         self.seeds: set[tuple[str, int]] = set()
         self.keywordless: set[tuple[str, int]] = set()
         self.candidates: list[str] = []
+        self._files: list[str] = []
         self.renamers: list[Rename] = [renamer]
         self.blindspots: list[Finding] = []
         self.stand_ins: list[Finding] = []
@@ -325,6 +326,7 @@ class SymbolRename:
             cast(File, self.project.get_resource(path.relative_to(self.root).as_posix())) for path in language_files(self.root, "python")
         ]
         self.renamer.validate_changes(self.new)
+        self._files = sorted(r.path for r in resources)
         for file_ in sorted(resources, key=lambda r: r.path):
             text = file_.read()
             if self.old not in text:
@@ -634,8 +636,9 @@ class SymbolRename:
                 self._file(mention_outcome(rel, m, rewrite=m in rewrite, old=self.old, new=self.new))
 
     def _literal_leftovers(self) -> None:
-        """Without `--docs`: each string literal exactly OLD that no rule examined, listed."""
-        for rel in self.candidates:
+        """Without `--docs`: each string literal exactly OLD that no rule examined, listed; every project file, as an
+        escape can spell OLD."""
+        for rel in self._files:
             source = self.snapshot.source(rel)
             for outcome in literal_outcomes(rel, source, self.old, lambda s, e, rel=rel: self._overlaps(self._examined, rel, s, e)):
                 self._file(outcome)

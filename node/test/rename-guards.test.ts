@@ -165,3 +165,15 @@ describe('computed-name stand-ins', () => {
     expect(renamed.err).toContain('src/fake.ts:4: stand-in: Fake.getModel is outside the renamed hierarchy');
   });
 });
+
+describe('escaped exact-OLD literals', () => {
+  it('a file spelling OLD only through an escape is listed', () => {
+    const root = tempRepo({
+      'tsconfig.json': '{"compilerOptions": {"strict": true}, "include": ["src"]}\n',
+      'src/store.ts': 'export class Store {\n  getModel(): number {\n    return 1;\n  }\n}\n',
+      'src/names.ts': "export const VALUE = 'get\\x4dodel';\n",
+    });
+    const renamed = run(root, 'dr-refactor', ['rename', '--file', 'src/store.ts', '--name', 'getModel', '--new-name', 'getDataset']);
+    expect([renamed.code, renamed.err]).toEqual([0, 'src/names.ts:1: leftover: string mentions getModel\n']);
+  });
+});
