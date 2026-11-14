@@ -202,6 +202,9 @@
 - [ ] 13.11 Decisions 44–45, tests only unless one fails: a unit test and a `--docs` case row for a patch target
       resolving to a `--without` stand-in (unchanged, unlisted, with and without `--docs`); a Vitest case for a
       `--docs` qualifier spelled with the full project-relative path (`src.pkg.engine.Owner.OLD`, rewritten).
+- [ ] 13.12 Unresolved target-form callees (decision 46): `target_calls` keeps a syntactic target call whose callee
+      does not resolve; the rename gives it the unresolved-target outcome. Verify with "Target form with an
+      unresolved callee": case `refactor-rename-patch-target-unresolved-callee` in `conformance/INVENTORY.md`.
 
 ## 14. Post-merge (after the PR merges; not part of its diff)
 

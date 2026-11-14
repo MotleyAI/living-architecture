@@ -10,7 +10,8 @@ rename's language under the project:
 - a string-member form whose object argument is typed so, or whose callee the checker cannot resolve while the call
   has the form's syntax (the form's attribute path and the member argument a plain string literal exactly OLD);
 - a Python dotted patch target whose first segment names a project top-level package, one of whose segments is
-  OLD, and that does not resolve statically to exactly one declaration.
+  OLD, and that does not resolve statically to exactly one declaration, or whose call has a target form's syntax
+  while its callee does not resolve.
 
 Before writing or printing a diff, a member rename SHALL find every blind spot outside a `--keep` site. With any,
 it SHALL print one line per site on stderr, sorted by path, line and column (`compliance.attr-blindspot` for an
@@ -182,6 +183,11 @@ with or without `--docs`.
 #### Scenario: Unresolved targets
 - **WHEN** a test holds `patch("pkg.engine.Missing.save_model")` and `patch("thirdparty.mod.save_model")`
 - **THEN** the first is a blind spot (`refactor.unresolved-target`) and the second is listed as a `leftover`
+
+#### Scenario: Target form with an unresolved callee
+- **WHEN** a test holds `def test_t(mocker): mocker.patch("pkg.engine.SearchQueryEngine.save_model")` with
+  `mocker` unannotated
+- **THEN** the member rename refuses with that target's `refactor.unresolved-target` line
 
 #### Scenario: Unresolved target in a class rename
 - **WHEN** class `SearchQueryEngine` is renamed and a test holds `patch("pkg.engine.Missing.SearchQueryEngine")`

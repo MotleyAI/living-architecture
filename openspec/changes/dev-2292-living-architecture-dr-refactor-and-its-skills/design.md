@@ -198,6 +198,10 @@ ways, and a probe leaking its coordinate space. Decisions 35–41 close each cau
     from its source folder, and the TypeScript file's project-relative path without extension. Matching is by
     suffix, so the two differ only on a prefix that spells a source folder. Rejected: deriving a TypeScript source
     root from the tsconfig (no single root in a solution-style project). (codex; user)
+46. **A target form with an unresolved callee is an unresolved target**: a call with a target form's syntax whose
+    callee does not resolve is refused in a member rename (a project target) or listed (otherwise), like a target
+    that does not resolve. Rejected: listing it always (the one ambiguous code site a member rename would let
+    through). (codex; user)
 
 ## Risks / Trade-offs
 
