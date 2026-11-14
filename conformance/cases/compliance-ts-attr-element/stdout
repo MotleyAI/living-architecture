@@ -1,0 +1,1 @@
+src/e.ts:2: attr-blindspot: o.id — o is any, so a rename of .id is unverifiable

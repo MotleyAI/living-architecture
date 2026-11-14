@@ -1,0 +1,24 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- --apply
+- rename
+- --file
+- src/store.ts
+- --name
+- getModel
+- --new-name
+- getDataset
+- --with
+- src/other.ts:2
+fixture: refactor-ts
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - src/other.ts
+  - src/store.ts
+note: --with renames a member named by a string literal inside its quotes

@@ -1,0 +1,22 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- --apply
+- rename
+- --file
+- src/engine.ts
+- --name
+- getModel
+- --new-name
+- getDataset
+- --docs
+fixture: refactor-ts
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - src/engine.ts
+note: '--docs: a non-ASCII letter after the old name makes another name, neither rewritten nor listed'

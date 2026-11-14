@@ -1,0 +1,18 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- rename
+- --file
+- src/store.ts
+- --name
+- getModel
+- --new-name
+- getDataset
+fixture: refactor-ts-computed
+git:
+- commit: init
+expect:
+  exit: 1
+note: a member declared by a constant computed name is a stand-in the language service cannot rename

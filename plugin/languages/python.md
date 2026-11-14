@@ -34,8 +34,9 @@ overrides) or a class outside the hierarchy declares the old name (`--with` / `-
 What a rename leaves unrenamed:
 - receivers `--allow-blindspots` let through; `dr-compliance --attr` misses only a subscript or call receiver typed
   `Model | Any` whose `Model.NAME` is itself `Any`;
-- string-only references: `importlib`, `__all__`, entry points, config paths, and a `patch` target that does not
-  resolve into the project (listed as a `leftover`);
+- string-only references: `importlib`, `__all__`, entry points, config paths, a member named by a computed string
+  (`getattr(obj, name)`, `patch.object(obj, name)`), and a `patch` target that does not resolve into the project
+  (listed as a `leftover`);
 - mentions in comments, docstrings, messages and prose files: all of them without `--docs`; with it, the ones it
   lists as `leftover`;
 - for a parameter rename: keywords that reach it unresolved (`**kwargs` forwarding, a dict unpacked into the

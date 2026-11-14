@@ -1,8 +1,8 @@
-from pkg.engine import AcmeQueryEngine
+from pkg.engine import SearchQueryEngine
 
 
-def f(e: AcmeQueryEngine) -> str:
-    """Wraps :meth:`AcmeQueryEngine.pick_root_model` and ``recommend_root_model``."""
+def f(e: SearchQueryEngine) -> str:
+    """Wraps :meth:`SearchQueryEngine.pick_root_model` and ``recommend_root_model``."""
     # calls recommend_root_model first
     getattr(e, "pick_root_model")
     print("recommend_root_model")

@@ -32,7 +32,7 @@ from living_architecture.refactor.keyed import (
     declares_alias,
     field_assignment,
 )
-from living_architecture.refactor.member_scan import MemberScan
+from living_architecture.refactor.member_scan import FormCall, MemberScan
 from living_architecture.refactor.members import classes, member_declarations
 from living_architecture.refactor.mentions import (
     Mention,
@@ -43,10 +43,20 @@ from living_architecture.refactor.mentions import (
     source_regions,
 )
 from living_architecture.refactor.move_edits import NameConflict
+from living_architecture.refactor.outcomes import (
+    Finding,
+    Outcome,
+    blindspot_outcome,
+    literal_outcomes,
+    mention_outcome,
+    string_member_outcome,
+    target_outcome,
+)
 from living_architecture.refactor.patch_targets import SourceFolders, TargetResolver
 from living_architecture.refactor.python_source import SourceFile
 from living_architecture.refactor.rope_patches import every_parameter
-from living_architecture.refactor.sites import Site, SiteError
+from living_architecture.refactor.routing import language_files
+from living_architecture.refactor.sites import Keeps, Site, SiteError
 from living_architecture.refactor.static_resolver import Module
 from living_architecture.refactor.text_edits import TextEdit, apply_edits, merge_edits
 
@@ -247,17 +257,6 @@ class RenameOptions(BaseModel):
     docs: bool = False
 
 
-class Finding(BaseModel):
-    """A line to print on stderr, at a position of a project file."""
-
-    model_config = ConfigDict(frozen=True)
-
-    path: str
-    line: int
-    col: int
-    text: str
-
-
 class Declaration(BaseModel):
     """A class member named like the renamed symbol: its file, name span, line and class."""
 
@@ -289,12 +288,14 @@ class SymbolRename:
         self.seeds: set[tuple[str, int]] = set()
         self.keywordless: set[tuple[str, int]] = set()
         self.candidates: list[str] = []
+        self._files: list[str] = []
         self.renamers: list[Rename] = [renamer]
         self.blindspots: list[Finding] = []
         self.stand_ins: list[Finding] = []
         self.leftovers: list[Finding] = []
         self._declarations: list[Declaration] = []
-        self._handled: set[tuple[str, int]] = set()
+        self._examined: dict[str, list[tuple[int, int]]] = {}
+        self._targets: dict[str, list[tuple[int, int]]] = {}
         self._in_hierarchy = self.options.in_hierarchy
         self._unsure = self.options.unsure
         self._outside: dict[Path, SourceFile | None] = {}
@@ -321,8 +322,11 @@ class SymbolRename:
 
     def _rope_edits(self) -> None:
         pyname = self.renamer.old_pyname
-        resources: list[File] = [self.renamer.resource] if _is_local(pyname) else self.project.get_python_files()
+        resources: list[File] = [self.renamer.resource] if _is_local(pyname) else [
+            cast(File, self.project.get_resource(path.relative_to(self.root).as_posix())) for path in language_files(self.root, "python")
+        ]
         self.renamer.validate_changes(self.new)
+        self._files = sorted(r.path for r in resources)
         for file_ in sorted(resources, key=lambda r: r.path):
             text = file_.read()
             if self.old not in text:
@@ -518,20 +522,33 @@ class SymbolRename:
                 if not any(arg is a for a in (*node.args.args, *node.args.kwonlyargs)):
                     self.keywordless.add((rel, span[0]))
 
-    def _edit(self, rel: str, start: int, end: int) -> None:
-        self.edits.append(TextEdit(path=rel, start=start, end=end, new_text=self.new))
-        self._handled.add((rel, start))
+    def _file(self, outcome: Outcome) -> None:
+        """Record an examined site and file what its rule decided."""
+        self._examined.setdefault(outcome.rel, []).append(outcome.span)
+        self.edits += outcome.edits
+        if outcome.kind == "blindspot":
+            assert outcome.finding is not None
+            self.blindspots.append(outcome.finding)
+        elif outcome.kind == "leftover":
+            assert outcome.finding is not None
+            self.leftovers.append(outcome.finding)
+
+    def _overlaps(self, spans: dict[str, list[tuple[int, int]]], rel: str, start: int, end: int) -> bool:
+        """`start:end` of `rel` overlaps one of `spans` or an edit."""
+        hit = any(s < end and start < e for s, e in spans.get(rel, ()))
+        return hit or any(e.path == rel and e.start < end and start < e.end for e in self.edits)
 
     def _string_member_edits(self, scan: MemberScan) -> None:
-        """Rewrite member strings whose object's lookup lands on a renamed declaration."""
+        """Rewrite member strings whose object's lookup lands only on renamed declarations; one landing on renamed
+        and unchanged declarations is a blind spot."""
         for rel in self.candidates:
             path, source = self.root / rel, self.snapshot.source(rel)
             calls = [c for c in scan.member_calls(path, source) if c.forms]
             if not calls:
                 continue
             for call, (_, definitions) in zip(calls, scan.probe(path, source, calls), strict=True):
-                if any((self._rel(d.path), d.start) in self.seeds for d in definitions):
-                    self._edit(rel, *call.literal)
+                renamed = [(self._rel(d.path), d.start) in self.seeds for d in definitions]
+                self._file(string_member_outcome(rel, source, call, renamed, self.old, self.new))
 
     def _declared(self, module: Module, node: ast.AST) -> tuple[str, int] | None:
         rel = self._rel(module.path) if module.path is not None else None
@@ -545,32 +562,23 @@ class SymbolRename:
         for rel in self.candidates:
             source = self.snapshot.source(rel)
             for call in scan.target_calls(self.root / rel, source):
-                start = call.literal[0]
-                line = source.line(start)
-                segments = call.text.split(".")
-                self._handled.add((rel, start))
-                if not folders.top_level(segments[0]):
-                    self.leftovers.append(Finding(path=rel, line=line, col=start, text=message(
-                        "refactor.leftover", path=rel, line=line, where="patch target", old=self.old)))
-                    continue
-                resolved = targets.resolve(call.text)
-                if resolved is None:
-                    if member:
-                        self.blindspots.append(Finding(path=rel, line=line, col=start, text=message(
-                            "refactor.unresolved-target", path=rel, line=line, target=call.text, attr=self.old)))
-                    continue
-                offset = start
-                for segment, declared in zip(segments, resolved, strict=True):
-                    if any(self._declared(m, n) in self.seeds for m, n in declared):
-                        self._edit(rel, offset, offset + len(segment))
-                    offset += len(segment) + 1
+                self._targets.setdefault(rel, []).append(call.literal)
+                self._file(self._target_outcome(rel, source, call, folders, targets, member))
+
+    def _target_outcome(
+        self, rel: str, source: SourceFile, call: FormCall, folders: SourceFolders, targets: TargetResolver, member: bool
+    ) -> Outcome:
+        project_target = folders.top_level(call.text.split(".")[0])
+        resolved = targets.resolve(call.text) if project_target and call.forms is not None else None
+        renamed = None if resolved is None else [any(self._declared(m, n) in self.seeds for m, n in d) for d in resolved]
+        return target_outcome(rel, source, call, project_target=project_target, renamed=renamed, member=member,
+                              old=self.old, new=self.new)
 
     def _blindspot_scan(self, scan: MemberScan) -> None:
         for rel in self.candidates:
-            for b in scan.blindspots(self.root / rel, self.snapshot.source(rel)):
-                self.blindspots.append(Finding(path=rel, line=b.line, col=self.snapshot.source(rel).offset(b.line, b.col),
-                                               text=message("compliance.attr-blindspot", path=rel, line=b.line,
-                                                            receiver=b.receiver, attr=self.old, type=b.kind)))
+            source = self.snapshot.source(rel)
+            for b in scan.blindspots(self.root / rel, source):
+                self._file(blindspot_outcome(rel, source, b, self.old))
 
     def _owners(self) -> set[Owner]:
         """The qualifying paths of the renamed module-level and class-member declarations."""
@@ -588,14 +596,23 @@ class SymbolRename:
                     out.add(Owner(path=module + tuple(c.name for c in chain), member=True))
         return out
 
+    def _class_path(self, d: Declaration) -> tuple[str, ...]:
+        """The qualifying path (module segments, then classes) of the class declaring `d`."""
+        module = tuple(libutils.modname(self.project.get_resource(d.rel)).split("."))
+        tree = self.snapshot.source(d.rel).tree
+        for chain in _class_chains(tree) if tree is not None else ():
+            source = self.snapshot.source(d.rel)
+            if any((span := source.name_span(n)) is not None and span[0] == d.start for n in member_declarations(chain[-1], self.old)):
+                return module + tuple(c.name for c in chain)
+        return (*module, d.cls)
+
     def _mention_edits(self) -> None:
         renamed = {(d.rel, d.start) for d in self._declarations} & self.seeds
         rules = MentionRules(
             old=self.old,
             owners=frozenset(self._owners()),
-            colliding=frozenset(d.cls for d in self._declarations if (d.rel, d.start) not in renamed),
+            colliding=frozenset(self._class_path(d) for d in self._declarations if (d.rel, d.start) not in renamed),
         )
-        handled = self._handled | {(e.path, e.start) for e in self.edits}
         declaring = {rel for rel, _ in self.seeds}
         files: list[tuple[str, list[Mention], bool]] = []
         for rel in self.candidates:
@@ -613,31 +630,27 @@ class SymbolRename:
                 files.append((rel, mentions(source.text, self.old, iter([(0, len(source.text), "prose", False)]), source.line), False))
         for rel, found, is_declaring in files:
             text = self.snapshot.text(rel)
-            rewrite, listed = classify(text, [m for m in found if (rel, m.start) not in handled], rules, declaring=is_declaring)
-            self.edits += [TextEdit(path=rel, start=m.start, end=m.end, new_text=self.new) for m in rewrite]
-            self.leftovers += [
-                Finding(path=rel, line=m.line, col=m.start, text=message(
-                    "refactor.leftover", path=rel, line=m.line, where=m.where, old=self.old))
-                for m in listed
-            ]
+            unhandled = [m for m in found if not self._overlaps(self._targets, rel, m.start, m.end)]
+            rewrite, listed = classify(text, unhandled, rules, declaring=is_declaring)
+            for m in sorted([*rewrite, *listed], key=lambda m: m.start):
+                self._file(mention_outcome(rel, m, rewrite=m in rewrite, old=self.old, new=self.new))
+
+    def _literal_leftovers(self) -> None:
+        """Without `--docs`: each string literal exactly OLD that no rule examined, listed; every project file, as an
+        escape can spell OLD."""
+        for rel in self._files:
+            source = self.snapshot.source(rel)
+            for outcome in literal_outcomes(rel, source, self.old, lambda s, e, rel=rel: self._overlaps(self._examined, rel, s, e)):
+                self._file(outcome)
 
     def _keep(self) -> None:
-        """Drop every edit and blind spot at a kept site; `SiteError` for a keep that matches neither."""
-        sites = [Site.parse(raw, self.root) for raw in self.options.keep]
-        matched: set[int] = set()
-
-        def kept(rel: str, line: int, mark: bool = True) -> bool:
-            hits = {i for i, site in enumerate(sites) if site.covers(rel, line)}
-            if mark:
-                matched.update(hits)
-            return bool(hits)
-
-        self.edits = [e for e in self.edits if not kept(e.path, self.snapshot.source(e.path).line(e.start))]
-        self.blindspots = [b for b in self.blindspots if not kept(b.path, b.line)]
-        self.leftovers = [f for f in self.leftovers if not kept(f.path, f.line, mark=False)]
-        unmatched = next((site for i, site in enumerate(sites) if i not in matched), None)
-        if unmatched is not None:
-            raise SiteError("refactor.keep-unmatched", unmatched.raw)
+        """Drop every edit, blind spot and leftover at a kept site; `SiteError` for a keep that matches no edit and
+        no blind spot."""
+        keeps = Keeps(self.options.keep, self.root)
+        self.edits = [e for e in self.edits if not keeps.kept(e.path, self.snapshot.source(e.path).line(e.start))]
+        self.blindspots = [b for b in self.blindspots if not keeps.kept(b.path, b.line)]
+        self.leftovers = [f for f in self.leftovers if not keeps.kept(f.path, f.line, mark=False)]
+        keeps.check()
 
     def compute(self) -> None:
         """Every edit of the rename; raises `LanguageServerError`, `UnresolvedBase`, `NameConflict`, `FileChanged`
@@ -674,6 +687,8 @@ class SymbolRename:
                 self._blindspot_scan(scan)
         if self.options.docs:
             self._mention_edits()
+        elif member:
+            self._literal_leftovers()
         self.edits = merge_edits(self.edits)
         self._keep()
         self.blindspots.sort(key=lambda f: (f.path, f.line, f.col))
@@ -713,7 +728,12 @@ def _top_declarations(stmt: ast.stmt, name: str) -> list[ast.AST]:
     """The module-level declarations of `name` a statement makes."""
     if isinstance(stmt, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
         return [stmt] if stmt.name == name else []
-    targets = stmt.targets if isinstance(stmt, ast.Assign) else [stmt.target] if isinstance(stmt, ast.AnnAssign) else []
+    if isinstance(stmt, ast.Assign):
+        targets = stmt.targets
+    elif isinstance(stmt, ast.AnnAssign):
+        targets = [stmt.target]
+    else:
+        return []
     return [t for t in targets if isinstance(t, ast.Name) and t.id == name]
 
 

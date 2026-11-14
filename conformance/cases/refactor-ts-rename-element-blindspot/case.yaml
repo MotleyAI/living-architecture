@@ -1,0 +1,19 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- rename
+- --file
+- src/store.ts
+- --name
+- getModel
+- --new-name
+- getDataset
+fixture: refactor-ts
+git:
+- commit: init
+expect:
+  exit: 1
+golden: manual
+note: an element access by a plain string literal on an any receiver is a blind spot, like a property access

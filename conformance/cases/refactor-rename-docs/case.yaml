@@ -8,7 +8,7 @@ args:
 - --file
 - pkg/engine.py
 - --symbol
-- AcmeQueryEngine.recommend_root_model
+- SearchQueryEngine.recommend_root_model
 - --new-name
 - pick_root_model
 - --docs
@@ -18,7 +18,7 @@ git:
     .gitignore: 'out/
 
       '
-    out/notes.md: 'See AcmeQueryEngine.recommend_root_model.
+    out/notes.md: 'See SearchQueryEngine.recommend_root_model.
 
       '
 - commit: init

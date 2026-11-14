@@ -8,7 +8,7 @@ args:
 - --file
 - pkg/engine.py
 - --symbol
-- AcmeQueryEngine
+- SearchQueryEngine
 - --new-name
 - QueryEngine
 fixture: refactor-typed

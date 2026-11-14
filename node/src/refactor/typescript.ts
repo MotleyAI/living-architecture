@@ -16,9 +16,12 @@ import { byCodePoint, language, manifest, message } from '../contract/index.js';
 import { canonical, posix, stripSourceExtension, ts } from '../lang/index.js';
 import { unifiedDiff } from './diff.js';
 import { applyEdits, type Edit, mergeEdits, RefactorError } from './edits.js';
-import { anyReceivers, formCalls, isAny, type MemberDeclaration, memberDeclarations } from './members.js';
+import { anyAccesses, type FormCall, formCalls, isAny, type MemberDeclaration, memberDeclarations, memberNameStart } from './members.js';
 import { codeMarked, type Mention, mentions, type Owner, qualified, type Region, sourceRegions } from './mentions.js';
-import { realPath, under } from './routing.js';
+import { blindspotOutcome, formCallOutcome, literalOutcomes, mentionOutcome, type Outcome } from './outcomes.js';
+import { CHECKER_OPTIONS } from './compliance.js';
+import { Lines } from './lines.js';
+import { languageFiles, realPath, under } from './routing.js';
 import { Site, SiteError } from './sites.js';
 import { type Located, locate as locateSymbol, LocatorError } from './symbols.js';
 import { Workspace } from './workspace.js';
@@ -52,8 +55,6 @@ interface Entry {
 const MOVE_TO_FILE = 'Move to file';
 const PREFERENCES: TS.UserPreferences = { allowTextChangesInNewFiles: true };
 const formatSettings = (): TS.FormatCodeSettings => ts().getDefaultFormatCodeSettings('\n');
-// The line terminators TypeScript recognizes.
-const LINE_BREAK = /\r\n|[\n\r\u2028\u2029]/u;
 
 class Refactor {
   readonly root: string;
@@ -162,16 +163,12 @@ function locateOffset(text: string, offset: number): number {
 }
 
 function locateLine(text: string, line: number, col: number): number {
-  const lines = text.split(LINE_BREAK);
-  if (lines.length > 1 && lines.at(-1) === '') lines.pop();
-  const count = text === '' ? 0 : lines.length;
-  if (line < 1 || line > count) throw new RefactorError(message('refactor.line-out-of-range', { line, count }));
-  const lineText = lines[line - 1] ?? '';
+  const lines = new Lines(text);
+  if (line < 1 || line > lines.count) throw new RefactorError(message('refactor.line-out-of-range', { line, count: lines.count }));
+  const lineText = lines.lineText(line);
   const width = codePoints(lineText).length;
   if (col < 1 || col > width + 1) throw new RefactorError(message('refactor.col-out-of-range', { col, line, count: width }));
-  const start = lines.slice(0, line - 1).reduce((sum, l) => sum + l.length, 0);
-  const breaks = [...text.matchAll(new RegExp(LINE_BREAK, 'gu'))].slice(0, line - 1).reduce((sum, m) => sum + m[0].length, 0);
-  return start + breaks + utf16(lineText, col - 1);
+  return lines.start(line) + utf16(lineText, col - 1);
 }
 
 interface Finding {
@@ -181,20 +178,20 @@ interface Finding {
   text: string;
 }
 
-/** A source of the rename's projects with the checker of the first program holding it. */
+/** A source of the rename's projects with the service and checker of the first program holding it. */
 interface ProjectSource {
   source: TS.SourceFile;
+  service: TS.LanguageService;
   checker: TS.TypeChecker;
 }
 
 const keyOf = (path: string, start: number): string => `${path}\0${start}`;
-const lineAt = (text: string, position: number): number => text.slice(0, position).split('\n').length;
 const byPosition = (a: Finding, b: Finding): number => byCodePoint(a.path, b.path) || a.line - b.line || a.position - b.position;
 
-/** Every project's rename locations of the symbol at `position` of `file`. */
-function renameLocations(r: Refactor, file: string, position: number, newName: string): Edit[] {
+/** Every service's rename locations of the symbol at `position` of `file`. */
+function renameLocations(services: TS.LanguageService[], file: string, position: number, newName: string): Edit[] {
   const edits: Edit[] = [];
-  for (const service of r.services(file)) {
+  for (const service of services) {
     for (const location of service.findRenameLocations(file, position, false, false, { providePrefixAndSuffixTextForRename: true }) ?? []) {
       const newText = `${location.prefixText ?? ''}${newName}${location.suffixText ?? ''}`;
       edits.push({ path: location.fileName, start: location.textSpan.start, length: location.textSpan.length, newText });
@@ -203,18 +200,22 @@ function renameLocations(r: Refactor, file: string, position: number, newName: s
   return edits;
 }
 
-/** The project sources of `services`' programs under the project root. */
+/** The project's TypeScript files (the files `dr-compliance` expands the project to), each from the first of
+ * `services`' programs holding it, else from its governing project's program. */
 function projectSources(r: Refactor, services: TS.LanguageService[]): Map<string, ProjectSource> {
   const out = new Map<string, ProjectSource>();
-  for (const service of services) {
+  const rest: string[] = [];
+  for (const path of languageFiles(r.root, 'typescript')) {
+    const found = services.find((service) => service.getProgram()?.getSourceFile(path) !== undefined);
+    const program = found?.getProgram();
+    const source = program?.getSourceFile(path);
+    if (found === undefined || program === undefined || source === undefined) rest.push(path);
+    else out.set(source.fileName, { source, service: found, checker: program.getTypeChecker() });
+  }
+  for (const [path, service] of r.workspace.servicesOf(rest, CHECKER_OPTIONS)) {
     const program = service.getProgram();
-    if (program === undefined) continue;
-    const checker = program.getTypeChecker();
-    for (const source of program.getSourceFiles()) {
-      const rel = r.rel(source.fileName);
-      if (source.isDeclarationFile || program.isSourceFileFromExternalLibrary(source) || rel.startsWith('..') || out.has(source.fileName)) continue;
-      out.set(source.fileName, { source, checker });
-    }
+    const source = program?.getSourceFile(path);
+    if (program !== undefined && source !== undefined) out.set(source.fileName, { source, service, checker: program.getTypeChecker() });
   }
   return out;
 }
@@ -230,8 +231,13 @@ class TypescriptRename {
   standIns: Finding[] = [];
   leftovers: Finding[] = [];
   private readonly sources: Map<string, ProjectSource>;
+  /** The sources spelling OLD, or holding a unicode escape that may spell it: the only ones a reference, a string
+   * form or a mention can be in. */
+  private readonly holding: ProjectSource[];
   private readonly declarations: MemberDeclaration[];
   private readonly texts = new Map<string, string>();
+  private readonly lines = new Map<string, Lines>();
+  private readonly examined = new Map<string, [number, number][]>();
 
   constructor(
     readonly r: Refactor,
@@ -240,13 +246,19 @@ class TypescriptRename {
     readonly old: string,
     readonly newName: string,
   ) {
-    this.edits = renameLocations(r, file, position, newName);
+    this.edits = renameLocations(r.services(file), file, position, newName);
     this.sources = projectSources(r, r.services(file));
-    this.declarations = [...this.sources.values()]
-      .filter(({ source }) => source.text.includes(old))
-      .flatMap(({ source }) => memberDeclarations(source, old, source.fileName));
+    this.holding = [...this.sources.values()].filter(({ source }) => source.text.includes(old) || source.text.includes(String.raw`\u`));
+    this.declarations = [...this.sources.values()].flatMap(({ source, checker }) => memberDeclarations(checker, source, old, source.fileName));
     const declared = new Set(this.declarations.map((d) => keyOf(d.path, d.start)));
     for (const e of this.edits) if (declared.has(keyOf(e.path, e.start))) this.renamed.add(keyOf(e.path, e.start));
+  }
+
+  /** `path`'s relevant services, else the one its source came from. */
+  private servicesFor(path: string): TS.LanguageService[] {
+    const services = this.r.services(path);
+    const own = this.sources.get(path)?.service;
+    return services.length > 0 || own === undefined ? services : [own];
   }
 
   get member(): boolean {
@@ -262,14 +274,42 @@ class TypescriptRename {
     return text;
   }
 
+  /** The 1-based line of `position` in the file at `path`. */
+  lineOf(path: string, position: number): number {
+    let lines = this.lines.get(path);
+    if (lines === undefined) {
+      lines = new Lines(this.text(path));
+      this.lines.set(path, lines);
+    }
+    return lines.lineOf(position);
+  }
+
   private finding(path: string, position: number, template: string, values: Record<string, unknown>): Finding {
     const rel = this.r.rel(path);
-    const line = lineAt(this.text(path), position);
+    const line = this.lineOf(path, position);
     return { path: rel, line, position, text: message(template, { ...values, path: rel, line }) };
+  }
+
+  /** Record an examined site and file what its rule decided. */
+  private record(outcome: Outcome): void {
+    this.examined.set(outcome.path, [...(this.examined.get(outcome.path) ?? []), [outcome.start, outcome.end]]);
+    this.edits.push(...outcome.edits);
+    const pending = outcome.finding;
+    if (pending === undefined) return;
+    const found = this.finding(outcome.path, pending.position, pending.template, pending.values);
+    if (outcome.kind === 'blindspot') this.blindspots.push(found);
+    else this.leftovers.push(found);
+  }
+
+  /** `start`..`end` of `path` overlaps an examined site or an edit. */
+  private covered(path: string, start: number, end: number): boolean {
+    if ((this.examined.get(path) ?? []).some(([s, e]) => s < end && start < e)) return true;
+    return this.edits.some((e) => e.path === path && e.start < end && start < e.start + e.length);
   }
 
   /** Join every `--with` stand-in's rename; record the stand-ins left unclassified. */
   classify(withSites: string[], withoutSites: string[]): void {
+    for (const d of this.declarations) this.examined.set(d.path, [...(this.examined.get(d.path) ?? []), [d.start, d.start + this.old.length]]);
     const declared = new Set(this.declarations.map((d) => keyOf(d.path, d.start)));
     const candidates = this.declarations.filter((d) => !this.renamed.has(keyOf(d.path, d.start)));
     const classified = new Set<string>();
@@ -277,37 +317,64 @@ class TypescriptRename {
       const site = Site.parse(raw, this.r.root, this.r.root);
       const matched = candidates.filter((d) => site.line !== null && site.covers(this.r.rel(d.path), d.line));
       if (matched.length === 0) throw new SiteError('refactor.not-stand-in', raw);
-      for (const d of matched) {
-        const theirs = renameLocations(this.r, d.path, d.start, this.newName);
-        const keys = [keyOf(d.path, d.start), ...theirs.map((e) => keyOf(e.path, e.start)).filter((k) => declared.has(k))];
-        for (const k of keys) classified.add(k);
-        if (!joined) continue;
-        this.edits.push(...theirs);
-        for (const k of keys) this.renamed.add(k);
-      }
+      for (const d of matched) this.classifyStandIn(d, raw, joined, declared, classified);
     }
     this.standIns = candidates
       .filter((d) => !classified.has(keyOf(d.path, d.start)))
       .map((d) => this.finding(d.path, d.start, 'refactor.stand-in', { cls: d.owner, attr: this.old }));
   }
 
-  /** Member strings landing on a renamed declaration are rewritten; `any` receivers are blind spots. */
+  /** Classify stand-in `d` and its hierarchy by site `raw`; with `joined` its rename joins this one, which a computed
+   * name cannot. */
+  private classifyStandIn(d: MemberDeclaration, raw: string, joined: boolean, declared: Set<string>, classified: Set<string>): void {
+    if (joined && d.computed) {
+      const values = { path: this.r.rel(d.path), line: d.line, cls: d.owner, attr: this.old };
+      throw new SiteError('refactor.computed-stand-in', raw, values);
+    }
+    const theirs = renameLocations(this.servicesFor(d.path), d.path, d.start, this.newName);
+    const keys = [keyOf(d.path, d.start), ...theirs.map((e) => keyOf(e.path, e.start)).filter((k) => declared.has(k))];
+    for (const k of keys) classified.add(k);
+    if (!joined) return;
+    this.edits.push(...theirs);
+    for (const k of keys) this.renamed.add(k);
+  }
+
+  /** Whether declaration `d` of OLD is renamed. */
+  private isRenamed(d: TS.Declaration): boolean {
+    const file = d.getSourceFile();
+    const name = ts().getNameOfDeclaration(d);
+    if (name === undefined) return false;
+    return this.renamed.has(keyOf(file.fileName, memberNameStart(name, this.old, file) ?? name.getStart(file)));
+  }
+
+  /** Member strings landing only on renamed declarations are rewritten; `any` receivers and strings landing on
+   * renamed and unchanged declarations are blind spots. */
   scan(): void {
-    for (const { source, checker } of this.sources.values()) {
-      if (!source.text.includes(this.old)) continue;
-      for (const { position, receiver } of anyReceivers(checker, source, this.old)) {
-        this.blindspots.push(this.finding(source.fileName, position, 'compliance.attr-blindspot', { receiver, attr: this.old, type: 'any' }));
-      }
+    for (const { source, checker } of this.holding) {
+      const path = source.fileName;
+      for (const { position, receiver, literal } of anyAccesses(checker, source, this.old)) this.record(blindspotOutcome(path, position, literal ?? null, receiver, this.old));
       for (const found of formCalls(checker, source, this.old)) {
-        if (isAny(checker, found.object)) continue;
-        const type = checker.getApparentType(checker.getTypeAtLocation(found.object));
-        const declarations = type.getProperty(this.old)?.declarations ?? [];
-        const lands = declarations.some((d) => {
-          const name = ts().getNameOfDeclaration(d);
-          return name !== undefined && this.renamed.has(keyOf(d.getSourceFile().fileName, name.getStart(d.getSourceFile())));
-        });
-        if (lands) this.edits.push({ path: source.fileName, start: found.start, length: found.end - found.start, newText: this.newName });
+        const receiver = found.object.getText(source);
+        if (isAny(checker, found.object)) {
+          this.record(blindspotOutcome(path, found.call.getStart(source), [found.start, found.end], receiver, this.old));
+        } else {
+          this.record(formCallOutcome(path, found, this.landings(checker, found), receiver, this.old, this.newName));
+        }
       }
+    }
+  }
+
+  /** Whether each declaration a typed member form's lookup lands on is renamed. */
+  private landings(checker: TS.TypeChecker, found: FormCall): boolean[] {
+    const type = checker.getApparentType(checker.getTypeAtLocation(found.object));
+    return (type.getProperty(this.old)?.declarations ?? []).map((d) => this.isRenamed(d));
+  }
+
+  /** Without `--docs`: each string literal exactly OLD that no rule examined, listed; every project file, as an
+   * escape can spell OLD. */
+  literals(): void {
+    for (const { source } of this.sources.values()) {
+      for (const outcome of literalOutcomes(source.fileName, source, this.old, (s, e) => this.covered(source.fileName, s, e))) this.record(outcome);
     }
   }
 
@@ -325,13 +392,11 @@ class TypescriptRename {
       });
   }
 
-  /** `--docs`: qualified and code-marked mentions rewritten, the rest listed. */
-  docs(): void {
-    const owners = this.owners();
-    const colliding = new Set(this.declarations.filter((d) => !this.renamed.has(keyOf(d.path, d.start))).map((d) => d.owner));
+  /** Each scanned file's mentions of OLD, and whether it declares the rename: sources, then prose files. */
+  private mentionFiles(): [string, Mention[], boolean][] {
     const files: [string, Mention[], boolean][] = [];
-    for (const { source } of this.sources.values()) {
-      if (source.text.includes(this.old)) files.push([source.fileName, mentions(source.text, this.old, sourceRegions(source)), this.declaring.has(source.fileName)]);
+    for (const { source } of this.holding) {
+      files.push([source.fileName, mentions(source.text, this.old, sourceRegions(source)), this.declaring.has(source.fileName)]);
     }
     const extensions: string[] = manifest()['dr-refactor'].prose_extensions;
     for (const rel of sourceFiles(this.r.root, []).sort(byCodePoint)) {
@@ -340,15 +405,21 @@ class TypescriptRename {
       const text = this.text(path);
       if (text.includes(this.old)) files.push([path, mentions(text, this.old, [{ start: 0, end: text.length, where: 'prose', opens: false }]), false]);
     }
-    for (const [path, found, declaring] of files) {
+    return files;
+  }
+
+  /** `--docs`: qualified and code-marked mentions rewritten, the rest listed. */
+  docs(): void {
+    const owners = this.owners();
+    const colliding = this.declarations
+      .filter((d) => !this.renamed.has(keyOf(d.path, d.start)))
+      .map((d) => [...modulePath(this.r, d.path), d.owner]);
+    for (const [path, found, declaring] of this.mentionFiles()) {
       const text = this.text(path);
       for (const m of found) {
         if (this.edits.some((e) => e.path === path && e.start <= m.start && m.start < e.start + e.length)) continue;
-        if (qualified(text, m.start, owners, colliding) || (declaring && codeMarked(text, m))) {
-          this.edits.push({ path, start: m.start, length: m.end - m.start, newText: this.newName });
-        } else {
-          this.leftovers.push(this.finding(path, m.start, 'refactor.leftover', { where: m.where, old: this.old }));
-        }
+        const rewritten = qualified(text, m.start, owners, colliding) || (declaring && codeMarked(text, m));
+        this.record(mentionOutcome(path, m, rewritten, this.old, this.newName));
       }
     }
   }
@@ -375,7 +446,7 @@ class TypescriptRename {
       if (mark) for (const i of hits) matched.add(i);
       return hits.length > 0;
     };
-    const edits = this.edits.filter((e) => !kept(this.r.rel(e.path), lineAt(this.text(e.path), e.start)));
+    const edits = this.edits.filter((e) => !kept(this.r.rel(e.path), this.lineOf(e.path, e.start)));
     this.blindspots = this.blindspots.filter((b) => !kept(b.path, b.line)).sort(byPosition);
     this.leftovers = this.leftovers.filter((f) => !kept(f.path, f.line, false)).sort(byPosition);
     this.standIns.sort(byPosition);
@@ -409,6 +480,7 @@ function rename(r: Refactor): number {
   }
   if (r.args.docs === true) symbol.docs();
   else symbol.dropCommentEdits();
+  if (symbol.member && r.args.docs !== true) symbol.literals();
   const edits = symbol.keep(r.args.keep ?? []);
   const allowed = r.args.allow_blindspots === true;
   if ((symbol.blindspots.length > 0 && !allowed) || symbol.standIns.length > 0) {
@@ -603,7 +675,7 @@ export function runTypescriptRefactor(args: RefactorArgs): number {
     return moveModule(r);
   } catch (error) {
     if (error instanceof SiteError) {
-      process.stderr.write(`${message(error.template, { site: error.site })}\n`);
+      process.stderr.write(`${message(error.template, { site: error.site, ...error.values })}\n`);
       return 2;
     }
     if (error instanceof LocatorError) {

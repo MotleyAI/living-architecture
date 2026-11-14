@@ -1,0 +1,26 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- --apply
+- rename
+- --file
+- src/store.ts
+- --name
+- getModel
+- --new-name
+- getDataset
+- --with
+- scripts/tool.ts:6
+- --allow-blindspots
+fixture: refactor-ts
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - scripts/tool.ts
+  - src/store.ts
+  - src/use.ts
+note: --with renames a stand-in in a file no tsconfig includes; its any receiver is listed and left

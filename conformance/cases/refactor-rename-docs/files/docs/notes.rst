@@ -1,1 +1,1 @@
-See :meth:`AcmeQueryEngine.pick_root_model`.
+See :meth:`SearchQueryEngine.pick_root_model`.

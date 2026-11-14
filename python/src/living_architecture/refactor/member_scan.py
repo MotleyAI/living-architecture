@@ -4,6 +4,7 @@ behind `dr-compliance --attr` and a rename's blind spots and string rewrites."""
 from __future__ import annotations
 
 import ast
+import bisect
 import re
 from collections.abc import Callable, Iterator
 from pathlib import Path
@@ -44,6 +45,7 @@ class Blindspot(BaseModel):
     col: int
     receiver: str
     kind: str
+    literal: tuple[int, int] | None = None
 
 
 class FormCall(BaseModel):
@@ -145,7 +147,8 @@ class FormResolver:
         return ".".join([*(c.name for c in chain), source.text[span.start : span.end]])
 
     def forms(self, path: Path, source: SourceFile, call: ast.Call) -> tuple[StringForm, ...] | None:
-        """The forms the callee resolves to; None when basedpyright finds no declaration of it."""
+        """The forms the callee resolves to; None when basedpyright finds no declaration of it, or declarations of
+        which some are forms and some are not (ambiguous)."""
         span = source.name_span(call.func)
         if span is None:
             return ()
@@ -153,10 +156,15 @@ class FormResolver:
         if not definitions:
             return None
         found: dict[str, StringForm] = {}
+        others = 0
         for d in definitions:
             module = _module_of(d.path)
-            if module is not None and (qualname := self._qualname(d)) is not None:
-                found |= {f.call: f for f in FORMS if (f.module, f.qualname) == (module, qualname)}
+            qualname = self._qualname(d) if module is not None else None
+            matched = {f.call: f for f in FORMS if (f.module, f.qualname) == (module, qualname)}
+            found |= matched
+            others += not matched
+        if found and others:
+            return None
         return tuple(found[call] for call in sorted(found))
 
 
@@ -197,20 +205,20 @@ class MemberScan:
             if not (isinstance(node, ast.Attribute) and node.attr == self.name):
                 continue
             if (kind := _access_kind(self.server, path, source, node)) is not None:
-                yield Blindspot(line=node.lineno, col=node.col_offset, receiver=_receiver(source, node.value), kind=kind)
+                yield Blindspot(line=node.lineno, col=node.col_offset, receiver=receiver_text(source, node.value), kind=kind)
 
     def member_calls(self, path: Path, source: SourceFile) -> list[FormCall]:
         """Calls with a member form's syntax whose member literal is NAME, with what their callee resolves to."""
         out: list[FormCall] = []
         for call in _calls(source):
             callee = _dotted(call.func)
-            matching = [f for f in FORMS if callee is not None and _syntax(callee, f)]
-            found = next(((f, m) for f in matching if (m := _member_literal(source, call, f, self.name)) is not None), None)
+            syntactic = [f for f in FORMS if callee is not None and _syntax(callee, f)]
+            found = next(((f, m) for f in syntactic or FORMS if (m := _member_literal(source, call, f, self.name)) is not None), None)
             if found is None:
                 continue
             forms = self.callees.forms(path, source, call)
             member = [f for f in forms if _member_literal(source, call, f, self.name)] if forms is not None else None
-            if member is not None and not member:
+            if (member is not None and not member) or (member is None and not syntactic):
                 continue
             (literal, obj) = found[1]
             out.append(FormCall(call=call, literal=literal, text=self.name, obj=obj,
@@ -218,17 +226,20 @@ class MemberScan:
         return out
 
     def target_calls(self, path: Path, source: SourceFile) -> list[FormCall]:
-        """Calls resolving to a target form whose dotted target has a segment NAME."""
+        """Calls whose dotted target has a segment NAME: resolving to a target form, or with a target form's syntax
+        and an unresolved callee (`forms` None)."""
         out: list[FormCall] = []
+        targets = [f for f in FORMS if f.target is not None]
         for call in _calls(source):
             callee = _dotted(call.func)
-            matching = [f for f in FORMS if f.target is not None and callee is not None and _syntax(callee, f)]
-            found = next(((f, t) for f in matching if (t := _target_literal(source, call, f, self.name)) is not None), None)
+            syntactic = [f for f in targets if callee is not None and _syntax(callee, f)]
+            found = next(((f, t) for f in syntactic or targets if (t := _target_literal(source, call, f, self.name)) is not None), None)
             if found is None:
                 continue
             forms = self.callees.forms(path, source, call)
-            resolved = tuple(f for f in forms or () if f.target is not None)
-            if resolved:
+            if forms is None and syntactic:
+                out.append(FormCall(call=call, literal=found[1][0], text=found[1][1], obj=None, forms=None))
+            elif resolved := tuple(f for f in forms or () if f.target is not None):
                 out.append(FormCall(call=call, literal=found[1][0], text=found[1][1], obj=None, forms=resolved))
         return out
 
@@ -244,29 +255,18 @@ class MemberScan:
 
     def probe(self, path: Path, source: SourceFile, calls: list[FormCall]) -> list[tuple[str | None, list[Span]]]:
         """For each resolved member call, its object's kind when not a name or attribute, and the declarations
-        `obj.NAME` lands on: read from the file with each literal replaced by `(obj).NAME`, then restored."""
-        pieces: list[str] = []
-        offsets: list[int] = []
-        pos = 0
-        for found in calls:
-            assert found.obj is not None
-            start, end = found.literal
-            prefix = f"({_SPACE.sub(' ', source.segment(found.obj))})."
-            pieces += [source.text[pos : start - 1], prefix]
-            offsets.append(sum(map(len, pieces)))
-            pieces.append(self.name)
-            pos = end + 1
-        probe = "".join(pieces) + source.text[pos:]
-        self.server.change(path, probe)
+        `obj.NAME` lands on, in the file's own offsets."""
+        probe = Probe(source, calls, self.name)
+        self.server.change(path, probe.text)
         try:
-            probed = SourceFile(path, probe)
+            probed = SourceFile(path, probe.text)
             out: list[tuple[str | None, list[Span]]] = []
-            for found, offset in zip(calls, offsets, strict=True):
-                access = _access_at(probed, offset)
+            for i, found in enumerate(calls):
+                access = _access_at(probed, probe.accesses[i])
                 kind = None
                 if access is not None and not isinstance(found.obj, (ast.Name, ast.Attribute)):
                     kind = _access_kind(self.server, path, probed, access)
-                out.append((kind, self.server.definition(path, offset)))
+                out.append((kind, [probe.original(d) for d in self.server.definition(path, probe.accesses[i])]))
             return out
         finally:
             self.server.change(path, source.text)
@@ -282,11 +282,45 @@ class MemberScan:
             if kind is not None:
                 assert call.obj is not None
                 found.append(Blindspot(line=call.call.lineno, col=call.call.col_offset,
-                                       receiver=_receiver(source, call.obj), kind=kind))
+                                       receiver=receiver_text(source, call.obj), kind=kind, literal=call.literal))
         return found
 
 
-def _receiver(source: SourceFile, node: ast.expr) -> str:
+class Probe:
+    """`source` with each member call's literal replaced by `(obj).NAME`: its text, the offset where each call's
+    access names NAME, and the map from its offsets back to the file's own."""
+
+    def __init__(self, source: SourceFile, calls: list[FormCall], name: str) -> None:
+        self.path = source.path
+        self.accesses = [0] * len(calls)
+        self._ends: list[int] = []
+        self._growth: list[int] = []
+        pieces: list[str] = []
+        pos = 0
+        for i in sorted(range(len(calls)), key=lambda i: calls[i].literal[0]):
+            obj = calls[i].obj
+            assert obj is not None
+            start, end = calls[i].literal
+            pieces += [source.text[pos : start - 1], f"({source.segment(obj)})."]
+            self.accesses[i] = sum(map(len, pieces))
+            pieces.append(name)
+            pos = end + 1
+            self._ends.append(sum(map(len, pieces)))
+            self._growth.append(self._ends[-1] - pos)
+        self.text = "".join(pieces) + source.text[pos:]
+
+    def original(self, span: Span) -> Span:
+        """`span` in the file's own offsets; a span in another file unchanged."""
+        if span.path.resolve() != self.path.resolve():
+            return span
+        return Span(path=span.path, start=self._back(span.start), end=self._back(span.end))
+
+    def _back(self, offset: int) -> int:
+        i = bisect.bisect_right(self._ends, offset)
+        return offset - self._growth[i - 1] if i else offset
+
+
+def receiver_text(source: SourceFile, node: ast.expr) -> str:
     return _SPACE.sub(" ", source.segment(node))
 
 

@@ -1,3 +1,3 @@
-from pkg.engine import AcmeQueryEngine
+from pkg.engine import SearchQueryEngine
 
-__all__ = ["AcmeQueryEngine"]
+__all__ = ["SearchQueryEngine"]

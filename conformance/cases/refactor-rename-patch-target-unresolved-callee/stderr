@@ -1,0 +1,2 @@
+tests/test_t.py:2: unresolved-target: pkg.engine.SearchQueryEngine.save_model names .save_model but does not resolve
+1 blind spot(s) of .save_model: type or resolve them, or pass --allow-blindspots

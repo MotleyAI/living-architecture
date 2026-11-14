@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 from project_files import file_tree
 
-from living_architecture.cli import dr_refactor
+from living_architecture.cli import dr_compliance, dr_refactor
 from living_architecture.contract import message
 from living_architecture.lang import LanguageServer
 
@@ -160,6 +160,24 @@ def test_non_member_renames_are_not_scanned(project: MakeProject, rel: str, need
     root = project({"pkg/funcs.py": funcs, "pkg/loose.py": untyped})
     assert _rename(root, rel, needle, "renamed") == 0
     assert _read(root, "pkg/loose.py") == untyped
+
+
+def test_blind_spots_equal_dr_compliance_over_the_project(project: MakeProject, capsys: pytest.CaptureFixture[str]) -> None:
+    untyped = 'def f(o):\n    return o.get_model("m")\n'
+    root = project({
+        "pkg/store.py": STORE,
+        "tests/test_a.py": UNTYPED_TEST,
+        "scripts/tool.py": untyped,
+        "build/z.py": untyped,
+        ".venv/lib/x.py": untyped,
+        "venv/y.py": untyped,
+        ".tox/t.py": untyped,
+    })
+    assert _rename(root, "pkg/store.py", "get_model", "get_dataset", apply=False) == 1
+    refused = capsys.readouterr().err.splitlines()
+    assert refused[-1] == _closing(3)
+    assert dr_compliance(["--select", "attr-blindspot", "--attr", "get_model", "."]) == 1
+    assert refused[:-1] == capsys.readouterr().out.splitlines()
 
 
 def test_typed_receivers_do_not_block(project: MakeProject, capsys: pytest.CaptureFixture[str]) -> None:

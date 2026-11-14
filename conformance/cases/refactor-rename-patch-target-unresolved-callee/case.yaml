@@ -1,0 +1,20 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- rename
+- --file
+- pkg/engine.py
+- --name
+- save_model
+- --new-name
+- persist_model
+fixture: refactor-typed
+git:
+- commit: init
+expect:
+  exit: 1
+golden: manual
+note: a call with a target form's syntax whose callee does not resolve (an unannotated mocker) is an unresolved target,
+  so the member rename refuses

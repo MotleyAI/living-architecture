@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import difflib
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -9,7 +10,7 @@ from typing import Any, cast
 
 from pydantic import BaseModel
 from rope.base import libutils
-from rope.base.change import ChangeSet
+from rope.base.change import ChangeContents, ChangeSet
 from rope.base.exceptions import BadIdentifierError, RefactoringError
 from rope.base.project import Project
 from rope.base.resources import File, Resource
@@ -21,10 +22,10 @@ from living_architecture.contract import message
 from living_architecture.lang import LanguageServerError
 from living_architecture.refactor.keyed import UnresolvedBase
 from living_architecture.refactor.move_edits import NameConflict, module_move_changes, symbol_move_changes
-from living_architecture.refactor.python_source import SourceFile
+from living_architecture.refactor.python_source import SourceFile, split_lines
 from living_architecture.refactor.rename_union import FileChanged, RenameOptions, SymbolRename
 from living_architecture.refactor.rope_patches import WalkerGap, apply_rope_patches
-from living_architecture.refactor.sites import SiteError
+from living_architecture.refactor.sites import Keeps, SiteError
 from living_architecture.refactor.symbol_path import Located, LocatorError, locate
 
 apply_rope_patches()
@@ -44,7 +45,7 @@ class Locator(BaseModel):
 
 
 def _offset_from_line_col(text: str, line: int, col: int) -> int:
-    lines = text.splitlines(keepends=True)
+    lines = split_lines(text)
     if not 1 <= line <= len(lines):
         raise RefactorError(message("refactor.line-out-of-range", line=line, count=len(lines)))
     return sum(len(lines[i]) for i in range(line - 1)) + (col - 1)
@@ -113,28 +114,7 @@ def _refusal(symbol: SymbolRename) -> list[str]:
 
 def rename(project: Project, *, file: str, locator: Locator, new_name: str, options: RenameOptions, apply: bool) -> int:
     """0 when renamed (or dry-run), 1 when a member rename refuses; the refusal on stderr."""
-    offset, _ = _resolve(locator, file)
-    changes = None
-    symbol = None
-    try:
-        renamer = Rename(project, _resource(project, file), offset)
-        if renamer._is_renaming_a_module():
-            changes = renamer.get_changes(
-                new_name, in_hierarchy=options.in_hierarchy, unsure=(lambda *_: True) if options.unsure else None
-            )
-        else:
-            symbol = SymbolRename(project, renamer, new_name, options)
-            symbol.compute()
-    except (RefactoringError, BadIdentifierError):
-        raise RefactorError(message("refactor.cannot-rename")) from None
-    except LanguageServerError:
-        raise RefactorError(message("refactor.pyright-failed")) from None
-    except ConfigError as exc:
-        raise RefactorError(str(exc)) from None
-    except UnresolvedBase as base:
-        root = Path(project.address).resolve()
-        path = (base.path.relative_to(root) if base.path.is_relative_to(root) else base.path).as_posix()
-        raise RefactorError(message("refactor.unresolved-base", name=base.name, path=path, line=base.line)) from None
+    changes, symbol = _compute_rename(project, file, locator, new_name, options)
     if symbol is not None and (refusal := _refusal(symbol)):
         print("\n".join(refusal), file=sys.stderr)
         return 1
@@ -151,6 +131,76 @@ def rename(project: Project, *, file: str, locator: Locator, new_name: str, opti
         symbol.verify(texts)
     _emit(project, changes, apply, lambda: symbol.write(texts))
     return 0
+
+
+def _kept(project: Project, changes: ChangeSet, keep: tuple[str, ...]) -> ChangeSet:
+    """`changes` without what touches a `--keep` site: a kept file's move or edits, a kept line's edits; `SiteError`
+    for a keep that matches neither."""
+    if not keep:
+        return changes
+    keeps = Keeps(keep, Path(project.address).resolve())
+
+    def kept(rel: str, line: int | None) -> bool:
+        return keeps.kept(rel, line)
+
+    out = ChangeSet(changes.description)
+    for change in changes.changes:
+        if isinstance(change, ChangeContents):
+            old = change.resource.read()
+            new = _kept_lines(change.resource.path, old, change.new_contents, kept)
+            if new != old:
+                out.add_change(ChangeContents(change.resource, new))
+        elif not kept(change.resource.path, None):
+            out.add_change(change)
+    keeps.check()
+    return out
+
+
+def _kept_lines(rel: str, old: str, new: str, kept: Callable[[str, int | None], bool]) -> str:
+    """`new` with each changed block that holds a kept line of `old` restored."""
+    old_lines, new_lines = split_lines(old), split_lines(new)
+    out: list[str] = []
+    for tag, i1, i2, j1, j2 in difflib.SequenceMatcher(None, old_lines, new_lines, autojunk=False).get_opcodes():
+        if tag == "equal":
+            out += old_lines[i1:i2]
+        elif tag == "replace" and i2 - i1 == j2 - j1:
+            out += [old_lines[i1 + k] if kept(rel, i1 + k + 1) else new_lines[j1 + k] for k in range(i2 - i1)]
+        else:
+            # Every line is checked, so each keep covering the block counts as matched.
+            hits = sum(kept(rel, n) for n in range(i1 + 1, max(i2, i1 + 1) + 1))
+            out += old_lines[i1:i2] if hits else new_lines[j1:j2]
+    return "".join(out)
+
+
+def _compute_rename(
+    project: Project, file: str, locator: Locator, new_name: str, options: RenameOptions
+) -> tuple[ChangeSet | None, SymbolRename | None]:
+    """A module rename's rope changes, or a symbol rename computed; RefactorError when rope or the server refuses."""
+    offset, _ = _resolve(locator, file)
+    changes = None
+    symbol = None
+    try:
+        renamer = Rename(project, _resource(project, file), offset)
+        if renamer._is_renaming_a_module():
+            if options.with_sites or options.without_sites:
+                raise SiteError("refactor.not-stand-in", (*options.with_sites, *options.without_sites)[0])
+            changes = _kept(project, renamer.get_changes(
+                new_name, in_hierarchy=options.in_hierarchy, unsure=(lambda *_: True) if options.unsure else None
+            ), options.keep)
+        else:
+            symbol = SymbolRename(project, renamer, new_name, options)
+            symbol.compute()
+    except (RefactoringError, BadIdentifierError):
+        raise RefactorError(message("refactor.cannot-rename")) from None
+    except LanguageServerError:
+        raise RefactorError(message("refactor.pyright-failed")) from None
+    except ConfigError as exc:
+        raise RefactorError(str(exc)) from None
+    except UnresolvedBase as base:
+        root = Path(project.address).resolve()
+        path = (base.path.relative_to(root) if base.path.is_relative_to(root) else base.path).as_posix()
+        raise RefactorError(message("refactor.unresolved-base", name=base.name, path=path, line=base.line)) from None
+    return changes, symbol
 
 
 def move_symbol(project: Project, *, file: str, locator: Locator, dest: str, apply: bool) -> None:

@@ -114,22 +114,24 @@ class TargetResolver:
         module: str | None = ".".join(segments[:start])
         cls: ClassRef | None = None
         for name in segments[start:]:
-            if module is not None:
-                value = self.resolver.member(module, name)
-                if value is not None and value[0] == "module":
-                    out.append([])
-                    module = value[1]
-                    continue
-                found = self.resolver.declaration(value)
-                declared = [found] if found is not None else None
-            else:
-                declared = self.attribute(cls, name) if cls is not None else None
+            declared, module = self._segment(module, cls, name)
             if declared is None:
                 return None
             out.append(declared)
-            module = None
             cls = (declared[0][0], declared[0][1]) if len(declared) == 1 and isinstance(declared[0][1], ast.ClassDef) else None
         return out
+
+    def _segment(
+        self, module: str | None, cls: ClassRef | None, name: str
+    ) -> tuple[list[tuple[Module, ast.AST]] | None, str | None]:
+        """`name`'s declarations in `module` (else `cls`), and the module it names: no declarations then."""
+        if module is None:
+            return (self.attribute(cls, name) if cls is not None else None), None
+        value = self.resolver.member(module, name)
+        if value is not None and value[0] == "module":
+            return [], value[1]
+        found = self.resolver.declaration(value)
+        return ([found] if found is not None else None), None
 
 
 def _c3(ref: ClassRef, sequences: list[list[ClassRef | _Opaque]]) -> list[ClassRef | _Opaque] | None:

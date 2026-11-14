@@ -1,3 +1,3 @@
 tests/test_a.py:2: attr-blindspot: storage.get_model — storage is Unknown, so a rename of .get_model is unverifiable
 pkg/other.py:2: stand-in: Unrelated.get_model is outside the renamed hierarchy; pass --with pkg/other.py:2 to rename it too or --without pkg/other.py:2 to leave it
-1 untyped receiver(s) of .get_model: type them, or pass --allow-blindspots
+1 blind spot(s) of .get_model: type or resolve them, or pass --allow-blindspots

@@ -1,0 +1,21 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- rename
+- --file
+- src/store.ts
+- --name
+- getModel
+- --new-name
+- getDataset
+fixture: refactor-ts
+git:
+- commit: init
+expect:
+  exit: 1
+  files:
+  - src/loose.ts
+  - src/store.ts
+note: a constructor parameter property is a member, so an any receiver of its name refuses the rename

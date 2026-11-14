@@ -1,0 +1,16 @@
+kind: adapter
+languages:
+- typescript
+command: dr-compliance
+args:
+- --select
+- attr-blindspot
+- --attr
+- id
+- src/e.ts
+fixture: compliance-ts
+expect:
+  exit: 1
+golden: manual
+note: an element access by a plain string literal on an any receiver is a blind spot; a typed receiver and a template
+  literal are not

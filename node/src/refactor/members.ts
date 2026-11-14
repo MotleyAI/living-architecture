@@ -3,6 +3,7 @@
 import type * as TS from 'typescript';
 import { language } from '../contract/index.js';
 import { ts } from '../lang/index.js';
+import { Lines } from './lines.js';
 
 interface StringForm {
   call: string;
@@ -18,12 +19,14 @@ export interface FormCall {
   object: TS.Expression;
 }
 
-/** A class member declaration of the name: its name's start, its line (1-based) and its owner's name. */
+/** A class member declaration of the name: its name's start (a computed name's bracket), its line (1-based), its
+ * owner's name and whether a computed name declares it. */
 export interface MemberDeclaration {
   path: string;
   start: number;
   line: number;
   owner: string;
+  computed: boolean;
 }
 
 const FORMS = (): StringForm[] => language('typescript').string_member_calls as StringForm[];
@@ -64,7 +67,7 @@ export function formCalls(checker: TS.TypeChecker, source: TS.SourceFile, name: 
     for (const form of FORMS()) {
       const literal = plainString(node.arguments[form.member], source);
       const object = node.arguments[form.object];
-      if (literal === null || literal[2] !== name || object === undefined || ts().isSpreadElement(object)) continue;
+      if (literal?.[2] !== name || object === undefined || ts().isSpreadElement(object)) continue;
       if (!resolvesTo(checker, node.expression, form.call, source)) continue;
       out.push({ call: node, start: literal[0], end: literal[1], object });
       break;
@@ -73,20 +76,33 @@ export function formCalls(checker: TS.TypeChecker, source: TS.SourceFile, name: 
   return out;
 }
 
-/** A receiver of `.name` typed `any`: a property access or a string-member call's object. */
+/** A receiver of `.name` typed `any`: a property or element access, or a string-member call's object; `literal` is
+ * an element access's or a string form's literal span. */
 export interface AnyReceiver {
   position: number;
   receiver: string;
+  literal?: [number, number];
+}
+
+/** Every `x.name`, and `x['name']` by a plain string literal, whose receiver is typed `any`. */
+export function anyAccesses(checker: TS.TypeChecker, source: TS.SourceFile, name: string): AnyReceiver[] {
+  const out: AnyReceiver[] = [];
+  for (const node of walk(source)) {
+    const property = ts().isPropertyAccessExpression(node) && node.name.text === name;
+    const element = ts().isElementAccessExpression(node) ? plainString(node.argumentExpression, source) : null;
+    if (!(property || element?.[2] === name)) continue;
+    const receiver = (node as TS.PropertyAccessExpression | TS.ElementAccessExpression).expression;
+    if (!isAny(checker, receiver)) continue;
+    const found: AnyReceiver = { position: node.getStart(source), receiver: receiver.getText(source) };
+    if (element !== null) found.literal = [element[0], element[1]];
+    out.push(found);
+  }
+  return out;
 }
 
 /** Every `x.name` and string-member object typed `any`, in position order. */
 export function anyReceivers(checker: TS.TypeChecker, source: TS.SourceFile, name: string): AnyReceiver[] {
-  const out: AnyReceiver[] = [];
-  for (const node of walk(source)) {
-    if (ts().isPropertyAccessExpression(node) && node.name.text === name && isAny(checker, node.expression)) {
-      out.push({ position: node.getStart(source), receiver: node.expression.getText(source) });
-    }
-  }
+  const out = anyAccesses(checker, source, name);
   for (const found of formCalls(checker, source, name)) {
     if (isAny(checker, found.object)) out.push({ position: found.call.getStart(source), receiver: found.object.getText(source) });
   }
@@ -107,16 +123,51 @@ function ownerName(owner: TS.Node, source: TS.SourceFile): string {
   return owner.getText(source).slice(0, 20);
 }
 
-/** Every member named `name` that a class, an interface or a type literal of `source` declares. */
-export function memberDeclarations(source: TS.SourceFile, name: string, path: string): MemberDeclaration[] {
-  const owners = OWNERS();
-  const out: MemberDeclaration[] = [];
-  for (const node of walk(source)) {
-    const declared = (node as TS.NamedDeclaration).name;
-    if (declared === undefined || node.parent === undefined || !owners.has(node.parent.kind)) continue;
-    if (!(ts().isIdentifier(declared) || ts().isPrivateIdentifier(declared)) || declared.text !== name) continue;
-    const start = declared.getStart(source);
-    out.push({ path, start, line: source.getLineAndCharacterOfPosition(start).line + 1, owner: ownerName(node.parent, source) });
+/** The class, interface or type literal declaring member `node`: its parent, or a parameter property's class. */
+function memberOwner(node: TS.Node): TS.Node | undefined {
+  const parent = node.parent as TS.Node | undefined;
+  if (parent !== undefined && ts().isParameter(node) && ts().isParameterPropertyDeclaration(node, parent)) return parent.parent;
+  return parent;
+}
+
+/** The start of the text `name` names a member by: an identifier, or the inside of a string literal or computed string. */
+export function memberNameStart(declared: TS.Node, name: string, source: TS.SourceFile): number | null {
+  if ((ts().isIdentifier(declared) || ts().isPrivateIdentifier(declared)) && declared.text === name) return declared.getStart(source);
+  const literal = ts().isComputedPropertyName(declared) ? declared.expression : declared;
+  if ((ts().isStringLiteral(literal) || ts().isNoSubstitutionTemplateLiteral(literal)) && literal.text === name) return literal.getStart(source) + 1;
+  return null;
+}
+
+/** The declarations of member `name` that `owner` itself declares: the checker's properties of its instance and
+ * static sides, and `#private` names by their syntax (they are not properties). */
+function ownDeclarations(checker: TS.TypeChecker, owner: TS.Node, name: string): Set<TS.Declaration> {
+  const type = checker.getTypeAtLocation(owner);
+  const types = [type];
+  const symbol = type.getSymbol();
+  if (ts().isClassLike(owner) && symbol !== undefined) types.push(checker.getDeclaredTypeOfSymbol(symbol), checker.getTypeOfSymbolAtLocation(symbol, owner));
+  const out = new Set<TS.Declaration>();
+  for (const t of types) for (const d of t.getProperty(name)?.declarations ?? []) if (memberOwner(d) === owner) out.add(d);
+  for (const child of walk(owner)) {
+    const declared = (child as TS.NamedDeclaration).name;
+    if (declared !== undefined && ts().isPrivateIdentifier(declared) && declared.text === name && memberOwner(child) === owner) out.add(child as TS.Declaration);
   }
   return out;
+}
+
+/** Every member named `name` that a class, an interface or a type literal of `source` declares, in position order. */
+export function memberDeclarations(checker: TS.TypeChecker, source: TS.SourceFile, name: string, path: string): MemberDeclaration[] {
+  const owners = OWNERS();
+  const lines = new Lines(source.text);
+  const out: MemberDeclaration[] = [];
+  for (const node of walk(source)) {
+    if (!owners.has(node.kind)) continue;
+    for (const declaration of ownDeclarations(checker, node, name)) {
+      const declared = ts().getNameOfDeclaration(declaration);
+      if (declared === undefined) continue;
+      const named = memberNameStart(declared, name, source);
+      const start = named ?? declared.getStart(source);
+      out.push({ path, start, line: lines.lineOf(start), owner: ownerName(node, source), computed: named === null });
+    }
+  }
+  return out.sort((a, b) => a.start - b.start);
 }

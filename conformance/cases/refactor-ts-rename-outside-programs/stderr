@@ -1,0 +1,3 @@
+scripts/tool.ts:2: attr-blindspot: o.getModel — o is any, so a rename of .getModel is unverifiable
+scripts/tool.ts:6: stand-in: FakeStorage.getModel is outside the renamed hierarchy; pass --with scripts/tool.ts:6 to rename it too or --without scripts/tool.ts:6 to leave it
+1 blind spot(s) of .getModel: type or resolve them, or pass --allow-blindspots

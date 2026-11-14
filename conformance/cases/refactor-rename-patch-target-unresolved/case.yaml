@@ -7,7 +7,7 @@ args:
 - --file
 - pkg/engine.py
 - --symbol
-- AcmeQueryEngine.save_model
+- SearchQueryEngine.save_model
 - --new-name
 - persist_model
 fixture: refactor-typed

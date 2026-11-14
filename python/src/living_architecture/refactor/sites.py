@@ -37,6 +37,27 @@ class Site(BaseModel):
         return path[: len(self.parts)] == self.parts and (self.line is None or self.line == line)
 
 
+class Keeps:
+    """`--keep` sites: what they keep, and the first that kept nothing."""
+
+    def __init__(self, raws: tuple[str, ...], root: Path, base: Path | None = None) -> None:
+        self.sites = [Site.parse(raw, root, base) for raw in raws]
+        self._matched: set[int] = set()
+
+    def kept(self, rel: str, line: int | None, *, mark: bool = True) -> bool:
+        """`rel:line` is kept (`line` None: the whole file, as a move); `mark` counts the keeps it matches."""
+        hits = {i for i, s in enumerate(self.sites) if (line is not None or s.line is None) and s.covers(rel, line or 0)}
+        if mark:
+            self._matched |= hits
+        return bool(hits)
+
+    def check(self) -> None:
+        """`SiteError` for the first keep that matched nothing."""
+        unmatched = next((s for i, s in enumerate(self.sites) if i not in self._matched), None)
+        if unmatched is not None:
+            raise SiteError("refactor.keep-unmatched", unmatched.raw)
+
+
 class SiteError(Exception):
     """A site that matches nothing it must; `template` is its finding."""
 

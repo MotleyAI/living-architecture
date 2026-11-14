@@ -1,4 +1,4 @@
 # API
 
-Use `pkg.engine.AcmeQueryEngine.pick_root_model` or `engine.AcmeQueryEngine.pick_root_model`.
+Use `pkg.engine.SearchQueryEngine.pick_root_model` or `engine.SearchQueryEngine.pick_root_model`.
 Then recommend_root_model runs.

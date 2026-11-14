@@ -1,0 +1,23 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- --apply
+- rename
+- --file
+- src/store.ts
+- --name
+- getModel
+- --new-name
+- getDataset
+fixture: refactor-ts
+git:
+- commit: init
+expect:
+  exit: 1
+  files:
+  - scripts/tool.ts
+  - src/store.ts
+  - src/use.ts
+note: an any receiver and a stand-in in a file no tsconfig includes refuse the rename; nothing written

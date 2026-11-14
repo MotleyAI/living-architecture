@@ -1,0 +1,20 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- rename
+- --file
+- src/store.ts
+- --name
+- getModel
+- --new-name
+- getDataset
+- --with
+- src/store.ts:8
+fixture: refactor-ts-computed
+git:
+- commit: init
+expect:
+  exit: 2
+note: --with on a computed-name stand-in refuses, naming the hand rename

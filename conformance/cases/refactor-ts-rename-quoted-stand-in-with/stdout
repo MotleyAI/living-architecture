@@ -1,0 +1,28 @@
+Renaming <getModel> to <getDataset>:
+
+
+--- a/src/other.ts
++++ b/src/other.ts
+@@ -1,5 +1,5 @@
+ export class Other {
+-  'getModel'(): number {
++  'getDataset'(): number {
+     return 1;
+   }
+ }
+
+--- a/src/store.ts
++++ b/src/store.ts
+@@ -1,5 +1,5 @@
+ export class Storage {
+-  getModel(name: string): number {
++  getDataset(name: string): number {
+     return name.length;
+   }
+ }
+
+
+
+APPLIED. 2 file(s) changed:
+  src/other.ts
+  src/store.ts

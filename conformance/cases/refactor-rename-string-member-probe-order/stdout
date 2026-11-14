@@ -1,0 +1,28 @@
+Renaming <save_model> to <persist_model>:
+
+
+--- a/pkg/engine.py
++++ b/pkg/engine.py
+@@ -1,9 +1,9 @@
+ def use() -> object:
+-    return getattr(make(), "save_model")
++    return getattr(make(), "persist_model")
+ 
+ 
+ class Engine:
+-    def save_model(self) -> None:
++    def persist_model(self) -> None:
+         pass
+ 
+ 
+@@ -11,4 +11,4 @@
+     return Engine()
+ 
+ 
+-X = getattr(make(), "save_model")
++X = getattr(make(), "persist_model")
+
+
+
+APPLIED. 1 file(s) changed:
+  pkg/engine.py
