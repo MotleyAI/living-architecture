@@ -86,7 +86,7 @@ class TargetResolver:
         self._active.add(key)
         try:
             bases = self._bases(ref)
-            lines = [self.mro(b) if not isinstance(b, _Opaque) else [b] for b in bases]
+            lines: list[list[ClassRef | _Opaque] | None] = [self.mro(b) if not isinstance(b, _Opaque) else [b] for b in bases]
             known = [line for line in lines if line is not None]
             result = _c3(ref, [*known, bases]) if len(known) == len(lines) else None
         finally:

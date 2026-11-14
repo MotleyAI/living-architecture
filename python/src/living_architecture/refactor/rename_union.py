@@ -356,16 +356,10 @@ class SymbolRename:
         return sorted(out, key=lambda d: (d.rel, d.start))
 
     def is_member(self) -> bool:
-        """The symbol is declared in a class body (or as a `self.` attribute)."""
-        pyname = self.renamer.old_pyname
-        if isinstance(pyname, pynamesdef.ParameterName) or pyname is None:
+        """The symbol is declared in a class body (or as a `self.` attribute): a declaration rope renames is one."""
+        if isinstance(self.renamer.old_pyname, pynamesdef.ParameterName):
             return False
-        location = pyname.get_definition_location()
-        module, line = location or (None, None)
-        resource = module.get_resource() if isinstance(module, PyModule) else None
-        if resource is None:
-            return False
-        return any(d.rel == resource.path and d.line == line for d in self._declarations)
+        return any((d.rel, d.start) in self.seeds for d in self._declarations)
 
     def _hierarchy(self, renamer: Rename) -> set[tuple[str, int]]:
         """The member declarations rope renames with `renamer`'s symbol when the hierarchy is on."""
@@ -378,7 +372,7 @@ class SymbolRename:
         stand_ins = [d for d in self._declarations if (d.rel, d.start) not in hierarchy]
         classified: set[tuple[str, int]] = set()
         for raw, joined in [*((s, True) for s in self.options.with_sites), *((s, False) for s in self.options.without_sites)]:
-            site = Site.parse(raw, self.root)
+            site = Site.parse(raw, self.root, base=self.root)
             matched = [d for d in stand_ins if site.line is not None and site.covers(d.rel, d.line)]
             if not matched:
                 raise SiteError("refactor.not-stand-in", raw)

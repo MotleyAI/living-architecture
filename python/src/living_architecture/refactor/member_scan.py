@@ -152,12 +152,12 @@ class FormResolver:
         definitions = self.server.definition(path, span[0])
         if not definitions:
             return None
-        found: set[StringForm] = set()
+        found: dict[str, StringForm] = {}
         for d in definitions:
             module = _module_of(d.path)
             if module is not None and (qualname := self._qualname(d)) is not None:
-                found |= {f for f in FORMS if (f.module, f.qualname) == (module, qualname)}
-        return tuple(sorted(found, key=lambda f: f.call))
+                found |= {f.call: f for f in FORMS if (f.module, f.qualname) == (module, qualname)}
+        return tuple(found[call] for call in sorted(found))
 
 
 def _member_literal(source: SourceFile, call: ast.Call, form: StringForm, name: str) -> tuple[tuple[int, int], ast.expr] | None:

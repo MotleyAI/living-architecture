@@ -21,10 +21,11 @@ class Site(BaseModel):
     line: int | None
 
     @classmethod
-    def parse(cls, raw: str, root: Path) -> Site:
+    def parse(cls, raw: str, root: Path, base: Path | None = None) -> Site:
+        """`raw` with its path resolved against `base` (default: the working directory)."""
         m = _LINE.fullmatch(raw)
         path, line = (m.group(1), int(m.group(2))) if m else (raw, None)
-        real = Path(os.path.realpath(Path.cwd() / path))
+        real = Path(os.path.realpath((base or Path.cwd()) / path))
         parts = real.relative_to(root).parts if real.is_relative_to(root) and real.exists() else None
         return cls(raw=raw, parts=parts, line=line)
 

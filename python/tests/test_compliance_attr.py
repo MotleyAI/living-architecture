@@ -155,7 +155,7 @@ def test_one_finding_per_access_position(cwd: Path, capsys: pytest.CaptureFixtur
 def test_blindspots_merge_into_each_files_line_order(cwd: Path, capsys: pytest.CaptureFixture[str]) -> None:
     (cwd / "a.py").write_text("def f(o) -> object:\n    return o.formula\n\n\ndef g(x): ...\n", encoding="utf-8")
     (cwd / "b.py").write_text("def h(x): ...\n", encoding="utf-8")
-    assert dr_compliance(["--select", "untyped-def", "--attr", "formula", "a.py", "b.py"]) == 1
+    assert dr_compliance(["--select", "untyped-def,attr-blindspot", "--attr", "formula", "a.py", "b.py"]) == 1
     assert [line.split(": ")[0] for line in capsys.readouterr().out.splitlines()] == ["a.py:1", "a.py:2", "a.py:5", "b.py:1"]
 
 

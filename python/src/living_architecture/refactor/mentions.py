@@ -56,11 +56,12 @@ class MentionRules(BaseModel):
         m = _QUALIFIER.search(text, max(0, start - 300), start)
         if m is None or m.end() != start or (m.start() > 0 and (text[m.start() - 1].isalnum() or text[m.start() - 1] in "_.#")):
             return False
-        segments = tuple(re.split(r"[.#]", m.group(1)))
+        segments = re.split(r"[.#]", m.group(1))
+        bare = segments[0] if len(segments) == 1 else None
         for owner in self.owners:
-            if owner.path[-len(segments) :] != segments or len(segments) > len(owner.path):
+            if len(segments) > len(owner.path) or list(owner.path[len(owner.path) - len(segments) :]) != segments:
                 continue
-            if len(segments) > 1 or not owner.member or segments[0] not in self.colliding:
+            if bare is None or not owner.member or bare not in self.colliding:
                 return True
         return False
 

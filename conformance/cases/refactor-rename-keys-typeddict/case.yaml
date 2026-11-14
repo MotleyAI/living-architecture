@@ -12,9 +12,9 @@ args:
 - --new-name
 - fields
 - --without
-- pkg/models.py:21
+- pkg/models.py:12
 - --without
-- pkg/models.py:35
+- pkg/models.py:21
 fixture: refactor-typed
 git:
 - commit: init
