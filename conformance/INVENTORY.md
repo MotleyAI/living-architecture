@@ -366,6 +366,12 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | *(new)* directory expansion: a Python-only repo ignores a stray `.js`; with no repo language every registered language's files | 1 | `compliance-directory-skips-other-language`, `compliance-directory-no-repo-language` |
 | *(new)* directory expansion when git fails to list the repo's files | 2 | `dr-compliance-git-failed` |
 | *(new)* `rope-walk`: every construct rope's walker used to fail on passes; the Python-only check does not apply to a TypeScript file | 0 | `compliance-rope-walk-clean`, `compliance-select-rope-walk-ts-file` |
+| *(new)* `explicit-any`: nested and variadic annotations, one finding per `Any`; in the default check set | 1 | `compliance-explicit-any-nested`, `compliance-explicit-any-default` |
+| *(new)* `explicit-any`: every spelling of `Any` (name, alias, module alias, full path, `typing_extensions`, star import); import lines unreported | 1 | `compliance-explicit-any-spellings` |
+| *(new)* `explicit-any` outside annotations: a `TypeVar` bound, a generic base, an alias value, a cast, a generic call, a plain reference | 1 | `compliance-explicit-any-outside-annotations` |
+| *(new)* `explicit-any`: forward references and type comments read; `Literal` and `Annotated` metadata strings, `# type: ignore` and an unparsable type comment skipped | 1 | `compliance-explicit-any-forward-refs` |
+| *(new)* `explicit-any`: first-party re-exports (named, star through `__init__.py`, module alias) reported where used, not where re-exported | 1 | `compliance-explicit-any-first-party` |
+| *(new)* `explicit-any` scoping: `try`/`except ImportError`, class scope (parameter annotations, not method bodies), `global`; a parameter named `Any` and a rebound module alias shadow | 1 | `compliance-explicit-any-scoping` |
 
 ## dr-compliance: TypeScript
 

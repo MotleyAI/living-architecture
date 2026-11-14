@@ -27,6 +27,7 @@ from living_architecture.contract import (
     is_portable_regex,
     load_yaml,
     materialize_defaults,
+    message,
     normalize,
     render_template,
     snapshot_dir,
@@ -342,6 +343,14 @@ def test_language_facts() -> None:
     assert "type_checker" not in typescript
     assert python["checker_patch_versions"] == ["1.40.2"]
     assert "checker_patch_versions" not in typescript
+    assert (python["any_type"], python["top_type"]) == ("Any", "object")
+    assert (typescript["any_type"], typescript["top_type"]) == ("any", "unknown")
+
+
+def test_explicit_any_renders_the_language_spellings() -> None:
+    python = _shared_yaml("languages.yaml")["python"]
+    text = message("compliance.explicit-any", path="m.py", line=2, any=python["any_type"], top=python["top_type"])
+    assert text == "m.py:2: explicit-any: an `Any` type — use a real type or `object`"
 
 
 def test_python_typecheck_command_description_names_the_patch_obligations() -> None:
@@ -626,7 +635,7 @@ NEW_TEMPLATES = {
         "{path}:{line}: rope-walk: rope cannot follow this construct, so dr-refactor would refuse this file"
         " (a rope bug, not a source error)",
     "compliance.tsconfig": "{path}: tsconfig: {flag} is not enabled",
-    "compliance.explicit-any": "{path}:{line}: explicit-any: an `any` type — use a real type or `unknown`",
+    "compliance.explicit-any": "{path}:{line}: explicit-any: an `{any}` type — use a real type or `{top}`",
     "compliance.ts-untyped-def": "{path}:{line}: untyped-def: {name} is implicitly any",
     "mock-lint.fn": "{path}:{line}: {call}() without a type argument or implementation — type it as {call}<typeof real>()",
     "mock-lint.module":
@@ -770,8 +779,8 @@ def test_refactor_prose_extensions() -> None:
 
 def test_attr_blindspot_is_a_check_of_both_languages() -> None:
     languages = _shared_yaml("languages.yaml")
-    assert languages["python"]["compliance_checks"] == ["untyped-def", "unannotated-attr", "mock", "rope-walk",
-                                                        "attr-blindspot"]
+    assert languages["python"]["compliance_checks"] == ["untyped-def", "unannotated-attr", "explicit-any", "mock",
+                                                        "rope-walk", "attr-blindspot"]
     assert languages["typescript"]["compliance_checks"] == ["tsconfig", "explicit-any", "untyped-def", "mock",
                                                             "attr-blindspot"]
 

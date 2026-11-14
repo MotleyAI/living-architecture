@@ -357,7 +357,7 @@ findings:
   compliance.rope-walk: '{path}:{line}: rope-walk: rope cannot follow this construct, so dr-refactor would refuse this file (a rope bug, not a source error)'
   compliance.unknown-checks: 'unknown check(s): {checks}'
   compliance.tsconfig: '{path}: tsconfig: {flag} is not enabled'
-  compliance.explicit-any: '{path}:{line}: explicit-any: an `any` type — use a real type or `unknown`'
+  compliance.explicit-any: '{path}:{line}: explicit-any: an `{any}` type — use a real type or `{top}`'
   compliance.ts-untyped-def: '{path}:{line}: untyped-def: {name} is implicitly any'
 
   # ---- dr-mock-lint

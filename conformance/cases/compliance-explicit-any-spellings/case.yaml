@@ -1,0 +1,13 @@
+kind: adapter
+languages:
+- python
+command: dr-compliance
+args:
+- --select
+- explicit-any
+- src/m.py
+- src/star.py
+expect:
+  exit: 1
+golden: manual
+note: every spelling of `Any` (name, alias, module alias, full module path, typing_extensions, star import) is reported; import lines are not; output is sorted as strings
