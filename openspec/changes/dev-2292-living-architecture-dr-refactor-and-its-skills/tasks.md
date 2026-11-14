@@ -190,7 +190,7 @@
       <project>` plus the unresolved and mixed targets.
 - [x] 13.7 Probe object (decision 40). Verify with calls in arbitrary order, a declaration before, between and after
       replaced literals, and a definition in another file.
-- [ ] 13.8 Local gates, then one Codex pass with decision 41's brief; push once; reply to CodeRabbit r4575115899
+- [x] 13.8 Local gates, then one Codex pass with decision 41's brief; push once; reply to CodeRabbit r4575115899
       and r4575115901.
 - [x] 13.9 Python `excluded_dirs` (decision 42): `shared/languages.yaml`, `scripts/sync-shared`, both twins'
       registry pins; the rename's candidate files from the routing expansion. Verify with "Virtualenv skipped by
