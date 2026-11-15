@@ -1,6 +1,6 @@
 ## 1. Tests (pr-tests)
 
-- [ ] 1.1 Conformance cases for the requirement "Renames keep every reference's binding", paired (`python/` and
+- [x] 1.1 Conformance cases for the requirement "Renames keep every reference's binding", paired (`python/` and
       `node/` overlays) unless marked, new goldens written with `LA_UPDATE_GOLDENS=1`: issue capture; same-scope
       collision (`old` → `f`); outer reference shadowed; builtin shadowed (`len` / `parseInt`); direct importer binds
       the new name; re-export chain (TS) and star-import chain (Python adapter), two hops each; overload group renamed
@@ -12,7 +12,7 @@
       iterable, comprehension walrus, `global`, `nonlocal` (each refused or allowed exactly as Python resolves).
       Verify: every refusing case fails before the fix (exit 0 today), every exit-0 case passes or fails as the
       golden says.
-- [ ] 1.2 Conformance cases for "Member renames refuse a name the member's namespace holds", paired unless marked:
+- [x] 1.2 Conformance cases for "Member renames refuse a name the member's namespace holds", paired unless marked:
       issue duplicate member; ancestor declares; descendant declares; library base (`dict.keys` /
       `Array<number>.map`); implicit root (`__repr__` / `toString`); renamed hierarchy is no conflict (override,
       interface plus implementation, diamond / interface extending two interfaces; exit 0). TypeScript adapter:
