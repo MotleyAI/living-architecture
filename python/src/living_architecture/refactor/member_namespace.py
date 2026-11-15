@@ -17,7 +17,7 @@ from rope.base.pyscopes import Scope as RopeScope
 from living_architecture.contract import language
 from living_architecture.refactor.bindings import Conflict, Site, may_name
 from living_architecture.refactor.members import classes, member_declarations
-from living_architecture.refactor.python_source import SourceFile
+from living_architecture.refactor.python_source import SourceFile, nfkc
 
 # A project class: its file and the line of its `class` statement.
 ClassKey = tuple[str, int]
@@ -147,15 +147,16 @@ class MemberCheck:
         out: list[Conflict] = []
         for member in renamed:
             name = member.new_name
+            spelled = nfkc(name)
             ancestors, library = self.hierarchy.ancestors(member.cls)
-            family = [member.cls, *ancestors, *self._descendants(member.cls, name)]
-            existing = [s for key in family for s in self.hierarchy.declarations(key, name) if s not in renamed_sites]
+            family = [member.cls, *ancestors, *self._descendants(member.cls, spelled)]
+            existing = [s for key in family for s in self.hierarchy.declarations(key, spelled) if s not in renamed_sites]
             out += [Conflict(site=s, name=name) for s in existing]
-            met = [m for m in renamed if m.entry != member.entry and m.new_name == name and m.cls in family]
+            met = [m for m in renamed if m.entry != member.entry and nfkc(m.new_name) == spelled and m.cls in family]
             if met:
                 earliest = min([member, *met], key=lambda m: (m.entry, m.site))
                 first = min(m.site for m in renamed if m.entry == earliest.entry)
                 out.append(Conflict(site=first, name=name))
-            if name in self.hierarchy.root_members or any(name in obj.get_attributes() for obj in library):
+            if spelled in self.hierarchy.root_members or any(spelled in obj.get_attributes() for obj in library):
                 out.append(Conflict(site=member.site, name=name))
         return out

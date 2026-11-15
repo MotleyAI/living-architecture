@@ -1,6 +1,7 @@
 // dr-refactor rename keeps every reference's binding: identity by declaration set, per-meaning resolution, check order.
 import { describe, expect, it } from 'vitest';
 import { message } from '../src/contract/index.js';
+import { identifierText } from '../src/refactor/bindings.js';
 import { files, lineCol, read, refactor, tsProject } from './refactor-project.js';
 
 const conflict = (name: string, path: string, line: number): string => `${message('refactor.name-conflict', { name, path, line })}\n`;
@@ -105,6 +106,53 @@ describe('member namespace', () => {
 });
 
 describe('quoted and escaped names', () => {
+  it.each([
+    [String.raw`o\u006cd`, 'old'],
+    [String.raw`o\u{6c}d`, 'old'],
+    ['old', 'old'],
+  ])('decodes the identifier %s', (raw, name) => {
+    expect(identifierText(raw)).toBe(name);
+  });
+
+  it('refuses a reference in a destructuring default captured by a local of the new name', () => {
+    const m = 'export const old = 1;\n\nexport function f(): number {\n  const next = 2;\n  const { x = old } = {} as { x?: number };\n  return x + next;\n}\n';
+    const { root, result } = renameSymbol({ 'src/m.ts': m }, 'src/m.ts', 'old', 'next');
+    expect(result).toEqual({ code: 1, out: '', err: conflict('next', 'src/m.ts', 4) });
+    expect(read(root, 'src/m.ts')).toBe(m);
+  });
+
+  it('refuses a map renaming two members of a class onto one name, one of them spelled with an escape', () => {
+    const m = 'export class C {\n  a(): number {\n    return 1;\n  }\n\n  b(): number {\n    return 2;\n  }\n}\n';
+    const map = String.raw`- {file: src/m.ts, symbol: C.a, new_name: next}
+- {file: src/m.ts, symbol: C.b, new_name: n\u0065xt}
+`;
+    const root = tsProject({ 'src/m.ts': m, 'renames.yaml': map });
+    const result = refactor(root, '--apply', 'rename-map', 'renames.yaml');
+    expect(result).toEqual({ code: 1, out: '', err: conflict('next', 'src/m.ts', 2) });
+    expect(read(root, 'src/m.ts')).toBe(m);
+  });
+
+  it('refuses a static member renamed onto the implicit prototype', () => {
+    const m = 'export class C {\n  static old(): number {\n    return 1;\n  }\n}\n';
+    const { root, result } = renameSymbol({ 'src/m.ts': m }, 'src/m.ts', 'C.old', 'prototype');
+    expect(result).toEqual({ code: 1, out: '', err: conflict('prototype', 'src/m.ts', 2) });
+    expect(read(root, 'src/m.ts')).toBe(m);
+  });
+
+  it('checks a declaration spelled with a unicode escape by the name it spells', () => {
+    const m = String.raw`export const o\u006cd = 1;
+
+export function f(): number {
+  const next = 2;
+  return old + next;
+}
+`;
+    const root = tsProject({ 'src/m.ts': m });
+    const result = refactor(root, '--apply', 'rename', '--file', 'src/m.ts', ...lineCol(root, 'src/m.ts', String.raw`o\u`), '--new-name', 'next');
+    expect(result).toEqual({ code: 1, out: '', err: conflict('next', 'src/m.ts', 4) });
+    expect(read(root, 'src/m.ts')).toBe(m);
+  });
+
   it('accepts a map retargeting onto a quoted enum member', () => {
     const m = 'export enum E {\n  "tgt" = 1,\n  als = 1,\n  z = als,\n}\n\nexport const other = 1;\n';
     const map = '- {file: src/m.ts, symbol: E.als, retarget: E.tgt}\n- {file: src/m.ts, symbol: other, new_name: other2}\n';

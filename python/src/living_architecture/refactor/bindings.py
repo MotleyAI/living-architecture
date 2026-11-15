@@ -16,7 +16,7 @@ from pydantic import BaseModel, ConfigDict
 from living_architecture.contract import message
 from living_architecture.refactor.locators import RefactorError
 from living_architecture.refactor.move_edits import NameConflict
-from living_architecture.refactor.python_source import SourceFile
+from living_architecture.refactor.python_source import SourceFile, nfkc
 from living_architecture.refactor.static_resolver import Module, Scope
 from living_architecture.refactor.text_edits import TextEdit, apply_edits, merge_edits
 
@@ -27,7 +27,6 @@ Meaning = dict[Site, Site]
 
 _BUILTINS = frozenset(dir(builtins))
 _PREFIX = re.compile(r"[rRuU]?('''|\"\"\"|'|\")")
-_SUFFIXES = (".py", ".pyi")
 
 
 def may_name(pattern: re.Pattern[str], text: str) -> bool:
@@ -171,7 +170,7 @@ class World:
         path = dotted.replace(".", "/")
         for folder in self.folders:
             base = f"{folder}/{path}" if folder else path
-            for rel in (*(f"{base}/__init__{s}" for s in _SUFFIXES), *(base + s for s in _SUFFIXES)):
+            for rel in (f"{base}/__init__.py", f"{base}.py"):
                 if rel in self.files:
                     return rel
         return None
@@ -292,9 +291,9 @@ class BindingCheck:
         out: set[str] = set()
         for entry in entries:
             for e in (*entry.edits, *entry.kept):
-                out |= {t for t in (self.before(e.path)[e.start : e.end], e.new_text) if t.isidentifier()}
+                out |= {nfkc(t) for t in (self.before(e.path)[e.start : e.end], e.new_text) if t.isidentifier()}
             if entry.target is not None:
-                out.add(entry.target)
+                out.add(nfkc(entry.target))
         return frozenset(out)
 
     def conflicts(self, entries: list[EntryEdits], moves: dict[str, str] | None = None) -> list[Conflict]:
@@ -374,8 +373,8 @@ class _Judge:
     def _name(self, name: str) -> str:
         """The new name a finding about an existing occurrence of `name` names."""
         for entry in self.entries:
-            if entry.new_name == name:
-                return name
+            if nfkc(entry.new_name) == name:
+                return entry.new_name
         return self.entries[0].new_name
 
     def _verdict(self, rel: str, old: Occurrence, new: Occurrence) -> list[Conflict]:

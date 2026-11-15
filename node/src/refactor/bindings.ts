@@ -42,6 +42,10 @@ const keyOf = (path: string, start: number): string => `${path}\0${start}`;
 
 const ESCAPE = String.raw`\u`;
 
+/** The name an identifier's source text spells, its unicode escapes decoded. */
+export const identifierText = (raw: string): string =>
+  raw.replaceAll(/\\u\{([0-9a-fA-F]+)\}|\\u([0-9a-fA-F]{4})/gu, (_match, braced: string | undefined, plain: string | undefined) => String.fromCodePoint(Number.parseInt(braced ?? plain ?? '', 16)));
+
 /** `text` may spell one of `names`: it spells one, or holds a unicode escape. */
 const mayName = (text: string, names: Set<string>): boolean => [...names].some((name) => text.includes(name)) || text.includes(ESCAPE);
 
@@ -137,7 +141,7 @@ function resolvable(id: TS.Identifier, members: Set<TS.SyntaxKind>): boolean {
   if (ts().isQualifiedName(parent)) return parent.left === id;
   if (ts().isImportSpecifier(parent)) return true;
   if (ts().isExportSpecifier(parent)) return parent.parent.parent.moduleSpecifier !== undefined || (parent.propertyName ?? parent.name) === id;
-  if (ts().isBindingElement(parent)) return parent.name === id;
+  if (ts().isBindingElement(parent)) return parent.name === id || parent.initializer === id;
   if (members.has(parent.kind)) return (parent as TS.NamedDeclaration).name !== id;
   return !(
     ts().isLabeledStatement(parent) ||
@@ -546,7 +550,7 @@ export class NameChecks {
     for (const m of renamed) {
       const related = new Set([nodeKey(m.holder), ...this.hierarchy.ancestors(nodeKey(m.holder)), ...this.hierarchy.descendants(nodeKey(m.holder))]);
       for (const other of renamed) {
-        if (other.entry !== m.entry && other.entry.newName === m.entry.newName && other.isStatic === m.isStatic && related.has(nodeKey(other.holder))) meet(m.entry, other.entry);
+        if (other.entry !== m.entry && identifierText(other.entry.newName) === identifierText(m.entry.newName) && other.isStatic === m.isStatic && related.has(nodeKey(other.holder))) meet(m.entry, other.entry);
       }
     }
   }
@@ -554,8 +558,9 @@ export class NameChecks {
   /** Sites of the members of `m`'s new name its type, an ancestor or a project descendant declares. */
   private member(m: RenamedMember, hierarchy: Hierarchy, renamedKeys: Set<string>, sites: Site[]): void {
     const name = m.entry.newName;
+    const spelled = identifierText(name);
     const holderKey = nodeKey(m.holder);
-    const conflicting = (d: TS.Node): boolean => memberName(d, this.sources.get(d.getSourceFile().fileName)?.checker) === name &&!renamedKeys.has(memberKey(d)) && (ts().isParameter(d) ? !m.isStatic : hasStatic(d) === m.isStatic);
+    const conflicting = (d: TS.Node): boolean => memberName(d, this.sources.get(d.getSourceFile().fileName)?.checker) === spelled && !renamedKeys.has(memberKey(d)) && (ts().isParameter(d) ? !m.isStatic : hasStatic(d) === m.isStatic);
     const push = (d: TS.Node): void => {
       sites.push({ name, ...(this.sources.has(d.getSourceFile().fileName) ? at(memberKey(d)) : { path: m.path, position: m.start }) });
     };
@@ -565,7 +570,9 @@ export class NameChecks {
       if (node !== undefined && (!m.isStatic || ts().isClassLike(node))) holders.push(node);
     }
     for (const holder of holders) for (const d of ownMembers(holder).filter(conflicting)) push(d);
-    const inherited = m.checker.getPropertyOfType(sideType(m.checker, m.holder, m.isStatic), name);
+    const inherited = m.checker.getPropertyOfType(sideType(m.checker, m.holder, m.isStatic), spelled);
+    // An implicit member (a class's `prototype`) has no declaration: the renamed one is the site.
+    if (inherited !== undefined && (inherited.declarations ?? []).length === 0) sites.push({ name, path: m.path, position: m.start });
     const elsewhere = (d: TS.Node): boolean => {
       const holder = holderOf(d);
       return holder === null || nodeKey(holder) !== holderKey;

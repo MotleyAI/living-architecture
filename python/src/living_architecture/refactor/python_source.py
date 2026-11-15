@@ -26,9 +26,14 @@ def name_end(text: str, start: int) -> int:
     return end
 
 
+def nfkc(raw: str) -> str:
+    """The identifier Python reads from `raw`: its NFKC normal form."""
+    return unicodedata.normalize("NFKC", raw)
+
+
 def same_name(raw: str, name: str) -> bool:
-    """`raw` spells `name` as Python reads identifiers: NFKC-normalized."""
-    return unicodedata.normalize("NFKC", raw) == name
+    """`raw` spells `name` as Python reads identifiers."""
+    return nfkc(raw) == name
 
 
 def line_starts(text: str) -> list[int]:

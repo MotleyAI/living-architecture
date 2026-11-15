@@ -16,7 +16,9 @@ from project_files import file_tree
 
 from living_architecture.cli import dr_refactor
 from living_architecture.contract import language, message
-from living_architecture.refactor.bindings import module_binding
+from living_architecture.refactor.bindings import BindingCheck, Conflict, EntryEdits, module_binding
+from living_architecture.refactor.python_source import SourceFile
+from living_architecture.refactor.text_edits import TextEdit
 
 MakeProject = Callable[..., Path]
 NEW = "fresh"
@@ -227,6 +229,41 @@ def test_a_descendant_declaring_the_new_name_in_another_normal_form_is_checked(
 def test_a_binding_in_another_normal_form_is_found(statement: str) -> None:
     text = statement.format(FULLWIDTH) + "\n"
     assert module_binding(text, "fresh") == text.index(FULLWIDTH)
+
+
+def test_a_new_name_in_another_normal_form_is_checked_as_python_reads_it(
+    typed_project: MakeProject, capsys: pytest.CaptureFixture[str]
+) -> None:
+    text = "old = 1\nfresh = 2\nprint(old, fresh)\n"
+    root = typed_project({"pkg/m.py": text})
+    _refused(root, "pkg/m.py", 0, capsys, ("pkg/m.py", 2), FULLWIDTH)
+
+
+def test_a_member_renamed_onto_a_member_in_another_normal_form_is_refused(
+    typed_project: MakeProject, capsys: pytest.CaptureFixture[str]
+) -> None:
+    text = "class C:\n    def old(self) -> int:\n        return 1\n\n    def fresh(self) -> int:\n        return 2\n"
+    root = typed_project({"pkg/m.py": text})
+    _refused(root, "pkg/m.py", _at(text, "old"), capsys, ("pkg/m.py", 5), FULLWIDTH)
+
+
+def test_an_old_name_in_another_normal_form_is_checked_as_python_reads_it() -> None:
+    old = "\uff4f\uff4c\uff44"  # NFKC: "old"
+    text = f"{old} = 1\n\n\ndef f() -> int:\n    fresh = 2\n    return {old} + fresh\n"
+    edits = [TextEdit(path="pkg/m.py", start=i, end=i + len(old), new_text="fresh")
+             for i in (text.index(old), text.rindex(old))]
+    check = BindingCheck(["pkg/__init__.py", "pkg/m.py"], [""], lambda rel: SourceFile(Path(rel), text if rel == "pkg/m.py" else ""))
+    assert check.conflicts([EntryEdits(index=1, new_name="fresh", edits=edits)]) == [Conflict(site=("pkg/m.py", text.index("fresh")), name="fresh")]
+
+
+def test_a_conflict_names_the_entry_whose_new_name_it_spells_in_another_normal_form() -> None:
+    text = "a = 0\nold = 1\nprint(fresh)\n"
+    entries = [
+        EntryEdits(index=1, new_name="other", edits=[TextEdit(path="pkg/m.py", start=0, end=1, new_text="other")]),
+        EntryEdits(index=2, new_name=FULLWIDTH, edits=[TextEdit(path="pkg/m.py", start=6, end=9, new_text=FULLWIDTH)]),
+    ]
+    check = BindingCheck(["pkg/m.py"], [""], lambda rel: SourceFile(Path(rel), text))
+    assert check.conflicts(entries) == [Conflict(site=("pkg/m.py", text.index("fresh")), name=FULLWIDTH)]
 
 
 # --- only resolver-backed edits take part --------------------------------------------------------------------------

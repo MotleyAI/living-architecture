@@ -6,7 +6,7 @@ import type * as TS from 'typescript';
 import { sourceFiles } from '../config/index.js';
 import { byCodePoint, literalValueForbidden, manifest, message } from '../contract/index.js';
 import { stripSourceExtension, ts } from '../lang/index.js';
-import { type CheckEntry, NameChecks } from './bindings.js';
+import { type CheckEntry, identifierText, NameChecks } from './bindings.js';
 import { isCompound } from './compound.js';
 import { type Edit, mergeEdits, RefactorError, splitBom } from './edits.js';
 import { Lines } from './lines.js';
@@ -764,7 +764,7 @@ function checkNames(session: Session, targets: Target[], pending: Tagged[], edit
   const done = new Set(edits.map((e) => keyOf(e.path, e.start)));
   const kept = new Set(pending.map((e) => keyOf(e.path, e.start)).filter((k) => !done.has(k)));
   const entries: CheckEntry[] = targets.map((t) => ({ index: t.index, old: t.old, newName: t.newName, expected: t.targetKeys ?? null }));
-  const names = targets.flatMap((t) => [t.old, t.newName, ...(t.targetName === undefined ? [] : [t.targetName])]);
+  const names = targets.flatMap((t) => [t.old, t.newName, ...(t.targetName === undefined ? [] : [t.targetName])]).map(identifierText);
   const checks = new NameChecks(session.sources, names, (path) => session.r.rel(path));
   const passes = entries.filter((e) => e.expected === null && e.newName !== e.old).map((e) => [e]);
   if (entries.length > 1) passes.push(entries);
