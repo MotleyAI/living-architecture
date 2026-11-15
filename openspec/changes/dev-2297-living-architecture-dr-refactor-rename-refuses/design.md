@@ -69,7 +69,8 @@ Spec attachment: `refactor`, owned by `python.refactor`. No model or arc42 edit;
    layout and on version conditionals. Supersedes the plan's runtime typeshed read. (codex)
 9. **Re-resolution after the edits**, not a before-only analysis of scope chains: independent of each language's
    scope rules. TypeScript: an overlay program over the edited texts (unchanged `SourceFile`s reused). Python:
-   `symtable` over each edited source; import bindings are module-local declarations, so cross-module identity is
+   the AST scope model `static_resolver` already uses for patch targets (Python's own rules, checked against
+   `symtable` by the resolver test) over each edited source; import bindings are module-local declarations, so cross-module identity is
    only needed for star imports. An edited Python source that does not parse refuses with `refactor.cannot-rename`.
    (default)
 10. **Finding site**: in original-code coordinates, the first by project-relative path then character offset among:

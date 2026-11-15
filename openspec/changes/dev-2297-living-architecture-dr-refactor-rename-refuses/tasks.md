@@ -60,7 +60,8 @@
 
 ## 4. Python twin (pr-implement)
 
-- [ ] 4.1 A binding module under `python/src/living_architecture/refactor/`: `symtable` over each edited source,
+- [x] 4.1 A binding module under `python/src/living_architecture/refactor/`: Python's scopes (the `static_resolver`
+      scope model, checked against `symtable`) over each edited source,
       import bindings as module-local declarations, star-import binding, forward-reference strings read in their
       scope, the occurrence prefilter, the kept-site rule, the site order of decision 10; a parse failure raises the
       `cannot-rename` refusal.
