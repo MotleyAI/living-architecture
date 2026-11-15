@@ -379,6 +379,22 @@ describe('retarget import planner', () => {
     expect(diagnosticCodes(root)).toEqual([]);
   });
 
+  it('adds no import for a use in a re-export shim whose import binds the target', () => {
+    const shim = "import { modern, legacy } from './api';\n\nexport { modern, legacy };\n\nexport function make(): number {\n  return legacy();\n}\n";
+    const root = tsProject({ 'src/api.ts': API, 'src/shim.ts': shim });
+    expect(refactor(root, '--apply', 'retarget', '--file', 'src/api.ts', '--symbol', 'legacy', '--target', 'modern').code).toBe(0);
+    expect(read(root, 'src/shim.ts')).toBe(shim.replace('return legacy()', 'return modern()'));
+    expect(diagnosticCodes(root)).toEqual([]);
+  });
+
+  it('removes a later import of the target in the block', () => {
+    const use = "import { CONST, Flight } from './compat';\nimport { Facade } from './core';\n\nexport const x = [CONST, new Flight(), new Facade()];\n";
+    const root = tsProject({ 'src/core.ts': CORE, 'src/compat.ts': COMPAT, 'src/use.ts': use });
+    expect(retargetFlight(root).code).toBe(0);
+    expect(read(root, 'src/use.ts')).toBe("import { CONST } from './compat';\nimport { Facade } from './core';\n\nexport const x = [CONST, new Facade(), new Facade()];\n");
+    expect(diagnosticCodes(root)).toEqual([]);
+  });
+
   it('refuses a namespace member through a module that does not export the target', () => {
     const use = "import * as c from './shim';\n\nexport const x = new c.AcmeModel();\n";
     const root = tsProject({ 'src/models.ts': MODELS, 'src/shim.ts': "export { AcmeModel } from './models';\n", 'src/use.ts': use });

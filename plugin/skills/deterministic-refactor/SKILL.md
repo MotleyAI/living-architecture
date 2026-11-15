@@ -71,8 +71,9 @@ or `--offset N` (0-based). `rename-map MAP` reads a YAML list of
 `{file, symbol, new_name}` or `{file, symbol, retarget}` entries (files relative
 to `--project`), resolves every entry before renaming any, and writes all or
 nothing. `retarget --file F --symbol OLD --target NEW` rewrites what resolves to
-the alias `OLD` to name `NEW`, its target in the same class or module, and leaves
-`OLD` in place. `rename`, `rename-map` and `retarget` also take `--with` /
+the alias `OLD` to name `NEW`, its target declared or imported in the same class or
+module, imports `NEW` where a file lacks it, and leaves `OLD` and its re-exports in
+place. `rename`, `rename-map` and `retarget` also take `--with` /
 `--without PATH:LINE`, `--keep PATH[:LINE]`, `--allow-blindspots` and `--docs`
 (comments, docstrings, strings and prose files: qualified mentions everywhere,
 code-marked ones in the declaring files, the rest listed as `leftover`, as are

@@ -427,3 +427,21 @@ def test_the_home_is_the_import_of_the_alias_module(
     code, _out, err = run(root, _retarget("pkg/compat.py", "AcmeModel", "Model"), monkeypatch, capsys)
     assert (code, err) == (0, "")
     assert read(root, "pkg/use.py") == expected
+
+
+def test_a_reexport_shim_binding_the_target_gets_no_import_for_its_own_use(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    shim = 'from pkg.models import Model, AcmeModel\n\n__all__ = ["Model", "AcmeModel"]\n\n\ndef make() -> object:\n    return AcmeModel()\n'
+    root = write_project(tmp_path / "proj", {"pkg/models.py": MODELS, "pkg/compat.py": shim})
+    code, _out, err = run(root, _retarget("pkg/models.py", "AcmeModel", "Model"), monkeypatch, capsys)
+    assert (code, err) == (0, "")
+    assert read(root, "pkg/compat.py") == shim.replace("return AcmeModel()", "return Model()")
+
+
+def test_a_later_import_of_the_target_in_the_block_is_removed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    use = "from pkg.compat import CONST, AcmeModel\nfrom pkg.core import Model\n\nx = CONST, AcmeModel(), Model\n"
+    root = _imported(tmp_path, monkeypatch, capsys, {"pkg/use.py": use})
+    assert read(root, "pkg/use.py") == "from pkg.compat import CONST\nfrom pkg.core import Model\n\nx = CONST, Model(), Model\n"

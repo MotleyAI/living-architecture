@@ -1,12 +1,18 @@
-"""`retarget`: the rename of an alias to its target's name without the alias's own declarations, refused where a
-subclass overrides the alias or the target's name means something else, dropping imports it would duplicate."""
+"""`retarget`: the rename of an alias to its target's name without the alias's own declaration and its re-export
+sites. Every rewritten name stays bound: an import of the alias is re-pointed, else the target is imported from its
+home; a name nothing can bind refuses."""
 
 from __future__ import annotations
 
 import ast
 from collections.abc import Callable, Iterator
 
-from rope.base import libutils
+from pydantic import BaseModel, ConfigDict
+from rope.base import evaluate, libutils
+from rope.base.exceptions import RopeError
+from rope.base.project import Project
+from rope.base.pyobjectsdef import PyModule, PyPackage
+from rope.base.resources import File, Folder
 from rope.refactor.rename import Rename
 from typing_extensions import override
 
@@ -19,18 +25,86 @@ from living_architecture.refactor.text_edits import TextEdit
 
 _FUNCTIONS = (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)
 _COMPREHENSIONS = (ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)
+_DEFINITIONS = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Assign, ast.AnnAssign)
+
+Location = tuple[str, int]
+Parents = dict[ast.AST, ast.AST]
+
+
+class TargetHome(BaseModel):
+    """A module alias's target: the module its alias's module imports it from (or declares it in), the name that
+    module exports it by, the name written for it, and its definition."""
+
+    model_config = ConfigDict(frozen=True)
+
+    module: str
+    exported: str
+    local: str
+    definition: Location | None
+
+
+class ImportNeed(BaseModel):
+    """`local` bound to the target in the block of `anchor` (when `bind`); `leaving`, an import of the alias in
+    `anchor`, dropped from it; `duplicates`, later imports of the target the added one makes redundant."""
+
+    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
+
+    path: str
+    anchor: ast.stmt
+    home: TargetHome
+    local: str
+    bind: bool
+    leaving: ast.alias | None = None
+    duplicates: tuple[ast.alias, ...] = ()
 
 
 def module_name(session: Session, rel: str) -> str:
     return libutils.modname(session.project.get_resource(rel))
 
 
-def _imported_module(stmt: ast.ImportFrom, importer: str, is_package: bool) -> str:
+def package_of(session: Session, rel: str) -> str:
+    """The package a relative import in `rel` is resolved against."""
+    name = module_name(session, rel)
+    return name if rel.endswith("__init__.py") else name.rpartition(".")[0]
+
+
+def imported_module(session: Session, rel: str, stmt: ast.ImportFrom) -> str:
+    """The absolute name of the module `stmt` imports from."""
     if stmt.level == 0:
         return stmt.module or ""
-    parts = importer.split(".") if is_package else importer.split(".")[:-1]
+    parts = package_of(session, rel).split(".")
     parts = parts[: len(parts) - (stmt.level - 1)]
     return ".".join([*parts, *([stmt.module] if stmt.module else [])])
+
+
+def module_file(project: Project, module: str) -> File | None:
+    """The file of module `module`, a package's `__init__.py`."""
+    found = project.find_module(module) if module else None
+    if isinstance(found, Folder):
+        return found.get_child("__init__.py") if found.has_child("__init__.py") else None  # pyright: ignore[reportReturnType]
+    return found
+
+
+def definition(pyname: object) -> Location | None:
+    """Where rope finds `pyname` defined, imports followed."""
+    try:
+        location = pyname.get_definition_location() if pyname is not None else None  # pyright: ignore[reportAttributeAccessIssue]
+    except RopeError:
+        return None
+    module, line = location or (None, None)
+    resource = module.get_resource() if isinstance(module, PyModule) else None
+    return None if resource is None or line is None else (resource.path, line)
+
+
+def attribute_definition(project: Project, module: str, name: str) -> Location | None:
+    """Where the attribute `name` of module `module` is defined."""
+    found = module_file(project, module)
+    if found is None:
+        return None
+    try:
+        return definition(project.get_pymodule(found).get_attributes().get(name))
+    except RopeError:
+        return None
 
 
 def _stored(node: ast.AST, skip: Callable[[ast.AST], bool] = lambda _: False) -> Iterator[str]:
@@ -67,7 +141,7 @@ def _binds(scope: ast.AST, name: str, accepted: Callable[[ast.AST], bool]) -> bo
     return False
 
 
-def _bound_in_scope(parents: dict[ast.AST, ast.AST], node: ast.AST, name: str, accepted: Callable[[ast.AST], bool]) -> bool:
+def _bound_in_scope(parents: Parents, node: ast.AST, name: str, accepted: Callable[[ast.AST], bool]) -> bool:
     """A function, comprehension or the innermost class enclosing `node` binds `name`, `accepted` statements aside."""
     scope = parents.get(node)
     innermost = True
@@ -83,57 +157,144 @@ def _bound_in_scope(parents: dict[ast.AST, ast.AST], node: ast.AST, name: str, a
 class AliasRetarget(SymbolRename):
     """References to an alias rewritten to name its target; the alias stays."""
 
-    def __init__(self, session: Session, renamer: Rename, target: str, options: RenameOptions, *, line: int) -> None:
+    def __init__(self, session: Session, renamer: Rename, target: str, options: RenameOptions, *, line: int,
+                 home: TargetHome | None = None, own: Location | None = None, original: str | None = None) -> None:
         super().__init__(session, renamer, target, options)
         self.check_names = False
         self.line = line
+        self.home = home
+        self.own = own
+        self.original = original or target
         self.refusals: list[Finding] = []
-        self._parents: dict[str, dict[ast.AST, ast.AST]] = {}
-        self._shims: dict[str, bool] = {}
+        self.needs: list[ImportNeed] = []
+        self._parents: dict[str, Parents] = {}
+        self._exports: dict[str, bool] = {}
+        self._definitions: dict[tuple[str, str], Location | None] = {}
 
     @override
     def header(self) -> str:
         return message("refactor.retarget-header", old=self.old, new=self.new)
 
-    def retarget(self) -> None:
-        """Drop the edits at the alias's own declarations, at a module's re-export of it and at what a kept re-export
-        binds, then refuse overrides and shadowed names and drop duplicate imports."""
-        own = set(self.seeds)
-        kept: dict[str, list[tuple[int, int]]] = {}
-        for path in {e.path for e in self.edits}:
-            source = self.snapshot.source(path)
-            # A shim keeping its import of the alias keeps every use of it too: the target is not bound there.
-            whole = [(0, len(source.text))] if _shim_imports(source, self.old) else []
-            kept[path] = [*_reexport_spans(source, self.old), *whole]
-        self.edits = [e for e in self.edits if (e.path, e.start) not in own
-                      and not any(start <= e.start < end for start, end in kept[e.path])
-                      and not self._through_bare_shim(e)]
+    def parents(self, rel: str) -> Parents:
+        if rel not in self._parents:
+            tree = self.snapshot.source(rel).tree
+            self._parents[rel] = {} if tree is None else {c: n for n in ast.walk(tree) for c in ast.iter_child_nodes(n)}
+        return self._parents[rel]
+
+    def retarget(self, kept: Callable[[str, int], bool]) -> None:
+        """Drop the edits at the alias's own declaration, at its re-export sites and on kept lines; refuse overrides,
+        shadowed and unbound names; record the imports the rest need."""
+        own = set(self.seeds) | ({self.own} if self.own is not None else set())
+        spans = {path: _reexport_spans(self.snapshot.source(path), self.old) for path in {e.path for e in self.edits}}
+        edits = [e for e in self.edits if (e.path, e.start) not in own and not any(s <= e.start < t for s, t in spans[e.path])]
         self._overrides()
-        alias_module = module_name(self.session, self.renamer.resource.path)
-        self.edits = [e for edit in self.edits for e in self._import_or_reference(edit, alias_module)]
+        live = [e for e in edits if not kept(e.path, self.snapshot.source(e.path).line(e.start))]
+        if self.home is None:
+            self.edits = live
+            return
+        held = {id(b[1]) for e in edits if e not in live and (b := self._binding(e)) is not None}
+        self.edits = self._decide(live, held)
 
-    def _through_bare_shim(self, edit: TextEdit) -> bool:
-        """`edit` is at an import of the alias, or at a reference it binds, from a shim that re-exports the alias without
-        binding the target's name, so the target cannot be imported from it."""
+    def _binding(self, edit: TextEdit) -> tuple[ast.ImportFrom, ast.alias] | None:
+        """The import binding the bare name at `edit`."""
+        node = _named_at(self.snapshot.source(edit.path), edit.start, self.old)
+        return _binding_of(self.parents(edit.path), node, self.old) if isinstance(node, ast.Name) else None
+
+    def _decide(self, live: list[TextEdit], held: set[int]) -> list[TextEdit]:
+        """Each live edit kept, replaced or refused by the site it is at; the imports of the alias other than the
+        held ones re-pointed or left."""
+        sites = {id(a) for e in live if isinstance(a := _named_at(self.snapshot.source(e.path), e.start, self.old), ast.alias)}
+        moving = sites - held
+        out: list[TextEdit] = []
+        for edit in live:
+            source = self.snapshot.source(edit.path)
+            node = _named_at(source, edit.start, self.old) if source.tree is not None else None
+            if isinstance(node, ast.alias):
+                out += self._import_site(edit, node) if id(node) in moving else []
+            elif isinstance(node, ast.Name):
+                out.append(edit)
+                self._use(edit, node, moving)
+            elif source.tree is not None and isinstance(attr := _attribute_at(source, edit.start, self.old), ast.Attribute):
+                out += self._attribute(edit, attr)
+            else:
+                out.append(edit)
+        return out
+
+    def _import_site(self, edit: TextEdit, alias: ast.alias) -> list[TextEdit]:
+        """An import of the alias from a module exporting the target re-pointed to it there; from any other module,
+        the alias left and the target imported from its home."""
+        assert self.home is not None
         source = self.snapshot.source(edit.path)
-        if source.tree is None:
-            return False
-        parents = {child: node for node in ast.walk(source.tree) for child in ast.iter_child_nodes(node)}
-        node = _named_at(source, edit.start, self.old)
-        stmt = parents.get(node) if isinstance(node, ast.alias) else _binding_import(parents, node, self.old)
-        if not isinstance(stmt, ast.ImportFrom):
-            return False
-        module = _imported_module(stmt, module_name(self.session, edit.path), edit.path.endswith("__init__.py"))
-        return self._bare_shim(module)
+        parents = self.parents(edit.path)
+        stmt = parents[alias]
+        assert isinstance(stmt, ast.ImportFrom)
+        if self._module_binds_other(source, edit.path, skip=stmt):
+            self._refuse(edit, "refactor.retarget-shadowed", name=self.new)
+        if self._exported_by(imported_module(self.session, edit.path, stmt)):
+            return self._duplicate(source, edit, stmt, alias, parents) or [edit]
+        self._need(edit.path, stmt, alias.asname, alias)
+        return []
 
-    def _bare_shim(self, module: str) -> bool:
-        """`module` re-exports the alias by importing it and binds no name of the target's at module level."""
-        if module not in self._shims:
-            found = self.project.find_module(module) if module else None
-            source = self.snapshot.source(found.path) if found is not None else None
-            self._shims[module] = (source is not None and source.tree is not None and bool(_shim_imports(source, self.old))
-                                   and not any(self.new in _stored(stmt) for stmt in source.tree.body))
-        return self._shims[module]
+    def _need(self, rel: str, anchor: ast.stmt, asname: str | None, leaving: ast.alias | None) -> None:
+        assert self.home is not None
+        bound, later = self._bindings(rel, anchor, asname or self.original, self.parents(rel))
+        self.needs.append(ImportNeed(path=rel, anchor=anchor, home=self.home, local=asname or self.new, bind=not bound,
+                                     leaving=leaving, duplicates=tuple(later)))
+
+    def _use(self, edit: TextEdit, use: ast.Name, moving: set[int]) -> None:
+        """A bare use: the target imported where its binding import stays or is a star import not binding the
+        target; refused where the target's name means something else."""
+        assert self.home is not None
+        parents = self.parents(edit.path)
+        binding = _binding_of(parents, use, self.old)
+        anchor: ast.ImportFrom | None = None
+        if binding is not None and binding[1].name == "*":
+            anchor = None if self._star_binds(imported_module(self.session, edit.path, binding[0])) else binding[0]
+        elif binding is not None and id(binding[1]) not in moving:
+            anchor = binding[0]
+        if anchor is not None:
+            self._need(edit.path, anchor, None, None)
+
+        def accepted(stmt: ast.AST) -> bool:
+            return self._binds_target_before(edit.path, stmt, use, parents)
+
+        source = self.snapshot.source(edit.path)
+        other = edit.path != self.renamer.resource.path and self._module_binds_other(source, edit.path)
+        if _bound_in_scope(parents, use, self.new, accepted) or other:
+            self._refuse(edit, "refactor.retarget-shadowed", name=self.new)
+
+    def _attribute(self, edit: TextEdit, attr: ast.Attribute) -> list[TextEdit]:
+        """`MOD.ALIAS` rewritten where module `MOD` binds the target's name to the target; refused otherwise."""
+        assert self.home is not None
+        module = self._receiver_module(edit.path, attr)
+        if module is None:
+            return [edit]
+        if self._attribute_definition(libutils.modname(module), self.original) == self.home.definition:
+            return [edit]
+        self._refuse(edit, "refactor.retarget-unbound", module=module.path, name=self.new)
+        return []
+
+    def _receiver_module(self, rel: str, attr: ast.Attribute) -> File | None:
+        """The module `attr`'s receiver names, by rope."""
+        source = self.snapshot.source(rel)
+        receiver = attr.value
+        span = source.name_span(receiver) if isinstance(receiver, (ast.Name, ast.Attribute)) else None
+        if span is None:
+            return None
+        try:
+            resource = self.project.get_resource(rel)
+            pyname = evaluate.eval_location(self.project.get_pymodule(resource), span[0] - source.text.count("\r\n", 0, span[0]))
+            found = pyname.get_object() if pyname is not None else None
+        except RopeError:
+            return None
+        if isinstance(found, PyPackage):
+            folder = found.get_resource()
+            return folder.get_child("__init__.py") if isinstance(folder, Folder) and folder.has_child("__init__.py") else None  # pyright: ignore[reportReturnType]
+        return found.get_resource() if isinstance(found, PyModule) else None  # pyright: ignore[reportReturnType]
+
+    def _refuse(self, edit: TextEdit, template: str, **values: str) -> None:
+        line = self.snapshot.source(edit.path).line(edit.start)
+        self.refusals.append(Finding(path=edit.path, line=line, col=edit.start, text=message(template, path=edit.path, line=line, **values)))
 
     def _overrides(self) -> None:
         if not self.member:
@@ -146,90 +307,116 @@ class AliasRetarget(SymbolRename):
                 text = message("refactor.retarget-override", path=d.rel, line=d.line, cls=d.cls, name=self.old)
                 self.refusals.append(Finding(path=d.rel, line=d.line, col=d.start, text=text))
 
-    def _import_or_reference(self, edit: TextEdit, alias_module: str) -> list[TextEdit]:
-        """`edit`, or what replaces it at a duplicate import; a shadowed reference recorded as a refusal."""
-        source = self.snapshot.source(edit.path)
-        if source.tree is None:
-            return [edit]
-        if edit.path not in self._parents:
-            self._parents[edit.path] = {child: node for node in ast.walk(source.tree) for child in ast.iter_child_nodes(node)}
-        parents = self._parents[edit.path]
-        node = _named_at(source, edit.start, self.old)
-        if isinstance(node, ast.alias) and isinstance(stmt := parents.get(node), ast.ImportFrom):
-            replaced = self._duplicate(source, edit, stmt, node, parents, alias_module)
-            if replaced is not None:
-                return replaced
-            if self._module_binds_other(source, edit.path, alias_module, skip=stmt):
-                self._shadowed(source, edit)
-        elif isinstance(node, ast.Name):
-            use = node
+    # ---- what binds the target
 
-            def accepted(stmt: ast.AST) -> bool:
-                return self._binds_target_before(edit.path, stmt, use, parents, alias_module)
+    def _attribute_definition(self, module: str, name: str) -> Location | None:
+        if (module, name) not in self._definitions:
+            self._definitions[module, name] = attribute_definition(self.project, module, name)
+        return self._definitions[module, name]
 
-            other = edit.path != self.renamer.resource.path and self._module_binds_other(source, edit.path, alias_module)
-            if _bound_in_scope(parents, use, self.new, accepted) or other:
-                self._shadowed(source, edit)
-        return [edit]
+    def _is_target(self, module: str, name: str) -> bool:
+        assert self.home is not None
+        return self.home.definition is not None and self._attribute_definition(module, name) == self.home.definition
 
-    def _binds_target_before(self, rel: str, stmt: ast.AST, use: ast.Name,
-                             parents: dict[ast.AST, ast.AST], alias_module: str) -> bool:
-        """`stmt` imports the target from the alias's module, and the target is bound before every run of `use`: by
-        `stmt` itself, or by an import of the alias in its block that the retarget rewrites."""
-        if not (isinstance(stmt, ast.ImportFrom) and self._imports_target(rel, stmt, alias_module)):
+    def _module_source(self, module: str) -> SourceFile | None:
+        found = module_file(self.project, module)
+        return self.snapshot.source(found.path) if found is not None else None
+
+    def _exported_by(self, module: str) -> bool:
+        """`module` exports the target under its name: declares it, lists it in `__all__`, or imports it as itself."""
+        if module not in self._exports:
+            source = self._module_source(module)
+            tree = source.tree if source is not None else None
+            name = self.original
+            exported = tree is not None and source is not None and (
+                any(name in _stored(s) for s in tree.body if not isinstance(s, (ast.Import, ast.ImportFrom)))
+                or name in _all_names(source)
+                or any(a.name == a.asname == name for s in tree.body if isinstance(s, ast.ImportFrom) for a in s.names))
+            self._exports[module] = exported and self._is_target(module, name)
+        return self._exports[module]
+
+    def _star_binds(self, module: str) -> bool:
+        """A star import of `module` binds the target's name to the target."""
+        source = self._module_source(module)
+        if source is None or source.tree is None:
+            return False
+        name = self.original
+        if _has_all(source):
+            listed = name in _all_names(source)
+        else:
+            listed = not name.startswith("_") and any(name in _stored(s) for s in source.tree.body)
+        return listed and self._is_target(module, name)
+
+    def _binds_local(self, rel: str, stmt: ast.stmt, local: str) -> bool:
+        """`stmt` binds `local` to the target."""
+        assert self.home is not None
+        if isinstance(stmt, ast.ImportFrom):
+            module = imported_module(self.session, rel, stmt)
+            named = [a for a in stmt.names if a.name not in ("*", self.old)]
+            return any((a.asname or a.name) == local and self._is_target(module, a.name) for a in named) or (
+                any(a.name == "*" for a in stmt.names) and local == self.original and self._star_binds(module))
+        return isinstance(stmt, _DEFINITIONS) and (rel, stmt.lineno) == self.home.definition and local in _stored(stmt)
+
+    def _bindings(self, rel: str, anchor: ast.stmt, local: str, parents: Parents) -> tuple[bool, list[ast.alias]]:
+        """Whether `anchor` or an earlier statement of its block, or of a block enclosing it, binds `local` to the
+        target; else the later imports of `anchor`'s block that do."""
+        if self._binds_local(rel, anchor, local):
+            return True, []
+        stmt: ast.AST | None = anchor
+        while isinstance(stmt, ast.stmt):
+            for s in block_of(parents, stmt):
+                if s is stmt:
+                    break
+                if self._binds_local(rel, s, local):
+                    return True, []
+            stmt = _enclosing_statement(parents, stmt)
+        block = block_of(parents, anchor)
+        later = block[next(k for k, s in enumerate(block) if s is anchor) + 1 :]
+        return False, [a for s in later if isinstance(s, ast.ImportFrom) and self._binds_local(rel, s, local)
+                       for a in s.names if (a.asname or a.name) == local]
+
+    def _binds_target_before(self, rel: str, stmt: ast.AST, use: ast.Name, parents: Parents) -> bool:
+        """`stmt` imports the target under its name, and the target is bound before every run of `use`: by `stmt`
+        itself, or by an import of the alias in its block."""
+        if not (isinstance(stmt, ast.stmt) and self._binds_local(rel, stmt, self.original)):
             return False
         if _runs_before(parents, stmt, use):
             return True
-        return any(_runs_before(parents, s, use) and self._from_alias_module(rel, s, alias_module)
-                   and any(a.name == self.old and a.asname is None for a in s.names)
-                   for s in _block_of(parents, stmt) if isinstance(s, ast.ImportFrom))
+        return any(_runs_before(parents, s, use) and any(a.name == self.old and a.asname is None for a in s.names)
+                   for s in block_of(parents, stmt) if isinstance(s, ast.ImportFrom))
 
-    def _shadowed(self, source: SourceFile, edit: TextEdit) -> None:
-        line = source.line(edit.start)
-        text = message("refactor.retarget-shadowed", path=edit.path, line=line, name=self.new)
-        self.refusals.append(Finding(path=edit.path, line=line, col=edit.start, text=text))
-
-    def _from_alias_module(self, rel: str, stmt: ast.ImportFrom, alias_module: str) -> bool:
-        return _imported_module(stmt, module_name(self.session, rel), rel.endswith("__init__.py")) == alias_module
-
-    def _imports_target(self, rel: str, stmt: ast.AST, alias_module: str) -> bool:
-        """`stmt` imports the target's name from the alias's module."""
-        return (isinstance(stmt, ast.ImportFrom) and self._from_alias_module(rel, stmt, alias_module)
-                and any(a.name == self.new and a.asname in (None, self.new) for a in stmt.names))
-
-    def _module_binds_other(self, source: SourceFile, rel: str, alias_module: str, skip: ast.AST | None = None) -> bool:
-        """The module binds the target's name other than by importing it from the alias's module, in any block."""
+    def _module_binds_other(self, source: SourceFile, rel: str, skip: ast.AST | None = None) -> bool:
+        """The module binds the target's name other than to the target, in any block."""
         assert source.tree is not None
 
         def accepted(node: ast.AST) -> bool:
-            return node is skip or self._imports_target(rel, node, alias_module)
+            return node is skip or (isinstance(node, ast.stmt) and self._binds_local(rel, node, self.original))
 
         return any(self.new in _stored(stmt, accepted) for stmt in source.tree.body)
 
-    def _duplicate(
-        self, source: SourceFile, edit: TextEdit, stmt: ast.ImportFrom, alias: ast.alias,
-        parents: dict[ast.AST, ast.AST], alias_module: str,
-    ) -> list[TextEdit] | None:
-        """Where the alias's block also imports the target from the alias's module, the later of the two imports
+    def _duplicate(self, source: SourceFile, edit: TextEdit, stmt: ast.ImportFrom, alias: ast.alias,
+                   parents: Parents) -> list[TextEdit] | None:
+        """Where the alias's block also imports the target from the same module, the later of the two imports
         removed: the alias's import, or the target's while the alias's is rewritten in its place."""
         if alias.asname is not None:
             return None
         rel = edit.path
-        targets = [(s, a) for s in _block_of(parents, stmt)
-                   if isinstance(s, ast.ImportFrom) and self._from_alias_module(rel, s, alias_module)
+        module = imported_module(self.session, rel, stmt)
+        targets = [(s, a) for s in block_of(parents, stmt)
+                   if isinstance(s, ast.ImportFrom) and imported_module(self.session, rel, s) == module
                    for a in s.names if a.name == self.new and a.asname in (None, self.new)]
         if not targets:
             return None
         here = source.span(alias)[0]  # pyright: ignore[reportArgumentType]
         if any(source.span(a)[0] < here for _, a in targets):  # pyright: ignore[reportArgumentType]
-            return [_alias_removal(source, rel, stmt, alias)]
+            return aliases_removal(source, rel, stmt, {id(alias)})
         later_stmt, later_alias = targets[0]
-        return [edit, _alias_removal(source, rel, later_stmt, later_alias)]
+        return [edit, *aliases_removal(source, rel, later_stmt, {id(later_alias)})]
 
 
-def _runs_before(parents: dict[ast.AST, ast.AST], stmt: ast.AST, use: ast.AST) -> bool:
+def _runs_before(parents: Parents, stmt: ast.AST, use: ast.AST) -> bool:
     """`stmt` runs before every run of `use`: a later statement of `stmt`'s own block holds `use`."""
-    block = _block_of(parents, stmt)
+    block = block_of(parents, stmt)
     later = next((block[k + 1 :] for k, s in enumerate(block) if s is stmt), [])
     node: ast.AST | None = use
     while node is not None:
@@ -239,7 +426,7 @@ def _runs_before(parents: dict[ast.AST, ast.AST], stmt: ast.AST, use: ast.AST) -
     return False
 
 
-def _block_of(parents: dict[ast.AST, ast.AST], stmt: ast.AST) -> list[ast.stmt]:
+def block_of(parents: Parents, stmt: ast.AST) -> list[ast.stmt]:
     """The statement list holding `stmt`: its parent's `body`, `orelse` or `finalbody`, matched by identity."""
     parent = parents.get(stmt)
     for field in ("body", "orelse", "finalbody"):
@@ -249,40 +436,50 @@ def _block_of(parents: dict[ast.AST, ast.AST], stmt: ast.AST) -> list[ast.stmt]:
     return []
 
 
-def _alias_removal(source: SourceFile, rel: str, stmt: ast.ImportFrom, alias: ast.alias) -> TextEdit:
-    """The removal of `alias` from its import: the whole statement when it is the only name."""
-    if len(stmt.names) == 1:
-        return _statement_removal(source, rel, stmt)
-    spans = [source.span(a) for a in stmt.names]  # pyright: ignore[reportArgumentType]
-    i = next(k for k, a in enumerate(stmt.names) if a is alias)
-    start, end = (spans[i][0], spans[i + 1][0]) if i + 1 < len(spans) else (spans[i - 1][1], spans[i][1])
-    return TextEdit(path=rel, start=start, end=end, new_text="")
+def _enclosing_statement(parents: Parents, stmt: ast.AST) -> ast.AST | None:
+    """The compound statement or function whose block holds `stmt`; None at module level."""
+    node = parents.get(stmt)
+    while node is not None and not isinstance(node, ast.stmt):
+        node = parents.get(node)
+    return node
 
 
-def _shim_imports(source: SourceFile, name: str) -> list[ast.alias]:
-    """A module's imports binding `name` at module level, when its `__all__` lists `name`."""
-    if source.tree is None or not any(isinstance(n, ast.Constant) and n.value == name
-                                      for stmt in source.tree.body if _assigns_all(stmt) for n in ast.walk(stmt)):
-        return []
-    return [a for stmt in source.tree.body if isinstance(stmt, (ast.Import, ast.ImportFrom)) for a in stmt.names
-            if (a.asname or a.name.split(".")[-1]) == name]
+def aliases_removal(source: SourceFile, rel: str, stmt: ast.ImportFrom, removed: set[int]) -> list[TextEdit]:
+    """The removal of the `removed` names from an import: the whole statement when no name is left."""
+    names = stmt.names
+    if all(id(a) in removed for a in names):
+        return [statement_removal(source, rel, stmt)]
+    spans = [source.span(a) for a in names]  # pyright: ignore[reportArgumentType]
+    edits: list[TextEdit] = []
+    i = 0
+    while i < len(names):
+        if id(names[i]) not in removed:
+            i += 1
+            continue
+        j = i
+        while j < len(names) and id(names[j]) in removed:
+            j += 1
+        start, end = (spans[i][0], spans[j][0]) if j < len(names) else (spans[i - 1][1], spans[j - 1][1])
+        edits.append(TextEdit(path=rel, start=start, end=end, new_text=""))
+        i = j
+    return edits
 
 
-def _binding_import(parents: dict[ast.AST, ast.AST], node: ast.AST | None, name: str) -> ast.AST | None:
-    """The `from ... import` binding a bare `name` at `node`, looked up through the enclosing function scopes to the
-    module; None when a nearer scope binds it otherwise."""
-    if not isinstance(node, ast.Name):
-        return None
-    scope = parents.get(node)
+def _binding_of(parents: Parents, node: ast.AST | None, name: str) -> tuple[ast.ImportFrom, ast.alias] | None:
+    """The `from ... import` binding a bare `name` at `node` (a star import where nothing else does), looked up
+    through the enclosing function scopes to the module; None when a nearer scope binds it otherwise."""
+    scope = parents.get(node) if node is not None else None
     while scope is not None:
-        if isinstance(scope, (ast.Module, *_FUNCTIONS)):
-            body = scope.body if isinstance(scope.body, list) else []
-            imported = [s for s in _walk_scope(body) if isinstance(s, ast.ImportFrom)
-                        and any((a.asname or a.name) == name for a in s.names)]
-            if imported:
-                return imported[0]
-            if any(name in _stored(s) for s in body):
+        if isinstance(scope, (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef)):
+            imports = [s for s in _walk_scope(scope.body) if isinstance(s, ast.ImportFrom)]
+            found = next(((s, a) for s in imports for a in s.names if (a.asname or a.name) == name), None)
+            if found is not None:
+                return found
+            if any(name in _stored(s) for s in scope.body):
                 return None
+            stars = [(s, a) for s in imports for a in s.names if a.name == "*"]
+            if stars and isinstance(scope, ast.Module):
+                return stars[-1]
         scope = parents.get(scope)
     return None
 
@@ -299,12 +496,24 @@ def _walk_scope(body: list[ast.stmt]) -> Iterator[ast.stmt]:
             yield from _walk_scope(block)
 
 
+def _all_statements(source: SourceFile) -> list[ast.stmt]:
+    return [s for s in source.tree.body if _assigns_all(s)] if source.tree is not None else []
+
+
+def _has_all(source: SourceFile) -> bool:
+    return bool(_all_statements(source))
+
+
+def _all_names(source: SourceFile) -> set[str]:
+    """The names a module's `__all__` lists."""
+    return {n.value for s in _all_statements(source) for n in ast.walk(s) if isinstance(n, ast.Constant) and isinstance(n.value, str)}
+
+
 def _reexport_spans(source: SourceFile, name: str) -> list[tuple[int, int]]:
     """Where a module re-exports `name` (its `__all__` lists it): the `__all__` strings and its imports of `name`."""
     if source.tree is None:
         return []
-    names = [n for stmt in source.tree.body if _assigns_all(stmt) for n in ast.walk(stmt)
-             if isinstance(n, ast.Constant) and n.value == name]
+    names = [n for stmt in _all_statements(source) for n in ast.walk(stmt) if isinstance(n, ast.Constant) and n.value == name]
     if not names:
         return []
     imports = [a for stmt in source.tree.body if isinstance(stmt, (ast.Import, ast.ImportFrom)) for a in stmt.names
@@ -313,17 +522,20 @@ def _reexport_spans(source: SourceFile, name: str) -> list[tuple[int, int]]:
 
 
 def _assigns_all(stmt: ast.stmt) -> bool:
-    """`stmt` assigns or extends a module's `__all__`."""
+    """`stmt` assigns, extends or appends to a module's `__all__`."""
     if isinstance(stmt, ast.Assign):
         targets = stmt.targets
     elif isinstance(stmt, (ast.AnnAssign, ast.AugAssign)):
         targets = [stmt.target]
+    elif isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Call) and isinstance(stmt.value.func, ast.Attribute):
+        func = stmt.value.func
+        targets = [func.value] if func.attr in ("append", "extend") else []
     else:
         return False
     return any(isinstance(t, ast.Name) and t.id == "__all__" for t in targets)
 
 
-def _statement_removal(source: SourceFile, rel: str, stmt: ast.stmt) -> TextEdit:
+def statement_removal(source: SourceFile, rel: str, stmt: ast.stmt) -> TextEdit:
     """The removal of `stmt`: its whole lines when nothing but a comment shares them, else the statement and its
     `;` separator."""
     start, end = source.span(stmt)
@@ -340,10 +552,18 @@ def _statement_removal(source: SourceFile, rel: str, stmt: ast.stmt) -> TextEdit
 
 def _named_at(source: SourceFile, offset: int, name: str) -> ast.AST | None:
     """The `ast.Name` or imported `ast.alias` naming `name` at `offset`."""
-    assert source.tree is not None
+    if source.tree is None:
+        return None
     for node in ast.walk(source.tree):
         if isinstance(node, ast.Name) and node.id == name and source.span(node)[0] == offset:
             return node
         if isinstance(node, ast.alias) and node.name == name and source.offset(node.lineno, node.col_offset) == offset:
             return node
     return None
+
+
+def _attribute_at(source: SourceFile, offset: int, name: str) -> ast.Attribute | None:
+    """The `ast.Attribute` whose attribute `name` starts at `offset`."""
+    assert source.tree is not None
+    return next((n for n in ast.walk(source.tree) if isinstance(n, ast.Attribute) and n.attr == name
+                 and (span := source.name_span(n)) is not None and span[0] == offset), None)

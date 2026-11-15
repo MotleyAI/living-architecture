@@ -49,7 +49,7 @@ retarget cases.
 - [x] 1.10 Case `refactor-retarget-shadowed-kept` (spec "Kept refusal does not block"; design 13): the existing
       shadowed fixture plus `--keep` on the shadowed line; exit 0, line unchanged, other uses rewritten, no import added
       for the kept use alone, and an alias import kept while a kept use needs it. Verify: fails today (exit 1).
-- [ ] 1.11 Case `refactor-ts-retarget-meanings` (spec "TypeScript type and value meanings"; design 12, `kind:
+- [x] 1.11 Case `refactor-ts-retarget-meanings` (spec "TypeScript type and value meanings"; design 12, `kind:
       adapter`): type-only use → `import type`; `new`/`typeof`/`extends` value uses → value import; an unrelated value
       of TARGET's spelling beside a type-only binding → `refactor.retarget-shadowed` at the value use; a merged
       class/namespace target. Verify: fails today.
@@ -65,28 +65,30 @@ retarget cases.
 
 ## 2. Implementation (pr-implement)
 
-- [ ] 2.1 Target resolution in both twins (design 4, 7, 8, 9): accept an import binding or the re-export form as
+- [x] 2.1 Target resolution in both twins (design 4, 7, 8, 9): accept an import binding or the re-export form as
       TARGET; record home, exported name, local name and identity; member aliases keep the same-class rule. Verify: 1.2,
       1.4, 1.12 pass.
-- [ ] 2.2 Site classification and the bound/shadowed/unbound rules (spec bullets; design 1, 2, 9, 11, 12), replacing
+- [x] 2.2 Site classification and the bound/shadowed/unbound rules (spec bullets; design 1, 2, 9, 11, 12), replacing
       the shim/keep special cases (Python `_shim_imports`, `_through_bare_shim`, `_bare_shim`, `_module_binds_other`;
       TS `keptBindings`, `shimImports`) with the one rule. Verify: 1.5–1.9, 1.11 pass.
-- [ ] 2.3 The import planner, run after `--keep` and once over all retarget entries of a map (design 5, 6, 13, 14,
+- [x] 2.3 The import planner, run after `--keep` and once over all retarget entries of a map (design 5, 6, 13, 14,
       16); `--keep` releases shadowed/unbound refusals. Verify: 1.3, 1.10, 1.13 pass.
-- [ ] 2.4 Apply the approved wording (design 3) verbatim to `plugin/skills/deterministic-refactor/SKILL.md` and
+- [x] 2.4 Apply the approved wording (design 3) verbatim to `plugin/skills/deterministic-refactor/SKILL.md` and
       `docs/deterministic-refactoring.md`. Verify: diff shows exactly those sentences.
 
 ## 3. Gates
 
-- [ ] 3.1 Local test scope green in both twins; `ruff`, `basedpyright`, `npm run lint && npm run typecheck`,
+- [x] 3.1 Local test scope green in both twins; `ruff`, `basedpyright`, `npm run lint && npm run typecheck`,
       `la-arch-check`, `la-typecheck`, `scripts/sync-shared --check`, `scripts/conformance-cross` over the touched
       cases. Verify: all exit 0.
 
 ## 4. Acceptance
 
-- [ ] 4.1 From this checkout, dry-run on SLayer's DEV-1607 worktree
+- [x] 4.1 From this checkout, dry-run on SLayer's DEV-1607 worktree
       (`~/GitHub/SLayer/slayer.worktrees/egor__dev-1607-rename-columns-to-fields-to-be-consistent-with`) the map
       `slayer/flight/catalog.py` `FlightCatalog`/`FlightSchema`/`FlightTable`/`FlightMetric`/`FlightDimension` →
       `Facade*`. Expect `handlers.py` and `info_schema.py` re-pointed to one `from slayer.facade.catalog import ...`
       each, `catalog.py` unchanged, exit 0. Record the commit, outcome and wall time here.
+      Recorded: SLayer `c6d2e572`; exit 0 in 8 s; `handlers.py` and `info_schema.py` each gain one
+      `from slayer.facade.catalog import FacadeCatalog` in place of the alias import, `catalog.py` unchanged.
 - [ ] 4.2 `openspec validate dev-2298-living-architecture-dr-refactor-retarget --strict` before archiving.

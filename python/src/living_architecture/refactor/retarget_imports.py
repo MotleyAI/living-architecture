@@ -1,0 +1,173 @@
+"""The imports a retarget adds, planned once across a map's entries: one import per block and home, joining an earlier
+import from the home, else replacing the alias's import in place, else a new statement after it."""
+
+from __future__ import annotations
+
+import ast
+import re
+from collections.abc import Iterable
+
+from living_architecture.refactor.python_source import SourceFile, split_lines
+from living_architecture.refactor.rename_union import Session
+from living_architecture.refactor.retarget import (
+    ImportNeed,
+    aliases_removal,
+    block_of,
+    imported_module,
+    package_of,
+)
+from living_architecture.refactor.text_edits import TextEdit
+
+_FROM = re.compile(r"from\s+((?:\.\s*)*[\w.]*)\s*import\b")
+
+
+def spelled(home: str, package: str, relative: bool) -> str:
+    """`home` as an import from `package` spells it: relative when `relative` and they share a top package."""
+    if not relative:
+        return home
+    pkg, parts = package.split(".") if package else [], home.split(".")
+    common = 0
+    while common < min(len(pkg), len(parts)) and pkg[common] == parts[common]:
+        common += 1
+    return home if common == 0 else "." * (len(pkg) - common + 1) + ".".join(parts[common:])
+
+
+def _named(exported: str, local: str) -> str:
+    return exported if exported == local else f"{exported} as {local}"
+
+
+def _unique(pairs: Iterable[tuple[str, str]]) -> list[tuple[str, str]]:
+    return list(dict.fromkeys(pairs))
+
+
+class _File:
+    """One file's needs, planned block by block."""
+
+    def __init__(self, session: Session, rel: str, needs: list[ImportNeed]) -> None:
+        self.session = session
+        self.rel = rel
+        self.source: SourceFile = session.snapshot.source(rel)
+        assert self.source.tree is not None
+        self.parents = {c: n for n in ast.walk(self.source.tree) for c in ast.iter_child_nodes(n)}
+        self.needs = sorted(needs, key=self._position)
+        self.leaving = {id(n.leaving): n for n in needs if n.leaving is not None}
+        self.in_place: set[int] = set()
+        self.duplicates: dict[int, ast.alias] = {}
+        self.edits: list[TextEdit] = []
+
+    def _position(self, need: ImportNeed) -> tuple[int, int]:
+        at = need.leaving if need.leaving is not None else need.anchor
+        return self.source.offset(need.anchor.lineno, need.anchor.col_offset), self.source.offset(at.lineno, at.col_offset)
+
+    def plan(self) -> list[TextEdit]:
+        blocks: dict[int, list[ImportNeed]] = {}
+        for need in self.needs:
+            blocks.setdefault(id(block_of(self.parents, need.anchor)), []).append(need)
+        for block_needs in blocks.values():
+            homes: dict[str, list[ImportNeed]] = {}
+            for need in block_needs:
+                homes.setdefault(need.home.module, []).append(need)
+            for module, group in homes.items():
+                binding = [n for n in group if n.bind]
+                self._place(module, binding)
+                self.duplicates.update({id(d): d for n in binding for d in n.duplicates})
+        for stmt, removed in self._removals():
+            self.edits += aliases_removal(self.source, self.rel, stmt, removed)
+        return self.edits
+
+    def _removals(self) -> list[tuple[ast.ImportFrom, set[int]]]:
+        by_stmt: dict[int, tuple[ast.ImportFrom, set[int]]] = {}
+        for need in self.needs:
+            if need.leaving is not None and id(need.anchor) not in self.in_place:
+                assert isinstance(need.anchor, ast.ImportFrom)
+                by_stmt.setdefault(id(need.anchor), (need.anchor, set()))[1].add(id(need.leaving))
+        for key, alias in self.duplicates.items():
+            stmt = self.parents[alias]
+            assert isinstance(stmt, ast.ImportFrom)
+            by_stmt.setdefault(id(stmt), (stmt, set()))[1].add(key)
+        return list(by_stmt.values())
+
+    def _place(self, module: str, group: list[ImportNeed]) -> None:
+        if not group:
+            return
+        first = group[0].anchor
+        names = _unique((n.home.exported, n.local) for n in group)
+        joined = self._join_target(module, first)
+        if joined is not None:
+            self._append(joined, names)
+        elif self._replaceable(first, module):
+            self._replace(first, module, names)
+        else:
+            self._insert_after(first, module, names)
+
+    def _join_target(self, module: str, anchor: ast.stmt) -> ast.ImportFrom | None:
+        """An earlier import of `anchor`'s block from `module`, none of whose names leave."""
+        for stmt in block_of(self.parents, anchor):
+            if stmt is anchor:
+                return None
+            if (isinstance(stmt, ast.ImportFrom) and imported_module(self.session, self.rel, stmt) == module
+                    and all(a.name != "*" and id(a) not in self.leaving for a in stmt.names)):
+                return stmt
+        return None
+
+    def _replaceable(self, stmt: ast.stmt, module: str) -> bool:
+        """Every name of `stmt` leaves it for `module`, and it is not replaced for another module."""
+        return (isinstance(stmt, ast.ImportFrom) and id(stmt) not in self.in_place
+                and all(id(a) in self.leaving and self.leaving[id(a)].home.module == module for a in stmt.names))
+
+    def _append(self, stmt: ast.ImportFrom, names: list[tuple[str, str]]) -> None:
+        present = {(a.name, a.asname or a.name) for a in stmt.names}
+        added = [p for p in names if p not in present]
+        if added:
+            end = self.source.span(stmt.names[-1])[1]  # pyright: ignore[reportArgumentType]
+            self.edits.append(TextEdit(path=self.rel, start=end, end=end, new_text="".join(f", {_named(*p)}" for p in added)))
+
+    def _replace(self, stmt: ast.stmt, module: str, names: list[tuple[str, str]]) -> None:
+        """`stmt`'s module and names rewritten in place; names it lacks appended."""
+        assert isinstance(stmt, ast.ImportFrom)
+        self.in_place.add(id(stmt))
+        m = _FROM.match(self.source.text, self.source.span(stmt)[0])
+        assert m is not None
+        home = spelled(module, package_of(self.session, self.rel), stmt.level > 0)
+        self.edits.append(TextEdit(path=self.rel, start=m.start(1), end=m.end(1), new_text=home))
+        written: set[tuple[str, str]] = set()
+        for alias in stmt.names:
+            need = self.leaving[id(alias)]
+            start = self.source.offset(alias.lineno, alias.col_offset)
+            text = need.home.exported if alias.asname is not None else _named(need.home.exported, need.local)
+            self.edits.append(TextEdit(path=self.rel, start=start, end=start + len(alias.name), new_text=text))
+            written.add((need.home.exported, need.local))
+        rest = [p for p in names if p not in written]
+        if rest:
+            end = self.source.span(stmt.names[-1])[1]  # pyright: ignore[reportArgumentType]
+            self.edits.append(TextEdit(path=self.rel, start=end, end=end, new_text="".join(f", {_named(*p)}" for p in rest)))
+
+    def _insert_after(self, anchor: ast.stmt, module: str, names: list[tuple[str, str]]) -> None:
+        """A new import statement on the line after `anchor`, at its indentation."""
+        source = self.source
+        line_start = source.line_start(anchor.lineno)
+        start = source.offset(anchor.lineno, anchor.col_offset)
+        head = source.text[line_start:start]
+        indent = head if not head.strip() else head[: len(head) - len(head.lstrip())]
+        relative = isinstance(anchor, ast.ImportFrom) and anchor.level > 0
+        home = spelled(module, package_of(self.session, self.rel), relative)
+        statement = f"{indent}from {home} import {', '.join(_named(*p) for p in names)}"
+        end_line = anchor.end_lineno or anchor.lineno
+        lines = split_lines(source.text)
+        if end_line < len(lines):
+            terminator = "\r\n" if lines[end_line - 1].endswith("\r\n") else "\n"
+            at = source.line_start(end_line + 1)
+            self.edits.append(TextEdit(path=self.rel, start=at, end=at, new_text=statement + terminator))
+        else:
+            last = lines[-1] if lines else ""
+            ending = last[len(last.rstrip("\r\n")):]
+            text = statement + ending if ending else "\n" + statement
+            self.edits.append(TextEdit(path=self.rel, start=len(source.text), end=len(source.text), new_text=text))
+
+
+def plan_imports(session: Session, needs: list[ImportNeed]) -> list[TextEdit]:
+    """The edits binding every need's target and dropping the alias from the imports it leaves."""
+    by_file: dict[str, list[ImportNeed]] = {}
+    for need in needs:
+        by_file.setdefault(need.path, []).append(need)
+    return [e for rel in sorted(by_file) for e in _File(session, rel, by_file[rel]).plan()]
