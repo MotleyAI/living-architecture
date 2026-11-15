@@ -422,7 +422,7 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | Branch | Exit | Cases |
 |---|---|---|
 | rename: dry-run / apply by name, line+col, offset; hierarchy on/off; `--unsure include` warning; *(new)* changes printed sorted by path | 0 | `refactor-rename-dry-run`, `refactor-rename-apply`, `refactor-rename-single-file-dry-run`, `refactor-rename-single-file-apply`, `refactor-rename-line-col`, `refactor-rename-no-in-hierarchy`, `refactor-rename-offset`, `refactor-rename-unsure-include` |
-| move-symbol (*(new)* sorted by path); move-module (tracked, untracked); `--project` | 0 | `refactor-move-symbol-apply`, `refactor-move-module-apply`, `refactor-move-module-uncommitted`, `refactor-project-flag` |
+| move-symbol (*(new)* sorted by path); move-module (tracked, the move staged; untracked); `--project` | 0 | `refactor-move-symbol-apply`, `refactor-move-module-apply`, `refactor-move-module-uncommitted`, `refactor-project-flag` |
 | no locator; line out of range; path outside the project | 1 | `refactor-no-locator`, `refactor-line-out-of-range`, `refactor-path-outside-project` |
 | a top-level `--symbol` naming no declaration (the file's names listed) | 2 | `refactor-symbol-not-found` |
 | usage errors; `--help` | 2/0 | `refactor-usage-no-subcommand`, `refactor-usage-rename-without-new-name`, `refactor-usage-rename-without-file`, `refactor-usage-bad-unsure-choice`, `refactor-usage-offset-not-int`, `refactor-help` |
@@ -502,7 +502,7 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | *(new)* the tsconfig `index.yaml` names does not exist | 1 | `refactor-ts-index-tsconfig-missing` |
 | *(new)* `index.yaml` repeats a key (the duplicate-key error), is not valid YAML or not valid UTF-8: an error, nothing written, no fallback | 1 | `refactor-ts-index-duplicate-key`, `refactor-ts-index-invalid-yaml`, `refactor-ts-index-not-utf8` |
 | *(new)* move-symbol: importers rewritten; default re-export rewritten; `export *` barrel gets an explicit re-export (none when it already re-exports the new file) and a mixed named re-export is split | 0 | `refactor-ts-move-symbol-apply`, `refactor-ts-move-symbol-default-reexport`, `refactor-ts-move-symbol-barrel`, `refactor-ts-move-symbol-barrel-covered` |
-| *(new)* move-module: a file (apply, dry-run), a directory, a directory with a file of a non-repo language | 0 | `refactor-ts-move-module-apply`, `refactor-ts-move-module-dry-run`, `refactor-ts-move-module-directory`, `refactor-ts-move-module-directory-stray-python` |
+| *(new)* move-module: a file (apply, the tracked move staged; dry-run), a directory, a directory with a file of a non-repo language | 0 | `refactor-ts-move-module-apply`, `refactor-ts-move-module-dry-run`, `refactor-ts-move-module-directory`, `refactor-ts-move-module-directory-stray-python` |
 | *(new)* moves edit only at references: a multi-name import split in place (move-symbol); a multi-name import, a statement between import groups, an unsorted block (move-module) | 0 | `refactor-ts-move-symbol-split-in-place`, `refactor-ts-move-module-references` |
 | *(new)* locator errors: line, column, offset out of range; no locator | 1 | `refactor-ts-line-out-of-range`, `refactor-ts-col-out-of-range`, `refactor-ts-offset-out-of-range`, `refactor-ts-no-locator` |
 | *(new)* a top-level `--symbol` naming no declaration (the file's top-level names listed) | 2 | `refactor-ts-symbol-not-found` |

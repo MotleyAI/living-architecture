@@ -2,12 +2,13 @@
 // per-project edits, whose conflict branch no real TypeScript input reaches, and the writer.
 import { chmodSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { message } from '../src/contract/index.js';
 import { mergeEdits, RefactorError, unifiedDiff } from '../src/refactor/index.js';
 import { writeAll } from '../src/refactor/writer.js';
 import { vectors } from './helpers.js';
+import { commitAll, gitStatus, tsProject } from './refactor-project.js';
 
 // A fixed temporary name, so a test can plant a symlink where the writer would write.
 vi.mock(import('node:crypto'), async (importOriginal) => {
@@ -55,7 +56,7 @@ describe('writeAll', () => {
     const path = join(mkdtempSync(join(tmpdir(), 'writer-')), 'run.ts');
     writeFileSync(path, 'a\n');
     chmodSync(path, 0o755);
-    writeAll([{ path, old: 'a\n', text: 'b\n' }], [], (p) => p);
+    writeAll(dirname(path), [{ path, old: 'a\n', text: 'b\n' }], [], (p) => p);
     expect(statSync(path).mode & 0o7777).toBe(0o755);
   });
 
@@ -63,7 +64,7 @@ describe('writeAll', () => {
     const dir = mkdtempSync(join(tmpdir(), 'writer-'));
     const path = join(dir, 'a.ts');
     writeFileSync(path, 'a\n');
-    writeAll([{ path, old: 'a\n', text: 'b\n' }], [], (p) => p);
+    writeAll(dirname(path), [{ path, old: 'a\n', text: 'b\n' }], [], (p) => p);
     expect([readFileSync(path, 'utf8'), readdirSync(dir)]).toEqual(['b\n', ['a.ts']]);
   });
 
@@ -74,8 +75,20 @@ describe('writeAll', () => {
     writeFileSync(outside, 'keep\n');
     const planted = join(dir, `.a.ts${TEMP_SUFFIX}`);
     symlinkSync(outside, planted);
-    expect(() => writeAll([{ path, old: 'a\n', text: 'b\n' }], [], (p) => p)).toThrow(message('refactor.write-failed', { path }));
+    expect(() => writeAll(dir, [{ path, old: 'a\n', text: 'b\n' }], [], (p) => p)).toThrow(message('refactor.write-failed', { path }));
     expect([readFileSync(path, 'utf8'), readFileSync(outside, 'utf8'), lstatSync(planted).isSymbolicLink()]).toEqual(['a\n', 'keep\n', true]);
+  });
+
+  it('moves a tracked file with git, so the move is staged, and an untracked one without', () => {
+    const root = tsProject({ 'src/tracked.ts': 'export {};\n', 'src/sub/keep.ts': 'export {};\n' });
+    commitAll(root);
+    writeFileSync(join(root, 'src/loose.ts'), 'export {};\n');
+    const moves: [string, string][] = [
+      [join(root, 'src/tracked.ts'), join(root, 'src/sub/tracked.ts')],
+      [join(root, 'src/loose.ts'), join(root, 'src/sub/loose.ts')],
+    ];
+    writeAll(root, [], moves, (p) => p);
+    expect(gitStatus(root)).toEqual(expect.arrayContaining(['R  src/tracked.ts -> src/sub/tracked.ts', '?? src/sub/loose.ts']));
   });
 
   it.skipIf(process.getuid?.() === 0)('names the source of a failed move, as the Python twin does, and restores the writes', () => {
@@ -87,7 +100,7 @@ describe('writeAll', () => {
     mkdirSync(locked);
     chmodSync(locked, 0o555);
     try {
-      const run = (): void => writeAll([{ path: written, old: 'a\n', text: 'A\n' }], [[from, join(locked, 'b.ts')]], (p) => p);
+      const run = (): void => writeAll(dir, [{ path: written, old: 'a\n', text: 'A\n' }], [[from, join(locked, 'b.ts')]], (p) => p);
       expect(run).toThrow(message('refactor.write-failed', { path: from }));
     } finally {
       chmodSync(locked, 0o755);

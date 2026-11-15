@@ -1,7 +1,8 @@
 // A refactor's apply: every file written or none.
+import { spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { chmodSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
-import { basename, dirname, join } from 'node:path';
+import { basename, dirname, join, relative } from 'node:path';
 import { message } from '../contract/index.js';
 import { RefactorError } from './edits.js';
 
@@ -29,9 +30,26 @@ function replace(path: string, text: string | Buffer): void {
   }
 }
 
-/** Write `writes` (in order) through same-directory temporary files, then apply `moves`; RefactorError naming the
- * changed file before anything is written, or the failed one after restoring what was written. */
-export function writeAll(writes: Write[], moves: [string, string][], shown: (path: string) => string): void {
+/** Git tracks `path` (inside the work tree at `root`). */
+function tracked(root: string, path: string): boolean {
+  const proc = spawnSync('git', ['ls-files', '--error-unmatch', '--', relative(root, path)], { cwd: root }); // NOSONAR(S4036) — runs the user's own git from PATH by design
+  return proc.status === 0;
+}
+
+/** `git mv` for a tracked file or directory, so the move is staged; else a rename. */
+function move(root: string, from: string, to: string): void {
+  if (existsSync(join(root, '.git')) && tracked(root, from)) {
+    const proc = spawnSync('git', ['mv', '--', relative(root, from), relative(root, to)], { cwd: root }); // NOSONAR(S4036) — runs the user's own git from PATH by design
+    if (proc.status !== 0) throw new Error(`git mv ${from}`);
+    return;
+  }
+  renameSync(from, to);
+}
+
+/** Write `writes` (in order) through same-directory temporary files, then apply `moves` under the project `root`;
+ * RefactorError naming the changed file before anything is written, or the failed one after restoring what was
+ * written. */
+export function writeAll(root: string, writes: Write[], moves: [string, string][], shown: (path: string) => string): void {
   const originals = new Map<string, Buffer>();
   for (const { path, old } of writes) {
     const bytes = existsSync(path) ? readFileSync(path) : null;
@@ -50,11 +68,11 @@ export function writeAll(writes: Write[], moves: [string, string][], shown: (pat
     for (const [from, to] of moves) {
       current = from;
       mkdirSync(dirname(to), { recursive: true });
-      renameSync(from, to);
+      move(root, from, to);
       moved.push([from, to]);
     }
   } catch {
-    for (const [from, to] of moved.reverse()) renameSync(to, from);
+    for (const [from, to] of moved.reverse()) move(root, to, from);
     for (const path of written) replace(path, originals.get(path) ?? '');
     throw new RefactorError(message('refactor.write-failed', { path: shown(current) }));
   }

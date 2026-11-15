@@ -97,3 +97,9 @@ export function commitAll(root: string, msg = 'init'): void {
   execFileSync('git', ['add', '-A'], { cwd: root }); // NOSONAR(S4036) — test helper runs the developer's git from PATH
   execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '-m', msg], { cwd: root }); // NOSONAR(S4036) — test helper runs the developer's git from PATH
 }
+
+/** `git status --porcelain` lines of `root`. */
+export function gitStatus(root: string): string[] {
+  const out = execFileSync('git', ['status', '--porcelain'], { cwd: root, encoding: 'utf8' }); // NOSONAR(S4036) — test helper runs the developer's git from PATH
+  return out.split('\n').filter((line) => line !== '');
+}

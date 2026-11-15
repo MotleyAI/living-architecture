@@ -109,7 +109,7 @@ export class Refactor {
     const body = entries.map((e) => `${e.text}\n`).join('');
     let out = `${headers.join('\n')}\n\n\n${body}\n`;
     if (this.args.apply) {
-      writeAll(writes.toSorted((a, b) => byCodePoint(a.path, b.path)), moves, (path) => this.rel(path));
+      writeAll(this.root, writes.toSorted((a, b) => byCodePoint(a.path, b.path)), moves, (path) => this.rel(path));
       out += `${message('refactor.applied', { count: paths.length })}\n`;
       out += paths.map((path) => `${message('refactor.applied-file', { path })}\n`).join('');
     } else {
