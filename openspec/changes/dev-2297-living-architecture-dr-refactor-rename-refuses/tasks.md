@@ -44,17 +44,17 @@
 
 ## 2. Shared contract (pr-implement)
 
-- [ ] 2.1 `shared/languages.yaml`: python `root_members` (sorted list), documented in the header comment; run
+- [x] 2.1 `shared/languages.yaml`: python `root_members` (sorted list), documented in the header comment; run
       `scripts/sync-shared`. Verify: drift tests and 1.6's typeshed test pass.
 
 ## 3. TypeScript twin (pr-implement)
 
-- [ ] 3.1 A binding module under `node/src/refactor/`: the occurrence prefilter over every project source, the overlay
+- [x] 3.1 A binding module under `node/src/refactor/`: the occurrence prefilter over every project source, the overlay
       program over the edited texts, per-meaning resolution, identity by declaration set (design decisions 9, 19–22),
       the kept-site rule, and the site order of decision 10.
-- [ ] 3.2 The member-namespace check (decisions 3, 7, 24): the renamed set subtracted; instance and static sides;
+- [x] 3.2 The member-namespace check (decisions 3, 7, 24): the renamed set subtracted; instance and static sides;
       ancestors through heritage clauses and the apparent `Object` members; project descendants.
-- [ ] 3.3 `rename.ts`: remove `checkNameConflict`, `checkConvergence`, `bindingScope`, `blockOf`, `blockScoped`;
+- [x] 3.3 `rename.ts`: remove `checkNameConflict`, `checkConvergence`, `bindingScope`, `blockOf`, `blockScoped`;
       `runEntries` runs the per-entry then combined checks after `keep` and before `refusal` (decisions 11, 12);
       retarget entries expect their target (decision 13). Verify: 1.1–1.3 and 1.7 pass through the npm twin.
 
@@ -64,18 +64,18 @@
       import bindings as module-local declarations, star-import binding, forward-reference strings read in their
       scope, the occurrence prefilter, the kept-site rule, the site order of decision 10; a parse failure raises the
       `cannot-rename` refusal.
-- [ ] 4.2 The member-namespace check: `member_declarations` for class bodies, `self` attributes in the class's
+- [x] 4.2 The member-namespace check: `member_declarations` for class bodies, `self` attributes in the class's
       methods, the MRO through rope (library bases), `root_members` from the shared contract, project descendants,
       the renamed set subtracted.
-- [ ] 4.3 `rename_map.py` / `rename_union.py`: remove `check_convergence` and the `_variable_sites` parameter scan
+- [x] 4.3 `rename_map.py` / `rename_union.py`: remove `check_convergence` and the `_variable_sites` parameter scan
       (and helpers only it used); `run_map` runs the per-entry then combined checks after `keep` and before
       `refusal`.
-- [ ] 4.4 `rope_refactor.py` `_module_rename`: the destination check before rope computes changes, then the binding
+- [x] 4.4 `rope_refactor.py` `_module_rename`: the destination check before rope computes changes, then the binding
       check over rope's edits on a virtual post-move snapshot (decision 23). Verify: 1.1–1.6 pass through the PyPI
       twin.
 
 ## 5. Finish (pr-implement)
 
-- [ ] 5.1 Every new case through both twins (`scripts/conformance-cross`), the local test scope of `/la:pr`, lint and
+- [x] 5.1 Every new case through both twins (`scripts/conformance-cross`), the local test scope of `/la:pr`, lint and
       typecheck in both twins.
-- [ ] 5.2 Enforcement bundle: `la-arch-check`, LikeC4 validation, `la-typecheck` against its baseline.
+- [x] 5.2 Enforcement bundle: `la-arch-check`, LikeC4 validation, `la-typecheck` against its baseline.

@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import difflib
+import re
 from itertools import pairwise
 
 from pydantic import BaseModel, ConfigDict
+
+_TOKEN = re.compile(r"\w+|\s+|.", re.DOTALL)
 
 
 class OverlappingEdits(Exception):
@@ -43,3 +47,16 @@ def apply_edits(text: str, edits: list[TextEdit]) -> str:
         out += [text[pos : edit.start], edit.new_text]
         pos = edit.end
     return "".join(out) + text[pos:]
+
+
+def diff_edits(path: str, old: str, new: str) -> list[TextEdit]:
+    """The edits turning `old` into `new`, word by word."""
+    a, b = _TOKEN.findall(old), _TOKEN.findall(new)
+    starts = [0]
+    for token in a:
+        starts.append(starts[-1] + len(token))
+    return [
+        TextEdit(path=path, start=starts[i1], end=starts[i2], new_text="".join(b[j1:j2]))
+        for tag, i1, i2, j1, j2 in difflib.SequenceMatcher(None, a, b, autojunk=False).get_opcodes()
+        if tag != "equal"
+    ]
