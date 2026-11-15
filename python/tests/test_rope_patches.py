@@ -25,6 +25,64 @@ CLICKHOUSE = (
     ")\n"
 )
 
+TRAMPOLINE = r"""import sys
+
+
+def f(body: str) -> str:
+    return f"#!/bin/sh\n'''exec' '{sys.executable}' \"$0\" \"$@\"\n' '''\n{body}"
+"""
+
+# (source, opening delimiter, last piece's closing delimiter, concatenated) of the first f-string or t-string.
+QUOTED_FSTRINGS = [
+    pytest.param(TRAMPOLINE, 'f"', '"', False, id="fstring-trampoline"),
+    pytest.param("x = f\"'''{y}\"\n", 'f"', '"', False, id="fstring-triple-single-before-value"),
+    pytest.param("x = f\"{y}'''\"\n", 'f"', '"', False, id="fstring-triple-single-after-value"),
+    pytest.param("x = f\"{y}'''{y}\"\n", 'f"', '"', False, id="fstring-triple-single-between-values"),
+    pytest.param("x = f\"'''\"\n", 'f"', '"', False, id="fstring-triple-single-no-value"),
+    pytest.param("x = f'{a}\"\"\"{b}'\n", "f'", "'", False, id="fstring-triple-double-between-values"),
+    pytest.param("x = f'\"\"\"{a}'\n", "f'", "'", False, id="fstring-triple-double-before-value"),
+    pytest.param("x = f'{a}\"\"\"'\n", "f'", "'", False, id="fstring-triple-double-after-value"),
+    pytest.param("x = f\"\"\"{a}'''{b}\"\"\"\n", 'f"""', '"""', False, id="fstring-triple-single-in-triple-double"),
+    pytest.param("x = f'''{a}\"\"\"{b}'''\n", "f'''", "'''", False, id="fstring-triple-double-in-triple-single"),
+    pytest.param("x = \"'''\" f\"{y}\"\n", '"', '"', True, id="triple-in-plain-piece-before"),
+    pytest.param("x = f\"{y}\" \"'''\"\n", 'f"', '"', True, id="triple-in-plain-piece-after"),
+    pytest.param("x = '\"\"\"' f'{y}' '\"\"\"'\n", "'", "'", True, id="triple-in-plain-pieces-around"),
+    pytest.param("x = rf\"'''{a}\"\n", 'rf"', '"', False, id="prefix-rf-triple"),
+    pytest.param("x = Rf'{a}\"\"\"'\n", "Rf'", "'", False, id="prefix-Rf-triple"),
+    pytest.param("x = fR\"\"\"{a}'''\"\"\"\n", 'fR"""', '"""', False, id="prefix-fR-triple"),
+    pytest.param("x = F\"'''{a}\"\n", 'F"', '"', False, id="prefix-F-triple"),
+    pytest.param("x = RF'{a}\"\"\"'\n", "RF'", "'", False, id="prefix-RF-triple"),
+    pytest.param("x = f\"{{'''}} {y}\"\n", 'f"', '"', False, id="fstring-doubled-braces-around-triple"),
+    pytest.param(
+        "x = (f\"{a}\"  # \"\"\" ''' \" '\n     \"\"\"x\"\"\")\n", 'f"', '"""', True, id="quotes-in-comment-between"
+    ),
+    pytest.param(
+        "x = (f\"{a}\"  # \"\"\" ''' \" '\r\n     \"\"\"x\"\"\")\r\n", 'f"', '"""', True, id="quotes-in-comment-between-crlf"
+    ),
+    pytest.param('x = f"""{a}""" \\\n    """b"""\n', 'f"""', '"""', True, id="backslash-after-triple-fstring"),
+    pytest.param("x = \"\"\"a\"\"\" \\\n    f\"\"\"{b}'''\"\"\"\n", '"""', '"""', True, id="backslash-before-triple-fstring"),
+    pytest.param('x = f"{a}" ""\n', 'f"', '"', True, id="empty-last-piece"),
+    pytest.param('x = f"{a}"""\n', 'f"', '"', True, id="empty-last-piece-adjacent"),
+    pytest.param('x = "" f"{a}"\n', '"', '"', True, id="empty-first-piece"),
+    pytest.param("x = ('' f'{a}' '')\n", "'", "'", True, id="empty-pieces-around"),
+    pytest.param(
+        "x = (\"\"\"a\"\"\" f\"{b}\" '''c''' f'{d}' \"e\")\n", '"""', '"', True, id="mixed-quote-widths"
+    ),
+    pytest.param("x = f\"\"\"\n'''{a}\n'''\n\"\"\"\n", 'f"""', '"""', False, id="fstring-multiline-triple"),
+    pytest.param('x = f"\\"\\"\\"{a}"\n', 'f"', '"', False, id="fstring-escaped-quotes-before-value"),
+    pytest.param(
+        "x = (\n    f\"é'''{a}\"\n    \"ü\\\"\\\"\\\"\"\n    f'{b}ö\"\"\"'\n)\n", 'f"', "'", True, id="non-ascii-multiline-concatenation"
+    ),
+    pytest.param("g(  # f\"\n    f\"{a}'''\")\n", 'f"', '"', False, id="fstring-after-comment-holding-prefix"),
+    pytest.param("x = f\"{f\"'''{a}\"}\"\n", 'f"', '"', False, id="fstring-nested-same-quote-triple", marks=PY312),
+    pytest.param(
+        "x = f\"\"\"{f\"\"\"{a}'''\"\"\"}\"\"\"\n", 'f"""', '"""', False, id="fstring-nested-same-triple-quote", marks=PY312
+    ),
+    pytest.param("x = t\"'''{a}\"\n", 't"', '"', False, id="tstring-triple-single", marks=PY314),
+    pytest.param("x = t'{a}\"\"\"{b}'\n", "t'", "'", False, id="tstring-triple-double", marks=PY314),
+    pytest.param("x = (t\"\"\"{a}'''\"\"\" t\"{b}\")\n", 't"""', '"', True, id="tstring-concatenated-triple", marks=PY314),
+]
+
 CORPUS = [
     # signatures
     pytest.param('def f(*, m: str = "(host)"):\n    pass\n', id="kwonly-default"),
@@ -74,6 +132,8 @@ CORPUS = [
     pytest.param('x = f"{f"{a}("}" ")"\n', id="fstring-nested-same-quotes", marks=PY312),
     pytest.param('x = (f"{a}"  # (\n     "(")\n', id="fstring-comment-between"),
     pytest.param('x = f"{a}" \\\n    "("\ny = g(1)\n', id="fstring-backslash-between"),
+    *(pytest.param(case.values[0], id=case.id, marks=case.marks) for case in QUOTED_FSTRINGS),
+    pytest.param("x = f'\\'\\'\\'{a}\\''\n", id="fstring-escaped-quotes-after-value"),
     # string prefixes
     pytest.param('x = rb"("\n', id="prefix-rb"),
     pytest.param('x = Rb"("\n', id="prefix-Rb"),
@@ -127,6 +187,42 @@ def test_corpus_is_walked_fully_without_sorted_children(source: str) -> None:
     assert _violations(source) == []
 
 
+INTERPOLATED = tuple(getattr(ast, name) for name in ("JoinedStr", "TemplateStr") if hasattr(ast, name))
+
+
+@pytest.mark.parametrize(("source", "opening", "closing", "concatenated"), QUOTED_FSTRINGS)
+def test_fstring_children_are_bounded_by_its_delimiters(
+    source: str, opening: str, closing: str, concatenated: bool
+) -> None:
+    rope_patches.apply_rope_patches()
+    tree = patchedast.get_patched_ast(source, sorted_children=True)
+    literal = next(node for node in ast.walk(tree) if isinstance(node, INTERPOLATED))
+    children: list[object] = list(vars(literal)["sorted_children"])
+    assert children[0] == opening, children
+    last = children[-1]
+    assert isinstance(last, str), children
+    assert last.startswith(closing) if concatenated else last == closing, children
+
+
+@pytest.mark.parametrize(
+    ("source", "junk"),
+    [('x = f"{a}"\ny = b + c\n', "b + c"), ('x = f"{a}"\n# "{b\n', '"{b')],
+    ids=["no-string-token", "untokenizable"],
+)
+def test_unreadable_fstring_region_is_a_token_mismatch(source: str, junk: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    rope_patches.apply_rope_patches()
+    region = (source.rindex(junk), source.rindex(junk) + len(junk))
+    adapter_region = codeanalyze.ASTLinesAdapter.__getitem__
+
+    def junk_region(self: codeanalyze.ASTLinesAdapter, node: ast.AST) -> tuple[int, int] | tuple[None, None]:
+        return region if isinstance(node, ast.JoinedStr) else adapter_region(self, node)
+
+    monkeypatch.setattr(codeanalyze.ASTLinesAdapter, "__getitem__", junk_region)
+    monkeypatch.setattr(patchedast._Source, "consume_string", lambda self, end=None: region)
+    with pytest.raises(patchedast.MismatchedTokenError):
+        patchedast.get_patched_ast(source, sorted_children=True)
+
+
 # Canaries: unpatched rope still mis-walks each repro; drop its patch when
 # https://github.com/python-rope/rope/issues/912 is fixed.
 UNPATCHED_WALK = """\
@@ -158,6 +254,8 @@ else:
         pytest.param('try:\n    pass\nexcept E:\n    pass\nelse:\n    x = "("\nfinally:\n    pass\n', id="try-else-finally"),
         pytest.param('x = rb"("\n', id="string-prefix"),
         pytest.param('f(t"{a}(", ")")\n', id="tstring", marks=PY314),
+        # Drop the f-string delimiter patch once a rope release includes python-rope/rope#844.
+        pytest.param("x = f\"'''{a}\"\n", id="fstring-holding-triple-quote"),
     ],
 )
 def test_unpatched_rope_still_needs_the_patch(source: str) -> None:

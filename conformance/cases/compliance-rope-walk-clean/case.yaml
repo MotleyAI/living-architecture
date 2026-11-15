@@ -9,4 +9,4 @@ args:
 expect:
   exit: 0
 golden: manual
-note: every construct rope's walker used to crash on or leave uncovered passes the rope-walk check
+note: every construct rope's walker used to crash on or leave uncovered, f-strings holding triple quotes included, passes the rope-walk check

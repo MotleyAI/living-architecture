@@ -12,8 +12,10 @@ rope builds no lambda scope, so a name a lambda's parameters bind resolves to no
 from __future__ import annotations
 
 import ast
+import io
 import re
 import sys
+import tokenize
 from typing import TypeGuard
 
 from pydantic import BaseModel
@@ -37,7 +39,6 @@ from rope.base.pyobjects import PyObject
 from rope.refactor import patchedast
 from typing_extensions import override
 
-_rope_joined_str = patchedast._PatchingASTWalker._JoinedStr
 _rope_scope_regions = pyscopes.GlobalScope._calculate_scope_regions
 _rope_primary_and_pyname_at = evaluate.ScopeNameFinder.get_primary_and_pyname_at
 _rope_create_arguments = arguments.create_arguments
@@ -50,6 +51,18 @@ _UNREGIONED = (ast.expr_context, ast.operator, ast.boolop, ast.unaryop, ast.cmpo
 _NEWLINE = re.compile(r"\r\n|\r|\n")
 _COMMENT = re.compile(r"#[^\r\n]*")
 _TRIVIA = re.compile(r"(?:[\s()]|\\[\r\n])*")
+
+_PREFIX_CHARS = "bBfFrRtTuU"
+_OPENING = re.compile(rf"[{_PREFIX_CHARS}]*(?:'''|\"\"\"|'|\")")
+_STRING_TRIVIA = {tokenize.COMMENT, tokenize.NL, tokenize.NEWLINE, tokenize.ENDMARKER}
+_STRING_OPENERS = {
+    tokenize.STRING,
+    *(getattr(tokenize, kind) for kind in ("FSTRING_START", "TSTRING_START") if hasattr(tokenize, kind)),
+}
+_STRING_CLOSERS = {
+    tokenize.STRING,
+    *(getattr(tokenize, kind) for kind in ("FSTRING_END", "TSTRING_END") if hasattr(tokenize, kind)),
+}
 
 
 class WalkerGap(Exception):
@@ -134,15 +147,43 @@ def _try_finally(self, node):
     self._handle(node, children)
 
 
+def _string_tokens(text: str) -> list[tokenize.TokenInfo]:
+    """The tokens of a string literal's `text`, without comments and line breaks; `[]` when unreadable."""
+    try:
+        tokens = list(tokenize.generate_tokens(io.StringIO(f"({text})").readline))
+    except (tokenize.TokenError, SyntaxError):
+        return []
+    return [token for token in tokens if token.type not in _STRING_TRIVIA][1:-1]
+
+
+def _delimiters(text: str) -> tuple[str, str]:
+    """The opening and closing delimiters of the string literal `text`, from Python's tokens."""
+    tokens = _string_tokens(text)
+    if not tokens or tokens[0].type not in _STRING_OPENERS or tokens[-1].type not in _STRING_CLOSERS:
+        raise patchedast.MismatchedTokenError(f"No string literal in <{text}>")
+    first, last = tokens[0], tokens[-1]
+    opening = first.string if first.type != tokenize.STRING else _quote_prefix(first.string)
+    closing = last.string if last.type != tokenize.STRING else _quote_prefix(last.string).lstrip(_PREFIX_CHARS)
+    return opening, closing
+
+
+def _quote_prefix(token: str) -> str:
+    match = _OPENING.match(token)
+    if match is None:
+        raise patchedast.MismatchedTokenError(f"No string literal in <{token}>")
+    return match.group()
+
+
 def _joined_str(self, node):
-    """rope's, with the region extended over every implicitly concatenated piece."""
+    """Walks an f-string with its delimiters from Python's tokens, and its region over every concatenated piece."""
     if sys.version_info >= (3, 12):
-        _, end = self.ast_adapter[node]
+        start, end = self.ast_adapter[node]
     else:
-        offset = self.source.offset
-        _, end = self.source.consume_string(end=self._find_next_statement_start())
-        self.source.offset = offset
-    _rope_joined_str(self, node)
+        start, end = self.source.consume_string(end=self._find_next_statement_start())
+    opening, closing = _delimiters(self.source[start:end])
+    self.source.offset = start
+    values = [part for part in node.values if isinstance(part, ast.FormattedValue)]
+    self._handle(node, [opening, *values, closing])
     if self.source.offset < end:
         skipped = self.source[self.source.offset : end]
         self.source.offset = end

@@ -19,4 +19,4 @@ expect:
   - pkg/use.py
   - .ropeproject/history.json
 golden: manual
-note: annotated parameters and f-strings concatenated with literals are renamed like any other code
+note: annotated parameters, f-strings concatenated with literals and f-strings holding triple quotes are renamed like any other code
