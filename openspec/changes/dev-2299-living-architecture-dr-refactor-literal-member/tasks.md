@@ -2,7 +2,7 @@
 
 - [x] 0.1 Build the timings first (sections 2.1–2.3 before 2.4–2.6), per DEV-2299, so the speed-up is measured with
       them. Verify: commit order.
-- [ ] 0.2 Docs and skill wording (task 2.8) is shown to the user verbatim and applied only after their OK.
+- [x] 0.2 Docs and skill wording (task 2.8) is shown to the user verbatim and applied only after their OK.
 
 ## 1. Tests (pr-tests)
 
@@ -69,7 +69,7 @@
       `scripts/conformance-cross` byte-for-byte without `--timings`; then the local test scope per `/la:pr`,
       `uv run ruff check src tests`, `uv run basedpyright src tests`, `npm run lint && npm run typecheck`,
       `la-arch-check`. Verify: all green.
-- [ ] 2.8 Mention `--timings` in `docs/deterministic-refactoring.md` and `plugin/skills/deterministic-refactor/SKILL.md`
+- [x] 2.8 Mention `--timings` in `docs/deterministic-refactoring.md` and `plugin/skills/deterministic-refactor/SKILL.md`
       (wording approved by the user first, per 0.2). Verify: the plugin validates
       (`npx -y @anthropic-ai/claude-code plugin validate plugin`).
 
@@ -79,5 +79,5 @@
       `dr-refactor --timings rename --file slayer/live_schema/schema_drift.py --line 112 --col 24 --new-name
       edit_model_x` (dry run). Compare stdout and stderr (timing lines aside) with the same run on `main`'s tools:
       identical. Nothing is written to the SLayer checkout.
-- [ ] 3.2 Record on DEV-2299 as a Linear comment: the phase lines, the total, and the baseline (89 s on this machine
+- [x] 3.2 Record on DEV-2299 as a Linear comment: the phase lines, the total, and the baseline (89 s on this machine
       before the change; 110.47 s in DEV-2295 task 12.2).
