@@ -26,6 +26,13 @@ def test_writes_then_moves(tmp_path: Path) -> None:
     assert not [p for p in root.rglob("*.la-tmp")]
 
 
+def test_a_replaced_file_keeps_its_mode(tmp_path: Path) -> None:
+    root = write_project(tmp_path / "p", {"run.py": "a\n"})
+    (root / "run.py").chmod(0o755)
+    apply(root, [_write("run.py", "a\n", "b\n")], [])
+    assert (root / "run.py").stat().st_mode & 0o7777 == 0o755
+
+
 def test_a_file_changed_since_it_was_read_writes_nothing(tmp_path: Path) -> None:
     root = write_project(tmp_path / "p", {"a.py": "edited\n", "b.py": "b\n"})
     before = file_tree(root)

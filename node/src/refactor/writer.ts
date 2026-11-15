@@ -1,5 +1,5 @@
 // A refactor's apply: every file written or none.
-import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { message } from '../contract/index.js';
 import { RefactorError } from './edits.js';
@@ -15,6 +15,7 @@ function replace(path: string, text: string | Buffer): void {
   const temp = join(dirname(path), `.${basename(path)}.dr-refactor-${process.pid}`);
   try {
     writeFileSync(temp, text);
+    if (existsSync(path)) chmodSync(temp, statSync(path).mode & 0o7777);
     renameSync(temp, path);
   } catch (error) {
     rmSync(temp, { force: true });

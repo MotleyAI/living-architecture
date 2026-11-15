@@ -124,7 +124,7 @@ def compound_outcome(rel: str, source: SourceFile, span: tuple[int, int], name: 
 
 def file_outcome(outcome: Outcome, *, edits: list[TextEdit], blindspots: list[Finding], leftovers: list[Finding]) -> None:
     """File what a rule decided for one site: its edits, and its finding as a blind spot or a leftover."""
-    edits += outcome.edits
+    edits.extend(outcome.edits)
     if outcome.kind == "blindspot":
         assert outcome.finding is not None
         blindspots.append(outcome.finding)

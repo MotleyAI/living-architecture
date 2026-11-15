@@ -63,9 +63,8 @@ export interface Change {
 export function expectedOut(headers: string[], changes: Change[], apply: boolean): string {
   const sorted = changes.toSorted((a, b) => byCodePoint(a.path, b.path));
   const body = sorted.map((c) => `${unifiedDiff(c.old, c.new, c.path)}\n`).join('');
-  const footer = apply
-    ? `${message('refactor.applied', { count: sorted.length })}\n${sorted.map((c) => `${message('refactor.applied-file', { path: c.path })}\n`).join('')}`
-    : `${message('refactor.dry-run', { count: sorted.length })}\n`;
+  const applied = sorted.map((c) => `${message('refactor.applied-file', { path: c.path })}\n`).join('');
+  const footer = apply ? `${message('refactor.applied', { count: sorted.length })}\n${applied}` : `${message('refactor.dry-run', { count: sorted.length })}\n`;
   return `${headers.join('\n')}\n\n\n${body}\n${footer}`;
 }
 
@@ -87,12 +86,14 @@ export function mapYaml(entries: Record<string, string | number>[]): string {
 export function tscBaseline(keys: [string, string, string, number][]): string {
   const sorted = keys.toSorted((a, b) => byCodePoint(a[0], b[0]) || byCodePoint(a[1], b[1]) || byCodePoint(a[2], b[2]));
   const out: Record<string, { code: string; message: string; count: number }[]> = {};
-  for (const [file, code, msg, count] of sorted) (out[file] ??= []).push({ code, message: msg, count });
+  for (const [file, code, msg, count] of sorted) {
+    out[file] = [...(out[file] ?? []), { code, message: msg, count }];
+  }
   return `${JSON.stringify({ files: out }, null, 2)}\n`;
 }
 
 /** Commit everything in `root`. */
 export function commitAll(root: string, msg = 'init'): void {
-  execFileSync('git', ['add', '-A'], { cwd: root });
-  execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '-m', msg], { cwd: root });
+  execFileSync('git', ['add', '-A'], { cwd: root }); // NOSONAR(S4036) — test helper runs the developer's git from PATH
+  execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '-m', msg], { cwd: root }); // NOSONAR(S4036) — test helper runs the developer's git from PATH
 }

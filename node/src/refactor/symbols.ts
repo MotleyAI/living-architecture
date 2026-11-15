@@ -1,12 +1,12 @@
 // `--symbol Q`: a declaration located by its path inside a TypeScript file (`Class.method`, `fn.<locals>.inner`,
 // `fn(param)`, `Alias['value']`); declarations the checker resolves to one symbol are one symbol.
 import type * as TS from 'typescript';
-import { message } from '../contract/index.js';
+import { byCodePoint, message } from '../contract/index.js';
 import { ts } from '../lang/index.js';
 import { Lines } from './lines.js';
 
 export const LOCALS = '<locals>';
-const PATH = /^(?<path>[^()[\]]+?)(?:\((?<param>[^()]+)\))?(?:\[(?<quote>['"])(?<value>.*)\k<quote>\])?$/su;
+const PATH = /^(?<path>[^()[\]]+)(?:\((?<param>[^()]+)\))?(?:\[(?<quote>['"])(?<value>.*)\k<quote>\])?$/su;
 
 /** The path names no declaration, or more than one symbol; the message is user-facing (exit 2). */
 export class LocatorError extends Error {}
@@ -21,7 +21,7 @@ export function parsePath(raw: string): SymbolPath | null {
   const m = PATH.exec(raw.trim());
   if (m?.groups === undefined) return null;
   const segments = (m.groups.path ?? '').split('.').map((s) => s.trim());
-  if (segments.some((s) => s === '') || segments[0] === LOCALS || segments.at(-1) === LOCALS) return null;
+  if (segments.includes('') || segments[0] === LOCALS || segments.at(-1) === LOCALS) return null;
   return { segments, param: m.groups.param?.trim() ?? null, value: m.groups.value ?? null };
 }
 
@@ -64,42 +64,49 @@ function bindingNames(node: TS.Node, name: TS.BindingName): Declaration[] {
   return name.elements.flatMap((element) => (ts().isOmittedExpression(element) ? [] : bindingNames(element, element.name)));
 }
 
+type NamedStatement =
+  | TS.FunctionDeclaration
+  | TS.ClassDeclaration
+  | TS.InterfaceDeclaration
+  | TS.TypeAliasDeclaration
+  | TS.EnumDeclaration
+  | TS.ModuleDeclaration
+  | TS.ImportEqualsDeclaration;
+
+const isNamedStatement = (node: TS.Node): node is NamedStatement =>
+  ts().isFunctionDeclaration(node) ||
+  ts().isClassDeclaration(node) ||
+  ts().isInterfaceDeclaration(node) ||
+  ts().isTypeAliasDeclaration(node) ||
+  ts().isEnumDeclaration(node) ||
+  ts().isModuleDeclaration(node) ||
+  ts().isImportEqualsDeclaration(node);
+
+function importDeclarations(node: TS.ImportDeclaration): Declaration[] {
+  const clause = node.importClause;
+  const bindings = clause?.namedBindings;
+  if (clause === undefined) return [];
+  const named = bindings !== undefined && ts().isNamedImports(bindings) ? bindings.elements.flatMap((s) => declaration(s, s.name)) : [];
+  const namespace = bindings !== undefined && ts().isNamespaceImport(bindings) ? declaration(bindings, bindings.name) : [];
+  return [...declaration(clause, clause.name), ...namespace, ...named];
+}
+
+/** The names a statement itself declares; null for a statement that declares none. */
+function ownDeclarations(node: TS.Node): Declaration[] | null {
+  if (ts().isVariableStatement(node)) return node.declarationList.declarations.flatMap((d) => bindingNames(d, d.name));
+  if (ts().isVariableDeclarationList(node)) return node.declarations.flatMap((d) => bindingNames(d, d.name));
+  if (isNamedStatement(node)) return declaration(node, node.name);
+  if (ts().isImportDeclaration(node)) return importDeclarations(node);
+  return null;
+}
+
 /** The declarations of a statement list, blocks and control flow entered when `nested`, nested functions not. */
 function statementDeclarations(statements: readonly TS.Node[], nested: boolean): Declaration[] {
   const out: Declaration[] = [];
   const visit = (node: TS.Node): void => {
-    if (ts().isVariableStatement(node)) {
-      for (const d of node.declarationList.declarations) out.push(...bindingNames(d, d.name));
-      return;
-    }
-    if (ts().isVariableDeclarationList(node)) {
-      for (const d of node.declarations) out.push(...bindingNames(d, d.name));
-      return;
-    }
-    if (
-      ts().isFunctionDeclaration(node) ||
-      ts().isClassDeclaration(node) ||
-      ts().isInterfaceDeclaration(node) ||
-      ts().isTypeAliasDeclaration(node) ||
-      ts().isEnumDeclaration(node) ||
-      ts().isModuleDeclaration(node)
-    ) {
-      out.push(...declaration(node, node.name));
-      return;
-    }
-    if (ts().isImportDeclaration(node)) {
-      const clause = node.importClause;
-      if (clause?.name !== undefined) out.push(...declaration(clause, clause.name));
-      const bindings = clause?.namedBindings;
-      if (bindings !== undefined && ts().isNamespaceImport(bindings)) out.push(...declaration(bindings, bindings.name));
-      if (bindings !== undefined && ts().isNamedImports(bindings)) for (const s of bindings.elements) out.push(...declaration(s, s.name));
-      return;
-    }
-    if (ts().isImportEqualsDeclaration(node)) {
-      out.push(...declaration(node, node.name));
-      return;
-    }
-    if (nested && !isFunctionLike(node) && !ts().isClassLike(node)) ts().forEachChild(node, visit);
+    const own = ownDeclarations(node);
+    if (own !== null) out.push(...own);
+    else if (nested && !isFunctionLike(node) && !ts().isClassLike(node)) ts().forEachChild(node, visit);
   };
   for (const statement of statements) visit(statement);
   return out;
@@ -108,22 +115,25 @@ function statementDeclarations(statements: readonly TS.Node[], nested: boolean):
 /** A scope a segment looks names up in: a file, namespace, class, interface, type literal, enum or function body. */
 type Scope = TS.Node;
 
+function namespaceMembers(scope: TS.ModuleDeclaration): Declaration[] {
+  const body = scope.body;
+  if (body === undefined) return [];
+  if (ts().isModuleBlock(body)) return statementDeclarations(body.statements, false);
+  return ts().isModuleDeclaration(body) ? declaration(body, body.name) : [];
+}
+
+/** A class's, interface's or type literal's members, a class's parameter properties included. */
+function typeMembers(scope: TS.ClassLikeDeclaration | TS.InterfaceDeclaration | TS.TypeLiteralNode): Declaration[] {
+  const out = (scope.members as TS.NodeArray<TS.Node>).flatMap((m) => declaration(m, (m as TS.NamedDeclaration).name));
+  const constructor = ts().isClassLike(scope) ? scope.members.find(ts().isConstructorDeclaration) : undefined;
+  const properties = (constructor?.parameters ?? []).filter((p) => ts().isParameterPropertyDeclaration(p, p.parent));
+  return [...out, ...properties.flatMap((p) => declaration(p, p.name))];
+}
+
 function members(scope: Scope): Declaration[] {
   if (ts().isSourceFile(scope)) return statementDeclarations(scope.statements, false);
-  if (ts().isModuleDeclaration(scope)) {
-    const body = scope.body;
-    if (body === undefined) return [];
-    if (ts().isModuleBlock(body)) return statementDeclarations(body.statements, false);
-    return ts().isModuleDeclaration(body) ? declaration(body, body.name) : [];
-  }
-  if (ts().isClassLike(scope) || ts().isInterfaceDeclaration(scope) || ts().isTypeLiteralNode(scope)) {
-    const out = (scope.members as TS.NodeArray<TS.Node>).flatMap((m) => declaration(m, (m as TS.NamedDeclaration).name));
-    const constructor = ts().isClassLike(scope) ? scope.members.find(ts().isConstructorDeclaration) : undefined;
-    for (const p of constructor?.parameters ?? []) {
-      if (ts().isParameterPropertyDeclaration(p, p.parent)) out.push(...declaration(p, p.name));
-    }
-    return out;
-  }
+  if (ts().isModuleDeclaration(scope)) return namespaceMembers(scope);
+  if (ts().isClassLike(scope) || ts().isInterfaceDeclaration(scope) || ts().isTypeLiteralNode(scope)) return typeMembers(scope);
   if (ts().isEnumDeclaration(scope)) return scope.members.flatMap((m) => declaration(m, m.name));
   return [];
 }
@@ -171,7 +181,7 @@ const IMPORTS = (node: TS.Node): boolean =>
 /** The declaration an import binding names, followed through its alias; the binding itself when it resolves outside sources. */
 function imported(checker: TS.TypeChecker, d: Declaration): Located | null {
   const symbol = checker.getSymbolAtLocation(d.nameNode);
-  if (symbol === undefined || (symbol.flags & ts().SymbolFlags.Alias) === 0) return null;
+  if (symbol === undefined || (symbol.flags & ts().SymbolFlags.Alias) === 0) return null; // NOSONAR(S1529) — SymbolFlags bitmask test
   const target = checker.getAliasedSymbol(symbol).declarations?.[0];
   const name = target === undefined ? undefined : ts().getNameOfDeclaration(target as TS.Declaration);
   const source = target?.getSourceFile();
@@ -183,33 +193,21 @@ function imported(checker: TS.TypeChecker, d: Declaration): Located | null {
 export function locate(checker: TS.TypeChecker, source: TS.SourceFile, raw: string, shown: string): Located {
   const path = parsePath(raw);
   const unresolved = (names: Iterable<string>): LocatorError =>
-    new LocatorError(message('refactor.symbol-unresolved', { path: shown, symbol: raw, candidates: [...new Set(names)].sort().join(', ') }));
+    new LocatorError(message('refactor.symbol-unresolved', { path: shown, symbol: raw, candidates: [...new Set(names)].sort(byCodePoint).join(', ') }));
   if (path === null) throw unresolved(members(source).map((d) => d.name));
-  let scopes: Scope[] = [source];
-  let groups: Declaration[][] = [];
   const { segments } = path;
-  for (let i = 0; ; ) {
-    const found = scopes.flatMap(lookup);
-    groups = bySymbol(checker, found.filter((d) => d.name === segments[i]));
-    if (groups.length === 0) throw unresolved(found.map((d) => d.name));
-    i += 1;
-    if (i === segments.length) break;
-    const viaLocals = segments[i] === LOCALS;
-    if (viaLocals) i += 1;
-    const nodes = groups.flat().map((d) => d.node);
-    scopes = viaLocals ? nodes.flatMap((n) => functionOf(n) ?? []) : nodes.flatMap(memberScopes);
-    if (scopes.length === 0) {
-      const opened = [...nodes.flatMap((n) => functionOf(n) ?? []), ...nodes.flatMap(memberScopes)];
-      throw unresolved(opened.flatMap(lookup).map((d) => d.name));
-    }
-  }
+  const groups = walk(checker, source, segments, unresolved);
   if (groups.length > 1) {
     const lines = new Lines(source.text);
     const sites = groups.map((g) => `${shown}:${lines.lineOf((g[0] as Declaration).nameNode.getStart(source))}`);
     throw new LocatorError(message('refactor.symbol-ambiguous', { path: shown, symbol: raw, candidates: sites.join(', ') }));
   }
   const group = groups[0] as Declaration[];
-  if (path.param !== null) return parameter(source, group, path.param, unresolved);
+  if (path.param !== null) {
+    const param = parameter(group, path.param, unresolved);
+    if (path.value !== null) return literalMember(source, [param], path.value, unresolved);
+    return { file: source.fileName, position: param.nameNode.getStart(source), topLevel: false };
+  }
   if (path.value !== null) return literalMember(source, group, path.value, unresolved);
   const first = group[0] as Declaration;
   if (IMPORTS(first.node)) {
@@ -219,14 +217,34 @@ export function locate(checker: TS.TypeChecker, source: TS.SourceFile, raw: stri
   return { file: source.fileName, position: first.nameNode.getStart(source), topLevel: segments.length === 1 && !IMPORTS(first.node) };
 }
 
-function parameter(source: TS.SourceFile, group: Declaration[], name: string, unresolved: (names: Iterable<string>) => LocatorError): Located {
+/** The symbols (declaration groups) the segments reach from the file. */
+function walk(checker: TS.TypeChecker, source: TS.SourceFile, segments: string[], unresolved: (names: Iterable<string>) => LocatorError): Declaration[][] {
+  let scopes: Scope[] = [source];
+  for (let i = 0; ; ) {
+    const found = scopes.flatMap(lookup);
+    const groups = bySymbol(checker, found.filter((d) => d.name === segments[i]));
+    if (groups.length === 0) throw unresolved(found.map((d) => d.name));
+    i += 1;
+    if (i === segments.length) return groups;
+    const viaLocals = segments[i] === LOCALS;
+    if (viaLocals) i += 1;
+    const nodes = groups.flat().map((d) => d.node);
+    scopes = viaLocals ? nodes.flatMap((n) => functionOf(n) ?? []) : nodes.flatMap(memberScopes);
+    if (scopes.length === 0) {
+      const opened = [...nodes.flatMap((n) => functionOf(n) ?? []), ...nodes.flatMap(memberScopes)];
+      throw unresolved(opened.flatMap(lookup).map((d) => d.name));
+    }
+  }
+}
+
+function parameter(group: Declaration[], name: string, unresolved: (names: Iterable<string>) => LocatorError): Declaration {
   const params = group.flatMap((d) => {
     const fn = functionOf(d.node);
     return fn === null ? [] : (fn as TS.SignatureDeclaration).parameters.flatMap((p) => bindingNames(p, p.name));
   });
   const found = params.find((p) => p.name === name);
   if (found === undefined) throw unresolved(params.map((p) => p.name));
-  return { file: source.fileName, position: found.nameNode.getStart(source), topLevel: false };
+  return found;
 }
 
 /** Inside the string `value` of a string-literal type in the declaration's annotation or alias body. */

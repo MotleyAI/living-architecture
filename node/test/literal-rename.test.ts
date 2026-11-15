@@ -65,6 +65,14 @@ describe('Literal member rename', () => {
     expect(files(bySymbol)).toEqual(files(byPosition));
   });
 
+  it('is located through a parameter annotation', () => {
+    const inline = "export function g(mode: 'fast' | 'slow'): string {\n  return mode;\n}\n\nexport const call = g('fast');\n";
+    const root = tsProject({ 'src/g.ts': inline });
+    const result = refactor(root, '--apply', 'rename', '--file', 'src/g.ts', '--symbol', "g(mode)['fast']", '--new-name', 'quick');
+    expect([result.code, result.err]).toEqual([0, '']);
+    expect(read(root, 'src/g.ts')).toBe(inline.replaceAll("'fast'", "'quick'"));
+  });
+
   it('takes a value that is no identifier', () => {
     const root = tsProject(project);
     expect(renameKind(root, 'edit master').code).toBe(0);

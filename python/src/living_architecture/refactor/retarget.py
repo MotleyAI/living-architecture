@@ -64,6 +64,19 @@ def _binds(scope: ast.AST, name: str) -> bool:
     return False
 
 
+def _bound_in_scope(parents: dict[ast.AST, ast.AST], node: ast.AST, name: str) -> bool:
+    """A function, comprehension or the innermost class enclosing `node` binds `name`."""
+    scope = parents.get(node)
+    innermost = True
+    while scope is not None:
+        if isinstance(scope, (*_FUNCTIONS, *_COMPREHENSIONS)) or (innermost and isinstance(scope, ast.ClassDef)):
+            if _binds(scope, name):
+                return True
+            innermost = innermost and not isinstance(scope, _FUNCTIONS)
+        scope = parents.get(scope)
+    return False
+
+
 class AliasRetarget(SymbolRename):
     """References to an alias rewritten to name its target; the alias stays."""
 
@@ -112,18 +125,11 @@ class AliasRetarget(SymbolRename):
                 return removal
             if self._module_binds_other(source, edit.path, alias_module, skip=stmt):
                 self._shadowed(source, edit)
-        elif isinstance(node, ast.Name):
-            scope = parents.get(node)
-            innermost = True
-            while scope is not None:
-                if isinstance(scope, (*_FUNCTIONS, *_COMPREHENSIONS)) or (innermost and isinstance(scope, ast.ClassDef)):
-                    if _binds(scope, self.new):
-                        self._shadowed(source, edit)
-                        return edit
-                    innermost = innermost and not isinstance(scope, _FUNCTIONS)
-                scope = parents.get(scope)
-            if edit.path != self.renamer.resource.path and self._module_binds_other(source, edit.path, alias_module):
-                self._shadowed(source, edit)
+        elif isinstance(node, ast.Name) and (
+            _bound_in_scope(parents, node, self.new)
+            or (edit.path != self.renamer.resource.path and self._module_binds_other(source, edit.path, alias_module))
+        ):
+            self._shadowed(source, edit)
         return edit
 
     def _shadowed(self, source: SourceFile, edit: TextEdit) -> None:

@@ -14,8 +14,8 @@ from living_architecture.contract import message
 from living_architecture.refactor.python_source import SourceFile
 
 LOCALS = "<locals>"
-_PATH = re.compile(r"(?P<path>[^()\[\]]+?)(?:\((?P<param>[^()]+)\))?(?:\[(?P<quote>['\"])(?P<value>.*)(?P=quote)\])?")
-_AS_NAME = re.compile(r"\s+as\s+(\w+)")
+_PATH = re.compile(r"(?P<path>[^()\[\]]+)(?:\((?P<param>[^()]+)\))?(?:\[(?P<quote>['\"])(?P<value>.*)(?P=quote)\])?")
+_AS_NAME = re.compile(r"\bas\s+(\w+)")
 _COMPOUND = (ast.If, ast.For, ast.AsyncFor, ast.While, ast.Try, ast.With, ast.AsyncWith, ast.Match, ast.TryStar)
 Function = ast.FunctionDef | ast.AsyncFunctionDef
 Declaration = tuple[str, int, ast.AST]
@@ -81,10 +81,18 @@ def _statements(body: list[ast.stmt]) -> Iterator[ast.stmt]:
                 yield from _statements(handler.body)
 
 
+def _assigned(node: ast.AST) -> list[ast.expr]:
+    """The targets of an assignment or annotated assignment, as written."""
+    if isinstance(node, ast.Assign):
+        return list(node.targets)
+    if isinstance(node, ast.AnnAssign):
+        return [node.target]
+    return []
+
+
 def _targets(stmt: ast.stmt) -> Iterator[ast.expr]:
     """The expressions an assignment statement binds, tuples and lists unpacked."""
-    found = stmt.targets if isinstance(stmt, ast.Assign) else [stmt.target] if isinstance(stmt, ast.AnnAssign) else []
-    stack = list(found)
+    stack = _assigned(stmt)
     while stack:
         node = stack.pop(0)
         if isinstance(node, (ast.Tuple, ast.List)):
@@ -107,20 +115,23 @@ def _alias_name(source: SourceFile, alias: ast.alias) -> tuple[str, int]:
 def _bindings(source: SourceFile, body: list[ast.stmt]) -> Iterator[Declaration]:
     """Each name a body binds: its offset and declaring node."""
     for stmt in _statements(body):
-        if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-            span = source.name_span(stmt)
-            if span is not None:
-                yield stmt.name, span[0], stmt
-        elif isinstance(stmt, (ast.Import, ast.ImportFrom)):
-            for alias in stmt.names:
-                if alias.name != "*":
-                    name, offset = _alias_name(source, alias)
-                    yield name, offset, alias
-        if sys.version_info >= (3, 12) and isinstance(stmt, ast.TypeAlias):
-            yield stmt.name.id, source.span(stmt.name)[0], stmt.name
-        for target in _targets(stmt):
-            if isinstance(target, ast.Name):
-                yield target.id, source.span(target)[0], target
+        yield from _statement_bindings(source, stmt)
+
+
+def _statement_bindings(source: SourceFile, stmt: ast.stmt) -> Iterator[Declaration]:
+    if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+        span = source.name_span(stmt)
+        if span is not None:
+            yield stmt.name, span[0], stmt
+    elif isinstance(stmt, (ast.Import, ast.ImportFrom)):
+        for alias in (a for a in stmt.names if a.name != "*"):
+            name, offset = _alias_name(source, alias)
+            yield name, offset, alias
+    if sys.version_info >= (3, 12) and isinstance(stmt, ast.TypeAlias):
+        yield stmt.name.id, source.span(stmt.name)[0], stmt.name
+    for target in _targets(stmt):
+        if isinstance(target, ast.Name):
+            yield target.id, source.span(target)[0], target
 
 
 def _self_attributes(source: SourceFile, cls: ast.ClassDef) -> Iterator[Declaration]:
@@ -130,13 +141,11 @@ def _self_attributes(source: SourceFile, cls: ast.ClassDef) -> Iterator[Declarat
         if not params:
             continue
         receiver = params[0].arg
-        for node in ast.walk(method):
-            targets = node.targets if isinstance(node, ast.Assign) else [node.target] if isinstance(node, ast.AnnAssign) else []
-            for target in targets:
-                if isinstance(target, ast.Attribute) and isinstance(target.value, ast.Name) and target.value.id == receiver:
-                    span = source.name_span(target)
-                    if span is not None:
-                        yield target.attr, span[0], target
+        for target in (t for node in ast.walk(method) for t in _assigned(node)):
+            if isinstance(target, ast.Attribute) and isinstance(target.value, ast.Name) and target.value.id == receiver:
+                span = source.name_span(target)
+                if span is not None:
+                    yield target.attr, span[0], target
 
 
 def _declarations(source: SourceFile, scope: Scope) -> list[Declaration]:
@@ -173,20 +182,7 @@ def locate(source: SourceFile, raw: str, shown: str) -> Located:
     module = Scope(kind="module", node=source.tree)
     if path is None:
         raise unresolved({name for name, _, _ in _declarations(source, module)})
-    scopes, groups, segments, i = [module], list[list[Declaration]](), path.segments, 0
-    while True:
-        groups = [g for s in scopes if (g := [d for d in _declarations(source, s) if d[0] == segments[i]])]
-        if not groups:
-            raise unresolved({name for s in scopes for name, _, _ in _declarations(source, s)})
-        i += 1
-        if i == len(segments):
-            break
-        step = segments[i]
-        if step == LOCALS:
-            i += 1
-        scopes = [inner for g in groups for _, _, node in g if (inner := _inner(node, step if step == LOCALS else ""))]
-        if not scopes:
-            raise unresolved({name for g in groups for s in _opened(g) for name, _, _ in _declarations(source, s)})
+    groups = _walk(source, module, path.segments, unresolved)
     if len(groups) > 1:
         sites = ", ".join(f"{shown}:{source.line(g[0][1])}" for g in groups)
         raise LocatorError(message("refactor.symbol-ambiguous", path=shown, symbol=raw, candidates=sites))
@@ -198,7 +194,25 @@ def locate(source: SourceFile, raw: str, shown: str) -> Located:
         return located
     if path.value is not None:
         return _literal_member(source, group, path.value, unresolved)
-    return Located(offset=group[0][1], nodes=tuple(n for _, _, n in group), top_level=len(segments) == 1)
+    return Located(offset=group[0][1], nodes=tuple(n for _, _, n in group), top_level=len(path.segments) == 1)
+
+
+def _walk(source: SourceFile, module: Scope, segments: tuple[str, ...], unresolved: Unresolved) -> list[list[Declaration]]:
+    """The symbols (declaration groups) the segments reach from the module."""
+    scopes, i = [module], 0
+    while True:
+        groups = [g for s in scopes if (g := [d for d in _declarations(source, s) if d[0] == segments[i]])]
+        if not groups:
+            raise unresolved({name for s in scopes for name, _, _ in _declarations(source, s)})
+        i += 1
+        if i == len(segments):
+            return groups
+        step = segments[i]
+        if step == LOCALS:
+            i += 1
+        scopes = [inner for g in groups for _, _, node in g if (inner := _inner(node, step if step == LOCALS else ""))]
+        if not scopes:
+            raise unresolved({name for g in groups for s in _opened(g) for name, _, _ in _declarations(source, s)})
 
 
 def _parameter(source: SourceFile, group: list[Declaration], name: str, unresolved: Unresolved) -> Located:

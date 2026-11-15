@@ -8,6 +8,7 @@ import re
 from collections.abc import Callable
 
 from rope.base.project import Project
+from typing_extensions import override
 
 from living_architecture.contract import message
 from living_architecture.lang import Diagnostic, LanguageServer
@@ -16,7 +17,7 @@ from living_architecture.refactor.member_scan import TextProbe
 from living_architecture.refactor.mentions import docstrings
 from living_architecture.refactor.outcomes import Finding, Outcome, file_outcome
 from living_architecture.refactor.python_source import SourceFile
-from living_architecture.refactor.rename_union import RenameOptions, Session
+from living_architecture.refactor.rename_union import MapRename, RenameOptions, Session
 from living_architecture.refactor.routing import language_files
 from living_architecture.refactor.symbol_path import LocatorError
 from living_architecture.refactor.text_edits import TextEdit
@@ -35,14 +36,9 @@ def literal_member_at(source: SourceFile, offset: int) -> ast.Constant | None:
     """The string inside a `Literal[...]` subscript whose span holds `offset`."""
     if source.tree is None:
         return None
-    for node in ast.walk(source.tree):
-        if isinstance(node, ast.Subscript) and _names_literal(node.value):
-            for inner in ast.walk(node.slice):
-                if isinstance(inner, ast.Constant) and isinstance(inner.value, str):
-                    start, end = source.span(inner)
-                    if start <= offset < end:
-                        return inner
-    return None
+    literals = (n for n in ast.walk(source.tree) if isinstance(n, ast.Subscript) and _names_literal(n.value))
+    strings = (i for n in literals for i in ast.walk(n.slice) if isinstance(i, ast.Constant) and isinstance(i.value, str))
+    return next((i for i in strings if source.span(i)[0] <= offset < source.span(i)[1]), None)
 
 
 def _in_literal_type(parents: dict[ast.AST, ast.AST], node: ast.AST) -> bool:
@@ -101,22 +97,38 @@ def _operand(parents: dict[ast.AST, ast.AST], node: ast.AST) -> ast.expr | None:
         if i > 0 and isinstance(compare.ops[i - 1], (ast.In, ast.NotIn)):
             return operands[i - 1]
     if isinstance(parent, ast.Compare):
-        operands = [parent.left, *parent.comparators]
-        i = next(k for k, o in enumerate(operands) if o is node)
-        if i > 0 and isinstance(parent.ops[i - 1], _EQUALITY):
-            return operands[i - 1]
-        if i + 1 < len(operands) and isinstance(parent.ops[i], _EQUALITY):
-            return operands[i + 1]
+        return _compared(parent, node)
     if isinstance(parent, ast.MatchValue):
-        up: ast.AST | None = parents.get(parent)
-        while isinstance(up, (ast.MatchOr, ast.match_case)):
-            up = parents.get(up)
-        if isinstance(up, ast.Match):
-            return up.subject
+        return _match_subject(parents, parent)
     return None
 
 
-class LiteralRename:
+def _compared(compare: ast.Compare, node: ast.AST) -> ast.expr | None:
+    """The operand `node` is tested for equality or identity with, left side first."""
+    operands = [compare.left, *compare.comparators]
+    i = next(k for k, o in enumerate(operands) if o is node)
+    if i > 0 and isinstance(compare.ops[i - 1], _EQUALITY):
+        return operands[i - 1]
+    if i + 1 < len(operands) and isinstance(compare.ops[i], _EQUALITY):
+        return operands[i + 1]
+    return None
+
+
+def _match_subject(parents: dict[ast.AST, ast.AST], pattern: ast.MatchValue) -> ast.expr | None:
+    up: ast.AST | None = parents.get(pattern)
+    while isinstance(up, (ast.MatchOr, ast.match_case)):
+        up = parents.get(up)
+    return up.subject if isinstance(up, ast.Match) else None
+
+
+def _reveal_anchors(probe: TextProbe | None, subs: list[tuple[int, int, str, int]]) -> dict[int, int]:
+    """Each `reveal_type` substitution's start in the probe text, mapped to its operand's start in the file."""
+    if probe is None:
+        return {}
+    return {probe.accesses[i]: s for i, (s, _, text, _) in enumerate(subs) if text.startswith(_REVEAL)}
+
+
+class LiteralRename(MapRename):
     """Rename `Literal` member `node` of file `rel` to `new`, as a rename map's entry."""
 
     def __init__(self, session: Session, rel: str, node: ast.Constant, new: str, options: RenameOptions) -> None:
@@ -142,21 +154,27 @@ class LiteralRename:
         self._sites: list[_Site] = []
         self._member: _Site | None = None
 
+    @override
     def header(self) -> str:
         return f"Renaming <{self.old}> to <{self.new}>:"
 
+    @override
     def stand_in_findings(self) -> list[Finding]:
         return []
 
+    @override
     def check_conflicts(self, edits: list[TextEdit]) -> None:
         """A literal member has no name to collide with."""
 
+    @override
     def seed(self, facts: TypeFacts) -> None:
         """The member is located by its literal; nothing to seed."""
 
+    @override
     def finish(self) -> None:
         """Every rule of a literal rename asks the checker."""
 
+    @override
     def prepare(self) -> None:
         """Every project source, and every string literal whose value is the member's."""
         for path in language_files(self.root, "python"):
@@ -166,21 +184,27 @@ class LiteralRename:
             except (OSError, UnicodeDecodeError, LookupError):
                 continue
             self.candidates.append(rel)
-            if source.tree is None or self.old not in source.text:
-                continue
-            parents = _parents(source.tree)
-            skipped = {id(d) for d in docstrings(source.tree)}
-            skipped |= {id(v) for n in ast.walk(source.tree) if isinstance(n, ast.JoinedStr) for v in n.values}
-            for node in ast.walk(source.tree):
-                if isinstance(node, ast.Constant) and node.value == self.old and id(node) not in skipped:
-                    parent = parents.get(node)
-                    display = source.span(parent) if isinstance(parent, _DISPLAYS) else None  # pyright: ignore[reportArgumentType]
-                    site = _Site(rel, source, node, display, _in_literal_type(parents, node))
-                    if rel == self.rel and site.span == source.span(self.node):
-                        self._member = site
-                    else:
-                        self._sites.append(site)
+            for site in self._equal_strings(rel, source):
+                if rel == self.rel and site.span == source.span(self.node):
+                    self._member = site
+                else:
+                    self._sites.append(site)
         self.candidates.sort()
+
+    def _equal_strings(self, rel: str, source: SourceFile) -> list[_Site]:
+        """Each string literal of `source` whose value is the member's, docstrings and f-string parts not."""
+        if source.tree is None or self.old not in source.text:
+            return []
+        parents = _parents(source.tree)
+        skipped = {id(d) for d in docstrings(source.tree)}
+        skipped |= {id(v) for n in ast.walk(source.tree) if isinstance(n, ast.JoinedStr) for v in n.values}
+        out: list[_Site] = []
+        for node in ast.walk(source.tree):
+            if isinstance(node, ast.Constant) and node.value == self.old and id(node) not in skipped:
+                parent = parents.get(node)
+                display = source.span(parent) if isinstance(parent, _DISPLAYS) else None  # pyright: ignore[reportArgumentType]
+                out.append(_Site(rel, source, node, display, _in_literal_type(parents, node)))
+        return out
 
     def _diagnostics(self, server: LanguageServer, rel: str, probe: TextProbe | None) -> list[tuple[Diagnostic, int]]:
         """Each diagnostic with its span in the file's own offsets, and its start in the probe text."""
@@ -212,6 +236,7 @@ class LiteralRename:
                 out.setdefault(site.rel, []).append((*site.inner, SENTINEL, 0))
         return out
 
+    @override
     def rules(self, server: LanguageServer, facts: TypeFacts) -> None:
         """The probe's rounds: candidates, the verification, then the remaining equal strings."""
         if self._member is None or self._member.inner is None:
@@ -235,27 +260,14 @@ class LiteralRename:
         substitutions = self._sentinels([self._member])
         wraps: dict[str, dict[int, list[_Site]]] = {}
         for site in self._sites:
-            source = self.snapshot.source(site.rel)
-            assert source.tree is not None
-            operand = _operand(_parents(source.tree), site.node)
-            if operand is None:
-                continue
-            start, end = source.span(operand)
-            subs = substitutions.setdefault(site.rel, [])
-            if any(s < end and start < e for s, e, _, _ in subs) and (start, end) not in {(s, e) for s, e, _, _ in subs}:
-                continue
-            if (start, end) not in {(s, e) for s, e, _, _ in subs}:
-                subs.append((start, end, f"{_REVEAL}{source.text[start:end]})", len(_REVEAL)))
-            wraps.setdefault(site.rel, {}).setdefault(start, []).append(site)
+            start = self._reveal_operand(site, substitutions.setdefault(site.rel, []))
+            if start is not None:
+                wraps.setdefault(site.rel, {}).setdefault(start, []).append(site)
         pulled = sorted({s.rel for s in self._sites})
         result = self._round(server, substitutions, pulled)
         typed: list[_Site] = []
         for rel, (probe, diagnostics) in result.items():
-            anchors: dict[int, int] = {}
-            if probe is not None:
-                for i, (s, _, text, _) in enumerate(substitutions.get(rel, [])):
-                    if text.startswith(_REVEAL):
-                        anchors[probe.accesses[i]] = s
+            anchors = _reveal_anchors(probe, substitutions.get(rel, []))
             revealed = {anchors[at] for d, at in diagnostics if d.severity == 3 and SENTINEL in d.message and at in anchors}
             errors = {(d.span.start, d.span.end) for d, _ in diagnostics
                       if d.severity in (1, 2) and (d.code, d.span.start, d.span.end) not in before.get(rel, set())}
@@ -264,6 +276,23 @@ class LiteralRename:
                 if hit and site.inner is not None:
                     typed.append(site)
         return typed
+
+    def _reveal_operand(self, site: _Site, subs: list[tuple[int, int, str, int]]) -> int | None:
+        """The start of the operand `site` is compared with, wrapped in `reveal_type` in `subs` once; None when it
+        has none or it overlaps another substitution."""
+        source = self.snapshot.source(site.rel)
+        assert source.tree is not None
+        operand = _operand(_parents(source.tree), site.node)
+        if operand is None:
+            return None
+        start, end = source.span(operand)
+        spans = {(s, e) for s, e, _, _ in subs}
+        if (start, end) in spans:
+            return start
+        if any(s < end and start < e for s, e in spans):
+            return None
+        subs.append((start, end, f"{_REVEAL}{source.text[start:end]})", len(_REVEAL)))
+        return start
 
     def _verify(self, server: LanguageServer, before: dict[str, set[Key]], typed: list[_Site]) -> None:
         """With the member and every rewritten literal set to the sentinel, each new error is a blind spot."""

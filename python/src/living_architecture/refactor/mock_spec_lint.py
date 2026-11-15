@@ -109,7 +109,7 @@ class Base(BaseModel):
             return []
         try:
             return doubles(data.decode("utf-8"), path)
-        except (SyntaxError, UnicodeDecodeError, ValueError):
+        except (SyntaxError, ValueError):
             return []
 
 

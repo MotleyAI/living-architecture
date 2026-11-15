@@ -381,14 +381,20 @@ class NameGroup {
     for (const { source, checker } of this.session.sources.values()) {
       const seen = new Set<TS.Symbol>();
       for (const node of walk(source)) {
-        const name = isDeclaration(node) ? node.name : undefined;
-        if (name === undefined || !ts().isIdentifier(name) || renamedNames.has(name.text) || !isCompound(name.text, this.old)) continue;
+        const name = this.compoundName(node, renamedNames);
+        if (name === null) continue;
         const symbol = checker.getSymbolAtLocation(name);
         if (symbol !== undefined && seen.has(symbol)) continue;
         if (symbol !== undefined) seen.add(symbol);
         this.record(compoundOutcome(source.fileName, name.getStart(source), name.end, name.text, this.old));
       }
     }
+  }
+
+  private compoundName(node: TS.Node, renamedNames: Set<string>): TS.Identifier | null {
+    const name = isDeclaration(node) ? node.name : undefined;
+    if (name === undefined || !ts().isIdentifier(name)) return null;
+    return renamedNames.has(name.text) || !isCompound(name.text, this.old) ? null : name;
   }
 
   /** Without `--docs`, comments stay: drop the language service's edits inside them (JSDoc links and tags). */
@@ -618,31 +624,32 @@ const print = (lines: string[]): void => {
   process.stderr.write(lines.map((line) => `${line}\n`).join(''));
 };
 
-/** Run `specs` (a rename, a retarget, or a map's entries; `map` in messages) as one refactor: 0, or 1 with the refusal. */
-export function runEntries(r: Refactor, specs: EntrySpec[], map: string): number {
+function checkSupported(r: Refactor): void {
   if (r.args.in_hierarchy === false) throw new RefactorError(message('refactor.ts-not-supported', { option: '--no-in-hierarchy' }));
   if (r.args.unsure === 'include') throw new RefactorError(message('refactor.ts-not-supported', { option: '--unsure include' }));
-  const targets = resolveAll(r, specs, map);
-  const session = new Session(r, targets.map((t) => t.file));
+}
+
+/** Each target's language-service edits; the retarget refusals, in position order. */
+function targetEdits(r: Refactor, session: Session, targets: Target[]): Finding[] {
   const refusals: Finding[] = [];
   for (const target of targets) {
     target.edits = renameLocations(r.services(target.file), target.file, target.position, target.newName);
     checkNameConflict(r, session, target);
     if (target.retarget) refusals.push(...retargetEdits(session, target, target.intent));
   }
-  if (refusals.length > 0) {
-    print(refusals.sort(byPosition).map((f) => f.text));
-    return 1;
-  }
-  checkConflicts(session, targets.flatMap((t) => t.edits.map((e) => ({ ...e, entry: t.index }))));
-  const groups = [...new Set(targets.map((t) => t.old))].map((old) => new NameGroup(session, old, targets.filter((t) => t.old === old)));
+  return refusals.toSorted(byPosition);
+}
+
+/** `SiteError` for the first `--with` or `--without` site no member group's stand-ins hold. */
+function classifySites(r: Refactor, groups: NameGroup[]): void {
   const withSites = r.args.with_stand_ins ?? [];
   const withoutSites = r.args.without_stand_ins ?? [];
   const matched = new Set(groups.filter((g) => g.member).flatMap((g) => [...g.classify(withSites, withoutSites)]));
   const stray = [...withSites, ...withoutSites].find((site) => !matched.has(site));
   if (stray !== undefined) throw new SiteError('refactor.not-stand-in', stray);
-  const docs = r.args.docs === true;
-  const renamedNames = new Set(targets.map((t) => t.old));
+}
+
+function runRules(groups: NameGroup[], docs: boolean, renamedNames: Set<string>): void {
   for (const group of groups) {
     if (group.member) group.scan();
     if (group.literal) group.equalStrings();
@@ -652,15 +659,37 @@ export function runEntries(r: Refactor, specs: EntrySpec[], map: string): number
     if (docs) group.compounds(renamedNames);
     group.dropOwnDeclarations();
   }
+}
+
+/** The refusal's lines: blind spots unless allowed, and stand-ins; null when the refactor goes ahead. */
+function refusal(groups: NameGroup[], blindspots: Finding[], allowed: boolean): string[] | null {
+  const standIns = groups.flatMap((g) => g.standIns).sort(byPosition);
+  if ((blindspots.length === 0 || allowed) && standIns.length === 0) return null;
+  const attr = groups.filter((g) => g.blindspots.length > 0).map((g) => g.old).join(', .');
+  const closing = allowed || blindspots.length === 0 ? [] : [message('refactor.blindspots', { count: blindspots.length, attr })];
+  return [...blindspots.map((f) => f.text), ...standIns.map((f) => f.text), ...closing];
+}
+
+/** Run `specs` (a rename, a retarget, or a map's entries; `map` in messages) as one refactor: 0, or 1 with the refusal. */
+export function runEntries(r: Refactor, specs: EntrySpec[], map: string): number {
+  checkSupported(r);
+  const targets = resolveAll(r, specs, map);
+  const session = new Session(r, targets.map((t) => t.file));
+  const refusals = targetEdits(r, session, targets);
+  if (refusals.length > 0) {
+    print(refusals.map((f) => f.text));
+    return 1;
+  }
+  checkConflicts(session, targets.flatMap((t) => t.edits.map((e) => ({ ...e, entry: t.index }))));
+  const groups = [...new Set(targets.map((t) => t.old))].map((old) => new NameGroup(session, old, targets.filter((t) => t.old === old)));
+  classifySites(r, groups);
+  runRules(groups, r.args.docs === true, new Set(targets.map((t) => t.old)));
   const edits = keep(session, groups, r.args.keep ?? []);
   const blindspots = groups.flatMap((g) => g.blindspots).sort(byPosition);
-  const standIns = groups.flatMap((g) => g.standIns).sort(byPosition);
   const leftovers = groups.flatMap((g) => g.leftovers).sort(byPosition);
-  const allowed = r.args.allow_blindspots === true;
-  if ((blindspots.length > 0 && !allowed) || standIns.length > 0) {
-    const attr = groups.filter((g) => g.blindspots.length > 0).map((g) => g.old).join(', .');
-    const closing = allowed || blindspots.length === 0 ? [] : [message('refactor.blindspots', { count: blindspots.length, attr })];
-    print([...blindspots.map((f) => f.text), ...standIns.map((f) => f.text), ...closing]);
+  const refused = refusal(groups, blindspots, r.args.allow_blindspots === true);
+  if (refused !== null) {
+    print(refused);
     return 1;
   }
   print([...blindspots, ...leftovers].map((f) => f.text));

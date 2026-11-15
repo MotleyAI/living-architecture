@@ -152,7 +152,7 @@ def test_matching_follows_basedpyright(
 
 
 EDGES = """\
-from warnings import deprecated
+from typing_extensions import deprecated
 
 
 @deprecated("use load")
