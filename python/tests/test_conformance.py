@@ -199,9 +199,18 @@ def with_format(text: str) -> str:
     return text.replace("<FORMAT>", current_format()) if "<FORMAT>" in text else text
 
 
-def _substitute_config_files(repo: Path, case: dict) -> None:
+def case_args(case: dict, variant: Variant) -> list[str]:
+    """The case's args; a paired case may key them by language."""
+    args = case.get("args", [])
+    if isinstance(args, dict):
+        [language] = variant.fixture_languages
+        args = args[language]
+    return [str(a) for a in args]
+
+
+def _substitute_config_files(repo: Path, case: dict, variant: Variant) -> None:
     """`<FORMAT>` in the committed config at the repo root and at the root a case passes with `--root`."""
-    args = [str(a) for a in case.get("args", [])]
+    args = case_args(case, variant)
     roots = [repo, *([repo / args[args.index("--root") + 1]] if "--root" in args[:-1] else [])]
     for path in (root / config_file() for root in roots):
         if path.is_file() and not path.is_symlink() and b"<FORMAT>" in (data := path.read_bytes()):
@@ -280,7 +289,7 @@ def materialize(
     repo.mkdir(parents=True)
     for overlay in _overlays(case_dir, case, variant):
         _copy_tree(overlay, repo)
-    _substitute_config_files(repo, case)
+    _substitute_config_files(repo, case, variant)
     for rel in case.get("remove", []):
         target = repo / rel
         shutil.rmtree(target) if target.is_dir() and not target.is_symlink() else target.unlink()
@@ -318,7 +327,7 @@ def run_case(case_dir: Path, root: Path, variant: Variant = NEUTRAL, twin: str =
     if not command.is_file():
         raise FileNotFoundError(f"command {case['command']} is not installed in {BIN_DIRS[twin]}")
     proc = subprocess.run(
-        [str(command), *[substitute(str(a), root) for a in case.get("args", [])]],
+        [str(command), *[substitute(a, root) for a in case_args(case, variant)]],
         cwd=repo / case.get("cwd", "."),
         env=env,
         input=case.get("stdin", "").encode("utf-8"),
@@ -536,6 +545,11 @@ def test_paired_case_runs_once_per_language_with_its_own_overlay() -> None:
 def test_neutral_case_applies_every_listed_overlay() -> None:
     [variant] = variants(_case(languages=["python", "typescript"]))
     assert (variant.fixture_languages, variant.golden) == (["python", "typescript"], None)
+
+
+def test_paired_case_args_may_be_keyed_by_language() -> None:
+    case = _case(kind="paired", languages=["python", "typescript"], args={"python": ["a.py"], "typescript": ["a.ts", 1]})
+    assert [case_args(case, v) for v in variants(case)] == [["a.py"], ["a.ts", "1"]]
 
 
 def test_native_selection_needs_own_fixture_languages() -> None:

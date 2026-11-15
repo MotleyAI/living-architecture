@@ -14,6 +14,7 @@ twin: python | typescript          # only this twin invokes the command (forward
 other_twin: absent                 # the other twin's bin dir is kept off PATH
 command: la-arch-check
 args: [--root, .]                  # `<VERSION>`, `<MAJOR>`, `<MINOR>`, `<CONTRACT_HASH>`, `<ROOT>` are substituted
+                                   # paired: or {python: [...], typescript: [...]}, one list per language
 cwd: sub/dir                       # relative to the repo; default: the repo root
 stdin: text
 fixture: arch-ok                   # copies fixtures/<name>/{repo,<overlays>}/ first

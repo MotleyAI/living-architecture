@@ -1,6 +1,19 @@
 Retargeting <legacy> to <modern>:
 
 
+--- a/src/compat.ts
++++ b/src/compat.ts
+@@ -1,7 +1,8 @@
+ import { legacy } from './api';
++import { modern } from './api';
+ 
+ export { legacy };
+ 
+ export function make(): number {
+-  return legacy();
++  return modern();
+ }
+
 --- a/src/direct.ts
 +++ b/src/direct.ts
 @@ -1,3 +1,3 @@
@@ -10,6 +23,15 @@ Retargeting <legacy> to <modern>:
 -export const b = legacy();
 +export const b = modern();
 
+--- a/src/use.ts
++++ b/src/use.ts
+@@ -1,3 +1,3 @@
+-import { legacy } from './compat';
++import { modern } from './api';
+ 
+-export const a = legacy();
++export const a = modern();
 
 
-DRY-RUN. 1 file(s) would change. Re-run with --apply.
+
+DRY-RUN. 3 file(s) would change. Re-run with --apply.

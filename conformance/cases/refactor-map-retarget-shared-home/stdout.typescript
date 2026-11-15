@@ -1,0 +1,59 @@
+Renaming <FacadeTable> to <FacadeGrid>:
+Retargeting <FlightCatalog> to <FacadeCatalog>:
+Retargeting <FlightSchema> to <FacadeSchema>:
+Retargeting <FlightTable> to <FacadeGrid>:
+
+
+--- a/src/facade.ts
++++ b/src/facade.ts
+@@ -2,4 +2,4 @@
+ 
+ export class FacadeSchema {}
+ 
+-export class FacadeTable {}
++export class FacadeGrid {}
+
+--- a/src/flight.ts
++++ b/src/flight.ts
+@@ -1,4 +1,4 @@
+-import { FacadeCatalog, FacadeSchema, FacadeTable } from './facade';
++import { FacadeCatalog, FacadeSchema, FacadeGrid } from './facade';
+ 
+ export const CONST = 1;
+ /** @deprecated */
+@@ -6,4 +6,4 @@
+ /** @deprecated */
+ export const FlightSchema = FacadeSchema;
+ /** @deprecated */
+-export const FlightTable = FacadeTable;
++export const FlightTable = FacadeGrid;
+
+--- a/src/handlers.ts
++++ b/src/handlers.ts
+@@ -1,7 +1,7 @@
+ import {
+-  FlightCatalog, // the catalog
+-  FlightSchema,
+-  FlightTable,
+-} from './flight';
++  FacadeCatalog, // the catalog
++  FacadeSchema,
++  FacadeGrid,
++} from './facade';
+ 
+-export const all = [new FlightCatalog(), new FlightSchema(), new FlightTable()];
++export const all = [new FacadeCatalog(), new FacadeSchema(), new FacadeGrid()];
+
+--- a/src/info_schema.ts
++++ b/src/info_schema.ts
+@@ -1,3 +1,4 @@
+-import { CONST, FlightCatalog, FlightSchema } from './flight';
++import { CONST } from './flight';
++import { FacadeCatalog, FacadeSchema } from './facade';
+ 
+-export const info = [CONST, new FlightCatalog(), new FlightSchema()];
++export const info = [CONST, new FacadeCatalog(), new FacadeSchema()];
+
+
+
+DRY-RUN. 4 file(s) would change. Re-run with --apply.

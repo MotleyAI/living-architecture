@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+import yaml
 from project_files import file_tree, write_project
 from refactor_cli import read, run
 
@@ -77,20 +78,21 @@ def test_a_reexport_shim_is_kept(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     assert read(root, "pkg/only.py") == "from pkg.compat import Model\n\n\ndef make() -> object:\n    return Model()\n"
 
 
-def test_a_single_name_shim_and_its_importers_are_kept(
+def test_a_single_name_shim_and_its_importers_are_rewritten(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     shim = 'from pkg.models import AcmeModel\n\n__all__ = ["AcmeModel"]\n\n\ndef make() -> object:\n    return AcmeModel()\n'
-    use = "from pkg.compat import AcmeModel\n\na = AcmeModel()\n"
     root = write_project(tmp_path / "proj", {
         "pkg/models.py": MODELS,
         "pkg/compat.py": shim,
-        "pkg/use.py": use,
+        "pkg/use.py": "from pkg.compat import AcmeModel\n\na = AcmeModel()\n",
         "pkg/direct.py": "from pkg.models import AcmeModel\n\nb = AcmeModel()\n",
     })
     code, _out, err = run(root, _retarget("pkg/models.py", "AcmeModel", "Model"), monkeypatch, capsys)
     assert (code, err) == (0, "")
-    assert [read(root, "pkg/compat.py"), read(root, "pkg/use.py")] == [shim, use]
+    assert read(root, "pkg/compat.py") == shim.replace(
+        "import AcmeModel\n", "import AcmeModel\nfrom pkg.models import Model\n").replace("return AcmeModel()", "return Model()")
+    assert read(root, "pkg/use.py") == "from pkg.models import Model\n\na = Model()\n"
     assert read(root, "pkg/direct.py") == "from pkg.models import Model\n\nb = Model()\n"
 
 
@@ -106,15 +108,30 @@ def test_import_alias_keeps_its_local_name(
     assert read(root, "pkg/aliased.py") == "from pkg.models import Model as SM\n\n\ndef make() -> object:\n    return SM()\n"
 
 
-def test_other_scope_refused(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+def test_a_target_imported_from_another_module_is_accepted(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    compat = "from pkg.core import Model\n\nAcmeModel = Model\n"
     root = write_project(tmp_path / "proj", {
         "pkg/core.py": "class Model:\n    pass\n",
-        "pkg/compat.py": "from pkg.core import Model\n\nAcmeModel = Model\n",
+        "pkg/compat.py": compat,
         "pkg/use.py": "from pkg.compat import AcmeModel\n\nX = AcmeModel()\n",
     })
+    code, _out, err = run(root, _retarget("pkg/compat.py", "AcmeModel", "Model"), monkeypatch, capsys)
+    assert (code, err) == (0, "")
+    assert read(root, "pkg/compat.py") == compat
+    assert read(root, "pkg/use.py") == "from pkg.core import Model\n\nX = Model()\n"
+
+
+def test_a_member_alias_with_a_target_in_another_class_is_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    store = "class Store:\n    def save_model(self, m: int) -> None:\n        print(m)\n\n\n"
+    root = write_project(tmp_path / "proj", {"pkg/engine.py": store + ENGINE, "pkg/use.py": ENGINE_USE})
     before = file_tree(root)
-    expected = message("refactor.retarget-scope", target="Model", alias="AcmeModel")
-    assert run(root, _retarget("pkg/compat.py", "AcmeModel", "Model"), monkeypatch, capsys) == (2, "", f"{expected}\n")
+    expected = message("refactor.retarget-scope", target="Store.save_model", alias="Engine.save")
+    assert run(root, _retarget("pkg/engine.py", "Engine.save", "Store.save_model"), monkeypatch, capsys) == (
+        2, "", f"{expected}\n")
     assert file_tree(root) == before
 
 
@@ -288,3 +305,125 @@ def test_an_import_in_another_branch_is_no_duplicate(
     code, _out, err = run(root, _retarget("pkg/models.py", "AcmeModel", "Model"), monkeypatch, capsys)
     assert (code, err) == (0, "")
     assert read(root, "pkg/use.py") == use.replace("import AcmeModel\n", "import Model\n").replace("= AcmeModel", "= Model")
+
+
+CORE = "class Model:\n    pass\n\n\nclass Part:\n    pass\n\n\ndef helper() -> int:\n    return 1\n"
+COMPAT = "from pkg.core import Model, Part\n\nCONST = 1\nAcmeModel = Model\nAcmePart = Part\n"
+
+
+def _imported(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], files: dict[str, str],
+    alias: str = "AcmeModel", target: str = "Model",
+) -> Path:
+    """Retarget `alias` of `pkg/compat.py`, whose target is imported from `pkg.core` unless `files` say otherwise."""
+    root = write_project(tmp_path / "proj", {"pkg/core.py": CORE, "pkg/compat.py": COMPAT, **files})
+    code, _out, err = run(root, _retarget("pkg/compat.py", alias, target), monkeypatch, capsys)
+    assert (code, err) == (0, "")
+    return root
+
+
+@pytest.mark.parametrize(("use", "expected"), [
+    ("from pkg.core import helper\nfrom pkg.compat import CONST, AcmeModel\n\nx = CONST, AcmeModel(), helper()\n",
+     "from pkg.core import helper, Model\nfrom pkg.compat import CONST\n\nx = CONST, Model(), helper()\n"),
+    ("from pkg.compat import AcmeModel\n\nx = AcmeModel()\n", "from pkg.core import Model\n\nx = Model()\n"),
+    ("from pkg.compat import CONST, AcmeModel\n\nx = CONST, AcmeModel()\n",
+     "from pkg.compat import CONST\nfrom pkg.core import Model\n\nx = CONST, Model()\n"),
+    ("from pkg.compat import AcmeModel as Z\n\nx = Z()\n", "from pkg.core import Model as Z\n\nx = Z()\n"),
+    ("from pkg.compat import CONST, AcmeModel as Z\n\nx = CONST, Z()\n",
+     "from pkg.compat import CONST\nfrom pkg.core import Model as Z\n\nx = CONST, Z()\n"),
+    ("from pkg.compat import (  # legacy\n    AcmeModel,  # the alias\n)\n\nx = AcmeModel()\n",
+     "from pkg.core import (  # legacy\n    Model,  # the alias\n)\n\nx = Model()\n"),
+], ids=["joins an earlier home import", "replaces a sole-name import", "new statement after a multi-name import",
+        "sole import as Z", "multi-name import as Z", "name spans only"])
+def test_the_target_import_is_placed_by_the_block(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], use: str, expected: str
+) -> None:
+    root = _imported(tmp_path, monkeypatch, capsys, {"pkg/use.py": use})
+    assert read(root, "pkg/use.py") == expected
+    assert read(root, "pkg/compat.py") == COMPAT
+
+
+def test_a_relative_import_is_spelled_from_the_importing_package(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    importers = {"pkg/a.py": ".compat", "pkg/lib/b.py": "..compat", "pkg/lib/deep/c.py": "...compat",
+                 "pkg/other/d.py": "..compat"}
+    root = _imported(tmp_path, monkeypatch, capsys, {
+        "pkg/lib/core.py": CORE,
+        **{f"{d}/__init__.py": "" for d in ("pkg/lib", "pkg/lib/deep", "pkg/other")},
+        "pkg/compat.py": COMPAT.replace("from pkg.core", "from pkg.lib.core"),
+        **{rel: f"from {module} import CONST, AcmeModel\n\nx = CONST, AcmeModel()\n" for rel, module in importers.items()},
+    })
+    homes = {"pkg/a.py": ".lib.core", "pkg/lib/b.py": ".core", "pkg/lib/deep/c.py": "..core", "pkg/other/d.py": "..lib.core"}
+    assert {rel: read(root, rel) for rel in importers} == {
+        rel: f"from {importers[rel]} import CONST\nfrom {home} import Model\n\nx = CONST, Model()\n"
+        for rel, home in homes.items()
+    }
+
+
+@pytest.mark.parametrize(("home", "rel", "use", "expected"), [
+    ("pkg/core/__init__.py", "pkg/sub/x.py", "from ..compat import AcmeModel\n", "from ..core import Model\n"),
+    ("pkg/__init__.py", "pkg/sub/x.py", "from ..compat import AcmeModel\n", "from .. import Model\n"),
+    ("pkg/__init__.py", "pkg/x.py", "from pkg.compat import AcmeModel\n", "from pkg import Model\n"),
+], ids=["subpackage", "parent package, relative", "package, absolute"])
+def test_a_package_home_is_named_by_its_module(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], home: str, rel: str, use: str,
+    expected: str,
+) -> None:
+    module = home.removesuffix("/__init__.py").replace("/", ".")
+    root = write_project(tmp_path / "proj", {
+        "pkg/sub/__init__.py": "",
+        home: "class Model:\n    pass\n",
+        "pkg/compat.py": f"from {module} import Model\n\nAcmeModel = Model\n",
+        rel: use + "\nx = AcmeModel()\n",
+    })
+    code, _out, err = run(root, _retarget("pkg/compat.py", "AcmeModel", "Model"), monkeypatch, capsys)
+    assert (code, err) == (0, "")
+    assert read(root, rel) == expected + "\nx = Model()\n"
+
+
+def test_a_block_gets_one_import_per_home_across_map_entries(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    entries = [{"file": "pkg/compat.py", "symbol": alias, "retarget": target}
+               for alias, target in (("AcmeModel", "Model"), ("AcmePart", "Part"))]
+    root = write_project(tmp_path / "proj", {
+        "pkg/core.py": CORE,
+        "pkg/compat.py": COMPAT,
+        "pkg/use.py": "from pkg.compat import CONST, AcmeModel, AcmePart\n\nx = CONST, AcmeModel(), AcmePart()\n",
+        "map.yaml": yaml.safe_dump(entries, sort_keys=False),
+    })
+    code, _out, err = run(root, ["--apply", "rename-map", "map.yaml"], monkeypatch, capsys)
+    assert (code, err) == (0, "")
+    assert read(root, "pkg/use.py") == "from pkg.compat import CONST\nfrom pkg.core import Model, Part\n\nx = CONST, Model(), Part()\n"
+
+
+def test_an_unbound_module_attribute_is_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = write_project(tmp_path / "proj", {
+        "pkg/models.py": MODELS,
+        "pkg/compat.py": 'from pkg.models import AcmeModel\n\n__all__ = ["AcmeModel"]\n',
+        "pkg/use.py": "import pkg.compat as c\n\nx = c.AcmeModel()\n",
+    })
+    before = file_tree(root)
+    unbound = message("refactor.retarget-unbound", path="pkg/use.py", line=3, module="pkg/compat.py", name="Model")
+    assert run(root, _retarget("pkg/models.py", "AcmeModel", "Model"), monkeypatch, capsys) == (1, "", f"{unbound}\n")
+    assert file_tree(root) == before
+
+
+@pytest.mark.parametrize(("files", "expected"), [
+    ({"pkg/core.py": "class CoreModel:\n    pass\n", "pkg/compat.py": "from pkg.core import CoreModel as Model\n\nAcmeModel = Model\n"},
+     "from pkg.core import CoreModel as Model\n\nx = Model()\n"),
+    ({"pkg/_private.py": "class Model:\n    pass\n", "pkg/public.py": 'from pkg._private import Model\n\n__all__ = ["Model"]\n',
+      "pkg/compat.py": "from pkg.public import Model\n\nAcmeModel = Model\n"},
+     "from pkg.public import Model\n\nx = Model()\n"),
+], ids=["under its exported name", "home not chased along a re-export chain"])
+def test_the_home_is_the_import_of_the_alias_module(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], files: dict[str, str],
+    expected: str,
+) -> None:
+    root = write_project(tmp_path / "proj", {**files, "pkg/use.py": "from pkg.compat import AcmeModel\n\nx = AcmeModel()\n"})
+    code, _out, err = run(root, _retarget("pkg/compat.py", "AcmeModel", "Model"), monkeypatch, capsys)
+    assert (code, err) == (0, "")
+    assert read(root, "pkg/use.py") == expected

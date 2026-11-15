@@ -1,0 +1,21 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- retarget
+- --file
+- src/compat.ts
+- --symbol
+- Flight
+- --target
+- Facade
+fixture: retarget-ts-meanings
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: 'a const-and-type alias of an imported merged class and namespace: an importer of type uses only imports the
+  target type-only, one with value uses (new, typeof, extends) as a value, and one already importing the target loses
+  the alias import'

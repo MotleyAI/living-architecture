@@ -1,0 +1,2 @@
+- {file: src/compat.ts, symbol: AcmeModel, retarget: Model}
+- {file: src/legacy.ts, symbol: OldModel, retarget: Model}

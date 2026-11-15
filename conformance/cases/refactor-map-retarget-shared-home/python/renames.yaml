@@ -1,0 +1,4 @@
+- {file: pkg/facade.py, symbol: FacadeTable, new_name: FacadeGrid}
+- {file: pkg/flight.py, symbol: FlightCatalog, retarget: FacadeCatalog}
+- {file: pkg/flight.py, symbol: FlightSchema, retarget: FacadeSchema}
+- {file: pkg/flight.py, symbol: FlightTable, retarget: FacadeTable}

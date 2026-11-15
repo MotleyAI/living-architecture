@@ -11,8 +11,8 @@ SLayer's `FlightCatalog = FacadeCatalog` with `refactor.retarget-scope`.
 
 Principles that apply (`architecture/system.arc42.md`; the `refactor` element has no arc42 of its own):
 1. Twins — every rule lands in both twins, pinned by paired conformance cases run through both invoking twins.
-2. Shared contract — the new `refactor.retarget-unbound` template lives in `shared/findings.yaml`; no CLI surface
-   change.
+2. Shared contract — the new `refactor.retarget-unbound` template lives in `shared/findings.yaml`; the CLI surface
+   changes only in the `retarget` help text (decision 20).
 3. Language-specific code only in `lang` and `refactor` — all new code is in `refactor`.
 4. No target-repo code runs — resolution uses rope, la's own basedpyright and the bundled TypeScript checker.
 
@@ -107,6 +107,13 @@ keep/shim special cases. Grounded in principles 1 and 2.
     an alias and keeps every name bound", because a MODIFIED block may not drop the scenario "Single-name shim kept with
     its importers", whose behaviour decision 1 reverses. Weighed: keeping that scenario's name over the opposite
     behaviour (misleading). (default)
+20. **Help and scope texts name the imported target** (user, approved wording): `shared/cli.yaml` `retarget.help`
+    "rewrite the references to an alias to name its target, declared or imported in the same class or module";
+    `shared/findings.yaml` `refactor.retarget-scope` "{target} is not declared or imported in the class or module that
+    declares {alias}". Weighed: leaving both (true for member aliases, understates module aliases). (user)
+21. **`retarget-unbound` names the module by its file path** relative to the project (`pkg/compat.py`,
+    `src/compat.ts`), in both languages. Weighed: the dotted name or TypeScript specifier (differs per importing
+    file), the receiver as written (`c` names no module). (user)
 
 ## Mechanisms
 

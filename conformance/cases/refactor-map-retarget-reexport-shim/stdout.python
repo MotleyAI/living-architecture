@@ -1,6 +1,22 @@
 Retargeting <AcmeModel> to <Model>:
 
 
+--- a/pkg/many.py
++++ b/pkg/many.py
+@@ -1,7 +1,7 @@
+-from pkg.compat_aug import AcmeModel as Aug
+-from pkg.compat_append import AcmeModel as App
+-from pkg.compat_extend import AcmeModel as Ext
+-from pkg.compat_annotated import AcmeModel as Ann
+-from pkg.compat_pep484 import AcmeModel as Pep
++from pkg.compat_aug import Model as Aug
++from pkg.compat_append import Model as App
++from pkg.compat_extend import Model as Ext
++from pkg.compat_annotated import Model as Ann
++from pkg.compat_pep484 import Model as Pep
+ 
+ made = Aug(), App(), Ext(), Ann(), Pep()
+
 --- a/pkg/only.py
 +++ b/pkg/only.py
 @@ -1,5 +1,5 @@
@@ -14,4 +30,4 @@ Retargeting <AcmeModel> to <Model>:
 
 
 
-DRY-RUN. 1 file(s) would change. Re-run with --apply.
+DRY-RUN. 2 file(s) would change. Re-run with --apply.

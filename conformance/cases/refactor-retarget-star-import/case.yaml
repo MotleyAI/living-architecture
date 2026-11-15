@@ -1,0 +1,15 @@
+kind: paired
+languages:
+- python
+- typescript
+command: dr-refactor
+args:
+- rename-map
+- renames.yaml
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: 'an importer through a star import or export * barrel of a single-name shim imports the target from the home;
+  through one that exports the target, it needs no import, in both languages'

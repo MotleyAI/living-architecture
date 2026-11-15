@@ -33,11 +33,12 @@ Both twins behave this way.
 
 ## Impact
 
-- `shared/findings.yaml` (`refactor.retarget-unbound`), synced into both twins' snapshots.
+- `shared/findings.yaml` (`refactor.retarget-unbound`, `refactor.retarget-scope` wording) and `shared/cli.yaml`
+  (`retarget` help wording), synced into both twins' snapshots.
 - Python twin: `refactor/retarget.py`, `refactor/rename_map.py` (target resolution, import planning across entries,
   `--keep` before import planning).
 - npm twin: `src/refactor/rename.ts` (the same).
 - Conformance: new paired cases; `refactor-map-retarget-single-name-shim`, `refactor-map-retarget-reexport-shim` and
   `refactor-retarget-scope` change; `conformance/INVENTORY.md`.
 - `plugin/skills/deterministic-refactor/SKILL.md`, `docs/deterministic-refactoring.md`.
-- No architecture model, arc42 or CLI-surface change.
+- No architecture model, arc42 or CLI-surface change beyond the `retarget` help text.
