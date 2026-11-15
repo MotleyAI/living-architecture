@@ -135,7 +135,9 @@ class body or module scope, else exit 2 with `refactor.retarget-scope`. Checks t
 SHALL NOT apply. A member ALIAS SHALL refuse, exit 1 with one `refactor.retarget-override` line per site, while a
 class of its hierarchy other than ALIAS's own declares ALIAS's name. A bare-name reference at which TARGET's name
 is bound to something else SHALL refuse with `refactor.retarget-shadowed`. An import that the rewrite would make a
-duplicate of an import of TARGET from the same module SHALL be removed instead.
+duplicate of an import of TARGET from the same module SHALL be removed instead. A module's re-export of ALIAS SHALL
+stay: where the module lists ALIAS's name in `__all__` (Python) or exports it (TypeScript `export { ALIAS }` or
+`export { ALIAS } from`), its import or export of ALIAS and that `__all__` string SHALL be left unchanged.
 
 #### Scenario: Method twin
 - **WHEN** `class Engine` declares `save_model` and a deprecated `def save(self, m: Model) -> None: return
@@ -160,6 +162,11 @@ duplicate of an import of TARGET from the same module SHALL be removed instead.
 #### Scenario: Shadowed target refused
 - **WHEN** a function binds a local `Model` and uses `AcmeModel()` in its body
 - **THEN** stderr names that use with `refactor.retarget-shadowed` and the exit code is 1
+
+#### Scenario: Re-export shim kept
+- **WHEN** `compat.py` holds `from pkg.models import Model, AcmeModel` and `__all__ = ["Model", "AcmeModel"]`, and
+  `AcmeModel` is retargeted to `Model`
+- **THEN** `compat.py` is unchanged and every other reference to `AcmeModel` becomes `Model`
 
 #### Scenario: TypeScript merged alias
 - **WHEN** a TypeScript class declares `/** @deprecated */ get old(): number { return this.value; }` and `value`,

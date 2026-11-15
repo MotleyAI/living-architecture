@@ -475,6 +475,8 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | *(new)* a failed write restores the files already written: `write-failed` | 1 | `refactor-write-rollback` |
 | *(new)* a move that fails after moving, whose restore fails too: `rollback-failed` naming the path left changed | 1 | `refactor-move-module-rollback-failed` |
 | *(new)* two map entries giving parameters of one function the same new name: `name-conflict` (paired) | 1 | `refactor-map-converging-names` |
+| *(new)* two map entries sharing an old name meet one blind spot: listed and counted once (paired) | 1 | `refactor-map-shared-old-name` |
+| *(new)* a retarget leaves a module re-exporting the alias and rewrites the importers of that re-export (paired) | 0 | `refactor-map-retarget-reexport-shim` |
 | *(new)* a map's `Literal` member new value holding `${`: `literal-value` (paired) | 2 | `refactor-map-literal-value-template` |
 | *(new)* `.basedpyright/baseline.json` kept aligned through the configured checker: a rename shifting baselined columns (apply, dry-run, a `-p` command), entries basedpyright matches (identical shapes, a stale entry, an unbaselined error above a baselined one), a moved module, a moved declaration; no baseline file or a null command (no checker runs) | 0 | `refactor-baseline-rename`, `refactor-baseline-dry-run`, `refactor-baseline-project-flag`, `refactor-baseline-matching`, `refactor-baseline-move-module`, `refactor-baseline-move-symbol`, `refactor-baseline-absent`, `refactor-baseline-checker-null` |
 | *(new)* the configured checker cannot run: `baseline-failed`, nothing written | 1 | `refactor-baseline-failed` |

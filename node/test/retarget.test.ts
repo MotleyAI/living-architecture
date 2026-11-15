@@ -45,6 +45,19 @@ describe('retarget', () => {
     expect(read(root, 'src/engine.ts')).toBe(ENGINE);
   });
 
+  it.each([
+    ['an import re-exported', "import { modern, legacy } from './api';\n\nexport { modern, legacy };\n"],
+    ['an export from', "export { modern, legacy } from './api';\n"],
+  ])('keeps a re-export shim (%s)', (_kind, shim) => {
+    const use = "import { legacy } from './shim';\n\nexport const n = legacy();\n";
+    const root = tsProject({ 'src/api.ts': API, 'src/shim.ts': shim, 'src/use.ts': use });
+    const result = refactor(root, '--apply', 'retarget', '--file', 'src/api.ts', '--symbol', 'legacy', '--target', 'modern');
+    expect([result.code, result.err]).toEqual([0, '']);
+    expect([read(root, 'src/api.ts'), read(root, 'src/shim.ts')]).toEqual([API, shim]);
+    expect(read(root, 'src/use.ts')).toBe("import { modern } from './shim';\n\nexport const n = modern();\n");
+    expect(diagnosticCodes(root)).toEqual([]);
+  });
+
   it('removes the import the rewrite would duplicate', () => {
     const use = "import { Model, AcmeModel } from './models';\n\nexport const m = new AcmeModel();\nexport const n: Model = m;\n";
     const root = tsProject({ 'src/models.ts': MODELS, 'src/use.ts': use });
@@ -78,6 +91,33 @@ describe('retarget', () => {
     const shadowed = message('refactor.retarget-shadowed', { path: 'src/use.ts', line: 5, name: 'modern' });
     expect(result).toEqual({ code: 1, out: '', err: `${shadowed}\n` });
     expect(read(root, 'src/use.ts')).toBe(use);
+  });
+
+  it('keeps an aliased re-export shim, whose importers the rename does not reach', () => {
+    const shim = "import { modern, legacy as old } from './api';\n\nexport { modern, old as legacy };\n";
+    const use = "import { legacy } from './shim';\n\nexport const n = legacy();\n";
+    const root = tsProject({ 'src/api.ts': API, 'src/shim.ts': shim, 'src/use.ts': use });
+    const result = refactor(root, '--apply', 'retarget', '--file', 'src/api.ts', '--symbol', 'legacy', '--target', 'modern');
+    expect([result.code, result.err]).toEqual([0, '']);
+    expect([read(root, 'src/shim.ts'), read(root, 'src/use.ts')]).toEqual([shim, use]);
+    expect(diagnosticCodes(root)).toEqual([]);
+  });
+
+  it('rewrites an import beside an export from, which binds nothing locally', () => {
+    const shim = "import { legacy } from './api';\n\nexport { legacy } from './api';\nexport const n = legacy();\n";
+    const root = tsProject({ 'src/api.ts': API, 'src/shim.ts': shim });
+    const result = refactor(root, '--apply', 'retarget', '--file', 'src/api.ts', '--symbol', 'legacy', '--target', 'modern');
+    expect([result.code, result.err]).toEqual([0, '']);
+    expect(read(root, 'src/shim.ts')).toBe("import { modern } from './api';\n\nexport { legacy } from './api';\nexport const n = modern();\n");
+    expect(diagnosticCodes(root)).toEqual([]);
+  });
+
+  it('keeps the key of a shorthand property', () => {
+    const use = "import { legacy } from './api';\n\nexport const o = { legacy };\n";
+    const root = tsProject({ 'src/api.ts': API, 'src/use.ts': use });
+    const result = refactor(root, '--apply', 'retarget', '--file', 'src/api.ts', '--symbol', 'legacy', '--target', 'modern');
+    expect([result.code, result.err]).toEqual([0, '']);
+    expect(read(root, 'src/use.ts')).toBe("import { modern } from './api';\n\nexport const o = { legacy: modern };\n");
   });
 
   it('keeps an import alias, naming the target under it', () => {

@@ -93,10 +93,14 @@ class AliasRetarget(SymbolRename):
         return message("refactor.retarget-header", old=self.old, new=self.new)
 
     def retarget(self) -> None:
-        """Drop the alias's own declarations' edits, then refuse overrides and shadowed names and drop duplicate
-        imports."""
+        """Drop the edits at the alias's own declarations and at a module's re-export of it, then refuse overrides and
+        shadowed names and drop duplicate imports."""
         own = set(self.seeds)
-        self.edits = [e for e in self.edits if (e.path, e.start) not in own]
+        kept: dict[str, list[tuple[int, int]]] = {}
+        for path in {e.path for e in self.edits}:
+            kept[path] = _reexport_spans(self.snapshot.source(path), self.old)
+        self.edits = [e for e in self.edits if (e.path, e.start) not in own
+                      and not any(start <= e.start < end for start, end in kept[e.path])]
         self._overrides()
         alias_module = module_name(self.session, self.renamer.resource.path)
         edits: list[TextEdit] = []
@@ -175,6 +179,30 @@ class AliasRetarget(SymbolRename):
         i = next(k for k, a in enumerate(stmt.names) if a is alias)
         start, end = (spans[i][0], spans[i + 1][0]) if i + 1 < len(spans) else (spans[i - 1][1], spans[i][1])
         return TextEdit(path=rel, start=start, end=end, new_text="")
+
+
+def _reexport_spans(source: SourceFile, name: str) -> list[tuple[int, int]]:
+    """Where a module re-exports `name` (its `__all__` lists it): the `__all__` strings and its imports of `name`."""
+    if source.tree is None:
+        return []
+    names = [n for stmt in source.tree.body if _assigns_all(stmt) for n in ast.walk(stmt)
+             if isinstance(n, ast.Constant) and n.value == name]
+    if not names:
+        return []
+    imports = [a for stmt in source.tree.body if isinstance(stmt, (ast.Import, ast.ImportFrom)) for a in stmt.names
+               if (a.asname or a.name.split(".")[-1]) == name]
+    return [source.span(n) for n in [*names, *imports]]  # pyright: ignore[reportArgumentType]
+
+
+def _assigns_all(stmt: ast.stmt) -> bool:
+    """`stmt` assigns or extends a module's `__all__`."""
+    if isinstance(stmt, ast.Assign):
+        targets = stmt.targets
+    elif isinstance(stmt, (ast.AnnAssign, ast.AugAssign)):
+        targets = [stmt.target]
+    else:
+        return False
+    return any(isinstance(t, ast.Name) and t.id == "__all__" for t in targets)
 
 
 def _statement_removal(source: SourceFile, rel: str, stmt: ast.stmt) -> TextEdit:

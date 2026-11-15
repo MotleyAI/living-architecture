@@ -1,0 +1,15 @@
+kind: paired
+languages:
+- python
+- typescript
+command: dr-refactor
+args:
+- rename-map
+- renames.yaml
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: 'a retarget leaves a module re-exporting the alias (its import or export of it, the __all__ string) and rewrites
+  the importers of that re-export, in both languages'

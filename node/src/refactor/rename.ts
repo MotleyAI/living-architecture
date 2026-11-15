@@ -62,11 +62,16 @@ const isString = (node: TS.Node): node is TS.StringLiteral | TS.NoSubstitutionTe
   ts().isStringLiteral(node) || ts().isNoSubstitutionTemplateLiteral(node);
 
 /** Every service's rename locations of the symbol at `position` of `file`. */
-function renameLocations(services: TS.LanguageService[], file: string, position: number, newName: string): Edit[] {
+/** The language services' rename edits. `stable` keeps a re-exported name as it is (`x as y`); a retarget passes false
+ * so it reaches the importers of a re-export, a shorthand property still keeping its key (`old: new`). */
+function renameLocations(services: TS.LanguageService[], file: string, position: number, newName: string, stable = true): Edit[] {
   const edits: Edit[] = [];
   for (const service of services) {
-    for (const location of service.findRenameLocations(file, position, false, false, { providePrefixAndSuffixTextForRename: true }) ?? []) {
-      const newText = `${location.prefixText ?? ''}${newName}${location.suffixText ?? ''}`;
+    for (const location of service.findRenameLocations(file, position, false, false, { providePrefixAndSuffixTextForRename: stable }) ?? []) {
+      const source = service.getProgram()?.getSourceFile(location.fileName);
+      const node = source === undefined ? undefined : nodeAt(source, location.textSpan.start);
+      const shorthand = !stable && node !== undefined && ts().isShorthandPropertyAssignment(node.parent) && node.parent.name === node;
+      const newText = shorthand ? `${node.getText()}: ${newName}` : `${location.prefixText ?? ''}${newName}${location.suffixText ?? ''}`;
       edits.push({ path: location.fileName, start: location.textSpan.start, length: location.textSpan.length, newText });
     }
   }
@@ -567,6 +572,26 @@ function duplicateImport(source: TS.SourceFile, checker: TS.TypeChecker, node: T
 }
 
 /** A retarget's rename locations checked and adjusted: overrides and shadowed uses as findings, duplicate imports removed. */
+/** Where a module re-exports `name` (`export { name }`, `export { local as name }`, `export { name } from`): those
+ * specifiers and its imports binding the exported locals. */
+function reexportSpans(source: TS.SourceFile, name: string): [number, number][] {
+  const exported = source.statements.flatMap((s) =>
+    ts().isExportDeclaration(s) && s.exportClause !== undefined && ts().isNamedExports(s.exportClause) ? s.exportClause.elements.filter((e) => e.name.text === name) : [],
+  );
+  if (exported.length === 0) return [];
+  const local = exported.filter((e) => e.parent.parent.moduleSpecifier === undefined);
+  const locals = new Set(local.map((e) => (e.propertyName ?? e.name).text));
+  const imported = source.statements.flatMap((s): TS.Node[] => {
+    const clause = ts().isImportDeclaration(s) ? s.importClause : undefined;
+    const bindings = clause?.namedBindings;
+    const named = bindings !== undefined && ts().isNamedImports(bindings) ? bindings.elements.filter((e) => locals.has(e.name.text)) : [];
+    const namespace = bindings !== undefined && ts().isNamespaceImport(bindings) && locals.has(bindings.name.text) ? [bindings] : [];
+    const own = clause?.name !== undefined && locals.has(clause.name.text) ? [clause.name] : [];
+    return [...own, ...namespace, ...named];
+  });
+  return [...exported, ...imported].map((node) => [node.getStart(source), node.end]);
+}
+
 function retargetEdits(session: Session, target: Target, targetKey: string): Finding[] {
   const findings: Finding[] = [];
   const members = [...session.sources.values()].flatMap(({ source, checker }) => memberDeclarations(checker, source, target.old, source.fileName));
@@ -577,8 +602,14 @@ function retargetEdits(session: Session, target: Target, targetKey: string): Fin
     }
   }
   const all = ts().SymbolFlags.Value | ts().SymbolFlags.Type | ts().SymbolFlags.Namespace; // NOSONAR(S1529) — SymbolFlags bitmask
+  const kept = new Map<string, [number, number][]>();
+  const reexport = (path: string, source: TS.SourceFile, at: number): boolean => {
+    if (!kept.has(path)) kept.set(path, reexportSpans(source, target.old));
+    return (kept.get(path) ?? []).some(([start, end]) => start <= at && at < end);
+  };
   target.edits = target.edits.flatMap((edit) => {
     const found = session.sources.get(edit.path);
+    if (found !== undefined && reexport(edit.path, found.source, edit.start)) return [];
     if (found === undefined || target.own.has(keyOf(edit.path, edit.start))) return [edit];
     const node = nodeAt(found.source, edit.start);
     const imports = duplicateImport(found.source, found.checker, node, edit, target.newName);
@@ -691,7 +722,7 @@ function checkSupported(r: Refactor): void {
 function targetEdits(r: Refactor, session: Session, targets: Target[]): Finding[] {
   const refusals: Finding[] = [];
   for (const target of targets) {
-    target.edits = renameLocations(r.services(target.file), target.file, target.position, target.newName);
+    target.edits = renameLocations(r.services(target.file), target.file, target.position, target.newName, !target.retarget);
     checkNameConflict(r, session, target);
     if (target.retarget) refusals.push(...retargetEdits(session, target, target.intent));
   }

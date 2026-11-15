@@ -63,6 +63,20 @@ def test_class_twin_and_its_imports(
     assert read(root, "pkg/only.py") == "from pkg.models import Model\n\n\ndef make() -> object:\n    return Model()\n"
 
 
+def test_a_reexport_shim_is_kept(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    shim = 'from pkg.models import Model, AcmeModel\n\n__all__ = ["Model", "AcmeModel"]\n'
+    models = MODELS + '\n__all__ = ["Model", "AcmeModel"]\n'
+    root = write_project(tmp_path / "proj", {
+        "pkg/models.py": models,
+        "pkg/compat.py": shim,
+        "pkg/only.py": "from pkg.compat import AcmeModel\n\n\ndef make() -> object:\n    return AcmeModel()\n",
+    })
+    code, _out, err = run(root, _retarget("pkg/models.py", "AcmeModel", "Model"), monkeypatch, capsys)
+    assert (code, err) == (0, "")
+    assert [read(root, "pkg/models.py"), read(root, "pkg/compat.py")] == [models, shim]
+    assert read(root, "pkg/only.py") == "from pkg.compat import Model\n\n\ndef make() -> object:\n    return Model()\n"
+
+
 def test_import_alias_keeps_its_local_name(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
