@@ -56,6 +56,10 @@ def schema_names() -> list[str]:
     return sorted(p.name.removesuffix(".schema.json") for p in (snapshot_dir() / "schema").glob("*.schema.json"))
 
 
+def _cli() -> Any:
+    return _yaml("cli.yaml")
+
+
 def findings() -> dict[str, str]:
     return _yaml("findings.yaml")["findings"]
 
@@ -65,17 +69,17 @@ def check_ids() -> frozenset[str]:
 
 
 def manifest() -> dict[str, Any]:
-    return _yaml("cli.yaml")["commands"]
+    return _cli()["commands"]
 
 
 def base_fetch_timeout() -> float:
     """Seconds after which the best-effort fetch of a base branch is killed."""
-    return float(_yaml("cli.yaml")["base_fetch_timeout_seconds"])
+    return float(_cli()["base_fetch_timeout_seconds"])
 
 
 def literal_value_forbidden() -> tuple[str, ...]:
     """The substrings a `Literal` member's new value may not hold."""
-    return tuple(_yaml("cli.yaml")["literal_value_forbidden"])
+    return tuple(_cli()["literal_value_forbidden"])
 
 
 def language(name: str) -> dict[str, Any]:
