@@ -114,14 +114,19 @@ function host(
   overlay: Overlay,
   moved: Map<string, string>,
   readDirectory: ReadDirectory,
+  listing: Listing | null,
 ): Host {
   const sys = ts().sys;
   const names = [...parsed.fileNames.map((name) => moved.get(canonical(name)) ?? name), ...extra];
   const virtual = virtualDirectories(moved);
-  const directoryExists = (name: string): boolean => virtual.has(canonical(name)) || sys.directoryExists(name);
+  const listed = (name: string): { files: string[]; directories: string[] } => listing?.(name) ?? { files: [], directories: [] };
+  const directoryExists = (name: string): boolean => {
+    const entries = listed(name);
+    return virtual.has(canonical(name)) || entries.files.length > 0 || entries.directories.length > 0 || sys.directoryExists(name);
+  };
   const getDirectories = (name: string): string[] => {
     const children = [...virtual.values()].filter((dir) => canonical(dirname(dir)) === canonical(name) && dirname(dir) !== dir).map((dir) => basename(dir));
-    return [...new Set([...(sys.directoryExists(name) ? sys.getDirectories(name) : []), ...children])];
+    return [...new Set([...(sys.directoryExists(name) ? sys.getDirectories(name) : []), ...listed(name).directories, ...children])];
   };
   const fileExists = (name: string): boolean => {
     const text = overlay(name);
@@ -156,6 +161,7 @@ export class Workspace {
   private named: string | null | undefined;
 
   private readonly readDirectory: ReadDirectory;
+  private readonly listing: Listing | null;
 
   /** The projects under `root` (a refactor's --project, or the repo root), loaded per file on first use; programs
    * and services read files through `overlay`, each project file under its `moved` path (by canonical old path), and
@@ -166,6 +172,7 @@ export class Workspace {
     private readonly moved: Map<string, string> = new Map(),
     listing: Listing | null = null,
   ) {
+    this.listing = listing;
     this.readDirectory = listing === null ? (...args) => ts().sys.readDirectory(...args) : listedReadDirectory(listing, root);
   }
 
@@ -275,7 +282,7 @@ export class Workspace {
     let service = this.services.get(project);
     if (service === undefined) {
       const parsed = this.parsed(project);
-      service = ts().createLanguageService(host(parsed, parsed.options, [], this.overlay, this.moved, this.readDirectory), this.registry);
+      service = ts().createLanguageService(host(parsed, parsed.options, [], this.overlay, this.moved, this.readDirectory, this.listing), this.registry);
       this.services.set(project, service);
     }
     return service;
@@ -288,7 +295,7 @@ export class Workspace {
     const out = new Map<string, TS.LanguageService>();
     for (const [project, group] of groups) {
       const parsed = this.parsed(project);
-      const serviceHost = host(parsed, { ...parsed.options, ...overrides }, group, this.overlay, this.moved, this.readDirectory);
+      const serviceHost = host(parsed, { ...parsed.options, ...overrides }, group, this.overlay, this.moved, this.readDirectory, this.listing);
       const service = ts().createLanguageService(serviceHost, this.registry);
       for (const file of group) out.set(file, service);
     }

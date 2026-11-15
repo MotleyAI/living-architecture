@@ -62,7 +62,7 @@ def _destination(project: Project, dest: str, *, folder: bool) -> Resource:
 def _emit(project: Project, changes: ChangeSet, apply: bool, before: dict[str, bytes], *, moved_code: bool = False) -> None:
     """Print a rope change set sorted by path; write it all or nothing with `apply`, refusing a file that changed
     since `before` was read."""
-    writes, moves = change_set_writes(project, changes, before)
+    writes, moves = change_set_writes(changes, before)
     emit(project, [f"{changes}:"], changes, apply, writes, moves, moved_code=moved_code)
 
 

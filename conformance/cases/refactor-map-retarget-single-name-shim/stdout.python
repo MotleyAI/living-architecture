@@ -1,0 +1,15 @@
+Retargeting <AcmeModel> to <Model>:
+
+
+--- a/pkg/direct.py
++++ b/pkg/direct.py
+@@ -1,3 +1,3 @@
+-from pkg.models import AcmeModel
++from pkg.models import Model
+ 
+-b = AcmeModel()
++b = Model()
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

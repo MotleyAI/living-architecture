@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { message } from '../src/contract/index.js';
 import { run, type Run } from './cli-run.js';
+import { Workspace, listingOf } from '../src/refactor/workspace.js';
 import { commitAll, tsProject } from './refactor-project.js';
 
 const API = 'export function get(): number {\n  return 1;\n}\n';
@@ -81,6 +82,25 @@ describe('dr-mock-lint --base', () => {
     commitAll(root, 'mock');
     execFileSync('git', ['push', '-q', 'origin', 'feat:main'], { cwd: root });
     rmSync(join(root, 'src', 'api.ts'));
+    const module = message('mock-lint.module', { path: 'tests/m.test.ts', line: 3, call: 'vi.mock' });
+    expect(lint(root, '--base', 'main', 'tests/m.test.ts')).toEqual({ code: 1, out: `${module}\n`, err: '' });
+  });
+
+  it('gives the base program the directories the base holds, though deleted from disk', () => {
+    const root = tsProject({ 'tsconfig.json': TSCONFIG, 'src/svc/api.ts': API, 'tests/u.ts': "import { get } from '../src/svc/api';\n\nexport const n: number = get();\n" });
+    rmSync(join(root, 'src', 'svc'), { recursive: true });
+    const base = (name: string): string | null | undefined => (name === join(root, 'src', 'svc', 'api.ts') ? API : undefined);
+    const workspace = new Workspace(root, base, new Map(), listingOf(root, ['tsconfig.json', 'src/svc/api.ts', 'tests/u.ts']));
+    const file = join(root, 'tests', 'u.ts');
+    const codes = (workspace.holding(file)[0]?.getSemanticDiagnostics(file) ?? []).map((d) => d.code);
+    expect(codes).toEqual([]);
+  });
+
+  it('resolves a mock module in a directory deleted since the base, so its finding is new', () => {
+    const root = tsProject({ 'tsconfig.json': TSCONFIG, 'src/svc/api.ts': API, 'tests/a.test.ts': BASE_TEST });
+    writeFileSync(join(root, 'tests', 'm.test.ts'), "import { vi } from 'vitest';\n\nvi.mock(import('../src/svc/api'), () => ({}));\n");
+    pushed(root);
+    rmSync(join(root, 'src', 'svc'), { recursive: true });
     const module = message('mock-lint.module', { path: 'tests/m.test.ts', line: 3, call: 'vi.mock' });
     expect(lint(root, '--base', 'main', 'tests/m.test.ts')).toEqual({ code: 1, out: `${module}\n`, err: '' });
   });

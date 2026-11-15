@@ -477,6 +477,7 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | *(new)* two map entries giving parameters of one function the same new name: `name-conflict` (paired) | 1 | `refactor-map-converging-names` |
 | *(new)* two map entries sharing an old name meet one blind spot: listed and counted once (paired) | 1 | `refactor-map-shared-old-name` |
 | *(new)* a retarget leaves a module re-exporting the alias and rewrites the importers of that re-export (paired) | 0 | `refactor-map-retarget-reexport-shim` |
+| *(new)* a single-name re-export shim, its own uses and its importers stay; importers of the defining module are rewritten (paired) | 0 | `refactor-map-retarget-single-name-shim` |
 | *(new)* a retarget keeps a module's first import of a duplicated pair, so evaluation order is kept (paired) | 0 | `refactor-map-retarget-import-order` |
 | *(new)* a map's `Literal` member new value holding `${`: `literal-value` (paired) | 2 | `refactor-map-literal-value-template` |
 | *(new)* a map's `Literal` member new value holding NUL: `literal-value` (paired) | 2 | `refactor-map-literal-value-nul` |

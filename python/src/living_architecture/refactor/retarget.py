@@ -89,23 +89,51 @@ class AliasRetarget(SymbolRename):
         self.line = line
         self.refusals: list[Finding] = []
         self._parents: dict[str, dict[ast.AST, ast.AST]] = {}
+        self._shims: dict[str, bool] = {}
 
     @override
     def header(self) -> str:
         return message("refactor.retarget-header", old=self.old, new=self.new)
 
     def retarget(self) -> None:
-        """Drop the edits at the alias's own declarations and at a module's re-export of it, then refuse overrides and
-        shadowed names and drop duplicate imports."""
+        """Drop the edits at the alias's own declarations, at a module's re-export of it and at what a kept re-export
+        binds, then refuse overrides and shadowed names and drop duplicate imports."""
         own = set(self.seeds)
         kept: dict[str, list[tuple[int, int]]] = {}
         for path in {e.path for e in self.edits}:
-            kept[path] = _reexport_spans(self.snapshot.source(path), self.old)
+            source = self.snapshot.source(path)
+            # A shim keeping its import of the alias keeps every use of it too: the target is not bound there.
+            whole = [(0, len(source.text))] if _shim_imports(source, self.old) else []
+            kept[path] = [*_reexport_spans(source, self.old), *whole]
         self.edits = [e for e in self.edits if (e.path, e.start) not in own
-                      and not any(start <= e.start < end for start, end in kept[e.path])]
+                      and not any(start <= e.start < end for start, end in kept[e.path])
+                      and not self._through_bare_shim(e)]
         self._overrides()
         alias_module = module_name(self.session, self.renamer.resource.path)
         self.edits = [e for edit in self.edits for e in self._import_or_reference(edit, alias_module)]
+
+    def _through_bare_shim(self, edit: TextEdit) -> bool:
+        """`edit` is at an import of the alias, or at a reference it binds, from a shim that re-exports the alias without
+        binding the target's name, so the target cannot be imported from it."""
+        source = self.snapshot.source(edit.path)
+        if source.tree is None:
+            return False
+        parents = {child: node for node in ast.walk(source.tree) for child in ast.iter_child_nodes(node)}
+        node = _named_at(source, edit.start, self.old)
+        stmt = parents.get(node) if isinstance(node, ast.alias) else _binding_import(parents, node, self.old)
+        if not isinstance(stmt, ast.ImportFrom):
+            return False
+        module = _imported_module(stmt, module_name(self.session, edit.path), edit.path.endswith("__init__.py"))
+        return self._bare_shim(module)
+
+    def _bare_shim(self, module: str) -> bool:
+        """`module` re-exports the alias by importing it and binds no name of the target's at module level."""
+        if module not in self._shims:
+            found = self.project.find_module(module) if module else None
+            source = self.snapshot.source(found.path) if found is not None else None
+            self._shims[module] = (source is not None and source.tree is not None and bool(_shim_imports(source, self.old))
+                                   and not any(self.new in _stored(stmt) for stmt in source.tree.body))
+        return self._shims[module]
 
     def _overrides(self) -> None:
         if not self.member:
@@ -137,23 +165,22 @@ class AliasRetarget(SymbolRename):
             use = node
 
             def accepted(stmt: ast.AST) -> bool:
-                return self._binds_target_before(source, edit.path, stmt, use, parents, alias_module)
+                return self._binds_target_before(edit.path, stmt, use, parents, alias_module)
 
             other = edit.path != self.renamer.resource.path and self._module_binds_other(source, edit.path, alias_module)
             if _bound_in_scope(parents, use, self.new, accepted) or other:
                 self._shadowed(source, edit)
         return [edit]
 
-    def _binds_target_before(self, source: SourceFile, rel: str, stmt: ast.AST, use: ast.Name,
+    def _binds_target_before(self, rel: str, stmt: ast.AST, use: ast.Name,
                              parents: dict[ast.AST, ast.AST], alias_module: str) -> bool:
-        """`stmt` imports the target from the alias's module, and the target is bound before `use`: by `stmt`
-        itself, or by an earlier import of the alias in its block that the retarget rewrites."""
+        """`stmt` imports the target from the alias's module, and the target is bound before every run of `use`: by
+        `stmt` itself, or by an import of the alias in its block that the retarget rewrites."""
         if not (isinstance(stmt, ast.ImportFrom) and self._imports_target(rel, stmt, alias_module)):
             return False
-        at = source.span(use)[0]
-        if source.span(stmt)[0] < at:
+        if _runs_before(parents, stmt, use):
             return True
-        return any(source.span(s)[0] < at and self._from_alias_module(rel, s, alias_module)
+        return any(_runs_before(parents, s, use) and self._from_alias_module(rel, s, alias_module)
                    and any(a.name == self.old and a.asname is None for a in s.names)
                    for s in _block_of(parents, stmt) if isinstance(s, ast.ImportFrom))
 
@@ -200,6 +227,18 @@ class AliasRetarget(SymbolRename):
         return [edit, _alias_removal(source, rel, later_stmt, later_alias)]
 
 
+def _runs_before(parents: dict[ast.AST, ast.AST], stmt: ast.AST, use: ast.AST) -> bool:
+    """`stmt` runs before every run of `use`: a later statement of `stmt`'s own block holds `use`."""
+    block = _block_of(parents, stmt)
+    later = next((block[k + 1 :] for k, s in enumerate(block) if s is stmt), [])
+    node: ast.AST | None = use
+    while node is not None:
+        if any(s is node for s in later):
+            return True
+        node = parents.get(node)
+    return False
+
+
 def _block_of(parents: dict[ast.AST, ast.AST], stmt: ast.AST) -> list[ast.stmt]:
     """The statement list holding `stmt`: its parent's `body`, `orelse` or `finalbody`, matched by identity."""
     parent = parents.get(stmt)
@@ -218,6 +257,46 @@ def _alias_removal(source: SourceFile, rel: str, stmt: ast.ImportFrom, alias: as
     i = next(k for k, a in enumerate(stmt.names) if a is alias)
     start, end = (spans[i][0], spans[i + 1][0]) if i + 1 < len(spans) else (spans[i - 1][1], spans[i][1])
     return TextEdit(path=rel, start=start, end=end, new_text="")
+
+
+def _shim_imports(source: SourceFile, name: str) -> list[ast.alias]:
+    """A module's imports binding `name` at module level, when its `__all__` lists `name`."""
+    if source.tree is None or not any(isinstance(n, ast.Constant) and n.value == name
+                                      for stmt in source.tree.body if _assigns_all(stmt) for n in ast.walk(stmt)):
+        return []
+    return [a for stmt in source.tree.body if isinstance(stmt, (ast.Import, ast.ImportFrom)) for a in stmt.names
+            if (a.asname or a.name.split(".")[-1]) == name]
+
+
+def _binding_import(parents: dict[ast.AST, ast.AST], node: ast.AST | None, name: str) -> ast.AST | None:
+    """The `from ... import` binding a bare `name` at `node`, looked up through the enclosing function scopes to the
+    module; None when a nearer scope binds it otherwise."""
+    if not isinstance(node, ast.Name):
+        return None
+    scope = parents.get(node)
+    while scope is not None:
+        if isinstance(scope, (ast.Module, *_FUNCTIONS)):
+            body = scope.body if isinstance(scope.body, list) else []
+            imported = [s for s in _walk_scope(body) if isinstance(s, ast.ImportFrom)
+                        and any((a.asname or a.name) == name for a in s.names)]
+            if imported:
+                return imported[0]
+            if any(name in _stored(s) for s in body):
+                return None
+        scope = parents.get(scope)
+    return None
+
+
+def _walk_scope(body: list[ast.stmt]) -> Iterator[ast.stmt]:
+    """The statements of a scope's body, compound statements entered, nested functions and classes not."""
+    for stmt in body:
+        yield stmt
+        if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            continue
+        blocks = [getattr(stmt, field, []) for field in ("body", "orelse", "finalbody")]
+        blocks += [clause.body for clause in [*getattr(stmt, "handlers", []), *getattr(stmt, "cases", [])]]
+        for block in blocks:
+            yield from _walk_scope(block)
 
 
 def _reexport_spans(source: SourceFile, name: str) -> list[tuple[int, int]]:
