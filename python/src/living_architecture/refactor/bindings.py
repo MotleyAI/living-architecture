@@ -30,16 +30,21 @@ _PREFIX = re.compile(r"[rRuU]?('''|\"\"\"|'|\")")
 _SUFFIXES = (".py", ".pyi")
 
 
+def may_name(pattern: re.Pattern[str], text: str) -> bool:
+    """`text` may spell a name `pattern` matches: it does, or it holds a non-ASCII character NFKC may fold onto one."""
+    return not text.isascii() or pattern.search(text) is not None
+
+
 def _builtin(name: str) -> Site:
     return (f"<builtins>.{name}", -1)
 
 
 def _word(source: SourceFile, node: ast.AST, word: str) -> int | None:
-    """The offset of the first whole-word `word` in `node`'s span."""
+    """The offset of the first whole identifier in `node`'s span that spells `word`."""
     start = source.offset(getattr(node, "lineno", 1), getattr(node, "col_offset", 0))
     end = source.offset(getattr(node, "end_lineno", None) or 1, getattr(node, "end_col_offset", None) or 0)
-    found = re.search(rf"(?<!\w){re.escape(word)}(?!\w)", source.text[start:end])
-    return None if found is None else start + found.start()
+    found = source.word(start, end, word)
+    return None if found is None else found[0]
 
 
 def _bound_at(source: SourceFile, node: ast.AST, name: str) -> int | None:
@@ -316,7 +321,7 @@ class BindingCheck:
         changed = frozenset({moves.get(rel, rel) for rel in by_file} | set(moves.values()))
         after = World({moves.get(f, f) for f in self.files}, self.folders, after_source, after_origin,
                       unchanged=self.world, edited=changed)
-        checked = [rel for rel in self.files if rel in by_file or pattern.search(self.before(rel))]
+        checked = [rel for rel in self.files if rel in by_file or may_name(pattern, self.before(rel))]
         return _Judge(entries, names, self.world, after, moves).conflicts(checked)
 
 
@@ -338,25 +343,29 @@ class _Judge:
         self.declared: dict[Site, EntryEdits] = {}
         self.retargeted: dict[Site, Meaning] = {}
 
+    def _pairs(self, rel: str) -> list[tuple[str, Occurrence, Occurrence]]:
+        """Each occurrence of `rel` before the edits with the one at its site after them."""
+        old = self.before.parsed(rel)
+        new = self.after.parsed(self._moved(rel))
+        if old is None or new is None:
+            return []
+        at = {o.offset: o for o in old.occurrences(self.names)}
+        out: list[tuple[str, Occurrence, Occurrence]] = []
+        for occ in new.occurrences(self.names):
+            site = self.after.origin(self._moved(rel), occ.offset)
+            if site[0] == rel and site[1] in at:
+                out.append((rel, at[site[1]], occ))
+        return out
+
     def conflicts(self, files: list[str]) -> list[Conflict]:
-        pairs: list[tuple[str, Occurrence, Occurrence]] = []
-        for rel in files:
-            old = self.before.parsed(rel)
-            new = self.after.parsed(self._moved(rel))
-            if old is None or new is None:
-                continue
-            at = {o.offset: o for o in old.occurrences(self.names)}
-            for occ in new.occurrences(self.names):
-                site = self.after.origin(self._moved(rel), occ.offset)
-                if site[0] == rel and site[1] in at:
-                    pairs.append((rel, at[site[1]], occ))
+        pairs = [pair for rel in files for pair in self._pairs(rel)]
         for rel, old_occ, _ in pairs:
             entry = self.rewritten.get((rel, old_occ.offset))
             if old_occ.binds and entry is not None:
                 self.declared.setdefault((rel, old_occ.offset), entry)
                 if entry.target is not None:
                     self.retargeted[(rel, old_occ.offset)] = self.before.meaning(rel, old_occ.scope, entry.target)
-        return [c for rel, old_occ, new_occ in pairs for c in self._judge(rel, old_occ, new_occ)]
+        return [c for rel, old_occ, new_occ in pairs for c in self._verdict(rel, old_occ, new_occ)]
 
     def _first_declaration(self, entry: EntryEdits) -> Site:
         own = [site for site, e in self.declared.items() if e is entry]
@@ -369,7 +378,7 @@ class _Judge:
                 return name
         return self.entries[0].new_name
 
-    def _judge(self, rel: str, old: Occurrence, new: Occurrence) -> list[Conflict]:
+    def _verdict(self, rel: str, old: Occurrence, new: Occurrence) -> list[Conflict]:
         site = (rel, old.offset)
         before = self.before.meaning(rel, old.scope, old.name)
         after = self._through_retargets(self.after.meaning(self._moved(rel), new.scope, new.name))
@@ -379,17 +388,7 @@ class _Judge:
             joined = self._joined(rel, new) if old.binds else []
             if joined:
                 return [Conflict(site=s, name=entry.new_name) for s in joined]
-            if after.keys() == expected.keys():
-                return []
-            foreign = [s for s in after if s not in expected]
-            existing = [after[s] for s in foreign if s not in self.declared and s[1] >= 0]
-            if existing:
-                return [Conflict(site=s, name=entry.new_name) for s in existing]
-            met = [self.declared[s] for s in foreign if s in self.declared and self.declared[s] is not entry]
-            if met:
-                earliest = min([entry, *met], key=lambda e: e.index)
-                return [Conflict(site=self._first_declaration(earliest), name=earliest.new_name)]
-            return [Conflict(site=site, name=entry.new_name)]
+            return [] if after.keys() == expected.keys() else self._rewritten_conflicts(site, entry, after, expected)
         kept = self.kept.get(site)
         if kept is not None:
             if not after or after.keys() == before.keys():
@@ -399,6 +398,19 @@ class _Judge:
         if after.keys() == before.keys():
             return []
         return [Conflict(site=site, name=self._name(new.name))]
+
+    def _rewritten_conflicts(self, site: Site, entry: EntryEdits, after: Meaning, expected: Meaning) -> list[Conflict]:
+        """A rewritten occurrence meaning other declarations than `expected`: an existing one's sites, else the earliest
+        entry it meets, else its own site."""
+        foreign = [s for s in after if s not in expected]
+        existing = [after[s] for s in foreign if s not in self.declared and s[1] >= 0]
+        if existing:
+            return [Conflict(site=s, name=entry.new_name) for s in existing]
+        met = [self.declared[s] for s in foreign if s in self.declared and self.declared[s] is not entry]
+        if met:
+            earliest = min([entry, *met], key=lambda e: e.index)
+            return [Conflict(site=self._first_declaration(earliest), name=earliest.new_name)]
+        return [Conflict(site=site, name=entry.new_name)]
 
     def _joined(self, rel: str, new: Occurrence) -> list[Site]:
         """The existing declarations of `new`'s name in the scopes its own declaration shares."""

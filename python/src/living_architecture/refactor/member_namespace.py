@@ -15,7 +15,7 @@ from rope.base.pyobjectsdef import PyClass, PyModule
 from rope.base.pyscopes import Scope as RopeScope
 
 from living_architecture.contract import language
-from living_architecture.refactor.bindings import Conflict, Site
+from living_architecture.refactor.bindings import Conflict, Site, may_name
 from living_architecture.refactor.members import classes, member_declarations
 from living_architecture.refactor.python_source import SourceFile
 
@@ -77,14 +77,7 @@ class Hierarchy:
         if key not in self._bases:
             project: list[ClassKey] = []
             library: list[PyObject] = []
-            pyclass = self._pyclass(key)
-            scope = pyclass.get_scope() if pyclass is not None else None
-            for base in pyclass.get_ast().bases if pyclass is not None and scope is not None else []:
-                expr = base.value if isinstance(base, ast.Subscript) else base
-                pyname = evaluate.eval_node(scope.parent, expr) if scope is not None else None
-                obj = pyname.get_object() if pyname is not None else None
-                if obj is None:
-                    continue
+            for obj in self._base_objects(key):
                 found = self._key(obj)
                 if found is not None:
                     project.append(found)
@@ -92,6 +85,18 @@ class Hierarchy:
                     library.append(obj)
             self._bases[key] = (project, library)
         return self._bases[key]
+
+    def _base_objects(self, key: ClassKey) -> Iterator[PyObject]:
+        """The objects a project class's bases evaluate to, a subscripted base by its subscripted value."""
+        pyclass = self._pyclass(key)
+        scope = pyclass.get_scope() if pyclass is not None else None
+        if pyclass is None or scope is None:
+            return
+        for base in pyclass.get_ast().bases:
+            pyname = evaluate.eval_node(scope.parent, base.value if isinstance(base, ast.Subscript) else base)
+            obj = pyname.get_object() if pyname is not None else None
+            if obj is not None:
+                yield obj
 
     def ancestors(self, key: ClassKey) -> tuple[list[ClassKey], list[PyObject]]:
         """Every project and library ancestor of a project class."""
@@ -128,7 +133,7 @@ class MemberCheck:
         word = re.compile(rf"(?<!\w){re.escape(name)}(?!\w)")
         out: list[ClassKey] = []
         for rel in sorted(self.hierarchy.files):
-            if not word.search(self.text(rel)):
+            if not may_name(word, self.text(rel)):
                 continue
             tree = self.hierarchy.source(rel).tree
             for cls in classes(tree) if tree is not None else ():

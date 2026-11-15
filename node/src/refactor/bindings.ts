@@ -4,7 +4,6 @@ import type * as TS from 'typescript';
 import { byCodePoint } from '../contract/index.js';
 import { ts } from '../lang/index.js';
 import type { Edit } from './edits.js';
-import { memberNameStart } from './members.js';
 import type { ProjectSource } from './session.js';
 
 /** An entry of a check: its index and new name; a retarget's expected declarations, else null. */
@@ -40,6 +39,17 @@ function internals(): Internals {
 }
 
 const keyOf = (path: string, start: number): string => `${path}\0${start}`;
+
+const ESCAPE = String.raw`\u`;
+
+/** `text` may spell one of `names`: it spells one, or holds a unicode escape. */
+const mayName = (text: string, names: Set<string>): boolean => [...names].some((name) => text.includes(name)) || text.includes(ESCAPE);
+
+/** A declared name's start: a quoted name's (computed or not) is its text's, inside the quotes. */
+function nameStart(name: TS.Node, source: TS.SourceFile): number {
+  const literal = ts().isComputedPropertyName(name) ? name.expression : name;
+  return ts().isStringLiteral(literal) || ts().isNoSubstitutionTemplateLiteral(literal) ? literal.getStart(source) + 1 : name.getStart(source);
+}
 
 /** A file's edits applied, and positions of the edited text mapped back to the original. */
 class EditedFile {
@@ -119,13 +129,14 @@ const MEMBER_KINDS = (): Set<TS.SyntaxKind> => {
   ]);
 };
 
-/** `id` is a name the language resolves by scope: a reference, a declaration's name or an import's local name. */
+/** `id` is a name the language resolves: a reference, a declaration's name, an import's or re-export's name, an
+ * export's local name. */
 function resolvable(id: TS.Identifier, members: Set<TS.SyntaxKind>): boolean {
   const parent = id.parent;
   if (ts().isPropertyAccessExpression(parent)) return parent.expression === id;
   if (ts().isQualifiedName(parent)) return parent.left === id;
-  if (ts().isImportSpecifier(parent)) return parent.name === id;
-  if (ts().isExportSpecifier(parent)) return parent.parent.parent.moduleSpecifier === undefined && (parent.propertyName ?? parent.name) === id;
+  if (ts().isImportSpecifier(parent)) return true;
+  if (ts().isExportSpecifier(parent)) return parent.parent.parent.moduleSpecifier !== undefined || (parent.propertyName ?? parent.name) === id;
   if (ts().isBindingElement(parent)) return parent.name === id;
   if (members.has(parent.kind)) return (parent as TS.NamedDeclaration).name !== id;
   return !(
@@ -179,7 +190,7 @@ class Resolver {
   key(d: TS.Declaration): string {
     const source = d.getSourceFile();
     const name = ts().getNameOfDeclaration(d);
-    const start = (name ?? d).getStart(source);
+    const start = name === undefined ? d.getStart(source) : nameStart(name, source);
     return keyOf(source.fileName, this.original(source.fileName, start));
   }
 
@@ -233,7 +244,7 @@ function holderOf(d: TS.Node): TS.Node | null {
   if (parent === undefined) return null;
   const holds = ts().isClassLike(parent) || ts().isInterfaceDeclaration(parent) || ts().isTypeLiteralNode(parent) || ts().isEnumDeclaration(parent) || ts().isObjectLiteralExpression(parent);
   if (!holds) return null;
-  const member = ts().isClassElement(d) || ts().isTypeElement(d) || ts().isEnumMember(d) || ts().isPropertyAssignment(d) || ts().isMethodDeclaration(d) || ts().isAccessor(d);
+  const member = ts().isClassElement(d) || ts().isTypeElement(d) || ts().isEnumMember(d) || ts().isPropertyAssignment(d) || ts().isShorthandPropertyAssignment(d) || ts().isMethodDeclaration(d) || ts().isAccessor(d);
   return member && !ts().isConstructorDeclaration(d) && !ts().isClassStaticBlockDeclaration(d) ? parent : null;
 }
 
@@ -246,20 +257,26 @@ function memberAt(source: TS.SourceFile, start: number): TS.Declaration | null {
     node = inner;
   }
   let declaration = node.parent as TS.Node | undefined;
-  if (declaration !== undefined && ts().isComputedPropertyName(declaration)) declaration = declaration.parent;
+  if (declaration !== undefined && ts().isComputedPropertyName(declaration)) {
+    // A computed key names its member by value: only a quoted key is the name an edit renames.
+    if (!ts().isStringLiteralLike(declaration.expression)) return null;
+    declaration = declaration.parent;
+  }
   if (declaration === undefined || holderOf(declaration) === null) return null;
   const name = ts().getNameOfDeclaration(declaration as TS.Declaration);
   const within = name !== undefined && name.getStart(source) <= start && start < name.end;
   return within ? (declaration as TS.Declaration) : null;
 }
 
-/** A member declaration's name text, null for a computed one. */
-function memberName(d: TS.Node): string | null {
+/** A member declaration's name: a computed key's literal value (by its type), null when it has none. */
+function memberName(d: TS.Node, checker: TS.TypeChecker | undefined): string | null {
   const name = ts().getNameOfDeclaration(d as TS.Declaration);
   if (name === undefined) return null;
-  const literal = ts().isComputedPropertyName(name) ? name.expression : name;
-  if (ts().isIdentifier(literal) || ts().isPrivateIdentifier(literal) || ts().isStringLiteralLike(literal) || ts().isNumericLiteral(literal)) return literal.text;
-  return null;
+  if (!ts().isComputedPropertyName(name)) return ts().isIdentifier(name) || ts().isPrivateIdentifier(name) || ts().isStringLiteralLike(name) || ts().isNumericLiteral(name) ? name.text : null;
+  if (ts().isStringLiteralLike(name.expression) || ts().isNumericLiteral(name.expression)) return name.expression.text;
+  const type = checker?.getTypeAtLocation(name.expression);
+  if (type?.isStringLiteral() === true) return type.value;
+  return type?.isNumberLiteral() === true ? String(type.value) : null;
 }
 
 /** The members `holder` declares itself. */
@@ -286,6 +303,13 @@ function sideType(checker: TS.TypeChecker, holder: TS.Node, isStatic: boolean): 
 }
 
 const nodeKey = (node: TS.Node): string => keyOf(node.getSourceFile().fileName, node.getStart(node.getSourceFile()));
+
+/** A member declaration's key: its name's start. */
+function memberKey(d: TS.Node): string {
+  const source = d.getSourceFile();
+  const name = ts().getNameOfDeclaration(d as TS.Declaration);
+  return keyOf(source.fileName, name === undefined ? d.getStart(source) : nameStart(name, source));
+}
 
 /** The class and interface declarations of the project's sources and the types each extends or implements. */
 class Hierarchy {
@@ -361,7 +385,7 @@ export class NameChecks {
     this.names = new Set(names);
     const resolver = new Resolver((_path, position) => position);
     for (const [path, { source, checker }] of sources) {
-      if (![...this.names].some((name) => source.text.includes(name))) continue;
+      if (!mayName(source.text, this.names)) continue;
       for (const o of resolver.occurrences(path, source, checker, this.names)) this.before.set(o.key, o);
     }
   }
@@ -380,7 +404,7 @@ export class NameChecks {
       const edit = editAt.get(key);
       const entry = edit === undefined ? undefined : byIndex.get(edit.entry);
       const now = after.get(key);
-      if (entry !== undefined && entry.expected === null && now !== undefined && now.text !== o.text && declarationOf(o.node) !== null) renamed.set(key, entry);
+      if (entry?.expected === null && now !== undefined && now.text !== o.text && declarationOf(o.node) !== null) renamed.set(key, entry);
     }
     const members = this.renamedMembers(ours, byIndex);
     for (const m of members) renamed.set(m.key, m.entry);
@@ -423,7 +447,7 @@ export class NameChecks {
     const out = new Map<string, Occurrence>();
     for (const [path, found] of this.sources) {
       const text = edited.get(path)?.text ?? found.source.text;
-      if (![...this.names].some((name) => text.includes(name))) continue;
+      if (!mayName(text, this.names)) continue;
       const program = programOf(found);
       const source = program?.getSourceFile(path);
       if (program === undefined || source === undefined) continue;
@@ -439,24 +463,31 @@ export class NameChecks {
     const existing = added.filter((k) => !c.renamed.has(k) && this.sources.has(at(k).path));
     const entry = c.edit === undefined ? undefined : c.byIndex.get(c.edit.entry);
     if (entry !== undefined && now.text !== o.text) {
-      const expected = entry.expected;
-      const ok = expected === null ? same(now.declarations, o.declarations) : now.declarations.length > 0 && now.declarations.every((k) => expected.has(k));
-      if (ok) return;
-      for (const k of existing) c.sites.push({ name: entry.newName, ...at(k) });
-      const others = added.flatMap((k) => (c.renamed.get(k) !== undefined && c.renamed.get(k) !== entry ? [c.renamed.get(k) as CheckEntry] : []));
-      for (const other of others) c.meet(entry, other);
-      if (existing.length === 0 && others.length === 0) c.sites.push({ name: entry.newName, path: o.path, position: o.start });
+      this.compareRewritten(o, now, entry, { added, existing }, c);
       return;
     }
     if (same(now.declarations, o.declarations)) return;
     const via = added.map((k) => c.renamed.get(k)).find((e) => e !== undefined) ?? o.declarations.map((k) => c.renamed.get(k)).find((e) => e !== undefined) ?? c.fallback;
-    if (c.kept.has(o.key)) {
-      if (now.declarations.length === 0) return;
+    if (!c.kept.has(o.key)) {
+      c.sites.push({ name: via.newName, path: o.path, position: o.start });
+    } else if (now.declarations.length > 0) {
       for (const k of existing) c.sites.push({ name: via.newName, ...at(k) });
       if (existing.length === 0) c.sites.push({ name: via.newName, path: o.path, position: o.start });
-      return;
     }
-    c.sites.push({ name: via.newName, path: o.path, position: o.start });
+  }
+
+  /** Sites where rewritten occurrence `o` of `entry` resolves to other declarations than expected. */
+  private compareRewritten(o: Occurrence, now: Occurrence, entry: CheckEntry, found: { added: string[]; existing: string[] }, c: CompareContext): void {
+    const expected = entry.expected;
+    const ok = expected === null ? same(now.declarations, o.declarations) : now.declarations.length > 0 && now.declarations.every((k) => expected.has(k));
+    if (ok) return;
+    for (const k of found.existing) c.sites.push({ name: entry.newName, ...at(k) });
+    const others = found.added.flatMap((k) => {
+      const other = c.renamed.get(k);
+      return other !== undefined && other !== entry ? [other] : [];
+    });
+    for (const other of others) c.meet(entry, other);
+    if (found.existing.length === 0 && others.length === 0) c.sites.push({ name: entry.newName, path: o.path, position: o.start });
   }
 
   /** A declaration of the edited code that shares its scope and a meaning with another, one of them renamed. */
@@ -481,13 +512,15 @@ export class NameChecks {
     }
   }
 
-  /** The member declarations `edits` rename (their new text exactly the entry's new name). */
+  /** The member declarations `edits` rename: their new text the entry's new name, or a shorthand property's
+   * `<new>: <value>`. */
   private renamedMembers(edits: EntryEdit[], byIndex: Map<number, CheckEntry>): RenamedMember[] {
     const out: RenamedMember[] = [];
     for (const e of edits) {
       const entry = byIndex.get(e.entry);
       const found = this.sources.get(e.path);
-      if (entry === undefined || entry.expected !== null || found === undefined || e.newText !== entry.newName || entry.newName === entry.old) continue;
+      if (entry?.expected !== null || found === undefined || entry.newName === entry.old) continue;
+      if (e.newText !== entry.newName && !e.newText.startsWith(`${entry.newName}: `)) continue;
       const declaration = memberAt(found.source, e.start);
       const holder = declaration === null ? null : holderOf(declaration);
       if (declaration === null || holder === null) continue;
@@ -508,38 +541,36 @@ export class NameChecks {
   private members(renamed: RenamedMember[], sites: Site[], meet: (a: CheckEntry, b: CheckEntry) => void): void {
     if (renamed.length === 0) return;
     this.hierarchy ??= new Hierarchy(this.sources.values());
-    const hierarchy = this.hierarchy;
     const renamedKeys = new Set(renamed.map((m) => m.key));
-    const memberKey = (d: TS.Node): string => {
-      const source = d.getSourceFile();
-      const name = ts().getNameOfDeclaration(d as TS.Declaration);
-      const text = memberName(d);
-      const start = name === undefined ? d.getStart(source) : ((text === null ? null : memberNameStart(name, text, source)) ?? name.getStart(source));
-      return keyOf(source.fileName, start);
-    };
-    const project = (d: TS.Node): boolean => this.sources.has(d.getSourceFile().fileName);
+    for (const m of renamed) this.member(m, this.hierarchy, renamedKeys, sites);
     for (const m of renamed) {
-      const name = m.entry.newName;
-      const holderKey = nodeKey(m.holder);
-      const conflicting = (d: TS.Node): boolean => memberName(d) === name && !renamedKeys.has(memberKey(d)) && (ts().isParameter(d) ? !m.isStatic : hasStatic(d) === m.isStatic);
-      const own = (holder: TS.Node): TS.Node[] => ownMembers(holder).filter(conflicting);
-      const related = [holderKey, ...hierarchy.ancestors(holderKey), ...hierarchy.descendants(holderKey)];
-      const push = (d: TS.Node): void => {
-        sites.push({ name, ...(project(d) ? at(memberKey(d)) : { path: m.path, position: m.start }) });
-      };
-      for (const d of own(m.holder)) push(d);
-      for (const key of related.slice(1)) {
-        const node = hierarchy.node(key);
-        if (node !== undefined && (!m.isStatic || ts().isClassLike(node))) for (const d of own(node)) push(d);
-      }
-      const inherited = m.checker.getPropertyOfType(sideType(m.checker, m.holder, m.isStatic), name);
-      const declarations = (inherited?.declarations ?? []).filter((d) => holderOf(d) === null || nodeKey(holderOf(d) as TS.Node) !== holderKey).filter((d) => !renamedKeys.has(memberKey(d)));
-      for (const d of declarations) push(d);
+      const related = new Set([nodeKey(m.holder), ...this.hierarchy.ancestors(nodeKey(m.holder)), ...this.hierarchy.descendants(nodeKey(m.holder))]);
       for (const other of renamed) {
-        if (other.entry === m.entry || other.entry.newName !== name || other.isStatic !== m.isStatic) continue;
-        if (related.includes(nodeKey(other.holder))) meet(m.entry, other.entry);
+        if (other.entry !== m.entry && other.entry.newName === m.entry.newName && other.isStatic === m.isStatic && related.has(nodeKey(other.holder))) meet(m.entry, other.entry);
       }
     }
+  }
+
+  /** Sites of the members of `m`'s new name its type, an ancestor or a project descendant declares. */
+  private member(m: RenamedMember, hierarchy: Hierarchy, renamedKeys: Set<string>, sites: Site[]): void {
+    const name = m.entry.newName;
+    const holderKey = nodeKey(m.holder);
+    const conflicting = (d: TS.Node): boolean => memberName(d, this.sources.get(d.getSourceFile().fileName)?.checker) === name &&!renamedKeys.has(memberKey(d)) && (ts().isParameter(d) ? !m.isStatic : hasStatic(d) === m.isStatic);
+    const push = (d: TS.Node): void => {
+      sites.push({ name, ...(this.sources.has(d.getSourceFile().fileName) ? at(memberKey(d)) : { path: m.path, position: m.start }) });
+    };
+    const holders: TS.Node[] = [m.holder];
+    for (const key of [...hierarchy.ancestors(holderKey), ...hierarchy.descendants(holderKey)]) {
+      const node = hierarchy.node(key);
+      if (node !== undefined && (!m.isStatic || ts().isClassLike(node))) holders.push(node);
+    }
+    for (const holder of holders) for (const d of ownMembers(holder).filter(conflicting)) push(d);
+    const inherited = m.checker.getPropertyOfType(sideType(m.checker, m.holder, m.isStatic), name);
+    const elsewhere = (d: TS.Node): boolean => {
+      const holder = holderOf(d);
+      return holder === null || nodeKey(holder) !== holderKey;
+    };
+    for (const d of inherited?.declarations ?? []) if (elsewhere(d) && !renamedKeys.has(memberKey(d))) push(d);
   }
 }
 

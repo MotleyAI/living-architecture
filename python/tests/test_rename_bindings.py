@@ -16,6 +16,7 @@ from project_files import file_tree
 
 from living_architecture.cli import dr_refactor
 from living_architecture.contract import language, message
+from living_architecture.refactor.bindings import module_binding
 
 MakeProject = Callable[..., Path]
 NEW = "fresh"
@@ -198,6 +199,34 @@ def test_a_module_the_rename_does_not_edit_is_checked(
 ) -> None:
     root = typed_project({"pkg/a.py": "old = 1\nprint(old)\n", "pkg/z.py": "from pkg.a import *\n\nfresh = 2\n"})
     _refused(root, "pkg/a.py", 0, capsys, ("pkg/z.py", 3))
+
+
+# NFKC folds this spelling to `fresh`: a source spelling the name only so is still checked.
+FULLWIDTH = "\uff46\uff52\uff45\uff53\uff48"
+
+
+def test_a_module_spelling_the_new_name_in_another_normal_form_is_checked(
+    typed_project: MakeProject, capsys: pytest.CaptureFixture[str]
+) -> None:
+    user = f"from pkg.other import *\nfrom pkg.a import *\n\nv = {FULLWIDTH}\n"
+    root = typed_project({"pkg/other.py": "fresh = 0\n", "pkg/a.py": "old = 1\n", "pkg/z.py": user})
+    _refused(root, "pkg/a.py", 0, capsys, ("pkg/z.py", 4))
+
+
+def test_a_descendant_declaring_the_new_name_in_another_normal_form_is_checked(
+    typed_project: MakeProject, capsys: pytest.CaptureFixture[str]
+) -> None:
+    text = "class C:\n    def old(self) -> int:\n        return 1\n"
+    sub = f"from pkg.m import C\n\n\nclass D(C):\n    def {FULLWIDTH}(self) -> int:\n        return 2\n"
+    root = typed_project({"pkg/m.py": text, "pkg/d.py": sub})
+    _refused(root, "pkg/m.py", _at(text, "old"), capsys, ("pkg/d.py", 5))
+
+
+@pytest.mark.parametrize("statement", ["import os as {}", "from os import sep as {}", "try:\n    pass\nexcept OSError as {}:\n    pass"],
+                         ids=["import-as", "from-import-as", "except-as"])
+def test_a_binding_in_another_normal_form_is_found(statement: str) -> None:
+    text = statement.format(FULLWIDTH) + "\n"
+    assert module_binding(text, "fresh") == text.index(FULLWIDTH)
 
 
 # --- only resolver-backed edits take part --------------------------------------------------------------------------

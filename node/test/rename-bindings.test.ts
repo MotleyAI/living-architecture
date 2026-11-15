@@ -1,7 +1,7 @@
 // dr-refactor rename keeps every reference's binding: identity by declaration set, per-meaning resolution, check order.
 import { describe, expect, it } from 'vitest';
 import { message } from '../src/contract/index.js';
-import { files, read, refactor, tsProject } from './refactor-project.js';
+import { files, lineCol, read, refactor, tsProject } from './refactor-project.js';
 
 const conflict = (name: string, path: string, line: number): string => `${message('refactor.name-conflict', { name, path, line })}\n`;
 
@@ -23,6 +23,18 @@ describe('identity by declaration set', () => {
     const { root, result } = renameSymbol({ 'src/m.ts': 'export const old = 1;\n', 'src/use.ts': use }, 'src/m.ts', 'old', 'next');
     expect([result.code, result.err]).toEqual([0, '']);
     expect(read(root, 'src/use.ts')).toBe(use.replace('{ old as alias }', '{ next as alias }'));
+  });
+
+  it("refuses a rename that rebinds a re-export's re-exported name", () => {
+    const project = {
+      'src/other.ts': "export const next = 'other';\n",
+      'src/m.ts': "export * from './other';\nexport const old = 1;\n",
+      'src/barrel.ts': "export { next as q } from './m';\n",
+      'src/use.ts': "import { q } from './barrel';\n\nexport const v = q;\n",
+    };
+    const { root, result } = renameSymbol(project, 'src/m.ts', 'old', 'next');
+    expect(result).toEqual({ code: 1, out: '', err: conflict('next', 'src/barrel.ts', 1) });
+    expect(files(root)).toMatchObject(project);
   });
 
   it('refuses an overload group renamed onto a function its module declares', () => {
@@ -67,6 +79,52 @@ describe('member namespace', () => {
     const { root, result } = renameSymbol({ 'src/m.ts': m }, 'src/m.ts', symbol, 'fresh');
     expect(result).toEqual({ code: 1, out: '', err: conflict('fresh', 'src/m.ts', line) });
     expect(read(root, 'src/m.ts')).toBe(m);
+  });
+
+  it('refuses a member renamed onto a computed key of its type, by the key value', () => {
+    const m = 'const key = "next";\n\nexport class C {\n  old(): number {\n    return 1;\n  }\n\n  [key](): number {\n    return 2;\n  }\n}\n';
+    const { root, result } = renameSymbol({ 'src/m.ts': m }, 'src/m.ts', 'C.old', 'next');
+    expect(result).toEqual({ code: 1, out: '', err: conflict('next', 'src/m.ts', 8) });
+    expect(read(root, 'src/m.ts')).toBe(m);
+  });
+
+  it('renames a variable read in a computed key: no member rename', () => {
+    const m = 'export const old = "actual";\n\nexport class C {\n  [old](): number {\n    return 1;\n  }\n\n  next(): number {\n    return 2;\n  }\n}\n';
+    const { root, result } = renameSymbol({ 'src/m.ts': m }, 'src/m.ts', 'old', 'next');
+    expect([result.code, result.err]).toEqual([0, '']);
+    expect(read(root, 'src/m.ts')).toBe(m.replace('const old', 'const next').replace('[old]', '[next]'));
+  });
+
+  it('refuses a shorthand property renamed onto a property of its object', () => {
+    const m = 'const old = 1;\n\nexport const obj = { old, next: 2 };\nexport const v = obj.old;\n';
+    const root = tsProject({ 'src/m.ts': m });
+    const result = refactor(root, '--apply', 'rename', '--file', 'src/m.ts', ...lineCol(root, 'src/m.ts', 'obj.old', 0, 4), '--new-name', 'next');
+    expect(result).toEqual({ code: 1, out: '', err: conflict('next', 'src/m.ts', 3) });
+    expect(read(root, 'src/m.ts')).toBe(m);
+  });
+});
+
+describe('quoted and escaped names', () => {
+  it('accepts a map retargeting onto a quoted enum member', () => {
+    const m = 'export enum E {\n  "tgt" = 1,\n  als = 1,\n  z = als,\n}\n\nexport const other = 1;\n';
+    const map = '- {file: src/m.ts, symbol: E.als, retarget: E.tgt}\n- {file: src/m.ts, symbol: other, new_name: other2}\n';
+    const root = tsProject({ 'src/m.ts': m, 'renames.yaml': map });
+    const result = refactor(root, '--apply', 'rename-map', 'renames.yaml');
+    expect([result.code, result.err]).toEqual([0, '']);
+    expect(read(root, 'src/m.ts')).toBe(m.replace('z = als', 'z = tgt').replace('const other', 'const other2'));
+  });
+
+  it('checks a source spelling the new name only with a unicode escape', () => {
+    const b = String.raw`namespace N {
+  export function f(): string {
+    return n\u0065xt;
+  }
+}
+`;
+    const project = { 'src/a.ts': 'namespace N {\n  export const old = 1;\n}\n', 'src/b.ts': b, 'src/c.ts': "const next = 'outer';\n" };
+    const { root, result } = renameSymbol(project, 'src/a.ts', 'N.old', 'next');
+    expect(result).toEqual({ code: 1, out: '', err: conflict('next', 'src/b.ts', 3) });
+    expect(files(root)).toMatchObject(project);
   });
 });
 

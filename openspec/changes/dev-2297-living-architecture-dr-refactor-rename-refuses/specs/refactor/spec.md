@@ -4,8 +4,8 @@
 A `rename`, and every `new_name` entry of a `rename-map`, SHALL be refused when the edits it would write change which
 declaration a name resolves to. The check SHALL cover every identifier spelled with the old or the new name, in every
 source file of the project, that the language resolves by scope: in TypeScript bare references, declaration names,
-import and export specifiers' local names, shorthand property values and type references, each resolved with the
-meaning (value, type or namespace) its position requires; in Python every name read and every binding (`def`,
+import and export specifiers' names (the imported and re-exported names included), shorthand property values and
+type references, each resolved with the meaning (value, type or namespace) its position requires; in Python every name read and every binding (`def`,
 `class`, parameters, import aliases, `global` and `nonlocal`, `except`, `match`, `for`, `with`, comprehension and
 walrus targets, type parameters), names bound by a star import of a project module (its `__all__` when that is a
 literal list or tuple, else its module-level names not starting with `_`), and the forward-reference strings the
@@ -54,6 +54,11 @@ with no edits.
 - **WHEN** `src/index.ts` re-exports `old` from `./m`, `src/use.ts` imports `old` from `./index` and binds its own
   `next`, and `old` in `src/m.ts` is renamed to `next` in a project where nothing else captures it
 - **THEN** the re-export becomes `export { next as old }`, `src/use.ts` is unchanged and the exit code is 0
+
+#### Scenario: Aliased import in TypeScript
+- **WHEN** `src/m.ts` re-exports `./other` (which exports `next`) with `export *` and declares `old`, `src/use.ts`
+  imports `next as n` from `./m`, and `old` is renamed to `next`
+- **THEN** the rename is refused naming the line of `src/use.ts`'s import
 
 #### Scenario: Re-export and star-import chains
 - **WHEN** `old` in `a` reaches a module through two re-exports (Python: two star imports) and that module binds
