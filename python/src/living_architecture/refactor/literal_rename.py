@@ -13,7 +13,7 @@ from rope.base.project import Project
 from typing_extensions import override
 
 from living_architecture.contract import literal_value_forbidden, message
-from living_architecture.lang import Diagnostic, LanguageServer
+from living_architecture.lang import Diagnostic, LanguageServer, reverse_closure
 from living_architecture.refactor.keyed import TypeFacts
 from living_architecture.refactor.locators import RefactorError
 from living_architecture.refactor.member_scan import TextProbe
@@ -21,7 +21,7 @@ from living_architecture.refactor.mentions import docstrings
 from living_architecture.refactor.outcomes import Finding, Outcome, file_outcome
 from living_architecture.refactor.python_source import SourceFile
 from living_architecture.refactor.rename_union import MapRename, RenameOptions, Session
-from living_architecture.refactor.routing import language_files
+from living_architecture.refactor.routing import language_files, stub_files
 from living_architecture.refactor.symbol_path import LocatorError, names_literal
 from living_architecture.refactor.text_edits import TextEdit
 from living_architecture.refactor.timings import timed
@@ -184,23 +184,38 @@ class LiteralRename(MapRename):
 
     @override
     def prepare(self) -> None:
-        """Every project source, and every string literal whose value is the member's."""
+        """Every string literal whose value is the member's; the candidates are their files and the project sources
+        whose imports reach the member's file."""
         with timed("literal-scan"):
+            sources: dict[str, ast.AST | str] = {}
+            holding: set[str] = set()
             for path in language_files(self.root, "python"):
                 rel = path.relative_to(self.root).as_posix()
-                try:
-                    source = self.snapshot.source(rel)
-                except (OSError, UnicodeDecodeError, LookupError):
+                source = self._read(rel)
+                if source is None:
                     continue
-                self.candidates.append(rel)
+                sources[rel] = source.tree if source.tree is not None else source.text
                 for site in self._equal_strings(rel, source):
+                    holding.add(rel)
                     if rel == self.rel and site.span == source.span(self.node):
                         self._member = site
                     else:
                         self._sites.append(site)
-            self.candidates.sort()
+            modules = set(sources)
+            for path in stub_files(self.root, "python", ".pyi"):
+                rel = path.relative_to(self.root).as_posix()
+                stub = self._read(rel)
+                if stub is not None:
+                    sources[rel] = stub.tree if stub.tree is not None else stub.text
+            self.candidates = sorted((reverse_closure(self.rel, sources) & modules) | holding)
         if self._member is None or self._member.inner is None:
             raise RefactorError(message("refactor.cannot-rename"))
+
+    def _read(self, rel: str) -> SourceFile | None:
+        try:
+            return self.snapshot.source(rel)
+        except (OSError, UnicodeDecodeError, LookupError):
+            return None
 
     def _equal_strings(self, rel: str, source: SourceFile) -> list[_Site]:
         """Each string literal of `source` whose value is the member's, docstrings and f-string parts not."""
@@ -226,6 +241,13 @@ class LiteralRename(MapRename):
 
     def _errors(self, diagnostics: list[tuple[Diagnostic, int]]) -> set[Key]:
         return {(d.code, d.span.start, d.span.end) for d, _ in diagnostics if d.severity in (1, 2)}
+
+    def _pull_before(self, server: LanguageServer, before: dict[str, set[Key]],
+                     result: dict[str, tuple[TextProbe | None, list[tuple[Diagnostic, int]]]]) -> None:
+        """Once per file, after a round reverted: the pre-probe errors of each file the round shows an error."""
+        for rel, (_, diagnostics) in result.items():
+            if rel not in before and any(d.severity in (1, 2) for d, _ in diagnostics):
+                before[rel] = self._errors(self._diagnostics(server, rel, None))
 
     def _round(self, server: LanguageServer, substitutions: dict[str, list[tuple[int, int, str, int]]],
                pulled: list[str]) -> dict[str, tuple[TextProbe | None, list[tuple[Diagnostic, int]]]]:
@@ -253,7 +275,7 @@ class LiteralRename(MapRename):
         if self._member is None or self._member.inner is None:
             return
         with timed("literal-probe"):
-            before = {rel: self._errors(self._diagnostics(server, rel, None)) for rel in self.candidates}
+            before: dict[str, set[Key]] = {}
             typed = self._typed(server, before)
             self._file(Outcome(kind="rewrite", rel=self.rel, span=self._member.span, edits=(self._edit(self._member),)))
             for site in typed:
@@ -277,6 +299,7 @@ class LiteralRename(MapRename):
                 wraps.setdefault(site.rel, {}).setdefault(start, []).append(site)
         pulled = sorted({s.rel for s in self._sites})
         result = self._round(server, substitutions, pulled)
+        self._pull_before(server, before, result)
         typed: list[_Site] = []
         for rel, (probe, diagnostics) in result.items():
             anchors = _reveal_anchors(probe, substitutions.get(rel, []))
@@ -310,6 +333,7 @@ class LiteralRename(MapRename):
         """With the member and every rewritten literal set to the sentinel, each new error is a blind spot."""
         assert self._member is not None
         result = self._round(server, self._sentinels([self._member, *typed]), self.candidates)
+        self._pull_before(server, before, result)
         seen: set[tuple[str, int]] = set()
         for rel, (_, diagnostics) in sorted(result.items()):
             source = self.snapshot.source(rel)
@@ -329,6 +353,7 @@ class LiteralRename(MapRename):
         member of another `Literal` type always, as a sentinel there changes what the probe asks)."""
         probed = [s for s in others if not s.in_type]
         result = self._round(server, self._sentinels(probed), sorted({s.rel for s in probed})) if probed else {}
+        self._pull_before(server, before, result)
         for site in others:
             _, diagnostics = result.get(site.rel, (None, []))
             rejected = not site.in_type and any(

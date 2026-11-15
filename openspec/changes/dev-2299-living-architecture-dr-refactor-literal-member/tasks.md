@@ -1,6 +1,6 @@
 ## 0. Order and notes
 
-- [ ] 0.1 Build the timings first (sections 2.1–2.3 before 2.4–2.6), per DEV-2299, so the speed-up is measured with
+- [x] 0.1 Build the timings first (sections 2.1–2.3 before 2.4–2.6), per DEV-2299, so the speed-up is measured with
       them. Verify: commit order.
 - [ ] 0.2 Docs and skill wording (task 2.8) is shown to the user verbatim and applied only after their OK.
 
@@ -57,15 +57,15 @@
 - [x] 2.3 npm `dr-refactor`: the same in `refactor/index.ts` (scope around `runRefactor`), `typescript.ts`,
       `rename.ts`, `session.ts`, `baseline.ts`; the first build of each program inside `load`. Verify: the TS
       `--timings` cases of 1.7 pass; `npm run build && npm run conformance` on them.
-- [ ] 2.4 `lang/edges.py`: extension-aware resolution (`.pyi`, both initializers, relative into stubs, `-stubs`
+- [x] 2.4 `lang/edges.py`: extension-aware resolution (`.pyi`, both initializers, relative into stubs, `-stubs`
       directories), star-import submodules, `__builtins__.pyi`, and the reverse-closure function taking parsed trees.
       Verify: 1.4 passes; the `la-affected-tests` corpus is unchanged.
-- [ ] 2.5 `LiteralRename.prepare`: candidates = closure ∪ equal-string files, the closure built from the scan's trees
+- [x] 2.5 `LiteralRename.prepare`: candidates = closure ∪ equal-string files, the closure built from the scan's trees
       over every `.py`/`.pyi` outside `excluded_dirs`, only `.py` files as candidates. Verify: 1.5's candidate tests
       pass.
-- [ ] 2.6 `LiteralRename.rules`: lazy cached `before` per design; typed round over every equal-string file, verify
+- [x] 2.6 `LiteralRename.rules`: lazy cached `before` per design; typed round over every equal-string file, verify
       over every candidate. Verify: 1.5 and 1.6 pass, every `refactor-literal-*` case unchanged.
-- [ ] 2.7 Acceptance: every existing `refactor-literal-*` and `refactor-map-literal-*` case through
+- [x] 2.7 Acceptance: every existing `refactor-literal-*` and `refactor-map-literal-*` case through
       `scripts/conformance-cross` byte-for-byte without `--timings`; then the local test scope per `/la:pr`,
       `uv run ruff check src tests`, `uv run basedpyright src tests`, `npm run lint && npm run typecheck`,
       `la-arch-check`. Verify: all green.

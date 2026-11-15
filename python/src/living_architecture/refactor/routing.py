@@ -81,6 +81,11 @@ def language_files(directory: Path, lang_id: str) -> list[Path]:
     return [Path(path) for _, path in _expand(directory, [lang_id], directory)]
 
 
+def stub_files(directory: Path, lang_id: str, suffix: str) -> list[Path]:
+    """Every `suffix` file under `directory` outside `lang_id`'s excluded directories, in path order."""
+    return sorted(p for p in _files_under(directory, set(language(lang_id)["excluded_dirs"])) if p.suffix == suffix)
+
+
 def split(prog: str, raw_paths: list[str], cwd: Path) -> dict[str, list[str]]:
     """Paths grouped by language; directories expanded, non-source files skipped with a warning."""
     groups: dict[str, list[str]] = {}
