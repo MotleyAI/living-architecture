@@ -79,7 +79,7 @@ describe('Literal member rename', () => {
     expect(read(root, 'src/use.ts')).toContain("typed: Kind = 'edit master'");
   });
 
-  it.each(["it's", 'say "hi"', 'back\\slash', 'two\nlines'])('refuses the value %j', (value) => {
+  it.each(["it's", 'say "hi"', 'back\\slash', 'two\nlines', 'tick`tock', 'a${b}', 'para\u2029graph'])('refuses the value %j', (value) => {
     const root = tsProject(project);
     const before = files(root);
     expect(renameKind(root, value)).toEqual({ code: 2, out: '', err: `${message('refactor.literal-value', { value })}\n` });

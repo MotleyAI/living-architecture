@@ -96,6 +96,8 @@ export class Refactor {
     const writes: Write[] = [];
     for (const [path, fileEdits] of edits) {
       const old = readFileSync(path, 'utf8');
+      const analysed = this.services(path)[0]?.getProgram()?.getSourceFile(path)?.text;
+      if (analysed !== undefined && old.replace(/^\uFEFF/u, '') !== analysed) throw new RefactorError(message('refactor.file-changed', { path: this.rel(path) }));
       const text = applyEdits(old, fileEdits);
       if (text !== old) writes.push({ path, old, text });
     }

@@ -11,6 +11,7 @@ from collections.abc import Callable, Iterator
 from pydantic import BaseModel, ConfigDict
 
 from living_architecture.contract import message
+from living_architecture.refactor.members import bound_targets, receiver_stores
 from living_architecture.refactor.python_source import SourceFile
 
 LOCALS = "<locals>"
@@ -81,26 +82,9 @@ def _statements(body: list[ast.stmt]) -> Iterator[ast.stmt]:
                 yield from _statements(handler.body)
 
 
-def _assigned(node: ast.AST) -> list[ast.expr]:
-    """The targets of an assignment or annotated assignment, as written."""
-    if isinstance(node, ast.Assign):
-        return list(node.targets)
-    if isinstance(node, ast.AnnAssign):
-        return [node.target]
-    return []
-
-
-def _targets(stmt: ast.stmt) -> Iterator[ast.expr]:
-    """The expressions an assignment statement binds, tuples and lists unpacked."""
-    stack = _assigned(stmt)
-    while stack:
-        node = stack.pop(0)
-        if isinstance(node, (ast.Tuple, ast.List)):
-            stack[:0] = node.elts
-        elif isinstance(node, ast.Starred):
-            stack.insert(0, node.value)
-        else:
-            yield node
+def names_literal(node: ast.expr) -> bool:
+    """`node` names `typing.Literal` (bare or qualified)."""
+    return (isinstance(node, ast.Name) and node.id == "Literal") or (isinstance(node, ast.Attribute) and node.attr == "Literal")
 
 
 def _alias_name(source: SourceFile, alias: ast.alias) -> tuple[str, int]:
@@ -127,9 +111,7 @@ def _statement_bindings(source: SourceFile, stmt: ast.stmt) -> Iterator[Declarat
         for alias in (a for a in stmt.names if a.name != "*"):
             name, offset = _alias_name(source, alias)
             yield name, offset, alias
-    if sys.version_info >= (3, 12) and isinstance(stmt, ast.TypeAlias):
-        yield stmt.name.id, source.span(stmt.name)[0], stmt.name
-    for target in _targets(stmt):
+    for target in bound_targets(stmt):
         if isinstance(target, ast.Name):
             yield target.id, source.span(target)[0], target
 
@@ -137,15 +119,10 @@ def _statement_bindings(source: SourceFile, stmt: ast.stmt) -> Iterator[Declarat
 def _self_attributes(source: SourceFile, cls: ast.ClassDef) -> Iterator[Declaration]:
     """Each `self.NAME` a method of `cls` assigns, by its first parameter."""
     for method in (s for s in _statements(cls.body) if isinstance(s, (ast.FunctionDef, ast.AsyncFunctionDef))):
-        params = [*method.args.posonlyargs, *method.args.args]
-        if not params:
-            continue
-        receiver = params[0].arg
-        for target in (t for node in ast.walk(method) for t in _assigned(node)):
-            if isinstance(target, ast.Attribute) and isinstance(target.value, ast.Name) and target.value.id == receiver:
-                span = source.name_span(target)
-                if span is not None:
-                    yield target.attr, span[0], target
+        for target in receiver_stores(method):
+            span = source.name_span(target)
+            if span is not None:
+                yield target.attr, span[0], target
 
 
 def _declarations(source: SourceFile, scope: Scope) -> list[Declaration]:
@@ -236,7 +213,10 @@ def _literal_member(source: SourceFile, group: list[Declaration], value: str, un
     for _, _, node in group:
         holder = _literal_holder(source, node)
         if holder is not None:
-            strings += [(n.value, n) for n in ast.walk(holder) if isinstance(n, ast.Constant) and isinstance(n.value, str)]
+            literals = (n for n in ast.walk(holder) if isinstance(n, ast.Subscript) and names_literal(n.value))
+            strings += [
+                (n.value, n) for lit in literals for n in ast.walk(lit.slice) if isinstance(n, ast.Constant) and isinstance(n.value, str)
+            ]
     found = next((string for text, string in strings if text == value), None)
     if found is None:
         raise unresolved({text for text, _ in strings})

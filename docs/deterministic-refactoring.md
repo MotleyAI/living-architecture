@@ -18,7 +18,7 @@ Tools (both twins, routed by each file's language):
 
 `dr-refactor` prints one unified diff per changed file (and a `rename from`/`rename to` pair per moved file); it
 is a dry run unless `--apply` comes before the subcommand. Locate the symbol with `--symbol` (its path in
-`--file`: `Class.method`, `func.<locals>.inner`, `func(param)`, `Alias['value']` for a `Literal` member; no match
+`--file`, quoted for the shell: `Class.method`, `func.<locals>.inner`, `func(param)`, `Alias['value']` for a `Literal` member; no match
 or several exit 2 listing the candidates), `--line [--col]` (1-based) or `--offset` (0-based). `rename-map MAP`
 applies a YAML list of rename and retarget entries as one refactor: every entry resolved before any is renamed,
 one diff, one refusal report, written all or nothing. `retarget` rewrites what resolves to a back-compat alias so

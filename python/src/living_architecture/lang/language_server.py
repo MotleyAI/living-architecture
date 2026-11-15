@@ -63,9 +63,10 @@ def _units(char: str) -> int:
     return 2 if ord(char) > 0xFFFF else 1
 
 
-def utf16_index(text: str, line: int, character: int) -> int:
-    """The character index of an LSP position (0-based line, UTF-16 column)."""
-    starts = _line_starts(text)
+def utf16_index(text: str, line: int, character: int, starts: list[int] | None = None) -> int:
+    """The character index of an LSP position (0-based line, UTF-16 column); `starts` is `text`'s line starts, when
+    known."""
+    starts = _line_starts(text) if starts is None else starts
     index = starts[min(line, len(starts) - 1)]
     units = 0
     while units < character and index < len(text) and text[index] not in "\r\n":
@@ -330,11 +331,12 @@ class LanguageServer:
         """The diagnostics of `path` as its current text stands (a pull request)."""
         result = self._request("textDocument/diagnostic", {"textDocument": {"uri": path.as_uri()}})
         text = self._text(path)
+        starts = _line_starts(text)
         out: list[Diagnostic] = []
         for item in (result or {}).get("items", []):
             start, end = item["range"]["start"], item["range"]["end"]
-            span = Span(path=path, start=utf16_index(text, start["line"], start["character"]),
-                        end=utf16_index(text, end["line"], end["character"]))
+            span = Span(path=path, start=utf16_index(text, start["line"], start["character"], starts),
+                        end=utf16_index(text, end["line"], end["character"], starts))
             out.append(Diagnostic(span=span, code=str(item.get("code", "")), severity=int(item.get("severity", 1)),
                                   message=str(item.get("message", ""))))
         return out

@@ -218,8 +218,9 @@ def test_derived_alias(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: 
     assert read(root, "pkg/d.py") == DERIVED.replace("edit_model", "edit_master")
 
 
-@pytest.mark.parametrize("value", ["it's", 'say "x"', "back\\slash", "two\nlines"],
-                         ids=["single-quote", "double-quote", "backslash", "line-break"])
+@pytest.mark.parametrize("value", ["it's", 'say "x"', "back\\slash", "two\nlines", "tick`tock", "a${b}", "para\u2029graph"],
+                         ids=["single-quote", "double-quote", "backslash", "line-break", "backtick", "interpolation",
+                              "paragraph-separator"])
 def test_value_with_a_quote_backslash_or_line_break_refused(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], value: str
 ) -> None:
@@ -282,3 +283,33 @@ def test_a_source_in_an_excluded_directory_is_not_probed(
     code, _out, err = run(root, _by_symbol(), monkeypatch, capsys)
     assert (code, err) == (0, "")
     assert read(root, "venv/lib/use.py") == CONTEXTS
+
+
+ESCAPED = 'from typing import Literal\n\nState = Literal["\\x72eady", "drop"]\n\ns: State = "\\x72eady"\n'
+
+
+def test_an_escaped_member_is_renamed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    root = write_project(tmp_path / "proj", {"pkg/state.py": ESCAPED})
+    code, _out, err = run(root, _by_symbol("done", symbol="State['ready']", rel="pkg/state.py"), monkeypatch, capsys)
+    assert (code, err) == (0, "")
+    assert read(root, "pkg/state.py") == ESCAPED.replace('"\\x72eady"', '"done"')
+
+
+def test_an_implicitly_concatenated_member_cannot_be_renamed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = write_project(tmp_path / "proj", {"pkg/state.py": 'from typing import Literal\n\nState = Literal["re" "ady", "drop"]\n'})
+    before = file_tree(root)
+    code, _out, err = run(root, _by_symbol("done", symbol="State['ready']", rel="pkg/state.py"), monkeypatch, capsys)
+    assert (code, err) == (1, message("refactor.cannot-rename") + "\n")
+    assert file_tree(root) == before
+
+
+def test_a_literal_path_ignores_strings_outside_the_literal(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    text = 'from typing import Annotated, Literal\n\nState = Annotated[Literal["ready", "drop"], "ready"]\n'
+    root = write_project(tmp_path / "proj", {"pkg/state.py": text})
+    code, _out, err = run(root, _by_symbol("done", symbol="State['ready']", rel="pkg/state.py"), monkeypatch, capsys)
+    assert (code, err) == (0, message("refactor.leftover", path="pkg/state.py", line=3, where="string", old="ready") + "\n")
+    assert read(root, "pkg/state.py") == text.replace('Literal["ready"', 'Literal["done"')

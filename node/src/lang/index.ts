@@ -10,6 +10,7 @@ export {
   type Counts as BaselineCounts,
   keyOf as baselineKey,
   load as loadBaseline,
+  parse as parseBaseline,
   parseTscOutput,
   posixRel,
   render as renderBaseline,

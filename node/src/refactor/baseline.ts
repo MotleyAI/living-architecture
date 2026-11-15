@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import type * as TS from 'typescript';
 import { ConfigError, findRepoRoot, loadConfig } from '../config/index.js';
 import { byCodePoint, language, message } from '../contract/index.js';
-import { baselineKey, canonical, loadBaseline, parseTscOutput, posix, posixRel, renderBaseline, ts } from '../lang/index.js';
+import { baselineKey, canonical, parseBaseline, parseTscOutput, posix, posixRel, renderBaseline, ts } from '../lang/index.js';
 import { mapPosition, type PositionMap } from './position.js';
 import type { Refactor } from './session.js';
 import { Workspace } from './workspace.js';
@@ -85,8 +85,9 @@ export function alignBaseline(r: Refactor, map: PositionMap, texts: Map<string, 
   const none = { write: null, warnings: [] };
   const repoRoot = findRepoRoot(r.root);
   const baseline = configured(repoRoot);
-  const counts = baseline === null ? null : loadBaseline(baseline.path);
-  if (baseline === null || counts === null || counts.size === 0) return none;
+  const old = baseline === null ? null : readFileSync(baseline.path, 'utf8');
+  const counts = old === null ? null : parseBaseline(old);
+  if (baseline === null || old === null || counts === null || counts.size === 0) return none;
   if (map.edits.size === 0 && map.moves.size === 0) return none;
   const listed = [...new Set([...counts.keys()].map((key) => (JSON.parse(key) as [string])[0]))];
   const before = new Map<string, Instance[]>();
@@ -120,7 +121,6 @@ export function alignBaseline(r: Refactor, map: PositionMap, texts: Map<string, 
     .map((key) => JSON.parse(key) as [string, string, string])
     .sort((a, b) => byCodePoint(a[0], b[0]) || byCodePoint(a[1], b[1]) || byCodePoint(a[2], b[2]))
     .map(([path, code]) => message('refactor.baseline-ambiguous', { baseline: posix(baseline.name), code, path }));
-  const old = readFileSync(baseline.path, 'utf8');
   const text = renderBaseline(result.counts);
   const same = result.counts.size === counts.size && [...counts].every(([key, count]) => result.counts.get(key) === count);
   return { write: same || text === old ? null : { path: baseline.path, old, text }, warnings: [...new Set(warnings)] };

@@ -123,17 +123,24 @@ function added(current: MockFinding[], base: MockFinding[]): MockFinding[] {
 function baseFindings(files: string[], paths: string[], repoRoot: string, base: MockBase): MockFinding[][] {
   const rel = (path: string): string => posix(relative(repoRoot, path));
   const current = new Set(repoPathBytes(repoRoot).map((p) => p.toString('utf8')));
+  const blobs = new Map<string, string | null>();
+  const blob = (name: string): string | null => {
+    if (!blobs.has(name)) blobs.set(name, fileAt(base.commit, name, repoRoot)?.toString('utf8') ?? null);
+    return blobs.get(name) ?? null;
+  };
   const overlay = (path: string): string | null | undefined => {
     const name = rel(path);
     if (name.startsWith('../') || (!base.tracked.has(name) && !current.has(name))) return undefined;
-    return base.tracked.has(name) ? (fileAt(base.commit, name, repoRoot)?.toString('utf8') ?? null) : null;
+    return base.tracked.has(name) ? blob(name) : null;
   };
   const baseFiles = files.map((file) => resolve(repoRoot, base.renamed.get(rel(file)) ?? rel(file)));
   const present = baseFiles.filter((file) => base.tracked.has(rel(file)));
-  const programs = new Workspace(repoRoot, overlay).programs(present, MOCK_OPTIONS);
+  const workspace = new Workspace(repoRoot, overlay);
+  const programs = workspace.programs(present, MOCK_OPTIONS);
+  const host = workspace.resolutionHost();
   return baseFiles.map((file, i) => {
     const program = programs.get(file);
-    return program === undefined ? [] : mockFindings(program, file, paths[i] as string, repoRoot);
+    return program === undefined ? [] : mockFindings(program, file, paths[i] as string, repoRoot, host);
   });
 }
 
@@ -143,9 +150,12 @@ export function typescriptMockLint(paths: string[], base: MockBase | null): stri
   const repoRoot = findRepoRoot(process.cwd());
   const files = paths.map((p) => resolve(p));
   const programs = new Workspace(repoRoot).programs(files, MOCK_OPTIONS);
-  const before = base === null ? null : baseFindings(files, paths, repoRoot, base);
-  return files.flatMap((file, i) => {
-    const found = mockFindings(programs.get(file) as TS.Program, file, paths[i] as string, repoRoot).sort((a, b) => a.position - b.position);
-    return (before === null ? found : added(found, before[i] ?? [])).map((f) => f.text);
+  const found = files.map((file, i) => mockFindings(programs.get(file) as TS.Program, file, paths[i] as string, repoRoot).sort((a, b) => a.position - b.position));
+  const flagged = base === null ? [] : found.flatMap((f, i) => (f.length > 0 ? [i] : []));
+  const before = base === null || flagged.length === 0 ? [] : baseFindings(flagged.map((i) => files[i] as string), flagged.map((i) => paths[i] as string), repoRoot, base);
+  const baseOf = new Map(flagged.map((i, k) => [i, before[k] ?? []]));
+  return found.flatMap((f, i) => {
+    const prior = baseOf.get(i);
+    return (prior === undefined ? f : added(f, prior)).map((x) => x.text);
   });
 }

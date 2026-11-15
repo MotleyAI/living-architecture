@@ -85,7 +85,7 @@ def doubles(text: str, path: Path) -> list[Double]:
 
 def mock_findings(path: Path) -> list[tuple[int, str]]:
     """Each unspecced double's line and finding."""
-    return [(d.line, d.text(str(path))) for d in doubles(path.read_text(), path)]
+    return [(d.line, d.text(str(path))) for d in doubles(path.read_text(encoding="utf-8"), path)]
 
 
 def check_file(path: Path) -> list[str]:
@@ -129,8 +129,8 @@ def _lint_native(paths: list[str], base: Base | None) -> int:
     problems: list[str] = []
     for f in paths:
         path = Path(f)
-        found = doubles(path.read_text(), path)
-        if base is not None:
+        found = doubles(path.read_text(encoding="utf-8"), path)
+        if base is not None and found:
             found = _new(found, base.doubles(path))
         problems += [d.text(f) for d in found]
     for msg in problems:

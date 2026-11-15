@@ -1,6 +1,6 @@
 // dr-mock-lint as a parsed command: --help, and --base printing only the findings the base branch lacks.
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, renameSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -68,6 +68,28 @@ describe('dr-mock-lint --base', () => {
     writeFileSync(join(root, 'tests', 'a.test.ts'), "import { vi } from 'vitest';\n\nexport const a = jest.fn();\n");
     const jest = message('mock-lint.fn', { path: 'tests/a.test.ts', line: 3, call: 'jest.fn' });
     expect(lint(root, '--base', 'main', 'tests/a.test.ts')).toEqual({ code: 1, out: `${jest}\n`, err: '' });
+  });
+
+  it('resolves the base pass\'s mock modules against the base, so a module deleted since is a new finding', () => {
+    const root = based();
+    writeFileSync(join(root, 'tests', 'm.test.ts'), "import { vi } from 'vitest';\n\nvi.mock(import('../src/api'), () => ({}));\n");
+    commitAll(root, 'mock');
+    execFileSync('git', ['push', '-q', 'origin', 'feat:main'], { cwd: root });
+    rmSync(join(root, 'src', 'api.ts'));
+    const module = message('mock-lint.module', { path: 'tests/m.test.ts', line: 3, call: 'vi.mock' });
+    expect(lint(root, '--base', 'main', 'tests/m.test.ts')).toEqual({ code: 1, out: `${module}\n`, err: '' });
+  });
+
+  it('reads the base pass\'s tsconfig at the base', () => {
+    const root = based();
+    const aliased = TSCONFIG.replace('"moduleResolution": "bundler"', '"moduleResolution": "bundler", "paths": {"@app/*": ["./src/*"]}');
+    writeFileSync(join(root, 'tsconfig.json'), aliased);
+    writeFileSync(join(root, 'tests', 'm.test.ts'), "import { vi } from 'vitest';\n\nvi.mock(import('@app/api'), () => ({}));\n");
+    commitAll(root, 'alias');
+    execFileSync('git', ['push', '-q', 'origin', 'feat:main'], { cwd: root });
+    writeFileSync(join(root, 'tsconfig.json'), TSCONFIG);
+    const module = message('mock-lint.module', { path: 'tests/m.test.ts', line: 3, call: 'vi.mock' });
+    expect(lint(root, '--base', 'main', 'tests/m.test.ts')).toEqual({ code: 1, out: `${module}\n`, err: '' });
   });
 
   it('compares with origin/BRANCH as it stands when the fetch fails', () => {

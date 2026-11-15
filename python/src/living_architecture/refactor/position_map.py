@@ -10,7 +10,7 @@ Edit = tuple[int, int, int]
 
 def map_range(edits: Sequence[Edit], start: int, end: int) -> tuple[int, int]:
     """`start:end` after `edits` (sorted, disjoint): a start inside a replaced span maps to the replacement's
-    start, an end inside one to its end."""
+    start, an end inside one to its end; an empty range maps both ends as its start."""
     new_start, new_end, shift = start, end, 0
     for s, e, length in edits:
         if s <= start < e:
@@ -22,4 +22,4 @@ def map_range(edits: Sequence[Edit], start: int, end: int) -> tuple[int, int]:
         elif end > e:
             new_end = end + shift + length - (e - s)
         shift += length - (e - s)
-    return new_start, new_end
+    return (new_start, new_start) if start == end else (new_start, new_end)

@@ -28,10 +28,12 @@ from living_architecture.refactor.keyed import TypeFacts, UnresolvedBase
 from living_architecture.refactor.literal_rename import LiteralRename, check_value, literal_member_at
 from living_architecture.refactor.locators import RefactorError, resolve, resource
 from living_architecture.refactor.map_file import MapEntry, MapError
+from living_architecture.refactor.move_edits import NameConflict
 from living_architecture.refactor.outcomes import Finding
 from living_architecture.refactor.position_map import Edit
 from living_architecture.refactor.rename_union import RenameOptions, Session, SymbolRename, _normalize
 from living_architecture.refactor.retarget import AliasRetarget
+from living_architecture.refactor.routing import language_files
 from living_architecture.refactor.sites import Keeps, SiteError
 from living_architecture.refactor.symbol_path import LocatorError, declaration_scope, locate
 from living_architecture.refactor.text_edits import TextEdit, apply_edits, merge_edits
@@ -105,6 +107,15 @@ def _definition_line(renamer: Rename) -> tuple[str | None, int | None]:
     module, line = location or (None, None)
     resource_ = module.get_resource() if isinstance(module, PyModule) else None
     return (resource_.path if resource_ is not None else None), line
+
+
+def _declares_parameter(node: ast.AST, name: str, line: int) -> bool:
+    """`node` is a function or lambda with parameter `name` on `line`."""
+    if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+        return False
+    a = node.args
+    params = [*a.posonlyargs, *a.args, *a.kwonlyargs, *(p for p in (a.vararg, a.kwarg) if p is not None)]
+    return any(p.arg == name and p.lineno == line for p in params)
 
 
 class RenameMap:
@@ -197,6 +208,26 @@ class RenameMap:
                 raise MapError(message("refactor.map-duplicate", map=self.map_shown, first=first.entry.index,
                                        second=entry.index))
         return out
+
+    def _scope(self, r: _Resolved) -> ast.AST | None:
+        """The scope declaring a resolved rename's symbol: a parameter's function, else its binding scope."""
+        if r.literal is not None or r.entry.retarget is not None or r.key[0] not in ("name", "parameter"):
+            return None
+        _, path, line, name = r.key
+        source = self.session.snapshot.source(str(path))
+        if source.tree is None:
+            return None
+        if r.key[0] == "parameter":
+            return next((fn for fn in ast.walk(source.tree) if _declares_parameter(fn, str(name), int(str(line)))), None)
+        found = declaration_scope(source, str(name), int(str(line)))
+        return None if found is None else found[0]
+
+    def check_convergence(self, resolved: list[_Resolved]) -> None:
+        """`NameConflict` where two entries give declarations of one scope the same new name."""
+        scoped = [(r, scope) for r in resolved if (scope := self._scope(r)) is not None]
+        for i, (first, scope) in enumerate(scoped):
+            if any(other is scope and later.entry.new_name == first.entry.new_name for later, other in scoped[i + 1 :]):
+                raise NameConflict(str(first.entry.new_name), str(first.key[1]), int(str(first.key[2])))
 
     # ---- computing
 
@@ -316,8 +347,14 @@ class RenameMap:
         return changes, writes
 
 
-def change_set_writes(project: Project, changes: ChangeSet) -> tuple[list[FileWrite], list[FileMove]]:
-    """A rope change set as writes and moves."""
+def source_bytes(project: Project) -> dict[str, bytes]:
+    """Every Python source's bytes, read before rope computes a change set from them."""
+    root = Path(project.address).resolve()
+    return {path.relative_to(root).as_posix(): path.read_bytes() for path in language_files(root, "python")}
+
+
+def change_set_writes(project: Project, changes: ChangeSet, before: dict[str, bytes]) -> tuple[list[FileWrite], list[FileMove]]:
+    """A rope change set as writes and moves, each write's old bytes as `before` holds them."""
     root = Path(project.address).resolve()
     writes: list[FileWrite] = []
     moves: list[FileMove] = []
@@ -326,7 +363,8 @@ def change_set_writes(project: Project, changes: ChangeSet) -> tuple[list[FileWr
             file: File = change.resource
             file.read()
             data = unicode_to_file_data(change.new_contents, newlines=file.newlines)
-            writes.append(FileWrite(rel=file.path, old=(root / file.path).read_bytes(), new=bytes(data)))
+            old = before.get(file.path)
+            writes.append(FileWrite(rel=file.path, old=(root / file.path).read_bytes() if old is None else old, new=bytes(data)))
         elif isinstance(change, MoveResource):
             moves.append(FileMove(rel=change.resource.path, dest=change.new_resource.path))
     return writes, moves
@@ -341,6 +379,7 @@ def emit(project: Project, headers: list[str], changes: ChangeSet, apply_: bool,
     if aligned is not None:
         for warning in aligned.warnings:
             print(warning, file=sys.stderr)
+    if aligned is not None and aligned.write is not None:
         described.append((aligned.write.rel, aligned.description))
         writes = [*writes, aligned.write]
     ordered = sorted(described)
@@ -363,6 +402,7 @@ def run_map(project: Project, entries: list[MapEntry], options: RenameOptions, *
     engine = RenameMap(project, entries, options, map_shown)
     try:
         resolved = engine.resolve()
+        engine.check_convergence(resolved)
         modules = [r for r in resolved if r.renamer is not None and r.renamer._is_renaming_a_module()]  # pyright: ignore[reportPrivateUsage]
         if modules:
             if len(resolved) > 1:

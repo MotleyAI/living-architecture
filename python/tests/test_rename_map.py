@@ -209,6 +209,26 @@ def test_swaps_and_chains_in_one_scope_refuse(
     assert file_tree(root) == before
 
 
+@pytest.mark.parametrize(
+    ("files", "renames", "line"),
+    [
+        ({"pkg/f.py": PARAMS}, [("f(x)", "z"), ("f(y)", "z")], 1),
+        ({"pkg/f.py": "a = 1\nb = 2\n"}, [("a", "x"), ("b", "x")], 1),
+    ],
+    ids=["parameters", "module names"],
+)
+def test_two_entries_converging_on_one_name_refuse(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], files: dict[str, str],
+    renames: list[tuple[str, str]], line: int,
+) -> None:
+    root = _project(tmp_path, files, [{"file": "pkg/f.py", "symbol": symbol, "new_name": new} for symbol, new in renames])
+    before = file_tree(root)
+    code, out, err = run(root, _rename_map(), monkeypatch, capsys)
+    new = renames[0][1]
+    assert (code, out, err) == (1, "", message("refactor.name-conflict", name=new, path="pkg/f.py", line=line) + "\n")
+    assert file_tree(root) == before
+
+
 def test_mixed_languages(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     root = _project(tmp_path, {"pkg/a.py": A, "web/a.ts": "export function old(): number { return 1; }\n"}, [
         {"file": "pkg/a.py", "symbol": "A.old", "new_name": "new"},

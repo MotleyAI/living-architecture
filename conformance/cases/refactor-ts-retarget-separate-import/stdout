@@ -1,0 +1,16 @@
+Retargeting <legacy> to <modern>:
+
+
+--- a/src/use.ts
++++ b/src/use.ts
+@@ -1,4 +1,3 @@
+ import { modern } from './api';
+-import { legacy } from './api';
+ 
+-export const r = legacy() + modern();
++export const r = modern() + modern();
+
+
+
+APPLIED. 1 file(s) changed:
+  src/use.ts

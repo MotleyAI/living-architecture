@@ -323,7 +323,7 @@ findings:
   refactor.cross-language-dest: '--dest {dest} is not a {language} file'
   refactor.skipped: '{prog}: not a source file, skipped: {path}'
   # The TypeScript twin's texts (rope prints the Python ones).
-  refactor.ts-rename-header: 'Renaming <{old}> to <{new}>:'
+  refactor.rename-header: 'Renaming <{old}> to <{new}>:'
   refactor.ts-move-symbol-header: 'Moving global <{name}>:'
   refactor.ts-move-module-header: 'Moving module <{name}>:'
   refactor.ts-moved: "rename from {old}\nrename to {new}"
@@ -363,9 +363,10 @@ findings:
   refactor.retarget-override: '{path}:{line}: {cls}.{name} overrides the alias, so nothing was refactored'
   refactor.retarget-shadowed: '{path}:{line}: {name} names something else here, so nothing was refactored'
   refactor.write-failed: 'could not write {path}; the files already written are restored, so nothing was refactored'
+  refactor.rollback-failed: 'could not write {path}; restoring failed, so these paths are left changed: {paths}'
   refactor.baseline-ambiguous: 'WARNING: {baseline}: the {code} entry of {path} cannot follow the refactor; left unchanged'
   refactor.baseline-failed: 'the {language} type checker failed, so the baseline cannot be realigned and nothing was refactored'
-  refactor.literal-value: '--new-name {value!r} holds a quote, backslash or line break, which a literal member cannot'
+  refactor.literal-value: '--new-name {value!r} holds a quote, backtick, backslash, ${{ or line break, which a literal member cannot'
   refactor.literal-unresolved: '{path}:{line}: literal-unresolved: the checker needs {old!r} here, where no string literal can be rewritten'
   refactor.compound: '{path}:{line}: leftover: declaration {name} contains {old}'
 

@@ -17,7 +17,7 @@
         "line": {"type": "integer"},
         "col": {"type": "integer"},
         "offset": {"type": "integer"},
-        "new_name": {"type": "string", "minLength": 1},
+        "new_name": {"type": "string"},
         "retarget": {"type": "string", "minLength": 1}
       },
       "dependentRequired": {"col": ["line"]},

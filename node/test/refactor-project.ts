@@ -68,7 +68,7 @@ export function expectedOut(headers: string[], changes: Change[], apply: boolean
   return `${headers.join('\n')}\n\n\n${body}\n${footer}`;
 }
 
-export const renameHeader = (old: string, next: string): string => message('refactor.ts-rename-header', { old, new: next });
+export const renameHeader = (old: string, next: string): string => message('refactor.rename-header', { old, new: next });
 
 /** A rename map file: one `{key: value}` mapping per entry. */
 export function mapYaml(entries: Record<string, string | number>[]): string {

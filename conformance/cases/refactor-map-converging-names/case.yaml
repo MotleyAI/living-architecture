@@ -1,0 +1,16 @@
+kind: paired
+languages:
+- python
+- typescript
+command: dr-refactor
+args:
+- rename-map
+- renames.yaml
+git:
+- commit: init
+expect:
+  exit: 1
+  stdout: ignore
+golden: manual
+note: 'two entries give parameters of one function the same new name: name-conflict naming the earlier one, exit 1,
+  nothing written, in both languages'

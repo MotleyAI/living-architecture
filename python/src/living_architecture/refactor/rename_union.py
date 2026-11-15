@@ -426,7 +426,7 @@ class SymbolRename(MapRename):
 
     @override
     def header(self) -> str:
-        return f"Renaming <{self.old}> to <{self.new}>:"
+        return message("refactor.rename-header", old=self.old, new=self.new)
 
     def is_member(self) -> bool:
         """The symbol is declared in a class body (or as a `self.` attribute): a declaration rope renames is one."""

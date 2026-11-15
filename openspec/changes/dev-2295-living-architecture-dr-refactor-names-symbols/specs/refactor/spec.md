@@ -76,7 +76,8 @@ project, every rename rule running once over the union of the entries' symbols, 
 member entry's old name and one combined refusal report, sorted as a single rename sorts it. Identical edits SHALL
 merge; two entries rewriting one span differently SHALL exit 1 with `refactor.map-conflict` naming the site and
 both entries, writing nothing. Name-conflict checks SHALL run against the code before the map, so a swap or a chain
-of names inside one scope is refused. A retarget entry whose target another entry renames SHALL write the target's
+of names inside one scope is refused. Two entries giving declarations of one scope the same new name SHALL refuse with
+the same name-conflict finding. A retarget entry whose target another entry renames SHALL write the target's
 new name.
 
 `rename` SHALL behave as a one-entry map with a `new_name`, and `retarget` as a one-entry map with a `retarget`;
@@ -108,6 +109,10 @@ their output SHALL equal that map's byte for byte.
 
 #### Scenario: Swap in one scope refused
 - **WHEN** a map renames parameter `f(x)` to `y` and `f(y)` to `x`
+- **THEN** the rename refuses with the existing name-conflict finding and nothing changes
+
+#### Scenario: Two entries converging on one name
+- **WHEN** a map renames parameter `f(x)` to `z` and `f(y)` to `z`
 - **THEN** the rename refuses with the existing name-conflict finding and nothing changes
 
 #### Scenario: Mixed languages
@@ -164,7 +169,9 @@ duplicate of an import of TARGET from the same module SHALL be removed instead.
 ### Requirement: An apply writes every file or none
 `dr-refactor --apply` SHALL re-check, immediately before writing, that no file it writes changed since it was read,
 and SHALL write each file through a temporary file in the same directory renamed over it. When any write fails, the
-files already written SHALL be restored, a finding SHALL be printed and the exit code SHALL be 1.
+files already written SHALL be restored, a finding SHALL be printed and the exit code SHALL be 1. When restoring a
+file fails, the other restorations SHALL still be attempted and `refactor.rollback-failed` SHALL name every path left
+changed; the exit code SHALL be 1.
 
 #### Scenario: Failed write rolls back
 - **WHEN** a map's apply fails while writing its third file
@@ -176,8 +183,9 @@ Every `dr-refactor` subcommand SHALL keep the baseline of each language it edits
 affects. A baselined diagnostic that the refactor moves, by an edit on its line, a moved file or a moved
 declaration, SHALL stay baselined; no diagnostic SHALL become baselined that was not. The baseline SHALL appear in
 the printed diff and be written with the sources, in dry-run and `--apply` alike. Diagnostic ranges SHALL be mapped
-through the refactor's edits; a start or end at or inside a replaced span SHALL map to the replacement's start or
-end.
+through the refactor's edits: a start at or inside a replaced span SHALL map to the replacement's start, an end
+inside or at the end of one to the replacement's end; at an insertion point a start SHALL map after the inserted
+text and an end before it, and an empty range SHALL map both ends as its start.
 
 - Python (`.basedpyright/baseline.json`): the baselined diagnostics and the entries they match SHALL be those
   basedpyright itself matches, from running the configured command over the affected files once with a temporary
@@ -241,8 +249,8 @@ and write nothing.
 
 ### Requirement: Literal members are renamed where the checker types them
 A rename located at a member of a string-literal type (`--symbol Q['value']`, or a locator on that string inside
-the type) SHALL take the new value from `--new-name`: any text without a quote character, backslash or line break
-(else exit 2 with `refactor.literal-value`); the identifier rule SHALL NOT apply, and each rewritten string SHALL
+the type) SHALL take the new value from `--new-name`: any text without a quote character (`'`, `"` or a backtick), a
+backslash, `${` or a line break (U+2028 and U+2029 included) (else exit 2 with `refactor.literal-value`); the identifier rule SHALL NOT apply, and each rewritten string SHALL
 keep its quote style.
 
 - TypeScript: the rewritten strings SHALL be the language service's rename locations for that string.

@@ -106,14 +106,14 @@ def test_require_one_of() -> None:
     assert exc.value.code == 2
 
 
-@pytest.mark.parametrize("subcommand", ["rename", "move-symbol", "retarget"])
-def test_exclusive_locators_name_both_options(subcommand: str, capsys: pytest.CaptureFixture[str]) -> None:
+@pytest.mark.parametrize("required", [["rename", "--new-name", "g"], ["move-symbol", "--dest", "b.py"],
+                                      ["retarget", "--target", "g"]], ids=["rename", "move-symbol", "retarget"])
+def test_exclusive_locators_name_both_options(required: list[str], capsys: pytest.CaptureFixture[str]) -> None:
+    argv = [required[0], "--file", "a.py", "--offset", "0", "--symbol", "f", *required[1:]]
     with pytest.raises(SystemExit) as exc:
-        parse("dr-refactor", [subcommand, "--file", "a.py", "--offset", "0", "--symbol", "f"])
+        parse("dr-refactor", argv)
     assert exc.value.code == 2
-    err = capsys.readouterr().err
-    assert "--offset" in err
-    assert "--symbol" in err
+    assert "argument --symbol: not allowed with argument --offset" in capsys.readouterr().err
 
 
 def test_mock_lint_help_prints_help(capsys: pytest.CaptureFixture[str]) -> None:

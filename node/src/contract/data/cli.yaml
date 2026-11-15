@@ -17,8 +17,10 @@
 #              languages.yaml.
 # base_fetch_timeout_seconds: the best-effort `git fetch origin <base>` before a command compares with
 #              origin/<base> is killed after this many seconds; the command then uses the ref as it stands.
+# literal_value_forbidden: the substrings a Literal member's new value may not hold (`refactor.literal-value`).
 
 base_fetch_timeout_seconds: 30
+literal_value_forbidden: ["'", '"', '`', "\\", '${', "\r", "\n", "\u2028", "\u2029"]
 
 commands:
   la-config:

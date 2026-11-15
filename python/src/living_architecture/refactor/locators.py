@@ -6,6 +6,7 @@ from pathlib import Path
 
 from pydantic import BaseModel
 from rope.base import libutils
+from rope.base.fscommands import read_str_coding
 from rope.base.project import Project
 from rope.base.resources import Resource
 
@@ -31,13 +32,24 @@ def offset_from_line_col(text: str, line: int, col: int) -> int:
     lines = split_lines(text)
     if not 1 <= line <= len(lines):
         raise RefactorError(message("refactor.line-out-of-range", line=line, count=len(lines)))
+    width = len(lines[line - 1].rstrip("\r\n"))
+    if not 1 <= col <= width + 1:
+        raise RefactorError(message("refactor.col-out-of-range", col=col, line=line, count=width))
     return sum(len(lines[i]) for i in range(line - 1)) + (col - 1)
+
+
+def _text(file: str) -> str:
+    """`file` decoded by its coding cookie (else UTF-8), newlines normalized as rope reads it."""
+    data = Path(file).read_bytes()
+    return data.decode(read_str_coding(data) or "utf-8").replace("\r\n", "\n").replace("\r", "\n")
 
 
 def resolve(locator: Locator, file: str) -> tuple[int, Located | None]:
     """The offset in rope's newline-normalized text of `file`, with what a `--symbol` path names."""
-    text = Path(file).read_text()
+    text = _text(file)
     if locator.offset is not None:
+        if not 0 <= locator.offset <= len(text):
+            raise RefactorError(message("refactor.offset-out-of-range", offset=locator.offset, count=len(text)))
         return locator.offset, None
     if locator.line is not None:
         return offset_from_line_col(text, locator.line, locator.col or 1), None

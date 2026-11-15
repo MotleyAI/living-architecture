@@ -61,10 +61,14 @@ function validEntry(entry: unknown): entry is { code: string; message: string; c
 
 /** The baseline multiset; empty when the file is absent, null when it is malformed. */
 export function load(path: string): Counts | null {
-  if (!existsSync(path)) return new Map();
+  return existsSync(path) ? parse(readFileSync(path, 'utf8')) : new Map();
+}
+
+/** The counts of a baseline's text; null when it is not a baseline. */
+export function parse(text: string): Counts | null {
   let data: unknown;
   try {
-    data = JSON.parse(readFileSync(path, 'utf8'));
+    data = JSON.parse(text);
   } catch {
     return null;
   }

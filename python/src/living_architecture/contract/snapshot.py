@@ -73,6 +73,11 @@ def base_fetch_timeout() -> float:
     return float(_yaml("cli.yaml")["base_fetch_timeout_seconds"])
 
 
+def literal_value_forbidden() -> tuple[str, ...]:
+    """The substrings a `Literal` member's new value may not hold."""
+    return tuple(_yaml("cli.yaml")["literal_value_forbidden"])
+
+
 def language(name: str) -> dict[str, Any]:
     return _yaml("languages.yaml")[name]
 

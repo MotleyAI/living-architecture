@@ -169,6 +169,19 @@ export function run(b: Base): void {
     expect(read(root, 'src/f.ts')).toBe(f);
   });
 
+  it.each([
+    ['parameters', 'export function f(x: number, y: number): number {\n  return x - y;\n}\n', 'f(x)', 'f(y)'],
+    ['module names', 'export const a = 1;\nexport const b = 2;\n', 'a', 'b'],
+  ])('refuses two entries converging on one name (%s)', (_kind, f, first, second) => {
+    const root = withMap({ 'src/f.ts': f }, [
+      { file: 'src/f.ts', symbol: first, new_name: 'z' },
+      { file: 'src/f.ts', symbol: second, new_name: 'z' },
+    ]);
+    const result = refactor(root, '--apply', 'rename-map', 'map.yaml');
+    expect(result).toEqual({ code: 1, out: '', err: `${message('refactor.name-conflict', { name: 'z', path: 'src/f.ts', line: 1 })}\n` });
+    expect(read(root, 'src/f.ts')).toBe(f);
+  });
+
   it('refuses a map of two languages', () => {
     const root = withMap({ 'src/store.ts': STORE, 'pkg/a.py': 'def f() -> None:\n    pass\n' }, [
       { file: 'src/store.ts', symbol: 'Store.getModel', new_name: 'loadModel' },

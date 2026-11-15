@@ -1,1 +1,1 @@
---new-name "it's" holds a quote, backslash or line break, which a literal member cannot
+--new-name "it's" holds a quote, backtick, backslash, ${ or line break, which a literal member cannot

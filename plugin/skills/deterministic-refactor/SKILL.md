@@ -64,8 +64,9 @@ the refactor touches (`la-config get languages` lists the repo's).
 
 `dr-refactor` subcommands: `rename` / `rename-map` / `retarget` / `move-symbol` /
 `move-module`. Dry-run is default; `--apply` writes, baseline included;
-`--project` defaults to cwd. Locator: `--symbol Q` (the path inside `--file`;
-no match or several exit 2 listing the candidates), `--line [--col]` (1-based)
+`--project` defaults to cwd. Locator: `--symbol Q` (the path inside `--file`,
+quoted for the shell: `'f.<locals>.g'`, `'C.m(p)'`, `"Alias['value']"`; no match
+or several exit 2 listing the candidates), `--line [--col]` (1-based)
 or `--offset N` (0-based). `rename-map MAP` reads a YAML list of
 `{file, symbol, new_name}` or `{file, symbol, retarget}` entries (files relative
 to `--project`), resolves every entry before renaming any, and writes all or

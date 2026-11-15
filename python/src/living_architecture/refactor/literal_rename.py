@@ -4,22 +4,25 @@ with the member replaced by a sentinel; every other equal string is listed unles
 from __future__ import annotations
 
 import ast
+import io
 import re
+import tokenize
 from collections.abc import Callable
 
 from rope.base.project import Project
 from typing_extensions import override
 
-from living_architecture.contract import message
+from living_architecture.contract import literal_value_forbidden, message
 from living_architecture.lang import Diagnostic, LanguageServer
 from living_architecture.refactor.keyed import TypeFacts
+from living_architecture.refactor.locators import RefactorError
 from living_architecture.refactor.member_scan import TextProbe
 from living_architecture.refactor.mentions import docstrings
 from living_architecture.refactor.outcomes import Finding, Outcome, file_outcome
 from living_architecture.refactor.python_source import SourceFile
 from living_architecture.refactor.rename_union import MapRename, RenameOptions, Session
 from living_architecture.refactor.routing import language_files
-from living_architecture.refactor.symbol_path import LocatorError
+from living_architecture.refactor.symbol_path import LocatorError, names_literal
 from living_architecture.refactor.text_edits import TextEdit
 
 SENTINEL = "__la_probe_sentinel__"
@@ -27,7 +30,6 @@ _QUOTE = re.compile(r"[rRuU]?('''|\"\"\"|'|\")")
 _REVEAL = "reveal_type("
 _EQUALITY = (ast.Eq, ast.NotEq, ast.Is, ast.IsNot)
 _DISPLAYS = (ast.List, ast.Tuple, ast.Set, ast.Dict)
-_FORBIDDEN = re.compile(r"['\"\\\r\n]")
 
 Key = tuple[str, int, int]
 
@@ -36,7 +38,7 @@ def literal_member_at(source: SourceFile, offset: int) -> ast.Constant | None:
     """The string inside a `Literal[...]` subscript whose span holds `offset`."""
     if source.tree is None:
         return None
-    literals = (n for n in ast.walk(source.tree) if isinstance(n, ast.Subscript) and _names_literal(n.value))
+    literals = (n for n in ast.walk(source.tree) if isinstance(n, ast.Subscript) and names_literal(n.value))
     strings = (i for n in literals for i in ast.walk(n.slice) if isinstance(i, ast.Constant) and isinstance(i.value, str))
     return next((i for i in strings if source.span(i)[0] <= offset < source.span(i)[1]), None)
 
@@ -45,19 +47,15 @@ def _in_literal_type(parents: dict[ast.AST, ast.AST], node: ast.AST) -> bool:
     """`node` is a member of a `Literal[...]` type."""
     up = parents.get(node)
     while up is not None:
-        if isinstance(up, ast.Subscript) and _names_literal(up.value):
+        if isinstance(up, ast.Subscript) and names_literal(up.value):
             return True
         up = parents.get(up)
     return False
 
 
-def _names_literal(node: ast.expr) -> bool:
-    return (isinstance(node, ast.Name) and node.id == "Literal") or (isinstance(node, ast.Attribute) and node.attr == "Literal")
-
-
 def check_value(value: str) -> None:
     """`LocatorError` (exit 2) for a new value a string literal cannot hold unescaped."""
-    if _FORBIDDEN.search(value):
+    if any(part in value for part in literal_value_forbidden()):
         raise LocatorError(message("refactor.literal-value", value=value))
 
 
@@ -74,7 +72,7 @@ class _Site:
         segment = source.text[self.span[0] : self.span[1]]
         quote = _QUOTE.match(segment)
         self.inner: tuple[int, int] | None = None
-        if quote is not None:
+        if quote is not None and _one_token(segment):
             start, end = self.span[0] + quote.end(), self.span[1] - len(quote.group(1))
             if start <= end:
                 self.inner = (start, end)
@@ -82,6 +80,15 @@ class _Site:
     def on(self, span: tuple[int, int]) -> bool:
         """`span` is this literal or the display holding it."""
         return span == self.span or span == self.display
+
+
+def _one_token(segment: str) -> bool:
+    """`segment` is a single string token, not an implicit concatenation."""
+    try:
+        tokens = list(tokenize.generate_tokens(io.StringIO(f"({segment})").readline))
+    except (tokenize.TokenError, SyntaxError):
+        return False
+    return sum(t.type == tokenize.STRING for t in tokens) == 1
 
 
 def _parents(tree: ast.AST) -> dict[ast.AST, ast.AST]:
@@ -156,7 +163,7 @@ class LiteralRename(MapRename):
 
     @override
     def header(self) -> str:
-        return f"Renaming <{self.old}> to <{self.new}>:"
+        return message("refactor.rename-header", old=self.old, new=self.new)
 
     @override
     def stand_in_findings(self) -> list[Finding]:
@@ -190,10 +197,12 @@ class LiteralRename(MapRename):
                 else:
                     self._sites.append(site)
         self.candidates.sort()
+        if self._member is None or self._member.inner is None:
+            raise RefactorError(message("refactor.cannot-rename"))
 
     def _equal_strings(self, rel: str, source: SourceFile) -> list[_Site]:
         """Each string literal of `source` whose value is the member's, docstrings and f-string parts not."""
-        if source.tree is None or self.old not in source.text:
+        if source.tree is None:
             return []
         parents = _parents(source.tree)
         skipped = {id(d) for d in docstrings(source.tree)}

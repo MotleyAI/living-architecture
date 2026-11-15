@@ -1,0 +1,20 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- rename
+- --file
+- pkg/a.py
+- --offset
+- '79'
+- --new-name
+- bar
+fixture: refactor-pkg
+git:
+- commit: init
+expect:
+  exit: 1
+  stdout: ignore
+golden: manual
+note: an offset past the end of the file is refused, as the TypeScript twin refuses it

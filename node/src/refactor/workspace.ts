@@ -1,6 +1,6 @@
 // The TypeScript projects a refactor or check runs in: the reference graph, one language service per project.
 import { existsSync, readFileSync, statSync } from 'node:fs';
-import { dirname, isAbsolute, join, relative, sep } from 'node:path';
+import { basename, dirname, isAbsolute, join, relative, sep } from 'node:path';
 import type * as TS from 'typescript';
 import { DuplicateKeyError, YAMLError, decodeUtf8OrNull, loadYaml, message, toPlain } from '../contract/index.js';
 import { canonical, LangError, loadProjectsFrom, posix, type Project, type Projects, ts } from '../lang/index.js';
@@ -44,9 +44,27 @@ interface Host extends TS.LanguageServiceHost {
 /** A file's text in place of the disk's: a string, null when the file is absent, undefined to read the disk. */
 export type Overlay = (path: string) => string | null | undefined;
 
+/** Each directory a moved file's new path lies under, by canonical path; none of them created on disk. */
+function virtualDirectories(moved: Map<string, string>): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const to of moved.values()) {
+    for (let dir = dirname(to); !out.has(canonical(dir)); dir = dirname(dir)) {
+      out.set(canonical(dir), dir);
+      if (dirname(dir) === dir) break;
+    }
+  }
+  return out;
+}
+
 function host(parsed: TS.ParsedCommandLine, options: TS.CompilerOptions, extra: string[], overlay: Overlay, moved: Map<string, string>): Host {
   const sys = ts().sys;
   const names = [...parsed.fileNames.map((name) => moved.get(canonical(name)) ?? name), ...extra];
+  const virtual = virtualDirectories(moved);
+  const directoryExists = (name: string): boolean => virtual.has(canonical(name)) || sys.directoryExists(name);
+  const getDirectories = (name: string): string[] => {
+    const children = [...virtual.values()].filter((dir) => canonical(dirname(dir)) === canonical(name) && dirname(dir) !== dir).map((dir) => basename(dir));
+    return [...new Set([...(sys.directoryExists(name) ? sys.getDirectories(name) : []), ...children])];
+  };
   const fileExists = (name: string): boolean => {
     const text = overlay(name);
     return text === undefined ? sys.fileExists(name) : text !== null;
@@ -67,8 +85,8 @@ function host(parsed: TS.ParsedCommandLine, options: TS.CompilerOptions, extra: 
     fileExists,
     readFile,
     readDirectory: sys.readDirectory,
-    directoryExists: sys.directoryExists,
-    getDirectories: sys.getDirectories,
+    directoryExists,
+    getDirectories,
     realpath: sys.realpath,
   };
 }
@@ -87,13 +105,33 @@ export class Workspace {
     private readonly moved: Map<string, string> = new Map(),
   ) {}
 
-  /** The reference graph from `config` (none: inferred defaults); RefactorError on an unreadable tsconfig. */
+  /** A file's text through the overlay, else from disk; undefined when absent. */
+  private readonly read = (name: string): string | undefined => {
+    const text = this.overlay(name);
+    return text === undefined ? ts().sys.readFile(name) : (text ?? undefined);
+  };
+
+  /** A module-resolution host that sees files through the overlay. */
+  resolutionHost(): TS.ModuleResolutionHost {
+    return {
+      fileExists: (name) => {
+        const text = this.overlay(name);
+        return text === undefined ? ts().sys.fileExists(name) : text !== null;
+      },
+      readFile: this.read,
+      realpath: ts().sys.realpath,
+      getCurrentDirectory: () => this.root,
+    };
+  }
+
+  /** The reference graph from `config` (none: inferred defaults), its tsconfigs read through the overlay; RefactorError
+   * on an unreadable tsconfig. */
   private load(config: string | undefined): Projects {
     const key = config ?? '';
     let graph = this.graphs.get(key);
     if (graph === undefined) {
       try {
-        graph = loadProjectsFrom(config, this.root);
+        graph = loadProjectsFrom(config, this.root, this.read);
       } catch (error) {
         if (error instanceof LangError) throw new RefactorError(error.message);
         throw error;

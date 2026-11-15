@@ -13,6 +13,7 @@ from project_files import file_tree, write_project
 from refactor_cli import BIN_DIR, configure_typecheck, line_col, read, run
 
 from living_architecture.contract import message
+from living_architecture.refactor import baseline_align
 
 BASELINE = ".basedpyright/baseline.json"
 USE = """\
@@ -260,3 +261,16 @@ def test_checker_failure_refuses(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     expected = message("refactor.baseline-failed", language="python")
     assert run(root, _rename(root, "get_model", "load"), monkeypatch, capsys) == (1, "", f"{expected}\n")
     assert file_tree(root) == before
+
+
+@pytest.mark.usefixtures("checker_path")
+def test_warnings_print_when_the_baseline_stays_unchanged(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = _project(tmp_path, {"pkg/use.py": USE})
+    before = read(root, BASELINE)
+    monkeypatch.setattr(baseline_align, "_follow", lambda *_args: None)
+    code, _out, err = run(root, _rename(root, "get_model", "load"), monkeypatch, capsys)
+    expected = {message("refactor.baseline-ambiguous", baseline=BASELINE, code=c, path="pkg/use.py") for c in (ARG, ASSIGN)}
+    assert (code, set(err.splitlines())) == (0, expected)
+    assert read(root, BASELINE) == before
