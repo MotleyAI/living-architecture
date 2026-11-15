@@ -1,3 +1,4 @@
+import sys
 from typing import Annotated
 
 
@@ -51,3 +52,19 @@ finally:
     y = ")"
 
 r = rb"(" + Rb"(" + bR")" + br")"
+
+
+def trampoline(body: str) -> str:
+    return f"#!/bin/sh\n'''exec' '{sys.executable}' \"$0\" \"$@\"\n' '''\n{body}"
+
+
+q = f'{a}"""{b}'
+s = f"'''{y}" + f"{y}'''" + f"{y}'''{y}" + f"'''" + f'"""{a}' + f'{a}"""'
+t = f"""{a}'''{b}""" + f'''{a}"""{b}'''
+u = "'''" f"{y}" "'''" + rf"'''{a}" + Rf'{a}"""' + fR"""{a}'''""" + F"'''{a}" + RF'{a}"""'
+v = f"{{'''}} {y}" + f"{a}""" + (f"{a}"  # """ ''' " '
+     """x""")
+w = f"""
+'''{a}
+'''
+""" + f"\"\"\"{a}" + f'\'\'\'{a}\''

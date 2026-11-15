@@ -7,25 +7,26 @@
 
 ## 1. Tests (pr-tests)
 
-- [ ] 1.1 `python/tests/test_rope_patches.py` CORPUS gains the f-string forms of design decision 6 and the issue's
+- [x] 1.1 `python/tests/test_rope_patches.py` CORPUS gains the f-string forms of design decision 6 and the issue's
       shapes (the trampoline line; `'''` inside `"…"` with formatted values before, after and around; `"""` inside
       `'…'`; each triple quote inside the other kind of triple-quoted f-string; a triple quote in a plain piece before
       and after an f-string; `rf`/`Rf`/`fR` prefixes; `{{'''}}`), version-marked where the syntax needs 3.12 or 3.14.
       Verify: they fail before the fix on at least the shapes listed in design.md Context.
-- [ ] 1.2 A test over those f-string cases asserting the delimiters (design decision 5): the literal's first sorted
+- [x] 1.2 A test over those f-string cases asserting the delimiters (design decision 5): the literal's first sorted
       child equals its opening delimiter (`f"""` for a triple-quoted f-string, never `f"`), and its last sorted child
       starts with the last piece's closing delimiter, equal to it for a one-piece literal. Verify: fails before the fix.
-- [ ] 1.3 Canary in `test_unpatched_rope_still_needs_the_patch` style: unpatched rope still crashes or leaves a gap on
+- [x] 1.3 Canary in `test_unpatched_rope_still_needs_the_patch` style: unpatched rope still crashes or leaves a gap on
       `x = f"'''{a}"`, with a comment to drop the patch when python-rope/rope#844 is released. Verify: passes now.
-- [ ] 1.4 A unit test that a region the tokenizer cannot read raises `patchedast.MismatchedTokenError` from the
+- [x] 1.4 A unit test that a region the tokenizer cannot read raises `patchedast.MismatchedTokenError` from the
       f-string visitor (design decision 4), never `IndexError`/`AttributeError`. Verify: fails before the fix.
-- [ ] 1.5 Conformance `compliance-rope-walk-clean`: `python/src/constructs.py` gains the exact trampoline line
+- [x] 1.5 Conformance `compliance-rope-walk-clean`: `python/src/constructs.py` gains the exact trampoline line
       (inside a function using `sys` and `body`) and `f'{a}"""{b}'` plus the other 3.11-valid shapes of 1.1; golden
       stays empty stdout, exit 0 (`golden: manual`). Verify: the case fails before the fix.
-- [ ] 1.6 Conformance `refactor-rename-rope-walk-constructs`: the renamed `field` is also used inside the trampoline
-      f-string and inside `f'{…}"""{…}'` in `pkg/use.py`; hand-edit `stdout` and `files/` so every occurrence is
-      renamed (`golden: manual`). Verify: the case fails before the fix.
-- [ ] 1.7 `conformance/INVENTORY.md`: the `rope-walk` and "rename across annotated parameters and f-strings" rows name
+- [x] 1.6 Conformance `refactor-rename-rope-walk-constructs`: the renamed `field` is also used inside the trampoline
+      f-string and inside `f'{…}"""{…}'` in `pkg/use.py`; hand-edit `stdout` so every occurrence is renamed, and set
+      `files/pkg/use.py` to the new fixture (a dry run leaves it unchanged) (`golden: manual`). Verify: the case fails
+      before the fix.
+- [x] 1.7 `conformance/INVENTORY.md`: the `rope-walk` and "rename across annotated parameters and f-strings" rows name
       f-strings holding triple quotes. Verify: the inventory test passes.
 
 ## 2. Implementation (pr-implement)
