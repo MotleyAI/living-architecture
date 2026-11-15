@@ -1,0 +1,25 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- --apply
+- rename
+- --file
+- src/kinds.ts
+- --symbol
+- Kind['edit_model']
+- --new-name
+- edit_master
+fixture: refactor-ts
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - src/kinds.ts
+  - src/use.ts
+golden: manual
+note: 'a string-literal union member by Kind[''value'']: the declaration, a typed variable, an argument, ===, a case, a typed
+  array element and an imported use; another union''s member and a string variable untouched and listed as leftovers, a
+  string typed by the other union untouched and unlisted'

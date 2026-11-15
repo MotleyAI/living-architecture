@@ -1,0 +1,23 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- --apply
+- rename
+- --file
+- pkg/a.py
+- --symbol
+- A.get_model
+- --new-name
+- get_dataset
+fixture: refactor-typed
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - pkg/a.py
+  - pkg/models.py
+golden: manual
+note: 'an async method by --symbol A.get_model: equals the --line/--col rename (refactor-rename-async-method)'

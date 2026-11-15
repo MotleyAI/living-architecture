@@ -19,19 +19,24 @@ the refactor touches (`la-config get languages` lists the repo's).
 
 ## Procedure
 
-1. Locate the symbol with the editor/LSP (not grep) → file, line, col.
+1. **Name the symbols**: each by its file and its path inside it
+   (`--file F --symbol Class.method`; also `func.<locals>.inner`,
+   `Class.method(param)`, `Alias['value']` for a `Literal` member). Related
+   renames go in one rename map: one dry-run, one apply, one gate.
 2. **Check the verifier**: run `la-typecheck`. It runs the project's type
    checker in the project env (the one the tests use) against its committed
    baseline, and it must pass before you start. If it prints "nothing to
    check", STOP and tell the user: with no type check there is no guarantee,
    so offer to set one up (`commands.typecheck` and
    `la-typecheck --write-baseline`) first.
-3. **Type the receivers** (member renames): `dr-compliance --select attr-blindspot --attr OLD <repo>`
-   lists each receiver of `OLD` the checker cannot type. Type them
+3. **Type the receivers** (member renames):
+   `dr-compliance --select attr-blindspot --attr OLD <repo>` (one `--attr` per
+   old name) lists each receiver the checker cannot type. Type them
    (`la:make-refactor-target-compliant`) until it reports nothing; `dr-refactor`
    refuses a member rename while any remain.
 4. **Dry-run** (default):
-   `dr-refactor --project <repo> rename --file F --line L --col C --new-name N --docs`.
+   `dr-refactor --project <repo> rename --file F --symbol Q --new-name N --docs`,
+   or `dr-refactor --project <repo> rename-map MAP --docs`.
    Method renames rename the hierarchy by default. Re-run until it is the rename you want:
    - `stand-in`: a class outside the hierarchy declares `OLD`. `--with PATH:LINE` renames it too
      (a duck-typed implementation: a cache, a fake, a `cast()` target); `--without PATH:LINE` leaves it
@@ -40,12 +45,16 @@ the refactor touches (`la-config get languages` lists the repo's).
      and tell the user which.
    - a site that must keep the old name (a back-compat test or shim): `--keep PATH:LINE`, or
      `--keep PATH` for a whole file.
+   - code still using the back-compat alias of an earlier rename: a `retarget` entry moves it to
+     the new name and keeps the alias.
    Show the diff.
 5. **Apply**: `--apply` is a GLOBAL flag and goes before the subcommand
    (`dr-refactor --project <repo> --apply rename ...`); trailing it errors.
+   It realigns the type-check baseline too; never edit the baseline by hand.
 6. **GATE — done only when ALL pass:**
    - `la-typecheck` passes: **no new errors** vs the baseline;
-   - `dr-mock-lint <tests>` passes;
+   - `dr-mock-lint <tests>` passes; when the base branch already has findings,
+     `dr-mock-lint --base <base-branch> <tests>` reports only the new ones;
    - the full non-integration test suite (`la-config get commands.test`) passes;
    - by hand, only these: each `leftover` line the apply printed, each receiver
      `--allow-blindspots` let through, and the string-only references the language doc lists.
@@ -53,11 +62,20 @@ the refactor touches (`la-config get languages` lists the repo's).
 
 ## Commands
 
-`dr-refactor` subcommands: `rename` / `move-symbol` / `move-module`. Dry-run is
-default; `--apply` writes; `--project` defaults to cwd. Locator: `--line [--col]`
-(1-based), `--offset N` (0-based), or `--name` (first declaration, else first
-use). `rename` also takes `--with` / `--without PATH:LINE`, `--keep PATH[:LINE]`,
-`--allow-blindspots` and `--docs` (comments, docstrings, strings and prose files:
-qualified mentions everywhere, code-marked ones in the declaring files, the rest
-listed as `leftover`). Move destinations must already exist, and a `move-symbol`
-destination is a file of the same language. Run the repo's formatter afterwards.
+`dr-refactor` subcommands: `rename` / `rename-map` / `retarget` / `move-symbol` /
+`move-module`. Dry-run is default; `--apply` writes, baseline included;
+`--project` defaults to cwd. Locator: `--symbol Q` (the path inside `--file`,
+quoted for the shell: `'f.<locals>.g'`, `'C.m(p)'`, `"Alias['value']"`; no match
+or several exit 2 listing the candidates), `--line [--col]` (1-based)
+or `--offset N` (0-based). `rename-map MAP` reads a YAML list of
+`{file, symbol, new_name}` or `{file, symbol, retarget}` entries (files relative
+to `--project`), resolves every entry before renaming any, and writes all or
+nothing. `retarget --file F --symbol OLD --target NEW` rewrites what resolves to
+the alias `OLD` to name `NEW`, its target in the same class or module, and leaves
+`OLD` in place. `rename`, `rename-map` and `retarget` also take `--with` /
+`--without PATH:LINE`, `--keep PATH[:LINE]`, `--allow-blindspots` and `--docs`
+(comments, docstrings, strings and prose files: qualified mentions everywhere,
+code-marked ones in the declaring files, the rest listed as `leftover`, as are
+declarations whose name contains the old name). Move destinations must already
+exist, and a `move-symbol` destination is a file of the same language. Run the
+repo's formatter afterwards.

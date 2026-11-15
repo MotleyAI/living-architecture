@@ -1,0 +1,15 @@
+Retargeting <AcmeModel> to <Model>:
+
+
+--- a/src/only.ts
++++ b/src/only.ts
+@@ -1,3 +1,3 @@
+-import { AcmeModel } from './compat';
++import { Model } from './compat';
+ 
+-export const k = new AcmeModel();
++export const k = new Model();
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

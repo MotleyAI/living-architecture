@@ -1,0 +1,22 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- --apply
+- rename
+- --file
+- pkg/ovl.py
+- --symbol
+- parse
+- --new-name
+- decode
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - pkg/__init__.py
+  - pkg/ovl.py
+golden: manual
+note: 'an @overload group is one symbol: no ambiguity, every signature, the implementation and the call renamed'

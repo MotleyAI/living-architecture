@@ -75,6 +75,11 @@ export function baseFetchTimeout(): number {
   return Number(yamlFile('cli.yaml').base_fetch_timeout_seconds);
 }
 
+/** The substrings a literal member's new value may not hold. */
+export function literalValueForbidden(): string[] {
+  return (yamlFile('cli.yaml').literal_value_forbidden as unknown[]).map(String);
+}
+
 export function language(id: string): Record<string, any> {
   return yamlFile('languages.yaml')[id];
 }

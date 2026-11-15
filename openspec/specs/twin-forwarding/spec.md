@@ -60,7 +60,7 @@ forward while the marker is set SHALL exit 2 instead.
 - **THEN** the output and exit code equal the PyPI twin's own run
 
 #### Scenario: PyPI twin hands TypeScript inputs to the npm twin
-- **WHEN** `dr-refactor rename --file src/a.ts --name foo --new-name bar` runs through the PyPI twin with the npm twin reachable
+- **WHEN** `dr-refactor rename --file src/a.ts --symbol foo --new-name bar` runs through the PyPI twin with the npm twin reachable
 - **THEN** the output and exit code equal the npm twin's own run
 
 #### Scenario: Other twin unreachable for a dr-* input

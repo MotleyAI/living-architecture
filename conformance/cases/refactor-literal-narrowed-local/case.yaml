@@ -1,0 +1,23 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- --apply
+- rename
+- --file
+- pkg/kinds.py
+- --symbol
+- DriftKind['edit_model']
+- --new-name
+- edit_master
+git:
+- commit: init
+expect:
+  exit: 1
+  files:
+  - pkg/kinds.py
+  - pkg/run.py
+golden: manual
+note: 'a local assigned the old value and passed on: its call site is a literal-unresolved blind spot joining the blind-spot
+  refusal; exit 1, nothing written'

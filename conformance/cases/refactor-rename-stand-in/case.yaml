@@ -6,8 +6,8 @@ args:
 - rename
 - --file
 - pkg/store.py
-- --name
-- get_model
+- --symbol
+- StorageBackend.get_model
 - --new-name
 - get_dataset
 fixture: refactor-typed

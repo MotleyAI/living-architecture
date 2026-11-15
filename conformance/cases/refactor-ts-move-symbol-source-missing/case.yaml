@@ -6,7 +6,7 @@ args:
 - move-symbol
 - --file
 - src/nope.ts
-- --name
+- --symbol
 - foo
 - --dest
 - src/a.ts

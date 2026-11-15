@@ -7,7 +7,7 @@ args:
 - move-symbol
 - --file
 - src/greet.ts
-- --name
+- --symbol
 - greet
 - --dest
 - src/lib/keep.ts

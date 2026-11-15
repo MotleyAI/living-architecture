@@ -1,0 +1,1 @@
+tests/test_a.py:9: MagicMock() without spec=/spec_set= — bind it to the real class (or use create_autospec)

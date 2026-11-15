@@ -113,3 +113,21 @@ def literal_outcomes(rel: str, source: SourceFile, old: str, handled: Callable[[
             if not handled(*span):
                 out.append(_leftover(rel, source, span, "string", old))
     return sorted(out, key=lambda o: o.span)
+
+
+def compound_outcome(rel: str, source: SourceFile, span: tuple[int, int], name: str, old: str) -> Outcome:
+    """A declaration whose name holds `old` as a word sequence: listed."""
+    line = source.line(span[0])
+    text = message("refactor.compound", path=rel, line=line, name=name, old=old)
+    return Outcome(kind="leftover", rel=rel, span=span, finding=Finding(path=rel, line=line, col=span[0], text=text))
+
+
+def file_outcome(outcome: Outcome, *, edits: list[TextEdit], blindspots: list[Finding], leftovers: list[Finding]) -> None:
+    """File what a rule decided for one site: its edits, and its finding as a blind spot or a leftover."""
+    edits.extend(outcome.edits)
+    if outcome.kind == "blindspot":
+        assert outcome.finding is not None
+        blindspots.append(outcome.finding)
+    elif outcome.kind == "leftover":
+        assert outcome.finding is not None
+        leftovers.append(outcome.finding)

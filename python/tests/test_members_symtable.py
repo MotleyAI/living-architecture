@@ -101,3 +101,66 @@ def test_names_bound_elsewhere_are_not_declarations(body: str, symtable_agrees: 
     cls = next(n for n in ast.walk(source.tree) if isinstance(n, ast.ClassDef))
     assert _symtable_binds(text) is not symtable_agrees
     assert member_declarations(cls, "save_model") == []
+
+
+def test_a_static_method_parameter_or_a_rebound_receiver_declares_no_member() -> None:
+    text = textwrap.dedent("""\
+        class C:
+            @staticmethod
+            def make(other) -> None:
+                other.value = 1
+
+            def run(self) -> None:
+                class Inner:
+                    def __init__(self) -> None:
+                        self.value = 2
+
+                def helper() -> None:
+                    self.value = 3
+    """)
+    cls = next(n for n in ast.walk(ast.parse(text)) if isinstance(n, ast.ClassDef))
+    found = member_declarations(cls, "value")
+    assert [getattr(n, "lineno", 0) for n in found] == [12]
+
+
+@pytest.mark.parametrize(
+    "binding",
+    ["self = Other()", "for self in []: pass", "with open('x') as self: pass", "from x import self",
+     "def self() -> None: pass", "del self"],
+    ids=["assignment", "for", "with", "import", "def", "del"],
+)
+def test_a_nested_function_binding_the_receiver_locally_declares_no_member(binding: str) -> None:
+    text = textwrap.dedent(f"""\
+        class C:
+            def run(self) -> None:
+                def helper() -> None:
+                    {binding}
+                    self.value = 1
+    """)
+    cls = next(n for n in ast.walk(ast.parse(text)) if isinstance(n, ast.ClassDef))
+    assert member_declarations(cls, "value") == []
+
+
+def test_a_nested_function_declaring_the_receiver_global_stores_on_no_member() -> None:
+    text = textwrap.dedent("""\
+        class C:
+            def run(self) -> None:
+                def helper() -> None:
+                    global self
+                    self.value = 1
+    """)
+    cls = next(n for n in ast.walk(ast.parse(text)) if isinstance(n, ast.ClassDef))
+    assert member_declarations(cls, "value") == []
+
+
+def test_a_nested_function_declaring_the_receiver_nonlocal_stores_on_it() -> None:
+    text = textwrap.dedent("""\
+        class C:
+            def run(self) -> None:
+                def helper() -> None:
+                    nonlocal self
+                    self = self
+                    self.value = 1
+    """)
+    cls = next(n for n in ast.walk(ast.parse(text)) if isinstance(n, ast.ClassDef))
+    assert [getattr(n, "lineno", 0) for n in member_declarations(cls, "value")] == [6]

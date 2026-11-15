@@ -11,6 +11,7 @@ from typing import Any
 from living_architecture import twin
 from living_architecture.config import ConfigError, find_repo_root, load_config, repo_languages
 from living_architecture.contract import glob_match, language, language_ids, language_of, message
+from living_architecture.refactor.map_file import MapError, load_map, map_language
 
 
 class RoutingError(Exception):
@@ -162,8 +163,23 @@ def check_source(source: str, project: str, *, allow_dir: bool) -> None:
         raise RoutingError(message("refactor.source-missing", path=source))
 
 
+def _map_language(args: Any) -> str:
+    """A rename map's one language; `MapError` (exit 2) for an invalid or mixed map, RoutingError (exit 1) for a bad
+    or unsupported entry file."""
+    entries = load_map(args.map, args.project)
+    lang_id = map_language(args.map, entries)
+    for entry in entries:
+        check_source(entry.path, args.project, allow_dir=False)
+    if lang_id is None:
+        unsupported = next(e for e in entries if language_of(e.path) is None)
+        raise RoutingError(message("refactor.unsupported-extension", path=unsupported.path))
+    return lang_id
+
+
 def refactor_language(args: Any) -> str:
     """The language `dr-refactor` runs in; RoutingError (exit 1) for a bad or unsupported source or a cross-language dest."""
+    if args.subcommand == "rename-map":
+        return _map_language(args)
     source = args.module if args.subcommand == "move-module" else args.file
     check_source(source, args.project, allow_dir=args.subcommand == "move-module")
     lang_id = source_language(source, args.project)
@@ -178,6 +194,9 @@ def route_refactor(argv: list[str], args: Any, native: Callable[[], int]) -> int
     """`dr-refactor`: run natively, or hand the raw ARGV to the source language's twin."""
     try:
         lang_id = refactor_language(args)
+    except MapError as exc:
+        print(exc, file=sys.stderr)
+        return 2
     except RoutingError as exc:
         print(exc, file=sys.stderr)
         return 1

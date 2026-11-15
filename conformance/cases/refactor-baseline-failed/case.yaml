@@ -1,0 +1,22 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- --apply
+- rename
+- --file
+- pkg/store.py
+- --symbol
+- StorageBackend.get_model
+- --new-name
+- load
+git:
+- commit: init
+expect:
+  exit: 1
+  files:
+  - .basedpyright/baseline.json
+  - pkg/store.py
+golden: manual
+note: 'the configured checker cannot run: baseline-failed naming python, exit 1, nothing written'

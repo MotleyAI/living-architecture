@@ -1,0 +1,24 @@
+Renaming <Model> to <Dataset>:
+
+
+--- a/src/model.ts
++++ b/src/model.ts
+@@ -1,10 +1,10 @@
+-export class Model {}
++export class Dataset {}
+ 
+ export class ModelMeasures {}
+ 
+-export const acmeModels: Model[] = [];
++export const acmeModels: Dataset[] = [];
+ 
+-export function getModelName(m: Model): string {
++export function getModelName(m: Dataset): string {
+   return String(m);
+ }
+ 
+
+
+
+APPLIED. 1 file(s) changed:
+  src/model.ts

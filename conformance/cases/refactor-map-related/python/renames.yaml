@@ -1,0 +1,3 @@
+- {file: pkg/storage.py, symbol: StorageBackend.get_model, new_name: load_model}
+- {file: pkg/storage.py, symbol: StorageBackend.get_model_sync, new_name: load_model_sync}
+- {file: pkg/storage.py, symbol: 'StorageBackend.get_model(model_name)', new_name: name}

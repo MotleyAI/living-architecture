@@ -6,7 +6,7 @@ args:
 - rename
 - --file
 - src/usepkg.ts
-- --name
+- --symbol
 - helper
 - --new-name
 - x

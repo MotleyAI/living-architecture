@@ -1,0 +1,22 @@
+Renaming <old> to <new>:
+Renaming <x> to <y>:
+
+
+--- a/pkg/a.py
++++ b/pkg/a.py
+@@ -1,7 +1,7 @@
+ class A:
+-    def old(self, x: int) -> int:
+-        return x
++    def new(self, y: int) -> int:
++        return y
+ 
+ 
+ def call(a: A) -> int:
+-    return a.old(x=1)
++    return a.new(y=1)
+
+
+
+APPLIED. 1 file(s) changed:
+  pkg/a.py

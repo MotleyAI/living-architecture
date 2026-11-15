@@ -8,7 +8,7 @@ args:
 - rename
 - --file
 - proj/pkg/solo.py
-- --name
+- --symbol
 - alone
 - --new-name
 - lonely

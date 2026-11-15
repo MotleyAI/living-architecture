@@ -1,0 +1,17 @@
+Retargeting <old> to <value>:
+
+
+--- a/src/use.ts
++++ b/src/use.ts
+@@ -1,5 +1,5 @@
+ import { C } from './c';
+ 
+ export function read(c: C): number {
+-  return c.old + c.value;
++  return c.value + c.value;
+ }
+
+
+
+APPLIED. 1 file(s) changed:
+  src/use.ts

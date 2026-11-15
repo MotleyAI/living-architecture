@@ -6,7 +6,7 @@ args:
 - rename
 - --file
 - pkg/rec.py
-- --name
+- --symbol
 - Rec
 - --new-name
 - Recommendation

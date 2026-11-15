@@ -59,4 +59,6 @@ def test_main_exit_codes(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> 
     (tmp_path / "pkg" / "bad.py").write_text("Mock()\n")
     assert main([str(tmp_path / "pkg")]) == 1
     assert "bad.py:1" in capsys.readouterr().out
-    assert main([]) == 2
+    with pytest.raises(SystemExit) as exc:
+        main([])
+    assert exc.value.code == 2

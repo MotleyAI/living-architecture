@@ -4,7 +4,7 @@ languages:
 command: dr-refactor
 args:
 - rename
-- --name
+- --symbol
 - foo
 - --new-name
 - bar

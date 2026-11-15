@@ -1,0 +1,36 @@
+Renaming <get_model> to <load_model>:
+Renaming <get_model_sync> to <load_model_sync>:
+Renaming <model_name> to <name>:
+
+
+--- a/pkg/storage.py
++++ b/pkg/storage.py
+@@ -1,9 +1,9 @@
+ class StorageBackend:
+-    def get_model(self, model_name: str) -> int:
+-        return len(model_name)
++    def load_model(self, name: str) -> int:
++        return len(name)
+ 
+-    def get_model_sync(self, model_name: str) -> int:
+-        return self.get_model(model_name)
++    def load_model_sync(self, model_name: str) -> int:
++        return self.load_model(model_name)
+ 
+     def save_model(self, model_name: str) -> None:
+         print(model_name)
+
+--- a/pkg/use.py
++++ b/pkg/use.py
+@@ -2,4 +2,4 @@
+ 
+ 
+ def load(s: StorageBackend) -> int:
+-    return s.get_model("m") + s.get_model(model_name="n") + s.get_model_sync(model_name="o")
++    return s.load_model("m") + s.load_model(name="n") + s.load_model_sync(model_name="o")
+
+
+
+APPLIED. 2 file(s) changed:
+  pkg/storage.py
+  pkg/use.py

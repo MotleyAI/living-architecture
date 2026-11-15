@@ -6,8 +6,9 @@ import { findRepoRoot } from '../config/index.js';
 import { posix, ts } from '../lang/index.js';
 import { Lines } from './lines.js';
 import { anyReceivers } from './members.js';
-import { type Finding, mockFindings } from './mocks.js';
-import { Workspace } from './workspace.js';
+import { type Finding, type MockFinding, mockFindings } from './mocks.js';
+import { fileAt, repoPathBytes } from '../changes/index.js';
+import { listingOf, Workspace } from './workspace.js';
 
 /** Implicit-any diagnostics of a parameter, a binding element and a rest parameter. */
 const IMPLICIT_ANY = new Set([7006, 7031, 7019]);
@@ -44,7 +45,7 @@ function untypedDefs(program: TS.Program, source: TS.SourceFile, shown: string):
     });
 }
 
-function fileFindings(program: TS.Program, source: TS.SourceFile, shown: string, selected: Set<string>, attr: string | null, repoRoot: string): Finding[] {
+function fileFindings(program: TS.Program, source: TS.SourceFile, shown: string, selected: Set<string>, attrs: string[], repoRoot: string): Finding[] {
   const out: Finding[] = [];
   const lines = new Lines(source.text);
   const line = (node: TS.Node): number => lines.lineOf(node.getStart(source));
@@ -55,7 +56,7 @@ function fileFindings(program: TS.Program, source: TS.SourceFile, shown: string,
       out.push({ position: node.getStart(source), text: message('compliance.explicit-any', { path: shown, line: line(node), any, top }) });
     }
   }
-  if (attr !== null) {
+  for (const attr of new Set(attrs)) {
     for (const { position, receiver } of anyReceivers(checker, source, attr)) {
       const at = lines.lineOf(position);
       out.push({ position, text: message('compliance.attr-blindspot', { path: shown, line: at, receiver, attr, type: 'any' }) });
@@ -67,7 +68,7 @@ function fileFindings(program: TS.Program, source: TS.SourceFile, shown: string,
 }
 
 /** Every TypeScript finding of `paths` (relative to the working directory), in input order. */
-export function typescriptCompliance(paths: string[], selected: Set<string>, attr: string | null): string[] {
+export function typescriptCompliance(paths: string[], selected: Set<string>, attrs: string[]): string[] {
   const repoRoot = findRepoRoot(process.cwd());
   const workspace = new Workspace(repoRoot);
   const files = paths.map((p) => resolve(p));
@@ -91,19 +92,70 @@ export function typescriptCompliance(paths: string[], selected: Set<string>, att
       out.push(message('compliance.parse-error', { path: shown, line, error: ts().flattenDiagnosticMessageText(syntax.messageText, '\n') }));
       continue;
     }
-    out.push(...fileFindings(program, source, shown, selected, attr, repoRoot).map((f) => f.text));
+    out.push(...fileFindings(program, source, shown, selected, attrs, repoRoot).map((f) => f.text));
   }
   return out;
 }
 
-/** Every TypeScript mock-lint finding of `paths` (relative to the working directory), in input order. */
-export function typescriptMockLint(paths: string[]): string[] {
+const MOCK_OPTIONS: TS.CompilerOptions = { allowJs: true, noEmit: true };
+
+/** The merge base a `--base` run compares with: its commit, the paths tracked there and those renamed since. */
+export interface MockBase {
+  commit: string;
+  tracked: Set<string>;
+  renamed: Map<string, string>;
+}
+
+/** The findings of `current` beyond the base's count of their key, the earliest lines taken as the base's. */
+function added(current: MockFinding[], base: MockFinding[]): MockFinding[] {
+  const left = new Map<string, number>();
+  for (const f of base) left.set(f.key, (left.get(f.key) ?? 0) + 1);
+  const kept = new Set<MockFinding>();
+  for (const f of current.toSorted((a, b) => a.line - b.line)) {
+    const n = left.get(f.key) ?? 0;
+    if (n > 0) left.set(f.key, n - 1);
+    else kept.add(f);
+  }
+  return current.filter((f) => kept.has(f));
+}
+
+/** Each file's findings at the base: a program over the tracked files as they are there, each file read at its base path. */
+function baseFindings(files: string[], paths: string[], repoRoot: string, base: MockBase): MockFinding[][] {
+  const rel = (path: string): string => posix(relative(repoRoot, path));
+  const current = new Set(repoPathBytes(repoRoot).map((p) => p.toString('utf8')));
+  const blobs = new Map<string, string | null>();
+  const blob = (name: string): string | null => {
+    if (!blobs.has(name)) blobs.set(name, fileAt(base.commit, name, repoRoot)?.toString('utf8') ?? null);
+    return blobs.get(name) ?? null;
+  };
+  const overlay = (path: string): string | null | undefined => {
+    const name = rel(path);
+    if (name.startsWith('../') || (!base.tracked.has(name) && !current.has(name))) return undefined;
+    return base.tracked.has(name) ? blob(name) : null;
+  };
+  const baseFiles = files.map((file) => resolve(repoRoot, base.renamed.get(rel(file)) ?? rel(file)));
+  const present = baseFiles.filter((file) => base.tracked.has(rel(file)));
+  const workspace = new Workspace(repoRoot, overlay, new Map(), listingOf(repoRoot, base.tracked));
+  const programs = workspace.programs(present, MOCK_OPTIONS);
+  const host = workspace.resolutionHost();
+  return baseFiles.map((file, i) => {
+    const program = programs.get(file);
+    return program === undefined ? [] : mockFindings(program, file, paths[i] as string, repoRoot, host);
+  });
+}
+
+/** Every TypeScript mock-lint finding of `paths` (relative to the working directory), in input order; with `base`,
+ * only those the base lacks. */
+export function typescriptMockLint(paths: string[], base: MockBase | null): string[] {
   const repoRoot = findRepoRoot(process.cwd());
   const files = paths.map((p) => resolve(p));
-  const programs = new Workspace(repoRoot).programs(files, { allowJs: true, noEmit: true });
-  return files.flatMap((file, i) =>
-    mockFindings(programs.get(file) as TS.Program, file, paths[i] as string, repoRoot)
-      .sort((a, b) => a.position - b.position)
-      .map((f) => f.text),
-  );
+  const programs = new Workspace(repoRoot).programs(files, MOCK_OPTIONS);
+  const found = files.map((file, i) => mockFindings(programs.get(file) as TS.Program, file, paths[i] as string, repoRoot).sort((a, b) => a.position - b.position));
+  const flagged = base === null ? [] : found.flatMap((f, i) => (f.length > 0 ? [i] : []));
+  const before = base === null || flagged.length === 0 ? [] : baseFindings(flagged.map((i) => files[i] as string), flagged.map((i) => paths[i] as string), repoRoot, base);
+  const baseOf = new Map(flagged.map((i, k) => [i, before[k] ?? []]));
+  return found.flatMap((f, i) => {
+    const prior = baseOf.get(i);
+    return (prior === undefined ? f : added(f, prior)).map((x) => x.text);
+  });
 }

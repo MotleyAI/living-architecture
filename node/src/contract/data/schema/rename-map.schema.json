@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "rename-map.schema.json",
+  "title": "dr-refactor rename-map MAP",
+  "description": "A non-empty list of entries, each a file relative to --project, exactly one locator (symbol, line with an optional col, or offset) and exactly one intent (new_name, or retarget: the target's path in the same file).",
+  "type": "array",
+  "minItems": 1,
+  "items": {"$ref": "#/$defs/entry"},
+  "$defs": {
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file"],
+      "properties": {
+        "file": {"type": "string", "minLength": 1},
+        "symbol": {"type": "string", "minLength": 1},
+        "line": {"type": "integer"},
+        "col": {"type": "integer"},
+        "offset": {"type": "integer"},
+        "new_name": {"type": "string"},
+        "retarget": {"type": "string", "minLength": 1}
+      },
+      "dependentRequired": {"col": ["line"]},
+      "allOf": [
+        {
+          "oneOf": [
+            {"required": ["symbol"], "not": {"anyOf": [{"required": ["line"]}, {"required": ["offset"]}]}},
+            {"required": ["line"], "not": {"anyOf": [{"required": ["symbol"]}, {"required": ["offset"]}]}},
+            {"required": ["offset"], "not": {"anyOf": [{"required": ["symbol"]}, {"required": ["line"]}]}}
+          ]
+        },
+        {
+          "oneOf": [
+            {"required": ["new_name"], "not": {"required": ["retarget"]}},
+            {"required": ["retarget"], "not": {"required": ["new_name"]}}
+          ]
+        }
+      ]
+    }
+  }
+}

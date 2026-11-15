@@ -1,0 +1,2 @@
+- {file: pkg/hier.py, symbol: Base.save, new_name: store}
+- {file: pkg/hier.py, symbol: Sub.save, new_name: keep}

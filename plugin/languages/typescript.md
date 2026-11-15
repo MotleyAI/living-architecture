@@ -22,7 +22,9 @@ included), `move-module` moves a file or directory and rewrites its importers. `
 comes out in TypeScript's default formatting.
 
 A member rename refuses while a receiver of the old name is `any` (`--allow-blindspots` overrides) or a class,
-interface or type literal outside the hierarchy declares the old name (`--with` / `--without`).
+interface or type literal outside the hierarchy declares the old name (`--with` / `--without`). A rename of a
+string-literal type member (`--symbol Kind['value']`) rewrites every string whose contextual type is that union.
+`--apply` keeps `.tsc-baseline.json` aligned: an entry whose message names a renamed symbol follows it.
 
 String-only references no static tool sees: dynamic `import()` of a computed path, `require()` of a computed
 path, `vi.mock('path')` / `jest.mock('path')` strings, property access by a computed key (`obj[name]`), an

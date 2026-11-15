@@ -1,0 +1,64 @@
+Renaming <get_model> to <load>:
+
+
+--- a/.basedpyright/baseline.json
++++ b/.basedpyright/baseline.json
+@@ -12,24 +12,24 @@
+             {
+                 "code": "reportArgumentType",
+                 "range": {
+-                    "startColumn": 31,
+-                    "endColumn": 32,
++                    "startColumn": 26,
++                    "endColumn": 27,
+                     "lineCount": 1
+                 }
+             },
+             {
+                 "code": "reportArgumentType",
+                 "range": {
+-                    "startColumn": 31,
+-                    "endColumn": 32,
++                    "startColumn": 26,
++                    "endColumn": 27,
+                     "lineCount": 1
+                 }
+             },
+             {
+                 "code": "reportArgumentType",
+                 "range": {
+-                    "startColumn": 31,
+-                    "endColumn": 32,
++                    "startColumn": 26,
++                    "endColumn": 27,
+                     "lineCount": 1
+                 }
+             }
+
+--- a/pkg/store.py
++++ b/pkg/store.py
+@@ -1,5 +1,5 @@
+ class StorageBackend:
+-    def get_model(self, name: str) -> int:
++    def load(self, name: str) -> int:
+         return len(name)
+ 
+     def other_one(self, name: str) -> int:
+@@ -7,8 +7,8 @@
+ 
+ 
+ def use(s: StorageBackend) -> int:
+-    a = s.get_model("m") + len(1)
+-    b = s.get_model("m") + len(1)
+-    c = s.get_model("m") + len(1)
++    a = s.load("m") + len(1)
++    b = s.load("m") + len(1)
++    c = s.load("m") + len(1)
+     d = s.other_one("m") + len(1)
+     return a + b + c + d
+
+
+
+APPLIED. 2 file(s) changed:
+  .basedpyright/baseline.json
+  pkg/store.py

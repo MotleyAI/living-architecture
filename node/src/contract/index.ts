@@ -19,6 +19,7 @@ export {
   languageIds,
   isTestFile,
   languageOf,
+  literalValueForbidden,
   localConfigFile,
   manifest,
   schema,

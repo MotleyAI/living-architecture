@@ -31,12 +31,19 @@ A rename also rewrites a member named by string on an object the checker types: 
 declaration. A member rename refuses while a receiver of the old name is `Unknown` or `Any` (`--allow-blindspots`
 overrides) or a class outside the hierarchy declares the old name (`--with` / `--without`).
 
+A rename of a `Literal` member (`--symbol Alias['value']`) rewrites each string the checker types by that
+`Literal`: arguments, assignments, returns, comparisons, `in` tests and `match` cases. It refuses while the
+checker needs the old value where no such string stands (a variable assigned it earlier). `retarget` refuses
+while a subclass overrides the alias. `--apply` keeps `.basedpyright/baseline.json` aligned by running
+`commands.typecheck.python` over the files it changes.
+
 What a rename leaves unrenamed:
 - receivers `--allow-blindspots` let through; `dr-compliance --attr` misses only a subscript or call receiver typed
   `Model | Any` whose `Model.NAME` is itself `Any`;
-- string-only references: `importlib`, `__all__`, entry points, config paths, a member named by a computed string
-  (`getattr(obj, name)`, `patch.object(obj, name)`), and a `patch` target that does not resolve into the project
-  (listed as a `leftover`);
+- string-only references: `importlib`, `__all__`, entry points, config paths, strings equal to a renamed `Literal`
+  member that the checker does not type by it (`str` variables, `argparse` `choices`; each listed as a `leftover`),
+  a member named by a computed string (`getattr(obj, name)`, `patch.object(obj, name)`), and a `patch` target that
+  does not resolve into the project (listed as a `leftover`);
 - mentions in comments, docstrings, messages and prose files: all of them without `--docs`; with it, the ones it
   lists as `leftover`;
 - for a parameter rename: keywords that reach it unresolved (`**kwargs` forwarding, a dict unpacked into the

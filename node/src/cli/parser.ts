@@ -46,6 +46,7 @@ interface CommandSpec {
   positionals?: PositionalSpec[];
   subcommands?: Record<string, CommandSpec>;
   require_one_of?: string[];
+  exclusive?: string[][];
   passthrough?: boolean;
   usage?: string;
 }
@@ -148,6 +149,7 @@ function parseLevel(prog: string, cmd: CommandSpec, argv: string[], args: Args):
     const option = options.get(name);
     if (option === undefined) throw new UsageError(prog, `unrecognized arguments: ${token}`);
     seen.add(option.name);
+    checkExclusive(prog, cmd, option, seen);
     if (option.type === 'flag') {
       if (eq >= 0) throw new UsageError(prog, `argument ${name}: ignored explicit argument '${token.slice(eq + 1)}'`);
       args[dest(option)] = option.store !== false;
@@ -170,6 +172,15 @@ function parseLevel(prog: string, cmd: CommandSpec, argv: string[], args: Args):
   if (Object.keys(subcommands).length > 0) throw new UsageError(prog, 'the following arguments are required: subcommand');
   assignPositionals(prog, cmd, positionals, args);
   checkRequired(prog, cmd, seen);
+}
+
+/** A usage error when `option` joins another given option of one of `cmd`'s exclusive groups. */
+function checkExclusive(prog: string, cmd: CommandSpec, option: OptionSpec, seen: Set<string>): void {
+  for (const group of cmd.exclusive ?? []) {
+    if (!group.includes(dest(option))) continue;
+    const other = (cmd.options ?? []).find((o) => o !== option && group.includes(dest(o)) && seen.has(o.name));
+    if (other !== undefined) throw new UsageError(prog, `argument ${option.name}: not allowed with argument ${other.name}`);
+  }
 }
 
 function checkRequired(prog: string, cmd: CommandSpec, seen: Set<string>): void {

@@ -1,0 +1,2 @@
+src/m.py:2: attr-blindspot: o.save_model — o is Unknown, so a rename of .save_model is unverifiable
+src/m.py:2: attr-blindspot: o.get_model — o is Unknown, so a rename of .get_model is unverifiable

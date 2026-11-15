@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from living_architecture import cli, conventions, refactor, review
+from living_architecture import cli, conventions, review
 from living_architecture.cli.parser import build_parser, parse
 from living_architecture.contract import manifest
 
@@ -36,7 +36,6 @@ def test_parser_vector(case: dict) -> None:
 def test_passthrough_vector(case: dict, monkeypatch: pytest.MonkeyPatch) -> None:
     received: list[list[str]] = []
     monkeypatch.setattr(conventions, "count_comments", lambda argv: received.append(argv) or 0)
-    monkeypatch.setattr(refactor, "run_mock_lint", lambda argv: received.append(argv) or 0)
     monkeypatch.setattr(review, "run_shim", lambda _command, argv: received.append(argv))
     getattr(cli, case["command"].replace("-", "_"))(list(case["argv"]))
     assert received == [case["args"]["argv"]]
@@ -87,7 +86,7 @@ def test_repeatable_option_collects_in_order() -> None:
 
 
 def test_store_false_flag() -> None:
-    base = ["rename", "--file", "a.py", "--name", "f", "--new-name", "g"]
+    base = ["rename", "--file", "a.py", "--symbol", "f", "--new-name", "g"]
     assert parse("dr-refactor", base).in_hierarchy is True
     assert parse("dr-refactor", [*base, "--no-in-hierarchy"]).in_hierarchy is False
 
@@ -105,6 +104,26 @@ def test_require_one_of() -> None:
     with pytest.raises(SystemExit) as exc:
         parse("la-check-conventions", ["--repo", "o/r"])
     assert exc.value.code == 2
+
+
+@pytest.mark.parametrize("required", [["rename", "--new-name", "g"], ["move-symbol", "--dest", "b.py"],
+                                      ["retarget", "--target", "g"]], ids=["rename", "move-symbol", "retarget"])
+def test_exclusive_locators_name_both_options(required: list[str], capsys: pytest.CaptureFixture[str]) -> None:
+    argv = [required[0], "--file", "a.py", "--offset", "0", "--symbol", "f", *required[1:]]
+    with pytest.raises(SystemExit) as exc:
+        parse("dr-refactor", argv)
+    assert exc.value.code == 2
+    assert "argument --symbol: not allowed with argument --offset" in capsys.readouterr().err
+
+
+def test_mock_lint_help_prints_help(capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit) as exc:
+        cli.dr_mock_lint(["--help"])
+    assert exc.value.code == 0
+    out, err = capsys.readouterr()
+    assert "dr-mock-lint" in out
+    assert "--base" in out
+    assert err == ""
 
 
 def test_choices_enforced() -> None:

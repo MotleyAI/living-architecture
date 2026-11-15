@@ -152,7 +152,7 @@ ARGV = {
     "la-fetch-failed-pr-checks": ["--help"],
     "la-wait-for-reviews": ["--help"],
     "la-pr-reviewers": ["--help"],
-    "dr-refactor": ["rename", "--file", "a.py", "--name", "f", "--new-name", "g"],
+    "dr-refactor": ["rename", "--file", "a.py", "--symbol", "f", "--new-name", "g"],
     "dr-compliance": ["a.py"],
     "dr-mock-lint": ["a.py"],
 }

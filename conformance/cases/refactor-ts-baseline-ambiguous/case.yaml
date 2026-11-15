@@ -1,0 +1,22 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- rename
+- --file
+- src/old.ts
+- --symbol
+- Old
+- --new-name
+- New
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - .tsc-baseline.json
+  - src/old.ts
+golden: manual
+note: 'a key with two instances, one baselined, whose messages change differently (only one Old is renamed): the key is unchanged,
+  baseline-ambiguous, exit 0'

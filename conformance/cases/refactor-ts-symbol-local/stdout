@@ -1,0 +1,23 @@
+Renaming <inner> to <helper>:
+
+
+--- a/src/build.ts
++++ b/src/build.ts
+@@ -3,9 +3,9 @@
+ }
+ 
+ export function build(): number {
+-  function inner(): number {
++  function helper(): number {
+     return 2;
+   }
+-  const twice = (): number => inner() * 2;
+-  return inner() + twice();
++  const twice = (): number => helper() * 2;
++  return helper() + twice();
+ }
+
+
+
+APPLIED. 1 file(s) changed:
+  src/build.ts

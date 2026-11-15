@@ -1,0 +1,22 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- --apply
+- rename
+- --file
+- src/service.ts
+- --symbol
+- Service.run(input)
+- --new-name
+- payload
+fixture: refactor-ts
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - src/service.ts
+golden: manual
+note: a parameter of an interface method signature, located by its path

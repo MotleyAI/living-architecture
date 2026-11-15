@@ -7,10 +7,16 @@ an explicit new=/new_callable=/spec=). create_autospec() is always allowed.
 from __future__ import annotations
 
 import ast
+import os
 import sys
+from collections import Counter
 from pathlib import Path
 
-from living_architecture.contract import manifest, message
+from pydantic import BaseModel, ConfigDict
+
+from living_architecture import changes, twin
+from living_architecture.config import ConfigError, find_repo_root
+from living_architecture.contract import message
 from living_architecture.refactor.routing import RoutingError, run_split, split
 
 MOCK_CTORS = {"Mock", "MagicMock", "NonCallableMock", "NonCallableMagicMock", "AsyncMock"}
@@ -44,47 +50,108 @@ def _kwargs(call: ast.Call) -> set[str]:
     return {kw.arg for kw in call.keywords if kw.arg}
 
 
-def check_file(path: Path) -> list[str]:
-    return [text for _, text in mock_findings(path)]
+class Double(BaseModel):
+    """An unspecced double: its line, finding template and the template's parameters other than path and line."""
+
+    model_config = ConfigDict(frozen=True)
+
+    line: int
+    template: str
+    call: str
+
+    def text(self, shown: str) -> str:
+        return message(self.template, path=shown, line=self.line, call=self.call)
 
 
-def _call_finding(node: ast.Call, path: Path) -> str | None:
-    """The finding for an unspecced double built or patched by `node`, if it is one."""
+def _call_double(node: ast.Call) -> Double | None:
+    """The double `node` builds or patches without a spec, if it is one."""
     kind = _patch_kind(node)
     if kind is not None:
         new_pos = kind in PATCH_NEW_POS and len(node.args) >= PATCH_NEW_POS[kind]
         if _kwargs(node) & PATCH_OK_KWARGS or new_pos:
             return None
-        shown = "patch" if kind == "patch" else f"patch.{kind}"
-        return message("mock-lint.patch", path=str(path), line=node.lineno, call=shown)
+        return Double(line=node.lineno, template="mock-lint.patch", call="patch" if kind == "patch" else f"patch.{kind}")
     name = _name(node.func)
     if name in MOCK_CTORS and not (_kwargs(node) & SPEC_KWARGS):
-        return message("mock-lint.mock", path=str(path), line=node.lineno, call=name)
+        return Double(line=node.lineno, template="mock-lint.mock", call=name)
     return None
+
+
+def doubles(text: str, path: Path) -> list[Double]:
+    """Each unspecced double of the source `text`."""
+    calls = (node for node in ast.walk(ast.parse(text, filename=str(path))) if isinstance(node, ast.Call))
+    return [found for node in calls if (found := _call_double(node)) is not None]
 
 
 def mock_findings(path: Path) -> list[tuple[int, str]]:
     """Each unspecced double's line and finding."""
-    tree = ast.parse(path.read_text(), filename=str(path))
-    calls = (node for node in ast.walk(tree) if isinstance(node, ast.Call))
-    return [(node.lineno, text) for node in calls if (text := _call_finding(node, path)) is not None]
+    return [(d.line, d.text(str(path))) for d in doubles(path.read_text(encoding="utf-8"), path)]
 
 
-def _lint_native(paths: list[str]) -> int:
-    problems = [msg for f in paths for msg in check_file(Path(f))]
+def check_file(path: Path) -> list[str]:
+    return [text for _, text in mock_findings(path)]
+
+
+class Base(BaseModel):
+    """The merge base a `--base` run compares with, and the paths renamed since."""
+
+    model_config = ConfigDict(frozen=True)
+
+    repo_root: Path
+    commit: str
+    renamed: dict[str, str]
+
+    def doubles(self, path: Path) -> list[Double]:
+        """`path`'s doubles at the base, read through its path there."""
+        rel = Path(os.path.relpath(path.resolve(), self.repo_root)).as_posix()
+        data = changes.file_at(ref=self.commit, path=self.renamed.get(rel, rel), repo_root=self.repo_root)
+        if data is None:
+            return []
+        try:
+            return doubles(data.decode("utf-8"), path)
+        except (SyntaxError, ValueError):
+            return []
+
+
+def _new(current: list[Double], base: list[Double]) -> list[Double]:
+    """The doubles of `current` beyond the base's count of their kind, the earliest lines taken as the base's."""
+    left = Counter((d.template, d.call) for d in base)
+    kept: set[int] = set()
+    for i, d in sorted(enumerate(current), key=lambda item: item[1].line):
+        if left[(d.template, d.call)] > 0:
+            left[(d.template, d.call)] -= 1
+        else:
+            kept.add(i)
+    return [d for i, d in enumerate(current) if i in kept]
+
+
+def _lint_native(paths: list[str], base: Base | None) -> int:
+    problems: list[str] = []
+    for f in paths:
+        path = Path(f)
+        found = doubles(path.read_text(encoding="utf-8"), path)
+        if base is not None and found:
+            found = _new(found, base.doubles(path))
+        problems += [d.text(f) for d in found]
     for msg in problems:
         print(msg)
     return 1 if problems else 0
 
 
-def run_mock_lint(argv: list[str]) -> int:
-    """Handler for raw argv: paths to files or directories, each file linted in its language's twin."""
-    if not argv:
-        print(f"usage: {manifest()['dr-mock-lint']['usage']}", file=sys.stderr)
-        return 2
+def _base(branch: str) -> Base:
+    repo_root = find_repo_root(Path.cwd())
+    ref = changes.resolve_base_ref(base=branch, repo_root=repo_root)
+    commit = changes.merge_base(base_ref=ref, repo_root=repo_root)
+    return Base(repo_root=repo_root, commit=commit, renamed=changes.base_paths(ref=commit, repo_root=repo_root))
+
+
+def run_mock_lint(*, paths: list[str], base: str | None) -> int:
+    """`dr-mock-lint`: each file linted in its language's twin; with `base`, only the findings the base lacks."""
     try:
-        groups = split("dr-mock-lint", argv, Path.cwd())
-    except RoutingError as exc:
+        groups = split("dr-mock-lint", paths, Path.cwd())
+        compared = _base(base) if base is not None and twin.NATIVE_LANGUAGE in groups else None
+    except (RoutingError, ConfigError) as exc:
         print(exc, file=sys.stderr)
         return 2
-    return run_split("dr-mock-lint", groups, list, _lint_native)
+    options = ["--base", base] if base is not None else []
+    return run_split("dr-mock-lint", groups, lambda files: [*options, "--", *files], lambda files: _lint_native(files, compared))

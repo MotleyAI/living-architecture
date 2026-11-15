@@ -6,8 +6,8 @@ args:
 - rename
 - --file
 - pkg/kw.py
-- --name
-- model_name
+- --symbol
+- 'kwonly(model_name)'
 - --new-name
 - dataset_name
 fixture: refactor-params
@@ -15,4 +15,4 @@ git:
 - commit: init
 expect:
   exit: 0
-note: located by --name; `**mapping` unpacking and `**kwargs` forwarding keywords unchanged, a `functools.partial` keyword renamed
+note: located by --symbol; `**mapping` unpacking and `**kwargs` forwarding keywords unchanged, a `functools.partial` keyword renamed

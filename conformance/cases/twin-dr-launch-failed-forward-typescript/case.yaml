@@ -11,7 +11,7 @@ args:
 - rename
 - --file
 - src/a.py
-- --name
+- --symbol
 - foo
 - --new-name
 - bar

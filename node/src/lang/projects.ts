@@ -44,11 +44,13 @@ function diagnosticText(diagnostic: TS.Diagnostic): string {
   return ts().flattenDiagnosticMessageText(diagnostic.messageText, '\n');
 }
 
-function parseConfig(path: string, repoRoot: string): TS.ParsedCommandLine {
+/** A tsconfig parsed, its text and its `extends` chain read through `read`, its `include` globs expanded by `readDirectory`. */
+function parseConfig(path: string, repoRoot: string, read: Read, readDirectory: TS.ParseConfigHost['readDirectory']): TS.ParsedCommandLine {
   const shown = posix(relative(repoRoot, path));
-  const { config, error } = ts().readConfigFile(path, ts().sys.readFile);
+  const { config, error } = ts().readConfigFile(path, read);
   if (error !== undefined) throw new LangError(`${shown}: ${diagnosticText(error)}`);
-  const parsed = ts().parseJsonConfigFileContent(config, ts().sys, dirname(path), undefined, path);
+  const host: TS.ParseConfigHost = { ...ts().sys, readFile: read, fileExists: (name) => read(name) !== undefined, readDirectory };
+  const parsed = ts().parseJsonConfigFileContent(config, host, dirname(path), undefined, path);
   const fatal = parsed.errors.find((diagnostic) => diagnostic.code !== NO_INPUTS);
   if (fatal !== undefined) throw new LangError(`${shown}: ${diagnosticText(fatal)}`);
   return parsed;
@@ -77,8 +79,17 @@ export function loadProjects(layout: TsLayout): Projects[] {
   });
 }
 
-/** The project of `config` (else a default one) and every project it references, depth-first preorder. */
-export function loadProjectsFrom(config: string | undefined, repoRoot: string): Projects {
+/** A file's text, undefined when absent. */
+type Read = (path: string) => string | undefined;
+
+/** The project of `config` (else a default one) and every project it references, depth-first preorder; tsconfigs
+ * read through `read`, their `include` globs expanded by `readDirectory`. */
+export function loadProjectsFrom(
+  config: string | undefined,
+  repoRoot: string,
+  read: Read = (path) => ts().sys.readFile(path),
+  readDirectory: TS.ParseConfigHost['readDirectory'] = (...args) => ts().sys.readDirectory(...args),
+): Projects {
   const ordered: Project[] = [];
   const outputs = new Map<string, string>();
   const outputDirs = new Set<string>();
@@ -105,7 +116,7 @@ export function loadProjectsFrom(config: string | undefined, repoRoot: string): 
     const key = canonical(path);
     if (seen.has(key)) return;
     seen.add(key);
-    const parsed = parseConfig(path, repoRoot);
+    const parsed = parseConfig(path, repoRoot, read, readDirectory);
     ordered.push(project(parsed, key, repoRoot));
     if (referenced) mapOutputs(parsed);
     for (const ref of parsed.projectReferences ?? []) visit(ts().resolveProjectReferencePath(ref), true);

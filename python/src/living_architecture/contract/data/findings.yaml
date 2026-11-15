@@ -313,8 +313,7 @@ findings:
 
   # ---- dr-refactor
   refactor.line-out-of-range: line {line} out of range (file has {count} lines)
-  refactor.symbol-not-found: symbol {name!r} not found in file
-  refactor.no-locator: provide one of --offset, --line [--col], or --name
+  refactor.no-locator: provide one of --offset, --line [--col], or --symbol
   refactor.outside-project: 'path is not inside the project: {path}'
   refactor.unsure-warning: 'WARNING: --unsure=include also renames occurrences rope cannot resolve; it may rewrite unrelated attributes of the same name.'
   refactor.applied: "\nAPPLIED. {count} file(s) changed:"
@@ -324,7 +323,7 @@ findings:
   refactor.cross-language-dest: '--dest {dest} is not a {language} file'
   refactor.skipped: '{prog}: not a source file, skipped: {path}'
   # The TypeScript twin's texts (rope prints the Python ones).
-  refactor.ts-rename-header: 'Renaming <{old}> to <{new}>:'
+  refactor.rename-header: 'Renaming <{old}> to <{new}>:'
   refactor.ts-move-symbol-header: 'Moving global <{name}>:'
   refactor.ts-move-module-header: 'Moving module <{name}>:'
   refactor.ts-moved: "rename from {old}\nrename to {new}"
@@ -353,6 +352,23 @@ findings:
   refactor.computed-stand-in: '{path}:{line}: computed-stand-in: {cls}.{attr} is declared by a computed name; pass --without {path}:{line} and rename it by hand'
   refactor.keep-unmatched: '--keep {site} matches nothing this rename touches'
   refactor.leftover: '{path}:{line}: leftover: {where} mentions {old}'
+  refactor.symbol-unresolved: '{path}: {symbol} names no declaration; candidates: {candidates}'
+  refactor.symbol-ambiguous: '{path}: {symbol} names more than one declaration: {candidates}'
+  refactor.map-invalid: '{map}: entry {index} is not a valid rename-map entry'
+  refactor.map-mixed-languages: '{map} holds entries of more than one language: {languages}'
+  refactor.map-duplicate: '{map}: entries {first} and {second} locate the same symbol with different changes'
+  refactor.map-conflict: '{path}:{line}: entries {first} and {second} rewrite this site differently, so nothing was refactored'
+  refactor.retarget-header: 'Retargeting <{old}> to <{new}>:'
+  refactor.retarget-scope: '{target} is not declared in the class or module that declares {alias}'
+  refactor.retarget-override: '{path}:{line}: {cls}.{name} overrides the alias, so nothing was refactored'
+  refactor.retarget-shadowed: '{path}:{line}: {name} names something else here, so nothing was refactored'
+  refactor.write-failed: 'could not write {path}; the files already written are restored, so nothing was refactored'
+  refactor.rollback-failed: 'could not write {path}; restoring failed, so these paths are left changed: {paths}'
+  refactor.baseline-ambiguous: 'WARNING: {baseline}: the {code} entry of {path} cannot follow the refactor; left unchanged'
+  refactor.baseline-failed: 'the {language} type checker failed, so the baseline cannot be realigned and nothing was refactored'
+  refactor.literal-value: '--new-name {value!r} holds a quote, backtick, backslash, ${{, NUL or line break, which a literal member cannot'
+  refactor.literal-unresolved: '{path}:{line}: literal-unresolved: the checker needs {old!r} here, where no string literal can be rewritten'
+  refactor.compound: '{path}:{line}: leftover: declaration {name} contains {old}'
 
   # ---- dr-compliance
   compliance.untyped-def: '{path}:{line}: untyped-def: {name}() missing {missing}'

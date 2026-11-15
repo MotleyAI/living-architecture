@@ -60,7 +60,7 @@ def _read(root: Path, rel: str) -> str:
 
 def test_forward_reference_strings_follow_the_class(typed_project: MakeProject) -> None:
     root = typed_project({"pkg/models.py": FORWARD_REFS, "pkg/use.py": FORWARD_USE})
-    assert _rename(root, "pkg/models.py", "Recommendation", "--name", "Rec") == 0
+    assert _rename(root, "pkg/models.py", "Recommendation", "--symbol", "Rec") == 0
     assert _read(root, "pkg/models.py") == FORWARD_REFS.replace("Rec", "Recommendation")
     assert _read(root, "pkg/use.py") == FORWARD_USE.replace("Rec", "Recommendation")
 
@@ -130,7 +130,7 @@ def test_positions_after_astral_characters_and_crlf(typed_project: MakeProject) 
         's = "😀é"; r: "Rec" = make()'
     )
     root = typed_project({"pkg/models.py": source})
-    assert _rename(root, "pkg/models.py", "Recommendation", "--name", "Rec") == 0
+    assert _rename(root, "pkg/models.py", "Recommendation", "--symbol", "Rec") == 0
     assert (root / "pkg" / "models.py").read_bytes() == source.replace("Rec", "Recommendation").encode()
 
 
@@ -141,7 +141,7 @@ def test_language_server_that_cannot_start(
     root = typed_project({"pkg/models.py": FORWARD_REFS})
     before = file_tree(root)
     monkeypatch.setenv("NODE_OPTIONS", BROKEN_NODE)
-    assert _rename(root, "pkg/models.py", "Recommendation", "--name", "Rec", apply=apply) == 1
+    assert _rename(root, "pkg/models.py", "Recommendation", "--symbol", "Rec", apply=apply) == 1
     assert capsys.readouterr() == ("", message("refactor.pyright-failed") + "\n")
     assert file_tree(root) == before
 
@@ -156,7 +156,7 @@ def test_language_server_failing_after_rope_computed_its_changes(
     root = typed_project({"pkg/models.py": FORWARD_REFS})
     before = file_tree(root)
     monkeypatch.setattr(LanguageServer, "references", fail)
-    assert _rename(root, "pkg/models.py", "Recommendation", "--name", "Rec", apply=apply) == 1
+    assert _rename(root, "pkg/models.py", "Recommendation", "--symbol", "Rec", apply=apply) == 1
     assert capsys.readouterr() == ("", message("refactor.pyright-failed") + "\n")
     assert file_tree(root) == before
 
@@ -174,7 +174,7 @@ def test_a_file_changed_before_the_write_aborts_with_nothing_written(
         return original(self, path, offset)
 
     monkeypatch.setattr(LanguageServer, "references", touching)
-    assert _rename(root, "pkg/models.py", "Recommendation", "--name", "Rec") == 1
+    assert _rename(root, "pkg/models.py", "Recommendation", "--symbol", "Rec") == 1
     assert capsys.readouterr() == ("", message("refactor.file-changed", path="pkg/use.py") + "\n")
     assert _read(root, "pkg/models.py") == FORWARD_REFS
     assert _read(root, "pkg/use.py") == FORWARD_USE + "# edited\n"
@@ -189,14 +189,14 @@ def test_no_target_repo_code_runs(
         "pkg/models.py": FORWARD_REFS,
     }, venv=False)
     monkeypatch.chdir(root)
-    assert _rename(root, "pkg/models.py", "Recommendation", "--name", "Rec") == 0
+    assert _rename(root, "pkg/models.py", "Recommendation", "--symbol", "Rec") == 0
     assert not marker.exists()
 
 
 def test_dry_run_leaves_the_tree_unchanged(typed_project: MakeProject, capsys: pytest.CaptureFixture[str]) -> None:
     root = typed_project({"pkg/models.py": FORWARD_REFS, "pkg/use.py": FORWARD_USE})
     before = file_tree(root)
-    assert _rename(root, "pkg/models.py", "Recommendation", "--name", "Rec", apply=False) == 0
+    assert _rename(root, "pkg/models.py", "Recommendation", "--symbol", "Rec", apply=False) == 0
     out = capsys.readouterr().out.splitlines()
     assert '+def make() -> "Recommendation":' in out
     assert '+def f() -> "Recommendation | None":' in out
@@ -221,6 +221,6 @@ def test_module_rename_keeps_ropes_behaviour_alone(typed_project: MakeProject, m
     use = "from pkg import client\n\n\ndef g() -> int:\n    return client.run()\n"
     root = typed_project({"pkg/client.py": "def run() -> int:\n    return 1\n", "pkg/use.py": use})
     monkeypatch.setenv("NODE_OPTIONS", BROKEN_NODE)
-    assert _rename(root, "pkg/use.py", "cli2", "--name", "client") == 0
+    assert _rename(root, "pkg/use.py", "cli2", "--symbol", "client") == 0
     assert (root / "pkg" / "cli2.py").is_file()
     assert _read(root, "pkg/use.py") == use.replace("client", "cli2")

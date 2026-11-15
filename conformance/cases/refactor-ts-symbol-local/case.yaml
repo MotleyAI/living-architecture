@@ -1,0 +1,22 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- --apply
+- rename
+- --file
+- src/build.ts
+- --symbol
+- build.<locals>.inner
+- --new-name
+- helper
+fixture: refactor-ts
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - src/build.ts
+golden: manual
+note: 'TypeScript --symbol func.<locals>.inner: the local function and its calls; the top-level inner unchanged'

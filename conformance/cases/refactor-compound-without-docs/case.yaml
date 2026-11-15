@@ -1,0 +1,21 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- --apply
+- rename
+- --file
+- pkg/model.py
+- --symbol
+- Model
+- --new-name
+- Dataset
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - pkg/model.py
+golden: manual
+note: without --docs no compound name is listed

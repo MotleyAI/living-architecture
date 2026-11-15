@@ -1,0 +1,18 @@
+Retargeting <AcmeModel> to <Model>:
+
+
+--- a/pkg/use.py
++++ b/pkg/use.py
+@@ -1,5 +1,5 @@
+-from pkg.models import Model, AcmeModel
++from pkg.models import Model
+ 
+ 
+ def make() -> Model:
+-    return AcmeModel()
++    return Model()
+
+
+
+APPLIED. 1 file(s) changed:
+  pkg/use.py

@@ -1,0 +1,20 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- rename
+- --file
+- pkg/kinds.py
+- --symbol
+- DriftKind['edit_model']
+- --new-name
+- it's
+git:
+- commit: init
+expect:
+  exit: 2
+  files:
+  - pkg/kinds.py
+golden: manual
+note: 'a Literal member''s new value holding a quote: literal-value, exit 2'

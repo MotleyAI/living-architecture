@@ -1,0 +1,23 @@
+Renaming <measures> to <metrics>:
+
+
+--- a/pkg/plan.py
++++ b/pkg/plan.py
+@@ -1,5 +1,5 @@
+ class _ProjectionPlan:
+-    measures: list[str] = []
++    metrics: list[str] = []
+     dimensions: list[str] = []
+ 
+ 
+@@ -7,4 +7,4 @@
+ 
+ 
+ def count(plan: _ProjectionPlan) -> int:
+-    return len(plan.measures) + len(measures)
++    return len(plan.metrics) + len(measures)
+
+
+
+APPLIED. 1 file(s) changed:
+  pkg/plan.py

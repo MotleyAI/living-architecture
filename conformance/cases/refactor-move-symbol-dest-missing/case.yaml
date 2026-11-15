@@ -7,7 +7,7 @@ args:
 - move-symbol
 - --file
 - pkg/a.py
-- --name
+- --symbol
 - foo
 - --dest
 - pkg/nope.py

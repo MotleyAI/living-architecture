@@ -6,7 +6,7 @@ args:
 - rename
 - --file
 - src/ext.ts
-- --name
+- --symbol
 - foo
 - --new-name
 - bar

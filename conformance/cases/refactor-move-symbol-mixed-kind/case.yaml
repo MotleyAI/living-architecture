@@ -6,7 +6,7 @@ args:
 - move-symbol
 - --file
 - pkg/mixed_kind.py
-- --name
+- --symbol
 - f
 - --dest
 - pkg/mixed_kind_dest.py

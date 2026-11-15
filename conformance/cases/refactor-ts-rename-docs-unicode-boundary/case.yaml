@@ -7,8 +7,8 @@ args:
 - rename
 - --file
 - src/engine.ts
-- --name
-- getModel
+- --symbol
+- Engine.getModel
 - --new-name
 - getDataset
 - --docs

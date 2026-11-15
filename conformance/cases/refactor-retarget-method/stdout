@@ -1,0 +1,16 @@
+Retargeting <save> to <save_model>:
+
+
+--- a/pkg/use.py
++++ b/pkg/use.py
+@@ -2,4 +2,4 @@
+ 
+ 
+ def run(engine: Engine, m: Model) -> None:
+-    engine.save(m)
++    engine.save_model(m)
+
+
+
+APPLIED. 1 file(s) changed:
+  pkg/use.py

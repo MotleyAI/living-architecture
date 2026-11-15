@@ -41,3 +41,29 @@ describe('la-typecheck with the real tsc', () => {
     expect(fresh.stdout).toContain('src/a.ts(2,');
   });
 });
+
+describe('dr-refactor keeps the baseline real tsc reads', () => {
+  const repo = join(mkdtempSync(join(tmpdir(), 'la-align-')), 'repo');
+  const bin = (name: string): string => join(NODE_ROOT, 'dist', 'bin', `${name}.js`);
+  const cli = (name: string, ...args: string[]): SpawnSyncReturns<string> =>
+    spawnSync(process.execPath, [bin(name), ...args], { cwd: repo, encoding: 'utf8' });
+
+  afterAll(() => rmSync(join(repo, '..'), { recursive: true, force: true }));
+
+  it('an unedited consumer whose message names the renamed type stays baselined', () => {
+    mkdirSync(join(repo, 'src'), { recursive: true });
+    mkdirSync(join(repo, 'node_modules', '.bin'), { recursive: true });
+    symlinkSync(join(NODE_ROOT, 'node_modules', '.bin', 'tsc'), join(repo, 'node_modules', '.bin', 'tsc'));
+    writeFileSync(join(repo, 'tsconfig.json'), '{"compilerOptions": {"strict": true, "noEmit": true}, "include": ["src"]}\n');
+    writeFileSync(join(repo, 'src', 'a.ts'), 'export interface Old {\n  x: number;\n}\n\nexport function make(): Old {\n  return { x: 1 };\n}\n');
+    writeFileSync(join(repo, 'src', 'c.ts'), "import { make } from './a';\n\nexport const n: number = make();\n");
+    spawnSync('git', ['init', '-q', '-b', 'main'], { cwd: repo });
+    expect(cli('la-typecheck', '--write-baseline').status).toBe(0);
+
+    const renamed = cli('dr-refactor', '--apply', 'rename', '--file', 'src/a.ts', '--symbol', 'Old', '--new-name', 'New');
+    expect(renamed.status, renamed.stdout + renamed.stderr).toBe(0);
+    expect(readFileSync(join(repo, '.tsc-baseline.json'), 'utf8')).toContain("Type 'New' is not assignable to type 'number'.");
+    const checked = cli('la-typecheck');
+    expect(checked.status, checked.stdout + checked.stderr).toBe(0);
+  });
+});

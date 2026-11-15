@@ -90,3 +90,34 @@ export function changedPaths(options: ListingOptions): string[] {
 export function repoPathBytes(repoRoot: string): Buffer[] {
   return uniqueSorted(nulSplit(git(['ls-files', '-z', '--cached', '--others', '--exclude-standard'], repoRoot)));
 }
+
+/** The merge base of `baseRef` and HEAD. */
+export function mergeBase(baseRef: string, repoRoot: string): string {
+  return git(['merge-base', baseRef, 'HEAD'], repoRoot).toString('utf8').trim();
+}
+
+/** The repo-relative paths tracked at `ref`. */
+export function pathsAt(ref: string, repoRoot: string): Set<string> {
+  return new Set(nulSplit(git(['ls-tree', '-r', '-z', '--name-only', ref], repoRoot)).map((path) => path.toString('utf8')));
+}
+
+/** The bytes of repo-relative `path` at `ref`, null when it is not there. */
+export function fileAt(ref: string, path: string, repoRoot: string): Buffer | null {
+  const proc = spawnSync('git', ['cat-file', 'blob', `${ref}:${path}`], { cwd: repoRoot, maxBuffer: 1 << 30 }); // NOSONAR(S4036) — runs the user's own git from PATH by design
+  return proc.status === 0 ? proc.stdout : null;
+}
+
+/** Each path renamed since `ref` (tracked files of the working tree), mapped to its path at `ref`. */
+export function basePaths(ref: string, repoRoot: string): Map<string, string> {
+  const fields = nulSplit(git(['diff', '-z', '--name-status', '-M', ref], repoRoot)).map((field) => field.toString('utf8'));
+  const out = new Map<string, string>();
+  for (let i = 0; i < fields.length; ) {
+    if ((fields[i] ?? '').startsWith('R')) {
+      out.set(fields[i + 2] ?? '', fields[i + 1] ?? '');
+      i += 3;
+    } else {
+      i += 2;
+    }
+  }
+  return out;
+}

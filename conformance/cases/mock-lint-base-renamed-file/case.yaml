@@ -1,0 +1,23 @@
+kind: adapter
+languages:
+- python
+command: dr-mock-lint
+args:
+- --base
+- main
+- tests/test_b.py
+git:
+- write:
+    tests/test_a.py: "from unittest.mock import MagicMock, Mock\n\n\ndef test_a() -> None:\n    m = Mock()\n    assert m\n"
+- commit: base
+- origin:
+  - main
+- branch: feat
+- rename:
+    tests/test_a.py: tests/test_b.py
+- commit: move
+expect:
+  exit: 0
+golden: manual
+note: '--base main on a file renamed since the base, its findings untouched: mapped through git''s rename detection, nothing
+  printed, exit 0'

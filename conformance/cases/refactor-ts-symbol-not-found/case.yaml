@@ -6,7 +6,7 @@ args:
 - rename
 - --file
 - src/a.ts
-- --name
+- --symbol
 - nope
 - --new-name
 - bar
@@ -14,5 +14,6 @@ fixture: refactor-ts
 git:
 - commit: init
 expect:
-  exit: 1
+  exit: 2
 golden: manual
+note: 'TypeScript: a top-level path that names no declaration lists the file''s top-level names; exit 2'

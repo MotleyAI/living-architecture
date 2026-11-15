@@ -54,6 +54,7 @@ SHARED_FILES = (
     "schema/conventions-facts.schema.json",
     "schema/affected-request.schema.json",
     "schema/affected-response.schema.json",
+    "schema/rename-map.schema.json",
     "findings.yaml",
     "cli.yaml",
     "conventions.yaml",
@@ -533,11 +534,18 @@ def _golden_records() -> list[str]:
     return records
 
 
-def _produced(template: str, records: list[str]) -> bool:
-    pattern = _template_regex(template)
-    if "\n" in template:
-        return any(pattern.search(record) for record in records)
-    return any(pattern.search(line) for record in records for line in record.splitlines())
+def _produced_ids(registry: dict[str, str], records: list[str]) -> set[str]:
+    """The templates some golden produces: a multi-line one found in a record; a one-line one found in a golden line
+    unless a template whose literal text strictly contains its own matches that line whole (so
+    `{error}; restoring failed, ...` cannot claim `could not write {path}; restoring failed, ...`)."""
+    produced = {fid for fid, template in registry.items() if "\n" in template
+                and any(_template_regex(template).search(record) for record in records)}
+    singles = {fid: (_template_regex(t), re.sub(r"\{[^{}]*\}", "", t)) for fid, t in registry.items() if "\n" not in t}
+    for line in (line for record in records for line in record.splitlines()):
+        whole = [literal for pattern, literal in singles.values() if pattern.fullmatch(line)]
+        produced |= {fid for fid, (pattern, literal) in singles.items() if pattern.search(line)
+                     and not any(literal in other and literal != other for other in whole)}
+    return produced
 
 
 NEW_TEMPLATES = {
@@ -613,7 +621,7 @@ NEW_TEMPLATES = {
         " reinstall basedpyright",
     "typecheck.not-native": "{language} type checks run only in the {language} twin",
     "typecheck.error": "la-typecheck: {error}",
-    "refactor.ts-rename-header": "Renaming <{old}> to <{new}>:",
+    "refactor.rename-header": "Renaming <{old}> to <{new}>:",
     "refactor.ts-move-symbol-header": "Moving global <{name}>:",
     "refactor.ts-move-module-header": "Moving module <{name}>:",
     "refactor.unsupported-extension": "not a source file of a supported language: {path}",
@@ -679,6 +687,29 @@ NEW_TEMPLATES = {
     "refactor.leftover": "{path}:{line}: leftover: {where} mentions {old}",
     "compliance.attr-required": "--select attr-blindspot needs --attr NAME",
     "compliance.attr-unselected": "--attr needs attr-blindspot among the selected checks",
+    "refactor.no-locator": "provide one of --offset, --line [--col], or --symbol",
+    "refactor.symbol-unresolved": "{path}: {symbol} names no declaration; candidates: {candidates}",
+    "refactor.symbol-ambiguous": "{path}: {symbol} names more than one declaration: {candidates}",
+    "refactor.map-invalid": "{map}: entry {index} is not a valid rename-map entry",
+    "refactor.map-mixed-languages": "{map} holds entries of more than one language: {languages}",
+    "refactor.map-duplicate": "{map}: entries {first} and {second} locate the same symbol with different changes",
+    "refactor.map-conflict":
+        "{path}:{line}: entries {first} and {second} rewrite this site differently, so nothing was refactored",
+    "refactor.retarget-header": "Retargeting <{old}> to <{new}>:",
+    "refactor.retarget-scope": "{target} is not declared in the class or module that declares {alias}",
+    "refactor.retarget-override": "{path}:{line}: {cls}.{name} overrides the alias, so nothing was refactored",
+    "refactor.retarget-shadowed": "{path}:{line}: {name} names something else here, so nothing was refactored",
+    "refactor.write-failed":
+        "could not write {path}; the files already written are restored, so nothing was refactored",
+    "refactor.rollback-failed": "could not write {path}; restoring failed, so these paths are left changed: {paths}",
+    "refactor.baseline-ambiguous":
+        "WARNING: {baseline}: the {code} entry of {path} cannot follow the refactor; left unchanged",
+    "refactor.baseline-failed":
+        "the {language} type checker failed, so the baseline cannot be realigned and nothing was refactored",
+    "refactor.literal-value": "--new-name {value!r} holds a quote, backtick, backslash, ${{, NUL or line break, which a literal member cannot",
+    "refactor.literal-unresolved":
+        "{path}:{line}: literal-unresolved: the checker needs {old!r} here, where no string literal can be rewritten",
+    "refactor.compound": "{path}:{line}: leftover: declaration {name} contains {old}",
 }
 REMOVED_TEMPLATES = {"c4-layout.migrate"}
 # Defensive findings no real input reaches; each is pinned by a unit test instead of a golden.
@@ -699,6 +730,7 @@ REMOVED_TEMPLATES = [
     "c4.include-non-top-level",
     "c4.view-includes-non-top-level",
     "compliance.ts-attr-blindspot",
+    "refactor.symbol-not-found",
 ]
 
 
@@ -715,7 +747,7 @@ def test_removed_template_is_gone(template_id: str) -> None:
 def test_every_registry_template_is_produced_by_a_golden() -> None:
     records = _golden_records()
     registry = _shared_yaml("findings.yaml")["findings"]
-    unproduced = sorted(fid for fid, template in registry.items() if not _produced(template, records))
+    unproduced = sorted(set(registry) - _produced_ids(registry, records))
     assert unproduced == sorted(UNPRODUCED_BY_DESIGN)
 
 
@@ -772,6 +804,105 @@ def test_rename_guard_options(name: str, expected: tuple[str, str, bool]) -> Non
     [option] = [o for o in options if o["name"] == name]
     actual = (option["type"], option.get("dest", name[2:].replace("-", "_")), option.get("repeatable", False))
     assert actual == expected
+
+
+def _subcommand_options(subcommand: str) -> dict[str, dict]:
+    spec = _shared_yaml("cli.yaml")["commands"]["dr-refactor"]["subcommands"][subcommand]
+    return {o["name"]: o for o in spec.get("options", [])}
+
+
+LOCATORS = ["--offset", "--line", "--symbol"]
+
+
+@pytest.mark.parametrize("subcommand", ["rename", "move-symbol", "retarget"])
+def test_locators_are_one_exclusive_group(subcommand: str) -> None:
+    spec = _shared_yaml("cli.yaml")["commands"]["dr-refactor"]["subcommands"][subcommand]
+    options = _subcommand_options(subcommand)
+    assert "--name" not in options
+    assert options["--symbol"]["type"] == "string"
+    assert spec["exclusive"] == [["offset", "line", "symbol"]]
+
+
+def test_rename_map_takes_renames_options_minus_the_locators() -> None:
+    spec = _shared_yaml("cli.yaml")["commands"]["dr-refactor"]["subcommands"]["rename-map"]
+    assert [p["name"] for p in spec["positionals"]] == ["map"]
+    expected = set(_subcommand_options("rename")) - {"--file", *LOCATORS, "--col", "--new-name"}
+    assert set(_subcommand_options("rename-map")) == expected
+
+
+def test_retarget_options() -> None:
+    options = _subcommand_options("retarget")
+    assert set(options) == {"--file", *LOCATORS, "--col", "--target", *RENAME_GUARD_OPTIONS}
+    assert options["--target"].get("required") is True
+    assert options["--file"].get("required") is True
+
+
+def test_compliance_attr_is_repeatable() -> None:
+    assert _option("dr-compliance", "--attr").get("repeatable") is True
+
+
+def test_mock_lint_is_a_parsed_command_with_a_base() -> None:
+    spec = _shared_yaml("cli.yaml")["commands"]["dr-mock-lint"]
+    assert not spec.get("passthrough")
+    assert spec["positionals"] == [{"name": "paths", "nargs": "+", "help": spec["positionals"][0]["help"]}]
+    assert _option("dr-mock-lint", "--base")["type"] == "string"
+
+
+def test_manifest_exclusive_names_options_of_its_command() -> None:
+    def walk(spec: dict) -> list[tuple[list[str], set[str]]]:
+        dests = {o.get("dest", o["name"][2:].replace("-", "_")) for o in spec.get("options", [])}
+        groups = [(group, dests) for group in spec.get("exclusive", [])]
+        return groups + [g for sub in spec.get("subcommands", {}).values() for g in walk(sub)]
+
+    groups = [g for spec in _shared_yaml("cli.yaml")["commands"].values() for g in walk(spec)]
+    assert groups
+    assert [(group, sorted(set(group) - dests)) for group, dests in groups if not set(group) <= dests] == []
+
+
+def _rename_map_valid(document: object) -> bool:
+    return validate(_schema("rename-map"), document) == []
+
+
+@pytest.mark.parametrize(
+    "document",
+    [
+        [{"file": "pkg/a.py", "symbol": "A.old", "new_name": "new"}],
+        [{"file": "pkg/a.py", "line": 3, "new_name": "new"}],
+        [{"file": "pkg/a.py", "line": 3, "col": 9, "new_name": "new"}],
+        [{"file": "src/a.ts", "offset": 120, "new_name": "next"}],
+        [{"file": "pkg/models.py", "symbol": "AcmeModel", "retarget": "Model"}],
+        [
+            {"file": "pkg/a.py", "symbol": "A.old", "new_name": "new"},
+            {"file": "pkg/a.py", "symbol": "A.old(x)", "new_name": "y"},
+            {"file": "pkg/a.py", "symbol": "Kind['edit_model']", "new_name": "edit master"},
+        ],
+    ],
+    ids=["symbol", "line", "line-col", "offset", "retarget", "several"],
+)
+def test_rename_map_schema_accepts(document: object) -> None:
+    assert _rename_map_valid(document)
+
+
+@pytest.mark.parametrize(
+    "document",
+    [
+        {"file": "pkg/a.py", "symbol": "A.old", "new_name": "new"},
+        [],
+        [{"file": "pkg/a.py", "symbol": "A.old", "line": 3, "new_name": "new"}],
+        [{"file": "pkg/a.py", "offset": 1, "line": 3, "new_name": "new"}],
+        [{"file": "pkg/a.py", "new_name": "new"}],
+        [{"file": "pkg/a.py", "col": 3, "new_name": "new"}],
+        [{"file": "pkg/a.py", "symbol": "A.old", "new_name": "new", "retarget": "A.new"}],
+        [{"file": "pkg/a.py", "symbol": "A.old"}],
+        [{"symbol": "A.old", "new_name": "new"}],
+        [{"file": "pkg/a.py", "symbol": "A.old", "new_name": "new", "unsure": "include"}],
+        [{"file": "pkg/a.py", "line": "3", "new_name": "new"}],
+    ],
+    ids=["not-a-list", "empty", "two-locators", "offset-and-line", "no-locator", "col-alone", "both-intents",
+         "no-intent", "no-file", "unknown-key", "line-not-int"],
+)
+def test_rename_map_schema_rejects(document: object) -> None:
+    assert not _rename_map_valid(document)
 
 
 def test_refactor_prose_extensions() -> None:

@@ -8,7 +8,7 @@ args:
 - rename
 - --file
 - outside.py
-- --name
+- --symbol
 - foo
 - --new-name
 - bar

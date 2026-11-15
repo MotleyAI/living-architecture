@@ -44,6 +44,17 @@ class Span(BaseModel):
     end: int
 
 
+class Diagnostic(BaseModel):
+    """A checker diagnostic: its span, rule, LSP severity (1 error, 2 warning, 3 information, 4 hint) and message."""
+
+    model_config = ConfigDict(frozen=True)
+
+    span: Span
+    code: str
+    severity: int
+    message: str
+
+
 def _line_starts(text: str) -> list[int]:
     return [0, *(m.end() for m in _LINE_BREAK.finditer(text))]
 
@@ -52,9 +63,10 @@ def _units(char: str) -> int:
     return 2 if ord(char) > 0xFFFF else 1
 
 
-def utf16_index(text: str, line: int, character: int) -> int:
-    """The character index of an LSP position (0-based line, UTF-16 column)."""
-    starts = _line_starts(text)
+def utf16_index(text: str, line: int, character: int, starts: list[int] | None = None) -> int:
+    """The character index of an LSP position (0-based line, UTF-16 column); `starts` is `text`'s line starts, when
+    known."""
+    starts = _line_starts(text) if starts is None else starts
     index = starts[min(line, len(starts) - 1)]
     units = 0
     while units < character and index < len(text) and text[index] not in "\r\n":
@@ -314,6 +326,20 @@ class LanguageServer:
 
     def type_definition(self, path: Path, offset: int) -> list[Span]:
         return self._locations("textDocument/typeDefinition", path, offset)
+
+    def diagnostics(self, path: Path) -> list[Diagnostic]:
+        """The diagnostics of `path` as its current text stands (a pull request)."""
+        result = self._request("textDocument/diagnostic", {"textDocument": {"uri": path.as_uri()}})
+        text = self._text(path)
+        starts = _line_starts(text)
+        out: list[Diagnostic] = []
+        for item in (result or {}).get("items", []):
+            start, end = item["range"]["start"], item["range"]["end"]
+            span = Span(path=path, start=utf16_index(text, start["line"], start["character"], starts),
+                        end=utf16_index(text, end["line"], end["character"], starts))
+            out.append(Diagnostic(span=span, code=str(item.get("code", "")), severity=int(item.get("severity", 1)),
+                                  message=str(item.get("message", ""))))
+        return out
 
     def hover(self, path: Path, offset: int) -> str | None:
         """The hover text at `offset`, or None."""

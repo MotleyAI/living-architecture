@@ -73,3 +73,8 @@ export function literalOutcomes(path: string, source: TS.SourceFile, old: string
   }
   return out;
 }
+
+/** A declaration whose name holds `old` as a word sequence: listed. */
+export function compoundOutcome(path: string, start: number, end: number, name: string, old: string): Outcome {
+  return { kind: 'leftover', path, start, end, edits: [], finding: { template: 'refactor.compound', position: start, values: { name, old } } };
+}

@@ -7,8 +7,8 @@ args:
 - rename
 - --file
 - pkg/engine.py
-- --name
-- save_model
+- --symbol
+- Engine.save_model
 - --new-name
 - persist_model
 fixture: refactor-typed

@@ -6,7 +6,7 @@ args:
 - rename
 - --file
 - pkg/link/../a.py
-- --name
+- --symbol
 - foo
 - --new-name
 - bar

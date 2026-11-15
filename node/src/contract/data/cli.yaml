@@ -6,7 +6,8 @@
 #              (accepted but omitted from help: the twins' own protocol)
 # positional:  name, help; optional: nargs ('?' | '*' | '+'; default exactly one)
 # command:     help, exit (code -> meaning), options, positionals, subcommands, passthrough, usage,
-#              require_one_of (dests; none given is a usage error), script (the bundled review script it
+#              require_one_of (dests; none given is a usage error), exclusive (lists of dests, at most one of
+#              each list given; more is a usage error), script (the bundled review script it
 #              runs), native (the languages whose twin implements the command; absent: neutral, every twin runs it),
 #              format (exempt: the command skips the repo format check; absent: it checks the format declared in
 #              living-architecture.yaml after parsing its arguments, and a format refusal exits 2)
@@ -16,8 +17,10 @@
 #              languages.yaml.
 # base_fetch_timeout_seconds: the best-effort `git fetch origin <base>` before a command compares with
 #              origin/<base> is killed after this many seconds; the command then uses the ref as it stands.
+# literal_value_forbidden: the substrings a Literal member's new value may not hold (`refactor.literal-value`).
 
 base_fetch_timeout_seconds: 30
+literal_value_forbidden: ["'", '"', '`', "\\", '${', "\0", "\r", "\n", "\u2028", "\u2029"]
 
 commands:
   la-config:
@@ -189,11 +192,12 @@ commands:
   dr-refactor:
     native: [python, typescript]
     help: >-
-      IDE-grade refactors (Python via rope, TypeScript via its language service): rename, move-symbol,
-      move-module. Rewrites every import and reference across the project. Dry-run by default; pass --apply to
-      write. Symbol location comes from --offset, --line/--col (1-based, as an editor/LSP reports), or --name
-      (first declaration, else first use).
-    exit: {0: ok, 1: refactor error, 2: usage error or format refusal}
+      IDE-grade refactors (Python via rope, TypeScript via its language service): rename, rename-map, retarget,
+      move-symbol, move-module. Rewrites every import and reference across the project and keeps the type-check
+      baseline aligned. Dry-run by default; pass --apply to write. Symbol location comes from --symbol (the
+      declaration's path inside --file, e.g. Class.method), --offset, or --line/--col (1-based, as an editor/LSP
+      reports).
+    exit: {0: ok, 1: refactor error, 2: 'usage error, locator or map error, or format refusal'}
     prose_extensions: [.md, .rst, .txt]
     options:
       - {name: --project, type: path, default: ., help: 'project root (default: cwd)'}
@@ -201,12 +205,14 @@ commands:
     subcommands:
       rename:
         help: rename the symbol at a location
+        exclusive: [[offset, line, symbol]]
         options:
           - {name: --file, type: path, required: true, help: file holding the symbol}
           - {name: --offset, type: int, help: 0-based character offset}
           - {name: --line, type: int, help: 1-based line}
           - {name: --col, type: int, help: 1-based column}
-          - {name: --name, type: string, help: first declaration (else use) of this name}
+          - {name: --symbol, type: string, metavar: PATH,
+             help: "the declaration's path in --file: Class.method, func.<locals>.inner, func(param), Alias['value']"}
           - {name: --new-name, type: string, required: true, help: the new name}
           - {name: --no-in-hierarchy, type: flag, dest: in_hierarchy, store: false,
              help: 'disable hierarchy rename (on by default: also renames overrides in sub/superclasses; Python only)'}
@@ -222,14 +228,56 @@ commands:
              help: 'leave every edit on this line, in this file or under this directory (repeatable)'}
           - {name: --docs, type: flag,
              help: 'also rewrite mentions in comments, docstrings, strings and prose files; list the rest'}
+      rename-map:
+        help: >-
+          apply a YAML list of rename and retarget entries as one refactor: every entry resolved against the code
+          before the map, one diff, one refusal report, written all or nothing
+        positionals:
+          - {name: map, help: 'the map file: entries {file, symbol | line [col] | offset, new_name | retarget}'}
+        options:
+          - {name: --no-in-hierarchy, type: flag, dest: in_hierarchy, store: false,
+             help: 'disable hierarchy rename (on by default: also renames overrides in sub/superclasses; Python only)'}
+          - {name: --unsure, type: string, choices: [skip, include], default: skip,
+             help: 'occurrences rope cannot resolve: skip (default) or include (risky; Python only)'}
+          - {name: --allow-blindspots, type: flag,
+             help: 'list the untyped receivers of a member''s old name and rename anyway (default: refuse)'}
+          - {name: --with, type: string, dest: with_stand_ins, metavar: PATH:LINE, repeatable: true,
+             help: 'rename the stand-ins declared on this line too, with their hierarchies (repeatable)'}
+          - {name: --without, type: string, dest: without_stand_ins, metavar: PATH:LINE, repeatable: true,
+             help: 'leave the stand-ins declared on this line, with their hierarchies (repeatable)'}
+          - {name: --keep, type: string, metavar: 'PATH[:LINE]', repeatable: true,
+             help: 'leave every edit on this line, in this file or under this directory (repeatable)'}
+          - {name: --docs, type: flag,
+             help: 'also rewrite mentions in comments, docstrings, strings and prose files; list the rest'}
+      retarget:
+        help: rewrite the references to an alias to name its target, declared in the same class or module
+        exclusive: [[offset, line, symbol]]
+        options:
+          - {name: --file, type: path, required: true, help: file holding the alias}
+          - {name: --offset, type: int, help: 0-based character offset}
+          - {name: --line, type: int, help: 1-based line}
+          - {name: --col, type: int, help: 1-based column}
+          - {name: --symbol, type: string, metavar: PATH, help: "the alias's path in --file"}
+          - {name: --target, type: string, metavar: PATH, required: true, help: "the target's path in --file"}
+          - {name: --allow-blindspots, type: flag,
+             help: 'list the untyped receivers of a member''s old name and rewrite anyway (default: refuse)'}
+          - {name: --with, type: string, dest: with_stand_ins, metavar: PATH:LINE, repeatable: true,
+             help: 'rewrite the stand-ins declared on this line too, with their hierarchies (repeatable)'}
+          - {name: --without, type: string, dest: without_stand_ins, metavar: PATH:LINE, repeatable: true,
+             help: 'leave the stand-ins declared on this line, with their hierarchies (repeatable)'}
+          - {name: --keep, type: string, metavar: 'PATH[:LINE]', repeatable: true,
+             help: 'leave every edit on this line, in this file or under this directory (repeatable)'}
+          - {name: --docs, type: flag,
+             help: 'also rewrite mentions in comments, docstrings, strings and prose files; list the rest'}
       move-symbol:
         help: move a top-level declaration to another module
+        exclusive: [[offset, line, symbol]]
         options:
           - {name: --file, type: path, required: true, help: file holding the symbol}
           - {name: --offset, type: int, help: 0-based character offset}
           - {name: --line, type: int, help: 1-based line}
           - {name: --col, type: int, help: 1-based column}
-          - {name: --name, type: string, help: first declaration (else use) of this name}
+          - {name: --symbol, type: string, metavar: PATH, help: "the top-level declaration's name in --file"}
           - {name: --dest, type: path, required: true, help: destination module of the same language (must exist)}
       move-module:
         help: move a module file or directory into a package/dir
@@ -249,13 +297,17 @@ commands:
       - {name: paths, nargs: '+', help: files or directories}
     options:
       - {name: --select, type: string, help: 'comma-separated checks (default: every check of each file''s language)'}
-      - {name: --attr, type: string, help: 'the member name attr-blindspot checks (requires attr-blindspot selected)'}
+      - {name: --attr, type: string, repeatable: true,
+         help: 'a member name attr-blindspot checks (repeatable; requires attr-blindspot selected)'}
 
   dr-mock-lint:
     native: [python, typescript]
     help: >-
       Every test double must be bound to the real type: a unittest.mock double to a spec; a Vitest/Jest fn() or
       module factory to a type.
-    exit: {0: clean, 1: violations, 2: usage error or format refusal}
-    passthrough: true
-    usage: 'dr-mock-lint <path> [<path> ...]'
+    exit: {0: clean, 1: violations, 2: 'usage error, unresolvable base or format refusal'}
+    positionals:
+      - {name: paths, nargs: '+', help: files or directories}
+    options:
+      - {name: --base, type: string,
+         help: 'base branch (compared as origin/BRANCH): print only the findings the base lacks'}

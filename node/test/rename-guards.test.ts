@@ -75,7 +75,7 @@ describe('file universe', () => {
       'node_modules/dep/x.ts': loose,
       'src/types.d.ts': 'declare function h(o: any): void;\n',
     });
-    const renamed = run(root, 'dr-refactor', ['rename', '--file', 'src/store.ts', '--name', 'getModel', '--new-name', 'fetchModel']);
+    const renamed = run(root, 'dr-refactor', ['rename', '--file', 'src/store.ts', '--symbol', 'Store.getModel', '--new-name', 'fetchModel']);
     expect(renamed.code).toBe(1);
     const lines = renamed.err.trimEnd().split('\n');
     expect(lines.pop()).toMatch(/^3 blind spot/u);
@@ -91,7 +91,7 @@ describe('exact-OLD literals', () => {
       'tsconfig.json': '{"compilerOptions": {"strict": true}, "include": ["src"]}\n',
       'src/funcs.ts': "export function saveModel(): void {}\nexport const NAME = 'saveModel';\n",
     });
-    const renamed = run(root, 'dr-refactor', ['rename', '--file', 'src/funcs.ts', '--name', 'saveModel', '--new-name', 'storeModel']);
+    const renamed = run(root, 'dr-refactor', ['rename', '--file', 'src/funcs.ts', '--symbol', 'saveModel', '--new-name', 'storeModel']);
     expect([renamed.code, renamed.err]).toEqual([0, '']);
   });
 });
@@ -146,7 +146,7 @@ describe('--docs module paths', () => {
       'tsconfig.json': '{"compilerOptions": {"strict": true}, "include": ["src"]}\n',
       'src/pkg/engine.ts': 'export class Engine {\n  saveModel(): void {}\n}\n// see src.pkg.engine.Engine.saveModel and pkg.engine.Engine.saveModel\n',
     });
-    const renamed = run(root, 'dr-refactor', ['rename', '--file', 'src/pkg/engine.ts', '--name', 'saveModel', '--new-name', 'storeModel', '--docs']);
+    const renamed = run(root, 'dr-refactor', ['rename', '--file', 'src/pkg/engine.ts', '--symbol', 'Engine.saveModel', '--new-name', 'storeModel', '--docs']);
     expect([renamed.code, renamed.err]).toEqual([0, '']);
     expect(renamed.out).toContain('+// see src.pkg.engine.Engine.storeModel and pkg.engine.Engine.storeModel');
   });
@@ -160,7 +160,7 @@ describe('computed-name stand-ins', () => {
       'src/keys.ts': "export const KEY = 'getModel';\n",
       'src/fake.ts': "import { KEY } from './keys';\n\nexport class Fake {\n  [KEY](): number {\n    return 1;\n  }\n}\n",
     });
-    const renamed = run(root, 'dr-refactor', ['rename', '--file', 'src/store.ts', '--name', 'getModel', '--new-name', 'getDataset']);
+    const renamed = run(root, 'dr-refactor', ['rename', '--file', 'src/store.ts', '--symbol', 'Store.getModel', '--new-name', 'getDataset']);
     expect(renamed.code).toBe(1);
     expect(renamed.err).toContain('src/fake.ts:4: stand-in: Fake.getModel is outside the renamed hierarchy');
   });
@@ -173,7 +173,7 @@ describe('escaped exact-OLD literals', () => {
       'src/store.ts': 'export class Store {\n  getModel(): number {\n    return 1;\n  }\n}\n',
       'src/names.ts': "export const VALUE = 'get\\x4dodel';\n",
     });
-    const renamed = run(root, 'dr-refactor', ['rename', '--file', 'src/store.ts', '--name', 'getModel', '--new-name', 'getDataset']);
+    const renamed = run(root, 'dr-refactor', ['rename', '--file', 'src/store.ts', '--symbol', 'Store.getModel', '--new-name', 'getDataset']);
     expect([renamed.code, renamed.err]).toEqual([0, 'src/names.ts:1: leftover: string mentions getModel\n']);
   });
 });

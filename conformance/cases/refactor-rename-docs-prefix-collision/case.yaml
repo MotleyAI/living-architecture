@@ -7,8 +7,8 @@ args:
 - rename
 - --file
 - pkg1/engine.py
-- --name
-- recommend_root_model
+- --symbol
+- SearchQueryEngine.recommend_root_model
 - --new-name
 - suggest_root_model
 - --without

@@ -1,0 +1,11 @@
+{
+  "files": {
+    "src/c.ts": [
+      {
+        "code": "TS2322",
+        "message": "Type 'Old' is not assignable to type 'number'.",
+        "count": 1
+      }
+    ]
+  }
+}

@@ -71,8 +71,8 @@ const HANDLERS: Record<string, (args: Args, argv: string[]) => number> = {
   },
   'la-typecheck': (args) => typecheck.run(process.cwd(), Boolean(args.write_baseline), optional(args.language)),
   'dr-refactor': (args, argv) => refactor.runRefactor(argv, given(args) as refactor.RefactorArgs),
-  'dr-compliance': (args) => refactor.runCompliance(args.paths as string[], optional(args.select), optional(args.attr)),
-  'dr-mock-lint': (args) => refactor.runMockLint(args.argv as string[]),
+  'dr-compliance': (args) => refactor.runCompliance(args.paths as string[], optional(args.select), args.attr as string[]),
+  'dr-mock-lint': (args) => refactor.runMockLint(args.paths as string[], optional(args.base)),
 };
 
 /** Run a command another twin implements: forward the raw argv, or exit 2 with the hint. */

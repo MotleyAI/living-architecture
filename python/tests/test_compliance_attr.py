@@ -293,3 +293,32 @@ def test_lookalike_callees_are_not_string_member_forms(cwd: Path, capsys: pytest
     write_project(cwd, {"m.py": LOOKALIKES})
     assert _attr("m.py") == 0
     assert capsys.readouterr().out == ""
+
+
+def test_two_names_in_one_sorted_block(cwd: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    (cwd / "tests").mkdir()
+    (cwd / "tests" / "test_b.py").write_text("def test_b(o):\n    o.save_model(); o.get_model()\n", encoding="utf-8")
+    (cwd / "tests" / "test_a.py").write_text("def test_a(s):\n    s.get_model()\n    s.save_model()\n", encoding="utf-8")
+    argv = ["--select", "attr-blindspot", "--attr", "get_model", "--attr", "save_model", "tests"]
+    assert dr_compliance(argv) == 1
+
+    def spot(path: str, line: int, receiver: str, attr: str) -> str:
+        return message("compliance.attr-blindspot", path=path, line=line, receiver=receiver, attr=attr, type="Unknown")
+
+    assert capsys.readouterr().out.splitlines() == [
+        spot("tests/test_a.py", 2, "s", "get_model"),
+        spot("tests/test_a.py", 3, "s", "save_model"),
+        spot("tests/test_b.py", 2, "o", "save_model"),
+        spot("tests/test_b.py", 2, "o", "get_model"),
+    ]
+
+
+
+def test_two_names_cover_string_member_forms(cwd: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    write_project(cwd, {"m.py": 'def f(o):\n    getattr(o, "get_model")\n    return o.save_model()\n'}, package=False)
+    assert dr_compliance(["--select", "attr-blindspot", "--attr", "save_model", "--attr", "get_model", "m.py"]) == 1
+    out = capsys.readouterr().out.splitlines()
+    assert out == [
+        message("compliance.attr-blindspot", path="m.py", line=2, receiver="o", attr="get_model", type="Unknown"),
+        message("compliance.attr-blindspot", path="m.py", line=3, receiver="o", attr="save_model", type="Unknown"),
+    ]

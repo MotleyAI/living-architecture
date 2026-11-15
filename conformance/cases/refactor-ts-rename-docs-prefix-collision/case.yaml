@@ -7,8 +7,8 @@ args:
 - rename
 - --file
 - src/pkg1/engine.ts
-- --name
-- saveModel
+- --symbol
+- Engine.saveModel
 - --new-name
 - persistModel
 - --without

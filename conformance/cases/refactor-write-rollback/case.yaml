@@ -1,0 +1,27 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- --apply
+- rename
+- --file
+- pkg/a.py
+- --symbol
+- foo
+- --new-name
+- bar
+chmod:
+  pkg/z: '0555'
+git:
+- commit: init
+expect:
+  exit: 1
+  stdout: ignore
+  files:
+  - pkg/a.py
+  - pkg/b.py
+  - pkg/z/c.py
+golden: manual
+note: 'the third file''s directory is read-only, so its write fails: the two files already written are restored, write-failed,
+  exit 1'

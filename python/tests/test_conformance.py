@@ -53,11 +53,12 @@ _COMMAND_PREFIXES = {
 }
 
 class CaseResult:
-    def __init__(self, exit_code: int, stdout: str, stderr: str, files: dict[str, str]) -> None:
+    def __init__(self, exit_code: int, stdout: str, stderr: str, files: dict[str, str], git_status: str | None = None) -> None:
         self.exit_code = exit_code
         self.stdout = stdout
         self.stderr = stderr
         self.files = files
+        self.git_status = git_status
 
 
 class Variant:
@@ -329,6 +330,10 @@ def run_case(case_dir: Path, root: Path, variant: Variant = NEUTRAL, twin: str =
         rel: _normalize((repo / rel).read_bytes().decode("utf-8"), root, case) if (repo / rel).is_file() else "<MISSING>\n"
         for rel in case.get("expect", {}).get("files", [])
     }
+    status = None
+    if case.get("expect", {}).get("git_status"):
+        listed = subprocess.run(["git", "status", "--porcelain"], cwd=repo, env=env, capture_output=True, check=True)
+        status = _normalize(listed.stdout.decode("utf-8"), root, case)
     for rel in case.get("chmod", {}):
         (repo / rel).chmod(0o755)
     return CaseResult(
@@ -336,6 +341,7 @@ def run_case(case_dir: Path, root: Path, variant: Variant = NEUTRAL, twin: str =
         stdout=_normalize(proc.stdout.decode("utf-8"), root, case),
         stderr=_normalize(proc.stderr.decode("utf-8"), root, case),
         files=files,
+        git_status=status,
     )
 
 
@@ -401,6 +407,8 @@ def check_case(
     write = update and case.get("golden") != "manual"
     problems = _check_stream(case_dir, expect.get("stdout"), "stdout", result.stdout, variant.golden, update=write)
     problems += _check_stream(case_dir, expect.get("stderr"), "stderr", result.stderr, variant.golden, update=write)
+    if result.git_status is not None:
+        problems += _check_stream(case_dir, None, "git-status", result.git_status, variant.golden, update=write)
     for rel, content in result.files.items():
         golden = case_dir / "files" / rel
         if write:
@@ -489,6 +497,19 @@ def test_update_mode_rewrites_the_golden(tmp_path: Path) -> None:
     case_dir = _wrong_golden_case(tmp_path)
     assert check_case(case_dir, tmp_path / "run", update=True) == []
     assert (case_dir / "stdout").read_text(encoding="utf-8") == "[A-Z][A-Z0-9]+-\\d+\n"
+
+
+def test_git_status_is_compared_with_its_golden(tmp_path: Path) -> None:
+    case_dir = _wrong_golden_case(tmp_path)
+    (case_dir / "case.yaml").write_text(
+        "kind: neutral\ncommand: la-config\nargs: [get, issue_key_pattern]\n"
+        "git: [{write: {a.txt: x}}]\nexpect: {exit: 0, stdout: ignore, git_status: true}\n",
+        encoding="utf-8",
+    )
+    (case_dir / "git-status").write_text("?? b.txt\n", encoding="utf-8")
+    assert "+?? a.txt" in "\n".join(check_case(case_dir, tmp_path / "run"))
+    (case_dir / "git-status").write_text("?? a.txt\n", encoding="utf-8")
+    assert check_case(case_dir, tmp_path / "run2") == []
 
 
 def test_update_mode_refuses_an_unexpected_exit(tmp_path: Path) -> None:

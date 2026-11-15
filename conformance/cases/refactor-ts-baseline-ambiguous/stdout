@@ -1,0 +1,20 @@
+Renaming <Old> to <New>:
+
+
+--- a/src/old.ts
++++ b/src/old.ts
+@@ -1,7 +1,7 @@
+-export class Old {
++export class New {
+   a = 1;
+ }
+ 
+-export function make(): Old {
+-  return new Old();
++export function make(): New {
++  return new New();
+ }
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

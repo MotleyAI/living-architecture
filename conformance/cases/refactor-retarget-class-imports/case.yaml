@@ -1,0 +1,22 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- --apply
+- retarget
+- --file
+- pkg/models.py
+- --symbol
+- AcmeModel
+- --target
+- Model
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - pkg/models.py
+  - pkg/use.py
+golden: manual
+note: 'a class alias: the use names the target and the import that would duplicate the target''s is removed; the alias stays'

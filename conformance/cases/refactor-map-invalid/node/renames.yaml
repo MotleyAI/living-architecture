@@ -1,0 +1,2 @@
+- {file: src/storage.ts, symbol: StorageBackend.get_model, new_name: a}
+- {file: src/storage.ts, symbol: StorageBackend.get_model, new_name: b, retarget: StorageBackend.get_model}

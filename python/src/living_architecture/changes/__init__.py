@@ -11,7 +11,7 @@ from pathlib import Path
 from living_architecture.config import ConfigError
 from living_architecture.contract import base_fetch_timeout, message
 
-__all__ = ["changed_paths", "git_paths", "pr_base", "resolve_base_ref"]
+__all__ = ["base_paths", "changed_paths", "file_at", "git_paths", "merge_base", "pr_base", "resolve_base_ref"]
 
 # Neither git nor ssh may prompt during the fetch: no terminal prompt and no askpass helper.
 _NO_PROMPT = {"GIT_TERMINAL_PROMPT": "0", "GIT_ASKPASS": "", "SSH_ASKPASS": "", "SSH_ASKPASS_REQUIRE": "never"}
@@ -84,3 +84,29 @@ def changed_paths(*, base_ref: str, repo_root: Path, deletions: bool, untracked:
     if untracked:
         out.update(git_paths(["ls-files", "-z", "--others", "--exclude-standard"], repo_root=repo_root))
     return sorted(out)
+
+
+def merge_base(*, base_ref: str, repo_root: Path) -> str:
+    """The merge base of `base_ref` and HEAD."""
+    return _git(["merge-base", base_ref, "HEAD"], cwd=repo_root).decode().strip()
+
+
+def file_at(*, ref: str, path: str, repo_root: Path) -> bytes | None:
+    """The bytes of repo-relative `path` at `ref`, None when it is not there."""
+    proc = subprocess.run(["git", "cat-file", "blob", f"{ref}:{path}"], cwd=repo_root, capture_output=True, check=False)
+    return proc.stdout if proc.returncode == 0 else None
+
+
+def base_paths(*, ref: str, repo_root: Path) -> dict[str, str]:
+    """Each path renamed since `ref` (tracked files of the working tree), mapped to its path at `ref`."""
+    fields = git_paths(["diff", "-z", "--name-status", "-M", ref], repo_root=repo_root)
+    out: dict[str, str] = {}
+    i = 0
+    while i < len(fields):
+        status = fields[i]
+        if status.startswith("R"):
+            out[fields[i + 2]] = fields[i + 1]
+            i += 3
+        else:
+            i += 2
+    return out
