@@ -29,10 +29,10 @@ export function isCompound(name: string, old: string): boolean {
   const found = words(name).map((w) => w.toLowerCase());
   const last = wanted.at(-1);
   if (last === undefined || name === old) return false;
-  const lasts = [last, `${last}s`, `${last}es`];
+  const lasts = new Set([last, `${last}s`, `${last}es`]);
   for (let i = 0; i + wanted.length <= found.length; i += 1) {
     const head = wanted.slice(0, -1).every((w, k) => found[i + k] === w);
-    if (head && lasts.includes(found[i + wanted.length - 1] ?? '')) return true;
+    if (head && lasts.has(found[i + wanted.length - 1] ?? '')) return true;
   }
   return false;
 }

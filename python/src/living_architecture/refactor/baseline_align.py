@@ -214,6 +214,33 @@ def align(project: Path, writes: list[FileWrite], moves: list[FileMove], *, edit
     change; `BaselineFailed` when the checker fails."""
     project = project.resolve()
     repo = find_repo_root(project).resolve()
+    found = _baseline(repo)
+    if found is None:
+        return None
+    command, baseline_rel, raw, data, listed = found
+    baseline_path = repo / baseline_rel
+    files = _Files(repo, project, writes, moves, edits, moved_code)
+    affected = sorted(key[2:] for key in listed if key.startswith("./") and files.touched(key[2:]))
+    if not affected:
+        return None
+    everything, unbaselined = _run(repo, command, raw.decode("utf-8"), [rel for rel in affected if (repo / rel).is_file()])
+    baselined_all = _baselined(everything, unbaselined)
+    warnings: list[str] = []
+    out = _realigned(listed, files, affected, baselined_all, baseline_rel, warnings)
+    new_data = {**data, "files": {k: [e.entry for e in out[k]] for k in sorted(out) if out[k]}}
+    if new_data == data:
+        return None
+    old_text = raw.decode("utf-8")
+    new_text = json.dumps(new_data, indent=4)
+    shown = Path(baseline_path).relative_to(project).as_posix() if baseline_path.is_relative_to(project) else str(baseline_path)
+    description = "".join(difflib.unified_diff(old_text.splitlines(True), new_text.splitlines(True), f"a/{shown}", f"b/{shown}"))
+    write = FileWrite(rel=shown, old=raw, new=new_text.encode("utf-8"))
+    return Aligned(write=write, description=description, warnings=tuple(warnings))
+
+
+def _baseline(repo: Path) -> tuple[str, str, bytes, dict[str, Any], dict[str, list[dict[str, Any]]]] | None:
+    """The checker command, the baseline's path, bytes, data and file entries; None without a command or a
+    baseline; `BaselineFailed` when unreadable."""
     try:
         command = load_config(repo).commands.typecheck.python
     except ConfigError:
@@ -228,19 +255,12 @@ def align(project: Path, writes: list[FileWrite], moves: list[FileMove], *, edit
         listed: dict[str, list[dict[str, Any]]] = data["files"]
     except (ValueError, KeyError, TypeError):
         raise BaselineFailed from None
-    files = _Files(repo, project, writes, moves, edits, moved_code)
-    affected = sorted(key[2:] for key in listed if key.startswith("./") and files.touched(key[2:]))
-    if not affected:
-        return None
-    everything, unbaselined = _run(repo, command, raw.decode("utf-8"), [rel for rel in affected if (repo / rel).is_file()])
-    shown_alone = Counter(unbaselined)
-    baselined_all: list[tuple[str, Key]] = []
-    for item in everything:
-        if shown_alone[item]:
-            shown_alone[item] -= 1
-        else:
-            baselined_all.append(item)
-    warnings: list[str] = []
+    return command, baseline_rel, raw, data, listed
+
+
+def _realigned(listed: dict[str, list[dict[str, Any]]], files: _Files, affected: list[str],
+               baselined_all: list[tuple[str, Key]], baseline_rel: str, warnings: list[str]) -> dict[str, list[_Entry]]:
+    """The entries by their file key after the refactor: each followed one moved to its new file and position."""
     out: dict[str, list[_Entry]] = {}
     moved_in: list[tuple[str, _Entry]] = []
     for key, entries in listed.items():
@@ -248,14 +268,7 @@ def align(project: Path, writes: list[FileWrite], moves: list[FileMove], *, edit
         target = f"./{files.renamed(rel)}"
         mapped: dict[int, tuple[str, _Entry]] = {}
         if rel in affected:
-            baselined = [k for path, k in baselined_all if path == rel]
-            for index, diag in _pairs(entries, baselined):
-                follow = _follow(files, rel, entries[index], diag)
-                if follow is None:
-                    warnings.append(message("refactor.baseline-ambiguous", baseline=baseline_rel,
-                                            code=entries[index].get("code"), path=rel))
-                else:
-                    mapped[index] = follow
+            mapped = _followed(files, rel, entries, [k for path, k in baselined_all if path == rel], baseline_rel, warnings)
         bucket = out.setdefault(target, [])
         for index, entry in enumerate(entries):
             if index in mapped and mapped[index][0] != target:
@@ -263,19 +276,40 @@ def align(project: Path, writes: list[FileWrite], moves: list[FileMove], *, edit
             else:
                 bucket.append(mapped[index][1] if index in mapped else _Entry(entry, None))
     for target, entry in moved_in:
-        bucket = out.setdefault(target, [])
-        at = next((i for i, e in enumerate(bucket) if e.position is not None and entry.position is not None
-                   and e.position > entry.position), len(bucket))
-        bucket.insert(at, entry)
-    new_data = {**data, "files": {k: [e.entry for e in out[k]] for k in sorted(out) if out[k]}}
-    if new_data == data:
-        return None
-    old_text = raw.decode("utf-8")
-    new_text = json.dumps(new_data, indent=4)
-    shown = Path(baseline_path).relative_to(project).as_posix() if baseline_path.is_relative_to(project) else str(baseline_path)
-    description = "".join(difflib.unified_diff(old_text.splitlines(True), new_text.splitlines(True), f"a/{shown}", f"b/{shown}"))
-    write = FileWrite(rel=shown, old=raw, new=new_text.encode("utf-8"))
-    return Aligned(write=write, description=description, warnings=tuple(warnings))
+        _insert(out.setdefault(target, []), entry)
+    return out
+
+
+def _baselined(everything: list[tuple[str, Key]], unbaselined: list[tuple[str, Key]]) -> list[tuple[str, Key]]:
+    """The diagnostics the baseline hides: those shown without it, less as many of each as it lets through."""
+    shown_alone = Counter(unbaselined)
+    out: list[tuple[str, Key]] = []
+    for item in everything:
+        if shown_alone[item]:
+            shown_alone[item] -= 1
+        else:
+            out.append(item)
+    return out
+
+
+def _followed(files: _Files, rel: str, entries: list[dict[str, Any]], baselined: list[Key], baseline_rel: str,
+              warnings: list[str]) -> dict[int, tuple[str, _Entry]]:
+    """Each paired entry's index with where it goes after the refactor; a warning for each it cannot follow."""
+    mapped: dict[int, tuple[str, _Entry]] = {}
+    for index, diag in _pairs(entries, baselined):
+        follow = _follow(files, rel, entries[index], diag)
+        if follow is None:
+            warnings.append(message("refactor.baseline-ambiguous", baseline=baseline_rel, code=entries[index].get("code"), path=rel))
+        else:
+            mapped[index] = follow
+    return mapped
+
+
+def _insert(bucket: list[_Entry], entry: _Entry) -> None:
+    """`entry` before the first positioned entry after it."""
+    at = next((i for i, e in enumerate(bucket) if e.position is not None and entry.position is not None
+               and e.position > entry.position), len(bucket))
+    bucket.insert(at, entry)
 
 
 def _follow(files: _Files, rel: str, entry: dict[str, Any], diag: Key) -> tuple[str, _Entry] | None:

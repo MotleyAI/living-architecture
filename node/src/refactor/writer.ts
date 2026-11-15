@@ -1,5 +1,6 @@
 // A refactor's apply: every file written or none.
-import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { randomBytes } from 'node:crypto';
+import { chmodSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { message } from '../contract/index.js';
 import { RefactorError } from './edits.js';
@@ -12,9 +13,15 @@ export interface Write {
 }
 
 function replace(path: string, text: string | Buffer): void {
-  const temp = join(dirname(path), `.${basename(path)}.dr-refactor-${process.pid}`);
+  const temp = join(dirname(path), `.${basename(path)}.${randomBytes(8).toString('hex')}.la-tmp`);
+  const fd = openSync(temp, 'wx', 0o600);
   try {
-    writeFileSync(temp, text);
+    try {
+      writeFileSync(fd, text);
+    } finally {
+      closeSync(fd);
+    }
+    if (existsSync(path)) chmodSync(temp, statSync(path).mode & 0o7777);
     renameSync(temp, path);
   } catch (error) {
     rmSync(temp, { force: true });
@@ -41,7 +48,7 @@ export function writeAll(writes: Write[], moves: [string, string][], shown: (pat
       written.push(path);
     }
     for (const [from, to] of moves) {
-      current = to;
+      current = from;
       mkdirSync(dirname(to), { recursive: true });
       renameSync(from, to);
       moved.push([from, to]);

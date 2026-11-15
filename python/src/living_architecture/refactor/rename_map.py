@@ -38,6 +38,7 @@ from living_architecture.refactor.text_edits import TextEdit, apply_edits, merge
 from living_architecture.refactor.writer import FileMove, FileWrite, apply, verify
 
 _WORD = re.compile(r"\w+")
+_CANNOT_RENAME = "refactor.cannot-rename"
 
 
 Renaming = SymbolRename | LiteralRename
@@ -84,7 +85,7 @@ def _key(renamer: Rename, rel: str, offset: int) -> tuple[object, ...]:
     module, line = location or (None, None)
     path = module.get_resource().path if isinstance(module, PyModule) and module.get_resource() is not None else None
     if path is None or line is None:
-        return ("site", rel, offset)
+        return ("site", rel, offset, None)
     kind = "parameter" if isinstance(pyname, pynamesdef.ParameterName) else "name"
     return (kind, path, line, renamer.get_old_name())
 
@@ -147,7 +148,7 @@ class RenameMap:
         if node is None:
             return None
         if entry.new_name is None:
-            raise RefactorError(message("refactor.cannot-rename"))
+            raise RefactorError(message(_CANNOT_RENAME))
         check_value(entry.new_name)
         return _Resolved(entry, rel, None, ("literal", rel, source.span(node)[0]), literal=node)
 
@@ -206,7 +207,7 @@ class RenameMap:
             if r.literal is not None:
                 renames.append(LiteralRename(self.session, r.rel, r.literal, str(r.entry.new_name), self.options))
             elif r.renamer is None:
-                raise RefactorError(message("refactor.cannot-rename"))
+                raise RefactorError(message(_CANNOT_RENAME))
             elif r.entry.retarget is not None:
                 target = finals.get(r.target_key) or r.target_name  # pyright: ignore[reportArgumentType]
                 renames.append(AliasRetarget(self.session, r.renamer, target, self.options, line=r.line))
@@ -365,12 +366,12 @@ def run_map(project: Project, entries: list[MapEntry], options: RenameOptions, *
         modules = [r for r in resolved if r.renamer is not None and r.renamer._is_renaming_a_module()]  # pyright: ignore[reportPrivateUsage]
         if modules:
             if len(resolved) > 1:
-                raise RefactorError(message("refactor.cannot-rename"))
+                raise RefactorError(message(_CANNOT_RENAME))
             return module_rename(modules[0])
         renames = engine.build(resolved)
         engine.compute(renames)
     except (RefactoringError, BadIdentifierError):
-        raise RefactorError(message("refactor.cannot-rename")) from None
+        raise RefactorError(message(_CANNOT_RENAME)) from None
     except LanguageServerError:
         raise RefactorError(message("refactor.pyright-failed")) from None
     except ConfigError as exc:

@@ -7,6 +7,7 @@ from __future__ import annotations
 import ast
 import bisect
 import sys
+from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any, cast
@@ -19,6 +20,7 @@ from rope.base.pyobjectsdef import PyClass, PyFunction, PyModule
 from rope.base.resources import File
 from rope.refactor import occurrences
 from rope.refactor.rename import Rename, _is_local
+from typing_extensions import override
 
 from living_architecture.config import source_files
 from living_architecture.contract import manifest, message
@@ -299,9 +301,35 @@ def _rope_offset(raw: str, offset: int) -> int:
     return offset - raw.count("\r\n", 0, offset)
 
 
-class SymbolRename:
-    """A rename of a symbol other than a module, as phases a map runs over all its entries: `prepare` (rope's
-    edits and the stand-ins), `seed` and `rules` (on the shared language server), `finish` (mentions, leftovers)."""
+class MapRename(ABC):
+    """A rename map entry's phases, run over all entries in turn: `prepare`, `seed` and `rules` (on the shared
+    language server), `finish`."""
+
+    @abstractmethod
+    def header(self) -> str: ...
+
+    @abstractmethod
+    def stand_in_findings(self) -> list[Finding]: ...
+
+    @abstractmethod
+    def prepare(self) -> None: ...
+
+    @abstractmethod
+    def seed(self, facts: TypeFacts) -> None: ...
+
+    @abstractmethod
+    def rules(self, server: LanguageServer, facts: TypeFacts) -> None: ...
+
+    @abstractmethod
+    def finish(self) -> None: ...
+
+    @abstractmethod
+    def check_conflicts(self, edits: list[TextEdit]) -> None: ...
+
+
+class SymbolRename(MapRename):
+    """A rename of a symbol other than a module: `prepare` computes rope's edits and the stand-ins, `finish` the
+    mentions and leftovers."""
 
     def __init__(self, session: Session, renamer: Rename, new_name: str, options: RenameOptions | None = None) -> None:
         self.session = session
@@ -396,6 +424,7 @@ class SymbolRename:
                         out.append(Declaration(rel=rel, start=span[0], line=source.line(span[0]), cls=cls.name))
         return sorted(out, key=lambda d: (d.rel, d.start))
 
+    @override
     def header(self) -> str:
         return f"Renaming <{self.old}> to <{self.new}>:"
 
@@ -428,6 +457,7 @@ class SymbolRename:
                     self.renamers.append(renamer)
         self._unclassified = [d for d in stand_ins if (d.rel, d.start) not in classified]
 
+    @override
     def stand_in_findings(self) -> list[Finding]:
         """The unclassified stand-ins no entry of the map renames."""
         return [
@@ -676,6 +706,7 @@ class SymbolRename:
             for outcome in literal_outcomes(rel, source, self.old, lambda s, e, rel=rel: self._overlaps(self._examined, rel, s, e)):
                 self._file(outcome)
 
+    @override
     def prepare(self) -> None:
         """rope's edits, the member declarations and the stand-in classification; raises `FileChanged`."""
         self._rope_edits()
@@ -687,6 +718,7 @@ class SymbolRename:
                 self._add_occurrences(renamer)
         self._fields = [f for r in self.renamers if (f := self._located_field(r)) is not None]
 
+    @override
     def seed(self, facts: TypeFacts) -> None:
         """The declarations only the checker's facts add; raises `NameConflict`, `UnresolvedBase`."""
         pyname = self.renamer.old_pyname
@@ -695,6 +727,7 @@ class SymbolRename:
         for field in self._fields:
             facts.chain(field[0])
 
+    @override
     def rules(self, server: LanguageServer, facts: TypeFacts) -> None:
         """Every rule that asks the checker: references, keyed classes, member strings, targets, blind spots."""
         self._reference_edits(server)
@@ -707,6 +740,7 @@ class SymbolRename:
         if self.member:
             self._blindspot_scan(scan)
 
+    @override
     def finish(self) -> None:
         """The rules that read text only: mentions with `--docs`, else a member's exact-OLD string literals."""
         if self.options.docs:
@@ -715,6 +749,7 @@ class SymbolRename:
         elif self.member:
             self._literal_leftovers()
 
+    @override
     def check_conflicts(self, edits: list[TextEdit]) -> None:
         """`NameConflict` where one of `edits` (this rename's, merged) meets the new name."""
         if not self.check_names:

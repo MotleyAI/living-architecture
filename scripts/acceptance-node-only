@@ -96,8 +96,8 @@ refactor() {
   [ "$(git diff)" = "$before" ] || fail "dry-run of $* changed files"
   dr-refactor --apply "$@"
 }
-refactor rename --file src/util/fmt.ts --name formatAmount --new-name formatMoney
-refactor move-symbol --file src/util/fmt.ts --name shout --dest src/util/text.ts
+refactor rename --file src/util/fmt.ts --symbol formatAmount --new-name formatMoney
+refactor move-symbol --file src/util/fmt.ts --symbol shout --dest src/util/text.ts
 refactor move-module --module src/api/handler.ts --dest src/api/routes
 grep -q 'formatMoney' src/core/ledger.ts || fail "rename did not reach src/core/ledger.ts"
 grep -qE "from ['\"]\.\./\.\./util/text['\"]" src/api/routes/handler.ts || fail "move-symbol did not rewrite the import of shout"
