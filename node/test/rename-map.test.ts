@@ -204,6 +204,24 @@ export function run(b: Base): void {
     expect(read(root, 'src/a.ts')).toBe('\uFEFFexport const c = 1;\nexport const b = c + 1;\n');
   });
 
+  it('rewrites a mention in a prose file with a byte-order mark at the mention', () => {
+    const root = tsProject({ 'src/a.ts': 'export class Api {\n  old(): number {\n    return 1;\n  }\n}\n', 'README.md': '\uFEFFCall `Api.old` first.\n' });
+    const result = refactor(root, '--apply', 'rename', '--file', 'src/a.ts', '--symbol', 'Api.old', '--new-name', 'modern', '--docs');
+    expect([result.code, result.err]).toEqual([0, '']);
+    expect(read(root, 'README.md')).toBe('\uFEFFCall `Api.modern` first.\n');
+  });
+
+  it('refuses a parameter property and a field converging on one name', () => {
+    const f = 'export class C {\n  b = 2;\n\n  constructor(public a: number) {}\n}\n';
+    const root = withMap({ 'src/f.ts': f }, [
+      { file: 'src/f.ts', symbol: 'C.a', new_name: 'x' },
+      { file: 'src/f.ts', symbol: 'C.b', new_name: 'x' },
+    ]);
+    const result = refactor(root, '--apply', 'rename-map', 'map.yaml');
+    expect(result).toEqual({ code: 1, out: '', err: `${message('refactor.name-conflict', { name: 'x', path: 'src/f.ts', line: 4 })}\n` });
+    expect(read(root, 'src/f.ts')).toBe(f);
+  });
+
   it('lets the variables of two catch clauses take one name', () => {
     const f = 'export function f(): number {\n  try {\n    return 1;\n  } catch (one) {\n    void one;\n  }\n  try {\n    return 2;\n  } catch (two) {\n    void two;\n  }\n  return 0;\n}\n';
     const root = withMap({ 'src/f.ts': f }, [

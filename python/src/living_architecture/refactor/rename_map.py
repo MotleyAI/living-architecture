@@ -37,7 +37,7 @@ from living_architecture.refactor.routing import language_files
 from living_architecture.refactor.sites import Keeps, SiteError
 from living_architecture.refactor.symbol_path import LocatorError, declaration_scope, locate
 from living_architecture.refactor.text_edits import TextEdit, apply_edits, merge_edits
-from living_architecture.refactor.writer import FileMove, FileWrite, apply, verify
+from living_architecture.refactor.writer import FileChanged, FileMove, FileWrite, apply, verify
 
 _WORD = re.compile(r"\w+")
 _CANNOT_RENAME = "refactor.cannot-rename"
@@ -352,14 +352,16 @@ class RenameMap:
 
 
 def source_bytes(project: Project) -> dict[str, bytes]:
-    """Every Python source's bytes, read before rope computes a change set from them."""
+    """Every file rope or la counts as Python source, its bytes read before rope computes a change set from them."""
     root = Path(project.address).resolve()
-    return {path.relative_to(root).as_posix(): path.read_bytes() for path in language_files(root, "python")}
+    rels = {path.relative_to(root).as_posix() for path in language_files(root, "python")}
+    rels |= {f.path for f in project.get_python_files()}
+    return {rel: (root / rel).read_bytes() for rel in sorted(rels)}
 
 
-def change_set_writes(project: Project, changes: ChangeSet, before: dict[str, bytes]) -> tuple[list[FileWrite], list[FileMove]]:
-    """A rope change set as writes and moves, each write's old bytes as `before` holds them."""
-    root = Path(project.address).resolve()
+def change_set_writes(changes: ChangeSet, before: dict[str, bytes]) -> tuple[list[FileWrite], list[FileMove]]:
+    """A rope change set as writes and moves, each write's old bytes as `before` holds them; `FileChanged` for a
+    write `before` does not hold, as its bytes cannot be checked against what rope read."""
     writes: list[FileWrite] = []
     moves: list[FileMove] = []
     for change in changes.changes:
@@ -368,7 +370,9 @@ def change_set_writes(project: Project, changes: ChangeSet, before: dict[str, by
             file.read()
             data = unicode_to_file_data(change.new_contents, newlines=file.newlines)
             old = before.get(file.path)
-            writes.append(FileWrite(rel=file.path, old=(root / file.path).read_bytes() if old is None else old, new=bytes(data)))
+            if old is None:
+                raise FileChanged(file.path)
+            writes.append(FileWrite(rel=file.path, old=old, new=bytes(data)))
         elif isinstance(change, MoveResource):
             moves.append(FileMove(rel=change.resource.path, dest=change.new_resource.path))
     return writes, moves

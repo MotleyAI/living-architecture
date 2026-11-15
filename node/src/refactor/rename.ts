@@ -7,7 +7,7 @@ import { sourceFiles } from '../config/index.js';
 import { byCodePoint, literalValueForbidden, manifest, message } from '../contract/index.js';
 import { stripSourceExtension, ts } from '../lang/index.js';
 import { isCompound } from './compound.js';
-import { type Edit, mergeEdits, RefactorError } from './edits.js';
+import { type Edit, mergeEdits, RefactorError, splitBom } from './edits.js';
 import { Lines } from './lines.js';
 import { anyAccesses, type FormCall, formCalls, isAny, type MemberDeclaration, memberDeclarations, memberNameStart, walk } from './members.js';
 import { codeMarked, type Mention, mentions, type Owner, qualified, type Region, sourceRegions } from './mentions.js';
@@ -129,7 +129,7 @@ class Session {
   text(path: string): string {
     let text = this.texts.get(path);
     if (text === undefined) {
-      text = this.sources.get(path)?.source.text ?? readFileSync(path, 'utf8');
+      text = this.sources.get(path)?.source.text ?? splitBom(readFileSync(path, 'utf8'))[1];
       this.texts.set(path, text);
     }
     return text;
@@ -575,24 +575,62 @@ function duplicateImport(source: TS.SourceFile, checker: TS.TypeChecker, node: T
   return [edit, ...twins.map((t) => removeSpecifier(source, t))];
 }
 
-/** Where a module re-exports `name` (`export { name }`, `export { local as name }`, `export { name } from`): those
- * specifiers and its imports binding the exported locals. */
-function reexportSpans(source: TS.SourceFile, name: string): [number, number][] {
+/** What a retarget leaves in a file because a kept re-export binds it: the spans of the specifiers that re-export
+ * or import ALIAS, and the local symbols those imports bind (so their uses stay too). */
+interface Kept {
+  spans: [number, number][];
+  symbols: Set<TS.Symbol>;
+}
+
+/** The imports of `name` in `source` whose module re-exports it without exporting `target`. */
+function shimImports(source: TS.SourceFile, checker: TS.TypeChecker, name: string, target: string): TS.ImportSpecifier[] {
+  return source.statements.flatMap((s) => {
+    const bindings = ts().isImportDeclaration(s) ? s.importClause?.namedBindings : undefined;
+    if (bindings === undefined || !ts().isNamedImports(bindings) || !ts().isImportDeclaration(s)) return [];
+    const module = checker.getSymbolAtLocation(s.moduleSpecifier);
+    const exports = module === undefined ? [] : checker.getExportsOfModule(module);
+    const reexported = exports.some((e) => e.name === name && (e.flags & ts().SymbolFlags.Alias) !== 0); // NOSONAR(S1529) — SymbolFlags bitmask test
+    if (!reexported || exports.some((e) => e.name === target)) return [];
+    return bindings.elements.filter((e) => (e.propertyName ?? e.name).text === name);
+  });
+}
+
+/** What a kept re-export binds in `source`: where the module re-exports `name` (`export { name }`, `export { local
+ * as name }`, `export { name } from`), those specifiers and its imports of the exported locals; where it imports
+ * `name` from a module re-exporting it without exporting `target`, that import. */
+function keptBindings(source: TS.SourceFile, checker: TS.TypeChecker, name: string, target: string): Kept {
   const exported = source.statements.flatMap((s) =>
     ts().isExportDeclaration(s) && s.exportClause !== undefined && ts().isNamedExports(s.exportClause) ? s.exportClause.elements.filter((e) => e.name.text === name) : [],
   );
-  if (exported.length === 0) return [];
   const local = exported.filter((e) => e.parent.parent.moduleSpecifier === undefined);
   const locals = new Set(local.map((e) => (e.propertyName ?? e.name).text));
-  const imported = source.statements.flatMap((s): TS.Node[] => {
+  const imported = source.statements.flatMap((s): TS.Identifier[] => {
     const clause = ts().isImportDeclaration(s) ? s.importClause : undefined;
     const bindings = clause?.namedBindings;
-    const named = bindings !== undefined && ts().isNamedImports(bindings) ? bindings.elements.filter((e) => locals.has(e.name.text)) : [];
-    const namespace = bindings !== undefined && ts().isNamespaceImport(bindings) && locals.has(bindings.name.text) ? [bindings] : [];
+    const named = bindings !== undefined && ts().isNamedImports(bindings) ? bindings.elements.filter((e) => locals.has(e.name.text)).map((e) => e.name) : [];
+    const namespace = bindings !== undefined && ts().isNamespaceImport(bindings) && locals.has(bindings.name.text) ? [bindings.name] : [];
     const own = clause?.name !== undefined && locals.has(clause.name.text) ? [clause.name] : [];
     return [...own, ...namespace, ...named];
   });
-  return [...exported, ...imported].map((node) => [node.getStart(source), node.end]);
+  const shims = shimImports(source, checker, name, target);
+  const bound = [...imported, ...shims.map((e) => e.name)];
+  const spans = [...exported, ...imported.map((n) => (ts().isImportSpecifier(n.parent) ? n.parent : n)), ...shims];
+  return {
+    spans: spans.map((node) => [node.getStart(source), node.end]),
+    symbols: new Set(bound.flatMap((n) => checker.getSymbolAtLocation(n) ?? [])),
+  };
+}
+
+/** `edit` is at a span or a use a kept re-export binds. */
+function keptEdit(found: ProjectSource, kept: Kept, edit: Edit): boolean {
+  if (kept.spans.some(([start, end]) => start <= edit.start && edit.start < end)) return true;
+  if (kept.symbols.size === 0) return false;
+  const node = nodeAt(found.source, edit.start);
+  if (!ts().isIdentifier(node)) return false;
+  const symbol = ts().isShorthandPropertyAssignment(node.parent)
+    ? found.checker.getShorthandAssignmentValueSymbol(node.parent)
+    : found.checker.getSymbolAtLocation(node);
+  return symbol !== undefined && kept.symbols.has(symbol);
 }
 
 /** A retarget's rename locations checked and adjusted: overrides and shadowed uses as findings, duplicate imports removed. */
@@ -606,14 +644,14 @@ function retargetEdits(session: Session, target: Target, targetKey: string): Fin
     }
   }
   const all = ts().SymbolFlags.Value | ts().SymbolFlags.Type | ts().SymbolFlags.Namespace; // NOSONAR(S1529) — SymbolFlags bitmask
-  const kept = new Map<string, [number, number][]>();
-  const reexport = (path: string, source: TS.SourceFile, at: number): boolean => {
-    if (!kept.has(path)) kept.set(path, reexportSpans(source, target.old));
-    return (kept.get(path) ?? []).some(([start, end]) => start <= at && at < end);
+  const kept = new Map<string, Kept>();
+  const keeps = (found: ProjectSource, edit: Edit): boolean => {
+    if (!kept.has(edit.path)) kept.set(edit.path, keptBindings(found.source, found.checker, target.old, target.newName));
+    return keptEdit(found, kept.get(edit.path) as Kept, edit);
   };
   target.edits = target.edits.flatMap((edit) => {
     const found = session.sources.get(edit.path);
-    if (found !== undefined && reexport(edit.path, found.source, edit.start)) return [];
+    if (found !== undefined && keeps(found, edit)) return [];
     if (found === undefined || target.own.has(keyOf(edit.path, edit.start))) return [edit];
     const node = nodeAt(found.source, edit.start);
     const imports = duplicateImport(found.source, found.checker, node, edit, target.newName);
@@ -724,6 +762,7 @@ function blockOf(node: TS.Node): TS.Node {
  * declaration's block, else its function, class or file. */
 function bindingScope(d: TS.Declaration): string {
   const at = (node: TS.Node): string => `${node.getSourceFile().fileName}\0${node.pos}\0${node.end}`;
+  if (ts().isParameter(d) && ts().isParameterPropertyDeclaration(d, d.parent)) return `${at(d.parent.parent)}\0instance`;
   if (ts().isClassLike(d.parent)) {
     const isStatic = ts().canHaveModifiers(d) && (ts().getModifiers(d) ?? []).some((m) => m.kind === ts().SyntaxKind.StaticKeyword);
     return `${at(d.parent)}\0${isStatic ? 'static' : 'instance'}`;

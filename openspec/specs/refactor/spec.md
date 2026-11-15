@@ -1540,7 +1540,9 @@ is bound to something else SHALL refuse with `refactor.retarget-shadowed`. Where
 a duplicate of an import of TARGET from the same module, the later of the two SHALL be removed, so the module keeps its
 first import's place. A module's re-export of ALIAS SHALL
 stay: where the module lists ALIAS's name in `__all__` (Python) or exports it (TypeScript `export { ALIAS }` or
-`export { ALIAS } from`), its import or export of ALIAS and that `__all__` string SHALL be left unchanged.
+`export { ALIAS } from`), its import or export of ALIAS and that `__all__` string SHALL be left unchanged. A reference that a kept re-export
+binds SHALL stay too: a use of ALIAS in the re-exporting module's own body, and, in a module importing ALIAS from a
+module that re-exports it without exporting TARGET, that import and its uses.
 
 #### Scenario: Method twin
 - **WHEN** `class Engine` declares `save_model` and a deprecated `def save(self, m: Model) -> None: return
@@ -1571,6 +1573,12 @@ stay: where the module lists ALIAS's name in `__all__` (Python) or exports it (T
   `AcmeModel` is retargeted to `Model`
 - **THEN** `compat.py` is unchanged and every other reference to `AcmeModel` becomes `Model`
 
+#### Scenario: Single-name shim kept with its importers
+- **WHEN** `compat.py` holds `from pkg.models import AcmeModel`, `__all__ = ["AcmeModel"]` and `def make(): return
+  AcmeModel()`, `use.py` imports `AcmeModel` from `pkg.compat`, and `AcmeModel` is retargeted to `Model`
+- **THEN** `compat.py` and `use.py` are unchanged and the references importing `AcmeModel` from `pkg.models` become
+  `Model`
+
 #### Scenario: TypeScript merged alias
 - **WHEN** a TypeScript class declares `/** @deprecated */ get old(): number { return this.value; }` and `value`,
   and `retarget --symbol C.old --target C.value` runs
@@ -1592,7 +1600,7 @@ Every `dr-refactor` subcommand SHALL keep the baseline of each language it edits
 `commands.typecheck` entry is set and its `baseline_file` exists at the repo root and lists a file the refactor
 affects. A baselined diagnostic that the refactor moves, by an edit on its line, a moved file or a moved
 declaration, SHALL stay baselined; no diagnostic SHALL become baselined that was not. The baseline SHALL appear in
-the printed diff and be written with the sources, in dry-run and `--apply` alike. Diagnostic ranges SHALL be mapped
+the printed diff in dry-run and `--apply` alike, and with `--apply` be written with the sources. Diagnostic ranges SHALL be mapped
 through the refactor's edits: a start at or inside a replaced span SHALL map to the replacement's start, an end
 inside or at the end of one to the replacement's end; at an insertion point a start SHALL map after the inserted
 text and an end before it, and an empty range SHALL map both ends as its start.

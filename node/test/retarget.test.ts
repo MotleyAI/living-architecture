@@ -93,6 +93,30 @@ describe('retarget', () => {
     expect(read(root, 'src/use.ts')).toBe(use);
   });
 
+  it.each([
+    ['an import re-exported and used', "import { legacy } from './api';\n\nexport { legacy };\n\nexport function make(): number {\n  return legacy();\n}\n"],
+    ['an export from', "export { legacy } from './api';\n"],
+  ])('keeps a single-name shim and its importers (%s)', (_kind, shim) => {
+    const use = "import { legacy } from './shim';\n\nexport const a = legacy();\n";
+    const direct = "import { legacy } from './api';\n\nexport const b = legacy();\n";
+    const root = tsProject({ 'src/api.ts': API, 'src/shim.ts': shim, 'src/use.ts': use, 'src/direct.ts': direct });
+    const result = refactor(root, '--apply', 'retarget', '--file', 'src/api.ts', '--symbol', 'legacy', '--target', 'modern');
+    expect([result.code, result.err]).toEqual([0, '']);
+    expect([read(root, 'src/shim.ts'), read(root, 'src/use.ts')]).toEqual([shim, use]);
+    expect(read(root, 'src/direct.ts')).toBe("import { modern } from './api';\n\nexport const b = modern();\n");
+    expect(diagnosticCodes(root)).toEqual([]);
+  });
+
+  it('keeps an importer of a single-name shim under a local alias', () => {
+    const shim = "import { legacy } from './api';\n\nexport { legacy };\n";
+    const use = "import { legacy as old } from './shim';\n\nexport const a = { old };\n";
+    const root = tsProject({ 'src/api.ts': API, 'src/shim.ts': shim, 'src/use.ts': use });
+    const result = refactor(root, '--apply', 'retarget', '--file', 'src/api.ts', '--symbol', 'legacy', '--target', 'modern');
+    expect([result.code, result.err]).toEqual([0, '']);
+    expect([read(root, 'src/shim.ts'), read(root, 'src/use.ts')]).toEqual([shim, use]);
+    expect(diagnosticCodes(root)).toEqual([]);
+  });
+
   it('keeps an aliased re-export shim, whose importers the rename does not reach', () => {
     const shim = "import { modern, legacy as old } from './api';\n\nexport { modern, old as legacy };\n";
     const use = "import { legacy } from './shim';\n\nexport const n = legacy();\n";

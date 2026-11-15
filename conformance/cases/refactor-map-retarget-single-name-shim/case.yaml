@@ -1,0 +1,15 @@
+kind: paired
+languages:
+- python
+- typescript
+command: dr-refactor
+args:
+- rename-map
+- renames.yaml
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: 'a single-name re-export shim, its own uses and its importers stay; only importers of the defining module are
+  rewritten, in both languages'
