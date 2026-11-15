@@ -1,0 +1,6 @@
+timing: load <S>s
+timing: resolve <S>s
+timing: references <S>s
+timing: rules <S>s
+timing: baseline <S>s
+timing: total <S>s

@@ -1,0 +1,8 @@
+the python type checker failed, so the baseline cannot be realigned and nothing was refactored
+timing: load <S>s
+timing: resolve <S>s
+timing: references <S>s
+timing: rules <S>s
+timing: blindspot-scan <S>s
+timing: baseline <S>s
+timing: total <S>s

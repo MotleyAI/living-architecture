@@ -369,6 +369,7 @@ findings:
   refactor.literal-value: '--new-name {value!r} holds a quote, backtick, backslash, ${{, NUL or line break, which a literal member cannot'
   refactor.literal-unresolved: '{path}:{line}: literal-unresolved: the checker needs {old!r} here, where no string literal can be rewritten'
   refactor.compound: '{path}:{line}: leftover: declaration {name} contains {old}'
+  refactor.timing: 'timing: {phase} {seconds}s'
 
   # ---- dr-compliance
   compliance.untyped-def: '{path}:{line}: untyped-def: {name}() missing {missing}'

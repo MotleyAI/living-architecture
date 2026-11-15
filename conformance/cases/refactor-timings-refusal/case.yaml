@@ -1,0 +1,26 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- --timings
+- rename
+- --file
+- pkg/store.py
+- --symbol
+- Storage.get_model
+- --new-name
+- get_dataset
+fixture: refactor-typed
+git:
+- commit: init
+normalize:
+- {pattern: '\d+\.\d\ds', replace: '<S>s'}
+expect:
+  exit: 1
+  files:
+  - pkg/store.py
+  - pkg/use.py
+  - tests/test_a.py
+golden: manual
+note: '--timings on a member rename refusing on a blind spot: exit 1, the timing lines after the refusal'

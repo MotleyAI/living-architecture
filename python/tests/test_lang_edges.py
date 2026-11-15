@@ -1,8 +1,10 @@
 """Python dependency edges for `la-affected-tests`: every import, resolved to repo files by dotted suffix."""
 
+import ast
 import os
 import threading
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -144,3 +146,153 @@ def test_a_file_that_is_not_regular_is_not_read(tmp_path):
     assert found, "reading a FIFO blocked"
     assert _targets(found[0], "tests/test_pipe.py") == set()
     assert "src/pkg/b.py" in _targets(found[0], "tests/test_a.py")
+
+
+def test_py_only_edges_unchanged(tmp_path):
+    files = {
+        "src/pkg/__init__.py": "from .a import f\n",
+        "src/pkg/a.py": "import pkg.b\n",
+        "src/pkg/b.py": "from pkg import c\n",
+        "src/pkg/c.py": "",
+        "src/pkg/sub/__init__.py": "",
+        "src/pkg/sub/d.py": "from .. import b\nfrom pkg.sub import *\n",
+        "tests/test_x.py": "from pkg.sub.d import g\n",
+    }
+    assert _edges(tmp_path, files) == {
+        ("src/pkg/__init__.py", "src/pkg/a.py"),
+        ("src/pkg/a.py", "src/pkg/__init__.py"),
+        ("src/pkg/a.py", "src/pkg/b.py"),
+        ("src/pkg/b.py", "src/pkg/__init__.py"),
+        ("src/pkg/b.py", "src/pkg/c.py"),
+        ("src/pkg/c.py", "src/pkg/__init__.py"),
+        ("src/pkg/sub/__init__.py", "src/pkg/__init__.py"),
+        ("src/pkg/sub/d.py", "src/pkg/__init__.py"),
+        ("src/pkg/sub/d.py", "src/pkg/b.py"),
+        ("src/pkg/sub/d.py", "src/pkg/sub/__init__.py"),
+        ("tests/test_x.py", "src/pkg/__init__.py"),
+        ("tests/test_x.py", "src/pkg/sub/__init__.py"),
+        ("tests/test_x.py", "src/pkg/sub/d.py"),
+    }
+
+
+TARGET = "core/kinds.py"
+DECLARES = 'from typing import Literal\n\nDriftKind = Literal["edit_model", "drop"]\n'
+REEXPORT = "from core.kinds import DriftKind as DriftKind\n"
+
+
+def _closure(files: dict[str, str], target: str = TARGET) -> set[str]:
+    """The reverse closure of `target`, each file passed as its tree, or as text when it does not parse."""
+    sources: dict[str, ast.Module | str] = {}
+    for rel, text in {TARGET: DECLARES, **files}.items():
+        try:
+            sources[rel] = ast.parse(text)
+        except SyntaxError:
+            sources[rel] = text
+    return lang.reverse_closure(target, sources)
+
+
+def test_closure_holds_the_target_and_its_importers_only():
+    files = {"core/__init__.py": "", "app/a.py": "from core.kinds import DriftKind\n", "app/b.py": "import app.a\n",
+             "app/c.py": "import os\n", "app/d.py": "from core import other\n", "core/other.py": ""}
+    assert _closure(files) == {TARGET, "app/a.py", "app/b.py"}
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "import core.kinds\n",
+        "from core import kinds\n",
+        "from typing import TYPE_CHECKING\n\nif TYPE_CHECKING:\n    from core.kinds import DriftKind\n",
+        "def f():\n    from core.kinds import DriftKind\n",
+        "class C:\n    from core.kinds import DriftKind\n",
+        "import sys\n\nif sys.version_info >= (3, 99):\n    from core.kinds import DriftKind\n",
+        "try:\n    from core.kinds import DriftKind\nexcept ImportError:\n    pass\n",
+    ],
+    ids=["import", "from-package", "type-checking", "in-function", "in-class", "conditional", "in-try"],
+)
+def test_closure_follows_every_import_statement(source):
+    assert "app/use.py" in _closure({"core/__init__.py": "", "app/use.py": source})
+
+
+def test_closure_through_a_chain_of_reexports():
+    files = {"a/__init__.py": REEXPORT, "b/__init__.py": "from a import DriftKind as DriftKind\n",
+             "app/use.py": "from b import DriftKind\n"}
+    assert {"a/__init__.py", "b/__init__.py", "app/use.py"} <= _closure(files)
+
+
+@pytest.mark.parametrize(
+    ("rel", "source"),
+    [("core/use.py", "from . import kinds\n"), ("core/use.py", "from .kinds import DriftKind\n"),
+     ("core/sub/use.py", "from .. import kinds\n"), ("core/sub/use.py", "from ..kinds import DriftKind\n")],
+    ids=["dot-name", "dot-module", "dotdot-name", "dotdot-module"],
+)
+def test_closure_through_a_relative_import(rel, source):
+    assert rel in _closure({"core/__init__.py": "", "core/sub/__init__.py": "", rel: source})
+
+
+def test_star_import_reaches_every_direct_submodule():
+    files = {"core/__init__.py": '__all__ = ["kinds"]\n', "app/use.py": "from core import *\n"}
+    assert "app/use.py" in _closure(files)
+
+
+def test_closure_through_a_stub_module():
+    files = {"shim.py": "", "shim.pyi": REEXPORT, "app/use.py": "from shim import DriftKind\n"}
+    assert "app/use.py" in _closure(files)
+
+
+def test_closure_through_a_package_initializer_stub():
+    files = {"api/__init__.py": "", "api/__init__.pyi": REEXPORT, "app/use.py": "from api import DriftKind\n"}
+    assert "app/use.py" in _closure(files)
+
+
+@pytest.mark.parametrize("source", ["from . import x\n", "from .x import DriftKind\n"], ids=["name", "module"])
+def test_closure_through_a_relative_import_of_a_stub(source):
+    files = {"api/__init__.pyi": "", "api/x.pyi": REEXPORT, "api/use.py": source}
+    assert "api/use.py" in _closure(files)
+
+
+@pytest.mark.parametrize(
+    ("stub", "source"),
+    [("typings/vendor-stubs/__init__.pyi", "from vendor import DriftKind\n"),
+     ("typings/vendor-stubs/sub.pyi", "import vendor.sub\n")],
+    ids=["package", "submodule"],
+)
+def test_closure_through_a_stubs_directory(stub, source):
+    assert "app/use.py" in _closure({stub: REEXPORT, "app/use.py": source})
+
+
+def test_closure_through_a_namespace_package():
+    files = {"ns/core/kinds.py": DECLARES, "app/use.py": "from core.kinds import DriftKind\n"}
+    assert "app/use.py" in _closure(files, target="ns/core/kinds.py")
+
+
+def test_a_builtins_stub_that_reaches_the_target_reaches_every_file():
+    files = {"__builtins__.pyi": REEXPORT, "other/x.py": "def f() -> None: ...\n"}
+    assert "other/x.py" in _closure(files)
+
+
+def test_a_builtins_stub_that_does_not_reach_the_target_adds_nothing():
+    files = {"__builtins__.pyi": "import os\n", "other/x.py": "def f() -> None: ...\n"}
+    assert "other/x.py" not in _closure(files)
+
+
+def test_a_file_that_does_not_parse_is_read_lexically():
+    files = {"app/use.py": "from core.kinds import DriftKind\n\ndef broken(:\n"}
+    assert "app/use.py" in _closure(files)
+
+
+def test_parsed_trees_are_not_parsed_again(monkeypatch):
+    trees: dict[str, ast.Module | str] = {
+        TARGET: ast.parse(DECLARES), "app/use.py": ast.parse("from core.kinds import DriftKind\n")
+    }
+    parse = ast.parse
+    calls: list[object] = []
+
+    def counted(*args: Any, **kwargs: Any) -> ast.Module:
+        calls.append(args)
+        return parse(*args, **kwargs)
+
+    monkeypatch.setattr(ast, "parse", counted)
+    closure = lang.reverse_closure(TARGET, trees)
+    monkeypatch.undo()
+    assert (closure, calls) == ({TARGET, "app/use.py"}, [])
