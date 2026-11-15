@@ -1,6 +1,6 @@
 ## 0. Stage order (read first)
 
-- [ ] 0.1 This branch starts from the DEV-2295 branch tip (`egor/dev-2295-living-architecture-dr-refactor-names-symbols`)
+- [x] 0.1 This branch starts from the DEV-2295 branch tip (`egor/dev-2295-living-architecture-dr-refactor-names-symbols`)
       and carries its unarchived change; leave that change and its tests alone. The diff from `main` therefore already
       holds DEV-2295's tests, so `/la:pr` stage detection can pick `pr-implement`: while section 1 is open, the stage
       is `pr-tests`. pr-tests writes only the tests below; pr-implement does sections 2–3.
