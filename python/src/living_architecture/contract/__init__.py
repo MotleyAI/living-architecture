@@ -24,6 +24,7 @@ from living_architecture.contract.snapshot import (
     schema,
     script_path,
     snapshot_dir,
+    timing_phases,
 )
 from living_architecture.contract.yaml_profile import DuplicateKeyError, YAMLError, load_yaml
 
@@ -57,5 +58,6 @@ __all__ = [
     "schema",
     "script_path",
     "snapshot_dir",
+    "timing_phases",
     "validate",
 ]

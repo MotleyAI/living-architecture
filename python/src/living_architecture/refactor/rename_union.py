@@ -63,6 +63,7 @@ from living_architecture.refactor.routing import language_files
 from living_architecture.refactor.sites import Site
 from living_architecture.refactor.static_resolver import Module
 from living_architecture.refactor.text_edits import TextEdit
+from living_architecture.refactor.timings import timed
 from living_architecture.refactor.writer import FileChanged
 
 
@@ -709,45 +710,51 @@ class SymbolRename(MapRename):
     @override
     def prepare(self) -> None:
         """rope's edits, the member declarations and the stand-in classification; raises `FileChanged`."""
-        self._rope_edits()
-        self._declarations = self._member_declarations()
-        self.member = self.is_member()
-        if self.member:
-            self._classify()
-            for renamer in self.renamers[1:]:
-                self._add_occurrences(renamer)
-        self._fields = [f for r in self.renamers if (f := self._located_field(r)) is not None]
+        with timed("references"):
+            self._rope_edits()
+            self._declarations = self._member_declarations()
+            self.member = self.is_member()
+            if self.member:
+                self._classify()
+                for renamer in self.renamers[1:]:
+                    self._add_occurrences(renamer)
+            self._fields = [f for r in self.renamers if (f := self._located_field(r)) is not None]
 
     @override
     def seed(self, facts: TypeFacts) -> None:
         """The declarations only the checker's facts add; raises `NameConflict`, `UnresolvedBase`."""
-        pyname = self.renamer.old_pyname
-        if isinstance(pyname, pynamesdef.ParameterName):
-            self._parameter_seeds(facts, pyname.pyfunction)
-        for field in self._fields:
-            facts.chain(field[0])
+        with timed("rules"):
+            pyname = self.renamer.old_pyname
+            if isinstance(pyname, pynamesdef.ParameterName):
+                self._parameter_seeds(facts, pyname.pyfunction)
+            for field in self._fields:
+                facts.chain(field[0])
 
     @override
     def rules(self, server: LanguageServer, facts: TypeFacts) -> None:
         """Every rule that asks the checker: references, keyed classes, member strings, targets, blind spots."""
-        self._reference_edits(server)
-        for field in self._fields:
-            self._keyed_edits(facts, field)
-        scan = MemberScan(server, self.old, self.session.load)
-        if self.member:
-            self._string_member_edits(scan)
-        self._target_edits(scan, self.member)
-        if self.member:
-            self._blindspot_scan(scan)
+        with timed("references"):
+            self._reference_edits(server)
+        with timed("rules"):
+            for field in self._fields:
+                self._keyed_edits(facts, field)
+            scan = MemberScan(server, self.old, self.session.load)
+            if self.member:
+                self._string_member_edits(scan)
+            self._target_edits(scan, self.member)
+            if self.member:
+                with timed("blindspot-scan"):
+                    self._blindspot_scan(scan)
 
     @override
     def finish(self) -> None:
         """The rules that read text only: mentions with `--docs`, else a member's exact-OLD string literals."""
-        if self.options.docs:
-            self._mention_edits()
-            self._compound_names()
-        elif self.member:
-            self._literal_leftovers()
+        with timed("rules"):
+            if self.options.docs:
+                self._mention_edits()
+                self._compound_names()
+            elif self.member:
+                self._literal_leftovers()
 
     @override
     def check_conflicts(self, edits: list[TextEdit]) -> None:

@@ -12,6 +12,7 @@ from living_architecture import twin
 from living_architecture.config import ConfigError, find_repo_root, load_config, repo_languages
 from living_architecture.contract import glob_match, language, language_ids, language_of, message
 from living_architecture.refactor.map_file import MapError, load_map, map_language
+from living_architecture.refactor.timings import report
 
 
 class RoutingError(Exception):
@@ -191,22 +192,26 @@ def refactor_language(args: Any) -> str:
 
 
 def route_refactor(argv: list[str], args: Any, native: Callable[[], int]) -> int:
-    """`dr-refactor`: run natively, or hand the raw ARGV to the source language's twin."""
-    try:
-        lang_id = refactor_language(args)
-    except MapError as exc:
-        print(exc, file=sys.stderr)
-        return 2
-    except RoutingError as exc:
-        print(exc, file=sys.stderr)
-        return 1
-    if lang_id == twin.NATIVE_LANGUAGE:
-        return native()
-    try:
-        return twin.forward("dr-refactor", lang_id, argv, repo_root=find_repo_root(Path.cwd()))
-    except twin.TwinError as exc:
-        print(message("twin.error", prog="dr-refactor", error=str(exc)), file=sys.stderr)
-        return 2
+    """`dr-refactor`: run natively, or hand the raw ARGV to the source language's twin; with `--timings`, the phase
+    times follow, unless the other twin ran and printed its own."""
+    with report(bool(args.timings)) as scope:
+        try:
+            lang_id = refactor_language(args)
+        except MapError as exc:
+            print(exc, file=sys.stderr)
+            return 2
+        except RoutingError as exc:
+            print(exc, file=sys.stderr)
+            return 1
+        if lang_id == twin.NATIVE_LANGUAGE:
+            return native()
+        try:
+            code = twin.forward("dr-refactor", lang_id, argv, repo_root=find_repo_root(Path.cwd()))
+        except twin.TwinError as exc:
+            print(message("twin.error", prog="dr-refactor", error=str(exc)), file=sys.stderr)
+            return 2
+        scope.cancel()
+        return code
 
 
 def compliance_selection(select: str | None) -> set[str] | None:

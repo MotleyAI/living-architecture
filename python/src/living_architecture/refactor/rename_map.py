@@ -8,6 +8,7 @@ import ast
 import re
 import sys
 from collections.abc import Callable, Iterable
+from contextlib import ExitStack
 from pathlib import Path
 from typing import Any
 
@@ -37,6 +38,7 @@ from living_architecture.refactor.routing import language_files
 from living_architecture.refactor.sites import Keeps, SiteError
 from living_architecture.refactor.symbol_path import LocatorError, declaration_scope, locate
 from living_architecture.refactor.text_edits import TextEdit, apply_edits, merge_edits
+from living_architecture.refactor.timings import timed
 from living_architecture.refactor.writer import FileChanged, FileMove, FileWrite, apply, verify
 
 _WORD = re.compile(r"\w+")
@@ -257,9 +259,11 @@ class RenameMap:
             r.prepare()
         self._check_sites(active)
         candidates = sorted({rel for r in active for rel in r.candidates})
-        with LanguageServer(self.root, read=self.session.read) as server:
-            for rel in candidates:
-                server.open(self.root / rel, self.session.snapshot.text(rel))
+        with ExitStack() as stack:
+            with timed("load"):
+                server = stack.enter_context(LanguageServer(self.root, read=self.session.read))
+                for rel in candidates:
+                    server.open(self.root / rel, self.session.snapshot.text(rel))
             facts = TypeFacts(server, self.session.load)
             for r in active:
                 r.seed(facts)
@@ -274,7 +278,8 @@ class RenameMap:
             r.finish()
             r.edits = merge_edits(r.edits)
             if isinstance(r, AliasRetarget):
-                r.retarget()
+                with timed("rules"):
+                    r.retarget()
 
     def _check_sites(self, renames: list[Renaming]) -> None:
         """`SiteError` for the first `--with` or `--without` site no member entry's stand-ins hold."""
@@ -382,7 +387,8 @@ def emit(project: Project, headers: list[str], changes: ChangeSet, apply_: bool,
          moves: list[FileMove], *, moved_code: bool = False, edits: dict[str, list[Edit]] | None = None) -> None:
     """Print the headers and the changes sorted by path, the realigned baseline included, then write them with
     `--apply`; `BaselineFailed` when the checker fails."""
-    aligned = align(Path(project.address), writes, moves, edits=edits, moved_code=moved_code)
+    with timed("baseline"):
+        aligned = align(Path(project.address), writes, moves, edits=edits, moved_code=moved_code)
     described = [(c.resource.path, c.get_description()) for c in changes.changes]
     if aligned is not None:
         for warning in aligned.warnings:
@@ -392,11 +398,13 @@ def emit(project: Project, headers: list[str], changes: ChangeSet, apply_: bool,
         writes = [*writes, aligned.write]
     ordered = sorted(described)
     if apply_:
-        verify(Path(project.address).resolve(), writes)
+        with timed("write"):
+            verify(Path(project.address).resolve(), writes)
     print("\n".join(headers) + "\n\n\n" + "".join(text + "\n" for _, text in ordered))
     touched = [path for path, _ in ordered]
     if apply_:
-        apply(Path(project.address).resolve(), writes, moves)
+        with timed("write"):
+            apply(Path(project.address).resolve(), writes, moves)
         print(message("refactor.applied", count=len(touched)))
         for p in touched:
             print(message("refactor.applied-file", path=p))
@@ -409,8 +417,9 @@ def run_map(project: Project, entries: list[MapEntry], options: RenameOptions, *
     """0 when computed (and written with `--apply`); `Refused` lines and exit 1 when it refuses."""
     engine = RenameMap(project, entries, options, map_shown)
     try:
-        resolved = engine.resolve()
-        engine.check_convergence(resolved)
+        with timed("resolve"):
+            resolved = engine.resolve()
+            engine.check_convergence(resolved)
         modules = [r for r in resolved if r.renamer is not None and r.renamer._is_renaming_a_module()]  # pyright: ignore[reportPrivateUsage]
         if modules:
             if len(resolved) > 1:

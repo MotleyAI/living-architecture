@@ -75,12 +75,12 @@ describe('timings', () => {
   it('times a phase left by an exception', () => {
     const clock = new Clock();
     const timer = new Timer(clock.read);
-    expect(() =>
-      timer.phase('baseline', () => {
-        clock.now += SECOND;
-        throw new Error('boom');
-      }),
-    ).toThrow('boom');
+    const boom = new Error('boom');
+    const body = (): never => {
+      clock.now += SECOND;
+      throw boom;
+    };
+    expect(() => timer.phase('baseline', body)).toThrow('boom');
     expect(timer.lines()).toEqual([line('baseline', '1.00'), line('total', '1.00')]);
   });
 

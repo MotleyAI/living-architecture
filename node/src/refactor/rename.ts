@@ -15,6 +15,7 @@ import { blindspotOutcome, compoundOutcome, formCallOutcome, literalOutcomes, me
 import { type Locator, locate, nodeAt, type ProjectSource, projectSources, type Refactor, UsageError } from './session.js';
 import { Site, SiteError } from './sites.js';
 import { locate as locateSymbol } from './symbols.js';
+import { timed } from './timings.js';
 
 /** One rename or retarget to compute: its 1-based index, its file (absolute, and as given), locator and intent. */
 export interface EntrySpec {
@@ -272,7 +273,9 @@ class NameGroup {
   scan(): void {
     for (const { source, checker } of this.holding) {
       const path = source.fileName;
-      for (const { position, receiver, literal } of anyAccesses(checker, source, this.old)) this.record(blindspotOutcome(path, position, literal ?? null, receiver, this.old));
+      for (const { position, receiver, literal } of timed('blindspot-scan', () => anyAccesses(checker, source, this.old))) {
+        this.record(blindspotOutcome(path, position, literal ?? null, receiver, this.old));
+      }
       for (const found of formCalls(checker, source, this.old)) {
         const receiver = found.object.getText(source);
         if (isAny(checker, found.object)) {
@@ -841,18 +844,21 @@ function refusal(groups: NameGroup[], blindspots: Finding[], allowed: boolean): 
 /** Run `specs` (a rename, a retarget, or a map's entries; `map` in messages) as one refactor: 0, or 1 with the refusal. */
 export function runEntries(r: Refactor, specs: EntrySpec[], map: string): number {
   checkSupported(r);
-  const targets = resolveAll(r, specs, map);
-  const session = new Session(r, targets.map((t) => t.file));
-  checkConvergence(r, session, targets);
-  const refusals = targetEdits(r, session, targets);
+  const targets = timed('resolve', () => resolveAll(r, specs, map));
+  const session = timed('load', () => new Session(r, targets.map((t) => t.file)));
+  timed('resolve', () => checkConvergence(r, session, targets));
+  const refusals = timed('references', () => targetEdits(r, session, targets));
   if (refusals.length > 0) {
     print(refusals.map((f) => f.text));
     return 1;
   }
   checkConflicts(session, targets.flatMap((t) => t.edits.map((e) => ({ ...e, entry: t.index }))));
-  const groups = [...new Set(targets.map((t) => t.old))].map((old) => new NameGroup(session, old, targets.filter((t) => t.old === old)));
-  classifySites(r, groups);
-  runRules(groups, r.args.docs === true, new Set(targets.map((t) => t.old)));
+  const groups = timed('rules', () => {
+    const named = [...new Set(targets.map((t) => t.old))].map((old) => new NameGroup(session, old, targets.filter((t) => t.old === old)));
+    classifySites(r, named);
+    runRules(named, r.args.docs === true, new Set(targets.map((t) => t.old)));
+    return named;
+  });
   const edits = keep(session, groups, r.args.keep ?? []);
   const blindspots = groups.flatMap((g) => g.blindspots).sort(byPosition);
   const leftovers = groups.flatMap((g) => g.leftovers).sort(byPosition);

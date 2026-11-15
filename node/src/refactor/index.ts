@@ -7,6 +7,7 @@ import { type MockBase, typescriptCompliance, typescriptMockLint } from './compl
 import { complianceSelection, refactorLanguage, RoutingError, runSplit, split } from './routing.js';
 import { RefactorError } from './edits.js';
 import { loadMap, MapError } from './map.js';
+import { report } from './timings.js';
 import { type RefactorArgs, runTypescriptRefactor } from './typescript.js';
 
 export { unifiedDiff } from './diff.js';
@@ -39,25 +40,31 @@ function mapLanguage(map: string): string {
   return languages[0] ?? '';
 }
 
-/** `dr-refactor`: run natively, or hand the raw ARGV to the source language's twin. */
+/** `dr-refactor`: run natively, or hand the raw ARGV to the source language's twin; with `--timings`, the phase
+ * times follow, unless the other twin ran and printed its own. */
 export function runRefactor(argv: string[], args: RefactorArgs): number {
-  let id: string;
-  try {
-    const source = args.subcommand === 'move-module' ? args.module : args.file;
-    id = args.subcommand === 'rename-map' ? mapLanguage(args.map ?? '') : refactorLanguage(args.subcommand, source ?? '', args.dest ?? '', args.project);
-  } catch (error) {
-    if (!(error instanceof RoutingError) && !(error instanceof MapError)) throw error;
-    process.stderr.write(`${error.message}\n`);
-    return error instanceof MapError ? 2 : 1;
-  }
-  if (id === twin.NATIVE_LANGUAGE) return runTypescriptRefactor(args);
-  try {
-    return twin.forward('dr-refactor', id, argv, findRepoRoot(process.cwd()));
-  } catch (error) {
-    if (!(error instanceof twin.TwinError)) throw error;
-    process.stderr.write(`${message('twin.error', { prog: 'dr-refactor', error: error.message })}\n`);
-    return 2;
-  }
+  return report(args.timings === true, (scope) => {
+    let id: string;
+    try {
+      const source = args.subcommand === 'move-module' ? args.module : args.file;
+      id = args.subcommand === 'rename-map' ? mapLanguage(args.map ?? '') : refactorLanguage(args.subcommand, source ?? '', args.dest ?? '', args.project);
+    } catch (error) {
+      if (!(error instanceof RoutingError) && !(error instanceof MapError)) throw error;
+      process.stderr.write(`${error.message}\n`);
+      return error instanceof MapError ? 2 : 1;
+    }
+    if (id === twin.NATIVE_LANGUAGE) return runTypescriptRefactor(args);
+    let code: number;
+    try {
+      code = twin.forward('dr-refactor', id, argv, findRepoRoot(process.cwd()));
+    } catch (error) {
+      if (!(error instanceof twin.TwinError)) throw error;
+      process.stderr.write(`${message('twin.error', { prog: 'dr-refactor', error: error.message })}\n`);
+      return 2;
+    }
+    scope.cancel();
+    return code;
+  });
 }
 
 /** `dr-compliance`: each file with its language's checks, the other language's in its twin. */

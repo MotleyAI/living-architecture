@@ -24,6 +24,7 @@ from living_architecture.refactor.rename_union import MapRename, RenameOptions, 
 from living_architecture.refactor.routing import language_files
 from living_architecture.refactor.symbol_path import LocatorError, names_literal
 from living_architecture.refactor.text_edits import TextEdit
+from living_architecture.refactor.timings import timed
 
 SENTINEL = "__la_probe_sentinel__"
 _QUOTE = re.compile(r"[rRuU]?('''|\"\"\"|'|\")")
@@ -184,19 +185,20 @@ class LiteralRename(MapRename):
     @override
     def prepare(self) -> None:
         """Every project source, and every string literal whose value is the member's."""
-        for path in language_files(self.root, "python"):
-            rel = path.relative_to(self.root).as_posix()
-            try:
-                source = self.snapshot.source(rel)
-            except (OSError, UnicodeDecodeError, LookupError):
-                continue
-            self.candidates.append(rel)
-            for site in self._equal_strings(rel, source):
-                if rel == self.rel and site.span == source.span(self.node):
-                    self._member = site
-                else:
-                    self._sites.append(site)
-        self.candidates.sort()
+        with timed("literal-scan"):
+            for path in language_files(self.root, "python"):
+                rel = path.relative_to(self.root).as_posix()
+                try:
+                    source = self.snapshot.source(rel)
+                except (OSError, UnicodeDecodeError, LookupError):
+                    continue
+                self.candidates.append(rel)
+                for site in self._equal_strings(rel, source):
+                    if rel == self.rel and site.span == source.span(self.node):
+                        self._member = site
+                    else:
+                        self._sites.append(site)
+            self.candidates.sort()
         if self._member is None or self._member.inner is None:
             raise RefactorError(message("refactor.cannot-rename"))
 
@@ -250,13 +252,14 @@ class LiteralRename(MapRename):
         """The probe's rounds: candidates, the verification, then the remaining equal strings."""
         if self._member is None or self._member.inner is None:
             return
-        before = {rel: self._errors(self._diagnostics(server, rel, None)) for rel in self.candidates}
-        typed = self._typed(server, before)
-        self._file(Outcome(kind="rewrite", rel=self.rel, span=self._member.span, edits=(self._edit(self._member),)))
-        for site in typed:
-            self._file(Outcome(kind="rewrite", rel=site.rel, span=site.span, edits=(self._edit(site),)))
-        self._verify(server, before, typed)
-        self._others(server, before, [s for s in self._sites if s not in typed])
+        with timed("literal-probe"):
+            before = {rel: self._errors(self._diagnostics(server, rel, None)) for rel in self.candidates}
+            typed = self._typed(server, before)
+            self._file(Outcome(kind="rewrite", rel=self.rel, span=self._member.span, edits=(self._edit(self._member),)))
+            for site in typed:
+                self._file(Outcome(kind="rewrite", rel=site.rel, span=site.span, edits=(self._edit(site),)))
+            self._verify(server, before, typed)
+            self._others(server, before, [s for s in self._sites if s not in typed])
 
     def _edit(self, site: _Site) -> TextEdit:
         assert site.inner is not None

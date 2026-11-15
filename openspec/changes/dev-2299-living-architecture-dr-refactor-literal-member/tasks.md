@@ -47,14 +47,14 @@
 
 ## 2. Implementation (pr-implement)
 
-- [ ] 2.1 Python timer module in `refactor` and the contract accessor for `timing_phases`; npm timer module in
+- [x] 2.1 Python timer module in `refactor` and the contract accessor for `timing_phases`; npm timer module in
       `refactor` and its accessor. Verify: 1.2 and 1.3 pass.
-- [ ] 2.2 Python `dr-refactor`: parse `--timings`, open the scope after parsing and print in a top-level `finally`
+- [x] 2.2 Python `dr-refactor`: parse `--timings`, open the scope after parsing and print in a top-level `finally`
       around routing, forwarding, native work and error translation; wrap the phases per design (`load`, `resolve`,
       `references`, `rules`, `blindspot-scan`, `literal-scan`, `literal-probe`, `baseline`, `write`) in
       `rename_map.py`, `rope_refactor.py`, `rename_union.py`, `literal_rename.py`, `baseline_align.py` call sites and
       the writer. A forwarded run prints nothing of its own. Verify: the Python `--timings` cases of 1.7 pass.
-- [ ] 2.3 npm `dr-refactor`: the same in `refactor/index.ts` (scope around `runRefactor`), `typescript.ts`,
+- [x] 2.3 npm `dr-refactor`: the same in `refactor/index.ts` (scope around `runRefactor`), `typescript.ts`,
       `rename.ts`, `session.ts`, `baseline.ts`; the first build of each program inside `load`. Verify: the TS
       `--timings` cases of 1.7 pass; `npm run build && npm run conformance` on them.
 - [ ] 2.4 `lang/edges.py`: extension-aware resolution (`.pyi`, both initializers, relative into stubs, `-stubs`
