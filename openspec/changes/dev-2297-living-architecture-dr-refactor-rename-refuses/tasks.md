@@ -18,28 +18,28 @@
       interface plus implementation, diamond / interface extending two interfaces; exit 0). TypeScript adapter:
       instance → static name (exit 0). Python adapter: `self.next` in `__init__`; `classmethod` of the new name.
       Verify: refusing cases fail before the fix.
-- [ ] 1.3 Conformance cases for the modified rename-map requirement, paired: entries capturing each other's
+- [x] 1.3 Conformance cases for the modified rename-map requirement, paired: entries capturing each other's
       references (each alone clean); retarget beside a rename of its target (exit 0). The existing
       `refactor-map-swap` and `refactor-map-converging-names` goldens stay unchanged. Verify: the capture case fails
       before the fix.
-- [ ] 1.4 Conformance cases for the modified Python rename-references requirement (adapter): module onto an existing
+- [x] 1.4 Conformance cases for the modified Python rename-references requirement (adapter): module onto an existing
       module, onto a package (`pkg/b/__init__.py`), onto an `__init__.py` binding; module rename capturing an
       importer's `b`; relative import `from . import a` → `from . import b` (exit 0); a namespace package destination;
       a kept import. Verify: the refusing cases fail before the fix.
-- [ ] 1.5 Align `python/tests/test_parameter_rename.py::test_type_parameter_of_the_new_name_is_a_conflict[nested]` to
+- [x] 1.5 Align `python/tests/test_parameter_rename.py::test_type_parameter_of_the_new_name_is_a_conflict[nested]` to
       the relaxed rule (design decision 18): the rename exits 0 and renames `model_name` (approved in planning). The
       other parameter conflict tests stay unchanged. Verify: it fails before the fix.
-- [ ] 1.6 Unit tests, Python (`python/tests/`): the binding resolver against `symtable` over every binding form of
+- [x] 1.6 Unit tests, Python (`python/tests/`): the binding resolver against `symtable` over every binding form of
       the requirement (as `test_members_symtable.py` does for members), star-import binding (`__all__` literal list,
       tuple, absent, non-literal → module-level names), occurrence prefilter across all project sources, edit-origin
       filter (decision 22), finding-site order in original coordinates; `shared/languages.yaml` python `root_members`
       equals the union of `object`'s members in the pinned basedpyright's typeshed `builtins.pyi` over every version
       branch (drift test). Verify: they fail before the fix.
-- [ ] 1.7 Unit tests, TypeScript (`node/test/`): identity by declaration set across the overlay program (overloads,
+- [x] 1.7 Unit tests, TypeScript (`node/test/`): identity by declaration set across the overlay program (overloads,
       merged declarations, aliases), per-meaning resolution, the checks running after `--keep` and before the
       blind-spot refusal (a case with both a conflict and a blind spot reports the conflict), and the two existing
       `rename-map.test.ts` convergence tests unchanged. Verify: the new ones fail before the fix.
-- [ ] 1.8 `conformance/INVENTORY.md`: one row per new case group, in the refactor section. Verify: the inventory test
+- [x] 1.8 `conformance/INVENTORY.md`: one row per new case group, in the refactor section. Verify: the inventory test
       passes.
 
 ## 2. Shared contract (pr-implement)
