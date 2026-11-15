@@ -697,9 +697,11 @@ function targetDeclarations(r: Refactor, target: Target): TS.Declaration[] {
   return declarations.filter((d) => !d.getSourceFile().isDeclarationFile);
 }
 
-/** A declaration that binds in its block: `let`, `const`, a class, a function, an enum, a type alias or an interface. */
+/** A declaration that binds in its block: `let` or `const` (destructured ones included), a class, a function, an
+ * enum, a type alias or an interface. */
 function blockScoped(d: TS.Declaration): boolean {
   if (ts().isVariableDeclaration(d)) return (ts().getCombinedNodeFlags(d) & ts().NodeFlags.BlockScoped) !== 0; // NOSONAR(S1529) — NodeFlags bitmask test
+  if (ts().isBindingElement(d)) return blockScoped(ts().walkUpBindingElementsAndPatterns(d));
   return (
     ts().isClassDeclaration(d) ||
     ts().isFunctionDeclaration(d) ||
@@ -726,7 +728,9 @@ function bindingScope(d: TS.Declaration): string {
     const isStatic = ts().canHaveModifiers(d) && (ts().getModifiers(d) ?? []).some((m) => m.kind === ts().SyntaxKind.StaticKeyword);
     return `${at(d.parent)}\0${isStatic ? 'static' : 'instance'}`;
   }
-  return at(blockScoped(d) ? blockOf(d) : scopeOf(d));
+  const declaration = ts().isBindingElement(d) ? ts().walkUpBindingElementsAndPatterns(d) : d;
+  if (ts().isCatchClause(declaration.parent)) return at(declaration.parent);
+  return at(blockScoped(d) ? blockOf(declaration) : scopeOf(d));
 }
 
 /** RefactorError where two targets give declarations of one binding scope the same new name, naming the earlier
