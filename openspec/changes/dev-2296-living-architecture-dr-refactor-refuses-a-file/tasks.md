@@ -31,22 +31,22 @@
 
 ## 2. Implementation (pr-implement)
 
-- [ ] 2.1 Replace `_joined_str` in `python/src/living_architecture/refactor/rope_patches.py` per design decisions 1–4:
+- [x] 2.1 Replace `_joined_str` in `python/src/living_architecture/refactor/rope_patches.py` per design decisions 1–4:
       region as today; delimiters from `tokenize` over the region wrapped in parentheses (first/last string token,
       `FSTRING_*`/`TSTRING_*` kinds the running Python defines); scanner set to the region start; `[opening,
       *formatted values, closing]` to `_handle`; the existing region/last-child extension; tokenizer failure or no
       string token raises `MismatchedTokenError`. Drop `_rope_joined_str`. Update the module docstring only if it
       stops being true. Verify: section 1 passes on every Python of the CI matrix the machine has (3.11–3.14), and
       `test_stdlib_is_walked_fully` / `test_this_repo_is_walked_fully` stay green.
-- [ ] 2.2 Local test scope per `/la:pr` (affected tests plus the two conformance cases), `uv run ruff check src tests`,
+- [x] 2.2 Local test scope per `/la:pr` (affected tests plus the two conformance cases), `uv run ruff check src tests`,
       `uv run basedpyright src tests`, `la-arch-check`. Verify: all green.
 
 ## 3. Verification on SLayer (dry run only)
 
-- [ ] 3.1 `git archive` SLayer's branch `egor/dev-1607-rename-columns-to-fields-to-be-consistent-with` into a temp
+- [x] 3.1 `git archive` SLayer's branch `egor/dev-1607-rename-columns-to-fields-to-be-consistent-with` into a temp
       directory; `dr-compliance --select rope-walk` over every `.py` file prints nothing and exits 0 (before the fix it
       lists only `tests/test_release_gate.py:231`).
-- [ ] 3.2 In that copy, a `dr-refactor rename-map` dry run renaming `StorageBackend.get_model`,
+- [x] 3.2 In that copy, a `dr-refactor rename-map` dry run renaming `StorageBackend.get_model`,
       `StorageBackend.get_model_or_builtin` and the `StorageBackend.get_model(name)` parameter (any new names) exits
       without `refactor.rope-walk`. Nothing is written to the SLayer checkout. Record the outcome in a Linear comment
       on DEV-2296.
