@@ -154,3 +154,28 @@ def test_a_source_in_an_excluded_directory_is_not_rewritten(
     code, _out, err = run(root, _retarget("pkg/models.py", "AcmeModel", "Model"), monkeypatch, capsys)
     assert (code, err) == (0, "")
     assert read(root, "venv/lib/use.py") == vendored
+
+
+@pytest.mark.parametrize(("line", "kept"), [
+    ("from pkg.models import AcmeModel; value = 1\n", "value = 1\n"),
+    ("value = 1; from pkg.models import AcmeModel\n", "value = 1\n"),
+    ("from pkg.models import AcmeModel  # legacy\n", ""),
+], ids=["first", "last", "alone"])
+def test_a_duplicate_import_is_removed_without_its_neighbours(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], line: str, kept: str
+) -> None:
+    use = f"from pkg.models import Model\n{line}\n\ndef make() -> Model:\n    return AcmeModel()\n"
+    root = write_project(tmp_path / "proj", {"pkg/models.py": MODELS, "pkg/use.py": use})
+    code, _out, err = run(root, _retarget("pkg/models.py", "AcmeModel", "Model"), monkeypatch, capsys)
+    assert (code, err) == (0, "")
+    assert read(root, "pkg/use.py") == f"from pkg.models import Model\n{kept}\n\ndef make() -> Model:\n    return Model()\n"
+
+
+def test_a_local_import_of_the_target_is_no_shadow(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    use = "def make() -> object:\n    from pkg.models import Model, AcmeModel\n    return AcmeModel()\n"
+    root = write_project(tmp_path / "proj", {"pkg/models.py": MODELS, "pkg/use.py": use})
+    code, _out, err = run(root, _retarget("pkg/models.py", "AcmeModel", "Model"), monkeypatch, capsys)
+    assert (code, err) == (0, "")
+    assert read(root, "pkg/use.py") == "def make() -> object:\n    from pkg.models import Model\n    return Model()\n"

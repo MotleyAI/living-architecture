@@ -5,7 +5,7 @@ import type { Edit } from './edits.js';
 export type Replaced = [start: number, end: number, length: number];
 
 /** `start..end` after `edits` (sorted, disjoint): a start inside a replaced span maps to the replacement's start,
- * an end inside one to its end. */
+ * an end inside one to its end; an empty range maps both ends as its start. */
 export function mapRange(edits: Replaced[], start: number, end: number): [number, number] {
   let [newStart, newEnd, shift] = [start, end, 0];
   for (const [s, e, length] of edits) {
@@ -15,7 +15,7 @@ export function mapRange(edits: Replaced[], start: number, end: number): [number
     else if (end > e) newEnd = end + shift + length - (e - s);
     shift += length - (e - s);
   }
-  return [newStart, newEnd];
+  return start === end ? [newStart, newStart] : [newStart, newEnd];
 }
 
 /** A declaration moved from `start..end` of `from` into the text an edit inserts at `at` of `to`. */

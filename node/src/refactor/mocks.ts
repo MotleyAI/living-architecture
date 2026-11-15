@@ -45,9 +45,9 @@ function ambientMatch(name: string, specifier: string): boolean {
   return specifier.length >= prefix.length + suffix.length && specifier.startsWith(prefix) && specifier.endsWith(suffix);
 }
 
-/** `specifier` resolves to a module file or matches an ambient module (`declare module '…'`). */
-function resolves(program: TS.Program, file: TS.SourceFile, specifier: string): boolean {
-  const resolved = ts().resolveModuleName(specifier, file.fileName, program.getCompilerOptions(), ts().sys);
+/** `specifier` resolves, through `host`, to a module file or matches an ambient module (`declare module '…'`). */
+function resolves(program: TS.Program, file: TS.SourceFile, specifier: string, host: TS.ModuleResolutionHost): boolean {
+  const resolved = ts().resolveModuleName(specifier, file.fileName, program.getCompilerOptions(), host);
   if (resolved.resolvedModule !== undefined) return true;
   return program
     .getTypeChecker()
@@ -85,8 +85,9 @@ function doubleAssertion(node: TS.Node): string | null {
   return inner.type.kind === ts().SyntaxKind.AnyKeyword ? 'any' : null;
 }
 
-/** `shown`'s mock-lint findings (`shown` is the path as printed; casts only in test-glob files under `repoRoot`). */
-export function mockFindings(program: TS.Program, file: string, shown: string, repoRoot: string): MockFinding[] {
+/** `shown`'s mock-lint findings (`shown` is the path as printed; casts only in test-glob files under `repoRoot`), mock
+ * modules resolved through `host`. */
+export function mockFindings(program: TS.Program, file: string, shown: string, repoRoot: string, host: TS.ModuleResolutionHost = ts().sys): MockFinding[] {
   const source = program.getSourceFile(file);
   if (source === undefined) return [];
   const checker = program.getTypeChecker();
@@ -102,7 +103,7 @@ export function mockFindings(program: TS.Program, file: string, shown: string, r
   for (const node of walk(source)) {
     const via = inTests ? doubleAssertion(node) : null;
     if (via !== null) add(node, 'mock-lint.cast', { via });
-    const template = ts().isCallExpression(node) ? mockCallTemplate(program, source, checker, node) : null;
+    const template = ts().isCallExpression(node) ? mockCallTemplate(program, source, checker, node, host) : null;
     if (template === null) continue;
     const access = (node as TS.CallExpression).expression as TS.PropertyAccessExpression;
     const call = `${(access.expression as TS.Identifier).text}.${access.name.text}`;
@@ -112,7 +113,7 @@ export function mockFindings(program: TS.Program, file: string, shown: string, r
 }
 
 /** The finding template for an untyped `vi`/`jest` mock call, else null. */
-function mockCallTemplate(program: TS.Program, source: TS.SourceFile, checker: TS.TypeChecker, node: TS.CallExpression): string | null {
+function mockCallTemplate(program: TS.Program, source: TS.SourceFile, checker: TS.TypeChecker, node: TS.CallExpression, host: TS.ModuleResolutionHost): string | null {
   if (!ts().isPropertyAccessExpression(node.expression)) return null;
   const { expression: receiver, name } = node.expression;
   if (!ts().isIdentifier(receiver)) return null;
@@ -122,5 +123,5 @@ function mockCallTemplate(program: TS.Program, source: TS.SourceFile, checker: T
   const factory = node.arguments[1];
   if (!MODULE_MOCKS.has(name.text) || factory === undefined || ts().isObjectLiteralExpression(factory)) return null;
   const module = typedModule(node, kind);
-  return module === null || !resolves(program, source, module) ? 'mock-lint.module' : null;
+  return module === null || !resolves(program, source, module, host) ? 'mock-lint.module' : null;
 }

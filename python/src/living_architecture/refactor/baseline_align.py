@@ -29,11 +29,12 @@ class BaselineFailed(Exception):
 
 
 class Aligned(BaseModel):
-    """The baseline's new text, as a write and a printed diff, and the entries that could not follow."""
+    """The baseline's new text, as a write and a printed diff (none when unchanged), and the entries that could not
+    follow."""
 
     model_config = ConfigDict(frozen=True)
 
-    write: FileWrite
+    write: FileWrite | None
     description: str
     warnings: tuple[str, ...]
 
@@ -210,8 +211,8 @@ class _Entry:
 
 def align(project: Path, writes: list[FileWrite], moves: list[FileMove], *, edits: dict[str, list[Edit]] | None = None,
           moved_code: bool = False) -> Aligned | None:
-    """The baseline realigned through the refactor, or None when no checker, no baseline, no affected entry or no
-    change; `BaselineFailed` when the checker fails."""
+    """The baseline realigned through the refactor, without a write when only warnings remain; None when no checker,
+    no baseline, no affected entry, or neither a change nor a warning; `BaselineFailed` when the checker fails."""
     project = project.resolve()
     repo = find_repo_root(project).resolve()
     found = _baseline(repo)
@@ -229,7 +230,7 @@ def align(project: Path, writes: list[FileWrite], moves: list[FileMove], *, edit
     out = _realigned(listed, files, affected, baselined_all, baseline_rel, warnings)
     new_data = {**data, "files": {k: [e.entry for e in out[k]] for k in sorted(out) if out[k]}}
     if new_data == data:
-        return None
+        return Aligned(write=None, description="", warnings=tuple(warnings)) if warnings else None
     old_text = raw.decode("utf-8")
     new_text = json.dumps(new_data, indent=4)
     shown = Path(baseline_path).relative_to(project).as_posix() if baseline_path.is_relative_to(project) else str(baseline_path)

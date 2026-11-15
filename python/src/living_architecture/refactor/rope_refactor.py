@@ -34,6 +34,7 @@ from living_architecture.refactor.rename_map import (
     emit,
     entry_options,
     run_map,
+    source_bytes,
 )
 from living_architecture.refactor.rename_union import RenameOptions
 from living_architecture.refactor.rope_patches import WalkerGap, apply_rope_patches
@@ -58,9 +59,10 @@ def _destination(project: Project, dest: str, *, folder: bool) -> Resource:
     return resource(project, dest)
 
 
-def _emit(project: Project, changes: ChangeSet, apply: bool, *, moved_code: bool = False) -> None:
-    """Print a rope change set sorted by path; write it all or nothing with `apply`."""
-    writes, moves = change_set_writes(project, changes)
+def _emit(project: Project, changes: ChangeSet, apply: bool, before: dict[str, bytes], *, moved_code: bool = False) -> None:
+    """Print a rope change set sorted by path; write it all or nothing with `apply`, refusing a file that changed
+    since `before` was read."""
+    writes, moves = change_set_writes(project, changes, before)
     emit(project, [f"{changes}:"], changes, apply, writes, moves, moved_code=moved_code)
 
 
@@ -109,31 +111,34 @@ def _module_rename(project: Project, renamer: Rename, entry: MapEntry, options: 
         raise RefactorError(message("refactor.cannot-rename"))
     if options.with_sites or options.without_sites:
         raise SiteError("refactor.not-stand-in", (*options.with_sites, *options.without_sites)[0])
+    before = source_bytes(project)
     try:
         changes = renamer.get_changes(
             entry.new_name, in_hierarchy=options.in_hierarchy, unsure=(lambda *_: True) if options.unsure else None
         )
     except (RefactoringError, BadIdentifierError):
         raise RefactorError(message("refactor.cannot-rename")) from None
-    _emit(project, _kept(project, changes, options.keep), apply)
+    _emit(project, _kept(project, changes, options.keep), apply, before)
     return 0
 
 
 def move_symbol(project: Project, *, file: str, locator: Locator, dest: str, apply: bool) -> None:
+    before = source_bytes(project)
     offset, located = resolve(locator, file)
     if located is not None and not located.top_level:
         raise RefactorError(message("refactor.not-movable", path=file))
     mover = cast(MoveGlobal, create_move(project, resource(project, file), offset))
     target = cast(File, _destination(project, dest, folder=False))
     if target == mover.source:
-        _emit(project, ChangeSet(f"Moving global <{mover.old_name}>"), apply)
+        _emit(project, ChangeSet(f"Moving global <{mover.old_name}>"), apply, before)
         return
-    _emit(project, symbol_move_changes(project, mover, target), apply, moved_code=True)
+    _emit(project, symbol_move_changes(project, mover, target), apply, before, moved_code=True)
 
 
 def move_module(project: Project, *, module: str, dest: str, apply: bool) -> None:
+    before = source_bytes(project)
     mover = cast(MoveModule, create_move(project, resource(project, module)))
-    _emit(project, module_move_changes(project, mover, _destination(project, dest, folder=True)), apply)
+    _emit(project, module_move_changes(project, mover, _destination(project, dest, folder=True)), apply, before)
 
 
 def _renamer(renamer: Rename | None) -> Rename:
@@ -202,7 +207,10 @@ def run_refactor(*, project_root: str, command: str, apply: bool, options: dict[
         print(message("refactor.baseline-failed", language="python"), file=sys.stderr)
         return 1
     except WriteFailed as failed:
-        print(message("refactor.write-failed", path=failed.path), file=sys.stderr)
+        if failed.unrestored:
+            print(message("refactor.rollback-failed", path=failed.path, paths=", ".join(failed.unrestored)), file=sys.stderr)
+        else:
+            print(message("refactor.write-failed", path=failed.path), file=sys.stderr)
         return 1
     except NameConflict as conflict:
         print(message("refactor.name-conflict", name=conflict.name, path=conflict.path, line=conflict.line), file=sys.stderr)

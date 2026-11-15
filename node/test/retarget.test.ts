@@ -3,6 +3,7 @@ import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { message } from '../src/contract/index.js';
+import { ts } from '../src/lang/index.js';
 import { copyProject, expectedOut, files, mapYaml, read, refactor, renameHeader, tsProject } from './refactor-project.js';
 
 const ENGINE = `export class Engine {
@@ -24,7 +25,16 @@ export function use(engine: Engine): void {
 `;
 const MODELS = 'export class Model {}\n\n/** @deprecated use Model */\nexport const AcmeModel = Model;\n';
 
+const API = 'export function modern(): number {\n  return 1;\n}\n\n/** @deprecated use modern */\nexport const legacy = modern;\n';
+
 const header = (old: string, next: string): string => message('refactor.retarget-header', { old, new: next });
+
+/** The codes of the type checker's diagnostics over `root`'s tsconfig. */
+function diagnosticCodes(root: string): number[] {
+  const config = ts().getParsedCommandLineOfConfigFile(join(root, 'tsconfig.json'), {}, { ...ts().sys, onUnRecoverableConfigFileDiagnostic: () => undefined });
+  if (config === undefined) throw new Error('no tsconfig');
+  return ts().getPreEmitDiagnostics(ts().createProgram(config.fileNames, config.options)).map((d) => d.code);
+}
 
 describe('retarget', () => {
   it('moves a call of a deprecated method to its target and leaves the method', () => {
@@ -41,6 +51,33 @@ describe('retarget', () => {
     expect(refactor(root, '--apply', 'retarget', '--file', 'src/models.ts', '--symbol', 'AcmeModel', '--target', 'Model').code).toBe(0);
     expect(read(root, 'src/use.ts')).toBe("import { Model } from './models';\n\nexport const m = new Model();\nexport const n: Model = m;\n");
     expect(read(root, 'src/models.ts')).toBe(MODELS);
+  });
+
+  it.each([
+    ['in the same list', "import { legacy, type modern } from './api';\n\nexport const r: ReturnType<typeof modern> = legacy();\n", "import { modern } from './api';\n\nexport const r: ReturnType<typeof modern> = modern();\n"],
+    ['as its own declaration', "import type { modern } from './api';\nimport { legacy } from './api';\n\nexport const r: ReturnType<typeof modern> = legacy();\n", "import { modern } from './api';\n\nexport const r: ReturnType<typeof modern> = modern();\n"],
+  ])('keeps the value import over a type-only import of the target %s', (_where, use, expected) => {
+    const root = tsProject({ 'src/api.ts': API, 'src/use.ts': use });
+    expect(refactor(root, '--apply', 'retarget', '--file', 'src/api.ts', '--symbol', 'legacy', '--target', 'modern').code).toBe(0);
+    expect(read(root, 'src/use.ts')).toBe(expected);
+    expect(diagnosticCodes(root)).toEqual([]);
+  });
+
+  it('removes an alias import the rewrite would duplicate in another declaration', () => {
+    const use = "import { modern } from './api';\nimport { legacy } from './api';\n\nexport const r = legacy() + modern();\n";
+    const root = tsProject({ 'src/api.ts': API, 'src/use.ts': use });
+    expect(refactor(root, '--apply', 'retarget', '--file', 'src/api.ts', '--symbol', 'legacy', '--target', 'modern').code).toBe(0);
+    expect(read(root, 'src/use.ts')).toBe("import { modern } from './api';\n\nexport const r = modern() + modern();\n");
+    expect(diagnosticCodes(root)).toEqual([]);
+  });
+
+  it('refuses a shorthand property where the target name is bound to something else', () => {
+    const use = "import { legacy } from './api';\n\nexport function f(): object {\n  const modern = 2;\n  return { legacy, modern };\n}\n";
+    const root = tsProject({ 'src/api.ts': API, 'src/use.ts': use });
+    const result = refactor(root, '--apply', 'retarget', '--file', 'src/api.ts', '--symbol', 'legacy', '--target', 'modern');
+    const shadowed = message('refactor.retarget-shadowed', { path: 'src/use.ts', line: 5, name: 'modern' });
+    expect(result).toEqual({ code: 1, out: '', err: `${shadowed}\n` });
+    expect(read(root, 'src/use.ts')).toBe(use);
   });
 
   it('keeps an import alias, naming the target under it', () => {

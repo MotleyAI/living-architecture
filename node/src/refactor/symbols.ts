@@ -45,7 +45,10 @@ const isFunctionLike = (node: TS.Node): node is TS.SignatureDeclaration & { body
   ts().isGetAccessorDeclaration(node) ||
   ts().isSetAccessorDeclaration(node) ||
   ts().isFunctionExpression(node) ||
-  ts().isArrowFunction(node);
+  ts().isArrowFunction(node) ||
+  ts().isMethodSignature(node) ||
+  ts().isCallSignatureDeclaration(node) ||
+  ts().isConstructSignatureDeclaration(node);
 
 function nameText(name: TS.Node | undefined): string | null {
   if (name === undefined) return null;

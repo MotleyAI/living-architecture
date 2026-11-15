@@ -23,21 +23,57 @@ def _flatten(target: ast.expr) -> list[ast.expr]:
     return [target.value] if isinstance(target, ast.Starred) else [target]
 
 
-def _self_attributes(method: FunctionDef, name: str) -> Iterator[ast.Attribute]:
-    """`self.name` stores in `method`, `self` being its first parameter."""
+def _is_staticmethod(decorator: ast.expr) -> bool:
+    return (isinstance(decorator, ast.Name) and decorator.id == "staticmethod") or (
+        isinstance(decorator, ast.Attribute) and decorator.attr == "staticmethod"
+    )
+
+
+def method_receiver(method: FunctionDef) -> str | None:
+    """The name a method binds its instance or class to: its first parameter, none for a static method."""
     params = [*method.args.posonlyargs, *method.args.args]
-    if not params:
+    if not params or any(_is_staticmethod(d) for d in method.decorator_list):
+        return None
+    return params[0].arg
+
+
+def _parameter_names(args: ast.arguments) -> set[str]:
+    every = [*args.posonlyargs, *args.args, *args.kwonlyargs, *(a for a in (args.vararg, args.kwarg) if a is not None)]
+    return {a.arg for a in every}
+
+
+def _receiver_scope(node: ast.AST, receiver: str) -> Iterator[ast.AST]:
+    """`node`'s descendants where `receiver` still names the method's receiver: a nested function or lambda that
+    rebinds it as a parameter is left out, its decorators and defaults kept."""
+    for child in ast.iter_child_nodes(node):
+        if isinstance(child, FunctionDef | ast.Lambda) and receiver in _parameter_names(child.args):
+            outer = [*getattr(child, "decorator_list", []), *child.args.defaults, *(d for d in child.args.kw_defaults if d)]
+            for expr in outer:
+                yield expr
+                yield from _receiver_scope(expr, receiver)
+            continue
+        yield child
+        yield from _receiver_scope(child, receiver)
+
+
+def receiver_stores(method: FunctionDef) -> Iterator[ast.Attribute]:
+    """Each `self.NAME` store in `method`, `self` being its receiver."""
+    receiver = method_receiver(method)
+    if receiver is None:
         return
-    first = params[0].arg
-    for node in ast.walk(method):
+    for node in _receiver_scope(method, receiver):
         if (
             isinstance(node, ast.Attribute)
-            and node.attr == name
             and isinstance(node.ctx, ast.Store)
             and isinstance(node.value, ast.Name)
-            and node.value.id == first
+            and node.value.id == receiver
         ):
             yield node
+
+
+def _self_attributes(method: FunctionDef, name: str) -> Iterator[ast.Attribute]:
+    """`self.name` stores in `method`."""
+    yield from (node for node in receiver_stores(method) if node.attr == name)
 
 
 def _class_level(body: list[ast.stmt]) -> Iterator[ast.stmt]:
@@ -57,7 +93,7 @@ def _class_level(body: list[ast.stmt]) -> Iterator[ast.stmt]:
 _BLOCK_FIELDS = frozenset({"body", "orelse", "finalbody", "handlers", "cases"})
 
 
-def _bound_targets(stmt: ast.stmt) -> list[ast.expr]:
+def bound_targets(stmt: ast.stmt) -> list[ast.expr]:
     """The names a statement binds by assignment, `for`, `with ... as` or a `type` alias."""
     targets = _targets(stmt)
     if isinstance(stmt, ast.For | ast.AsyncFor):
@@ -101,7 +137,7 @@ def _bindings(stmt: ast.stmt, name: str) -> Iterator[ast.AST]:
     """The nodes through which a class-level statement binds `name` in the class's scope."""
     if isinstance(stmt, FunctionDef | ast.ClassDef) and stmt.name == name:
         yield stmt
-    yield from (t for t in _bound_targets(stmt) if isinstance(t, ast.Name) and t.id == name)
+    yield from (t for t in bound_targets(stmt) if isinstance(t, ast.Name) and t.id == name)
     if isinstance(stmt, ast.Import | ast.ImportFrom):
         yield from (a for a in stmt.names if (a.asname or a.name.split(".")[0]) == name)
     yield from (h for h in getattr(stmt, "handlers", []) if h.name == name)

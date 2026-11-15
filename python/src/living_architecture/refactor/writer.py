@@ -11,11 +11,12 @@ from pydantic import BaseModel, ConfigDict
 
 
 class WriteFailed(Exception):
-    """Writing `path` failed; every file already written is restored."""
+    """Writing `path` failed; every file already written is restored but the `unrestored` paths."""
 
-    def __init__(self, path: str) -> None:
+    def __init__(self, path: str, unrestored: tuple[str, ...] = ()) -> None:
         super().__init__(path)
         self.path = path
+        self.unrestored = unrestored
 
 
 class FileChanged(Exception):
@@ -68,8 +69,8 @@ def _tracked(root: Path, rel: str) -> bool:
 
 
 def _move(root: Path, rel: str, dest: str) -> None:
-    """`git mv` for a tracked file or directory, so the move is staged as before; else a rename."""
-    if (root / ".git").exists() and _tracked(root, rel):
+    """`git mv` for a tracked file or directory, so the move is staged; else a rename."""
+    if _tracked(root, rel):
         proc = subprocess.run(["git", "mv", "--", rel, dest], cwd=root, capture_output=True, check=False)
         if proc.returncode != 0:
             raise OSError(proc.returncode, rel)
@@ -77,14 +78,28 @@ def _move(root: Path, rel: str, dest: str) -> None:
     os.replace(root / rel, root / dest)
 
 
-def _restore(root: Path, done: list[FileWrite], moved: list[FileMove]) -> None:
+def _restore(root: Path, done: list[FileWrite], moved: list[FileMove]) -> list[str]:
+    """Undo every move and write, each attempted whatever failed before it; the paths left changed."""
+    left: list[str] = []
     for move in reversed(moved):
-        _move(root, move.dest, move.rel)
+        try:
+            _move(root, move.dest, move.rel)
+        except OSError:
+            left.append(move.rel)
     for write in reversed(done):
-        if write.old is None:
-            (root / write.rel).unlink(missing_ok=True)
-        else:
-            _replace(root / write.rel, write.old)
+        try:
+            if write.old is None:
+                (root / write.rel).unlink(missing_ok=True)
+            else:
+                _replace(root / write.rel, write.old)
+        except OSError:
+            left.append(write.rel)
+    return sorted(left)
+
+
+def _moved(root: Path, move: FileMove) -> bool:
+    """A failed move that still took effect: the source gone, the destination there."""
+    return not os.path.lexists(root / move.rel) and os.path.lexists(root / move.dest)
 
 
 def verify(root: Path, writes: list[FileWrite]) -> None:
@@ -109,8 +124,12 @@ def apply(root: Path, writes: list[FileWrite], moves: list[FileMove]) -> None:
             done.append(write)
         for move in moves:
             current = move.rel
-            _move(root, move.rel, move.dest)
+            try:
+                _move(root, move.rel, move.dest)
+            except OSError:
+                if _moved(root, move):
+                    moved.append(move)
+                raise
             moved.append(move)
     except OSError:
-        _restore(root, done, moved)
-        raise WriteFailed(current) from None
+        raise WriteFailed(current, tuple(_restore(root, done, moved))) from None

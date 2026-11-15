@@ -94,6 +94,11 @@ describe('symbol paths', () => {
     expectSameAsLineCol(project, symbol, needle, newName, nth, shift);
   });
 
+  it('an interface method signature parameter locates as --line/--col does', () => {
+    const service = 'export interface Service {\n  run(input: string): void;\n}\n';
+    expectSameAsLineCol({ 'src/store.ts': service }, 'Service.run(input)', 'input: string', 'payload');
+  });
+
   it('a nested function never renames the same-named top-level one', () => {
     const root = tsProject(project);
     expect(refactor(root, '--apply', 'rename', '--file', 'src/store.ts', '--symbol', 'build.<locals>.inner', '--new-name', 'nested').code).toBe(0);

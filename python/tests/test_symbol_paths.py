@@ -9,6 +9,8 @@ from project_files import file_tree, write_project
 from refactor_cli import assert_same_run, line_col, read, run
 
 from living_architecture.contract import message
+from living_architecture.refactor.python_source import SourceFile
+from living_architecture.refactor.symbol_path import LocatorError, locate
 
 STORAGE = """\
 class StorageBackend:
@@ -343,3 +345,67 @@ def test_move_symbol_takes_only_a_top_level_path(
     assert (code, out) == (1, "")
     assert err == f"{message('refactor.not-movable', path='pkg/storage.py')}\n"
     assert file_tree(root) == before
+
+
+def _locate(text: str, path: str) -> int:
+    return locate(SourceFile(Path("m.py"), text), path, "m.py").offset
+
+
+RECEIVERS = """\
+class A:
+    @staticmethod
+    def update(other: "A") -> None:
+        other.value = 1
+
+
+class C:
+    def method(self) -> None:
+        class Inner:
+            def __init__(self) -> None:
+                self.value = 1
+
+        self.other = Inner()
+
+    def bump(self) -> None:
+        self.count += 1
+"""
+
+
+@pytest.mark.parametrize("path", ["A.value", "C.value"])
+def test_a_static_method_parameter_or_a_nested_method_receiver_declares_no_member(path: str) -> None:
+    with pytest.raises(LocatorError):
+        _locate(RECEIVERS, path)
+
+
+def test_receiver_stores_declare_members() -> None:
+    assert (_locate(RECEIVERS, "C.other"), _locate(RECEIVERS, "C.count")) == (
+        RECEIVERS.index("other ="), RECEIVERS.index("count +="))
+
+
+def test_loop_and_with_targets_are_locals() -> None:
+    text = "def f() -> None:\n    for item in [1]:\n        print(item)\n    with open('x') as handle:\n        print(handle)\n"
+    assert (_locate(text, "f.<locals>.item"), _locate(text, "f.<locals>.handle")) == (text.index("item"), text.index("handle"))
+
+
+def test_a_file_with_a_coding_cookie_is_located_in_its_encoding(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    text = '# -*- coding: latin-1 -*-\nNAME = "café"\n\n\ndef old() -> str:\n    return NAME\n'
+    root = write_project(tmp_path / "proj", {"pkg/__init__.py": ""})
+    (root / "pkg/l1.py").write_bytes(text.encode("latin-1"))
+    code, _out, err = run(root, _by_symbol("pkg/l1.py", "old", "new"), monkeypatch, capsys)
+    assert (code, err) == (0, "")
+    assert (root / "pkg/l1.py").read_bytes() == text.replace("def old", "def new").encode("latin-1")
+
+
+def test_out_of_range_column_and_offset_keep_exit_1(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = write_project(tmp_path / "proj", FILES)
+    width = len(STORAGE.splitlines()[0])
+    column = message("refactor.col-out-of-range", col=width + 2, line=1, count=width)
+    offset = message("refactor.offset-out-of-range", offset=len(STORAGE) + 1, count=len(STORAGE))
+    assert run(root, _rename("pkg/storage.py", ["--line", "1", "--col", str(width + 2)], "x"), monkeypatch, capsys) == (
+        1, "", f"{column}\n")
+    assert run(root, _rename("pkg/storage.py", ["--offset", str(len(STORAGE) + 1)], "x"), monkeypatch, capsys) == (
+        1, "", f"{offset}\n")

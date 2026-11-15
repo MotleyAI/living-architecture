@@ -88,7 +88,8 @@ diagnostic through it, for every subcommand. Grounded in principles 1 and 2.
 16. **Retarget refuses an overridden alias** (calls would bypass the override) and removes an import it would
     duplicate (a duplicate TS import specifier is an error). (default)
 17. **Baseline checker failure refuses** the refactor (exit 1, nothing written). (default)
-18. **`Literal` new value**: no quote, backslash or line break; the identifier rule does not apply. (default)
+18. **`Literal` new value**: no quote (`'`, `"`, backtick), backslash, `${` or line break (U+2028/U+2029 included), one set
+    in shared/ for both twins; the identifier rule does not apply. (default)
 19. **`Literal` locator**: `Q['value']` on any declaration whose annotation or alias body holds the literal type,
     plus a line/col on the string itself. (default)
 20. **Compound-name rule**: words split at `_` and CamelCase, case-insensitive, the last word may take `s`/`es`;
@@ -131,8 +132,9 @@ diagnostic through it, for every subcommand. Grounded in principles 1 and 2.
 32. **Locator grouping by checker symbol**: declarations group only when the checker resolves them to one symbol,
     else `refactor.symbol-ambiguous`; one test per construct (overloads, accessors, `self.x` in several methods,
     conditional definitions, TS merging, namespace reopening). (codex)
-33. **Range transform**: a start or end at or inside a replaced span maps to the replacement's start or end; an
-    unmappable range warns with `refactor.baseline-ambiguous`. (codex)
+33. **Range transform**: a start at or inside a replaced span maps to the replacement's start, an end inside or at
+    its end to the replacement's end; at an insertion point a start maps after the text and an end before it, and an
+    empty range maps both ends as its start; an unmappable range warns with `refactor.baseline-ambiguous`. (codex)
 34. **TypeScript `Literal` contexts pinned**: the bundled TypeScript 6.0.3 was probed (declaration, typed variable,
     argument, `===`, `case`, typed array element renamed; another union's string, a `string` variable and an `as
     const` local not). Rejected (codex): a further prototype. Tests pin each context plus aliases and imported types.
@@ -285,8 +287,9 @@ DEV-2289's changes are archived on `main`.
 
 `dr-refactor` subcommands: `rename` / `rename-map` / `retarget` / `move-symbol` /
 `move-module`. Dry-run is default; `--apply` writes, baseline included;
-`--project` defaults to cwd. Locator: `--symbol Q` (the path inside `--file`;
-no match or several exit 2 listing the candidates), `--line [--col]` (1-based)
+`--project` defaults to cwd. Locator: `--symbol Q` (the path inside `--file`,
+quoted for the shell: `'f.<locals>.g'`, `'C.m(p)'`, `"Alias['value']"`; no match
+or several exit 2 listing the candidates), `--line [--col]` (1-based)
 or `--offset N` (0-based). `rename-map MAP` reads a YAML list of
 `{file, symbol, new_name}` or `{file, symbol, retarget}` entries (files relative
 to `--project`), resolves every entry before renaming any, and writes all or

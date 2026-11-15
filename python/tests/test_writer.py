@@ -9,7 +9,11 @@ from pathlib import Path
 import pytest
 from project_files import file_tree, write_project
 from refactor_cli import git
+from rope.base.change import ChangeContents, ChangeSet
+from rope.base.project import Project
 
+from living_architecture.refactor import writer
+from living_architecture.refactor.rename_map import change_set_writes, source_bytes
 from living_architecture.refactor.writer import FileChanged, FileMove, FileWrite, WriteFailed, apply
 
 
@@ -68,3 +72,66 @@ def test_a_tracked_file_moves_with_git_and_an_untracked_one_without(tmp_path: Pa
     assert "R  tracked.py -> sub/tracked.py" in status.splitlines()
     assert "?? sub/loose.py" in status.splitlines()
     assert (root / "sub/loose.py").read_text(encoding="utf-8") == "l\n"
+
+
+def test_every_restoration_is_attempted_and_the_unrestored_named(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    root = write_project(tmp_path / "p", {"a.py": "a\n", "b.py": "b\n", "c.py": "c\n"})
+    real = writer._replace
+    calls: dict[str, int] = {}
+
+    def flaky(path: Path, data: bytes) -> None:
+        calls[path.name] = calls.get(path.name, 0) + 1
+        if (path.name, calls[path.name]) in {("c.py", 1), ("b.py", 2)}:
+            raise OSError(path.name)
+        real(path, data)
+
+    monkeypatch.setattr(writer, "_replace", flaky)
+    writes = [_write("a.py", "a\n", "A\n"), _write("b.py", "b\n", "B\n"), _write("c.py", "c\n", "C\n")]
+    with pytest.raises(WriteFailed) as failed:
+        apply(root, writes, [])
+    assert (failed.value.path, failed.value.unrestored) == ("c.py", ("b.py",))
+    assert file_tree(root)["a.py"] == b"a\n"
+
+
+def test_a_move_that_fails_after_moving_is_rolled_back(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    root = write_project(tmp_path / "p", {"a.py": "a\n", "sub/__init__.py": ""})
+    git(root, "init", "-q", "-b", "main")
+    git(root, "add", "a.py", "sub/__init__.py")
+    git(root, "commit", "-q", "-m", "init")
+    real = subprocess.run
+
+    def index_write_fails(args: list[str], **kwargs: object) -> subprocess.CompletedProcess[bytes]:
+        if args[:2] == ["git", "mv"] and args[3] == "a.py":
+            os.replace(root / args[3], root / args[4])
+            return subprocess.CompletedProcess(args, 1)
+        return real(args, **kwargs)  # pyright: ignore[reportCallIssue, reportArgumentType]
+
+    monkeypatch.setattr(writer.subprocess, "run", index_write_fails)
+    moves = [FileMove(rel="a.py", dest="sub/a.py")]
+    with pytest.raises(WriteFailed) as failed:
+        apply(root, [], moves)
+    assert (failed.value.path, failed.value.unrestored) == ("a.py", ())
+    assert {rel: file_tree(root).get(rel) for rel in ("a.py", "sub/a.py")} == {"a.py": b"a\n", "sub/a.py": None}
+
+
+def test_a_tracked_move_below_the_git_root_is_staged(tmp_path: Path) -> None:
+    repo = write_project(tmp_path / "repo", {"proj/a.py": "a\n", "proj/sub/__init__.py": ""})
+    git(repo, "init", "-q", "-b", "main")
+    git(repo, "add", "proj/a.py", "proj/sub/__init__.py")
+    git(repo, "commit", "-q", "-m", "init")
+    apply(repo / "proj", [], [FileMove(rel="a.py", dest="sub/a.py")])
+    status = subprocess.run(["git", "status", "--porcelain"], cwd=repo, capture_output=True, text=True, check=True).stdout
+    assert "R  proj/a.py -> proj/sub/a.py" in status.splitlines()
+
+
+def test_a_rope_write_keeps_the_bytes_read_before_rope_computed(tmp_path: Path) -> None:
+    root = write_project(tmp_path / "p", {"a.py": "a = 1\n"})
+    project = Project(str(root), ropefolder=None)  # pyright: ignore[reportArgumentType]
+    before = source_bytes(project)
+    (root / "a.py").write_text("# edited\na = 1\n", encoding="utf-8")
+    changes = ChangeSet("")
+    changes.add_change(ChangeContents(project.get_resource("a.py"), "b = 1\n"))
+    writes, _moves = change_set_writes(project, changes, before)
+    with pytest.raises(FileChanged):
+        apply(root, writes, [])
+    assert (root / "a.py").read_text(encoding="utf-8") == "# edited\na = 1\n"

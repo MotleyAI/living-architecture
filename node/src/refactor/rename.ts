@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type * as TS from 'typescript';
 import { sourceFiles } from '../config/index.js';
-import { byCodePoint, manifest, message } from '../contract/index.js';
+import { byCodePoint, literalValueForbidden, manifest, message } from '../contract/index.js';
 import { stripSourceExtension, ts } from '../lang/index.js';
 import { isCompound } from './compound.js';
 import { type Edit, mergeEdits, RefactorError } from './edits.js';
@@ -515,21 +515,55 @@ function bareReference(node: TS.Node): boolean {
   if (ts().isPropertyAccessExpression(parent) && parent.name === node) return false;
   if (ts().isQualifiedName(parent) && parent.right === node) return false;
   if (ts().isImportSpecifier(parent) || ts().isExportSpecifier(parent) || ts().isImportClause(parent) || ts().isNamespaceImport(parent)) return false;
-  return (parent as { name?: TS.Node }).name !== node;
+  return ts().isShorthandPropertyAssignment(parent) || (parent as { name?: TS.Node }).name !== node;
 }
 
-/** The edit that removes import specifier `node` when its list already imports `name` under that name, else null. */
-function duplicateImport(source: TS.SourceFile, node: TS.Node, name: string): Edit | null {
-  const specifier = node.parent;
-  if (!ts().isImportSpecifier(specifier) || specifier.propertyName !== undefined) return null;
+const isTypeOnly = (specifier: TS.ImportSpecifier): boolean => specifier.isTypeOnly || specifier.parent.parent.isTypeOnly;
+
+/** The removal of `specifier` from its list, or of its whole import declaration (and its line) when it binds nothing else. */
+function removeSpecifier(source: TS.SourceFile, specifier: TS.ImportSpecifier): Edit {
   const elements = specifier.parent.elements;
+  const declaration = specifier.parent.parent.parent;
+  if (elements.length === 1 && specifier.parent.parent.name === undefined) {
+    const text = source.text;
+    const [start, end] = [declaration.getStart(source), declaration.end];
+    const lineStart = text.lastIndexOf('\n', start - 1) + 1;
+    const newline = text.indexOf('\n', end);
+    const lineEnd = newline === -1 ? text.length : newline + 1;
+    const alone = text.slice(lineStart, start).trim() === '' && text.slice(end, lineEnd).trim() === '';
+    return alone ? { path: source.fileName, start: lineStart, length: lineEnd - lineStart, newText: '' } : { path: source.fileName, start, length: end - start, newText: '' };
+  }
   const index = elements.indexOf(specifier);
-  const twin = elements.some((e) => e !== specifier && e.name.text === name && (e.propertyName ?? e.name).text === name);
-  if (!twin) return null;
   const previous = elements[index - 1];
   const next = elements[index + 1];
   const [start, end] = previous === undefined ? [specifier.getStart(source), next?.getStart(source) ?? specifier.end] : [previous.end, specifier.end];
   return { path: source.fileName, start, length: end - start, newText: '' };
+}
+
+/** The file's other import specifiers of `module`'s export `name` under that name. */
+function importsOf(checker: TS.TypeChecker, source: TS.SourceFile, module: TS.ImportDeclaration, name: string, skip: TS.ImportSpecifier): TS.ImportSpecifier[] {
+  const target = checker.getSymbolAtLocation(module.moduleSpecifier);
+  const same = (d: TS.ImportDeclaration): boolean =>
+    target !== undefined ? checker.getSymbolAtLocation(d.moduleSpecifier) === target : d.moduleSpecifier.getText(source) === module.moduleSpecifier.getText(source);
+  return source.statements
+    .filter((s): s is TS.ImportDeclaration => ts().isImportDeclaration(s) && same(s))
+    .flatMap((d) => {
+      const bindings = d.importClause?.namedBindings;
+      return bindings !== undefined && ts().isNamedImports(bindings) ? [...bindings.elements] : [];
+    })
+    .filter((e) => e !== skip && e.name.text === name && (e.propertyName ?? e.name).text === name);
+}
+
+/** The edits replacing a retarget's rename of import specifier `node`: its removal when the module is already imported
+ * under the target's name with a value import, its rename plus the removal of type-only imports of the target, else null. */
+function duplicateImport(source: TS.SourceFile, checker: TS.TypeChecker, node: TS.Node, edit: Edit, name: string): Edit[] | null {
+  const specifier = node.parent;
+  if (!ts().isImportSpecifier(specifier) || specifier.propertyName !== undefined) return null;
+  const declaration = specifier.parent.parent.parent;
+  if (!ts().isImportDeclaration(declaration)) return null;
+  const twins = importsOf(checker, source, declaration, name, specifier);
+  if (twins.some((t) => !isTypeOnly(t)) || (twins.length > 0 && isTypeOnly(specifier))) return [removeSpecifier(source, specifier)];
+  return twins.length === 0 ? null : [edit, ...twins.map((t) => removeSpecifier(source, t))];
 }
 
 /** A retarget's rename locations checked and adjusted: overrides and shadowed uses as findings, duplicate imports removed. */
@@ -543,19 +577,19 @@ function retargetEdits(session: Session, target: Target, targetKey: string): Fin
     }
   }
   const all = ts().SymbolFlags.Value | ts().SymbolFlags.Type | ts().SymbolFlags.Namespace; // NOSONAR(S1529) — SymbolFlags bitmask
-  target.edits = target.edits.map((edit) => {
+  target.edits = target.edits.flatMap((edit) => {
     const found = session.sources.get(edit.path);
-    if (found === undefined || target.own.has(keyOf(edit.path, edit.start))) return edit;
+    if (found === undefined || target.own.has(keyOf(edit.path, edit.start))) return [edit];
     const node = nodeAt(found.source, edit.start);
-    const removal = duplicateImport(found.source, node, target.newName);
-    if (removal !== null) return removal;
-    if (!bareReference(node)) return edit;
+    const imports = duplicateImport(found.source, found.checker, node, edit, target.newName);
+    if (imports !== null) return imports;
+    if (!bareReference(node)) return [edit];
     const bound = found.checker.resolveName(target.newName, node, all, false);
     const resolved = bound !== undefined && (bound.flags & ts().SymbolFlags.Alias) !== 0 ? found.checker.getAliasedSymbol(bound) : bound; // NOSONAR(S1529) — SymbolFlags bitmask test
     if (resolved !== undefined && !declarationKeys(resolved, resolved.name).includes(targetKey)) {
       findings.push(session.finding(edit.path, edit.start, 'refactor.retarget-shadowed', { name: target.newName }));
     }
-    return edit;
+    return [edit];
   });
   return findings;
 }
@@ -564,7 +598,8 @@ function retargetEdits(session: Session, target: Target, targetKey: string): Fin
 function checkConflicts(session: Session, edits: Tagged[]): void {
   const sorted = edits.toSorted((a, b) => byCodePoint(a.path, b.path) || a.start - b.start);
   for (const [i, a] of sorted.entries()) {
-    for (const b of sorted.slice(i + 1)) {
+    for (let j = i + 1; j < sorted.length; j += 1) {
+      const b = sorted[j] as Tagged;
       if (b.path !== a.path || b.start >= a.start + Math.max(a.length, 1)) break;
       const same = b.start === a.start && b.length === a.length && b.newText === a.newText;
       if (same || a.entry === b.entry) continue;
@@ -595,14 +630,12 @@ function keep(session: Session, groups: NameGroup[], raws: string[]): Tagged[] {
   return edits;
 }
 
-const LITERAL_FORBIDDEN = /['"\\\r\n\u2028\u2029]/u;
-
 /** The targets of `specs`, each symbol once: equal intents merge, different ones are a UsageError naming both. */
 function resolveAll(r: Refactor, specs: EntrySpec[], map: string): Target[] {
   const targets: Target[] = [];
   for (const spec of specs) {
     const target = resolve(r, spec);
-    if (target.literal && LITERAL_FORBIDDEN.test(target.newName)) throw new UsageError(message('refactor.literal-value', { value: target.newName }));
+    if (target.literal && literalValueForbidden().some((part) => target.newName.includes(part))) throw new UsageError(message('refactor.literal-value', { value: target.newName }));
     if (spec.retarget !== undefined) {
       const found = resolveRetarget(r, spec, target, spec.retarget);
       target.intent = found.key;
@@ -618,6 +651,31 @@ function resolveAll(r: Refactor, specs: EntrySpec[], map: string): Target[] {
     target.newName = targets.find((t) => !t.retarget && t.key === target.intent)?.newName ?? target.newName;
   }
   return targets;
+}
+
+/** A rename target's own declarations; none for a literal member or a retarget. */
+function targetDeclarations(r: Refactor, target: Target): TS.Declaration[] {
+  const program = r.services(target.file)[0]?.getProgram();
+  const source = program?.getSourceFile(target.file);
+  if (target.literal || target.retarget || program === undefined || source === undefined) return [];
+  const declarations = symbolOf(program.getTypeChecker(), nodeAt(source, target.position))?.declarations ?? [];
+  return declarations.filter((d) => !d.getSourceFile().isDeclarationFile);
+}
+
+/** RefactorError where two targets give declarations of one scope the same new name, naming the earlier one's
+ * first declaration. */
+function checkConvergence(r: Refactor, session: Session, targets: Target[]): void {
+  const scoped = targets.map((t) => {
+    const declarations = targetDeclarations(r, t);
+    return { target: t, first: declarations[0], scopes: new Set(declarations.map(scopeOf)) };
+  });
+  for (const [i, { target, first, scopes }] of scoped.entries()) {
+    const converges = scoped.slice(i + 1).some((o) => o.target.newName === target.newName && [...o.scopes].some((s) => scopes.has(s)));
+    if (!converges || first === undefined) continue;
+    const path = first.getSourceFile().fileName;
+    const line = session.lineOf(path, (ts().getNameOfDeclaration(first) ?? first).getStart(first.getSourceFile()));
+    throw new RefactorError(message('refactor.name-conflict', { name: target.newName, path: r.rel(path), line }));
+  }
 }
 
 const print = (lines: string[]): void => {
@@ -675,6 +733,7 @@ export function runEntries(r: Refactor, specs: EntrySpec[], map: string): number
   checkSupported(r);
   const targets = resolveAll(r, specs, map);
   const session = new Session(r, targets.map((t) => t.file));
+  checkConvergence(r, session, targets);
   const refusals = targetEdits(r, session, targets);
   if (refusals.length > 0) {
     print(refusals.map((f) => f.text));
@@ -694,6 +753,6 @@ export function runEntries(r: Refactor, specs: EntrySpec[], map: string): number
   }
   print([...blindspots, ...leftovers].map((f) => f.text));
   checkConflicts(session, edits);
-  const headers = targets.map((t) => message(t.retarget ? 'refactor.retarget-header' : 'refactor.ts-rename-header', { old: t.old, new: t.newName }));
+  const headers = targets.map((t) => message(t.retarget ? 'refactor.retarget-header' : 'refactor.rename-header', { old: t.old, new: t.newName }));
   return r.emit(headers, mergeEdits(edits), []);
 }

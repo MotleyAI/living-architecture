@@ -4,7 +4,7 @@ subclass overrides the alias or the target's name means something else, dropping
 from __future__ import annotations
 
 import ast
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 
 from rope.base import libutils
 from rope.refactor.rename import Rename
@@ -50,27 +50,28 @@ def _stored(node: ast.AST) -> Iterator[str]:
         yield from _stored(child)
 
 
-def _binds(scope: ast.AST, name: str) -> bool:
-    """`scope` (a function, lambda, comprehension or class) binds `name` in its own body."""
+def _binds(scope: ast.AST, name: str, accepted: Callable[[ast.AST], bool]) -> bool:
+    """`scope` (a function, lambda, comprehension or class) binds `name` in its own body, `accepted` statements
+    aside."""
     if isinstance(scope, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
         if any(a.arg == name for a in every_parameter(scope.args)):
             return True
         body = scope.body if isinstance(scope.body, list) else [scope.body]
-        return any(name in _stored(stmt) for stmt in body)
+        return any(name in _stored(stmt) for stmt in body if not accepted(stmt))
     if isinstance(scope, _COMPREHENSIONS):
         return any(name in _stored(g.target) for g in scope.generators)
     if isinstance(scope, ast.ClassDef):
-        return any(name in _stored(stmt) for stmt in scope.body)
+        return any(name in _stored(stmt) for stmt in scope.body if not accepted(stmt))
     return False
 
 
-def _bound_in_scope(parents: dict[ast.AST, ast.AST], node: ast.AST, name: str) -> bool:
-    """A function, comprehension or the innermost class enclosing `node` binds `name`."""
+def _bound_in_scope(parents: dict[ast.AST, ast.AST], node: ast.AST, name: str, accepted: Callable[[ast.AST], bool]) -> bool:
+    """A function, comprehension or the innermost class enclosing `node` binds `name`, `accepted` statements aside."""
     scope = parents.get(node)
     innermost = True
     while scope is not None:
         if isinstance(scope, (*_FUNCTIONS, *_COMPREHENSIONS)) or (innermost and isinstance(scope, ast.ClassDef)):
-            if _binds(scope, name):
+            if _binds(scope, name, accepted):
                 return True
             innermost = innermost and not isinstance(scope, _FUNCTIONS)
         scope = parents.get(scope)
@@ -85,6 +86,7 @@ class AliasRetarget(SymbolRename):
         self.check_names = False
         self.line = line
         self.refusals: list[Finding] = []
+        self._parents: dict[str, dict[ast.AST, ast.AST]] = {}
 
     @override
     def header(self) -> str:
@@ -117,7 +119,9 @@ class AliasRetarget(SymbolRename):
         source = self.snapshot.source(edit.path)
         if source.tree is None:
             return edit
-        parents = {child: node for node in ast.walk(source.tree) for child in ast.iter_child_nodes(node)}
+        if edit.path not in self._parents:
+            self._parents[edit.path] = {child: node for node in ast.walk(source.tree) for child in ast.iter_child_nodes(node)}
+        parents = self._parents[edit.path]
         node = _named_at(source, edit.start, self.old)
         if isinstance(node, ast.alias) and isinstance(stmt := parents.get(node), ast.ImportFrom):
             removal = self._duplicate(source, edit.path, stmt, node, parents, alias_module)
@@ -126,7 +130,7 @@ class AliasRetarget(SymbolRename):
             if self._module_binds_other(source, edit.path, alias_module, skip=stmt):
                 self._shadowed(source, edit)
         elif isinstance(node, ast.Name) and (
-            _bound_in_scope(parents, node, self.new)
+            _bound_in_scope(parents, node, self.new, lambda stmt: self._imports_target(edit.path, stmt, alias_module))
             or (edit.path != self.renamer.resource.path and self._module_binds_other(source, edit.path, alias_module))
         ):
             self._shadowed(source, edit)
@@ -140,16 +144,18 @@ class AliasRetarget(SymbolRename):
     def _from_alias_module(self, rel: str, stmt: ast.ImportFrom, alias_module: str) -> bool:
         return _imported_module(stmt, module_name(self.session, rel), rel.endswith("__init__.py")) == alias_module
 
+    def _imports_target(self, rel: str, stmt: ast.AST, alias_module: str) -> bool:
+        """`stmt` imports the target's name from the alias's module."""
+        return (isinstance(stmt, ast.ImportFrom) and self._from_alias_module(rel, stmt, alias_module)
+                and any(a.name == self.new and a.asname in (None, self.new) for a in stmt.names))
+
     def _module_binds_other(self, source: SourceFile, rel: str, alias_module: str, skip: ast.AST | None = None) -> bool:
         """The module binds the target's name other than by importing it from the alias's module."""
         assert source.tree is not None
-        for stmt in source.tree.body:
-            if stmt is skip or self.new not in _stored(stmt):
-                continue
-            if not (isinstance(stmt, ast.ImportFrom) and self._from_alias_module(rel, stmt, alias_module)
-                    and any(a.name == self.new and a.asname in (None, self.new) for a in stmt.names)):
-                return True
-        return False
+        return any(
+            stmt is not skip and self.new in _stored(stmt) and not self._imports_target(rel, stmt, alias_module)
+            for stmt in source.tree.body
+        )
 
     def _duplicate(
         self, source: SourceFile, rel: str, stmt: ast.ImportFrom, alias: ast.alias, parents: dict[ast.AST, ast.AST],
@@ -164,14 +170,26 @@ class AliasRetarget(SymbolRename):
         if not any(a.name == self.new and a.asname in (None, self.new) for s in others for a in s.names):
             return None
         if len(stmt.names) == 1:
-            start = source.line_start(stmt.lineno)
-            end_line = stmt.end_lineno or stmt.lineno
-            end = source.line_start(end_line + 1) if end_line < len(split_lines(source.text)) else len(source.text)
-            return TextEdit(path=rel, start=start, end=end, new_text="")
+            return _statement_removal(source, rel, stmt)
         spans = [source.span(a) for a in stmt.names]  # pyright: ignore[reportArgumentType]
         i = next(k for k, a in enumerate(stmt.names) if a is alias)
         start, end = (spans[i][0], spans[i + 1][0]) if i + 1 < len(spans) else (spans[i - 1][1], spans[i][1])
         return TextEdit(path=rel, start=start, end=end, new_text="")
+
+
+def _statement_removal(source: SourceFile, rel: str, stmt: ast.stmt) -> TextEdit:
+    """The removal of `stmt`: its whole lines when nothing but a comment shares them, else the statement and its
+    `;` separator."""
+    start, end = source.span(stmt)
+    first = source.line_start(stmt.lineno)
+    end_line = stmt.end_lineno or stmt.lineno
+    after_last = source.line_start(end_line + 1) if end_line < len(split_lines(source.text)) else len(source.text)
+    before, after = source.text[first:start], source.text[end:after_last].lstrip(" \t")
+    if not before.strip() and (not after.strip() or after.startswith("#")):
+        return TextEdit(path=rel, start=first, end=after_last, new_text="")
+    if after.startswith(";"):
+        return TextEdit(path=rel, start=start, end=after_last - len(after[1:].lstrip(" \t")), new_text="")
+    return TextEdit(path=rel, start=first + len(before.rstrip(" \t")) - 1, end=end, new_text="")
 
 
 def _named_at(source: SourceFile, offset: int, name: str) -> ast.AST | None:

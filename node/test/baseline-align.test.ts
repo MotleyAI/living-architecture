@@ -1,7 +1,18 @@
 // Every dr-refactor subcommand keeps .tsc-baseline.json aligned, in dry-run and apply alike.
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { message } from '../src/contract/index.js';
 import { expectedOut, files, read, refactor, renameHeader, tscBaseline, tsProject } from './refactor-project.js';
+
+const { reads } = vi.hoisted(() => ({ reads: [] as string[] }));
+
+vi.mock(import('node:fs'), async (importOriginal) => {
+  const fs = await importOriginal();
+  const readFileSync = ((path: Parameters<typeof fs.readFileSync>[0], options?: Parameters<typeof fs.readFileSync>[1]) => {
+    reads.push(String(path));
+    return fs.readFileSync(path, options);
+  }) as typeof fs.readFileSync;
+  return { ...fs, readFileSync };
+});
 
 const CONFIG = 'commands:\n  typecheck:\n    typescript: tsc --noEmit\n';
 const A = 'export interface Old {\n  x: number;\n}\n\nexport function make(): Old {\n  return { x: 1 };\n}\n';
@@ -22,6 +33,14 @@ describe('TypeScript baseline alignment', () => {
     expect(renameOld(root, true)).toEqual({ code: 0, out: expectedOut([renameHeader('Old', 'New')], changes, true), err: '' });
     expect(read(root, '.tsc-baseline.json')).toBe(NEW_BASELINE);
     expect(read(root, 'src/c.ts')).toBe(C);
+  });
+
+  it('aligns from one read of the baseline, whose text the writer re-checks', () => {
+    const root = tsProject({ 'src/a.ts': A, 'src/c.ts': C, '.tsc-baseline.json': OLD_BASELINE }, CONFIG);
+    reads.length = 0;
+    expect(renameOld(root, true).code).toBe(0);
+    // One read to align, one by the writer's re-check before writing.
+    expect(reads.filter((path) => path.endsWith('.tsc-baseline.json'))).toHaveLength(2);
   });
 
   it('a dry-run prints the baseline diff with the sources and writes nothing', () => {
@@ -61,6 +80,16 @@ describe('TypeScript baseline alignment', () => {
     expect(result.code).toBe(0);
     expect(result.out).toContain('--- a/.tsc-baseline.json\n');
     expect(read(root, '.tsc-baseline.json')).toBe(tscBaseline([['src/lib/util/fmt.ts', 'TS2322', msg, 1]]));
+  });
+
+  it('move-module follows a diagnostic that depends on a module moved with it', () => {
+    const msg = "Type 'string' is not assignable to type 'number'.";
+    const use = "import type { T } from './types';\n\nexport const x: T = { a: 'no' };\n";
+    const project = { 'src/util/types.ts': 'export type T = { a: number };\n', 'src/util/use.ts': use, 'src/lib/keep.ts': 'export {};\n' };
+    const root = tsProject({ ...project, '.tsc-baseline.json': tscBaseline([['src/util/use.ts', 'TS2322', msg, 1]]) }, CONFIG);
+    const result = refactor(root, '--apply', 'move-module', '--module', 'src/util', '--dest', 'src/lib');
+    expect([result.code, result.err]).toEqual([0, '']);
+    expect(read(root, '.tsc-baseline.json')).toBe(tscBaseline([['src/lib/util/use.ts', 'TS2322', msg, 1]]));
   });
 
   it('move-symbol moves the entry of the moved declaration into the destination', () => {
