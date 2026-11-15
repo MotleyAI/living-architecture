@@ -425,7 +425,7 @@ TYPE_PARAMETERS = (
 
 
 @pytest.mark.skipif(sys.version_info < (3, 12), reason="PEP 695 type parameters")
-@pytest.mark.parametrize(("nth", "new_name", "line"), [(0, "T", 1), (2, NEW, 6)], ids=["own", "nested"])
+@pytest.mark.parametrize(("nth", "new_name", "line"), [(0, "T", 1)], ids=["own"])
 def test_type_parameter_of_the_new_name_is_a_conflict(
     typed_project: MakeProject, capsys: pytest.CaptureFixture[str], nth: int, new_name: str, line: int
 ) -> None:
@@ -434,6 +434,18 @@ def test_type_parameter_of_the_new_name_is_a_conflict(
     assert _rename(root, "pkg/t.py", _at(root, "pkg/t.py", OLD, nth=nth), new_name=new_name) == 1
     assert capsys.readouterr() == ("", message("refactor.name-conflict", name=new_name, path="pkg/t.py", line=line) + "\n")
     assert file_tree(root) == before
+
+
+@pytest.mark.skipif(sys.version_info < (3, 12), reason="PEP 695 type parameters")
+def test_nested_type_parameter_of_the_new_name_reading_nothing_is_no_conflict(typed_project: MakeProject) -> None:
+    root = typed_project({"pkg/t.py": TYPE_PARAMETERS})
+    assert _rename(root, "pkg/t.py", _at(root, "pkg/t.py", OLD, nth=2)) == 0
+    _expect(root, {"pkg/t.py": (
+        "def f[T](*, model_name: int) -> int:\n    return model_name\n\n\n"
+        "def g(*, dataset_name: int) -> int:\n"
+        "    def inner[dataset_name]() -> None: ...\n"
+        "    return dataset_name\n"
+    )})
 
 
 CLEAN_BASE ="class A:\n    def run(self, *, model_name: str) -> str:\n        return model_name\n"

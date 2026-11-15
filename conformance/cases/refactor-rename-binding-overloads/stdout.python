@@ -1,0 +1,25 @@
+Renaming <old> to <fresh>:
+
+
+--- a/pkg/m.py
++++ b/pkg/m.py
+@@ -2,11 +2,11 @@
+ 
+ 
+ @overload
+-def old(x: int) -> int: ...
++def fresh(x: int) -> int: ...
+ @overload
+-def old(x: str) -> str: ...
+-def old(x: int | str) -> int | str:
++def fresh(x: str) -> str: ...
++def fresh(x: int | str) -> int | str:
+     return x
+ 
+ 
+-y = old(1)
++y = fresh(1)
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

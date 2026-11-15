@@ -1,0 +1,13 @@
+kind: paired
+languages:
+- python
+- typescript
+command: dr-refactor
+args:
+- rename-map
+- renames.yaml
+git:
+- commit: init
+expect:
+  exit: 0
+note: 'a method renamed with its override: the renamed hierarchy is no conflict'

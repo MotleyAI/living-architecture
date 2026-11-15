@@ -1,0 +1,22 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- rename
+- --file
+- src/m.ts
+- --line
+- '4'
+- --col
+- '9'
+- --new-name
+- fresh
+- --keep
+- src/m.ts:5
+git:
+- commit: init
+expect:
+  exit: 1
+golden: manual
+note: '--keep leaves a reference to a renamed local that an outer old would then capture: name-conflict naming the outer old'

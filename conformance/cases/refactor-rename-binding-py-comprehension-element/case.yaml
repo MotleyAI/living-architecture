@@ -1,0 +1,18 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- rename
+- --file
+- pkg/m.py
+- --symbol
+- old
+- --new-name
+- next
+git:
+- commit: init
+expect:
+  exit: 1
+golden: manual
+note: 'a comprehension''s element reads the renamed name beside its variable of the new name: name-conflict naming the comprehension'

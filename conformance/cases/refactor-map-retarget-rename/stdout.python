@@ -1,0 +1,23 @@
+Retargeting <old_alias> to <renamed>:
+Renaming <target> to <renamed>:
+
+
+--- a/pkg/m.py
++++ b/pkg/m.py
+@@ -1,9 +1,9 @@
+-def target() -> int:
++def renamed() -> int:
+     return 1
+ 
+ 
+-old_alias = target
++old_alias = renamed
+ 
+ 
+ def f() -> int:
+-    return old_alias()
++    return renamed()
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

@@ -1,0 +1,26 @@
+Renaming <old> to <next>:
+
+
+--- a/pkg/m.py
++++ b/pkg/m.py
+@@ -6,13 +6,13 @@
+     print(kw)
+ 
+ 
+-old = 1
++next = 1
+ 
+ 
+ def use(o: O) -> int:
+     # next is not read here
+-    call(next=old)
+-    return o.next + old
++    call(next=next)
++    return o.next + next
+ 
+ 
+ def unrelated() -> int:
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

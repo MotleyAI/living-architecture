@@ -1,0 +1,20 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- rename
+- --file
+- pkg/use.py
+- --line
+- '1'
+- --col
+- '17'
+- --new-name
+- b
+git:
+- commit: init
+expect:
+  exit: 1
+golden: manual
+note: 'a module rename whose rewritten importer binds the new name itself: name-conflict naming the importer''s binding'
