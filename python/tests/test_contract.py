@@ -706,7 +706,7 @@ NEW_TEMPLATES = {
         "WARNING: {baseline}: the {code} entry of {path} cannot follow the refactor; left unchanged",
     "refactor.baseline-failed":
         "the {language} type checker failed, so the baseline cannot be realigned and nothing was refactored",
-    "refactor.literal-value": "--new-name {value!r} holds a quote, backtick, backslash, ${{ or line break, which a literal member cannot",
+    "refactor.literal-value": "--new-name {value!r} holds a quote, backtick, backslash, ${{, NUL or line break, which a literal member cannot",
     "refactor.literal-unresolved":
         "{path}:{line}: literal-unresolved: the checker needs {old!r} here, where no string literal can be rewritten",
     "refactor.compound": "{path}:{line}: leftover: declaration {name} contains {old}",

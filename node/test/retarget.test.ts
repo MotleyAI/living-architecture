@@ -112,6 +112,25 @@ describe('retarget', () => {
     expect(diagnosticCodes(root)).toEqual([]);
   });
 
+  it.each([
+    [
+      'the alias imported first keeps its place, the later import of the target goes',
+      "import { legacy } from './api';\nimport './other';\nimport { modern } from './api';\nexport const a = legacy();\nexport const b = modern();\n",
+      "import { modern } from './api';\nimport './other';\nexport const a = modern();\nexport const b = modern();\n",
+    ],
+    [
+      'the target imported first stays, the later import of the alias goes',
+      "import { modern } from './api';\nimport './other';\nimport { legacy } from './api';\nexport const a = legacy();\nexport const b = modern();\n",
+      "import { modern } from './api';\nimport './other';\nexport const a = modern();\nexport const b = modern();\n",
+    ],
+  ])('keeps the module\'s first import: %s', (_kind, use, after) => {
+    const root = tsProject({ 'src/api.ts': API, 'src/other.ts': 'export {};\n', 'src/use.ts': use });
+    const result = refactor(root, '--apply', 'retarget', '--file', 'src/api.ts', '--symbol', 'legacy', '--target', 'modern');
+    expect([result.code, result.err]).toEqual([0, '']);
+    expect(read(root, 'src/use.ts')).toBe(after);
+    expect(diagnosticCodes(root)).toEqual([]);
+  });
+
   it('keeps the key of a shorthand property', () => {
     const use = "import { legacy } from './api';\n\nexport const o = { legacy };\n";
     const root = tsProject({ 'src/api.ts': API, 'src/use.ts': use });

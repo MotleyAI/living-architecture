@@ -559,19 +559,22 @@ function importsOf(checker: TS.TypeChecker, source: TS.SourceFile, module: TS.Im
     .filter((e) => e !== skip && e.name.text === name && (e.propertyName ?? e.name).text === name);
 }
 
-/** The edits replacing a retarget's rename of import specifier `node`: its removal when the module is already imported
- * under the target's name with a value import, its rename plus the removal of type-only imports of the target, else null. */
+/** The edits replacing a retarget's rename of import specifier `node` when the module also imports the target, the
+ * later of the two removed so the module keeps its first import's place: the specifier's removal when it is type-only
+ * or a value import of the target comes first, else its rename plus the removal of the target's imports; null when the
+ * module does not import the target. */
 function duplicateImport(source: TS.SourceFile, checker: TS.TypeChecker, node: TS.Node, edit: Edit, name: string): Edit[] | null {
   const specifier = node.parent;
   if (!ts().isImportSpecifier(specifier) || specifier.propertyName !== undefined) return null;
   const declaration = specifier.parent.parent.parent;
   if (!ts().isImportDeclaration(declaration)) return null;
   const twins = importsOf(checker, source, declaration, name, specifier);
-  if (twins.some((t) => !isTypeOnly(t)) || (twins.length > 0 && isTypeOnly(specifier))) return [removeSpecifier(source, specifier)];
-  return twins.length === 0 ? null : [edit, ...twins.map((t) => removeSpecifier(source, t))];
+  if (twins.length === 0) return null;
+  const earlier = twins.some((t) => !isTypeOnly(t) && t.getStart(source) < specifier.getStart(source));
+  if (isTypeOnly(specifier) || earlier) return [removeSpecifier(source, specifier)];
+  return [edit, ...twins.map((t) => removeSpecifier(source, t))];
 }
 
-/** A retarget's rename locations checked and adjusted: overrides and shadowed uses as findings, duplicate imports removed. */
 /** Where a module re-exports `name` (`export { name }`, `export { local as name }`, `export { name } from`): those
  * specifiers and its imports binding the exported locals. */
 function reexportSpans(source: TS.SourceFile, name: string): [number, number][] {
@@ -592,6 +595,7 @@ function reexportSpans(source: TS.SourceFile, name: string): [number, number][] 
   return [...exported, ...imported].map((node) => [node.getStart(source), node.end]);
 }
 
+/** A retarget's rename locations checked and adjusted: overrides and shadowed uses as findings, duplicate imports removed. */
 function retargetEdits(session: Session, target: Target, targetKey: string): Finding[] {
   const findings: Finding[] = [];
   const members = [...session.sources.values()].flatMap(({ source, checker }) => memberDeclarations(checker, source, target.old, source.fileName));
@@ -693,12 +697,44 @@ function targetDeclarations(r: Refactor, target: Target): TS.Declaration[] {
   return declarations.filter((d) => !d.getSourceFile().isDeclarationFile);
 }
 
-/** RefactorError where two targets give declarations of one scope the same new name, naming the earlier one's
- * first declaration. */
+/** A declaration that binds in its block: `let`, `const`, a class, a function, an enum, a type alias or an interface. */
+function blockScoped(d: TS.Declaration): boolean {
+  if (ts().isVariableDeclaration(d)) return (ts().getCombinedNodeFlags(d) & ts().NodeFlags.BlockScoped) !== 0; // NOSONAR(S1529) — NodeFlags bitmask test
+  return (
+    ts().isClassDeclaration(d) ||
+    ts().isFunctionDeclaration(d) ||
+    ts().isEnumDeclaration(d) ||
+    ts().isTypeAliasDeclaration(d) ||
+    ts().isInterfaceDeclaration(d)
+  );
+}
+
+/** The block `node` binds in: the nearest block, loop or file around it, a function's body counting as the function. */
+function blockOf(node: TS.Node): TS.Node {
+  let scope = node.parent;
+  while (!(ts().isSourceFile(scope) || ts().isModuleBlock(scope) || ts().isBlock(scope) || ts().isCaseBlock(scope) || ts().isIterationStatement(scope, false))) {
+    scope = scope.parent;
+  }
+  return ts().isBlock(scope) && ts().isFunctionLike(scope.parent) ? scope.parent : scope;
+}
+
+/** The binding scope of a declaration, as a key: a class member's class and side (static or instance), a block-scoped
+ * declaration's block, else its function, class or file. */
+function bindingScope(d: TS.Declaration): string {
+  const at = (node: TS.Node): string => `${node.getSourceFile().fileName}\0${node.pos}\0${node.end}`;
+  if (ts().isClassLike(d.parent)) {
+    const isStatic = ts().canHaveModifiers(d) && (ts().getModifiers(d) ?? []).some((m) => m.kind === ts().SyntaxKind.StaticKeyword);
+    return `${at(d.parent)}\0${isStatic ? 'static' : 'instance'}`;
+  }
+  return at(blockScoped(d) ? blockOf(d) : scopeOf(d));
+}
+
+/** RefactorError where two targets give declarations of one binding scope the same new name, naming the earlier
+ * one's first declaration. */
 function checkConvergence(r: Refactor, session: Session, targets: Target[]): void {
   const scoped = targets.map((t) => {
     const declarations = targetDeclarations(r, t);
-    return { target: t, first: declarations[0], scopes: new Set(declarations.map(scopeOf)) };
+    return { target: t, first: declarations[0], scopes: new Set(declarations.map(bindingScope)) };
   });
   for (const [i, { target, first, scopes }] of scoped.entries()) {
     const converges = scoped.slice(i + 1).some((o) => o.target.newName === target.newName && [...o.scopes].some((s) => scopes.has(s)));

@@ -182,6 +182,27 @@ export function run(b: Base): void {
     expect(read(root, 'src/f.ts')).toBe(f);
   });
 
+  it.each([
+    ['a static and an instance member', 'export class C {\n  static a = 1;\n  b = 2;\n}\n', 'C.a', 'C.b'],
+    ['locals of two blocks', 'export function f(): number {\n  {\n    let a = 1;\n    a += 1;\n  }\n  {\n    let b = 2;\n    b += 1;\n  }\n  return 0;\n}\n', 'f.<locals>.a', 'f.<locals>.b'],
+    ['type aliases of two blocks', 'export function f(): number {\n  {\n    type a = number;\n    const u: a = 1;\n    void u;\n  }\n  {\n    type b = number;\n    const v: b = 2;\n    void v;\n  }\n  return 0;\n}\n', 'f.<locals>.a', 'f.<locals>.b'],
+  ])('lets two entries take one name in different binding scopes (%s)', (_kind, f, first, second) => {
+    const root = withMap({ 'src/f.ts': f }, [
+      { file: 'src/f.ts', symbol: first, new_name: 'x' },
+      { file: 'src/f.ts', symbol: second, new_name: 'x' },
+    ]);
+    const result = refactor(root, '--apply', 'rename-map', 'map.yaml');
+    expect([result.code, result.err]).toEqual([0, '']);
+    expect(read(root, 'src/f.ts')).toBe(f.replace(/\b[ab]\b/gu, 'x'));
+  });
+
+  it('renames in a file with a byte-order mark, keeping the mark', () => {
+    const root = tsProject({ 'src/a.ts': '\uFEFFexport const a = 1;\nexport const b = a + 1;\n' });
+    const result = refactor(root, '--apply', 'rename', '--file', 'src/a.ts', '--symbol', 'a', '--new-name', 'c');
+    expect([result.code, result.err]).toEqual([0, '']);
+    expect(read(root, 'src/a.ts')).toBe('\uFEFFexport const c = 1;\nexport const b = c + 1;\n');
+  });
+
   it('refuses a map of two languages', () => {
     const root = withMap({ 'src/store.ts': STORE, 'pkg/a.py': 'def f() -> None:\n    pass\n' }, [
       { file: 'src/store.ts', symbol: 'Store.getModel', new_name: 'loadModel' },

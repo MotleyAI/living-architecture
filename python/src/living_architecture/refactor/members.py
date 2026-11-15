@@ -42,11 +42,27 @@ def _parameter_names(args: ast.arguments) -> set[str]:
     return {a.arg for a in every}
 
 
+def _binds_locally(fn: FunctionDef | ast.Lambda, name: str) -> bool:
+    """`fn` binds `name` in its own scope (a parameter, an assignment, a loop, `with`, import, `def`, `del`, ...), so a
+    use of `name` inside it is not the enclosing scope's."""
+    if name in _parameter_names(fn.args):
+        return True
+    if isinstance(fn, ast.Lambda):
+        return any(isinstance(n, ast.NamedExpr) and n.target.id == name for n in _in_scope(fn.body))
+    stmts = list(_class_level(fn.body))
+    if any(isinstance(s, ast.Global) and name in s.names for s in stmts):
+        return True
+    if any(isinstance(s, ast.Nonlocal) and name in s.names for s in stmts):
+        return False
+    deleted = any(isinstance(t, ast.Name) and t.id == name for s in stmts if isinstance(s, ast.Delete) for t in s.targets)
+    return deleted or any(True for s in stmts for _ in _bindings(s, name))
+
+
 def _receiver_scope(node: ast.AST, receiver: str) -> Iterator[ast.AST]:
     """`node`'s descendants where `receiver` still names the method's receiver: a nested function or lambda that
-    rebinds it as a parameter is left out, its decorators and defaults kept."""
+    binds it locally is left out, its decorators and defaults kept."""
     for child in ast.iter_child_nodes(node):
-        if isinstance(child, FunctionDef | ast.Lambda) and receiver in _parameter_names(child.args):
+        if isinstance(child, FunctionDef | ast.Lambda) and _binds_locally(child, receiver):
             outer = [*getattr(child, "decorator_list", []), *child.args.defaults, *(d for d in child.args.kw_defaults if d)]
             for expr in outer:
                 yield expr

@@ -1536,8 +1536,9 @@ ALIAS's own declarations; ALIAS SHALL stay declared and unchanged. ALIAS and TAR
 class body or module scope, else exit 2 with `refactor.retarget-scope`. Checks that the new name is already used
 SHALL NOT apply. A member ALIAS SHALL refuse, exit 1 with one `refactor.retarget-override` line per site, while a
 class of its hierarchy other than ALIAS's own declares ALIAS's name. A bare-name reference at which TARGET's name
-is bound to something else SHALL refuse with `refactor.retarget-shadowed`. An import that the rewrite would make a
-duplicate of an import of TARGET from the same module SHALL be removed instead. A module's re-export of ALIAS SHALL
+is bound to something else SHALL refuse with `refactor.retarget-shadowed`. Where the rewrite would make an import
+a duplicate of an import of TARGET from the same module, the later of the two SHALL be removed, so the module keeps its
+first import's place. A module's re-export of ALIAS SHALL
 stay: where the module lists ALIAS's name in `__all__` (Python) or exports it (TypeScript `export { ALIAS }` or
 `export { ALIAS } from`), its import or export of ALIAS and that `__all__` string SHALL be left unchanged.
 
@@ -1659,7 +1660,7 @@ and write nothing.
 ### Requirement: Literal members are renamed where the checker types them
 A rename located at a member of a string-literal type (`--symbol Q['value']`, or a locator on that string inside
 the type) SHALL take the new value from `--new-name`: any text without a quote character (`'`, `"` or a backtick), a
-backslash, `${` or a line break (U+2028 and U+2029 included) (else exit 2 with `refactor.literal-value`); the identifier rule SHALL NOT apply, and each rewritten string SHALL
+backslash, `${`, a NUL character or a line break (U+2028 and U+2029 included) (else exit 2 with `refactor.literal-value`); the identifier rule SHALL NOT apply, and each rewritten string SHALL
 keep its quote style.
 
 - TypeScript: the rewritten strings SHALL be the language service's rename locations for that string.
