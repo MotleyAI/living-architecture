@@ -386,3 +386,31 @@ def test_a_later_entry_renaming_a_target_segment_rewrites_it(
     code, _out, err = run(root, _rename_map(), monkeypatch, capsys)
     assert (code, err) == (0, "")
     assert 'patch("pkg.engine.Motor.store_model")' in read(root, "tests/test_p.py")
+
+
+SHARED_OLD = """\
+class A:
+    def save(self) -> int:
+        return 1
+
+
+class B:
+    def save(self) -> int:
+        return 2
+
+
+def use(x):
+    return x.save()
+"""
+
+
+def test_entries_sharing_an_old_name_report_each_blind_spot_once(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = _project(tmp_path, {"pkg/m.py": SHARED_OLD}, [
+        {"file": "pkg/m.py", "symbol": "A.save", "new_name": "store"},
+        {"file": "pkg/m.py", "symbol": "B.save", "new_name": "keep"},
+    ])
+    code, _out, err = run(root, _rename_map(), monkeypatch, capsys)
+    blind = message("compliance.attr-blindspot", path="pkg/m.py", line=12, receiver="x", attr="save", type="Unknown")
+    assert (code, err) == (1, f"{blind}\n{message('refactor.blindspots', count=1, attr='save')}\n")

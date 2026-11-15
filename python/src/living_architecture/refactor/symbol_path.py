@@ -227,7 +227,10 @@ def _literal_holder(source: SourceFile, node: ast.AST) -> ast.expr | None:
     """The annotation or alias body of a declaration that may hold a literal type."""
     parent = _statement_of(source, node)
     if isinstance(parent, ast.AnnAssign):
-        if isinstance(parent.annotation, ast.Name) and parent.annotation.id == "TypeAlias":
+        annotation = parent.annotation
+        if (isinstance(annotation, ast.Name) and annotation.id == "TypeAlias") or (
+            isinstance(annotation, ast.Attribute) and annotation.attr == "TypeAlias"
+        ):
             return parent.value
         return parent.annotation
     if isinstance(parent, ast.Assign):

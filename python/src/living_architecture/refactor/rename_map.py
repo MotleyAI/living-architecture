@@ -7,7 +7,7 @@ from __future__ import annotations
 import ast
 import re
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import Any
 
@@ -107,6 +107,11 @@ def _definition_line(renamer: Rename) -> tuple[str | None, int | None]:
     module, line = location or (None, None)
     resource_ = module.get_resource() if isinstance(module, PyModule) else None
     return (resource_.path if resource_ is not None else None), line
+
+
+def _unique(findings: Iterable[Finding]) -> list[Finding]:
+    """`findings` in path, line and column order, each once: entries sharing an old name scan its sites once."""
+    return sorted({(f.path, f.line, f.col, f.text): f for f in findings}.values(), key=lambda f: (f.path, f.line, f.col))
 
 
 def _declares_parameter(node: ast.AST, name: str, line: int) -> bool:
@@ -308,12 +313,11 @@ class RenameMap:
 
     def refusal(self, renames: list[Renaming]) -> list[str]:
         """The lines refusing the map, or none when it may proceed."""
-        refusals = sorted((f for r in renames if isinstance(r, AliasRetarget) for f in r.refusals),
-                          key=lambda f: (f.path, f.line, f.col))
+        refusals = _unique(f for r in renames if isinstance(r, AliasRetarget) for f in r.refusals)
         if refusals:
             return [f.text for f in refusals]
-        blindspots = sorted((b for r in renames for b in r.blindspots), key=lambda f: (f.path, f.line, f.col))
-        stand_ins = sorted((s for r in renames for s in r.stand_in_findings()), key=lambda f: (f.path, f.line, f.col))
+        blindspots = _unique(b for r in renames for b in r.blindspots)
+        stand_ins = _unique(s for r in renames for s in r.stand_in_findings())
         blind = [] if self.options.allow_blindspots else blindspots
         if not blind and not stand_ins:
             return []
@@ -323,7 +327,7 @@ class RenameMap:
 
     def findings(self, renames: list[Renaming]) -> list[Finding]:
         """The blind spots let through and the leftovers, each group sorted."""
-        blindspots = sorted((b for r in renames for b in r.blindspots), key=lambda f: (f.path, f.line, f.col))
+        blindspots = _unique(b for r in renames for b in r.blindspots)
         unique = {(f.path, f.line, f.col, f.text): f for r in renames for f in r.leftovers}
         leftovers = [unique[k] for k in sorted(unique)]
         return [*blindspots, *leftovers]

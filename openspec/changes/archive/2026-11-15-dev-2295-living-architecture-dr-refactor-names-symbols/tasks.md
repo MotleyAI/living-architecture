@@ -21,7 +21,7 @@
       `scripts/sync-shared --check`, `openspec validate dev-2295-living-architecture-dr-refactor-names-symbols
       --strict`, `la-arch-check`, and DEV-2292's tests and cases pass as on `main` apart from the ones this change's
       open tasks own.
-- [ ] 0.4 Align this change's tests with decisions 39–46 (they were written before them): the `Literal` tests and
+- [x] 0.4 Align this change's tests with decisions 39–46 (they were written before them): the `Literal` tests and
       cases that pin "listed only with `--docs`" now expect the listing without it and the `Other` argument unlisted
       (decision 40); add the shared vectors of decision 41 (`shared/vectors/`, `scripts/sync-shared`, a runner in
       each twin, failing until tasks 3, 6.1 and 8.1); a `--symbol` test on a TypeScript member declared by a
@@ -162,16 +162,22 @@
 
 - [x] 12.1 Local test scope green in both twins; `ruff`, `basedpyright`, `npm run lint && npm run typecheck`,
       `la-arch-check` and `la-typecheck` pass; `scripts/sync-shared --check` passes.
-- [ ] 12.2 From this checkout, dry-run on SLayer's DEV-1607 branch: a map of related method renames, a retarget map
+- [x] 12.2 From this checkout, dry-run on SLayer's DEV-1607 branch: a map of related method renames, a retarget map
       of DEV-2294-style twins, a rename shifting baselined columns, and a `Literal["edit_model"]` member rename;
       record wall times here (checker runs, probe, blind-spot scan).
-- [ ] 12.3 Before archiving: `main` holds DEV-2292's and DEV-2289's changes archived (true as of task 0.3's merge);
+      Recorded 2026-11-15, `egor__dev-1607-rename-columns-to-fields-to-be-consistent-with` @ 5ea44799: map of 4
+      related renames 25.75 s (`--allow-blindspots`; 22.45 s refusing); retarget map of 5 twins 3.89 s (scratch copy
+      with the `Flight*` twins beside their targets; the real cross-module shim is refused by decision 7 in 0.22 s);
+      baseline-shifting rename 10.28 s (6 entries realigned); `Literal` member rename 110.47 s (every source a
+      candidate, diagnostics pulled twice). The runs found the duplicated blind-spot report of entries sharing an old
+      name and the shim rewrite (decision 48), both fixed.
+- [x] 12.3 Before archiving: `main` holds DEV-2292's and DEV-2289's changes archived (true as of task 0.3's merge);
       merge `main` again;
       `openspec validate dev-2295-living-architecture-dr-refactor-names-symbols --strict`.
 
 ## 13. Post-merge (after the PR merges; not part of its diff)
 
-- [ ] 13.1 Release a minor version (bump `python/pyproject.toml`, `node/package.json`,
+- [x] ~~13.1 Release a minor version (bump `python/pyproject.toml`, `node/package.json`,
       `plugin/.claude-plugin/plugin.json` together; `scripts/release-check`), release notes naming the removal of
-      `--name`.
-- [ ] 13.2 Pin it in SLayer; DEV-2295 stays open until the pin lands.
+      `--name`.~~ Post-merge; tracked on DEV-2295.
+- [x] ~~13.2 Pin it in SLayer; DEV-2295 stays open until the pin lands.~~ Post-merge; tracked on DEV-2295.

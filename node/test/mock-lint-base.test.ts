@@ -18,6 +18,11 @@ const lint = (root: string, ...argv: string[]): Run => run(root, 'dr-mock-lint',
 /** A repo whose `main` (pushed to a bare origin) holds `tests/a.test.ts` as BASE_TEST, checked out on `feat`. */
 function based(): string {
   const root = tsProject({ 'tsconfig.json': TSCONFIG, 'src/api.ts': API, 'tests/a.test.ts': BASE_TEST });
+  return pushed(root);
+}
+
+/** `root` committed, its `main` pushed to a bare origin, checked out on `feat`. */
+function pushed(root: string): string {
   commitAll(root);
   const origin = join(mkdtempSync(join(tmpdir(), 'la-origin-')), 'origin.git');
   execFileSync('git', ['init', '-q', '--bare', origin]);
@@ -90,6 +95,25 @@ describe('dr-mock-lint --base', () => {
     writeFileSync(join(root, 'tsconfig.json'), TSCONFIG);
     const module = message('mock-lint.module', { path: 'tests/m.test.ts', line: 3, call: 'vi.mock' });
     expect(lint(root, '--base', 'main', 'tests/m.test.ts')).toEqual({ code: 1, out: `${module}\n`, err: '' });
+  });
+
+  it('ignores a tsconfig the base lacks, linting the base as an inferred project', () => {
+    const root = tsProject({ 'src/api.ts': API, 'tests/a.test.ts': BASE_TEST });
+    rmSync(join(root, 'tsconfig.json'));
+    pushed(root);
+    writeFileSync(join(root, 'tsconfig.json'), TSCONFIG);
+    writeFileSync(join(root, 'tests', 'a.test.ts'), `${BASE_TEST}export const b = vi.fn();\n`);
+    expect(lint(root, '--base', 'main', 'tests/a.test.ts')).toEqual({ code: 1, out: `${fn('tests/a.test.ts', 4)}\n`, err: '' });
+  });
+
+  it('expands the base tsconfig\'s globs over the base, which still holds a declaration deleted since', () => {
+    const typed = TSCONFIG.replace('"include": ["src", "tests"]', '"include": ["src", "tests", "types"]');
+    const ambient = "declare module 'virtual-service' {\n  export const x: number;\n}\n";
+    const mocked = "import { vi } from 'vitest';\n\nvi.mock(import('virtual-service'), () => ({}));\n";
+    const root = pushed(tsProject({ 'tsconfig.json': typed, 'types/virtual.d.ts': ambient, 'tests/v.test.ts': mocked }));
+    rmSync(join(root, 'types', 'virtual.d.ts'));
+    const module = message('mock-lint.module', { path: 'tests/v.test.ts', line: 3, call: 'vi.mock' });
+    expect(lint(root, '--base', 'main', 'tests/v.test.ts')).toEqual({ code: 1, out: `${module}\n`, err: '' });
   });
 
   it('compares with origin/BRANCH as it stands when the fetch fails', () => {

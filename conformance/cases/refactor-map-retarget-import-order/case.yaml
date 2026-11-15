@@ -1,0 +1,15 @@
+kind: paired
+languages:
+- python
+- typescript
+command: dr-refactor
+args:
+- rename-map
+- renames.yaml
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: 'a retarget whose alias import comes before an import of the target from the same module keeps the first import
+  (rewritten) and removes the later, so module evaluation order is kept, in both languages'

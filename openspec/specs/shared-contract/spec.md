@@ -160,15 +160,15 @@ registry template SHALL be exercised by at least one conformance case.
 
 ### Requirement: Command surfaces come from the shared CLI manifest
 The set of `la-*` and `dr-*` commands, and each command's subcommands, options, types, choices, repeatability,
-required options and positionals, SHALL be defined by the shared CLI manifest. Each installed command SHALL
-build its parser from it. Parsing SHALL accept no abbreviated long options and SHALL honour `--`. A usage
-error SHALL exit 2. A command declared `passthrough` SHALL hand its raw arguments to its handler. Options the
-manifest marks internal SHALL be accepted but omitted from help. The manifest SHALL declare, for each
-language-specific command, the languages whose twin implements it natively; a command declaring none is
-neutral. The manifest SHALL mark the commands exempt from the format check (`la-arch-migrate`, `la-doctor` and the
-review shims); every other command SHALL run the format check, and a format refusal SHALL exit 2 in every command.
-Each package's installed entry points SHALL be exactly the manifest's command set, and every command a
-skill references SHALL be in the manifest.
+required options, mutually exclusive options and positionals, SHALL be defined by the shared CLI manifest. Each
+installed command SHALL build its parser from it. Parsing SHALL accept no abbreviated long options and SHALL honour
+`--`. A usage error SHALL exit 2; giving more than one option of an `exclusive` group is a usage error. A command
+declared `passthrough` SHALL hand its raw arguments to its handler. Options the manifest marks internal SHALL be
+accepted but omitted from help. The manifest SHALL declare, for each language-specific command, the languages whose
+twin implements it natively; a command declaring none is neutral. The manifest SHALL mark the commands exempt from
+the format check (`la-arch-migrate`, `la-doctor` and the review shims); every other command SHALL run the format
+check, and a format refusal SHALL exit 2 in every command. Each package's installed entry points SHALL be exactly
+the manifest's command set, and every command a skill references SHALL be in the manifest.
 
 #### Scenario: Entry points match the manifest
 - **WHEN** either twin's test suite runs
@@ -181,6 +181,10 @@ skill references SHALL be in the manifest.
 #### Scenario: Accepted invocation vector
 - **WHEN** `la-check-conventions --file a.py --file b.py --exclude 'gen/*'` runs
 - **THEN** both files are checked, `gen/*` is exempt, and the exit code and stdout equal the golden
+
+#### Scenario: Exclusive options rejected together
+- **WHEN** `dr-refactor rename --file a.py --line 1 --symbol foo --new-name bar` runs through either twin
+- **THEN** it exits 2 as a usage error
 
 #### Scenario: Internal option hidden
 - **WHEN** `la-doctor --help` runs

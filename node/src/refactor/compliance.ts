@@ -8,7 +8,7 @@ import { Lines } from './lines.js';
 import { anyReceivers } from './members.js';
 import { type Finding, type MockFinding, mockFindings } from './mocks.js';
 import { fileAt, repoPathBytes } from '../changes/index.js';
-import { Workspace } from './workspace.js';
+import { listingOf, Workspace } from './workspace.js';
 
 /** Implicit-any diagnostics of a parameter, a binding element and a rest parameter. */
 const IMPLICIT_ANY = new Set([7006, 7031, 7019]);
@@ -135,7 +135,7 @@ function baseFindings(files: string[], paths: string[], repoRoot: string, base: 
   };
   const baseFiles = files.map((file) => resolve(repoRoot, base.renamed.get(rel(file)) ?? rel(file)));
   const present = baseFiles.filter((file) => base.tracked.has(rel(file)));
-  const workspace = new Workspace(repoRoot, overlay);
+  const workspace = new Workspace(repoRoot, overlay, new Map(), listingOf(repoRoot, base.tracked));
   const programs = workspace.programs(present, MOCK_OPTIONS);
   const host = workspace.resolutionHost();
   return baseFiles.map((file, i) => {

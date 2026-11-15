@@ -7,7 +7,7 @@ import { posix, ts } from '../lang/index.js';
 import { alignBaseline } from './baseline.js';
 import { CHECKER_OPTIONS } from './compliance.js';
 import { unifiedDiff } from './diff.js';
-import { applyEdits, type Edit, RefactorError } from './edits.js';
+import { applyEdits, type Edit, RefactorError, splitBom } from './edits.js';
 import { Lines } from './lines.js';
 import type { MovedSpan } from './position.js';
 import { languageFiles, realPath, under } from './routing.js';
@@ -96,12 +96,13 @@ export class Refactor {
     const writes: Write[] = [];
     for (const [path, fileEdits] of edits) {
       const old = readFileSync(path, 'utf8');
+      const [bom, body] = splitBom(old);
       const analysed = this.services(path)[0]?.getProgram()?.getSourceFile(path)?.text;
-      if (analysed !== undefined && old.replace(/^\uFEFF/u, '') !== analysed) throw new RefactorError(message('refactor.file-changed', { path: this.rel(path) }));
-      const text = applyEdits(old, fileEdits);
+      if (analysed !== undefined && body !== analysed) throw new RefactorError(message('refactor.file-changed', { path: this.rel(path) }));
+      const text = bom + applyEdits(body, fileEdits);
       if (text !== old) writes.push({ path, old, text });
     }
-    const aligned = alignBaseline(this, { edits, moves: new Map(moves), spans }, new Map(writes.map((w) => [w.path, w.text])));
+    const aligned = alignBaseline(this, { edits, moves: new Map(moves), spans }, new Map(writes.map((w) => [w.path, splitBom(w.text)[1]])));
     process.stderr.write(aligned.warnings.map((line) => `${line}\n`).join(''));
     if (aligned.write !== null) writes.push(aligned.write);
     for (const { path, old, text } of writes) entries.push({ path: this.rel(path), text: unifiedDiff(old, text, this.rel(path)) });

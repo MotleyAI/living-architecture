@@ -192,6 +192,8 @@ diagnostic through it, for every subcommand. Grounded in principles 1 and 2.
     name in the one scan. (default)
 47. **`python.md` wording for decision 40**: "strings equal to a renamed `Literal` member that the checker does not
     type by it (`str` variables, `argparse` `choices`; each listed as a `leftover`)," (user, approved wording)
+48. **Retarget keeps re-exports**: a module re-exporting ALIAS (`__all__`, a TypeScript export) keeps its import or
+    export of ALIAS and the `__all__` string, so a back-compat shim keeps working. (user)
 
 ## Mechanisms
 

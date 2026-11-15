@@ -5,6 +5,7 @@ import type * as TS from 'typescript';
 import { ConfigError, findRepoRoot, loadConfig } from '../config/index.js';
 import { byCodePoint, language, message } from '../contract/index.js';
 import { baselineKey, canonical, parseBaseline, parseTscOutput, posix, posixRel, renderBaseline, ts } from '../lang/index.js';
+import { splitBom } from './edits.js';
 import { mapPosition, type PositionMap } from './position.js';
 import type { Refactor } from './session.js';
 import { Workspace } from './workspace.js';
@@ -99,7 +100,7 @@ export function alignBaseline(r: Refactor, map: PositionMap, texts: Map<string, 
   const overlay = (path: string): string | null | undefined => {
     if (map.moves.has(path)) return null;
     const old = olds.get(path) ?? path;
-    return texts.get(old) ?? (olds.has(path) ? readFileSync(old, 'utf8') : undefined);
+    return texts.get(old) ?? (olds.has(path) ? splitBom(readFileSync(old, 'utf8'))[1] : undefined);
   };
   const after = new Workspace(r.root, overlay, new Map([...map.moves].map(([from, to]) => [canonical(from), to])));
   const cache = new Map<string, Instance[]>();

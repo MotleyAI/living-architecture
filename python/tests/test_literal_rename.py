@@ -218,9 +218,10 @@ def test_derived_alias(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: 
     assert read(root, "pkg/d.py") == DERIVED.replace("edit_model", "edit_master")
 
 
-@pytest.mark.parametrize("value", ["it's", 'say "x"', "back\\slash", "two\nlines", "tick`tock", "a${b}", "para\u2029graph"],
+@pytest.mark.parametrize("value", ["it's", 'say "x"', "back\\slash", "two\nlines", "tick`tock", "a${b}", "para\u2029graph",
+                                   "nul\x00"],
                          ids=["single-quote", "double-quote", "backslash", "line-break", "backtick", "interpolation",
-                              "paragraph-separator"])
+                              "paragraph-separator", "nul"])
 def test_value_with_a_quote_backslash_or_line_break_refused(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], value: str
 ) -> None:
@@ -313,3 +314,30 @@ def test_a_literal_path_ignores_strings_outside_the_literal(
     code, _out, err = run(root, _by_symbol("done", symbol="State['ready']", rel="pkg/state.py"), monkeypatch, capsys)
     assert (code, err) == (0, message("refactor.leftover", path="pkg/state.py", line=3, where="string", old="ready") + "\n")
     assert read(root, "pkg/state.py") == text.replace('Literal["ready"', 'Literal["done"')
+
+
+def test_a_qualified_type_alias_body_holds_the_member(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    kinds = 'import typing\n\nKind: typing.TypeAlias = typing.Literal["edit", "drop"]\n\nk: Kind = "edit"\n'
+    root = write_project(tmp_path / "proj", {"pkg/kinds.py": kinds})
+    code, _out, err = run(root, _by_symbol("change", symbol="Kind['edit']"), monkeypatch, capsys)
+    assert (code, err) == (0, "")
+    assert read(root, "pkg/kinds.py") == kinds.replace('"edit"', '"change"')
+
+
+@pytest.mark.parametrize(
+    "line",
+    ['pair: tuple[State, str] = ("old", "old")', 'd: dict[State, str] = {"old": "old"}',
+     'pairs: list[tuple[State, str]] = [("old", "old")]'],
+    ids=["tuple", "dict", "nested"],
+)
+def test_a_mixed_display_rewrites_only_the_member_typed_string(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], line: str
+) -> None:
+    text = f'from typing import Literal\n\nState = Literal["old", "new"]\n\n{line}\n'
+    root = write_project(tmp_path / "proj", {"pkg/s.py": text})
+    code, _out, err = run(root, _by_symbol("done", symbol="State['old']", rel="pkg/s.py"), monkeypatch, capsys)
+    leftover = message("refactor.leftover", path="pkg/s.py", line=5, where="string", old="old")
+    assert (code, err) == (0, f"{leftover}\n")
+    assert read(root, "pkg/s.py") == text.replace('"old"', '"done"', 2)

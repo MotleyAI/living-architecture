@@ -35,3 +35,8 @@ export function applyEdits(text: string, edits: Edit[]): string {
   for (const edit of [...edits].reverse()) out = out.slice(0, edit.start) + edit.newText + out.slice(end(edit));
   return out;
 }
+
+/** A file's text as its byte-order mark and the rest, the language service's offsets being in the rest. */
+export function splitBom(text: string): [string, string] {
+  return text.startsWith('\uFEFF') ? ['\uFEFF', text.slice(1)] : ['', text];
+}

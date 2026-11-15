@@ -63,6 +63,20 @@ def test_class_twin_and_its_imports(
     assert read(root, "pkg/only.py") == "from pkg.models import Model\n\n\ndef make() -> object:\n    return Model()\n"
 
 
+def test_a_reexport_shim_is_kept(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    shim = 'from pkg.models import Model, AcmeModel\n\n__all__ = ["Model", "AcmeModel"]\n'
+    models = MODELS + '\n__all__ = ["Model", "AcmeModel"]\n'
+    root = write_project(tmp_path / "proj", {
+        "pkg/models.py": models,
+        "pkg/compat.py": shim,
+        "pkg/only.py": "from pkg.compat import AcmeModel\n\n\ndef make() -> object:\n    return AcmeModel()\n",
+    })
+    code, _out, err = run(root, _retarget("pkg/models.py", "AcmeModel", "Model"), monkeypatch, capsys)
+    assert (code, err) == (0, "")
+    assert [read(root, "pkg/models.py"), read(root, "pkg/compat.py")] == [models, shim]
+    assert read(root, "pkg/only.py") == "from pkg.compat import Model\n\n\ndef make() -> object:\n    return Model()\n"
+
+
 def test_import_alias_keeps_its_local_name(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -179,3 +193,68 @@ def test_a_local_import_of_the_target_is_no_shadow(
     code, _out, err = run(root, _retarget("pkg/models.py", "AcmeModel", "Model"), monkeypatch, capsys)
     assert (code, err) == (0, "")
     assert read(root, "pkg/use.py") == "def make() -> object:\n    from pkg.models import Model\n    return Model()\n"
+
+
+@pytest.mark.parametrize(
+    ("use", "expected"),
+    [
+        ("from pkg.models import AcmeModel\nimport pkg.other\nfrom pkg.models import Model\n\na = AcmeModel()\nb = Model()\n",
+         "from pkg.models import Model\nimport pkg.other\n\na = Model()\nb = Model()\n"),
+        ("from pkg.models import Model\nimport pkg.other\nfrom pkg.models import AcmeModel\n\na = AcmeModel()\nb = Model()\n",
+         "from pkg.models import Model\nimport pkg.other\n\na = Model()\nb = Model()\n"),
+    ],
+    ids=["alias first", "target first"],
+)
+def test_of_two_imports_of_the_module_the_later_is_removed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], use: str, expected: str
+) -> None:
+    root = write_project(tmp_path / "proj", {"pkg/models.py": MODELS, "pkg/other.py": "", "pkg/use.py": use})
+    code, _out, err = run(root, _retarget("pkg/models.py", "AcmeModel", "Model"), monkeypatch, capsys)
+    assert (code, err) == (0, "")
+    assert read(root, "pkg/use.py") == expected
+
+
+def test_a_local_import_of_the_alias_before_one_of_the_target_is_rewritten_in_place(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    use = ("def build() -> object:\n    from pkg.models import AcmeModel\n    value = AcmeModel()\n"
+           "    from pkg.models import Model\n    return value\n")
+    root = write_project(tmp_path / "proj", {"pkg/models.py": MODELS, "pkg/use.py": use})
+    code, _out, err = run(root, _retarget("pkg/models.py", "AcmeModel", "Model"), monkeypatch, capsys)
+    assert (code, err) == (0, "")
+    assert read(root, "pkg/use.py") == "def build() -> object:\n    from pkg.models import Model\n    value = Model()\n    return value\n"
+
+
+def test_a_local_import_of_the_target_after_the_use_shadows_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    use = ("from pkg.models import AcmeModel\n\n\ndef build() -> object:\n    value = AcmeModel()\n"
+           "    from pkg.models import Model\n    return value\n")
+    root = write_project(tmp_path / "proj", {"pkg/models.py": MODELS, "pkg/use.py": use})
+    before = file_tree(root)
+    code, out, err = run(root, _retarget("pkg/models.py", "AcmeModel", "Model"), monkeypatch, capsys)
+    shadowed = message("refactor.retarget-shadowed", path="pkg/use.py", line=5, name="Model")
+    assert (code, out, err) == (1, "", f"{shadowed}\n")
+    assert file_tree(root) == before
+
+
+def test_a_target_imported_in_a_compound_statement_before_the_use_is_no_shadow(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    use = ("from pkg.models import AcmeModel\n\n\ndef build() -> object:\n    if True:\n"
+           "        from pkg.models import Model\n    value = AcmeModel()\n    return value\n")
+    root = write_project(tmp_path / "proj", {"pkg/models.py": MODELS, "pkg/use.py": use})
+    code, _out, err = run(root, _retarget("pkg/models.py", "AcmeModel", "Model"), monkeypatch, capsys)
+    assert (code, err) == (0, "")
+    assert "    value = Model()\n" in read(root, "pkg/use.py")
+
+
+def test_an_import_in_another_branch_is_no_duplicate(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    use = ("import sys\n\nif sys.version_info >= (3, 11):\n    from pkg.models import Model\nelse:\n"
+           "    from pkg.models import AcmeModel\nuse = AcmeModel\n")
+    root = write_project(tmp_path / "proj", {"pkg/models.py": MODELS, "pkg/use.py": use})
+    code, _out, err = run(root, _retarget("pkg/models.py", "AcmeModel", "Model"), monkeypatch, capsys)
+    assert (code, err) == (0, "")
+    assert read(root, "pkg/use.py") == use.replace("import AcmeModel\n", "import Model\n").replace("= AcmeModel", "= Model")
