@@ -5,4 +5,5 @@
 [rules]
 [rules 1/1] entry 1: Flight -> Facade: 1 refusal(s)
 src/mixed.ts:9: Facade names something else here, so nothing was refactored
+[conflicts]
 src/mixed.ts:9: Facade names something else here, so nothing was refactored

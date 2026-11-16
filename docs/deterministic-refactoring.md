@@ -33,8 +33,9 @@ leaves sites untouched, and `--docs` also rewrites mentions in comments, docstri
 listing the rest as `leftover`.
 
 A run announces its phases on stderr as they start — `[resolve]`, `[checks]`, `[references]`, `[rules]`,
-`[baseline]`, `[write]` — with `[references n/count]` as each entry's reference search starts and `[rules n/count]`
-as each old-name group is done, `clean` or followed by its refusals. Everything that needs no reference search runs
+`[conflicts]`, `[baseline]`, `[write]` — with `[references n/count]` as each entry's reference search starts and
+`[rules n/count]` as each old-name group is done, `clean` or followed by its refusals; `conflicts` checks the
+computed edits for map and name conflicts. Everything that needs no reference search runs
 in `checks` and refuses at once, listing every failure: entries that do not resolve, `--keep` / `--with` /
 `--without` sites naming no file or line, keeps whose files never spell an old name, Python walker gaps, an
 unreadable config while the language's baseline file exists, and a checker that cannot run. Past `checks`, every entry is computed and every refusal listed in one final report;
