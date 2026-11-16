@@ -389,7 +389,9 @@ The `checks` phase SHALL then run, before any reference search:
   source whose text holds the moved name or module's name), for any other entry the module locating it;
 - Python: the language server SHALL start for `rename`, `retarget` and `rename-map` unless the run's occurrence index
   is cached and no entry renames a `Literal` member, and when the baseline phase will run, the configured checker SHALL run once on one source of the refactor; a failure SHALL be reported with its
-  cause.
+  cause;
+- in both twins, when the refactor's language has its baseline file at the repo root, the repo config SHALL be
+  readable and valid, else its error SHALL be reported as the config loader words it, exit 2.
 
 Each `--keep`, `--with` and `--without` argument SHALL get at most one finding; a failure in `checks` SHALL replace its
 later exact check. When `resolve` or `checks` found anything, the run SHALL print nothing on stdout, print every
@@ -449,6 +451,11 @@ checker findings), print no `[references]` line, write nothing, and exit with th
   exists
 - **THEN** stderr ends with `refactor.baseline-failed` and its cause, no `[references]` line is printed and the exit
   code is 1
+
+#### Scenario: Unreadable config
+- **WHEN** a rename runs where the language's baseline file exists and `living-architecture.yaml` is not valid YAML
+- **THEN** stderr ends with the config error, no `[references]` line is printed, the exit code is 2 and no file
+  changes
 
 ### Requirement: A Python walker gap is refused with a located finding
 When rope's walker fails on a module while the Python `dr-refactor` computes a refactor, or leaves part of it
