@@ -53,7 +53,9 @@ the default only when the source is `default`. Leave out `format`: step 5 stamps
 
 Ask, in one message, only about keys that are opinions or undetected: usually `openspec` when there is no
 `openspec/`, `tracker` when undetected, and `reviewers.codex` when Codex is not available here. For each, give
-the PROS and CONS of each option and a RECOMMENDATION. Never ask about a key you detected with confidence.
+the PROS and CONS of each option and a RECOMMENDATION. Offer only genuine options: less work is never a pro and
+more work never a con unless the amount is ridiculously large, and an option that breaks something working today is
+not offered without a very good reason. Never ask about a key you detected with confidence.
 `tracker: none` with `openspec: false` leaves `/la:pr` no place for the plan to survive a session reset:
 propose it only when the user will not use `/la:pr` and only wants the architecture enforced.
 

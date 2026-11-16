@@ -37,6 +37,9 @@ already exists under `architecture/`. Show the user the model and the arrow list
 
 ## 4. Choose the wedge
 
+Offer only genuine options: less work is never a pro and more work never a con unless the amount is ridiculously large,
+and an option that breaks something working today is not offered without a very good reason.
+
 Interview the user, one question at a time, each with PROS/CONS and a RECOMMENDATION:
 - which nodes are **precise** (usually the subsystem about to be worked on plus its neighbours) and which
   are swept into **virtual buckets**;
