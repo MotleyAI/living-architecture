@@ -5,6 +5,7 @@ home; a name nothing can bind refuses."""
 from __future__ import annotations
 
 import ast
+import builtins
 from collections.abc import Callable, Iterator
 
 from pydantic import BaseModel, ConfigDict
@@ -25,6 +26,7 @@ from living_architecture.refactor.text_edits import TextEdit
 
 _FUNCTIONS = (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)
 _COMPREHENSIONS = (ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)
+_BUILTINS = frozenset(dir(builtins))
 _DEFINITIONS = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Assign, ast.AnnAssign)
 
 _INIT = "__init__.py"
@@ -271,7 +273,7 @@ class AliasRetarget(SymbolRename):
 
         source = self.snapshot.source(edit.path)
         other = edit.path != self.renamer.resource.path and self._module_binds_other(source, edit.path)
-        if _bound_in_scope(parents, use, self.new, accepted) or other:
+        if _bound_in_scope(parents, use, self.new, accepted) or other or self._builtin_at(source, use, parents):
             self._refuse(edit, "refactor.retarget-shadowed", name=self.new)
 
     def _attribute(self, edit: TextEdit, attr: ast.Attribute) -> list[TextEdit]:
@@ -396,6 +398,13 @@ class AliasRetarget(SymbolRename):
             return True
         return any(_runs_before(parents, s, use) and any(a.name == self.old and a.asname is None for a in s.names)
                    for s in block_of(parents, stmt) if isinstance(s, ast.ImportFrom))
+
+    def _builtin_at(self, source: SourceFile, use: ast.Name, parents: Parents) -> bool:
+        """The target's name means a builtin at `use`: no enclosing scope nor the module binds it."""
+        assert source.tree is not None
+        if self.new not in _BUILTINS or _bound_in_scope(parents, use, self.new, lambda _: False):
+            return False
+        return not any(self.new in _stored(stmt) for stmt in source.tree.body)
 
     def _module_binds_other(self, source: SourceFile, rel: str, skip: ast.AST | None = None) -> bool:
         """The module binds the target's name other than to the target, in any block."""

@@ -66,6 +66,11 @@
 - [x] 5.2 Local test scope per `/la:pr`, `uv run ruff check src tests`, `uv run basedpyright src tests`,
       `npm run lint && npm run typecheck`, `scripts/sync-shared --check`, `la-arch-check`. Verify: all green.
 
+## 5b. Review: unreadable config (pr-review)
+
+- [x] 5b.1 Both twins: an unreadable or invalid config refuses in `checks` (exit 2) when the language's baseline file
+      exists; a paired conformance case listed in INVENTORY.md.
+
 ## 6. Verification on SLayer (dry run only)
 
 - [x] 6.1 In a `git archive` copy of SLayer's branch `egor/dev-1607-rename-columns-to-fields-to-be-consistent-with`,

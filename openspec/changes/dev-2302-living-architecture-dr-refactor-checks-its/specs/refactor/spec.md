@@ -72,7 +72,9 @@ The `checks` phase SHALL then run, before any reference search:
   name) SHALL be walked as `dr-compliance --select rope-walk` walks it, and each gap reported as `refactor.rope-walk`;
 - Python: the language server SHALL start for `rename`, `retarget` and `rename-map`, and when the baseline phase will
   run, the configured checker SHALL run once on one source of the refactor; a failure SHALL be reported with its
-  cause.
+  cause;
+- in both twins, when the refactor's language has its baseline file at the repo root, the repo config SHALL be
+  readable and valid, else its error SHALL be reported as the config loader words it, exit 2.
 
 Each `--keep`, `--with` and `--without` argument SHALL get at most one finding; a failure in `checks` SHALL replace its
 later exact check. When `resolve` or `checks` found anything, the run SHALL print nothing on stdout, print every
@@ -131,6 +133,11 @@ checker findings), print no `[references]` line, write nothing, and exit with th
   exists
 - **THEN** stderr ends with `refactor.baseline-failed` and its cause, no `[references]` line is printed and the exit
   code is 1
+
+#### Scenario: Unreadable config
+- **WHEN** a rename runs where the language's baseline file exists and `living-architecture.yaml` is not valid YAML
+- **THEN** stderr ends with the config error, no `[references]` line is printed, the exit code is 2 and no file
+  changes
 
 ### Requirement: Every refusal of a run is reported in one report
 A run SHALL refuse once, with every refusal it found: those of `resolve` and `checks` as one report before any

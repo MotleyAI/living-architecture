@@ -7,6 +7,7 @@ import { byCodePoint, language, message } from '../contract/index.js';
 import { baselineKey, canonical, parseBaseline, parseTscOutput, posix, posixRel, renderBaseline, ts } from '../lang/index.js';
 import { splitBom } from './edits.js';
 import { mapPosition, type PositionMap } from './position.js';
+import { type Refusal, refusal } from './progress.js';
 import type { Refactor } from './session.js';
 import { Workspace } from './workspace.js';
 import type { Write } from './writer.js';
@@ -83,6 +84,19 @@ function moved(counts: Map<string, number>, before: Map<string, Instance[]>, fol
 
 /** The baseline phase runs: the TypeScript checker command is set and its baseline file exists. */
 export const baselineRuns = (r: Refactor): boolean => configured(findRepoRoot(r.root)) !== null;
+
+/** The config's error when the TypeScript baseline file exists and the config cannot be read. */
+export function configFailures(r: Refactor): Refusal[] {
+  const repoRoot = findRepoRoot(r.root);
+  if (!existsSync(join(repoRoot, language('typescript').baseline_file as string))) return [];
+  try {
+    loadConfig(repoRoot);
+  } catch (error) {
+    if (error instanceof ConfigError) return [refusal(error.message, 2)];
+    throw error;
+  }
+  return [];
+}
 
 /** The realigned baseline to write with the refactor's files (null when it does not change), and its warnings. */
 export function alignBaseline(r: Refactor, map: PositionMap, texts: Map<string, string>): { write: Write | null; warnings: string[] } {

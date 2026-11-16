@@ -5,10 +5,11 @@ import { basename, dirname, join, relative } from 'node:path';
 import type * as TS from 'typescript';
 import { byCodePoint, language, message } from '../contract/index.js';
 import { canonical, posix, stripSourceExtension, ts } from '../lang/index.js';
+import { configFailures } from './baseline.js';
 import { type Edit, mergeEdits, RefactorError } from './edits.js';
 import { loadMap, MapError } from './map.js';
 import { type MovedSpan, movedOffsets } from './position.js';
-import { Progress, Refused } from './progress.js';
+import { Progress, type Refusal, Refused } from './progress.js';
 import { type EntrySpec, entryFailure, runEntries } from './rename.js';
 import { type Locator, locate, nodes, Refactor, type RefactorArgs, UsageError } from './session.js';
 import { LocatorError } from './symbols.js';
@@ -147,24 +148,26 @@ function moveToFileEdits(service: TS.LanguageService, file: string, range: TS.Te
   );
 }
 
-/** A move's `resolve` phase, then its `checks` (`Refused` with any failure to resolve), then its `references`. */
-function phased<T>(progress: Progress, resolve: () => T): T {
+/** A move's `resolve` phase, then its `checks` (`Refused` with any failure to resolve and the config's error), then its
+ * `references`. */
+function phased<T>(r: Refactor, progress: Progress, resolve: () => T): T {
   progress.phase('resolve');
-  let resolved: T;
+  let resolved: T | undefined;
+  let failures: Refusal[] = [];
   try {
     resolved = resolve();
   } catch (error) {
-    const found = entryFailure(error);
-    progress.phase('checks');
-    throw new Refused([found]);
+    failures = [entryFailure(error)];
   }
   progress.phase('checks');
+  failures = [...failures, ...configFailures(r)];
+  if (failures.length > 0 || resolved === undefined) throw new Refused(failures);
   progress.phase('references');
   return resolved;
 }
 
 function moveSymbol(r: Refactor, progress: Progress): number {
-  const { file, dest, services, statement } = phased(progress, () => resolveMoveSymbol(r));
+  const { file, dest, services, statement } = phased(r, progress, () => resolveMoveSymbol(r));
   const header = message('refactor.ts-move-symbol-header', { name: declaredName(statement) });
   if (dest === file) return r.emit([header], new Map(), [], [], progress);
   const source = statement.getSourceFile();
@@ -228,7 +231,7 @@ function fileRenameEdits(services: Iterable<TS.LanguageService>, module: string,
 }
 
 function moveModule(r: Refactor, progress: Progress): number {
-  const { module, target, isDir, sources, moves } = phased(progress, () => resolveMoveModule(r));
+  const { module, target, isDir, sources, moves } = phased(r, progress, () => resolveMoveModule(r));
   const edits = timed('references', () => fileRenameEdits(new Set(sources.flatMap((f) => r.services(f))), module, target));
   const name = isDir ? basename(module) : basename(stripSourceExtension(module));
   const header = message('refactor.ts-move-module-header', { name });

@@ -6,6 +6,7 @@ import type * as TS from 'typescript';
 import { sourceFiles } from '../config/index.js';
 import { byCodePoint, literalValueForbidden, manifest, message } from '../contract/index.js';
 import { stripSourceExtension, ts } from '../lang/index.js';
+import { configFailures } from './baseline.js';
 import { type CheckEntry, identifierText, NameChecks } from './bindings.js';
 import { isCompound } from './compound.js';
 import { type Edit, mergeEdits, RefactorError, splitBom } from './edits.js';
@@ -678,7 +679,7 @@ export function runEntries(r: Refactor, specs: EntrySpec[], map: string, progres
   progress.phase('resolve');
   const resolution = timed('resolve', () => resolveAll(r, specs, map));
   progress.phase('checks');
-  const failures = [...resolution.failures, ...checks(r, resolution)];
+  const failures = [...resolution.failures, ...checks(r, resolution), ...configFailures(r)];
   if (failures.length > 0) throw new Refused(failures);
   const { targets } = resolution;
   progress.phase('references');
