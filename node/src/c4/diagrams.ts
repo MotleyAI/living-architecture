@@ -1,7 +1,7 @@
 // Mermaid blocks in arc42 docs: regeneration (`la-arch-diagrams`) and the diagrams-fresh check.
-import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { decodeUtf8, message } from '../contract/index.js';
+import { decodeUtf8, isOsError, message, osErrorText, readFile } from '../contract/index.js';
 import { readIndex } from './index-file.js';
 import { layoutProblem } from './layout.js';
 import { renderMermaid } from './mermaid.js';
@@ -15,7 +15,7 @@ export class DiagramsError extends Error {}
 
 /** Read preserving exact bytes (no newline translation) for byte-for-byte checks. */
 function readExact(path: string): string {
-  return decodeUtf8(readFileSync(path));
+  return decodeUtf8(readFile(path));
 }
 
 /** pathlib's parts: empty and `.` segments dropped, a leading `/` its own part. */
@@ -117,7 +117,8 @@ export function run(root: string): number {
   try {
     changed = generate(root);
   } catch (error) {
-    process.stderr.write(`${message('arch-diagrams.error', { error: (error as Error).message })}\n`);
+    const text = isOsError(error) ? osErrorText(error, root) : (error as Error).message;
+    process.stderr.write(`${message('arch-diagrams.error', { error: text })}\n`);
     return 1;
   }
   for (const docKey of changed) process.stdout.write(`${docKey}\n`);

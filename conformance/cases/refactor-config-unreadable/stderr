@@ -1,0 +1,3 @@
+[resolve]
+[checks]
+living-architecture.yaml: invalid YAML

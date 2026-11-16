@@ -1,4 +1,5 @@
 // `la-affected-tests`: the changed tests plus every test whose imports reach a changed file, each language from its twin.
+// eslint-disable-next-line no-restricted-imports -- stdin only
 import { lstatSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { changedPathBytes, repoPathBytes, resolveBaseRef } from '../changes/index.js';
@@ -7,11 +8,13 @@ import {
   byCodePoint,
   contractHash,
   decodeUtf8OrNull,
+  isOsError,
   isTestFile,
   language,
   languageIds,
   languageOf,
   message,
+  osErrorText,
   schema,
   validate,
 } from '../contract/index.js';
@@ -103,11 +106,10 @@ function languageTests(repoRoot: string, lang: string, changes: Change[]): strin
   }
 }
 
-function fail(error: unknown): number {
-  const code = (error as NodeJS.ErrnoException)?.code;
-  const osError = typeof code === 'string' && code.startsWith('E');
+function fail(error: unknown, root: string): number {
+  const osError = isOsError(error);
   if (!(error instanceof AffectedError || error instanceof ConfigError || error instanceof LangError || osError)) throw error;
-  const text = (error as Error).message;
+  const text = osError ? osErrorText(error, root) : error.message;
   if (text) process.stderr.write(`${message('affected.error', { error: text })}\n`);
   return 2;
 }
@@ -122,7 +124,7 @@ export function run(cwd: string, base: string): number {
     const changes = paths.map((path) => ({ path, deleted: !exists(join(repoRoot, path)) })).sort((a, b) => byCodePoint(a.path, b.path));
     tests = computed(repoRoot, changes).flatMap((lang) => languageTests(repoRoot, lang, changes));
   } catch (error) {
-    return fail(error);
+    return fail(error, repoRoot);
   }
   const lines = [...new Set(tests)].sort(byCodePoint);
   if (lines.length > 0) process.stdout.write(`${lines.join('\n')}\n`);
@@ -140,14 +142,15 @@ function stdinChanges(): Change[] | null {
 
 /** The internal request: the stdin change set's selection of the native language as a JSON document. */
 export function serve(cwd: string, lang: string): number {
-  if (lang !== twin.NATIVE_LANGUAGE) return fail(new AffectedError(message('twin.not-native', { language: lang })));
+  if (lang !== twin.NATIVE_LANGUAGE) return fail(new AffectedError(message('twin.not-native', { language: lang })), cwd);
   const changes = stdinChanges();
-  if (changes === null) return fail(new AffectedError(message('affected.request-invalid')));
+  if (changes === null) return fail(new AffectedError(message('affected.request-invalid')), cwd);
+  const repoRoot = findRepoRoot(cwd);
   let tests: string[];
   try {
-    tests = selection(findRepoRoot(cwd), lang, changes);
+    tests = selection(repoRoot, lang, changes);
   } catch (error) {
-    return fail(error);
+    return fail(error, repoRoot);
   }
   const document = { language: lang, version: VERSION, contract_hash: contractHash(), tests };
   process.stdout.write(`${JSON.stringify(document)}\n`);

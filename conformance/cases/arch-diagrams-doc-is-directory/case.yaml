@@ -3,7 +3,4 @@ command: la-arch-diagrams
 fixture: arch-diagrams
 expect:
   exit: 1
-  stderr:
-    contains:
-    - 'la-arch-diagrams: '
-note: OS error wording is not part of the contract; Node's EISDIR message has no path
+note: a mapped doc that is a directory is reported from the os.* templates, the same text in both twins

@@ -1,0 +1,8 @@
+kind: neutral
+command: la-arch-check
+chmod:
+  architecture/index.yaml: '0000'
+expect:
+  exit: 2
+golden: manual
+note: an index.yaml that cannot be read is a setup error from the os.* templates, the same text in both twins

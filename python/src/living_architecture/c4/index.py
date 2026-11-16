@@ -7,7 +7,14 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from living_architecture.contract import DuplicateKeyError, YAMLError, load_yaml, message
+from living_architecture.contract import (
+    DuplicateKeyError,
+    YAMLError,
+    is_regular_file,
+    load_yaml,
+    message,
+    os_error_text,
+)
 
 INDEX_REL = "architecture/index.yaml"
 
@@ -22,10 +29,14 @@ class Index(BaseModel):
 def load_index(root: Path) -> Index | str | None:
     """The index, a message explaining why it is unusable, or None when it is absent (never raises)."""
     path = root / INDEX_REL
-    if not path.is_file():
-        return None
     try:
-        text = path.read_bytes().decode("utf-8")
+        if not is_regular_file(path):
+            return None
+        raw = path.read_bytes()
+    except OSError as exc:
+        return os_error_text(exc, root, path)
+    try:
+        text = raw.decode("utf-8")
         data = load_yaml(text)
     except DuplicateKeyError as exc:
         return message("c4.index-duplicate-key", error=str(exc))

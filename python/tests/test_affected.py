@@ -212,7 +212,7 @@ def test_an_unreadable_importer_fails(repo, capsys):
     _write(repo, {"src/pkg/b.py": "X = 2\n"})
     (repo / "src/pkg/a.py").chmod(0)
     code, out, err = _affected(capsys, "--base", "main")
-    assert (code, out, err.startswith("la-affected-tests: "), "a.py" in err) == (2, [], True, True)
+    assert (code, out, err) == (2, [], "la-affected-tests: src/pkg/a.py: permission denied\n")
 
 
 def test_not_a_git_repository(tmp_path, monkeypatch, capsys):

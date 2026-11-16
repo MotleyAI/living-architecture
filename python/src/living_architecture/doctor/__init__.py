@@ -15,9 +15,11 @@ from living_architecture.config import ConfigError, LaConfig, check_format, load
 from living_architecture.contract import (
     config_file,
     contract_hash,
+    is_regular_file,
     language,
     local_config_file,
     message,
+    os_error_text,
     render_template,
 )
 
@@ -52,7 +54,7 @@ def _reject_constant(name: str) -> None:
 
 
 def _is_file(path: Path) -> bool:
-    """A missing entry is absent; other stat errors propagate."""
+    """A missing entry or a path under a regular file is absent; other stat errors propagate."""
     try:
         return stat.S_ISREG(path.stat().st_mode)
     except (FileNotFoundError, NotADirectoryError):
@@ -90,20 +92,28 @@ def _consistency(root: Path, cfg: LaConfig, *, require_plan_store: bool) -> list
     """The config's gate decisions that the disk contradicts, in a fixed order."""
     problems: list[str] = []
     has_openspec = (root / "openspec").is_dir()
-    has_architecture = _is_file(root / "architecture" / "index.yaml")
     if cfg.openspec != has_openspec:
         problems.append(message("doctor.openspec-absent" if cfg.openspec else "doctor.openspec-present"))
-    if cfg.architecture != has_architecture:
-        problems.append(message("doctor.architecture-absent" if cfg.architecture else "doctor.architecture-present"))
+    try:
+        has_architecture = is_regular_file(root / "architecture" / "index.yaml")
+    except OSError as exc:
+        problems.append(os_error_text(exc, root))
+    else:
+        if cfg.architecture != has_architecture:
+            problems.append(message("doctor.architecture-absent" if cfg.architecture else "doctor.architecture-present"))
     if require_plan_store and cfg.tracker == "none" and not cfg.openspec:
         problems.append(message("doctor.no-plan-store"))
     return problems
 
 
 def _config_problems(root: Path, *, require_config: bool, require_plan_store: bool) -> list[str]:
-    has_committed = _is_file(root / config_file())
+    try:
+        has_committed = is_regular_file(root / config_file())
+        has_local = is_regular_file(root / local_config_file())
+    except OSError as exc:
+        return [os_error_text(exc, root)]
     missing = [message("doctor.config-missing")] if require_config and not has_committed else []
-    if not has_committed and not _is_file(root / local_config_file()):
+    if not has_committed and not has_local:
         return missing
     try:
         cfg = load_config(root)
@@ -123,7 +133,10 @@ def _git(root: Path, *args: str) -> subprocess.CompletedProcess[bytes] | None:
 def _local_problem(root: Path) -> str | None:
     """A local file that git tracks or does not ignore; checked only inside git."""
     local = local_config_file()
-    if not (root / ".git").exists() or not _is_file(root / local):
+    try:
+        if not (root / ".git").exists() or not is_regular_file(root / local):
+            return None
+    except OSError:  # reported by the config checks
         return None
     listed = _git(root, "ls-files", "-z", "--", local)
     if listed is None or listed.returncode != 0:

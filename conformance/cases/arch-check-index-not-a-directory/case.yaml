@@ -1,0 +1,6 @@
+kind: neutral
+command: la-arch-check
+expect:
+  exit: 2
+golden: manual
+note: 'architecture is a regular file: the index read fails first, with the not-a-directory text in both twins'

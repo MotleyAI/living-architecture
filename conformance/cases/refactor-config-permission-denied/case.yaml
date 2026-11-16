@@ -1,0 +1,17 @@
+kind: paired
+languages:
+- python
+- typescript
+command: dr-refactor
+args:
+  python: [rename, --file, pkg/a.py, --symbol, foo, --new-name, bar]
+  typescript: [rename, --file, src/a.ts, --symbol, foo, --new-name, bar]
+git:
+- commit: init
+chmod:
+  living-architecture.yaml: '0000'
+expect:
+  exit: 0
+golden: manual
+note: 'an unreadable config behaves exactly as one that is not valid YAML (goldens recorded with `tracker: [`), never a
+  crash'

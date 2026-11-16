@@ -1,0 +1,18 @@
+Renaming <foo> to <bar>:
+
+
+--- a/pkg/a.py
++++ b/pkg/a.py
+@@ -1,6 +1,6 @@
+-def foo():
++def bar():
+     return 1
+ 
+ 
+ def use():
+-    return foo() + 1
++    return bar() + 1
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

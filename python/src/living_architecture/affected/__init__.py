@@ -19,6 +19,7 @@ from living_architecture.contract import (
     language_ids,
     language_of,
     message,
+    os_error_text,
     schema,
     validate,
 )
@@ -135,8 +136,10 @@ def run(*, base: str, cwd: Path) -> int:
                 selected.update(select(lang_id, changed, repo_root, repo_files))
             else:
                 selected.update(_request(lang_id, changed, repo_root))
-    except (ConfigError, AffectedError, OSError) as exc:
+    except (ConfigError, AffectedError) as exc:
         return _fail(str(exc))
+    except OSError as exc:
+        return _fail(os_error_text(exc, repo_root))
     for path in sorted(selected):
         print(path)
     return 0
@@ -156,7 +159,9 @@ def serve(lang_id: str, *, cwd: Path) -> int:
     repo_root = find_repo_root(cwd)
     try:
         tests = select(lang_id, changed, repo_root, _repo_files(repo_root))
-    except (ConfigError, AffectedError, OSError) as exc:
+    except (ConfigError, AffectedError) as exc:
         return _fail(str(exc))
+    except OSError as exc:
+        return _fail(os_error_text(exc, repo_root))
     print(json.dumps({"language": lang_id, "version": __version__, "contract_hash": contract_hash(), "tests": tests}))
     return 0

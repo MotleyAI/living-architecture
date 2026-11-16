@@ -1,7 +1,6 @@
 // The constrained `.c4` model parser (element FQN = dotted path; relations resolve inside their root).
-import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { WORD, architecture, message, splitLines } from '../contract/index.js';
+import { WORD, architecture, message, readFile, splitLines } from '../contract/index.js';
 
 export interface Element {
   id: string;
@@ -160,7 +159,7 @@ export function parseModel(root: string): ModelParse {
 
 /** Parse `paths` in order as one model. */
 export function parseModelFiles(paths: string[]): ModelParse {
-  return parseModelTexts(paths.map((path) => readFileSync(path, 'utf8')));
+  return parseModelTexts(paths.map((path) => readFile(path, 'utf8')));
 }
 
 /** Parse `texts` in order as one model; `spans` index the lines of the text each element is declared in. */

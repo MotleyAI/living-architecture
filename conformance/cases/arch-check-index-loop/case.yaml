@@ -1,0 +1,8 @@
+kind: neutral
+command: la-arch-check
+symlinks:
+  architecture/index.yaml: index.yaml
+expect:
+  exit: 2
+golden: manual
+note: any other OS error prints its symbolic code (here ELOOP), never a number or the runtime's wording

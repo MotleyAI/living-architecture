@@ -1,4 +1,5 @@
 // Routing files to their language and collecting each language's conventions facts, natively or from its twin.
+// eslint-disable-next-line no-restricted-imports -- stdin only
 import { readFileSync } from 'node:fs';
 import { contractHash, languageOf, message } from '../contract/index.js';
 import { VERSION } from '../index.js';
