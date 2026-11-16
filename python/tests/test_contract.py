@@ -731,7 +731,6 @@ UNPRODUCED_BY_DESIGN = {
     "refactor.rope-walk": "no known input reaches a walker gap; pinned by the rope-walk unit tests",
     "compliance.rope-walk": "no known input reaches a walker gap; pinned by the rope-walk unit tests",
     "refactor.file-changed": "needs a concurrent edit no corpus case can make; pinned by the rename-union unit tests",
-    "refactor.checker-error": "no corpus case can fake the bundled language server; pinned by the refactor CLI tests",
 }
 
 

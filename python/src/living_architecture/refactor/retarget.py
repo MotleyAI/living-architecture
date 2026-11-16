@@ -215,15 +215,19 @@ class AliasRetarget(SymbolRename):
 
     def _decide(self, live: list[TextEdit], held: set[int]) -> list[TextEdit]:
         """Each live edit kept, replaced or refused by the site it is at; the imports of the alias other than the
-        held ones re-pointed or left."""
+        held ones re-pointed or left. An import that would bind the target's name over a builtin is refused unless a
+        use in its file already is."""
         sites = {id(a) for e in live if isinstance(a := _named_at(self.snapshot.source(e.path), e.start, self.old), ast.alias)}
         moving = sites - held
         out: list[TextEdit] = []
+        rebinding: list[TextEdit] = []
         for edit in live:
             source = self.snapshot.source(edit.path)
             node = _named_at(source, edit.start, self.old) if source.tree is not None else None
             if isinstance(node, ast.alias):
                 out += self._import_site(edit, node) if id(node) in moving else []
+                if id(node) in moving and node.asname is None and self._builtin_at(source, node, self.parents(edit.path)):
+                    rebinding.append(edit)
             elif isinstance(node, ast.Name):
                 out.append(edit)
                 self._use(edit, node, moving)
@@ -231,6 +235,10 @@ class AliasRetarget(SymbolRename):
                 out += self._attribute(edit, attr)
             else:
                 out.append(edit)
+        refused = {f.path for f in self.refusals}
+        for edit in rebinding:
+            if edit.path not in refused:
+                self._refuse(edit, "refactor.retarget-shadowed", name=self.new)
         return out
 
     def _import_site(self, edit: TextEdit, alias: ast.alias) -> list[TextEdit]:
@@ -399,10 +407,10 @@ class AliasRetarget(SymbolRename):
         return any(_runs_before(parents, s, use) and any(a.name == self.old and a.asname is None for a in s.names)
                    for s in block_of(parents, stmt) if isinstance(s, ast.ImportFrom))
 
-    def _builtin_at(self, source: SourceFile, use: ast.Name, parents: Parents) -> bool:
-        """The target's name means a builtin at `use`: no enclosing scope nor the module binds it."""
+    def _builtin_at(self, source: SourceFile, node: ast.AST, parents: Parents) -> bool:
+        """The target's name means a builtin at `node`: no enclosing scope nor the module binds it."""
         assert source.tree is not None
-        if self.new not in _BUILTINS or _bound_in_scope(parents, use, self.new, lambda _: False):
+        if self.new not in _BUILTINS or _bound_in_scope(parents, node, self.new, lambda _: False):
             return False
         return not any(self.new in _stored(stmt) for stmt in source.tree.body)
 
