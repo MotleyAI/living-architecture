@@ -1,11 +1,11 @@
 ## 0. Stage order (read first)
 
-- [ ] 0.1 pr-tests writes section 1 only; pr-implement does sections 2–6. While section 1 is open the stage is
+- [x] 0.1 pr-tests writes section 1 only; pr-implement does sections 2–6. While section 1 is open the stage is
       `pr-tests`. Before opening the PR, check DEV-2301's state: merge its branch
       (`egor/dev-2301-living-architecture-dr-refactor-resolves-every`) or, once merged, `origin/main` into this branch
       (`git merge <ref> -m "Merge branch '<ref>' into …"`; never rebase or stash) and re-run the local test scope.
       This PR merges only after DEV-2301.
-- [ ] 0.2 No golden changes anywhere in this change. A conformance diff is a bug in the change, never a golden to
+- [x] 0.2 No golden changes anywhere in this change. A conformance diff is a bug in the change, never a golden to
       regenerate.
 
 ## 1. Tests (pr-tests)
@@ -32,13 +32,13 @@
 
 ## 2. A — export follow
 
-- [ ] 2.1 `Exporter.follow` returns early when the location's `SourceFileInfo` is missing, `isThirdPartyImport` or
+- [x] 2.1 `Exporter.follow` returns early when the location's `SourceFileInfo` is missing, `isThirdPartyImport` or
       `isTypeshedFile` (design 7). Verify: 1.1 and 1.2 pass; the refactor, compliance and keyed tests and the Python
       conformance cases pass with no golden change.
 
 ## 3. C — one entry module per command
 
-- [ ] 3.1 Move each entry point to `living_architecture/cli/<command_snake>.py` with `la:deterministic-refactor`
+- [x] 3.1 Move each entry point to `living_architecture/cli/<command_snake>.py` with `la:deterministic-refactor`
       (`dr-refactor` dry-run → review → `--apply`, then its gate); `cli/__init__.py` keeps only `_run`, `_root`,
       `_checked_root`, `_argv`. Repoint `[project.scripts]`; update every test importing from
       `living_architecture.cli`. Verify: 1.5 and 1.6 pass; `la-arch-check` green (measured edges unchanged);
@@ -46,15 +46,15 @@
 
 ## 4. B, D — CI
 
-- [ ] 4.1 Add `pytest-split` to `python/` dev dependencies (`uv.lock`). Verify: `uv sync --locked` succeeds.
-- [ ] 4.2 `ci.yml`: `test` = version × 2 shards with `--splits 2 --group <shard>
+- [x] 4.1 Add `pytest-split` to `python/` dev dependencies (`uv.lock`). Verify: `uv sync --locked` succeeds.
+- [x] 4.2 `ci.yml`: `test` = version × 2 shards with `--splits 2 --group <shard>
       --durations-path <suite file> --deselect tests/test_conformance.py::test_case`, ruff, basedpyright and
       `sync-shared --check` in shard 1 only; `cross-twin` = twin × 3 shards, `scripts/conformance-cross --twin <twin>
       --splits 3 --group <shard> --durations-path <twin file>`. Verify: 1.4 passes.
-- [ ] 4.3 Record the duration files with `--store-durations` in a temporary CI step on this branch (one per job kind,
+- [x] 4.3 Record the duration files with `--store-durations` in a temporary CI step on this branch (one per job kind,
       design 11), commit them, then remove the temporary step. Verify: 1.3 passes; the temporary step is gone
       (`git diff origin/main -- .github` shows only 4.2's changes).
-- [ ] 4.4 `docs/development.md`: how to refresh the duration files. Verify: the doc names the command and the three
+- [x] 4.4 `docs/development.md`: how to refresh the duration files. Verify: the doc names the command and the three
       files.
 
 ## 5. Profile
@@ -64,5 +64,5 @@
 
 ## 6. Gate
 
-- [ ] 6.1 Enforcement bundle: `la-arch-check`, `npx likec4 validate architecture`, `la-typecheck`; ruff; the local test
+- [x] 6.1 Enforcement bundle: `la-arch-check`, `npx likec4 validate architecture`, `la-typecheck`; ruff; the local test
       scope. Verify: all green.

@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, egor/dev-2307-living-architecture-profile-ci-to-find-where]  # TEMP: duration recording
+    branches: [main]
   pull_request:
 
 permissions:
@@ -128,43 +128,3 @@ jobs:
           node-version: "22"
       - run: npx -y @anthropic-ai/claude-code plugin validate .
       - run: npx -y @anthropic-ai/claude-code plugin validate plugin
-
-  # TEMP: record the pytest-split duration files on a 4-vCPU runner; removed before the PR.
-  durations:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        kind: [suite, cross-python, cross-typescript]
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: npm
-          cache-dependency-path: node/package-lock.json
-      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-        with:
-          python-version: "3.13"
-      - run: uv sync --locked
-        working-directory: python
-      - run: npm ci
-        working-directory: node
-      - run: mkdir -p python/tests/durations
-      - if: matrix.kind == 'suite'
-        working-directory: python
-        run: >-
-          uv run pytest -q --store-durations --clean-durations --durations-path tests/durations/suite.json
-          --deselect tests/test_conformance.py::test_case
-      - if: matrix.kind != 'suite'
-        run: >-
-          scripts/conformance-cross --twin ${{ matrix.kind == 'cross-python' && 'python' || 'typescript' }}
-          --store-durations --clean-durations --durations-path tests/durations/${{ matrix.kind }}.json
-      - if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: durations-${{ matrix.kind }}
-          path: python/tests/durations/${{ matrix.kind }}.json

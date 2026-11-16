@@ -99,5 +99,6 @@ def test_each_shard_split_partitions_its_job(kind: str, tmp_path: Path) -> None:
     assert full
     assert sorted(node for group in groups for node in group) == sorted(full)
     stored = json.loads(durations.read_text(encoding="utf-8"))
-    assert isinstance(stored, dict) and set(stored) & set(full)
+    assert isinstance(stored, dict)
+    assert set(stored) & set(full)
     assert all(isinstance(seconds, int | float) and seconds > 0 for seconds in stored.values())
