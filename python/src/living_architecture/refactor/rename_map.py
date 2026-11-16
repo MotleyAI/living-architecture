@@ -31,10 +31,11 @@ from living_architecture.refactor.baseline_align import (
     probe,
 )
 from living_architecture.refactor.bindings import BindingCheck, EntryEdits, first_conflict
+from living_architecture.refactor.diff_render import edit_description
 from living_architecture.refactor.index_cache import IndexCache
 from living_architecture.refactor.keyed import TypeFacts, UnresolvedBase
 from living_architecture.refactor.literal_rename import LiteralRename, check_value, literal_member_at
-from living_architecture.refactor.locators import RefactorError, resolve, resource
+from living_architecture.refactor.locators import RefactorError, project_rel, resolve
 from living_architecture.refactor.map_file import MapEntry, MapError
 from living_architecture.refactor.member_namespace import Hierarchy, MemberCheck, RenamedMember
 from living_architecture.refactor.member_scan import probe_round
@@ -48,8 +49,8 @@ from living_architecture.refactor.rename_union import (
     RenameOptions,
     RopeSites,
     Session,
+    Snapshot,
     SymbolRename,
-    _normalize,
 )
 from living_architecture.refactor.retarget import (
     AliasRetarget,
@@ -119,14 +120,14 @@ def _key(renamer: Rename, rel: str, offset: int) -> tuple[object, ...]:
     return (kind, path, line, renamer.get_old_name())
 
 
-def _raw_offset(raw: str, offset: int) -> int:
-    """`offset` in rope's newline-normalized text as an offset in `raw`."""
-    count = 0
-    index = raw.find("\r\n")
-    while index != -1 and index - count < offset:
-        count += 1
-        index = raw.find("\r\n", index + 2)
-    return offset + count
+def _rope_offset(raw: str, offset: int) -> int:
+    """`offset` in `raw` as an offset in rope's newline-normalized text."""
+    return offset - raw.count("\r\n", 0, offset)
+
+
+def _normalize(text: str) -> str:
+    """The text as rope reads it."""
+    return text.replace("\r\n", "\n").replace("\r", "\n")
 
 
 def _definition_line(renamer: Rename) -> tuple[str | None, int | None]:
@@ -181,6 +182,18 @@ def failure(exc: Exception, root: Path) -> Refusal | None:
 
 _ENTRY_ERRORS = (LocatorError, MapError, RefactorError, ConfigError, RefactoringError, BadIdentifierError, WalkerGap,
                  UnresolvedBase)
+
+
+def undecodable(snapshot: Snapshot, rels: Iterable[str], olds: Iterable[str], keeps: Keeps) -> list[Finding]:
+    """`refactor.undecodable` for each of `rels` that does not decode, per old name its bytes hold, unless kept."""
+    out: list[Finding] = []
+    for rel in sorted(rels):
+        encoding = snapshot.undecodable(rel)
+        if encoding is None or not any(old.encode() in snapshot.data(rel) for old in olds) or keeps.kept(rel, None):
+            continue
+        out += [Finding(path=rel, line=0, col=0, text=message("refactor.undecodable", path=rel, encoding=encoding, old=old))
+                for old in sorted(set(olds)) if old.encode() in snapshot.data(rel)]
+    return out
 
 
 def walker_gaps(root: Path, text: Callable[[str], str], names: set[str], rels: list[str] | None = None) -> list[Refusal]:
@@ -243,13 +256,13 @@ def editable_files(root: Path, docs: bool) -> dict[str, bool]:
 
 
 def keep_checks(keeps: list[str], root: Path, editable: dict[str, bool], text: Callable[[str], str], names: set[str],
-                moved: list[str], skipped: set[tuple[str, str]]) -> list[Refusal]:
+                moved: list[str], skipped: set[tuple[str, str]], data: Callable[[str], bytes] | None = None) -> list[Refusal]:
     """`refactor.keep-unmatched` for each keep covering no line spelling one of `names` and no moved file."""
     out: list[Refusal] = []
     for raw in keeps:
         if ("--keep", raw) in skipped:
             continue
-        if not keep_spells(Site.parse(raw, root), editable, text, names, moved):
+        if not keep_spells(Site.parse(raw, root), editable, text, names, moved, data):
             out.append(refusal(message("refactor.keep-unmatched", site=raw), 2))
     return out
 
@@ -270,7 +283,7 @@ class RenameMap:
         self.options = options
         self.map_shown = map_shown
         self.progress = progress
-        self.session = Session(project)
+        self.session = Session(Path(project.address))
         self.root = self.session.root
         self.server = ServerSession(self.root, self.session.read)
         self.index = RunIndex(self.root, self.session.load, self.server, IndexCache(self.root))
@@ -280,30 +293,29 @@ class RenameMap:
     # ---- resolve
 
     def _locate(self, entry: MapEntry) -> tuple[str, int]:
-        found = resource(self.project, entry.path)
-        offset, _ = resolve(entry.locator, entry.path)
-        return found.path, offset
+        rel = project_rel(self.root, entry.path)
+        offset, _ = resolve(entry.locator, self.session.snapshot.source(rel), entry.path)
+        return rel, offset
 
     def _renamer(self, rel: str, offset: int) -> tuple[str, int, Rename]:
         """rope's renamer at `offset`; where rope cannot resolve the name, at the declaration the checker finds."""
+        raw = self.session.snapshot.text(rel)
         try:
-            return rel, offset, Rename(self.project, self.project.get_resource(rel), offset)
+            return rel, offset, Rename(self.project, self.project.get_resource(rel), _rope_offset(raw, offset))
         except (RefactoringError, BadIdentifierError):
-            raw = self.session.snapshot.text(rel)
-            raw_offset = _raw_offset(raw, offset)
             server = self.server.get()
             server.open(self.root / rel, raw)
-            found = [s for s in server.definition(self.root / rel, raw_offset) if self.session.rel(s.path)]
-            if len(found) != 1 or (found[0].path, found[0].start) == (self.root / rel, raw_offset):
+            found = [s for s in server.definition(self.root / rel, offset) if self.session.rel(s.path)]
+            if len(found) != 1 or (found[0].path, found[0].start) == (self.root / rel, offset):
                 raise
             target = str(self.session.rel(found[0].path))
-            target_offset = found[0].start - self.session.snapshot.text(target).count("\r\n", 0, found[0].start)
-            return target, target_offset, Rename(self.project, self.project.get_resource(target), target_offset)
+            target_offset = _rope_offset(self.session.snapshot.text(target), found[0].start)
+            return target, found[0].start, Rename(self.project, self.project.get_resource(target), target_offset)
 
     def _literal(self, entry: MapEntry, rel: str, offset: int) -> _Resolved | None:
         """The entry as a `Literal` member rename, when its locator names a string of a `Literal[...]`."""
         source = self.session.snapshot.source(rel)
-        node = literal_member_at(source, _raw_offset(source.text, offset))
+        node = literal_member_at(source, offset)
         if node is None:
             return None
         if entry.new_name is None:
@@ -331,7 +343,7 @@ class RenameMap:
         alias = entry.locator.symbol or renamer.get_old_name()
         refused = LocatorError(message("refactor.retarget-scope", target=entry.retarget, alias=alias))
         old = renamer.get_old_name()
-        alias_line = source.line(_raw_offset(source.text, resolved.offset))
+        alias_line = source.line(resolved.offset)
         alias_scope = declaration_scope(source, old, alias_line)
         if alias_scope is not None and isinstance(alias_scope[1], ast.alias):
             self._reexport_target(resolved, source, alias_scope, alias_line, refused)
@@ -353,7 +365,7 @@ class RenameMap:
         imported = isinstance(target_scope[1], ast.alias)
         if imported and not isinstance(alias_scope[0], ast.Module):
             raise refused
-        target = Rename(self.project, self.project.get_resource(rel), located.offset - source.text.count("\r\n", 0, located.offset))
+        target = Rename(self.project, self.project.get_resource(rel), _rope_offset(source.text, located.offset))
         resolved.target_key = _key(target, rel, located.offset)
         if not isinstance(alias_scope[0], ast.Module):
             return
@@ -452,7 +464,8 @@ class RenameMap:
         text = self.session.snapshot.text
         if spelled and options.keep and not any(r.literal is not None for r in resolved):
             editable = editable_files(self.root, options.docs)
-            found += keep_checks(list(options.keep), self.root, editable, text, names, self._moved(resolved), missing)
+            found += keep_checks(list(options.keep), self.root, editable, text, names, self._moved(resolved), missing,
+                                 self.session.snapshot.data)
         modules = any(r.is_module() for r in resolved)
         found += walker_gaps(self.root, text, names, None if modules else [r.rel for r in resolved if r.literal is None])
         if not resolved or not self._cached(resolved):
@@ -491,7 +504,7 @@ class RenameMap:
         return renames
 
     def _site(self, r: _Resolved) -> tuple[str, int]:
-        return r.rel, _raw_offset(self.session.snapshot.text(r.rel), r.offset)
+        return r.rel, r.offset
 
     def _retarget(self, r: _Resolved, final: str | None) -> AliasRetarget:
         """`r`'s retarget, `final` the new name of its target where another entry renames it: under an import `as`
@@ -668,9 +681,8 @@ class RenameMap:
             for r, entry in zip(renames, entries, strict=True) if isinstance(r, SymbolRename) and r.new != r.old
             for site, cls in r.renamed_members()
         ]
-        rels = [p.relative_to(self.root).as_posix() for p in language_files(self.root, "python")]
-        folders = sorted({"", *(f.path for f in self.project.get_source_folders())})
-        bindings = BindingCheck(rels, folders, self.session.snapshot.source)
+        rels = self.session.python_files()
+        bindings = BindingCheck(rels, self.session.source_folders(), self.session.snapshot.source)
         namespace = MemberCheck(Hierarchy(self.project, rels, self.session.snapshot.source), self.session.snapshot.text)
         passes = [[e] for e, res in zip(entries, resolved, strict=True) if res.entry.new_name is not None]
         out: list[NameConflict] = []
@@ -728,30 +740,21 @@ class RenameMap:
         closing = [refusal(message("refactor.blindspots", count=len(blind), attr=attrs))] if blind else []
         return edits, unique([*own, *retargets, *_texts(blind), *stand_ins, *conflicts, *sites, *closing])
 
-    def findings(self, renames: list[Renaming], edits: list[TextEdit]) -> list[Finding]:
-        """The blind spots let through and the leftovers no entry's `edits` rewrite, each group sorted."""
+    def findings(self, renames: list[Renaming], edits: list[TextEdit], listed: list[Finding]) -> list[Finding]:
+        """The blind spots let through, then the leftovers no entry's `edits` rewrite with the `listed` files, sorted."""
         blindspots = _unique(b for r in renames for b in r.blindspots)
         by_path: dict[str, list[TextEdit]] = {}
         for e in edits:
             by_path.setdefault(e.path, []).append(e)
         unique_ = {(f.path, f.line, f.col, f.text): f for r in renames for f in r.leftovers
                    if not any(f.covers(e) for e in by_path.get(f.path, ()))}
+        unique_ |= {(f.path, f.line, f.col, f.text): f for f in listed}
         leftovers = [unique_[k] for k in sorted(unique_)]
         return [*blindspots, *leftovers]
 
-    def outputs(self, edits: list[TextEdit]) -> tuple[ChangeSet, list[FileWrite]]:
-        """The change set to print and the writes."""
-        snapshot = self.session.snapshot
-        changes = ChangeSet("")
-        writes: list[FileWrite] = []
-        for rel in sorted({e.path for e in edits}):
-            raw = snapshot.text(rel)
-            text = apply_edits(raw, [e for e in edits if e.path == rel])
-            if text == raw:
-                continue
-            changes.add_change(ChangeContents(self.project.get_resource(rel), _normalize(text), old_contents=_normalize(raw)))
-            writes.append(FileWrite(rel=rel, old=snapshot.data(rel), new=snapshot.encode(rel, text)))
-        return changes, writes
+    def outputs(self, edits: list[TextEdit]) -> tuple[list[tuple[str, str]], list[FileWrite]]:
+        """Each changed file's printed diff, and the writes."""
+        return changes_of(self.session.snapshot, edits)
 
     # ---- the run
 
@@ -779,18 +782,20 @@ class RenameMap:
         finally:
             self.server.close()
             self.index.close()
+        olds = [r.old for r in renames if r.new != r.old]
+        listed = undecodable(self.session.snapshot, self.session.all_python_files(), olds, keeps)
         edits, refusals = self.report(renames, resolved, failed, dropped, keeps)
         if refusals:
             raise Refused(refusals)
         if self.options.unsure:
             print(message("refactor.unsure-warning"))
-        for finding in self.findings(renames, edits):
+        for finding in self.findings(renames, edits, listed):
             print(finding.text, file=sys.stderr)
-        changes, writes = self.outputs(edits)
+        described, writes = self.outputs(edits)
         by_file: dict[str, list[Edit]] = {}
         for e in edits:
             by_file.setdefault(e.path, []).append((e.start, e.end, len(e.new_text)))
-        emit(self.project, [r.header() for r in renames], changes, apply_, writes, [], self.progress, edits=by_file)
+        emit(self.root, [r.header() for r in renames], described, apply_, writes, [], self.progress, edits=by_file)
         return 0
 
 
@@ -821,17 +826,30 @@ def change_set_writes(changes: ChangeSet, before: dict[str, bytes]) -> tuple[lis
     return writes, moves
 
 
-def emit(project: Project, headers: list[str], changes: ChangeSet, apply_: bool, writes: list[FileWrite],
+def changes_of(snapshot: Snapshot, edits: list[TextEdit]) -> tuple[list[tuple[str, str]], list[FileWrite]]:
+    """Each file `edits` change, by path: its printed diff, and its write."""
+    described: list[tuple[str, str]] = []
+    writes: list[FileWrite] = []
+    for rel in sorted({e.path for e in edits}):
+        raw = snapshot.text(rel)
+        text = apply_edits(raw, [e for e in edits if e.path == rel])
+        if text == raw:
+            continue
+        described.append((rel, edit_description(rel, raw, text)))
+        writes.append(FileWrite(rel=rel, old=snapshot.data(rel), new=snapshot.encode(rel, text)))
+    return described, writes
+
+
+def emit(root: Path, headers: list[str], described: list[tuple[str, str]], apply_: bool, writes: list[FileWrite],
          moves: list[FileMove], progress: Progress, *, moved_code: bool = False,
          edits: dict[str, list[Edit]] | None = None) -> None:
-    """Print the headers and the changes sorted by path, the realigned baseline included, then write them with
-    `--apply`; `BaselineFailed` when the checker fails."""
-    root = Path(project.address)
+    """Print the headers and each change's description (path, text) sorted by path, the realigned baseline included,
+    then write them with `--apply`; `BaselineFailed` when the checker fails."""
     if baseline_runs(root):
         progress.phase("baseline")
     with timed("baseline"):
         aligned = align(root, writes, moves, edits=edits, moved_code=moved_code)
-    described = [(c.resource.path, c.get_description()) for c in changes.changes]
+    described = list(described)
     if aligned is not None:
         for warning in aligned.warnings:
             print(warning, file=sys.stderr)

@@ -79,9 +79,9 @@
 
 ## 2. Series 1 — la's project model (pr-implement)
 
-- [ ] 2.1 The verbatim ports (source folders, `modname`, `find_module`, `read_str_coding`) in one module; `SourceFolders`
+- [x] 2.1 The verbatim ports (source folders, `modname`, `find_module`, `read_str_coding`) in one module; `SourceFolders`
       and every caller listed in design decision 5 read it. Verify: 1.9 passes.
-- [ ] 2.2 `Session`/`Snapshot` on the project root; la's diff rendering; `emit` on la's changes, the move commands
+- [x] 2.2 `Session`/`Snapshot` on the project root; la's diff rendering; `emit` on la's changes, the move commands
       converting their rope `ChangeSet` at their boundary; offsets on the raw text (locators, `_raw_offset`,
       `_rope_offset`, `locators._text` removed). Verify: 1.8 and 1.10 pass.
 - [ ] 2.3 Differential run (design decision 16) for series 1. Verify: no difference, or each one resolved by the user;

@@ -10,7 +10,6 @@ import tokenize
 from collections.abc import Callable
 from pathlib import Path
 
-from rope.base.project import Project
 from typing_extensions import override
 
 from living_architecture.contract import literal_value_forbidden, message
@@ -143,7 +142,6 @@ class LiteralRename(MapRename):
 
     def __init__(self, session: Session, rel: str, node: ast.Constant, new: str, options: RenameOptions) -> None:
         self.session = session
-        self.project: Project = session.project
         self.root = session.root
         self.snapshot = session.snapshot
         self.options = options

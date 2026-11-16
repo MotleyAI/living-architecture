@@ -94,9 +94,9 @@ def spelled_lines(text: str, names: Iterable[str], *, code: bool = True) -> set[
 
 
 def keep_spells(site: Site, editable: dict[str, bool], text: Callable[[str], str], names: set[str],
-                moved: list[str]) -> bool:
-    """`site` covers a file the refactor moves, or a line of an `editable` file (its value: a source, else prose)
-    spelling one of `names`."""
+                moved: list[str], data: Callable[[str], bytes] | None = None) -> bool:
+    """`site` covers a file the refactor moves, a line of an `editable` file (its value: a source, else prose)
+    spelling one of `names`, or the whole of a file that does not decode whose `data` holds one."""
     if site.parts is not None and any(
         site.covers_path(rel) or site.parts[: len(Path(rel).parts)] == Path(rel).parts for rel in moved
     ):
@@ -106,7 +106,11 @@ def keep_spells(site: Site, editable: dict[str, bool], text: Callable[[str], str
             continue
         try:
             lines = spelled_lines(text(rel), names, code=is_code)
-        except (OSError, UnicodeDecodeError, LookupError):
+        except (UnicodeDecodeError, LookupError):
+            if site.line is None and data is not None and any(n.encode() in data(rel) for n in names):
+                return True
+            continue
+        except OSError:
             continue
         if lines and (site.line is None or site.line in lines):
             return True

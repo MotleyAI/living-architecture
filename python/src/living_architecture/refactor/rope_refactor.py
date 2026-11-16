@@ -8,6 +8,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any, cast
 
+from rope.base import libutils
 from rope.base.change import ChangeContents, ChangeSet
 from rope.base.exceptions import BadIdentifierError, RefactoringError
 from rope.base.project import Project
@@ -18,13 +19,7 @@ from rope.refactor.rename import Rename
 from living_architecture.contract import message
 from living_architecture.refactor.baseline_align import BaselineFailed
 from living_architecture.refactor.bindings import BindingCheck, EntryEdits, first_conflict, module_binding
-from living_architecture.refactor.locators import (
-    Locator,
-    RefactorError,
-    offset_from_line_col,
-    resolve,
-    resource,
-)
+from living_architecture.refactor.locators import Locator, RefactorError, offset_from_line_col, resolve
 from living_architecture.refactor.map_file import MapEntry, MapError, load_map
 from living_architecture.refactor.move_edits import NameConflict, module_move_changes, symbol_move_changes
 from living_architecture.refactor.progress import Progress, Refusal, Refused, refusal
@@ -55,6 +50,16 @@ __all__ = ["Locator", "RefactorError", "run_refactor"]
 _offset_from_line_col = offset_from_line_col
 
 
+def resource(project: Project, path: str) -> Resource:
+    resolved = Path(path).resolve()
+    found = None
+    if resolved.is_relative_to(Path(project.address).resolve()):
+        found = libutils.path_to_resource(project, str(resolved))
+    if found is None:
+        raise RefactorError(message("refactor.outside-project", path=path))
+    return found
+
+
 def _destination(project: Project, dest: str, *, folder: bool) -> Resource:
     """`--dest` as an existing directory (`folder`) or file in the project."""
     resolved = Path(dest).resolve()
@@ -70,7 +75,8 @@ def _emit(project: Project, changes: ChangeSet, apply: bool, before: dict[str, b
     """Print a rope change set sorted by path; write it all or nothing with `apply`, refusing a file that changed
     since `before` was read."""
     writes, moves = change_set_writes(changes, before)
-    emit(project, [f"{changes}:"], changes, apply, writes, moves, progress, moved_code=moved_code)
+    described = [(c.resource.path, c.get_description()) for c in changes.changes]
+    emit(Path(project.address), [f"{changes}:"], described, apply, writes, moves, progress, moved_code=moved_code)
 
 
 def _kept(project: Project, changes: ChangeSet, keep: tuple[str, ...]) -> tuple[ChangeSet, list[str]]:
@@ -195,6 +201,11 @@ def _checks(project: Project, progress: Progress, failures: list[Refusal], names
     progress.phase("references")
 
 
+def _rope_offset(snapshot: Snapshot, rel: str, offset: int) -> int:
+    """An offset in `rel`'s text as read as an offset in rope's text: line endings as `\\n`, a byte order mark kept."""
+    return offset - snapshot.text(rel).count("\r\n", 0, offset) + snapshot.has_bom(rel)
+
+
 def _first_source(path: Path) -> Path:
     """`path`, or the first Python file under the directory."""
     if not path.is_dir():
@@ -210,10 +221,12 @@ def move_symbol(project: Project, *, file: str, locator: Locator, dest: str, app
     target: File | None = None
     try:
         with timed("resolve"):
-            offset, located = resolve(locator, file)
+            moved = resource(project, file)
+            snapshot = Snapshot(Path(project.address).resolve())
+            offset, located = resolve(locator, snapshot.source(moved.path), file)
             if located is not None and not located.top_level:
                 raise RefactorError(message("refactor.not-movable", path=file))
-            mover = cast(MoveGlobal, create_move(project, resource(project, file), offset))
+            mover = cast(MoveGlobal, create_move(project, moved, _rope_offset(snapshot, moved.path, offset)))
             target = cast(File, _destination(project, dest, folder=False))
     except LocatorError as exc:
         failures.append(refusal(str(exc), 2))

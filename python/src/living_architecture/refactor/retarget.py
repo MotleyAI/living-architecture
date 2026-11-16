@@ -65,7 +65,7 @@ class ImportNeed(BaseModel):
 
 
 def module_name(session: Session, rel: str) -> str:
-    return libutils.modname(session.project.get_resource(rel))
+    return session.modname(rel)
 
 
 def package_of(session: Session, rel: str) -> str:

@@ -5,10 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 
 from pydantic import BaseModel
-from rope.base import libutils
-from rope.base.fscommands import read_str_coding
-from rope.base.project import Project
-from rope.base.resources import Resource
 
 from living_architecture.contract import message
 from living_architecture.refactor.python_source import SourceFile, split_lines
@@ -38,15 +34,9 @@ def offset_from_line_col(text: str, line: int, col: int) -> int:
     return sum(len(lines[i]) for i in range(line - 1)) + (col - 1)
 
 
-def _text(file: str) -> str:
-    """`file` decoded by its coding cookie (else UTF-8), newlines normalized as rope reads it."""
-    data = Path(file).read_bytes()
-    return data.decode(read_str_coding(data) or "utf-8").replace("\r\n", "\n").replace("\r", "\n")
-
-
-def resolve(locator: Locator, file: str) -> tuple[int, Located | None]:
-    """The offset in rope's newline-normalized text of `file`, with what a `--symbol` path names."""
-    text = _text(file)
+def resolve(locator: Locator, source: SourceFile, shown: str) -> tuple[int, Located | None]:
+    """The offset in the text of `source` (the file named `shown`), with what a `--symbol` path names."""
+    text = source.text
     if locator.offset is not None:
         if not 0 <= locator.offset <= len(text):
             raise RefactorError(message("refactor.offset-out-of-range", offset=locator.offset, count=len(text)))
@@ -54,16 +44,14 @@ def resolve(locator: Locator, file: str) -> tuple[int, Located | None]:
     if locator.line is not None:
         return offset_from_line_col(text, locator.line, locator.col or 1), None
     if locator.symbol is not None:
-        located = locate(SourceFile(Path(file).resolve(), text), locator.symbol, file)
+        located = locate(source, locator.symbol, shown)
         return located.offset, located
     raise RefactorError(message("refactor.no-locator"))
 
 
-def resource(project: Project, path: str) -> Resource:
+def project_rel(root: Path, path: str) -> str:
+    """`path` relative to the project at `root`; `refactor.outside-project` when it is not inside."""
     resolved = Path(path).resolve()
-    found = None
-    if resolved.is_relative_to(Path(project.address).resolve()):
-        found = libutils.path_to_resource(project, str(resolved))
-    if found is None:
+    if not resolved.is_relative_to(root):
         raise RefactorError(message("refactor.outside-project", path=path))
-    return found
+    return resolved.relative_to(root).as_posix()

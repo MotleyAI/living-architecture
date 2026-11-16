@@ -14,8 +14,7 @@ from pathlib import Path
 from typing import Any, TypeVar
 
 from pydantic import BaseModel, ConfigDict
-from rope.base import libutils, pynamesdef
-from rope.base.fscommands import read_str_coding
+from rope.base import pynamesdef
 from rope.base.project import Project
 from rope.base.pyobjectsdef import PyClass, PyFunction, PyModule
 from rope.refactor import occurrences
@@ -57,6 +56,7 @@ from living_architecture.refactor.outcomes import (
     target_outcome,
 )
 from living_architecture.refactor.patch_targets import SourceFolders, TargetResolver
+from living_architecture.refactor.python_project import ProjectLayout, read_str_coding
 from living_architecture.refactor.python_source import SourceFile
 from living_architecture.refactor.rope_patches import every_parameter
 from living_architecture.refactor.routing import language_files
@@ -67,6 +67,7 @@ from living_architecture.refactor.text_tables import TextTables
 from living_architecture.refactor.timings import timed
 
 _T = TypeVar("_T")
+_BOM = b"\xef\xbb\xbf"
 
 
 def _normalize(text: str) -> str:
@@ -75,49 +76,73 @@ def _normalize(text: str) -> str:
 
 
 class Snapshot:
-    """Each project file read once: its bytes, encoding, text and syntax tree."""
+    """Each project file read once: its bytes, encoding, text (a UTF-8 byte order mark decoded out) and syntax tree."""
 
     def __init__(self, root: Path) -> None:
         self.root = root
         self._data: dict[str, bytes] = {}
         self._texts: dict[str, str] = {}
         self._encodings: dict[str, str] = {}
+        self._boms: set[str] = set()
+        self._failed: dict[str, UnicodeDecodeError | LookupError] = {}
         self._sources: dict[str, SourceFile] = {}
 
     def text(self, rel: str) -> str:
+        """`rel`'s text; `UnicodeDecodeError` or `LookupError` when it does not decode."""
+        if rel in self._failed:
+            raise self._failed[rel]
         if rel not in self._texts:
             data = (self.root / rel).read_bytes()
-            encoding = read_str_coding(data) or "utf-8"
+            body = data.removeprefix(_BOM)
+            encoding = read_str_coding(body) or "utf-8"
             self._data[rel] = data
             self._encodings[rel] = encoding
-            self._texts[rel] = data.decode(encoding)
+            try:
+                self._texts[rel] = body.decode(encoding)
+            except (UnicodeDecodeError, LookupError) as exc:
+                self._failed[rel] = exc
+                raise
+            if len(body) != len(data):
+                self._boms.add(rel)
         return self._texts[rel]
+
+    def undecodable(self, rel: str) -> str | None:
+        """The encoding `rel` does not decode as; None when it decodes."""
+        try:
+            self.text(rel)
+        except (UnicodeDecodeError, LookupError):
+            return self._encodings[rel]
+        return None
 
     def source(self, rel: str) -> SourceFile:
         if rel not in self._sources:
             self._sources[rel] = SourceFile(self.root / rel, self.text(rel))
         return self._sources[rel]
 
+    def has_bom(self, rel: str) -> bool:
+        self.text(rel)
+        return rel in self._boms
+
     def encode(self, rel: str, text: str) -> bytes:
-        return text.encode(self._encodings[rel])
+        return (_BOM if self.has_bom(rel) else b"") + text.encode(self._encodings[rel])
 
     def decode(self, rel: str, data: bytes) -> str:
         """`data` written to `rel`, as text."""
         self.text(rel)
-        return data.decode(self._encodings[rel])
+        return data.removeprefix(_BOM if rel in self._boms else b"").decode(self._encodings[rel])
 
     def data(self, rel: str) -> bytes:
-        """The bytes `rel` was read as."""
-        self.text(rel)
+        """The bytes `rel` was read as, whether or not they decode."""
+        self.undecodable(rel)
         return self._data[rel]
 
 
 class Session:
-    """One refactor's view of the project: rope's project, the snapshot, and files read outside it."""
+    """One refactor's view of the project at `root`: its layout, the snapshot, and files read outside it."""
 
-    def __init__(self, project: Project) -> None:
-        self.project = project
-        self.root = Path(project.address).resolve()
+    def __init__(self, root: Path) -> None:
+        self.root = root.resolve()
+        self.layout = ProjectLayout(self.root)
         self.snapshot = Snapshot(self.root)
         self.tables = TextTables(self.root, self.snapshot.source)
         self._loaded: dict[Path, SourceFile | None] = {}
@@ -126,10 +151,21 @@ class Session:
     def rel(self, path: Path) -> str | None:
         return path.relative_to(self.root).as_posix() if path.is_relative_to(self.root) else None
 
-    def python_files(self) -> list[str]:
+    def modname(self, rel: str) -> str:
+        return self.layout.modname(self.root / rel)
+
+    def source_folders(self) -> list[str]:
+        """The project's source folders as relative paths, the root (`""`) among them."""
+        return sorted({"", *self.layout.source_rels})
+
+    def all_python_files(self) -> list[str]:
         """The project's Python files, by path."""
+        return [p.relative_to(self.root).as_posix() for p in language_files(self.root, "python")]
+
+    def python_files(self) -> list[str]:
+        """The project's Python files that decode, by path."""
         if self._python_files is None:
-            self._python_files = [p.relative_to(self.root).as_posix() for p in language_files(self.root, "python")]
+            self._python_files = [rel for rel in self.all_python_files() if self.snapshot.undecodable(rel) is None]
         return self._python_files
 
     def load(self, path: Path) -> SourceFile | None:
@@ -321,11 +357,11 @@ class SymbolRename(MapRename):
                  site: tuple[str, int], rope_sites: RopeSites | None = None) -> None:
         self.session = session
         self.site = site
-        self.rope_sites = rope_sites or RopeSites(session.project, session.snapshot)
+        self.rope_sites = rope_sites or RopeSites(renamer.project, session.snapshot)
         self._index: RunIndex | None = None
         self._graph: ClassGraph | None = None
         self._located_sites: set[tuple[str, int]] = set()
-        self.project = session.project
+        self.project = renamer.project
         self.renamer = renamer
         self.options = options or RenameOptions()
         self.old: str = renamer.get_old_name()
@@ -652,7 +688,7 @@ class SymbolRename(MapRename):
 
     def _target_edits(self, scan: MemberScan, member: bool) -> None:
         """Rewrite dotted target segments that resolve to a renamed declaration; refuse or list the rest."""
-        folders = SourceFolders([Path(f.real_path) for f in self.project.get_source_folders()])
+        folders = SourceFolders(self.session.layout.source_folders())
         targets = TargetResolver(folders, self.session.read)
         for rel in self.candidates:
             source = self.snapshot.source(rel)
@@ -682,7 +718,7 @@ class SymbolRename(MapRename):
             source = self.snapshot.source(rel)
             if source.tree is None:
                 continue
-            module = tuple(libutils.modname(self.project.get_resource(rel)).split("."))
+            module = tuple(self.session.modname(rel).split("."))
             top = [n for stmt in source.tree.body for n in _top_declarations(stmt, self.old)]
             if any(source.name_span(n) == (start, start + len(self.old)) for n in top):
                 out.add(Owner(path=module, member=False))
@@ -693,7 +729,7 @@ class SymbolRename(MapRename):
 
     def _class_path(self, d: Declaration) -> tuple[str, ...]:
         """The qualifying path (module segments, then classes) of the class declaring `d`."""
-        module = tuple(libutils.modname(self.project.get_resource(d.rel)).split("."))
+        module = tuple(self.session.modname(d.rel).split("."))
         tree = self.snapshot.source(d.rel).tree
         for chain in _class_chains(tree) if tree is not None else ():
             source = self.snapshot.source(d.rel)
