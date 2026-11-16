@@ -30,8 +30,9 @@ def test_the_map_loader_names_every_invalid_entry(tmp_path: Path) -> None:
         "- {file: a.py, symbol: h, new_name: i}\n- {file: a.py, new_name: j}\n",
         encoding="utf-8",
     )
+    raw, project = str(path), str(tmp_path)
     with pytest.raises(MapError) as raised:
-        load_map(str(path), str(tmp_path))
+        load_map(raw, project)
     assert str(raised.value) == "\n".join(
         message("refactor.map-invalid", map=str(path), index=index) for index in (2, 4)
     )

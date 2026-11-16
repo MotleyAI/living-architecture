@@ -62,8 +62,8 @@
 
 ## 5. Docs and gates (pr-implement)
 
-- [ ] 5.1 `docs/deterministic-refactoring.md`: phases, progress, the combined report, `--fail-fast`, checker causes.
-- [ ] 5.2 Local test scope per `/la:pr`, `uv run ruff check src tests`, `uv run basedpyright src tests`,
+- [x] 5.1 `docs/deterministic-refactoring.md`: phases, progress, the combined report, `--fail-fast`, checker causes.
+- [x] 5.2 Local test scope per `/la:pr`, `uv run ruff check src tests`, `uv run basedpyright src tests`,
       `npm run lint && npm run typecheck`, `scripts/sync-shared --check`, `la-arch-check`. Verify: all green.
 
 ## 6. Verification on SLayer (dry run only)
