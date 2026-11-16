@@ -489,19 +489,25 @@ class SymbolRename(MapRename):
         unresolved: list[tuple[str, Occurrence]] = []
         for rel in self.candidates:
             for o in index.occurrences(self.root / rel, self.old):
-                spans = [*(d.span for d in o.declarations), *o.bindings]
-                hits = {(r, s.start) for s in spans if (r := self.session.rel(s.path)) is not None} & self.seeds
-                if o.kind == "keyword":
-                    hits -= self.keywordless
-                if hits or (self._unsure and o.kind == "member" and o.receiver is not None):
+                if self._renames(o) or (self._unsure and o.kind == "member" and o.receiver is not None):
                     self.edits.append(TextEdit(path=rel, start=o.span.start, end=o.span.end, new_text=self.new))
                 elif not o.declarations and o.kind in ("name", "import", "alias"):
                     unresolved.append((rel, o))
-        if unresolved:
-            finders = [self._finder(r) for r in self.renamers]
-            for rel, o in unresolved:
-                if any(self.rope_sites.matches(f, rel, o.span.start) for f in finders):
-                    self.edits.append(TextEdit(path=rel, start=o.span.start, end=o.span.end, new_text=self.new))
+        if not unresolved:
+            return
+        finders = [self._finder(r) for r in self.renamers]
+        for rel, o in unresolved:
+            if any(self.rope_sites.matches(f, rel, o.span.start) for f in finders):
+                self.edits.append(TextEdit(path=rel, start=o.span.start, end=o.span.end, new_text=self.new))
+
+    def _renames(self, o: Occurrence) -> bool:
+        """`o` resolves to a renamed declaration or through a renamed import alias (a keyword only through one that
+        takes keywords)."""
+        spans = [*(d.span for d in o.declarations), *o.bindings]
+        hits = {(r, s.start) for s in spans if (r := self.session.rel(s.path)) is not None} & self.seeds
+        if o.kind == "keyword":
+            hits -= self.keywordless
+        return bool(hits)
 
     def _located_field(self, renamer: Rename) -> tuple[ClassRef, ast.AnnAssign | ast.Assign, Span] | None:
         pyname = renamer.old_pyname
@@ -540,7 +546,7 @@ class SymbolRename(MapRename):
         )
         return next(((resource.path, n) for n in found), None)
 
-    def _method_declarations(self, fn: PyFunction, cls: PyClass) -> list[tuple[str, Function]]:
+    def _method_declarations(self, fn: PyFunction) -> list[tuple[str, Function]]:
         """The declarations a rename of method `fn` renames: its own, and with the hierarchy on those of every class
         whose roots for its name meet its class's."""
         assert self._graph is not None
@@ -574,7 +580,7 @@ class SymbolRename(MapRename):
             return []
         defs = [located]
         if isinstance(fn.parent, PyClass):
-            defs += self._method_declarations(fn, fn.parent)
+            defs += self._method_declarations(fn)
         seen: set[tuple[str, int, int]] = set()
         out: list[tuple[str, SourceFile, Function, ast.arg]] = []
         for rel, node in defs:
@@ -615,7 +621,7 @@ class SymbolRename(MapRename):
             calls = [c for c in scan.member_calls(path, source) if c.forms]
             if not calls:
                 continue
-            for call, (_, definitions) in zip(calls, scan.probe(path, source, calls), strict=True):
+            for call, (_, definitions) in zip(calls, scan.probe(path, calls), strict=True):
                 sites = [(self.session.rel(d.path) or "", d.start) for d in definitions]
                 renamed = [self.is_renamed(s) for s in sites] if any(s in self.seeds for s in sites) else []
                 self._file(string_member_outcome(rel, source, call, renamed, self.old, self.new))

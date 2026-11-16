@@ -393,8 +393,8 @@ The `checks` phase SHALL then run, before any reference search:
 - Python: every module rope walks before the reference search SHALL be walked as `dr-compliance --select rope-walk`
   walks it, and each gap reported as `refactor.rope-walk`: for a move or a module rename every candidate file (a Python
   source whose text holds the moved name or module's name), for any other entry the module locating it;
-- Python: the language server SHALL start for `rename`, `retarget` and `rename-map` unless the run's occurrence index
-  is cached and no entry renames a `Literal` member, and when the baseline phase will run, the configured checker SHALL run once on one source of the refactor; a failure SHALL be reported with its
+- Python: the language server SHALL start for `rename`, `retarget` and `rename-map` unless an entry renames a module,
+  or the run's occurrence index is cached and no entry renames a `Literal` member, and when the baseline phase will run, the configured checker SHALL run once on one source of the refactor; a failure SHALL be reported with its
   cause;
 - in both twins, when the refactor's language has its baseline file at the repo root, the repo config SHALL be
   readable and valid, else its error SHALL be reported as the config loader words it, exit 2.

@@ -9,7 +9,7 @@
       never regenerated; only `refactor-rename-unsure-include`'s warning line changes, by hand, to the approved text
       (design decision 17).
 
-- [ ] 0.3 A draft PR is open while implementation continues: until 4.1 and 5.3 are done, a `/la:pr` session works
+- [x] 0.3 A draft PR is open while implementation continues: until 4.1 and 5.3 are done, a `/la:pr` session works
       through this file's open tasks (pr-implement) before the review loop.
 
 ## 1. Tests (pr-tests)
@@ -102,13 +102,14 @@
 
 ## 4. Verification on SLayer (dry run only)
 
-- [ ] 4.1 `git archive` SLayer's branch `egor/dev-1607-rename-columns-to-fields-to-be-consistent-with` into a temp
+- [x] 4.1 `git archive` SLayer's branch `egor/dev-1607-rename-columns-to-fields-to-be-consistent-with` into a temp
       directory (its `.venv` symlinked in); run the DEV-1607 map (`openspec/changes/dev-1607-rename-columns-to-fields-to-be-consistent-with/rename-map.yaml`,
       flags from its header) as a dry run under `/usr/bin/time -v`, once cold and once with a warm cache. Nothing is
       written to the SLayer checkout. Verify: wall time and peak RSS recorded in a Linear comment on DEV-2301; target
       under 10 minutes cold, peak memory about one full check (3.8 GB). If missed, profile and raise the findings with
-      the user before any fallback.
-  - [ ] 4.1a Cold run 1 (2026-11-16, machine shared with other heavy sessions) MISSED: the export finished, then the
+      the user before any fallback. Cold run 2026-11-16: 32 min 31 s, peak RSS 4.4 GB (DEV-2301 comment). Warm-cache
+      run dropped (user); further speed-ups go to a follow-up.
+  - [x] 4.1a Cold run 1 (2026-11-16, machine shared with other heavy sessions) MISSED: the export finished, then the
         rules phase stalled at group 6 (`measures`) and was stopped at ~29 min (node RSS 3.9 GB at that point). It
         reproduces with only the 11 `measures` entries (`--docs`, no site flags): stalled in `[rules]` for 10+ min.
         Next: profile that small map with `python -m cProfile` (py-spy has no ptrace permission here); suspects are
@@ -116,7 +117,7 @@
         and the text rules (`_overlaps` scans every edit per mention). A `--keep`/`--with` flag whose site the subset
         does not touch refuses in checks, so drop the site flags for a subset run. Raise the findings with the user
         before any fallback.
-  - [ ] 4.1b Already fixed: `fact_queries` took ~14 s over 854 files (nested re-walks), now one pass per file;
+  - [x] 4.1b Already fixed: `fact_queries` took ~14 s over 854 files (nested re-walks), now one pass per file;
         export spans no longer recompute line starts per span.
 
 ## 5. Gaps from the DEV-2301 review comment (2026-11-16, "Three gaps in this plan")
@@ -134,3 +135,7 @@
       unrelated same-named alias in another module. Verify: new adapter case `refactor-index-alias-entry`
       (`golden: manual`, listed in INVENTORY.md) plus `refactor-retarget-reexport-form` and
       `refactor-symbol-import-binding` pass, and both join decision 18's differential run.
+- [x] 5.4 A declaration two entries rename to the same new name (one through `--with`) is no member name conflict
+      (design decision 23). Cases: `refactor-rename-map-shared-declaration`, `refactor-rename-map-member-clash`.
+- [x] 5.5 A same-named member of a class whose base the checker cannot type is a stand-in (design decision 8).
+      Case: `refactor-rename-untyped-call-base`.

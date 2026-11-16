@@ -107,6 +107,8 @@ Spec attachment: `refactor`, owned by `python.refactor`. No model or arc42 edit:
    has; two declarations are in one hierarchy when their roots meet. This is rope's `in_hierarchy` rule, evaluated on
    the checker's class graph; it drives the renamed hierarchy, `--with` expansion, stand-in classification, parameter
    override groups and `--no-in-hierarchy`. The spec's "rope's hierarchy" becomes this definition. (codex)
+   A base the checker cannot type (such as a call returning a class) gives its class no ancestor there, so a
+   same-named member of that class is a stand-in. (user)
 9. **A whole-run cache.** One entry per project root, keyed by a fingerprint of: every discovered project source
    file's content hash and the file manifest; the checker's effective configuration files; the interpreter's identity
    (path, version) and search paths; a fingerprint of every search-path directory outside the project (site-packages,
@@ -166,6 +168,9 @@ Spec attachment: `refactor`, owned by `python.refactor`. No model or arc42 edit:
 22. **An entry located on an import alias or re-export matches by binding.** It renames the occurrences whose recorded
     chain holds that binding, and the binding itself, never an occurrence only because it resolves to the same final
     declaration. (user)
+23. **A declaration several entries rename to the same new name is renamed once.** The member name-conflict check
+    counts no collision between those entries for it; two different declarations of one class family renamed to the
+    same new name still refuse. (user)
 
 ## Risks / Trade-offs
 

@@ -445,7 +445,7 @@ class LanguageServer:
 
     def _locations(self, method: str, path: Path, offset: int, extra: dict[str, Any] | None = None) -> list[Span]:
         result = self._request(method, {**self._position(path, offset), **(extra or {})})
-        return [span for item in _as_list(result) if (span := self._span(item)) is not None]
+        return list(self._spans(_as_list(result)))
 
     def definition(self, path: Path, offset: int) -> list[Span]:
         return self._locations("textDocument/definition", path, offset)
@@ -486,6 +486,14 @@ class LanguageServer:
             start += 1
         return Declaration(span=span.model_copy(update={"start": start}))
 
+    def _spans(self, locations: list[dict[str, Any]] | None) -> tuple[Span, ...]:
+        spans = (self._span(d) for d in locations or [])
+        return tuple(s for s in spans if s is not None)
+
+    def _declarations(self, locations: list[dict[str, Any]] | None) -> tuple[Declaration, ...]:
+        found = (self._declaration(d) for d in locations or [])
+        return tuple(d for d in found if d is not None)
+
     def _facts(self, item: dict[str, Any], path: Path | None = None, offset: int | None = None) -> PositionFacts:
         if path is None or offset is None:
             path = _path_of(item["uri"])
@@ -494,10 +502,18 @@ class LanguageServer:
         kinds = tuple(k for k in ("definition", "typeDefinition", "verdict", "access") if k in item)
         return PositionFacts(
             path=path, offset=offset, kinds=cast(tuple[FactKind, ...], kinds),
-            definition=tuple(s for d in item.get("definition") or [] if (s := self._span(d)) is not None),
-            type_definition=tuple(s for d in item.get("typeDefinition") or [] if (s := self._span(d)) is not None),
+            definition=self._spans(item.get("definition")),
+            type_definition=self._spans(item.get("typeDefinition")),
             verdict=item.get("verdict"), access=item.get("access"),
         )
+
+    def _followed(self, items: list[dict[str, Any]] | None) -> list[PositionFacts]:
+        """The followed facts, each in a file that can be read."""
+        out: list[PositionFacts] = []
+        for item in items or []:
+            with contextlib.suppress(OSError):
+                out.append(self._facts(item))
+        return out
 
     def export(self, request: ExportRequest) -> OccurrenceIndex:
         """The occurrences of `request.names` in its files (opened before) and its position facts, in one request."""
@@ -513,12 +529,12 @@ class LanguageServer:
         occurrences = [
             Occurrence(
                 span=self._exported_span(item, item["name"]), name=item["name"], kind=item["kind"],
-                declarations=tuple(decl for d in item.get("declarations") or [] if (decl := self._declaration(d)) is not None),
-                bindings=tuple(s for b in item.get("bindings") or [] if (s := self._span(b)) is not None),
+                declarations=self._declarations(item.get("declarations")),
+                bindings=self._spans(item.get("bindings")),
                 receiver=item.get("receiver"),
             )
             for item in found.get("occurrences") or []
         ]
         answers = [self._facts(item, q.path, q.offset) for q, item in zip(request.facts, found.get("answers") or [], strict=True)]
-        followed = [self._facts(item) for item in found.get("followed") or []]
+        followed = self._followed(found.get("followed"))
         return OccurrenceIndex(occurrences=occurrences, answers=answers, followed=followed)
