@@ -84,8 +84,8 @@
 - [x] 5.4 Goldens: regenerate with `LA_UPDATE_GOLDENS=1`, edit `golden: manual` cases by hand, and review that every
       golden diff is exactly the added `[conflicts]` line (and the `conflicts` timing line where timings are
       pinned). The commit message states the reason. Verify: `scripts/conformance-cross` passes for both twins.
-- [ ] 5.5 `docs/commands.md` and `docs/refactoring-internals.md` name the phase where they list phases. Verify:
-      `grep -n "rules" docs/*.md` shows no phase list without `conflicts`.
+- [x] 5.5 `docs/deterministic-refactoring.md` names the phase where it lists phases. Verify: `grep -n "rules" docs/*.md`
+      shows no phase list without `conflicts`.
 - [x] 5.6 Refresh the three `pytest-split` duration files (`python/tests/durations/`) for the new tests, as
       `docs/development.md` describes. Verify: `test_ci_split.py` passes.
 
