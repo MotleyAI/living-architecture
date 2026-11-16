@@ -75,7 +75,7 @@
 
 ## 3. Verification on SLayer (dry run only)
 
-- [ ] 3.1 Reinstall the la tools editable from this checkout; in SLayer's DEV-1607 worktree run
+- [x] 3.1 Reinstall the la tools editable from this checkout; in SLayer's DEV-1607 worktree run
       `dr-refactor --timings rename --file slayer/live_schema/schema_drift.py --line 112 --col 24 --new-name
       edit_model_x` (dry run). Compare stdout and stderr (timing lines aside) with the same run on `main`'s tools:
       identical. Nothing is written to the SLayer checkout.
