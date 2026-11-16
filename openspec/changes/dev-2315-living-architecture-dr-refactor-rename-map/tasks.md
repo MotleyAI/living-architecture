@@ -1,0 +1,95 @@
+## 0. Stage order (read first)
+
+- [ ] 0.1 pr-tests writes section 1 only; pr-implement does sections 2–6. While section 1 is open the stage is
+      `pr-tests`. Verify: every task of section 1 is ticked before any of section 2 starts.
+- [ ] 0.2 DEV-2301 (PR #51) is merged into this branch but not yet into `main`. Before opening the PR, check whether
+      it has merged; if so merge `origin/main` first (`git merge origin/main -m "Merge branch 'origin/main' into …"`;
+      never rebase or stash) and re-run the local test scope. Verify: `git log origin/main..HEAD` holds only this
+      change's commits.
+- [ ] 0.3 Repro for every SLayer measurement: `git archive` SLayer's branch
+      `egor/dev-1607-rename-columns-to-fields-to-be-consistent-with` into a temp directory, `git init` it and commit
+      (without a git repository la finds no project files), symlink the worktree's `.venv`, set `LA_CACHE_DIR` to a
+      temp directory. Run from the snapshot: `dr-refactor --timings rename-map openspec/changes/dev-1607-…/rename-map.yaml
+      --docs <the flags in the map's header> --without tests/test_ossie_vocabulary_custom_backend.py:152` (`--timings`
+      goes before the subcommand). Never write to SLayer. Verify: the run reaches `[references]`.
+
+## 1. Tests (pr-tests)
+
+- [ ] 1.1 `test_language_server.py`: a fake-server message of several MB delivered in small chunks is read with
+      linear copying (count chunk copies, not wall time). Verify: fails on today's `_pump`.
+- [ ] 1.2 `test_pyright_export.py`: the fake bundles gain the `enableAmbientAnalysis` line; a new test asserts a
+      bundle without it is refused as `mismatch`, and one that the patched bundle sets it false. Verify: the new
+      tests fail today.
+- [ ] 1.3 Sharding seam: exporting a multi-file fixture's files in two requests and merging gives the same
+      `RunIndex` state as one request, through the fake server and (integration-marked) the real one, including
+      definitions shared across the partition. Verify: passes or fails today; a failure is fixed in 2.3.
+- [ ] 1.4 Bounded follow: a fixture importing a library class; the export's followed facts hold no position in a
+      third-party or typeshed file, a rule needing a library base still gets it on demand, and a cold and a warm run
+      give identical facts and output. Verify: the first assertion fails today.
+- [ ] 1.5 Rules: two entries sharing a file and an old name but targeting different classes give each its own
+      edits (no state leaks through the shared candidates), and a counting test that a candidate file's sink
+      discovery runs once for both. Verify: the counting test fails today.
+- [ ] 1.6 Conflict checks, unit tests on `BindingCheck`: a class-body declaration renamed onto an existing one; a
+      renamed global seen through a star import in an unedited file; a two-step star chain; an edited `__all__`; a
+      retarget's added import; a file with an attribute edit and a name edit; a length-changing attribute edit before
+      a binding edit in one file. Verify: all pass today (they pin behaviour the narrowing must keep).
+- [ ] 1.7 Conflict checks, counting tests: a file whose only edits are attribute or keyword names is not re-parsed;
+      the all-together pass reuses a single-entry state; a run with moved files re-judges every file. Verify: the
+      first two fail today.
+- [ ] 1.8 `MemberCheck`: the project scan for classes declaring a member name runs once per name for several
+      renamed members. Verify: fails today.
+- [ ] 1.9 `conflicts` phase, both twins: unit tests that a keyed-only, a member-only, a binding and a map conflict
+      are each charged to `conflicts` and none to `resolve`; that `[conflicts]` precedes the finding; that a
+      standalone Python module rename prints `[references]`, `[conflicts]` and times its check there; that
+      `--fail-fast` after a refused group prints no `[conflicts]`. Verify: fail today.
+- [ ] 1.10 Conformance: a new case for each new spec scenario not already covered ("Conflict checks timed on their
+      own", "Name conflict found in its phase", "Module rename conflicts", "No conflict phase after a fail-fast
+      stop"), listed in `conformance/INVENTORY.md`. Verify: they fail today on the missing line.
+
+## 2. Export and server
+
+- [ ] 2.1 `_pump` collects chunks and joins once. Verify: 1.1 passes.
+- [ ] 2.2 The export preload's anchor turning ambient analysis off. Verify: 1.2 passes, and the `Literal` and
+      `--attr` tests pass.
+- [ ] 2.3 The export follows definitions only out of project code. Verify: 1.3 and 1.4 pass.
+
+## 3. Rules
+
+- [ ] 3.1 Neutral per-(file, old name) sink candidates for `keyed.scan` through `RunIndex.memo`; each entry
+      classifies them. Verify: 1.5 passes.
+- [ ] 3.2 The other name-only scans computed once per (file, name): member declarations, `--docs` mentions and
+      source regions, compound names, text-table declarations. Verify: a cProfile of the 11 `measures` entries
+      (`grep -E "symbol: (\S+\.)?measures[,}]"` of the map, `--docs`, no site flags) shows each called once per file.
+- [ ] 3.3 `Session.source` (`rename_union.py`) becomes a plain lookup. Verify: the same profile shows it under 1 s.
+
+## 4. Conflict checks
+
+- [ ] 4.1 Binding-relevant edits: re-parse only files with one, analyse and map offsets from those edits, cache the
+      state by them; the full check whenever files move. Verify: 1.6 and 1.7 pass.
+- [ ] 4.2 Judge only re-parsed files and their transitive star importers. Verify: 1.6 passes.
+- [ ] 4.3 `MemberCheck` finds the classes declaring a name once per name. Verify: 1.8 passes.
+
+## 5. The `conflicts` phase
+
+- [ ] 5.1 `shared/cli.yaml`: `conflicts` after `rules` in `timing_phases`; run `scripts/sync-shared`. Verify:
+      `scripts/sync-shared --check` passes.
+- [ ] 5.2 Python twin: the phase around map conflicts, the binding, member and keyed checks in `rename_map.py`, and
+      around the binding check in `rope_refactor.py`'s module rename. Verify: the Python tests of 1.9 pass.
+- [ ] 5.3 npm twin: the phase around `mapConflicts` and `nameConflicts` in `rename.ts`. Verify: the npm tests of 1.9
+      pass.
+- [ ] 5.4 Goldens: regenerate with `LA_UPDATE_GOLDENS=1`, edit `golden: manual` cases by hand, and review that every
+      golden diff is exactly the added `[conflicts]` line (and the `conflicts` timing line where timings are
+      pinned). The commit message states the reason. Verify: `scripts/conformance-cross` passes for both twins.
+- [ ] 5.5 `docs/commands.md` and `docs/refactoring-internals.md` name the phase where they list phases. Verify:
+      `grep -n "rules" docs/*.md` shows no phase list without `conflicts`.
+
+## 6. Measurement
+
+- [ ] 6.1 Cold run of the DEV-1607 map (0.3) under `/usr/bin/time -v`: phase split, total, peak memory, the
+      export's follow count. Verify: recorded in a comment on DEV-2315.
+- [ ] 6.2 Warm re-run with one more `--without` site: a cache hit (no export time) and stdout equal to the cold
+      run's. Verify: recorded in the same comment.
+- [ ] 6.3 Differential: the cold run's stdout and refusal report against the same run on the commit before this
+      change, byte-identical apart from the `[conflicts]` line. Verify: `diff` output recorded in the comment.
+- [ ] 6.4 CI: the PR's `test` and `cross-twin` job times against `main`'s (11–15 min) and DEV-2301's (17–22 min).
+      Verify: recorded in the comment.
