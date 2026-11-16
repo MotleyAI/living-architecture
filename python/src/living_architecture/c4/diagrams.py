@@ -12,7 +12,7 @@ from living_architecture.c4.layout import layout_problem
 from living_architecture.c4.mermaid import render_mermaid
 from living_architecture.c4.model import ModelParse, parse_model, project
 from living_architecture.c4.views import View, ViewsParse, parse_views
-from living_architecture.contract import message
+from living_architecture.contract import message, os_error_text
 
 _MARKER_RE = re.compile(r"<!--\s+(/?)likec4:(\w+)\s+-->")
 
@@ -115,7 +115,10 @@ def run(root: Path) -> int:
     """`la-arch-diagrams`: print each rewritten doc."""
     try:
         changed = generate(root)
-    except (ValueError, OSError) as exc:
+    except OSError as exc:
+        print(message("arch-diagrams.error", error=os_error_text(exc, root)), file=sys.stderr)
+        return 1
+    except ValueError as exc:
         print(message("arch-diagrams.error", error=str(exc)), file=sys.stderr)
         return 1
     for doc_key in changed:

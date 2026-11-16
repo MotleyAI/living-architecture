@@ -50,7 +50,7 @@ from living_architecture.config import (
     released_formats,
     stamp_format,
 )
-from living_architecture.contract import config_file, load_yaml, message
+from living_architecture.contract import config_file, load_yaml, message, os_error_text
 
 
 class MigrateError(Exception):
@@ -442,7 +442,8 @@ class Transaction:
         left = sorted(rel for rel, state in self._first.items() if not _restored(self._root / rel, state))
         if not left:
             return None
-        return MigrateError(message("arch-migrate.rollback-failed", error=str(error), paths=", ".join(left)))
+        text = os_error_text(error, self._root) if isinstance(error, OSError) else str(error)
+        return MigrateError(message("arch-migrate.rollback-failed", error=text, paths=", ".join(left)))
 
     def report(self, last: str) -> list[str]:
         """The net effect: written paths (`last` last), then composed moves, then deleted paths."""
@@ -590,8 +591,11 @@ def run(root: Path) -> int:
     """`la-arch-migrate`: print each written, moved and deleted path, or exit 2 having changed nothing."""
     try:
         report = migrate(root)
-    except (MigrateError, OSError) as exc:
+    except MigrateError as exc:
         print(message("arch-migrate.error", error=str(exc)), file=sys.stderr)
+        return 2
+    except OSError as exc:
+        print(message("arch-migrate.error", error=os_error_text(exc, root)), file=sys.stderr)
         return 2
     for line in report:
         print(line)

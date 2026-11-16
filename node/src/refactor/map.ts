@@ -1,6 +1,6 @@
 // `dr-refactor rename-map MAP`: the map file read and checked against the shared schema.
-import { existsSync, readFileSync, statSync } from 'node:fs';
-import { DuplicateKeyError, YAMLError, decodeUtf8OrNull, loadYaml, message, schema, toPlain, validate } from '../contract/index.js';
+import { existsSync, statSync } from 'node:fs';
+import { DuplicateKeyError, YAMLError, decodeUtf8OrNull, isOsError, loadYaml, message, readFile, schema, toPlain, validate } from '../contract/index.js';
 
 /** One entry of a rename map, as written. */
 export interface MapEntry {
@@ -18,7 +18,14 @@ export class MapError extends Error {}
 
 function document(path: string): unknown {
   if (!existsSync(path) || !statSync(path).isFile()) return null;
-  const text = decodeUtf8OrNull(readFileSync(path));
+  let bytes: Buffer;
+  try {
+    bytes = readFile(path);
+  } catch (error) {
+    if (isOsError(error)) return null;
+    throw error;
+  }
+  const text = decodeUtf8OrNull(bytes);
   if (text === null) return null;
   try {
     return toPlain(loadYaml(text));

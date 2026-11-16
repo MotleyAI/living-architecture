@@ -1,8 +1,21 @@
 // Loading `architecture/index.yaml` and resolving where each language's code lives.
-import { readFileSync, realpathSync, statSync } from 'node:fs';
+import { realpathSync, statSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative, sep } from 'node:path';
 import { INDEX_REL } from '../c4/index.js';
-import { YAMLError, decodeUtf8OrNull, languageIds, loadYaml, message, schema, toPlain, validate } from '../contract/index.js';
+import {
+  DuplicateKeyError,
+  YAMLError,
+  decodeUtf8OrNull,
+  isOsError,
+  languageIds,
+  loadYaml,
+  message,
+  osErrorText,
+  readFile,
+  schema,
+  toPlain,
+  validate,
+} from '../contract/index.js';
 
 /** The architecture setup is too broken to check. */
 export class ArchCheckError extends Error {}
@@ -49,13 +62,22 @@ function rootConfiguration(values: unknown): { key: string; roots: string[] } {
 
 /** The validated index mapping; ArchCheckError when it is unusable. */
 export function loadIndex(root: string): Index {
-  const text = decodeUtf8OrNull(readFileSync(join(root, INDEX_REL)));
+  const path = join(root, INDEX_REL);
+  let bytes: Buffer;
+  try {
+    bytes = readFile(path);
+  } catch (error) {
+    if (isOsError(error)) throw new ArchCheckError(osErrorText(error, root, path));
+    throw error;
+  }
+  const text = decodeUtf8OrNull(bytes);
   if (text === null) throw new ArchCheckError(message('c4.index-invalid-yaml'));
   let index: unknown;
   try {
     index = loadYaml(text);
   } catch (error) {
-    if (error instanceof YAMLError) throw new ArchCheckError(`${INDEX_REL}: ${error.message}`);
+    if (error instanceof DuplicateKeyError) throw new ArchCheckError(`${INDEX_REL}: ${error.message}`);
+    if (error instanceof YAMLError) throw new ArchCheckError(message('yaml.invalid', { path: INDEX_REL }));
     throw error;
   }
   if (!(index instanceof Map)) throw new ArchCheckError(message('arch-check.index-not-mapping'));

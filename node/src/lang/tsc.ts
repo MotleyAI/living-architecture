@@ -1,8 +1,8 @@
 // tsc as la-typecheck's TypeScript checker: its `--pretty false` diagnostics and the multiset baseline ratchet.
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, writeFileSync } from 'node:fs';
 import { isAbsolute, join, relative, sep } from 'node:path';
-import { byCodePoint, message } from '../contract/index.js';
+import { byCodePoint, message, readFile } from '../contract/index.js';
 
 export interface TscDiagnostic {
   file: string;
@@ -61,7 +61,7 @@ function validEntry(entry: unknown): entry is { code: string; message: string; c
 
 /** The baseline multiset; empty when the file is absent, null when it is malformed. */
 export function load(path: string): Counts | null {
-  return existsSync(path) ? parse(readFileSync(path, 'utf8')) : new Map();
+  return existsSync(path) ? parse(readFile(path, 'utf8')) : new Map();
 }
 
 /** The counts of a baseline's text; null when it is not a baseline. */

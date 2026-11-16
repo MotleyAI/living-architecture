@@ -1,7 +1,16 @@
 // Reads of `architecture/index.yaml` for diagram settings and migration; problems become messages.
-import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { DuplicateKeyError, YAMLError, decodeUtf8OrNull, loadYaml, message } from '../contract/index.js';
+import {
+  DuplicateKeyError,
+  YAMLError,
+  decodeUtf8OrNull,
+  isOsError,
+  isRegularFile,
+  loadYaml,
+  message,
+  osErrorText,
+  readFile,
+} from '../contract/index.js';
 
 export const INDEX_REL = 'architecture/index.yaml';
 
@@ -14,8 +23,15 @@ export interface Index {
 /** The index, a message explaining why it is unusable, or null when it is absent (never throws). */
 export function loadIndex(root: string): Index | string | null {
   const path = join(root, INDEX_REL);
-  if (!existsSync(path) || !statSync(path).isFile()) return null;
-  const text = decodeUtf8OrNull(readFileSync(path));
+  let bytes: Buffer;
+  try {
+    if (!isRegularFile(path)) return null;
+    bytes = readFile(path);
+  } catch (error) {
+    if (isOsError(error)) return osErrorText(error, root, path);
+    throw error;
+  }
+  const text = decodeUtf8OrNull(bytes);
   if (text === null) return message('c4.index-invalid-yaml');
   let data: unknown;
   try {

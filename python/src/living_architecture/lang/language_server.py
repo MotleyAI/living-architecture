@@ -22,7 +22,7 @@ import basedpyright
 from nodejs_wheel import executable as node_wheel
 from pydantic import BaseModel, ConfigDict
 
-from living_architecture.contract import language
+from living_architecture.contract import language, os_error_text
 from living_architecture.lang.typecheck import pyright_patch_env, read_pyright_patch
 
 _LINE_BREAK = re.compile(r"\r\n|\r|\n")
@@ -160,7 +160,7 @@ class LanguageServer:
                 env=env,
             )
         except OSError as exc:
-            raise LanguageServerError(str(exc)) from None
+            raise LanguageServerError(os_error_text(exc, self.workspace)) from None
         assert self._proc.stdout is not None
         threading.Thread(target=self._pump, args=(self._proc.stdout,), daemon=True).start()
         uri = self.workspace.as_uri()

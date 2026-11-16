@@ -1,8 +1,7 @@
 // Runtime import edges of every visible source, resolved under the repo's tsconfig and classified.
-import { readFileSync } from 'node:fs';
 import { dirname, relative, resolve, sep } from 'node:path';
 import type * as TS from 'typescript';
-import { byCodePoint } from '../contract/index.js';
+import { byCodePoint, readFile } from '../contract/index.js';
 import { canonical, DECLARATION_RE, isUnder, posix, stripSourceExtension, Tree } from './files.js';
 import { loadProjects, owner, type Project, type Projects } from './projects.js';
 import { runtimeSpecifiers, withoutQuery } from './specifiers.js';
@@ -61,7 +60,7 @@ class Resolver {
     );
     const source = ts().createSourceFile(
       file,
-      readFileSync(file, 'utf8'),
+      readFile(file, 'utf8'),
       { languageVersion: ts().ScriptTarget.Latest, impliedNodeFormat: format, jsDocParsingMode: ts().JSDocParsingMode.ParseNone },
       true,
     );

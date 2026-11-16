@@ -8,7 +8,16 @@ from typing import Any, cast
 from pydantic import BaseModel, ConfigDict
 
 from living_architecture.c4 import INDEX_REL
-from living_architecture.contract import YAMLError, language_ids, load_yaml, message, schema, validate
+from living_architecture.contract import (
+    DuplicateKeyError,
+    YAMLError,
+    language_ids,
+    load_yaml,
+    message,
+    os_error_text,
+    schema,
+    validate,
+)
 
 
 class ArchCheckError(Exception):
@@ -62,14 +71,17 @@ def _root_configuration(section: Any) -> tuple[str, list[str]]:
 
 def load_index(root: Path) -> dict[str, Any]:
     """The validated index mapping; ArchCheckError when it is unusable."""
+    path = root / INDEX_REL
     try:
-        index = load_yaml((root / INDEX_REL).read_text(encoding="utf-8"))
+        index = load_yaml(path.read_text(encoding="utf-8"))
     except UnicodeDecodeError as exc:
         raise ArchCheckError(message("c4.index-invalid-yaml")) from exc
-    except YAMLError as exc:
+    except DuplicateKeyError as exc:
         raise ArchCheckError(f"{INDEX_REL}: {exc}") from exc
+    except YAMLError as exc:
+        raise ArchCheckError(message("yaml.invalid", path=INDEX_REL)) from exc
     except OSError as exc:
-        raise ArchCheckError(str(exc)) from exc
+        raise ArchCheckError(os_error_text(exc, root, path)) from exc
     if not isinstance(index, dict):
         raise ArchCheckError(message("arch-check.index-not-mapping"))
     languages = declared_languages(index)

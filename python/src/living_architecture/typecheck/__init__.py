@@ -13,7 +13,7 @@ from pathlib import Path
 
 from living_architecture import lang, twin
 from living_architecture.config import ConfigError, LaConfig, find_repo_root, load_config, repo_languages
-from living_architecture.contract import language, message
+from living_architecture.contract import language, message, os_error_text
 
 
 class CommandError(Exception):
@@ -122,7 +122,7 @@ def python_diagnostics(root: Path, command: str, extra: list[str]) -> dict[str, 
         try:
             proc = subprocess.run([*argv, "--outputjson", *extra], cwd=root, env=env, capture_output=True, check=False)
         except OSError as exc:
-            raise CommandError(str(exc)) from None
+            raise CommandError(os_error_text(exc, root)) from None
         patch = lang.read_pyright_patch(result)
     failure = _patch_failure(patch, command, versions)
     if failure is not None or lang.basedpyright_exit(proc.returncode, write=False) == 2:
