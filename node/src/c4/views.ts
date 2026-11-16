@@ -1,7 +1,7 @@
 // The constrained `views.c4` include grammar and view expansion over a root-local projection.
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { architecture, isWordStart, message, splitLines } from '../contract/index.js';
+import { architecture, isWordStart, message, readFile, splitLines } from '../contract/index.js';
 import { readIndex } from './index-file.js';
 import { type ModelParse, type Relation, isOrAncestor, project, roots, stripLineComment } from './model.js';
 
@@ -186,7 +186,7 @@ export const EMPTY_VIEWS = 'views {\n}\n';
 export function parseViews(root: string, model: ModelParse): ViewsParse {
   const path = join(root, architecture().views_file);
   const isFile = existsSync(path) && statSync(path).isFile();
-  const parser = new Parser(tokenize(isFile ? readFileSync(path, 'utf8') : EMPTY_VIEWS));
+  const parser = new Parser(tokenize(isFile ? readFile(path, 'utf8') : EMPTY_VIEWS));
   const scopes = new Map(roots(model).map((r) => [r, scopeOf(model, r)]));
   const raw: RawView[] = [];
   const seenIds = new Set<string>();

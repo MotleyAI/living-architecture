@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 import pytest
@@ -230,13 +231,23 @@ def test_local_schema_error_names_key_and_local_file(tmp_path: Path, text: str, 
 def test_committed_yaml_checked_before_local_yaml(tmp_path: Path) -> None:
     _write(tmp_path, "reviewers: [\n")
     _write_local(tmp_path, "tracker: [\n")
-    assert _error(tmp_path).startswith(f"{tmp_path / config_file()}: ")
+    assert _error(tmp_path) == f"{config_file()}: invalid YAML"
+
+
+@pytest.mark.skipif(not hasattr(os, "geteuid") or os.geteuid() == 0, reason="needs a non-root POSIX user")
+def test_unreadable_local_config_is_a_config_error(tmp_path: Path) -> None:
+    _write_local(tmp_path, "tracker: github\n")
+    (tmp_path / local_config_file()).chmod(0)
+    try:
+        assert _error(tmp_path) == f"{local_config_file()}: permission denied"
+    finally:
+        (tmp_path / local_config_file()).chmod(0o644)
 
 
 def test_local_yaml_error_names_local_file(tmp_path: Path) -> None:
     _write(tmp_path, "tracker: github\n")
     _write_local(tmp_path, "tracker: [\n")
-    assert _error(tmp_path).startswith(f"{tmp_path / local_config_file()}: ")
+    assert _error(tmp_path) == f"{local_config_file()}: invalid YAML"
 
 
 @pytest.mark.parametrize("text", ["- tracker\n", "42\n"])

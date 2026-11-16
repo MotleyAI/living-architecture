@@ -1,18 +1,16 @@
 // The repo format: `format` in the committed `living-architecture.yaml`, the check every gated command runs, the stamp.
-import { readFileSync, statSync } from 'node:fs';
-import { join } from 'node:path';
 import {
   YAMLError,
   byCodePoint,
   canonicalRepr,
   configFile,
   configFormats,
-  decodeUtf8,
   loadYaml,
   message,
   normalize,
 } from '../contract/index.js';
 import { ConfigError } from './error.js';
+import { parseConfig, readConfigText } from './read.js';
 
 export const FORMAT_KEY = 'format';
 const VERSION_RE = /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/;
@@ -56,29 +54,11 @@ export function compareVersions(a: string, b: string): number {
   return 0;
 }
 
-const isFile = (path: string): boolean => {
-  try {
-    return statSync(path).isFile();
-  } catch {
-    return false;
-  }
-};
-
 /** The committed file, null without one; ConfigError when it is unreadable, not YAML or not a mapping. */
 export function readCommitted(root: string): Committed | null {
-  const path = join(root, configFile());
-  if (!isFile(path)) return null;
-  let text: string;
-  let data: unknown;
-  try {
-    text = decodeUtf8(readFileSync(path));
-    data = loadYaml(text);
-  } catch (error) {
-    if (error instanceof YAMLError || error instanceof TypeError || (error as NodeJS.ErrnoException).code !== undefined) {
-      throw new ConfigError(`${configFile()}: ${(error as Error).message}`);
-    }
-    throw error;
-  }
+  const text = readConfigText(root, configFile());
+  if (text === null) return null;
+  const data = parseConfig(text, configFile());
   if (data !== null && !(data instanceof Map)) throw new ConfigError(`${configFile()}: top level must be a mapping`);
   return { text, data };
 }

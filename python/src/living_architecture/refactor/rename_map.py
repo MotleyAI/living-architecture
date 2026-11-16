@@ -588,8 +588,9 @@ class RenameMap:
                 continue
             try:
                 renames[i].rules(self.index, facts)
-            except UnresolvedBase as exc:
+            except _ENTRY_ERRORS as exc:
                 failed[i] = [found] if (found := failure(exc, self.root)) is not None else []
+                renames[i].edits = []
 
     def _finish(self, r: Renaming, olds: set[str], keeps: Keeps) -> list[TextEdit]:
         """`r`'s edits finished, merged, retargeted and filtered by the keeps; the edits the keeps dropped."""
@@ -749,27 +750,29 @@ class RenameMap:
     # ---- the run
 
     def run(self, apply_: bool, module_rename: Callable[[_Resolved], int]) -> int:
-        self.progress.phase("resolve")
-        with timed("resolve"):
-            resolved, failures, spelled = self.resolve()
-        self.progress.phase("checks")
-        failures += self.checks(resolved, spelled)
-        if failures:
-            raise Refused(failures)
-        self.progress.phase("references")
-        if resolved[0].is_module():
+        try:
+            self.progress.phase("resolve")
+            with timed("resolve"):
+                resolved, failures, spelled = self.resolve()
+            self.progress.phase("checks")
+            failures += self.checks(resolved, spelled)
+            if failures:
+                raise Refused(failures)
+            self.progress.phase("references")
+            if resolved[0].is_module():
+                self.server.close()
+                return module_rename(resolved[0])
+            renames = self.build(resolved)
+            failed = self.references(renames, resolved)
+            active = [i for i, r in enumerate(renames) if r.new != r.old and i not in failed]
+            keeps = Keeps(self.options.keep, self.root)
+            dropped: list[list[TextEdit]] = [[] for _ in renames]
+            if not self.stopped:
+                facts = self.seed(renames, active, failed)
+                dropped = self.rules(renames, resolved, failed, facts, keeps)
+        finally:
             self.server.close()
-            return module_rename(resolved[0])
-        renames = self.build(resolved)
-        failed = self.references(renames, resolved)
-        active = [i for i, r in enumerate(renames) if r.new != r.old and i not in failed]
-        keeps = Keeps(self.options.keep, self.root)
-        dropped: list[list[TextEdit]] = [[] for _ in renames]
-        if not self.stopped:
-            facts = self.seed(renames, active, failed)
-            dropped = self.rules(renames, resolved, failed, facts, keeps)
-        self.server.close()
-        self.index.close()
+            self.index.close()
         edits, refusals = self.report(renames, resolved, failed, dropped, keeps)
         if refusals:
             raise Refused(refusals)

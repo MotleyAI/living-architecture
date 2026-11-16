@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -14,7 +15,7 @@ import pytest
 from project_files import file_tree, write_project
 from refactor_cli import run_raw
 
-from living_architecture.cli import dr_compliance
+from living_architecture.cli.dr_compliance import dr_compliance
 from living_architecture.contract import language
 from living_architecture.lang import LanguageServer
 
@@ -169,6 +170,79 @@ def test_a_change_the_index_depends_on_exports_anew(
     assert result == _uncached(tmp_path, project, CLEAN, monkeypatch, capsys)
 
 
+def _change_the_extended_config(base: Path, venv: Path) -> None:
+    base.write_text(_config(venv, reportMissingImports="none"), encoding="utf-8")
+
+
+def _change_a_package_of_the_extended_venv(base: Path, venv: Path) -> None:
+    _change_an_installed_package(base, venv)
+
+
+@pytest.mark.parametrize("change", [_change_the_extended_config, _change_a_package_of_the_extended_venv],
+                         ids=["extended-config", "extended-venv"])
+def test_a_change_through_an_extended_config_exports_anew(
+    tmp_path: Path, project: Path, venv: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str],
+    change: Callable[[Path, Path], None],
+) -> None:
+    base = tmp_path / "shared" / "base.json"
+    base.parent.mkdir()
+    base.write_text(_config(venv), encoding="utf-8")
+    (project / "pyrightconfig.json").write_text(json.dumps({"extends": "../shared/base.json"}), encoding="utf-8")
+    first, _ = _run(project, CLEAN, monkeypatch, capsys)
+    assert first.count == 1
+    change(base, venv)
+    second, result = _run(project, CLEAN, monkeypatch, capsys)
+    assert second.count == 1
+    assert result == _uncached(tmp_path, project, CLEAN, monkeypatch, capsys)
+
+
+def test_a_change_in_the_project_venv_the_checker_picks_exports_anew(
+    tmp_path: Path, project: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # No environment configured: basedpyright resolves imports in the project's own `.venv`.
+    (project / "pyrightconfig.json").unlink()
+    subprocess.run([sys.executable, "-m", "venv", "--without-pip", str(project / ".venv")], check=True)
+    python = project / ".venv" / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python")
+    site = Path(subprocess.run([python, "-c", "import sysconfig; print(sysconfig.get_path('purelib'))"],
+                               capture_output=True, text=True, check=True).stdout.strip())
+    (site / "extpkg").mkdir()
+    (site / "extpkg" / "__init__.py").write_text("def helper() -> int:\n    return 1\n", encoding="utf-8")
+    first, _ = _run(project, CLEAN, monkeypatch, capsys)
+    assert first.count == 1
+    (site / "extpkg" / "__init__.py").write_text("def helper() -> str:\n    return 'x'\n", encoding="utf-8")
+    second, result = _run(project, CLEAN, monkeypatch, capsys)
+    assert second.count == 1
+    assert result == _uncached(tmp_path, project, CLEAN, monkeypatch, capsys)
+
+
+def test_a_source_changed_during_the_export_is_not_cached(
+    project: Path, cache_dir: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    export = LanguageServer.export
+
+    def editing(server: LanguageServer, request: Any) -> Any:
+        found = export(server, request)
+        if request.names:
+            (project / "pkg" / "extra.py").write_text("y = 3\n", encoding="utf-8")
+        return found
+
+    with monkeypatch.context() as patched:
+        patched.setattr(LanguageServer, "export", editing)
+        run_raw(project, CLEAN, patched, capsys)
+    assert _cache_files(cache_dir) == []
+
+
+def test_a_cache_directory_inside_the_project_is_no_cache(
+    project: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setenv("LA_CACHE_DIR", str(project / ".cache" / "la"))
+    before = file_tree(project)
+    first, _ = _run(project, CLEAN, monkeypatch, capsys)
+    second, _ = _run(project, CLEAN, monkeypatch, capsys)
+    assert (first.count, second.count) == (1, 1)
+    assert file_tree(project) == before
+
+
 def test_a_changed_request_exports_anew(
     project: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -193,6 +267,14 @@ def test_a_damaged_cache_entry_is_a_miss_with_the_same_output(
     second, result = _run(project, CLEAN, monkeypatch, capsys)
     assert second.count == 1
     assert result == expected
+
+
+def test_another_request_between_two_runs_keeps_the_first_export(
+    project: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    other = ["rename", "--file", "pkg/models.py", "--symbol", "Store", "--new-name", "Depot"]
+    counts = [_run(project, argv, monkeypatch, capsys)[0].count for argv in (CLEAN, other, CLEAN, other)]
+    assert counts == [1, 1, 0, 0]
 
 
 def test_one_entry_per_project_root(

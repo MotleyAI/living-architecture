@@ -7,8 +7,4 @@ remove:
 - architecture/index.yaml
 expect:
   exit: 2
-  stderr:
-    contains:
-    - 'arch_check: '
-    - <ROOT>/repo/architecture/index.yaml
-note: OS error wording is not part of the contract
+note: a missing index.yaml is a setup error from the os.* templates, the same text in both twins

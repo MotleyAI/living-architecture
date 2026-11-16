@@ -8,10 +8,6 @@ chmod:
   architecture/model: '0555'
 expect:
   exit: 2
-  stderr:
-    contains:
-    - 'la-arch-migrate: '
-    - architecture/model/m.c4
   files:
   - architecture/model.c4
   - architecture/views.c4

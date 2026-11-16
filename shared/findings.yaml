@@ -17,6 +17,16 @@ findings:
   # ---- the YAML profile
   yaml.duplicate-key: 'duplicate key {key!r} at lines {first} and {second}'
 
+  # ---- OS and YAML errors
+  os.error: '{path}: {reason}'
+  os.not-found: no such file or directory
+  os.permission-denied: permission denied
+  os.is-a-directory: is a directory
+  os.not-a-directory: not a directory
+  os.other: 'OS error {code}'
+  yaml.invalid: '{path}: invalid YAML'
+  yaml.invalid-because: '{path}: invalid YAML: {error}'
+
   # ---- la-arch-check
   arch-check.ok: 'arch_check: OK'
   arch-check.summary: 'arch_check: {count} finding(s)'

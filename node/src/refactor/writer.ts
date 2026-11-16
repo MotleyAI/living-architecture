@@ -1,9 +1,9 @@
 // A refactor's apply: every file written or none.
 import { spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { chmodSync, closeSync, existsSync, lstatSync, mkdirSync, openSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { chmodSync, closeSync, existsSync, lstatSync, mkdirSync, openSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, relative } from 'node:path';
-import { byCodePoint, message } from '../contract/index.js';
+import { byCodePoint, message, readFile } from '../contract/index.js';
 import { RefactorError } from './edits.js';
 
 /** A file's new text, with the text the refactor read it as. */
@@ -73,7 +73,7 @@ function restore(root: string, originals: Map<string, Buffer>, written: string[]
 function unchanged(writes: Write[], shown: (path: string) => string): Map<string, Buffer> {
   const originals = new Map<string, Buffer>();
   for (const { path, old } of writes) {
-    const bytes = existsSync(path) ? readFileSync(path) : null;
+    const bytes = existsSync(path) ? readFile(path) : null;
     if (bytes === null || bytes.toString('utf8') !== old) throw new RefactorError(message('refactor.file-changed', { path: shown(path) }));
     originals.set(path, bytes);
   }

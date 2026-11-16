@@ -5,7 +5,4 @@ command: la-arch-check
 fixture: arch-ok
 expect:
   exit: 2
-  stderr:
-    contains:
-    - 'arch_check: architecture/index.yaml: '
-note: the file is named; YAML parser wording is not part of the contract
+note: the file is named; invalid YAML prints the yaml.invalid text, never the parser's wording

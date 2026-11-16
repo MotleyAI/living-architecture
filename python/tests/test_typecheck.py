@@ -6,8 +6,9 @@ from pathlib import Path
 import pytest
 import yaml
 
-from living_architecture import cli, lang, typecheck
 from living_architecture import config as la_config
+from living_architecture import lang, typecheck
+from living_architecture.cli.la_typecheck import la_typecheck
 
 VECTORS = next(p for p in Path(__file__).resolve().parents if (p / "shared" / "vectors").is_dir()) / "shared" / "vectors"
 SPLITS = yaml.safe_load((VECTORS / "command-split.yaml").read_text(encoding="utf-8"))["cases"]
@@ -64,7 +65,7 @@ def _checker_calls(root: Path) -> list[str]:
 def run(monkeypatch: pytest.MonkeyPatch, capfd: pytest.CaptureFixture[str]):
     def go(root: Path, *argv: str) -> tuple[int, str, str]:
         monkeypatch.chdir(root)
-        code = cli.la_typecheck(list(argv))
+        code = la_typecheck(list(argv))
         out, err = capfd.readouterr()
         return code, out, err
 
@@ -296,3 +297,13 @@ def test_forwarded_python_section_is_patched_too(tmp_path: Path, run) -> None:
     code, _, err = run(root, "--language", "python")
     assert code == 2
     assert err.splitlines()[-1] == NOT_APPLIED
+
+
+def test_a_checker_that_cannot_launch_is_reported_from_the_os_templates(tmp_path: Path) -> None:
+    checker = tmp_path / "bin" / "checker"
+    checker.parent.mkdir()
+    checker.write_bytes(b"\x00\x01not an executable format\n")
+    checker.chmod(0o755)
+    with pytest.raises(typecheck.CommandError) as info:
+        typecheck.python_diagnostics(tmp_path, "bin/checker", [])
+    assert str(info.value) == "bin/checker: OS error ENOEXEC"

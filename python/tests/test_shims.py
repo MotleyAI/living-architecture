@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from living_architecture import cli, review
+from living_architecture import review
 from living_architecture.config import CONFIG_FILENAME
 from living_architecture.contract import manifest, snapshot_dir
 
@@ -59,7 +59,7 @@ CONFIG_FREE = [
 @pytest.mark.parametrize(("shim", "script"), CONFIG_FREE)
 def test_config_free_commands(repo, execvp, shim, script, setup):
     setup(repo)
-    entry = getattr(cli, shim)
+    entry = getattr(importlib.import_module(f"living_architecture.cli.{shim}"), shim)
     with pytest.raises(Execd):
         entry(["7", "--repo", "o/r"])
     assert execvp == [["bash", str(SCRIPTS_DIR / script), "7", "--repo", "o/r"]]
@@ -68,7 +68,7 @@ def test_config_free_commands(repo, execvp, shim, script, setup):
 @pytest.mark.parametrize(("shim", "script"), CONFIG_FREE)
 def test_config_free_commands_run_outside_a_git_repo(tmp_path, monkeypatch, execvp, shim, script):
     monkeypatch.chdir(tmp_path)
-    entry = getattr(cli, shim)
+    entry = getattr(importlib.import_module(f"living_architecture.cli.{shim}"), shim)
     with pytest.raises(Execd):
         entry(["7"])
     assert execvp == [["bash", str(SCRIPTS_DIR / script), "7"]]

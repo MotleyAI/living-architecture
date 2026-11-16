@@ -1,0 +1,8 @@
+kind: neutral
+command: la-doctor
+normalize:
+- version
+expect:
+  exit: 1
+golden: manual
+note: only a missing index.yaml counts as absent; any other error checking it is a problem from the os.* templates

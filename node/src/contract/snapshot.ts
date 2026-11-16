@@ -1,5 +1,6 @@
 // The vendored contract snapshot: its location, hash and data files.
 import { createHash } from 'node:crypto';
+// eslint-disable-next-line no-restricted-imports -- the bundled contract snapshot
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';

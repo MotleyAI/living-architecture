@@ -126,25 +126,42 @@ def fact_queries(source: SourceFile, names: set[str]) -> list[FactQuery]:
         return []
     found = _Queries(source)
     shape = _Shape(source, names)
-    returning = {id(fn) for n in source.of_type(ast.Return) if n.value is not None
-                 and shape.candidate(n.value) and (fn := shape.function_of(n)) is not None}
+    returning = _returning(source, shape)
     for node in source.nodes:
         if isinstance(node, ast.ClassDef):
-            for base in node.bases:
-                found.ask(_name_node(base), "definition")
-            for stmt in node.body:
-                if isinstance(stmt, ast.AnnAssign):
-                    found.names(stmt.annotation)
+            _class_queries(found, node)
         elif isinstance(node, _FUNCTIONS):
-            for decorator in node.decorator_list:
-                found.ask(decorator if isinstance(decorator, (ast.Name, ast.Attribute)) else None, "definition")
-            if node.returns is not None and id(node) in returning:
-                found.names(node.returns)
+            _function_queries(found, node, id(node) in returning)
         elif isinstance(node, ast.AnnAssign) and node.value is not None and shape.candidate(node.value):
             found.names(node.annotation)
         elif isinstance(node, ast.Call):
             _call_queries(found, node, names, shape)
     return found.queries()
+
+
+def _returning(source: SourceFile, shape: _Shape) -> set[int]:
+    """The ids of the functions returning a keyed candidate."""
+    out: set[int] = set()
+    for node in source.of_type(ast.Return):
+        fn = shape.function_of(node) if node.value is not None and shape.candidate(node.value) else None
+        if fn is not None:
+            out.add(id(fn))
+    return out
+
+
+def _class_queries(found: _Queries, cls: ast.ClassDef) -> None:
+    for base in cls.bases:
+        found.ask(_name_node(base), "definition")
+    for stmt in cls.body:
+        if isinstance(stmt, ast.AnnAssign):
+            found.names(stmt.annotation)
+
+
+def _function_queries(found: _Queries, fn: ast.FunctionDef | ast.AsyncFunctionDef, returning: bool) -> None:
+    for decorator in fn.decorator_list:
+        found.ask(decorator if isinstance(decorator, (ast.Name, ast.Attribute)) else None, "definition")
+    if returning:
+        found.names(fn.returns)
 
 
 def _call_queries(found: _Queries, call: ast.Call, names: set[str], shape: _Shape) -> None:

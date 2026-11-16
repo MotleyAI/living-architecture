@@ -6,8 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from living_architecture import archcheck, c4, cli, config
+from living_architecture import archcheck, c4, config
 from living_architecture.archcheck.scaffold import write_scaffold
+from living_architecture.cli.la_arch_check import la_arch_check
 from living_architecture.contract import check_ids
 
 INDEX = """
@@ -730,7 +731,7 @@ def test_model_child_missing_on_disk(tmp_path, capsys):
     assert "claims-exist: element python.core.inner maps to pkg.core.inner, which does not exist on disk" in findings_for(
         root, "claims-exist"
     )
-    assert cli.la_arch_check(["--root", str(root)]) == 1
+    assert la_arch_check(["--root", str(root)]) == 1
     assert "python.core.inner" in capsys.readouterr().out
 
 
@@ -857,7 +858,7 @@ def test_mapping_key_on_a_root_is_a_setup_error(tmp_path, key):
 def test_root_setup_error_exits_2(tmp_path, capsys):
     root = make_repo(tmp_path)
     (root / MODEL_REL).write_text("specification {\n}\nmodel {\n}\n", encoding="utf-8")
-    assert cli.la_arch_check(["--root", str(root)]) == 2
+    assert la_arch_check(["--root", str(root)]) == 2
     captured = capsys.readouterr()
     assert captured.out == ""
     assert captured.err == "arch_check: model has no root element for declared language python\n"
@@ -983,7 +984,7 @@ def test_every_kind_of_metadata_problem_is_joined_in_model_order(tmp_path):
 def test_malformed_metadata_exits_2_naming_the_element(tmp_path, capsys):
     root = make_repo(tmp_path)
     edit(root, MODEL_REL, CORE_PKG, CORE_PKG + "        pakage 'pkg.core'\n")
-    assert cli.la_arch_check(["--root", str(root)]) == 2
+    assert la_arch_check(["--root", str(root)]) == 2
     captured = capsys.readouterr()
     assert captured.out == ""
     assert captured.err.startswith("arch_check: model element python.core: ")
@@ -1484,7 +1485,7 @@ def test_metadata_syntax_problem_is_reported_alone(tmp_path):
 def test_retired_arc42_key_exits_2(tmp_path, capsys):
     root = make_repo(tmp_path)
     edit(root, MODEL_REL, ENGINE_PKG, ENGINE_PKG + "        arc42 'architecture/engine.arc42.md'\n")
-    assert cli.la_arch_check(["--root", str(root)]) == 2
+    assert la_arch_check(["--root", str(root)]) == 2
     captured = capsys.readouterr()
     assert (captured.out, captured.err) == ("", f"arch_check: {RETIRED.format(e='python.engine')}\n")
 
@@ -1632,26 +1633,26 @@ def test_default_issue_key_pattern_rejects_lowercase(tmp_path):
 
 def test_main_ok(tmp_path, capsys):
     root = make_repo(tmp_path)
-    assert cli.la_arch_check(["--root", str(root)]) == 0
+    assert la_arch_check(["--root", str(root)]) == 0
     assert "arch_check: OK" in capsys.readouterr().out
 
 
 def test_main_findings(tmp_path, capsys):
     root = make_repo(tmp_path)
     append_principles(root, "3. Naked rule.\n")
-    assert cli.la_arch_check(["--root", str(root)]) == 1
+    assert la_arch_check(["--root", str(root)]) == 1
     assert "1 finding(s)" in capsys.readouterr().out
 
 
 def test_main_broken_setup(tmp_path, capsys):
     root = make_repo(tmp_path)
     (root / "living-architecture.yaml").write_text(f"format: {config.current_format()}\nnope: 1\n", encoding="utf-8")
-    assert cli.la_arch_check(["--root", str(root)]) == 2
+    assert la_arch_check(["--root", str(root)]) == 2
     assert "nope" in capsys.readouterr().err
 
 
 def test_main_without_index(tmp_path, capsys):
-    assert cli.la_arch_check(["--root", str(tmp_path)]) == 2
+    assert la_arch_check(["--root", str(tmp_path)]) == 2
     assert "index.yaml" in capsys.readouterr().err
 
 

@@ -1,5 +1,6 @@
 // dr-refactor rename-map is routed by its entries' files: another language's map goes to its twin with the raw argv.
-import { realpathSync } from 'node:fs';
+import { chmodSync, realpathSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { message } from '../src/contract/index.js';
 import * as twin from '../src/twin/index.js';
@@ -23,5 +24,15 @@ describe('rename-map routing', () => {
   it.each(['missing.yaml', 'empty.yaml', 'scalar.yaml'])('a map that holds no entries is invalid (%s)', (map) => {
     const root = tsProject({ 'empty.yaml': '[]\n', 'scalar.yaml': 'file: a.ts\n' });
     expect(refactor(root, 'rename-map', map)).toEqual({ code: 2, out: '', err: `${message('refactor.map-invalid', { map, index: 1 })}\n` });
+  });
+
+  it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)('a map that cannot be read is invalid', () => {
+    const root = tsProject({ 'a.ts': 'export const f = 1;\n', 'map.yaml': mapYaml([{ file: 'a.ts', symbol: 'f', new_name: 'g' }]) });
+    chmodSync(join(root, 'map.yaml'), 0);
+    try {
+      expect(refactor(root, 'rename-map', 'map.yaml')).toEqual({ code: 2, out: '', err: `${message('refactor.map-invalid', { map: 'map.yaml', index: 1 })}\n` });
+    } finally {
+      chmodSync(join(root, 'map.yaml'), 0o644);
+    }
   });
 });
