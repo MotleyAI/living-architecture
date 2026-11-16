@@ -9,6 +9,9 @@
       never regenerated; only `refactor-rename-unsure-include`'s warning line changes, by hand, to the approved text
       (design decision 17).
 
+- [ ] 0.3 A draft PR is open while implementation continues: until 4.1 and 5.3 are done, a `/la:pr` session works
+      through this file's open tasks (pr-implement) before the review loop.
+
 ## 1. Tests (pr-tests)
 
 - [x] 1.1 Conformance cases for "Every member occurrence kind" and "Every name occurrence kind" (spec), each also

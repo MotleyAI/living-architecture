@@ -105,8 +105,8 @@ def literal_spans(source: SourceFile) -> dict[str, list[tuple[int, int]]]:
     if source.tree is None:
         return found
     skipped = {id(d) for d in docstrings(source.tree)}
-    skipped |= {id(v) for n in ast.walk(source.tree) if isinstance(n, ast.JoinedStr) for v in n.values}
-    for node in ast.walk(source.tree):
+    skipped |= {id(v) for n in source.nodes if isinstance(n, ast.JoinedStr) for v in n.values}
+    for node in source.nodes:
         if isinstance(node, ast.Constant) and isinstance(node.value, str) and id(node) not in skipped:
             found.setdefault(node.value, []).append(source.span(node))
     return found

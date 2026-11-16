@@ -5,6 +5,7 @@ from __future__ import annotations
 import ast
 import sys
 from collections.abc import Iterator
+from weakref import WeakKeyDictionary
 
 FunctionDef = ast.FunctionDef | ast.AsyncFunctionDef
 
@@ -72,19 +73,22 @@ def _receiver_scope(node: ast.AST, receiver: str) -> Iterator[ast.AST]:
         yield from _receiver_scope(child, receiver)
 
 
-def receiver_stores(method: FunctionDef) -> Iterator[ast.Attribute]:
-    """Each `self.NAME` store in `method`, `self` being its receiver."""
-    receiver = method_receiver(method)
-    if receiver is None:
-        return
-    for node in _receiver_scope(method, receiver):
-        if (
-            isinstance(node, ast.Attribute)
+_STORES: WeakKeyDictionary[FunctionDef, tuple[ast.Attribute, ...]] = WeakKeyDictionary()
+
+
+def receiver_stores(method: FunctionDef) -> tuple[ast.Attribute, ...]:
+    """Each `self.NAME` store in `method`, `self` being its receiver; walked once per method node."""
+    if method not in _STORES:
+        receiver = method_receiver(method)
+        _STORES[method] = () if receiver is None else tuple(
+            node
+            for node in _receiver_scope(method, receiver)
+            if isinstance(node, ast.Attribute)
             and isinstance(node.ctx, ast.Store)
             and isinstance(node.value, ast.Name)
             and node.value.id == receiver
-        ):
-            yield node
+        )
+    return _STORES[method]
 
 
 def _self_attributes(method: FunctionDef, name: str) -> Iterator[ast.Attribute]:
@@ -175,6 +179,3 @@ def member_declarations(cls: ast.ClassDef, name: str) -> list[ast.AST]:
             out += _self_attributes(stmt, name)
     return sorted(out, key=lambda n: (getattr(n, "lineno", 0), getattr(n, "col_offset", 0)))
 
-
-def classes(tree: ast.Module) -> Iterator[ast.ClassDef]:
-    yield from (n for n in ast.walk(tree) if isinstance(n, ast.ClassDef))

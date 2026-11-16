@@ -5,9 +5,10 @@ from __future__ import annotations
 
 import ast
 import bisect
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Hashable, Iterable
 from contextlib import ExitStack
 from pathlib import Path
+from typing import TypeVar, cast
 
 from living_architecture.lang import (
     ExportRequest,
@@ -24,6 +25,7 @@ from living_architecture.refactor.python_source import SourceFile
 from living_architecture.refactor.timings import timed
 
 _FUNCTIONS = (ast.FunctionDef, ast.AsyncFunctionDef)
+_T = TypeVar("_T")
 
 
 class ServerSession:
@@ -58,20 +60,13 @@ def _name_node(expr: ast.expr) -> ast.expr | None:
 
 
 class _Shape:
-    """One pass over a tree: the nodes holding a string constant in `names`, each node's parent, and the names
-    assigned a dict literal holding one."""
+    """One pass over a file: the nodes holding a string constant in `names`, and the names assigned a dict literal
+    holding one."""
 
-    def __init__(self, tree: ast.AST, names: set[str]) -> None:
+    def __init__(self, source: SourceFile, names: set[str]) -> None:
+        self.source = source
         self.mentioning: set[int] = set()
-        self.parents: dict[int, ast.AST] = {}
-        order: list[ast.AST] = []
-        stack: list[ast.AST] = [tree]
-        while stack:
-            node = stack.pop()
-            order.append(node)
-            for child in ast.iter_child_nodes(node):
-                self.parents[id(child)] = node
-                stack.append(child)
+        order = source.nodes
         for node in reversed(order):
             if (isinstance(node, ast.Constant) and isinstance(node.value, str) and node.value in names) or any(
                 id(c) in self.mentioning for c in ast.iter_child_nodes(node)
@@ -91,9 +86,9 @@ class _Shape:
 
     def function_of(self, node: ast.AST) -> ast.AST | None:
         """The function whose own body holds `node`, nested functions, lambdas and classes stopping the search."""
-        up = self.parents.get(id(node))
+        up = self.source.parent(node)
         while up is not None and not isinstance(up, (*_FUNCTIONS, ast.Lambda, ast.ClassDef)):
-            up = self.parents.get(id(up))
+            up = self.source.parent(up)
         return up if isinstance(up, _FUNCTIONS) else None
 
 
@@ -127,14 +122,13 @@ class _Queries:
 def fact_queries(source: SourceFile, names: set[str]) -> list[FactQuery]:
     """The positions of `source` the rules of a rename of `names` ask about: class bases and field annotations,
     decorators, the callees, receivers and annotations of keyed sinks, and string-member callees and objects."""
-    tree = source.tree
-    if tree is None:
+    if source.tree is None:
         return []
     found = _Queries(source)
-    shape = _Shape(tree, names)
-    returning = {id(fn) for n in ast.walk(tree) if isinstance(n, ast.Return) and n.value is not None
+    shape = _Shape(source, names)
+    returning = {id(fn) for n in source.of_type(ast.Return) if n.value is not None
                  and shape.candidate(n.value) and (fn := shape.function_of(n)) is not None}
-    for node in ast.walk(tree):
+    for node in source.nodes:
         if isinstance(node, ast.ClassDef):
             for base in node.bases:
                 found.ask(_name_node(base), "definition")
@@ -170,7 +164,7 @@ def _call_queries(found: _Queries, call: ast.Call, names: set[str], shape: _Shap
 
 def _escaped_constant(source: SourceFile, names: set[str]) -> bool:
     return source.tree is not None and any(
-        isinstance(n, ast.Constant) and n.value in names for n in ast.walk(source.tree)
+        isinstance(n, ast.Constant) and n.value in names for n in source.nodes
     )
 
 
@@ -204,6 +198,7 @@ class RunIndex:
         self._probes: dict[tuple[Path, int], PositionFacts] = {}
         self._probe_results: dict[tuple[Path, tuple[int, int]], tuple[Verdict | None, list[Span]]] = {}
         self.request = ExportRequest(names=[], files=[])
+        self._memo: dict[Hashable, object] = {}
 
     # ---- exports
 
@@ -266,6 +261,12 @@ class RunIndex:
             self.cache.save()
 
     # ---- lookups
+
+    def memo(self, key: Hashable, compute: Callable[[], _T]) -> _T:
+        """`compute()`, run once per run for `key`: a rule's per-file result that no entry changes."""
+        if key not in self._memo:
+            self._memo[key] = compute()
+        return cast("_T", self._memo[key])
 
     def occurrences(self, path: Path, name: str) -> list[Occurrence]:
         """The occurrences of `name` in the file at `path`, in source order."""

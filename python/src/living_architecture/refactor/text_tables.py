@@ -61,7 +61,7 @@ class TextTables:
                     source = self._source(rel)
                 except (OSError, UnicodeDecodeError, LookupError):
                     continue
-                for node in ast.walk(source.tree) if source.tree is not None else ():
+                for node in source.nodes:
                     name = declared_name(node)
                     span = source.name_span(node) if name is not None else None
                     if name is not None and span is not None:

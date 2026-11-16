@@ -144,7 +144,7 @@ def _unique(findings: Iterable[Finding]) -> list[Finding]:
 def _import_of(source: SourceFile, alias: ast.AST) -> ast.ImportFrom | None:
     """The `from ... import` statement holding `alias`."""
     assert source.tree is not None
-    return next((s for s in ast.walk(source.tree) if isinstance(s, ast.ImportFrom) and any(a is alias for a in s.names)), None)
+    return next((s for s in source.nodes if isinstance(s, ast.ImportFrom) and any(a is alias for a in s.names)), None)
 
 
 def _texts(findings: Iterable[Finding]) -> list[Refusal]:
