@@ -1,6 +1,6 @@
 ## 0. Stage order (read first)
 
-- [ ] 0.1 pr-tests writes section 1 only; pr-implement does sections 2–4. While section 1 is open the stage is
+- [x] 0.1 pr-tests writes section 1 only; pr-implement does sections 2–4. While section 1 is open the stage is
       `pr-tests`. Before opening the PR, check DEV-2302's state in Linear: if it has merged, merge `origin/main` into
       this branch first (`git merge origin/main -m "Merge branch 'origin/main' into …"`; never rebase or stash) and
       re-run the local test scope.
