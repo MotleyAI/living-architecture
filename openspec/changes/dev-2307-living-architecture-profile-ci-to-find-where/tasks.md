@@ -10,24 +10,24 @@
 
 ## 1. Tests (pr-tests)
 
-- [ ] 1.1 `python/tests/test_pyright_export.py`: an export over a project whose model subclasses
+- [x] 1.1 `python/tests/test_pyright_export.py`: an export over a project whose model subclasses
       `pydantic.BaseModel` returns no `followed` fact located in a third-party or typeshed file (design 8). Verify:
       fails today.
-- [ ] 1.2 Same file: a first-party chain (class → field annotation → class → field annotation) is still followed to
+- [x] 1.2 Same file: a first-party chain (class → field annotation → class → field annotation) is still followed to
       its end, and a direct `definition` request landing in pydantic or typeshed is still answered (design 8).
       Verify: passes today and after A.
-- [ ] 1.3 A partition test for the CI split (design 12): for each job kind (Python suite with the conformance cases
+- [x] 1.3 A partition test for the CI split (design 12): for each job kind (Python suite with the conformance cases
       deselected; cross-python; cross-typescript, each under its real `LA_CONFORMANCE_*` environment and bin dirs),
       collecting with `--splits <n> --group <g>` for every group gives every collected node id exactly once.
       Verify: fails today (no `pytest-split`, no duration files).
-- [ ] 1.4 The CI workflow test (structural, no wording): `test` is a matrix of the four Python versions × 2 shards
+- [x] 1.4 The CI workflow test (structural, no wording): `test` is a matrix of the four Python versions × 2 shards
       passing `--splits 2 --group <shard>` and the conformance deselection; ruff, basedpyright and
       `sync-shared --check` run only in shard 1; `cross-twin` is twin × 3 shards passing `--splits 3 --group <shard>`.
       Verify: fails today.
-- [ ] 1.5 Import test (design 15): each lightweight command (`la-config`, `la-doctor` with `--twin` and
+- [x] 1.5 Import test (design 15): each lightweight command (`la-config`, `la-doctor` with `--twin` and
       `--contract-hash`, every review shim) run in a subprocess loads none of `rope`, `living_architecture.refactor`,
       `.archcheck`, `.c4`, `.conventions`, `.typecheck`, `.affected`. Verify: fails today.
-- [ ] 1.6 Every `[project.scripts]` entry points to `living_architecture.cli.<command_snake>:<command_snake>`, and
+- [x] 1.6 Every `[project.scripts]` entry points to `living_architecture.cli.<command_snake>:<command_snake>`, and
       `cli/__init__.py` imports no command package (structural test). Verify: fails today.
 
 ## 2. A — export follow
