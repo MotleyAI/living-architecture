@@ -68,7 +68,9 @@
 
 ## 6. Verification on SLayer (dry run only)
 
-- [ ] 6.1 In a `git archive` copy of SLayer's branch `egor/dev-1607-rename-columns-to-fields-to-be-consistent-with`,
-      run its map with its flags plus `--keep architecture`: the run refuses in `checks` with `refactor.keep-unmatched`
-      within seconds, before any `[references]` line. Nothing is written to the SLayer checkout. Record the outcome in
-      a Linear comment on DEV-2302.
+- [x] 6.1 In a `git archive` copy of SLayer's branch `egor/dev-1607-rename-columns-to-fields-to-be-consistent-with`,
+      with la's basedpyright on `PATH`, dry-run its map with its flags plus `--keep architecture/gone`: the run
+      refuses in `checks` with `refactor.site-missing` within seconds, before any `[references]` line. With
+      `--keep architecture` instead (prose the `--docs` run can edit, spelling old names), the checks pass and
+      `[references n/158]` lines appear as the search runs; stop it there. Nothing is written to the SLayer checkout.
+      Record both outcomes in a Linear comment on DEV-2302.
