@@ -3,6 +3,7 @@ exporting occurrence indexes."""
 
 from __future__ import annotations
 
+import bisect
 import contextlib
 import json
 import os
@@ -157,10 +158,11 @@ def utf16_index(text: str, line: int, character: int, starts: list[int] | None =
     return index
 
 
-def utf16_position(text: str, index: int) -> tuple[int, int]:
-    """The LSP position (0-based line, UTF-16 column) of a character index."""
-    starts = _line_starts(text)
-    line = next(i for i in range(len(starts) - 1, -1, -1) if starts[i] <= index)
+def utf16_position(text: str, index: int, starts: list[int] | None = None) -> tuple[int, int]:
+    """The LSP position (0-based line, UTF-16 column) of a character index; `starts` is `text`'s line starts, when
+    known."""
+    starts = _line_starts(text) if starts is None else starts
+    line = bisect.bisect_right(starts, index) - 1
     return line, sum(_units(c) for c in text[starts[line] : index])
 
 
@@ -206,6 +208,7 @@ class LanguageServer:
         self._command = command or _bundled_command()
         self._read = read or _read_text
         self._texts: dict[Path, str] = {}
+        self._starts: dict[Path, list[int]] = {}
         self._versions: dict[Path, int] = {}
         self._next_id = 0
         self._messages: queue.Queue[Any] = queue.Queue()
@@ -390,6 +393,13 @@ class LanguageServer:
             self._texts[path] = self._read(path)
         return self._texts[path]
 
+    def _index(self, path: Path, position: dict[str, Any]) -> int:
+        """The character index in `path`'s text of an LSP position, its line starts computed once per text."""
+        text = self._text(path)
+        if path not in self._starts:
+            self._starts[path] = _line_starts(text)
+        return utf16_index(text, position["line"], position["character"], self._starts[path])
+
     def open(self, path: Path, text: str) -> None:
         """Hand the server `text` as the content of `path`; a path already open is changed to it."""
         if path in self._versions:
@@ -397,6 +407,7 @@ class LanguageServer:
                 self.change(path, text)
             return
         self._texts[path] = text
+        self._starts.pop(path, None)
         self._versions[path] = 1
         self._notify("textDocument/didOpen", {
             "textDocument": {"uri": path.as_uri(), "languageId": "python", "version": 1, "text": text}
@@ -405,6 +416,7 @@ class LanguageServer:
     def change(self, path: Path, text: str) -> None:
         """Replace the content of `path`, opened before, with `text`."""
         self._texts[path] = text
+        self._starts.pop(path, None)
         self._versions[path] += 1
         self._notify("textDocument/didChange", {
             "textDocument": {"uri": path.as_uri(), "version": self._versions[path]},
@@ -412,7 +424,10 @@ class LanguageServer:
         })
 
     def _position(self, path: Path, offset: int) -> dict[str, Any]:
-        line, character = utf16_position(self._text(path), offset)
+        text = self._text(path)
+        if path not in self._starts:
+            self._starts[path] = _line_starts(text)
+        line, character = utf16_position(text, offset, self._starts[path])
         return {"textDocument": {"uri": path.as_uri()}, "position": {"line": line, "character": character}}
 
     def _span(self, location: dict[str, Any]) -> Span | None:
@@ -422,15 +437,9 @@ class LanguageServer:
             return None
         path = _path_of(uri)
         try:
-            text = self._text(path)
+            return Span(path=path, start=self._index(path, rng["start"]), end=self._index(path, rng["end"]))
         except OSError:
             return None
-        start, end = rng["start"], rng["end"]
-        return Span(
-            path=path,
-            start=utf16_index(text, start["line"], start["character"]),
-            end=utf16_index(text, end["line"], end["character"]),
-        )
 
     def _locations(self, method: str, path: Path, offset: int, extra: dict[str, Any] | None = None) -> list[Span]:
         result = self._request(method, {**self._position(path, offset), **(extra or {})})
@@ -459,11 +468,8 @@ class LanguageServer:
     def _exported_span(self, item: dict[str, Any], name: str) -> Span:
         """An occurrence's range in the text its file was opened with; `LanguageServerError` unless it spells `name`."""
         path = _path_of(item["uri"])
-        text = self._text(path)
-        start, end = item["range"]["start"], item["range"]["end"]
-        span = Span(path=path, start=utf16_index(text, start["line"], start["character"]),
-                    end=utf16_index(text, end["line"], end["character"]))
-        if text[span.start : span.end] != name:
+        span = Span(path=path, start=self._index(path, item["range"]["start"]), end=self._index(path, item["range"]["end"]))
+        if self._text(path)[span.start : span.end] != name:
             raise self._fail("export", "other")
         return span
 
@@ -482,7 +488,7 @@ class LanguageServer:
         if path is None or offset is None:
             path = _path_of(item["uri"])
             position = item["position"]
-            offset = utf16_index(self._text(path), position["line"], position["character"])
+            offset = self._index(path, position)
         kinds = tuple(k for k in ("definition", "typeDefinition", "verdict", "access") if k in item)
         return PositionFacts(
             path=path, offset=offset, kinds=cast(tuple[FactKind, ...], kinds),

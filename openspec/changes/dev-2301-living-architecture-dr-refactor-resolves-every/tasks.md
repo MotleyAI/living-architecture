@@ -105,3 +105,31 @@
       written to the SLayer checkout. Verify: wall time and peak RSS recorded in a Linear comment on DEV-2301; target
       under 10 minutes cold, peak memory about one full check (3.8 GB). If missed, profile and raise the findings with
       the user before any fallback.
+  - [ ] 4.1a Cold run 1 (2026-11-16, machine shared with other heavy sessions) MISSED: the export finished, then the
+        rules phase stalled at group 6 (`measures`) and was stopped at ~29 min (node RSS 3.9 GB at that point). It
+        reproduces with only the 11 `measures` entries (`--docs`, no site flags): stalled in `[rules]` for 10+ min.
+        Next: profile that small map with `python -m cProfile` (py-spy has no ptrace permission here); suspects are
+        the per-miss export fallback (`RunIndex._fact`, one request per position the export did not pre-collect)
+        and the text rules (`_overlaps` scans every edit per mention). A `--keep`/`--with` flag whose site the subset
+        does not touch refuses in checks, so drop the site flags for a subset run. Raise the findings with the user
+        before any fallback.
+  - [ ] 4.1b Already fixed: `fact_queries` took ~14 s over 854 files (nested re-walks), now one pass per file;
+        export spans no longer recompute line starts per span.
+
+## 5. Gaps from the DEV-2301 review comment (2026-11-16, "Three gaps in this plan")
+
+- [ ] 5.1 Gap 1 (rope uses outside decision 7: `MemberCheck`'s `Hierarchy` in `member_namespace.py`, retarget's
+      `definition`/`attribute_definition`/`_receiver_module`, source folders): a design decision for the user, not yet
+      asked. Options: move them onto the checker (the conflict check's class graph onto `refactor/hierarchy.py`'s
+      `ClassGraph`, a port of rope's source-folder rule, retarget lookups through index facts), or record them in
+      decision 7 and the Impact list. Recommendation: move at least the class graph, so one member rename uses one
+      class graph. Either way it is a plan edit needing the user's OK of the exact diff, plus the two differential
+      fixtures the comment names (a library base declaring the new name; a project ancestor behind an unresolved base).
+- [ ] 5.2 Gap 2 (a name, import or alias occurrence neither the checker nor rope resolves gets no outcome): not
+      implemented. Plan: in `SymbolRename._index_edits`, each unresolved occurrence rope does not match becomes a
+      leftover finding. Needs the user's approval of a new `shared/findings.yaml` template's wording, a conformance
+      case and an `INVENTORY.md` entry; no existing golden changes (none of the samples holds such a site).
+- [ ] 5.3 Gap 3 (retargeting a re-exported alias): already handled by the implementation, nothing to change unless
+      the user asks. An entry's renamed declarations are what the checker resolves its site to (`_located`), so an
+      alias entry matches every occurrence resolving through it; `refactor-retarget-reexport-form` and
+      `refactor-symbol-import-binding` pass. Tell the user so when raising 5.1/5.2.

@@ -57,19 +57,44 @@ def _name_node(expr: ast.expr) -> ast.expr | None:
     return expr if isinstance(expr, (ast.Name, ast.Attribute)) else None
 
 
-def _mentions(node: ast.AST, names: set[str]) -> bool:
-    return any(isinstance(n, ast.Constant) and n.value in names for n in ast.walk(node))
+class _Shape:
+    """One pass over a tree: the nodes holding a string constant in `names`, each node's parent, and the names
+    assigned a dict literal holding one."""
 
+    def __init__(self, tree: ast.AST, names: set[str]) -> None:
+        self.mentioning: set[int] = set()
+        self.parents: dict[int, ast.AST] = {}
+        order: list[ast.AST] = []
+        stack: list[ast.AST] = [tree]
+        while stack:
+            node = stack.pop()
+            order.append(node)
+            for child in ast.iter_child_nodes(node):
+                self.parents[id(child)] = node
+                stack.append(child)
+        for node in reversed(order):
+            if (isinstance(node, ast.Constant) and isinstance(node.value, str) and node.value in names) or any(
+                id(c) in self.mentioning for c in ast.iter_child_nodes(node)
+            ):
+                self.mentioning.add(id(node))
+        self.dicts = {
+            t.id
+            for n in order
+            if isinstance(n, ast.Assign) and isinstance(n.value, ast.Dict) and id(n.value) in self.mentioning
+            for t in n.targets
+            if isinstance(t, ast.Name)
+        }
 
-def _dict_names(tree: ast.AST, names: set[str]) -> set[str]:
-    """Names assigned a dict literal mentioning one of `names`."""
-    return {
-        t.id
-        for n in ast.walk(tree)
-        if isinstance(n, ast.Assign) and isinstance(n.value, ast.Dict) and _mentions(n.value, names)
-        for t in n.targets
-        if isinstance(t, ast.Name)
-    }
+    def candidate(self, value: ast.AST) -> bool:
+        """`value` may carry a name: a literal holding one, or a name bound to such a dict."""
+        return id(value) in self.mentioning or (isinstance(value, ast.Name) and value.id in self.dicts)
+
+    def function_of(self, node: ast.AST) -> ast.AST | None:
+        """The function whose own body holds `node`, nested functions, lambdas and classes stopping the search."""
+        up = self.parents.get(id(node))
+        while up is not None and not isinstance(up, (*_FUNCTIONS, ast.Lambda, ast.ClassDef)):
+            up = self.parents.get(id(up))
+        return up if isinstance(up, _FUNCTIONS) else None
 
 
 def _plain(node: ast.expr) -> str | None:
@@ -99,14 +124,6 @@ class _Queries:
                 for offset, kinds in sorted(self.kinds.items())]
 
 
-def _returns_mention(fn: ast.FunctionDef | ast.AsyncFunctionDef, names: set[str], dicts: set[str]) -> bool:
-    return any(
-        isinstance(n, ast.Return) and n.value is not None
-        and (_mentions(n.value, names) or (isinstance(n.value, ast.Name) and n.value.id in dicts))
-        for n in ast.walk(fn)
-    )
-
-
 def fact_queries(source: SourceFile, names: set[str]) -> list[FactQuery]:
     """The positions of `source` the rules of a rename of `names` ask about: class bases and field annotations,
     decorators, the callees, receivers and annotations of keyed sinks, and string-member callees and objects."""
@@ -114,7 +131,9 @@ def fact_queries(source: SourceFile, names: set[str]) -> list[FactQuery]:
     if tree is None:
         return []
     found = _Queries(source)
-    dicts = _dict_names(tree, names)
+    shape = _Shape(tree, names)
+    returning = {id(fn) for n in ast.walk(tree) if isinstance(n, ast.Return) and n.value is not None
+                 and shape.candidate(n.value) and (fn := shape.function_of(n)) is not None}
     for node in ast.walk(tree):
         if isinstance(node, ast.ClassDef):
             for base in node.bases:
@@ -125,22 +144,18 @@ def fact_queries(source: SourceFile, names: set[str]) -> list[FactQuery]:
         elif isinstance(node, _FUNCTIONS):
             for decorator in node.decorator_list:
                 found.ask(decorator if isinstance(decorator, (ast.Name, ast.Attribute)) else None, "definition")
-            if node.returns is not None and _returns_mention(node, names, dicts):
+            if node.returns is not None and id(node) in returning:
                 found.names(node.returns)
-        elif isinstance(node, ast.AnnAssign) and node.value is not None and (
-            _mentions(node.value, names) or (isinstance(node.value, ast.Name) and node.value.id in dicts)
-        ):
+        elif isinstance(node, ast.AnnAssign) and node.value is not None and shape.candidate(node.value):
             found.names(node.annotation)
         elif isinstance(node, ast.Call):
-            _call_queries(found, node, names, dicts)
+            _call_queries(found, node, names, shape)
     return found.queries()
 
 
-def _call_queries(found: _Queries, call: ast.Call, names: set[str], dicts: set[str]) -> None:
+def _call_queries(found: _Queries, call: ast.Call, names: set[str], shape: _Shape) -> None:
     arguments = [*call.args, *(k.value for k in call.keywords)]
-    keyed = any(k.arg in names for k in call.keywords) or any(
-        _mentions(a, names) or (isinstance(a, ast.Name) and a.id in dicts) for a in arguments
-    )
+    keyed = any(k.arg in names for k in call.keywords) or any(shape.candidate(a) for a in arguments)
     if keyed and isinstance(call.func, (ast.Name, ast.Attribute)):
         found.ask(call.func, "definition", "typeDefinition")
         if isinstance(call.func, ast.Attribute):
