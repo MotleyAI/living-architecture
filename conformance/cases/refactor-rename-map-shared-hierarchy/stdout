@@ -1,0 +1,32 @@
+Renaming <items> to <rows>:
+Renaming <items> to <rows>:
+
+
+--- a/pkg/a.py
++++ b/pkg/a.py
+@@ -1,17 +1,17 @@
+ class Base:
+-    def items(self) -> int:
++    def rows(self) -> int:
+         return 0
+ 
+ 
+ class Sub(Base):
+-    def items(self) -> int:
++    def rows(self) -> int:
+         return 1
+ 
+ 
+ class Client:
+-    def items(self) -> int:
++    def rows(self) -> int:
+         return 2
+ 
+ 
+ def use(b: Base, c: Client) -> int:
+-    return b.items() + c.items()
++    return b.rows() + c.rows()
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

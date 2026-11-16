@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import ast
 import re
+from collections import defaultdict
 from collections.abc import Callable, Iterator
 
 from pydantic import BaseModel, ConfigDict
@@ -147,6 +148,9 @@ class MemberCheck:
     def conflicts(self, renamed: list[RenamedMember], renamed_sites: set[Site]) -> list[Conflict]:
         """The sites refusing each renamed member; `renamed_sites` are every declaration the renames rename."""
         out: list[Conflict] = []
+        own: defaultdict[int, set[Site]] = defaultdict(set)
+        for m in renamed:
+            own[m.entry].add(m.site)
         for member in renamed:
             name = member.new_name
             spelled = nfkc(name)
@@ -154,7 +158,7 @@ class MemberCheck:
             family = [member.cls, *ancestors, *self._descendants(member.cls, spelled)]
             existing = [s for key in family for s in self.hierarchy.declarations(key, spelled) if s not in renamed_sites]
             out += [Conflict(site=s, name=name) for s in existing]
-            met = [m for m in renamed if m.entry != member.entry and m.site != member.site
+            met = [m for m in renamed if m.entry != member.entry and m.site not in own[member.entry]
                    and nfkc(m.new_name) == spelled and m.cls in family]
             if met:
                 earliest = min([member, *met], key=lambda m: (m.entry, m.site))
