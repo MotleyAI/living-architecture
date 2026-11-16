@@ -8,12 +8,13 @@ import io
 import re
 import tokenize
 from collections.abc import Callable
+from pathlib import Path
 
 from rope.base.project import Project
 from typing_extensions import override
 
 from living_architecture.contract import literal_value_forbidden, message
-from living_architecture.lang import Diagnostic, LanguageServer
+from living_architecture.lang import Diagnostic, LanguageServer, reverse_closure
 from living_architecture.refactor.keyed import TypeFacts
 from living_architecture.refactor.locators import RefactorError
 from living_architecture.refactor.member_scan import TextProbe
@@ -21,9 +22,10 @@ from living_architecture.refactor.mentions import docstrings
 from living_architecture.refactor.outcomes import Finding, Outcome, file_outcome
 from living_architecture.refactor.python_source import SourceFile
 from living_architecture.refactor.rename_union import MapRename, RenameOptions, Session
-from living_architecture.refactor.routing import language_files
+from living_architecture.refactor.routing import language_files, stub_files
 from living_architecture.refactor.symbol_path import LocatorError, names_literal
 from living_architecture.refactor.text_edits import TextEdit
+from living_architecture.refactor.timings import timed
 
 SENTINEL = "__la_probe_sentinel__"
 _QUOTE = re.compile(r"[rRuU]?('''|\"\"\"|'|\")")
@@ -183,22 +185,37 @@ class LiteralRename(MapRename):
 
     @override
     def prepare(self) -> None:
-        """Every project source, and every string literal whose value is the member's."""
-        for path in language_files(self.root, "python"):
-            rel = path.relative_to(self.root).as_posix()
-            try:
-                source = self.snapshot.source(rel)
-            except (OSError, UnicodeDecodeError, LookupError):
-                continue
-            self.candidates.append(rel)
-            for site in self._equal_strings(rel, source):
-                if rel == self.rel and site.span == source.span(self.node):
-                    self._member = site
-                else:
-                    self._sites.append(site)
-        self.candidates.sort()
+        """Every string literal whose value is the member's; the candidates are their files and the project sources
+        whose imports reach the member's file."""
+        with timed("literal-scan"):
+            modules = self._sources(language_files(self.root, "python"))
+            holding = {rel for rel, source in modules.items() if self._scan(rel, source)}
+            stubs = self._sources(stub_files(self.root, "python", ".pyi"))
+            trees = {rel: source.tree if source.tree is not None else source.text for rel, source in {**modules, **stubs}.items()}
+            self.candidates = sorted((reverse_closure(self.rel, trees) & set(modules)) | holding)
         if self._member is None or self._member.inner is None:
             raise RefactorError(message("refactor.cannot-rename"))
+
+    def _sources(self, paths: list[Path]) -> dict[str, SourceFile]:
+        """Each readable file of `paths` by its project-relative path, in path order."""
+        out: dict[str, SourceFile] = {}
+        for path in paths:
+            rel = path.relative_to(self.root).as_posix()
+            try:
+                out[rel] = self.snapshot.source(rel)
+            except (OSError, UnicodeDecodeError, LookupError):
+                continue
+        return out
+
+    def _scan(self, rel: str, source: SourceFile) -> bool:
+        """Record the member and the other equal strings of `source`; whether it holds one."""
+        sites = self._equal_strings(rel, source)
+        for site in sites:
+            if rel == self.rel and site.span == source.span(self.node):
+                self._member = site
+            else:
+                self._sites.append(site)
+        return bool(sites)
 
     def _equal_strings(self, rel: str, source: SourceFile) -> list[_Site]:
         """Each string literal of `source` whose value is the member's, docstrings and f-string parts not."""
@@ -225,6 +242,13 @@ class LiteralRename(MapRename):
     def _errors(self, diagnostics: list[tuple[Diagnostic, int]]) -> set[Key]:
         return {(d.code, d.span.start, d.span.end) for d, _ in diagnostics if d.severity in (1, 2)}
 
+    def _pull_before(self, server: LanguageServer, before: dict[str, set[Key]],
+                     result: dict[str, tuple[TextProbe | None, list[tuple[Diagnostic, int]]]]) -> None:
+        """Once per file, after a round reverted: the pre-probe errors of each file the round shows an error."""
+        for rel, (_, diagnostics) in result.items():
+            if rel not in before and any(d.severity in (1, 2) for d, _ in diagnostics):
+                before[rel] = self._errors(self._diagnostics(server, rel, None))
+
     def _round(self, server: LanguageServer, substitutions: dict[str, list[tuple[int, int, str, int]]],
                pulled: list[str]) -> dict[str, tuple[TextProbe | None, list[tuple[Diagnostic, int]]]]:
         """The diagnostics of `pulled` with `substitutions` made, their spans in the files' own offsets."""
@@ -250,13 +274,14 @@ class LiteralRename(MapRename):
         """The probe's rounds: candidates, the verification, then the remaining equal strings."""
         if self._member is None or self._member.inner is None:
             return
-        before = {rel: self._errors(self._diagnostics(server, rel, None)) for rel in self.candidates}
-        typed = self._typed(server, before)
-        self._file(Outcome(kind="rewrite", rel=self.rel, span=self._member.span, edits=(self._edit(self._member),)))
-        for site in typed:
-            self._file(Outcome(kind="rewrite", rel=site.rel, span=site.span, edits=(self._edit(site),)))
-        self._verify(server, before, typed)
-        self._others(server, before, [s for s in self._sites if s not in typed])
+        with timed("literal-probe"):
+            before: dict[str, set[Key]] = {}
+            typed = self._typed(server, before)
+            self._file(Outcome(kind="rewrite", rel=self.rel, span=self._member.span, edits=(self._edit(self._member),)))
+            for site in typed:
+                self._file(Outcome(kind="rewrite", rel=site.rel, span=site.span, edits=(self._edit(site),)))
+            self._verify(server, before, typed)
+            self._others(server, before, [s for s in self._sites if s not in typed])
 
     def _edit(self, site: _Site) -> TextEdit:
         assert site.inner is not None
@@ -274,6 +299,7 @@ class LiteralRename(MapRename):
                 wraps.setdefault(site.rel, {}).setdefault(start, []).append(site)
         pulled = sorted({s.rel for s in self._sites})
         result = self._round(server, substitutions, pulled)
+        self._pull_before(server, before, result)
         typed: list[_Site] = []
         for rel, (probe, diagnostics) in result.items():
             anchors = _reveal_anchors(probe, substitutions.get(rel, []))
@@ -307,6 +333,7 @@ class LiteralRename(MapRename):
         """With the member and every rewritten literal set to the sentinel, each new error is a blind spot."""
         assert self._member is not None
         result = self._round(server, self._sentinels([self._member, *typed]), self.candidates)
+        self._pull_before(server, before, result)
         seen: set[tuple[str, int]] = set()
         for rel, (_, diagnostics) in sorted(result.items()):
             source = self.snapshot.source(rel)
@@ -326,6 +353,7 @@ class LiteralRename(MapRename):
         member of another `Literal` type always, as a sentinel there changes what the probe asks)."""
         probed = [s for s in others if not s.in_type]
         result = self._round(server, self._sentinels(probed), sorted({s.rel for s in probed})) if probed else {}
+        self._pull_before(server, before, result)
         for site in others:
             _, diagnostics = result.get(site.rel, (None, []))
             rejected = not site.in_type and any(

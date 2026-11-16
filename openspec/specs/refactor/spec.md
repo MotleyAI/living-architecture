@@ -1669,7 +1669,8 @@ keep its quote style.
   literal or a list, tuple, set or dict display holding it as an element or key, or when the type the checker gives
   its comparison operand (`==`, `!=`, `is`, `is not`), `in` container or `match` subject contains the sentinel. With the
   member and every such literal set to the sentinel, each diagnostic absent before the probe SHALL be a blind spot,
-  `refactor.literal-unresolved`, joining the blind-spot refusal (`--keep` and `--allow-blindspots` apply).
+  `refactor.literal-unresolved`, joining the blind-spot refusal (`--keep` and `--allow-blindspots` apply). Both SHALL
+  hold whatever import route carries the member's type to a file.
 
 Every other string literal whose whole value is OLD SHALL be unchanged and listed as a `leftover` with `{where}`
 `string`, with or without `--docs`, except one at a position where the checker accepts no other string (TypeScript:
@@ -1706,6 +1707,22 @@ that was absent before), which is typed by a literal type the rename leaves unch
 #### Scenario: Derived alias
 - **WHEN** `Ext = Literal[DriftKind, "x"]` types an argument `h("edit_model")`
 - **THEN** that string is rewritten
+
+#### Scenario: Every import route carries the type
+- **WHEN** a Python file reaches the module declaring `DriftKind` only through one of: a chain of re-exports,
+  `from m import *`, a relative import, an import under `if TYPE_CHECKING:`, an import inside a function, a `.pyi`
+  stub, an `__init__.pyi`, a `<name>-stubs` directory, a namespace package, or a project `__builtins__.pyi`; and
+  the file passes `"edit_model"` to a parameter typed `DriftKind`
+- **THEN** that string is rewritten in each such file
+
+#### Scenario: Blind spot in a file without the string
+- **WHEN** a module holds `DEFAULT: Final = "edit_model"`, and another file that holds no string `"edit_model"`
+  and reaches `DriftKind` through any route above passes `DEFAULT` to a parameter typed `DriftKind`
+- **THEN** that call site is a `refactor.literal-unresolved` blind spot and the rename refuses with exit 1
+
+#### Scenario: Equal string in a file outside the member's reach
+- **WHEN** a file whose imports never reach the module declaring `DriftKind` holds `s: str = "edit_model"`
+- **THEN** that string is unchanged and listed as `leftover`
 
 #### Scenario: TypeScript contexts
 - **WHEN** `type Kind = 'edit_model' | 'drop'` is renamed at `Kind['edit_model']`, and the project holds a typed
@@ -2077,3 +2094,44 @@ SHALL NOT be added.
 - **WHEN** `compat.ts` declares `export const Flight = Facade` and `export type Flight = Facade` of an imported
   `Facade`, and one importer uses `Flight` only as a type while another constructs `new Flight()`
 - **THEN** the first imports `Facade` type-only and the second as a value, each from the home module
+
+### Requirement: dr-refactor --timings prints each phase's wall time
+`dr-refactor --timings` SHALL, for every subcommand and after all other output, print on stderr one
+`refactor.timing` line per phase whose work ran at least once, in the order of the shared phase list (`load`,
+`resolve`, `references`, `rules`, `blindspot-scan`, `literal-scan`, `literal-probe`, `baseline`, `write`), then one
+for `total`. A phase's time SHALL exclude the phases nested in it, and its repeated runs SHALL add up. The seconds
+SHALL be the elapsed time floored to whole centiseconds, never negative, written as whole seconds, a dot and two
+digits. The lines SHALL be printed on every exit once the arguments parse: success, a refusal or an error. A run
+handed to the other language's twin SHALL print only that twin's lines; a run that exits before any phase ran (a
+routing or map error, or the other twin missing) SHALL print only `total`. Without `--timings`, stdout, stderr and
+the exit code SHALL be unchanged.
+
+#### Scenario: Line format
+- **WHEN** a phase took 1.239 seconds and another 0.004 seconds
+- **THEN** their lines read `timing: <phase> 1.23s` and `timing: <phase> 0.00s`
+
+#### Scenario: Python Literal rename
+- **WHEN** `dr-refactor --timings rename --file m.py --symbol "Kind['a']" --new-name b` runs
+- **THEN** stdout is unchanged, and stderr ends with timing lines in list order that include `literal-scan` and
+  `literal-probe`, then `total`
+
+#### Scenario: TypeScript rename
+- **WHEN** `dr-refactor --timings rename --file src/a.ts --symbol foo --new-name bar` runs
+- **THEN** stdout is unchanged, and stderr ends with timing lines in list order, none of them a `literal-` phase,
+  then `total`
+
+#### Scenario: Refusal still timed
+- **WHEN** a member rename with `--timings` refuses on a blind spot
+- **THEN** the exit code is 1, and the timing lines follow the refusal on stderr
+
+#### Scenario: Forwarded run
+- **WHEN** the npm twin runs `dr-refactor --timings rename --file m.py --symbol f --new-name g`
+- **THEN** stderr holds the Python twin's timing lines once, and no line from the npm twin
+
+#### Scenario: Exit before any phase
+- **WHEN** `dr-refactor --timings rename-map map.yaml` runs on a map mixing `.py` and `.ts` entries
+- **THEN** the map error is printed, then only the `total` timing line, and the exit code is 2
+
+#### Scenario: Option absent
+- **WHEN** any `dr-refactor` case of the corpus runs without `--timings`
+- **THEN** its output equals its golden

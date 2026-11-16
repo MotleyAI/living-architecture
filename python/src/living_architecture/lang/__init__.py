@@ -1,7 +1,7 @@
 """The Python language adapter: units, import targets, dependency edges, conventions facts, the basedpyright specifics
 and its language-server session."""
 
-from living_architecture.lang.edges import dependency_edges
+from living_architecture.lang.edges import dependency_edges, reverse_closure
 from living_architecture.lang.language_server import (
     Diagnostic,
     LanguageServer,
@@ -56,6 +56,7 @@ __all__ = [
     "import_targets",
     "pyright_patch_env",
     "read_pyright_patch",
+    "reverse_closure",
     "source_modules",
     "top_level_units",
     "unit_exists",

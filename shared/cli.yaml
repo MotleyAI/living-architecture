@@ -18,9 +18,11 @@
 # base_fetch_timeout_seconds: the best-effort `git fetch origin <base>` before a command compares with
 #              origin/<base> is killed after this many seconds; the command then uses the ref as it stands.
 # literal_value_forbidden: the substrings a Literal member's new value may not hold (`refactor.literal-value`).
+# timing_phases: the phases `dr-refactor --timings` reports (`refactor.timing`), in print order; `total` follows them.
 
 base_fetch_timeout_seconds: 30
 literal_value_forbidden: ["'", '"', '`', "\\", '${', "\0", "\r", "\n", "\u2028", "\u2029"]
+timing_phases: [load, resolve, references, rules, blindspot-scan, literal-scan, literal-probe, baseline, write]
 
 commands:
   la-config:
@@ -202,6 +204,7 @@ commands:
     options:
       - {name: --project, type: path, default: ., help: 'project root (default: cwd)'}
       - {name: --apply, type: flag, help: 'write changes (default: dry-run)'}
+      - {name: --timings, type: flag, help: "print each phase's wall time on stderr after all other output"}
     subcommands:
       rename:
         help: rename the symbol at a location
