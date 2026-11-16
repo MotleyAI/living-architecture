@@ -12,6 +12,7 @@ import { type EntrySpec, runEntries } from './rename.js';
 import { type Locator, locate, nodes, Refactor, type RefactorArgs, UsageError } from './session.js';
 import { SiteError } from './sites.js';
 import { LocatorError } from './symbols.js';
+import { timed } from './timings.js';
 
 export type { RefactorArgs } from './session.js';
 
@@ -150,26 +151,30 @@ function moveSymbol(r: Refactor): number {
   const file = r.inProject(r.args.file ?? '');
   const dest = r.inProject(r.args.dest ?? '');
   if (!existsSync(dest) || !statSync(dest).isFile()) throw new RefactorError(message('refactor.destination-missing', { path: r.args.dest }));
-  const located = locate(r, file, r.args.file ?? '', locatorOf(r.args));
-  const { position } = located;
-  r.owner(file);
   const notMovable = (): RefactorError => new RefactorError(message('refactor.not-movable', { path: r.rel(file) }));
-  if (r.args.symbol !== undefined && (!located.topLevel || located.file !== file)) throw notMovable();
-  const services = r.services(file);
-  const statement = services[0] === undefined ? null : topLevelStatement(services[0], file, position);
-  if (statement === null) throw notMovable();
+  const { services, statement } = timed('resolve', () => {
+    const located = locate(r, file, r.args.file ?? '', locatorOf(r.args));
+    r.owner(file);
+    if (r.args.symbol !== undefined && (!located.topLevel || located.file !== file)) throw notMovable();
+    const holding = r.services(file);
+    const found = holding[0] === undefined ? null : topLevelStatement(holding[0], file, located.position);
+    if (found === null) throw notMovable();
+    return { services: holding, statement: found };
+  });
   const header = message('refactor.ts-move-symbol-header', { name: declaredName(statement) });
   if (dest === file) return r.emit([header], new Map(), []);
   const source = statement.getSourceFile();
   const range = { pos: statement.getStart(source), end: statement.end };
   const edits: Edit[] = [];
-  for (const [i, service] of services.entries()) {
-    const moved = moveToFileEdits(service, file, range, dest);
-    if (moved === null && i === 0) throw notMovable();
-    edits.push(...(moved ?? []));
-    const program = service.getProgram();
-    if (program !== undefined) edits.push(...reexportEdits(program, file, dest, exportedNames(statement)));
-  }
+  timed('references', () => {
+    for (const [i, service] of services.entries()) {
+      const moved = moveToFileEdits(service, file, range, dest);
+      if (moved === null && i === 0) throw notMovable();
+      edits.push(...(moved ?? []));
+      const program = service.getProgram();
+      if (program !== undefined) edits.push(...reexportEdits(program, file, dest, exportedNames(statement)));
+    }
+  });
   const merged = mergeEdits(edits);
   return r.emit([header], merged, [], movedSpans(file, range, source.text, dest, merged.get(dest) ?? []));
 }
@@ -211,7 +216,7 @@ function moveModule(r: Refactor): number {
   if (sources.length === 0) r.owner(module);
   const moves = files.map((f): [string, string] => [f, join(target, relative(module, f))]);
   for (const [, to] of moves) if (existsSync(to)) throw new RefactorError(message('refactor.destination-exists', { path: r.rel(to) }));
-  const edits = fileRenameEdits(new Set(sources.flatMap((f) => r.services(f))), module, target);
+  const edits = timed('references', () => fileRenameEdits(new Set(sources.flatMap((f) => r.services(f))), module, target));
   const name = isDir ? basename(module) : basename(stripSourceExtension(module));
   const header = message('refactor.ts-move-module-header', { name });
   const code = r.emit([header], mergeEdits(edits), moves);

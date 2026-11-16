@@ -1,0 +1,108 @@
+Renaming <edit_model> to <edit_master>:
+
+
+--- a/pkg/kinds.py
++++ b/pkg/kinds.py
+@@ -1,6 +1,6 @@
+ from typing import Literal
+ 
+-DriftKind = Literal["edit_model", "drop"]
++DriftKind = Literal["edit_master", "drop"]
+ 
+ 
+ def f(kind: DriftKind) -> None:
+
+--- a/pkg/relative.py
++++ b/pkg/relative.py
+@@ -1,3 +1,3 @@
+ from .kinds import f
+ 
+-f("edit_model")
++f("edit_master")
+
+--- a/routes/builtins.py
++++ b/routes/builtins.py
+@@ -1 +1 @@
+-f("edit_model")
++f("edit_master")
+
+--- a/routes/chain.py
++++ b/routes/chain.py
+@@ -1,3 +1,3 @@
+ from pkg.hop2 import f
+ 
+-f("edit_model")
++f("edit_master")
+
+--- a/routes/in_function.py
++++ b/routes/in_function.py
+@@ -1,4 +1,4 @@
+ def call() -> None:
+     from pkg.kinds import f
+ 
+-    f("edit_model")
++    f("edit_master")
+
+--- a/routes/init_stub.py
++++ b/routes/init_stub.py
+@@ -1,3 +1,3 @@
+ from typed import f
+ 
+-f("edit_model")
++f("edit_master")
+
+--- a/routes/namespace.py
++++ b/routes/namespace.py
+@@ -1,3 +1,3 @@
+ from nspkg.mod import f
+ 
+-f("edit_model")
++f("edit_master")
+
+--- a/routes/star.py
++++ b/routes/star.py
+@@ -1,3 +1,3 @@
+ from pkg.kinds import *
+ 
+-f("edit_model")
++f("edit_master")
+
+--- a/routes/stub.py
++++ b/routes/stub.py
+@@ -1,3 +1,3 @@
+ from shim import f
+ 
+-f("edit_model")
++f("edit_master")
+
+--- a/routes/stubs_dir.py
++++ b/routes/stubs_dir.py
+@@ -1,3 +1,3 @@
+ from vendor import f
+ 
+-f("edit_model")
++f("edit_master")
+
+--- a/routes/type_checking.py
++++ b/routes/type_checking.py
+@@ -5,4 +5,4 @@
+ 
+ 
+ def call() -> None:
+-    f("edit_model")
++    f("edit_master")
+
+
+
+APPLIED. 11 file(s) changed:
+  pkg/kinds.py
+  pkg/relative.py
+  routes/builtins.py
+  routes/chain.py
+  routes/in_function.py
+  routes/init_stub.py
+  routes/namespace.py
+  routes/star.py
+  routes/stub.py
+  routes/stubs_dir.py
+  routes/type_checking.py

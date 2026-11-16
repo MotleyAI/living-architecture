@@ -80,6 +80,11 @@ export function literalValueForbidden(): string[] {
   return (yamlFile('cli.yaml').literal_value_forbidden as unknown[]).map(String);
 }
 
+/** The phases `dr-refactor --timings` reports, in print order. */
+export function timingPhases(): string[] {
+  return (yamlFile('cli.yaml').timing_phases as unknown[]).map(String);
+}
+
 export function language(id: string): Record<string, any> {
   return yamlFile('languages.yaml')[id];
 }

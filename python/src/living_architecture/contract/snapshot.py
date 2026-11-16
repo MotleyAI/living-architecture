@@ -82,6 +82,11 @@ def literal_value_forbidden() -> tuple[str, ...]:
     return tuple(_cli()["literal_value_forbidden"])
 
 
+def timing_phases() -> tuple[str, ...]:
+    """The phases `dr-refactor --timings` reports, in print order."""
+    return tuple(_cli()["timing_phases"])
+
+
 def language(name: str) -> dict[str, Any]:
     return _yaml("languages.yaml")[name]
 

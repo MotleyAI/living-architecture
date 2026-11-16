@@ -710,6 +710,7 @@ NEW_TEMPLATES = {
     "refactor.literal-unresolved":
         "{path}:{line}: literal-unresolved: the checker needs {old!r} here, where no string literal can be rewritten",
     "refactor.compound": "{path}:{line}: leftover: declaration {name} contains {old}",
+    "refactor.timing": "timing: {phase} {seconds}s",
 }
 REMOVED_TEMPLATES = {"c4-layout.migrate"}
 # Defensive findings no real input reaches; each is pinned by a unit test instead of a golden.
