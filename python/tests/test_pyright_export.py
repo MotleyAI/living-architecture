@@ -1,5 +1,5 @@
 """The occurrence-export preload under Node, against fake language-server bundles built around the bundled
-basedpyright's own `CommandController`."""
+basedpyright's own `CommandController`, and its export from the bundled server."""
 
 from __future__ import annotations
 
@@ -13,9 +13,12 @@ from pathlib import Path
 import basedpyright
 import pytest
 from nodejs_wheel.executable import ROOT_DIR
+from project_files import write_project
+from pydantic import BaseModel
 
 from living_architecture import lang
 from living_architecture.contract import language
+from living_architecture.lang import ExportRequest, FactQuery, LanguageServer, OccurrenceIndex
 
 NODE = Path(ROOT_DIR) / "bin" / "node"
 BUNDLED = Path(next(iter(basedpyright.__path__))) / "dist" / "pyright-langserver.js"
@@ -141,3 +144,50 @@ def test_preload_path_with_spaces(tmp_path: Path, result: Path) -> None:
     proc = _node(_package(tmp_path / "pkg"), result, preload=preload)
     assert (proc.returncode, proc.stdout) == (0, "main: loaded\n"), proc.stderr
     assert _outcome(result) == ("patched", "1.40.2")
+
+
+LEAF = ("from enum import Enum\n\nfrom pydantic import BaseModel\n\n\nclass Kind(Enum):\n    A = 1\n\n\n"
+        "class Leaf(BaseModel):\n    kind: Kind\n")
+MODEL = ("from pydantic import BaseModel\n\nfrom pkg.leaf import Leaf\n\n\nclass Mid(BaseModel):\n    leaf: Leaf\n\n\n"
+         "class Top(BaseModel):\n    mid: Mid\n    tags: list[str]\n\n\ntop: Top | None = None\n")
+
+
+class PydanticExport(BaseModel):
+    root: Path
+    model: Path
+    leaf: Path
+    index: OccurrenceIndex
+
+
+@pytest.fixture(scope="module")
+def pydantic_export(tmp_path_factory: pytest.TempPathFactory) -> PydanticExport:
+    """One export over a pydantic project: definitions at a use of `Top`, at a `BaseModel` base and at `list`."""
+    root = write_project(tmp_path_factory.mktemp("export") / "p", {"pkg/leaf.py": LEAF, "pkg/m.py": MODEL}).resolve()
+    model, leaf = root / "pkg" / "m.py", root / "pkg" / "leaf.py"
+    offsets = [MODEL.rindex("Top"), MODEL.index("(BaseModel)") + 1, MODEL.index("list[")]
+    with LanguageServer(root) as server:
+        server.open(leaf, LEAF)
+        server.open(model, MODEL)
+        index = server.export(ExportRequest(names=[], files=[], facts=[
+            FactQuery(path=model, offset=offset, kinds=("definition",)) for offset in offsets]))
+    return PydanticExport(root=root, model=model, leaf=leaf, index=index)
+
+
+def test_follow_stays_out_of_library_and_typeshed_files(pydantic_export: PydanticExport) -> None:
+    followed = pydantic_export.index.followed
+    assert followed
+    assert [str(f.path) for f in followed if not f.path.is_relative_to(pydantic_export.root)] == []
+
+
+def test_a_first_party_chain_is_followed_to_its_end(pydantic_export: PydanticExport) -> None:
+    model, leaf = pydantic_export.model, pydantic_export.leaf
+    facts = {(f.path, f.offset): {(d.path, d.start) for d in f.definition} for f in pydantic_export.index.followed}
+    assert (model, MODEL.index("class Mid") + len("class ")) in facts[(model, MODEL.index("mid: Mid") + len("mid: "))]
+    assert (leaf, LEAF.index("class Leaf") + len("class ")) in facts[(model, MODEL.index("leaf: Leaf") + len("leaf: "))]
+    assert (leaf, LEAF.index("class Kind") + len("class ")) in facts[(leaf, LEAF.index("kind: Kind") + len("kind: "))]
+
+
+def test_a_direct_definition_in_a_library_or_typeshed_is_answered(pydantic_export: PydanticExport) -> None:
+    _, base, builtin = pydantic_export.index.answers
+    assert any("pydantic" in d.path.parts for d in base.definition)
+    assert any(d.path.name == "builtins.pyi" for d in builtin.definition)

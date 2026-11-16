@@ -5,7 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from living_architecture import c4, cli
+from living_architecture import c4
+from living_architecture.cli.la_arch_diagrams import la_arch_diagrams
 
 SPEC = "specification {\n  element system\n  element node\n}\n"
 PY_INDEX = "python:\n  root_package: pkg\n"
@@ -282,7 +283,7 @@ def test_la_arch_diagrams_exits_1_on_malformed_metadata(tmp_path, capsys):
         "    engine = node 'Engine'\n", "    engine = node 'Engine' {\n      metadata {\n        claims ['a'\n      }\n    }\n"
     )
     root = diagrams_repo(tmp_path, model)
-    assert cli.la_arch_diagrams(["--root", str(root)]) == 1
+    assert la_arch_diagrams(["--root", str(root)]) == 1
     err = capsys.readouterr().err
     assert "element python.engine has malformed metadata: " in err
     assert "unrecognized model line" not in err

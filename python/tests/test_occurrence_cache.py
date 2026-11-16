@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -14,7 +15,7 @@ import pytest
 from project_files import file_tree, write_project
 from refactor_cli import run_raw
 
-from living_architecture.cli import dr_compliance
+from living_architecture.cli.dr_compliance import dr_compliance
 from living_architecture.contract import language
 from living_architecture.lang import LanguageServer
 
@@ -190,6 +191,25 @@ def test_a_change_through_an_extended_config_exports_anew(
     first, _ = _run(project, CLEAN, monkeypatch, capsys)
     assert first.count == 1
     change(base, venv)
+    second, result = _run(project, CLEAN, monkeypatch, capsys)
+    assert second.count == 1
+    assert result == _uncached(tmp_path, project, CLEAN, monkeypatch, capsys)
+
+
+def test_a_change_in_the_project_venv_the_checker_picks_exports_anew(
+    tmp_path: Path, project: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # No environment configured: basedpyright resolves imports in the project's own `.venv`.
+    (project / "pyrightconfig.json").unlink()
+    subprocess.run([sys.executable, "-m", "venv", "--without-pip", str(project / ".venv")], check=True)
+    python = project / ".venv" / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python")
+    site = Path(subprocess.run([python, "-c", "import sysconfig; print(sysconfig.get_path('purelib'))"],
+                               capture_output=True, text=True, check=True).stdout.strip())
+    (site / "extpkg").mkdir()
+    (site / "extpkg" / "__init__.py").write_text("def helper() -> int:\n    return 1\n", encoding="utf-8")
+    first, _ = _run(project, CLEAN, monkeypatch, capsys)
+    assert first.count == 1
+    (site / "extpkg" / "__init__.py").write_text("def helper() -> str:\n    return 'x'\n", encoding="utf-8")
     second, result = _run(project, CLEAN, monkeypatch, capsys)
     assert second.count == 1
     assert result == _uncached(tmp_path, project, CLEAN, monkeypatch, capsys)

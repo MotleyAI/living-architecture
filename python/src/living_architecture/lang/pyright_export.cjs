@@ -254,12 +254,14 @@ class Exporter {
     return this.locations(out);
   }
 
-  // The definitions la's rules ask about next, from a definition landing on a class, function or parameter.
+  // The definitions la's rules ask about next, from a definition landing on a class, function or parameter in user code.
   follow(location) {
     const key = `${location.uri} ${location.range.start.line}:${location.range.start.character}`;
     if (this.followed.has(key)) return;
     this.followed.add(key);
     const uri = this.uri(location.uri);
+    const info = this.program.getSourceFileInfo(uri);
+    if (!info || info.isThirdPartyImport || info.isTypeshedFile) return;
     const node = this.nodeAt(uri, location.range.start);
     const parent = node?.parent;
     if (!parent || parent.d?.name !== node) return;

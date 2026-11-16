@@ -13,8 +13,9 @@ from typing import Any, TypeAlias
 
 import pytest
 
-from living_architecture import cli, config, contract
+from living_architecture import config, contract
 from living_architecture.c4 import migrate as c4_migrate
+from living_architecture.cli.la_arch_migrate import la_arch_migrate
 
 CASES = next(p for p in Path(__file__).resolve().parents if (p / "conformance").is_dir()) / "conformance" / "cases"
 
@@ -176,7 +177,7 @@ class Faults:
 
 
 def migrate(root: Path) -> int:
-    return cli.la_arch_migrate(["--root", str(root)])
+    return la_arch_migrate(["--root", str(root)])
 
 
 @pytest.mark.parametrize("kind", list(REPOS))

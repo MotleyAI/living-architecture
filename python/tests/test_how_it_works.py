@@ -7,7 +7,10 @@ from pathlib import Path
 
 import pytest
 
-from living_architecture import cli
+from living_architecture.cli.la_arch_check import la_arch_check
+from living_architecture.cli.la_arch_diagrams import la_arch_diagrams
+from living_architecture.cli.la_arch_migrate import la_arch_migrate
+from living_architecture.cli.la_arch_scaffold import la_arch_scaffold
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 HOW_IT_WORKS = REPO_ROOT / "docs" / "how-it-works.md"
@@ -15,10 +18,10 @@ SHOP = Path(__file__).resolve().parent / "fixtures" / "shop"
 CONSOLE_BLOCK_RE = re.compile(r"^```console\n(.*?)^```$", re.MULTILINE | re.DOTALL)
 FENCED_BLOCK_RE = re.compile(r"^```\w*\n(.*?)^```$", re.MULTILINE | re.DOTALL)
 COMMANDS: dict[str, Callable[[list[str]], int]] = {
-    "la-arch-check": cli.la_arch_check,
-    "la-arch-diagrams": cli.la_arch_diagrams,
-    "la-arch-migrate": cli.la_arch_migrate,
-    "la-arch-scaffold": cli.la_arch_scaffold,
+    "la-arch-check": la_arch_check,
+    "la-arch-diagrams": la_arch_diagrams,
+    "la-arch-migrate": la_arch_migrate,
+    "la-arch-scaffold": la_arch_scaffold,
 }
 API = "src/shop/api/__init__.py"
 MODEL = "architecture/model.c4"
@@ -58,7 +61,7 @@ def _raise_baseline(root: Path) -> None:
 
 
 def _refresh_diagrams(root: Path) -> None:
-    assert cli.la_arch_diagrams(["--root", str(root)]) == 0
+    assert la_arch_diagrams(["--root", str(root)]) == 0
 
 
 @pytest.fixture

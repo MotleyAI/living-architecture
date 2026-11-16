@@ -15,6 +15,7 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.11", "3.12", "3.13", "3.14"]
+        shard: [1, 2]
     defaults:
       run:
         working-directory: python
@@ -27,10 +28,16 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - run: ../scripts/sync-shared --check
+        if: matrix.shard == 1
       - run: uv sync --locked
       - run: uv run ruff check src tests
+        if: matrix.shard == 1
       - run: uv run basedpyright src tests
-      - run: uv run pytest -q
+        if: matrix.shard == 1
+      # Conformance cases run once, in cross-twin.
+      - run: >-
+          uv run pytest -q --splits 2 --group ${{ matrix.shard }} --durations-path tests/durations/suite.json
+          --deselect tests/test_conformance.py::test_case
 
   # The built wheel and sdist, installed outside the checkout, carry the contract and run every command.
   package:
@@ -70,13 +77,14 @@ jobs:
       - run: npm run typecheck
       - run: npm test
 
-  # Every conformance case through one twin's entry points per leg.
+  # Every conformance case through one twin's entry points per leg, in three shards.
   cross-twin:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         twin: [python, typescript]
+        shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -93,7 +101,9 @@ jobs:
         working-directory: python
       - run: npm ci
         working-directory: node
-      - run: scripts/conformance-cross --twin ${{ matrix.twin }}
+      - run: >-
+          scripts/conformance-cross --twin ${{ matrix.twin }} --splits 3 --group ${{ matrix.shard }}
+          --durations-path tests/durations/cross-${{ matrix.twin }}.json
 
   # The TypeScript flow with only Node: the packed npm twin in a container without python or uv, with a PATH trap
   # that fails the run on any call to python, python3, uv or uvx.
