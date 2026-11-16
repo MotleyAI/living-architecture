@@ -59,7 +59,7 @@
 
 ## 5. Profile
 
-- [ ] 5.1 Fill profile.md's "After" table from the PR's CI run: wall-clock and summed test time per job kind, against
+- [x] 5.1 Fill profile.md's "After" table from the PR's CI run: wall-clock and summed test time per job kind, against
       the "Before" rows. Verify: every heavy job kind has both rows.
 
 ## 6. Gate

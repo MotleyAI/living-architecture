@@ -95,10 +95,16 @@ Chosen: A, B, C, D1, D2. Not E.
 
 ## After
 
-Filled from this PR's CI run (task 5.1).
+Filled from this PR's CI run (task 5.1): run 43889989137 on `e23534f9`. Wall is the heavy step; "Before" is the
+with-DEV-2301 run above. "After" summed is the committed `pytest-split` duration file, recorded on CI with this
+change's code (the run itself prints no per-test times).
 
 | Job kind | Before: wall / summed | After: wall (slowest shard) / summed |
 | -- | -- | -- |
-| `test` | | |
-| `cross-twin (python)` | | |
-| `cross-twin (typescript)` | | |
+| `test` | 770 s (3.12; 614–1,261 s over versions) / 2,604 s | 121 s (3.12; 115–194 s over versions) / 1,291 s |
+| `cross-twin (python)` | 758 s / 2,237 s | 220 s / 1,321 s |
+| `cross-twin (typescript)` | 991 s / 2,772 s | 203 s / 2,250 s |
+
+The first sharded run (`1e5ba22d`, run 43880287484) left the slowest `cross-twin` shard at 421 s: xdist's default
+`load` scheduler handed one worker a contiguous block of 218 expensive refactor cases and never rebalances.
+`--dist worksteal` in `addopts` brings it to the figures above.
