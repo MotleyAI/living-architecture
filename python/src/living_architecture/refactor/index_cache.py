@@ -251,6 +251,7 @@ class IndexCache:
         self._fingerprint: str | None = None
         self._stored: dict[str, OccurrenceIndex] | None = None
         self._run: dict[str, OccurrenceIndex] = {}
+        self._new: dict[str, OccurrenceIndex] = {}
 
     def _current(self) -> str:
         if self._fingerprint is None:
@@ -279,14 +280,15 @@ class IndexCache:
 
     def put(self, key: str, index: OccurrenceIndex) -> None:
         self._run[key] = index
+        self._new[key] = index
 
     def save(self) -> None:
-        """Replace the entry with this run's exports; a cache that cannot be written is skipped."""
-        if self.path is None or not self._run or self._run == self._entries():
+        """Extend the entry with this run's new exports; a cache that cannot be written is skipped."""
+        if self.path is None or not self._new:
             return
         if fingerprint(self.root) != self._current():
             return
-        entry = CacheEntry(fingerprint=self._current(), exports=self._run)
+        entry = CacheEntry(fingerprint=self._current(), exports={**self._entries(), **self._new})
         with contextlib.suppress(OSError):
             self.path.parent.mkdir(parents=True, exist_ok=True)
             fd, tmp = tempfile.mkstemp(dir=self.path.parent, prefix=".entry-", suffix=".tmp")
