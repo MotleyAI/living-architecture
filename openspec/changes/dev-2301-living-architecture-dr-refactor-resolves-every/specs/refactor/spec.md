@@ -172,7 +172,11 @@ and `super().name(...)` calls. Every edit SHALL replace exactly the old name, lo
 the file's text as read; positions SHALL be correct after non-ASCII and astral characters and with CRLF line endings.
 Edits SHALL NOT overlap unless identical; identical edits SHALL be merged. When a file changes between its read and
 the write, `dr-refactor` SHALL print the `refactor.file-changed` finding naming that file on stderr, write nothing and
-exit 1. A module rename SHALL keep rope's behaviour alone.
+exit 1. A module rename SHALL keep rope's edits, and SHALL be refused with the `refactor.name-conflict` finding when
+its package already binds the new name (a module of that name, naming it at line 1; a package of that name, naming its
+`__init__.py`, else its first Python file by path, at line 1; or a binding in the package's `__init__.py`, naming its
+line) or when rope's edits would change a binding as the requirement that renames keep every reference's binding
+defines, writing nothing and exiting 1.
 
 basedpyright SHALL be the version the PyPI twin ships, started from la's own environment, run with la's
 pyright#11919 patch, reading the project's own configuration and finding the project's interpreter as basedpyright
@@ -231,6 +235,21 @@ printed. With or without `--apply`, the language server SHALL create no file in 
 #### Scenario: Dry-run leaves the tree unchanged
 - **WHEN** a rename that adds basedpyright references runs without `--apply`
 - **THEN** every path under the project is byte-identical before and after, and no new path exists
+
+#### Scenario: Module renamed onto an existing module
+- **WHEN** module `pkg/a.py` is renamed to `b`, in one project where `pkg/b.py` exists, in another where a package
+  `pkg/b/` exists, and in a third where `pkg/__init__.py` binds `b`
+- **THEN** each rename is refused with the name-conflict finding naming `pkg/b.py` line 1, `pkg/b/__init__.py` line
+  1 and the binding's line respectively, and nothing changes
+
+#### Scenario: Module rename capturing an importer's name
+- **WHEN** module `pkg/a.py` is renamed to `b`, no module `b` exists, and `pkg/use.py` holds `from pkg import a` and
+  binds its own `b`
+- **THEN** the rename is refused naming the line of `pkg/use.py`'s `b`
+
+#### Scenario: Relative import of a renamed module
+- **WHEN** module `pkg/a.py` is renamed to `b` and `pkg/use.py` holds `from . import a` with no `b` of its own
+- **THEN** the import becomes `from . import b` and the exit code is 0
 
 ### Requirement: Python --attr reports Unknown and Any receivers
 Python `dr-compliance --attr NAME` SHALL report, as the `attr-blindspot` check, every access `x.NAME` whose receiver
@@ -298,16 +317,17 @@ nothing on stdout, write nothing and exit 1, with or without `--apply`.
 line, together with that stand-in's own hierarchy. A `--with` stand-in SHALL be renamed in the same run: its
 hierarchy joins the renamed hierarchy, and every rule of the rename (references, keyed rewrites, string-member
 forms, `--docs`, `--keep`, blind spots) SHALL run once over the joined set, on one snapshot of the files, identical
-edits merged. A `--without` stand-in SHALL be unchanged. A `--with` or `--without` line holding no stand-in member
-declaration of this rename SHALL print `refactor.not-stand-in` on stderr, write nothing and exit 2.
+edits merged. A `--without` stand-in SHALL be unchanged. A `--with` or `--without` naming no existing file or line
+SHALL print `refactor.site-missing` in the `checks` phase. One whose line holds no stand-in member declaration of this
+rename SHALL print `refactor.not-stand-in` on stderr in the final report, write nothing and exit 2.
 A TypeScript stand-in member declared by a computed name SHALL be classified by `--without` like any other;
 `--with` naming its line SHALL print `refactor.computed-stand-in` on stderr, write nothing and exit 2.
 
 #### Scenario: Cast stand-in refuses until classified
 - **WHEN** `StorageBackend.get_model` is renamed and `class _ModelReadCache` (no base in the hierarchy) defines
   `get_model` and is used as `cast(StorageBackend, _ModelReadCache(...))`
-- **THEN** stderr is the `refactor.stand-in` line naming `_ModelReadCache.get_model` with its path and line, the
-  exit code is 1 and no file changes
+- **THEN** stderr's final report is the `refactor.stand-in` line naming `_ModelReadCache.get_model` with its path and
+  line, the exit code is 1 and no file changes
 
 #### Scenario: --with renames the stand-in in the same diff
 - **WHEN** the same rename runs with `--with <that path>:<that line>`, and a module calls `c.get_model()` with
@@ -323,8 +343,8 @@ A TypeScript stand-in member declared by a computed name SHALL be classified by 
 - **THEN** each site is rewritten once and the exit code is 0
 
 #### Scenario: Classification line without a stand-in
-- **WHEN** `--with` names a line that declares no stand-in member of this rename
-- **THEN** stderr is `refactor.not-stand-in` naming that site, the exit code is 2 and no file changes
+- **WHEN** `--with` names an existing line that declares no stand-in member of this rename
+- **THEN** stderr's final report holds `refactor.not-stand-in` naming that site, the exit code is 2 and no file changes
 
 #### Scenario: Two stand-ins on one line
 - **WHEN** one line declares two stand-in members named OLD and `--without` names that line
@@ -349,3 +369,108 @@ A TypeScript stand-in member declared by a computed name SHALL be classified by 
   `const KEY = 'getModel'`
 - **THEN** `Keyed.getModel` is reported as a stand-in; `--without` its line classifies it, and `--with` its line
   prints `refactor.computed-stand-in`, writes nothing and exits 2
+
+### Requirement: Cheap checks run before any reference search
+Resolving every entry's locator SHALL search no references. Every resolution failure SHALL be collected with its entry
+index, not stop the run: unresolved or ambiguous symbol paths, an out-of-range line, column or offset, a location that
+cannot be renamed, a retarget out of scope, a literal value that cannot be written, a TypeScript file outside every
+project. Duplicate entries SHALL be found among the resolved entries only.
+
+The `checks` phase SHALL then run, before any reference search:
+- every `--keep`, `--with` and `--without` SHALL name an existing file or directory under the project, and a `:LINE`
+  a line of an existing file, else `refactor.site-missing` naming the option and the site;
+- every `--keep` SHALL cover at least one line, in a file the run can edit (a source of its language, and with `--docs`
+  a prose file), whose text holds an entry's old name or a retarget entry's target name, either as written (with
+  identifier escapes decoded, and NFKC-normalized for Python) or in the value of a string literal starting on that
+  line; or cover a file the refactor moves; else `refactor.keep-unmatched`. When an entry that did not resolve spells
+  no name in its locator, or an entry renames a `Literal` member, this check SHALL be skipped;
+- Python: every module rope walks before the reference search SHALL be walked as `dr-compliance --select rope-walk`
+  walks it, and each gap reported as `refactor.rope-walk`: for a move or a module rename every candidate file (a Python
+  source whose text holds the moved name or module's name), for any other entry the module locating it;
+- Python: the language server SHALL start for `rename`, `retarget` and `rename-map` unless the run's occurrence index
+  is cached and no entry renames a `Literal` member, and when the baseline phase will run, the configured checker SHALL run once on one source of the refactor; a failure SHALL be reported with its
+  cause.
+
+Each `--keep`, `--with` and `--without` argument SHALL get at most one finding; a failure in `checks` SHALL replace its
+later exact check. When `resolve` or `checks` found anything, the run SHALL print nothing on stdout, print every
+finding on stderr (resolution findings by entry index, site findings in command-line order, walker gaps by path, then
+checker findings), print no `[references]` line, write nothing, and exit with the highest exit code of its findings.
+
+#### Scenario: Missing keep path
+- **WHEN** a rename passes `--keep src/gone.py`
+- **THEN** stderr is `[resolve]`, `[checks]` and `refactor.site-missing` naming `--keep src/gone.py`, the exit code is
+  2 and no file changes
+
+#### Scenario: Keep line past the end
+- **WHEN** `--keep src/a.py:99` names a line past the end of a 20-line file
+- **THEN** stderr ends with `refactor.site-missing` naming `--keep src/a.py:99` and the exit code is 2
+
+#### Scenario: Keep holding no old name
+- **WHEN** `--keep architecture` names a directory whose files never spell the renamed name
+- **THEN** stderr ends with `refactor.keep-unmatched` naming it, no `[references]` line is printed and the exit code
+  is 2
+
+#### Scenario: Every bad keep at once
+- **WHEN** a rename passes three keeps, one missing and two holding no old name
+- **THEN** stderr lists all three findings in command-line order and the exit code is 2
+
+#### Scenario: Missing classification site
+- **WHEN** a member rename passes `--with src/gone.py:3` and `--without src/a.py:400`
+- **THEN** stderr lists `refactor.site-missing` for both, no `[references]` line is printed and the exit code is 2
+
+#### Scenario: Unresolved entries listed together
+- **WHEN** map entries 2 and 4 name symbols their files do not declare
+- **THEN** stderr lists `refactor.symbol-unresolved` for entry 2 and then for entry 4, and the exit code is 2
+
+#### Scenario: Unresolved entry and bad keep
+- **WHEN** entry 1 does not resolve and `--keep src/gone.py` is passed
+- **THEN** stderr lists the entry's finding and then `refactor.site-missing`, and the exit code is 2
+
+#### Scenario: Keep matched by an escaped spelling
+- **WHEN** `--keep src/a.py:7` names a line whose only spelling of the old name is an escaped string literal
+- **THEN** the check passes and the run goes on to `references`
+
+#### Scenario: Keep on a retarget's import line
+- **WHEN** a TypeScript retarget passes `--keep` on an import of the target that the retarget removes as a duplicate
+- **THEN** the check passes and the import line is unchanged
+
+#### Scenario: Keep of a prose file needs --docs
+- **WHEN** `--keep README.md` names a prose file that mentions the old name
+- **THEN** the check passes with `--docs`, and without it stderr is `refactor.keep-unmatched` naming it
+
+#### Scenario: Walker gaps listed before any search
+- **WHEN** rope's walker cannot cover `pkg/a.py` at line 3 nor `pkg/b.py` at line 8, and each is the module locating
+  an entry of the map
+- **THEN** stderr lists `refactor.rope-walk` for both files in path order, no `[references]` line is printed, the
+  exit code is 1 and no file changes
+
+#### Scenario: Checker that cannot run
+- **WHEN** `commands.typecheck.python` names a command that exits 2 with a message on stderr, and the baseline file
+  exists
+- **THEN** stderr ends with `refactor.baseline-failed` and its cause, no `[references]` line is printed and the exit
+  code is 1
+
+### Requirement: A Python walker gap is refused with a located finding
+When rope's walker fails on a module while the Python `dr-refactor` computes a refactor, or leaves part of it
+uncovered, `dr-refactor` SHALL refuse with the `refactor.rope-walk` finding on stderr, naming the file and the line
+of the construct, and exit 1. Every gap in a module rope walks before the reference search SHALL be found in the `checks` phase, before any reference
+search, and all of them reported together; a gap met later SHALL refuse the entry that met it while the run goes on.
+It SHALL write no file, with or without `--apply`, and print no rope or library message text. The line SHALL be:
+- the start line of the first uncovered syntax node or string literal in source order;
+- else the start line of the first top-level statement the walker cannot cover on its own;
+- else 1.
+
+A gap that does not crash SHALL be refused like one that does. Any other failure SHALL NOT be reported as a
+walker gap.
+
+#### Scenario: Gap reported at the construct, not at the drift
+- **WHEN** the walker leaves a parameter annotation on line 3 uncovered and its token search fails on line 9
+- **THEN** stderr ends with `refactor.rope-walk` naming the module and line 3, the exit code is 1 and no file changes
+
+#### Scenario: Apply writes nothing on a gap
+- **WHEN** `dr-refactor --apply rename …` hits a walker gap in any module it analyses
+- **THEN** it exits 1 with `refactor.rope-walk` and every file of the project is unchanged
+
+#### Scenario: Silent gap refused
+- **WHEN** the walker finishes a module without error but leaves a string literal's tail uncovered
+- **THEN** `dr-refactor` exits 1 with `refactor.rope-walk` naming that literal's line

@@ -126,9 +126,9 @@ Spec attachment: `refactor`, owned by `python.refactor`. No model or arc42 edit:
     opened with; only `LanguageServer` converts them to character offsets (as today), and every converted span must
     slice to the expected spelling or the run refuses with `refactor.pyright-failed`. (codex)
 12. **Candidate files** are the project's Python sources whose text holds an old name, plus those holding a string
-    constant equal to one under any escaped spelling (one AST pass per file per run). `Literal` member renames probe
-    only the files holding a string equal to the member's value (DEV-2299's candidate-file part); the probes
-    themselves are unchanged. (default)
+    constant equal to one under any escaped spelling (one AST pass per file per run). `Literal` member renames keep
+    DEV-2299's candidates (the strings' files and the member module's reverse import closure): a probe's new
+    diagnostic in an importer holding no such string is a blind spot. (default)
 13. **Text-only rules read per-run tables.** Mentions, compound names and literal leftovers read tables built once per
     file per run (declared names with spans, string constants, regions), so their per-entry cost is a lookup. (default)
 14. **`--unsure include` = the index's `Unknown`/`Any` receivers.** Accesses whose receiver the checker types

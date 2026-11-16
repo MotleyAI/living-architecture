@@ -21,7 +21,8 @@
 - [ ] 1.3 Conformance case "Import the checker cannot resolve" (a fixture whose `pyrightconfig.json` keeps the project
       root off basedpyright's search path while rope's source folders find `pkg.a`). Verify: passes on today's code
       (rope renames them today).
-- [ ] 1.4 Conformance case "A module rope does not walk" (rename-walk refusal only where rope walks). Verify: fails
+- [ ] 1.4 Test in `python/tests/test_refactor.py` for "A module rope does not walk" (rename-walk refusal only where
+      rope walks), with gaps made by `restore_rope_visitor`, since no shipped input reaches a walker gap. Verify: fails
       on today's code (today it refuses with `refactor.rope-walk`).
 - [ ] 1.5 `refactor-rename-unsure-include`: hand-edit the warning line to the approved text; new cases "Untyped
       receiver renamed on request" and "Skipped by default". Verify: the edited and new `--unsure include` cases
@@ -55,6 +56,11 @@
       `test_rename_union.py`, `test_rename_strings.py`, `test_compliance_attr.py`, `test_keyed_rename.py`,
       `fake_lsp_server.py` users): list each one that contradicts the plan and ask the user's approval to align it,
       naming the file and the change. Verify: approval recorded here before editing.
+      Approved (user, 2026-11-16): `test_refactor.py`'s four walker-gap tests locate the rename in `pkg/gap.py`;
+      `test_refactor_progress.py`'s walker-gap checks test becomes a two-entry map located in `pkg/g1.py` and
+      `pkg/g2.py` (`test_walker_gaps_in_every_entry_module_refuse_in_the_checks`); `test_rename_union.py`'s two tests
+      patch or hook `LanguageServer.export` instead of `references` (the first renamed
+      `test_language_server_failing_during_the_export`).
 
 ## 2. The occurrence index (pr-implement)
 
@@ -68,8 +74,7 @@
 - [ ] 2.3 The index client in `lang/` (request, UTF-16 range conversion and spelling check, records as pydantic
       models) and the startup self-test. Verify: 1.11 passes.
 - [ ] 2.4 The run-scoped lazy session (design decision 10) and the batched fact positions (decision 4), the
-      string-member probe round (decision 5), the rope fallback batch (decision 6), candidate files and `Literal`
-      candidates (decision 12). Verify: 1.3 and 1.8 pass.
+      string-member probe round (decision 5), the rope fallback batch (decision 6), candidate files (decision 12). Verify: 1.3 and 1.8 pass.
 - [ ] 2.5 The new resolver beside the old: every rule of `rename_union.py`, `keyed.py`, `member_scan.py`,
       `retarget.py`, `literal_rename.py` reading the index; hierarchy per design decision 8; `--unsure include` per
       decision 14; per-run text tables (decision 13). Verify: sections 1.1–1.6 pass.

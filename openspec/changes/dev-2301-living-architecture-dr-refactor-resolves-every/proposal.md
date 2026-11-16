@@ -18,7 +18,7 @@ inference and basedpyright) also feed one edit set that must agree by hand.
   entries, renames modules, runs `move-*`, and resolves only the name, import and alias occurrences basedpyright
   leaves unresolved, in one batch.
 - **One language server per run**, started only when needed; the entry-resolution fallback and `Literal` probes share
-  it. `Literal` member renames probe only the files holding a string equal to the member's value.
+  it.
 - **`--unsure include`** renames accesses whose receiver the checker types `Unknown`, `Any` or a union holding either;
   its warning and help text name the checker instead of rope.
 - **`dr-compliance --attr`** reads the same index, so a rename and `--attr` give one blind-spot verdict.

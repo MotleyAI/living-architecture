@@ -1,0 +1,56 @@
+Renaming <Rec> to <Record>:
+
+
+--- a/pkg/__init__.py
++++ b/pkg/__init__.py
+@@ -1 +1 @@
+-s = "😀"; from pkg.mod import Rec
++s = "😀"; from pkg.mod import Record
+
+--- a/pkg/alias.py
++++ b/pkg/alias.py
+@@ -1,4 +1,4 @@
+-s = "😀"; from pkg.mod import Rec as R
++s = "😀"; from pkg.mod import Record as R
+ 
+ 
+ def build() -> R:
+
+--- a/pkg/mod.py
++++ b/pkg/mod.py
+@@ -1,12 +1,12 @@
+-__all__ = ["😀", "Rec", "make"]
++__all__ = ["😀", "Record", "make"]
+ 
+ 
+-class Rec:
++class Record:
+     pass
+ 
+ 
+-s = "😀𝒳"; x: "Rec | None" = None
++s = "😀𝒳"; x: "Record | None" = None
+ 
+ 
+-def make() -> "Rec":
+-    s = "😀"; return Rec()+def make() -> "Record":
++    s = "😀"; return Record()
+--- a/pkg/use.py
++++ b/pkg/use.py
+@@ -1,5 +1,5 @@
+-s = "😀"; from pkg import Rec
++s = "😀"; from pkg import Record
+ 
+ 
+-def get() -> Rec:
+-    s = "𝒳"; return Rec()
++def get() -> Record:
++    s = "𝒳"; return Record()
+
+
+
+APPLIED. 4 file(s) changed:
+  pkg/__init__.py
+  pkg/alias.py
+  pkg/mod.py
+  pkg/use.py

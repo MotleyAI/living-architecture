@@ -1,0 +1,54 @@
+Renaming <Rec> to <Record>:
+
+
+--- a/pkg/__init__.py
++++ b/pkg/__init__.py
+@@ -1 +1 @@
+-from pkg.mod import Rec
++from pkg.mod import Record
+
+--- a/pkg/alias.py
++++ b/pkg/alias.py
+@@ -1,4 +1,4 @@
+-from pkg.mod import Rec as R
++from pkg.mod import Record as R
+ 
+ 
+ def build() -> R:
+
+--- a/pkg/mod.py
++++ b/pkg/mod.py
+@@ -1,12 +1,12 @@
+-__all__ = ["Rec", "make"]
++__all__ = ["Record", "make"]
+ 
+ 
+-class Rec:
++class Record:
+     pass
+ 
+ 
+-x: "Rec | None" = None
++x: "Record | None" = None
+ 
+ 
+-def make() -> "Rec":
+-    return Rec()
++def make() -> "Record":
++    return Record()
+
+--- a/pkg/use.py
++++ b/pkg/use.py
+@@ -1,5 +1,5 @@
+-from pkg import Rec
++from pkg import Record
+ 
+ 
+-def get() -> Rec:
+-    return Rec()
++def get() -> Record:
++    return Record()
+
+
+
+DRY-RUN. 4 file(s) would change. Re-run with --apply.
