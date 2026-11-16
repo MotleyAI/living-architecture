@@ -588,7 +588,7 @@ class RenameMap:
                 continue
             try:
                 renames[i].rules(self.index, facts)
-            except (UnresolvedBase, WalkerGap) as exc:
+            except _ENTRY_ERRORS as exc:
                 failed[i] = [found] if (found := failure(exc, self.root)) is not None else []
                 renames[i].edits = []
 
