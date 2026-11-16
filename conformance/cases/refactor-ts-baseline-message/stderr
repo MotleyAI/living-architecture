@@ -4,5 +4,6 @@
 [references 1/1] entry 1: Old -> New
 [rules]
 [rules 1/1] entry 1: Old -> New: clean
+[conflicts]
 [baseline]
 [write]

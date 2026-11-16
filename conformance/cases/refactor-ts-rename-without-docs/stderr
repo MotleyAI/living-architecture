@@ -4,5 +4,6 @@
 [references 1/1] entry 1: saveModel -> persistModel
 [rules]
 [rules 1/1] entry 1: saveModel -> persistModel: clean
+[conflicts]
 src/use.ts:6: leftover: string mentions saveModel
 [write]

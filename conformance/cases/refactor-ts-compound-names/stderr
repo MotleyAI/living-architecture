@@ -4,6 +4,7 @@
 [references 1/1] entry 1: Model -> Dataset
 [rules]
 [rules 1/1] entry 1: Model -> Dataset: clean
+[conflicts]
 src/model.ts:3: leftover: declaration ModelMeasures contains Model
 src/model.ts:5: leftover: declaration acmeModels contains Model
 src/model.ts:7: leftover: declaration getModelName contains Model

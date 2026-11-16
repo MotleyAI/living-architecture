@@ -4,4 +4,5 @@
 [references 1/1] entry 1: old -> keys
 [rules]
 [rules 1/1] entry 1: old -> keys: clean
+[conflicts]
 keys already names something else at pkg/m.py:2, so nothing was refactored

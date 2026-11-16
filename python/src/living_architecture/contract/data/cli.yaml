@@ -22,7 +22,7 @@
 
 base_fetch_timeout_seconds: 30
 literal_value_forbidden: ["'", '"', '`', "\\", '${', "\0", "\r", "\n", "\u2028", "\u2029"]
-timing_phases: [load, resolve, references, rules, blindspot-scan, literal-scan, literal-probe, baseline, write]
+timing_phases: [load, resolve, references, rules, conflicts, blindspot-scan, literal-scan, literal-probe, baseline, write]
 
 commands:
   la-config:

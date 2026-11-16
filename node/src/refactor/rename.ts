@@ -725,9 +725,11 @@ export function runEntries(r: Refactor, specs: EntrySpec[], map: string, progres
   let sites: Refusal[] = [];
   if (!stopped) {
     edits = [...groups.flatMap((g) => g.edits), ...planImports(session, needs)];
-    const merged = mapConflicts(session, edits);
-    const names = timed('resolve', () => nameConflicts(session, targets, pending, edits, merged.length === 0));
-    conflicts = [...names, ...merged];
+    progress.phase('conflicts');
+    conflicts = timed('conflicts', () => {
+      const merged = mapConflicts(session, edits);
+      return [...nameConflicts(session, targets, pending, edits, merged.length === 0), ...merged];
+    });
     sites = [
       ...[...withSites, ...withoutSites].filter((site) => !matched.has(site)).map((site) => refusal(message('refactor.not-stand-in', { site }), 2)),
       ...groups.flatMap((g) => g.computed),

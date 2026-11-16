@@ -35,15 +35,33 @@ def _controller() -> str:
     return text[start : end.end()]
 
 
-def _bundle_source(version: str | None, count: int) -> str:
+def _ambient_line() -> str:
+    """The bundled language server's line setting each workspace's ambient analysis, verbatim."""
+    found = re.findall(r"^.*\.languageServerSettings\.enableAmbientAnalysis = trackFiles;\n",
+                       BUNDLED.read_text(encoding="utf-8"), re.MULTILINE)
+    assert len(found) == 1
+    return found[0]
+
+
+def _ambient(count: int) -> str:
+    """A probe on `globalThis` returning the ambient analysis the bundle's line sets for tracked files."""
+    body = "    const commandLineOptions = { languageServerSettings: {} };\n" + _ambient_line() * count
+    return (f"globalThis.__laAmbientProbe = (trackFiles) => {{\n{body}"
+            "    return commandLineOptions.languageServerSettings.enableAmbientAnalysis;\n};\n")
+
+
+def _bundle_source(version: str | None, count: int, ambient: int = 1) -> str:
     modules = VERSION_MODULE.format(version=version) if version else ""
-    return f"(() => {{\nvar __webpack_modules__ = ({{\n{modules}}});\n" + _controller() * count + REPORT + "})();\n"
+    return (f"(() => {{\nvar __webpack_modules__ = ({{\n{modules}}});\n" + _controller() * count + _ambient(ambient)
+            + REPORT + "})();\n")
 
 
-def _package(root: Path, version: str | None = "1.40.2", count: int = 1, name: str = "pyright-langserver.js") -> Path:
+def _package(
+    root: Path, version: str | None = "1.40.2", count: int = 1, name: str = "pyright-langserver.js", ambient: int = 1
+) -> Path:
     """A fake basedpyright package; returns its entry, which requires dist/<name> like basedpyright's."""
     (root / "dist").mkdir(parents=True)
-    (root / "dist" / name).write_text(_bundle_source(version, count), encoding="utf-8")
+    (root / "dist" / name).write_text(_bundle_source(version, count, ambient), encoding="utf-8")
     entry = root / "langserver.index.js"
     entry.write_text(f"require('./dist/{name}');\n", encoding="utf-8")
     return entry
@@ -109,7 +127,26 @@ def test_anchors_not_matched_exactly_once_are_a_mismatch(tmp_path: Path, result:
     assert _outcome(result) == ("mismatch", "1.40.2")
 
 
-@pytest.mark.parametrize("name", ["pyright.js", "other.js"])
+@pytest.mark.parametrize("ambient", [0, 2], ids=["absent", "twice"])
+def test_an_ambient_analysis_line_not_matched_exactly_once_is_a_mismatch(
+    tmp_path: Path, result: Path, ambient: int
+) -> None:
+    proc = _node(_package(tmp_path / "pkg", ambient=ambient), result)
+    assert proc.returncode == 2
+    assert "loaded" not in proc.stdout
+    assert _outcome(result) == ("mismatch", "1.40.2")
+
+
+def test_the_patched_bundle_runs_no_ambient_analysis(tmp_path: Path, result: Path) -> None:
+    entry = _package(tmp_path / "pkg")
+    main = tmp_path / "main.js"
+    main.write_text(f"require({str(entry)!r});\nconsole.log('ambient: ' + globalThis.__laAmbientProbe(true));\n",
+                    encoding="utf-8")
+    proc = _node(main, result)
+    assert (proc.returncode, proc.stdout) == (0, "main: loaded\nambient: false\n"), proc.stderr
+
+
+@pytest.mark.parametrize("name",["pyright.js", "other.js"])
 def test_bundles_other_than_the_language_server_are_left_alone(tmp_path: Path, result: Path, name: str) -> None:
     proc = _node(_package(tmp_path / "pkg", name=name), result)
     assert (proc.returncode, proc.stdout) == (0, "main: loaded\n"), proc.stderr

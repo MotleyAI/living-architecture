@@ -4,4 +4,5 @@
 [references 1/1] entry 1: measures -> metrics
 [rules]
 [rules 1/1] entry 1: measures -> metrics: clean
+[conflicts]
 [write]

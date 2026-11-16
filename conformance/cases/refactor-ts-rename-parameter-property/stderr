@@ -5,5 +5,6 @@
 [rules]
 [rules 1/1] entry 1: getModel -> getDataset: 1 refusal(s)
 src/loose.ts:2: attr-blindspot: o.getModel — o is any, so a rename of .getModel is unverifiable
+[conflicts]
 src/loose.ts:2: attr-blindspot: o.getModel — o is any, so a rename of .getModel is unverifiable
 1 blind spot(s) of .getModel: type or resolve them, or pass --allow-blindspots

@@ -5,4 +5,5 @@
 [rules]
 [rules 1/1] entry 1: columns -> fields: 1 refusal(s)
 Model has a base basedpyright cannot resolve at pkg/models.py:4, so nothing was refactored; run dr-refactor in the project environment
+[conflicts]
 Model has a base basedpyright cannot resolve at pkg/models.py:4, so nothing was refactored; run dr-refactor in the project environment

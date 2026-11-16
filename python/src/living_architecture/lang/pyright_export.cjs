@@ -12,7 +12,9 @@ const BUNDLE = 'pyright-langserver.js';
 const VERSION_MODULE = /"\.\.\/pyright-internal\/src\/version\.json"\(module\) \{\s*"use strict";\s*module\.exports = "([^"]*)"/;
 const CONSTRUCTOR = 'constructor(ls) {\n        this._createStub = new createTypeStub_1.CreateTypeStubCommand(ls);';
 const DISPATCH = "            default: {\n                return new vscode_languageserver_1.ResponseError(1, 'Unsupported command');";
+const AMBIENT = '    commandLineOptions.languageServerSettings.enableAmbientAnalysis = trackFiles;\n';
 const ANCHORS = [
+  [AMBIENT, '    commandLineOptions.languageServerSettings.enableAmbientAnalysis = false;\n'],
   [CONSTRUCTOR, 'constructor(ls) {\n        this.__laServer = ls;\n        this._createStub = new createTypeStub_1.CreateTypeStubCommand(ls);'],
   [DISPATCH, `            case "${COMMAND}": {\n                return globalThis.__laExportOccurrences(this.__laServer, cmdParams, token, __webpack_require__);\n            }\n${DISPATCH}`],
 ];

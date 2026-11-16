@@ -14,7 +14,7 @@ const line = (phase: string, value: string): string => message('refactor.timing'
 
 describe('timings', () => {
   it('lists the shared phases', () => {
-    expect(timingPhases()).toEqual(['load', 'resolve', 'references', 'rules', 'blindspot-scan', 'literal-scan', 'literal-probe', 'baseline', 'write']);
+    expect(timingPhases()).toEqual(['load', 'resolve', 'references', 'rules', 'conflicts', 'blindspot-scan', 'literal-scan', 'literal-probe', 'baseline', 'write']);
   });
 
   it.each([

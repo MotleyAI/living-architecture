@@ -4,4 +4,5 @@
 [references 1/1] entry 1: old -> toString
 [rules]
 [rules 1/1] entry 1: old -> toString: clean
+[conflicts]
 toString already names something else at src/m.ts:2, so nothing was refactored

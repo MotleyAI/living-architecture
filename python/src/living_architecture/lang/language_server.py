@@ -323,10 +323,12 @@ class LanguageServer:
                         length = int(line.split(b":", 1)[1])
                 if not line or not length:
                     break
-                body = b""
-                while len(body) < length and (chunk := stream.read(length - len(body))):
-                    body += chunk
-                self._messages.put(json.loads(body))
+                chunks: list[bytes] = []
+                left = length
+                while left and (chunk := stream.read(left)):
+                    chunks.append(chunk)
+                    left -= len(chunk)
+                self._messages.put(json.loads(b"".join(chunks)))
         except (OSError, ValueError):
             pass
         self._messages.put(_EOF)

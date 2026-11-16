@@ -7,6 +7,7 @@
 pkg/use.py:6: pkg/compat.py does not bind Model, so nothing was refactored
 pkg/use.py:7: pkg/compat.py does not bind Model, so nothing was refactored
 pkg/use.py:8: pkg/compat.py does not bind Model, so nothing was refactored
+[conflicts]
 pkg/use.py:6: pkg/compat.py does not bind Model, so nothing was refactored
 pkg/use.py:7: pkg/compat.py does not bind Model, so nothing was refactored
 pkg/use.py:8: pkg/compat.py does not bind Model, so nothing was refactored

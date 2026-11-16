@@ -4,6 +4,7 @@
 [references 1/1] entry 1: get_model -> load
 [rules]
 [rules 1/1] entry 1: get_model -> load: clean
+[conflicts]
 [baseline]
 the python type checker failed, so the baseline cannot be realigned and nothing was refactored
   the checker exited with code 2; its stderr:

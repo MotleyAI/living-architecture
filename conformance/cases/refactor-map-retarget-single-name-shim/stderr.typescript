@@ -4,3 +4,4 @@
 [references 1/1] entry 1: legacy -> modern
 [rules]
 [rules 1/1] entry 1: legacy -> modern: clean
+[conflicts]
