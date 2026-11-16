@@ -1,8 +1,19 @@
 // The TypeScript projects a refactor or check runs in: the reference graph, one language service per project.
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import type * as TS from 'typescript';
-import { DuplicateKeyError, YAMLError, decodeUtf8OrNull, loadYaml, message, toPlain } from '../contract/index.js';
+import {
+  DuplicateKeyError,
+  YAMLError,
+  decodeUtf8OrNull,
+  isOsError,
+  isRegularFile,
+  loadYaml,
+  message,
+  osErrorText,
+  readFile,
+  toPlain,
+} from '../contract/index.js';
 import { canonical, LangError, loadProjectsFrom, posix, type Project, type Projects, ts } from '../lang/index.js';
 import { RefactorError } from './edits.js';
 import { timed } from './timings.js';
@@ -10,8 +21,15 @@ import { timed } from './timings.js';
 /** `typescript.tsconfig` of the root's architecture/index.yaml, else null; RefactorError when the index is unreadable. */
 function namedConfig(root: string): string | null {
   const path = join(root, 'architecture', 'index.yaml');
-  if (!existsSync(path) || !statSync(path).isFile()) return null;
-  const text = decodeUtf8OrNull(readFileSync(path));
+  let bytes: Buffer;
+  try {
+    if (!isRegularFile(path)) return null;
+    bytes = readFile(path);
+  } catch (error) {
+    if (isOsError(error)) throw new RefactorError(osErrorText(error, root, path));
+    throw error;
+  }
+  const text = decodeUtf8OrNull(bytes);
   if (text === null) throw new RefactorError(message('c4.index-invalid-yaml'));
   let index: { typescript?: { tsconfig?: unknown } } | null;
   try {

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 from pathlib import Path
 
@@ -215,7 +216,7 @@ def _add_base(raw: _RawView, name: str) -> None:
 def parse_views(root: Path, model: ModelParse) -> ViewsParse:
     """Parse `architecture/views.c4` (absent: an empty `views` block); the layout check guarantees its one block."""
     path = root / architecture()["views_file"]
-    parser = _Parser(_tokenize(path.read_text(encoding="utf-8") if path.is_file() else EMPTY_VIEWS))
+    parser = _Parser(_tokenize(path.read_text(encoding="utf-8") if os.path.isfile(path) else EMPTY_VIEWS))
     model_roots = roots(model)
     scopes = {r: _scope(model, r) for r in model_roots}
     raw: list[_RawView] = []

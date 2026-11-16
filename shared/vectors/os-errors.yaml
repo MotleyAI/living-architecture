@@ -1,0 +1,123 @@
+# How an OS error renders from the os.* templates. `reasons` maps an error's symbolic code (null: the error has none)
+# to the reason alone. Each case gives the error's `code`, the path the runtime attached to it (`error_path`; null or a
+# non-string: none), its second path (`error_dest`, never printed), the path the reporting site passes (`path`; null:
+# none) and the repo `root`, and the `text` printed. Relative paths resolve lexically against the process cwd, which
+# `<CWD>` in `text` stands for.
+reasons:
+- [ENOENT, no such file or directory]
+- [EACCES, permission denied]
+- [EISDIR, is a directory]
+- [ENOTDIR, not a directory]
+- [ELOOP, OS error ELOOP]
+- [EEXIST, OS error EEXIST]
+- [null, OS error unknown]
+cases:
+- name: not found under the root
+  code: ENOENT
+  error_path: /r/architecture/index.yaml
+  path: null
+  root: /r
+  text: 'architecture/index.yaml: no such file or directory'
+- name: permission denied
+  code: EACCES
+  error_path: /r/living-architecture.yaml
+  path: null
+  root: /r
+  text: 'living-architecture.yaml: permission denied'
+- name: is a directory
+  code: EISDIR
+  error_path: /r/src/pkg.py
+  path: null
+  root: /r
+  text: 'src/pkg.py: is a directory'
+- name: not a directory
+  code: ENOTDIR
+  error_path: /r/architecture/index.yaml
+  path: null
+  root: /r
+  text: 'architecture/index.yaml: not a directory'
+- name: another code carries its symbolic name
+  code: ELOOP
+  error_path: /r/architecture/index.yaml
+  path: null
+  root: /r
+  text: 'architecture/index.yaml: OS error ELOOP'
+- name: no code
+  code: null
+  error_path: /r/a.yaml
+  path: null
+  root: /r
+  text: 'a.yaml: OS error unknown'
+- name: the site's path wins over the error's
+  code: ENOENT
+  error_path: /r/a.yaml
+  path: /r/b.yaml
+  root: /r
+  text: 'b.yaml: no such file or directory'
+- name: the site's path when the error has none
+  code: EISDIR
+  error_path: null
+  path: /r/src/x.ts
+  root: /r
+  text: 'src/x.ts: is a directory'
+- name: the second path is never printed
+  code: EEXIST
+  error_path: /r/a.c4
+  error_dest: /r/b.c4
+  path: null
+  root: /r
+  text: 'a.c4: OS error EEXIST'
+- name: a non-string error path is no path
+  code: EACCES
+  error_path: 3
+  path: null
+  root: /r
+  text: permission denied
+- name: no path at all
+  code: ENOENT
+  error_path: null
+  path: null
+  root: /r
+  text: no such file or directory
+- name: the root itself
+  code: EACCES
+  error_path: /r
+  path: null
+  root: /r
+  text: '.: permission denied'
+- name: outside the root is absolute
+  code: ENOENT
+  error_path: /elsewhere/a.yaml
+  path: null
+  root: /r
+  text: '/elsewhere/a.yaml: no such file or directory'
+- name: a sibling sharing the root's prefix is outside it
+  code: ENOENT
+  error_path: /rx/a.yaml
+  path: null
+  root: /r
+  text: '/rx/a.yaml: no such file or directory'
+- name: dot segments resolve lexically
+  code: ENOENT
+  error_path: /r/sub/../architecture/./index.yaml
+  path: null
+  root: /r/
+  text: 'architecture/index.yaml: no such file or directory'
+- name: leaving the root through dot segments
+  code: ENOENT
+  error_path: /r/../x.yaml
+  path: null
+  root: /r
+  text: '/x.yaml: no such file or directory'
+- name: a relative root and path resolve against the cwd
+  code: EACCES
+  error_path: repo/architecture
+  path: null
+  root: repo
+  text: 'architecture: permission denied'
+- name: a relative path outside the root
+  code: ENOENT
+  error_path: a.yaml
+  path: null
+  root: /r
+  text: '<CWD>/a.yaml: no such file or directory'

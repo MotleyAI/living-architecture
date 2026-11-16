@@ -8,7 +8,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
-from living_architecture.config.load import ConfigError
+from living_architecture.config.load import ConfigError, parse_config, read_config_text
 from living_architecture.contract import (
     YAMLError,
     canonical_repr,
@@ -64,14 +64,10 @@ def compare_versions(a: str, b: str) -> int:
 
 def read_committed(root: Path) -> Committed | None:
     """The committed file, None without one; ConfigError when it is unreadable, not YAML or not a mapping."""
-    path = root / config_file()
-    if not path.is_file():
+    text = read_config_text(root, config_file())
+    if text is None:
         return None
-    try:
-        text = path.read_bytes().decode("utf-8")
-        data = load_yaml(text)
-    except (OSError, UnicodeDecodeError, YAMLError) as exc:
-        raise ConfigError(f"{config_file()}: {exc}") from exc
+    data = parse_config(text, config_file())
     if data is not None and not isinstance(data, dict):
         raise ConfigError(f"{config_file()}: top level must be a mapping")
     return Committed(text=text, data=data)

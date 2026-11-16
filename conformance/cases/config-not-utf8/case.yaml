@@ -1,0 +1,8 @@
+kind: neutral
+command: la-config
+args:
+- show
+expect:
+  exit: 1
+golden: manual
+note: a config that is not valid UTF-8 is invalid YAML, never a crash

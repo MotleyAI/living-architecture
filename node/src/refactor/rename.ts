@@ -1,10 +1,10 @@
 // `dr-refactor rename`, `retarget` and `rename-map` for TypeScript: every entry resolved first, then each rename
 // rule once per old name over one session, one refusal report and one change set.
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import type * as TS from 'typescript';
 import { sourceFiles } from '../config/index.js';
-import { byCodePoint, literalValueForbidden, manifest, message } from '../contract/index.js';
+import { byCodePoint, literalValueForbidden, manifest, message, readFile } from '../contract/index.js';
 import { stripSourceExtension, ts } from '../lang/index.js';
 import { configFailures } from './baseline.js';
 import { type CheckEntry, identifierText, NameChecks } from './bindings.js';
@@ -110,7 +110,7 @@ class Session {
   text(path: string): string {
     let text = this.texts.get(path);
     if (text === undefined) {
-      text = this.sources.get(path)?.source.text ?? splitBom(readFileSync(path, 'utf8'))[1];
+      text = this.sources.get(path)?.source.text ?? splitBom(readFile(path, 'utf8'))[1];
       this.texts.set(path, text);
     }
     return text;
@@ -606,7 +606,7 @@ function checks(r: Refactor, resolution: Resolution): Refusal[] {
   const text = (rel: string): string => {
     let found = texts.get(rel);
     if (found === undefined) {
-      found = splitBom(readFileSync(join(r.root, rel), 'utf8'))[1];
+      found = splitBom(readFile(join(r.root, rel), 'utf8'))[1];
       texts.set(rel, found);
     }
     return found;

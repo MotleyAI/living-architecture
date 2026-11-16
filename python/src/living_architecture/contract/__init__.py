@@ -1,6 +1,12 @@
 """The shared contract, loaded from the vendored snapshot."""
 
 from living_architecture.contract.glob import glob_match
+from living_architecture.contract.os_error import (
+    display_path,
+    is_regular_file,
+    os_error_reason,
+    os_error_text,
+)
 from living_architecture.contract.regex import is_portable_regex
 from living_architecture.contract.render import canonical_repr, message, normalize, render_template
 from living_architecture.contract.schema import materialize_defaults, validate
@@ -40,9 +46,11 @@ __all__ = [
     "config_formats",
     "contract_hash",
     "conventions",
+    "display_path",
     "findings",
     "glob_match",
     "is_portable_regex",
+    "is_regular_file",
     "is_test_file",
     "language",
     "language_ids",
@@ -54,6 +62,8 @@ __all__ = [
     "materialize_defaults",
     "message",
     "normalize",
+    "os_error_reason",
+    "os_error_text",
     "render_template",
     "schema",
     "script_path",

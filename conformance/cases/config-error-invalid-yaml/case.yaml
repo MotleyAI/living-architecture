@@ -4,8 +4,4 @@ args:
 - show
 expect:
   exit: 1
-  stdout: ''
-  stderr:
-    contains:
-    - living-architecture.yaml
-note: config validation wording is not part of the contract; exit code and offending key are
+note: invalid YAML in the config prints the yaml.invalid text, never the parser's wording
