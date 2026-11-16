@@ -414,15 +414,19 @@ class BindingCheck:
             self._inert[rel] = frozenset(span for n in nodes if (span := source.name_span(n)) is not None)
         return self._inert[rel]
 
+    def _stars(self, rel: str) -> list[str]:
+        """The project modules `rel` star-imports."""
+        parsed = self.world.parsed(rel) if may_name(_STAR, self.before(rel)) else None
+        found = (self.world.find(dotted) for dotted, _ in parsed.stars) if parsed is not None else ()
+        return [module for module in found if module is not None]
+
     def _star_importers(self) -> dict[str, list[str]]:
         """Each project module's star importers."""
         if self._importers is None:
             out: defaultdict[str, list[str]] = defaultdict(list)
             for rel in self.files:
-                parsed = self.world.parsed(rel) if may_name(_STAR, self.before(rel)) else None
-                for dotted, _ in parsed.stars if parsed is not None else []:
-                    if (found := self.world.find(dotted)) is not None:
-                        out[found].append(rel)
+                for module in self._stars(rel):
+                    out[module].append(rel)
             self._importers = dict(out)
         return self._importers
 

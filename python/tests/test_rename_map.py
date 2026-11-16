@@ -128,6 +128,19 @@ def test_another_entrys_rewrite_is_no_leftover(
     ]
 
 
+def test_another_entrys_literal_rewrite_is_no_leftover(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    states = 'from typing import Literal\n\nA = Literal["ready", "x"]\nB = Literal["ready", "y"]\n'
+    root = _project(tmp_path, {"pkg/states.py": states}, [
+        {"file": "pkg/states.py", "symbol": "A['ready']", "new_name": "done"},
+        {"file": "pkg/states.py", "symbol": "B['ready']", "new_name": "set"},
+    ])
+    code, _out, err = run(root, _rename_map(), monkeypatch, capsys)
+    assert (code, err) == (0, "")
+    assert read(root, "pkg/states.py") == states.replace('"ready", "x"', '"done", "x"').replace('"ready", "y"', '"set", "y"')
+
+
 TWO_MEMBERS = """\
 class Storage:
     def get_model(self) -> int:

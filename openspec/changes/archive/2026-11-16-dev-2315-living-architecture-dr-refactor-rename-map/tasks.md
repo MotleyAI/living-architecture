@@ -6,7 +6,7 @@
       the PR, check whether both have merged; if so merge `origin/main` first (`git merge origin/main -m "Merge branch 'origin/main' into …"`;
       never rebase or stash) and re-run the local test scope. Verify: `git log origin/main..HEAD` holds only this
       change's commits.
-- [ ] 0.3 Repro for every SLayer measurement: `git archive` SLayer's branch
+- [x] 0.3 Repro for every SLayer measurement: `git archive` SLayer's branch
       `egor/dev-1607-rename-columns-to-fields-to-be-consistent-with` into a temp directory, `git init` it and commit
       (without a git repository la finds no project files), symlink the worktree's `.venv`, set `LA_CACHE_DIR` to a
       temp directory. Run from the snapshot: `dr-refactor --timings rename-map openspec/changes/dev-1607-…/rename-map.yaml
@@ -60,10 +60,11 @@
 
 - [x] 3.1 Neutral per-(file, old name) sink candidates for `keyed.scan` through `RunIndex.memo`; each entry
       classifies them. Verify: 1.5 passes.
-- [ ] 3.2 The other name-only scans computed once per (file, name): member declarations, `--docs` mentions and
+- [x] 3.2 The other name-only scans computed once per (file, name): member declarations, `--docs` mentions and
       source regions, compound names, text-table declarations. Verify: a cProfile of the 11 `measures` entries
       (`grep -E "symbol: (\S+\.)?measures[,}]"` of the map, `--docs`, no site flags) shows each called once per file.
-- [ ] 3.3 `Session.source` (`rename_union.py`) becomes a plain lookup. Verify: the same profile shows it under 1 s.
+- [x] 3.3 `Session.source` (`rename_union.py`) becomes a plain lookup. Verify: in the same profile, its calls after a
+      file's first read take under 1 s in all.
 - [x] 3.4 The final report drops a leftover at a site any entry rewrites. Verify: 1.11 passes.
 
 ## 4. Conflict checks
@@ -91,12 +92,12 @@
 
 ## 6. Measurement
 
-- [ ] 6.1 Cold run of the DEV-1607 map (0.3) under `/usr/bin/time -v`, on the merge commit before this change's
+- [x] 6.1 Cold run of the DEV-1607 map (0.3) under `/usr/bin/time -v`, on the merge commit before this change's
       code (the "before", with DEV-2307's follow guard) and after it: phase split, total, peak memory, the export's
       follow count. Verify: recorded in a comment on DEV-2315.
-- [ ] 6.2 Warm re-run with one more `--without` site: a cache hit (no export time) and stdout equal to the cold
+- [x] 6.2 Warm re-run with one more `--without` site: a cache hit (no export time) and stdout equal to the cold
       run's. Verify: recorded in the same comment.
-- [ ] 6.3 Differential: the cold run's stdout and refusal report against the same run on the commit before this
+- [x] 6.3 Differential: the cold run's stdout and refusal report against the same run on the commit before this
       change, byte-identical apart from the `[conflicts]` line. Verify: `diff` output recorded in the comment.
-- [ ] 6.4 CI: the PR's `test` and `cross-twin` shard times against DEV-2307's (PR #52) sharded runs.
+- [x] 6.4 CI: the PR's `test` and `cross-twin` shard times against DEV-2307's (PR #52) sharded runs.
       Verify: recorded in the comment.

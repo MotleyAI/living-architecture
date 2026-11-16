@@ -1,0 +1,2 @@
+- {file: pkg/a.py, symbol: Base.items, new_name: rows}
+- {file: pkg/a.py, symbol: Client.items, new_name: rows}
