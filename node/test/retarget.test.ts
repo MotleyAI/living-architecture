@@ -303,6 +303,11 @@ describe('retarget import planner', () => {
       "import { CONST, Flight } from './compat';\n\nexport const c = CONST;\nexport let f: Flight | undefined;\n",
       "import { CONST } from './compat';\nimport type { Facade } from './core';\n\nexport const c = CONST;\nexport let f: Facade | undefined;\n",
     ],
+    [
+      'makes a type-only specifier of the target a value import for a value use',
+      "import { type Facade } from './core';\nimport { Flight } from './compat';\n\nexport const x: Facade = new Flight();\n",
+      "import { Facade } from './core';\n\nexport const x: Facade = new Facade();\n",
+    ],
   ])('places the target import: %s', (_kind, use, expected) => {
     const root = tsProject({ 'src/core.ts': CORE, 'src/compat.ts': COMPAT, 'src/use.ts': use });
     expect([retargetFlight(root).code, read(root, 'src/use.ts')]).toEqual([0, expected]);
@@ -376,6 +381,29 @@ describe('retarget import planner', () => {
     });
     expect(refactor(root, '--apply', 'rename-map', 'map.yaml').code).toBe(0);
     expect(read(root, 'src/use.ts')).toBe("import { CONST } from './compat';\nimport { Facade, Part } from './core';\n\nexport const x = [CONST, new Facade(), new Part()];\n");
+    expect(diagnosticCodes(root)).toEqual([]);
+  });
+
+  it('keeps a default import beside the alias it drops', () => {
+    const use = "import one, { Flight } from './compat';\n\nexport const x = [one, new Flight()];\n";
+    const root = tsProject({ 'src/core.ts': CORE, 'src/compat.ts': `${COMPAT}\nexport default 1;\n`, 'src/use.ts': use });
+    expect(retargetFlight(root).code).toBe(0);
+    expect(read(root, 'src/use.ts')).toBe("import one from './compat';\nimport { Facade } from './core';\n\nexport const x = [one, new Facade()];\n");
+    expect(diagnosticCodes(root)).toEqual([]);
+  });
+
+  it('splits a type-only clause that a value name joins', () => {
+    const root = tsProject({
+      'src/core.ts': CORE,
+      'src/compat.ts': COMPAT,
+      'src/use.ts': "import type { Flight } from './compat';\nimport { OldPart } from './compat';\n\nexport let f: Flight | undefined;\nexport const p = new OldPart();\n",
+      'map.yaml': mapYaml([
+        { file: 'src/compat.ts', symbol: 'Flight', retarget: 'Facade' },
+        { file: 'src/compat.ts', symbol: 'OldPart', retarget: 'Part' },
+      ]),
+    });
+    expect(refactor(root, '--apply', 'rename-map', 'map.yaml').code).toBe(0);
+    expect(read(root, 'src/use.ts')).toBe("import { type Facade, Part } from './core';\n\nexport let f: Facade | undefined;\nexport const p = new Part();\n");
     expect(diagnosticCodes(root)).toEqual([]);
   });
 

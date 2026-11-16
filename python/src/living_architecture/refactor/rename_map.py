@@ -36,6 +36,7 @@ from living_architecture.refactor.python_source import SourceFile
 from living_architecture.refactor.rename_union import RenameOptions, Session, SymbolRename, _normalize
 from living_architecture.refactor.retarget import (
     AliasRetarget,
+    Location,
     TargetHome,
     attribute_definition,
     definition,
@@ -226,14 +227,21 @@ class RenameMap:
             return
         found = definition(target.old_pyname)
         if imported:
-            stmt = _import_of(source, target_scope[1])
-            if stmt is None:
-                raise refused
-            exported = target_scope[1].name  # pyright: ignore[reportAttributeAccessIssue]
-            module = imported_module(self.session, rel, stmt)
+            self._imported_home(resolved, source, target_scope[1], found, refused)
         else:
-            exported, module = resolved.target_name, module_name(self.session, rel)
-        resolved.home = TargetHome(module=module, exported=exported, local=resolved.target_name, definition=found)
+            resolved.home = TargetHome(module=module_name(self.session, rel), exported=resolved.target_name,
+                                       local=resolved.target_name, definition=found)
+
+    def _imported_home(self, resolved: _Resolved, source: SourceFile, node: ast.AST, found: Location | None,
+                       refused: LocatorError) -> None:
+        """The home of a target the alias's module imports by `node`; the target keyed by its home's declaration."""
+        stmt = _import_of(source, node)
+        if stmt is None or not isinstance(node, ast.alias):
+            raise refused
+        if resolved.target_key is not None and resolved.target_key[0] == "name":
+            resolved.target_key = (*resolved.target_key[:3], node.name)
+        resolved.home = TargetHome(module=imported_module(self.session, resolved.rel, stmt), exported=node.name,
+                                   local=resolved.target_name, definition=found)
 
     def _reexport_target(self, resolved: _Resolved, source: SourceFile, alias_scope: tuple[ast.AST, ast.AST], line: int,
                          refused: LocatorError) -> None:
@@ -276,18 +284,23 @@ class RenameMap:
             elif r.renamer is None:
                 raise RefactorError(message(_CANNOT_RENAME))
             elif r.entry.retarget is not None:
-                final = finals.get(r.target_key)  # pyright: ignore[reportArgumentType]
-                target = final or r.target_name
-                home = r.home
-                if home is not None and final is not None:
-                    home = home.model_copy(update={
-                        "exported": final if home.exported == r.target_name else home.exported,
-                        "local": final if home.local == r.target_name else home.local})
-                renames.append(AliasRetarget(self.session, r.renamer, target, self.options, line=r.line, home=home,
-                                             own=r.own, original=r.target_name, entry=r.entry.index))
+                renames.append(self._retarget(r, finals.get(r.target_key)))  # pyright: ignore[reportArgumentType]
             else:
                 renames.append(SymbolRename(self.session, r.renamer, str(r.entry.new_name), self.options))
         return renames
+
+    def _retarget(self, r: _Resolved, final: str | None) -> AliasRetarget:
+        """`r`'s retarget, `final` the new name of its target where another entry renames it: under an import `as`
+        another name only the home's export is renamed, the local name stays."""
+        assert r.renamer is not None
+        home, target = r.home, r.target_name
+        if final is not None and (home is None or home.exported == home.local):
+            target = final
+            home = home.model_copy(update={"exported": final, "local": final}) if home is not None else None
+        elif final is not None and home is not None:
+            home = home.model_copy(update={"exported": final})
+        return AliasRetarget(self.session, r.renamer, target, self.options, line=r.line, home=home, own=r.own,
+                             original=r.target_name, entry=r.entry.index)
 
     def compute(self, renames: list[Renaming]) -> None:
         active = [r for r in renames if r.new != r.old]

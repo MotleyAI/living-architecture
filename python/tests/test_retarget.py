@@ -445,3 +445,54 @@ def test_a_later_import_of_the_target_in_the_block_is_removed(
     use = "from pkg.compat import CONST, AcmeModel\nfrom pkg.core import Model\n\nx = CONST, AcmeModel(), Model\n"
     root = _imported(tmp_path, monkeypatch, capsys, {"pkg/use.py": use})
     assert read(root, "pkg/use.py") == "from pkg.compat import CONST\nfrom pkg.core import Model\n\nx = CONST, Model(), Model\n"
+
+
+def test_a_package_level_relative_import_keeps_its_separator(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = write_project(tmp_path / "proj", {
+        "pkg/core.py": CORE,
+        "pkg/__init__.py": "from pkg.core import Model\n\nAcmeModel = Model\n",
+        "pkg/x.py": "from . import AcmeModel\n\nx = AcmeModel()\n",
+    })
+    code, _out, err = run(root, _retarget("pkg/__init__.py", "AcmeModel", "Model"), monkeypatch, capsys)
+    assert (code, err) == (0, "")
+    assert read(root, "pkg/x.py") == "from .core import Model\n\nx = Model()\n"
+
+
+@pytest.mark.parametrize(("use", "expected"), [
+    ("def f() -> object:\n    if True: from pkg.compat import CONST, AcmeModel\n    else: return None\n    return CONST, AcmeModel()\n",
+     ("def f() -> object:\n    if True: from pkg.compat import CONST; from pkg.core import Model\n    else: return None\n"
+      "    return CONST, Model()\n")),
+    ("from pkg.compat import CONST, AcmeModel; x = CONST, AcmeModel()\n",
+     "from pkg.compat import CONST; from pkg.core import Model; x = CONST, Model()\n"),
+], ids=["after a compound statement's header", "before a later statement"])
+def test_an_import_sharing_its_line_gets_the_target_import_beside_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], use: str, expected: str
+) -> None:
+    root = _imported(tmp_path, monkeypatch, capsys, {"pkg/use.py": use})
+    assert read(root, "pkg/use.py") == expected
+
+
+def test_a_module_attribute_of_a_target_without_a_definition_is_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = write_project(tmp_path / "proj", {
+        "pkg/compat.py": "from itertools import chain\n\nAcmeChain = chain\n",
+        "pkg/shim.py": "from pkg.compat import AcmeChain\n",
+        "pkg/use.py": "import pkg.shim\n\nx = pkg.shim.AcmeChain()\n",
+    })
+    before = file_tree(root)
+    unbound = message("refactor.retarget-unbound", path="pkg/use.py", line=3, module="pkg/shim.py", name="chain")
+    assert run(root, _retarget("pkg/compat.py", "AcmeChain", "chain"), monkeypatch, capsys) == (1, "", f"{unbound}\n")
+    assert file_tree(root) == before
+
+
+def test_a_function_binding_the_target_later_gets_its_own_import(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    use = ("from pkg.core import Model\n\n\ndef f() -> object:\n    from pkg.compat import AcmeModel\n    value = AcmeModel()\n"
+           "    from pkg.core import Model\n    return value, Model\n")
+    root = _imported(tmp_path, monkeypatch, capsys, {"pkg/use.py": use})
+    assert read(root, "pkg/use.py") == ("from pkg.core import Model\n\n\ndef f() -> object:\n    from pkg.core import Model\n"
+                                        "    value = Model()\n    return value, Model\n")

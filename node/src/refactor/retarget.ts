@@ -164,15 +164,15 @@ function settle(target: Retarget, home: Home | null, identity: string[], name: s
   return identity[0];
 }
 
-/** The target's final name where another entry renames it, in its home too. */
+/** The target's final name where another entry renames it, in its home too; under an import `as` another name only
+ * the home's export is renamed, the local name stays. */
 export function rename(target: Retarget, final: string): void {
-  if (target.home !== null) {
-    target.home = {
-      ...target.home,
-      exported: target.home.exported === target.original ? final : target.home.exported,
-      local: target.home.local === target.original ? final : target.home.local,
-    };
+  const home = target.home;
+  if (home !== null && home.exported !== home.local) {
+    target.home = { ...home, exported: final };
+    return;
   }
+  if (home !== null) target.home = { ...home, exported: final, local: final };
   target.newName = final;
 }
 
@@ -214,21 +214,32 @@ function bindingOf(checker: TS.TypeChecker, node: TS.Node): TS.ImportSpecifier |
   return found !== undefined && inImport(found) ? found : null;
 }
 
-/** The removal of `specifier` from its list, or of its whole import declaration (and its line) when it binds nothing else. */
+/** The removal of a whole import declaration, with its line when nothing else shares it. */
+function declarationRemoval(source: TS.SourceFile, declaration: TS.ImportDeclaration): Edit {
+  const text = source.text;
+  const [start, end] = [declaration.getStart(source), declaration.end];
+  const lineStart = text.lastIndexOf('\n', start - 1) + 1;
+  const newline = text.indexOf('\n', end);
+  const lineEnd = newline === -1 ? text.length : newline + 1;
+  const alone = text.slice(lineStart, start).trim() === '' && text.slice(end, lineEnd).trim() === '';
+  return alone ? { path: source.fileName, start: lineStart, length: lineEnd - lineStart, newText: '' } : { path: source.fileName, start, length: end - start, newText: '' };
+}
+
+/** The removal of `specifier` from its list; of the list after a default import that stays; or of the whole import
+ * declaration when it binds nothing else. */
 export function removeSpecifiers(source: TS.SourceFile, declaration: TS.ImportDeclaration, removed: Set<TS.ImportSpecifier>): Edit[] {
   const clause = declaration.importClause;
   const bindings = clause?.namedBindings;
-  if (bindings === undefined || !ts().isNamedImports(bindings)) return [];
+  if (clause === undefined || bindings === undefined || !ts().isNamedImports(bindings)) return [];
   const elements = bindings.elements;
-  if (elements.every((e) => removed.has(e)) && clause?.name === undefined) {
-    const text = source.text;
-    const [start, end] = [declaration.getStart(source), declaration.end];
-    const lineStart = text.lastIndexOf('\n', start - 1) + 1;
-    const newline = text.indexOf('\n', end);
-    const lineEnd = newline === -1 ? text.length : newline + 1;
-    const alone = text.slice(lineStart, start).trim() === '' && text.slice(end, lineEnd).trim() === '';
-    return [alone ? { path: source.fileName, start: lineStart, length: lineEnd - lineStart, newText: '' } : { path: source.fileName, start, length: end - start, newText: '' }];
+  if (elements.every((e) => removed.has(e))) {
+    if (clause.name === undefined) return [declarationRemoval(source, declaration)];
+    return [{ path: source.fileName, start: clause.name.end, length: bindings.end - clause.name.end, newText: '' }];
   }
+  return listRemovals(source, elements, removed);
+}
+
+function listRemovals(source: TS.SourceFile, elements: TS.NodeArray<TS.ImportSpecifier>, removed: Set<TS.ImportSpecifier>): Edit[] {
   const edits: Edit[] = [];
   for (let i = 0; i < elements.length; ) {
     if (!removed.has(elements[i] as TS.ImportSpecifier)) {
@@ -238,7 +249,8 @@ export function removeSpecifiers(source: TS.SourceFile, declaration: TS.ImportDe
     let j = i;
     while (j < elements.length && removed.has(elements[j] as TS.ImportSpecifier)) j += 1;
     const next = elements[j];
-    const [start, end] = next !== undefined ? [(elements[i] as TS.ImportSpecifier).getStart(source), next.getStart(source)] : [(elements[i - 1] as TS.ImportSpecifier).end, (elements[j - 1] as TS.ImportSpecifier).end];
+    const start = next === undefined ? (elements[i - 1] as TS.ImportSpecifier).end : (elements[i] as TS.ImportSpecifier).getStart(source);
+    const end = next === undefined ? (elements[j - 1] as TS.ImportSpecifier).end : next.getStart(source);
     edits.push({ path: source.fileName, start, length: end - start, newText: '' });
     i = j;
   }
@@ -293,7 +305,7 @@ function reexportSpans(source: TS.SourceFile, name: string): [number, number][] 
 class Sites {
   readonly refusals: Finding[] = [];
   readonly needs: Need[] = [];
-  private moving = new Set<TS.ImportSpecifier>();
+  private readonly moving = new Set<TS.ImportSpecifier>();
 
   constructor(
     private readonly session: RetargetSession,
@@ -366,17 +378,13 @@ class Sites {
   /** Whether the anchor's block binds `local` to the target (in the meaning needed) at or before `anchor`; the later
    * imports of the target under `local`. */
   private bindings(found: ProjectSource, anchor: TS.ImportDeclaration, local: string, type: boolean): [boolean, TS.ImportSpecifier[]] {
-    const { checker } = found;
     const block = anchor.parent as TS.SourceFile | TS.ModuleBlock;
     const at = block.statements.indexOf(anchor);
     let bound = false;
     const later: TS.ImportSpecifier[] = [];
     for (const [i, statement] of block.statements.entries()) {
       if (ts().isImportDeclaration(statement)) {
-        const bindings = statement.importClause?.namedBindings;
-        const named = bindings !== undefined && ts().isNamedImports(bindings) ? bindings.elements : [];
-        for (const e of named) {
-          if (e.name.text !== local || (e.propertyName ?? e.name).text === this.target.old || !this.isTarget(checker, checker.getSymbolAtLocation(e.name))) continue;
+        for (const e of this.targetImports(found.checker, statement, local)) {
           if (i <= at && (type || !isTypeOnly(e))) bound = true;
           else if (i > at) later.push(e);
         }
@@ -385,6 +393,13 @@ class Sites {
       }
     }
     return [bound, bound ? [] : later];
+  }
+
+  /** The specifiers of `statement` importing the target as `local`, other than through the alias. */
+  private targetImports(checker: TS.TypeChecker, statement: TS.ImportDeclaration, local: string): TS.ImportSpecifier[] {
+    const bindings = statement.importClause?.namedBindings;
+    const named = bindings !== undefined && ts().isNamedImports(bindings) ? bindings.elements : [];
+    return named.filter((e) => e.name.text === local && (e.propertyName ?? e.name).text !== this.target.old && this.isTarget(checker, checker.getSymbolAtLocation(e.name)));
   }
 
   private declares(statement: TS.Statement, local: string): boolean {
@@ -411,8 +426,7 @@ class Sites {
    * otherwise. Any other member access is rewritten. */
   private member(found: ProjectSource, edit: Edit, node: TS.Node): Edit[] {
     const { checker } = found;
-    const parent = node.parent;
-    const receiver = ts().isPropertyAccessExpression(parent) && parent.name === node ? parent.expression : ts().isQualifiedName(parent) && parent.right === node ? parent.left : undefined;
+    const receiver = receiverOf(node);
     const module = receiver === undefined ? undefined : followed(checker, checker.getSymbolAtLocation(receiver));
     const declaration = module?.valueDeclaration ?? module?.declarations?.[0];
     if (module === undefined || declaration === undefined || !ts().isSourceFile(declaration)) return [edit];
@@ -420,6 +434,14 @@ class Sites {
     this.refusals.push(this.session.finding(edit.path, edit.start, 'refactor.retarget-unbound', { module: this.session.r.rel(declaration.fileName), name: this.target.newName }));
     return [];
   }
+}
+
+/** What member name `node` is accessed on. */
+function receiverOf(node: TS.Node): TS.Node | undefined {
+  const parent = node.parent;
+  if (ts().isPropertyAccessExpression(parent) && parent.name === node) return parent.expression;
+  if (ts().isQualifiedName(parent) && parent.right === node) return parent.left;
+  return undefined;
 }
 
 /** A retarget's rename locations checked and adjusted: overrides, shadowed and unbound names as findings; its
@@ -487,16 +509,8 @@ class FilePlan {
   }
 
   plan(): EntryEdit[] {
-    const ordered = this.needs.toSorted((a, b) => a.anchor.getStart(this.source) - b.anchor.getStart(this.source) || (a.leaving?.getStart(this.source) ?? 0) - (b.leaving?.getStart(this.source) ?? 0));
-    const blocks = new Map<TS.Node, Map<string, Need[]>>();
-    for (const need of ordered) {
-      const homes = blocks.get(need.anchor.parent) ?? new Map<string, Need[]>();
-      const key = need.home.file ?? need.home.specifier ?? '';
-      homes.set(key, [...(homes.get(key) ?? []), need]);
-      blocks.set(need.anchor.parent, homes);
-    }
     const duplicates = new Map<TS.ImportSpecifier, number>();
-    for (const homes of blocks.values()) {
+    for (const homes of this.blocks().values()) {
       for (const group of homes.values()) {
         const binding = group.filter((n) => n.bind);
         if (binding.length === 0) continue;
@@ -504,6 +518,26 @@ class FilePlan {
         for (const n of binding) for (const d of n.duplicates) duplicates.set(d, n.entry);
       }
     }
+    this.removeLeaving(duplicates);
+    return this.edits;
+  }
+
+  /** The needs by block, then by home, in source order. */
+  private blocks(): Map<TS.Node, Map<string, Need[]>> {
+    const position = (node: TS.Node | null): number => node?.getStart(this.source) ?? 0;
+    const ordered = this.needs.toSorted((a, b) => position(a.anchor) - position(b.anchor) || position(a.leaving) - position(b.leaving));
+    const blocks = new Map<TS.Node, Map<string, Need[]>>();
+    for (const need of ordered) {
+      const homes = blocks.get(need.anchor.parent) ?? new Map<string, Need[]>();
+      const key = need.home.file ?? need.home.specifier ?? '';
+      homes.set(key, [...(homes.get(key) ?? []), need]);
+      blocks.set(need.anchor.parent, homes);
+    }
+    return blocks;
+  }
+
+  /** The alias dropped from each import not replaced in place, and the `duplicates` removed. */
+  private removeLeaving(duplicates: Map<TS.ImportSpecifier, number>): void {
     const removals = new Map<TS.ImportDeclaration, Map<TS.ImportSpecifier, number>>();
     const remove = (specifier: TS.ImportSpecifier, entry: number): void => {
       const declaration = declarationOf(specifier);
@@ -515,7 +549,6 @@ class FilePlan {
       const entry = Math.min(...removed.values());
       this.edits.push(...removeSpecifiers(this.source, declaration, new Set(removed.keys())).map((e) => ({ ...e, entry })));
     }
-    return this.edits;
   }
 
   /** The names a group binds, each type-only when every need of it is. */
@@ -577,14 +610,25 @@ class FilePlan {
     return !this.inPlace.has(declaration) && declaration.importClause?.name === undefined && elements.length > 0 && elements.every(sameHome);
   }
 
+  /** `names` joined to `declaration`; a type-only specifier of one a value use needs made a value import. */
   private append(declaration: TS.ImportDeclaration, names: { exported: string; local: string; type: boolean }[]): void {
     const elements = this.elements(declaration);
-    const present = new Set(elements.map((e) => `${(e.propertyName ?? e.name).text}\0${e.name.text}`));
     const typeOnly = declaration.importClause?.isTypeOnly === true;
-    const added = names.filter((n) => !present.has(`${n.exported}\0${n.local}`)).map((n) => `${n.type && !typeOnly ? 'type ' : ''}${named(n.exported, n.local)}`);
+    const added: string[] = [];
+    for (const n of names) {
+      const present = elements.find((e) => (e.propertyName ?? e.name).text === n.exported && e.name.text === n.local);
+      if (present === undefined) added.push(`${n.type && !typeOnly ? 'type ' : ''}${named(n.exported, n.local)}`);
+      else if (present.isTypeOnly && !n.type) this.dropType(present, present.propertyName ?? present.name);
+    }
     if (added.length === 0) return;
-    const end = (elements[elements.length - 1] as TS.ImportSpecifier).end;
+    const end = (elements.at(-1) as TS.ImportSpecifier).end;
     this.push({ path: this.source.fileName, start: end, length: 0, newText: added.map((a) => `, ${a}`).join('') });
+  }
+
+  /** The `type` modifier of `node` removed, up to `next`, the token after it. */
+  private dropType(node: TS.Node, next: TS.Node): void {
+    const start = node.getStart(this.source);
+    this.push({ path: this.source.fileName, start, length: next.getStart(this.source) - start, newText: '' });
   }
 
   private spell(declaration: TS.ImportDeclaration, home: Home): string {
@@ -606,17 +650,24 @@ class FilePlan {
     const specifier = declaration.moduleSpecifier;
     this.push({ path, start: specifier.getStart(this.source) + 1, length: specifier.getWidth(this.source) - 2, newText: this.spell(declaration, home) });
     const clause = declaration.importClause as TS.ImportClause;
-    if (names.every((n) => n.type) && !clause.isTypeOnly) this.push({ path, start: clause.getStart(this.source), length: 0, newText: 'type ' });
+    const allType = names.every((n) => n.type);
+    if (allType && !clause.isTypeOnly) this.push({ path, start: clause.getStart(this.source), length: 0, newText: 'type ' });
+    // A value name joining a type-only clause: the clause made a value import, its type-only names marked one by one.
+    const split = clause.isTypeOnly && !allType;
+    if (split) this.dropType(clause, clause.namedBindings as TS.NamedImports);
+    const keyOfName = (exported: string, local: string): string => `${exported}\0${local}`;
+    const typed = (key: string): string => (split && names.find((n) => keyOfName(n.exported, n.local) === key)?.type === true ? 'type ' : '');
     const written = new Set<string>();
     for (const e of elements) {
       const need = this.leaving.get(e) as Need;
       const property = e.propertyName ?? e.name;
-      const text = e.propertyName !== undefined ? need.home.exported : named(need.home.exported, need.local);
-      this.push({ path, start: property.getStart(this.source), length: property.getWidth(this.source), newText: text }, need.entry);
-      written.add(`${need.home.exported}\0${need.local}`);
+      const key = keyOfName(need.home.exported, need.local);
+      const text = e.propertyName === undefined ? named(need.home.exported, need.local) : need.home.exported;
+      this.push({ path, start: property.getStart(this.source), length: property.getWidth(this.source), newText: typed(key) + text }, need.entry);
+      written.add(key);
     }
-    const rest = names.filter((n) => !written.has(`${n.exported}\0${n.local}`)).map((n) => named(n.exported, n.local));
-    if (rest.length > 0) this.push({ path, start: (elements[elements.length - 1] as TS.ImportSpecifier).end, length: 0, newText: rest.map((r) => `, ${r}`).join('') });
+    const rest = names.filter((n) => !written.has(keyOfName(n.exported, n.local))).map((n) => typed(keyOfName(n.exported, n.local)) + named(n.exported, n.local));
+    if (rest.length > 0) this.push({ path, start: (elements.at(-1) as TS.ImportSpecifier).end, length: 0, newText: rest.map((r) => `, ${r}`).join('') });
   }
 
   private insertAfter(anchor: TS.ImportDeclaration, need: Need, names: { exported: string; local: string; type: boolean }[]): void {
@@ -633,7 +684,8 @@ class FilePlan {
     const statement = `${indent}import ${allType ? 'type ' : ''}{ ${list} } from ${quote}${this.spell(anchor, need.home)}${quote}${semicolon}`;
     const newline = text.indexOf('\n', anchor.end);
     const crlf = newline > 0 && text[newline - 1] === '\r';
-    const at = newline === -1 ? text.length : newline - (crlf ? 1 : 0);
+    let at = text.length;
+    if (newline !== -1) at = crlf ? newline - 1 : newline;
     this.push({ path: source.fileName, start: at, length: 0, newText: `${crlf ? '\r\n' : '\n'}${statement}` });
   }
 }

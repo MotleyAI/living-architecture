@@ -1,0 +1,13 @@
+kind: paired
+languages:
+- python
+- typescript
+command: dr-refactor
+args:
+- rename-map
+- renames.yaml
+git:
+- commit: init
+expect:
+  exit: 0
+note: 'a retarget to a target imported under another name, beside a rename of the target in its home: the added imports name the new export, the local name stays'

@@ -477,7 +477,8 @@ class _Judge:
     def _verdict(self, rel: str, old: Occurrence, new: Occurrence) -> list[Conflict]:
         site = (rel, old.offset)
         before = self.before.meaning(rel, old.scope, old.name, old.read_at)
-        after = self._through_retargets(self.after.meaning(self._moved(rel), new.scope, new.name, new.read_at), new.name)
+        meaning = self.after.meaning(self._moved(rel), new.scope, new.name, new.read_at)
+        after = self._through_retargets(meaning, new.name, rel, new.scope)
         entry = self.rewritten.get(site)
         if entry is not None:
             return self._rewritten_verdict(rel, old, new, entry, before, after)
@@ -522,17 +523,26 @@ class _Judge:
                  for o in parsed.sites.get((s, new.name), [])]
         return [s for s in sites if s not in self.declared]
 
-    def _through_retargets(self, meaning: Meaning, name: str) -> Meaning:
-        """`meaning` of `name` with each binding a retarget rewrote replaced by what its target meant there, and each
-        it adds (only where nothing in its scope bound the target) by what `name` meant in its module."""
+    def _through_retargets(self, meaning: Meaning, name: str, rel: str, scope: Scope) -> Meaning:
+        """`meaning` of `name`, read in `scope` of `rel`, with each binding a retarget rewrote replaced by what its
+        target meant there, and each it adds by what `name` meant before in the scope the import binds it in."""
         out: Meaning = {}
         for decl, shown in meaning.items():
             if self._added(decl):
-                parsed = self.before.parsed(decl[0])
-                out |= self.before.meaning(decl[0], parsed.module.scope, name) if parsed is not None else {}
+                out |= self._added_meaning(decl[0], name, scope if decl[0] == rel else None)
             else:
                 out |= self.retargeted.get(decl, {decl: shown})
         return out
+
+    def _added_meaning(self, rel: str, name: str, scope: Scope | None) -> Meaning:
+        """What `name` meant before the edits in the scope of `rel` that resolves it from `scope` (the module when
+        None); the edits add or remove no scope, so a scope's place in its module's list matches it across them."""
+        old, new = self.before.parsed(rel), self.after.parsed(self._moved(rel))
+        if old is None:
+            return {}
+        owner = scope.resolving(name) if scope is not None else None
+        index = next((i for i, s in enumerate(new.scopes) if s is owner), 0) if new is not None else 0
+        return self.before.meaning(rel, old.scopes[index], name)
 
     def _added(self, site: Site) -> bool:
         """`site` is in the new text of an import a retarget adds, which maps into the span it replaces."""

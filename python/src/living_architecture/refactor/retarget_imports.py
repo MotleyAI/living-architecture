@@ -18,7 +18,17 @@ from living_architecture.refactor.retarget import (
 )
 from living_architecture.refactor.text_edits import TextEdit
 
-_FROM = re.compile(r"from\s+((?:\.\s*)*[\w.]*)\s*import\b")
+_FROM = re.compile(r"from\s+")
+_IMPORT = re.compile(r"\bimport\b")
+
+
+def module_span(text: str, start: int) -> tuple[int, int]:
+    """The module spelling of the `from ... import` statement at `start`, without the whitespace around it."""
+    head = _FROM.match(text, start)
+    assert head is not None
+    keyword = _IMPORT.search(text, head.end())
+    assert keyword is not None
+    return head.end(), head.end() + len(text[head.end():keyword.start()].rstrip())
 
 
 def spelled(home: str, package: str, relative: bool) -> str:
@@ -27,7 +37,9 @@ def spelled(home: str, package: str, relative: bool) -> str:
         return home
     pkg, parts = package.split(".") if package else [], home.split(".")
     common = 0
-    while common < min(len(pkg), len(parts)) and pkg[common] == parts[common]:
+    for ours, theirs in zip(pkg, parts):
+        if ours != theirs:
+            break
         common += 1
     return home if common == 0 else "." * (len(pkg) - common + 1) + ".".join(parts[common:])
 
@@ -133,10 +145,9 @@ class _File:
         """`stmt`'s module and names rewritten in place; names it lacks appended."""
         assert isinstance(stmt, ast.ImportFrom)
         self.in_place.add(id(stmt))
-        m = _FROM.match(self.source.text, self.source.span(stmt)[0])
-        assert m is not None
+        start, end = module_span(self.source.text, self.source.span(stmt)[0])
         home = spelled(module, package_of(self.session, self.rel), stmt.level > 0)
-        self._push(TextEdit(path=self.rel, start=m.start(1), end=m.end(1), new_text=home))
+        self._push(TextEdit(path=self.rel, start=start, end=end, new_text=home))
         written: set[tuple[str, str]] = set()
         for alias in stmt.names:
             need = self.leaving[id(alias)]
@@ -150,19 +161,22 @@ class _File:
             self._push(TextEdit(path=self.rel, start=end, end=end, new_text="".join(f", {_named(*p)}" for p in rest)))
 
     def _insert_after(self, anchor: ast.stmt, module: str, names: list[tuple[str, str]]) -> None:
-        """A new import statement on the line after `anchor`, at its indentation."""
+        """A new import statement on the line after `anchor`, at its indentation; right after it, `;`-separated, where
+        `anchor` shares its line with a compound statement's header or a later statement."""
         source = self.source
         line_start = source.line_start(anchor.lineno)
-        start = source.offset(anchor.lineno, anchor.col_offset)
+        start, end = source.span(anchor)
         head = source.text[line_start:start]
-        indent = head if not head.strip() else head[: len(head) - len(head.lstrip())]
         relative = isinstance(anchor, ast.ImportFrom) and anchor.level > 0
         home = spelled(module, package_of(self.session, self.rel), relative)
-        statement = f"{indent}from {home} import {', '.join(_named(*p) for p in names)}"
+        statement = f"from {home} import {', '.join(_named(*p) for p in names)}"
         line = split_lines(source.text)[(anchor.end_lineno or anchor.lineno) - 1]
         ending = line[len(line.rstrip("\r\n")):]
         at = source.line_start(anchor.end_lineno or anchor.lineno) + len(line) - len(ending)
-        self._push(TextEdit(path=self.rel, start=at, end=at, new_text=(ending or "\n") + statement))
+        if head.strip() or source.text[end:at].lstrip().startswith(";"):
+            self._push(TextEdit(path=self.rel, start=end, end=end, new_text=f"; {statement}"))
+        else:
+            self._push(TextEdit(path=self.rel, start=at, end=at, new_text=(ending or "\n") + head + statement))
 
 
 def plan_imports(session: Session, needs: list[ImportNeed]) -> list[tuple[int, TextEdit]]:

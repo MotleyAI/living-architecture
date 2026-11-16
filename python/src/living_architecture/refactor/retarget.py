@@ -27,6 +27,8 @@ _FUNCTIONS = (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)
 _COMPREHENSIONS = (ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)
 _DEFINITIONS = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Assign, ast.AnnAssign)
 
+_INIT = "__init__.py"
+
 Location = tuple[str, int]
 Parents = dict[ast.AST, ast.AST]
 
@@ -66,7 +68,7 @@ def module_name(session: Session, rel: str) -> str:
 def package_of(session: Session, rel: str) -> str:
     """The package a relative import in `rel` is resolved against."""
     name = module_name(session, rel)
-    return name if rel.endswith("__init__.py") else name.rpartition(".")[0]
+    return name if rel.endswith(_INIT) else name.rpartition(".")[0]
 
 
 def imported_module(session: Session, rel: str, stmt: ast.ImportFrom) -> str:
@@ -78,12 +80,15 @@ def imported_module(session: Session, rel: str, stmt: ast.ImportFrom) -> str:
     return ".".join([*parts, *([stmt.module] if stmt.module else [])])
 
 
+def init_file(folder: object) -> File | None:
+    """A package folder's `__init__.py`."""
+    return folder.get_child(_INIT) if isinstance(folder, Folder) and folder.has_child(_INIT) else None  # pyright: ignore[reportReturnType]
+
+
 def module_file(project: Project, module: str) -> File | None:
     """The file of module `module`, a package's `__init__.py`."""
     found = project.find_module(module) if module else None
-    if isinstance(found, Folder):
-        return found.get_child("__init__.py") if found.has_child("__init__.py") else None  # pyright: ignore[reportReturnType]
-    return found
+    return init_file(found) if isinstance(found, Folder) else found
 
 
 def definition(pyname: object) -> Location | None:
@@ -275,7 +280,7 @@ class AliasRetarget(SymbolRename):
         module = self._receiver_module(edit.path, attr)
         if module is None:
             return [edit]
-        if self._attribute_definition(libutils.modname(module), self.original) == self.home.definition:
+        if self._is_target(libutils.modname(module), self.original):
             return [edit]
         self._refuse(edit, "refactor.retarget-unbound", module=module.path, name=self.new)
         return []
@@ -294,8 +299,7 @@ class AliasRetarget(SymbolRename):
         except RopeError:
             return None
         if isinstance(found, PyPackage):
-            folder = found.get_resource()
-            return folder.get_child("__init__.py") if isinstance(folder, Folder) and folder.has_child("__init__.py") else None  # pyright: ignore[reportReturnType]
+            return init_file(found.get_resource())
         return found.get_resource() if isinstance(found, PyModule) else None  # pyright: ignore[reportReturnType]
 
     def _refuse(self, edit: TextEdit, template: str, **values: str) -> None:
@@ -364,8 +368,8 @@ class AliasRetarget(SymbolRename):
         return isinstance(stmt, _DEFINITIONS) and (rel, stmt.lineno) == self.home.definition and local in _stored(stmt)
 
     def _bindings(self, rel: str, anchor: ast.stmt, local: str, parents: Parents) -> tuple[bool, list[ast.alias]]:
-        """Whether `anchor` or an earlier statement of its block, or of a block enclosing it, binds `local` to the
-        target; else the later imports of `anchor`'s block that do."""
+        """Whether `anchor` or an earlier statement of its block, or of a block enclosing it within the function that
+        binds `local`, binds `local` to the target; else the later imports of `anchor`'s block that do."""
         if self._binds_local(rel, anchor, local):
             return True, []
         stmt: ast.AST | None = anchor
@@ -376,6 +380,8 @@ class AliasRetarget(SymbolRename):
                 if self._binds_local(rel, s, local):
                     return True, []
             stmt = _enclosing_statement(parents, stmt)
+            if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef)) and _binds(stmt, local, lambda _: False):
+                break
         block = block_of(parents, anchor)
         later = block[next(k for k, s in enumerate(block) if s is anchor) + 1 :]
         return False, [a for s in later if isinstance(s, ast.ImportFrom) and self._binds_local(rel, s, local)
