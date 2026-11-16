@@ -4,6 +4,7 @@
 [references 1/1] entry 1: edit_model -> edit_master
 [rules]
 [rules 1/1] entry 1: edit_model -> edit_master: clean
+[conflicts]
 pkg/other.py:6: leftover: string mentions edit_model
 pkg/other.py:20: leftover: string mentions edit_model
 pkg/other.py:22: leftover: string mentions edit_model

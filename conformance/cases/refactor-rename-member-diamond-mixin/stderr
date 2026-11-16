@@ -5,4 +5,5 @@
 [rules]
 [rules 1/1] entry 1: run -> go: 1 refusal(s)
 pkg/m.py:22: stand-in: M.run is outside the renamed hierarchy; pass --with pkg/m.py:22 to rename it too or --without pkg/m.py:22 to leave it
+[conflicts]
 pkg/m.py:22: stand-in: M.run is outside the renamed hierarchy; pass --with pkg/m.py:22 to rename it too or --without pkg/m.py:22 to leave it

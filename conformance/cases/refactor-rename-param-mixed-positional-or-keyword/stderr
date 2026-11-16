@@ -4,3 +4,4 @@
 [references 1/1] entry 1: b -> bb
 [rules]
 [rules 1/1] entry 1: b -> bb: clean
+[conflicts]

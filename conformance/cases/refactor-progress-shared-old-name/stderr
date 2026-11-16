@@ -7,3 +7,4 @@
 [rules]
 [rules 1/2] entries 1, 3: save -> store, keep: clean
 [rules 2/2] entry 2: load -> fetch: clean
+[conflicts]

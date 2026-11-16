@@ -4,5 +4,6 @@
 [references 1/1] entry 1: foo -> bar
 [rules]
 [rules 1/1] entry 1: foo -> bar: clean
+[conflicts]
 [write]
 could not write pkg/z/c.py; the files already written are restored, so nothing was refactored

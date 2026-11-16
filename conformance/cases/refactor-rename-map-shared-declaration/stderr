@@ -5,3 +5,4 @@
 [references 2/2] entry 2: source -> population
 [rules]
 [rules 1/1] entries 1, 2: source -> population: clean
+[conflicts]

@@ -4,3 +4,4 @@
 [references 1/1] entry 1: fast -> nxt
 [rules]
 [rules 1/1] entry 1: fast -> nxt: clean
+[conflicts]

@@ -4,4 +4,5 @@
 [references 1/1] entry 1: alone -> lonely
 [rules]
 [rules 1/1] entry 1: alone -> lonely: clean
+[conflicts]
 [write]

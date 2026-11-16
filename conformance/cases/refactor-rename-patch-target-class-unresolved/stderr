@@ -4,5 +4,6 @@
 [references 1/1] entry 1: SearchQueryEngine -> QueryEngine
 [rules]
 [rules 1/1] entry 1: SearchQueryEngine -> QueryEngine: clean
+[conflicts]
 tests/test_t.py:5: leftover: patch target mentions SearchQueryEngine
 [write]

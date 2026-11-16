@@ -6,3 +6,4 @@
 [rules]
 [rules 1/2] entry 1: get_model -> load_model: clean
 [rules 2/2] entry 2: save -> save_model: clean
+[conflicts]

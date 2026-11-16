@@ -4,3 +4,4 @@
 [references 1/1] entry 1: save_model -> persist_model
 [rules]
 [rules 1/1] entry 1: save_model -> persist_model: clean
+[conflicts]

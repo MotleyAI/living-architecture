@@ -4,4 +4,5 @@
 [references 1/1] entry 1: get_model -> get_dataset
 [rules]
 [rules 1/1] entry 1: get_model -> get_dataset: clean
+[conflicts]
 pkg/use.py:8: leftover: string mentions get_model
