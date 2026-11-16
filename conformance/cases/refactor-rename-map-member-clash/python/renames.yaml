@@ -1,0 +1,2 @@
+- {file: pkg/a.py, symbol: Query.source, new_name: population}
+- {file: pkg/a.py, symbol: Query.origin, new_name: population}
