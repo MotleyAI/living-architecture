@@ -1,0 +1,2 @@
+- {file: src/compat.ts, symbol: Alias, retarget: Local}
+- {file: src/home.ts, symbol: Target, new_name: Renamed}

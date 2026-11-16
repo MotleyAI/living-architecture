@@ -1,0 +1,16 @@
+kind: paired
+languages:
+- python
+- typescript
+command: dr-refactor
+args:
+- rename-map
+- renames.yaml
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: 'the alias''s module imports its target: importers lose the alias and import the target from its home (joined,
+  in place, or on the next line; absolute, relative or extension style kept), the alias module unchanged, in both
+  languages'

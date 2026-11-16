@@ -343,13 +343,14 @@ class _Edited:
 
 class EntryEdits(BaseModel):
     """A map entry's edits: those it writes, those `--keep` drops, its new name and, for a retarget, the name its
-    rewritten references must mean."""
+    rewritten references must mean and the imports of it that it adds."""
 
     index: int
     new_name: str
     edits: list[TextEdit]
     kept: list[TextEdit] = []
     target: str | None = None
+    binds: list[TextEdit] = []
 
 
 class Conflict(BaseModel):
@@ -436,6 +437,7 @@ class _Judge:
             self.kept |= {(e.path, e.start): entry for e in entry.kept}
         self.declared: dict[Site, EntryEdits] = {}
         self.retargeted: dict[Site, Meaning] = {}
+        self.added = [e for entry in self.entries for e in entry.binds if e.new_text]
 
     def _pairs(self, rel: str) -> list[tuple[str, Occurrence, Occurrence]]:
         """Each occurrence of `rel` before the edits with the one at its site after them."""
@@ -475,7 +477,8 @@ class _Judge:
     def _verdict(self, rel: str, old: Occurrence, new: Occurrence) -> list[Conflict]:
         site = (rel, old.offset)
         before = self.before.meaning(rel, old.scope, old.name, old.read_at)
-        after = self._through_retargets(self.after.meaning(self._moved(rel), new.scope, new.name, new.read_at))
+        meaning = self.after.meaning(self._moved(rel), new.scope, new.name, new.read_at)
+        after = self._through_retargets(meaning, new.name, rel, new.scope)
         entry = self.rewritten.get(site)
         if entry is not None:
             return self._rewritten_verdict(rel, old, new, entry, before, after)
@@ -520,12 +523,31 @@ class _Judge:
                  for o in parsed.sites.get((s, new.name), [])]
         return [s for s in sites if s not in self.declared]
 
-    def _through_retargets(self, meaning: Meaning) -> Meaning:
-        """`meaning` with each binding a retarget rewrote replaced by what its target meant there."""
+    def _through_retargets(self, meaning: Meaning, name: str, rel: str, scope: Scope) -> Meaning:
+        """`meaning` of `name`, read in `scope` of `rel`, with each binding a retarget rewrote replaced by what its
+        target meant there, and each it adds by what `name` meant before in the scope the import binds it in."""
         out: Meaning = {}
         for decl, shown in meaning.items():
-            out |= self.retargeted.get(decl, {decl: shown})
+            if self._added(decl):
+                out |= self._added_meaning(decl[0], name, scope if decl[0] == rel else None)
+            else:
+                out |= self.retargeted.get(decl, {decl: shown})
         return out
+
+    def _added_meaning(self, rel: str, name: str, scope: Scope | None) -> Meaning:
+        """What `name` meant before the edits in the scope of `rel` that resolves it from `scope` (the module when
+        None); the edits add or remove no scope, so a scope's place in its module's list matches it across them."""
+        old, new = self.before.parsed(rel), self.after.parsed(self._moved(rel))
+        if old is None:
+            return {}
+        owner = scope.resolving(name) if scope is not None else None
+        index = next((i for i, s in enumerate(new.scopes) if s is owner), 0) if new is not None else 0
+        return self.before.meaning(rel, old.scopes[index], name)
+
+    def _added(self, site: Site) -> bool:
+        """`site` is in the new text of an import a retarget adds, which maps into the span it replaces."""
+        rel, offset = site
+        return any(e.path == rel and e.start <= offset <= e.end for e in self.added)
 
     def _moved(self, rel: str) -> str:
         return self.moves.get(rel, rel)

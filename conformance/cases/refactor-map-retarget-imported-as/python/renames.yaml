@@ -1,0 +1,2 @@
+- {file: pkg/compat.py, symbol: Alias, retarget: Local}
+- {file: pkg/home.py, symbol: Target, new_name: Renamed}

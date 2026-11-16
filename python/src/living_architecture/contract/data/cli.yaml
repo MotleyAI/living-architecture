@@ -253,7 +253,7 @@ commands:
           - {name: --docs, type: flag,
              help: 'also rewrite mentions in comments, docstrings, strings and prose files; list the rest'}
       retarget:
-        help: rewrite the references to an alias to name its target, declared in the same class or module
+        help: rewrite the references to an alias to name its target, declared or imported in the same class or module
         exclusive: [[offset, line, symbol]]
         options:
           - {name: --file, type: path, required: true, help: file holding the alias}

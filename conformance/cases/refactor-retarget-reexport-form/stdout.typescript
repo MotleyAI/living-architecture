@@ -1,0 +1,29 @@
+Retargeting <AcmeModel> to <Model>:
+Retargeting <OldModel> to <Model>:
+
+
+--- a/src/legacy.ts
++++ b/src/legacy.ts
+@@ -1,7 +1,8 @@
+ import { Model as OldModel } from './core';
++import { Model } from './core';
+ 
+ export { OldModel };
+ 
+ export function make(): object {
+-  return new OldModel();
++  return new Model();
+ }
+
+--- a/src/use.ts
++++ b/src/use.ts
+@@ -1,3 +1,3 @@
+-import { AcmeModel } from './compat';
++import { Model } from './core';
+ 
+-export const a = new AcmeModel();
++export const a = new Model();
+
+
+
+DRY-RUN. 2 file(s) would change. Re-run with --apply.

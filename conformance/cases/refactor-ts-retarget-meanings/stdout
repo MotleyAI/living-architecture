@@ -1,0 +1,41 @@
+Retargeting <Flight> to <Facade>:
+
+
+--- a/src/merged.ts
++++ b/src/merged.ts
+@@ -1,4 +1,3 @@
+ import { Facade } from './core';
+-import { Flight } from './compat';
+ 
+-export const x = [Facade.kind, Flight.kind, new Flight()];
++export const x = [Facade.kind, Facade.kind, new Facade()];
+
+--- a/src/types.ts
++++ b/src/types.ts
+@@ -1,5 +1,5 @@
+-import { Flight } from './compat';
++import type { Facade } from './core';
+ 
+-export function f(x: Flight): void {
++export function f(x: Facade): void {
+   console.log(x);
+ }
+
+--- a/src/values.ts
++++ b/src/values.ts
+@@ -1,6 +1,6 @@
+-import { Flight } from './compat';
++import { Facade } from './core';
+ 
+-export const v = new Flight();
+-export const w: Flight = v;
+-export type V = typeof Flight;
+-export class Sub extends Flight {}
++export const v = new Facade();
++export const w: Facade = v;
++export type V = typeof Facade;
++export class Sub extends Facade {}
+
+
+
+DRY-RUN. 3 file(s) would change. Re-run with --apply.

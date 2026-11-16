@@ -33,8 +33,18 @@ from living_architecture.refactor.map_file import MapEntry, MapError
 from living_architecture.refactor.member_namespace import Hierarchy, MemberCheck, RenamedMember
 from living_architecture.refactor.outcomes import Finding
 from living_architecture.refactor.position_map import Edit
+from living_architecture.refactor.python_source import SourceFile
 from living_architecture.refactor.rename_union import RenameOptions, Session, SymbolRename, _normalize
-from living_architecture.refactor.retarget import AliasRetarget
+from living_architecture.refactor.retarget import (
+    AliasRetarget,
+    Location,
+    TargetHome,
+    attribute_definition,
+    definition,
+    imported_module,
+    module_name,
+)
+from living_architecture.refactor.retarget_imports import plan_imports
 from living_architecture.refactor.routing import language_files
 from living_architecture.refactor.sites import Keeps, SiteError
 from living_architecture.refactor.symbol_path import LocatorError, declaration_scope, locate
@@ -69,15 +79,18 @@ class _Resolved:
     """An entry located: its file, rope's renamer, its canonical symbol and its intent."""
 
     def __init__(self, entry: MapEntry, rel: str, renamer: Rename | None, key: tuple[object, ...],
-                 literal: ast.Constant | None = None) -> None:
+                 literal: ast.Constant | None = None, offset: int = 0) -> None:
         self.entry = entry
         self.rel = rel
         self.renamer = renamer
         self.key = key
         self.literal = literal
+        self.offset = offset
         self.target_key: tuple[object, ...] | None = None
         self.target_name = ""
         self.line = 0
+        self.home: TargetHome | None = None
+        self.own: tuple[str, int] | None = None
 
     def intent(self) -> tuple[object, ...]:
         return ("retarget", self.target_key) if self.entry.retarget is not None else ("rename", self.entry.new_name)
@@ -115,6 +128,12 @@ def _definition_line(renamer: Rename) -> tuple[str | None, int | None]:
 def _unique(findings: Iterable[Finding]) -> list[Finding]:
     """`findings` in path, line and column order, each once: entries sharing an old name scan its sites once."""
     return sorted({(f.path, f.line, f.col, f.text): f for f in findings}.values(), key=lambda f: (f.path, f.line, f.col))
+
+
+def _import_of(source: SourceFile, alias: ast.AST) -> ast.ImportFrom | None:
+    """The `from ... import` statement holding `alias`."""
+    assert source.tree is not None
+    return next((s for s in ast.walk(source.tree) if isinstance(s, ast.ImportFrom) and any(a is alias for a in s.names)), None)
 
 
 class RenameMap:
@@ -168,32 +187,80 @@ class RenameMap:
         if literal is not None:
             return literal
         rel, offset, renamer = self._renamer(*located)
-        resolved = _Resolved(entry, rel, renamer, _key(renamer, rel, offset))
+        resolved = _Resolved(entry, rel, renamer, _key(renamer, rel, offset), offset=offset)
         if entry.retarget is not None:
             self._resolve_target(resolved)
         return resolved
 
     def _resolve_target(self, resolved: _Resolved) -> None:
+        """The target beside the alias: declared or imported in the alias's class or module, or the name a re-export
+        declaring the alias imports; LocatorError otherwise."""
         entry, rel, renamer = resolved.entry, resolved.rel, resolved.renamer
         assert renamer is not None
         source = self.session.snapshot.source(rel)
         alias = entry.locator.symbol or renamer.get_old_name()
         refused = LocatorError(message("refactor.retarget-scope", target=entry.retarget, alias=alias))
-        located = locate(source, str(entry.retarget), entry.file)
+        old = renamer.get_old_name()
+        alias_line = source.line(_raw_offset(source.text, resolved.offset))
+        alias_scope = declaration_scope(source, old, alias_line)
+        if alias_scope is not None and isinstance(alias_scope[1], ast.alias):
+            self._reexport_target(resolved, source, alias_scope, alias_line, refused)
+            return
+        try:
+            located = locate(source, str(entry.retarget), entry.file)
+        except LocatorError:
+            raise refused from None
         word = _WORD.match(source.text, located.offset)
         def_rel, def_line = _definition_line(renamer)
         if word is None or def_rel != rel or def_line is None:
             raise refused
         resolved.target_name = word.group()
         resolved.line = def_line
-        alias_scope = declaration_scope(source, renamer.get_old_name(), def_line)
+        alias_scope = declaration_scope(source, old, def_line)
         target_scope = declaration_scope(source, resolved.target_name, source.line(located.offset))
         if alias_scope is None or target_scope is None or alias_scope[0] is not target_scope[0]:
             raise refused
-        if isinstance(target_scope[1], ast.alias):
+        imported = isinstance(target_scope[1], ast.alias)
+        if imported and not isinstance(alias_scope[0], ast.Module):
             raise refused
         target = Rename(self.project, self.project.get_resource(rel), located.offset - source.text.count("\r\n", 0, located.offset))
         resolved.target_key = _key(target, rel, located.offset)
+        if not isinstance(alias_scope[0], ast.Module):
+            return
+        found = definition(target.old_pyname)
+        if imported:
+            self._imported_home(resolved, source, target_scope[1], found, refused)
+        else:
+            resolved.home = TargetHome(module=module_name(self.session, rel), exported=resolved.target_name,
+                                       local=resolved.target_name, definition=found)
+
+    def _imported_home(self, resolved: _Resolved, source: SourceFile, node: ast.AST, found: Location | None,
+                       refused: LocatorError) -> None:
+        """The home of a target the alias's module imports by `node`; the target keyed by its home's declaration."""
+        stmt = _import_of(source, node)
+        if stmt is None or not isinstance(node, ast.alias):
+            raise refused
+        if resolved.target_key is not None and resolved.target_key[0] == "name":
+            resolved.target_key = (*resolved.target_key[:3], node.name)
+        resolved.home = TargetHome(module=imported_module(self.session, resolved.rel, stmt), exported=node.name,
+                                   local=resolved.target_name, definition=found)
+
+    def _reexport_target(self, resolved: _Resolved, source: SourceFile, alias_scope: tuple[ast.AST, ast.AST], line: int,
+                         refused: LocatorError) -> None:
+        """The alias declared by `from M import T as ALIAS` at module level: TARGET is `T` from `M`."""
+        node = alias_scope[1]
+        stmt = _import_of(source, node)
+        assert isinstance(node, ast.alias)
+        if stmt is None or not isinstance(alias_scope[0], ast.Module) or node.name != resolved.entry.retarget:
+            raise refused
+        module = imported_module(self.session, resolved.rel, stmt)
+        found = attribute_definition(self.project, module, node.name)
+        resolved.target_name = node.name
+        resolved.line = line
+        resolved.own = (resolved.rel, source.offset(node.lineno, node.col_offset) + source.text[
+            source.offset(node.lineno, node.col_offset):].index(str(node.asname)))
+        resolved.target_key = ("name", found[0], found[1], node.name) if found is not None else ("site", resolved.rel, line, node.name)
+        resolved.home = TargetHome(module=module, exported=node.name, local=node.name, definition=found)
 
     def resolve(self) -> list[_Resolved]:
         """Every entry located before any is computed; duplicates merged or refused."""
@@ -219,11 +286,23 @@ class RenameMap:
             elif r.renamer is None:
                 raise RefactorError(message(_CANNOT_RENAME))
             elif r.entry.retarget is not None:
-                target = finals.get(r.target_key) or r.target_name  # pyright: ignore[reportArgumentType]
-                renames.append(AliasRetarget(self.session, r.renamer, target, self.options, line=r.line))
+                renames.append(self._retarget(r, finals.get(r.target_key)))  # pyright: ignore[reportArgumentType]
             else:
                 renames.append(SymbolRename(self.session, r.renamer, str(r.entry.new_name), self.options))
         return renames
+
+    def _retarget(self, r: _Resolved, final: str | None) -> AliasRetarget:
+        """`r`'s retarget, `final` the new name of its target where another entry renames it: under an import `as`
+        another name only the home's export is renamed, the local name stays."""
+        assert r.renamer is not None
+        home, target = r.home, r.target_name
+        if final is not None and (home is None or home.exported == home.local):
+            target = final
+            home = home.model_copy(update={"exported": final, "local": final}) if home is not None else None
+        elif final is not None and home is not None:
+            home = home.model_copy(update={"exported": final})
+        return AliasRetarget(self.session, r.renamer, target, self.options, line=r.line, home=home, own=r.own,
+                             original=r.target_name, entry=r.entry.index)
 
     def compute(self, renames: list[Renaming]) -> None:
         active = [r for r in renames if r.new != r.old]
@@ -249,9 +328,6 @@ class RenameMap:
             r.renamed_names = olds
             r.finish()
             r.edits = merge_edits(r.edits)
-            if isinstance(r, AliasRetarget):
-                with timed("rules"):
-                    r.retarget()
 
     def _check_sites(self, renames: list[Renaming]) -> None:
         """`SiteError` for the first `--with` or `--without` site no member entry's stand-ins hold."""
@@ -260,15 +336,31 @@ class RenameMap:
             if raw not in matched:
                 raise SiteError("refactor.not-stand-in", raw)
 
-    def keep(self, renames: list[Renaming]) -> list[list[TextEdit]]:
-        """Drop every edit, blind spot and leftover at a kept site; each rename's dropped edits. `SiteError` for a keep
-        that matched nothing."""
-        keeps = Keeps(self.options.keep, self.root)
+    def retarget(self, renames: list[Renaming], keeps: Keeps) -> None:
+        """Each retarget's sites decided with its kept lines, then the imports they need planned once."""
+        retargets = [r for r in renames if isinstance(r, AliasRetarget)]
+        if not retargets:
+            return
+        with timed("rules"):
+            for r in retargets:
+                r.retarget(keeps.kept)
+            planned = plan_imports(self.session, [n for r in retargets for n in r.needs])
+        by_entry = {r.entry: r for r in retargets}
+        for entry, edit in planned:
+            by_entry[entry].imports.append(edit)
+        for r in retargets:
+            r.edits += r.imports
+
+    def keep(self, renames: list[Renaming], keeps: Keeps) -> list[list[TextEdit]]:
+        """Drop every edit, blind spot and leftover at a kept site (a retarget's are dropped already); each rename's
+        dropped edits. `SiteError` for a keep that matched nothing."""
         snapshot = self.session.snapshot
         dropped: list[list[TextEdit]] = []
         for r in renames:
-            kept = [keeps.kept(e.path, snapshot.source(e.path).line(e.start)) for e in r.edits]
-            dropped.append([e for e, k in zip(r.edits, kept, strict=True) if k])
+            kept = [not isinstance(r, AliasRetarget) and keeps.kept(e.path, snapshot.source(e.path).line(e.start))
+                    for e in r.edits]
+            held = r.held if isinstance(r, AliasRetarget) else []
+            dropped.append([*held, *(e for e, k in zip(r.edits, kept, strict=True) if k)])
             r.edits = [e for e, k in zip(r.edits, kept, strict=True) if not k]
             r.blindspots = [b for b in r.blindspots if not keeps.kept(b.path, b.line)]
             r.leftovers = [f for f in r.leftovers if not keeps.kept(f.path, f.line, mark=False)]
@@ -298,7 +390,8 @@ class RenameMap:
         `new_name` entry alone against the code before the map, in map order, then every entry together."""
         entries = [
             EntryEdits(index=res.entry.index, new_name=r.new, edits=r.edits, kept=kept,
-                       target=res.target_name if res.entry.retarget is not None else None)
+                       target=res.target_name if res.entry.retarget is not None else None,
+                       binds=r.imports if isinstance(r, AliasRetarget) else [])
             for r, res, kept in zip(renames, resolved, dropped, strict=True)
         ]
         members = [
@@ -440,7 +533,9 @@ def run_map(project: Project, entries: list[MapEntry], options: RenameOptions, *
         root = engine.root
         path = (base.path.relative_to(root) if base.path.is_relative_to(root) else base.path).as_posix()
         raise RefactorError(message("refactor.unresolved-base", name=base.name, path=path, line=base.line)) from None
-    dropped = engine.keep(renames)
+    keeps = Keeps(options.keep, engine.root)
+    engine.retarget(renames, keeps)
+    dropped = engine.keep(renames, keeps)
     engine.check_conflicts(renames)
     edits = engine.merged(renames, [r.entry.index for r in resolved])
     with timed("resolve"):

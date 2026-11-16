@@ -1,0 +1,1 @@
+src/use.ts:4: src/compat.ts does not bind Model, so nothing was refactored

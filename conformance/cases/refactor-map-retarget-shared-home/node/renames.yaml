@@ -1,0 +1,4 @@
+- {file: src/facade.ts, symbol: FacadeTable, new_name: FacadeGrid}
+- {file: src/flight.ts, symbol: FlightCatalog, retarget: FacadeCatalog}
+- {file: src/flight.ts, symbol: FlightSchema, retarget: FacadeSchema}
+- {file: src/flight.ts, symbol: FlightTable, retarget: FacadeTable}

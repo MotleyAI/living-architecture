@@ -1,0 +1,16 @@
+kind: paired
+languages:
+- python
+- typescript
+command: dr-refactor
+args:
+- rename-map
+- renames.yaml
+fixture: retarget-unbound-attribute
+git:
+- commit: init
+expect:
+  exit: 1
+golden: manual
+note: 'a module attribute of the alias through a module that does not bind the target (import, import as, from-import
+  of the module, namespace import): one retarget-unbound line per site, exit 1, in both languages'

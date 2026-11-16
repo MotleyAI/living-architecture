@@ -1,0 +1,59 @@
+Renaming <FacadeTable> to <FacadeGrid>:
+Retargeting <FlightCatalog> to <FacadeCatalog>:
+Retargeting <FlightSchema> to <FacadeSchema>:
+Retargeting <FlightTable> to <FacadeGrid>:
+
+
+--- a/pkg/facade.py
++++ b/pkg/facade.py
+@@ -6,5 +6,5 @@
+     pass
+ 
+ 
+-class FacadeTable:
++class FacadeGrid:
+     pass
+
+--- a/pkg/flight.py
++++ b/pkg/flight.py
+@@ -1,6 +1,6 @@
+-from pkg.facade import FacadeCatalog, FacadeSchema, FacadeTable
++from pkg.facade import FacadeCatalog, FacadeSchema, FacadeGrid
+ 
+ CONST = 1
+ FlightCatalog = FacadeCatalog
+ FlightSchema = FacadeSchema
+-FlightTable = FacadeTable
++FlightTable = FacadeGrid
+
+--- a/pkg/handlers.py
++++ b/pkg/handlers.py
+@@ -1,9 +1,9 @@
+-from pkg.flight import (
+-    FlightCatalog,  # the catalog
+-    FlightSchema,
+-    FlightTable,
++from pkg.facade import (
++    FacadeCatalog,  # the catalog
++    FacadeSchema,
++    FacadeGrid,
+ )
+ 
+ 
+ def handle() -> object:
+-    return FlightCatalog(), FlightSchema(), FlightTable()
++    return FacadeCatalog(), FacadeSchema(), FacadeGrid()
+
+--- a/pkg/info_schema.py
++++ b/pkg/info_schema.py
+@@ -1,3 +1,4 @@
+-from pkg.flight import CONST, FlightCatalog, FlightSchema
++from pkg.flight import CONST
++from pkg.facade import FacadeCatalog, FacadeSchema
+ 
+-info = CONST, FlightCatalog(), FlightSchema()
++info = CONST, FacadeCatalog(), FacadeSchema()
+
+
+
+DRY-RUN. 4 file(s) would change. Re-run with --apply.
