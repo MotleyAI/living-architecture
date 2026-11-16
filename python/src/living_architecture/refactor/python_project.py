@@ -10,9 +10,12 @@ import tomllib
 from functools import cached_property
 from pathlib import Path
 
+from living_architecture.refactor.python_source import SourceFile
+
 _IGNORED = ["*.pyc", "*~", ".ropeproject", ".hg", ".svn", "_svn", ".git", ".tox", ".venv", "venv", ".mypy_cache",
             ".pytest_cache"]
 _CODING = b"^[ \t\f]*#.*?coding[:=][ \t]*([-_.a-zA-Z0-9]+)"
+_BOM = b"\xef\xbb\xbf"
 
 
 def _realpath(path: str) -> str:
@@ -141,13 +144,14 @@ class ProjectLayout:
             folder = _parent(folder)
         return module_name
 
-    def find_module(self, modname: str, folder: Path | None = None) -> Path | None:
-        """rope's `Project.find_module`: the source folders, then the Python path, then `folder`."""
+    def find_module(self, modname: str, folder: Path | None = None, *, python_path: bool = True) -> Path | None:
+        """rope's `Project.find_module`: the source folders, then (with `python_path`) the Python path, then
+        `folder`."""
         for rel in self.source_rels:
             found = _find_in(self.path(rel), modname)
             if found is not None:
                 return Path(found)
-        for src in [*self._python_path, *sys.path]:
+        for src in [*self._python_path, *sys.path] if python_path else []:
             base = _realpath(src)
             if _is_resource(base):
                 found = _find_in(base, modname)
@@ -160,8 +164,8 @@ class ProjectLayout:
         return None
 
     def module_file(self, modname: str) -> Path | None:
-        """The file of module `modname`, a package's `__init__.py`; None when it has none."""
-        found = self.find_module(modname) if modname else None
+        """The project file of module `modname`, a package's `__init__.py`; None when it has none."""
+        found = self.find_module(modname, python_path=False) if modname else None
         if found is not None and found.is_dir():
             init = found / "__init__.py"
             return init if _is_resource(os.fspath(init)) else None
@@ -201,3 +205,65 @@ def read_str_coding(source: bytes | str) -> str | None:
         if text_pattern.match(text_line):
             return _find_coding(text_line.encode("utf-8"))
     return None
+
+
+class Snapshot:
+    """Each project file read once: its bytes, encoding, text (a UTF-8 byte order mark decoded out) and syntax tree."""
+
+    def __init__(self, root: Path) -> None:
+        self.root = root
+        self._data: dict[str, bytes] = {}
+        self._texts: dict[str, str] = {}
+        self._encodings: dict[str, str] = {}
+        self._boms: set[str] = set()
+        self._failed: dict[str, UnicodeDecodeError | LookupError] = {}
+        self._sources: dict[str, SourceFile] = {}
+
+    def text(self, rel: str) -> str:
+        """`rel`'s text; `UnicodeDecodeError` or `LookupError` when it does not decode."""
+        if rel in self._failed:
+            raise self._failed[rel]
+        if rel not in self._texts:
+            data = (self.root / rel).read_bytes()
+            body = data.removeprefix(_BOM)
+            encoding = read_str_coding(body) or "utf-8"
+            self._data[rel] = data
+            self._encodings[rel] = encoding
+            try:
+                self._texts[rel] = body.decode(encoding)
+            except (UnicodeDecodeError, LookupError) as exc:
+                self._failed[rel] = exc
+                raise
+            if len(body) != len(data):
+                self._boms.add(rel)
+        return self._texts[rel]
+
+    def undecodable(self, rel: str) -> str | None:
+        """The encoding `rel` does not decode as; None when it decodes."""
+        try:
+            self.text(rel)
+        except (UnicodeDecodeError, LookupError):
+            return self._encodings[rel]
+        return None
+
+    def source(self, rel: str) -> SourceFile:
+        if rel not in self._sources:
+            self._sources[rel] = SourceFile(self.root / rel, self.text(rel))
+        return self._sources[rel]
+
+    def has_bom(self, rel: str) -> bool:
+        self.text(rel)
+        return rel in self._boms
+
+    def encode(self, rel: str, text: str) -> bytes:
+        return (_BOM if self.has_bom(rel) else b"") + text.encode(self._encodings[rel])
+
+    def decode(self, rel: str, data: bytes) -> str:
+        """`data` written to `rel`, as text."""
+        self.text(rel)
+        return data.removeprefix(_BOM if rel in self._boms else b"").decode(self._encodings[rel])
+
+    def data(self, rel: str) -> bytes:
+        """The bytes `rel` was read as, whether or not they decode."""
+        self.undecodable(rel)
+        return self._data[rel]

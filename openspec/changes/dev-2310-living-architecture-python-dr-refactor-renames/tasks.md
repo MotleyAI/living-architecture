@@ -89,25 +89,25 @@
 
 ## 3. Series 2 — entries located without rope (pr-implement)
 
-- [ ] 3.1 The declaration-at-site algorithm, kind and key (design decisions 8 and 9), the keyword check, retarget's
+- [x] 3.1 The declaration-at-site algorithm, kind and key (design decisions 8 and 9), the keyword check, retarget's
       target location; `_renamer`, `_key`, `_definition_line`, `_located`'s rope branch, `_located_field`,
       `_function_at` and `_parameter_declarations` on the AST. Verify: 1.6 and 1.11 pass.
 - [ ] 3.2 Differential run for series 2, then delete the old path. Verify: as 2.3.
 
 ## 4. Series 3 — unresolved names and the remaining lookups (pr-implement)
 
-- [ ] 4.1 The static resolver in place of `RopeSites` (design decision 1) with the `refactor.unresolved-name` outcome.
+- [x] 4.1 The static resolver in place of `RopeSites` (design decision 1) with the `refactor.unresolved-name` outcome.
       Verify: 1.1 and 1.2 pass.
-- [ ] 4.2 The new export fact (design decision 10) in `lang/pyright_export.cjs` and `lang/language_server.py`, its
+- [x] 4.2 The new export fact (design decision 10) in `lang/pyright_export.cjs` and `lang/language_server.py`, its
       self-test, its batched positions; `MemberCheck` on `hierarchy.ClassGraph`. Verify: 1.4 passes and
       `python/tests/test_pyright_export.py` covers the fact.
-- [ ] 4.3 Retarget's lookups on the static resolver (design decision 11). Verify: 1.5 passes.
+- [x] 4.3 Retarget's lookups on the static resolver (design decision 11). Verify: 1.5 passes.
 - [ ] 4.4 Differential run for series 3, then delete the old path (`RopeSites`, `member_namespace.Hierarchy`'s rope
       code, retarget's rope helpers). Verify: as 2.3.
 
 ## 5. Series 4 — module renames without rope (pr-implement)
 
-- [ ] 5.1 Module-rename sites, self-alias rule, move, `--keep` (design decisions 3 and 12) replacing `_module_rename`'s
+- [x] 5.1 Module-rename sites, self-alias rule, move, `--keep` (design decisions 3 and 12) replacing `_module_rename`'s
       rope path; the rename's walker-gap check removed (decision 14). Verify: 1.3 and 1.7 pass.
 - [ ] 5.2 Differential run for series 4, then delete the old path. Verify: as 2.3, and 1.12 passes.
 

@@ -1,28 +1,25 @@
 """A Python symbol rename: every occurrence the run's occurrence index resolves to a renamed declaration (and those
-rope resolves where the checker resolves none), the keyed-class rewrites, member strings and patch targets, and with
-`--docs` mentions, as character spans over one snapshot of the project's files; a member rename first checks for blind
-spots and stand-ins."""
+la's static resolver resolves to one where the checker resolves none), the keyed-class rewrites, member strings and
+patch targets, and with `--docs` mentions, as character spans over one snapshot of the project's files; a member
+rename first checks for blind spots and stand-ins."""
 
 from __future__ import annotations
 
 import ast
 import bisect
+import keyword
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterator
 from functools import partial
 from pathlib import Path
-from typing import Any, TypeVar
+from typing import TypeVar
 
 from pydantic import BaseModel, ConfigDict
-from rope.base import pynamesdef
-from rope.base.project import Project
-from rope.base.pyobjectsdef import PyClass, PyFunction, PyModule
-from rope.refactor import occurrences
-from rope.refactor.rename import Rename, _is_local
 from typing_extensions import override
 
 from living_architecture.contract import message
 from living_architecture.lang import Occurrence, Span
+from living_architecture.refactor.entry_location import Entry, EntryLocator, StaticTrace
 from living_architecture.refactor.hierarchy import ClassGraph, ClassKey
 from living_architecture.refactor.keyed import (
     Bindings,
@@ -33,6 +30,7 @@ from living_architecture.refactor.keyed import (
     field_assignment,
     sink_candidates,
 )
+from living_architecture.refactor.locators import RefactorError
 from living_architecture.refactor.member_scan import FormCall, MemberScan
 from living_architecture.refactor.members import member_declarations
 from living_architecture.refactor.mentions import (
@@ -56,7 +54,7 @@ from living_architecture.refactor.outcomes import (
     target_outcome,
 )
 from living_architecture.refactor.patch_targets import SourceFolders, TargetResolver
-from living_architecture.refactor.python_project import ProjectLayout, read_str_coding
+from living_architecture.refactor.python_project import ProjectLayout, Snapshot
 from living_architecture.refactor.python_source import SourceFile
 from living_architecture.refactor.rope_patches import every_parameter
 from living_architecture.refactor.routing import language_files
@@ -67,74 +65,6 @@ from living_architecture.refactor.text_tables import TextTables
 from living_architecture.refactor.timings import timed
 
 _T = TypeVar("_T")
-_BOM = b"\xef\xbb\xbf"
-
-
-def _normalize(text: str) -> str:
-    """The text as rope reads it."""
-    return text.replace("\r\n", "\n").replace("\r", "\n")
-
-
-class Snapshot:
-    """Each project file read once: its bytes, encoding, text (a UTF-8 byte order mark decoded out) and syntax tree."""
-
-    def __init__(self, root: Path) -> None:
-        self.root = root
-        self._data: dict[str, bytes] = {}
-        self._texts: dict[str, str] = {}
-        self._encodings: dict[str, str] = {}
-        self._boms: set[str] = set()
-        self._failed: dict[str, UnicodeDecodeError | LookupError] = {}
-        self._sources: dict[str, SourceFile] = {}
-
-    def text(self, rel: str) -> str:
-        """`rel`'s text; `UnicodeDecodeError` or `LookupError` when it does not decode."""
-        if rel in self._failed:
-            raise self._failed[rel]
-        if rel not in self._texts:
-            data = (self.root / rel).read_bytes()
-            body = data.removeprefix(_BOM)
-            encoding = read_str_coding(body) or "utf-8"
-            self._data[rel] = data
-            self._encodings[rel] = encoding
-            try:
-                self._texts[rel] = body.decode(encoding)
-            except (UnicodeDecodeError, LookupError) as exc:
-                self._failed[rel] = exc
-                raise
-            if len(body) != len(data):
-                self._boms.add(rel)
-        return self._texts[rel]
-
-    def undecodable(self, rel: str) -> str | None:
-        """The encoding `rel` does not decode as; None when it decodes."""
-        try:
-            self.text(rel)
-        except (UnicodeDecodeError, LookupError):
-            return self._encodings[rel]
-        return None
-
-    def source(self, rel: str) -> SourceFile:
-        if rel not in self._sources:
-            self._sources[rel] = SourceFile(self.root / rel, self.text(rel))
-        return self._sources[rel]
-
-    def has_bom(self, rel: str) -> bool:
-        self.text(rel)
-        return rel in self._boms
-
-    def encode(self, rel: str, text: str) -> bytes:
-        return (_BOM if self.has_bom(rel) else b"") + text.encode(self._encodings[rel])
-
-    def decode(self, rel: str, data: bytes) -> str:
-        """`data` written to `rel`, as text."""
-        self.text(rel)
-        return data.removeprefix(_BOM if rel in self._boms else b"").decode(self._encodings[rel])
-
-    def data(self, rel: str) -> bytes:
-        """The bytes `rel` was read as, whether or not they decode."""
-        self.undecodable(rel)
-        return self._data[rel]
 
 
 class Session:
@@ -263,33 +193,6 @@ def _same_named(source: SourceFile, fn: Function) -> list[Function]:
     return [fn]
 
 
-class RopeSites:
-    """The occurrences the checker resolves to no declaration, each evaluated by rope at most once per run."""
-
-    def __init__(self, project: Project, snapshot: Snapshot) -> None:
-        self.project = project
-        self.snapshot = snapshot
-        self._tools: dict[str, Any] = {}
-        self._sites: dict[tuple[str, int], Any] = {}
-
-    def _occurrence(self, rel: str, start: int) -> Any:
-        if rel not in self._tools:
-            self._tools[rel] = occurrences._OccurrenceToolsCreator(  # pyright: ignore[reportPrivateUsage]
-                self.project, resource=self.project.get_resource(rel), docs=False)
-        if (rel, start) not in self._sites:
-            self._sites[rel, start] = occurrences.Occurrence(self._tools[rel], _rope_offset(self.snapshot.text(rel), start))
-        return self._sites[rel, start]
-
-    def matches(self, finder: Any, rel: str, start: int) -> bool:
-        """Whether rope's `finder` accepts the occurrence starting at `start` of `rel`, as its own search would."""
-        occurrence = self._occurrence(rel, start)
-        for found in finder.filters:
-            result = found(occurrence)
-            if result is not None:
-                return bool(result)
-        return False
-
-
 class RenameOptions(BaseModel):
     """How a symbol rename runs: hierarchy, unsure occurrences, the blind-spot override, stand-in classifications,
     kept sites, the mention scan and whether the run stops at its first refusal."""
@@ -315,11 +218,6 @@ class Declaration(BaseModel):
     start: int
     line: int
     cls: str
-
-
-def _rope_offset(raw: str, offset: int) -> int:
-    """`offset` in `raw` as an offset in rope's newline-normalized text."""
-    return offset - raw.count("\r\n", 0, offset)
 
 
 class MapRename(ABC):
@@ -349,22 +247,21 @@ class MapRename(ABC):
 
 
 class SymbolRename(MapRename):
-    """A rename of a symbol other than a module, located by rope's `renamer` at `site` (a file and an offset in its
-    text): `prepare` finds the renamed declarations and the stand-ins, `rules` the edits, `finish` the mentions and
+    """A rename of a symbol other than a module, its `entry` located at `site` (a file and an offset in its text) by
+    `locator`: `prepare` finds the renamed declarations and the stand-ins, `rules` the edits, `finish` the mentions and
     leftovers."""
 
-    def __init__(self, session: Session, renamer: Rename, new_name: str, options: RenameOptions | None = None, *,
-                 site: tuple[str, int], rope_sites: RopeSites | None = None) -> None:
+    def __init__(self, session: Session, entry: Entry, new_name: str, options: RenameOptions | None = None, *,
+                 site: tuple[str, int], locator: EntryLocator) -> None:
         self.session = session
         self.site = site
-        self.rope_sites = rope_sites or RopeSites(renamer.project, session.snapshot)
+        self.entry = entry
+        self.locator = locator
         self._index: RunIndex | None = None
         self._graph: ClassGraph | None = None
         self._located_sites: set[tuple[str, int]] = set()
-        self.project = renamer.project
-        self.renamer = renamer
         self.options = options or RenameOptions()
-        self.old: str = renamer.get_old_name()
+        self.old: str = entry.name
         self.new = new_name
         self.root = session.root
         self.snapshot = session.snapshot
@@ -379,10 +276,11 @@ class SymbolRename(MapRename):
         self.keywordless: set[tuple[str, int]] = set()
         self.candidates: list[str] = []
         self._files: list[str] = []
-        self.renamers: list[Rename] = [renamer]
+        self.entries: list[Entry] = [entry]
         self.blindspots: list[Finding] = []
         self.stand_ins: list[Finding] = []
         self.leftovers: list[Finding] = []
+        self.unresolved: list[Finding] = []
         self._declarations: list[Declaration] = []
         self._unclassified: list[Declaration] = []
         self._examined: dict[str, list[tuple[int, int]]] = {}
@@ -390,18 +288,9 @@ class SymbolRename(MapRename):
         self._in_hierarchy = self.options.in_hierarchy
         self._unsure = self.options.unsure
 
-    def _finder(self, renamer: Rename) -> Any:
-        return occurrences.create_finder(
-            self.project,
-            self.old,
-            renamer.old_pyname,
-            docs=False,
-            instance=renamer.old_instance,
-            in_hierarchy=self._in_hierarchy and renamer.is_method(),
-        )
-
     def _validate(self) -> None:
-        self.renamer.validate_changes(self.new)
+        if keyword.iskeyword(self.new):
+            raise RefactorError(message("refactor.cannot-rename"))
 
     def _project_declarations(self, found: Occurrence | None) -> set[tuple[str, int]]:
         if found is None:
@@ -410,21 +299,18 @@ class SymbolRename(MapRename):
 
     def _located(self, index: RunIndex) -> set[tuple[str, int]]:
         """An import alias's own binding at the entry's site, else the declarations the checker resolves the site to;
-        where it resolves none in the project, those on the line rope finds the symbol defined at."""
+        where it resolves none in the project, the declarations on the line of the entry's first."""
         rel, offset = self.site
         at = index.at(self.root / rel, self.old, offset)
         if at is not None and at.kind == "alias":
             return {(rel, at.span.start)}
         found = self._project_declarations(at)
-        if found:
+        if found or not self.entry.sites:
             return found
-        location = self.renamer.old_pyname.get_definition_location() if self.renamer.old_pyname is not None else None
-        module, line = location or (None, None)
-        resource = module.get_resource() if isinstance(module, PyModule) else None
-        if resource is None or line is None:
-            return set()
-        source = self.snapshot.source(resource.path)
-        return {(resource.path, s) for s, e in _declarations(source) if source.line(s) == line and source.text[s:e] == self.old}
+        first, start = self.entry.sites[0]
+        source = self.snapshot.source(first)
+        line = source.line(start)
+        return {(first, s) for s, e in _declarations(source) if source.line(s) == line and source.text[s:e] == self.old}
 
     def _member_declarations(self, index: RunIndex) -> list[Declaration]:
         """Every declaration of a class member named like the symbol, in the candidate files."""
@@ -464,8 +350,8 @@ class SymbolRename(MapRename):
         return out
 
     def is_member(self) -> bool:
-        """The symbol is declared in a class body (or as a `self.` attribute): a declaration rope renames is one."""
-        if isinstance(self.renamer.old_pyname, pynamesdef.ParameterName):
+        """The symbol is declared in a class body (or as a `self.` attribute): a declaration the rename renames is one."""
+        if self.entry.kind == "parameter":
             return False
         return any((d.rel, d.start) in self.seeds for d in self._declarations)
 
@@ -485,7 +371,7 @@ class SymbolRename(MapRename):
         return self._graph.roots(found, self.old) if found is not None else frozenset()
 
     def _hierarchy(self, index: RunIndex, sites: set[tuple[str, int]], method: bool) -> set[tuple[str, int]]:
-        """The member declarations rope renames with the member declared at `sites` when the hierarchy is on: for a
+        """The member declarations renamed with the member declared at `sites` when the hierarchy is on: for a
         method, those whose class's roots meet its class's; for any other member, its own declarations."""
         spans = {(d.rel, d.start) for d in self._declarations}
         at = [d for d in self._declarations if (d.rel, d.start) in sites]
@@ -497,7 +383,7 @@ class SymbolRename(MapRename):
     def located_hierarchy(self) -> set[tuple[str, int]]:
         """The hierarchy of the located declaration, whether or not the rename's hierarchy flag is on."""
         assert self._index is not None
-        return self._hierarchy(self._index, self._located_sites, self.renamer.is_method())
+        return self._hierarchy(self._index, self._located_sites, self.entry.kind == "method")
 
     def _own(self, index: RunIndex, d: Declaration) -> set[tuple[str, int]]:
         """The declarations of the member declared at `d`, as the checker resolves its name there."""
@@ -506,7 +392,7 @@ class SymbolRename(MapRename):
     def _classify(self, index: RunIndex) -> None:
         """The renamed declarations: the hierarchy (with it on) and every `--with` stand-in's; record the stand-ins left
         unclassified."""
-        hierarchy = self._hierarchy(index, self.seeds, self.renamer.is_method())
+        hierarchy = self._hierarchy(index, self.seeds, self.entry.kind == "method")
         stand_ins = [d for d in self._declarations if (d.rel, d.start) not in hierarchy]
         renamed = set(hierarchy) | self.seeds if self._in_hierarchy else set(self.seeds)
         classified: set[tuple[str, int]] = set()
@@ -516,11 +402,11 @@ class SymbolRename(MapRename):
             if matched:
                 self.matched_sites.add(raw)
             for d in matched:
-                renamer = Rename(self.project, self.project.get_resource(d.rel), _rope_offset(self.snapshot.text(d.rel), d.start))
-                theirs = self._hierarchy(index, {(d.rel, d.start)}, renamer.is_method())
+                found = self.locator.at(d.rel, d.start)
+                theirs = self._hierarchy(index, {(d.rel, d.start)}, found.kind == "method")
                 classified |= theirs | {(d.rel, d.start)}
                 if joined:
-                    self.renamers.append(renamer)
+                    self.entries.append(found)
                     renamed |= theirs | {(d.rel, d.start)} if self._in_hierarchy else self._own(index, d)
         self._unclassified = [d for d in stand_ins if (d.rel, d.start) not in classified]
         self.seeds = renamed
@@ -538,7 +424,8 @@ class SymbolRename(MapRename):
     def _index_edits(self, index: RunIndex) -> None:
         """Every occurrence resolving to a renamed declaration or through a renamed import alias (a keyword only through
         one that takes keywords), every access with an untyped receiver under `--unsure include`, and each name, import
-        or alias the checker resolves to nothing that rope resolves to a renamed symbol."""
+        or alias the checker resolves to nothing that Python's scoping resolves to a renamed declaration; one nothing
+        resolves is listed."""
         unresolved: list[tuple[str, Occurrence]] = []
         for rel in self.candidates:
             for o in index.occurrences(self.root / rel, self.old):
@@ -546,12 +433,15 @@ class SymbolRename(MapRename):
                     self.edits.append(TextEdit(path=rel, start=o.span.start, end=o.span.end, new_text=self.new))
                 elif not o.declarations and o.kind in ("name", "import", "alias"):
                     unresolved.append((rel, o))
-        if not unresolved:
-            return
-        finders = [self._finder(r) for r in self.renamers]
+        trace = StaticTrace(self.locator)
         for rel, o in unresolved:
-            if any(self.rope_sites.matches(f, rel, o.span.start) for f in finders):
+            found = trace.at(rel, o.span.start, self.old)
+            if found.sites & self.seeds:
                 self.edits.append(TextEdit(path=rel, start=o.span.start, end=o.span.end, new_text=self.new))
+            elif not found.resolved:
+                line = self.snapshot.source(rel).line(o.span.start)
+                text = message("refactor.unresolved-name", path=rel, line=line, old=self.old)
+                self.unresolved.append(Finding(path=rel, line=line, col=o.span.start, text=text))
 
     def _renames(self, o: Occurrence) -> bool:
         """`o` resolves to a renamed declaration or through a renamed import alias (a keyword only through one that
@@ -562,16 +452,13 @@ class SymbolRename(MapRename):
             hits -= self.keywordless
         return bool(hits)
 
-    def _located_field(self, renamer: Rename) -> tuple[ClassRef, ast.AnnAssign | ast.Assign, Span] | None:
-        pyname = renamer.old_pyname
-        location = pyname.get_definition_location() if pyname is not None else None
-        module, line = location or (None, None)
-        resource = module.get_resource() if isinstance(module, PyModule) else None
-        if resource is None or resource.path not in self.candidates:
+    def _located_field(self, entry: Entry) -> tuple[ClassRef, ast.AnnAssign | ast.Assign, Span] | None:
+        """The class field `entry` declares first, when its file is a candidate."""
+        if not entry.sites or entry.sites[0][0] not in self.candidates:
             return None
-        source = self.snapshot.source(resource.path)
-        lines = [line] if line is not None else sorted({source.line(o) for rel, o in self.seeds if rel == resource.path})
-        return next((f for n in lines if (f := _field_of(source, n, self.old)) is not None), None)
+        rel, start = entry.sites[0]
+        source = self.snapshot.source(rel)
+        return _field_of(source, source.line(start), self.old)
 
     def _keyed_edits(self, index: RunIndex, facts: TypeFacts, field: tuple[ClassRef, ast.AnnAssign | ast.Assign, Span]) -> None:
         owner, stmt, declared = field
@@ -586,30 +473,22 @@ class SymbolRename(MapRename):
         self.edits += keyed.edits
         self.edits += bindings.edits()
 
-    def _function_at(self, fn: PyFunction) -> tuple[str, Function] | None:
-        """rope's function `fn` as a node of its file's snapshot."""
-        module = fn.get_module()
-        resource = module.get_resource() if isinstance(module, PyModule) else None
-        if resource is None or resource.path not in self.candidates:
+    def _function_at(self, fn: tuple[str, int]) -> tuple[str, Function] | None:
+        """The def whose name starts at `fn`, when its file is a candidate."""
+        rel, start = fn
+        if rel not in self.candidates:
             return None
-        node = fn.get_ast()
-        found = (
-            n
-            for n in self.snapshot.source(resource.path).nodes
-            if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
-            and (n.lineno, n.col_offset, n.name) == (node.lineno, node.col_offset, node.name)
-        )
-        return next(((resource.path, n) for n in found), None)
+        source = self.snapshot.source(rel)
+        found = (n for n in source.of_type(ast.FunctionDef) + source.of_type(ast.AsyncFunctionDef)
+                 if (span := source.name_span(n)) is not None and span[0] == start)
+        return next(((rel, n) for n in found), None)
 
-    def _method_declarations(self, fn: PyFunction) -> list[tuple[str, Function]]:
-        """The declarations a rename of method `fn` renames: its own, and with the hierarchy on those of every class
-        whose roots for its name meet its class's."""
+    def _method_declarations(self, located: tuple[str, Function]) -> list[tuple[str, Function]]:
+        """The declarations a rename of the method `located` renames: its own, and with the hierarchy on those of every
+        class whose roots for its name meet its class's."""
         assert self._graph is not None
-        name = fn.get_name()
-        located = self._function_at(fn)
-        if located is None:
-            return []
         rel, node = located
+        name = node.name
         source = self.snapshot.source(rel)
         owner = next((c for c in source.of_type(ast.ClassDef) if any(s is node for s in c.body)), None)
         if owner is None:
@@ -628,14 +507,15 @@ class SymbolRename(MapRename):
                     out += [(candidate, s) for s in c.body if isinstance(s, (ast.FunctionDef, ast.AsyncFunctionDef)) and s.name == name]
         return out
 
-    def _parameter_declarations(self, facts: TypeFacts, fn: PyFunction) -> list[tuple[str, SourceFile, Function, ast.arg]]:
+    def _parameter_declarations(self, facts: TypeFacts, fn: tuple[str, int]) -> list[tuple[str, SourceFile, Function, ast.arg]]:
         """The renamed parameters: those named `old` of the method hierarchy's declarations and their overload groups."""
         located = self._function_at(fn)
         if located is None:
             return []
         defs = [located]
-        if isinstance(fn.parent, PyClass):
-            defs += self._method_declarations(fn)
+        source = self.snapshot.source(located[0])
+        if any(any(s is located[1] for s in c.body) for c in source.of_type(ast.ClassDef)):
+            defs += self._method_declarations(located)
         seen: set[tuple[str, int, int]] = set()
         out: list[tuple[str, SourceFile, Function, ast.arg]] = []
         for rel, node in defs:
@@ -649,7 +529,7 @@ class SymbolRename(MapRename):
                     out.append((rel, source, member, arg))
         return out
 
-    def _parameter_seeds(self, facts: TypeFacts, fn: PyFunction) -> None:
+    def _parameter_seeds(self, facts: TypeFacts, fn: tuple[str, int]) -> None:
         """Seed every renamed parameter."""
         for rel, source, node, arg in self._parameter_declarations(facts, fn):
             span = source.name_span(arg)
@@ -803,9 +683,8 @@ class SymbolRename(MapRename):
             self._index = index
             self._graph = ClassGraph(index, self.session.load)
             self._validate()
-            pyname = self.renamer.old_pyname
-            local = _is_local(pyname)
-            self._files = [self.renamer.resource.path] if local else sorted(self.session.python_files())
+            local = self.entry.kind == "local" and bool(self.entry.sites)
+            self._files = [self.entry.sites[0][0]] if local else sorted(self.session.python_files())
             self.candidates = [rel for rel in self._files if self.old in self.snapshot.text(rel)]
             self._declarations = self._member_declarations(index)
             self.seeds = self._located(index)
@@ -813,15 +692,14 @@ class SymbolRename(MapRename):
             self.member = self.is_member()
             if self.member:
                 self._classify(index)
-            self._fields = [f for r in self.renamers if (f := self._located_field(r)) is not None]
+            self._fields = [f for e in self.entries if (f := self._located_field(e)) is not None]
 
     @override
     def seed(self, facts: TypeFacts) -> None:
         """The declarations only the checker's facts add; raises `UnresolvedBase`."""
         with timed("rules"):
-            pyname = self.renamer.old_pyname
-            if isinstance(pyname, pynamesdef.ParameterName):
-                self._parameter_seeds(facts, pyname.pyfunction)
+            if self.entry.kind == "parameter" and self.entry.function is not None:
+                self._parameter_seeds(facts, self.entry.function)
             for field in self._fields:
                 facts.chain(field[0])
 

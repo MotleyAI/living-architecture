@@ -107,6 +107,7 @@ class Binder:
         self.decls: dict[str, ast.AST] = {}
         self.enclosing: dict[str, Scope] = {}
         self.class_nodes: dict[Scope, ast.ClassDef] = {}
+        self.inner: dict[int, Scope] = {}
 
     def _new(self, kind: ScopeKind, parent: Scope) -> Scope:
         scope = Scope(kind, parent)
@@ -125,7 +126,7 @@ class Binder:
         self.enclosing[key] = scope
         return ("decl", self.dotted, key)
 
-    def _from_module(self, node: ast.ImportFrom) -> str | None:
+    def from_module(self, node: ast.ImportFrom) -> str | None:
         if node.level == 0:
             return node.module
         package = self.parts if self.is_package else self.parts[:-1]
@@ -174,6 +175,7 @@ class Binder:
             self._comment(node, node.type_comment, annotated, signature=True)
             self._bind(scope, node.name, self._decl(node, scope), node)
         inner = self._new("function", annotated)
+        self.inner[id(node)] = inner
         for param in self._signature(node.args, scope, annotated):
             self._bind(inner, param.arg, None, param)
         for child in node.body if isinstance(node.body, list) else [node.body]:
@@ -188,6 +190,7 @@ class Binder:
         self._bind(scope, node.name, self._decl(node, annotated), node)
         inner = self._new("class", annotated)
         self.class_nodes[inner] = node
+        self.inner[id(node)] = inner
         for stmt in node.body:
             self.visit(stmt, inner)
 
@@ -201,6 +204,7 @@ class Binder:
     def _comprehension(self, node: ast.ListComp | ast.SetComp | ast.GeneratorExp | ast.DictComp, scope: Scope) -> None:
         self.visit(node.generators[0].iter, scope)
         inner = self._new("comprehension", scope)
+        self.inner[id(node)] = inner
         for i, generator in enumerate(node.generators):
             if i:
                 self.visit(generator.iter, inner)
@@ -216,7 +220,7 @@ class Binder:
                 name = alias.asname or alias.name.split(".")[0]
                 self._bind(scope, name, ("module", alias.name if alias.asname else name, ""), alias)
             return
-        module = self._from_module(node)
+        module = self.from_module(node)
         for alias in node.names:
             if alias.name == "*":
                 self.stars.append(module)
@@ -397,9 +401,8 @@ class Resolver:
             return None
         if module in TYPING_MODULES:
             return ("typing", name)
-        if (target := self.load(module)) is None:
-            return None
-        if values := self.module_values(target, name):
+        target = self.load(module)
+        if target is not None and (values := self.module_values(target, name)):
             return combine(values)
         return ("module", f"{module}.{name}") if self.load(f"{module}.{name}") is not None else None
 

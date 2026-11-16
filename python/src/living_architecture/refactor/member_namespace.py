@@ -1,26 +1,28 @@
-"""A member rename's class namespace: the members of the new name its class, every ancestor (library bases and the
-implicit root included) and every project descendant declare."""
+"""A member rename's class namespace: the members of the new name its class, every ancestor (library classes and the
+implicit root included) and every project descendant declare, by the checker's class facts."""
 
 from __future__ import annotations
 
 import ast
 import re
-from collections.abc import Callable, Iterator
+from collections.abc import Callable
+from pathlib import Path
+from typing import Protocol
 
 from pydantic import BaseModel, ConfigDict
-from rope.base import evaluate
-from rope.base.project import Project
-from rope.base.pyobjects import PyObject
-from rope.base.pyobjectsdef import PyClass, PyModule
-from rope.base.pyscopes import Scope as RopeScope
 
 from living_architecture.contract import language
+from living_architecture.lang import PositionFacts
 from living_architecture.refactor.bindings import Conflict, Site, may_name
 from living_architecture.refactor.members import member_declarations
 from living_architecture.refactor.python_source import SourceFile, nfkc
 
 # A project class: its file and the line of its `class` statement.
 ClassKey = tuple[str, int]
+
+
+class ClassFacts(Protocol):
+    def class_facts(self, path: Path, offset: int) -> PositionFacts: ...
 
 
 class RenamedMember(BaseModel):
@@ -34,83 +36,46 @@ class RenamedMember(BaseModel):
     cls: ClassKey
 
 
-def _class_scopes(scope: RopeScope) -> Iterator[RopeScope]:
-    for child in scope.get_scopes():
-        if isinstance(child.pyobject, PyClass):
-            yield child
-        yield from _class_scopes(child)
-
-
 class Hierarchy:
-    """Project classes and their ancestors, as rope evaluates their bases."""
+    """Project classes and their ancestors, as the checker resolves them."""
 
-    def __init__(self, project: Project, files: list[str], source: Callable[[str], SourceFile]) -> None:
-        self.project = project
+    def __init__(self, root: Path, files: list[str], source: Callable[[str], SourceFile], facts: ClassFacts) -> None:
+        self.root = root
         self.files = set(files)
         self.source = source
+        self.facts = facts
         self.root_members = frozenset(language("python")["root_members"])
-        self._pyclasses: dict[str, dict[int, PyClass]] = {}
-        self._bases: dict[ClassKey, tuple[list[ClassKey], list[PyObject]]] = {}
+        self._facts: dict[ClassKey, PositionFacts | None] = {}
 
     def node(self, key: ClassKey) -> ast.ClassDef | None:
         return next((c for c in self.source(key[0]).of_type(ast.ClassDef) if c.lineno == key[1]), None)
 
-    def _pyclass(self, key: ClassKey) -> PyClass | None:
-        rel, line = key
-        if rel not in self._pyclasses:
-            scope = self.project.get_pymodule(self.project.get_resource(rel)).get_scope()
-            found = _class_scopes(scope) if scope is not None else iter(())
-            self._pyclasses[rel] = {s.pyobject.get_ast().lineno: s.pyobject for s in found}
-        return self._pyclasses[rel].get(line)
+    def _class_facts(self, key: ClassKey) -> PositionFacts | None:
+        if key not in self._facts:
+            node = self.node(key)
+            span = self.source(key[0]).name_span(node) if node is not None else None
+            self._facts[key] = self.facts.class_facts(self.root / key[0], span[0]) if span is not None else None
+        return self._facts[key]
 
-    def _key(self, obj: PyObject) -> ClassKey | None:
-        """A project class's key; None for a library class."""
-        if not isinstance(obj, PyClass):
+    def _key(self, path: Path, start: int) -> ClassKey | None:
+        """The project class whose name starts at `start` of the file at `path`."""
+        rel = path.relative_to(self.root).as_posix() if path.is_relative_to(self.root) else None
+        if rel is None or rel not in self.files:
             return None
-        module = obj.get_module()
-        resource = module.get_resource() if isinstance(module, PyModule) else None
-        return (resource.path, obj.get_ast().lineno) if resource is not None and resource.path in self.files else None
+        source = self.source(rel)
+        return next(((rel, c.lineno) for c in source.of_type(ast.ClassDef)
+                     if (span := source.name_span(c)) is not None and span[0] == start), None)
 
-    def bases(self, key: ClassKey) -> tuple[list[ClassKey], list[PyObject]]:
-        """A project class's direct bases: project classes, then library classes."""
-        if key not in self._bases:
-            project: list[ClassKey] = []
-            library: list[PyObject] = []
-            for obj in self._base_objects(key):
-                found = self._key(obj)
-                if found is not None:
-                    project.append(found)
-                else:
-                    library.append(obj)
-            self._bases[key] = (project, library)
-        return self._bases[key]
+    def ancestors(self, key: ClassKey) -> list[ClassKey]:
+        """Every project ancestor of a project class, in MRO order."""
+        facts = self._class_facts(key)
+        found = (self._key(s.path, s.start) for s in facts.ancestors) if facts is not None else ()
+        return [k for k in found if k is not None and k != key]
 
-    def _base_objects(self, key: ClassKey) -> Iterator[PyObject]:
-        """The objects a project class's bases evaluate to, a subscripted base by its subscripted value."""
-        pyclass = self._pyclass(key)
-        scope = pyclass.get_scope() if pyclass is not None else None
-        if pyclass is None or scope is None:
-            return
-        for base in pyclass.get_ast().bases:
-            pyname = evaluate.eval_node(scope.parent, base.value if isinstance(base, ast.Subscript) else base)
-            obj = pyname.get_object() if pyname is not None else None
-            if obj is not None:
-                yield obj
-
-    def ancestors(self, key: ClassKey) -> tuple[list[ClassKey], list[PyObject]]:
-        """Every project and library ancestor of a project class."""
-        seen: list[ClassKey] = []
-        library: list[PyObject] = []
-        todo = [key]
-        while todo:
-            current = todo.pop()
-            project, libs = self.bases(current)
-            library += libs
-            for base in project:
-                if base not in seen and base != key:
-                    seen.append(base)
-                    todo.append(base)
-        return seen, library
+    def library_members(self, key: ClassKey) -> frozenset[str]:
+        """The run's new member names a library ancestor of the class declares."""
+        facts = self._class_facts(key)
+        return frozenset(facts.members) if facts is not None else frozenset()
 
     def declarations(self, key: ClassKey, name: str) -> list[Site]:
         """The sites of member `name` a project class declares."""
@@ -142,7 +107,7 @@ class MemberCheck:
     def _descendants(self, key: ClassKey, name: str) -> list[ClassKey]:
         """The project classes declaring member `name` that have `key` among their ancestors."""
         return [other for other in self._declaring_classes(name)
-                if other != key and key in self.hierarchy.ancestors(other)[0]]
+                if other != key and key in self.hierarchy.ancestors(other)]
 
     def conflicts(self, renamed: list[RenamedMember], renamed_sites: set[Site]) -> list[Conflict]:
         """The sites refusing each renamed member; `renamed_sites` are every declaration the renames rename."""
@@ -150,8 +115,7 @@ class MemberCheck:
         for member in renamed:
             name = member.new_name
             spelled = nfkc(name)
-            ancestors, library = self.hierarchy.ancestors(member.cls)
-            family = [member.cls, *ancestors, *self._descendants(member.cls, spelled)]
+            family = [member.cls, *self.hierarchy.ancestors(member.cls), *self._descendants(member.cls, spelled)]
             existing = [s for key in family for s in self.hierarchy.declarations(key, spelled) if s not in renamed_sites]
             out += [Conflict(site=s, name=name) for s in existing]
             met = [m for m in renamed if m.entry != member.entry and m.site != member.site
@@ -160,6 +124,6 @@ class MemberCheck:
                 earliest = min([member, *met], key=lambda m: (m.entry, m.site))
                 first = min(m.site for m in renamed if m.entry == earliest.entry)
                 out.append(Conflict(site=first, name=name))
-            if spelled in self.hierarchy.root_members or any(spelled in obj.get_attributes() for obj in library):
+            if spelled in self.hierarchy.root_members or spelled in self.hierarchy.library_members(member.cls):
                 out.append(Conflict(site=member.site, name=name))
         return out

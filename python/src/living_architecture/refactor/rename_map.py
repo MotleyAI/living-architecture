@@ -11,14 +11,10 @@ from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import Any
 
-from rope.base import pynamesdef
 from rope.base.change import ChangeContents, ChangeSet, MoveResource
-from rope.base.exceptions import BadIdentifierError, RefactoringError
 from rope.base.fscommands import unicode_to_file_data
 from rope.base.project import Project
-from rope.base.pyobjectsdef import PyModule
 from rope.base.resources import File
-from rope.refactor.rename import Rename
 
 from living_architecture.config import ConfigError, source_files
 from living_architecture.contract import manifest, message
@@ -32,6 +28,7 @@ from living_architecture.refactor.baseline_align import (
 )
 from living_architecture.refactor.bindings import BindingCheck, EntryEdits, first_conflict
 from living_architecture.refactor.diff_render import edit_description
+from living_architecture.refactor.entry_location import Entry, EntryLocator
 from living_architecture.refactor.index_cache import IndexCache
 from living_architecture.refactor.keyed import TypeFacts, UnresolvedBase
 from living_architecture.refactor.literal_rename import LiteralRename, check_value, literal_member_at
@@ -44,12 +41,11 @@ from living_architecture.refactor.occurrence_index import RunIndex, ServerSessio
 from living_architecture.refactor.outcomes import Finding
 from living_architecture.refactor.position_map import Edit
 from living_architecture.refactor.progress import Progress, Refusal, Refused, checker_cause, refusal, unique
+from living_architecture.refactor.python_project import Snapshot
 from living_architecture.refactor.python_source import SourceFile
 from living_architecture.refactor.rename_union import (
     RenameOptions,
-    RopeSites,
     Session,
-    Snapshot,
     SymbolRename,
 )
 from living_architecture.refactor.retarget import (
@@ -62,7 +58,7 @@ from living_architecture.refactor.retarget import (
     module_name,
 )
 from living_architecture.refactor.retarget_imports import plan_imports
-from living_architecture.refactor.rope_patches import WalkerGap, walk_gap_line
+from living_architecture.refactor.rope_patches import walk_gap_line
 from living_architecture.refactor.routing import language_files
 from living_architecture.refactor.sites import Keeps, Site, keep_spells
 from living_architecture.refactor.symbol_path import LocatorError, declaration_scope, locate
@@ -78,15 +74,15 @@ Renaming = SymbolRename | LiteralRename
 
 
 class _Resolved:
-    """An entry located: its file, rope's renamer, its canonical symbol and its intent, and every map index merged
+    """An entry located: its file, what it names, its canonical symbol and its intent, and every map index merged
     into it."""
 
-    def __init__(self, entry: MapEntry, rel: str, renamer: Rename | None, key: tuple[object, ...],
+    def __init__(self, entry: MapEntry, rel: str, located: Entry | None, key: tuple[object, ...],
                  literal: ast.Constant | None = None, offset: int = 0) -> None:
         self.entry = entry
         self.indexes = [entry.index]
         self.rel = rel
-        self.renamer = renamer
+        self.located = located
         self.key = key
         self.literal = literal
         self.offset = offset
@@ -102,39 +98,15 @@ class _Resolved:
     def old(self) -> str:
         if self.literal is not None:
             return str(self.literal.value)
-        return self.renamer.get_old_name() if self.renamer else ""
+        return self.located.name if self.located else ""
 
     def is_module(self) -> bool:
-        return self.renamer is not None and self.renamer._is_renaming_a_module()  # pyright: ignore[reportPrivateUsage]
-
-
-def _key(renamer: Rename, rel: str, offset: int) -> tuple[object, ...]:
-    """The declaration rope resolves the renamer's name to, else the location."""
-    pyname = renamer.old_pyname
-    location = pyname.get_definition_location() if pyname is not None else None
-    module, line = location or (None, None)
-    path = module.get_resource().path if isinstance(module, PyModule) and module.get_resource() is not None else None
-    if path is None or line is None:
-        return ("site", rel, offset, None)
-    kind = "parameter" if isinstance(pyname, pynamesdef.ParameterName) else "name"
-    return (kind, path, line, renamer.get_old_name())
-
-
-def _rope_offset(raw: str, offset: int) -> int:
-    """`offset` in `raw` as an offset in rope's newline-normalized text."""
-    return offset - raw.count("\r\n", 0, offset)
+        return self.located is not None and self.located.kind == "module"
 
 
 def _normalize(text: str) -> str:
     """The text as rope reads it."""
     return text.replace("\r\n", "\n").replace("\r", "\n")
-
-
-def _definition_line(renamer: Rename) -> tuple[str | None, int | None]:
-    location = renamer.old_pyname.get_definition_location() if renamer.old_pyname is not None else None
-    module, line = location or (None, None)
-    resource_ = module.get_resource() if isinstance(module, PyModule) else None
-    return (resource_.path if resource_ is not None else None), line
 
 
 def _unique(findings: Iterable[Finding]) -> list[Finding]:
@@ -170,18 +142,13 @@ def failure(exc: Exception, root: Path) -> Refusal | None:
         return refusal(str(exc), 2)
     if isinstance(exc, (RefactorError, ConfigError)):
         return refusal(str(exc))
-    if isinstance(exc, (RefactoringError, BadIdentifierError)):
-        return refusal(message(_CANNOT_RENAME))
-    if isinstance(exc, WalkerGap):
-        return refusal(message("refactor.rope-walk", path=exc.path, line=exc.line))
     if isinstance(exc, UnresolvedBase):
         path = (exc.path.relative_to(root) if exc.path.is_relative_to(root) else exc.path).as_posix()
         return refusal(message("refactor.unresolved-base", name=exc.name, path=path, line=exc.line))
     return None
 
 
-_ENTRY_ERRORS = (LocatorError, MapError, RefactorError, ConfigError, RefactoringError, BadIdentifierError, WalkerGap,
-                 UnresolvedBase)
+_ENTRY_ERRORS = (LocatorError, MapError, RefactorError, ConfigError, UnresolvedBase)
 
 
 def undecodable(snapshot: Snapshot, rels: Iterable[str], olds: Iterable[str], keeps: Keeps) -> list[Finding]:
@@ -276,18 +243,17 @@ def _spelled(entry: MapEntry) -> str | None:
 class RenameMap:
     """The entries of a map computed as one refactor."""
 
-    def __init__(self, project: Project, entries: list[MapEntry], options: RenameOptions, map_shown: str,
+    def __init__(self, root: Path, entries: list[MapEntry], options: RenameOptions, map_shown: str,
                  progress: Progress) -> None:
-        self.project = project
         self.entries = entries
         self.options = options
         self.map_shown = map_shown
         self.progress = progress
-        self.session = Session(Path(project.address))
+        self.session = Session(root)
         self.root = self.session.root
         self.server = ServerSession(self.root, self.session.read)
         self.index = RunIndex(self.root, self.session.load, self.server, IndexCache(self.root))
-        self.rope_sites = RopeSites(project, self.session.snapshot)
+        self.locator = EntryLocator(self.root, self._definitions, self.session.snapshot, self.session.layout)
         self.stopped = False
 
     # ---- resolve
@@ -297,20 +263,11 @@ class RenameMap:
         offset, _ = resolve(entry.locator, self.session.snapshot.source(rel), entry.path)
         return rel, offset
 
-    def _renamer(self, rel: str, offset: int) -> tuple[str, int, Rename]:
-        """rope's renamer at `offset`; where rope cannot resolve the name, at the declaration the checker finds."""
-        raw = self.session.snapshot.text(rel)
-        try:
-            return rel, offset, Rename(self.project, self.project.get_resource(rel), _rope_offset(raw, offset))
-        except (RefactoringError, BadIdentifierError):
-            server = self.server.get()
-            server.open(self.root / rel, raw)
-            found = [s for s in server.definition(self.root / rel, offset) if self.session.rel(s.path)]
-            if len(found) != 1 or (found[0].path, found[0].start) == (self.root / rel, offset):
-                raise
-            target = str(self.session.rel(found[0].path))
-            target_offset = _rope_offset(self.session.snapshot.text(target), found[0].start)
-            return target, found[0].start, Rename(self.project, self.project.get_resource(target), target_offset)
+    def _definitions(self, rel: str, offset: int) -> list[tuple[Path, int]]:
+        """The run's language server's `definition` at `offset` of `rel`, opened as the snapshot holds it."""
+        server = self.server.get()
+        server.open(self.root / rel, self.session.snapshot.text(rel))
+        return [(s.path, s.start) for s in server.definition(self.root / rel, offset)]
 
     def _literal(self, entry: MapEntry, rel: str, offset: int) -> _Resolved | None:
         """The entry as a `Literal` member rename, when its locator names a string of a `Literal[...]`."""
@@ -328,8 +285,8 @@ class RenameMap:
         literal = self._literal(entry, *located)
         if literal is not None:
             return literal
-        rel, offset, renamer = self._renamer(*located)
-        resolved = _Resolved(entry, rel, renamer, _key(renamer, rel, offset), offset=offset)
+        found = self.locator.at(*located)
+        resolved = _Resolved(entry, located[0], found, found.key, offset=located[1])
         if entry.retarget is not None:
             self._resolve_target(resolved)
         return resolved
@@ -337,12 +294,12 @@ class RenameMap:
     def _resolve_target(self, resolved: _Resolved) -> None:
         """The target beside the alias: declared or imported in the alias's class or module, or the name a re-export
         declaring the alias imports; LocatorError otherwise."""
-        entry, rel, renamer = resolved.entry, resolved.rel, resolved.renamer
-        assert renamer is not None
+        entry, rel, found = resolved.entry, resolved.rel, resolved.located
+        assert found is not None
         source = self.session.snapshot.source(rel)
-        alias = entry.locator.symbol or renamer.get_old_name()
+        alias = entry.locator.symbol or found.name
         refused = LocatorError(message("refactor.retarget-scope", target=entry.retarget, alias=alias))
-        old = renamer.get_old_name()
+        old = found.name
         alias_line = source.line(resolved.offset)
         alias_scope = declaration_scope(source, old, alias_line)
         if alias_scope is not None and isinstance(alias_scope[1], ast.alias):
@@ -353,7 +310,7 @@ class RenameMap:
         except LocatorError:
             raise refused from None
         word = _WORD.match(source.text, located.offset)
-        def_rel, def_line = _definition_line(renamer)
+        def_rel, def_line = definition(found) or (None, None)
         if word is None or def_rel != rel or def_line is None:
             raise refused
         resolved.target_name = word.group()
@@ -365,16 +322,19 @@ class RenameMap:
         imported = isinstance(target_scope[1], ast.alias)
         if imported and not isinstance(alias_scope[0], ast.Module):
             raise refused
-        target = Rename(self.project, self.project.get_resource(rel), _rope_offset(source.text, located.offset))
-        resolved.target_key = _key(target, rel, located.offset)
+        try:
+            target = self.locator.at(rel, located.offset, follow=True)
+        except RefactorError:
+            raise refused from None
+        resolved.target_key = target.key
         if not isinstance(alias_scope[0], ast.Module):
             return
-        found = definition(target.old_pyname)
+        home = definition(target)
         if imported:
-            self._imported_home(resolved, source, target_scope[1], found, refused)
+            self._imported_home(resolved, source, target_scope[1], home, refused)
         else:
             resolved.home = TargetHome(module=module_name(self.session, rel), exported=resolved.target_name,
-                                       local=resolved.target_name, definition=found)
+                                       local=resolved.target_name, definition=home)
 
     def _imported_home(self, resolved: _Resolved, source: SourceFile, node: ast.AST, found: Location | None,
                        refused: LocatorError) -> None:
@@ -396,7 +356,7 @@ class RenameMap:
         if stmt is None or not isinstance(alias_scope[0], ast.Module) or node.name != resolved.entry.retarget:
             raise refused
         module = imported_module(self.session, resolved.rel, stmt)
-        found = attribute_definition(self.project, module, node.name)
+        found = attribute_definition(self.locator, module, node.name)
         resolved.target_name = node.name
         resolved.line = line
         span = source.name_span(node)
@@ -444,17 +404,10 @@ class RenameMap:
 
     def _moved(self, resolved: list[_Resolved]) -> list[str]:
         """The file or package a module rename moves."""
-        out: list[str] = []
-        for r in resolved:
-            if r.is_module() and r.renamer is not None and r.renamer.old_pyname is not None:
-                pyobject = r.renamer.old_pyname.get_object()
-                found = pyobject.get_resource() if pyobject is not None else None
-                if found is not None:
-                    out.append(found.path)
-        return out
+        return [r.located.module for r in resolved if r.located is not None and r.located.module is not None]
 
     def checks(self, resolved: list[_Resolved], spelled: bool) -> list[Refusal]:
-        """Every check that needs no reference: sites, keeps, walker gaps and the checkers."""
+        """Every check that needs no reference: sites, keeps and the checkers."""
         options = self.options
         sites = [("--with", raw, self.root) for raw in options.with_sites]
         sites += [("--without", raw, self.root) for raw in options.without_sites]
@@ -466,8 +419,6 @@ class RenameMap:
             editable = editable_files(self.root, options.docs)
             found += keep_checks(list(options.keep), self.root, editable, text, names, self._moved(resolved), missing,
                                  self.session.snapshot.data)
-        modules = any(r.is_module() for r in resolved)
-        found += walker_gaps(self.root, text, names, None if modules else [r.rel for r in resolved if r.literal is None])
         if not resolved or not self._cached(resolved):
             try:
                 self.server.get()
@@ -482,9 +433,12 @@ class RenameMap:
         if any(r.is_module() for r in resolved):
             return True
         names = {r.old() for r in resolved if r.literal is None}
-        rels = [p.relative_to(self.root).as_posix() for p in language_files(self.root, "python")]
+        news = {str(r.entry.new_name) for r in resolved if r.literal is None and r.entry.new_name is not None}
+        rels = self.session.python_files()
         candidates = candidate_files(rels, self.session.snapshot.text, self.session.snapshot.source, names)
-        cached = not names or self.index.prepare(names, [self.root / rel for rel in candidates])
+        spelling = candidate_files(rels, self.session.snapshot.text, self.session.snapshot.source, news) if news else []
+        cached = not names or self.index.prepare(names, [self.root / rel for rel in candidates], news,
+                                                 [self.root / rel for rel in spelling])
         return cached and all(r.literal is None for r in resolved)
 
     # ---- references
@@ -498,9 +452,9 @@ class RenameMap:
             elif r.entry.retarget is not None:
                 renames.append(self._retarget(r, finals.get(r.target_key)))  # pyright: ignore[reportArgumentType]
             else:
-                assert r.renamer is not None
-                renames.append(SymbolRename(self.session, r.renamer, str(r.entry.new_name), self.options, site=self._site(r),
-                                            rope_sites=self.rope_sites))
+                assert r.located is not None
+                renames.append(SymbolRename(self.session, r.located, str(r.entry.new_name), self.options, site=self._site(r),
+                                            locator=self.locator))
         return renames
 
     def _site(self, r: _Resolved) -> tuple[str, int]:
@@ -509,15 +463,15 @@ class RenameMap:
     def _retarget(self, r: _Resolved, final: str | None) -> AliasRetarget:
         """`r`'s retarget, `final` the new name of its target where another entry renames it: under an import `as`
         another name only the home's export is renamed, the local name stays."""
-        assert r.renamer is not None
+        assert r.located is not None
         home, target = r.home, r.target_name
         if final is not None and (home is None or home.exported == home.local):
             target = final
             home = home.model_copy(update={"exported": final, "local": final}) if home is not None else None
         elif final is not None and home is not None:
             home = home.model_copy(update={"exported": final})
-        return AliasRetarget(self.session, r.renamer, target, self.options, site=self._site(r), rope_sites=self.rope_sites,
-                             line=r.line, home=home, own=r.own, original=r.target_name, entry=r.entry.index)
+        return AliasRetarget(self.session, r.located, target, self.options, site=self._site(r), locator=self.locator,
+                             line=r.line, home=home, own=r.own, original=r.target_name, index=r.entry.index)
 
     def references(self, renames: list[Renaming], resolved: list[_Resolved]) -> dict[int, list[Refusal]]:
         """Each entry's renamed declarations, read from the run's occurrence index (exported first), announced as each
@@ -622,7 +576,7 @@ class RenameMap:
             return
         with timed("rules"):
             planned = plan_imports(self.session, [n for r in retargets for n in r.needs])
-        by_entry = {r.entry: r for r in retargets}
+        by_entry = {r.index: r for r in retargets}
         for entry, edit in planned:
             by_entry[entry].imports.append(edit)
         for r in retargets:
@@ -639,6 +593,8 @@ class RenameMap:
         r.edits = [e for e, k in zip(r.edits, kept, strict=True) if not k]
         r.blindspots = [b for b in r.blindspots if not keeps.kept(b.path, b.line)]
         r.leftovers = [f for f in r.leftovers if not keeps.kept(f.path, f.line, mark=False)]
+        if isinstance(r, SymbolRename):
+            r.unresolved = [f for f in r.unresolved if not keeps.kept(f.path, f.line)]
         return dropped
 
     # ---- the final report
@@ -683,7 +639,7 @@ class RenameMap:
         ]
         rels = self.session.python_files()
         bindings = BindingCheck(rels, self.session.source_folders(), self.session.snapshot.source)
-        namespace = MemberCheck(Hierarchy(self.project, rels, self.session.snapshot.source), self.session.snapshot.text)
+        namespace = MemberCheck(Hierarchy(self.root, rels, self.session.snapshot.source, self.index), self.session.snapshot.text)
         passes = [[e] for e, res in zip(entries, resolved, strict=True) if res.entry.new_name is not None]
         out: list[NameConflict] = []
         for group in passes if passes == [entries] or not together else [*passes, entries]:
@@ -749,6 +705,7 @@ class RenameMap:
         unique_ = {(f.path, f.line, f.col, f.text): f for r in renames for f in r.leftovers
                    if not any(f.covers(e) for e in by_path.get(f.path, ()))}
         unique_ |= {(f.path, f.line, f.col, f.text): f for f in listed}
+        unique_ |= {(f.path, f.line, f.col, f.text): f for r in renames if isinstance(r, SymbolRename) for f in r.unresolved}
         leftovers = [unique_[k] for k in sorted(unique_)]
         return [*blindspots, *leftovers]
 
@@ -758,7 +715,7 @@ class RenameMap:
 
     # ---- the run
 
-    def run(self, apply_: bool, module_rename: Callable[[_Resolved], int]) -> int:
+    def run(self, apply_: bool, module_rename: Callable[[RenameMap, _Resolved], int]) -> int:
         try:
             self.progress.phase("resolve")
             with timed("resolve"):
@@ -770,7 +727,7 @@ class RenameMap:
             self.progress.phase("references")
             if resolved[0].is_module():
                 self.server.close()
-                return module_rename(resolved[0])
+                return module_rename(self, resolved[0])
             renames = self.build(resolved)
             failed = self.references(renames, resolved)
             active = [i for i, r in enumerate(renames) if r.new != r.old and i not in failed]
@@ -873,17 +830,15 @@ def emit(root: Path, headers: list[str], described: list[tuple[str, str]], apply
         print(message("refactor.dry-run", count=len(touched)))
 
 
-def run_map(project: Project, entries: list[MapEntry], options: RenameOptions, *, apply_: bool, map_shown: str,
-            progress: Progress, module_rename: Callable[[_Resolved], int]) -> int:
+def run_map(root: Path, entries: list[MapEntry], options: RenameOptions, *, apply_: bool, map_shown: str,
+            progress: Progress, module_rename: Callable[[RenameMap, _Resolved], int]) -> int:
     """0 when computed (and written with `--apply`); `Refused` with every refusal when it refuses."""
-    engine = RenameMap(project, entries, options, map_shown, progress)
+    engine = RenameMap(root, entries, options, map_shown, progress)
     try:
         return engine.run(apply_, module_rename)
     except LanguageServerError as exc:
         engine.server.close()
         raise Refused([server_failed(exc)]) from None
-    except (RefactoringError, BadIdentifierError):
-        raise Refused([refusal(message(_CANNOT_RENAME))]) from None
     except ConfigError as exc:
         raise Refused([refusal(str(exc))]) from None
     finally:

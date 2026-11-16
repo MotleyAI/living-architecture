@@ -114,14 +114,23 @@ class _Queries:
                 self.ask(node, "definition")
 
     def queries(self) -> list[FactQuery]:
-        order: tuple[FactKind, ...] = ("definition", "typeDefinition", "verdict", "access")
+        order: tuple[FactKind, ...] = ("definition", "typeDefinition", "verdict", "access", "class")
         return [FactQuery(path=self.source.path, offset=offset, kinds=tuple(k for k in order if k in kinds))
                 for offset, kinds in sorted(self.kinds.items())]
 
 
+def class_queries(source: SourceFile) -> list[FactQuery]:
+    """The class facts of every class `source` declares."""
+    found = _Queries(source)
+    for node in source.of_type(ast.ClassDef):
+        found.ask(node, "class")
+    return found.queries()
+
+
 def fact_queries(source: SourceFile, names: set[str]) -> list[FactQuery]:
-    """The positions of `source` the rules of a rename of `names` ask about: class bases and field annotations,
-    decorators, the callees, receivers and annotations of keyed sinks, and string-member callees and objects."""
+    """The positions of `source` the rules of a rename of `names` ask about: each class, its bases and field
+    annotations, decorators, the callees, receivers and annotations of keyed sinks, and string-member callees and
+    objects."""
     if source.tree is None:
         return []
     found = _Queries(source)
@@ -150,6 +159,7 @@ def _returning(source: SourceFile, shape: _Shape) -> set[int]:
 
 
 def _class_queries(found: _Queries, cls: ast.ClassDef) -> None:
+    found.ask(cls, "class")
     for base in cls.bases:
         found.ask(_name_node(base), "definition")
     for stmt in cls.body:
@@ -219,10 +229,14 @@ class RunIndex:
 
     # ---- exports
 
-    def prepare(self, names: set[str], files: list[Path]) -> bool:
-        """Fix the run's request for `names` over `files`; whether its export is cached."""
+    def prepare(self, names: set[str], files: list[Path], members: Iterable[str] = (), classes: Iterable[Path] = ()) -> bool:
+        """Fix the run's request for `names` over `files`, with the class facts of `classes` looking up `members`;
+        whether its export is cached."""
         queries = [q for path in files if (source := self._source(path)) is not None for q in fact_queries(source, names)]
-        self.request = ExportRequest(names=sorted(names), files=files, facts=queries)
+        asked = {(q.path, q.offset) for q in queries}
+        queries += [q for path in classes if path not in files and (source := self._source(path)) is not None
+                    for q in class_queries(source) if (q.path, q.offset) not in asked]
+        self.request = ExportRequest(names=sorted(names), files=files, facts=queries, members=sorted(members))
         return self.cache is not None and self.cache.get(request_key(self.request, {})) is not None
 
     def build(self) -> None:
@@ -249,7 +263,7 @@ class RunIndex:
         found = self.cache.get(key) if self.cache is not None else None
         if found is not None:
             return found
-        server = self._open([*request.files, *texts], texts)
+        server = self._open(dict.fromkeys([*request.files, *(q.path for q in request.facts), *texts]), texts)
         try:
             with timed("references"):
                 found = server.export(request)
@@ -298,7 +312,8 @@ class RunIndex:
     def _fact(self, path: Path, offset: int, kind: FactKind) -> PositionFacts:
         entry = self._facts.get((path, offset), {})
         if kind not in entry:
-            self._merge(self._export(ExportRequest(names=[], files=[], facts=[
+            members = self.request.members if kind == "class" else []
+            self._merge(self._export(ExportRequest(names=[], files=[], members=members, facts=[
                 FactQuery(path=path, offset=offset, kinds=(kind,))])))
             entry = self._facts.setdefault((path, offset), {})
             entry.setdefault(kind, PositionFacts(path=path, offset=offset, kinds=(kind,)))
@@ -306,6 +321,11 @@ class RunIndex:
 
     def definition(self, path: Path, offset: int) -> list[Span]:
         return list(self._fact(path, offset, "definition").definition)
+
+    def class_facts(self, path: Path, offset: int) -> PositionFacts:
+        """The class fact of the class whose name starts at `offset`: its ancestors and the members of the run's
+        new names a class of them outside the project declares."""
+        return self._fact(path, offset, "class")
 
     def type_definition(self, path: Path, offset: int) -> list[Span]:
         return list(self._fact(path, offset, "typeDefinition").type_definition)
