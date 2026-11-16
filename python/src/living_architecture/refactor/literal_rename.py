@@ -369,7 +369,7 @@ class LiteralRename(MapRename):
                 continue
             line = self.snapshot.source(site.rel).line(site.span[0])
             text = message("refactor.leftover", path=site.rel, line=line, where="string", old=self.old)
-            finding = Finding(path=site.rel, line=line, col=site.span[0], text=text)
+            finding = Finding(path=site.rel, line=line, col=site.span[0], end=site.span[1], text=text)
             self._file(Outcome(kind="leftover", rel=site.rel, span=site.span, finding=finding))
 
     def _file(self, outcome: Outcome) -> None:

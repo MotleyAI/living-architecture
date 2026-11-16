@@ -299,6 +299,18 @@ def test_forwarded_python_section_is_patched_too(tmp_path: Path, run) -> None:
     assert err.splitlines()[-1] == NOT_APPLIED
 
 
+def test_a_baseline_update_line_before_the_report_is_skipped(tmp_path: Path) -> None:
+    checker = tmp_path / "bin" / "checker"
+    checker.parent.mkdir()
+    checker.write_text(
+        "#!/bin/sh\nprintf '{\"outcome\": \"patched\", \"version\": \"1.0.0\", \"count\": 1}' > \"$LA_PYRIGHT_PATCH_RESULT\"\n"
+        "echo 'updated undefined with 3 errors (went down by 1)'\necho\necho '{\n  \"generalDiagnostics\": []\n}'\n",
+        encoding="utf-8",
+    )
+    checker.chmod(0o755)
+    assert typecheck.python_diagnostics(tmp_path, "bin/checker", []) == {"generalDiagnostics": []}
+
+
 def test_a_checker_that_cannot_launch_is_reported_from_the_os_templates(tmp_path: Path) -> None:
     checker = tmp_path / "bin" / "checker"
     checker.parent.mkdir()

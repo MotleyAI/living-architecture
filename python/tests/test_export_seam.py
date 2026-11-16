@@ -166,9 +166,12 @@ def test_two_requests_merged_give_the_one_request_index_through_the_fake(tmp_pat
     assert len(split_session.fake.exports) == 2
     assert any(f.path == root / "pkg/base.py" for f in positions)
     assert sum(len(e.followed) for e in split_session.fake.exports) > len(shared)
-    exported = len(one_session.fake.exports), len(split_session.fake.exports)
+    def export_counts() -> tuple[int, int]:
+        return len(one_session.fake.exports), len(split_session.fake.exports)
+
+    exported = export_counts()
     assert _state(split, root, positions) == _state(one, root, positions)
-    assert (len(one_session.fake.exports), len(split_session.fake.exports)) == exported
+    assert export_counts() == exported
 
 
 class _Recorded:

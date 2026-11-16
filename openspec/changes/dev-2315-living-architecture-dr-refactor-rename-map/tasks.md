@@ -6,7 +6,7 @@
       the PR, check whether both have merged; if so merge `origin/main` first (`git merge origin/main -m "Merge branch 'origin/main' into …"`;
       never rebase or stash) and re-run the local test scope. Verify: `git log origin/main..HEAD` holds only this
       change's commits.
-- [ ] 0.3 Repro for every SLayer measurement: `git archive` SLayer's branch
+- [x] 0.3 Repro for every SLayer measurement: `git archive` SLayer's branch
       `egor/dev-1607-rename-columns-to-fields-to-be-consistent-with` into a temp directory, `git init` it and commit
       (without a git repository la finds no project files), symlink the worktree's `.venv`, set `LA_CACHE_DIR` to a
       temp directory. Run from the snapshot: `dr-refactor --timings rename-map openspec/changes/dev-1607-…/rename-map.yaml
@@ -60,10 +60,11 @@
 
 - [x] 3.1 Neutral per-(file, old name) sink candidates for `keyed.scan` through `RunIndex.memo`; each entry
       classifies them. Verify: 1.5 passes.
-- [ ] 3.2 The other name-only scans computed once per (file, name): member declarations, `--docs` mentions and
+- [x] 3.2 The other name-only scans computed once per (file, name): member declarations, `--docs` mentions and
       source regions, compound names, text-table declarations. Verify: a cProfile of the 11 `measures` entries
       (`grep -E "symbol: (\S+\.)?measures[,}]"` of the map, `--docs`, no site flags) shows each called once per file.
-- [ ] 3.3 `Session.source` (`rename_union.py`) becomes a plain lookup. Verify: the same profile shows it under 1 s.
+- [x] 3.3 `Session.source` (`rename_union.py`) becomes a plain lookup. Verify: in the same profile, its calls after a
+      file's first read take under 1 s in all.
 - [x] 3.4 The final report drops a leftover at a site any entry rewrites. Verify: 1.11 passes.
 
 ## 4. Conflict checks

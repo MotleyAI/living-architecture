@@ -140,8 +140,11 @@ def python_diagnostics(root: Path, command: str, extra: list[str]) -> dict[str, 
     if failure is not None:
         raise CommandError(failure, kind="error")
     no_report = CommandError(message("refactor.checker-no-report"), kind="error", stderr=stderr)
+    # basedpyright prints a line before the report when it updates a baseline whose errors went down.
+    lines = proc.stdout.splitlines(keepends=True)
+    start = next((i for i, line in enumerate(lines) if line.startswith(b"{")), 0)
     try:
-        report = json.loads(proc.stdout)
+        report = json.loads(b"".join(lines[start:]))
     except ValueError:
         raise no_report from None
     if not isinstance(report, dict):
