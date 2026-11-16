@@ -213,6 +213,18 @@ def _run(repo: Path, command: str, baseline_text: str, files: list[str]) -> tupl
     return _diagnostics(everything, repo), _diagnostics(unbaselined, repo)
 
 
+def config_error(project: Path) -> str | None:
+    """The config's error when the Python baseline file exists and the config cannot be read."""
+    repo = find_repo_root(project.resolve()).resolve()
+    if not (repo / language("python")["baseline_file"]).is_file():
+        return None
+    try:
+        load_config(repo)
+    except ConfigError as exc:
+        return str(exc)
+    return None
+
+
 def baseline_runs(project: Path) -> bool:
     """The baseline phase runs: the Python checker command is set and its baseline file exists."""
     repo = find_repo_root(project.resolve()).resolve()

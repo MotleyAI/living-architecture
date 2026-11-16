@@ -731,7 +731,6 @@ UNPRODUCED_BY_DESIGN = {
     "refactor.rope-walk": "no known input reaches a walker gap; pinned by the rope-walk unit tests",
     "compliance.rope-walk": "no known input reaches a walker gap; pinned by the rope-walk unit tests",
     "refactor.file-changed": "needs a concurrent edit no corpus case can make; pinned by the rename-union unit tests",
-    "refactor.checker-error": "no corpus case can fake the bundled language server; pinned by the refactor CLI tests",
 }
 
 
@@ -789,8 +788,9 @@ def test_manifest_declares_the_passthrough_commands() -> None:
     }
 
 
-def test_wait_for_reviews_exit_3_covers_pause() -> None:
-    assert _shared_yaml("cli.yaml")["commands"]["la-wait-for-reviews"]["exit"][3] == "CodeRabbit rate limited or paused"
+def test_wait_for_reviews_exit_3_covers_pause_and_skip() -> None:
+    expected = "CodeRabbit rate limited, paused or skipped its review"
+    assert _shared_yaml("cli.yaml")["commands"]["la-wait-for-reviews"]["exit"][3] == expected
 
 
 DR_COMMANDS = {"dr-refactor", "dr-compliance", "dr-mock-lint"}

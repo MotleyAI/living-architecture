@@ -53,7 +53,8 @@ export class Site {
 export function spelledLines(text: string, names: Set<string>, code = true): Set<number> {
   const lines = new Lines(text);
   const out = new Set<number>();
-  const spells = (value: string): boolean => [...names].some((name) => value.includes(name));
+  const decoded = [...names].map((name) => identifierText(name));
+  const spells = (value: string): boolean => decoded.some((name) => value.includes(name));
   for (let line = 1; line <= lines.count; line += 1) if (spells(identifierText(lines.lineText(line)))) out.add(line);
   if (!code) return out;
   const source = ts().createSourceFile('keep.ts', text, ts().ScriptTarget.Latest, false);

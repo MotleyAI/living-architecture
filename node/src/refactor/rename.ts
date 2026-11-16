@@ -6,6 +6,7 @@ import type * as TS from 'typescript';
 import { sourceFiles } from '../config/index.js';
 import { byCodePoint, literalValueForbidden, manifest, message } from '../contract/index.js';
 import { stripSourceExtension, ts } from '../lang/index.js';
+import { configFailures } from './baseline.js';
 import { type CheckEntry, identifierText, NameChecks } from './bindings.js';
 import { isCompound } from './compound.js';
 import { type Edit, mergeEdits, RefactorError, splitBom } from './edits.js';
@@ -431,12 +432,6 @@ function isDeclaration(node: TS.Node): node is Named {
   );
 }
 
-/** The first rename location of the symbol at `position`, as a key: one symbol's locators share it. */
-function firstLocation(services: TS.LanguageService[], file: string, position: number): string | undefined {
-  const first = renameLocations(services, file, position, '').toSorted((a, b) => byCodePoint(a.path, b.path) || a.start - b.start)[0];
-  return first === undefined ? undefined : keyOf(first.path, first.start);
-}
-
 /** `spec` resolved: the symbol its locator names, and what can be renamed there. */
 function resolve(r: Refactor, spec: EntrySpec): Target {
   const located = locate(r, spec.file, spec.shown, spec.locator, spec.retarget === undefined);
@@ -453,7 +448,7 @@ function resolve(r: Refactor, spec: EntrySpec): Target {
   const literal = isString(node);
   const symbol = literal ? undefined : symbolOf(program.getTypeChecker(), node);
   const reexport = spec.retarget !== undefined && (ts().isImportSpecifier(node.parent) || ts().isExportSpecifier(node.parent));
-  const key = (reexport ? undefined : declarationKeys(symbol, old)[0]) ?? firstLocation(services, file, position) ?? keyOf(file, info.triggerSpan.start);
+  const key = (reexport ? undefined : declarationKeys(symbol, old)[0]) ?? keyOf(file, info.triggerSpan.start);
   return { index: spec.index, indexes: [spec.index], refusals: [], retarget: spec.retarget !== undefined, file, position, old, newName: spec.newName ?? '', key, literal, intent: key, edits: [], own: new Set(), home: null, identity: new Set(), original: '' };
 }
 
@@ -678,7 +673,7 @@ export function runEntries(r: Refactor, specs: EntrySpec[], map: string, progres
   progress.phase('resolve');
   const resolution = timed('resolve', () => resolveAll(r, specs, map));
   progress.phase('checks');
-  const failures = [...resolution.failures, ...checks(r, resolution)];
+  const failures = [...resolution.failures, ...checks(r, resolution), ...configFailures(r)];
   if (failures.length > 0) throw new Refused(failures);
   const { targets } = resolution;
   progress.phase('references');

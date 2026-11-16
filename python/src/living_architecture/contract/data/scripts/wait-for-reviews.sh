@@ -8,7 +8,7 @@
 #   coderabbit-comment <url>              a CodeRabbit PR review comment (thread or reply)
 #   coderabbit-review <url>               a CodeRabbit PR review with a body
 #   sonar-done <sha7> <conclusion>        every Sonar suite and check on HEAD finished
-#   coderabbit-settled <sha7> <outcome>   reviewed / carried-forward / rate-limited / paused / cap
+#   coderabbit-settled <sha7> <outcome>   reviewed / carried-forward / rate-limited / paused / skipped / cap
 #   head-moved <old7> <new7>              HEAD changed since the previous poll; the gate and settle restart
 # Progress and diagnostics go to stderr.
 #
@@ -16,14 +16,14 @@
 # suite is `completed`; a failed read keeps it pending. CodeRabbit is reviewed (wins) on a status on HEAD described
 # "Review completed", the summary comment's (`summarize by coderabbit.ai`) coverage marker naming HEAD, or a review
 # on HEAD with a body; otherwise, from a poll whose reads all succeeded, HEAD's latest CodeRabbit status: "Prior
-# review carried forward", "Review rate limited" or "Review paused".
+# review carried forward", "Review rate limited", "Review paused" or "... review skipped".
 #
 # Env: LA_WAIT_GATE_TIMEOUT (gate cap, seconds, default 1800), LA_WAIT_POLL_SECONDS (poll, default 60),
 #      LA_WAIT_CR_SETTLE (CodeRabbit cap after the gate clears, seconds, default 600).
 #
 # Exits, once the gate is clear: 0 when CodeRabbit reviewed or carried forward HEAD, is not on the PR, or its cap ran
-# out; 3 when it is rate limited or paused on HEAD. 1 on the gate timeout, 2 when the repo can't be resolved, 64 on
-# usage.
+# out; 3 when it is rate limited, paused or skipped its review on HEAD. 1 on the gate timeout, 2 when the repo can't be
+# resolved, 64 on usage.
 #
 # Usage:
 #   la-wait-for-reviews <PR_NUMBER> [--repo OWNER/REPO]
@@ -190,7 +190,7 @@ sonar_item() {
         | "sonar \($sha)\tsonar-done \($short) \($conclusion)"' <<<"$SUITES"
 }
 
-# CodeRabbit on HEAD: sets OUTCOME to reviewed / carried-forward / rate-limited / paused / none, DETAIL to the
+# CodeRabbit on HEAD: sets OUTCOME to reviewed / carried-forward / rate-limited / paused / skipped / none, DETAIL to the
 # evidence, and CR_ITEMS to its comment and review items. $1 is 1 when every earlier read of the poll succeeded.
 cr_poll() {
     local all_ok=$1 list statuses="" covered="" on_head="" comments="" reviews=""
@@ -247,6 +247,7 @@ cr_poll() {
             *"carried forward"*) OUTCOME=carried-forward ;;
             *"rate limited"*) OUTCOME=rate-limited ;;
             *"paused"*) OUTCOME=paused ;;
+            *"review skipped") OUTCOME=skipped ;;
             *) ;;
         esac
     fi
@@ -342,6 +343,10 @@ while :; do
                 echo "Stage 0b: CodeRabbit is RATE LIMITED — no review ran for HEAD $short." >&2
             fi
             echo "Stage 0b: re-trigger with 'gh pr comment $PR --repo $REPO --body \"@coderabbitai review\"' once the window clears." >&2
+            exit 3
+            ;;
+        skipped)
+            echo "Stage 0b: CodeRabbit SKIPPED its review — no review ran for HEAD $short." >&2
             exit 3
             ;;
         *) ;;

@@ -1,0 +1,8 @@
+[resolve]
+[checks]
+[references]
+[references 1/1] entry 1: old -> parseInt
+[rules]
+[rules 1/1] entry 1: old -> parseInt: 1 refusal(s)
+src/use.ts:4: parseInt names something else here, so nothing was refactored
+src/use.ts:4: parseInt names something else here, so nothing was refactored

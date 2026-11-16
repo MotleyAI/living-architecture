@@ -139,12 +139,13 @@ def python_diagnostics(root: Path, command: str, extra: list[str]) -> dict[str, 
     failure = _patch_failure(patch, command, versions)
     if failure is not None:
         raise CommandError(failure, kind="error")
+    no_report = CommandError(message("refactor.checker-no-report"), kind="error", stderr=stderr)
     try:
         report = json.loads(proc.stdout)
     except ValueError:
-        raise exited from None
+        raise no_report from None
     if not isinstance(report, dict):
-        raise exited
+        raise no_report
     return report
 
 

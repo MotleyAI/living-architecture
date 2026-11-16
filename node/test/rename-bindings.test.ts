@@ -110,6 +110,7 @@ describe('quoted and escaped names', () => {
     [String.raw`o\u006cd`, 'old'],
     [String.raw`o\u{6c}d`, 'old'],
     ['old', 'old'],
+    [String.raw`o\u{110000}d`, String.raw`o\u{110000}d`],
   ])('decodes the identifier %s', (raw, name) => {
     expect(identifierText(raw)).toBe(name);
   });

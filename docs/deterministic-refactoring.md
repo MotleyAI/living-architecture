@@ -36,8 +36,8 @@ A run announces its phases on stderr as they start — `[resolve]`, `[checks]`, 
 `[baseline]`, `[write]` — with `[references n/count]` as each entry's reference search starts and `[rules n/count]`
 as each old-name group is done, `clean` or followed by its refusals. Everything that needs no reference search runs
 in `checks` and refuses at once, listing every failure: entries that do not resolve, `--keep` / `--with` /
-`--without` sites naming no file or line, keeps whose files never spell an old name, Python walker gaps, and a
-checker that cannot run. Past `checks`, every entry is computed and every refusal listed in one final report;
+`--without` sites naming no file or line, keeps whose files never spell an old name, Python walker gaps, an
+unreadable config while the language's baseline file exists, and a checker that cannot run. Past `checks`, every entry is computed and every refusal listed in one final report;
 `--fail-fast` (on `rename`, `retarget`, `rename-map`) stops after the first refused group instead. A failed checker
 is followed by its cause: exit code and stderr, start error, or error answer.
 

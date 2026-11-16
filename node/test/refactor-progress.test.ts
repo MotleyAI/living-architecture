@@ -35,6 +35,14 @@ describe('the keep text check', () => {
     expect([...spelledLines(text, new Set(['load']))].sort()).toEqual(lines);
   });
 
+  it('matches an old name written with an identifier escape', () => {
+    expect([...spelledLines('// load the store\n', new Set([String.raw`lo\u0061d`]))]).toEqual([1]);
+  });
+
+  it('leaves an out-of-range escape as written', () => {
+    expect([...spelledLines(String.raw`// \u{110000} then load` + '\n', new Set(['load']))]).toEqual([1]);
+  });
+
   it('is skipped when an unresolved entry spells no name', () => {
     const root = tsProject({
       'src/a.ts': FOO,

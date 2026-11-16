@@ -23,7 +23,13 @@ from rope.refactor.rename import Rename
 from living_architecture.config import ConfigError, source_files
 from living_architecture.contract import manifest, message
 from living_architecture.lang import LanguageServerError
-from living_architecture.refactor.baseline_align import BaselineFailed, align, baseline_runs, probe
+from living_architecture.refactor.baseline_align import (
+    BaselineFailed,
+    align,
+    baseline_runs,
+    config_error,
+    probe,
+)
 from living_architecture.refactor.bindings import BindingCheck, EntryEdits, first_conflict
 from living_architecture.refactor.index_cache import IndexCache
 from living_architecture.refactor.keyed import TypeFacts, UnresolvedBase
@@ -199,7 +205,11 @@ def walker_gaps(root: Path, text: Callable[[str], str], names: set[str], rels: l
 
 
 def baseline_probe(project: Path, source: Path) -> list[Refusal]:
-    """The configured checker run once on `source`, when the baseline phase will run; its failure."""
+    """The config's error, else the configured checker run once on `source` when the baseline phase will run; its
+    failure."""
+    error = config_error(project)
+    if error is not None:
+        return [refusal(error, 2)]
     if not baseline_runs(project):
         return []
     try:
@@ -377,8 +387,10 @@ class RenameMap:
         found = attribute_definition(self.project, module, node.name)
         resolved.target_name = node.name
         resolved.line = line
-        resolved.own = (resolved.rel, source.offset(node.lineno, node.col_offset) + source.text[
-            source.offset(node.lineno, node.col_offset):].index(str(node.asname)))
+        span = source.name_span(node)
+        if span is None:
+            raise refused
+        resolved.own = (resolved.rel, span[0])
         resolved.target_key = ("name", found[0], found[1], node.name) if found is not None else ("site", resolved.rel, line, node.name)
         resolved.home = TargetHome(module=module, exported=node.name, local=node.name, definition=found)
 

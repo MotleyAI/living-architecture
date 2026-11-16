@@ -25,9 +25,9 @@
 - [x] 1.5 A case pinned with `twin:` to the non-native twin proving progress and refusal lines survive forwarding byte
       for byte, including a refused run.
 - [x] 1.6 `conformance/INVENTORY.md` lists every new case and the new findings; every new `findings.yaml` template is
-      produced by at least one golden, except `refactor.checker-error`, listed in `UNPRODUCED_BY_DESIGN`
-      (`python/tests/test_contract.py`) and pinned by a pytest CLI test with the fake language server answering an
-      error (`checker-not-started` is also pinned by a pytest CLI test for the language server).
+      produced by at least one golden, `refactor.checker-error` by `refactor-baseline-probe-no-report`, and also
+      pinned by a pytest CLI test with the fake language server answering an error (`checker-not-started` is also
+      pinned by a pytest CLI test for the language server).
 - [x] 1.7 Unit tests in both twins for the keep text over-approximation (escapes, NFKC, implicit concatenation, moved
       file, retarget target name, unresolved entry spelling no name) and the map loader returning every invalid index.
 
@@ -65,6 +65,11 @@
 - [x] 5.1 `docs/deterministic-refactoring.md`: phases, progress, the combined report, `--fail-fast`, checker causes.
 - [x] 5.2 Local test scope per `/la:pr`, `uv run ruff check src tests`, `uv run basedpyright src tests`,
       `npm run lint && npm run typecheck`, `scripts/sync-shared --check`, `la-arch-check`. Verify: all green.
+
+## 5b. Review: unreadable config (pr-review)
+
+- [x] 5b.1 Both twins: an unreadable or invalid config refuses in `checks` (exit 2) when the language's baseline file
+      exists; a paired conformance case listed in INVENTORY.md.
 
 ## 6. Verification on SLayer (dry run only)
 

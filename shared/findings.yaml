@@ -374,6 +374,7 @@ findings:
   refactor.checker-exit: '  the checker exited with code {code}; its stderr:'
   refactor.checker-not-started: '  the checker could not start: {error}'
   refactor.checker-error: '  the checker answered: {error}'
+  refactor.checker-no-report: no JSON report on stdout
   refactor.progress-phase: '[{phase}]'
   refactor.progress-item: '[{phase} {n}/{count}] {entries}: {old} -> {new}'
   refactor.progress-clean: '[{phase} {n}/{count}] {entries}: {old} -> {new}: clean'
