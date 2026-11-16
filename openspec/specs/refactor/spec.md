@@ -621,7 +621,7 @@ printed. With or without `--apply`, the language server SHALL create no file in 
 
 #### Scenario: Language server failure
 - **WHEN** the language server cannot start or exits during the rename, with or without `--apply`
-- **THEN** stderr is the `refactor.pyright-failed` finding, the exit code is 1 and every file of the project is
+- **THEN** stderr ends with the `refactor.pyright-failed` finding and its cause, the exit code is 1 and every file of the project is
   unchanged
 
 #### Scenario: No target-repo code runs
@@ -770,7 +770,7 @@ A rewritten key or keyword whose new name the same literal or call already holds
 
 #### Scenario: Key collision
 - **WHEN** a target dict holds both `"columns"` and `"fields"`, or a call passes both `columns=` and `fields=`
-- **THEN** stderr is the `refactor.name-conflict` finding naming that file and line, the exit code is 1 and no file
+- **THEN** stderr ends with the `refactor.name-conflict` finding naming that file and line, the exit code is 1 and no file
   changes
 
 ### Requirement: Python field renames refuse an unresolved owner chain
@@ -780,7 +780,7 @@ base, write nothing and exit 1. A rename of a class, function, method or module 
 
 #### Scenario: Pydantic not resolvable
 - **WHEN** the project's interpreter does not have `pydantic` and a field of `class Model(BaseModel)` is renamed
-- **THEN** stderr is the `refactor.unresolved-base` finding naming `Model` and the line of its base, the exit code is
+- **THEN** stderr ends with the `refactor.unresolved-base` finding naming `Model` and the line of its base, the exit code is
   1 and no file changes
 
 #### Scenario: Method rename proceeds
@@ -976,7 +976,7 @@ with no edits.
 
 #### Scenario: Duplicate parameter
 - **WHEN** `def g(*, model_name: str, dataset_name: str) -> str` has `model_name` renamed to `dataset_name`
-- **THEN** stderr is the `refactor.name-conflict` finding naming `dataset_name`, the file and the line of `g`'s
+- **THEN** stderr ends with the `refactor.name-conflict` finding naming `dataset_name`, the file and the line of `g`'s
   `dataset_name` parameter, the exit code is 1 and no file changes
 
 #### Scenario: Body reads a global of the new name
@@ -1022,7 +1022,7 @@ nothing and exit 1.
 #### Scenario: Keyword-only lambda parameter
 - **WHEN** a module holds `f = lambda a, *, model_name: model_name` and the rename locates `model_name` in the
   lambda's parameters
-- **THEN** stderr is the `refactor.cannot-rename` finding, the exit code is 1 and no file changes
+- **THEN** stderr ends with the `refactor.cannot-rename` finding, the exit code is 1 and no file changes
 
 ### Requirement: Python explicit-any compliance check
 The Python `dr-compliance` check `explicit-any` SHALL report one `compliance.explicit-any` finding, at its line,
@@ -1145,7 +1145,7 @@ version-control and tool-cache directories), plus the unresolved targets and the
 
 #### Scenario: Untyped fixture parameter refuses the rename
 - **WHEN** method `Storage.get_model` is renamed and a test function holds `def test_a(storage): storage.get_model("m")`
-- **THEN** stderr is the `attr-blindspot` line for `storage.get_model` followed by `refactor.blindspots`, stdout is
+- **THEN** stderr ends with the `attr-blindspot` line for `storage.get_model` followed by `refactor.blindspots`, stdout is
   empty, the exit code is 1 and no file changes
 
 #### Scenario: Both refusals under --apply
@@ -1492,12 +1492,12 @@ candidate's `path:line`. `move-symbol --symbol` SHALL accept only a top-level de
 
 #### Scenario: Unresolved path lists candidates
 - **WHEN** `--symbol StorageBackend.get_modle` runs and `StorageBackend` declares `get_model` and `save_model`
-- **THEN** stderr is `refactor.symbol-unresolved` listing `get_model, save_model`, the exit code is 2 and nothing
+- **THEN** stderr ends with `refactor.symbol-unresolved` listing `get_model, save_model`, the exit code is 2 and nothing
   changes
 
 #### Scenario: Ambiguous path lists candidates
 - **WHEN** a module defines `class C` twice and `--symbol C.run` runs
-- **THEN** stderr is `refactor.symbol-ambiguous` listing both `path:line` sites and the exit code is 2
+- **THEN** stderr ends with `refactor.symbol-ambiguous` listing both `path:line` sites and the exit code is 2
 
 #### Scenario: Two locators refused
 - **WHEN** `--symbol foo --line 3` are both given
@@ -1754,7 +1754,7 @@ that was absent before), which is typed by a literal type the rename leaves unch
 
 #### Scenario: Value with a quote refused
 - **WHEN** `--new-name` is `it's`
-- **THEN** stderr is `refactor.literal-value` and the exit code is 2
+- **THEN** stderr ends with `refactor.literal-value` and the exit code is 2
 
 ### Requirement: --docs lists compound names
 With `--docs`, a rename, retarget or map SHALL list every declaration, in a project source file of its language,
@@ -1838,7 +1838,7 @@ with no edits.
 #### Scenario: Reference captured by an inner binding
 - **WHEN** `old` is renamed to `next` in a module holding `old = 1` (TypeScript `export const old = 1`) and a function
   that binds a local `next` and returns `old + next`
-- **THEN** stderr is the `refactor.name-conflict` finding naming `next` and the line of the local `next`, the exit
+- **THEN** stderr ends with the `refactor.name-conflict` finding naming `next` and the line of the local `next`, the exit
   code is 1 and no file changes
 
 #### Scenario: Name the declaring scope already binds
@@ -1942,7 +1942,7 @@ member is declared outside the project; it SHALL write nothing and exit 1.
 
 #### Scenario: The class already declares the new name
 - **WHEN** method `C.old` is renamed to `next` and `C` declares a method `next`
-- **THEN** stderr is the `refactor.name-conflict` finding naming the line of `C.next`, the exit code is 1 and no
+- **THEN** stderr ends with the `refactor.name-conflict` finding naming the line of `C.next`, the exit code is 1 and no
   file changes
 
 #### Scenario: An ancestor or a descendant declares the new name
@@ -2059,7 +2059,7 @@ SHALL NOT be added.
 #### Scenario: Other scope refused
 - **WHEN** `class Engine` declares a deprecated `save` and `retarget --symbol Engine.save --target Store.save_model`
   runs
-- **THEN** stderr is `refactor.retarget-scope` and the exit code is 2
+- **THEN** stderr ends with `refactor.retarget-scope` and the exit code is 2
 
 #### Scenario: Overridden alias refused
 - **WHEN** a subclass of `Engine` overrides `save`
@@ -2278,7 +2278,7 @@ checker findings), print no `[references]` line, write nothing, and exit with th
 
 #### Scenario: Keep of a prose file needs --docs
 - **WHEN** `--keep README.md` names a prose file that mentions the old name
-- **THEN** the check passes with `--docs`, and without it stderr is `refactor.keep-unmatched` naming it
+- **THEN** the check passes with `--docs`, and without it stderr ends with `refactor.keep-unmatched` naming it
 
 #### Scenario: Walker gaps listed before any search
 - **WHEN** rope's walker cannot cover `pkg/a.py` at line 3 nor `pkg/b.py` at line 8, and both spell the old name
