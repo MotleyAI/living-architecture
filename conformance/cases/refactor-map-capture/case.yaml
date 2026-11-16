@@ -1,0 +1,15 @@
+kind: paired
+languages:
+- python
+- typescript
+command: dr-refactor
+args:
+- rename-map
+- renames.yaml
+git:
+- commit: init
+expect:
+  exit: 1
+golden: manual
+note: 'two entries, each clean alone, whose edits together let a renamed local capture the other entry''s rewritten reference:
+  name-conflict naming the earlier entry''s declaration'

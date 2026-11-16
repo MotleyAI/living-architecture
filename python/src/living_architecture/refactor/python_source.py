@@ -5,12 +5,35 @@ from __future__ import annotations
 import ast
 import bisect
 import re
+import unicodedata
 from pathlib import Path
 
 _NEWLINE = re.compile(r"\r\n|\r|\n")
-_DEF_NAME = re.compile(r"(?:async\s+)?(?:def|class)\s+(\w+)")
+_DEF_KEYWORD = re.compile(r"(?:async\s+)?(?:def|class)\s+")
 
 Positioned = ast.expr | ast.stmt | ast.arg | ast.keyword
+
+
+def _name_char(ch: str) -> bool:
+    return ("_" + ch).isidentifier()
+
+
+def name_end(text: str, start: int) -> int:
+    """The end of the run of identifier characters (combining marks included) starting at `start`."""
+    end = start
+    while end < len(text) and _name_char(text[end]):
+        end += 1
+    return end
+
+
+def nfkc(raw: str) -> str:
+    """The identifier Python reads from `raw`: its NFKC normal form."""
+    return unicodedata.normalize("NFKC", raw)
+
+
+def same_name(raw: str, name: str) -> bool:
+    """`raw` spells `name` as Python reads identifiers."""
+    return nfkc(raw) == name
 
 
 def line_starts(text: str) -> list[int]:
@@ -61,20 +84,26 @@ class SourceFile:
     def name_span(self, node: ast.AST) -> tuple[int, int] | None:
         """The span of the identifier a node names or declares, or None."""
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-            m = _DEF_NAME.match(self.text, self.offset(node.lineno, node.col_offset))
-            return (m.start(1), m.end(1)) if m and m.group(1) == node.name else None
+            m = _DEF_KEYWORD.match(self.text, self.offset(node.lineno, node.col_offset))
+            return self._name_from(m.end(), node.name) if m else None
         if isinstance(node, ast.Name):
             return self.span(node)
         if isinstance(node, ast.Attribute):
             end = self.span(node)[1]
-            return end - len(node.attr), end
+            start = end
+            while start > 0 and _name_char(self.text[start - 1]):
+                start -= 1
+            return (start, end) if same_name(self.text[start:end], node.attr) else None
         if isinstance(node, ast.arg):
-            start = self.offset(node.lineno, node.col_offset)
-            return start, start + len(node.arg)
+            return self._name_from(self.offset(node.lineno, node.col_offset), node.arg)
         if isinstance(node, ast.keyword) and node.arg is not None:
-            start = self.offset(node.lineno, node.col_offset)
-            return start, start + len(node.arg)
+            return self._name_from(self.offset(node.lineno, node.col_offset), node.arg)
         return self._bound_name_span(node)
+
+    def _name_from(self, start: int, name: str) -> tuple[int, int] | None:
+        """The identifier starting at `start`, if it spells `name`."""
+        end = name_end(self.text, start)
+        return (start, end) if end > start and same_name(self.text[start:end], name) else None
 
     def _bound_name_span(self, node: ast.AST) -> tuple[int, int] | None:
         """The span of the name an import alias, an `except ... as` or a `match` capture binds."""
@@ -82,8 +111,8 @@ class SourceFile:
             return self._word(node, node.asname or node.name.split(".")[0], last=node.asname is not None)
         if isinstance(node, ast.ExceptHandler) and node.name and node.type is not None:
             after = self.span(node.type)[1]
-            m = re.compile(rf"(?:\s|\)|#[^\r\n]*+|\\\r?\n)*+as\s+({re.escape(node.name)})\b").match(self.text, after)
-            return (m.start(1), m.end(1)) if m else None
+            m = re.compile(r"(?:\s|\)|#[^\r\n]*+|\\\r?\n)*+as\s+").match(self.text, after)
+            return self._name_from(m.end(), node.name) if m else None
         if isinstance(node, ast.MatchAs | ast.MatchStar) and node.name:
             return self._word(node, node.name, last=True)
         if isinstance(node, ast.MatchMapping) and node.rest:
@@ -91,11 +120,19 @@ class SourceFile:
         return None
 
     def _word(self, node: ast.alias | ast.pattern, word: str, *, last: bool) -> tuple[int, int] | None:
-        """The first or last whole-word `word` within `node`'s span."""
         start = self.offset(node.lineno, node.col_offset)
         end = self.offset(node.end_lineno or node.lineno, node.end_col_offset or 0)
-        found = [m.span() for m in re.finditer(rf"(?<!\w){re.escape(word)}(?!\w)", self.text[start:end])]
+        return self.word(start, end, word, last=last)
+
+    def word(self, start: int, end: int, word: str, *, last: bool = False) -> tuple[int, int] | None:
+        """The first or last whole identifier between `start` and `end` that spells `word`."""
+        found: list[tuple[int, int]] = []
+        at = start
+        while at < end:
+            stop = min(name_end(self.text, at), end)
+            if stop > at and same_name(self.text[at:stop], word):
+                found.append((at, stop))
+            at = max(stop, at + 1)
         if not found:
             return None
-        s, e = found[-1] if last else found[0]
-        return start + s, start + e
+        return found[-1] if last else found[0]

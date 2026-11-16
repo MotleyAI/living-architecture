@@ -7,6 +7,8 @@
 # modules), so la-affected-tests computes it for a change to such a file. `checker_patch_versions` (python) lists
 # the basedpyright versions la-typecheck's pyright#11919 patch is verified for; any other installed version is
 # refused. `any_type` and `top_type` spell the language's any type and its safe top type in explicit-any findings.
+# `root_members` (python) are the members of the implicit root class `object` over every supported Python version (as
+# the typeshed of the shipped basedpyright declares them), which a member rename may not take.
 # `string_member_calls` are the calls that name a member by a string, which a rename rewrites and attr-blindspot
 # checks: `call` names the form; the callee resolves to it when its declaration is `qualname` in `module` (python)
 # or when it is spelled `call` with a head declared outside the project's sources (typescript); `syntax` is the
@@ -54,6 +56,9 @@ python:
   local_bin: .venv/bin
   baseline_file: .basedpyright/baseline.json
   checker_patch_versions: ['1.40.2']
+  root_members: [__annotations__, __class__, __delattr__, __dict__, __dir__, __doc__, __eq__, __format__,
+                 __getattribute__, __getstate__, __hash__, __init__, __init_subclass__, __module__, __ne__, __new__,
+                 __reduce__, __reduce_ex__, __repr__, __setattr__, __sizeof__, __str__, __subclasshook__]
   runner: uvx --from living-architecture=={version}
   install: uv tool install living-architecture=={version}
 
