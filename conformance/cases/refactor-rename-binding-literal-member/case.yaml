@@ -1,0 +1,13 @@
+kind: paired
+languages:
+- python
+- typescript
+command: dr-refactor
+args:
+- rename-map
+- renames.yaml
+git:
+- commit: init
+expect:
+  exit: 0
+note: 'a Literal member renamed to a value equal to a local''s name, beside that local: no conflict'

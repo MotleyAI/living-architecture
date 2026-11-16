@@ -30,7 +30,32 @@ export function copyProject(root: string): string {
   return copy;
 }
 
-export const refactor = (root: string, ...argv: string[]): Run => run(root, 'dr-refactor', argv);
+const PHASES = 'resolve|checks|references|rules|baseline|write';
+const PROGRESS = new RegExp(`^(?:\\[(?:${PHASES})\\]|\\[(?:${PHASES}) \\d+/\\d+\\] .*)$`);
+const REFUSED = /^\[rules \d+\/\d+\] .*: (\d+) refusal\(s\)$/;
+
+/** dr-refactor's stderr without its phase and progress lines and the refusals printed under a refused group. */
+export function finalReport(err: string): string {
+  const out: string[] = [];
+  let skip = 0;
+  for (const line of err.split(/(?<=\n)/)) {
+    const text = line.replace(/\n$/, '');
+    const refused = REFUSED.exec(text);
+    if (skip > 0) skip -= 1;
+    else if (refused !== null) skip = Number(refused[1]);
+    else if (!PROGRESS.test(text)) out.push(line);
+  }
+  return out.join('');
+}
+
+/** dr-refactor run in `root`, its stderr whole. */
+export const refactorRaw = (root: string, ...argv: string[]): Run => run(root, 'dr-refactor', argv);
+
+/** `refactorRaw` with its stderr reduced to the `finalReport`. */
+export function refactor(root: string, ...argv: string[]): Run {
+  const result = refactorRaw(root, ...argv);
+  return { ...result, err: finalReport(result.err) };
+}
 
 export const read = (root: string, rel: string): string => readFileSync(join(root, rel), 'utf8');
 

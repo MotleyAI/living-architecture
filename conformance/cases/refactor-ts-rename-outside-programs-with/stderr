@@ -1,1 +1,8 @@
+[resolve]
+[checks]
+[references]
+[references 1/1] entry 1: getModel -> getDataset
+[rules]
+[rules 1/1] entry 1: getModel -> getDataset: clean
 scripts/tool.ts:2: attr-blindspot: o.getModel — o is any, so a rename of .getModel is unverifiable
+[write]

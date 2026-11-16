@@ -17,6 +17,7 @@ from living_architecture.config import ConfigError, find_repo_root, load_config
 from living_architecture.contract import language, message
 from living_architecture.lang.language_server import utf16_index, utf16_position
 from living_architecture.refactor.position_map import Edit, map_range
+from living_architecture.refactor.progress import checker_cause
 from living_architecture.refactor.writer import FileMove, FileWrite
 from living_architecture.typecheck import CommandError, python_diagnostics
 
@@ -25,7 +26,16 @@ Key = tuple[str, int, int, int, int]
 
 
 class BaselineFailed(Exception):
-    """The configured checker failed, so the baseline cannot be realigned."""
+    """The configured checker failed, so the baseline cannot be realigned; `cause` is its cause's lines (none for an
+    unreadable baseline)."""
+
+    def __init__(self, cause: list[str] | None = None) -> None:
+        super().__init__()
+        self.cause = cause or []
+
+
+def _failed(exc: CommandError) -> BaselineFailed:
+    return BaselineFailed(checker_cause(exc.kind, exc.error, exc.code, exc.stderr))
 
 
 class Aligned(BaseModel):
@@ -198,9 +208,34 @@ def _run(repo: Path, command: str, baseline_text: str, files: list[str]) -> tupl
         try:
             everything = python_diagnostics(repo, command, ["--baselinefile", str(empty), *files])
             unbaselined = python_diagnostics(repo, command, ["--baselinefile", str(copy), *files])
-        except CommandError:
-            raise BaselineFailed from None
+        except CommandError as exc:
+            raise _failed(exc) from None
     return _diagnostics(everything, repo), _diagnostics(unbaselined, repo)
+
+
+def baseline_runs(project: Path) -> bool:
+    """The baseline phase runs: the Python checker command is set and its baseline file exists."""
+    repo = find_repo_root(project.resolve()).resolve()
+    try:
+        command = load_config(repo).commands.typecheck.python
+    except ConfigError:
+        return False
+    return command is not None and (repo / language("python")["baseline_file"]).is_file()
+
+
+def probe(project: Path, source: Path) -> None:
+    """Run the configured checker once on `source` against an empty baseline; `BaselineFailed` when it fails."""
+    repo = find_repo_root(project.resolve()).resolve()
+    found = _baseline(repo)
+    if found is None:
+        return
+    with tempfile.TemporaryDirectory(prefix="la-baseline-") as tmp:
+        empty = Path(tmp) / "empty.json"
+        empty.write_text('{"files": {}}', encoding="utf-8")
+        try:
+            python_diagnostics(repo, found[0], ["--baselinefile", str(empty), str(source.resolve())])
+        except CommandError as exc:
+            raise _failed(exc) from None
 
 
 class _Entry:

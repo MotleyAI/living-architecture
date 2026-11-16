@@ -18,9 +18,11 @@
 # base_fetch_timeout_seconds: the best-effort `git fetch origin <base>` before a command compares with
 #              origin/<base> is killed after this many seconds; the command then uses the ref as it stands.
 # literal_value_forbidden: the substrings a Literal member's new value may not hold (`refactor.literal-value`).
+# timing_phases: the phases `dr-refactor --timings` reports (`refactor.timing`), in print order; `total` follows them.
 
 base_fetch_timeout_seconds: 30
 literal_value_forbidden: ["'", '"', '`', "\\", '${', "\0", "\r", "\n", "\u2028", "\u2029"]
+timing_phases: [load, resolve, references, rules, blindspot-scan, literal-scan, literal-probe, baseline, write]
 
 commands:
   la-config:
@@ -202,6 +204,7 @@ commands:
     options:
       - {name: --project, type: path, default: ., help: 'project root (default: cwd)'}
       - {name: --apply, type: flag, help: 'write changes (default: dry-run)'}
+      - {name: --timings, type: flag, help: "print each phase's wall time on stderr after all other output"}
     subcommands:
       rename:
         help: rename the symbol at a location
@@ -228,6 +231,8 @@ commands:
              help: 'leave every edit on this line, in this file or under this directory (repeatable)'}
           - {name: --docs, type: flag,
              help: 'also rewrite mentions in comments, docstrings, strings and prose files; list the rest'}
+          - {name: --fail-fast, type: flag,
+             help: 'stop at the first entry with a refusal (default: compute every entry and report every refusal)'}
       rename-map:
         help: >-
           apply a YAML list of rename and retarget entries as one refactor: every entry resolved against the code
@@ -249,8 +254,10 @@ commands:
              help: 'leave every edit on this line, in this file or under this directory (repeatable)'}
           - {name: --docs, type: flag,
              help: 'also rewrite mentions in comments, docstrings, strings and prose files; list the rest'}
+          - {name: --fail-fast, type: flag,
+             help: 'stop at the first entry with a refusal (default: compute every entry and report every refusal)'}
       retarget:
-        help: rewrite the references to an alias to name its target, declared in the same class or module
+        help: rewrite the references to an alias to name its target, declared or imported in the same class or module
         exclusive: [[offset, line, symbol]]
         options:
           - {name: --file, type: path, required: true, help: file holding the alias}
@@ -269,6 +276,8 @@ commands:
              help: 'leave every edit on this line, in this file or under this directory (repeatable)'}
           - {name: --docs, type: flag,
              help: 'also rewrite mentions in comments, docstrings, strings and prose files; list the rest'}
+          - {name: --fail-fast, type: flag,
+             help: 'stop at the first entry with a refusal (default: compute every entry and report every refusal)'}
       move-symbol:
         help: move a top-level declaration to another module
         exclusive: [[offset, line, symbol]]

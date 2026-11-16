@@ -150,9 +150,7 @@ export function run(b: Base): void {
     const before = files(root);
     const result = refactor(root, '--apply', 'rename-map', 'map.yaml');
     const sites = [2, 6, 10].map((line) => message('refactor.map-conflict', { path: 'src/base.ts', line, first: 1, second: 2 }));
-    expect(result.code).toBe(1);
-    expect(result.out).toBe('');
-    expect(sites).toContain(result.err.trimEnd());
+    expect(result).toEqual({ code: 1, out: '', err: sites.map((site) => `${site}\n`).join('') });
     expect(files(root)).toEqual(before);
   });
 
@@ -164,8 +162,7 @@ export function run(b: Base): void {
     ]);
     const result = refactor(root, '--apply', 'rename-map', 'map.yaml');
     const conflicts = ['x', 'y'].map((name) => message('refactor.name-conflict', { name, path: 'src/f.ts', line: 1 }));
-    expect(result.code).toBe(1);
-    expect(conflicts).toContain(result.err.trimEnd());
+    expect(result).toEqual({ code: 1, out: '', err: conflicts.map((conflict) => `${conflict}\n`).join('') });
     expect(read(root, 'src/f.ts')).toBe(f);
   });
 

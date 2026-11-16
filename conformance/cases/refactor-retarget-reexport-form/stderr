@@ -1,0 +1,8 @@
+[resolve]
+[checks]
+[references]
+[references 1/2] entry 1: AcmeModel -> Model
+[references 2/2] entry 2: OldModel -> Model
+[rules]
+[rules 1/2] entry 1: AcmeModel -> Model: clean
+[rules 2/2] entry 2: OldModel -> Model: clean

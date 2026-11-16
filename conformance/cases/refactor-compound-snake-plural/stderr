@@ -1,2 +1,9 @@
+[resolve]
+[checks]
+[references]
+[references 1/1] entry 1: column -> field
+[rules]
+[rules 1/1] entry 1: column -> field: clean
 pkg/col.py:4: leftover: declaration get_columns contains column
 pkg/col.py:8: leftover: declaration ColumnCycleError contains column
+[write]

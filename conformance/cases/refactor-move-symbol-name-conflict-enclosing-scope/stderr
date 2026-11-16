@@ -1,1 +1,4 @@
+[resolve]
+[checks]
+[references]
 pkg already names something else at tests/test_sym_enclosing.py:2, so nothing was refactored

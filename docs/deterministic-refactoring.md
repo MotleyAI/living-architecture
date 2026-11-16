@@ -17,17 +17,28 @@ Tools (both twins, routed by each file's language):
 - `dr-compliance` — report the constructs that make a refactor un-verifiable
 
 `dr-refactor` prints one unified diff per changed file (and a `rename from`/`rename to` pair per moved file); it
-is a dry run unless `--apply` comes before the subcommand. Locate the symbol with `--symbol` (its path in
+is a dry run unless `--apply` comes before the subcommand. `--timings`, also before the subcommand, prints each
+phase's wall time on stderr after all other output. Locate the symbol with `--symbol` (its path in
 `--file`, quoted for the shell: `Class.method`, `func.<locals>.inner`, `func(param)`, `Alias['value']` for a `Literal` member; no match
 or several exit 2 listing the candidates), `--line [--col]` (1-based) or `--offset` (0-based). `rename-map MAP`
 applies a YAML list of rename and retarget entries as one refactor: every entry resolved before any is renamed,
 one diff, one refusal report, written all or nothing. `retarget` rewrites what resolves to a back-compat alias so
-it names the alias's target, leaving the alias. Every refactor keeps the type-check baseline aligned (Python
+it names the alias's target, importing the target where a file lacks it and leaving the alias and its re-exports.
+Every refactor keeps the type-check baseline aligned (Python
 through `commands.typecheck.python`, TypeScript through the bundled language service), in dry-run and `--apply`. A
 member rename refuses while a receiver of the old name is untyped (`--allow-blindspots` overrides) or a class
 outside the renamed hierarchy declares it (`--with` / `--without PATH:LINE` classify each); `--keep PATH[:LINE]`
 leaves sites untouched, and `--docs` also rewrites mentions in comments, docstrings, strings and prose files,
 listing the rest as `leftover`.
+
+A run announces its phases on stderr as they start — `[resolve]`, `[checks]`, `[references]`, `[rules]`,
+`[baseline]`, `[write]` — with `[references n/count]` as each entry's reference search starts and `[rules n/count]`
+as each old-name group is done, `clean` or followed by its refusals. Everything that needs no reference search runs
+in `checks` and refuses at once, listing every failure: entries that do not resolve, `--keep` / `--with` /
+`--without` sites naming no file or line, keeps whose files never spell an old name, Python walker gaps, and a
+checker that cannot run. Past `checks`, every entry is computed and every refusal listed in one final report;
+`--fail-fast` (on `rename`, `retarget`, `rename-map`) stops after the first refused group instead. A failed checker
+is followed by its cause: exit code and stderr, start error, or error answer.
 
 ## What a fully compliant repo must fulfill
 

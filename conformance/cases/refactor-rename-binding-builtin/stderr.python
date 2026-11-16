@@ -1,0 +1,7 @@
+[resolve]
+[checks]
+[references]
+[references 1/1] entry 1: old -> len
+[rules]
+[rules 1/1] entry 1: old -> len: clean
+len already names something else at pkg/m.py:5, so nothing was refactored

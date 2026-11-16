@@ -1,0 +1,19 @@
+Renaming <old> to <next>:
+
+
+--- a/src/m.ts
++++ b/src/m.ts
+@@ -1,7 +1,7 @@
+-export const old = 1;
++export const next = 1;
+ 
+ export function f(): number {
+   const next = 2;
+-  // see `old` for the base
++  // see `next` for the base
+   return next;
+ }
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

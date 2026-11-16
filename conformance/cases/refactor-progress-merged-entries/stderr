@@ -1,0 +1,12 @@
+[resolve]
+[checks]
+[references]
+[references 1/4] entry 1: load -> fetch
+[references 2/4] entries 2, 5: drop -> discard
+[references 3/4] entry 3: size -> count
+[references 4/4] entry 4: clear -> empty
+[rules]
+[rules 1/4] entry 1: load -> fetch: clean
+[rules 2/4] entries 2, 5: drop -> discard: clean
+[rules 3/4] entry 3: size -> count: clean
+[rules 4/4] entry 4: clear -> empty: clean

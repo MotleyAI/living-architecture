@@ -99,16 +99,24 @@ class Binder:
         self.module = Scope("module", None)
         self.scopes = [self.module]
         self.stars: list[str | None] = []
+        self.star_nodes: list[ast.ImportFrom] = []
+        self.bound: list[tuple[Scope, str, ast.AST]] = []
         self.loads: list[tuple[ast.expr, Scope]] = []
         self.annotations: list[tuple[ast.expr, Scope]] = []
         self.comments: list[CommentRoot] = []
         self.decls: dict[str, ast.AST] = {}
         self.enclosing: dict[str, Scope] = {}
+        self.class_nodes: dict[Scope, ast.ClassDef] = {}
 
     def _new(self, kind: ScopeKind, parent: Scope) -> Scope:
         scope = Scope(kind, parent)
         self.scopes.append(scope)
         return scope
+
+    def _bind(self, scope: Scope, name: str, binding: Binding, node: ast.AST) -> None:
+        """Record that `node` binds `name` in `scope`."""
+        scope.raw[name].append(binding)
+        self.bound.append((scope, name, node))
 
     def _decl(self, node: ast.AST, scope: Scope) -> Binding:
         """Record `node` as a declaration made in `scope`; its binding."""
@@ -136,7 +144,7 @@ class Binder:
             return scope
         inner = self._new("annotation", scope)
         for param in params:
-            inner.raw[str(_field(param, "name"))].append(None)
+            self._bind(inner, str(_field(param, "name")), None, param)
             for expr in (_field(param, "bound"), _field(param, "default_value")):
                 parts = expr.elts if isinstance(expr, ast.Tuple) else [expr]
                 self.annotations += [(part, inner) for part in parts if isinstance(part, ast.expr)]
@@ -164,10 +172,10 @@ class Binder:
             if node.returns is not None:
                 self.annotations.append((node.returns, annotated))
             self._comment(node, node.type_comment, annotated, signature=True)
-            scope.raw[node.name].append(self._decl(node, scope))
+            self._bind(scope, node.name, self._decl(node, scope), node)
         inner = self._new("function", annotated)
         for param in self._signature(node.args, scope, annotated):
-            inner.raw[param.arg].append(None)
+            self._bind(inner, param.arg, None, param)
         for child in node.body if isinstance(node.body, list) else [node.body]:
             self.visit(child, inner)
 
@@ -177,8 +185,9 @@ class Binder:
         annotated = self._type_params(node, scope)
         for expr in [*node.bases, *(k.value for k in node.keywords)]:
             self.visit(expr, annotated)
-        scope.raw[node.name].append(self._decl(node, annotated))
+        self._bind(scope, node.name, self._decl(node, annotated), node)
         inner = self._new("class", annotated)
+        self.class_nodes[inner] = node
         for stmt in node.body:
             self.visit(stmt, inner)
 
@@ -205,14 +214,15 @@ class Binder:
         if isinstance(node, ast.Import):
             for alias in node.names:
                 name = alias.asname or alias.name.split(".")[0]
-                scope.raw[name].append(("module", alias.name if alias.asname else name, ""))
+                self._bind(scope, name, ("module", alias.name if alias.asname else name, ""), alias)
             return
         module = self._from_module(node)
         for alias in node.names:
             if alias.name == "*":
                 self.stars.append(module)
+                self.star_nodes.append(node)
             else:
-                scope.raw[alias.asname or alias.name].append(("member", module, alias.name))
+                self._bind(scope, alias.asname or alias.name, ("member", module, alias.name), alias)
 
     @staticmethod
     def _named_target(node: ast.AST) -> str | None:
@@ -252,12 +262,12 @@ class Binder:
             if isinstance(node.ctx, ast.Load):
                 self.loads.append((node, scope))
             else:
-                scope.raw[node.id].append(self._decl(node, scope))
+                self._bind(scope, node.id, self._decl(node, scope), node)
         elif isinstance(node, ast.NamedExpr):
             target = scope
             while target.kind == "comprehension" and target.parent is not None:
                 target = target.parent
-            target.raw[node.target.id].append(None)
+            self._bind(target, node.target.id, None, node.target)
             self.visit(node.value, scope)
         elif isinstance(node, ast.AnnAssign):
             self.annotations.append((node.annotation, scope))
@@ -279,7 +289,7 @@ class Binder:
         elif isinstance(node, ast.Assign | ast.For | ast.AsyncFor | ast.With | ast.AsyncWith):
             self._comment(node, node.type_comment, scope)
         if (name := self._named_target(node)) is not None:
-            scope.raw[name].append(None)
+            self._bind(scope, name, None, node)
 
 
 def literal_all(tree: ast.Module) -> set[str] | None:

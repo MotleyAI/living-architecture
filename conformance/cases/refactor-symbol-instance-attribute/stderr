@@ -1,0 +1,7 @@
+[resolve]
+[checks]
+[references]
+[references 1/1] entry 1: cache -> store
+[rules]
+[rules 1/1] entry 1: cache -> store: clean
+[write]

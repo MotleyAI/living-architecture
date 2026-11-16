@@ -4,13 +4,15 @@ import { isAbsolute, relative, sep } from 'node:path';
 import type * as TS from 'typescript';
 import { byCodePoint, message } from '../contract/index.js';
 import { posix, ts } from '../lang/index.js';
-import { alignBaseline } from './baseline.js';
+import { alignBaseline, baselineRuns } from './baseline.js';
 import { CHECKER_OPTIONS } from './compliance.js';
 import { unifiedDiff } from './diff.js';
 import { applyEdits, type Edit, RefactorError, splitBom } from './edits.js';
 import { Lines } from './lines.js';
 import type { MovedSpan } from './position.js';
+import { Progress } from './progress.js';
 import { languageFiles, realPath, under } from './routing.js';
+import { timed } from './timings.js';
 import { type Located, locate as locateSymbol } from './symbols.js';
 import { Workspace } from './workspace.js';
 import { type Write, writeAll } from './writer.js';
@@ -18,6 +20,7 @@ import { type Write, writeAll } from './writer.js';
 export interface RefactorArgs {
   project: string;
   apply: boolean;
+  timings?: boolean;
   subcommand: 'rename' | 'rename-map' | 'retarget' | 'move-symbol' | 'move-module';
   file?: string;
   offset?: number;
@@ -34,6 +37,7 @@ export interface RefactorArgs {
   without_stand_ins?: string[];
   keep?: string[];
   docs?: boolean;
+  fail_fast?: boolean;
   dest?: string;
   module?: string;
 }
@@ -64,7 +68,7 @@ export class Refactor {
   }
 
   get workspace(): Workspace {
-    this.workspaceCache ??= new Workspace(this.root);
+    this.workspaceCache ??= timed('load', () => new Workspace(this.root));
     return this.workspaceCache;
   }
 
@@ -91,7 +95,7 @@ export class Refactor {
 
   /** The headers, one diff or rename pair per entry in path order (the realigned baseline among them), then the
    * footer; writes only with --apply, every file or none. */
-  emit(headers: string[], edits: Map<string, Edit[]>, moves: [string, string][], spans: MovedSpan[] = []): number {
+  emit(headers: string[], edits: Map<string, Edit[]>, moves: [string, string][], spans: MovedSpan[] = [], progress: Progress = new Progress()): number {
     const entries: Entry[] = [];
     const writes: Write[] = [];
     for (const [path, fileEdits] of edits) {
@@ -102,7 +106,9 @@ export class Refactor {
       const text = bom + applyEdits(body, fileEdits);
       if (text !== old) writes.push({ path, old, text });
     }
-    const aligned = alignBaseline(this, { edits, moves: new Map(moves), spans }, new Map(writes.map((w) => [w.path, splitBom(w.text)[1]])));
+    const texts = new Map(writes.map((w) => [w.path, splitBom(w.text)[1]]));
+    if (baselineRuns(this)) progress.phase('baseline');
+    const aligned = timed('baseline', () => alignBaseline(this, { edits, moves: new Map(moves), spans }, texts));
     process.stderr.write(aligned.warnings.map((line) => `${line}\n`).join(''));
     if (aligned.write !== null) writes.push(aligned.write);
     for (const { path, old, text } of writes) entries.push({ path: this.rel(path), text: unifiedDiff(old, text, this.rel(path)) });
@@ -112,7 +118,8 @@ export class Refactor {
     const body = entries.map((e) => `${e.text}\n`).join('');
     let out = `${headers.join('\n')}\n\n\n${body}\n`;
     if (this.args.apply) {
-      writeAll(this.root, writes.toSorted((a, b) => byCodePoint(a.path, b.path)), moves, (path) => this.rel(path));
+      progress.phase('write');
+      timed('write', () => writeAll(this.root, writes.toSorted((a, b) => byCodePoint(a.path, b.path)), moves, (path) => this.rel(path)));
       out += `${message('refactor.applied', { count: paths.length })}\n`;
       out += paths.map((path) => `${message('refactor.applied-file', { path })}\n`).join('');
     } else {
@@ -135,7 +142,7 @@ export function* nodes(node: TS.Node): Generator<TS.Node> {
 
 /** Where `locator` points in `file` (`shown` in messages): its offset, its line and column (code points), else the
  * declaration its path names. */
-export function locate(r: Refactor, file: string, shown: string, locator: Locator): Located {
+export function locate(r: Refactor, file: string, shown: string, locator: Locator, follow = true): Located {
   const text = readFileSync(file, 'utf8');
   if (locator.offset !== undefined) return { file, position: locateOffset(text, locator.offset), topLevel: false };
   if (locator.line !== undefined) return { file, position: locateLine(text, locator.line, locator.col ?? 1), topLevel: false };
@@ -144,7 +151,7 @@ export function locate(r: Refactor, file: string, shown: string, locator: Locato
     const program = r.services(file)[0]?.getProgram();
     const source = program?.getSourceFile(file);
     if (program === undefined || source === undefined) throw new RefactorError(message('refactor.ts-outside-project', { path: r.rel(file) }));
-    return locateSymbol(program.getTypeChecker(), source, locator.symbol, shown);
+    return locateSymbol(program.getTypeChecker(), source, locator.symbol, shown, follow);
   }
   throw new RefactorError(message('refactor.no-locator'));
 }

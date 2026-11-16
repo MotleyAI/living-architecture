@@ -1,0 +1,2 @@
+- {file: lib/engine.py, symbol: Engine.persist, retarget: Engine.persist_model}
+- {file: lib/store.py, symbol: Store.drop, new_name: discard}

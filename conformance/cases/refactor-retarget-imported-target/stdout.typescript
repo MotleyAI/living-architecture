@@ -1,0 +1,56 @@
+Retargeting <AcmeModel> to <Model>:
+
+
+--- a/src/joined.ts
++++ b/src/joined.ts
+@@ -1,4 +1,3 @@
+-import { helper } from './core';
+-import { AcmeModel } from './compat';
++import { helper, Model } from './core';
+ 
+-export const j = [new AcmeModel(), helper()];
++export const j = [new Model(), helper()];
+
+--- a/src/later.ts
++++ b/src/later.ts
+@@ -1,4 +1,5 @@
+-import { CONST, AcmeModel } from './compat';
++import { CONST } from './compat';
++import { Model } from './core';
+ import { helper } from './core';
+ 
+-export const l = [CONST, new AcmeModel(), helper()];
++export const l = [CONST, new Model(), helper()];
+
+--- a/src/multi.ts
++++ b/src/multi.ts
+@@ -1,3 +1,4 @@
+-import { CONST, AcmeModel } from './compat';
++import { CONST } from './compat';
++import { Model } from './core';
+ 
+-export const m = [CONST, new AcmeModel()];
++export const m = [CONST, new Model()];
+
+--- a/src/sole.ts
++++ b/src/sole.ts
+@@ -1,3 +1,3 @@
+-import { AcmeModel } from './compat';
++import { Model } from './core';
+ 
+-export const s = new AcmeModel();
++export const s = new Model();
+
+--- a/src/sub/ext.ts
++++ b/src/sub/ext.ts
+@@ -1,3 +1,4 @@
+-import { CONST, AcmeModel } from '../compat.js';
++import { CONST } from '../compat.js';
++import { Model } from '../core.js';
+ 
+-export const e = [CONST, new AcmeModel()];
++export const e = [CONST, new Model()];
+
+
+
+DRY-RUN. 5 file(s) would change. Re-run with --apply.

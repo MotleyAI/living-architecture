@@ -1,0 +1,18 @@
+kind: paired
+languages:
+- python
+- typescript
+command: dr-refactor
+args:
+- rename-map
+- renames.yaml
+- --keep
+- lib/esc
+fixture: refactor-progress
+git:
+- commit: init
+expect:
+  exit: 2
+golden: manual
+note: a keep whose only spelling of the old name is an escaped string literal passes the checks; matching no edit, it is reported
+  after the rules

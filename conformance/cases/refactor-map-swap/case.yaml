@@ -13,5 +13,5 @@ expect:
   files:
   - pkg/f.py
 golden: manual
-note: 'a swap of two parameters in one scope: name conflicts are checked against the code before the map, so the existing
-  name-conflict refusal; nothing written'
+note: 'a swap of two parameters in one scope: name conflicts are checked against the code before the map, so each entry
+  meets the existing name-conflict refusal, both reported in one report; nothing written'

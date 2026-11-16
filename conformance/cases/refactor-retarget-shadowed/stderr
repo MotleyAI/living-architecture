@@ -1,1 +1,8 @@
+[resolve]
+[checks]
+[references]
+[references 1/1] entry 1: AcmeModel -> Model
+[rules]
+[rules 1/1] entry 1: AcmeModel -> Model: 1 refusal(s)
+pkg/use.py:6: Model names something else here, so nothing was refactored
 pkg/use.py:6: Model names something else here, so nothing was refactored

@@ -1,0 +1,6 @@
+[resolve]
+[checks]
+[references]
+[references 1/1] entry 1: Engine -> Motor
+[rules]
+[rules 1/1] entry 1: Engine -> Motor: clean

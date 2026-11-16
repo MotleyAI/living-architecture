@@ -1,2 +1,9 @@
+[resolve]
+[checks]
+[references]
+[references 1/1] entry 1: columns -> fields
+[rules]
+[rules 1/1] entry 1: columns -> fields: clean
 pkg/use.py:3: leftover: string mentions columns
 pkg/use.py:4: leftover: string mentions columns
+[write]

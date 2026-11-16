@@ -11,5 +11,5 @@ git:
 expect:
   exit: 0
 golden: manual
-note: 'a single-name re-export shim, its own uses and its importers stay; only importers of the defining module are
-  rewritten, in both languages'
+note: 'a single-name re-export shim keeps its re-export, imports the target for its own uses; its importers import the
+  target from the home, in both languages'

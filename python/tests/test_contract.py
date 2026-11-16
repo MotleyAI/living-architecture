@@ -696,9 +696,10 @@ NEW_TEMPLATES = {
     "refactor.map-conflict":
         "{path}:{line}: entries {first} and {second} rewrite this site differently, so nothing was refactored",
     "refactor.retarget-header": "Retargeting <{old}> to <{new}>:",
-    "refactor.retarget-scope": "{target} is not declared in the class or module that declares {alias}",
+    "refactor.retarget-scope": "{target} is not declared or imported in the class or module that declares {alias}",
     "refactor.retarget-override": "{path}:{line}: {cls}.{name} overrides the alias, so nothing was refactored",
     "refactor.retarget-shadowed": "{path}:{line}: {name} names something else here, so nothing was refactored",
+    "refactor.retarget-unbound": "{path}:{line}: {module} does not bind {name}, so nothing was refactored",
     "refactor.write-failed":
         "could not write {path}; the files already written are restored, so nothing was refactored",
     "refactor.rollback-failed": "could not write {path}; restoring failed, so these paths are left changed: {paths}",
@@ -710,6 +711,17 @@ NEW_TEMPLATES = {
     "refactor.literal-unresolved":
         "{path}:{line}: literal-unresolved: the checker needs {old!r} here, where no string literal can be rewritten",
     "refactor.compound": "{path}:{line}: leftover: declaration {name} contains {old}",
+    "refactor.site-missing": "{option} {site} names no file, directory or line in the project",
+    "refactor.checker-exit": "  the checker exited with code {code}; its stderr:",
+    "refactor.checker-not-started": "  the checker could not start: {error}",
+    "refactor.checker-error": "  the checker answered: {error}",
+    "refactor.progress-phase": "[{phase}]",
+    "refactor.progress-item": "[{phase} {n}/{count}] {entries}: {old} -> {new}",
+    "refactor.progress-clean": "[{phase} {n}/{count}] {entries}: {old} -> {new}: clean",
+    "refactor.progress-refused": "[{phase} {n}/{count}] {entries}: {old} -> {new}: {refusals} refusal(s)",
+    "refactor.progress-entry": "entry {index}",
+    "refactor.progress-entries": "entries {indexes}",
+    "refactor.timing": "timing: {phase} {seconds}s",
 }
 REMOVED_TEMPLATES = {"c4-layout.migrate"}
 # Defensive findings no real input reaches; each is pinned by a unit test instead of a golden.
@@ -719,6 +731,7 @@ UNPRODUCED_BY_DESIGN = {
     "refactor.rope-walk": "no known input reaches a walker gap; pinned by the rope-walk unit tests",
     "compliance.rope-walk": "no known input reaches a walker gap; pinned by the rope-walk unit tests",
     "refactor.file-changed": "needs a concurrent edit no corpus case can make; pinned by the rename-union unit tests",
+    "refactor.checker-error": "no corpus case can fake the bundled language server; pinned by the refactor CLI tests",
 }
 
 
@@ -795,6 +808,7 @@ RENAME_GUARD_OPTIONS = {
     "--without": ("string", "without_stand_ins", True),
     "--keep": ("string", "keep", True),
     "--docs": ("flag", "docs", False),
+    "--fail-fast": ("flag", "fail_fast", False),
 }
 
 

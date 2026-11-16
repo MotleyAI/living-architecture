@@ -1,0 +1,109 @@
+Retargeting <AcmeModel> to <Model>:
+
+
+--- a/pkg/enclosing.py
++++ b/pkg/enclosing.py
+@@ -2,5 +2,4 @@
+ 
+ 
+ def make() -> object:
+-    from pkg.compat import AcmeModel
+-    return AcmeModel(), Model
++    return Model(), Model
+
+--- a/pkg/local_after_home.py
++++ b/pkg/local_after_home.py
+@@ -2,5 +2,5 @@
+ 
+ 
+ def make() -> object:
+-    from pkg.compat import AcmeModel
+-    return AcmeModel(), helper()
++    from pkg.models import Model
++    return Model(), helper()
+
+--- a/pkg/loop_import.py
++++ b/pkg/loop_import.py
+@@ -1,3 +1,3 @@
+ for _ in range(2):
+-    from pkg.compat import AcmeModel
+-    print(AcmeModel())
++    from pkg.models import Model
++    print(Model())
+
+--- a/pkg/try_import.py
++++ b/pkg/try_import.py
+@@ -1,6 +1,7 @@
+ try:
+-    from pkg.compat import CONST, AcmeModel
++    from pkg.compat import CONST
++    from pkg.models import Model
+ except ImportError:
+     raise
+ 
+-a = CONST, AcmeModel()
++a = CONST, Model()
+
+--- a/pkg/typing_both.py
++++ b/pkg/typing_both.py
+@@ -4,8 +4,7 @@
+ 
+ if TYPE_CHECKING:
+     from pkg.models import Model
+-    from pkg.compat import AcmeModel
+ 
+ 
+-def check(m: AcmeModel, n: Model) -> None:
++def check(m: Model, n: Model) -> None:
+     print(m, n)
+
+--- a/pkg/typing_future.py
++++ b/pkg/typing_future.py
+@@ -3,8 +3,8 @@
+ from typing import TYPE_CHECKING
+ 
+ if TYPE_CHECKING:
+-    from pkg.compat import AcmeModel
++    from pkg.models import Model
+ 
+ 
+-def check(m: AcmeModel) -> None:
++def check(m: Model) -> None:
+     print(m)
+
+--- a/pkg/typing_runtime.py
++++ b/pkg/typing_runtime.py
+@@ -1,13 +1,13 @@
+ from typing import TYPE_CHECKING
+ 
+ if TYPE_CHECKING:
+-    from pkg.compat import AcmeModel
++    from pkg.models import Model
+ 
+ 
+-def check(m: AcmeModel) -> None:
++def check(m: Model) -> None:
+     print(m)
+ 
+ 
+ def make() -> object:
+-    from pkg.compat import AcmeModel
+-    return AcmeModel()
++    from pkg.models import Model
++    return Model()
+
+--- a/pkg/typing_split.py
++++ b/pkg/typing_split.py
+@@ -3,6 +3,6 @@
+ if TYPE_CHECKING:
+     from pkg.models import Model
+ 
+-from pkg.compat import AcmeModel
++from pkg.models import Model
+ 
+-a = AcmeModel()
++a = Model()
+
+
+
+DRY-RUN. 8 file(s) would change. Re-run with --apply.

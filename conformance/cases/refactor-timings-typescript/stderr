@@ -1,0 +1,12 @@
+[resolve]
+[checks]
+[references]
+[references 1/1] entry 1: foo -> bar
+[rules]
+[rules 1/1] entry 1: foo -> bar: clean
+timing: load <S>s
+timing: resolve <S>s
+timing: references <S>s
+timing: rules <S>s
+timing: baseline <S>s
+timing: total <S>s

@@ -1,0 +1,16 @@
+kind: paired
+languages:
+- python
+- typescript
+command: dr-refactor
+args:
+- rename-map
+- renames.yaml
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: 'three aliases of one home in a map, one target renamed by another entry: an importer of all three is re-pointed
+  in place (parentheses, comment and trailing comma kept), an importer of two with another name gains one import naming
+  both, in both languages'

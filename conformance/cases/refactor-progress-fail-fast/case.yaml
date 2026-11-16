@@ -1,0 +1,16 @@
+kind: paired
+languages:
+- python
+- typescript
+command: dr-refactor
+args:
+- rename-map
+- renames.yaml
+- --fail-fast
+fixture: refactor-progress
+git:
+- commit: init
+expect:
+  exit: 1
+golden: manual
+note: '--fail-fast: the first group''s refusal stops the rules; the final report holds only its blind spot'

@@ -94,12 +94,20 @@ function importDeclarations(node: TS.ImportDeclaration): Declaration[] {
   return [...declaration(clause, clause.name), ...namespace, ...named];
 }
 
+/** The names an `export { ... } from` re-exports; none for a local export, which declares nothing. */
+function reexportDeclarations(node: TS.ExportDeclaration): Declaration[] {
+  const clause = node.exportClause;
+  if (node.moduleSpecifier === undefined || clause === undefined || !ts().isNamedExports(clause)) return [];
+  return clause.elements.flatMap((s) => declaration(s, s.name));
+}
+
 /** The names a statement itself declares; null for a statement that declares none. */
 function ownDeclarations(node: TS.Node): Declaration[] | null {
   if (ts().isVariableStatement(node)) return node.declarationList.declarations.flatMap((d) => bindingNames(d, d.name));
   if (ts().isVariableDeclarationList(node)) return node.declarations.flatMap((d) => bindingNames(d, d.name));
   if (isNamedStatement(node)) return declaration(node, node.name);
   if (ts().isImportDeclaration(node)) return importDeclarations(node);
+  if (ts().isExportDeclaration(node)) return reexportDeclarations(node);
   return null;
 }
 
@@ -179,7 +187,7 @@ function bySymbol(checker: TS.TypeChecker, found: Declaration[]): Declaration[][
 }
 
 const IMPORTS = (node: TS.Node): boolean =>
-  ts().isImportSpecifier(node) || ts().isImportClause(node) || ts().isNamespaceImport(node) || ts().isImportEqualsDeclaration(node);
+  ts().isImportSpecifier(node) || ts().isImportClause(node) || ts().isNamespaceImport(node) || ts().isImportEqualsDeclaration(node) || ts().isExportSpecifier(node);
 
 /** The declaration an import binding names, followed through its alias; the binding itself when it resolves outside sources. */
 function imported(checker: TS.TypeChecker, d: Declaration): Located | null {
@@ -192,8 +200,9 @@ function imported(checker: TS.TypeChecker, d: Declaration): Located | null {
   return { file: source.fileName, position: name.getStart(source), topLevel: false };
 }
 
-/** The declaration `raw` names in `source`; LocatorError when it names none or more than one symbol. */
-export function locate(checker: TS.TypeChecker, source: TS.SourceFile, raw: string, shown: string): Located {
+/** The declaration `raw` names in `source`, an import or re-export followed to what it names unless `follow` is
+ * false; LocatorError when it names none or more than one symbol. */
+export function locate(checker: TS.TypeChecker, source: TS.SourceFile, raw: string, shown: string, follow = true): Located {
   const path = parsePath(raw);
   const unresolved = (names: Iterable<string>): LocatorError =>
     new LocatorError(message('refactor.symbol-unresolved', { path: shown, symbol: raw, candidates: [...new Set(names)].sort(byCodePoint).join(', ') }));
@@ -213,7 +222,7 @@ export function locate(checker: TS.TypeChecker, source: TS.SourceFile, raw: stri
   }
   if (path.value !== null) return literalMember(source, group, path.value, unresolved);
   const first = group[0] as Declaration;
-  if (IMPORTS(first.node)) {
+  if (follow && IMPORTS(first.node)) {
     const target = imported(checker, first);
     if (target !== null) return target;
   }

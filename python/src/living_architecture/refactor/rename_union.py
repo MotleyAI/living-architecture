@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import ast
 import bisect
-import sys
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterator
 from pathlib import Path
@@ -63,6 +62,7 @@ from living_architecture.refactor.routing import language_files
 from living_architecture.refactor.sites import Site
 from living_architecture.refactor.static_resolver import Module
 from living_architecture.refactor.text_edits import TextEdit
+from living_architecture.refactor.timings import timed
 from living_architecture.refactor.writer import FileChanged
 
 
@@ -97,6 +97,11 @@ class Snapshot:
 
     def encode(self, rel: str, text: str) -> bytes:
         return text.encode(self._encodings[rel])
+
+    def decode(self, rel: str, data: bytes) -> str:
+        """`data` written to `rel`, as text."""
+        self.text(rel)
+        return data.decode(self._encodings[rel])
 
     def data(self, rel: str) -> bytes:
         """The bytes `rel` was read as."""
@@ -203,12 +208,6 @@ def _conflict(source: SourceFile, rel: str, edits: list[TextEdit], old: str, new
 
 
 Function = ast.FunctionDef | ast.AsyncFunctionDef
-_POSITIONED = (ast.stmt, ast.expr, ast.arg, ast.alias, ast.excepthandler, ast.pattern)
-
-
-def _type_params(fn: Function) -> list[ast.AST]:
-    """The PEP 695 type parameters `fn` declares."""
-    return list(fn.type_params) if sys.version_info >= (3, 12) else []
 
 
 def _parameter(fn: Function, name: str) -> ast.arg | None:
@@ -231,48 +230,9 @@ def _keyword_spans(source: SourceFile) -> set[tuple[int, int]]:
     return {s for k in ast.walk(source.tree) if isinstance(k, ast.keyword) and (s := source.name_span(k)) is not None}
 
 
-def _bound_names(node: ast.AST) -> list[str]:
-    """The variable names `node` binds or reads."""
-    if isinstance(node, ast.Name):
-        return [node.id]
-    if isinstance(node, ast.arg):
-        return [node.arg]
-    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-        return [node.name]
-    if isinstance(node, ast.alias):
-        return [node.asname or node.name.split(".")[0]]
-    if isinstance(node, (ast.ExceptHandler, ast.MatchAs, ast.MatchStar)):
-        return [node.name] if node.name else []
-    if isinstance(node, ast.MatchMapping):
-        return [node.rest] if node.rest else []
-    if isinstance(node, (ast.Global, ast.Nonlocal)):
-        return node.names
-    if sys.version_info >= (3, 12) and isinstance(node, (ast.TypeVar, ast.ParamSpec, ast.TypeVarTuple)):
-        return [node.name]
-    return []
-
-
-def _site(source: SourceFile, node: ast.AST) -> int | None:
-    """The offset of `node`, a positioned binding or read."""
-    if sys.version_info >= (3, 12) and isinstance(node, ast.type_param):
-        return source.offset(node.lineno, node.col_offset)
-    if isinstance(node, _POSITIONED):
-        span = source.name_span(node)
-        return span[0] if span else source.offset(node.lineno, node.col_offset)
-    return None
-
-
-def _variable_sites(source: SourceFile, fn: Function, name: str) -> Iterator[int]:
-    """The offsets where `fn`'s signature or body binds or reads variable `name`, nested scopes included."""
-    for root in [*_type_params(fn), fn.args, *([fn.returns] if fn.returns else []), *fn.body]:
-        for node in ast.walk(root):
-            if name in _bound_names(node) and (site := _site(source, node)) is not None:
-                yield site
-
-
 class RenameOptions(BaseModel):
     """How a symbol rename runs: hierarchy, unsure occurrences, the blind-spot override, stand-in classifications,
-    kept sites and the mention scan."""
+    kept sites, the mention scan and whether the run stops at its first refusal."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -283,6 +243,7 @@ class RenameOptions(BaseModel):
     without_sites: tuple[str, ...] = ()
     keep: tuple[str, ...] = ()
     docs: bool = False
+    fail_fast: bool = False
 
 
 class Declaration(BaseModel):
@@ -428,6 +389,23 @@ class SymbolRename(MapRename):
     def header(self) -> str:
         return message("refactor.rename-header", old=self.old, new=self.new)
 
+    def renamed_members(self) -> list[tuple[tuple[str, int], tuple[str, int]]]:
+        """Each member declaration this rename's edits rename, with its class's file and `class` line."""
+        if not self.member:
+            return []
+        starts = {(e.path, e.start) for e in self.edits}
+        out: list[tuple[tuple[str, int], tuple[str, int]]] = []
+        for d in self._declarations:
+            source = self.snapshot.source(d.rel)
+            if (d.rel, d.start) not in starts or source.tree is None:
+                continue
+            owner = next((cls for cls in classes(source.tree) if any(
+                (span := source.name_span(n)) is not None and span[0] == d.start
+                for n in member_declarations(cls, self.old))), None)
+            if owner is not None:
+                out.append(((d.rel, d.start), (d.rel, owner.lineno)))
+        return out
+
     def is_member(self) -> bool:
         """The symbol is declared in a class body (or as a `self.` attribute): a declaration rope renames is one."""
         if isinstance(self.renamer.old_pyname, pynamesdef.ParameterName):
@@ -559,15 +537,8 @@ class SymbolRename(MapRename):
         return out
 
     def _parameter_seeds(self, facts: TypeFacts, fn: PyFunction) -> None:
-        """Seed every renamed parameter; `NameConflict` when a renamed function already uses the new name."""
-        declarations = self._parameter_declarations(facts, fn)
-        conflicts = sorted(
-            (rel, offset) for rel, source, node, _ in declarations for offset in _variable_sites(source, node, self.new)
-        )
-        if conflicts and self.check_names:
-            rel, offset = conflicts[0]
-            raise NameConflict(self.new, rel, self.snapshot.source(rel).line(offset))
-        for rel, source, node, arg in declarations:
+        """Seed every renamed parameter."""
+        for rel, source, node, arg in self._parameter_declarations(facts, fn):
             span = source.name_span(arg)
             if span is not None:
                 self.seeds.add((rel, span[0]))
@@ -709,45 +680,51 @@ class SymbolRename(MapRename):
     @override
     def prepare(self) -> None:
         """rope's edits, the member declarations and the stand-in classification; raises `FileChanged`."""
-        self._rope_edits()
-        self._declarations = self._member_declarations()
-        self.member = self.is_member()
-        if self.member:
-            self._classify()
-            for renamer in self.renamers[1:]:
-                self._add_occurrences(renamer)
-        self._fields = [f for r in self.renamers if (f := self._located_field(r)) is not None]
+        with timed("references"):
+            self._rope_edits()
+            self._declarations = self._member_declarations()
+            self.member = self.is_member()
+            if self.member:
+                self._classify()
+                for renamer in self.renamers[1:]:
+                    self._add_occurrences(renamer)
+            self._fields = [f for r in self.renamers if (f := self._located_field(r)) is not None]
 
     @override
     def seed(self, facts: TypeFacts) -> None:
-        """The declarations only the checker's facts add; raises `NameConflict`, `UnresolvedBase`."""
-        pyname = self.renamer.old_pyname
-        if isinstance(pyname, pynamesdef.ParameterName):
-            self._parameter_seeds(facts, pyname.pyfunction)
-        for field in self._fields:
-            facts.chain(field[0])
+        """The declarations only the checker's facts add; raises `UnresolvedBase`."""
+        with timed("rules"):
+            pyname = self.renamer.old_pyname
+            if isinstance(pyname, pynamesdef.ParameterName):
+                self._parameter_seeds(facts, pyname.pyfunction)
+            for field in self._fields:
+                facts.chain(field[0])
 
     @override
     def rules(self, server: LanguageServer, facts: TypeFacts) -> None:
         """Every rule that asks the checker: references, keyed classes, member strings, targets, blind spots."""
-        self._reference_edits(server)
-        for field in self._fields:
-            self._keyed_edits(facts, field)
-        scan = MemberScan(server, self.old, self.session.load)
-        if self.member:
-            self._string_member_edits(scan)
-        self._target_edits(scan, self.member)
-        if self.member:
-            self._blindspot_scan(scan)
+        with timed("references"):
+            self._reference_edits(server)
+        with timed("rules"):
+            for field in self._fields:
+                self._keyed_edits(facts, field)
+            scan = MemberScan(server, self.old, self.session.load)
+            if self.member:
+                self._string_member_edits(scan)
+            self._target_edits(scan, self.member)
+            if self.member:
+                with timed("blindspot-scan"):
+                    self._blindspot_scan(scan)
 
     @override
     def finish(self) -> None:
         """The rules that read text only: mentions with `--docs`, else a member's exact-OLD string literals."""
-        if self.options.docs:
-            self._mention_edits()
-            self._compound_names()
-        elif self.member:
-            self._literal_leftovers()
+        with timed("rules"):
+            if self.options.docs:
+                self._mention_edits()
+                self._compound_names()
+            elif self.member:
+                self._literal_leftovers()
 
     @override
     def check_conflicts(self, edits: list[TextEdit]) -> None:

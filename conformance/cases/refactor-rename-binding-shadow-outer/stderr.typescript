@@ -1,0 +1,7 @@
+[resolve]
+[checks]
+[references]
+[references 1/1] entry 1: old2 -> nxt
+[rules]
+[rules 1/1] entry 1: old2 -> nxt: clean
+nxt already names something else at src/m.ts:5, so nothing was refactored

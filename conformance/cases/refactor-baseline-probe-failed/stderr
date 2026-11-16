@@ -1,0 +1,5 @@
+[resolve]
+[checks]
+the python type checker failed, so the baseline cannot be realigned and nothing was refactored
+  the checker exited with code 2; its stderr:
+  fake checker: no project configuration

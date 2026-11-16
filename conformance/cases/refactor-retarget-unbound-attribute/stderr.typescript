@@ -1,0 +1,8 @@
+[resolve]
+[checks]
+[references]
+[references 1/1] entry 1: AcmeModel -> Model
+[rules]
+[rules 1/1] entry 1: AcmeModel -> Model: 1 refusal(s)
+src/use.ts:4: src/compat.ts does not bind Model, so nothing was refactored
+src/use.ts:4: src/compat.ts does not bind Model, so nothing was refactored

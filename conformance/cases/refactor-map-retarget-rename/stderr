@@ -1,0 +1,8 @@
+[resolve]
+[checks]
+[references]
+[references 1/2] entry 1: old_alias -> renamed
+[references 2/2] entry 2: target -> renamed
+[rules]
+[rules 1/2] entry 1: old_alias -> renamed: clean
+[rules 2/2] entry 2: target -> renamed: clean

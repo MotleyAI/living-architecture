@@ -1,0 +1,9 @@
+[resolve]
+[checks]
+[references]
+[references 1/2] entry 1: a -> next
+[references 2/2] entry 2: b -> next
+[rules]
+[rules 1/2] entry 1: a -> next: clean
+[rules 2/2] entry 2: b -> next: clean
+next already names something else at src/m.ts:2, so nothing was refactored

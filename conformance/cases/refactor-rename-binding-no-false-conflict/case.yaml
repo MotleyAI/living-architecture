@@ -1,0 +1,14 @@
+kind: paired
+languages:
+- python
+- typescript
+command: dr-refactor
+args:
+- rename-map
+- renames.yaml
+git:
+- commit: init
+expect:
+  exit: 0
+note: 'the new name only as an attribute, a call keyword (object literal key), in a comment, a local of an unrelated function
+  and a nested function''s own binding not reading old: no conflict'

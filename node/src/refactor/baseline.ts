@@ -81,6 +81,9 @@ function moved(counts: Map<string, number>, before: Map<string, Instance[]>, fol
   return { counts: out, stuck };
 }
 
+/** The baseline phase runs: the TypeScript checker command is set and its baseline file exists. */
+export const baselineRuns = (r: Refactor): boolean => configured(findRepoRoot(r.root)) !== null;
+
 /** The realigned baseline to write with the refactor's files (null when it does not change), and its warnings. */
 export function alignBaseline(r: Refactor, map: PositionMap, texts: Map<string, string>): { write: Write | null; warnings: string[] } {
   const none = { write: null, warnings: [] };

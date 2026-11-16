@@ -259,7 +259,9 @@ def test_checker_failure_refuses(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     root = _project(tmp_path, {"pkg/use.py": USE}, command="/nonexistent/basedpyright")
     before = file_tree(root)
     expected = message("refactor.baseline-failed", language="python")
-    assert run(root, _rename(root, "get_model", "load"), monkeypatch, capsys) == (1, "", f"{expected}\n")
+    error = message("typecheck.not-found", language="python", command="/nonexistent/basedpyright", local_bin=".venv/bin")
+    cause = message("refactor.checker-not-started", error=error)
+    assert run(root, _rename(root, "get_model", "load"), monkeypatch, capsys) == (1, "", f"{expected}\n{cause}\n")
     assert file_tree(root) == before
 
 

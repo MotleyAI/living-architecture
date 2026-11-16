@@ -1,0 +1,35 @@
+Retargeting <Alias> to <Local>:
+Renaming <Target> to <Renamed>:
+
+
+--- a/src/compat.ts
++++ b/src/compat.ts
+@@ -1,7 +1,7 @@
+-import { Target as Local } from './home';
++import { Renamed as Local } from './home';
+ 
+ export const Alias = Local;
+ 
+ export function f(): object {
+-  return new Alias();
++  return new Local();
+ }
+
+--- a/src/home.ts
++++ b/src/home.ts
+@@ -1 +1 @@
+-export class Target {}
++export class Renamed {}
+
+--- a/src/use.ts
++++ b/src/use.ts
+@@ -1,3 +1,3 @@
+-import { Alias } from './compat';
++import { Renamed as Local } from './home';
+ 
+-export const x = new Alias();
++export const x = new Local();
+
+
+
+DRY-RUN. 3 file(s) would change. Re-run with --apply.

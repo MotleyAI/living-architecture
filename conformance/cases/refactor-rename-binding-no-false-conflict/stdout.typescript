@@ -1,0 +1,25 @@
+Renaming <old> to <next>:
+
+
+--- a/src/m.ts
++++ b/src/m.ts
+@@ -6,12 +6,12 @@
+   void kw;
+ }
+ 
+-export const old = 1;
++export const next = 1;
+ 
+ export function use(o: O): number {
+   // next is not read here
+-  call({ next: old });
+-  return o.next + old;
++  call({ next: next });
++  return o.next + next;
+ }
+ 
+ export function unrelated(): number {
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

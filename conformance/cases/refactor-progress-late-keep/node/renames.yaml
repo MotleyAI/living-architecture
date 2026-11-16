@@ -1,0 +1,1 @@
+- {file: lib/store.ts, symbol: Store.drop, new_name: discard}
