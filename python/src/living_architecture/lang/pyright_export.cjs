@@ -19,6 +19,7 @@ const ANCHORS = [
 
 const NODE = { Argument: 1, Class: 10, Decorator: 16, ImportAs: 24, ImportFromAs: 26, Index: 27, Function: 31,
   MemberAccess: 35, Module: 36, ModuleName: 37, Name: 38, Parameter: 41, StringList: 48, String: 49, TypeAnnotation: 54 };
+const ALIAS_DECLARATION = 8;
 const HOVER = /^\([\p{L}\p{N}_ ]+\) [\p{L}\p{N}_.]+: ([\s\S]*)$/u;
 
 // A failure overwrites any result; `patched` never replaces one.
@@ -195,6 +196,7 @@ class Exporter {
           const kind = exporter.kind(node);
           const at = range(node).start;
           out.push({ uri: lsp, range: range(node), name: node.d.value, kind, declarations: exporter.definition(uri, at),
+            bindings: exporter.bindings(exporter.program.evaluator.getDeclInfoForNameNode(node)?.decls),
             receiver: kind === 'member' ? exporter.access(uri, node) : null });
         }
         return true;
@@ -203,7 +205,9 @@ class Exporter {
       visitString(node) {
         if (dunderAll.has(node) && names_.has(node.d.value) && node.d.token.escapedValue === node.d.value) {
           out.push({ uri: lsp, range: range(exporter.treeUtils.getStringNodeValueRange(node)), name: node.d.value, kind: 'all-entry',
-            declarations: exporter.moduleDeclarations(tree, node.d.value), receiver: null });
+            declarations: exporter.moduleDeclarations(tree, node.d.value),
+            bindings: exporter.bindings(exporter.nodeInfo.getScope(tree, exporter.reader)?.lookUpSymbol(node.d.value)?.getDeclarations()),
+            receiver: null });
         }
         return true;
       }
@@ -218,6 +222,25 @@ class Exporter {
     for (const decl of symbol?.getDeclarations() ?? []) {
       const resolved = this.program.evaluator.resolveAliasDeclaration(decl, true);
       if (resolved && resolved.uri && !resolved.uri.isEmpty()) out.push({ uri: resolved.uri, range: resolved.range });
+    }
+    return this.locations(out);
+  }
+
+  // The `from M import X [as Y]` bindings `decls` pass through on the way to their final declarations, in order, each
+  // as the span of the name it binds.
+  bindings(decls) {
+    const out = [];
+    const seen = new Set();
+    const frontier = [...(decls ?? [])];
+    while (frontier.length) {
+      const decl = frontier.shift();
+      if (decl?.type !== ALIAS_DECLARATION || decl.node?.nodeType !== NODE.ImportFromAs || seen.has(decl)) continue;
+      seen.add(decl);
+      const file = this.treeUtils.getFileInfoFromNode(decl.node, this.reader)?.fileUri;
+      if (file) out.push({ uri: file, range: decl.range });
+      if (!decl.loadSymbolsFromPath || decl.uri.isEmpty() || !decl.symbolName) continue;
+      const symbol = this.program.lookUpImport(decl.uri)?.symbolTable.get(decl.symbolName);
+      frontier.push(...(symbol?.getDeclarations() ?? []));
     }
     return this.locations(out);
   }

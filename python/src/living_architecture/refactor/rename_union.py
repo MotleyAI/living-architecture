@@ -360,10 +360,13 @@ class SymbolRename(MapRename):
         return {(rel, d.span.start) for d in found.declarations if (rel := self.session.rel(d.span.path)) is not None}
 
     def _located(self, index: RunIndex) -> set[tuple[str, int]]:
-        """The declarations the checker resolves the entry's site to; where it resolves none in the project, those on
-        the line rope finds the symbol defined at."""
+        """An import alias's own binding at the entry's site, else the declarations the checker resolves the site to;
+        where it resolves none in the project, those on the line rope finds the symbol defined at."""
         rel, offset = self.site
-        found = self._project_declarations(index.at(self.root / rel, self.old, offset))
+        at = index.at(self.root / rel, self.old, offset)
+        if at is not None and at.kind == "alias":
+            return {(rel, at.span.start)}
+        found = self._project_declarations(at)
         if found:
             return found
         location = self.renamer.old_pyname.get_definition_location() if self.renamer.old_pyname is not None else None
@@ -480,13 +483,14 @@ class SymbolRename(MapRename):
         ]
 
     def _index_edits(self, index: RunIndex) -> None:
-        """Every occurrence resolving to a renamed declaration (a keyword only through one that takes keywords), every
-        access with an untyped receiver under `--unsure include`, and each name, import or alias the checker resolves
-        to nothing that rope resolves to a renamed symbol."""
+        """Every occurrence resolving to a renamed declaration or through a renamed import alias (a keyword only through
+        one that takes keywords), every access with an untyped receiver under `--unsure include`, and each name, import
+        or alias the checker resolves to nothing that rope resolves to a renamed symbol."""
         unresolved: list[tuple[str, Occurrence]] = []
         for rel in self.candidates:
             for o in index.occurrences(self.root / rel, self.old):
-                hits = {(r, d.span.start) for d in o.declarations if (r := self.session.rel(d.span.path)) is not None} & self.seeds
+                spans = [*(d.span for d in o.declarations), *o.bindings]
+                hits = {(r, s.start) for s in spans if (r := self.session.rel(s.path)) is not None} & self.seeds
                 if o.kind == "keyword":
                     hits -= self.keywordless
                 if hits or (self._unsure and o.kind == "member" and o.receiver is not None):

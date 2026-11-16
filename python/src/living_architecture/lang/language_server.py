@@ -83,8 +83,9 @@ class Declaration(BaseModel):
 
 
 class Occurrence(BaseModel):
-    """An occurrence of an exported name: its span, kind, declarations and, for a member access, whether the checker
-    types its receiver `Unknown` or `Any`."""
+    """An occurrence of an exported name: its span, kind, declarations, the import bindings it passes through on the
+    way to them (each the span of the name it binds, in order) and, for a member access, whether the checker types its
+    receiver `Unknown` or `Any`."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -92,6 +93,7 @@ class Occurrence(BaseModel):
     name: str
     kind: OccurrenceKind
     declarations: tuple[Declaration, ...] = ()
+    bindings: tuple[Span, ...] = ()
     receiver: Verdict | None = None
 
 
@@ -512,6 +514,7 @@ class LanguageServer:
             Occurrence(
                 span=self._exported_span(item, item["name"]), name=item["name"], kind=item["kind"],
                 declarations=tuple(decl for d in item.get("declarations") or [] if (decl := self._declaration(d)) is not None),
+                bindings=tuple(s for b in item.get("bindings") or [] if (s := self._span(b)) is not None),
                 receiver=item.get("receiver"),
             )
             for item in found.get("occurrences") or []

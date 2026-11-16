@@ -484,7 +484,7 @@ class KeyedRename:
 
     def scan(self, source: SourceFile, rel: str, bindings: Bindings) -> None:
         """Every sink in `source`: calls, TypedDict-annotated assignments and returns."""
-        if source.tree is None:
+        if not _may_key(source, self.old):
             return
         self._dict_names = _dict_names(source, self.old)
         for node in source.nodes:
@@ -654,6 +654,13 @@ def _annotation_declared_at(source: SourceFile, node: ast.AST, span: Span) -> as
         return None
     name = source.name_span(target)
     return node.annotation if name is not None and name[0] == span.start else None
+
+
+def _may_key(source: SourceFile, old: str) -> bool:
+    """Whether `source` holds a keyword argument named `old` or a string constant equal to it: every sink needs one."""
+    return any(k.arg == old for k in source.of_type(ast.keyword)) or any(
+        c.value == old for c in source.of_type(ast.Constant)
+    )
 
 
 def _dict_names(source: SourceFile, old: str) -> set[str]:

@@ -171,15 +171,6 @@ def test_bundled_server_that_cannot_start_is_an_error(workspace: Path, monkeypat
         pass
 
 
-def test_a_server_that_cannot_launch_is_reported_from_the_os_templates(workspace: Path, tmp_path: Path) -> None:
-    server = tmp_path / "server"
-    server.write_text("#!/bin/sh\n", encoding="utf-8")
-    server.chmod(0o644)
-    with pytest.raises(LanguageServerError) as info, LanguageServer(workspace, command=[str(server)]):
-        pass
-    assert str(info.value) == f"{server}: permission denied"
-
-
 # ---- the occurrence export
 
 
@@ -257,6 +248,39 @@ def test_bundled_server_exports_name_occurrences_with_kinds_and_declarations(wor
     assert file_tree(workspace) == before
 
 
+def test_bundled_server_exports_the_import_bindings_an_occurrence_passes_through(workspace: Path) -> None:
+    pkg = workspace / "pkg"
+    pkg.mkdir()
+    texts = {
+        "__init__.py": "",
+        "core.py": "class Model:\n    pass\n",
+        "compat.py": 'from pkg.core import Model as AcmeModel\n\n__all__ = ["AcmeModel"]\n',
+        "other.py": "from pkg.core import Model as AcmeModel\n\nb = AcmeModel()\n",
+        "use.py": "from pkg.compat import AcmeModel\n\na = AcmeModel()\n",
+    }
+    for name, text in texts.items():
+        (pkg / name).write_text(text, encoding="utf-8")
+    files = [pkg / name for name in texts]
+    with LanguageServer(workspace) as server:
+        for path in files:
+            server.open(path, texts[path.name])
+        index = server.export(ExportRequest(names=["AcmeModel"], files=files))
+    compat = (pkg / "compat.py", texts["compat.py"].index("AcmeModel"))
+    other = (pkg / "other.py", texts["other.py"].index("AcmeModel"))
+    use = (pkg / "use.py", texts["use.py"].index("AcmeModel"))
+    chains = sorted((o.span.path.name, o.span.start, [(b.path, b.start) for b in o.bindings]) for o in index.occurrences)
+    assert chains == [
+        ("compat.py", compat[1], [compat]),
+        ("compat.py", texts["compat.py"].index('"AcmeModel"') + 1, [compat]),
+        ("other.py", other[1], [other]),
+        ("other.py", texts["other.py"].rindex("AcmeModel"), [other]),
+        ("use.py", use[1], [use, compat]),
+        ("use.py", texts["use.py"].rindex("AcmeModel"), [use, compat]),
+    ]
+    model = (pkg / "core.py", texts["core.py"].index("Model"))
+    assert {(d.span.path, d.span.start) for o in index.occurrences for d in o.declarations} == {model}
+
+
 def test_bundled_server_exports_member_receiver_verdicts(workspace: Path) -> None:
     path = workspace / "m.py"
     text = (
@@ -274,3 +298,12 @@ def test_bundled_server_exports_member_receiver_verdicts(workspace: Path) -> Non
     assert members == [(accesses[0] + 1, None), (accesses[1] + 1, "Unknown"), (accesses[2] + 1, "Any")]
     [typed] = [o for o in index.occurrences if o.span.start == accesses[0] + 1]
     assert [(d.span.path, d.span.start) for d in typed.declarations] == [(path, text.index("def run") + len("def "))]
+
+
+def test_a_server_that_cannot_launch_is_reported_from_the_os_templates(workspace: Path, tmp_path: Path) -> None:
+    server = tmp_path / "server"
+    server.write_text("#!/bin/sh\n", encoding="utf-8")
+    server.chmod(0o644)
+    with pytest.raises(LanguageServerError) as info, LanguageServer(workspace, command=[str(server)]):
+        pass
+    assert str(info.value) == f"{server}: permission denied"
