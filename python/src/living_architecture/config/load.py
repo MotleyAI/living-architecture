@@ -9,12 +9,16 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict
 
 from living_architecture.contract import (
+    DuplicateKeyError,
     YAMLError,
     config_file,
     is_portable_regex,
+    is_regular_file,
     load_yaml,
     local_config_file,
     materialize_defaults,
+    message,
+    os_error_text,
     schema,
     validate,
 )
@@ -108,13 +112,34 @@ def find_repo_root(start: Path) -> Path:
     return start
 
 
-def _raw(path: Path) -> Any:
-    if not path.is_file():
-        return None
+def read_config_text(root: Path, name: str) -> str | None:
+    """The text of config file `name`, None when it does not exist; ConfigError when it cannot be read."""
+    path = root / name
     try:
-        return load_yaml(path.read_text(encoding="utf-8"))
+        if not is_regular_file(path):
+            return None
+        data = path.read_bytes()
+    except OSError as exc:
+        raise ConfigError(os_error_text(exc, root, path)) from exc
+    try:
+        return data.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise ConfigError(message("yaml.invalid", path=name)) from exc
+
+
+def parse_config(text: str, name: str) -> Any:
+    """`text` of config file `name` in the shared YAML profile; ConfigError when it is not valid YAML."""
+    try:
+        return load_yaml(text)
+    except DuplicateKeyError as exc:
+        raise ConfigError(message("yaml.invalid-because", path=name, error=str(exc))) from exc
     except YAMLError as exc:
-        raise ConfigError(f"{path}: invalid YAML: {exc}") from exc
+        raise ConfigError(message("yaml.invalid", path=name)) from exc
+
+
+def _raw(root: Path, name: str) -> Any:
+    text = read_config_text(root, name)
+    return None if text is None else parse_config(text, name)
 
 
 def _merge(base: Any, over: Any) -> Any:
@@ -138,9 +163,9 @@ def _leaves(sub: dict[str, Any], data: dict[str, Any], prefix: str = "") -> list
 
 def load_raw(root: Path) -> RawConfig:
     """Both files read and the local one checked against its schema; ConfigError naming the faulty file."""
-    committed = _raw(root / config_file())
+    committed = _raw(root, config_file())
     local_path = root / local_config_file()
-    local = _raw(local_path)
+    local = _raw(root, local_config_file())
     overrides: list[str] = []
     data = committed
     if local is not None:

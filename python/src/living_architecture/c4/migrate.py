@@ -50,7 +50,7 @@ from living_architecture.config import (
     released_formats,
     stamp_format,
 )
-from living_architecture.contract import config_file, load_yaml, message
+from living_architecture.contract import config_file, load_yaml, message, os_error_text
 
 
 class MigrateError(Exception):
@@ -186,7 +186,7 @@ def _refusal(root: Path, moves: list[_Move], diagram_keys: list[Any]) -> str | N
     sources_of: dict[str, str] = {}
     for move in moves:
         source, target = move.source, move.target
-        if not _contained(source) or not (root / source).is_file():
+        if not _contained(source) or not os.path.isfile(root / source):
             return message("arch-migrate.source-missing", source=source)
         if source in targets_of:
             return message("arch-migrate.source-moved-twice", source=source, first=targets_of[source], second=target)
@@ -277,7 +277,7 @@ def _verify(root: Path, before: ModelParse, plan: _Plan, index: Index | None, mo
         views = root / views_file()
         if views_file() in plan.outputs:
             (staging / views_file()).write_text(plan.outputs[views_file()], encoding="utf-8", newline="")
-        elif views.is_file():
+        elif os.path.isfile(views):
             (staging / views_file()).write_bytes(views.read_bytes())
         model_text = plan.outputs.get(model_file())
         staged_model = parse_model_texts([_read_exact(root / model_file()) if model_text is None else model_text])
@@ -307,7 +307,7 @@ def _mode(path: Path) -> int:
 
 
 def _state(path: Path) -> _State:
-    if path.is_dir():
+    if os.path.isdir(path):
         return _State(mode=_mode(path), is_dir=True)
     if os.path.lexists(path):
         return _State(data=path.read_bytes(), mode=_mode(path))
@@ -319,7 +319,7 @@ def _restore(path: Path, state: _State) -> None:
     if state.is_dir:
         path.mkdir()
     else:
-        if path.is_file():
+        if os.path.isfile(path):
             path.chmod(_mode(path) | stat.S_IWUSR)
         path.write_bytes(state.data or b"")
     if state.mode is not None:
@@ -442,7 +442,8 @@ class Transaction:
         left = sorted(rel for rel, state in self._first.items() if not _restored(self._root / rel, state))
         if not left:
             return None
-        return MigrateError(message("arch-migrate.rollback-failed", error=str(error), paths=", ".join(left)))
+        text = os_error_text(error, self._root) if isinstance(error, OSError) else str(error)
+        return MigrateError(message("arch-migrate.rollback-failed", error=text, paths=", ".join(left)))
 
     def report(self, last: str) -> list[str]:
         """The net effect: written paths (`last` last), then composed moves, then deleted paths."""
@@ -590,8 +591,11 @@ def run(root: Path) -> int:
     """`la-arch-migrate`: print each written, moved and deleted path, or exit 2 having changed nothing."""
     try:
         report = migrate(root)
-    except (MigrateError, OSError) as exc:
+    except MigrateError as exc:
         print(message("arch-migrate.error", error=str(exc)), file=sys.stderr)
+        return 2
+    except OSError as exc:
+        print(message("arch-migrate.error", error=os_error_text(exc, root)), file=sys.stderr)
         return 2
     for line in report:
         print(line)

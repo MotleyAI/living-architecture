@@ -5,14 +5,8 @@ remove:
 - architecture/model.c4
 expect:
   exit: 2
-  stdout: ''
-  stderr:
-    contains:
-    - 'la-arch-migrate: '
-    - living-architecture.yaml
   files:
   - architecture/model.c4
   - architecture/model/model.c4
 golden: manual
-note: a config that cannot be read as text is refused, the layout unchanged; the wording
-  is not contract
+note: a config that is not valid UTF-8 is invalid YAML, the layout unchanged

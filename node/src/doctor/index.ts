@@ -1,16 +1,28 @@
 // `la-doctor`: check the installed tools match the plugin's minor series and the repo config is valid.
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { ConfigError, type LaConfig, checkFormat, loadConfig, repoLanguages } from '../config/index.js';
-import { configFile, contractHash, language, localConfigFile, message, renderTemplate, which } from '../contract/index.js';
+import {
+  configFile,
+  contractHash,
+  isOsError,
+  isRegularFile,
+  language,
+  localConfigFile,
+  message,
+  osErrorText,
+  readFile,
+  renderTemplate,
+  which,
+} from '../contract/index.js';
 import { NATIVE_LANGUAGE, VERSION } from '../index.js';
 
 const REQUIRED_EXECUTABLES = ['git', 'gh'];
 const PLUGIN_MANIFEST = join('.claude-plugin', 'plugin.json');
 const VERSION_FORM = /^(\d+)\.(\d+)\..+$/s;
 
-/** A missing entry is absent; other stat errors propagate. */
+/** A missing entry or a path under a regular file is absent; other stat errors propagate. */
 function isFile(path: string): boolean {
   try {
     return statSync(path).isFile();
@@ -56,12 +68,22 @@ function pluginProblem(plugin: string): string | null {
     const manifest = join(dir, PLUGIN_MANIFEST);
     let raw: Buffer | null;
     try {
-      raw = isFile(manifest) ? readFileSync(manifest) : null;
+      raw = isFile(manifest) ? readFile(manifest) : null;
     } catch {
       return message('doctor.plugin-unreadable', { path: manifest });
     }
     if (raw !== null) return manifestProblem(manifest, raw);
     if (dirname(dir) === dir) return message('doctor.plugin-not-found', { dir: start });
+  }
+}
+
+/** Whether `path` is a regular file, or the OS error probing it. */
+function probe(root: string, path: string): boolean | string {
+  try {
+    return isRegularFile(path);
+  } catch (error) {
+    if (isOsError(error)) return osErrorText(error, root);
+    throw error;
   }
 }
 
@@ -71,11 +93,12 @@ const isDir = (path: string): boolean => existsSync(path) && statSync(path).isDi
 function consistency(root: string, config: LaConfig, requirePlanStore: boolean): string[] {
   const problems: string[] = [];
   const hasOpenspec = isDir(join(root, 'openspec'));
-  const hasArchitecture = isFile(join(root, 'architecture', 'index.yaml'));
   if (config.openspec !== hasOpenspec) {
     problems.push(message(config.openspec ? 'doctor.openspec-absent' : 'doctor.openspec-present'));
   }
-  if (config.architecture !== hasArchitecture) {
+  const hasArchitecture = probe(root, join(root, 'architecture', 'index.yaml'));
+  if (typeof hasArchitecture === 'string') problems.push(hasArchitecture);
+  else if (config.architecture !== hasArchitecture) {
     problems.push(message(config.architecture ? 'doctor.architecture-absent' : 'doctor.architecture-present'));
   }
   if (requirePlanStore && config.tracker === 'none' && !config.openspec) problems.push(message('doctor.no-plan-store'));
@@ -83,9 +106,12 @@ function consistency(root: string, config: LaConfig, requirePlanStore: boolean):
 }
 
 function configProblems(root: string, requireConfig: boolean, requirePlanStore: boolean): string[] {
-  const hasCommitted = isFile(join(root, configFile()));
+  const hasCommitted = probe(root, join(root, configFile()));
+  if (typeof hasCommitted === 'string') return [hasCommitted];
+  const hasLocal = probe(root, join(root, localConfigFile()));
+  if (typeof hasLocal === 'string') return [hasLocal];
   const missing = requireConfig && !hasCommitted ? [message('doctor.config-missing')] : [];
-  if (!hasCommitted && !isFile(join(root, localConfigFile()))) return missing;
+  if (!hasCommitted && !hasLocal) return missing;
   let config: LaConfig;
   try {
     config = loadConfig(root);
@@ -105,7 +131,8 @@ function git(root: string, ...args: string[]): { status: number | null; stdout: 
 /** A local file that git tracks or does not ignore; checked only inside git. */
 function localProblem(root: string): string | null {
   const local = localConfigFile();
-  if (!existsSync(join(root, '.git')) || !isFile(join(root, local))) return null;
+  // An error probing the local file is reported by the config checks.
+  if (!existsSync(join(root, '.git')) || probe(root, join(root, local)) !== true) return null;
   const listed = git(root, 'ls-files', '-z', '--', local);
   if (listed.status !== 0) return message('doctor.local-git-failed', { file: local });
   if (listed.stdout.length > 0) return message('doctor.local-tracked', { file: local });

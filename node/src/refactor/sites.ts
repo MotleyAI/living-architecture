@@ -1,7 +1,8 @@
 // `PATH[:LINE]` sites of `rename --keep`, `--with` and `--without`, and the keep text check.
-import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs';
+import { existsSync, realpathSync, statSync } from 'node:fs';
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import type * as TS from 'typescript';
+import { readFile } from '../contract/index.js';
 import { ts } from '../lang/index.js';
 import { identifierText } from './bindings.js';
 import { Lines } from './lines.js';
@@ -43,7 +44,7 @@ export class Site {
     if (this.parts === null || this.line === null) return this.parts === null;
     const path = join(root, ...this.parts);
     if (!statSync(path).isFile()) return true;
-    const count = new Lines(readFileSync(path, 'utf8')).count;
+    const count = new Lines(readFile(path, 'utf8')).count;
     return this.line < 1 || this.line > count;
   }
 }

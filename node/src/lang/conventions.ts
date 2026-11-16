@@ -1,8 +1,7 @@
 // TS/JS conventions facts: rule detections with their line text, line counts, and file failures.
-import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type * as TS from 'typescript';
-import { message } from '../contract/index.js';
+import { isOsError, message, osErrorReason, readFile } from '../contract/index.js';
 import { sourceExtension } from './files.js';
 import { commentRanges, lineCounts, LineMap } from './lines.js';
 import { ts } from './ts.js';
@@ -228,11 +227,12 @@ function analyze(path: string, text: string): ConventionsFileFacts {
 function fileFacts(root: string, path: string): ConventionsFileFacts {
   let bytes: Buffer;
   try {
-    bytes = readFileSync(resolve(root, path));
+    bytes = readFile(resolve(root, path));
   } catch (error) {
     const code = (error as NodeJS.ErrnoException).code;
     if (code === 'ENOENT' || code === 'ENOTDIR') return { path, status: 'missing' };
-    return { path, status: 'unreadable', line: 1, message: (error as Error).message };
+    if (!isOsError(error)) throw error;
+    return { path, status: 'unreadable', line: 1, message: osErrorReason(error) };
   }
   const text = decode(bytes);
   if (text === undefined) return { path, status: 'unreadable', line: 1, message: message('conventions.not-utf8') };

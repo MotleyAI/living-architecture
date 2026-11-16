@@ -1,0 +1,9 @@
+kind: neutral
+command: la-arch-diagrams
+fixture: arch-diagrams
+chmod:
+  architecture/security.arc42.md: '0000'
+expect:
+  exit: 1
+golden: manual
+note: a mapped doc that cannot be read is reported from the os.* templates; it is the only mapped doc, so none is rewritten

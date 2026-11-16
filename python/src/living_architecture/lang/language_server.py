@@ -24,7 +24,7 @@ import basedpyright
 from nodejs_wheel import executable as node_wheel
 from pydantic import BaseModel, ConfigDict
 
-from living_architecture.contract import language
+from living_architecture.contract import language, os_error_text
 from living_architecture.lang.typecheck import (
     pyright_export_env,
     pyright_patch_env,
@@ -252,7 +252,7 @@ class LanguageServer:
                 env=env,
             )
         except OSError as exc:
-            raise self._fail(str(exc), "start") from None
+            raise self._fail(os_error_text(exc, self.workspace), "start") from None
         assert self._proc.stdout is not None and self._proc.stderr is not None
         threading.Thread(target=self._pump, args=(self._proc.stdout,), daemon=True).start()
         self._stderr_reader = threading.Thread(target=self._drain, args=(self._proc.stderr,), daemon=True)

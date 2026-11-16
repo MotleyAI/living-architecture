@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 import sys
 from pathlib import Path
@@ -12,7 +13,7 @@ from living_architecture.c4.layout import layout_problem
 from living_architecture.c4.mermaid import render_mermaid
 from living_architecture.c4.model import ModelParse, parse_model, project
 from living_architecture.c4.views import View, ViewsParse, parse_views
-from living_architecture.contract import message
+from living_architecture.contract import message, os_error_text
 
 _MARKER_RE = re.compile(r"<!--\s+(/?)likec4:(\w+)\s+-->")
 
@@ -115,7 +116,10 @@ def run(root: Path) -> int:
     """`la-arch-diagrams`: print each rewritten doc."""
     try:
         changed = generate(root)
-    except (ValueError, OSError) as exc:
+    except OSError as exc:
+        print(message("arch-diagrams.error", error=os_error_text(exc, root)), file=sys.stderr)
+        return 1
+    except ValueError as exc:
         print(message("arch-diagrams.error", error=str(exc)), file=sys.stderr)
         return 1
     for doc_key in changed:
@@ -175,7 +179,7 @@ def _check_freshness(root: Path, model: ModelParse, views: ViewsParse, mapping: 
     findings: list[str] = []
     for doc_key, vids in mapping.items():
         doc_path = root / doc_key
-        if not doc_path.exists():
+        if not os.path.exists(doc_path):
             findings.append(message("diagrams-fresh.doc-missing", doc=doc_key))
             continue
         text = _read_exact(doc_path)

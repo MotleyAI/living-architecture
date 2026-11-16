@@ -1,7 +1,6 @@
 // enforced-tags: every arc42 principle item carries a well-formed status tag; `[lang:]` names a declared language.
-import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { checkIds, fullMatch, message, splitLines } from '../contract/index.js';
+import { checkIds, fullMatch, message, readFile, splitLines } from '../contract/index.js';
 import { arc42Docs } from './docs.js';
 
 const TAG_RE = /\[(enforced|review|target|lang)(?![\p{L}\p{N}_])([^\]]*)\]/gu;
@@ -81,7 +80,7 @@ function principleItems(text: string): [string, string][] {
 
 /** Python's read_text: universal newlines. */
 function readText(path: string): string {
-  return readFileSync(path, 'utf8').replace(/\r\n?/g, '\n');
+  return readFile(path, 'utf8').replace(/\r\n?/g, '\n');
 }
 
 export function checkEnforcedTags(root: string, issueKeyPattern: string, languages: string[]): string[] {

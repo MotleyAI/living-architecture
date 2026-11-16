@@ -298,3 +298,12 @@ def test_bundled_server_exports_member_receiver_verdicts(workspace: Path) -> Non
     assert members == [(accesses[0] + 1, None), (accesses[1] + 1, "Unknown"), (accesses[2] + 1, "Any")]
     [typed] = [o for o in index.occurrences if o.span.start == accesses[0] + 1]
     assert [(d.span.path, d.span.start) for d in typed.declarations] == [(path, text.index("def run") + len("def "))]
+
+
+def test_a_server_that_cannot_launch_is_reported_from_the_os_templates(workspace: Path, tmp_path: Path) -> None:
+    server = tmp_path / "server"
+    server.write_text("#!/bin/sh\n", encoding="utf-8")
+    server.chmod(0o644)
+    with pytest.raises(LanguageServerError) as info, LanguageServer(workspace, command=[str(server)]):
+        pass
+    assert str(info.value) == f"{server}: permission denied"

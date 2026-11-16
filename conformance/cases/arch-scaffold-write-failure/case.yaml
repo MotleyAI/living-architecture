@@ -5,7 +5,6 @@ command: la-arch-scaffold
 fixture: scaffold-python
 expect:
   exit: 2
-  stderr: {contains: ['la-arch-scaffold: ', views.c4]}
   files:
   - architecture/model.c4
   - architecture/system.arc42.md

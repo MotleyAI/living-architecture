@@ -26,7 +26,7 @@ from living_architecture.archcheck.tags import check_enforced_tags
 from living_architecture.archcheck.truth import check_model_truth, license, measure_runtime_edges
 from living_architecture.c4 import ModelParse, check_diagrams_fresh, layout_problem, parse_model, parse_views
 from living_architecture.config import ConfigError, load_config
-from living_architecture.contract import message
+from living_architecture.contract import message, os_error_text
 
 __all__ = [
     "ArchCheckError",
@@ -100,7 +100,7 @@ def run_checks(root: Path) -> list[str]:
     try:
         return _findings(root)
     except OSError as exc:
-        raise ArchCheckError(str(exc)) from exc
+        raise ArchCheckError(os_error_text(exc, root)) from exc
 
 
 def _emit(root: Path, language: str, *, top_level: bool) -> Facts:
@@ -122,7 +122,7 @@ def emit_facts(root: Path, language: str, *, top_level: bool = False) -> dict[st
     try:
         return _emit(root, language, top_level=top_level).document()
     except OSError as exc:
-        raise ArchCheckError(str(exc)) from exc
+        raise ArchCheckError(os_error_text(exc, root)) from exc
 
 
 def _setup_error(error: str) -> int:

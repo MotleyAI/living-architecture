@@ -1,8 +1,8 @@
 // Dependency edges between repo files for la-affected-tests: every import, resolved under each file's nearest tsconfig.
-import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs';
+import { existsSync, realpathSync, statSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import type * as TS from 'typescript';
-import { byCodePoint, language } from '../contract/index.js';
+import { byCodePoint, language, readFile } from '../contract/index.js';
 import { isUnder, posix, stripSourceExtension } from './files.js';
 import { loadProjectsFrom, owner, type Projects } from './projects.js';
 import { allSpecifiers, withoutQuery } from './specifiers.js';
@@ -107,7 +107,7 @@ class EdgeResolver {
   targets(rel: string): string[] {
     const file = resolve(this.root, rel);
     if (!isRegularFile(file)) return [];
-    const text = readFileSync(file, 'utf8');
+    const text = readFile(file, 'utf8');
     const { projects, host } = this.loaded(this.config(dirname(file)));
     const project = owner(projects, file);
     const format = ts().getImpliedNodeFormatForFile(file, project.cache.getPackageJsonInfoCache(), host, project.options);

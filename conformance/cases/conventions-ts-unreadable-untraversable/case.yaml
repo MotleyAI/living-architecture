@@ -1,0 +1,13 @@
+kind: adapter
+languages:
+- typescript
+command: la-check-conventions
+args:
+- --file
+- src/locked/a.ts
+chmod:
+  src/locked: '0000'
+expect:
+  exit: 1
+golden: manual
+note: a changed file under a directory that cannot be searched is unreadable with the reason from the os.* templates

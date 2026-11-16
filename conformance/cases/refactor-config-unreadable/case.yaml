@@ -11,10 +11,6 @@ git:
 expect:
   exit: 2
   stdout: ''
-  stderr:
-    contains:
-    - "[checks]"
-    - living-architecture.yaml
   git_status: true
-note: 'an unreadable config with the language''s baseline file present refuses in checks, before any reference search; the
-  YAML error wording is not part of the contract'
+golden: manual
+note: 'an unreadable config with the language''s baseline file present refuses in checks, before any reference search'

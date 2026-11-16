@@ -28,7 +28,7 @@ from living_architecture.c4 import (
     sources,
     views_file,
 )
-from living_architecture.contract import message
+from living_architecture.contract import message, os_error_text
 
 ARC42_REL = "architecture/system.arc42.md"
 
@@ -190,8 +190,11 @@ def run_scaffold(root: Path) -> int:
     try:
         files = scaffold(root)
         write_scaffold(root, files)
-    except (ArchCheckError, twin.TwinError, OSError) as exc:
+    except (ArchCheckError, twin.TwinError) as exc:
         print(message("arch-scaffold.error", error=str(exc)), file=sys.stderr)
+        return 2
+    except OSError as exc:
+        print(message("arch-scaffold.error", error=os_error_text(exc, root)), file=sys.stderr)
         return 2
     except twin.RelayedFailure:
         return 2
