@@ -91,4 +91,4 @@ retarget cases.
       each, `catalog.py` unchanged, exit 0. Record the commit, outcome and wall time here.
       Recorded: SLayer `c6d2e572`; exit 0 in 8 s; `handlers.py` and `info_schema.py` each gain one
       `from slayer.facade.catalog import FacadeCatalog` in place of the alias import, `catalog.py` unchanged.
-- [ ] 4.2 `openspec validate dev-2298-living-architecture-dr-refactor-retarget --strict` before archiving.
+- [x] 4.2 `openspec validate dev-2298-living-architecture-dr-refactor-retarget --strict` before archiving.
