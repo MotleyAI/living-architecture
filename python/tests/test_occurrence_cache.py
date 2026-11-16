@@ -249,6 +249,14 @@ def test_a_damaged_cache_entry_is_a_miss_with_the_same_output(
     assert result == expected
 
 
+def test_another_request_between_two_runs_keeps_the_first_export(
+    project: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    other = ["rename", "--file", "pkg/models.py", "--symbol", "Store", "--new-name", "Depot"]
+    counts = [_run(project, argv, monkeypatch, capsys)[0].count for argv in (CLEAN, other, CLEAN, other)]
+    assert counts == [1, 1, 0, 0]
+
+
 def test_one_entry_per_project_root(
     tmp_path: Path, project: Path, venv: Path, cache_dir: Path, monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str]
