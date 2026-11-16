@@ -1541,9 +1541,9 @@ Every locator SHALL be resolved against the code before any entry is computed, s
 entries resolving to one symbol with the same intent SHALL merge; with different intents they SHALL be refused with
 `refactor.map-duplicate` naming both entry indexes, exit 2. Every entry SHALL then be computed on one snapshot of the
 project, every rename rule running once over the union of the entries' symbols, with one blind-spot scan for every
-member entry's old name and one combined refusal report, sorted as a single rename sorts it. Identical edits SHALL
-merge; every site two entries rewrite differently SHALL be refused with `refactor.map-conflict` naming the site and
-both entries, exit 1, writing nothing. Name conflicts SHALL be checked first for each `new_name` entry alone against
+member entry's old name and one combined refusal report, sorted as a single rename sorts it. A site any entry
+rewrites SHALL NOT be listed as another entry's leftover. Identical edits SHALL merge; every site two entries rewrite
+differently SHALL be refused with `refactor.map-conflict` naming the site and both entries, exit 1, writing nothing. Name conflicts SHALL be checked first for each `new_name` entry alone against
 the code before the map, in map order, so a swap or a chain of names inside one scope is refused, and then for all
 entries' edits together, so entries that meet on one name or capture each other's references are refused. A retarget
 entry's rewritten references SHALL resolve to its target, which another entry may rename. A retarget entry whose
@@ -1614,6 +1614,11 @@ their output SHALL equal that map's byte for byte.
 #### Scenario: Single rename equals its map
 - **WHEN** `rename --file F --symbol Q --new-name N` and a map holding that one entry run on the same project
 - **THEN** their stdout, stderr and exit codes are identical, through either invoking twin
+
+#### Scenario: Another entry's rewrite is no leftover
+- **WHEN** a map renames field `A.columns` to `fields` and `B.columns` to `cols`, and a file passes a
+  `{"columns": ...}` dict to each class
+- **THEN** each key is rewritten for its own class, no `leftover` line is printed and the exit code is 0
 
 ### Requirement: An apply writes every file or none
 `dr-refactor --apply` SHALL re-check, immediately before writing, that no file it writes changed since it was read,
@@ -2139,13 +2144,14 @@ SHALL NOT be added.
 ### Requirement: dr-refactor --timings prints each phase's wall time
 `dr-refactor --timings` SHALL, for every subcommand and after all other output, print on stderr one
 `refactor.timing` line per phase whose work ran at least once, in the order of the shared phase list (`load`,
-`resolve`, `references`, `rules`, `blindspot-scan`, `literal-scan`, `literal-probe`, `baseline`, `write`), then one
-for `total`. A phase's time SHALL exclude the phases nested in it, and its repeated runs SHALL add up. The seconds
-SHALL be the elapsed time floored to whole centiseconds, never negative, written as whole seconds, a dot and two
-digits. The lines SHALL be printed on every exit once the arguments parse: success, a refusal or an error. A run
-handed to the other language's twin SHALL print only that twin's lines; a run that exits before any phase ran (a
-routing or map error, or the other twin missing) SHALL print only `total`. Without `--timings`, stdout, stderr and
-the exit code SHALL be unchanged.
+`resolve`, `references`, `rules`, `conflicts`, `blindspot-scan`, `literal-scan`, `literal-probe`, `baseline`,
+`write`), then one for `total`. A phase's time SHALL exclude the phases nested in it, and its repeated runs SHALL add
+up. The time of the checks made over a run's computed edits (the sites two entries rewrite differently and every
+name-conflict check) SHALL count under `conflicts` and under no other phase. The seconds SHALL be the elapsed time
+floored to whole centiseconds, never negative, written as whole seconds, a dot and two digits. The lines SHALL be
+printed on every exit once the arguments parse: success, a refusal or an error. A run handed to the other language's
+twin SHALL print only that twin's lines; a run that exits before any phase ran (a routing or map error, or the other
+twin missing) SHALL print only `total`. Without `--timings`, stdout, stderr and the exit code SHALL be unchanged.
 
 #### Scenario: Line format
 - **WHEN** a phase took 1.239 seconds and another 0.004 seconds
@@ -2160,6 +2166,10 @@ the exit code SHALL be unchanged.
 - **WHEN** `dr-refactor --timings rename --file src/a.ts --symbol foo --new-name bar` runs
 - **THEN** stdout is unchanged, and stderr ends with timing lines in list order, none of them a `literal-` phase,
   then `total`
+
+#### Scenario: Conflict checks timed on their own
+- **WHEN** `dr-refactor --timings rename-map map.yaml` runs a map that refuses nothing, in either twin
+- **THEN** stderr holds a `conflicts` timing line after the `rules` line and before any `baseline` line
 
 #### Scenario: Refusal still timed
 - **WHEN** a member rename with `--timings` refuses on a blind spot
@@ -2178,11 +2188,14 @@ the exit code SHALL be unchanged.
 - **THEN** its output equals its golden
 
 ### Requirement: Refactors run in announced phases and report their progress
-Every `dr-refactor` subcommand SHALL run in the phases `resolve`, `checks`, `references`, `rules`, `baseline` and
-`write`, in that order, and SHALL print `refactor.progress-phase` on stderr when each phase starts. A phase that does
-not run SHALL print nothing: `rules` runs for `rename`, `retarget` and `rename-map` other than a module rename;
-`baseline` runs when the refactor's language has its baseline file at the repo root and, for Python, its
-`commands.typecheck` entry is set, whether or not anything is then realigned; `write` runs only with `--apply`.
+Every `dr-refactor` subcommand SHALL run in the phases `resolve`, `checks`, `references`, `rules`, `conflicts`,
+`baseline` and `write`, in that order, and SHALL print `refactor.progress-phase` on stderr when each phase starts. A
+phase that does not run SHALL print nothing: `rules` runs for `rename`, `retarget` and `rename-map` other than a
+module rename; `conflicts` runs for `rename`, `retarget` and `rename-map` when the run reaches the checks made over
+its computed edits (the sites two entries rewrite differently and every name-conflict check), so not after a
+`--fail-fast` stop and not for a module rename whose new name is already taken; `baseline` runs when the refactor's
+language has its baseline file at the repo root and, for Python, its `commands.typecheck` entry is set, whether or
+not anything is then realigned; `write` runs only with `--apply`.
 
 In `references`, `refactor.progress-item` SHALL be printed for each entry when its reference search starts, in map
 order, an entry merged with a duplicate counting once: `n` its position, `count` the number of entries after
@@ -2198,13 +2211,15 @@ map order, comma-separated. A group's refusals SHALL be counted after its sites 
 between entries (map conflicts, name conflicts over the merged edits, unmatched keeps) SHALL appear only in the final
 report.
 
+`conflicts` SHALL print its phase line and no per-entry line.
+
 Progress lines SHALL pass through forwarding to the other twin unchanged and in order.
 
 #### Scenario: Phases of a clean map
 - **WHEN** `dr-refactor rename-map map.yaml` runs a two-entry map that refuses nothing, without `--apply`, in a repo
   without a baseline file
-- **THEN** stderr is `[resolve]`, `[checks]`, `[references]`, one `[references n/2]` line per entry, `[rules]` and one
-  `clean` line per old-name group, and stdout is the headers, the diffs and the dry-run footer
+- **THEN** stderr is `[resolve]`, `[checks]`, `[references]`, one `[references n/2]` line per entry, `[rules]`, one
+  `clean` line per old-name group and `[conflicts]`, and stdout is the headers, the diffs and the dry-run footer
 
 #### Scenario: A refused group prints its refusals as it finishes
 - **WHEN** a map's second entry meets an untyped receiver and its first does not
@@ -2221,7 +2236,20 @@ Progress lines SHALL pass through forwarding to the other twin unchanged and in 
 
 #### Scenario: Apply phases
 - **WHEN** a rename runs with `--apply` in a repo whose Python baseline file exists and checker command is set
-- **THEN** stderr holds `[baseline]` and then `[write]` after `[rules]`
+- **THEN** stderr holds `[conflicts]`, then `[baseline]` and then `[write]` after `[rules]`
+
+#### Scenario: Name conflict found in its phase
+- **WHEN** a rename's new name is already bound where a renamed read resolves
+- **THEN** stderr holds `[conflicts]` before the `refactor.name-conflict` finding, and the exit code is 1
+
+#### Scenario: Module rename conflicts
+- **WHEN** a Python module rename's edits change what a name means in an importer
+- **THEN** stderr is `[resolve]`, `[checks]`, `[references]`, `[conflicts]` and the `refactor.name-conflict` finding,
+  with no `[rules]` line
+
+#### Scenario: No conflict phase after a fail-fast stop
+- **WHEN** a map runs with `--fail-fast` and its first group refuses
+- **THEN** stderr holds no `[conflicts]` line
 
 #### Scenario: Move phases
 - **WHEN** `move-module` runs without `--apply`
