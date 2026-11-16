@@ -23,5 +23,8 @@ expect:
   - pkg/models.py
   - pkg/rec.py
   - .ropeproject/history.json
+normalize:
+- pattern: "(?s)(its stderr:\\n).*?\\n(  Error: Cannot find module '/nonexistent.js'\\n).*"
+  replace: "\\1  <NODE STDERR>\\n\\2  <NODE STDERR>\\n"
 golden: manual
-note: 'the language server cannot start (apply): the finding, nothing written'
+note: 'the language server exits at start (apply): the finding in checks with its exit code and stderr, nothing written'

@@ -228,6 +228,8 @@ commands:
              help: 'leave every edit on this line, in this file or under this directory (repeatable)'}
           - {name: --docs, type: flag,
              help: 'also rewrite mentions in comments, docstrings, strings and prose files; list the rest'}
+          - {name: --fail-fast, type: flag,
+             help: 'stop at the first entry with a refusal (default: compute every entry and report every refusal)'}
       rename-map:
         help: >-
           apply a YAML list of rename and retarget entries as one refactor: every entry resolved against the code
@@ -249,6 +251,8 @@ commands:
              help: 'leave every edit on this line, in this file or under this directory (repeatable)'}
           - {name: --docs, type: flag,
              help: 'also rewrite mentions in comments, docstrings, strings and prose files; list the rest'}
+          - {name: --fail-fast, type: flag,
+             help: 'stop at the first entry with a refusal (default: compute every entry and report every refusal)'}
       retarget:
         help: rewrite the references to an alias to name its target, declared in the same class or module
         exclusive: [[offset, line, symbol]]
@@ -269,6 +273,8 @@ commands:
              help: 'leave every edit on this line, in this file or under this directory (repeatable)'}
           - {name: --docs, type: flag,
              help: 'also rewrite mentions in comments, docstrings, strings and prose files; list the rest'}
+          - {name: --fail-fast, type: flag,
+             help: 'stop at the first entry with a refusal (default: compute every entry and report every refusal)'}
       move-symbol:
         help: move a top-level declaration to another module
         exclusive: [[offset, line, symbol]]

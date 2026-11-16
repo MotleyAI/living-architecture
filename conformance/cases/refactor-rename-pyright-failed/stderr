@@ -1,1 +1,7 @@
+[resolve]
+[checks]
 basedpyright could not find the references, so nothing was refactored
+  the checker exited with code 1; its stderr:
+  <NODE STDERR>
+  Error: Cannot find module '/nonexistent.js'
+  <NODE STDERR>

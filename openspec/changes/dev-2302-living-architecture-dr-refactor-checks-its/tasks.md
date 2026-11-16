@@ -2,8 +2,9 @@
 
 - [ ] 1.1 `shared/findings.yaml` and `shared/cli.yaml` hold the new texts and option exactly as design decisions 6, 20,
       24 and 25 word them; `scripts/sync-shared` run. (The contract is test input: the goldens below render from it.)
-- [ ] 1.2 Re-bless the stderr goldens of every existing `dr-refactor` case for the progress lines
-      (`LA_UPDATE_GOLDENS=1`, reason in the commit message); before committing, check that the golden diff holds only
+- [ ] 1.2 Write the progress lines into the stderr golden of every existing `dr-refactor` case whose stderr is a byte
+      golden (312 cases, 237 of them `golden: manual`), by hand with a one-off generator script, as no implementation
+      exists yet to bless from; reason in the commit message. Before committing, check that the golden diff holds only
       progress lines, the per-group refusal lines, and the scenario changes of the delta spec.
 - [ ] 1.3 New paired conformance cases, one per scenario of "Refactors run in announced phases…", "Cheap checks run
       before any reference search" (except the Python-only ones), "Every refusal of a run…", "--fail-fast…", and the
@@ -16,7 +17,8 @@
       asserts no `[references]` line.
 - [ ] 1.4 Adapter cases: TypeScript retarget with `--keep` on the removed duplicate import line; Python walker gaps in
       two candidate files at `checks`; Python checker probe failing with a fake command (exit code + stderr); Python
-      language server that cannot start (fake, `checker-not-started`); Python mid-run `baseline-failed` with its cause
+      language server that cannot start (`checker-not-started`): a pytest CLI test in `python/tests/` running
+      `dr-refactor` in-process with the language-server command monkeypatched to a missing executable; Python mid-run `baseline-failed` with its cause
       (update `refactor-baseline-failed`); Python module rename with `--keep` on the module file.
 - [ ] 1.5 A case pinned with `twin:` to the non-native twin proving progress and refusal lines survive forwarding byte
       for byte, including a refused run.

@@ -1,1 +1,8 @@
+[resolve]
+[checks]
+[references]
+[references 1/1] entry 1: model_name -> dataset_name
+[rules]
+[rules 1/1] entry 1: model_name -> dataset_name: 1 refusal(s)
+dataset_name already names something else at pkg/conflicts.py:13, so nothing was refactored
 dataset_name already names something else at pkg/conflicts.py:13, so nothing was refactored

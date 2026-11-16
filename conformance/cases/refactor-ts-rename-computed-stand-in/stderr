@@ -1,1 +1,8 @@
+[resolve]
+[checks]
+[references]
+[references 1/1] entry 1: getModel -> getDataset
+[rules]
+[rules 1/1] entry 1: getModel -> getDataset: 1 refusal(s)
+src/store.ts:8: stand-in: Keyed.getModel is outside the renamed hierarchy; pass --with src/store.ts:8 to rename it too or --without src/store.ts:8 to leave it
 src/store.ts:8: stand-in: Keyed.getModel is outside the renamed hierarchy; pass --with src/store.ts:8 to rename it too or --without src/store.ts:8 to leave it

@@ -1,1 +1,3 @@
---keep src/use.ts:99 matches nothing this rename touches
+[resolve]
+[checks]
+--keep src/use.ts:99 names no file, directory or line in the project

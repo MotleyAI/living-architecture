@@ -1,0 +1,6 @@
+[resolve]
+[checks]
+[references]
+[references 1/1] entry 1: kwargs -> options
+[rules]
+[rules 1/1] entry 1: kwargs -> options: clean
