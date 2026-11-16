@@ -183,3 +183,12 @@ def test_bundled_server_that_cannot_start_is_an_error(workspace: Path, monkeypat
     monkeypatch.setenv("NODE_OPTIONS", "--require /nonexistent.js")
     with pytest.raises(LanguageServerError), LanguageServer(workspace):
         pass
+
+
+def test_a_server_that_cannot_launch_is_reported_from_the_os_templates(workspace: Path, tmp_path: Path) -> None:
+    server = tmp_path / "server"
+    server.write_text("#!/bin/sh\n", encoding="utf-8")
+    server.chmod(0o644)
+    with pytest.raises(LanguageServerError) as info, LanguageServer(workspace, command=[str(server)]):
+        pass
+    assert str(info.value) == f"{server}: permission denied"

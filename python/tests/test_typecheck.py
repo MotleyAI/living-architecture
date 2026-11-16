@@ -296,3 +296,13 @@ def test_forwarded_python_section_is_patched_too(tmp_path: Path, run) -> None:
     code, _, err = run(root, "--language", "python")
     assert code == 2
     assert err.splitlines()[-1] == NOT_APPLIED
+
+
+def test_a_checker_that_cannot_launch_is_reported_from_the_os_templates(tmp_path: Path) -> None:
+    checker = tmp_path / "bin" / "checker"
+    checker.parent.mkdir()
+    checker.write_bytes(b"\x00\x01not an executable format\n")
+    checker.chmod(0o755)
+    with pytest.raises(typecheck.CommandError) as info:
+        typecheck.python_diagnostics(tmp_path, "bin/checker", [])
+    assert str(info.value) == "bin/checker: OS error ENOEXEC"

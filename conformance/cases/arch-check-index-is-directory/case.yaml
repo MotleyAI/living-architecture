@@ -1,0 +1,6 @@
+kind: neutral
+command: la-arch-check
+expect:
+  exit: 2
+golden: manual
+note: an index.yaml that is a directory is a setup error from the os.* templates, the same text in both twins

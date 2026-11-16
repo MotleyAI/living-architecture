@@ -61,7 +61,7 @@ byte-identical output in both twins; no crash on an unreadable config or index.
    codex)
 6. **Absence:** one `contract` probe per twin: regular file → true; `ENOENT` → false; a non-regular file → false; any
    other stat error propagates. Only `ENOENT` is absent, as the issue's comment asks, which makes not-a-directory
-   reachable through `la-arch-diagrams` (`architecture` a regular file). Used for the config files, the c4 index
+   reachable through `la-arch-check` and `la-doctor` (`architecture` a regular file). Used for the config files, the c4 index
    readers, the TypeScript refactor workspace's index read and `la-doctor`'s config/index checks. Doctor keeps its own
    `ENOENT`/`ENOTDIR` rule for the plugin-manifest walk up the directory tree. (default, codex)
 7. **Node `readFile`:** a `contract` helper with typed overloads, `readFile(path: string): Buffer` and

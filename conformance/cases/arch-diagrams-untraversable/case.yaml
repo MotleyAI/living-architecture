@@ -1,0 +1,9 @@
+kind: neutral
+command: la-arch-diagrams
+fixture: arch-diagrams
+chmod:
+  architecture: '0000'
+expect:
+  exit: 1
+golden: manual
+note: an architecture/ that cannot be listed fails the layout check first, from the os.* templates

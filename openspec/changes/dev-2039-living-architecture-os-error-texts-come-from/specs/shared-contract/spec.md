@@ -59,17 +59,18 @@ that is not valid UTF-8, in both twins.
 - **THEN** it exits 1 printing exactly `la-arch-diagrams: ` followed by the doc's repo-relative path and
   `: is a directory`, in both twins
 
-#### Scenario: Index under a regular file under la-arch-diagrams
-- **WHEN** `architecture` is a regular file and `la-arch-diagrams` runs
-- **THEN** it exits 1 printing exactly `la-arch-diagrams: architecture/index.yaml: not a directory` in both twins
+#### Scenario: Doc under a regular file under la-arch-diagrams
+- **WHEN** a mapped arc42 doc's path runs through a regular file and `la-arch-diagrams` runs
+- **THEN** it exits 1 printing exactly `la-arch-diagrams: ` followed by the doc's repo-relative path and
+  `: not a directory`, in both twins
 
 #### Scenario: Untraversable architecture directory under la-arch-diagrams
 - **WHEN** `architecture/` cannot be searched for lack of permission and `la-arch-diagrams` runs
-- **THEN** it exits 1 printing exactly `la-arch-diagrams: architecture/index.yaml: permission denied` in both twins
+- **THEN** it exits 1 printing exactly `la-arch-diagrams: architecture: permission denied` in both twins
 
 #### Scenario: Untraversable architecture directory under la-arch-migrate
 - **WHEN** `architecture/` cannot be searched for lack of permission and `la-arch-migrate` runs
-- **THEN** it exits 2 printing `la-arch-migrate: architecture/index.yaml: permission denied`, and every file, the
+- **THEN** it exits 2 printing `la-arch-migrate: architecture: permission denied`, and every file, the
   config's `format` included, is byte-identical to before
 
 #### Scenario: Unreadable config
@@ -90,8 +91,9 @@ that is not valid UTF-8, in both twins.
 - **THEN** it behaves exactly as it does for a config that is not valid YAML, in both twins, and never crashes
 
 #### Scenario: TypeScript refactor with an unreadable index
-- **WHEN** `architecture/index.yaml` cannot be read for lack of permission and a TypeScript refactor command runs
-- **THEN** it exits 2 printing `architecture/index.yaml: permission denied` and writes nothing
+- **WHEN** `architecture/index.yaml` cannot be read for lack of permission and `dr-refactor` runs on TypeScript source
+- **THEN** it exits 1 printing `architecture/index.yaml: permission denied` and writes nothing, as for an index that
+  is not valid YAML
 
 #### Scenario: Unreadable file in the conventions gate
 - **WHEN** a changed source file is a directory and `la-check-conventions` runs, for Python and for TypeScript

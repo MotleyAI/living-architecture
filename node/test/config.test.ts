@@ -158,12 +158,22 @@ describe('order of checks', () => {
 
   it('checks the committed YAML before the local YAML', () => {
     const root = repo({ committed: 'reviewers: [\n', local: 'tracker: [\n' });
-    expect(configError(root).startsWith(`${join(root, COMMITTED)}: `)).toBe(true);
+    expect(configError(root)).toBe(`${COMMITTED}: invalid YAML`);
+  });
+
+  it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)('an unreadable local file is a config error', () => {
+    const root = repo({ local: 'tracker: github\n' });
+    fs.chmodSync(join(root, LOCAL), 0);
+    try {
+      expect(configError(root)).toBe(`${LOCAL}: permission denied`);
+    } finally {
+      fs.chmodSync(join(root, LOCAL), 0o644);
+    }
   });
 
   it('names the local file for invalid local YAML', () => {
     const root = repo({ committed: 'tracker: github\n', local: 'tracker: [\n' });
-    expect(configError(root).startsWith(`${join(root, LOCAL)}: `)).toBe(true);
+    expect(configError(root)).toBe(`${LOCAL}: invalid YAML`);
   });
 
   it.each(['- tracker\n', '42\n'])('requires a local mapping: %j', (text) => {

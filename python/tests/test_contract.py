@@ -712,6 +712,14 @@ NEW_TEMPLATES = {
         "{path}:{line}: literal-unresolved: the checker needs {old!r} here, where no string literal can be rewritten",
     "refactor.compound": "{path}:{line}: leftover: declaration {name} contains {old}",
     "refactor.timing": "timing: {phase} {seconds}s",
+    "os.error": "{path}: {reason}",
+    "os.not-found": "no such file or directory",
+    "os.permission-denied": "permission denied",
+    "os.is-a-directory": "is a directory",
+    "os.not-a-directory": "not a directory",
+    "os.other": "OS error {code}",
+    "yaml.invalid": "{path}: invalid YAML",
+    "yaml.invalid-because": "{path}: invalid YAML: {error}",
 }
 REMOVED_TEMPLATES = {"c4-layout.migrate"}
 # Defensive findings no real input reaches; each is pinned by a unit test instead of a golden.
@@ -751,6 +759,12 @@ def test_every_registry_template_is_produced_by_a_golden() -> None:
     registry = _shared_yaml("findings.yaml")["findings"]
     unproduced = sorted(set(registry) - _produced_ids(registry, records))
     assert unproduced == sorted(UNPRODUCED_BY_DESIGN)
+
+
+def test_no_golden_carries_runtime_os_error_wording() -> None:
+    """OS errors print from the os.* templates: no errno number, no runtime message."""
+    runtime = re.compile(r"\[Errno \d+\]|\bE[A-Z]{2,}: [a-z]")
+    assert [record for record in _golden_records() if runtime.search(record)] == []
 
 
 # ---- CLI manifest
