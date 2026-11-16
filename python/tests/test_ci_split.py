@@ -3,8 +3,10 @@
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -63,6 +65,13 @@ def test_checks_run_in_the_first_shard_only() -> None:
         assert _condition(_step(job, command)) == "matrix.shard == 1", command
     for command in ("uv sync", "uv run pytest"):
         assert _condition(_step(job, command)) is None, command
+
+
+def test_idle_workers_steal_queued_tests() -> None:
+    # A shard's expensive tests sit together in collection order; without stealing, one worker runs them all.
+    pytest_options = tomllib.loads((PROJECT_ROOT / "pyproject.toml").read_text(encoding="utf-8"))["tool"]["pytest"]
+    addopts = shlex.split(pytest_options["ini_options"]["addopts"])
+    assert addopts[addopts.index("--dist") + 1] == "worksteal"
 
 
 def test_cross_twin_job_is_twin_by_three_shards() -> None:

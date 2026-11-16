@@ -99,7 +99,7 @@ module-name = "living_architecture"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-n auto -m 'not integration'"
+addopts = "-n auto --dist worksteal -m 'not integration'"
 markers = ["integration: runs a real external checker; select with -m integration"]
 
 [tool.ruff]
