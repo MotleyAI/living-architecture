@@ -131,6 +131,38 @@ def test_walker_gaps_in_every_entry_module_refuse_in_the_checks(
     assert file_tree(root) == before
 
 
+@pytest.mark.parametrize("taken", ["", "\n\ndef bar() -> int:\n    return 3\n"], ids=["free", "new-name-taken"])
+def test_a_gap_rope_meets_in_the_rules_refuses_only_its_entry(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    restore_rope_visitor: Callable[[str], None],
+    annotation_gap: str,
+    taken: str,
+) -> None:
+    # The checker cannot resolve scripts/'s import, so rope walks scripts/use.py only in the rules, after the entry's
+    # edit in pkg/a.py; the refused entry's edits then check no name.
+    restore_rope_visitor("_arg")
+    entries = "- {file: pkg/a.py, symbol: foo, new_name: bar}\n- {file: pkg/a.py, symbol: baz, new_name: qux}\n"
+    root = write_project(tmp_path / "p", {
+        "pyrightconfig.json": '{"executionEnvironments": [{"root": "scripts"}]}\n',
+        "pkg/a.py": FOO + "\n\ndef baz() -> int:\n    return 2\n" + taken,
+        "scripts/use.py": annotation_gap,
+        "map.yaml": entries,
+    })
+    before = file_tree(root)
+    code, out, err = run_raw(root, ["--apply", "rename-map", "map.yaml"], monkeypatch, capsys)
+    entry = {"phase": "rules", "count": 2}
+    refused = message("refactor.progress-refused", **entry, n=1, entries=message("refactor.progress-entry", index=1),
+                      old="foo", new="bar", refusals=1)
+    clean = message("refactor.progress-clean", **entry, n=2, entries=message("refactor.progress-entry", index=2),
+                    old="baz", new="qux")
+    gap = message("refactor.rope-walk", path="scripts/use.py", line=3)
+    assert (code, out) == (1, "")
+    assert err.splitlines()[-4:] == [refused, gap, clean, gap]
+    assert file_tree(root) == before
+
+
 def test_a_language_server_that_cannot_start_refuses_with_its_error(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:

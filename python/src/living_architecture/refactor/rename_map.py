@@ -588,8 +588,9 @@ class RenameMap:
                 continue
             try:
                 renames[i].rules(self.index, facts)
-            except UnresolvedBase as exc:
+            except (UnresolvedBase, WalkerGap) as exc:
                 failed[i] = [found] if (found := failure(exc, self.root)) is not None else []
+                renames[i].edits = []
 
     def _finish(self, r: Renaming, olds: set[str], keeps: Keeps) -> list[TextEdit]:
         """`r`'s edits finished, merged, retargeted and filtered by the keeps; the edits the keeps dropped."""
