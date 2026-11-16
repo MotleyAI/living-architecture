@@ -141,6 +141,13 @@ describe('quoted and escaped names', () => {
     expect(read(root, 'src/m.ts')).toBe(m);
   });
 
+  it("refuses a member renamed onto a name another declaration of a descendant's merged interface declares", () => {
+    const m = 'export interface Base {\n  a: number;\n}\n\nexport interface Mid extends Base {\n  c: number;\n}\n\nexport interface Mid {\n  b: string;\n}\n';
+    const { root, result } = renameSymbol({ 'src/m.ts': m }, 'src/m.ts', 'Base.a', 'b');
+    expect(result).toEqual({ code: 1, out: '', err: conflict('b', 'src/m.ts', 10) });
+    expect(read(root, 'src/m.ts')).toBe(m);
+  });
+
   it('refuses a static member renamed onto the implicit prototype', () => {
     const m = 'export class C {\n  static old(): number {\n    return 1;\n  }\n}\n';
     const { root, result } = renameSymbol({ 'src/m.ts': m }, 'src/m.ts', 'C.old', 'prototype');
