@@ -788,8 +788,9 @@ def test_manifest_declares_the_passthrough_commands() -> None:
     }
 
 
-def test_wait_for_reviews_exit_3_covers_pause() -> None:
-    assert _shared_yaml("cli.yaml")["commands"]["la-wait-for-reviews"]["exit"][3] == "CodeRabbit rate limited or paused"
+def test_wait_for_reviews_exit_3_covers_pause_and_skip() -> None:
+    expected = "CodeRabbit rate limited, paused or skipped its review"
+    assert _shared_yaml("cli.yaml")["commands"]["la-wait-for-reviews"]["exit"][3] == expected
 
 
 DR_COMMANDS = {"dr-refactor", "dr-compliance", "dr-mock-lint"}

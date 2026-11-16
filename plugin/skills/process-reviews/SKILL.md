@@ -54,12 +54,12 @@ Arm `la-wait-for-reviews <PR>` with the Monitor tool (`timeout_ms` at its maximu
 - `ci-failed <sha> <url> <check>`: a check on HEAD failed;
 - `coderabbit-comment <url>` / `coderabbit-review <url>`: a new CodeRabbit thread, reply, or review body;
 - `sonar-done <sha> <conclusion>`: HEAD's Sonar analysis finished;
-- `coderabbit-settled <sha> <outcome>`: reviewed, carried-forward, rate-limited, paused, or cap;
+- `coderabbit-settled <sha> <outcome>`: reviewed, carried-forward, rate-limited, paused, skipped, or cap;
 - `head-moved <old> <new>`.
 
 On each event, run Steps 1–4 for that item alone, at once: `la-fetch-failed-pr-checks <PR> --check <url>` for a failed check (`--check <check>` when `<url>` is `-`), `la-fetch-coderabbit-threads <PR>` for a CodeRabbit item (triage only the named comment or review), the Sonar calls of Step 1 for `sonar-done`. If the Monitor expires before the command exits, re-arm the same command; it prints only what is new.
 
-It exits 0 when every check on HEAD is terminal and CodeRabbit has settled on HEAD (or is not on the PR, or the 10-minute settle cap after the checks finish ran out), 1 if the checks do not finish within 30 minutes, and 3 when CodeRabbit was rate limited or paused on HEAD, once the checks finish.
+It exits 0 when every check on HEAD is terminal and CodeRabbit has settled on HEAD (or is not on the PR, or the 10-minute settle cap after the checks finish ran out), 1 if the checks do not finish within 30 minutes, and 3 when CodeRabbit was rate limited, paused or skipped its review on HEAD, once the checks finish.
 
 A check is **non-terminal** if it's:
 - a `StatusContext` with `state` ∈ {`PENDING`, `EXPECTED`} — CodeRabbit reports this way, OR
@@ -72,13 +72,13 @@ Why Stage 0b is keyed to HEAD's SHA: CodeRabbit refreshes its summary as a place
 
 - **Reviewed** (exit 0): a CodeRabbit status on HEAD described `Review completed`, the summary's `final_review_risk_coverage` marker naming HEAD as `coveredCommitId`, or a CodeRabbit review on HEAD with a body (empty-body reviews are thread replies). Reviewed wins over every other outcome.
 - **Carried forward** (exit 0): HEAD's latest CodeRabbit status is `Prior review carried forward`; the existing threads stand for HEAD.
-- **Rate limited or paused** (exit 3): HEAD's latest CodeRabbit status is `Review rate limited` or `Review paused`. The summary's rate-limit text is not used: it stays from an earlier HEAD until CodeRabbit reaches the new one.
+- **Rate limited, paused or skipped** (exit 3): HEAD's latest CodeRabbit status is `Review rate limited`, `Review paused`, or ends in `review skipped` (e.g. `Incremental review skipped`). The summary's rate-limit text is not used: it stays from an earlier HEAD until CodeRabbit reaches the new one.
 - Anything else: keep polling until the cap.
 
 Only Step 5, the fix plan, waits for the command to exit, so the plan covers every source. When it exits, run Step 1 for every source once more and triage whatever no event named: edited CodeRabbit comments, and older threads that need a reply.
 
-**CodeRabbit did not review this HEAD (rate limited or paused, script exit 3, or the
-10-minute settle cap).** If CodeRabbit has already posted at least one real
+**CodeRabbit did not review this HEAD (rate limited, paused or skipped, script exit 3, or
+the 10-minute settle cap).** If CodeRabbit has already posted at least one real
 review on this PR (on any earlier HEAD), this is NOT a blocker. Treat CodeRabbit
 as done for this HEAD, fetch and triage its existing threads, and carry on
 without re-triggering. Only when there has never been a real review on the PR
