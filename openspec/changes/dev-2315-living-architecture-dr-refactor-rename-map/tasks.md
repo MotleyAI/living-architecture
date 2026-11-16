@@ -92,12 +92,12 @@
 
 ## 6. Measurement
 
-- [ ] 6.1 Cold run of the DEV-1607 map (0.3) under `/usr/bin/time -v`, on the merge commit before this change's
+- [x] 6.1 Cold run of the DEV-1607 map (0.3) under `/usr/bin/time -v`, on the merge commit before this change's
       code (the "before", with DEV-2307's follow guard) and after it: phase split, total, peak memory, the export's
       follow count. Verify: recorded in a comment on DEV-2315.
-- [ ] 6.2 Warm re-run with one more `--without` site: a cache hit (no export time) and stdout equal to the cold
+- [x] 6.2 Warm re-run with one more `--without` site: a cache hit (no export time) and stdout equal to the cold
       run's. Verify: recorded in the same comment.
-- [ ] 6.3 Differential: the cold run's stdout and refusal report against the same run on the commit before this
+- [x] 6.3 Differential: the cold run's stdout and refusal report against the same run on the commit before this
       change, byte-identical apart from the `[conflicts]` line. Verify: `diff` output recorded in the comment.
-- [ ] 6.4 CI: the PR's `test` and `cross-twin` shard times against DEV-2307's (PR #52) sharded runs.
+- [x] 6.4 CI: the PR's `test` and `cross-twin` shard times against DEV-2307's (PR #52) sharded runs.
       Verify: recorded in the comment.
