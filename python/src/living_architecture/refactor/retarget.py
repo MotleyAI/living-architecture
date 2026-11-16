@@ -27,6 +27,7 @@ from living_architecture.refactor.text_edits import TextEdit
 _FUNCTIONS = (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)
 _COMPREHENSIONS = (ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)
 _BUILTINS = frozenset(dir(builtins))
+_SHADOWED = "refactor.retarget-shadowed"
 _DEFINITIONS = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Assign, ast.AnnAssign)
 
 _INIT = "__init__.py"
@@ -225,9 +226,7 @@ class AliasRetarget(SymbolRename):
             source = self.snapshot.source(edit.path)
             node = _named_at(source, edit.start, self.old) if source.tree is not None else None
             if isinstance(node, ast.alias):
-                out += self._import_site(edit, node) if id(node) in moving else []
-                if id(node) in moving and node.asname is None and self._builtin_at(source, node, self.parents(edit.path)):
-                    rebinding.append(edit)
+                out += self._alias_site(source, edit, node, moving, rebinding)
             elif isinstance(node, ast.Name):
                 out.append(edit)
                 self._use(edit, node, moving)
@@ -235,11 +234,25 @@ class AliasRetarget(SymbolRename):
                 out += self._attribute(edit, attr)
             else:
                 out.append(edit)
+        self._refuse_rebinding(rebinding)
+        return out
+
+    def _alias_site(self, source: SourceFile, edit: TextEdit, alias: ast.alias, moving: set[int],
+                    rebinding: list[TextEdit]) -> list[TextEdit]:
+        """An import of the alias re-pointed when it moves; recorded in `rebinding` when that binds the target's name
+        where it means a builtin."""
+        if id(alias) not in moving:
+            return []
+        if alias.asname is None and self._builtin_at(source, alias, self.parents(edit.path)):
+            rebinding.append(edit)
+        return self._import_site(edit, alias)
+
+    def _refuse_rebinding(self, rebinding: list[TextEdit]) -> None:
+        """Each import in `rebinding` refused, unless a site in its file already is."""
         refused = {f.path for f in self.refusals}
         for edit in rebinding:
             if edit.path not in refused:
-                self._refuse(edit, "refactor.retarget-shadowed", name=self.new)
-        return out
+                self._refuse(edit, _SHADOWED, name=self.new)
 
     def _import_site(self, edit: TextEdit, alias: ast.alias) -> list[TextEdit]:
         """An import of the alias from a module exporting the target re-pointed to it there; from any other module,
@@ -250,7 +263,7 @@ class AliasRetarget(SymbolRename):
         stmt = parents[alias]
         assert isinstance(stmt, ast.ImportFrom)
         if self._module_binds_other(source, edit.path, skip=stmt):
-            self._refuse(edit, "refactor.retarget-shadowed", name=self.new)
+            self._refuse(edit, _SHADOWED, name=self.new)
         if self._exported_by(imported_module(self.session, edit.path, stmt)):
             return self._duplicate(source, edit, stmt, alias, parents) or [edit]
         self._need(edit.path, stmt, alias.asname, alias)
@@ -282,7 +295,7 @@ class AliasRetarget(SymbolRename):
         source = self.snapshot.source(edit.path)
         other = edit.path != self.renamer.resource.path and self._module_binds_other(source, edit.path)
         if _bound_in_scope(parents, use, self.new, accepted) or other or self._builtin_at(source, use, parents):
-            self._refuse(edit, "refactor.retarget-shadowed", name=self.new)
+            self._refuse(edit, _SHADOWED, name=self.new)
 
     def _attribute(self, edit: TextEdit, attr: ast.Attribute) -> list[TextEdit]:
         """`MOD.ALIAS` rewritten where module `MOD` binds the target's name to the target; refused otherwise."""
