@@ -1,0 +1,17 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- rename
+- --file
+- src/m.ts
+- --symbol
+- C.old
+- --new-name
+- next
+git:
+- commit: init
+expect:
+  exit: 0
+note: 'an instance method renamed onto the name of a static method of its class: separate sides, no conflict'

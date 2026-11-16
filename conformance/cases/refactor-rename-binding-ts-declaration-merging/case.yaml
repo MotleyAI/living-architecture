@@ -1,0 +1,18 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- rename
+- --file
+- src/m.ts
+- --symbol
+- Old
+- --new-name
+- Next
+git:
+- commit: init
+expect:
+  exit: 1
+golden: manual
+note: 'an interface renamed onto a class name would merge into the class: name-conflict naming the class'

@@ -24,11 +24,12 @@ from living_architecture.config import ConfigError
 from living_architecture.contract import message
 from living_architecture.lang import LanguageServer, LanguageServerError
 from living_architecture.refactor.baseline_align import align
+from living_architecture.refactor.bindings import BindingCheck, EntryEdits, first_conflict
 from living_architecture.refactor.keyed import TypeFacts, UnresolvedBase
 from living_architecture.refactor.literal_rename import LiteralRename, check_value, literal_member_at
 from living_architecture.refactor.locators import RefactorError, resolve, resource
 from living_architecture.refactor.map_file import MapEntry, MapError
-from living_architecture.refactor.move_edits import NameConflict
+from living_architecture.refactor.member_namespace import Hierarchy, MemberCheck, RenamedMember
 from living_architecture.refactor.outcomes import Finding
 from living_architecture.refactor.position_map import Edit
 from living_architecture.refactor.rename_union import RenameOptions, Session, SymbolRename, _normalize
@@ -112,15 +113,6 @@ def _definition_line(renamer: Rename) -> tuple[str | None, int | None]:
 def _unique(findings: Iterable[Finding]) -> list[Finding]:
     """`findings` in path, line and column order, each once: entries sharing an old name scan its sites once."""
     return sorted({(f.path, f.line, f.col, f.text): f for f in findings}.values(), key=lambda f: (f.path, f.line, f.col))
-
-
-def _declares_parameter(node: ast.AST, name: str, line: int) -> bool:
-    """`node` is a function or lambda with parameter `name` on `line`."""
-    if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
-        return False
-    a = node.args
-    params = [*a.posonlyargs, *a.args, *a.kwonlyargs, *(p for p in (a.vararg, a.kwarg) if p is not None)]
-    return any(p.arg == name and p.lineno == line for p in params)
 
 
 class RenameMap:
@@ -214,26 +206,6 @@ class RenameMap:
                                        second=entry.index))
         return out
 
-    def _scope(self, r: _Resolved) -> ast.AST | None:
-        """The scope declaring a resolved rename's symbol: a parameter's function, else its binding scope."""
-        if r.literal is not None or r.entry.retarget is not None or r.key[0] not in ("name", "parameter"):
-            return None
-        _, path, line, name = r.key
-        source = self.session.snapshot.source(str(path))
-        if source.tree is None:
-            return None
-        if r.key[0] == "parameter":
-            return next((fn for fn in ast.walk(source.tree) if _declares_parameter(fn, str(name), int(str(line)))), None)
-        found = declaration_scope(source, str(name), int(str(line)))
-        return None if found is None else found[0]
-
-    def check_convergence(self, resolved: list[_Resolved]) -> None:
-        """`NameConflict` where two entries give declarations of one scope the same new name."""
-        scoped = [(r, scope) for r in resolved if (scope := self._scope(r)) is not None]
-        for i, (first, scope) in enumerate(scoped):
-            if any(other is scope and later.entry.new_name == first.entry.new_name for later, other in scoped[i + 1 :]):
-                raise NameConflict(str(first.entry.new_name), str(first.key[1]), int(str(first.key[2])))
-
     # ---- computing
 
     def build(self, resolved: list[_Resolved]) -> list[Renaming]:
@@ -283,15 +255,20 @@ class RenameMap:
             if raw not in matched:
                 raise SiteError("refactor.not-stand-in", raw)
 
-    def keep(self, renames: list[Renaming]) -> None:
-        """Drop every edit, blind spot and leftover at a kept site; `SiteError` for a keep that matched nothing."""
+    def keep(self, renames: list[Renaming]) -> list[list[TextEdit]]:
+        """Drop every edit, blind spot and leftover at a kept site; each rename's dropped edits. `SiteError` for a keep
+        that matched nothing."""
         keeps = Keeps(self.options.keep, self.root)
         snapshot = self.session.snapshot
+        dropped: list[list[TextEdit]] = []
         for r in renames:
-            r.edits = [e for e in r.edits if not keeps.kept(e.path, snapshot.source(e.path).line(e.start))]
+            kept = [keeps.kept(e.path, snapshot.source(e.path).line(e.start)) for e in r.edits]
+            dropped.append([e for e, k in zip(r.edits, kept, strict=True) if k])
+            r.edits = [e for e, k in zip(r.edits, kept, strict=True) if not k]
             r.blindspots = [b for b in r.blindspots if not keeps.kept(b.path, b.line)]
             r.leftovers = [f for f in r.leftovers if not keeps.kept(f.path, f.line, mark=False)]
         keeps.check()
+        return dropped
 
     def merged(self, renames: list[Renaming], indexes: list[int]) -> list[TextEdit]:
         """Every entry's edits; identical ones merged, differing ones on one span a `MapConflict`."""
@@ -310,6 +287,33 @@ class RenameMap:
             out.append(edit)
             owner.append(index)
         return out
+
+    def check_names(self, renames: list[Renaming], resolved: list[_Resolved], dropped: list[list[TextEdit]]) -> None:
+        """`NameConflict` when a rename changes what a name means or meets a member of its class's namespace: each
+        `new_name` entry alone against the code before the map, in map order, then every entry together."""
+        entries = [
+            EntryEdits(index=res.entry.index, new_name=r.new, edits=r.edits, kept=kept,
+                       target=res.target_name if res.entry.retarget is not None else None)
+            for r, res, kept in zip(renames, resolved, dropped, strict=True)
+        ]
+        members = [
+            (entry, RenamedMember(entry=entry.index, new_name=r.new, site=site, cls=cls))
+            for r, entry in zip(renames, entries, strict=True) if isinstance(r, SymbolRename) and r.new != r.old
+            for site, cls in r.renamed_members()
+        ]
+        rels = [p.relative_to(self.root).as_posix() for p in language_files(self.root, "python")]
+        folders = sorted({"", *(f.path for f in self.project.get_source_folders())})
+        bindings = BindingCheck(rels, folders, self.session.snapshot.source)
+        namespace = MemberCheck(Hierarchy(self.project, rels, self.session.snapshot.source), self.session.snapshot.text)
+        passes = [[e] for e, res in zip(entries, resolved, strict=True) if res.entry.new_name is not None]
+        for group in passes if passes == [entries] else [*passes, entries]:
+            renamed = [m for e, m in members if any(e is g for g in group)]
+            found = first_conflict(
+                bindings.conflicts(group) + namespace.conflicts(renamed, {m.site for m in renamed}),
+                self.session.snapshot.source,
+            )
+            if found is not None:
+                raise found
 
     def refusal(self, renames: list[Renaming]) -> list[str]:
         """The lines refusing the map, or none when it may proceed."""
@@ -410,7 +414,6 @@ def run_map(project: Project, entries: list[MapEntry], options: RenameOptions, *
     engine = RenameMap(project, entries, options, map_shown)
     try:
         resolved = engine.resolve()
-        engine.check_convergence(resolved)
         modules = [r for r in resolved if r.renamer is not None and r.renamer._is_renaming_a_module()]  # pyright: ignore[reportPrivateUsage]
         if modules:
             if len(resolved) > 1:
@@ -428,9 +431,10 @@ def run_map(project: Project, entries: list[MapEntry], options: RenameOptions, *
         root = engine.root
         path = (base.path.relative_to(root) if base.path.is_relative_to(root) else base.path).as_posix()
         raise RefactorError(message("refactor.unresolved-base", name=base.name, path=path, line=base.line)) from None
-    engine.keep(renames)
+    dropped = engine.keep(renames)
     engine.check_conflicts(renames)
     edits = engine.merged(renames, [r.entry.index for r in resolved])
+    engine.check_names(renames, resolved, dropped)
     refusal = engine.refusal(renames)
     if refusal:
         raise Refused(refusal)

@@ -1,0 +1,16 @@
+Renaming <old> to <fresh>:
+
+
+--- a/pkg/m.py
++++ b/pkg/m.py
+@@ -1,4 +1,4 @@
+ def f() -> int:
+-    old = 2
++    fresh = 2
+     print(old)
+-    return old
++    return fresh
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

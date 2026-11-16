@@ -1,0 +1,17 @@
+Renaming <old> to <fresh>:
+
+
+--- a/src/m.ts
++++ b/src/m.ts
+@@ -1,5 +1,5 @@
+ export function f(): number {
+-  const old = 2;
++  const fresh = 2;
+   void old;
+-  return old;
++  return fresh;
+ }
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

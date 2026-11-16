@@ -1,0 +1,26 @@
+Renaming <old> to <next>:
+
+
+--- a/src/m.ts
++++ b/src/m.ts
+@@ -1,13 +1,13 @@
+ export interface I {
+-  old(): number;
++  next(): number;
+ }
+ 
+ export class C implements I {
+-  old(): number {
++  next(): number {
+     return 1;
+   }
+ }
+ 
+ export function f(i: I): number {
+-  return i.old();
++  return i.next();
+ }
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

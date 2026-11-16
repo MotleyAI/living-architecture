@@ -1,0 +1,21 @@
+Renaming <old> to <fresh>:
+
+
+--- a/src/m.ts
++++ b/src/m.ts
+@@ -1,7 +1,7 @@
+-export function old(x: number): number;
+-export function old(x: string): string;
+-export function old(x: number | string): number | string {
++export function fresh(x: number): number;
++export function fresh(x: string): string;
++export function fresh(x: number | string): number | string {
+   return x;
+ }
+ 
+-export const y = old(1);
++export const y = fresh(1);
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

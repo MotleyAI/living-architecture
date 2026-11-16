@@ -1,0 +1,18 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- rename
+- --file
+- pkg/m.py
+- --symbol
+- old
+- --new-name
+- next
+git:
+- commit: init
+expect:
+  exit: 1
+golden: manual
+note: 'a class-body loop binds the new name after the read it holds: a later pass reads the binding, name-conflict naming it'
