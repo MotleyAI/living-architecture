@@ -300,12 +300,13 @@ unshadowed global. There SHALL be no waiver.
 - **THEN** only the test file's line is reported
 
 ### Requirement: Python refactors walk every source construct
-The Python `dr-refactor` SHALL compute every refactor over modules that rope's source walker fully covers. Every
-syntax node SHALL be walked, except expression contexts, operators, `with` items and the internals of f-strings
-and t-strings. Every string literal SHALL be covered over its full source text, including every piece of an
-implicit concatenation and any `r`/`b`/`u`/`f`/`t` prefix in any order and case; covering surrounding parentheses
-as well is allowed. This SHALL hold for every construct of the Python versions the package supports. The
-following SHALL be refactored like any other code:
+The Python `dr-refactor` SHALL compute every refactor over modules that rope's source walker fully covers among the
+modules rope walks: those of a move and of a module rename, the module locating each rename entry, and the modules of
+the occurrences rope resolves for a rename. Every syntax node SHALL be walked, except expression contexts, operators,
+`with` items and the internals of f-strings and t-strings. Every string literal SHALL be covered over its full source
+text, including every piece of an implicit concatenation and any `r`/`b`/`u`/`f`/`t` prefix in any order and case;
+covering surrounding parentheses as well is allowed. This SHALL hold for every construct of the Python versions the
+package supports. The following SHALL be refactored like any other code:
 - annotations of parameters, `*args`, `**kwargs` and returns, in `def` and `async def`;
 - `lambda` parameters of every kind;
 - PEP 695 type parameters with bounds and defaults;
@@ -343,10 +344,15 @@ refactor.
 - **WHEN** a module holds `def f(s: str = "😀", p: A[F(d="(")] = None) -> str: ...`
 - **THEN** a rename of `p` prints its diff and exits 0
 
+#### Scenario: A module rope does not walk
+- **WHEN** a rename's old name occurs only in modules other than the entry's, each holding a construct rope's walker
+  cannot cover, and the checker resolves every occurrence
+- **THEN** the rename prints its diff and exits 0 without `refactor.rope-walk`
+
 ### Requirement: A Python walker gap is refused with a located finding
 When rope's walker fails on a module while the Python `dr-refactor` computes a refactor, or leaves part of it
 uncovered, `dr-refactor` SHALL refuse with the `refactor.rope-walk` finding on stderr, naming the file and the line
-of the construct, and exit 1. Every gap in a candidate file SHALL be found in the `checks` phase, before any reference
+of the construct, and exit 1. Every gap in a module rope walks before the reference search SHALL be found in the `checks` phase, before any reference
 search, and all of them reported together; a gap met later SHALL refuse the entry that met it while the run goes on.
 It SHALL write no file, with or without `--apply`, and print no rope or library message text. The line SHALL be:
 - the start line of the first uncovered syntax node or string literal in source order;
@@ -558,13 +564,14 @@ added import or the moved code would bind a name that already resolves to a diff
   changes
 
 ### Requirement: Python renames include every reference basedpyright resolves
-For a Python `rename` of a symbol other than a module, `dr-refactor` SHALL add to rope's edits every reference
-basedpyright resolves to each declaration the rename renames: every declaration of the renamed hierarchy by default,
-only the located one with `--no-in-hierarchy`. These references SHALL include forward-reference strings (`"X"`,
+For a Python `rename` of a symbol other than a module, `dr-refactor` SHALL edit every occurrence the run's occurrence
+index resolves to a declaration the rename renames: every declaration of the renamed hierarchy by default, only the
+located one with `--no-in-hierarchy`; and every name, import or alias occurrence the checker resolves to no declaration
+that rope resolves to one of them. These references SHALL include forward-reference strings (`"X"`,
 `Optional["X"]`, `list["X"]`, `"X | None"`), keyword arguments of dataclass and Pydantic fields at calls whose callee
 is the owning class, a subclass or a `type[...]` of either, receivers typed by a parameter annotation, an attribute
 annotation (`self.x: T` or a class-body `x: T`), a return annotation or inference, `isinstance`-narrowed receivers,
-and `super().name(...)` calls. Every added edit SHALL replace exactly the old name, located by source character in
+and `super().name(...)` calls. Every edit SHALL replace exactly the old name, located by source character in
 the file's text as read; positions SHALL be correct after non-ASCII and astral characters and with CRLF line endings.
 Edits SHALL NOT overlap unless identical; identical edits SHALL be merged. When a file changes between its read and
 the write, `dr-refactor` SHALL print the `refactor.file-changed` finding naming that file on stderr, write nothing and
@@ -621,7 +628,7 @@ printed. With or without `--apply`, the language server SHALL create no file in 
 
 #### Scenario: Language server failure
 - **WHEN** the language server cannot start or exits during the rename, with or without `--apply`
-- **THEN** stderr ends with the `refactor.pyright-failed` finding and its cause, the exit code is 1 and every file of the project is
+- **THEN** stderr is the `refactor.pyright-failed` finding, the exit code is 1 and every file of the project is
   unchanged
 
 #### Scenario: No target-repo code runs
@@ -795,6 +802,8 @@ whose callee basedpyright cannot resolve while the call has the form's syntax, w
 `compliance.attr-blindspot` finding: `{receiver}` SHALL be the receiver's (or object argument's) source text with
 each run of whitespace collapsed to one space, and `{type}` SHALL be `Unknown` or `Any` (`Unknown` when both occur,
 and for an unresolved callee). Findings SHALL be one per access or call position, sorted by path, line and column.
+The verdict at each position SHALL come from the same occurrence index a rename uses, so a site `--attr NAME`
+reports is exactly a blind spot a member rename of `NAME` reports there.
 basedpyright SHALL start only when `--attr` is given, with the working directory as its workspace, under the same
 conditions as for `dr-refactor`. A language server that cannot start, is not patched, fails or exits SHALL make the
 command print the `compliance.pyright-failed` finding on stderr and exit 2. The TypeScript twin's `--attr` output
@@ -820,6 +829,10 @@ SHALL use the same template with `{type}` `any`.
   `def u(monkeypatch): monkeypatch.setattr(obj, "formula", 1)` with `obj: Model`
 - **THEN** the `getattr` call is reported with receiver `m` and the `monkeypatch.setattr` call (unresolved callee)
   with receiver `obj` and `{type}` `Unknown`
+
+#### Scenario: Same verdict as a rename
+- **WHEN** `--attr formula` and a dry-run rename of member `Model.formula` run on the same project
+- **THEN** the positions `--attr` reports are exactly the rename's blind-spot positions
 
 #### Scenario: Language server failure
 - **WHEN** `--attr` runs and the language server cannot start
@@ -1184,12 +1197,14 @@ version-control and tool-cache directories), plus the unresolved targets and the
 - **THEN** neither the rename nor `dr-compliance --select attr-blindspot --attr OLD <project>` reports it
 
 ### Requirement: Member renames refuse on unclassified stand-ins
-The renamed hierarchy SHALL be every declaration the rename renames with hierarchy on (Python: rope's hierarchy;
-TypeScript: the declarations the language service's rename returns, merged interface declarations included),
-whether or not `--no-in-hierarchy` is given, joined with the hierarchy of every `--with` stand-in. A stand-in SHALL
-be a class (Python) or a class, interface or type literal (TypeScript), declared in a project source file of the
-rename's language and outside the renamed hierarchy, that declares a member named OLD. Object literals SHALL NOT be
-stand-ins.
+The renamed hierarchy SHALL be every declaration the rename renames with hierarchy on (Python: every member
+declaration of OLD whose roots meet the located declaration's roots, where the roots of a declaration in class `C`
+are the roots of OLD's declaration in each direct base of `C` that has OLD as the checker resolves it, or the
+declaration itself when no direct base has OLD; TypeScript: the declarations
+the language service's rename returns, merged interface declarations included), whether or not `--no-in-hierarchy` is
+given, joined with the hierarchy of every `--with` stand-in. A stand-in SHALL be a class (Python) or a class,
+interface or type literal (TypeScript), declared in a project source file of the rename's language and outside the
+renamed hierarchy, that declares a member named OLD. Object literals SHALL NOT be stand-ins.
 
 A member rename with any stand-in that is neither `--with` nor `--without` SHALL print one `refactor.stand-in` line
 per stand-in member declaration on stderr, sorted by path, line and column and after any blind-spot lines, print
@@ -1235,6 +1250,11 @@ A TypeScript stand-in member declared by a computed name SHALL be classified by 
 #### Scenario: Hierarchy flag off
 - **WHEN** `A.run` is renamed with `--no-in-hierarchy` and `B(A)` overrides `run`
 - **THEN** `B` is not reported as a stand-in
+
+#### Scenario: Python diamond and mixin hierarchy
+- **WHEN** `A.run` is renamed, `B(A)` and `C(A)` override `run`, `D(B, C)` overrides it, and an unrelated mixin
+  `M` declaring `run` is a base of `E(M, A)`
+- **THEN** `A.run`, `B.run`, `C.run` and `D.run` are renamed, and `M.run` is reported as a stand-in
 
 #### Scenario: TypeScript structural class and object literal
 - **WHEN** interface `Store.getModel` is renamed, `class Fake { getModel() {} }` does not implement `Store`, and an
@@ -2225,10 +2245,11 @@ The `checks` phase SHALL then run, before any reference search:
   identifier escapes decoded, and NFKC-normalized for Python) or in the value of a string literal starting on that
   line; or cover a file the refactor moves; else `refactor.keep-unmatched`. When an entry that did not resolve spells
   no name in its locator, or an entry renames a `Literal` member, this check SHALL be skipped;
-- Python: every candidate file (a Python source whose text holds an entry's old name, or the moved name or module's
-  name) SHALL be walked as `dr-compliance --select rope-walk` walks it, and each gap reported as `refactor.rope-walk`;
-- Python: the language server SHALL start for `rename`, `retarget` and `rename-map`, and when the baseline phase will
-  run, the configured checker SHALL run once on one source of the refactor; a failure SHALL be reported with its
+- Python: every module rope walks before the reference search SHALL be walked as `dr-compliance --select rope-walk`
+  walks it, and each gap reported as `refactor.rope-walk`: for a move or a module rename every candidate file (a Python
+  source whose text holds the moved name or module's name), for any other entry the module locating it;
+- Python: the language server SHALL start for `rename`, `retarget` and `rename-map` unless an entry renames a module,
+  or the run's occurrence index is cached and no entry renames a `Literal` member, and when the baseline phase will run, the configured checker SHALL run once on one source of the refactor; a failure SHALL be reported with its
   cause;
 - in both twins, when the refactor's language has its baseline file at the repo root, the repo config SHALL be
   readable and valid, else its error SHALL be reported as the config loader words it, exit 2.
@@ -2278,10 +2299,11 @@ checker findings), print no `[references]` line, write nothing, and exit with th
 
 #### Scenario: Keep of a prose file needs --docs
 - **WHEN** `--keep README.md` names a prose file that mentions the old name
-- **THEN** the check passes with `--docs`, and without it stderr ends with `refactor.keep-unmatched` naming it
+- **THEN** the check passes with `--docs`, and without it stderr is `refactor.keep-unmatched` naming it
 
 #### Scenario: Walker gaps listed before any search
-- **WHEN** rope's walker cannot cover `pkg/a.py` at line 3 nor `pkg/b.py` at line 8, and both spell the old name
+- **WHEN** rope's walker cannot cover `pkg/a.py` at line 3 nor `pkg/b.py` at line 8, and each is the module locating
+  an entry of the map
 - **THEN** stderr lists `refactor.rope-walk` for both files in path order, no `[references]` line is printed, the
   exit code is 1 and no file changes
 
@@ -2355,3 +2377,117 @@ print `refactor.baseline-failed` with no cause.
 - **WHEN** the configured checker passes the probe and exits 2 with a message while realigning the baseline
 - **THEN** stderr ends with `refactor.baseline-failed`, `refactor.checker-exit` naming exit code 2 and the message
   indented by two spaces, the exit code is 1 and nothing is written
+
+### Requirement: Python refactors resolve every occurrence from one occurrence index
+A Python `dr-refactor` `rename`, `rename-map` or `retarget` of symbols other than modules, and Python
+`dr-compliance --attr`, SHALL resolve every occurrence of the old names from one occurrence index of the run: for each
+occurrence of an old name in the candidate files (the project's Python sources whose text holds an old name, or a
+string constant equal to one under any escaped spelling), its kind (name, member access, keyword argument, dict-literal
+key, string-member name, dotted patch target, `Literal`-typed string, forward-reference string, `__all__` entry, import
+alias or re-export), the declarations the checker resolves it to (aliases followed, every overload) with every
+import-alias or re-export binding it passes through on the way, each with the class declaring it and that class's MRO, and for an access or a string-member object whether the checker types its
+receiver. la's language server SHALL export the index in a number of requests that does not depend on the number of
+entries or occurrences, and SHALL answer no find-all-references request and no per-occurrence position query for it.
+rope SHALL NOT search for occurrences: it SHALL locate and validate each entry, rename modules, compute moves, and
+resolve, in one batch per run, only the name, import and alias occurrences of an old name that the checker resolves to
+no declaration.
+
+The export SHALL run under the same verification as la's pyright#11919 patch: a basedpyright version it is not
+verified for, or a hook that does not match the bundle exactly, SHALL make `dr-refactor` print the
+`refactor.pyright-failed` finding on stderr, write nothing and exit 1, and `dr-compliance --attr` print
+`compliance.pyright-failed` and exit 2. An exported span that does not slice to the old name's spelling in the file as
+read SHALL be refused the same way. The language server SHALL start only when the run needs it, and at most once per
+run; a module rename, `move-symbol` and `move-module` SHALL NOT start it.
+
+#### Scenario: Export cost does not grow with entries
+- **WHEN** a `rename-map` of one entry and a `rename-map` of ten entries run over the same project
+- **THEN** both send the same number of export requests, neither sends a references, hover or definition request per
+  occurrence, and each prints the same diff as the equivalent single renames merged
+
+#### Scenario: Every member occurrence kind
+- **WHEN** field `Model.columns` of a Pydantic model is renamed in a project holding a read `m.columns` with
+  `m: Model`, a keyword `Model(columns=[])`, a dict key `Model.model_validate({"columns": []})`,
+  `getattr(m, "columns")`, `patch.object(Model, "columns")` and `patch("pkg.mod.Model.columns")`
+- **THEN** each of them is renamed, and the output is byte-identical to the output before this change
+
+#### Scenario: Every name occurrence kind
+- **WHEN** module-level class `Rec` of `pkg/mod.py` is renamed in a project holding a forward reference `x: "Rec"`, an
+  `__all__` entry `"Rec"`, `from pkg.mod import Rec as R`, and a package `__init__.py` re-exporting it with
+  `from pkg.mod import Rec` that another module imports from the package
+- **THEN** every `Rec` among them is renamed while the alias `R` and its uses stay, and the output is byte-identical
+  to the output before this change
+
+#### Scenario: Entry located on an import alias
+- **WHEN** `pkg/compat.py`'s `from pkg.core import Model as AcmeModel` is retargeted to `Model`, `pkg/use.py` imports
+  `AcmeModel` from `pkg.compat`, and `pkg/other.py` declares its own `from pkg.core import Model as AcmeModel`
+- **THEN** the import and the use in `pkg/use.py` are retargeted, `pkg/other.py` is unchanged, and
+  `refactor-retarget-reexport-form`'s output is byte-identical to the output before this change
+
+#### Scenario: Overloads, super() and Protocol members
+- **WHEN** an overloaded method, a method called through `super().name(...)` in an override, and a member of a
+  `Protocol` that a class implements by inheritance are each renamed
+- **THEN** every overload signature, the `super()` call and the protocol's and implementer's declarations are renamed
+
+#### Scenario: Import the checker cannot resolve
+- **WHEN** `pkg/a.py`'s `foo` is renamed and `scripts/use.py` holds `from pkg.a import foo` and `foo()`, while the
+  project's checker configuration does not put the project root on its search path, so basedpyright resolves neither
+- **THEN** both occurrences in `scripts/use.py` are renamed, as rope resolves them
+
+#### Scenario: Unverified checker
+- **WHEN** a rename runs with a bundled basedpyright version the export is not verified for
+- **THEN** stderr is the `refactor.pyright-failed` finding, the exit code is 1 and every file of the project is
+  unchanged
+
+#### Scenario: Positions after astral characters and CRLF in every kind
+- **WHEN** each occurrence kind of "Every member occurrence kind" and "Every name occurrence kind" sits in a module with CRLF line endings, a lone `\r`, and
+  astral characters before it on its line
+- **THEN** exactly the old name is replaced at each, and the line endings are kept
+
+#### Scenario: No server for a module move
+- **WHEN** `move-module` or a module rename runs
+- **THEN** no language server starts
+
+### Requirement: The Python occurrence index is cached between runs
+`dr-refactor` and `dr-compliance --attr` SHALL reuse an earlier run's occurrence index exactly when nothing that can
+change it has changed: the content of every project source file and the set of those files, the checker's effective
+configuration, the interpreter and its search paths, the installed packages and stubs, the basedpyright and export
+versions, and the request (the old names, the candidate files and every queried position). Otherwise they SHALL
+export the index anew. The cache SHALL hold one entry per project root, in the directory named by `LA_CACHE_DIR` when
+it is set, else in the user's cache directory, and never in the project. A missing, unreadable or corrupt cache SHALL
+count as absent. Output SHALL be identical with and without a cache entry.
+
+#### Scenario: Re-run after fixing flags
+- **WHEN** a `rename-map` dry run refuses on stand-ins and is re-run with `--without` for each, no file having changed
+- **THEN** the second run exports nothing and prints the same output as a run without a cache
+
+#### Scenario: A source edit invalidates
+- **WHEN** a project source file changes, a file is added that shadows an import, or a file is deleted between two
+  runs
+- **THEN** the second run exports the index anew
+
+#### Scenario: Environment change invalidates
+- **WHEN** the checker configuration, the interpreter or an installed package changes between two runs
+- **THEN** the second run exports the index anew
+
+#### Scenario: Corrupt cache
+- **WHEN** the cache entry for the project is truncated or not valid
+- **THEN** the run exports the index anew and its output equals a run without a cache
+
+#### Scenario: Nothing written in the project
+- **WHEN** a rename runs with and without `--apply`
+- **THEN** no cache file exists under the project
+
+### Requirement: Python --unsure include renames unresolved receivers
+With `--unsure include`, a Python rename SHALL also rename every access `x.OLD` whose receiver the checker types as
+`Unknown`, `Any` or a union holding either, and SHALL print the `refactor.unsure-warning` finding on stdout before the
+diff. Blind spots SHALL be reported, refused and let through by `--allow-blindspots` as without it. With the default
+`--unsure skip` no such access SHALL be renamed.
+
+#### Scenario: Untyped receiver renamed on request
+- **WHEN** method `A.run` is renamed with `--unsure include --allow-blindspots` and a module holds `def f(o): o.run()`
+- **THEN** `o.run()` becomes `o.<new>()`, stdout starts with the `refactor.unsure-warning` line, and the blind spot is
+  listed on stderr
+
+#### Scenario: Skipped by default
+- **WHEN** the same rename runs with `--allow-blindspots` only
+- **THEN** `o.run()` is unchanged and the blind spot is listed on stderr
