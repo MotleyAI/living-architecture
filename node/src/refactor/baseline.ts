@@ -82,8 +82,8 @@ function moved(counts: Map<string, number>, before: Map<string, Instance[]>, fol
   return { counts: out, stuck };
 }
 
-/** The baseline phase runs: the TypeScript checker command is set and its baseline file exists. */
-export const baselineRuns = (r: Refactor): boolean => configured(findRepoRoot(r.root)) !== null;
+/** The baseline phase runs: the TypeScript baseline file exists at the repo root. */
+export const baselineRuns = (r: Refactor): boolean => existsSync(join(findRepoRoot(r.root), language('typescript').baseline_file as string));
 
 /** The config's error when the TypeScript baseline file exists and the config cannot be read. */
 export function configFailures(r: Refactor): Refusal[] {
