@@ -107,20 +107,28 @@ def test_an_imported_module_is_a_module(root: Path) -> None:
 @pytest.mark.parametrize("locator", [Locator(offset=at("\n\n\ndef top") + 1), Locator(offset=at("local += 1", inner="+="))],
                          ids=["whitespace", "operator"])
 def test_a_location_that_is_not_an_identifier_cannot_be_renamed(root: Path, locator: Locator) -> None:
-    with pytest.raises(RefactorError, match=message("refactor.cannot-rename")):
-        EntryLocator(root, Definitions({})).locate("pkg/m.py", locator)
+    locate = EntryLocator(root, Definitions({})).locate
+    refused = message("refactor.cannot-rename")
+    with pytest.raises(RefactorError, match=refused):
+        locate("pkg/m.py", locator)
 
 
 def test_a_reference_that_resolves_to_nothing_cannot_be_renamed(root: Path) -> None:
-    with pytest.raises(RefactorError, match=message("refactor.cannot-rename")):
-        EntryLocator(root, Definitions({})).locate("pkg/m.py", Locator(offset=at("nowhere")))
+    locate = EntryLocator(root, Definitions({})).locate
+    locator = Locator(offset=at("nowhere"))
+    refused = message("refactor.cannot-rename")
+    with pytest.raises(RefactorError, match=refused):
+        locate("pkg/m.py", locator)
 
 
 def test_a_reference_that_resolves_to_two_groups_cannot_be_renamed(root: Path) -> None:
     site = at(", either,", inner="either")
     both = [(root / "pkg" / "other.py", 0), (root / "pkg" / "alt.py", 0)]
-    with pytest.raises(RefactorError, match=message("refactor.cannot-rename")):
-        EntryLocator(root, Definitions({("pkg/m.py", site): both})).locate("pkg/m.py", Locator(offset=site))
+    locate = EntryLocator(root, Definitions({("pkg/m.py", site): both})).locate
+    locator = Locator(offset=site)
+    refused = message("refactor.cannot-rename")
+    with pytest.raises(RefactorError, match=refused):
+        locate("pkg/m.py", locator)
 
 
 @pytest.mark.parametrize("locator", [Locator(symbol="foo"), Locator(offset=4)], ids=["symbol", "offset"])
