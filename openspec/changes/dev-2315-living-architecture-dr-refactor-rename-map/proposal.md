@@ -1,16 +1,14 @@
 ## Why
 
 A cold dry run of the DEV-1607 rename map (158 entries, `--docs`, 279 site flags, 1,600 Python files) takes
-32 min 31 s after DEV-2301, and DEV-2301 also made CI slower (17–22 min against 11–15 min on `main`). Profiling shows
-five independent causes, all work repeated that depends on less than the loop it sits in.
+32 min 31 s after DEV-2301. Profiling shows four independent causes, all work repeated that depends on less than the
+loop it sits in. (A fifth, the export following definitions into library code, is fixed by DEV-2307.)
 
 ## What Changes
 
 - The language-server client reads each message in time linear in its size (the 103 MB export answer took about
   360 s to read).
 - `dr-refactor`'s language server runs no ambient analysis of opened files.
-- The occurrence export follows definitions only out of project code, never further into third-party or typeshed
-  files.
 - Rule scans whose result depends only on a file and an old name run once per run, not once per entry.
 - The conflict checks re-parse and re-judge only the files an entry's edits can change the meaning of.
 - A new `conflicts` phase: the checks made over a run's computed edits (map conflicts and name conflicts) announce
@@ -32,7 +30,7 @@ None.
 
 ## Impact
 
-- Python twin: `lang/language_server.py`, `lang/pyright_export.cjs`, `refactor/` (`rename_map.py`, `rename_union.py`,
+- Python twin: `lang/language_server.py`, `lang/pyright_export.cjs` (the ambient-analysis anchor), `refactor/` (`rename_map.py`, `rename_union.py`,
   `keyed.py`, `bindings.py`, `member_namespace.py`, `rope_refactor.py`, `occurrence_index.py`, `timings.py`).
 - npm twin: `node/src/refactor/rename.ts` and its timings.
 - `shared/cli.yaml` (`timing_phases`), then `scripts/sync-shared`.

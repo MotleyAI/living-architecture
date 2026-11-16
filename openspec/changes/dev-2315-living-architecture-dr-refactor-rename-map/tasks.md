@@ -2,8 +2,8 @@
 
 - [ ] 0.1 pr-tests writes section 1 only; pr-implement does sections 2–6. While section 1 is open the stage is
       `pr-tests`. Verify: every task of section 1 is ticked before any of section 2 starts.
-- [ ] 0.2 DEV-2301 (PR #51) is merged into this branch but not yet into `main`. Before opening the PR, check whether
-      it has merged; if so merge `origin/main` first (`git merge origin/main -m "Merge branch 'origin/main' into …"`;
+- [ ] 0.2 DEV-2301 (PR #51) and DEV-2307 (PR #52) are merged into this branch but not yet into `main`. Before opening
+      the PR, check whether both have merged; if so merge `origin/main` first (`git merge origin/main -m "Merge branch 'origin/main' into …"`;
       never rebase or stash) and re-run the local test scope. Verify: `git log origin/main..HEAD` holds only this
       change's commits.
 - [ ] 0.3 Repro for every SLayer measurement: `git archive` SLayer's branch
@@ -23,9 +23,9 @@
 - [ ] 1.3 Sharding seam: exporting a multi-file fixture's files in two requests and merging gives the same
       `RunIndex` state as one request, through the fake server and (integration-marked) the real one, including
       definitions shared across the partition. Verify: passes or fails today; a failure is fixed in 2.3.
-- [ ] 1.4 Bounded follow: a fixture importing a library class; the export's followed facts hold no position in a
-      third-party or typeshed file, a rule needing a library base still gets it on demand, and a cold and a warm run
-      give identical facts and output. Verify: the first assertion fails today.
+- [ ] 1.4 Follow guard (DEV-2307's) with the cache: on a fixture importing a library class, where a rule fetches a
+      skipped library fact on demand, a cold and a warm run give identical facts and output. Verify: passes or fails
+      today; a failure is fixed in 2.3.
 - [ ] 1.5 Rules: two entries sharing a file and an old name but targeting different classes give each its own
       edits (no state leaks through the shared candidates), and a counting test that a candidate file's sink
       discovery runs once for both. Verify: the counting test fails today.
@@ -51,7 +51,7 @@
 - [ ] 2.1 `_pump` collects chunks and joins once. Verify: 1.1 passes.
 - [ ] 2.2 The export preload's anchor turning ambient analysis off. Verify: 1.2 passes, and the `Literal` and
       `--attr` tests pass.
-- [ ] 2.3 The export follows definitions only out of project code. Verify: 1.3 and 1.4 pass.
+- [ ] 2.3 Whatever 1.3 and 1.4 show failing in the export or the index cache. Verify: 1.3 and 1.4 pass.
 
 ## 3. Rules
 
@@ -82,14 +82,17 @@
       pinned). The commit message states the reason. Verify: `scripts/conformance-cross` passes for both twins.
 - [ ] 5.5 `docs/commands.md` and `docs/refactoring-internals.md` name the phase where they list phases. Verify:
       `grep -n "rules" docs/*.md` shows no phase list without `conflicts`.
+- [ ] 5.6 Refresh the three `pytest-split` duration files (`python/tests/durations/`) for the new tests, as
+      `docs/development.md` describes. Verify: `test_ci_split.py` passes.
 
 ## 6. Measurement
 
-- [ ] 6.1 Cold run of the DEV-1607 map (0.3) under `/usr/bin/time -v`: phase split, total, peak memory, the
-      export's follow count. Verify: recorded in a comment on DEV-2315.
+- [ ] 6.1 Cold run of the DEV-1607 map (0.3) under `/usr/bin/time -v`, on the merge commit before this change's
+      code (the "before", with DEV-2307's follow guard) and after it: phase split, total, peak memory, the export's
+      follow count. Verify: recorded in a comment on DEV-2315.
 - [ ] 6.2 Warm re-run with one more `--without` site: a cache hit (no export time) and stdout equal to the cold
       run's. Verify: recorded in the same comment.
 - [ ] 6.3 Differential: the cold run's stdout and refusal report against the same run on the commit before this
       change, byte-identical apart from the `[conflicts]` line. Verify: `diff` output recorded in the comment.
-- [ ] 6.4 CI: the PR's `test` and `cross-twin` job times against `main`'s (11–15 min) and DEV-2301's (17–22 min).
+- [ ] 6.4 CI: the PR's `test` and `cross-twin` shard times against DEV-2307's (PR #52) sharded runs.
       Verify: recorded in the comment.
