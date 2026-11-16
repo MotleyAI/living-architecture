@@ -1,0 +1,22 @@
+WARNING: --unsure=include also renames occurrences the checker cannot resolve; it may rewrite unrelated attributes of the same name.
+Renaming <run> to <go>:
+
+
+--- a/pkg/a.py
++++ b/pkg/a.py
+@@ -1,3 +1,3 @@
+ class A:
+-    def run(self) -> int:
++    def go(self) -> int:
+         return 1
+
+--- a/pkg/f.py
++++ b/pkg/f.py
+@@ -1,2 +1,2 @@
+ def f(o):
+-    return o.run()
++    return o.go()
+
+
+
+DRY-RUN. 2 file(s) would change. Re-run with --apply.

@@ -30,8 +30,8 @@ def _run(project: Path, *args: str) -> int:
     return main(["--project", str(project), *args])
 
 
-def _rename_foo(project: Path, *flags: str) -> int:
-    return _run(project, *flags, "rename", "--file", str(project / "pkg" / "a.py"), "--symbol", "foo", "--new-name", "bar")
+def _rename_foo(project: Path, *flags: str, rel: str = "pkg/a.py") -> int:
+    return _run(project, *flags, "rename", "--file", str(project / rel), "--symbol", "foo", "--new-name", "bar")
 
 
 def test_offset_from_line_col() -> None:
@@ -233,8 +233,10 @@ def test_rope_refusal_is_the_cannot_rename_finding(project: Path, capsys: pytest
 
 
 def _gap_refused(project: Path, capsys: pytest.CaptureFixture[str], line: int, *flags: str) -> None:
+    """The rename located in pkg/gap.py, the module rope walks to locate it, refuses at its gap, reported once
+    though both locating the entry and the checks meet it."""
     before = file_tree(project)
-    assert _rename_foo(project, *flags) == 1
+    assert _rename_foo(project, *flags, rel="pkg/gap.py") == 1
     captured = readouterr(capsys)
     assert captured.out == ""
     assert captured.err == message("refactor.rope-walk", path="pkg/gap.py", line=line) + "\n"
@@ -281,6 +283,27 @@ def test_value_error_inside_ropes_walker_is_a_gap(
     monkeypatch.setattr(patchedast._PatchingASTWalker, "_JoinedStr", unmatched)
     (project / "pkg" / "gap.py").write_text('from pkg.a import foo\n\n\ndef use() -> None:\n    x = foo()\n    y = f"{x}"\n')
     _gap_refused(project, capsys, 4)
+
+
+SILENT_GAP = 'from pkg.a import foo\n\n\ndef use() -> None:\n    x = foo()\n    y = f"{x}" "z"\n'
+
+
+@pytest.mark.parametrize(("visitor", "gap"), [("_arg", None), ("_JoinedStr", SILENT_GAP)], ids=["crash", "silent"])
+def test_a_gap_in_a_module_rope_does_not_walk_is_not_refused(
+    project: Path,
+    capsys: pytest.CaptureFixture[str],
+    restore_rope_visitor: Callable[[str], None],
+    annotation_gap: str,
+    visitor: str,
+    gap: str | None,
+) -> None:
+    restore_rope_visitor(visitor)
+    text = gap or annotation_gap
+    (project / "pkg" / "gap.py").write_text(text)
+    assert _rename_foo(project, "--apply") == 0
+    assert "rope cannot follow" not in readouterr(capsys).err
+    assert (project / "pkg" / "gap.py").read_text() == text.replace("foo", "bar")
+    assert (project / "pkg" / "a.py").read_text().startswith("def bar() -> int:")
 
 
 def test_exception_outside_ropes_walker_propagates(project: Path, monkeypatch: pytest.MonkeyPatch) -> None:

@@ -1,0 +1,52 @@
+Renaming <area> to <measure>:
+Renaming <sync_model> to <sync>:
+Renaming <fetch> to <load>:
+
+
+--- a/pkg/m.py
++++ b/pkg/m.py
+@@ -3,31 +3,31 @@
+ 
+ class Shape:
+     @overload
+-    def area(self, x: int) -> int: ...
++    def measure(self, x: int) -> int: ...
+     @overload
+-    def area(self, x: str) -> str: ...
+-    def area(self, x: int | str) -> int | str:
++    def measure(self, x: str) -> str: ...
++    def measure(self, x: int | str) -> int | str:
+         return x
+ 
+ 
+ class Base:
+-    def sync_model(self, x: int) -> int:
++    def sync(self, x: int) -> int:
+         return x
+ 
+ 
+ class Child(Base):
+-    def sync_model(self, x: int) -> int:
+-        return super().sync_model(x)
++    def sync(self, x: int) -> int:
++        return super().sync(x)
+ 
+ 
+ class Store(Protocol):
+-    def fetch(self) -> int: ...
++    def load(self) -> int: ...
+ 
+ 
+ class Disk(Store):
+-    def fetch(self) -> int:
++    def load(self) -> int:
+         return 1
+ 
+ 
+ def use(s: Shape, c: Child, st: Store, d: Disk) -> object:
+-    return (s.area(1), c.sync_model(2), st.fetch(), d.fetch())
++    return (s.measure(1), c.sync(2), st.load(), d.load())
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

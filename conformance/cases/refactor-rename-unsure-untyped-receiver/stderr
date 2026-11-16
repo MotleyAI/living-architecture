@@ -1,0 +1,7 @@
+[resolve]
+[checks]
+[references]
+[references 1/1] entry 1: run -> go
+[rules]
+[rules 1/1] entry 1: run -> go: clean
+pkg/f.py:2: attr-blindspot: o.run — o is Unknown, so a rename of .run is unverifiable

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 import time
@@ -14,7 +15,9 @@ import pytest
 from project_files import file_tree
 
 from living_architecture.lang import (
+    PYRIGHT_EXPORT_PRELOAD,
     PYRIGHT_PATCH_PRELOAD,
+    ExportRequest,
     LanguageServer,
     LanguageServerError,
     Span,
@@ -183,3 +186,98 @@ def test_bundled_server_that_cannot_start_is_an_error(workspace: Path, monkeypat
     monkeypatch.setenv("NODE_OPTIONS", "--require /nonexistent.js")
     with pytest.raises(LanguageServerError), LanguageServer(workspace):
         pass
+
+
+# ---- the occurrence export
+
+
+def _word_spans(text: str, name: str) -> list[tuple[int, int]]:
+    return [(m.start(), m.end()) for m in re.finditer(rf"(?<!\w){name}(?!\w)", text)]
+
+
+def test_session_loads_the_export_preload_and_self_tests_the_command_once(workspace: Path, record: Path) -> None:
+    with _fake(workspace, record):
+        pass
+    records = _records(record)
+    [start] = [r for r in records if "cwd" in r]
+    env = start["env"]
+    assert str(PYRIGHT_PATCH_PRELOAD) in env["NODE_OPTIONS"]
+    assert str(PYRIGHT_EXPORT_PRELOAD) in env["NODE_OPTIONS"]
+    assert not Path(env["LA_PYRIGHT_EXPORT_RESULT"]).resolve().is_relative_to(workspace)
+    [command] = [r for r in records if "command" in r]
+    assert command["command"] == "la.exportOccurrences"
+    assert (command["arguments"][0]["names"], command["arguments"][0]["files"]) == ([], [])
+    assert file_tree(workspace) == {}
+
+
+@pytest.mark.parametrize("mode", ["no-export", "export-null", "export-unverified"])
+def test_a_server_whose_export_fails_its_self_test_is_an_error(workspace: Path, record: Path, mode: str) -> None:
+    with pytest.raises(LanguageServerError), _fake(workspace, record, mode):
+        pass
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        'class Rec:\r\n    pass\r\n\r\nr: "Rec" = Rec()\r\n',
+        "x = 1\rRec = 2\ry = Rec\n",
+        's = "😀"; Rec = 1\nt = "a😀b😀"; u = Rec',
+        'v = "😀Rec😀"; w = "é"\r\nRec = 1\r',
+    ],
+    ids=["crlf", "lone-cr", "astral-before", "astral-around"],
+)
+def test_export_spans_convert_against_the_opened_text(workspace: Path, record: Path, text: str) -> None:
+    path = workspace / "m.py"
+    with _fake(workspace, record) as server:
+        server.open(path, text)
+        index = server.export(ExportRequest(names=["Rec"], files=[path]))
+    assert sorted((o.span.start, o.span.end) for o in index.occurrences) == _word_spans(text, "Rec")
+    assert {(o.span.path, o.name) for o in index.occurrences} == {(path, "Rec")}
+
+
+def test_an_exported_span_off_the_old_name_is_an_error(workspace: Path, record: Path) -> None:
+    path = workspace / "m.py"
+    with _fake(workspace, record, "bad-range") as server:
+        server.open(path, "Rec = 1\n")
+        with pytest.raises(LanguageServerError):
+            server.export(ExportRequest(names=["Rec"], files=[path]))
+
+
+def test_bundled_server_exports_name_occurrences_with_kinds_and_declarations(workspace: Path) -> None:
+    path = workspace / "m.py"
+    text = '__all__ = ["Rec"]\n\n\nclass Rec:\n    pass\n\n\ndef make() -> "Rec":\n    return Rec()\n'
+    path.write_text(text, encoding="utf-8")
+    before = file_tree(workspace)
+    with LanguageServer(workspace) as server:
+        server.open(path, text)
+        index = server.export(ExportRequest(names=["Rec"], files=[path]))
+    declared = text.index("class Rec") + len("class ")
+    assert sorted((o.span.start, o.kind) for o in index.occurrences) == [
+        (text.index('"Rec"') + 1, "all-entry"),
+        (declared, "name"),
+        (text.index('"Rec":') + 1, "forward-reference"),
+        (text.rindex("Rec"), "name"),
+    ]
+    for o in index.occurrences:
+        if o.kind != "all-entry":
+            assert [(d.span.path, d.span.start) for d in o.declarations] == [(path, declared)]
+    assert file_tree(workspace) == before
+
+
+def test_bundled_server_exports_member_receiver_verdicts(workspace: Path) -> None:
+    path = workspace / "m.py"
+    text = (
+        "from typing import Any\n\n\nclass A:\n    def run(self) -> int:\n        return 1\n\n\n"
+        "def typed(a: A) -> int:\n    return a.run()\n\n\n"
+        "def untyped(o):\n    return o.run()\n\n\n"
+        "def anything(o: Any) -> int:\n    return o.run()\n"
+    )
+    path.write_text(text, encoding="utf-8")
+    with LanguageServer(workspace) as server:
+        server.open(path, text)
+        index = server.export(ExportRequest(names=["run"], files=[path]))
+    accesses = [m.start() for m in re.finditer(r"\.run\(", text)]
+    members = sorted((o.span.start, o.receiver) for o in index.occurrences if o.kind == "member")
+    assert members == [(accesses[0] + 1, None), (accesses[1] + 1, "Unknown"), (accesses[2] + 1, "Any")]
+    [typed] = [o for o in index.occurrences if o.span.start == accesses[0] + 1]
+    assert [(d.span.path, d.span.start) for d in typed.declarations] == [(path, text.index("def run") + len("def "))]
