@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, egor/dev-2307-living-architecture-profile-ci-to-find-where]  # TEMP profiling
   pull_request:
 
 permissions:
@@ -30,7 +30,13 @@ jobs:
       - run: uv sync --locked
       - run: uv run ruff check src tests
       - run: uv run basedpyright src tests
-      - run: uv run pytest -q
+      - run: nproc && lscpu | head -20 && free -m  # TEMP profiling
+      - run: time uv run pytest -q --durations=80 --junitxml="$RUNNER_TEMP/junit.xml"  # TEMP profiling
+      - uses: actions/upload-artifact@v4  # TEMP profiling
+        if: always()
+        with:
+          name: junit-test-${{ matrix.python-version }}
+          path: ${{ runner.temp }}/junit.xml
 
   # The built wheel and sdist, installed outside the checkout, carry the contract and run every command.
   package:
@@ -93,7 +99,13 @@ jobs:
         working-directory: python
       - run: npm ci
         working-directory: node
-      - run: scripts/conformance-cross --twin ${{ matrix.twin }}
+      - run: nproc && free -m  # TEMP profiling
+      - run: time scripts/conformance-cross --twin ${{ matrix.twin }} --durations=80 --junitxml="$RUNNER_TEMP/junit.xml"  # TEMP profiling
+      - uses: actions/upload-artifact@v4  # TEMP profiling
+        if: always()
+        with:
+          name: junit-cross-${{ matrix.twin }}
+          path: ${{ runner.temp }}/junit.xml
 
   # The TypeScript flow with only Node: the packed npm twin in a container without python or uv, with a PATH trap
   # that fails the run on any call to python, python3, uv or uvx.
