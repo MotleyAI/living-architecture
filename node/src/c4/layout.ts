@@ -1,7 +1,7 @@
 // The canonical LikeC4 layout: exactly `architecture/model.c4` and `architecture/views.c4`, each with its blocks.
-import { lstatSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { lstatSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { architecture, byCodePoint, decodeUtf8, message } from '../contract/index.js';
+import { architecture, byCodePoint, decodeUtf8, message, readFile } from '../contract/index.js';
 import { stripLineComment } from './model.js';
 
 const WORD_RE = /\w+/y;
@@ -259,7 +259,7 @@ function canonicalState(root: string, rel: string): CanonicalState {
 function read(path: string): FileScan | null {
   let text: string;
   try {
-    text = decodeUtf8(readFileSync(path));
+    text = decodeUtf8(readFile(path));
   } catch (error) {
     if (error instanceof TypeError) return null;
     throw error;

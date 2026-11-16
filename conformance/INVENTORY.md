@@ -24,6 +24,7 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | clean model | 0 | `arch-check-ok`, `arch-check-claims-child-module-file`, `arch-check-diagrams-fresh`, `arch-check-parse-spec-inline-statements`, `arch-check-spec-nested-spec-md-counts`, `arch-check-spec-no-openspec-dir-nothing-mapped`, `arch-check-tags-fences`, `arch-check-tags-id-on-next-line` |
 | repo root: `--root`, `.git` discovery from a subdir, no `.git` (cwd) | 0 | `arch-check-root-flag`, `arch-check-root-discovery-from-subdir`, `arch-check-root-without-git-is-cwd` |
 | `index.yaml` missing (OSError) | 2 | `arch-check-index-missing` |
+| *(new)* `index.yaml` unreadable, a directory, under a regular file, or another OS error (its symbolic code): the os.* text naming `architecture/index.yaml`, the same in both twins | 2 | `arch-check-index-permission-denied`, `arch-check-index-is-directory`, `arch-check-index-not-a-directory`, `arch-check-index-loop` |
 | `index.yaml` invalid YAML, *(new)* the error naming `architecture/index.yaml` | 2 | `arch-check-index-invalid-yaml` |
 | *(new)* `index.yaml` repeats a key: the duplicate-key error naming `architecture/index.yaml` | 2 | `arch-check-index-duplicate-key` |
 | *(new)* `index.yaml` top level not a mapping | 2 | `arch-check-index-not-mapping` |
@@ -146,7 +147,8 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | view not defined (incl. string view list) | 1 | `arch-diagrams-view-not-defined`, `arch-diagrams-view-ids-string-iterates` |
 | *(new)* a violated LikeC4 layout: the layout message, no doc rewritten | 1 | `arch-diagrams-no-views-file` |
 | missing / duplicate / out-of-order markers; earlier docs already written | 1 | `arch-diagrams-marker-missing`, `arch-diagrams-marker-duplicate`, `arch-diagrams-marker-order`, `arch-diagrams-first-error-stops-later-docs` |
-| mapped doc missing or a directory (OSError) | 1 | `arch-diagrams-doc-missing`, `arch-diagrams-doc-is-directory` |
+| mapped doc missing, unreadable, a directory or under a regular file: the os.* text naming the doc | 1 | `arch-diagrams-doc-missing`, `arch-diagrams-doc-permission-denied`, `arch-diagrams-doc-is-directory`, `arch-diagrams-doc-not-a-directory` |
+| *(new)* `architecture/` cannot be listed: the os.* text naming `architecture` | 1 | `arch-diagrams-untraversable` |
 | usage error; `--help` | 2/0 | `arch-diagrams-usage-unknown-flag`, `arch-diagrams-help` |
 | *(new)* a wrapped model renders as unwrapped: grandchild subgraphs, nested predicate endpoints, legacy roll-up, `view_depth` | 0 | `arch-diagrams-wrapped-nested-predicates-depth` |
 | *(new)* nested includes and predicate anchors reach relative to themselves: overlapping includes, anchor equal to an endpoint, descendant vs unrelated sources, self-edge collapse, mixed legacy contributors, nested ids in a flat diagram | 0 | `arch-diagrams-nested-selections` |
@@ -186,6 +188,7 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | *(new)* unversioned without a LikeC4 source: the index is never read, so a repeated key in it does not block the stamp | 0 | `arch-migrate-index-duplicate-key-without-model` |
 | *(new)* stamp placement: after leading comments and blank lines, after a directive and `---`, the file's CRLF, an empty file, a comment-only file without a final line break; a removed key does not block it | 0 | `arch-migrate-stamp-after-comments`, `arch-migrate-stamp-document-marker`, `arch-migrate-stamp-crlf`, `arch-migrate-stamp-empty`, `arch-migrate-stamp-comment-only`, `arch-migrate-schema-errors-kept` |
 | *(new)* refused, repo unchanged: no committed config (names `/la:init`); a newer or invalid format (the format check's message); an older format no release used; a config that cannot be read, is not valid YAML or not a mapping; a config the stamp cannot edit (set `format` by hand) | 2 | `arch-migrate-no-config`, `arch-migrate-format-newer`, `arch-migrate-format-invalid`, `arch-migrate-format-unknown-older`, `arch-migrate-config-invalid-yaml`, `arch-migrate-config-not-utf8`, `arch-migrate-config-scalar`, `arch-migrate-config-list`, `arch-migrate-stamp-flow-refused` |
+| *(new)* `architecture/` cannot be listed: the os.* text naming `architecture`, config not stamped | 2 | `arch-migrate-untraversable` |
 | *(new)* refused, repo unchanged: a legacy layout whose `index.yaml` is not valid UTF-8, not valid YAML, repeats a key (the duplicate-key error) or is not a mapping | 2 | `arch-migrate-index-not-utf8`, `arch-migrate-index-invalid-yaml`, `arch-migrate-index-duplicate-key`, `arch-migrate-index-not-mapping` |
 | *(new)* arc42 keys converted: doc moved to its id name, key line removed, emptied metadata block removed, diagrams key renamed, other bytes kept; doc already at its target; a statement or block sharing its line removed alone; cross-cutting docs flattened (a non-string entry left as is); legacy layout and arc42 keys in one run | 0 | `arch-migrate-arc42-keys-canonical`, `arch-migrate-arc42-doc-at-target`, `arch-migrate-arc42-emptied-metadata`, `arch-migrate-arc42-inline-statement`, `arch-migrate-cross-cutting-flattened`, `arch-migrate-cross-cutting-non-string-entry`, `arch-migrate-legacy-and-arc42-keys` |
 | *(new)* refused moves, nothing written: source missing (or outside the repo, or a doc already at its target), source moved twice (also a doc already at its target), shared target, target taken (also by another move's source), diagrams key taken; only the first refusal, by plan order then check order | 2 | `arch-migrate-refuse-source-missing`, `arch-migrate-refuse-source-outside-repo`, `arch-migrate-refuse-doc-at-target-missing`, `arch-migrate-refuse-source-moved-twice`, `arch-migrate-refuse-doc-at-target-claimed`, `arch-migrate-refuse-shared-target`, `arch-migrate-refuse-target-taken`, `arch-migrate-refuse-target-is-other-source`, `arch-migrate-refuse-diagrams-key-taken`, `arch-migrate-refuse-check-order`, `arch-migrate-refuse-elements-first` |
@@ -218,6 +221,7 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | *(new)* `living-architecture.local.yaml`: deep-merged over the committed file (or the defaults), one stderr note per key it sets in schema order (`show` only); an empty file overrides nothing | 0 | `config-local-show-override`, `config-local-deep-merge`, `config-local-without-committed`, `config-local-empty`, `config-get-local-override` |
 | *(new)* `living-architecture.local.yaml`: a key outside `tracker`/`reviewers.codex` (top level, nested, `format`), an invalid value, invalid YAML, a non-mapping top level (local file named) | 1 | `config-local-refused-top-key`, `config-local-refused-nested-key`, `config-local-format-refused`, `config-local-invalid-value`, `config-local-invalid-yaml`, `config-local-top-level-list` |
 | *(new)* a repeated key in `living-architecture.yaml` or `living-architecture.local.yaml`: a config error naming the file, the key and both lines | 1 | `config-show-duplicate-key`, `config-local-duplicate-key` |
+| *(new)* a config that cannot be read (the os.* text) or is not valid UTF-8 (invalid YAML): a config error, never a crash | 1 | `config-unreadable`, `config-not-utf8` |
 | *(new)* `format`: `null` in the defaults (shown in every `show` golden), `get format` | 0 | `config-show-defaults`, `config-get-format` |
 
 ## la-doctor
@@ -227,6 +231,7 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | healthy (defaults / config file / `--root`); no config file means no consistency checks | 0 | `doctor-ok-defaults`, `doctor-ok-config-file`, `doctor-root-flag` |
 | invalid config; `git`/`gh` missing; all problems in order | 1 | `doctor-config-invalid`, `doctor-missing-git`, `doctor-missing-gh`, `doctor-missing-both`, `doctor-all-problems-in-order` |
 | *(new)* a repeated config key: the failure names the file, the key and both lines | 1 | `doctor-config-duplicate-key` |
+| *(new)* `architecture/index.yaml` cannot be checked (here under a regular file): a failure with the os.* text, not absence | 1 | `doctor-index-not-a-directory` |
 | usage errors (`--expect` is no option); `--help` | 2/0 | `doctor-usage-unknown-flag`, `doctor-usage-expect-removed`, `doctor-help` |
 | *(new)* `--plugin DIR` matches the nearest `.claude-plugin/plugin.json` at or above DIR (absolute, past a non-file or dangling `plugin.json`; relative to the cwd) | 0 | `doctor-plugin-match`, `doctor-plugin-relative-dir`, `doctor-plugin-dangling-link` |
 | *(new)* `--plugin` DIR with a leading `//` resolves as `/` | 1 | `doctor-plugin-double-slash` |
@@ -257,7 +262,7 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | composite-assert (tests only); raises-single-throw (every callee form) | 1 | `conventions-composite-assert`, `conventions-raises-single-throw` |
 | test-file classification | 1/0 | `conventions-test-file-classification`, `conventions-test-file-classification-bare-names` |
 | waivers (valid, compact, wrong rule, no reason, wrong case) | 1 | `conventions-waivers` |
-| unreadable (decode error, directory); syntax error | 1 | `conventions-unreadable-binary`, `conventions-unreadable-directory`, `conventions-syntax-error` |
+| unreadable (decode error, directory, *(new)* under an unsearchable directory); syntax error | 1 | `conventions-unreadable-binary`, `conventions-unreadable-directory`, `conventions-unreadable-untraversable`, `conventions-syntax-error` |
 | text-ratio: source over, tests over, standalone strings; cap from flag / config | 1/0 | `conventions-text-ratio-source-over`, `conventions-text-ratio-tests-over`, `conventions-text-ratio-standalone-strings`, `conventions-text-ratio-cap-flag`, `conventions-text-ratio-config-cap` |
 | exempt globs (config + `--exclude`, fnmatch semantics) | 0 | `conventions-exempt-config-and-flag`, `conventions-accepted-invocation-vector`, `conventions-accepted-invocation-vector-with-exempt-file`, `conventions-equals-forms` |
 | `--base`: committed, staged, unstaged, untracked, deleted, renamed; origin vs local; *(new)* empty change set labelled `source` | 0/1 | `conventions-base-committed`, `conventions-base-working-tree`, `conventions-base-uses-origin-not-local`, `conventions-base-no-python-changes` |
@@ -293,7 +298,7 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | *(new)* composite-assert (`expect`, `assert`, `assert.ok`, parenthesized `&&`; not `||`, not outside tests) | 1 | `conventions-ts-composite-assert` |
 | *(new)* raises-single-throw: each `toThrow*` matcher, `.rejects`, `assert.throws`/`rejects`, `new` counted, multi-line; one call and `.not.toThrow` clean | 1 | `conventions-ts-raises-single-throw` |
 | *(new)* `// ALLOW(<rule>): <reason>` waivers per rule incl. a multi-line construct; wrong rule, no reason, lowercase, `#` form, later line do not waive | 1 | `conventions-ts-waivers` |
-| *(new)* syntax error (first parse diagnostic), excluded from text-ratio; invalid UTF-8 unreadable | 1 | `conventions-ts-syntax-error`, `conventions-ts-unreadable-invalid-utf8` |
+| *(new)* syntax error (first parse diagnostic), excluded from text-ratio; invalid UTF-8, a directory, or a file under an unsearchable directory unreadable | 1 | `conventions-ts-syntax-error`, `conventions-ts-unreadable-invalid-utf8`, `conventions-ts-unreadable-directory`, `conventions-ts-unreadable-untraversable` |
 | *(new)* every ScriptKind: `.js .jsx .mjs .cjs .tsx .mts .cts` | 1 | `conventions-ts-script-kinds` |
 | *(new)* TS test globs decide where tests-only rules apply | 1 | `conventions-ts-test-file-classification` |
 | *(new)* text-ratio at and just over the cap, per group | 0/1 | `conventions-ts-text-ratio-source-at-cap`, `conventions-ts-text-ratio-source-over`, `conventions-ts-text-ratio-tests-at-cap`, `conventions-ts-text-ratio-tests-over` |
@@ -421,6 +426,7 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 
 | Branch | Exit | Cases |
 |---|---|---|
+| *(new)* a config that cannot be read behaves as one that is not valid YAML, never a crash (both languages) | 0 | `refactor-config-permission-denied` |
 | rename: dry-run / apply by name, line+col, offset; hierarchy on/off; `--unsure include` warning; *(new)* changes printed sorted by path | 0 | `refactor-rename-dry-run`, `refactor-rename-apply`, `refactor-rename-single-file-dry-run`, `refactor-rename-single-file-apply`, `refactor-rename-line-col`, `refactor-rename-no-in-hierarchy`, `refactor-rename-offset`, `refactor-rename-unsure-include` |
 | move-symbol (*(new)* sorted by path); move-module (tracked, the move staged; untracked); `--project` | 0 | `refactor-move-symbol-apply`, `refactor-move-module-apply`, `refactor-move-module-uncommitted`, `refactor-project-flag` |
 | no locator; line, column (*(new)* the line's characters plus one) or offset (*(new)*) out of range; path outside the project | 1 | `refactor-no-locator`, `refactor-line-out-of-range`, `refactor-col-out-of-range`, `refactor-offset-out-of-range`, `refactor-path-outside-project` |
@@ -540,6 +546,7 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | *(new)* no `index.yaml` tsconfig: the file's nearest tsconfig.json (no root one; a root one that does not contain the file) | 0 | `refactor-ts-nested-tsconfig`, `refactor-ts-nested-tsconfig-root-elsewhere` |
 | *(new)* the tsconfig `index.yaml` names does not exist | 1 | `refactor-ts-index-tsconfig-missing` |
 | *(new)* `index.yaml` repeats a key (the duplicate-key error), is not valid YAML or not valid UTF-8: an error, nothing written, no fallback | 1 | `refactor-ts-index-duplicate-key`, `refactor-ts-index-invalid-yaml`, `refactor-ts-index-not-utf8` |
+| *(new)* `index.yaml` cannot be read: the os.* text naming `architecture/index.yaml`, nothing written | 1 | `refactor-ts-index-unreadable` |
 | *(new)* move-symbol: importers rewritten; default re-export rewritten; `export *` barrel gets an explicit re-export (none when it already re-exports the new file) and a mixed named re-export is split | 0 | `refactor-ts-move-symbol-apply`, `refactor-ts-move-symbol-default-reexport`, `refactor-ts-move-symbol-barrel`, `refactor-ts-move-symbol-barrel-covered` |
 | *(new)* move-module: a file (apply, the tracked move staged; dry-run), a directory, a directory with a file of a non-repo language | 0 | `refactor-ts-move-module-apply`, `refactor-ts-move-module-dry-run`, `refactor-ts-move-module-directory`, `refactor-ts-move-module-directory-stray-python` |
 | *(new)* moves edit only at references: a multi-name import split in place (move-symbol); a multi-name import, a statement between import groups, an unsorted block (move-module) | 0 | `refactor-ts-move-symbol-split-in-place`, `refactor-ts-move-module-references` |
@@ -651,4 +658,4 @@ contract:
 
 - `--help` text and parser error wording: the exit code is pinned and the streams are `ignore`.
 - Config validation wording: the exit code and the offending key are pinned (`contains`).
-- Wording from git and the YAML parser.
+- Wording from git.

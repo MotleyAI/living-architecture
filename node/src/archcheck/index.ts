@@ -1,7 +1,7 @@
 // Living-architecture cross-walk checker: code, LikeC4 model, arc42 docs and specs agree.
 import { type ModelParse, checkDiagramsFresh, layoutProblem, parseModel, parseViews } from '../c4/index.js';
 import { ConfigError, loadConfig } from '../config/index.js';
-import { message } from '../contract/index.js';
+import { isOsError, message, osErrorText } from '../contract/index.js';
 import { LangError } from '../lang/index.js';
 import { NATIVE_LANGUAGE, RelayedFailure, TwinError, requestFacts } from '../twin/index.js';
 import { checkClaims } from './claims.js';
@@ -83,12 +83,10 @@ export function emitFacts(root: string, language: string, topLevel = false): Fac
 }
 
 /** The text a setup error prints after `arch_check: `, or null when `error` is not a setup error. */
-function setupErrorText(error: unknown): string | null {
+function setupErrorText(error: unknown, root: string): string | null {
   if (error instanceof ArchCheckError || error instanceof ConfigError || error instanceof TwinError) return error.message;
   if (error instanceof LangError) return error.message;
-  const code = (error as NodeJS.ErrnoException)?.code;
-  if (typeof code === 'string' && code.startsWith('E')) return (error as Error).message;
-  return null;
+  return isOsError(error) ? osErrorText(error, root) : null;
 }
 
 /** `la-arch-check`: print the findings and a summary, or (`--emit facts`) one language's facts. */
@@ -102,7 +100,7 @@ export function run(root: string, language: string | null, emit: string | null, 
     out = findings(root);
   } catch (error) {
     if (error instanceof RelayedFailure) return 2;
-    const text = setupErrorText(error);
+    const text = setupErrorText(error, root);
     if (text === null) throw error;
     process.stderr.write(`${message('arch-check.setup-error', { error: text })}\n`);
     return 2;
@@ -124,7 +122,7 @@ export function runScaffold(root: string): number {
     writeScaffold(root, files);
   } catch (error) {
     if (error instanceof RelayedFailure) return 2;
-    const text = setupErrorText(error);
+    const text = setupErrorText(error, root);
     if (text === null) throw error;
     process.stderr.write(`${message('arch-scaffold.error', { error: text })}\n`);
     return 2;

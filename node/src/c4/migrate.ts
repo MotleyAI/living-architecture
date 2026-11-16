@@ -6,7 +6,6 @@ import {
   lstatSync,
   mkdirSync,
   mkdtempSync,
-  readFileSync,
   readdirSync,
   renameSync,
   rmSync,
@@ -31,8 +30,11 @@ import {
 import {
   byCodePoint,
   configFile,
+  isOsError,
   loadYaml,
   message,
+  osErrorText,
+  readFile,
   splitLines,
   splitLinesKeepEnds,
 } from '../contract/index.js';
@@ -107,7 +109,7 @@ export function mergedModel(scans: FileScan[]): string {
   return `${head}specification {${interiors(scans, 'specification')}}\nmodel {${interiors(scans, 'model')}}\n`;
 }
 
-const readExact = (path: string): string => readFileSync(path).toString('utf8');
+const readExact = (path: string): string => readFile(path).toString('utf8');
 
 function isFile(path: string): boolean {
   try {
@@ -310,7 +312,7 @@ function verify(root: string, before: ModelParse, plan: Plan, index: Index | nul
     if (stagedIndex !== null) writeFileSync(join(staging, INDEX_REL), stagedIndex, 'utf8');
     const views = plan.outputs.get(viewsFile());
     if (views !== undefined) writeFileSync(join(staging, viewsFile()), views, 'utf8');
-    else if (isFile(join(root, viewsFile()))) writeFileSync(join(staging, viewsFile()), readFileSync(join(root, viewsFile())));
+    else if (isFile(join(root, viewsFile()))) writeFileSync(join(staging, viewsFile()), readFile(join(root, viewsFile())));
     const modelText = plan.outputs.get(modelFile()) ?? readExact(join(root, modelFile()));
     const stagedModel = parseModelTexts([modelText]);
     after = [comparable(stagedModel), parseViews(staging, stagedModel)];
@@ -342,7 +344,7 @@ const modeOf = (path: string): number => statSync(path).mode & 0o7777;
 function stateOf(path: string): PathState {
   if (!lexists(path)) return ABSENT;
   if (lstatSync(path).isDirectory()) return { data: null, mode: modeOf(path), isDir: true };
-  return { data: readFileSync(path), mode: modeOf(path), isDir: false };
+  return { data: readFile(path), mode: modeOf(path), isDir: false };
 }
 
 const sameState = (a: PathState, b: PathState): boolean =>
@@ -484,7 +486,8 @@ export class Transaction {
       .map(([rel]) => rel)
       .sort(byCodePoint);
     if (left.length === 0) return null;
-    return new MigrateError(message('arch-migrate.rollback-failed', { error: error.message, paths: left.join(', ') }));
+    const text = isOsError(error) ? osErrorText(error, this.root) : error.message;
+    return new MigrateError(message('arch-migrate.rollback-failed', { error: text, paths: left.join(', ') }));
   }
 
   /** The net effect: written paths (`last` last), then composed moves, then deleted paths. */
@@ -528,7 +531,7 @@ function planOf(root: string): Plan {
   if (sources(root).length === 0) return NO_PLAN();
   const layout = classify(root);
   if (layout.state !== 'canonical' && layout.state !== 'legacy') throw new MigrateError(layout.message ?? '');
-  const legacy = new Map(layout.legacyFiles.map((rel) => [rel, readFileSync(join(root, rel))]));
+  const legacy = new Map(layout.legacyFiles.map((rel) => [rel, readFile(join(root, rel))]));
   let before: ModelParse;
   let modelText: string;
   if (legacy.size > 0) {
@@ -622,9 +625,9 @@ export function run(root: string): number {
   try {
     report = migrate(root);
   } catch (error) {
-    const code = (error as NodeJS.ErrnoException)?.code;
-    if (!(error instanceof MigrateError) && !(typeof code === 'string' && code.startsWith('E'))) throw error;
-    process.stderr.write(`${message('arch-migrate.error', { error: (error as Error).message })}\n`);
+    if (!(error instanceof MigrateError) && !isOsError(error)) throw error;
+    const text = isOsError(error) ? osErrorText(error, root) : error.message;
+    process.stderr.write(`${message('arch-migrate.error', { error: text })}\n`);
     return 2;
   }
   for (const line of report) process.stdout.write(`${line}\n`);

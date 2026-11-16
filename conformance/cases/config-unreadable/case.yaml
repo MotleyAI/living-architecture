@@ -1,0 +1,10 @@
+kind: neutral
+command: la-config
+args:
+- show
+chmod:
+  living-architecture.yaml: '0000'
+expect:
+  exit: 1
+golden: manual
+note: a config that cannot be read is a config error from the os.* templates, never a crash

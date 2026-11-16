@@ -1,1 +1,1 @@
-arch_check: index.yaml is not valid YAML
+arch_check: architecture/index.yaml: invalid YAML
