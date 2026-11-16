@@ -9,9 +9,10 @@ static reference remains; marked overrides turn a missed override into an error;
 dynamic (mock) reference into a failure. Green ⇒ provably no dangling reference.
 
 Tools (both twins, routed by each file's language):
-- `dr-refactor` — the mutator: `rename` / `rename-map` / `retarget` / `move-symbol` / `move-module`. Python runs
-  rope, and a rename adds every reference the bundled basedpyright resolves; TypeScript runs the bundled
-  TypeScript language service, one per project of the tsconfig's reference graph.
+- `dr-refactor` — the mutator: `rename` / `rename-map` / `retarget` / `move-symbol` / `move-module`. Python
+  resolves a rename's occurrences with the bundled basedpyright, and rope locates the symbol, renames modules and
+  computes moves; TypeScript runs the bundled TypeScript language service, one per project of the tsconfig's
+  reference graph.
 - `dr-mock-lint` — fail on test doubles not bound to the real type; `--base BRANCH` prints only the findings the
   base branch lacks
 - `dr-compliance` — report the constructs that make a refactor un-verifiable

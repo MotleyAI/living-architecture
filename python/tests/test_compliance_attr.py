@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 from project_files import write_project
+from refactor_cli import run
 
 from living_architecture.cli import dr_compliance
 from living_architecture.contract import message
@@ -322,3 +323,17 @@ def test_two_names_cover_string_member_forms(cwd: Path, capsys: pytest.CaptureFi
         message("compliance.attr-blindspot", path="m.py", line=2, receiver="o", attr="get_model", type="Unknown"),
         message("compliance.attr-blindspot", path="m.py", line=3, receiver="o", attr="save_model", type="Unknown"),
     ]
+
+
+def test_attr_reports_exactly_a_member_renames_blind_spots(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = write_project(tmp_path / "p", {"pkg/untyped.py": UNTYPED, "pkg/unions.py": UNIONS, "pkg/forms.py": STRING_FORMS})
+    monkeypatch.chdir(root)
+    assert _attr("pkg") == 1
+    reported = capsys.readouterr().out.splitlines()
+    rename = ["rename", "--file", "pkg/untyped.py", "--symbol", "Model.formula", "--new-name", "expr"]
+    code, _out, err = run(root, rename, monkeypatch, capsys)
+    assert code == 1
+    assert reported
+    assert [line for line in err.splitlines() if ": attr-blindspot: " in line] == reported

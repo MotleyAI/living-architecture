@@ -1,0 +1,42 @@
+Renaming <run> to <go>:
+
+
+--- a/pkg/m.py
++++ b/pkg/m.py
+@@ -1,21 +1,21 @@
+ class A:
+-    def run(self) -> int:
++    def go(self) -> int:
+         return 1
+ 
+ 
+ class B(A):
+-    def run(self) -> int:
++    def go(self) -> int:
+         return 2
+ 
+ 
+ class C(A):
+-    def run(self) -> int:
++    def go(self) -> int:
+         return 3
+ 
+ 
+ class D(B, C):
+-    def run(self) -> int:
+-        return super().run()
++    def go(self) -> int:
++        return super().go()
+ 
+ 
+ class M:
+@@ -28,4 +28,4 @@
+ 
+ 
+ def use(a: A, d: D, e: E) -> int:
+-    return a.run() + d.run() + e.run()
++    return a.go() + d.go() + e.run()
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

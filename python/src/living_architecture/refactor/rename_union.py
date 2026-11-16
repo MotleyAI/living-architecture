@@ -1,6 +1,7 @@
-"""A Python symbol rename: rope's edits, every reference basedpyright resolves to each renamed declaration, the
-keyed-class rewrites, member strings and patch targets, and with `--docs` mentions, as character spans over one
-snapshot of the project's files; a member rename first checks for blind spots and stand-ins."""
+"""A Python symbol rename: every occurrence the run's occurrence index resolves to a renamed declaration (and those
+rope resolves where the checker resolves none), the keyed-class rewrites, member strings and patch targets, and with
+`--docs` mentions, as character spans over one snapshot of the project's files; a member rename first checks for blind
+spots and stand-ins."""
 
 from __future__ import annotations
 
@@ -8,23 +9,22 @@ import ast
 import bisect
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterator
+from functools import partial
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 from rope.base import libutils, pynamesdef
 from rope.base.fscommands import read_str_coding
 from rope.base.project import Project
 from rope.base.pyobjectsdef import PyClass, PyFunction, PyModule
-from rope.base.resources import File
 from rope.refactor import occurrences
 from rope.refactor.rename import Rename, _is_local
 from typing_extensions import override
 
-from living_architecture.config import source_files
-from living_architecture.contract import manifest, message
-from living_architecture.lang import LanguageServer, Span
-from living_architecture.refactor.compound import is_compound
+from living_architecture.contract import message
+from living_architecture.lang import Occurrence, Span
+from living_architecture.refactor.hierarchy import ClassGraph, ClassKey
 from living_architecture.refactor.keyed import (
     Bindings,
     ClassRef,
@@ -34,16 +34,16 @@ from living_architecture.refactor.keyed import (
     field_assignment,
 )
 from living_architecture.refactor.member_scan import FormCall, MemberScan
-from living_architecture.refactor.members import classes, member_declarations
+from living_architecture.refactor.members import member_declarations
 from living_architecture.refactor.mentions import (
     Mention,
     MentionRules,
     Owner,
     classify,
     mentions,
-    source_regions,
 )
 from living_architecture.refactor.move_edits import NameConflict
+from living_architecture.refactor.occurrence_index import RunIndex
 from living_architecture.refactor.outcomes import (
     Finding,
     Outcome,
@@ -62,8 +62,8 @@ from living_architecture.refactor.routing import language_files
 from living_architecture.refactor.sites import Site
 from living_architecture.refactor.static_resolver import Module
 from living_architecture.refactor.text_edits import TextEdit
+from living_architecture.refactor.text_tables import TextTables
 from living_architecture.refactor.timings import timed
-from living_architecture.refactor.writer import FileChanged
 
 
 def _normalize(text: str) -> str:
@@ -116,6 +116,7 @@ class Session:
         self.project = project
         self.root = Path(project.address).resolve()
         self.snapshot = Snapshot(self.root)
+        self.tables = TextTables(self.root, self.snapshot.source)
         self._outside: dict[Path, SourceFile | None] = {}
 
     def rel(self, path: Path) -> str | None:
@@ -139,22 +140,12 @@ class Session:
         return source.text
 
 
-def _raw_offsets(raw: str) -> Callable[[int], int]:
-    """Maps an offset in rope's newline-normalized text to the same character in `raw`."""
-    positions: list[int] = []
-    index = raw.find("\r\n")
-    while index != -1:
-        positions.append(index - len(positions))
-        index = raw.find("\r\n", index + 2)
-    return lambda n: n + bisect.bisect_left(positions, n)
-
-
 def _declarations(source: SourceFile) -> set[tuple[int, int]]:
     """The spans of every name `source` declares: defs, classes, parameters and assignment targets."""
     if source.tree is None:
         return set()
     out: set[tuple[int, int]] = set()
-    for node in ast.walk(source.tree):
+    for node in source.nodes:
         stored = isinstance(node, (ast.Name, ast.Attribute)) and isinstance(node.ctx, ast.Store)
         if stored or isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.arg)):
             span = source.name_span(node)
@@ -167,7 +158,7 @@ def _field_of(source: SourceFile, line: int, name: str) -> tuple[ClassRef, ast.A
     """The class whose body declares field `name` at `line`, with the declaration."""
     if source.tree is None:
         return None
-    classes = (n for n in ast.walk(source.tree) if isinstance(n, ast.ClassDef))
+    classes = (n for n in source.nodes if isinstance(n, ast.ClassDef))
     for cls in classes:
         for stmt in cls.body:
             found = field_assignment(stmt, name) if stmt.lineno == line else None
@@ -199,7 +190,7 @@ def _conflict(source: SourceFile, rel: str, edits: list[TextEdit], old: str, new
         i = bisect.bisect_left(starts, span[0])
         return i < len(starts) and starts[i] < span[1]
 
-    for node in ast.walk(source.tree):
+    for node in source.nodes:
         items = _named_items(source, node)
         if any(name == new for name, _, _ in items):
             line = next((line for name, line, span in items if name == old and edited(span)), None)
@@ -215,19 +206,39 @@ def _parameter(fn: Function, name: str) -> ast.arg | None:
     return next((a for a in every_parameter(fn.args) if a.arg == name), None)
 
 
-def _same_named(tree: ast.Module, fn: Function) -> list[Function]:
+def _same_named(source: SourceFile, fn: Function) -> list[Function]:
     """The defs named like `fn` in the module or class body holding it; `[fn]` in any other body."""
-    for node in ast.walk(tree):
-        if isinstance(node, (ast.Module, ast.ClassDef)) and any(stmt is fn for stmt in node.body):
-            return [s for s in node.body if isinstance(s, (ast.FunctionDef, ast.AsyncFunctionDef)) and s.name == fn.name]
+    holder = source.parent(fn)
+    if isinstance(holder, (ast.Module, ast.ClassDef)) and any(stmt is fn for stmt in holder.body):
+        return [s for s in holder.body if isinstance(s, (ast.FunctionDef, ast.AsyncFunctionDef)) and s.name == fn.name]
     return [fn]
 
 
-def _keyword_spans(source: SourceFile) -> set[tuple[int, int]]:
-    """The name spans of every call keyword in `source`."""
-    if source.tree is None:
-        return set()
-    return {s for k in ast.walk(source.tree) if isinstance(k, ast.keyword) and (s := source.name_span(k)) is not None}
+class RopeSites:
+    """The occurrences the checker resolves to no declaration, each evaluated by rope at most once per run."""
+
+    def __init__(self, project: Project, snapshot: Snapshot) -> None:
+        self.project = project
+        self.snapshot = snapshot
+        self._tools: dict[str, Any] = {}
+        self._sites: dict[tuple[str, int], Any] = {}
+
+    def _occurrence(self, rel: str, start: int) -> Any:
+        if rel not in self._tools:
+            self._tools[rel] = occurrences._OccurrenceToolsCreator(  # pyright: ignore[reportPrivateUsage]
+                self.project, resource=self.project.get_resource(rel), docs=False)
+        if (rel, start) not in self._sites:
+            self._sites[rel, start] = occurrences.Occurrence(self._tools[rel], _rope_offset(self.snapshot.text(rel), start))
+        return self._sites[rel, start]
+
+    def matches(self, finder: Any, rel: str, start: int) -> bool:
+        """Whether rope's `finder` accepts the occurrence starting at `start` of `rel`, as its own search would."""
+        occurrence = self._occurrence(rel, start)
+        for found in finder.filters:
+            result = found(occurrence)
+            if result is not None:
+                return bool(result)
+        return False
 
 
 class RenameOptions(BaseModel):
@@ -263,8 +274,8 @@ def _rope_offset(raw: str, offset: int) -> int:
 
 
 class MapRename(ABC):
-    """A rename map entry's phases, run over all entries in turn: `prepare`, `seed` and `rules` (on the shared
-    language server), `finish`."""
+    """A rename map entry's phases, run over all entries in turn: `prepare`, `seed` and `rules` (on the run's
+    occurrence index), `finish`."""
 
     @abstractmethod
     def header(self) -> str: ...
@@ -273,13 +284,13 @@ class MapRename(ABC):
     def stand_in_findings(self) -> list[Finding]: ...
 
     @abstractmethod
-    def prepare(self) -> None: ...
+    def prepare(self, index: RunIndex) -> None: ...
 
     @abstractmethod
     def seed(self, facts: TypeFacts) -> None: ...
 
     @abstractmethod
-    def rules(self, server: LanguageServer, facts: TypeFacts) -> None: ...
+    def rules(self, index: RunIndex, facts: TypeFacts) -> None: ...
 
     @abstractmethod
     def finish(self) -> None: ...
@@ -289,11 +300,18 @@ class MapRename(ABC):
 
 
 class SymbolRename(MapRename):
-    """A rename of a symbol other than a module: `prepare` computes rope's edits and the stand-ins, `finish` the
-    mentions and leftovers."""
+    """A rename of a symbol other than a module, located by rope's `renamer` at `site` (a file and an offset in its
+    text): `prepare` finds the renamed declarations and the stand-ins, `rules` the edits, `finish` the mentions and
+    leftovers."""
 
-    def __init__(self, session: Session, renamer: Rename, new_name: str, options: RenameOptions | None = None) -> None:
+    def __init__(self, session: Session, renamer: Rename, new_name: str, options: RenameOptions | None = None, *,
+                 site: tuple[str, int], rope_sites: RopeSites | None = None) -> None:
         self.session = session
+        self.site = site
+        self.rope_sites = rope_sites or RopeSites(session.project, session.snapshot)
+        self._index: RunIndex | None = None
+        self._graph: ClassGraph | None = None
+        self._located_sites: set[tuple[str, int]] = set()
         self.project = session.project
         self.renamer = renamer
         self.options = options or RenameOptions()
@@ -323,62 +341,48 @@ class SymbolRename(MapRename):
         self._in_hierarchy = self.options.in_hierarchy
         self._unsure = self.options.unsure
 
-    def _finder(self, renamer: Rename, in_hierarchy: bool) -> Any:
+    def _finder(self, renamer: Rename) -> Any:
         return occurrences.create_finder(
             self.project,
             self.old,
             renamer.old_pyname,
-            unsure=(lambda *_: True) if self._unsure else None,
             docs=False,
             instance=renamer.old_instance,
-            in_hierarchy=in_hierarchy and renamer.is_method(),
+            in_hierarchy=self._in_hierarchy and renamer.is_method(),
         )
-
-    def _occurrences(self, renamer: Rename, in_hierarchy: bool) -> Iterator[tuple[str, int, int]]:
-        """rope's occurrences of `renamer`'s symbol in the candidate files, as raw spans."""
-        finder = self._finder(renamer, in_hierarchy)
-        for rel in self.candidates:
-            to_raw = _raw_offsets(self.snapshot.text(rel))
-            for occurrence in finder.find_occurrences(resource=cast(File, self.project.get_resource(rel))):
-                start, end = (to_raw(i) for i in occurrence.get_word_range())
-                yield rel, start, end
-
-    def _rope_edits(self) -> None:
-        pyname = self.renamer.old_pyname
-        resources: list[File] = [self.renamer.resource] if _is_local(pyname) else [
-            cast(File, self.project.get_resource(path.relative_to(self.root).as_posix())) for path in language_files(self.root, "python")
-        ]
-        self._validate()
-        self._files = sorted(r.path for r in resources)
-        for file_ in sorted(resources, key=lambda r: r.path):
-            text = file_.read()
-            if self.old not in text:
-                continue
-            rel = file_.path
-            if _normalize(self.snapshot.text(rel)) != text:
-                raise FileChanged(rel)
-            self.candidates.append(rel)
-        for renamer in self.renamers:
-            self._add_occurrences(renamer)
 
     def _validate(self) -> None:
         self.renamer.validate_changes(self.new)
 
-    def _add_occurrences(self, renamer: Rename) -> None:
-        declarations: dict[str, set[tuple[int, int]]] = {}
-        for rel, start, end in self._occurrences(renamer, self._in_hierarchy):
-            self.edits.append(TextEdit(path=rel, start=start, end=end, new_text=self.new))
-            if rel not in declarations:
-                declarations[rel] = _declarations(self.snapshot.source(rel))
-            if (start, end) in declarations[rel]:
-                self.seeds.add((rel, start))
+    def _project_declarations(self, found: Occurrence | None) -> set[tuple[str, int]]:
+        if found is None:
+            return set()
+        return {(rel, d.span.start) for d in found.declarations if (rel := self.session.rel(d.span.path)) is not None}
+
+    def _located(self, index: RunIndex) -> set[tuple[str, int]]:
+        """An import alias's own binding at the entry's site, else the declarations the checker resolves the site to;
+        where it resolves none in the project, those on the line rope finds the symbol defined at."""
+        rel, offset = self.site
+        at = index.at(self.root / rel, self.old, offset)
+        if at is not None and at.kind == "alias":
+            return {(rel, at.span.start)}
+        found = self._project_declarations(at)
+        if found:
+            return found
+        location = self.renamer.old_pyname.get_definition_location() if self.renamer.old_pyname is not None else None
+        module, line = location or (None, None)
+        resource = module.get_resource() if isinstance(module, PyModule) else None
+        if resource is None or line is None:
+            return set()
+        source = self.snapshot.source(resource.path)
+        return {(resource.path, s) for s, e in _declarations(source) if source.line(s) == line and source.text[s:e] == self.old}
 
     def _member_declarations(self) -> list[Declaration]:
         """Every declaration of a class member named like the symbol, in the candidate files."""
         out: list[Declaration] = []
         for rel in self.candidates:
             source = self.snapshot.source(rel)
-            for cls in classes(source.tree) if source.tree is not None else ():
+            for cls in source.of_type(ast.ClassDef):
                 for node in member_declarations(cls, self.old):
                     span = source.name_span(node)
                     if span is not None:
@@ -399,7 +403,7 @@ class SymbolRename(MapRename):
             source = self.snapshot.source(d.rel)
             if (d.rel, d.start) not in starts or source.tree is None:
                 continue
-            owner = next((cls for cls in classes(source.tree) if any(
+            owner = next((cls for cls in source.of_type(ast.ClassDef) if any(
                 (span := source.name_span(n)) is not None and span[0] == d.start
                 for n in member_declarations(cls, self.old))), None)
             if owner is not None:
@@ -412,15 +416,46 @@ class SymbolRename(MapRename):
             return False
         return any((d.rel, d.start) in self.seeds for d in self._declarations)
 
-    def _hierarchy(self, renamer: Rename) -> set[tuple[str, int]]:
-        """The member declarations rope renames with `renamer`'s symbol when the hierarchy is on."""
-        spans = {(d.rel, d.start) for d in self._declarations}
-        return {(rel, start) for rel, start, _ in self._occurrences(renamer, True) if (rel, start) in spans}
+    def _class_key(self, d: Declaration) -> ClassKey | None:
+        """The class declaring member declaration `d`, by the checker's class graph's key."""
+        assert self._graph is not None
+        source = self.snapshot.source(d.rel)
+        for cls in source.of_type(ast.ClassDef):
+            if any((span := source.name_span(n)) is not None and span[0] == d.start for n in member_declarations(cls, self.old)):
+                return self._graph.of(source, cls).key
+        return None
 
-    def _classify(self) -> None:
-        """Join every `--with` stand-in's hierarchy; record the stand-ins left unclassified."""
-        hierarchy = self._hierarchy(self.renamer)
+    def _roots(self, d: Declaration) -> frozenset[ClassKey]:
+        assert self._graph is not None
+        key = self._class_key(d)
+        found = self._graph.at(*key) if key is not None else None
+        return self._graph.roots(found, self.old) if found is not None else frozenset()
+
+    def _hierarchy(self, index: RunIndex, sites: set[tuple[str, int]], method: bool) -> set[tuple[str, int]]:
+        """The member declarations rope renames with the member declared at `sites` when the hierarchy is on: for a
+        method, those whose class's roots meet its class's; for any other member, its own declarations."""
+        spans = {(d.rel, d.start) for d in self._declarations}
+        at = [d for d in self._declarations if (d.rel, d.start) in sites]
+        if not method:
+            return {s for d in at for s in self._own(index, d)} & spans
+        roots = frozenset[ClassKey]().union(*(self._roots(d) for d in at))
+        return {(d.rel, d.start) for d in self._declarations if self._roots(d) & roots}
+
+    def located_hierarchy(self) -> set[tuple[str, int]]:
+        """The hierarchy of the located declaration, whether or not the rename's hierarchy flag is on."""
+        assert self._index is not None
+        return self._hierarchy(self._index, self._located_sites, self.renamer.is_method())
+
+    def _own(self, index: RunIndex, d: Declaration) -> set[tuple[str, int]]:
+        """The declarations of the member declared at `d`, as the checker resolves its name there."""
+        return self._project_declarations(index.at(self.root / d.rel, self.old, d.start)) | {(d.rel, d.start)}
+
+    def _classify(self, index: RunIndex) -> None:
+        """The renamed declarations: the hierarchy (with it on) and every `--with` stand-in's; record the stand-ins left
+        unclassified."""
+        hierarchy = self._hierarchy(index, self.seeds, self.renamer.is_method())
         stand_ins = [d for d in self._declarations if (d.rel, d.start) not in hierarchy]
+        renamed = set(hierarchy) | self.seeds if self._in_hierarchy else set(self.seeds)
         classified: set[tuple[str, int]] = set()
         for raw, joined in [*((s, True) for s in self.options.with_sites), *((s, False) for s in self.options.without_sites)]:
             site = Site.parse(raw, self.root, base=self.root)
@@ -428,12 +463,14 @@ class SymbolRename(MapRename):
             if matched:
                 self.matched_sites.add(raw)
             for d in matched:
-                raw_text = self.snapshot.text(d.rel)
-                renamer = Rename(self.project, self.project.get_resource(d.rel), _rope_offset(raw_text, d.start))
-                classified |= self._hierarchy(renamer) | {(d.rel, d.start)}
+                renamer = Rename(self.project, self.project.get_resource(d.rel), _rope_offset(self.snapshot.text(d.rel), d.start))
+                theirs = self._hierarchy(index, {(d.rel, d.start)}, renamer.is_method())
+                classified |= theirs | {(d.rel, d.start)}
                 if joined:
                     self.renamers.append(renamer)
+                    renamed |= theirs | {(d.rel, d.start)} if self._in_hierarchy else self._own(index, d)
         self._unclassified = [d for d in stand_ins if (d.rel, d.start) not in classified]
+        self.seeds = renamed
 
     @override
     def stand_in_findings(self) -> list[Finding]:
@@ -445,16 +482,32 @@ class SymbolRename(MapRename):
             if not self.is_renamed((d.rel, d.start))
         ]
 
-    def _reference_edits(self, server: LanguageServer) -> None:
-        candidates = set(self.candidates)
-        for rel, start in sorted(self.seeds):
-            for span in server.references(self.root / rel, start):
-                ref = self.session.rel(span.path)
-                if ref is None or ref not in candidates or self.snapshot.text(ref)[span.start : span.end] != self.old:
-                    continue
-                if (rel, start) in self.keywordless and (span.start, span.end) in _keyword_spans(self.snapshot.source(ref)):
-                    continue
-                self.edits.append(TextEdit(path=ref, start=span.start, end=span.end, new_text=self.new))
+    def _index_edits(self, index: RunIndex) -> None:
+        """Every occurrence resolving to a renamed declaration or through a renamed import alias (a keyword only through
+        one that takes keywords), every access with an untyped receiver under `--unsure include`, and each name, import
+        or alias the checker resolves to nothing that rope resolves to a renamed symbol."""
+        unresolved: list[tuple[str, Occurrence]] = []
+        for rel in self.candidates:
+            for o in index.occurrences(self.root / rel, self.old):
+                if self._renames(o) or (self._unsure and o.kind == "member" and o.receiver is not None):
+                    self.edits.append(TextEdit(path=rel, start=o.span.start, end=o.span.end, new_text=self.new))
+                elif not o.declarations and o.kind in ("name", "import", "alias"):
+                    unresolved.append((rel, o))
+        if not unresolved:
+            return
+        finders = [self._finder(r) for r in self.renamers]
+        for rel, o in unresolved:
+            if any(self.rope_sites.matches(f, rel, o.span.start) for f in finders):
+                self.edits.append(TextEdit(path=rel, start=o.span.start, end=o.span.end, new_text=self.new))
+
+    def _renames(self, o: Occurrence) -> bool:
+        """`o` resolves to a renamed declaration or through a renamed import alias (a keyword only through one that
+        takes keywords)."""
+        spans = [*(d.span for d in o.declarations), *o.bindings]
+        hits = {(r, s.start) for s in spans if (r := self.session.rel(s.path)) is not None} & self.seeds
+        if o.kind == "keyword":
+            hits -= self.keywordless
+        return bool(hits)
 
     def _located_field(self, renamer: Rename) -> tuple[ClassRef, ast.AnnAssign | ast.Assign, Span] | None:
         pyname = renamer.old_pyname
@@ -485,34 +538,39 @@ class SymbolRename(MapRename):
         if resource is None or resource.path not in self.candidates:
             return None
         node = fn.get_ast()
-        tree = self.snapshot.source(resource.path).tree
         found = (
             n
-            for n in (ast.walk(tree) if tree is not None else ())
+            for n in self.snapshot.source(resource.path).nodes
             if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
             and (n.lineno, n.col_offset, n.name) == (node.lineno, node.col_offset, node.name)
         )
         return next(((resource.path, n) for n in found), None)
 
-    def _method_declarations(self, fn: PyFunction, cls: PyClass) -> list[tuple[str, Function]]:
-        """The declarations a rename of method `fn` renames."""
+    def _method_declarations(self, fn: PyFunction) -> list[tuple[str, Function]]:
+        """The declarations a rename of method `fn` renames: its own, and with the hierarchy on those of every class
+        whose roots for its name meet its class's."""
+        assert self._graph is not None
         name = fn.get_name()
-        finder = occurrences.create_finder(self.project, name, cls[name], docs=False, in_hierarchy=self._in_hierarchy)
+        located = self._function_at(fn)
+        if located is None:
+            return []
+        rel, node = located
+        source = self.snapshot.source(rel)
+        owner = next((c for c in source.of_type(ast.ClassDef) if any(s is node for s in c.body)), None)
+        if owner is None:
+            return [located]
+        own = self._graph.of(source, owner)
+        roots = self._graph.roots(own, name)
         out: list[tuple[str, Function]] = []
-        for rel in self.candidates:
-            source = self.snapshot.source(rel)
-            if source.tree is None or name not in source.text:
+        for candidate in self.candidates:
+            found = self.snapshot.source(candidate)
+            if found.tree is None or name not in found.text:
                 continue
-            defs = {
-                source.name_span(n): n
-                for n in ast.walk(source.tree)
-                if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and n.name == name
-            }
-            to_raw = _raw_offsets(source.text)
-            for occurrence in finder.find_occurrences(resource=cast(File, self.project.get_resource(rel))):
-                start, end = (to_raw(i) for i in occurrence.get_word_range())
-                if (node := defs.get((start, end))) is not None:
-                    out.append((rel, node))
+            for c in found.of_type(ast.ClassDef):
+                graph_class = self._graph.of(found, c)
+                same = graph_class.key == own.key
+                if same or (self._in_hierarchy and self._graph.roots(graph_class, name) & roots):
+                    out += [(candidate, s) for s in c.body if isinstance(s, (ast.FunctionDef, ast.AsyncFunctionDef)) and s.name == name]
         return out
 
     def _parameter_declarations(self, facts: TypeFacts, fn: PyFunction) -> list[tuple[str, SourceFile, Function, ast.arg]]:
@@ -522,13 +580,13 @@ class SymbolRename(MapRename):
             return []
         defs = [located]
         if isinstance(fn.parent, PyClass):
-            defs += self._method_declarations(fn, fn.parent)
+            defs += self._method_declarations(fn)
         seen: set[tuple[str, int, int]] = set()
         out: list[tuple[str, SourceFile, Function, ast.arg]] = []
         for rel, node in defs:
             source = self.snapshot.source(rel)
             assert source.tree is not None
-            group = _same_named(source.tree, node)
+            group = _same_named(source, node)
             for member in group if any(facts.is_overload(source, m) for m in group) else [node]:
                 key = (rel, member.lineno, member.col_offset)
                 if key not in seen and (arg := _parameter(member, self.old)) is not None:
@@ -563,7 +621,7 @@ class SymbolRename(MapRename):
             calls = [c for c in scan.member_calls(path, source) if c.forms]
             if not calls:
                 continue
-            for call, (_, definitions) in zip(calls, scan.probe(path, source, calls), strict=True):
+            for call, (_, definitions) in zip(calls, scan.probe(path, calls), strict=True):
                 sites = [(self.session.rel(d.path) or "", d.start) for d in definitions]
                 renamed = [self.is_renamed(s) for s in sites] if any(s in self.seeds for s in sites) else []
                 self._file(string_member_outcome(rel, source, call, renamed, self.old, self.new))
@@ -633,13 +691,11 @@ class SymbolRename(MapRename):
         )
         declaring = {rel for rel, _ in self.seeds}
         files: list[tuple[str, list[Mention], bool]] = []
+        tables = self.session.tables
         for rel in self.candidates:
             source = self.snapshot.source(rel)
-            files.append((rel, mentions(source.text, self.old, source_regions(source), source.line), rel in declaring))
-        extensions = tuple(manifest()["dr-refactor"]["prose_extensions"])
-        for rel in sorted(source_files(self.root, [])):
-            if not rel.endswith(extensions):
-                continue
+            files.append((rel, mentions(source.text, self.old, iter(tables.regions(rel)), source.line), rel in declaring))
+        for rel in tables.prose():
             try:
                 source = self.snapshot.source(rel)
             except (OSError, UnicodeDecodeError, LookupError):
@@ -655,39 +711,38 @@ class SymbolRename(MapRename):
 
     def _compound_names(self) -> None:
         """Each declaration in a project source whose name holds OLD as a word sequence, listed."""
-        for path in language_files(self.root, "python"):
-            rel = path.relative_to(self.root).as_posix()
-            try:
-                source = self.snapshot.source(rel)
-            except (OSError, UnicodeDecodeError, LookupError):
-                continue
-            if source.tree is None:
-                continue
-            for node in ast.walk(source.tree):
-                name = _declared_name(node)
-                span = source.name_span(node) if name is not None else None
-                if name is not None and span is not None and name not in self.renamed_names and is_compound(name, self.old):
-                    self._file(compound_outcome(rel, source, span, name, self.old))
+        rels = [path.relative_to(self.root).as_posix() for path in language_files(self.root, "python")]
+        for rel, name, span in self.session.tables.compounds(rels, self.old):
+            if name not in self.renamed_names:
+                self._file(compound_outcome(rel, self.snapshot.source(rel), span, name, self.old))
 
     def _literal_leftovers(self) -> None:
         """Without `--docs`: each string literal exactly OLD that no rule examined, listed; every project file, as an
         escape can spell OLD."""
         for rel in self._files:
-            source = self.snapshot.source(rel)
-            for outcome in literal_outcomes(rel, source, self.old, lambda s, e, rel=rel: self._overlaps(self._examined, rel, s, e)):
+            spans = self.session.tables.literals(rel).get(self.old, [])
+            handled = partial(self._overlaps, self._examined, rel)
+            for outcome in literal_outcomes(rel, self.snapshot.source(rel), self.old, handled, spans) if spans else []:
                 self._file(outcome)
 
     @override
-    def prepare(self) -> None:
-        """rope's edits, the member declarations and the stand-in classification; raises `FileChanged`."""
+    def prepare(self, index: RunIndex) -> None:
+        """The renamed declarations, the member declarations and the stand-in classification."""
         with timed("references"):
-            self._rope_edits()
+            self._index = index
+            self._graph = ClassGraph(index, self.session.load)
+            self._validate()
+            pyname = self.renamer.old_pyname
+            local = _is_local(pyname)
+            self._files = [self.renamer.resource.path] if local else sorted(
+                path.relative_to(self.root).as_posix() for path in language_files(self.root, "python"))
+            self.candidates = [rel for rel in self._files if self.old in self.snapshot.text(rel)]
             self._declarations = self._member_declarations()
+            self.seeds = self._located(index)
+            self._located_sites = set(self.seeds)
             self.member = self.is_member()
             if self.member:
-                self._classify()
-                for renamer in self.renamers[1:]:
-                    self._add_occurrences(renamer)
+                self._classify(index)
             self._fields = [f for r in self.renamers if (f := self._located_field(r)) is not None]
 
     @override
@@ -701,14 +756,14 @@ class SymbolRename(MapRename):
                 facts.chain(field[0])
 
     @override
-    def rules(self, server: LanguageServer, facts: TypeFacts) -> None:
-        """Every rule that asks the checker: references, keyed classes, member strings, targets, blind spots."""
+    def rules(self, index: RunIndex, facts: TypeFacts) -> None:
+        """Every rule over the index: occurrences, keyed classes, member strings, targets, blind spots."""
         with timed("references"):
-            self._reference_edits(server)
+            self._index_edits(index)
         with timed("rules"):
             for field in self._fields:
                 self._keyed_edits(facts, field)
-            scan = MemberScan(server, self.old, self.session.load)
+            scan = MemberScan(index, self.old, self.session.load)
             if self.member:
                 self._string_member_edits(scan)
             self._target_edits(scan, self.member)
@@ -733,19 +788,6 @@ class SymbolRename(MapRename):
             return
         for rel in sorted({e.path for e in edits}):
             _conflict(self.snapshot.source(rel), rel, [e for e in edits if e.path == rel], self.old, self.new)
-
-
-def _declared_name(node: ast.AST) -> str | None:
-    """The name a def, class, parameter or assignment target declares."""
-    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-        return node.name
-    if isinstance(node, ast.arg):
-        return node.arg
-    if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
-        return node.id
-    if isinstance(node, ast.Attribute) and isinstance(node.ctx, ast.Store):
-        return node.attr
-    return None
 
 
 def _top_declarations(stmt: ast.stmt, name: str) -> list[ast.AST]:

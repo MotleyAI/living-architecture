@@ -24,7 +24,7 @@ import pytest
 import yaml
 
 from living_architecture import __version__
-from living_architecture.contract import config_file, contract_hash, snapshot_dir
+from living_architecture.contract import config_file, contract_hash, language, snapshot_dir
 
 
 def _repo_root() -> Path:
@@ -259,6 +259,8 @@ def _environment(root: Path, case: dict, twin: str) -> dict[str, str]:
     fake_gh_cli.write_routes(root / "gh-routes.json", case.get("gh", []))
     before, after = _fake_bins(root, case)
     tools = _tools_dir(frozenset({*hidden, *_ALWAYS_HIDDEN}))
+    cache = root / "cache"
+    cache.mkdir()
     env = {
         "PATH": os.pathsep.join([str(fake_bin), *before, *_twin_dirs(case, twin), *after, str(tools)]),
         "HOME": str(home),
@@ -279,6 +281,7 @@ def _environment(root: Path, case: dict, twin: str) -> dict[str, str]:
         "http_proxy": "http://127.0.0.1:9",
         "https_proxy": "http://127.0.0.1:9",
         "FAKE_GH_ROUTES": str(root / "gh-routes.json"),
+        language("python")["cache_dir_variable"]: str(cache),
     }
     env.update({k: substitute(str(v), root) for k, v in case.get("env", {}).items()})
     return env
@@ -690,3 +693,18 @@ def test_json_stream_ignores_formatting_but_not_array_order(tmp_path: Path) -> N
     assert _check_json(golden, json.dumps({"b": None, "a": [1, 2], "v": __version__})) == []
     assert _check_json(golden, '{"a": [2, 1], "b": null}')
     assert _check_json(golden, '{"a": [1, 2]} trailing')
+
+
+def test_every_case_runs_with_a_fresh_cache_directory_of_its_own(tmp_path: Path) -> None:
+    case_dir = CORPUS / "cases" / "refactor-rename-dry-run"
+    case = load_case(case_dir)
+    dirs = []
+    for root in (tmp_path / "one", tmp_path / "two"):
+        repo, env = materialize(case_dir, case, root, variants(case)[0])
+        cache = Path(env["LA_CACHE_DIR"])
+        assert cache.is_dir()
+        assert not any(cache.iterdir())
+        assert cache.is_relative_to(root)
+        assert not cache.is_relative_to(repo)
+        dirs.append(cache)
+    assert dirs[0] != dirs[1]

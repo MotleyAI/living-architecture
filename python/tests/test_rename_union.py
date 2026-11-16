@@ -11,7 +11,7 @@ from refactor_cli import readouterr
 
 from living_architecture.cli import dr_refactor
 from living_architecture.contract import message
-from living_architecture.lang import LanguageServer, LanguageServerError, Span
+from living_architecture.lang import ExportRequest, LanguageServer, LanguageServerError, OccurrenceIndex
 
 MakeProject = Callable[..., Path]
 BROKEN_NODE = "--require /nonexistent.js"
@@ -150,7 +150,7 @@ def test_language_server_that_cannot_start(
 
 
 @pytest.mark.parametrize("apply", [False, True], ids=["dry-run", "apply"])
-def test_language_server_failing_after_rope_computed_its_changes(
+def test_language_server_failing_during_the_export(
     typed_project: MakeProject, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], apply: bool
 ) -> None:
     def fail(*_: object, **__: object) -> None:
@@ -158,7 +158,7 @@ def test_language_server_failing_after_rope_computed_its_changes(
 
     root = typed_project({"pkg/models.py": FORWARD_REFS})
     before = file_tree(root)
-    monkeypatch.setattr(LanguageServer, "references", fail)
+    monkeypatch.setattr(LanguageServer, "export", fail)
     assert _rename(root, "pkg/models.py", "Recommendation", "--symbol", "Rec", apply=apply) == 1
     out, err = readouterr(capsys)
     assert out == ""
@@ -170,15 +170,15 @@ def test_a_file_changed_before_the_write_aborts_with_nothing_written(
     typed_project: MakeProject, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     root = typed_project({"pkg/models.py": FORWARD_REFS, "pkg/use.py": FORWARD_USE})
-    original = LanguageServer.references
+    original = LanguageServer.export
 
-    def touching(self: LanguageServer, path: Path, offset: int) -> list[Span]:
+    def touching(self: LanguageServer, request: ExportRequest) -> OccurrenceIndex:
         use = root / "pkg" / "use.py"
         if not use.read_text(encoding="utf-8").endswith("# edited\n"):
             use.write_text(use.read_text(encoding="utf-8") + "# edited\n", encoding="utf-8")
-        return original(self, path, offset)
+        return original(self, request)
 
-    monkeypatch.setattr(LanguageServer, "references", touching)
+    monkeypatch.setattr(LanguageServer, "export", touching)
     assert _rename(root, "pkg/models.py", "Recommendation", "--symbol", "Rec") == 1
     assert readouterr(capsys) == ("", message("refactor.file-changed", path="pkg/use.py") + "\n")
     assert _read(root, "pkg/models.py") == FORWARD_REFS

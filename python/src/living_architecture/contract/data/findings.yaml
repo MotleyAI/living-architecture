@@ -325,7 +325,7 @@ findings:
   refactor.line-out-of-range: line {line} out of range (file has {count} lines)
   refactor.no-locator: provide one of --offset, --line [--col], or --symbol
   refactor.outside-project: 'path is not inside the project: {path}'
-  refactor.unsure-warning: 'WARNING: --unsure=include also renames occurrences rope cannot resolve; it may rewrite unrelated attributes of the same name.'
+  refactor.unsure-warning: 'WARNING: --unsure=include also renames occurrences the checker cannot resolve; it may rewrite unrelated attributes of the same name.'
   refactor.applied: "\nAPPLIED. {count} file(s) changed:"
   refactor.applied-file: '  {path}'
   refactor.dry-run: "\nDRY-RUN. {count} file(s) would change. Re-run with --apply."

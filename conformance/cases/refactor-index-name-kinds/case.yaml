@@ -1,0 +1,19 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- rename
+- --file
+- pkg/mod.py
+- --symbol
+- Rec
+- --new-name
+- Record
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: 'every name occurrence kind of a class: forward references, an __all__ entry,
+  an import alias (kept) and a package re-export'

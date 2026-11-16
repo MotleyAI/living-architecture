@@ -138,3 +138,14 @@ def test_wheel_carries_the_pyright_patch_preload(artifacts, tmp_path):
     ).stdout.strip()
     assert Path(located).is_relative_to(tmp_path / "venv")
     assert Path(located).read_bytes() == source.read_bytes()
+
+
+def test_wheel_carries_the_occurrence_export_preload(artifacts, tmp_path):
+    source = PROJECT / "src" / "living_architecture" / "lang" / "pyright_export.cjs"
+    assert _wheel_file(artifacts["wheel"], "living_architecture/lang/pyright_export.cjs") == source.read_bytes()
+    bin_dir = _install(artifacts["wheel"], tmp_path)
+    located = subprocess.run(
+        [str(bin_dir / "python"), "-c", "from living_architecture import lang; print(lang.PYRIGHT_EXPORT_PRELOAD)"],
+        capture_output=True, text=True, check=True,
+    ).stdout.strip()
+    assert Path(located).read_bytes() == source.read_bytes()

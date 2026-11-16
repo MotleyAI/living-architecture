@@ -181,6 +181,7 @@ which uses it:
 - [Commands](https://github.com/MotleyAI/living-architecture/blob/main/docs/commands.md): the `la-*` and `dr-*` commands
 - [Running the checks in CI](https://github.com/MotleyAI/living-architecture/blob/main/docs/ci.md)
 - [Deterministic refactoring](https://github.com/MotleyAI/living-architecture/blob/main/docs/deterministic-refactoring.md)
+- [Inside dr-refactor](https://github.com/MotleyAI/living-architecture/blob/main/docs/refactoring-internals.md): the libraries and processes behind it
 - [Development](https://github.com/MotleyAI/living-architecture/blob/main/docs/development.md): working from a checkout, layout, releasing
 - [Contributing](https://github.com/MotleyAI/living-architecture/blob/main/CONTRIBUTING.md) and
   [release notes](https://github.com/MotleyAI/living-architecture/releases)

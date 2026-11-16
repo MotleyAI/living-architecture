@@ -1,0 +1,47 @@
+Renaming <columns> to <fields>:
+
+
+--- a/pkg/mod.py
++++ b/pkg/mod.py
+@@ -2,4 +2,4 @@
+ 
+ 
+ class Model(BaseModel):
+-    s: str = "😀é𝒳"; columns: list[int] = []
++    s: str = "😀é𝒳"; fields: list[int] = []
+
+--- a/pkg/use.py
++++ b/pkg/use.py
+@@ -4,22 +4,22 @@
+ 
+ 
+ def read(m: Model) -> list[int]:
+-    s = "😀"; return m.columns
++    s = "😀"; return m.fields
+ 
+ 
+ def build() -> Model:
+-    s = "𝒳😀"; return Model(columns=[])
++    s = "𝒳😀"; return Model(fields=[])
+ 
+ 
+ def parse() -> Model:
+     s = "😀"; t = 1
+-    return Model.model_validate({"😀": [], "columns": []})
++    return Model.model_validate({"😀": [], "fields": []})
+ 
+ 
+ def dynamic(m: Model) -> object:
+-    s = "😀"; return getattr(m, "columns")
++    s = "😀"; return getattr(m, "fields")
+ 
+ 
+ def patched() -> None:
+-    s = "😀"; p = patch.object(Model, "columns")
+-    s = "😀"; q = patch("pkg.mod.Model.columns")+    s = "😀"; p = patch.object(Model, "fields")
++    s = "😀"; q = patch("pkg.mod.Model.fields")
+
+
+APPLIED. 2 file(s) changed:
+  pkg/mod.py
+  pkg/use.py

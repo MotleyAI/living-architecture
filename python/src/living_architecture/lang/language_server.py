@@ -1,7 +1,9 @@
-"""The bundled basedpyright language server: one isolated, patched stdio session answering position queries."""
+"""The bundled basedpyright language server: one isolated, patched stdio session answering position queries and
+exporting occurrence indexes."""
 
 from __future__ import annotations
 
+import bisect
 import contextlib
 import json
 import os
@@ -23,11 +25,20 @@ from nodejs_wheel import executable as node_wheel
 from pydantic import BaseModel, ConfigDict
 
 from living_architecture.contract import language, os_error_text
-from living_architecture.lang.typecheck import pyright_patch_env, read_pyright_patch
+from living_architecture.lang.typecheck import (
+    pyright_export_env,
+    pyright_patch_env,
+    read_pyright_export,
+    read_pyright_patch,
+)
 
 _LINE_BREAK = re.compile(r"\r\n|\r|\n")
 _ISOLATION = {"PYTHONSAFEPATH": "1", "PYTHONNOUSERSITE": "1", "PYTHONDONTWRITEBYTECODE": "1"}
 _EOF = object()
+EXPORT_COMMAND = "la.exportOccurrences"
+OccurrenceKind = Literal["name", "member", "keyword", "import", "alias", "module", "forward-reference", "all-entry"]
+FactKind = Literal["definition", "typeDefinition", "verdict", "access"]
+Verdict = Literal["Unknown", "Any"]
 
 
 class LanguageServerError(Exception):
@@ -63,6 +74,72 @@ class Diagnostic(BaseModel):
     message: str
 
 
+class Declaration(BaseModel):
+    """A declaration an occurrence resolves to, as the definition request finds it: its name's span."""
+
+    model_config = ConfigDict(frozen=True)
+
+    span: Span
+
+
+class Occurrence(BaseModel):
+    """An occurrence of an exported name: its span, kind, declarations, the import bindings it passes through on the
+    way to them (each the span of the name it binds, in order) and, for a member access, whether the checker types its
+    receiver `Unknown` or `Any`."""
+
+    model_config = ConfigDict(frozen=True)
+
+    span: Span
+    name: str
+    kind: OccurrenceKind
+    declarations: tuple[Declaration, ...] = ()
+    bindings: tuple[Span, ...] = ()
+    receiver: Verdict | None = None
+
+
+class FactQuery(BaseModel):
+    """What to export about the position `offset` of `path`."""
+
+    model_config = ConfigDict(frozen=True)
+
+    path: Path
+    offset: int
+    kinds: tuple[FactKind, ...]
+
+
+class PositionFacts(BaseModel):
+    """The facts exported about one position: definitions and type definitions as those requests find them, the
+    hover verdict there, and for a member name the verdict of its access's receiver."""
+
+    model_config = ConfigDict(frozen=True)
+
+    path: Path
+    offset: int
+    kinds: tuple[FactKind, ...]
+    definition: tuple[Span, ...] = ()
+    type_definition: tuple[Span, ...] = ()
+    verdict: Verdict | None = None
+    access: Verdict | None = None
+
+
+class ExportRequest(BaseModel):
+    """The names whose occurrences to export from `files` (opened), and the position facts to export."""
+
+    model_config = ConfigDict(frozen=True)
+
+    names: list[str]
+    files: list[Path]
+    facts: list[FactQuery] = []
+
+
+class OccurrenceIndex(BaseModel):
+    """An export: the occurrences, the facts asked for, in request order, and the facts the export followed."""
+
+    occurrences: list[Occurrence] = []
+    answers: list[PositionFacts] = []
+    followed: list[PositionFacts] = []
+
+
 def _line_starts(text: str) -> list[int]:
     return [0, *(m.end() for m in _LINE_BREAK.finditer(text))]
 
@@ -83,10 +160,11 @@ def utf16_index(text: str, line: int, character: int, starts: list[int] | None =
     return index
 
 
-def utf16_position(text: str, index: int) -> tuple[int, int]:
-    """The LSP position (0-based line, UTF-16 column) of a character index."""
-    starts = _line_starts(text)
-    line = next(i for i in range(len(starts) - 1, -1, -1) if starts[i] <= index)
+def utf16_position(text: str, index: int, starts: list[int] | None = None) -> tuple[int, int]:
+    """The LSP position (0-based line, UTF-16 column) of a character index; `starts` is `text`'s line starts, when
+    known."""
+    starts = _line_starts(text) if starts is None else starts
+    line = bisect.bisect_right(starts, index) - 1
     return line, sum(_units(c) for c in text[starts[line] : index])
 
 
@@ -132,6 +210,7 @@ class LanguageServer:
         self._command = command or _bundled_command()
         self._read = read or _read_text
         self._texts: dict[Path, str] = {}
+        self._starts: dict[Path, list[int]] = {}
         self._versions: dict[Path, int] = {}
         self._next_id = 0
         self._messages: queue.Queue[Any] = queue.Queue()
@@ -157,9 +236,11 @@ class LanguageServer:
     def _start(self) -> None:
         self._scratch = tempfile.mkdtemp(prefix="la-langserver-")
         result = Path(self._scratch) / "patch.json"
-        versions: list[str] = language("python")["checker_patch_versions"]
+        exported = Path(self._scratch) / "export.json"
+        python = language("python")
         inherited = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
-        env = {**pyright_patch_env(inherited, result=result, versions=versions), **_ISOLATION}
+        patched = pyright_patch_env(inherited, result=result, versions=python["checker_patch_versions"])
+        env = {**pyright_export_env(patched, result=exported, versions=python["checker_export_versions"]), **_ISOLATION}
         try:
             self._proc = subprocess.Popen(
                 self._command,
@@ -187,10 +268,14 @@ class LanguageServer:
             },
         })
         patch = read_pyright_patch(result)
-        if patch is None or patch.outcome != "patched":
+        export = read_pyright_export(exported)
+        if patch is None or patch.outcome != "patched" or export is None or export.outcome != "patched":
             raise self._fail("unpatched", "other")
         self._notify("initialized", {})
         self._await_configuration()
+        found = self._execute({"names": [], "files": []})
+        if not isinstance(found, dict) or not isinstance(cast(dict[str, Any], found).get("occurrences"), list):
+            raise self._fail("export", "other")
 
     def _fail(self, error: str, kind: Literal["start", "exit", "error", "other"]) -> LanguageServerError:
         """The error to raise, its stderr and exit code filled in when the session stops."""
@@ -310,6 +395,13 @@ class LanguageServer:
             self._texts[path] = self._read(path)
         return self._texts[path]
 
+    def _index(self, path: Path, position: dict[str, Any]) -> int:
+        """The character index in `path`'s text of an LSP position, its line starts computed once per text."""
+        text = self._text(path)
+        if path not in self._starts:
+            self._starts[path] = _line_starts(text)
+        return utf16_index(text, position["line"], position["character"], self._starts[path])
+
     def open(self, path: Path, text: str) -> None:
         """Hand the server `text` as the content of `path`; a path already open is changed to it."""
         if path in self._versions:
@@ -317,6 +409,7 @@ class LanguageServer:
                 self.change(path, text)
             return
         self._texts[path] = text
+        self._starts.pop(path, None)
         self._versions[path] = 1
         self._notify("textDocument/didOpen", {
             "textDocument": {"uri": path.as_uri(), "languageId": "python", "version": 1, "text": text}
@@ -325,6 +418,7 @@ class LanguageServer:
     def change(self, path: Path, text: str) -> None:
         """Replace the content of `path`, opened before, with `text`."""
         self._texts[path] = text
+        self._starts.pop(path, None)
         self._versions[path] += 1
         self._notify("textDocument/didChange", {
             "textDocument": {"uri": path.as_uri(), "version": self._versions[path]},
@@ -332,7 +426,10 @@ class LanguageServer:
         })
 
     def _position(self, path: Path, offset: int) -> dict[str, Any]:
-        line, character = utf16_position(self._text(path), offset)
+        text = self._text(path)
+        if path not in self._starts:
+            self._starts[path] = _line_starts(text)
+        line, character = utf16_position(text, offset, self._starts[path])
         return {"textDocument": {"uri": path.as_uri()}, "position": {"line": line, "character": character}}
 
     def _span(self, location: dict[str, Any]) -> Span | None:
@@ -342,29 +439,16 @@ class LanguageServer:
             return None
         path = _path_of(uri)
         try:
-            text = self._text(path)
+            return Span(path=path, start=self._index(path, rng["start"]), end=self._index(path, rng["end"]))
         except OSError:
             return None
-        start, end = rng["start"], rng["end"]
-        return Span(
-            path=path,
-            start=utf16_index(text, start["line"], start["character"]),
-            end=utf16_index(text, end["line"], end["character"]),
-        )
 
     def _locations(self, method: str, path: Path, offset: int, extra: dict[str, Any] | None = None) -> list[Span]:
         result = self._request(method, {**self._position(path, offset), **(extra or {})})
-        return [span for item in _as_list(result) if (span := self._span(item)) is not None]
-
-    def references(self, path: Path, offset: int) -> list[Span]:
-        """Every reference to the symbol at `offset`, its declarations included."""
-        return self._locations("textDocument/references", path, offset, {"context": {"includeDeclaration": True}})
+        return list(self._spans(_as_list(result)))
 
     def definition(self, path: Path, offset: int) -> list[Span]:
         return self._locations("textDocument/definition", path, offset)
-
-    def type_definition(self, path: Path, offset: int) -> list[Span]:
-        return self._locations("textDocument/typeDefinition", path, offset)
 
     def diagnostics(self, path: Path) -> list[Diagnostic]:
         """The diagnostics of `path` as its current text stands (a pull request)."""
@@ -380,14 +464,77 @@ class LanguageServer:
                                   message=str(item.get("message", ""))))
         return out
 
-    def hover(self, path: Path, offset: int) -> str | None:
-        """The hover text at `offset`, or None."""
-        result = self._request("textDocument/hover", self._position(path, offset))
-        if not result:
+    def _execute(self, request: dict[str, Any]) -> Any:
+        return self._request("workspace/executeCommand", {"command": EXPORT_COMMAND, "arguments": [request]})
+
+    def _exported_span(self, item: dict[str, Any], name: str) -> Span:
+        """An occurrence's range in the text its file was opened with; `LanguageServerError` unless it spells `name`."""
+        path = _path_of(item["uri"])
+        span = Span(path=path, start=self._index(path, item["range"]["start"]), end=self._index(path, item["range"]["end"]))
+        if self._text(path)[span.start : span.end] != name:
+            raise self._fail("export", "other")
+        return span
+
+    def _declaration(self, location: dict[str, Any]) -> Declaration | None:
+        """A declaration's span from its name on: a `*args` or `**kwargs` parameter's stars left out."""
+        span = self._span(location)
+        if span is None:
             return None
-        contents = result.get("contents")
-        if isinstance(contents, dict):
-            return str(contents.get("value", ""))
-        if isinstance(contents, list):
-            return "\n".join(c if isinstance(c, str) else str(c.get("value", "")) for c in contents)
-        return str(contents)
+        text = self._text(span.path)
+        start = span.start
+        while start < span.end and text[start] in "* \t":
+            start += 1
+        return Declaration(span=span.model_copy(update={"start": start}))
+
+    def _spans(self, locations: list[dict[str, Any]] | None) -> tuple[Span, ...]:
+        spans = (self._span(d) for d in locations or [])
+        return tuple(s for s in spans if s is not None)
+
+    def _declarations(self, locations: list[dict[str, Any]] | None) -> tuple[Declaration, ...]:
+        found = (self._declaration(d) for d in locations or [])
+        return tuple(d for d in found if d is not None)
+
+    def _facts(self, item: dict[str, Any], path: Path | None = None, offset: int | None = None) -> PositionFacts:
+        if path is None or offset is None:
+            path = _path_of(item["uri"])
+            position = item["position"]
+            offset = self._index(path, position)
+        kinds = tuple(k for k in ("definition", "typeDefinition", "verdict", "access") if k in item)
+        return PositionFacts(
+            path=path, offset=offset, kinds=cast(tuple[FactKind, ...], kinds),
+            definition=self._spans(item.get("definition")),
+            type_definition=self._spans(item.get("typeDefinition")),
+            verdict=item.get("verdict"), access=item.get("access"),
+        )
+
+    def _followed(self, items: list[dict[str, Any]] | None) -> list[PositionFacts]:
+        """The followed facts, each in a file that can be read."""
+        out: list[PositionFacts] = []
+        for item in items or []:
+            with contextlib.suppress(OSError):
+                out.append(self._facts(item))
+        return out
+
+    def export(self, request: ExportRequest) -> OccurrenceIndex:
+        """The occurrences of `request.names` in its files (opened before) and its position facts, in one request."""
+        result = self._execute({
+            "names": request.names,
+            "files": [p.as_uri() for p in request.files],
+            "facts": [{"uri": q.path.as_uri(), "position": self._position(q.path, q.offset)["position"], "kinds": list(q.kinds)}
+                      for q in request.facts],
+        })
+        if not isinstance(result, dict):
+            raise self._fail("export", "error")
+        found = cast(dict[str, Any], result)
+        occurrences = [
+            Occurrence(
+                span=self._exported_span(item, item["name"]), name=item["name"], kind=item["kind"],
+                declarations=self._declarations(item.get("declarations")),
+                bindings=self._spans(item.get("bindings")),
+                receiver=item.get("receiver"),
+            )
+            for item in found.get("occurrences") or []
+        ]
+        answers = [self._facts(item, q.path, q.offset) for q, item in zip(request.facts, found.get("answers") or [], strict=True)]
+        followed = self._followed(found.get("followed"))
+        return OccurrenceIndex(occurrences=occurrences, answers=answers, followed=followed)

@@ -1,5 +1,5 @@
 """The receivers of a member name basedpyright cannot type, and the calls that name a member by a string: one scan
-behind `dr-compliance --attr` and a rename's blind spots and string rewrites."""
+over the run's occurrence index behind `dr-compliance --attr` and a rename's blind spots and string rewrites."""
 
 from __future__ import annotations
 
@@ -12,10 +12,10 @@ from pathlib import Path
 from pydantic import BaseModel, ConfigDict
 
 from living_architecture.contract import language
-from living_architecture.lang import LanguageServer, Span
+from living_architecture.lang import FactQuery, Span
+from living_architecture.refactor.occurrence_index import RunIndex
 from living_architecture.refactor.python_source import SourceFile
 
-_HOVER = re.compile(r"\([\w ]+\) [\w.]+: (.*)", re.DOTALL)
 _SPACE = re.compile(r"\s+")
 
 
@@ -61,38 +61,6 @@ class FormCall(BaseModel):
     forms: tuple[StringForm, ...] | None
 
 
-def hover_type(hover: str | None) -> str | None:
-    """`Unknown` or `Any` when a hover's declared type is, or is a union holding, either; else None."""
-    if hover is None or (m := _HOVER.match(hover.split("\n\n")[0])) is None:
-        return None
-    members: list[str] = []
-    depth, start, text = 0, 0, m.group(1)
-    for i, char in enumerate(text):
-        if char in "[(":
-            depth += 1
-        elif char in "])":
-            depth -= 1
-        elif depth == 0 and text.startswith(" | ", i):
-            members.append(text[start:i])
-            start = i + 3
-    members = [t.strip() for t in [*members, text[start:]]]
-    return next((kind for kind in ("Unknown", "Any") if kind in members), None)
-
-
-def _access_kind(server: LanguageServer, path: Path, source: SourceFile, node: ast.Attribute) -> str | None:
-    """`Unknown` or `Any` in the type of `node`'s receiver: hovered when a name or attribute, else read from the access
-    when no declaration of the member is itself typed so."""
-    receiver = node.value
-    if isinstance(receiver, (ast.Name, ast.Attribute)):
-        span = source.name_span(receiver)
-        return hover_type(server.hover(path, span[0])) if span else None
-    span = source.name_span(node)
-    if span is None or (kind := hover_type(server.hover(path, span[0]))) is None:
-        return None
-    declared = (hover_type(server.hover(d.path, d.start)) for d in server.definition(path, span[0]))
-    return None if any(declared) else kind
-
-
 def plain_literal(source: SourceFile, node: ast.expr) -> tuple[tuple[int, int], str] | None:
     """The inner span and text of a single-quoted or double-quoted string literal without prefix or escapes."""
     if not (isinstance(node, ast.Constant) and isinstance(node.value, str)):
@@ -129,8 +97,8 @@ def _module_of(path: Path) -> str | None:
 class FormResolver:
     """Which registry forms a callee's declarations are."""
 
-    def __init__(self, server: LanguageServer, load: Callable[[Path], SourceFile | None]) -> None:
-        self.server = server
+    def __init__(self, index: RunIndex, load: Callable[[Path], SourceFile | None]) -> None:
+        self.index = index
         self._load = load
         self._classes: dict[Path, list[ast.ClassDef]] = {}
 
@@ -139,7 +107,7 @@ class FormResolver:
         if source is None or source.tree is None:
             return None
         if span.path not in self._classes:
-            self._classes[span.path] = [n for n in ast.walk(source.tree) if isinstance(n, ast.ClassDef)]
+            self._classes[span.path] = [n for n in source.nodes if isinstance(n, ast.ClassDef)]
         line = source.line(span.start)
         chain = sorted(
             (c for c in self._classes[span.path] if c.lineno <= line <= (c.end_lineno or c.lineno)), key=lambda c: c.lineno
@@ -152,7 +120,7 @@ class FormResolver:
         span = source.name_span(call.func)
         if span is None:
             return ()
-        definitions = self.server.definition(path, span[0])
+        definitions = self.index.definition(path, span[0])
         if not definitions:
             return None
         found: dict[str, StringForm] = {}
@@ -190,25 +158,30 @@ def _target_literal(source: SourceFile, call: ast.Call, form: StringForm, name: 
 
 
 class MemberScan:
-    """The scan of member name `name` over files opened in `server`."""
+    """The scan of member name `name` over the run's occurrence index."""
 
-    def __init__(self, server: LanguageServer, name: str, load: Callable[[Path], SourceFile | None]) -> None:
-        self.server = server
+    def __init__(self, index: RunIndex, name: str, load: Callable[[Path], SourceFile | None]) -> None:
+        self.index = index
         self.name = name
-        self.callees = FormResolver(server, load)
+        self.callees = FormResolver(index, load)
 
     def accesses(self, path: Path, source: SourceFile) -> Iterator[Blindspot]:
         """`x.NAME` accesses whose receiver is typed `Unknown` or `Any`."""
         if source.tree is None:
             return
-        for node in ast.walk(source.tree):
+        for node in source.nodes:
             if not (isinstance(node, ast.Attribute) and node.attr == self.name):
                 continue
-            if (kind := _access_kind(self.server, path, source, node)) is not None:
+            span = source.name_span(node)
+            kind = self.index.receiver(path, self.name, span[0]) if span is not None else None
+            if kind is not None:
                 yield Blindspot(line=node.lineno, col=node.col_offset, receiver=receiver_text(source, node.value), kind=kind)
 
     def member_calls(self, path: Path, source: SourceFile) -> list[FormCall]:
         """Calls with a member form's syntax whose member literal is NAME, with what their callee resolves to."""
+        return self.index.memo(("member_calls", path, self.name), lambda: self._member_calls(path, source))
+
+    def _member_calls(self, path: Path, source: SourceFile) -> list[FormCall]:
         out: list[FormCall] = []
         for call in _calls(source):
             callee = _dotted(call.func)
@@ -228,6 +201,9 @@ class MemberScan:
     def target_calls(self, path: Path, source: SourceFile) -> list[FormCall]:
         """Calls whose dotted target has a segment NAME: resolving to a target form, or with a target form's syntax
         and an unresolved callee (`forms` None)."""
+        return self.index.memo(("target_calls", path, self.name), lambda: self._target_calls(path, source))
+
+    def _target_calls(self, path: Path, source: SourceFile) -> list[FormCall]:
         out: list[FormCall] = []
         targets = [f for f in FORMS if f.target is not None]
         for call in _calls(source):
@@ -250,33 +226,27 @@ class MemberScan:
         obj = found.obj
         if isinstance(obj, (ast.Name, ast.Attribute)):
             span = source.name_span(obj)
-            return hover_type(self.server.hover(path, span[0])) if span else None
+            return self.index.verdict(path, span[0]) if span else None
         return None
 
-    def probe(self, path: Path, source: SourceFile, calls: list[FormCall]) -> list[tuple[str | None, list[Span]]]:
+    def probe(self, path: Path, calls: list[FormCall]) -> list[tuple[str | None, list[Span]]]:
         """For each resolved member call, its object's kind when not a name or attribute, and the declarations
-        `obj.NAME` lands on, in the file's own offsets."""
-        probe = Probe(source, calls, self.name)
-        self.server.change(path, probe.text)
-        try:
-            probed = SourceFile(path, probe.text)
-            out: list[tuple[str | None, list[Span]]] = []
-            for i, found in enumerate(calls):
-                access = _access_at(probed, probe.accesses[i])
-                kind = None
-                if access is not None and not isinstance(found.obj, (ast.Name, ast.Attribute)):
-                    kind = _access_kind(self.server, path, probed, access)
-                out.append((kind, [probe.original(d) for d in self.server.definition(path, probe.accesses[i])]))
-            return out
-        finally:
-            self.server.change(path, source.text)
+        `obj.NAME` lands on, in the files' own offsets: the run's probe round, read back."""
+        out: list[tuple[str | None, list[Span]]] = []
+        for found in calls:
+            kind, definitions = self.index.probe_result(path, found.literal) or (None, [])
+            out.append((kind if not isinstance(found.obj, (ast.Name, ast.Attribute)) else None, definitions))
+        return out
 
     def blindspots(self, path: Path, source: SourceFile) -> list[Blindspot]:
         """Every blind spot of NAME in the file: untyped access receivers and string-member objects or callees."""
+        return self.index.memo(("blindspots", path, self.name), lambda: self._blindspots(path, source))
+
+    def _blindspots(self, path: Path, source: SourceFile) -> list[Blindspot]:
         found = list(self.accesses(path, source))
         calls = self.member_calls(path, source)
         probed = [c for c in calls if c.forms is not None and not isinstance(c.obj, (ast.Name, ast.Attribute))]
-        kinds = dict(zip(map(id, probed), (k for k, _ in self.probe(path, source, probed)), strict=True)) if probed else {}
+        kinds = dict(zip(map(id, probed), (k for k, _ in self.probe(path, probed)), strict=True)) if probed else {}
         for call in calls:
             kind = kinds.get(id(call)) if id(call) in kinds else self.object_kind(path, source, call)
             if kind is not None:
@@ -320,17 +290,42 @@ class TextProbe:
 
 
 class Probe(TextProbe):
-    """`source` with each member call's literal replaced by `(obj).NAME`; `accesses[i]` is where call `i`'s access
-    names NAME."""
+    """`source` with each member call's literal replaced by `(obj).NAME` (NAME the call's own unless `name` is given);
+    `accesses[i]` is where call `i`'s access names NAME."""
 
-    def __init__(self, source: SourceFile, calls: list[FormCall], name: str) -> None:
+    def __init__(self, source: SourceFile, calls: list[FormCall], name: str | None = None) -> None:
         substitutions: list[tuple[int, int, str, int]] = []
         for call in calls:
             assert call.obj is not None
             start, end = call.literal
             receiver = f"({source.segment(call.obj)})."
-            substitutions.append((start - 1, end + 1, receiver + name, len(receiver)))
+            substitutions.append((start - 1, end + 1, receiver + (name or call.text), len(receiver)))
         super().__init__(source, substitutions)
+
+
+def probe_round(index: RunIndex, files: list[tuple[Path, SourceFile]], names: list[str],
+                load: Callable[[Path], SourceFile | None]) -> None:
+    """One export over every file holding resolved member calls naming one of `names`: each file opened as its probe
+    text, the declarations and receiver verdict of each probe access recorded by its call's literal."""
+    probes: dict[Path, tuple[Probe, list[FormCall]]] = {}
+    for path, source in files:
+        calls = [c for name in names if name in source.text
+                 for c in MemberScan(index, name, load).member_calls(path, source) if c.forms is not None]
+        if calls:
+            probes[path] = (Probe(source, calls), calls)
+    queries = [FactQuery(path=path, offset=offset, kinds=("definition", "access"))
+               for path, (probe, _) in probes.items() for offset in probe.accesses]
+    index.probe({path: probe.text for path, (probe, _) in probes.items()}, queries)
+
+    def original(span: Span) -> Span:
+        found = probes.get(span.path)
+        return found[0].original(span) if found is not None else span
+
+    for path, (probe, calls) in probes.items():
+        for call, offset in zip(calls, probe.accesses, strict=True):
+            facts = index.probed(path, offset)
+            if facts is not None:
+                index.record_probe(path, call.literal, facts.access, [original(d) for d in facts.definition])
 
 
 def receiver_text(source: SourceFile, node: ast.expr) -> str:
@@ -339,14 +334,4 @@ def receiver_text(source: SourceFile, node: ast.expr) -> str:
 
 def _calls(source: SourceFile) -> Iterator[ast.Call]:
     if source.tree is not None:
-        yield from (n for n in ast.walk(source.tree) if isinstance(n, ast.Call))
-
-
-def _access_at(source: SourceFile, offset: int) -> ast.Attribute | None:
-    """The attribute access whose member name starts at `offset`."""
-    if source.tree is None:
-        return None
-    return next(
-        (n for n in ast.walk(source.tree) if isinstance(n, ast.Attribute) and (s := source.name_span(n)) and s[0] == offset),
-        None,
-    )
+        yield from (n for n in source.nodes if isinstance(n, ast.Call))

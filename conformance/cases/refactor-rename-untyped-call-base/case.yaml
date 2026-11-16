@@ -1,0 +1,19 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- rename
+- --file
+- pkg/a.py
+- --symbol
+- Base.run
+- --new-name
+- go
+git:
+- commit: init
+expect:
+  exit: 1
+golden: manual
+note: 'a class whose base is a call the checker leaves untyped: its same-named method is a stand-in, not in the renamed
+  hierarchy'

@@ -19,6 +19,7 @@ from living_architecture.refactor.keyed import TypeFacts
 from living_architecture.refactor.locators import RefactorError
 from living_architecture.refactor.member_scan import TextProbe
 from living_architecture.refactor.mentions import docstrings
+from living_architecture.refactor.occurrence_index import RunIndex
 from living_architecture.refactor.outcomes import Finding, Outcome, file_outcome
 from living_architecture.refactor.python_source import SourceFile
 from living_architecture.refactor.rename_union import MapRename, RenameOptions, Session
@@ -40,7 +41,7 @@ def literal_member_at(source: SourceFile, offset: int) -> ast.Constant | None:
     """The string inside a `Literal[...]` subscript whose span holds `offset`."""
     if source.tree is None:
         return None
-    literals = (n for n in ast.walk(source.tree) if isinstance(n, ast.Subscript) and names_literal(n.value))
+    literals = (n for n in source.nodes if isinstance(n, ast.Subscript) and names_literal(n.value))
     strings = (i for n in literals for i in ast.walk(n.slice) if isinstance(i, ast.Constant) and isinstance(i.value, str))
     return next((i for i in strings if source.span(i)[0] <= offset < source.span(i)[1]), None)
 
@@ -184,7 +185,7 @@ class LiteralRename(MapRename):
         """Every rule of a literal rename asks the checker."""
 
     @override
-    def prepare(self) -> None:
+    def prepare(self, index: RunIndex) -> None:
         """Every string literal whose value is the member's; the candidates are their files and the project sources
         whose imports reach the member's file."""
         with timed("literal-scan"):
@@ -223,9 +224,9 @@ class LiteralRename(MapRename):
             return []
         parents = _parents(source.tree)
         skipped = {id(d) for d in docstrings(source.tree)}
-        skipped |= {id(v) for n in ast.walk(source.tree) if isinstance(n, ast.JoinedStr) for v in n.values}
+        skipped |= {id(v) for n in source.nodes if isinstance(n, ast.JoinedStr) for v in n.values}
         out: list[_Site] = []
-        for node in ast.walk(source.tree):
+        for node in source.nodes:
             if isinstance(node, ast.Constant) and node.value == self.old and id(node) not in skipped:
                 parent = parents.get(node)
                 display = source.span(parent) if isinstance(parent, _DISPLAYS) else None  # pyright: ignore[reportArgumentType]
@@ -270,10 +271,12 @@ class LiteralRename(MapRename):
         return out
 
     @override
-    def rules(self, server: LanguageServer, facts: TypeFacts) -> None:
-        """The probe's rounds: candidates, the verification, then the remaining equal strings."""
+    def rules(self, index: RunIndex, facts: TypeFacts) -> None:
+        """The probe's rounds on the run's language server: candidates, the verification, then the remaining equal
+        strings."""
         if self._member is None or self._member.inner is None:
             return
+        server = index.opened(self.root / rel for rel in self.candidates)
         with timed("literal-probe"):
             before: dict[str, set[Key]] = {}
             typed = self._typed(server, before)

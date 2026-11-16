@@ -60,6 +60,14 @@ class FakeGh:
         }
 
 
+@pytest.fixture(autouse=True)
+def cache_dir(tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Each test's own occurrence-index cache, outside its project."""
+    path = tmp_path_factory.mktemp("la-cache")
+    monkeypatch.setenv("LA_CACHE_DIR", str(path))
+    return path
+
+
 @pytest.fixture
 def fake_gh(tmp_path: Path) -> FakeGh:
     return FakeGh(tmp_path)

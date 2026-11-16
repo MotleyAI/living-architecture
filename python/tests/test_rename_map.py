@@ -9,9 +9,14 @@ from pathlib import Path
 import pytest
 import yaml
 from project_files import file_tree, write_project
-from refactor_cli import assert_same_run, line_col, read, run, template_regex
+from refactor_cli import assert_same_run, line_col, read, run, run_raw, template_regex
+from rope.base.exceptions import RefactoringError
 
 from living_architecture.contract import message
+from living_architecture.refactor.occurrence_index import ServerSession
+from living_architecture.refactor.rename_map import RenameMap
+from living_architecture.refactor.rename_union import SymbolRename
+from living_architecture.refactor.text_edits import TextEdit
 
 STORAGE = """\
 class StorageBackend:
@@ -416,3 +421,67 @@ def test_entries_sharing_an_old_name_report_each_blind_spot_once(
     code, _out, err = run(root, _rename_map(), monkeypatch, capsys)
     blind = message("compliance.attr-blindspot", path="pkg/m.py", line=12, receiver="x", attr="save", type="Unknown")
     assert (code, err) == (1, f"{blind}\n{message('refactor.blindspots', count=1, attr='save')}\n")
+
+
+def test_a_failure_after_the_export_stops_the_server_and_keeps_the_cache(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], cache_dir: Path
+) -> None:
+    root = _project(tmp_path, {"pkg/a.py": A}, [{"file": "pkg/a.py", "symbol": "A.old", "new_name": "new"}])
+    closed: list[ServerSession] = []
+    close = ServerSession.close
+
+    def recording_close(self: ServerSession) -> None:
+        closed.append(self)
+        close(self)
+
+    def failing_rules(self: RenameMap, *args: object) -> list[list[object]]:
+        raise RuntimeError("rules failed")
+
+    monkeypatch.setattr(ServerSession, "close", recording_close)
+    monkeypatch.setattr(RenameMap, "rules", failing_rules)
+    argv = _rename_map(apply=False)
+    with pytest.raises(RuntimeError, match="rules failed"):
+        run_raw(root, argv, monkeypatch, capsys)
+    assert closed
+    assert list((cache_dir / "occurrences").glob("*.json"))
+
+
+ROPE_FAILS = """\
+def old() -> int:
+    return 1
+
+
+class B:
+    def other(self) -> int:
+        return 2
+
+
+def use(x):
+    return x.other()
+"""
+
+
+def test_a_rope_error_in_one_entrys_rules_refuses_that_entry(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = _project(tmp_path, {"pkg/a.py": ROPE_FAILS}, [
+        {"file": "pkg/a.py", "symbol": "old", "new_name": "new"},
+        {"file": "pkg/a.py", "symbol": "B.other", "new_name": "another"},
+    ])
+    index_edits = SymbolRename._index_edits  # pyright: ignore[reportPrivateUsage]
+
+    def failing(self: SymbolRename, index: object) -> None:
+        if self.old == "old":
+            clash = ROPE_FAILS.index("other")
+            self.edits.append(TextEdit(path="pkg/a.py", start=clash, end=clash + len("other"), new_text="clash"))
+            raise RefactoringError("rope failed")
+        index_edits(self, index)  # pyright: ignore[reportArgumentType]
+
+    monkeypatch.setattr(SymbolRename, "_index_edits", failing)
+    before = file_tree(root)
+    code, out, err = run(root, _rename_map(), monkeypatch, capsys)
+    assert (code, out) == (1, "")
+    blind = message("compliance.attr-blindspot", path="pkg/a.py", line=11, receiver="x", attr="other", type="Unknown")
+    closing = message("refactor.blindspots", count=1, attr="other")
+    assert err == f"{message('refactor.cannot-rename')}\n{blind}\n{closing}\n"
+    assert file_tree(root) == before

@@ -1,0 +1,9 @@
+- file: pkg/m.py
+  symbol: Shape.area
+  new_name: measure
+- file: pkg/m.py
+  symbol: Base.sync_model
+  new_name: sync
+- file: pkg/m.py
+  symbol: Store.fetch
+  new_name: load

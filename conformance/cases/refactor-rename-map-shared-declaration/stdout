@@ -1,0 +1,24 @@
+Renaming <source> to <population>:
+Renaming <source> to <population>:
+
+
+--- a/pkg/a.py
++++ b/pkg/a.py
+@@ -1,10 +1,10 @@
+ class Query:
+-    source: int = 0
++    population: int = 0
+ 
+ 
+ class Request:
+-    source: int = 0
++    population: int = 0
+ 
+ 
+ def use(q: Query, r: Request) -> int:
+-    return q.source + r.source
++    return q.population + r.population
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

@@ -220,7 +220,7 @@ commands:
           - {name: --no-in-hierarchy, type: flag, dest: in_hierarchy, store: false,
              help: 'disable hierarchy rename (on by default: also renames overrides in sub/superclasses; Python only)'}
           - {name: --unsure, type: string, choices: [skip, include], default: skip,
-             help: 'occurrences rope cannot resolve: skip (default) or include (risky; Python only)'}
+             help: 'occurrences the checker cannot resolve: skip (default) or include (risky; Python only)'}
           - {name: --allow-blindspots, type: flag,
              help: 'list the untyped receivers of a member''s old name and rename anyway (default: refuse)'}
           - {name: --with, type: string, dest: with_stand_ins, metavar: PATH:LINE, repeatable: true,
@@ -243,7 +243,7 @@ commands:
           - {name: --no-in-hierarchy, type: flag, dest: in_hierarchy, store: false,
              help: 'disable hierarchy rename (on by default: also renames overrides in sub/superclasses; Python only)'}
           - {name: --unsure, type: string, choices: [skip, include], default: skip,
-             help: 'occurrences rope cannot resolve: skip (default) or include (risky; Python only)'}
+             help: 'occurrences the checker cannot resolve: skip (default) or include (risky; Python only)'}
           - {name: --allow-blindspots, type: flag,
              help: 'list the untyped receivers of a member''s old name and rename anyway (default: refuse)'}
           - {name: --with, type: string, dest: with_stand_ins, metavar: PATH:LINE, repeatable: true,

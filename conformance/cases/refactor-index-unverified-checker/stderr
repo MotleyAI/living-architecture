@@ -1,0 +1,4 @@
+[resolve]
+[checks]
+basedpyright could not find the references, so nothing was refactored
+  the checker exited with code 2; its stderr:

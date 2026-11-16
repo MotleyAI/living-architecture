@@ -16,7 +16,7 @@ from rope.base.pyscopes import Scope as RopeScope
 
 from living_architecture.contract import language
 from living_architecture.refactor.bindings import Conflict, Site, may_name
-from living_architecture.refactor.members import classes, member_declarations
+from living_architecture.refactor.members import member_declarations
 from living_architecture.refactor.python_source import SourceFile, nfkc
 
 # A project class: its file and the line of its `class` statement.
@@ -53,8 +53,7 @@ class Hierarchy:
         self._bases: dict[ClassKey, tuple[list[ClassKey], list[PyObject]]] = {}
 
     def node(self, key: ClassKey) -> ast.ClassDef | None:
-        tree = self.source(key[0]).tree
-        return next((c for c in classes(tree) if c.lineno == key[1]), None) if tree is not None else None
+        return next((c for c in self.source(key[0]).of_type(ast.ClassDef) if c.lineno == key[1]), None)
 
     def _pyclass(self, key: ClassKey) -> PyClass | None:
         rel, line = key
@@ -135,8 +134,7 @@ class MemberCheck:
         for rel in sorted(self.hierarchy.files):
             if not may_name(word, self.text(rel)):
                 continue
-            tree = self.hierarchy.source(rel).tree
-            for cls in classes(tree) if tree is not None else ():
+            for cls in self.hierarchy.source(rel).of_type(ast.ClassDef):
                 other = (rel, cls.lineno)
                 if other != key and member_declarations(cls, name) and key in self.hierarchy.ancestors(other)[0]:
                     out.append(other)
@@ -152,7 +150,8 @@ class MemberCheck:
             family = [member.cls, *ancestors, *self._descendants(member.cls, spelled)]
             existing = [s for key in family for s in self.hierarchy.declarations(key, spelled) if s not in renamed_sites]
             out += [Conflict(site=s, name=name) for s in existing]
-            met = [m for m in renamed if m.entry != member.entry and nfkc(m.new_name) == spelled and m.cls in family]
+            met = [m for m in renamed if m.entry != member.entry and m.site != member.site
+                   and nfkc(m.new_name) == spelled and m.cls in family]
             if met:
                 earliest = min([member, *met], key=lambda m: (m.entry, m.site))
                 first = min(m.site for m in renamed if m.entry == earliest.entry)
