@@ -8,6 +8,7 @@ import io
 import re
 import tokenize
 from collections.abc import Callable
+from pathlib import Path
 
 from rope.base.project import Project
 from typing_extensions import override
@@ -187,35 +188,34 @@ class LiteralRename(MapRename):
         """Every string literal whose value is the member's; the candidates are their files and the project sources
         whose imports reach the member's file."""
         with timed("literal-scan"):
-            sources: dict[str, ast.AST | str] = {}
-            holding: set[str] = set()
-            for path in language_files(self.root, "python"):
-                rel = path.relative_to(self.root).as_posix()
-                source = self._read(rel)
-                if source is None:
-                    continue
-                sources[rel] = source.tree if source.tree is not None else source.text
-                for site in self._equal_strings(rel, source):
-                    holding.add(rel)
-                    if rel == self.rel and site.span == source.span(self.node):
-                        self._member = site
-                    else:
-                        self._sites.append(site)
-            modules = set(sources)
-            for path in stub_files(self.root, "python", ".pyi"):
-                rel = path.relative_to(self.root).as_posix()
-                stub = self._read(rel)
-                if stub is not None:
-                    sources[rel] = stub.tree if stub.tree is not None else stub.text
-            self.candidates = sorted((reverse_closure(self.rel, sources) & modules) | holding)
+            modules = self._sources(language_files(self.root, "python"))
+            holding = {rel for rel, source in modules.items() if self._scan(rel, source)}
+            stubs = self._sources(stub_files(self.root, "python", ".pyi"))
+            trees = {rel: source.tree if source.tree is not None else source.text for rel, source in {**modules, **stubs}.items()}
+            self.candidates = sorted((reverse_closure(self.rel, trees) & set(modules)) | holding)
         if self._member is None or self._member.inner is None:
             raise RefactorError(message("refactor.cannot-rename"))
 
-    def _read(self, rel: str) -> SourceFile | None:
-        try:
-            return self.snapshot.source(rel)
-        except (OSError, UnicodeDecodeError, LookupError):
-            return None
+    def _sources(self, paths: list[Path]) -> dict[str, SourceFile]:
+        """Each readable file of `paths` by its project-relative path, in path order."""
+        out: dict[str, SourceFile] = {}
+        for path in paths:
+            rel = path.relative_to(self.root).as_posix()
+            try:
+                out[rel] = self.snapshot.source(rel)
+            except (OSError, UnicodeDecodeError, LookupError):
+                continue
+        return out
+
+    def _scan(self, rel: str, source: SourceFile) -> bool:
+        """Record the member and the other equal strings of `source`; whether it holds one."""
+        sites = self._equal_strings(rel, source)
+        for site in sites:
+            if rel == self.rel and site.span == source.span(self.node):
+                self._member = site
+            else:
+                self._sites.append(site)
+        return bool(sites)
 
     def _equal_strings(self, rel: str, source: SourceFile) -> list[_Site]:
         """Each string literal of `source` whose value is the member's, docstrings and f-string parts not."""
