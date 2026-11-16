@@ -1837,7 +1837,7 @@ type references, each resolved with the meaning (value, type or namespace) its p
 walrus targets, type parameters), names bound by a star import of a project module (its `__all__` when that is a
 literal list or tuple, else its module-level names not starting with `_`), and the forward-reference strings the
 rename rewrites, each read in its enclosing scope. Edits in comments, docstrings, prose files, string members,
-`Literal` values, dictionary keys and call keywords SHALL NOT take part. After the edits:
+`Literal` values, string dictionary keys and call keywords SHALL NOT take part. After the edits:
 - every rewritten occurrence SHALL resolve to the declaration it resolved to before, under its new name;
 - every other occurrence SHALL resolve to the declaration it resolved to before, a language builtin or global
   included;

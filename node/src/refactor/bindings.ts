@@ -319,6 +319,7 @@ function memberKey(d: TS.Node): string {
 class Hierarchy {
   private readonly bases = new Map<string, Set<string>>();
   private readonly nodes = new Map<string, TS.ClassLikeDeclaration | TS.InterfaceDeclaration>();
+  private readonly merged = new Map<string, Set<string>>();
 
   constructor(sources: Iterable<ProjectSource>) {
     for (const { source, checker } of sources) {
@@ -333,6 +334,8 @@ class Hierarchy {
   private add(checker: TS.TypeChecker, node: TS.ClassLikeDeclaration | TS.InterfaceDeclaration): void {
     const key = nodeKey(node);
     this.nodes.set(key, node);
+    const declarations = checker.getTypeAtLocation(node).getSymbol()?.declarations ?? [];
+    this.merged.set(key, new Set([key, ...declarations.filter((d) => ts().isClassLike(d) || ts().isInterfaceDeclaration(d)).map(nodeKey)]));
     const bases = new Set<string>();
     for (const clause of node.heritageClauses ?? []) {
       for (const type of clause.types) {
@@ -361,18 +364,23 @@ class Hierarchy {
     return new Set([...this.nodes.keys()].filter((k) => this.ancestors(k).has(key)));
   }
 
+  /** `key` and every class or interface declaration merged with it. */
+  declarations(key: string): Set<string> {
+    return this.merged.get(key) ?? new Set([key]);
+  }
+
   /** The class or interface declaration of `key`. */
   node(key: string): TS.ClassLikeDeclaration | TS.InterfaceDeclaration | undefined {
     return this.nodes.get(key);
   }
 }
 
-/** The keys of the types a renamed member's name is shared with: every declaration of its holder (a merged
- * interface's or class's), and their project ancestors and descendants. */
+/** The keys of the types a renamed member's name is shared with: its holder, its project ancestors and
+ * descendants, each with every declaration merged with it. */
 function relatedHolders(m: RenamedMember, hierarchy: Hierarchy): Set<string> {
-  const merged = ts().isClassLike(m.holder) || ts().isInterfaceDeclaration(m.holder) ? (m.checker.getTypeAtLocation(m.holder).getSymbol()?.declarations ?? []) : [];
-  const own = [m.holder, ...merged.filter((d) => ts().isClassLike(d) || ts().isInterfaceDeclaration(d))].map(nodeKey);
-  return new Set(own.flatMap((key) => [key, ...hierarchy.ancestors(key), ...hierarchy.descendants(key)]));
+  const own = [...hierarchy.declarations(nodeKey(m.holder))];
+  const near = own.flatMap((key) => [key, ...hierarchy.ancestors(key), ...hierarchy.descendants(key)]);
+  return new Set(near.flatMap((key) => [...hierarchy.declarations(key)]));
 }
 
 /** A conflict candidate; the first by path then offset is reported. */
