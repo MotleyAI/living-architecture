@@ -77,19 +77,33 @@ def _tree(directory: Path, project: Path, digest: Any) -> None:
 Config = tuple[Path, dict[str, Any]]
 
 
-def _comment_end(text: str, i: int) -> int | None:
-    """The index just past the comment starting at `i`, or None when none starts there."""
+def _jsonc(text: str) -> str:
+    """JSON with comments and trailing commas, as Pyright reads its configuration, as plain JSON."""
+    out: list[str] = []
+    comma = False
+    i = 0
+    while i < len(text):
+        end = _comment_end(text, i)
+        if end == i:
+            end = _token_end(text, i)
+            comma = _emit(out, text[i:end], comma)
+        i = end
+    return "".join(out)
+
+
+def _comment_end(text: str, i: int) -> int:
+    """The index past a comment starting at `i`, else `i`."""
     if text.startswith("//", i):
         end = text.find("\n", i)
         return len(text) if end < 0 else end
     if text.startswith("/*", i):
         end = text.find("*/", i + 2)
         return len(text) if end < 0 else end + 2
-    return None
+    return i
 
 
 def _token_end(text: str, i: int) -> int:
-    """The index just past the character at `i`, or past the whole string literal starting there."""
+    """The index past the string literal or the single character at `i`."""
     if text[i] != '"':
         return i + 1
     end = i + 1
@@ -98,27 +112,17 @@ def _token_end(text: str, i: int) -> int:
     return end + 1
 
 
-def _jsonc(text: str) -> str:
-    """JSON with comments and trailing commas, as Pyright reads its configuration, as plain JSON."""
-    out: list[str] = []
-    comma = False
-    i = 0
-    while i < len(text):
-        skipped = _comment_end(text, i)
-        if skipped is not None:
-            i = skipped
-        elif text[i].isspace():
-            out.append(text[i])
-            i += 1
-        else:
-            if comma and text[i] not in "}]":
-                out.append(",")
-            comma = text[i] == ","
-            end = i + 1 if comma else _token_end(text, i)
-            if not comma:
-                out.append(text[i:end])
-            i = end
-    return "".join(out)
+def _emit(out: list[str], token: str, comma: bool) -> bool:
+    """Append `token`, holding a comma back until the next token shows it is not trailing; whether one is held."""
+    if token.isspace():
+        out.append(token)
+        return comma
+    if comma and token not in ("}", "]"):
+        out.append(",")
+    if token == ",":
+        return True
+    out.append(token)
+    return False
 
 
 def _read_config(path: Path) -> dict[str, Any]:
