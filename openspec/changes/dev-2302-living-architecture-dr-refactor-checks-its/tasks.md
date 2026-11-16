@@ -33,29 +33,29 @@
 
 ## 2. Contract and shared plumbing (pr-implement)
 
-- [ ] 2.1 Both twins: a progress reporter writing the `refactor.progress-*` lines to stderr (flushed per line), and a
+- [x] 2.1 Both twins: a progress reporter writing the `refactor.progress-*` lines to stderr (flushed per line), and a
       refusal collector with exit code = highest finding code; every `dr-refactor` subcommand runs through the phase
       sequence of design decision 6.
-- [ ] 2.2 Both twins: the map loader returns every invalid entry; both routing front ends report them before routing.
+- [x] 2.2 Both twins: the map loader returns every invalid entry; both routing front ends report them before routing.
 
 ## 3. Python twin (pr-implement)
 
-- [ ] 3.1 `rename_map.py`: `resolve` collects every failure (no raise); duplicates among resolved entries; one lazily
+- [x] 3.1 `rename_map.py`: `resolve` collects every failure (no raise); duplicates among resolved entries; one lazily
       started language server per run shared by the resolve fallback, the probe and compute.
-- [ ] 3.2 `checks`: site existence, keep text check, walker probe over the candidate files (reuse the `dr-compliance`
+- [x] 3.2 `checks`: site existence, keep text check, walker probe over the candidate files (reuse the `dr-compliance`
       rope-walk walk), checker probes; one combined report.
-- [ ] 3.3 Compute: `[references n/count]` in the prepare loop; rules and finish run group by group with per-group keep
+- [x] 3.3 Compute: `[references n/count]` in the prepare loop; rules and finish run group by group with per-group keep
       filtering and result lines; `WalkerGap`, `UnresolvedBase`, `not-stand-in` recorded per entry/site;
       `check_conflicts` and `check_names` collect one finding per check that finds one; retarget refusals join the
       final report; all keep, name and map conflicts collected; `--fail-fast`.
-- [ ] 3.4 `rope_refactor.py`: moves and module renames through the same phases and collector; `_kept` reports every
+- [x] 3.4 `rope_refactor.py`: moves and module renames through the same phases and collector; `_kept` reports every
       unmatched keep.
-- [ ] 3.5 `lang/language_server.py` captures stderr; `LanguageServerError`, `CommandError`/`BaselineFailed` carry
+- [x] 3.5 `lang/language_server.py` captures stderr; `LanguageServerError`, `CommandError`/`BaselineFailed` carry
       exit code, error and stderr; the `checker-*` cause lines printed after `pyright-failed`/`baseline-failed`.
 
 ## 4. npm twin (pr-implement)
 
-- [ ] 4.1 `rename.ts`/`typescript.ts`/`session.ts`: the same phases, collector, keep text check (old names and retarget
+- [x] 4.1 `rename.ts`/`typescript.ts`/`session.ts`: the same phases, collector, keep text check (old names and retarget
       targets), site existence, per-target `[references]` lines, per-group `[rules]` lines with per-group keep
       filtering, retarget refusals joining the final report, every conflict collected, `--fail-fast`; moves through
       the phases.

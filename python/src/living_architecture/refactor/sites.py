@@ -76,15 +76,6 @@ class Keeps:
         return [s.raw for i, s in enumerate(self.sites) if i not in self._matched]
 
 
-class SiteError(Exception):
-    """A site that matches nothing it must; `template` is its finding."""
-
-    def __init__(self, template: str, site: str) -> None:
-        super().__init__(site)
-        self.template = template
-        self.site = site
-
-
 def spelled_lines(text: str, names: Iterable[str], *, code: bool = True) -> set[int]:
     """The 1-based lines of `text` spelling one of `names` as written (NFKC-normalized) or, in `code`, in the value of
     a string literal starting on the line."""

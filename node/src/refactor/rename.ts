@@ -9,13 +9,17 @@ import { stripSourceExtension, ts } from '../lang/index.js';
 import { type CheckEntry, identifierText, NameChecks } from './bindings.js';
 import { isCompound } from './compound.js';
 import { type Edit, mergeEdits, RefactorError, splitBom } from './edits.js';
+import { MapError } from './map.js';
 import { Lines } from './lines.js';
 import { anyAccesses, type FormCall, formCalls, isAny, type MemberDeclaration, memberDeclarations, memberNameStart, walk } from './members.js';
 import { codeMarked, type Mention, mentions, type Owner, qualified, type Region, sourceRegions } from './mentions.js';
 import { blindspotOutcome, compoundOutcome, formCallOutcome, literalOutcomes, mentionOutcome, type Outcome } from './outcomes.js';
 import { declarationKeys, type Finding, type Home, keyOf, type Need, planImports, rename, resolveTarget, retargetSites, symbolOf } from './retarget.js';
+import { type Progress, type Refusal, refusal, Refused, unique } from './progress.js';
+import { languageFiles } from './routing.js';
 import { type Locator, locate, nodeAt, type ProjectSource, projectSources, type Refactor, UsageError } from './session.js';
-import { Site, SiteError } from './sites.js';
+import { keepSpells, Site } from './sites.js';
+import { LocatorError } from './symbols.js';
 import { timed } from './timings.js';
 
 /** One rename or retarget to compute: its 1-based index, its file (absolute, and as given), locator and intent. */
@@ -31,6 +35,10 @@ export interface EntrySpec {
 /** An entry resolved against the code: its symbol, old and new name, and the language service's rename locations. */
 interface Target {
   index: number;
+  /** Every map index merged into this entry. */
+  indexes: number[];
+  /** A retarget's refusals. */
+  refusals: Finding[];
   retarget: boolean;
   file: string;
   position: number;
@@ -130,6 +138,8 @@ class NameGroup {
   /** Each renamed member declaration's new name. */
   readonly renamed = new Map<string, string>();
   readonly declaring = new Set<string>();
+  /** `--with` sites naming a stand-in declared by a computed name. */
+  readonly computed: Refusal[] = [];
   blindspots: Finding[] = [];
   standIns: Finding[] = [];
   leftovers: Finding[] = [];
@@ -220,7 +230,9 @@ class NameGroup {
   private classifyStandIn(d: MemberDeclaration, raw: string, joined: boolean, declared: Set<string>, classified: Set<string>): void {
     if (joined && d.computed) {
       const values = { path: this.r.rel(d.path), line: d.line, cls: d.owner, attr: this.old };
-      throw new SiteError('refactor.computed-stand-in', raw, values);
+      this.computed.push(refusal(message('refactor.computed-stand-in', { ...values, site: raw }), 2));
+      classified.add(keyOf(d.path, d.start));
+      return;
     }
     const newName = (this.targets[0] as Target).newName;
     const theirs = renameLocations(this.session.servicesFor(d.path), d.path, d.start, newName);
@@ -442,12 +454,13 @@ function resolve(r: Refactor, spec: EntrySpec): Target {
   const symbol = literal ? undefined : symbolOf(program.getTypeChecker(), node);
   const reexport = spec.retarget !== undefined && (ts().isImportSpecifier(node.parent) || ts().isExportSpecifier(node.parent));
   const key = (reexport ? undefined : declarationKeys(symbol, old)[0]) ?? firstLocation(services, file, position) ?? keyOf(file, info.triggerSpan.start);
-  return { index: spec.index, retarget: spec.retarget !== undefined, file, position, old, newName: spec.newName ?? '', key, literal, intent: key, edits: [], own: new Set(), home: null, identity: new Set(), original: '' };
+  return { index: spec.index, indexes: [spec.index], refusals: [], retarget: spec.retarget !== undefined, file, position, old, newName: spec.newName ?? '', key, literal, intent: key, edits: [], own: new Set(), home: null, identity: new Set(), original: '' };
 }
 
-/** The first site two entries rewrite differently, as a RefactorError; identical edits are one. */
-function checkConflicts(session: Session, edits: Tagged[]): void {
+/** A `refactor.map-conflict` for each site two entries rewrite differently; identical edits are one. */
+function mapConflicts(session: Session, edits: Tagged[]): Refusal[] {
   const sorted = edits.toSorted((a, b) => byCodePoint(a.path, b.path) || a.start - b.start);
+  const out: Refusal[] = [];
   for (const [i, a] of sorted.entries()) {
     for (let j = i + 1; j < sorted.length; j += 1) {
       const b = sorted[j] as Tagged;
@@ -456,12 +469,14 @@ function checkConflicts(session: Session, edits: Tagged[]): void {
       if (same || a.entry === b.entry) continue;
       const [first, second] = [Math.min(a.entry, b.entry), Math.max(a.entry, b.entry)];
       const line = session.lineOf(a.path, a.start);
-      throw new RefactorError(message('refactor.map-conflict', { path: session.r.rel(a.path), line, first, second }));
+      out.push(refusal(message('refactor.map-conflict', { path: session.r.rel(a.path), line, first, second })));
+      break;
     }
   }
+  return unique(out);
 }
 
-/** `--keep` sites: what they keep, and the first that kept nothing. */
+/** `--keep` sites: what they keep, and those that kept nothing. */
 class Keeps {
   private readonly sites: Site[];
   private readonly matched = new Set<number>();
@@ -485,142 +500,238 @@ class Keeps {
     return this.kept(this.session.r.rel(path), this.session.lineOf(path, position));
   }
 
-  /** SiteError for the first keep that matched nothing. */
-  check(): void {
-    const unmatched = this.sites.find((_, i) => !this.matched.has(i));
-    if (unmatched !== undefined) throw new SiteError('refactor.keep-unmatched', unmatched.raw);
+  /** Every keep that matched nothing, in command-line order. */
+  unmatched(): string[] {
+    return this.sites.filter((_, i) => !this.matched.has(i)).map((site) => site.raw);
   }
 }
 
-/** Drop every edit, blind spot and leftover at a kept site; SiteError for a keep that matches no edit or blind spot. */
-function keep(session: Session, groups: NameGroup[], keeps: Keeps): Tagged[] {
-  const edits = groups.flatMap((g) => g.edits).filter((e) => !keeps.keeps(e.path, e.start));
-  for (const group of groups) {
-    group.blindspots = group.blindspots.filter((b) => !keeps.kept(b.path, b.line));
-    group.leftovers = group.leftovers.filter((f) => !keeps.kept(f.path, f.line, false));
-  }
-  keeps.check();
-  return edits;
+/** Drop every edit, blind spot and leftover of `group` at a kept site. */
+function keep(group: NameGroup, keeps: Keeps): void {
+  const kept = group.edits.filter((e) => !keeps.keeps(e.path, e.start));
+  group.edits.splice(0, group.edits.length, ...kept);
+  group.blindspots = group.blindspots.filter((b) => !keeps.kept(b.path, b.line));
+  group.leftovers = group.leftovers.filter((f) => !keeps.kept(f.path, f.line, false));
 }
 
-/** The targets of `specs`, each symbol once: equal intents merge, different ones are a UsageError naming both. */
-function resolveAll(r: Refactor, specs: EntrySpec[], map: string): Target[] {
+/** The finding of an error that refuses one entry. */
+export function entryFailure(error: unknown): Refusal {
+  if (error instanceof LocatorError || error instanceof UsageError || error instanceof MapError) return refusal(error.message, 2);
+  if (error instanceof RefactorError) return refusal(error.message);
+  throw error;
+}
+
+/** The name an entry's locator spells: the last word of its symbol path. */
+const spelledName = (spec: EntrySpec): string | null => spec.locator.symbol?.match(/\w+/gu)?.at(-1) ?? null;
+
+interface Resolution {
+  targets: Target[];
+  failures: Refusal[];
+  /** Every entry that failed spells a name. */
+  spelled: boolean;
+  names: Set<string>;
+}
+
+/** The targets of `specs`, each symbol once, searching no reference: equal intents merge, different ones are refused
+ * naming both; each failure in entry order. */
+function resolveAll(r: Refactor, specs: EntrySpec[], map: string): Resolution {
   const targets: Target[] = [];
+  const failures: Refusal[] = [];
+  const names = new Set<string>();
+  let spelled = true;
   for (const spec of specs) {
-    const target = resolve(r, spec);
-    if (target.literal && literalValueForbidden().some((part) => target.newName.includes(part))) throw new UsageError(message('refactor.literal-value', { value: target.newName }));
-    if (spec.retarget !== undefined) target.intent = resolveTarget(r, spec.file, spec.locator, spec.shown, target, spec.retarget);
+    let target: Target;
+    try {
+      target = resolve(r, spec);
+      if (target.literal && literalValueForbidden().some((part) => target.newName.includes(part))) throw new UsageError(message('refactor.literal-value', { value: target.newName }));
+      if (spec.retarget !== undefined) target.intent = resolveTarget(r, spec.file, spec.locator, spec.shown, target, spec.retarget);
+    } catch (error) {
+      failures.push(entryFailure(error));
+      const name = spelledName(spec);
+      if (name === null) spelled = false;
+      else names.add(name);
+      continue;
+    }
+    names.add(target.old);
+    if (spec.retarget !== undefined) names.add(spec.retarget.match(/\w+/gu)?.at(-1) ?? '');
     const same = targets.find((t) => t.key === target.key);
     if (same === undefined) targets.push(target);
     else if (same.retarget !== target.retarget || (target.retarget ? same.intent !== target.intent : same.newName !== target.newName)) {
-      throw new UsageError(message('refactor.map-duplicate', { map, first: same.index, second: target.index }));
-    }
+      failures.push(refusal(message('refactor.map-duplicate', { map, first: same.index, second: target.index }), 2));
+    } else same.indexes.push(spec.index);
   }
   for (const target of targets.filter((t) => t.retarget)) {
     const final = targets.find((t) => !t.retarget && t.key === target.intent)?.newName;
     if (final !== undefined) rename(target, final);
   }
-  return targets;
+  names.delete('');
+  return { targets, failures, spelled, names };
 }
 
-const print = (lines: string[]): void => {
-  process.stderr.write(lines.map((line) => `${line}\n`).join(''));
-};
+/** The files a rename can edit: each TypeScript source (true), and with `docs` each prose file (false). */
+function editableFiles(r: Refactor, docs: boolean): Map<string, boolean> {
+  const out = new Map(languageFiles(r.root, 'typescript').map((path): [string, boolean] => [r.rel(path), true]));
+  if (!docs) return out;
+  const extensions: string[] = manifest()['dr-refactor'].prose_extensions;
+  for (const rel of sourceFiles(r.root, []).sort(byCodePoint)) if (extensions.some((ext) => rel.endsWith(ext)) && !out.has(rel)) out.set(rel, false);
+  return out;
+}
+
+/** Every check that needs no reference: each site naming something, each keep spelling an old name. */
+function checks(r: Refactor, resolution: Resolution): Refusal[] {
+  const sites: [string, string, string][] = [
+    ...(r.args.with_stand_ins ?? []).map((raw): [string, string, string] => ['--with', raw, r.root]),
+    ...(r.args.without_stand_ins ?? []).map((raw): [string, string, string] => ['--without', raw, r.root]),
+    ...(r.args.keep ?? []).map((raw): [string, string, string] => ['--keep', raw, process.cwd()]),
+  ];
+  const out: Refusal[] = [];
+  const missing = new Set<string>();
+  for (const [option, raw, base] of sites) {
+    if (!Site.parse(raw, r.root, base).missing(r.root)) continue;
+    out.push(refusal(message('refactor.site-missing', { option, site: raw }), 2));
+    if (option === '--keep') missing.add(raw);
+  }
+  const keeps = (r.args.keep ?? []).filter((raw) => !missing.has(raw));
+  if (!resolution.spelled || keeps.length === 0 || resolution.targets.some((t) => t.literal)) return out;
+  const editable = editableFiles(r, r.args.docs === true);
+  const texts = new Map<string, string>();
+  const text = (rel: string): string => {
+    let found = texts.get(rel);
+    if (found === undefined) {
+      found = splitBom(readFileSync(join(r.root, rel), 'utf8'))[1];
+      texts.set(rel, found);
+    }
+    return found;
+  };
+  for (const raw of keeps) {
+    if (!keepSpells(Site.parse(raw, r.root), editable, text, resolution.names, [])) out.push(refusal(message('refactor.keep-unmatched', { site: raw }), 2));
+  }
+  return out;
+}
 
 function checkSupported(r: Refactor): void {
   if (r.args.in_hierarchy === false) throw new RefactorError(message('refactor.ts-not-supported', { option: '--no-in-hierarchy' }));
   if (r.args.unsure === 'include') throw new RefactorError(message('refactor.ts-not-supported', { option: '--unsure include' }));
 }
 
-/** Each target's language-service edits; the retarget refusals, in position order, and the imports of their targets. */
-function targetEdits(r: Refactor, session: Session, targets: Target[], keeps: Keeps): { refusals: Finding[]; imports: Tagged[] } {
-  const refusals: Finding[] = [];
-  const needs: Need[] = [];
-  for (const target of targets) {
-    target.edits = renameLocations(r.services(target.file), target.file, target.position, target.newName, !target.retarget);
-    if (target.retarget) refusals.push(...retargetSites(session, target, (path, position) => keeps.keeps(path, position), needs));
-  }
-  return { refusals: refusals.toSorted(byPosition), imports: planImports(session, needs) };
+function runRules(group: NameGroup, docs: boolean, renamedNames: Set<string>): void {
+  if (group.member) group.scan();
+  if (group.literal) group.equalStrings();
+  if (docs) group.docs();
+  else group.dropCommentEdits();
+  if (group.member && !docs && !group.literal) group.literals();
+  if (docs) group.compounds(renamedNames);
+  group.dropOwnDeclarations();
 }
 
-/** `SiteError` for the first `--with` or `--without` site no member group's stand-ins hold. */
-function classifySites(r: Refactor, groups: NameGroup[]): void {
-  const withSites = r.args.with_stand_ins ?? [];
-  const withoutSites = r.args.without_stand_ins ?? [];
-  const matched = new Set(groups.filter((g) => g.member).flatMap((g) => [...g.classify(withSites, withoutSites)]));
-  const stray = [...withSites, ...withoutSites].find((site) => !matched.has(site));
-  if (stray !== undefined) throw new SiteError('refactor.not-stand-in', stray);
-}
-
-function runRules(groups: NameGroup[], docs: boolean, renamedNames: Set<string>): void {
-  for (const group of groups) {
-    if (group.member) group.scan();
-    if (group.literal) group.equalStrings();
-    if (docs) group.docs();
-    else group.dropCommentEdits();
-    if (group.member && !docs && !group.literal) group.literals();
-    if (docs) group.compounds(renamedNames);
-    group.dropOwnDeclarations();
-  }
-}
-
-/** The refusal's lines: blind spots unless allowed, and stand-ins; null when the refactor goes ahead. */
-function refusal(groups: NameGroup[], blindspots: Finding[], allowed: boolean): string[] | null {
-  const standIns = groups.flatMap((g) => g.standIns).sort(byPosition);
-  if ((blindspots.length === 0 || allowed) && standIns.length === 0) return null;
-  const attr = groups.filter((g) => g.blindspots.length > 0).map((g) => g.old).join(', .');
-  const closing = allowed || blindspots.length === 0 ? [] : [message('refactor.blindspots', { count: blindspots.length, attr })];
-  return [...blindspots.map((f) => f.text), ...standIns.map((f) => f.text), ...closing];
-}
-
-/** RefactorError naming the first name conflict: each rename entry's edits alone, in map order, then all entries'. */
-function checkNames(session: Session, targets: Target[], pending: Tagged[], edits: Tagged[]): void {
+/** A `refactor.name-conflict` for the first site of each check that finds one: each rename entry's edits alone, in map
+ * order, then, when `together`, all entries'. */
+function nameConflicts(session: Session, targets: Target[], pending: Tagged[], edits: Tagged[], together: boolean): Refusal[] {
   const done = new Set(edits.map((e) => keyOf(e.path, e.start)));
   const kept = new Set(pending.map((e) => keyOf(e.path, e.start)).filter((k) => !done.has(k)));
   const entries: CheckEntry[] = targets.map((t) => ({ index: t.index, old: t.old, newName: t.newName, expected: t.retarget ? t.identity : null }));
   const names = targets.flatMap((t) => [t.old, t.newName, ...(t.retarget ? [t.original] : [])]).map(identifierText);
   const checks = new NameChecks(session.sources, names, (path) => session.r.rel(path));
   const passes = entries.filter((e) => e.expected === null && e.newName !== e.old).map((e) => [e]);
-  if (entries.length > 1) passes.push(entries);
+  if (entries.length > 1 && together) passes.push(entries);
+  const found: { path: string; line: number; name: string }[] = [];
   for (const pass of passes) {
-    const found = checks.check(pass, edits, kept);
-    if (found !== null) {
-      const line = session.lineOf(found.path, found.position);
-      throw new RefactorError(message('refactor.name-conflict', { name: found.name, path: session.r.rel(found.path), line }));
-    }
+    const conflict = checks.check(pass, edits, kept);
+    if (conflict !== null) found.push({ path: session.r.rel(conflict.path), line: session.lineOf(conflict.path, conflict.position), name: conflict.name });
   }
+  found.sort((a, b) => byCodePoint(a.path, b.path) || a.line - b.line || byCodePoint(a.name, b.name));
+  return unique(found.map((c) => refusal(message('refactor.name-conflict', c))));
 }
 
-/** Run `specs` (a rename, a retarget, or a map's entries; `map` in messages) as one refactor: 0, or 1 with the refusal. */
-export function runEntries(r: Refactor, specs: EntrySpec[], map: string): number {
+const texts = (findings: Finding[]): Refusal[] => {
+  const seen = new Set<string>();
+  return findings
+    .toSorted(byPosition)
+    .filter((f) => {
+      const key = `${f.path}\0${f.line}\0${f.position}\0${f.text}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .map((f) => refusal(f.text));
+};
+
+/** Run `specs` (a rename, a retarget, or a map's entries; `map` in messages) as one refactor, its phases announced
+ * on `progress`: 0, or `Refused` with every refusal. */
+export function runEntries(r: Refactor, specs: EntrySpec[], map: string, progress: Progress): number {
   checkSupported(r);
-  const targets = timed('resolve', () => resolveAll(r, specs, map));
+  const failFast = r.args.fail_fast === true;
+  const allowed = r.args.allow_blindspots === true;
+  progress.phase('resolve');
+  const resolution = timed('resolve', () => resolveAll(r, specs, map));
+  progress.phase('checks');
+  const failures = [...resolution.failures, ...checks(r, resolution)];
+  if (failures.length > 0) throw new Refused(failures);
+  const { targets } = resolution;
+  progress.phase('references');
   const session = timed('load', () => new Session(r, targets.map((t) => t.file)));
   const keeps = new Keeps(session, r.args.keep ?? []);
-  const { refusals, imports } = timed('references', () => targetEdits(r, session, targets, keeps));
-  if (refusals.length > 0) {
-    print(refusals.map((f) => f.text));
-    return 1;
+  const needs: Need[] = [];
+  for (const [i, target] of targets.entries()) {
+    progress.item(i + 1, targets.length, target.indexes, target.old, target.newName);
+    timed('references', () => {
+      target.edits = renameLocations(r.services(target.file), target.file, target.position, target.newName, !target.retarget);
+      if (target.retarget) target.refusals = retargetSites(session, target, (path, position) => keeps.keeps(path, position), needs);
+    });
   }
-  checkConflicts(session, targets.flatMap((t) => t.edits.map((e) => ({ ...e, entry: t.index }))));
-  const groups = timed('rules', () => {
-    const named = [...new Set(targets.map((t) => t.old))].map((old) => new NameGroup(session, old, targets.filter((t) => t.old === old)));
-    classifySites(r, named);
-    runRules(named, r.args.docs === true, new Set(targets.map((t) => t.old)));
-    return named;
-  });
-  const pending = groups.flatMap((g) => g.edits);
-  const edits = [...keep(session, groups, keeps), ...imports];
-  timed('resolve', () => checkNames(session, targets, pending, edits));
+  progress.phase('rules');
+  const olds = [...new Set(targets.map((t) => t.old))];
+  const renamedNames = new Set(olds);
+  const withSites = r.args.with_stand_ins ?? [];
+  const withoutSites = r.args.without_stand_ins ?? [];
+  const matched = new Set<string>();
+  const groups: NameGroup[] = [];
+  const pending: Tagged[] = [];
+  let stopped = false;
+  for (const [n, old] of olds.entries()) {
+    const members = targets.filter((t) => t.old === old);
+    const group = timed('rules', () => {
+      const named = new NameGroup(session, old, members);
+      if (named.member) for (const site of named.classify(withSites, withoutSites)) matched.add(site);
+      runRules(named, r.args.docs === true, renamedNames);
+      return named;
+    });
+    pending.push(...group.edits);
+    keep(group, keeps);
+    groups.push(group);
+    const refused = texts([...members.flatMap((t) => t.refusals), ...(allowed ? [] : group.blindspots), ...group.standIns]);
+    const indexes = members.flatMap((t) => t.indexes).toSorted((a, b) => a - b);
+    const newNames = [...new Set(members.map((t) => t.newName))].join(', ');
+    progress.result(n + 1, olds.length, indexes, old, newNames, refused.flatMap((f) => f.lines));
+    if (refused.length > 0 && failFast) {
+      stopped = true;
+      break;
+    }
+  }
+  const retargets = texts(targets.flatMap((t) => t.refusals));
   const blindspots = groups.flatMap((g) => g.blindspots).sort(byPosition);
-  const leftovers = groups.flatMap((g) => g.leftovers).sort(byPosition);
-  const refused = refusal(groups, blindspots, r.args.allow_blindspots === true);
-  if (refused !== null) {
-    print(refused);
-    return 1;
+  const blind = allowed ? [] : texts(blindspots);
+  const standIns = texts(groups.flatMap((g) => g.standIns));
+  let edits: Tagged[] = [];
+  let conflicts: Refusal[] = [];
+  let sites: Refusal[] = [];
+  if (!stopped) {
+    edits = [...groups.flatMap((g) => g.edits), ...planImports(session, needs)];
+    const merged = mapConflicts(session, edits);
+    const names = timed('resolve', () => nameConflicts(session, targets, pending, edits, merged.length === 0));
+    conflicts = [...names, ...merged];
+    sites = [
+      ...[...withSites, ...withoutSites].filter((site) => !matched.has(site)).map((site) => refusal(message('refactor.not-stand-in', { site }), 2)),
+      ...groups.flatMap((g) => g.computed),
+      ...keeps.unmatched().map((site) => refusal(message('refactor.keep-unmatched', { site }), 2)),
+    ];
   }
-  print([...blindspots, ...leftovers].map((f) => f.text));
-  checkConflicts(session, edits);
+  const attr = groups.filter((g) => g.blindspots.length > 0).map((g) => g.old).join(', .');
+  const closing = blind.length > 0 ? [refusal(message('refactor.blindspots', { count: blind.length, attr }))] : [];
+  const report = unique([...retargets, ...blind, ...standIns, ...conflicts, ...sites, ...closing]);
+  if (report.length > 0) throw new Refused(report);
+  const leftovers = groups.flatMap((g) => g.leftovers).sort(byPosition);
+  process.stderr.write([...blindspots, ...leftovers].map((f) => `${f.text}\n`).join(''));
   const headers = targets.map((t) => message(t.retarget ? 'refactor.retarget-header' : 'refactor.rename-header', { old: t.old, new: t.newName }));
-  return r.emit(headers, mergeEdits(edits), []);
+  return r.emit(headers, mergeEdits(edits), [], [], progress);
 }
