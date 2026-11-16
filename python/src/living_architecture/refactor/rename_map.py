@@ -1,6 +1,6 @@
-"""`dr-refactor rename-map`: rename and retarget entries resolved against the code before the map, computed on one
-snapshot and one language server, printed as one diff and written all or nothing. `rename` and `retarget` are
-one-entry maps."""
+"""`dr-refactor rename-map`: rename and retarget entries resolved against the code before the map, checked before
+any reference search, computed on one snapshot and one language server, printed as one diff and written all or
+nothing. `rename` and `retarget` are one-entry maps."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ import ast
 import re
 import sys
 from collections.abc import Callable, Iterable
+from contextlib import ExitStack
 from pathlib import Path
 from typing import Any
 
@@ -20,22 +21,25 @@ from rope.base.pyobjectsdef import PyModule
 from rope.base.resources import File
 from rope.refactor.rename import Rename
 
-from living_architecture.config import ConfigError
-from living_architecture.contract import message
+from living_architecture.config import ConfigError, source_files
+from living_architecture.contract import manifest, message
 from living_architecture.lang import LanguageServer, LanguageServerError
-from living_architecture.refactor.baseline_align import align
+from living_architecture.refactor.baseline_align import BaselineFailed, align, baseline_runs, probe
 from living_architecture.refactor.bindings import BindingCheck, EntryEdits, first_conflict
 from living_architecture.refactor.keyed import TypeFacts, UnresolvedBase
 from living_architecture.refactor.literal_rename import LiteralRename, check_value, literal_member_at
 from living_architecture.refactor.locators import RefactorError, resolve, resource
 from living_architecture.refactor.map_file import MapEntry, MapError
 from living_architecture.refactor.member_namespace import Hierarchy, MemberCheck, RenamedMember
+from living_architecture.refactor.move_edits import NameConflict
 from living_architecture.refactor.outcomes import Finding
 from living_architecture.refactor.position_map import Edit
+from living_architecture.refactor.progress import Progress, Refusal, Refused, checker_cause, refusal, unique
 from living_architecture.refactor.rename_union import RenameOptions, Session, SymbolRename, _normalize
 from living_architecture.refactor.retarget import AliasRetarget
+from living_architecture.refactor.rope_patches import WalkerGap, walk_gap_line
 from living_architecture.refactor.routing import language_files
-from living_architecture.refactor.sites import Keeps, SiteError
+from living_architecture.refactor.sites import Keeps, Site, keep_spells
 from living_architecture.refactor.symbol_path import LocatorError, declaration_scope, locate
 from living_architecture.refactor.text_edits import TextEdit, apply_edits, merge_edits
 from living_architecture.refactor.writer import FileChanged, FileMove, FileWrite, apply, verify
@@ -47,28 +51,14 @@ _CANNOT_RENAME = "refactor.cannot-rename"
 Renaming = SymbolRename | LiteralRename
 
 
-class MapConflict(Exception):
-    """Two entries rewrite one site differently."""
-
-    def __init__(self, path: str, line: int, first: int, second: int) -> None:
-        super().__init__(path)
-        self.text = message("refactor.map-conflict", path=path, line=line, first=first, second=second)
-
-
-class Refused(Exception):
-    """The refactor refuses; `lines` go to stderr (exit 1)."""
-
-    def __init__(self, lines: list[str]) -> None:
-        super().__init__("\n".join(lines))
-        self.lines = lines
-
-
 class _Resolved:
-    """An entry located: its file, rope's renamer, its canonical symbol and its intent."""
+    """An entry located: its file, rope's renamer, its canonical symbol and its intent, and every map index merged
+    into it."""
 
     def __init__(self, entry: MapEntry, rel: str, renamer: Rename | None, key: tuple[object, ...],
                  literal: ast.Constant | None = None) -> None:
         self.entry = entry
+        self.indexes = [entry.index]
         self.rel = rel
         self.renamer = renamer
         self.key = key
@@ -79,6 +69,12 @@ class _Resolved:
 
     def intent(self) -> tuple[object, ...]:
         return ("retarget", self.target_key) if self.entry.retarget is not None else ("rename", self.entry.new_name)
+
+    def old(self) -> str:
+        return str(self.literal.value) if self.literal is not None else self.renamer.get_old_name() if self.renamer else ""
+
+    def is_module(self) -> bool:
+        return self.renamer is not None and self.renamer._is_renaming_a_module()  # pyright: ignore[reportPrivateUsage]
 
 
 def _key(renamer: Rename, rel: str, offset: int) -> tuple[object, ...]:
@@ -115,18 +111,150 @@ def _unique(findings: Iterable[Finding]) -> list[Finding]:
     return sorted({(f.path, f.line, f.col, f.text): f for f in findings}.values(), key=lambda f: (f.path, f.line, f.col))
 
 
+def _texts(findings: Iterable[Finding]) -> list[Refusal]:
+    return [refusal(f.text) for f in findings]
+
+
+def _name_conflict(conflict: NameConflict) -> Refusal:
+    return refusal(message("refactor.name-conflict", name=conflict.name, path=conflict.path, line=conflict.line))
+
+
+def server_failed(exc: LanguageServerError) -> Refusal:
+    return Refusal(lines=(message("refactor.pyright-failed"), *checker_cause(exc.kind, exc.error, exc.code, exc.stderr)))
+
+
+def baseline_failed(exc: BaselineFailed) -> Refusal:
+    return Refusal(lines=(message("refactor.baseline-failed", language="python"), *exc.cause))
+
+
+def failure(exc: Exception, root: Path) -> Refusal | None:
+    """The finding of an exception that refuses one entry, or None for any other."""
+    if isinstance(exc, (LocatorError, MapError)):
+        return refusal(str(exc), 2)
+    if isinstance(exc, (RefactorError, ConfigError)):
+        return refusal(str(exc))
+    if isinstance(exc, (RefactoringError, BadIdentifierError)):
+        return refusal(message(_CANNOT_RENAME))
+    if isinstance(exc, WalkerGap):
+        return refusal(message("refactor.rope-walk", path=exc.path, line=exc.line))
+    if isinstance(exc, UnresolvedBase):
+        path = (exc.path.relative_to(root) if exc.path.is_relative_to(root) else exc.path).as_posix()
+        return refusal(message("refactor.unresolved-base", name=exc.name, path=path, line=exc.line))
+    return None
+
+
+_ENTRY_ERRORS = (LocatorError, MapError, RefactorError, ConfigError, RefactoringError, BadIdentifierError, WalkerGap,
+                 UnresolvedBase)
+
+
+class SharedServer:
+    """At most one language server per run, started at first use."""
+
+    def __init__(self, root: Path, read: Callable[[Path], str]) -> None:
+        self.root = root
+        self.read = read
+        self._stack = ExitStack()
+        self._server: LanguageServer | None = None
+
+    def get(self) -> LanguageServer:
+        if self._server is None:
+            self._server = self._stack.enter_context(LanguageServer(self.root, read=self.read))
+        return self._server
+
+    def close(self) -> None:
+        """Stop the server; a failure it raised then holds its stderr and exit code."""
+        self._stack.close()
+
+
+def walker_gaps(root: Path, text: Callable[[str], str], names: set[str]) -> list[Refusal]:
+    """A `refactor.rope-walk` finding for each Python source spelling one of `names` that rope's walker cannot
+    cover, in path order."""
+    out: list[Refusal] = []
+    for path in language_files(root, "python"):
+        rel = path.relative_to(root).as_posix()
+        try:
+            source = _normalize(text(rel))
+        except (OSError, UnicodeDecodeError, LookupError):
+            continue
+        if not any(name in source for name in names):
+            continue
+        try:
+            line = walk_gap_line(source)
+        except (SyntaxError, ValueError):
+            continue
+        if line is not None:
+            out.append(refusal(message("refactor.rope-walk", path=rel, line=line)))
+    return out
+
+
+def baseline_probe(project: Path, source: Path) -> list[Refusal]:
+    """The configured checker run once on `source`, when the baseline phase will run; its failure."""
+    if not baseline_runs(project):
+        return []
+    try:
+        probe(project, source)
+    except BaselineFailed as exc:
+        return [baseline_failed(exc)]
+    return []
+
+
+def site_checks(sites: list[tuple[str, str, Path]], root: Path) -> tuple[list[Refusal], set[tuple[str, str]]]:
+    """`refactor.site-missing` for each (option, raw, base) site naming nothing; the missing ones."""
+    out: list[Refusal] = []
+    missing: set[tuple[str, str]] = set()
+    for option, raw, base in sites:
+        if Site.parse(raw, root, base).missing(root):
+            out.append(refusal(message("refactor.site-missing", option=option, site=raw), 2))
+            missing.add((option, raw))
+    return out, missing
+
+
+def editable_files(root: Path, docs: bool, text: Callable[[str], str]) -> dict[str, bool]:
+    """The files a rename can edit: each Python source (True), and with `docs` each prose file (False)."""
+    out = {path.relative_to(root).as_posix(): True for path in language_files(root, "python")}
+    if docs:
+        extensions = tuple(manifest()["dr-refactor"]["prose_extensions"])
+        for rel in sorted(source_files(root, [])):
+            if rel.endswith(extensions):
+                out.setdefault(rel, False)
+    del text
+    return out
+
+
+def keep_checks(keeps: list[str], root: Path, editable: dict[str, bool], text: Callable[[str], str], names: set[str],
+                moved: list[str], skipped: set[tuple[str, str]]) -> list[Refusal]:
+    """`refactor.keep-unmatched` for each keep covering no line spelling one of `names` and no moved file."""
+    out: list[Refusal] = []
+    for raw in keeps:
+        if ("--keep", raw) in skipped:
+            continue
+        if not keep_spells(Site.parse(raw, root), editable, text, names, moved):
+            out.append(refusal(message("refactor.keep-unmatched", site=raw), 2))
+    return out
+
+
+def _spelled(entry: MapEntry) -> str | None:
+    """The name an entry's locator spells: the last word of its symbol path."""
+    words = _WORD.findall(entry.locator.symbol or "")
+    return words[-1] if words else None
+
+
 class RenameMap:
     """The entries of a map computed as one refactor."""
 
-    def __init__(self, project: Project, entries: list[MapEntry], options: RenameOptions, map_shown: str) -> None:
+    def __init__(self, project: Project, entries: list[MapEntry], options: RenameOptions, map_shown: str,
+                 progress: Progress) -> None:
         self.project = project
         self.entries = entries
         self.options = options
         self.map_shown = map_shown
+        self.progress = progress
         self.session = Session(project)
         self.root = self.session.root
+        self.server = SharedServer(self.root, self.session.read)
+        self.stopped = False
 
-    # ---- resolution
+    # ---- resolve
 
     def _locate(self, entry: MapEntry) -> tuple[str, int]:
         found = resource(self.project, entry.path)
@@ -140,9 +268,9 @@ class RenameMap:
         except (RefactoringError, BadIdentifierError):
             raw = self.session.snapshot.text(rel)
             raw_offset = _raw_offset(raw, offset)
-            with LanguageServer(self.root, read=self.session.read) as server:
-                server.open(self.root / rel, raw)
-                found = [s for s in server.definition(self.root / rel, raw_offset) if self.session.rel(s.path)]
+            server = self.server.get()
+            server.open(self.root / rel, raw)
+            found = [s for s in server.definition(self.root / rel, raw_offset) if self.session.rel(s.path)]
             if len(found) != 1 or (found[0].path, found[0].start) == (self.root / rel, raw_offset):
                 raise
             target = str(self.session.rel(found[0].path))
@@ -193,20 +321,74 @@ class RenameMap:
         target = Rename(self.project, self.project.get_resource(rel), located.offset - source.text.count("\r\n", 0, located.offset))
         resolved.target_key = _key(target, rel, located.offset)
 
-    def resolve(self) -> list[_Resolved]:
-        """Every entry located before any is computed; duplicates merged or refused."""
+    def resolve(self) -> tuple[list[_Resolved], list[Refusal], bool]:
+        """Every entry located, searching no reference: the resolved entries (duplicates merged), each failure in
+        entry order, and whether every entry that failed spells a name."""
         out: list[_Resolved] = []
+        failures: list[Refusal] = []
+        spelled = True
         for entry in self.entries:
-            resolved = self._resolve(entry)
+            try:
+                resolved = self._resolve(entry)
+            except _ENTRY_ERRORS as exc:
+                found = failure(exc, self.root)
+                assert found is not None
+                failures.append(found)
+                spelled = spelled and _spelled(entry) is not None
+                continue
             first = next((r for r in out if r.key == resolved.key), None)
             if first is None:
                 out.append(resolved)
             elif first.intent() != resolved.intent():
-                raise MapError(message("refactor.map-duplicate", map=self.map_shown, first=first.entry.index,
-                                       second=entry.index))
+                failures.append(refusal(message("refactor.map-duplicate", map=self.map_shown, first=first.entry.index,
+                                                second=entry.index), 2))
+            else:
+                first.indexes.append(entry.index)
+        if len(out) > 1 and any(r.is_module() for r in out):
+            failures.append(refusal(message(_CANNOT_RENAME)))
+        return out, failures, spelled
+
+    # ---- checks
+
+    def names(self, resolved: list[_Resolved]) -> set[str]:
+        """Every resolved entry's old name, every retarget's target name, and the names failed entries spell."""
+        names = {r.old() for r in resolved} | {r.target_name for r in resolved if r.target_name}
+        resolved_indexes = {i for r in resolved for i in r.indexes}
+        names |= {n for e in self.entries if e.index not in resolved_indexes and (n := _spelled(e)) is not None}
+        return {n for n in names if n}
+
+    def _moved(self, resolved: list[_Resolved]) -> list[str]:
+        """The file or package a module rename moves."""
+        out: list[str] = []
+        for r in resolved:
+            if r.is_module() and r.renamer is not None and r.renamer.old_pyname is not None:
+                found = r.renamer.old_pyname.get_object().get_resource()
+                if found is not None:
+                    out.append(found.path)
         return out
 
-    # ---- computing
+    def checks(self, resolved: list[_Resolved], spelled: bool) -> list[Refusal]:
+        """Every check that needs no reference: sites, keeps, walker gaps and the checkers."""
+        options = self.options
+        sites = [("--with", raw, self.root) for raw in options.with_sites]
+        sites += [("--without", raw, self.root) for raw in options.without_sites]
+        sites += [("--keep", raw, Path.cwd()) for raw in options.keep]
+        found, missing = site_checks(sites, self.root)
+        names = self.names(resolved)
+        text = self.session.snapshot.text
+        if spelled and options.keep:
+            editable = editable_files(self.root, options.docs, text)
+            found += keep_checks(list(options.keep), self.root, editable, text, names, self._moved(resolved), missing)
+        found += walker_gaps(self.root, text, names)
+        if any(not r.is_module() for r in resolved):
+            try:
+                self.server.get()
+            except LanguageServerError as exc:
+                found.append(server_failed(exc))
+        source = self.root / resolved[0].rel if resolved else Path(self.entries[0].path)
+        return found + baseline_probe(self.root, source)
+
+    # ---- references
 
     def build(self, resolved: list[_Resolved]) -> list[Renaming]:
         finals = {r.key: r.entry.new_name for r in resolved if r.entry.new_name is not None}
@@ -214,83 +396,133 @@ class RenameMap:
         for r in resolved:
             if r.literal is not None:
                 renames.append(LiteralRename(self.session, r.rel, r.literal, str(r.entry.new_name), self.options))
-            elif r.renamer is None:
-                raise RefactorError(message(_CANNOT_RENAME))
             elif r.entry.retarget is not None:
+                assert r.renamer is not None
                 target = finals.get(r.target_key) or r.target_name  # pyright: ignore[reportArgumentType]
                 renames.append(AliasRetarget(self.session, r.renamer, target, self.options, line=r.line))
             else:
+                assert r.renamer is not None
                 renames.append(SymbolRename(self.session, r.renamer, str(r.entry.new_name), self.options))
         return renames
 
-    def compute(self, renames: list[Renaming]) -> None:
-        active = [r for r in renames if r.new != r.old]
-        for r in active:
-            r.prepare()
-        self._check_sites(active)
-        candidates = sorted({rel for r in active for rel in r.candidates})
-        with LanguageServer(self.root, read=self.session.read) as server:
-            for rel in candidates:
-                server.open(self.root / rel, self.session.snapshot.text(rel))
-            facts = TypeFacts(server, self.session.load)
-            for r in active:
-                r.seed(facts)
-            renamed = {site for r in active for site in r.seeds}
-            for r in active:
-                r.is_renamed = renamed.__contains__
-            for r in active:
-                r.rules(server, facts)
-        olds = {r.old for r in active}
-        for r in active:
-            r.renamed_names = olds
-            r.finish()
-            r.edits = merge_edits(r.edits)
-            if isinstance(r, AliasRetarget):
-                r.retarget()
+    def references(self, renames: list[Renaming], resolved: list[_Resolved]) -> dict[int, list[Refusal]]:
+        """rope's occurrences of each entry, announced as its search starts; the entries that failed."""
+        failed: dict[int, list[Refusal]] = {}
+        for n, (r, res) in enumerate(zip(renames, resolved, strict=True), 1):
+            if self.stopped:
+                break
+            self.progress.item(n, len(renames), res.indexes, r.old, r.new)
+            if r.new == r.old:
+                continue
+            try:
+                r.prepare()
+            except _ENTRY_ERRORS as exc:
+                failed[n - 1] = [found] if (found := failure(exc, self.root)) is not None else []
+                self.stopped = self.options.fail_fast
+        return failed
 
-    def _check_sites(self, renames: list[Renaming]) -> None:
-        """`SiteError` for the first `--with` or `--without` site no member entry's stand-ins hold."""
-        matched = {raw for r in renames if r.member for raw in r.matched_sites}
-        for raw in (*self.options.with_sites, *self.options.without_sites):
-            if raw not in matched:
-                raise SiteError("refactor.not-stand-in", raw)
+    def seed(self, renames: list[Renaming], active: list[int], failed: dict[int, list[Refusal]]) -> TypeFacts:
+        server = self.server.get()
+        for rel in sorted({rel for i in active for rel in renames[i].candidates}):
+            server.open(self.root / rel, self.session.snapshot.text(rel))
+        facts = TypeFacts(server, self.session.load)
+        for i in active:
+            try:
+                renames[i].seed(facts)
+            except UnresolvedBase as exc:
+                failed[i] = [found] if (found := failure(exc, self.root)) is not None else []
+        live = [i for i in active if i not in failed]
+        renamed = {site for i in live for site in renames[i].seeds}
+        for i in live:
+            renames[i].is_renamed = renamed.__contains__
+        return facts
 
-    def keep(self, renames: list[Renaming]) -> list[list[TextEdit]]:
-        """Drop every edit, blind spot and leftover at a kept site; each rename's dropped edits. `SiteError` for a keep
-        that matched nothing."""
-        keeps = Keeps(self.options.keep, self.root)
-        snapshot = self.session.snapshot
-        dropped: list[list[TextEdit]] = []
-        for r in renames:
-            kept = [keeps.kept(e.path, snapshot.source(e.path).line(e.start)) for e in r.edits]
-            dropped.append([e for e, k in zip(r.edits, kept, strict=True) if k])
-            r.edits = [e for e, k in zip(r.edits, kept, strict=True) if not k]
-            r.blindspots = [b for b in r.blindspots if not keeps.kept(b.path, b.line)]
-            r.leftovers = [f for f in r.leftovers if not keeps.kept(f.path, f.line, mark=False)]
-        keeps.check()
+    # ---- rules
+
+    def _group_refusals(self, group: list[int], renames: list[Renaming], failed: dict[int, list[Refusal]]) -> list[Refusal]:
+        own = [f for i in group for f in failed.get(i, [])]
+        live = [renames[i] for i in group if i not in failed]
+        retargets = [f for r in live if isinstance(r, AliasRetarget) for f in r.refusals]
+        blind = [] if self.options.allow_blindspots else [b for r in live for b in r.blindspots]
+        stand_ins = [s for r in live for s in r.stand_in_findings()]
+        return unique([*own, *_texts(_unique([*retargets, *blind, *stand_ins]))])
+
+    def rules(self, renames: list[Renaming], resolved: list[_Resolved], failed: dict[int, list[Refusal]],
+              facts: TypeFacts, keeps: Keeps) -> list[list[TextEdit]]:
+        """Each old-name group's rules, in the order of its first entry, its line printed as it is done; the edits
+        each rename's keeps dropped."""
+        self.progress.phase("rules")
+        groups: dict[str, list[int]] = {}
+        for i, r in enumerate(renames):
+            groups.setdefault(r.old, []).append(i)
+        olds = {r.old for r in renames if r.new != r.old}
+        dropped: list[list[TextEdit]] = [[] for _ in renames]
+        server = self.server.get()
+        for n, (old, group) in enumerate(groups.items(), 1):
+            for i in group:
+                if renames[i].new == old or i in failed:
+                    continue
+                try:
+                    renames[i].rules(server, facts)
+                except UnresolvedBase as exc:
+                    failed[i] = [found] if (found := failure(exc, self.root)) is not None else []
+            for i in group:
+                r = renames[i]
+                if r.new == old or i in failed:
+                    continue
+                r.renamed_names = olds
+                r.finish()
+                r.edits = merge_edits(r.edits)
+                if isinstance(r, AliasRetarget):
+                    r.retarget()
+                dropped[i] = self._keep(r, keeps)
+            refused = self._group_refusals(group, renames, failed)
+            indexes = sorted(index for i in group for index in resolved[i].indexes)
+            news = ", ".join(dict.fromkeys(renames[i].new for i in group))
+            self.progress.result(n, len(groups), indexes, old, news, [line for f in refused for line in f.lines])
+            if refused and self.options.fail_fast:
+                self.stopped = True
+                break
         return dropped
 
-    def merged(self, renames: list[Renaming], indexes: list[int]) -> list[TextEdit]:
-        """Every entry's edits; identical ones merged, differing ones on one span a `MapConflict`."""
+    def _keep(self, r: Renaming, keeps: Keeps) -> list[TextEdit]:
+        """Drop every edit, blind spot and leftover of `r` at a kept site; the dropped edits."""
+        snapshot = self.session.snapshot
+        kept = [keeps.kept(e.path, snapshot.source(e.path).line(e.start)) for e in r.edits]
+        dropped = [e for e, k in zip(r.edits, kept, strict=True) if k]
+        r.edits = [e for e, k in zip(r.edits, kept, strict=True) if not k]
+        r.blindspots = [b for b in r.blindspots if not keeps.kept(b.path, b.line)]
+        r.leftovers = [f for f in r.leftovers if not keeps.kept(f.path, f.line, mark=False)]
+        return dropped
+
+    # ---- the final report
+
+    def merged(self, renames: list[Renaming], indexes: list[int]) -> tuple[list[TextEdit], list[Refusal]]:
+        """Every entry's edits, identical ones merged; a `refactor.map-conflict` for each site two entries rewrite
+        differently."""
         tagged = sorted(
             {(e, i) for r, i in zip(renames, indexes, strict=True) for e in r.edits},
             key=lambda t: (t[0].path, t[0].start, t[0].end, t[1]),
         )
         out: list[TextEdit] = []
         owner: list[int] = []
+        conflicts: list[Refusal] = []
         for edit, index in tagged:
             if out and out[-1] == edit:
                 continue
             if out and out[-1].path == edit.path and edit.start < out[-1].end:
                 line = self.session.snapshot.source(edit.path).line(edit.start)
-                raise MapConflict(edit.path, line, *sorted((owner[-1], index)))
+                first, second = sorted((owner[-1], index))
+                conflicts.append(refusal(message("refactor.map-conflict", path=edit.path, line=line, first=first,
+                                                 second=second)))
+                continue
             out.append(edit)
             owner.append(index)
-        return out
+        return out, unique(conflicts)
 
-    def check_names(self, renames: list[Renaming], resolved: list[_Resolved], dropped: list[list[TextEdit]]) -> None:
-        """`NameConflict` when a rename changes what a name means or meets a member of its class's namespace: each
-        `new_name` entry alone against the code before the map, in map order, then every entry together."""
+    def check_names(self, renames: list[Renaming], resolved: list[_Resolved], dropped: list[list[TextEdit]]) -> list[NameConflict]:
+        """The first site of each name-conflict check that finds one: each `new_name` entry alone against the code
+        before the map, in map order, then every entry together."""
         entries = [
             EntryEdits(index=res.entry.index, new_name=r.new, edits=r.edits, kept=kept,
                        target=res.target_name if res.entry.retarget is not None else None)
@@ -306,6 +538,7 @@ class RenameMap:
         bindings = BindingCheck(rels, folders, self.session.snapshot.source)
         namespace = MemberCheck(Hierarchy(self.project, rels, self.session.snapshot.source), self.session.snapshot.text)
         passes = [[e] for e, res in zip(entries, resolved, strict=True) if res.entry.new_name is not None]
+        out: list[NameConflict] = []
         for group in passes if passes == [entries] else [*passes, entries]:
             renamed = [m for e, m in members if any(e is g for g in group)]
             found = first_conflict(
@@ -313,32 +546,55 @@ class RenameMap:
                 self.session.snapshot.source,
             )
             if found is not None:
-                raise found
+                out.append(found)
+        return out
 
-    def refusal(self, renames: list[Renaming]) -> list[str]:
-        """The lines refusing the map, or none when it may proceed."""
-        refusals = _unique(f for r in renames if isinstance(r, AliasRetarget) for f in r.refusals)
-        if refusals:
-            return [f.text for f in refusals]
-        blindspots = _unique(b for r in renames for b in r.blindspots)
-        stand_ins = _unique(s for r in renames for s in r.stand_in_findings())
+    def keyed_conflicts(self, renames: list[Renaming]) -> list[NameConflict]:
+        """Each rename's first renamed keyword or key meeting its new name."""
+        out: list[NameConflict] = []
+        for r in renames:
+            try:
+                r.check_conflicts(r.edits)
+            except NameConflict as conflict:
+                out.append(conflict)
+        return out
+
+    def site_findings(self, renames: list[Renaming], keeps: Keeps) -> list[Refusal]:
+        """Each `--with` or `--without` site no member entry's stand-ins hold, then each keep that matched nothing."""
+        matched = {raw for r in renames if r.member for raw in r.matched_sites}
+        out = [refusal(message("refactor.not-stand-in", site=raw), 2)
+               for raw in (*self.options.with_sites, *self.options.without_sites) if raw not in matched]
+        return out + [refusal(message("refactor.keep-unmatched", site=raw), 2) for raw in keeps.unmatched()]
+
+    def report(self, renames: list[Renaming], resolved: list[_Resolved], failed: dict[int, list[Refusal]],
+               dropped: list[list[TextEdit]], keeps: Keeps) -> tuple[list[TextEdit], list[Refusal]]:
+        """The merged edits and the final report: entry failures, retarget refusals, blind spots, stand-ins, name
+        conflicts and map conflicts, then the site findings, then the blind-spot count."""
+        live = [r for i, r in enumerate(renames) if i not in failed]
+        own = [f for i in sorted(failed) for f in failed[i]]
+        retargets = _texts(_unique(f for r in live if isinstance(r, AliasRetarget) for f in r.refusals))
+        blindspots = _unique(b for r in live for b in r.blindspots)
         blind = [] if self.options.allow_blindspots else blindspots
-        if not blind and not stand_ins:
-            return []
-        attrs = ", .".join(dict.fromkeys(r.old for r in renames if r.blindspots))
-        closing = [message("refactor.blindspots", count=len(blind), attr=attrs)] if blind else []
-        return [*(f.text for f in blindspots), *(f.text for f in stand_ins), *closing]
+        stand_ins = _texts(_unique(s for r in live for s in r.stand_in_findings()))
+        edits: list[TextEdit] = []
+        conflicts: list[Refusal] = []
+        sites: list[Refusal] = []
+        if not self.stopped:
+            names = sorted({(c.path, c.line, c.name): c for c in [*self.keyed_conflicts(live),
+                            *self.check_names(renames, resolved, dropped)]}.items())
+            edits, merged = self.merged(renames, [r.entry.index for r in resolved])
+            conflicts = [*(_name_conflict(c) for _, c in names), *merged]
+            sites = self.site_findings(live, keeps)
+        attrs = ", .".join(dict.fromkeys(r.old for r in live if r.blindspots))
+        closing = [refusal(message("refactor.blindspots", count=len(blind), attr=attrs))] if blind else []
+        return edits, unique([*own, *retargets, *_texts(blind), *stand_ins, *conflicts, *sites, *closing])
 
     def findings(self, renames: list[Renaming]) -> list[Finding]:
         """The blind spots let through and the leftovers, each group sorted."""
         blindspots = _unique(b for r in renames for b in r.blindspots)
-        unique = {(f.path, f.line, f.col, f.text): f for r in renames for f in r.leftovers}
-        leftovers = [unique[k] for k in sorted(unique)]
+        unique_ = {(f.path, f.line, f.col, f.text): f for r in renames for f in r.leftovers}
+        leftovers = [unique_[k] for k in sorted(unique_)]
         return [*blindspots, *leftovers]
-
-    def check_conflicts(self, renames: list[Renaming]) -> None:
-        for r in renames:
-            r.check_conflicts(r.edits)
 
     def outputs(self, edits: list[TextEdit]) -> tuple[ChangeSet, list[FileWrite]]:
         """The change set to print and the writes."""
@@ -353,6 +609,42 @@ class RenameMap:
             changes.add_change(ChangeContents(self.project.get_resource(rel), _normalize(text), old_contents=_normalize(raw)))
             writes.append(FileWrite(rel=rel, old=snapshot.data(rel), new=snapshot.encode(rel, text)))
         return changes, writes
+
+    # ---- the run
+
+    def run(self, apply_: bool, module_rename: Callable[[_Resolved], int]) -> int:
+        self.progress.phase("resolve")
+        resolved, failures, spelled = self.resolve()
+        self.progress.phase("checks")
+        failures += self.checks(resolved, spelled)
+        if failures:
+            raise Refused(failures)
+        self.progress.phase("references")
+        if resolved[0].is_module():
+            self.server.close()
+            return module_rename(resolved[0])
+        renames = self.build(resolved)
+        failed = self.references(renames, resolved)
+        active = [i for i, r in enumerate(renames) if r.new != r.old and i not in failed]
+        keeps = Keeps(self.options.keep, self.root)
+        dropped: list[list[TextEdit]] = [[] for _ in renames]
+        if not self.stopped:
+            facts = self.seed(renames, active, failed)
+            dropped = self.rules(renames, resolved, failed, facts, keeps)
+        self.server.close()
+        edits, refusals = self.report(renames, resolved, failed, dropped, keeps)
+        if refusals:
+            raise Refused(refusals)
+        if self.options.unsure:
+            print(message("refactor.unsure-warning"))
+        for finding in self.findings(renames):
+            print(finding.text, file=sys.stderr)
+        changes, writes = self.outputs(edits)
+        by_file: dict[str, list[Edit]] = {}
+        for e in edits:
+            by_file.setdefault(e.path, []).append((e.start, e.end, len(e.new_text)))
+        emit(self.project, [r.header() for r in renames], changes, apply_, writes, [], self.progress, edits=by_file)
+        return 0
 
 
 def source_bytes(project: Project) -> dict[str, bytes]:
@@ -383,10 +675,14 @@ def change_set_writes(changes: ChangeSet, before: dict[str, bytes]) -> tuple[lis
 
 
 def emit(project: Project, headers: list[str], changes: ChangeSet, apply_: bool, writes: list[FileWrite],
-         moves: list[FileMove], *, moved_code: bool = False, edits: dict[str, list[Edit]] | None = None) -> None:
+         moves: list[FileMove], progress: Progress, *, moved_code: bool = False,
+         edits: dict[str, list[Edit]] | None = None) -> None:
     """Print the headers and the changes sorted by path, the realigned baseline included, then write them with
     `--apply`; `BaselineFailed` when the checker fails."""
-    aligned = align(Path(project.address), writes, moves, edits=edits, moved_code=moved_code)
+    root = Path(project.address)
+    if baseline_runs(root):
+        progress.phase("baseline")
+    aligned = align(root, writes, moves, edits=edits, moved_code=moved_code)
     described = [(c.resource.path, c.get_description()) for c in changes.changes]
     if aligned is not None:
         for warning in aligned.warnings:
@@ -396,11 +692,12 @@ def emit(project: Project, headers: list[str], changes: ChangeSet, apply_: bool,
         writes = [*writes, aligned.write]
     ordered = sorted(described)
     if apply_:
-        verify(Path(project.address).resolve(), writes)
+        progress.phase("write")
+        verify(root.resolve(), writes)
     print("\n".join(headers) + "\n\n\n" + "".join(text + "\n" for _, text in ordered))
     touched = [path for path, _ in ordered]
     if apply_:
-        apply(Path(project.address).resolve(), writes, moves)
+        apply(root.resolve(), writes, moves)
         print(message("refactor.applied", count=len(touched)))
         for p in touched:
             print(message("refactor.applied-file", path=p))
@@ -409,45 +706,20 @@ def emit(project: Project, headers: list[str], changes: ChangeSet, apply_: bool,
 
 
 def run_map(project: Project, entries: list[MapEntry], options: RenameOptions, *, apply_: bool, map_shown: str,
-            module_rename: Callable[[_Resolved], int]) -> int:
-    """0 when computed (and written with `--apply`); `Refused` lines and exit 1 when it refuses."""
-    engine = RenameMap(project, entries, options, map_shown)
+            progress: Progress, module_rename: Callable[[_Resolved], int]) -> int:
+    """0 when computed (and written with `--apply`); `Refused` with every refusal when it refuses."""
+    engine = RenameMap(project, entries, options, map_shown, progress)
     try:
-        resolved = engine.resolve()
-        modules = [r for r in resolved if r.renamer is not None and r.renamer._is_renaming_a_module()]  # pyright: ignore[reportPrivateUsage]
-        if modules:
-            if len(resolved) > 1:
-                raise RefactorError(message(_CANNOT_RENAME))
-            return module_rename(modules[0])
-        renames = engine.build(resolved)
-        engine.compute(renames)
+        return engine.run(apply_, module_rename)
+    except LanguageServerError as exc:
+        engine.server.close()
+        raise Refused([server_failed(exc)]) from None
     except (RefactoringError, BadIdentifierError):
-        raise RefactorError(message(_CANNOT_RENAME)) from None
-    except LanguageServerError:
-        raise RefactorError(message("refactor.pyright-failed")) from None
+        raise Refused([refusal(message(_CANNOT_RENAME))]) from None
     except ConfigError as exc:
-        raise RefactorError(str(exc)) from None
-    except UnresolvedBase as base:
-        root = engine.root
-        path = (base.path.relative_to(root) if base.path.is_relative_to(root) else base.path).as_posix()
-        raise RefactorError(message("refactor.unresolved-base", name=base.name, path=path, line=base.line)) from None
-    dropped = engine.keep(renames)
-    engine.check_conflicts(renames)
-    edits = engine.merged(renames, [r.entry.index for r in resolved])
-    engine.check_names(renames, resolved, dropped)
-    refusal = engine.refusal(renames)
-    if refusal:
-        raise Refused(refusal)
-    if options.unsure:
-        print(message("refactor.unsure-warning"))
-    for finding in engine.findings(renames):
-        print(finding.text, file=sys.stderr)
-    changes, writes = engine.outputs(edits)
-    by_file: dict[str, list[Edit]] = {}
-    for e in edits:
-        by_file.setdefault(e.path, []).append((e.start, e.end, len(e.new_text)))
-    emit(project, [r.header() for r in renames], changes, apply_, writes, [], edits=by_file)
-    return 0
+        raise Refused([refusal(str(exc))]) from None
+    finally:
+        engine.server.close()
 
 
 def entry_options(options: dict[str, Any]) -> RenameOptions:
@@ -459,4 +731,5 @@ def entry_options(options: dict[str, Any]) -> RenameOptions:
         without_sites=tuple(options.get("without_stand_ins") or ()),
         keep=tuple(options.get("keep") or ()),
         docs=bool(options.get("docs")),
+        fail_fast=bool(options.get("fail_fast")),
     )
