@@ -77,38 +77,47 @@ def _tree(directory: Path, project: Path, digest: Any) -> None:
 Config = tuple[Path, dict[str, Any]]
 
 
+def _comment_end(text: str, i: int) -> int | None:
+    """The index just past the comment starting at `i`, or None when none starts there."""
+    if text.startswith("//", i):
+        end = text.find("\n", i)
+        return len(text) if end < 0 else end
+    if text.startswith("/*", i):
+        end = text.find("*/", i + 2)
+        return len(text) if end < 0 else end + 2
+    return None
+
+
+def _token_end(text: str, i: int) -> int:
+    """The index just past the character at `i`, or past the whole string literal starting there."""
+    if text[i] != '"':
+        return i + 1
+    end = i + 1
+    while end < len(text) and text[end] != '"':
+        end += 2 if text[end] == "\\" else 1
+    return end + 1
+
+
 def _jsonc(text: str) -> str:
     """JSON with comments and trailing commas, as Pyright reads its configuration, as plain JSON."""
     out: list[str] = []
     comma = False
-    i, n = 0, len(text)
-    while i < n:
-        char = text[i]
-        if text.startswith("//", i):
-            end = text.find("\n", i)
-            i = n if end < 0 else end
-            continue
-        if text.startswith("/*", i):
-            end = text.find("*/", i + 2)
-            i = n if end < 0 else end + 2
-            continue
-        if char.isspace():
-            out.append(char)
+    i = 0
+    while i < len(text):
+        skipped = _comment_end(text, i)
+        if skipped is not None:
+            i = skipped
+        elif text[i].isspace():
+            out.append(text[i])
             i += 1
-            continue
-        if comma and char not in "}]":
-            out.append(",")
-        comma = char == ","
-        if comma:
-            i += 1
-            continue
-        end = i + 1
-        if char == '"':
-            while end < n and text[end] != '"':
-                end += 2 if text[end] == "\\" else 1
-            end += 1
-        out.append(text[i:end])
-        i = end
+        else:
+            if comma and text[i] not in "}]":
+                out.append(",")
+            comma = text[i] == ","
+            end = i + 1 if comma else _token_end(text, i)
+            if not comma:
+                out.append(text[i:end])
+            i = end
     return "".join(out)
 
 
@@ -163,10 +172,18 @@ def _config_dirs(chain: list[Config]) -> list[Path]:
     return sorted(out)
 
 
+def _python(project: Path) -> str | None:
+    """The interpreter basedpyright uses when no environment is configured: the project's `.venv`, else PATH's."""
+    local = project / ".venv" / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python")
+    if local.exists():
+        return str(local)
+    found = shutil.which("python3") if sys.platform != "win32" else None
+    return found or shutil.which("python")
+
+
 def _interpreter(digest: Any, project: Path) -> None:
     """The interpreter basedpyright falls back on and every search path it reports."""
-    found = shutil.which("python3") if sys.platform != "win32" else None
-    found = found or shutil.which("python")
+    found = _python(project)
     if found is None:
         digest.update(b"no interpreter\n")
         return
