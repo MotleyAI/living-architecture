@@ -69,7 +69,7 @@ def test_session_runs_isolated_outside_the_workspace(
     monkeypatch.setenv("PYTHONPATH", str(workspace))
     with _fake(workspace, record) as server:
         server.open(workspace / "m.py", "x = 1\n")
-        server.hover(workspace / "m.py", 0)
+        server.definition(workspace / "m.py", 0)
     [start] = [r for r in _records(record) if "cwd" in r]
     assert not Path(start["cwd"]).resolve().is_relative_to(workspace)
     env = start["env"]
@@ -83,7 +83,7 @@ def test_session_runs_isolated_outside_the_workspace(
 def test_configuration_requests_keep_the_projects_own_config(workspace: Path, record: Path) -> None:
     with _fake(workspace, record) as server:
         server.open(workspace / "m.py", "x = 1\n")
-        server.hover(workspace / "m.py", 0)
+        server.definition(workspace / "m.py", 0)
     assert [r["configuration"] for r in _records(record) if "configuration" in r] == [[None, None]]
 
 
@@ -94,17 +94,14 @@ def test_query_positions_round_trip_through_utf16(workspace: Path, record: Path)
     with _fake(workspace, record) as server:
         server.open(path, text)
         expected = [Span(path=path, start=offset, end=offset + 3)]
-        assert server.references(path, offset) == expected
         assert server.definition(path, offset) == expected
-        assert server.type_definition(path, offset) == expected
-        assert server.hover(path, offset) == "(variable) x: Unknown"
 
 
 def test_percent_signs_in_paths_are_decoded_once(workspace: Path, record: Path) -> None:
     path = workspace / "repo%20copy" / "m.py"
     with _fake(workspace, record) as server:
         server.open(path, "x = 1\n")
-        assert server.references(path, 0) == [Span(path=path, start=0, end=3)]
+        assert server.definition(path, 0) == [Span(path=path, start=0, end=3)]
 
 
 class _TrickleStdin:
@@ -139,7 +136,7 @@ def test_a_server_exiting_mid_session_is_an_error(workspace: Path, record: Path)
     with _fake(workspace, record, "exit-on-query") as server:
         server.open(workspace / "m.py", "x = 1\n")
         with pytest.raises(LanguageServerError):
-            server.references(workspace / "m.py", 0)
+            server.definition(workspace / "m.py", 0)
 
 
 def test_closing_a_server_that_is_still_exiting_is_quiet(
@@ -148,23 +145,9 @@ def test_closing_a_server_that_is_still_exiting_is_quiet(
     with _fake(workspace, record, "exit-on-query") as server:
         server.open(workspace / "m.py", "x = 1\n")
         with pytest.raises(LanguageServerError):
-            server.references(workspace / "m.py", 0)
+            server.definition(workspace / "m.py", 0)
         time.sleep(0.2)
         monkeypatch.setattr(subprocess.Popen, "poll", lambda _self: None)
-
-
-def test_bundled_server_finds_forward_reference_strings(workspace: Path) -> None:
-    path = workspace / "m.py"
-    text = 'class Rec:\n    pass\n\n\ndef make() -> "Rec":\n    return Rec()\n'
-    path.write_text(text, encoding="utf-8")
-    before = file_tree(workspace)
-    with LanguageServer(workspace) as server:
-        server.open(path, text)
-        spans = server.references(path, text.index("Rec"))
-    assert sorted((s.start, s.end) for s in spans) == [
-        (i, i + 3) for i in (text.index("Rec"), text.index('"Rec"') + 1, text.rindex("Rec"))
-    ]
-    assert file_tree(workspace) == before
 
 
 def test_bundled_server_pulls_diagnostics_of_the_current_text(workspace: Path) -> None:
@@ -237,10 +220,11 @@ def test_export_spans_convert_against_the_opened_text(workspace: Path, record: P
 
 def test_an_exported_span_off_the_old_name_is_an_error(workspace: Path, record: Path) -> None:
     path = workspace / "m.py"
+    request = ExportRequest(names=["Rec"], files=[path])
     with _fake(workspace, record, "bad-range") as server:
         server.open(path, "Rec = 1\n")
         with pytest.raises(LanguageServerError):
-            server.export(ExportRequest(names=["Rec"], files=[path]))
+            server.export(request)
 
 
 def test_bundled_server_exports_name_occurrences_with_kinds_and_declarations(workspace: Path) -> None:

@@ -19,7 +19,7 @@ from typing_extensions import override
 from living_architecture.contract import message
 from living_architecture.refactor.outcomes import Finding
 from living_architecture.refactor.python_source import SourceFile, split_lines
-from living_architecture.refactor.rename_union import RenameOptions, Session, SymbolRename
+from living_architecture.refactor.rename_union import RenameOptions, RopeSites, Session, SymbolRename
 from living_architecture.refactor.rope_patches import every_parameter
 from living_architecture.refactor.text_edits import TextEdit
 
@@ -163,10 +163,10 @@ def _bound_in_scope(parents: Parents, node: ast.AST, name: str, accepted: Callab
 class AliasRetarget(SymbolRename):
     """References to an alias rewritten to name its target; the alias stays."""
 
-    def __init__(self, session: Session, renamer: Rename, target: str, options: RenameOptions, *, line: int,
-                 home: TargetHome | None = None, own: Location | None = None, original: str | None = None,
-                 entry: int = 0) -> None:
-        super().__init__(session, renamer, target, options)
+    def __init__(self, session: Session, renamer: Rename, target: str, options: RenameOptions, *,
+                 site: tuple[str, int], rope_sites: RopeSites | None = None, line: int, home: TargetHome | None = None,
+                 own: Location | None = None, original: str | None = None, entry: int = 0) -> None:
+        super().__init__(session, renamer, target, options, site=site, rope_sites=rope_sites)
         self.check_names = False
         self.line = line
         self.home = home
@@ -309,7 +309,7 @@ class AliasRetarget(SymbolRename):
     def _overrides(self) -> None:
         if not self.member:
             return
-        hierarchy = self._hierarchy(self.renamer)
+        hierarchy = self.located_hierarchy()
         rel = self.renamer.resource.path
         own = next((d.cls for d in self._declarations if d.rel == rel and d.line == self.line), None)
         for d in self._declarations:

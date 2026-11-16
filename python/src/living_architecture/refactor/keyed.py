@@ -1,7 +1,7 @@
 """Field renames of keyed classes (Pydantic models, TypedDicts): keyword arguments and dict keys proven from types.
 
-Every rewrite resolves its target class through basedpyright's declaration locations and looks the field up in that
-class's method resolution order; anything not proven so is left unchanged.
+Every rewrite resolves its target class through basedpyright's declaration locations, read from the run's occurrence
+index, and looks the field up in that class's method resolution order; anything not proven so is left unchanged.
 """
 
 from __future__ import annotations
@@ -11,9 +11,9 @@ import itertools
 import re
 from collections.abc import Callable, Iterator
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Protocol
 
-from living_architecture.lang import LanguageServer, Span
+from living_architecture.lang import Span
 from living_architecture.refactor.python_source import SourceFile
 from living_architecture.refactor.text_edits import TextEdit
 
@@ -103,30 +103,30 @@ def _c3(head: ClassRef, parents: list[list[ClassRef]]) -> list[ClassRef]:
     return out
 
 
-class TypeFacts:
-    """Declaration-based type facts from one language-server session, cached."""
+class Definitions(Protocol):
+    """Where the checker's definition and type-definition requests land from a position."""
 
-    def __init__(self, server: LanguageServer, load: Callable[[Path], SourceFile | None]) -> None:
-        self.server = server
+    def definition(self, path: Path, offset: int) -> list[Span]: ...
+
+    def type_definition(self, path: Path, offset: int) -> list[Span]: ...
+
+
+class TypeFacts:
+    """Declaration-based type facts over the checker's definitions, cached."""
+
+    def __init__(self, definitions: Definitions, load: Callable[[Path], SourceFile | None]) -> None:
+        self._definitions = definitions
         self._load = load
-        self._definitions: dict[tuple[Path, int, str], list[Span]] = {}
         self._chains: dict[tuple[Path, int], _Chain] = {}
 
     def source(self, path: Path) -> SourceFile | None:
         return self._load(path)
 
-    def _query(self, kind: str, path: Path, offset: int) -> list[Span]:
-        key = (path, offset, kind)
-        if key not in self._definitions:
-            query = self.server.definition if kind == "def" else self.server.type_definition
-            self._definitions[key] = query(path, offset)
-        return self._definitions[key]
-
     def definition(self, path: Path, offset: int) -> list[Span]:
-        return self._query("def", path, offset)
+        return self._definitions.definition(path, offset)
 
     def type_definition(self, path: Path, offset: int) -> list[Span]:
-        return self._query("type", path, offset)
+        return self._definitions.type_definition(path, offset)
 
     def span_text(self, span: Span) -> str:
         source = self.source(span.path)

@@ -1,0 +1,36 @@
+Renaming <value> to <amount>:
+
+
+--- a/pkg/m.py
++++ b/pkg/m.py
+@@ -3,20 +3,20 @@
+         self._v = 0
+ 
+     @property
+-    def value(self) -> int:
++    def amount(self) -> int:
+         return self._v
+ 
+-    @value.setter
+-    def value(self, v: int) -> None:
++    @amount.setter
++    def amount(self, v: int) -> None:
+         self._v = v
+ 
+ 
+ class Q(P):
+     @property
+-    def value(self) -> int:
++    def amount(self) -> int:
+         return 5
+ 
+ 
+ def use(p: P, q: Q) -> int:
+-    p.value = 3
+-    return p.value + q.value
++    p.amount = 3
++    return p.amount + q.amount
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

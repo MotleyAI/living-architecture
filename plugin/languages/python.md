@@ -13,7 +13,7 @@ patches basedpyright in memory for pyright#11919, so pin a verified version (tod
 
 ## Refactoring
 
-`dr-refactor` runs rope, plus the basedpyright bundled with la for every reference the type checker resolves.
+`dr-refactor` resolves a rename's occurrences with the basedpyright bundled with la; rope locates the renamed symbol, renames modules and computes moves.
 Its project scope (`--project`) must include `tests/` so test imports are rewritten too, and it must run in the
 project's environment (the `python` on PATH, or the venv in `[tool.basedpyright]`) so third-party types
 resolve. Move destinations must exist: a new package is a directory with an `__init__.py`.

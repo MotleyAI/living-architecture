@@ -99,20 +99,26 @@ def mention_outcome(rel: str, mention: Mention, *, rewrite: bool, old: str, new:
     return Outcome(kind="leftover", rel=rel, span=span, finding=Finding(path=rel, line=mention.line, col=span[0], text=text))
 
 
-def literal_outcomes(rel: str, source: SourceFile, old: str, handled: Callable[[int, int], bool]) -> list[Outcome]:
-    """Each string literal whose whole value is `old` (not a docstring or f-string part) and that no other rule
-    `handled`: a leftover."""
+def literal_spans(source: SourceFile) -> dict[str, list[tuple[int, int]]]:
+    """The spans of each string literal of `source` by its value, docstrings and f-string parts aside."""
+    found: dict[str, list[tuple[int, int]]] = {}
     if source.tree is None:
-        return []
+        return found
     skipped = {id(d) for d in docstrings(source.tree)}
     skipped |= {id(v) for n in ast.walk(source.tree) if isinstance(n, ast.JoinedStr) for v in n.values}
-    out: list[Outcome] = []
     for node in ast.walk(source.tree):
-        if isinstance(node, ast.Constant) and node.value == old and isinstance(node.value, str) and id(node) not in skipped:
-            span = source.span(node)
-            if not handled(*span):
-                out.append(_leftover(rel, source, span, "string", old))
-    return sorted(out, key=lambda o: o.span)
+        if isinstance(node, ast.Constant) and isinstance(node.value, str) and id(node) not in skipped:
+            found.setdefault(node.value, []).append(source.span(node))
+    return found
+
+
+def literal_outcomes(rel: str, source: SourceFile, old: str, handled: Callable[[int, int], bool],
+                     spans: list[tuple[int, int]] | None = None) -> list[Outcome]:
+    """Each string literal whose whole value is `old` (`spans` when known, docstrings and f-string parts aside)
+    that no other rule `handled`: a leftover."""
+    found = literal_spans(source).get(old, []) if spans is None else spans
+    return sorted((_leftover(rel, source, span, "string", old) for span in found if not handled(*span)),
+                  key=lambda o: o.span)
 
 
 def compound_outcome(rel: str, source: SourceFile, span: tuple[int, int], name: str, old: str) -> Outcome:

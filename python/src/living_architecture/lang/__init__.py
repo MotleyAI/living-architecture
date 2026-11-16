@@ -3,9 +3,15 @@ and its language-server session."""
 
 from living_architecture.lang.edges import dependency_edges, reverse_closure
 from living_architecture.lang.language_server import (
+    Declaration,
     Diagnostic,
+    ExportRequest,
+    FactQuery,
     LanguageServer,
     LanguageServerError,
+    Occurrence,
+    OccurrenceIndex,
+    PositionFacts,
     Span,
     utf16_index,
     utf16_position,
@@ -20,11 +26,15 @@ from living_architecture.lang.source import (
 )
 from living_architecture.lang.typecheck import (
     BASEDPYRIGHT_WRITE_FLAG,
+    PYRIGHT_EXPORT_PRELOAD,
     PYRIGHT_PATCH_PRELOAD,
+    PyrightExport,
     PyrightPatch,
     basedpyright_exit,
     empty_basedpyright_baseline,
+    pyright_export_env,
     pyright_patch_env,
+    read_pyright_export,
     read_pyright_patch,
 )
 from living_architecture.lang.units import (
@@ -37,12 +47,20 @@ from living_architecture.lang.units import (
 
 __all__ = [
     "BASEDPYRIGHT_WRITE_FLAG",
+    "PYRIGHT_EXPORT_PRELOAD",
     "PYRIGHT_PATCH_PRELOAD",
+    "Declaration",
     "Detection",
     "Diagnostic",
+    "ExportRequest",
+    "FactQuery",
     "LanguageServer",
     "LanguageServerError",
+    "Occurrence",
+    "OccurrenceIndex",
     "ParseFailure",
+    "PositionFacts",
+    "PyrightExport",
     "PyrightPatch",
     "SourceAnalysis",
     "SourceModule",
@@ -54,7 +72,9 @@ __all__ = [
     "dependency_edges",
     "empty_basedpyright_baseline",
     "import_targets",
+    "pyright_export_env",
     "pyright_patch_env",
+    "read_pyright_export",
     "read_pyright_patch",
     "reverse_closure",
     "source_modules",

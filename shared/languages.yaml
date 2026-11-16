@@ -6,7 +6,9 @@
 # segments (`pkg.api`, `src/api`); `imports_non_source` means its imports can reach files of no language (JSON
 # modules), so la-affected-tests computes it for a change to such a file. `checker_patch_versions` (python) lists
 # the basedpyright versions la-typecheck's pyright#11919 patch is verified for; any other installed version is
-# refused. `any_type` and `top_type` spell the language's any type and its safe top type in explicit-any findings.
+# refused. `checker_export_versions` (python) lists the basedpyright versions the occurrence-export preload of
+# dr-refactor's language server is verified for; `cache_dir_variable` (python) names the environment variable holding
+# the directory of dr-refactor's occurrence-index cache. `any_type` and `top_type` spell the language's any type and its safe top type in explicit-any findings.
 # `root_members` (python) are the members of the implicit root class `object` over every supported Python version (as
 # the typeshed of the shipped basedpyright declares them), which a member rename may not take.
 # `string_member_calls` are the calls that name a member by a string, which a rename rewrites and attr-blindspot
@@ -56,6 +58,8 @@ python:
   local_bin: .venv/bin
   baseline_file: .basedpyright/baseline.json
   checker_patch_versions: ['1.40.2']
+  checker_export_versions: ['1.40.2']
+  cache_dir_variable: LA_CACHE_DIR
   root_members: [__annotations__, __class__, __delattr__, __dict__, __dir__, __doc__, __eq__, __format__,
                  __getattribute__, __getstate__, __hash__, __init__, __init_subclass__, __module__, __ne__, __new__,
                  __reduce__, __reduce_ex__, __repr__, __setattr__, __sizeof__, __str__, __subclasshook__]

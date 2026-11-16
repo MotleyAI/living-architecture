@@ -15,10 +15,12 @@ from pathlib import Path
 from typing import TypeGuard
 
 from living_architecture.contract import language, message
-from living_architecture.lang import LanguageServer, LanguageServerError
+from living_architecture.lang import LanguageServerError
 from living_architecture.refactor.explicit_any import check_explicit_any
-from living_architecture.refactor.member_scan import MemberScan
+from living_architecture.refactor.index_cache import IndexCache
+from living_architecture.refactor.member_scan import MemberScan, probe_round
 from living_architecture.refactor.mock_spec_lint import mock_findings
+from living_architecture.refactor.occurrence_index import RunIndex, ServerSession
 from living_architecture.refactor.python_source import SourceFile
 from living_architecture.refactor.rope_patches import apply_rope_patches, walk_gap_line
 from living_architecture.refactor.routing import RoutingError, compliance_selection, run_split, split
@@ -128,18 +130,32 @@ def _blindspots(paths: list[Path], names: list[str], workspace: Path) -> dict[st
             loaded[path] = _outside(path)
         return loaded[path]
 
+    def read(path: Path) -> str:
+        found = load(path)
+        if found is None:
+            raise OSError(path)
+        return found.text
+
     found: defaultdict[str, list[tuple[int, int, str, str]]] = defaultdict(list)
-    with LanguageServer(workspace) as server:
-        for resolved, (_, source) in sources.items():
-            server.open(resolved, source.text)
-        for name in dict.fromkeys(names):
-            scan = MemberScan(server, name, load)
+    root = workspace.resolve()
+    server = ServerSession(root, read)
+    index = RunIndex(root, load, server, IndexCache(root))
+    unique = list(dict.fromkeys(names))
+    try:
+        index.prepare(set(unique), list(sources))
+        index.build()
+        probe_round(index, [(resolved, source) for resolved, (_, source) in sources.items()], unique, load)
+        for name in unique:
+            scan = MemberScan(index, name, load)
             for resolved, (shown, source) in sources.items():
                 found[shown] += [
                     (b.line, b.col, name, message("compliance.attr-blindspot", path=shown, line=b.line,
                                                   receiver=b.receiver, attr=name, type=b.kind))
                     for b in scan.blindspots(resolved, source)
                 ]
+    finally:
+        server.close()
+        index.close()
     return {shown: [(line, text) for line, _, _, text in sorted(spots)] for shown, spots in found.items()}
 
 

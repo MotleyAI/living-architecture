@@ -1,0 +1,26 @@
+Renaming <total> to <acc>:
+
+
+--- a/pkg/m.py
++++ b/pkg/m.py
+@@ -1,11 +1,11 @@
+ def outer(n: int) -> int:
+-    total = n
++    acc = n
+ 
+     def inner() -> int:
+-        nonlocal total
+-        total += 1
+-        return total
++        nonlocal acc
++        acc += 1
++        return acc
+ 
+-    for total in range(3):
++    for acc in range(3):
+         pass
+     return inner() + sum(total for total in range(2))
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.
