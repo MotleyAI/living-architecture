@@ -1,6 +1,7 @@
 ## Context
 
-See proposal.md (Why). DEV-2301 is merged to main and archived; this branch has merged origin/main. Today
+See proposal.md (Why). DEV-2301 is merged to main and archived; this branch has merged origin/main, and DEV-2315's branch (WIP,
+unarchived), whose `conflicts` phase and narrowed conflict checks it builds on. Today
 (`python/src/living_architecture/refactor`):
 
 - `rope_refactor.run_refactor` builds a rope `Project`; `rename_map.RenameMap` locates each entry with rope's `Rename`
@@ -120,7 +121,8 @@ static resolver for scoping, imports and module chains, the AST for declarations
     instead of rope's `Hierarchy`; the implicit-root check stays. The fact is part of the request, so the cache key covers
     it. Cases: a library base declaring the new name, directly and through a transitive library base, where the library is
     installed only in the project's environment; a project ancestor reached through a base rope cannot evaluate.
-    Closes DEV-2301 comment gap 1. (default; full-MRO request: codex)
+    Closes DEV-2301 comment gap 1. The project classes declaring a new member name are still found once per name per
+    run (DEV-2315 decision 8); the check runs in DEV-2315's `conflicts` phase. (default; full-MRO request: codex)
 11. **Retarget's lookups on the static resolver.** The target's declaration (imports followed), module `M`'s attribute
     `N`, a module's file and name, and the receiver module of `MOD.ALIAS` come from the static resolver and the ported
     source folders. The issue named the index for receiver modules; a module receiver is exactly the static resolver's
@@ -128,10 +130,12 @@ static resolver for scoping, imports and module chains, the AST for declarations
     (default)
 12. **Module rename sites.** From import syntax and the static resolver, as the spec's module-rename paragraph lists
     them; `--keep` drops an edit on a kept line, and a kept module file is not moved while its importers are rewritten
-    (as `refactor-rename-module-keep-file` pins); `_taken` and `BindingCheck` refuse as today; `--with`/`--without` stay
-    `refactor.not-stand-in`; `--docs` and `--unsure` have no effect on a module rename, as today (`_module_rename` calls
-    rope without `docs`). A package `__init__.py` or package directory renames the directory. A module outside the
-    project refuses as today. (default; `--docs` occurrences: rejected (codex), rope is called without `docs`)
+    (as `refactor-rename-module-keep-file` pins); `_taken` and `BindingCheck` refuse as today (a taken name refuses
+    before the `conflicts` phase; the binding check runs inside it with the full, unnarrowed check, as DEV-2315
+    decisions 11 and 14 place it); `--with`/`--without` stay `refactor.not-stand-in`; `--docs` and `--unsure` have no
+    effect on a module rename, as today (`_module_rename` calls rope without `docs`). A package `__init__.py` or package
+    directory renames the directory. A module outside the project refuses as today. (default; `--docs` occurrences:
+    rejected (codex), rope is called without `docs`)
 13. **Alias entries match by binding (DEV-2301 decision 22).** An entry on a binding that DEV-2301 decision 22
     matches by binding keeps that rule: the checker's chain comes from the index. An occurrence the checker leaves
     unresolved (decision 1) is renamed for such an entry only when the static resolver's chain for it holds the

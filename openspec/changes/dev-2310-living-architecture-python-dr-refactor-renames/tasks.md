@@ -14,6 +14,11 @@
 - [ ] 0.3 Every new conformance case is a Python `adapter` case with a hand-written golden (`golden: manual`), except
       the `--offset` case, which is `paired` (both twins); all listed in `conformance/INVENTORY.md`. Existing Python
       rename / rename-map / retarget goldens are never regenerated (design decision 16).
+- [ ] 0.4 Stacked on DEV-2315 (WIP). After each merge of its branch: give this change's new goldens its `[conflicts]`
+      line where its phase rule puts it, re-run them, and re-check decisions 10 and 12 against its decisions 8, 11, 14
+      and 19, and this spec delta against its delta. Once it merges to main, merge `origin/main`. Open this PR only after
+      DEV-2315 has merged, or with its branch as base. Verify: `git merge-base --is-ancestor` of the DEV-2315 branch
+      head succeeds before opening the PR.
 
 ## 1. Tests (pr-tests)
 
