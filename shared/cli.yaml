@@ -254,7 +254,7 @@ commands:
           - {name: --fail-fast, type: flag,
              help: 'stop at the first entry with a refusal (default: compute every entry and report every refusal)'}
       retarget:
-        help: rewrite the references to an alias to name its target, declared in the same class or module
+        help: rewrite the references to an alias to name its target, declared or imported in the same class or module
         exclusive: [[offset, line, symbol]]
         options:
           - {name: --file, type: path, required: true, help: file holding the alias}

@@ -94,26 +94,32 @@ describe('retarget', () => {
   });
 
   it.each([
-    ['an import re-exported and used', "import { legacy } from './api';\n\nexport { legacy };\n\nexport function make(): number {\n  return legacy();\n}\n"],
-    ['an export from', "export { legacy } from './api';\n"],
-  ])('keeps a single-name shim and its importers (%s)', (_kind, shim) => {
+    [
+      'an import re-exported and used',
+      "import { legacy } from './api';\n\nexport { legacy };\n\nexport function make(): number {\n  return legacy();\n}\n",
+      "import { legacy } from './api';\nimport { modern } from './api';\n\nexport { legacy };\n\nexport function make(): number {\n  return modern();\n}\n",
+    ],
+    ['an export from', "export { legacy } from './api';\n", "export { legacy } from './api';\n"],
+  ])("rewrites a single-name shim's importers (%s)", (_kind, shim, shimAfter) => {
     const use = "import { legacy } from './shim';\n\nexport const a = legacy();\n";
     const direct = "import { legacy } from './api';\n\nexport const b = legacy();\n";
     const root = tsProject({ 'src/api.ts': API, 'src/shim.ts': shim, 'src/use.ts': use, 'src/direct.ts': direct });
     const result = refactor(root, '--apply', 'retarget', '--file', 'src/api.ts', '--symbol', 'legacy', '--target', 'modern');
     expect([result.code, result.err]).toEqual([0, '']);
-    expect([read(root, 'src/shim.ts'), read(root, 'src/use.ts')]).toEqual([shim, use]);
+    expect(read(root, 'src/shim.ts')).toBe(shimAfter);
+    expect(read(root, 'src/use.ts')).toBe("import { modern } from './api';\n\nexport const a = modern();\n");
     expect(read(root, 'src/direct.ts')).toBe("import { modern } from './api';\n\nexport const b = modern();\n");
     expect(diagnosticCodes(root)).toEqual([]);
   });
 
-  it('keeps an importer of a single-name shim under a local alias', () => {
+  it('imports the target from its home for an importer of a single-name shim under a local alias', () => {
     const shim = "import { legacy } from './api';\n\nexport { legacy };\n";
     const use = "import { legacy as old } from './shim';\n\nexport const a = { old };\n";
     const root = tsProject({ 'src/api.ts': API, 'src/shim.ts': shim, 'src/use.ts': use });
     const result = refactor(root, '--apply', 'retarget', '--file', 'src/api.ts', '--symbol', 'legacy', '--target', 'modern');
     expect([result.code, result.err]).toEqual([0, '']);
-    expect([read(root, 'src/shim.ts'), read(root, 'src/use.ts')]).toEqual([shim, use]);
+    expect(read(root, 'src/shim.ts')).toBe(shim);
+    expect(read(root, 'src/use.ts')).toBe("import { modern as old } from './api';\n\nexport const a = { old };\n");
     expect(diagnosticCodes(root)).toEqual([]);
   });
 
@@ -188,11 +194,23 @@ describe('retarget', () => {
     expect(read(root, 'src/models.ts')).toBe(models);
   });
 
-  it('refuses a target declared in another module', () => {
+  it('accepts a target imported from another module', () => {
     const compat = "import { Model } from './core';\n\n/** @deprecated */\nexport const AcmeModel = Model;\n";
-    const root = tsProject({ 'src/core.ts': 'export class Model {}\n', 'src/compat.ts': compat });
-    const result = refactor(root, 'retarget', '--file', 'src/compat.ts', '--symbol', 'AcmeModel', '--target', 'Model');
-    expect(result).toEqual({ code: 2, out: '', err: `${message('refactor.retarget-scope', { target: 'Model', alias: 'AcmeModel' })}\n` });
+    const use = "import { AcmeModel } from './compat';\n\nexport const a = new AcmeModel();\n";
+    const root = tsProject({ 'src/core.ts': 'export class Model {}\n', 'src/compat.ts': compat, 'src/use.ts': use });
+    const result = refactor(root, '--apply', 'retarget', '--file', 'src/compat.ts', '--symbol', 'AcmeModel', '--target', 'Model');
+    expect([result.code, result.err]).toEqual([0, '']);
+    expect(read(root, 'src/compat.ts')).toBe(compat);
+    expect(read(root, 'src/use.ts')).toBe("import { Model } from './core';\n\nexport const a = new Model();\n");
+  });
+
+  it('refuses a member alias whose target is in another class', () => {
+    const store = 'export class Store {\n  saveModel(m: string): void {\n    console.log(m);\n  }\n}\n\n';
+    const root = tsProject({ 'src/engine.ts': store + ENGINE, 'src/use.ts': ENGINE_USE });
+    const before = files(root);
+    const result = refactor(root, '--apply', 'retarget', '--file', 'src/engine.ts', '--symbol', 'Engine.save', '--target', 'Store.saveModel');
+    expect(result).toEqual({ code: 2, out: '', err: `${message('refactor.retarget-scope', { target: 'Store.saveModel', alias: 'Engine.save' })}\n` });
+    expect(files(root)).toEqual(before);
   });
 
   it('refuses an alias a subclass overrides, naming each override', () => {
@@ -238,5 +256,179 @@ describe('retarget', () => {
     const direct = refactor(viaCommand, ...flag, 'retarget', '--file', 'src/engine.ts', '--symbol', 'Engine.save', '--target', 'Engine.saveModel');
     expect(direct.code).toBe(0);
     expect(refactor(viaMap, ...flag, 'rename-map', 'map.yaml')).toEqual(direct);
+  });
+});
+
+const CORE = 'export class Facade {}\n\nexport class Part {}\n\nexport function helper(): number {\n  return 1;\n}\n';
+const COMPAT = "import { Facade, Part } from './core';\n\nexport const CONST = 1;\n/** @deprecated */\nexport const Flight = Facade;\n/** @deprecated */\nexport type Flight = Facade;\n/** @deprecated */\nexport const OldPart = Part;\n";
+const retargetFlight = (root: string): ReturnType<typeof refactor> =>
+  refactor(root, '--apply', 'retarget', '--file', 'src/compat.ts', '--symbol', 'Flight', '--target', 'Facade');
+
+describe('retarget import planner', () => {
+  it.each([
+    [
+      'joins an earlier home import',
+      "import { helper } from './core';\nimport { CONST, Flight } from './compat';\n\nexport const x = [CONST, new Flight(), helper()];\n",
+      "import { helper, Facade } from './core';\nimport { CONST } from './compat';\n\nexport const x = [CONST, new Facade(), helper()];\n",
+    ],
+    ['replaces a sole-name import', "import { Flight } from './compat';\n\nexport const x = new Flight();\n", "import { Facade } from './core';\n\nexport const x = new Facade();\n"],
+    [
+      'adds a statement after a multi-name import',
+      "import { CONST, Flight } from './compat';\n\nexport const x = [CONST, new Flight()];\n",
+      "import { CONST } from './compat';\nimport { Facade } from './core';\n\nexport const x = [CONST, new Facade()];\n",
+    ],
+    ['keeps as Z', "import { Flight as Z } from './compat';\n\nexport const x = new Z();\n", "import { Facade as Z } from './core';\n\nexport const x = new Z();\n"],
+    [
+      'edits name spans only',
+      "import {\n  Flight, // the alias\n} from './compat';\n\nexport const x = new Flight();\n",
+      "import {\n  Facade, // the alias\n} from './core';\n\nexport const x = new Facade();\n",
+    ],
+    [
+      'keeps the import attributes of the statement it edits',
+      "import { Flight } from './compat' with { kind: 'legacy' };\n\nexport const x = new Flight();\n",
+      "import { Facade } from './core' with { kind: 'legacy' };\n\nexport const x = new Facade();\n",
+    ],
+    [
+      'gives a new statement no comment or attribute',
+      "import { CONST, Flight } from './compat' with { kind: 'legacy' }; // keep\n\nexport const x = [CONST, new Flight()];\n",
+      "import { CONST } from './compat' with { kind: 'legacy' }; // keep\nimport { Facade } from './core';\n\nexport const x = [CONST, new Facade()];\n",
+    ],
+    [
+      'imports type-only for type uses only',
+      "import { Flight } from './compat';\n\nexport function f(x: Flight): void {\n  console.log(x);\n}\n",
+      "import type { Facade } from './core';\n\nexport function f(x: Facade): void {\n  console.log(x);\n}\n",
+    ],
+    [
+      'adds a type-only statement for type uses only',
+      "import { CONST, Flight } from './compat';\n\nexport const c = CONST;\nexport let f: Flight | undefined;\n",
+      "import { CONST } from './compat';\nimport type { Facade } from './core';\n\nexport const c = CONST;\nexport let f: Facade | undefined;\n",
+    ],
+    [
+      'makes a type-only specifier of the target a value import for a value use',
+      "import { type Facade } from './core';\nimport { Flight } from './compat';\n\nexport const x: Facade = new Flight();\n",
+      "import { Facade } from './core';\n\nexport const x: Facade = new Facade();\n",
+    ],
+  ])('places the target import: %s', (_kind, use, expected) => {
+    const root = tsProject({ 'src/core.ts': CORE, 'src/compat.ts': COMPAT, 'src/use.ts': use });
+    expect([retargetFlight(root).code, read(root, 'src/use.ts')]).toEqual([0, expected]);
+    expect(read(root, 'src/compat.ts')).toBe(COMPAT);
+    expect(diagnosticCodes(root)).toEqual([]);
+  });
+
+  it('spells a relative specifier from the importing file, in its extension style', () => {
+    const importers: Record<string, [string, string]> = {
+      'src/a.ts': ['./compat', './lib/core'],
+      'src/lib/b.ts': ['../compat', './core'],
+      'src/lib/deep/c.ts': ['../../compat.js', '../core.js'],
+      'src/other/d.ts': ['../compat', '../lib/core'],
+    };
+    const body = (specifier: string): string => `import { CONST, Flight } from '${specifier}';\n\nexport const x = [CONST, new Flight()];\n`;
+    const root = tsProject({
+      'src/lib/core.ts': CORE,
+      'src/compat.ts': COMPAT.replace("'./core'", "'./lib/core'"),
+      ...Object.fromEntries(Object.entries(importers).map(([rel, [specifier]]) => [rel, body(specifier)])),
+    });
+    expect(retargetFlight(root).code).toBe(0);
+    for (const [rel, [specifier, home]] of Object.entries(importers)) {
+      expect(read(root, rel)).toBe(`import { CONST } from '${specifier}';\nimport { Facade } from '${home}';\n\nexport const x = [CONST, new Facade()];\n`);
+    }
+    expect(diagnosticCodes(root)).toEqual([]);
+  });
+
+  it('names a bare package home as the alias module spells it', () => {
+    const root = tsProject({
+      'node_modules/facade-lib/package.json': '{"name": "facade-lib", "types": "index.d.ts"}\n',
+      'node_modules/facade-lib/index.d.ts': 'export declare class Facade {}\n',
+      'src/compat.ts': "import { Facade } from 'facade-lib';\n\nexport const CONST = 1;\n/** @deprecated */\nexport const Flight = Facade;\n",
+      'src/use.ts': "import { CONST, Flight } from './compat';\n\nexport const x = [CONST, new Flight()];\n",
+    });
+    expect(retargetFlight(root).code).toBe(0);
+    expect(read(root, 'src/use.ts')).toBe("import { CONST } from './compat';\nimport { Facade } from 'facade-lib';\n\nexport const x = [CONST, new Facade()];\n");
+    expect(diagnosticCodes(root)).toEqual([]);
+  });
+
+  it.each([
+    [
+      'under its exported name',
+      { 'src/core.ts': 'export class CoreModel {}\n', 'src/compat.ts': "import { CoreModel as Model } from './core';\n\nexport const AcmeModel = Model;\n" },
+      "import { CoreModel as Model } from './core';\n\nexport const x = new Model();\n",
+    ],
+    [
+      'not chased along a re-export chain',
+      {
+        'src/private.ts': 'export class Model {}\n',
+        'src/public.ts': "export { Model } from './private';\n",
+        'src/compat.ts': "import { Model } from './public';\n\nexport const AcmeModel = Model;\n",
+      },
+      "import { Model } from './public';\n\nexport const x = new Model();\n",
+    ],
+  ])('imports the target from the home the alias module imports it from (%s)', (_kind, home, expected) => {
+    const root = tsProject({ ...home, 'src/use.ts': "import { AcmeModel } from './compat';\n\nexport const x = new AcmeModel();\n" });
+    const result = refactor(root, '--apply', 'retarget', '--file', 'src/compat.ts', '--symbol', 'AcmeModel', '--target', 'Model');
+    expect([result.code, read(root, 'src/use.ts')]).toEqual([0, expected]);
+    expect(diagnosticCodes(root)).toEqual([]);
+  });
+
+  it('gives a block one import per home across map entries', () => {
+    const root = tsProject({
+      'src/core.ts': CORE,
+      'src/compat.ts': COMPAT,
+      'src/use.ts': "import { CONST, Flight, OldPart } from './compat';\n\nexport const x = [CONST, new Flight(), new OldPart()];\n",
+      'map.yaml': mapYaml([
+        { file: 'src/compat.ts', symbol: 'Flight', retarget: 'Facade' },
+        { file: 'src/compat.ts', symbol: 'OldPart', retarget: 'Part' },
+      ]),
+    });
+    expect(refactor(root, '--apply', 'rename-map', 'map.yaml').code).toBe(0);
+    expect(read(root, 'src/use.ts')).toBe("import { CONST } from './compat';\nimport { Facade, Part } from './core';\n\nexport const x = [CONST, new Facade(), new Part()];\n");
+    expect(diagnosticCodes(root)).toEqual([]);
+  });
+
+  it('keeps a default import beside the alias it drops', () => {
+    const use = "import one, { Flight } from './compat';\n\nexport const x = [one, new Flight()];\n";
+    const root = tsProject({ 'src/core.ts': CORE, 'src/compat.ts': `${COMPAT}\nexport default 1;\n`, 'src/use.ts': use });
+    expect(retargetFlight(root).code).toBe(0);
+    expect(read(root, 'src/use.ts')).toBe("import one from './compat';\nimport { Facade } from './core';\n\nexport const x = [one, new Facade()];\n");
+    expect(diagnosticCodes(root)).toEqual([]);
+  });
+
+  it('splits a type-only clause that a value name joins', () => {
+    const root = tsProject({
+      'src/core.ts': CORE,
+      'src/compat.ts': COMPAT,
+      'src/use.ts': "import type { Flight } from './compat';\nimport { OldPart } from './compat';\n\nexport let f: Flight | undefined;\nexport const p = new OldPart();\n",
+      'map.yaml': mapYaml([
+        { file: 'src/compat.ts', symbol: 'Flight', retarget: 'Facade' },
+        { file: 'src/compat.ts', symbol: 'OldPart', retarget: 'Part' },
+      ]),
+    });
+    expect(refactor(root, '--apply', 'rename-map', 'map.yaml').code).toBe(0);
+    expect(read(root, 'src/use.ts')).toBe("import { type Facade, Part } from './core';\n\nexport let f: Facade | undefined;\nexport const p = new Part();\n");
+    expect(diagnosticCodes(root)).toEqual([]);
+  });
+
+  it('adds no import for a use in a re-export shim whose import binds the target', () => {
+    const shim = "import { modern, legacy } from './api';\n\nexport { modern, legacy };\n\nexport function make(): number {\n  return legacy();\n}\n";
+    const root = tsProject({ 'src/api.ts': API, 'src/shim.ts': shim });
+    expect(refactor(root, '--apply', 'retarget', '--file', 'src/api.ts', '--symbol', 'legacy', '--target', 'modern').code).toBe(0);
+    expect(read(root, 'src/shim.ts')).toBe(shim.replace('return legacy()', 'return modern()'));
+    expect(diagnosticCodes(root)).toEqual([]);
+  });
+
+  it('removes a later import of the target in the block', () => {
+    const use = "import { CONST, Flight } from './compat';\nimport { Facade } from './core';\n\nexport const x = [CONST, new Flight(), new Facade()];\n";
+    const root = tsProject({ 'src/core.ts': CORE, 'src/compat.ts': COMPAT, 'src/use.ts': use });
+    expect(retargetFlight(root).code).toBe(0);
+    expect(read(root, 'src/use.ts')).toBe("import { CONST } from './compat';\nimport { Facade } from './core';\n\nexport const x = [CONST, new Facade(), new Facade()];\n");
+    expect(diagnosticCodes(root)).toEqual([]);
+  });
+
+  it('refuses a namespace member through a module that does not export the target', () => {
+    const use = "import * as c from './shim';\n\nexport const x = new c.AcmeModel();\n";
+    const root = tsProject({ 'src/models.ts': MODELS, 'src/shim.ts': "export { AcmeModel } from './models';\n", 'src/use.ts': use });
+    const result = refactor(root, '--apply', 'retarget', '--file', 'src/models.ts', '--symbol', 'AcmeModel', '--target', 'Model');
+    const unbound = message('refactor.retarget-unbound', { path: 'src/use.ts', line: 3, module: 'src/shim.ts', name: 'Model' });
+    expect(result).toEqual({ code: 1, out: '', err: `${unbound}\n` });
+    expect(read(root, 'src/use.ts')).toBe(use);
   });
 });

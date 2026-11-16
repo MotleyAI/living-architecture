@@ -1,0 +1,21 @@
+Retargeting <AcmeModel> to <Model>:
+
+
+--- a/pkg/use.py
++++ b/pkg/use.py
+@@ -1,9 +1,9 @@
+ import pkg.compat
+ import pkg.compat as c
+ from pkg import compat
+-from pkg.models import AcmeModel
++from pkg.models import Model
+ 
+ a = pkg.compat.AcmeModel()
+ b = c.AcmeModel()
+ d = compat.AcmeModel()
+-e = AcmeModel()
++e = Model()
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

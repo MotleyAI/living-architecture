@@ -1,0 +1,2 @@
+- {file: pkg/compat.py, symbol: AcmeModel, retarget: Model}
+- {file: pkg/legacy.py, symbol: OldModel, retarget: Model}

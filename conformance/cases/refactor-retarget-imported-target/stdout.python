@@ -1,0 +1,75 @@
+Retargeting <AcmeModel> to <Model>:
+
+
+--- a/pkg/joined.py
++++ b/pkg/joined.py
+@@ -1,4 +1,3 @@
+-from pkg.core import helper
+-from pkg.compat import AcmeModel
++from pkg.core import helper, Model
+ 
+-j = AcmeModel(), helper()
++j = Model(), helper()
+
+--- a/pkg/later.py
++++ b/pkg/later.py
+@@ -1,4 +1,5 @@
+-from pkg.compat import CONST, AcmeModel
++from pkg.compat import CONST
++from pkg.core import Model
+ from pkg.core import helper
+ 
+-l = CONST, AcmeModel(), helper()
++l = CONST, Model(), helper()
+
+--- a/pkg/local.py
++++ b/pkg/local.py
+@@ -1,3 +1,4 @@
+ def build() -> object:
+-    from pkg.compat import CONST, AcmeModel
+-    return CONST, AcmeModel()
++    from pkg.compat import CONST
++    from pkg.core import Model
++    return CONST, Model()
+
+--- a/pkg/multi.py
++++ b/pkg/multi.py
+@@ -1,3 +1,4 @@
+-from pkg.compat import CONST, AcmeModel
++from pkg.compat import CONST
++from pkg.core import Model
+ 
+-m = CONST, AcmeModel()
++m = CONST, Model()
+
+--- a/pkg/sibling.py
++++ b/pkg/sibling.py
+@@ -1,3 +1,3 @@
+-from .compat import AcmeModel
++from .core import Model
+ 
+-b = AcmeModel()
++b = Model()
+
+--- a/pkg/sole.py
++++ b/pkg/sole.py
+@@ -1,3 +1,3 @@
+-from pkg.compat import AcmeModel
++from pkg.core import Model
+ 
+-s = AcmeModel()
++s = Model()
+
+--- a/pkg/sub/rel.py
++++ b/pkg/sub/rel.py
+@@ -1,3 +1,4 @@
+-from ..compat import CONST, AcmeModel
++from ..compat import CONST
++from ..core import Model
+ 
+-r = CONST, AcmeModel()
++r = CONST, Model()
+
+
+
+DRY-RUN. 7 file(s) would change. Re-run with --apply.

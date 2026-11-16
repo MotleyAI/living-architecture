@@ -135,7 +135,7 @@ export function* nodes(node: TS.Node): Generator<TS.Node> {
 
 /** Where `locator` points in `file` (`shown` in messages): its offset, its line and column (code points), else the
  * declaration its path names. */
-export function locate(r: Refactor, file: string, shown: string, locator: Locator): Located {
+export function locate(r: Refactor, file: string, shown: string, locator: Locator, follow = true): Located {
   const text = readFileSync(file, 'utf8');
   if (locator.offset !== undefined) return { file, position: locateOffset(text, locator.offset), topLevel: false };
   if (locator.line !== undefined) return { file, position: locateLine(text, locator.line, locator.col ?? 1), topLevel: false };
@@ -144,7 +144,7 @@ export function locate(r: Refactor, file: string, shown: string, locator: Locato
     const program = r.services(file)[0]?.getProgram();
     const source = program?.getSourceFile(file);
     if (program === undefined || source === undefined) throw new RefactorError(message('refactor.ts-outside-project', { path: r.rel(file) }));
-    return locateSymbol(program.getTypeChecker(), source, locator.symbol, shown);
+    return locateSymbol(program.getTypeChecker(), source, locator.symbol, shown, follow);
   }
   throw new RefactorError(message('refactor.no-locator'));
 }

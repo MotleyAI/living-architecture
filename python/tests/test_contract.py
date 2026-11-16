@@ -696,9 +696,10 @@ NEW_TEMPLATES = {
     "refactor.map-conflict":
         "{path}:{line}: entries {first} and {second} rewrite this site differently, so nothing was refactored",
     "refactor.retarget-header": "Retargeting <{old}> to <{new}>:",
-    "refactor.retarget-scope": "{target} is not declared in the class or module that declares {alias}",
+    "refactor.retarget-scope": "{target} is not declared or imported in the class or module that declares {alias}",
     "refactor.retarget-override": "{path}:{line}: {cls}.{name} overrides the alias, so nothing was refactored",
     "refactor.retarget-shadowed": "{path}:{line}: {name} names something else here, so nothing was refactored",
+    "refactor.retarget-unbound": "{path}:{line}: {module} does not bind {name}, so nothing was refactored",
     "refactor.write-failed":
         "could not write {path}; the files already written are restored, so nothing was refactored",
     "refactor.rollback-failed": "could not write {path}; restoring failed, so these paths are left changed: {paths}",

@@ -1,0 +1,1 @@
+- {file: src/compat.ts, symbol: AcmeModel, retarget: Model}

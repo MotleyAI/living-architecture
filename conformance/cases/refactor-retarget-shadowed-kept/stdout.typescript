@@ -1,0 +1,22 @@
+Retargeting <AcmeModel> to <Model>:
+
+
+--- a/src/use.ts
++++ b/src/use.ts
+@@ -1,4 +1,5 @@
+ import { AcmeModel } from './models';
++import { Model } from './models';
+ 
+ export function make(): object {
+   const Model = 1;
+@@ -6,5 +7,5 @@
+ }
+ 
+ export function other(): object {
+-  return new AcmeModel();
++  return new Model();
+ }
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.
