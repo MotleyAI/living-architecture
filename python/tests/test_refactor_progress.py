@@ -98,6 +98,17 @@ def test_a_keep_on_the_renamed_module_file_passes_the_checks(
     assert (root / "pkg" / "a.py").exists()
 
 
+def test_a_module_rename_onto_a_taken_name_reports_no_unchecked_keep(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = write_project(tmp_path / "p", {"pkg/a.py": "X = 1\n", "pkg/b.py": "Y = 2\n",
+                                          "pkg/use.py": "from . import a\n\nprint(a.X)\n"})
+    argv = ["rename", "--file", "pkg/use.py", "--line", "1", "--col", "15", "--new-name", "b", "--keep", "pkg/use.py"]
+    code, out, err = run_raw(root, argv, monkeypatch, capsys)
+    conflict = message("refactor.name-conflict", name="b", path="pkg/b.py", line=1)
+    assert (code, out, err) == (1, "", CHECKS + "[references]\n" + conflict + "\n")
+
+
 # ---- refusals in checks
 
 

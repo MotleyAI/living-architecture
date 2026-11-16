@@ -582,8 +582,12 @@ class RenameMap:
     def _imports(self, renames: list[Renaming]) -> None:
         """The imports every retarget's sites need, planned once."""
         retargets = [r for r in renames if isinstance(r, AliasRetarget)]
+        if not retargets:
+            return
+        with timed("rules"):
+            planned = plan_imports(self.session, [n for r in retargets for n in r.needs])
         by_entry = {r.entry: r for r in retargets}
-        for entry, edit in plan_imports(self.session, [n for r in retargets for n in r.needs]):
+        for entry, edit in planned:
             by_entry[entry].imports.append(edit)
         for r in retargets:
             r.edits += r.imports
