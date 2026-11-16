@@ -53,7 +53,7 @@ class ClassGraph:
             source = self._load(path)
             self._classes[key] = None
             if source is not None and source.tree is not None:
-                for node in ast.walk(source.tree):
+                for node in source.nodes:
                     if isinstance(node, ast.ClassDef) and (span := source.name_span(node)) is not None and span[0] == start:
                         self._classes[key] = GraphClass(source, node)
                         break

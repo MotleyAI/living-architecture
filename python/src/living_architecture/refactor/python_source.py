@@ -6,8 +6,11 @@ import ast
 import bisect
 import re
 import unicodedata
+from functools import cached_property
 from pathlib import Path
+from typing import TypeVar, cast
 
+_N = TypeVar("_N", bound=ast.AST)
 _NEWLINE = re.compile(r"\r\n|\r|\n")
 _DEF_KEYWORD = re.compile(r"(?:async\s+)?(?:def|class)\s+")
 
@@ -54,10 +57,42 @@ class SourceFile:
         self.path = path
         self.text = text
         self._starts = line_starts(text)
+        self._of_type: dict[type[ast.AST], list[ast.AST]] = {}
         try:
             self.tree: ast.Module | None = ast.parse(text)
         except (SyntaxError, ValueError):
             self.tree = None
+
+    @cached_property
+    def nodes(self) -> tuple[ast.AST, ...]:
+        """Every node of `tree` in `ast.walk` order; empty when it does not parse."""
+        return tuple(ast.walk(self.tree)) if self.tree is not None else ()
+
+    def of_type(self, kind: type[_N]) -> list[_N]:
+        """The nodes of `kind`, in `ast.walk` order."""
+        if kind not in self._of_type:
+            self._of_type[kind] = [n for n in self.nodes if isinstance(n, kind)]
+        return cast("list[_N]", self._of_type[kind])
+
+    @cached_property
+    def _parents(self) -> dict[int, ast.AST]:
+        return {id(c): n for n in self.nodes for c in ast.iter_child_nodes(n)}
+
+    def parent(self, node: ast.AST) -> ast.AST | None:
+        """`node`'s parent in `tree`."""
+        return self._parents.get(id(node))
+
+    @cached_property
+    def _definitions(self) -> dict[tuple[int, int], ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef]:
+        out: dict[tuple[int, int], ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef] = {}
+        for n in self.nodes:
+            if isinstance(n, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)) and (span := self.name_span(n)):
+                out.setdefault(span, n)
+        return out
+
+    def defined_at(self, span: tuple[int, int]) -> ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef | None:
+        """The first class or function, in `ast.walk` order, whose name spans `span`."""
+        return self._definitions.get(span)
 
     def offset(self, line: int, col: int) -> int:
         """The character offset of an AST position (1-based line, UTF-8 byte column)."""

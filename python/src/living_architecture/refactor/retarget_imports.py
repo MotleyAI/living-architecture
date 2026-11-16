@@ -60,7 +60,7 @@ class _File:
         self.rel = rel
         self.source: SourceFile = session.snapshot.source(rel)
         assert self.source.tree is not None
-        self.parents = {c: n for n in ast.walk(self.source.tree) for c in ast.iter_child_nodes(n)}
+        self.parents = {c: n for n in self.source.nodes for c in ast.iter_child_nodes(n)}
         self.needs = sorted(needs, key=self._position)
         self.leaving = {id(n.leaving): n for n in needs if n.leaving is not None}
         self.in_place: set[int] = set()

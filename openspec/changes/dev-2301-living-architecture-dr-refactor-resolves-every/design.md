@@ -73,7 +73,8 @@ Spec attachment: `refactor`, owned by `python.refactor`. No model or arc42 edit:
 3. **What the index holds.** For every occurrence of an old name in the candidate files: kind (name, member access,
    keyword argument, dict-literal key, string-member name, dotted patch target, `Literal`-typed string,
    forward-reference string, `__all__` entry, import alias or re-export); the declarations it resolves to (aliases
-   followed, every overload), each with its class, that class's MRO, unresolved bases and keyed kind (dataclass,
+   followed, every overload) and, in order, every import-alias or re-export binding it passes through on the way;
+   each declaration with its class, that class's MRO, unresolved bases and keyed kind (dataclass,
    Pydantic, TypedDict); for an access or a string-member object, the receiver verdict computed by porting
    `member_scan._access_kind` and `object_kind` branch for branch (hover-equivalent type of a name or attribute
    receiver; for any other receiver the member access's type, suppressed when a resolved declaration is itself
@@ -152,7 +153,8 @@ Spec attachment: `refactor`, owned by `python.refactor`. No model or arc42 edit:
     beside the old one; a temporary differential run over every Python refactor conformance fixture and the new edge
     fixtures (rope-only default occurrences, `--no-in-hierarchy` with stand-ins, two `--with` hierarchies sharing a
     reference, property getter/setter groups, inferred `self` attributes, diamonds and mixins, unresolved and external
-    bases, protocol structural use versus nominal inheritance, string-member descriptors and mixed unions) compares
+    bases, protocol structural use versus nominal inheritance, string-member descriptors and mixed unions,
+    `refactor-retarget-reexport-form` and `refactor-symbol-import-binding`) compares
     normalized edit and finding sets. Any difference stops the work for the user's call; then the old path is deleted.
     (codex)
 19. **Request counts are pinned.** Instrumentation tests assert the exact number of language-server requests for a
@@ -161,6 +163,9 @@ Spec attachment: `refactor`, owned by `python.refactor`. No model or arc42 edit:
 20. **Sequencing with DEV-2302.** Plan now; merge `origin/main` once DEV-2302 lands (the issue's agent notes). (default)
 21. **The conformance runner isolates the cache.** Each case runs with `LA_CACHE_DIR` set to its own temporary
     directory, so the corpus never reads or writes a shared cache. (default)
+22. **An entry located on an import alias or re-export matches by binding.** It renames the occurrences whose recorded
+    chain holds that binding, and the binding itself, never an occurrence only because it resolves to the same final
+    declaration. (user)
 
 ## Risks / Trade-offs
 

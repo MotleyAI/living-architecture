@@ -596,7 +596,7 @@ def _named_at(source: SourceFile, offset: int, name: str) -> ast.AST | None:
     """The `ast.Name` or imported `ast.alias` naming `name` at `offset`."""
     if source.tree is None:
         return None
-    for node in ast.walk(source.tree):
+    for node in source.nodes:
         if isinstance(node, ast.Name) and node.id == name and source.span(node)[0] == offset:
             return node
         if isinstance(node, ast.alias) and node.name == name and source.offset(node.lineno, node.col_offset) == offset:
@@ -607,5 +607,5 @@ def _named_at(source: SourceFile, offset: int, name: str) -> ast.AST | None:
 def _attribute_at(source: SourceFile, offset: int, name: str) -> ast.Attribute | None:
     """The `ast.Attribute` whose attribute `name` starts at `offset`."""
     assert source.tree is not None
-    return next((n for n in ast.walk(source.tree) if isinstance(n, ast.Attribute) and n.attr == name
+    return next((n for n in source.nodes if isinstance(n, ast.Attribute) and n.attr == name
                  and (span := source.name_span(n)) is not None and span[0] == offset), None)
