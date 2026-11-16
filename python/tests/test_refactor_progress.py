@@ -132,6 +132,20 @@ def test_a_language_server_that_cannot_start_refuses_with_its_error(
     assert file_tree(root) == before
 
 
+def test_a_language_server_that_cannot_start_is_reported_when_no_entry_resolves(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    missing = str(tmp_path / "no-such-node")
+    monkeypatch.setattr(language_server, "_bundled_command", lambda: [missing, "--stdio"])
+    root = write_project(tmp_path / "p", {"pkg/a.py": FOO})
+    code, out, err = run_raw(root, ["rename", "--file", "pkg/a.py", "--line", "99", "--new-name", "bar"], monkeypatch,
+                             capsys)
+    error = f"[Errno 2] No such file or directory: '{missing}'"
+    expected = [message("refactor.line-out-of-range", line=99, count=2), message("refactor.pyright-failed"),
+                message("refactor.checker-not-started", error=error)]
+    assert (code, out, err) == (1, "", CHECKS + "".join(f"{line}\n" for line in expected))
+
+
 def test_a_language_server_answering_an_error_refuses_with_its_answer_and_stderr(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
