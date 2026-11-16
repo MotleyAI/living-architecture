@@ -11,8 +11,8 @@ A Python `dr-refactor` `rename`, `rename-map` or `retarget` of symbols other tha
 occurrence of an old name in the candidate files (the project's Python sources whose text holds an old name, or a
 string constant equal to one under any escaped spelling), its kind (name, member access, keyword argument, dict-literal
 key, string-member name, dotted patch target, `Literal`-typed string, forward-reference string, `__all__` entry, import
-alias or re-export), the declarations the checker resolves it to (aliases followed, every overload), each with the
-class declaring it and that class's MRO, and for an access or a string-member object whether the checker types its
+alias or re-export), the declarations the checker resolves it to (aliases followed, every overload) with every
+import-alias or re-export binding it passes through on the way, each with the class declaring it and that class's MRO, and for an access or a string-member object whether the checker types its
 receiver. la's language server SHALL export the index in a number of requests that does not depend on the number of
 entries or occurrences, and SHALL answer no find-all-references request and no per-occurrence position query for it.
 
@@ -49,6 +49,12 @@ run; a module rename, `move-symbol` and `move-module` SHALL NOT start it.
   `from pkg.mod import Rec` that another module imports from the package
 - **THEN** every `Rec` among them is renamed while the alias `R` and its uses stay, and the output is byte-identical
   to the output before this change
+
+#### Scenario: Entry located on an import alias
+- **WHEN** `pkg/compat.py`'s `from pkg.core import Model as AcmeModel` is retargeted to `Model`, `pkg/use.py` imports
+  `AcmeModel` from `pkg.compat`, and `pkg/other.py` declares its own `from pkg.core import Model as AcmeModel`
+- **THEN** the import and the use in `pkg/use.py` are retargeted, `pkg/other.py` is unchanged, and
+  `refactor-retarget-reexport-form`'s output is byte-identical to the output before this change
 
 #### Scenario: Overloads, super() and Protocol members
 - **WHEN** an overloaded method, a method called through `super().name(...)` in an override, and a member of a
@@ -215,8 +221,8 @@ printed. With or without `--apply`, the language server SHALL create no file in 
 
 #### Scenario: Language server failure
 - **WHEN** the language server cannot start or exits during the rename, with or without `--apply`
-- **THEN** stderr is the `refactor.pyright-failed` finding, the exit code is 1 and every file of the project is
-  unchanged
+- **THEN** stderr ends with the `refactor.pyright-failed` finding and its cause, the exit code is 1 and every file of
+  the project is unchanged
 
 #### Scenario: No target-repo code runs
 - **WHEN** the project's root holds a `sitecustomize.py` that writes a marker file when imported, and a rename runs
@@ -336,7 +342,7 @@ checker findings), print no `[references]` line, write nothing, and exit with th
 
 #### Scenario: Keep of a prose file needs --docs
 - **WHEN** `--keep README.md` names a prose file that mentions the old name
-- **THEN** the check passes with `--docs`, and without it stderr is `refactor.keep-unmatched` naming it
+- **THEN** the check passes with `--docs`, and without it stderr ends with `refactor.keep-unmatched` naming it
 
 #### Scenario: Walker gaps listed before any search
 - **WHEN** rope's walker cannot cover `pkg/a.py` at line 3 nor `pkg/b.py` at line 8, and both spell the name a

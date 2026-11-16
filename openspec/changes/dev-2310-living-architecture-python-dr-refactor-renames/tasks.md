@@ -7,7 +7,9 @@
       'egor/dev-2301-living-architecture-dr-refactor-resolves-every' into …"`); once DEV-2301 has merged to main, merge
       `origin/main` the same way. Never rebase or stash. After DEV-2301 is archived on main, re-run
       `openspec validate dev-2310-living-architecture-python-dr-refactor-renames --strict` (this delta modifies
-      requirements DEV-2301 adds or changes). Verify: `git merge-base --is-ancestor` of the DEV-2301 branch head
+      requirements DEV-2301 adds or changes). DEV-2301 is still WIP: after each merge of its branch, re-check this
+      delta's modified requirements against its delta and main (scenarios and prose), and decisions 8 and 13 against
+      its decision 22. Verify: `git merge-base --is-ancestor` of the DEV-2301 branch head
       succeeds before opening the PR.
 - [ ] 0.3 Every new conformance case is a Python `adapter` case with a hand-written golden (`golden: manual`), except
       the `--offset` case, which is `paired` (both twins); all listed in `conformance/INVENTORY.md`. Existing Python
@@ -65,6 +67,10 @@
       pkg/c.py` instead of a rename from `pkg/gap.py`, assertions unchanged (the crash, silent, exception-inside and
       value-error gap tests), and `test_exception_outside_ropes_walker_propagates` runs that move-symbol;
       `test_a_gap_in_a_module_rope_does_not_walk_is_not_refused` stays. No other existing test contradicts the plan.
+- [x] 1.14 Entry-location rows for an `as` import alias and a re-export binding (by `--symbol` and by offset): the
+      binding itself, keyed by its own site (design decisions 8 and 13); and a static-fallback case: an alias entry
+      whose unresolved occurrence's static chain does not hold the binding is not renamed. Verify: fail before the new
+      locator exists.
 
 ## 2. Series 1 — la's project model (pr-implement)
 

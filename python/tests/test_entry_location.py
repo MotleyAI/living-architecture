@@ -6,7 +6,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from entry_source import ALT, OTHER, M, at, line
+from entry_source import ALT, BARREL, OTHER, M, at, line
 from project_files import write_project
 
 from living_architecture.contract import message
@@ -50,6 +50,9 @@ TABLE = [
     ("conditional-assignment", Locator(offset=at("MODE = 2")), "name", ("pkg/m.py", line("MODE = 1"), "MODE")),
     ("static-reference", Locator(offset=at("top(1", inner="top")), "name", ("pkg/m.py", line("def top"), "top")),
     ("reference-to-import", Locator(offset=at(", thing,", inner="thing")), "name", ("pkg/other.py", 1, "thing")),
+    ("as-alias-by-symbol", Locator(symbol="aliased"), "name", ("pkg/m.py", line("as aliased"), "aliased")),
+    ("as-alias-by-offset", Locator(offset=at("as aliased", inner="aliased")), "name",
+     ("pkg/m.py", line("as aliased"), "aliased")),
     ("module-attribute", Locator(offset=at("other.thing", inner="thing")), "name", ("pkg/other.py", 1, "thing")),
 ]
 
@@ -68,7 +71,7 @@ class Definitions:
 
 @pytest.fixture
 def root(tmp_path: Path) -> Path:
-    return write_project(tmp_path / "proj", {"pkg/m.py": M, "pkg/other.py": OTHER, "pkg/alt.py": ALT})
+    return write_project(tmp_path / "proj", {"pkg/m.py": M, "pkg/other.py": OTHER, "pkg/alt.py": ALT, "pkg/barrel.py": BARREL})
 
 
 @pytest.mark.parametrize(("locator", "kind", "declared"), [row[1:] for row in TABLE], ids=[row[0] for row in TABLE])
@@ -125,3 +128,10 @@ def test_an_entry_in_a_file_with_a_byte_order_mark(root: Path, locator: Locator)
     (root / "pkg" / "bom.py").write_bytes(b"\xef\xbb\xbfdef foo() -> int:\n    return 1\n")
     found = EntryLocator(root, Definitions({})).locate("pkg/bom.py", locator)
     assert found.key == ("name", "pkg/bom.py", 1, "foo")
+
+
+@pytest.mark.parametrize("locator", [Locator(symbol="thing"), Locator(offset=BARREL.index("thing"))],
+                         ids=["symbol", "offset"])
+def test_an_entry_on_a_re_export_binding_is_that_binding(root: Path, locator: Locator) -> None:
+    found = EntryLocator(root, Definitions({})).locate("pkg/barrel.py", locator)
+    assert (found.kind, found.key) == ("name", ("name", "pkg/barrel.py", 1, "thing"))

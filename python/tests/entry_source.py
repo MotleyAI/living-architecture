@@ -3,6 +3,7 @@
 M = '''\
 from pkg import other
 from pkg.other import thing
+from pkg.other import thing as aliased
 from typing import overload
 
 try:
@@ -80,10 +81,11 @@ else:
 
 
 def use(b: Box) -> object:
-    return top(1, 2, c=3), b.size, len([]), thing, other.thing, MODE, either, nowhere
+    return top(1, 2, c=3), b.size, len([]), thing, other.thing, MODE, either, nowhere, aliased
 '''
 OTHER = "thing = 1\n"
 ALT = "either = 2\n"
+BARREL = "from pkg.other import thing\n\n__all__ = [\"thing\"]\n"
 
 
 def at(needle: str, nth: int = 0, inner: str | None = None) -> int:

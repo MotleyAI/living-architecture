@@ -51,7 +51,6 @@ static resolver for scoping, imports and module chains, the AST for declarations
 - Removing rope, `rope_patches.py`, `refactor.rope-walk`, `compliance.rope-walk` and the `rope-walk` compliance check:
   DEV-2312.
 - The TypeScript twin, except that its `--offset` behaviour becomes the shared spec.
-- An index change for import-alias hops (DEV-2301 comment, gap 3): decision 13.
 
 ## Decisions
 
@@ -102,7 +101,8 @@ static resolver for scoping, imports and module chains, the AST for declarations
    otherwise it is a reference, resolved by the static resolver, else by the run's language server's `definition` at
    that position (started lazily, as `_renamer` does today). A reference resolving to declarations of more than one
    group, or to nothing, is `refactor.cannot-rename`. `--symbol` naming an import binding follows the static resolver to
-   its declaration or module. (default; one explicit algorithm: codex)
+   its declaration or module, except a binding DEV-2301 decision 22 matches by binding, which is the entry itself,
+   keyed by its own site. (default; one explicit algorithm: codex)
 9. **Kind and key from the declaration.** Module (a static-resolver module value, or the module file) → module rename;
    `ast.arg` → parameter; a declaration in a function, lambda or comprehension scope → local (only its file is
    searched); a def in a class body → method; a class-body or `self.` member → member. The canonical key is
@@ -132,10 +132,10 @@ static resolver for scoping, imports and module chains, the AST for declarations
     `refactor.not-stand-in`; `--docs` and `--unsure` have no effect on a module rename, as today (`_module_rename` calls
     rope without `docs`). A package `__init__.py` or package directory renames the directory. A module outside the
     project refuses as today. (default; `--docs` occurrences: rejected (codex), rope is called without `docs`)
-13. **No alias-hop record in the index (DEV-2301 gap 3).** The index reports occurrences by spelling, and an alias's
-    occurrences resolve to the same final declaration as the entry's own site, so a retarget located on an alias finds
-    them; the differential run over `refactor-retarget-reexport-form`, `refactor-symbol-import-binding` and the new
-    retarget matrix (decision 16) proves it, and any difference stops the work. (default)
+13. **Alias entries match by binding (DEV-2301 decision 22).** An entry on a binding that DEV-2301 decision 22
+    matches by binding keeps that rule: the checker's chain comes from the index. An occurrence the checker leaves
+    unresolved (decision 1) is renamed for such an entry only when the static resolver's chain for it holds the
+    entry's binding. (user)
 14. **Renames no longer check walker gaps.** rope walks no module of a rename after this change; by DEV-2301 decision
     16's rule (refuse only for modules rope walks) the check stays for moves only. (default)
 15. **`--offset` counts the file as read.** Code points of the raw text, CRLF and lone `\r` counted, as the npm twin's
