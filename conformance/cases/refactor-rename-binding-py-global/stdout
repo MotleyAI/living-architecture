@@ -1,0 +1,19 @@
+Renaming <old> to <next>:
+
+
+--- a/pkg/m.py
++++ b/pkg/m.py
+@@ -1,6 +1,6 @@
+-old = 1
++next = 1
+ 
+ 
+ def bump() -> None:
+-    global old
+-    old += 1
++    global next
++    next += 1
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

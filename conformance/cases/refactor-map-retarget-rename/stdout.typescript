@@ -1,0 +1,23 @@
+Retargeting <old_alias> to <renamed>:
+Renaming <target> to <renamed>:
+
+
+--- a/src/m.ts
++++ b/src/m.ts
+@@ -1,9 +1,9 @@
+-export function target(): number {
++export function renamed(): number {
+   return 1;
+ }
+ 
+-export const old_alias = target;
++export const old_alias = renamed;
+ 
+ export function f(): number {
+-  return old_alias();
++  return renamed();
+ }
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

@@ -17,6 +17,7 @@ from rope.refactor.rename import Rename
 
 from living_architecture.contract import message
 from living_architecture.refactor.baseline_align import BaselineFailed
+from living_architecture.refactor.bindings import BindingCheck, EntryEdits, first_conflict, module_binding
 from living_architecture.refactor.locators import (
     Locator,
     RefactorError,
@@ -26,7 +27,7 @@ from living_architecture.refactor.locators import (
 )
 from living_architecture.refactor.map_file import MapEntry, MapError, load_map
 from living_architecture.refactor.move_edits import NameConflict, module_move_changes, symbol_move_changes
-from living_architecture.refactor.python_source import split_lines
+from living_architecture.refactor.python_source import nfkc, split_lines
 from living_architecture.refactor.rename_map import (
     MapConflict,
     Refused,
@@ -36,10 +37,12 @@ from living_architecture.refactor.rename_map import (
     run_map,
     source_bytes,
 )
-from living_architecture.refactor.rename_union import RenameOptions
+from living_architecture.refactor.rename_union import RenameOptions, Snapshot
 from living_architecture.refactor.rope_patches import WalkerGap, apply_rope_patches
+from living_architecture.refactor.routing import language_files
 from living_architecture.refactor.sites import Keeps, SiteError
 from living_architecture.refactor.symbol_path import LocatorError
+from living_architecture.refactor.text_edits import TextEdit, diff_edits
 from living_architecture.refactor.writer import FileChanged, WriteFailed
 
 apply_rope_patches()
@@ -105,20 +108,66 @@ def _kept_lines(rel: str, old: str, new: str, kept: Callable[[str, int | None], 
     return "".join(out)
 
 
+def _taken(module: Resource, new_name: str, snapshot: Snapshot, rels: list[str]) -> NameConflict | None:
+    """The finding when the renamed module's package already binds `new_name`: a module, a package (its
+    `__init__.py`, else its first Python file) or a binding of its `__init__.py`."""
+    parent = module.parent.path
+    base = f"{parent}/{nfkc(new_name)}" if parent else nfkc(new_name)
+    if f"{base}.py" in rels:
+        return NameConflict(new_name, f"{base}.py", 1)
+    inside = sorted(rel for rel in rels if rel.startswith(base + "/"))
+    if inside:
+        init = f"{base}/__init__.py"
+        return NameConflict(new_name, init if init in inside else inside[0], 1)
+    init = f"{parent}/__init__.py" if parent else "__init__.py"
+    offset = module_binding(snapshot.text(init), new_name) if init in rels else None
+    return None if offset is None else NameConflict(new_name, init, snapshot.source(init).line(offset))
+
+
+def _edits(changes: ChangeSet, before: dict[str, bytes], snapshot: Snapshot) -> tuple[list[TextEdit], dict[str, str]]:
+    """A rope change set as edits over the snapshot's texts, and its moves (a file to its new path)."""
+    writes, moves = change_set_writes(changes, before)
+    edits = [e for w in writes for e in diff_edits(w.rel, snapshot.text(w.rel), snapshot.decode(w.rel, w.new))]
+    moved: dict[str, str] = {}
+    for move in moves:
+        for rel in before:
+            if rel == move.rel or rel.startswith(move.rel + "/"):
+                moved[rel] = move.dest + rel[len(move.rel) :]
+    return edits, moved
+
+
 def _module_rename(project: Project, renamer: Rename, entry: MapEntry, options: RenameOptions, apply: bool) -> int:
-    """rope's rename of a module, its `--keep` sites left."""
+    """rope's rename of a module, its `--keep` sites left; `NameConflict` when the new name is taken or rope's edits
+    change what a name means."""
     if entry.new_name is None:
         raise RefactorError(message("refactor.cannot-rename"))
     if options.with_sites or options.without_sites:
         raise SiteError("refactor.not-stand-in", (*options.with_sites, *options.without_sites)[0])
     before = source_bytes(project)
+    root = Path(project.address).resolve()
+    snapshot = Snapshot(root)
+    rels = [p.relative_to(root).as_posix() for p in language_files(root, "python")]
+    pyobject = renamer.old_pyname.get_object() if renamer.old_pyname is not None else None
+    module = pyobject.get_resource() if pyobject is not None else None
+    taken = _taken(module, entry.new_name, snapshot, rels) if module is not None else None
+    if taken is not None and renamer.get_old_name() != entry.new_name:
+        raise taken
     try:
         changes = renamer.get_changes(
             entry.new_name, in_hierarchy=options.in_hierarchy, unsure=(lambda *_: True) if options.unsure else None
         )
     except (RefactoringError, BadIdentifierError):
         raise RefactorError(message("refactor.cannot-rename")) from None
-    _emit(project, _kept(project, changes, options.keep), apply, before)
+    kept = _kept(project, changes, options.keep)
+    every, _ = _edits(changes, before, snapshot)
+    written, moves = _edits(kept, before, snapshot)
+    folders = sorted({"", *(f.path for f in project.get_source_folders())})
+    found = first_conflict(BindingCheck(rels, folders, snapshot.source).conflicts(
+        [EntryEdits(index=1, new_name=entry.new_name, edits=written, kept=[e for e in every if e not in written])],
+        moves), snapshot.source)
+    if found is not None:
+        raise found
+    _emit(project, kept, apply, before)
     return 0
 
 

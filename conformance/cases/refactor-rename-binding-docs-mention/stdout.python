@@ -1,0 +1,19 @@
+Renaming <old> to <next>:
+
+
+--- a/pkg/m.py
++++ b/pkg/m.py
+@@ -1,7 +1,7 @@
+-old = 1
++next = 1
+ 
+ 
+ def f() -> int:
+     next = 2
+-    # see `old` for the base
++    # see `next` for the base
+     return next
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

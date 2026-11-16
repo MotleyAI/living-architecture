@@ -1,0 +1,18 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- rename
+- --file
+- pkg/m.py
+- --symbol
+- old
+- --new-name
+- next
+git:
+- commit: init
+expect:
+  exit: 0
+note: 'a method''s read skips the class body: renaming a module-level name onto a class-body attribute''s name is no conflict
+  for the method'

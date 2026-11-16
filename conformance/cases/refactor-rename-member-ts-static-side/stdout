@@ -1,0 +1,18 @@
+Renaming <old> to <next>:
+
+
+--- a/src/m.ts
++++ b/src/m.ts
+@@ -3,7 +3,7 @@
+     return 2;
+   }
+ 
+-  old(): number {
++  next(): number {
+     return 1;
+   }
+ }
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.
