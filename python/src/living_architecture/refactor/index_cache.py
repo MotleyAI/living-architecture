@@ -81,35 +81,48 @@ def _jsonc(text: str) -> str:
     """JSON with comments and trailing commas, as Pyright reads its configuration, as plain JSON."""
     out: list[str] = []
     comma = False
-    i, n = 0, len(text)
-    while i < n:
-        char = text[i]
-        if text.startswith("//", i):
-            end = text.find("\n", i)
-            i = n if end < 0 else end
-            continue
-        if text.startswith("/*", i):
-            end = text.find("*/", i + 2)
-            i = n if end < 0 else end + 2
-            continue
-        if char.isspace():
-            out.append(char)
-            i += 1
-            continue
-        if comma and char not in "}]":
-            out.append(",")
-        comma = char == ","
-        if comma:
-            i += 1
-            continue
-        end = i + 1
-        if char == '"':
-            while end < n and text[end] != '"':
-                end += 2 if text[end] == "\\" else 1
-            end += 1
-        out.append(text[i:end])
+    i = 0
+    while i < len(text):
+        end = _comment_end(text, i)
+        if end == i:
+            end = _token_end(text, i)
+            comma = _emit(out, text[i:end], comma)
         i = end
     return "".join(out)
+
+
+def _comment_end(text: str, i: int) -> int:
+    """The index past a comment starting at `i`, else `i`."""
+    if text.startswith("//", i):
+        end = text.find("\n", i)
+        return len(text) if end < 0 else end
+    if text.startswith("/*", i):
+        end = text.find("*/", i + 2)
+        return len(text) if end < 0 else end + 2
+    return i
+
+
+def _token_end(text: str, i: int) -> int:
+    """The index past the string literal or the single character at `i`."""
+    if text[i] != '"':
+        return i + 1
+    end = i + 1
+    while end < len(text) and text[end] != '"':
+        end += 2 if text[end] == "\\" else 1
+    return end + 1
+
+
+def _emit(out: list[str], token: str, comma: bool) -> bool:
+    """Append `token`, holding a comma back until the next token shows it is not trailing; whether one is held."""
+    if token.isspace():
+        out.append(token)
+        return comma
+    if comma and token not in ("}", "]"):
+        out.append(",")
+    if token == ",":
+        return True
+    out.append(token)
+    return False
 
 
 def _read_config(path: Path) -> dict[str, Any]:
