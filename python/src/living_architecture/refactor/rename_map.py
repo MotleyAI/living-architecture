@@ -339,11 +339,14 @@ class RenameMap:
     def retarget(self, renames: list[Renaming], keeps: Keeps) -> None:
         """Each retarget's sites decided with its kept lines, then the imports they need planned once."""
         retargets = [r for r in renames if isinstance(r, AliasRetarget)]
-        for r in retargets:
-            with timed("rules"):
+        if not retargets:
+            return
+        with timed("rules"):
+            for r in retargets:
                 r.retarget(keeps.kept)
+            planned = plan_imports(self.session, [n for r in retargets for n in r.needs])
         by_entry = {r.entry: r for r in retargets}
-        for entry, edit in plan_imports(self.session, [n for r in retargets for n in r.needs]):
+        for entry, edit in planned:
             by_entry[entry].imports.append(edit)
         for r in retargets:
             r.edits += r.imports
