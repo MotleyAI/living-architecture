@@ -167,7 +167,7 @@ def test_a_gap_rope_meets_in_the_rules_refuses_only_its_entry(
                     old="baz", new="qux")
     gap = message("refactor.rope-walk", path="scripts/use.py", line=3)
     assert (code, out) == (1, "")
-    assert err.splitlines()[-4:] == [refused, gap, clean, gap]
+    assert err.splitlines()[-5:] == [refused, gap, clean, CONFLICTS, gap]
     assert file_tree(root) == before
 
 

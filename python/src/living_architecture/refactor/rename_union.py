@@ -11,7 +11,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterator
 from functools import partial
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeVar
 
 from pydantic import BaseModel, ConfigDict
 from rope.base import libutils, pynamesdef
@@ -32,6 +32,7 @@ from living_architecture.refactor.keyed import (
     TypeFacts,
     declares_alias,
     field_assignment,
+    sink_candidates,
 )
 from living_architecture.refactor.member_scan import FormCall, MemberScan
 from living_architecture.refactor.members import member_declarations
@@ -64,6 +65,8 @@ from living_architecture.refactor.static_resolver import Module
 from living_architecture.refactor.text_edits import TextEdit
 from living_architecture.refactor.text_tables import TextTables
 from living_architecture.refactor.timings import timed
+
+_T = TypeVar("_T")
 
 
 def _normalize(text: str) -> str:
@@ -117,21 +120,31 @@ class Session:
         self.root = Path(project.address).resolve()
         self.snapshot = Snapshot(self.root)
         self.tables = TextTables(self.root, self.snapshot.source)
-        self._outside: dict[Path, SourceFile | None] = {}
+        self._loaded: dict[Path, SourceFile | None] = {}
+        self._python_files: list[str] | None = None
 
     def rel(self, path: Path) -> str | None:
         return path.relative_to(self.root).as_posix() if path.is_relative_to(self.root) else None
 
+    def python_files(self) -> list[str]:
+        """The project's Python files, by path."""
+        if self._python_files is None:
+            self._python_files = [p.relative_to(self.root).as_posix() for p in language_files(self.root, "python")]
+        return self._python_files
+
     def load(self, path: Path) -> SourceFile | None:
+        if path not in self._loaded:
+            self._loaded[path] = self._read(path)
+        return self._loaded[path]
+
+    def _read(self, path: Path) -> SourceFile | None:
         if path.is_relative_to(self.root) and path.suffix in (".py", ".pyi") and path.is_file():
             return self.snapshot.source(path.relative_to(self.root).as_posix())
-        if path not in self._outside:
-            try:
-                with open(path, encoding="utf-8", newline="") as fh:
-                    self._outside[path] = SourceFile(path, fh.read())
-            except (OSError, UnicodeDecodeError):
-                self._outside[path] = None
-        return self._outside[path]
+        try:
+            with open(path, encoding="utf-8", newline="") as fh:
+                return SourceFile(path, fh.read())
+        except (OSError, UnicodeDecodeError):
+            return None
 
     def read(self, path: Path) -> str:
         source = self.load(path)
@@ -377,17 +390,21 @@ class SymbolRename(MapRename):
         source = self.snapshot.source(resource.path)
         return {(resource.path, s) for s, e in _declarations(source) if source.line(s) == line and source.text[s:e] == self.old}
 
-    def _member_declarations(self) -> list[Declaration]:
+    def _member_declarations(self, index: RunIndex) -> list[Declaration]:
         """Every declaration of a class member named like the symbol, in the candidate files."""
-        out: list[Declaration] = []
-        for rel in self.candidates:
-            source = self.snapshot.source(rel)
-            for cls in source.of_type(ast.ClassDef):
-                for node in member_declarations(cls, self.old):
-                    span = source.name_span(node)
-                    if span is not None:
-                        out.append(Declaration(rel=rel, start=span[0], line=source.line(span[0]), cls=cls.name))
+        out = [d for rel in self.candidates
+               for d in index.memo(("member_declarations", rel, self.old), partial(self._declared_members, rel))]
         return sorted(out, key=lambda d: (d.rel, d.start))
+
+    def _declared_members(self, rel: str) -> list[Declaration]:
+        source = self.snapshot.source(rel)
+        out: list[Declaration] = []
+        for cls in source.of_type(ast.ClassDef):
+            for node in member_declarations(cls, self.old):
+                span = source.name_span(node)
+                if span is not None:
+                    out.append(Declaration(rel=rel, start=span[0], line=source.line(span[0]), cls=cls.name))
+        return out
 
     @override
     def header(self) -> str:
@@ -520,14 +537,16 @@ class SymbolRename(MapRename):
         lines = [line] if line is not None else sorted({source.line(o) for rel, o in self.seeds if rel == resource.path})
         return next((f for n in lines if (f := _field_of(source, n, self.old)) is not None), None)
 
-    def _keyed_edits(self, facts: TypeFacts, field: tuple[ClassRef, ast.AnnAssign | ast.Assign, Span]) -> None:
+    def _keyed_edits(self, index: RunIndex, facts: TypeFacts, field: tuple[ClassRef, ast.AnnAssign | ast.Assign, Span]) -> None:
         owner, stmt, declared = field
         if facts.chain(owner).kind is None:
             return
         keyed = KeyedRename(facts, self.old, self.new, {(declared.path, declared.start)}, aliased=declares_alias(stmt))
         bindings = Bindings()
         for rel in self.candidates:
-            keyed.scan(self.snapshot.source(rel), rel, bindings)
+            source = self.snapshot.source(rel)
+            found = index.memo(("keyed_sinks", rel, self.old), partial(sink_candidates, source, self.old))
+            keyed.scan(source, rel, bindings, found)
         self.edits += keyed.edits
         self.edits += bindings.edits()
 
@@ -693,15 +712,12 @@ class SymbolRename(MapRename):
         files: list[tuple[str, list[Mention], bool]] = []
         tables = self.session.tables
         for rel in self.candidates:
-            source = self.snapshot.source(rel)
-            files.append((rel, mentions(source.text, self.old, iter(tables.regions(rel)), source.line), rel in declaring))
+            files.append((rel, self._memo(("source_mentions", rel, self.old), partial(self._source_mentions, rel)),
+                          rel in declaring))
         for rel in tables.prose():
-            try:
-                source = self.snapshot.source(rel)
-            except (OSError, UnicodeDecodeError, LookupError):
-                continue
-            if self.old in source.text:
-                files.append((rel, mentions(source.text, self.old, iter([(0, len(source.text), "prose", False)]), source.line), False))
+            found = self._memo(("prose_mentions", rel, self.old), partial(self._prose_mentions, rel))
+            if found is not None:
+                files.append((rel, found, False))
         for rel, found, is_declaring in files:
             text = self.snapshot.text(rel)
             unhandled = [m for m in found if not self._overlaps(self._targets, rel, m.start, m.end)]
@@ -709,10 +725,29 @@ class SymbolRename(MapRename):
             for m in sorted([*rewrite, *listed], key=lambda m: m.start):
                 self._file(mention_outcome(rel, m, rewrite=m in rewrite, old=self.old, new=self.new))
 
+    def _memo(self, key: tuple[str, ...], compute: Callable[[], _T]) -> _T:
+        assert self._index is not None
+        return self._index.memo(key, compute)
+
+    def _source_mentions(self, rel: str) -> list[Mention]:
+        source = self.snapshot.source(rel)
+        return mentions(source.text, self.old, iter(self.session.tables.regions(rel)), source.line)
+
+    def _prose_mentions(self, rel: str) -> list[Mention] | None:
+        """The mentions of a prose file; None when it cannot be read or never spells the old name."""
+        try:
+            source = self.snapshot.source(rel)
+        except (OSError, UnicodeDecodeError, LookupError):
+            return None
+        if self.old not in source.text:
+            return None
+        return mentions(source.text, self.old, iter([(0, len(source.text), "prose", False)]), source.line)
+
     def _compound_names(self) -> None:
         """Each declaration in a project source whose name holds OLD as a word sequence, listed."""
-        rels = [path.relative_to(self.root).as_posix() for path in language_files(self.root, "python")]
-        for rel, name, span in self.session.tables.compounds(rels, self.old):
+        rels = self.session.python_files()
+        found = self._memo(("compounds", self.old), partial(self.session.tables.compounds, rels, self.old))
+        for rel, name, span in found:
             if name not in self.renamed_names:
                 self._file(compound_outcome(rel, self.snapshot.source(rel), span, name, self.old))
 
@@ -734,10 +769,9 @@ class SymbolRename(MapRename):
             self._validate()
             pyname = self.renamer.old_pyname
             local = _is_local(pyname)
-            self._files = [self.renamer.resource.path] if local else sorted(
-                path.relative_to(self.root).as_posix() for path in language_files(self.root, "python"))
+            self._files = [self.renamer.resource.path] if local else sorted(self.session.python_files())
             self.candidates = [rel for rel in self._files if self.old in self.snapshot.text(rel)]
-            self._declarations = self._member_declarations()
+            self._declarations = self._member_declarations(index)
             self.seeds = self._located(index)
             self._located_sites = set(self.seeds)
             self.member = self.is_member()
@@ -762,7 +796,7 @@ class SymbolRename(MapRename):
             self._index_edits(index)
         with timed("rules"):
             for field in self._fields:
-                self._keyed_edits(facts, field)
+                self._keyed_edits(index, facts, field)
             scan = MemberScan(index, self.old, self.session.load)
             if self.member:
                 self._string_member_edits(scan)

@@ -126,19 +126,23 @@ class MemberCheck:
     def __init__(self, hierarchy: Hierarchy, text: Callable[[str], str]) -> None:
         self.hierarchy = hierarchy
         self.text = text
+        self._declaring: dict[str, list[ClassKey]] = {}
+
+    def _declaring_classes(self, name: str) -> list[ClassKey]:
+        """The project classes declaring member `name`, the project scanned once per name."""
+        if name not in self._declaring:
+            word = re.compile(rf"(?<!\w){re.escape(name)}(?!\w)")
+            self._declaring[name] = [
+                (rel, cls.lineno)
+                for rel in sorted(self.hierarchy.files) if may_name(word, self.text(rel))
+                for cls in self.hierarchy.source(rel).of_type(ast.ClassDef) if member_declarations(cls, name)
+            ]
+        return self._declaring[name]
 
     def _descendants(self, key: ClassKey, name: str) -> list[ClassKey]:
         """The project classes declaring member `name` that have `key` among their ancestors."""
-        word = re.compile(rf"(?<!\w){re.escape(name)}(?!\w)")
-        out: list[ClassKey] = []
-        for rel in sorted(self.hierarchy.files):
-            if not may_name(word, self.text(rel)):
-                continue
-            for cls in self.hierarchy.source(rel).of_type(ast.ClassDef):
-                other = (rel, cls.lineno)
-                if other != key and member_declarations(cls, name) and key in self.hierarchy.ancestors(other)[0]:
-                    out.append(other)
-        return out
+        return [other for other in self._declaring_classes(name)
+                if other != key and key in self.hierarchy.ancestors(other)[0]]
 
     def conflicts(self, renamed: list[RenamedMember], renamed_sites: set[Site]) -> list[Conflict]:
         """The sites refusing each renamed member; `renamed_sites` are every declaration the renames rename."""

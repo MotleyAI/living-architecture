@@ -168,6 +168,8 @@ def _module_rename(project: Project, renamer: Rename, entry: MapEntry, options: 
             every, _ = _edits(changes, before, snapshot)
             written, moves = _edits(kept, before, snapshot)
             folders = sorted({"", *(f.path for f in project.get_source_folders())})
+        progress.phase("conflicts")
+        with timed("conflicts"):
             found = first_conflict(BindingCheck(rels, folders, snapshot.source).conflicts(
                 [EntryEdits(index=1, new_name=entry.new_name, edits=written, kept=[e for e in every if e not in written])],
                 moves), snapshot.source)
