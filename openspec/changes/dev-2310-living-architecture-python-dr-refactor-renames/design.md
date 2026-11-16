@@ -82,6 +82,12 @@ static resolver for scoping, imports and module chains, the AST for declarations
    line endings a module rename now keeps each line's ending (spec scenario "Module rename keeps line endings"); no
    golden holds such a file. rope's `read_str_coding` is ported verbatim. Round-trip tests: UTF-8 BOM, UTF-8 and
    Latin-1 cookies, an unknown cookie, CRLF, lone CR, mixed endings, no final newline. (default; folded from codex)
+   A project file that does not decode (an unknown cookie, or bytes invalid in its encoding) is left unchanged by every
+   rename, symbol or module. When its bytes hold an old name's UTF-8 spelling it is listed with `refactor.undecodable`
+   on stderr, printed with the leftovers and sorted by path; a `--keep` covering the file drops its line, and the exit
+   code is unchanged. (user)
+   A leading UTF-8 BOM is decoded out of the text, as Python and basedpyright read the file, and written back; this
+   fixes symbol renames, module renames and entry location in such a file, which all fail today. (user)
 7. **la renders the diff.** Per file, `difflib.unified_diff` of the old and new text, both newline-normalised for
    display exactly as rope's `ChangeContents.get_description` does (`splitlines(True)`, `a/<path>`, `b/<path>`); a move
    as `rename from <path>\nrename to <path>`; blocks sorted and joined as `emit` does today. Only offsets stop

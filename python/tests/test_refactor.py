@@ -232,11 +232,15 @@ def test_rope_refusal_is_the_cannot_rename_finding(project: Path, capsys: pytest
     assert file_tree(project) == before
 
 
+def _move_foo(project: Path, *flags: str) -> int:
+    return _run(project, *flags, "move-symbol", "--file", str(project / "pkg" / "a.py"), "--symbol", "foo",
+                "--dest", str(project / "pkg" / "c.py"))
+
+
 def _gap_refused(project: Path, capsys: pytest.CaptureFixture[str], line: int, *flags: str) -> None:
-    """The rename located in pkg/gap.py, the module rope walks to locate it, refuses at its gap, reported once
-    though both locating the entry and the checks meet it."""
+    """The move of foo, which pkg/gap.py spells, refuses at that module's gap, reported once."""
     before = file_tree(project)
-    assert _rename_foo(project, *flags, rel="pkg/gap.py") == 1
+    assert _move_foo(project, *flags) == 1
     captured = readouterr(capsys)
     assert captured.out == ""
     assert captured.err == message("refactor.rope-walk", path="pkg/gap.py", line=line) + "\n"
@@ -312,4 +316,25 @@ def test_exception_outside_ropes_walker_propagates(project: Path, monkeypatch: p
 
     monkeypatch.setattr(patchedast._PatchingASTWalker, "_Name", broken)
     with pytest.raises(AttributeError, match="not a walker gap"):
-        _rename_foo(project)
+        _move_foo(project)
+
+
+def test_a_rename_walks_no_module(
+    project: Path,
+    capsys: pytest.CaptureFixture[str],
+    restore_rope_visitor: Callable[[str], None],
+    annotation_gap: str,
+) -> None:
+    restore_rope_visitor("_arg")
+    gap = 'def f(p: F("(") = None):\n    return p\n'
+    sources = {
+        "pkg/a.py": "def foo() -> int:\n    return 1\n\n\n" + gap,
+        "pkg/b.py": "from pkg.a import foo\n\n\ndef use() -> int:\n    return foo()\n\n\n" + gap,
+        "pkg/gap.py": annotation_gap,
+    }
+    for rel, text in sources.items():
+        (project / rel).write_text(text)
+    assert _rename_foo(project, "--apply", rel="pkg/gap.py") == 0
+    assert "rope cannot follow" not in readouterr(capsys).err
+    for rel, text in sources.items():
+        assert (project / rel).read_text() == text.replace("foo", "bar")

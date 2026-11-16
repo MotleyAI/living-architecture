@@ -1,0 +1,29 @@
+Renaming <sql> to <db>:
+
+
+--- a/pkg/other.py
++++ b/pkg/other.py
+@@ -1,4 +1,4 @@
+-from pkg.sql.engine import connect
+-from .sql import VERSION
++from pkg.db.engine import connect
++from .db import VERSION
+ 
+ print(connect(), VERSION)
+
+rename from pkg/sql
+rename to pkg/db
+--- a/pkg/use.py
++++ b/pkg/use.py
+@@ -1,4 +1,4 @@
+-import pkg.sql.engine
+-from pkg import sql
++import pkg.db.engine
++from pkg import db
+ 
+-print(pkg.sql.engine.connect(), sql.VERSION)
++print(pkg.db.engine.connect(), db.VERSION)
+
+
+
+DRY-RUN. 3 file(s) would change. Re-run with --apply.

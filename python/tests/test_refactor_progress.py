@@ -112,7 +112,7 @@ def test_a_module_rename_onto_a_taken_name_reports_no_unchecked_keep(
 # ---- refusals in checks
 
 
-def test_walker_gaps_in_every_entry_module_refuse_in_the_checks(
+def test_walker_gaps_in_every_module_a_move_walks_refuse_in_the_checks(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
@@ -121,11 +121,11 @@ def test_walker_gaps_in_every_entry_module_refuse_in_the_checks(
 ) -> None:
     restore_rope_visitor("_arg")
     shifted = annotation_gap.replace("\n\n", "\n" * 7, 1)
-    entries = "".join(f"- {{file: pkg/{name}.py, symbol: foo, new_name: bar}}\n" for name in ("g1", "g2"))
-    root = write_project(tmp_path / "p", {"pkg/a.py": FOO, "pkg/g2.py": annotation_gap, "pkg/g1.py": shifted,
-                                          "map.yaml": entries})
+    root = write_project(tmp_path / "p", {"pkg/a.py": FOO, "pkg/c.py": "", "pkg/g2.py": annotation_gap,
+                                          "pkg/g1.py": shifted})
     before = file_tree(root)
-    code, out, err = run_raw(root, ["--apply", "rename-map", "map.yaml"], monkeypatch, capsys)
+    argv = ["--apply", "move-symbol", "--file", "pkg/a.py", "--symbol", "foo", "--dest", "pkg/c.py"]
+    code, out, err = run_raw(root, argv, monkeypatch, capsys)
     gaps = [message("refactor.rope-walk", path=f"pkg/{name}.py", line=line) for name, line in (("g1", 8), ("g2", 3))]
     assert (code, out, err) == (1, "", CHECKS + "".join(f"{gap}\n" for gap in gaps))
     assert file_tree(root) == before

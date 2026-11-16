@@ -1,0 +1,19 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- rename
+- --file
+- lib/a.py
+- --symbol
+- foo
+- --new-name
+- bar
+fixture: refactor-unresolved
+git:
+- commit: init
+expect:
+  exit: 0
+note: 'a name bound by an import of a module nothing holds: left, and listed as unresolved-name at the import and the use'
+golden: manual

@@ -209,6 +209,10 @@ printed. With or without `--apply`, the language server SHALL create no file in 
   renamed
 - **THEN** only the name inside the string changes, and the line endings and the missing final newline are kept
 
+#### Scenario: Undecodable file
+- **WHEN** `pkg/a.py`'s `foo` is renamed and `pkg/b.py` starts with `# coding: nosuch` and imports and calls `foo`
+- **THEN** `pkg/b.py` is unchanged, stderr lists `refactor.undecodable` for `pkg/b.py`, and the exit code is 0
+
 #### Scenario: Language server failure
 - **WHEN** the language server cannot start or exits during the rename, with or without `--apply`
 - **THEN** stderr is the `refactor.pyright-failed` finding, the exit code is 1 and every file of the project is

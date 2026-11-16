@@ -352,6 +352,8 @@ findings:
   refactor.computed-stand-in: '{path}:{line}: computed-stand-in: {cls}.{attr} is declared by a computed name; pass --without {path}:{line} and rename it by hand'
   refactor.keep-unmatched: '--keep {site} matches nothing this rename touches'
   refactor.leftover: '{path}:{line}: leftover: {where} mentions {old}'
+  refactor.unresolved-name: '{path}:{line}: unresolved-name: {old} resolves to no declaration here, so it is left unchanged'
+  refactor.undecodable: '{path}: undecodable: the file does not decode as {encoding}, so it is left unchanged although it may mention {old}'
   refactor.symbol-unresolved: '{path}: {symbol} names no declaration; candidates: {candidates}'
   refactor.symbol-ambiguous: '{path}: {symbol} names more than one declaration: {candidates}'
   refactor.map-invalid: '{map}: entry {index} is not a valid rename-map entry'

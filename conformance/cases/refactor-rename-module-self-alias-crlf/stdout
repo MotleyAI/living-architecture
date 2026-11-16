@@ -1,0 +1,28 @@
+Renaming <client> to <cli2>:
+
+
+rename from pkg/sql/client.py
+rename to pkg/sql/cli2.py
+--- a/tests/a.py
++++ b/tests/a.py
+@@ -1,3 +1,3 @@
+-import pkg.sql.client as client
++import pkg.sql.cli2 as cli2
+ 
+-print(client.X)
++print(cli2.X)
+
+--- a/tests/b.py
++++ b/tests/b.py
+@@ -1,3 +1,3 @@
+-from pkg.sql import client as sql_client
++from pkg.sql import cli2 as sql_client
+ 
+ print(sql_client.X)
+
+
+
+APPLIED. 3 file(s) changed:
+  pkg/sql/client.py
+  tests/a.py
+  tests/b.py
