@@ -106,6 +106,7 @@ class Binder:
         self.comments: list[CommentRoot] = []
         self.decls: dict[str, ast.AST] = {}
         self.enclosing: dict[str, Scope] = {}
+        self.class_nodes: dict[Scope, ast.ClassDef] = {}
 
     def _new(self, kind: ScopeKind, parent: Scope) -> Scope:
         scope = Scope(kind, parent)
@@ -186,6 +187,7 @@ class Binder:
             self.visit(expr, annotated)
         self._bind(scope, node.name, self._decl(node, annotated), node)
         inner = self._new("class", annotated)
+        self.class_nodes[inner] = node
         for stmt in node.body:
             self.visit(stmt, inner)
 

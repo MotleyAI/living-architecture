@@ -86,6 +86,12 @@ with no edits.
 - **THEN** each rename is refused exactly when a name read by the code would resolve to another declaration, as
   Python itself resolves it
 
+#### Scenario: Python class body reads before binding
+- **WHEN** a class body reads `old` and binds `next` only after the read, and the module-level `old` is renamed to
+  `next`
+- **THEN** the rename proceeds and exits 0; it is refused when a binding of `next` may run before the read (earlier
+  in the body, conditionally or not, or in a loop holding the read)
+
 #### Scenario: Forward-reference string captured
 - **WHEN** class `Old` is renamed to `Next` and a function that binds a local `Next` annotates a local with `"Old"`
 - **THEN** the rename is refused naming the line of the local `Next`

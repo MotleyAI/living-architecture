@@ -367,6 +367,14 @@ class Hierarchy {
   }
 }
 
+/** The keys of the types a renamed member's name is shared with: every declaration of its holder (a merged
+ * interface's or class's), and their project ancestors and descendants. */
+function relatedHolders(m: RenamedMember, hierarchy: Hierarchy): Set<string> {
+  const merged = ts().isClassLike(m.holder) || ts().isInterfaceDeclaration(m.holder) ? (m.checker.getTypeAtLocation(m.holder).getSymbol()?.declarations ?? []) : [];
+  const own = [m.holder, ...merged.filter((d) => ts().isClassLike(d) || ts().isInterfaceDeclaration(d))].map(nodeKey);
+  return new Set(own.flatMap((key) => [key, ...hierarchy.ancestors(key), ...hierarchy.descendants(key)]));
+}
+
 /** A conflict candidate; the first by path then offset is reported. */
 interface Site {
   name: string;
@@ -548,7 +556,7 @@ export class NameChecks {
     const renamedKeys = new Set(renamed.map((m) => m.key));
     for (const m of renamed) this.member(m, this.hierarchy, renamedKeys, sites);
     for (const m of renamed) {
-      const related = new Set([nodeKey(m.holder), ...this.hierarchy.ancestors(nodeKey(m.holder)), ...this.hierarchy.descendants(nodeKey(m.holder))]);
+      const related = relatedHolders(m, this.hierarchy);
       for (const other of renamed) {
         if (other.entry !== m.entry && identifierText(other.entry.newName) === identifierText(m.entry.newName) && other.isStatic === m.isStatic && related.has(nodeKey(other.holder))) meet(m.entry, other.entry);
       }
@@ -565,7 +573,8 @@ export class NameChecks {
       sites.push({ name, ...(this.sources.has(d.getSourceFile().fileName) ? at(memberKey(d)) : { path: m.path, position: m.start }) });
     };
     const holders: TS.Node[] = [m.holder];
-    for (const key of [...hierarchy.ancestors(holderKey), ...hierarchy.descendants(holderKey)]) {
+    for (const key of relatedHolders(m, hierarchy)) {
+      if (key === holderKey) continue;
       const node = hierarchy.node(key);
       if (node !== undefined && (!m.isStatic || ts().isClassLike(node))) holders.push(node);
     }

@@ -74,6 +74,8 @@
 - [x] 4.4 `rope_refactor.py` `_module_rename`: the destination check before rope computes changes, then the binding
       check over rope's edits on a virtual post-move snapshot (decision 23). Verify: 1.1–1.6 pass through the PyPI
       twin.
+- [x] 4.5 Order-aware class-body reads (decision 9): a read a class binding may precede means both bindings, else the
+      enclosing scopes. Verify: the class-body-order cases and the existing class-body cases pass.
 
 ## 5. Finish (pr-implement)
 

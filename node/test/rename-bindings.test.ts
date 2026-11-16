@@ -132,6 +132,15 @@ describe('quoted and escaped names', () => {
     expect(read(root, 'src/m.ts')).toBe(m);
   });
 
+  it('refuses a map renaming members of two declarations of one merged interface onto one name', () => {
+    const m = 'export interface I {\n  a: number;\n}\n\nexport interface I {\n  b: string;\n}\n';
+    const map = '- {file: src/m.ts, symbol: I.a, new_name: next}\n- {file: src/m.ts, symbol: I.b, new_name: next}\n';
+    const root = tsProject({ 'src/m.ts': m, 'renames.yaml': map });
+    const result = refactor(root, '--apply', 'rename-map', 'renames.yaml');
+    expect(result).toEqual({ code: 1, out: '', err: conflict('next', 'src/m.ts', 2) });
+    expect(read(root, 'src/m.ts')).toBe(m);
+  });
+
   it('refuses a static member renamed onto the implicit prototype', () => {
     const m = 'export class C {\n  static old(): number {\n    return 1;\n  }\n}\n';
     const { root, result } = renameSymbol({ 'src/m.ts': m }, 'src/m.ts', 'C.old', 'prototype');

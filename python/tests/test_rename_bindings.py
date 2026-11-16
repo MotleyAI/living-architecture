@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import ast
 import importlib.util
+import re
 import symtable
 import sys
 import textwrap
@@ -264,6 +265,50 @@ def test_a_conflict_names_the_entry_whose_new_name_it_spells_in_another_normal_f
     ]
     check = BindingCheck(["pkg/m.py"], [""], lambda rel: SourceFile(Path(rel), text))
     assert check.conflicts(entries) == [Conflict(site=("pkg/m.py", text.index("fresh")), name=FULLWIDTH)]
+
+
+def test_a_module_renamed_onto_a_package_binding_in_another_normal_form_is_refused(
+    typed_project: MakeProject, capsys: pytest.CaptureFixture[str]
+) -> None:
+    use = "from pkg import a\n\nprint(a.x)\n"
+    root = typed_project({"pkg/__init__.py": "fresh = 1\n", "pkg/a.py": "x = 1\n", "pkg/use.py": use})
+    _refused(root, "pkg/use.py", use.index("a\n"), capsys, ("pkg/__init__.py", 1), FULLWIDTH)
+
+
+@pytest.mark.parametrize(
+    ("body", "refused"),
+    [
+        ("    total = old\n    next = 2\n", False),
+        ("    total = old\n    for _ in ():\n        next = 2\n", False),
+        ("    def m(self) -> None:\n        next = 2\n\n    total = old\n", False),
+        ("    for _ in [old]:\n        next = 2\n", False),
+        ("    next = old\n", False),
+        ("    next: int\n    total = old\n", False),
+        ("    d = {}\n    next, d[old] = 1, 2\n", True),
+        ("    for next in [old]:\n        pass\n", False),
+        ("    with open(old) as next:\n        pass\n", False),
+        ("    with open('a') as next, open(old):\n        pass\n", True),
+        ("    (next := 1)\n    total = old\n", True),
+        ("    match 1:\n        case next if old:\n            pass\n", True),
+        ("    while False:\n        pass\n    else:\n        total = old\n        next = 2\n", False),
+        ("    while True:\n        total = old\n        next = 2\n        break\n", True),
+        ("    try:\n        pass\n    except OSError:\n        for _ in ():\n            total = old\n            next = 2\n", True),
+    ],
+    ids=["after", "loop-holds-only-the-binding", "method-binding", "for-iterable", "assignment-value", "annotation-only", "later-target", "for-target", "with-target", "with-later-item", "walrus", "case-guard", "while-else", "while", "loop-in-except"],
+)
+def test_a_class_body_read_sees_the_class_binding_only_once_it_may_have_run(body: str, refused: bool) -> None:
+    text = "old = 1\n\n\nclass C:\n" + body
+    edits = [TextEdit(path="pkg/m.py", start=m.start(), end=m.end(), new_text="next") for m in re.finditer(r"\bold\b", text)]
+    check = BindingCheck(["pkg/m.py"], [""], lambda rel: SourceFile(Path(rel), text))
+    assert bool(check.conflicts([EntryEdits(index=1, new_name="next", edits=edits)])) is refused
+
+
+def test_an_augmented_class_body_target_reads_before_it_binds() -> None:
+    text = "old = 0\nnext = 5\n\n\nclass C:\n    old += 1\n"
+    at = text.rindex("old")
+    check = BindingCheck(["pkg/m.py"], [""], lambda rel: SourceFile(Path(rel), text))
+    edits = [TextEdit(path="pkg/m.py", start=at, end=at + 3, new_text="next")]
+    assert check.conflicts([EntryEdits(index=1, new_name="next", edits=edits)])
 
 
 # --- only resolver-backed edits take part --------------------------------------------------------------------------

@@ -22,6 +22,8 @@ from living_architecture.refactor.text_edits import TextEdit, apply_edits, merge
 
 # A declaration or an occurrence: a project-relative path and a character offset in the code before the rename.
 Site = tuple[str, int]
+# A character range of a source.
+Span = tuple[int, int]
 # The declarations a name means, each with the site a finding names for it (a star import's, for its names).
 Meaning = dict[Site, Site]
 
@@ -95,6 +97,11 @@ class Occurrence:
     def __init__(self, name: str, offset: int, scope: Scope, *, binds: bool) -> None:
         self.name, self.offset, self.scope, self.binds = name, offset, scope, binds
 
+    @property
+    def read_at(self) -> int | None:
+        """The offset a read resolves at; None for a binding."""
+        return None if self.binds else self.offset
+
 
 class _Parsed:
     """A module's scopes, the offsets binding each name in the scope it binds in, its star imports and the
@@ -105,12 +112,20 @@ class _Parsed:
         binder = module.binder
         self.module = module
         self.sites: defaultdict[tuple[Scope, str], list[int]] = defaultdict(list)
+        # Each binding that runs: its name's offset, the offset it runs at and the span its statement evaluates first.
+        self.points: defaultdict[tuple[Scope, str], list[tuple[int | None, int, Span | None]]] = defaultdict(list)
+        parents = {child: node for node in ast.walk(tree) for child in ast.iter_child_nodes(node)}
         self._named: defaultdict[str, list[Occurrence]] = defaultdict(list)
         for scope, name, node in binder.bound:
             offset = _bound_at(source, node, name)
+            parent = parents.get(node)
+            if not (isinstance(parent, ast.AnnAssign) and parent.value is None):  # an annotation binds nothing
+                self.points[(scope.owner(name), name)].append((offset, *_binding_point(source, node, parents)))
             if offset is not None:
                 self.sites[(scope.owner(name), name)].append(offset)
                 self._named[name].append(Occurrence(name=name, offset=offset, scope=scope, binds=True))
+                if isinstance(parent, ast.AugAssign):  # `x += 1` reads `x` before binding it
+                    self._named[name].append(Occurrence(name=name, offset=offset, scope=scope, binds=False))
         for node, scope in binder.loads:
             if isinstance(node, ast.Name):
                 self._named[node.id].append(Occurrence(name=node.id, offset=source.span(node)[0], scope=scope, binds=False))
@@ -119,6 +134,15 @@ class _Parsed:
                 self._named[n].append(Occurrence(name=n, offset=o, scope=scope, binds=False))
         self.stars = [(dotted, source.span(node)[0]) for dotted, node in zip(binder.stars, binder.star_nodes, strict=True)]
         self.scopes = binder.scopes
+        self.loops = {scope: [_repeated(source, n) for n in _loops(node.body)] for scope, node in binder.class_nodes.items()}
+
+    def may_precede(self, scope: Scope, name: str, at: int) -> bool:
+        """A binding of `name` in class `scope` may run before the read at `at`: it is earlier, or in the repeated
+        part of a loop holding the read."""
+        points = self.points.get((scope, name), [])
+        binds = [b for b, _, _ in points if b is not None]
+        looped = any(_inside(spans, at) and any(_inside(spans, b) for b in binds) for spans in self.loops.get(scope, []))
+        return looped or any(point <= at and not (first and _inside([first], at)) for _, point, first in points)
 
     def occurrences(self, names: frozenset[str]) -> list[Occurrence]:
         """The identifiers spelled with one of `names`."""
@@ -133,13 +157,77 @@ class _Parsed:
         return [parent] if parent is not None and parent.kind == "annotation" and scope.kind in ("function", "class") else []
 
 
+def _loops(body: list[ast.stmt]) -> Iterator[ast.For | ast.AsyncFor | ast.While]:
+    """The loop statements of a class body, outside its nested functions and classes."""
+    for stmt in body:
+        if isinstance(stmt, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+            continue
+        if isinstance(stmt, ast.For | ast.AsyncFor | ast.While):
+            yield stmt
+        for child in ast.iter_child_nodes(stmt):
+            if isinstance(child, ast.stmt):
+                yield from _loops([child])
+            elif isinstance(child, ast.ExceptHandler | ast.match_case):
+                yield from _loops(child.body)
+
+
+def _binding_point(source: SourceFile, node: ast.AST, parents: dict[ast.AST, ast.AST]) -> tuple[int, Span | None]:
+    """When a binding has run: the offset it runs at (a target at its own end, targets binding left to right), and
+    the span its statement evaluates before any target (reads there never see it)."""
+    if isinstance(node, ast.stmt):
+        return source.span(node)[1], None
+    if isinstance(node, ast.ExceptHandler):
+        return source.span(node.body[0])[0], None
+    own = source.span(node)[1] if isinstance(node, ast.expr) else None
+    current = parents.get(node)
+    while current is not None:
+        found = _point_at(source, current, own)
+        if found is not None:
+            return found
+        current = parents.get(current)
+    return 0, None
+
+
+def _point_at(source: SourceFile, node: ast.AST, own: int | None) -> tuple[int, Span | None] | None:
+    """The binding point an enclosing `node` sets for a binding ending at `own` (None: not an expression)."""
+    first = _evaluated_first(node)
+    if first is not None:
+        return source.span(first)[1] if own is None else own, source.span(first)
+    if isinstance(node, ast.match_case):
+        # A capture binds as its pattern matches, before the guard.
+        return source.offset(node.pattern.end_lineno or node.pattern.lineno, node.pattern.end_col_offset or 0), None
+    if isinstance(node, ast.stmt):
+        return source.span(node)[1] if own is None else own, None
+    return None
+
+
+def _evaluated_first(node: ast.AST) -> ast.expr | None:
+    """What a binding construct evaluates before it binds its targets."""
+    if isinstance(node, ast.Assign | ast.AugAssign | ast.AnnAssign | ast.NamedExpr):
+        return node.value
+    if isinstance(node, ast.For | ast.AsyncFor):
+        return node.iter
+    return node.context_expr if isinstance(node, ast.withitem) else None
+
+
+def _inside(spans: list[Span], offset: int) -> bool:
+    return any(start <= offset < end for start, end in spans)
+
+
+def _repeated(source: SourceFile, loop: ast.For | ast.AsyncFor | ast.While) -> list[tuple[int, int]]:
+    """The spans of a loop's repeated part: a `while` statement's condition and body, a `for` statement's target and
+    body."""
+    head = loop.test if isinstance(loop, ast.While) else loop.target
+    return [source.span(head), (source.span(loop.body[0])[0], source.span(loop.body[-1])[1])]
+
+
 def module_binding(text: str, name: str) -> int | None:
     """The offset of the first module-level binding of `name` in a module's `text`."""
     source = SourceFile(Path(), text)
     if source.tree is None:
         return None
     parsed = _Parsed(source, source.tree, [], False)
-    sites = parsed.sites.get((parsed.module.scope, name))
+    sites = parsed.sites.get((parsed.module.scope, nfkc(name)))
     return min(sites) if sites else None
 
 
@@ -214,13 +302,20 @@ class World:
         listed = parsed.module.all_names
         return name in listed if listed is not None else not name.startswith("_")
 
-    def meaning(self, rel: str, scope: Scope, name: str) -> Meaning:
-        """The declarations `name` means in `scope` of module `rel`."""
+    def meaning(self, rel: str, scope: Scope, name: str, at: int | None = None) -> Meaning:
+        """The declarations `name` means in `scope` of module `rel`, read at offset `at` (None for a binding)."""
         owner = scope.resolving(name)
-        if owner.kind != "module":
-            parsed = self.parsed(rel)
-            assert parsed is not None
-            return {(site := self.origin(rel, o)): site for o in parsed.sites.get((owner, name), [])}
+        if owner.kind == "module":
+            return self._global(rel, name)
+        parsed = self.parsed(rel)
+        assert parsed is not None
+        local: Meaning = {(site := self.origin(rel, o)): site for o in parsed.sites.get((owner, name), [])}
+        if owner.kind != "class" or at is None:
+            return local
+        # A class body reads its own binding only once one may have run; else the global, as `LOAD_NAME` does.
+        return local | self._global(rel, name) if parsed.may_precede(owner, name, at) else self._global(rel, name)
+
+    def _global(self, rel: str, name: str) -> Meaning:
         found = self._module_meaning(rel, name, frozenset())
         return found or ({_builtin(name): _builtin(name)} if name in _BUILTINS else {})
 
@@ -348,12 +443,12 @@ class _Judge:
         new = self.after.parsed(self._moved(rel))
         if old is None or new is None:
             return []
-        at = {o.offset: o for o in old.occurrences(self.names)}
+        at = {(o.offset, o.binds): o for o in old.occurrences(self.names)}
         out: list[tuple[str, Occurrence, Occurrence]] = []
         for occ in new.occurrences(self.names):
             site = self.after.origin(self._moved(rel), occ.offset)
-            if site[0] == rel and site[1] in at:
-                out.append((rel, at[site[1]], occ))
+            if site[0] == rel and (site[1], occ.binds) in at:
+                out.append((rel, at[(site[1], occ.binds)], occ))
         return out
 
     def conflicts(self, files: list[str]) -> list[Conflict]:
@@ -379,15 +474,11 @@ class _Judge:
 
     def _verdict(self, rel: str, old: Occurrence, new: Occurrence) -> list[Conflict]:
         site = (rel, old.offset)
-        before = self.before.meaning(rel, old.scope, old.name)
-        after = self._through_retargets(self.after.meaning(self._moved(rel), new.scope, new.name))
+        before = self.before.meaning(rel, old.scope, old.name, old.read_at)
+        after = self._through_retargets(self.after.meaning(self._moved(rel), new.scope, new.name, new.read_at))
         entry = self.rewritten.get(site)
         if entry is not None:
-            expected = before if entry.target is None else self.before.meaning(rel, old.scope, entry.target)
-            joined = self._joined(rel, new) if old.binds else []
-            if joined:
-                return [Conflict(site=s, name=entry.new_name) for s in joined]
-            return [] if after.keys() == expected.keys() else self._rewritten_conflicts(site, entry, after, expected)
+            return self._rewritten_verdict(rel, old, new, entry, before, after)
         kept = self.kept.get(site)
         if kept is not None:
             if not after or after.keys() == before.keys():
@@ -397,6 +488,16 @@ class _Judge:
         if after.keys() == before.keys():
             return []
         return [Conflict(site=site, name=self._name(new.name))]
+
+    def _rewritten_verdict(self, rel: str, old: Occurrence, new: Occurrence, entry: EntryEdits, before: Meaning,
+                           after: Meaning) -> list[Conflict]:
+        expected = before if entry.target is None else self.before.meaning(rel, old.scope, entry.target, old.read_at)
+        joined = self._joined(rel, new) if old.binds else []
+        if joined:
+            return [Conflict(site=s, name=entry.new_name) for s in joined]
+        if after.keys() == expected.keys():
+            return []
+        return self._rewritten_conflicts((rel, old.offset), entry, after, expected)
 
     def _rewritten_conflicts(self, site: Site, entry: EntryEdits, after: Meaning, expected: Meaning) -> list[Conflict]:
         """A rewritten occurrence meaning other declarations than `expected`: an existing one's sites, else the earliest

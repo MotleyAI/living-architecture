@@ -27,7 +27,7 @@ from living_architecture.refactor.locators import (
 )
 from living_architecture.refactor.map_file import MapEntry, MapError, load_map
 from living_architecture.refactor.move_edits import NameConflict, module_move_changes, symbol_move_changes
-from living_architecture.refactor.python_source import split_lines
+from living_architecture.refactor.python_source import nfkc, split_lines
 from living_architecture.refactor.rename_map import (
     MapConflict,
     Refused,
@@ -112,7 +112,7 @@ def _taken(module: Resource, new_name: str, snapshot: Snapshot, rels: list[str])
     """The finding when the renamed module's package already binds `new_name`: a module, a package (its
     `__init__.py`, else its first Python file) or a binding of its `__init__.py`."""
     parent = module.parent.path
-    base = f"{parent}/{new_name}" if parent else new_name
+    base = f"{parent}/{nfkc(new_name)}" if parent else nfkc(new_name)
     if f"{base}.py" in rels:
         return NameConflict(new_name, f"{base}.py", 1)
     inside = sorted(rel for rel in rels if rel.startswith(base + "/"))

@@ -71,7 +71,14 @@ Spec attachment: `refactor`, owned by `python.refactor`. No model or arc42 edit;
    scope rules. TypeScript: an overlay program over the edited texts (unchanged `SourceFile`s reused). Python:
    the AST scope model `static_resolver` already uses for patch targets (Python's own rules, checked against
    `symtable` by the resolver test) over each edited source; import bindings are module-local declarations, so cross-module identity is
-   only needed for star imports. An edited Python source that does not parse refuses with `refactor.cannot-rename`.
+   only needed for star imports. A class body reads a name it binds only once a binding may have run: a read that no
+   binding of the name in the class body runs before (a binding runs once its statement has evaluated what it binds: an
+   assignment after its value, a walrus after its value, a `for` or `with` target and an `except` or `case` capture
+   before the body they open, a `def` or `class` after its whole statement; a `del` is not tracked), nor in a loop of
+   the class body whose repeated part holds the read (a `while` statement's condition and body, a `for` statement's
+   target and body), resolves as the module's global, then the builtin (enclosing functions are skipped, as `LOAD_NAME`
+   does); a read a binding may precede (conditionally or not) means both the class binding and the global one. (user:
+   order-aware class bodies) An edited Python source that does not parse refuses with `refactor.cannot-rename`.
    (default)
 10. **Finding site**: in original-code coordinates, the first by project-relative path then character offset among:
     an existing declaration of the new name that a rewritten occurrence or a renamed declaration would meet; an
