@@ -31,7 +31,7 @@ export function copyProject(root: string): string {
 }
 
 const PHASES = 'resolve|checks|references|rules|baseline|write';
-const PROGRESS = new RegExp(`^(?:\\[(?:${PHASES})\\]|\\[(?:${PHASES}) \\d+/\\d+\\] .*)$`);
+const PROGRESS = new RegExp(String.raw`^(?:\[(?:${PHASES})\]|\[(?:${PHASES}) \d+/\d+\] .*)$`);
 const REFUSED = /^\[rules \d+\/\d+\] .*: (\d+) refusal\(s\)$/;
 
 /** dr-refactor's stderr without its phase and progress lines and the refusals printed under a refused group. */

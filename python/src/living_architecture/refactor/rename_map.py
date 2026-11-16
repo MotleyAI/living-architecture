@@ -85,7 +85,9 @@ class _Resolved:
         return ("retarget", self.target_key) if self.entry.retarget is not None else ("rename", self.entry.new_name)
 
     def old(self) -> str:
-        return str(self.literal.value) if self.literal is not None else self.renamer.get_old_name() if self.renamer else ""
+        if self.literal is not None:
+            return str(self.literal.value)
+        return self.renamer.get_old_name() if self.renamer else ""
 
     def is_module(self) -> bool:
         return self.renamer is not None and self.renamer._is_renaming_a_module()  # pyright: ignore[reportPrivateUsage]
@@ -450,7 +452,7 @@ class RenameMap:
             editable = editable_files(self.root, options.docs)
             found += keep_checks(list(options.keep), self.root, editable, text, names, self._moved(resolved), missing)
         found += walker_gaps(self.root, text, names)
-        if any(not r.is_module() for r in resolved):
+        if not resolved or any(not r.is_module() for r in resolved):
             try:
                 self.server.get()
             except LanguageServerError as exc:
@@ -539,26 +541,12 @@ class RenameMap:
             groups.setdefault(r.old, []).append(i)
         olds = {r.old for r in renames if r.new != r.old}
         dropped: list[list[TextEdit]] = [[] for _ in renames]
-        server = self.server.get()
         for n, (old, group) in enumerate(groups.items(), 1):
-            for i in group:
-                if renames[i].new == old or i in failed:
-                    continue
-                try:
-                    renames[i].rules(server, facts)
-                except UnresolvedBase as exc:
-                    failed[i] = [found] if (found := failure(exc, self.root)) is not None else []
-            for i in group:
-                r = renames[i]
-                if r.new == old or i in failed:
-                    continue
-                r.renamed_names = olds
-                r.finish()
-                r.edits = merge_edits(r.edits)
-                if isinstance(r, AliasRetarget):
-                    with timed("rules"):
-                        r.retarget(keeps.kept)
-                dropped[i] = self._keep(r, keeps)
+            live = [i for i in group if renames[i].new != old]
+            self._group_rules(live, renames, failed, facts)
+            for i in live:
+                if i not in failed:
+                    dropped[i] = self._finish(renames[i], olds, keeps)
             refused = self._group_refusals(group, renames, failed)
             indexes = sorted(index for i in group for index in resolved[i].indexes)
             news = ", ".join(dict.fromkeys(renames[i].new for i in group))
@@ -569,6 +557,27 @@ class RenameMap:
         if not self.stopped:
             self._imports([r for i, r in enumerate(renames) if i not in failed])
         return dropped
+
+    def _group_rules(self, group: list[int], renames: list[Renaming], failed: dict[int, list[Refusal]],
+                     facts: TypeFacts) -> None:
+        server = self.server.get()
+        for i in group:
+            if i in failed:
+                continue
+            try:
+                renames[i].rules(server, facts)
+            except UnresolvedBase as exc:
+                failed[i] = [found] if (found := failure(exc, self.root)) is not None else []
+
+    def _finish(self, r: Renaming, olds: set[str], keeps: Keeps) -> list[TextEdit]:
+        """`r`'s edits finished, merged, retargeted and filtered by the keeps; the edits the keeps dropped."""
+        r.renamed_names = olds
+        r.finish()
+        r.edits = merge_edits(r.edits)
+        if isinstance(r, AliasRetarget):
+            with timed("rules"):
+                r.retarget(keeps.kept)
+        return self._keep(r, keeps)
 
     def _imports(self, renames: list[Renaming]) -> None:
         """The imports every retarget's sites need, planned once."""

@@ -532,6 +532,24 @@ interface Resolution {
   names: Set<string>;
 }
 
+/** `spec`'s target, its literal value and retarget checked. */
+function resolveEntry(r: Refactor, spec: EntrySpec): Target {
+  const target = resolve(r, spec);
+  if (target.literal && literalValueForbidden().some((part) => target.newName.includes(part))) throw new UsageError(message('refactor.literal-value', { value: target.newName }));
+  if (spec.retarget !== undefined) target.intent = resolveTarget(r, spec.file, spec.locator, spec.shown, target, spec.retarget);
+  return target;
+}
+
+/** `target` added to `targets`, or merged into the one with its key and equal intent; else `refactor.map-duplicate`. */
+function mergeTarget(targets: Target[], target: Target, map: string): Refusal | null {
+  const same = targets.find((t) => t.key === target.key);
+  if (same === undefined) targets.push(target);
+  else if (same.retarget !== target.retarget || (target.retarget ? same.intent !== target.intent : same.newName !== target.newName)) {
+    return refusal(message('refactor.map-duplicate', { map, first: same.index, second: target.index }), 2);
+  } else same.indexes.push(target.index);
+  return null;
+}
+
 /** The targets of `specs`, each symbol once, searching no reference: equal intents merge, different ones are refused
  * naming both; each failure in entry order. */
 function resolveAll(r: Refactor, specs: EntrySpec[], map: string): Resolution {
@@ -542,9 +560,7 @@ function resolveAll(r: Refactor, specs: EntrySpec[], map: string): Resolution {
   for (const spec of specs) {
     let target: Target;
     try {
-      target = resolve(r, spec);
-      if (target.literal && literalValueForbidden().some((part) => target.newName.includes(part))) throw new UsageError(message('refactor.literal-value', { value: target.newName }));
-      if (spec.retarget !== undefined) target.intent = resolveTarget(r, spec.file, spec.locator, spec.shown, target, spec.retarget);
+      target = resolveEntry(r, spec);
     } catch (error) {
       failures.push(entryFailure(error));
       const name = spelledName(spec);
@@ -554,11 +570,8 @@ function resolveAll(r: Refactor, specs: EntrySpec[], map: string): Resolution {
     }
     names.add(target.old);
     if (spec.retarget !== undefined) names.add(spec.retarget.match(/\w+/gu)?.at(-1) ?? '');
-    const same = targets.find((t) => t.key === target.key);
-    if (same === undefined) targets.push(target);
-    else if (same.retarget !== target.retarget || (target.retarget ? same.intent !== target.intent : same.newName !== target.newName)) {
-      failures.push(refusal(message('refactor.map-duplicate', { map, first: same.index, second: target.index }), 2));
-    } else same.indexes.push(spec.index);
+    const duplicate = mergeTarget(targets, target, map);
+    if (duplicate !== null) failures.push(duplicate);
   }
   for (const target of targets.filter((t) => t.retarget)) {
     const final = targets.find((t) => !t.retarget && t.key === target.intent)?.newName;
@@ -630,7 +643,7 @@ function nameConflicts(session: Session, targets: Target[], pending: Tagged[], e
   const done = new Set(edits.map((e) => keyOf(e.path, e.start)));
   const kept = new Set(pending.map((e) => keyOf(e.path, e.start)).filter((k) => !done.has(k)));
   const entries: CheckEntry[] = targets.map((t) => ({ index: t.index, old: t.old, newName: t.newName, expected: t.retarget ? t.identity : null }));
-  const names = targets.flatMap((t) => [t.old, t.newName, ...(t.retarget ? [t.original] : [])]).map(identifierText);
+  const names = targets.flatMap((t) => [t.old, t.newName, ...(t.retarget ? [t.original] : [])]).map((name) => identifierText(name));
   const checks = new NameChecks(session.sources, names, (path) => session.r.rel(path));
   const passes = entries.filter((e) => e.expected === null && e.newName !== e.old).map((e) => [e]);
   if (entries.length > 1 && together) passes.push(entries);

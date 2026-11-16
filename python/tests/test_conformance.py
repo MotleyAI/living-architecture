@@ -16,6 +16,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from collections.abc import Collection
 from pathlib import Path
 
 import fake_gh_cli
@@ -94,11 +95,13 @@ def native_languages(command: str) -> list[str] | None:
     return MANIFEST.get(command, {}).get("native")
 
 
-def selected(case: dict, variant: Variant, twin: str, *, cross: bool) -> bool:
-    """Whether `twin`'s run includes this variant: pinned cases run only through their twin."""
+def selected(case: dict, variant: Variant, twin: str, *, cross: bool, bins: Collection[str] = BIN_DIRS.keys()) -> bool:
+    """Whether `twin`'s run includes this variant: pinned cases run only through their twin, and only when every
+    language's twin among `bins` unless the other twin is kept off PATH."""
     pinned = case.get("twin")
     if pinned is not None:
-        return pinned == twin
+        reachable = case.get("other_twin") == "absent" or set(variant.fixture_languages) <= {twin, *bins}
+        return pinned == twin and reachable
     if cross:
         return True
     native = native_languages(case["command"])
@@ -585,6 +588,19 @@ def test_pinned_case_runs_only_through_its_twin() -> None:
     case = _case(twin="typescript", command="la-check-conventions")
     assert selected(case, NEUTRAL, "typescript", cross=False)
     assert not selected(case, NEUTRAL, "python", cross=True)
+
+
+def test_pinned_case_forwarding_to_the_other_twin_runs_only_with_its_bins() -> None:
+    case = _case(twin="python", command="dr-refactor", kind="adapter", languages=["typescript"])
+    [variant] = variants(case)
+    assert not selected(case, variant, "python", cross=False, bins={"python"})
+    assert selected(case, variant, "python", cross=False, bins={"python", "typescript"})
+
+
+def test_pinned_case_without_the_other_twin_needs_no_bins() -> None:
+    case = _case(twin="python", command="dr-refactor", kind="adapter", languages=["typescript"], other_twin="absent")
+    [variant] = variants(case)
+    assert selected(case, variant, "python", cross=False, bins={"python"})
 
 
 def test_later_overlay_overwrites_an_earlier_one(tmp_path: Path) -> None:
