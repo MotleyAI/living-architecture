@@ -154,7 +154,7 @@ def _module_rename(project: Project, renamer: Rename, entry: MapEntry, options: 
     with timed("resolve"):
         taken = _taken(module, entry.new_name, snapshot, rels) if module is not None else None
     found: NameConflict | None = taken if renamer.get_old_name() != entry.new_name else None
-    kept, unmatched = ChangeSet(""), list(options.keep)
+    kept, unmatched = ChangeSet(""), []
     if found is None:
         try:
             with timed("references"):

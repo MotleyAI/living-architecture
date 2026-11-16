@@ -140,9 +140,10 @@ every `--keep` that matched no edit and no blind spot, every site two entries re
 every name-conflict check that finds one (each distinct finding once) SHALL be reported. The final report SHALL be:
 retarget refusals, blind spots, stand-ins, name conflicts and map conflicts, each group in path, line and column
 order; then the site findings in command-line order; then the `refactor.blindspots` line when blind spots refuse. Its
-exit code SHALL be the highest of its findings', 2 for a map, locator or site finding and 1 otherwise. A file that
-changed while the run read it, a write that failed, a checker that failed while computing, and a map document that
-cannot be read SHALL still stop the run at once.
+exit code SHALL be the highest of its findings', 2 for an invalid or duplicate map entry (`refactor.map-invalid`,
+`refactor.map-duplicate`), a locator or a site finding, and 1 otherwise, `refactor.map-conflict` included. A file
+that changed while the run read it, a write that failed, a checker that failed while computing, and a map document
+that cannot be read SHALL still stop the run at once.
 
 #### Scenario: Retarget refusal and blind spot together
 - **WHEN** a map's retarget entry meets an overriding member and its rename entry meets an untyped receiver
