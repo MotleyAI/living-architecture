@@ -4,5 +4,6 @@
 [references 1/1] entry 1: recommend_root_model -> pick_root_model
 [rules]
 [rules 1/1] entry 1: recommend_root_model -> pick_root_model: clean
+[conflicts]
 pkg/other.py:8: leftover: string mentions recommend_root_model
 [write]

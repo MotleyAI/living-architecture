@@ -8,6 +8,7 @@ pkg/model.py:13: attr-blindspot: m.formula — m is Unknown, so a rename of .for
 pkg/model.py:17: attr-blindspot: o.formula — o is Any, so a rename of .formula is unverifiable
 pkg/model.py:21: attr-blindspot: m.formula — m is Any, so a rename of .formula is unverifiable
 pkg/model.py:27: attr-blindspot: m.formula — m is Unknown, so a rename of .formula is unverifiable
+[conflicts]
 pkg/model.py:13: attr-blindspot: m.formula — m is Unknown, so a rename of .formula is unverifiable
 pkg/model.py:17: attr-blindspot: o.formula — o is Any, so a rename of .formula is unverifiable
 pkg/model.py:21: attr-blindspot: m.formula — m is Any, so a rename of .formula is unverifiable

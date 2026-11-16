@@ -4,6 +4,7 @@
 [references 1/1] entry 1: recommend_root_model -> pick_root_model
 [rules]
 [rules 1/1] entry 1: recommend_root_model -> pick_root_model: clean
+[conflicts]
 docs/api.md:4: leftover: prose mentions recommend_root_model
 pkg/engine.py:4: leftover: comment mentions recommend_root_model
 pkg/other.py:5: leftover: docstring mentions recommend_root_model

@@ -30,7 +30,7 @@ export function copyProject(root: string): string {
   return copy;
 }
 
-const PHASES = 'resolve|checks|references|rules|baseline|write';
+const PHASES = 'resolve|checks|references|rules|conflicts|baseline|write';
 const PROGRESS = new RegExp(String.raw`^(?:\[(?:${PHASES})\]|\[(?:${PHASES}) \d+/\d+\] .*)$`);
 const REFUSED = /^\[rules \d+\/\d+\] .*: (\d+) refusal\(s\)$/;
 

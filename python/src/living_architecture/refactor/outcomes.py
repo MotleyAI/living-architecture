@@ -24,6 +24,12 @@ class Finding(BaseModel):
     line: int
     col: int
     text: str
+    end: int | None = None
+
+    def covers(self, edit: TextEdit) -> bool:
+        """Whether `edit` rewrites part of the finding's site (`col`, else `col:end`)."""
+        end = self.col + 1 if self.end is None else self.end
+        return edit.path == self.path and edit.start < end and self.col < edit.end
 
 
 class Outcome(BaseModel):
@@ -42,7 +48,7 @@ class Outcome(BaseModel):
 def _leftover(rel: str, source: SourceFile, span: tuple[int, int], where: str, old: str) -> Outcome:
     line = source.line(span[0])
     text = message("refactor.leftover", path=rel, line=line, where=where, old=old)
-    return Outcome(kind="leftover", rel=rel, span=span, finding=Finding(path=rel, line=line, col=span[0], text=text))
+    return Outcome(kind="leftover", rel=rel, span=span, finding=Finding(path=rel, line=line, col=span[0], end=span[1], text=text))
 
 
 def string_member_outcome(rel: str, source: SourceFile, call: FormCall, renamed: list[bool], old: str, new: str) -> Outcome:
@@ -96,7 +102,8 @@ def mention_outcome(rel: str, mention: Mention, *, rewrite: bool, old: str, new:
     if rewrite:
         return Outcome(kind="rewrite", rel=rel, span=span, edits=(TextEdit(path=rel, start=span[0], end=span[1], new_text=new),))
     text = message("refactor.leftover", path=rel, line=mention.line, where=mention.where, old=old)
-    return Outcome(kind="leftover", rel=rel, span=span, finding=Finding(path=rel, line=mention.line, col=span[0], text=text))
+    return Outcome(kind="leftover", rel=rel, span=span,
+                   finding=Finding(path=rel, line=mention.line, col=span[0], end=span[1], text=text))
 
 
 def literal_spans(source: SourceFile) -> dict[str, list[tuple[int, int]]]:
@@ -125,7 +132,7 @@ def compound_outcome(rel: str, source: SourceFile, span: tuple[int, int], name: 
     """A declaration whose name holds `old` as a word sequence: listed."""
     line = source.line(span[0])
     text = message("refactor.compound", path=rel, line=line, name=name, old=old)
-    return Outcome(kind="leftover", rel=rel, span=span, finding=Finding(path=rel, line=line, col=span[0], text=text))
+    return Outcome(kind="leftover", rel=rel, span=span, finding=Finding(path=rel, line=line, col=span[0], end=span[1], text=text))
 
 
 def file_outcome(outcome: Outcome, *, edits: list[TextEdit], blindspots: list[Finding], leftovers: list[Finding]) -> None:

@@ -4,6 +4,7 @@
 [references 1/1] entry 1: save_model -> persist_model
 [rules]
 [rules 1/1] entry 1: save_model -> persist_model: clean
+[conflicts]
 pkg/use.py:13: leftover: string mentions save_model
 pkg/use.py:14: leftover: string mentions save_model
 [write]

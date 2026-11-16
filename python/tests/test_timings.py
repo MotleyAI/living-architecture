@@ -22,7 +22,8 @@ def _line(phase: str, value: str) -> str:
 
 def test_phase_list():
     assert timing_phases() == (
-        "load", "resolve", "references", "rules", "blindspot-scan", "literal-scan", "literal-probe", "baseline", "write"
+        "load", "resolve", "references", "rules", "conflicts", "blindspot-scan", "literal-scan", "literal-probe", "baseline",
+        "write",
     )
 
 

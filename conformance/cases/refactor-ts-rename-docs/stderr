@@ -4,6 +4,7 @@
 [references 1/1] entry 1: saveModel -> persistModel
 [rules]
 [rules 1/1] entry 1: saveModel -> persistModel: clean
+[conflicts]
 docs/api.md:4: leftover: prose mentions saveModel
 src/engine.ts:5: leftover: comment mentions saveModel
 src/use.ts:3: leftover: comment mentions saveModel

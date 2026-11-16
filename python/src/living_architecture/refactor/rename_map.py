@@ -716,20 +716,26 @@ class RenameMap:
         conflicts: list[Refusal] = []
         sites: list[Refusal] = []
         if not self.stopped:
-            edits, merged = self.merged(renames, [r.entry.index for r in resolved])
-            with timed("resolve"):
+            self.progress.phase("conflicts")
+            with timed("conflicts"):
+                edits, merged = self.merged(renames, [r.entry.index for r in resolved])
                 checked = self.check_names(renames, resolved, dropped, together=not merged)
-            names = sorted({(c.path, c.line, c.name): c for c in [*self.keyed_conflicts(live), *checked]}.items())
+                keyed = self.keyed_conflicts(live)
+            names = sorted({(c.path, c.line, c.name): c for c in [*keyed, *checked]}.items())
             conflicts = [*(_name_conflict(c) for _, c in names), *merged]
             sites = [] if failed else self.site_findings(live, keeps)
         attrs = ", .".join(dict.fromkeys(r.old for r in live if r.blindspots))
         closing = [refusal(message("refactor.blindspots", count=len(blind), attr=attrs))] if blind else []
         return edits, unique([*own, *retargets, *_texts(blind), *stand_ins, *conflicts, *sites, *closing])
 
-    def findings(self, renames: list[Renaming]) -> list[Finding]:
-        """The blind spots let through and the leftovers, each group sorted."""
+    def findings(self, renames: list[Renaming], edits: list[TextEdit]) -> list[Finding]:
+        """The blind spots let through and the leftovers no entry's `edits` rewrite, each group sorted."""
         blindspots = _unique(b for r in renames for b in r.blindspots)
-        unique_ = {(f.path, f.line, f.col, f.text): f for r in renames for f in r.leftovers}
+        by_path: dict[str, list[TextEdit]] = {}
+        for e in edits:
+            by_path.setdefault(e.path, []).append(e)
+        unique_ = {(f.path, f.line, f.col, f.text): f for r in renames for f in r.leftovers
+                   if not any(f.covers(e) for e in by_path.get(f.path, ()))}
         leftovers = [unique_[k] for k in sorted(unique_)]
         return [*blindspots, *leftovers]
 
@@ -778,7 +784,7 @@ class RenameMap:
             raise Refused(refusals)
         if self.options.unsure:
             print(message("refactor.unsure-warning"))
-        for finding in self.findings(renames):
+        for finding in self.findings(renames, edits):
             print(finding.text, file=sys.stderr)
         changes, writes = self.outputs(edits)
         by_file: dict[str, list[Edit]] = {}

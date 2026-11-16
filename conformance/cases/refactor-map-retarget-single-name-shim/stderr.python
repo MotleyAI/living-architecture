@@ -4,3 +4,4 @@
 [references 1/1] entry 1: AcmeModel -> Model
 [rules]
 [rules 1/1] entry 1: AcmeModel -> Model: clean
+[conflicts]

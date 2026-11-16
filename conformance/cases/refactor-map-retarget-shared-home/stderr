@@ -10,3 +10,4 @@
 [rules 2/4] entry 2: FlightCatalog -> FacadeCatalog: clean
 [rules 3/4] entry 3: FlightSchema -> FacadeSchema: clean
 [rules 4/4] entry 4: FlightTable -> FacadeGrid: clean
+[conflicts]

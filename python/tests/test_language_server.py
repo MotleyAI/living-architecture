@@ -9,7 +9,7 @@ import sys
 import time
 from pathlib import Path
 from types import SimpleNamespace
-from typing import cast
+from typing import IO, cast
 
 import pytest
 from project_files import file_tree
@@ -125,6 +125,53 @@ def test_short_writes_still_send_the_whole_frame(workspace: Path) -> None:
     LanguageServer(workspace, command=["unused"])._send({"jsonrpc": "2.0", "method": "x"}, proc)
     body = b'{"jsonrpc": "2.0", "method": "x"}'
     assert stdin.data == b"Content-Length: %d\r\n\r\n" % len(body) + body
+
+
+class _Chunk(bytes):
+    """A read chunk that counts the bytes copied when an immutable buffer is extended by it."""
+
+    copied: list[int]
+
+    def __radd__(self, other: object) -> object:
+        if type(other) is bytes:
+            self.copied[0] += len(other)
+        return NotImplemented
+
+
+class _ChunkedStdout:
+    """A server stdout that delivers a framed message at most `size` bytes per read."""
+
+    def __init__(self, frame: bytes, size: int) -> None:
+        self.data, self.pos, self.size = frame, 0, size
+        self.copied = [0]
+
+    def readline(self) -> bytes:
+        end = self.data.find(b"\n", self.pos)
+        end = len(self.data) if end < 0 else end + 1
+        line, self.pos = self.data[self.pos : end], end
+        return line
+
+    def read(self, n: int = -1) -> bytes:
+        n = self.size if n < 0 else min(n, self.size)
+        chunk = _Chunk(self.data[self.pos : self.pos + n])
+        chunk.copied = self.copied
+        self.pos += len(chunk)
+        return chunk
+
+    def readinto(self, buffer: bytearray | memoryview) -> int:
+        chunk = self.read(len(buffer))
+        buffer[: len(chunk)] = chunk
+        return len(chunk)
+
+
+def test_a_large_message_in_small_chunks_is_read_with_linear_copying(workspace: Path) -> None:
+    message = {"jsonrpc": "2.0", "id": 1, "result": {"blob": "x" * (4 << 20)}}
+    body = json.dumps(message).encode()
+    stdout = _ChunkedStdout(b"Content-Length: %d\r\n\r\n" % len(body) + body, 16 << 10)
+    server = LanguageServer(workspace, command=["unused"])
+    server._pump(cast(IO[bytes], stdout))
+    assert server._messages.get_nowait() == message
+    assert stdout.copied[0] <= len(body)
 
 
 @pytest.mark.parametrize("mode", ["fail-start", "unpatched"])

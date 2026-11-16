@@ -1,17 +1,25 @@
-"""`dr-refactor` phases: the map loader's every invalid entry, the keep text check, and the `checks` refusals no
-corpus case can reach (walker gaps, a language server that cannot start or answers an error)."""
+"""`dr-refactor` phases: the map loader's every invalid entry, the keep text check, the `checks` refusals no
+corpus case can reach (walker gaps, a language server that cannot start or answers an error), and what the
+`conflicts` phase is charged with."""
 
+import functools
+import re
 import sys
 from collections.abc import Callable
 from pathlib import Path
 
 import pytest
 from project_files import file_tree, write_project
-from refactor_cli import run_raw
+from refactor_cli import final_report, run_raw
 
 from living_architecture.contract import message
 from living_architecture.lang import language_server
+from living_architecture.refactor import timings
+from living_architecture.refactor.bindings import BindingCheck
 from living_architecture.refactor.map_file import MapError, load_map
+from living_architecture.refactor.member_namespace import MemberCheck
+from living_architecture.refactor.rename_map import RenameMap
+from living_architecture.refactor.rename_union import SymbolRename
 from living_architecture.refactor.sites import spelled_lines
 
 FAKE_LSP = Path(__file__).with_name("fake_lsp_server.py")
@@ -94,7 +102,7 @@ def test_a_keep_on_the_renamed_module_file_passes_the_checks(
     argv = ["--apply", "rename", "--file", "pkg/use.py", "--line", "1", "--col", "15", "--new-name", "b",
             "--keep", "pkg/a.py"]
     code, _out, err = run_raw(root, argv, monkeypatch, capsys)
-    assert (code, err) == (0, CHECKS + "[references]\n[write]\n")
+    assert (code, err) == (0, CHECKS + "[references]\n[conflicts]\n[write]\n")
     assert (root / "pkg" / "a.py").exists()
 
 
@@ -159,7 +167,7 @@ def test_a_gap_rope_meets_in_the_rules_refuses_only_its_entry(
                     old="baz", new="qux")
     gap = message("refactor.rope-walk", path="scripts/use.py", line=3)
     assert (code, out) == (1, "")
-    assert err.splitlines()[-4:] == [refused, gap, clean, gap]
+    assert err.splitlines()[-5:] == [refused, gap, clean, CONFLICTS, gap]
     assert file_tree(root) == before
 
 
@@ -202,3 +210,128 @@ def test_a_language_server_answering_an_error_refuses_with_its_answer_and_stderr
     expected = [message("refactor.pyright-failed"), message("refactor.checker-error", error="fake failure"),
                 "  fake: initialize failed"]
     assert (code, out, err) == (1, "", CHECKS + "".join(f"{line}\n" for line in expected))
+
+
+# ---- the conflicts phase
+
+SECOND = 1_000_000_000
+CONFLICTS = message("refactor.progress-phase", phase="conflicts")
+_TIMING = re.compile(
+    re.escape(message("refactor.timing", phase="PHASE", seconds="0.00"))
+    .replace("PHASE", r"(\S+)")
+    .replace(re.escape("0.00"), r"(\d+\.\d\d)")
+)
+KEYED_MODELS = "from pydantic import BaseModel\n\n\nclass Model(BaseModel):\n    columns: list[int] = []\n"
+STORE = (
+    "class Store:\n    def load(self) -> int:\n        return 1\n\n    def fetch(self) -> int:\n        return 2\n\n\n"
+    "def run(s: Store) -> int:\n    return s.load()\n"
+)
+HIER = (
+    "class Base:\n    def ping(self) -> int:\n        return 1\n\n\n"
+    "class Sub(Base):\n    def ping(self) -> int:\n        return 2\n"
+)
+MODULE_CAPTURE = {"pkg/a.py": "X = 1\n", "pkg/use.py": "from pkg import a\n\nb = 2\n\nprint(a.X, b)\n"}
+FAIL_FAST = {
+    "pkg/store.py": "class Store:\n    def drop(self) -> int:\n        return 1\n\n    def load(self) -> int:\n"
+                    "        return 2\n",
+    "pkg/loose.py": "def loose(s):\n    return s.drop()\n",
+    "map.yaml": "- {file: pkg/store.py, symbol: Store.drop, new_name: discard}\n"
+                "- {file: pkg/store.py, symbol: Store.load, new_name: fetch}\n",
+}
+
+
+class Clock:
+    def __init__(self) -> None:
+        self.now = 0
+
+    def __call__(self) -> int:
+        return self.now
+
+
+def _slowed(monkeypatch: pytest.MonkeyPatch, owner: type, name: str) -> None:
+    """Every `--timings` run reads a fake clock that only `owner.name` advances, by 100 s a call."""
+    clock = Clock()
+    monkeypatch.setattr(timings, "Timer", functools.partial(timings.Timer, clock))
+    original = getattr(owner, name)
+
+    @functools.wraps(original)
+    def slow(*args: object, **kwargs: object) -> object:
+        clock.now += 100 * SECOND
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(owner, name, slow)
+
+
+def _times(err: str) -> dict[str, str]:
+    return {m[1]: m[2] for line in err.splitlines() if (m := _TIMING.fullmatch(line))}
+
+
+def _charged_to_conflicts_only(err: str) -> None:
+    times = _times(err)
+    assert times.get("conflicts", "0.00") != "0.00", times
+    assert {p: s for p, s in times.items() if p not in ("conflicts", "total") and s != "0.00"} == {}
+
+
+@pytest.mark.parametrize(
+    ("files", "argv", "owner", "method"),
+    [
+        pytest.param(
+            {"pkg/models.py": KEYED_MODELS, "pkg/use.py": "from pkg.models import Model\n\nb = Model(columns=[], fields=[])\n"},
+            ["rename", "--file", "pkg/models.py", "--symbol", "Model.columns", "--new-name", "fields"],
+            SymbolRename, "check_conflicts", id="keyed",
+        ),
+        pytest.param(
+            {"pkg/store.py": STORE},
+            ["rename", "--file", "pkg/store.py", "--symbol", "Store.load", "--new-name", "fetch"],
+            MemberCheck, "conflicts", id="member",
+        ),
+        pytest.param(
+            {"pkg/a.py": FOO + "\n\ndef bar() -> int:\n    return 2\n\n\nx = foo()\n"},
+            RENAME_FOO,
+            BindingCheck, "conflicts", id="binding",
+        ),
+        pytest.param(
+            {"pkg/hier.py": HIER, "map.yaml": "- {file: pkg/hier.py, symbol: Base.ping, new_name: a}\n"
+                                              "- {file: pkg/hier.py, symbol: Sub.ping, new_name: b}\n"},
+            ["rename-map", "map.yaml"],
+            RenameMap, "merged", id="map",
+        ),
+    ],
+)
+def test_a_conflict_check_is_charged_to_the_conflicts_phase_announced_before_its_finding(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str],
+    files: dict[str, str], argv: list[str], owner: type, method: str,
+) -> None:
+    _slowed(monkeypatch, owner, method)
+    root = write_project(tmp_path / "p", files)
+    code, out, err = run_raw(root, ["--timings", *argv], monkeypatch, capsys)
+    assert (code, out) == (1, "")
+    lines = err.splitlines()
+    finding = final_report(err).splitlines()[0]
+    assert CONFLICTS in lines
+    assert lines.index(CONFLICTS) < lines.index(finding)
+    _charged_to_conflicts_only(err)
+
+
+def test_a_module_rename_checks_its_bindings_in_the_conflicts_phase(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _slowed(monkeypatch, BindingCheck, "conflicts")
+    root = write_project(tmp_path / "p", MODULE_CAPTURE)
+    argv = ["--timings", "rename", "--file", "pkg/use.py", "--line", "1", "--col", "17", "--new-name", "b"]
+    code, out, err = run_raw(root, argv, monkeypatch, capsys)
+    conflict = message("refactor.name-conflict", name="b", path="pkg/use.py", line=3)
+    assert (code, out) == (1, "")
+    assert err.startswith(CHECKS + "[references]\n" + CONFLICTS + "\n" + conflict + "\n")
+    _charged_to_conflicts_only(err)
+
+
+@pytest.mark.parametrize(("flags", "announced"), [([], True), (["--fail-fast"], False)], ids=["every-group", "fail-fast"])
+def test_a_fail_fast_stop_skips_the_conflicts_phase(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str],
+    flags: list[str], announced: bool,
+) -> None:
+    root = write_project(tmp_path / "p", FAIL_FAST)
+    code, out, err = run_raw(root, ["rename-map", "map.yaml", *flags], monkeypatch, capsys)
+    assert (code, out) == (1, "")
+    assert (CONFLICTS in err.splitlines()) is announced

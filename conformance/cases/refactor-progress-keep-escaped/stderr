@@ -4,4 +4,5 @@
 [references 1/1] entry 1: load -> fetch
 [rules]
 [rules 1/1] entry 1: load -> fetch: clean
+[conflicts]
 --keep lib/esc matches nothing this rename touches

@@ -5,11 +5,13 @@
 [rules]
 [rules 1/1] entry 1: get_model -> get_dataset: 1 refusal(s)
 tests/test_a.py:2: attr-blindspot: storage.get_model — storage is Unknown, so a rename of .get_model is unverifiable
+[conflicts]
 tests/test_a.py:2: attr-blindspot: storage.get_model — storage is Unknown, so a rename of .get_model is unverifiable
 1 blind spot(s) of .get_model: type or resolve them, or pass --allow-blindspots
 timing: load <S>s
 timing: resolve <S>s
 timing: references <S>s
 timing: rules <S>s
+timing: conflicts <S>s
 timing: blindspot-scan <S>s
 timing: total <S>s
