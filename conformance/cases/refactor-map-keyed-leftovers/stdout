@@ -1,0 +1,39 @@
+Renaming <columns> to <fields>:
+Renaming <columns> to <cols>:
+
+
+--- a/pkg/models.py
++++ b/pkg/models.py
+@@ -2,8 +2,8 @@
+ 
+ 
+ class A(BaseModel):
+-    columns: list[int] = []
++    fields: list[int] = []
+ 
+ 
+ class B(BaseModel):
+-    columns: list[int] = []
++    cols: list[int] = []
+
+--- a/pkg/use.py
++++ b/pkg/use.py
+@@ -3,8 +3,8 @@
+ 
+ def use() -> object:
+     return (
+-        A(columns=[]),
+-        B(columns=[]),
+-        A.model_validate({"columns": []}),
+-        B.model_validate({"columns": []}),
++        A(fields=[]),
++        B(cols=[]),
++        A.model_validate({"fields": []}),
++        B.model_validate({"cols": []}),
+     )
+
+
+
+APPLIED. 2 file(s) changed:
+  pkg/models.py
+  pkg/use.py

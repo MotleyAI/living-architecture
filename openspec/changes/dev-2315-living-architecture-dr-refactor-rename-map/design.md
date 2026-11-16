@@ -53,8 +53,9 @@ change. No new capability: the delta is on the `refactor` spec, owned by `python
    milliseconds. (user)
 5. **The export answer stays on the pipe.** Measured 111.39 s by file against 111.16 s by pipe once the read loop is
    linear. (default)
-6. **Ambient analysis is switched off by one more anchor in the export preload**, flipping the bundle's
-   `enableAmbientAnalysis` default. The server exposes no setting for it. A bundle where the anchor does not match
+6. **Ambient analysis is switched off by one more anchor in the export preload**, setting `enableAmbientAnalysis` to
+   false where the bundle assigns it from the server's file tracking, which always overwrites the class default. The
+   server exposes no setting for it. A bundle where the anchor does not match
    exactly once is refused as `mismatch`, like the existing anchors; the verified version list is unchanged. (default)
 7. **Only attribute-name and call-keyword-name edits skip the re-parse.** Options: also treat plain strings and
    comments as inert. Taken: the conservative pair; `__all__` entries and string annotations do bind. Every other
@@ -81,6 +82,8 @@ change. No new capability: the delta is on the `refactor` spec, owned by `python
 17. **Cold and warm runs agree when a skipped library follow is fetched on demand**; a test pins it. (codex)
 18. **No version bump in this change.** Versions move at release; the release check requires a minor raise because
     tool inputs changed. (default)
+19. **A rename map lists no leftover at a site another entry rewrites.** Each entry's rules still judge only its own
+    symbol; the final report drops a leftover sitting on any entry's edit. (user)
 
 ## Risks / Trade-offs
 

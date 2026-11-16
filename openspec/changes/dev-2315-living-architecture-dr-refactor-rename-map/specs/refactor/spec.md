@@ -117,3 +117,95 @@ Progress lines SHALL pass through forwarding to the other twin unchanged and in 
 #### Scenario: Progress through the other twin
 - **WHEN** a TypeScript rename runs through the PyPI twin
 - **THEN** stdout, stderr and exit code equal the npm twin's own run
+
+### Requirement: Rename maps apply many renames as one
+`dr-refactor rename-map MAP` SHALL read MAP (a path relative to the working directory) as a YAML list of entries
+valid against the shared rename-map schema: `file` relative to `--project`, exactly one locator (`symbol`, `line`
+with an optional `col`, or `offset`), and exactly one of `new_name` or `retarget` (a `symbol` in the same file). An
+invalid map SHALL exit 2 with `refactor.map-invalid` naming every invalid entry's index, in index order, printed by
+the invoking twin before any routing; a map that cannot be read or is not a non-empty list SHALL name entry 1. It SHALL
+take `rename`'s options other than the locator and `--new-name`, applying to every entry. All entries SHALL be of one
+language, else exit 2 with `refactor.map-mixed-languages`; the map runs in that language's twin.
+
+Every locator SHALL be resolved against the code before any entry is computed, so entries name old names. Two
+entries resolving to one symbol with the same intent SHALL merge; with different intents they SHALL be refused with
+`refactor.map-duplicate` naming both entry indexes, exit 2. Every entry SHALL then be computed on one snapshot of the
+project, every rename rule running once over the union of the entries' symbols, with one blind-spot scan for every
+member entry's old name and one combined refusal report, sorted as a single rename sorts it. A site any entry
+rewrites SHALL NOT be listed as another entry's leftover. Identical edits SHALL merge; every site two entries rewrite
+differently SHALL be refused with `refactor.map-conflict` naming the site and both entries, exit 1, writing nothing. Name conflicts SHALL be checked first for each `new_name` entry alone against
+the code before the map, in map order, so a swap or a chain of names inside one scope is refused, and then for all
+entries' edits together, so entries that meet on one name or capture each other's references are refused. A retarget
+entry's rewritten references SHALL resolve to its target, which another entry may rename. A retarget entry whose
+target another entry renames SHALL write the target's new name.
+
+`rename` SHALL behave as a one-entry map with a `new_name`, and `retarget` as a one-entry map with a `retarget`;
+their output SHALL equal that map's byte for byte.
+
+#### Scenario: Related renames in one pass
+- **WHEN** a map renames `StorageBackend.get_model`, `StorageBackend.get_model_sync` and
+  `StorageBackend.get_model(model_name)` and runs with `--apply`
+- **THEN** stdout has one header line per entry in map order, one diff per changed file and the applied footer, and
+  every reference of the three symbols is renamed
+
+#### Scenario: Entries name old names
+- **WHEN** a map renames method `A.old` to `new` and, in a later entry, parameter `A.old(x)` to `y`
+- **THEN** both renames apply and the method is `new(self, y)`
+
+#### Scenario: One combined refusal
+- **WHEN** two member entries each meet one untyped receiver
+- **THEN** stderr's final report lists both blind spots in path, line and column order, followed by one
+  `refactor.blindspots` line, the exit code is 1 and nothing changes
+
+#### Scenario: Duplicate entries
+- **WHEN** two entries locate the same method with new names `a` and `b`
+- **THEN** stderr ends with `refactor.map-duplicate` naming both entry indexes and the exit code is 2
+
+#### Scenario: Conflicting edits
+- **WHEN** one entry renames `Base.save` to `store` and another renames `Sub.save`, its override, to `keep`
+- **THEN** stderr's final report holds `refactor.map-conflict` naming a shared site and both entries, the exit code is
+  1 and nothing changes
+
+#### Scenario: Swap in one scope refused
+- **WHEN** a map renames parameter `f(x)` to `y` and `f(y)` to `x`
+- **THEN** the rename refuses with the existing name-conflict finding of each entry and nothing changes
+
+#### Scenario: Two entries converging on one name
+- **WHEN** a map renames parameter `f(x)` to `z` and `f(y)` to `z`
+- **THEN** the rename refuses with the existing name-conflict finding and nothing changes
+
+#### Scenario: Two catch variables taking one name
+- **WHEN** a TypeScript map renames the variables of two separate `catch` clauses to `err`
+- **THEN** both renames apply and the exit code is 0
+
+#### Scenario: Entries capturing each other's references
+- **WHEN** one entry renames a module-level `a` to `z`, another renames a function's local `b` to `z`, and that
+  function reads `a`, so that each entry alone is clean
+- **THEN** the map is refused with the name-conflict finding and nothing changes
+
+#### Scenario: Retarget beside a rename
+- **WHEN** a map retargets alias `old_alias` to `target` and renames `target` to `renamed`, and a function reading
+  `old_alias` binds no `renamed`
+- **THEN** both entries apply and the function reads `renamed`
+
+#### Scenario: Mixed languages
+- **WHEN** a map holds a `.py` and a `.ts` entry
+- **THEN** stderr is `refactor.map-mixed-languages` and the exit code is 2
+
+#### Scenario: Invalid map
+- **WHEN** entry 2 carries both `new_name` and `retarget`
+- **THEN** stderr is `refactor.map-invalid` naming entry 2 and the exit code is 2
+
+#### Scenario: Every invalid entry
+- **WHEN** entries 2 and 4 are invalid
+- **THEN** stderr is `refactor.map-invalid` naming entry 2 and then entry 4, through either invoking twin, and the
+  exit code is 2
+
+#### Scenario: Single rename equals its map
+- **WHEN** `rename --file F --symbol Q --new-name N` and a map holding that one entry run on the same project
+- **THEN** their stdout, stderr and exit codes are identical, through either invoking twin
+
+#### Scenario: Another entry's rewrite is no leftover
+- **WHEN** a map renames field `A.columns` to `fields` and `B.columns` to `cols`, and a file passes a
+  `{"columns": ...}` dict to each class
+- **THEN** each key is rewritten for its own class, no `leftover` line is printed and the exit code is 0

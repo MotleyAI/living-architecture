@@ -14,8 +14,10 @@ loop it sits in. (A fifth, the export following definitions into library code, i
 - A new `conflicts` phase: the checks made over a run's computed edits (map conflicts and name conflicts) announce
   themselves with `[conflicts]` and have their own `--timings` line, in both twins.
 - The DEV-1607 map is re-timed cold and warm, and the numbers recorded on the issue.
+- A rename map no longer lists, as one entry's leftover, a string another entry rewrites.
 
-Stdout, refusals and exit codes are unchanged; the only observable change is the `conflicts` phase.
+Stdout, refusals and exit codes are unchanged; the observable changes are the `conflicts` phase and the leftovers a
+map no longer lists at another entry's rewrites.
 
 ## Capabilities
 
@@ -26,7 +28,7 @@ None.
 ### Modified Capabilities
 
 - `refactor`: the phase list of `--timings` and of the announced phases gains `conflicts`, between `rules` and
-  `baseline`.
+  `baseline`; a rename map lists no leftover at a site another entry rewrites.
 
 ## Impact
 

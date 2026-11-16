@@ -1,0 +1,18 @@
+kind: paired
+languages:
+- python
+- typescript
+command: dr-refactor
+args:
+- --timings
+- rename-map
+- renames.yaml
+fixture: refactor-progress
+git:
+- commit: init
+normalize:
+- {pattern: '\d+\.\d\ds', replace: '<S>s'}
+expect:
+  exit: 0
+golden: manual
+note: '--timings on a map that refuses nothing: the conflict checks timed as conflicts, after rules'

@@ -1,11 +1,27 @@
-// dr-refactor phases: the map loader's every invalid entry and the keep text check.
+// dr-refactor phases: the map loader's every invalid entry, the keep text check, and what the conflicts phase is
+// charged with.
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { message } from '../src/contract/index.js';
 import { MapError, loadMap } from '../src/refactor/map.js';
 import { spelledLines } from '../src/refactor/sites.js';
-import { refactorRaw, tsProject } from './refactor-project.js';
+import { finalReport, refactorRaw, tsProject } from './refactor-project.js';
+
+const SECOND = 1_000_000_000n;
+
+// A fake clock that only building the named findings advances, by 100 s each.
+const slow = vi.hoisted(() => ({ now: 0n, keys: new Set<string>() }));
+vi.mock(import('../src/contract/index.js'), async (importOriginal) => {
+  const contract = await importOriginal();
+  return {
+    ...contract,
+    message: (id: string, values?: Record<string, unknown>): string => {
+      if (slow.keys.has(id)) slow.now += 100n * SECOND;
+      return contract.message(id, values);
+    },
+  };
+});
 
 const CHECKS = '[resolve]\n[checks]\n';
 const FOO = 'export function foo(): number {\n  return 1;\n}\n';
@@ -54,5 +70,74 @@ describe('the keep text check', () => {
       out: '',
       err: `${CHECKS}${message('refactor.line-out-of-range', { line: 99, count: 3 })}\n`,
     });
+  });
+});
+
+const CONFLICTS = message('refactor.progress-phase', { phase: 'conflicts' });
+const TIMING = new RegExp(
+  `^${message('refactor.timing', { phase: 'PHASE', seconds: '0.00' })
+    .replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`)
+    .replace('PHASE', String.raw`(\S+)`)
+    .replace(String.raw`0\.00`, String.raw`(\d+\.\d\d)`)}$`,
+);
+const STORE = 'export class Store {\n  load(): number {\n    return 1;\n  }\n\n  fetch(): number {\n    return 2;\n  }\n}\n';
+const HIER =
+  'export class Base {\n  ping(): number {\n    return 1;\n  }\n}\n\nexport class Sub extends Base {\n  override ping(): number {\n    return 2;\n  }\n}\n';
+
+function times(err: string): Map<string, string> {
+  return new Map(err.split('\n').flatMap((line) => {
+    const m = TIMING.exec(line);
+    return m === null ? [] : [[m[1] as string, m[2] as string] as const];
+  }));
+}
+
+describe('the conflicts phase', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    slow.keys.clear();
+  });
+
+  it.each([
+    ['member', { 'src/store.ts': STORE }, ['rename', '--file', 'src/store.ts', '--symbol', 'Store.load', '--new-name', 'fetch'], 'refactor.name-conflict'],
+    [
+      'binding',
+      { 'src/a.ts': `${FOO}\nexport function bar(): number {\n  return 2;\n}\n\nexport const x = foo();\n` },
+      ['rename', '--file', 'src/a.ts', '--symbol', 'foo', '--new-name', 'bar'],
+      'refactor.name-conflict',
+    ],
+    [
+      'map',
+      { 'src/hier.ts': HIER, 'map.yaml': '- {file: src/hier.ts, symbol: Base.ping, new_name: a}\n- {file: src/hier.ts, symbol: Sub.ping, new_name: b}\n' },
+      ['rename-map', 'map.yaml'],
+      'refactor.map-conflict',
+    ],
+  ])('charges a %s conflict check to conflicts, announced before its finding', (_kind, files, argv, finding) => {
+    const root = tsProject(files);
+    slow.now = 0n;
+    vi.spyOn(process.hrtime, 'bigint').mockImplementation(() => slow.now);
+    slow.keys.add(finding);
+    const { code, out, err } = refactorRaw(root, '--timings', ...argv);
+    expect([code, out]).toEqual([1, '']);
+    const lines = err.split('\n');
+    const first = finalReport(err).split('\n')[0] ?? '';
+    expect(lines).toContain(CONFLICTS);
+    expect(lines.indexOf(CONFLICTS)).toBeLessThan(lines.indexOf(first));
+    const spent = times(err);
+    expect(spent.get('conflicts') ?? '0.00').not.toBe('0.00');
+    expect([...spent].filter(([phase, s]) => phase !== 'conflicts' && phase !== 'total' && s !== '0.00')).toEqual([]);
+  });
+
+  it.each([
+    ['announces conflicts after every group', [], true],
+    ['skips conflicts after a --fail-fast stop', ['--fail-fast'], false],
+  ])('%s', (_title, flags, announced) => {
+    const root = tsProject({
+      'src/store.ts': 'export class Store {\n  drop(): number {\n    return 1;\n  }\n\n  load(): number {\n    return 2;\n  }\n}\n',
+      'src/loose.ts': 'export function loose(s: any): number {\n  return s.drop();\n}\n',
+      'map.yaml': '- {file: src/store.ts, symbol: Store.drop, new_name: discard}\n- {file: src/store.ts, symbol: Store.load, new_name: fetch}\n',
+    });
+    const { code, out, err } = refactorRaw(root, 'rename-map', 'map.yaml', ...flags);
+    expect([code, out]).toEqual([1, '']);
+    expect(err.split('\n').includes(CONFLICTS)).toBe(announced);
   });
 });

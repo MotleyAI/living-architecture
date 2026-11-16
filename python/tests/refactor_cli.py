@@ -17,7 +17,7 @@ BIN_DIR = Path(sys.executable).parent
 
 Result = tuple[int, str, str]
 
-_PHASES = "resolve|checks|references|rules|baseline|write"
+_PHASES = "resolve|checks|references|rules|conflicts|baseline|write"
 _PROGRESS = re.compile(rf"\[(?:{_PHASES})\]|\[(?:{_PHASES}) \d+/\d+\] .*")
 _REFUSED = re.compile(r"\[rules \d+/\d+\] .*: (\d+) refusal\(s\)")
 

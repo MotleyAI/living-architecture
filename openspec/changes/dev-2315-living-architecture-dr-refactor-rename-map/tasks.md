@@ -15,36 +15,39 @@
 
 ## 1. Tests (pr-tests)
 
-- [ ] 1.1 `test_language_server.py`: a fake-server message of several MB delivered in small chunks is read with
+- [x] 1.1 `test_language_server.py`: a fake-server message of several MB delivered in small chunks is read with
       linear copying (count chunk copies, not wall time). Verify: fails on today's `_pump`.
-- [ ] 1.2 `test_pyright_export.py`: the fake bundles gain the `enableAmbientAnalysis` line; a new test asserts a
+- [x] 1.2 `test_pyright_export.py`: the fake bundles gain the `enableAmbientAnalysis` line; a new test asserts a
       bundle without it is refused as `mismatch`, and one that the patched bundle sets it false. Verify: the new
       tests fail today.
-- [ ] 1.3 Sharding seam: exporting a multi-file fixture's files in two requests and merging gives the same
+- [x] 1.3 Sharding seam: exporting a multi-file fixture's files in two requests and merging gives the same
       `RunIndex` state as one request, through the fake server and (integration-marked) the real one, including
       definitions shared across the partition. Verify: passes or fails today; a failure is fixed in 2.3.
-- [ ] 1.4 Follow guard (DEV-2307's) with the cache: on a fixture importing a library class, where a rule fetches a
+- [x] 1.4 Follow guard (DEV-2307's) with the cache: on a fixture importing a library class, where a rule fetches a
       skipped library fact on demand, a cold and a warm run give identical facts and output. Verify: passes or fails
       today; a failure is fixed in 2.3.
-- [ ] 1.5 Rules: two entries sharing a file and an old name but targeting different classes give each its own
+- [x] 1.5 Rules: two entries sharing a file and an old name but targeting different classes give each its own
       edits (no state leaks through the shared candidates), and a counting test that a candidate file's sink
       discovery runs once for both. Verify: the counting test fails today.
-- [ ] 1.6 Conflict checks, unit tests on `BindingCheck`: a class-body declaration renamed onto an existing one; a
+- [x] 1.6 Conflict checks, unit tests on `BindingCheck`: a class-body declaration renamed onto an existing one; a
       renamed global seen through a star import in an unedited file; a two-step star chain; an edited `__all__`; a
       retarget's added import; a file with an attribute edit and a name edit; a length-changing attribute edit before
       a binding edit in one file. Verify: all pass today (they pin behaviour the narrowing must keep).
-- [ ] 1.7 Conflict checks, counting tests: a file whose only edits are attribute or keyword names is not re-parsed;
+- [x] 1.7 Conflict checks, counting tests: a file whose only edits are attribute or keyword names is not re-parsed;
       the all-together pass reuses a single-entry state; a run with moved files re-judges every file. Verify: the
       first two fail today.
-- [ ] 1.8 `MemberCheck`: the project scan for classes declaring a member name runs once per name for several
+- [x] 1.8 `MemberCheck`: the project scan for classes declaring a member name runs once per name for several
       renamed members. Verify: fails today.
-- [ ] 1.9 `conflicts` phase, both twins: unit tests that a keyed-only, a member-only, a binding and a map conflict
+- [x] 1.9 `conflicts` phase, both twins: unit tests that a keyed-only, a member-only, a binding and a map conflict
       are each charged to `conflicts` and none to `resolve`; that `[conflicts]` precedes the finding; that a
       standalone Python module rename prints `[references]`, `[conflicts]` and times its check there; that
       `--fail-fast` after a refused group prints no `[conflicts]`. Verify: fail today.
-- [ ] 1.10 Conformance: a new case for each new spec scenario not already covered ("Conflict checks timed on their
+- [x] 1.10 Conformance: a new case for each new spec scenario not already covered ("Conflict checks timed on their
       own", "Name conflict found in its phase", "Module rename conflicts", "No conflict phase after a fail-fast
       stop"), listed in `conformance/INVENTORY.md`. Verify: they fail today on the missing line.
+- [x] 1.11 Leftovers across entries: a unit test in `test_rename_map.py` and an adapter conformance case (Python;
+      only the Python twin lists keyed-string leftovers) for "Another entry's rewrite is no leftover", listed in
+      `conformance/INVENTORY.md`. Verify: both fail today on the four `leftover` lines.
 
 ## 2. Export and server
 
@@ -61,6 +64,7 @@
       source regions, compound names, text-table declarations. Verify: a cProfile of the 11 `measures` entries
       (`grep -E "symbol: (\S+\.)?measures[,}]"` of the map, `--docs`, no site flags) shows each called once per file.
 - [ ] 3.3 `Session.source` (`rename_union.py`) becomes a plain lookup. Verify: the same profile shows it under 1 s.
+- [ ] 3.4 The final report drops a leftover at a site any entry rewrites. Verify: 1.11 passes.
 
 ## 4. Conflict checks
 
