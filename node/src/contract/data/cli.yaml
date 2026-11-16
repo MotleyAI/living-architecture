@@ -179,7 +179,7 @@ commands:
 
   la-wait-for-reviews:
     help: Watch a PR until CodeRabbit, Sonar and CI are terminal, printing each new failed check, CodeRabbit comment and finished Sonar analysis once (bundled script).
-    exit: {0: ok, 1: gate timed out, 2: repo lookup failed, 3: CodeRabbit rate limited or paused, 64: usage error}
+    exit: {0: ok, 1: gate timed out, 2: repo lookup failed, 3: 'CodeRabbit rate limited, paused or skipped its review', 64: usage error}
     passthrough: true
     script: wait-for-reviews.sh
     format: exempt
@@ -231,6 +231,8 @@ commands:
              help: 'leave every edit on this line, in this file or under this directory (repeatable)'}
           - {name: --docs, type: flag,
              help: 'also rewrite mentions in comments, docstrings, strings and prose files; list the rest'}
+          - {name: --fail-fast, type: flag,
+             help: 'stop at the first entry with a refusal (default: compute every entry and report every refusal)'}
       rename-map:
         help: >-
           apply a YAML list of rename and retarget entries as one refactor: every entry resolved against the code
@@ -252,6 +254,8 @@ commands:
              help: 'leave every edit on this line, in this file or under this directory (repeatable)'}
           - {name: --docs, type: flag,
              help: 'also rewrite mentions in comments, docstrings, strings and prose files; list the rest'}
+          - {name: --fail-fast, type: flag,
+             help: 'stop at the first entry with a refusal (default: compute every entry and report every refusal)'}
       retarget:
         help: rewrite the references to an alias to name its target, declared or imported in the same class or module
         exclusive: [[offset, line, symbol]]
@@ -272,6 +276,8 @@ commands:
              help: 'leave every edit on this line, in this file or under this directory (repeatable)'}
           - {name: --docs, type: flag,
              help: 'also rewrite mentions in comments, docstrings, strings and prose files; list the rest'}
+          - {name: --fail-fast, type: flag,
+             help: 'stop at the first entry with a refusal (default: compute every entry and report every refusal)'}
       move-symbol:
         help: move a top-level declaration to another module
         exclusive: [[offset, line, symbol]]

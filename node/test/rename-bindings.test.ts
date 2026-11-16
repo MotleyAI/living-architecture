@@ -110,6 +110,7 @@ describe('quoted and escaped names', () => {
     [String.raw`o\u006cd`, 'old'],
     [String.raw`o\u{6c}d`, 'old'],
     ['old', 'old'],
+    [String.raw`o\u{110000}d`, String.raw`o\u{110000}d`],
   ])('decodes the identifier %s', (raw, name) => {
     expect(identifierText(raw)).toBe(name);
   });
@@ -200,12 +201,14 @@ describe('check order', () => {
     expect(read(root, 'src/m.ts')).toBe(m.replace('export const old', 'export const next'));
   });
 
-  it('reports a name conflict before the blind-spot refusal', () => {
+  it('reports a name conflict with the blind-spot refusal', () => {
     const m = 'export class C {\n  old(): number {\n    return 1;\n  }\n\n  next(): number {\n    return 2;\n  }\n}\n';
     const loose = 'export function g(o: any): number {\n  return o.old();\n}\n';
     const project = { 'src/m.ts': m, 'src/loose.ts': loose };
     const { root, result } = renameSymbol(project, 'src/m.ts', 'C.old', 'next');
-    expect(result).toEqual({ code: 1, out: '', err: conflict('next', 'src/m.ts', 6) });
+    const blindspot = message('compliance.attr-blindspot', { path: 'src/loose.ts', line: 2, receiver: 'o', attr: 'old', type: 'any' });
+    const closing = message('refactor.blindspots', { count: 1, attr: 'old' });
+    expect(result).toEqual({ code: 1, out: '', err: `${blindspot}\n${conflict('next', 'src/m.ts', 6)}${closing}\n` });
     expect(files(root)).toMatchObject(project);
   });
 });

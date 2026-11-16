@@ -1,0 +1,3 @@
+- {file: lib/store.py, symbol: Store.drop, new_name: discard}
+- {file: lib/store.py, symbol: Store.load, new_name: fetch}
+- {file: lib/store.py, symbol: Store.size, new_name: count}

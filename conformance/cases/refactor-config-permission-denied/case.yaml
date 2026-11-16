@@ -14,5 +14,4 @@ expect:
   exit: 0
 golden: manual
 note: 'an unreadable config behaves exactly as one that is not valid YAML (goldens recorded with `tracker: [`), never a
-  crash. PR #49 (DEV-2302) makes dr-refactor refuse in its checks phase for an unusable config; whichever of the two
-  PRs merges second re-blesses these goldens'
+  crash'

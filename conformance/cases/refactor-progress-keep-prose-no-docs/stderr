@@ -1,0 +1,3 @@
+[resolve]
+[checks]
+--keep README.md matches nothing this rename touches

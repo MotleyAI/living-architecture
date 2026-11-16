@@ -232,7 +232,7 @@ def _keyword_spans(source: SourceFile) -> set[tuple[int, int]]:
 
 class RenameOptions(BaseModel):
     """How a symbol rename runs: hierarchy, unsure occurrences, the blind-spot override, stand-in classifications,
-    kept sites and the mention scan."""
+    kept sites, the mention scan and whether the run stops at its first refusal."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -243,6 +243,7 @@ class RenameOptions(BaseModel):
     without_sites: tuple[str, ...] = ()
     keep: tuple[str, ...] = ()
     docs: bool = False
+    fail_fast: bool = False
 
 
 class Declaration(BaseModel):

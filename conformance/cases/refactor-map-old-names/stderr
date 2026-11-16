@@ -1,0 +1,9 @@
+[resolve]
+[checks]
+[references]
+[references 1/2] entry 1: old -> new
+[references 2/2] entry 2: x -> y
+[rules]
+[rules 1/2] entry 1: old -> new: clean
+[rules 2/2] entry 2: x -> y: clean
+[write]

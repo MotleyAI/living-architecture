@@ -1,0 +1,8 @@
+[resolve]
+[checks]
+[references]
+[references 1/2] entry 1: Alias -> Local
+[references 2/2] entry 2: Target -> Renamed
+[rules]
+[rules 1/2] entry 1: Alias -> Local: clean
+[rules 2/2] entry 2: Target -> Renamed: clean

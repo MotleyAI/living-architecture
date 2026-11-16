@@ -36,10 +36,10 @@ class MapEntry(BaseModel):
 
 
 def load_map(raw: str, project: str) -> list[MapEntry]:
-    """MAP's entries, files relative to `project`; `MapError` naming the first invalid entry."""
+    """MAP's entries, files relative to `project`; `MapError` naming every invalid entry in index order."""
 
-    def invalid(index: int) -> MapError:
-        return MapError(message("refactor.map-invalid", map=raw, index=index))
+    def invalid(*indexes: int) -> MapError:
+        return MapError("\n".join(message("refactor.map-invalid", map=raw, index=index) for index in indexes))
 
     try:
         document = load_yaml(Path(raw).read_text(encoding="utf-8"))
@@ -47,10 +47,11 @@ def load_map(raw: str, project: str) -> list[MapEntry]:
         raise invalid(1) from None
     if not isinstance(document, list) or not document:
         raise invalid(1)
+    bad = [index for index, item in enumerate(document, 1) if validate(schema("rename-map"), [item])]
+    if bad:
+        raise invalid(*bad)
     entries: list[MapEntry] = []
     for index, item in enumerate(document, 1):
-        if validate(schema("rename-map"), [item]):
-            raise invalid(index)
         locator = Locator(symbol=item.get("symbol"), line=item.get("line"), col=item.get("col"), offset=item.get("offset"))
         entries.append(MapEntry(
             index=index, file=item["file"], path=str(Path(project) / item["file"]), locator=locator,

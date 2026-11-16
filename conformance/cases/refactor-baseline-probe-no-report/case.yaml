@@ -1,0 +1,35 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- --apply
+- rename
+- --file
+- pkg/store.py
+- --symbol
+- StorageBackend.get_model
+- --new-name
+- load
+bins:
+- dir: checker
+  position: before
+  files:
+    fake-checker: '#!/bin/sh
+
+      printf ''{"outcome": "patched", "version": "1.0.0", "count": 1}'' > "$LA_PYRIGHT_PATCH_RESULT"
+
+      echo "fake checker: warming up" >&2
+
+      echo "not a report"
+
+      exit 0
+
+      '
+git:
+- commit: init
+expect:
+  exit: 1
+  git_status: true
+note: 'the configured checker exits 0 at the probe without a JSON report: baseline-failed with checker-error naming the
+  missing report, then its stderr, in checks; nothing searched or written'

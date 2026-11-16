@@ -1,7 +1,8 @@
 """A stand-in LSP server for the language-server session tests: `fake_lsp_server.py <mode> <record.jsonl>`.
 
 Modes: `ok`; `fail-start` (exits before reading); `unpatched` (records no patch result); `exit-on-query` (exits at
-the first query). Queries echo their position back as a three-unit range; hover answers `(variable) x: Unknown`.
+the first query); `error-on-initialize` (answers `initialize` with an error, after a line on stderr). Queries
+echo their position back as a three-unit range; hover answers `(variable) x: Unknown`.
 """
 
 import json
@@ -51,7 +52,11 @@ def main() -> None:
     while True:
         msg = read()
         method = msg.get("method")
-        if method == "initialize":
+        if method == "initialize" and MODE == "error-on-initialize":
+            sys.stderr.write("fake: initialize failed\n")
+            sys.stderr.flush()
+            send({"jsonrpc": "2.0", "id": msg["id"], "error": {"code": -32603, "message": "fake failure"}})
+        elif method == "initialize":
             if MODE != "unpatched":
                 with open(os.environ["LA_PYRIGHT_PATCH_RESULT"], "w", encoding="utf-8") as fh:
                     json.dump({"outcome": "patched", "version": "1.40.2", "count": 1}, fh)

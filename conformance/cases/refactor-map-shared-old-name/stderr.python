@@ -1,2 +1,10 @@
+[resolve]
+[checks]
+[references]
+[references 1/2] entry 1: save -> store
+[references 2/2] entry 2: save -> keep
+[rules]
+[rules 1/1] entries 1, 2: save -> store, keep: 1 refusal(s)
+pkg/m.py:12: attr-blindspot: x.save — x is Unknown, so a rename of .save is unverifiable
 pkg/m.py:12: attr-blindspot: x.save — x is Unknown, so a rename of .save is unverifiable
 1 blind spot(s) of .save: type or resolve them, or pass --allow-blindspots

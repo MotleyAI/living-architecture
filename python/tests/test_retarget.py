@@ -272,6 +272,35 @@ def test_a_local_import_of_the_target_after_the_use_shadows_it(
     assert file_tree(root) == before
 
 
+def test_a_target_named_like_a_builtin_is_shadowed_where_the_builtin_is_in_scope(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = write_project(tmp_path / "proj", {
+        "pkg/home.py": "def len(x: str) -> int:\n    return 99\n\n\nold = len\n",
+        "pkg/use.py": 'from pkg.home import old\n\noriginal = len("abc")\nvalue = old("abc")\n',
+    })
+    before = file_tree(root)
+    code, out, err = run(root, _retarget("pkg/home.py", "old", "len"), monkeypatch, capsys)
+    shadowed = message("refactor.retarget-shadowed", path="pkg/use.py", line=4, name="len")
+    assert (code, out, err) == (1, "", f"{shadowed}\n")
+    assert file_tree(root) == before
+
+
+def test_an_import_rebinding_a_builtin_name_is_shadowed_when_its_uses_bind_the_target_locally(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = write_project(tmp_path / "proj", {
+        "pkg/home.py": "def len(x: str) -> int:\n    return 99\n\n\nold = len\n",
+        "pkg/use.py": ('from pkg.home import old\n\noriginal = len("abc")\n\n\ndef use() -> int:\n'
+                       '    from pkg.home import len\n    return old("abc")\n'),
+    })
+    before = file_tree(root)
+    code, out, err = run(root, _retarget("pkg/home.py", "old", "len"), monkeypatch, capsys)
+    shadowed = message("refactor.retarget-shadowed", path="pkg/use.py", line=1, name="len")
+    assert (code, out, err) == (1, "", f"{shadowed}\n")
+    assert file_tree(root) == before
+
+
 def test_a_target_imported_before_the_use_in_its_branch_is_no_shadow(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -427,6 +456,21 @@ def test_the_home_is_the_import_of_the_alias_module(
     code, _out, err = run(root, _retarget("pkg/compat.py", "AcmeModel", "Model"), monkeypatch, capsys)
     assert (code, err) == (0, "")
     assert read(root, "pkg/use.py") == expected
+
+
+def test_a_reexported_alias_spelled_inside_its_target_keeps_its_declaration(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    compat = "from pkg.core import BaseModel as Model\n"
+    root = write_project(tmp_path / "proj", {
+        "pkg/core.py": "class BaseModel:\n    pass\n",
+        "pkg/compat.py": compat,
+        "pkg/use.py": "from pkg.compat import Model\n\nx = Model()\n",
+    })
+    code, _out, err = run(root, _retarget("pkg/compat.py", "Model", "BaseModel"), monkeypatch, capsys)
+    assert (code, err) == (0, "")
+    assert read(root, "pkg/compat.py") == compat
+    assert read(root, "pkg/use.py") == "from pkg.core import BaseModel\n\nx = BaseModel()\n"
 
 
 def test_a_reexport_shim_binding_the_target_gets_no_import_for_its_own_use(

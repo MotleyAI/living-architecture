@@ -1,1 +1,7 @@
+[resolve]
+[checks]
+[references]
+[references 1/1] entry 1: Old -> Next
+[rules]
+[rules 1/1] entry 1: Old -> Next: clean
 Next already names something else at pkg/m.py:6, so nothing was refactored

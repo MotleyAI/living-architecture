@@ -1,0 +1,2 @@
+- {file: lib/store.ts, symbol: Store.drop, new_name: discard}
+- {file: lib/store.ts, symbol: Store.size, new_name: count}

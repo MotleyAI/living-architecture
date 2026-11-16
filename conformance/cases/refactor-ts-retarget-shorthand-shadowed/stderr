@@ -1,1 +1,8 @@
+[resolve]
+[checks]
+[references]
+[references 1/1] entry 1: legacy -> modern
+[rules]
+[rules 1/1] entry 1: legacy -> modern: 1 refusal(s)
+src/use.ts:5: modern names something else here, so nothing was refactored
 src/use.ts:5: modern names something else here, so nothing was refactored

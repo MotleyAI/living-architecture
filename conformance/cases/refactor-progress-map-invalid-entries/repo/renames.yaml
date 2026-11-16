@@ -1,0 +1,4 @@
+- {file: a.py, symbol: f, new_name: g}
+- {file: a.py, symbol: f}
+- {file: a.py, symbol: h, new_name: i}
+- {file: a.py, new_name: j}

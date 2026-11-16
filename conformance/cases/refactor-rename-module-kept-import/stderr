@@ -1,1 +1,4 @@
+[resolve]
+[checks]
+[references]
 b already names something else at pkg/use.py:5, so nothing was refactored

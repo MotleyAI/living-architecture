@@ -3,12 +3,13 @@ import { isAbsolute, relative, sep } from 'node:path';
 import type * as TS from 'typescript';
 import { byCodePoint, message, readFile } from '../contract/index.js';
 import { posix, ts } from '../lang/index.js';
-import { alignBaseline } from './baseline.js';
+import { alignBaseline, baselineRuns } from './baseline.js';
 import { CHECKER_OPTIONS } from './compliance.js';
 import { unifiedDiff } from './diff.js';
 import { applyEdits, type Edit, RefactorError, splitBom } from './edits.js';
 import { Lines } from './lines.js';
 import type { MovedSpan } from './position.js';
+import { Progress } from './progress.js';
 import { languageFiles, realPath, under } from './routing.js';
 import { timed } from './timings.js';
 import { type Located, locate as locateSymbol } from './symbols.js';
@@ -35,6 +36,7 @@ export interface RefactorArgs {
   without_stand_ins?: string[];
   keep?: string[];
   docs?: boolean;
+  fail_fast?: boolean;
   dest?: string;
   module?: string;
 }
@@ -92,7 +94,7 @@ export class Refactor {
 
   /** The headers, one diff or rename pair per entry in path order (the realigned baseline among them), then the
    * footer; writes only with --apply, every file or none. */
-  emit(headers: string[], edits: Map<string, Edit[]>, moves: [string, string][], spans: MovedSpan[] = []): number {
+  emit(headers: string[], edits: Map<string, Edit[]>, moves: [string, string][], spans: MovedSpan[] = [], progress: Progress = new Progress()): number {
     const entries: Entry[] = [];
     const writes: Write[] = [];
     for (const [path, fileEdits] of edits) {
@@ -104,6 +106,7 @@ export class Refactor {
       if (text !== old) writes.push({ path, old, text });
     }
     const texts = new Map(writes.map((w) => [w.path, splitBom(w.text)[1]]));
+    if (baselineRuns(this)) progress.phase('baseline');
     const aligned = timed('baseline', () => alignBaseline(this, { edits, moves: new Map(moves), spans }, texts));
     process.stderr.write(aligned.warnings.map((line) => `${line}\n`).join(''));
     if (aligned.write !== null) writes.push(aligned.write);
@@ -114,6 +117,7 @@ export class Refactor {
     const body = entries.map((e) => `${e.text}\n`).join('');
     let out = `${headers.join('\n')}\n\n\n${body}\n`;
     if (this.args.apply) {
+      progress.phase('write');
       timed('write', () => writeAll(this.root, writes.toSorted((a, b) => byCodePoint(a.path, b.path)), moves, (path) => this.rel(path)));
       out += `${message('refactor.applied', { count: paths.length })}\n`;
       out += paths.map((path) => `${message('refactor.applied-file', { path })}\n`).join('');

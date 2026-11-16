@@ -380,6 +380,17 @@ findings:
   refactor.literal-value: '--new-name {value!r} holds a quote, backtick, backslash, ${{, NUL or line break, which a literal member cannot'
   refactor.literal-unresolved: '{path}:{line}: literal-unresolved: the checker needs {old!r} here, where no string literal can be rewritten'
   refactor.compound: '{path}:{line}: leftover: declaration {name} contains {old}'
+  refactor.site-missing: '{option} {site} names no file, directory or line in the project'
+  refactor.checker-exit: '  the checker exited with code {code}; its stderr:'
+  refactor.checker-not-started: '  the checker could not start: {error}'
+  refactor.checker-error: '  the checker answered: {error}'
+  refactor.checker-no-report: no JSON report on stdout
+  refactor.progress-phase: '[{phase}]'
+  refactor.progress-item: '[{phase} {n}/{count}] {entries}: {old} -> {new}'
+  refactor.progress-clean: '[{phase} {n}/{count}] {entries}: {old} -> {new}: clean'
+  refactor.progress-refused: '[{phase} {n}/{count}] {entries}: {old} -> {new}: {refusals} refusal(s)'
+  refactor.progress-entry: 'entry {index}'
+  refactor.progress-entries: 'entries {indexes}'
   refactor.timing: 'timing: {phase} {seconds}s'
 
   # ---- dr-compliance

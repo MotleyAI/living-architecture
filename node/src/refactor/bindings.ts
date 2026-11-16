@@ -44,7 +44,10 @@ const ESCAPE = String.raw`\u`;
 
 /** The name an identifier's source text spells, its unicode escapes decoded. */
 export const identifierText = (raw: string): string =>
-  raw.replaceAll(/\\u\{([0-9a-fA-F]+)\}|\\u([0-9a-fA-F]{4})/gu, (_match, braced: string | undefined, plain: string | undefined) => String.fromCodePoint(Number.parseInt(braced ?? plain ?? '', 16)));
+  raw.replaceAll(/\\u\{([0-9a-fA-F]+)\}|\\u([0-9a-fA-F]{4})/gu, (match: string, braced: string | undefined, plain: string | undefined) => {
+    const code = Number.parseInt(braced ?? plain ?? '', 16);
+    return code > 0x10ffff ? match : String.fromCodePoint(code);
+  });
 
 /** `text` may spell one of `names`: it spells one, or holds a unicode escape. */
 const mayName = (text: string, names: Set<string>): boolean => [...names].some((name) => text.includes(name)) || text.includes(ESCAPE);

@@ -1,0 +1,4 @@
+[resolve]
+[checks]
+lib/store.py: Store.lod names no declaration; candidates: clear, drop, load, save, size
+lib/store.py: Store.clr names no declaration; candidates: clear, drop, load, save, size

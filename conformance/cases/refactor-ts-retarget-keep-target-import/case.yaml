@@ -1,0 +1,22 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- retarget
+- --file
+- src/api.ts
+- --symbol
+- legacy
+- --target
+- modern
+- --keep
+- src/use.ts:2
+fixture: refactor-ts
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: a keep on the target's import line, which the retarget removes as a duplicate, passes the checks (it spells the target)
+  and stays unchanged

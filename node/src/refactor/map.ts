@@ -35,13 +35,14 @@ function document(path: string): unknown {
   }
 }
 
-/** The entries of the map at `path` (`shown` in messages); MapError naming the first invalid entry (1-based; entry 1
- * for a file that holds no list of entries). */
+/** The entries of the map at `path` (`shown` in messages); MapError naming every invalid entry in index order (1-based;
+ * entry 1 for a file that holds no list of entries). */
 export function loadMap(path: string, shown: string): MapEntry[] {
   const data = document(path);
-  const invalid = (index: number): MapError => new MapError(message('refactor.map-invalid', { map: shown, index }));
-  if (!Array.isArray(data) || data.length === 0) throw invalid(1);
-  const bad = data.findIndex((entry) => validate(schema('rename-map'), [entry]).length > 0);
-  if (bad >= 0) throw invalid(bad + 1);
+  const invalid = (indexes: number[]): MapError =>
+    new MapError(indexes.map((index) => message('refactor.map-invalid', { map: shown, index })).join('\n'));
+  if (!Array.isArray(data) || data.length === 0) throw invalid([1]);
+  const bad = data.flatMap((entry, i) => (validate(schema('rename-map'), [entry]).length > 0 ? [i + 1] : []));
+  if (bad.length > 0) throw invalid(bad);
   return data as MapEntry[];
 }

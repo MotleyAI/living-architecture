@@ -1,1 +1,5 @@
+[resolve]
+[checks]
+[references]
+[write]
 could not write pkg/solo.py; restoring failed, so these paths are left changed: pkg/solo.py

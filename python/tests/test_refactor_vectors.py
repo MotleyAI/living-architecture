@@ -9,6 +9,7 @@ from typing import Any
 
 import pytest
 import yaml
+from refactor_cli import readouterr
 
 from living_architecture.cli import dr_refactor
 from living_architecture.refactor.mentions import mentions, qualifier_segments, source_regions
@@ -64,7 +65,7 @@ def test_line_locator_counts_python_lines_only(typed_project: Callable[..., Path
     root = typed_project({"pkg/m.py": "x = 1  # a\fb\ndef old() -> None:\n    pass\n"})
     assert dr_refactor(["--project", str(root), "rename", "--file", str(root / "pkg/m.py"), "--line", "2", "--col", "5",
                         "--new-name", "new"]) == 0
-    assert "-def old() -> None:\n+def new() -> None:" in capsys.readouterr().out
+    assert "-def old() -> None:\n+def new() -> None:" in readouterr(capsys).out
 
 
 def test_docs_regions_in_a_cr_only_file() -> None:

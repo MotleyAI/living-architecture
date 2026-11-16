@@ -1,2 +1,8 @@
+[resolve]
+[checks]
+[references]
+[references 1/1] entry 1: getModel -> getDataset
+[rules]
+[rules 1/1] entry 1: getModel -> getDataset: clean
 src/use.ts:5: leftover: string mentions getModel
 src/use.ts:5: leftover: string mentions getModel

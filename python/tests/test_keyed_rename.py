@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 from project_files import file_tree, write_project
+from refactor_cli import readouterr
 
 from living_architecture.cli import dr_refactor
 from living_architecture.contract import message
@@ -446,7 +447,7 @@ def test_key_or_keyword_collision(
     root = typed_project({"pkg/models.py": MODELS, "pkg/use.py": f"from pkg.models import Model\n\n{line}"})
     before = file_tree(root)
     assert _rename_field(root, "Model", "columns", "fields") == 1
-    err = capsys.readouterr().err
+    err = readouterr(capsys).err
     assert err == message("refactor.name-conflict", name="fields", path="pkg/use.py", line=3) + "\n"
     assert file_tree(root) == before
 
@@ -478,7 +479,7 @@ def test_field_rename_refuses_an_unresolved_owner_chain(
 ) -> None:
     before = file_tree(without_pydantic)
     assert _rename_field(without_pydantic, "Model", "columns", "fields") == 1
-    err = capsys.readouterr().err
+    err = readouterr(capsys).err
     assert err == message("refactor.unresolved-base", name="Model", path="pkg/models.py", line=4) + "\n"
     assert file_tree(without_pydantic) == before
 
@@ -494,7 +495,7 @@ def test_field_rename_refuses_a_base_expression(typed_project: MakeProject, caps
     before = file_tree(root)
     assert _rename_field(root, "Model", "columns", "fields") == 1
     line = models[: models.index("class Child(")].count("\n") + 1
-    err = capsys.readouterr().err
+    err = readouterr(capsys).err
     assert err == message("refactor.unresolved-base", name="Child", path="pkg/models.py", line=line) + "\n"
     assert file_tree(root) == before
 
@@ -511,7 +512,7 @@ def test_unresolved_base_outside_the_project_names_its_absolute_path(
     with open(root / "pyproject.toml", "a", encoding="utf-8") as fh:
         fh.write('extraPaths = ["../ext"]\n')
     assert _rename_field(root, "Model", "columns", "fields") == 1
-    err = capsys.readouterr().err
+    err = readouterr(capsys).err
     assert err == message("refactor.unresolved-base", name="Ext", path=ext.resolve().as_posix(), line=4) + "\n"
 
 

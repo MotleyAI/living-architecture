@@ -1,1 +1,7 @@
+[resolve]
+[checks]
+[references]
+[references 1/1] entry 1: old -> fresh
+[rules]
+[rules 1/1] entry 1: old -> fresh: clean
 fresh already names something else at pkg/m.py:5, so nothing was refactored

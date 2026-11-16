@@ -1,0 +1,23 @@
+kind: adapter
+languages:
+- python
+twin: typescript
+command: dr-refactor
+args:
+- --apply
+- rename
+- --file
+- lib/store.py
+- --symbol
+- Store.drop
+- --new-name
+- discard
+fixture: refactor-progress
+git:
+- commit: init
+expect:
+  exit: 1
+  git_status: true
+golden: manual
+note: 'the typescript twin forwards a refused python rename: its progress lines, the group''s refusal and the final report
+  pass through unchanged'

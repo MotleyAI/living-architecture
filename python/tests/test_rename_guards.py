@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 from project_files import file_tree
+from refactor_cli import readouterr
 
 from living_architecture.cli import dr_compliance, dr_refactor
 from living_architecture.contract import message
@@ -97,7 +98,7 @@ def test_untyped_fixture_parameter_refuses_the_rename(
     root = project({"pkg/store.py": STORE, "pkg/use.py": USE, "tests/test_a.py": UNTYPED_TEST})
     before = file_tree(root)
     assert _rename(root, "pkg/store.py", "get_model", "get_dataset", apply=apply) == 1
-    assert capsys.readouterr() == ("", f"{_blindspot('tests/test_a.py', 2, 'storage')}\n{_closing(1)}\n")
+    assert readouterr(capsys) == ("", f"{_blindspot('tests/test_a.py', 2, 'storage')}\n{_closing(1)}\n")
     assert file_tree(root) == before
 
 
@@ -108,7 +109,7 @@ def test_blind_spots_sort_by_path_line_and_column(project: MakeProject, capsys: 
         "tests/test_a.py": UNTYPED_TEST,
     })
     assert _rename(root, "pkg/store.py", "get_model", "get_dataset") == 1
-    assert capsys.readouterr().err.splitlines() == [
+    assert readouterr(capsys).err.splitlines() == [
         _blindspot("tests/test_a.py", 2, "storage"),
         _blindspot("tests/test_b.py", 5, "y"),
         _blindspot("tests/test_b.py", 5, "x", "Any"),
@@ -121,7 +122,7 @@ def test_allow_blindspots_proceeds_and_still_lists_them(
 ) -> None:
     root = project({"pkg/store.py": STORE, "pkg/use.py": USE, "tests/test_a.py": UNTYPED_TEST})
     assert _rename(root, "pkg/store.py", "get_model", "get_dataset", "--allow-blindspots") == 0
-    assert capsys.readouterr().err == _blindspot("tests/test_a.py", 2, "storage") + "\n"
+    assert readouterr(capsys).err == _blindspot("tests/test_a.py", 2, "storage") + "\n"
     assert _read(root, "pkg/store.py") == STORE.replace("get_model", "get_dataset")
     assert _read(root, "pkg/use.py") == USE.replace("get_model", "get_dataset")
     assert _read(root, "tests/test_a.py") == UNTYPED_TEST
@@ -130,7 +131,7 @@ def test_allow_blindspots_proceeds_and_still_lists_them(
 def test_a_kept_blind_spot_does_not_block(project: MakeProject, capsys: pytest.CaptureFixture[str]) -> None:
     root = project({"pkg/store.py": STORE, "pkg/use.py": USE, "tests/test_a.py": UNTYPED_TEST})
     assert _rename(root, "pkg/store.py", "get_model", "get_dataset", "--keep", "tests/test_a.py:2") == 0
-    assert capsys.readouterr().err == ""
+    assert readouterr(capsys).err == ""
     assert _read(root, "pkg/use.py") == USE.replace("get_model", "get_dataset")
     assert _read(root, "tests/test_a.py") == UNTYPED_TEST
 
@@ -145,7 +146,7 @@ def test_untyped_mock_fixture_callee_is_a_blind_spot(project: MakeProject, capsy
     root = project({"pkg/store.py": STORE, "tests/test_b.py": test})
     before = file_tree(root)
     assert _rename(root, "pkg/store.py", "get_model", "get_dataset") == 1
-    assert capsys.readouterr().err == f"{_blindspot('tests/test_b.py', 7, 'engine')}\n{_closing(1)}\n"
+    assert readouterr(capsys).err == f"{_blindspot('tests/test_b.py', 7, 'engine')}\n{_closing(1)}\n"
     assert file_tree(root) == before
 
 
@@ -174,16 +175,16 @@ def test_blind_spots_equal_dr_compliance_over_the_project(project: MakeProject, 
         ".tox/t.py": untyped,
     })
     assert _rename(root, "pkg/store.py", "get_model", "get_dataset", apply=False) == 1
-    refused = capsys.readouterr().err.splitlines()
+    refused = readouterr(capsys).err.splitlines()
     assert refused[-1] == _closing(3)
     assert dr_compliance(["--select", "attr-blindspot", "--attr", "get_model", "."]) == 1
-    assert refused[:-1] == capsys.readouterr().out.splitlines()
+    assert refused[:-1] == readouterr(capsys).out.splitlines()
 
 
 def test_typed_receivers_do_not_block(project: MakeProject, capsys: pytest.CaptureFixture[str]) -> None:
     root = project({"pkg/store.py": STORE, "pkg/use.py": USE})
     assert _rename(root, "pkg/store.py", "get_model", "get_dataset") == 0
-    assert capsys.readouterr().err == ""
+    assert readouterr(capsys).err == ""
 
 
 def test_the_blind_spot_scan_shares_the_language_server_session(
@@ -212,7 +213,7 @@ def test_cast_stand_in_refuses_until_classified(
     root = project({"pkg/store.py": BACKEND, "pkg/use.py": BACKEND_USE})
     before = file_tree(root)
     assert _rename(root, "pkg/store.py", "get_model", "get_dataset", apply=apply) == 1
-    assert capsys.readouterr() == (
+    assert readouterr(capsys) == (
         "", f"{_stand_in('pkg/store.py', 13, '_ModelReadCache')}\n{_stand_in('pkg/store.py', 18, '_SubCache')}\n"
     )
     assert file_tree(root) == before
@@ -223,7 +224,7 @@ def test_with_renames_the_stand_in_and_its_hierarchy_in_the_same_diff(
 ) -> None:
     root = project({"pkg/store.py": BACKEND, "pkg/use.py": BACKEND_USE})
     assert _rename(root, "pkg/store.py", "get_model", "get_dataset", "--with", "pkg/store.py:13") == 0
-    assert capsys.readouterr().err == ""
+    assert readouterr(capsys).err == ""
     assert _read(root, "pkg/store.py") == BACKEND.replace("get_model", "get_dataset")
     assert _read(root, "pkg/use.py") == BACKEND_USE.replace("get_model", "get_dataset")
 
@@ -243,7 +244,7 @@ def test_without_leaves_the_stand_in_and_its_hierarchy(project: MakeProject) -> 
 def test_every_unclassified_stand_in_is_listed(project: MakeProject, capsys: pytest.CaptureFixture[str]) -> None:
     root = project({"pkg/store.py": BACKEND, "pkg/other.py": UNRELATED})
     assert _rename(root, "pkg/store.py", "get_model", "get_dataset", "--without", "pkg/store.py:13") == 1
-    assert capsys.readouterr() == ("", _stand_in("pkg/other.py", 2, "Unrelated") + "\n")
+    assert readouterr(capsys) == ("", _stand_in("pkg/other.py", 2, "Unrelated") + "\n")
 
 
 def test_several_with_stand_ins_sharing_references(project: MakeProject, capsys: pytest.CaptureFixture[str]) -> None:
@@ -258,7 +259,7 @@ def test_several_with_stand_ins_sharing_references(project: MakeProject, capsys:
     root = project({"pkg/store.py": STORE, "pkg/caches.py": caches})
     assert _rename(root, "pkg/store.py", "get_model", "get_dataset", "--docs",
                    "--with", "pkg/caches.py:5", "--with", "pkg/caches.py:10") == 0
-    assert capsys.readouterr().err == ""
+    assert readouterr(capsys).err == ""
     assert _read(root, "pkg/caches.py") == caches.replace("get_model", "get_dataset")
 
 
@@ -271,7 +272,9 @@ def test_a_classification_line_without_a_stand_in(
     root = project({"pkg/store.py": BACKEND})
     before = file_tree(root)
     assert _rename(root, "pkg/store.py", "get_model", "get_dataset", "--with", "pkg/store.py:13", flag, site) == 2
-    assert capsys.readouterr() == ("", message("refactor.not-stand-in", site=site) + "\n")
+    expected = (message("refactor.site-missing", option=flag, site=site) if site.endswith(":99")
+                else message("refactor.not-stand-in", site=site))
+    assert readouterr(capsys) == ("", expected + "\n")
     assert file_tree(root) == before
 
 
@@ -292,7 +295,7 @@ def test_every_member_kind_is_a_stand_in(project: MakeProject, capsys: pytest.Ca
     root = project({"pkg/store.py": STORE, "pkg/other.py": f"class Other:\n{member}"})
     line = 1 + f"class Other:\n{member}".split("get_model")[0].count("\n")
     assert _rename(root, "pkg/store.py", "get_model", "get_dataset") == 1
-    assert capsys.readouterr().err == _stand_in("pkg/other.py", line, "Other") + "\n"
+    assert readouterr(capsys).err == _stand_in("pkg/other.py", line, "Other") + "\n"
 
 
 def test_stand_ins_are_found_with_the_hierarchy_flag_off(
@@ -300,7 +303,7 @@ def test_stand_ins_are_found_with_the_hierarchy_flag_off(
 ) -> None:
     root = project({"pkg/store.py": STORE, "pkg/other.py": UNRELATED})
     assert _rename(root, "pkg/store.py", "get_model", "get_dataset", "--no-in-hierarchy") == 1
-    assert capsys.readouterr().err == _stand_in("pkg/other.py", 2, "Unrelated") + "\n"
+    assert readouterr(capsys).err == _stand_in("pkg/other.py", 2, "Unrelated") + "\n"
 
 
 def test_an_override_is_not_a_stand_in_with_the_hierarchy_flag_off(project: MakeProject) -> None:
@@ -314,7 +317,7 @@ def test_both_refusals_under_apply_change_nothing(project: MakeProject, capsys: 
     root = project({"pkg/store.py": STORE, "pkg/other.py": UNRELATED, "tests/test_a.py": UNTYPED_TEST})
     before = file_tree(root)
     assert _rename(root, "pkg/store.py", "get_model", "get_dataset") == 1
-    assert capsys.readouterr() == ("", "".join(f"{line}\n" for line in [
+    assert readouterr(capsys) == ("", "".join(f"{line}\n" for line in [
         _blindspot("tests/test_a.py", 2, "storage"),
         _stand_in("pkg/other.py", 2, "Unrelated"),
         _closing(1),
@@ -326,7 +329,7 @@ def test_classifying_the_stand_ins_leaves_the_blind_spots(project: MakeProject, 
     loose = "def f(c):\n    return c.get_model()\n"
     root = project({"pkg/store.py": BACKEND, "pkg/loose.py": loose})
     assert _rename(root, "pkg/store.py", "get_model", "get_dataset", "--with", "pkg/store.py:13") == 1
-    assert capsys.readouterr().err == f"{_blindspot('pkg/loose.py', 2, 'c')}\n{_closing(1)}\n"
+    assert readouterr(capsys).err == f"{_blindspot('pkg/loose.py', 2, 'c')}\n{_closing(1)}\n"
 
 
 # ---- --keep
@@ -375,13 +378,21 @@ def test_a_file_keep_and_a_line_keep_together(project: MakeProject) -> None:
     assert _read(root, "pkg/a.py") == KEEP_USE
 
 
-@pytest.mark.parametrize("site", ["pkg/a.py:99", "pkg/a.py:1", "pkg/missing.py", "docs"],
-                         ids=["past-the-end", "untouched-line", "missing-file", "untouched-directory"])
-def test_an_unmatched_keep(project: MakeProject, capsys: pytest.CaptureFixture[str], site: str) -> None:
+@pytest.mark.parametrize(
+    ("site", "expected"),
+    [
+        ("pkg/a.py:99", message("refactor.site-missing", option="--keep", site="pkg/a.py:99")),
+        ("pkg/a.py:1", message("refactor.keep-unmatched", site="pkg/a.py:1")),
+        ("pkg/missing.py", message("refactor.site-missing", option="--keep", site="pkg/missing.py")),
+        ("docs", message("refactor.keep-unmatched", site="docs")),
+    ],
+    ids=["past-the-end", "untouched-line", "missing-file", "untouched-directory"],
+)
+def test_an_unmatched_keep(project: MakeProject, capsys: pytest.CaptureFixture[str], site: str, expected: str) -> None:
     root = project({"pkg/store.py": STORE, "pkg/a.py": KEEP_USE, "docs/x.py": "y = 1\n"})
     before = file_tree(root)
     assert _rename(root, "pkg/store.py", "get_model", "get_dataset", "--keep", site) == 2
-    assert capsys.readouterr() == ("", message("refactor.keep-unmatched", site=site) + "\n")
+    assert readouterr(capsys) == ("", expected + "\n")
     assert file_tree(root) == before
 
 

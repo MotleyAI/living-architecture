@@ -17,7 +17,15 @@ from living_architecture.contract import language, message, os_error_text
 
 
 class CommandError(Exception):
-    """The checker cannot be run; the message is printed, exit 2."""
+    """The checker cannot be run; the message is printed, exit 2. `kind` says how it failed: it could not start
+    (`start`), exited with `code` and `stderr` (`exit`), or la refused its run (`error`)."""
+
+    def __init__(self, error: str, *, kind: str = "start", code: int | None = None, stderr: str = "") -> None:
+        super().__init__(error)
+        self.error = error
+        self.kind = kind
+        self.code = code
+        self.stderr = stderr
 
 
 def split_command(text: str) -> list[str]:
@@ -124,15 +132,20 @@ def python_diagnostics(root: Path, command: str, extra: list[str]) -> dict[str, 
         except OSError as exc:
             raise CommandError(os_error_text(exc, root)) from None
         patch = lang.read_pyright_patch(result)
+    stderr = proc.stderr.decode(errors="replace")
+    exited = CommandError(stderr, kind="exit", code=proc.returncode, stderr=stderr)
+    if lang.basedpyright_exit(proc.returncode, write=False) == 2:
+        raise exited
     failure = _patch_failure(patch, command, versions)
-    if failure is not None or lang.basedpyright_exit(proc.returncode, write=False) == 2:
-        raise CommandError(failure or proc.stderr.decode(errors="replace"))
+    if failure is not None:
+        raise CommandError(failure, kind="error")
+    no_report = CommandError(message("refactor.checker-no-report"), kind="error", stderr=stderr)
     try:
         report = json.loads(proc.stdout)
     except ValueError:
-        raise CommandError(command) from None
+        raise no_report from None
     if not isinstance(report, dict):
-        raise CommandError(command)
+        raise no_report
     return report
 
 

@@ -14,7 +14,7 @@ import threading
 from collections.abc import Callable
 from pathlib import Path
 from types import TracebackType
-from typing import IO, Any, Self, cast
+from typing import IO, Any, Literal, Self, cast
 from urllib.parse import urlparse
 from urllib.request import url2pathname
 
@@ -31,7 +31,15 @@ _EOF = object()
 
 
 class LanguageServerError(Exception):
-    """The language server could not start, is not patched, failed or exited."""
+    """The language server could not start (`start`), exited (`exit`, with its exit `code`), answered an error
+    (`error`) or is not patched; `stderr` is what it wrote, known once its session is stopped."""
+
+    def __init__(self, error: str, *, kind: Literal["start", "exit", "error", "other"] = "other") -> None:
+        super().__init__(error)
+        self.error = error
+        self.kind = kind
+        self.code: int | None = None
+        self.stderr = ""
 
 
 class Span(BaseModel):
@@ -129,6 +137,9 @@ class LanguageServer:
         self._messages: queue.Queue[Any] = queue.Queue()
         self._proc: subprocess.Popen[bytes] | None = None
         self._scratch: str | None = None
+        self._stderr: list[bytes] = []
+        self._stderr_reader: threading.Thread | None = None
+        self._failure: LanguageServerError | None = None
 
     def __enter__(self) -> Self:
         try:
@@ -155,14 +166,16 @@ class LanguageServer:
                 bufsize=0,
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
                 cwd=self._scratch,
                 env=env,
             )
         except OSError as exc:
-            raise LanguageServerError(os_error_text(exc, self.workspace)) from None
-        assert self._proc.stdout is not None
+            raise self._fail(os_error_text(exc, self.workspace), "start") from None
+        assert self._proc.stdout is not None and self._proc.stderr is not None
         threading.Thread(target=self._pump, args=(self._proc.stdout,), daemon=True).start()
+        self._stderr_reader = threading.Thread(target=self._drain, args=(self._proc.stderr,), daemon=True)
+        self._stderr_reader.start()
         uri = self.workspace.as_uri()
         self._request("initialize", {
             "processId": os.getpid(),
@@ -175,15 +188,32 @@ class LanguageServer:
         })
         patch = read_pyright_patch(result)
         if patch is None or patch.outcome != "patched":
-            raise LanguageServerError("unpatched")
+            raise self._fail("unpatched", "other")
         self._notify("initialized", {})
         self._await_configuration()
+
+    def _fail(self, error: str, kind: Literal["start", "exit", "error", "other"]) -> LanguageServerError:
+        """The error to raise, its stderr and exit code filled in when the session stops."""
+        if self._failure is None:
+            self._failure = LanguageServerError(error, kind=kind)
+        return self._failure
 
     def _stop(self) -> None:
         proc, self._proc = self._proc, None
         if proc is not None:
+            if self._failure is not None and self._failure.kind == "exit":
+                with contextlib.suppress(subprocess.TimeoutExpired):
+                    proc.wait(timeout=10)
             self._terminate(proc)
             _close_streams(proc)
+            if self._stderr_reader is not None:
+                self._stderr_reader.join(timeout=10)
+            if proc.stderr is not None:
+                with contextlib.suppress(OSError):
+                    proc.stderr.close()
+            if self._failure is not None:
+                self._failure.stderr = b"".join(self._stderr).decode(errors="replace")
+                self._failure.code = proc.returncode if self._failure.kind == "exit" else None
         if self._scratch is not None:
             shutil.rmtree(self._scratch, ignore_errors=True)
             self._scratch = None
@@ -216,6 +246,11 @@ class LanguageServer:
             pass
         self._messages.put(_EOF)
 
+    def _drain(self, stream: IO[bytes]) -> None:
+        with contextlib.suppress(OSError, ValueError):
+            while chunk := stream.read(65536):
+                self._stderr.append(chunk)
+
     def _new_id(self) -> int:
         self._next_id += 1
         return self._next_id
@@ -223,7 +258,7 @@ class LanguageServer:
     def _send(self, payload: dict[str, Any], proc: subprocess.Popen[bytes] | None = None) -> None:
         proc = proc or self._proc
         if proc is None or proc.stdin is None:
-            raise LanguageServerError("not running")
+            raise self._fail("not running", "other")
         body = json.dumps(payload).encode()
         frame = memoryview(b"Content-Length: %d\r\n\r\n" % len(body) + body)
         try:
@@ -231,7 +266,7 @@ class LanguageServer:
                 frame = frame[proc.stdin.write(frame) :]
             proc.stdin.flush()
         except OSError:
-            raise LanguageServerError("exited") from None
+            raise self._fail("exited", "exit") from None
 
     def _notify(self, method: str, params: object) -> None:
         self._send({"jsonrpc": "2.0", "method": method, "params": params})
@@ -245,7 +280,7 @@ class LanguageServer:
                 self._answer(msg)
             elif msg.get("id") == request_id and "method" not in msg:
                 if "error" in msg:
-                    raise LanguageServerError(str(msg["error"].get("message", "")))
+                    raise self._fail(str(msg["error"].get("message", "")), "error")
                 return msg.get("result")
 
     def _await_configuration(self) -> None:
@@ -261,7 +296,7 @@ class LanguageServer:
         msg = self._messages.get()
         if msg is _EOF:
             self._messages.put(_EOF)
-            raise LanguageServerError("exited")
+            raise self._fail("exited", "exit")
         return msg
 
     def _answer(self, msg: dict[str, Any]) -> None:
@@ -276,7 +311,11 @@ class LanguageServer:
         return self._texts[path]
 
     def open(self, path: Path, text: str) -> None:
-        """Hand the server `text` as the content of `path`."""
+        """Hand the server `text` as the content of `path`; a path already open is changed to it."""
+        if path in self._versions:
+            if self._texts.get(path) != text:
+                self.change(path, text)
+            return
         self._texts[path] = text
         self._versions[path] = 1
         self._notify("textDocument/didOpen", {

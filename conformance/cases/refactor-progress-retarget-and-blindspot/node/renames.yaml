@@ -1,0 +1,2 @@
+- {file: lib/engine.ts, symbol: Engine.persist, retarget: Engine.persistModel}
+- {file: lib/store.ts, symbol: Store.drop, new_name: discard}
