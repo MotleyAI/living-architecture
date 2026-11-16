@@ -17,7 +17,7 @@ const ANCHORS = [
   [DISPATCH, `            case "${COMMAND}": {\n                return globalThis.__laExportOccurrences(this.__laServer, cmdParams, token, __webpack_require__);\n            }\n${DISPATCH}`],
 ];
 
-const NODE = { Argument: 1, Class: 10, Decorator: 16, ImportAs: 24, ImportFromAs: 26, Index: 27, Function: 31,
+const NODE = { Argument: 1, Class: 10, Decorator: 16, ImportAs: 24, FormatString: 30, ImportFromAs: 26, Index: 27, Function: 31,
   MemberAccess: 35, Module: 36, ModuleName: 37, Name: 38, Parameter: 41, StringList: 48, String: 49, TypeAnnotation: 54 };
 const ALIAS_DECLARATION = 8;
 const HOVER = /^\([\p{L}\p{N}_ ]+\) [\p{L}\p{N}_.]+: ([\s\S]*)$/u;
@@ -70,8 +70,15 @@ function hoverType(hover) {
       start = i + 3;
     }
   }
-  const all = [...members, text.slice(start)].map((t) => t.trim());
-  return ['Unknown', 'Any'].find((kind) => all.includes(kind)) ?? null;
+  const all = new Set([...members, text.slice(start)].map((t) => t.trim()));
+  return ['Unknown', 'Any'].find((kind) => all.has(kind)) ?? null;
+}
+
+// The annotation of a class-body statement `x: T` or `x: T = v`.
+function annotationOf(item) {
+  if (item.nodeType === NODE.TypeAnnotation) return item.d.annotation;
+  const left = item.d?.leftExpr;
+  return left?.nodeType === NODE.TypeAnnotation ? left.d.annotation : undefined;
 }
 
 class Exporter {
@@ -175,6 +182,7 @@ class Exporter {
     if (parent?.nodeType === NODE.ImportAs && parent.d.alias === node) return 'alias';
     if (parent?.nodeType === NODE.ModuleName) return 'module';
     for (let up = parent; up; up = up.parent) {
+      if (up.nodeType === NODE.FormatString) return 'name';
       if (up.nodeType === NODE.StringList || up.nodeType === NODE.String) return 'forward-reference';
     }
     return 'name';
@@ -188,27 +196,28 @@ class Exporter {
     const range = (node) => this.positions.convertTextRangeToRange(node, lines);
     const tree = parsed.parserOutput.parseTree;
     const dunderAll = new Set(this.nodeInfo.getDunderAllInfo(tree, this.reader)?.stringNodes ?? []);
-    const exporter = this;
-    const names_ = names;
+    const onName = (node) => {
+      if (!names.has(node.d.value)) return;
+      const kind = this.kind(node);
+      out.push({ uri: lsp, range: range(node), name: node.d.value, kind, declarations: this.definition(uri, range(node).start),
+        bindings: this.bindings(this.program.evaluator.getDeclInfoForNameNode(node)?.decls),
+        receiver: kind === 'member' ? this.access(uri, node) : null });
+    };
+    const onString = (node) => {
+      if (!dunderAll.has(node) || !names.has(node.d.value) || node.d.token.escapedValue !== node.d.value) return;
+      out.push({ uri: lsp, range: range(this.treeUtils.getStringNodeValueRange(node)), name: node.d.value, kind: 'all-entry',
+        declarations: this.moduleDeclarations(tree, node.d.value),
+        bindings: this.bindings(this.nodeInfo.getScope(tree, this.reader)?.lookUpSymbol(node.d.value)?.getDeclarations()),
+        receiver: null });
+    };
     const walker = new (class extends this.walkers.ParseTreeWalker {
       visitName(node) {
-        if (names_.has(node.d.value)) {
-          const kind = exporter.kind(node);
-          const at = range(node).start;
-          out.push({ uri: lsp, range: range(node), name: node.d.value, kind, declarations: exporter.definition(uri, at),
-            bindings: exporter.bindings(exporter.program.evaluator.getDeclInfoForNameNode(node)?.decls),
-            receiver: kind === 'member' ? exporter.access(uri, node) : null });
-        }
+        onName(node);
         return true;
       }
 
       visitString(node) {
-        if (dunderAll.has(node) && names_.has(node.d.value) && node.d.token.escapedValue === node.d.value) {
-          out.push({ uri: lsp, range: range(exporter.treeUtils.getStringNodeValueRange(node)), name: node.d.value, kind: 'all-entry',
-            declarations: exporter.moduleDeclarations(tree, node.d.value),
-            bindings: exporter.bindings(exporter.nodeInfo.getScope(tree, exporter.reader)?.lookUpSymbol(node.d.value)?.getDeclarations()),
-            receiver: null });
-        }
+        onString(node);
         return true;
       }
     })(this.reader);
@@ -221,7 +230,7 @@ class Exporter {
     const out = [];
     for (const decl of symbol?.getDeclarations() ?? []) {
       const resolved = this.program.evaluator.resolveAliasDeclaration(decl, true);
-      if (resolved && resolved.uri && !resolved.uri.isEmpty()) out.push({ uri: resolved.uri, range: resolved.range });
+      if (resolved?.uri && !resolved.uri.isEmpty()) out.push({ uri: resolved.uri, range: resolved.range });
     }
     return this.locations(out);
   }
@@ -253,21 +262,23 @@ class Exporter {
     const uri = this.uri(location.uri);
     const node = this.nodeAt(uri, location.range.start);
     const parent = node?.parent;
-    if (!parent) return;
-    if (parent.nodeType === NODE.Class && parent.d.name === node) {
-      for (const arg of parent.d.arguments) {
-        if (!arg.d.name && arg.d.argCategory === 0) this.followName(uri, arg.d.valueExpr);
+    if (!parent || parent.d?.name !== node) return;
+    if (parent.nodeType === NODE.Class) this.followClass(uri, parent);
+    else if (parent.nodeType === NODE.Function) this.followFunction(uri, parent);
+    else if (parent.nodeType === NODE.Parameter && parent.parent?.nodeType === NODE.Function) {
+      this.followFunction(uri, parent.parent);
+    }
+  }
+
+  followClass(uri, cls) {
+    for (const arg of cls.d.arguments) {
+      if (!arg.d.name && arg.d.argCategory === 0) this.followName(uri, arg.d.valueExpr);
+    }
+    for (const statement of cls.d.suite.d.statements) {
+      for (const item of statement.d?.statements ?? []) {
+        const annotation = annotationOf(item);
+        if (annotation) this.followNames(uri, annotation);
       }
-      for (const statement of parent.d.suite.d.statements) {
-        for (const item of statement.d?.statements ?? []) {
-          const annotation = item.nodeType === NODE.TypeAnnotation ? item.d.annotation : item.d?.leftExpr?.nodeType === NODE.TypeAnnotation ? item.d.leftExpr.d.annotation : undefined;
-          if (annotation) this.followNames(uri, annotation);
-        }
-      }
-    } else if (parent.nodeType === NODE.Function && parent.d.name === node) {
-      this.followFunction(uri, parent);
-    } else if (parent.nodeType === NODE.Parameter && parent.d.name === node) {
-      if (parent.parent?.nodeType === NODE.Function) this.followFunction(uri, parent.parent);
     }
   }
 
@@ -281,7 +292,9 @@ class Exporter {
 
   followName(uri, expr) {
     const target = expr?.nodeType === NODE.Index ? expr.d.leftExpr : expr;
-    const name = target?.nodeType === NODE.Name ? target : target?.nodeType === NODE.MemberAccess ? target.d.member : undefined;
+    let name;
+    if (target?.nodeType === NODE.Name) name = target;
+    else if (target?.nodeType === NODE.MemberAccess) name = target.d.member;
     if (name) this.fact(uri, this.position(uri, name.start), ['definition']);
   }
 
@@ -337,13 +350,9 @@ async function exportOccurrences(ls, params, token, req) {
   const request = (params.arguments ?? [])[0] ?? {};
   const files = [...(request.files ?? []), ...(request.facts ?? []).map((f) => f.uri)];
   if (!files.length) return { occurrences: [], answers: [], followed: [] };
-  const workspaces = new Set();
-  let workspace;
-  for (const lsp of files) {
-    workspace = await ls.getWorkspaceForFile(ls.convertLspUriStringToUri(lsp));
-    workspaces.add(workspace);
-  }
+  const workspaces = new Set(await Promise.all(files.map((lsp) => ls.getWorkspaceForFile(ls.convertLspUriStringToUri(lsp)))));
   if (workspaces.size !== 1) throw new Error('the requested files span several workspaces');
+  const [workspace] = workspaces;
   return workspace.service.run((program) => new Exporter(ls, workspace, program, req, token).run(request), token);
 }
 

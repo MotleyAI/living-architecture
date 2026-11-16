@@ -229,7 +229,7 @@ class MemberScan:
             return self.index.verdict(path, span[0]) if span else None
         return None
 
-    def probe(self, path: Path, source: SourceFile, calls: list[FormCall]) -> list[tuple[str | None, list[Span]]]:
+    def probe(self, path: Path, calls: list[FormCall]) -> list[tuple[str | None, list[Span]]]:
         """For each resolved member call, its object's kind when not a name or attribute, and the declarations
         `obj.NAME` lands on, in the files' own offsets: the run's probe round, read back."""
         out: list[tuple[str | None, list[Span]]] = []
@@ -246,7 +246,7 @@ class MemberScan:
         found = list(self.accesses(path, source))
         calls = self.member_calls(path, source)
         probed = [c for c in calls if c.forms is not None and not isinstance(c.obj, (ast.Name, ast.Attribute))]
-        kinds = dict(zip(map(id, probed), (k for k, _ in self.probe(path, source, probed)), strict=True)) if probed else {}
+        kinds = dict(zip(map(id, probed), (k for k, _ in self.probe(path, probed)), strict=True)) if probed else {}
         for call in calls:
             kind = kinds.get(id(call)) if id(call) in kinds else self.object_kind(path, source, call)
             if kind is not None:

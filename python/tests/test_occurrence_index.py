@@ -60,9 +60,9 @@ def _counted(tmp_path: Path, name: str, files: dict[str, str], argv: list[str], 
              capsys: pytest.CaptureFixture[str]) -> tuple[Requests, tuple[int, str, str], Path]:
     root = write_project(tmp_path / name, files)
     requests = Requests()
-    requests.install(monkeypatch)
-    result = run(root, argv, monkeypatch, capsys)
-    monkeypatch.undo()
+    with monkeypatch.context() as patched:
+        requests.install(patched)
+        result = run(root, argv, patched, capsys)
     return requests, result, root
 
 

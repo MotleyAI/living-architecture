@@ -169,6 +169,60 @@ def test_a_change_the_index_depends_on_exports_anew(
     assert result == _uncached(tmp_path, project, CLEAN, monkeypatch, capsys)
 
 
+def _change_the_extended_config(base: Path, venv: Path) -> None:
+    base.write_text(_config(venv, reportMissingImports="none"), encoding="utf-8")
+
+
+def _change_a_package_of_the_extended_venv(base: Path, venv: Path) -> None:
+    _change_an_installed_package(base, venv)
+
+
+@pytest.mark.parametrize("change", [_change_the_extended_config, _change_a_package_of_the_extended_venv],
+                         ids=["extended-config", "extended-venv"])
+def test_a_change_through_an_extended_config_exports_anew(
+    tmp_path: Path, project: Path, venv: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str],
+    change: Callable[[Path, Path], None],
+) -> None:
+    base = tmp_path / "shared" / "base.json"
+    base.parent.mkdir()
+    base.write_text(_config(venv), encoding="utf-8")
+    (project / "pyrightconfig.json").write_text(json.dumps({"extends": "../shared/base.json"}), encoding="utf-8")
+    first, _ = _run(project, CLEAN, monkeypatch, capsys)
+    assert first.count == 1
+    change(base, venv)
+    second, result = _run(project, CLEAN, monkeypatch, capsys)
+    assert second.count == 1
+    assert result == _uncached(tmp_path, project, CLEAN, monkeypatch, capsys)
+
+
+def test_a_source_changed_during_the_export_is_not_cached(
+    project: Path, cache_dir: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    export = LanguageServer.export
+
+    def editing(server: LanguageServer, request: Any) -> Any:
+        found = export(server, request)
+        if request.names:
+            (project / "pkg" / "extra.py").write_text("y = 3\n", encoding="utf-8")
+        return found
+
+    with monkeypatch.context() as patched:
+        patched.setattr(LanguageServer, "export", editing)
+        run_raw(project, CLEAN, patched, capsys)
+    assert _cache_files(cache_dir) == []
+
+
+def test_a_cache_directory_inside_the_project_is_no_cache(
+    project: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setenv("LA_CACHE_DIR", str(project / ".cache" / "la"))
+    before = file_tree(project)
+    first, _ = _run(project, CLEAN, monkeypatch, capsys)
+    second, _ = _run(project, CLEAN, monkeypatch, capsys)
+    assert (first.count, second.count) == (1, 1)
+    assert file_tree(project) == before
+
+
 def test_a_changed_request_exports_anew(
     project: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
