@@ -587,8 +587,8 @@ does. It SHALL run with its working directory outside the project, without the u
 writing and with neither the working directory nor an inherited `PYTHONPATH` on the interpreter's path, so
 no target-repo code runs. A language server
 that cannot start, is not patched, fails or exits during the refactor SHALL make `dr-refactor` print the
-`refactor.pyright-failed` finding on stderr, write nothing and exit 1; no checker or library message text SHALL be
-printed. With or without `--apply`, the language server SHALL create no file in the project.
+`refactor.pyright-failed` finding on stderr followed by its cause, as "A failed checker's cause is printed" describes,
+write nothing and exit 1. With or without `--apply`, the language server SHALL create no file in the project.
 
 #### Scenario: Forward-reference strings follow the class
 - **WHEN** class `Rec` is renamed to `Recommendation` in a module holding `def make() -> "Rec":` and
@@ -628,8 +628,8 @@ printed. With or without `--apply`, the language server SHALL create no file in 
 
 #### Scenario: Language server failure
 - **WHEN** the language server cannot start or exits during the rename, with or without `--apply`
-- **THEN** stderr is the `refactor.pyright-failed` finding, the exit code is 1 and every file of the project is
-  unchanged
+- **THEN** stderr is the `refactor.pyright-failed` finding followed by its cause, the exit code is 1 and every file of
+  the project is unchanged
 
 #### Scenario: No target-repo code runs
 - **WHEN** the project's root holds a `sitecustomize.py` that writes a marker file when imported, and a rename runs
@@ -2435,8 +2435,8 @@ run; a module rename, `move-symbol` and `move-module` SHALL NOT start it.
 
 #### Scenario: Unverified checker
 - **WHEN** a rename runs with a bundled basedpyright version the export is not verified for
-- **THEN** stderr is the `refactor.pyright-failed` finding, the exit code is 1 and every file of the project is
-  unchanged
+- **THEN** stderr is the `refactor.pyright-failed` finding followed by its cause, the exit code is 1 and every file of
+  the project is unchanged
 
 #### Scenario: Positions after astral characters and CRLF in every kind
 - **WHEN** each occurrence kind of "Every member occurrence kind" and "Every name occurrence kind" sits in a module with CRLF line endings, a lone `\r`, and
