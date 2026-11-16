@@ -176,10 +176,18 @@ def _config_dirs(chain: list[Config]) -> list[Path]:
     return sorted(out)
 
 
+def _python(project: Path) -> str | None:
+    """The interpreter basedpyright uses when no environment is configured: the project's `.venv`, else PATH's."""
+    local = project / ".venv" / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python")
+    if local.exists():
+        return str(local)
+    found = shutil.which("python3") if sys.platform != "win32" else None
+    return found or shutil.which("python")
+
+
 def _interpreter(digest: Any, project: Path) -> None:
     """The interpreter basedpyright falls back on and every search path it reports."""
-    found = shutil.which("python3") if sys.platform != "win32" else None
-    found = found or shutil.which("python")
+    found = _python(project)
     if found is None:
         digest.update(b"no interpreter\n")
         return

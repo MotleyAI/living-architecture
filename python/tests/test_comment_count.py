@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from living_architecture.cli import la_count_comments as main
+from living_architecture.cli.la_count_comments import la_count_comments as main
 from living_architecture.lang import comment_doc_counts as counts
 
 SRC = '"""Module doc\nspanning two lines."""\n\n# a comment\ndef f():\n    """One-liner."""\n    return 1  # trailing\n'

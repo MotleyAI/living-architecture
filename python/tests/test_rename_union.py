@@ -9,7 +9,7 @@ import pytest
 from project_files import file_tree
 from refactor_cli import readouterr
 
-from living_architecture.cli import dr_refactor
+from living_architecture.cli.dr_refactor import dr_refactor
 from living_architecture.contract import message
 from living_architecture.lang import ExportRequest, LanguageServer, LanguageServerError, OccurrenceIndex
 

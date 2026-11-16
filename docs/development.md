@@ -46,6 +46,23 @@ read your shell aliases need that flag added to their own command settings.
 `python/README.md` and `python/LICENSE` are symlinks to the root files; `node/` copies them at pack time
 (`prepack`).
 
+## CI shards
+
+CI splits the Python suite (`test`, two shards per Python version, conformance cases deselected) and each
+`cross-twin` leg (three shards) with `pytest-split`, balanced by committed per-test durations:
+`python/tests/durations/suite.json`, `cross-python.json` and `cross-typescript.json`. Stale or missing entries
+only unbalance the shards; every test still runs in exactly one. To refresh them, run each job kind unsplit with
+`--store-durations --clean-durations`, ideally on a 4-vCPU runner like CI's:
+
+```bash
+cd python && uv run pytest -q --store-durations --clean-durations --durations-path tests/durations/suite.json \
+  --deselect tests/test_conformance.py::test_case
+cd .. && scripts/conformance-cross --twin python --store-durations --clean-durations \
+  --durations-path tests/durations/cross-python.json
+scripts/conformance-cross --twin typescript --store-durations --clean-durations \
+  --durations-path tests/durations/cross-typescript.json
+```
+
 ## Releasing
 
 In `python/`, bump the version with `uv version <new>`, then in `node/package.json` and

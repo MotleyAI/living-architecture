@@ -10,7 +10,7 @@ from typing import NamedTuple
 import pytest
 from project_files import file_tree, write_project
 
-from living_architecture.cli import dr_refactor
+from living_architecture.cli.dr_refactor import dr_refactor
 from living_architecture.config import current_format
 
 BIN_DIR = Path(sys.executable).parent

@@ -11,7 +11,7 @@ import pytest
 import yaml
 from refactor_cli import readouterr
 
-from living_architecture.cli import dr_refactor
+from living_architecture.cli.dr_refactor import dr_refactor
 from living_architecture.refactor.mentions import mentions, qualifier_segments, source_regions
 from living_architecture.refactor.python_source import SourceFile, split_lines
 from living_architecture.refactor.rope_refactor import _kept_lines  # pyright: ignore[reportPrivateUsage]

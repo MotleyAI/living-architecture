@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from living_architecture.cli import dr_mock_lint as main
+from living_architecture.cli.dr_mock_lint import dr_mock_lint as main
 from living_architecture.refactor.mock_spec_lint import check_file
 
 
