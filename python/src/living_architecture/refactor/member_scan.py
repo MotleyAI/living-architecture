@@ -107,7 +107,7 @@ class FormResolver:
         if source is None or source.tree is None:
             return None
         if span.path not in self._classes:
-            self._classes[span.path] = [n for n in ast.walk(source.tree) if isinstance(n, ast.ClassDef)]
+            self._classes[span.path] = [n for n in source.nodes if isinstance(n, ast.ClassDef)]
         line = source.line(span.start)
         chain = sorted(
             (c for c in self._classes[span.path] if c.lineno <= line <= (c.end_lineno or c.lineno)), key=lambda c: c.lineno
@@ -169,7 +169,7 @@ class MemberScan:
         """`x.NAME` accesses whose receiver is typed `Unknown` or `Any`."""
         if source.tree is None:
             return
-        for node in ast.walk(source.tree):
+        for node in source.nodes:
             if not (isinstance(node, ast.Attribute) and node.attr == self.name):
                 continue
             span = source.name_span(node)
@@ -179,6 +179,9 @@ class MemberScan:
 
     def member_calls(self, path: Path, source: SourceFile) -> list[FormCall]:
         """Calls with a member form's syntax whose member literal is NAME, with what their callee resolves to."""
+        return self.index.memo(("member_calls", path, self.name), lambda: self._member_calls(path, source))
+
+    def _member_calls(self, path: Path, source: SourceFile) -> list[FormCall]:
         out: list[FormCall] = []
         for call in _calls(source):
             callee = _dotted(call.func)
@@ -198,6 +201,9 @@ class MemberScan:
     def target_calls(self, path: Path, source: SourceFile) -> list[FormCall]:
         """Calls whose dotted target has a segment NAME: resolving to a target form, or with a target form's syntax
         and an unresolved callee (`forms` None)."""
+        return self.index.memo(("target_calls", path, self.name), lambda: self._target_calls(path, source))
+
+    def _target_calls(self, path: Path, source: SourceFile) -> list[FormCall]:
         out: list[FormCall] = []
         targets = [f for f in FORMS if f.target is not None]
         for call in _calls(source):
@@ -234,6 +240,9 @@ class MemberScan:
 
     def blindspots(self, path: Path, source: SourceFile) -> list[Blindspot]:
         """Every blind spot of NAME in the file: untyped access receivers and string-member objects or callees."""
+        return self.index.memo(("blindspots", path, self.name), lambda: self._blindspots(path, source))
+
+    def _blindspots(self, path: Path, source: SourceFile) -> list[Blindspot]:
         found = list(self.accesses(path, source))
         calls = self.member_calls(path, source)
         probed = [c for c in calls if c.forms is not None and not isinstance(c.obj, (ast.Name, ast.Attribute))]
@@ -325,4 +334,4 @@ def receiver_text(source: SourceFile, node: ast.expr) -> str:
 
 def _calls(source: SourceFile) -> Iterator[ast.Call]:
     if source.tree is not None:
-        yield from (n for n in ast.walk(source.tree) if isinstance(n, ast.Call))
+        yield from (n for n in source.nodes if isinstance(n, ast.Call))

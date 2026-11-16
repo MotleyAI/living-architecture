@@ -1,6 +1,6 @@
 ## 0. Stage order (read first)
 
-- [ ] 0.1 pr-tests writes section 1 only; pr-implement does sections 2–4. While section 1 is open the stage is
+- [x] 0.1 pr-tests writes section 1 only; pr-implement does sections 2–4. While section 1 is open the stage is
       `pr-tests`. Before opening the PR, check DEV-2302's state in Linear: if it has merged, merge `origin/main` into
       this branch first (`git merge origin/main -m "Merge branch 'origin/main' into …"`; never rebase or stash) and
       re-run the local test scope.
@@ -8,6 +8,9 @@
       in `conformance/INVENTORY.md`. Existing Python rename / rename-map / retarget / `Literal` / `--attr` goldens are
       never regenerated; only `refactor-rename-unsure-include`'s warning line changes, by hand, to the approved text
       (design decision 17).
+
+- [ ] 0.3 A draft PR is open while implementation continues: until 4.1 and 5.3 are done, a `/la:pr` session works
+      through this file's open tasks (pr-implement) before the review loop.
 
 ## 1. Tests (pr-tests)
 
@@ -129,7 +132,9 @@
       implemented. Plan: in `SymbolRename._index_edits`, each unresolved occurrence rope does not match becomes a
       leftover finding. Needs the user's approval of a new `shared/findings.yaml` template's wording, a conformance
       case and an `INVENTORY.md` entry; no existing golden changes (none of the samples holds such a site).
-- [ ] 5.3 Gap 3 (retargeting a re-exported alias): already handled by the implementation, nothing to change unless
-      the user asks. An entry's renamed declarations are what the checker resolves its site to (`_located`), so an
-      alias entry matches every occurrence resolving through it; `refactor-retarget-reexport-form` and
-      `refactor-symbol-import-binding` pass. Tell the user so when raising 5.1/5.2.
+- [ ] 5.3 Gap 3 (user, 2026-11-16: not deferrable): the export records, per occurrence, the import-alias and
+      re-export bindings it passes through, in order (design decision 22); an entry located on such a binding renames
+      exactly the occurrences whose chain holds it. Today's `_located` matches by final declaration and rewrites an
+      unrelated same-named alias in another module. Verify: new adapter case `refactor-index-alias-entry`
+      (`golden: manual`, listed in INVENTORY.md) plus `refactor-retarget-reexport-form` and
+      `refactor-symbol-import-binding` pass, and both join decision 18's differential run.

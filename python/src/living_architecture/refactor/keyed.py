@@ -134,12 +134,8 @@ class TypeFacts:
 
     def class_at(self, span: Span) -> ClassRef | None:
         source = self.source(span.path)
-        if source is None or source.tree is None:
-            return None
-        for node in ast.walk(source.tree):
-            if isinstance(node, ast.ClassDef) and source.name_span(node) == (span.start, span.end):
-                return ClassRef(source, node)
-        return None
+        node = source.defined_at((span.start, span.end)) if source is not None else None
+        return ClassRef(source, node) if source is not None and isinstance(node, ast.ClassDef) else None
 
     def _root_kind(self, span: Span) -> KeyedKind | None:
         text = self.span_text(span)
@@ -211,7 +207,7 @@ class TypeFacts:
         return next(
             (
                 ClassRef(source, cls)
-                for cls, fn in _methods(source.tree)
+                for cls, fn in _methods(source)
                 if _receiver_offset(source, fn) == spans[0].start
                 and self.method_kind(source, fn, at_call=False) in ("class", "instance")
             ),
@@ -261,13 +257,12 @@ def _name_node(expr: ast.expr) -> ast.Name | ast.Attribute | None:
     return expr if isinstance(expr, (ast.Name, ast.Attribute)) else None
 
 
-def _methods(tree: ast.AST) -> Iterator[tuple[ast.ClassDef, ast.FunctionDef | ast.AsyncFunctionDef]]:
+def _methods(source: SourceFile) -> Iterator[tuple[ast.ClassDef, ast.FunctionDef | ast.AsyncFunctionDef]]:
     """Every function in a class body, with its class."""
-    for cls in ast.walk(tree):
-        if isinstance(cls, ast.ClassDef):
-            for fn in cls.body:
-                if isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                    yield cls, fn
+    for cls in source.of_type(ast.ClassDef):
+        for fn in cls.body:
+            if isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                yield cls, fn
 
 
 def _receiver_offset(source: SourceFile, fn: ast.FunctionDef | ast.AsyncFunctionDef) -> int | None:
@@ -491,8 +486,8 @@ class KeyedRename:
         """Every sink in `source`: calls, TypedDict-annotated assignments and returns."""
         if source.tree is None:
             return
-        self._dict_names = _dict_names(source.tree, self.old)
-        for node in ast.walk(source.tree):
+        self._dict_names = _dict_names(source, self.old)
+        for node in source.nodes:
             if isinstance(node, ast.Call) and self._relevant(node):
                 self._call(source, rel, node, bindings)
             elif isinstance(node, ast.AnnAssign) and node.value is not None and self._candidate(node.value):
@@ -588,7 +583,7 @@ class KeyedRename:
         """The parameters `call`'s positional arguments fill; none when an instance method's binding is unproven."""
         assert callee.tree is not None
         params = [*fn.args.posonlyargs, *fn.args.args]
-        if not any(isinstance(c, ast.ClassDef) and fn in c.body for c in ast.walk(callee.tree)):
+        if not isinstance(callee.parent(fn), ast.ClassDef):
             return params
         kind = self.facts.method_kind(callee, fn, at_call=True)
         if kind == "static":
@@ -620,10 +615,10 @@ class KeyedRename:
             return False
         if any(
             _receiver_offset(decl, fn) == span.start and self.facts.method_kind(decl, fn, at_call=False) == "instance"
-            for _, fn in _methods(decl.tree)
+            for _, fn in _methods(decl)
         ):
             return True
-        ann = next((a for n in ast.walk(decl.tree) if (a := _annotation_declared_at(decl, n, span)) is not None), None)
+        ann = next((a for n in decl.nodes if (a := _annotation_declared_at(decl, n, span)) is not None), None)
         return isinstance(ann, (ast.Name, ast.Attribute)) and self.facts.annotation_class(decl, ann) is not None
 
     def _typeddict_arguments(self, source: SourceFile, rel: str, call: ast.Call, bindings: Bindings) -> None:
@@ -633,15 +628,8 @@ class KeyedRename:
         spans = self.facts.definition(source.path, name[0])
         if len(spans) != 1 or (callee := self.facts.source(spans[0].path)) is None or callee.tree is None:
             return
-        fn = next(
-            (
-                n for n in ast.walk(callee.tree)
-                if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
-                and callee.name_span(n) == (spans[0].start, spans[0].end)
-            ),
-            None,
-        )
-        if fn is None:
+        fn = callee.defined_at((spans[0].start, spans[0].end))
+        if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
             return
         leading = itertools.takewhile(lambda a: not isinstance(a, ast.Starred), call.args)
         pairs = list(zip(self._positional_parameters(source, call, callee, fn), leading))
@@ -668,12 +656,12 @@ def _annotation_declared_at(source: SourceFile, node: ast.AST, span: Span) -> as
     return node.annotation if name is not None and name[0] == span.start else None
 
 
-def _dict_names(tree: ast.AST, old: str) -> set[str]:
+def _dict_names(source: SourceFile, old: str) -> set[str]:
     """Names assigned a dict literal mentioning `old`."""
     return {
         t.id
-        for n in ast.walk(tree)
-        if isinstance(n, ast.Assign) and isinstance(n.value, ast.Dict) and _mentions(n.value, old)
+        for n in source.of_type(ast.Assign)
+        if isinstance(n.value, ast.Dict) and _mentions(n.value, old)
         for t in n.targets
         if isinstance(t, ast.Name)
     }

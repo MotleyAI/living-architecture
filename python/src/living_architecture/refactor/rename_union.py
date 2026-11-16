@@ -34,7 +34,7 @@ from living_architecture.refactor.keyed import (
     field_assignment,
 )
 from living_architecture.refactor.member_scan import FormCall, MemberScan
-from living_architecture.refactor.members import classes, member_declarations
+from living_architecture.refactor.members import member_declarations
 from living_architecture.refactor.mentions import (
     Mention,
     MentionRules,
@@ -145,7 +145,7 @@ def _declarations(source: SourceFile) -> set[tuple[int, int]]:
     if source.tree is None:
         return set()
     out: set[tuple[int, int]] = set()
-    for node in ast.walk(source.tree):
+    for node in source.nodes:
         stored = isinstance(node, (ast.Name, ast.Attribute)) and isinstance(node.ctx, ast.Store)
         if stored or isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.arg)):
             span = source.name_span(node)
@@ -158,7 +158,7 @@ def _field_of(source: SourceFile, line: int, name: str) -> tuple[ClassRef, ast.A
     """The class whose body declares field `name` at `line`, with the declaration."""
     if source.tree is None:
         return None
-    classes = (n for n in ast.walk(source.tree) if isinstance(n, ast.ClassDef))
+    classes = (n for n in source.nodes if isinstance(n, ast.ClassDef))
     for cls in classes:
         for stmt in cls.body:
             found = field_assignment(stmt, name) if stmt.lineno == line else None
@@ -190,7 +190,7 @@ def _conflict(source: SourceFile, rel: str, edits: list[TextEdit], old: str, new
         i = bisect.bisect_left(starts, span[0])
         return i < len(starts) and starts[i] < span[1]
 
-    for node in ast.walk(source.tree):
+    for node in source.nodes:
         items = _named_items(source, node)
         if any(name == new for name, _, _ in items):
             line = next((line for name, line, span in items if name == old and edited(span)), None)
@@ -206,11 +206,11 @@ def _parameter(fn: Function, name: str) -> ast.arg | None:
     return next((a for a in every_parameter(fn.args) if a.arg == name), None)
 
 
-def _same_named(tree: ast.Module, fn: Function) -> list[Function]:
+def _same_named(source: SourceFile, fn: Function) -> list[Function]:
     """The defs named like `fn` in the module or class body holding it; `[fn]` in any other body."""
-    for node in ast.walk(tree):
-        if isinstance(node, (ast.Module, ast.ClassDef)) and any(stmt is fn for stmt in node.body):
-            return [s for s in node.body if isinstance(s, (ast.FunctionDef, ast.AsyncFunctionDef)) and s.name == fn.name]
+    holder = source.parent(fn)
+    if isinstance(holder, (ast.Module, ast.ClassDef)) and any(stmt is fn for stmt in holder.body):
+        return [s for s in holder.body if isinstance(s, (ast.FunctionDef, ast.AsyncFunctionDef)) and s.name == fn.name]
     return [fn]
 
 
@@ -379,7 +379,7 @@ class SymbolRename(MapRename):
         out: list[Declaration] = []
         for rel in self.candidates:
             source = self.snapshot.source(rel)
-            for cls in classes(source.tree) if source.tree is not None else ():
+            for cls in source.of_type(ast.ClassDef):
                 for node in member_declarations(cls, self.old):
                     span = source.name_span(node)
                     if span is not None:
@@ -400,7 +400,7 @@ class SymbolRename(MapRename):
             source = self.snapshot.source(d.rel)
             if (d.rel, d.start) not in starts or source.tree is None:
                 continue
-            owner = next((cls for cls in classes(source.tree) if any(
+            owner = next((cls for cls in source.of_type(ast.ClassDef) if any(
                 (span := source.name_span(n)) is not None and span[0] == d.start
                 for n in member_declarations(cls, self.old))), None)
             if owner is not None:
@@ -417,7 +417,7 @@ class SymbolRename(MapRename):
         """The class declaring member declaration `d`, by the checker's class graph's key."""
         assert self._graph is not None
         source = self.snapshot.source(d.rel)
-        for cls in classes(source.tree) if source.tree is not None else ():
+        for cls in source.of_type(ast.ClassDef):
             if any((span := source.name_span(n)) is not None and span[0] == d.start for n in member_declarations(cls, self.old)):
                 return self._graph.of(source, cls).key
         return None
@@ -528,10 +528,9 @@ class SymbolRename(MapRename):
         if resource is None or resource.path not in self.candidates:
             return None
         node = fn.get_ast()
-        tree = self.snapshot.source(resource.path).tree
         found = (
             n
-            for n in (ast.walk(tree) if tree is not None else ())
+            for n in self.snapshot.source(resource.path).nodes
             if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
             and (n.lineno, n.col_offset, n.name) == (node.lineno, node.col_offset, node.name)
         )
@@ -547,8 +546,7 @@ class SymbolRename(MapRename):
             return []
         rel, node = located
         source = self.snapshot.source(rel)
-        tree = source.tree
-        owner = next((c for c in classes(tree) if any(s is node for s in c.body)), None) if tree is not None else None
+        owner = next((c for c in source.of_type(ast.ClassDef) if any(s is node for s in c.body)), None)
         if owner is None:
             return [located]
         own = self._graph.of(source, owner)
@@ -558,7 +556,7 @@ class SymbolRename(MapRename):
             found = self.snapshot.source(candidate)
             if found.tree is None or name not in found.text:
                 continue
-            for c in classes(found.tree):
+            for c in found.of_type(ast.ClassDef):
                 graph_class = self._graph.of(found, c)
                 same = graph_class.key == own.key
                 if same or (self._in_hierarchy and self._graph.roots(graph_class, name) & roots):
@@ -578,7 +576,7 @@ class SymbolRename(MapRename):
         for rel, node in defs:
             source = self.snapshot.source(rel)
             assert source.tree is not None
-            group = _same_named(source.tree, node)
+            group = _same_named(source, node)
             for member in group if any(facts.is_overload(source, m) for m in group) else [node]:
                 key = (rel, member.lineno, member.col_offset)
                 if key not in seen and (arg := _parameter(member, self.old)) is not None:

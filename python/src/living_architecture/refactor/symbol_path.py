@@ -244,7 +244,7 @@ def _literal_holder(source: SourceFile, node: ast.AST) -> ast.expr | None:
 
 def _statement_of(source: SourceFile, node: ast.AST) -> ast.stmt | None:
     assert source.tree is not None
-    for stmt in ast.walk(source.tree):
+    for stmt in source.nodes:
         if isinstance(stmt, ast.stmt) and any(child is node for child in ast.walk(stmt)) and not isinstance(
             stmt, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, *_COMPOUND)
         ):

@@ -41,7 +41,7 @@ def literal_member_at(source: SourceFile, offset: int) -> ast.Constant | None:
     """The string inside a `Literal[...]` subscript whose span holds `offset`."""
     if source.tree is None:
         return None
-    literals = (n for n in ast.walk(source.tree) if isinstance(n, ast.Subscript) and names_literal(n.value))
+    literals = (n for n in source.nodes if isinstance(n, ast.Subscript) and names_literal(n.value))
     strings = (i for n in literals for i in ast.walk(n.slice) if isinstance(i, ast.Constant) and isinstance(i.value, str))
     return next((i for i in strings if source.span(i)[0] <= offset < source.span(i)[1]), None)
 
@@ -224,9 +224,9 @@ class LiteralRename(MapRename):
             return []
         parents = _parents(source.tree)
         skipped = {id(d) for d in docstrings(source.tree)}
-        skipped |= {id(v) for n in ast.walk(source.tree) if isinstance(n, ast.JoinedStr) for v in n.values}
+        skipped |= {id(v) for n in source.nodes if isinstance(n, ast.JoinedStr) for v in n.values}
         out: list[_Site] = []
-        for node in ast.walk(source.tree):
+        for node in source.nodes:
             if isinstance(node, ast.Constant) and node.value == self.old and id(node) not in skipped:
                 parent = parents.get(node)
                 display = source.span(parent) if isinstance(parent, _DISPLAYS) else None  # pyright: ignore[reportArgumentType]
