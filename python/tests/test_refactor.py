@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 from project_files import file_tree
+from refactor_cli import readouterr
 from rope.refactor import patchedast
 
 from living_architecture.cli import dr_refactor as main
@@ -45,7 +46,7 @@ def test_offset_line_out_of_range() -> None:
 def test_rename_dry_run_writes_nothing(project: Path, capsys: pytest.CaptureFixture[str]) -> None:
     before = file_tree(project)
     assert _rename_foo(project) == 0
-    assert "DRY-RUN. 2 file(s) would change" in capsys.readouterr().out
+    assert "DRY-RUN. 2 file(s) would change" in readouterr(capsys).out
     assert file_tree(project) == before
     assert not (project / ".ropeproject").exists()
 
@@ -74,7 +75,7 @@ def test_rename_by_line_col(project: Path) -> None:
 
 def test_rename_needs_a_locator(project: Path, capsys: pytest.CaptureFixture[str]) -> None:
     assert _run(project, "rename", "--file", str(project / "pkg" / "a.py"), "--new-name", "x") == 1
-    assert "provide one of" in capsys.readouterr().err
+    assert "provide one of" in readouterr(capsys).err
 
 
 def test_move_symbol(project: Path) -> None:
@@ -102,7 +103,7 @@ def test_path_outside_project(
     outside = tmp_path_factory.mktemp("elsewhere") / "x.py"
     outside.write_text("def foo():\n    pass\n")
     assert _run(project, "rename", "--file", str(outside), "--symbol", "foo", "--new-name", "bar") == 1
-    assert "not inside the project" in capsys.readouterr().err
+    assert "not inside the project" in readouterr(capsys).err
 
 
 def test_rename_in_file_with_kwonly_string_default(project: Path) -> None:
@@ -180,7 +181,7 @@ def test_rename_walks_every_construct(
     target.write_text(source, encoding="utf-8")
     offset = m.start(1) if (m := re.search(rf"^\s*(?:def|class)\s+({re.escape(name)})\b", source, re.MULTILINE)) else source.index(name)
     assert _run(project, "rename", "--file", str(target), "--offset", str(offset), "--new-name", new_name) == 0
-    out = capsys.readouterr().out.splitlines()
+    out = readouterr(capsys).out.splitlines()
     for line in added:
         assert line in out
 
@@ -227,14 +228,14 @@ def test_rope_refusal_is_the_cannot_rename_finding(project: Path, capsys: pytest
     offset = text.index("\nclass")
     assert _run(project, "--apply", "rename", "--file", str(project / "pkg" / "a.py"), "--offset", str(offset),
                 "--new-name", "x") == 1
-    assert capsys.readouterr() == ("", message("refactor.cannot-rename") + "\n")
+    assert readouterr(capsys) == ("", message("refactor.cannot-rename") + "\n")
     assert file_tree(project) == before
 
 
 def _gap_refused(project: Path, capsys: pytest.CaptureFixture[str], line: int, *flags: str) -> None:
     before = file_tree(project)
     assert _rename_foo(project, *flags) == 1
-    captured = capsys.readouterr()
+    captured = readouterr(capsys)
     assert captured.out == ""
     assert captured.err == message("refactor.rope-walk", path="pkg/gap.py", line=line) + "\n"
     assert file_tree(project) == before

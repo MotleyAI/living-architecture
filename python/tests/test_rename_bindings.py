@@ -14,6 +14,7 @@ from pathlib import Path
 
 import pytest
 from project_files import file_tree
+from refactor_cli import readouterr
 
 from living_architecture.cli import dr_refactor
 from living_architecture.contract import language, message
@@ -45,7 +46,7 @@ def _refused(root: Path, rel: str, offset: int, capsys: pytest.CaptureFixture[st
              new_name: str = NEW, *flags: str) -> None:
     before = file_tree(root)
     assert _rename(root, rel, offset, new_name, *flags) == 1
-    assert capsys.readouterr() == _conflict(new_name, *site)
+    assert readouterr(capsys) == _conflict(new_name, *site)
     assert file_tree(root) == before
 
 
@@ -129,7 +130,7 @@ def test_a_binding_form_conflicts_exactly_when_python_rebinds_the_read(
     root = typed_project({"pkg/m.py": text})
     before = file_tree(root)
     code = _rename(root, "pkg/m.py", 0)
-    out, err = capsys.readouterr()
+    out, err = readouterr(capsys)
     if _rebinds(text.replace("old", NEW)):
         prefix, suffix = message("refactor.name-conflict", name=NEW, path="pkg/m.py", line=424242).split("424242")
         assert (code, out, err.startswith(prefix), err.endswith(suffix + "\n")) == (1, "", True, True), err

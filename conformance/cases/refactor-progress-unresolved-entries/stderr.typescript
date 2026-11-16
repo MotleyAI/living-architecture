@@ -1,0 +1,4 @@
+[resolve]
+[checks]
+lib/store.ts: Store.lod names no declaration; candidates: clear, drop, load, save, size
+lib/store.ts: Store.clr names no declaration; candidates: clear, drop, load, save, size

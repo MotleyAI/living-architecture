@@ -1,0 +1,14 @@
+[resolve]
+[checks]
+[references]
+[references 1/4] entry 1: ping -> a
+[references 2/4] entry 2: ping -> b
+[references 3/4] entry 3: pong -> c
+[references 4/4] entry 4: pong -> d
+[rules]
+[rules 1/2] entries 1, 2: ping -> a, b: clean
+[rules 2/2] entries 3, 4: pong -> c, d: clean
+lib/hier.ts:2: entries 1 and 2 rewrite this site differently, so nothing was refactored
+lib/hier.ts:8: entries 1 and 2 rewrite this site differently, so nothing was refactored
+lib/hier.ts:14: entries 3 and 4 rewrite this site differently, so nothing was refactored
+lib/hier.ts:20: entries 3 and 4 rewrite this site differently, so nothing was refactored

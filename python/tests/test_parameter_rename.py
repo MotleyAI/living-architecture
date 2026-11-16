@@ -9,6 +9,7 @@ from string import Template
 
 import pytest
 from project_files import file_tree
+from refactor_cli import readouterr
 
 from living_architecture.cli import dr_refactor
 from living_architecture.contract import message
@@ -176,7 +177,7 @@ def test_lambda_shadowing_a_parameter_is_refused(
     root = typed_project({"pkg/s.py": SHADOWED.substitute(star=star, p=OLD, k=OLD)})
     before = file_tree(root)
     assert _rename(root, "pkg/s.py", _at(root, "pkg/s.py", needle) + needle.index(OLD)) == 1
-    assert capsys.readouterr() == ("", message("refactor.cannot-rename") + "\n")
+    assert readouterr(capsys) == ("", message("refactor.cannot-rename") + "\n")
     assert file_tree(root) == before
 
 
@@ -382,7 +383,7 @@ def _refused(
 ) -> None:
     before = file_tree(root)
     assert _rename(root, rel, offset) == 1
-    assert capsys.readouterr() == ("", message("refactor.name-conflict", name=NEW, path=path, line=line) + "\n")
+    assert readouterr(capsys) == ("", message("refactor.name-conflict", name=NEW, path=path, line=line) + "\n")
     assert file_tree(root) == before
 
 
@@ -432,7 +433,7 @@ def test_type_parameter_of_the_new_name_is_a_conflict(
     root = typed_project({"pkg/t.py": TYPE_PARAMETERS})
     before = file_tree(root)
     assert _rename(root, "pkg/t.py", _at(root, "pkg/t.py", OLD, nth=nth), new_name=new_name) == 1
-    assert capsys.readouterr() == ("", message("refactor.name-conflict", name=new_name, path="pkg/t.py", line=line) + "\n")
+    assert readouterr(capsys) == ("", message("refactor.name-conflict", name=new_name, path="pkg/t.py", line=line) + "\n")
     assert file_tree(root) == before
 
 

@@ -58,7 +58,7 @@ Progress lines SHALL pass through forwarding to the other twin unchanged and in 
 Resolving every entry's locator SHALL search no references. Every resolution failure SHALL be collected with its entry
 index, not stop the run: unresolved or ambiguous symbol paths, an out-of-range line, column or offset, a location that
 cannot be renamed, a retarget out of scope, a literal value that cannot be written, a TypeScript file outside every
-project. Duplicate entries and two entries converging on one name SHALL be found among the resolved entries only.
+project. Duplicate entries SHALL be found among the resolved entries only.
 
 The `checks` phase SHALL then run, before any reference search:
 - every `--keep`, `--with` and `--without` SHALL name an existing file or directory under the project, and a `:LINE`
@@ -134,15 +134,15 @@ checker findings), print no `[references]` line, write nothing, and exit with th
 
 ### Requirement: Every refusal of a run is reported in one report
 A run SHALL refuse once, with every refusal it found: those of `resolve` and `checks` as one report before any
-reference search, else every refusal found while computing the entries. A walker gap the checks did not predict, a
-parameter name conflict, an unresolved base and a site that classifies no stand-in SHALL be recorded and the run
-SHALL go on. After the rules: every `--keep` that matched no edit and no blind spot, every name conflict over the
-merged edits, and every site two entries rewrite differently SHALL be reported. The final report SHALL be: retarget
-refusals, blind spots, stand-ins, name conflicts and map conflicts, each group in path, line and column order; then
-the site findings in command-line order; then the `refactor.blindspots` line when blind spots refuse. Its exit code
-SHALL be the highest of its findings', 2 for a map, locator or site finding and 1 otherwise. A file that changed
-while the run read it, a write that failed, a checker that failed while computing, and a map document that cannot be
-read SHALL still stop the run at once.
+reference search, else every refusal found while computing the entries. A walker gap the checks did not predict, an
+unresolved base and a site that classifies no stand-in SHALL be recorded and the run SHALL go on. After the rules:
+every `--keep` that matched no edit and no blind spot, every site two entries rewrite differently, and the finding of
+every name-conflict check that finds one (each distinct finding once) SHALL be reported. The final report SHALL be:
+retarget refusals, blind spots, stand-ins, name conflicts and map conflicts, each group in path, line and column
+order; then the site findings in command-line order; then the `refactor.blindspots` line when blind spots refuse. Its
+exit code SHALL be the highest of its findings', 2 for a map, locator or site finding and 1 otherwise. A file that
+changed while the run read it, a write that failed, a checker that failed while computing, and a map document that
+cannot be read SHALL still stop the run at once.
 
 #### Scenario: Retarget refusal and blind spot together
 - **WHEN** a map's retarget entry meets an overriding member and its rename entry meets an untyped receiver
@@ -354,10 +354,11 @@ entries resolving to one symbol with the same intent SHALL merge; with different
 project, every rename rule running once over the union of the entries' symbols, with one blind-spot scan for every
 member entry's old name and one combined refusal report, sorted as a single rename sorts it. Identical edits SHALL
 merge; every site two entries rewrite differently SHALL be refused with `refactor.map-conflict` naming the site and
-both entries, exit 1, writing nothing. Name-conflict checks SHALL run against the code before the map, so a swap or a
-chain of names inside one scope is refused. Two entries giving declarations of one scope the same new name SHALL
-refuse with the same name-conflict finding. A retarget entry whose target another entry renames SHALL write the
-target's new name.
+both entries, exit 1, writing nothing. Name conflicts SHALL be checked first for each `new_name` entry alone against
+the code before the map, in map order, so a swap or a chain of names inside one scope is refused, and then for all
+entries' edits together, so entries that meet on one name or capture each other's references are refused. A retarget
+entry's rewritten references SHALL resolve to its target, which another entry may rename. A retarget entry whose
+target another entry renames SHALL write the target's new name.
 
 `rename` SHALL behave as a one-entry map with a `new_name`, and `retarget` as a one-entry map with a `retarget`;
 their output SHALL equal that map's byte for byte.
@@ -388,11 +389,25 @@ their output SHALL equal that map's byte for byte.
 
 #### Scenario: Swap in one scope refused
 - **WHEN** a map renames parameter `f(x)` to `y` and `f(y)` to `x`
-- **THEN** the rename refuses with the existing name-conflict finding and nothing changes
+- **THEN** the rename refuses with the existing name-conflict finding of each entry and nothing changes
 
 #### Scenario: Two entries converging on one name
 - **WHEN** a map renames parameter `f(x)` to `z` and `f(y)` to `z`
 - **THEN** the rename refuses with the existing name-conflict finding and nothing changes
+
+#### Scenario: Two catch variables taking one name
+- **WHEN** a TypeScript map renames the variables of two separate `catch` clauses to `err`
+- **THEN** both renames apply and the exit code is 0
+
+#### Scenario: Entries capturing each other's references
+- **WHEN** one entry renames a module-level `a` to `z`, another renames a function's local `b` to `z`, and that
+  function reads `a`, so that each entry alone is clean
+- **THEN** the map is refused with the name-conflict finding and nothing changes
+
+#### Scenario: Retarget beside a rename
+- **WHEN** a map retargets alias `old_alias` to `target` and renames `target` to `renamed`, and a function reading
+  `old_alias` binds no `renamed`
+- **THEN** both entries apply and the function reads `renamed`
 
 #### Scenario: Mixed languages
 - **WHEN** a map holds a `.py` and a `.ts` entry

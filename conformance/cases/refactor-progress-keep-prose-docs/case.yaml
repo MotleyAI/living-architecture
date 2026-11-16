@@ -1,0 +1,18 @@
+kind: paired
+languages:
+- python
+- typescript
+command: dr-refactor
+args:
+- rename-map
+- renames.yaml
+- --docs
+- --keep
+- README.md
+fixture: refactor-progress
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: a prose keep mentioning the old name passes the checks with --docs and keeps its mention

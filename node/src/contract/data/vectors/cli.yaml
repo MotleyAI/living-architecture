@@ -175,21 +175,21 @@ cases:
   argv: [rename, --file, a.py, --symbol, f, --new-name, g]
   args: {project: ., apply: false, subcommand: rename, file: a.py, offset: null, line: null, col: null, symbol: f, new_name: g,
     in_hierarchy: true, unsure: skip, allow_blindspots: false, with_stand_ins: [], without_stand_ins: [], keep: [],
-    docs: false}
+    docs: false, fail_fast: false}
 - name: store-false flag and choice
   command: dr-refactor
   argv: [--apply, --project, p, rename, --file, a.py, --line, '3', --col, '7', --new-name, g, --no-in-hierarchy, --unsure,
     include]
   args: {project: p, apply: true, subcommand: rename, file: a.py, offset: null, line: 3, col: 7, symbol: null, new_name: g,
     in_hierarchy: false, unsure: include, allow_blindspots: false, with_stand_ins: [], without_stand_ins: [], keep: [],
-    docs: false}
+    docs: false, fail_fast: false}
 - name: rename guard options repeat and keep order
   command: dr-refactor
   argv: [rename, --file, a.py, --symbol, f, --new-name, g, --with, b.py:3, --without, c.py:7, --with, d.py:1, --keep,
     tests/compat, --keep, e.py:12, --allow-blindspots, --docs]
   args: {project: ., apply: false, subcommand: rename, file: a.py, offset: null, line: null, col: null, symbol: f, new_name: g,
     in_hierarchy: true, unsure: skip, allow_blindspots: true, with_stand_ins: [b.py:3, d.py:1], without_stand_ins: [c.py:7],
-    keep: [tests/compat, e.py:12], docs: true}
+    keep: [tests/compat, e.py:12], docs: true, fail_fast: false}
 - name: rename guard option needs a value
   command: dr-refactor
   argv: [rename, --file, a.py, --symbol, f, --new-name, g, --keep]
@@ -207,7 +207,7 @@ cases:
   argv: [rename, --file, a.py, --offset, '-5', --new-name, g]
   args: {project: ., apply: false, subcommand: rename, file: a.py, offset: -5, line: null, col: null, symbol: null, new_name: g,
     in_hierarchy: true, unsure: skip, allow_blindspots: false, with_stand_ins: [], without_stand_ins: [], keep: [],
-    docs: false}
+    docs: false, fail_fast: false}
 - name: int option type error
   command: dr-refactor
   argv: [rename, --file, a.py, --offset, '1.5', --new-name, g]
@@ -244,13 +244,14 @@ cases:
   command: dr-refactor
   argv: [rename-map, map.yaml]
   args: {project: ., apply: false, subcommand: rename-map, map: map.yaml, in_hierarchy: true, unsure: skip,
-    allow_blindspots: false, with_stand_ins: [], without_stand_ins: [], keep: [], docs: false}
+    allow_blindspots: false, with_stand_ins: [], without_stand_ins: [], keep: [], docs: false, fail_fast: false}
 - name: rename-map options apply to every entry
   command: dr-refactor
   argv: [--apply, rename-map, maps/m.yaml, --no-in-hierarchy, --keep, tests/compat, --with, b.py:3, --docs,
-    --allow-blindspots]
+    --allow-blindspots, --fail-fast]
   args: {project: ., apply: true, subcommand: rename-map, map: maps/m.yaml, in_hierarchy: false, unsure: skip,
-    allow_blindspots: true, with_stand_ins: [b.py:3], without_stand_ins: [], keep: [tests/compat], docs: true}
+    allow_blindspots: true, with_stand_ins: [b.py:3], without_stand_ins: [], keep: [tests/compat], docs: true,
+    fail_fast: true}
 - name: rename-map takes no locator
   command: dr-refactor
   argv: [rename-map, map.yaml, --symbol, f]
@@ -268,7 +269,7 @@ cases:
   argv: [retarget, --file, a.py, --symbol, Engine.save, --target, Engine.save_model, --keep, tests/compat, --docs]
   args: {project: ., apply: false, subcommand: retarget, file: a.py, offset: null, line: null, col: null,
     symbol: Engine.save, target: Engine.save_model, allow_blindspots: false, with_stand_ins: [], without_stand_ins: [],
-    keep: [tests/compat], docs: true}
+    keep: [tests/compat], docs: true, fail_fast: false}
 - name: retarget needs the target
   command: dr-refactor
   argv: [retarget, --file, a.py, --symbol, Old]

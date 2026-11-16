@@ -16,14 +16,18 @@
       phases with `[baseline]`/`[write]`; map-invalid entries 2 and 4 (both invoking twins). Each early-refusal case
       asserts no `[references]` line.
 - [ ] 1.4 Adapter cases: TypeScript retarget with `--keep` on the removed duplicate import line; Python walker gaps in
-      two candidate files at `checks`; Python checker probe failing with a fake command (exit code + stderr); Python
-      language server that cannot start (`checker-not-started`): a pytest CLI test in `python/tests/` running
-      `dr-refactor` in-process with the language-server command monkeypatched to a missing executable; Python mid-run `baseline-failed` with its cause
+      two candidate files at `checks`: a pytest CLI test in `python/tests/` (in-process, with `restore_rope_visitor`)
+      asserting both `refactor.rope-walk` findings in path order after `[checks]`, no `[references]`; Python checker
+      probe failing with a fake command (exit code + stderr); Python language server that cannot start
+      (`checker-not-started`): a pytest CLI test in `python/tests/` running `dr-refactor` in-process with the
+      language-server command monkeypatched to a missing executable; Python mid-run `baseline-failed` with its cause
       (update `refactor-baseline-failed`); Python module rename with `--keep` on the module file.
 - [ ] 1.5 A case pinned with `twin:` to the non-native twin proving progress and refusal lines survive forwarding byte
       for byte, including a refused run.
 - [ ] 1.6 `conformance/INVENTORY.md` lists every new case and the new findings; every new `findings.yaml` template is
-      produced by at least one golden.
+      produced by at least one golden, except `refactor.checker-error`, listed in `UNPRODUCED_BY_DESIGN`
+      (`python/tests/test_contract.py`) and pinned by a pytest CLI test with the fake language server answering an
+      error (`checker-not-started` is also pinned by a pytest CLI test for the language server).
 - [ ] 1.7 Unit tests in both twins for the keep text over-approximation (escapes, NFKC, implicit concatenation, moved
       file, retarget target name, unresolved entry spelling no name) and the map loader returning every invalid index.
 
@@ -36,13 +40,14 @@
 
 ## 3. Python twin (pr-implement)
 
-- [ ] 3.1 `rename_map.py`: `resolve` collects every failure (no raise); duplicates and convergence among resolved
-      entries; one lazily started language server per run shared by the resolve fallback, the probe and compute.
+- [ ] 3.1 `rename_map.py`: `resolve` collects every failure (no raise); duplicates among resolved entries; one lazily
+      started language server per run shared by the resolve fallback, the probe and compute.
 - [ ] 3.2 `checks`: site existence, keep text check, walker probe over the candidate files (reuse the `dr-compliance`
       rope-walk walk), checker probes; one combined report.
 - [ ] 3.3 Compute: `[references n/count]` in the prepare loop; rules and finish run group by group with per-group keep
-      filtering and result lines; `WalkerGap`, `NameConflict`, `UnresolvedBase`, `not-stand-in` recorded per
-      entry/site; retarget refusals join the final report; all keep, name and map conflicts collected; `--fail-fast`.
+      filtering and result lines; `WalkerGap`, `UnresolvedBase`, `not-stand-in` recorded per entry/site;
+      `check_conflicts` and `check_names` collect one finding per check that finds one; retarget refusals join the
+      final report; all keep, name and map conflicts collected; `--fail-fast`.
 - [ ] 3.4 `rope_refactor.py`: moves and module renames through the same phases and collector; `_kept` reports every
       unmatched keep.
 - [ ] 3.5 `lang/language_server.py` captures stderr; `LanguageServerError`, `CommandError`/`BaselineFailed` carry

@@ -1,0 +1,4 @@
+- {file: lib/hier.py, symbol: Base.ping, new_name: a}
+- {file: lib/hier.py, symbol: Sub.ping, new_name: b}
+- {file: lib/hier.py, symbol: Base2.pong, new_name: c}
+- {file: lib/hier.py, symbol: Sub2.pong, new_name: d}

@@ -72,8 +72,9 @@ work stays in the `refactor` spec owned by `python.refactor`.
 9. Resolution never searches references. Python starts at most one language server per run, lazily, shared by the
    resolve fallback, the probe and the computation; a server that cannot start stops the run at once with its cause.
    **(codex)**
-10. Duplicate and converging-name findings are computed among the resolved entries only; any resolution or check
-    finding refuses before anything is built, so no retarget uses a target that did not resolve. **(codex)**
+10. Duplicate findings are computed among the resolved entries only (converging names are a name-conflict check
+    over the edits since DEV-2297, so they join the final report); any resolution or check finding refuses before
+    anything is built, so no retarget uses a target that did not resolve. **(codex)**
 11. A merged target is labelled with every map index it stands for; the Output format requirement's "one header per
     entry" is corrected to "entries merged as duplicates counting once", today's behaviour in both twins. **(codex)**
 12. `[baseline]` is printed when the language's baseline file exists (and, for Python, its command is set), whether
@@ -97,7 +98,10 @@ work stays in the `refactor` spec owned by `python.refactor`.
     `keep-unmatched` and `not-stand-in` keep their texts. **(default)**
 21. A combined report's exit code is the highest of its findings' (2: map, locator, site, duplicate; 1: the rest),
     as the routing rule combines exit codes. **(default)**
-22. Every invalid map entry, name conflict and map conflict is collected: the issue's "every refusal of a run".
+22. Every invalid map entry, name conflict and map conflict is collected: the issue's "every refusal of a run". The
+    name-conflict checks after the rules (keyed collisions per entry; bindings and member namespaces for each
+    `new_name` entry alone, then all together) each report their first site, each distinct finding once, in the
+    final report only.
     **(default)**
 23. Immediate stops stay only for a changed file, a failed write or rollback, a checker failing mid-run, and an
     unreadable map document. **(default)**

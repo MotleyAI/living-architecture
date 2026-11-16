@@ -1,0 +1,8 @@
+Moving module <extra>:
+
+
+rename from lib/extra/index.ts
+rename to lib/moved/extra/index.ts
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

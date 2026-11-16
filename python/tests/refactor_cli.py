@@ -5,6 +5,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+from typing import NamedTuple
 
 import pytest
 from project_files import file_tree, write_project
@@ -16,9 +17,27 @@ BIN_DIR = Path(sys.executable).parent
 
 Result = tuple[int, str, str]
 
+_PHASES = "resolve|checks|references|rules|baseline|write"
+_PROGRESS = re.compile(rf"\[(?:{_PHASES})\]|\[(?:{_PHASES}) \d+/\d+\] .*")
+_REFUSED = re.compile(r"\[rules \d+/\d+\] .*: (\d+) refusal\(s\)")
 
-def run(root: Path, argv: list[str], monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> Result:
-    """`dr-refactor --project root ARGV` from `root`; a usage error comes back as exit 2."""
+
+def final_report(err: str) -> str:
+    """`dr-refactor`'s stderr without its phase and progress lines and the refusals printed under a refused group."""
+    out: list[str] = []
+    skip = 0
+    for line in err.splitlines(keepends=True):
+        if skip:
+            skip -= 1
+        elif refused := _REFUSED.fullmatch(line.rstrip("\n")):
+            skip = int(refused.group(1))
+        elif not _PROGRESS.fullmatch(line.rstrip("\n")):
+            out.append(line)
+    return "".join(out)
+
+
+def run_raw(root: Path, argv: list[str], monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> Result:
+    """`dr-refactor --project root ARGV` from `root`, its stderr whole; a usage error comes back as exit 2."""
     monkeypatch.chdir(root)
     try:
         code = dr_refactor(["--project", str(root), *argv])
@@ -26,6 +45,12 @@ def run(root: Path, argv: list[str], monkeypatch: pytest.MonkeyPatch, capsys: py
         code = exc.code if isinstance(exc.code, int) else 2
     out, err = capsys.readouterr()
     return code, out, err
+
+
+def run(root: Path, argv: list[str], monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> Result:
+    """`run_raw` with its stderr reduced to the `final_report`."""
+    code, out, err = run_raw(root, argv, monkeypatch, capsys)
+    return code, out, final_report(err)
 
 
 def line_col(root: Path, rel: str, needle: str, nth: int = 0) -> list[str]:
@@ -90,3 +115,14 @@ def configure_typecheck(root: Path, command: str | None) -> None:
     (root / "living-architecture.yaml").write_text(
         f"format: {current_format()}\ncommands: {{typecheck: {{python: {value}}}}}\n", encoding="utf-8"
     )
+
+
+class Captured(NamedTuple):
+    out: str
+    err: str
+
+
+def readouterr(capsys: pytest.CaptureFixture[str]) -> Captured:
+    """`capsys.readouterr()` with `dr-refactor`'s stderr reduced to the `final_report`."""
+    out, err = capsys.readouterr()
+    return Captured(out, final_report(err))
