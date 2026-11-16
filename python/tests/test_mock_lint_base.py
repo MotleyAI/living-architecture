@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 from refactor_cli import git
 
-from living_architecture.cli import dr_mock_lint
+from living_architecture.cli.dr_mock_lint import dr_mock_lint
 from living_architecture.contract import message
 
 BASE = "from unittest.mock import Mock\n\n\ndef test_a() -> None:\n    Mock()\n"

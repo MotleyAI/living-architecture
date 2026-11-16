@@ -8,7 +8,7 @@ from project_files import file_tree
 from refactor_cli import readouterr
 from rope.refactor import patchedast
 
-from living_architecture.cli import dr_refactor as main
+from living_architecture.cli.dr_refactor import dr_refactor as main
 from living_architecture.contract import message
 from living_architecture.refactor.rope_refactor import RefactorError, _offset_from_line_col
 

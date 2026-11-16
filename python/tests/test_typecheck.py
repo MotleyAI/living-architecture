@@ -6,8 +6,9 @@ from pathlib import Path
 import pytest
 import yaml
 
-from living_architecture import cli, lang, typecheck
 from living_architecture import config as la_config
+from living_architecture import lang, typecheck
+from living_architecture.cli.la_typecheck import la_typecheck
 
 VECTORS = next(p for p in Path(__file__).resolve().parents if (p / "shared" / "vectors").is_dir()) / "shared" / "vectors"
 SPLITS = yaml.safe_load((VECTORS / "command-split.yaml").read_text(encoding="utf-8"))["cases"]
@@ -64,7 +65,7 @@ def _checker_calls(root: Path) -> list[str]:
 def run(monkeypatch: pytest.MonkeyPatch, capfd: pytest.CaptureFixture[str]):
     def go(root: Path, *argv: str) -> tuple[int, str, str]:
         monkeypatch.chdir(root)
-        code = cli.la_typecheck(list(argv))
+        code = la_typecheck(list(argv))
         out, err = capfd.readouterr()
         return code, out, err
 

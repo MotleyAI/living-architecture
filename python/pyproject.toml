@@ -59,28 +59,36 @@ Changelog = "https://github.com/MotleyAI/living-architecture/releases"
 
 # Must equal the command set of shared/cli.yaml.
 [project.scripts]
-la-config = "living_architecture.cli:la_config"
-la-doctor = "living_architecture.cli:la_doctor"
-la-arch-check = "living_architecture.cli:la_arch_check"
-la-arch-diagrams = "living_architecture.cli:la_arch_diagrams"
-la-arch-scaffold = "living_architecture.cli:la_arch_scaffold"
-la-arch-migrate = "living_architecture.cli:la_arch_migrate"
-la-check-conventions = "living_architecture.cli:la_check_conventions"
-la-count-comments = "living_architecture.cli:la_count_comments"
-la-typecheck = "living_architecture.cli:la_typecheck"
-la-affected-tests = "living_architecture.cli:la_affected_tests"
-la-fetch-coderabbit-threads = "living_architecture.cli:la_fetch_coderabbit_threads"
-la-reply-invalid-coderabbit = "living_architecture.cli:la_reply_invalid_coderabbit"
-la-reply-to-pr-thread = "living_architecture.cli:la_reply_to_pr_thread"
-la-fetch-failed-pr-checks = "living_architecture.cli:la_fetch_failed_pr_checks"
-la-wait-for-reviews = "living_architecture.cli:la_wait_for_reviews"
-la-pr-reviewers = "living_architecture.cli:la_pr_reviewers"
-dr-refactor = "living_architecture.cli:dr_refactor"
-dr-mock-lint = "living_architecture.cli:dr_mock_lint"
-dr-compliance = "living_architecture.cli:dr_compliance"
+la-config = "living_architecture.cli.la_config:la_config"
+la-doctor = "living_architecture.cli.la_doctor:la_doctor"
+la-arch-check = "living_architecture.cli.la_arch_check:la_arch_check"
+la-arch-diagrams = "living_architecture.cli.la_arch_diagrams:la_arch_diagrams"
+la-arch-scaffold = "living_architecture.cli.la_arch_scaffold:la_arch_scaffold"
+la-arch-migrate = "living_architecture.cli.la_arch_migrate:la_arch_migrate"
+la-check-conventions = "living_architecture.cli.la_check_conventions:la_check_conventions"
+la-count-comments = "living_architecture.cli.la_count_comments:la_count_comments"
+la-typecheck = "living_architecture.cli.la_typecheck:la_typecheck"
+la-affected-tests = "living_architecture.cli.la_affected_tests:la_affected_tests"
+la-fetch-coderabbit-threads = "living_architecture.cli.la_fetch_coderabbit_threads:la_fetch_coderabbit_threads"
+la-reply-invalid-coderabbit = "living_architecture.cli.la_reply_invalid_coderabbit:la_reply_invalid_coderabbit"
+la-reply-to-pr-thread = "living_architecture.cli.la_reply_to_pr_thread:la_reply_to_pr_thread"
+la-fetch-failed-pr-checks = "living_architecture.cli.la_fetch_failed_pr_checks:la_fetch_failed_pr_checks"
+la-wait-for-reviews = "living_architecture.cli.la_wait_for_reviews:la_wait_for_reviews"
+la-pr-reviewers = "living_architecture.cli.la_pr_reviewers:la_pr_reviewers"
+dr-refactor = "living_architecture.cli.dr_refactor:dr_refactor"
+dr-mock-lint = "living_architecture.cli.dr_mock_lint:dr_mock_lint"
+dr-compliance = "living_architecture.cli.dr_compliance:dr_compliance"
 
 [dependency-groups]
-dev = ["pytest>=8", "pytest-mock>=3.14", "pytest-xdist>=3.8", "ruff>=0.6", "types-pyyaml>=6", "types-jsonschema>=4"]
+dev = [
+    "pytest>=8",
+    "pytest-mock>=3.14",
+    "pytest-xdist>=3.8",
+    "ruff>=0.6",
+    "types-pyyaml>=6",
+    "types-jsonschema>=4",
+    "pytest-split>=0.11.0",
+]
 
 [build-system]
 requires = ["uv_build>=0.9,<0.13"]

@@ -5,7 +5,7 @@ from typing import Any
 import pytest
 
 from living_architecture import config
-from living_architecture.cli import la_config as main
+from living_architecture.cli.la_config import la_config as main
 from living_architecture.config import CONFIG_FILENAME, format_value
 
 

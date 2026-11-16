@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 from refactor_cli import readouterr
 
-from living_architecture.cli import dr_refactor as main
+from living_architecture.cli.dr_refactor import dr_refactor as main
 from living_architecture.contract import message
 from living_architecture.refactor.move_edits import leading_block_end, relative_module
 

@@ -14,7 +14,7 @@ import pytest
 from project_files import file_tree, write_project
 from refactor_cli import run_raw
 
-from living_architecture.cli import dr_compliance
+from living_architecture.cli.dr_compliance import dr_compliance
 from living_architecture.contract import language
 from living_architecture.lang import LanguageServer
 

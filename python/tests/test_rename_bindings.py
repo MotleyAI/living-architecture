@@ -16,7 +16,7 @@ import pytest
 from project_files import file_tree
 from refactor_cli import readouterr
 
-from living_architecture.cli import dr_refactor
+from living_architecture.cli.dr_refactor import dr_refactor
 from living_architecture.contract import language, message
 from living_architecture.refactor.bindings import BindingCheck, Conflict, EntryEdits, module_binding
 from living_architecture.refactor.python_source import SourceFile
