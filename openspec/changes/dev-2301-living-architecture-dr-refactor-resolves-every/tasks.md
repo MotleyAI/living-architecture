@@ -132,7 +132,9 @@
       implemented. Plan: in `SymbolRename._index_edits`, each unresolved occurrence rope does not match becomes a
       leftover finding. Needs the user's approval of a new `shared/findings.yaml` template's wording, a conformance
       case and an `INVENTORY.md` entry; no existing golden changes (none of the samples holds such a site).
-- [ ] 5.3 Gap 3 (retargeting a re-exported alias): already handled by the implementation, nothing to change unless
-      the user asks. An entry's renamed declarations are what the checker resolves its site to (`_located`), so an
-      alias entry matches every occurrence resolving through it; `refactor-retarget-reexport-form` and
-      `refactor-symbol-import-binding` pass. Tell the user so when raising 5.1/5.2.
+- [ ] 5.3 Gap 3 (user, 2026-11-16: not deferrable): the export records, per occurrence, the import-alias and
+      re-export bindings it passes through, in order (design decision 22); an entry located on such a binding renames
+      exactly the occurrences whose chain holds it. Today's `_located` matches by final declaration and rewrites an
+      unrelated same-named alias in another module. Verify: new adapter case `refactor-index-alias-entry`
+      (`golden: manual`, listed in INVENTORY.md) plus `refactor-retarget-reexport-form` and
+      `refactor-symbol-import-binding` pass, and both join decision 18's differential run.
