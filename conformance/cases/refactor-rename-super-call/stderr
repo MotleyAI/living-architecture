@@ -1,0 +1,7 @@
+[resolve]
+[checks]
+[references]
+[references 1/1] entry 1: sync_model -> sync_dataset
+[rules]
+[rules 1/1] entry 1: sync_model -> sync_dataset: clean
+[write]

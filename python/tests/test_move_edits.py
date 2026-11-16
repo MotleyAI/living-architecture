@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import pytest
+from refactor_cli import readouterr
 
 from living_architecture.cli import dr_refactor as main
 from living_architecture.contract import message
@@ -354,7 +355,7 @@ def test_name_conflict_is_refused_and_writes_nothing(
     })
     before = _tree(root)
     assert _move_f(root, *flags) == 1
-    captured = capsys.readouterr()
+    captured = readouterr(capsys)
     assert captured.out == ""
     assert captured.err == message("refactor.name-conflict", name=name, path="pkg/b.py", line=3) + "\n"
     assert _tree(root) == before
@@ -433,7 +434,7 @@ def test_destination_alias_that_cannot_become_the_name_is_refused(
     before = _tree(root)
     assert _move_f(root, "--apply") == 1
     assert _tree(root) == before
-    assert capsys.readouterr().err.strip() == message("refactor.name-conflict", name=name, path="pkg/b.py", line=line)
+    assert readouterr(capsys).err.strip() == message("refactor.name-conflict", name=name, path="pkg/b.py", line=line)
 
 
 def test_module_move_rewrite_shadowed_in_the_use_scope_is_refused(
@@ -444,7 +445,7 @@ def test_module_move_rewrite_shadowed_in_the_use_scope_is_refused(
     before = _tree(root)
     assert _move_module(root, "--apply") == 1
     assert _tree(root) == before
-    assert capsys.readouterr().err.strip() == message("refactor.name-conflict", name="pkg", path="use.py", line=4)
+    assert readouterr(capsys).err.strip() == message("refactor.name-conflict", name="pkg", path="use.py", line=4)
 
 
 def test_destination_use_shadowed_in_its_scope_is_refused(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -453,7 +454,7 @@ def test_destination_use_shadowed_in_its_scope_is_refused(tmp_path: Path, capsys
     before = _tree(root)
     assert _move_f(root, "--apply") == 1
     assert _tree(root) == before
-    assert capsys.readouterr().err.strip() == message("refactor.name-conflict", name="f", path="pkg/b.py", line=4)
+    assert readouterr(capsys).err.strip() == message("refactor.name-conflict", name="f", path="pkg/b.py", line=4)
 
 
 def test_moved_code_follows_leading_comments_of_a_destination_without_imports(tmp_path: Path) -> None:

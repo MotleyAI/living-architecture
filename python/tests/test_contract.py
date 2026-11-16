@@ -711,6 +711,16 @@ NEW_TEMPLATES = {
     "refactor.literal-unresolved":
         "{path}:{line}: literal-unresolved: the checker needs {old!r} here, where no string literal can be rewritten",
     "refactor.compound": "{path}:{line}: leftover: declaration {name} contains {old}",
+    "refactor.site-missing": "{option} {site} names no file, directory or line in the project",
+    "refactor.checker-exit": "  the checker exited with code {code}; its stderr:",
+    "refactor.checker-not-started": "  the checker could not start: {error}",
+    "refactor.checker-error": "  the checker answered: {error}",
+    "refactor.progress-phase": "[{phase}]",
+    "refactor.progress-item": "[{phase} {n}/{count}] {entries}: {old} -> {new}",
+    "refactor.progress-clean": "[{phase} {n}/{count}] {entries}: {old} -> {new}: clean",
+    "refactor.progress-refused": "[{phase} {n}/{count}] {entries}: {old} -> {new}: {refusals} refusal(s)",
+    "refactor.progress-entry": "entry {index}",
+    "refactor.progress-entries": "entries {indexes}",
     "refactor.timing": "timing: {phase} {seconds}s",
 }
 REMOVED_TEMPLATES = {"c4-layout.migrate"}
@@ -778,8 +788,9 @@ def test_manifest_declares_the_passthrough_commands() -> None:
     }
 
 
-def test_wait_for_reviews_exit_3_covers_pause() -> None:
-    assert _shared_yaml("cli.yaml")["commands"]["la-wait-for-reviews"]["exit"][3] == "CodeRabbit rate limited or paused"
+def test_wait_for_reviews_exit_3_covers_pause_and_skip() -> None:
+    expected = "CodeRabbit rate limited, paused or skipped its review"
+    assert _shared_yaml("cli.yaml")["commands"]["la-wait-for-reviews"]["exit"][3] == expected
 
 
 DR_COMMANDS = {"dr-refactor", "dr-compliance", "dr-mock-lint"}
@@ -797,6 +808,7 @@ RENAME_GUARD_OPTIONS = {
     "--without": ("string", "without_stand_ins", True),
     "--keep": ("string", "keep", True),
     "--docs": ("flag", "docs", False),
+    "--fail-fast": ("flag", "fail_fast", False),
 }
 
 

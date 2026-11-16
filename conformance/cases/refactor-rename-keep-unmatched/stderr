@@ -1,1 +1,3 @@
---keep pkg/use.py:99 matches nothing this rename touches
+[resolve]
+[checks]
+--keep pkg/use.py:99 names no file, directory or line in the project

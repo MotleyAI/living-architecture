@@ -1,0 +1,8 @@
+[resolve]
+[checks]
+[references]
+[references 1/2] entry 1: load -> fetch
+[references 2/2] entry 2: drop -> discard
+[rules]
+[rules 1/2] entry 1: load -> fetch: clean
+[rules 2/2] entry 2: drop -> discard: clean

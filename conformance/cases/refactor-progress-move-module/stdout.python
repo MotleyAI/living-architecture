@@ -1,0 +1,8 @@
+Moving module <extra>:
+
+
+rename from lib/extra
+rename to lib/moved/extra
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

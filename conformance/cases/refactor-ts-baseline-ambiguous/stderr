@@ -1,1 +1,8 @@
+[resolve]
+[checks]
+[references]
+[references 1/1] entry 1: Old -> New
+[rules]
+[rules 1/1] entry 1: Old -> New: clean
+[baseline]
 WARNING: .tsc-baseline.json: the TS2322 entry of src/c.ts cannot follow the refactor; left unchanged

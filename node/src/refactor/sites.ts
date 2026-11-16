@@ -1,17 +1,10 @@
-// `PATH[:LINE]` sites of `rename --keep`, `--with` and `--without`.
-import { existsSync, realpathSync } from 'node:fs';
-import { isAbsolute, relative, resolve, sep } from 'node:path';
-
-/** A site that matches nothing it must: its finding id and the site as given; exit 2. */
-export class SiteError extends Error {
-  constructor(
-    readonly template: string,
-    readonly site: string,
-    readonly values: Record<string, unknown> = {},
-  ) {
-    super(site);
-  }
-}
+// `PATH[:LINE]` sites of `rename --keep`, `--with` and `--without`, and the keep text check.
+import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs';
+import { isAbsolute, join, relative, resolve, sep } from 'node:path';
+import type * as TS from 'typescript';
+import { ts } from '../lang/index.js';
+import { identifierText } from './bindings.js';
+import { Lines } from './lines.js';
 
 /** A site as given, its real path's components under the project (null outside it or missing) and its line. */
 export class Site {
@@ -35,8 +28,55 @@ export class Site {
 
   /** `rel:line` is this site: the same line of the file, or anywhere in the file or under the directory. */
   covers(rel: string, line: number): boolean {
+    return this.coversPath(rel) && (this.line === null || this.line === line);
+  }
+
+  /** `rel` is this site's file or under its directory. */
+  coversPath(rel: string): boolean {
     if (this.parts === null) return false;
     const path = rel.split('/');
-    return this.parts.every((part, i) => path[i] === part) && (this.line === null || this.line === line);
+    return this.parts.every((part, i) => path[i] === part);
   }
+
+  /** The site names no file or directory under `root`, or a line its file does not have. */
+  missing(root: string): boolean {
+    if (this.parts === null || this.line === null) return this.parts === null;
+    const path = join(root, ...this.parts);
+    if (!statSync(path).isFile()) return true;
+    const count = new Lines(readFileSync(path, 'utf8')).count;
+    return this.line < 1 || this.line > count;
+  }
+}
+
+/** The 1-based lines of `text` spelling one of `names` as written (unicode escapes decoded) or, in `code`, in the value
+ * of a string or template literal starting on the line. */
+export function spelledLines(text: string, names: Set<string>, code = true): Set<number> {
+  const lines = new Lines(text);
+  const out = new Set<number>();
+  const decoded = [...names].map((name) => identifierText(name));
+  const spells = (value: string): boolean => decoded.some((name) => value.includes(name));
+  for (let line = 1; line <= lines.count; line += 1) if (spells(identifierText(lines.lineText(line)))) out.add(line);
+  if (!code) return out;
+  const source = ts().createSourceFile('keep.ts', text, ts().ScriptTarget.Latest, false);
+  const visit = (node: TS.Node): void => {
+    const literal = ts().isStringLiteralLike(node) || ts().isTemplateHead(node) || ts().isTemplateMiddle(node) || ts().isTemplateTail(node);
+    if (literal && spells((node as TS.LiteralLikeNode).text)) out.add(lines.lineOf(node.getStart(source)));
+    ts().forEachChild(node, visit);
+  };
+  visit(source);
+  return out;
+}
+
+/** `site` covers a file the refactor moves, or a line of an `editable` file (its value: a source, else prose) spelling
+ * one of `names`. */
+export function keepSpells(site: Site, editable: Map<string, boolean>, text: (rel: string) => string, names: Set<string>, moved: string[]): boolean {
+  const parts = site.parts;
+  if (parts === null) return false;
+  if (moved.some((rel) => site.coversPath(rel) || rel.split('/').every((part, i) => parts[i] === part))) return true;
+  for (const [rel, isCode] of editable) {
+    if (!site.coversPath(rel)) continue;
+    const lines = spelledLines(text(rel), names, isCode);
+    if (lines.size > 0 && (site.line === null || lines.has(site.line))) return true;
+  }
+  return false;
 }

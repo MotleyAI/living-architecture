@@ -1,1 +1,7 @@
+[resolve]
+[checks]
+[references]
+[references 1/1] entry 1: old -> map
+[rules]
+[rules 1/1] entry 1: old -> map: clean
 map already names something else at src/m.ts:2, so nothing was refactored

@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 from project_files import file_tree
+from refactor_cli import readouterr
 
 from living_architecture.cli import dr_refactor
 from living_architecture.contract import message
@@ -123,7 +124,7 @@ def _patch_test(*targets: str) -> str:
 def test_receiver_forms_on_instances_and_class_objects(project: MakeProject, capsys: pytest.CaptureFixture[str]) -> None:
     root = project({"pkg/engine.py": ENGINE, "tests/test_engine.py": RECEIVER_FORMS})
     assert _rename_save_model(root) == 0
-    assert capsys.readouterr().err == ""
+    assert readouterr(capsys).err == ""
     assert _read(root, "tests/test_engine.py") == RECEIVER_FORMS.replace("save_model", "persist_model")
 
 
@@ -147,7 +148,7 @@ def test_lookalike_callees_are_neither_rewritten_nor_blind_spots_but_listed(
 ) -> None:
     root = project({"pkg/engine.py": ENGINE, "pkg/use.py": LOOKALIKES})
     assert _rename_save_model(root) == 0
-    assert capsys.readouterr().err == "".join(
+    assert readouterr(capsys).err == "".join(
         message("refactor.leftover", path="pkg/use.py", line=line, where="string", old="save_model") + "\n" for line in (13, 14)
     )
     assert _read(root, "pkg/use.py") == LOOKALIKES
@@ -158,7 +159,7 @@ def test_an_untyped_object_is_a_blind_spot(project: MakeProject, capsys: pytest.
     root = project({"pkg/engine.py": ENGINE, "pkg/use.py": use})
     before = file_tree(root)
     assert _rename_save_model(root) == 1
-    assert capsys.readouterr().err == (
+    assert readouterr(capsys).err == (
         message("compliance.attr-blindspot", path="pkg/use.py", line=2, receiver="o", attr="save_model", type="Unknown")
         + "\n" + message("refactor.blindspots", count=1, attr="save_model") + "\n"
     )
@@ -204,7 +205,7 @@ def test_an_unresolved_project_target_is_a_blind_spot(
     root = project({"pkg/engine.py": ENGINE, "tests/test_t.py": UNRESOLVED})
     before = file_tree(root)
     assert _rename_save_model(root) == 1
-    assert capsys.readouterr() == ("", (
+    assert readouterr(capsys) == ("", (
         message("refactor.unresolved-target", path="tests/test_t.py", line=5,
                 target="pkg.engine.Missing.save_model", attr="save_model")
         + "\n" + message("refactor.blindspots", count=1, attr="save_model") + "\n"
@@ -215,7 +216,7 @@ def test_an_unresolved_project_target_is_a_blind_spot(
 def test_an_external_target_is_a_leftover(project: MakeProject, capsys: pytest.CaptureFixture[str]) -> None:
     root = project({"pkg/engine.py": ENGINE, "tests/test_t.py": UNRESOLVED})
     assert _rename_save_model(root, "--allow-blindspots") == 0
-    err = capsys.readouterr().err.splitlines()
+    err = readouterr(capsys).err.splitlines()
     assert message("refactor.unresolved-target", path="tests/test_t.py", line=5,
                    target="pkg.engine.Missing.save_model", attr="save_model") in err
     assert message("refactor.leftover", path="tests/test_t.py", line=6, where="patch target", old="save_model") in err
@@ -380,7 +381,7 @@ def test_ambiguous_targets_refuse(
         for target in refused
     ]
     expected = "".join(f"{line}\n" for line in [*lines, message("refactor.blindspots", count=len(refused), attr="save_model")])
-    assert capsys.readouterr() == ("", expected)
+    assert readouterr(capsys) == ("", expected)
     assert file_tree(root) == before
 
 
@@ -450,7 +451,7 @@ def test_a_function_rename_lists_no_exact_literal(project: MakeProject, capsys: 
     offset = funcs.index("save_model")
     assert dr_refactor(["--project", str(root), "rename", "--file", "pkg/funcs.py", "--offset", str(offset),
                         "--new-name", "store_model"]) == 0
-    assert capsys.readouterr().err == ""
+    assert readouterr(capsys).err == ""
 
 
 def test_a_callee_resolves_by_any_spelling_and_syntax_decides_only_when_unresolved(
@@ -474,7 +475,7 @@ def test_a_callee_resolves_by_any_spelling_and_syntax_decides_only_when_unresolv
         '    getattr(engine, "save_model")',
         '    mocker.patch.object(engine, "save_model")',
     ]
-    err = capsys.readouterr().err.splitlines()
+    err = readouterr(capsys).err.splitlines()
     assert err == [
         message("compliance.attr-blindspot", path="pkg/use.py", line=13, receiver="engine", attr="save_model", type="Unknown"),
         message("refactor.leftover", path="pkg/use.py", line=12, where="string", old="save_model"),
@@ -489,7 +490,7 @@ def test_a_target_resolving_to_an_unchanged_declaration_is_unchanged_and_unliste
     root = project({"pkg/engine.py": ENGINE, "pkg/other.py": OTHER, "tests/test_t.py": test})
     assert _rename_save_model(root, "--without", "pkg/other.py:2", *(["--docs"] if docs else [])) == 0
     assert _read(root, "tests/test_t.py") == test
-    assert "tests/test_t.py" not in capsys.readouterr().err
+    assert "tests/test_t.py" not in readouterr(capsys).err
 
 
 def test_a_target_form_with_an_unresolved_callee_is_listed_in_a_class_rename(
@@ -500,7 +501,7 @@ def test_a_target_form_with_an_unresolved_callee_is_listed_in_a_class_rename(
     assert _rename(root, "pkg/engine.py", "SearchQueryEngine", "QueryEngine") == 0
     assert _read(root, "tests/test_t.py") == test
     leftover = message("refactor.leftover", path="tests/test_t.py", line=2, where="patch target", old="SearchQueryEngine")
-    assert capsys.readouterr().err == f"{leftover}\n"
+    assert readouterr(capsys).err == f"{leftover}\n"
 
 
 def test_a_callee_bound_to_a_form_and_to_something_else_is_unresolved(
@@ -519,7 +520,7 @@ def test_a_callee_bound_to_a_form_and_to_something_else_is_unresolved(
     assert _rename_save_model(root) == 1
     unresolved = message("refactor.unresolved-target", path="tests/test_t.py", line=8,
                          target="pkg.engine.SearchQueryEngine.save_model", attr="save_model")
-    assert capsys.readouterr().err.splitlines() == [unresolved, message("refactor.blindspots", count=1, attr="save_model")]
+    assert readouterr(capsys).err.splitlines() == [unresolved, message("refactor.blindspots", count=1, attr="save_model")]
     assert _read(root, "tests/test_t.py") == test
 
 
@@ -536,4 +537,4 @@ def test_an_escaped_exact_literal_in_a_file_never_spelling_old_is_listed(
 ) -> None:
     root = project({"pkg/engine.py": ENGINE, "pkg/names.py": 'VALUE = "\\x73ave_model"\n'})
     assert _rename_save_model(root) == 0
-    assert capsys.readouterr().err == message("refactor.leftover", path="pkg/names.py", line=1, where="string", old="save_model") + "\n"
+    assert readouterr(capsys).err == message("refactor.leftover", path="pkg/names.py", line=1, where="string", old="save_model") + "\n"

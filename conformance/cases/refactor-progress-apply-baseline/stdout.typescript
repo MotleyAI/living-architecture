@@ -1,0 +1,28 @@
+Renaming <load> to <fetch>:
+
+
+--- a/lib/store.ts
++++ b/lib/store.ts
+@@ -1,5 +1,5 @@
+ export class Store {
+-  load(): number {
++  fetch(): number {
+     return 1;
+   }
+ 
+
+--- a/lib/use.ts
++++ b/lib/use.ts
+@@ -1,5 +1,5 @@
+ import { Store } from './store';
+ 
+ export function run(store: Store): number {
+-  return store.load() + store.drop() + store.size() + store.clear();
++  return store.fetch() + store.drop() + store.size() + store.clear();
+ }
+
+
+
+APPLIED. 2 file(s) changed:
+  lib/store.ts
+  lib/use.ts

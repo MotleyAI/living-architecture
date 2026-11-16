@@ -1,0 +1,4 @@
+- {file: lib/hier.ts, symbol: Base.ping, new_name: a}
+- {file: lib/hier.ts, symbol: Sub.ping, new_name: b}
+- {file: lib/hier.ts, symbol: Base2.pong, new_name: c}
+- {file: lib/hier.ts, symbol: Sub2.pong, new_name: d}

@@ -1,0 +1,6 @@
+[resolve]
+[checks]
+[references]
+[references 1/1] entry 1: old -> next
+[rules]
+[rules 1/1] entry 1: old -> next: clean

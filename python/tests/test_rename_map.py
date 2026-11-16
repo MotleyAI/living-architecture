@@ -183,8 +183,8 @@ def test_conflicting_edits(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caps
     assert (code, out) == (1, "")
     pattern = template_regex(message("refactor.map-conflict", path="PATH", line=999, first=1, second=2),
                              path="PATH", line="999")
-    assert pattern.fullmatch(err.rstrip("\n"))
-    assert err.startswith("pkg/h.py:")
+    assert err.splitlines()
+    assert all(pattern.fullmatch(line) and line.startswith("pkg/h.py:") for line in err.splitlines())
     assert file_tree(root) == before
 
 
@@ -205,7 +205,9 @@ def test_swaps_and_chains_in_one_scope_refuse(
     before = file_tree(root)
     code, out, err = run(root, _rename_map(), monkeypatch, capsys)
     assert (code, out) == (1, "")
-    assert template_regex(NAME_CONFLICT, name="NAME", path="PATH", line="999").fullmatch(err.rstrip("\n"))
+    pattern = template_regex(NAME_CONFLICT, name="NAME", path="PATH", line="999")
+    assert err.splitlines()
+    assert all(pattern.fullmatch(line) for line in err.splitlines())
     assert file_tree(root) == before
 
 

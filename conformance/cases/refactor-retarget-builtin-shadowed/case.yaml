@@ -1,0 +1,15 @@
+kind: paired
+languages:
+- python
+- typescript
+command: dr-refactor
+args:
+  python: [retarget, --file, pkg/home.py, --symbol, old, --target, len]
+  typescript: [retarget, --file, src/home.ts, --symbol, old, --target, parseInt]
+git:
+- commit: init
+expect:
+  exit: 1
+  git_status: true
+note: 'a target named like a builtin (Python) or a global (TypeScript) names something else at a use where it is in scope:
+  the retarget is refused there, so the builtin reads elsewhere in the module are not captured by the target import'

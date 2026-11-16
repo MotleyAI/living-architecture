@@ -14,6 +14,7 @@ from pathlib import Path
 
 import pytest
 from project_files import file_tree
+from refactor_cli import readouterr
 
 from living_architecture.cli import dr_refactor
 from living_architecture.contract import language, message
@@ -45,7 +46,7 @@ def _refused(root: Path, rel: str, offset: int, capsys: pytest.CaptureFixture[st
              new_name: str = NEW, *flags: str) -> None:
     before = file_tree(root)
     assert _rename(root, rel, offset, new_name, *flags) == 1
-    assert capsys.readouterr() == _conflict(new_name, *site)
+    assert readouterr(capsys) == _conflict(new_name, *site)
     assert file_tree(root) == before
 
 
@@ -129,7 +130,7 @@ def test_a_binding_form_conflicts_exactly_when_python_rebinds_the_read(
     root = typed_project({"pkg/m.py": text})
     before = file_tree(root)
     code = _rename(root, "pkg/m.py", 0)
-    out, err = capsys.readouterr()
+    out, err = readouterr(capsys)
     if _rebinds(text.replace("old", NEW)):
         prefix, suffix = message("refactor.name-conflict", name=NEW, path="pkg/m.py", line=424242).split("424242")
         assert (code, out, err.startswith(prefix), err.endswith(suffix + "\n")) == (1, "", True, True), err
@@ -368,7 +369,7 @@ def test_names_are_checked_after_keep(typed_project: MakeProject) -> None:
     assert (root / "pkg/m.py").read_text(encoding="utf-8") == CAPTURED.replace("old = 1", "fresh = 1")
 
 
-def test_a_name_conflict_is_reported_before_the_blindspot_refusal(
+def test_a_name_conflict_is_reported_with_the_blindspot_refusal(
     typed_project: MakeProject, capsys: pytest.CaptureFixture[str]
 ) -> None:
     text = (
@@ -376,7 +377,15 @@ def test_a_name_conflict_is_reported_before_the_blindspot_refusal(
         "def g(o) -> int:  # type: ignore[no-untyped-def]\n    return o.old()\n"
     )
     root = typed_project({"pkg/m.py": text})
-    _refused(root, "pkg/m.py", _at(text, "old"), capsys, ("pkg/m.py", 5))
+    before = file_tree(root)
+    assert _rename(root, "pkg/m.py", _at(text, "old")) == 1
+    expected = [
+        message("compliance.attr-blindspot", path="pkg/m.py", line=10, receiver="o", attr="old", type="Unknown"),
+        message("refactor.name-conflict", name=NEW, path="pkg/m.py", line=5),
+        message("refactor.blindspots", count=1, attr="old"),
+    ]
+    assert readouterr(capsys) == ("", "".join(f"{line}\n" for line in expected))
+    assert file_tree(root) == before
 
 
 # --- the implicit root's members -----------------------------------------------------------------------------------

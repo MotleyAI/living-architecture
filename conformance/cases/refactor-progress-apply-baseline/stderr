@@ -1,0 +1,8 @@
+[resolve]
+[checks]
+[references]
+[references 1/1] entry 1: load -> fetch
+[rules]
+[rules 1/1] entry 1: load -> fetch: clean
+[baseline]
+[write]

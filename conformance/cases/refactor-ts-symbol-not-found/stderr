@@ -1,1 +1,3 @@
+[resolve]
+[checks]
 src/a.ts: nope names no declaration; candidates: Base, foo

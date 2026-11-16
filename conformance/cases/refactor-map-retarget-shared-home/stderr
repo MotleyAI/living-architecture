@@ -1,0 +1,12 @@
+[resolve]
+[checks]
+[references]
+[references 1/4] entry 1: FacadeTable -> FacadeGrid
+[references 2/4] entry 2: FlightCatalog -> FacadeCatalog
+[references 3/4] entry 3: FlightSchema -> FacadeSchema
+[references 4/4] entry 4: FlightTable -> FacadeGrid
+[rules]
+[rules 1/4] entry 1: FacadeTable -> FacadeGrid: clean
+[rules 2/4] entry 2: FlightCatalog -> FacadeCatalog: clean
+[rules 3/4] entry 3: FlightSchema -> FacadeSchema: clean
+[rules 4/4] entry 4: FlightTable -> FacadeGrid: clean

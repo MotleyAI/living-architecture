@@ -1,0 +1,4 @@
+[resolve]
+[checks]
+--with lib/gone:3 names no file, directory or line in the project
+--without README.md:400 names no file, directory or line in the project

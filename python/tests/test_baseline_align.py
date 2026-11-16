@@ -259,7 +259,28 @@ def test_checker_failure_refuses(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     root = _project(tmp_path, {"pkg/use.py": USE}, command="/nonexistent/basedpyright")
     before = file_tree(root)
     expected = message("refactor.baseline-failed", language="python")
-    assert run(root, _rename(root, "get_model", "load"), monkeypatch, capsys) == (1, "", f"{expected}\n")
+    error = message("typecheck.not-found", language="python", command="/nonexistent/basedpyright", local_bin=".venv/bin")
+    cause = message("refactor.checker-not-started", error=error)
+    assert run(root, _rename(root, "get_model", "load"), monkeypatch, capsys) == (1, "", f"{expected}\n{cause}\n")
+    assert file_tree(root) == before
+
+
+@pytest.mark.parametrize("stdout", ["[]", "null", "not a report"], ids=["list", "null", "not-json"])
+def test_a_checker_without_a_json_report_refuses_naming_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], stdout: str
+) -> None:
+    fake = tmp_path / "fake-checker"
+    fake.write_text(
+        "#!/bin/sh\nprintf '{\"outcome\": \"patched\", \"version\": \"1.0.0\", \"count\": 1}' > \"$LA_PYRIGHT_PATCH_RESULT\"\n"
+        f"echo 'fake: warming up' >&2\necho '{stdout}'\nexit 0\n",
+        encoding="utf-8",
+    )
+    fake.chmod(0o755)
+    root = _project(tmp_path, {"pkg/use.py": USE}, command=str(fake))
+    before = file_tree(root)
+    expected = [message("refactor.baseline-failed", language="python"),
+                message("refactor.checker-error", error=message("refactor.checker-no-report")), "  fake: warming up"]
+    assert run(root, _rename(root, "get_model", "load"), monkeypatch, capsys) == (1, "", "".join(f"{e}\n" for e in expected))
     assert file_tree(root) == before
 
 

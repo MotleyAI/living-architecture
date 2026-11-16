@@ -1,0 +1,18 @@
+kind: paired
+languages:
+- python
+- typescript
+command: dr-refactor
+args:
+- rename-map
+- renames.yaml
+- --keep
+- lib/kept
+fixture: refactor-progress
+git:
+- commit: init
+expect:
+  exit: 1
+golden: manual
+note: 'a group''s refusals are counted after its kept sites are dropped: the kept blind spot leaves its group clean, the other
+  group is refused'

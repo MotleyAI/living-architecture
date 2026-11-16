@@ -1,1 +1,8 @@
+[resolve]
+[checks]
+[references]
+[references 1/1] entry 1: saveModel -> persistModel
+[rules]
+[rules 1/1] entry 1: saveModel -> persistModel: clean
 src/pkg1/engine.ts:1: leftover: comment mentions saveModel
+[write]

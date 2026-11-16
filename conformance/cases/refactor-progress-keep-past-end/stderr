@@ -1,0 +1,3 @@
+[resolve]
+[checks]
+--keep README.md:99 names no file, directory or line in the project

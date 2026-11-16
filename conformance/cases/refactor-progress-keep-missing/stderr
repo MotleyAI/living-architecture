@@ -1,0 +1,3 @@
+[resolve]
+[checks]
+--keep lib/gone names no file, directory or line in the project

@@ -7,6 +7,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 import pytest
+from refactor_cli import readouterr
 
 from living_architecture.cli import dr_refactor
 from living_architecture.contract import message
@@ -115,7 +116,7 @@ def test_qualified_and_code_marked_mentions_are_rewritten(project: MakeProject) 
 def test_every_other_mention_is_listed_in_order(project: MakeProject, capsys: pytest.CaptureFixture[str]) -> None:
     root = project(FILES)
     assert _rename(root, "--docs") == 0
-    assert capsys.readouterr().err.splitlines() == [
+    assert readouterr(capsys).err.splitlines() == [
         _leftover("docs/api.md", 4, "prose"),
         _leftover("pkg/engine.py", 4, "comment"),
         _leftover("pkg/other.py", 5, "docstring"),
@@ -127,7 +128,7 @@ def test_every_other_mention_is_listed_in_order(project: MakeProject, capsys: py
 def test_without_docs_only_exact_literals_are_listed(project: MakeProject, capsys: pytest.CaptureFixture[str]) -> None:
     root = project(FILES)
     assert _rename(root) == 0
-    assert capsys.readouterr().err == f"{_leftover('pkg/other.py', 8, 'string')}\n"
+    assert readouterr(capsys).err == f"{_leftover('pkg/other.py', 8, 'string')}\n"
     assert _read(root, "pkg/engine.py") == ENGINE.replace(
         "    def recommend_root_model(", f"    def {NEW}("
     )
@@ -148,7 +149,7 @@ def test_a_simple_name_collision_is_listed(project: MakeProject, capsys: pytest.
     assert _rename(root, "--docs", "--without", "pkg/legacy.py:2") == 0
     assert _read(root, "pkg/notes.py") == notes.replace(f"# engine.SearchQueryEngine.{OLD}",
                                                          f"# engine.SearchQueryEngine.{NEW}")
-    err = capsys.readouterr().err.splitlines()
+    err = readouterr(capsys).err.splitlines()
     assert _leftover("pkg/notes.py", 1, "comment") in err
     assert _leftover("pkg/notes.py", 3, "comment") in err
     assert _read(root, "pkg/legacy.py") == legacy
@@ -159,14 +160,14 @@ def test_git_ignored_prose_is_skipped(project: MakeProject, capsys: pytest.Captu
     root = project({"pkg/engine.py": ENGINE, ".gitignore": "out/\n", "out/notes.md": mention})
     assert _rename(root, "--docs") == 0
     assert _read(root, "out/notes.md") == mention
-    assert all("out/notes.md" not in line for line in capsys.readouterr().err.splitlines())
+    assert all("out/notes.md" not in line for line in readouterr(capsys).err.splitlines())
 
 
 def test_no_prose_outside_git(project: MakeProject, capsys: pytest.CaptureFixture[str]) -> None:
     root = project({"pkg/engine.py": ENGINE, "docs/api.md": API_MD}, git=False)
     assert _rename(root, "--docs") == 0
     assert _read(root, "docs/api.md") == API_MD
-    assert all("docs/api.md" not in line for line in capsys.readouterr().err.splitlines())
+    assert all("docs/api.md" not in line for line in readouterr(capsys).err.splitlines())
 
 
 def test_module_level_symbol_qualified_by_its_module(project: MakeProject) -> None:

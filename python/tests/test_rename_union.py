@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 from project_files import file_tree
+from refactor_cli import readouterr
 
 from living_architecture.cli import dr_refactor
 from living_architecture.contract import message
@@ -142,7 +143,9 @@ def test_language_server_that_cannot_start(
     before = file_tree(root)
     monkeypatch.setenv("NODE_OPTIONS", BROKEN_NODE)
     assert _rename(root, "pkg/models.py", "Recommendation", "--symbol", "Rec", apply=apply) == 1
-    assert capsys.readouterr() == ("", message("refactor.pyright-failed") + "\n")
+    out, err = readouterr(capsys)
+    assert out == ""
+    assert err.splitlines()[:2] == [message("refactor.pyright-failed"), message("refactor.checker-exit", code=1)]
     assert file_tree(root) == before
 
 
@@ -157,7 +160,9 @@ def test_language_server_failing_after_rope_computed_its_changes(
     before = file_tree(root)
     monkeypatch.setattr(LanguageServer, "references", fail)
     assert _rename(root, "pkg/models.py", "Recommendation", "--symbol", "Rec", apply=apply) == 1
-    assert capsys.readouterr() == ("", message("refactor.pyright-failed") + "\n")
+    out, err = readouterr(capsys)
+    assert out == ""
+    assert err.splitlines()[0] == message("refactor.pyright-failed")
     assert file_tree(root) == before
 
 
@@ -175,7 +180,7 @@ def test_a_file_changed_before_the_write_aborts_with_nothing_written(
 
     monkeypatch.setattr(LanguageServer, "references", touching)
     assert _rename(root, "pkg/models.py", "Recommendation", "--symbol", "Rec") == 1
-    assert capsys.readouterr() == ("", message("refactor.file-changed", path="pkg/use.py") + "\n")
+    assert readouterr(capsys) == ("", message("refactor.file-changed", path="pkg/use.py") + "\n")
     assert _read(root, "pkg/models.py") == FORWARD_REFS
     assert _read(root, "pkg/use.py") == FORWARD_USE + "# edited\n"
 
@@ -197,7 +202,7 @@ def test_dry_run_leaves_the_tree_unchanged(typed_project: MakeProject, capsys: p
     root = typed_project({"pkg/models.py": FORWARD_REFS, "pkg/use.py": FORWARD_USE})
     before = file_tree(root)
     assert _rename(root, "pkg/models.py", "Recommendation", "--symbol", "Rec", apply=False) == 0
-    out = capsys.readouterr().out.splitlines()
+    out = readouterr(capsys).out.splitlines()
     assert '+def make() -> "Recommendation":' in out
     assert '+def f() -> "Recommendation | None":' in out
     assert file_tree(root) == before

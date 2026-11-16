@@ -1,1 +1,3 @@
+[resolve]
+[checks]
 destination does not exist: pkg/nope.py

@@ -18,7 +18,7 @@ from living_architecture.refactor.outcomes import (
     target_outcome,
 )
 from living_architecture.refactor.python_source import SourceFile
-from living_architecture.refactor.sites import Keeps, SiteError
+from living_architecture.refactor.sites import Keeps
 
 OLD, NEW = "save_model", "store_model"
 
@@ -115,19 +115,16 @@ def test_keeps_cover_lines_files_and_moves(tmp_path: Path) -> None:
     assert [keeps.kept("a.py", 2), keeps.kept("a.py", 3), keeps.kept("b.py", None), keeps.kept("a.py", None)] == [
         True, False, True, False,
     ]
-    keeps.check()
+    assert keeps.unmatched() == []
 
 
-def test_keeps_report_the_first_unmatched_site(tmp_path: Path) -> None:
-    keeps = _keeps(tmp_path, "a.py:2", "b.py")
+def test_keeps_report_every_unmatched_site(tmp_path: Path) -> None:
+    keeps = _keeps(tmp_path, "a.py:2", "b.py", "a.py:5")
     keeps.kept("b.py", 9)
-    with pytest.raises(SiteError) as raised:
-        keeps.check()
-    assert (raised.value.template, raised.value.site) == ("refactor.keep-unmatched", "a.py:2")
+    assert keeps.unmatched() == ["a.py:2", "a.py:5"]
 
 
 def test_a_listing_check_marks_nothing(tmp_path: Path) -> None:
     keeps = _keeps(tmp_path, "a.py:2")
     assert keeps.kept("a.py", 2, mark=False)
-    with pytest.raises(SiteError):
-        keeps.check()
+    assert keeps.unmatched() == ["a.py:2"]

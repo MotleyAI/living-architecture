@@ -1,0 +1,40 @@
+Renaming <load> to <fetch>:
+Renaming <drop> to <discard>:
+Renaming <size> to <count>:
+Renaming <clear> to <empty>:
+
+
+--- a/lib/store.py
++++ b/lib/store.py
+@@ -1,14 +1,14 @@
+ class Store:
+-    def load(self) -> int:
++    def fetch(self) -> int:
+         return 1
+ 
+-    def drop(self) -> int:
++    def discard(self) -> int:
+         return 2
+ 
+-    def size(self) -> int:
++    def count(self) -> int:
+         return 3
+ 
+-    def clear(self) -> int:
++    def empty(self) -> int:
+         return 4
+ 
+     def save(self) -> int:
+
+--- a/lib/use.py
++++ b/lib/use.py
+@@ -2,4 +2,4 @@
+ 
+ 
+ def run(store: Store) -> int:
+-    return store.load() + store.drop() + store.size() + store.clear()
++    return store.fetch() + store.discard() + store.count() + store.empty()
+
+
+
+DRY-RUN. 2 file(s) would change. Re-run with --apply.
