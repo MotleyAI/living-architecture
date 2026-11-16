@@ -179,10 +179,10 @@ def comment_doc_counts(src: str | None) -> tuple[int, int]:
 
 
 def _file_facts(path: Path, rel: str) -> dict[str, Any]:
-    if not path.exists():
-        return {"path": rel, "status": "missing"}
     try:
         source = path.read_text(encoding="utf-8")
+    except (FileNotFoundError, NotADirectoryError):
+        return {"path": rel, "status": "missing"}
     except OSError as exc:
         return {"path": rel, "status": "unreadable", "line": 1, "message": os_error_reason(exc)}
     except UnicodeDecodeError:

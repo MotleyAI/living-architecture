@@ -39,7 +39,9 @@ def display_path(path: str | os.PathLike[str], root: str | os.PathLike[str]) -> 
 
 def os_error_text(error: OSError, root: str | os.PathLike[str], path: str | os.PathLike[str] | None = None) -> str:
     """`{path}: {reason}` for the site's path, else the error's own; the reason alone when there is neither."""
-    shown = path if path is not None else error.filename if isinstance(error.filename, str) else None
+    shown = path
+    if shown is None and isinstance(error.filename, str):
+        shown = error.filename
     reason = os_error_reason(error)
     if shown is None:
         return reason

@@ -262,7 +262,7 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | composite-assert (tests only); raises-single-throw (every callee form) | 1 | `conventions-composite-assert`, `conventions-raises-single-throw` |
 | test-file classification | 1/0 | `conventions-test-file-classification`, `conventions-test-file-classification-bare-names` |
 | waivers (valid, compact, wrong rule, no reason, wrong case) | 1 | `conventions-waivers` |
-| unreadable (decode error, directory); syntax error | 1 | `conventions-unreadable-binary`, `conventions-unreadable-directory`, `conventions-syntax-error` |
+| unreadable (decode error, directory, *(new)* under an unsearchable directory); syntax error | 1 | `conventions-unreadable-binary`, `conventions-unreadable-directory`, `conventions-unreadable-untraversable`, `conventions-syntax-error` |
 | text-ratio: source over, tests over, standalone strings; cap from flag / config | 1/0 | `conventions-text-ratio-source-over`, `conventions-text-ratio-tests-over`, `conventions-text-ratio-standalone-strings`, `conventions-text-ratio-cap-flag`, `conventions-text-ratio-config-cap` |
 | exempt globs (config + `--exclude`, fnmatch semantics) | 0 | `conventions-exempt-config-and-flag`, `conventions-accepted-invocation-vector`, `conventions-accepted-invocation-vector-with-exempt-file`, `conventions-equals-forms` |
 | `--base`: committed, staged, unstaged, untracked, deleted, renamed; origin vs local; *(new)* empty change set labelled `source` | 0/1 | `conventions-base-committed`, `conventions-base-working-tree`, `conventions-base-uses-origin-not-local`, `conventions-base-no-python-changes` |
@@ -298,7 +298,7 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | *(new)* composite-assert (`expect`, `assert`, `assert.ok`, parenthesized `&&`; not `||`, not outside tests) | 1 | `conventions-ts-composite-assert` |
 | *(new)* raises-single-throw: each `toThrow*` matcher, `.rejects`, `assert.throws`/`rejects`, `new` counted, multi-line; one call and `.not.toThrow` clean | 1 | `conventions-ts-raises-single-throw` |
 | *(new)* `// ALLOW(<rule>): <reason>` waivers per rule incl. a multi-line construct; wrong rule, no reason, lowercase, `#` form, later line do not waive | 1 | `conventions-ts-waivers` |
-| *(new)* syntax error (first parse diagnostic), excluded from text-ratio; invalid UTF-8 or a directory unreadable | 1 | `conventions-ts-syntax-error`, `conventions-ts-unreadable-invalid-utf8`, `conventions-ts-unreadable-directory` |
+| *(new)* syntax error (first parse diagnostic), excluded from text-ratio; invalid UTF-8, a directory, or a file under an unsearchable directory unreadable | 1 | `conventions-ts-syntax-error`, `conventions-ts-unreadable-invalid-utf8`, `conventions-ts-unreadable-directory`, `conventions-ts-unreadable-untraversable` |
 | *(new)* every ScriptKind: `.js .jsx .mjs .cjs .tsx .mts .cts` | 1 | `conventions-ts-script-kinds` |
 | *(new)* TS test globs decide where tests-only rules apply | 1 | `conventions-ts-test-file-classification` |
 | *(new)* text-ratio at and just over the cap, per group | 0/1 | `conventions-ts-text-ratio-source-at-cap`, `conventions-ts-text-ratio-source-over`, `conventions-ts-text-ratio-tests-at-cap`, `conventions-ts-text-ratio-tests-over` |

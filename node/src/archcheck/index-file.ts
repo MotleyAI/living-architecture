@@ -71,7 +71,7 @@ export function loadIndex(root: string): Index {
     throw error;
   }
   const text = decodeUtf8OrNull(bytes);
-  if (text === null) throw new ArchCheckError(message('c4.index-invalid-yaml'));
+  if (text === null) throw new ArchCheckError(message('yaml.invalid', { path: INDEX_REL }));
   let index: unknown;
   try {
     index = loadYaml(text);

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 import sys
 from pathlib import Path
@@ -178,7 +179,7 @@ def _check_freshness(root: Path, model: ModelParse, views: ViewsParse, mapping: 
     findings: list[str] = []
     for doc_key, vids in mapping.items():
         doc_path = root / doc_key
-        if not doc_path.exists():
+        if not os.path.exists(doc_path):
             findings.append(message("diagrams-fresh.doc-missing", doc=doc_key))
             continue
         text = _read_exact(doc_path)

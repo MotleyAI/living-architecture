@@ -75,7 +75,7 @@ def load_index(root: Path) -> dict[str, Any]:
     try:
         index = load_yaml(path.read_text(encoding="utf-8"))
     except UnicodeDecodeError as exc:
-        raise ArchCheckError(message("c4.index-invalid-yaml")) from exc
+        raise ArchCheckError(message("yaml.invalid", path=INDEX_REL)) from exc
     except DuplicateKeyError as exc:
         raise ArchCheckError(f"{INDEX_REL}: {exc}") from exc
     except YAMLError as exc:

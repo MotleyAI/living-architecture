@@ -1,0 +1,13 @@
+kind: adapter
+languages:
+- python
+command: la-check-conventions
+args:
+- --file
+- src/locked/pkg.py
+chmod:
+  src/locked: '0000'
+expect:
+  exit: 1
+golden: manual
+note: a changed file under a directory that cannot be searched is unreadable with the reason from the os.* templates, on every Python version
