@@ -83,8 +83,8 @@ run; a module rename, `move-symbol` and `move-module` SHALL NOT start it.
 
 #### Scenario: Unverified checker
 - **WHEN** a rename runs with a bundled basedpyright version the export is not verified for
-- **THEN** stderr is the `refactor.pyright-failed` finding, the exit code is 1 and every file of the project is
-  unchanged
+- **THEN** stderr is the `refactor.pyright-failed` finding followed by its cause, the exit code is 1 and every file of
+  the project is unchanged
 
 #### Scenario: Positions after astral characters and CRLF in every kind
 - **WHEN** each occurrence kind of "Every member occurrence kind" and "Every name occurrence kind" sits in a module with CRLF line endings, a lone `\r`, and
@@ -139,6 +139,11 @@ refactor.
 - **WHEN** a module holds `def f(s: str = "😀", p: A[F(d="(")] = None) -> str: ...`
 - **THEN** a rename of `p` prints its diff and exits 0
 
+#### Scenario: A module rope does not walk
+- **WHEN** a rename's old name occurs only in modules other than the entry's, each holding a construct rope's walker
+  cannot cover, and the checker resolves every occurrence
+- **THEN** the rename prints its diff and exits 0 without `refactor.rope-walk`
+
 #### Scenario: A rename walks no module
 - **WHEN** a rename's entry module and every module holding its old name hold a construct rope's walker cannot cover
 - **THEN** the rename prints its diff and exits 0 without `refactor.rope-walk`
@@ -176,8 +181,8 @@ does. It SHALL run with its working directory outside the project, without the u
 writing and with neither the working directory nor an inherited `PYTHONPATH` on the interpreter's path, so
 no target-repo code runs. A language server
 that cannot start, is not patched, fails or exits during the refactor SHALL make `dr-refactor` print the
-`refactor.pyright-failed` finding on stderr, write nothing and exit 1; no checker or library message text SHALL be
-printed. With or without `--apply`, the language server SHALL create no file in the project.
+`refactor.pyright-failed` finding on stderr followed by its cause, as "A failed checker's cause is printed" describes,
+write nothing and exit 1. With or without `--apply`, the language server SHALL create no file in the project.
 
 #### Scenario: Forward-reference strings follow the class
 - **WHEN** class `Rec` is renamed to `Recommendation` in a module holding `def make() -> "Rec":` and
@@ -221,7 +226,7 @@ printed. With or without `--apply`, the language server SHALL create no file in 
 
 #### Scenario: Language server failure
 - **WHEN** the language server cannot start or exits during the rename, with or without `--apply`
-- **THEN** stderr ends with the `refactor.pyright-failed` finding and its cause, the exit code is 1 and every file of
+- **THEN** stderr is the `refactor.pyright-failed` finding followed by its cause, the exit code is 1 and every file of
   the project is unchanged
 
 #### Scenario: No target-repo code runs
@@ -342,7 +347,7 @@ checker findings), print no `[references]` line, write nothing, and exit with th
 
 #### Scenario: Keep of a prose file needs --docs
 - **WHEN** `--keep README.md` names a prose file that mentions the old name
-- **THEN** the check passes with `--docs`, and without it stderr ends with `refactor.keep-unmatched` naming it
+- **THEN** the check passes with `--docs`, and without it stderr is `refactor.keep-unmatched` naming it
 
 #### Scenario: Walker gaps listed before any search
 - **WHEN** rope's walker cannot cover `pkg/a.py` at line 3 nor `pkg/b.py` at line 8, and both spell the name a
@@ -365,7 +370,8 @@ checker findings), print no `[references]` line, write nothing, and exit with th
 When rope's walker fails on a module while the Python `dr-refactor` computes a move, or leaves part of it uncovered,
 `dr-refactor` SHALL refuse with the `refactor.rope-walk` finding on stderr, naming the file and the line of the
 construct, and exit 1. Every gap in a module rope walks before the reference search SHALL be found in the `checks`
-phase, before any reference search, and all of them reported together. It SHALL write no file, with or without
+phase, before any reference search, and all of them reported together; a gap met later SHALL refuse the entry that
+met it while the run goes on. It SHALL write no file, with or without
 `--apply`, and print no rope or library message text. The line SHALL be:
 - the start line of the first uncovered syntax node or string literal in source order;
 - else the start line of the first top-level statement the walker cannot cover on its own;

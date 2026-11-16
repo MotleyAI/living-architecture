@@ -2,7 +2,7 @@
 
 - [ ] 0.1 pr-tests writes section 1 only; pr-implement does sections 2–6. While section 1 is open the stage is
       `pr-tests`.
-- [ ] 0.2 Stacked on DEV-2301. At the start of each stage, check the DEV-2301 branch: when it has commits this branch
+- [x] 0.2 Stacked on DEV-2301. At the start of each stage, check the DEV-2301 branch: when it has commits this branch
       lacks, merge it (`git merge egor/dev-2301-living-architecture-dr-refactor-resolves-every -m "Merge branch
       'egor/dev-2301-living-architecture-dr-refactor-resolves-every' into …"`); once DEV-2301 has merged to main, merge
       `origin/main` the same way. Never rebase or stash. After DEV-2301 is archived on main, re-run

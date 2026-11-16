@@ -1,6 +1,6 @@
 ## Context
 
-See proposal.md (Why). Stacked on DEV-2301 (merged into this branch; its change is not archived yet). Today
+See proposal.md (Why). DEV-2301 is merged to main and archived; this branch has merged origin/main. Today
 (`python/src/living_architecture/refactor`):
 
 - `rope_refactor.run_refactor` builds a rope `Project`; `rename_map.RenameMap` locates each entry with rope's `Rename`
@@ -179,8 +179,6 @@ static resolver for scoping, imports and module chains, the AST for declarations
 - [Small samples for module renames and retargets] → the new fixtures of decision 16; the SLayer map run.
 - [The new export fact changes the export protocol] → verified preload as before; the command's self-test covers the
   new fact kind; the cache key includes the request.
-- [Two unarchived changes modify the same requirements] → this delta is written against DEV-2301's text; DEV-2301 is
-  archived first (it merges to main before this branch), then `openspec validate --strict` is re-run here.
 
 ## Migration Plan
 
