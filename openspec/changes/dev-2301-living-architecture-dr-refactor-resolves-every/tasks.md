@@ -121,17 +121,13 @@
 
 ## 5. Gaps from the DEV-2301 review comment (2026-11-16, "Three gaps in this plan")
 
-- [ ] 5.1 Gap 1 (rope uses outside decision 7: `MemberCheck`'s `Hierarchy` in `member_namespace.py`, retarget's
-      `definition`/`attribute_definition`/`_receiver_module`, source folders): a design decision for the user, not yet
-      asked. Options: move them onto the checker (the conflict check's class graph onto `refactor/hierarchy.py`'s
-      `ClassGraph`, a port of rope's source-folder rule, retarget lookups through index facts), or record them in
-      decision 7 and the Impact list. Recommendation: move at least the class graph, so one member rename uses one
-      class graph. Either way it is a plan edit needing the user's OK of the exact diff, plus the two differential
-      fixtures the comment names (a library base declaring the new name; a project ancestor behind an unresolved base).
-- [ ] 5.2 Gap 2 (a name, import or alias occurrence neither the checker nor rope resolves gets no outcome): not
-      implemented. Plan: in `SymbolRename._index_edits`, each unresolved occurrence rope does not match becomes a
-      leftover finding. Needs the user's approval of a new `shared/findings.yaml` template's wording, a conformance
-      case and an `INVENTORY.md` entry; no existing golden changes (none of the samples holds such a site).
+- [x] 5.1 Gap 1 (rope uses outside decision 7: `MemberCheck`'s `Hierarchy` in `member_namespace.py`, retarget's
+      `definition`/`attribute_definition`/`_receiver_module`, source folders): deferred to DEV-2310 (user,
+      2026-11-16). This change ships with `member_namespace.Hierarchy` still on rope; DEV-2310 adds the new-name member
+      lookups to the index's batched facts and moves the check onto them.
+- [x] 5.2 Gap 2 (a name, import or alias occurrence neither the checker nor rope resolves gets no outcome): handled in
+      DEV-2310 (user, 2026-11-16), where la's static resolver replaces rope for such names and a site it cannot resolve
+      either becomes a `leftover` line. Nothing changes for it here.
 - [x] 5.3 Gap 3 (user, 2026-11-16: not deferrable): the export records, per occurrence, the import-alias and
       re-export bindings it passes through, in order (design decision 22); an entry located on such a binding renames
       exactly the occurrences whose chain holds it. Today's `_located` matches by final declaration and rewrites an
