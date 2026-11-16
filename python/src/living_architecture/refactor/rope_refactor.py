@@ -43,6 +43,7 @@ from living_architecture.refactor.routing import language_files
 from living_architecture.refactor.sites import Keeps, SiteError
 from living_architecture.refactor.symbol_path import LocatorError
 from living_architecture.refactor.text_edits import TextEdit, diff_edits
+from living_architecture.refactor.timings import timed
 from living_architecture.refactor.writer import FileChanged, WriteFailed
 
 apply_rope_patches()
@@ -149,22 +150,25 @@ def _module_rename(project: Project, renamer: Rename, entry: MapEntry, options: 
     rels = [p.relative_to(root).as_posix() for p in language_files(root, "python")]
     pyobject = renamer.old_pyname.get_object() if renamer.old_pyname is not None else None
     module = pyobject.get_resource() if pyobject is not None else None
-    taken = _taken(module, entry.new_name, snapshot, rels) if module is not None else None
+    with timed("resolve"):
+        taken = _taken(module, entry.new_name, snapshot, rels) if module is not None else None
     if taken is not None and renamer.get_old_name() != entry.new_name:
         raise taken
     try:
-        changes = renamer.get_changes(
-            entry.new_name, in_hierarchy=options.in_hierarchy, unsure=(lambda *_: True) if options.unsure else None
-        )
+        with timed("references"):
+            changes = renamer.get_changes(
+                entry.new_name, in_hierarchy=options.in_hierarchy, unsure=(lambda *_: True) if options.unsure else None
+            )
     except (RefactoringError, BadIdentifierError):
         raise RefactorError(message("refactor.cannot-rename")) from None
     kept = _kept(project, changes, options.keep)
-    every, _ = _edits(changes, before, snapshot)
-    written, moves = _edits(kept, before, snapshot)
-    folders = sorted({"", *(f.path for f in project.get_source_folders())})
-    found = first_conflict(BindingCheck(rels, folders, snapshot.source).conflicts(
-        [EntryEdits(index=1, new_name=entry.new_name, edits=written, kept=[e for e in every if e not in written])],
-        moves), snapshot.source)
+    with timed("resolve"):
+        every, _ = _edits(changes, before, snapshot)
+        written, moves = _edits(kept, before, snapshot)
+        folders = sorted({"", *(f.path for f in project.get_source_folders())})
+        found = first_conflict(BindingCheck(rels, folders, snapshot.source).conflicts(
+            [EntryEdits(index=1, new_name=entry.new_name, edits=written, kept=[e for e in every if e not in written])],
+            moves), snapshot.source)
     if found is not None:
         raise found
     _emit(project, kept, apply, before)
@@ -173,21 +177,28 @@ def _module_rename(project: Project, renamer: Rename, entry: MapEntry, options: 
 
 def move_symbol(project: Project, *, file: str, locator: Locator, dest: str, apply: bool) -> None:
     before = source_bytes(project)
-    offset, located = resolve(locator, file)
-    if located is not None and not located.top_level:
-        raise RefactorError(message("refactor.not-movable", path=file))
-    mover = cast(MoveGlobal, create_move(project, resource(project, file), offset))
-    target = cast(File, _destination(project, dest, folder=False))
+    with timed("resolve"):
+        offset, located = resolve(locator, file)
+        if located is not None and not located.top_level:
+            raise RefactorError(message("refactor.not-movable", path=file))
+        mover = cast(MoveGlobal, create_move(project, resource(project, file), offset))
+        target = cast(File, _destination(project, dest, folder=False))
     if target == mover.source:
         _emit(project, ChangeSet(f"Moving global <{mover.old_name}>"), apply, before)
         return
-    _emit(project, symbol_move_changes(project, mover, target), apply, before, moved_code=True)
+    with timed("references"):
+        changes = symbol_move_changes(project, mover, target)
+    _emit(project, changes, apply, before, moved_code=True)
 
 
 def move_module(project: Project, *, module: str, dest: str, apply: bool) -> None:
     before = source_bytes(project)
-    mover = cast(MoveModule, create_move(project, resource(project, module)))
-    _emit(project, module_move_changes(project, mover, _destination(project, dest, folder=True)), apply, before)
+    with timed("resolve"):
+        mover = cast(MoveModule, create_move(project, resource(project, module)))
+        dest_folder = _destination(project, dest, folder=True)
+    with timed("references"):
+        changes = module_move_changes(project, mover, dest_folder)
+    _emit(project, changes, apply, before)
 
 
 def _renamer(renamer: Rename | None) -> Rename:
@@ -228,7 +239,8 @@ def run_refactor(*, project_root: str, command: str, apply: bool, options: dict[
     """`dr-refactor` handler: 0 on success, 1 with the reason on stderr when the refactor cannot proceed or refuses,
     2 for a locator or map error, or a `--keep`, `--with` or `--without` site that matches nothing it must."""
     # rope documents `ropefolder=None` (no rope folder); its signature infers `str` from the default.
-    project = Project(str(Path(project_root).resolve()), ropefolder=None)  # pyright: ignore[reportArgumentType]
+    with timed("load"):
+        project = Project(str(Path(project_root).resolve()), ropefolder=None)  # pyright: ignore[reportArgumentType]
     try:
         return _run(project, project_root, command, apply, options)
     except SiteError as exc:

@@ -173,23 +173,32 @@ cases:
 - name: rename with defaults
   command: dr-refactor
   argv: [rename, --file, a.py, --symbol, f, --new-name, g]
-  args: {project: ., apply: false, subcommand: rename, file: a.py, offset: null, line: null, col: null, symbol: f, new_name: g,
+  args: {project: ., apply: false, timings: false, subcommand: rename, file: a.py, offset: null, line: null, col: null, symbol: f, new_name: g,
     in_hierarchy: true, unsure: skip, allow_blindspots: false, with_stand_ins: [], without_stand_ins: [], keep: [],
     docs: false, fail_fast: false}
 - name: store-false flag and choice
   command: dr-refactor
   argv: [--apply, --project, p, rename, --file, a.py, --line, '3', --col, '7', --new-name, g, --no-in-hierarchy, --unsure,
     include]
-  args: {project: p, apply: true, subcommand: rename, file: a.py, offset: null, line: 3, col: 7, symbol: null, new_name: g,
+  args: {project: p, apply: true, timings: false, subcommand: rename, file: a.py, offset: null, line: 3, col: 7, symbol: null, new_name: g,
     in_hierarchy: false, unsure: include, allow_blindspots: false, with_stand_ins: [], without_stand_ins: [], keep: [],
     docs: false, fail_fast: false}
 - name: rename guard options repeat and keep order
   command: dr-refactor
   argv: [rename, --file, a.py, --symbol, f, --new-name, g, --with, b.py:3, --without, c.py:7, --with, d.py:1, --keep,
     tests/compat, --keep, e.py:12, --allow-blindspots, --docs]
-  args: {project: ., apply: false, subcommand: rename, file: a.py, offset: null, line: null, col: null, symbol: f, new_name: g,
+  args: {project: ., apply: false, timings: false, subcommand: rename, file: a.py, offset: null, line: null, col: null, symbol: f, new_name: g,
     in_hierarchy: true, unsure: skip, allow_blindspots: true, with_stand_ins: [b.py:3, d.py:1], without_stand_ins: [c.py:7],
     keep: [tests/compat, e.py:12], docs: true, fail_fast: false}
+- name: timings flag before the subcommand
+  command: dr-refactor
+  argv: [--timings, rename-map, map.yaml]
+  args: {project: ., apply: false, timings: true, subcommand: rename-map, map: map.yaml, in_hierarchy: true, unsure: skip,
+    allow_blindspots: false, with_stand_ins: [], without_stand_ins: [], keep: [], docs: false, fail_fast: false}
+- name: timings flag after the subcommand rejected
+  command: dr-refactor
+  argv: [rename-map, map.yaml, --timings]
+  exit: 2
 - name: rename guard option needs a value
   command: dr-refactor
   argv: [rename, --file, a.py, --symbol, f, --new-name, g, --keep]
@@ -205,7 +214,7 @@ cases:
 - name: int option
   command: dr-refactor
   argv: [rename, --file, a.py, --offset, '-5', --new-name, g]
-  args: {project: ., apply: false, subcommand: rename, file: a.py, offset: -5, line: null, col: null, symbol: null, new_name: g,
+  args: {project: ., apply: false, timings: false, subcommand: rename, file: a.py, offset: -5, line: null, col: null, symbol: null, new_name: g,
     in_hierarchy: true, unsure: skip, allow_blindspots: false, with_stand_ins: [], without_stand_ins: [], keep: [],
     docs: false, fail_fast: false}
 - name: int option type error
@@ -219,7 +228,7 @@ cases:
 - name: move-symbol
   command: dr-refactor
   argv: [move-symbol, --file, a.py, --symbol, f, --dest, b.py]
-  args: {project: ., apply: false, subcommand: move-symbol, file: a.py, offset: null, line: null, col: null, symbol: f, dest: b.py}
+  args: {project: ., apply: false, timings: false, subcommand: move-symbol, file: a.py, offset: null, line: null, col: null, symbol: f, dest: b.py}
 - name: removed --name rejected
   command: dr-refactor
   argv: [rename, --file, a.py, --name, f, --new-name, g]
@@ -239,17 +248,17 @@ cases:
 - name: one locator of a group is accepted with --col
   command: dr-refactor
   argv: [move-symbol, --file, a.py, --line, '2', --col, '5', --dest, b.py]
-  args: {project: ., apply: false, subcommand: move-symbol, file: a.py, offset: null, line: 2, col: 5, symbol: null, dest: b.py}
+  args: {project: ., apply: false, timings: false, subcommand: move-symbol, file: a.py, offset: null, line: 2, col: 5, symbol: null, dest: b.py}
 - name: rename-map with defaults
   command: dr-refactor
   argv: [rename-map, map.yaml]
-  args: {project: ., apply: false, subcommand: rename-map, map: map.yaml, in_hierarchy: true, unsure: skip,
+  args: {project: ., apply: false, timings: false, subcommand: rename-map, map: map.yaml, in_hierarchy: true, unsure: skip,
     allow_blindspots: false, with_stand_ins: [], without_stand_ins: [], keep: [], docs: false, fail_fast: false}
 - name: rename-map options apply to every entry
   command: dr-refactor
   argv: [--apply, rename-map, maps/m.yaml, --no-in-hierarchy, --keep, tests/compat, --with, b.py:3, --docs,
     --allow-blindspots, --fail-fast]
-  args: {project: ., apply: true, subcommand: rename-map, map: maps/m.yaml, in_hierarchy: false, unsure: skip,
+  args: {project: ., apply: true, timings: false, subcommand: rename-map, map: maps/m.yaml, in_hierarchy: false, unsure: skip,
     allow_blindspots: true, with_stand_ins: [b.py:3], without_stand_ins: [], keep: [tests/compat], docs: true,
     fail_fast: true}
 - name: rename-map takes no locator
@@ -267,7 +276,7 @@ cases:
 - name: retarget
   command: dr-refactor
   argv: [retarget, --file, a.py, --symbol, Engine.save, --target, Engine.save_model, --keep, tests/compat, --docs]
-  args: {project: ., apply: false, subcommand: retarget, file: a.py, offset: null, line: null, col: null,
+  args: {project: ., apply: false, timings: false, subcommand: retarget, file: a.py, offset: null, line: null, col: null,
     symbol: Engine.save, target: Engine.save_model, allow_blindspots: false, with_stand_ins: [], without_stand_ins: [],
     keep: [tests/compat], docs: true, fail_fast: false}
 - name: retarget needs the target
@@ -285,7 +294,7 @@ cases:
 - name: move-module
   command: dr-refactor
   argv: [move-module, --module, a.py, --dest, pkg]
-  args: {project: ., apply: false, subcommand: move-module, module: a.py, dest: pkg}
+  args: {project: ., apply: false, timings: false, subcommand: move-module, module: a.py, dest: pkg}
 - name: nargs plus
   command: dr-compliance
   argv: [a.py, b, --select, mock, --attr, x]

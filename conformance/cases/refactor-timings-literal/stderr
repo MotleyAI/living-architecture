@@ -1,0 +1,7 @@
+timing: load <S>s
+timing: resolve <S>s
+timing: literal-scan <S>s
+timing: literal-probe <S>s
+timing: baseline <S>s
+timing: write <S>s
+timing: total <S>s

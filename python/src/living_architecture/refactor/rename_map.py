@@ -52,6 +52,7 @@ from living_architecture.refactor.routing import language_files
 from living_architecture.refactor.sites import Keeps, Site, keep_spells
 from living_architecture.refactor.symbol_path import LocatorError, declaration_scope, locate
 from living_architecture.refactor.text_edits import TextEdit, apply_edits, merge_edits
+from living_architecture.refactor.timings import timed
 from living_architecture.refactor.writer import FileChanged, FileMove, FileWrite, apply, verify
 
 _WORD = re.compile(r"\w+")
@@ -177,7 +178,8 @@ class SharedServer:
 
     def get(self) -> LanguageServer:
         if self._server is None:
-            self._server = self._stack.enter_context(LanguageServer(self.root, read=self.read))
+            with timed("load"):
+                self._server = self._stack.enter_context(LanguageServer(self.root, read=self.read))
         return self._server
 
     def close(self) -> None:
@@ -501,8 +503,9 @@ class RenameMap:
 
     def seed(self, renames: list[Renaming], active: list[int], failed: dict[int, list[Refusal]]) -> TypeFacts:
         server = self.server.get()
-        for rel in sorted({rel for i in active for rel in renames[i].candidates}):
-            server.open(self.root / rel, self.session.snapshot.text(rel))
+        with timed("load"):
+            for rel in sorted({rel for i in active for rel in renames[i].candidates}):
+                server.open(self.root / rel, self.session.snapshot.text(rel))
         facts = TypeFacts(server, self.session.load)
         for i in active:
             try:
@@ -552,7 +555,8 @@ class RenameMap:
                 r.finish()
                 r.edits = merge_edits(r.edits)
                 if isinstance(r, AliasRetarget):
-                    r.retarget(keeps.kept)
+                    with timed("rules"):
+                        r.retarget(keeps.kept)
                 dropped[i] = self._keep(r, keeps)
             refused = self._group_refusals(group, renames, failed)
             indexes = sorted(index for i in group for index in resolved[i].indexes)
@@ -673,8 +677,9 @@ class RenameMap:
         conflicts: list[Refusal] = []
         sites: list[Refusal] = []
         if not self.stopped:
-            names = sorted({(c.path, c.line, c.name): c for c in [*self.keyed_conflicts(live),
-                            *self.check_names(renames, resolved, dropped)]}.items())
+            with timed("resolve"):
+                checked = self.check_names(renames, resolved, dropped)
+            names = sorted({(c.path, c.line, c.name): c for c in [*self.keyed_conflicts(live), *checked]}.items())
             edits, merged = self.merged(renames, [r.entry.index for r in resolved])
             conflicts = [*(_name_conflict(c) for _, c in names), *merged]
             sites = self.site_findings(live, keeps)
@@ -707,7 +712,8 @@ class RenameMap:
 
     def run(self, apply_: bool, module_rename: Callable[[_Resolved], int]) -> int:
         self.progress.phase("resolve")
-        resolved, failures, spelled = self.resolve()
+        with timed("resolve"):
+            resolved, failures, spelled = self.resolve()
         self.progress.phase("checks")
         failures += self.checks(resolved, spelled)
         if failures:
@@ -775,7 +781,8 @@ def emit(project: Project, headers: list[str], changes: ChangeSet, apply_: bool,
     root = Path(project.address)
     if baseline_runs(root):
         progress.phase("baseline")
-    aligned = align(root, writes, moves, edits=edits, moved_code=moved_code)
+    with timed("baseline"):
+        aligned = align(root, writes, moves, edits=edits, moved_code=moved_code)
     described = [(c.resource.path, c.get_description()) for c in changes.changes]
     if aligned is not None:
         for warning in aligned.warnings:
@@ -786,11 +793,13 @@ def emit(project: Project, headers: list[str], changes: ChangeSet, apply_: bool,
     ordered = sorted(described)
     if apply_:
         progress.phase("write")
-        verify(root.resolve(), writes)
+        with timed("write"):
+            verify(root.resolve(), writes)
     print("\n".join(headers) + "\n\n\n" + "".join(text + "\n" for _, text in ordered))
     touched = [path for path, _ in ordered]
     if apply_:
-        apply(root.resolve(), writes, moves)
+        with timed("write"):
+            apply(root.resolve(), writes, moves)
         print(message("refactor.applied", count=len(touched)))
         for p in touched:
             print(message("refactor.applied-file", path=p))

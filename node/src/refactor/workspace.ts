@@ -5,6 +5,7 @@ import type * as TS from 'typescript';
 import { DuplicateKeyError, YAMLError, decodeUtf8OrNull, loadYaml, message, toPlain } from '../contract/index.js';
 import { canonical, LangError, loadProjectsFrom, posix, type Project, type Projects, ts } from '../lang/index.js';
 import { RefactorError } from './edits.js';
+import { timed } from './timings.js';
 
 /** `typescript.tsconfig` of the root's architecture/index.yaml, else null; RefactorError when the index is unreadable. */
 function namedConfig(root: string): string | null {
@@ -154,6 +155,26 @@ function host(
   };
 }
 
+/** `service`, its program's first build timed as `load` on whichever call makes it. */
+function firstBuildTimed(service: TS.LanguageService): TS.LanguageService {
+  let built = false;
+  const build = (): void => {
+    if (built) return;
+    built = true;
+    timed('load', () => service.getProgram());
+  };
+  return new Proxy(service, {
+    get(target, key, receiver): unknown {
+      const value: unknown = Reflect.get(target, key, receiver);
+      if (typeof value !== 'function') return value;
+      return (...args: unknown[]): unknown => {
+        build();
+        return Reflect.apply(value, target, args);
+      };
+    },
+  });
+}
+
 export class Workspace {
   private readonly services = new Map<Project, TS.LanguageService>();
   private readonly registry = ts().createDocumentRegistry();
@@ -282,7 +303,7 @@ export class Workspace {
     let service = this.services.get(project);
     if (service === undefined) {
       const parsed = this.parsed(project);
-      service = ts().createLanguageService(host(parsed, parsed.options, [], this.overlay, this.moved, this.readDirectory, this.listing), this.registry);
+      service = firstBuildTimed(ts().createLanguageService(host(parsed, parsed.options, [], this.overlay, this.moved, this.readDirectory, this.listing), this.registry));
       this.services.set(project, service);
     }
     return service;
@@ -296,7 +317,7 @@ export class Workspace {
     for (const [project, group] of groups) {
       const parsed = this.parsed(project);
       const serviceHost = host(parsed, { ...parsed.options, ...overrides }, group, this.overlay, this.moved, this.readDirectory, this.listing);
-      const service = ts().createLanguageService(serviceHost, this.registry);
+      const service = firstBuildTimed(ts().createLanguageService(serviceHost, this.registry));
       for (const file of group) out.set(file, service);
     }
     return out;

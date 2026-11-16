@@ -721,6 +721,7 @@ NEW_TEMPLATES = {
     "refactor.progress-refused": "[{phase} {n}/{count}] {entries}: {old} -> {new}: {refusals} refusal(s)",
     "refactor.progress-entry": "entry {index}",
     "refactor.progress-entries": "entries {indexes}",
+    "refactor.timing": "timing: {phase} {seconds}s",
 }
 REMOVED_TEMPLATES = {"c4-layout.migrate"}
 # Defensive findings no real input reaches; each is pinned by a unit test instead of a golden.

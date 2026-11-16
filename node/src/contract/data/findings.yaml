@@ -380,6 +380,7 @@ findings:
   refactor.progress-refused: '[{phase} {n}/{count}] {entries}: {old} -> {new}: {refusals} refusal(s)'
   refactor.progress-entry: 'entry {index}'
   refactor.progress-entries: 'entries {indexes}'
+  refactor.timing: 'timing: {phase} {seconds}s'
 
   # ---- dr-compliance
   compliance.untyped-def: '{path}:{line}: untyped-def: {name}() missing {missing}'

@@ -26,6 +26,7 @@ export {
   schemaNames,
   scriptPath,
   snapshotDir,
+  timingPhases,
 } from './snapshot.js';
 export { PyFloat, PyTimestamp, canonicalRepr, fixed1, normalize, reprFloat, toPlain } from './values.js';
 export { DuplicateKeyError, YAMLError, loadYaml } from './yaml.js';

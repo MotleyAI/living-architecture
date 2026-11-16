@@ -64,6 +64,7 @@ the refactor touches (`la-config get languages` lists the repo's).
 
 `dr-refactor` subcommands: `rename` / `rename-map` / `retarget` / `move-symbol` /
 `move-module`. Dry-run is default; `--apply` writes, baseline included;
+`--timings` (also before the subcommand) prints each phase's wall time on stderr;
 `--project` defaults to cwd. Locator: `--symbol Q` (the path inside `--file`,
 quoted for the shell: `'f.<locals>.g'`, `'C.m(p)'`, `"Alias['value']"`; no match
 or several exit 2 listing the candidates), `--line [--col]` (1-based)
