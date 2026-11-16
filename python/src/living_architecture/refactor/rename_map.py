@@ -213,7 +213,8 @@ def baseline_probe(project: Path, source: Path) -> list[Refusal]:
     if not baseline_runs(project):
         return []
     try:
-        probe(project, source)
+        with timed("baseline"):
+            probe(project, source)
     except BaselineFailed as exc:
         return [baseline_failed(exc)]
     return []
@@ -230,7 +231,7 @@ def site_checks(sites: list[tuple[str, str, Path]], root: Path) -> tuple[list[Re
     return out, missing
 
 
-def editable_files(root: Path, docs: bool, text: Callable[[str], str]) -> dict[str, bool]:
+def editable_files(root: Path, docs: bool) -> dict[str, bool]:
     """The files a rename can edit: each Python source (True), and with `docs` each prose file (False)."""
     out = {path.relative_to(root).as_posix(): True for path in language_files(root, "python")}
     if docs:
@@ -238,7 +239,6 @@ def editable_files(root: Path, docs: bool, text: Callable[[str], str]) -> dict[s
         for rel in sorted(source_files(root, [])):
             if rel.endswith(extensions):
                 out.setdefault(rel, False)
-    del text
     return out
 
 
@@ -431,7 +431,8 @@ class RenameMap:
         out: list[str] = []
         for r in resolved:
             if r.is_module() and r.renamer is not None and r.renamer.old_pyname is not None:
-                found = r.renamer.old_pyname.get_object().get_resource()
+                pyobject = r.renamer.old_pyname.get_object()
+                found = pyobject.get_resource() if pyobject is not None else None
                 if found is not None:
                     out.append(found.path)
         return out
@@ -445,8 +446,8 @@ class RenameMap:
         found, missing = site_checks(sites, self.root)
         names = self.names(resolved)
         text = self.session.snapshot.text
-        if spelled and options.keep:
-            editable = editable_files(self.root, options.docs, text)
+        if spelled and options.keep and not any(r.literal is not None for r in resolved):
+            editable = editable_files(self.root, options.docs)
             found += keep_checks(list(options.keep), self.root, editable, text, names, self._moved(resolved), missing)
         found += walker_gaps(self.root, text, names)
         if any(not r.is_module() for r in resolved):
@@ -616,9 +617,10 @@ class RenameMap:
             owner.append(index)
         return out, unique(conflicts)
 
-    def check_names(self, renames: list[Renaming], resolved: list[_Resolved], dropped: list[list[TextEdit]]) -> list[NameConflict]:
+    def check_names(self, renames: list[Renaming], resolved: list[_Resolved], dropped: list[list[TextEdit]], *,
+                    together: bool) -> list[NameConflict]:
         """The first site of each name-conflict check that finds one: each `new_name` entry alone against the code
-        before the map, in map order, then every entry together."""
+        before the map, in map order, then, when `together`, every entry together."""
         entries = [
             EntryEdits(index=res.entry.index, new_name=r.new, edits=r.edits, kept=kept,
                        target=res.target_name if res.entry.retarget is not None else None,
@@ -636,7 +638,7 @@ class RenameMap:
         namespace = MemberCheck(Hierarchy(self.project, rels, self.session.snapshot.source), self.session.snapshot.text)
         passes = [[e] for e, res in zip(entries, resolved, strict=True) if res.entry.new_name is not None]
         out: list[NameConflict] = []
-        for group in passes if passes == [entries] else [*passes, entries]:
+        for group in passes if passes == [entries] or not together else [*passes, entries]:
             renamed = [m for e, m in members if any(e is g for g in group)]
             found = first_conflict(
                 bindings.conflicts(group) + namespace.conflicts(renamed, {m.site for m in renamed}),
@@ -666,7 +668,8 @@ class RenameMap:
     def report(self, renames: list[Renaming], resolved: list[_Resolved], failed: dict[int, list[Refusal]],
                dropped: list[list[TextEdit]], keeps: Keeps) -> tuple[list[TextEdit], list[Refusal]]:
         """The merged edits and the final report: entry failures, retarget refusals, blind spots, stand-ins, name
-        conflicts and map conflicts, then the site findings, then the blind-spot count."""
+        conflicts and map conflicts, then the site findings (none on a partial computation), then the blind-spot
+        count."""
         live = [r for i, r in enumerate(renames) if i not in failed]
         own = [f for i in sorted(failed) for f in failed[i]]
         retargets = _texts(_unique(f for r in live if isinstance(r, AliasRetarget) for f in r.refusals))
@@ -677,12 +680,12 @@ class RenameMap:
         conflicts: list[Refusal] = []
         sites: list[Refusal] = []
         if not self.stopped:
-            with timed("resolve"):
-                checked = self.check_names(renames, resolved, dropped)
-            names = sorted({(c.path, c.line, c.name): c for c in [*self.keyed_conflicts(live), *checked]}.items())
             edits, merged = self.merged(renames, [r.entry.index for r in resolved])
+            with timed("resolve"):
+                checked = self.check_names(renames, resolved, dropped, together=not merged)
+            names = sorted({(c.path, c.line, c.name): c for c in [*self.keyed_conflicts(live), *checked]}.items())
             conflicts = [*(_name_conflict(c) for _, c in names), *merged]
-            sites = self.site_findings(live, keeps)
+            sites = [] if failed else self.site_findings(live, keeps)
         attrs = ", .".join(dict.fromkeys(r.old for r in live if r.blindspots))
         closing = [refusal(message("refactor.blindspots", count=len(blind), attr=attrs))] if blind else []
         return edits, unique([*own, *retargets, *_texts(blind), *stand_ins, *conflicts, *sites, *closing])

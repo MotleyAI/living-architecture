@@ -272,7 +272,9 @@ def test_a_classification_line_without_a_stand_in(
     root = project({"pkg/store.py": BACKEND})
     before = file_tree(root)
     assert _rename(root, "pkg/store.py", "get_model", "get_dataset", "--with", "pkg/store.py:13", flag, site) == 2
-    assert readouterr(capsys) == ("", message("refactor.not-stand-in", site=site) + "\n")
+    expected = (message("refactor.site-missing", option=flag, site=site) if site.endswith(":99")
+                else message("refactor.not-stand-in", site=site))
+    assert readouterr(capsys) == ("", expected + "\n")
     assert file_tree(root) == before
 
 

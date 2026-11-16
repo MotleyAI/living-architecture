@@ -311,7 +311,11 @@ class LanguageServer:
         return self._texts[path]
 
     def open(self, path: Path, text: str) -> None:
-        """Hand the server `text` as the content of `path`."""
+        """Hand the server `text` as the content of `path`; a path already open is changed to it."""
+        if path in self._versions:
+            if self._texts.get(path) != text:
+                self.change(path, text)
+            return
         self._texts[path] = text
         self._versions[path] = 1
         self._notify("textDocument/didOpen", {

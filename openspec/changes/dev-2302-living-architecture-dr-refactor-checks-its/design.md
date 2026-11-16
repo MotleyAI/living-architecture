@@ -93,7 +93,8 @@ work stays in the `refactor` spec owned by `python.refactor`.
 19. The keep text check is an over-approximation that never refuses a keep the exact check accepts: escapes decoded,
     NFKC for Python, string-literal values starting on the line (escaped spellings, implicit concatenation), only
     files the run can edit (prose files only with `--docs`), a moved file counting; skipped when an unresolved entry
-    spells no name. **(default)**
+    spells no name, or when an entry renames a `Literal` member (its `literal-unresolved` blind spot can sit on a line
+    that never spells the value). **(default)**
 20. New `refactor.site-missing: '{option} {site} names no file, directory or line in the project'` (exit 2);
     `keep-unmatched` and `not-stand-in` keep their texts. **(default)**
 21. A combined report's exit code is the highest of its findings' (2: map, locator, site, duplicate; 1: the rest),

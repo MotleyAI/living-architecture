@@ -67,7 +67,7 @@ The `checks` phase SHALL then run, before any reference search:
   a prose file), whose text holds an entry's old name or a retarget entry's target name, either as written (with
   identifier escapes decoded, and NFKC-normalized for Python) or in the value of a string literal starting on that
   line; or cover a file the refactor moves; else `refactor.keep-unmatched`. When an entry that did not resolve spells
-  no name in its locator, this check SHALL be skipped;
+  no name in its locator, or an entry renames a `Literal` member, this check SHALL be skipped;
 - Python: every candidate file (a Python source whose text holds an entry's old name, or the moved name or module's
   name) SHALL be walked as `dr-compliance --select rope-walk` walks it, and each gap reported as `refactor.rope-walk`;
 - Python: the language server SHALL start for `rename`, `retarget` and `rename-map`, and when the baseline phase will
