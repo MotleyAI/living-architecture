@@ -1,0 +1,28 @@
+Renaming <old> to <next>:
+
+
+--- a/src/m.ts
++++ b/src/m.ts
+@@ -1,15 +1,15 @@
+ export class Base {
+-  old(): number {
++  next(): number {
+     return 1;
+   }
+ }
+ 
+ export class Sub extends Base {
+-  old(): number {
++  next(): number {
+     return 2;
+   }
+ }
+ 
+ export function f(b: Base): number {
+-  return b.old();
++  return b.next();
+ }
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

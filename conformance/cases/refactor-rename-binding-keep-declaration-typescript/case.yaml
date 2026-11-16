@@ -1,0 +1,20 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- rename
+- --file
+- src/m.ts
+- --symbol
+- old
+- --new-name
+- fresh
+- --keep
+- src/m.ts:1
+git:
+- commit: init
+expect:
+  exit: 1
+golden: manual
+note: '--keep leaves the declaration while its reference is rewritten: name-conflict naming the rewritten reference'

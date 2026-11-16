@@ -54,6 +54,7 @@ class ImportNeed(BaseModel):
     home: TargetHome
     local: str
     bind: bool
+    entry: int = 0
     leaving: ast.alias | None = None
     duplicates: tuple[ast.alias, ...] = ()
 
@@ -158,15 +159,19 @@ class AliasRetarget(SymbolRename):
     """References to an alias rewritten to name its target; the alias stays."""
 
     def __init__(self, session: Session, renamer: Rename, target: str, options: RenameOptions, *, line: int,
-                 home: TargetHome | None = None, own: Location | None = None, original: str | None = None) -> None:
+                 home: TargetHome | None = None, own: Location | None = None, original: str | None = None,
+                 entry: int = 0) -> None:
         super().__init__(session, renamer, target, options)
         self.check_names = False
         self.line = line
         self.home = home
         self.own = own
         self.original = original or target
+        self.entry = entry
         self.refusals: list[Finding] = []
         self.needs: list[ImportNeed] = []
+        self.held: list[TextEdit] = []
+        self.imports: list[TextEdit] = []
         self._parents: dict[str, Parents] = {}
         self._exports: dict[str, bool] = {}
         self._definitions: dict[tuple[str, str], Location | None] = {}
@@ -189,6 +194,7 @@ class AliasRetarget(SymbolRename):
         edits = [e for e in self.edits if (e.path, e.start) not in own and not any(s <= e.start < t for s, t in spans[e.path])]
         self._overrides()
         live = [e for e in edits if not kept(e.path, self.snapshot.source(e.path).line(e.start))]
+        self.held = [e for e in edits if e not in live]
         if self.home is None:
             self.edits = live
             return
@@ -239,7 +245,7 @@ class AliasRetarget(SymbolRename):
         assert self.home is not None
         bound, later = self._bindings(rel, anchor, asname or self.original, self.parents(rel))
         self.needs.append(ImportNeed(path=rel, anchor=anchor, home=self.home, local=asname or self.new, bind=not bound,
-                                     leaving=leaving, duplicates=tuple(later)))
+                                     entry=self.entry, leaving=leaving, duplicates=tuple(later)))
 
     def _use(self, edit: TextEdit, use: ast.Name, moving: set[int]) -> None:
         """A bare use: the target imported where its binding import stays or is a star import not binding the

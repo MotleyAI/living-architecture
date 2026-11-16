@@ -1,0 +1,22 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- rename
+- --file
+- pkg/m.py
+- --line
+- '5'
+- --col
+- '5'
+- --new-name
+- fresh
+- --keep
+- pkg/m.py:6
+git:
+- commit: init
+expect:
+  exit: 1
+golden: manual
+note: '--keep leaves a reference to a renamed local that an outer old would then capture: name-conflict naming the outer old'

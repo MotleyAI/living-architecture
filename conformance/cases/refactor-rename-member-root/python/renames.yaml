@@ -1,0 +1,1 @@
+- {file: pkg/m.py, symbol: C.old, new_name: __repr__}

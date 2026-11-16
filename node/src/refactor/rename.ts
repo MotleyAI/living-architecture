@@ -6,13 +6,14 @@ import type * as TS from 'typescript';
 import { sourceFiles } from '../config/index.js';
 import { byCodePoint, literalValueForbidden, manifest, message } from '../contract/index.js';
 import { stripSourceExtension, ts } from '../lang/index.js';
+import { type CheckEntry, identifierText, NameChecks } from './bindings.js';
 import { isCompound } from './compound.js';
 import { type Edit, mergeEdits, RefactorError, splitBom } from './edits.js';
 import { Lines } from './lines.js';
 import { anyAccesses, type FormCall, formCalls, isAny, type MemberDeclaration, memberDeclarations, memberNameStart, walk } from './members.js';
 import { codeMarked, type Mention, mentions, type Owner, qualified, type Region, sourceRegions } from './mentions.js';
 import { blindspotOutcome, compoundOutcome, formCallOutcome, literalOutcomes, mentionOutcome, type Outcome } from './outcomes.js';
-import { declarationKeys, type Finding, type Home, keyOf, type Need, planImports, rename, resolveTarget, retargetSites, scopeOf, symbolOf } from './retarget.js';
+import { declarationKeys, type Finding, type Home, keyOf, type Need, planImports, rename, resolveTarget, retargetSites, symbolOf } from './retarget.js';
 import { type Locator, locate, nodeAt, type ProjectSource, projectSources, type Refactor, UsageError } from './session.js';
 import { Site, SiteError } from './sites.js';
 
@@ -56,6 +57,7 @@ const byPosition = (a: Finding, b: Finding): number => byCodePoint(a.path, b.pat
 const isString = (node: TS.Node): node is TS.StringLiteral | TS.NoSubstitutionTemplateLiteral =>
   ts().isStringLiteral(node) || ts().isNoSubstitutionTemplateLiteral(node);
 
+/** Every service's rename locations of the symbol at `position` of `file`. */
 /** The language services' rename edits. `stable` keeps a re-exported name as it is (`x as y`); a retarget passes false
  * so it reaches the importers of a re-export, a shorthand property still keeping its key (`old: new`). */
 function renameLocations(services: TS.LanguageService[], file: string, position: number, newName: string, stable = true): Edit[] {
@@ -440,29 +442,6 @@ function resolve(r: Refactor, spec: EntrySpec): Target {
   return { index: spec.index, retarget: spec.retarget !== undefined, file, position, old, newName: spec.newName ?? '', key, literal, intent: key, edits: [], own: new Set(), home: null, identity: new Set(), original: '' };
 }
 
-/** RefactorError when a renamed local, parameter or top-level name meets its new name, at a site the rename
- * rewrites, declared in the scope that declares the renamed symbol. */
-function checkNameConflict(r: Refactor, session: Session, target: Target): void {
-  if (target.literal || target.retarget) return;
-  const program = r.services(target.file)[0]?.getProgram();
-  const source = program?.getSourceFile(target.file);
-  if (program === undefined || source === undefined) return;
-  const all = ts().SymbolFlags.Value | ts().SymbolFlags.Type | ts().SymbolFlags.Namespace; // NOSONAR(S1529) — SymbolFlags bitmask
-  const declarations = symbolOf(program.getTypeChecker(), nodeAt(source, target.position))?.declarations ?? [];
-  const scopes = new Set(declarations.filter((d) => !d.getSourceFile().isDeclarationFile).map(scopeOf));
-  for (const scope of scopes) if (ts().isClassLike(scope) || ts().isInterfaceDeclaration(scope) || ts().isTypeLiteralNode(scope) || ts().isEnumDeclaration(scope)) return;
-  for (const edit of target.edits) {
-    const found = session.sources.get(edit.path);
-    if (found === undefined) continue;
-    const taken = found.checker.resolveName(target.newName, nodeAt(found.source, edit.start), all, false);
-    const clash = (taken?.declarations ?? []).find((other) => !other.getSourceFile().isDeclarationFile && scopes.has(scopeOf(other)));
-    if (clash === undefined) continue;
-    const path = clash.getSourceFile().fileName;
-    const line = session.lineOf(path, (ts().getNameOfDeclaration(clash) ?? clash).getStart(clash.getSourceFile()));
-    throw new RefactorError(message('refactor.name-conflict', { name: target.newName, path: r.rel(path), line }));
-  }
-}
-
 /** The first site two entries rewrite differently, as a RefactorError; identical edits are one. */
 function checkConflicts(session: Session, edits: Tagged[]): void {
   const sorted = edits.toSorted((a, b) => byCodePoint(a.path, b.path) || a.start - b.start);
@@ -541,68 +520,6 @@ function resolveAll(r: Refactor, specs: EntrySpec[], map: string): Target[] {
   return targets;
 }
 
-/** A rename target's own declarations; none for a literal member or a retarget. */
-function targetDeclarations(r: Refactor, target: Target): TS.Declaration[] {
-  const program = r.services(target.file)[0]?.getProgram();
-  const source = program?.getSourceFile(target.file);
-  if (target.literal || target.retarget || program === undefined || source === undefined) return [];
-  const declarations = symbolOf(program.getTypeChecker(), nodeAt(source, target.position))?.declarations ?? [];
-  return declarations.filter((d) => !d.getSourceFile().isDeclarationFile);
-}
-
-/** A declaration that binds in its block: `let` or `const` (destructured ones included), a class, a function, an
- * enum, a type alias or an interface. */
-function blockScoped(d: TS.Declaration): boolean {
-  if (ts().isVariableDeclaration(d)) return (ts().getCombinedNodeFlags(d) & ts().NodeFlags.BlockScoped) !== 0; // NOSONAR(S1529) — NodeFlags bitmask test
-  if (ts().isBindingElement(d)) return blockScoped(ts().walkUpBindingElementsAndPatterns(d));
-  return (
-    ts().isClassDeclaration(d) ||
-    ts().isFunctionDeclaration(d) ||
-    ts().isEnumDeclaration(d) ||
-    ts().isTypeAliasDeclaration(d) ||
-    ts().isInterfaceDeclaration(d)
-  );
-}
-
-/** The block `node` binds in: the nearest block, loop or file around it, a function's body counting as the function. */
-function blockOf(node: TS.Node): TS.Node {
-  let scope = node.parent;
-  while (!(ts().isSourceFile(scope) || ts().isModuleBlock(scope) || ts().isBlock(scope) || ts().isCaseBlock(scope) || ts().isIterationStatement(scope, false))) {
-    scope = scope.parent;
-  }
-  return ts().isBlock(scope) && ts().isFunctionLike(scope.parent) ? scope.parent : scope;
-}
-
-/** The binding scope of a declaration, as a key: a class member's class and side (static or instance), a block-scoped
- * declaration's block, else its function, class or file. */
-function bindingScope(d: TS.Declaration): string {
-  const at = (node: TS.Node): string => `${node.getSourceFile().fileName}\0${node.pos}\0${node.end}`;
-  if (ts().isParameter(d) && ts().isParameterPropertyDeclaration(d, d.parent)) return `${at(d.parent.parent)}\0instance`;
-  if (ts().isClassLike(d.parent)) {
-    const isStatic = ts().canHaveModifiers(d) && (ts().getModifiers(d) ?? []).some((m) => m.kind === ts().SyntaxKind.StaticKeyword);
-    return `${at(d.parent)}\0${isStatic ? 'static' : 'instance'}`;
-  }
-  const declaration = ts().isBindingElement(d) ? ts().walkUpBindingElementsAndPatterns(d) : d;
-  if (ts().isCatchClause(declaration.parent)) return at(declaration.parent);
-  return at(blockScoped(d) ? blockOf(declaration) : scopeOf(d));
-}
-
-/** RefactorError where two targets give declarations of one binding scope the same new name, naming the earlier
- * one's first declaration. */
-function checkConvergence(r: Refactor, session: Session, targets: Target[]): void {
-  const scoped = targets.map((t) => {
-    const declarations = targetDeclarations(r, t);
-    return { target: t, first: declarations[0], scopes: new Set(declarations.map(bindingScope)) };
-  });
-  for (const [i, { target, first, scopes }] of scoped.entries()) {
-    const converges = scoped.slice(i + 1).some((o) => o.target.newName === target.newName && [...o.scopes].some((s) => scopes.has(s)));
-    if (!converges || first === undefined) continue;
-    const path = first.getSourceFile().fileName;
-    const line = session.lineOf(path, (ts().getNameOfDeclaration(first) ?? first).getStart(first.getSourceFile()));
-    throw new RefactorError(message('refactor.name-conflict', { name: target.newName, path: r.rel(path), line }));
-  }
-}
-
 const print = (lines: string[]): void => {
   process.stderr.write(lines.map((line) => `${line}\n`).join(''));
 };
@@ -618,11 +535,9 @@ function targetEdits(r: Refactor, session: Session, targets: Target[], keeps: Ke
   const needs: Need[] = [];
   for (const target of targets) {
     target.edits = renameLocations(r.services(target.file), target.file, target.position, target.newName, !target.retarget);
-    checkNameConflict(r, session, target);
     if (target.retarget) refusals.push(...retargetSites(session, target, (path, position) => keeps.keeps(path, position), needs));
   }
-  const first = targets.find((t) => t.retarget)?.index ?? 0;
-  return { refusals: refusals.toSorted(byPosition), imports: planImports(session, needs).map((e) => ({ ...e, entry: first })) };
+  return { refusals: refusals.toSorted(byPosition), imports: planImports(session, needs) };
 }
 
 /** `SiteError` for the first `--with` or `--without` site no member group's stand-ins hold. */
@@ -655,12 +570,29 @@ function refusal(groups: NameGroup[], blindspots: Finding[], allowed: boolean): 
   return [...blindspots.map((f) => f.text), ...standIns.map((f) => f.text), ...closing];
 }
 
+/** RefactorError naming the first name conflict: each rename entry's edits alone, in map order, then all entries'. */
+function checkNames(session: Session, targets: Target[], pending: Tagged[], edits: Tagged[]): void {
+  const done = new Set(edits.map((e) => keyOf(e.path, e.start)));
+  const kept = new Set(pending.map((e) => keyOf(e.path, e.start)).filter((k) => !done.has(k)));
+  const entries: CheckEntry[] = targets.map((t) => ({ index: t.index, old: t.old, newName: t.newName, expected: t.retarget ? t.identity : null }));
+  const names = targets.flatMap((t) => [t.old, t.newName, ...(t.retarget ? [t.original] : [])]).map(identifierText);
+  const checks = new NameChecks(session.sources, names, (path) => session.r.rel(path));
+  const passes = entries.filter((e) => e.expected === null && e.newName !== e.old).map((e) => [e]);
+  if (entries.length > 1) passes.push(entries);
+  for (const pass of passes) {
+    const found = checks.check(pass, edits, kept);
+    if (found !== null) {
+      const line = session.lineOf(found.path, found.position);
+      throw new RefactorError(message('refactor.name-conflict', { name: found.name, path: session.r.rel(found.path), line }));
+    }
+  }
+}
+
 /** Run `specs` (a rename, a retarget, or a map's entries; `map` in messages) as one refactor: 0, or 1 with the refusal. */
 export function runEntries(r: Refactor, specs: EntrySpec[], map: string): number {
   checkSupported(r);
   const targets = resolveAll(r, specs, map);
   const session = new Session(r, targets.map((t) => t.file));
-  checkConvergence(r, session, targets);
   const keeps = new Keeps(session, r.args.keep ?? []);
   const { refusals, imports } = targetEdits(r, session, targets, keeps);
   if (refusals.length > 0) {
@@ -671,7 +603,9 @@ export function runEntries(r: Refactor, specs: EntrySpec[], map: string): number
   const groups = [...new Set(targets.map((t) => t.old))].map((old) => new NameGroup(session, old, targets.filter((t) => t.old === old)));
   classifySites(r, groups);
   runRules(groups, r.args.docs === true, new Set(targets.map((t) => t.old)));
+  const pending = groups.flatMap((g) => g.edits);
   const edits = [...keep(session, groups, keeps), ...imports];
+  checkNames(session, targets, pending, edits);
   const blindspots = groups.flatMap((g) => g.blindspots).sort(byPosition);
   const leftovers = groups.flatMap((g) => g.leftovers).sort(byPosition);
   const refused = refusal(groups, blindspots, r.args.allow_blindspots === true);

@@ -1,0 +1,28 @@
+Renaming <old> to <next>:
+
+
+--- a/pkg/m.py
++++ b/pkg/m.py
+@@ -1,10 +1,10 @@
+ class A:
+-    def old(self) -> int:
++    def next(self) -> int:
+         return 1
+ 
+ 
+ class B:
+-    def old(self) -> int:
++    def next(self) -> int:
+         return 2
+ 
+ 
+@@ -13,4 +13,4 @@
+ 
+ 
+ def f(d: D) -> int:
+-    return d.old()
++    return d.next()
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

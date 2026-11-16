@@ -1,0 +1,2 @@
+- {file: pkg/m.py, symbol: old_alias, retarget: target}
+- {file: pkg/m.py, symbol: target, new_name: renamed}

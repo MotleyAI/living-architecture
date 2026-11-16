@@ -1,0 +1,26 @@
+Renaming <old> to <next>:
+
+
+--- a/pkg/m.py
++++ b/pkg/m.py
+@@ -2,13 +2,13 @@
+ 
+ 
+ class I(Protocol):
+-    def old(self) -> int: ...
++    def next(self) -> int: ...
+ 
+ 
+ class C(I):
+-    def old(self) -> int:
++    def next(self) -> int:
+         return 1
+ 
+ 
+ def f(i: I) -> int:
+-    return i.old()
++    return i.next()
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

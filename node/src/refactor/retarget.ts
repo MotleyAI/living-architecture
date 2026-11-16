@@ -43,6 +43,7 @@ export interface Retarget {
 /** `local` bound to the target by an import in `anchor`'s block (when `bind`); `leaving`, an import of the alias in
  * `anchor`, dropped from it; `duplicates`, later imports of the target the added one makes redundant. */
 export interface Need {
+  entry: number;
   path: string;
   anchor: TS.ImportDeclaration;
   home: Home;
@@ -359,7 +360,7 @@ class Sites {
   private need(found: ProjectSource, anchor: TS.ImportDeclaration, local: string, type: boolean, leaving: TS.ImportSpecifier | null): void {
     const local0 = local === this.target.newName ? this.target.original : local;
     const [bound, duplicates] = this.bindings(found, anchor, local0, type);
-    this.needs.push({ path: found.source.fileName, anchor, home: this.target.home, local, type, bind: !bound, leaving, duplicates });
+    this.needs.push({ entry: this.target.index, path: found.source.fileName, anchor, home: this.target.home, local, type, bind: !bound, leaving, duplicates });
   }
 
   /** Whether the anchor's block binds `local` to the target (in the meaning needed) at or before `anchor`; the later
@@ -462,9 +463,15 @@ export function retargetSites(session: RetargetSession, target: Retarget, kept: 
 
 const named = (exported: string, local: string): string => (exported === local ? exported : `${exported} as ${local}`);
 
+/** An edit with the entry it comes from. */
+export interface EntryEdit extends Edit {
+  entry: number;
+}
+
 /** One file's needs, planned block by block. */
 class FilePlan {
-  readonly edits: Edit[] = [];
+  readonly edits: EntryEdit[] = [];
+  private entry = 0;
   private readonly leaving = new Map<TS.ImportSpecifier, Need>();
   private readonly inPlace = new Set<TS.ImportDeclaration>();
 
@@ -479,7 +486,7 @@ class FilePlan {
     return this.found.source;
   }
 
-  plan(): Edit[] {
+  plan(): EntryEdit[] {
     const ordered = this.needs.toSorted((a, b) => a.anchor.getStart(this.source) - b.anchor.getStart(this.source) || (a.leaving?.getStart(this.source) ?? 0) - (b.leaving?.getStart(this.source) ?? 0));
     const blocks = new Map<TS.Node, Map<string, Need[]>>();
     for (const need of ordered) {
@@ -488,23 +495,26 @@ class FilePlan {
       homes.set(key, [...(homes.get(key) ?? []), need]);
       blocks.set(need.anchor.parent, homes);
     }
-    const duplicates = new Set<TS.ImportSpecifier>();
+    const duplicates = new Map<TS.ImportSpecifier, number>();
     for (const homes of blocks.values()) {
       for (const group of homes.values()) {
         const binding = group.filter((n) => n.bind);
         if (binding.length === 0) continue;
         this.place(binding);
-        for (const n of binding) for (const d of n.duplicates) duplicates.add(d);
+        for (const n of binding) for (const d of n.duplicates) duplicates.set(d, n.entry);
       }
     }
-    const removals = new Map<TS.ImportDeclaration, Set<TS.ImportSpecifier>>();
-    const remove = (specifier: TS.ImportSpecifier): void => {
+    const removals = new Map<TS.ImportDeclaration, Map<TS.ImportSpecifier, number>>();
+    const remove = (specifier: TS.ImportSpecifier, entry: number): void => {
       const declaration = declarationOf(specifier);
-      removals.set(declaration, (removals.get(declaration) ?? new Set()).add(specifier));
+      removals.set(declaration, (removals.get(declaration) ?? new Map()).set(specifier, entry));
     };
-    for (const need of this.needs) if (need.leaving !== null && !this.inPlace.has(need.anchor)) remove(need.leaving);
-    for (const d of duplicates) remove(d);
-    for (const [declaration, removed] of removals) this.edits.push(...removeSpecifiers(this.source, declaration, removed));
+    for (const need of this.needs) if (need.leaving !== null && !this.inPlace.has(need.anchor)) remove(need.leaving, need.entry);
+    for (const [d, entry] of duplicates) remove(d, entry);
+    for (const [declaration, removed] of removals) {
+      const entry = Math.min(...removed.values());
+      this.edits.push(...removeSpecifiers(this.source, declaration, new Set(removed.keys())).map((e) => ({ ...e, entry })));
+    }
     return this.edits;
   }
 
@@ -519,7 +529,12 @@ class FilePlan {
     return [...out.values()];
   }
 
+  private push(edit: Edit, entry = this.entry): void {
+    this.edits.push({ ...edit, entry });
+  }
+
   private place(group: Need[]): void {
+    this.entry = (group[0] as Need).entry;
     const first = (group[0] as Need).anchor;
     const names = this.names(group);
     const joined = this.joinTarget(group[0] as Need, names.every((n) => n.type));
@@ -569,7 +584,7 @@ class FilePlan {
     const added = names.filter((n) => !present.has(`${n.exported}\0${n.local}`)).map((n) => `${n.type && !typeOnly ? 'type ' : ''}${named(n.exported, n.local)}`);
     if (added.length === 0) return;
     const end = (elements[elements.length - 1] as TS.ImportSpecifier).end;
-    this.edits.push({ path: this.source.fileName, start: end, length: 0, newText: added.map((a) => `, ${a}`).join('') });
+    this.push({ path: this.source.fileName, start: end, length: 0, newText: added.map((a) => `, ${a}`).join('') });
   }
 
   private spell(declaration: TS.ImportDeclaration, home: Home): string {
@@ -589,19 +604,19 @@ class FilePlan {
     const elements = this.elements(declaration);
     const home = (this.leaving.get(elements[0] as TS.ImportSpecifier) as Need).home;
     const specifier = declaration.moduleSpecifier;
-    this.edits.push({ path, start: specifier.getStart(this.source) + 1, length: specifier.getWidth(this.source) - 2, newText: this.spell(declaration, home) });
+    this.push({ path, start: specifier.getStart(this.source) + 1, length: specifier.getWidth(this.source) - 2, newText: this.spell(declaration, home) });
     const clause = declaration.importClause as TS.ImportClause;
-    if (names.every((n) => n.type) && !clause.isTypeOnly) this.edits.push({ path, start: clause.getStart(this.source), length: 0, newText: 'type ' });
+    if (names.every((n) => n.type) && !clause.isTypeOnly) this.push({ path, start: clause.getStart(this.source), length: 0, newText: 'type ' });
     const written = new Set<string>();
     for (const e of elements) {
       const need = this.leaving.get(e) as Need;
       const property = e.propertyName ?? e.name;
       const text = e.propertyName !== undefined ? need.home.exported : named(need.home.exported, need.local);
-      this.edits.push({ path, start: property.getStart(this.source), length: property.getWidth(this.source), newText: text });
+      this.push({ path, start: property.getStart(this.source), length: property.getWidth(this.source), newText: text }, need.entry);
       written.add(`${need.home.exported}\0${need.local}`);
     }
     const rest = names.filter((n) => !written.has(`${n.exported}\0${n.local}`)).map((n) => named(n.exported, n.local));
-    if (rest.length > 0) this.edits.push({ path, start: (elements[elements.length - 1] as TS.ImportSpecifier).end, length: 0, newText: rest.map((r) => `, ${r}`).join('') });
+    if (rest.length > 0) this.push({ path, start: (elements[elements.length - 1] as TS.ImportSpecifier).end, length: 0, newText: rest.map((r) => `, ${r}`).join('') });
   }
 
   private insertAfter(anchor: TS.ImportDeclaration, need: Need, names: { exported: string; local: string; type: boolean }[]): void {
@@ -617,13 +632,14 @@ class FilePlan {
     const semicolon = anchor.getText(source).trimEnd().endsWith(';') ? ';' : '';
     const statement = `${indent}import ${allType ? 'type ' : ''}{ ${list} } from ${quote}${this.spell(anchor, need.home)}${quote}${semicolon}`;
     const newline = text.indexOf('\n', anchor.end);
-    if (newline === -1) this.edits.push({ path: source.fileName, start: text.length, length: 0, newText: `\n${statement}` });
-    else this.edits.push({ path: source.fileName, start: newline + 1, length: 0, newText: `${statement}${text[newline - 1] === '\r' ? '\r\n' : '\n'}` });
+    const crlf = newline > 0 && text[newline - 1] === '\r';
+    const at = newline === -1 ? text.length : newline - (crlf ? 1 : 0);
+    this.push({ path: source.fileName, start: at, length: 0, newText: `${crlf ? '\r\n' : '\n'}${statement}` });
   }
 }
 
 /** The edits binding every need's target and dropping the alias from the imports it leaves. */
-export function planImports(session: RetargetSession, needs: Need[]): Edit[] {
+export function planImports(session: RetargetSession, needs: Need[]): EntryEdit[] {
   const byFile = new Map<string, Need[]>();
   for (const need of needs) byFile.set(need.path, [...(byFile.get(need.path) ?? []), need]);
   return [...byFile].flatMap(([path, fileNeeds]) => {
