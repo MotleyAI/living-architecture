@@ -473,7 +473,7 @@ one-entry map `{module: F, new_name: N}`, in either language.
   from`/`rename to` pair and the diff of `pkg/use.py`; `pkg/relationship_edges.py` declares `RelationshipEdge`,
   `pkg/use.py` holds `from pkg.relationship_edges import RelationshipEdge` and `def read`, and the exit code is 0
 
-#### Scenario: TypeScript module entry beside symbol entries
+#### Scenario: TypeScript module entry
 - **WHEN** a map renames `{module: src/join_edges.ts}` to `relationship_edges`, its class `JoinEdge` to
   `RelationshipEdge`, and function `src/use.ts`'s `load` to `read`, where `src/use.ts` holds
   `import { JoinEdge } from './join_edges.js'`, and runs with `--apply`
