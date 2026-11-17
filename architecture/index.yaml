@@ -11,5 +11,7 @@ cross_cutting_specs:
   shared-contract:
     touches: [python.contract, python.config, python.cli, python.c4, python.archcheck, python.lang, python.conventions,
       python.review, python.doctor, python.refactor]
+  doctor:
+    touches: [python.doctor]
 diagrams:
   architecture/system.arc42.md: [system, npm]
