@@ -117,7 +117,7 @@
       `rg -n -i "rope" plugin docs` reviewed, every remaining mention true of moves or the walker contract.
       Approved (user): decision 18's texts as written, plus `plugin/languages/python.md`'s `rope-walk` line: "so
       `dr-refactor` refuses a move whose files include it".
-- [ ] 6.2 SLayer DEV-1607 map, dry run on a `git archive` copy (`.venv` symlinked, never written), old and new path
+- [x] 6.2 SLayer DEV-1607 map, dry run on a `git archive` copy (`.venv` symlinked, never written), old and new path
       compared per design decision 16. Verify: identical output recorded in a Linear comment on DEV-2310.
 - [x] 6.3 Local test scope per `/la:pr`, `uv run ruff check src tests`, `uv run basedpyright src tests`,
       `scripts/sync-shared --check`, `la-arch-check`, `npx -y @anthropic-ai/claude-code plugin validate plugin`, and
