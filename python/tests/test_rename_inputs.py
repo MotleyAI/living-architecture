@@ -51,6 +51,15 @@ def test_a_rename_to_the_same_name_refuses_a_line_keep_it_leaves_unmatched(
     assert run(root, argv, monkeypatch, capsys) == (2, "", unmatched + "\n")
 
 
+@pytest.mark.parametrize("same", ["a", "\uff41"], ids=["as-written", "full-width"])
+def test_a_module_renamed_to_its_own_name_is_a_no_op(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], same: str
+) -> None:
+    root = write_project(tmp_path / "proj", {**FILES, "pkg/old.py": "# coding: nosuch\nfrom pkg import a\n"})
+    code, _out, err = run(root, ["rename", "--file", "pkg/a.py", "--new-name", same], monkeypatch, capsys)
+    assert (code, err) == (0, "")
+
+
 @pytest.mark.parametrize("baseline", [False, True], ids=["no-baseline", "baseline"])
 def test_a_stub_with_an_unreadable_config_is_refused_once(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], baseline: bool

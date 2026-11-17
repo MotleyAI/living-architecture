@@ -187,7 +187,7 @@ class ModuleRename:
     def taken(self) -> NameConflict | None:
         """The finding when the module's package already binds the new name: a module, a package (its `__init__.py`,
         else its first Python file) or a binding of its `__init__.py`."""
-        if self.module is None or self.old == self.new:
+        if self.module is None or self.old == nfkc(self.new):
             return None
         rels = self.session.all_python_files()
         parent = Path(self.module).parent.as_posix()
@@ -232,7 +232,8 @@ def run_module_rename(session: Session, locator: EntryLocator, entry: Entry, new
     every: list[TextEdit] = []
     written: list[TextEdit] = []
     move: FileMove | None = None
-    computed = found is None and rename.old != new_name
+    same = rename.old == nfkc(new_name)
+    computed = found is None and not same
     if computed:
         with timed("references"):
             every = rename.edits()
@@ -240,7 +241,8 @@ def run_module_rename(session: Session, locator: EntryLocator, entry: Entry, new
         move = rename.move()
         if move is not None and keeps.kept(move.rel, None):
             move = None
-    listed = undecodable(session.snapshot, session.all_python_files(), [rename.old], keeps)
+    olds = [] if same else [rename.old]
+    listed = undecodable(session.snapshot, session.all_python_files(), olds, keeps)
     if found is None:
         source = session.snapshot.source
         warnings, unmatched = resolve_keeps(keeps, ((e.path, source(e.path).line(e.start)) for e in written))
