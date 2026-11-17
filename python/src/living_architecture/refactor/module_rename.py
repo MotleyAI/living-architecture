@@ -249,9 +249,9 @@ def run_module_rename(session: Session, locator: EntryLocator, entry: Entry, new
         progress.phase("conflicts")
         with timed("conflicts"):
             check = BindingCheck(session.python_files(), session.source_folders(), session.snapshot.source)
-            found = first_conflict(check.conflicts(
-                [EntryEdits(index=1, new_name=new_name, edits=written, kept=[e for e in every if e not in written])],
-                rename.moved(move)), session.snapshot.source)
+            found = first_conflict(next(check.conflicts(
+                [[EntryEdits(index=1, new_name=new_name, edits=written, kept=[e for e in every if e not in written])]],
+                rename.moved(move))), session.snapshot.source)
     if found is not None:
         raise Refused([refusal(message("refactor.name-conflict", name=found.name, path=found.path, line=found.line))])
     for finding in listed:

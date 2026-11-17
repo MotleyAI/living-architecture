@@ -105,12 +105,13 @@ class Occurrence:
 
 class _Parsed:
     """A module's scopes, the offsets binding each name in the scope it binds in, its star imports and the
-    identifiers of each name."""
+    identifiers of each name; it keeps no syntax tree."""
 
     def __init__(self, source: SourceFile, tree: ast.Module, parts: list[str], is_package: bool) -> None:
         module = Module(tree, parts, is_package)
         binder = module.binder
-        self.module = module
+        self.scope = module.scope
+        self.all_names = module.all_names
         self.sites: defaultdict[tuple[Scope, str], list[int]] = defaultdict(list)
         # Each binding that runs: its name's offset, the offset it runs at and the span its statement evaluates first.
         self.points: defaultdict[tuple[Scope, str], list[tuple[int | None, int, Span | None]]] = defaultdict(list)
@@ -227,7 +228,7 @@ def module_binding(text: str, name: str) -> int | None:
     if source.tree is None:
         return None
     parsed = _Parsed(source, source.tree, [], False)
-    sites = parsed.sites.get((parsed.module.scope, nfkc(name)))
+    sites = parsed.sites.get((parsed.scope, nfkc(name)))
     return min(sites) if sites else None
 
 
@@ -278,7 +279,7 @@ class World:
         if parsed is None:
             return {}
         out: Meaning = {}
-        for offset in parsed.sites.get((parsed.module.scope, name), []):
+        for offset in parsed.sites.get((parsed.scope, name), []):
             site = self.origin(rel, offset)
             out[site] = site
         for dotted, offset in parsed.stars:
@@ -293,7 +294,7 @@ class World:
         parsed = self.parsed(rel)
         if parsed is None:
             return False
-        listed = parsed.module.all_names
+        listed = parsed.all_names
         return name in listed if listed is not None else not name.startswith("_")
 
     def meaning(self, rel: str, scope: Scope, name: str, at: int | None = None) -> Meaning:
@@ -448,35 +449,66 @@ class BindingCheck:
                 out.add(nfkc(entry.target))
         return frozenset(out)
 
-    def conflicts(self, entries: list[EntryEdits], moves: dict[str, str] | None = None) -> list[Conflict]:
-        """The sites whose meaning the edits change; `moves` maps a moved file to its path after the rename."""
-        moves = moves or {}
+    def _plan(self, entries: list[EntryEdits], moves: dict[str, str]) -> _Plan | None:
+        """What a pass of `entries` judges; None when they check no name."""
         names = self._names(entries)
         if not names:
-            return []
-        pattern = re.compile(rf"(?<!\w)(?:{'|'.join(map(re.escape, sorted(names)))})(?!\w)")
+            return None
         by_file: defaultdict[str, list[TextEdit]] = defaultdict(list)
         for e in merge_edits([e for entry in entries for e in entry.edits]):
             by_file[e.path].append(e)
         binding = {rel: tuple(edits) if moves else tuple(e for e in edits if (e.start, e.end) not in self._inert_spans(rel))
                    for rel, edits in by_file.items()}
-        binding = {rel: edits for rel, edits in binding.items() if edits}
-        back = {dest: src for src, dest in moves.items()}
+        return _Plan(entries, names, dict(by_file), {rel: edits for rel, edits in binding.items() if edits}, moves)
 
+    def conflicts(self, passes: list[list[EntryEdits]], moves: dict[str, str] | None = None) -> Iterator[list[Conflict]]:
+        """Each pass's sites whose meaning its edits change, in order; `moves` maps a moved file to its path after the
+        rename. An after-edit state lives until the last pass reading it."""
+        moves = moves or {}
+        plans = [self._plan(entries, moves) for entries in passes]
+        last = {key: n for n, plan in enumerate(plans) if plan is not None for key in plan.states()}
+        for n, plan in enumerate(plans):
+            found = [] if plan is None else self._judge(plan)
+            for key in [k for k in self._after if last.get(k, -1) <= n]:
+                del self._after[key]
+            yield found
+
+    def _judge(self, plan: _Plan) -> list[Conflict]:
         def state(rel: str) -> tuple[_Parsed | None, _Edited]:
-            src = back.get(rel, rel)
-            return self._state(rel, src, binding.get(src, ()))
+            return self._state(*plan.key(rel))
 
         def after_origin(rel: str, offset: int) -> Site:
-            src = back.get(rel, rel)
-            return src, state(rel)[1].original(offset) if src in binding else offset
+            src = plan.back.get(rel, rel)
+            return src, state(rel)[1].original(offset) if src in plan.binding else offset
 
-        changed = frozenset({moves.get(rel, rel) for rel in binding} | set(moves.values()))
+        moves = plan.moves
         after = World({moves.get(f, f) for f in self.files}, self.folders, lambda rel: state(rel)[0], after_origin,
-                      unchanged=self.world, edited=changed)
-        judged = set(self.files) if moves else self._judged(set(binding))
-        checked = [rel for rel in self.files if rel in judged and (rel in by_file or may_name(pattern, self.before(rel)))]
-        return _Judge(entries, names, self.world, after, moves).conflicts(checked)
+                      unchanged=self.world, edited=plan.changed)
+        judged = set(self.files) if moves else self._judged(set(plan.binding))
+        checked = [rel for rel in self.files
+                   if rel in judged and (rel in plan.by_file or may_name(plan.pattern, self.before(rel)))]
+        return _Judge(plan.entries, plan.names, self.world, after, moves).conflicts(checked)
+
+
+class _Plan:
+    """A pass: its entries and names, its edits by file, those that can bind a name and its after-world's edited
+    modules."""
+
+    def __init__(self, entries: list[EntryEdits], names: frozenset[str], by_file: dict[str, list[TextEdit]],
+                 binding: dict[str, tuple[TextEdit, ...]], moves: dict[str, str]) -> None:
+        self.entries, self.names, self.by_file, self.binding, self.moves = entries, names, by_file, binding, moves
+        self.pattern = re.compile(rf"(?<!\w)(?:{'|'.join(map(re.escape, sorted(names)))})(?!\w)")
+        self.back = {dest: src for src, dest in moves.items()}
+        self.changed = frozenset({moves.get(rel, rel) for rel in binding} | set(moves.values()))
+
+    def key(self, rel: str) -> tuple[str, str, tuple[TextEdit, ...]]:
+        """The after-edit state of module `rel`: its path, its file before the edits and that file's binding edits."""
+        src = self.back.get(rel, rel)
+        return rel, src, self.binding.get(src, ())
+
+    def states(self) -> set[tuple[str, str, tuple[TextEdit, ...]]]:
+        """The after-edit states the pass reads."""
+        return {self.key(rel) for rel in self.changed}
 
 
 class _Judge:

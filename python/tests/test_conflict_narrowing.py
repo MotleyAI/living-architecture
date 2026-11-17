@@ -3,16 +3,20 @@ every conflict the full check finds."""
 
 from __future__ import annotations
 
+import gc
 import re
+import weakref
 from collections import Counter
 from pathlib import Path
 
 import pytest
 
+from living_architecture.contract import message
 from living_architecture.refactor import bindings
-from living_architecture.refactor.bindings import BindingCheck, EntryEdits
+from living_architecture.refactor.bindings import BindingCheck, Conflict, EntryEdits
+from living_architecture.refactor.locators import RefactorError
 from living_architecture.refactor.python_source import SourceFile
-from living_architecture.refactor.text_edits import TextEdit
+from living_architecture.refactor.text_edits import TextEdit, apply_edits
 
 NEW = "fresh"
 
@@ -22,9 +26,15 @@ def _check(files: dict[str, str]) -> BindingCheck:
     return BindingCheck(sorted(files), [""], sources.__getitem__)
 
 
+def _one(check: BindingCheck, entries: list[EntryEdits], moves: dict[str, str] | None = None) -> list[Conflict]:
+    """The conflicts of a one-pass plan."""
+    [found] = check.conflicts([entries], moves)
+    return found
+
+
 def _found(files: dict[str, str], entries: list[EntryEdits]) -> set[tuple[tuple[str, int], str]]:
     """The distinct sites and names the check finds."""
-    return {(c.site, c.name) for c in _check(files).conflicts(entries)}
+    return {(c.site, c.name) for c in _one(_check(files), entries)}
 
 
 def _renamed(files: dict[str, str], rel: str, old: str = "old", new: str = NEW) -> list[TextEdit]:
@@ -71,6 +81,39 @@ class _Parses:
     def reset(self) -> None:
         self.before.clear()
         self.after.clear()
+
+
+# A module state after edits: its path and its edited text.
+State = tuple[str, str]
+
+
+class _Alive:
+    """Weak references to each after-edit state and the pass whose judging built it."""
+
+    def __init__(self, monkeypatch: pytest.MonkeyPatch, files: dict[str, str]) -> None:
+        self.refs: dict[State, weakref.ref[bindings._Parsed]] = {}
+        self.built: dict[State, int] = {}
+        self.judged = 0
+        real_init, real_judge = bindings._Parsed.__init__, bindings._Judge.conflicts
+        alive = self
+
+        def recording(self: bindings._Parsed, source: SourceFile, *args: object, **kwargs: object) -> None:
+            real_init(self, source, *args, **kwargs)  # pyright: ignore[reportArgumentType]
+            state = (source.path.as_posix(), source.text)
+            if files.get(state[0]) != state[1]:
+                alive.refs[state] = weakref.ref(self)
+                alive.built[state] = alive.judged
+
+        def judging(self: bindings._Judge, checked: list[str]) -> list[Conflict]:
+            alive.judged += 1
+            return real_judge(self, checked)
+
+        monkeypatch.setattr(bindings._Parsed, "__init__", recording)
+        monkeypatch.setattr(bindings._Judge, "conflicts", judging)
+
+    def now(self) -> set[State]:
+        gc.collect()
+        return {state for state, ref in self.refs.items() if ref() is not None}
 
 
 # --- conflicts the narrowing must keep -------------------------------------------------------------------------------
@@ -162,7 +205,7 @@ def test_a_file_whose_only_edits_are_attribute_or_keyword_names_is_not_re_parsed
     parses = _Parses(monkeypatch, INERT)
     edits = [*_renamed(INERT, "pkg/m.py"), _member(INERT, "pkg/attr.py", "c.old", NEW),
              _edit(INERT, "pkg/kw.py", "old", NEW)]
-    assert _check(INERT).conflicts([EntryEdits(index=1, new_name=NEW, edits=edits)]) == []
+    assert _one(_check(INERT), [EntryEdits(index=1, new_name=NEW, edits=edits)]) == []
     assert (parses.after["pkg/m.py"], parses.after["pkg/attr.py"], parses.after["pkg/kw.py"]) == (1, 0, 0)
 
 
@@ -171,11 +214,92 @@ def test_the_all_together_pass_reuses_each_single_entry_state(monkeypatch: pytes
     first = EntryEdits(index=1, new_name=NEW, edits=_renamed(files, "pkg/a.py"))
     second = EntryEdits(index=2, new_name="next", edits=_renamed(files, "pkg/b.py", "other", "next"))
     parses = _Parses(monkeypatch, files)
-    check = _check(files)
-    assert check.conflicts([first]) == check.conflicts([second]) == []
+    passes = _check(files).conflicts([[first], [second], [first, second]])
+    assert next(passes) == next(passes) == []
     parses.reset()
-    assert check.conflicts([first, second]) == []
+    assert next(passes) == []
     assert parses.after == Counter()
+    assert next(passes, None) is None
+
+
+def test_two_passes_with_the_same_edits_of_a_file_build_its_state_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    files = {"pkg/a.py": "old = 1\nprint(old)\n", "pkg/b.py": "other = 2\nprint(other)\n",
+             "pkg/c.py": "shared = 3\nprint(shared)\n"}
+    common = _renamed(files, "pkg/c.py", "shared", "common")
+    first = EntryEdits(index=1, new_name=NEW, edits=[*_renamed(files, "pkg/a.py"), *common])
+    second = EntryEdits(index=2, new_name="later", edits=[*_renamed(files, "pkg/b.py", "other", "later"), *common])
+    parses = _Parses(monkeypatch, files)
+    assert list(_check(files).conflicts([[first], [second]])) == [[], []]
+    assert parses.after == Counter({"pkg/a.py": 1, "pkg/b.py": 1, "pkg/c.py": 1})
+
+
+# --- how long an after-edit state lives ------------------------------------------------------------------------------
+
+LIVE = {
+    "pkg/a.py": "old = 1\nprint(old)\n",
+    "pkg/b.py": "other = 2\nprint(other)\n",
+    "pkg/c.py": "old = 3\nother = 4\nprint(old, other)\n",
+}
+
+
+def _live_entries() -> tuple[EntryEdits, EntryEdits]:
+    """Entry 1 edits `a` and `c`, entry 2 edits `b` and `c`."""
+    first = EntryEdits(index=1, new_name=NEW, edits=[*_renamed(LIVE, "pkg/a.py"), *_renamed(LIVE, "pkg/c.py")])
+    second = EntryEdits(index=2, new_name="later", edits=[*_renamed(LIVE, "pkg/b.py", "other", "later"),
+                                                          *_renamed(LIVE, "pkg/c.py", "other", "later")])
+    return first, second
+
+
+def _after(rel: str, *entries: EntryEdits) -> State:
+    return rel, apply_edits(LIVE[rel], sorted((e for entry in entries for e in entry.edits if e.path == rel),
+                                              key=lambda e: e.start))
+
+
+def test_an_after_state_lives_until_the_last_pass_reading_it(monkeypatch: pytest.MonkeyPatch) -> None:
+    first, second = _live_entries()
+    alive = _Alive(monkeypatch, LIVE)
+    a1, b2 = _after("pkg/a.py", first), _after("pkg/b.py", second)
+    passes = _check(LIVE).conflicts([[first], [second], [first, second]])
+    assert next(passes) == []
+    assert alive.now() == {a1}
+    assert next(passes) == []
+    assert alive.now() == {a1, b2}
+    assert {_after("pkg/c.py", first), _after("pkg/c.py", second)} <= alive.built.keys()
+    assert next(passes) == []
+    assert alive.now() == set()
+    assert [state for state, n in alive.built.items() if n == 3] == [_after("pkg/c.py", first, second)]
+    assert next(passes, None) is None
+
+
+def test_without_the_all_entries_pass_no_after_state_outlives_its_pass(monkeypatch: pytest.MonkeyPatch) -> None:
+    first, second = _live_entries()
+    alive = _Alive(monkeypatch, LIVE)
+    passes = _check(LIVE).conflicts([[first], [second]])
+    assert next(passes) == []
+    assert alive.built.keys() == {_after("pkg/a.py", first), _after("pkg/c.py", first)}
+    assert alive.now() == set()
+    assert next(passes) == []
+    assert len(alive.built) == 4
+    assert alive.now() == set()
+
+
+def test_a_pass_is_yielded_before_a_later_pass_parses_its_after_states() -> None:
+    files = {"pkg/a.py": "old = 1\nprint(old)\n", "pkg/b.py": "other = 2\nprint(other)\n"}
+    first = EntryEdits(index=1, new_name=NEW, edits=_renamed(files, "pkg/a.py"))
+    broken = EntryEdits(index=2, new_name="later", edits=[_edit(files, "pkg/b.py", "other", "later(")])
+    passes = _check(files).conflicts([[first], [broken]])
+    assert next(passes) == []
+    with pytest.raises(RefactorError, match=re.escape(message("refactor.cannot-rename"))):
+        next(passes)
+
+
+def test_a_pass_without_names_yields_no_conflicts_in_its_place() -> None:
+    files = {"pkg/m.py": "class C:\n    old = 1\n    fresh = 2\n"}
+    empty = EntryEdits(index=1, new_name=NEW, edits=[])
+    entry = EntryEdits(index=2, new_name=NEW, edits=_renamed(files, "pkg/m.py"))
+    alone = _one(_check(files), [entry])
+    assert alone
+    assert list(_check(files).conflicts([[empty], [entry]])) == [[], alone]
 
 
 def test_an_unedited_file_without_a_star_import_of_an_edited_one_is_not_judged(
@@ -183,7 +307,7 @@ def test_an_unedited_file_without_a_star_import_of_an_edited_one_is_not_judged(
 ) -> None:
     files = {"pkg/a.py": "old = 1\nprint(old)\n", "pkg/other.py": "fresh = 2\nprint(fresh)\n"}
     parses = _Parses(monkeypatch, files)
-    assert _check(files).conflicts([EntryEdits(index=1, new_name=NEW, edits=_renamed(files, "pkg/a.py"))]) == []
+    assert _one(_check(files), [EntryEdits(index=1, new_name=NEW, edits=_renamed(files, "pkg/a.py"))]) == []
     assert parses.before["pkg/other.py"] == 0
 
 
@@ -195,7 +319,7 @@ def test_a_run_moving_files_re_judges_every_file(monkeypatch: pytest.MonkeyPatch
     }
     parses = _Parses(monkeypatch, files)
     edits = _renamed(files, "pkg/use.py", "a", "b")
-    conflicts = _check(files).conflicts([EntryEdits(index=1, new_name="b", edits=edits)], {"pkg/a.py": "pkg/b.py"})
+    conflicts = _one(_check(files), [EntryEdits(index=1, new_name="b", edits=edits)], {"pkg/a.py": "pkg/b.py"})
     assert conflicts == []
     assert parses.before["pkg/other.py"] >= 1
 
@@ -211,7 +335,7 @@ def test_a_file_whose_only_edit_is_another_kind_is_re_parsed(
     files = {"pkg/m.py": "old = 1\nprint(old)\n", "pkg/x.py": text}
     parses = _Parses(monkeypatch, files)
     edits = [*_renamed(files, "pkg/m.py"), _edit(files, "pkg/x.py", needle, NEW)]
-    assert _check(files).conflicts([EntryEdits(index=1, new_name=NEW, edits=edits)]) == []
+    assert _one(_check(files), [EntryEdits(index=1, new_name=NEW, edits=edits)]) == []
     assert parses.after["pkg/x.py"] == 1
 
 
