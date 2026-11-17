@@ -7,9 +7,9 @@ import { byCodePoint, language, message } from '../contract/index.js';
 import { canonical, posix, stripSourceExtension, ts } from '../lang/index.js';
 import { configFailures } from './baseline.js';
 import { type Edit, mergeEdits, RefactorError } from './edits.js';
-import { loadMap, MapError } from './map.js';
+import { entrySource, loadMap, MapError } from './map.js';
 import { type MovedSpan, movedOffsets } from './position.js';
-import { Progress, type Refusal, Refused } from './progress.js';
+import { Progress, type Refusal, refusal, Refused } from './progress.js';
 import { type EntrySpec, entryFailure, runEntries } from './rename.js';
 import { type Locator, locate, nodes, Refactor, type RefactorArgs, UsageError } from './session.js';
 import { LocatorError } from './symbols.js';
@@ -30,13 +30,18 @@ function single(r: Refactor, progress: Progress): number {
   return runEntries(r, [{ index: 1, file: r.inProject(args.file ?? ''), shown: args.file ?? '', locator: locatorOf(args), ...intent }], '', progress);
 }
 
-/** `rename-map MAP`: MAP from the working directory, its entries' files from --project. */
+/** `rename-map MAP`: MAP from the working directory, its entries' files from --project; a module entry is refused
+ * before any phase. */
 function renameMap(r: Refactor, progress: Progress): number {
   const shown = r.args.map ?? '';
-  const specs = loadMap(shown, shown).map((entry, i): EntrySpec => ({
+  const entries = loadMap(shown, shown);
+  // Module renames come with DEV-2325.
+  const modules = entries.flatMap((entry, i) => (entry.module === undefined ? [] : [i + 1]));
+  if (modules.length > 0) throw new Refused(modules.map((index) => refusal(message('refactor.map-module-unsupported', { map: shown, index }), 2)));
+  const specs = entries.map((entry, i): EntrySpec => ({
     index: i + 1,
-    file: r.inProject(entry.file, r.root),
-    shown: entry.file,
+    file: r.inProject(entrySource(entry), r.root),
+    shown: entrySource(entry),
     locator: { offset: entry.offset, line: entry.line, col: entry.col, symbol: entry.symbol },
     newName: entry.new_name,
     retarget: entry.retarget,

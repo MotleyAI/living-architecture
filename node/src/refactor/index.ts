@@ -6,7 +6,7 @@ import * as twin from '../twin/index.js';
 import { type MockBase, typescriptCompliance, typescriptMockLint } from './compliance.js';
 import { complianceSelection, refactorLanguage, RoutingError, runSplit, split } from './routing.js';
 import { RefactorError } from './edits.js';
-import { loadMap, MapError } from './map.js';
+import { entrySource, loadMap, MapError } from './map.js';
 import { report } from './timings.js';
 import { type RefactorArgs, runTypescriptRefactor } from './typescript.js';
 
@@ -30,9 +30,10 @@ function native(findings: () => string[]): number {
   }
 }
 
-/** The one language of a map's entries, by their files' extensions; MapError for an invalid map or several languages. */
+/** The one language of a map's entries, by their files' or modules' extensions; MapError for an invalid map or several
+ * languages. */
 function mapLanguage(map: string): string {
-  const files = loadMap(map, map).map((entry) => entry.file);
+  const files = loadMap(map, map).map(entrySource);
   const unsupported = files.find((file) => languageOf(file) === null);
   if (unsupported !== undefined) throw new RoutingError(message('refactor.unsupported-extension', { path: unsupported }));
   const languages = languageIds().filter((id) => files.some((file) => languageOf(file) === id));

@@ -232,6 +232,16 @@ def module_binding(text: str, name: str) -> int | None:
     return min(sites) if sites else None
 
 
+def bindings_after(text: str, edits: list[TextEdit], name: str) -> list[int]:
+    """The module-level bindings of `name` in a module's `text` after `edits`, by their offsets before them."""
+    source = SourceFile(Path(), apply_edits(text, edits))
+    if source.tree is None:
+        return []
+    parsed = _Parsed(source, source.tree, [], False)
+    edited = _Edited(edits)
+    return sorted(edited.original(offset) for offset in parsed.sites.get((parsed.scope, nfkc(name)), []))
+
+
 def _module_parts(folders: list[str], rel: str) -> tuple[list[str], bool]:
     """The module path of file `rel` under its source folder, and whether it is a package."""
     folder = max((f for f in folders if not f or rel.startswith(f + "/")), key=len)
@@ -461,11 +471,12 @@ class BindingCheck:
                    for rel, edits in by_file.items()}
         return _Plan(entries, names, dict(by_file), {rel: edits for rel, edits in binding.items() if edits}, moves)
 
-    def conflicts(self, passes: list[list[EntryEdits]], moves: dict[str, str] | None = None) -> Iterator[list[Conflict]]:
+    def conflicts(self, passes: list[list[EntryEdits]], moves: dict[str, str] | None = None, *,
+                  each: list[dict[str, str]] | None = None) -> Iterator[list[Conflict]]:
         """Each pass's sites whose meaning its edits change, in order; `moves` maps a moved file to its path after the
-        rename. An after-edit state lives until the last pass reading it."""
-        moves = moves or {}
-        plans = [self._plan(entries, moves) for entries in passes]
+        rename, `each` gives every pass its own. An after-edit state lives until the last pass reading it."""
+        own = each if each is not None else [moves or {}] * len(passes)
+        plans = [self._plan(entries, pass_moves) for entries, pass_moves in zip(passes, own, strict=True)]
         last = {key: n for n, plan in enumerate(plans) if plan is not None for key in plan.states()}
         for n, plan in enumerate(plans):
             found = [] if plan is None else self._judge(plan)

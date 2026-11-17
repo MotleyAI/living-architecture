@@ -15,10 +15,8 @@ from rope.refactor.move import MoveGlobal, MoveModule, create_move
 
 from living_architecture.contract import message
 from living_architecture.refactor.baseline_align import BaselineFailed
-from living_architecture.refactor.entry_location import Entry
 from living_architecture.refactor.locators import Locator, RefactorError, offset_from_line_col, resolve
 from living_architecture.refactor.map_file import MapEntry, MapError, load_map
-from living_architecture.refactor.module_rename import run_module_rename
 from living_architecture.refactor.move_edits import NameConflict, module_move_changes, symbol_move_changes
 from living_architecture.refactor.progress import Progress, Refusal, Refused, refusal
 from living_architecture.refactor.python_project import Snapshot
@@ -146,23 +144,23 @@ def move_module(project: Project, *, module: str, dest: str, apply: bool, progre
     _emit(project, changes, apply, before, progress)
 
 
-def _located(entry: Entry | None) -> Entry:
-    assert entry is not None
-    return entry
-
-
 def _locator(options: dict[str, Any]) -> Locator:
     return Locator(offset=options.get("offset"), line=options.get("line"), col=options.get("col"),
                    symbol=options.get("symbol"))
 
 
 def _entries(command: str, project_root: str, options: dict[str, Any]) -> tuple[list[MapEntry], str]:
-    """The map a `rename`, `retarget` or `rename-map` runs, and the map as named in findings."""
+    """The map a `rename`, `retarget` or `rename-map` runs, and the map as named in findings: a `rename` without a
+    locator is the one module entry of its file."""
     if command == "rename-map":
         return load_map(str(options["map"]), project_root), str(options["map"])
     file = str(options["file"])
-    intent = {"new_name": str(options["new_name"])} if command == "rename" else {"retarget": str(options["target"])}
-    return [MapEntry(index=1, file=file, path=file, locator=_locator(options), **intent)], ""
+    locator = _locator(options)
+    if command == "rename" and locator == Locator():
+        return [MapEntry(index=1, file=file, path=file, new_name=str(options["new_name"]), module=True)], ""
+    if command == "rename":
+        return [MapEntry(index=1, file=file, path=file, locator=locator, new_name=str(options["new_name"]))], ""
+    return [MapEntry(index=1, file=file, path=file, locator=locator, retarget=str(options["target"]))], ""
 
 
 class _RopeProject:
@@ -188,14 +186,7 @@ def _run(rope: _RopeProject, project_root: str, command: str, apply: bool, optio
     progress = Progress()
     if command in ("rename", "retarget", "rename-map"):
         entries, shown = _entries(command, project_root, options)
-        rename_options = entry_options(options)
-        return run_map(
-            rope.root, entries, rename_options, apply_=apply, map_shown=shown, progress=progress,
-            module_rename=lambda engine, r: run_module_rename(engine.session, engine.locator, _located(r.located),
-                                                              r.entry.new_name, rename_options, apply, progress,
-                                                              stub=engine.stub),
-            file_modules=command == "rename",
-        )
+        return run_map(rope.root, entries, entry_options(options), apply_=apply, map_shown=shown, progress=progress)
     if command == "move-symbol":
         move_symbol(rope.get(), file=str(options["file"]), locator=_locator(options), dest=str(options["dest"]),
                     apply=apply, progress=progress)
