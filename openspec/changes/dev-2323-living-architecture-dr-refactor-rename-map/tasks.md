@@ -2,7 +2,7 @@
 
 - [x] 0.1 pr-tests writes section 1 only; pr-implement does sections 2–4. While section 1 is open, the stage is
       `pr-tests`. Verify: every task of section 1 is ticked before any task of section 2 starts.
-- [ ] 0.2 Repro of the DEV-1607 map (158 entries):
+- [x] 0.2 Repro of the DEV-1607 map (158 entries):
       1. In SLayer's main checkout (`~/GitHub/SLayer/slayer`), run `git archive 452a2f57` into a temp directory.
       2. There, `git init` and commit everything (without a git repository la finds no project files).
       3. Symlink `.venv` to `~/GitHub/SLayer/slayer.worktrees/egor__dev-1607-rename-columns-to-fields-to-be-consistent-with/.venv`.
@@ -12,7 +12,7 @@
          `sed -n 's/^#   \(--\(keep\|with\|without\) .*\)$/\1/p' <map>`. `--timings` goes before the subcommand.
 
       Never write to SLayer. Verify: the run exits 0 and prints `timing: conflicts`.
-- [ ] 0.3 Repro of the DEV-2318 map (2,272 entries):
+- [x] 0.3 Repro of the DEV-2318 map (2,272 entries):
       1. In `~/GitHub/SLayer/slayer.worktrees/egor__dev-2318-ossie-vocabulary-names-only-dataset-field`, run
          `git archive a944edb08` (the commit before the map was applied) into a temp directory.
       2. Write the map as applied into it: `git show 1fe8a2940:openspec/changes/dev-2318-ossie-vocabulary-names-only-dataset-field/rename-map.yaml`.
@@ -93,7 +93,7 @@
       change: peak RSS, phase split, total. Verify: DEV-1607 peak at most 3.0 GB (main 3.74 GB, prototype 2.84 GB);
       DEV-2318 peak at most 4.0 GB (main 9.84 GB, prototype 3.91 GB); total no slower than before. Results go in a
       comment on DEV-2323 with the machine's state (0.4).
-- [ ] 3.2 Differential: for each map, both runs' stdout and refusal reports (stderr without the `[...]` progress and
+- [x] 3.2 Differential: for each map, both runs' stdout and refusal reports (stderr without the `[...]` progress and
       `timing:` lines) are byte-identical. Verify: `diff` output recorded in the same comment.
 
 ## 4. Docs
