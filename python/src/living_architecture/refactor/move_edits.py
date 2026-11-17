@@ -109,9 +109,10 @@ class _Binding:
 
 
 class _Scope:
-    def __init__(self, parent: _Scope | None, is_class: bool) -> None:
+    def __init__(self, parent: _Scope | None, is_class: bool, is_comprehension: bool = False) -> None:
         self.parent = parent
         self.is_class = is_class
+        self.is_comprehension = is_comprehension
         self.bindings: dict[str, list[_Binding]] = {}
         self.stars: list[tuple[ast.ImportFrom, str | None]] = []
         self.globals: set[str] = set()
@@ -183,6 +184,8 @@ class _Scopes:
             self._import_from(node)
         elif isinstance(node, ast.Name):
             self._name(node)
+        elif isinstance(node, ast.NamedExpr):
+            self._named_expr(node)
         elif isinstance(node, ast.Global):
             self.current.globals.update(node.names)
         elif isinstance(node, ast.Nonlocal):
@@ -252,7 +255,15 @@ class _Scopes:
         elements = [node.key, node.value] if isinstance(node, ast.DictComp) else [node.elt]
         first, *rest = node.generators
         self.visit(first.iter)
-        self._inside(_Scope(self.current, False), [first.target, *first.ifs, *rest, *elements])
+        self._inside(_Scope(self.current, False, True), [first.target, *first.ifs, *rest, *elements])
+
+    def _named_expr(self, node: ast.NamedExpr) -> None:
+        """A walrus target binds in the nearest scope that is not a comprehension, as Python does."""
+        self.visit(node.value)
+        scope = self.current
+        while scope.is_comprehension and scope.parent is not None:
+            scope = scope.parent
+        self._bind(node.target.id, _Binding(node.lineno), scope)
 
     def _import(self, node: ast.Import) -> None:
         self.imports.append((node, self.current))

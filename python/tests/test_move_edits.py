@@ -518,7 +518,22 @@ def test_a_comprehension_first_iterable_is_read_in_the_enclosing_scope() -> None
     assert element.lookup("sub") is element
 
 
-HEADER_READS = "def g(pa=pa.f, /, *, y: pa.f = 1) -> pa.f:\n    return pa\n\n\nitems = [pa for pa in pa.f()]\n"
+def test_a_walrus_in_a_comprehension_binds_in_the_enclosing_function() -> None:
+    text = "import pkg.sub as sub\n\n\ndef f(xs):\n    [(sub := v) for v in xs]\n    return sub\n"
+    scopes = _Scopes(ast.parse(text), "")
+    [read] = _reads(scopes, 6)
+    assert read.lookup("sub") is read
+    assert read is not scopes.module
+
+
+def test_module_use_a_comprehension_walrus_shadows_is_unchanged(tmp_path: Path) -> None:
+    shadowed = "\n\ndef f(xs):\n    [(s := v) for v in xs]\n    return s.client.X\n"
+    root = _write(tmp_path, {**MODULE_PROJECT, "use.py": "import pkg.sql as s\n\nprint(s.client.X)\n" + shadowed})
+    assert _move_module(root, "--apply") == 0
+    assert (root / "use.py").read_text() == "import pkg.database.client\n\nprint(pkg.database.client.X)\n" + shadowed
+
+
+HEADER_READS ="def g(pa=pa.f, /, *, y: pa.f = 1) -> pa.f:\n    return pa\n\n\nitems = [pa for pa in pa.f()]\n"
 
 
 def test_symbol_uses_rope_misses_in_a_def_header_are_rewritten(tmp_path: Path) -> None:
