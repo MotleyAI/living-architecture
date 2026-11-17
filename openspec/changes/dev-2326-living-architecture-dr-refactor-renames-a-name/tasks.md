@@ -7,7 +7,7 @@
   `rename-map` holding several entries. Goldens via `LA_UPDATE_GOLDENS=1` (new cases), reviewed; list every case in
   `conformance/INVENTORY.md`. These pass on `main` by design (regression pins); verify with
   `uv run pytest -q tests/test_conformance.py -k tuple-target` in `python/`.
-- [ ] 1.2 Fixture `conformance/fixtures/refactor-move-shadowing` (Python) and adapter cases, one per new scenario of
+- [x] 1.2 Fixture `conformance/fixtures/refactor-move-shadowing` (Python) and adapter cases, one per new scenario of
   "Python moves rewrite each reference minimally": parameters of every kind, a lambda and a comprehension target
   shadowing an import alias (`move-module`); a function-local alias import; a function scope that also assigns the
   alias; `global` and `nonlocal`; a `nonlocal` declaration keeping its enclosing import; a comprehension's first
