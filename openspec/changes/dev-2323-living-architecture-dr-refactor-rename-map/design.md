@@ -17,8 +17,9 @@ See proposal.md for why. The current shape (main after DEV-2310 and DEV-2317), i
   snapshot) and `check_conflicts(edits)` (the snapshot).
 - After `rules`, the run reads from the index only class facts: `check_names` builds `Hierarchy(..., self.index)`,
   which calls `class_facts` for a renamed member's class and for each class declaring a new name. `prepare` requests
-  them for the candidate files and the files spelling an entry's `new_name`, so most are merged already. A retarget's
-  target name (it has no `new_name`) and an NFKC-equivalent spelling can miss. A miss exports that one fact: the
+  them for the candidate files and the files spelling an entry's `new_name`, so most are merged already. An
+  NFKC-equivalent spelling of a new name, in either direction, can miss; a retarget never asks one, as it renames no
+  member declaration. A miss exports that one fact: the
   cache cannot hold it (it is saved in `run`'s `finally`, before `conflicts`, and anything `rules` asked for is
   merged), so it goes to `ServerSession.get()`, which starts a fresh language server, as `finally` closed the run's.
 - `ImportNeed` holds AST nodes (`anchor`, `leaving`, `duplicates`).
@@ -108,7 +109,7 @@ The prototype released the workers' state only at the end of `rules`, so its pea
    `EntryLocator`, `session.tables`, the files read from outside the project and the snapshot's parsed `SourceFile`s.
    The snapshot keeps each file's bytes, encoding and text, and later phases parse again what they read (about 1.7 s
    for every file).
-   - Misses are expected (a retarget's target name, an NFKC spelling). They skip the cache, which cannot hold them
+   - Misses are expected (an NFKC-equivalent spelling of a new name, in either direction). They skip the cache, which cannot hold them
      today either, so the answer, the server's lifecycle and a server failure's refusal stay as they are. `prepare`
      is not widened to request them: that would change the export request and its cache keys. Neither prototype run
      missed. (default; misses and server lifecycle from codex)
@@ -141,7 +142,7 @@ and 3 (language-specific code stays in `refactor`) apply. The result type and th
 - [Results change output through ordering or dedupe.] → The leftover store keeps every distinct `end`; the import
   plan stays one global pass; the corpus and the differential runs on both maps pin the output.
 - [A class fact misses after `rules`.] → It is exported through the run's `ServerSession` as today; tests pin a
-  retarget miss, an NFKC miss and a server failure on a miss.
+  miss in each NFKC direction and a server failure on a miss.
 - [Re-parsing in `conflicts` costs time.] → About 1.7 s for every file; the prototype's DEV-1607 `conflicts` took
   97 s against main's 101 s.
 - [An object a result holds keeps a tree alive.] → Results hold no AST node or `SourceFile`; the liveness tests

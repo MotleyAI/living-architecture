@@ -27,29 +27,29 @@
 
 ## 1. Tests (pr-tests)
 
-- [ ] 1.1 Liveness at the start of `conflicts`, `test_rename_map.py` (or a new `test_rename_map_lifetime.py`): on a
+- [x] 1.1 Liveness at the start of `conflicts`, `test_rename_map.py` (or a new `test_rename_map_lifetime.py`): on a
       map with a member rename, a retarget and a `--docs` mention, weak-reference while `rules` runs every rename
       worker, the `RunIndex`, the `TypeFacts`, the `EntryLocator`, `session.tables`, a parsed `SourceFile` of the
       snapshot and a file read from outside the project; at the start of `check_names`, after `gc.collect()`, every
       reference is dead. Verify: fails today.
-- [ ] 1.2 A finished group's workers are dead before the next group's rules run: a map with two old-name groups, weak
+- [x] 1.2 A finished group's workers are dead before the next group's rules run: a map with two old-name groups, weak
       references to group 1's workers checked when group 2's first worker's `rules` starts. Verify: fails today.
-- [ ] 1.3 Every path ends `rules` the same way: a `--fail-fast` stop in `references`, a `--fail-fast` stop in
+- [x] 1.3 Every path ends `rules` the same way: a `--fail-fast` stop in `references`, a `--fail-fast` stop in
       `rules`, a failed entry, and an entry whose new name equals its old one. Each run's stdout and stderr equal
       today's (the existing tests' expectations, or recorded before the change), and no worker is alive at the start
       of the report. Verify: the output assertions pass today; the liveness ones fail.
-- [ ] 1.4 Leftovers held once: a `--docs` map whose entries share an old name, mentioned in prose and code. Every
+- [x] 1.4 Leftovers held once: a `--docs` map whose entries share an old name, mentioned in prose and code. Every
       leftover key is held once (count the leftover `Finding`s alive at the start of `conflicts`, or the store's
       size), and the printed findings equal today's. Verify: the count fails today; the output passes.
-- [ ] 1.5 Leftover `end` semantics: two copies of one key `(path, line, col, text)` with different `end`s, and a final
+- [x] 1.5 Leftover `end` semantics: two copies of one key `(path, line, col, text)` with different `end`s, and a final
       edit covering only one span: the key is printed; with both spans covered, it is not. Test through the store
       and `findings()`. Verify: fails today on the new store.
-- [ ] 1.6 Retarget imports and keeps: several retargets needing imports in the same home, one of them held by
+- [x] 1.6 Retarget imports and keeps: several retargets needing imports in the same home, one of them held by
       `--keep`. Assert the byte-identical diff, which entry each import belongs to (via a conflict naming it), and
       `refactor.keep-unmatched` present or absent as today. Verify: passes today, and pins it.
-- [ ] 1.7 Class facts after `rules`, with the real checker:
-      - a retarget whose target name a class declares in a file that does not spell the alias (a miss): output equals
-        today's;
+- [x] 1.7 Class facts after `rules`, with the real checker:
+      - a member renamed to a name another class declares in an NFKC-equivalent spelling, in a file that does not
+        spell the new name (a miss): output equals today's;
       - a member renamed to an NFKC-equivalent spelling of a name another class declares (a miss): output equals
         today's;
       - on a miss, the run's `ServerSession` starts a fresh language server (count starts), and a server failure then
@@ -57,14 +57,14 @@
       - a fact `prepare` merged is answered without any export.
 
       Verify: the output assertions pass today; the source's own assertions fail today on the new source.
-- [ ] 1.8 A single-entry module `rename` (and a module `rename` in a one-entry map) still computes today's output: the
+- [x] 1.8 A single-entry module `rename` (and a module `rename` in a one-entry map) still computes today's output: the
       end of `rules` never runs on the module-rename branch. Verify: passes today, and pins it.
-- [ ] 1.9 No `ImportNeed` outlives the import plan: on a map whose retargets need imports, weak-reference their needs'
+- [x] 1.9 No `ImportNeed` outlives the import plan: on a map whose retargets need imports, weak-reference their needs'
       AST nodes and check them dead at the start of `conflicts`. Verify: fails today.
-- [ ] 1.10 Align `test_refactor_progress.py`'s `keyed` case to patch the keyed check on its new owner, the result
+- [x] 1.10 Align `test_refactor_progress.py`'s `keyed` case to patch the keyed check on its new owner, the result
       type (`SymbolRename.check_conflicts` moves there). The assertion, charged to `conflicts` only, is unchanged.
       Verify: fails today only on the missing owner.
-- [ ] 1.11 Codex review of the tests against this plan (`reviewers.codex`). Verify: findings resolved with the user.
+- [x] 1.11 Codex review of the tests against this plan (`reviewers.codex`). Verify: findings resolved with the user.
 
 ## 2. Implementation (pr-implement)
 
