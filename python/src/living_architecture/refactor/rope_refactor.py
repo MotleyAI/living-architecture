@@ -42,7 +42,7 @@ from living_architecture.refactor.rename_map import (
 from living_architecture.refactor.rename_union import RenameOptions, Snapshot
 from living_architecture.refactor.rope_patches import WalkerGap, apply_rope_patches
 from living_architecture.refactor.routing import language_files
-from living_architecture.refactor.sites import Keeps
+from living_architecture.refactor.sites import Keeps, resolve_keeps
 from living_architecture.refactor.symbol_path import LocatorError
 from living_architecture.refactor.text_edits import TextEdit, diff_edits
 from living_architecture.refactor.timings import timed
@@ -73,12 +73,10 @@ def _emit(project: Project, changes: ChangeSet, apply: bool, before: dict[str, b
     emit(project, [f"{changes}:"], changes, apply, writes, moves, progress, moved_code=moved_code)
 
 
-def _kept(project: Project, changes: ChangeSet, keep: tuple[str, ...]) -> tuple[ChangeSet, list[str]]:
-    """`changes` without what touches a `--keep` site: a kept file's move or edits, a kept line's edits; and every
-    keep that matches neither."""
-    if not keep:
-        return changes, []
-    keeps = Keeps(keep, Path(project.address).resolve())
+def _kept(project: Project, changes: ChangeSet, keeps: Keeps) -> ChangeSet:
+    """`changes` without what touches a `--keep` site: a kept file's move or edits, a kept line's edits."""
+    if not keeps.sites:
+        return changes
 
     def kept(rel: str, line: int | None) -> bool:
         return keeps.kept(rel, line)
@@ -92,7 +90,7 @@ def _kept(project: Project, changes: ChangeSet, keep: tuple[str, ...]) -> tuple[
                 out.add_change(ChangeContents(change.resource, new))
         elif not kept(change.resource.path, None):
             out.add_change(change)
-    return out, keeps.unmatched()
+    return out
 
 
 def _kept_lines(rel: str, old: str, new: str, kept: Callable[[str, int | None], bool]) -> str:
@@ -141,8 +139,8 @@ def _edits(changes: ChangeSet, before: dict[str, bytes], snapshot: Snapshot) -> 
 
 def _module_rename(project: Project, renamer: Rename, entry: MapEntry, options: RenameOptions, apply: bool,
                    progress: Progress) -> int:
-    """rope's rename of a module, its `--keep` sites left; refused when the new name is taken, rope's edits change
-    what a name means, or a site matches nothing it must."""
+    """rope's rename of a module, its `--keep` sites left; refused when a line keep matches nothing, the new name is
+    taken or rope's edits change what a name means."""
     if entry.new_name is None:
         raise RefactorError(message("refactor.cannot-rename"))
     before = source_bytes(project)
@@ -154,7 +152,7 @@ def _module_rename(project: Project, renamer: Rename, entry: MapEntry, options: 
     with timed("resolve"):
         taken = _taken(module, entry.new_name, snapshot, rels) if module is not None else None
     found: NameConflict | None = taken if renamer.get_old_name() != entry.new_name else None
-    kept, unmatched = ChangeSet(""), []
+    kept = ChangeSet("")
     if found is None:
         try:
             with timed("references"):
@@ -163,23 +161,24 @@ def _module_rename(project: Project, renamer: Rename, entry: MapEntry, options: 
                 )
         except (RefactoringError, BadIdentifierError):
             raise RefactorError(message("refactor.cannot-rename")) from None
-        kept, unmatched = _kept(project, changes, options.keep)
+        keeps = Keeps(options.keep, root)
+        kept = _kept(project, changes, keeps)
         with timed("resolve"):
             every, _ = _edits(changes, before, snapshot)
             written, moves = _edits(kept, before, snapshot)
             folders = sorted({"", *(f.path for f in project.get_source_folders())})
+        warnings, unmatched = resolve_keeps(keeps, ((e.path, snapshot.source(e.path).line(e.start)) for e in written))
+        for warning in warnings:
+            print(warning, file=sys.stderr)
+        if unmatched:
+            raise Refused(unmatched)
         progress.phase("conflicts")
         with timed("conflicts"):
             found = first_conflict(BindingCheck(rels, folders, snapshot.source).conflicts(
                 [EntryEdits(index=1, new_name=entry.new_name, edits=written, kept=[e for e in every if e not in written])],
                 moves), snapshot.source)
-    refusals: list[Refusal] = []
     if found is not None:
-        refusals.append(refusal(message("refactor.name-conflict", name=found.name, path=found.path, line=found.line)))
-    refusals += [refusal(message("refactor.not-stand-in", site=raw), 2) for raw in (*options.with_sites, *options.without_sites)]
-    refusals += [refusal(message("refactor.keep-unmatched", site=raw), 2) for raw in unmatched]
-    if refusals:
-        raise Refused(refusals)
+        raise Refused([refusal(message("refactor.name-conflict", name=found.name, path=found.path, line=found.line))])
     _emit(project, kept, apply, before, progress)
     return 0
 

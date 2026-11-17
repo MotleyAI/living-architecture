@@ -55,31 +55,31 @@
 
 ## 3. Python twin
 
-- [ ] 3.1 `sites.py`: comment-aware spelling (without `--docs`, exclude `tokenize` COMMENT tokens other than type
+- [x] 3.1 `sites.py`: comment-aware spelling (without `--docs`, exclude `tokenize` COMMENT tokens other than type
   comments), and `keep_checks` applies to line keeps only. Verify with the 2.4 helper tests.
-- [ ] 3.2 `rename_map.py`: a site-resolution step after `rules()` (which ends with `_imports`), skipped when stopped
+- [x] 3.2 `rename_map.py`: a site-resolution step after `rules()` (which ends with `_imports`), skipped when stopped
   or when an entry failed. It prints `refactor.keep-unneeded` lines, builds `not-stand-in` and the line-keep
   findings with the nearest edited line, and stops before `[conflicts]` on any refusing one. `report()` then no
   longer runs `site_findings`. Verify with the 2.1 / 2.3 Python cases.
-- [ ] 3.3 `rope_refactor.py` (`_module_rename`): keeps resolved after `_kept`, before `[conflicts]` (warning or
+- [x] 3.3 `rope_refactor.py` (`_module_rename`): keeps resolved after `_kept`, before `[conflicts]` (warning or
   refusal with the nearest edited line); `--with` / `--without` refused in `RenameMap.checks` for a module rename.
   Verify with the 2.2 cases.
 
 ## 4. TypeScript twin
 
-- [ ] 4.1 `sites.ts` / `rename.ts` `checks`: the comment rule (via `sourceRegions`) and line keeps only. Verify with
+- [x] 4.1 `sites.ts` / `rename.ts` `checks`: the comment rule (via `sourceRegions`) and line keeps only. Verify with
   the 2.4 TS helper tests.
-- [ ] 4.2 `rename.ts` `runEntries`: `planImports` before site resolution; site resolution (warnings, `not-stand-in`,
+- [x] 4.2 `rename.ts` `runEntries`: `planImports` before site resolution; site resolution (warnings, `not-stand-in`,
   `computed-stand-in`, line-keep findings with the nearest edited line) before `[conflicts]`, stopping on a refusing
   finding. Verify with the paired cases through `npm run build && npm run conformance`.
 
 ## 5. Docs and gates
 
-- [ ] 5.1 `docs/deterministic-refactoring.md`: the `checks` list ("keeps whose files never spell an old name"
+- [x] 5.1 `docs/deterministic-refactoring.md`: the `checks` list ("keeps whose files never spell an old name"
   becomes line keeps whose line spells no old name, comments not counting without `--docs`), plus one sentence on
   site resolution (a warning for an unneeded whole-file or directory keep; a stop before `conflicts` on an unmatched
   line keep or a stand-in site that holds none). Verify by reading it against the spec delta.
-- [ ] 5.2 Run the local test scope (la-affected-tests plus the changed conformance cases through
+- [x] 5.2 Run the local test scope (la-affected-tests plus the changed conformance cases through
   `scripts/conformance-cross`), `ruff`, `basedpyright`, `npm run lint && npm run typecheck`, `la-arch-check`,
   `la-typecheck`, and verify that every one passes and that every new `findings.yaml` template is produced by a
   golden.

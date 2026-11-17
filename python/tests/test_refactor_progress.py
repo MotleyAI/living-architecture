@@ -90,7 +90,7 @@ def test_the_keep_text_check_skips_whole_path_keeps(tmp_path: Path, monkeypatch:
     editable = editable_files(root, False)
     refused = keep_checks(["docs", "pkg/a.py", "docs/x.py:1"], root, editable,
                           lambda rel: (root / rel).read_text(encoding="utf-8"), {"load"}, [], set(), docs=False)
-    assert [f.lines for f in refused] == [[message("refactor.keep-unmatched", site="docs/x.py:1")]]
+    assert [f.lines for f in refused] == [(message("refactor.keep-unmatched", site="docs/x.py:1"),)]
 
 
 @pytest.mark.parametrize(
