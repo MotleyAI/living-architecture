@@ -10,13 +10,12 @@ import tokenize
 from collections.abc import Callable
 from pathlib import Path
 
-from rope.base.project import Project
 from typing_extensions import override
 
 from living_architecture.contract import literal_value_forbidden, message
 from living_architecture.lang import Diagnostic, LanguageServer, reverse_closure
 from living_architecture.refactor.keyed import TypeFacts
-from living_architecture.refactor.locators import RefactorError
+from living_architecture.refactor.locators import cannot_rename
 from living_architecture.refactor.member_scan import TextProbe
 from living_architecture.refactor.mentions import docstrings
 from living_architecture.refactor.occurrence_index import RunIndex
@@ -41,7 +40,7 @@ def literal_member_at(source: SourceFile, offset: int) -> ast.Constant | None:
     """The string inside a `Literal[...]` subscript whose span holds `offset`."""
     if source.tree is None:
         return None
-    literals = (n for n in ast.walk(source.tree) if isinstance(n, ast.Subscript) and names_literal(n.value))
+    literals = (n for n in source.nodes if isinstance(n, ast.Subscript) and names_literal(n.value))
     strings = (i for n in literals for i in ast.walk(n.slice) if isinstance(i, ast.Constant) and isinstance(i.value, str))
     return next((i for i in strings if source.span(i)[0] <= offset < source.span(i)[1]), None)
 
@@ -143,7 +142,6 @@ class LiteralRename(MapRename):
 
     def __init__(self, session: Session, rel: str, node: ast.Constant, new: str, options: RenameOptions) -> None:
         self.session = session
-        self.project: Project = session.project
         self.root = session.root
         self.snapshot = session.snapshot
         self.options = options
@@ -195,7 +193,7 @@ class LiteralRename(MapRename):
             trees = {rel: source.tree if source.tree is not None else source.text for rel, source in {**modules, **stubs}.items()}
             self.candidates = sorted((reverse_closure(self.rel, trees) & set(modules)) | holding)
         if self._member is None or self._member.inner is None:
-            raise RefactorError(message("refactor.cannot-rename"))
+            raise cannot_rename()
 
     def _sources(self, paths: list[Path]) -> dict[str, SourceFile]:
         """Each readable file of `paths` by its project-relative path, in path order."""
@@ -224,9 +222,9 @@ class LiteralRename(MapRename):
             return []
         parents = _parents(source.tree)
         skipped = {id(d) for d in docstrings(source.tree)}
-        skipped |= {id(v) for n in ast.walk(source.tree) if isinstance(n, ast.JoinedStr) for v in n.values}
+        skipped |= {id(v) for n in source.nodes if isinstance(n, ast.JoinedStr) for v in n.values}
         out: list[_Site] = []
-        for node in ast.walk(source.tree):
+        for node in source.nodes:
             if isinstance(node, ast.Constant) and node.value == self.old and id(node) not in skipped:
                 parent = parents.get(node)
                 display = source.span(parent) if isinstance(parent, _DISPLAYS) else None  # pyright: ignore[reportArgumentType]
@@ -369,7 +367,7 @@ class LiteralRename(MapRename):
                 continue
             line = self.snapshot.source(site.rel).line(site.span[0])
             text = message("refactor.leftover", path=site.rel, line=line, where="string", old=self.old)
-            finding = Finding(path=site.rel, line=line, col=site.span[0], text=text)
+            finding = Finding(path=site.rel, line=line, col=site.span[0], end=site.span[1], text=text)
             self._file(Outcome(kind="leftover", rel=site.rel, span=site.span, finding=finding))
 
     def _file(self, outcome: Outcome) -> None:

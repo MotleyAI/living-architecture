@@ -4,5 +4,6 @@
 [references 1/1] entry 1: foo -> bar
 [rules]
 [rules 1/1] entry 1: foo -> bar: clean
+[conflicts]
 [baseline]
 [write]

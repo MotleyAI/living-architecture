@@ -4,4 +4,5 @@
 [references 1/1] entry 1: size -> volume
 [rules]
 [rules 1/1] entry 1: size -> volume: clean
+[conflicts]
 [write]

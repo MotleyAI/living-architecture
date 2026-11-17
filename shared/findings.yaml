@@ -17,6 +17,16 @@ findings:
   # ---- the YAML profile
   yaml.duplicate-key: 'duplicate key {key!r} at lines {first} and {second}'
 
+  # ---- OS and YAML errors
+  os.error: '{path}: {reason}'
+  os.not-found: no such file or directory
+  os.permission-denied: permission denied
+  os.is-a-directory: is a directory
+  os.not-a-directory: not a directory
+  os.other: 'OS error {code}'
+  yaml.invalid: '{path}: invalid YAML'
+  yaml.invalid-because: '{path}: invalid YAML: {error}'
+
   # ---- la-arch-check
   arch-check.ok: 'arch_check: OK'
   arch-check.summary: 'arch_check: {count} finding(s)'
@@ -348,10 +358,16 @@ findings:
   refactor.unresolved-target: '{path}:{line}: unresolved-target: {target} names .{attr} but does not resolve'
   refactor.mixed-target: '{path}:{line}: mixed-target: {receiver}.{attr} lands on renamed and unchanged declarations'
   refactor.stand-in: '{path}:{line}: stand-in: {cls}.{attr} is outside the renamed hierarchy; pass --with {path}:{line} to rename it too or --without {path}:{line} to leave it'
-  refactor.not-stand-in: '{site} is not a stand-in of this rename'
+  refactor.not-stand-in: '{site} is not a stand-in of this rename, so nothing was refactored'
   refactor.computed-stand-in: '{path}:{line}: computed-stand-in: {cls}.{attr} is declared by a computed name; pass --without {path}:{line} and rename it by hand'
-  refactor.keep-unmatched: '--keep {site} matches nothing this rename touches'
+  refactor.keep-unmatched: '--keep {site} matches nothing this rename touches, so nothing was refactored'
+  refactor.keep-unmatched-near: '--keep {site} matches nothing this rename touches; the nearest edited line is {path}:{line}, so nothing was refactored'
+  refactor.keep-unneeded: 'WARNING: --keep {site} matches nothing this rename touches'
   refactor.leftover: '{path}:{line}: leftover: {where} mentions {old}'
+  refactor.unresolved-name: '{path}:{line}: unresolved-name: {old} resolves to no declaration here, so it is left unchanged'
+  refactor.undecodable: '{path}: undecodable: the file does not decode as {encoding}, so it is left unchanged although it may mention {old}'
+  refactor.stub-not-module: '--stub applies only to the rename of a Python module file, so nothing was refactored'
+  refactor.stub-unconfigured: '--stub needs refactor.python.moved_module_stub in living-architecture.yaml, so nothing was refactored'
   refactor.symbol-unresolved: '{path}: {symbol} names no declaration; candidates: {candidates}'
   refactor.symbol-ambiguous: '{path}: {symbol} names more than one declaration: {candidates}'
   refactor.map-invalid: '{map}: entry {index} is not a valid rename-map entry'

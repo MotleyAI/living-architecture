@@ -9,19 +9,16 @@ import builtins
 from collections.abc import Callable, Iterator
 
 from pydantic import BaseModel, ConfigDict
-from rope.base import evaluate, libutils
-from rope.base.exceptions import RopeError
-from rope.base.project import Project
-from rope.base.pyobjectsdef import PyModule, PyPackage
-from rope.base.resources import File, Folder
-from rope.refactor.rename import Rename
 from typing_extensions import override
 
 from living_architecture.contract import message
+from living_architecture.refactor.entry_location import Entry, EntryLocator
+from living_architecture.refactor.locators import RefactorError
 from living_architecture.refactor.outcomes import Finding
 from living_architecture.refactor.python_source import SourceFile, split_lines
-from living_architecture.refactor.rename_union import RenameOptions, RopeSites, Session, SymbolRename
+from living_architecture.refactor.rename_union import RenameOptions, Session, SymbolRename
 from living_architecture.refactor.rope_patches import every_parameter
+from living_architecture.refactor.static_resolver import Value, node_key
 from living_architecture.refactor.text_edits import TextEdit
 
 _FUNCTIONS = (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)
@@ -65,7 +62,7 @@ class ImportNeed(BaseModel):
 
 
 def module_name(session: Session, rel: str) -> str:
-    return libutils.modname(session.project.get_resource(rel))
+    return session.modname(rel)
 
 
 def package_of(session: Session, rel: str) -> str:
@@ -83,37 +80,24 @@ def imported_module(session: Session, rel: str, stmt: ast.ImportFrom) -> str:
     return ".".join([*parts, *([stmt.module] if stmt.module else [])])
 
 
-def init_file(folder: object) -> File | None:
-    """A package folder's `__init__.py`."""
-    return folder.get_child(_INIT) if isinstance(folder, Folder) and folder.has_child(_INIT) else None  # pyright: ignore[reportReturnType]
+def module_file(session: Session, module: str) -> str | None:
+    """The project file of module `module`, a package's `__init__.py`."""
+    found = session.layout.module_file(module)
+    return session.rel(found) if found is not None else None
 
 
-def module_file(project: Project, module: str) -> File | None:
-    """The file of module `module`, a package's `__init__.py`."""
-    found = project.find_module(module) if module else None
-    return init_file(found) if isinstance(found, Folder) else found
+def definition(entry: Entry) -> Location | None:
+    """Where an entry's symbol is first declared, imports followed; None for a module or outside the project."""
+    return None if entry.kind in ("site", "module") or not entry.sites else (str(entry.key[1]), int(entry.key[2]))  # pyright: ignore[reportArgumentType]
 
 
-def definition(pyname: object) -> Location | None:
-    """Where rope finds `pyname` defined, imports followed."""
-    try:
-        location = pyname.get_definition_location() if pyname is not None else None  # pyright: ignore[reportAttributeAccessIssue]
-    except RopeError:
-        return None
-    module, line = location or (None, None)
-    resource = module.get_resource() if isinstance(module, PyModule) else None
-    return None if resource is None or line is None else (resource.path, line)
-
-
-def attribute_definition(project: Project, module: str, name: str) -> Location | None:
+def attribute_definition(locator: EntryLocator, module: str, name: str) -> Location | None:
     """Where the attribute `name` of module `module` is defined."""
-    found = module_file(project, module)
-    if found is None:
-        return None
     try:
-        return definition(project.get_pymodule(found).get_attributes().get(name))
-    except RopeError:
+        found = locator.value(locator.resolver.member(module, name), name)
+    except RefactorError:
         return None
+    return definition(found) if found is not None else None
 
 
 def _stored(node: ast.AST, skip: Callable[[ast.AST], bool] = lambda _: False) -> Iterator[str]:
@@ -166,16 +150,16 @@ def _bound_in_scope(parents: Parents, node: ast.AST, name: str, accepted: Callab
 class AliasRetarget(SymbolRename):
     """References to an alias rewritten to name its target; the alias stays."""
 
-    def __init__(self, session: Session, renamer: Rename, target: str, options: RenameOptions, *,
-                 site: tuple[str, int], rope_sites: RopeSites | None = None, line: int, home: TargetHome | None = None,
-                 own: Location | None = None, original: str | None = None, entry: int = 0) -> None:
-        super().__init__(session, renamer, target, options, site=site, rope_sites=rope_sites)
+    def __init__(self, session: Session, entry: Entry, target: str, options: RenameOptions, *,
+                 site: tuple[str, int], locator: EntryLocator, line: int, home: TargetHome | None = None,
+                 own: Location | None = None, original: str | None = None, index: int = 0) -> None:
+        super().__init__(session, entry, target, options, site=site, locator=locator)
         self.check_names = False
         self.line = line
         self.home = home
         self.own = own
         self.original = original or target
-        self.entry = entry
+        self.index = index
         self.refusals: list[Finding] = []
         self.needs: list[ImportNeed] = []
         self.held: list[TextEdit] = []
@@ -273,7 +257,7 @@ class AliasRetarget(SymbolRename):
         assert self.home is not None
         bound, later = self._bindings(rel, anchor, asname or self.original, self.parents(rel))
         self.needs.append(ImportNeed(path=rel, anchor=anchor, home=self.home, local=asname or self.new, bind=not bound,
-                                     entry=self.entry, leaving=leaving, duplicates=tuple(later)))
+                                     entry=self.index, leaving=leaving, duplicates=tuple(later)))
 
     def _use(self, edit: TextEdit, use: ast.Name, moving: set[int]) -> None:
         """A bare use: the target imported where its binding import stays or is a star import not binding the
@@ -293,7 +277,7 @@ class AliasRetarget(SymbolRename):
             return self._binds_target_before(edit.path, stmt, use, parents)
 
         source = self.snapshot.source(edit.path)
-        other = edit.path != self.renamer.resource.path and self._module_binds_other(source, edit.path)
+        other = edit.path != self.entry.rel and self._module_binds_other(source, edit.path)
         if _bound_in_scope(parents, use, self.new, accepted) or other or self._builtin_at(source, use, parents):
             self._refuse(edit, _SHADOWED, name=self.new)
 
@@ -303,27 +287,41 @@ class AliasRetarget(SymbolRename):
         module = self._receiver_module(edit.path, attr)
         if module is None:
             return [edit]
-        if self._is_target(libutils.modname(module), self.original):
+        if self._is_target(module[0], self.original):
             return [edit]
-        self._refuse(edit, "refactor.retarget-unbound", module=module.path, name=self.new)
+        self._refuse(edit, "refactor.retarget-unbound", module=module[1], name=self.new)
         return []
 
-    def _receiver_module(self, rel: str, attr: ast.Attribute) -> File | None:
-        """The module `attr`'s receiver names, by rope."""
-        source = self.snapshot.source(rel)
-        receiver = attr.value
-        span = source.name_span(receiver) if isinstance(receiver, (ast.Name, ast.Attribute)) else None
-        if span is None:
+    def _receiver_module(self, rel: str, attr: ast.Attribute) -> tuple[str, str] | None:
+        """The project module `attr`'s receiver names, by Python's scoping: its name and its file."""
+        own = self.locator.module(rel)
+        scope = self.locator.load_scopes(rel, own).get(id(attr.value)) if own is not None else None
+        if own is None or scope is None:
             return None
-        try:
-            resource = self.project.get_resource(rel)
-            pyname = evaluate.eval_location(self.project.get_pymodule(resource), span[0] - source.text.count("\r\n", 0, span[0]))
-            found = pyname.get_object() if pyname is not None else None
-        except RopeError:
-            return None
-        if isinstance(found, PyPackage):
-            return init_file(found.get_resource())
-        return found.get_resource() if isinstance(found, PyModule) else None  # pyright: ignore[reportReturnType]
+        value = self._assigned(self.locator.resolver.resolve(own, scope, attr.value))
+        found = self.locator.folders(value[1]) if value is not None and value[0] == "module" else None
+        path = self.session.rel(found[0]) if found is not None else None
+        return (value[1], path) if value is not None and path is not None else None
+
+    def _assigned(self, value: Value) -> Value:
+        """`value`, while it is a name assigned a plain name or attribute (`mirror = facade`), followed to that."""
+        seen: set[Value] = set()
+        while value is not None and value[0] == "decl" and value not in seen:
+            seen.add(value)
+            found = self.locator.resolver.declaration(value)
+            at = self.locator.module_at(found[0]) if found is not None else None
+            if found is None or at is None:
+                return value
+            rel, own = at
+            node = own.binder.decls.get(node_key(found[1]))
+            stmt = self.snapshot.source(rel).parent(node) if node is not None else None
+            if not (isinstance(stmt, ast.Assign) and stmt.targets == [node] and isinstance(stmt.value, (ast.Name, ast.Attribute))):
+                return value
+            scope = self.locator.load_scopes(rel, own).get(id(stmt.value))
+            if scope is None:
+                return value
+            value = self.locator.resolver.resolve(own, scope, stmt.value)
+        return value
 
     def _refuse(self, edit: TextEdit, template: str, **values: str) -> None:
         line = self.snapshot.source(edit.path).line(edit.start)
@@ -333,7 +331,7 @@ class AliasRetarget(SymbolRename):
         if not self.member:
             return
         hierarchy = self.located_hierarchy()
-        rel = self.renamer.resource.path
+        rel = self.entry.rel
         own = next((d.cls for d in self._declarations if d.rel == rel and d.line == self.line), None)
         for d in self._declarations:
             if (d.rel, d.start) in hierarchy and not (d.rel == rel and d.cls == own):
@@ -344,7 +342,7 @@ class AliasRetarget(SymbolRename):
 
     def _attribute_definition(self, module: str, name: str) -> Location | None:
         if (module, name) not in self._definitions:
-            self._definitions[module, name] = attribute_definition(self.project, module, name)
+            self._definitions[module, name] = attribute_definition(self.locator, module, name)
         return self._definitions[module, name]
 
     def _is_target(self, module: str, name: str) -> bool:
@@ -352,8 +350,8 @@ class AliasRetarget(SymbolRename):
         return self.home.definition is not None and self._attribute_definition(module, name) == self.home.definition
 
     def _module_source(self, module: str) -> SourceFile | None:
-        found = module_file(self.project, module)
-        return self.snapshot.source(found.path) if found is not None else None
+        found = module_file(self.session, module)
+        return self.snapshot.source(found) if found is not None else None
 
     def _exported_by(self, module: str) -> bool:
         """`module` exports the target under its name: declares it, lists it in `__all__`, or imports it as itself."""
@@ -374,7 +372,7 @@ class AliasRetarget(SymbolRename):
         if source is None or source.tree is None:
             return False
         name = self.original
-        if _has_all(source):
+        if source.all_statements:
             listed = name in _all_names(source)
         else:
             listed = not name.startswith("_") and any(name in _stored(s) for s in source.tree.body)
@@ -538,43 +536,21 @@ def _walk_scope(body: list[ast.stmt]) -> Iterator[ast.stmt]:
             yield from _walk_scope(block)
 
 
-def _all_statements(source: SourceFile) -> list[ast.stmt]:
-    return [s for s in source.tree.body if _assigns_all(s)] if source.tree is not None else []
-
-
-def _has_all(source: SourceFile) -> bool:
-    return bool(_all_statements(source))
-
-
 def _all_names(source: SourceFile) -> set[str]:
     """The names a module's `__all__` lists."""
-    return {n.value for s in _all_statements(source) for n in ast.walk(s) if isinstance(n, ast.Constant) and isinstance(n.value, str)}
+    return {str(n.value) for n in source.all_strings()}
 
 
 def _reexport_spans(source: SourceFile, name: str) -> list[tuple[int, int]]:
     """Where a module re-exports `name` (its `__all__` lists it): the `__all__` strings and its imports of `name`."""
     if source.tree is None:
         return []
-    names = [n for stmt in _all_statements(source) for n in ast.walk(stmt) if isinstance(n, ast.Constant) and n.value == name]
+    names = [n for n in source.all_strings() if n.value == name]
     if not names:
         return []
     imports = [a for stmt in source.tree.body if isinstance(stmt, (ast.Import, ast.ImportFrom)) for a in stmt.names
                if (a.asname or a.name.split(".")[-1]) == name]
     return [source.span(n) for n in [*names, *imports]]  # pyright: ignore[reportArgumentType]
-
-
-def _assigns_all(stmt: ast.stmt) -> bool:
-    """`stmt` assigns, extends or appends to a module's `__all__`."""
-    if isinstance(stmt, ast.Assign):
-        targets = stmt.targets
-    elif isinstance(stmt, (ast.AnnAssign, ast.AugAssign)):
-        targets = [stmt.target]
-    elif isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Call) and isinstance(stmt.value.func, ast.Attribute):
-        func = stmt.value.func
-        targets = [func.value] if func.attr in ("append", "extend") else []
-    else:
-        return False
-    return any(isinstance(t, ast.Name) and t.id == "__all__" for t in targets)
 
 
 def statement_removal(source: SourceFile, rel: str, stmt: ast.stmt) -> TextEdit:
@@ -596,7 +572,7 @@ def _named_at(source: SourceFile, offset: int, name: str) -> ast.AST | None:
     """The `ast.Name` or imported `ast.alias` naming `name` at `offset`."""
     if source.tree is None:
         return None
-    for node in ast.walk(source.tree):
+    for node in source.nodes:
         if isinstance(node, ast.Name) and node.id == name and source.span(node)[0] == offset:
             return node
         if isinstance(node, ast.alias) and node.name == name and source.offset(node.lineno, node.col_offset) == offset:
@@ -607,5 +583,5 @@ def _named_at(source: SourceFile, offset: int, name: str) -> ast.AST | None:
 def _attribute_at(source: SourceFile, offset: int, name: str) -> ast.Attribute | None:
     """The `ast.Attribute` whose attribute `name` starts at `offset`."""
     assert source.tree is not None
-    return next((n for n in ast.walk(source.tree) if isinstance(n, ast.Attribute) and n.attr == name
+    return next((n for n in source.nodes if isinstance(n, ast.Attribute) and n.attr == name
                  and (span := source.name_span(n)) is not None and span[0] == offset), None)

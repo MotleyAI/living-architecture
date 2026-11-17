@@ -4,4 +4,5 @@
 [references 1/1] entry 1: old -> parseInt
 [rules]
 [rules 1/1] entry 1: old -> parseInt: clean
+[conflicts]
 parseInt already names something else at src/m.ts:4, so nothing was refactored

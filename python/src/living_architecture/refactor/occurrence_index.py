@@ -5,9 +5,10 @@ from __future__ import annotations
 
 import ast
 import bisect
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Hashable, Iterable
 from contextlib import ExitStack
 from pathlib import Path
+from typing import TypeVar, cast
 
 from living_architecture.lang import (
     ExportRequest,
@@ -20,10 +21,11 @@ from living_architecture.lang import (
 )
 from living_architecture.lang.language_server import FactKind, Verdict
 from living_architecture.refactor.index_cache import IndexCache, request_key
-from living_architecture.refactor.python_source import SourceFile
+from living_architecture.refactor.python_source import SourceFile, nfkc
 from living_architecture.refactor.timings import timed
 
 _FUNCTIONS = (ast.FunctionDef, ast.AsyncFunctionDef)
+_T = TypeVar("_T")
 
 
 class ServerSession:
@@ -57,19 +59,37 @@ def _name_node(expr: ast.expr) -> ast.expr | None:
     return expr if isinstance(expr, (ast.Name, ast.Attribute)) else None
 
 
-def _mentions(node: ast.AST, names: set[str]) -> bool:
-    return any(isinstance(n, ast.Constant) and n.value in names for n in ast.walk(node))
+class _Shape:
+    """One pass over a file: the nodes holding a string constant in `names`, and the names assigned a dict literal
+    holding one."""
 
+    def __init__(self, source: SourceFile, names: set[str]) -> None:
+        self.source = source
+        self.mentioning: set[int] = set()
+        order = source.nodes
+        for node in reversed(order):
+            if (isinstance(node, ast.Constant) and isinstance(node.value, str) and node.value in names) or any(
+                id(c) in self.mentioning for c in ast.iter_child_nodes(node)
+            ):
+                self.mentioning.add(id(node))
+        self.dicts = {
+            t.id
+            for n in order
+            if isinstance(n, ast.Assign) and isinstance(n.value, ast.Dict) and id(n.value) in self.mentioning
+            for t in n.targets
+            if isinstance(t, ast.Name)
+        }
 
-def _dict_names(tree: ast.AST, names: set[str]) -> set[str]:
-    """Names assigned a dict literal mentioning one of `names`."""
-    return {
-        t.id
-        for n in ast.walk(tree)
-        if isinstance(n, ast.Assign) and isinstance(n.value, ast.Dict) and _mentions(n.value, names)
-        for t in n.targets
-        if isinstance(t, ast.Name)
-    }
+    def candidate(self, value: ast.AST) -> bool:
+        """`value` may carry a name: a literal holding one, or a name bound to such a dict."""
+        return id(value) in self.mentioning or (isinstance(value, ast.Name) and value.id in self.dicts)
+
+    def function_of(self, node: ast.AST) -> ast.AST | None:
+        """The function whose own body holds `node`, nested functions, lambdas and classes stopping the search."""
+        up = self.source.parent(node)
+        while up is not None and not isinstance(up, (*_FUNCTIONS, ast.Lambda, ast.ClassDef)):
+            up = self.source.parent(up)
+        return up if isinstance(up, _FUNCTIONS) else None
 
 
 def _plain(node: ast.expr) -> str | None:
@@ -94,53 +114,69 @@ class _Queries:
                 self.ask(node, "definition")
 
     def queries(self) -> list[FactQuery]:
-        order: tuple[FactKind, ...] = ("definition", "typeDefinition", "verdict", "access")
+        order: tuple[FactKind, ...] = ("definition", "typeDefinition", "verdict", "access", "class")
         return [FactQuery(path=self.source.path, offset=offset, kinds=tuple(k for k in order if k in kinds))
                 for offset, kinds in sorted(self.kinds.items())]
 
 
-def _returns_mention(fn: ast.FunctionDef | ast.AsyncFunctionDef, names: set[str], dicts: set[str]) -> bool:
-    return any(
-        isinstance(n, ast.Return) and n.value is not None
-        and (_mentions(n.value, names) or (isinstance(n.value, ast.Name) and n.value.id in dicts))
-        for n in ast.walk(fn)
-    )
-
-
-def fact_queries(source: SourceFile, names: set[str]) -> list[FactQuery]:
-    """The positions of `source` the rules of a rename of `names` ask about: class bases and field annotations,
-    decorators, the callees, receivers and annotations of keyed sinks, and string-member callees and objects."""
-    tree = source.tree
-    if tree is None:
-        return []
+def class_queries(source: SourceFile) -> list[FactQuery]:
+    """The class facts of every class `source` declares."""
     found = _Queries(source)
-    dicts = _dict_names(tree, names)
-    for node in ast.walk(tree):
-        if isinstance(node, ast.ClassDef):
-            for base in node.bases:
-                found.ask(_name_node(base), "definition")
-            for stmt in node.body:
-                if isinstance(stmt, ast.AnnAssign):
-                    found.names(stmt.annotation)
-        elif isinstance(node, _FUNCTIONS):
-            for decorator in node.decorator_list:
-                found.ask(decorator if isinstance(decorator, (ast.Name, ast.Attribute)) else None, "definition")
-            if node.returns is not None and _returns_mention(node, names, dicts):
-                found.names(node.returns)
-        elif isinstance(node, ast.AnnAssign) and node.value is not None and (
-            _mentions(node.value, names) or (isinstance(node.value, ast.Name) and node.value.id in dicts)
-        ):
-            found.names(node.annotation)
-        elif isinstance(node, ast.Call):
-            _call_queries(found, node, names, dicts)
+    for node in source.of_type(ast.ClassDef):
+        found.ask(node, "class")
     return found.queries()
 
 
-def _call_queries(found: _Queries, call: ast.Call, names: set[str], dicts: set[str]) -> None:
+def fact_queries(source: SourceFile, names: set[str]) -> list[FactQuery]:
+    """The positions of `source` the rules of a rename of `names` ask about: each class, its bases and field
+    annotations, decorators, the callees, receivers and annotations of keyed sinks, and string-member callees and
+    objects."""
+    if source.tree is None:
+        return []
+    found = _Queries(source)
+    shape = _Shape(source, names)
+    returning = _returning(source, shape)
+    for node in source.nodes:
+        if isinstance(node, ast.ClassDef):
+            _class_queries(found, node)
+        elif isinstance(node, _FUNCTIONS):
+            _function_queries(found, node, id(node) in returning)
+        elif isinstance(node, ast.AnnAssign) and node.value is not None and shape.candidate(node.value):
+            found.names(node.annotation)
+        elif isinstance(node, ast.Call):
+            _call_queries(found, node, names, shape)
+    return found.queries()
+
+
+def _returning(source: SourceFile, shape: _Shape) -> set[int]:
+    """The ids of the functions returning a keyed candidate."""
+    out: set[int] = set()
+    for node in source.of_type(ast.Return):
+        fn = shape.function_of(node) if node.value is not None and shape.candidate(node.value) else None
+        if fn is not None:
+            out.add(id(fn))
+    return out
+
+
+def _class_queries(found: _Queries, cls: ast.ClassDef) -> None:
+    found.ask(cls, "class")
+    for base in cls.bases:
+        found.ask(_name_node(base), "definition")
+    for stmt in cls.body:
+        if isinstance(stmt, ast.AnnAssign):
+            found.names(stmt.annotation)
+
+
+def _function_queries(found: _Queries, fn: ast.FunctionDef | ast.AsyncFunctionDef, returning: bool) -> None:
+    for decorator in fn.decorator_list:
+        found.ask(decorator if isinstance(decorator, (ast.Name, ast.Attribute)) else None, "definition")
+    if returning:
+        found.names(fn.returns)
+
+
+def _call_queries(found: _Queries, call: ast.Call, names: set[str], shape: _Shape) -> None:
     arguments = [*call.args, *(k.value for k in call.keywords)]
-    keyed = any(k.arg in names for k in call.keywords) or any(
-        _mentions(a, names) or (isinstance(a, ast.Name) and a.id in dicts) for a in arguments
-    )
+    keyed = any(k.arg in names for k in call.keywords) or any(shape.candidate(a) for a in arguments)
     if keyed and isinstance(call.func, (ast.Name, ast.Attribute)):
         found.ask(call.func, "definition", "typeDefinition")
         if isinstance(call.func, ast.Attribute):
@@ -155,7 +191,7 @@ def _call_queries(found: _Queries, call: ast.Call, names: set[str], dicts: set[s
 
 def _escaped_constant(source: SourceFile, names: set[str]) -> bool:
     return source.tree is not None and any(
-        isinstance(n, ast.Constant) and n.value in names for n in ast.walk(source.tree)
+        isinstance(n, ast.Constant) and n.value in names for n in source.nodes
     )
 
 
@@ -189,13 +225,18 @@ class RunIndex:
         self._probes: dict[tuple[Path, int], PositionFacts] = {}
         self._probe_results: dict[tuple[Path, tuple[int, int]], tuple[Verdict | None, list[Span]]] = {}
         self.request = ExportRequest(names=[], files=[])
+        self._memo: dict[Hashable, object] = {}
 
     # ---- exports
 
-    def prepare(self, names: set[str], files: list[Path]) -> bool:
-        """Fix the run's request for `names` over `files`; whether its export is cached."""
+    def prepare(self, names: set[str], files: list[Path], members: Iterable[str] = (), classes: Iterable[Path] = ()) -> bool:
+        """Fix the run's request for `names` over `files`, with the class facts of `classes` looking up `members`;
+        whether its export is cached."""
         queries = [q for path in files if (source := self._source(path)) is not None for q in fact_queries(source, names)]
-        self.request = ExportRequest(names=sorted(names), files=files, facts=queries)
+        asked = {(q.path, q.offset) for q in queries}
+        queries += [q for path in classes if path not in files and (source := self._source(path)) is not None
+                    for q in class_queries(source) if (q.path, q.offset) not in asked]
+        self.request = ExportRequest(names=sorted(names), files=files, facts=queries, members=sorted({nfkc(m) for m in members}))
         return self.cache is not None and self.cache.get(request_key(self.request, {})) is not None
 
     def build(self) -> None:
@@ -222,7 +263,7 @@ class RunIndex:
         found = self.cache.get(key) if self.cache is not None else None
         if found is not None:
             return found
-        server = self._open([*request.files, *texts], texts)
+        server = self._open(dict.fromkeys([*request.files, *(q.path for q in request.facts), *texts]), texts)
         try:
             with timed("references"):
                 found = server.export(request)
@@ -252,6 +293,12 @@ class RunIndex:
 
     # ---- lookups
 
+    def memo(self, key: Hashable, compute: Callable[[], _T]) -> _T:
+        """`compute()`, run once per run for `key`: a rule's per-file result that no entry changes."""
+        if key not in self._memo:
+            self._memo[key] = compute()
+        return cast("_T", self._memo[key])
+
     def occurrences(self, path: Path, name: str) -> list[Occurrence]:
         """The occurrences of `name` in the file at `path`, in source order."""
         return self._occurrences.get((path, name), [])
@@ -265,7 +312,8 @@ class RunIndex:
     def _fact(self, path: Path, offset: int, kind: FactKind) -> PositionFacts:
         entry = self._facts.get((path, offset), {})
         if kind not in entry:
-            self._merge(self._export(ExportRequest(names=[], files=[], facts=[
+            members = self.request.members if kind == "class" else []
+            self._merge(self._export(ExportRequest(names=[], files=[], members=members, facts=[
                 FactQuery(path=path, offset=offset, kinds=(kind,))])))
             entry = self._facts.setdefault((path, offset), {})
             entry.setdefault(kind, PositionFacts(path=path, offset=offset, kinds=(kind,)))
@@ -273,6 +321,11 @@ class RunIndex:
 
     def definition(self, path: Path, offset: int) -> list[Span]:
         return list(self._fact(path, offset, "definition").definition)
+
+    def class_facts(self, path: Path, offset: int) -> PositionFacts:
+        """The class fact of the class whose name starts at `offset`: its ancestors and the members of the run's
+        new names a class of them outside the project declares."""
+        return self._fact(path, offset, "class")
 
     def type_definition(self, path: Path, offset: int) -> list[Span]:
         return list(self._fact(path, offset, "typeDefinition").type_definition)

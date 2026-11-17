@@ -1,0 +1,26 @@
+Renaming <Storage> to <Dataset>:
+
+
+--- a/pkg/store.py
++++ b/pkg/store.py
+@@ -1,2 +1,2 @@
+-class Storage:
++class Dataset:
+     pass
+
+--- a/pkg/use.py
++++ b/pkg/use.py
+@@ -1,5 +1,5 @@
+-from pkg.store import Storage
++from pkg.store import Dataset
+ 
+ 
+ x = None  # type: Storage
+-y = Storage()
++y = Dataset()
+
+
+
+APPLIED. 2 file(s) changed:
+  pkg/store.py
+  pkg/use.py

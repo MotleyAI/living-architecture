@@ -1,11 +1,13 @@
 """Parsers built from the shared CLI manifest."""
 
+import importlib
 from pathlib import Path
 
 import pytest
 import yaml
 
-from living_architecture import cli, conventions, review
+from living_architecture import conventions, review
+from living_architecture.cli.dr_mock_lint import dr_mock_lint
 from living_architecture.cli.parser import build_parser, parse
 from living_architecture.contract import manifest
 
@@ -37,7 +39,8 @@ def test_passthrough_vector(case: dict, monkeypatch: pytest.MonkeyPatch) -> None
     received: list[list[str]] = []
     monkeypatch.setattr(conventions, "count_comments", lambda argv: received.append(argv) or 0)
     monkeypatch.setattr(review, "run_shim", lambda _command, argv: received.append(argv))
-    getattr(cli, case["command"].replace("-", "_"))(list(case["argv"]))
+    name = case["command"].replace("-", "_")
+    getattr(importlib.import_module(f"living_architecture.cli.{name}"), name)(list(case["argv"]))
     assert received == [case["args"]["argv"]]
 
 
@@ -118,7 +121,7 @@ def test_exclusive_locators_name_both_options(required: list[str], capsys: pytes
 
 def test_mock_lint_help_prints_help(capsys: pytest.CaptureFixture[str]) -> None:
     with pytest.raises(SystemExit) as exc:
-        cli.dr_mock_lint(["--help"])
+        dr_mock_lint(["--help"])
     assert exc.value.code == 0
     out, err = capsys.readouterr()
     assert "dr-mock-lint" in out

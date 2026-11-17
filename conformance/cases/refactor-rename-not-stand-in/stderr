@@ -4,4 +4,4 @@
 [references 1/1] entry 1: get_model -> get_dataset
 [rules]
 [rules 1/1] entry 1: get_model -> get_dataset: clean
-pkg/store.py:11 is not a stand-in of this rename
+pkg/store.py:11 is not a stand-in of this rename, so nothing was refactored

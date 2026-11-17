@@ -1,0 +1,9 @@
+[resolve]
+[checks]
+[references]
+[references 1/1] entry 1: foo -> class
+[rules]
+[rules 1/1] entry 1: foo -> class: 1 refusal(s)
+the element at this location cannot be renamed
+[conflicts]
+the element at this location cannot be renamed

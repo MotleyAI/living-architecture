@@ -1,0 +1,17 @@
+Renaming <foo> to <bar>:
+
+
+--- a/src/a.ts
++++ b/src/a.ts
+@@ -1,5 +1,5 @@
+-export function foo(): number {
++export function bar(): number {
+   return 1;
+ }
+ 
+-export const use = (): number => foo() + 1;
++export const use = (): number => bar() + 1;
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

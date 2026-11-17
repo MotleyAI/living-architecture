@@ -48,7 +48,8 @@ proceed.** The only other permitted pauses are:
 - the **`pr-plan` interview** (its whole point is questioning me);
 - a **nontrivial design decision** — a real fork with more than one reasonable
   option — raised with explicit PROS/CONS + RECOMMENDATION (per the interview
-  rule in `pr-plan`). A choice with an obvious default is NOT this:
+  rule in `pr-plan`, offering only genuine options as its "Genuine options
+  only" rule defines them). A choice with an obvious default is NOT this:
   take the default and move on;
 - the standing **go-ahead gate before opening a PR** (`pr-implement`): never
   open a PR without my explicit go-ahead; pushing this change's own branch needs none;

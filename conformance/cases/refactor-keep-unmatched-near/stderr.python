@@ -1,0 +1,7 @@
+[resolve]
+[checks]
+[references]
+[references 1/1] entry 1: load -> fetch
+[rules]
+[rules 1/1] entry 1: load -> fetch: clean
+--keep lib/near.py:8 matches nothing this rename touches; the nearest edited line is lib/near.py:5, so nothing was refactored

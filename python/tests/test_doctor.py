@@ -4,8 +4,9 @@ from pathlib import Path
 
 import pytest
 
-from living_architecture import __version__, cli, doctor
+from living_architecture import __version__, doctor
 from living_architecture import config as la_config
+from living_architecture.cli.la_doctor import la_doctor
 from living_architecture.config import CONFIG_FILENAME
 from living_architecture.contract import contract_hash
 
@@ -22,7 +23,7 @@ def all_tools(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.mark.usefixtures("all_tools")
 def test_healthy(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    assert cli.la_doctor(["--root", str(tmp_path)]) == 0
+    assert la_doctor(["--root", str(tmp_path)]) == 0
     assert "defaults (no config file)" in capsys.readouterr().out
 
 
@@ -55,7 +56,7 @@ def test_prerelease_installed_version_reports_another_series(tmp_path: Path, mon
 @pytest.mark.usefixtures("all_tools")
 def test_invalid_config(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     (tmp_path / CONFIG_FILENAME).write_text(_declared("tracker: jira\n"), encoding="utf-8")
-    assert cli.la_doctor(["--root", str(tmp_path)]) == 1
+    assert la_doctor(["--root", str(tmp_path)]) == 1
     assert "FAIL:" in capsys.readouterr().out
 
 
@@ -66,7 +67,7 @@ def test_missing_executable(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> 
 
 def test_twin_identity_line(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     monkeypatch.chdir(tmp_path)
-    assert cli.la_doctor(["--twin"]) == 0
+    assert la_doctor(["--twin"]) == 0
     assert capsys.readouterr().out == f"python {__version__} {contract_hash()}\n"
 
 
@@ -89,7 +90,7 @@ NO_PLAN_STORE = (
 
 
 def _doctor(root: Path, capsys: pytest.CaptureFixture[str], *args: str) -> tuple[int, list[str]]:
-    code = cli.la_doctor(["--root", str(root), *args])
+    code = la_doctor(["--root", str(root), *args])
     return code, capsys.readouterr().out.splitlines()
 
 

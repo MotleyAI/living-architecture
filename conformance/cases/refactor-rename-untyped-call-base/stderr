@@ -1,0 +1,9 @@
+[resolve]
+[checks]
+[references]
+[references 1/1] entry 1: run -> go
+[rules]
+[rules 1/1] entry 1: run -> go: 1 refusal(s)
+pkg/a.py:11: stand-in: Child.run is outside the renamed hierarchy; pass --with pkg/a.py:11 to rename it too or --without pkg/a.py:11 to leave it
+[conflicts]
+pkg/a.py:11: stand-in: Child.run is outside the renamed hierarchy; pass --with pkg/a.py:11 to rename it too or --without pkg/a.py:11 to leave it

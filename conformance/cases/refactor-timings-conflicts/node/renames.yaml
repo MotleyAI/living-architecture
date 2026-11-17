@@ -1,0 +1,2 @@
+- {file: lib/store.ts, symbol: Store.load, new_name: fetch}
+- {file: lib/store.ts, symbol: Store.drop, new_name: discard}

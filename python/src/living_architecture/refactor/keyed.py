@@ -13,6 +13,8 @@ from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Literal, Protocol
 
+from pydantic import BaseModel, ConfigDict
+
 from living_architecture.lang import Span
 from living_architecture.refactor.python_source import SourceFile
 from living_architecture.refactor.text_edits import TextEdit
@@ -134,12 +136,8 @@ class TypeFacts:
 
     def class_at(self, span: Span) -> ClassRef | None:
         source = self.source(span.path)
-        if source is None or source.tree is None:
-            return None
-        for node in ast.walk(source.tree):
-            if isinstance(node, ast.ClassDef) and source.name_span(node) == (span.start, span.end):
-                return ClassRef(source, node)
-        return None
+        node = source.defined_at((span.start, span.end)) if source is not None else None
+        return ClassRef(source, node) if source is not None and isinstance(node, ast.ClassDef) else None
 
     def _root_kind(self, span: Span) -> KeyedKind | None:
         text = self.span_text(span)
@@ -211,7 +209,7 @@ class TypeFacts:
         return next(
             (
                 ClassRef(source, cls)
-                for cls, fn in _methods(source.tree)
+                for cls, fn in _methods(source)
                 if _receiver_offset(source, fn) == spans[0].start
                 and self.method_kind(source, fn, at_call=False) in ("class", "instance")
             ),
@@ -261,13 +259,12 @@ def _name_node(expr: ast.expr) -> ast.Name | ast.Attribute | None:
     return expr if isinstance(expr, (ast.Name, ast.Attribute)) else None
 
 
-def _methods(tree: ast.AST) -> Iterator[tuple[ast.ClassDef, ast.FunctionDef | ast.AsyncFunctionDef]]:
+def _methods(source: SourceFile) -> Iterator[tuple[ast.ClassDef, ast.FunctionDef | ast.AsyncFunctionDef]]:
     """Every function in a class body, with its class."""
-    for cls in ast.walk(tree):
-        if isinstance(cls, ast.ClassDef):
-            for fn in cls.body:
-                if isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                    yield cls, fn
+    for cls in source.of_type(ast.ClassDef):
+        for fn in cls.body:
+            if isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                yield cls, fn
 
 
 def _receiver_offset(source: SourceFile, fn: ast.FunctionDef | ast.AsyncFunctionDef) -> int | None:
@@ -391,7 +388,6 @@ class KeyedRename:
         self.renamed = renamed
         self.aliased = aliased
         self.edits: list[TextEdit] = []
-        self._dict_names: set[str] = set()
 
     def _lands(self, cls: ClassRef, key: str) -> tuple[ClassRef, Span, ast.AnnAssign | ast.Assign] | None:
         if self.facts.chain(cls).kind is None:
@@ -487,30 +483,13 @@ class KeyedRename:
 
     # ---- sinks
 
-    def scan(self, source: SourceFile, rel: str, bindings: Bindings) -> None:
-        """Every sink in `source`: calls, TypedDict-annotated assignments and returns."""
-        if source.tree is None:
-            return
-        self._dict_names = _dict_names(source.tree, self.old)
-        for node in ast.walk(source.tree):
-            if isinstance(node, ast.Call) and self._relevant(node):
-                self._call(source, rel, node, bindings)
-            elif isinstance(node, ast.AnnAssign) and node.value is not None and self._candidate(node.value):
-                self._typeddict_value(source, rel, node.value, node.annotation, bindings)
-            elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.returns is not None:
-                self._typeddict_returns(source, rel, node, node.returns, bindings)
-
-    def _candidate(self, value: ast.expr) -> bool:
-        """Whether `value` may carry a renamed key: a literal naming it, or a name bound to such a dict."""
-        return _mentions(value, self.old) or (isinstance(value, ast.Name) and value.id in self._dict_names)
-
-    def _typeddict_returns(
-        self, source: SourceFile, rel: str, fn: ast.FunctionDef | ast.AsyncFunctionDef, returns: ast.expr,
-        bindings: Bindings,
-    ) -> None:
-        for ret in _returns(fn):
-            if ret.value is not None and self._candidate(ret.value):
-                self._typeddict_value(source, rel, ret.value, returns, bindings)
+    def scan(self, source: SourceFile, rel: str, bindings: Bindings, sinks: list[Sink]) -> None:
+        """Every sink of `sinks` (`source`'s, for this old name): calls, TypedDict-annotated assignments and returns."""
+        for sink in sinks:
+            if isinstance(sink.node, ast.Call):
+                self._call(source, rel, sink.node, bindings)
+            elif sink.annotation is not None:
+                self._typeddict_value(source, rel, sink.node, sink.annotation, bindings)
 
     def _typeddict_value(self, source: SourceFile, rel: str, value: ast.expr, ann: ast.expr, bindings: Bindings) -> None:
         cls = self.facts.annotation_class(source, ann)
@@ -525,9 +504,6 @@ class KeyedRename:
             bindings.sink(source, value, rewrite)
         else:
             rewrite(value, self.edits)
-
-    def _relevant(self, call: ast.Call) -> bool:
-        return any(k.arg == self.old for k in call.keywords) or any(self._candidate(a) for a in _arguments(call))
 
     def _call(self, source: SourceFile, rel: str, call: ast.Call, bindings: Bindings) -> None:
         func = call.func
@@ -588,7 +564,7 @@ class KeyedRename:
         """The parameters `call`'s positional arguments fill; none when an instance method's binding is unproven."""
         assert callee.tree is not None
         params = [*fn.args.posonlyargs, *fn.args.args]
-        if not any(isinstance(c, ast.ClassDef) and fn in c.body for c in ast.walk(callee.tree)):
+        if not isinstance(callee.parent(fn), ast.ClassDef):
             return params
         kind = self.facts.method_kind(callee, fn, at_call=True)
         if kind == "static":
@@ -620,10 +596,10 @@ class KeyedRename:
             return False
         if any(
             _receiver_offset(decl, fn) == span.start and self.facts.method_kind(decl, fn, at_call=False) == "instance"
-            for _, fn in _methods(decl.tree)
+            for _, fn in _methods(decl)
         ):
             return True
-        ann = next((a for n in ast.walk(decl.tree) if (a := _annotation_declared_at(decl, n, span)) is not None), None)
+        ann = next((a for n in decl.nodes if (a := _annotation_declared_at(decl, n, span)) is not None), None)
         return isinstance(ann, (ast.Name, ast.Attribute)) and self.facts.annotation_class(decl, ann) is not None
 
     def _typeddict_arguments(self, source: SourceFile, rel: str, call: ast.Call, bindings: Bindings) -> None:
@@ -633,15 +609,8 @@ class KeyedRename:
         spans = self.facts.definition(source.path, name[0])
         if len(spans) != 1 or (callee := self.facts.source(spans[0].path)) is None or callee.tree is None:
             return
-        fn = next(
-            (
-                n for n in ast.walk(callee.tree)
-                if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
-                and callee.name_span(n) == (spans[0].start, spans[0].end)
-            ),
-            None,
-        )
-        if fn is None:
+        fn = callee.defined_at((spans[0].start, spans[0].end))
+        if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
             return
         leading = itertools.takewhile(lambda a: not isinstance(a, ast.Starred), call.args)
         pairs = list(zip(self._positional_parameters(source, call, callee, fn), leading))
@@ -668,12 +637,51 @@ def _annotation_declared_at(source: SourceFile, node: ast.AST, span: Span) -> as
     return node.annotation if name is not None and name[0] == span.start else None
 
 
-def _dict_names(tree: ast.AST, old: str) -> set[str]:
+class Sink(BaseModel):
+    """A node of a file that may carry a key named the old name: a call, or a value with the annotation it is
+    checked against."""
+
+    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
+
+    node: ast.expr
+    annotation: ast.expr | None = None
+
+
+def sink_candidates(source: SourceFile, old: str) -> list[Sink]:
+    """`source`'s sink candidates for `old`, in source order: neutral syntax that every entry renaming `old` shares."""
+    if not _may_key(source, old):
+        return []
+    names = _dict_names(source, old)
+
+    def candidate(value: ast.expr) -> bool:
+        return _mentions(value, old) or (isinstance(value, ast.Name) and value.id in names)
+
+    out: list[Sink] = []
+    for node in source.nodes:
+        if isinstance(node, ast.Call):
+            if any(k.arg == old for k in node.keywords) or any(candidate(a) for a in _arguments(node)):
+                out.append(Sink(node=node))
+        elif isinstance(node, ast.AnnAssign) and node.value is not None and candidate(node.value):
+            out.append(Sink(node=node.value, annotation=node.annotation))
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.returns is not None:
+            out += [Sink(node=r.value, annotation=node.returns) for r in _returns(node)
+                    if r.value is not None and candidate(r.value)]
+    return out
+
+
+def _may_key(source: SourceFile, old: str) -> bool:
+    """Whether `source` holds a keyword argument named `old` or a string constant equal to it: every sink needs one."""
+    return any(k.arg == old for k in source.of_type(ast.keyword)) or any(
+        c.value == old for c in source.of_type(ast.Constant)
+    )
+
+
+def _dict_names(source: SourceFile, old: str) -> set[str]:
     """Names assigned a dict literal mentioning `old`."""
     return {
         t.id
-        for n in ast.walk(tree)
-        if isinstance(n, ast.Assign) and isinstance(n.value, ast.Dict) and _mentions(n.value, old)
+        for n in source.of_type(ast.Assign)
+        if isinstance(n.value, ast.Dict) and _mentions(n.value, old)
         for t in n.targets
         if isinstance(t, ast.Name)
     }

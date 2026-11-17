@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from living_architecture.cli import dr_compliance as main
+from living_architecture.cli.dr_compliance import dr_compliance as main
 from living_architecture.contract import message
 from living_architecture.refactor.compliance import ALL_CHECKS, check_path
 

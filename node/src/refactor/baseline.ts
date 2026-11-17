@@ -1,9 +1,9 @@
 // `.tsc-baseline.json` kept aligned with a refactor: each baselined diagnostic followed to its key after the edits.
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import type * as TS from 'typescript';
 import { ConfigError, findRepoRoot, loadConfig } from '../config/index.js';
-import { byCodePoint, language, message } from '../contract/index.js';
+import { byCodePoint, language, message, readFile } from '../contract/index.js';
 import { baselineKey, canonical, parseBaseline, parseTscOutput, posix, posixRel, renderBaseline, ts } from '../lang/index.js';
 import { splitBom } from './edits.js';
 import { mapPosition, type PositionMap } from './position.js';
@@ -103,7 +103,7 @@ export function alignBaseline(r: Refactor, map: PositionMap, texts: Map<string, 
   const none = { write: null, warnings: [] };
   const repoRoot = findRepoRoot(r.root);
   const baseline = configured(repoRoot);
-  const old = baseline === null ? null : readFileSync(baseline.path, 'utf8');
+  const old = baseline === null ? null : readFile(baseline.path, 'utf8');
   const counts = old === null ? null : parseBaseline(old);
   if (baseline === null || old === null || counts === null || counts.size === 0) return none;
   if (map.edits.size === 0 && map.moves.size === 0) return none;
@@ -117,7 +117,7 @@ export function alignBaseline(r: Refactor, map: PositionMap, texts: Map<string, 
   const overlay = (path: string): string | null | undefined => {
     if (map.moves.has(path)) return null;
     const old = olds.get(path) ?? path;
-    return texts.get(old) ?? (olds.has(path) ? splitBom(readFileSync(old, 'utf8'))[1] : undefined);
+    return texts.get(old) ?? (olds.has(path) ? splitBom(readFile(old, 'utf8'))[1] : undefined);
   };
   const after = new Workspace(r.root, overlay, new Map([...map.moves].map(([from, to]) => [canonical(from), to])));
   const cache = new Map<string, Instance[]>();

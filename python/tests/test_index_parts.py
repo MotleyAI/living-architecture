@@ -16,7 +16,11 @@ import pytest
 from living_architecture.lang import Span
 from living_architecture.refactor.compound import is_compound
 from living_architecture.refactor.hierarchy import ClassGraph
-from living_architecture.refactor.index_cache import fingerprint
+from living_architecture.refactor.index_cache import (  # pyright: ignore[reportPrivateUsage]
+    _config_chain,
+    _jsonc,
+    fingerprint,
+)
 from living_architecture.refactor.occurrence_index import candidate_files, fact_queries
 from living_architecture.refactor.python_source import SourceFile
 from living_architecture.refactor.text_tables import TextTables, declared_name
@@ -131,6 +135,13 @@ def test_compounds_are_exactly_the_declarations_is_compound_finds(tmp_path: Path
         assert tables.compounds(["m.py"], old) == expected, old
 
 
+def test_compounds_come_only_from_the_files_asked_about(tmp_path: Path) -> None:
+    texts = {"a.py": "def save_model_now() -> None:\n    pass\n", "b.py": "def save_model_now() -> None:\n    pass\n"}
+    tables = TextTables(tmp_path, lambda rel: SourceFile(tmp_path / rel, texts[rel]))
+    assert [rel for rel, _, _ in tables.compounds(["a.py"], "save")] == ["a.py"]
+    assert [rel for rel, _, _ in tables.compounds(["b.py"], "save")] == ["b.py"]
+
+
 def test_literals_leave_docstrings_and_fstring_parts(tmp_path: Path) -> None:
     text = '"""save_model"""\na = "save_model"\nb = f"save_model{a}"\nc = \'save_model\'\n'
     source = SourceFile(tmp_path / "m.py", text)
@@ -170,9 +181,10 @@ def _asked(text: str, names: set[str]) -> dict[str, set[str]]:
     return out
 
 
-def test_fact_queries_cover_bases_annotations_decorators_sinks_and_string_members() -> None:
+def test_fact_queries_cover_classes_bases_annotations_decorators_sinks_and_string_members() -> None:
     asked = _asked(QUERIED, {"columns"})
     assert asked == {
+        "5:Sub": {"class"},
         "5:Model": {"definition"},
         "5:Generic": {"definition"},
         "6:list": {"definition"},
@@ -223,3 +235,53 @@ def test_without_a_configured_venv_the_interpreters_search_paths_count(
     assert fingerprint(project) == first
     (site / "lib.py").write_text("x = 'changed'\n", encoding="utf-8")
     assert fingerprint(project) != first
+
+
+@pytest.mark.parametrize("config", [
+    {"extraPaths": ["../extra"]},
+    {"executionEnvironments": [{"root": ".", "extraPaths": ["../extra"]}]},
+    {"stubPath": "../extra"},
+    {"typeshedPath": "../extra"},
+])
+def test_a_directory_the_checker_config_names_counts(tmp_path: Path, config: dict[str, object]) -> None:
+    extra = tmp_path / "extra"
+    extra.mkdir()
+    (extra / "lib.py").write_text("x = 1\n", encoding="utf-8")
+    project = tmp_path / "proj"
+    project.mkdir()
+    (project / "pyrightconfig.json").write_text(json.dumps(config), encoding="utf-8")
+    first = fingerprint(project)
+    (extra / "lib.py").write_text("x = 'changed'\n", encoding="utf-8")
+    assert fingerprint(project) != first
+
+
+@pytest.mark.parametrize(("text", "expected"), [
+    ('{\n  // a comment\n  "a": 1, /* another */ "b": [1, 2,],\n}', {"a": 1, "b": [1, 2]}),
+    ('{"url": "http://x//y", "s": "a,}/*b*/", "q": "\\"//"}', {"url": "http://x//y", "s": "a,}/*b*/", "q": '"//'}),
+    ('{"a": 1 // trailing\n}', {"a": 1}),
+])
+def test_a_jsonc_config_reads_as_json(text: str, expected: dict[str, object]) -> None:
+    assert json.loads(_jsonc(text)) == expected
+
+
+@pytest.mark.parametrize("encoding", ["utf-8", "utf-8-sig"], ids=["plain", "bom"])
+def test_an_extends_in_a_commented_config_counts(tmp_path: Path, encoding: str) -> None:
+    base = tmp_path / "base.json"
+    base.write_text('{"reportMissingImports": "none"}', encoding="utf-8")
+    project = tmp_path / "proj"
+    project.mkdir()
+    (project / "pyrightconfig.json").write_text('{\n  // shared settings\n  "extends": "../base.json",\n}\n',
+                                                encoding=encoding)
+    first = fingerprint(project)
+    base.write_text('{"reportMissingImports": "error"}', encoding="utf-8")
+    assert fingerprint(project) != first
+
+
+@pytest.mark.parametrize(("files", "used"), [
+    ({"pyrightconfig.json": "{}", "pyproject.toml": '[tool.basedpyright]\nvenv = "v"\n'}, "pyrightconfig.json"),
+    ({"pyproject.toml": '[tool.basedpyright]\nvenv = "v"\n'}, "pyproject.toml"),
+], ids=["empty-json-wins", "toml-alone"])
+def test_the_checker_reads_pyrightconfig_whenever_it_exists(tmp_path: Path, files: dict[str, str], used: str) -> None:
+    for name, text in files.items():
+        (tmp_path / name).write_text(text, encoding="utf-8")
+    assert [p.name for p, _ in _config_chain(tmp_path)] == [used]

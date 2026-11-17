@@ -10,14 +10,14 @@ from typing import NamedTuple
 import pytest
 from project_files import file_tree, write_project
 
-from living_architecture.cli import dr_refactor
+from living_architecture.cli.dr_refactor import dr_refactor
 from living_architecture.config import current_format
 
 BIN_DIR = Path(sys.executable).parent
 
 Result = tuple[int, str, str]
 
-_PHASES = "resolve|checks|references|rules|baseline|write"
+_PHASES = "resolve|checks|references|rules|conflicts|baseline|write"
 _PROGRESS = re.compile(rf"\[(?:{_PHASES})\]|\[(?:{_PHASES}) \d+/\d+\] .*")
 _REFUSED = re.compile(r"\[rules \d+/\d+\] .*: (\d+) refusal\(s\)")
 

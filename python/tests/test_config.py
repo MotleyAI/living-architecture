@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 import pytest
@@ -230,13 +231,23 @@ def test_local_schema_error_names_key_and_local_file(tmp_path: Path, text: str, 
 def test_committed_yaml_checked_before_local_yaml(tmp_path: Path) -> None:
     _write(tmp_path, "reviewers: [\n")
     _write_local(tmp_path, "tracker: [\n")
-    assert _error(tmp_path).startswith(f"{tmp_path / config_file()}: ")
+    assert _error(tmp_path) == f"{config_file()}: invalid YAML"
+
+
+@pytest.mark.skipif(not hasattr(os, "geteuid") or os.geteuid() == 0, reason="needs a non-root POSIX user")
+def test_unreadable_local_config_is_a_config_error(tmp_path: Path) -> None:
+    _write_local(tmp_path, "tracker: github\n")
+    (tmp_path / local_config_file()).chmod(0)
+    try:
+        assert _error(tmp_path) == f"{local_config_file()}: permission denied"
+    finally:
+        (tmp_path / local_config_file()).chmod(0o644)
 
 
 def test_local_yaml_error_names_local_file(tmp_path: Path) -> None:
     _write(tmp_path, "tracker: github\n")
     _write_local(tmp_path, "tracker: [\n")
-    assert _error(tmp_path).startswith(f"{tmp_path / local_config_file()}: ")
+    assert _error(tmp_path) == f"{local_config_file()}: invalid YAML"
 
 
 @pytest.mark.parametrize("text", ["- tracker\n", "42\n"])
@@ -262,3 +273,15 @@ def test_explicit_typecheck_reads_the_merged_data(tmp_path: Path) -> None:
     _write(tmp_path, "commands: {typecheck: {python: basedpyright -p python}}\n")
     _write_local(tmp_path, "tracker: none\n")
     assert explicit_typecheck(tmp_path) == {"python"}
+
+
+def test_a_moved_module_stub_is_read_from_the_refactor_section(tmp_path: Path) -> None:
+    _write(tmp_path, 'refactor:\n  python:\n    moved_module_stub: "raise_moved(\\"{old}\\")\\n"\n')
+    assert load_config(tmp_path).refactor.python.moved_module_stub == 'raise_moved("{old}")\n'
+    assert load_config(tmp_path / "missing").refactor.python.moved_module_stub is None
+
+
+def test_a_moved_module_stub_must_be_text(tmp_path: Path) -> None:
+    _write(tmp_path, "refactor:\n  python:\n    moved_module_stub: 3\n")
+    with pytest.raises(ConfigError, match="moved_module_stub"):
+        load_config(tmp_path)

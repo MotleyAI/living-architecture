@@ -5,5 +5,6 @@
 [rules]
 [rules 1/1] entry 1: saveModel -> persistModel: 1 refusal(s)
 src/store.ts:14: mixed-target: x.saveModel lands on renamed and unchanged declarations
+[conflicts]
 src/store.ts:14: mixed-target: x.saveModel lands on renamed and unchanged declarations
 1 blind spot(s) of .saveModel: type or resolve them, or pass --allow-blindspots

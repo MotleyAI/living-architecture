@@ -1,4 +1,3 @@
 [resolve]
 [checks]
-[references]
-tests/test_chain.py:1 is not a stand-in of this rename
+tests/test_chain.py:1 is not a stand-in of this rename, so nothing was refactored

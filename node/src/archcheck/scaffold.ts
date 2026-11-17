@@ -5,7 +5,6 @@ import {
   mkdirSync,
   mkdtempSync,
   openSync,
-  readFileSync,
   readdirSync,
   rmSync,
   rmdirSync,
@@ -15,7 +14,7 @@ import {
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { INDEX_REL, diagramBlock, modelFile, parseModel, parseViews, readIndex, sources, viewsFile } from '../c4/index.js';
-import { message } from '../contract/index.js';
+import { message, readFile } from '../contract/index.js';
 import { NATIVE_LANGUAGE, requestFacts } from '../twin/index.js';
 import { type Facts, nativeTopLevelFacts } from './facts.js';
 import { ArchCheckError, type Index, declaredLanguages, loadIndex, resolveLayout, resolveTsconfig, section } from './index-file.js';
@@ -108,7 +107,7 @@ function renderViews(languages: string[]): string {
 }
 
 function indexText(root: string, index: Index, languages: string[]): string {
-  let text = readFileSync(join(root, INDEX_REL), 'utf8');
+  let text = readFile(join(root, INDEX_REL), 'utf8');
   if (text && !text.endsWith('\n')) text += '\n';
   if (!index.has('legacy_arrows')) text += 'legacy_arrows: {baseline: 0}\n';
   if (!index.has('diagrams')) text += `diagrams:\n  ${ARC42_REL}: [${languages.join(', ')}]\n`;
@@ -171,7 +170,7 @@ const attempt = (step: () => void): void => {
 /** Write every output, creating all but the index exclusively; on an error undo the writes made so far, then rethrow. */
 export function writeScaffold(root: string, files: Map<string, string>): void {
   const indexPath = join(root, INDEX_REL);
-  const indexBefore = readFileSync(indexPath, 'utf8');
+  const indexBefore = readFile(indexPath, 'utf8');
   const parents = [...new Set([...files.keys()].map((rel) => dirname(join(root, rel))))];
   const newDirs = parents.filter((dir) => !existsSync(dir)).sort((a, b) => b.length - a.length);
   const touched: string[] = [];

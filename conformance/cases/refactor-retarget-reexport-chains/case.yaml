@@ -1,0 +1,15 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- rename-map
+- renames.yaml
+fixture: refactor-retarget
+git:
+- commit: init
+expect:
+  exit: 0
+note: importers of the alias directly, through a package __init__ barrel, through a chain of re-exports and through a relative
+  re-export
+golden: manual

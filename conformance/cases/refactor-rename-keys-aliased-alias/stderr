@@ -4,5 +4,6 @@
 [references 1/1] entry 1: columns -> fields
 [rules]
 [rules 1/1] entry 1: columns -> fields: clean
+[conflicts]
 pkg/use.py:3: leftover: string mentions columns
 [write]

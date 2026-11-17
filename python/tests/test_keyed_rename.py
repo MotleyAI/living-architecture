@@ -10,7 +10,7 @@ import pytest
 from project_files import file_tree, write_project
 from refactor_cli import readouterr
 
-from living_architecture.cli import dr_refactor
+from living_architecture.cli.dr_refactor import dr_refactor
 from living_architecture.contract import message
 
 MakeProject = Callable[..., Path]

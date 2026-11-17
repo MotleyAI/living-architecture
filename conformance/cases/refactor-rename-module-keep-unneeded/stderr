@@ -1,0 +1,5 @@
+[resolve]
+[checks]
+[references]
+WARNING: --keep pkg/other.py matches nothing this rename touches
+[conflicts]

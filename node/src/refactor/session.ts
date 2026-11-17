@@ -1,8 +1,7 @@
 // One `dr-refactor` run on TypeScript: the project's services, the locators, and the output with its apply.
-import { readFileSync } from 'node:fs';
 import { isAbsolute, relative, sep } from 'node:path';
 import type * as TS from 'typescript';
-import { byCodePoint, message } from '../contract/index.js';
+import { byCodePoint, message, readFile } from '../contract/index.js';
 import { posix, ts } from '../lang/index.js';
 import { alignBaseline, baselineRuns } from './baseline.js';
 import { CHECKER_OPTIONS } from './compliance.js';
@@ -38,6 +37,7 @@ export interface RefactorArgs {
   keep?: string[];
   docs?: boolean;
   fail_fast?: boolean;
+  stub?: string;
   dest?: string;
   module?: string;
 }
@@ -99,7 +99,7 @@ export class Refactor {
     const entries: Entry[] = [];
     const writes: Write[] = [];
     for (const [path, fileEdits] of edits) {
-      const old = readFileSync(path, 'utf8');
+      const old = readFile(path, 'utf8');
       const [bom, body] = splitBom(old);
       const analysed = this.services(path)[0]?.getProgram()?.getSourceFile(path)?.text;
       if (analysed !== undefined && body !== analysed) throw new RefactorError(message('refactor.file-changed', { path: this.rel(path) }));
@@ -143,7 +143,7 @@ export function* nodes(node: TS.Node): Generator<TS.Node> {
 /** Where `locator` points in `file` (`shown` in messages): its offset, its line and column (code points), else the
  * declaration its path names. */
 export function locate(r: Refactor, file: string, shown: string, locator: Locator, follow = true): Located {
-  const text = readFileSync(file, 'utf8');
+  const text = readFile(file, 'utf8');
   if (locator.offset !== undefined) return { file, position: locateOffset(text, locator.offset), topLevel: false };
   if (locator.line !== undefined) return { file, position: locateLine(text, locator.line, locator.col ?? 1), topLevel: false };
   if (locator.symbol !== undefined) {

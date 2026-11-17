@@ -13,7 +13,7 @@ patches basedpyright in memory for pyright#11919, so pin a verified version (tod
 
 ## Refactoring
 
-`dr-refactor` resolves a rename's occurrences with the basedpyright bundled with la; rope locates the renamed symbol, renames modules and computes moves.
+`dr-refactor` resolves a rename's occurrences with the basedpyright bundled with la and computes every rename itself; rope computes moves.
 Its project scope (`--project`) must include `tests/` so test imports are rewritten too, and it must run in the
 project's environment (the `python` on PATH, or the venv in `[tool.basedpyright]`) so third-party types
 resolve. Move destinations must exist: a new package is a directory with an `__init__.py`.
@@ -47,7 +47,7 @@ What a rename leaves unrenamed:
 - mentions in comments, docstrings, messages and prose files: all of them without `--docs`; with it, the ones it
   lists as `leftover`;
 - for a parameter rename: keywords that reach it unresolved (`**kwargs` forwarding, a dict unpacked into the
-  call). A lambda parameter is refused.
+  call).
 - for a field rename: dict keys that reach the model untyped (through `Any` or `dict[str, Any]`, `**kwargs`
   forwarding, merges, loaded data, a module-level variable), a dict passed by position to an instance method
   whose receiver is not provably its class or an instance (a local `s = Service()`: annotate it or pass by
@@ -66,7 +66,7 @@ What a rename leaves unrenamed:
   `patch(..., autospec=True)`, or a `Protocol` fake.
 - `attr-blindspot` → type the named receiver (its parameter, variable, element type or the return it comes from)
   with the owning class or its `Protocol`, so the checker no longer infers `Unknown` or `Any`.
-- `rope-walk` → rope cannot walk this construct, so `dr-refactor` refuses the file. It is a rope bug, not a source error: report it with the named line; rewriting the construct is only a stopgap.
+- `rope-walk` → rope cannot walk this construct, so `dr-refactor` refuses a move whose files include it. It is a rope bug, not a source error: report it with the named line; rewriting the construct is only a stopgap.
 - Overrides carry `@typing.override`, so a renamed base method orphans them visibly.
 
 ## Imports

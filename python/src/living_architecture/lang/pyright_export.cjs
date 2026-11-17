@@ -12,13 +12,16 @@ const BUNDLE = 'pyright-langserver.js';
 const VERSION_MODULE = /"\.\.\/pyright-internal\/src\/version\.json"\(module\) \{\s*"use strict";\s*module\.exports = "([^"]*)"/;
 const CONSTRUCTOR = 'constructor(ls) {\n        this._createStub = new createTypeStub_1.CreateTypeStubCommand(ls);';
 const DISPATCH = "            default: {\n                return new vscode_languageserver_1.ResponseError(1, 'Unsupported command');";
+const AMBIENT = '    commandLineOptions.languageServerSettings.enableAmbientAnalysis = trackFiles;\n';
 const ANCHORS = [
+  [AMBIENT, '    commandLineOptions.languageServerSettings.enableAmbientAnalysis = false;\n'],
   [CONSTRUCTOR, 'constructor(ls) {\n        this.__laServer = ls;\n        this._createStub = new createTypeStub_1.CreateTypeStubCommand(ls);'],
   [DISPATCH, `            case "${COMMAND}": {\n                return globalThis.__laExportOccurrences(this.__laServer, cmdParams, token, __webpack_require__);\n            }\n${DISPATCH}`],
 ];
 
-const NODE = { Argument: 1, Class: 10, Decorator: 16, ImportAs: 24, ImportFromAs: 26, Index: 27, Function: 31,
+const NODE = { Argument: 1, Class: 10, Decorator: 16, ImportAs: 24, FormatString: 30, ImportFromAs: 26, Index: 27, Function: 31,
   MemberAccess: 35, Module: 36, ModuleName: 37, Name: 38, Parameter: 41, StringList: 48, String: 49, TypeAnnotation: 54 };
+const ALIAS_DECLARATION = 8;
 const HOVER = /^\([\p{L}\p{N}_ ]+\) [\p{L}\p{N}_.]+: ([\s\S]*)$/u;
 
 // A failure overwrites any result; `patched` never replaces one.
@@ -69,8 +72,15 @@ function hoverType(hover) {
       start = i + 3;
     }
   }
-  const all = [...members, text.slice(start)].map((t) => t.trim());
-  return ['Unknown', 'Any'].find((kind) => all.includes(kind)) ?? null;
+  const all = new Set([...members, text.slice(start)].map((t) => t.trim()));
+  return ['Unknown', 'Any'].find((kind) => all.has(kind)) ?? null;
+}
+
+// The annotation of a class-body statement `x: T` or `x: T = v`.
+function annotationOf(item) {
+  if (item.nodeType === NODE.TypeAnnotation) return item.d.annotation;
+  const left = item.d?.leftExpr;
+  return left?.nodeType === NODE.TypeAnnotation ? left.d.annotation : undefined;
 }
 
 class Exporter {
@@ -89,6 +99,7 @@ class Exporter {
     this.cache = new Map();
     this.followed = new Set();
     this.facts = [];
+    this.members = [];
   }
 
   memo(key, compute) {
@@ -174,6 +185,7 @@ class Exporter {
     if (parent?.nodeType === NODE.ImportAs && parent.d.alias === node) return 'alias';
     if (parent?.nodeType === NODE.ModuleName) return 'module';
     for (let up = parent; up; up = up.parent) {
+      if (up.nodeType === NODE.FormatString) return 'name';
       if (up.nodeType === NODE.StringList || up.nodeType === NODE.String) return 'forward-reference';
     }
     return 'name';
@@ -187,24 +199,28 @@ class Exporter {
     const range = (node) => this.positions.convertTextRangeToRange(node, lines);
     const tree = parsed.parserOutput.parseTree;
     const dunderAll = new Set(this.nodeInfo.getDunderAllInfo(tree, this.reader)?.stringNodes ?? []);
-    const exporter = this;
-    const names_ = names;
+    const onName = (node) => {
+      if (!names.has(node.d.value)) return;
+      const kind = this.kind(node);
+      out.push({ uri: lsp, range: range(node), name: node.d.value, kind, declarations: this.definition(uri, range(node).start),
+        bindings: this.bindings(this.program.evaluator.getDeclInfoForNameNode(node)?.decls),
+        receiver: kind === 'member' ? this.access(uri, node) : null });
+    };
+    const onString = (node) => {
+      if (!dunderAll.has(node) || !names.has(node.d.value) || node.d.token.escapedValue !== node.d.value) return;
+      out.push({ uri: lsp, range: range(this.treeUtils.getStringNodeValueRange(node)), name: node.d.value, kind: 'all-entry',
+        declarations: this.moduleDeclarations(tree, node.d.value),
+        bindings: this.bindings(this.nodeInfo.getScope(tree, this.reader)?.lookUpSymbol(node.d.value)?.getDeclarations()),
+        receiver: null });
+    };
     const walker = new (class extends this.walkers.ParseTreeWalker {
       visitName(node) {
-        if (names_.has(node.d.value)) {
-          const kind = exporter.kind(node);
-          const at = range(node).start;
-          out.push({ uri: lsp, range: range(node), name: node.d.value, kind, declarations: exporter.definition(uri, at),
-            receiver: kind === 'member' ? exporter.access(uri, node) : null });
-        }
+        onName(node);
         return true;
       }
 
       visitString(node) {
-        if (dunderAll.has(node) && names_.has(node.d.value) && node.d.token.escapedValue === node.d.value) {
-          out.push({ uri: lsp, range: range(exporter.treeUtils.getStringNodeValueRange(node)), name: node.d.value, kind: 'all-entry',
-            declarations: exporter.moduleDeclarations(tree, node.d.value), receiver: null });
-        }
+        onString(node);
         return true;
       }
     })(this.reader);
@@ -217,34 +233,57 @@ class Exporter {
     const out = [];
     for (const decl of symbol?.getDeclarations() ?? []) {
       const resolved = this.program.evaluator.resolveAliasDeclaration(decl, true);
-      if (resolved && resolved.uri && !resolved.uri.isEmpty()) out.push({ uri: resolved.uri, range: resolved.range });
+      if (resolved?.uri && !resolved.uri.isEmpty()) out.push({ uri: resolved.uri, range: resolved.range });
     }
     return this.locations(out);
   }
 
-  // The definitions la's rules ask about next, from a definition landing on a class, function or parameter.
+  // The `from M import X [as Y]` bindings `decls` pass through on the way to their final declarations, in order, each
+  // as the span of the name it binds.
+  bindings(decls) {
+    const out = [];
+    const seen = new Set();
+    const frontier = [...(decls ?? [])];
+    while (frontier.length) {
+      const decl = frontier.shift();
+      if (decl?.type !== ALIAS_DECLARATION || decl.node?.nodeType !== NODE.ImportFromAs || seen.has(decl)) continue;
+      seen.add(decl);
+      const file = this.treeUtils.getFileInfoFromNode(decl.node, this.reader)?.fileUri;
+      if (file) out.push({ uri: file, range: decl.range });
+      if (!decl.loadSymbolsFromPath || decl.uri.isEmpty() || !decl.symbolName) continue;
+      const symbol = this.program.lookUpImport(decl.uri)?.symbolTable.get(decl.symbolName);
+      frontier.push(...(symbol?.getDeclarations() ?? []));
+    }
+    return this.locations(out);
+  }
+
+  // The definitions la's rules ask about next, from a definition landing on a class, function or parameter in user code.
   follow(location) {
     const key = `${location.uri} ${location.range.start.line}:${location.range.start.character}`;
     if (this.followed.has(key)) return;
     this.followed.add(key);
     const uri = this.uri(location.uri);
+    const info = this.program.getSourceFileInfo(uri);
+    if (!info || info.isThirdPartyImport || info.isTypeshedFile) return;
     const node = this.nodeAt(uri, location.range.start);
     const parent = node?.parent;
-    if (!parent) return;
-    if (parent.nodeType === NODE.Class && parent.d.name === node) {
-      for (const arg of parent.d.arguments) {
-        if (!arg.d.name && arg.d.argCategory === 0) this.followName(uri, arg.d.valueExpr);
+    if (!parent || parent.d?.name !== node) return;
+    if (parent.nodeType === NODE.Class) this.followClass(uri, parent);
+    else if (parent.nodeType === NODE.Function) this.followFunction(uri, parent);
+    else if (parent.nodeType === NODE.Parameter && parent.parent?.nodeType === NODE.Function) {
+      this.followFunction(uri, parent.parent);
+    }
+  }
+
+  followClass(uri, cls) {
+    for (const arg of cls.d.arguments) {
+      if (!arg.d.name && arg.d.argCategory === 0) this.followName(uri, arg.d.valueExpr);
+    }
+    for (const statement of cls.d.suite.d.statements) {
+      for (const item of statement.d?.statements ?? []) {
+        const annotation = annotationOf(item);
+        if (annotation) this.followNames(uri, annotation);
       }
-      for (const statement of parent.d.suite.d.statements) {
-        for (const item of statement.d?.statements ?? []) {
-          const annotation = item.nodeType === NODE.TypeAnnotation ? item.d.annotation : item.d?.leftExpr?.nodeType === NODE.TypeAnnotation ? item.d.leftExpr.d.annotation : undefined;
-          if (annotation) this.followNames(uri, annotation);
-        }
-      }
-    } else if (parent.nodeType === NODE.Function && parent.d.name === node) {
-      this.followFunction(uri, parent);
-    } else if (parent.nodeType === NODE.Parameter && parent.d.name === node) {
-      if (parent.parent?.nodeType === NODE.Function) this.followFunction(uri, parent.parent);
     }
   }
 
@@ -258,7 +297,9 @@ class Exporter {
 
   followName(uri, expr) {
     const target = expr?.nodeType === NODE.Index ? expr.d.leftExpr : expr;
-    const name = target?.nodeType === NODE.Name ? target : target?.nodeType === NODE.MemberAccess ? target.d.member : undefined;
+    let name;
+    if (target?.nodeType === NODE.Name) name = target;
+    else if (target?.nodeType === NODE.MemberAccess) name = target.d.member;
     if (name) this.fact(uri, this.position(uri, name.start), ['definition']);
   }
 
@@ -278,12 +319,32 @@ class Exporter {
     visit(expr);
   }
 
+  // A class's MRO as the checker resolves it, each class by its name, and which of the run's new member names a class
+  // of it outside the project declares.
+  classFacts(uri, position) {
+    const node = this.nodeAt(uri, position);
+    const cls = node?.parent;
+    if (cls?.nodeType !== NODE.Class || cls.d.name !== node) return { mro: [], members: [] };
+    const mro = [];
+    const members = new Set();
+    for (const base of this.program.evaluator.getTypeOfClass(cls)?.classType?.shared.mro.slice(1) ?? []) {
+      const decl = base?.shared?.declaration;
+      if (!decl?.uri || !decl.range) continue;
+      mro.push({ uri: decl.uri, range: decl.range });
+      const info = this.program.getSourceFileInfo(decl.uri);
+      if (info && !info.isThirdPartyImport && !info.isTypeshedFile) continue;
+      for (const name of this.members) if (base.shared.fields?.has(name)) members.add(name);
+    }
+    return { mro: this.locations(mro), members: [...members] };
+  }
+
   answer(uri, position, kinds) {
     const lsp = this.ls.convertUriToLspUriString(this.fs, uri);
     const answer = { uri: lsp, position };
     if (kinds.includes('definition')) answer.definition = this.definition(uri, position);
     if (kinds.includes('typeDefinition')) answer.typeDefinition = this.typeDefinition(uri, position);
     if (kinds.includes('verdict')) answer.verdict = this.verdict(uri, position);
+    if (kinds.includes('class')) answer.class = this.classFacts(uri, position);
     if (kinds.includes('access')) {
       const node = this.nodeAt(uri, position);
       answer.access = node?.parent?.nodeType === NODE.MemberAccess && node.parent.d.member === node ? this.access(uri, node) : null;
@@ -303,6 +364,7 @@ class Exporter {
 
   run(request) {
     const names = new Set(request.names ?? []);
+    this.members = request.members ?? [];
     const occurrences = [];
     if (names.size) for (const lsp of request.files ?? []) this.occurrences(lsp, names, occurrences);
     const answers = (request.facts ?? []).map((q) => this.answer(this.uri(q.uri), q.position, q.kinds));
@@ -314,13 +376,9 @@ async function exportOccurrences(ls, params, token, req) {
   const request = (params.arguments ?? [])[0] ?? {};
   const files = [...(request.files ?? []), ...(request.facts ?? []).map((f) => f.uri)];
   if (!files.length) return { occurrences: [], answers: [], followed: [] };
-  const workspaces = new Set();
-  let workspace;
-  for (const lsp of files) {
-    workspace = await ls.getWorkspaceForFile(ls.convertLspUriStringToUri(lsp));
-    workspaces.add(workspace);
-  }
+  const workspaces = new Set(await Promise.all(files.map((lsp) => ls.getWorkspaceForFile(ls.convertLspUriStringToUri(lsp)))));
   if (workspaces.size !== 1) throw new Error('the requested files span several workspaces');
+  const [workspace] = workspaces;
   return workspace.service.run((program) => new Exporter(ls, workspace, program, req, token).run(request), token);
 }
 

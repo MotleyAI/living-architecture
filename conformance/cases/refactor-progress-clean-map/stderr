@@ -6,3 +6,4 @@
 [rules]
 [rules 1/2] entry 1: load -> fetch: clean
 [rules 2/2] entry 2: drop -> discard: clean
+[conflicts]

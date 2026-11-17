@@ -4,4 +4,5 @@
 [references 1/1] entry 1: columns -> fields
 [rules]
 [rules 1/1] entry 1: columns -> fields: clean
+[conflicts]
 fields already names something else at pkg/use.py:3, so nothing was refactored

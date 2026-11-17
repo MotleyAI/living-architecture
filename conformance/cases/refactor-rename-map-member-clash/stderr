@@ -1,0 +1,10 @@
+[resolve]
+[checks]
+[references]
+[references 1/2] entry 1: source -> population
+[references 2/2] entry 2: origin -> population
+[rules]
+[rules 1/2] entry 1: source -> population: clean
+[rules 2/2] entry 2: origin -> population: clean
+[conflicts]
+population already names something else at pkg/a.py:2, so nothing was refactored

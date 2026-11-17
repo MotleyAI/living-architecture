@@ -4,4 +4,5 @@
 [references 1/1] entry 1: get_model -> load
 [rules]
 [rules 1/1] entry 1: get_model -> load: clean
+[conflicts]
 [write]

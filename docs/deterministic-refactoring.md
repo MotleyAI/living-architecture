@@ -10,8 +10,8 @@ dynamic (mock) reference into a failure. Green ⇒ provably no dangling referenc
 
 Tools (both twins, routed by each file's language):
 - `dr-refactor` — the mutator: `rename` / `rename-map` / `retarget` / `move-symbol` / `move-module`. Python
-  resolves a rename's occurrences with the bundled basedpyright, and rope locates the symbol, renames modules and
-  computes moves; TypeScript runs the bundled TypeScript language service, one per project of the tsconfig's
+  resolves a rename's occurrences with the bundled basedpyright and computes every rename itself, and rope computes
+  moves; TypeScript runs the bundled TypeScript language service, one per project of the tsconfig's
   reference graph.
 - `dr-mock-lint` — fail on test doubles not bound to the real type; `--base BRANCH` prints only the findings the
   base branch lacks
@@ -33,11 +33,16 @@ leaves sites untouched, and `--docs` also rewrites mentions in comments, docstri
 listing the rest as `leftover`.
 
 A run announces its phases on stderr as they start — `[resolve]`, `[checks]`, `[references]`, `[rules]`,
-`[baseline]`, `[write]` — with `[references n/count]` as each entry's reference search starts and `[rules n/count]`
-as each old-name group is done, `clean` or followed by its refusals. Everything that needs no reference search runs
+`[conflicts]`, `[baseline]`, `[write]` — with `[references n/count]` as each entry's reference search starts and
+`[rules n/count]` as each old-name group is done, `clean` or followed by its refusals; `conflicts` checks the
+computed edits for map and name conflicts. Everything that needs no reference search runs
 in `checks` and refuses at once, listing every failure: entries that do not resolve, `--keep` / `--with` /
-`--without` sites naming no file or line, keeps whose files never spell an old name, Python walker gaps, an
-unreadable config while the language's baseline file exists, and a checker that cannot run. Past `checks`, every entry is computed and every refusal listed in one final report;
+`--without` sites naming no file or line, line keeps whose line spells no old name (a comment's spelling counts only
+with `--docs`, or in a Python type comment), Python walker gaps, an
+unreadable config while the language's baseline file exists, and a checker that cannot run. Once every entry's edits
+are final, before `conflicts`, each keep and stand-in site is resolved exactly: an unneeded whole-file or directory
+keep prints a `WARNING:` and the run goes on, while an unmatched line keep (named with the nearest edited line) or a
+`--with` / `--without` site holding no stand-in stops the run there. Past `checks`, every entry is computed and every refusal listed in one final report;
 `--fail-fast` (on `rename`, `retarget`, `rename-map`) stops after the first refused group instead. A failed checker
 is followed by its cause: exit code and stderr, start error, or error answer.
 

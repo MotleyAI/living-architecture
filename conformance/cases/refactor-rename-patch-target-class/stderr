@@ -4,4 +4,5 @@
 [references 1/1] entry 1: SearchQueryEngine -> QueryEngine
 [rules]
 [rules 1/1] entry 1: SearchQueryEngine -> QueryEngine: clean
+[conflicts]
 [write]

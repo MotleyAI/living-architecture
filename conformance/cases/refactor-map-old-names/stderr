@@ -6,4 +6,5 @@
 [rules]
 [rules 1/2] entry 1: old -> new: clean
 [rules 2/2] entry 2: x -> y: clean
+[conflicts]
 [write]

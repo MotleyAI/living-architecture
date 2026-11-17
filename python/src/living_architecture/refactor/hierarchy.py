@@ -53,7 +53,7 @@ class ClassGraph:
             source = self._load(path)
             self._classes[key] = None
             if source is not None and source.tree is not None:
-                for node in ast.walk(source.tree):
+                for node in source.nodes:
                     if isinstance(node, ast.ClassDef) and (span := source.name_span(node)) is not None and span[0] == start:
                         self._classes[key] = GraphClass(source, node)
                         break
@@ -68,14 +68,19 @@ class ClassGraph:
         if cls.key not in self._bases:
             out: list[GraphClass] = []
             for base in cls.node.bases:
-                name = _base_name(base)
-                span = cls.source.name_span(name) if name is not None else None
-                for d in self._definitions.definition(cls.source.path, span[0]) if span is not None else []:
-                    found = self.at(d.path, d.start)
-                    if found is not None and all(f.key != found.key for f in out):
+                for found in self._base_classes(cls.source, base):
+                    if all(f.key != found.key for f in out):
                         out.append(found)
             self._bases[cls.key] = out
         return self._bases[cls.key]
+
+    def _base_classes(self, source: SourceFile, base: ast.expr) -> list[GraphClass]:
+        name = _base_name(base)
+        span = source.name_span(name) if name is not None else None
+        if span is None:
+            return []
+        found = (self.at(d.path, d.start) for d in self._definitions.definition(source.path, span[0]))
+        return [c for c in found if c is not None]
 
     def has(self, cls: GraphClass, name: str, seen: frozenset[ClassKey] = frozenset()) -> bool:
         """`cls` declares member `name` or inherits it."""

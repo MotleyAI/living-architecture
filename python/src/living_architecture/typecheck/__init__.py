@@ -13,7 +13,7 @@ from pathlib import Path
 
 from living_architecture import lang, twin
 from living_architecture.config import ConfigError, LaConfig, find_repo_root, load_config, repo_languages
-from living_architecture.contract import language, message
+from living_architecture.contract import language, message, os_error_text
 
 
 class CommandError(Exception):
@@ -130,7 +130,7 @@ def python_diagnostics(root: Path, command: str, extra: list[str]) -> dict[str, 
         try:
             proc = subprocess.run([*argv, "--outputjson", *extra], cwd=root, env=env, capture_output=True, check=False)
         except OSError as exc:
-            raise CommandError(str(exc)) from None
+            raise CommandError(os_error_text(exc, root)) from None
         patch = lang.read_pyright_patch(result)
     stderr = proc.stderr.decode(errors="replace")
     exited = CommandError(stderr, kind="exit", code=proc.returncode, stderr=stderr)
@@ -140,8 +140,11 @@ def python_diagnostics(root: Path, command: str, extra: list[str]) -> dict[str, 
     if failure is not None:
         raise CommandError(failure, kind="error")
     no_report = CommandError(message("refactor.checker-no-report"), kind="error", stderr=stderr)
+    # basedpyright prints a line before the report when it updates a baseline whose errors went down.
+    lines = proc.stdout.splitlines(keepends=True)
+    start = next((i for i, line in enumerate(lines) if line.startswith(b"{")), 0)
     try:
-        report = json.loads(proc.stdout)
+        report = json.loads(b"".join(lines[start:]))
     except ValueError:
         raise no_report from None
     if not isinstance(report, dict):

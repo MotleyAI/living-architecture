@@ -13,8 +13,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
 
-from living_architecture.contract import message
-from living_architecture.refactor.locators import RefactorError
+from living_architecture.refactor.locators import cannot_rename
 from living_architecture.refactor.move_edits import NameConflict
 from living_architecture.refactor.python_source import SourceFile, nfkc
 from living_architecture.refactor.static_resolver import Module, Scope
@@ -29,6 +28,7 @@ Meaning = dict[Site, Site]
 
 _BUILTINS = frozenset(dir(builtins))
 _PREFIX = re.compile(r"[rRuU]?('''|\"\"\"|'|\")")
+_STAR = re.compile(r"(?<!\w)import[\s\\]*\*")
 
 
 def may_name(pattern: re.Pattern[str], text: str) -> bool:
@@ -48,7 +48,7 @@ def _word(source: SourceFile, node: ast.AST, word: str) -> int | None:
     return None if found is None else found[0]
 
 
-def _bound_at(source: SourceFile, node: ast.AST, name: str) -> int | None:
+def bound_at(source: SourceFile, node: ast.AST, name: str) -> int | None:
     """The offset of the identifier with which `node` binds `name`."""
     span = source.name_span(node)
     return span[0] if span is not None else _word(source, node, name)
@@ -105,19 +105,20 @@ class Occurrence:
 
 class _Parsed:
     """A module's scopes, the offsets binding each name in the scope it binds in, its star imports and the
-    identifiers of each name."""
+    identifiers of each name; it keeps no syntax tree."""
 
     def __init__(self, source: SourceFile, tree: ast.Module, parts: list[str], is_package: bool) -> None:
         module = Module(tree, parts, is_package)
         binder = module.binder
-        self.module = module
+        self.scope = module.scope
+        self.all_names = module.all_names
         self.sites: defaultdict[tuple[Scope, str], list[int]] = defaultdict(list)
         # Each binding that runs: its name's offset, the offset it runs at and the span its statement evaluates first.
         self.points: defaultdict[tuple[Scope, str], list[tuple[int | None, int, Span | None]]] = defaultdict(list)
         parents = {child: node for node in ast.walk(tree) for child in ast.iter_child_nodes(node)}
         self._named: defaultdict[str, list[Occurrence]] = defaultdict(list)
         for scope, name, node in binder.bound:
-            offset = _bound_at(source, node, name)
+            offset = bound_at(source, node, name)
             parent = parents.get(node)
             if not (isinstance(parent, ast.AnnAssign) and parent.value is None):  # an annotation binds nothing
                 self.points[(scope.owner(name), name)].append((offset, *_binding_point(source, node, parents)))
@@ -227,29 +228,31 @@ def module_binding(text: str, name: str) -> int | None:
     if source.tree is None:
         return None
     parsed = _Parsed(source, source.tree, [], False)
-    sites = parsed.sites.get((parsed.module.scope, nfkc(name)))
+    sites = parsed.sites.get((parsed.scope, nfkc(name)))
     return min(sites) if sites else None
 
 
-class World:
-    """The project's Python modules as one state of the code: `source` reads a module, `origin` maps its offsets to
-    sites of the code before the rename; a module outside `edited` is `unchanged`'s."""
+def _module_parts(folders: list[str], rel: str) -> tuple[list[str], bool]:
+    """The module path of file `rel` under its source folder, and whether it is a package."""
+    folder = max((f for f in folders if not f or rel.startswith(f + "/")), key=len)
+    parts = rel[len(folder) + 1 if folder else 0 :].rsplit(".", 1)[0].split("/")
+    return (parts[:-1], True) if parts[-1] == "__init__" else (parts, False)
 
-    def __init__(self, files: set[str], folders: list[str], source: Callable[[str], SourceFile],
+
+class World:
+    """The project's Python modules as one state of the code: `analyse` reads and analyses a module, `origin` maps its
+    offsets to sites of the code before the rename; a module outside `edited` is `unchanged`'s."""
+
+    def __init__(self, files: set[str], folders: list[str], analyse: Callable[[str], _Parsed | None],
                  origin: Callable[[str, int], Site], *, unchanged: World | None = None,
                  edited: frozenset[str] = frozenset()) -> None:
         self.files = files
         self.folders = folders
-        self.source = source
+        self.analyse = analyse
         self.origin = origin
         self.unchanged = unchanged
         self.edited = edited
         self._parsed: dict[str, _Parsed | None] = {}
-
-    def _parts(self, rel: str) -> tuple[list[str], bool]:
-        folder = max((f for f in self.folders if not f or rel.startswith(f + "/")), key=len)
-        parts = rel[len(folder) + 1 if folder else 0 :].rsplit(".", 1)[0].split("/")
-        return (parts[:-1], True) if parts[-1] == "__init__" else (parts, False)
 
     def find(self, dotted: str | None) -> str | None:
         """The file of module `dotted` in this state, if it is a project module."""
@@ -268,15 +271,7 @@ class World:
         if self.unchanged is not None and rel not in self.edited:
             return self.unchanged.parsed(rel)
         if rel not in self._parsed:
-            try:
-                source = self.source(rel)
-            except (OSError, UnicodeDecodeError, LookupError):
-                self._parsed[rel] = None
-                return None
-            if source.tree is None and self.unchanged is not None:
-                raise RefactorError(message("refactor.cannot-rename"))
-            parts, is_package = self._parts(rel)
-            self._parsed[rel] = None if source.tree is None else _Parsed(source, source.tree, parts, is_package)
+            self._parsed[rel] = self.analyse(rel)
         return self._parsed[rel]
 
     def _module_meaning(self, rel: str, name: str, seen: frozenset[str]) -> Meaning:
@@ -284,7 +279,7 @@ class World:
         if parsed is None:
             return {}
         out: Meaning = {}
-        for offset in parsed.sites.get((parsed.module.scope, name), []):
+        for offset in parsed.sites.get((parsed.scope, name), []):
             site = self.origin(rel, offset)
             out[site] = site
         for dotted, offset in parsed.stars:
@@ -299,7 +294,7 @@ class World:
         parsed = self.parsed(rel)
         if parsed is None:
             return False
-        listed = parsed.module.all_names
+        listed = parsed.all_names
         return name in listed if listed is not None else not name.startswith("_")
 
     def meaning(self, rel: str, scope: Scope, name: str, at: int | None = None) -> Meaning:
@@ -372,16 +367,78 @@ def first_conflict(conflicts: list[Conflict], source: Callable[[str], SourceFile
 
 
 class BindingCheck:
-    """Re-resolves every identifier of the renamed and new names in the project before and after the edits."""
+    """Re-resolves every identifier of the renamed and new names before and after the edits, in the files whose edits
+    can change a name's meaning and their star importers (every file when files move)."""
 
     def __init__(self, files: list[str], folders: list[str], source: Callable[[str], SourceFile]) -> None:
         self.files = files
         self.folders = folders
         self.source = source
-        self.world = World(set(files), folders, source, lambda rel, o: (rel, o))
+        self.world = World(set(files), folders, self._analyse_before, lambda rel, o: (rel, o))
+        self._inert: dict[str, frozenset[Span]] = {}
+        self._after: dict[tuple[str, str, tuple[TextEdit, ...]], tuple[_Parsed | None, _Edited]] = {}
+        self._importers: dict[str, list[str]] | None = None
 
     def before(self, rel: str) -> str:
         return self.source(rel).text
+
+    def _analyse_before(self, rel: str) -> _Parsed | None:
+        try:
+            source = self.source(rel)
+        except (OSError, UnicodeDecodeError, LookupError):
+            return None
+        parts, is_package = _module_parts(self.folders, rel)
+        return None if source.tree is None else _Parsed(source, source.tree, parts, is_package)
+
+    def _state(self, rel: str, src: str, edits: tuple[TextEdit, ...]) -> tuple[_Parsed | None, _Edited]:
+        """Module `rel` (file `src` before the edits) analysed after `edits`, with its offset mapping; cached by them."""
+        key = (rel, src, edits)
+        if key not in self._after:
+            try:
+                source = SourceFile(Path(rel), apply_edits(self.before(src), list(edits)))
+            except (OSError, UnicodeDecodeError, LookupError):
+                self._after[key] = (None, _Edited(list(edits)))
+                return self._after[key]
+            if source.tree is None:
+                raise cannot_rename()
+            parts, is_package = _module_parts(self.folders, rel)
+            self._after[key] = (_Parsed(source, source.tree, parts, is_package), _Edited(list(edits)))
+        return self._after[key]
+
+    def _inert_spans(self, rel: str) -> frozenset[Span]:
+        """The attribute names and call keyword names of `rel`: an edit of one binds nothing."""
+        if rel not in self._inert:
+            source = self.source(rel)
+            nodes: list[ast.AST] = [*source.of_type(ast.Attribute),
+                                    *(k for call in source.of_type(ast.Call) for k in call.keywords)]
+            self._inert[rel] = frozenset(span for n in nodes if (span := source.name_span(n)) is not None)
+        return self._inert[rel]
+
+    def _stars(self, rel: str) -> list[str]:
+        """The project modules `rel` star-imports."""
+        parsed = self.world.parsed(rel) if may_name(_STAR, self.before(rel)) else None
+        found = (self.world.find(dotted) for dotted, _ in parsed.stars) if parsed is not None else ()
+        return [module for module in found if module is not None]
+
+    def _star_importers(self) -> dict[str, list[str]]:
+        """Each project module's star importers."""
+        if self._importers is None:
+            out: defaultdict[str, list[str]] = defaultdict(list)
+            for rel in self.files:
+                for module in self._stars(rel):
+                    out[module].append(rel)
+            self._importers = dict(out)
+        return self._importers
+
+    def _judged(self, edited: set[str]) -> set[str]:
+        """`edited` and every module star-importing one of them, transitively."""
+        out, todo = set(edited), list(edited)
+        while todo:
+            for importer in self._star_importers().get(todo.pop(), []):
+                if importer not in out:
+                    out.add(importer)
+                    todo.append(importer)
+        return out
 
     def _names(self, entries: list[EntryEdits]) -> frozenset[str]:
         out: set[str] = set()
@@ -392,32 +449,66 @@ class BindingCheck:
                 out.add(nfkc(entry.target))
         return frozenset(out)
 
-    def conflicts(self, entries: list[EntryEdits], moves: dict[str, str] | None = None) -> list[Conflict]:
-        """The sites whose meaning the edits change; `moves` maps a moved file to its path after the rename."""
-        moves = moves or {}
+    def _plan(self, entries: list[EntryEdits], moves: dict[str, str]) -> _Plan | None:
+        """What a pass of `entries` judges; None when they check no name."""
         names = self._names(entries)
         if not names:
-            return []
-        pattern = re.compile(rf"(?<!\w)(?:{'|'.join(map(re.escape, sorted(names)))})(?!\w)")
+            return None
         by_file: defaultdict[str, list[TextEdit]] = defaultdict(list)
         for e in merge_edits([e for entry in entries for e in entry.edits]):
             by_file[e.path].append(e)
-        edited = {rel: _Edited(edits) for rel, edits in by_file.items()}
-        back = {dest: src for src, dest in moves.items()}
+        binding = {rel: tuple(edits) if moves else tuple(e for e in edits if (e.start, e.end) not in self._inert_spans(rel))
+                   for rel, edits in by_file.items()}
+        return _Plan(entries, names, dict(by_file), {rel: edits for rel, edits in binding.items() if edits}, moves)
 
-        def after_source(rel: str) -> SourceFile:
-            src = back.get(rel, rel)
-            return SourceFile(Path(rel), apply_edits(self.before(src), by_file.get(src, [])))
+    def conflicts(self, passes: list[list[EntryEdits]], moves: dict[str, str] | None = None) -> Iterator[list[Conflict]]:
+        """Each pass's sites whose meaning its edits change, in order; `moves` maps a moved file to its path after the
+        rename. An after-edit state lives until the last pass reading it."""
+        moves = moves or {}
+        plans = [self._plan(entries, moves) for entries in passes]
+        last = {key: n for n, plan in enumerate(plans) if plan is not None for key in plan.states()}
+        for n, plan in enumerate(plans):
+            found = [] if plan is None else self._judge(plan)
+            for key in [k for k in self._after if last.get(k, -1) <= n]:
+                del self._after[key]
+            yield found
+
+    def _judge(self, plan: _Plan) -> list[Conflict]:
+        def state(rel: str) -> tuple[_Parsed | None, _Edited]:
+            return self._state(*plan.key(rel))
 
         def after_origin(rel: str, offset: int) -> Site:
-            src = back.get(rel, rel)
-            return src, edited[src].original(offset) if src in edited else offset
+            src = plan.back.get(rel, rel)
+            return src, state(rel)[1].original(offset) if src in plan.binding else offset
 
-        changed = frozenset({moves.get(rel, rel) for rel in by_file} | set(moves.values()))
-        after = World({moves.get(f, f) for f in self.files}, self.folders, after_source, after_origin,
-                      unchanged=self.world, edited=changed)
-        checked = [rel for rel in self.files if rel in by_file or may_name(pattern, self.before(rel))]
-        return _Judge(entries, names, self.world, after, moves).conflicts(checked)
+        moves = plan.moves
+        after = World({moves.get(f, f) for f in self.files}, self.folders, lambda rel: state(rel)[0], after_origin,
+                      unchanged=self.world, edited=plan.changed)
+        judged = set(self.files) if moves else self._judged(set(plan.binding))
+        checked = [rel for rel in self.files
+                   if rel in judged and (rel in plan.by_file or may_name(plan.pattern, self.before(rel)))]
+        return _Judge(plan.entries, plan.names, self.world, after, moves).conflicts(checked)
+
+
+class _Plan:
+    """A pass: its entries and names, its edits by file, those that can bind a name and its after-world's edited
+    modules."""
+
+    def __init__(self, entries: list[EntryEdits], names: frozenset[str], by_file: dict[str, list[TextEdit]],
+                 binding: dict[str, tuple[TextEdit, ...]], moves: dict[str, str]) -> None:
+        self.entries, self.names, self.by_file, self.binding, self.moves = entries, names, by_file, binding, moves
+        self.pattern = re.compile(rf"(?<!\w)(?:{'|'.join(map(re.escape, sorted(names)))})(?!\w)")
+        self.back = {dest: src for src, dest in moves.items()}
+        self.changed = frozenset({moves.get(rel, rel) for rel in binding} | set(moves.values()))
+
+    def key(self, rel: str) -> tuple[str, str, tuple[TextEdit, ...]]:
+        """The after-edit state of module `rel`: its path, its file before the edits and that file's binding edits."""
+        src = self.back.get(rel, rel)
+        return rel, src, self.binding.get(src, ())
+
+    def states(self) -> set[tuple[str, str, tuple[TextEdit, ...]]]:
+        """The after-edit states the pass reads."""
+        return {self.key(rel) for rel in self.changed}
 
 
 class _Judge:

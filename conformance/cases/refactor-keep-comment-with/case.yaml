@@ -1,0 +1,15 @@
+kind: paired
+languages:
+- python
+- typescript
+command: dr-refactor
+args:
+  python: [rename-map, renames.yaml, --with, lib/cache.py:3, --keep, lib/cache.py:2]
+  typescript: [rename-map, renames.yaml, --with, lib/cache.ts:3, --keep, lib/cache.ts:2]
+fixture: refactor-keep
+git:
+- commit: init
+expect:
+  exit: 2
+golden: manual
+note: 'a line keep on a comment of a --with stand-in, without --docs: the comment rule refuses it in checks'

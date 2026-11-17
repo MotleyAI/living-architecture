@@ -7,8 +7,4 @@ args:
 - src/pkg.py
 expect:
   exit: 1
-  stdout:
-    contains:
-    - 'src/pkg.py:1: [unreadable] '
-    - 'gate: RED'
-note: OS error wording is not part of the contract
+note: a changed path that is a directory is unreadable with the reason from the os.* templates

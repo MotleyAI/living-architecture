@@ -1,0 +1,21 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- --apply
+- rename
+- --file
+- pkg/use.py
+- --symbol
+- client
+- --new-name
+- cli2
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - pkg/use.py
+note: 'an importer with mixed CRLF and LF lines: only the module''s spelling changes, each line keeps its own ending'
+golden: manual

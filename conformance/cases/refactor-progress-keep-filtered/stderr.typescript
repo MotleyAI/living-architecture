@@ -7,5 +7,6 @@
 [rules 1/2] entry 1: drop -> discard: clean
 [rules 2/2] entry 2: size -> count: 1 refusal(s)
 lib/other/o.ts:2: attr-blindspot: s.size — s is any, so a rename of .size is unverifiable
+[conflicts]
 lib/other/o.ts:2: attr-blindspot: s.size — s is any, so a rename of .size is unverifiable
 1 blind spot(s) of .size: type or resolve them, or pass --allow-blindspots

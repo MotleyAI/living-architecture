@@ -244,7 +244,7 @@ describe('setup and git failures', () => {
     write(root, { 'src/b.ts': 'export const b = 2;\n' });
     chmodSync(join(root, 'src/a.ts'), 0);
     const result = affected(root, '--base', 'main');
-    expect([...failure(result), result.err.includes('a.ts')]).toEqual([2, '', true, true]);
+    expect([result.code, result.out, result.err]).toEqual([2, '', 'la-affected-tests: src/a.ts: permission denied\n']);
   });
 
   it('not a git repository', () => {

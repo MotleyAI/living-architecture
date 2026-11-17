@@ -184,13 +184,13 @@ def architecture_files(root: Path, suffixes: tuple[str, ...]) -> list[str]:
     A symlink to a file counts; a symlinked directory is not descended into.
     """
     arch = root / "architecture"
-    if not arch.is_dir():
+    if not os.path.isdir(arch):
         return []
     found: list[str] = []
     for here, _dirs, names in os.walk(arch, onerror=_walk_error):
         for name in names:
             path = Path(here) / name
-            if name.endswith(suffixes) and path.is_file():
+            if name.endswith(suffixes) and os.path.isfile(path):
                 found.append(path.relative_to(root).as_posix())
     return sorted(found)
 
@@ -239,7 +239,7 @@ _CanonicalState = Literal["file", "missing", "not-a-file"]
 
 def _canonical_state(root: Path, rel: str) -> _CanonicalState:
     path = root / rel
-    if path.is_file():
+    if os.path.isfile(path):
         return "file"
     return "not-a-file" if os.path.lexists(path) else "missing"
 

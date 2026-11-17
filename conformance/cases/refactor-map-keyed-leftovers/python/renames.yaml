@@ -1,0 +1,2 @@
+- {file: pkg/models.py, symbol: A.columns, new_name: fields}
+- {file: pkg/models.py, symbol: B.columns, new_name: cols}

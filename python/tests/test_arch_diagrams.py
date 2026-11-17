@@ -5,8 +5,9 @@ from pathlib import Path
 
 import pytest
 
-from living_architecture import archcheck, c4, cli
+from living_architecture import archcheck, c4
 from living_architecture.c4.diagrams import _diagrams_map
+from living_architecture.cli.la_arch_diagrams import la_arch_diagrams
 from living_architecture.contract import check_ids
 
 FIX_CMD = "la-arch-diagrams"
@@ -1007,7 +1008,7 @@ def test_generate_rejects_path_traversal_doc_key(tmp_path):
 
 def test_main_prints_changed_files(tmp_path, capsys):
     root = make_repo(tmp_path, regenerate=False)
-    rc = cli.la_arch_diagrams(["--root", str(root)])
+    rc = la_arch_diagrams(["--root", str(root)])
     out = capsys.readouterr().out
     assert rc == 0
     assert "system.arc42.md" in out
@@ -1016,7 +1017,7 @@ def test_main_prints_changed_files(tmp_path, capsys):
 def test_main_reports_errors_without_traceback(tmp_path, capsys):
     root = make_repo(tmp_path, regenerate=False)
     (root / "architecture" / "index.yaml").write_text(PY_SECTION, encoding="utf-8")
-    assert cli.la_arch_diagrams(["--root", str(root)]) == 1
+    assert la_arch_diagrams(["--root", str(root)]) == 1
     assert "no diagrams block" in capsys.readouterr().err
 
 

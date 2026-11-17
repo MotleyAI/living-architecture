@@ -4,6 +4,7 @@
 [references 1/1] entry 1: edit_model -> edit_master
 [rules]
 [rules 1/1] entry 1: edit_model -> edit_master: clean
+[conflicts]
 src/kinds.ts:2: leftover: string mentions edit_model
 src/kinds.ts:16: leftover: string mentions edit_model
 [write]

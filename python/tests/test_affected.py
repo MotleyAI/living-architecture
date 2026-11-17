@@ -11,7 +11,8 @@ from pathlib import Path
 
 import pytest
 
-from living_architecture import __version__, cli
+from living_architecture import __version__
+from living_architecture.cli.la_affected_tests import la_affected_tests
 from living_architecture.contract import contract_hash, language, schema, validate
 
 TYPESCRIPT_IDENTITY = f"typescript {__version__} {contract_hash()}"
@@ -73,7 +74,7 @@ def restrict_path(tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.
 
 
 def _affected(capsys: pytest.CaptureFixture[str], *args: str) -> tuple[int, list[str], str]:
-    code = cli.la_affected_tests(list(args))
+    code = la_affected_tests(list(args))
     captured = capsys.readouterr()
     return code, captured.out.splitlines(), captured.err
 
@@ -84,7 +85,7 @@ def test_nothing_changed(repo, capsys):
 
 def test_missing_base_is_a_usage_error():
     with pytest.raises(SystemExit) as exc:
-        cli.la_affected_tests([])
+        la_affected_tests([])
     assert exc.value.code == 2
 
 
@@ -211,7 +212,7 @@ def test_an_unreadable_importer_fails(repo, capsys):
     _write(repo, {"src/pkg/b.py": "X = 2\n"})
     (repo / "src/pkg/a.py").chmod(0)
     code, out, err = _affected(capsys, "--base", "main")
-    assert (code, out, err.startswith("la-affected-tests: "), "a.py" in err) == (2, [], True, True)
+    assert (code, out, err) == (2, [], "la-affected-tests: src/pkg/a.py: permission denied\n")
 
 
 def test_not_a_git_repository(tmp_path, monkeypatch, capsys):
@@ -342,7 +343,7 @@ def _request(monkeypatch: pytest.MonkeyPatch, document: object) -> None:
 def test_internal_request_returns_the_python_selection(repo, capsys, monkeypatch):
     _git(repo, "rm", "-q", "src/pkg/b.py")
     _request(monkeypatch, {"changes": [{"path": "src/pkg/b.py", "deleted": True}]})
-    assert cli.la_affected_tests(["--language", "python"]) == 0
+    assert la_affected_tests(["--language", "python"]) == 0
     document = json.loads(capsys.readouterr().out)
     assert validate(schema("affected-response"), document) == []
     assert document == {"language": "python", "version": __version__, "contract_hash": contract_hash(),
@@ -351,20 +352,20 @@ def test_internal_request_returns_the_python_selection(repo, capsys, monkeypatch
 
 def test_internal_request_for_the_other_language_is_refused(repo, capsys, monkeypatch):
     _request(monkeypatch, {"changes": []})
-    assert cli.la_affected_tests(["--language", "typescript"]) == 2
+    assert la_affected_tests(["--language", "typescript"]) == 2
     assert capsys.readouterr().out == ""
 
 
 @pytest.mark.parametrize("path", ["/abs/a.py", "../a.py", "a/../b.py", "./a.py", "a\\b.py", ""])
 def test_internal_request_rejects_unsafe_paths(repo, capsys, monkeypatch, path):
     _request(monkeypatch, {"changes": [{"path": path, "deleted": False}]})
-    assert cli.la_affected_tests(["--language", "python"]) == 2
+    assert la_affected_tests(["--language", "python"]) == 2
     assert capsys.readouterr().out == ""
 
 
 def test_internal_request_not_json(repo, capsys, monkeypatch):
     monkeypatch.setattr(sys, "stdin", io.TextIOWrapper(io.BytesIO(b"[nope")))
-    assert cli.la_affected_tests(["--language", "python"]) == 2
+    assert la_affected_tests(["--language", "python"]) == 2
     assert capsys.readouterr().out == ""
 
 

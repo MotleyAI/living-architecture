@@ -74,25 +74,120 @@ def _tree(directory: Path, project: Path, digest: Any) -> None:
                 digest.update(f"{path}\0{stat.st_size}\0{stat.st_mtime_ns}\n".encode(errors="surrogateescape"))
 
 
-def _config_venv(root: Path) -> Path | None:
-    """The environment the project's checker configuration names (`venvPath` and `venv`)."""
-    found: dict[str, Any] = {}
+Config = tuple[Path, dict[str, Any]]
+
+
+def _jsonc(text: str) -> str:
+    """JSON with comments and trailing commas, as Pyright reads its configuration, as plain JSON."""
+    out: list[str] = []
+    comma = False
+    i = 0
+    while i < len(text):
+        end = _comment_end(text, i)
+        if end == i:
+            end = _token_end(text, i)
+            comma = _emit(out, text[i:end], comma)
+        i = end
+    return "".join(out)
+
+
+def _comment_end(text: str, i: int) -> int:
+    """The index past a comment starting at `i`, else `i`."""
+    if text.startswith("//", i):
+        end = text.find("\n", i)
+        return len(text) if end < 0 else end
+    if text.startswith("/*", i):
+        end = text.find("*/", i + 2)
+        return len(text) if end < 0 else end + 2
+    return i
+
+
+def _token_end(text: str, i: int) -> int:
+    """The index past the string literal or the single character at `i`."""
+    if text[i] != '"':
+        return i + 1
+    end = i + 1
+    while end < len(text) and text[end] != '"':
+        end += 2 if text[end] == "\\" else 1
+    return end + 1
+
+
+def _emit(out: list[str], token: str, comma: bool) -> bool:
+    """Append `token`, holding a comma back until the next token shows it is not trailing; whether one is held."""
+    if token.isspace():
+        out.append(token)
+        return comma
+    if comma and token not in ("}", "]"):
+        out.append(",")
+    if token == ",":
+        return True
+    out.append(token)
+    return False
+
+
+def _read_config(path: Path) -> dict[str, Any]:
+    found: Any = {}
     with contextlib.suppress(OSError, ValueError):
-        found = cast(dict[str, Any], json.loads((root / "pyrightconfig.json").read_text(encoding="utf-8")))
-    if not found:
-        with contextlib.suppress(OSError, ValueError):
-            tool = cast(dict[str, Any], tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8")).get("tool", {}))
-            found = cast(dict[str, Any], tool.get("basedpyright") or tool.get("pyright") or {})
-    venv_path, venv = found.get("venvPath"), found.get("venv")
-    if not isinstance(venv_path, str) or not isinstance(venv, str):
+        if path.suffix == ".toml":
+            tool = cast(dict[str, Any], tomllib.loads(path.read_text(encoding="utf-8-sig")).get("tool", {}))
+            found = tool.get("basedpyright") or tool.get("pyright") or {}
+        else:
+            found = json.loads(_jsonc(path.read_text(encoding="utf-8-sig")))
+    return cast(dict[str, Any], found) if isinstance(found, dict) else {}
+
+
+def _config_chain(root: Path) -> list[Config]:
+    """The project's checker configuration file and each file it `extends`, child first."""
+    path = root / "pyrightconfig.json"
+    if not path.is_file():
+        path = root / "pyproject.toml"
+    chain: list[Config] = []
+    seen: set[Path] = set()
+    while path.resolve() not in seen:
+        seen.add(path.resolve())
+        config = _read_config(path)
+        chain.append((path, config))
+        extends = config.get("extends")
+        if not isinstance(extends, str):
+            break
+        path = path.parent / extends
+    return chain
+
+
+def _config_venv(chain: list[Config]) -> Path | None:
+    """The environment the configuration names (`venvPath` and `venv`), each from the nearest file setting it."""
+    venv_path = next(((p.parent / c["venvPath"]) for p, c in chain if isinstance(c.get("venvPath"), str)), None)
+    venv = next((c["venv"] for _, c in chain if isinstance(c.get("venv"), str)), None)
+    if venv_path is None or venv is None:
         return None
-    return (root / venv_path / venv).resolve()
+    return (venv_path / venv).resolve()
+
+
+def _config_dirs(chain: list[Config]) -> list[Path]:
+    """The further directories any file of the configuration resolves imports in: `extraPaths` (also per execution
+    environment), `stubPath` and `typeshedPath`."""
+    out: set[Path] = set()
+    for path, config in chain:
+        found: list[Any] = [config.get("stubPath"), config.get("typeshedPath"), *(config.get("extraPaths") or [])]
+        for env in config.get("executionEnvironments") or []:
+            if isinstance(env, dict):
+                found += cast(dict[str, Any], env).get("extraPaths") or []
+        out |= {(path.parent / d).resolve() for d in found if isinstance(d, str)}
+    return sorted(out)
+
+
+def _python(project: Path) -> str | None:
+    """The interpreter basedpyright uses when no environment is configured: the project's `.venv`, else PATH's."""
+    local = project / ".venv" / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python")
+    if local.exists():
+        return str(local)
+    found = shutil.which("python3") if sys.platform != "win32" else None
+    return found or shutil.which("python")
 
 
 def _interpreter(digest: Any, project: Path) -> None:
     """The interpreter basedpyright falls back on and every search path it reports."""
-    found = shutil.which("python3") if sys.platform != "win32" else None
-    found = found or shutil.which("python")
+    found = _python(project)
     if found is None:
         digest.update(b"no interpreter\n")
         return
@@ -112,7 +207,7 @@ def _interpreter(digest: Any, project: Path) -> None:
 
 def fingerprint(root: Path) -> str:
     """Everything the export reads besides the request: la and basedpyright, the project's sources and checker
-    configuration, and the environment the checker resolves imports in."""
+    configuration, and the directories and environment the checker resolves imports in."""
     digest = hashlib.sha256()
     digest.update(f"{_FORMAT} {__version__} {importlib.metadata.version('basedpyright')}\n".encode())
     for preload in (PYRIGHT_EXPORT_PRELOAD, PYRIGHT_PATCH_PRELOAD):
@@ -126,7 +221,15 @@ def fingerprint(root: Path) -> str:
         with contextlib.suppress(OSError):
             digest.update(f"{name}\0".encode())
             digest.update(hashlib.sha256((root / name).read_bytes()).digest())
-    venv = _config_venv(root)
+    chain = _config_chain(root)
+    for path, _ in chain[1:]:
+        digest.update(f"extends {path}\0".encode(errors="surrogateescape"))
+        with contextlib.suppress(OSError):
+            digest.update(hashlib.sha256(path.read_bytes()).digest())
+    for directory in _config_dirs(chain):
+        digest.update(f"dir {directory}\n".encode(errors="surrogateescape"))
+        _tree(directory, root, digest)
+    venv = _config_venv(chain)
     if venv is not None and venv.is_dir():
         digest.update(f"venv {venv}\n".encode())
         _tree(venv, root, digest)
@@ -136,15 +239,19 @@ def fingerprint(root: Path) -> str:
 
 
 class IndexCache:
-    """The cache entry of project `root`: read once, extended by the run's exports, written atomically."""
+    """The cache entry of project `root`: read once, extended by the run's exports, written atomically only while its
+    fingerprint, taken before any export, still holds. A cache directory inside the project means no cache."""
 
     def __init__(self, root: Path) -> None:
         self.root = root
         name = hashlib.sha256(str(root).encode(errors="surrogateescape")).hexdigest()[:32]
-        self.path = cache_dir() / "occurrences" / f"{name}.json"
+        directory = cache_dir()
+        inside = directory.resolve().is_relative_to(root.resolve())
+        self.path: Path | None = None if inside else directory / "occurrences" / f"{name}.json"
         self._fingerprint: str | None = None
         self._stored: dict[str, OccurrenceIndex] | None = None
         self._run: dict[str, OccurrenceIndex] = {}
+        self._new: dict[str, OccurrenceIndex] = {}
 
     def _current(self) -> str:
         if self._fingerprint is None:
@@ -154,11 +261,14 @@ class IndexCache:
     def _entries(self) -> dict[str, OccurrenceIndex]:
         if self._stored is None:
             self._stored = {}
+            if self.path is None:
+                return self._stored
+            current = self._current()
             try:
                 entry = CacheEntry.model_validate_json(self.path.read_bytes())
             except (OSError, ValueError, ValidationError):
                 return self._stored
-            if entry.format == _FORMAT and entry.fingerprint == self._current():
+            if entry.format == _FORMAT and entry.fingerprint == current:
                 self._stored = entry.exports
         return self._stored
 
@@ -170,12 +280,15 @@ class IndexCache:
 
     def put(self, key: str, index: OccurrenceIndex) -> None:
         self._run[key] = index
+        self._new[key] = index
 
     def save(self) -> None:
-        """Replace the entry with this run's exports; a cache that cannot be written is skipped."""
-        if not self._run or self._run == self._entries():
+        """Extend the entry with this run's new exports; a cache that cannot be written is skipped."""
+        if self.path is None or not self._new:
             return
-        entry = CacheEntry(fingerprint=self._current(), exports=self._run)
+        if fingerprint(self.root) != self._current():
+            return
+        entry = CacheEntry(fingerprint=self._current(), exports={**self._entries(), **self._new})
         with contextlib.suppress(OSError):
             self.path.parent.mkdir(parents=True, exist_ok=True)
             fd, tmp = tempfile.mkstemp(dir=self.path.parent, prefix=".entry-", suffix=".tmp")

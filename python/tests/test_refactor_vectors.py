@@ -11,10 +11,9 @@ import pytest
 import yaml
 from refactor_cli import readouterr
 
-from living_architecture.cli import dr_refactor
+from living_architecture.cli.dr_refactor import dr_refactor
 from living_architecture.refactor.mentions import mentions, qualifier_segments, source_regions
 from living_architecture.refactor.python_source import SourceFile, split_lines
-from living_architecture.refactor.rope_refactor import _kept_lines  # pyright: ignore[reportPrivateUsage]
 from living_architecture.refactor.sites import Site
 
 VECTORS: dict[str, Any] = yaml.safe_load(
@@ -72,11 +71,6 @@ def test_docs_regions_in_a_cr_only_file() -> None:
     text = "x = 1\r# calls save_model\ry = 'save_model'\r"
     found = mentions(text, "save_model", source_regions(SourceFile(Path("a.py"), text)), lambda _: 1)
     assert [(m.start, m.where) for m in found] == [(text.index("save_model"), "comment"), (text.rindex("save_model"), "string")]
-
-
-def test_a_kept_line_counts_python_lines_only() -> None:
-    old, new = "a\fb = 1\nc = 1\n", "a\fB = 1\nc = 1\n"
-    assert _kept_lines("a.py", old, new, lambda _, line: line == 1) == old
 
 
 @pytest.mark.parametrize(

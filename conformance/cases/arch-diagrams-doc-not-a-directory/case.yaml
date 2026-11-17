@@ -1,0 +1,9 @@
+kind: neutral
+command: la-arch-diagrams
+fixture: arch-diagrams
+symlinks:
+  architecture/gone.arc42.md: system.arc42.md/x
+expect:
+  exit: 1
+golden: manual
+note: a mapped doc whose path runs through a regular file is reported with the not-a-directory text in both twins

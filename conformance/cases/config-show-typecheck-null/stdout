@@ -18,6 +18,11 @@
       "typescript": null
     }
   },
+  "refactor": {
+    "python": {
+      "moved_module_stub": null
+    }
+  },
   "conventions": {
     "text_ratio_max": 0.15,
     "exempt": [],

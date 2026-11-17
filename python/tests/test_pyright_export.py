@@ -1,5 +1,5 @@
 """The occurrence-export preload under Node, against fake language-server bundles built around the bundled
-basedpyright's own `CommandController`."""
+basedpyright's own `CommandController`, and its export from the bundled server."""
 
 from __future__ import annotations
 
@@ -13,9 +13,12 @@ from pathlib import Path
 import basedpyright
 import pytest
 from nodejs_wheel.executable import ROOT_DIR
+from project_files import write_project
+from pydantic import BaseModel
 
 from living_architecture import lang
 from living_architecture.contract import language
+from living_architecture.lang import ExportRequest, FactQuery, LanguageServer, OccurrenceIndex
 
 NODE = Path(ROOT_DIR) / "bin" / "node"
 BUNDLED = Path(next(iter(basedpyright.__path__))) / "dist" / "pyright-langserver.js"
@@ -32,15 +35,33 @@ def _controller() -> str:
     return text[start : end.end()]
 
 
-def _bundle_source(version: str | None, count: int) -> str:
+def _ambient_line() -> str:
+    """The bundled language server's line setting each workspace's ambient analysis, verbatim."""
+    found = re.findall(r"^.*\.languageServerSettings\.enableAmbientAnalysis = trackFiles;\n",
+                       BUNDLED.read_text(encoding="utf-8"), re.MULTILINE)
+    assert len(found) == 1
+    return found[0]
+
+
+def _ambient(count: int) -> str:
+    """A probe on `globalThis` returning the ambient analysis the bundle's line sets for tracked files."""
+    body = "    const commandLineOptions = { languageServerSettings: {} };\n" + _ambient_line() * count
+    return (f"globalThis.__laAmbientProbe = (trackFiles) => {{\n{body}"
+            "    return commandLineOptions.languageServerSettings.enableAmbientAnalysis;\n};\n")
+
+
+def _bundle_source(version: str | None, count: int, ambient: int = 1) -> str:
     modules = VERSION_MODULE.format(version=version) if version else ""
-    return f"(() => {{\nvar __webpack_modules__ = ({{\n{modules}}});\n" + _controller() * count + REPORT + "})();\n"
+    return (f"(() => {{\nvar __webpack_modules__ = ({{\n{modules}}});\n" + _controller() * count + _ambient(ambient)
+            + REPORT + "})();\n")
 
 
-def _package(root: Path, version: str | None = "1.40.2", count: int = 1, name: str = "pyright-langserver.js") -> Path:
+def _package(
+    root: Path, version: str | None = "1.40.2", count: int = 1, name: str = "pyright-langserver.js", ambient: int = 1
+) -> Path:
     """A fake basedpyright package; returns its entry, which requires dist/<name> like basedpyright's."""
     (root / "dist").mkdir(parents=True)
-    (root / "dist" / name).write_text(_bundle_source(version, count), encoding="utf-8")
+    (root / "dist" / name).write_text(_bundle_source(version, count, ambient), encoding="utf-8")
     entry = root / "langserver.index.js"
     entry.write_text(f"require('./dist/{name}');\n", encoding="utf-8")
     return entry
@@ -106,7 +127,26 @@ def test_anchors_not_matched_exactly_once_are_a_mismatch(tmp_path: Path, result:
     assert _outcome(result) == ("mismatch", "1.40.2")
 
 
-@pytest.mark.parametrize("name", ["pyright.js", "other.js"])
+@pytest.mark.parametrize("ambient", [0, 2], ids=["absent", "twice"])
+def test_an_ambient_analysis_line_not_matched_exactly_once_is_a_mismatch(
+    tmp_path: Path, result: Path, ambient: int
+) -> None:
+    proc = _node(_package(tmp_path / "pkg", ambient=ambient), result)
+    assert proc.returncode == 2
+    assert "loaded" not in proc.stdout
+    assert _outcome(result) == ("mismatch", "1.40.2")
+
+
+def test_the_patched_bundle_runs_no_ambient_analysis(tmp_path: Path, result: Path) -> None:
+    entry = _package(tmp_path / "pkg")
+    main = tmp_path / "main.js"
+    main.write_text(f"require({str(entry)!r});\nconsole.log('ambient: ' + globalThis.__laAmbientProbe(true));\n",
+                    encoding="utf-8")
+    proc = _node(main, result)
+    assert (proc.returncode, proc.stdout) == (0, "main: loaded\nambient: false\n"), proc.stderr
+
+
+@pytest.mark.parametrize("name",["pyright.js", "other.js"])
 def test_bundles_other_than_the_language_server_are_left_alone(tmp_path: Path, result: Path, name: str) -> None:
     proc = _node(_package(tmp_path / "pkg", name=name), result)
     assert (proc.returncode, proc.stdout) == (0, "main: loaded\n"), proc.stderr
@@ -141,3 +181,94 @@ def test_preload_path_with_spaces(tmp_path: Path, result: Path) -> None:
     proc = _node(_package(tmp_path / "pkg"), result, preload=preload)
     assert (proc.returncode, proc.stdout) == (0, "main: loaded\n"), proc.stderr
     assert _outcome(result) == ("patched", "1.40.2")
+
+
+LEAF = ("from enum import Enum\n\nfrom pydantic import BaseModel\n\n\nclass Kind(Enum):\n    A = 1\n\n\n"
+        "class Leaf(BaseModel):\n    kind: Kind\n")
+MODEL = ("from pydantic import BaseModel\n\nfrom pkg.leaf import Leaf\n\n\nclass Mid(BaseModel):\n    leaf: Leaf\n\n\n"
+         "class Top(BaseModel):\n    mid: Mid\n    tags: list[str]\n\n\ntop: Top | None = None\n")
+
+
+class PydanticExport(BaseModel):
+    root: Path
+    model: Path
+    leaf: Path
+    index: OccurrenceIndex
+
+
+@pytest.fixture(scope="module")
+def pydantic_export(tmp_path_factory: pytest.TempPathFactory) -> PydanticExport:
+    """One export over a pydantic project: definitions at a use of `Top`, at a `BaseModel` base and at `list`."""
+    root = write_project(tmp_path_factory.mktemp("export") / "p", {"pkg/leaf.py": LEAF, "pkg/m.py": MODEL}).resolve()
+    model, leaf = root / "pkg" / "m.py", root / "pkg" / "leaf.py"
+    offsets = [MODEL.rindex("Top"), MODEL.index("(BaseModel)") + 1, MODEL.index("list[")]
+    with LanguageServer(root) as server:
+        server.open(leaf, LEAF)
+        server.open(model, MODEL)
+        index = server.export(ExportRequest(names=[], files=[], facts=[
+            FactQuery(path=model, offset=offset, kinds=("definition",)) for offset in offsets]))
+    return PydanticExport(root=root, model=model, leaf=leaf, index=index)
+
+
+def test_follow_stays_out_of_library_and_typeshed_files(pydantic_export: PydanticExport) -> None:
+    followed = pydantic_export.index.followed
+    assert followed
+    assert [str(f.path) for f in followed if not f.path.is_relative_to(pydantic_export.root)] == []
+
+
+def test_a_first_party_chain_is_followed_to_its_end(pydantic_export: PydanticExport) -> None:
+    model, leaf = pydantic_export.model, pydantic_export.leaf
+    facts = {(f.path, f.offset): {(d.path, d.start) for d in f.definition} for f in pydantic_export.index.followed}
+    assert (model, MODEL.index("class Mid") + len("class ")) in facts[(model, MODEL.index("mid: Mid") + len("mid: "))]
+    assert (leaf, LEAF.index("class Leaf") + len("class ")) in facts[(model, MODEL.index("leaf: Leaf") + len("leaf: "))]
+    assert (leaf, LEAF.index("class Kind") + len("class ")) in facts[(leaf, LEAF.index("kind: Kind") + len("kind: "))]
+
+
+def test_a_direct_definition_in_a_library_or_typeshed_is_answered(pydantic_export: PydanticExport) -> None:
+    _, base, builtin = pydantic_export.index.answers
+    assert any("pydantic" in d.path.parts for d in base.definition)
+    assert any(d.path.name == "builtins.pyi" for d in builtin.definition)
+
+
+CLASSES = ("from typing import cast\n\nfrom pydantic import BaseModel\n\n\nclass Root:\n    def own(self) -> int:\n"
+           "        return 0\n\n\nclass Mid(Root):\n    pass\n\n\nclass Cast(cast(\"type[Mid]\", object)):\n    pass\n\n\n"
+           "class Model(BaseModel):\n    pass\n")
+
+
+@pytest.fixture(scope="module")
+def class_export(tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, OccurrenceIndex]:
+    """One export of the class facts of `Mid`, `Cast` and `Model`, looking up `own` and `model_dump`."""
+    root = write_project(tmp_path_factory.mktemp("classes") / "p", {"pkg/c.py": CLASSES}).resolve()
+    path = root / "pkg" / "c.py"
+    offsets = [CLASSES.index(f"class {name}") + len("class ") for name in ("Mid", "Cast", "Model")]
+    with LanguageServer(root) as server:
+        server.open(path, CLASSES)
+        index = server.export(ExportRequest(names=[], files=[], members=["own", "model_dump"], facts=[
+            FactQuery(path=path, offset=offset, kinds=("class",)) for offset in offsets]))
+    return path, index
+
+
+def test_a_class_fact_lists_its_ancestors_by_name(class_export: tuple[Path, OccurrenceIndex]) -> None:
+    path, index = class_export
+    mid, cast_base, _ = index.answers
+    root_name = (path, CLASSES.index("class Root") + len("class "))
+    mid_name = (path, CLASSES.index("class Mid") + len("class "))
+    assert next((s.path, s.start) for s in mid.ancestors) == root_name
+    assert [(s.path, s.start) for s in cast_base.ancestors][:2] == [mid_name, root_name]
+    assert mid.kinds == ("class",)
+
+
+def test_a_class_fact_names_only_members_a_library_class_declares(class_export: tuple[Path, OccurrenceIndex]) -> None:
+    mid, cast_base, model = class_export[1].answers
+    assert (mid.members, cast_base.members, model.members) == ((), (), ("model_dump",))
+    assert any("pydantic" in s.path.parts for s in model.ancestors)
+
+
+def test_a_class_fact_at_a_name_that_is_no_class_is_empty(tmp_path: Path) -> None:
+    root = write_project(tmp_path / "p", {"pkg/c.py": CLASSES}).resolve()
+    path = root / "pkg" / "c.py"
+    with LanguageServer(root) as server:
+        server.open(path, CLASSES)
+        index = server.export(ExportRequest(names=[], files=[], members=["own"], facts=[
+            FactQuery(path=path, offset=CLASSES.index("own"), kinds=("class",))]))
+    assert (index.answers[0].ancestors, index.answers[0].members) == ((), ())

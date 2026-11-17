@@ -1,11 +1,10 @@
 import json
 from pathlib import Path
-from typing import Any
 
 import pytest
 
 from living_architecture import config
-from living_architecture.cli import la_config as main
+from living_architecture.cli.la_config import la_config as main
 from living_architecture.config import CONFIG_FILENAME, format_value
 
 
@@ -87,13 +86,13 @@ def test_show_reads_the_local_file_once(
     local = repo / "living-architecture.local.yaml"
     local.write_text("tracker: none\n", encoding="utf-8")
     reads: list[Path] = []
-    read_text = Path.read_text
+    read_bytes = Path.read_bytes
 
-    def counting(path: Path, *args: Any, **kwargs: Any) -> str:
+    def counting(path: Path) -> bytes:
         reads.append(path)
-        return read_text(path, *args, **kwargs)
+        return read_bytes(path)
 
-    monkeypatch.setattr(Path, "read_text", counting)
+    monkeypatch.setattr(Path, "read_bytes", counting)
     assert main(["--root", str(repo), "show"]) == 0
     assert reads.count(local) == 1
     assert "tracker from" in capsys.readouterr().err

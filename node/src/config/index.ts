@@ -1,18 +1,16 @@
 // Per-repo config: `living-architecture.yaml` with its local overrides, validated and completed by the shared schema; the
 // repo's languages.
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import {
   PyFloat,
-  YAMLError,
   canonicalRepr,
   configFile,
   fnmatch,
   isPortableRegex,
   language,
   languageIds,
-  loadYaml,
   localConfigFile,
   manifest,
   materializeDefaults,
@@ -23,6 +21,7 @@ import {
   validate,
 } from '../contract/index.js';
 import { ConfigError } from './error.js';
+import { parseConfig, readConfigText } from './read.js';
 
 export { ConfigError } from './error.js';
 export {
@@ -60,6 +59,7 @@ export interface LaConfig {
     lint: string | null;
     typecheck: { python: string | null; typescript: string | null };
   };
+  refactor: { python: { moved_module_stub: string | null } };
   conventions: { text_ratio_max: number; exempt: string[]; rules: string[] };
 }
 
@@ -89,14 +89,9 @@ export function findRepoRoot(start: string): string {
 
 const isFile = (path: string): boolean => existsSync(path) && statSync(path).isFile();
 
-function raw(path: string): unknown {
-  if (!isFile(path)) return null;
-  try {
-    return loadYaml(readFileSync(path, 'utf8'));
-  } catch (error) {
-    if (error instanceof YAMLError) throw new ConfigError(`${path}: invalid YAML: ${error.message}`);
-    throw error;
-  }
+function raw(root: string, name: string): unknown {
+  const text = readConfigText(root, name);
+  return text === null ? null : parseConfig(text, name);
 }
 
 function merge(base: unknown, over: unknown): unknown {
@@ -120,9 +115,9 @@ function leaves(sub: Record<string, any>, data: Map<unknown, unknown>, prefix = 
 
 /** Both files read and the local one checked against its schema; ConfigError naming the faulty file. */
 export function loadRaw(root: string): RawConfig {
-  const committed = raw(join(root, configFile()));
+  const committed = raw(root, configFile());
   const localPath = join(root, localConfigFile());
-  const local = raw(localPath);
+  const local = raw(root, localConfigFile());
   let overrides: string[] = [];
   let data = committed;
   if (local !== null) {

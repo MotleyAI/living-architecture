@@ -682,8 +682,12 @@ NEW_TEMPLATES = {
     "refactor.stand-in":
         "{path}:{line}: stand-in: {cls}.{attr} is outside the renamed hierarchy; pass --with {path}:{line} to rename"
         " it too or --without {path}:{line} to leave it",
-    "refactor.not-stand-in": "{site} is not a stand-in of this rename",
-    "refactor.keep-unmatched": "--keep {site} matches nothing this rename touches",
+    "refactor.not-stand-in": "{site} is not a stand-in of this rename, so nothing was refactored",
+    "refactor.keep-unmatched": "--keep {site} matches nothing this rename touches, so nothing was refactored",
+    "refactor.keep-unmatched-near":
+        "--keep {site} matches nothing this rename touches; the nearest edited line is {path}:{line}, so nothing was"
+        " refactored",
+    "refactor.keep-unneeded": "WARNING: --keep {site} matches nothing this rename touches",
     "refactor.leftover": "{path}:{line}: leftover: {where} mentions {old}",
     "compliance.attr-required": "--select attr-blindspot needs --attr NAME",
     "compliance.attr-unselected": "--attr needs attr-blindspot among the selected checks",
@@ -722,6 +726,14 @@ NEW_TEMPLATES = {
     "refactor.progress-entry": "entry {index}",
     "refactor.progress-entries": "entries {indexes}",
     "refactor.timing": "timing: {phase} {seconds}s",
+    "os.error": "{path}: {reason}",
+    "os.not-found": "no such file or directory",
+    "os.permission-denied": "permission denied",
+    "os.is-a-directory": "is a directory",
+    "os.not-a-directory": "not a directory",
+    "os.other": "OS error {code}",
+    "yaml.invalid": "{path}: invalid YAML",
+    "yaml.invalid-because": "{path}: invalid YAML: {error}",
 }
 REMOVED_TEMPLATES = {"c4-layout.migrate"}
 # Defensive findings no real input reaches; each is pinned by a unit test instead of a golden.
@@ -761,6 +773,12 @@ def test_every_registry_template_is_produced_by_a_golden() -> None:
     registry = _shared_yaml("findings.yaml")["findings"]
     unproduced = sorted(set(registry) - _produced_ids(registry, records))
     assert unproduced == sorted(UNPRODUCED_BY_DESIGN)
+
+
+def test_no_golden_carries_runtime_os_error_wording() -> None:
+    """OS errors print from the os.* templates: no errno number, no runtime message."""
+    runtime = re.compile(r"\[Errno \d+\]|\bE[A-Z]{2,}: [a-z]")
+    assert [record for record in _golden_records() if runtime.search(record)] == []
 
 
 # ---- CLI manifest
@@ -837,10 +855,10 @@ def test_locators_are_one_exclusive_group(subcommand: str) -> None:
     assert spec["exclusive"] == [["offset", "line", "symbol"]]
 
 
-def test_rename_map_takes_renames_options_minus_the_locators() -> None:
+def test_rename_map_takes_renames_options_minus_the_locators_and_stub() -> None:
     spec = _shared_yaml("cli.yaml")["commands"]["dr-refactor"]["subcommands"]["rename-map"]
     assert [p["name"] for p in spec["positionals"]] == ["map"]
-    expected = set(_subcommand_options("rename")) - {"--file", *LOCATORS, "--col", "--new-name"}
+    expected = set(_subcommand_options("rename")) - {"--file", *LOCATORS, "--col", "--new-name", "--stub"}
     assert set(_subcommand_options("rename-map")) == expected
 
 

@@ -1,0 +1,3 @@
+[resolve]
+[checks]
+--keep lib/cache.py:2 matches nothing this rename touches, so nothing was refactored

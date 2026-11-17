@@ -1,0 +1,17 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- rename
+- --file
+- pkg/sub/inner.py
+- --new-name
+- core
+fixture: refactor-module-all
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: 'a module rename rewrites an `__all__` string naming its package''s own submodule, imported nowhere in the package'

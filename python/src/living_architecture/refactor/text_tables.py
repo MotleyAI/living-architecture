@@ -38,7 +38,7 @@ class TextTables:
         self._source = source
         self._literals: dict[str, dict[str, list[Span]]] = {}
         self._regions: dict[str, list[Region]] = {}
-        self._words: dict[str, list[tuple[str, str, Span]]] | None = None
+        self._words: dict[tuple[str, ...], dict[str, list[tuple[str, str, Span]]]] = {}
         self._prose: list[str] | None = None
 
     def literals(self, rel: str) -> dict[str, list[Span]]:
@@ -54,20 +54,29 @@ class TextTables:
         return self._regions[rel]
 
     def _declarations(self, rels: list[str]) -> dict[str, list[tuple[str, str, Span]]]:
-        if self._words is None:
-            self._words = {}
+        key = tuple(rels)
+        if key not in self._words:
+            table: dict[str, list[tuple[str, str, Span]]] = {}
             for rel in rels:
-                try:
-                    source = self._source(rel)
-                except (OSError, UnicodeDecodeError, LookupError):
-                    continue
-                for node in ast.walk(source.tree) if source.tree is not None else ():
-                    name = declared_name(node)
-                    span = source.name_span(node) if name is not None else None
-                    if name is not None and span is not None:
-                        for word in {w.lower() for w in words(name)}:
-                            self._words.setdefault(word, []).append((rel, name, span))
-        return self._words
+                for name, span in self._declared(rel):
+                    for word in {w.lower() for w in words(name)}:
+                        table.setdefault(word, []).append((rel, name, span))
+            self._words[key] = table
+        return self._words[key]
+
+    def _declared(self, rel: str) -> list[tuple[str, Span]]:
+        """Each name `rel` declares, with its span; none when the file can't be read."""
+        try:
+            source = self._source(rel)
+        except (OSError, UnicodeDecodeError, LookupError):
+            return []
+        out: list[tuple[str, Span]] = []
+        for node in source.nodes:
+            name = declared_name(node)
+            span = source.name_span(node) if name is not None else None
+            if name is not None and span is not None:
+                out.append((name, span))
+        return out
 
     def compounds(self, rels: list[str], old: str) -> list[tuple[str, str, Span]]:
         """Each declaration among the files `rels` whose name holds `old` as a word sequence: its file, name, span."""

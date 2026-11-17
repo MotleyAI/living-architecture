@@ -12,6 +12,7 @@ fixture: refactor-progress
 git:
 - commit: init
 expect:
-  exit: 2
+  exit: 0
 golden: manual
-note: without --docs a prose file is not editable, so its keep is keep-unmatched in checks
+note: 'without --docs a prose file is not editable, so a whole-file keep of it matches nothing: a warning at
+  site resolution, and the run goes on'

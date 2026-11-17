@@ -1,0 +1,13 @@
+kind: neutral
+command: la-arch-migrate
+fixture: arch-ok
+remove:
+- architecture/model.c4
+chmod:
+  architecture: '0000'
+expect:
+  exit: 2
+  files:
+  - living-architecture.yaml
+golden: manual
+note: an architecture/ that cannot be listed is refused from the os.* templates; the config's format is not stamped
