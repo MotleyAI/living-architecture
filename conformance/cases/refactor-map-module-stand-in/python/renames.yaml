@@ -1,0 +1,2 @@
+- {module: pkg/a.py, new_name: b}
+- {file: pkg/m.py, symbol: A.save, new_name: store}

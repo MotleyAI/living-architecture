@@ -6,12 +6,13 @@ from collections.abc import Callable
 from pathlib import Path
 
 import pytest
-from project_files import file_tree
+from project_files import file_tree, write_project
 from refactor_cli import readouterr
 
 from living_architecture.cli.dr_refactor import dr_refactor
 from living_architecture.contract import message
 from living_architecture.lang import ExportRequest, LanguageServer, LanguageServerError, OccurrenceIndex
+from living_architecture.refactor.rename_union import Session
 
 MakeProject = Callable[..., Path]
 BROKEN_NODE = "--require /nonexistent.js"
@@ -229,3 +230,12 @@ def test_module_rename_keeps_ropes_behaviour_alone(typed_project: MakeProject, m
     assert _rename(root, "pkg/use.py", "cli2", "--symbol", "client") == 0
     assert (root / "pkg" / "cli2.py").is_file()
     assert _read(root, "pkg/use.py") == use.replace("client", "cli2")
+
+
+def test_a_sessions_python_files_are_listed_once_before_the_run(tmp_path: Path) -> None:
+    root = write_project(tmp_path / "proj", {"pkg/a.py": "X = 1\n"}, venv=False)
+    session = Session(root)
+    listed = session.all_python_files()
+    (root / "pkg" / "b.py").write_text("Y = 2\n", encoding="utf-8")
+    assert sorted(listed) == ["pkg/__init__.py", "pkg/a.py"]
+    assert session.all_python_files() is listed

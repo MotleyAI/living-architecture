@@ -16,6 +16,28 @@ describe('rename-map routing', () => {
     expect(vi.mocked(twin.forward)).toHaveBeenCalledWith('dr-refactor', 'python', argv, realpathSync(root));
   });
 
+  it('hands a map whose module entry is Python to the Python twin with the raw argv', () => {
+    const root = tsProject({ 'pkg/a.py': 'X = 1\n', 'map.yaml': mapYaml([{ module: 'pkg/a.py', new_name: 'b' }]) });
+    const argv = ['rename-map', 'map.yaml'];
+    expect(refactor(root, ...argv)).toEqual({ code: 7, out: '', err: '' });
+    expect(vi.mocked(twin.forward)).toHaveBeenCalledWith('dr-refactor', 'python', argv, realpathSync(root));
+  });
+
+  it('takes a module entry\'s language from its path', () => {
+    const root = tsProject({
+      'pkg/a.py': 'def f() -> None:\n    pass\n',
+      'web/b.ts': 'export {};\n',
+      'map.yaml': mapYaml([{ file: 'pkg/a.py', symbol: 'f', new_name: 'g' }, { module: 'web/b.ts', new_name: 'c' }]),
+    });
+    const err = `${message('refactor.map-mixed-languages', { map: 'map.yaml', languages: 'python, typescript' })}\n`;
+    expect(refactor(root, 'rename-map', 'map.yaml')).toEqual({ code: 2, out: '', err });
+  });
+
+  it('refuses a module entry of no supported language', () => {
+    const root = tsProject({ 'map.yaml': mapYaml([{ module: 'notes.txt', new_name: 'g' }]) });
+    expect(refactor(root, 'rename-map', 'map.yaml')).toEqual({ code: 1, out: '', err: `${message('refactor.unsupported-extension', { path: 'notes.txt' })}\n` });
+  });
+
   it('refuses an entry file of no supported language', () => {
     const root = tsProject({ 'map.yaml': mapYaml([{ file: 'notes.txt', symbol: 'f', new_name: 'g' }]) });
     expect(refactor(root, 'rename-map', 'map.yaml')).toEqual({ code: 1, out: '', err: `${message('refactor.unsupported-extension', { path: 'notes.txt' })}\n` });

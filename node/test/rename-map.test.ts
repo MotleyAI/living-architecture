@@ -3,7 +3,7 @@ import { chmodSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { message, schema, validate } from '../src/contract/index.js';
-import { TSCONFIG, copyProject, expectedOut, files, lineCol, mapYaml, read, refactor, renameHeader, tsProject } from './refactor-project.js';
+import { TSCONFIG, copyProject, expectedOut, files, lineCol, mapYaml, read, refactor, refactorRaw, renameHeader, tsProject } from './refactor-project.js';
 
 const STORE = `export class Store {
   getModel(modelName: string): number {
@@ -34,6 +34,8 @@ describe('rename-map schema', () => {
     [[{ file: 'src/a.ts', offset: 120, new_name: 'fresh' }]],
     [[{ file: 'src/models.ts', symbol: 'AcmeModel', retarget: 'Model' }]],
     [[{ file: 'src/a.ts', symbol: 'A.old', new_name: 'fresh' }, { file: 'src/a.ts', symbol: "Kind['edit_model']", new_name: 'edit master' }]],
+    [[{ module: 'src/a.ts', new_name: 'b' }]],
+    [[{ module: 'pkg/sql/__init__.py', new_name: 'db' }, { file: 'pkg/a.py', symbol: 'f', new_name: 'g' }]],
   ])('accepts %j', (document) => {
     expect(validate(schema('rename-map'), document)).toEqual([]);
   });
@@ -50,6 +52,11 @@ describe('rename-map schema', () => {
     [[{ symbol: 'A.old', new_name: 'fresh' }]],
     [[{ file: 'src/a.ts', symbol: 'A.old', new_name: 'fresh', unsure: 'include' }]],
     [[{ file: 'src/a.ts', line: '3', new_name: 'fresh' }]],
+    [[{ module: 'src/a.ts', symbol: 'A', new_name: 'b' }]],
+    [[{ module: 'src/a.ts', retarget: 'A' }]],
+    [[{ module: 'src/a.ts', file: 'src/a.ts', new_name: 'b' }]],
+    [[{ module: 'src/a.ts' }]],
+    [[{ module: '', new_name: 'b' }]],
   ])('rejects %j', (document) => {
     expect(validate(schema('rename-map'), document)).not.toEqual([]);
   });
@@ -299,6 +306,30 @@ describe('an apply writes every file or none', () => {
     } finally {
       chmodSync(join(root, 'src', 'z'), 0o755);
     }
+    expect(files(root)).toEqual(before);
+  });
+});
+
+describe('rename-map module entries', () => {
+  const unsupported = (index: number): string => message('refactor.map-module-unsupported', { map: 'map.yaml', index });
+
+  it('refuses every module entry in index order before any phase line, writing nothing', () => {
+    const root = withMap({ 'src/a.ts': 'export const x = 1;\n', 'src/c.ts': 'export const y = 2;\n' }, [
+      { module: 'src/a.ts', new_name: 'b' },
+      { module: 'src/c.ts', new_name: 'd' },
+    ]);
+    const before = files(root);
+    expect(refactorRaw(root, '--apply', 'rename-map', 'map.yaml')).toEqual({ code: 2, out: '', err: `${unsupported(1)}\n${unsupported(2)}\n` });
+    expect(files(root)).toEqual(before);
+  });
+
+  it('refuses only the module entries of a map that also renames symbols', () => {
+    const root = withMap({ 'src/store.ts': STORE, 'src/use.ts': USE }, [
+      { file: 'src/store.ts', symbol: 'Store.getModel', new_name: 'loadModel' },
+      { module: 'src/use.ts', new_name: 'usage' },
+    ]);
+    const before = files(root);
+    expect(refactorRaw(root, '--apply', 'rename-map', 'map.yaml')).toEqual({ code: 2, out: '', err: `${unsupported(2)}\n` });
     expect(files(root)).toEqual(before);
   });
 });

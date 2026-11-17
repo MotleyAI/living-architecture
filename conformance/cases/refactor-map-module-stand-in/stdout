@@ -1,0 +1,25 @@
+Renaming <a> to <b>:
+Renaming <save> to <store>:
+
+
+rename from pkg/a.py
+rename to pkg/b.py
+--- a/pkg/m.py
++++ b/pkg/m.py
+@@ -1,5 +1,5 @@
+ class A:
+-    def save(self) -> int:
++    def store(self) -> int:
+         return 1
+ 
+ 
+@@ -9,4 +9,4 @@
+ 
+ 
+ def use(a: A, o: Other) -> int:
+-    return a.save() + o.save()
++    return a.store() + o.save()
+
+
+
+DRY-RUN. 2 file(s) would change. Re-run with --apply.

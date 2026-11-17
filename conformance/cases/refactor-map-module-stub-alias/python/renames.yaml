@@ -1,0 +1,2 @@
+- {module: pkg/a.py, new_name: b}
+- {file: pkg/js_use.py, line: 1, col: 16, new_name: jsn}

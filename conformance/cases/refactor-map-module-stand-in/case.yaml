@@ -1,0 +1,15 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- rename-map
+- renames.yaml
+- --without
+- pkg/m.py:7
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: '--without on a map of a module and a method: the stand-in is classified by the method entry, both renamed'
