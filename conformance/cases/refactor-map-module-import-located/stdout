@@ -1,0 +1,28 @@
+Renaming <f> to <g>:
+Renaming <a> to <d>:
+
+
+rename from pkg/a.py
+rename to pkg/d.py
+--- a/pkg/f.py
++++ b/pkg/f.py
+@@ -1,2 +1,2 @@
+-def f() -> int:
++def g() -> int:
+     return 1
+
+--- a/pkg/use.py
++++ b/pkg/use.py
+@@ -1,5 +1,5 @@
+-import pkg.a
++import pkg.d
+ from pkg import c
+-from pkg.f import f
++from pkg.f import g
+ 
+-print(pkg.a.X, c.Z, f())
++print(pkg.d.X, c.Z, g())
+
+
+
+DRY-RUN. 3 file(s) would change. Re-run with --apply.

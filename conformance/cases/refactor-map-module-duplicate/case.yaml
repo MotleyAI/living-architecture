@@ -1,0 +1,14 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- rename-map
+- renames.yaml
+fixture: refactor-map-module
+git:
+- commit: init
+expect:
+  exit: 2
+golden: manual
+note: 'a module entry and an entry located on an import of that module, with different new names: map-duplicate naming both'

@@ -1,0 +1,25 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- --apply
+- rename-map
+- renames.yaml
+- --keep
+- pkg/sql/client.py
+fixture: refactor-map-module-nested
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - main.py
+  - pkg/db/__init__.py
+  - pkg/db/cli.py
+  - pkg/db/client.py
+  - pkg/sql/client.py
+  git_status: true
+golden: manual
+note: a kept module inside a moved package moves with it under its old name; its importers are rewritten as for a single kept
+  rename

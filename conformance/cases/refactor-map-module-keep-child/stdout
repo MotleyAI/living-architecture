@@ -1,0 +1,22 @@
+Renaming <sql> to <db>:
+Renaming <client> to <cli>:
+
+
+--- a/main.py
++++ b/main.py
+@@ -1,4 +1,4 @@
+-import pkg.sql.client
+-from pkg.sql import client
++import pkg.db.cli
++from pkg.db import cli
+ 
+-print(pkg.sql.client.connect(), client.connect(), pkg.sql.VERSION)
++print(pkg.db.cli.connect(), cli.connect(), pkg.db.VERSION)
+
+rename from pkg/sql
+rename to pkg/db
+
+
+APPLIED. 2 file(s) changed:
+  main.py
+  pkg/sql

@@ -2,12 +2,22 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "rename-map.schema.json",
   "title": "dr-refactor rename-map MAP",
-  "description": "A non-empty list of entries, each a file relative to --project, exactly one locator (symbol, line with an optional col, or offset) and exactly one intent (new_name, or retarget: the target's path in the same file).",
+  "description": "A non-empty list of entries, each a file relative to --project, exactly one locator (symbol, line with an optional col, or offset) and exactly one intent (new_name, or retarget: the target's path in the same file). Or a module entry: module (a source file relative to --project; an __init__.py names its package) and new_name, nothing else.",
   "type": "array",
   "minItems": 1,
   "items": {"$ref": "#/$defs/entry"},
   "$defs": {
-    "entry": {
+    "entry": {"oneOf": [{"$ref": "#/$defs/located"}, {"$ref": "#/$defs/module"}]},
+    "module": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["module", "new_name"],
+      "properties": {
+        "module": {"type": "string", "minLength": 1},
+        "new_name": {"type": "string"}
+      }
+    },
+    "located": {
       "type": "object",
       "additionalProperties": false,
       "required": ["file"],

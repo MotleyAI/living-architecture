@@ -1,0 +1,7 @@
+[resolve]
+[checks]
+[references]
+[references 1/2] entry 1: a -> c
+[references 2/2] entry 2: b -> c
+[conflicts]
+c already names something else at pkg/a/__init__.py:1, so nothing was refactored
