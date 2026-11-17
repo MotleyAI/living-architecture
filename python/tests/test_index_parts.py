@@ -181,9 +181,10 @@ def _asked(text: str, names: set[str]) -> dict[str, set[str]]:
     return out
 
 
-def test_fact_queries_cover_bases_annotations_decorators_sinks_and_string_members() -> None:
+def test_fact_queries_cover_classes_bases_annotations_decorators_sinks_and_string_members() -> None:
     asked = _asked(QUERIED, {"columns"})
     assert asked == {
+        "5:Sub": {"class"},
         "5:Model": {"definition"},
         "5:Generic": {"definition"},
         "6:list": {"definition"},

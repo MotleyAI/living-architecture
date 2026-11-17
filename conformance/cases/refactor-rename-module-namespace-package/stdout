@@ -1,0 +1,28 @@
+Renaming <client> to <cli2>:
+
+
+--- a/app/main.py
++++ b/app/main.py
+@@ -1,4 +1,4 @@
+-import ns.client
+-from ns.client import X
++import ns.cli2
++from ns.cli2 import X
+ 
+-print(ns.client.X, X)
++print(ns.cli2.X, X)
+
+rename from ns/client.py
+rename to ns/cli2.py
+--- a/ns/use.py
++++ b/ns/use.py
+@@ -1,3 +1,3 @@
+-from ns import client
++from ns import cli2
+ 
+-print(client.X)
++print(cli2.X)
+
+
+
+DRY-RUN. 3 file(s) would change. Re-run with --apply.

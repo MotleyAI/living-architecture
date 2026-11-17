@@ -1,0 +1,14 @@
+kind: paired
+languages:
+- python
+- typescript
+command: dr-refactor
+args:
+  python: [rename, --file, pkg/a.py, --offset, '16', --new-name, bar]
+  typescript: [rename, --file, src/a.ts, --offset, '43', --new-name, bar]
+git:
+- commit: init
+expect:
+  exit: 0
+note: 'an offset counts both characters of every CRLF before it: the last character of foo on line 3 locates foo, in both twins'
+golden: manual

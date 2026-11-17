@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import subprocess
 import tempfile
+from collections.abc import Sequence
 from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
@@ -111,11 +112,13 @@ def verify(root: Path, writes: list[FileWrite]) -> None:
             raise FileChanged(write.rel)
 
 
-def apply(root: Path, writes: list[FileWrite], moves: list[FileMove]) -> None:
-    """Write every file, then move; on a failure restore what was done and raise `WriteFailed`."""
+def apply(root: Path, writes: list[FileWrite], moves: list[FileMove], creates: Sequence[FileWrite] = ()) -> None:
+    """Write every file, then move, then create the files the moves free; on a failure restore what was done and raise
+    `WriteFailed`."""
     verify(root, writes)
     done: list[FileWrite] = []
     moved: list[FileMove] = []
+    created: list[FileWrite] = []
     current = ""
     try:
         for write in writes:
@@ -131,5 +134,18 @@ def apply(root: Path, writes: list[FileWrite], moves: list[FileMove]) -> None:
                     moved.append(move)
                 raise
             moved.append(move)
+        for create in creates:
+            current = create.rel
+            _replace(root / create.rel, create.new)
+            created.append(create)
     except OSError:
-        raise WriteFailed(current, tuple(_restore(root, done, moved))) from None
+        left = [c.rel for c in created if not _unlinked(root / c.rel)]
+        raise WriteFailed(current, tuple(sorted([*left, *_restore(root, done, moved)]))) from None
+
+
+def _unlinked(path: Path) -> bool:
+    try:
+        path.unlink(missing_ok=True)
+    except OSError:
+        return False
+    return True

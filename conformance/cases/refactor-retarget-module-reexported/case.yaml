@@ -1,0 +1,14 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- rename-map
+- renames.yaml
+fixture: refactor-retarget
+git:
+- commit: init
+expect:
+  exit: 0
+note: MOD.ALIAS where MOD is the alias's module re-exported by another module
+golden: manual

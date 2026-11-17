@@ -1,0 +1,9 @@
+[resolve]
+[checks]
+[references]
+[references 1/1] entry 1: foo -> bar
+[rules]
+[rules 1/1] entry 1: foo -> bar: clean
+[conflicts]
+scripts/use.py:1: unresolved-name: foo resolves to no declaration here, so it is left unchanged
+scripts/use.py:3: unresolved-name: foo resolves to no declaration here, so it is left unchanged

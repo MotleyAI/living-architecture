@@ -1,0 +1,13 @@
+Renaming <model_name> to <dataset_name>:
+
+
+--- a/pkg/lam.py
++++ b/pkg/lam.py
+@@ -1 +1 @@
+-f = lambda a, *, model_name: model_name  # noqa: E731
++f = lambda a, *, dataset_name: dataset_name  # noqa: E731
+
+
+
+APPLIED. 1 file(s) changed:
+  pkg/lam.py

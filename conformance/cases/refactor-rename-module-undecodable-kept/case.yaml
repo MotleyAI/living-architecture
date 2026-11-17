@@ -1,0 +1,22 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- rename
+- --file
+- pkg/use.py
+- --symbol
+- client
+- --new-name
+- cli2
+- --keep
+- pkg/raw.py
+fixture: refactor-module-undecodable
+git:
+- commit: init
+expect:
+  exit: 0
+note: 'a --keep covering a file that does not decode matches it in a module rename: its undecodable line is dropped,
+  no keep-unmatched'
+golden: manual

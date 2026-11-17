@@ -19,6 +19,9 @@ cases:
       typecheck:
         python: basedpyright
         typescript: tsc --noEmit
+    refactor:
+      python:
+        moved_module_stub: null
     conventions:
       text_ratio_max: 0.15
       exempt: []
@@ -45,6 +48,9 @@ cases:
       typecheck:
         python: basedpyright
         typescript: tsc --noEmit
+    refactor:
+      python:
+        moved_module_stub: null
     conventions:
       text_ratio_max: 0.15
       exempt: []
@@ -72,6 +78,9 @@ cases:
       typecheck:
         python: basedpyright
         typescript: tsc --noEmit
+    refactor:
+      python:
+        moved_module_stub: null
     conventions:
       text_ratio_max: 0.15
       exempt: []
@@ -99,6 +108,9 @@ cases:
       typecheck:
         python: basedpyright
         typescript: tsc --noEmit
+    refactor:
+      python:
+        moved_module_stub: null
     conventions:
       text_ratio_max: 0.15
       exempt: []
@@ -126,6 +138,9 @@ cases:
       typecheck:
         python: basedpyright
         typescript: tsc --noEmit
+    refactor:
+      python:
+        moved_module_stub: null
     conventions:
       text_ratio_max: 0.15
       exempt: []
@@ -156,6 +171,9 @@ cases:
       typecheck:
         python: basedpyright
         typescript: tsc --noEmit
+    refactor:
+      python:
+        moved_module_stub: null
     conventions:
       text_ratio_max: 0.15
       exempt: []
@@ -185,6 +203,9 @@ cases:
       typecheck:
         python: basedpyright
         typescript: tsc --noEmit
+    refactor:
+      python:
+        moved_module_stub: null
     conventions:
       text_ratio_max: 0.5
       exempt:
@@ -210,6 +231,9 @@ cases:
       typecheck:
         python: basedpyright
         typescript: tsc --noEmit
+    refactor:
+      python:
+        moved_module_stub: null
     conventions:
       text_ratio_max: 0.15
       exempt:
@@ -238,6 +262,9 @@ cases:
       typecheck:
         python: basedpyright
         typescript: null
+    refactor:
+      python:
+        moved_module_stub: null
     conventions:
       text_ratio_max: 0.15
       exempt: []
@@ -265,6 +292,9 @@ cases:
       typecheck:
         python: basedpyright -p python
         typescript: tsc --noEmit
+    refactor:
+      python:
+        moved_module_stub: null
     conventions:
       text_ratio_max: 0.15
       exempt: []
@@ -292,6 +322,9 @@ cases:
       typecheck:
         python: basedpyright
         typescript: tsc --noEmit
+    refactor:
+      python:
+        moved_module_stub: null
     conventions:
       text_ratio_max: 0.15
       exempt: []

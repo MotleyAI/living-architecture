@@ -1,0 +1,7 @@
+[resolve]
+[checks]
+[references]
+[references 1/1] entry 1: AcmeModel -> LegacyModel
+[rules]
+[rules 1/1] entry 1: AcmeModel -> LegacyModel: clean
+[conflicts]

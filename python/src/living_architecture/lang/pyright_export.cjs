@@ -99,6 +99,7 @@ class Exporter {
     this.cache = new Map();
     this.followed = new Set();
     this.facts = [];
+    this.members = [];
   }
 
   memo(key, compute) {
@@ -318,12 +319,32 @@ class Exporter {
     visit(expr);
   }
 
+  // A class's MRO as the checker resolves it, each class by its name, and which of the run's new member names a class
+  // of it outside the project declares.
+  classFacts(uri, position) {
+    const node = this.nodeAt(uri, position);
+    const cls = node?.parent;
+    if (cls?.nodeType !== NODE.Class || cls.d.name !== node) return { mro: [], members: [] };
+    const mro = [];
+    const members = new Set();
+    for (const base of this.program.evaluator.getTypeOfClass(cls)?.classType?.shared.mro.slice(1) ?? []) {
+      const decl = base?.shared?.declaration;
+      if (!decl?.uri || !decl.range) continue;
+      mro.push({ uri: decl.uri, range: decl.range });
+      const info = this.program.getSourceFileInfo(decl.uri);
+      if (info && !info.isThirdPartyImport && !info.isTypeshedFile) continue;
+      for (const name of this.members) if (base.shared.fields?.has(name)) members.add(name);
+    }
+    return { mro: this.locations(mro), members: [...members] };
+  }
+
   answer(uri, position, kinds) {
     const lsp = this.ls.convertUriToLspUriString(this.fs, uri);
     const answer = { uri: lsp, position };
     if (kinds.includes('definition')) answer.definition = this.definition(uri, position);
     if (kinds.includes('typeDefinition')) answer.typeDefinition = this.typeDefinition(uri, position);
     if (kinds.includes('verdict')) answer.verdict = this.verdict(uri, position);
+    if (kinds.includes('class')) answer.class = this.classFacts(uri, position);
     if (kinds.includes('access')) {
       const node = this.nodeAt(uri, position);
       answer.access = node?.parent?.nodeType === NODE.MemberAccess && node.parent.d.member === node ? this.access(uri, node) : null;
@@ -343,6 +364,7 @@ class Exporter {
 
   run(request) {
     const names = new Set(request.names ?? []);
+    this.members = request.members ?? [];
     const occurrences = [];
     if (names.size) for (const lsp of request.files ?? []) this.occurrences(lsp, names, occurrences);
     const answers = (request.facts ?? []).map((q) => this.answer(this.uri(q.uri), q.position, q.kinds));

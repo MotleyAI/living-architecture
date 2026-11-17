@@ -3,10 +3,10 @@ languages:
 - python
 command: dr-refactor
 args:
-- rename
+- retarget
 - --file
 - pkg/a.py
-- --new-name
+- --target
 - bar
 fixture: refactor-pkg
 git:

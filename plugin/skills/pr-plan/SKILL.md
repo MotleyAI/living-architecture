@@ -37,13 +37,19 @@ a bare menu. If you use a structured/multiple-choice prompt, spell out the
 pros, the cons, and the recommendation inside it — do not rely on a one-line
 description to carry them.**
 
-**Recommendation bias — cleaner end-state over smaller diff.** Ask only about
-genuine choices. An option whose only pro is a smaller or cheaper diff is not
-one: never offer it; state the cleaner option as the default instead. Lean
-toward the cleaner end result UNLESS the diff to get there is *really* huge —
-churn, re-blessing goldens, and touching many call sites are acceptable costs.
-This governs how you form the RECOMMENDATION above, and applies at every stage
-of the flow, not just planning.
+**Genuine options only.** Ask only about genuine choices, and offer only
+options a reasonable person could pick:
+- **Effort is not a trade-off.** Less work or a smaller diff is never a pro,
+  and more work (churn, re-blessed goldens, many call sites, plan edits) is
+  never a con, unless the amount is ridiculously large. An option whose only
+  advantage is less work is a strawman: never offer it.
+- **No regressions.** Never offer an option that breaks or loses something
+  that works today (a behaviour, a check, an output a golden pins) unless
+  there is a very good reason, stated as its pro.
+
+When only one option survives, it is not a question: take it, log it as
+`(default)` and move on. This governs how you form the RECOMMENDATION above,
+and applies at every stage of the flow, not just planning.
 
 **Design bias — structural fix over band-aid.** When the brief is a bug, a
 gap, or an inconsistency, decide BEFORE designing the fix whether the reported
