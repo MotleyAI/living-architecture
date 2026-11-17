@@ -194,7 +194,7 @@ cases:
   command: dr-refactor
   argv: [--timings, rename-map, map.yaml]
   args: {project: ., apply: false, timings: true, subcommand: rename-map, map: map.yaml, in_hierarchy: true, unsure: skip,
-    allow_blindspots: false, with_stand_ins: [], without_stand_ins: [], keep: [], docs: false, fail_fast: false}
+    allow_blindspots: false, with_stand_ins: [], without_stand_ins: [], keep: [], docs: false, fail_fast: false, stub: null}
 - name: timings flag after the subcommand rejected
   command: dr-refactor
   argv: [rename-map, map.yaml, --timings]
@@ -253,14 +253,14 @@ cases:
   command: dr-refactor
   argv: [rename-map, map.yaml]
   args: {project: ., apply: false, timings: false, subcommand: rename-map, map: map.yaml, in_hierarchy: true, unsure: skip,
-    allow_blindspots: false, with_stand_ins: [], without_stand_ins: [], keep: [], docs: false, fail_fast: false}
+    allow_blindspots: false, with_stand_ins: [], without_stand_ins: [], keep: [], docs: false, fail_fast: false, stub: null}
 - name: rename-map options apply to every entry
   command: dr-refactor
   argv: [--apply, rename-map, maps/m.yaml, --no-in-hierarchy, --keep, tests/compat, --with, b.py:3, --docs,
     --allow-blindspots, --fail-fast]
   args: {project: ., apply: true, timings: false, subcommand: rename-map, map: maps/m.yaml, in_hierarchy: false, unsure: skip,
     allow_blindspots: true, with_stand_ins: [b.py:3], without_stand_ins: [], keep: [tests/compat], docs: true,
-    fail_fast: true}
+    fail_fast: true, stub: null}
 - name: rename-map takes no locator
   command: dr-refactor
   argv: [rename-map, map.yaml, --symbol, f]

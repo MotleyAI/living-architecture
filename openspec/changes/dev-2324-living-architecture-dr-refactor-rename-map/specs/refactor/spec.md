@@ -341,7 +341,7 @@ entry's final edits and moves.
 #### Scenario: Kept module inside a moved package
 - **WHEN** a map renames package `pkg/sql/` to `db` and module `pkg/sql/client.py` to `cli`, with `--apply` and
   `--keep pkg/sql/client.py`
-- **THEN** the module ends at `pkg/db/client.py` unchanged, its importers name `pkg.db.client`, and the exit code is 0
+- **THEN** the module ends at `pkg/db/client.py` unchanged, its importers name `pkg.db.cli` (a kept move leaves its importers rewritten, as for a single rename), and the exit code is 0
 
 #### Scenario: Kept package around a moved module
 - **WHEN** the same map runs with `--apply` and `--keep pkg/sql` instead

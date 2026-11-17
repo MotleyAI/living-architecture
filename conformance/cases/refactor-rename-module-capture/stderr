@@ -1,5 +1,6 @@
 [resolve]
 [checks]
 [references]
+[references 1/1] entry 1: a -> b
 [conflicts]
 b already names something else at pkg/use.py:3, so nothing was refactored
