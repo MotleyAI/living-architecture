@@ -19,7 +19,6 @@ from rope.refactor.move import MoveGlobal, MoveModule
 
 from living_architecture.refactor.rope_patches import char_offset
 
-_CHAIN = re.compile(r"[^\W\d]\w*(?:\s*\.\s*[^\W\d]\w*)+")
 _LINE_TAIL = re.compile(r"[ \t]*(?:#[^\n]*)?\n?")
 _ITEM_TAIL = re.compile(r"[ \t]*(?:,[ \t]*)?(?:#[^\n]*)?\n?")
 _INIT = "__init__.py"
@@ -69,6 +68,12 @@ def _line_start(text: str, pos: int) -> int:
 def _span(text: str, node: ast.stmt | ast.expr | ast.alias) -> tuple[int, int]:
     end_line = node.end_lineno or node.lineno
     return char_offset(text, node.lineno, node.col_offset), char_offset(text, end_line, node.end_col_offset or 0)
+
+
+def _latest(imports: list[_Binding], line: int) -> _Binding | None:
+    """The last of `imports` written by `line`, else the last of them."""
+    before = [b for b in imports if b.line <= line]
+    return (before or imports or [None])[-1]
 
 
 def _named(aliases: list[ast.alias]) -> str:
@@ -168,6 +173,7 @@ class _Scopes:
         self._declaring: list[_Scope] = []
         self.visit(tree)
         self._resolve_nonlocals()
+        self.import_scopes = {id(stmt): scope for stmt, scope in self.imports}
 
     def visit(self, node: ast.AST) -> None:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -438,12 +444,27 @@ class _File:
         col = len(self.text[_line_start(self.text, offset) : offset].encode())
         return self.scopes.loads.get((line, col))
 
-    def eligible(self, start: int) -> bool:
-        """A read at `start` whose root no function, lambda or comprehension scope binds other than by import (rule 2)."""
-        use = self.use_at(start)
+    def root_use(self, span: tuple[int, int]) -> tuple[ast.Name, _Scope, bool] | None:
+        """The root read of the name or attribute chain at `span`, its receiver parenthesized or not; and if a chain."""
+        start, end = span
+        try:
+            expr = ast.parse(f"({self.text[start:end]})", mode="eval").body
+        except SyntaxError:
+            return None
+        root = expr
+        while isinstance(root, ast.Attribute):
+            root = root.value
+        if not isinstance(root, ast.Name):
+            return None
+        use = self.use_at(start + char_offset(f"({self.text[start:end]}", root.lineno, root.col_offset) - 1)
+        return None if use is None else (*use, isinstance(expr, ast.Attribute))
+
+    def eligible(self, span: tuple[int, int]) -> bool:
+        """A read at `span` whose root no function, lambda or comprehension scope binds other than by import (rule 2)."""
+        use = self.root_use(span)
         if use is None:
             return False
-        name, scope = use
+        name, scope, _ = use
         found = scope.lookup(name.id)
         return found is None or not found.is_function() or all(b.stmt is not None for b in found.bindings[name.id])
 
@@ -452,9 +473,14 @@ class _File:
         found = scope.lookup(name.id)
         if found is None:
             return None, None
-        imports = [b for b in found.bindings[name.id] if b.stmt is not None]
-        before = [b for b in imports if b.line <= name.lineno]
-        return found, (before or imports or [None])[-1]
+        return found, _latest([b for b in found.bindings[name.id] if b.stmt is not None], name.lineno)
+
+    def local_import(self, name: ast.Name, found: _Scope) -> _Binding | None:
+        """The import of `name` written in `found` itself (not redirected there by `global`/`nonlocal`) a new one follows."""
+        imports = [
+            b for b in found.bindings[name.id] if b.stmt is not None and self.scopes.import_scopes[id(b.stmt)] is found
+        ]
+        return _latest(imports, name.lineno)
 
     def import_chains(self) -> Iterator[tuple[tuple[int, int], str, ast.Attribute]]:
         """Each attribute chain read from an import-bound root: its span, the dotted path it names, and the node."""
@@ -476,12 +502,10 @@ class _File:
     def rewrite_use(self, span: tuple[int, int], new: str, needs: str | None, obj: str | None = None) -> None:
         """Rule 3: the chain becomes `new`, its root free for `obj` (default: itself); `needs` is the module to import."""
         start, end = span
-        if not _CHAIN.fullmatch(self.text[start:end]):
+        use = self.root_use(span)
+        if use is None or not use[2]:
             return
-        use = self.use_at(start)
-        if use is None:
-            return
-        name, scope = use
+        name, scope, _ = use
         root = new.split(".")[0]
         self.check_free(root, obj or root, scope)
         found, binding = self.import_binding(name, scope)
@@ -489,7 +513,8 @@ class _File:
         if binding is not None:
             self.uses_rewritten[id(binding)] = self.uses_rewritten.get(id(binding), 0) + 1
         if needs is not None:
-            self.needs.append((needs, binding, found if binding is not None and found is not None else self.scopes.module))
+            place = self.local_import(name, found) if found is not None else None
+            self.needs.append((needs, place, self.scopes.module if place is None or found is None else found))
 
     def _uses(self, name: str, scope: _Scope) -> int:
         return sum(1 for node, at in self.scopes.loads.values() if node.id == name and at.lookup(name) is scope)
@@ -680,10 +705,10 @@ class _ModuleMove:
             span = _primary_range(occurrence)
             seen.add(span)
             holder = _module_object(occurrence)
-            if holder is not None and not self._binds(holder) and file.eligible(span[0]):
+            if holder is not None and not self._binds(holder) and file.eligible(span):
                 file.rewrite_use(span, self.new, self.new)
         for span, path, _ in file.import_chains():
-            if span not in seen and path == self.old and not self._binds(self.source.parent) and file.eligible(span[0]):
+            if span not in seen and path == self.old and not self._binds(self.source.parent) and file.eligible(span):
                 file.rewrite_use(span, self.new, self.new)
 
     def _binds(self, holder: Resource) -> bool:
@@ -768,7 +793,7 @@ class _SymbolMove:
             _dest_edits(file, self.mover, self.old, self.new, self.name)
 
     def _rewrite(self, file: _File, span: tuple[int, int], is_dest: bool) -> None:
-        if not file.eligible(span[0]):
+        if not file.eligible(span):
             return
         if is_dest:
             file.rewrite_use(span, self.name, None, f"{self.old}.{self.name}")
@@ -776,8 +801,8 @@ class _SymbolMove:
             file.rewrite_use(span, f"{self.new}.{self.name}", self.new)
 
     def _outside(self, file: _File, occurrence: occurrences.Occurrence) -> bool:
-        start = _primary_range(occurrence)[0]
-        return not (self.region[0] <= start < self.region[1] or occurrence.is_defined()) and file.eligible(start)
+        span = _primary_range(occurrence)
+        return not (self.region[0] <= span[0] < self.region[1] or occurrence.is_defined()) and file.eligible(span)
 
     def _rewrite_uses(self, file: _File, is_dest: bool) -> None:
         stars: list[ast.ImportFrom] = []

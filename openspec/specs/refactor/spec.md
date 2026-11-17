@@ -484,9 +484,10 @@ exactly one rule, decided from the objects its names resolve to:
    statement declares SHALL resolve in the scope the statement names, and a comprehension's first iterable SHALL
    resolve in the enclosing scope.
 3. A use whose binding no longer resolves after the move SHALL be rewritten. Such a use reaches a submodule only as a
-   package attribute, or reaches the moved symbol through its old module or a star import of it. A dotted use SHALL
-   become the new dotted path, and `import <new module>` SHALL be added on the line after the import binding the
-   chain's root. A bare name bound by a star import SHALL stay as it is, and `from <new module> import <name>` SHALL be
+   package attribute, or reaches the moved symbol through its old module or a star import of it. A dotted use, its
+   receiver parenthesized or not, SHALL become the new dotted path, and `import <new module>` SHALL be added on the
+   line after the import binding the chain's root that sits in the scope the use resolves in; when no such import sits
+   there (only a function declaring `global` imports it), after the leading import block. A bare name bound by a star import SHALL stay as it is, and `from <new module> import <name>` SHALL be
    added on the line after the star import. No import SHALL be added where that scope already binds the same object.
 An import binding SHALL be removed in place only when every use of it was rewritten by this refactor, and no `nonlocal`
 statement names it. For
@@ -541,6 +542,11 @@ added import or the moved code would bind a name that already resolves to a diff
   `pa.f()`
 - **THEN** the use becomes `pkg.b.f()`, `import pkg.b` replaces `import pkg.a as pa` in place, and every other line
   is unchanged
+
+#### Scenario: Parenthesized receiver
+- **WHEN** `move-symbol` moves `f` from `pkg/a.py` to `pkg/b.py`, and a file with `import pkg.a as pa` reads
+  `(pa).f()` and has `def g(x=( pa ).f)`
+- **THEN** both reads become `pkg.b.f`, and `import pkg.b` replaces `import pkg.a as pa` in place
 
 #### Scenario: Old module import with another surviving use
 - **WHEN** the file in the previous scenario also uses `pa.g()`
@@ -617,6 +623,13 @@ added import or the moved code would bind a name that already resolves to a diff
 - **WHEN** an inner function declares `nonlocal sub` and reads `sub.thing.X`, and that is the only use of its enclosing
   function's `import pkg.sub as sub`
 - **THEN** the use is rewritten, the import stays, and `import pkg.thing` is added on the line after it
+
+#### Scenario: Import re-bound from another scope
+- **WHEN** `move-symbol` moves `f` out of `pkg/a.py`; `outer()` has `import pkg.a as pa` and reads `pa.f()`, and its
+  inner function declares `nonlocal pa` and imports `pkg.a as pa`; and another file reads `pa.f()` at module level,
+  where only a function declaring `global pa` imports `pkg.a as pa`
+- **THEN** both reads become `pkg.b.f()`, `import pkg.b` is added on the line after `outer`'s import and after the
+  other file's leading import block, and no import is added inside the inner functions
 
 #### Scenario: Comprehension's first iterable
 - **WHEN** a file with `import pkg.sub as sub` has `[sub for sub in sub.thing.ITEMS]`

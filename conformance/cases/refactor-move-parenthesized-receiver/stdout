@@ -1,0 +1,33 @@
+Moving global <f>:
+
+
+--- a/pkg/a.py
++++ b/pkg/a.py
+@@ -1,2 +0,0 @@
+-def f() -> int:
+-    return 1
+
+--- a/pkg/b.py
++++ b/pkg/b.py
+@@ -0,0 +1,2 @@
++def f() -> int:
++    return 1
+
+--- a/use.py
++++ b/use.py
+@@ -1,8 +1,8 @@
+-import pkg.a as pa
++import pkg.b
+ 
+ 
+-def g(x=( pa ).f):
++def g(x=pkg.b.f):
+     return x
+ 
+ 
+-print((pa).f())
++print(pkg.b.f())
+
+
+
+DRY-RUN. 3 file(s) would change. Re-run with --apply.

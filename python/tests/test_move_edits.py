@@ -553,6 +553,34 @@ def test_symbol_chain_reads_a_parameter_or_comprehension_shadows_are_unchanged(t
     assert (root / "use.py").read_text() == "import pkg.b\n\nprint(pkg.b.f())\n" + shadowed
 
 
+def test_new_import_follows_the_import_written_where_a_nonlocal_rebound_read_resolves(tmp_path: Path) -> None:
+    use = (
+        "def outer():\n    import pkg.a as pa\n\n    def reset():\n        nonlocal pa\n        import pkg.a as pa\n\n"
+        "    reset()\n    return pa.f()\n"
+    )
+    root = _write(tmp_path, {**SYMBOL_PROJECT, "use.py": use})
+    assert _move_f(root, "--apply") == 0
+    assert (root / "use.py").read_text() == use.replace(
+        "    import pkg.a as pa\n\n", "    import pkg.a as pa\n    import pkg.b\n\n", 1
+    ).replace("pa.f()", "pkg.b.f()")
+
+
+def test_new_import_goes_after_the_leading_block_when_only_a_global_import_binds(tmp_path: Path) -> None:
+    use = "import os\n\n\ndef load():\n    global pa\n    import pkg.a as pa\n\n\nload()\nprint(pa.f(), os.sep)\n"
+    root = _write(tmp_path, {**SYMBOL_PROJECT, "use.py": use})
+    assert _move_f(root, "--apply") == 0
+    expected = "import os\nimport pkg.b\n\n\ndef load():\n    global pa\n\n\nload()\nprint(pkg.b.f(), os.sep)\n"
+    assert (root / "use.py").read_text() == expected
+
+
+def test_parenthesized_receivers_are_rewritten(tmp_path: Path) -> None:
+    body = "\n\n\ndef g(x=( pa ).f):\n    return x\n\n\nprint((pa).f())\nprint((\n    pa\n).f())\n"
+    root = _write(tmp_path, {**SYMBOL_PROJECT, "use.py": "import pkg.a as pa" + body})
+    assert _move_f(root, "--apply") == 0
+    expected = "import pkg.b\n\n\ndef g(x=pkg.b.f):\n    return x\n\n\nprint(pkg.b.f())\nprint(pkg.b.f())\n"
+    assert (root / "use.py").read_text() == expected
+
+
 def test_module_uses_rope_misses_keep_a_package_binding(tmp_path: Path) -> None:
     files = {**MODULE_PROJECT, "pkg/sql/__init__.py": "from pkg.sql import client\n"}
     use = "import pkg.sql as s\n\n\ndef g(x=s.client.X) -> object:\n    return [s for s in s.client.ITEMS]\n"
