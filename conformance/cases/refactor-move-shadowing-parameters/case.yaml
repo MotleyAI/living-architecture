@@ -1,0 +1,18 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- move-module
+- --module
+- pkg/sub/thing.py
+- --dest
+- pkg
+fixture: refactor-move-shadowing
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: a use whose alias a lambda, a parameter of every kind or a comprehension target shadows is unchanged; the module-level
+  use is rewritten

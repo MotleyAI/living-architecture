@@ -478,16 +478,22 @@ exactly one rule, decided from the objects its names resolve to:
    place, and the moved name SHALL get a new `from` statement, with its alias, on the line after the statement ends,
    at the same indentation.
 2. A use whose binding still resolves after the move SHALL be unchanged. Such a binding is a name bound by a rule-1
-   import, or a name another module binds explicitly (by import or assignment).
+   import, a name another module binds explicitly (by import or assignment), or a name the function, lambda or
+   comprehension scope the use is read in binds by anything other than a rule-1 import (a parameter of any kind, an
+   assignment, a comprehension target), even when that scope also imports it. A name a `global` or `nonlocal`
+   statement declares SHALL resolve in the scope the statement names, and a comprehension's first iterable SHALL
+   resolve in the enclosing scope.
 3. A use whose binding no longer resolves after the move SHALL be rewritten. Such a use reaches a submodule only as a
-   package attribute, or reaches the moved symbol through its old module or a star import of it. A dotted use SHALL
-   become the new dotted path, and `import <new module>` SHALL be added on the line after the import binding the
-   chain's root. A bare name bound by a star import SHALL stay as it is, and `from <new module> import <name>` SHALL be
+   package attribute, or reaches the moved symbol through its old module or a star import of it. A dotted use, its
+   receiver parenthesized or not, SHALL become the new dotted path, and `import <new module>` SHALL be added on the
+   line after the import binding the chain's root that sits in the scope the use resolves in; when no such import sits
+   there (only a function declaring `global` imports it), after the leading import block. A bare name bound by a star import SHALL stay as it is, and `from <new module> import <name>` SHALL be
    added on the line after the star import. No import SHALL be added where that scope already binds the same object.
-An import binding SHALL be removed in place only when every use of it was rewritten by this refactor. For
+An import binding SHALL be removed in place only when every use of it was rewritten by this refactor, and no `nonlocal`
+statement names it. For
 `move-symbol`, an import of the source module SHALL also be removed in place when every use of it lay in the moved
 code. In the source module, a `__all__` entry naming the moved symbol SHALL be removed, and a remaining use of the
-symbol SHALL get `from <dest> import <name>` after the leading import block. In the destination, the imports the moved
+symbol (by rule 2, not a use a function, lambda or comprehension scope binds) SHALL get `from <dest> import <name>` after the leading import block. In the destination, the imports the moved
 code needs SHALL be added after the leading import block. An import of the symbol from the source SHALL be removed in
 place, and each use of a name it bound under an alias SHALL become the symbol's name. The leading import block is the
 first contiguous run of import statements, ending at the first non-import statement; in a file without imports it is
@@ -536,6 +542,11 @@ added import or the moved code would bind a name that already resolves to a diff
   `pa.f()`
 - **THEN** the use becomes `pkg.b.f()`, `import pkg.b` replaces `import pkg.a as pa` in place, and every other line
   is unchanged
+
+#### Scenario: Parenthesized receiver
+- **WHEN** `move-symbol` moves `f` from `pkg/a.py` to `pkg/b.py`, and a file with `import pkg.a as pa` reads
+  `(pa).f()` and has `def g(x=( pa ).f)`
+- **THEN** both reads become `pkg.b.f`, and `import pkg.b` replaces `import pkg.a as pa` in place
 
 #### Scenario: Old module import with another surviving use
 - **WHEN** the file in the previous scenario also uses `pa.g()`
@@ -586,6 +597,57 @@ added import or the moved code would bind a name that already resolves to a diff
   `import pkg.b`, sits in a function where `pkg` is a parameter or is bound by an enclosing function
 - **THEN** it exits 1 with the name-conflict finding naming that file and the existing binding's line, and no file
   changes
+
+#### Scenario: Parameters shadowing an import alias
+- **WHEN** `move-module` moves `pkg/sub/thing.py` to `pkg`, and a file with `import pkg.sub as sub` and
+  `print(sub.thing.X)` also reads `sub.thing.X` in `lambda sub: …`, in a function whose positional-only,
+  positional-or-keyword, keyword-only, `*sub` or `**sub` parameter is `sub`, and in a comprehension whose target is
+  `sub`
+- **THEN** `print(sub.thing.X)` becomes `print(pkg.thing.X)` and every shadowed use is unchanged
+
+#### Scenario: Function-local import of the alias rewritten
+- **WHEN** a function body holds `import pkg.sub as sub` and reads `sub.thing.X`, and `pkg/sub/thing.py` moves to `pkg`
+- **THEN** the use is rewritten like a module-level one
+
+#### Scenario: Function scope that also assigns the alias
+- **WHEN** a function body holds `import pkg.sub as sub`, reads `sub.thing.X`, and assigns `sub = None`
+- **THEN** the use is unchanged
+
+#### Scenario: global and nonlocal declarations
+- **WHEN** a function declares `global sub` and reads `sub.thing.X`, where `sub` is the module's `import pkg.sub as
+  sub`; and an inner function declares `nonlocal sub` and reads `sub.thing.X`, where `sub` is its enclosing
+  function's `import pkg.sub as sub`
+- **THEN** both uses are rewritten
+
+#### Scenario: nonlocal keeps the enclosing import
+- **WHEN** an inner function declares `nonlocal sub` and reads `sub.thing.X`, and that is the only use of its enclosing
+  function's `import pkg.sub as sub`
+- **THEN** the use is rewritten, the import stays, and `import pkg.thing` is added on the line after it
+
+#### Scenario: Import re-bound from another scope
+- **WHEN** `move-symbol` moves `f` out of `pkg/a.py`; `outer()` has `import pkg.a as pa` and reads `pa.f()`, and its
+  inner function declares `nonlocal pa` and imports `pkg.a as pa`; and another file reads `pa.f()` at module level,
+  where only a function declaring `global pa` imports `pkg.a as pa`
+- **THEN** both reads become `pkg.b.f()`, `import pkg.b` is added on the line after `outer`'s import and after the
+  other file's leading import block, and no import is added inside the inner functions
+
+#### Scenario: Comprehension's first iterable
+- **WHEN** a file with `import pkg.sub as sub` has `[sub for sub in sub.thing.ITEMS]`
+- **THEN** the iterable becomes `pkg.thing.ITEMS` and the target and element are unchanged
+
+#### Scenario: Defaults and annotations read the enclosing scope
+- **WHEN** a file with `import pkg.sub as sub` has `def f(sub: int = sub.thing.X): return sub`
+- **THEN** the default becomes `pkg.thing.X` and the body's `sub` is unchanged
+
+#### Scenario: Moved symbol shadowed in its source module
+- **WHEN** `move-symbol` moves `f` out of `pkg/a.py`, whose only other reads of `f` are `lambda f: f()` and a
+  function with keyword-only parameter `f`
+- **THEN** those reads are unchanged and no `from <dest> import f` is added to `pkg/a.py`
+
+#### Scenario: Star-import consumer shadowing the moved name
+- **WHEN** `move-symbol` moves `f` out of `pkg/a.py`, and a file with `from pkg.a import *` reads `f` only in
+  `lambda f: f()`
+- **THEN** that file is unchanged
 
 ### Requirement: Python renames include every reference basedpyright resolves
 For a Python `rename` of a symbol other than a module, `dr-refactor` SHALL edit every occurrence the run's occurrence
@@ -2820,3 +2882,60 @@ diff. Blind spots SHALL be reported, refused and let through by `--allow-blindsp
 #### Scenario: Skipped by default
 - **WHEN** the same rename runs with `--allow-blindspots` only
 - **THEN** `o.run()` is unchanged and the blind spot is listed on stderr
+
+### Requirement: Python renames reach names bound by tuple targets
+The Python `dr-refactor rename` and `rename-map` SHALL rename a name bound by a tuple target, located by `--symbol`
+or by location at any of its occurrences: a target of an assignment in a function, at module level or in a class
+body, a starred target and a target nested in an inner tuple included, or a target of a comprehension's `for`
+clause. They SHALL rewrite every reference bound to that declaration. A same-spelled binding in a nested scope (an
+inner function or comprehension) SHALL NOT be renamed, and a `name=` keyword of a call SHALL NOT be renamed with a
+same-named variable of the enclosing scope.
+
+#### Scenario: Function local by symbol
+- **WHEN** `def f(s):` holds `a, model_name = s.split(".", 1)` and `return model_name`, and `rename --symbol
+  'f.<locals>.model_name' --new-name dataset_name` runs
+- **THEN** both occurrences become `dataset_name` and the exit code is 0
+
+#### Scenario: Function local by location
+- **WHEN** the same rename is located by `--line`/`--col` at the tuple target
+- **THEN** the result equals the rename by `--symbol`
+
+#### Scenario: Module level
+- **WHEN** a module has `ds_name, model_name = "a.b".split(".", 1)` and `print(model_name)`, and `--symbol
+  model_name` is renamed
+- **THEN** both occurrences are renamed
+
+#### Scenario: Class body
+- **WHEN** `class C:` holds `x, y = 1, 2` and the module reads `C.y`, and `--symbol C.y` is renamed
+- **THEN** the target and `C.y` are renamed
+
+#### Scenario: Starred target
+- **WHEN** a function holds `a, *rest = s` and `return rest`, and `rest` is renamed
+- **THEN** both occurrences are renamed and the `*` stays
+
+#### Scenario: Nested tuple target
+- **WHEN** a function holds `(a, b), c = s` and returns `b` and `c`, and `c`, then `b`, is renamed
+- **THEN** each rename rewrites that target and its use, and nothing else
+
+#### Scenario: Await right-hand side
+- **WHEN** `async def g(s):` holds `_scopes, ds_by_model = await scopes(s)` and `return ds_by_model`, and
+  `g.<locals>.ds_by_model` is renamed
+- **THEN** both occurrences are renamed
+
+#### Scenario: Comprehension target
+- **WHEN** `[model for model, measure in chain]` has `model` renamed, located at its target
+- **THEN** both occurrences of `model` are renamed and `measure` is unchanged
+
+#### Scenario: Nested-scope binding of the same spelling
+- **WHEN** a function holds `a, model_name = s` and `return [model_name for model_name in xs], model_name`, and the
+  tuple-bound `model_name` is renamed
+- **THEN** the target and the last `model_name` are renamed, and the comprehension is unchanged
+
+#### Scenario: Call keyword of the same spelling
+- **WHEN** `def h():` holds `a, x = 1, 5` and `return g(x=1) + x`, where `def g(x=0)`, and the local `x` is renamed
+- **THEN** the target and `+ x` are renamed, and `g(x=1)` is unchanged
+
+#### Scenario: Rename map of tuple targets
+- **WHEN** a `rename-map` lists tuple-bound names in a function, at module level, in a class body and in a nested
+  target, by `symbol` and by `line`/`col`
+- **THEN** one diff renames every entry, as the separate renames would, and the exit code is 0

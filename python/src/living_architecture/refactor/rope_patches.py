@@ -6,7 +6,6 @@ grammar rope omits; `coverage_violations` detects any gap left, and the scope-re
 
 rope's function model lists only positional-or-keyword parameters plus `*args`/`**kwargs`; the patches below add
 positional-only parameters to its positional binding vector and keyword-only ones to its scope and keyword lookup.
-rope builds no lambda scope, so a name a lambda's parameters bind resolves to nothing.
 """
 
 from __future__ import annotations
@@ -18,13 +17,10 @@ import sys
 import tokenize
 from typing import TypeGuard
 
-from pydantic import BaseModel
 from rope.base import (
     arguments,
     builtins,
     codeanalyze,
-    evaluate,
-    pynames,
     pynamesdef,
     pyobjects,
     pyobjectsdef,
@@ -40,7 +36,6 @@ from rope.refactor import patchedast
 from typing_extensions import override
 
 _rope_scope_regions = pyscopes.GlobalScope._calculate_scope_regions
-_rope_primary_and_pyname_at = evaluate.ScopeNameFinder.get_primary_and_pyname_at
 _rope_create_arguments = arguments.create_arguments
 
 _PLAIN_PREFIX = r"(?:(?<!\w)(?:[uU]|[bB][rR]?|[rR][bB]?))?"
@@ -457,61 +452,6 @@ def _create_arguments(primary, pyfunction, call_node, scope):
     return _Arguments(args.args, scope, frozenset(arg.arg for arg in pyfunction.arguments.posonlyargs))
 
 
-class _ParameterSites(BaseModel):
-    """Character offsets inside identifiers: `def` parameter declarations, and names a lambda's parameters bind."""
-
-    declared: frozenset[int]
-    lambda_bound: frozenset[int]
-
-
-@utils.cached(7)
-def _parameter_sites(source: str) -> _ParameterSites:
-    try:
-        tree = rope_ast.parse(source)
-    except SyntaxError:
-        return _ParameterSites(declared=frozenset(), lambda_bound=frozenset())
-    starts = _line_starts(source)
-
-    def chars(node: ast.arg | ast.Name, name: str) -> range:
-        start = _char_offset(source, starts, node.lineno, node.col_offset)
-        return range(start, start + len(name))
-
-    declared: set[int] = set()
-    bound: set[int] = set()
-    for node in ast.walk(tree):
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            declared.update(i for arg in every_parameter(node.args) for i in chars(arg, arg.arg))
-        elif isinstance(node, ast.Lambda) and (params := every_parameter(node.args)):
-            names = {arg.arg for arg in params}
-            bound.update(i for arg in params for i in chars(arg, arg.arg))
-            uses = (n for n in ast.walk(node.body) if isinstance(n, ast.Name) and n.id in names)
-            bound.update(i for n in uses for i in chars(n, n.id))
-    return _ParameterSites(declared=frozenset(declared), lambda_bound=frozenset(bound))
-
-
-def every_parameter(args: ast.arguments) -> list[ast.arg]:
-    """Every parameter of `args`, in declaration order."""
-    return [a for a in (*args.posonlyargs, *args.args, args.vararg, *args.kwonlyargs, args.kwarg) if a is not None]
-
-
-def _primary_and_pyname_at(self, offset: int):
-    """rope's, resolving a name a lambda's parameters bind to nothing, and a call's `name=` keyword only to a
-    positional-or-keyword or keyword-only parameter, never to a variable of the enclosing scope."""
-    sites = _parameter_sites(self.module_scope.pyobject.source_code)
-    if offset in sites.lambda_bound:
-        return None, None
-    if offset in sites.declared or not self.worder.is_function_keyword_parameter(offset):
-        return _rope_primary_and_pyname_at(self, offset)
-    function = self.get_enclosing_function(offset)
-    if isinstance(function, pyobjectsdef.PyFunction):
-        name = self.worder.get_word_at(offset)
-        bindable = {arg.arg for arg in (*function.arguments.args, *function.arguments.kwonlyargs)}
-        return None, function.get_parameters().get(name) if name in bindable else None
-    if isinstance(function, pyobjects.AbstractFunction):
-        return None, pynames.ParameterName()
-    return None, None
-
-
 def apply_rope_patches() -> None:
     walker = patchedast._PatchingASTWalker
     walker._arg = _arg
@@ -534,5 +474,4 @@ def apply_rope_patches() -> None:
     function.get_param_names = _get_param_names
     function._handle_special_args = _handle_special_args
     function.get_parameters = _get_parameters
-    evaluate.ScopeNameFinder.get_primary_and_pyname_at = _primary_and_pyname_at
     arguments.create_arguments = _create_arguments

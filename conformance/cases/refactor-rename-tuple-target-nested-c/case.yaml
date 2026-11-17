@@ -1,0 +1,18 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- rename
+- --file
+- pkg/nested.py
+- --symbol
+- nested.<locals>.c
+- --new-name
+- d
+fixture: refactor-tuple-targets
+git:
+- commit: init
+expect:
+  exit: 0
+note: the outer target of a nested tuple target renamed with its use, nothing else

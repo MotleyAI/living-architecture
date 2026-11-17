@@ -55,8 +55,7 @@ from living_architecture.refactor.outcomes import (
 )
 from living_architecture.refactor.patch_targets import SourceFolders, TargetResolver
 from living_architecture.refactor.python_project import ProjectLayout, Snapshot
-from living_architecture.refactor.python_source import SourceFile, nfkc
-from living_architecture.refactor.rope_patches import every_parameter
+from living_architecture.refactor.python_source import SourceFile, every_parameter, nfkc
 from living_architecture.refactor.routing import language_files
 from living_architecture.refactor.sites import Site
 from living_architecture.refactor.static_resolver import Module
