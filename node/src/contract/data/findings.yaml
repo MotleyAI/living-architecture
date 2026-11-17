@@ -332,11 +332,10 @@ findings:
   refactor.unsupported-extension: 'not a source file of a supported language: {path}'
   refactor.cross-language-dest: '--dest {dest} is not a {language} file'
   refactor.skipped: '{prog}: not a source file, skipped: {path}'
-  # The TypeScript twin's texts (rope prints the Python ones).
   refactor.rename-header: 'Renaming <{old}> to <{new}>:'
-  refactor.ts-move-symbol-header: 'Moving global <{name}>:'
-  refactor.ts-move-module-header: 'Moving module <{name}>:'
-  refactor.ts-moved: "rename from {old}\nrename to {new}"
+  refactor.move-symbol-header: 'Moving global <{name}>:'
+  refactor.move-module-header: 'Moving module <{name}>:'
+  refactor.moved: "rename from {old}\nrename to {new}"
   refactor.ts-outside-project: no TypeScript project includes {path}
   refactor.ts-not-supported: '{option} is not supported for TypeScript'
   refactor.ts-tsconfig-missing: 'architecture/index.yaml names tsconfig {path}, which does not exist'

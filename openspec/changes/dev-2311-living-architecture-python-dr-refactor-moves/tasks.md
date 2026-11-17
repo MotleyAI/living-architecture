@@ -55,30 +55,30 @@
 
 ## 2. Shared contract
 
-- [ ] 2.1 Rename `refactor.ts-move-symbol-header` → `refactor.move-symbol-header`, `refactor.ts-move-module-header` →
+- [x] 2.1 Rename `refactor.ts-move-symbol-header` → `refactor.move-symbol-header`, `refactor.ts-move-module-header` →
       `refactor.move-module-header`, `refactor.ts-moved` → `refactor.moved` in `shared/findings.yaml`;
       `scripts/sync-shared`; `node/src/refactor/typescript.ts` and `session.ts` use the new keys. Verify:
       `scripts/sync-shared --check`, `npm run lint && npm run typecheck`, `npm test`, and `scripts/conformance-cross`
       over the TypeScript move cases pass.
-- [ ] 2.2 `diff_render.move_description` renders `refactor.moved`. Verify: module-rename goldens unchanged.
+- [x] 2.2 `diff_render.move_description` renders `refactor.moved`. Verify: module-rename goldens unchanged.
 
 ## 3. Static resolver
 
 - [ ] 3.1 Namespace packages (design decision 20) in the module finder / `ProjectLayout`. Verify: 1.8's namespace unit
       tests and 1.4's module-rename case pass.
-- [ ] 3.2 `Binder` records, per import binding, its statement, item index and whether it sits in the module body or a
+- [x] 3.2 `Binder` records, per import binding, its statement, item index and whether it sits in the module body or a
       block (design decision 4). Verify: a unit test over a module with body-level and block-level imports.
 
 ## 4. Move planner on the resolver (new path beside the old)
 
-- [ ] 4.1 Rebuild the planner's scopes, use lookups, name-conflict checks, "binds module" and import drops on the
+- [x] 4.1 Rebuild the planner's scopes, use lookups, name-conflict checks, "binds module" and import drops on the
       resolver's `Module` (design decision 4); references for `move-module` and `move-symbol` from the resolver,
       rule 2 as design decision 16. Verify: `test_move_edits.py` passes against the new path.
-- [ ] 4.2 Locator and movability (spec; design decisions 5, 7, 17). Verify: 1.3's cases pass on the new path.
-- [ ] 4.3 Region (design decision 19). Verify: 1.1's region cases pass on the new path.
-- [ ] 4.4 Destination imports (design decision 25) with guarded, `__future__` and relative-import rules (decisions
+- [x] 4.2 Locator and movability (spec; design decisions 5, 7, 17). Verify: 1.3's cases pass on the new path.
+- [x] 4.3 Region (design decision 19). Verify: 1.1's region cases pass on the new path.
+- [x] 4.4 Destination imports (design decision 25) with guarded, `__future__` and relative-import rules (decisions
       11–14) and source-side removal limited to the module body. Verify: 1.1, 1.5 pass on the new path.
-- [ ] 4.5 la's project model and newlines (design decisions 5, 15, 21): `Snapshot`, `TextEdit`, `FileMove`,
+- [x] 4.5 la's project model and newlines (design decisions 5, 15, 21): `Snapshot`, `TextEdit`, `FileMove`,
       `changes_of`, `emit` with `refactor.move-symbol-header` / `refactor.move-module-header`; `moved_code=True` for
       `move-symbol`. Verify: 1.1's newline cases and 1.8's `FileChanged` tests pass on the new path.
 
@@ -95,12 +95,12 @@
 
 ## 6. Docs
 
-- [ ] 6.1 Apply design decision 6's approved wording verbatim to the five files. Verify: `rg -n "rope computes moves|rope for Python|with rope and" docs plugin` prints nothing.
+- [x] 6.1 Apply design decision 6's approved wording verbatim to the five files. Verify: `rg -n "rope computes moves|rope for Python|with rope and" docs plugin` prints nothing.
 
 ## 7. Gates
 
 - [ ] 7.1 Local test scope (la:pr "Local test scope") passes: `uv run pytest` on the affected tests and the touched
       conformance cases; `uv run ruff check src tests`; `uv run basedpyright src tests`; `la-typecheck`.
-- [ ] 7.2 Enforcement bundle: `la-arch-check`, `npx likec4 validate` (or the lightest parse), `la-typecheck` against
+- [x] 7.2 Enforcement bundle: `la-arch-check`, `npx likec4 validate` (or the lightest parse), `la-typecheck` against
       its baseline. Verify: all green.
-- [ ] 7.3 `openspec validate dev-2311-living-architecture-python-dr-refactor-moves --strict` passes.
+- [x] 7.3 `openspec validate dev-2311-living-architecture-python-dr-refactor-moves --strict` passes.

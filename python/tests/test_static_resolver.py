@@ -1,15 +1,16 @@
 """la's static resolver: a package's own `from . import x` and a star import of a listed submodule reach the
-submodule; a cyclic re-export stays unresolved."""
+submodule; a cyclic re-export stays unresolved; namespace packages resolve; each import item is recorded."""
 
 from __future__ import annotations
 
+import ast
 from pathlib import Path
 
 import pytest
 
 from living_architecture.refactor.patch_targets import SourceFolders
 from living_architecture.refactor.python_project import ProjectLayout
-from living_architecture.refactor.static_resolver import Resolver, Value
+from living_architecture.refactor.static_resolver import Module, Resolver, Value
 
 
 def _resolver(root: Path, files: dict[str, str]) -> Resolver:
@@ -84,7 +85,8 @@ def test_a_namespace_package_resolves(tmp_path: Path, files: dict[str, str], nam
 def test_a_module_shadows_a_namespace_directory(tmp_path: Path) -> None:
     resolver = _project_resolver(tmp_path, {"pkg/__init__.py": "", "pkg/ns.py": "Y = 1\n", "pkg/ns/m.py": "Y = 2\n"})
     module = resolver.load("pkg.ns")
-    assert module is not None and module.is_package is False
+    assert module is not None
+    assert module.is_package is False
     assert resolver.member("pkg.ns", "m") is None
 
 
@@ -92,5 +94,19 @@ def test_a_regular_package_shadows_a_namespace_portion(tmp_path: Path) -> None:
     resolver = _project_resolver(tmp_path, {"pyproject.toml": '[tool.rope]\nsource_folders = ["b", "a"]\n',
                                             "a/pkg/__init__.py": "X = 1\n", "b/pkg/extra.py": "Y = 1\n"})
     module = resolver.load("pkg")
-    assert module is not None and module.is_package and module.path == (tmp_path / "a/pkg/__init__.py").resolve()
+    assert module is not None
+    assert (module.is_package, module.path) == (True, (tmp_path / "a/pkg/__init__.py").resolve())
     assert resolver.member("pkg", "X") == ("decl", "pkg@1:0")
+
+
+def test_the_binder_records_each_import_item_with_its_scope_and_guard() -> None:
+    tree = ast.parse(
+        "import a, b\nif TYPE_CHECKING:\n    from c import d\n\n\ndef f() -> None:\n    import e\n"
+        "    try:\n        import g\n    except ImportError:\n        pass\n"
+    )
+    binder = Module(tree, ["m"], False).binder
+    rows = [(stmt.lineno, item.index, item.scope.kind, type(item.guard).__name__ if item.guard else None)
+            for stmt, _, _ in binder.imports for alias in stmt.names
+            if (item := binder.import_items[id(alias)]).stmt is stmt]
+    assert rows == [(1, 0, "module", None), (1, 1, "module", None), (3, 0, "module", "If"), (7, 0, "function", None),
+                    (9, 0, "function", "Try")]

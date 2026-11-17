@@ -24,7 +24,7 @@ flowchart LR
   end
   checker["project's checker<br/>(commands.typecheck.python)"]
 
-  cmd --> rope
+  cmd -- "walker-gap check" --> rope
   cmd --> rules
   rules --> cache
   rules --> client
@@ -43,9 +43,9 @@ flowchart LR
 | Node (`nodejs-wheel-binaries`) | Runs basedpyright, which is a Node program. | basedpyright's own dependency. The project needs no Node. |
 | LSP | The protocol la uses to talk to one long-lived basedpyright process. la's client is about 350 lines. | It's the only stable host for basedpyright's analysis. The server finds the project's configuration and interpreter itself, takes in-memory file texts (the snapshot and the probes), and keeps one warm program for the whole run. |
 | la's preloads | Patch basedpyright's bundle as Node loads it: the pyright#11919 fix, and the export command that returns the whole index in one request. | basedpyright has no batch export (requested upstream as basedpyright#1909). Both are pinned to verified versions; any other version refuses. |
-| rope (+ la's walker patches) | Computes `move-symbol` and `move-module`. | Moves are built on it. |
-| la's static resolver | Resolves names, imports and module attribute chains by Python's scoping over the project's source folders: entry locations, the names basedpyright leaves unresolved, retarget's lookups and module renames. | It reads files only, so it resolves what the checker's configuration misses without running project code. |
-| stdlib `ast` / `tokenize` | Edit placement, `--docs` mentions, compound names, dict-key and keyword shapes. | These rules read text and syntax only. |
+| rope (+ la's walker patches) | The walker-gap check: a move's `checks` phase and `dr-compliance --select rope-walk`. | Only that check is left; no refactor is computed with rope. |
+| la's static resolver | Resolves names, imports and module attribute chains by Python's scoping over the project's source folders: entry locations, the names basedpyright leaves unresolved, retarget's lookups, module renames and moves. | It reads files only, so it resolves what the checker's configuration misses without running project code. |
+| stdlib `ast` / `tokenize` | Edit placement, a moved symbol's region and imports, `--docs` mentions, compound names, dict-key and keyword shapes. | These rules read text and syntax only. |
 | Occurrence index cache | Reuses the index when nothing that can change it has changed (sources, config, interpreter, packages, request). | It makes the dry-run → fix flags → re-run loop cost no checker time. |
 | The project's checker | Keeps the type-check baseline aligned after the edits. | The baseline belongs to the checker the project configures, not to la's bundled one. |
 

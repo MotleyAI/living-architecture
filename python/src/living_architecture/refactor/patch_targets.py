@@ -30,9 +30,27 @@ class SourceFolders:
                     found.setdefault(path.resolve(), is_package)
         return list(found.items())
 
-    def __call__(self, dotted: str) -> tuple[Path, bool] | None:
+    def file(self, dotted: str) -> tuple[Path, bool] | None:
+        """Module `dotted`'s one file, with whether it is a package's `__init__`; None unless exactly one."""
         files = self.files(dotted)
         return files[0] if len(files) == 1 else None
+
+    def namespace(self, dotted: str) -> Path | None:
+        """The first directory of namespace package `dotted`: a directory holding Python sources but no
+        `__init__.py` under some source folder, with no module or package of that name."""
+        parts = dotted.split(".")
+        if not all(p.isidentifier() for p in parts) or self.files(dotted):
+            return None
+        portions = [base for folder in self.folders if (base := folder.joinpath(*parts)).is_dir()]
+        return next((p.resolve() for p in portions if next(p.rglob("*.py"), None) is not None), None)
+
+    def __call__(self, dotted: str) -> tuple[Path, bool] | None:
+        """`file`, else a namespace package as its directory and True."""
+        found = self.file(dotted)
+        if found is not None:
+            return found
+        directory = self.namespace(dotted)
+        return (directory, True) if directory is not None else None
 
     def top_level(self, name: str) -> bool:
         """`name` is a top-level module, package or namespace directory of some source folder."""

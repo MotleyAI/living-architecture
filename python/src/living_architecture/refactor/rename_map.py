@@ -12,11 +12,6 @@ from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
 from typing import Any
 
-from rope.base.change import ChangeContents, ChangeSet, MoveResource
-from rope.base.fscommands import unicode_to_file_data
-from rope.base.project import Project
-from rope.base.resources import File
-
 from living_architecture.config import ConfigError, find_repo_root, load_config, source_files
 from living_architecture.contract import manifest, message
 from living_architecture.lang import LanguageServerError
@@ -71,7 +66,7 @@ from living_architecture.refactor.sites import Keeps, Site, keep_spells, resolve
 from living_architecture.refactor.symbol_path import LocatorError, declaration_scope, locate
 from living_architecture.refactor.text_edits import TextEdit, apply_edits, merge_edits
 from living_architecture.refactor.timings import timed
-from living_architecture.refactor.writer import FileChanged, FileMove, FileWrite, apply, verify
+from living_architecture.refactor.writer import FileMove, FileWrite, apply, verify
 
 _WORD = re.compile(r"\w+")
 
@@ -839,33 +834,6 @@ class RenameMap:
         emit(self.root, [r.header() for r in renames], [*described, *moved], apply_, writes, moves, self.progress,
              edits=by_file, creates=stubs)
         return 0
-
-
-def source_bytes(project: Project) -> dict[str, bytes]:
-    """Every file rope or la counts as Python source, its bytes read before rope computes a change set from them."""
-    root = Path(project.address).resolve()
-    rels = {path.relative_to(root).as_posix() for path in language_files(root, "python")}
-    rels |= {f.path for f in project.get_python_files()}
-    return {rel: (root / rel).read_bytes() for rel in sorted(rels)}
-
-
-def change_set_writes(changes: ChangeSet, before: dict[str, bytes]) -> tuple[list[FileWrite], list[FileMove]]:
-    """A rope change set as writes and moves, each write's old bytes as `before` holds them; `FileChanged` for a
-    write `before` does not hold, as its bytes cannot be checked against what rope read."""
-    writes: list[FileWrite] = []
-    moves: list[FileMove] = []
-    for change in changes.changes:
-        if isinstance(change, ChangeContents):
-            file: File = change.resource
-            file.read()
-            data = unicode_to_file_data(change.new_contents, newlines=file.newlines)
-            old = before.get(file.path)
-            if old is None:
-                raise FileChanged(file.path)
-            writes.append(FileWrite(rel=file.path, old=old, new=bytes(data)))
-        elif isinstance(change, MoveResource):
-            moves.append(FileMove(rel=change.resource.path, dest=change.new_resource.path))
-    return writes, moves
 
 
 def changes_of(snapshot: Snapshot, edits: list[TextEdit]) -> tuple[list[tuple[str, str]], list[FileWrite]]:

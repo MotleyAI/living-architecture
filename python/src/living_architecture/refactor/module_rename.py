@@ -94,7 +94,7 @@ class ModuleRename(MapRename):
         """`dotted` names the renamed module (or, for a package, the package)."""
         if dotted is None or self.module is None:
             return False
-        found = self.locator.folders(dotted)
+        found = self.locator.folders.file(dotted)
         if found is not None:
             return self._file is not None and found[0] == self._file
         rel = dotted.replace(".", "/")

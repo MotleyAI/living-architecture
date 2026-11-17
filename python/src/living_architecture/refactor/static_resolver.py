@@ -11,6 +11,7 @@ from typing import Literal
 
 TYPING_MODULES = frozenset({"typing", "typing_extensions"})
 _COMPREHENSIONS = (ast.ListComp, ast.SetComp, ast.GeneratorExp, ast.DictComp)
+_BLOCKS = (ast.If, ast.For, ast.AsyncFor, ast.While, ast.Try, ast.TryStar, ast.With, ast.AsyncWith, ast.Match)
 _TYPE_ALIAS: type[ast.stmt] | None = getattr(ast, "TypeAlias", None)  # Python 3.12+
 
 ScopeKind = Literal["module", "class", "function", "comprehension", "annotation"]
@@ -21,7 +22,8 @@ Value = tuple[Literal["typing", "module", "decl"], str] | None
 # def, class or assigned name; None any other binding.
 Binding = tuple[Literal["module", "member", "decl"], str | None, str] | None
 ANY: Value = ("typing", "Any")
-# A dotted module name to its file and whether it is a package's `__init__`; None when it is not exactly one file.
+# A dotted module name to its file and whether it is a package's `__init__`, a namespace package to its directory and
+# True; None when it is neither.
 ModuleFinder = Callable[[str], tuple[Path, bool] | None]
 
 
@@ -90,8 +92,17 @@ class CommentRoot:
         self.position: tuple[int, int] = (getattr(node, "lineno", 0), getattr(node, "col_offset", 0))
 
 
+class ImportItem:
+    """One item of an import statement: the statement, the item's index, the scope it binds in, and the block statement
+    (`if`, `try`, a loop, `with`, `match`) innermost around it in that scope, None directly in the scope's body."""
+
+    def __init__(self, stmt: ast.Import | ast.ImportFrom, index: int, scope: Scope, guard: ast.stmt | None) -> None:
+        self.stmt, self.index, self.scope, self.guard = stmt, index, scope, guard
+
+
 class Binder:
-    """Scopes and bindings of a module, its name and attribute loads, and its type expressions for later reading."""
+    """Scopes and bindings of a module, its name and attribute loads, its import statements and its type expressions
+    for later reading."""
 
     def __init__(self, parts: list[str], is_package: bool) -> None:
         self.parts, self.is_package = parts, is_package
@@ -108,6 +119,9 @@ class Binder:
         self.enclosing: dict[str, Scope] = {}
         self.class_nodes: dict[Scope, ast.ClassDef] = {}
         self.inner: dict[int, Scope] = {}
+        self.imports: list[tuple[ast.Import | ast.ImportFrom, Scope, ast.stmt | None]] = []
+        self.import_items: dict[int, ImportItem] = {}
+        self.guard: ast.stmt | None = None
 
     def _new(self, kind: ScopeKind, parent: Scope) -> Scope:
         scope = Scope(kind, parent)
@@ -178,8 +192,7 @@ class Binder:
         self.inner[id(node)] = inner
         for param in self._signature(node.args, scope, annotated):
             self._bind(inner, param.arg, None, param)
-        for child in node.body if isinstance(node.body, list) else [node.body]:
-            self.visit(child, inner)
+        self._body(node.body if isinstance(node.body, list) else [node.body], inner)
 
     def _class(self, node: ast.ClassDef, scope: Scope) -> None:
         for decorator in node.decorator_list:
@@ -191,8 +204,14 @@ class Binder:
         inner = self._new("class", annotated)
         self.class_nodes[inner] = node
         self.inner[id(node)] = inner
-        for stmt in node.body:
-            self.visit(stmt, inner)
+        self._body(node.body, inner)
+
+    def _body(self, body: list[ast.stmt] | list[ast.expr], scope: Scope) -> None:
+        """A function's or class's body, outside any block of the enclosing scope."""
+        outer, self.guard = self.guard, None
+        for child in body:
+            self.visit(child, scope)
+        self.guard = outer
 
     def _type_alias(self, node: ast.stmt, scope: Scope) -> None:
         """A `type` statement: the name binds in `scope`, the value is a type expression in its parameters' scope."""
@@ -215,6 +234,9 @@ class Binder:
             self.visit(part, inner)
 
     def _imports(self, node: ast.Import | ast.ImportFrom, scope: Scope) -> None:
+        self.imports.append((node, scope, self.guard))
+        for index, alias in enumerate(node.names):
+            self.import_items[id(alias)] = ImportItem(node, index, scope, self.guard)
         if isinstance(node, ast.Import):
             for alias in node.names:
                 name = alias.asname or alias.name.split(".")[0]
@@ -241,8 +263,12 @@ class Binder:
         if self._scoped(node, scope) or self._leaf(node, scope):
             return
         self._record(node, scope)
+        outer = self.guard
+        if isinstance(node, _BLOCKS):
+            self.guard = node
         for child in ast.iter_child_nodes(node):
             self.visit(child, scope)
+        self.guard = outer
 
     def _scoped(self, node: ast.AST, scope: Scope) -> bool:
         """Visits a node that opens a scope or imports; whether it was one."""
@@ -353,6 +379,8 @@ class Resolver:
         if not all(p.isidentifier() for p in parts) or (found := self.finder(dotted)) is None:
             return None
         path, is_package = found
+        if path.is_dir():
+            return Module(ast.Module(body=[], type_ignores=[]), parts, True, path)
         try:
             return Module(ast.parse(self.read(path)), parts, is_package, path)
         except (OSError, SyntaxError, ValueError, LookupError):

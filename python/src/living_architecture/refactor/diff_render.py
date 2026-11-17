@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import difflib
 
+from living_architecture.contract import message
+
 
 def _shown(text: str) -> str:
     """`text` with every line ending as `\\n`, as rope reads a file."""
@@ -17,4 +19,4 @@ def edit_description(rel: str, old: str, new: str) -> str:
 
 
 def move_description(rel: str, dest: str) -> str:
-    return f"rename from {rel}\nrename to {dest}"
+    return message("refactor.moved", old=rel, new=dest)
