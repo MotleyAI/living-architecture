@@ -1,1 +1,1 @@
-f = lambda a, *, model_name: model_name  # noqa: E731
+f = lambda a, *, dataset_name: dataset_name  # noqa: E731

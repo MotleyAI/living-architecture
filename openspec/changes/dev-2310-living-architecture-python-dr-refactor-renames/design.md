@@ -173,6 +173,10 @@ static resolver for scoping, imports and module chains, the AST for declarations
       moves never start the language server." stays. The diagram gains `static["la's static resolver"]` inside `la` with
       `rules --> static`.
     (pending user approval)
+19. **Lambda parameters are renamed.** A lambda parameter is located like any other parameter (decision 8) and renamed with
+    every use its lambda binds; rope refused it with `refactor.cannot-rename` only because it builds no lambda scope. The
+    golden of `refactor-rename-param-lambda` and the cases of `test_lambda_shadowing_a_parameter_is_refused` change by hand
+    to the rename. (user)
 
 ## Risks / Trade-offs
 

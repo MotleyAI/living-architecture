@@ -140,7 +140,7 @@ def test_walker_gaps_in_every_module_a_move_walks_refuse_in_the_checks(
 
 
 @pytest.mark.parametrize("taken", ["", "\n\ndef bar() -> int:\n    return 3\n"], ids=["free", "new-name-taken"])
-def test_a_gap_rope_meets_in_the_rules_refuses_only_its_entry(
+def test_a_module_rope_cannot_walk_is_traced_statically_in_the_rules(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
@@ -148,8 +148,8 @@ def test_a_gap_rope_meets_in_the_rules_refuses_only_its_entry(
     annotation_gap: str,
     taken: str,
 ) -> None:
-    # The checker cannot resolve scripts/'s import, so rope walks scripts/use.py only in the rules, after the entry's
-    # edit in pkg/a.py; the refused entry's edits then check no name.
+    # The checker cannot resolve scripts/'s import; Python's import rules over the source folders do, so no module is
+    # walked.
     restore_rope_visitor("_arg")
     entries = "- {file: pkg/a.py, symbol: foo, new_name: bar}\n- {file: pkg/a.py, symbol: baz, new_name: qux}\n"
     root = write_project(tmp_path / "p", {
@@ -159,15 +159,20 @@ def test_a_gap_rope_meets_in_the_rules_refuses_only_its_entry(
         "map.yaml": entries,
     })
     before = file_tree(root)
-    code, out, err = run_raw(root, ["--apply", "rename-map", "map.yaml"], monkeypatch, capsys)
+    code, out, err = run_raw(root, ["rename-map", "map.yaml"], monkeypatch, capsys)
     entry = {"phase": "rules", "count": 2}
-    refused = message("refactor.progress-refused", **entry, n=1, entries=message("refactor.progress-entry", index=1),
-                      old="foo", new="bar", refusals=1)
-    clean = message("refactor.progress-clean", **entry, n=2, entries=message("refactor.progress-entry", index=2),
-                    old="baz", new="qux")
-    gap = message("refactor.rope-walk", path="scripts/use.py", line=3)
-    assert (code, out) == (1, "")
-    assert err.splitlines()[-5:] == [refused, gap, clean, CONFLICTS, gap]
+    clean = [message("refactor.progress-clean", **entry, n=n, entries=message("refactor.progress-entry", index=n),
+                     old=old, new=new) for n, old, new in ((1, "foo", "bar"), (2, "baz", "qux"))]
+    assert message("refactor.rope-walk", path="scripts/use.py", line=3) not in err
+    if taken:
+        conflict = message("refactor.name-conflict", name="bar", path="pkg/a.py", line=9)
+        assert (code, out) == (1, "")
+        assert err.splitlines()[-4:] == [*clean, CONFLICTS, conflict]
+    else:
+        assert code == 0
+        assert "+from pkg.a import bar\n" in out
+        assert "+    e = bar()\n" in out
+        assert err.splitlines()[-3:] == [*clean, CONFLICTS]
     assert file_tree(root) == before
 
 

@@ -1,6 +1,6 @@
 ## 0. Stage order and stacking (read first)
 
-- [ ] 0.1 pr-tests writes section 1 only; pr-implement does sections 2–6. While section 1 is open the stage is
+- [x] 0.1 pr-tests writes section 1 only; pr-implement does sections 2–6. While section 1 is open the stage is
       `pr-tests`.
 - [x] 0.2 Stacked on DEV-2301. At the start of each stage, check the DEV-2301 branch: when it has commits this branch
       lacks, merge it (`git merge egor/dev-2301-living-architecture-dr-refactor-resolves-every -m "Merge branch
@@ -11,10 +11,10 @@
       delta's modified requirements against its delta and main (scenarios and prose), and decisions 8 and 13 against
       its decision 22. Verify: `git merge-base --is-ancestor` of the DEV-2301 branch head
       succeeds before opening the PR.
-- [ ] 0.3 Every new conformance case is a Python `adapter` case with a hand-written golden (`golden: manual`), except
+- [x] 0.3 Every new conformance case is a Python `adapter` case with a hand-written golden (`golden: manual`), except
       the `--offset` case, which is `paired` (both twins); all listed in `conformance/INVENTORY.md`. Existing Python
       rename / rename-map / retarget goldens are never regenerated (design decision 16).
-- [ ] 0.4 Stacked on DEV-2315 (WIP). After each merge of its branch: give this change's new goldens its `[conflicts]`
+- [x] 0.4 Stacked on DEV-2315 (WIP). After each merge of its branch: give this change's new goldens its `[conflicts]`
       line where its phase rule puts it, re-run them, and re-check decisions 10 and 12 against its decisions 8, 11, 14
       and 19, and this spec delta against its delta. Once it merges to main, merge `origin/main`. Open this PR only after
       DEV-2315 has merged, or with its branch as base. Verify: `git merge-base --is-ancestor` of the DEV-2315 branch
@@ -84,7 +84,7 @@
 - [x] 2.2 `Session`/`Snapshot` on the project root; la's diff rendering; `emit` on la's changes, the move commands
       converting their rope `ChangeSet` at their boundary; offsets on the raw text (locators, `_raw_offset`,
       `_rope_offset`, `locators._text` removed). Verify: 1.8 and 1.10 pass.
-- [ ] 2.3 Differential run (design decision 16) for series 1. Verify: no difference, or each one resolved by the user;
+- [x] 2.3 Differential run (design decision 16) for series 1. Verify: no difference, or each one resolved by the user;
       then the old path is deleted and has no remaining caller.
 
 ## 3. Series 2 — entries located without rope (pr-implement)
@@ -92,7 +92,7 @@
 - [x] 3.1 The declaration-at-site algorithm, kind and key (design decisions 8 and 9), the keyword check, retarget's
       target location; `_renamer`, `_key`, `_definition_line`, `_located`'s rope branch, `_located_field`,
       `_function_at` and `_parameter_declarations` on the AST. Verify: 1.6 and 1.11 pass.
-- [ ] 3.2 Differential run for series 2, then delete the old path. Verify: as 2.3.
+- [x] 3.2 Differential run for series 2, then delete the old path. Verify: as 2.3.
 
 ## 4. Series 3 — unresolved names and the remaining lookups (pr-implement)
 
@@ -102,21 +102,23 @@
       self-test, its batched positions; `MemberCheck` on `hierarchy.ClassGraph`. Verify: 1.4 passes and
       `python/tests/test_pyright_export.py` covers the fact.
 - [x] 4.3 Retarget's lookups on the static resolver (design decision 11). Verify: 1.5 passes.
-- [ ] 4.4 Differential run for series 3, then delete the old path (`RopeSites`, `member_namespace.Hierarchy`'s rope
+- [x] 4.4 Differential run for series 3, then delete the old path (`RopeSites`, `member_namespace.Hierarchy`'s rope
       code, retarget's rope helpers). Verify: as 2.3.
 
 ## 5. Series 4 — module renames without rope (pr-implement)
 
 - [x] 5.1 Module-rename sites, self-alias rule, move, `--keep` (design decisions 3 and 12) replacing `_module_rename`'s
       rope path; the rename's walker-gap check removed (decision 14). Verify: 1.3 and 1.7 pass.
-- [ ] 5.2 Differential run for series 4, then delete the old path. Verify: as 2.3, and 1.12 passes.
+- [x] 5.2 Differential run for series 4, then delete the old path. Verify: as 2.3, and 1.12 passes.
 
 ## 6. Docs, verification and gates (pr-implement)
 
-- [ ] 6.1 Docs per design decision 18 only after the user approves its exact wording; record the approval here. Verify:
+- [x] 6.1 Docs per design decision 18 only after the user approves its exact wording; record the approval here. Verify:
       `rg -n -i "rope" plugin docs` reviewed, every remaining mention true of moves or the walker contract.
+      Approved (user): decision 18's texts as written, plus `plugin/languages/python.md`'s `rope-walk` line: "so
+      `dr-refactor` refuses a move whose files include it".
 - [ ] 6.2 SLayer DEV-1607 map, dry run on a `git archive` copy (`.venv` symlinked, never written), old and new path
       compared per design decision 16. Verify: identical output recorded in a Linear comment on DEV-2310.
-- [ ] 6.3 Local test scope per `/la:pr`, `uv run ruff check src tests`, `uv run basedpyright src tests`,
+- [x] 6.3 Local test scope per `/la:pr`, `uv run ruff check src tests`, `uv run basedpyright src tests`,
       `scripts/sync-shared --check`, `la-arch-check`, `npx -y @anthropic-ai/claude-code plugin validate plugin`, and
       `npm run build && npm run conformance` for the paired case. Verify: all green.

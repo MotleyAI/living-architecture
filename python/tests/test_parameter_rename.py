@@ -171,14 +171,11 @@ SHADOWED = Template(
 
 @pytest.mark.parametrize("star", ["*, ", ""], ids=["keyword-only", "positional-or-keyword"])
 @pytest.mark.parametrize("needle", ["lambda model_name", ": model_name\n"], ids=["lambda-parameter", "lambda-body"])
-def test_lambda_shadowing_a_parameter_is_refused(
-    typed_project: MakeProject, capsys: pytest.CaptureFixture[str], star: str, needle: str
-) -> None:
+def test_a_lambda_shadowing_a_parameter_renames_only_its_own(typed_project: MakeProject, star: str, needle: str) -> None:
     root = typed_project({"pkg/s.py": SHADOWED.substitute(star=star, p=OLD, k=OLD)})
-    before = file_tree(root)
-    assert _rename(root, "pkg/s.py", _at(root, "pkg/s.py", needle) + needle.index(OLD)) == 1
-    assert readouterr(capsys) == ("", message("refactor.cannot-rename") + "\n")
-    assert file_tree(root) == before
+    assert _rename(root, "pkg/s.py", _at(root, "pkg/s.py", needle) + needle.index(OLD)) == 0
+    expected = SHADOWED.substitute(star=star, p=OLD, k=OLD).replace(f"lambda {OLD}: {OLD}", f"lambda {NEW}: {NEW}")
+    _expect(root, {"pkg/s.py": expected})
 
 
 @pytest.mark.parametrize("star", ["*, ", ""], ids=["keyword-only", "positional-or-keyword"])

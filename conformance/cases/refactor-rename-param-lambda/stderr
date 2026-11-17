@@ -1,3 +1,8 @@
 [resolve]
 [checks]
-the element at this location cannot be renamed
+[references]
+[references 1/1] entry 1: model_name -> dataset_name
+[rules]
+[rules 1/1] entry 1: model_name -> dataset_name: clean
+[conflicts]
+[write]
