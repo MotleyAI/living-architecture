@@ -1,6 +1,6 @@
 ## 0. Stage order and repro (read first)
 
-- [ ] 0.1 pr-tests writes section 1 only; pr-implement does sections 2–4. While section 1 is open, the stage is
+- [x] 0.1 pr-tests writes section 1 only; pr-implement does sections 2–4. While section 1 is open, the stage is
       `pr-tests`. Verify: every task of section 1 is ticked before any task of section 2 starts.
 - [ ] 0.2 Repro of the DEV-1607 map (158 entries):
       1. In SLayer's main checkout (`~/GitHub/SLayer/slayer`), run `git archive 452a2f57` into a temp directory.
@@ -68,22 +68,22 @@
 
 ## 2. Implementation (pr-implement)
 
-- [ ] 2.1 The result type (a `BaseModel` in `refactor`) and the workers' conversion to it, per decision 1:
+- [x] 2.1 The result type (a `BaseModel` in `refactor`) and the workers' conversion to it, per decision 1:
       `SymbolRename`, `AliasRetarget` and `LiteralRename` each yield one. `check_conflicts` and `renamed_members`
       move onto the result, reading the snapshot passed in. A result holds no AST node, `SourceFile` or `ImportNeed`.
       Verify: `basedpyright` clean; 1.10 passes.
-- [ ] 2.2 `rename_map.py`: `rules` converts each group's workers when the group finishes and drops them; retargets'
+- [x] 2.2 `rename_map.py`: `rules` converts each group's workers when the group finishes and drops them; retargets'
       `ImportNeed`s go to a side list that the one import plan after the last group consumes and drops (decision 2);
       leftovers go to the run-wide store after the keeps filter them with `mark=False` (decision 5). Verify: 1.2,
       1.4, 1.5, 1.6 and 1.9 pass.
-- [ ] 2.3 The step ending `rules` on every path but the module-rename branch (decision 3): converts each worker left
+- [x] 2.3 The step ending `rules` on every path but the module-rename branch (decision 3): converts each worker left
       as it stands, closes the `RunIndex` (saving the cache) and the run's `ServerSession`, keeps only the class-fact
       source, which exports a miss through that `ServerSession` (decision 4), and releases `TypeFacts`, the
       `EntryLocator`, `session.tables`, the outside files and the snapshot's parsed forms. `run`'s and `run_map`'s
       `finally` still close the index and the server on any failure. Verify: 1.1, 1.3, 1.7 and 1.8 pass.
-- [ ] 2.4 Site resolution, the report, the name checks, `findings()` and the outputs take only results. Verify:
+- [x] 2.4 Site resolution, the report, the name checks, `findings()` and the outputs take only results. Verify:
       `test_rename_map.py`, `test_refactor_progress.py` and the rename and retarget tests pass.
-- [ ] 2.5 Local test scope (per `/la:pr`) plus the conformance corpus through the Python twin, then
+- [x] 2.5 Local test scope (per `/la:pr`) plus the conformance corpus through the Python twin, then
       `uv run ruff check src tests` and `uv run basedpyright src tests` in `python/`, `la-typecheck` and
       `la-arch-check`. Verify: all green.
 
@@ -98,6 +98,6 @@
 
 ## 4. Docs
 
-- [ ] 4.1 No user-facing doc names the workers' fields, the leftover store or the index's internals. Check with
+- [x] 4.1 No user-facing doc names the workers' fields, the leftover store or the index's internals. Check with
       `grep -rn "leftovers\|RunIndex\|SymbolRename" docs plugin README.md` and record the result. Verify: no hit, or
       each hit updated.
