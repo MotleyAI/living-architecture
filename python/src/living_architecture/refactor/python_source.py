@@ -75,6 +75,17 @@ def _assigns_all(stmt: ast.stmt) -> bool:
     return any(isinstance(t, ast.Name) and t.id == "__all__" for t in targets)
 
 
+def _exported(stmt: ast.stmt) -> list[ast.expr]:
+    """What a statement on `__all__` adds: an `append` argument, else the elements of its literal."""
+    value: ast.expr | None = getattr(stmt, "value", None)
+    if isinstance(value, ast.Call) and isinstance(value.func, ast.Attribute):
+        arg = value.args[0] if value.args else None
+        if value.func.attr == "append":
+            return [arg] if arg is not None else []
+        value = arg
+    return _literal_elements(value)
+
+
 def _literal_elements(value: ast.expr | None) -> list[ast.expr]:
     """The elements of a list, tuple or set literal, or of such literals joined by `+`."""
     if isinstance(value, (ast.List, ast.Tuple, ast.Set)):
@@ -154,17 +165,7 @@ class SourceFile:
     def all_strings(self) -> list[ast.Constant]:
         """The names the `__all__` statements export: string elements of their list, tuple or set literals, and the
         string an `append` adds."""
-        out: list[ast.Constant] = []
-        for stmt in self.all_statements:
-            value: ast.expr | None = getattr(stmt, "value", None)
-            if isinstance(value, ast.Call) and isinstance(value.func, ast.Attribute):
-                arg = value.args[0] if value.args else None
-                if value.func.attr == "append":
-                    out += [arg] if isinstance(arg, ast.Constant) and isinstance(arg.value, str) else []
-                    continue
-                value = arg
-            out += [e for e in _literal_elements(value) if isinstance(e, ast.Constant) and isinstance(e.value, str)]
-        return out
+        return [e for s in self.all_statements for e in _exported(s) if isinstance(e, ast.Constant) and isinstance(e.value, str)]
 
     def offset(self, line: int, col: int) -> int:
         """The character offset of an AST position (1-based line, UTF-8 byte column)."""

@@ -120,7 +120,7 @@ class ModuleRename:
 
     def _from_path(self, rel: str, source: SourceFile, node: ast.ImportFrom, absolute: str | None) -> list[TextEdit]:
         """The renamed segments of the module path of `from … import`."""
-        written = (node.module or "").split(".") if node.module else []
+        written = node.module.split(".") if node.module else []
         if absolute is None or not written:
             return []
         parts = absolute.split(".")
@@ -246,7 +246,7 @@ def run_module_rename(session: Session, locator: EntryLocator, entry: Entry, new
                 [EntryEdits(index=1, new_name=new_name, edits=written, kept=[e for e in every if e not in written])],
                 rename.moved(move)), session.snapshot.source)
     listed = undecodable(session.snapshot, session.all_python_files(), [rename.old], keeps)
-    unmatched = keeps.unmatched() if computed else []
+    unmatched = keeps.unmatched() if found is None else []
     refusals: list[Refusal] = []
     if found is not None:
         refusals.append(refusal(message("refactor.name-conflict", name=found.name, path=found.path, line=found.line)))

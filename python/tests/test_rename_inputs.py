@@ -40,6 +40,17 @@ def test_a_module_moves_to_the_normal_form_of_its_new_name(
     assert (root / "pkg" / "use.py").read_text(encoding="utf-8") == f"from pkg import {wide}\n\nprint({wide}.foo())\n"
 
 
+@pytest.mark.parametrize("locator", [["--symbol", "foo"], []], ids=["symbol", "module"])
+def test_a_rename_to_the_same_name_refuses_a_keep_it_leaves_unmatched(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], locator: list[str]
+) -> None:
+    root = write_project(tmp_path / "proj", FILES)
+    same = "foo" if locator else "a"
+    argv = ["rename", "--file", "pkg/a.py", *locator, "--new-name", same, "--keep", "pkg/use.py"]
+    unmatched = message("refactor.keep-unmatched", site="pkg/use.py")
+    assert run(root, argv, monkeypatch, capsys) == (2, "", unmatched + "\n")
+
+
 @pytest.mark.parametrize("baseline", [False, True], ids=["no-baseline", "baseline"])
 def test_a_stub_with_an_unreadable_config_is_refused_once(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], baseline: bool
