@@ -1,8 +1,8 @@
 ## 0. Stage order and repro (read first)
 
-- [ ] 0.1 pr-tests writes section 1 only; pr-implement does sections 2–4. While section 1 is open, the stage is
+- [x] 0.1 pr-tests writes section 1 only; pr-implement does sections 2–4. While section 1 is open, the stage is
       `pr-tests`. Verify: every task of section 1 is ticked before any task of section 2 starts.
-- [ ] 0.2 Repro for every SLayer measurement:
+- [x] 0.2 Repro for every SLayer measurement:
       1. In SLayer's main checkout (`~/GitHub/SLayer/slayer`), run `git archive 452a2f57` into a temp directory.
       2. There, `git init` and commit everything (without a git repository la finds no project files).
       3. Symlink `.venv` to `~/GitHub/SLayer/slayer.worktrees/egor__dev-1607-rename-columns-to-fields-to-be-consistent-with/.venv`.
@@ -50,16 +50,16 @@
 
 ## 2. Implementation (pr-implement)
 
-- [ ] 2.1 `bindings.py`: `BindingCheck.conflicts(passes, moves=None)` as a generator.
+- [x] 2.1 `bindings.py`: `BindingCheck.conflicts(passes, moves=None)` as a generator.
       - Build each pass's plan up front: names, pattern, `by_file`, `binding`, `changed`.
       - A pass's keys are its after-world's edited modules. Record each key's last reading pass.
       - Judge each pass from its plan, then drop the states whose last reading pass it was, then yield.
       - A pass with no names yields `[]` and reads nothing.
 
       Verify: tests 1.1–1.5 and 1.7 pass.
-- [ ] 2.2 `bindings.py`: `_Parsed` keeps `scope` and `all_names` instead of `module`. Update `module_binding`,
+- [x] 2.2 `bindings.py`: `_Parsed` keeps `scope` and `all_names` instead of `module`. Update `module_binding`,
       `World._module_meaning` and `World._exports`. Verify: test 1.6 passes.
-- [ ] 2.3 `rename_map.py`: `check_names` builds the pass list, calls `conflicts` once, and zips each yielded list
+- [x] 2.3 `rename_map.py`: `check_names` builds the pass list, calls `conflicts` once, and zips each yielded list
       with that pass's `MemberCheck` result inside the existing loop. `rope_refactor.py` passes `[entries]` and takes
       the first yielded list. Verify: `test_rename_map.py`, the `rope_refactor` rename tests and
       `test_refactor_progress.py` pass.
@@ -69,15 +69,15 @@
 
 ## 3. Measurement (pr-implement)
 
-- [ ] 3.1 Cold DEV-1607 run (0.2) under `/usr/bin/time -v`, alone, on the commit before this change's code and on
+- [x] 3.1 Cold DEV-1607 run (0.2) under `/usr/bin/time -v`, alone, on the commit before this change's code and on
       this change: peak RSS, phase split, total. Verify: peak at most 4.3 GB (prototype 3.96 GB) and
       `conflicts` at most about 104 s (prototype 87 s). Results go in a comment on DEV-2317, together with the
       machine's free memory and swap at the time.
-- [ ] 3.2 Differential: both runs' stdout and their refusal reports (stderr without the `[...]` progress and
+- [x] 3.2 Differential: both runs' stdout and their refusal reports (stderr without the `[...]` progress and
       `timing:` lines) are byte-identical. Verify: `diff` output recorded in the same comment.
 
 ## 4. Docs
 
-- [ ] 4.1 No user-facing doc names the after-state cache or `_Parsed`. Check with
+- [x] 4.1 No user-facing doc names the after-state cache or `_Parsed`. Check with
       `grep -rn "after-state\|_Parsed" docs plugin README.md` and record the result. Verify: no hit, or each hit
       updated.
