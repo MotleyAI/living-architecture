@@ -19,7 +19,7 @@ import { declarationKeys, type Finding, type Home, keyOf, type Need, planImports
 import { type Progress, type Refusal, refusal, Refused, unique } from './progress.js';
 import { languageFiles } from './routing.js';
 import { type Locator, locate, nodeAt, type ProjectSource, projectSources, type Refactor, UsageError } from './session.js';
-import { keepSpells, Site } from './sites.js';
+import { keepSpells, resolveKeeps, Site } from './sites.js';
 import { LocatorError } from './symbols.js';
 import { timed } from './timings.js';
 
@@ -496,8 +496,8 @@ class Keeps {
   }
 
   /** Every keep that matched nothing, in command-line order. */
-  unmatched(): string[] {
-    return this.sites.filter((_, i) => !this.matched.has(i)).map((site) => site.raw);
+  unmatched(): Site[] {
+    return this.sites.filter((_, i) => !this.matched.has(i));
   }
 }
 
@@ -586,7 +586,7 @@ function editableFiles(r: Refactor, docs: boolean): Map<string, boolean> {
 }
 
 /** Every check that needs no reference: each site naming something, no `--stub` (it moves only Python modules), each
- * keep spelling an old name. */
+ * line keep spelling an old name (in a comment only with `--docs`). */
 function checks(r: Refactor, resolution: Resolution): Refusal[] {
   const sites: [string, string, string][] = [
     ...(r.args.with_stand_ins ?? []).map((raw): [string, string, string] => ['--with', raw, r.root]),
@@ -601,9 +601,10 @@ function checks(r: Refactor, resolution: Resolution): Refusal[] {
     if (option === '--keep') missing.add(raw);
   }
   if (r.args.stub != null) out.push(refusal(message('refactor.stub-not-module'), 2));
-  const keeps = (r.args.keep ?? []).filter((raw) => !missing.has(raw));
+  const keeps = (r.args.keep ?? []).filter((raw) => !missing.has(raw) && Site.parse(raw, r.root).line !== null);
   if (!resolution.spelled || keeps.length === 0 || resolution.targets.some((t) => t.literal)) return out;
-  const editable = editableFiles(r, r.args.docs === true);
+  const docs = r.args.docs === true;
+  const editable = editableFiles(r, docs);
   const texts = new Map<string, string>();
   const text = (rel: string): string => {
     let found = texts.get(rel);
@@ -614,7 +615,7 @@ function checks(r: Refactor, resolution: Resolution): Refusal[] {
     return found;
   };
   for (const raw of keeps) {
-    if (!keepSpells(Site.parse(raw, r.root), editable, text, resolution.names, [])) out.push(refusal(message('refactor.keep-unmatched', { site: raw }), 2));
+    if (!keepSpells(Site.parse(raw, r.root), editable, text, resolution.names, [], docs)) out.push(refusal(message('refactor.keep-unmatched', { site: raw }), 2));
   }
   return out;
 }
@@ -665,6 +666,25 @@ const texts = (findings: Finding[]): Refusal[] => {
     })
     .map((f) => refusal(f.text));
 };
+
+/** Site resolution over the final `edits`: each unneeded whole-path keep's warning printed; each `--with` or
+ * `--without` site of `unclassified`, each computed `--with` stand-in, then each line keep that matched nothing. */
+function resolveSites(session: Session, edits: Tagged[], keeps: Keeps, unclassified: string[], groups: NameGroup[]): Refusal[] {
+  const edited = new Map<string, number[]>();
+  for (const e of edits) {
+    const rel = session.r.rel(e.path);
+    const lines = edited.get(rel) ?? [];
+    lines.push(session.lineOf(e.path, e.start));
+    edited.set(rel, lines);
+  }
+  const { warnings, refusals } = resolveKeeps(keeps.unmatched(), edited);
+  process.stderr.write(warnings.map((w) => `${w}\n`).join(''));
+  return [
+    ...unclassified.map((site) => refusal(message('refactor.not-stand-in', { site }), 2)),
+    ...groups.flatMap((g) => g.computed),
+    ...refusals,
+  ];
+}
 
 /** Run `specs` (a rename, a retarget, or a map's entries; `map` in messages) as one refactor, its phases announced
  * on `progress`: 0, or `Refused` with every refusal. */
@@ -727,16 +747,14 @@ export function runEntries(r: Refactor, specs: EntrySpec[], map: string, progres
   let sites: Refusal[] = [];
   if (!stopped) {
     edits = [...groups.flatMap((g) => g.edits), ...planImports(session, needs)];
+    sites = resolveSites(session, edits, keeps, [...withSites, ...withoutSites].filter((site) => !matched.has(site)), groups);
+  }
+  if (!stopped && sites.length === 0) {
     progress.phase('conflicts');
     conflicts = timed('conflicts', () => {
       const merged = mapConflicts(session, edits);
       return [...nameConflicts(session, targets, pending, edits, merged.length === 0), ...merged];
     });
-    sites = [
-      ...[...withSites, ...withoutSites].filter((site) => !matched.has(site)).map((site) => refusal(message('refactor.not-stand-in', { site }), 2)),
-      ...groups.flatMap((g) => g.computed),
-      ...keeps.unmatched().map((site) => refusal(message('refactor.keep-unmatched', { site }), 2)),
-    ];
   }
   const attr = groups.filter((g) => g.blindspots.length > 0).map((g) => g.old).join(', .');
   const closing = blind.length > 0 ? [refusal(message('refactor.blindspots', { count: blind.length, attr }))] : [];

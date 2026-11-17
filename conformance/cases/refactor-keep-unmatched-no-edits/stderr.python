@@ -1,0 +1,7 @@
+[resolve]
+[checks]
+[references]
+[references 1/1] entry 1: load -> fetch
+[rules]
+[rules 1/1] entry 1: load -> fetch: clean
+--keep lib/shim.py:1 matches nothing this rename touches, so nothing was refactored

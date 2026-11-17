@@ -1,0 +1,13 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args: [--apply, rename, --file, pkg/use.py, --line, '1', --col, '15', --new-name, server, --keep, pkg/use.py:3]
+git:
+- commit: init
+expect:
+  exit: 2
+  git_status: true
+golden: manual
+note: 'a module rename with a line keep spelling the old name where no edit lands: refused after [references] naming the
+  nearest edited line, no [conflicts], nothing written'

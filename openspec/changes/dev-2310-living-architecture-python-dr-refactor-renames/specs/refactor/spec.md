@@ -302,11 +302,15 @@ project. Duplicate entries SHALL be found among the resolved entries only.
 The `checks` phase SHALL then run, before any reference search:
 - every `--keep`, `--with` and `--without` SHALL name an existing file or directory under the project, and a `:LINE`
   a line of an existing file, else `refactor.site-missing` naming the option and the site;
-- every `--keep` SHALL cover at least one line, in a file the run can edit (a source of its language, and with `--docs`
-  a prose file), whose text holds an entry's old name or a retarget entry's target name, either as written (with
-  identifier escapes decoded, and NFKC-normalized for Python) or in the value of a string literal starting on that
-  line; or cover a file the refactor moves; else `refactor.keep-unmatched`. When an entry that did not resolve spells
-  no name in its locator, or an entry renames a `Literal` member, this check SHALL be skipped;
+- every line keep (`--keep PATH:LINE`) SHALL name a line, in a file the run can edit (a source of its language, and
+  with `--docs` a prose file), whose text holds an entry's old name or a retarget entry's target name, either as
+  written (with identifier escapes decoded, and NFKC-normalized for Python) or in the value of a string literal
+  starting on that line; or lie in a file the refactor moves; else `refactor.keep-unmatched`. Without `--docs`, a
+  spelling inside a comment SHALL NOT count, except in a Python type comment (a comment whose text after `#` and
+  optional whitespace starts with `type:`). When an entry that did not resolve spells no name in its locator, or an
+  entry renames a `Literal` member, this check SHALL be skipped. A whole-file or directory keep SHALL get no check
+  here beyond the site check;
+- a Python module rename SHALL refuse each `--with` and `--without` site with `refactor.not-stand-in`;
 - Python: for a move, every candidate file (a Python source whose text holds the moved name or module's name) SHALL be
   walked as `dr-compliance --select rope-walk` walks it, and each gap reported as `refactor.rope-walk`;
 - Python: the language server SHALL start for `rename`, `retarget` and `rename-map` unless the run is a module rename
@@ -331,12 +335,26 @@ checker findings), print no `[references]` line, write nothing, and exit with th
 
 #### Scenario: Keep holding no old name
 - **WHEN** `--keep architecture` names a directory whose files never spell the renamed name
-- **THEN** stderr ends with `refactor.keep-unmatched` naming it, no `[references]` line is printed and the exit code
-  is 2
+- **THEN** the checks pass, `refactor.keep-unneeded` naming it is printed at site resolution and the exit code is 0
 
 #### Scenario: Every bad keep at once
-- **WHEN** a rename passes three keeps, one missing and two holding no old name
+- **WHEN** a rename passes three keeps, one missing and two line keeps whose lines hold no old name
 - **THEN** stderr lists all three findings in command-line order and the exit code is 2
+
+#### Scenario: Comment-only line keep without --docs
+- **WHEN** `--keep src/a.py:9` names a line whose only spelling of the old name is in a comment (a trailing comment
+  or a line of a multi-line comment), without `--docs`
+- **THEN** stderr ends with `refactor.keep-unmatched` naming `src/a.py:9`, no `[references]` line is printed and the
+  exit code is 2
+
+#### Scenario: Comment-only line keep with --docs
+- **WHEN** the same keep runs with `--docs` and `--apply`, and the rename's `--docs` pass rewrites mentions of the old
+  name in comments
+- **THEN** the checks pass, every other mention is rewritten, line 9 is unchanged and the exit code is 0
+
+#### Scenario: Python type comment counts as code
+- **WHEN** `--keep src/a.py:4` names a line whose only spelling of the old name is in `# type: Old`, without `--docs`
+- **THEN** the check passes and the run goes on to `references`
 
 #### Scenario: Missing classification site
 - **WHEN** a member rename passes `--with src/gone.py:3` and `--without src/a.py:400`
@@ -359,7 +377,7 @@ checker findings), print no `[references]` line, write nothing, and exit with th
 - **THEN** the check passes and the import line is unchanged
 
 #### Scenario: Keep of a prose file needs --docs
-- **WHEN** `--keep README.md` names a prose file that mentions the old name
+- **WHEN** `--keep README.md:3` names a line of a prose file that mentions the old name
 - **THEN** the check passes with `--docs`, and without it stderr is `refactor.keep-unmatched` naming it
 
 #### Scenario: Walker gaps listed before any search

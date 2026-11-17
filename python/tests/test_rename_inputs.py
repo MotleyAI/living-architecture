@@ -41,13 +41,13 @@ def test_a_module_moves_to_the_normal_form_of_its_new_name(
 
 
 @pytest.mark.parametrize("locator", [["--symbol", "foo"], []], ids=["symbol", "module"])
-def test_a_rename_to_the_same_name_refuses_a_keep_it_leaves_unmatched(
+def test_a_rename_to_the_same_name_refuses_a_line_keep_it_leaves_unmatched(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], locator: list[str]
 ) -> None:
     root = write_project(tmp_path / "proj", FILES)
     same = "foo" if locator else "a"
-    argv = ["rename", "--file", "pkg/a.py", *locator, "--new-name", same, "--keep", "pkg/use.py"]
-    unmatched = message("refactor.keep-unmatched", site="pkg/use.py")
+    argv = ["rename", "--file", "pkg/a.py", *locator, "--new-name", same, "--keep", "pkg/use.py:3"]
+    unmatched = message("refactor.keep-unmatched", site="pkg/use.py:3")
     assert run(root, argv, monkeypatch, capsys) == (2, "", unmatched + "\n")
 
 

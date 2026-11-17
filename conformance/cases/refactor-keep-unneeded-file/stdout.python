@@ -1,0 +1,42 @@
+Renaming <load> to <fetch>:
+
+
+--- a/lib/near.py
++++ b/lib/near.py
+@@ -2,10 +2,10 @@
+ 
+ 
+ def f(store: Store) -> int:
+-    return store.load()
++    return store.fetch()
+ 
+ 
+ def load() -> int:
+     return 0
+ 
+-x = Store().load()
++x = Store().fetch()
+
+--- a/lib/store.py
++++ b/lib/store.py
+@@ -1,3 +1,3 @@
+ class Store:
+-    def load(self) -> int:
++    def fetch(self) -> int:
+         return 1
+
+--- a/lib/use.py
++++ b/lib/use.py
+@@ -2,4 +2,4 @@
+ 
+ 
+ def run(store: Store) -> int:
+-    return store.load()
++    return store.fetch()
+
+
+
+APPLIED. 3 file(s) changed:
+  lib/near.py
+  lib/store.py
+  lib/use.py

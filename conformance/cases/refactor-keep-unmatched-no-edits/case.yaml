@@ -1,0 +1,16 @@
+kind: paired
+languages:
+- python
+- typescript
+command: dr-refactor
+args:
+  python: [rename-map, renames.yaml, --keep, lib/shim.py:1]
+  typescript: [rename-map, renames.yaml, --keep, lib/shim.ts:1]
+fixture: refactor-keep
+git:
+- commit: init
+expect:
+  exit: 2
+golden: manual
+note: 'a line keep spelling the old name in a file the rename does not edit: plain keep-unmatched at site resolution, no
+  [conflicts]'

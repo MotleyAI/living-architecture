@@ -5,14 +5,18 @@ from __future__ import annotations
 import ast
 import os
 import re
+import tokenize
 from collections.abc import Callable, Iterable
 from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
 
+from living_architecture.contract import message
+from living_architecture.refactor.progress import Refusal, refusal
 from living_architecture.refactor.python_source import nfkc, split_lines
 
 _LINE = re.compile(r"(.*):(\d+)")
+_TYPE_COMMENT = re.compile(r"#\s*type:")
 
 
 class Site(BaseModel):
@@ -73,14 +77,61 @@ class Keeps:
 
     def unmatched(self) -> list[str]:
         """Every keep that matched nothing, in command-line order."""
-        return [s.raw for i, s in enumerate(self.sites) if i not in self._matched]
+        return [s.raw for s in self.unmatched_sites()]
+
+    def unmatched_sites(self) -> list[Site]:
+        return [s for i, s in enumerate(self.sites) if i not in self._matched]
 
 
-def spelled_lines(text: str, names: Iterable[str], *, code: bool = True) -> set[int]:
+def nearest_line(edited: Iterable[int], line: int) -> int | None:
+    """The line of `edited` nearest to `line`, the earlier of two equally near; None when there is none."""
+    return min(edited, key=lambda e: (abs(e - line), e), default=None)
+
+
+def resolve_keeps(keeps: Keeps, edits: Iterable[tuple[str, int]]) -> tuple[list[str], list[Refusal]]:
+    """Each keep that matched nothing: a `refactor.keep-unneeded` warning for a whole-path keep, a refusal naming the
+    nearest of its file's edited lines (`edits`: path and start line) for a line keep."""
+    edited: dict[str, list[int]] = {}
+    for rel, line in edits:
+        edited.setdefault(rel, []).append(line)
+    warnings: list[str] = []
+    refusals: list[Refusal] = []
+    for site in keeps.unmatched_sites():
+        if site.line is None:
+            warnings.append(message("refactor.keep-unneeded", site=site.raw))
+            continue
+        rel = "/".join(site.parts or ())
+        near = nearest_line(edited.get(rel, ()), site.line)
+        text = (message("refactor.keep-unmatched", site=site.raw) if near is None
+                else message("refactor.keep-unmatched-near", site=site.raw, path=rel, line=near))
+        refusals.append(refusal(text, 2))
+    return warnings, refusals
+
+
+def _uncommented(text: str) -> list[str]:
+    """`text`'s lines with every comment but a type comment blanked, up to where it stops tokenizing."""
+    lines = split_lines(text)
+    tokens: list[tokenize.TokenInfo] = []
+    try:
+        tokens.extend(tokenize.generate_tokens(iter(list(lines)).__next__))
+    except (tokenize.TokenError, SyntaxError):
+        pass
+    for token in tokens:
+        if token.type != tokenize.COMMENT or _TYPE_COMMENT.match(token.string):
+            continue
+        row, start = token.start
+        line = lines[row - 1]
+        lines[row - 1] = line[:start] + " " * (token.end[1] - start) + line[token.end[1]:]
+    return lines
+
+
+def spelled_lines(text: str, names: Iterable[str], *, code: bool = True, comments: bool = True) -> set[int]:
     """The 1-based lines of `text` spelling one of `names` as written (NFKC-normalized) or, in `code`, in the value of
-    a string literal starting on the line."""
+    a string literal starting on the line; without `comments`, a code comment's spelling counts only in a type
+    comment."""
     wanted = {nfkc(n) for n in names}
-    out = {i for i, line in enumerate(split_lines(text), 1) if any(n in nfkc(line) for n in wanted)}
+    lines = split_lines(text) if comments or not code else _uncommented(text)
+    out = {i for i, line in enumerate(lines, 1) if any(n in nfkc(line) for n in wanted)}
     if not code:
         return out
     try:
@@ -94,23 +145,20 @@ def spelled_lines(text: str, names: Iterable[str], *, code: bool = True) -> set[
 
 
 def keep_spells(site: Site, editable: dict[str, bool], text: Callable[[str], str], names: set[str],
-                moved: list[str], data: Callable[[str], bytes] | None = None) -> bool:
-    """`site` covers a file the refactor moves, a line of an `editable` file (its value: a source, else prose)
-    spelling one of `names`, or the whole of a file that does not decode whose `data` holds one."""
+                moved: list[str], *, docs: bool) -> bool:
+    """`site` covers a file the refactor moves, or a line of an `editable` file (its value: a source, else prose)
+    spelling one of `names` (in a comment only with `docs`)."""
     if site.parts is not None and any(
         site.covers_path(rel) or site.parts[: len(Path(rel).parts)] == Path(rel).parts for rel in moved
     ):
         return True
-    return any(_file_spells(site, rel, is_code, text, names, data) for rel, is_code in editable.items()
-               if site.covers_path(rel))
-
-
-def _file_spells(site: Site, rel: str, is_code: bool, text: Callable[[str], str], names: set[str],
-                 data: Callable[[str], bytes] | None) -> bool:
-    try:
-        lines = spelled_lines(text(rel), names, code=is_code)
-    except (UnicodeDecodeError, LookupError):
-        return site.line is None and data is not None and any(n.encode() in data(rel) for n in names)
-    except OSError:
-        return False
-    return bool(lines) and (site.line is None or site.line in lines)
+    for rel, is_code in editable.items():
+        if not site.covers_path(rel):
+            continue
+        try:
+            lines = spelled_lines(text(rel), names, code=is_code, comments=docs)
+        except (OSError, UnicodeDecodeError, LookupError):
+            continue
+        if lines and (site.line is None or site.line in lines):
+            return True
+    return False

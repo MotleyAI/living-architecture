@@ -15,11 +15,11 @@ from living_architecture.refactor.entry_location import Entry, EntryLocator
 from living_architecture.refactor.locators import cannot_rename
 from living_architecture.refactor.move_edits import NameConflict
 from living_architecture.refactor.occurrence_index import candidate_files
-from living_architecture.refactor.progress import Progress, Refusal, Refused, refusal
+from living_architecture.refactor.progress import Progress, Refused, refusal
 from living_architecture.refactor.python_source import SourceFile, dotted_segments, nfkc
 from living_architecture.refactor.rename_map import changes_of, emit, undecodable
 from living_architecture.refactor.rename_union import RenameOptions, Session
-from living_architecture.refactor.sites import Keeps
+from living_architecture.refactor.sites import Keeps, resolve_keeps
 from living_architecture.refactor.static_resolver import Module, Value
 from living_architecture.refactor.text_edits import TextEdit, merge_edits
 from living_architecture.refactor.timings import timed
@@ -229,6 +229,7 @@ def run_module_rename(session: Session, locator: EntryLocator, entry: Entry, new
     keeps = Keeps(options.keep, session.root)
     with timed("resolve"):
         found = rename.taken()
+    every: list[TextEdit] = []
     written: list[TextEdit] = []
     move: FileMove | None = None
     computed = found is None and rename.old != new_name
@@ -239,21 +240,23 @@ def run_module_rename(session: Session, locator: EntryLocator, entry: Entry, new
         move = rename.move()
         if move is not None and keeps.kept(move.rel, None):
             move = None
+    listed = undecodable(session.snapshot, session.all_python_files(), [rename.old], keeps)
+    if found is None:
+        source = session.snapshot.source
+        warnings, unmatched = resolve_keeps(keeps, ((e.path, source(e.path).line(e.start)) for e in written))
+        for warning in warnings:
+            print(warning, file=sys.stderr)
+        if unmatched:
+            raise Refused(unmatched)
+    if computed:
         progress.phase("conflicts")
         with timed("conflicts"):
             check = BindingCheck(session.python_files(), session.source_folders(), session.snapshot.source)
             found = first_conflict(check.conflicts(
                 [EntryEdits(index=1, new_name=new_name, edits=written, kept=[e for e in every if e not in written])],
                 rename.moved(move)), session.snapshot.source)
-    listed = undecodable(session.snapshot, session.all_python_files(), [rename.old], keeps)
-    unmatched = keeps.unmatched() if found is None else []
-    refusals: list[Refusal] = []
     if found is not None:
-        refusals.append(refusal(message("refactor.name-conflict", name=found.name, path=found.path, line=found.line)))
-    refusals += [refusal(message("refactor.not-stand-in", site=raw), 2) for raw in (*options.with_sites, *options.without_sites)]
-    refusals += [refusal(message("refactor.keep-unmatched", site=raw), 2) for raw in unmatched]
-    if refusals:
-        raise Refused(refusals)
+        raise Refused([refusal(message("refactor.name-conflict", name=found.name, path=found.path, line=found.line))])
     for finding in listed:
         print(finding.text, file=sys.stderr)
     described, writes = changes_of(session.snapshot, written)

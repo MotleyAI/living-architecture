@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { message } from '../src/contract/index.js';
 import { MapError, loadMap } from '../src/refactor/map.js';
-import { spelledLines } from '../src/refactor/sites.js';
+import { nearestLine, spelledLines } from '../src/refactor/sites.js';
 import { finalReport, refactorRaw, tsProject } from './refactor-project.js';
 
 const SECOND = 1_000_000_000n;
@@ -51,6 +51,33 @@ describe('the keep text check', () => {
     expect([...spelledLines(text, new Set(['load']))].sort()).toEqual(lines);
   });
 
+  it.each([
+    ['comment', '// load the store\n', []],
+    ['block comment line', '/* the store\n   load reads it */\n', []],
+    ['JSDoc param', '/**\n * @param load the loader\n */\n', []],
+    ['trailing comment', 'const x = 1; // load\n', []],
+    ['code and comment', 'const y = load(); // load\n', [1]],
+    ['comment marker in a string', 'const s = "// load";\n', [1]],
+    ['template', 'const t = `/* ${x} load */`;\n', [1]],
+  ])('without comments: %s', (_kind, text, lines) => {
+    expect([...spelledLines(text, new Set(['load']), true, false)].sort()).toEqual(lines);
+  });
+
+  it('parses a .tsx file as TSX, so JSX text is not read as a comment', () => {
+    const text = 'const a = <div>http://example.test {load()}</div>;\n';
+    expect([...spelledLines(text, new Set(['load']), true, false, 'lib/a.tsx')]).toEqual([1]);
+  });
+
+  it.each([
+    ['before', [4, 30], 9, 4],
+    ['after', [2, 12], 9, 12],
+    ['tie takes the earlier', [12, 6], 9, 6],
+    ['none', [], 9, null],
+    ['same line', [9], 9, 9],
+  ])('nearest edited line: %s', (_kind, edited, line, nearest) => {
+    expect(nearestLine(edited, line)).toBe(nearest);
+  });
+
   it('matches an old name written with an identifier escape', () => {
     expect([...spelledLines('// load the store\n', new Set([String.raw`lo\u0061d`]))]).toEqual([1]);
   });
@@ -70,6 +97,17 @@ describe('the keep text check', () => {
       out: '',
       err: `${CHECKS}${message('refactor.line-out-of-range', { line: 99, count: 3 })}\n`,
     });
+  });
+
+  it('skips a whole-path keep, which warns at site resolution', () => {
+    const root = tsProject({ 'src/a.ts': FOO, 'docs/x.ts': 'export const y = 1;\n' });
+    const result = refactorRaw(root, 'rename', '--file', 'src/a.ts', '--symbol', 'foo', '--new-name', 'bar', '--keep', 'docs');
+    expect(result.code).toBe(0);
+    const err = result.err.split('\n');
+    const warning = message('refactor.keep-unneeded', { site: 'docs' });
+    expect(err).toContain('[references]');
+    expect(err.indexOf(warning)).toBeGreaterThan(-1);
+    expect(err.indexOf(warning)).toBeLessThan(err.indexOf(message('refactor.progress-phase', { phase: 'conflicts' })));
   });
 });
 
