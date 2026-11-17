@@ -47,7 +47,9 @@ binds more than once at top level other than as one overload group, an import bi
 The moved region SHALL start at the line of the first decorator (else the declaration's first line), extended upward
 over the directly preceding lines that start with `#` in their first column, and end at the declaration's last line,
 extended over the following lines holding only whitespace. A variable's region SHALL be its logical line. The moved
-text SHALL be the region without its trailing whitespace, followed by one line break.
+text SHALL be the region without its trailing whitespace, followed by one line break. In the destination, the moved
+text SHALL follow the last top-level import statement; in a destination without one, it SHALL follow the module
+docstring, else precede the first statement.
 
 #### Scenario: Import binding or reference as the locator
 - **WHEN** `pkg/use.py` has `from pkg.engine import Engine` and calls `Engine()` in a function, and `move-symbol --file
@@ -172,13 +174,18 @@ exactly one rule, decided from the objects its names resolve to:
 An import binding SHALL be removed in place only when every use of it was rewritten by this refactor. For
 `move-symbol`, an import statement directly in the source module's body SHALL also be removed in place when every use
 of the names it binds lay in the moved code; an import inside a block of the source module SHALL stay. In the source
-module, a `__all__` entry naming the moved symbol SHALL be removed, and a remaining use of the symbol SHALL get
+module, a `__all__` entry naming the moved symbol SHALL be removed from each list or tuple literal of a top-level
+`__all__` assignment, annotated assignment, augmented assignment or `+` operand, and a remaining use of the symbol SHALL get
 `from <dest> import <name>` after the leading import block. A relative import inside the moved code SHALL be recomputed
 for the destination as rule 1 recomputes a moved module's own relative imports. In the destination, the imports the
 moved code needs SHALL be added:
 - for each name the moved code reads that a top-level import of the source module binds, that import, made absolute;
   for each name it reads that the source module defines, `from <source module> import <name>`; each holding only the
   names the moved code reads and the destination does not already bind to the same object;
+- for each name the moved code reads that a first-party star import of the source module binds,
+  `from <module> import <name>`; when the moved code reads a name that no binding of the source module, star import
+  it can list, or builtin explains, each star import of the source module whose names cannot be listed, made absolute
+  and kept as a star import;
 - after the leading import block, ordered `__future__`, standard library, third-party, project modules, plain
   `import` statements before `from` imports within each, then by text;
 - for a name bound in the source only inside an `if TYPE_CHECKING:` block, inside the destination's top-level
@@ -285,7 +292,7 @@ and SHALL write nothing.
   `from .c import C`, and `g` that `pkg/a.py` defines, and the source imports them as `from .c import C`,
   `import yaml`, `import json` and `from __future__ import annotations`
 - **THEN** the destination gains `from __future__ import annotations` as its first statement, and after its leading
-  import block `import json`, `import yaml`, `from pkg.c import C` and `from pkg.a import g`, in that order
+  import block `import json`, `import yaml`, `from pkg.a import g` and `from pkg.c import C`, in that order
 
 #### Scenario: Import used only by the moved code inside a block stays
 - **WHEN** `pkg/a.py` holds `if TYPE_CHECKING:` with `from .x import T`, and a `try:` with `import json` and

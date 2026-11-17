@@ -1,0 +1,32 @@
+Moving global <f>:
+
+
+--- a/pkg/a.py
++++ b/pkg/a.py
+@@ -11,9 +11,5 @@
+     json = None
+ 
+ 
+-def f(t: T) -> str:
+-    return str(t)
+-
+-
+ def g() -> object:
+     return json
+
+--- a/pkg/b.py
++++ b/pkg/b.py
+@@ -1,2 +1,9 @@
+ """Destination."""
+ from __future__ import annotations
++from typing import TYPE_CHECKING
++if TYPE_CHECKING:
++    from pkg.x import T
++
++
++def f(t: T) -> str:
++    return str(t)
+
+
+
+DRY-RUN. 2 file(s) would change. Re-run with --apply.

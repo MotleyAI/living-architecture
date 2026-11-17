@@ -351,6 +351,7 @@ findings:
   refactor.mixed-languages: '{path} holds sources of more than one language: {languages}'
   refactor.rope-walk: 'rope cannot follow {path}:{line}, so nothing was refactored (a rope bug, not a source error); dr-compliance --select rope-walk lists every such file'
   refactor.name-conflict: '{name} already names something else at {path}:{line}, so nothing was refactored'
+  refactor.guarded-import: '{path}:{line}: the moved code reads a name this guarded import binds; move it by hand'
   refactor.pyright-failed: 'basedpyright could not find the references, so nothing was refactored'
   refactor.unresolved-base: '{name} has a base basedpyright cannot resolve at {path}:{line}, so nothing was refactored; run dr-refactor in the project environment'
   refactor.file-changed: '{path} changed while dr-refactor ran, so nothing was refactored'

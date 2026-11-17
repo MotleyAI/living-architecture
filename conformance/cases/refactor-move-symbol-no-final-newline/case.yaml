@@ -1,0 +1,19 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- move-symbol
+- --file
+- pkg/a.py
+- --symbol
+- f
+- --dest
+- pkg/b.py
+git:
+- commit: init
+expect:
+  exit: 0
+note: the moved declaration ends the source without a final newline; the moved code
+  follows the destination's docstring (rope put it above)
+golden: manual

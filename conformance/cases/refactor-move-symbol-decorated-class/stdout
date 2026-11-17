@@ -1,0 +1,42 @@
+Moving global <K>:
+
+
+--- a/pkg/a.py
++++ b/pkg/a.py
+@@ -1,16 +1,5 @@
+-import functools
+-from typing import final
+ 
+ X = 1
+ 
+-# About K.
+-# More.
+-@functools.total_ordering
+-# Between.
+-@final
+-class K:
+-    pass
+-
+-
+ def g() -> int:
+     return X
+
+--- a/pkg/b.py
++++ b/pkg/b.py
+@@ -1 +1,12 @@
+ """Destination."""
++import functools
++from typing import final
++
++
++# About K.
++# More.
++@functools.total_ordering
++# Between.
++@final
++class K:
++    pass
+
+
+
+DRY-RUN. 2 file(s) would change. Re-run with --apply.

@@ -1,0 +1,42 @@
+Moving global <f>:
+
+
+--- a/pkg/a.py
++++ b/pkg/a.py
+@@ -1,14 +1,8 @@
+ from __future__ import annotations
+ 
+-from .c import C
+-import yaml
+-import json
+ 
+ 
+ def g() -> int:
+     return 1
+ 
+ 
+-def f(c: C) -> C:
+-    print(json.dumps(yaml.safe_load("1")), g())
+-    return c
+
+--- a/pkg/b.py
++++ b/pkg/b.py
+@@ -1,4 +1,14 @@
+ """Destination."""
++from __future__ import annotations
+ import os
++import json
++import yaml
++from pkg.a import g
++from pkg.c import C
++
++
++def f(c: C) -> C:
++    print(json.dumps(yaml.safe_load("1")), g())
++    return c
+ 
+ X = os.sep
+
+
+
+DRY-RUN. 2 file(s) would change. Re-run with --apply.

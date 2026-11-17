@@ -622,8 +622,10 @@ NEW_TEMPLATES = {
     "typecheck.not-native": "{language} type checks run only in the {language} twin",
     "typecheck.error": "la-typecheck: {error}",
     "refactor.rename-header": "Renaming <{old}> to <{new}>:",
-    "refactor.ts-move-symbol-header": "Moving global <{name}>:",
-    "refactor.ts-move-module-header": "Moving module <{name}>:",
+    "refactor.move-symbol-header": "Moving global <{name}>:",
+    "refactor.move-module-header": "Moving module <{name}>:",
+    "refactor.moved": "rename from {old}\nrename to {new}",
+    "refactor.guarded-import": "{path}:{line}: the moved code reads a name this guarded import binds; move it by hand",
     "refactor.unsupported-extension": "not a source file of a supported language: {path}",
     "refactor.cross-language-dest": "--dest {dest} is not a {language} file",
     "refactor.ts-outside-project": "no TypeScript project includes {path}",
@@ -755,6 +757,9 @@ REMOVED_TEMPLATES = [
     "c4.view-includes-non-top-level",
     "compliance.ts-attr-blindspot",
     "refactor.symbol-not-found",
+    "refactor.ts-move-symbol-header",
+    "refactor.ts-move-module-header",
+    "refactor.ts-moved",
 ]
 
 

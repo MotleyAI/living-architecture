@@ -1,0 +1,44 @@
+Moving global <f>:
+
+
+--- a/pkg/a.py
++++ b/pkg/a.py
+@@ -1,16 +1,3 @@
+-from typing import overload
+-
+-
+-@overload
+-def f(x: int) -> int: ...
+-
+-
+-@overload
+-def f(x: str) -> str: ...
+-
+-
+-def f(x: int | str) -> int | str:
+-    return x
+ 
+ 
+ def g() -> int:
+
+--- a/pkg/b.py
++++ b/pkg/b.py
+@@ -1 +1,14 @@
+ """Destination."""
++from typing import overload
++
++
++@overload
++def f(x: int) -> int: ...
++
++
++@overload
++def f(x: str) -> str: ...
++
++
++def f(x: int | str) -> int | str:
++    return x
+
+
+
+DRY-RUN. 2 file(s) would change. Re-run with --apply.

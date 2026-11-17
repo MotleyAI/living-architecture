@@ -1,0 +1,30 @@
+Moving global <f>:
+
+
+--- a/pkg/a.py
++++ b/pkg/a.py
+@@ -1,9 +1,4 @@
+-import xml.etree.ElementTree as ET
+ from os import path as osp
+-
+-
+-def f() -> str:
+-    return ET.__name__ + osp.sep
+ 
+ 
+ def g() -> str:
+
+--- a/pkg/b.py
++++ b/pkg/b.py
+@@ -1 +1,7 @@
+ """Destination."""
++import xml.etree.ElementTree as ET
++from os import path as osp
++
++
++def f() -> str:
++    return ET.__name__ + osp.sep
+
+
+
+DRY-RUN. 2 file(s) would change. Re-run with --apply.
