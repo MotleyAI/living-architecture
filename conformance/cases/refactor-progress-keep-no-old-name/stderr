@@ -1,3 +1,8 @@
 [resolve]
 [checks]
---keep architecture matches nothing this rename touches
+[references]
+[references 1/1] entry 1: load -> fetch
+[rules]
+[rules 1/1] entry 1: load -> fetch: clean
+WARNING: --keep architecture matches nothing this rename touches
+[conflicts]

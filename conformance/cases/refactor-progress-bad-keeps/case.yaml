@@ -9,13 +9,14 @@ args:
 - --keep
 - lib/gone
 - --keep
-- architecture
+- architecture/notes.md:1
 - --keep
-- README.md
+- README.md:3
 fixture: refactor-progress
 git:
 - commit: init
 expect:
   exit: 2
 golden: manual
-note: 'three bad keeps, one missing and two holding no editable old name: all three in command-line order'
+note: 'three bad keeps, one missing and two line keeps holding no editable old name: all three in checks, in
+  command-line order'

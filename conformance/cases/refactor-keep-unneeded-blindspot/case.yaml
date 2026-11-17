@@ -1,0 +1,15 @@
+kind: paired
+languages:
+- python
+- typescript
+command: dr-refactor
+args:
+  python: [rename-map, renames.yaml, --keep, lib/shim.py]
+  typescript: [rename-map, renames.yaml, --keep, lib/shim.ts]
+fixture: refactor-keep
+git:
+- commit: init
+expect:
+  exit: 1
+golden: manual
+note: 'an unneeded file keep and a blind spot: the warning, [conflicts], then the final report with the blind spot'

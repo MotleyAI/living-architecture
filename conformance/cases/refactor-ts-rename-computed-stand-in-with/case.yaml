@@ -17,4 +17,4 @@ git:
 - commit: init
 expect:
   exit: 2
-note: --with on a computed-name stand-in refuses, naming the hand rename
+note: --with on a computed-name stand-in refuses at site resolution, before [conflicts], naming the hand rename

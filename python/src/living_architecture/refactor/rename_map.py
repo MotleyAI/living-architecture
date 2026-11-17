@@ -63,7 +63,7 @@ from living_architecture.refactor.retarget import (
 from living_architecture.refactor.retarget_imports import plan_imports
 from living_architecture.refactor.rope_patches import WalkerGap, walk_gap_line
 from living_architecture.refactor.routing import language_files
-from living_architecture.refactor.sites import Keeps, Site, keep_spells
+from living_architecture.refactor.sites import Keeps, Site, keep_spells, resolve_keeps
 from living_architecture.refactor.symbol_path import LocatorError, declaration_scope, locate
 from living_architecture.refactor.text_edits import TextEdit, apply_edits, merge_edits
 from living_architecture.refactor.timings import timed
@@ -243,13 +243,15 @@ def editable_files(root: Path, docs: bool) -> dict[str, bool]:
 
 
 def keep_checks(keeps: list[str], root: Path, editable: dict[str, bool], text: Callable[[str], str], names: set[str],
-                moved: list[str], skipped: set[tuple[str, str]]) -> list[Refusal]:
-    """`refactor.keep-unmatched` for each keep covering no line spelling one of `names` and no moved file."""
+                moved: list[str], skipped: set[tuple[str, str]], *, docs: bool) -> list[Refusal]:
+    """`refactor.keep-unmatched` for each line keep on a line spelling none of `names` (in a comment only with `docs`)
+    and in no moved file."""
     out: list[Refusal] = []
     for raw in keeps:
-        if ("--keep", raw) in skipped:
+        site = Site.parse(raw, root)
+        if ("--keep", raw) in skipped or site.line is None:
             continue
-        if not keep_spells(Site.parse(raw, root), editable, text, names, moved):
+        if not keep_spells(site, editable, text, names, moved, docs=docs):
             out.append(refusal(message("refactor.keep-unmatched", site=raw), 2))
     return out
 
@@ -448,12 +450,16 @@ class RenameMap:
         sites += [("--without", raw, self.root) for raw in options.without_sites]
         sites += [("--keep", raw, Path.cwd()) for raw in options.keep]
         found, missing = site_checks(sites, self.root)
+        modules = any(r.is_module() for r in resolved)
+        if modules:
+            found += [refusal(message("refactor.not-stand-in", site=raw), 2)
+                      for option, raw, _ in sites if option != "--keep" and (option, raw) not in missing]
         names = self.names(resolved)
         text = self.session.snapshot.text
         if spelled and options.keep and not any(r.literal is not None for r in resolved):
             editable = editable_files(self.root, options.docs)
-            found += keep_checks(list(options.keep), self.root, editable, text, names, self._moved(resolved), missing)
-        modules = any(r.is_module() for r in resolved)
+            found += keep_checks(list(options.keep), self.root, editable, text, names, self._moved(resolved), missing,
+                                 docs=options.docs)
         found += walker_gaps(self.root, text, names, None if modules else [r.rel for r in resolved if r.literal is None])
         if not resolved or not self._cached(resolved):
             try:
@@ -695,18 +701,23 @@ class RenameMap:
                 out.append(conflict)
         return out
 
-    def site_findings(self, renames: list[Renaming], keeps: Keeps) -> list[Refusal]:
-        """Each `--with` or `--without` site no member entry's stand-ins hold, then each keep that matched nothing."""
+    def resolve_sites(self, renames: list[Renaming], keeps: Keeps) -> list[Refusal]:
+        """Site resolution over the final edits: each unneeded whole-path keep's warning printed; each `--with` or
+        `--without` site no member entry's stand-ins hold, then each line keep that matched nothing."""
         matched = {raw for r in renames if r.member for raw in r.matched_sites}
         out = [refusal(message("refactor.not-stand-in", site=raw), 2)
                for raw in (*self.options.with_sites, *self.options.without_sites) if raw not in matched]
-        return out + [refusal(message("refactor.keep-unmatched", site=raw), 2) for raw in keeps.unmatched()]
+        source = self.session.snapshot.source
+        warnings, unmatched = resolve_keeps(keeps, ((e.path, source(e.path).line(e.start)) for r in renames for e in r.edits))
+        for warning in warnings:
+            print(warning, file=sys.stderr)
+        return out + unmatched
 
     def report(self, renames: list[Renaming], resolved: list[_Resolved], failed: dict[int, list[Refusal]],
-               dropped: list[list[TextEdit]], keeps: Keeps) -> tuple[list[TextEdit], list[Refusal]]:
+               dropped: list[list[TextEdit]], sites: list[Refusal]) -> tuple[list[TextEdit], list[Refusal]]:
         """The merged edits and the final report: entry failures, retarget refusals, blind spots, stand-ins, name
-        conflicts and map conflicts, then the site findings (none on a partial computation), then the blind-spot
-        count."""
+        conflicts and map conflicts (not after a stop or a refusing site finding), then the site findings, then the
+        blind-spot count."""
         live = [r for i, r in enumerate(renames) if i not in failed]
         own = [f for i in sorted(failed) for f in failed[i]]
         retargets = _texts(_unique(f for r in live if isinstance(r, AliasRetarget) for f in r.refusals))
@@ -715,8 +726,7 @@ class RenameMap:
         stand_ins = _texts(_unique(s for r in live for s in r.stand_in_findings()))
         edits: list[TextEdit] = []
         conflicts: list[Refusal] = []
-        sites: list[Refusal] = []
-        if not self.stopped:
+        if not self.stopped and not sites:
             self.progress.phase("conflicts")
             with timed("conflicts"):
                 edits, merged = self.merged(renames, [r.entry.index for r in resolved])
@@ -724,7 +734,6 @@ class RenameMap:
                 keyed = self.keyed_conflicts(live)
             names = sorted({(c.path, c.line, c.name): c for c in [*keyed, *checked]}.items())
             conflicts = [*(_name_conflict(c) for _, c in names), *merged]
-            sites = [] if failed else self.site_findings(live, keeps)
         attrs = ", .".join(dict.fromkeys(r.old for r in live if r.blindspots))
         closing = [refusal(message("refactor.blindspots", count=len(blind), attr=attrs))] if blind else []
         return edits, unique([*own, *retargets, *_texts(blind), *stand_ins, *conflicts, *sites, *closing])
@@ -780,7 +789,8 @@ class RenameMap:
         finally:
             self.server.close()
             self.index.close()
-        edits, refusals = self.report(renames, resolved, failed, dropped, keeps)
+        sites = [] if self.stopped or failed else self.resolve_sites(renames, keeps)
+        edits, refusals = self.report(renames, resolved, failed, dropped, sites)
         if refusals:
             raise Refused(refusals)
         if self.options.unsure:
