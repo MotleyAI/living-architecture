@@ -53,7 +53,7 @@
 
 ## 5. Gates
 
-- [ ] 5.1 Local test scope per `/la:pr` (`la-affected-tests --base main` plus the conformance cases above and every
+- [x] 5.1 Local test scope per `/la:pr` (`la-affected-tests --base main` plus the conformance cases above and every
   `refactor-*` case), `uv run ruff check src tests`, `uv run basedpyright src tests`, the new cases through both
   twins with `scripts/conformance-cross`, and the enforcement bundle (`la-arch-check`, LikeC4 validation,
   `la-typecheck`); all green. Gotcha: this worktree has no `node/node_modules`, so `la-arch-check` (it needs the
