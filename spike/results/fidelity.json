@@ -1,0 +1,2485 @@
+{
+ "options": {
+  "3.11": "ruff_python_parser 0.0.22, Python 3.11: parse_unchecked(source, ParseOptions::from(Mode::Module).with_target_version(PythonVersion { major: 3, minor: 11 })) = ParseOptions { mode: Module, target_version: PythonVersion { major: 3, minor: 11 } }; a ParseError or an UnsupportedSyntaxError counts as rejection",
+  "3.12": "ruff_python_parser 0.0.22, Python 3.12: parse_unchecked(source, ParseOptions::from(Mode::Module).with_target_version(PythonVersion { major: 3, minor: 12 })) = ParseOptions { mode: Module, target_version: PythonVersion { major: 3, minor: 12 } }; a ParseError or an UnsupportedSyntaxError counts as rejection",
+  "3.13": "ruff_python_parser 0.0.22, Python 3.13: parse_unchecked(source, ParseOptions::from(Mode::Module).with_target_version(PythonVersion { major: 3, minor: 13 })) = ParseOptions { mode: Module, target_version: PythonVersion { major: 3, minor: 13 } }; a ParseError or an UnsupportedSyntaxError counts as rejection",
+  "3.14": "ruff_python_parser 0.0.22, Python 3.14: parse_unchecked(source, ParseOptions::from(Mode::Module).with_target_version(PythonVersion { major: 3, minor: 14 })) = ParseOptions { mode: Module, target_version: PythonVersion { major: 3, minor: 14 } }; a ParseError or an UnsupportedSyntaxError counts as rejection"
+ },
+ "classes": {
+  "data@3.11": [
+   {
+    "section": "nodes",
+    "kind": "FunctionDef",
+    "class": "start",
+    "count": 1,
+    "example": {
+     "path": "binding_forms.py",
+     "python": {
+      "bytes": [
+       717,
+       737
+      ],
+      "chars": [
+       717,
+       737
+      ],
+      "kind": "FunctionDef"
+     },
+     "rust": {
+      "bytes": [
+       703,
+       737
+      ],
+      "chars": [
+       703,
+       737
+      ],
+      "kind": "FunctionDef"
+     },
+     "forms": []
+    }
+   },
+   {
+    "section": "nodes",
+    "kind": "GeneratorExp",
+    "class": "python-only",
+    "count": 1,
+    "example": {
+     "path": "walrus_comprehension.py",
+     "python": {
+      "bytes": [
+       273,
+       309
+      ],
+      "chars": [
+       273,
+       309
+      ],
+      "kind": "GeneratorExp"
+     },
+     "rust": null,
+     "forms": []
+    }
+   },
+   {
+    "section": "nodes",
+    "kind": "GeneratorExp",
+    "class": "rust-only",
+    "count": 1,
+    "example": {
+     "path": "walrus_comprehension.py",
+     "python": null,
+     "rust": {
+      "bytes": [
+       274,
+       308
+      ],
+      "chars": [
+       274,
+       308
+      ],
+      "kind": "GeneratorExp"
+     },
+     "forms": []
+    }
+   },
+   {
+    "section": "nodes",
+    "kind": "arg",
+    "class": "start",
+    "count": 2,
+    "example": {
+     "path": "binding_forms.py",
+     "python": {
+      "bytes": [
+       230,
+       234
+      ],
+      "chars": [
+       230,
+       234
+      ],
+      "kind": "arg"
+     },
+     "rust": {
+      "bytes": [
+       229,
+       234
+      ],
+      "chars": [
+       229,
+       234
+      ],
+      "kind": "arg"
+     },
+     "forms": []
+    }
+   },
+   {
+    "section": "tokens",
+    "kind": null,
+    "class": "tokenizer error",
+    "count": 1,
+    "example": {
+     "path": "syntax_error.py",
+     "python": "TokenError",
+     "rust": [],
+     "forms": []
+    }
+   },
+   {
+    "section": "tokens",
+    "kind": "comment",
+    "class": "python-only",
+    "count": 1,
+    "example": {
+     "path": "fstrings_pep701.py",
+     "python": {
+      "bytes": [
+       82,
+       120
+      ],
+      "chars": [
+       82,
+       120
+      ],
+      "kind": "comment"
+     },
+     "rust": null,
+     "forms": []
+    }
+   },
+   {
+    "section": "tokens",
+    "kind": "fstring",
+    "class": "end",
+    "count": 3,
+    "example": {
+     "path": "fstrings_pep701.py",
+     "python": {
+      "bytes": [
+       128,
+       133
+      ],
+      "chars": [
+       128,
+       133
+      ],
+      "kind": "fstring"
+     },
+     "rust": {
+      "bytes": [
+       128,
+       147
+      ],
+      "chars": [
+       128,
+       147
+      ],
+      "kind": "fstring"
+     },
+     "forms": []
+    }
+   },
+   {
+    "section": "tokens",
+    "kind": "fstring",
+    "class": "python-only",
+    "count": 1,
+    "example": {
+     "path": "fstrings_pep701.py",
+     "python": {
+      "bytes": [
+       134,
+       143
+      ],
+      "chars": [
+       134,
+       143
+      ],
+      "kind": "fstring"
+     },
+     "rust": null,
+     "forms": []
+    }
+   },
+   {
+    "section": "tokens",
+    "kind": "fstring",
+    "class": "rust-only",
+    "count": 1,
+    "example": {
+     "path": "fstrings_pep701.py",
+     "python": null,
+     "rust": {
+      "bytes": [
+       74,
+       123
+      ],
+      "chars": [
+       74,
+       123
+      ],
+      "kind": "fstring"
+     },
+     "forms": []
+    }
+   },
+   {
+    "section": "tokens",
+    "kind": "string",
+    "class": "python-only",
+    "count": 4,
+    "example": {
+     "path": "fstrings_pep701.py",
+     "python": {
+      "bytes": [
+       144,
+       147
+      ],
+      "chars": [
+       144,
+       147
+      ],
+      "kind": "string"
+     },
+     "rust": null,
+     "forms": []
+    }
+   },
+   {
+    "section": "tokens",
+    "kind": "tstring",
+    "class": "rust-only",
+    "count": 1,
+    "example": {
+     "path": "py314_only.py",
+     "python": null,
+     "rust": {
+      "bytes": [
+       22,
+       42
+      ],
+      "chars": [
+       22,
+       42
+      ],
+      "kind": "tstring"
+     },
+     "forms": []
+    }
+   }
+  ],
+  "data@3.12": [
+   {
+    "section": "nodes",
+    "kind": "FunctionDef",
+    "class": "start",
+    "count": 1,
+    "example": {
+     "path": "binding_forms.py",
+     "python": {
+      "bytes": [
+       717,
+       737
+      ],
+      "chars": [
+       717,
+       737
+      ],
+      "kind": "FunctionDef"
+     },
+     "rust": {
+      "bytes": [
+       703,
+       737
+      ],
+      "chars": [
+       703,
+       737
+      ],
+      "kind": "FunctionDef"
+     },
+     "forms": []
+    }
+   },
+   {
+    "section": "nodes",
+    "kind": "GeneratorExp",
+    "class": "python-only",
+    "count": 1,
+    "example": {
+     "path": "walrus_comprehension.py",
+     "python": {
+      "bytes": [
+       273,
+       309
+      ],
+      "chars": [
+       273,
+       309
+      ],
+      "kind": "GeneratorExp"
+     },
+     "rust": null,
+     "forms": []
+    }
+   },
+   {
+    "section": "nodes",
+    "kind": "GeneratorExp",
+    "class": "rust-only",
+    "count": 1,
+    "example": {
+     "path": "walrus_comprehension.py",
+     "python": null,
+     "rust": {
+      "bytes": [
+       274,
+       308
+      ],
+      "chars": [
+       274,
+       308
+      ],
+      "kind": "GeneratorExp"
+     },
+     "forms": []
+    }
+   },
+   {
+    "section": "nodes",
+    "kind": "arg",
+    "class": "start",
+    "count": 2,
+    "example": {
+     "path": "binding_forms.py",
+     "python": {
+      "bytes": [
+       230,
+       234
+      ],
+      "chars": [
+       230,
+       234
+      ],
+      "kind": "arg"
+     },
+     "rust": {
+      "bytes": [
+       229,
+       234
+      ],
+      "chars": [
+       229,
+       234
+      ],
+      "kind": "arg"
+     },
+     "forms": []
+    }
+   },
+   {
+    "section": "tokens",
+    "kind": null,
+    "class": "tokenizer error",
+    "count": 1,
+    "example": {
+     "path": "syntax_error.py",
+     "python": "TokenError",
+     "rust": [],
+     "forms": []
+    }
+   },
+   {
+    "section": "tokens",
+    "kind": "string",
+    "class": "python-only",
+    "count": 1,
+    "example": {
+     "path": "py314_only.py",
+     "python": {
+      "bytes": [
+       23,
+       42
+      ],
+      "chars": [
+       23,
+       42
+      ],
+      "kind": "string"
+     },
+     "rust": null,
+     "forms": []
+    }
+   },
+   {
+    "section": "tokens",
+    "kind": "tstring",
+    "class": "rust-only",
+    "count": 1,
+    "example": {
+     "path": "py314_only.py",
+     "python": null,
+     "rust": {
+      "bytes": [
+       22,
+       42
+      ],
+      "chars": [
+       22,
+       42
+      ],
+      "kind": "tstring"
+     },
+     "forms": []
+    }
+   }
+  ],
+  "data@3.13": [
+   {
+    "section": "nodes",
+    "kind": "FunctionDef",
+    "class": "start",
+    "count": 1,
+    "example": {
+     "path": "binding_forms.py",
+     "python": {
+      "bytes": [
+       717,
+       737
+      ],
+      "chars": [
+       717,
+       737
+      ],
+      "kind": "FunctionDef"
+     },
+     "rust": {
+      "bytes": [
+       703,
+       737
+      ],
+      "chars": [
+       703,
+       737
+      ],
+      "kind": "FunctionDef"
+     },
+     "forms": []
+    }
+   },
+   {
+    "section": "nodes",
+    "kind": "GeneratorExp",
+    "class": "python-only",
+    "count": 1,
+    "example": {
+     "path": "walrus_comprehension.py",
+     "python": {
+      "bytes": [
+       273,
+       309
+      ],
+      "chars": [
+       273,
+       309
+      ],
+      "kind": "GeneratorExp"
+     },
+     "rust": null,
+     "forms": []
+    }
+   },
+   {
+    "section": "nodes",
+    "kind": "GeneratorExp",
+    "class": "rust-only",
+    "count": 1,
+    "example": {
+     "path": "walrus_comprehension.py",
+     "python": null,
+     "rust": {
+      "bytes": [
+       274,
+       308
+      ],
+      "chars": [
+       274,
+       308
+      ],
+      "kind": "GeneratorExp"
+     },
+     "forms": []
+    }
+   },
+   {
+    "section": "nodes",
+    "kind": "arg",
+    "class": "start",
+    "count": 2,
+    "example": {
+     "path": "binding_forms.py",
+     "python": {
+      "bytes": [
+       230,
+       234
+      ],
+      "chars": [
+       230,
+       234
+      ],
+      "kind": "arg"
+     },
+     "rust": {
+      "bytes": [
+       229,
+       234
+      ],
+      "chars": [
+       229,
+       234
+      ],
+      "kind": "arg"
+     },
+     "forms": []
+    }
+   },
+   {
+    "section": "tokens",
+    "kind": null,
+    "class": "tokenizer error",
+    "count": 1,
+    "example": {
+     "path": "syntax_error.py",
+     "python": "TokenError",
+     "rust": [],
+     "forms": []
+    }
+   },
+   {
+    "section": "tokens",
+    "kind": "string",
+    "class": "python-only",
+    "count": 1,
+    "example": {
+     "path": "py314_only.py",
+     "python": {
+      "bytes": [
+       23,
+       42
+      ],
+      "chars": [
+       23,
+       42
+      ],
+      "kind": "string"
+     },
+     "rust": null,
+     "forms": []
+    }
+   },
+   {
+    "section": "tokens",
+    "kind": "tstring",
+    "class": "rust-only",
+    "count": 1,
+    "example": {
+     "path": "py314_only.py",
+     "python": null,
+     "rust": {
+      "bytes": [
+       22,
+       42
+      ],
+      "chars": [
+       22,
+       42
+      ],
+      "kind": "tstring"
+     },
+     "forms": []
+    }
+   }
+  ],
+  "data@3.14": [
+   {
+    "section": "nodes",
+    "kind": "FunctionDef",
+    "class": "start",
+    "count": 1,
+    "example": {
+     "path": "binding_forms.py",
+     "python": {
+      "bytes": [
+       717,
+       737
+      ],
+      "chars": [
+       717,
+       737
+      ],
+      "kind": "FunctionDef"
+     },
+     "rust": {
+      "bytes": [
+       703,
+       737
+      ],
+      "chars": [
+       703,
+       737
+      ],
+      "kind": "FunctionDef"
+     },
+     "forms": []
+    }
+   },
+   {
+    "section": "nodes",
+    "kind": "GeneratorExp",
+    "class": "python-only",
+    "count": 1,
+    "example": {
+     "path": "walrus_comprehension.py",
+     "python": {
+      "bytes": [
+       273,
+       309
+      ],
+      "chars": [
+       273,
+       309
+      ],
+      "kind": "GeneratorExp"
+     },
+     "rust": null,
+     "forms": []
+    }
+   },
+   {
+    "section": "nodes",
+    "kind": "GeneratorExp",
+    "class": "rust-only",
+    "count": 1,
+    "example": {
+     "path": "walrus_comprehension.py",
+     "python": null,
+     "rust": {
+      "bytes": [
+       274,
+       308
+      ],
+      "chars": [
+       274,
+       308
+      ],
+      "kind": "GeneratorExp"
+     },
+     "forms": []
+    }
+   },
+   {
+    "section": "nodes",
+    "kind": "arg",
+    "class": "start",
+    "count": 2,
+    "example": {
+     "path": "binding_forms.py",
+     "python": {
+      "bytes": [
+       230,
+       234
+      ],
+      "chars": [
+       230,
+       234
+      ],
+      "kind": "arg"
+     },
+     "rust": {
+      "bytes": [
+       229,
+       234
+      ],
+      "chars": [
+       229,
+       234
+      ],
+      "kind": "arg"
+     },
+     "forms": []
+    }
+   },
+   {
+    "section": "tokens",
+    "kind": null,
+    "class": "tokenizer error",
+    "count": 1,
+    "example": {
+     "path": "syntax_error.py",
+     "python": "TokenError",
+     "rust": [],
+     "forms": []
+    }
+   }
+  ],
+  "conformance@3.11": [
+   {
+    "section": "nodes",
+    "kind": "ClassDef",
+    "class": "start",
+    "count": 2,
+    "example": {
+     "path": "cases/refactor-rename-dataclass-keywords/files/pkg/d.py",
+     "python": {
+      "bytes": [
+       47,
+       70
+      ],
+      "chars": [
+       47,
+       70
+      ],
+      "kind": "ClassDef"
+     },
+     "rust": {
+      "bytes": [
+       36,
+       70
+      ],
+      "chars": [
+       36,
+       70
+      ],
+      "kind": "ClassDef"
+     },
+     "forms": []
+    }
+   },
+   {
+    "section": "nodes",
+    "kind": "FunctionDef",
+    "class": "start",
+    "count": 42,
+    "example": {
+     "path": "cases/mock-lint-violations/python/tests/test_m.py",
+     "python": {
+      "bytes": [
+       268,
+       287
+      ],
+      "chars": [
+       268,
+       287
+      ],
+      "kind": "FunctionDef"
+     },
+     "rust": {
+      "bytes": [
+       254,
+       287
+      ],
+      "chars": [
+       254,
+       287
+      ],
+      "kind": "FunctionDef"
+     },
+     "forms": []
+    }
+   },
+   {
+    "section": "nodes",
+    "kind": "GeneratorExp",
+    "class": "python-only",
+    "count": 1,
+    "example": {
+     "path": "cases/refactor-rename-local-comprehension-scope/python/pkg/m.py",
+     "python": {
+      "bytes": [
+       193,
+       222
+      ],
+      "chars": [
+       193,
+       222
+      ],
+      "kind": "GeneratorExp"
+     },
+     "rust": null,
+     "forms": []
+    }
+   },
+   {
+    "section": "nodes",
+    "kind": "GeneratorExp",
+    "class": "rust-only",
+    "count": 1,
+    "example": {
+     "path": "cases/refactor-rename-local-comprehension-scope/python/pkg/m.py",
+     "python": null,
+     "rust": {
+      "bytes": [
+       194,
+       221
+      ],
+      "chars": [
+       194,
+       221
+      ],
+      "kind": "GeneratorExp"
+     },
+     "forms": []
+    }
+   },
+   {
+    "section": "nodes",
+    "kind": "arg",
+    "class": "start",
+    "count": 17,
+    "example": {
+     "path": "cases/compliance-explicit-any-nested/python/src/m.py",
+     "python": {
+      "bytes": [
+       51,
+       60
+      ],
+      "chars": [
+       51,
+       60
+      ],
+      "kind": "arg"
+     },
+     "rust": {
+      "bytes": [
+       50,
+       60
+      ],
+      "chars": [
+       50,
+       60
+      ],
+      "kind": "arg"
+     },
+     "forms": []
+    }
+   },
+   {
+    "section": "tokens",
+    "kind": null,
+    "class": "tokenizer error",
+    "count": 8,
+    "example": {
+     "path": "cases/compliance-parse-error/python/src/bad.py",
+     "python": "TokenError",
+     "rust": "LexicalError",
+     "forms": []
+    }
+   }
+  ],
+  "conformance@3.12": [
+   {
+    "section": "nodes",
+    "kind": "ClassDef",
+    "class": "start",
+    "count": 2,
+    "example": {
+     "path": "cases/refactor-rename-dataclass-keywords/files/pkg/d.py",
+     "python": {
+      "bytes": [
+       47,
+       70
+      ],
+      "chars": [
+       47,
+       70
+      ],
+      "kind": "ClassDef"
+     },
+     "rust": {
+      "bytes": [
+       36,
+       70
+      ],
+      "chars": [
+       36,
+       70
+      ],
+      "kind": "ClassDef"
+     },
+     "forms": []
+    }
+   },
+   {
+    "section": "nodes",
+    "kind": "FunctionDef",
+    "class": "start",
+    "count": 42,
+    "example": {
+     "path": "cases/mock-lint-violations/python/tests/test_m.py",
+     "python": {
+      "bytes": [
+       268,
+       287
+      ],
+      "chars": [
+       268,
+       287
+      ],
+      "kind": "FunctionDef"
+     },
+     "rust": {
+      "bytes": [
+       254,
+       287
+      ],
+      "chars": [
+       254,
+       287
+      ],
+      "kind": "FunctionDef"
+     },
+     "forms": []
+    }
+   },
+   {
+    "section": "nodes",
+    "kind": "GeneratorExp",
+    "class": "python-only",
+    "count": 1,
+    "example": {
+     "path": "cases/refactor-rename-local-comprehension-scope/python/pkg/m.py",
+     "python": {
+      "bytes": [
+       193,
+       222
+      ],
+      "chars": [
+       193,
+       222
+      ],
+      "kind": "GeneratorExp"
+     },
+     "rust": null,
+     "forms": []
+    }
+   },
+   {
+    "section": "nodes",
+    "kind": "GeneratorExp",
+    "class": "rust-only",
+    "count": 1,
+    "example": {
+     "path": "cases/refactor-rename-local-comprehension-scope/python/pkg/m.py",
+     "python": null,
+     "rust": {
+      "bytes": [
+       194,
+       221
+      ],
+      "chars": [
+       194,
+       221
+      ],
+      "kind": "GeneratorExp"
+     },
+     "forms": []
+    }
+   },
+   {
+    "section": "nodes",
+    "kind": "arg",
+    "class": "start",
+    "count": 17,
+    "example": {
+     "path": "cases/compliance-explicit-any-nested/python/src/m.py",
+     "python": {
+      "bytes": [
+       51,
+       60
+      ],
+      "chars": [
+       51,
+       60
+      ],
+      "kind": "arg"
+     },
+     "rust": {
+      "bytes": [
+       50,
+       60
+      ],
+      "chars": [
+       50,
+       60
+      ],
+      "kind": "arg"
+     },
+     "forms": []
+    }
+   },
+   {
+    "section": "tokens",
+    "kind": null,
+    "class": "tokenizer error",
+    "count": 8,
+    "example": {
+     "path": "cases/compliance-parse-error/python/src/bad.py",
+     "python": "TokenError",
+     "rust": "LexicalError",
+     "forms": []
+    }
+   }
+  ],
+  "conformance@3.13": [
+   {
+    "section": "nodes",
+    "kind": "ClassDef",
+    "class": "start",
+    "count": 2,
+    "example": {
+     "path": "cases/refactor-rename-dataclass-keywords/files/pkg/d.py",
+     "python": {
+      "bytes": [
+       47,
+       70
+      ],
+      "chars": [
+       47,
+       70
+      ],
+      "kind": "ClassDef"
+     },
+     "rust": {
+      "bytes": [
+       36,
+       70
+      ],
+      "chars": [
+       36,
+       70
+      ],
+      "kind": "ClassDef"
+     },
+     "forms": []
+    }
+   },
+   {
+    "section": "nodes",
+    "kind": "FunctionDef",
+    "class": "start",
+    "count": 42,
+    "example": {
+     "path": "cases/mock-lint-violations/python/tests/test_m.py",
+     "python": {
+      "bytes": [
+       268,
+       287
+      ],
+      "chars": [
+       268,
+       287
+      ],
+      "kind": "FunctionDef"
+     },
+     "rust": {
+      "bytes": [
+       254,
+       287
+      ],
+      "chars": [
+       254,
+       287
+      ],
+      "kind": "FunctionDef"
+     },
+     "forms": []
+    }
+   },
+   {
+    "section": "nodes",
+    "kind": "GeneratorExp",
+    "class": "python-only",
+    "count": 1,
+    "example": {
+     "path": "cases/refactor-rename-local-comprehension-scope/python/pkg/m.py",
+     "python": {
+      "bytes": [
+       193,
+       222
+      ],
+      "chars": [
+       193,
+       222
+      ],
+      "kind": "GeneratorExp"
+     },
+     "rust": null,
+     "forms": []
+    }
+   },
+   {
+    "section": "nodes",
+    "kind": "GeneratorExp",
+    "class": "rust-only",
+    "count": 1,
+    "example": {
+     "path": "cases/refactor-rename-local-comprehension-scope/python/pkg/m.py",
+     "python": null,
+     "rust": {
+      "bytes": [
+       194,
+       221
+      ],
+      "chars": [
+       194,
+       221
+      ],
+      "kind": "GeneratorExp"
+     },
+     "forms": []
+    }
+   },
+   {
+    "section": "nodes",
+    "kind": "arg",
+    "class": "start",
+    "count": 17,
+    "example": {
+     "path": "cases/compliance-explicit-any-nested/python/src/m.py",
+     "python": {
+      "bytes": [
+       51,
+       60
+      ],
+      "chars": [
+       51,
+       60
+      ],
+      "kind": "arg"
+     },
+     "rust": {
+      "bytes": [
+       50,
+       60
+      ],
+      "chars": [
+       50,
+       60
+      ],
+      "kind": "arg"
+     },
+     "forms": []
+    }
+   },
+   {
+    "section": "tokens",
+    "kind": null,
+    "class": "tokenizer error",
+    "count": 8,
+    "example": {
+     "path": "cases/compliance-parse-error/python/src/bad.py",
+     "python": "TokenError",
+     "rust": "LexicalError",
+     "forms": []
+    }
+   }
+  ],
+  "conformance@3.14": [
+   {
+    "section": "nodes",
+    "kind": "ClassDef",
+    "class": "start",
+    "count": 2,
+    "example": {
+     "path": "cases/refactor-rename-dataclass-keywords/files/pkg/d.py",
+     "python": {
+      "bytes": [
+       47,
+       70
+      ],
+      "chars": [
+       47,
+       70
+      ],
+      "kind": "ClassDef"
+     },
+     "rust": {
+      "bytes": [
+       36,
+       70
+      ],
+      "chars": [
+       36,
+       70
+      ],
+      "kind": "ClassDef"
+     },
+     "forms": []
+    }
+   },
+   {
+    "section": "nodes",
+    "kind": "FunctionDef",
+    "class": "start",
+    "count": 42,
+    "example": {
+     "path": "cases/mock-lint-violations/python/tests/test_m.py",
+     "python": {
+      "bytes": [
+       268,
+       287
+      ],
+      "chars": [
+       268,
+       287
+      ],
+      "kind": "FunctionDef"
+     },
+     "rust": {
+      "bytes": [
+       254,
+       287
+      ],
+      "chars": [
+       254,
+       287
+      ],
+      "kind": "FunctionDef"
+     },
+     "forms": []
+    }
+   },
+   {
+    "section": "nodes",
+    "kind": "GeneratorExp",
+    "class": "python-only",
+    "count": 1,
+    "example": {
+     "path": "cases/refactor-rename-local-comprehension-scope/python/pkg/m.py",
+     "python": {
+      "bytes": [
+       193,
+       222
+      ],
+      "chars": [
+       193,
+       222
+      ],
+      "kind": "GeneratorExp"
+     },
+     "rust": null,
+     "forms": []
+    }
+   },
+   {
+    "section": "nodes",
+    "kind": "GeneratorExp",
+    "class": "rust-only",
+    "count": 1,
+    "example": {
+     "path": "cases/refactor-rename-local-comprehension-scope/python/pkg/m.py",
+     "python": null,
+     "rust": {
+      "bytes": [
+       194,
+       221
+      ],
+      "chars": [
+       194,
+       221
+      ],
+      "kind": "GeneratorExp"
+     },
+     "forms": []
+    }
+   },
+   {
+    "section": "nodes",
+    "kind": "arg",
+    "class": "start",
+    "count": 17,
+    "example": {
+     "path": "cases/compliance-explicit-any-nested/python/src/m.py",
+     "python": {
+      "bytes": [
+       51,
+       60
+      ],
+      "chars": [
+       51,
+       60
+      ],
+      "kind": "arg"
+     },
+     "rust": {
+      "bytes": [
+       50,
+       60
+      ],
+      "chars": [
+       50,
+       60
+      ],
+      "kind": "arg"
+     },
+     "forms": []
+    }
+   },
+   {
+    "section": "tokens",
+    "kind": null,
+    "class": "tokenizer error",
+    "count": 8,
+    "example": {
+     "path": "cases/compliance-parse-error/python/src/bad.py",
+     "python": "TokenError",
+     "rust": "LexicalError",
+     "forms": []
+    }
+   }
+  ],
+  "slayer@3.11": [
+   {
+    "section": "nodes",
+    "kind": "AsyncFunctionDef",
+    "class": "start",
+    "count": 2567,
+    "example": {
+     "path": "slayer/api/server.py",
+     "python": {
+      "bytes": [
+       13041,
+       13437
+      ],
+      "chars": [
+       13021,
+       13417
+      ],
+      "kind": "AsyncFunctionDef"
+     },
+     "rust": {
+      "bytes": [
+       13005,
+       13437
+      ],
+      "chars": [
+       12985,
+       13417
+      ],
+      "kind": "AsyncFunctionDef"
+     },
+     "forms": [
+      "non-ascii"
+     ]
+    }
+   },
+   {
+    "section": "nodes",
+    "kind": "ClassDef",
+    "class": "start",
+    "count": 143,
+    "example": {
+     "path": "slayer/database/client.py",
+     "python": {
+      "bytes": [
+       28122,
+       29520
+      ],
+      "chars": [
+       28114,
+       29512
+      ],
+      "kind": "ClassDef"
+     },
+     "rust": {
+      "bytes": [
+       28103,
+       29520
+      ],
+      "chars": [
+       28095,
+       29512
+      ],
+      "kind": "ClassDef"
+     },
+     "forms": [
+      "non-ascii"
+     ]
+    }
+   },
+   {
+    "section": "nodes",
+    "kind": "FunctionDef",
+    "class": "start",
+    "count": 2516,
+    "example": {
+     "path": "examples/comparisons/slayer/run_slayer.py",
+     "python": {
+      "bytes": [
+       3007,
+       3182
+      ],
+      "chars": [
+       3007,
+       3182
+      ],
+      "kind": "FunctionDef"
+     },
+     "rust": {
+      "bytes": [
+       2972,
+       3182
+      ],
+      "chars": [
+       2972,
+       3182
+      ],
+      "kind": "FunctionDef"
+     },
+     "forms": []
+    }
+   },
+   {
+    "section": "nodes",
+    "kind": "GeneratorExp",
+    "class": "python-only",
+    "count": 3144,
+    "example": {
+     "path": "docs/examples/11_dbt_metricflow/setup_metricflow.py",
+     "python": {
+      "bytes": [
+       4191,
+       4244
+      ],
+      "chars": [
+       4185,
+       4238
+      ],
+      "kind": "GeneratorExp"
+     },
+     "rust": null,
+     "forms": [
+      "non-ascii"
+     ]
+    }
+   },
+   {
+    "section": "nodes",
+    "kind": "GeneratorExp",
+    "class": "rust-only",
+    "count": 3144,
+    "example": {
+     "path": "docs/examples/11_dbt_metricflow/setup_metricflow.py",
+     "python": null,
+     "rust": {
+      "bytes": [
+       4192,
+       4243
+      ],
+      "chars": [
+       4186,
+       4237
+      ],
+      "kind": "GeneratorExp"
+     },
+     "forms": [
+      "non-ascii"
+     ]
+    }
+   },
+   {
+    "section": "nodes",
+    "kind": "GeneratorExp",
+    "class": "start",
+    "count": 6,
+    "example": {
+     "path": "slayer/engine/compile/spine.py",
+     "python": {
+      "bytes": [
+       3842,
+       3891
+      ],
+      "chars": [
+       3841,
+       3890
+      ],
+      "kind": "GeneratorExp"
+     },
+     "rust": {
+      "bytes": [
+       3807,
+       3891
+      ],
+      "chars": [
+       3806,
+       3890
+      ],
+      "kind": "GeneratorExp"
+     },
+     "forms": [
+      "non-ascii"
+     ]
+    }
+   },
+   {
+    "section": "nodes",
+    "kind": "If",
+    "class": "end",
+    "count": 251,
+    "example": {
+     "path": "scripts/doc_examples.py",
+     "python": {
+      "bytes": [
+       10795,
+       10991
+      ],
+      "chars": [
+       10795,
+       10991
+      ],
+      "kind": "If"
+     },
+     "rust": {
+      "bytes": [
+       10795,
+       10839
+      ],
+      "chars": [
+       10795,
+       10839
+      ],
+      "kind": "If"
+     },
+     "forms": []
+    }
+   },
+   {
+    "section": "nodes",
+    "kind": "arg",
+    "class": "start",
+    "count": 1386,
+    "example": {
+     "path": "docs/examples/11_dbt_metricflow/setup_metricflow.py",
+     "python": {
+      "bytes": [
+       10153,
+       10154
+      ],
+      "chars": [
+       10145,
+       10146
+      ],
+      "kind": "arg"
+     },
+     "rust": {
+      "bytes": [
+       10152,
+       10154
+      ],
+      "chars": [
+       10144,
+       10146
+      ],
+      "kind": "arg"
+     },
+     "forms": [
+      "non-ascii"
+     ]
+    }
+   }
+  ],
+  "slayer@3.12": [
+   {
+    "section": "nodes",
+    "kind": "AsyncFunctionDef",
+    "class": "start",
+    "count": 2567,
+    "example": {
+     "path": "slayer/api/server.py",
+     "python": {
+      "bytes": [
+       13041,
+       13437
+      ],
+      "chars": [
+       13021,
+       13417
+      ],
+      "kind": "AsyncFunctionDef"
+     },
+     "rust": {
+      "bytes": [
+       13005,
+       13437
+      ],
+      "chars": [
+       12985,
+       13417
+      ],
+      "kind": "AsyncFunctionDef"
+     },
+     "forms": [
+      "non-ascii"
+     ]
+    }
+   },
+   {
+    "section": "nodes",
+    "kind": "ClassDef",
+    "class": "start",
+    "count": 143,
+    "example": {
+     "path": "slayer/database/client.py",
+     "python": {
+      "bytes": [
+       28122,
+       29520
+      ],
+      "chars": [
+       28114,
+       29512
+      ],
+      "kind": "ClassDef"
+     },
+     "rust": {
+      "bytes": [
+       28103,
+       29520
+      ],
+      "chars": [
+       28095,
+       29512
+      ],
+      "kind": "ClassDef"
+     },
+     "forms": [
+      "non-ascii"
+     ]
+    }
+   },
+   {
+    "section": "nodes",
+    "kind": "FunctionDef",
+    "class": "start",
+    "count": 2516,
+    "example": {
+     "path": "examples/comparisons/slayer/run_slayer.py",
+     "python": {
+      "bytes": [
+       3007,
+       3182
+      ],
+      "chars": [
+       3007,
+       3182
+      ],
+      "kind": "FunctionDef"
+     },
+     "rust": {
+      "bytes": [
+       2972,
+       3182
+      ],
+      "chars": [
+       2972,
+       3182
+      ],
+      "kind": "FunctionDef"
+     },
+     "forms": []
+    }
+   },
+   {
+    "section": "nodes",
+    "kind": "GeneratorExp",
+    "class": "python-only",
+    "count": 3144,
+    "example": {
+     "path": "docs/examples/11_dbt_metricflow/setup_metricflow.py",
+     "python": {
+      "bytes": [
+       4191,
+       4244
+      ],
+      "chars": [
+       4185,
+       4238
+      ],
+      "kind": "GeneratorExp"
+     },
+     "rust": null,
+     "forms": [
+      "non-ascii"
+     ]
+    }
+   },
+   {
+    "section": "nodes",
+    "kind": "GeneratorExp",
+    "class": "rust-only",
+    "count": 3144,
+    "example": {
+     "path": "docs/examples/11_dbt_metricflow/setup_metricflow.py",
+     "python": null,
+     "rust": {
+      "bytes": [
+       4192,
+       4243
+      ],
+      "chars": [
+       4186,
+       4237
+      ],
+      "kind": "GeneratorExp"
+     },
+     "forms": [
+      "non-ascii"
+     ]
+    }
+   },
+   {
+    "section": "nodes",
+    "kind": "GeneratorExp",
+    "class": "start",
+    "count": 6,
+    "example": {
+     "path": "slayer/engine/compile/spine.py",
+     "python": {
+      "bytes": [
+       3842,
+       3891
+      ],
+      "chars": [
+       3841,
+       3890
+      ],
+      "kind": "GeneratorExp"
+     },
+     "rust": {
+      "bytes": [
+       3807,
+       3891
+      ],
+      "chars": [
+       3806,
+       3890
+      ],
+      "kind": "GeneratorExp"
+     },
+     "forms": [
+      "non-ascii"
+     ]
+    }
+   },
+   {
+    "section": "nodes",
+    "kind": "If",
+    "class": "end",
+    "count": 251,
+    "example": {
+     "path": "scripts/doc_examples.py",
+     "python": {
+      "bytes": [
+       10795,
+       10991
+      ],
+      "chars": [
+       10795,
+       10991
+      ],
+      "kind": "If"
+     },
+     "rust": {
+      "bytes": [
+       10795,
+       10839
+      ],
+      "chars": [
+       10795,
+       10839
+      ],
+      "kind": "If"
+     },
+     "forms": []
+    }
+   },
+   {
+    "section": "nodes",
+    "kind": "arg",
+    "class": "start",
+    "count": 1386,
+    "example": {
+     "path": "docs/examples/11_dbt_metricflow/setup_metricflow.py",
+     "python": {
+      "bytes": [
+       10153,
+       10154
+      ],
+      "chars": [
+       10145,
+       10146
+      ],
+      "kind": "arg"
+     },
+     "rust": {
+      "bytes": [
+       10152,
+       10154
+      ],
+      "chars": [
+       10144,
+       10146
+      ],
+      "kind": "arg"
+     },
+     "forms": [
+      "non-ascii"
+     ]
+    }
+   }
+  ],
+  "slayer@3.13": [
+   {
+    "section": "nodes",
+    "kind": "AsyncFunctionDef",
+    "class": "start",
+    "count": 2567,
+    "example": {
+     "path": "slayer/api/server.py",
+     "python": {
+      "bytes": [
+       13041,
+       13437
+      ],
+      "chars": [
+       13021,
+       13417
+      ],
+      "kind": "AsyncFunctionDef"
+     },
+     "rust": {
+      "bytes": [
+       13005,
+       13437
+      ],
+      "chars": [
+       12985,
+       13417
+      ],
+      "kind": "AsyncFunctionDef"
+     },
+     "forms": [
+      "non-ascii"
+     ]
+    }
+   },
+   {
+    "section": "nodes",
+    "kind": "ClassDef",
+    "class": "start",
+    "count": 143,
+    "example": {
+     "path": "slayer/database/client.py",
+     "python": {
+      "bytes": [
+       28122,
+       29520
+      ],
+      "chars": [
+       28114,
+       29512
+      ],
+      "kind": "ClassDef"
+     },
+     "rust": {
+      "bytes": [
+       28103,
+       29520
+      ],
+      "chars": [
+       28095,
+       29512
+      ],
+      "kind": "ClassDef"
+     },
+     "forms": [
+      "non-ascii"
+     ]
+    }
+   },
+   {
+    "section": "nodes",
+    "kind": "FunctionDef",
+    "class": "start",
+    "count": 2516,
+    "example": {
+     "path": "examples/comparisons/slayer/run_slayer.py",
+     "python": {
+      "bytes": [
+       3007,
+       3182
+      ],
+      "chars": [
+       3007,
+       3182
+      ],
+      "kind": "FunctionDef"
+     },
+     "rust": {
+      "bytes": [
+       2972,
+       3182
+      ],
+      "chars": [
+       2972,
+       3182
+      ],
+      "kind": "FunctionDef"
+     },
+     "forms": []
+    }
+   },
+   {
+    "section": "nodes",
+    "kind": "GeneratorExp",
+    "class": "python-only",
+    "count": 3144,
+    "example": {
+     "path": "docs/examples/11_dbt_metricflow/setup_metricflow.py",
+     "python": {
+      "bytes": [
+       4191,
+       4244
+      ],
+      "chars": [
+       4185,
+       4238
+      ],
+      "kind": "GeneratorExp"
+     },
+     "rust": null,
+     "forms": [
+      "non-ascii"
+     ]
+    }
+   },
+   {
+    "section": "nodes",
+    "kind": "GeneratorExp",
+    "class": "rust-only",
+    "count": 3144,
+    "example": {
+     "path": "docs/examples/11_dbt_metricflow/setup_metricflow.py",
+     "python": null,
+     "rust": {
+      "bytes": [
+       4192,
+       4243
+      ],
+      "chars": [
+       4186,
+       4237
+      ],
+      "kind": "GeneratorExp"
+     },
+     "forms": [
+      "non-ascii"
+     ]
+    }
+   },
+   {
+    "section": "nodes",
+    "kind": "GeneratorExp",
+    "class": "start",
+    "count": 6,
+    "example": {
+     "path": "slayer/engine/compile/spine.py",
+     "python": {
+      "bytes": [
+       3842,
+       3891
+      ],
+      "chars": [
+       3841,
+       3890
+      ],
+      "kind": "GeneratorExp"
+     },
+     "rust": {
+      "bytes": [
+       3807,
+       3891
+      ],
+      "chars": [
+       3806,
+       3890
+      ],
+      "kind": "GeneratorExp"
+     },
+     "forms": [
+      "non-ascii"
+     ]
+    }
+   },
+   {
+    "section": "nodes",
+    "kind": "If",
+    "class": "end",
+    "count": 251,
+    "example": {
+     "path": "scripts/doc_examples.py",
+     "python": {
+      "bytes": [
+       10795,
+       10991
+      ],
+      "chars": [
+       10795,
+       10991
+      ],
+      "kind": "If"
+     },
+     "rust": {
+      "bytes": [
+       10795,
+       10839
+      ],
+      "chars": [
+       10795,
+       10839
+      ],
+      "kind": "If"
+     },
+     "forms": []
+    }
+   },
+   {
+    "section": "nodes",
+    "kind": "arg",
+    "class": "start",
+    "count": 1386,
+    "example": {
+     "path": "docs/examples/11_dbt_metricflow/setup_metricflow.py",
+     "python": {
+      "bytes": [
+       10153,
+       10154
+      ],
+      "chars": [
+       10145,
+       10146
+      ],
+      "kind": "arg"
+     },
+     "rust": {
+      "bytes": [
+       10152,
+       10154
+      ],
+      "chars": [
+       10144,
+       10146
+      ],
+      "kind": "arg"
+     },
+     "forms": [
+      "non-ascii"
+     ]
+    }
+   }
+  ],
+  "slayer@3.14": [
+   {
+    "section": "nodes",
+    "kind": "AsyncFunctionDef",
+    "class": "start",
+    "count": 2567,
+    "example": {
+     "path": "slayer/api/server.py",
+     "python": {
+      "bytes": [
+       13041,
+       13437
+      ],
+      "chars": [
+       13021,
+       13417
+      ],
+      "kind": "AsyncFunctionDef"
+     },
+     "rust": {
+      "bytes": [
+       13005,
+       13437
+      ],
+      "chars": [
+       12985,
+       13417
+      ],
+      "kind": "AsyncFunctionDef"
+     },
+     "forms": [
+      "non-ascii"
+     ]
+    }
+   },
+   {
+    "section": "nodes",
+    "kind": "ClassDef",
+    "class": "start",
+    "count": 143,
+    "example": {
+     "path": "slayer/database/client.py",
+     "python": {
+      "bytes": [
+       28122,
+       29520
+      ],
+      "chars": [
+       28114,
+       29512
+      ],
+      "kind": "ClassDef"
+     },
+     "rust": {
+      "bytes": [
+       28103,
+       29520
+      ],
+      "chars": [
+       28095,
+       29512
+      ],
+      "kind": "ClassDef"
+     },
+     "forms": [
+      "non-ascii"
+     ]
+    }
+   },
+   {
+    "section": "nodes",
+    "kind": "FunctionDef",
+    "class": "start",
+    "count": 2516,
+    "example": {
+     "path": "examples/comparisons/slayer/run_slayer.py",
+     "python": {
+      "bytes": [
+       3007,
+       3182
+      ],
+      "chars": [
+       3007,
+       3182
+      ],
+      "kind": "FunctionDef"
+     },
+     "rust": {
+      "bytes": [
+       2972,
+       3182
+      ],
+      "chars": [
+       2972,
+       3182
+      ],
+      "kind": "FunctionDef"
+     },
+     "forms": []
+    }
+   },
+   {
+    "section": "nodes",
+    "kind": "GeneratorExp",
+    "class": "python-only",
+    "count": 3144,
+    "example": {
+     "path": "docs/examples/11_dbt_metricflow/setup_metricflow.py",
+     "python": {
+      "bytes": [
+       4191,
+       4244
+      ],
+      "chars": [
+       4185,
+       4238
+      ],
+      "kind": "GeneratorExp"
+     },
+     "rust": null,
+     "forms": [
+      "non-ascii"
+     ]
+    }
+   },
+   {
+    "section": "nodes",
+    "kind": "GeneratorExp",
+    "class": "rust-only",
+    "count": 3144,
+    "example": {
+     "path": "docs/examples/11_dbt_metricflow/setup_metricflow.py",
+     "python": null,
+     "rust": {
+      "bytes": [
+       4192,
+       4243
+      ],
+      "chars": [
+       4186,
+       4237
+      ],
+      "kind": "GeneratorExp"
+     },
+     "forms": [
+      "non-ascii"
+     ]
+    }
+   },
+   {
+    "section": "nodes",
+    "kind": "GeneratorExp",
+    "class": "start",
+    "count": 6,
+    "example": {
+     "path": "slayer/engine/compile/spine.py",
+     "python": {
+      "bytes": [
+       3842,
+       3891
+      ],
+      "chars": [
+       3841,
+       3890
+      ],
+      "kind": "GeneratorExp"
+     },
+     "rust": {
+      "bytes": [
+       3807,
+       3891
+      ],
+      "chars": [
+       3806,
+       3890
+      ],
+      "kind": "GeneratorExp"
+     },
+     "forms": [
+      "non-ascii"
+     ]
+    }
+   },
+   {
+    "section": "nodes",
+    "kind": "If",
+    "class": "end",
+    "count": 251,
+    "example": {
+     "path": "scripts/doc_examples.py",
+     "python": {
+      "bytes": [
+       10795,
+       10991
+      ],
+      "chars": [
+       10795,
+       10991
+      ],
+      "kind": "If"
+     },
+     "rust": {
+      "bytes": [
+       10795,
+       10839
+      ],
+      "chars": [
+       10795,
+       10839
+      ],
+      "kind": "If"
+     },
+     "forms": []
+    }
+   },
+   {
+    "section": "nodes",
+    "kind": "arg",
+    "class": "start",
+    "count": 1386,
+    "example": {
+     "path": "docs/examples/11_dbt_metricflow/setup_metricflow.py",
+     "python": {
+      "bytes": [
+       10153,
+       10154
+      ],
+      "chars": [
+       10145,
+       10146
+      ],
+      "kind": "arg"
+     },
+     "rust": {
+      "bytes": [
+       10152,
+       10154
+      ],
+      "chars": [
+       10144,
+       10146
+      ],
+      "kind": "arg"
+     },
+     "forms": [
+      "non-ascii"
+     ]
+    }
+   }
+  ]
+ },
+ "accept_reject": {
+  "data@3.11": {
+   "counts": {
+    "ok / ok": 17,
+    "syntax-error / syntax-error": 5,
+    "undecodable / undecodable": 3
+   },
+   "examples": {}
+  },
+  "data@3.12": {
+   "counts": {
+    "ok / ok": 19,
+    "syntax-error / syntax-error": 3,
+    "undecodable / undecodable": 3
+   },
+   "examples": {}
+  },
+  "data@3.13": {
+   "counts": {
+    "ok / ok": 20,
+    "syntax-error / syntax-error": 2,
+    "undecodable / undecodable": 3
+   },
+   "examples": {}
+  },
+  "data@3.14": {
+   "counts": {
+    "ok / ok": 21,
+    "syntax-error / syntax-error": 1,
+    "undecodable / undecodable": 3
+   },
+   "examples": {}
+  },
+  "conformance@3.11": {
+   "counts": {
+    "ok / ok": 1395,
+    "syntax-error / syntax-error": 19,
+    "undecodable / undecodable": 7
+   },
+   "examples": {}
+  },
+  "conformance@3.12": {
+   "counts": {
+    "ok / ok": 1395,
+    "syntax-error / syntax-error": 19,
+    "undecodable / undecodable": 7
+   },
+   "examples": {}
+  },
+  "conformance@3.13": {
+   "counts": {
+    "ok / ok": 1395,
+    "syntax-error / syntax-error": 19,
+    "undecodable / undecodable": 7
+   },
+   "examples": {}
+  },
+  "conformance@3.14": {
+   "counts": {
+    "ok / ok": 1395,
+    "syntax-error / syntax-error": 19,
+    "undecodable / undecodable": 7
+   },
+   "examples": {}
+  },
+  "slayer@3.11": {
+   "counts": {
+    "ok / ok": 1619
+   },
+   "examples": {}
+  },
+  "slayer@3.12": {
+   "counts": {
+    "ok / ok": 1619
+   },
+   "examples": {}
+  },
+  "slayer@3.13": {
+   "counts": {
+    "ok / ok": 1619
+   },
+   "examples": {}
+  },
+  "slayer@3.14": {
+   "counts": {
+    "ok / ok": 1619
+   },
+   "examples": {}
+  }
+ },
+ "cpython_cross_version": {
+  "data": {
+   "fidelity": [],
+   "binding": []
+  },
+  "conformance": {
+   "fidelity": [],
+   "binding": []
+  },
+  "slayer": {
+   "fidelity": [],
+   "binding": []
+  }
+ },
+ "encodings": {
+  "data": {
+   "bom_cookie_latin1.py": {
+    "dr": "iso8859-1",
+    "cpython": "error",
+    "differ": true
+   },
+   "cookie_dr_differs.py": {
+    "dr": "utf-8: undecodable",
+    "cpython": "iso8859-1",
+    "differ": true
+   },
+   "cookie_second_line.py": {
+    "dr": "iso8859-1",
+    "cpython": "utf-8: undecodable",
+    "differ": true
+   }
+  },
+  "conformance": {
+   "cases/conventions-facts-emit-python/python/src/bin.py": {
+    "dr": "utf-8: undecodable",
+    "cpython": "error",
+    "differ": true
+   },
+   "cases/conventions-rules-file-errors-gate-off/python/src/bin.py": {
+    "dr": "utf-8: undecodable",
+    "cpython": "error",
+    "differ": true
+   },
+   "cases/conventions-unreadable-binary/python/src/bin.py": {
+    "dr": "utf-8: undecodable",
+    "cpython": "error",
+    "differ": true
+   }
+  },
+  "slayer": {}
+ }
+}

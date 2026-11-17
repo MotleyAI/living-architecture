@@ -11,4 +11,4 @@ commands:
     python: uv run --project python basedpyright -p python
     typescript: node/node_modules/.bin/tsc -p node --noEmit
 conventions:
-  exempt: ['conformance/*']   # fixtures and goldens that break the rules on purpose
+  exempt: ['conformance/*', 'spike/tests/data/*']   # fixtures and goldens that break the rules on purpose

@@ -1,0 +1,17 @@
+[build-system]
+requires = ["maturin>=1.16,<2"]
+build-backend = "maturin"
+
+[project]
+name = "dr-hello"
+version = "0.0.0"
+requires-python = ">=3.11"
+
+[project.scripts]
+dr-hello = "dr_hello:main"
+dr-hello-two = "dr_hello:main_two"
+
+[tool.maturin]
+bindings = "pyo3"
+module-name = "dr_hello"
+features = ["extension-module"]

@@ -1,0 +1,56 @@
+{
+ "machine": "x86_64",
+ "targets": {
+  "x86_64-unknown-linux-gnu": {
+   "zig": false,
+   "wheel": "dr_hello-0.0.0-cp311-abi3-manylinux_2_34_x86_64.whl",
+   "size_kb": 1430.5,
+   "loaded": "natively (see start-up)"
+  },
+  "x86_64-unknown-linux-musl": {
+   "zig": true,
+   "wheel": "dr_hello-0.0.0-cp311-abi3-musllinux_1_2_x86_64.whl",
+   "size_kb": 1475.6,
+   "loaded": {
+    "image": "python:3.12-alpine",
+    "exit": 0,
+    "stdout": [
+     "hello from dr's Rust core",
+     "hello from dr's Rust core",
+     "hello from dr's Rust core"
+    ],
+    "stderr": "Unable to find image 'python:3.12-alpine' locally\n3.12-alpine: Pulling from library/python\ncc36311dc778: Pulling fs layer\n881fc932939e: Pulling fs layer\naa121b1b1cdb: Pulling fs layer\n113b91713f05: Pulling fs layer\ncc36311dc778: Download complete\n881fc932939e: Download complete\naa121b1b1cdb: Download complete\n113b91713f05: Download complete\n881fc932939e: Pull complete\naa121b1b1cdb: Pull complete\ncc36311dc778: Pull complete\n113b91713f05: Pull complete\n69d5cdcd015f: Download complete\nbfa9e4cb3258: Download complete\nDigest: sha256:c5ba3deef00c7758561a0f03c26f44f10589263d40e732b8748e0d1f38f6dd89\nStatus: Downloaded newer image for python:3.12-alpine\n\n[notice] A new release of pip is available: 25.0.1 -> 26.3\n[notice] To update, run: pip install --upgrade pip\n"
+   }
+  },
+  "aarch64-unknown-linux-gnu": {
+   "zig": true,
+   "wheel": "dr_hello-0.0.0-cp311-abi3-manylinux2014_aarch64.manylinux_2_17_aarch64.whl",
+   "size_kb": 1473.0,
+   "loaded": "not loaded: this machine cannot run the target"
+  },
+  "aarch64-unknown-linux-musl": {
+   "zig": true,
+   "wheel": "dr_hello-0.0.0-cp311-abi3-musllinux_1_2_aarch64.whl",
+   "size_kb": 1460.4,
+   "loaded": "not loaded: this machine cannot run the target"
+  }
+ },
+ "macos": "not built (moved to DEV-2332)",
+ "startup": {
+  "python": "3.12",
+  "warmup": 10,
+  "timed": 50,
+  "console script (abi3 module)": {
+   "median_ms": 8.94,
+   "p95_ms": 12.27
+  },
+  "plain Rust binary": {
+   "median_ms": 0.57,
+   "p95_ms": 0.7
+  },
+  "pure-Python console script": {
+   "median_ms": 10.12,
+   "p95_ms": 18.57
+  }
+ }
+}

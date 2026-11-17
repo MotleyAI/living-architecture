@@ -15,27 +15,27 @@
 
 ## 2. Rust binding port (14-hour box, pr-implement)
 
-- [ ] 2.1 Ingestion and `SourceFile` equivalent: raw bytes → dr's decoding rule → ruff parse → character offsets; verify on the encoding synthetic files.
-- [ ] 2.2 `Binder` and `Scope` port (all scope kinds, globals/nonlocals, imports, stars, `__all__`, comprehensions, type parameters, `match`, walrus); verify with the differential.
-- [ ] 2.3 `_Parsed` port (sites, points with evaluated-first spans, occurrences incl. annotation strings, class loop spans) and the dump queries (`owner`, `resolving`, `may_precede`, `joined`); verify with the differential on fixtures and synthetic files.
-- [ ] 2.4 Differential on the SLayer copy under 3.11–3.14; classify each remaining mismatch (parser difference or unported form) with count and example. Stop porting at 14 hours.
+- [x] 2.1 Ingestion and `SourceFile` equivalent: raw bytes → dr's decoding rule → ruff parse → character offsets; verify on the encoding synthetic files.
+- [x] 2.2 `Binder` and `Scope` port (all scope kinds, globals/nonlocals, imports, stars, `__all__`, comprehensions, type parameters, `match`, walrus); verify with the differential.
+- [x] 2.3 `_Parsed` port (sites, points with evaluated-first spans, occurrences incl. annotation strings, class loop spans) and the dump queries (`owner`, `resolving`, `may_precede`, `joined`); verify with the differential on fixtures and synthetic files.
+- [x] 2.4 Differential on the SLayer copy under 3.11–3.14; classify each remaining mismatch (parser difference or unported form) with count and example. Stop porting at 14 hours.
 
 ## 3. Speedup measurement
 
-- [ ] 3.1 Bench drivers on both sides per design decision 8 (both lifetime regimes, phase timers, no dump), refusing on a manifest-hash mismatch and running the differential first; verify they report the matching-file set.
-- [ ] 3.2 Run the bench: 5 runs each, median and p95, peak RSS, single-threaded plus the rayon row; record hardware and load.
-- [ ] 3.3 Baseline per design decision 9 (3 unprofiled runs + 1 diagnostic cProfile) at this branch's HEAD; record phases and peak RSS.
+- [x] 3.1 Bench drivers on both sides per design decision 8 (both lifetime regimes, phase timers, no dump), refusing on a manifest-hash mismatch and running the differential first; verify they report the matching-file set.
+- [x] 3.2 Run the bench: 5 runs each, median and p95, peak RSS, single-threaded plus the rayon row; record hardware and load.
+- [x] 3.3 Baseline per design decision 9 (3 unprofiled runs + 1 diagnostic cProfile) at this branch's HEAD; record phases and peak RSS.
 
 ## 4. Parser fidelity measurement
 
-- [ ] 4.1 Ruff-side span and token dump (`fidelity` crate) with the per-version parse options recorded; verify on the synthetic set.
-- [ ] 4.2 Run the comparison over fixtures, SLayer and the synthetic set on 3.11–3.14; produce the class table (count, example, special form), the accept/reject table, the dr-rule vs `detect_encoding` disagreements, and CPython cross-version differences.
+- [x] 4.1 Ruff-side span and token dump (`fidelity` crate) with the per-version parse options recorded; verify on the synthetic set.
+- [x] 4.2 Run the comparison over fixtures, SLayer and the synthetic set on 3.11–3.14; produce the class table (count, example, special form), the accept/reject table, the dr-rule vs `detect_encoding` disagreements, and CPython cross-version differences.
 
 ## 5. Packaging measurement
 
-- [ ] 5.1 `hello` maturin project (abi3-py311, module + two console scripts) and the plain binary; verify the 1.5 tests pass.
-- [ ] 5.2 Start-up timing per design decision 15.
-- [ ] 5.3 Build x86_64 glibc and musl (load musl in Alpine via docker), aarch64 glibc and musl with `--zig` (not loaded); record outcomes; state macOS as not built.
+- [x] 5.1 `hello` maturin project (abi3-py311, module + two console scripts) and the plain binary; verify the 1.5 tests pass.
+- [x] 5.2 Start-up timing per design decision 15.
+- [x] 5.3 Build x86_64 glibc and musl (load musl in Alpine via docker), aarch64 glibc and musl with `--zig` (not loaded); record outcomes; state macOS as not built.
 
 ## 6. Report and decisions
 
