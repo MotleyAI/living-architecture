@@ -12,7 +12,7 @@ fixture: refactor-progress
 git:
 - commit: init
 expect:
-  exit: 2
+  exit: 1
 golden: manual
-note: a keep on a comment spelling the old name passes the checks, matches no edit, and is reported with the blind spot in
-  one final report, exit 2
+note: 'a directory keep on a comment spelling the old name matches no edit: a warning before [conflicts]; the
+  blind spot still refuses, exit 1'

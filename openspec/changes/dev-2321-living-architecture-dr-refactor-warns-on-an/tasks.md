@@ -1,12 +1,12 @@
 ## 1. Shared contract
 
-- [ ] 1.1 In `shared/findings.yaml`, change `refactor.keep-unmatched` and `refactor.not-stand-in` and add
+- [x] 1.1 In `shared/findings.yaml`, change `refactor.keep-unmatched` and `refactor.not-stand-in` and add
   `refactor.keep-unmatched-near` and `refactor.keep-unneeded`, verbatim as in design.md decision 4 (user, approved
   wording); run `scripts/sync-shared` and verify `scripts/sync-shared --check` passes.
 
 ## 2. Tests first (pr-tests)
 
-- [ ] 2.1 Conformance, new paired (python + typescript) cases on a small fixture, each listed in
+- [x] 2.1 Conformance, new paired (python + typescript) cases on a small fixture, each listed in
   `conformance/INVENTORY.md` with `golden: manual` goldens. Verify each fails before the implementation:
   - unneeded whole-file keep, `--apply`: exit 0, rename written, `refactor.keep-unneeded` after the last `[rules]`
     line and before `[conflicts]`;
@@ -28,11 +28,11 @@
     `[conflicts]`, the blind spot, the keep finding, the `refactor.blindspots` line, exit 2;
   - a `--with` stand-in's comment line under the comment rule (paired where the TS twin accepts the input, else
     Python adapter).
-- [ ] 2.2 Conformance, new Python adapter cases: a type-comment keep (`# type: Old` only) passes `checks`; a module
+- [x] 2.2 Conformance, new Python adapter cases: a type-comment keep (`# type: Old` only) passes `checks`; a module
   rename with an unneeded file keep (warning, exit 0), with a stale line keep (refused before `[conflicts]`), with a
   directory keep covering the moved package (no warning, not moved, exit 0), and with `--with` (`not-stand-in` in
   `checks`, no `[references]`).
-- [ ] 2.3 Realign the existing goldens this plan changes (approved with the plan), keeping each case's intent and
+- [x] 2.3 Realign the existing goldens this plan changes (approved with the plan), keeping each case's intent and
   updating its `note`:
   - `refactor-progress-keep-no-old-name`: the dir keep passes `checks`, warning, exit 0;
   - `refactor-progress-keep-prose-no-docs`: the file keep warns, exit 0. Add a line-keep variant in a prose file
@@ -47,7 +47,7 @@
   - `refactor-rename-not-stand-in`, `refactor-ts-rename-not-stand-in`: new text, no `[conflicts]`;
   - `refactor-rename-module-not-stand-in`: refused in `checks`, new text;
   - `refactor-rename-keep-unmatched`, `refactor-ts-rename-keep-unmatched` (`:99`, `site-missing`): unchanged.
-- [ ] 2.4 Unit tests. Python (`tests/test_rename_guards.py`, `tests/test_refactor_progress.py`, `tests/test_contract.py`
+- [x] 2.4 Unit tests. Python (`tests/test_rename_guards.py`, `tests/test_refactor_progress.py`, `tests/test_contract.py`
   as needed), plus helper tests: comment-aware `spelled_lines` / `keep_spells` (plain comment, trailing comment, type
   comment, `--docs` on), nearest edited line (before, after, tie, none), and whole-path keeps skipped by the
   up-front check. TS (`node/test/rename-guards.test.ts`) mirrors the helpers. Verify they fail before the

@@ -18,9 +18,9 @@ from living_architecture.refactor import timings
 from living_architecture.refactor.bindings import BindingCheck
 from living_architecture.refactor.map_file import MapError, load_map
 from living_architecture.refactor.member_namespace import MemberCheck
-from living_architecture.refactor.rename_map import RenameMap
+from living_architecture.refactor.rename_map import RenameMap, editable_files, keep_checks
 from living_architecture.refactor.rename_union import SymbolRename
-from living_architecture.refactor.sites import spelled_lines
+from living_architecture.refactor.sites import nearest_line, spelled_lines
 
 FAKE_LSP = Path(__file__).with_name("fake_lsp_server.py")
 CHECKS = "[resolve]\n[checks]\n"
@@ -65,6 +65,43 @@ def test_spelled_lines(text: str, lines: set[int]) -> None:
     assert spelled_lines(text, {"load"}) == lines
 
 
+@pytest.mark.parametrize(
+    ("text", "lines"),
+    [
+        ("# load the store\n", set()),
+        ("# the store\n# load reads it\n", set()),
+        ("x = 1  # load\n", set()),
+        ("y = load()  # load\n", {1}),
+        ('s = "# load"\n', {1}),
+        ("x = None  # type: load\n", {1}),
+        ("x = None  #type:load\n", {1}),
+        ("x = None  # a type: load\n", set()),
+    ],
+    ids=["comment", "multi-line-comment", "trailing-comment", "code-and-comment", "hash-in-string", "type-comment",
+         "type-comment-unspaced", "not-a-type-comment"],
+)
+def test_spelled_lines_without_comments(text: str, lines: set[int]) -> None:
+    assert spelled_lines(text, {"load"}, comments=False) == lines
+
+
+def test_the_keep_text_check_skips_whole_path_keeps(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    root = write_project(tmp_path / "p", {"pkg/a.py": FOO, "docs/x.py": "y = 1\n"})
+    monkeypatch.chdir(root)
+    editable = editable_files(root, False)
+    refused = keep_checks(["docs", "pkg/a.py", "docs/x.py:1"], root, editable,
+                          lambda rel: (root / rel).read_text(encoding="utf-8"), {"load"}, [], set(), docs=False)
+    assert [f.lines for f in refused] == [[message("refactor.keep-unmatched", site="docs/x.py:1")]]
+
+
+@pytest.mark.parametrize(
+    ("edited", "line", "nearest"),
+    [([4, 30], 9, 4), ([2, 12], 9, 12), ([12, 6], 9, 6), ([], 9, None), ([9], 9, 9)],
+    ids=["before", "after", "tie-takes-the-earlier", "none", "same-line"],
+)
+def test_nearest_line(edited: list[int], line: int, nearest: int | None) -> None:
+    assert nearest_line(edited, line) == nearest
+
+
 # ---- keeps the check passes or skips
 
 
@@ -79,7 +116,9 @@ def test_a_keep_on_a_line_holding_only_the_retarget_target_passes_the_checks(
     code, out, err = run_raw(root, argv, monkeypatch, capsys)
     assert (code, out) == (2, "")
     assert "[references 1/1] entry 1: legacy -> modern" in err.splitlines()
-    assert err.splitlines()[-1] == message("refactor.keep-unmatched", site="pkg/use.py:3")
+    assert "[conflicts]" not in err.splitlines()
+    unmatched = message("refactor.keep-unmatched", site="pkg/use.py:3").split(",")[0]
+    assert err.splitlines()[-1].startswith(unmatched)
 
 
 def test_the_keep_text_check_is_skipped_when_an_unresolved_entry_spells_no_name(

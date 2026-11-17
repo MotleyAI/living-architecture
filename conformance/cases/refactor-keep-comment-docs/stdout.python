@@ -1,0 +1,62 @@
+Renaming <load> to <fetch>:
+
+
+--- a/README.md
++++ b/README.md
+@@ -1,3 +1,3 @@
+ # Store
+ 
+-Call `Store.load` to read the store.
++Call `Store.fetch` to read the store.
+
+--- a/lib/commented.py
++++ b/lib/commented.py
+@@ -1,4 +1,4 @@
+-# Store.load reads
++# Store.fetch reads
+ # every record; Store.load is cached.
+ X = 1  # see Store.load
+-# Store.load again
++# Store.fetch again
+
+--- a/lib/near.py
++++ b/lib/near.py
+@@ -2,10 +2,10 @@
+ 
+ 
+ def f(store: Store) -> int:
+-    return store.load()
++    return store.fetch()
+ 
+ 
+ def load() -> int:
+     return 0
+ 
+-x = Store().load()
++x = Store().fetch()
+
+--- a/lib/store.py
++++ b/lib/store.py
+@@ -1,3 +1,3 @@
+ class Store:
+-    def load(self) -> int:
++    def fetch(self) -> int:
+         return 1
+
+--- a/lib/use.py
++++ b/lib/use.py
+@@ -2,4 +2,4 @@
+ 
+ 
+ def run(store: Store) -> int:
+-    return store.load()
++    return store.fetch()
+
+
+
+APPLIED. 5 file(s) changed:
+  README.md
+  lib/commented.py
+  lib/near.py
+  lib/store.py
+  lib/use.py

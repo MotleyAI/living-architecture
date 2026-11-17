@@ -1,0 +1,65 @@
+Renaming <load> to <fetch>:
+
+
+--- a/README.md
++++ b/README.md
+@@ -1,3 +1,3 @@
+ # Store
+ 
+-Call `Store.load` to read the store.
++Call `Store.fetch` to read the store.
+
+--- a/lib/commented.ts
++++ b/lib/commented.ts
+@@ -1,4 +1,4 @@
+-/* Store.load reads
++/* Store.fetch reads
+    every record; Store.load is cached. */
+ export const X = 1; // see Store.load
+-// Store.load again
++// Store.fetch again
+
+--- a/lib/near.ts
++++ b/lib/near.ts
+@@ -1,10 +1,10 @@
+ import { Store } from './store';
+ 
+ export function f(store: Store): number {
+-  return store.load();
++  return store.fetch();
+ }
+ 
+ export function load(): number {
+   return 0;
+ }
+-export const x = new Store().load();
++export const x = new Store().fetch();
+
+--- a/lib/store.ts
++++ b/lib/store.ts
+@@ -1,5 +1,5 @@
+ export class Store {
+-  load(): number {
++  fetch(): number {
+     return 1;
+   }
+ }
+
+--- a/lib/use.ts
++++ b/lib/use.ts
+@@ -1,5 +1,5 @@
+ import { Store } from './store';
+ 
+ export function run(store: Store): number {
+-  return store.load();
++  return store.fetch();
+ }
+
+
+
+APPLIED. 5 file(s) changed:
+  README.md
+  lib/commented.ts
+  lib/near.ts
+  lib/store.ts
+  lib/use.ts

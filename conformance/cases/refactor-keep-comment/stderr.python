@@ -1,0 +1,4 @@
+[resolve]
+[checks]
+--keep lib/commented.py:2 matches nothing this rename touches, so nothing was refactored
+--keep lib/commented.py:3 matches nothing this rename touches, so nothing was refactored
