@@ -382,6 +382,12 @@ def test_receiver_stores_declare_members() -> None:
         RECEIVERS.index("other ="), RECEIVERS.index("count +="))
 
 
+@pytest.mark.parametrize("name", ["a", "b", "c", "d", "e"], ids=["positional-only", "plain", "star", "keyword-only", "double-star"])
+def test_a_parameter_of_every_kind_is_located_by_path(name: str) -> None:
+    text = "def f(a, /, b, *c, d, **e) -> None:\n    pass\n"
+    assert _locate(text, f"f({name})") == text.index(name, text.index("("))
+
+
 def test_loop_and_with_targets_are_locals() -> None:
     text = "def f() -> None:\n    for item in [1]:\n        print(item)\n    with open('x') as handle:\n        print(handle)\n"
     assert (_locate(text, "f.<locals>.item"), _locate(text, "f.<locals>.handle")) == (text.index("item"), text.index("handle"))

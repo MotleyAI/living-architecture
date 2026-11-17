@@ -1,0 +1,15 @@
+Renaming <rest> to <tail>:
+
+
+--- a/pkg/starred.py
++++ b/pkg/starred.py
+@@ -1,3 +1,3 @@
+ def starred(s: list[int]) -> list[int]:
+-    a, *rest = s
+-    return rest
++    a, *tail = s
++    return tail
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

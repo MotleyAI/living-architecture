@@ -1,0 +1,13 @@
+Renaming <model> to <dataset>:
+
+
+--- a/pkg/comp.py
++++ b/pkg/comp.py
+@@ -1,2 +1,2 @@
+ def pairs(chain: list[tuple[str, str]]) -> list[str]:
+-    return [model for model, measure in chain]
++    return [dataset for dataset, measure in chain]
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

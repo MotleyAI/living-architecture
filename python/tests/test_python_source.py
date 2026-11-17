@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from living_architecture.refactor.python_source import SourceFile
+from living_architecture.refactor.python_source import SourceFile, every_parameter
 
 LIGATURE = "\ufb01x"  # NFKC: "fix", one character longer
 COMBINING = "a\u0301b"  # NFKC: one precomposed letter, then "b"
@@ -51,3 +51,10 @@ def test_the_all_strings_are_the_names_all_exports() -> None:
     )
     source = SourceFile(Path("m.py"), text)
     assert [n.value for n in source.all_strings()] == ["a", "b", "c", "d", "e", "f"]
+
+
+@pytest.mark.parametrize("text", ["def f(a, /, b=1, *c, d, e=2, **g): pass\n", "lambda a, /, b=1, *c, d, e=2, **g: 0\n"],
+                         ids=["def", "lambda"])
+def test_every_parameter_is_listed_in_declaration_order(text: str) -> None:
+    node = next(n for n in ast.walk(ast.parse(text)) if isinstance(n, (ast.FunctionDef, ast.Lambda)))
+    assert [a.arg for a in every_parameter(node.args)] == ["a", "b", "c", "d", "e", "g"]
