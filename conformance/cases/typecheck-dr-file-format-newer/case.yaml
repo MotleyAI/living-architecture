@@ -1,0 +1,12 @@
+kind: adapter
+languages:
+- python
+fixture: typecheck-python
+command: dr-typecheck
+normalize:
+- pattern: (?m)^(?=[^\n]*deterministic-refactor\.yaml)(?=[^\n]*9\.0\.0)(?=[^\n]*\bdr\b)[^\n]*$
+  replace: <FORMAT REFUSED deterministic-refactor.yaml 9.0.0 dr>
+expect:
+  exit: 2
+note: a newer dr file format names it as the dr version to upgrade to
+golden: manual

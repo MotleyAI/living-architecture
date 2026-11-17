@@ -1,0 +1,1 @@
+FAIL: installed dr tools are <VERSION>, but plugin 0.0.0 needs 0.0.x; reinstall them with: uv tool install deterministic-refactor==0.0.0

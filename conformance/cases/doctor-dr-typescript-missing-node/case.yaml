@@ -1,0 +1,9 @@
+kind: neutral
+command: dr-doctor
+twin: python
+hide: [node]
+normalize: [version]
+expect:
+  exit: 1
+golden: manual
+note: TypeScript is a repo language, so dr-doctor requires node and npx; pinned to the PyPI twin

@@ -99,7 +99,7 @@ def test_text_ratio_uses_config_cap_and_exempt(repo, capsys):
     assert la_check_conventions(["--file", "wordy.py"]) == 1
     assert "[text-ratio] source" in capsys.readouterr().out
     (repo / CONFIG_FILENAME).write_text(
-        f"format: {config.current_format()}\nconventions: {{text_ratio_max: 0.7, exempt: [surface.py]}}\n"
+        f"format: {config.current_format()}\nexempt: [surface.py]\nconventions: {{text_ratio_max: 0.7}}\n"
     )
     assert la_check_conventions(["--file", "wordy.py", "--file", "surface.py"]) == 0
     assert "exempt, skipped: surface.py" in capsys.readouterr().err

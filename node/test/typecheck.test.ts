@@ -130,7 +130,7 @@ describe('applicable languages', () => {
     const root = tempRepo({
       'tsconfig.json': '{}',
       'gen/a.ts': 'export {};\n',
-      'living-architecture.yaml': `format: ${currentFormat()}\nconventions: {exempt: ['gen/*']}\n`,
+      'living-architecture.yaml': `format: ${currentFormat()}\nexempt: ['gen/*']\n`,
       'node_modules/.bin/tsc': FAKE_TSC,
     });
     expect(run(root, 'la-typecheck', []).code).toBe(0);

@@ -1,0 +1,3 @@
+<DEPRECATED dr-typecheck 0.13.0>
+dr-typecheck: checking python with basedpyright
+dr-typecheck: python: wrote .basedpyright/baseline.json

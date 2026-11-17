@@ -1,0 +1,34 @@
+kind: neutral
+other_twin: absent
+command: dr-config
+args: [show]
+fixture: twin-mixed
+bins:
+- dir: watch
+  files:
+    dr-doctor: |
+      #!/bin/sh
+      echo "watch: dr-doctor $*" >> <ROOT>/repo/probe.log
+      echo "watch dr-doctor must not run" >&2
+      exit 99
+    la-doctor: |
+      #!/bin/sh
+      echo "watch: la-doctor $*" >> <ROOT>/repo/probe.log
+      echo "watch la-doctor must not run" >&2
+      exit 99
+    npx: |
+      #!/bin/sh
+      echo "watch: npx $*" >> <ROOT>/repo/probe.log
+      echo "watch npx must not run" >&2
+      exit 99
+    uvx: |
+      #!/bin/sh
+      echo "watch: uvx $*" >> <ROOT>/repo/probe.log
+      echo "watch uvx must not run" >&2
+      exit 99
+expect:
+  exit: 0
+  stdout: json
+  files: [probe.log]
+golden: manual
+note: dr-config show on a mixed repo completes natively in either twin with the other twin unreachable

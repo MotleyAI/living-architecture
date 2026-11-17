@@ -13,7 +13,7 @@ def repo(tmp_path: Path) -> Path:
     (tmp_path / CONFIG_FILENAME).write_text(
         f"format: {config.current_format()}\n"
         "reviewers:\n  codex: false\n  sonar: {project_key: k}\n"
-        "conventions: {exempt: [a.py]}\n",
+        "exempt: [a.py]\n",
         encoding="utf-8",
     )
     return tmp_path
@@ -38,7 +38,7 @@ def test_get_nested_string(repo: Path, capsys: pytest.CaptureFixture[str]) -> No
 
 
 def test_get_list_is_json(repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    assert main(["--root", str(repo), "get", "conventions.exempt"]) == 0
+    assert main(["--root", str(repo), "get", "exempt"]) == 0
     assert json.loads(capsys.readouterr().out) == ["a.py"]
 
 

@@ -1,2 +1,2 @@
 format: <FORMAT>
-conventions: {exempt: ['é/*']}
+exempt: ['é/*']

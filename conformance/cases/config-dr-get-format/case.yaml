@@ -1,0 +1,9 @@
+kind: neutral
+command: dr-config
+args:
+- get
+- format
+expect:
+  exit: 0
+note: a dr file at the current format passes
+golden: manual

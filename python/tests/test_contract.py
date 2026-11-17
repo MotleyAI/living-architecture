@@ -211,13 +211,6 @@ def test_conventions_facts_schema_rejects(vector: dict) -> None:
     assert validate(_schema("conventions-facts"), vector["document"]) != []
 
 
-def test_config_schema_typecheck_commands() -> None:
-    typecheck = _schema("living-architecture")["properties"]["commands"]["properties"]["typecheck"]
-    defaults = {name: spec.get("default") for name, spec in typecheck["properties"].items()}
-    assert defaults == {"python": "basedpyright", "typescript": "tsc --noEmit"}
-    assert typecheck["additionalProperties"] is False
-
-
 @pytest.mark.parametrize(
     ("commands", "valid"),
     [
@@ -260,22 +253,6 @@ def test_no_twin_hard_codes_a_config_file_name() -> None:
             for line in p.read_text(encoding="utf-8").splitlines()
             if _CONFIG_NAME_RE.search(line) and not _TS_COMMENT_RE.match(line)]
     assert python + node == []
-
-
-def test_config_file_names_and_formats() -> None:
-    assert _shared_yaml("config.yaml") == {
-        "file": "living-architecture.yaml",
-        "local_file": "living-architecture.local.yaml",
-        "formats": ["0.4.0"],
-    }
-
-
-def test_config_schema_declares_the_format_first() -> None:
-    config_schema = _schema("living-architecture")
-    prop = config_schema["properties"]["format"]
-    assert next(iter(config_schema["properties"])) == "format"
-    assert (prop["type"], prop["default"]) == (["string", "null"], None)
-    assert (prop["pattern"][0], prop["pattern"][-1]) == ("^", "$")
 
 
 @pytest.mark.parametrize(

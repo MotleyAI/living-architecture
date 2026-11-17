@@ -48,7 +48,7 @@ describe('repoLanguages', () => {
       'gen/a.ts': 'export {};\n',
       'out/b.ts': 'export {};\n',
       '.gitignore': 'out/\n',
-      'living-architecture.yaml': "conventions: {exempt: ['gen/*']}\n",
+      'living-architecture.yaml': "exempt: ['gen/*']\n",
     };
     expect(languagesOf(files)).toEqual([]);
   });

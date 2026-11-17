@@ -1,6 +1,4 @@
 format: <FORMAT>
-conventions:
-  exempt: [a.py]
+exempt: [a.py]
 tracker: linear
-conventions:
-  exempt: [b.py]
+exempt: [b.py]

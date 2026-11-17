@@ -1,2 +1,2 @@
 format: <FORMAT>
-conventions: {exempt: ['gen/*']}
+exempt: ['gen/*']

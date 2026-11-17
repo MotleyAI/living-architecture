@@ -1,0 +1,3 @@
+python:
+  source_roots: [a/src, a/notes.txt]
+  root_packages: [pa]

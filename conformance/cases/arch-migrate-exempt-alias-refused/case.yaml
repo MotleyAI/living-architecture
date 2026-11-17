@@ -1,0 +1,12 @@
+kind: neutral
+command: la-arch-migrate
+expect:
+  exit: 2
+  stderr:
+    contains:
+    - 'la-arch-migrate: '
+    - exempt
+  files:
+  - living-architecture.yaml
+note: an aliased exempt entry is not migratable
+golden: manual

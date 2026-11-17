@@ -1,0 +1,16 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+fixture: arch-ok
+remove:
+- pkg
+expect:
+  exit: 2
+  stderr:
+    contains:
+    - common
+    - a/src
+    - b/src
+golden: manual
+note: 'new behaviour: a root package found under two source_roots entries'

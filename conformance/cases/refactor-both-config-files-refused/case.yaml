@@ -1,0 +1,17 @@
+kind: neutral
+command: dr-refactor
+args:
+- rename
+- --file
+- src/a.py
+- --symbol
+- f
+- --new-name
+- g
+normalize:
+- pattern: (?m)^(?=[^\n]*deterministic-refactor\.yaml)(?=[^\n]*living-architecture\.yaml)[^\n]*$
+  replace: <BOTH FILES deterministic-refactor.yaml living-architecture.yaml>
+expect:
+  exit: 2
+note: 'both config files: refused before the format check, nothing else printed'
+golden: manual

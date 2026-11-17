@@ -1,0 +1,12 @@
+kind: neutral
+command: dr-config
+args:
+- get
+- tracker
+expect:
+  exit: 2
+  stderr:
+    contains:
+    - unknown key 'tracker'
+note: an la key is an unknown key to dr-config
+golden: manual

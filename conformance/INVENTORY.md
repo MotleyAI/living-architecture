@@ -16,6 +16,12 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | *(new)* `--help` and usage errors come before the check | 0/2 | `arch-check-format-help-unversioned`, `arch-check-format-usage-unversioned` |
 | *(new)* an exempt review shim runs in an unversioned repo | 0 | `shim-fetch-failed-pr-checks-unversioned` |
 | *(new)* the invoking twin checks before forwarding the other language's files (no install hint with the other twin absent) | 2 | `twin-format-checked-before-forwarding-python`, `twin-format-checked-before-forwarding-typescript` |
+| *(new)* a dr command in an la repo checks `living-architecture.yaml` against its series: an older `format` is refused naming both formats and `la-arch-migrate` | 2 | `refactor-format-older-la-file` |
+| *(new)* `deterministic-refactor.yaml` without `format`: refused naming `format: 0.12.0` as the line to add | 2 | `config-dr-format-missing` |
+| *(new)* `deterministic-refactor.yaml` at a newer format: refused naming it as the `dr` version to upgrade to | 2 | `typecheck-dr-file-format-newer` |
+| *(new)* `deterministic-refactor.yaml` at an older or invalid format: refused naming both formats, or showing the value | 2 | `config-dr-format-older`, `config-dr-format-invalid` |
+| *(new)* `deterministic-refactor.yaml` at the current format passes | 0 | `config-dr-get-format` |
+| *(new)* a dr command in an la repo checks `living-architecture.yaml` (older: both formats and `la-arch-migrate`), before forwarding (no install hint) | 2 | `typecheck-la-file-format-older`, `twin-format-older-checked-before-forwarding-dr-refactor` |
 
 ## la-arch-check
 
@@ -95,6 +101,12 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | *(new)* top-level facts: several modules of one unit importing another give one edge, witnessed by the first sorted source module | 0 | `arch-check-top-level-facts-one-witness` |
 | *(new)* disjoint `root_packages`: union top-level facts and cross-root import edges in both native twins | 0 | `arch-check-multiple-root-packages-python`, `arch-check-multiple-root-packages-typescript` |
 | *(new)* the arch-scaffold-python output passes the check; with an existing spec directory only the unmapped-spec finding remains | 0/1 | `arch-check-scaffolded-clean`, `arch-check-scaffolded-unmapped-spec` |
+| *(new)* Python `source_roots`: two packages under their own entries, units by dotted name | 0 | `arch-check-source-roots-workspace` |
+| *(new)* Python `source_roots`: top-level facts span every entry with dotted ids and cross-root edges | 0 | `arch-check-source-roots-facts` |
+| *(new)* `source_root` and `source_roots` both set: refused naming both keys | 2 | `arch-check-source-roots-both-forms` |
+| *(new)* `source_roots` in a `typescript` section or at the top level: refused naming the key | 2 | `arch-check-index-typescript-source-roots-rejected`, `arch-check-index-top-level-source-roots-rejected` |
+| *(new)* a root package under no `source_roots` entry, under two, or an entry holding no root package | 2 | `arch-check-source-roots-root-package-in-none`, `arch-check-source-roots-root-package-in-two`, `arch-check-source-roots-unused` |
+| *(new)* invalid `source_roots`: empty, not strings, a repeated, absolute, non-canonical, symlink-escaping or non-directory entry, nested entries | 2 | `arch-check-source-roots-invalid-empty`, `arch-check-source-roots-invalid-not-strings`, `arch-check-source-roots-invalid-repeated`, `arch-check-source-roots-invalid-absolute`, `arch-check-source-roots-invalid-non-canonical`, `arch-check-source-roots-invalid-symlink-escape`, `arch-check-source-roots-invalid-not-a-directory`, `arch-check-source-roots-invalid-nested` |
 
 ## la-arch-check: multi-language
 
@@ -196,6 +208,8 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | *(new)* the merged files would parse differently: nothing written | 2 | `arch-migrate-verification-mismatch` |
 | *(new)* a failing delete after both writes: created files removed, repo and config unchanged (every failure point and failed restores: the migrate unit tests) | 2 | `arch-migrate-write-failure` |
 | *(new)* usage error; `--help` | 2/0 | `arch-migrate-usage-unknown-flag`, `arch-migrate-help` |
+| *(new)* 0.4.0 → 0.12.0: `conventions.exempt` moves verbatim (comments kept), dedented, to after the `format` line; an emptied `conventions` is removed; without it only the format is stamped | 0 | `arch-migrate-exempt-block-sequence`, `arch-migrate-exempt-flow-sequence-emptied`, `arch-migrate-exempt-nothing-to-move` |
+| *(new)* 0.4.0 → 0.12.0 not migratable (flow-style `conventions`, an alias, anchor or tag on or in the entry, a merge key in `conventions`): names the manual edit, nothing written | 2 | `arch-migrate-exempt-flow-conventions-refused`, `arch-migrate-exempt-alias-refused`, `arch-migrate-exempt-anchor-refused`, `arch-migrate-exempt-tag-refused`, `arch-migrate-exempt-merge-key-refused` |
 
 ## la-config
 
@@ -223,6 +237,30 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | *(new)* a repeated key in `living-architecture.yaml` or `living-architecture.local.yaml`: a config error naming the file, the key and both lines | 1 | `config-show-duplicate-key`, `config-local-duplicate-key` |
 | *(new)* a config that cannot be read (the os.* text) or is not valid UTF-8 (invalid YAML): a config error, never a crash | 1 | `config-unreadable`, `config-not-utf8` |
 | *(new)* `format`: `null` in the defaults (shown in every `show` golden), `get format` | 0 | `config-show-defaults`, `config-get-format` |
+| *(new)* the top-level `exempt`: default `[]` (also through `dr-config`), the list as written | 0 | `config-get-exempt-default`, `dr-config-get-exempt-default`, `config-get-exempt-top-level` |
+| *(new)* the retired `conventions.exempt`: a config error naming `exempt` | 1 | `config-show-conventions-exempt-retired` |
+| *(new)* files under the top-level `exempt` do not make a language (also through `dr-config`) | 0 | `config-get-languages-exempt-top-level`, `dr-config-get-languages-exempt-top-level` |
+| *(new)* the dr keys la's schema takes by reference get their defaults (`exempt` `[]`, `commands.typecheck` both languages); an explicit null under them is kept; explicit empty lists and `false` are kept | 0 | `config-show-dr-keys-referenced`, `config-show-null-through-reference`, `config-show-falsy-top-level-exempt` |
+
+## The committed config files
+
+| Branch | Exit | Cases |
+|---|---|---|
+| *(new)* a dr command reads `deterministic-refactor.yaml` | 0 | `typecheck-dr-only-repo-command` |
+| *(new)* a dr command without `deterministic-refactor.yaml` reads `living-architecture.yaml` | 0 | `typecheck-la-repo-read-by-dr` |
+| *(new)* a `deterministic-refactor.yaml` that is not a regular file counts as absent | 0 | `config-dr-file-directory-is-absent` |
+| *(new)* both files present: every config-reading command refuses with one message naming both, before the format check | 2 | `refactor-both-config-files-refused`, `typecheck-both-config-files-refused`, `config-dr-both-files-refused`, `conventions-both-config-files-refused`, `config-both-files-refused` |
+| *(new)* an la key in `deterministic-refactor.yaml`: config error naming the key and the file | 1 | `config-dr-la-key-in-dr-file` |
+| *(new)* an la command ignores `deterministic-refactor.yaml` (no format check, no values) | 0 | `config-dr-file-ignored-by-la` |
+| *(new)* dr ignores `living-architecture.local.yaml` | 0 | `config-dr-local-file-ignored` |
+
+## dr-config
+
+| Branch | Exit | Cases |
+|---|---|---|
+| *(new)* `show`: the resolved dr keys only (`format`, `exempt`, `commands.test`, `commands.typecheck`) | 0 | `config-dr-show-dr-only`, `config-dr-local-file-ignored` |
+| *(new)* `get` of an la key: the unknown-key message | 2 | `config-dr-get-la-key-refused` |
+| *(new)* `get languages` equals `la-config get languages` | 0 | `config-dr-get-languages-la-repo`, `config-get-languages-la-repo` |
 
 ## la-doctor
 
@@ -252,6 +290,23 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | *(new)* a format refusal is the problem line and skips the config checks (no schema error for a newer key, no config-vs-disk findings, no language executables); the version, local-file and required-executable checks still run | 1 | `doctor-format-newer-unknown-key`, `doctor-format-older`, `doctor-format-missing-require-config`, `doctor-format-missing-plugin-mismatch`, `doctor-format-missing-other-checks-run` |
 
 `--contract-hash` *(new)* prints a value that changes with `shared/`; it is pinned by `tests/test_contract.py`.
+| *(new)* no `dr-doctor` on `PATH`: one finding naming it and the invoking twin's la install command, which installs the dr commands too | 1 | `doctor-la-dr-missing-python`, `doctor-la-dr-missing-typescript` |
+| *(new)* the first `dr-doctor` on `PATH` reports another version: one finding naming both versions and the install command | 1 | `doctor-la-dr-version-mismatch` |
+| *(new)* the first `dr-doctor` on `PATH` matches the invoking language, version and dr hash: no dr finding | 0 | `doctor-la-dr-match-python`, `doctor-la-dr-match-typescript` |
+| *(new)* both config files: the both-files problem once, replacing format, schema and consistency checks | 1 | `doctor-la-both-files` |
+| *(new)* `--require-config` in a dr-only repo: the la missing-config finding | 1 | `doctor-la-require-config-dr-only` |
+
+## dr-doctor
+
+| Branch | Exit | Cases |
+|---|---|---|
+| *(new)* healthy: the ok line names dr and the config source (`deterministic-refactor.yaml`, `living-architecture.yaml` without the local file, or the defaults); no la-only check runs; `gh` not required | 0 | `doctor-dr-ok-dr-only`, `doctor-dr-la-repo`, `doctor-dr-missing-gh`, `twin-neutral-dr-doctor` |
+| *(new)* `--require-config` with neither config file: one finding naming `/dr:init` | 1 | `doctor-dr-require-config-missing` |
+| *(new)* both config files: the both-files problem alone, replacing the format and schema checks | 1 | `doctor-dr-both-files` |
+| *(new)* `deterministic-refactor.yaml` at a newer format: the problem names `dr` to upgrade to | 1 | `doctor-dr-format-newer` |
+| *(new)* `--plugin` series mismatch: names dr and the invoking twin's dr install command at the plugin's version | 1 | `doctor-dr-plugin-mismatch-python`, `doctor-dr-plugin-mismatch-typescript` |
+| *(new)* TypeScript repo language without `node`/`npx` | 1 | `doctor-dr-typescript-missing-node` |
+| *(new)* `--twin` (internal option) prints `<language> <version> <dr-hash>`, per twin | 0 | `doctor-dr-twin-identity-python`, `doctor-dr-twin-identity-typescript` |
 
 ## la-check-conventions
 
@@ -277,6 +332,7 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | *(new)* `conventions.rules`: only configured rules report; an unconfigured text-ratio prints no ratio line; test-only rules dropped; `[]` keeps only the summary and CLEAR; a waiver for an unconfigured rule does nothing | 1/0 | `conventions-rules-one-rule-dropped`, `conventions-rules-test-only-dropped`, `conventions-rules-gate-off`, `conventions-rules-waiver-unconfigured` |
 | *(new)* `conventions.rules`: unreadable/syntax-error reported iff a configured rule applies to the file | 0/1 | `conventions-rules-file-errors-gate-off`, `conventions-rules-syntax-error-rule-on`, `conventions-rules-file-error-test-only-rules` |
 | *(new)* a conventions section without `rules` keeps every registry rule | 1 | `conventions-rules-default` |
+| *(new)* a diff-derived file under the top-level `exempt` is listed as skipped and not checked | 0 | `conventions-exempt-top-level-key` |
 
 ## la-check-conventions: multi-language
 
@@ -351,6 +407,17 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | *(new)* TS baseline shrinks; written fresh (sorted), clean (empty), path with spaces and parentheses, continuation lines, diagnostics on stderr, absolute path keyed relative | 0 | `typecheck-ts-shrink`, `typecheck-ts-write-fresh`, `typecheck-ts-write-clean`, `typecheck-ts-path-spaces-parens`, `typecheck-ts-continuation-lines`, `typecheck-ts-diagnostics-on-stderr`, `typecheck-ts-absolute-path` |
 | *(new)* TS failures: every baseline exists in write mode, global diagnostic, non-zero exit with nothing parsed, malformed or wrongly shaped baseline | 2 | `typecheck-ts-write-all-exist`, `typecheck-ts-global-diagnostic`, `typecheck-ts-nonzero-nothing-parsed`, `typecheck-ts-malformed-baseline`, `typecheck-ts-baseline-wrong-shape` |
 | *(new)* multi-language: Python first, exit max; write for a newly added language skips the existing baseline; a Python patch failure, identical through either twin | 1/0/2 | `typecheck-mixed-order-exit-max`, `typecheck-mixed-write-new-language`, `typecheck-mixed-patch-failure` |
+
+## la-typecheck (deprecated alias of dr-typecheck)
+
+| Branch | Exit | Cases |
+|---|---|---|
+| *(new)* the alias: `dr-typecheck`'s stdout and exit, its stderr after one deprecation line naming `dr-typecheck` and `0.13.0` | 1 | `typecheck-dr-python-new-errors`, `typecheck-alias-python-new-errors` |
+| *(new)* the line once on a mixed repo, before the python header (forwarded section silent) | 1 | `typecheck-alias-mixed-deprecation-once` |
+| *(new)* write mode through the alias | 0 | `typecheck-alias-write-baseline` |
+| *(new)* no line under `LA_FORWARDED=1`, plain or with the internal `--language` | 0 | `typecheck-alias-forwarded-no-line`, `typecheck-alias-forwarded-language-no-line` |
+| *(new)* `--help`: no line | 0 | `typecheck-alias-help` |
+| *(new)* a usage error: `dr-typecheck`'s, no line | 2 | `typecheck-alias-usage-error` |
 
 ## dr-compliance
 
@@ -654,6 +721,9 @@ time or many paged responses. Those branches are pinned by `tests/test_review_sc
 | *(new)* `dr-*` other twin qualifies but cannot run the command (captured, forwarded; from either twin): a twin error, exit 2 | 2 | `twin-dr-launch-failed-captured-python`, `twin-dr-launch-failed-captured-typescript`, `twin-dr-launch-failed-forward-python`, `twin-dr-launch-failed-forward-typescript` |
 | *(new)* `dr-*` other twin unreachable; `LA_FORWARDED=1` refusal | 2 | `twin-dr-unavailable-typescript`, `twin-dr-unavailable-python`, `twin-dr-refused-when-forwarded-typescript`, `twin-dr-refused-when-forwarded-python` |
 | *(new)* `dr-*` own-language inputs never probe the other twin | 1 | `twin-dr-own-language-python`, `twin-dr-own-language-typescript` |
+| *(new)* the dr runner names the `deterministic-refactor` package and probes `dr-doctor --twin` | 0 | `twin-dr-runner-names-dr-package` |
+| *(new)* an la twin with la's version and la hash but another dr hash is skipped; the runner is probed | 0 | `twin-la-other-dr-runner-probed` |
+| *(new)* `dr-config show` and `dr-doctor` never forward (other twin unreachable) | 0 | `twin-neutral-dr-config-show`, `twin-neutral-dr-doctor` |
 
 ## Excluded: crashes
 

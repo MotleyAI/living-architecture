@@ -1,0 +1,13 @@
+kind: neutral
+twin: typescript
+command: la-doctor
+hide: [dr-doctor]
+normalize:
+- version
+- pattern: '(?m)^FAIL: (?=.*dr-doctor)(?=.*npm\ install\ \-g\ living\-architecture@<VERSION>\ deterministic\-refactor@<VERSION>).*$'
+  replace: 'FAIL: <DR-MISSING>'
+expect:
+  exit: 1
+golden: manual
+note: 'no dr-doctor on PATH: one finding naming it and the typescript twin''s la install command, which installs the dr
+  commands too'

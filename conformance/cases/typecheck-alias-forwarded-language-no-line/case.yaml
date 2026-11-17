@@ -1,0 +1,14 @@
+kind: adapter
+languages:
+- python
+fixture: typecheck-python
+command: la-typecheck
+args:
+- --language
+- python
+env:
+  LA_FORWARDED: '1'
+expect:
+  exit: 0
+note: a forwarded language section through the alias repeats no deprecation line
+golden: manual

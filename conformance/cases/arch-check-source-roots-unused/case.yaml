@@ -1,0 +1,15 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+fixture: arch-ok
+remove:
+- pkg
+expect:
+  exit: 2
+  stderr:
+    contains:
+    - source_roots
+    - c/src
+golden: manual
+note: 'new behaviour: a source_roots entry holding no configured root package'

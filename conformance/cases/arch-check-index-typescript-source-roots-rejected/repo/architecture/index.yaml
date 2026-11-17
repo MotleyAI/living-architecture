@@ -1,0 +1,3 @@
+typescript:
+  root_package: src
+  source_roots: [a, b]

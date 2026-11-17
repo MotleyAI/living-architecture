@@ -1,0 +1,11 @@
+{
+  "format": null,
+  "exempt": [],
+  "commands": {
+    "test": null,
+    "typecheck": {
+      "python": "basedpyright",
+      "typescript": "tsc --noEmit"
+    }
+  }
+}

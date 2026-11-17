@@ -1,0 +1,12 @@
+kind: neutral
+command: la-typecheck
+args:
+- --bogus
+normalize:
+- pattern: (?s)\A(?=.*--bogus)(?!.*0\.13\.0).*\Z
+  replace: <USAGE ERROR WITHOUT DEPRECATION LINE>
+expect:
+  exit: 2
+  stdout: ignore
+note: the alias's usage error is dr-typecheck's, with no deprecation line
+golden: manual

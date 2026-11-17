@@ -1,0 +1,19 @@
+kind: neutral
+twin: python
+command: la-doctor
+bins:
+- dir: old-dr
+  position: before
+  files:
+    dr-doctor: |
+      #!/bin/sh
+      [ "$*" = "--twin" ] || { echo "fake dr-doctor: unexpected $*" >&2; exit 99; }
+      echo "python 0.11.0 <DR_CONTRACT_HASH>"
+normalize:
+- version
+- pattern: '(?m)^FAIL: (?=.*0\.11\.0)(?=.*<VERSION>)(?=.*uv tool install living-architecture==<VERSION> --with-executables-from deterministic-refactor).*$'
+  replace: 'FAIL: <DR-MISMATCH>'
+expect:
+  exit: 1
+golden: manual
+note: 'the first dr-doctor on PATH reports dr 0.11.0: one finding naming both versions and the la install command'

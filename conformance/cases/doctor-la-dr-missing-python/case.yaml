@@ -1,0 +1,13 @@
+kind: neutral
+twin: python
+command: la-doctor
+hide: [dr-doctor]
+normalize:
+- version
+- pattern: '(?m)^FAIL: (?=.*dr-doctor)(?=.*uv\ tool\ install\ living\-architecture==<VERSION>\ \-\-with\-executables\-from\ deterministic\-refactor).*$'
+  replace: 'FAIL: <DR-MISSING>'
+expect:
+  exit: 1
+golden: manual
+note: 'no dr-doctor on PATH: one finding naming it and the python twin''s la install command, which installs the dr
+  commands too'

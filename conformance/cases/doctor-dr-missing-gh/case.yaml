@@ -1,0 +1,8 @@
+kind: neutral
+command: dr-doctor
+hide: [gh]
+normalize: [version]
+expect:
+  exit: 0
+golden: manual
+note: dr-doctor does not require gh

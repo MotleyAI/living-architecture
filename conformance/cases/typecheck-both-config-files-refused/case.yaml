@@ -1,0 +1,12 @@
+kind: adapter
+languages:
+- python
+fixture: typecheck-python
+command: dr-typecheck
+normalize:
+- pattern: (?m)^(?=[^\n]*deterministic-refactor\.yaml)(?=[^\n]*living-architecture\.yaml)[^\n]*$
+  replace: <BOTH FILES deterministic-refactor.yaml living-architecture.yaml>
+expect:
+  exit: 2
+note: 'both config files: refused before the format check, nothing else printed'
+golden: manual

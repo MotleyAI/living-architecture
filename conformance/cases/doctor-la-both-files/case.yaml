@@ -1,0 +1,9 @@
+kind: neutral
+command: la-doctor
+normalize:
+- pattern: '(?m)^FAIL: (?=.*deterministic-refactor\.yaml)(?=.*living-architecture\.yaml).*$'
+  replace: 'FAIL: <BOTH-FILES>'
+expect:
+  exit: 1
+golden: manual
+note: 'both config files: the both-files problem once, replacing the format, schema and consistency checks'

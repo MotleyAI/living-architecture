@@ -1,0 +1,22 @@
+specification {
+  element system
+  element node
+}
+
+model {
+  python = system 'Python' {
+    dr = node 'deterministic-refactor' {
+      metadata {
+        package 'deterministic_refactor.core'
+      }
+      engine = node 'Engine'
+    }
+    la = node 'living-architecture' {
+      metadata {
+        package 'living_architecture.cli'
+      }
+    }
+
+    la -> dr.engine
+  }
+}

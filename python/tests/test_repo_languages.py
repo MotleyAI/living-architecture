@@ -43,7 +43,7 @@ def test_marker_without_files(tmp_path: Path) -> None:
 
 def test_exempt_and_ignored_files_do_not_count(tmp_path: Path) -> None:
     files = {"tsconfig.json": "{}", "gen/a.ts": "export {};\n", "out/b.ts": "export {};\n", ".gitignore": "out/\n",
-             "living-architecture.yaml": "conventions: {exempt: ['gen/*']}\n"}
+             "living-architecture.yaml": "exempt: ['gen/*']\n"}
     assert _repo(tmp_path, files) == []
 
 

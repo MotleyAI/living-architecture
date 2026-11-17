@@ -1,0 +1,11 @@
+kind: neutral
+command: dr-config
+args:
+- show
+normalize:
+- pattern: (?m)^(?=[^\n]*deterministic-refactor\.yaml)(?=[^\n]*v0\.12\.0)(?=[^\n]*(?<![v0-9.])0\.12\.0)[^\n]*$
+  replace: <FORMAT REFUSED deterministic-refactor.yaml v0.12.0 0.12.0>
+expect:
+  exit: 2
+note: an invalid dr file format shows the value
+golden: manual

@@ -1,4 +1,5 @@
 format: <FORMAT>
-conventions: {exempt: [], rules: []}
+exempt: []
+conventions: {rules: []}
 reviewers: {codex: false}
 commands: {test: ''}

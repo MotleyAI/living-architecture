@@ -1,0 +1,16 @@
+kind: adapter
+languages:
+- python
+fixture: typecheck-python
+command: la-typecheck
+args:
+- --write-baseline
+normalize:
+- pattern: \A(?=[^\n]*dr-typecheck)(?=[^\n]*0\.13\.0)[^\n]*
+  replace: <DEPRECATED dr-typecheck 0.13.0>
+expect:
+  exit: 0
+  files:
+  - .basedpyright/baseline.json
+note: write mode through the alias writes the baseline as dr-typecheck --write-baseline does
+golden: manual

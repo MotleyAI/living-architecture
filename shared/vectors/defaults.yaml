@@ -5,6 +5,7 @@ cases:
   config: null
   resolved:
     format: null
+    exempt: []
     tracker: linear
     openspec: true
     architecture: false
@@ -21,7 +22,6 @@ cases:
         typescript: tsc --noEmit
     conventions:
       text_ratio_max: 0.15
-      exempt: []
       rules:
       - import-not-top
       - text-ratio
@@ -31,6 +31,7 @@ cases:
   config: ''
   resolved:
     format: null
+    exempt: []
     tracker: linear
     openspec: true
     architecture: false
@@ -47,7 +48,6 @@ cases:
         typescript: tsc --noEmit
     conventions:
       text_ratio_max: 0.15
-      exempt: []
       rules:
       - import-not-top
       - text-ratio
@@ -58,6 +58,7 @@ cases:
     # nothing yet
   resolved:
     format: null
+    exempt: []
     tracker: linear
     openspec: true
     architecture: false
@@ -74,7 +75,6 @@ cases:
         typescript: tsc --noEmit
     conventions:
       text_ratio_max: 0.15
-      exempt: []
       rules:
       - import-not-top
       - text-ratio
@@ -85,6 +85,7 @@ cases:
     {}
   resolved:
     format: null
+    exempt: []
     tracker: linear
     openspec: true
     architecture: false
@@ -101,7 +102,6 @@ cases:
         typescript: tsc --noEmit
     conventions:
       text_ratio_max: 0.15
-      exempt: []
       rules:
       - import-not-top
       - text-ratio
@@ -112,6 +112,7 @@ cases:
     reviewers: {sonar: {project_key: k}}
   resolved:
     format: null
+    exempt: []
     tracker: linear
     openspec: true
     architecture: false
@@ -128,7 +129,6 @@ cases:
         typescript: tsc --noEmit
     conventions:
       text_ratio_max: 0.15
-      exempt: []
       rules:
       - import-not-top
       - text-ratio
@@ -136,12 +136,14 @@ cases:
       - raises-single-throw
 - name: explicit falsy values are kept
   config: |
-    conventions: {exempt: [], rules: []}
+    exempt: []
+    conventions: {rules: []}
     reviewers: {codex: false}
     openspec: false
     commands: {test: ''}
   resolved:
     format: null
+    exempt: []
     tracker: linear
     openspec: false
     architecture: false
@@ -158,7 +160,6 @@ cases:
         typescript: tsc --noEmit
     conventions:
       text_ratio_max: 0.15
-      exempt: []
       rules: []
 - name: explicit values are never replaced
   config: |
@@ -168,9 +169,12 @@ cases:
     reviewers: {codex: false, sonar: {project_key: k}}
     issue_key_pattern: 'X-\d+'
     commands: {test: t, lint: l}
-    conventions: {text_ratio_max: 0.5, exempt: ['a/*'], rules: [text-ratio]}
+    exempt: ['a/*']
+    conventions: {text_ratio_max: 0.5, rules: [text-ratio]}
   resolved:
     format: null
+    exempt:
+    - a/*
     tracker: github
     openspec: false
     architecture: true
@@ -187,15 +191,15 @@ cases:
         typescript: tsc --noEmit
     conventions:
       text_ratio_max: 0.5
-      exempt:
-      - a/*
       rules:
       - text-ratio
 - name: sibling defaults filled
   config: |
-    conventions: {exempt: ['gen/*']}
+    exempt: ['gen/*']
   resolved:
     format: null
+    exempt:
+    - gen/*
     tracker: linear
     openspec: true
     architecture: false
@@ -212,8 +216,6 @@ cases:
         typescript: tsc --noEmit
     conventions:
       text_ratio_max: 0.15
-      exempt:
-      - gen/*
       rules:
       - import-not-top
       - text-ratio
@@ -224,6 +226,7 @@ cases:
     commands: {typecheck: {typescript: null}}
   resolved:
     format: null
+    exempt: []
     tracker: linear
     openspec: true
     architecture: false
@@ -240,7 +243,6 @@ cases:
         typescript: null
     conventions:
       text_ratio_max: 0.15
-      exempt: []
       rules:
       - import-not-top
       - text-ratio
@@ -251,6 +253,7 @@ cases:
     commands: {typecheck: {python: basedpyright -p python}}
   resolved:
     format: null
+    exempt: []
     tracker: linear
     openspec: true
     architecture: false
@@ -267,7 +270,6 @@ cases:
         typescript: tsc --noEmit
     conventions:
       text_ratio_max: 0.15
-      exempt: []
       rules:
       - import-not-top
       - text-ratio
@@ -278,6 +280,7 @@ cases:
     tracker: none
   resolved:
     format: null
+    exempt: []
     tracker: none
     openspec: true
     architecture: false
@@ -294,7 +297,6 @@ cases:
         typescript: tsc --noEmit
     conventions:
       text_ratio_max: 0.15
-      exempt: []
       rules:
       - import-not-top
       - text-ratio
