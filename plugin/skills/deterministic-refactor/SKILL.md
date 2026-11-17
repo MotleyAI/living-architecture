@@ -72,9 +72,8 @@ or `--offset N` (0-based). A Python `rename` located on an import that names a m
 module and no locator, renames the module: its file (a package's directory) moves and every import follows, while
 `move-module` only moves a module into an existing package under its own name. `--stub REMOVAL` leaves a stub at the
 old path from the repo's `refactor.python.moved_module_stub`. `rename-map MAP` reads a YAML list of
-`{file, symbol, new_name}` or `{file, symbol, retarget}` entries (files relative
-to `--project`), resolves every entry before renaming any, and writes all or
-nothing. `retarget --file F --symbol OLD --target NEW` rewrites what resolves to
+`{file, symbol, new_name}`, `{file, symbol, retarget}` or, for a Python module, `{module, new_name}` entries
+(paths relative to `--project`), resolves every entry before renaming any, and writes all or nothing. `retarget --file F --symbol OLD --target NEW` rewrites what resolves to
 the alias `OLD` to name `NEW`, its target declared or imported in the same class or
 module, imports `NEW` where a file lacks it, and leaves `OLD` and its re-exports in
 place. `rename`, `rename-map` and `retarget` also take `--with` /

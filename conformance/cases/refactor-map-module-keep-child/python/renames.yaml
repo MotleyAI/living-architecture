@@ -1,0 +1,2 @@
+- {module: pkg/sql/__init__.py, new_name: db}
+- {module: pkg/sql/client.py, new_name: cli}

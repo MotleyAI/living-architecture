@@ -1,0 +1,11 @@
+kind: neutral
+command: dr-refactor
+args:
+- rename-map
+- renames.yaml
+git:
+- commit: init
+expect:
+  exit: 2
+golden: manual
+note: 'module entries with a locator, a retarget or a file: map-invalid naming each, through either invoking twin'

@@ -244,7 +244,7 @@ commands:
           apply a YAML list of rename and retarget entries as one refactor: every entry resolved against the code
           before the map, one diff, one refusal report, written all or nothing
         positionals:
-          - {name: map, help: 'the map file: entries {file, symbol | line [col] | offset, new_name | retarget}'}
+          - {name: map, help: 'the map file: entries {file, symbol | line [col] | offset, new_name | retarget} or {module, new_name}'}
         options:
           - {name: --no-in-hierarchy, type: flag, dest: in_hierarchy, store: false,
              help: 'disable hierarchy rename (on by default: also renames overrides in sub/superclasses; Python only)'}
@@ -262,6 +262,9 @@ commands:
              help: 'also rewrite mentions in comments, docstrings, strings and prose files; list the rest'}
           - {name: --fail-fast, type: flag,
              help: 'stop at the first entry with a refusal (default: compute every entry and report every refusal)'}
+          - {name: --stub, type: string, metavar: REMOVAL,
+             help: 'Python module renames: leave a stub at each moved module file''s old path, refactor.python.moved_module_stub
+               with {removal} set to REMOVAL'}
       retarget:
         help: rewrite the references to an alias to name its target, declared or imported in the same class or module
         exclusive: [[offset, line, symbol]]

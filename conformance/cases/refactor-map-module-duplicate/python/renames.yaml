@@ -1,0 +1,2 @@
+- {module: pkg/a.py, new_name: d}
+- {file: pkg/use.py, line: 1, col: 12, new_name: e}

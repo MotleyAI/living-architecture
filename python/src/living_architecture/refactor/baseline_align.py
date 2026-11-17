@@ -116,9 +116,10 @@ class _Files:
         return Path(path).resolve().relative_to(self.repo).as_posix()
 
     def renamed(self, rel: str) -> str:
+        """`rel` once every move is made, in order."""
         for src, dest in self.moves:
             if rel == src or rel.startswith(f"{src}/"):
-                return dest + rel[len(src) :]
+                rel = dest + rel[len(src) :]
         return rel
 
     def touched(self, rel: str) -> bool:

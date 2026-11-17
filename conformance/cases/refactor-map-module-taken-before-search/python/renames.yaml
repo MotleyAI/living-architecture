@@ -1,0 +1,2 @@
+- {file: pkg/f.py, symbol: f, new_name: g}
+- {module: pkg/a.py, new_name: b}

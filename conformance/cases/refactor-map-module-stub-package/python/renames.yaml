@@ -1,0 +1,2 @@
+- {module: pkg/a.py, new_name: b}
+- {module: pkg/sql/__init__.py, new_name: db}

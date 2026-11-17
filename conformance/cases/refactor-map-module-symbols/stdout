@@ -1,0 +1,31 @@
+Renaming <join_edges> to <relationship_edges>:
+Renaming <JoinEdge> to <RelationshipEdge>:
+Renaming <load> to <read>:
+
+
+--- a/pkg/edges_use.py
++++ b/pkg/edges_use.py
+@@ -1,5 +1,5 @@
+-from pkg.join_edges import JoinEdge
++from pkg.relationship_edges import RelationshipEdge
+ 
+ 
+-def load() -> JoinEdge:
+-    return JoinEdge()
++def read() -> RelationshipEdge:
++    return RelationshipEdge()
+
+--- a/pkg/join_edges.py
++++ b/pkg/join_edges.py
+@@ -1,2 +1,2 @@
+-class JoinEdge:
++class RelationshipEdge:
+     pass
+
+rename from pkg/join_edges.py
+rename to pkg/relationship_edges.py
+
+
+APPLIED. 2 file(s) changed:
+  pkg/edges_use.py
+  pkg/join_edges.py
