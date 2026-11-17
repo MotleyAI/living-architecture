@@ -22,4 +22,5 @@ expect:
   files:
   - pkg/store.py
 golden: manual
-note: 'a classification line declaring no stand-in of this rename: usage error, nothing written'
+note: 'a classification line declaring no stand-in of this rename: refused at site resolution, no [conflicts],
+  nothing written'

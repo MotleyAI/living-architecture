@@ -18,4 +18,4 @@ git:
 expect:
   exit: 2
 golden: manual
-note: a module rename has no stand-ins, so --with or --without names no stand-in of it
+note: a module rename has no stand-ins, so each --with or --without is refused in checks

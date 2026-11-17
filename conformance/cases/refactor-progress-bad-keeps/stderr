@@ -1,5 +1,5 @@
 [resolve]
 [checks]
 --keep lib/gone names no file, directory or line in the project
---keep architecture matches nothing this rename touches
---keep README.md matches nothing this rename touches
+--keep architecture/notes.md:1 matches nothing this rename touches, so nothing was refactored
+--keep README.md:3 matches nothing this rename touches, so nothing was refactored

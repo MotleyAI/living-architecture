@@ -1,0 +1,9 @@
+[resolve]
+[checks]
+[references]
+[references 1/1] entry 1: load -> fetch
+[rules]
+[rules 1/1] entry 1: load -> fetch: 1 refusal(s)
+lib/loose.ts:2: attr-blindspot: s.load — s is any, so a rename of .load is unverifiable
+lib/loose.ts:2: attr-blindspot: s.load — s is any, so a rename of .load is unverifiable
+1 blind spot(s) of .load: type or resolve them, or pass --allow-blindspots

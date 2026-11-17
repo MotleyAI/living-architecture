@@ -1,0 +1,17 @@
+kind: paired
+languages:
+- python
+- typescript
+command: dr-refactor
+args:
+- rename-map
+- renames.yaml
+- --keep
+- README.md:3
+fixture: refactor-progress
+git:
+- commit: init
+expect:
+  exit: 2
+golden: manual
+note: without --docs a prose file is not editable, so a line keep in it is keep-unmatched in checks

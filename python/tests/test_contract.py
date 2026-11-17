@@ -682,8 +682,12 @@ NEW_TEMPLATES = {
     "refactor.stand-in":
         "{path}:{line}: stand-in: {cls}.{attr} is outside the renamed hierarchy; pass --with {path}:{line} to rename"
         " it too or --without {path}:{line} to leave it",
-    "refactor.not-stand-in": "{site} is not a stand-in of this rename",
-    "refactor.keep-unmatched": "--keep {site} matches nothing this rename touches",
+    "refactor.not-stand-in": "{site} is not a stand-in of this rename, so nothing was refactored",
+    "refactor.keep-unmatched": "--keep {site} matches nothing this rename touches, so nothing was refactored",
+    "refactor.keep-unmatched-near":
+        "--keep {site} matches nothing this rename touches; the nearest edited line is {path}:{line}, so nothing was"
+        " refactored",
+    "refactor.keep-unneeded": "WARNING: --keep {site} matches nothing this rename touches",
     "refactor.leftover": "{path}:{line}: leftover: {where} mentions {old}",
     "compliance.attr-required": "--select attr-blindspot needs --attr NAME",
     "compliance.attr-unselected": "--attr needs attr-blindspot among the selected checks",

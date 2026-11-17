@@ -1,0 +1,3 @@
+[resolve]
+[checks]
+--keep lib/param.ts:2 matches nothing this rename touches, so nothing was refactored

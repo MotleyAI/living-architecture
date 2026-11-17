@@ -37,8 +37,12 @@ A run announces its phases on stderr as they start — `[resolve]`, `[checks]`, 
 `[rules n/count]` as each old-name group is done, `clean` or followed by its refusals; `conflicts` checks the
 computed edits for map and name conflicts. Everything that needs no reference search runs
 in `checks` and refuses at once, listing every failure: entries that do not resolve, `--keep` / `--with` /
-`--without` sites naming no file or line, keeps whose files never spell an old name, Python walker gaps, an
-unreadable config while the language's baseline file exists, and a checker that cannot run. Past `checks`, every entry is computed and every refusal listed in one final report;
+`--without` sites naming no file or line, line keeps whose line spells no old name (a comment's spelling counts only
+with `--docs`, or in a Python type comment), Python walker gaps, an
+unreadable config while the language's baseline file exists, and a checker that cannot run. Once every entry's edits
+are final, before `conflicts`, each keep and stand-in site is resolved exactly: an unneeded whole-file or directory
+keep prints a `WARNING:` and the run goes on, while an unmatched line keep (named with the nearest edited line) or a
+`--with` / `--without` site holding no stand-in stops the run there. Past `checks`, every entry is computed and every refusal listed in one final report;
 `--fail-fast` (on `rename`, `retarget`, `rename-map`) stops after the first refused group instead. A failed checker
 is followed by its cause: exit code and stderr, start error, or error answer.
 
