@@ -1,0 +1,7 @@
+[resolve]
+[checks]
+[references]
+[references 1/1] entry 1: c -> d
+[rules]
+[rules 1/1] entry 1: c -> d: clean
+[conflicts]

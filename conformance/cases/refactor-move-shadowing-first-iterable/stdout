@@ -1,0 +1,17 @@
+Moving module <thing>:
+
+
+rename from pkg/sub/thing.py
+rename to pkg/thing.py
+--- a/use.py
++++ b/use.py
+@@ -1,3 +1,3 @@
+-import pkg.sub as sub
++import pkg.thing
+ 
+-items = [sub for sub in sub.thing.ITEMS]
++items = [sub for sub in pkg.thing.ITEMS]
+
+
+
+DRY-RUN. 2 file(s) would change. Re-run with --apply.

@@ -1,6 +1,6 @@
 ## 1. Tests first (pr-tests)
 
-- [ ] 1.1 Fixture `conformance/fixtures/refactor-tuple-targets` (Python) and adapter cases (`languages: [python]`),
+- [x] 1.1 Fixture `conformance/fixtures/refactor-tuple-targets` (Python) and adapter cases (`languages: [python]`),
   one per scenario of "Python renames reach names bound by tuple targets": function local by `--symbol` and by
   `--line`/`--col`, module level, class body (`C.y`), starred, nested (`c`, then `b`), `await` right-hand side,
   comprehension target, nested-scope binding of the same spelling, call keyword of the same spelling, and one
@@ -10,18 +10,19 @@
 - [ ] 1.2 Fixture `conformance/fixtures/refactor-move-shadowing` (Python) and adapter cases, one per new scenario of
   "Python moves rewrite each reference minimally": parameters of every kind, a lambda and a comprehension target
   shadowing an import alias (`move-module`); a function-local alias import; a function scope that also assigns the
-  alias; `global` and `nonlocal`; a comprehension's first iterable; defaults and annotations; the moved symbol
+  alias; `global` and `nonlocal`; a `nonlocal` declaration keeping its enclosing import; a comprehension's first
+  iterable; defaults and annotations; the moved symbol
   shadowed in its source module (`move-symbol`, no import added there); a star-import consumer shadowing the moved
   name. Goldens via `LA_UPDATE_GOLDENS=1`, then hand-check each shadowed use is unchanged and each eligible use is
   rewritten (the lambda, comprehension-target and source-module cases must fail on `main`); list them in
   `INVENTORY.md`.
-- [ ] 1.3 Unit tests in `tests/test_move_edits.py` for the `_Scopes` fixes: a `global`/`nonlocal` name binds in the
+- [x] 1.3 Unit tests in `tests/test_move_edits.py` for the `_Scopes` fixes: a `global`/`nonlocal` name binds in the
   scope the statement names, not the declaring one; a comprehension's first iterable is read in the enclosing scope.
   Verify they fail on `main`.
-- [ ] 1.4 Unit test in `tests/test_python_source.py`: `every_parameter` returns every parameter kind of a `def` and
+- [x] 1.4 Unit test in `tests/test_python_source.py`: `every_parameter` returns every parameter kind of a `def` and
   a `lambda` in declaration order. Test in `tests/test_symbol_paths.py`: `--symbol f(a)` locates a parameter of
   each of the five kinds. Verify the first fails (import error) on `main`.
-- [ ] 1.5 Codex-review the tests against this change (when `reviewers.codex` is on).
+- [x] 1.5 Codex-review the tests against this change (when `reviewers.codex` is on).
 
 ## 2. Remove the evaluator patch
 

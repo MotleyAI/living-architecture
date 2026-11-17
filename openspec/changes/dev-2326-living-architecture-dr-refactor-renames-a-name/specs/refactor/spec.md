@@ -80,7 +80,8 @@ exactly one rule, decided from the objects its names resolve to:
    become the new dotted path, and `import <new module>` SHALL be added on the line after the import binding the
    chain's root. A bare name bound by a star import SHALL stay as it is, and `from <new module> import <name>` SHALL be
    added on the line after the star import. No import SHALL be added where that scope already binds the same object.
-An import binding SHALL be removed in place only when every use of it was rewritten by this refactor. For
+An import binding SHALL be removed in place only when every use of it was rewritten by this refactor, and no `nonlocal`
+statement names it. For
 `move-symbol`, an import of the source module SHALL also be removed in place when every use of it lay in the moved
 code. In the source module, a `__all__` entry naming the moved symbol SHALL be removed, and a remaining use of the
 symbol (by rule 2, not a use a function, lambda or comprehension scope binds) SHALL get `from <dest> import <name>` after the leading import block. In the destination, the imports the moved
@@ -203,6 +204,11 @@ added import or the moved code would bind a name that already resolves to a diff
   sub`; and an inner function declares `nonlocal sub` and reads `sub.thing.X`, where `sub` is its enclosing
   function's `import pkg.sub as sub`
 - **THEN** both uses are rewritten
+
+#### Scenario: nonlocal keeps the enclosing import
+- **WHEN** an inner function declares `nonlocal sub` and reads `sub.thing.X`, and that is the only use of its enclosing
+  function's `import pkg.sub as sub`
+- **THEN** the use is rewritten, the import stays, and `import pkg.thing` is added on the line after it
 
 #### Scenario: Comprehension's first iterable
 - **WHEN** a file with `import pkg.sub as sub` has `[sub for sub in sub.thing.ITEMS]`

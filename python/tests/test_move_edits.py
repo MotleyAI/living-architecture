@@ -1,5 +1,6 @@
 """Python moves edit only at references: rule classification, token-level import edits, positions, removal."""
 
+import ast
 from pathlib import Path
 
 import pytest
@@ -7,7 +8,7 @@ from refactor_cli import readouterr
 
 from living_architecture.cli.dr_refactor import dr_refactor as main
 from living_architecture.contract import message
-from living_architecture.refactor.move_edits import leading_block_end, relative_module
+from living_architecture.refactor.move_edits import _Scope, _Scopes, leading_block_end, relative_module
 
 MODULE_PROJECT = {
     "pkg/__init__.py": "",
@@ -478,3 +479,40 @@ def test_uses_inside_every_scope_kind_are_resolved(tmp_path: Path) -> None:
     root = _write(tmp_path, {**MODULE_PROJECT, "use.py": "import pkg.sql as s" + body})
     assert _move_module(root, "--apply") == 0
     assert (root / "use.py").read_text() == "import pkg.database.client" + body.replace("s.client", "pkg.database.client")
+
+
+def _reads(scopes: _Scopes, line: int) -> list[_Scope]:
+    """The scopes of the `sub` loads on `line`, left to right."""
+    found = [(node.col_offset, scope) for node, scope in scopes.loads.values() if node.lineno == line and node.id == "sub"]
+    return [scope for _, scope in sorted(found, key=lambda pair: pair[0])]
+
+
+def test_a_global_name_binds_in_the_module_scope() -> None:
+    text = "import pkg.sub as sub\n\n\ndef f():\n    global sub\n    sub = None\n    return sub\n"
+    scopes = _Scopes(ast.parse(text), "")
+    [read] = _reads(scopes, 7)
+    assert "sub" not in read.bindings
+    assert read.lookup("sub") is scopes.module
+    assert len(scopes.module.bindings["sub"]) == 2
+
+
+def test_a_nonlocal_name_binds_in_the_enclosing_function_scope() -> None:
+    text = (
+        "def outer():\n    import pkg.sub as sub\n\n    def inner():\n        nonlocal sub\n        sub = None\n"
+        "        return sub\n\n    return inner, sub\n"
+    )
+    scopes = _Scopes(ast.parse(text), "")
+    [read] = _reads(scopes, 7)
+    [outer] = _reads(scopes, 9)
+    assert "sub" not in read.bindings
+    assert read.lookup("sub") is outer
+    assert len(outer.bindings["sub"]) == 2
+
+
+def test_a_comprehension_first_iterable_is_read_in_the_enclosing_scope() -> None:
+    text = "import pkg.sub as sub\n\nitems = [sub for sub in sub.thing for x in sub]\n"
+    scopes = _Scopes(ast.parse(text), "")
+    element, first, later = _reads(scopes, 3)
+    assert first is scopes.module
+    assert element is later is not scopes.module
+    assert element.lookup("sub") is element
