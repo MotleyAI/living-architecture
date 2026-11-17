@@ -41,8 +41,8 @@ SYMBOL_OUT = """Moving global <f>:
 -def f() -> str:
 -    return os.sep
 +from pkg.b import f
-
-
+\x20
+\x20
  def g() -> str:
 
 --- a/pkg/b.py
@@ -61,7 +61,7 @@ SYMBOL_OUT = """Moving global <f>:
 -from pkg.a import f
 +from pkg.b import f
  from pkg.sql import client
-
+\x20
  print(f(), client.X)
 
 
@@ -79,7 +79,7 @@ rename to pkg/database/client.py
  from pkg.a import f
 -from pkg.sql import client
 +from pkg.database import client
-
+\x20
  print(f(), client.X)
 
 

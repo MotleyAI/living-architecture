@@ -64,7 +64,7 @@
 
 ## 3. Static resolver
 
-- [ ] 3.1 Namespace packages (design decision 20) in the module finder / `ProjectLayout`. Verify: 1.8's namespace unit
+- [x] 3.1 Namespace packages (design decision 20) in the module finder / `ProjectLayout`. Verify: 1.8's namespace unit
       tests and 1.4's module-rename case pass.
 - [x] 3.2 `Binder` records, per import binding, its statement, item index and whether it sits in the module body or a
       block (design decision 4). Verify: a unit test over a module with body-level and block-level imports.
@@ -84,10 +84,10 @@
 
 ## 5. Differential and switch
 
-- [ ] 5.1 Run old and new paths over every Python move conformance case, `test_move_edits.py`'s fixtures and section
+- [x] 5.1 Run old and new paths over every Python move conformance case, `test_move_edits.py`'s fixtures and section
       1's fixtures; compare as 0.3 says. Verify: no difference outside the `golden: manual` cases, or each one
       resolved with the user.
-- [ ] 5.2 Switch `rope_refactor.move_symbol` / `move_module` to the new path; delete `_RopeProject`, `resource`,
+- [x] 5.2 Switch `rope_refactor.move_symbol` / `move_module` to the new path; delete `_RopeProject`, `resource`,
       `_destination`, `_rope_offset`, `rename_map.source_bytes`, `change_set_writes`, `_Scopes` / `_Scope` /
       `_Binding`, `_explicitly_binds`, `_module_object`, `_primary`, `_finder`, and every rope import in
       `move_edits.py` and `rope_refactor.py` except what the walker-gap check needs. Verify: 1.2's rope-free test
@@ -99,7 +99,7 @@
 
 ## 7. Gates
 
-- [ ] 7.1 Local test scope (la:pr "Local test scope") passes: `uv run pytest` on the affected tests and the touched
+- [x] 7.1 Local test scope (la:pr "Local test scope") passes: `uv run pytest` on the affected tests and the touched
       conformance cases; `uv run ruff check src tests`; `uv run basedpyright src tests`; `la-typecheck`.
 - [x] 7.2 Enforcement bundle: `la-arch-check`, `npx likec4 validate` (or the lightest parse), `la-typecheck` against
       its baseline. Verify: all green.
