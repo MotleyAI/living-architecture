@@ -1,0 +1,317 @@
+## ADDED Requirements
+
+### Requirement: Python moves resolve statically without rope
+A Python `move-symbol` or `move-module` SHALL locate the moved symbol or module and resolve every occurrence of its
+name by Python's scoping rules over the project's own modules, without importing or running them. It SHALL start no
+language server, and rope SHALL compute no part of it: no reference, no region, no import and no edit. rope's only
+remaining part in a move SHALL be the walker-gap check of its `checks` phase. Output SHALL be byte-identical to the
+output before this change on every input that move-symbol's locator rules accept and where that output was valid
+Python that kept every reference bound.
+
+#### Scenario: No server for a symbol move
+- **WHEN** `move-symbol` runs, with or without `--apply`
+- **THEN** no language server starts
+
+#### Scenario: rope computes nothing
+- **WHEN** `move-symbol` or `move-module` runs and every rope entry point other than the walker-gap check fails if
+  called
+- **THEN** the run prints the same output as before this change and exits 0
+
+#### Scenario: Existing goldens unchanged
+- **WHEN** every Python `move-symbol` and `move-module` conformance case that existed before this change runs
+- **THEN** its stdout, stderr, files and exit code equal its golden
+
+#### Scenario: Use through a package that binds the module itself
+- **WHEN** `move-module` moves `pkg/sql/client.py` to `pkg/database`, `pkg/sql/__init__.py` holds `from . import
+  client` (at module level, or inside an `if` or `try` block) or defines a module-level `__getattr__`, and a file
+  uses `sql_pkg.client.X` after `import pkg.sql as sql_pkg`
+- **THEN** the use is unchanged and no import is added for it
+
+#### Scenario: Use through a submodule attribute only
+- **WHEN** the same move runs, `pkg/sql/__init__.py` binds no `client`, and a file has `import pkg.sql` and uses
+  `pkg.sql.client.X`
+- **THEN** the use becomes `pkg.database.client.X` and `import pkg.database.client` is added on the line after
+  `import pkg.sql`
+
+### Requirement: Python move-symbol moves one top-level declaration
+`move-symbol` SHALL resolve its locator (`--symbol`, `--line`/`--col` or `--offset`) to a site on one top-level
+declaration of `--file`, which is always the move's source. A site on an import binding or on a reference SHALL NOT be
+followed to a declaration elsewhere. The declaration SHALL be movable when it is a top-level `def`, `async def` or `class`, with its decorators; a
+top-level assignment or annotated assignment whose only target is that one name; or an `@overload` group: the
+contiguous run of `@overload`-decorated definitions of the name and the one definition without `@overload` directly
+after them, moved together. Anything else SHALL exit 1 with the not-movable finding naming `--file` and write nothing:
+a method, a local, a parameter, a module, an assignment binding more than one name or sharing its line with another
+statement, a name bound only inside an `if`, `try`, `for`, `while`, `with` or `match` block, a name the source module
+binds more than once at top level other than as one overload group, an import binding, and a reference.
+
+The moved region SHALL start at the line of the first decorator (else the declaration's first line), extended upward
+over the directly preceding lines that start with `#` in their first column, and end at the declaration's last line,
+extended over the following lines holding only whitespace. A variable's region SHALL be its logical line. The moved
+text SHALL be the region without its trailing whitespace, followed by one line break.
+
+#### Scenario: Import binding or reference as the locator
+- **WHEN** `pkg/use.py` has `from pkg.engine import Engine` and calls `Engine()` in a function, and `move-symbol --file
+  pkg/use.py --dest pkg/dest.py` runs with `--symbol Engine`, or with `--line`/`--col` on `Engine()`
+- **THEN** each exits 1 with the not-movable finding naming `pkg/use.py`, as the TypeScript twin does for an imported
+  use, and no file changes
+
+#### Scenario: Not movable
+- **WHEN** the locator is on a method, a local variable, a parameter, a module name in an import, one name of
+  `a, b = 1, 2`, `x = 1; y = 2`, a name bound only inside `if TYPE_CHECKING:`, or a name assigned twice at top level
+- **THEN** each exits 1 with the not-movable finding naming `--file`, prints no traceback and changes no file
+
+#### Scenario: Overload group moves as one
+- **WHEN** `pkg/a.py` declares two `@overload` signatures of `f` followed by its implementation, and `f` is moved
+- **THEN** the signatures and the implementation leave `pkg/a.py` and appear together, in their order, in the
+  destination
+
+#### Scenario: Decorated class with leading comments
+- **WHEN** a moved class has two decorators, a comment line between them, and two `#` lines directly above the first
+  decorator, preceded by a blank line
+- **THEN** the comment lines, the decorators and the class move, the blank line above them stays, and the blank lines
+  after the class leave with it
+
+#### Scenario: Moved variable
+- **WHEN** `X: Final = (1,\n    2)` is moved
+- **THEN** both physical lines of the statement move and nothing else
+
+### Requirement: Python refactors resolve through namespace packages
+A directory under one of the project's source folders that holds Python sources but no `__init__.py`, and that no
+regular module or package of the same dotted name shadows, SHALL resolve as a namespace package: a module with no
+bindings of its own whose submodules resolve as its attributes. A submodule found in more than one portion of a
+namespace package SHALL count as unresolved. `move-module` and module renames SHALL resolve imports and attribute
+chains through namespace packages like through regular packages, and `move-module` SHALL move a namespace package's
+directory like a package's.
+
+#### Scenario: Move out of a namespace package
+- **WHEN** `pkg/ns/` has no `__init__.py`, `pkg/use.py` holds `from pkg.ns import m`, `import pkg.ns.m` and
+  `print(m.Y, pkg.ns.m.Y)`, and `move-module` moves `pkg/ns/m.py` to `pkg/dst`
+- **THEN** the lines become `from pkg.dst import m`, `import pkg.dst.m` and `print(m.Y, pkg.dst.m.Y)`
+
+#### Scenario: Move a namespace package
+- **WHEN** `move-module` moves the directory `pkg/ns` to `pkg/dst`
+- **THEN** the directory moves to `pkg/dst/ns`, every import and chain naming `pkg.ns` names `pkg.dst.ns`, and the
+  exit code is 0
+
+#### Scenario: Module rename through a namespace package
+- **WHEN** the module `pkg/ns/m.py` is renamed to `ns2` and a file holds `import pkg.ns.m` and uses `pkg.ns.m.Y`
+- **THEN** both become `pkg.ns.ns2`
+
+#### Scenario: Namespace package under a src layout
+- **WHEN** the project keeps its code under `src/` and `src/pkg/ns/` has no `__init__.py`
+- **THEN** the moves and renames above give the same result with `src/` in each path
+
+## MODIFIED Requirements
+
+### Requirement: Refactors edit only at references
+In both languages, a file that `dr-refactor` touches SHALL change only within these permitted regions: the span of each
+resolved reference to the renamed or moved module or symbol, including the name inside a forward-reference string
+and, for a Python field rename, the name inside a typed dict key or `model_dump` element and a keyword argument's
+name; the import item holding such a reference (its whole statement, or its whole line, when it is the statement's
+only item); one inserted import statement directly after a referencing import statement or after the leading import
+block; and, for `move-symbol`, the moved code's region, a relative import inside the moved code and, in a Python
+destination, the imports the moved code needs: after the leading import block, inside the top-level
+`if TYPE_CHECKING:` block or as a new one, and `from __future__` imports at the module's start. Every other byte SHALL
+be unchanged: no import SHALL be reordered, merged, hoisted or reformatted, and no non-import statement SHALL move. A
+`from` import SHALL be split only when exactly one of its names moves. CRLF line endings and a missing final newline
+SHALL be preserved, and every line a refactor inserts SHALL end with the line break the file it lands in uses.
+
+#### Scenario: importorskip-gated import stays gated
+- **WHEN** `move-module` or `move-symbol` runs and a touched test file has `x = pytest.importorskip("x")` followed by
+  `import x.y`
+- **THEN** both lines keep their positions and text, and the only changed lines are the moved references
+
+#### Scenario: Non-import statement between import groups
+- **WHEN** a touched file has `sys.path.insert(0, ".")` between two import groups and one group imports the moved
+  module
+- **THEN** the statement and both groups keep their order, and only the referencing import line changes
+
+#### Scenario: Unsorted import block untouched
+- **WHEN** a touched file's import block is not in sorted order and one line imports from the moved module
+- **THEN** only that line's module path changes, and every other line of the block is byte-identical
+
+#### Scenario: Module rename leaves the shapes intact
+- **WHEN** `rename` renames module `client` to `cli2` across files holding the gated, interleaved, unsorted,
+  multi-name and function-local import shapes
+- **THEN** only the module name tokens and the uses bound to them change
+
+#### Scenario: TypeScript import split in place
+- **WHEN** `move-symbol` moves `f` out of `src/a.ts` and `test/t.ts` has `import { g, f } from "../src/a.js";`
+  followed by other imports and a statement between import groups
+- **THEN** that line becomes `import { g } from "../src/a.js";`, the next line imports `f` from the new file, and
+  every other line is byte-identical
+
+#### Scenario: String and key edits are name-only
+- **WHEN** a Python field rename rewrites `r'columns'` as a typed dict key and class `Rec` inside `'Rec | None'`
+- **THEN** only the name characters change, and the prefixes, quotes and the rest of each string are byte-identical
+
+#### Scenario: Moved code between files of different line endings
+- **WHEN** `move-symbol` moves a function, which needs an added import, from a file with CRLF line endings into a file
+  with LF line endings, and separately from an LF file into a CRLF file without a final newline
+- **THEN** every line inserted into each destination ends as that destination's other lines do, the CRLF
+  destination still has no final newline, and the source keeps its line endings
+
+### Requirement: Python moves rewrite each reference minimally
+For a Python `move-module` or `move-symbol`, each occurrence of the moved module or symbol SHALL be handled by
+exactly one rule, decided from the objects its names resolve to:
+1. An import statement naming the old path (absolute or relative, at any scope, including `from old import *` and
+   package-prefixed paths) SHALL have its path rewritten in place, keeping its alias, bound names, comments and layout.
+   A relative import SHALL stay relative, recomputed from the importer's new location and the target's new location.
+   It SHALL become absolute only when the target cannot be reached relatively. A relative import between files that
+   move together SHALL be unchanged. In a `from` import where exactly one name moves, that name SHALL be removed in
+   place, and the moved name SHALL get a new `from` statement, with its alias, on the line after the statement ends,
+   at the same indentation.
+2. A use whose binding still resolves after the move SHALL be unchanged. Such a binding is a name bound by a rule-1
+   import, or a name another module binds explicitly (by import or assignment, at module level or inside a block of
+   its module body), or a name read from a module that defines a module-level `__getattr__`.
+3. A use whose binding no longer resolves after the move SHALL be rewritten. Such a use reaches a submodule only as a
+   package attribute, or reaches the moved symbol through its old module or a star import of it. A dotted use SHALL
+   become the new dotted path, and `import <new module>` SHALL be added on the line after the import binding the
+   chain's root. A bare name bound by a star import SHALL stay as it is, and `from <new module> import <name>` SHALL be
+   added on the line after the star import. No import SHALL be added where that scope already binds the same object.
+An import binding SHALL be removed in place only when every use of it was rewritten by this refactor. For
+`move-symbol`, an import statement directly in the source module's body SHALL also be removed in place when every use
+of the names it binds lay in the moved code; an import inside a block of the source module SHALL stay. In the source
+module, a `__all__` entry naming the moved symbol SHALL be removed, and a remaining use of the symbol SHALL get
+`from <dest> import <name>` after the leading import block. A relative import inside the moved code SHALL be recomputed
+for the destination as rule 1 recomputes a moved module's own relative imports. In the destination, the imports the
+moved code needs SHALL be added:
+- for each name the moved code reads that a top-level import of the source module binds, that import, made absolute;
+  for each name it reads that the source module defines, `from <source module> import <name>`; each holding only the
+  names the moved code reads and the destination does not already bind to the same object;
+- after the leading import block, ordered `__future__`, standard library, third-party, project modules, plain
+  `import` statements before `from` imports within each, then by text;
+- for a name bound in the source only inside an `if TYPE_CHECKING:` block, inside the destination's top-level
+  `if TYPE_CHECKING:` block, after its last statement, else in a new such block after the leading import block, with
+  `from typing import TYPE_CHECKING` added when the destination does not bind it;
+- for each `from __future__` import of the source that the destination lacks, as the destination's first statement
+  after its docstring.
+
+When the moved code reads a name the source module binds only inside a block other than `if TYPE_CHECKING:` (a
+`try`, another `if`, a loop), `dr-refactor` SHALL exit 1 with the guarded-import finding naming the source file and
+that import's line, and SHALL write nothing. The leading import block is the first contiguous run of import
+statements, ending at the first non-import statement; in a file without imports it is the position after the module
+docstring and `__future__` imports. Edits SHALL be located by source character, so non-ASCII text before them on the
+line does not shift them. When an added import or the moved code would bind a name that already resolves to a
+different object in that scope, `dr-refactor` SHALL exit 1 with the name-conflict finding naming the file and line,
+and SHALL write nothing.
+
+#### Scenario: Multi-name from-import split in place
+- **WHEN** `move-module` moves `pkg/sql/client.py` to `pkg/database` and a file has
+  `from pkg.sql import dialects, client` between `import sys` and `import os`
+- **THEN** that line becomes `from pkg.sql import dialects`, the next line is `from pkg.database import client`, and
+  every other line is byte-identical
+
+#### Scenario: Parenthesized from-import with per-name comments
+- **WHEN** the moved name sits on its own line, with a comment, inside a parenthesized multi-line `from` import with a
+  trailing comma
+- **THEN** only that line is removed, the other names and their comments stay, and the new statement follows the
+  closing parenthesis
+
+#### Scenario: Function-local import rewritten in place
+- **WHEN** a function body holds `from pkg.sql import client  # ALLOW(import-not-top)` and uses `client.X`
+- **THEN** only that import's module path changes, the use is untouched, and no module-level import is added
+
+#### Scenario: Use through another module untouched
+- **WHEN** a file uses `sql_client.engine_factory`, and `sql_client` is a module that imports the moved
+  `engine_factory` by name
+- **THEN** the use is unchanged and no import is added to the file
+
+#### Scenario: Self-aliased import
+- **WHEN** `move-module` moves `pkg/a/mod.py` to `pkg/b` and a file has `import pkg.a.mod as mod` and `print(mod.X)`
+- **THEN** the import becomes `import pkg.b.mod as mod`, the use is unchanged, and the command exits 0
+
+#### Scenario: Dotted use through the moved module's own import
+- **WHEN** a file has `import pkg.sql.client` and uses `pkg.sql.client.X`
+- **THEN** they become `import pkg.database.client` and `pkg.database.client.X`, and no import is added
+
+#### Scenario: Use through a package attribute
+- **WHEN** a file has `import pkg.sql as sql_pkg` and uses `sql_pkg.client.X`, and `pkg/sql/__init__.py` does not
+  import `client`
+- **THEN** the use becomes `pkg.database.client.X` and `import pkg.database.client` is added on the line after
+  `import pkg.sql as sql_pkg`
+
+#### Scenario: Symbol reached through a module alias
+- **WHEN** `move-symbol` moves `f` from `pkg/a.py` to `pkg/b.py` and a file has `import pkg.a as pa` used only as
+  `pa.f()`
+- **THEN** the use becomes `pkg.b.f()`, `import pkg.b` replaces `import pkg.a as pa` in place, and every other line
+  is unchanged
+
+#### Scenario: Old module import with another surviving use
+- **WHEN** the file in the previous scenario also uses `pa.g()`
+- **THEN** `import pkg.a as pa` stays, `pa.g()` is unchanged, and `import pkg.b` is added on the next line
+
+#### Scenario: Star-import consumer
+- **WHEN** `move-symbol` moves `f` out of `pkg/a.py` and a file has `from pkg.a import *` and calls `f()`
+- **THEN** `from pkg.b import f` is added on the line after the star import, and the call is unchanged
+
+#### Scenario: Re-export keeps exporting
+- **WHEN** `pkg/__init__.py` has `from pkg.a import f as public_f` and `pkg/a.py`'s `__all__` lists `"f"`
+- **THEN** the re-export becomes `from pkg.b import f as public_f`, and `"f"` is removed from `pkg/a.py`'s `__all__`
+
+#### Scenario: Relative import stays relative
+- **WHEN** `pkg/sql/engine.py` has `from . import client` and `pkg/sql/client.py` moves to `pkg/database`
+- **THEN** the import becomes `from ..database import client`
+
+#### Scenario: Moved module's own relative imports
+- **WHEN** the moved `pkg/sql/client.py` has `from . import dialects`
+- **THEN** in `pkg/database/client.py` it becomes `from ..sql import dialects`
+
+#### Scenario: Package move keeps internal relative imports
+- **WHEN** `move-module` moves package `pkg/sql` to `pkg/database` and `pkg/sql/client.py` has `from .dialects import D`
+- **THEN** that line is unchanged in `pkg/database/sql/client.py`
+
+#### Scenario: Move across top-level packages
+- **WHEN** a relative import's target moves to another top-level package
+- **THEN** the import becomes absolute
+
+#### Scenario: Import edit forms
+- **WHEN** an import of the moved module is backslash-continued, follows a semicolon on its line, or sits in a file
+  with CRLF line endings, no final newline, or non-ASCII text earlier on the line
+- **THEN** only the module path changes, and line endings, the final-newline state and the other statement are
+  preserved
+
+#### Scenario: Destination imports added without reflow
+- **WHEN** `move-symbol` moves `f`, which uses `os`, into a destination whose import block is unsorted and gated by
+  `importorskip`
+- **THEN** `import os` is added after the destination's leading import block, and no existing line moves
+
+#### Scenario: Destination already binds the needed module
+- **WHEN** the destination already has `import os`
+- **THEN** no import is added
+
+#### Scenario: Destination import order
+- **WHEN** the moved `f` reads `annotations`-dependent annotations, `json`, `yaml`, `pkg.c.C` through
+  `from .c import C`, and `g` that `pkg/a.py` defines, and the source imports them as `from .c import C`,
+  `import yaml`, `import json` and `from __future__ import annotations`
+- **THEN** the destination gains `from __future__ import annotations` as its first statement, and after its leading
+  import block `import json`, `import yaml`, `from pkg.c import C` and `from pkg.a import g`, in that order
+
+#### Scenario: Import used only by the moved code inside a block stays
+- **WHEN** `pkg/a.py` holds `if TYPE_CHECKING:` with `from .x import T`, and a `try:` with `import json` and
+  `except ImportError: json = None`, and only the moved `f` reads `T`
+- **THEN** both blocks of `pkg/a.py` are unchanged
+
+#### Scenario: TYPE_CHECKING import follows the moved code
+- **WHEN** the moved `f` reads `T`, bound in `pkg/a.py` only by `from .x import T` under `if TYPE_CHECKING:`, and the
+  destination has no `TYPE_CHECKING` block
+- **THEN** the destination gains `from typing import TYPE_CHECKING` after its leading import block, then
+  `if TYPE_CHECKING:` holding `from pkg.x import T`; with an existing top-level `if TYPE_CHECKING:` block, the import
+  is added as its last statement instead
+
+#### Scenario: Other guarded import refused
+- **WHEN** the moved `f` reads `json`, bound in `pkg/a.py` only inside `try: import json` / `except ImportError:
+  json = None`
+- **THEN** stderr ends with the guarded-import finding naming `pkg/a.py` and the line of `import json`, the exit code
+  is 1 and no file changes
+
+#### Scenario: Relative import inside the moved code
+- **WHEN** `move-symbol` moves `f` from `pkg/a/m.py` to `pkg/b/d.py` and `f`'s body holds `from .x import y`
+- **THEN** in `pkg/b/d.py` it becomes `from ..a.x import y`, and an absolute import in `f`'s body is unchanged
+
+#### Scenario: Name conflict refused
+- **WHEN** `move-symbol` moves `f`, which uses module `os`, into a destination where `os` is assigned another value
+  or bound by an aliased import of another module; or a function-local `import pkg.a as pa`, whose `pa.f()` needs
+  `import pkg.b`, sits in a function where `pkg` is a parameter or is bound by an enclosing function
+- **THEN** it exits 1 with the name-conflict finding naming that file and the existing binding's line, and no file
+  changes
