@@ -1,0 +1,17 @@
+[package]
+name = "fidelity"
+version = "0.0.0"
+edition.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "fidelity-dump"
+path = "src/main.rs"
+
+[dependencies]
+ruff_python_parser.workspace = true
+ruff_python_ast.workspace = true
+ruff_text_size.workspace = true
+ruff_source_file.workspace = true
+ruff_python_trivia.workspace = true
+serde_json.workspace = true

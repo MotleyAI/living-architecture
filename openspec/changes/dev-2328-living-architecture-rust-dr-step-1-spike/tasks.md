@@ -1,17 +1,17 @@
 ## 0. Setup
 
-- [ ] 0.1 Install Rust stable with rustup into `~/.cargo`; verify `cargo --version` and that `uvx maturin --version` and `uvx --from ziglang python -m ziglang version` run.
-- [ ] 0.2 Create the SLayer copy: `git archive 452a2f57` of `~/GitHub/SLayer/slayer` into a directory outside both repos, `.venv` symlinked; record the path and the sorted `.py` manifest hash in `spike/README.md`; verify the file count is computed, not hard-coded.
-- [ ] 0.3 Scaffold `spike/` (`README.md`, `rust/` workspace with `binding`, `fidelity`, `hello` crates, ruff crates pinned `=0.0.22`, `py/`, `tests/`); verify `cargo build --release` and `uv run --project python pytest spike/tests --collect-only` succeed.
+- [x] 0.1 Install Rust stable with rustup into `~/.cargo`; verify `cargo --version` and that `uvx maturin --version` and `uvx --from ziglang python -m ziglang version` run.
+- [x] 0.2 Create the SLayer copy: `git archive 452a2f57` of `~/GitHub/SLayer/slayer` into a directory outside both repos, `.venv` symlinked; record the path and the sorted `.py` manifest hash in `spike/README.md`; verify the file count is computed, not hard-coded.
+- [x] 0.3 Scaffold `spike/` (`README.md`, `rust/` workspace with `binding`, `fidelity`, `hello` crates, ruff crates pinned `=0.0.22`, `py/`, `tests/`); verify `cargo build --release` and `uv run --project python pytest spike/tests --collect-only` succeed.
 
 ## 1. Tests first (pr-tests)
 
-- [ ] 1.1 Synthetic inputs in `spike/tests/data/` per design decision 14; verify each file's intended accept/reject per CPython version with a test.
-- [ ] 1.2 Python canonical binding dump (`spike/py/binding_dump.py`) per design decision 7, reading through `Snapshot`; tests pin its output on a few synthetic files by hand.
-- [ ] 1.3 Binding differential test: Python dump on 3.11–3.14 vs the Rust `dump` binary, parametrized over the fixtures and the synthetic set, and over the SLayer copy given its path; fails until the Rust port exists.
-- [ ] 1.4 Fidelity harness tests: the CPython-side span and token dump (tokens mapped onto AST nodes, decision 12) and the comparer, on the synthetic set, including a planted offset difference the comparer must report.
-- [ ] 1.5 Packaging tests: the wheel builds, installs into a fresh venv, the module imports, both console scripts run and print the same as the module function.
-- [ ] 1.6 Codex review of the tests against this plan; findings resolved with the user.
+- [x] 1.1 Synthetic inputs in `spike/tests/data/` per design decision 14; verify each file's intended accept/reject per CPython version with a test.
+- [x] 1.2 Python canonical binding dump (`spike/py/binding_dump.py`) per design decision 7, reading through `Snapshot`; tests pin its output on a few synthetic files by hand.
+- [x] 1.3 Binding differential test: Python dump on 3.11–3.14 vs the Rust `dump` binary, parametrized over the fixtures and the synthetic set, and over the SLayer copy given its path; fails until the Rust port exists.
+- [x] 1.4 Fidelity harness tests: the CPython-side span and token dump (tokens mapped onto AST nodes, decision 12) and the comparer, on the synthetic set, including a planted offset difference the comparer must report.
+- [x] 1.5 Packaging tests: the wheel builds, installs into a fresh venv, the module imports, both console scripts run and print the same as the module function.
+- [x] 1.6 Codex review of the tests against this plan; findings resolved with the user.
 
 ## 2. Rust binding port (14-hour box, pr-implement)
 
