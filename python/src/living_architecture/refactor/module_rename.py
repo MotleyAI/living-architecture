@@ -244,12 +244,7 @@ def run_module_rename(session: Session, locator: EntryLocator, entry: Entry, new
     olds = [] if same else [rename.old]
     listed = undecodable(session.snapshot, session.all_python_files(), olds, keeps)
     if found is None:
-        source = session.snapshot.source
-        warnings, unmatched = resolve_keeps(keeps, ((e.path, source(e.path).line(e.start)) for e in written))
-        for warning in warnings:
-            print(warning, file=sys.stderr)
-        if unmatched:
-            raise Refused(unmatched)
+        _resolve_keeps(session, keeps, written)
     if computed:
         progress.phase("conflicts")
         with timed("conflicts"):
@@ -261,11 +256,28 @@ def run_module_rename(session: Session, locator: EntryLocator, entry: Entry, new
         raise Refused([refusal(message("refactor.name-conflict", name=found.name, path=found.path, line=found.line))])
     for finding in listed:
         print(finding.text, file=sys.stderr)
+    _emit(rename, written, move, stub, apply_, progress)
+    return 0
+
+
+def _resolve_keeps(session: Session, keeps: Keeps, written: list[TextEdit]) -> None:
+    """Each unneeded whole-path keep's warning printed; `Refused` when a line keep matches no written edit."""
+    source = session.snapshot.source
+    warnings, unmatched = resolve_keeps(keeps, ((e.path, source(e.path).line(e.start)) for e in written))
+    for warning in warnings:
+        print(warning, file=sys.stderr)
+    if unmatched:
+        raise Refused(unmatched)
+
+
+def _emit(rename: ModuleRename, written: list[TextEdit], move: FileMove | None, stub: str | None, apply_: bool,
+          progress: Progress) -> None:
+    """The rename's diff, its move and, with `--stub`, the stub at the old path; written with `apply_`."""
+    session, removal = rename.session, rename.options.stub
     described, writes = changes_of(session.snapshot, written)
     moves = [move] if move is not None else []
     described += [(m.rel, move_description(m.rel, m.dest)) for m in moves]
-    creates = [rename.stub(move, stub, options.stub)] if move is not None and stub is not None and options.stub is not None else []
+    creates = [rename.stub(move, stub, removal)] if move is not None and stub is not None and removal is not None else []
     described += [(c.rel, edit_description(c.rel, "", c.new.decode())) for c in creates]
-    header = message("refactor.rename-header", old=rename.old, new=new_name)
+    header = message("refactor.rename-header", old=rename.old, new=rename.new)
     emit(session.root, [header], described, apply_, writes, moves, progress, creates=creates)
-    return 0
