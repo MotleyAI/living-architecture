@@ -228,3 +228,47 @@ def test_a_direct_definition_in_a_library_or_typeshed_is_answered(pydantic_expor
     _, base, builtin = pydantic_export.index.answers
     assert any("pydantic" in d.path.parts for d in base.definition)
     assert any(d.path.name == "builtins.pyi" for d in builtin.definition)
+
+
+CLASSES = ("from typing import cast\n\nfrom pydantic import BaseModel\n\n\nclass Root:\n    def own(self) -> int:\n"
+           "        return 0\n\n\nclass Mid(Root):\n    pass\n\n\nclass Cast(cast(\"type[Mid]\", object)):\n    pass\n\n\n"
+           "class Model(BaseModel):\n    pass\n")
+
+
+@pytest.fixture(scope="module")
+def class_export(tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, OccurrenceIndex]:
+    """One export of the class facts of `Mid`, `Cast` and `Model`, looking up `own` and `model_dump`."""
+    root = write_project(tmp_path_factory.mktemp("classes") / "p", {"pkg/c.py": CLASSES}).resolve()
+    path = root / "pkg" / "c.py"
+    offsets = [CLASSES.index(f"class {name}") + len("class ") for name in ("Mid", "Cast", "Model")]
+    with LanguageServer(root) as server:
+        server.open(path, CLASSES)
+        index = server.export(ExportRequest(names=[], files=[], members=["own", "model_dump"], facts=[
+            FactQuery(path=path, offset=offset, kinds=("class",)) for offset in offsets]))
+    return path, index
+
+
+def test_a_class_fact_lists_its_ancestors_by_name(class_export: tuple[Path, OccurrenceIndex]) -> None:
+    path, index = class_export
+    mid, cast_base, _ = index.answers
+    root_name = (path, CLASSES.index("class Root") + len("class "))
+    mid_name = (path, CLASSES.index("class Mid") + len("class "))
+    assert next((s.path, s.start) for s in mid.ancestors) == root_name
+    assert [(s.path, s.start) for s in cast_base.ancestors][:2] == [mid_name, root_name]
+    assert mid.kinds == ("class",)
+
+
+def test_a_class_fact_names_only_members_a_library_class_declares(class_export: tuple[Path, OccurrenceIndex]) -> None:
+    mid, cast_base, model = class_export[1].answers
+    assert (mid.members, cast_base.members, model.members) == ((), (), ("model_dump",))
+    assert any("pydantic" in s.path.parts for s in model.ancestors)
+
+
+def test_a_class_fact_at_a_name_that_is_no_class_is_empty(tmp_path: Path) -> None:
+    root = write_project(tmp_path / "p", {"pkg/c.py": CLASSES}).resolve()
+    path = root / "pkg" / "c.py"
+    with LanguageServer(root) as server:
+        server.open(path, CLASSES)
+        index = server.export(ExportRequest(names=[], files=[], members=["own"], facts=[
+            FactQuery(path=path, offset=CLASSES.index("own"), kinds=("class",))]))
+    assert (index.answers[0].ancestors, index.answers[0].members) == ((), ())

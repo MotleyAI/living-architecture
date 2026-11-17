@@ -10,13 +10,12 @@ import tokenize
 from collections.abc import Callable
 from pathlib import Path
 
-from rope.base.project import Project
 from typing_extensions import override
 
 from living_architecture.contract import literal_value_forbidden, message
 from living_architecture.lang import Diagnostic, LanguageServer, reverse_closure
 from living_architecture.refactor.keyed import TypeFacts
-from living_architecture.refactor.locators import RefactorError
+from living_architecture.refactor.locators import cannot_rename
 from living_architecture.refactor.member_scan import TextProbe
 from living_architecture.refactor.mentions import docstrings
 from living_architecture.refactor.occurrence_index import RunIndex
@@ -143,7 +142,6 @@ class LiteralRename(MapRename):
 
     def __init__(self, session: Session, rel: str, node: ast.Constant, new: str, options: RenameOptions) -> None:
         self.session = session
-        self.project: Project = session.project
         self.root = session.root
         self.snapshot = session.snapshot
         self.options = options
@@ -195,7 +193,7 @@ class LiteralRename(MapRename):
             trees = {rel: source.tree if source.tree is not None else source.text for rel, source in {**modules, **stubs}.items()}
             self.candidates = sorted((reverse_closure(self.rel, trees) & set(modules)) | holding)
         if self._member is None or self._member.inner is None:
-            raise RefactorError(message("refactor.cannot-rename"))
+            raise cannot_rename()
 
     def _sources(self, paths: list[Path]) -> dict[str, SourceFile]:
         """Each readable file of `paths` by its project-relative path, in path order."""

@@ -855,10 +855,10 @@ def test_locators_are_one_exclusive_group(subcommand: str) -> None:
     assert spec["exclusive"] == [["offset", "line", "symbol"]]
 
 
-def test_rename_map_takes_renames_options_minus_the_locators() -> None:
+def test_rename_map_takes_renames_options_minus_the_locators_and_stub() -> None:
     spec = _shared_yaml("cli.yaml")["commands"]["dr-refactor"]["subcommands"]["rename-map"]
     assert [p["name"] for p in spec["positionals"]] == ["map"]
-    expected = set(_subcommand_options("rename")) - {"--file", *LOCATORS, "--col", "--new-name"}
+    expected = set(_subcommand_options("rename")) - {"--file", *LOCATORS, "--col", "--new-name", "--stub"}
     assert set(_subcommand_options("rename-map")) == expected
 
 

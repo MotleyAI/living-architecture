@@ -71,6 +71,23 @@
         }
       }
     },
+    "refactor": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "python": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "moved_module_stub": {
+              "type": ["string", "null"],
+              "default": null,
+              "description": "The text `dr-refactor rename --stub REMOVAL` leaves at a renamed Python module's old path; {old} and {new} (dotted module names) and {removal} are replaced."
+            }
+          }
+        }
+      }
+    },
     "conventions": {
       "type": "object",
       "additionalProperties": false,

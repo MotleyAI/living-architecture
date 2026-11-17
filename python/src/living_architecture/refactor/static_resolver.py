@@ -107,6 +107,7 @@ class Binder:
         self.decls: dict[str, ast.AST] = {}
         self.enclosing: dict[str, Scope] = {}
         self.class_nodes: dict[Scope, ast.ClassDef] = {}
+        self.inner: dict[int, Scope] = {}
 
     def _new(self, kind: ScopeKind, parent: Scope) -> Scope:
         scope = Scope(kind, parent)
@@ -125,7 +126,7 @@ class Binder:
         self.enclosing[key] = scope
         return ("decl", self.dotted, key)
 
-    def _from_module(self, node: ast.ImportFrom) -> str | None:
+    def from_module(self, node: ast.ImportFrom) -> str | None:
         if node.level == 0:
             return node.module
         package = self.parts if self.is_package else self.parts[:-1]
@@ -174,6 +175,7 @@ class Binder:
             self._comment(node, node.type_comment, annotated, signature=True)
             self._bind(scope, node.name, self._decl(node, scope), node)
         inner = self._new("function", annotated)
+        self.inner[id(node)] = inner
         for param in self._signature(node.args, scope, annotated):
             self._bind(inner, param.arg, None, param)
         for child in node.body if isinstance(node.body, list) else [node.body]:
@@ -188,6 +190,7 @@ class Binder:
         self._bind(scope, node.name, self._decl(node, annotated), node)
         inner = self._new("class", annotated)
         self.class_nodes[inner] = node
+        self.inner[id(node)] = inner
         for stmt in node.body:
             self.visit(stmt, inner)
 
@@ -201,6 +204,7 @@ class Binder:
     def _comprehension(self, node: ast.ListComp | ast.SetComp | ast.GeneratorExp | ast.DictComp, scope: Scope) -> None:
         self.visit(node.generators[0].iter, scope)
         inner = self._new("comprehension", scope)
+        self.inner[id(node)] = inner
         for i, generator in enumerate(node.generators):
             if i:
                 self.visit(generator.iter, inner)
@@ -216,7 +220,7 @@ class Binder:
                 name = alias.asname or alias.name.split(".")[0]
                 self._bind(scope, name, ("module", alias.name if alias.asname else name, ""), alias)
             return
-        module = self._from_module(node)
+        module = self.from_module(node)
         for alias in node.names:
             if alias.name == "*":
                 self.stars.append(module)
@@ -316,6 +320,7 @@ class Module:
     def __init__(self, tree: ast.Module, parts: list[str], is_package: bool, path: Path | None = None) -> None:
         self.dotted = ".".join(parts)
         self.path = path
+        self.is_package = is_package
         binder = Binder(parts, is_package)
         for stmt in tree.body:
             binder.visit(stmt, binder.module)
@@ -350,7 +355,7 @@ class Resolver:
         path, is_package = found
         try:
             return Module(ast.parse(self.read(path)), parts, is_package, path)
-        except (OSError, SyntaxError, ValueError):
+        except (OSError, SyntaxError, ValueError, LookupError):
             return None
 
     def declaration(self, value: Value) -> tuple[Module, ast.AST] | None:
@@ -372,7 +377,7 @@ class Resolver:
         top = not self.active
         self.active.add(key)
         try:
-            values = [self.binding_value(b) for b in module.scope.bindings.get(name, [])]
+            values = [self.owned_value(module, b) for b in module.scope.bindings.get(name, [])]
             for star in module.stars:
                 values += self.star_values(star, name)
         finally:
@@ -380,6 +385,14 @@ class Resolver:
         if top:
             self.cache[key] = values
         return values
+
+    def owned_value(self, module: Module, binding: Binding) -> Value:
+        """`binding`'s value in `module`: a package importing its own name (`from . import x` in its `__init__`) binds
+        its submodule `x`."""
+        if module.is_package and binding is not None and binding[0] == "member" and binding[1] == module.dotted:
+            child = f"{module.dotted}.{binding[2]}"
+            return ("module", child) if self.load(child) is not None else None
+        return self.binding_value(binding)
 
     def binding_value(self, binding: Binding) -> Value:
         if binding is None:
@@ -397,11 +410,11 @@ class Resolver:
             return None
         if module in TYPING_MODULES:
             return ("typing", name)
-        if (target := self.load(module)) is None:
-            return None
-        if values := self.module_values(target, name):
+        target = self.load(module)
+        if target is not None and (values := self.module_values(target, name)):
             return combine(values)
-        return ("module", f"{module}.{name}") if self.load(f"{module}.{name}") is not None else None
+        child = (target is None or target.is_package) and self.load(f"{module}.{name}") is not None
+        return ("module", f"{module}.{name}") if child else None
 
     def star_values(self, module: str | None, name: str) -> list[Value]:
         """What `from module import *` binds `name` to, if anything."""
@@ -409,8 +422,12 @@ class Resolver:
             return [ANY] if name == "Any" else []
         if module is None or (target := self.load(module)) is None:
             return []
-        exported = name in target.all_names if target.all_names is not None else not name.startswith("_")
-        return self.module_values(target, name) if exported else []
+        listed = target.all_names is not None and name in target.all_names
+        exported = listed if target.all_names is not None else not name.startswith("_")
+        values = self.module_values(target, name) if exported else []
+        if not values and listed and target.is_package and self.load(f"{module}.{name}") is not None:
+            return [("module", f"{module}.{name}")]
+        return values
 
     def values(self, module: Module, scope: Scope, expr: ast.expr) -> list[Value]:
         """The values every binding behind `expr` gives it."""
@@ -418,7 +435,7 @@ class Resolver:
             owner = scope.resolving(expr.id)
             if owner.kind == "module":
                 return self.module_values(module, expr.id)
-            return [self.binding_value(b) for b in owner.bindings.get(expr.id, [])]
+            return [self.owned_value(module, b) for b in owner.bindings.get(expr.id, [])]
         if isinstance(expr, ast.Attribute):
             return [
                 self.member(v[1], expr.attr) if v is not None and v[0] == "module" else None

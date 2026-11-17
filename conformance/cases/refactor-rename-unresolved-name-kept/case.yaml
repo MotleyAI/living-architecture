@@ -1,0 +1,21 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- rename
+- --file
+- lib/a.py
+- --symbol
+- foo
+- --new-name
+- bar
+- --keep
+- scripts/use.py
+fixture: refactor-unresolved
+git:
+- commit: init
+expect:
+  exit: 0
+note: a --keep covering the unresolved names drops their lines
+golden: manual

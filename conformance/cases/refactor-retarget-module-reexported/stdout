@@ -1,0 +1,14 @@
+Retargeting <AcmeModel> to <Model>:
+
+
+--- a/app/use_mod.py
++++ b/app/use_mod.py
+@@ -1,3 +1,3 @@
+ from pkg.facade import models
+ 
+-a = models.AcmeModel()
++a = models.Model()
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

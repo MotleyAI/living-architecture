@@ -37,7 +37,7 @@ _ISOLATION = {"PYTHONSAFEPATH": "1", "PYTHONNOUSERSITE": "1", "PYTHONDONTWRITEBY
 _EOF = object()
 EXPORT_COMMAND = "la.exportOccurrences"
 OccurrenceKind = Literal["name", "member", "keyword", "import", "alias", "module", "forward-reference", "all-entry"]
-FactKind = Literal["definition", "typeDefinition", "verdict", "access"]
+FactKind = Literal["definition", "typeDefinition", "verdict", "access", "class"]
 Verdict = Literal["Unknown", "Any"]
 
 
@@ -109,7 +109,8 @@ class FactQuery(BaseModel):
 
 class PositionFacts(BaseModel):
     """The facts exported about one position: definitions and type definitions as those requests find them, the
-    hover verdict there, and for a member name the verdict of its access's receiver."""
+    hover verdict there, for a member name the verdict of its access's receiver, and for a class name its ancestors in MRO order (each
+    class by its name) and the request's member names a class of it outside the project declares."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -120,16 +121,20 @@ class PositionFacts(BaseModel):
     type_definition: tuple[Span, ...] = ()
     verdict: Verdict | None = None
     access: Verdict | None = None
+    ancestors: tuple[Span, ...] = ()
+    members: tuple[str, ...] = ()
 
 
 class ExportRequest(BaseModel):
-    """The names whose occurrences to export from `files` (opened), and the position facts to export."""
+    """The names whose occurrences to export from `files` (opened), the position facts to export, and the member names
+    the class facts look up."""
 
     model_config = ConfigDict(frozen=True)
 
     names: list[str]
     files: list[Path]
     facts: list[FactQuery] = []
+    members: list[str] = []
 
 
 class OccurrenceIndex(BaseModel):
@@ -501,12 +506,14 @@ class LanguageServer:
             path = _path_of(item["uri"])
             position = item["position"]
             offset = self._index(path, position)
-        kinds = tuple(k for k in ("definition", "typeDefinition", "verdict", "access") if k in item)
+        kinds = tuple(k for k in ("definition", "typeDefinition", "verdict", "access", "class") if k in item)
+        found = cast(dict[str, Any], item.get("class") or {})
         return PositionFacts(
             path=path, offset=offset, kinds=cast(tuple[FactKind, ...], kinds),
             definition=self._spans(item.get("definition")),
             type_definition=self._spans(item.get("typeDefinition")),
             verdict=item.get("verdict"), access=item.get("access"),
+            ancestors=self._spans(found.get("mro")), members=tuple(str(m) for m in found.get("members") or []),
         )
 
     def _followed(self, items: list[dict[str, Any]] | None) -> list[PositionFacts]:
@@ -524,6 +531,7 @@ class LanguageServer:
             "files": [p.as_uri() for p in request.files],
             "facts": [{"uri": q.path.as_uri(), "position": self._position(q.path, q.offset)["position"], "kinds": list(q.kinds)}
                       for q in request.facts],
+            "members": request.members,
         })
         if not isinstance(result, dict):
             raise self._fail("export", "error")

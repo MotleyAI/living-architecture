@@ -17,8 +17,9 @@ fixture: refactor-params
 git:
 - commit: init
 expect:
-  exit: 1
+  exit: 0
   files:
   - pkg/lam.py
   - .ropeproject/history.json
-note: 'a lambda parameter is refused: cannot-rename, nothing written'
+golden: manual
+note: 'a lambda parameter is renamed with every use its lambda binds'

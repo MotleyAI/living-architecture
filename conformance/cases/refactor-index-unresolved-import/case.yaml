@@ -16,4 +16,4 @@ expect:
   exit: 0
 golden: manual
 note: 'an import basedpyright cannot resolve (the project root is off its search path
-  for scripts/): rope resolves it'
+  for scripts/): Python''s import rules over the source folders resolve it'

@@ -13,8 +13,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
 
-from living_architecture.contract import message
-from living_architecture.refactor.locators import RefactorError
+from living_architecture.refactor.locators import cannot_rename
 from living_architecture.refactor.move_edits import NameConflict
 from living_architecture.refactor.python_source import SourceFile, nfkc
 from living_architecture.refactor.static_resolver import Module, Scope
@@ -49,7 +48,7 @@ def _word(source: SourceFile, node: ast.AST, word: str) -> int | None:
     return None if found is None else found[0]
 
 
-def _bound_at(source: SourceFile, node: ast.AST, name: str) -> int | None:
+def bound_at(source: SourceFile, node: ast.AST, name: str) -> int | None:
     """The offset of the identifier with which `node` binds `name`."""
     span = source.name_span(node)
     return span[0] if span is not None else _word(source, node, name)
@@ -119,7 +118,7 @@ class _Parsed:
         parents = {child: node for node in ast.walk(tree) for child in ast.iter_child_nodes(node)}
         self._named: defaultdict[str, list[Occurrence]] = defaultdict(list)
         for scope, name, node in binder.bound:
-            offset = _bound_at(source, node, name)
+            offset = bound_at(source, node, name)
             parent = parents.get(node)
             if not (isinstance(parent, ast.AnnAssign) and parent.value is None):  # an annotation binds nothing
                 self.points[(scope.owner(name), name)].append((offset, *_binding_point(source, node, parents)))
@@ -401,7 +400,7 @@ class BindingCheck:
                 self._after[key] = (None, _Edited(list(edits)))
                 return self._after[key]
             if source.tree is None:
-                raise RefactorError(message("refactor.cannot-rename"))
+                raise cannot_rename()
             parts, is_package = _module_parts(self.folders, rel)
             self._after[key] = (_Parsed(source, source.tree, parts, is_package), _Edited(list(edits)))
         return self._after[key]

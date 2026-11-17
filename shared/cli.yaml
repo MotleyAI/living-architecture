@@ -194,8 +194,8 @@ commands:
   dr-refactor:
     native: [python, typescript]
     help: >-
-      IDE-grade refactors (Python via rope, TypeScript via its language service): rename, rename-map, retarget,
-      move-symbol, move-module. Rewrites every import and reference across the project and keeps the type-check
+      IDE-grade refactors (Python via la's own renames and rope's moves, TypeScript via its language service): rename,
+      rename-map, retarget, move-symbol, move-module. Rewrites every import and reference across the project and keeps the type-check
       baseline aligned. Dry-run by default; pass --apply to write. Symbol location comes from --symbol (the
       declaration's path inside --file, e.g. Class.method), --offset, or --line/--col (1-based, as an editor/LSP
       reports).
@@ -207,10 +207,13 @@ commands:
       - {name: --timings, type: flag, help: "print each phase's wall time on stderr after all other output"}
     subcommands:
       rename:
-        help: rename the symbol at a location
+        help: >-
+          rename the symbol at a location; Python: on an import that names a module, or with no locator, rename the
+          module --file names (its file moves and every import follows)
         exclusive: [[offset, line, symbol]]
         options:
-          - {name: --file, type: path, required: true, help: file holding the symbol}
+          - {name: --file, type: path, required: true,
+             help: 'file holding the symbol (Python, with no locator: the module to rename)'}
           - {name: --offset, type: int, help: 0-based character offset}
           - {name: --line, type: int, help: 1-based line}
           - {name: --col, type: int, help: 1-based column}
@@ -233,6 +236,9 @@ commands:
              help: 'also rewrite mentions in comments, docstrings, strings and prose files; list the rest'}
           - {name: --fail-fast, type: flag,
              help: 'stop at the first entry with a refusal (default: compute every entry and report every refusal)'}
+          - {name: --stub, type: string, metavar: REMOVAL,
+             help: 'Python module rename: leave a stub at the old path, refactor.python.moved_module_stub with {removal}
+               set to REMOVAL'}
       rename-map:
         help: >-
           apply a YAML list of rename and retarget entries as one refactor: every entry resolved against the code

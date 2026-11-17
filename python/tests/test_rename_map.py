@@ -10,9 +10,9 @@ import pytest
 import yaml
 from project_files import file_tree, write_project
 from refactor_cli import assert_same_run, line_col, read, run, run_raw, template_regex
-from rope.base.exceptions import RefactoringError
 
 from living_architecture.contract import message
+from living_architecture.refactor.locators import RefactorError
 from living_architecture.refactor.occurrence_index import ServerSession
 from living_architecture.refactor.rename_map import RenameMap
 from living_architecture.refactor.rename_union import SymbolRename
@@ -512,7 +512,7 @@ def use(x):
 """
 
 
-def test_a_rope_error_in_one_entrys_rules_refuses_that_entry(
+def test_an_error_in_one_entrys_rules_refuses_that_entry(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     root = _project(tmp_path, {"pkg/a.py": ROPE_FAILS}, [
@@ -525,7 +525,7 @@ def test_a_rope_error_in_one_entrys_rules_refuses_that_entry(
         if self.old == "old":
             clash = ROPE_FAILS.index("other")
             self.edits.append(TextEdit(path="pkg/a.py", start=clash, end=clash + len("other"), new_text="clash"))
-            raise RefactoringError("rope failed")
+            raise RefactorError(message("refactor.cannot-rename"))
         index_edits(self, index)  # pyright: ignore[reportArgumentType]
 
     monkeypatch.setattr(SymbolRename, "_index_edits", failing)

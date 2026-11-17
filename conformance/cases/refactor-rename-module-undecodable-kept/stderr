@@ -1,0 +1,5 @@
+[resolve]
+[checks]
+[references]
+[conflicts]
+pkg/old.py: undecodable: the file does not decode as nosuch, so it is left unchanged although it may mention client
