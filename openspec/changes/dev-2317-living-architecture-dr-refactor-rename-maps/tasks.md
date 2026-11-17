@@ -63,7 +63,7 @@
       with that pass's `MemberCheck` result inside the existing loop. `rope_refactor.py` passes `[entries]` and takes
       the first yielded list. Verify: `test_rename_map.py`, the `rope_refactor` rename tests and
       `test_refactor_progress.py` pass.
-- [ ] 2.4 Local test scope (per `/la:pr`) plus the conformance corpus through the Python twin, then
+- [x] 2.4 Local test scope (per `/la:pr`) plus the conformance corpus through the Python twin, then
       `uv run ruff check src tests` and `uv run basedpyright src tests` in `python/`, `la-typecheck` and
       `la-arch-check`. Verify: all green.
 
