@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -108,6 +109,12 @@ def move_module(root: Path, *, module: str, dest: str, apply: bool, progress: Pr
         with timed("resolve"):
             source = project.rel(module)
             folder = project.destination(dest, folder=True)
+            moved = Path(source).parent if Path(source).name == "__init__.py" else Path(source)
+            if Path(folder).is_relative_to(moved):
+                raise RefactorError(message("refactor.destination-inside-source", path=folder, source=moved.as_posix()))
+            taken = (Path(folder) / moved.name).as_posix()
+            if os.path.lexists(root / taken):
+                raise RefactorError(message("refactor.destination-exists", path=taken))
     except RefactorError as exc:
         failures.append(refusal(str(exc)))
     name = Path(module).stem if not Path(module).is_dir() else Path(module).name

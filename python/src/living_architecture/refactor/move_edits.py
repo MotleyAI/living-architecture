@@ -321,7 +321,7 @@ class File:
     def finish(self) -> str:
         """Remove imports whose every use was rewritten, add the imports rewritten uses need, and apply."""
         for scope in self._scopes():
-            for name, nodes in list(self.bound.get(scope, {}).items()):
+            for name, nodes in self.bound.get(scope, {}).items():
                 for node in nodes:
                     self._drop_if_all_rewritten(name, node, scope)
         self._add_needed_imports()

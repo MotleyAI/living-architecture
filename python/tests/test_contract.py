@@ -637,6 +637,7 @@ NEW_TEMPLATES = {
     "refactor.conflicting-edits": "projects disagree on an edit in {path}",
     "refactor.destination-exists": "destination already exists: {path}",
     "refactor.destination-missing": "destination does not exist: {path}",
+    "refactor.destination-inside-source": "{path} is inside {source}, which cannot move into itself",
     "refactor.skipped": "{prog}: not a source file, skipped: {path}",
     "refactor.rope-walk":
         "rope cannot follow {path}:{line}, so nothing was refactored (a rope bug, not a source error);"

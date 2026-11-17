@@ -346,6 +346,7 @@ findings:
   refactor.conflicting-edits: projects disagree on an edit in {path}
   refactor.destination-exists: 'destination already exists: {path}'
   refactor.destination-missing: 'destination does not exist: {path}'
+  refactor.destination-inside-source: '{path} is inside {source}, which cannot move into itself'
   refactor.source-missing: 'source does not exist: {path}'
   refactor.mixed-languages: '{path} holds sources of more than one language: {languages}'
   refactor.rope-walk: 'rope cannot follow {path}:{line}, so nothing was refactored (a rope bug, not a source error); dr-compliance --select rope-walk lists every such file'

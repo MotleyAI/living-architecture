@@ -102,13 +102,16 @@ class SymbolMove:
                 file.rewrite_use(node, scope, self.name, None, f"{self.old}.{self.name}")
             else:
                 file.rewrite_use(node, scope, f"{self.new}.{self.name}", self.new)
-        if is_dest:
-            return
+        if not is_dest:
+            self._import_past_stars(file)
+
+    def _import_past_stars(self, file: File) -> None:
+        """After each star import of the source that a use of the name reads it through, import it from `new`."""
         stars: list[ast.ImportFrom] = []
         for node, scope in file.names:
             if node.id != self.name or file.lookup(scope, self.name) is not None:
                 continue
-            values = resolver.values(file.module, scope, node)
+            values = self.project.resolver.values(file.module, scope, node)
             if values and all(v in self.values for v in values):
                 stars += [s for s in file.binder.star_nodes if file.binder.from_module(s) == self.old]
         for stmt in dict.fromkeys(stars):
@@ -128,6 +131,11 @@ class SymbolMove:
             hits = {i for i, e in enumerate(elements) if isinstance(e, ast.Constant) and e.value == self.name}
             if hits:
                 file.remove_elements([file.span(e) for e in elements], hits, True)
+        self._drop_moved_only_imports(file)
+
+    def _drop_moved_only_imports(self, file: File) -> None:
+        """Remove the source's top-level imports that only the moved code reads."""
+        top = file.top
         for name, nodes in file.bound[top].items():
             for node in nodes:
                 item = file.item(node)
@@ -155,13 +163,7 @@ class SymbolMove:
         lines = [line for stmt in regular for line in _needed(file, stmt)]
         for line in lines:
             file.edits.insert_line(at, line)
-        if checking and block is not None:
-            for line in checking:
-                file.insert_after(block.body[-1], line)
-        elif checking:
-            file.edits.insert_line(at, "if TYPE_CHECKING:")
-            for line in checking:
-                file.edits.insert_line(at, _INDENT + line)
+        _insert_checking(file, at, block, checking)
         self._insert_moving(file, at if lines or checking or added else None)
 
     def _future(self, file: File, needed: Needed) -> bool:
@@ -221,6 +223,19 @@ class SymbolMove:
             comments += 1
         at = sum(len(line) for line in lines[:comments])
         file.edits.add(at, at, (newline * 2 if comments else "") + moving)
+
+
+def _insert_checking(file: File, at: int, block: ast.If | None, checking: list[str]) -> None:
+    """Add the `checking` lines to the destination's `if TYPE_CHECKING:` block, or to a new one at `at`."""
+    if not checking:
+        return
+    if block is not None:
+        for line in checking:
+            file.insert_after(block.body[-1], line)
+        return
+    file.edits.insert_line(at, "if TYPE_CHECKING:")
+    for line in checking:
+        file.edits.insert_line(at, _INDENT + line)
 
 
 def _more(lines: list[str], index: int) -> bool:

@@ -143,22 +143,32 @@ class _Origin:
         top = self.file.top
         last = {name: self.file.obj(nodes[-1]) for name, nodes in self.file.bound[top].items() if name in names}
         for stmt, scope, guard in self.file.binder.imports:
-            in_block = guard is not None
-            if scope is not top or in_block != checking:
+            if scope is not top or (guard is not None) != checking:
                 continue
             if checking and not self._checked(self.file.binder.import_items[id(stmt.names[0])]):
                 continue
-            if isinstance(stmt, ast.Import):
-                found = Statement(None, [(a.name, a.asname) for a in stmt.names])
-            else:
-                module = self.file.binder.from_module(stmt)
-                if module is None or module == _FUTURE or stmt.names[0].name == "*":
-                    continue
-                found = Statement(module, [(a.name, a.asname) for a in stmt.names])
-            found.names = [pair for pair in found.names if found.bound(pair)[0] in names and found.bound(pair)[1] == last[found.bound(pair)[0]]]
+            found = self._absolute(stmt)
+            if found is None:
+                continue
+            found.names = [pair for pair in found.names if _binds_last(found, pair, names, last)]
             if found.names:
                 out.append(found)
         return out
+
+    def _absolute(self, stmt: ast.Import | ast.ImportFrom) -> Statement | None:
+        """`stmt` with its module made absolute; None for `__future__`, a star or an unresolvable relative import."""
+        if isinstance(stmt, ast.Import):
+            return Statement(None, [(a.name, a.asname) for a in stmt.names])
+        module = self.file.binder.from_module(stmt)
+        if module is None or module == _FUTURE or stmt.names[0].name == "*":
+            return None
+        return Statement(module, [(a.name, a.asname) for a in stmt.names])
+
+
+def _binds_last(stmt: Statement, pair: tuple[str, str | None], names: set[str], last: dict[str, str | None]) -> bool:
+    """The item binds one of `names` to what its last binding does."""
+    name, obj = stmt.bound(pair)
+    return name in names and obj == last[name]
 
 
 def _merged(statements: list[Statement]) -> list[Statement]:

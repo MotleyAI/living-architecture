@@ -41,7 +41,11 @@ def _declared(source: SourceFile, stmt: ast.stmt) -> tuple[str, tuple[int, int]]
     if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
         found = source.name_span(stmt)
         return (stmt.name, found) if found is not None else None
-    targets = stmt.targets if isinstance(stmt, ast.Assign) else [stmt.target] if isinstance(stmt, ast.AnnAssign) else []
+    targets: list[ast.expr] = []
+    if isinstance(stmt, ast.Assign):
+        targets = stmt.targets
+    elif isinstance(stmt, ast.AnnAssign):
+        targets = [stmt.target]
     if len(targets) == 1 and isinstance(targets[0], ast.Name):
         return targets[0].id, source.span(targets[0])
     return None

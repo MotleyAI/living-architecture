@@ -1,0 +1,3 @@
+[resolve]
+[checks]
+pkg/sub is inside pkg, which cannot move into itself
