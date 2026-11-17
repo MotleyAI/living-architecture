@@ -516,3 +516,20 @@ def test_a_comprehension_first_iterable_is_read_in_the_enclosing_scope() -> None
     assert first is scopes.module
     assert element is later is not scopes.module
     assert element.lookup("sub") is element
+
+
+HEADER_READS = "def g(pa=pa.f, /, *, y: pa.f = 1) -> pa.f:\n    return pa\n\n\nitems = [pa for pa in pa.f()]\n"
+
+
+def test_symbol_uses_rope_misses_in_a_def_header_are_rewritten(tmp_path: Path) -> None:
+    root = _write(tmp_path, {**SYMBOL_PROJECT, "use.py": "import pkg.a as pa\n\n\n" + HEADER_READS})
+    assert _move_f(root, "--apply") == 0
+    assert (root / "use.py").read_text() == "import pkg.b\n\n\n" + HEADER_READS.replace("pa.f", "pkg.b.f")
+
+
+def test_module_uses_rope_misses_keep_a_package_binding(tmp_path: Path) -> None:
+    files = {**MODULE_PROJECT, "pkg/sql/__init__.py": "from pkg.sql import client\n"}
+    use = "import pkg.sql as s\n\n\ndef g(x=s.client.X) -> object:\n    return [s for s in s.client.ITEMS]\n"
+    root = _write(tmp_path, {**files, "use.py": use})
+    assert _move_module(root, "--apply") == 0
+    assert (root / "use.py").read_text() == use

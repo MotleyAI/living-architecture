@@ -84,6 +84,9 @@ existing `refactor` capability (listed in `python.refactor`'s `specs`); no new s
       (it resolves to the module scope, or the nearest enclosing function scope, as Python does), and a
       comprehension's first iterable is visited in the enclosing scope.
     - The star-import path (`_star_imports`) keeps its own lexical-binding rejection; a lambda shadow case proves it.
+    - Uses rope's finder misses because its scopes differ from Python's (a `def` header's defaults and annotations, a
+      comprehension's first iterable) are found from `_Scopes`: each dotted chain rooted at an import binding,
+      resolved from that binding's module path, joins rope's occurrences. (user)
     - Rejected: full binding resolution with execution order in module and class bodies (more work, no observed
       bug, DEV-2311's resolver is the right place); xfail against DEV-2311 (leaves wrong code on `main`).
 11. **Conformance cases are Python adapter cases** on new fixtures (`refactor-tuple-targets`,

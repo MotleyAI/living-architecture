@@ -114,6 +114,9 @@ class _Scope:
         self.is_class = is_class
         self.bindings: dict[str, list[_Binding]] = {}
         self.stars: list[tuple[ast.ImportFrom, str | None]] = []
+        self.globals: set[str] = set()
+        self.nonlocals: set[str] = set()
+        self.nonlocal_targets: set[str] = set()
 
     def chain(self) -> Iterator[_Scope]:
         yield self
@@ -124,7 +127,31 @@ class _Scope:
             scope = scope.parent
 
     def lookup(self, name: str) -> _Scope | None:
-        return next((scope for scope in self.chain() if name in scope.bindings), None)
+        for scope in self.chain():
+            if name in scope.globals:
+                module = self.module()
+                return module if name in module.bindings else None
+            if name in scope.bindings:
+                return scope
+        return None
+
+    def module(self) -> _Scope:
+        scope = self
+        while scope.parent is not None:
+            scope = scope.parent
+        return scope
+
+    def nonlocal_target(self, name: str) -> _Scope | None:
+        """The enclosing function scope a `nonlocal name` here refers to."""
+        return next(
+            (s for s in self.chain() if s is not self and s.parent is not None and name not in s.nonlocals
+             and name in s.bindings),
+            None,
+        )
+
+    def is_function(self) -> bool:
+        """A function, lambda or comprehension scope: its bindings hold for its whole body."""
+        return self.parent is not None and not self.is_class
 
 
 class _Scopes:
@@ -136,7 +163,10 @@ class _Scopes:
         self.current = self.module
         self.imports: list[tuple[ast.Import | ast.ImportFrom, _Scope]] = []
         self.loads: dict[tuple[int, int], tuple[ast.Name, _Scope]] = {}
+        self._deferred: list[tuple[_Scope, str, _Binding]] = []
+        self._declaring: list[_Scope] = []
         self.visit(tree)
+        self._resolve_nonlocals()
 
     def visit(self, node: ast.AST) -> None:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -153,6 +183,11 @@ class _Scopes:
             self._import_from(node)
         elif isinstance(node, ast.Name):
             self._name(node)
+        elif isinstance(node, ast.Global):
+            self.current.globals.update(node.names)
+        elif isinstance(node, ast.Nonlocal):
+            self.current.nonlocals.update(node.names)
+            self._declaring.append(self.current)
         else:
             self._bind_pattern(node)
             self.generic_visit(node)
@@ -162,7 +197,24 @@ class _Scopes:
             self.visit(child)
 
     def _bind(self, name: str, binding: _Binding, scope: _Scope | None = None) -> None:
-        (scope or self.current).bindings.setdefault(name, []).append(binding)
+        scope = scope or self.current
+        if name in scope.globals:
+            scope = self.module
+        elif name in scope.nonlocals:
+            self._deferred.append((scope, name, binding))
+            return
+        scope.bindings.setdefault(name, []).append(binding)
+
+    def _resolve_nonlocals(self) -> None:
+        """Bind each name a `nonlocal` statement declares in the scope it names, once every scope is known."""
+        for declaring in self._declaring:
+            for name in declaring.nonlocals:
+                target = declaring.nonlocal_target(name)
+                if target is not None:
+                    target.nonlocal_targets.add(name)
+        for declaring, name, binding in self._deferred:
+            target = declaring.nonlocal_target(name) or declaring
+            target.bindings.setdefault(name, []).append(binding)
 
     def _inside(self, scope: _Scope, nodes: list) -> None:
         outer, self.current = self.current, scope
@@ -198,7 +250,9 @@ class _Scopes:
 
     def _comprehension(self, node: ast.ListComp | ast.SetComp | ast.GeneratorExp | ast.DictComp) -> None:
         elements = [node.key, node.value] if isinstance(node, ast.DictComp) else [node.elt]
-        self._inside(_Scope(self.current, False), [*node.generators, *elements])
+        first, *rest = node.generators
+        self.visit(first.iter)
+        self._inside(_Scope(self.current, False), [first.target, *first.ifs, *rest, *elements])
 
     def _import(self, node: ast.Import) -> None:
         self.imports.append((node, self.current))
@@ -373,11 +427,44 @@ class _File:
         col = len(self.text[_line_start(self.text, offset) : offset].encode())
         return self.scopes.loads.get((line, col))
 
-    def rewrite_use(
-        self, occurrence: occurrences.Occurrence, new: str, needs: str | None, obj: str | None = None
-    ) -> None:
+    def eligible(self, start: int) -> bool:
+        """A read at `start` whose root no function, lambda or comprehension scope binds other than by import (rule 2)."""
+        use = self.use_at(start)
+        if use is None:
+            return False
+        name, scope = use
+        found = scope.lookup(name.id)
+        return found is None or not found.is_function() or all(b.stmt is not None for b in found.bindings[name.id])
+
+    def import_binding(self, name: ast.Name, scope: _Scope) -> tuple[_Scope | None, _Binding | None]:
+        """The scope binding `name` from `scope`, and the import there that binds it at `name`'s line."""
+        found = scope.lookup(name.id)
+        if found is None:
+            return None, None
+        imports = [b for b in found.bindings[name.id] if b.stmt is not None]
+        before = [b for b in imports if b.line <= name.lineno]
+        return found, (before or imports or [None])[-1]
+
+    def import_chains(self) -> Iterator[tuple[tuple[int, int], str, ast.Attribute]]:
+        """Each attribute chain read from an import-bound root: its span, the dotted path it names, and the node."""
+        for node in ast.walk(self.tree):
+            if not isinstance(node, ast.Attribute):
+                continue
+            parts: list[str] = []
+            root: ast.expr = node
+            while isinstance(root, ast.Attribute):
+                parts.append(root.attr)
+                root = root.value
+            use = self.scopes.loads.get((root.lineno, root.col_offset)) if isinstance(root, ast.Name) else None
+            if use is None:
+                continue
+            binding = self.import_binding(*use)[1]
+            if binding is not None and binding.obj is not None:
+                yield self.span(node), ".".join([binding.obj, *reversed(parts)]), node
+
+    def rewrite_use(self, span: tuple[int, int], new: str, needs: str | None, obj: str | None = None) -> None:
         """Rule 3: the chain becomes `new`, its root free for `obj` (default: itself); `needs` is the module to import."""
-        start, end = _primary_range(occurrence)
+        start, end = span
         if not _CHAIN.fullmatch(self.text[start:end]):
             return
         use = self.use_at(start)
@@ -386,12 +473,7 @@ class _File:
         name, scope = use
         root = new.split(".")[0]
         self.check_free(root, obj or root, scope)
-        found = scope.lookup(name.id)
-        binding = None
-        if found is not None:
-            imports = [b for b in found.bindings[name.id] if b.stmt is not None]
-            before = [b for b in imports if b.line <= name.lineno]
-            binding = (before or imports or [None])[-1]
+        found, binding = self.import_binding(name, scope)
         self.edits.add(start, end, new)
         if binding is not None:
             self.uses_rewritten[id(binding)] = self.uses_rewritten.get(id(binding), 0) + 1
@@ -427,7 +509,10 @@ class _File:
     def _drop_if_all_rewritten(self, name: str, binding: _Binding, scope: _Scope) -> None:
         count = self.uses_rewritten.get(id(binding), 0)
         stmt = binding.stmt
-        if count and stmt is not None and id(stmt) not in self.rewritten and self._uses(name, scope) == count:
+        if (
+            count and stmt is not None and id(stmt) not in self.rewritten and name not in scope.nonlocal_targets
+            and self._uses(name, scope) == count
+        ):
             binding.removed = True
             self.remove_item(stmt, binding.item)
 
@@ -579,14 +664,22 @@ class _ModuleMove:
         file.after.append((stmt, line))
 
     def rewrite_uses(self, file: _File) -> None:
+        seen: set[tuple[int, int]] = set()
         for occurrence in self.finder.find_occurrences(resource=file.resource):
+            span = _primary_range(occurrence)
+            seen.add(span)
             holder = _module_object(occurrence)
-            if holder is None:
-                continue
-            if holder.path not in self.binds:
-                self.binds[holder.path] = _explicitly_binds(holder, self.basename)
-            if not self.binds[holder.path]:
-                file.rewrite_use(occurrence, self.new, self.new)
+            if holder is not None and not self._binds(holder) and file.eligible(span[0]):
+                file.rewrite_use(span, self.new, self.new)
+        for span, path, _ in file.import_chains():
+            if span not in seen and path == self.old and not self._binds(self.source.parent) and file.eligible(span[0]):
+                file.rewrite_use(span, self.new, self.new)
+
+    def _binds(self, holder: Resource) -> bool:
+        """Whether `holder`, the moved module's package as a use reaches it, binds the module's name itself."""
+        if holder.path not in self.binds:
+            self.binds[holder.path] = _explicitly_binds(holder, self.basename)
+        return self.binds[holder.path]
 
 
 def module_move_changes(project: Project, mover: MoveModule, dest: Resource) -> ChangeSet:
@@ -656,27 +749,38 @@ class _SymbolMove:
         is_dest = file.resource == self.dest
         _symbol_imports(file, self.old, self.new, self.name, is_dest)
         if file.resource == self.source:
-            remaining = any(self._outside(o) for o in self.finder.find_occurrences(resource=file.resource))
+            remaining = any(self._outside(file, o) for o in self.finder.find_occurrences(resource=file.resource))
             _source_edits(file, self.region, self.name, self.new, remaining)
         else:
             self._rewrite_uses(file, is_dest)
         if is_dest:
             _dest_edits(file, self.mover, self.old, self.new, self.name)
 
-    def _outside(self, occurrence: occurrences.Occurrence) -> bool:
+    def _rewrite(self, file: _File, span: tuple[int, int], is_dest: bool) -> None:
+        if not file.eligible(span[0]):
+            return
+        if is_dest:
+            file.rewrite_use(span, self.name, None, f"{self.old}.{self.name}")
+        else:
+            file.rewrite_use(span, f"{self.new}.{self.name}", self.new)
+
+    def _outside(self, file: _File, occurrence: occurrences.Occurrence) -> bool:
         start = _primary_range(occurrence)[0]
-        return not (self.region[0] <= start < self.region[1] or occurrence.is_defined())
+        return not (self.region[0] <= start < self.region[1] or occurrence.is_defined()) and file.eligible(start)
 
     def _rewrite_uses(self, file: _File, is_dest: bool) -> None:
         stars: list[ast.ImportFrom] = []
+        seen: set[tuple[int, int]] = set()
         for occurrence in self.finder.find_occurrences(resource=file.resource):
+            span = _primary_range(occurrence)
+            seen.add(span)
             if _module_object(occurrence) == self.source:
-                if is_dest:
-                    file.rewrite_use(occurrence, self.name, None, f"{self.old}.{self.name}")
-                else:
-                    file.rewrite_use(occurrence, f"{self.new}.{self.name}", self.new)
+                self._rewrite(file, span, is_dest)
             elif _primary(occurrence) is None and not is_dest:
-                stars.extend(_star_imports(file, _primary_range(occurrence)[0], self.old))
+                stars.extend(_star_imports(file, span[0], self.old))
+        for span, path, node in file.import_chains():
+            if span not in seen and node.attr == self.name and path == f"{self.old}.{self.name}":
+                self._rewrite(file, span, is_dest)
         for stmt in dict.fromkeys(stars):
             file.after.append((stmt, f"from {_from(stmt, file.package, self.new)} import {self.name}"))
 

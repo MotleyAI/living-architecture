@@ -12,7 +12,7 @@ from pydantic import BaseModel, ConfigDict
 
 from living_architecture.contract import message
 from living_architecture.refactor.members import bound_targets, receiver_stores
-from living_architecture.refactor.python_source import SourceFile
+from living_architecture.refactor.python_source import SourceFile, every_parameter
 
 LOCALS = "<locals>"
 _PATH = re.compile(r"(?P<path>[^()\[\]]+)(?:\((?P<param>[^()]+)\))?(?:\[(?P<quote>['\"])(?P<value>.*)(?P=quote)\])?")
@@ -194,17 +194,12 @@ def _walk(source: SourceFile, module: Scope, segments: tuple[str, ...], unresolv
 
 def _parameter(source: SourceFile, group: list[Declaration], name: str, unresolved: Unresolved) -> Located:
     functions = [n for _, _, n in group if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]
-    params = [a for fn in functions for a in _every_parameter(fn)]
+    params = [a for fn in functions for a in every_parameter(fn.args)]
     arg = next((a for a in params if a.arg == name), None)
     span = source.name_span(arg) if arg is not None else None
     if arg is None or span is None:
         raise unresolved({a.arg for a in params})
     return Located(offset=span[0], nodes=(arg,), top_level=False)
-
-
-def _every_parameter(fn: Function) -> list[ast.arg]:
-    a = fn.args
-    return [*a.posonlyargs, *a.args, *([a.vararg] if a.vararg else []), *a.kwonlyargs, *([a.kwarg] if a.kwarg else [])]
 
 
 def _literal_member(source: SourceFile, group: list[Declaration], value: str, unresolved: Unresolved) -> Located:
