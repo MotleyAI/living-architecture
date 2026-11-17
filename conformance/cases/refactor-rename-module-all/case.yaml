@@ -1,0 +1,19 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- rename
+- --file
+- pkg/old.py
+- --new-name
+- new
+fixture: refactor-module-all
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: 'a module rename rewrites an `__all__` string naming the module its package imports (`from . import old`), and
+  the importers reading it directly or through the star import; an unrelated binding of the same name listed in another
+  module stays'

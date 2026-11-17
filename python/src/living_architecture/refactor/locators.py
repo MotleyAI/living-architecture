@@ -15,6 +15,10 @@ class RefactorError(Exception):
     """The refactor cannot be computed; the message is user-facing."""
 
 
+def cannot_rename() -> RefactorError:
+    return RefactorError(message("refactor.cannot-rename"))
+
+
 class Locator(BaseModel):
     """Where the symbol is: an offset, a 1-based line/column, or a declaration's path in the file."""
 

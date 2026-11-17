@@ -30,7 +30,7 @@ from living_architecture.refactor.keyed import (
     field_assignment,
     sink_candidates,
 )
-from living_architecture.refactor.locators import RefactorError
+from living_architecture.refactor.locators import cannot_rename
 from living_architecture.refactor.member_scan import FormCall, MemberScan
 from living_architecture.refactor.members import member_declarations
 from living_architecture.refactor.mentions import (
@@ -55,7 +55,7 @@ from living_architecture.refactor.outcomes import (
 )
 from living_architecture.refactor.patch_targets import SourceFolders, TargetResolver
 from living_architecture.refactor.python_project import ProjectLayout, Snapshot
-from living_architecture.refactor.python_source import SourceFile
+from living_architecture.refactor.python_source import SourceFile, nfkc
 from living_architecture.refactor.rope_patches import every_parameter
 from living_architecture.refactor.routing import language_files
 from living_architecture.refactor.sites import Site
@@ -290,8 +290,8 @@ class SymbolRename(MapRename):
         self._unsure = self.options.unsure
 
     def _validate(self) -> None:
-        if keyword.iskeyword(self.new):
-            raise RefactorError(message("refactor.cannot-rename"))
+        if not self.new.isidentifier() or keyword.iskeyword(nfkc(self.new)):
+            raise cannot_rename()
 
     def _project_declarations(self, found: Occurrence | None) -> set[tuple[str, int]]:
         if found is None:

@@ -47,7 +47,7 @@ What a rename leaves unrenamed:
 - mentions in comments, docstrings, messages and prose files: all of them without `--docs`; with it, the ones it
   lists as `leftover`;
 - for a parameter rename: keywords that reach it unresolved (`**kwargs` forwarding, a dict unpacked into the
-  call). A lambda parameter is refused.
+  call).
 - for a field rename: dict keys that reach the model untyped (through `Any` or `dict[str, Any]`, `**kwargs`
   forwarding, merges, loaded data, a module-level variable), a dict passed by position to an instance method
   whose receiver is not provably its class or an instance (a local `s = Service()`: annotate it or pass by

@@ -13,6 +13,8 @@ from typing import TypeVar, cast
 _N = TypeVar("_N", bound=ast.AST)
 _NEWLINE = re.compile(r"\r\n|\r|\n")
 _DEF_KEYWORD = re.compile(r"(?:async\s+)?(?:def|class)\s+")
+_SEGMENT = re.compile(r"(?:\.|[^\S\r\n]|\\\r?\n|\\\r)*([^\W\d]\w*)")
+_FROM = re.compile(r"from\s*\.*\s*")
 
 Positioned = ast.expr | ast.stmt | ast.arg | ast.keyword
 
@@ -29,6 +31,21 @@ def name_end(text: str, start: int) -> int:
     return end
 
 
+def dotted_segments(text: str, start: int, end: int) -> list[tuple[int, int]]:
+    """The spans of the dotted name's identifiers written in `text[start:end]`, in order."""
+    out: list[tuple[int, int]] = []
+    at = start
+    while at < end:
+        m = _SEGMENT.match(text, at)
+        if m is None or m.start(1) >= end:
+            break
+        out.append(m.span(1))
+        at = m.end()
+        if at < end and text[at] not in ". \t\\":
+            break
+    return out
+
+
 def nfkc(raw: str) -> str:
     """The identifier Python reads from `raw`: its NFKC normal form."""
     return unicodedata.normalize("NFKC", raw)
@@ -42,6 +59,29 @@ def same_name(raw: str, name: str) -> bool:
 def line_starts(text: str) -> list[int]:
     """The offset of each line of `text`; lines end at Python's terminators `\\r\\n`, `\\r` and `\\n`."""
     return [0, *(m.end() for m in _NEWLINE.finditer(text))]
+
+
+def _assigns_all(stmt: ast.stmt) -> bool:
+    """`stmt` assigns, extends or appends to a module's `__all__`."""
+    if isinstance(stmt, ast.Assign):
+        targets = stmt.targets
+    elif isinstance(stmt, (ast.AnnAssign, ast.AugAssign)):
+        targets = [stmt.target]
+    elif isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Call) and isinstance(stmt.value.func, ast.Attribute):
+        func = stmt.value.func
+        targets = [func.value] if func.attr in ("append", "extend") else []
+    else:
+        return False
+    return any(isinstance(t, ast.Name) and t.id == "__all__" for t in targets)
+
+
+def _literal_elements(value: ast.expr | None) -> list[ast.expr]:
+    """The elements of a list, tuple or set literal, or of such literals joined by `+`."""
+    if isinstance(value, (ast.List, ast.Tuple, ast.Set)):
+        return list(value.elts)
+    if isinstance(value, ast.BinOp) and isinstance(value.op, ast.Add):
+        return _literal_elements(value.left) + _literal_elements(value.right)
+    return []
 
 
 def split_lines(text: str) -> list[str]:
@@ -94,6 +134,38 @@ class SourceFile:
         """The first class or function, in `ast.walk` order, whose name spans `span`."""
         return self._definitions.get(span)
 
+    @cached_property
+    def _names(self) -> dict[int, ast.Name | ast.Attribute]:
+        out: dict[int, ast.Name | ast.Attribute] = {}
+        for n in self.nodes:
+            if isinstance(n, (ast.Name, ast.Attribute)) and (span := self.name_span(n)) is not None:
+                out.setdefault(span[0], n)
+        return out
+
+    def name_at(self, start: int) -> ast.Name | ast.Attribute | None:
+        """The first name or attribute, in `ast.walk` order, whose identifier starts at `start`."""
+        return self._names.get(start)
+
+    @cached_property
+    def all_statements(self) -> list[ast.stmt]:
+        """The module-level statements assigning, extending or appending to `__all__`."""
+        return [s for s in self.tree.body if _assigns_all(s)] if self.tree is not None else []
+
+    def all_strings(self) -> list[ast.Constant]:
+        """The names the `__all__` statements export: string elements of their list, tuple or set literals, and the
+        string an `append` adds."""
+        out: list[ast.Constant] = []
+        for stmt in self.all_statements:
+            value: ast.expr | None = getattr(stmt, "value", None)
+            if isinstance(value, ast.Call) and isinstance(value.func, ast.Attribute):
+                arg = value.args[0] if value.args else None
+                if value.func.attr == "append":
+                    out += [arg] if isinstance(arg, ast.Constant) and isinstance(arg.value, str) else []
+                    continue
+                value = arg
+            out += [e for e in _literal_elements(value) if isinstance(e, ast.Constant) and isinstance(e.value, str)]
+        return out
+
     def offset(self, line: int, col: int) -> int:
         """The character offset of an AST position (1-based line, UTF-8 byte column)."""
         start = self._starts[line - 1]
@@ -111,6 +183,13 @@ class SourceFile:
     def span(self, node: Positioned) -> tuple[int, int]:
         start = self.offset(node.lineno, node.col_offset)
         return start, self.offset(node.end_lineno or node.lineno, node.end_col_offset or 0)
+
+    def from_path(self, node: ast.ImportFrom) -> list[tuple[int, int]]:
+        """The spans of the identifiers of `from …`'s written module path."""
+        written = node.module.split(".") if node.module else []
+        first = self.offset(node.lineno, node.col_offset)
+        head = _FROM.match(self.text, first)
+        return dotted_segments(self.text, head.end() if head else first, self.span(node)[1])[: len(written)]
 
     def segment(self, node: Positioned) -> str:
         start, end = self.span(node)

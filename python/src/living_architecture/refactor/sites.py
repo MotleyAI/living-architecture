@@ -101,17 +101,16 @@ def keep_spells(site: Site, editable: dict[str, bool], text: Callable[[str], str
         site.covers_path(rel) or site.parts[: len(Path(rel).parts)] == Path(rel).parts for rel in moved
     ):
         return True
-    for rel, is_code in editable.items():
-        if not site.covers_path(rel):
-            continue
-        try:
-            lines = spelled_lines(text(rel), names, code=is_code)
-        except (UnicodeDecodeError, LookupError):
-            if site.line is None and data is not None and any(n.encode() in data(rel) for n in names):
-                return True
-            continue
-        except OSError:
-            continue
-        if lines and (site.line is None or site.line in lines):
-            return True
-    return False
+    return any(_file_spells(site, rel, is_code, text, names, data) for rel, is_code in editable.items()
+               if site.covers_path(rel))
+
+
+def _file_spells(site: Site, rel: str, is_code: bool, text: Callable[[str], str], names: set[str],
+                 data: Callable[[str], bytes] | None) -> bool:
+    try:
+        lines = spelled_lines(text(rel), names, code=is_code)
+    except (UnicodeDecodeError, LookupError):
+        return site.line is None and data is not None and any(n.encode() in data(rel) for n in names)
+    except OSError:
+        return False
+    return bool(lines) and (site.line is None or site.line in lines)

@@ -26,17 +26,18 @@ def _venv(root: Path) -> Path:
     return root
 
 
+@pytest.mark.parametrize("new", ["keys", "\uff4b\uff45\uff59\uff53"], ids=["ascii", "full-width"])
 @pytest.mark.parametrize("base", ["Root", "Mid"], ids=["direct", "transitive"])
 def test_a_member_renamed_onto_a_name_a_library_base_declares(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], base: str
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], base: str, new: str
 ) -> None:
     venv = _venv(tmp_path / "venvs" / "v")
     root = write_project(tmp_path / "proj", {
         "pyrightconfig.json": json.dumps({"venvPath": str(venv.parent), "venv": venv.name}) + "\n",
         "pkg/m.py": f"from extlib import {base}\n\n\nclass C({base}):\n    def old(self) -> int:\n        return 1\n",
     }, venv=False)
-    argv = ["rename", "--file", "pkg/m.py", "--symbol", "C.old", "--new-name", "keys"]
-    conflict = message("refactor.name-conflict", name="keys", path="pkg/m.py", line=5)
+    argv = ["rename", "--file", "pkg/m.py", "--symbol", "C.old", "--new-name", new]
+    conflict = message("refactor.name-conflict", name=new, path="pkg/m.py", line=5)
     assert run(root, argv, monkeypatch, capsys) == (1, "", conflict + "\n")
 
 

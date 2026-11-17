@@ -13,8 +13,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
 
-from living_architecture.contract import message
-from living_architecture.refactor.locators import RefactorError
+from living_architecture.refactor.locators import cannot_rename
 from living_architecture.refactor.move_edits import NameConflict
 from living_architecture.refactor.python_source import SourceFile, nfkc
 from living_architecture.refactor.static_resolver import Module, Scope
@@ -400,7 +399,7 @@ class BindingCheck:
                 self._after[key] = (None, _Edited(list(edits)))
                 return self._after[key]
             if source.tree is None:
-                raise RefactorError(message("refactor.cannot-rename"))
+                raise cannot_rename()
             parts, is_package = _module_parts(self.folders, rel)
             self._after[key] = (_Parsed(source, source.tree, parts, is_package), _Edited(list(edits)))
         return self._after[key]

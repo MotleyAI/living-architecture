@@ -104,11 +104,14 @@ static resolver for scoping, imports and module chains, the AST for declarations
    group, or to nothing, is `refactor.cannot-rename`. `--symbol` naming an import binding follows the static resolver to
    its declaration or module, except a binding DEV-2301 decision 22 matches by binding, which is the entry itself,
    keyed by its own site. (default; one explicit algorithm: codex)
-9. **Kind and key from the declaration.** Module (a static-resolver module value, or the module file) → module rename;
+9. **Kind and key from the declaration.** Module (a static-resolver module value, the module file, or a locator on a
+   segment of an import's module path, `import pkg.mod` or `from pkg.mod import X`, naming the module that dotted prefix
+   names, located statically and never by the checker (user, PR review)) → module rename;
    `ast.arg` → parameter; a declaration in a function, lambda or comprehension scope → local (only its file is
    searched); a def in a class body → method; a class-body or `self.` member → member. The canonical key is
    `(kind, rel, line, name)` of the group's first declaration (overloads, property accessors: the first def, as rope
-   keys them); a declaration outside the project keys by the entry's site and renames nothing, as today (probe: a
+   keys them), plus that declaration's offset for a group declared in a function, lambda or comprehension scope, so
+   two such groups on one line stay distinct; a declaration outside the project keys by the entry's site and renames nothing, as today (probe: a
    rename of `os.getcwd` or `len` prints an empty diff and exits 0). Keys stay AST-based: the index is exported only
    after the checks phase, which needs the merged entries, and DEV-2306 measured the AST key equal to rope's on 703
    entries. Duplicate-entry tests cover overloads, property getter/setter, conditional and repeated assignments, and an
@@ -129,7 +132,9 @@ static resolver for scoping, imports and module chains, the AST for declarations
     domain, it agreed with rope on every measured attribute site, and the index would need a new fact kind for it.
     (default)
 12. **Module rename sites.** From import syntax and the static resolver, as the spec's module-rename paragraph lists
-    them; `--keep` drops an edit on a kept line, and a kept module file is not moved while its importers are rewritten
+    them, including each literal `__all__` string the module resolves to the renamed module (static resolver's
+    `member`: a binding of it, or the package's own submodule), as a symbol rename rewrites `__all__` entries (user,
+    PR review); `--keep` drops an edit on a kept line, and a kept module file is not moved while its importers are rewritten
     (as `refactor-rename-module-keep-file` pins); `_taken` and `BindingCheck` refuse as today (a taken name refuses
     before the `conflicts` phase; the binding check runs inside it with the full, unnarrowed check, as DEV-2315
     decisions 11 and 14 place it); `--with`/`--without` stay `refactor.not-stand-in`; `--docs` and `--unsure` have no

@@ -18,6 +18,7 @@ from living_architecture.refactor.outcomes import Finding
 from living_architecture.refactor.python_source import SourceFile, split_lines
 from living_architecture.refactor.rename_union import RenameOptions, Session, SymbolRename
 from living_architecture.refactor.rope_patches import every_parameter
+from living_architecture.refactor.static_resolver import Value, node_key
 from living_architecture.refactor.text_edits import TextEdit
 
 _FUNCTIONS = (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)
@@ -297,10 +298,30 @@ class AliasRetarget(SymbolRename):
         scope = self.locator.load_scopes(rel, own).get(id(attr.value)) if own is not None else None
         if own is None or scope is None:
             return None
-        value = self.locator.resolver.resolve(own, scope, attr.value)
+        value = self._assigned(self.locator.resolver.resolve(own, scope, attr.value))
         found = self.locator.folders(value[1]) if value is not None and value[0] == "module" else None
         path = self.session.rel(found[0]) if found is not None else None
         return (value[1], path) if value is not None and path is not None else None
+
+    def _assigned(self, value: Value) -> Value:
+        """`value`, while it is a name assigned a plain name or attribute (`mirror = facade`), followed to that."""
+        seen: set[Value] = set()
+        while value is not None and value[0] == "decl" and value not in seen:
+            seen.add(value)
+            found = self.locator.resolver.declaration(value)
+            at = self.locator.module_at(found[0]) if found is not None else None
+            if found is None or at is None:
+                return value
+            rel, own = at
+            node = own.binder.decls.get(node_key(found[1]))
+            stmt = self.snapshot.source(rel).parent(node) if node is not None else None
+            if not (isinstance(stmt, ast.Assign) and stmt.targets == [node] and isinstance(stmt.value, (ast.Name, ast.Attribute))):
+                return value
+            scope = self.locator.load_scopes(rel, own).get(id(stmt.value))
+            if scope is None:
+                return value
+            value = self.locator.resolver.resolve(own, scope, stmt.value)
+        return value
 
     def _refuse(self, edit: TextEdit, template: str, **values: str) -> None:
         line = self.snapshot.source(edit.path).line(edit.start)
@@ -351,7 +372,7 @@ class AliasRetarget(SymbolRename):
         if source is None or source.tree is None:
             return False
         name = self.original
-        if _has_all(source):
+        if source.all_statements:
             listed = name in _all_names(source)
         else:
             listed = not name.startswith("_") and any(name in _stored(s) for s in source.tree.body)
@@ -515,43 +536,21 @@ def _walk_scope(body: list[ast.stmt]) -> Iterator[ast.stmt]:
             yield from _walk_scope(block)
 
 
-def _all_statements(source: SourceFile) -> list[ast.stmt]:
-    return [s for s in source.tree.body if _assigns_all(s)] if source.tree is not None else []
-
-
-def _has_all(source: SourceFile) -> bool:
-    return bool(_all_statements(source))
-
-
 def _all_names(source: SourceFile) -> set[str]:
     """The names a module's `__all__` lists."""
-    return {n.value for s in _all_statements(source) for n in ast.walk(s) if isinstance(n, ast.Constant) and isinstance(n.value, str)}
+    return {str(n.value) for n in source.all_strings()}
 
 
 def _reexport_spans(source: SourceFile, name: str) -> list[tuple[int, int]]:
     """Where a module re-exports `name` (its `__all__` lists it): the `__all__` strings and its imports of `name`."""
     if source.tree is None:
         return []
-    names = [n for stmt in _all_statements(source) for n in ast.walk(stmt) if isinstance(n, ast.Constant) and n.value == name]
+    names = [n for n in source.all_strings() if n.value == name]
     if not names:
         return []
     imports = [a for stmt in source.tree.body if isinstance(stmt, (ast.Import, ast.ImportFrom)) for a in stmt.names
                if (a.asname or a.name.split(".")[-1]) == name]
     return [source.span(n) for n in [*names, *imports]]  # pyright: ignore[reportArgumentType]
-
-
-def _assigns_all(stmt: ast.stmt) -> bool:
-    """`stmt` assigns, extends or appends to a module's `__all__`."""
-    if isinstance(stmt, ast.Assign):
-        targets = stmt.targets
-    elif isinstance(stmt, (ast.AnnAssign, ast.AugAssign)):
-        targets = [stmt.target]
-    elif isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Call) and isinstance(stmt.value.func, ast.Attribute):
-        func = stmt.value.func
-        targets = [func.value] if func.attr in ("append", "extend") else []
-    else:
-        return False
-    return any(isinstance(t, ast.Name) and t.id == "__all__" for t in targets)
 
 
 def statement_removal(source: SourceFile, rel: str, stmt: ast.stmt) -> TextEdit:

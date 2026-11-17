@@ -44,3 +44,26 @@ def test_an_import_binding_entry_merges_with_its_declarations_entry(
                                    "- {file: pkg/m.py, symbol: thing, new_name: other_name}\n", encoding="utf-8")
     duplicate = message("refactor.map-duplicate", map="map.yaml", first=1, second=2)
     assert run(root, ["rename-map", "map.yaml"], monkeypatch, capsys) == (2, "", duplicate + "\n")
+
+
+# Two groups binding `x` on one line: (file text, the line, a column in each group, the file renamed y and z).
+SAME_LINE = [
+    ("comprehensions", "def f(xs, ys):\n    a = [x for x in xs]; b = [x for x in ys]\n    return a, b\n", 2, (10, 37),
+     "def f(xs, ys):\n    a = [y for y in xs]; b = [z for z in ys]\n    return a, b\n"),
+    ("lambdas", "f = lambda x: x; g = lambda x: x\n", 1, (12, 32), "f = lambda y: y; g = lambda z: z\n"),
+]
+
+
+@pytest.mark.parametrize(("text", "row", "cols", "renamed"), [r[1:] for r in SAME_LINE], ids=[r[0] for r in SAME_LINE])
+@pytest.mark.parametrize("same_name", [False, True], ids=["different-names", "same-name"])
+def test_two_groups_on_one_line_are_separate_entries(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str],
+    text: str, row: int, cols: tuple[int, int], renamed: str, same_name: bool,
+) -> None:
+    root = write_project(tmp_path / "proj", {"pkg/s.py": text})
+    news = ("y", "y") if same_name else ("y", "z")
+    (root / "map.yaml").write_text("".join(f"- {{file: pkg/s.py, line: {row}, col: {col}, new_name: {new}}}\n"
+                                           for col, new in zip(cols, news, strict=True)), encoding="utf-8")
+    assert run(root, ["--apply", "rename-map", "map.yaml"], monkeypatch, capsys)[0] == 0
+    expected = renamed.replace("z", "y") if same_name else renamed
+    assert (root / "pkg" / "s.py").read_text(encoding="utf-8") == expected

@@ -1,0 +1,15 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- rename-map
+- renames.yaml
+fixture: retarget-unbound-attribute
+git:
+- commit: init
+expect:
+  exit: 1
+golden: manual
+note: 'a module attribute of the alias through a name assigned the module (`mirror = compat`) whose module does not
+  bind the target: retarget-unbound, exit 1'

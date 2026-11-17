@@ -21,7 +21,7 @@ from living_architecture.lang import (
 )
 from living_architecture.lang.language_server import FactKind, Verdict
 from living_architecture.refactor.index_cache import IndexCache, request_key
-from living_architecture.refactor.python_source import SourceFile
+from living_architecture.refactor.python_source import SourceFile, nfkc
 from living_architecture.refactor.timings import timed
 
 _FUNCTIONS = (ast.FunctionDef, ast.AsyncFunctionDef)
@@ -236,7 +236,7 @@ class RunIndex:
         asked = {(q.path, q.offset) for q in queries}
         queries += [q for path in classes if path not in files and (source := self._source(path)) is not None
                     for q in class_queries(source) if (q.path, q.offset) not in asked]
-        self.request = ExportRequest(names=sorted(names), files=files, facts=queries, members=sorted(members))
+        self.request = ExportRequest(names=sorted(names), files=files, facts=queries, members=sorted({nfkc(m) for m in members}))
         return self.cache is not None and self.cache.get(request_key(self.request, {})) is not None
 
     def build(self) -> None:

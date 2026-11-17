@@ -168,8 +168,10 @@ project Python source, each spelling of the module in an import: the renamed seg
 without `as`), the module path of a `from … import` (absolute or relative) and an imported name that is the module
 (`from pkg import old`, `from . import old`, with or without `as`); and every name or attribute load that Python's
 scoping and import rules resolve to the module through those bindings (`old.X`, `pkg.old.X`, `other.old.X` where
-module `other` binds it). An `as` alias spelled exactly like the module's own name SHALL be renamed with every use it
-binds; any other alias and its uses SHALL be left. Every edit SHALL keep each line's ending and the file's encoding.
+module `other` binds it); and each string of a module's literal `__all__` that the module resolves to the renamed
+module (a binding of it, or the package's own submodule). An `as` alias spelled exactly like the module's own name
+SHALL be renamed with every use it binds; any other alias and its uses SHALL be left. Every edit SHALL keep each line's
+ending and the file's encoding.
 With `--stub REMOVAL`, a Python module rename SHALL write, after the move, a stub at the module's old path holding
 `refactor.python.moved_module_stub` with `{old}`, `{new}` and `{removal}` replaced, shown as a new file in the diff;
 `--stub` on anything but a Python module file, or with no stub configured, SHALL refuse with exit 2 and write nothing.
@@ -307,8 +309,8 @@ The `checks` phase SHALL then run, before any reference search:
   no name in its locator, or an entry renames a `Literal` member, this check SHALL be skipped;
 - Python: for a move, every candidate file (a Python source whose text holds the moved name or module's name) SHALL be
   walked as `dr-compliance --select rope-walk` walks it, and each gap reported as `refactor.rope-walk`;
-- Python: the language server SHALL start for `rename`, `retarget` and `rename-map` unless the run's occurrence index
-  is cached and no entry renames a `Literal` member, and when the baseline phase will run, the configured checker SHALL run once on one source of the refactor; a failure SHALL be reported with its
+- Python: the language server SHALL start for `rename`, `retarget` and `rename-map` unless the run is a module rename
+  or its occurrence index is cached and no entry renames a `Literal` member, and when the baseline phase will run, the configured checker SHALL run once on one source of the refactor; a failure SHALL be reported with its
   cause;
 - in both twins, when the refactor's language has its baseline file at the repo root, the repo config SHALL be
   readable and valid, else its error SHALL be reported as the config loader words it, exit 2.
@@ -422,6 +424,10 @@ defines. No locator SHALL exit 1 with the no-locator finding, except in a Python
 #### Scenario: Module rename without a locator
 - **WHEN** `rename --file pkg/sql/client.py --new-name cli2` runs with no locator
 - **THEN** its output equals that of the rename located on an import of `pkg.sql.client`
+
+#### Scenario: Module located on a dotted import
+- **WHEN** a `rename` is located on `mod` in `import pkg.mod` or in `from pkg.mod import X`
+- **THEN** `pkg/mod.py` is renamed as a module rename, and no name declared in it is renamed
 
 #### Scenario: Offset after CRLF line breaks
 - **WHEN** a file with CRLF line endings declares `foo` on its third line and `--offset` counts both characters of each

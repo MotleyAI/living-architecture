@@ -1,0 +1,9 @@
+[resolve]
+[checks]
+[references]
+[references 1/1] entry 1: AcmeModel -> Model
+[rules]
+[rules 1/1] entry 1: AcmeModel -> Model: 1 refusal(s)
+pkg/use.py:4: pkg/compat.py does not bind Model, so nothing was refactored
+[conflicts]
+pkg/use.py:4: pkg/compat.py does not bind Model, so nothing was refactored

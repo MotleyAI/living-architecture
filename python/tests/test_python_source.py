@@ -41,3 +41,13 @@ def test_a_word_is_matched_whole_and_by_its_normal_form() -> None:
     source = SourceFile(Path(), f"fixed {LIGATURE} fix\n")
     assert source.word(0, len(source.text), "fix") == (6, 8)
     assert source.word(0, len(source.text), "fix", last=True) == (9, 12)
+
+
+def test_the_all_strings_are_the_names_all_exports() -> None:
+    text = (
+        '__all__: list[str] = ["a", ("b")]\n__all__ += ("c",)\n__all__.append("d")\n__all__.extend(["e"])\n'
+        '__all__ = ["f"] + build("g")\n__all__.extend("i")\n__all__ += "j"\n'
+        '__all__ = build(["k"]) + [f(x) for x in ["l"]]\nother = ["h"]\n'
+    )
+    source = SourceFile(Path("m.py"), text)
+    assert [n.value for n in source.all_strings()] == ["a", "b", "c", "d", "e", "f"]

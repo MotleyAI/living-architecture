@@ -11,13 +11,12 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
-from living_architecture.contract import message
 from living_architecture.refactor.bindings import bound_at
-from living_architecture.refactor.locators import Locator, RefactorError, resolve
+from living_architecture.refactor.locators import Locator, RefactorError, cannot_rename, resolve
 from living_architecture.refactor.members import member_declarations, receiver_stores
 from living_architecture.refactor.patch_targets import SourceFolders
 from living_architecture.refactor.python_project import ProjectLayout, Snapshot
-from living_architecture.refactor.python_source import SourceFile, name_end, nfkc
+from living_architecture.refactor.python_source import SourceFile, dotted_segments, name_end, nfkc
 from living_architecture.refactor.static_resolver import Module, Resolver, Scope, Value, node_key
 
 # The checker's `definition` at a site of a project file: each declaration's file and offset.
@@ -45,10 +44,6 @@ class Entry(BaseModel):
     module: str | None = None
     function: Site | None = None
     binding: bool = False
-
-
-def _cannot() -> RefactorError:
-    return RefactorError(message("refactor.cannot-rename"))
 
 
 def _name_char(ch: str) -> bool:
@@ -131,17 +126,38 @@ class EntryLocator:
         source = self.snapshot.source(rel)
         text = source.text
         if offset >= len(text) or not _name_char(text[offset]):
-            raise _cannot()
+            raise cannot_rename()
         start = offset
         while start > 0 and _name_char(text[start - 1]):
             start -= 1
         word = text[start : name_end(text, offset)]
         module = self.module(rel)
         if not word.isidentifier() or keyword.iskeyword(word) or module is None:
-            raise _cannot()
+            raise cannot_rename()
         name = nfkc(word)
         declared = self._binding(rel, module, start, name, follow=follow)
-        return declared if declared is not None else self._reference(rel, module, start, name)
+        if declared is not None:
+            return declared
+        dotted = self._import_path(module, self.snapshot.source(rel), start)
+        return self._module_entry(rel, dotted, name) if dotted is not None else self._reference(rel, module, start, name)
+
+    @staticmethod
+    def _import_path(module: Module, source: SourceFile, start: int) -> str | None:
+        """The module an import's written module path names up to its identifier at `start`."""
+        for node in source.of_type(ast.Import):
+            for alias in node.names:
+                parts = alias.name.split(".")
+                spans = dotted_segments(source.text, *source.span(alias))[: len(parts)]  # pyright: ignore[reportArgumentType]
+                hit = next((i for i, span in enumerate(spans) if span[0] == start), None)
+                if hit is not None:
+                    return ".".join(parts[: hit + 1])
+        for node in source.of_type(ast.ImportFrom):
+            absolute = module.binder.from_module(node)
+            hit = next((i for i, span in enumerate(source.from_path(node)) if span[0] == start), None)
+            if hit is not None and absolute is not None and node.module is not None:
+                parts = absolute.split(".")
+                return ".".join(parts[: len(parts) - len(node.module.split(".")) + hit + 1])
+        return None
 
     # ---- bindings
 
@@ -227,11 +243,13 @@ class EntryLocator:
                  if bound == name and scope.owner(name) is owner]
         declared = sorted((start, node) for start, node in nodes if start is not None)
         if not declared:
-            raise _cannot()
+            raise cannot_rename()
         start, first = declared[0]
         kind: Kind = "parameter" if isinstance(first, ast.arg) else _SCOPE_KINDS.get(owner.kind, "local")
         function = _function(rel, source, first) if isinstance(first, ast.arg) else None
-        return Entry(kind=kind, key=(kind, rel, source.line(start), name), name=name, rel=located,
+        # Two lambdas or comprehensions on one line bind separate groups.
+        inner = (start,) if owner.kind != "module" else ()
+        return Entry(kind=kind, key=(kind, rel, source.line(start), name, *inner), name=name, rel=located,
                      sites=tuple((rel, s) for s, _ in declared), function=function)
 
     def _members(self, located: str, rel: str, source: SourceFile, cls: ast.ClassDef, name: str) -> Entry:
@@ -239,7 +257,7 @@ class EntryLocator:
         spans = sorted((span[0], node) for node in member_declarations(cls, name)
                        if (span := source.name_span(node) or _bound_span(source, node, name)) is not None)
         if not spans:
-            raise _cannot()
+            raise cannot_rename()
         start, first = spans[0]
         kind: Kind = "method" if isinstance(first, _FUNCTIONS) else "member"
         return Entry(kind=kind, key=(kind, rel, source.line(start), name), name=name, rel=located,
@@ -250,8 +268,7 @@ class EntryLocator:
     def _reference(self, rel: str, module: Module, start: int, name: str) -> Entry:
         """The entry of the declaration the read at `start` resolves to: statically, else by the checker."""
         source = self.snapshot.source(rel)
-        node = next((n for n in source.nodes if isinstance(n, (ast.Name, ast.Attribute))
-                     and (span := source.name_span(n)) is not None and span[0] == start), None)
+        node = source.name_at(start)
         scope = self.load_scopes(rel, module).get(id(node)) if node is not None else None
         if isinstance(node, ast.expr) and scope is not None:
             found = self.value(self.resolver.resolve(module, scope, node), name, rel)
@@ -291,13 +308,13 @@ class EntryLocator:
         """The entry of the declarations the checker resolves the site to; the site itself for a library's."""
         found = self.definitions(rel, start)
         if not found:
-            raise _cannot()
+            raise cannot_rename()
         project = [(r, s) for path, s in found if (r := self.rel(path)) is not None]
         if not project:
             return Entry(kind="site", key=("site", rel, start, None), name=name, rel=rel)
         entries = {e.key: e for r, s in project if (e := self._declaration_at(rel, r, s)) is not None}
         if len(entries) != 1:
-            raise _cannot()
+            raise cannot_rename()
         return next(iter(entries.values()))
 
     def _declaration_at(self, located: str, rel: str, start: int) -> Entry | None:
@@ -346,8 +363,8 @@ class StaticTrace:
         self._seen = set()
         if own is not None:
             return self._binding(rel, module, own[1], name)
-        node = next((n for n in source.nodes if isinstance(n, ast.Name) and source.span(n)[0] == start), None)
-        scope = self.locator.load_scopes(rel, module).get(id(node)) if node is not None else None
+        node = source.name_at(start)
+        scope = self.locator.load_scopes(rel, module).get(id(node)) if isinstance(node, ast.Name) else None
         if scope is None:
             return Trace(sites=frozenset(), resolved=False)
         return self._scope(rel, module, scope.resolving(name), name)

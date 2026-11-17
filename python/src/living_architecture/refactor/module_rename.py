@@ -4,7 +4,7 @@ import and every name or attribute that Python's scoping resolves to it rewritte
 from __future__ import annotations
 
 import ast
-import re
+import keyword
 import sys
 from pathlib import Path
 
@@ -12,11 +12,11 @@ from living_architecture.contract import message
 from living_architecture.refactor.bindings import BindingCheck, EntryEdits, first_conflict, module_binding
 from living_architecture.refactor.diff_render import edit_description, move_description
 from living_architecture.refactor.entry_location import Entry, EntryLocator
-from living_architecture.refactor.locators import RefactorError
+from living_architecture.refactor.locators import cannot_rename
 from living_architecture.refactor.move_edits import NameConflict
 from living_architecture.refactor.occurrence_index import candidate_files
 from living_architecture.refactor.progress import Progress, Refusal, Refused, refusal
-from living_architecture.refactor.python_source import SourceFile, nfkc
+from living_architecture.refactor.python_source import SourceFile, dotted_segments, nfkc
 from living_architecture.refactor.rename_map import changes_of, emit, undecodable
 from living_architecture.refactor.rename_union import RenameOptions, Session
 from living_architecture.refactor.sites import Keeps
@@ -24,23 +24,6 @@ from living_architecture.refactor.static_resolver import Module, Value
 from living_architecture.refactor.text_edits import TextEdit, merge_edits
 from living_architecture.refactor.timings import timed
 from living_architecture.refactor.writer import FileMove, FileWrite
-
-_SEGMENT = re.compile(r"(?:\.|[^\S\r\n]|\\\r?\n|\\\r)*([^\W\d]\w*)")
-
-
-def _segments(text: str, start: int, end: int) -> list[tuple[int, int]]:
-    """The spans of the dotted name's identifiers written in `text[start:end]`, in order."""
-    out: list[tuple[int, int]] = []
-    at = start
-    while at < end:
-        m = _SEGMENT.match(text, at)
-        if m is None or m.start(1) >= end:
-            break
-        out.append(m.span(1))
-        at = m.end()
-        if at < end and text[at] not in ". \t\\":
-            break
-    return out
 
 
 class ModuleRename:
@@ -84,8 +67,8 @@ class ModuleRename:
 
     # ---- sites
 
-    def _edit(self, rel: str, span: tuple[int, int]) -> TextEdit:
-        return TextEdit(path=rel, start=span[0], end=span[1], new_text=self.new)
+    def _edit(self, rel: str, span: tuple[int, int], text: str | None = None) -> TextEdit:
+        return TextEdit(path=rel, start=span[0], end=span[1], new_text=self.new if text is None else text)
 
     def _file_edits(self, rel: str) -> list[TextEdit]:
         """Every spelling of the module in `rel`'s imports, and every name or attribute resolving to it."""
@@ -108,14 +91,22 @@ class ModuleRename:
             span = source.name_span(node)
             if nfkc(named) == self.old and span is not None and self._value_names(self.locator.resolver.resolve(module, scope, node)):
                 out.append(self._edit(rel, span))
-        return out
+        return out + self._all_edits(rel, source, module)
+
+    def _all_edits(self, rel: str, source: SourceFile, module: Module) -> list[TextEdit]:
+        """Each `__all__` string the module resolves to the renamed module: a binding of it, or its own submodule."""
+        strings = [n for n in source.all_strings() if n.value == self.old]
+        if not strings or not self._value_names(self.locator.resolver.member(module.dotted, self.old)):
+            return []
+        spans = [source.word(*source.span(n), self.old) for n in strings]
+        return [self._edit(rel, span, nfkc(self.new)) for span in spans if span is not None]
 
     def _import(self, rel: str, source: SourceFile, node: ast.Import) -> list[TextEdit]:
         out: list[TextEdit] = []
         for alias in node.names:
             start, end = source.span(alias)  # pyright: ignore[reportArgumentType]
             parts = alias.name.split(".")
-            spans = _segments(source.text, start, end)[: len(parts)]
+            spans = dotted_segments(source.text, start, end)[: len(parts)]
             hits = [i for i in range(len(spans)) if parts[i] == self.old and self._names(".".join(parts[: i + 1]))]
             out += [self._edit(rel, spans[i]) for i in hits]
             if alias.asname == self.old and len(parts) - 1 in hits:
@@ -124,31 +115,36 @@ class ModuleRename:
         return out
 
     def _from_import(self, rel: str, source: SourceFile, module: Module, node: ast.ImportFrom) -> list[TextEdit]:
-        out: list[TextEdit] = []
         absolute = module.binder.from_module(node)
+        return self._from_path(rel, source, node, absolute) + self._from_names(rel, source, node, absolute)
+
+    def _from_path(self, rel: str, source: SourceFile, node: ast.ImportFrom, absolute: str | None) -> list[TextEdit]:
+        """The renamed segments of the module path of `from … import`."""
         written = (node.module or "").split(".") if node.module else []
-        if absolute is not None and written:
-            parts = absolute.split(".")
-            first = source.offset(node.lineno, node.col_offset)
-            keyword = re.compile(r"from\s*\.*\s*").match(source.text, first)
-            spans = _segments(source.text, keyword.end() if keyword else first, source.span(node)[1])[: len(written)]
-            base = len(parts) - len(written)
-            out += [self._edit(rel, spans[j]) for j in range(len(spans))
-                    if written[j] == self.old and self._names(".".join(parts[: base + j + 1]))]
-        for alias in node.names:
-            if alias.name != self.old or absolute is None and node.level == 0:
-                continue
-            full = f"{absolute}.{alias.name}" if absolute else alias.name
-            value = self.locator.resolver.member(absolute, alias.name) if absolute else None
-            if not (self._value_names(value) or value is None and self._names(full)):
-                continue
-            span = source.span(alias)  # pyright: ignore[reportArgumentType]
-            word = source.word(span[0], span[1], alias.name)
-            out += [self._edit(rel, word)] if word is not None else []
-            if alias.asname == self.old:
-                own = source.name_span(alias)
-                out += [self._edit(rel, own)] if own is not None and own != word else []
-        return out
+        if absolute is None or not written:
+            return []
+        parts = absolute.split(".")
+        spans = source.from_path(node)
+        base = len(parts) - len(written)
+        return [self._edit(rel, spans[j]) for j in range(len(spans))
+                if written[j] == self.old and self._names(".".join(parts[: base + j + 1]))]
+
+    def _from_names(self, rel: str, source: SourceFile, node: ast.ImportFrom, absolute: str | None) -> list[TextEdit]:
+        """The imported names of `from … import` that are the module, with an alias spelled like it."""
+        if absolute is None and node.level == 0:
+            return []
+        return [e for alias in node.names if alias.name == self.old for e in self._from_name(rel, source, alias, absolute)]
+
+    def _from_name(self, rel: str, source: SourceFile, alias: ast.alias, absolute: str | None) -> list[TextEdit]:
+        full = f"{absolute}.{alias.name}" if absolute else alias.name
+        value = self.locator.resolver.member(absolute, alias.name) if absolute else None
+        if not (self._value_names(value) or value is None and self._names(full)):
+            return []
+        span = source.span(alias)  # pyright: ignore[reportArgumentType]
+        word = source.word(span[0], span[1], alias.name)
+        out = [self._edit(rel, word)] if word is not None else []
+        own = source.name_span(alias) if alias.asname == self.old else None
+        return out + ([self._edit(rel, own)] if own is not None and own != word else [])
 
     def _library_edits(self) -> list[TextEdit]:
         """An alias of a library module, `import M as A`, renamed with every name in its file it binds; any other
@@ -157,13 +153,13 @@ class ModuleRename:
         module = self.locator.module(rel)
         source = self.snapshot.source(rel)
         if module is None:
-            raise RefactorError(message("refactor.cannot-rename"))
+            raise cannot_rename()
         dotted = str(self.entry.key[3])
         aliases = [node for scope, bound, node in module.binder.bound
                    if bound == self.old and isinstance(node, ast.alias) and node.asname == self.old
                    and isinstance(source.parent(node), ast.Import) and node.name == dotted]
         if not aliases:
-            raise RefactorError(message("refactor.cannot-rename"))
+            raise cannot_rename()
         out = [self._edit(rel, span) for a in aliases if (span := source.name_span(a)) is not None]
         scopes = self.locator.load_scopes(rel, module)
         for node in source.of_type(ast.Name):
@@ -183,7 +179,7 @@ class ModuleRename:
         if self.module is None:
             return None
         parent = Path(self.module).parent.as_posix()
-        name = self.new if (self.session.root / self.module).is_dir() else self.new + ".py"
+        name = nfkc(self.new) if (self.session.root / self.module).is_dir() else nfkc(self.new) + ".py"
         return FileMove(rel=self.module, dest=name if parent == "." else f"{parent}/{name}")
 
     # ---- checks
@@ -211,7 +207,7 @@ class ModuleRename:
         """The stub left at the moved module's old path: `text` with its old and new dotted names and `removal`."""
         old = self.session.modname(move.rel)
         parent = old.rpartition(".")[0]
-        new = f"{parent}.{self.new}" if parent else self.new
+        new = f"{parent}.{nfkc(self.new)}" if parent else nfkc(self.new)
         filled = text.replace("{old}", old).replace("{new}", new).replace("{removal}", removal)
         return FileWrite(rel=move.rel, old=None, new=filled.encode())
 
@@ -227,29 +223,30 @@ def run_module_rename(session: Session, locator: EntryLocator, entry: Entry, new
                       options: RenameOptions, apply_: bool, progress: Progress, *, stub: str | None = None) -> int:
     """A module rename, its `--keep` sites left, with `--stub` the `stub` text left at the old path; refused when the
     new name is taken, its edits change what a name means, or a site matches nothing it must."""
-    if new_name is None:
-        raise RefactorError(message("refactor.cannot-rename"))
+    if new_name is None or not new_name.isidentifier() or keyword.iskeyword(nfkc(new_name)):
+        raise cannot_rename()
     rename = ModuleRename(session, locator, entry, new_name, options)
     keeps = Keeps(options.keep, session.root)
     with timed("resolve"):
         found = rename.taken()
     written: list[TextEdit] = []
     move: FileMove | None = None
-    unmatched: list[str] = []
-    if found is None and rename.old != new_name:
+    computed = found is None and rename.old != new_name
+    if computed:
         with timed("references"):
             every = rename.edits()
         written = [e for e in every if not keeps.kept(e.path, session.snapshot.source(e.path).line(e.start))]
         move = rename.move()
         if move is not None and keeps.kept(move.rel, None):
             move = None
-        unmatched = keeps.unmatched()
         progress.phase("conflicts")
         with timed("conflicts"):
             check = BindingCheck(session.python_files(), session.source_folders(), session.snapshot.source)
             found = first_conflict(check.conflicts(
                 [EntryEdits(index=1, new_name=new_name, edits=written, kept=[e for e in every if e not in written])],
                 rename.moved(move)), session.snapshot.source)
+    listed = undecodable(session.snapshot, session.all_python_files(), [rename.old], keeps)
+    unmatched = keeps.unmatched() if computed else []
     refusals: list[Refusal] = []
     if found is not None:
         refusals.append(refusal(message("refactor.name-conflict", name=found.name, path=found.path, line=found.line)))
@@ -257,7 +254,7 @@ def run_module_rename(session: Session, locator: EntryLocator, entry: Entry, new
     refusals += [refusal(message("refactor.keep-unmatched", site=raw), 2) for raw in unmatched]
     if refusals:
         raise Refused(refusals)
-    for finding in undecodable(session.snapshot, session.all_python_files(), [rename.old], keeps):
+    for finding in listed:
         print(finding.text, file=sys.stderr)
     described, writes = changes_of(session.snapshot, written)
     moves = [move] if move is not None else []

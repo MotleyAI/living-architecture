@@ -16,6 +16,7 @@ _IGNORED = ["*.pyc", "*~", ".ropeproject", ".hg", ".svn", "_svn", ".git", ".tox"
             ".pytest_cache"]
 _CODING = b"^[ \t\f]*#.*?coding[:=][ \t]*([-_.a-zA-Z0-9]+)"
 _BOM = b"\xef\xbb\xbf"
+_INIT = "__init__.py"
 
 
 def _realpath(path: str) -> str:
@@ -34,6 +35,11 @@ def _parent(rel: str) -> str:
 
 def _name(rel: str) -> str:
     return rel.split("/")[-1]
+
+
+def _init(rel: str) -> str:
+    """The `__init__.py` of the folder `rel` (the project root when empty)."""
+    return f"{rel}/{_INIT}" if rel else _INIT
 
 
 def _is_resource(path: str) -> bool:
@@ -99,7 +105,7 @@ class ProjectLayout:
         return out
 
     def _is_package(self, rel: str) -> bool:
-        init = self.path(f"{rel}/__init__.py" if rel else "__init__.py")
+        init = self.path(_init(rel))
         return _is_resource(init) and not os.path.isdir(init)
 
     def _find_source_folders(self, rel: str) -> list[str]:
@@ -135,11 +141,11 @@ class ProjectLayout:
         rel = self._rel(path)
         if os.path.isdir(self.path(rel)):
             module_name, folder = _name(rel), _parent(rel)
-        elif _name(rel) == "__init__.py":
+        elif _name(rel) == _INIT:
             module_name, folder = _name(_parent(rel)), _parent(_parent(rel))
         else:
             module_name, folder = _name(rel)[:-3], _parent(rel)
-        while folder != _parent(folder) and _is_resource(self.path(f"{folder}/__init__.py" if folder else "__init__.py")):
+        while folder != _parent(folder) and _is_resource(self.path(_init(folder))):
             module_name = _name(folder) + "." + module_name
             folder = _parent(folder)
         return module_name
@@ -167,7 +173,7 @@ class ProjectLayout:
         """The project file of module `modname`, a package's `__init__.py`; None when it has none."""
         found = self.find_module(modname, python_path=False) if modname else None
         if found is not None and found.is_dir():
-            init = found / "__init__.py"
+            init = found / _INIT
             return init if _is_resource(os.fspath(init)) else None
         return found
 

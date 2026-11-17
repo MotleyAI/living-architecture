@@ -32,7 +32,7 @@ from living_architecture.refactor.entry_location import Entry, EntryLocator
 from living_architecture.refactor.index_cache import IndexCache
 from living_architecture.refactor.keyed import TypeFacts, UnresolvedBase
 from living_architecture.refactor.literal_rename import LiteralRename, check_value, literal_member_at
-from living_architecture.refactor.locators import RefactorError, project_rel, resolve
+from living_architecture.refactor.locators import RefactorError, cannot_rename, project_rel, resolve
 from living_architecture.refactor.map_file import MapEntry, MapError
 from living_architecture.refactor.member_namespace import Hierarchy, MemberCheck, RenamedMember
 from living_architecture.refactor.member_scan import probe_round
@@ -67,7 +67,6 @@ from living_architecture.refactor.timings import timed
 from living_architecture.refactor.writer import FileChanged, FileMove, FileWrite, apply, verify
 
 _WORD = re.compile(r"\w+")
-_CANNOT_RENAME = "refactor.cannot-rename"
 
 
 Renaming = SymbolRename | LiteralRename
@@ -285,7 +284,7 @@ class RenameMap:
         if node is None:
             return None
         if entry.new_name is None:
-            raise RefactorError(message(_CANNOT_RENAME))
+            raise cannot_rename()
         check_value(entry.new_name)
         return _Resolved(entry, rel, None, ("literal", rel, source.span(node)[0]), literal=node)
 
@@ -399,7 +398,7 @@ class RenameMap:
             else:
                 first.indexes.append(entry.index)
         if len(out) > 1 and any(r.is_module() for r in out):
-            failures.append(refusal(message(_CANNOT_RENAME)))
+            failures.append(refusal(str(cannot_rename())))
         return out, failures, spelled
 
     # ---- checks
@@ -435,7 +434,7 @@ class RenameMap:
             except LanguageServerError as exc:
                 found.append(server_failed(exc))
         source = self.root / resolved[0].rel if resolved else Path(self.entries[0].path)
-        return found + baseline_probe(self.root, source)
+        return found + [r for r in baseline_probe(self.root, source) if r not in found]
 
     def _stub_checks(self, resolved: list[_Resolved]) -> list[Refusal]:
         """`--stub` needs the rename of one Python module file and a configured stub; the stub's text."""
@@ -447,8 +446,8 @@ class RenameMap:
             return [refusal(message("refactor.stub-not-module"), 2)]
         try:
             self.stub = load_config(find_repo_root(self.root)).refactor.python.moved_module_stub
-        except ConfigError:
-            return []
+        except ConfigError as exc:
+            return [refusal(str(exc), 2)]
         return [] if self.stub is not None else [refusal(message("refactor.stub-unconfigured"), 2)]
 
     def _cached(self, resolved: list[_Resolved]) -> bool:

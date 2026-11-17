@@ -13,32 +13,32 @@ from living_architecture.contract import message
 from living_architecture.refactor.entry_location import EntryLocator
 from living_architecture.refactor.locators import Locator, RefactorError
 
-# (id, locator, kind, (rel, line of the group's first declaration, name))
+# (id, locator, kind, (rel, line of the group's first declaration, name[, its offset in an inner scope]))
 TABLE = [
     ("def", Locator(offset=at("def top", inner="top")), "name", ("pkg/m.py", line("def top"), "top")),
     ("class", Locator(offset=at("class Box", inner="Box")), "name", ("pkg/m.py", line("class Box"), "Box")),
-    ("positional-only", Locator(offset=at("(a, /", inner="a")), "parameter", ("pkg/m.py", line("def top"), "a")),
-    ("positional", Locator(offset=at("/, b", inner="b")), "parameter", ("pkg/m.py", line("def top"), "b")),
-    ("star-args", Locator(offset=at("*args", inner="args")), "parameter", ("pkg/m.py", line("def top"), "args")),
-    ("keyword-only", Locator(offset=at(", c,", inner="c")), "parameter", ("pkg/m.py", line("def top"), "c")),
-    ("kwargs", Locator(offset=at("**kwargs", inner="kwargs")), "parameter", ("pkg/m.py", line("def top"), "kwargs")),
+    ("positional-only", Locator(offset=at("(a, /", inner="a")), "parameter", ("pkg/m.py", line("def top"), "a", at("(a, /", inner="a"))),
+    ("positional", Locator(offset=at("/, b", inner="b")), "parameter", ("pkg/m.py", line("def top"), "b", at("/, b", inner="b"))),
+    ("star-args", Locator(offset=at("*args", inner="args")), "parameter", ("pkg/m.py", line("def top"), "args", at("*args", inner="args"))),
+    ("keyword-only", Locator(offset=at(", c,", inner="c")), "parameter", ("pkg/m.py", line("def top"), "c", at(", c,", inner="c"))),
+    ("kwargs", Locator(offset=at("**kwargs", inner="kwargs")), "parameter", ("pkg/m.py", line("def top"), "kwargs", at("**kwargs", inner="kwargs"))),
     ("lambda", Locator(offset=at("lambda lam_arg", inner="lam_arg")), "parameter",
-     ("pkg/m.py", line("lambda lam_arg"), "lam_arg")),
-    ("assignment", Locator(offset=at("local = a")), "local", ("pkg/m.py", line("local = a"), "local")),
-    ("augmented", Locator(offset=at("local += 1")), "local", ("pkg/m.py", line("local = a"), "local")),
-    ("annotated", Locator(offset=at("ann: int")), "local", ("pkg/m.py", line("ann: int"), "ann")),
-    ("walrus", Locator(offset=at("(walrus", inner="walrus")), "local", ("pkg/m.py", line("(walrus"), "walrus")),
+     ("pkg/m.py", line("lambda lam_arg"), "lam_arg", at("lambda lam_arg", inner="lam_arg"))),
+    ("assignment", Locator(offset=at("local = a")), "local", ("pkg/m.py", line("local = a"), "local", at("local = a"))),
+    ("augmented", Locator(offset=at("local += 1")), "local", ("pkg/m.py", line("local = a"), "local", at("local = a"))),
+    ("annotated", Locator(offset=at("ann: int")), "local", ("pkg/m.py", line("ann: int"), "ann", at("ann: int"))),
+    ("walrus", Locator(offset=at("(walrus", inner="walrus")), "local", ("pkg/m.py", line("(walrus"), "walrus", at("(walrus", inner="walrus"))),
     ("for", Locator(offset=at("for loop_var", inner="loop_var")), "local",
-     ("pkg/m.py", line("for loop_var"), "loop_var")),
-    ("with", Locator(offset=at("as handle", inner="handle")), "local", ("pkg/m.py", line("as handle"), "handle")),
-    ("except", Locator(offset=at("as err", inner="err")), "local", ("pkg/m.py", line("as err"), "err")),
-    ("match", Locator(offset=at("[matched]", inner="matched")), "local", ("pkg/m.py", line("[matched]"), "matched")),
+     ("pkg/m.py", line("for loop_var"), "loop_var", at("for loop_var", inner="loop_var"))),
+    ("with", Locator(offset=at("as handle", inner="handle")), "local", ("pkg/m.py", line("as handle"), "handle", at("as handle", inner="handle"))),
+    ("except", Locator(offset=at("as err", inner="err")), "local", ("pkg/m.py", line("as err"), "err", at("as err", inner="err"))),
+    ("match", Locator(offset=at("[matched]", inner="matched")), "local", ("pkg/m.py", line("[matched]"), "matched", at("[matched]", inner="matched"))),
     ("comprehension", Locator(offset=at("for comp_var", inner="comp_var")), "local",
-     ("pkg/m.py", line("for comp_var"), "comp_var")),
+     ("pkg/m.py", line("for comp_var"), "comp_var", at("for comp_var", inner="comp_var"))),
     ("global", Locator(offset=at("global COUNTER", inner="COUNTER")), "name",
      ("pkg/m.py", line("COUNTER = 0"), "COUNTER")),
     ("nonlocal", Locator(offset=at("nonlocal shared", inner="shared")), "local",
-     ("pkg/m.py", line("shared = 1"), "shared")),
+     ("pkg/m.py", line("shared = 1"), "shared", at("shared = 1"))),
     ("import-binding", Locator(symbol="thing"), "name", ("pkg/other.py", 1, "thing")),
     ("class-body-member", Locator(symbol="Box.size"), "member", ("pkg/m.py", line("size: int"), "size")),
     ("self-attribute", Locator(offset=at("self.weight", inner="weight")), "member",
@@ -76,7 +76,7 @@ def root(tmp_path: Path) -> Path:
 
 @pytest.mark.parametrize(("locator", "kind", "declared"), [row[1:] for row in TABLE], ids=[row[0] for row in TABLE])
 def test_a_locator_names_its_declarations_group(
-    root: Path, locator: Locator, kind: str, declared: tuple[str, int, str]
+    root: Path, locator: Locator, kind: str, declared: tuple[object, ...]
 ) -> None:
     definitions = Definitions({})
     found = EntryLocator(root, definitions).locate("pkg/m.py", locator)
@@ -143,3 +143,15 @@ def test_an_entry_in_a_file_with_a_byte_order_mark(root: Path, locator: Locator)
 def test_an_entry_on_a_re_export_binding_is_that_binding(root: Path, locator: Locator) -> None:
     found = EntryLocator(root, Definitions({})).locate("pkg/barrel.py", locator)
     assert (found.kind, found.key) == ("name", ("name", "pkg/barrel.py", 1, "thing"))
+
+
+def test_an_import_from_a_module_that_does_not_decode_asks_the_checker(tmp_path: Path) -> None:
+    root = write_project(tmp_path / "proj", {"pkg/old.py": "# coding: nosuch\nfoo = 1\n",
+                                             "pkg/a.py": "from pkg.old import foo\n\nprint(foo)\n"})
+    definitions = Definitions({})
+    locate = EntryLocator(root, definitions).locate
+    refused = message("refactor.cannot-rename")
+    locator = Locator(symbol="foo")
+    with pytest.raises(RefactorError, match=refused):
+        locate("pkg/a.py", locator)
+    assert definitions.asked == [("pkg/a.py", len("from pkg.old import "))]
