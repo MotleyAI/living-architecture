@@ -39,6 +39,11 @@ def _init_of(folder: str) -> str:
     return f"{folder}/{_INIT}" if folder not in ("", ".") else _INIT
 
 
+def _is_self(root: Path, rel: str, other: str) -> bool:
+    """`other` is `rel` itself on disk, spelled in another case at most."""
+    return other.lower() == rel.lower() and (root / other).samefile(root / rel)
+
+
 class ModuleRename(MapRename):
     """The rename of `entry`'s module to `new_name`, located by `locator` over `session`'s snapshot: `prepare` finds
     its edits and its move."""
@@ -235,12 +240,17 @@ class ModuleRename(MapRename):
         if self.module is None or self.same:
             return None
         rels = self.session.all_python_files()
+        root = self.session.root
         parent = Path(self.module).parent.as_posix()
         parent = "" if parent == "." else parent
         base = f"{parent}/{nfkc(self.new)}" if parent else nfkc(self.new)
-        if f"{base}.py" in rels:
-            return NameConflict(self.new, f"{base}.py", 1)
+        file = f"{base}.py"
+        if file in rels or ((root / file).is_file() and not _is_self(root, self.module, file)):
+            return NameConflict(self.new, file, 1)
         inside = sorted(rel for rel in rels if rel.startswith(base + "/"))
+        if not inside and (root / base).is_dir() and not _is_self(root, self.module, base):
+            spelled = (base + rel[len(base):] for rel in rels if rel.lower().startswith(base.lower() + "/"))
+            inside = sorted(rel for rel in spelled if (root / rel).is_file())
         if inside:
             init = _init_of(base)
             return NameConflict(self.new, init if init in inside else inside[0], 1)

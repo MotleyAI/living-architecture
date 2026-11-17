@@ -40,13 +40,20 @@ export function filesUnder(dir: string): string[] {
     .flatMap((entry) => (entry.isDirectory() ? filesUnder(join(dir, entry.name)) : [join(dir, entry.name)]));
 }
 
-/** The file that already takes `name` beside `file`: a module file of that stem, else a directory of that name (its
- * `index` source, else its first file by path, else itself); null when none does. */
+/** `path` is `file` itself on disk, spelled in another case at most. */
+function isSelf(file: string, path: string): boolean {
+  if (path.toLowerCase() !== file.toLowerCase()) return false;
+  const [a, b] = [statSync(file), statSync(path)];
+  return a.dev === b.dev && a.ino === b.ino;
+}
+
+/** The file other than `file` that already takes `name` beside it: a module file of that stem, else a directory of that
+ * name (its `index` source, else its first file by path, else itself); null when none does. */
 export function takenBy(file: string, name: string): string | null {
   const dir = dirname(file);
   const siblings = moduleExtensions()
     .map((ext) => join(dir, `${name}${ext}`))
-    .filter((path) => existsSync(path) && statSync(path).isFile())
+    .filter((path) => existsSync(path) && statSync(path).isFile() && !isSelf(file, path))
     .sort(byCodePoint);
   if (siblings[0] !== undefined) return siblings[0];
   const folder = join(dir, name);
@@ -68,23 +75,28 @@ function augmentations(source: TS.SourceFile): TS.StringLiteral[] {
   return source.statements.flatMap((s) => (ts().isModuleDeclaration(s) && ts().isStringLiteral(s.name) && /^\.\.?\//u.test(s.name.text) ? [s.name] : []));
 }
 
+/** Each mock module path and relative module augmentation in `source` resolving to one of `moved`. */
+function sourceProbes(program: TS.Program, source: TS.SourceFile, moved: Set<string>, host: TS.ModuleResolutionHost): Probe[] {
+  const found = [
+    ...augmentations(source).map((literal) => ({ literal, augmentation: true })),
+    ...(source.isDeclarationFile ? [] : mockModulePaths(program.getTypeChecker(), source).map((literal) => ({ literal, augmentation: false }))),
+  ];
+  return found
+    .filter(({ literal }) => {
+      const resolved = ts().resolveModuleName(literal.text, source.fileName, program.getCompilerOptions(), host).resolvedModule;
+      return resolved !== undefined && moved.has(canonical(resolved.resolvedFileName));
+    })
+    .map(({ literal, augmentation }) => ({ path: source.fileName, literal, augmentation }));
+}
+
 /** Each mock module path and relative module augmentation in `services`' programs resolving to one of `moved`. */
 function probes(services: TS.LanguageService[], moved: Set<string>, host: TS.ModuleResolutionHost): Probe[] {
   const out = new Map<string, Probe>();
   for (const program of new Set(services.map((s) => s.getProgram()))) {
     if (program === undefined) continue;
-    const checker = program.getTypeChecker();
     for (const source of program.getSourceFiles()) {
       if (program.isSourceFileFromExternalLibrary(source)) continue;
-      const found = [
-        ...augmentations(source).map((literal) => ({ literal, augmentation: true })),
-        ...(source.isDeclarationFile ? [] : mockModulePaths(checker, source).map((literal) => ({ literal, augmentation: false }))),
-      ];
-      for (const { literal, augmentation } of found) {
-        const resolved = ts().resolveModuleName(literal.text, source.fileName, program.getCompilerOptions(), host).resolvedModule;
-        if (resolved === undefined || !moved.has(canonical(resolved.resolvedFileName))) continue;
-        out.set(`${source.fileName}\0${literal.getStart(source)}`, { path: source.fileName, literal, augmentation });
-      }
+      for (const probe of sourceProbes(program, source, moved, host)) out.set(`${source.fileName}\0${probe.literal.getStart(source)}`, probe);
     }
   }
   return [...out.values()];

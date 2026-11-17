@@ -630,24 +630,34 @@ function checks(r: Refactor, resolution: Resolution): Refusal[] {
     ...(r.args.without_stand_ins ?? []).map((raw): [string, string, string] => ['--without', raw, r.root]),
     ...(r.args.keep ?? []).map((raw): [string, string, string] => ['--keep', raw, process.cwd()]),
   ];
-  const out: Refusal[] = [];
-  const missing = new Set<string>();
-  for (const [option, raw, base] of sites) {
-    if (!Site.parse(raw, r.root, base).missing(r.root)) continue;
-    out.push(refusal(message('refactor.site-missing', { option, site: raw }), 2));
-    missing.add(`${option}\0${raw}`);
-  }
+  const { refusals: out, missing } = missingSites(r, sites);
   const { targets } = resolution;
   if (targets.length > 0 && targets.every((t) => t.move !== null)) {
     for (const [option, raw] of sites) if (option !== '--keep' && !missing.has(`${option}\0${raw}`)) out.push(refusal(message('refactor.not-stand-in', { site: raw }), 2));
   }
   if (r.args.stub != null) out.push(refusal(message('refactor.stub-not-module'), 2));
-  out.push(...keepChecks(r, resolution, (raw) => missing.has(`--keep\0${raw}`)));
-  for (const t of targets) {
-    const taken = t.move === null || t.newName === t.old ? null : takenBy(t.file, t.newName);
-    if (taken !== null) out.push(refusal(message('refactor.name-conflict', { name: t.newName, path: r.rel(taken), line: 1 })));
-  }
+  out.push(...keepChecks(r, resolution, (raw) => missing.has(`--keep\0${raw}`)), ...takenNames(r, targets));
   return out;
+}
+
+/** `refactor.site-missing` for each site naming nothing, and those sites' `option\0raw` keys. */
+function missingSites(r: Refactor, sites: [string, string, string][]): { refusals: Refusal[]; missing: Set<string> } {
+  const refusals: Refusal[] = [];
+  const missing = new Set<string>();
+  for (const [option, raw, base] of sites) {
+    if (!Site.parse(raw, r.root, base).missing(r.root)) continue;
+    refusals.push(refusal(message('refactor.site-missing', { option, site: raw }), 2));
+    missing.add(`${option}\0${raw}`);
+  }
+  return { refusals, missing };
+}
+
+/** `refactor.name-conflict` for each module move whose new name a sibling already takes. */
+function takenNames(r: Refactor, targets: Target[]): Refusal[] {
+  return targets.flatMap((t) => {
+    const taken = t.move === null || t.newName === t.old ? null : takenBy(t.file, t.newName);
+    return taken === null ? [] : [refusal(message('refactor.name-conflict', { name: t.newName, path: r.rel(taken), line: 1 }))];
+  });
 }
 
 /** `refactor.keep-unmatched` for each line keep on a line spelling no old name, outside every moved file. */

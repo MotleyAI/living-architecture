@@ -101,6 +101,12 @@ describe('module rename taken check', () => {
     expect(files(root)).toEqual(before);
   });
 
+  it.each(['d.ts', 'd.mts', 'd.cts'])('a declaration file renamed to its stem plus `.d` does not take its own new name (.%s)', (ext) => {
+    const root = tsProject({ [`src/x.${ext}`]: 'export interface T {\n  n: number;\n}\n' });
+    expect(refactorRaw(root, '--apply', 'rename', '--file', `src/x.${ext}`, '--new-name', 'x.d').code).toBe(0);
+    expect(Object.keys(files(root))).toEqual(expect.arrayContaining([`src/x.d.${ext}`]));
+  });
+
   it('a file of the stem in another directory takes nothing', () => {
     const root = tsProject({ ...A, 'src/lib/b.ts': 'export {};\n' });
     expect(renameA(root, 'b').code).toBe(0);

@@ -18,7 +18,7 @@ and, with `--apply`, written before the move. A new name equal to the old name S
 A new name that is empty, `.` or `..`, holds `/`, `\` or NUL, or ends in a TypeScript source or declaration extension
 SHALL be refused with `refactor.cannot-rename` as a resolution failure. A module rename SHALL be refused with
 `refactor.name-conflict` in the `checks` phase, before any reference search, exit 1, writing nothing, when `F`'s
-directory already holds, in the code before the refactor, a file named `N` followed by any TypeScript source or
+directory already holds, in the code before the refactor, a file other than `F` named `N` followed by any TypeScript source or
 declaration extension (naming it at line 1), or a directory named `N` (naming its `index` source file at line 1, else
 its first file by path); a file of another extension SHALL NOT count. In a map, module entries whose new names are one
 name in one directory SHALL be refused with `refactor.name-conflict` naming the earlier entry's file at line 1, in the
