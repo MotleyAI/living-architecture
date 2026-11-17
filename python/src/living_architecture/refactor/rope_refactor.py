@@ -170,9 +170,9 @@ def _module_rename(project: Project, renamer: Rename, entry: MapEntry, options: 
             folders = sorted({"", *(f.path for f in project.get_source_folders())})
         progress.phase("conflicts")
         with timed("conflicts"):
-            found = first_conflict(BindingCheck(rels, folders, snapshot.source).conflicts(
-                [EntryEdits(index=1, new_name=entry.new_name, edits=written, kept=[e for e in every if e not in written])],
-                moves), snapshot.source)
+            found = first_conflict(next(BindingCheck(rels, folders, snapshot.source).conflicts(
+                [[EntryEdits(index=1, new_name=entry.new_name, edits=written, kept=[e for e in every if e not in written])]],
+                moves)), snapshot.source)
     refusals: list[Refusal] = []
     if found is not None:
         refusals.append(refusal(message("refactor.name-conflict", name=found.name, path=found.path, line=found.line)))

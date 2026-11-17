@@ -672,12 +672,13 @@ class RenameMap:
         folders = sorted({"", *(f.path for f in self.project.get_source_folders())})
         bindings = BindingCheck(rels, folders, self.session.snapshot.source)
         namespace = MemberCheck(Hierarchy(self.project, rels, self.session.snapshot.source), self.session.snapshot.text)
-        passes = [[e] for e, res in zip(entries, resolved, strict=True) if res.entry.new_name is not None]
+        single = [[e] for e, res in zip(entries, resolved, strict=True) if res.entry.new_name is not None]
+        passes = single if single == [entries] or not together else [*single, entries]
         out: list[NameConflict] = []
-        for group in passes if passes == [entries] or not together else [*passes, entries]:
+        for group, bound in zip(passes, bindings.conflicts(passes), strict=True):
             renamed = [m for e, m in members if any(e is g for g in group)]
             found = first_conflict(
-                bindings.conflicts(group) + namespace.conflicts(renamed, {m.site for m in renamed}),
+                bound + namespace.conflicts(renamed, {m.site for m in renamed}),
                 self.session.snapshot.source,
             )
             if found is not None:

@@ -330,7 +330,8 @@ def test_a_parsed_module_keeps_no_syntax_tree(monkeypatch: pytest.MonkeyPatch, s
     real = bindings._Parsed.__init__
 
     def recording(self: bindings._Parsed, source: SourceFile, tree: ast.Module, *args: object) -> None:
-        refs.extend(weakref.ref(node) for node in ast.walk(tree))
+        # `Load` and `Store` are singletons every tree shares.
+        refs.extend(weakref.ref(node) for node in ast.walk(tree) if not isinstance(node, ast.expr_context))
         real(self, source, tree, *args)  # pyright: ignore[reportArgumentType]
 
     monkeypatch.setattr(bindings._Parsed, "__init__", recording)
