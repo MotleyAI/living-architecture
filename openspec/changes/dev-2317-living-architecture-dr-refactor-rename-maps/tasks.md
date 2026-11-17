@@ -17,36 +17,36 @@
 
 ## 1. Tests (pr-tests)
 
-- [ ] 1.1 Migrate every direct caller of `BindingCheck.conflicts` in the tests to
+- [x] 1.1 Migrate every direct caller of `BindingCheck.conflicts` in the tests to
       `conflicts(passes, moves=None)`, which yields one conflict list per pass:
       - `test_conflict_narrowing.py`, including `_check` users and
         `test_a_run_moving_files_re_judges_every_file`, the single-pass regression with `moves`;
       - `test_rename_bindings.py` (around lines 257–310).
 
       Same assertions, new call shape. Verify: they fail today only on the signature.
-- [ ] 1.2 Align `test_conflict_narrowing.py::test_the_all_together_pass_reuses_each_single_entry_state` to one
+- [x] 1.2 Align `test_conflict_narrowing.py::test_the_all_together_pass_reuses_each_single_entry_state` to one
       `conflicts([[first], [second], [first, second]])` call. It still asserts the all-entries pass parses no
       after-state again. Verify: fails today on the signature.
-- [ ] 1.3 Liveness, `test_conflict_narrowing.py`. Files: `a` (edited only by entry 1), `b` (only entry 2), `c` (both,
+- [x] 1.3 Liveness, `test_conflict_narrowing.py`. Files: `a` (edited only by entry 1), `b` (only entry 2), `c` (both,
       different edits). Weak references to the after-states are taken as they are built and checked while each
       pass judges (hook `_Judge.conflicts` or equivalent):
       - while pass 2 judges, entry 1's state of `c` is dead and its state of `a` is alive;
       - the all-entries pass builds only `c`'s state.
 
       Verify: fails today.
-- [ ] 1.4 Two single-entry passes whose binding edits for one file are identical build that state once (parse
+- [x] 1.4 Two single-entry passes whose binding edits for one file are identical build that state once (parse
       count). Verify: passes today through the cache, and pins it.
-- [ ] 1.5 A plan without the all-entries pass, as `check_names` uses when a map conflict exists: no after-state
+- [x] 1.5 A plan without the all-entries pass, as `check_names` uses when a map conflict exists: no after-state
       outlives its pass. Use weak references, checked during the next pass. Verify: fails today.
-- [ ] 1.6 Slim states, `test_rename_bindings.py`: build `_Parsed` from a fresh `SourceFile`, weak-reference its tree
+- [x] 1.6 Slim states, `test_rename_bindings.py`: build `_Parsed` from a fresh `SourceFile`, weak-reference its tree
       and a few of its nodes, drop the `SourceFile`, and assert every reference is dead (after `gc.collect()`).
       Cover a before-state (`BindingCheck._analyse_before`) and an after-state (`BindingCheck._state`), each from a
       fresh source. Verify: fails today.
-- [ ] 1.7 Order kept, `test_rename_map.py` or `test_conflict_narrowing.py`: the generator yields pass k's
+- [x] 1.7 Order kept, `test_rename_map.py` or `test_conflict_narrowing.py`: the generator yields pass k's
       conflicts before it builds any state that only pass k+1 reads. Example: a later pass whose edited text
       does not parse (`refactor.cannot-rename`) is not reached while the caller still consumes pass k. Verify:
       fails today on the signature.
-- [ ] 1.8 Codex review of the tests against this plan (`reviewers.codex`). Verify: findings resolved with the user.
+- [x] 1.8 Codex review of the tests against this plan (`reviewers.codex`). Verify: findings resolved with the user.
 
 ## 2. Implementation (pr-implement)
 
