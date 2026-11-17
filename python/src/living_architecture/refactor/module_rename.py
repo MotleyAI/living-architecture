@@ -26,6 +26,13 @@ from living_architecture.refactor.text_edits import TextEdit, merge_edits
 from living_architecture.refactor.timings import timed
 from living_architecture.refactor.writer import FileMove, FileWrite
 
+_INIT = "__init__.py"
+
+
+def _init_of(folder: str) -> str:
+    """The `__init__.py` of `folder` (`""` or `"."` for the root)."""
+    return f"{folder}/{_INIT}" if folder not in ("", ".") else _INIT
+
 
 class ModuleRename(MapRename):
     """The rename of `entry`'s module to `new_name`, located by `locator` over `session`'s snapshot: `prepare` finds
@@ -70,7 +77,7 @@ class ModuleRename(MapRename):
             return None
         path = self.session.root / self.module
         if path.is_dir():
-            init = path / "__init__.py"
+            init = path / _INIT
             return init.resolve() if init.is_file() else None
         return path.resolve()
 
@@ -80,7 +87,7 @@ class ModuleRename(MapRename):
         if not self.package():
             return self.module
         inside = sorted(rel for rel in self.session.all_python_files() if rel.startswith(self.module + "/"))
-        init = f"{self.module}/__init__.py"
+        init = _init_of(self.module)
         return init if init in inside or not inside else inside[0]
 
     def _names(self, dotted: str | None) -> bool:
@@ -230,9 +237,9 @@ class ModuleRename(MapRename):
             return NameConflict(self.new, f"{base}.py", 1)
         inside = sorted(rel for rel in rels if rel.startswith(base + "/"))
         if inside:
-            init = f"{base}/__init__.py"
+            init = _init_of(base)
             return NameConflict(self.new, init if init in inside else inside[0], 1)
-        init = f"{parent}/__init__.py" if parent else "__init__.py"
+        init = _init_of(parent)
         offset = module_binding(self.snapshot.text(init), self.new) if init in rels else None
         return None if offset is None else NameConflict(self.new, init, self.snapshot.source(init).line(offset))
 
@@ -319,8 +326,7 @@ def move_conflicts(renames: list[ModuleRename], edits: list[TextEdit], source: C
             out.append(Conflict(site=(first.site_file(), 0), name=first.new))
     for r in moving:
         assert r.module is not None
-        parent = Path(r.module).parent.as_posix()
-        init = "__init__.py" if parent == "." else f"{parent}/__init__.py"
+        init = _init_of(Path(r.module).parent.as_posix())
         changed = [e for e in edits if e.path == init]
         if init not in files or not changed:
             continue
