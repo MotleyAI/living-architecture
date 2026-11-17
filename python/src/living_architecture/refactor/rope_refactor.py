@@ -73,7 +73,7 @@ def _emit(project: Project, changes: ChangeSet, apply: bool, before: dict[str, b
     emit(project, [f"{changes}:"], changes, apply, writes, moves, progress, moved_code=moved_code)
 
 
-def _kept(project: Project, changes: ChangeSet, keeps: Keeps) -> ChangeSet:
+def _kept(changes: ChangeSet, keeps: Keeps) -> ChangeSet:
     """`changes` without what touches a `--keep` site: a kept file's move or edits, a kept line's edits."""
     if not keeps.sites:
         return changes
@@ -162,7 +162,7 @@ def _module_rename(project: Project, renamer: Rename, entry: MapEntry, options: 
         except (RefactoringError, BadIdentifierError):
             raise RefactorError(message("refactor.cannot-rename")) from None
         keeps = Keeps(options.keep, root)
-        kept = _kept(project, changes, keeps)
+        kept = _kept(changes, keeps)
         with timed("resolve"):
             every, _ = _edits(changes, before, snapshot)
             written, moves = _edits(kept, before, snapshot)

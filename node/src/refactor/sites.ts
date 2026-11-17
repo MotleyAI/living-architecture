@@ -63,9 +63,10 @@ function uncommented(text: string, source: TS.SourceFile): string {
 }
 
 /** The 1-based lines of `text` spelling one of `names` as written (unicode escapes decoded) or, in `code`, in the value
- * of a string or template literal starting on the line; without `comments`, not in a code comment. */
-export function spelledLines(text: string, names: Set<string>, code = true, comments = true): Set<number> {
-  const source = code ? ts().createSourceFile('keep.ts', text, ts().ScriptTarget.Latest, true) : null;
+ * of a string or template literal starting on the line; without `comments`, not in a code comment. `file` names the
+ * source, its extension setting how it parses. */
+export function spelledLines(text: string, names: Set<string>, code = true, comments = true, file = 'keep.ts'): Set<number> {
+  const source = code ? ts().createSourceFile(file, text, ts().ScriptTarget.Latest, true) : null;
   const lines = new Lines(source === null || comments ? text : uncommented(text, source));
   const out = new Set<number>();
   const decoded = [...names].map((name) => identifierText(name));
@@ -89,7 +90,7 @@ export function keepSpells(site: Site, editable: Map<string, boolean>, text: (re
   if (moved.some((rel) => site.coversPath(rel) || rel.split('/').every((part, i) => parts[i] === part))) return true;
   for (const [rel, isCode] of editable) {
     if (!site.coversPath(rel)) continue;
-    const lines = spelledLines(text(rel), names, isCode, comments);
+    const lines = spelledLines(text(rel), names, isCode, comments, rel);
     if (lines.size > 0 && (site.line === null || lines.has(site.line))) return true;
   }
   return false;

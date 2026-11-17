@@ -63,6 +63,11 @@ describe('the keep text check', () => {
     expect([...spelledLines(text, new Set(['load']), true, false)].sort()).toEqual(lines);
   });
 
+  it('parses a .tsx file as TSX, so JSX text is not read as a comment', () => {
+    const text = 'const a = <div>http://example.test {load()}</div>;\n';
+    expect([...spelledLines(text, new Set(['load']), true, false, 'lib/a.tsx')]).toEqual([1]);
+  });
+
   it.each([
     ['before', [4, 30], 9, 4],
     ['after', [2, 12], 9, 12],

@@ -76,9 +76,10 @@ def test_spelled_lines(text: str, lines: set[int]) -> None:
         ("x = None  # type: load\n", {1}),
         ("x = None  #type:load\n", {1}),
         ("x = None  # a type: load\n", set()),
+        ('x = 1  # load\ny = "abc\n', set()),
     ],
     ids=["comment", "multi-line-comment", "trailing-comment", "code-and-comment", "hash-in-string", "type-comment",
-         "type-comment-unspaced", "not-a-type-comment"],
+         "type-comment-unspaced", "not-a-type-comment", "comment-before-a-tokenize-error"],
 )
 def test_spelled_lines_without_comments(text: str, lines: set[int]) -> None:
     assert spelled_lines(text, {"load"}, comments=False) == lines

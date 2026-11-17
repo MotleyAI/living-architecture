@@ -108,13 +108,14 @@ def resolve_keeps(keeps: Keeps, edits: Iterable[tuple[str, int]]) -> tuple[list[
     return warnings, refusals
 
 
-def _uncommented(text: str) -> list[str] | None:
-    """`text`'s lines with every comment but a type comment blanked; None when it does not tokenize."""
+def _uncommented(text: str) -> list[str]:
+    """`text`'s lines with every comment but a type comment blanked, up to where it stops tokenizing."""
     lines = split_lines(text)
+    tokens: list[tokenize.TokenInfo] = []
     try:
-        tokens = list(tokenize.generate_tokens(iter(list(lines)).__next__))
+        tokens.extend(tokenize.generate_tokens(iter(list(lines)).__next__))
     except (tokenize.TokenError, SyntaxError):
-        return None
+        pass
     for token in tokens:
         if token.type != tokenize.COMMENT or _TYPE_COMMENT.match(token.string):
             continue
@@ -129,7 +130,7 @@ def spelled_lines(text: str, names: Iterable[str], *, code: bool = True, comment
     a string literal starting on the line; without `comments`, a code comment's spelling counts only in a type
     comment."""
     wanted = {nfkc(n) for n in names}
-    lines = (None if comments or not code else _uncommented(text)) or split_lines(text)
+    lines = split_lines(text) if comments or not code else _uncommented(text)
     out = {i for i, line in enumerate(lines, 1) if any(n in nfkc(line) for n in wanted)}
     if not code:
         return out
