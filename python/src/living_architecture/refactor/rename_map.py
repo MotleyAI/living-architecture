@@ -84,6 +84,15 @@ def _live(r: Renaming) -> bool:
     return r.new != r.old and not (isinstance(r, ModuleRename) and r.same)
 
 
+def _symbol_groups(renames: list[Renaming]) -> dict[str, list[int]]:
+    """The indexes of the non-module renames by old name, in the order of their first entry."""
+    groups: dict[str, list[int]] = {}
+    for i, r in enumerate(renames):
+        if not isinstance(r, ModuleRename):
+            groups.setdefault(r.old, []).append(i)
+    return groups
+
+
 class _Resolved:
     """An entry located: its file, what it names, its canonical symbol and its intent, and every map index merged
     into it."""
@@ -568,23 +577,19 @@ class RenameMap:
               facts: TypeFacts, keeps: Keeps) -> list[list[TextEdit]]:
         """Each old-name group's rules (module renames join none), in the order of its first entry, its line printed as
         it is done; the edits each rename's keeps dropped."""
-        groups: dict[str, list[int]] = {}
-        for i, r in enumerate(renames):
-            if not isinstance(r, ModuleRename):
-                groups.setdefault(r.old, []).append(i)
+        groups = _symbol_groups(renames)
         olds = {r.old for r in renames if r.new != r.old and not isinstance(r, ModuleRename)}
-        dropped: list[list[TextEdit]] = [[] for _ in renames]
-        for i, r in enumerate(renames):
-            if isinstance(r, ModuleRename) and i not in failed:
-                dropped[i] = self._keep(r, keeps)
+        dropped: list[list[TextEdit]] = [
+            self._keep(r, keeps) if isinstance(r, ModuleRename) and i not in failed else []
+            for i, r in enumerate(renames)
+        ]
         if groups:
             self.progress.phase("rules")
         for n, (old, group) in enumerate(groups.items(), 1):
             live = [i for i in group if renames[i].new != old]
             self._group_rules(live, renames, failed, facts)
-            for i in live:
-                if i not in failed:
-                    dropped[i] = self._finish(renames[i], olds, keeps)
+            for i in (i for i in live if i not in failed):
+                dropped[i] = self._finish(renames[i], olds, keeps)
             refused = self._group_refusals(group, renames, failed)
             indexes = sorted(index for i in group for index in resolved[i].indexes)
             news = ", ".join(dict.fromkeys(renames[i].new for i in group))

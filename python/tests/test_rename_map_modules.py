@@ -72,6 +72,20 @@ def test_invalid_module_entries_are_named_in_index_order(
     assert file_tree(root) == before
 
 
+@pytest.mark.parametrize("args", [
+    ["--apply", "rename", "--file", "__init__.py", "--new-name", "foo"],
+    _map(),
+])
+def test_the_project_roots_init_names_no_module(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], args: list[str]
+) -> None:
+    root = _project(tmp_path, {"__init__.py": "X = 1\n", "a.py": "import os\n"},
+                    [{"module": "__init__.py", "new_name": "foo"}, {"module": "a.py", "new_name": "b"}])
+    before = file_tree(root)
+    assert run_raw(root, args, monkeypatch, capsys) == (1, "", CHECKS + message("refactor.cannot-rename") + "\n")
+    assert file_tree(root) == before
+
+
 def test_a_module_entry_of_another_language_mixes_the_map(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:

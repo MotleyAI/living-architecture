@@ -76,6 +76,7 @@ class Session:
         self.snapshot = Snapshot(self.root)
         self.tables = TextTables(self.root, self.snapshot.source)
         self._loaded: dict[Path, SourceFile | None] = {}
+        self._all_python_files: list[str] | None = None
         self._python_files: list[str] | None = None
 
     def rel(self, path: Path) -> str | None:
@@ -89,8 +90,10 @@ class Session:
         return sorted({"", *self.layout.source_rels})
 
     def all_python_files(self) -> list[str]:
-        """The project's Python files, by path."""
-        return [p.relative_to(self.root).as_posix() for p in language_files(self.root, "python")]
+        """The project's Python files, by path, as they were before the run."""
+        if self._all_python_files is None:
+            self._all_python_files = [p.relative_to(self.root).as_posix() for p in language_files(self.root, "python")]
+        return self._all_python_files
 
     def python_files(self) -> list[str]:
         """The project's Python files that decode, by path."""

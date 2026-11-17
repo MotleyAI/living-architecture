@@ -107,9 +107,12 @@ class EntryLocator:
     # ---- the entry
 
     def file_module(self, rel: str) -> Entry:
-        """The rename of the Python module `rel` itself; a package's `__init__.py` names the package."""
+        """The rename of the Python module `rel` itself; a package's `__init__.py` names the package, and the project
+        root's names none."""
         path = Path(rel)
         package = path.stem == "__init__"
+        if package and path.parent == Path():
+            raise cannot_rename()
         return _module(rel, path.parent.as_posix() if package else rel, path.parent.name if package else path.stem, "")
 
     def locate(self, rel: str, locator: Locator) -> Entry:

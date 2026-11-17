@@ -35,7 +35,7 @@ function single(r: Refactor, progress: Progress): number {
 function renameMap(r: Refactor, progress: Progress): number {
   const shown = r.args.map ?? '';
   const entries = loadMap(shown, shown);
-  // Module renames come with DEV-2325.
+  // This twin does not rename modules yet.
   const modules = entries.flatMap((entry, i) => (entry.module === undefined ? [] : [i + 1]));
   if (modules.length > 0) throw new Refused(modules.map((index) => refusal(message('refactor.map-module-unsupported', { map: shown, index }), 2)));
   const specs = entries.map((entry, i): EntrySpec => ({

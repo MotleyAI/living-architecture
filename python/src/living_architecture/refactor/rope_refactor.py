@@ -156,7 +156,7 @@ def _entries(command: str, project_root: str, options: dict[str, Any]) -> tuple[
         return load_map(str(options["map"]), project_root), str(options["map"])
     file = str(options["file"])
     locator = _locator(options)
-    if command == "rename" and locator == Locator():
+    if command == "rename" and not locator.model_dump(exclude_none=True):
         return [MapEntry(index=1, file=file, path=file, new_name=str(options["new_name"]), module=True)], ""
     if command == "rename":
         return [MapEntry(index=1, file=file, path=file, locator=locator, new_name=str(options["new_name"]))], ""
