@@ -47,7 +47,10 @@
   `languages.yaml`; verify `mock-lint-ts-*` cases unchanged
 - [ ] 3.2 One specifier routine for module moves: the language service's file-rename edits in every relevant project
   plus mock module paths rewritten as the service rewrites an import of the same specifier; `move-module` uses it;
-  verify `refactor-ts-move-module-*` cases unchanged and the new mock cases pass
+  verify `refactor-ts-move-module-*` cases unchanged and the new mock cases pass; a relative `declare module` naming
+  a moved file rewritten like a mock path, the service's edits computed with those names masked (same length)
+  (design 20); each rewritten specifier keeping its own extension style (design 21); a tsconfig `files`/`include`
+  entry rewritten, the Workspace giving the service each tsconfig as a parsed JSON source (design 22)
 - [ ] 3.3 Module entries in `runEntries`: the entry spec carries a module; resolution validates the new name (resolve),
   merges entries naming one file, and gives the old name; `checks` adds the taken check, not-stand-in for all-module
   runs, the moved file as a keep-able file; `references` prints the module entry's line and computes its edits and

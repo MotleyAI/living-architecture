@@ -1,0 +1,20 @@
+Moving module <api>:
+
+
+rename from src/api.ts
+rename to src/lib/api.ts
+--- a/test/api.test.ts
++++ b/test/api.test.ts
+@@ -1,4 +1,4 @@
+ import { vi } from 'vitest';
+ 
+-vi.mock('../src/api');
+-vi.mock('../src/api.js');
++vi.mock('../src/lib/api');
++vi.mock('../src/lib/api.js');
+
+
+
+APPLIED. 2 file(s) changed:
+  src/api.ts
+  test/api.test.ts

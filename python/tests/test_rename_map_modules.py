@@ -323,6 +323,33 @@ def test_a_taken_module_name_is_refused_before_any_reference_search(
     assert file_tree(root) == before
 
 
+USE_A = "from pkg import a\n\nprint(a.X)\n"
+
+
+@pytest.mark.parametrize("new_name", ["a/b", "class", "1x", "b.py", "..", ""])
+@pytest.mark.parametrize("entry", [{"module": "pkg/a.py"}, {"file": "pkg/use.py", "line": 1, "col": 17}], ids=["module", "located"])
+def test_an_invalid_module_new_name_is_a_resolution_failure(
+    entry: dict[str, object], new_name: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = _project(tmp_path, {"pkg/a.py": "X = 1\n", "pkg/use.py": USE_A}, [{**entry, "new_name": new_name}])
+    before = file_tree(root)
+    assert run_raw(root, _map(), monkeypatch, capsys) == (1, "", CHECKS + message("refactor.cannot-rename") + "\n")
+    assert file_tree(root) == before
+
+
+def test_an_invalid_module_new_name_is_collected_with_the_other_resolution_failures(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = _project(tmp_path, {"pkg/a.py": "X = 1\n", "pkg/use.py": USE_A},
+                    [{"module": "pkg/a.py", "new_name": "class"}, {"file": "pkg/a.py", "symbol": "Missing", "new_name": "y"}])
+    code, out, err = run_raw(root, _map(), monkeypatch, capsys)
+    assert (code, out) == (2, "")
+    lines = err.splitlines()
+    assert lines[:3] == ["[resolve]", "[checks]", message("refactor.cannot-rename")]
+    assert lines[3].startswith("pkg/a.py: Missing names no declaration")
+    assert len(lines) == 4
+
+
 # ---- stubs
 
 STUB_FILES = {"pkg/a.py": "A = 1\n", "pkg/c.py": "C = 1\n", "pkg/e.py": "def f() -> int:\n    return 1\n",

@@ -1,0 +1,26 @@
+Renaming <a> to <b>:
+Renaming <save> to <store>:
+
+
+rename from src/a.ts
+rename to src/b.ts
+--- a/src/m.ts
++++ b/src/m.ts
+@@ -1,5 +1,5 @@
+ export class A {
+-  save(): number {
++  store(): number {
+     return 1;
+   }
+ }
+@@ -11,5 +11,5 @@
+ }
+ 
+ export function use(a: A, o: Other): number {
+-  return a.save() + o.save();
++  return a.store() + o.save();
+ }
+
+
+
+DRY-RUN. 2 file(s) would change. Re-run with --apply.

@@ -84,6 +84,14 @@ No arc42, LikeC4 model or `index.yaml` edit: the delta modifies the existing `re
     namespace form is left, pinned by a test. (codex)
 19. Rejected (codex): "module renames print no per-entry progress line" — DEV-2324's delta already makes a module
     entry print its line like any other; the paired `refactor-progress-map-module` pins it.
+20. A relative `declare module` naming a moved file is rewritten like a mock module path; the language service's
+    file-rename edits are computed with those names masked (same length), since it returns no edit while one exists
+    (probed, TypeScript 6.0.3). (user, A)
+21. Each rewritten specifier keeps its own extension style (none, or its extension), whatever the service infers from
+    the file's other imports: the shared specifier routine corrects the service's edits. (user, A)
+22. A tsconfig `files` or `include` entry naming a moved file is rewritten by the service's file-rename edits: the
+    Workspace gives each project its tsconfig as a parsed JSON source, for module renames and `move-module` alike.
+    (user, A)
 
 Approved wording:
 - `shared/cli.yaml`, `rename` help: `rename the symbol at a location, or with no locator the module --file names (its
@@ -104,8 +112,8 @@ Approved wording:
 
 ## Risks / Trade-offs
 
-- [`getEditsForFileRename` also edits non-source files (a tsconfig `files` entry)] → kept, as `move-module` keeps them;
-  pinned by a case.
+- [The service edits a tsconfig only when given it as a parsed JSON source; probed: today's `move-module` leaves a stale
+  `files` entry] → decision 22; pinned by a case.
 - [Mock specifier rewriting must match the language service's own import rewrite] → a case pins a mock string and an
   import of the same specifier in one file ending equal, relative and `paths`-mapped.
 - [A `.mts`/`.cts` sibling blocks a stem whose `nodenext` specifier would not strictly collide] → accepted: the user

@@ -1,0 +1,19 @@
+Renaming <client> to <cli2>:
+
+
+rename from src/client.ts
+rename to src/cli2.ts
+--- a/src/use.ts
++++ b/src/use.ts
+@@ -1,4 +1,4 @@
+-import { X } from './client.js';
++import { X } from './cli2.js';
+ import { Y } from './other.js';
+ 
+ export const shown = [X, Y];
+
+
+
+APPLIED. 2 file(s) changed:
+  src/client.ts
+  src/use.ts
