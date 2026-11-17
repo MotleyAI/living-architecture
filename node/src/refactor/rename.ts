@@ -585,7 +585,8 @@ function editableFiles(r: Refactor, docs: boolean): Map<string, boolean> {
   return out;
 }
 
-/** Every check that needs no reference: each site naming something, each keep spelling an old name. */
+/** Every check that needs no reference: each site naming something, no `--stub` (it moves only Python modules), each
+ * keep spelling an old name. */
 function checks(r: Refactor, resolution: Resolution): Refusal[] {
   const sites: [string, string, string][] = [
     ...(r.args.with_stand_ins ?? []).map((raw): [string, string, string] => ['--with', raw, r.root]),
@@ -599,6 +600,7 @@ function checks(r: Refactor, resolution: Resolution): Refusal[] {
     out.push(refusal(message('refactor.site-missing', { option, site: raw }), 2));
     if (option === '--keep') missing.add(raw);
   }
+  if (r.args.stub != null) out.push(refusal(message('refactor.stub-not-module'), 2));
   const keeps = (r.args.keep ?? []).filter((raw) => !missing.has(raw));
   if (!resolution.spelled || keeps.length === 0 || resolution.targets.some((t) => t.literal)) return out;
   const editable = editableFiles(r, r.args.docs === true);

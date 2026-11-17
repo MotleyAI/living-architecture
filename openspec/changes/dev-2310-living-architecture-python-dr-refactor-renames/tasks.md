@@ -122,3 +122,15 @@
 - [x] 6.3 Local test scope per `/la:pr`, `uv run ruff check src tests`, `uv run basedpyright src tests`,
       `scripts/sync-shared --check`, `la-arch-check`, `npx -y @anthropic-ai/claude-code plugin validate plugin`, and
       `npm run build && npm run conformance` for the paired case. Verify: all green.
+
+## 7. Module form and moved-module stub (pr-implement, from the DEV-2310 comment)
+
+- [x] 7.1 Tests first: conformance cases "Module rename without a locator", "Moved-module stub" and "Stub refused"
+      (Python adapter cases, hand-written goldens, listed in `conformance/INVENTORY.md`); a schema test for
+      `refactor.python.moved_module_stub`. Verify: they fail before 7.2.
+- [x] 7.2 shared: `cli.yaml` (rename help, `--file` help, `--stub`, the command's first sentence), `findings.yaml`
+      (`refactor.stub-not-module`, `refactor.stub-unconfigured`), the config schema key (approved wordings);
+      `scripts/sync-shared`. Code: the locator-less module entry (design decision 20); the stub written after the move
+      (decision 21). Verify: 7.1 passes; `npm run build && npm run conformance` green.
+- [x] 7.3 The `la:deterministic-refactor` skill names the module form and `--stub` (approved wording). Verify:
+      `npx -y @anthropic-ai/claude-code plugin validate plugin`.

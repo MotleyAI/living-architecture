@@ -65,6 +65,14 @@ class CommandsConfig(_Strict):
     typecheck: TypecheckConfig
 
 
+class RefactorPythonConfig(_Strict):
+    moved_module_stub: str | None
+
+
+class RefactorConfig(_Strict):
+    python: RefactorPythonConfig
+
+
 class ConventionsConfig(_Strict):
     text_ratio_max: float
     exempt: list[str]
@@ -81,6 +89,7 @@ class LaConfig(_Strict):
     reviewers: ReviewersConfig
     issue_key_pattern: str
     commands: CommandsConfig
+    refactor: RefactorConfig
     conventions: ConventionsConfig
 
     def issue_key_re(self) -> re.Pattern[str]:

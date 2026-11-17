@@ -1,0 +1,17 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- rename
+- --file
+- pkg/sql/client.py
+- --new-name
+- cli2
+fixture: refactor-references
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: 'a rename given the module itself and no locator renames the module, as one located on an import of it does'

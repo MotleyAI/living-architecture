@@ -170,6 +170,9 @@ without `as`), the module path of a `from … import` (absolute or relative) and
 scoping and import rules resolve to the module through those bindings (`old.X`, `pkg.old.X`, `other.old.X` where
 module `other` binds it). An `as` alias spelled exactly like the module's own name SHALL be renamed with every use it
 binds; any other alias and its uses SHALL be left. Every edit SHALL keep each line's ending and the file's encoding.
+With `--stub REMOVAL`, a Python module rename SHALL write, after the move, a stub at the module's old path holding
+`refactor.python.moved_module_stub` with `{old}`, `{new}` and `{removal}` replaced, shown as a new file in the diff;
+`--stub` on anything but a Python module file, or with no stub configured, SHALL refuse with exit 2 and write nothing.
 The module rename SHALL be refused with the `refactor.name-conflict` finding when its package already binds the new name
 (a module of that name, naming it at line 1; a package of that name, naming its `__init__.py`, else its first Python
 file by path, at line 1; or a binding in the package's `__init__.py`, naming its line) or when its edits would change a
@@ -262,6 +265,14 @@ write nothing and exit 1. With or without `--apply`, the language server SHALL c
 - **WHEN** package `pkg/sql/` (with an `__init__.py`) is renamed to `db` and modules import `pkg.sql.engine` and
   `from pkg import sql`
 - **THEN** the directory moves to `pkg/db/` and every such import and use names `db`
+
+#### Scenario: Moved-module stub
+- **WHEN** `pkg/a.py` is renamed to `b` with `--stub 2.0` and the stub is `raise_moved("{old}", "{new}", removal="{removal}")`
+- **THEN** `pkg/b.py` holds the module and `pkg/a.py` holds `raise_moved("pkg.a", "pkg.b", removal="2.0")`
+
+#### Scenario: Stub refused
+- **WHEN** `--stub` comes with a symbol rename, a package rename, or no configured stub
+- **THEN** it exits 2 with the finding and nothing changes
 
 #### Scenario: Module rename keeps line endings
 - **WHEN** a module renamed by a module rename is imported from a file whose lines end in a mix of CRLF and LF
@@ -397,7 +408,8 @@ In both twins, `--line` and `--col` SHALL be 1-based and `--offset` 0-based; col
 code points of the file as read, every line terminator (`\r\n`, `\n`, a lone `\r`) included in an offset, and a column
 SHALL count within its line excluding the line terminator. A line, column or offset out of range SHALL exit 1 with a
 finding, whose count is the file's code points for an offset. `--symbol` SHALL locate as the symbol-path requirement
-defines. No locator SHALL exit 1 with the no-locator finding.
+defines. No locator SHALL exit 1 with the no-locator finding, except in a Python `rename`, which then renames the module
+`--file` names.
 
 #### Scenario: Astral character before the symbol
 - **WHEN** a line is `const s = "😀"; const foo = 1;` and `--line 1 --col 22` points at `foo`
@@ -406,6 +418,10 @@ defines. No locator SHALL exit 1 with the no-locator finding.
 #### Scenario: Column out of range
 - **WHEN** `--col` exceeds the line's length plus one
 - **THEN** it exits 1 with the out-of-range finding
+
+#### Scenario: Module rename without a locator
+- **WHEN** `rename --file pkg/sql/client.py --new-name cli2` runs with no locator
+- **THEN** its output equals that of the rename located on an import of `pkg.sql.client`
 
 #### Scenario: Offset after CRLF line breaks
 - **WHEN** a file with CRLF line endings declares `foo` on its third line and `--offset` counts both characters of each

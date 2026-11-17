@@ -1,0 +1,8 @@
+format: <FORMAT>
+refactor:
+  python:
+    moved_module_stub: |
+      """Moved to {new}."""
+      from pkg.moved import raise_moved
+
+      raise_moved("{old}", "{new}", removal="{removal}")

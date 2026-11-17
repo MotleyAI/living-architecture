@@ -111,6 +111,15 @@ class EntryLocator:
 
     # ---- the entry
 
+    def file_module(self, rel: str) -> Entry:
+        """The rename of the Python module `rel` itself; a package's `__init__.py` names the package."""
+        path = Path(rel)
+        package = path.stem == "__init__"
+        module = path.parent.as_posix() if package else rel
+        name = path.parent.name if package else path.stem
+        dotted = self.layout.modname(self.root / rel)
+        return Entry(kind="module", key=("module", module, 0, dotted), name=name, rel=rel, module=module)
+
     def locate(self, rel: str, locator: Locator) -> Entry:
         """The entry `locator` names in `rel`."""
         offset, _ = resolve(locator, self.snapshot.source(rel), rel)

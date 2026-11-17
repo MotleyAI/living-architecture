@@ -207,6 +207,7 @@ class RenameOptions(BaseModel):
     keep: tuple[str, ...] = ()
     docs: bool = False
     fail_fast: bool = False
+    stub: str | None = None
 
 
 class Declaration(BaseModel):

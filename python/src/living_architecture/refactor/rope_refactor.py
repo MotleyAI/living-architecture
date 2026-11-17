@@ -192,7 +192,9 @@ def _run(rope: _RopeProject, project_root: str, command: str, apply: bool, optio
         return run_map(
             rope.root, entries, rename_options, apply_=apply, map_shown=shown, progress=progress,
             module_rename=lambda engine, r: run_module_rename(engine.session, engine.locator, _located(r.located),
-                                                              r.entry.new_name, rename_options, apply, progress),
+                                                              r.entry.new_name, rename_options, apply, progress,
+                                                              stub=engine.stub),
+            file_modules=command == "rename",
         )
     if command == "move-symbol":
         move_symbol(rope.get(), file=str(options["file"]), locator=_locator(options), dest=str(options["dest"]),

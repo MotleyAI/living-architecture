@@ -73,8 +73,8 @@ def test_rename_by_line_col(project: Path) -> None:
     assert "class Other:" in (project / "pkg" / "a.py").read_text()
 
 
-def test_rename_needs_a_locator(project: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    assert _run(project, "rename", "--file", str(project / "pkg" / "a.py"), "--new-name", "x") == 1
+def test_retarget_needs_a_locator(project: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    assert _run(project, "retarget", "--file", str(project / "pkg" / "a.py"), "--target", "x") == 1
     assert "provide one of" in readouterr(capsys).err
 
 

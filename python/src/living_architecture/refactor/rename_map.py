@@ -7,7 +7,7 @@ from __future__ import annotations
 import ast
 import re
 import sys
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -16,7 +16,7 @@ from rope.base.fscommands import unicode_to_file_data
 from rope.base.project import Project
 from rope.base.resources import File
 
-from living_architecture.config import ConfigError, source_files
+from living_architecture.config import ConfigError, find_repo_root, load_config, source_files
 from living_architecture.contract import manifest, message
 from living_architecture.lang import LanguageServerError
 from living_architecture.refactor.baseline_align import (
@@ -244,7 +244,9 @@ class RenameMap:
     """The entries of a map computed as one refactor."""
 
     def __init__(self, root: Path, entries: list[MapEntry], options: RenameOptions, map_shown: str,
-                 progress: Progress) -> None:
+                 progress: Progress, *, file_modules: bool = False) -> None:
+        self.file_modules = file_modules
+        self.stub: str | None = None
         self.entries = entries
         self.options = options
         self.map_shown = map_shown
@@ -260,6 +262,8 @@ class RenameMap:
 
     def _locate(self, entry: MapEntry) -> tuple[str, int]:
         rel = project_rel(self.root, entry.path)
+        if self._file_module(entry):
+            return rel, 0
         offset, _ = resolve(entry.locator, self.session.snapshot.source(rel), entry.path)
         return rel, offset
 
@@ -268,6 +272,11 @@ class RenameMap:
         server = self.server.get()
         server.open(self.root / rel, self.session.snapshot.text(rel))
         return [(s.path, s.start) for s in server.definition(self.root / rel, offset)]
+
+    def _file_module(self, entry: MapEntry) -> bool:
+        """A `rename` given no locator: the module `--file` names."""
+        loc = entry.locator
+        return self.file_modules and entry.new_name is not None and (loc.offset, loc.line, loc.symbol) == (None, None, None)
 
     def _literal(self, entry: MapEntry, rel: str, offset: int) -> _Resolved | None:
         """The entry as a `Literal` member rename, when its locator names a string of a `Literal[...]`."""
@@ -285,7 +294,7 @@ class RenameMap:
         literal = self._literal(entry, *located)
         if literal is not None:
             return literal
-        found = self.locator.at(*located)
+        found = self.locator.file_module(located[0]) if self._file_module(entry) else self.locator.at(*located)
         resolved = _Resolved(entry, located[0], found, found.key, offset=located[1])
         if entry.retarget is not None:
             self._resolve_target(resolved)
@@ -413,6 +422,7 @@ class RenameMap:
         sites += [("--without", raw, self.root) for raw in options.without_sites]
         sites += [("--keep", raw, Path.cwd()) for raw in options.keep]
         found, missing = site_checks(sites, self.root)
+        found += self._stub_checks(resolved)
         names = self.names(resolved)
         text = self.session.snapshot.text
         if spelled and options.keep and not any(r.literal is not None for r in resolved):
@@ -426,6 +436,20 @@ class RenameMap:
                 found.append(server_failed(exc))
         source = self.root / resolved[0].rel if resolved else Path(self.entries[0].path)
         return found + baseline_probe(self.root, source)
+
+    def _stub_checks(self, resolved: list[_Resolved]) -> list[Refusal]:
+        """`--stub` needs the rename of one Python module file and a configured stub; the stub's text."""
+        if self.options.stub is None:
+            return []
+        located = resolved[0].located if len(resolved) == 1 else None
+        module = located.module if located is not None and located.kind == "module" else None
+        if module is None or (self.root / module).is_dir():
+            return [refusal(message("refactor.stub-not-module"), 2)]
+        try:
+            self.stub = load_config(find_repo_root(self.root)).refactor.python.moved_module_stub
+        except ConfigError:
+            return []
+        return [] if self.stub is not None else [refusal(message("refactor.stub-unconfigured"), 2)]
 
     def _cached(self, resolved: list[_Resolved]) -> bool:
         """Fix the run's export request; whether the run can do without a language server: a module rename, or
@@ -799,9 +823,9 @@ def changes_of(snapshot: Snapshot, edits: list[TextEdit]) -> tuple[list[tuple[st
 
 def emit(root: Path, headers: list[str], described: list[tuple[str, str]], apply_: bool, writes: list[FileWrite],
          moves: list[FileMove], progress: Progress, *, moved_code: bool = False,
-         edits: dict[str, list[Edit]] | None = None) -> None:
+         edits: dict[str, list[Edit]] | None = None, creates: Sequence[FileWrite] = ()) -> None:
     """Print the headers and each change's description (path, text) sorted by path, the realigned baseline included,
-    then write them with `--apply`; `BaselineFailed` when the checker fails."""
+    then write them with `--apply`, `creates` after the moves; `BaselineFailed` when the checker fails."""
     if baseline_runs(root):
         progress.phase("baseline")
     with timed("baseline"):
@@ -820,9 +844,12 @@ def emit(root: Path, headers: list[str], described: list[tuple[str, str]], apply
             verify(root.resolve(), writes)
     print("\n".join(headers) + "\n\n\n" + "".join(text + "\n" for _, text in ordered))
     touched = [path for path, _ in ordered]
+    for create in creates:
+        if touched.count(create.rel) > 1:
+            touched.remove(create.rel)
     if apply_:
         with timed("write"):
-            apply(root.resolve(), writes, moves)
+            apply(root.resolve(), writes, moves, creates)
         print(message("refactor.applied", count=len(touched)))
         for p in touched:
             print(message("refactor.applied-file", path=p))
@@ -831,9 +858,10 @@ def emit(root: Path, headers: list[str], described: list[tuple[str, str]], apply
 
 
 def run_map(root: Path, entries: list[MapEntry], options: RenameOptions, *, apply_: bool, map_shown: str,
-            progress: Progress, module_rename: Callable[[RenameMap, _Resolved], int]) -> int:
-    """0 when computed (and written with `--apply`); `Refused` with every refusal when it refuses."""
-    engine = RenameMap(root, entries, options, map_shown, progress)
+            progress: Progress, module_rename: Callable[[RenameMap, _Resolved], int], file_modules: bool = False) -> int:
+    """0 when computed (and written with `--apply`); `Refused` with every refusal when it refuses; with `file_modules`,
+    an entry with no locator renames the module its file is."""
+    engine = RenameMap(root, entries, options, map_shown, progress, file_modules=file_modules)
     try:
         return engine.run(apply_, module_rename)
     except LanguageServerError as exc:
@@ -855,4 +883,5 @@ def entry_options(options: dict[str, Any]) -> RenameOptions:
         keep=tuple(options.get("keep") or ()),
         docs=bool(options.get("docs")),
         fail_fast=bool(options.get("fail_fast")),
+        stub=options.get("stub"),
     )

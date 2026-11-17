@@ -10,7 +10,7 @@ from pathlib import Path
 
 from living_architecture.contract import message
 from living_architecture.refactor.bindings import BindingCheck, EntryEdits, first_conflict, module_binding
-from living_architecture.refactor.diff_render import move_description
+from living_architecture.refactor.diff_render import edit_description, move_description
 from living_architecture.refactor.entry_location import Entry, EntryLocator
 from living_architecture.refactor.locators import RefactorError
 from living_architecture.refactor.move_edits import NameConflict
@@ -23,7 +23,7 @@ from living_architecture.refactor.sites import Keeps
 from living_architecture.refactor.static_resolver import Module, Value
 from living_architecture.refactor.text_edits import TextEdit, merge_edits
 from living_architecture.refactor.timings import timed
-from living_architecture.refactor.writer import FileMove
+from living_architecture.refactor.writer import FileMove, FileWrite
 
 _SEGMENT = re.compile(r"(?:\.|[^\S\r\n]|\\\r?\n|\\\r)*([^\W\d]\w*)")
 
@@ -207,6 +207,14 @@ class ModuleRename:
         offset = module_binding(self.snapshot.text(init), self.new) if init in rels else None
         return None if offset is None else NameConflict(self.new, init, self.snapshot.source(init).line(offset))
 
+    def stub(self, move: FileMove, text: str, removal: str) -> FileWrite:
+        """The stub left at the moved module's old path: `text` with its old and new dotted names and `removal`."""
+        old = self.session.modname(move.rel)
+        parent = old.rpartition(".")[0]
+        new = f"{parent}.{self.new}" if parent else self.new
+        filled = text.replace("{old}", old).replace("{new}", new).replace("{removal}", removal)
+        return FileWrite(rel=move.rel, old=None, new=filled.encode())
+
     def moved(self, move: FileMove | None) -> dict[str, str]:
         """Each project file the move moves, to its new path."""
         if move is None:
@@ -216,9 +224,9 @@ class ModuleRename:
 
 
 def run_module_rename(session: Session, locator: EntryLocator, entry: Entry, new_name: str | None,
-                      options: RenameOptions, apply_: bool, progress: Progress) -> int:
-    """A module rename, its `--keep` sites left; refused when the new name is taken, its edits change what a name
-    means, or a site matches nothing it must."""
+                      options: RenameOptions, apply_: bool, progress: Progress, *, stub: str | None = None) -> int:
+    """A module rename, its `--keep` sites left, with `--stub` the `stub` text left at the old path; refused when the
+    new name is taken, its edits change what a name means, or a site matches nothing it must."""
     if new_name is None:
         raise RefactorError(message("refactor.cannot-rename"))
     rename = ModuleRename(session, locator, entry, new_name, options)
@@ -254,6 +262,8 @@ def run_module_rename(session: Session, locator: EntryLocator, entry: Entry, new
     described, writes = changes_of(session.snapshot, written)
     moves = [move] if move is not None else []
     described += [(m.rel, move_description(m.rel, m.dest)) for m in moves]
+    creates = [rename.stub(move, stub, options.stub)] if move is not None and stub is not None and options.stub is not None else []
+    described += [(c.rel, edit_description(c.rel, "", c.new.decode())) for c in creates]
     header = message("refactor.rename-header", old=rename.old, new=new_name)
-    emit(session.root, [header], described, apply_, writes, moves, progress)
+    emit(session.root, [header], described, apply_, writes, moves, progress, creates=creates)
     return 0

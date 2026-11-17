@@ -12,6 +12,7 @@ args:
 - fresh
 - --keep
 - src/m.ts:1
+fixture: refactor-ts-old
 git:
 - commit: init
 expect:

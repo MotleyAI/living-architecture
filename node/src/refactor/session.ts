@@ -37,6 +37,7 @@ export interface RefactorArgs {
   keep?: string[];
   docs?: boolean;
   fail_fast?: boolean;
+  stub?: string;
   dest?: string;
   module?: string;
 }

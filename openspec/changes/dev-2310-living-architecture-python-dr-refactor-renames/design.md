@@ -177,6 +177,16 @@ static resolver for scoping, imports and module chains, the AST for declarations
     every use its lambda binds; rope refused it with `refactor.cannot-rename` only because it builds no lambda scope. The
     golden of `refactor-rename-param-lambda` and the cases of `test_lambda_shadowing_a_parameter_is_refused` change by hand
     to the rename. (user)
+20. **A module rename needs no locator.** `rename --file F --new-name N` with no `--offset`, `--line` or `--symbol` renames
+    the Python module F (a package's `__init__.py`: the package), as an entry located on an import of it does; a
+    TypeScript file, `retarget` and `rename-map` keep `refactor.no-locator`. `rename`'s help and the
+    `la:deterministic-refactor` skill name the module form. (user)
+21. **Moved-module stub.** `rename --stub REMOVAL` on a Python module rename writes, after the module's file moves, a stub
+    at its old path: the text of `living-architecture.yaml`'s `refactor.python.moved_module_stub`, with `{old}` and
+    `{new}` (dotted module names) and `{removal}` replaced literally, shown as a new file in the diff. `--stub` on
+    anything but a module file (a symbol, a package, a TypeScript file), or with no stub configured, refuses with exit 2
+    and writes nothing; a `--keep` covering the module file moves nothing and writes no stub. No map key: a map renames
+    at most one module. (user)
 
 ## Risks / Trade-offs
 

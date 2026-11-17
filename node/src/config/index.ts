@@ -59,6 +59,7 @@ export interface LaConfig {
     lint: string | null;
     typecheck: { python: string | null; typescript: string | null };
   };
+  refactor: { python: { moved_module_stub: string | null } };
   conventions: { text_ratio_max: number; exempt: string[]; rules: string[] };
 }
 
