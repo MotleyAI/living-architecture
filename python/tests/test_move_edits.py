@@ -527,6 +527,17 @@ def test_symbol_uses_rope_misses_in_a_def_header_are_rewritten(tmp_path: Path) -
     assert (root / "use.py").read_text() == "import pkg.b\n\n\n" + HEADER_READS.replace("pa.f", "pkg.b.f")
 
 
+def test_symbol_chain_reads_a_parameter_or_comprehension_shadows_are_unchanged(tmp_path: Path) -> None:
+    shadowed = (
+        "\n\ndef h(pa):\n    return pa.f()\n\n\nitems = [pa.f() for pa in [1]]\nlam = lambda pa: pa.f()\n\n\n"
+        "def k():\n    import pkg.a as pa\n\n    value = pa.f()\n    pa = None\n    return value, pa\n"
+    )
+    use = "import pkg.a as pa\n\nprint(pa.f())\n" + shadowed
+    root = _write(tmp_path, {**SYMBOL_PROJECT, "use.py": use})
+    assert _move_f(root, "--apply") == 0
+    assert (root / "use.py").read_text() == "import pkg.b\n\nprint(pkg.b.f())\n" + shadowed
+
+
 def test_module_uses_rope_misses_keep_a_package_binding(tmp_path: Path) -> None:
     files = {**MODULE_PROJECT, "pkg/sql/__init__.py": "from pkg.sql import client\n"}
     use = "import pkg.sql as s\n\n\ndef g(x=s.client.X) -> object:\n    return [s for s in s.client.ITEMS]\n"
