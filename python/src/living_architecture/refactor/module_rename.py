@@ -29,6 +29,11 @@ from living_architecture.refactor.writer import FileMove, FileWrite
 _INIT = "__init__.py"
 
 
+def valid_module_name(name: str) -> bool:
+    """`name` can name a Python module: an identifier, no keyword."""
+    return name.isidentifier() and not keyword.iskeyword(nfkc(name))
+
+
 def _init_of(folder: str) -> str:
     """The `__init__.py` of `folder` (`""` or `"."` for the root)."""
     return f"{folder}/{_INIT}" if folder not in ("", ".") else _INIT
@@ -227,7 +232,7 @@ class ModuleRename(MapRename):
     def taken(self) -> NameConflict | None:
         """The finding when the module's package already binds the new name: a module, a package (its `__init__.py`,
         else its first Python file) or a binding of its `__init__.py`."""
-        if self.module is None or self.same or not self.new.isidentifier() or keyword.iskeyword(nfkc(self.new)):
+        if self.module is None or self.same:
             return None
         rels = self.session.all_python_files()
         parent = Path(self.module).parent.as_posix()
@@ -265,9 +270,7 @@ class ModuleRename(MapRename):
 
     @override
     def prepare(self, index: RunIndex) -> None:
-        """The edits and the move; `refactor.cannot-rename` for a new name that is no identifier."""
-        if not self.new.isidentifier() or keyword.iskeyword(nfkc(self.new)):
-            raise cannot_rename()
+        """The edits and the move."""
         if self.same:
             return
         with timed("references"):
