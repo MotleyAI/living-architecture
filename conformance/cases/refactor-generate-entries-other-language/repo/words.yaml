@@ -1,0 +1,4 @@
+words:
+- {from: measures, to: metrics}
+entries:
+- {file: pkg/v.ts, symbol: censusSql, new_name: census}

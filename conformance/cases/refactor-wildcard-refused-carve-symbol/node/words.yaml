@@ -1,0 +1,6 @@
+words:
+- {from: model, to: dataset}
+carve_outs:
+- words: [model]
+  symbols:
+  - {file: pkg/l.ts, symbol: '*.<locals>.model'}

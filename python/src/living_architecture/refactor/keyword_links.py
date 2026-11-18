@@ -22,7 +22,7 @@ from living_architecture.refactor.keyed import (
     plain_key_span,
     single_binding,
 )
-from living_architecture.refactor.occurrence_index import RunIndex, carrier_queries
+from living_architecture.refactor.occurrence_index import RunIndex, carrier_queries, unpacked_keys
 from living_architecture.refactor.python_source import SourceFile, every_parameter, name_end
 from living_architecture.refactor.text_edits import TextEdit, apply_edits
 
@@ -53,15 +53,6 @@ class KeywordSite(BaseModel):
     query: int | None
 
 
-def _unpacked_keys(literal: ast.Dict) -> Iterator[ast.expr]:
-    """The keys of `literal` and of the dict literals unpacked into it, at any depth."""
-    for key, value in zip(literal.keys, literal.values, strict=True):
-        if key is not None:
-            yield key
-        elif isinstance(value, ast.Dict):
-            yield from _unpacked_keys(value)
-
-
 def keyword_sites(source: SourceFile, old: str) -> list[KeywordSite]:
     """Every keyword site of `old` in `source`, in source order."""
     out: list[KeywordSite] = []
@@ -74,7 +65,7 @@ def keyword_sites(source: SourceFile, old: str) -> list[KeywordSite]:
                 out += [
                     KeywordSite(call=call, span=span, line=source.line(span[0]), keyword=False,
                                 query=callee[0] if callee is not None else None)
-                    for key in _unpacked_keys(k.value) if (span := plain_key_span(source, key, old)) is not None
+                    for key in unpacked_keys(k.value) if (span := plain_key_span(source, key, old)) is not None
                 ]
     return sorted(out, key=lambda s: s.span)
 
@@ -552,7 +543,7 @@ def _passed(call: ast.Call) -> set[object]:
     """The names `call` passes by keyword or by a constant key of a dict literal it unpacks, at any depth."""
     passed: set[object] = {k.arg for k in call.keywords}
     literals = [k.value for k in call.keywords if k.arg is None and isinstance(k.value, ast.Dict)]
-    return passed.union(key.value for literal in literals for key in _unpacked_keys(literal) if isinstance(key, ast.Constant))
+    return passed.union(key.value for literal in literals for key in unpacked_keys(literal) if isinstance(key, ast.Constant))
 
 
 def _is_super(receiver: ast.expr) -> bool:

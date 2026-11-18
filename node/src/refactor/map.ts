@@ -17,7 +17,8 @@ export interface MapEntry {
 /** The map cannot be used; the message is user-facing, exit 2. */
 export class MapError extends Error {}
 
-function document(path: string): unknown {
+/** The YAML document at `path` as plain values; null when it cannot be read or is no YAML. */
+export function yamlDocument(path: string): unknown {
   if (!existsSync(path) || !statSync(path).isFile()) return null;
   let bytes: Buffer;
   try {
@@ -39,7 +40,7 @@ function document(path: string): unknown {
 /** The entries of the map at `path` (`shown` in messages); MapError naming every invalid entry in index order (1-based;
  * entry 1 for a file that holds no list of entries). */
 export function loadMap(path: string, shown: string): MapEntry[] {
-  const data = document(path);
+  const data = yamlDocument(path);
   const invalid = (indexes: number[]): MapError =>
     new MapError(indexes.map((index) => message('refactor.map-invalid', { map: shown, index })).join('\n'));
   if (!Array.isArray(data) || data.length === 0) throw invalid([1]);

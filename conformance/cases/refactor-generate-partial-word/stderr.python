@@ -1,0 +1,1 @@
+pkg/sql/x.py:1: carve-out: model_columns keeps columns (paths pkg/sql/**)

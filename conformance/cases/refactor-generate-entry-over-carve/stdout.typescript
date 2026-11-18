@@ -1,0 +1,3 @@
+- {file: pkg/c.ts, symbol: censusSql(columns), new_name: cols}
+- {file: pkg/c.ts, symbol: Ds.columns, new_name: fields}
+- {file: pkg/c.ts, symbol: fieldNames(columns), new_name: fields}

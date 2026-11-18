@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import ast
 import bisect
-from collections.abc import Callable, Hashable, Iterable
+from collections.abc import Callable, Hashable, Iterable, Iterator
 from contextlib import ExitStack
 from pathlib import Path
 from typing import TypeVar, cast
@@ -180,11 +180,20 @@ def _function_queries(found: _Queries, fn: ast.FunctionDef | ast.AsyncFunctionDe
         found.names(fn.returns)
 
 
+def unpacked_keys(literal: ast.Dict) -> Iterator[ast.expr]:
+    """The keys of `literal` and of the dict literals unpacked into it, at any depth."""
+    for key, value in zip(literal.keys, literal.values, strict=True):
+        if key is not None:
+            yield key
+        elif isinstance(value, ast.Dict):
+            yield from unpacked_keys(value)
+
+
 def _signature_queries(found: _Queries, call: ast.Call, names: set[str]) -> None:
     for k in call.keywords:
         if k.arg in names:
             found.ask(k, "signature")
-        elif k.arg is None and isinstance(k.value, ast.Dict) and any(_plain(key) in names for key in k.value.keys if key):
+        elif k.arg is None and isinstance(k.value, ast.Dict) and any(_plain(key) in names for key in unpacked_keys(k.value)):
             found.ask(call.func if isinstance(call.func, (ast.Name, ast.Attribute)) else None, "signature")
 
 

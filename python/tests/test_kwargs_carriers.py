@@ -529,6 +529,25 @@ def test_a_key_meeting_the_new_name_in_another_unpacked_literal_is_a_name_confli
     assert file_tree(root) == before
 
 
+NESTED_KEY = """\
+def f(*, old: int = 0) -> int:
+    return old
+
+
+def use() -> int:
+    return f(**{**{"old": 1}})
+"""
+
+
+def test_a_key_of_a_literal_unpacked_into_an_unpacked_literal_follows_the_parameter(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = write_project(tmp_path / "p", {"pkg/q.py": NESTED_KEY})
+    code, _out, err = run(root, _rename("f(old)", "new"), monkeypatch, capsys)
+    assert (code, err) == (0, "")
+    assert read(root, "pkg/q.py") == NESTED_KEY.replace("old", "new")
+
+
 COLLISION = HELPER.replace('q(measures=["n"])', 'q(measures=["n"], metrics=[])')
 
 

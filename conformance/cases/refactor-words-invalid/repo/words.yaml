@@ -1,0 +1,7 @@
+words:
+- {from: model, to: dataset}
+- {from: Columns, to: fields}
+carve_outs:
+- {words: [model], paths: ['pkg/sql/**'], annotated: [Column]}
+- {words: [model], paths: ['pkg/sql/**']}
+- {words: [measure], paths: ['pkg/sql/**']}

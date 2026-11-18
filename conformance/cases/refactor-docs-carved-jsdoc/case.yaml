@@ -1,0 +1,23 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- rename
+- --file
+- pkg/c.ts
+- --symbol
+- Ds.columns
+- --new-name
+- fields
+- --docs
+- --words
+- words.yaml
+fixture: refactor-words
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: '--docs --words: the JSDoc comment attached to a function is inside its scope, so its code-marked mention of a carved
+  parameter is listed'
