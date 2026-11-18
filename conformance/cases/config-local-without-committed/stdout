@@ -1,5 +1,6 @@
 {
   "format": null,
+  "exempt": [],
   "tracker": "none",
   "openspec": true,
   "architecture": false,
@@ -26,7 +27,6 @@
   },
   "conventions": {
     "text_ratio_max": 0.15,
-    "exempt": [],
     "rules": [
       "import-not-top",
       "text-ratio",

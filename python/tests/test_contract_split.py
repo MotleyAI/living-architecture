@@ -101,7 +101,8 @@ def _package_versions() -> dict[str, str]:
 def test_released_formats_are_well_formed(file: str) -> None:
     formats = _yaml("dr/config.yaml")["formats"][file]
     keys = [_version_key(version) for version in formats]
-    assert keys and keys == sorted(set(keys))
+    assert keys
+    assert keys == sorted(set(keys))
     for where, version in _package_versions().items():
         assert keys[-1] <= _version_key(version), where
 

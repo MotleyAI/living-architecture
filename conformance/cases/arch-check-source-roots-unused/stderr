@@ -1,0 +1,1 @@
+arch_check: architecture/index.yaml: source_roots entry 'c/src' holds no configured root package

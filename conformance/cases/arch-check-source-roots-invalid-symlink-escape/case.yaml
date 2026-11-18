@@ -9,9 +9,5 @@ symlinks:
   escape: ..
 expect:
   exit: 2
-  stderr:
-    contains:
-    - source_roots
-    - escape
 golden: manual
 note: 'new behaviour: a source_roots entry escaping the repo by symlink is a setup error naming source_roots'

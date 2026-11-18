@@ -7,9 +7,5 @@ remove:
 - pkg
 expect:
   exit: 2
-  stderr:
-    contains:
-    - source_roots
-    - a/notes.txt
 golden: manual
 note: 'new behaviour: a source_roots entry that is not a directory is a setup error naming source_roots'

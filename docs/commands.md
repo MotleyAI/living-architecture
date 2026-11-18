@@ -49,7 +49,7 @@ outside the project; it reads the project's own configuration and interpreter.
 `la-check-conventions` and `la-count-comments` route each file to its language by extension (`.py`;
 `.ts/.tsx/.mts/.cts/.js/.jsx/.mjs/.cjs`) and print one report whichever twin runs them; the other language's
 files are analysed by its twin. A Python repo whose diff touches TS/JS files has them checked too, which needs
-the npm twin (`npx` is enough). List generated or vendored files under `conventions.exempt`, and pick the
+the npm twin (`npx` is enough). List generated or vendored files under `exempt`, and pick the
 enforced rules with `conventions.rules`. An explicit path with an unknown extension is skipped with a warning.
 Waive a flagged line with `# ALLOW(<rule>): <reason>` or `// ALLOW(<rule>): <reason>`.
 

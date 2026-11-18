@@ -18,6 +18,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
+from living_architecture.c4.exempt_move import ExemptNotMigratable, move_exempt
 from living_architecture.c4.index import INDEX_REL, Index, load_index
 from living_architecture.c4.layout import (
     ARCH_DIR,
@@ -522,11 +523,13 @@ def _plan(root: Path) -> _Plan:
 
 
 class MigrationStep(BaseModel):
-    """One conversion: from the `source` format (None: a repo that declares none) to the `target` format."""
+    """One conversion: from the `source` format (None: a repo that declares none) to the `target` format; `config`
+    rewrites the stamped config text."""
 
     source: str | None
     target: str
     apply: Callable[[Path, Transaction], None]
+    config: Callable[[str, str], str] | None = None
 
 
 def _unversioned(root: Path, tx: Transaction) -> None:
@@ -534,7 +537,14 @@ def _unversioned(root: Path, tx: Transaction) -> None:
     _apply(_plan(root), tx)
 
 
-STEPS = [MigrationStep(source=None, target="0.4.0", apply=_unversioned)]
+def _no_files(_root: Path, _tx: Transaction) -> None:
+    """A step that changes only the config text."""
+
+
+STEPS = [
+    MigrationStep(source=None, target="0.4.0", apply=_unversioned),
+    MigrationStep(source="0.4.0", target="0.13.0", apply=_no_files, config=move_exempt),
+]
 
 
 def _declared(root: Path, formats: list[str]) -> tuple[str | None, str] | None:
@@ -574,6 +584,13 @@ def migrate(root: Path, steps: list[MigrationStep] | None = None, formats: list[
         raise MigrateError(message("arch-migrate.stamp-mismatch", current=current))
     by_source = {step.source: step for step in steps or STEPS}
     sources = [None, *formats[:-1]] if declared is None else formats[formats.index(declared) : -1]
+    for source in sources:
+        rewrite = by_source[source].config
+        if rewrite is not None:
+            try:
+                stamped = rewrite(stamped, current)
+            except ExemptNotMigratable as exc:
+                raise MigrateError(str(exc)) from exc
     tx = Transaction(root)
     try:
         for source in sources:

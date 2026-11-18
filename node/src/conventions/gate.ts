@@ -147,7 +147,7 @@ export function checkConventions(options: GateOptions): number {
     err(message('conventions.error', { error: error.message }));
     return 2;
   }
-  rels = select(rels, files.length > 0, [...config.conventions.exempt, ...options.excludes]);
+  rels = select(rels, files.length > 0, [...config.exempt, ...options.excludes]);
   let facts: Map<string, Facts>;
   try {
     facts = collect(rels, repoRoot, repoRoot);

@@ -1,1 +1,1 @@
-la-config: living-architecture.yaml: invalid YAML: duplicate key 'conventions' at lines 2 and 5
+la-config: living-architecture.yaml: invalid YAML: duplicate key 'exempt' at lines 2 and 4

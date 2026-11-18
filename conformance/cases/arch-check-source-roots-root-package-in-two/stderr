@@ -1,0 +1,1 @@
+arch_check: architecture/index.yaml: root package 'common' is under more than one source_roots entry: ['a/src', 'b/src']

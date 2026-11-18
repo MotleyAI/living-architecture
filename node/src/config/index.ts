@@ -50,6 +50,7 @@ export interface RawConfig {
 
 export interface LaConfig {
   format: string | null;
+  exempt: string[];
   tracker: 'linear' | 'github' | 'none';
   openspec: boolean;
   architecture: boolean;
@@ -61,7 +62,7 @@ export interface LaConfig {
     typecheck: { python: string | null; typescript: string | null };
   };
   refactor: { python: { moved_module_stub: string | null }; string_forms: string[] };
-  conventions: { text_ratio_max: number; exempt: string[]; rules: string[] };
+  conventions: { text_ratio_max: number; rules: string[] };
 }
 
 /** Validate raw config data (null = no file) and fill the schema defaults; Error if invalid. */
@@ -178,7 +179,7 @@ export function repoLanguages(root: string, config: LaConfig): string[] {
     }
     const entry = language(id);
     if (!(entry.markers as string[]).some((marker) => isFile(join(root, marker)))) continue;
-    files ??= sourceFiles(root, config.conventions.exempt);
+    files ??= sourceFiles(root, config.exempt);
     const extensions = entry.source_extensions as string[];
     if (files.some((f) => extensions.some((ext) => f.endsWith(ext)))) out.push(id);
   }

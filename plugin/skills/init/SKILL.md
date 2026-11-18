@@ -40,8 +40,8 @@ Read, don't ask. For each key note the value and where it came from:
   (`la-config get commands.typecheck.<language>`) does not fit — a subdirectory project, or `null` for a
   checker that is not compatible with the default (the language docs in `<this skill's base
   directory>/../../languages/` give examples).
-- **`conventions`.** Keep the defaults unless the repo's own instructions say otherwise; propose
-  `conventions.exempt` globs for generated or vendored code you find.
+- **`conventions`.** Keep the defaults unless the repo's own instructions say otherwise. **`exempt`.** Propose globs
+  for generated or vendored code and fixtures you find.
 
 ## 2. Propose
 

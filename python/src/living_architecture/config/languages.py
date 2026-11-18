@@ -43,7 +43,7 @@ def repo_languages(root: Path, config: LaConfig) -> list[str]:
         entry = language(lang_id)
         if not any((root / marker).is_file() for marker in entry["markers"]):
             continue
-        files = source_files(root, config.conventions.exempt) if files is None else files
+        files = source_files(root, config.exempt) if files is None else files
         if any(f.endswith(tuple(entry["source_extensions"])) for f in files):
             out.append(lang_id)
     return out

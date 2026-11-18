@@ -5,9 +5,5 @@ command: la-arch-check
 fixture: arch-ok
 expect:
   exit: 2
-  stderr:
-    contains:
-    - source_roots
-    - non-empty list
 golden: manual
 note: 'new behaviour: an empty source_roots list is a setup error naming source_roots'

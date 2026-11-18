@@ -21,10 +21,10 @@ Calibration notes (read first):
 
 ## 2. Top-level exempt, format 0.13.0 and the version bump
 
-- [ ] 2.1 Move `exempt` to the top level of the config schema (dr-owned definition, still one schema file at this step), retire `conventions.exempt`, append `0.13.0` to the released formats, and bump `python/pyproject.toml`, `node/package.json` (and lockfiles) and `plugin/.claude-plugin/plugin.json` to 0.13.0 in the same commit; verify `test_versions` and the release-rule tests pass
-- [ ] 2.2 Make language detection and the conventions gate read the top-level `exempt` in both twins (keeping tracked-or-untracked-not-ignored file listing); verify the repo-languages and conventions cases, incl. "Exempt files do not make a language" and "Exempt paths come from the top-level key"
-- [ ] 2.3 Implement the 0.4.0 → 0.13.0 step of `la-arch-migrate` in both twins (textual move after `format`, dedent, empty `conventions` removed, not-migratable shapes); verify one case per scenario of "la-arch-migrate moves the exempt key", byte-identical across twins
-- [ ] 2.4 Migrate this repo's `living-architecture.yaml` (`exempt: ['conformance/*']`, `format: 0.13.0`) with the new `la-arch-migrate`; re-bless goldens whose only change is the format value or the `exempt` key, with reasons; verify the full local scope passes
+- [x] 2.1 Move `exempt` to the top level of the config schema (dr-owned definition, still one schema file at this step), retire `conventions.exempt`, append `0.13.0` to the released formats, and bump `python/pyproject.toml`, `node/package.json` (and lockfiles) and `plugin/.claude-plugin/plugin.json` to 0.13.0 in the same commit; verify `test_versions` and the release-rule tests pass
+- [x] 2.2 Make language detection and the conventions gate read the top-level `exempt` in both twins (keeping tracked-or-untracked-not-ignored file listing); verify the repo-languages and conventions cases, incl. "Exempt files do not make a language" and "Exempt paths come from the top-level key"
+- [x] 2.3 Implement the 0.4.0 → 0.13.0 step of `la-arch-migrate` in both twins (textual move after `format`, dedent, empty `conventions` removed, not-migratable shapes); verify one case per scenario of "la-arch-migrate moves the exempt key", byte-identical across twins
+- [x] 2.4 Migrate this repo's `living-architecture.yaml` (`exempt: ['conformance/*']`, `format: 0.13.0`) with the new `la-arch-migrate`; re-bless goldens whose only change is the format value or the `exempt` key, with reasons; verify the full local scope passes
 
 ## 3. Workspaces and module moves
 

@@ -1,0 +1,45 @@
+# la-arch-migrate's 0.4.0 step: `conventions.exempt` moved, as text, to a top-level `exempt` after the `format`
+# line. Each `text` is already stamped at format 9.9.9; `moved` is the result, `refused: true` means not migratable.
+cases:
+- name: compact sequence with CRLF
+  text: "format: 9.9.9\r\nconventions:\r\n  exempt:\r\n  - a\r\n  rules: []\r\n"
+  moved: "format: 9.9.9\r\nexempt:\r\n- a\r\nconventions:\r\n  rules: []\r\n"
+- name: format after conventions
+  text: "conventions:\n  exempt: [a]\n  text_ratio_max: 0.2\nformat: 9.9.9\n"
+  moved: "conventions:\n  text_ratio_max: 0.2\nformat: 9.9.9\nexempt: [a]\n"
+- name: a comment at the sibling indent ends the entry
+  text: "format: 9.9.9\nconventions:\n  exempt:\n    - a\n  # about rules\n  rules: []\n"
+  moved: "format: 9.9.9\nexempt:\n  - a\nconventions:\n  # about rules\n  rules: []\n"
+- name: blank lines inside the value move, trailing ones stay
+  text: "format: 9.9.9\nconventions:\n  exempt:\n    - a\n\n    - b\n\n  rules: []\n"
+  moved: "format: 9.9.9\nexempt:\n  - a\n\n  - b\nconventions:\n\n  rules: []\n"
+- name: quoted globs with stars
+  text: "format: 9.9.9\nconventions:\n  exempt: ['*.gen.py', \"gen/*\"]\n"
+  moved: "format: 9.9.9\nexempt: ['*.gen.py', \"gen/*\"]\n"
+- name: plain glob with a star inside
+  text: "format: 9.9.9\nconventions:\n  exempt:\n    - gen/*\n"
+  moved: "format: 9.9.9\nexempt:\n  - gen/*\n"
+- name: a hash inside a quoted value is not a comment
+  text: "format: 9.9.9\nconventions:\n  exempt: ['a#b']  # c\n"
+  moved: "format: 9.9.9\nexempt: ['a#b']  # c\n"
+- name: last line without a break
+  text: "format: 9.9.9\nconventions:\n  exempt: [a]"
+  moved: "format: 9.9.9\nexempt: [a]\n"
+- name: format line without a break
+  text: "conventions:\n  exempt: [a]\nformat: 9.9.9"
+  moved: "format: 9.9.9\nexempt: [a]\n"
+- name: nothing to move
+  text: "format: 9.9.9\nconventions:\n  rules: []\n"
+  moved: "format: 9.9.9\nconventions:\n  rules: []\n"
+- name: top-level exempt already set
+  text: "format: 9.9.9\nexempt: [b]\nconventions:\n  exempt: [a]\n"
+  refused: true
+- name: anchor on a sequence item
+  text: "format: 9.9.9\nconventions:\n  exempt:\n    - &g gen\n"
+  refused: true
+- name: tag on a flow item
+  text: "format: 9.9.9\nconventions:\n  exempt: [!!str a]\n"
+  refused: true
+- name: quoted exempt key
+  text: "format: 9.9.9\nconventions:\n  'exempt': [a]\n"
+  refused: true

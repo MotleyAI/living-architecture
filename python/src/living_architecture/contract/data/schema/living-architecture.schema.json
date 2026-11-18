@@ -12,6 +12,12 @@
       "default": null,
       "description": "The repo format: the la version that introduced it. Every command but la-arch-migrate refuses any other format."
     },
+    "exempt": {
+      "type": "array",
+      "items": {"type": "string"},
+      "default": [],
+      "description": "Repo-relative fnmatch globs naming paths that are not the repo's own source (fixtures, generated code): language detection leaves them out and the conventions gate exempts them."
+    },
     "tracker": {
       "enum": ["linear", "github", "none"],
       "default": "linear",
@@ -104,12 +110,6 @@
           "maximum": 1,
           "default": 0.15,
           "description": "Cap on comment/docstring-only lines, as a fraction of each changed file group."
-        },
-        "exempt": {
-          "type": "array",
-          "items": {"type": "string"},
-          "default": [],
-          "description": "Repo-relative fnmatch globs exempt from the conventions gate."
         },
         "rules": {
           "type": "array",

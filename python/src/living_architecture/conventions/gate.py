@@ -191,7 +191,7 @@ def check_conventions(
     except ConfigError as exc:
         print(message("conventions.error", error=str(exc)), file=sys.stderr)
         return 2
-    rels = _select(rels, explicit=bool(files), excludes=[*config.conventions.exempt, *excludes])
+    rels = _select(rels, explicit=bool(files), excludes=[*config.exempt, *excludes])
     try:
         facts = collect(rels, cwd=repo_root, repo_root=repo_root)
     except FactsError as exc:

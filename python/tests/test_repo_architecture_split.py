@@ -41,8 +41,10 @@ def test_each_root_has_a_dr_and_an_la_node(root: str, dr_package: str, la_packag
     body = MODEL.split(f"{root} = system", 1)[1]
     dr = re.search(r"^    dr = node 'deterministic-refactor' \{\s*metadata \{\s*package '([^']+)'", body, re.MULTILINE)
     la = re.search(r"^    la = node 'living-architecture' \{\s*metadata \{\s*package '([^']+)'", body, re.MULTILINE)
-    assert dr and dr.group(1) == dr_package
-    assert la and la.group(1) == la_package
+    assert dr
+    assert dr.group(1) == dr_package
+    assert la
+    assert la.group(1) == la_package
 
 
 def test_la_to_dr_is_the_only_cross_package_arrow() -> None:

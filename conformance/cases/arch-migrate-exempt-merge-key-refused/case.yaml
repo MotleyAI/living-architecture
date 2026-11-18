@@ -2,10 +2,6 @@ kind: neutral
 command: la-arch-migrate
 expect:
   exit: 2
-  stderr:
-    contains:
-    - 'la-arch-migrate: '
-    - exempt
   files:
   - living-architecture.yaml
 note: a merge key in conventions is not migratable

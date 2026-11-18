@@ -36,7 +36,7 @@ Keep, as ≤1 line: a real cross-dialect/edge gotcha, a non-obvious invariant, a
 
 ## The pass (`/la:concise-comments`)
 1. Scope: default to the branch diff's source files (`git diff $(git merge-base <base> HEAD)`, kept to `la-config get lang.<language>.source_globs` for each of `la-config get languages`); or the path/file the user names. Only added/modified comments unless told to sweep.
-   Hard exclusion: files whose docstrings are outward-facing (MCP tool servers, CLI `--help` commands, OpenAPI route handlers) — leave the whole file alone unless the user requests it by name; `la-config get conventions.exempt` lists the repo's known ones.
+   Hard exclusion: files whose docstrings are outward-facing (MCP tool servers, CLI `--help` commands, OpenAPI route handlers) — leave the whole file alone unless the user requests it by name; `la-config get exempt` lists the repo's known ones.
 2. Edit comments/docstrings ONLY — never code, string literals, test data, asserts, imports, markers.
 3. Verify: run affected tests + linter (green); confirm `git diff` changed no code line; measure before/after with `la-count-comments --range <mergebase> <paths>`.
 4. Report per-file and total lines before → after + ratio, and that tests/lint pass.

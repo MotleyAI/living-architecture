@@ -1,5 +1,9 @@
 {
   "format": "<FORMAT>",
+  "exempt": [
+    "gen/*",
+    "*_pb2.py"
+  ],
   "tracker": "github",
   "openspec": false,
   "architecture": true,
@@ -26,10 +30,6 @@
   },
   "conventions": {
     "text_ratio_max": 0.3,
-    "exempt": [
-      "gen/*",
-      "*_pb2.py"
-    ],
     "rules": [
       "import-not-top",
       "text-ratio"

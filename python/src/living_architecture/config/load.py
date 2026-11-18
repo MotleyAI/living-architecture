@@ -77,7 +77,6 @@ class RefactorConfig(_Strict):
 
 class ConventionsConfig(_Strict):
     text_ratio_max: float
-    exempt: list[str]
     rules: list[str]
 
 
@@ -85,6 +84,7 @@ class LaConfig(_Strict):
     """The resolved config; built only by `resolve`, so every default comes from the schema."""
 
     format: str | None
+    exempt: list[str]
     tracker: Literal["linear", "github", "none"]
     openspec: bool
     architecture: bool

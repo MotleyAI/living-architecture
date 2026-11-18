@@ -38,6 +38,7 @@ import {
   splitLines,
   splitLinesKeepEnds,
 } from '../contract/index.js';
+import { ExemptNotMigratable, moveExempt } from './exempt-move.js';
 import { INDEX_REL, type Index, loadIndex } from './index-file.js';
 import {
   ARCH_DIR,
@@ -571,9 +572,14 @@ export interface MigrationStep {
   source: string | null;
   target: string;
   apply: (root: string, tx: Transaction) => void;
+  /** Rewrites the stamped config text. */
+  config?: (text: string, current: string) => string;
 }
 
-export const STEPS: MigrationStep[] = [{ source: null, target: '0.4.0', apply: (root, tx) => apply(planOf(root), tx) }];
+export const STEPS: MigrationStep[] = [
+  { source: null, target: '0.4.0', apply: (root, tx) => apply(planOf(root), tx) },
+  { source: '0.4.0', target: '0.13.0', apply: () => undefined, config: moveExempt },
+];
 
 /** The declared format (null when absent) and the config text; null when it is current; MigrateError when it cannot be migrated. */
 function declaredFormat(root: string, formats: string[]): [string | null, string] | null {
@@ -605,10 +611,20 @@ export function migrate(root: string, { steps = STEPS, formats = releasedFormats
   const found = declaredFormat(root, formats);
   if (found === null) return [message('arch-migrate.nothing', { current })];
   const [declared, text] = found;
-  const stamped = stampFormat(text, current);
+  let stamped = stampFormat(text, current);
   if (stamped === null) throw new MigrateError(message('arch-migrate.stamp-mismatch', { current }));
   const bySource = new Map(steps.map((step) => [step.source, step]));
   const sources = declared === null ? [null, ...formats.slice(0, -1)] : formats.slice(formats.indexOf(declared), -1);
+  for (const source of sources) {
+    const rewrite = (bySource.get(source) as MigrationStep).config;
+    if (rewrite === undefined) continue;
+    try {
+      stamped = rewrite(stamped, current);
+    } catch (error) {
+      if (error instanceof ExemptNotMigratable) throw new MigrateError(error.message);
+      throw error;
+    }
+  }
   const tx = new Transaction(root);
   try {
     for (const source of sources) (bySource.get(source) as MigrationStep).apply(root, tx);
