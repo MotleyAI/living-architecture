@@ -1,0 +1,27 @@
+Renaming <measures> to <metrics>:
+
+
+--- a/pkg/q.py
++++ b/pkg/q.py
+@@ -9,7 +9,7 @@
+ 
+ 
+ class Other(BaseModel):
+-    measures: list[int] = []
++    metrics: list[int] = []
+ 
+ 
+ class Sub(Query):
+
+--- a/pkg/use.py
++++ b/pkg/use.py
+@@ -8,4 +8,4 @@
+     lit(measures=["n"])
+     bound(measures=["n"])
+     shadow(measures=["n"])
+-    other(measures=[])
++    other(metrics=[])
+
+
+
+DRY-RUN. 2 file(s) would change. Re-run with --apply.

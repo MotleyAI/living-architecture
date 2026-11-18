@@ -1303,7 +1303,7 @@ function ruleGroups(session: Session, symbols: Target[], scope: RuleScope, progr
     out.pending.push(...group.edits);
     keep(group, keeps, literals);
     out.groups.push(group);
-    const refused = texts([...members.flatMap((t) => t.refusals), ...(args.allow_blindspots === true ? [] : group.blindspots), ...group.standIns]);
+    const refused = unique(texts([...members.flatMap((t) => t.refusals), ...(args.allow_blindspots === true ? [] : group.blindspots), ...group.standIns]));
     const indexes = [...new Set(members.flatMap((t) => t.indexes))].toSorted((a, b) => a - b);
     const newNames = [...new Set(members.map((t) => t.newName))].join(', ');
     progress.result(n + 1, olds.length, indexes, old, newNames, refused.flatMap((f) => f.lines));
@@ -1373,8 +1373,8 @@ export function runEntries(r: Refactor, specs: EntrySpec[], map: string, progres
       return merged.length > 0 ? merged : nameConflicts(session, targets, symbols, pending, edits, moving, taken);
     });
   }
-  const attr = groups.filter((g) => g.blindspots.length > 0).map((g) => g.old).join(', .');
-  const closing = blind.length > 0 ? [refusal(message('refactor.blindspots', { count: blind.length, attr }))] : [];
+  const names = groups.filter((g) => g.blindspots.length > 0).map((g) => `.${g.old}`).join(', ');
+  const closing = blind.length > 0 ? [refusal(message('refactor.blindspots', { count: unique(blind).length, names }))] : [];
   const report = unique([...conflicts, ...sites, ...closing]);
   if (report.length > 0 || printed.length > 0) throw new Refused(report, printed);
   const leftovers = groups.flatMap((g) => [...g.leftovers, ...g.unverifiedReads()]).sort(byPosition);

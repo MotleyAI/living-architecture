@@ -1,0 +1,13 @@
+kind: paired
+languages:
+- python
+- typescript
+command: dr-refactor
+args: [rename-map, renames.yaml]
+fixture: refactor-keep
+git:
+- commit: init
+expect:
+  exit: 1
+golden: manual
+note: 'two blind spots of one text on one line: printed once and counted once'

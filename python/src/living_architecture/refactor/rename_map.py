@@ -30,6 +30,7 @@ from living_architecture.refactor.entry_location import Entry, EntryLocator
 from living_architecture.refactor.hierarchy import ClassGraph
 from living_architecture.refactor.index_cache import IndexCache
 from living_architecture.refactor.keyed import TypeFacts, UnresolvedBase
+from living_architecture.refactor.keyword_links import signature_round
 from living_architecture.refactor.literal_rename import LiteralRename, check_value, literal_member_at
 from living_architecture.refactor.locators import RefactorError, cannot_rename, project_rel, resolve
 from living_architecture.refactor.map_file import MapEntry, MapError, locator_text
@@ -755,10 +756,14 @@ class RenameMap:
         for i in live:
             renames[i].is_renamed = renamed.__contains__
         symbol_renames = [r for i in live if isinstance(r := renames[i], SymbolRename)]
+        new_names = {site: r.new for r in symbol_renames for site in r.seeds}
+        for r in symbol_renames:
+            r.renamed_as = new_names.get
         symbols = sorted({r.old for r in symbol_renames})
         if symbols:
             files = [(self.root / rel, self.session.snapshot.source(rel))
                      for rel in sorted({rel for r in symbol_renames for rel in r.candidates})]
+            parameters = [p for r in symbol_renames if (p := r.parameter_rename()) is not None]
             named: dict[Path, tuple[SourceFile, list[FormCall]]] = {}
             with timed("rules"):
                 for r in symbol_renames:
@@ -766,6 +771,7 @@ class RenameMap:
                         calls = named.setdefault(self.root / rel, (self.session.snapshot.source(rel), []))[1]
                         calls += [call for call, _ in found if not any(call.literal == c.literal for c in calls)]
                 probe_round(self.index, files, symbols, self.session.load, named)
+                signature_round(self.index, self.root, self.session.snapshot.source, self.session.load, parameters)
         return facts
 
     # ---- rules
@@ -1051,8 +1057,8 @@ class RenameMap:
                 edits, conflicts = self.merged(results)
                 if not conflicts:
                     conflicts = self._name_conflicts(results, live, edits)
-        attrs = ", .".join(dict.fromkeys(r.old for r in live if r.blindspots))
-        closing = [refusal(message("refactor.blindspots", count=len(blind), attr=attrs))] if blind else []
+        names = ", ".join(dict.fromkeys(name for r in live for name in r.blindspot_names()))
+        closing = [refusal(message("refactor.blindspots", count=len({b.text for b in blind}), names=names))] if blind else []
         return edits, unique([*own, *conflicts, *sites, *closing])
 
     def _name_conflicts(self, results: list[RenameResult], live: list[RenameResult], edits: list[TextEdit]) -> list[Refusal]:

@@ -983,14 +983,14 @@ base, write nothing and exit 1. A rename of a class, function, method or module 
 
 ### Requirement: Python --attr reports Unknown and Any receivers
 Python `dr-compliance --attr NAME` SHALL report, as the `attr-blindspot` check, every access `x.NAME` whose receiver
-basedpyright types as `Unknown`, `Any`, or a union containing either, with the shared `compliance.attr-blindspot`
-finding; and, as the `string-blindspot` check, every Python string-named access (a string-member form of the
-language registry, a field-name read) whose member is the plain string literal `NAME` and whose object is typed so
-or whose callee basedpyright cannot resolve while the call has the form's syntax, with
+basedpyright types as `Unknown`, `Any`, `Never`, or a union containing one of them, with the shared
+`compliance.attr-blindspot` finding; and, as the `string-blindspot` check, every Python string-named access (a
+string-member form of the language registry, a field-name read) whose member is the plain string literal `NAME` and
+whose object is typed so or whose callee basedpyright cannot resolve while the call has the form's syntax, with
 `compliance.string-blindspot` or `compliance.string-blindspot-silent`. `{receiver}` SHALL be the receiver's (or
-object argument's) source text with
-each run of whitespace collapsed to one space, and `{type}` SHALL be `Unknown` or `Any` (`Unknown` when both occur,
-and for an unresolved callee). Findings SHALL be one per access or call position, sorted by path, line and column.
+object argument's) source text, with the parentheses written around it and each run of whitespace collapsed to one
+space, and `{type}` SHALL be `Unknown` when the type is or holds `Unknown` and for an unresolved callee, else `Any`
+when it is or holds `Any`, else `Never`. Findings SHALL be one per access or call position, sorted by path, line and column.
 The verdict at each position SHALL come from the same occurrence index a rename uses, so a site `--attr NAME`
 reports is exactly a blind spot a member rename of `NAME` reports there, with the same kind.
 basedpyright SHALL start only when `--attr` is given, with the working directory as its workspace, under the same
@@ -1004,6 +1004,21 @@ SHALL use the same templates with `{type}` `any`.
   `def g(o: Any): return o.formula`
 - **THEN** each access is reported, the `Any` parameter's with `{type}` `Any` and the others with `Unknown`, and the
   exit code is 1
+
+#### Scenario: Receiver the checker types Never
+- **WHEN** `--attr producer_root_model` runs on a file holding `def roots(planned):` with
+  `attaches = list(getattr(planned, "attach_plans", ()) or ())` and `for a in attaches: a.producer_root_model`, where
+  the checker types `a` as `Never`
+- **THEN** the access is reported with receiver `a` and `{type}` `Never`, and the exit code is 1
+
+#### Scenario: Never through a comprehension and a subscript
+- **WHEN** the same file holds `[k.producer_root_model for k in list(g)]` and `list(g)[0].producer_root_model` with
+  `g = getattr(planned, "attach_plans", ())`
+- **THEN** both accesses are reported
+
+#### Scenario: Parenthesised receiver
+- **WHEN** a file holds `(g or planned).formula` with both names untyped
+- **THEN** the access is reported with receiver `(g or planned)`
 
 #### Scenario: Typed receivers are clean
 - **WHEN** every receiver of `.formula` in the file is typed with a class declaring `formula`
@@ -1047,10 +1062,11 @@ The Python `dr-refactor rename` SHALL rename a `def` or `async def` parameter of
 positional-or-keyword, keyword-only, `*args`, `**kwargs`) located by `--line`/`--col`, `--offset` or `--symbol`, at
 its declaration, at a use in its function or at a `name=` keyword of a call. It SHALL rewrite each renamed
 declaration, every use of it in its function including nested scopes, and every `name=` keyword at a call the
-checker resolves to a renamed declaration. A `name=` keyword SHALL resolve only to a positional-or-keyword or
-keyword-only parameter, never to a positional-only parameter, `*args` or `**kwargs`. Positional arguments, keywords
-that reach the function unresolved (`**mapping` unpacking, `**kwargs` forwarding) and every other text SHALL be
-unchanged.
+checker resolves to a renamed declaration, links to one through the callee's signature, or carries to one through
+`**kwargs` carriers, as the requirements on those links define. A `name=` keyword SHALL resolve only to a
+positional-or-keyword or keyword-only parameter, never to a positional-only parameter, `*args` or `**kwargs`.
+Positional arguments and the keys of a mapping unpacked by name (`f(**mapping)`) SHALL be unchanged, as SHALL every
+other text those requirements do not name.
 
 #### Scenario: Keyword-only parameter of a function
 - **WHEN** `def kwonly(*, model_name: str) -> str: return model_name` has its parameter renamed to `dataset_name`,
@@ -1097,11 +1113,15 @@ unchanged.
 - **THEN** each rename changes its declaration and body uses only, and every keyword of the call is unchanged
 
 #### Scenario: Unresolved keyword sites are unchanged
-- **WHEN** `kwonly`'s `model_name` is renamed and the project holds `kwonly(**{"model_name": "x"})`, a wrapper
-  `def wrap(**kw: str) -> str: return kwonly(**kw)` called as `wrap(model_name="x")`, and
+- **WHEN** `kwonly`'s `model_name` is renamed and the project holds `kwonly(**mapping)` with `mapping` a parameter, and
   `functools.partial(kwonly, model_name="x")`
-- **THEN** the `**mapping` and `wrap` sites are unchanged, and the `functools.partial` keyword, which the checker
-  resolves to `kwonly`, is renamed
+- **THEN** the `**mapping` site is unchanged, and the `functools.partial` keyword, which the checker resolves to
+  `kwonly`, is renamed
+
+#### Scenario: Keywords reaching the function indirectly
+- **WHEN** `kwonly`'s `model_name` is renamed and the project holds `kwonly(**{"model_name": "x"})` and a wrapper
+  `def wrap(**kw: str) -> str: return kwonly(**kw)` called as `wrap(model_name="x")`
+- **THEN** the dict literal's key and the `wrap` keyword are renamed
 
 #### Scenario: Other refactors over mixed-kind signatures
 - **WHEN** a module holds `def f(a: A, /, *, b: A) -> None` whose body calls `a.get_model()` and `b.get_model()`,
@@ -1110,7 +1130,7 @@ unchanged.
   with positional-or-keyword parameters
 
 ### Requirement: Python method parameter renames follow the hierarchy
-For a parameter of a method, the renamed declarations SHALL be the parameters named `old` of every declaration in the
+For a parameter of a method other than `__init__` and `__new__`, the renamed declarations SHALL be the parameters named `old` of every declaration in the
 method's renamed hierarchy: the whole hierarchy by default, only the located method with `--no-in-hierarchy`. Calls
 through annotated or inferred receivers and `super().m(old=...)` calls SHALL be rewritten for each renamed
 declaration. An override whose parameter has another name, or that has no parameter named `old`, SHALL be unchanged.
@@ -1339,8 +1359,8 @@ A member rename SHALL be a `dr-refactor rename` whose symbol is declared in a cl
 or async), property, class attribute, instance attribute (`self.x`) or field; in TypeScript a property, method or
 accessor of a class, interface or type literal. A blind spot of the old name OLD SHALL be, in a source file of the
 rename's language under the project:
-- an attribute access `x.OLD` whose receiver the checker types as unknown (Python `Unknown`, `Any` or a union
-  holding either; TypeScript `any`);
+- an attribute access `x.OLD` whose receiver the checker types as unknown (Python `Unknown`, `Any`, `Never` or a
+  union holding one of them; TypeScript `any`);
 - a string-named access of OLD (a string-member form, a Python field-name read, a TypeScript `x['OLD']`) whose
   object is typed so, or whose callee the checker cannot resolve while the call has the form's syntax (the form's
   attribute path and the member argument a plain string literal exactly OLD);
@@ -1381,9 +1401,15 @@ version-control and tool-cache directories), plus the unresolved targets and the
 - **WHEN** a test holds `def test_b(mocker): mocker.patch.object(engine, "get_model")` with `mocker` unannotated
 - **THEN** the call is a blind spot, printed as `string-blindspot`, and the rename refuses
 
+#### Scenario: Never receiver refuses the rename
+- **WHEN** field `Attach.producer_root_model` is renamed and a function reads `a.producer_root_model` in
+  `for a in list(getattr(planned, "attach_plans", ()) or ())` with `planned` unannotated
+- **THEN** stderr ends with the `attr-blindspot` line for `a.producer_root_model` with `{type}` `Never` followed by
+  `refactor.blindspots`, the exit code is 1 and no file changes
+
 #### Scenario: Non-member renames are not scanned
 - **WHEN** a module-level function or a parameter is renamed while untyped `x.old` accesses exist
-- **THEN** no blind-spot refusal occurs
+- **THEN** no access is reported as a blind spot; a parameter rename is scanned for unlinked keywords only
 
 #### Scenario: TypeScript any receiver
 - **WHEN** property `Store.getModel` is renamed in TypeScript and a file holds `function g(o: any) { return o.getModel() }`
@@ -3256,7 +3282,7 @@ count as absent. Output SHALL be identical with and without a cache entry.
 
 ### Requirement: Python --unsure include renames unresolved receivers
 With `--unsure include`, a Python rename SHALL also rename every access `x.OLD` whose receiver the checker types as
-`Unknown`, `Any` or a union holding either, and SHALL print the `refactor.unsure-warning` finding on stdout before the
+`Unknown`, `Any`, `Never` or a union holding one of them, and every unlinked keyword, and SHALL print the `refactor.unsure-warning` finding on stdout before the
 diff. Blind spots SHALL be reported, refused and let through by `--allow-blindspots` as without it. With the default
 `--unsure skip` no such access SHALL be renamed.
 
@@ -4271,3 +4297,259 @@ hold unchanged.
 #### Scenario: Without --words
 - **WHEN** the same renames run with `--docs` only
 - **THEN** every one of those mentions is rewritten
+
+### Requirement: Python parameter renames link keywords through the checker's signature
+For a Python parameter rename, a `name=` keyword of a call that the checker resolves to no declaration SHALL be linked
+to the renamed parameter when, in every callable alternative the checker considers at that call (each overload, each
+member of a union), the callee's signature binds the keyword to a parameter named `old` in the code as it is, and binds
+`new` to the same parameter once every renamed declaration is renamed, as the checker types the renamed text held in
+memory. A linked keyword SHALL be rewritten like one the checker resolves. A keyword that is not linked in every
+alternative SHALL NOT be rewritten by this rule. The rule SHALL depend on no list of decorators or wrappers. The checker
+SHALL be asked in a number of requests that does not depend on the number of keywords, and in none when the run has no
+such keyword; nothing SHALL be written to the project for it.
+
+#### Scenario: Context-manager decorators
+- **WHEN** `@asynccontextmanager async def engine(*, models: list[int])` and `@contextmanager def sync_engine(*, models:
+  list[int])` each have `models` renamed to `datasets`, and another module holds `async with engine(models=[1]) as e:`
+  and `with sync_engine(models=[1]) as s:`
+- **THEN** each rename rewrites its declaration, its body uses and its call's keyword, and the exit code is 0
+
+#### Scenario: Signature-preserving user decorator
+- **WHEN** `def logged(fn: Callable[P, R]) -> Callable[P, R]` wraps with `functools.wraps`, `@logged def wrapped(*,
+  models: list[int])` has `models` renamed, and a function calls `wrapped(models=[1])`
+- **THEN** the declaration, the body use and the keyword are renamed
+
+#### Scenario: Decorated method through a typed receiver
+- **WHEN** `class C` declares `@contextmanager def scope(self, *, models: list[int])`, a function holds
+  `with c.scope(models=[1]):` with `c: C`, and `models` is renamed
+- **THEN** the declaration, the body use and the keyword are renamed
+
+#### Scenario: One overload does not bind the keyword
+- **WHEN** a decorated callee's type at a call is a union of two callables, and renaming the declaration changes `old`
+  to `new` in only one of them
+- **THEN** the keyword is not rewritten by this rule
+
+#### Scenario: No extra request without unresolved keywords
+- **WHEN** a parameter rename runs over a project whose every `old=` keyword the checker resolves
+- **THEN** the run sends the same number of export requests as before this change
+
+### Requirement: Python renames follow keywords through **kwargs carriers
+A carrier SHALL be a `def` or `async def` with a `**kw` parameter. A `def` under a decorator other than the builtin
+`staticmethod` or `classmethod` SHALL be an unresolved carrier. Its sinks SHALL be:
+- `X(**kw)`, where the checker resolves `X` to a keyed class (a key names the field its method resolution order holds),
+  to a function or method (a key names its positional-or-keyword or keyword-only parameter), to any other class (a key
+  names a parameter of the `__init__` or `__new__` the checker resolves the call to), or to another carrier (a key that
+  none of that carrier's own parameters can bind as a keyword continues into its flow). A class sink SHALL be
+  unresolved when one of its two constructors declares the renamed parameter and the other passes its own `**kw` on,
+  uses it unprovably, or reads the key by a key form. A function or method sink whose `def` is decorated
+  SHALL count only when the checker's signature at the sink binds `old` in the code as it is and `new` once the renamed
+  declarations are renamed; otherwise the sink is unresolved;
+- `X.model_construct(**kw)`, `X.model_validate(kw)` and `x.model_copy(update=kw)`, as the requirement on typed dict
+  keys targets them;
+- `super().__init__(**kw)`: the function the checker resolves it to, or, when that is Pydantic's `BaseModel.__init__`,
+  the enclosing class as a keyed class;
+- a dict literal holding `**kw` (`{..., **kw}`), whose sinks are the literal's own: the literal at one of the sinks
+  above, unpacked there (`X(**{..., **kw})`), or bound to a name bound exactly once in its function scope whose every
+  use is at such a sink.
+
+A key form SHALL be `kw["s"]` (read, assigned or deleted), `kw.get("s", ...)`, `kw.pop("s", ...)`,
+`kw.setdefault("s", ...)`, `"s" in kw` or `"s" not in kw`, with `s` a plain string literal. A neutral use SHALL be `kw`
+tested for truth or passed to the builtin `len`. A carrier SHALL be resolved when every use of its `**kw` name in its body is a
+sink, a key form or a neutral use and every sink's callee resolves; any other use (an alias, a copy, `update`, `|`, `kw`
+as a plain argument, `return kw`, iteration, `items()`, `keys()`, `values()`, a key that is not a plain string literal,
+a rebinding, a use in a nested scope) SHALL make it unresolved. A same-named binding of a nested scope is not a use.
+For a rename to `new`, a carrier that declares a parameter a keyword can bind that is named `new` or that the run
+renames to `new`, holds a key form `"new"`, holds `**kw` in a dict literal with a constant key `"new"`, passes `new=`
+at a sink, or holds `**kw` in a dict literal bound to a name with a constant key `"old"` SHALL be unresolved.
+
+For a renamed field of a keyed class or a renamed parameter `old`, each sink of a carrier SHALL yield *renamed* (the
+key `old` lands only on renamed declarations there), *other* (it lands on another declaration or on none), or
+*unresolved*; a sink that is a carrier yields that carrier's verdict. A carrier's verdict SHALL be: *unresolved* when
+the carrier is unresolved, any sink is unresolved, or the carrier calls itself through a chain of carriers; else *mixed*
+when any sink is mixed, or some sinks are renamed and some other; else *renamed* when it has a sink and every sink is
+renamed; else *other*.
+
+For a carrier `F` whose verdict is renamed, `dr-refactor` SHALL rewrite the keyword `old=` of each call the checker
+resolves to `F` where no parameter of `F` can bind `old` as a keyword, the constant key `"old"` of a dict literal unpacked into
+such a call (`F(**{"old": v})`), and each key-form string `"old"` in `F`. For a verdict of other, nothing of `F` SHALL
+change or be listed. The rewrites SHALL obey the rules of typed dict keys for aliased fields, alias generators, plain
+string literals and collisions with the new name. A constant key `"old"` of a dict literal unpacked into a call the
+checker resolves to a function, method or class other than a keyed class SHALL be rewritten when that key names a
+renamed parameter there.
+
+#### Scenario: Helper building a model
+- **WHEN** `class Query(BaseModel)` has `source_model: str` and `measures: list[str] = []`, a module holds
+  `def q(**kw: Any) -> Query:` with `kw.setdefault("source_model", "orders")` and `return Query(**kw)`, a test calls
+  `q(measures=["n"])`, and `Query.measures` is renamed to `metrics`
+- **THEN** the field and the call's keyword are renamed and the exit code is 0
+
+#### Scenario: Key forms in the carrier
+- **WHEN** the same helper also holds `kw["source_model"]`, `kw.get("source_model")`, `kw.pop("source_model", None)`
+  and `"source_model" in kw`, and `Query.source_model` is renamed to `population`
+- **THEN** every one of those strings and the `setdefault` string become `"population"` with their quotes kept, and no
+  `leftover` line names them
+
+#### Scenario: Chain of carriers
+- **WHEN** `def q2(**kw: Any) -> Query: return q(**kw)` is called as `q2(measures=["n"])`
+- **THEN** that keyword is renamed too
+
+#### Scenario: Subclass constructor forwarding to the model
+- **WHEN** `class Sub(Query)` declares `def __init__(self, **kw: Any) -> None: super().__init__(**kw)` and a module
+  calls `Sub(measures=[])`
+- **THEN** the keyword is renamed
+
+#### Scenario: Dict literal carrying the keywords
+- **WHEN** a carrier holds `return Query(**{"source_model": "orders", **kw})`, another holds
+  `data = {"source_model": "orders", **kw}` followed only by `return Query.model_validate(data)`, and each is called
+  with `measures=["n"]`
+- **THEN** both keywords are renamed
+
+#### Scenario: Dict literal unpacked into a carrier
+- **WHEN** a module calls `q(**{"measures": ["n"]})`
+- **THEN** the key becomes `"metrics"`
+
+#### Scenario: Function and constructor sinks
+- **WHEN** `def kwonly(*, model_name: str) -> str` has `model_name` renamed, `def wrap(**kw: str) -> str: return
+  kwonly(**kw)` is called as `wrap(model_name="x")`; and separately `class Engine` with `def __init__(self, *, models:
+  list[int])` has `models` renamed while `def make(**kw: Any) -> Engine: return Engine(**kw)` is called as
+  `make(models=[1])`
+- **THEN** both call keywords are renamed
+
+#### Scenario: Carrier into another class
+- **WHEN** `def other(**kw: Any) -> Other: return Other(**kw)` builds a class `Other` that also declares `measures`,
+  it is called as `other(measures=[])`, and `Query.measures` is renamed
+- **THEN** that call is unchanged and no line names it
+
+#### Scenario: Nested scope shadowing the name
+- **WHEN** a carrier's body holds a lambda or comprehension binding its own `kw`
+- **THEN** that binding does not make the carrier unresolved
+
+#### Scenario: Aliased field
+- **WHEN** the renamed field is declared with `Field(alias="m")`
+- **THEN** no carrier keyword, key or key-form string changes
+
+#### Scenario: Keyword collision through a carrier
+- **WHEN** a call holds `q(measures=[], metrics=[])` and `Query.measures` is renamed to `metrics`
+- **THEN** stderr ends with the `refactor.name-conflict` finding naming that file and line, the exit code is 1 and no
+  file changes
+
+### Requirement: Parameter and field renames refuse on unlinked keywords
+An unlinked keyword of a Python rename of a parameter, or of a field of a keyed class, SHALL be a keyword `old=` of a
+call, or a constant key `"old"` of a dict literal unpacked into a call, in a project source file, that the rename's
+other rules neither rewrite nor prove to land on another declaration, where:
+- the callee expression resolves, as the checker resolves it (aliases and bound methods followed, a class through the
+  constructors the checker resolves, any member of a union), to a function, method or class declaring a renamed
+  parameter, while the checker's signature there does not prove the link in every callable alternative; or
+- the callee resolves to a carrier whose verdict for `old` is mixed or unresolved; or
+- the checker types the callee `Unknown`, `Any`, `Never` or a union holding one of them; or
+- the callee is a class whose `__init__` and `__new__`, own or inherited, both take `old`, of which the run renames
+  only one, or the two to different names, or of which one takes `old` by name and the other through its own `**kw`; or
+- the key is in a dict literal unpacked into a call whose callee is neither a name nor an attribute access.
+
+Unlinked keywords SHALL be blind spots of the rename: each SHALL print one `refactor.unlinked-keyword` line on stderr
+(`{callee}` the callee's source text with each run of whitespace collapsed to one space), sorted with the other
+blind-spot lines by path, line and column, followed by `refactor.blindspots`; the rename SHALL print nothing on stdout,
+write nothing and exit 1, with or without `--apply`. With `--allow-blindspots` the per-site lines SHALL be printed without
+`refactor.blindspots` and the rename SHALL proceed, leaving those keywords unchanged. A `--keep` covering a line SHALL drop its line. With `--unsure
+include` every unlinked keyword and key SHALL also be rewritten, and blind spots SHALL be reported, refused and let
+through as without it. `{names}` of `refactor.blindspots` SHALL list each old name with a blind spot once, a member's
+as `.old` and an unlinked keyword's as `old=`, joined by `, `. A rename of a function, class, module, local or
+non-field member SHALL NOT be scanned for unlinked keywords, and `dr-compliance` SHALL NOT report them.
+
+#### Scenario: Signature-erasing decorator
+- **WHEN** `@functools.lru_cache def cached(models: int) -> int` has `models` renamed, the checker types `cached`'s
+  call signature without a parameter `models`, and a function calls `cached(models=1)`
+- **THEN** stderr ends with the `refactor.unlinked-keyword` line for `cached(models=...)` followed by
+  `refactor.blindspots` naming `models=`, stdout is empty, the exit code is 1 and no file changes
+
+#### Scenario: Untyped decorator
+- **WHEN** `def deco(fn): ...` is unannotated, `@deco def f(*, models: int)` has `models` renamed and a module calls
+  `f(models=1)`
+- **THEN** that call is listed as an unlinked keyword and the rename refuses
+
+#### Scenario: Override flag proceeds
+- **WHEN** the lru_cache rename runs with `--allow-blindspots`
+- **THEN** the line is printed on stderr, the diff renames the declaration and its body, `cached(models=1)` is
+  unchanged and the exit code is 0
+
+#### Scenario: Renamed on request
+- **WHEN** the same rename runs with `--unsure include --allow-blindspots`
+- **THEN** `cached(models=1)` becomes `cached(datasets=1)`, stdout starts with the `refactor.unsure-warning` line and
+  the line is still printed on stderr
+
+#### Scenario: Kept line
+- **WHEN** the same rename passes `--keep` naming the call's line
+- **THEN** the rename proceeds, the call is unchanged and no blind-spot line is printed
+
+#### Scenario: Unresolved carriers
+- **WHEN** `Query.measures` is renamed and carriers each build `Query` from `kw` after, in turn, `d = kw`, `dict(kw)`,
+  `kw.copy()`, `base.update(kw)`, `base | kw`, passing `kw` as a plain argument, `return kw`, `for k in kw`,
+  `kw.items()`, `kw[name]` with a variable key, rebinding `kw`, reading `kw` in a nested function, and two carriers
+  calling each other, each called with `measures=[]`
+- **THEN** every one of those calls is listed as an unlinked keyword, the rename refuses, and no file changes
+
+#### Scenario: Mixed sinks
+- **WHEN** `def both(**kw: Any)` holds `Query(**kw)` and `Other(**kw)`, `Other` declares its own `measures`, and
+  `both(measures=[])` is called
+- **THEN** that call is listed as an unlinked keyword
+
+#### Scenario: Dict literal into an unresolved carrier
+- **WHEN** a module calls `g(**{"measures": []})` where `g` is an unresolved carrier
+- **THEN** that line is listed as an unlinked keyword
+
+#### Scenario: Untyped callee
+- **WHEN** a test holds `def test_totals(make_query): make_query(measures=["n"])` with `make_query` unannotated, and
+  `Query.measures` is renamed
+- **THEN** that call is listed as an unlinked keyword and the rename refuses; with `make_query` annotated as a callable
+  returning `Query` whose signature binds no `measures`, it is not listed
+
+#### Scenario: Other renames are not scanned
+- **WHEN** a function, a class or a method is renamed in a project holding `untyped(old=1)` calls
+- **THEN** no unlinked-keyword line is printed
+
+#### Scenario: Members and keywords in one report
+- **WHEN** a `rename-map` renames a method with an untyped receiver access and a parameter with an unlinked keyword
+- **THEN** `refactor.blindspots` counts both and names `.method_old, param_old=` in the entries' order
+
+### Requirement: Constructor parameter renames do not spread to other classes
+For a parameter of a Python `__init__` or `__new__`, the renamed declarations SHALL be the parameter named `old` of the
+located `def` and of its overload group only, with or without `--no-in-hierarchy`. Call keywords SHALL follow the
+checker: `A(old=...)`, `cls(old=...)` and `super().__init__(old=...)` resolving to a renamed declaration SHALL be
+rewritten. A keyword of a call of a class whose `__init__` and `__new__`, own or inherited, both take `old` SHALL be
+rewritten only when the run renames both to the same name. Where only one of the two takes `old` by name and the other
+passes its own `**kw` on, uses it unprovably, or reads the key by a key form, the keyword SHALL be an unlinked keyword.
+The same-named constructor parameter of a base, a subclass or a sibling class, its body uses and the
+keywords of calls resolving to it SHALL be unchanged and SHALL NOT be listed. A TypeScript rename of a constructor
+parameter SHALL likewise change no other class's constructor.
+
+#### Scenario: Sibling constructors
+- **WHEN** `class Base(Exception)` declares `__init__(self, msg: str)`, `class A(Base)` and `class B(Base)` each
+  declare `__init__(self, msg: str, *, field: str)`, a module raises `A("x", field="a")` and `B("y", field="b")`, and
+  `A.__init__`'s `field` is renamed to `column`
+- **THEN** `A.__init__`'s parameter, its body uses and `A("x", column="a")` are renamed, and `B.__init__`, its body and
+  `B("y", field="b")` are unchanged
+
+#### Scenario: Subclass forwarding to the renamed constructor
+- **WHEN** `class C(A)` declares `__init__(self, msg: str, *, field: str)` whose body calls
+  `super().__init__(msg, field=field)`, and `A.__init__`'s `field` is renamed to `column`
+- **THEN** the call becomes `super().__init__(msg, column=field)` and `C.__init__`'s own parameter is unchanged
+
+#### Scenario: __new__ and an overloaded __init__
+- **WHEN** sibling classes each declare `__new__(cls, *, field: str)`, and a class declares two `@overload` stubs and
+  an implementation of `__init__` each with `field`, and one class's parameter is renamed in each
+- **THEN** only the located class's declarations (every member of its overload group) and its calls are renamed
+
+#### Scenario: Class declaring both constructors
+- **WHEN** a class declares `__new__(cls, *, field: str)` and `__init__(self, *, field: str)`, a module calls
+  `K(field="a")`, and `__init__`'s `field` is renamed
+- **THEN** the call is listed as an unlinked keyword and the rename refuses; a `rename-map` renaming both parameters to
+  `column` renames both declarations and the call
+
+#### Scenario: Several constructors in one map
+- **WHEN** a `rename-map` holds one entry for `A.__init__(field)` and one for `B.__init__(field)`
+- **THEN** both constructors and both calls are renamed in one diff
+
+#### Scenario: TypeScript sibling constructors
+- **WHEN** TypeScript classes `A extends Base` and `B extends Base` each declare `constructor(msg: string, field:
+  string)` and `A`'s `field` is renamed
+- **THEN** only `A`'s constructor parameter and its uses change

@@ -37,8 +37,9 @@ _ISOLATION = {"PYTHONSAFEPATH": "1", "PYTHONNOUSERSITE": "1", "PYTHONDONTWRITEBY
 _EOF = object()
 EXPORT_COMMAND = "la.exportOccurrences"
 OccurrenceKind = Literal["name", "member", "keyword", "import", "alias", "module", "forward-reference", "all-entry"]
-FactKind = Literal["definition", "typeDefinition", "verdict", "access", "class"]
-Verdict = Literal["Unknown", "Any"]
+FactKind = Literal["definition", "typeDefinition", "verdict", "access", "class", "signature"]
+FACT_KINDS: tuple[FactKind, ...] = ("definition", "typeDefinition", "verdict", "access", "class", "signature")
+Verdict = Literal["Unknown", "Any", "Never"]
 
 
 class LanguageServerError(Exception):
@@ -85,7 +86,7 @@ class Declaration(BaseModel):
 class Occurrence(BaseModel):
     """An occurrence of an exported name: its span, kind, declarations, the import bindings it passes through on the
     way to them (each the span of the name it binds, in order) and, for a member access, whether the checker types its
-    receiver `Unknown` or `Any`."""
+    receiver `Unknown`, `Any` or `Never`."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -109,8 +110,9 @@ class FactQuery(BaseModel):
 
 class PositionFacts(BaseModel):
     """The facts exported about one position: definitions and type definitions as those requests find them, the
-    hover verdict there, for a member name the verdict of its access's receiver, and for a class name its ancestors in MRO order (each
-    class by its name) and the request's member names a class of it outside the project declares."""
+    hover verdict there, for a member name the verdict of its access's receiver, for a class name its ancestors in MRO order (each
+    class by its name) and the request's member names a class of it outside the project declares, and for a call's
+    keyword or callee name the names each callable alternative of the callee binds by keyword and the callee's verdict."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -123,6 +125,8 @@ class PositionFacts(BaseModel):
     access: Verdict | None = None
     ancestors: tuple[Span, ...] = ()
     members: tuple[str, ...] = ()
+    signature: tuple[tuple[str, ...], ...] = ()
+    callee: Verdict | None = None
 
 
 class ExportRequest(BaseModel):
@@ -506,14 +510,17 @@ class LanguageServer:
             path = _path_of(item["uri"])
             position = item["position"]
             offset = self._index(path, position)
-        kinds = tuple(k for k in ("definition", "typeDefinition", "verdict", "access", "class") if k in item)
+        kinds = cast(tuple[FactKind, ...], tuple(k for k in FACT_KINDS if k in item))
         found = cast(dict[str, Any], item.get("class") or {})
+        signature = cast(dict[str, Any], item.get("signature") or {})
         return PositionFacts(
-            path=path, offset=offset, kinds=cast(tuple[FactKind, ...], kinds),
+            path=path, offset=offset, kinds=kinds,
             definition=self._spans(item.get("definition")),
             type_definition=self._spans(item.get("typeDefinition")),
             verdict=item.get("verdict"), access=item.get("access"),
             ancestors=self._spans(found.get("mro")), members=tuple(str(m) for m in found.get("members") or []),
+            signature=tuple(tuple(str(n) for n in names) for names in signature.get("alternatives") or []),
+            callee=signature.get("callee"),
         )
 
     def _followed(self, items: list[dict[str, Any]] | None) -> list[PositionFacts]:

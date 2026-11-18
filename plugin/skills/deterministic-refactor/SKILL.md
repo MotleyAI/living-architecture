@@ -44,6 +44,11 @@ the refactor touches (`la-config get languages` lists the repo's).
      Pytest fixtures are left by default.
    - `attr-blindspot` or `string-blindspot` on a receiver that cannot be typed (a third-party `Any`): `--allow-blindspots`,
      and tell the user which.
+   - `unlinked-keyword`: a call keyword `OLD=` the checker cannot link to the renamed parameter or field (a
+     decorator that erases the signature, a `**kwargs` helper that copies its dict or passes it on). Read each
+     listed call and the helper it reaches: `--unsure include --allow-blindspots` renames the keywords,
+     `--allow-blindspots` alone leaves them. Neither changes a key the helper reads by its old name, so fix
+     those by hand. Tell the user which.
    - a site that must keep the old name (a back-compat test or shim): `--keep PATH:LINE`, or
      `--keep PATH` for a whole file.
    - a `leftover` mention that does name the renamed symbol (an untyped document body, a docstring two
@@ -62,7 +67,7 @@ the refactor touches (`la-config get languages` lists the repo's).
    - `dr-mock-lint <tests>` passes; when the base branch already has findings,
      `dr-mock-lint --base <base-branch> <tests>` reports only the new ones;
    - the full non-integration test suite (`la-config get commands.test`) passes;
-   - by hand, only these: each `leftover` and `unverified-read` line the apply printed, each receiver
+   - by hand, only these: each `leftover` and `unverified-read` line the apply printed, each receiver and keyword
      `--allow-blindspots` let through, and the string-only references the language doc lists.
 7. Review the diff. The user commits — never commit or `git add -A`.
 

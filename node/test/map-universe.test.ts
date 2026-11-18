@@ -99,7 +99,7 @@ describe('one file universe', () => {
     expect(result.err).toBe(
       [
         message('compliance.attr-blindspot', { path: 'scripts/tool.ts', line: 2, receiver: 'o', attr: 'save', type: 'any' }),
-        message('refactor.blindspots', { count: 1, attr: 'save' }),
+        message('refactor.blindspots', { count: 1, names: '.save' }),
         '',
       ].join('\n'),
     );

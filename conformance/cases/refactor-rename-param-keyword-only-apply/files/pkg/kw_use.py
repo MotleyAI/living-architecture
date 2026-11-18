@@ -12,7 +12,7 @@ def calls() -> list[object]:
         kwonly(dataset_name="x"),
         star(1, 2, model_name="x"),
         posonly("x"),
-        kwonly(**{"model_name": "x"}),
-        wrap(model_name="x"),
+        kwonly(**{"dataset_name": "x"}),
+        wrap(dataset_name="x"),
         functools.partial(kwonly, dataset_name="x"),
     ]

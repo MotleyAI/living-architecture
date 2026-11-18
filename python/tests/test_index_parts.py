@@ -191,6 +191,7 @@ def test_fact_queries_cover_classes_bases_annotations_decorators_sinks_and_strin
         "6:Model": {"definition"},
         "9:deco": {"definition"},
         "11:Model": {"definition", "typeDefinition"},
+        "11:columns": {"signature"},
         "14:object": {"definition"},
         "15:getattr": {"definition", "typeDefinition"},
         "15:m": {"verdict"},

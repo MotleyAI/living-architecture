@@ -102,7 +102,7 @@ def test_the_exit_code_is_the_highest_of_the_refusals_printed_anywhere(
 ) -> None:
     root = write_project(tmp_path / "proj", {"pkg/a.py": A})
 
-    def failing(self: SymbolRename, index: object) -> None:
+    def failing(self: SymbolRename, index: object, facts: object) -> None:
         raise LocatorError("no such thing")
 
     monkeypatch.setattr(SymbolRename, "_index_edits", failing)
