@@ -142,6 +142,14 @@ class _Resolved:
         return self.located is not None and self.located.kind == "module"
 
 
+def _leaves(sibling: Entry, name: str, holder: _Resolved | None, resolved: list[_Resolved]) -> bool:
+    """`sibling` stops being named `name`: the entry renaming it (`holder`) gives it another name; with no such entry,
+    one sharing a site with it leaves it undecided."""
+    if holder is None:
+        return any(o.located is not None and set(o.located.sites) & set(sibling.sites) for o in resolved)
+    return holder.entry.new_name is None or nfkc(holder.entry.new_name) != name
+
+
 def _normalize(text: str) -> str:
     """The text as rope reads it."""
     return text.replace("\r\n", "\n").replace("\r", "\n")
@@ -558,12 +566,7 @@ class RenameMap:
             sibling = self.locator.sibling(located, new)
             if sibling is None or kept(located) or kept(sibling):
                 continue
-            holder = by_key.get(sibling.key)
-            if holder is None:
-                left = any(o.located is not None and set(o.located.sites) & set(sibling.sites) for o in resolved)
-            else:
-                left = holder.entry.new_name is None or nfkc(holder.entry.new_name) != new
-            if not left:
+            if not _leaves(sibling, new, by_key.get(sibling.key), resolved):
                 out[n] = conflict(r, sibling.sites[0])
         for meeting in scopes.values():
             if len(meeting) < 2 or any(kept(located) for _, _, located in meeting):

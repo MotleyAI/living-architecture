@@ -461,7 +461,7 @@ function locatorText(r: Refactor, spec: EntrySpec): string {
   const file = r.rel(spec.file);
   const { offset, line, col, symbol } = spec.locator;
   if (offset !== undefined) return `${file} offset ${offset}`;
-  if (line !== undefined) return `${file}:${line}${col === undefined ? '' : `:${col}`}`;
+  if (line !== undefined) return col === undefined ? `${file}:${line}` : `${file}:${line}:${col}`;
   return symbol === undefined ? file : `${file} ${symbol}`;
 }
 
@@ -618,7 +618,7 @@ function resolveAll(r: Refactor, specs: EntrySpec[], map: string): Resolution {
       failures.push(entryRefusal([spec.index], locatorText(r, spec), entryFailure(error)));
       const name = spelledName(spec);
       if (name === null) spelled = false;
-      else names.add(name);
+      names.add(name ?? '');
       continue;
     }
     names.add(target.old);
@@ -626,12 +626,17 @@ function resolveAll(r: Refactor, specs: EntrySpec[], map: string): Resolution {
     const duplicate = mergeTarget(targets, target, map);
     if (duplicate !== null) failures.push(duplicate);
   }
+  followRenames(targets);
+  names.delete('');
+  return { targets, failures, spelled, names };
+}
+
+/** Each retarget whose target another entry renames takes that entry's new name. */
+function followRenames(targets: Target[]): void {
   for (const target of targets.filter((t) => t.retarget)) {
     const final = targets.find((t) => !t.retarget && t.key === target.intent)?.newName;
     if (final !== undefined) rename(target, final);
   }
-  names.delete('');
-  return { targets, failures, spelled, names };
 }
 
 /** The files a rename can edit: each TypeScript source (true), and with `docs` each prose file (false). */

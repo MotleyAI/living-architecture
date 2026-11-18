@@ -116,39 +116,66 @@ function placed(r: Refactor, entry: ScopedEntry): Placed[] {
  * finding, naming the earliest's first declaration). A pair with a declaration `kept`, or one the entries do not
  * decide, is left out. */
 export function ownScopeConflicts(r: Refactor, entries: ScopedEntry[], kept: (path: string, position: number) => boolean): Map<number, NameConflict> {
-  const all = entries.map((entry) => ({ entry, placed: placed(r, entry) }));
+  const all = entries.map((entry) => ({ entry, declared: placed(r, entry) }));
   const owner = new Map<string, ScopedEntry>();
-  for (const { entry, placed: declared } of all) for (const p of declared) owner.set(keyAt(p.declaration), entry);
-  const isKept = (d: TS.Declaration): boolean => kept(position(d).path, position(d).position);
-  const byPlace = (a: TS.Declaration, b: TS.Declaration): number => byCodePoint(r.rel(position(a).path), r.rel(position(b).path)) || position(a).position - position(b).position;
+  for (const { entry, declared } of all) for (const p of declared) owner.set(keyAt(p.declaration), entry);
+  const deciding: Deciding = {
+    owner,
+    isKept: (d) => kept(position(d).path, position(d).position),
+    byPlace: (a, b) => byCodePoint(r.rel(position(a).path), r.rel(position(b).path)) || position(a).position - position(b).position,
+  };
+  const renames = all.filter(({ entry }) => !entry.retarget && identifierText(entry.newName) !== identifierText(entry.old));
   const out = new Map<number, NameConflict>();
-  const meeting = new Map<object, Map<string, Placed[]>>();
-  for (const { entry, placed: declared } of all) {
-    if (entry.retarget || identifierText(entry.newName) === identifierText(entry.old)) continue;
-    const spelled = identifierText(entry.newName);
-    for (const p of declared) {
-      const names = meeting.get(p.scope) ?? new Map<string, Placed[]>();
-      names.set(spelled, [...(names.get(spelled) ?? []), p]);
-      meeting.set(p.scope, names);
-    }
-    const existing = [...new Set(declared.flatMap((p) => p.existing))];
-    if (declared.some((p) => isKept(p.declaration)) || existing.some(isKept)) continue;
-    const renamed = existing.map((e) => owner.get(keyAt(e)));
-    if (renamed.some((o) => o?.retarget === true)) continue;
-    const staying = existing.filter((_, i) => renamed[i] === undefined || identifierText((renamed[i] as ScopedEntry).newName) === spelled);
-    const first = staying.toSorted(byPlace)[0];
+  for (const { entry, declared } of renames) {
+    const first = staying(entry, declared, deciding);
     if (first !== undefined) out.set(entry.index, { name: entry.newName, ...position(first) });
   }
-  for (const names of meeting.values()) {
-    for (const group of names.values()) {
-      const shares = (a: Placed, b: Placed): boolean => !a.member && (!overlaps(a.declaration, b.declaration) || mayShare(a.declaration, b.declaration));
-      const meets = group.filter((a) => group.some((b) => b.entry !== a.entry && !shares(a, b)));
-      const indexes = [...new Set(meets.map((p) => p.entry.index))].sort((a, b) => a - b);
-      if (indexes.length < 2 || meets.some((p) => isKept(p.declaration))) continue;
-      const latest = (meets.find((p) => p.entry.index === indexes.at(-1)) as Placed).entry;
-      const earliest = meets.filter((p) => p.entry.index === indexes[0]).map((p) => p.declaration).toSorted(byPlace)[0] as TS.Declaration;
-      if (!out.has(latest.index)) out.set(latest.index, { name: latest.newName, ...position(earliest) });
-    }
+  for (const group of meetings(renames.flatMap((p) => p.declared))) {
+    const met = meetingOf(group, deciding);
+    if (met !== null && !out.has(met.latest.index)) out.set(met.latest.index, { name: met.latest.newName, ...position(met.earliest) });
   }
   return out;
+}
+
+/** What decides a pair: the entry renaming each declaration (by its key), the kept declarations and their order. */
+interface Deciding {
+  owner: Map<string, ScopedEntry>;
+  isKept: (d: TS.Declaration) => boolean;
+  byPlace: (a: TS.Declaration, b: TS.Declaration) => number;
+}
+
+/** The first declaration of `entry`'s new name its scope keeps under that name; undefined when there is none, one of
+ * the pair is kept, or a retarget rewrites one. */
+function staying(entry: ScopedEntry, declared: Placed[], c: Deciding): TS.Declaration | undefined {
+  const spelled = identifierText(entry.newName);
+  const existing = [...new Set(declared.flatMap((p) => p.existing))];
+  if (declared.some((p) => c.isKept(p.declaration)) || existing.some(c.isKept)) return undefined;
+  const renamed = existing.map((e) => c.owner.get(keyAt(e)));
+  if (renamed.some((o) => o?.retarget === true)) return undefined;
+  const left = existing.filter((_, i) => renamed[i] === undefined || identifierText((renamed[i] as ScopedEntry).newName) === spelled);
+  return left.toSorted(c.byPlace)[0];
+}
+
+/** The renamed declarations grouped by scope and new name. */
+function meetings(declared: Placed[]): Placed[][] {
+  const meeting = new Map<object, Map<string, Placed[]>>();
+  for (const p of declared) {
+    const spelled = identifierText(p.entry.newName);
+    const names = meeting.get(p.scope) ?? new Map<string, Placed[]>();
+    names.set(spelled, [...(names.get(spelled) ?? []), p]);
+    meeting.set(p.scope, names);
+  }
+  return [...meeting.values()].flatMap((names) => [...names.values()]);
+}
+
+/** The latest entry of `group` renamed onto another entry's declaration, and the earliest entry's first declaration;
+ * null when fewer than two entries meet or one of their declarations is kept. */
+function meetingOf(group: Placed[], c: Deciding): { latest: ScopedEntry; earliest: TS.Declaration } | null {
+  const shares = (a: Placed, b: Placed): boolean => !a.member && (!overlaps(a.declaration, b.declaration) || mayShare(a.declaration, b.declaration));
+  const meets = group.filter((a) => group.some((b) => b.entry !== a.entry && !shares(a, b)));
+  const indexes = [...new Set(meets.map((p) => p.entry.index))].sort((a, b) => a - b);
+  if (indexes.length < 2 || meets.some((p) => c.isKept(p.declaration))) return null;
+  const latest = (meets.find((p) => p.entry.index === indexes.at(-1)) as Placed).entry;
+  const earliest = meets.filter((p) => p.entry.index === indexes[0]).map((p) => p.declaration).toSorted(c.byPlace)[0] as TS.Declaration;
+  return { latest, earliest };
 }

@@ -423,13 +423,7 @@ export class NameChecks {
     const edited = this.edited(ours);
     const resolver = new Resolver((path, position) => edited.get(path)?.original(position) ?? position);
     const after = this.after(edited, resolver);
-    const renamed = new Map<string, CheckEntry>();
-    for (const [key, o] of this.before) {
-      const edit = editAt.get(key);
-      const entry = edit === undefined ? undefined : byIndex.get(edit.entry);
-      const now = after.get(key);
-      if (entry?.expected === null && now !== undefined && now.text !== o.text && declarationOf(o.node) !== null) renamed.set(key, entry);
-    }
+    const renamed = this.renamedDeclarations(editAt, byIndex, after);
     const members = this.renamedMembers(ours, byIndex);
     for (const m of members) renamed.set(m.key, m.entry);
     const first = this.firstDeclarations(renamed);
@@ -446,6 +440,23 @@ export class NameChecks {
       const site = first.get(earliest.index);
       if (site !== undefined) sites.push({ entry: latest.index, name: latest.newName, ...site });
     }
+    return this.firstSites(sites);
+  }
+
+  /** The declarations a `new_name` entry's edit renames, by their key, each with its entry. */
+  private renamedDeclarations(editAt: Map<string, EntryEdit>, byIndex: Map<number, CheckEntry>, after: Map<string, Occurrence>): Map<string, CheckEntry> {
+    const renamed = new Map<string, CheckEntry>();
+    for (const [key, o] of this.before) {
+      const edit = editAt.get(key);
+      const entry = edit === undefined ? undefined : byIndex.get(edit.entry);
+      const now = after.get(key);
+      if (entry?.expected === null && now !== undefined && now.text !== o.text && declarationOf(o.node) !== null) renamed.set(key, entry);
+    }
+    return renamed;
+  }
+
+  /** Each entry's first site, by project-relative path then offset. */
+  private firstSites(sites: Site[]): Map<number, NameConflict> {
     const out = new Map<number, NameConflict>();
     for (const site of sites.toSorted((a, b) => a.entry - b.entry || byCodePoint(this.rel(a.path), this.rel(b.path)) || a.position - b.position)) {
       if (!out.has(site.entry)) out.set(site.entry, { name: site.name, path: site.path, position: site.position });
