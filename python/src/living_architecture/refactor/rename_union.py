@@ -19,6 +19,7 @@ from typing_extensions import override
 
 from living_architecture.contract import message
 from living_architecture.lang import Occurrence, Span
+from living_architecture.refactor.carve_outs import CarveOuts, is_fixture
 from living_architecture.refactor.entry_location import Entry, EntryLocator, StaticTrace
 from living_architecture.refactor.hierarchy import ClassGraph, ClassKey
 from living_architecture.refactor.keyed import (
@@ -243,6 +244,7 @@ class RenameOptions(BaseModel):
     docs: bool = False
     fail_fast: bool = False
     stub: str | None = None
+    words: str | None = None
 
 
 class Declaration(BaseModel):
@@ -352,8 +354,9 @@ class SymbolRename(MapRename):
     leftovers."""
 
     def __init__(self, session: Session, entry: Entry, new_name: str, options: RenameOptions | None = None, *,
-                 site: tuple[str, int], locator: EntryLocator) -> None:
+                 site: tuple[str, int], locator: EntryLocator, carves: CarveOuts | None = None) -> None:
         self.session = session
+        self.carves = carves
         self.site = site
         self.entry = entry
         self.locator = locator
@@ -491,20 +494,41 @@ class SymbolRename(MapRename):
         stand_ins = [d for d in self._declarations if (d.rel, d.start) not in hierarchy]
         renamed = set(hierarchy) | self.seeds if self._in_hierarchy else set(self.seeds)
         classified: set[tuple[str, int]] = set()
-        for raw, joined in [*((s, True) for s in self.options.with_sites), *((s, False) for s in self.options.without_sites)]:
-            site = Site.parse(raw, self.root)
-            matched = [d for d in stand_ins if site.line is not None and site.covers(d.rel, d.line)]
-            if matched:
-                self.matched_sites.add(raw)
-            for d in matched:
-                found = self.locator.at(d.rel, d.start)
-                theirs = self._hierarchy(index, {(d.rel, d.start)}, found.kind == "method")
-                classified |= theirs | {(d.rel, d.start)}
-                if joined:
-                    self.entries.append(found)
-                    renamed |= theirs | {(d.rel, d.start)} if self._in_hierarchy else self._own(index, d)
+        for raw in self.options.with_sites:
+            classified |= self._classify_site(index, raw, stand_ins, renamed)
+        for raw in self.options.without_sites:
+            classified |= self._classify_site(index, raw, stand_ins, None)
+        for d in (d for d in stand_ins if (d.rel, d.start) not in classified):
+            found = self.locator.at(d.rel, d.start)
+            theirs = self._hierarchy(index, {(d.rel, d.start)}, found.kind == "method") | {(d.rel, d.start)}
+            if all(self._left_by_default(site) for site in theirs):
+                classified |= theirs
         self._unclassified = [d for d in stand_ins if (d.rel, d.start) not in classified]
         self.seeds = renamed
+
+    def _classify_site(self, index: RunIndex, raw: str, stand_ins: list[Declaration],
+                       renamed: set[tuple[str, int]] | None) -> set[tuple[str, int]]:
+        """The declarations the `--with` (`renamed` given, which they join) or `--without` site `raw` classifies."""
+        site = Site.parse(raw, self.root)
+        matched = [d for d in stand_ins if site.line is not None and site.covers(d.rel, d.line)]
+        if matched:
+            self.matched_sites.add(raw)
+        classified: set[tuple[str, int]] = set()
+        for d in matched:
+            found = self.locator.at(d.rel, d.start)
+            theirs = self._hierarchy(index, {(d.rel, d.start)}, found.kind == "method") | {(d.rel, d.start)}
+            classified |= theirs
+            if renamed is not None:
+                self.entries.append(found)
+                renamed |= theirs if self._in_hierarchy else self._own(index, d)
+        return classified
+
+    def _left_by_default(self, site: tuple[str, int]) -> bool:
+        """The member declaration at `site` is a test fixture, or one a carve-out keeps."""
+        rel, start = site
+        if is_fixture(self.snapshot.source(rel), start):
+            return True
+        return self.carves is not None and bool(self.carves.carved(rel, self.old, [start]))
 
     @override
     def stand_in_findings(self) -> list[Finding]:
@@ -855,6 +879,11 @@ class SymbolRename(MapRename):
             text = self.snapshot.text(rel)
             unhandled = [m for m in found if not self._overlaps(self._targets, rel, m.start, m.end)]
             rewrite, listed = classify(text, unhandled, rules, declaring=is_declaring)
+            if self.carves is not None:
+                carved = [m for m in rewrite
+                          if not rules.qualified(text, m.start) and self.carves.covers(rel, self.old, m.start)]
+                rewrite = [m for m in rewrite if m not in carved]
+                listed = [*listed, *carved]
             for m in sorted([*rewrite, *listed], key=lambda m: m.start):
                 self._file(mention_outcome(rel, m, rewrite=m in rewrite, old=self.old, new=self.new))
 

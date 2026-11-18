@@ -1,0 +1,2 @@
+- {file: pkg/l.py, symbol: '*.<locals>.model', new_name: dataset}
+- {file: pkg/l.py, symbol: f.<locals>.model, new_name: table}

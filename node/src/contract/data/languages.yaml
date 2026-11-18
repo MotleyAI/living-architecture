@@ -23,6 +23,8 @@
 # both match by the declaration `qualname` in `module`. `name_class_values` (python) are the class-body assignments
 # whose value names members of the class, in the listed `shapes` (`element` of a tuple, list or set display, the
 # whole `string`, a dict display's `key`).
+# `fixture_decorators` are the decorators, as dotted names, under which a method is a test fixture: a stand-in a
+# rename leaves by default.
 # Test globs use the contract glob dialect (contract README: matched against the POSIX repo-relative path;
 # case-sensitive; `*` stays within one segment; `**` is zero or more whole segments).
 
@@ -66,6 +68,7 @@ python:
   name_class_values:
     - {name: __slots__, shapes: [element, string, key]}
     - {name: __match_args__, shapes: [element]}
+  fixture_decorators: [pytest.fixture, pytest_asyncio.fixture]
   any_type: Any
   top_type: object
   executables: []
@@ -109,6 +112,7 @@ typescript:
     - {call: Reflect.getOwnPropertyDescriptor, object: 0, member: 1}
     - {call: Object.defineProperty, object: 0, member: 1}
     - {call: Object.getOwnPropertyDescriptor, object: 0, member: 1}
+  fixture_decorators: []
   # Mock calls naming a module by path: the framework receivers (a named import from `module`, or the unshadowed global
   # of that name) and their calls taking a module path as argument 0, with the factory's argument index where one is taken.
   mock_receivers:

@@ -12,7 +12,7 @@ import type { MovedSpan } from './position.js';
 import { Progress } from './progress.js';
 import { languageFiles, realPath, under } from './routing.js';
 import { timed } from './timings.js';
-import { type Located, locate as locateSymbol } from './symbols.js';
+import { type Located, locate as locateSymbol, locateEvery as locateEverySymbol } from './symbols.js';
 import { Workspace } from './workspace.js';
 import { type Write, writeAll } from './writer.js';
 
@@ -20,7 +20,7 @@ export interface RefactorArgs {
   project: string;
   apply: boolean;
   timings?: boolean;
-  subcommand: 'rename' | 'rename-map' | 'retarget' | 'move-symbol' | 'move-module';
+  subcommand: 'rename' | 'rename-map' | 'generate-map' | 'retarget' | 'move-symbol' | 'move-module';
   file?: string;
   offset?: number;
   line?: number;
@@ -36,6 +36,9 @@ export interface RefactorArgs {
   without_stand_ins?: string[];
   keep?: string[];
   docs?: boolean;
+  words?: string;
+  table?: string;
+  language?: string;
   fail_fast?: boolean;
   stub?: string;
   dest?: string;
@@ -140,20 +143,34 @@ export function* nodes(node: TS.Node): Generator<TS.Node> {
   for (const child of node.getChildren()) yield* nodes(child);
 }
 
-/** Where `locator` points in `file` (`shown` in messages): its offset, its line and column (code points), else the
- * declaration its path names. */
+/** Where an offset or a line and column of `locator` points in `text`; null for any other locator. */
+export function positionOf(text: string, locator: Locator): number | null {
+  if (locator.offset !== undefined) return locateOffset(text, locator.offset);
+  return locator.line === undefined ? null : locateLine(text, locator.line, locator.col ?? 1);
+}
+
+/** Every place `locator` points at in `file` (`shown` in messages): its offset, its line and column (code points),
+ * the declaration its path names, or with `every` each local its wildcard path names. */
+function locateAll(r: Refactor, file: string, shown: string, locator: Locator, follow: boolean, every: boolean): Located[] {
+  const position = positionOf(readFile(file, 'utf8'), locator);
+  if (position !== null) return [{ file, position, topLevel: false }];
+  if (locator.symbol === undefined) throw new RefactorError(message('refactor.no-locator'));
+  r.owner(file);
+  const program = r.services(file)[0]?.getProgram();
+  const source = program?.getSourceFile(file);
+  if (program === undefined || source === undefined) throw new RefactorError(message('refactor.ts-outside-project', { path: r.rel(file) }));
+  const checker = program.getTypeChecker();
+  return every ? locateEverySymbol(checker, source, locator.symbol, shown) : [locateSymbol(checker, source, locator.symbol, shown, follow)];
+}
+
+/** Where `locator` points in `file`; a wildcard path is refused. */
 export function locate(r: Refactor, file: string, shown: string, locator: Locator, follow = true): Located {
-  const text = readFile(file, 'utf8');
-  if (locator.offset !== undefined) return { file, position: locateOffset(text, locator.offset), topLevel: false };
-  if (locator.line !== undefined) return { file, position: locateLine(text, locator.line, locator.col ?? 1), topLevel: false };
-  if (locator.symbol !== undefined) {
-    r.owner(file);
-    const program = r.services(file)[0]?.getProgram();
-    const source = program?.getSourceFile(file);
-    if (program === undefined || source === undefined) throw new RefactorError(message('refactor.ts-outside-project', { path: r.rel(file) }));
-    return locateSymbol(program.getTypeChecker(), source, locator.symbol, shown, follow);
-  }
-  throw new RefactorError(message('refactor.no-locator'));
+  return locateAll(r, file, shown, locator, follow, false)[0] as Located;
+}
+
+/** Where `locator` points in `file`, a wildcard path at each local it names. */
+export function locateEvery(r: Refactor, file: string, shown: string, locator: Locator): Located[] {
+  return locateAll(r, file, shown, locator, true, true);
 }
 
 function locateOffset(text: string, offset: number): number {

@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "word-table.schema.json",
+  "title": "dr-refactor word table",
+  "description": "A vocabulary rename: words (each from becomes its to wherever a name holds it as a word), carve_outs (where a word keeps its old sense: by a written annotation naming an identifier, by the declaring file's path, or by symbol) and entries (hand-written rename-map entries, kept on every regeneration). The loader also refuses a from given twice, a from equal to its to, and a carve-out word that is no from.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["words"],
+  "properties": {
+    "words": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/row"}},
+    "carve_outs": {"type": "array", "items": {"$ref": "#/$defs/carve_out"}},
+    "entries": {"type": "array", "items": {"$ref": "rename-map.schema.json#/$defs/entry"}}
+  },
+  "$defs": {
+    "word": {"type": "string", "pattern": "^[a-z][a-z0-9]*$"},
+    "row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from", "to"],
+      "properties": {"from": {"$ref": "#/$defs/word"}, "to": {"$ref": "#/$defs/word"}}
+    },
+    "carve_out": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["words"],
+      "properties": {
+        "words": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/word"}},
+        "annotated": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "pattern": "^(?![0-9])[^\\s!-#%-/:-@\\[-^`{-~]+$"}
+        },
+        "paths": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+        "symbols": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["file", "symbol"],
+            "properties": {
+              "file": {"type": "string", "minLength": 1},
+              "symbol": {"type": "string", "minLength": 1}
+            }
+          }
+        }
+      },
+      "oneOf": [
+        {"required": ["annotated"], "not": {"anyOf": [{"required": ["paths"]}, {"required": ["symbols"]}]}},
+        {"required": ["paths"], "not": {"anyOf": [{"required": ["annotated"]}, {"required": ["symbols"]}]}},
+        {"required": ["symbols"], "not": {"anyOf": [{"required": ["annotated"]}, {"required": ["paths"]}]}}
+      ]
+    }
+  }
+}

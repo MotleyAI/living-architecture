@@ -1,0 +1,3 @@
+- {file: pkg/v.ts, symbol: Query.measures, new_name: metrics}
+- {file: pkg/v.ts, symbol: addMeasures, new_name: addMetrics}
+- {file: pkg/v.ts, symbol: addMeasures(measures), new_name: metrics}

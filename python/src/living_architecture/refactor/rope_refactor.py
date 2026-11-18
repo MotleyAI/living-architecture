@@ -11,6 +11,7 @@ from typing import Any
 from living_architecture.contract import message
 from living_architecture.refactor.baseline_align import BaselineFailed
 from living_architecture.refactor.diff_render import edit_description, move_description
+from living_architecture.refactor.generate_map import generate_map
 from living_architecture.refactor.locators import Locator, RefactorError, offset_from_line_col, resolve
 from living_architecture.refactor.map_file import MapEntry, MapError, load_map
 from living_architecture.refactor.module_move import module_move_texts
@@ -30,7 +31,7 @@ from living_architecture.refactor.rename_map import (
 from living_architecture.refactor.rope_patches import WalkerGap, apply_rope_patches
 from living_architecture.refactor.routing import language_files
 from living_architecture.refactor.symbol_move import symbol_move_texts
-from living_architecture.refactor.symbol_path import LocatorError
+from living_architecture.refactor.symbol_path import LocatorError, is_wildcard, wildcard_refused
 from living_architecture.refactor.timings import timed
 from living_architecture.refactor.writer import FileChanged, FileMove, FileWrite, WriteFailed
 
@@ -90,6 +91,8 @@ def move_symbol(root: Path, *, file: str, locator: Locator, dest: str, apply: bo
         with timed("resolve"):
             source = project.rel(file)
             text = project.snapshot.source(source)
+            if is_wildcard(locator.symbol):
+                raise wildcard_refused(file, str(locator.symbol))
             offset, located = resolve(locator, text, file)
             module = project.module(source)
             if (located is not None and not located.top_level) or module is None:
@@ -159,6 +162,8 @@ def _entries(command: str, project_root: str, options: dict[str, Any]) -> tuple[
 
 
 def _run(project_root: str, command: str, apply: bool, options: dict[str, Any]) -> int:
+    if command == "generate-map":
+        return generate_map(Path(project_root).resolve(), str(options["table"]))
     progress = Progress()
     root = Path(project_root).resolve()
     if command in ("rename", "retarget", "rename-map"):

@@ -837,6 +837,7 @@ RENAME_GUARD_OPTIONS = {
     "--without": ("string", "without_stand_ins", True),
     "--keep": ("string", "keep", True),
     "--docs": ("flag", "docs", False),
+    "--words": ("path", "words", False),
     "--fail-fast": ("flag", "fail_fast", False),
 }
 

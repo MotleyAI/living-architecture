@@ -1,5 +1,6 @@
 // `--symbol Q`: a declaration located by its path inside a TypeScript file (`Class.method`, `fn.<locals>.inner`,
-// `fn(param)`, `Alias['value']`); declarations the checker resolves to one symbol are one symbol.
+// `fn(param)`, `Alias['value']`), or every local of a name by a wildcard path (`*.<locals>.name`); declarations the
+// checker resolves to one symbol are one symbol, and without a checker those one scope declares.
 import type * as TS from 'typescript';
 import { byCodePoint, message } from '../contract/index.js';
 import { ts } from '../lang/index.js';
@@ -25,6 +26,22 @@ export function parsePath(raw: string): SymbolPath | null {
   return { segments, param: m.groups.param?.trim() ?? null, value: m.groups.value ?? null };
 }
 
+/** A wildcard path's parts: `scope.*.<locals>.name`, the scope empty for the whole file. */
+export interface WildcardPath {
+  scope: string[];
+  name: string;
+}
+
+/** `raw` as a wildcard path; null for any other path, a misplaced `*` included. */
+export function wildcardPath(raw: string): WildcardPath | null {
+  const path = parsePath(raw);
+  if (path?.param !== null || path.value !== null) return null;
+  const scope = path.segments.slice(0, -3);
+  const [star, step, name = ''] = path.segments.slice(-3);
+  if (path.segments.length < 3 || star !== '*' || step !== LOCALS || name === '*') return null;
+  return scope.includes('*') || scope.at(-1) === LOCALS ? null : { scope, name };
+}
+
 /** What a path names: the position of the declaration's name (or inside the literal member's string) in `file`. */
 export interface Located {
   file: string;
@@ -36,6 +53,8 @@ interface Declaration {
   name: string;
   node: TS.Node;
   nameNode: TS.Node;
+  /** The scope it was looked up in. */
+  scope?: TS.Node;
 }
 
 const isFunctionLike = (node: TS.Node): node is TS.SignatureDeclaration & { body?: TS.Node } =>
@@ -176,11 +195,69 @@ type Lookup = (scope: Scope) => Declaration[];
 
 const lookup: Lookup = (scope) => (ts().isSourceFile(scope) || !isFunctionLike(scope) ? members(scope) : locals(scope));
 
-/** The declarations grouped by the checker's symbol, in source order. */
-function bySymbol(checker: TS.TypeChecker, found: Declaration[]): Declaration[][] {
-  const groups = new Map<TS.Symbol | TS.Node, Declaration[]>();
+const lookupIn = (scope: Scope): Declaration[] => lookup(scope).map((d) => ({ ...d, scope }));
+
+const ids = new WeakMap<TS.Node, number>();
+let nextId = 0;
+
+function idOf(node: TS.Node): string {
+  let id = ids.get(node);
+  if (id === undefined) {
+    nextId += 1;
+    id = nextId;
+    ids.set(node, id);
+  }
+  return `#${id}`;
+}
+
+const opensBlock = (node: TS.Node): boolean =>
+  ts().isBlock(node) ||
+  ts().isSourceFile(node) ||
+  ts().isModuleBlock(node) ||
+  ts().isCaseBlock(node) ||
+  ts().isForStatement(node) ||
+  ts().isForInStatement(node) ||
+  ts().isForOfStatement(node) ||
+  ts().isCatchClause(node) ||
+  isFunctionLike(node);
+
+/** The block, loop or function whose scope a local declaration is in; a `var`'s is its function. */
+function blockOf(node: TS.Node): TS.Node {
+  let declared: TS.Node = node;
+  while (ts().isBindingElement(declared) || ts().isObjectBindingPattern(declared) || ts().isArrayBindingPattern(declared)) declared = declared.parent;
+  const list = ts().isVariableDeclaration(declared) && ts().isVariableDeclarationList(declared.parent) ? declared.parent : undefined;
+  const hoisted = list !== undefined && (list.flags & ts().NodeFlags.BlockScoped) === 0; // NOSONAR(S1529) — NodeFlags bitmask test
+  let scope = (list ?? declared).parent as TS.Node | undefined;
+  while (scope !== undefined && !(hoisted ? isFunctionLike(scope) || ts().isSourceFile(scope) || ts().isModuleBlock(scope) : opensBlock(scope))) scope = scope.parent;
+  return scope ?? node.getSourceFile();
+}
+
+/** A member scope's key: equal for the declarations that merge (a namespace's blocks, an interface's bodies). */
+function scopeKey(scope: Scope): string {
+  if (ts().isSourceFile(scope)) return '';
+  if (ts().isTypeLiteralNode(scope)) return ts().isTypeAliasDeclaration(scope.parent) ? `${scopeKey(scope.parent)}{}` : idOf(scope);
+  const name = nameText((scope as TS.NamedDeclaration).name);
+  if (name === null) return idOf(scope);
+  const parent = scope.parent as TS.Node | undefined;
+  if (parent === undefined || ts().isSourceFile(parent)) return `/${name}`;
+  if (ts().isModuleBlock(parent)) return `${scopeKey(parent.parent)}/${name}`;
+  return ts().isModuleDeclaration(parent) ? `${scopeKey(parent)}/${name}` : `${idOf(blockOf(scope))}/${name}`;
+}
+
+const isStatic = (node: TS.Node): boolean => ts().canHaveModifiers(node) && (ts().getModifiers(node) ?? []).some((m) => m.kind === ts().SyntaxKind.StaticKeyword);
+
+/** A declaration's symbol read from syntax: its scope, a function's local by its block, and its name. */
+function syntacticKey(d: Declaration): string {
+  const scope = d.scope ?? d.node.getSourceFile();
+  const home = ts().isSourceFile(scope) || !isFunctionLike(scope) ? scopeKey(scope) : idOf(blockOf(d.node));
+  return `${home}|${isStatic(d.node) ? 'static ' : ''}${d.name}`;
+}
+
+/** The declarations grouped by the checker's symbol (without one, by scope and name), in source order. */
+function bySymbol(checker: TS.TypeChecker | null, found: Declaration[]): Declaration[][] {
+  const groups = new Map<TS.Symbol | TS.Node | string, Declaration[]>();
   for (const d of found.toSorted((a, b) => a.nameNode.getStart() - b.nameNode.getStart())) {
-    const key = checker.getSymbolAtLocation(d.nameNode) ?? d.nameNode;
+    const key = checker === null ? syntacticKey(d) : (checker.getSymbolAtLocation(d.nameNode) ?? d.nameNode);
     groups.set(key, [...(groups.get(key) ?? []), d]);
   }
   return [...groups.values()];
@@ -190,7 +267,8 @@ const IMPORTS = (node: TS.Node): boolean =>
   ts().isImportSpecifier(node) || ts().isImportClause(node) || ts().isNamespaceImport(node) || ts().isImportEqualsDeclaration(node) || ts().isExportSpecifier(node);
 
 /** The declaration an import binding names, followed through its alias; the binding itself when it resolves outside sources. */
-function imported(checker: TS.TypeChecker, d: Declaration): Located | null {
+function imported(checker: TS.TypeChecker | null, d: Declaration): Located | null {
+  if (checker === null) return null;
   const symbol = checker.getSymbolAtLocation(d.nameNode);
   if (symbol === undefined || (symbol.flags & ts().SymbolFlags.Alias) === 0) return null; // NOSONAR(S1529) — SymbolFlags bitmask test
   const target = checker.getAliasedSymbol(symbol).declarations?.[0];
@@ -200,12 +278,17 @@ function imported(checker: TS.TypeChecker, d: Declaration): Located | null {
   return { file: source.fileName, position: name.getStart(source), topLevel: false };
 }
 
-/** The declaration `raw` names in `source`, an import or re-export followed to what it names unless `follow` is
- * false; LocatorError when it names none or more than one symbol. */
-export function locate(checker: TS.TypeChecker, source: TS.SourceFile, raw: string, shown: string, follow = true): Located {
+type Unresolved = (names: Iterable<string>) => LocatorError;
+
+const unresolvedAs = (raw: string, shown: string): Unresolved => (names) =>
+  new LocatorError(message('refactor.symbol-unresolved', { path: shown, symbol: raw, candidates: [...new Set(names)].sort(byCodePoint).join(', ') }));
+
+/** The declaration `raw` names in `source` (by syntax alone without a `checker`), an import or re-export followed to
+ * what it names unless `follow` is false; LocatorError when it names none or more than one symbol, or is a wildcard. */
+export function locate(checker: TS.TypeChecker | null, source: TS.SourceFile, raw: string, shown: string, follow = true): Located {
+  if (wildcardPath(raw) !== null) throw new LocatorError(message('refactor.symbol-wildcard', { path: shown, symbol: raw }));
   const path = parsePath(raw);
-  const unresolved = (names: Iterable<string>): LocatorError =>
-    new LocatorError(message('refactor.symbol-unresolved', { path: shown, symbol: raw, candidates: [...new Set(names)].sort(byCodePoint).join(', ') }));
+  const unresolved = unresolvedAs(raw, shown);
   if (path === null) throw unresolved(members(source).map((d) => d.name));
   const { segments } = path;
   const groups = walk(checker, source, segments, unresolved);
@@ -230,10 +313,10 @@ export function locate(checker: TS.TypeChecker, source: TS.SourceFile, raw: stri
 }
 
 /** The symbols (declaration groups) the segments reach from the file. */
-function walk(checker: TS.TypeChecker, source: TS.SourceFile, segments: string[], unresolved: (names: Iterable<string>) => LocatorError): Declaration[][] {
+function walk(checker: TS.TypeChecker | null, source: TS.SourceFile, segments: string[], unresolved: Unresolved): Declaration[][] {
   let scopes: Scope[] = [source];
   for (let i = 0; ; ) {
-    const found = scopes.flatMap(lookup);
+    const found = scopes.flatMap(lookupIn);
     const groups = bySymbol(checker, found.filter((d) => d.name === segments[i]));
     if (groups.length === 0) throw unresolved(found.map((d) => d.name));
     i += 1;
@@ -249,7 +332,7 @@ function walk(checker: TS.TypeChecker, source: TS.SourceFile, segments: string[]
   }
 }
 
-function parameter(group: Declaration[], name: string, unresolved: (names: Iterable<string>) => LocatorError): Declaration {
+function parameter(group: Declaration[], name: string, unresolved: Unresolved): Declaration {
   const params = group.flatMap((d) => {
     const fn = functionOf(d.node);
     return fn === null ? [] : (fn as TS.SignatureDeclaration).parameters.flatMap((p) => bindingNames(p, p.name));
@@ -260,7 +343,7 @@ function parameter(group: Declaration[], name: string, unresolved: (names: Itera
 }
 
 /** Inside the string `value` of a string-literal type in the declaration's annotation or alias body. */
-function literalMember(source: TS.SourceFile, group: Declaration[], value: string, unresolved: (names: Iterable<string>) => LocatorError): Located {
+function literalMember(source: TS.SourceFile, group: Declaration[], value: string, unresolved: Unresolved): Located {
   const strings: TS.StringLiteral[] = [];
   const collect = (node: TS.Node): void => {
     if (ts().isLiteralTypeNode(node) && ts().isStringLiteral(node.literal)) strings.push(node.literal);
@@ -273,4 +356,75 @@ function literalMember(source: TS.SourceFile, group: Declaration[], value: strin
   const found = strings.find((s) => s.text === value);
   if (found === undefined) throw unresolved(strings.map((s) => s.text));
   return { file: source.fileName, position: found.getStart(source) + 1, topLevel: false };
+}
+
+/** The scopes a declaration opens, whatever the next step: its function body and its members. */
+const opened = (node: TS.Node): Scope[] => [...(functionOf(node) === null ? [] : [functionOf(node) as TS.Node]), ...memberScopes(node)];
+
+/** Every local a wildcard path names in `source`, one per symbol in source order; LocatorError when it names none,
+ * listing the names its scope, or the file, declares. */
+export function locateEvery(checker: TS.TypeChecker | null, source: TS.SourceFile, raw: string, shown: string): Located[] {
+  const wildcard = wildcardPath(raw);
+  const unresolved = unresolvedAs(raw, shown);
+  if (wildcard === null) return [locate(checker, source, raw, shown)];
+  const roots: Scope[] = wildcard.scope.length === 0 ? [source] : walk(checker, source, wildcard.scope, unresolved).flat().flatMap((d) => opened(d.node));
+  const functions: Scope[] = [];
+  const collect = (scope: Scope): void => {
+    for (const d of lookup(scope)) {
+      const fn = functionOf(d.node);
+      if (fn !== null) functions.push(fn);
+      for (const inner of opened(d.node)) collect(inner);
+    }
+  };
+  for (const root of roots) collect(root);
+  const groups = bySymbol(checker, functions.flatMap(lookupIn).filter((d) => d.name === wildcard.name));
+  if (groups.length === 0) throw unresolved(roots.flatMap(lookup).map((d) => d.name));
+  return groups.map((group) => ({ file: source.fileName, position: (group[0] as Declaration).nameNode.getStart(source), topLevel: false }));
+}
+
+/** A symbol a path reaches: its path (null when the path does not locate exactly it), its declarations' names in
+ * source order, its first declaration, and whether it is a function's local or a parameter. */
+export interface Reached {
+  path: string | null;
+  names: TS.Node[];
+  node: TS.Node;
+  local: boolean;
+  parameter: boolean;
+}
+
+const SEGMENT = /^[\p{ID_Start}$_][\p{ID_Continue}$\u200C\u200D]*$/u;
+
+const under = (path: string | null, suffix: string): string | null => (path === null ? null : `${path}${suffix}`);
+
+/** The parameters of `functions`, the first of each name by its path under `one`. */
+function parametersOf(functions: Scope[], one: string | null): Reached[] {
+  const seen = new Set<string>();
+  const found = functions.flatMap((fn) => (fn as TS.SignatureDeclaration).parameters.flatMap((param) => bindingNames(param, param.name)));
+  return found.map((p) => {
+    const first = one !== null && !seen.has(p.name) && SEGMENT.test(p.name);
+    seen.add(p.name);
+    return { path: first ? `${one}(${p.name})` : null, names: [p.nameNode], node: p.node, local: false, parameter: true };
+  });
+}
+
+/** Every symbol of `source` a symbol path reaches, read from syntax. */
+export function reach(source: TS.SourceFile): Reached[] {
+  const out: Reached[] = [];
+  const visit = (scopes: Scope[], prefix: string | null, local: boolean): void => {
+    const found = scopes.flatMap(lookupIn);
+    for (const name of new Set(found.map((d) => d.name))) {
+      const groups = bySymbol(null, found.filter((d) => d.name === name));
+      const path = prefix !== null && SEGMENT.test(name) ? `${prefix}${name}` : null;
+      const one = groups.length === 1 ? path : null;
+      for (const group of groups) out.push({ path: one, names: group.map((d) => d.nameNode), node: (group[0] as Declaration).node, local, parameter: false });
+      const nodes = groups.flat().map((d) => d.node);
+      const functions = nodes.flatMap((node) => functionOf(node) ?? []);
+      out.push(...parametersOf(functions, one));
+      if (functions.length > 0) visit(functions, under(path, `.${LOCALS}.`), true);
+      const inner = nodes.flatMap(memberScopes);
+      if (inner.length > 0) visit(inner, under(path, '.'), false);
+    }
+  };
+  visit([source], '', false);
+  return out;
 }

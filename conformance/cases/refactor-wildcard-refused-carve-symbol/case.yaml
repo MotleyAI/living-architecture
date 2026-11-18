@@ -1,0 +1,15 @@
+kind: paired
+languages:
+- python
+- typescript
+command: dr-refactor
+args:
+- generate-map
+- words.yaml
+fixture: refactor-words
+git:
+- commit: init
+expect:
+  exit: 2
+golden: manual
+note: 'a word table whose carve-out symbols hold a wildcard path: symbol-wildcard naming the carve-out''s file, no map'

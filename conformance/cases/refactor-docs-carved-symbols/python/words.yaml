@@ -1,0 +1,6 @@
+words:
+- {from: columns, to: fields}
+carve_outs:
+- words: [columns]
+  symbols:
+  - {file: pkg/c.py, symbol: 'field_names(columns)'}

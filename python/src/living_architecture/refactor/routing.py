@@ -13,6 +13,7 @@ from living_architecture.config import ConfigError, find_repo_root, load_config,
 from living_architecture.contract import glob_match, language, language_ids, language_of, message
 from living_architecture.refactor.map_file import MapError, load_map, map_language
 from living_architecture.refactor.timings import report
+from living_architecture.refactor.word_table import load_table
 
 
 class RoutingError(Exception):
@@ -182,8 +183,25 @@ def _map_language(args: Any) -> str:
     return lang_id
 
 
+def _generate_language(args: Any) -> str:
+    """`generate-map`'s language: `--language`, else the one language with sources under the project (the native one
+    when it holds none); `MapError` (exit 2) for an invalid table or sources of more than one."""
+    load_table(args.table)
+    if args.language is not None:
+        return str(args.language)
+    found = [lang_id for lang_id in language_ids() if language_files(Path(args.project), lang_id)]
+    if len(found) > 1:
+        raise MapError(message("refactor.generate-language", languages=", ".join(found)))
+    return found[0] if found else twin.NATIVE_LANGUAGE
+
+
 def refactor_language(args: Any) -> str:
-    """The language `dr-refactor` runs in; RoutingError (exit 1) for a bad or unsupported source or a cross-language dest."""
+    """The language `dr-refactor` runs in; RoutingError (exit 1) for a bad or unsupported source or a cross-language
+    dest, `MapError` (exit 2) for an invalid map or word table."""
+    if args.subcommand == "generate-map":
+        return _generate_language(args)
+    if getattr(args, "words", None) is not None:
+        load_table(args.words)
     if args.subcommand == "rename-map":
         return _map_language(args)
     source = args.module if args.subcommand == "move-module" else args.file

@@ -1,0 +1,33 @@
+kind: paired
+languages:
+- python
+- typescript
+command: dr-refactor
+args:
+  python:
+  - rename
+  - --file
+  - pkg/c.py
+  - --symbol
+  - Ds.columns
+  - --new-name
+  - fields
+  - --words
+  - words.yaml
+  typescript:
+  - rename
+  - --file
+  - pkg/c.ts
+  - --symbol
+  - Ds.columns
+  - --new-name
+  - fields
+  - --words
+  - words.yaml
+fixture: refactor-words
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: with --words, a stand-in member whose written annotation names a carved type is left by default

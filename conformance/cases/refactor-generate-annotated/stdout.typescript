@@ -1,0 +1,2 @@
+- {file: pkg/c.ts, symbol: Ds.columns, new_name: fields}
+- {file: pkg/c.ts, symbol: fieldNames(columns), new_name: fields}

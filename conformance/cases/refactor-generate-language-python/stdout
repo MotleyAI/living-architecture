@@ -1,0 +1,3 @@
+- {file: pkg/v.py, symbol: Query.measures, new_name: metrics}
+- {file: pkg/v.py, symbol: add_measures, new_name: add_metrics}
+- {file: pkg/v.py, symbol: add_measures(measures), new_name: metrics}
