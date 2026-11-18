@@ -126,8 +126,9 @@ def test_a_module_level_mention_follows_the_only_declaration(docs) -> None:
         ('\n\nclass B:\n    field: str = ""\n', ("--without", "pkg/a.py:12")),
         ("\n\nfield = 1\n", ()),
         ("\n\ndef field() -> int:\n    return 1\n", ()),
+        ("\n\nfrom json import dumps as field\n", ()),
     ],
-    ids=["class-member", "module-variable", "module-function"],
+    ids=["class-member", "module-variable", "module-function", "import"],
 )
 def test_a_module_level_mention_beside_an_unchanged_declaration_is_listed(docs, other: str, flags: tuple[str, ...]) -> None:
     root, (code, _out, err) = docs({"pkg/a.py": MODULE + A + other}, *flags)

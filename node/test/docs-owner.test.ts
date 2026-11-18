@@ -91,6 +91,19 @@ describe('--docs owning class', () => {
     expect(read(root, A)).toBe(TABLE_AFTER + unknown);
   });
 
+  it.each([
+    ['before', 'Unknown, Rows', false],
+    ['after', 'Rows, Unknown', true],
+  ])('an unresolved interface base %s the member', (_name, bases, rewritten) => {
+    const rows = 'export interface Rows {\n  columns: string[];\n}\n';
+    const both = `\n/** Reads \`columns\`. */\n// @ts-expect-error unresolved\nexport interface Both extends ${bases} {}\n`;
+    const root = tsProject({ [A]: rows + both });
+    const result = refactor(root, '--apply', 'rename', '--file', A, '--symbol', 'Rows.columns', '--new-name', 'fields', '--docs');
+    expect(result.code).toBe(0);
+    expect(result.err.split('\n').includes(leftover(5, 'comment'))).toBe(!rewritten);
+    expect(read(root, A).split('\n')[4]).toBe(rewritten ? '/** Reads `fields`. */' : '/** Reads `columns`. */');
+  });
+
   it('a class without the member falls back to the file', () => {
     const helper = '\n/** Formats `columns` values. */\nexport class Helper {}\n';
     const { root, result } = renameTable(TABLE + helper);
@@ -113,6 +126,7 @@ describe('--docs outside every owning class', () => {
     ['a class member', RESULT, ['--without', `${A}:11`]],
     ['a module-level constant', '\nexport const columns = 1;\n', []],
     ['a module-level function', '\nexport function columns(): number {\n  return 1;\n}\n', []],
+    ['an import', "\nimport { sep as columns } from 'node:path';\nexport const SEP = columns;\n", []],
   ])('lists beside an unchanged declaration: %s', (_name, other, flags) => {
     const head = '// Rows carry `columns`.\nexport const ROWS = 1;\n\n';
     const { root, result } = renameTable(head + TABLE + other, ...flags);

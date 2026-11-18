@@ -479,15 +479,23 @@ class NameGroup {
       const text = this.session.text(path);
       const source = this.declaring.has(path) ? this.session.sources.get(path) : undefined;
       for (const m of found) {
-        if (this.edits.some((e) => e.path === path && e.start <= m.start && m.start < e.start + e.length)) continue;
-        if ((this.literalSites.get(path) ?? []).some(([s, e]) => s <= m.start && m.start < e)) continue;
+        if (this.handled(path, m.start)) continue;
         const qualifying = names.filter((name) => qualified(text, m.start, owners.filter((o) => o.newName === name), colliding));
-        let newName: string | null = null;
-        if (qualifying.length > 0) newName = qualifying.length === 1 ? (qualifying[0] ?? null) : null;
-        else if (source !== undefined && codeMarked(text, m)) newName = this.ownedName(source, m.start);
-        this.decide(path, m, newName);
+        this.decide(path, m, this.mentionName(qualifying, source, text, m));
       }
     }
+  }
+
+  /** The name a mention takes: the one qualifying name, else a code-marked mention's owned name; null when listed. */
+  private mentionName(qualifying: string[], source: ProjectSource | undefined, text: string, m: Mention): string | null {
+    if (qualifying.length > 0) return qualifying.length === 1 ? (qualifying[0] ?? null) : null;
+    return source !== undefined && codeMarked(text, m) ? this.ownedName(source, m.start) : null;
+  }
+
+  /** Whether an edit or a form site already covers `start`. */
+  private handled(path: string, start: number): boolean {
+    if (this.edits.some((e) => e.path === path && e.start <= start && start < e.start + e.length)) return true;
+    return (this.literalSites.get(path) ?? []).some(([s, e]) => s <= start && start < e);
   }
 
   /** `--docs`: each declaration whose name holds OLD as a word sequence, listed; `renamedNames` are never listed. */

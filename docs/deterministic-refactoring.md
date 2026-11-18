@@ -43,7 +43,8 @@ is needed where two entries rename the word to different names, and a kept line 
 
 A string matching a pattern of the repo's `refactor.string_forms` (a mini-language such as Cypher) is respelled
 with a renamed class or module-level symbol, with or without `--docs`, when every module-level declaration of that
-name in the project is renamed to one name; otherwise the site is listed as a `leftover`.
+name in the project is renamed to one name; otherwise the site is listed as a `leftover`. In both rules a module-level
+import that binds the name and that the run leaves unchanged counts as a declaration left unchanged.
 
 A run announces its phases on stderr as they start — `[resolve]`, `[checks]`, `[references]`, `[rules]`,
 `[conflicts]`, `[baseline]`, `[write]` — with `[references n/count]` as each entry's reference search starts and

@@ -32,6 +32,8 @@ to none, in which case it is listed. A mention SHALL never be refused with `refa
     found).
   - Without an owning class, the mention SHALL be rewritten when every module-level and class-member declaration of
     OLD in that file is renamed by the run, all to one new name, and take that name; otherwise it SHALL be listed.
+    A module-level import that binds OLD and that the run leaves unchanged SHALL count as a module-level declaration
+    the run leaves unchanged.
 - Every other mention SHALL be listed: one `refactor.leftover` line per mention on stderr, sorted by path, line and
   column, with `{where}` one of `comment`, `docstring`, `string`, `prose`. Listing SHALL NOT change the exit code.
 - Only the characters of OLD SHALL change. A mention another rule already rewrote SHALL NOT be listed.
@@ -282,6 +284,8 @@ holds a non-ASCII character SHALL hold no form site.
 
 - A form site SHALL be rewritten, only the characters of the symbol group changing, when every module-level
   declaration named OLD in the project is renamed by the run, all to one new name.
+  A module-level import that binds OLD and that the run leaves unchanged SHALL count as a module-level declaration
+  the run leaves unchanged.
 - Otherwise it SHALL be unchanged and listed as `refactor.leftover` with `{where}` `string`, with or without
   `--docs`.
 - A form site SHALL NOT also be listed as a `--docs` mention, and `--keep`, `--keep-literal` and `--docs-pick` SHALL

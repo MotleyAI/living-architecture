@@ -93,13 +93,7 @@ class GroupMentions:
         if not self.forms or not any(r.entry.kind == "name" for r in self.renames):
             return
         files = self._files()
-        declared: set[Site] = set()
-        for rel in files:
-            source = self.session.snapshot.source(rel)
-            for node in (n for stmt in (source.tree.body if source.tree else []) for n in top_declarations(stmt, self.old)):
-                span = source.name_span(node)
-                if span is not None:
-                    declared.add((rel, span[0]))
+        declared = {site for rel in files for site in self._top_sites(rel)}
         new = self._new_names(declared) if declared else None
         for rel in files:
             source = self.session.snapshot.source(rel)
@@ -113,6 +107,15 @@ class GroupMentions:
                     continue
                 self._handled.setdefault(rel, []).append((start, end))
                 self._decide(rel, Mention(start=start, end=end, line=source.line(start), where="string"), new)
+
+    def _top_sites(self, rel: str) -> Iterator[Site]:
+        """The module-level declarations of the old name in `rel`."""
+        source = self.session.snapshot.source(rel)
+        for stmt in source.tree.body if source.tree else []:
+            for node in top_declarations(stmt, self.old):
+                span = source.name_span(node)
+                if span is not None:
+                    yield rel, span[0]
 
     # ---- mentions
 

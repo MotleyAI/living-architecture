@@ -75,12 +75,32 @@ def test_a_rewritten_form_site_is_not_listed_as_a_docs_mention(forms) -> None:
 
 
 @pytest.mark.parametrize("docs", [False, True], ids=["plain", "docs"])
-def test_a_simple_name_collision_lists_every_form_site(forms, docs: bool) -> None:
-    files = {"pkg/g.py": MODEL + SCHEMA + FIND, "pkg/other.py": MODEL}
+@pytest.mark.parametrize(
+    "other",
+    [
+        MODEL,
+        "Model, rest = 1, 2\n",
+        "[first, *Model] = [1, 2]\n",
+        "first, (Model, rest) = 1, (2, 3)\n",
+        "from json import JSONDecoder as Model\n",
+        "import json as Model\n",
+    ],
+    ids=["class", "tuple", "starred", "nested", "from-import", "import"],
+)
+def test_a_simple_name_collision_lists_every_form_site(forms, docs: bool, other: str) -> None:
+    files = {"pkg/g.py": MODEL + SCHEMA + FIND, "pkg/other.py": other}
     root, (code, _out, err) = forms(files, *(["--docs"] if docs else []))
     assert code == 0
     assert read(root, "pkg/g.py") == MODEL_AFTER + SCHEMA + FIND
     assert err.splitlines() == [leftover("pkg/g.py", 5, "string", "Model"), leftover("pkg/g.py", 6, "string", "Model")]
+
+
+@pytest.mark.parametrize("docs", [False, True], ids=["plain", "docs"])
+def test_an_import_of_the_renamed_class_is_no_collision(forms, docs: bool) -> None:
+    files = {"pkg/g.py": MODEL, "pkg/other.py": "from pkg.g import Model\n\n" + FIND + "\nprint(Model)\n"}
+    root, (code, _out, err) = forms(files, *(["--docs"] if docs else []))
+    assert (code, err) == (0, "")
+    assert read(root, "pkg/other.py") == "from pkg.g import Dataset\n\n" + _renamed(FIND) + "\nprint(Dataset)\n"
 
 
 def test_a_collision_renamed_to_the_same_name_by_the_run_rewrites_the_sites(forms) -> None:

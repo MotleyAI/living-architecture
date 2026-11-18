@@ -2,7 +2,7 @@
 // module-level declarations of a name, and the sites of declared string forms.
 import type * as TS from 'typescript';
 import { ts } from '../lang/index.js';
-import { walk } from './members.js';
+import { isAny, walk } from './members.js';
 import type { Region } from './mentions.js';
 
 /** A class, interface or type literal and the span it owns: its declaration with the JSDoc attached to it. */
@@ -26,54 +26,82 @@ export function ownerSpans(source: TS.SourceFile): OwnerSpan[] {
   return out;
 }
 
-/** A declaration of `node`'s symbol extends a type the checker cannot resolve, directly or through its bases. */
-function unresolvedBase(checker: TS.TypeChecker, node: TS.Node, seen: Set<TS.Node>): boolean {
-  if (seen.has(node) || !(ts().isClassLike(node) || ts().isInterfaceDeclaration(node))) return false;
-  seen.add(node);
-  for (const clause of node.heritageClauses ?? []) {
-    if (clause.token !== ts().SyntaxKind.ExtendsKeyword) continue;
-    for (const base of clause.types) {
-      const written = checker.getTypeAtLocation(ts().isClassLike(node) ? base.expression : base);
-      if ((written.flags & ts().TypeFlags.Any) !== 0) return true;
-      const declarations = checker.getTypeAtLocation(base).symbol?.declarations ?? [];
-      if (declarations.some((d) => unresolvedBase(checker, d, seen))) return true;
+type Heritage = TS.ClassLikeDeclaration | TS.InterfaceDeclaration;
+
+const heritage = (node: TS.Node): node is Heritage => ts().isClassLike(node) || ts().isInterfaceDeclaration(node);
+
+/** Each extended base of `declarations` in order: the node whose type shows whether it resolves, and the base. */
+function* bases(declarations: Heritage[]): Generator<[TS.Node, TS.ExpressionWithTypeArguments]> {
+  for (const declaration of declarations) {
+    for (const clause of declaration.heritageClauses ?? []) {
+      if (clause.token !== ts().SyntaxKind.ExtendsKeyword) continue;
+      for (const base of clause.types) yield [ts().isClassLike(declaration) ? base.expression : base, base];
     }
   }
-  return false;
 }
 
-/** The declarations `owner`'s property lookup of `name` lands on (instance side, then a class's static side); null
- * when it has no such member, 'incomplete' when a base that could hold it does not resolve. */
+/** Walking `node`'s bases in order: false once a type declares `name`, true at an unresolved base before that;
+ * undefined when the walk meets neither. */
+function blocked(checker: TS.TypeChecker, node: TS.Node, name: TS.__String, seen: Set<TS.Node>): boolean | undefined {
+  if (seen.has(node) || !heritage(node)) return undefined;
+  const symbol = checker.getTypeAtLocation(node).symbol as TS.Symbol | undefined;
+  if (symbol?.members?.has(name) === true || symbol?.exports?.has(name) === true) return false;
+  const merged = (symbol?.declarations ?? [node]).filter(heritage);
+  for (const declaration of merged) seen.add(declaration);
+  for (const [written, base] of bases(merged)) {
+    if (isAny(checker, written)) return true;
+    const declarations = checker.getTypeAtLocation(base).symbol?.declarations ?? [];
+    const state = declarations.map((d) => blocked(checker, d, name, seen)).find((found) => found !== undefined);
+    if (state !== undefined) return state;
+  }
+  return undefined;
+}
+
+/** The declarations `owner`'s property lookup of `name` lands on (its instance side and a class's static side); null
+ * when it has no such member, 'incomplete' when a base that could hold it first does not resolve. */
 export function lookup(checker: TS.TypeChecker, owner: TS.Node, name: string): TS.Declaration[] | 'incomplete' | null {
+  if (blocked(checker, owner, ts().escapeLeadingUnderscores(name), new Set()) === true) return 'incomplete';
   const type = checker.getTypeAtLocation(owner);
   const symbol = type.symbol as TS.Symbol | undefined;
   const statics = ts().isClassLike(owner) && symbol !== undefined ? checker.getTypeOfSymbolAtLocation(symbol, owner).getProperty(name) : undefined;
   const found = [type.getProperty(name), statics].flatMap((property) => property?.declarations ?? []);
-  if (found.length > 0) return found;
-  const seen = new Set<TS.Node>();
-  return [owner, ...(symbol?.declarations ?? [])].some((d) => unresolvedBase(checker, d, seen)) ? 'incomplete' : null;
+  return found.length > 0 ? found : null;
 }
 
-/** The start of each module-level declaration of `name` in `source`. */
+/** The identifiers `declared` binds, through destructuring. */
+function bound(declared: TS.Node | undefined): TS.Identifier[] {
+  if (declared === undefined) return [];
+  if (ts().isIdentifier(declared)) return [declared];
+  if (!ts().isObjectBindingPattern(declared) && !ts().isArrayBindingPattern(declared)) return [];
+  return declared.elements.flatMap((element) => (ts().isBindingElement(element) ? bound(element.name) : []));
+}
+
+/** The binding names of an import declaration. */
+function imported(statement: TS.ImportDeclaration): (TS.Node | undefined)[] {
+  const bindings = statement.importClause?.namedBindings;
+  const named = bindings !== undefined && ts().isNamedImports(bindings) ? bindings.elements : [];
+  return [statement.importClause?.name, bindings !== undefined && ts().isNamespaceImport(bindings) ? bindings.name : undefined, ...named.map((e) => e.name)];
+}
+
+/** The binding names a module-level statement declares. */
+function declared(statement: TS.Statement): (TS.Node | undefined)[] {
+  if (ts().isVariableStatement(statement)) return statement.declarationList.declarations.map((d) => d.name);
+  if (ts().isImportDeclaration(statement)) return imported(statement);
+  const named =
+    ts().isImportEqualsDeclaration(statement) ||
+    ts().isFunctionDeclaration(statement) ||
+    ts().isClassDeclaration(statement) ||
+    ts().isInterfaceDeclaration(statement) ||
+    ts().isTypeAliasDeclaration(statement) ||
+    ts().isEnumDeclaration(statement) ||
+    ts().isModuleDeclaration(statement);
+  return named ? [statement.name] : [];
+}
+
+/** The start of each module-level declaration of `name` in `source`, import bindings included. */
 export function topDeclarations(source: TS.SourceFile, name: string): number[] {
-  const out: number[] = [];
-  const add = (declared: TS.Node | undefined): void => {
-    if (declared !== undefined && ts().isIdentifier(declared) && declared.text === name) out.push(declared.getStart(source));
-  };
-  for (const statement of source.statements) {
-    if (ts().isVariableStatement(statement)) for (const d of statement.declarationList.declarations) add(d.name);
-    else if (
-      ts().isFunctionDeclaration(statement) ||
-      ts().isClassDeclaration(statement) ||
-      ts().isInterfaceDeclaration(statement) ||
-      ts().isTypeAliasDeclaration(statement) ||
-      ts().isEnumDeclaration(statement) ||
-      ts().isModuleDeclaration(statement)
-    ) {
-      add(statement.name);
-    }
-  }
-  return out;
+  const names = source.statements.flatMap(declared).flatMap(bound);
+  return names.filter((identifier) => identifier.text === name).map((identifier) => identifier.getStart(source));
 }
 
 const ASCII = /^[\0-\x7F]*$/u;

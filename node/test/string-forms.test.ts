@@ -57,10 +57,28 @@ describe('refactor.string_forms', () => {
     expect(read(root, G)).toBe(MODEL_AFTER + renamed(FIND));
   });
 
-  it.each([[false], [true]])('a simple-name collision lists every form site (--docs %j)', (docs) => {
-    const { root, result } = forms({ [G]: MODEL + SCHEMA + FIND, 'src/other.ts': MODEL }, ...(docs ? ['--docs'] : []));
+  const COLLISIONS = [
+    MODEL,
+    'export const { Model } = { Model: 1 };\n',
+    'export const [first, ...Model] = [1, 2];\n',
+    'export const { a: { b: Model } } = { a: { b: 1 } };\n',
+    "import { join as Model } from 'node:path';\nexport const joined = Model('a');\n",
+    "import * as Model from 'node:path';\nexport const sep = Model.sep;\n",
+    "import Model from 'node:path';\nexport const sep = Model.sep;\n",
+  ];
+  const CASES = COLLISIONS.flatMap((other) => [false, true].map((docs): [string, boolean] => [other, docs]));
+
+  it.each(CASES)('a simple-name collision %j lists every form site (--docs %j)', (other, docs) => {
+    const { root, result } = forms({ [G]: MODEL + SCHEMA + FIND, 'src/other.ts': other }, ...(docs ? ['--docs'] : []));
     expect([result.code, result.err]).toEqual([0, leftover(5) + leftover(6)]);
     expect(read(root, G)).toBe(MODEL_AFTER + SCHEMA + FIND);
+  });
+
+  it.each([[false], [true]])('an import of the renamed class is no collision (--docs %j)', (docs) => {
+    const other = "import { Model } from './g.js';\n\n" + FIND + '\nexport const made = new Model();\n';
+    const { root, result } = forms({ [G]: MODEL, 'src/other.ts': other }, ...(docs ? ['--docs'] : []));
+    expect([result.code, result.err]).toEqual([0, '']);
+    expect(read(root, 'src/other.ts')).toBe(renamed(other));
   });
 
   it('a collision renamed to the same name by the run rewrites the sites', () => {

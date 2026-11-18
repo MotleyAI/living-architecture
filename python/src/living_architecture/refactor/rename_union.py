@@ -786,16 +786,29 @@ class SymbolRename(MapRename):
 
 
 def top_declarations(stmt: ast.stmt, name: str) -> list[ast.AST]:
-    """The module-level declarations of `name` a statement makes."""
+    """The module-level declarations of `name` a statement makes, import bindings included."""
     if isinstance(stmt, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
         return [stmt] if stmt.name == name else []
+    if isinstance(stmt, ast.Import | ast.ImportFrom):
+        return [a for a in stmt.names if (a.asname or a.name.split(".")[0]) == name]
     if isinstance(stmt, ast.Assign):
         targets = stmt.targets
     elif isinstance(stmt, ast.AnnAssign):
         targets = [stmt.target]
     else:
         return []
-    return [t for t in targets if isinstance(t, ast.Name) and t.id == name]
+    return [n for t in targets for n in _bound_names(t) if n.id == name]
+
+
+def _bound_names(target: ast.expr) -> Iterator[ast.Name]:
+    """The names an assignment target binds, through unpacking."""
+    if isinstance(target, ast.Name):
+        yield target
+    elif isinstance(target, ast.Tuple | ast.List):
+        for element in target.elts:
+            yield from _bound_names(element)
+    elif isinstance(target, ast.Starred):
+        yield from _bound_names(target.value)
 
 
 def _class_chains(tree: ast.Module) -> Iterator[list[ast.ClassDef]]:
