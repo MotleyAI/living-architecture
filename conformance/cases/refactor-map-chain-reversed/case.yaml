@@ -1,0 +1,16 @@
+kind: paired
+languages:
+- python
+- typescript
+command: dr-refactor
+args:
+- --apply
+- rename-map
+- renames.yaml
+git:
+- commit: init
+expect:
+  exit: 0
+  git_status: true
+golden: manual
+note: 'a chain of member names, the freeing entry last: an entry takes the name another entry frees, both applied'

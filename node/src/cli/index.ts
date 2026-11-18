@@ -69,7 +69,8 @@ const HANDLERS: Record<string, (args: Args, argv: string[]) => number> = {
     const language = optional(args.language);
     return language !== null ? affected.serve(process.cwd(), language) : affected.run(process.cwd(), String(args.base));
   },
-  'la-typecheck': (args) => typecheck.run(process.cwd(), Boolean(args.write_baseline), optional(args.language)),
+  'la-typecheck': (args) =>
+    typecheck.run(process.cwd(), Boolean(args.write_baseline), optional(args.language), optional(args.realign_from)),
   'dr-refactor': (args, argv) => refactor.runRefactor(argv, given(args) as refactor.RefactorArgs),
   'dr-compliance': (args) => refactor.runCompliance(args.paths as string[], optional(args.select), args.attr as string[]),
   'dr-mock-lint': (args) => refactor.runMockLint(args.paths as string[], optional(args.base)),

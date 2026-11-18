@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { language, message } from '../src/contract/index.js';
 import { run, type Run } from './cli-run.js';
-import { copyProject, files, mapYaml, refactorRaw, tsProject } from './refactor-project.js';
+import { copyProject, entryRefusal, files, mapYaml, refactorRaw, tsProject } from './refactor-project.js';
 
 const PHASES = '[resolve]\n[checks]\n';
 const A = { 'src/a.ts': 'export const X = 1;\n', 'src/use.ts': "import { X } from './a.js';\n\nexport const shown = X;\n" };
@@ -28,7 +28,7 @@ const MODULE_CALLS = [
   { call: 'createMockFromModule' },
 ];
 
-const conflict = (path: string): string => `${PHASES}${message('refactor.name-conflict', { name: 'b', path, line: 1 })}\n`;
+const conflict = (path: string): string => `${PHASES}${entryRefusal('src/a.ts', message('refactor.name-conflict', { name: 'b', path, line: 1 }))}\n`;
 const renameA = (root: string, name: string): Run => refactorRaw(root, '--apply', 'rename', '--file', 'src/a.ts', '--new-name', name);
 
 describe('module new name', () => {
@@ -37,14 +37,14 @@ describe('module new name', () => {
     (name) => {
       const root = tsProject(A);
       const before = files(root);
-      expect(renameA(root, name)).toEqual({ code: 1, out: '', err: `${PHASES}${message('refactor.cannot-rename')}\n` });
+      expect(renameA(root, name)).toEqual({ code: 1, out: '', err: `${PHASES}${entryRefusal('src/a.ts', message('refactor.cannot-rename'))}\n` });
       expect(files(root)).toEqual(before);
     },
   );
 
   it.each(['', 'a\0b'])('refuses a map entry renaming a module to %j at resolution', (name) => {
     const root = tsProject({ ...A, 'map.yaml': mapYaml([{ module: 'src/a.ts', new_name: name }]) });
-    expect(refactorRaw(root, 'rename-map', 'map.yaml')).toEqual({ code: 1, out: '', err: `${PHASES}${message('refactor.cannot-rename')}\n` });
+    expect(refactorRaw(root, 'rename-map', 'map.yaml')).toEqual({ code: 1, out: '', err: `${PHASES}${entryRefusal('src/a.ts', message('refactor.cannot-rename'))}\n` });
   });
 
   it.each([
@@ -125,7 +125,7 @@ describe('module rename without a locator', () => {
 
   it('retarget still needs a locator', () => {
     const root = tsProject(A);
-    expect(refactorRaw(root, 'retarget', '--file', 'src/a.ts', '--target', 'Y')).toEqual({ code: 1, out: '', err: `${PHASES}${message('refactor.no-locator')}\n` });
+    expect(refactorRaw(root, 'retarget', '--file', 'src/a.ts', '--target', 'Y')).toEqual({ code: 1, out: '', err: `${PHASES}${entryRefusal('src/a.ts', message('refactor.no-locator'))}\n` });
   });
 });
 

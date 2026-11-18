@@ -1,0 +1,22 @@
+Renaming <columns> to <fields>:
+
+
+--- a/pkg/m.py
++++ b/pkg/m.py
+@@ -1,10 +1,10 @@
+ class Ds:
+     def __init__(self) -> None:
+-        self.columns: list[str] = []
++        self.fields: list[str] = []
+         self.label: str = ""
+ 
+ 
+-FIELDS = ("label", "columns")
++FIELDS = ("label", "fields")
+ 
+ 
+ def read(d: Ds) -> list[object]:
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

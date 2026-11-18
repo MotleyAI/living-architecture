@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 from project_files import file_tree, write_project
-from refactor_cli import assert_same_run, line_col, read, run, template_regex
+from refactor_cli import assert_same_run, entry_refusal, line_col, read, run, template_regex
 
 from living_architecture.contract import message
 
@@ -166,6 +166,7 @@ def f(kind: DriftKind) -> None:
 
 
 def h() -> None:
+    k = "drop"
     k = "edit_model"
     f(k)
     f("edit_model")
@@ -178,13 +179,13 @@ def test_narrowed_local_refuses(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
     code, out, err = run(root, _by_symbol(), monkeypatch, capsys)
     assert (code, out) == (1, "")
     lines = err.splitlines()
-    assert lines[0] == message("refactor.literal-unresolved", path="pkg/n.py", line=10, old="edit_model")
+    assert lines[0] == message("refactor.literal-unresolved", path="pkg/n.py", line=11, old="edit_model")
     assert template_regex(message("refactor.blindspots", count=1, attr="ATTR"), attr="ATTR").fullmatch(lines[1])
     assert len(lines) == 2
     assert file_tree(root) == before
 
 
-@pytest.mark.parametrize("flag", [["--allow-blindspots"], ["--keep", "pkg/n.py:10"]], ids=["allow", "keep"])
+@pytest.mark.parametrize("flag", [["--allow-blindspots"], ["--keep", "pkg/n.py:11"]], ids=["allow", "keep"])
 def test_narrowed_local_passes_with_allow_or_keep(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], flag: list[str]
 ) -> None:
@@ -227,7 +228,7 @@ def test_value_with_a_quote_backslash_or_line_break_refused(
 ) -> None:
     root = write_project(tmp_path / "proj", {"pkg/kinds.py": KINDS, "pkg/use.py": CONTEXTS})
     before = file_tree(root)
-    expected = message("refactor.literal-value", value=value)
+    expected = entry_refusal(f"pkg/kinds.py {SYMBOL}", message("refactor.literal-value", value=value))
     assert run(root, _by_symbol(value), monkeypatch, capsys) == (2, "", f"{expected}\n")
     assert file_tree(root) == before
 
@@ -302,7 +303,7 @@ def test_an_implicitly_concatenated_member_cannot_be_renamed(
     root = write_project(tmp_path / "proj", {"pkg/state.py": 'from typing import Literal\n\nState = Literal["re" "ady", "drop"]\n'})
     before = file_tree(root)
     code, _out, err = run(root, _by_symbol("done", symbol="State['ready']", rel="pkg/state.py"), monkeypatch, capsys)
-    assert (code, err) == (1, message("refactor.cannot-rename") + "\n")
+    assert (code, err) == (1, entry_refusal("pkg/state.py State['ready']", message("refactor.cannot-rename")) + "\n")
     assert file_tree(root) == before
 
 
@@ -341,3 +342,29 @@ def test_a_mixed_display_rewrites_only_the_member_typed_string(
     leftover = message("refactor.leftover", path="pkg/s.py", line=5, where="string", old="old")
     assert (code, err) == (0, f"{leftover}\n")
     assert read(root, "pkg/s.py") == text.replace('"old"', '"done"', 2)
+
+
+LOOPED = """\
+from pkg.kinds import DriftKind
+
+
+def f(kind: DriftKind) -> None:
+    print(kind)
+
+
+def every() -> None:
+    for kind in ("edit_model", "drop"):
+        f(kind)
+"""
+
+
+def test_a_source_display_already_holding_the_new_value_is_a_name_conflict(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = write_project(tmp_path / "proj", {"pkg/kinds.py": KINDS, "pkg/loop.py": LOOPED})
+    before = file_tree(root)
+    code, out, err = run(root, _by_symbol("drop"), monkeypatch, capsys)
+    assert (code, out) == (1, "")
+    conflict = message("refactor.name-conflict", name="drop", path="pkg/loop.py", line=9)
+    assert err.splitlines()[-1] == entry_refusal(f"pkg/kinds.py {SYMBOL}", conflict)
+    assert file_tree(root) == before

@@ -1,2 +1,8 @@
-- {file: pkg/f.py, symbol: 'f(x)', new_name: y}
-- {file: pkg/f.py, symbol: 'f(y)', new_name: x}
+- {file: pkg/f.py, symbol: f(x), new_name: y}
+- {file: pkg/f.py, symbol: f(y), new_name: x}
+- {file: pkg/f.py, symbol: g(n), new_name: m}
+- {file: pkg/f.py, symbol: g(m), new_name: n}
+- {file: pkg/f.py, symbol: h(b), new_name: c}
+- {file: pkg/f.py, symbol: h(a), new_name: b}
+- {file: pkg/f.py, symbol: k(p), new_name: q}
+- {file: pkg/f.py, symbol: k(q), new_name: r}

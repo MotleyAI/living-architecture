@@ -1,0 +1,12 @@
+[resolve]
+[checks]
+[references]
+[references 1/2] entry 1: get_model -> load_model
+[references 2/2] entry 2: save_model -> store_model
+[rules]
+[rules 1/2] entry 1: get_model -> load_model: 1 refusal(s)
+tests/test_a.py:2: attr-blindspot: storage.get_model — storage is Unknown, so a rename of .get_model is unverifiable
+[rules 2/2] entry 2: save_model -> store_model: 1 refusal(s)
+tests/test_a.py:3: attr-blindspot: storage.save_model — storage is Unknown, so a rename of .save_model is unverifiable
+[conflicts]
+2 blind spot(s) of .get_model, .save_model: type or resolve them, or pass --allow-blindspots

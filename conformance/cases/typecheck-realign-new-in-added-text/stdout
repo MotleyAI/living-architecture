@@ -1,0 +1,5 @@
+<ROOT>/repo/pkg/m.py
+  <ROOT>/repo/pkg/m.py:14:15 - error: Argument of type "Literal[4]" cannot be assigned to parameter "obj" of type "Sized" in function "len"
+    "Literal[4]" is incompatible with protocol "Sized"
+      "__len__" is not present (reportArgumentType)
+1 error, 0 warnings, 0 notes

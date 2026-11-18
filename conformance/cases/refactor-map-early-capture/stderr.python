@@ -1,0 +1,6 @@
+[resolve]
+[checks]
+entry 1 (pkg/f.py Q.measures): metrics already names something else at pkg/f.py:5, so nothing was refactored
+entry 2 (pkg/f.py f(x)): y already names something else at pkg/f.py:9, so nothing was refactored
+entry 3 (pkg/f.py:14:5): b already names something else at pkg/f.py:15, so nothing was refactored
+entry 4 (pkg/f.py one): two already names something else at pkg/f.py:20, so nothing was refactored

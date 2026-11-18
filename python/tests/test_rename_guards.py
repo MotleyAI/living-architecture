@@ -147,7 +147,9 @@ def test_untyped_mock_fixture_callee_is_a_blind_spot(project: MakeProject, capsy
     root = project({"pkg/store.py": STORE, "tests/test_b.py": test})
     before = file_tree(root)
     assert _rename(root, "pkg/store.py", "get_model", "get_dataset") == 1
-    assert readouterr(capsys).err == f"{_blindspot('tests/test_b.py', 7, 'engine')}\n{_closing(1)}\n"
+    blind = message("compliance.string-blindspot", path="tests/test_b.py", line=7,
+                    site="mocker.patch.object(engine, 'get_model')", receiver="engine", attr="get_model", type="Unknown")
+    assert readouterr(capsys).err == f"{blind}\n{_closing(1)}\n"
     assert file_tree(root) == before
 
 
@@ -178,7 +180,7 @@ def test_blind_spots_equal_dr_compliance_over_the_project(project: MakeProject, 
     assert _rename(root, "pkg/store.py", "get_model", "get_dataset", apply=False) == 1
     refused = readouterr(capsys).err.splitlines()
     assert refused[-1] == _closing(3)
-    assert dr_compliance(["--select", "attr-blindspot", "--attr", "get_model", "."]) == 1
+    assert dr_compliance(["--select", "attr-blindspot,string-blindspot", "--attr", "get_model", "."]) == 1
     assert refused[:-1] == readouterr(capsys).out.splitlines()
 
 
@@ -319,8 +321,8 @@ def test_both_refusals_under_apply_change_nothing(project: MakeProject, capsys: 
     before = file_tree(root)
     assert _rename(root, "pkg/store.py", "get_model", "get_dataset") == 1
     assert readouterr(capsys) == ("", "".join(f"{line}\n" for line in [
-        _blindspot("tests/test_a.py", 2, "storage"),
         _stand_in("pkg/other.py", 2, "Unrelated"),
+        _blindspot("tests/test_a.py", 2, "storage"),
         _closing(1),
     ]))
     assert file_tree(root) == before

@@ -1,0 +1,27 @@
+Renaming <m> to <n>:
+
+
+--- a/pkg/a.py
++++ b/pkg/a.py
+@@ -1,5 +1,5 @@
+ class A:
+-    def m(self) -> int:
++    def n(self) -> int:
+         return 1
+ 
+ 
+
+--- a/pkg/use.py
++++ b/pkg/use.py
+@@ -10,4 +10,4 @@
+ 
+ 
+ def three(a: A) -> int:
+-    return a.m()
++    return a.n()
+
+
+
+APPLIED. 2 file(s) changed:
+  pkg/a.py
+  pkg/use.py

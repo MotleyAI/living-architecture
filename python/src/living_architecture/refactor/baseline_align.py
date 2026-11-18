@@ -6,7 +6,6 @@ from __future__ import annotations
 import difflib
 import json
 import tempfile
-from collections import Counter
 from pathlib import Path
 from typing import Any
 
@@ -14,15 +13,13 @@ from pydantic import BaseModel, ConfigDict
 
 from living_architecture.config import ConfigError, find_repo_root, load_config
 from living_architecture.contract import language, message
+from living_architecture.lang.baseline import Key, baselined, diagnostics, line_starts, pairs, text_edits
 from living_architecture.lang.language_server import utf16_index, utf16_position
-from living_architecture.refactor.position_map import Edit, map_range
+from living_architecture.lang.position_map import Edit, map_range
 from living_architecture.refactor.progress import checker_cause
 from living_architecture.refactor.python_project import read_str_coding
 from living_architecture.refactor.writer import FileMove, FileWrite
 from living_architecture.typecheck import CommandError, python_diagnostics
-
-Key = tuple[str, int, int, int, int]
-"""A diagnostic: its rule and its 0-based start and end line and column."""
 
 
 class BaselineFailed(Exception):
@@ -53,32 +50,10 @@ def _decode(data: bytes) -> str:
     return data.decode(read_str_coding(data) or "utf-8")
 
 
-def _starts(lines: list[str]) -> list[int]:
-    out = [0]
-    for line in lines:
-        out.append(out[-1] + len(line))
-    return out
-
-
-def text_edits(old: str, new: str) -> list[Edit]:
-    """Edits turning `old` into `new`: the changed lines, then the characters within them."""
-    old_lines, new_lines = old.splitlines(True), new.splitlines(True)
-    old_at, new_at = _starts(old_lines), _starts(new_lines)
-    out: list[Edit] = []
-    for tag, i1, i2, j1, j2 in difflib.SequenceMatcher(None, old_lines, new_lines, autojunk=False).get_opcodes():
-        if tag == "equal":
-            continue
-        a, b = old[old_at[i1] : old_at[i2]], new[new_at[j1] : new_at[j2]]
-        for inner, a1, a2, b1, b2 in difflib.SequenceMatcher(None, a, b, autojunk=False).get_opcodes():
-            if inner != "equal":
-                out.append((old_at[i1] + a1, old_at[i1] + a2, b2 - b1))
-    return out
-
-
 def _blocks(old: str, new: str) -> tuple[list[tuple[int, int, str]], list[tuple[int, str]]]:
     """The line blocks `new` drops from `old` (span, text) and the ones it adds (offset, text)."""
     old_lines, new_lines = old.splitlines(True), new.splitlines(True)
-    old_at, new_at = _starts(old_lines), _starts(new_lines)
+    old_at, new_at = line_starts(old_lines), line_starts(new_lines)
     removed: list[tuple[int, int, str]] = []
     added: list[tuple[int, str]] = []
     for tag, i1, i2, j1, j2 in difflib.SequenceMatcher(None, old_lines, new_lines, autojunk=False).get_opcodes():
@@ -167,39 +142,6 @@ class _Files:
         return None if best is None else best[1:]
 
 
-def _diagnostics(report: dict[str, Any], repo: Path) -> list[tuple[str, Key]]:
-    """The report's diagnostics in its order (each file's sorted by start, ties as the checker emits them)."""
-    out: list[tuple[str, Key]] = []
-    for d in report.get("generalDiagnostics", []):
-        path = Path(d["file"]).resolve()
-        if not path.is_relative_to(repo):
-            continue
-        r = d["range"]
-        key = (str(d.get("rule", "")), r["start"]["line"], r["start"]["character"], r["end"]["line"], r["end"]["character"])
-        out.append((path.relative_to(repo).as_posix(), key))
-    return out
-
-
-def _matches(entry: dict[str, Any], key: Key) -> bool:
-    r = entry.get("range", {})
-    count = r.get("lineCount")
-    return (entry.get("code") == key[0] and r.get("startColumn") == key[2] and r.get("endColumn") == key[4]
-            and (count is None or count == key[3] - key[1] + 1))
-
-
-def _pairs(entries: list[dict[str, Any]], baselined: list[Key]) -> list[tuple[int, Key]]:
-    """Each baselined diagnostic, in position order, with the first unpaired entry after the last one paired whose
-    code, columns and line count equal it."""
-    out: list[tuple[int, Key]] = []
-    last = -1
-    for key in baselined:
-        k = next((i for i in range(last + 1, len(entries)) if _matches(entries[i], key)), None)
-        if k is not None:
-            out.append((k, key))
-            last = k
-    return out
-
-
 def _run(repo: Path, command: str, baseline_text: str, files: list[str]) -> tuple[list[tuple[str, Key]], list[tuple[str, Key]]]:
     """The diagnostics of `files` with an empty baseline, and with a copy of the baseline."""
     with tempfile.TemporaryDirectory(prefix="la-baseline-") as tmp:
@@ -211,7 +153,7 @@ def _run(repo: Path, command: str, baseline_text: str, files: list[str]) -> tupl
             unbaselined = python_diagnostics(repo, command, ["--baselinefile", str(copy), *files])
         except CommandError as exc:
             raise _failed(exc) from None
-    return _diagnostics(everything, repo), _diagnostics(unbaselined, repo)
+    return diagnostics(everything, repo), diagnostics(unbaselined, repo)
 
 
 def config_error(project: Path) -> str | None:
@@ -273,7 +215,7 @@ def align(project: Path, writes: list[FileWrite], moves: list[FileMove], *, edit
     if not affected:
         return None
     everything, unbaselined = _run(repo, command, raw.decode("utf-8"), [rel for rel in affected if (repo / rel).is_file()])
-    baselined_all = _baselined(everything, unbaselined)
+    baselined_all = baselined(everything, unbaselined)
     warnings: list[str] = []
     out = _realigned(listed, files, affected, baselined_all, baseline_rel, warnings)
     new_data = {**data, "files": {k: [e.entry for e in out[k]] for k in sorted(out) if out[k]}}
@@ -329,23 +271,11 @@ def _realigned(listed: dict[str, list[dict[str, Any]]], files: _Files, affected:
     return out
 
 
-def _baselined(everything: list[tuple[str, Key]], unbaselined: list[tuple[str, Key]]) -> list[tuple[str, Key]]:
-    """The diagnostics the baseline hides: those shown without it, less as many of each as it lets through."""
-    shown_alone = Counter(unbaselined)
-    out: list[tuple[str, Key]] = []
-    for item in everything:
-        if shown_alone[item]:
-            shown_alone[item] -= 1
-        else:
-            out.append(item)
-    return out
-
-
-def _followed(files: _Files, rel: str, entries: list[dict[str, Any]], baselined: list[Key], baseline_rel: str,
+def _followed(files: _Files, rel: str, entries: list[dict[str, Any]], hidden: list[Key], baseline_rel: str,
               warnings: list[str]) -> dict[int, tuple[str, _Entry]]:
     """Each paired entry's index with where it goes after the refactor; a warning for each it cannot follow."""
     mapped: dict[int, tuple[str, _Entry]] = {}
-    for index, diag in _pairs(entries, baselined):
+    for index, diag in pairs(entries, hidden):
         follow = _follow(files, rel, entries[index], diag)
         if follow is None:
             warnings.append(message("refactor.baseline-ambiguous", baseline=baseline_rel, code=entries[index].get("code"), path=rel))

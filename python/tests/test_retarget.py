@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 import yaml
 from project_files import file_tree, write_project
-from refactor_cli import read, run
+from refactor_cli import entry_refusal, read, run
 
 from living_architecture.contract import message
 
@@ -129,7 +129,8 @@ def test_a_member_alias_with_a_target_in_another_class_is_refused(
     store = "class Store:\n    def save_model(self, m: int) -> None:\n        print(m)\n\n\n"
     root = write_project(tmp_path / "proj", {"pkg/engine.py": store + ENGINE, "pkg/use.py": ENGINE_USE})
     before = file_tree(root)
-    expected = message("refactor.retarget-scope", target="Store.save_model", alias="Engine.save")
+    expected = entry_refusal("pkg/engine.py Engine.save",
+                             message("refactor.retarget-scope", target="Store.save_model", alias="Engine.save"))
     assert run(root, _retarget("pkg/engine.py", "Engine.save", "Store.save_model"), monkeypatch, capsys) == (
         2, "", f"{expected}\n")
     assert file_tree(root) == before

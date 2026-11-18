@@ -10,6 +10,7 @@ from contextlib import ExitStack
 from pathlib import Path
 from typing import TypeVar, cast
 
+from living_architecture.contract import language
 from living_architecture.lang import (
     ExportRequest,
     FactQuery,
@@ -25,6 +26,7 @@ from living_architecture.refactor.python_source import SourceFile, nfkc
 from living_architecture.refactor.timings import timed
 
 _FUNCTIONS = (ast.FunctionDef, ast.AsyncFunctionDef)
+READ_ATTRIBUTES = frozenset(read["attribute"] for read in language("python").get("name_reads", []))
 _T = TypeVar("_T")
 
 
@@ -140,11 +142,14 @@ def fact_queries(source: SourceFile, names: set[str]) -> list[FactQuery]:
         if isinstance(node, ast.ClassDef):
             _class_queries(found, node)
         elif isinstance(node, _FUNCTIONS):
-            _function_queries(found, node, id(node) in returning)
+            _function_queries(found, node, id(node) in returning, names)
         elif isinstance(node, ast.AnnAssign) and node.value is not None and shape.candidate(node.value):
             found.names(node.annotation)
         elif isinstance(node, ast.Call):
             _call_queries(found, node, names, shape)
+        elif isinstance(node, ast.Attribute) and node.attr in READ_ATTRIBUTES:
+            found.ask(node, "definition")
+            found.ask(node.value if isinstance(node.value, (ast.Name, ast.Attribute)) else None, "verdict")
     return found.queries()
 
 
@@ -167,9 +172,11 @@ def _class_queries(found: _Queries, cls: ast.ClassDef) -> None:
             found.names(stmt.annotation)
 
 
-def _function_queries(found: _Queries, fn: ast.FunctionDef | ast.AsyncFunctionDef, returning: bool) -> None:
+def _function_queries(found: _Queries, fn: ast.FunctionDef | ast.AsyncFunctionDef, returning: bool, names: set[str]) -> None:
     for decorator in fn.decorator_list:
-        found.ask(decorator if isinstance(decorator, (ast.Name, ast.Attribute)) else None, "definition")
+        named = isinstance(decorator, ast.Call) and any(_plain(a) in names for a in decorator.args)
+        callee = decorator.func if isinstance(decorator, ast.Call) and named else decorator
+        found.ask(callee if isinstance(callee, (ast.Name, ast.Attribute)) else None, "definition")
     if returning:
         found.names(fn.returns)
 
@@ -291,6 +298,11 @@ class RunIndex:
         if self.cache is not None:
             self.cache.save()
 
+    def class_fact_source(self) -> ClassFactSource:
+        """The class facts merged so far, holding nothing else of the index."""
+        facts = {key: entry["class"] for key, entry in self._facts.items() if "class" in entry}
+        return ClassFactSource(facts, list(self.request.members), self._source, self.server)
+
     # ---- lookups
 
     def memo(self, key: Hashable, compute: Callable[[], _T]) -> _T:
@@ -362,3 +374,30 @@ class RunIndex:
         """The receiver verdict and declarations of the probe access standing for the member call whose literal is
         `literal`, in the files' own offsets."""
         return self._probe_results.get((path, literal))
+
+
+class ClassFactSource:
+    """Class facts by position; a miss is exported alone, looking up `members`, through the run's language server."""
+
+    def __init__(self, facts: dict[tuple[Path, int], PositionFacts], members: list[str],
+                 source: Callable[[Path], SourceFile | None], server: ServerSession) -> None:
+        self._facts = facts
+        self._members = members
+        self._source = source
+        self._server = server
+
+    def class_facts(self, path: Path, offset: int) -> PositionFacts:
+        if (path, offset) not in self._facts:
+            server = self._server.get()
+            source = self._source(path)
+            if source is not None:
+                server.open(path, source.text)
+            request = ExportRequest(names=[], files=[], members=self._members,
+                                    facts=[FactQuery(path=path, offset=offset, kinds=("class",))])
+            with timed("references"):
+                found = server.export(request)
+            for facts in [*found.answers, *found.followed]:
+                if "class" in facts.kinds:
+                    _ = self._facts.setdefault((facts.path, facts.offset), facts)
+            _ = self._facts.setdefault((path, offset), PositionFacts(path=path, offset=offset, kinds=("class",)))
+        return self._facts[path, offset]

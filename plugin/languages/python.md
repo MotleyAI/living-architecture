@@ -28,12 +28,18 @@ refuses a new name the function already uses.
 A rename also rewrites a member named by string on an object the checker types: `getattr`, `setattr`, `hasattr`,
 `delattr`, `monkeypatch.setattr` / `delattr` and `patch.object` (also `mocker.patch.object`), and each segment of a
 `patch`, `mocker.patch` or `monkeypatch.setattr` / `delattr` target that resolves statically to a renamed
-declaration. A member rename refuses while a receiver of the old name is `Unknown` or `Any` (`--allow-blindspots`
+declaration. A field rename also rewrites the field's name in `field_validator` and `field_serializer` and where it is
+read from `model_fields` or `model_fields_set`; an attribute rename its entry in `__slots__` and `__match_args__`; a
+rename of a module-level symbol the member string of those calls on a project module
+(`monkeypatch.setattr(mod, "name", …)`). A member rename refuses while a receiver of the old name is `Unknown` or `Any` (`--allow-blindspots`
 overrides) or a class outside the hierarchy declares the old name (`--with` / `--without`).
 
 A rename of a `Literal` member (`--symbol Alias['value']`) rewrites each string the checker types by that
-`Literal`: arguments, assignments, returns, comparisons, `in` tests and `match` cases. It refuses while the
-checker needs the old value where no such string stands (a variable assigned it earlier). `retarget` refuses
+`Literal`: arguments, assignments, returns, comparisons, `in` tests and `match` cases. Where the checker
+needs the old value at a name, it rewrites the one literal that name holds (a once-bound local, module constant or
+class constant, the elements of a constant tuple a loop reads) and lists every other read of that name as
+`unverified-read`. It refuses (`literal-unresolved`) where the name has no such literal: bound twice, a conditional
+value, declared in a stub. `retarget` refuses
 while a subclass overrides the alias. `--apply` keeps `.basedpyright/baseline.json` aligned by running
 `commands.typecheck.python` over the files it changes.
 
@@ -42,7 +48,8 @@ What a rename leaves unrenamed:
   `Model | Any` whose `Model.NAME` is itself `Any`;
 - string-only references: `importlib`, `__all__`, entry points, config paths, strings equal to a renamed `Literal`
   member that the checker does not type by it (`str` variables, `argparse` `choices`; each listed as a `leftover`),
-  a member named by a computed string (`getattr(obj, name)`, `patch.object(obj, name)`), and a `patch` target that
+  a member named by a string the rename cannot follow to one literal (`getattr(obj, name)` with `name` a parameter or
+  bound twice), and a `patch` target that
   does not resolve into the project (listed as a `leftover`);
 - mentions in comments, docstrings, messages and prose files: all of them without `--docs`; with it, the ones it
   lists as `leftover`;
@@ -66,6 +73,9 @@ What a rename leaves unrenamed:
   `patch(..., autospec=True)`, or a `Protocol` fake.
 - `attr-blindspot` → type the named receiver (its parameter, variable, element type or the return it comes from)
   with the owning class or its `Protocol`, so the checker no longer infers `Unknown` or `Any`.
+- `string-blindspot` → the same fix, for a member named by a string (`getattr(x, "NAME")`,
+  `x.model_fields["NAME"]`). A line ending `and a miss raises no error` (`hasattr`, `getattr` with a default) fails
+  silently after a rename, so fix it first.
 - `rope-walk` → rope cannot walk this construct, so `dr-refactor` refuses a move whose files include it. It is a rope bug, not a source error: report it with the named line; rewriting the construct is only a stopgap.
 - Overrides carry `@typing.override`, so a renamed base method orphans them visibly.
 

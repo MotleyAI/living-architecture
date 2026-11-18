@@ -1,0 +1,25 @@
+Renaming <join_path> to <path>:
+
+
+--- a/pkg/policy.py
++++ b/pkg/policy.py
+@@ -2,11 +2,11 @@
+ 
+ 
+ class Rule(BaseModel):
+-    join_path: tuple[str, ...]
++    path: tuple[str, ...]
+ 
+-    @field_validator("join_path")
++    @field_validator("path")
+     @classmethod
+     def _non_empty(cls, v: tuple[str, ...]) -> tuple[str, ...]:
+         if not v:
+-            raise ValueError("Rule.join_path must be non-empty")
++            raise ValueError("Rule.path must be non-empty")
+         return v
+
+
+
+APPLIED. 1 file(s) changed:
+  pkg/policy.py

@@ -29,11 +29,11 @@ class Site(BaseModel):
     line: int | None
 
     @classmethod
-    def parse(cls, raw: str, root: Path, base: Path | None = None) -> Site:
-        """`raw` with its path resolved against `base` (default: the working directory)."""
+    def parse(cls, raw: str, root: Path) -> Site:
+        """`raw` with its path resolved against the project `root`."""
         m = _LINE.fullmatch(raw)
         path, line = (m.group(1), int(m.group(2))) if m else (raw, None)
-        real = Path(os.path.realpath((base or Path.cwd()) / path))
+        real = Path(os.path.realpath(root / path))
         parts = real.relative_to(root).parts if real.is_relative_to(root) and real.exists() else None
         return cls(raw=raw, parts=parts, line=line)
 
@@ -64,8 +64,8 @@ class Site(BaseModel):
 class Keeps:
     """`--keep` sites: what they keep, and the first that kept nothing."""
 
-    def __init__(self, raws: tuple[str, ...], root: Path, base: Path | None = None) -> None:
-        self.sites = [Site.parse(raw, root, base) for raw in raws]
+    def __init__(self, raws: tuple[str, ...], root: Path) -> None:
+        self.sites = [Site.parse(raw, root) for raw in raws]
         self._matched: set[int] = set()
 
     def kept(self, rel: str, line: int | None, *, mark: bool = True) -> bool:

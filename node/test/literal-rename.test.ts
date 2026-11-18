@@ -1,7 +1,7 @@
 // A string-literal type member renamed where the language service types a string by that union.
 import { describe, expect, it } from 'vitest';
 import { message } from '../src/contract/index.js';
-import { copyProject, files, lineCol, read, refactor, tsProject } from './refactor-project.js';
+import { copyProject, entryRefusal, files, lineCol, read, refactor, tsProject } from './refactor-project.js';
 
 const KINDS = "export type Kind = 'edit_model' | 'drop';\nexport type Other = 'edit_model' | 'zzz';\nexport type Alias = Kind;\n";
 const USE = `import type { Alias, Kind, Other } from './kinds';
@@ -56,6 +56,17 @@ describe('Literal member rename', () => {
     expect(read(root, 'src/use.ts')).toBe(USE_AFTER);
   });
 
+  it('refuses where a source display already holds the new value', () => {
+    const looped = "import type { Kind } from './kinds';\n\nexport function f(kind: Kind): Kind {\n  return kind;\n}\n\nfor (const kind of ['edit_model', 'drop'] as const) f(kind);\n";
+    const root = tsProject({ 'src/kinds.ts': KINDS, 'src/loop.ts': looped });
+    const before = files(root);
+    const result = renameKind(root, 'drop');
+    expect([result.code, result.out]).toEqual([1, '']);
+    const conflict = message('refactor.name-conflict', { name: 'drop', path: 'src/loop.ts', line: 7 });
+    expect(result.err.trimEnd().split('\n').at(-1)).toBe(entryRefusal("src/kinds.ts Kind['edit_model']", conflict));
+    expect(files(root)).toEqual(before);
+  });
+
   it('a locator on the string inside the type equals the path', () => {
     const bySymbol = tsProject(project);
     const byPosition = copyProject(bySymbol);
@@ -82,7 +93,8 @@ describe('Literal member rename', () => {
   it.each(["it's", 'say "hi"', 'back\\slash', 'two\nlines', 'tick`tock', 'a${b}', 'para\u2029graph', 'nul\u0000'])('refuses the value %j', (value) => {
     const root = tsProject(project);
     const before = files(root);
-    expect(renameKind(root, value)).toEqual({ code: 2, out: '', err: `${message('refactor.literal-value', { value })}\n` });
+    const refused = entryRefusal("src/kinds.ts Kind['edit_model']", message('refactor.literal-value', { value }));
+    expect(renameKind(root, value)).toEqual({ code: 2, out: '', err: `${refused}\n` });
     expect(files(root)).toEqual(before);
   });
 
@@ -114,5 +126,80 @@ export const wrong = n('edit_model');
     expect(result.code).toBe(0);
     expect(result.err.split('\n')).toEqual(expect.arrayContaining([leftover(11), leftover(12)]));
     expect(read(root, 'src/loose.ts')).toBe(loose);
+  });
+});
+
+const TAKE = "import type { Kind } from './kinds';\n\nexport function take(k: Kind): Kind {\n  return k;\n}\n";
+const BROKEN = `${TAKE}
+export function f(c: boolean): Kind {
+  const v = c ? 'edit_model' : 'drop';
+  return take(v);
+}
+`;
+const CONSTANTS = `${TAKE}
+export const DISPATCH = 'edit_model';
+
+export function dispatch(): Kind {
+  return DISPATCH;
+}
+
+export function local(): Kind {
+  const v = 'edit_model';
+  return take(v);
+}
+
+export class K {
+  static readonly EDIT = 'edit_model';
+}
+
+export const fromClass = take(K.EDIT);
+`;
+const SHIFTED = "import type { Kind } from './kinds';\n\nexport const pair: [Kind, number] = ['edit_model', 'oops'];\nexport const later: number = 'late';\n";
+const UNEDITED = "export const bad: number = 'oops';\n";
+const KINDS_ONLY = "export type Kind = 'edit_model' | 'drop';\n";
+
+describe('Literal member rename, the edited program checked in memory', () => {
+  const unresolved = message('refactor.literal-unresolved', { path: 'src/broken.ts', line: 9, old: 'edit_model' });
+  const refused = { code: 1, out: '', err: `${unresolved}\n${message('refactor.blindspots', { count: 1, attr: 'edit_model' })}\n` };
+
+  it('refuses an edit that breaks the program, writing nothing', () => {
+    const root = tsProject({ 'src/kinds.ts': KINDS_ONLY, 'src/broken.ts': BROKEN });
+    const before = files(root);
+    expect(renameKind(root, 'edit_master')).toEqual(refused);
+    expect(files(root)).toEqual(before);
+  });
+
+  it('prints the diff and the blind spot with --allow-blindspots', () => {
+    const root = tsProject({ 'src/kinds.ts': KINDS_ONLY, 'src/broken.ts': BROKEN });
+    const result = renameKind(root, 'edit_master', '--allow-blindspots');
+    expect(result.code).toBe(0);
+    expect(result.err.split('\n')).toContain(unresolved);
+    expect(read(root, 'src/kinds.ts')).toBe(KINDS_ONLY.replace('edit_model', 'edit_master'));
+    expect(read(root, 'src/broken.ts')).toBe(BROKEN);
+  });
+
+  it('does not count an error present before the edit on a line no edit moves', () => {
+    const root = tsProject({ 'src/kinds.ts': KINDS_ONLY, 'src/broken.ts': BROKEN, 'src/unedited.ts': UNEDITED });
+    expect(renameKind(root, 'edit_master')).toEqual(refused);
+  });
+
+  it('recognises an error present before the edit at a position the edits shift', () => {
+    const root = tsProject({ 'src/kinds.ts': KINDS_ONLY, 'src/broken.ts': BROKEN, 'src/shifted.ts': SHIFTED });
+    expect(renameKind(root, 'edit_master_renamed')).toEqual(refused);
+  });
+
+  it('rewrites the one source of a constant, a local and a class constant the checker needs the member at', () => {
+    const root = tsProject({ 'src/kinds.ts': KINDS_ONLY, 'src/constants.ts': CONSTANTS });
+    const result = renameKind(root, 'edit_master');
+    expect([result.code, result.err]).toEqual([0, '']);
+    expect(read(root, 'src/constants.ts')).toBe(CONSTANTS.replaceAll("'edit_model'", "'edit_master'"));
+  });
+
+  it('exits 0 beside errors present before the rename, shifted or not', () => {
+    const root = tsProject({ 'src/kinds.ts': KINDS_ONLY, 'src/constants.ts': CONSTANTS, 'src/shifted.ts': SHIFTED, 'src/unedited.ts': UNEDITED });
+    const result = renameKind(root, 'edit_master_renamed');
+    expect([result.code, result.err]).toEqual([0, '']);
+    expect(read(root, 'src/constants.ts')).toBe(CONSTANTS.replaceAll("'edit_model'", "'edit_master_renamed'"));
+    expect(read(root, 'src/shifted.ts')).toBe(SHIFTED.replace("'edit_model'", "'edit_master_renamed'"));
   });
 });

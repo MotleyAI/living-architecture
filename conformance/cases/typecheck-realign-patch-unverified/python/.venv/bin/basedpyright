@@ -1,0 +1,5 @@
+#!/bin/sh
+printf '{"outcome": "unverified", "version": "1.39.10", "count": 1}' > "$LA_PYRIGHT_PATCH_RESULT"
+case " $* " in *" --outputjson "*) echo '{"generalDiagnostics": []}'; exit 0 ;; esac
+echo "fake basedpyright: the check must not run" >&2
+exit 99

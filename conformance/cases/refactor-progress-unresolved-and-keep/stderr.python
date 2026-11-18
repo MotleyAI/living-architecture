@@ -1,4 +1,4 @@
 [resolve]
 [checks]
-lib/store.py: Store.lod names no declaration; candidates: clear, drop, load, save, size
+entry 1 (lib/store.py Store.lod): lib/store.py: Store.lod names no declaration; candidates: clear, drop, load, save, size
 --keep lib/gone names no file, directory or line in the project

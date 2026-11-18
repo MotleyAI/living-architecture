@@ -182,7 +182,8 @@ def run_refactor(*, project_root: str, command: str, apply: bool, options: dict[
         print(exc, file=sys.stderr)
         return 2
     except Refused as exc:
-        print("\n".join(exc.lines), file=sys.stderr)
+        if exc.lines:
+            print("\n".join(exc.lines), file=sys.stderr)
         return exc.code
     except RefactorError as exc:
         print(exc, file=sys.stderr)

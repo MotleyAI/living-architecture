@@ -1,0 +1,3 @@
+- {file: src/f.ts, symbol: f(x), new_name: z}
+- {file: src/f.ts, symbol: f(y), new_name: z}
+- {file: src/f.ts, symbol: f(w), new_name: z}

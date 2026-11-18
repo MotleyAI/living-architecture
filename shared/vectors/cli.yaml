@@ -436,3 +436,23 @@ cases:
   command: la-affected-tests
   argv: [--base, main, '42']
   exit: 2
+- name: typecheck defaults
+  command: la-typecheck
+  argv: []
+  args: {write_baseline: false, realign_from: null, language: null}
+- name: typecheck realign from a ref
+  command: la-typecheck
+  argv: [--realign-from, HEAD~1]
+  args: {write_baseline: false, realign_from: HEAD~1, language: null}
+- name: typecheck realign with the internal language request
+  command: la-typecheck
+  argv: [--language, python, --realign-from, HEAD]
+  args: {write_baseline: false, realign_from: HEAD, language: python}
+- name: typecheck realign without a ref
+  command: la-typecheck
+  argv: [--realign-from]
+  exit: 2
+- name: typecheck realign with write is exclusive
+  command: la-typecheck
+  argv: [--realign-from, HEAD, --write-baseline]
+  exit: 2

@@ -115,6 +115,7 @@ model {
     typecheck -> config
     typecheck -> contract
     typecheck -> twin
+    typecheck -> changes
     conventions -> twin
     refactor -> config
     refactor -> twin
@@ -234,6 +235,7 @@ model {
     typecheck -> config
     typecheck -> contract
     typecheck -> twin
+    typecheck -> changes
     cli -> refactor
     refactor -> contract
     refactor -> lang

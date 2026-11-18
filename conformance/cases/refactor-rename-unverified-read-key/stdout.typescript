@@ -1,0 +1,20 @@
+Renaming <columns> to <fields>:
+
+
+--- a/src/m.ts
++++ b/src/m.ts
+@@ -1,8 +1,8 @@
+ export class Ds {
+-  columns: string[] = [];
++  fields: string[] = [];
+ }
+ 
+-const SECTIONS = ['columns'] as const;
++const SECTIONS = ['fields'] as const;
+ 
+ function log(text: string): void {
+   console.log(text);
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

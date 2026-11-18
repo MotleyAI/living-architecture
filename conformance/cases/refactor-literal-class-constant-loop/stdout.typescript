@@ -1,0 +1,42 @@
+Renaming <formula> to <expression>:
+
+
+--- a/src/by_class.ts
++++ b/src/by_class.ts
+@@ -1,7 +1,7 @@
+ import { take } from './c';
+ 
+ export class K {
+-  static readonly FORMULA = 'formula';
++  static readonly FORMULA = 'expression';
+ }
+ 
+ export function viaClass(): void {
+
+--- a/src/by_loop.ts
++++ b/src/by_loop.ts
+@@ -1,7 +1,7 @@
+ import { take } from './c';
+ 
+ export function viaLoop(): void {
+-  for (const t of ['formula', 'sql'] as const) {
++  for (const t of ['expression', 'sql'] as const) {
+     take(t);
+   }
+ }
+
+--- a/src/c.ts
++++ b/src/c.ts
+@@ -1,4 +1,4 @@
+-export type Kind2 = 'formula' | 'sql';
++export type Kind2 = 'expression' | 'sql';
+ 
+ export function take(k: Kind2): void {
+   console.log(k);
+
+
+
+APPLIED. 3 file(s) changed:
+  src/by_class.ts
+  src/by_loop.ts
+  src/c.ts

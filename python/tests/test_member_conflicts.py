@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 from project_files import write_project
-from refactor_cli import run
+from refactor_cli import entry_refusal, run
 
 from living_architecture.contract import message
 
@@ -37,7 +37,7 @@ def test_a_member_renamed_onto_a_name_a_library_base_declares(
         "pkg/m.py": f"from extlib import {base}\n\n\nclass C({base}):\n    def old(self) -> int:\n        return 1\n",
     }, venv=False)
     argv = ["rename", "--file", "pkg/m.py", "--symbol", "C.old", "--new-name", new]
-    conflict = message("refactor.name-conflict", name=new, path="pkg/m.py", line=5)
+    conflict = entry_refusal("pkg/m.py C.old", message("refactor.name-conflict", name=new, path="pkg/m.py", line=5))
     assert run(root, argv, monkeypatch, capsys) == (1, "", conflict + "\n")
 
 
@@ -53,5 +53,5 @@ def test_a_member_renamed_onto_a_name_a_project_ancestor_declares_through_a_cast
         ),
     })
     argv = ["rename", "--file", "pkg/m.py", "--symbol", "C.old", "--new-name", "new"]
-    conflict = message("refactor.name-conflict", name="new", path="pkg/root.py", line=2)
+    conflict = entry_refusal("pkg/m.py C.old", message("refactor.name-conflict", name="new", path="pkg/root.py", line=2))
     assert run(root, argv, monkeypatch, capsys) == (1, "", conflict + "\n")

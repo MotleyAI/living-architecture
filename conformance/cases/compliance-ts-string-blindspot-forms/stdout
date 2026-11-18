@@ -1,0 +1,2 @@
+src/s.ts:2: string-blindspot: Reflect.get(x, 'columns') — x is any, so a rename of .columns is unverifiable
+src/s.ts:2: string-blindspot: x['columns'] — x is any, so a rename of .columns is unverifiable

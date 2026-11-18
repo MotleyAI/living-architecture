@@ -1,0 +1,8 @@
+- {file: pkg/m.py, symbol: x, new_name: y}
+- {file: pkg/m.py, symbol: y, new_name: x}
+- {file: pkg/m.py, symbol: n, new_name: m}
+- {file: pkg/m.py, symbol: m, new_name: n}
+- {file: pkg/m.py, symbol: b, new_name: c}
+- {file: pkg/m.py, symbol: a, new_name: b}
+- {file: pkg/m.py, symbol: p, new_name: q}
+- {file: pkg/m.py, symbol: q, new_name: r}

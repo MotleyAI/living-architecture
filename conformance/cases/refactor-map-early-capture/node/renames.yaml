@@ -1,0 +1,4 @@
+- {file: src/f.ts, symbol: Q.measures, new_name: metrics}
+- {file: src/f.ts, symbol: f(x), new_name: y}
+- {file: src/f.ts, line: 15, col: 9, new_name: b}
+- {file: src/f.ts, symbol: one, new_name: two}

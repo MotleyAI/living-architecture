@@ -1,0 +1,9 @@
+[resolve]
+[checks]
+[references]
+[references 1/1] entry 1: columns -> fields
+[rules]
+[rules 1/1] entry 1: columns -> fields: clean
+[conflicts]
+pkg/m.py:10: attr-blindspot: x.columns — x is Any, so a rename of .columns is unverifiable
+pkg/m.py:14: string-blindspot: getattr(x, 'columns', …) — x is Any, so a rename of .columns is unverifiable and a miss raises no error

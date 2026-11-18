@@ -1,0 +1,8 @@
+- {file: src/m.ts, symbol: x, new_name: y}
+- {file: src/m.ts, symbol: y, new_name: x}
+- {file: src/m.ts, symbol: n, new_name: m}
+- {file: src/m.ts, symbol: m, new_name: n}
+- {file: src/m.ts, symbol: b, new_name: c}
+- {file: src/m.ts, symbol: a, new_name: b}
+- {file: src/m.ts, symbol: p, new_name: q}
+- {file: src/m.ts, symbol: q, new_name: r}

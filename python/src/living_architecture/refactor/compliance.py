@@ -3,7 +3,8 @@
 A rename's completeness can only be proven by a type checker over code the checker can resolve. This flags
 the blind spots: untyped-def, unannotated-attr, explicit-any (a reference to `typing.Any`), mock (a double not bound
 to a spec), rope-walk (a file rope's walker cannot cover) and, given an attribute name, attr-blindspot (`x.NAME`
-accesses and member strings whose receiver basedpyright types as `Unknown` or `Any`).
+accesses) and string-blindspot (accesses naming NAME by a string) whose receiver basedpyright types as `Unknown` or
+`Any`.
 """
 
 from __future__ import annotations
@@ -21,6 +22,7 @@ from living_architecture.refactor.index_cache import IndexCache
 from living_architecture.refactor.member_scan import MemberScan, probe_round
 from living_architecture.refactor.mock_spec_lint import mock_findings
 from living_architecture.refactor.occurrence_index import RunIndex, ServerSession
+from living_architecture.refactor.outcomes import blindspot_text
 from living_architecture.refactor.python_source import SourceFile
 from living_architecture.refactor.rope_patches import apply_rope_patches, walk_gap_line
 from living_architecture.refactor.routing import RoutingError, compliance_selection, run_split, split
@@ -28,6 +30,7 @@ from living_architecture.refactor.routing import RoutingError, compliance_select
 apply_rope_patches()
 
 ALL_CHECKS = tuple(language("python")["compliance_checks"])
+ATTR_CHECKS = ("attr-blindspot", "string-blindspot")
 FuncDef = (ast.FunctionDef, ast.AsyncFunctionDef)
 
 
@@ -116,10 +119,10 @@ def _outside(path: Path) -> SourceFile | None:
         return None
 
 
-def _blindspots(paths: list[Path], names: list[str], workspace: Path) -> dict[str, list[tuple[int, str]]]:
-    """Each file's receivers of `.NAME` (for every name) and string-member objects basedpyright types as Unknown or
-    Any, and string-member calls whose callee it cannot resolve, in line, column and name order, keyed by the path as
-    given."""
+def _blindspots(paths: list[Path], names: list[str], workspace: Path, checks: set[str]) -> dict[str, list[tuple[int, str]]]:
+    """Each file's blind spots of `checks`: receivers of `.NAME` (for every name) and string-named objects
+    basedpyright types as Unknown or Any, and string-member calls whose callee it cannot resolve, in line, column and
+    name order, keyed by the path as given."""
     sources = _read_sources(paths)
     loaded: dict[Path, SourceFile | None] = {}
 
@@ -148,11 +151,8 @@ def _blindspots(paths: list[Path], names: list[str], workspace: Path) -> dict[st
         for name in unique:
             scan = MemberScan(index, name, load)
             for resolved, (shown, source) in sources.items():
-                found[shown] += [
-                    (b.line, b.col, name, message("compliance.attr-blindspot", path=shown, line=b.line,
-                                                  receiver=b.receiver, attr=name, type=b.kind))
-                    for b in scan.blindspots(resolved, source)
-                ]
+                found[shown] += [(b.line, b.col, name, blindspot_text(shown, b, name))
+                                 for b in scan.blindspots(resolved, source) if b.check in checks]
     finally:
         server.close()
         index.close()
@@ -181,8 +181,8 @@ def _findings(path: Path, selected: set[str], spots: list[tuple[int, str]]) -> l
 
 
 def check_path(path: Path, selected: set[str], attr: str | None) -> list[str]:
-    """The file's findings in line order."""
-    spots = _blindspots([path], [attr], Path.cwd()).get(str(path), []) if attr else []
+    """The file's findings in line order, with both attribute checks' when `attr` is given."""
+    spots = _blindspots([path], [attr], Path.cwd(), set(ATTR_CHECKS)).get(str(path), []) if attr else []
     return _findings(path, selected, spots)
 
 
@@ -190,7 +190,7 @@ def _check_native(paths: list[str], selected: set[str], attrs: list[str]) -> int
     spots: dict[str, list[tuple[int, str]]] = {}
     if attrs:
         try:
-            spots = _blindspots([Path(f) for f in paths], attrs, Path.cwd())
+            spots = _blindspots([Path(f) for f in paths], attrs, Path.cwd(), selected & set(ATTR_CHECKS))
         except LanguageServerError:
             print(message("compliance.pyright-failed", attr=", ".join(dict.fromkeys(attrs))), file=sys.stderr)
             return 2
@@ -204,9 +204,10 @@ def run_compliance(*, paths: list[str], select: str | None, attrs: list[str]) ->
     """`dr-compliance`: each file with its language's checks, the other language's in its twin."""
     try:
         selected = compliance_selection(select)
-        if selected is not None and "attr-blindspot" in selected and not attrs:
-            raise RoutingError(message("compliance.attr-required"))
-        if selected is not None and "attr-blindspot" not in selected and attrs:
+        named = [c.strip() for c in (select or "").split(",") if c.strip() in ATTR_CHECKS]
+        if named and not attrs:
+            raise RoutingError(message("compliance.attr-required", check=named[0]))
+        if selected is not None and not named and attrs:
             raise RoutingError(message("compliance.attr-unselected"))
         groups = split("dr-compliance", paths, Path.cwd())
     except RoutingError as exc:

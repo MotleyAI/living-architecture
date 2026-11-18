@@ -30,7 +30,7 @@ the refactor touches (`la-config get languages` lists the repo's).
    so offer to set one up (`commands.typecheck` and
    `la-typecheck --write-baseline`) first.
 3. **Type the receivers** (member renames):
-   `dr-compliance --select attr-blindspot --attr OLD <repo>` (one `--attr` per
+   `dr-compliance --select attr-blindspot,string-blindspot --attr OLD <repo>` (one `--attr` per
    old name) lists each receiver the checker cannot type. Type them
    (`la:make-refactor-target-compliant`) until it reports nothing; `dr-refactor`
    refuses a member rename while any remain.
@@ -41,7 +41,7 @@ the refactor touches (`la-config get languages` lists the repo's).
    - `stand-in`: a class outside the hierarchy declares `OLD`. `--with PATH:LINE` renames it too
      (a duck-typed implementation: a cache, a fake, a `cast()` target); `--without PATH:LINE` leaves it
      (an unrelated class).
-   - `attr-blindspot` on a receiver that cannot be typed (a third-party `Any`): `--allow-blindspots`,
+   - `attr-blindspot` or `string-blindspot` on a receiver that cannot be typed (a third-party `Any`): `--allow-blindspots`,
      and tell the user which.
    - a site that must keep the old name (a back-compat test or shim): `--keep PATH:LINE`, or
      `--keep PATH` for a whole file.
@@ -56,7 +56,7 @@ the refactor touches (`la-config get languages` lists the repo's).
    - `dr-mock-lint <tests>` passes; when the base branch already has findings,
      `dr-mock-lint --base <base-branch> <tests>` reports only the new ones;
    - the full non-integration test suite (`la-config get commands.test`) passes;
-   - by hand, only these: each `leftover` line the apply printed, each receiver
+   - by hand, only these: each `leftover` and `unverified-read` line the apply printed, each receiver
      `--allow-blindspots` let through, and the string-only references the language doc lists.
 7. Review the diff. The user commits — never commit or `git add -A`.
 
@@ -74,11 +74,11 @@ TypeScript module keeping its extension (`--new-name` is the new stem), and ever
 `move-module` only moves a module into an existing package under its own name. `--stub REMOVAL` (Python) leaves a
 stub at the old path from the repo's `refactor.python.moved_module_stub`. `rename-map MAP` reads a YAML list of
 `{file, symbol, new_name}`, `{file, symbol, retarget}` or `{module, new_name}` entries
-(paths relative to `--project`), resolves every entry before renaming any, and writes all or nothing. `retarget --file F --symbol OLD --target NEW` rewrites what resolves to
+(paths relative to `--project`), resolves every entry before renaming any (so entries may chain or swap names), and writes all or nothing. `retarget --file F --symbol OLD --target NEW` rewrites what resolves to
 the alias `OLD` to name `NEW`, its target declared or imported in the same class or
 module, imports `NEW` where a file lacks it, and leaves `OLD` and its re-exports in
 place. `rename`, `rename-map` and `retarget` also take `--with` /
-`--without PATH:LINE`, `--keep PATH[:LINE]`, `--allow-blindspots` and `--docs`
+`--without PATH:LINE`, `--keep PATH[:LINE]` (site paths relative to `--project`), `--allow-blindspots` and `--docs`
 (comments, docstrings, strings and prose files: qualified mentions everywhere,
 code-marked ones in the declaring files, the rest listed as `leftover`, as are
 declarations whose name contains the old name). Move destinations must already

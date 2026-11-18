@@ -1,0 +1,15 @@
+kind: paired
+languages:
+- python
+- typescript
+command: dr-refactor
+args:
+- rename-map
+- renames.yaml
+git:
+- commit: init
+expect:
+  exit: 1
+golden: manual
+note: 'a map conflict beside an entry whose new name captures a reference: only the map conflict is reported, no name conflict
+  is checked on edits that will not be written'

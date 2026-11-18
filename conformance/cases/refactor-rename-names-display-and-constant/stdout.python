@@ -1,0 +1,46 @@
+Renaming <columns> to <fields>:
+
+
+--- a/pkg/const.py
++++ b/pkg/const.py
+@@ -1,6 +1,6 @@
+ from pkg.m import Ds
+ 
+-NAME = "columns"
++NAME = "fields"
+ 
+ 
+ def read(d: Ds) -> object:
+
+--- a/pkg/local.py
++++ b/pkg/local.py
+@@ -2,5 +2,5 @@
+ 
+ 
+ def local(d: Ds) -> object:
+-    key = "columns"
++    key = "fields"
+     return getattr(d, key)
+
+--- a/pkg/loop.py
++++ b/pkg/loop.py
+@@ -2,5 +2,5 @@
+ 
+ 
+ def clear(d: Ds) -> None:
+-    for s in ("columns", "name"):
++    for s in ("fields", "name"):
+         setattr(d, s, None)
+
+--- a/pkg/m.py
++++ b/pkg/m.py
+@@ -1,4 +1,4 @@
+ class Ds:
+     def __init__(self) -> None:
+-        self.columns: list[str] | None = []
++        self.fields: list[str] | None = []
+         self.name: str | None = ""
+
+
+
+DRY-RUN. 4 file(s) would change. Re-run with --apply.

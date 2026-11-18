@@ -257,6 +257,10 @@ class Snapshot:
             self._sources[rel] = SourceFile(self.root / rel, self.text(rel))
         return self._sources[rel]
 
+    def drop_parsed(self) -> None:
+        """Forget every parsed file; the next `source` parses it again."""
+        self._sources.clear()
+
     def has_bom(self, rel: str) -> bool:
         self.text(rel)
         return rel in self._boms

@@ -1,0 +1,7 @@
+[resolve]
+[checks]
+entry 2 (src/f.ts f(x)): z already names something else at src/f.ts:1, so nothing was refactored
+entry 4 (src/f.ts:7:9): c already names something else at src/f.ts:6, so nothing was refactored
+entry 6 (src/f.ts:12:9): k already names something else at src/f.ts:13, so nothing was refactored
+entry 8 (src/m.ts two): uno already names something else at src/m.ts:1, so nothing was refactored
+entry 10 (src/n.ts three): tres already names something else at src/n.ts:2, so nothing was refactored

@@ -1,0 +1,2 @@
+- {file: pkg/a.py, symbol: Table.columns, new_name: fields}
+- {file: pkg/a.py, symbol: Result.columns, new_name: result_columns}

@@ -9,7 +9,7 @@ from string import Template
 
 import pytest
 from project_files import file_tree
-from refactor_cli import readouterr
+from refactor_cli import entry_refusal, readouterr
 
 from living_architecture.cli.dr_refactor import dr_refactor
 from living_architecture.contract import message
@@ -380,7 +380,8 @@ def _refused(
 ) -> None:
     before = file_tree(root)
     assert _rename(root, rel, offset) == 1
-    assert readouterr(capsys) == ("", message("refactor.name-conflict", name=NEW, path=path, line=line) + "\n")
+    conflict = message("refactor.name-conflict", name=NEW, path=path, line=line)
+    assert readouterr(capsys) == ("", entry_refusal(f"{rel} offset {offset}", conflict) + "\n")
     assert file_tree(root) == before
 
 
@@ -429,8 +430,10 @@ def test_type_parameter_of_the_new_name_is_a_conflict(
 ) -> None:
     root = typed_project({"pkg/t.py": TYPE_PARAMETERS})
     before = file_tree(root)
-    assert _rename(root, "pkg/t.py", _at(root, "pkg/t.py", OLD, nth=nth), new_name=new_name) == 1
-    assert readouterr(capsys) == ("", message("refactor.name-conflict", name=new_name, path="pkg/t.py", line=line) + "\n")
+    offset = _at(root, "pkg/t.py", OLD, nth=nth)
+    assert _rename(root, "pkg/t.py", offset, new_name=new_name) == 1
+    conflict = message("refactor.name-conflict", name=new_name, path="pkg/t.py", line=line)
+    assert readouterr(capsys) == ("", entry_refusal(f"pkg/t.py offset {offset}", conflict) + "\n")
     assert file_tree(root) == before
 
 

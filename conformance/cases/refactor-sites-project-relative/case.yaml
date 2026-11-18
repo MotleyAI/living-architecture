@@ -1,0 +1,59 @@
+kind: paired
+languages:
+- python
+- typescript
+command: dr-refactor
+args:
+  python:
+  - --project
+  - proj
+  - --apply
+  - rename-map
+  - map.yaml
+  - --with
+  - pkg/a.py:7
+  - --with
+  - <ROOT>/repo/proj/pkg/a.py:12
+  - --without
+  - pkg/a.py:17
+  - --without
+  - <ROOT>/repo/proj/pkg/a.py:22
+  - --keep
+  - pkg/use.py:5
+  - --keep
+  - <ROOT>/repo/proj/pkg/use.py:9
+  - --keep
+  - pkg/compat.py
+  - --keep
+  - pkg/shim
+  typescript:
+  - --project
+  - proj
+  - --apply
+  - rename-map
+  - map.yaml
+  - --with
+  - src/a.ts:8
+  - --with
+  - <ROOT>/repo/proj/src/a.ts:14
+  - --without
+  - src/a.ts:20
+  - --without
+  - <ROOT>/repo/proj/src/a.ts:26
+  - --keep
+  - src/use.ts:4
+  - --keep
+  - <ROOT>/repo/proj/src/use.ts:8
+  - --keep
+  - src/compat.ts
+  - --keep
+  - src/shim
+fixture: refactor-sites-project
+git:
+- commit: init
+expect:
+  exit: 0
+  git_status: true
+golden: manual
+note: 'run from the directory holding the project: --with, --without and --keep each take a path relative to --project (a
+  line, a file, a directory) and an absolute one'

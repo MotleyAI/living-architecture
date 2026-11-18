@@ -1,0 +1,21 @@
+Renaming <columns> to <fields>:
+
+
+--- a/pkg/m.py
++++ b/pkg/m.py
+@@ -2,8 +2,8 @@
+ 
+ 
+ class Ds(BaseModel):
+-    columns: list[str]
++    fields: list[str]
+ 
+-    @field_serializer("columns")
++    @field_serializer("fields")
+     def _s(self, v: list[str]) -> list[str]:
+         return v
+
+
+
+APPLIED. 1 file(s) changed:
+  pkg/m.py
