@@ -24,14 +24,22 @@ class ArchCheckError(Exception):
     """The architecture setup is too broken to check."""
 
 
+class SourceRoot(BaseModel):
+    """An import root and the configured root packages under it."""
+
+    model_config = ConfigDict(frozen=True)
+
+    path: Path
+    root_packages: list[str]
+
+
 class Layout(BaseModel):
-    """Architecture, docs and specs live under `repo_root`; one language's code lives in disjoint roots under `source_root`."""
+    """Architecture, docs and specs live under `repo_root`; one language's code lives in disjoint roots under its source roots."""
 
     model_config = ConfigDict(frozen=True)
 
     repo_root: Path
-    source_root: Path
-    root_packages: list[str]
+    source_roots: list[SourceRoot]
 
 
 def declared_languages(index: dict[str, Any]) -> list[str]:
@@ -69,6 +77,20 @@ def _root_configuration(section: Any) -> tuple[str, list[str]]:
     return "root_packages", roots
 
 
+def _source_roots_configuration(section: Any) -> None:
+    """ArchCheckError, never a schema error, when `source_roots` is set with `source_root` or is malformed."""
+    if not isinstance(section, dict) or "source_roots" not in section:
+        return
+    if "source_root" in section:
+        raise ArchCheckError(message("arch-check.source-roots-both"))
+    entries = section["source_roots"]
+    if not isinstance(entries, list) or not entries or not all(isinstance(e, str) and e for e in entries):
+        raise ArchCheckError(message("arch-check.source-roots-invalid"))
+    duplicate = _first_duplicate(cast(list[str], entries))
+    if duplicate is not None:
+        raise ArchCheckError(message("arch-check.source-roots-overlap", first=duplicate, second=duplicate))
+
+
 def load_index(root: Path) -> dict[str, Any]:
     """The validated index mapping; ArchCheckError when it is unusable."""
     path = root / INDEX_REL
@@ -89,16 +111,16 @@ def load_index(root: Path) -> dict[str, Any]:
         raise ArchCheckError(message("arch-check.no-language-section"))
     for language in languages:
         _ = _root_configuration(index[language])
+    if "python" in languages:
+        _source_roots_configuration(index["python"])
     errors = validate(schema("index"), index)
     if errors:
         raise ArchCheckError(f"{INDEX_REL}: " + "; ".join(errors))
     return index
 
 
-def _contained(
-    base: Path, key: str, value: str, escapes_id: str, *, canonical_id: str | None = None, **values: object
-) -> Path:
-    """`base / value`, which must stay under `base` (symlinks included); with `canonical_id`, no empty or `.` segments."""
+def _relative(key: str, value: str, canonical_id: str | None) -> Path:
+    """`value` as a relative path; ArchCheckError if absolute, with a `..` segment, or (with `canonical_id`) non-canonical."""
     rel = Path(value)
     if not value or rel.is_absolute():
         raise ArchCheckError(message("arch-check.layout-not-relative", key=key, value=value))
@@ -106,6 +128,14 @@ def _contained(
         raise ArchCheckError(message("arch-check.layout-parent-segment", key=key, value=value))
     if canonical_id is not None and any(s in ("", ".") for s in value.split("/")):
         raise ArchCheckError(message(canonical_id, value=value))
+    return rel
+
+
+def _contained(
+    base: Path, key: str, value: str, escapes_id: str, *, canonical_id: str | None = None, **values: object
+) -> Path:
+    """`base / value`, which must stay under `base` (symlinks included); with `canonical_id`, no empty or `.` segments."""
+    rel = _relative(key, value, canonical_id)
     try:
         resolved = (base / rel).resolve()
     except (ValueError, RuntimeError):  # NUL, or a symlink loop before 3.13: not a directory, as the caller reports
@@ -130,20 +160,66 @@ def _roots_overlap(first: Path, second: Path) -> bool:
     return first == second or first in second.parents or second in first.parents
 
 
-def _resolve_roots(source_root: Path, key: str, roots: list[str], shown: str) -> None:
-    """ArchCheckError unless every root resolves under `source_root` and no two are equal or nested."""
+def _add_disjoint(resolved: list[tuple[str, Path]], name: str, path: Path, overlap_id: str) -> None:
+    """Append `(name, path)`; ArchCheckError when `path` equals or nests with an earlier one."""
+    for previous, previous_path in resolved:
+        if _roots_overlap(previous_path, path):
+            raise ArchCheckError(message(overlap_id, first=previous, second=name))
+    resolved.append((name, path))
+
+
+def _resolve_source_roots(repo_root: Path, entries: list[str]) -> list[tuple[str, Path]]:
+    """Each `source_roots` entry with its directory; ArchCheckError unless they are disjoint directories in the repo."""
+    resolved: list[tuple[str, Path]] = []
+    real: list[tuple[str, Path]] = []
+    for entry in entries:
+        path = _contained(
+            repo_root, "source_roots", entry, "arch-check.source-roots-escapes",
+            canonical_id="arch-check.source-roots-not-canonical",
+        )
+        if not path.is_dir():
+            raise ArchCheckError(message("arch-check.source-roots-not-a-directory", value=entry))
+        _add_disjoint(real, entry, path.resolve(), "arch-check.source-roots-overlap")
+        resolved.append((entry, path))
+    return resolved
+
+
+def _holder(key: str, root: str, source_roots: list[tuple[str, Path]]) -> tuple[str, Path]:
+    """The one source root holding `root`; ArchCheckError when none or several do."""
+    rel = _relative(key, root, f"arch-check.{key.replace('_', '-')}-not-canonical")
+    holders = [(entry, path) for entry, path in source_roots if (path / rel).is_dir()]
+    if not holders:
+        raise ArchCheckError(message("arch-check.source-roots-none", value=root))
+    if len(holders) > 1:
+        raise ArchCheckError(message("arch-check.source-roots-several", value=root, roots=[e for e, _ in holders]))
+    return holders[0]
+
+
+def _layout_under_source_roots(repo_root: Path, key: str, roots: list[str], entries: list[str]) -> Layout:
+    """The layout of a section with `source_roots`: each root under exactly one entry, every entry used."""
+    source_roots = _resolve_source_roots(repo_root, entries)
+    held: dict[str, list[str]] = {entry: [] for entry in entries}
     resolved: list[tuple[str, Path]] = []
     for root in roots:
-        path = _resolve_root(source_root, key, root, shown)
-        for previous, previous_path in resolved:
-            if _roots_overlap(previous_path, path):
-                raise ArchCheckError(message("arch-check.root-packages-overlap", first=previous, second=root))
-        resolved.append((root, path))
+        entry, path = _holder(key, root, source_roots)
+        _add_disjoint(resolved, root, _resolve_root(path, key, root, entry), "arch-check.root-packages-overlap")
+        held[entry].append(root)
+    for entry in entries:
+        if not held[entry]:
+            raise ArchCheckError(message("arch-check.source-roots-unused", value=entry))
+    return Layout(
+        repo_root=repo_root,
+        source_roots=[SourceRoot(path=path, root_packages=held[entry]) for entry, path in source_roots],
+    )
 
 
 def resolve_layout(repo_root: Path, section: dict[str, Any]) -> Layout:
-    """Where one language's code lives; ArchCheckError unless its roots are disjoint directories under `source_root`."""
+    """Where one language's code lives; ArchCheckError unless its roots are disjoint directories under its source roots."""
     key, roots = _root_configuration(section)
+    entries = section.get("source_roots")
+    if entries is not None:
+        _source_roots_configuration(section)
+        return _layout_under_source_roots(repo_root, key, roots, cast(list[str], entries))
     value = section.get("source_root")
     source_root = repo_root
     if value is not None:
@@ -151,5 +227,7 @@ def resolve_layout(repo_root: Path, section: dict[str, Any]) -> Layout:
         if not source_root.is_dir():
             raise ArchCheckError(message("arch-check.source-root-not-a-directory", value=value))
     shown = "." if value is None else value
-    _resolve_roots(source_root, key, roots, shown)
-    return Layout(repo_root=repo_root, source_root=source_root, root_packages=roots)
+    resolved: list[tuple[str, Path]] = []
+    for root in roots:
+        _add_disjoint(resolved, root, _resolve_root(source_root, key, root, shown), "arch-check.root-packages-overlap")
+    return Layout(repo_root=repo_root, source_roots=[SourceRoot(path=source_root, root_packages=roots)])

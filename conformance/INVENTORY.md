@@ -208,8 +208,8 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | *(new)* the merged files would parse differently: nothing written | 2 | `arch-migrate-verification-mismatch` |
 | *(new)* a failing delete after both writes: created files removed, repo and config unchanged (every failure point and failed restores: the migrate unit tests) | 2 | `arch-migrate-write-failure` |
 | *(new)* usage error; `--help` | 2/0 | `arch-migrate-usage-unknown-flag`, `arch-migrate-help` |
-| *(new)* 0.4.0 → 0.12.0: `conventions.exempt` moves verbatim (comments kept), dedented, to after the `format` line; an emptied `conventions` is removed; without it only the format is stamped | 0 | `arch-migrate-exempt-block-sequence`, `arch-migrate-exempt-flow-sequence-emptied`, `arch-migrate-exempt-nothing-to-move` |
-| *(new)* 0.4.0 → 0.12.0 not migratable (flow-style `conventions`, an alias, anchor or tag on or in the entry, a merge key in `conventions`): names the manual edit, nothing written | 2 | `arch-migrate-exempt-flow-conventions-refused`, `arch-migrate-exempt-alias-refused`, `arch-migrate-exempt-anchor-refused`, `arch-migrate-exempt-tag-refused`, `arch-migrate-exempt-merge-key-refused` |
+| *(new)* 0.4.0 → 0.12.0: `conventions.exempt` moves verbatim (comments kept), dedented, to after the `format` line; an emptied `conventions:` mapping is removed; without it only the format is stamped | 0 | `arch-migrate-exempt-block-sequence`, `arch-migrate-exempt-flow-sequence-emptied`, `arch-migrate-exempt-nothing-to-move` |
+| *(new)* 0.4.0 → 0.12.0 not migratable (a flow-style `conventions:` mapping, an alias, anchor or tag on or in the entry, a merge key in `conventions:`): names the manual edit, nothing written | 2 | `arch-migrate-exempt-flow-conventions-refused`, `arch-migrate-exempt-alias-refused`, `arch-migrate-exempt-anchor-refused`, `arch-migrate-exempt-tag-refused`, `arch-migrate-exempt-merge-key-refused` |
 
 ## la-config
 

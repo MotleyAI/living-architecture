@@ -60,6 +60,21 @@ function rootConfiguration(values: unknown): { key: string; roots: string[] } {
   return { key: 'root_packages', roots: roots as string[] };
 }
 
+/** ArchCheckError, never a schema error, when `source_roots` is set with `source_root` or is malformed. */
+function sourceRootsConfiguration(values: unknown): void {
+  const record = values !== null && typeof values === 'object' && !Array.isArray(values) ? (values as Record<string, unknown>) : {};
+  if (!Object.hasOwn(record, 'source_roots')) return;
+  if (Object.hasOwn(record, 'source_root')) throw new ArchCheckError(message('arch-check.source-roots-both'));
+  const entries = record.source_roots;
+  if (!Array.isArray(entries) || entries.length === 0 || !entries.every((entry) => typeof entry === 'string' && entry)) {
+    throw new ArchCheckError(message('arch-check.source-roots-invalid'));
+  }
+  const duplicate = firstDuplicate(entries as string[]);
+  if (duplicate !== undefined) {
+    throw new ArchCheckError(message('arch-check.source-roots-overlap', { first: duplicate, second: duplicate }));
+  }
+}
+
 /** The validated index mapping; ArchCheckError when it is unusable. */
 export function loadIndex(root: string): Index {
   const path = join(root, INDEX_REL);
@@ -84,6 +99,7 @@ export function loadIndex(root: string): Index {
   const languages = declaredLanguages(index);
   if (languages.length === 0) throw new ArchCheckError(message('arch-check.no-language-section'));
   for (const language of languages) rootConfiguration(section(index, language));
+  if (languages.includes('python')) sourceRootsConfiguration(section(index, 'python'));
   const errors = validate(schema('index'), index);
   if (errors.length > 0) throw new ArchCheckError(`${INDEX_REL}: ${errors.join('; ')}`);
   return index;

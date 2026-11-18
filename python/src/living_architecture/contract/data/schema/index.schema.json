@@ -27,14 +27,17 @@
     "root_package": {"type": "string", "minLength": 1, "description": "The language root's unit, under source_root."},
     "root_packages": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/root_package"}, "description": "Disjoint language root units under source_root."},
     "source_root": {"type": "string", "description": "Repo-relative directory containing root_package or root_packages; default: the repo root."},
+    "source_roots": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}, "description": "Disjoint repo-relative import roots; each root package sits under exactly one."},
     "python": {
       "type": "object",
       "additionalProperties": false,
       "oneOf": [{"required": ["root_package"], "not": {"required": ["root_packages"]}}, {"required": ["root_packages"], "not": {"required": ["root_package"]}}],
+      "not": {"required": ["source_root", "source_roots"]},
       "properties": {
         "root_package": {"$ref": "#/$defs/root_package"},
         "root_packages": {"$ref": "#/$defs/root_packages"},
-        "source_root": {"$ref": "#/$defs/source_root"}
+        "source_root": {"$ref": "#/$defs/source_root"},
+        "source_roots": {"$ref": "#/$defs/source_roots"}
       }
     },
     "typescript": {

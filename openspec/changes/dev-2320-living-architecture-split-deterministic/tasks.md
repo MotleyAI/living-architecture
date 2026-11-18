@@ -15,9 +15,9 @@ Calibration notes (read first):
 
 ## 1. Python source_roots in index.yaml
 
-- [ ] 1.1 Add `source_roots` to the `python` section of `shared/schema/index.schema.json` (exclusive with `source_root`), its findings to `shared/findings.yaml` (both forms set, malformed, invalid or overlapping entry, root package in no entry, in several entries, unused entry), run `scripts/sync-shared`; verify the drift test passes
-- [ ] 1.2 Implement `source_roots` in both twins' index loaders and Python unit discovery (each root package resolved under exactly one entry, dotted ids), and reject it in the `typescript` section; verify the new arch-check conformance cases (one per scenario of "Python roots may sit under several source roots" and the modified arch-check requirements) pass through both twins
-- [ ] 1.3 List the new cases in `conformance/INVENTORY.md`; verify the inventory test passes
+- [x] 1.1 Add `source_roots` to the `python` section of `shared/schema/index.schema.json` (exclusive with `source_root`), its findings to `shared/findings.yaml` (both forms set, malformed, invalid or overlapping entry, root package in no entry, in several entries, unused entry), run `scripts/sync-shared`; verify the drift test passes
+- [x] 1.2 Implement `source_roots` in both twins' index loaders and Python unit discovery (each root package resolved under exactly one entry, dotted ids), and reject it in the `typescript` section; verify the new arch-check conformance cases (one per scenario of "Python roots may sit under several source roots" and the modified arch-check requirements) pass through both twins
+- [x] 1.3 List the new cases in `conformance/INVENTORY.md`; verify the inventory test passes
 
 ## 2. Top-level exempt, format 0.12.0 and the version bump
 

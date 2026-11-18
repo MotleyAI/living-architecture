@@ -33,7 +33,8 @@ def measure_runtime_edges(layout: Layout, units: dict[str, str]) -> dict[tuple[s
     self- and ancestor/descendant pairs drop as internal; the root package's own module is exempt.
     """
     witnesses: dict[tuple[str, str], tuple[str, str]] = {}
-    for source in sorted(source_modules(layout.source_root, layout.root_packages), key=lambda s: s.module):
+    sources = [s for root in layout.source_roots for s in source_modules(root.path, root.root_packages)]
+    for source in sorted(sources, key=lambda s: s.module):
         src_elem = _attribute(source.module, units)
         if src_elem is None:
             continue

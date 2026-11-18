@@ -47,6 +47,14 @@ class Facts(BaseModel):
         return doc
 
 
+def _top_level_units(layout: Layout) -> set[str]:
+    return {unit for root in layout.source_roots for unit in top_level_units(root.path, root.root_packages)}
+
+
+def _unit_exists(layout: Layout, unit: str) -> bool:
+    return any(unit_exists(root.path, unit) for root in layout.source_roots)
+
+
 def _facts(layout: Layout, language: str, units: list[UnitFact], attribution: dict[str, str]) -> Facts:
     witnesses = measure_runtime_edges(layout, attribution)
     return Facts(
@@ -54,7 +62,7 @@ def _facts(layout: Layout, language: str, units: list[UnitFact], attribution: di
         version=__version__,
         contract_hash=contract_hash(),
         units=units,
-        top_level_units=sorted(top_level_units(layout.source_root, layout.root_packages)),
+        top_level_units=sorted(_top_level_units(layout)),
         edges=[
             EdgeFact(src=src, dst=dst, src_module=src_module, dst_module=dst_module)
             for (src, dst), (src_module, dst_module) in sorted(witnesses.items())
@@ -65,7 +73,7 @@ def _facts(layout: Layout, language: str, units: list[UnitFact], attribution: di
 def native_facts(layout: Layout, node_map: NodeMap, language: str) -> Facts:
     """The Python facts, measured in-process."""
     units = [
-        UnitFact(unit=unit, status="present" if unit_exists(layout.source_root, unit) else "missing")
+        UnitFact(unit=unit, status="present" if _unit_exists(layout, unit) else "missing")
         for unit in node_map.units(language)
     ]
     return _facts(layout, language, units, unit_to_element(node_map, language))
@@ -73,5 +81,5 @@ def native_facts(layout: Layout, node_map: NodeMap, language: str) -> Facts:
 
 def native_top_level_facts(layout: Layout, language: str) -> Facts:
     """The Python facts with edges between top-level units; no model involved."""
-    tops = top_level_units(layout.source_root, layout.root_packages)
+    tops = _top_level_units(layout)
     return _facts(layout, language, [], {unit: unit for unit in tops})
