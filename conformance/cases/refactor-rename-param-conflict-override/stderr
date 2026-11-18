@@ -5,4 +5,4 @@
 [rules]
 [rules 1/1] entry 1: model_name -> dataset_name: clean
 [conflicts]
-dataset_name already names something else at pkg/conflict_sub.py:8, so nothing was refactored
+entry 1 (pkg/conflict_base.py:2:22): dataset_name already names something else at pkg/conflict_sub.py:8, so nothing was refactored

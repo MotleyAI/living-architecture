@@ -1,3 +1,3 @@
 [resolve]
 [checks]
-provide one of --offset, --line [--col], or --symbol
+entry 1 (src/a.ts): provide one of --offset, --line [--col], or --symbol

@@ -1,0 +1,4 @@
+[resolve]
+[checks]
+entry 1 (pkg/a.py): b already names something else at pkg/b.py:1, so nothing was refactored
+entry 2 (pkg/b.py): a already names something else at pkg/a.py:1, so nothing was refactored

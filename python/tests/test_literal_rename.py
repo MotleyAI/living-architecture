@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 from project_files import file_tree, write_project
-from refactor_cli import assert_same_run, line_col, read, run, template_regex
+from refactor_cli import assert_same_run, entry_refusal, line_col, read, run, template_regex
 
 from living_architecture.contract import message
 
@@ -227,7 +227,7 @@ def test_value_with_a_quote_backslash_or_line_break_refused(
 ) -> None:
     root = write_project(tmp_path / "proj", {"pkg/kinds.py": KINDS, "pkg/use.py": CONTEXTS})
     before = file_tree(root)
-    expected = message("refactor.literal-value", value=value)
+    expected = entry_refusal(f"pkg/kinds.py {SYMBOL}", message("refactor.literal-value", value=value))
     assert run(root, _by_symbol(value), monkeypatch, capsys) == (2, "", f"{expected}\n")
     assert file_tree(root) == before
 
@@ -302,7 +302,7 @@ def test_an_implicitly_concatenated_member_cannot_be_renamed(
     root = write_project(tmp_path / "proj", {"pkg/state.py": 'from typing import Literal\n\nState = Literal["re" "ady", "drop"]\n'})
     before = file_tree(root)
     code, _out, err = run(root, _by_symbol("done", symbol="State['ready']", rel="pkg/state.py"), monkeypatch, capsys)
-    assert (code, err) == (1, message("refactor.cannot-rename") + "\n")
+    assert (code, err) == (1, entry_refusal("pkg/state.py State['ready']", message("refactor.cannot-rename")) + "\n")
     assert file_tree(root) == before
 
 

@@ -1,0 +1,3 @@
+- {file: pkg/s.py, line: 5, col: 5, new_name: b}
+- {file: pkg/s.py, line: 25, col: 5, new_name: total}
+- {file: pkg/s.py, line: 38, col: 5, new_name: own}

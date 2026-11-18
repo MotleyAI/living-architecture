@@ -1,0 +1,5 @@
+[resolve]
+[checks]
+entry 2 (src/c.ts:99): line 99 out of range (file has 3 lines)
+entry 3 (src/c.ts nope): src/c.ts: nope names no declaration; candidates: other
+entry 4 (src/c.ts offset 999): offset 999 out of range (file has 65 characters)

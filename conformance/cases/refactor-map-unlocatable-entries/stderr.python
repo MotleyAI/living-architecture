@@ -1,0 +1,4 @@
+[resolve]
+[checks]
+entry 2 (pkg/c.py:2:11): the element at this location cannot be renamed
+entry 3 (pkg/c.py:2:5): the element at this location cannot be renamed

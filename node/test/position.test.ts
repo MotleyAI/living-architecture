@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { message } from '../src/contract/index.js';
 import { mapPosition, movedOffsets, type PositionMap } from '../src/refactor/position.js';
-import { read, refactor, tsProject } from './refactor-project.js';
+import { entryRefusal, read, refactor, tsProject } from './refactor-project.js';
 
 describe('movedOffsets', () => {
   it('maps an unchanged text by its place in the inserted text', () => {
@@ -47,7 +47,8 @@ describe('name conflicts', () => {
   it('refuses a rename to a name its scope already declares', () => {
     const root = tsProject({ 'src/f.ts': f });
     const result = refactor(root, '--apply', 'rename', '--file', 'src/f.ts', '--symbol', 'f(x)', '--new-name', 'y');
-    expect(result).toEqual({ code: 1, out: '', err: `${message('refactor.name-conflict', { name: 'y', path: 'src/f.ts', line: 2 })}\n` });
+    const conflict = message('refactor.name-conflict', { name: 'y', path: 'src/f.ts', line: 2 });
+    expect(result).toEqual({ code: 1, out: '', err: `${entryRefusal('src/f.ts f(x)', conflict)}\n` });
     expect(read(root, 'src/f.ts')).toBe(f);
   });
 

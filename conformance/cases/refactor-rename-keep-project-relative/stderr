@@ -1,0 +1,8 @@
+[resolve]
+[checks]
+[references]
+[references 1/1] entry 1: m -> n
+[rules]
+[rules 1/1] entry 1: m -> n: clean
+[conflicts]
+[write]

@@ -1,0 +1,3 @@
+- {file: pkg/c.py, symbol: "other(model)", new_name: dataset}
+- {file: pkg/c.py, line: 2, col: 11, new_name: metric}
+- {file: pkg/c.py, line: 2, col: 5, new_name: metric}

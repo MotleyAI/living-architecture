@@ -17,19 +17,19 @@ describe('Site', () => {
   for (const file of ['tests/compat/old.ts', 'tests/compatible.ts', 'tests/shim.ts']) writeFileSync(join(root, file), '');
 
   it('matches a directory by whole path components', () => {
-    const site = Site.parse('tests/compat', root, root);
+    const site = Site.parse('tests/compat', root);
     expect(site.covers('tests/compat/old.ts', 1)).toBe(true);
     expect(site.covers('tests/compatible.ts', 1)).toBe(false);
   });
 
   it('matches a line of a file, normalized', () => {
-    const site = Site.parse('./tests/../tests/shim.ts:4', root, root);
+    const site = Site.parse('./tests/../tests/shim.ts:4', root);
     expect([site.covers('tests/shim.ts', 4), site.covers('tests/shim.ts', 5)]).toEqual([true, false]);
   });
 
   it('matches nothing for a missing path or one outside the project', () => {
-    expect(Site.parse('tests/missing.ts', root, root).covers('tests/missing.ts', 1)).toBe(false);
-    expect(Site.parse('..', root, root).parts).toBeNull();
+    expect(Site.parse('tests/missing.ts', root).covers('tests/missing.ts', 1)).toBe(false);
+    expect(Site.parse('..', root).parts).toBeNull();
   });
 });
 

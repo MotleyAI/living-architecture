@@ -1,8 +1,3 @@
 [resolve]
 [checks]
-[references]
-[references 1/1] entry 1: old -> next
-[rules]
-[rules 1/1] entry 1: old -> next: clean
-[conflicts]
-next already names something else at src/m.ts:6, so nothing was refactored
+entry 1 (src/m.ts C.old): next already names something else at src/m.ts:6, so nothing was refactored

@@ -3,7 +3,7 @@ import { chmodSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { message, schema, validate } from '../src/contract/index.js';
-import { TSCONFIG, copyProject, expectedOut, files, lineCol, mapYaml, read, refactor, refactorRaw, renameHeader, tsProject } from './refactor-project.js';
+import { TSCONFIG, copyProject, entryRefusal, expectedOut, files, lineCol, mapYaml, read, refactor, refactorRaw, renameHeader, tsProject } from './refactor-project.js';
 
 const STORE = `export class Store {
   getModel(modelName: string): number {
@@ -109,8 +109,8 @@ describe('rename-map', () => {
     expect(result.code).toBe(1);
     expect(result.out).toBe('');
     expect(lines.slice(0, 2)).toEqual([
-      message('compliance.attr-blindspot', { path: 'src/loose.ts', line: 2, receiver: 'a', attr: 'getModelSync', type: 'any' }),
       message('compliance.attr-blindspot', { path: 'src/loose.ts', line: 2, receiver: 'b', attr: 'getModel', type: 'any' }),
+      message('compliance.attr-blindspot', { path: 'src/loose.ts', line: 2, receiver: 'a', attr: 'getModelSync', type: 'any' }),
     ]);
     expect(lines).toHaveLength(3);
     expect(lines[2]).toBe(message('refactor.blindspots', { count: 2, attr: 'getModel, .getModelSync' }));
@@ -161,16 +161,21 @@ export function run(b: Base): void {
     expect(files(root)).toEqual(before);
   });
 
-  it('refuses a swap inside one scope with the name-conflict finding', () => {
+  it.each([
+    ['a swap', 'x', 'f(y: number, x: number): number {\n  return y - x;'],
+    ['a chain', 'z', 'f(y: number, z: number): number {\n  return y - z;'],
+  ])('applies %s inside one scope, in either entry order', (_kind, last, after) => {
     const f = 'export function f(x: number, y: number): number {\n  return x - y;\n}\n';
-    const root = withMap({ 'src/f.ts': f }, [
+    const entries = [
       { file: 'src/f.ts', symbol: 'f(x)', new_name: 'y' },
-      { file: 'src/f.ts', symbol: 'f(y)', new_name: 'x' },
-    ]);
-    const result = refactor(root, '--apply', 'rename-map', 'map.yaml');
-    const conflicts = ['x', 'y'].map((name) => message('refactor.name-conflict', { name, path: 'src/f.ts', line: 1 }));
-    expect(result).toEqual({ code: 1, out: '', err: conflicts.map((conflict) => `${conflict}\n`).join('') });
-    expect(read(root, 'src/f.ts')).toBe(f);
+      { file: 'src/f.ts', symbol: 'f(y)', new_name: last },
+    ];
+    for (const ordered of [entries, entries.toReversed()]) {
+      const root = withMap({ 'src/f.ts': f }, ordered);
+      const result = refactor(root, '--apply', 'rename-map', 'map.yaml');
+      expect([result.code, result.err]).toEqual([0, '']);
+      expect(read(root, 'src/f.ts')).toBe(`export function ${after}\n}\n`);
+    }
   });
 
   it.each([
@@ -182,7 +187,8 @@ export function run(b: Base): void {
       { file: 'src/f.ts', symbol: second, new_name: 'z' },
     ]);
     const result = refactor(root, '--apply', 'rename-map', 'map.yaml');
-    expect(result).toEqual({ code: 1, out: '', err: `${message('refactor.name-conflict', { name: 'z', path: 'src/f.ts', line: 1 })}\n` });
+    const conflict = message('refactor.name-conflict', { name: 'z', path: 'src/f.ts', line: 1 });
+    expect(result).toEqual({ code: 1, out: '', err: `${entryRefusal(`src/f.ts ${second}`, conflict, 2)}\n` });
     expect(read(root, 'src/f.ts')).toBe(f);
   });
 
@@ -222,7 +228,8 @@ export function run(b: Base): void {
       { file: 'src/f.ts', symbol: 'C.b', new_name: 'x' },
     ]);
     const result = refactor(root, '--apply', 'rename-map', 'map.yaml');
-    expect(result).toEqual({ code: 1, out: '', err: `${message('refactor.name-conflict', { name: 'x', path: 'src/f.ts', line: 4 })}\n` });
+    const conflict = message('refactor.name-conflict', { name: 'x', path: 'src/f.ts', line: 4 });
+    expect(result).toEqual({ code: 1, out: '', err: `${entryRefusal('src/f.ts C.b', conflict, 2)}\n` });
     expect(read(root, 'src/f.ts')).toBe(f);
   });
 
