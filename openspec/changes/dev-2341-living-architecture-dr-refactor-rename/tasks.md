@@ -76,7 +76,7 @@ below is one spec scenario unless it says several.
 
 ## 6. Docs, versions and gates
 
-- [ ] 6.1 Update `docs/deterministic-refactoring.md` and the plugin skills that name `attr-blindspot` for string
+- [x] 6.1 Update `docs/deterministic-refactoring.md` and the plugin skills that name `attr-blindspot` for string
   forms or describe `literal-unresolved`; skill wording needs the user's OK before it is edited
 - [x] 6.2 Raise the minor version in `python/pyproject.toml`, `node/package.json` and
   `plugin/.claude-plugin/plugin.json`; verify the version test and that every `CONTRACT_HASH` equals the hash of
