@@ -6,8 +6,6 @@ from collections.abc import Callable
 from pathlib import Path
 
 import pytest
-from project_files import file_tree, write_project
-from refactor_cli import run, run_raw
 from rope.base import libutils
 from rope.base.change import ChangeSet
 from rope.base.project import Project
@@ -15,8 +13,10 @@ from rope.refactor import move as rope_move
 from rope.refactor import occurrences
 from rope.refactor.move import MoveGlobal, MoveMethod, MoveModule
 
-from living_architecture.contract import message
-from living_architecture.refactor import writer
+from deterministic_refactor.contract import message
+from deterministic_refactor.refactor import writer
+from project_files import file_tree, write_project
+from refactor_cli import run, run_raw
 
 FILES = {
     "pkg/sql/__init__.py": "",

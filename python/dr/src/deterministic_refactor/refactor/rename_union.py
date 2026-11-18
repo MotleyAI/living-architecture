@@ -17,12 +17,12 @@ from typing import Literal, TypeVar
 from pydantic import BaseModel, ConfigDict
 from typing_extensions import override
 
-from living_architecture.contract import message
-from living_architecture.lang import FactQuery, Occurrence, Span
-from living_architecture.refactor.carve_outs import CarveOuts, is_fixture
-from living_architecture.refactor.entry_location import Entry, EntryLocator, StaticTrace
-from living_architecture.refactor.hierarchy import ClassGraph, ClassKey
-from living_architecture.refactor.keyed import (
+from deterministic_refactor.contract import message
+from deterministic_refactor.lang import FactQuery, Occurrence, Span
+from deterministic_refactor.refactor.carve_outs import CarveOuts, is_fixture
+from deterministic_refactor.refactor.entry_location import Entry, EntryLocator, StaticTrace
+from deterministic_refactor.refactor.hierarchy import ClassGraph, ClassKey
+from deterministic_refactor.refactor.keyed import (
     Bindings,
     ClassRef,
     KeyedRename,
@@ -33,7 +33,7 @@ from living_architecture.refactor.keyed import (
     plain_key_span,
     sink_candidates,
 )
-from living_architecture.refactor.keyword_links import (
+from deterministic_refactor.refactor.keyword_links import (
     CarrierShape,
     KeywordFlow,
     KeywordSite,
@@ -42,19 +42,19 @@ from living_architecture.refactor.keyword_links import (
     signature_links,
     unresolved_sites,
 )
-from living_architecture.refactor.locators import cannot_rename
-from living_architecture.refactor.member_scan import FormCall, MemberScan, NameString, collapsed
-from living_architecture.refactor.members import member_declarations
-from living_architecture.refactor.mentions import (
+from deterministic_refactor.refactor.locators import cannot_rename
+from deterministic_refactor.refactor.member_scan import FormCall, MemberScan, NameString, collapsed
+from deterministic_refactor.refactor.members import member_declarations
+from deterministic_refactor.refactor.mentions import (
     Mention,
     MentionRules,
     Owner,
     mentions,
 )
-from living_architecture.refactor.move_edits import NameConflict
-from living_architecture.refactor.name_follow import Held, NameFollow, display_names
-from living_architecture.refactor.occurrence_index import RunIndex
-from living_architecture.refactor.outcomes import (
+from deterministic_refactor.refactor.move_edits import NameConflict
+from deterministic_refactor.refactor.name_follow import Held, NameFollow, display_names
+from deterministic_refactor.refactor.occurrence_index import RunIndex
+from deterministic_refactor.refactor.outcomes import (
     Finding,
     Outcome,
     blindspot_outcome,
@@ -68,15 +68,15 @@ from living_architecture.refactor.outcomes import (
     target_outcome,
     unverified_read,
 )
-from living_architecture.refactor.patch_targets import SourceFolders, TargetResolver
-from living_architecture.refactor.python_project import ProjectLayout, Snapshot
-from living_architecture.refactor.python_source import SourceFile, every_parameter, nfkc
-from living_architecture.refactor.routing import language_files
-from living_architecture.refactor.sites import Site
-from living_architecture.refactor.static_resolver import Module, Scope
-from living_architecture.refactor.text_edits import TextEdit
-from living_architecture.refactor.text_tables import TextTables
-from living_architecture.refactor.timings import timed
+from deterministic_refactor.refactor.patch_targets import SourceFolders, TargetResolver
+from deterministic_refactor.refactor.python_project import ProjectLayout, Snapshot
+from deterministic_refactor.refactor.python_source import SourceFile, every_parameter, nfkc
+from deterministic_refactor.refactor.routing import language_files
+from deterministic_refactor.refactor.sites import Site
+from deterministic_refactor.refactor.static_resolver import Module, Scope
+from deterministic_refactor.refactor.text_edits import TextEdit
+from deterministic_refactor.refactor.text_tables import TextTables
+from deterministic_refactor.refactor.timings import timed
 
 _T = TypeVar("_T")
 _Uses = dict[Held, list[tuple[str, FormCall]]]

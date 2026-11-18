@@ -11,8 +11,15 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from living_architecture import NATIVE_LANGUAGE, __version__
-from living_architecture.contract import contract_hash, language, message, render_template, schema, validate
+from deterministic_refactor import NATIVE_LANGUAGE, __version__
+from deterministic_refactor.contract import (
+    contract_hash,
+    language,
+    message,
+    render_template,
+    schema,
+    validate,
+)
 
 FORWARDED_ENV = "LA_FORWARDED"
 _FACTS_INVALID = "twin.facts-invalid"

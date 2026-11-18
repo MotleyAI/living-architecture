@@ -4,9 +4,9 @@ from pathlib import Path
 
 import pytest
 
+from deterministic_refactor.config import CONFIG_FILENAME
+from deterministic_refactor.contract import manifest, snapshot_dir
 from living_architecture import review
-from living_architecture.config import CONFIG_FILENAME
-from living_architecture.contract import manifest, snapshot_dir
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 SCRIPTS_DIR = snapshot_dir() / "scripts"
@@ -85,8 +85,14 @@ def test_pr_reviewers_runs_its_bundled_script():
 
 
 def test_every_manifest_command_has_an_entry_point():
-    scripts = tomllib.loads((PROJECT_ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]["scripts"]
-    assert sorted(set(manifest()) - set(scripts)) == []
+    scripts = {
+        command
+        for member in ("dr", "la")
+        for command in tomllib.loads((PROJECT_ROOT.parent / member / "pyproject.toml").read_text(encoding="utf-8"))[
+            "project"
+        ]["scripts"]
+    }
+    assert sorted(set(manifest()) - scripts) == []
 
 
 def test_every_bundled_script_has_a_command():

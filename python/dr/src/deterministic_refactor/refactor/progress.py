@@ -7,7 +7,7 @@ from collections.abc import Iterable
 
 from pydantic import BaseModel, ConfigDict
 
-from living_architecture.contract import message
+from deterministic_refactor.contract import message
 
 
 class Refusal(BaseModel):

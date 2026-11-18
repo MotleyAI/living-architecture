@@ -10,8 +10,8 @@ from pathlib import Path
 
 import pytest
 
-from living_architecture.refactor.members import member_declarations
-from living_architecture.refactor.python_source import SourceFile
+from deterministic_refactor.refactor.members import member_declarations
+from deterministic_refactor.refactor.python_source import SourceFile
 
 FORMS = {
     "def": "def save_model(self) -> None: ...",

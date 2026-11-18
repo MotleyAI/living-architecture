@@ -6,13 +6,13 @@ from pathlib import Path
 import pytest
 import yaml
 
+from deterministic_refactor.cli.dr_mock_lint import dr_mock_lint
+from deterministic_refactor.contract import manifest
+from deterministic_refactor.contract.parser import build_parser, parse
 from living_architecture import conventions, review
-from living_architecture.cli.dr_mock_lint import dr_mock_lint
-from living_architecture.cli.parser import build_parser, parse
-from living_architecture.contract import manifest
 
 PARSED = sorted(name for name, spec in manifest().items() if not spec.get("passthrough"))
-VECTORS = next(p for p in Path(__file__).resolve().parents if (p / "shared" / "vectors").is_dir()) / "shared" / "vectors"
+VECTORS = next(p for p in Path(__file__).resolve().parents if (p / "shared").is_dir() and (p / "plugin").is_dir()) / "shared" / "vectors"
 CASES = yaml.safe_load((VECTORS / "cli.yaml").read_text(encoding="utf-8"))["cases"]
 
 

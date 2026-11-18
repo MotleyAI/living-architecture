@@ -12,11 +12,11 @@ from pathlib import Path
 import pytest
 import yaml
 
-from living_architecture.contract import normalize
+from deterministic_refactor.contract import normalize
 
 
 def _repo_root() -> Path:
-    return next(p for p in Path(__file__).resolve().parents if (p / "shared" / "vectors").is_dir())
+    return next(p for p in Path(__file__).resolve().parents if (p / "shared").is_dir() and (p / "plugin").is_dir())
 
 
 VECTORS = _repo_root() / "shared" / "vectors"

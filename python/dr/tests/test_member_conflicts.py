@@ -6,10 +6,10 @@ import json
 from pathlib import Path
 
 import pytest
+
+from deterministic_refactor.contract import message
 from project_files import write_project
 from refactor_cli import entry_refusal, run
-
-from living_architecture.contract import message
 
 EXTLIB = (
     "class Root:\n    def keys(self) -> int:\n        return 0\n\n\n"

@@ -8,11 +8,11 @@ from pathlib import Path
 from string import Template
 
 import pytest
+
+from deterministic_refactor.cli.dr_refactor import dr_refactor
+from deterministic_refactor.contract import message
 from project_files import file_tree
 from refactor_cli import entry_refusal, readouterr
-
-from living_architecture.cli.dr_refactor import dr_refactor
-from living_architecture.contract import message
 
 MakeProject = Callable[..., Path]
 OLD = "model_name"

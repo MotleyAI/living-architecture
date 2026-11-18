@@ -8,8 +8,8 @@ from functools import cache
 from pathlib import Path
 from typing import Any
 
-from living_architecture.contract.glob import glob_match
-from living_architecture.contract.yaml_profile import load_yaml
+from deterministic_refactor.contract.glob import glob_match
+from deterministic_refactor.contract.yaml_profile import load_yaml
 
 HASH_FILE = "CONTRACT_HASH"
 

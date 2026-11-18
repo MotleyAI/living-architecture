@@ -8,7 +8,7 @@ from typing import Any
 
 import pytest
 
-from living_architecture import lang
+from deterministic_refactor import lang
 
 
 def _edges(

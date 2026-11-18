@@ -5,11 +5,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from living_architecture.contract import language_of, message
-from living_architecture.refactor.locators import RefactorError
-from living_architecture.refactor.python_project import Snapshot, read_str_coding
-from living_architecture.refactor.python_source import SourceFile
-from living_architecture.refactor.writer import FileWrite
+from deterministic_refactor.contract import language_of, message
+from deterministic_refactor.refactor.locators import RefactorError
+from deterministic_refactor.refactor.python_project import Snapshot, read_str_coding
+from deterministic_refactor.refactor.python_source import SourceFile
+from deterministic_refactor.refactor.writer import FileWrite
 
 _BOM = b"\xef\xbb\xbf"
 

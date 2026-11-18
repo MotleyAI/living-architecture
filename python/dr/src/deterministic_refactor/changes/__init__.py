@@ -8,8 +8,8 @@ import signal
 import subprocess
 from pathlib import Path
 
-from living_architecture.config import ConfigError
-from living_architecture.contract import base_fetch_timeout, message
+from deterministic_refactor.config import ConfigError
+from deterministic_refactor.contract import base_fetch_timeout, message
 
 __all__ = ["base_paths", "changed_paths", "commit_id", "file_at", "git_paths", "is_commit", "merge_base", "pr_base", "resolve_base_ref"]
 

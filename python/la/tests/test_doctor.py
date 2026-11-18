@@ -4,11 +4,11 @@ from pathlib import Path
 
 import pytest
 
+from deterministic_refactor import config as la_config
+from deterministic_refactor.config import CONFIG_FILENAME
+from deterministic_refactor.contract import contract_hash
 from living_architecture import __version__, doctor
-from living_architecture import config as la_config
 from living_architecture.cli.la_doctor import la_doctor
-from living_architecture.config import CONFIG_FILENAME
-from living_architecture.contract import contract_hash
 
 
 def _declared(text: str) -> str:

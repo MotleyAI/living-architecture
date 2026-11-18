@@ -9,12 +9,12 @@ from pathlib import Path
 
 import pytest
 import yaml
+
+from deterministic_refactor.config import current_format
+from deterministic_refactor.contract import message
+from deterministic_refactor.lang import LanguageServer
 from project_files import file_tree, write_project
 from refactor_cli import entry_refusal, read, run, run_raw, template_regex
-
-from living_architecture.config import current_format
-from living_architecture.contract import message
-from living_architecture.lang import LanguageServer
 
 CHECKS = "[resolve]\n[checks]\n"
 Entries = Sequence[Mapping[str, object]]

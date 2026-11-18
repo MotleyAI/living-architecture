@@ -6,12 +6,12 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+
+from deterministic_refactor.contract import message
+from deterministic_refactor.lang import Diagnostic, Span
+from deterministic_refactor.lang.language_server import LanguageServer
 from project_files import file_tree, write_project
 from refactor_cli import read, run
-
-from living_architecture.contract import message
-from living_architecture.lang import Diagnostic, Span
-from living_architecture.lang.language_server import LanguageServer
 
 KINDS = 'from typing import Literal\n\nDriftKind = Literal["edit_model", "drop"]\n'
 USE = 'from pkg.kinds import DriftKind\n\n\ndef f(kind: DriftKind) -> None:\n    print(kind)\n\n\ndef call() -> None:\n    f("edit_model")\n'

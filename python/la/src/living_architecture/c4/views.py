@@ -8,6 +8,7 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
+from deterministic_refactor.contract import architecture, message
 from living_architecture.c4.index import read_index
 from living_architecture.c4.model import (
     ModelParse,
@@ -17,7 +18,6 @@ from living_architecture.c4.model import (
     roots,
     strip_line_comment,
 )
-from living_architecture.contract import architecture, message
 
 
 class Edge(BaseModel):

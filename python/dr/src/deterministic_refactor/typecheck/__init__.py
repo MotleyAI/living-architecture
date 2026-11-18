@@ -12,11 +12,11 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from living_architecture import changes, lang, twin
-from living_architecture.config import ConfigError, LaConfig, find_repo_root, load_config, repo_languages
-from living_architecture.contract import language, message, os_error_text
-from living_architecture.lang.baseline import Key, diagnostics, marked
-from living_architecture.lang.realign import Entries, merged, realigned, rekeyed
+from deterministic_refactor import changes, lang, twin
+from deterministic_refactor.config import ConfigError, LaConfig, find_repo_root, load_config, repo_languages
+from deterministic_refactor.contract import language, message, os_error_text
+from deterministic_refactor.lang.baseline import Key, diagnostics, marked
+from deterministic_refactor.lang.realign import Entries, merged, realigned, rekeyed
 
 
 class CommandError(Exception):

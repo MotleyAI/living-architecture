@@ -7,11 +7,11 @@ from pathlib import Path
 
 import pytest
 import yaml
+
+from deterministic_refactor.contract import message, schema, validate
+from deterministic_refactor.refactor.occurrence_index import ServerSession
 from project_files import file_tree, write_project
 from refactor_cli import read, run, run_raw
-
-from living_architecture.contract import message, schema, validate
-from living_architecture.refactor.occurrence_index import ServerSession
 
 MODEL = "words:\n- {from: model, to: dataset}\n"
 COLUMNS = "words:\n- {from: columns, to: fields}\n"

@@ -8,9 +8,9 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from living_architecture.config.languages import language_fact, repo_languages
-from living_architecture.config.load import ConfigError, LaConfig, load_raw, resolve_raw
-from living_architecture.contract import local_config_file, message
+from deterministic_refactor.config.languages import language_fact, repo_languages
+from deterministic_refactor.config.load import ConfigError, LaConfig, load_raw, resolve_raw
+from deterministic_refactor.contract import local_config_file, message
 
 
 def _lookup(data: Any, dotted: str) -> Any:

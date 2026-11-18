@@ -2,8 +2,16 @@
 
 from pathlib import Path
 
-from living_architecture.lang.baseline import Key, baselined, diagnostics, marked, matches, pairs, text_edits
-from living_architecture.lang.position_map import Edit, map_range
+from deterministic_refactor.lang.baseline import (
+    Key,
+    baselined,
+    diagnostics,
+    marked,
+    matches,
+    pairs,
+    text_edits,
+)
+from deterministic_refactor.lang.position_map import Edit, map_range
 
 ARG = "reportArgumentType"
 

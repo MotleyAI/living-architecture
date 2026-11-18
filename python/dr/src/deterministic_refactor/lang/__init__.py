@@ -1,8 +1,8 @@
 """The Python language adapter: units, import targets, dependency edges, conventions facts, the basedpyright specifics
 and its language-server session."""
 
-from living_architecture.lang.edges import dependency_edges, reverse_closure
-from living_architecture.lang.language_server import (
+from deterministic_refactor.lang.edges import dependency_edges, reverse_closure
+from deterministic_refactor.lang.language_server import (
     Declaration,
     Diagnostic,
     ExportRequest,
@@ -16,7 +16,7 @@ from living_architecture.lang.language_server import (
     utf16_index,
     utf16_position,
 )
-from living_architecture.lang.source import (
+from deterministic_refactor.lang.source import (
     Detection,
     ParseFailure,
     SourceAnalysis,
@@ -24,7 +24,7 @@ from living_architecture.lang.source import (
     comment_doc_counts,
     conventions_facts,
 )
-from living_architecture.lang.typecheck import (
+from deterministic_refactor.lang.typecheck import (
     BASEDPYRIGHT_NOT_WITH_JSON,
     BASEDPYRIGHT_WRITE_FLAG,
     PYRIGHT_EXPORT_PRELOAD,
@@ -38,7 +38,7 @@ from living_architecture.lang.typecheck import (
     read_pyright_export,
     read_pyright_patch,
 )
-from living_architecture.lang.units import (
+from deterministic_refactor.lang.units import (
     SourceModule,
     import_targets,
     source_modules,

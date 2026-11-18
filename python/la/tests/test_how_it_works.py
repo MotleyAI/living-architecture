@@ -12,7 +12,7 @@ from living_architecture.cli.la_arch_diagrams import la_arch_diagrams
 from living_architecture.cli.la_arch_migrate import la_arch_migrate
 from living_architecture.cli.la_arch_scaffold import la_arch_scaffold
 
-REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+REPO_ROOT = next(p for p in Path(__file__).resolve().parents if (p / "shared").is_dir() and (p / "plugin").is_dir())
 HOW_IT_WORKS = REPO_ROOT / "docs" / "how-it-works.md"
 SHOP = Path(__file__).resolve().parent / "fixtures" / "shop"
 CONSOLE_BLOCK_RE = re.compile(r"^```console\n(.*?)^```$", re.MULTILINE | re.DOTALL)

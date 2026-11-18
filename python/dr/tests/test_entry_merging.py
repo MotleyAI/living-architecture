@@ -5,11 +5,11 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+
+from deterministic_refactor.contract import message
 from entry_source import ALT, OTHER, M, line
 from project_files import write_project
 from refactor_cli import run
-
-from living_architecture.contract import message
 
 
 @pytest.fixture

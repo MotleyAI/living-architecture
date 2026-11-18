@@ -7,14 +7,14 @@ from collections.abc import Callable
 from pathlib import Path
 
 import pytest
+
+from deterministic_refactor.cli.dr_refactor import dr_refactor
+from deterministic_refactor.contract import message
+from deterministic_refactor.lang import Span
+from deterministic_refactor.refactor.member_scan import FormCall, Probe, plain_literal
+from deterministic_refactor.refactor.python_source import SourceFile
 from project_files import file_tree
 from refactor_cli import readouterr
-
-from living_architecture.cli.dr_refactor import dr_refactor
-from living_architecture.contract import message
-from living_architecture.lang import Span
-from living_architecture.refactor.member_scan import FormCall, Probe, plain_literal
-from living_architecture.refactor.python_source import SourceFile
 
 MakeProject = Callable[..., Path]
 

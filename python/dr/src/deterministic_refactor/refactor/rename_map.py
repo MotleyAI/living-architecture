@@ -12,38 +12,38 @@ from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
 from typing import Any
 
-from living_architecture.config import ConfigError, find_repo_root, load_config, source_files
-from living_architecture.contract import manifest, message
-from living_architecture.lang import LanguageServerError
-from living_architecture.lang.position_map import Edit
-from living_architecture.refactor.baseline_align import (
+from deterministic_refactor.config import ConfigError, find_repo_root, load_config, source_files
+from deterministic_refactor.contract import manifest, message
+from deterministic_refactor.lang import LanguageServerError
+from deterministic_refactor.lang.position_map import Edit
+from deterministic_refactor.refactor.baseline_align import (
     BaselineFailed,
     align,
     baseline_runs,
     config_error,
     probe,
 )
-from living_architecture.refactor.bindings import BindingCheck, EntryEdits, first_conflicts
-from living_architecture.refactor.carve_outs import CarveOuts
-from living_architecture.refactor.diff_render import edit_description, move_description
-from living_architecture.refactor.entry_location import Entry, EntryLocator
-from living_architecture.refactor.hierarchy import ClassGraph
-from living_architecture.refactor.index_cache import IndexCache
-from living_architecture.refactor.keyed import TypeFacts, UnresolvedBase
-from living_architecture.refactor.keyword_links import signature_round
-from living_architecture.refactor.literal_rename import LiteralRename, check_value, literal_member_at
-from living_architecture.refactor.locators import (
+from deterministic_refactor.refactor.bindings import BindingCheck, EntryEdits, first_conflicts
+from deterministic_refactor.refactor.carve_outs import CarveOuts
+from deterministic_refactor.refactor.diff_render import edit_description, move_description
+from deterministic_refactor.refactor.entry_location import Entry, EntryLocator
+from deterministic_refactor.refactor.hierarchy import ClassGraph
+from deterministic_refactor.refactor.index_cache import IndexCache
+from deterministic_refactor.refactor.keyed import TypeFacts, UnresolvedBase
+from deterministic_refactor.refactor.keyword_links import signature_round
+from deterministic_refactor.refactor.literal_rename import LiteralRename, check_value, literal_member_at
+from deterministic_refactor.refactor.locators import (
     RefactorError,
     cannot_rename,
     named_source,
     project_rel,
     resolve,
 )
-from living_architecture.refactor.map_file import MapEntry, MapError, locator_text
-from living_architecture.refactor.member_namespace import Hierarchy, MemberCheck, RenamedMember
-from living_architecture.refactor.member_scan import FormCall, probe_round
-from living_architecture.refactor.mention_scope import GroupMentions, Listed
-from living_architecture.refactor.module_rename import (
+from deterministic_refactor.refactor.map_file import MapEntry, MapError, locator_text
+from deterministic_refactor.refactor.member_namespace import Hierarchy, MemberCheck, RenamedMember
+from deterministic_refactor.refactor.member_scan import FormCall, probe_round
+from deterministic_refactor.refactor.mention_scope import GroupMentions, Listed
+from deterministic_refactor.refactor.module_rename import (
     ModuleRename,
     ModuleResult,
     final_paths,
@@ -51,16 +51,16 @@ from living_architecture.refactor.module_rename import (
     move_conflicts,
     valid_module_name,
 )
-from living_architecture.refactor.move_edits import NameConflict
-from living_architecture.refactor.occurrence_index import (
+from deterministic_refactor.refactor.move_edits import NameConflict
+from deterministic_refactor.refactor.occurrence_index import (
     ClassFactSource,
     RunIndex,
     ServerSession,
     candidate_files,
 )
-from living_architecture.refactor.outcomes import Finding, covers
-from living_architecture.refactor.output_check import checked_write
-from living_architecture.refactor.progress import (
+from deterministic_refactor.refactor.outcomes import Finding, covers
+from deterministic_refactor.refactor.output_check import checked_write
+from deterministic_refactor.refactor.progress import (
     Progress,
     Refusal,
     Refused,
@@ -69,15 +69,15 @@ from living_architecture.refactor.progress import (
     refusal,
     unique,
 )
-from living_architecture.refactor.python_project import Snapshot
-from living_architecture.refactor.python_source import SourceFile, nfkc
-from living_architecture.refactor.rename_union import (
+from deterministic_refactor.refactor.python_project import Snapshot
+from deterministic_refactor.refactor.python_source import SourceFile, nfkc
+from deterministic_refactor.refactor.rename_union import (
     RenameOptions,
     RenameResult,
     Session,
     SymbolRename,
 )
-from living_architecture.refactor.retarget import (
+from deterministic_refactor.refactor.retarget import (
     AliasRetarget,
     ImportNeed,
     Location,
@@ -87,10 +87,10 @@ from living_architecture.refactor.retarget import (
     imported_module,
     module_name,
 )
-from living_architecture.refactor.retarget_imports import plan_imports
-from living_architecture.refactor.rope_patches import walk_gap_line
-from living_architecture.refactor.routing import language_files
-from living_architecture.refactor.sites import (
+from deterministic_refactor.refactor.retarget_imports import plan_imports
+from deterministic_refactor.refactor.rope_patches import walk_gap_line
+from deterministic_refactor.refactor.routing import language_files
+from deterministic_refactor.refactor.sites import (
     Keeps,
     LiteralKeeps,
     Pick,
@@ -99,7 +99,7 @@ from living_architecture.refactor.sites import (
     literal_spans,
     resolve_keeps,
 )
-from living_architecture.refactor.symbol_path import (
+from deterministic_refactor.refactor.symbol_path import (
     LocatorError,
     declaration_scope,
     is_wildcard,
@@ -107,10 +107,10 @@ from living_architecture.refactor.symbol_path import (
     locate_all,
     wildcard_refused,
 )
-from living_architecture.refactor.text_edits import TextEdit, apply_edits, merge_edits
-from living_architecture.refactor.timings import timed
-from living_architecture.refactor.word_table import load_table
-from living_architecture.refactor.writer import FileMove, FileWrite, apply, verify
+from deterministic_refactor.refactor.text_edits import TextEdit, apply_edits, merge_edits
+from deterministic_refactor.refactor.timings import timed
+from deterministic_refactor.refactor.word_table import load_table
+from deterministic_refactor.refactor.writer import FileMove, FileWrite, apply, verify
 
 _WORD = re.compile(r"\w+")
 

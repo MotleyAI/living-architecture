@@ -8,12 +8,12 @@ from pathlib import Path
 import pytest
 import yaml
 
-from living_architecture import config as la_config
-from living_architecture import lang, typecheck
+from deterministic_refactor import config as la_config
+from deterministic_refactor import lang, typecheck
+from deterministic_refactor.contract import message
 from living_architecture.cli.la_typecheck import la_typecheck
-from living_architecture.contract import message
 
-VECTORS = next(p for p in Path(__file__).resolve().parents if (p / "shared" / "vectors").is_dir()) / "shared" / "vectors"
+VECTORS = next(p for p in Path(__file__).resolve().parents if (p / "shared").is_dir() and (p / "plugin").is_dir()) / "shared" / "vectors"
 SPLITS = yaml.safe_load((VECTORS / "command-split.yaml").read_text(encoding="utf-8"))["cases"]
 PATCHED = '{"outcome": "patched", "version": "1.40.2", "count": 1}'
 FAKE_CHECKER = """#!/bin/sh

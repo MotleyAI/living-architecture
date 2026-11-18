@@ -9,10 +9,10 @@ from pathlib import Path
 
 import pytest
 import yaml
-from refactor_cli import read, run
 
-from living_architecture.refactor import keyed, member_namespace
-from living_architecture.refactor.python_source import SourceFile
+from deterministic_refactor.refactor import keyed, member_namespace
+from deterministic_refactor.refactor.python_source import SourceFile
+from refactor_cli import read, run
 
 MakeProject = Callable[..., Path]
 

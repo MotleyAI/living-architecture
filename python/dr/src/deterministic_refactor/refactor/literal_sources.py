@@ -9,7 +9,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
-from living_architecture.refactor.static_resolver import Module, Resolver, Scope
+from deterministic_refactor.refactor.static_resolver import Module, Resolver, Scope
 
 _DISPLAYS = (ast.Tuple, ast.List, ast.Set)
 _MUTATORS = frozenset({

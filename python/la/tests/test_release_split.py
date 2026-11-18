@@ -12,6 +12,7 @@ from types import ModuleType
 
 import pytest
 import yaml
+
 from deterministic_refactor.contract import compute_hash
 
 REPO_ROOT = next(p for p in Path(__file__).resolve().parents if (p / "shared").is_dir() and (p / "plugin").is_dir())

@@ -9,7 +9,9 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
-from living_architecture import twin
+from deterministic_refactor import twin
+from deterministic_refactor.config import ConfigError, load_config
+from deterministic_refactor.contract import message, os_error_text
 from living_architecture.archcheck.claims import check_claims
 from living_architecture.archcheck.docs import check_arc42, check_legacy_ratchet, check_spec_mapping
 from living_architecture.archcheck.facts import Facts, native_facts, native_top_level_facts
@@ -25,8 +27,6 @@ from living_architecture.archcheck.scaffold import run_scaffold
 from living_architecture.archcheck.tags import check_enforced_tags
 from living_architecture.archcheck.truth import check_model_truth, license, measure_runtime_edges
 from living_architecture.c4 import ModelParse, check_diagrams_fresh, layout_problem, parse_model, parse_views
-from living_architecture.config import ConfigError, load_config
-from living_architecture.contract import message, os_error_text
 
 __all__ = [
     "ArchCheckError",

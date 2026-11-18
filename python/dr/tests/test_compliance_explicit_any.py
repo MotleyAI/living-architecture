@@ -4,9 +4,9 @@ from pathlib import Path
 
 import pytest
 
-from living_architecture.cli.dr_compliance import dr_compliance as main
-from living_architecture.contract import message
-from living_architecture.refactor.compliance import ALL_CHECKS, check_path
+from deterministic_refactor.cli.dr_compliance import dr_compliance as main
+from deterministic_refactor.contract import message
+from deterministic_refactor.refactor.compliance import ALL_CHECKS, check_path
 
 
 def _src(*lines: str) -> str:
@@ -388,7 +388,7 @@ def test_re_export_cycle_ends_unresolved(tmp_path: Path) -> None:
         },
     )
     files = [str(tmp_path / "pkg" / name) for name in ("a.py", "b.py", "c.py", "d.py", "e.py")]
-    script = "import sys; from living_architecture.cli.dr_compliance import dr_compliance; sys.exit(dr_compliance(sys.argv[1:]))"
+    script = "import sys; from deterministic_refactor.cli.dr_compliance import dr_compliance; sys.exit(dr_compliance(sys.argv[1:]))"
     run = subprocess.run(
         [sys.executable, "-c", script, "--select", "explicit-any", *files],
         cwd=tmp_path,

@@ -7,11 +7,11 @@ import subprocess
 from pathlib import Path
 
 import pytest
+
+from deterministic_refactor.refactor import writer
+from deterministic_refactor.refactor.writer import FileChanged, FileMove, FileWrite, WriteFailed, apply
 from project_files import file_tree, write_project
 from refactor_cli import git
-
-from living_architecture.refactor import writer
-from living_architecture.refactor.writer import FileChanged, FileMove, FileWrite, WriteFailed, apply
 
 
 def _write(rel: str, old: str | None, new: str) -> FileWrite:

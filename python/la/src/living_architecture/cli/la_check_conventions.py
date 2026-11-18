@@ -1,8 +1,9 @@
 import argparse
 from pathlib import Path
 
-from living_architecture import config, conventions, twin
-from living_architecture.cli import _argv, _run
+from deterministic_refactor import config, twin
+from deterministic_refactor.config.command import command_argv, run_command
+from living_architecture import conventions
 
 
 def _check_conventions(args: argparse.Namespace) -> int:
@@ -20,4 +21,4 @@ def _check_conventions(args: argparse.Namespace) -> int:
 
 
 def la_check_conventions(argv: list[str] | None = None) -> int:
-    return _run("la-check-conventions", _argv(argv), _check_conventions)
+    return run_command("la-check-conventions", command_argv(argv), _check_conventions)

@@ -6,12 +6,12 @@ from typing import Any
 
 from pydantic import BaseModel
 
+from deterministic_refactor.contract import contract_hash
+from deterministic_refactor.lang import top_level_units, unit_exists
 from living_architecture import __version__
 from living_architecture.archcheck.index import Layout
 from living_architecture.archcheck.nodes import NodeMap, unit_to_element
 from living_architecture.archcheck.truth import measure_runtime_edges
-from living_architecture.contract import contract_hash
-from living_architecture.lang import top_level_units, unit_exists
 
 
 class UnitFact(BaseModel):

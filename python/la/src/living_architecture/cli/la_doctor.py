@@ -1,7 +1,8 @@
 import argparse
 
-from living_architecture import doctor, twin
-from living_architecture.cli import _argv, _root, _run
+from deterministic_refactor import twin
+from deterministic_refactor.config.command import command_argv, command_root, run_command
+from living_architecture import doctor
 
 
 def _doctor(args: argparse.Namespace) -> int:
@@ -9,7 +10,7 @@ def _doctor(args: argparse.Namespace) -> int:
         print(twin.identity())
         return 0
     return doctor.run(
-        root=_root(args.root),
+        root=command_root(args.root),
         plugin=args.plugin,
         print_hash=args.contract_hash,
         require_config=args.require_config,
@@ -18,4 +19,4 @@ def _doctor(args: argparse.Namespace) -> int:
 
 
 def la_doctor(argv: list[str] | None = None) -> int:
-    return _run("la-doctor", _argv(argv), _doctor)
+    return run_command("la-doctor", command_argv(argv), _doctor)

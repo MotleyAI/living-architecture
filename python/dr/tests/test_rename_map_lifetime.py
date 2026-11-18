@@ -11,33 +11,33 @@ from pathlib import Path
 
 import pytest
 import yaml
-from project_files import write_project
-from refactor_cli import entry_refusal, final_report, run, run_raw, template_regex
 
-from living_architecture.contract import message
-from living_architecture.lang import (
+from deterministic_refactor.contract import message
+from deterministic_refactor.lang import (
     ExportRequest,
     FactQuery,
     LanguageServer,
     OccurrenceIndex,
     language_server,
 )
-from living_architecture.refactor import rename_map
-from living_architecture.refactor.entry_location import EntryLocator
-from living_architecture.refactor.index_cache import IndexCache
-from living_architecture.refactor.keyed import TypeFacts
-from living_architecture.refactor.literal_rename import LiteralRename
-from living_architecture.refactor.module_rename import ModuleRename
-from living_architecture.refactor.occurrence_index import RunIndex, ServerSession
-from living_architecture.refactor.outcomes import Finding
-from living_architecture.refactor.progress import Progress
-from living_architecture.refactor.python_source import SourceFile
-from living_architecture.refactor.rename_map import RenameMap
-from living_architecture.refactor.rename_union import RenameOptions, Session, SymbolRename
-from living_architecture.refactor.retarget import ImportNeed
-from living_architecture.refactor.retarget_imports import plan_imports
-from living_architecture.refactor.text_edits import TextEdit
-from living_architecture.refactor.text_tables import TextTables
+from deterministic_refactor.refactor import rename_map
+from deterministic_refactor.refactor.entry_location import EntryLocator
+from deterministic_refactor.refactor.index_cache import IndexCache
+from deterministic_refactor.refactor.keyed import TypeFacts
+from deterministic_refactor.refactor.literal_rename import LiteralRename
+from deterministic_refactor.refactor.module_rename import ModuleRename
+from deterministic_refactor.refactor.occurrence_index import RunIndex, ServerSession
+from deterministic_refactor.refactor.outcomes import Finding
+from deterministic_refactor.refactor.progress import Progress
+from deterministic_refactor.refactor.python_source import SourceFile
+from deterministic_refactor.refactor.rename_map import RenameMap
+from deterministic_refactor.refactor.rename_union import RenameOptions, Session, SymbolRename
+from deterministic_refactor.refactor.retarget import ImportNeed
+from deterministic_refactor.refactor.retarget_imports import plan_imports
+from deterministic_refactor.refactor.text_edits import TextEdit
+from deterministic_refactor.refactor.text_tables import TextTables
+from project_files import write_project
+from refactor_cli import entry_refusal, final_report, run, run_raw, template_regex
 
 Refs = defaultdict[str, list[weakref.ReferenceType[object]]]
 

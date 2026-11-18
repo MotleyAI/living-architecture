@@ -10,15 +10,15 @@ from pathlib import Path
 from typing import NamedTuple
 
 import pytest
+
+from deterministic_refactor.contract import message
+from deterministic_refactor.refactor import rope_refactor
+from deterministic_refactor.refactor.module_move import ModuleMove
+from deterministic_refactor.refactor.move_project import MoveProject
+from deterministic_refactor.refactor.move_verify import Fingerprint, Moved, fingerprint
+from deterministic_refactor.refactor.moved_symbol import MovedSymbol
 from project_files import file_tree, write_project
 from refactor_cli import run
-
-from living_architecture.contract import message
-from living_architecture.refactor import rope_refactor
-from living_architecture.refactor.module_move import ModuleMove
-from living_architecture.refactor.move_project import MoveProject
-from living_architecture.refactor.move_verify import Fingerprint, Moved, fingerprint
-from living_architecture.refactor.moved_symbol import MovedSymbol
 
 Texts = dict[str, str]
 Fault = Callable[[Texts], Texts]
@@ -195,7 +195,7 @@ def verify_dirs(monkeypatch: pytest.MonkeyPatch) -> list[Path]:
         made.append(Path(directory.name))
         return directory
 
-    monkeypatch.setattr("living_architecture.refactor.move_verify.tempfile.TemporaryDirectory", recording)
+    monkeypatch.setattr("deterministic_refactor.refactor.move_verify.tempfile.TemporaryDirectory", recording)
     return made
 
 

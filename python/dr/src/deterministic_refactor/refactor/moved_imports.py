@@ -9,9 +9,9 @@ import builtins
 import sys
 from pathlib import Path
 
-from living_architecture.refactor.move_edits import File
-from living_architecture.refactor.moved_symbol import MovedSymbol
-from living_architecture.refactor.static_resolver import ImportItem
+from deterministic_refactor.refactor.move_edits import File
+from deterministic_refactor.refactor.moved_symbol import MovedSymbol
+from deterministic_refactor.refactor.static_resolver import ImportItem
 
 _FUTURE = "__future__"
 _BUILTINS = frozenset(dir(builtins))

@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 import yaml
-from refactor_cli import git_project, leftover, read, rename_argv, run
 
-from living_architecture.contract import message
+from deterministic_refactor.contract import message
+from refactor_cli import git_project, leftover, read, rename_argv, run
 
 Run = tuple[int, str, str]
 

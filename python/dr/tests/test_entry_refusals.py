@@ -7,13 +7,13 @@ from pathlib import Path
 
 import pytest
 import yaml
+
+from deterministic_refactor.contract import message
+from deterministic_refactor.refactor.rename_union import SymbolRename
+from deterministic_refactor.refactor.sites import Keeps, Site
+from deterministic_refactor.refactor.symbol_path import LocatorError
 from project_files import file_tree, write_project
 from refactor_cli import entry_refusal, run, run_raw
-
-from living_architecture.contract import message
-from living_architecture.refactor.rename_union import SymbolRename
-from living_architecture.refactor.sites import Keeps, Site
-from living_architecture.refactor.symbol_path import LocatorError
 
 CHECKS = "[resolve]\n[checks]\n"
 REFERENCES = message("refactor.progress-phase", phase="references")

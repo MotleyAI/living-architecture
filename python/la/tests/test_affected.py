@@ -11,9 +11,9 @@ from pathlib import Path
 
 import pytest
 
+from deterministic_refactor.contract import contract_hash, language, schema, validate
 from living_architecture import __version__
 from living_architecture.cli.la_affected_tests import la_affected_tests
-from living_architecture.contract import contract_hash, language, schema, validate
 
 TYPESCRIPT_IDENTITY = f"typescript {__version__} {contract_hash()}"
 BASE = {

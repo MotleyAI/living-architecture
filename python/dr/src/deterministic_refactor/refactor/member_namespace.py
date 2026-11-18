@@ -12,11 +12,11 @@ from typing import Protocol
 
 from pydantic import BaseModel, ConfigDict
 
-from living_architecture.contract import language
-from living_architecture.lang import PositionFacts
-from living_architecture.refactor.bindings import Conflict, Site, may_name
-from living_architecture.refactor.members import member_declarations
-from living_architecture.refactor.python_source import SourceFile, nfkc
+from deterministic_refactor.contract import language
+from deterministic_refactor.lang import PositionFacts
+from deterministic_refactor.refactor.bindings import Conflict, Site, may_name
+from deterministic_refactor.refactor.members import member_declarations
+from deterministic_refactor.refactor.python_source import SourceFile, nfkc
 
 # A project class: its file and the line of its `class` statement.
 ClassKey = tuple[str, int]

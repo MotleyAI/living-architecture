@@ -1,0 +1,40 @@
+# The uv workspace of the PyPI twins: deterministic-refactor (dr), living-architecture (la) and the dev-only
+# conformance runner. Each member runs its own tests from its directory.
+[tool.uv.workspace]
+members = ["dr", "la", "conformance"]
+
+[dependency-groups]
+dev = [
+    "deterministic-refactor",
+    "living-architecture",
+    "conformance-runner",
+    "pytest>=8",
+    "pytest-mock>=3.14",
+    "pytest-xdist>=3.8",
+    "ruff>=0.6",
+    "types-pyyaml>=6",
+    "types-jsonschema>=4",
+    "pytest-split>=0.11.0",
+]
+
+[tool.uv.sources]
+deterministic-refactor = { workspace = true }
+living-architecture = { workspace = true }
+conformance-runner = { workspace = true }
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+src = ["dr/src", "la/src", "conformance/src", "dr/tests", "la/tests"]
+
+[tool.ruff.lint.per-file-ignores]
+"*/tests/*" = ["FLY002"]
+
+# This repo dogfoods its own compliance conditions: the verifier runs against
+# the project's own venv so imports (rope) resolve.
+[tool.basedpyright]
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.11"
+typeCheckingMode = "standard"
+reportImplicitOverride = "error"

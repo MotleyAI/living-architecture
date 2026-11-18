@@ -5,11 +5,11 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+
+from deterministic_refactor.cli.dr_refactor import dr_refactor
+from deterministic_refactor.contract import language, message, schema, validate
 from project_files import file_tree, write_project
 from refactor_cli import run_raw
-
-from living_architecture.cli.dr_refactor import dr_refactor
-from living_architecture.contract import language, message, schema, validate
 
 ROW = {"from": "model", "to": "dataset"}
 

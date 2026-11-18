@@ -9,15 +9,15 @@ from typing import Any
 
 import pytest
 import yaml
+
+from deterministic_refactor.cli.dr_refactor import dr_refactor
+from deterministic_refactor.refactor.mentions import mentions, qualifier_segments, source_regions
+from deterministic_refactor.refactor.python_source import SourceFile, split_lines
+from deterministic_refactor.refactor.sites import Site
 from refactor_cli import readouterr
 
-from living_architecture.cli.dr_refactor import dr_refactor
-from living_architecture.refactor.mentions import mentions, qualifier_segments, source_regions
-from living_architecture.refactor.python_source import SourceFile, split_lines
-from living_architecture.refactor.sites import Site
-
 VECTORS: dict[str, Any] = yaml.safe_load(
-    (next(p for p in Path(__file__).resolve().parents if (p / "shared").is_dir()) / "shared/vectors/refactor-text.yaml")
+    (next(p for p in Path(__file__).resolve().parents if (p / "shared").is_dir() and (p / "plugin").is_dir()) / "shared/vectors/refactor-text.yaml")
     .read_text(encoding="utf-8")
 )
 

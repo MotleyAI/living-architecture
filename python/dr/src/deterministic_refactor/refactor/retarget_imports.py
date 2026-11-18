@@ -7,16 +7,16 @@ import ast
 import re
 from collections.abc import Iterable
 
-from living_architecture.refactor.python_source import SourceFile, split_lines
-from living_architecture.refactor.rename_union import Session
-from living_architecture.refactor.retarget import (
+from deterministic_refactor.refactor.python_source import SourceFile, split_lines
+from deterministic_refactor.refactor.rename_union import Session
+from deterministic_refactor.refactor.retarget import (
     ImportNeed,
     aliases_removal,
     block_of,
     imported_module,
     package_of,
 )
-from living_architecture.refactor.text_edits import TextEdit
+from deterministic_refactor.refactor.text_edits import TextEdit
 
 _FROM = re.compile(r"from\s+")
 _IMPORT = re.compile(r"\bimport\b")

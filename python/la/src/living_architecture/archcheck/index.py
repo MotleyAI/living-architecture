@@ -7,8 +7,7 @@ from typing import Any, cast
 
 from pydantic import BaseModel, ConfigDict
 
-from living_architecture.c4 import INDEX_REL
-from living_architecture.contract import (
+from deterministic_refactor.contract import (
     DuplicateKeyError,
     YAMLError,
     language_ids,
@@ -18,6 +17,7 @@ from living_architecture.contract import (
     schema,
     validate,
 )
+from living_architecture.c4 import INDEX_REL
 
 
 class ArchCheckError(Exception):

@@ -12,9 +12,9 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
 
-from living_architecture.contract import message
-from living_architecture.refactor.progress import Refusal, refusal
-from living_architecture.refactor.python_source import SourceFile, nfkc, split_lines
+from deterministic_refactor.contract import message
+from deterministic_refactor.refactor.progress import Refusal, refusal
+from deterministic_refactor.refactor.python_source import SourceFile, nfkc, split_lines
 
 _LINE = re.compile(r"(.*):(\d+)")
 _TYPE_COMMENT = re.compile(r"#\s*type:")

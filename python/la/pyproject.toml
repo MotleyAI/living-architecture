@@ -41,13 +41,12 @@ classifiers = [
     "Topic :: Software Development :: Documentation",
 ]
 dependencies = [
-    "rope>=1.15",
+    "deterministic-refactor>=0.13.0,<0.14",
     "pydantic>=2.6",
     "pyyaml>=6",
     "jsonschema>=4.18",
     "referencing>=0.28.4",
     "typing-extensions>=4.4",
-    "basedpyright==1.40.2",
 ]
 
 [project.urls]
@@ -57,7 +56,7 @@ Repository = "https://github.com/MotleyAI/living-architecture"
 Issues = "https://github.com/MotleyAI/living-architecture/issues"
 Changelog = "https://github.com/MotleyAI/living-architecture/releases"
 
-# Must equal the command set of shared/cli.yaml.
+# Must equal la's command set in the shared CLI manifest.
 [project.scripts]
 la-config = "living_architecture.cli.la_config:la_config"
 la-doctor = "living_architecture.cli.la_doctor:la_doctor"
@@ -75,20 +74,6 @@ la-reply-to-pr-thread = "living_architecture.cli.la_reply_to_pr_thread:la_reply_
 la-fetch-failed-pr-checks = "living_architecture.cli.la_fetch_failed_pr_checks:la_fetch_failed_pr_checks"
 la-wait-for-reviews = "living_architecture.cli.la_wait_for_reviews:la_wait_for_reviews"
 la-pr-reviewers = "living_architecture.cli.la_pr_reviewers:la_pr_reviewers"
-dr-refactor = "living_architecture.cli.dr_refactor:dr_refactor"
-dr-mock-lint = "living_architecture.cli.dr_mock_lint:dr_mock_lint"
-dr-compliance = "living_architecture.cli.dr_compliance:dr_compliance"
-
-[dependency-groups]
-dev = [
-    "pytest>=8",
-    "pytest-mock>=3.14",
-    "pytest-xdist>=3.8",
-    "ruff>=0.6",
-    "types-pyyaml>=6",
-    "types-jsonschema>=4",
-    "pytest-split>=0.11.0",
-]
 
 [build-system]
 requires = ["uv_build>=0.9,<0.13"]
@@ -102,18 +87,5 @@ testpaths = ["tests"]
 addopts = "-n auto --dist worksteal -m 'not integration'"
 markers = ["integration: runs a real external checker; select with -m integration"]
 
-[tool.ruff]
-line-length = 110
-target-version = "py311"
-
-[tool.ruff.lint.per-file-ignores]
-"tests/*" = ["FLY002"]
-
-# This repo dogfoods its own compliance conditions: the verifier runs against
-# the project's own venv so imports (rope) resolve.
-[tool.basedpyright]
-venvPath = "."
-venv = ".venv"
-pythonVersion = "3.11"
-typeCheckingMode = "standard"
-reportImplicitOverride = "error"
+[tool.uv.sources]
+deterministic-refactor = { workspace = true }

@@ -10,9 +10,8 @@ import stat
 import subprocess
 from pathlib import Path
 
-from living_architecture import NATIVE_LANGUAGE, __version__
-from living_architecture.config import ConfigError, LaConfig, check_format, load_config, repo_languages
-from living_architecture.contract import (
+from deterministic_refactor.config import ConfigError, LaConfig, check_format, load_config, repo_languages
+from deterministic_refactor.contract import (
     config_file,
     contract_hash,
     is_regular_file,
@@ -22,6 +21,7 @@ from living_architecture.contract import (
     os_error_text,
     render_template,
 )
+from living_architecture import NATIVE_LANGUAGE, __version__
 
 REQUIRED_EXECUTABLES = ("git", "gh")
 PLUGIN_MANIFEST = Path(".claude-plugin") / "plugin.json"

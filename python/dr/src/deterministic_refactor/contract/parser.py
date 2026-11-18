@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 from typing import Any
 
-from living_architecture.contract import manifest
+from deterministic_refactor.contract import manifest
 
 _TYPES: dict[str, type] = {"string": str, "path": str, "int": int, "float": float}
 

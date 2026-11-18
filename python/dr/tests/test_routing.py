@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from living_architecture.refactor import routing
-from living_architecture.refactor.routing import split
+from deterministic_refactor.refactor import routing
+from deterministic_refactor.refactor.routing import split
 
 
 def _repo_under_node_modules(tmp_path: Path) -> Path:

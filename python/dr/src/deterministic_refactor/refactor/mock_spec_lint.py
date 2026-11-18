@@ -14,10 +14,10 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
 
-from living_architecture import changes, twin
-from living_architecture.config import ConfigError, find_repo_root
-from living_architecture.contract import message
-from living_architecture.refactor.routing import RoutingError, run_split, split
+from deterministic_refactor import changes, twin
+from deterministic_refactor.config import ConfigError, find_repo_root
+from deterministic_refactor.contract import message
+from deterministic_refactor.refactor.routing import RoutingError, run_split, split
 
 MOCK_CTORS = {"Mock", "MagicMock", "NonCallableMock", "NonCallableMagicMock", "AsyncMock"}
 SPEC_KWARGS = {"spec", "spec_set"}

@@ -7,7 +7,18 @@ from pathlib import Path
 
 import pytest
 import yaml
-from test_conformance import CASES, CROSS, TWIN, Variant, case_args, check_case, load_case, selected, variants
+
+from conformance_runner import (
+    CASES,
+    CROSS,
+    TWIN,
+    Variant,
+    case_args,
+    check_case,
+    load_case,
+    selected,
+    variants,
+)
 
 MODULE_CASES = [case for case in CASES if case.name.startswith(("refactor-rename-module-", "refactor-ts-rename-module-"))]
 RUNS = [

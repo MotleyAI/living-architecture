@@ -10,17 +10,17 @@ from collections.abc import Callable
 from pathlib import Path
 
 import pytest
+
+from deterministic_refactor.contract import message
+from deterministic_refactor.lang import language_server
+from deterministic_refactor.refactor import timings
+from deterministic_refactor.refactor.bindings import BindingCheck
+from deterministic_refactor.refactor.map_file import MapError, load_map
+from deterministic_refactor.refactor.member_namespace import MemberCheck
+from deterministic_refactor.refactor.rename_map import RenameMap, editable_files, keep_checks
+from deterministic_refactor.refactor.sites import nearest_line, spelled_lines
 from project_files import file_tree, write_project
 from refactor_cli import entry_refusal, final_report, run_raw
-
-from living_architecture.contract import message
-from living_architecture.lang import language_server
-from living_architecture.refactor import timings
-from living_architecture.refactor.bindings import BindingCheck
-from living_architecture.refactor.map_file import MapError, load_map
-from living_architecture.refactor.member_namespace import MemberCheck
-from living_architecture.refactor.rename_map import RenameMap, editable_files, keep_checks
-from living_architecture.refactor.sites import nearest_line, spelled_lines
 
 FAKE_LSP = Path(__file__).with_name("fake_lsp_server.py")
 CHECKS = "[resolve]\n[checks]\n"
@@ -327,7 +327,7 @@ def _charged_to_conflicts_only(err: str) -> None:
         pytest.param(
             {"pkg/models.py": KEYED_MODELS, "pkg/use.py": "from pkg.models import Model\n\nb = Model(columns=[], fields=[])\n"},
             ["rename", "--file", "pkg/models.py", "--symbol", "Model.columns", "--new-name", "fields"],
-            "living_architecture.refactor.rename_union:RenameResult", "check_conflicts", id="keyed",
+            "deterministic_refactor.refactor.rename_union:RenameResult", "check_conflicts", id="keyed",
         ),
         pytest.param(
             {"pkg/store.py": STORE},

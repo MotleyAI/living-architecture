@@ -6,10 +6,11 @@ from pathlib import Path
 
 import pytest
 
-from living_architecture import archcheck, c4, config
+from deterministic_refactor import config
+from deterministic_refactor.contract import check_ids
+from living_architecture import archcheck, c4
 from living_architecture.archcheck.scaffold import write_scaffold
 from living_architecture.cli.la_arch_check import la_arch_check
-from living_architecture.contract import check_ids
 
 INDEX = """
 python:
@@ -1843,7 +1844,7 @@ def test_invalid_root_packages_entry_is_a_setup_error(tmp_path, section, error):
     assert str(excinfo.value) == f"architecture/index.yaml: {error}"
 
 
-CASES = next(p for p in Path(__file__).resolve().parents if (p / "conformance").is_dir()) / "conformance" / "cases"
+CASES = next(p for p in Path(__file__).resolve().parents if (p / "shared").is_dir() and (p / "plugin").is_dir()) / "conformance" / "cases"
 
 
 @pytest.mark.parametrize("check_case", ["arch-check-scaffolded-clean", "arch-check-scaffolded-unmapped-spec"])

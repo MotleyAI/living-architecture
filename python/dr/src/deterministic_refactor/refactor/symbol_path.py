@@ -11,9 +11,9 @@ from collections.abc import Callable, Iterator
 
 from pydantic import BaseModel, ConfigDict
 
-from living_architecture.contract import message
-from living_architecture.refactor.members import bound_targets, receiver_stores
-from living_architecture.refactor.python_source import SourceFile, every_parameter
+from deterministic_refactor.contract import message
+from deterministic_refactor.refactor.members import bound_targets, receiver_stores
+from deterministic_refactor.refactor.python_source import SourceFile, every_parameter
 
 LOCALS = "<locals>"
 WILDCARD = "*"

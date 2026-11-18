@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from living_architecture.contract import check_ids, message
+from deterministic_refactor.contract import check_ids, message
 
 _TAG_RE = re.compile(r"\[(enforced|review|target|lang)\b([^\]]*)\]")
 _TAG_START_RE = re.compile(r"\[(enforced|review|target|lang)\b")

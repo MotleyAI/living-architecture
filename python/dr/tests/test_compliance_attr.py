@@ -5,11 +5,11 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+
+from deterministic_refactor.cli.dr_compliance import dr_compliance
+from deterministic_refactor.contract import message
 from project_files import write_project
 from refactor_cli import run
-
-from living_architecture.cli.dr_compliance import dr_compliance
-from living_architecture.contract import message
 
 UNTYPED = """\
 from typing import Any

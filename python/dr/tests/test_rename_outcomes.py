@@ -7,18 +7,18 @@ from pathlib import Path
 
 import pytest
 
-from living_architecture.contract import message
-from living_architecture.refactor.member_scan import Blindspot, FormCall, plain_literal
-from living_architecture.refactor.mentions import Mention
-from living_architecture.refactor.outcomes import (
+from deterministic_refactor.contract import message
+from deterministic_refactor.refactor.member_scan import Blindspot, FormCall, plain_literal
+from deterministic_refactor.refactor.mentions import Mention
+from deterministic_refactor.refactor.outcomes import (
     blindspot_outcome,
     literal_outcomes,
     mention_outcome,
     string_member_outcome,
     target_outcome,
 )
-from living_architecture.refactor.python_source import SourceFile
-from living_architecture.refactor.sites import Keeps
+from deterministic_refactor.refactor.python_source import SourceFile
+from deterministic_refactor.refactor.sites import Keeps
 
 OLD, NEW = "save_model", "store_model"
 

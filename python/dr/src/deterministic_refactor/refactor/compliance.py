@@ -15,17 +15,17 @@ from collections import defaultdict
 from pathlib import Path
 from typing import TypeGuard
 
-from living_architecture.contract import language, message
-from living_architecture.lang import LanguageServerError
-from living_architecture.refactor.explicit_any import check_explicit_any
-from living_architecture.refactor.index_cache import IndexCache
-from living_architecture.refactor.member_scan import MemberScan, probe_round
-from living_architecture.refactor.mock_spec_lint import mock_findings
-from living_architecture.refactor.occurrence_index import RunIndex, ServerSession
-from living_architecture.refactor.outcomes import blindspot_text
-from living_architecture.refactor.python_source import SourceFile
-from living_architecture.refactor.rope_patches import apply_rope_patches, walk_gap_line
-from living_architecture.refactor.routing import RoutingError, compliance_selection, run_split, split
+from deterministic_refactor.contract import language, message
+from deterministic_refactor.lang import LanguageServerError
+from deterministic_refactor.refactor.explicit_any import check_explicit_any
+from deterministic_refactor.refactor.index_cache import IndexCache
+from deterministic_refactor.refactor.member_scan import MemberScan, probe_round
+from deterministic_refactor.refactor.mock_spec_lint import mock_findings
+from deterministic_refactor.refactor.occurrence_index import RunIndex, ServerSession
+from deterministic_refactor.refactor.outcomes import blindspot_text
+from deterministic_refactor.refactor.python_source import SourceFile
+from deterministic_refactor.refactor.rope_patches import apply_rope_patches, walk_gap_line
+from deterministic_refactor.refactor.routing import RoutingError, compliance_selection, run_split, split
 
 apply_rope_patches()
 

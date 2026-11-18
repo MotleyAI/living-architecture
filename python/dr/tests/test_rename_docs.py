@@ -7,10 +7,10 @@ from collections.abc import Callable
 from pathlib import Path
 
 import pytest
-from refactor_cli import readouterr
 
-from living_architecture.cli.dr_refactor import dr_refactor
-from living_architecture.contract import message
+from deterministic_refactor.cli.dr_refactor import dr_refactor
+from deterministic_refactor.contract import message
+from refactor_cli import readouterr
 
 MakeProject = Callable[..., Path]
 OLD, NEW = "recommend_root_model", "pick_root_model"

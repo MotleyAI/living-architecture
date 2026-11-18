@@ -10,7 +10,7 @@ from jsonschema import Draft202012Validator
 from referencing import Registry, Resource
 from referencing.jsonschema import DRAFT202012
 
-from living_architecture.contract.snapshot import schema, schema_names
+from deterministic_refactor.contract.snapshot import schema, schema_names
 
 
 @cache

@@ -9,11 +9,11 @@ import subprocess
 from pathlib import Path
 
 import pytest
+
+from deterministic_refactor.contract import message
+from deterministic_refactor.refactor import baseline_align
 from project_files import file_tree, write_project
 from refactor_cli import BIN_DIR, configure_typecheck, line_col, read, run
-
-from living_architecture.contract import message
-from living_architecture.refactor import baseline_align
 
 BASELINE = ".basedpyright/baseline.json"
 USE = """\

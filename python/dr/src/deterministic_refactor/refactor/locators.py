@@ -6,10 +6,10 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
-from living_architecture.contract import message
-from living_architecture.refactor.python_project import Snapshot
-from living_architecture.refactor.python_source import SourceFile, split_lines
-from living_architecture.refactor.symbol_path import Located, locate
+from deterministic_refactor.contract import message
+from deterministic_refactor.refactor.python_project import Snapshot
+from deterministic_refactor.refactor.python_source import SourceFile, split_lines
+from deterministic_refactor.refactor.symbol_path import Located, locate
 
 
 class RefactorError(Exception):

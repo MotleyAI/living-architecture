@@ -10,10 +10,10 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
-from living_architecture import changes, lang
-from living_architecture.config import ConfigError, load_config
-from living_architecture.contract import conventions, is_test_file, language_ids, message
-from living_architecture.contract import language as registry
+from deterministic_refactor import changes, lang
+from deterministic_refactor.config import ConfigError, load_config
+from deterministic_refactor.contract import conventions, is_test_file, language_ids, message
+from deterministic_refactor.contract import language as registry
 from living_architecture.conventions.facts import FactsError, collect, language_of
 
 _FAILURES = ("unreadable", "syntax-error")

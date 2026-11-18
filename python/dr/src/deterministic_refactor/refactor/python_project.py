@@ -11,7 +11,7 @@ from collections.abc import Iterator
 from functools import cached_property
 from pathlib import Path
 
-from living_architecture.refactor.python_source import SourceFile
+from deterministic_refactor.refactor.python_source import SourceFile
 
 _IGNORED = ["*.pyc", "*~", ".ropeproject", ".hg", ".svn", "_svn", ".git", ".tox", ".venv", "venv", ".mypy_cache",
             ".pytest_cache"]

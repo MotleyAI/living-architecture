@@ -7,8 +7,8 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-from living_architecture.config.load import ConfigError, LaConfig, explicit_typecheck
-from living_architecture.contract import language, language_ids, manifest, message
+from deterministic_refactor.config.load import ConfigError, LaConfig, explicit_typecheck
+from deterministic_refactor.contract import language, language_ids, manifest, message
 
 
 def source_files(root: Path, exempt: list[str]) -> list[str]:

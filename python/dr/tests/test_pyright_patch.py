@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 from nodejs_wheel.executable import ROOT_DIR
 
-from living_architecture import lang
+from deterministic_refactor import lang
 
 NODE = Path(ROOT_DIR) / "bin" / "node"
 CONDITION = "!isGetTypeFromCodeFlowPending(referenceKeyWithSymbolId) &&"

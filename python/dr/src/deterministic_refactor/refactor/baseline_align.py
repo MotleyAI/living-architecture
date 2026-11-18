@@ -11,15 +11,15 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
-from living_architecture.config import ConfigError, find_repo_root, load_config
-from living_architecture.contract import language, message
-from living_architecture.lang.baseline import Key, baselined, diagnostics, line_starts, pairs, text_edits
-from living_architecture.lang.language_server import utf16_index, utf16_position
-from living_architecture.lang.position_map import Edit, map_range
-from living_architecture.refactor.progress import checker_cause
-from living_architecture.refactor.python_project import read_str_coding
-from living_architecture.refactor.writer import FileMove, FileWrite
-from living_architecture.typecheck import CommandError, python_diagnostics
+from deterministic_refactor.config import ConfigError, find_repo_root, load_config
+from deterministic_refactor.contract import language, message
+from deterministic_refactor.lang.baseline import Key, baselined, diagnostics, line_starts, pairs, text_edits
+from deterministic_refactor.lang.language_server import utf16_index, utf16_position
+from deterministic_refactor.lang.position_map import Edit, map_range
+from deterministic_refactor.refactor.progress import checker_cause
+from deterministic_refactor.refactor.python_project import read_str_coding
+from deterministic_refactor.refactor.writer import FileMove, FileWrite
+from deterministic_refactor.typecheck import CommandError, python_diagnostics
 
 
 class BaselineFailed(Exception):

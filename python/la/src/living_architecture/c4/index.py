@@ -7,7 +7,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from living_architecture.contract import (
+from deterministic_refactor.contract import (
     DuplicateKeyError,
     YAMLError,
     is_regular_file,

@@ -8,16 +8,16 @@ import re
 from collections.abc import Callable, Iterable
 from pathlib import Path
 
-from living_architecture.contract import glob_match, language, message
-from living_architecture.refactor.locators import RefactorError, project_rel
-from living_architecture.refactor.python_source import SourceFile, every_parameter
-from living_architecture.refactor.symbol_path import (
+from deterministic_refactor.contract import glob_match, language, message
+from deterministic_refactor.refactor.locators import RefactorError, project_rel
+from deterministic_refactor.refactor.python_source import SourceFile, every_parameter
+from deterministic_refactor.refactor.symbol_path import (
     declared_scopes,
     is_wildcard,
     locate,
     wildcard_refused,
 )
-from living_architecture.refactor.word_table import WordTable, held_words
+from deterministic_refactor.refactor.word_table import WordTable, held_words
 
 _IDENTIFIER = re.compile(r"[^\W\d]\w*")
 _FUNCTIONS = (ast.FunctionDef, ast.AsyncFunctionDef)

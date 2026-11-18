@@ -9,9 +9,9 @@ from pathlib import Path
 
 import pytest
 import yaml
-from deterministic_refactor.contract import compute_hash
-
 from living_architecture.contract import message
+
+from deterministic_refactor.contract import compute_hash
 
 REPO_ROOT = next(p for p in Path(__file__).resolve().parents if (p / "shared").is_dir() and (p / "plugin").is_dir())
 SHARED = REPO_ROOT / "shared"

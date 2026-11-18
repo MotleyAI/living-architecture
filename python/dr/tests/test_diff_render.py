@@ -8,7 +8,7 @@ import pytest
 from rope.base.change import ChangeContents, ChangeSet, MoveResource
 from rope.base.project import Project
 
-from living_architecture.refactor.diff_render import edit_description, move_description
+from deterministic_refactor.refactor.diff_render import edit_description, move_description
 
 # Each vector: the file's text as read, and as written.
 EDITS: dict[str, tuple[str, str]] = {

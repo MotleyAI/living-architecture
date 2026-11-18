@@ -9,8 +9,9 @@ from typing import Any
 
 import pytest
 
-from living_architecture import __version__, twin
-from living_architecture.contract import contract_hash
+from deterministic_refactor import twin
+from deterministic_refactor.contract import contract_hash
+from living_architecture import __version__
 
 VENV_BIN = Path(sysconfig.get_path("scripts"))
 OWN_ENTRY = VENV_BIN / "la-arch-check"

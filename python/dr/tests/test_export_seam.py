@@ -10,11 +10,9 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from project_files import write_project
-from refactor_cli import run_raw
 from typing_extensions import override
 
-from living_architecture.lang import (
+from deterministic_refactor.lang import (
     ExportRequest,
     LanguageServer,
     Occurrence,
@@ -22,8 +20,10 @@ from living_architecture.lang import (
     PositionFacts,
     Span,
 )
-from living_architecture.refactor.occurrence_index import RunIndex, ServerSession
-from living_architecture.refactor.python_source import SourceFile
+from deterministic_refactor.refactor.occurrence_index import RunIndex, ServerSession
+from deterministic_refactor.refactor.python_source import SourceFile
+from project_files import write_project
+from refactor_cli import run_raw
 
 BASE = "from pydantic import BaseModel\n\n\nclass Base(BaseModel):\n    name: str\n\n\nclass Tagged(Base):\n    tag: str\n"
 A = ("from pkg.base import Base, Tagged\n\n\nclass A(Tagged):\n    name: str\n\n\n"

@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pytest
 
-PYTHON_ROOT = Path(__file__).resolve().parent.parent
-REPO_ROOT = PYTHON_ROOT.parent
+PACKAGE_ROOT = Path(__file__).resolve().parent.parent
+REPO_ROOT = next(p for p in Path(__file__).resolve().parents if (p / "shared").is_dir() and (p / "plugin").is_dir())
 CROSS = REPO_ROOT / "scripts" / "conformance-cross"
 XDIST_STARTED = "created:"
 
@@ -19,7 +19,7 @@ def _corpus_smoke_run(*args: str, update: bool) -> subprocess.CompletedProcess[s
         env["LA_UPDATE_GOLDENS"] = "1"
     test = "tests/test_conformance.py::test_corpus_is_not_empty"
     argv = [sys.executable, "-m", "pytest", "-p", "no:cacheprovider", *args, test]
-    return subprocess.run(argv, cwd=PYTHON_ROOT, env=env, capture_output=True, text=True, check=False)
+    return subprocess.run(argv, cwd=PACKAGE_ROOT, env=env, capture_output=True, text=True, check=False)
 
 
 def test_update_mode_starts_no_xdist_workers_even_with_explicit_n() -> None:

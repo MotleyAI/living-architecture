@@ -6,19 +6,19 @@ from collections.abc import Callable
 from pathlib import Path
 
 import pytest
+
+from deterministic_refactor.config import current_format
+from deterministic_refactor.contract import message
+from deterministic_refactor.refactor import rename_map, rope_refactor
+from deterministic_refactor.refactor.locators import RefactorError
+from deterministic_refactor.refactor.move_project import MoveProject
+from deterministic_refactor.refactor.moved_symbol import MovedSymbol
+from deterministic_refactor.refactor.output_check import checked_create, checked_write
+from deterministic_refactor.refactor.python_project import Snapshot
+from deterministic_refactor.refactor.text_edits import TextEdit
+from deterministic_refactor.refactor.writer import FileWrite
 from project_files import file_tree, write_project
 from refactor_cli import run
-
-from living_architecture.config import current_format
-from living_architecture.contract import message
-from living_architecture.refactor import rename_map, rope_refactor
-from living_architecture.refactor.locators import RefactorError
-from living_architecture.refactor.move_project import MoveProject
-from living_architecture.refactor.moved_symbol import MovedSymbol
-from living_architecture.refactor.output_check import checked_create, checked_write
-from living_architecture.refactor.python_project import Snapshot
-from living_architecture.refactor.text_edits import TextEdit
-from living_architecture.refactor.writer import FileWrite
 
 BROKEN = "def f(:\n"
 FLAGS = pytest.mark.parametrize("flags", [[], ["--apply"]], ids=["dry-run", "apply"])

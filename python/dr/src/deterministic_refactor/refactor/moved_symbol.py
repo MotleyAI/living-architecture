@@ -5,10 +5,10 @@ from __future__ import annotations
 
 import ast
 
-from living_architecture.contract import message
-from living_architecture.refactor.locators import RefactorError
-from living_architecture.refactor.python_source import SourceFile, header_lines, name_end, split_lines
-from living_architecture.refactor.static_resolver import Module, node_key
+from deterministic_refactor.contract import message
+from deterministic_refactor.refactor.locators import RefactorError
+from deterministic_refactor.refactor.python_source import SourceFile, header_lines, name_end, split_lines
+from deterministic_refactor.refactor.static_resolver import Module, node_key
 
 Declaration = ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef | ast.Assign | ast.AnnAssign
 

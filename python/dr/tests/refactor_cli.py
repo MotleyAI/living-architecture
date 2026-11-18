@@ -8,11 +8,11 @@ from pathlib import Path
 from typing import NamedTuple
 
 import pytest
-from project_files import file_tree, write_project
 
-from living_architecture.cli.dr_refactor import dr_refactor
-from living_architecture.config import current_format
-from living_architecture.contract import message
+from deterministic_refactor.cli.dr_refactor import dr_refactor
+from deterministic_refactor.config import current_format
+from deterministic_refactor.contract import message
+from project_files import file_tree, write_project
 
 BIN_DIR = Path(sys.executable).parent
 

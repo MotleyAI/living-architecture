@@ -5,10 +5,10 @@ from pathlib import Path
 
 import pytest
 
+from deterministic_refactor.contract import check_ids
 from living_architecture import archcheck, c4
 from living_architecture.c4.diagrams import _diagrams_map
 from living_architecture.cli.la_arch_diagrams import la_arch_diagrams
-from living_architecture.contract import check_ids
 
 FIX_CMD = "la-arch-diagrams"
 PY_SECTION = "python:\n  root_package: pkg\n"

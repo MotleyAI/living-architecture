@@ -6,10 +6,10 @@ from pathlib import Path
 
 import pytest
 import yaml
+
+from deterministic_refactor.contract import message
 from project_files import file_tree
 from refactor_cli import git_project, leftover, read, rename_argv, run
-
-from living_architecture.contract import message
 
 Run = tuple[int, str, str]
 

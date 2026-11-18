@@ -1,7 +1,7 @@
 import argparse
 
-from living_architecture import refactor
-from living_architecture.cli import _argv, _run
+from deterministic_refactor import refactor
+from deterministic_refactor.config.command import command_argv, run_command
 
 
 def _refactor(raw: list[str], args: argparse.Namespace) -> int:
@@ -13,5 +13,5 @@ def _refactor(raw: list[str], args: argparse.Namespace) -> int:
 
 
 def dr_refactor(argv: list[str] | None = None) -> int:
-    raw = _argv(argv)
-    return _run("dr-refactor", raw, lambda args: _refactor(raw, args))
+    raw = command_argv(argv)
+    return run_command("dr-refactor", raw, lambda args: _refactor(raw, args))

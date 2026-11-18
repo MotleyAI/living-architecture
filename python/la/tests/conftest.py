@@ -1,20 +1,15 @@
-import importlib.util
 import json
 import os
 import shutil
 import subprocess
 import sys
 from collections.abc import Callable
-from functools import cache
 from pathlib import Path
 
-import fake_gh_cli
-import project_files
 import pytest
-from rope.refactor import patchedast
 
-from living_architecture.contract import snapshot_dir
-from living_architecture.lang.language_server import LanguageServer
+from conformance_runner import fake_gh_cli
+from deterministic_refactor.contract import snapshot_dir
 
 SCRIPTS_DIR = snapshot_dir() / "scripts"
 
@@ -91,7 +86,7 @@ def run_script(fake_gh: FakeGh) -> Callable[..., subprocess.CompletedProcess[str
     return run
 
 
-REPO_SCRIPTS = Path(__file__).resolve().parents[2] / "scripts"
+REPO_SCRIPTS = next(p for p in Path(__file__).resolve().parents if (p / "shared").is_dir() and (p / "plugin").is_dir()) / "scripts"
 # The release manifests and lockfiles, as templates over the package version and one dependency.
 RELEASE_MANIFESTS = {
     "python/pyproject.toml": '[project]\nname = "living-architecture"\nversion = "{version}"\ndependencies = ["pyyaml{dep}"]\n',
@@ -190,56 +185,3 @@ class ReleaseRepo:
 @pytest.fixture
 def release_repo(tmp_path: Path) -> ReleaseRepo:
     return ReleaseRepo(tmp_path / "repo")
-
-
-@pytest.fixture
-def typed_project(tmp_path: Path) -> Callable[..., Path]:
-    """`project_files.write_project` at `<tmp>/proj`."""
-    return lambda files, **kw: project_files.write_project(tmp_path / "proj", files, **kw)
-
-
-@pytest.fixture
-def no_server(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Starting a language server fails the test."""
-
-    def refuse(*_: object, **__: object) -> None:
-        raise AssertionError("a language server was started")
-
-    monkeypatch.setattr(LanguageServer, "__init__", refuse)
-
-
-@cache
-def _unpatched_walker() -> type:
-    """rope's own `_PatchingASTWalker`, from a private copy of `patchedast` that no patch touches."""
-    spec = importlib.util.spec_from_file_location("_unpatched_patchedast", patchedast.__file__)
-    assert spec is not None
-    assert spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module._PatchingASTWalker
-
-
-@pytest.fixture
-def restore_rope_visitor(monkeypatch: pytest.MonkeyPatch) -> Callable[[str], None]:
-    """Put one of rope's own walker visitors back in place of its patch, for this test."""
-
-    def restore(name: str) -> None:
-        monkeypatch.setattr(patchedast._PatchingASTWalker, name, getattr(_unpatched_walker(), name))
-
-    return restore
-
-
-@pytest.fixture
-def annotation_gap() -> str:
-    """rope's own `_arg` leaves the line-3 annotation unwalked; the walk then drifts and crashes on line 8."""
-    return (
-        "from pkg.a import foo\n"
-        "\n"
-        'def f(p: F("(") = None):\n'
-        "    a = 1\n"
-        "    b = 2\n"
-        "    c = 3\n"
-        "    d = 4\n"
-        "    e = foo()\n"
-        "    return g(a)\n"
-    )

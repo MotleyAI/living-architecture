@@ -13,12 +13,12 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
 
-from living_architecture.contract import message
-from living_architecture.refactor.locators import RefactorError
-from living_architecture.refactor.move_project import MoveProject
-from living_architecture.refactor.moved_symbol import MovedSymbol
-from living_architecture.refactor.static_resolver import Module, Scope, Value, node_key
-from living_architecture.refactor.writer import FileMove, FileWrite, apply
+from deterministic_refactor.contract import message
+from deterministic_refactor.refactor.locators import RefactorError
+from deterministic_refactor.refactor.move_project import MoveProject
+from deterministic_refactor.refactor.moved_symbol import MovedSymbol
+from deterministic_refactor.refactor.static_resolver import Module, Scope, Value, node_key
+from deterministic_refactor.refactor.writer import FileMove, FileWrite, apply
 
 # A value in the form that compares across a move: "?" (unknown), else a tuple led by its kind.
 Canonical = tuple[str | int, ...] | str

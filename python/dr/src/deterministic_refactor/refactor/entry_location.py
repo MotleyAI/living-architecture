@@ -11,13 +11,13 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
-from living_architecture.refactor.bindings import bound_at
-from living_architecture.refactor.locators import Locator, RefactorError, cannot_rename, resolve
-from living_architecture.refactor.members import member_declarations, receiver_stores
-from living_architecture.refactor.patch_targets import SourceFolders
-from living_architecture.refactor.python_project import ProjectLayout, Snapshot
-from living_architecture.refactor.python_source import SourceFile, dotted_segments, name_end, nfkc
-from living_architecture.refactor.static_resolver import Module, Resolver, Scope, Value, node_key
+from deterministic_refactor.refactor.bindings import bound_at
+from deterministic_refactor.refactor.locators import Locator, RefactorError, cannot_rename, resolve
+from deterministic_refactor.refactor.members import member_declarations, receiver_stores
+from deterministic_refactor.refactor.patch_targets import SourceFolders
+from deterministic_refactor.refactor.python_project import ProjectLayout, Snapshot
+from deterministic_refactor.refactor.python_source import SourceFile, dotted_segments, name_end, nfkc
+from deterministic_refactor.refactor.static_resolver import Module, Resolver, Scope, Value, node_key
 
 # The checker's `definition` at a site of a project file: each declaration's file and offset.
 Definitions = Callable[[str, int], list[tuple[Path, int]]]

@@ -10,9 +10,9 @@ from typing import Any
 
 import pytest
 
-from living_architecture.contract import language
-from living_architecture.refactor.member_scan import registry_forms, site_text
-from living_architecture.refactor.python_source import SourceFile
+from deterministic_refactor.contract import language
+from deterministic_refactor.refactor.member_scan import registry_forms, site_text
+from deterministic_refactor.refactor.python_source import SourceFile
 
 NEW_KEYS: dict[str, list[dict[str, object]]] = {
     "name_decorators": [

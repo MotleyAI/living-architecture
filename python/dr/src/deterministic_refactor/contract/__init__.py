@@ -1,16 +1,16 @@
 """The shared contract, loaded from the vendored snapshot."""
 
-from living_architecture.contract.glob import glob_match
-from living_architecture.contract.os_error import (
+from deterministic_refactor.contract.glob import glob_match
+from deterministic_refactor.contract.os_error import (
     display_path,
     is_regular_file,
     os_error_reason,
     os_error_text,
 )
-from living_architecture.contract.regex import capturing_groups, is_portable_regex
-from living_architecture.contract.render import canonical_repr, message, normalize, render_template
-from living_architecture.contract.schema import materialize_defaults, validate
-from living_architecture.contract.snapshot import (
+from deterministic_refactor.contract.regex import capturing_groups, is_portable_regex
+from deterministic_refactor.contract.render import canonical_repr, message, normalize, render_template
+from deterministic_refactor.contract.schema import materialize_defaults, validate
+from deterministic_refactor.contract.snapshot import (
     architecture,
     base_fetch_timeout,
     check_ids,
@@ -32,7 +32,7 @@ from living_architecture.contract.snapshot import (
     snapshot_dir,
     timing_phases,
 )
-from living_architecture.contract.yaml_profile import DuplicateKeyError, YAMLError, load_yaml
+from deterministic_refactor.contract.yaml_profile import DuplicateKeyError, YAMLError, load_yaml
 
 __all__ = [
     "DuplicateKeyError",

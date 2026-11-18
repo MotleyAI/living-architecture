@@ -8,9 +8,9 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Protocol
 
-from living_architecture.lang import Span
-from living_architecture.refactor.members import member_declarations
-from living_architecture.refactor.python_source import SourceFile
+from deterministic_refactor.lang import Span
+from deterministic_refactor.refactor.members import member_declarations
+from deterministic_refactor.refactor.python_source import SourceFile
 
 ClassKey = tuple[Path, int]
 # A linearized class, or None for a base that resolves to no class.

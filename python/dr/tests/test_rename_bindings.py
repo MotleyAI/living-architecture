@@ -15,15 +15,15 @@ from collections.abc import Callable
 from pathlib import Path
 
 import pytest
+
+from deterministic_refactor.cli.dr_refactor import dr_refactor
+from deterministic_refactor.contract import language, message
+from deterministic_refactor.refactor import bindings
+from deterministic_refactor.refactor.bindings import BindingCheck, Conflict, EntryEdits, module_binding
+from deterministic_refactor.refactor.python_source import SourceFile
+from deterministic_refactor.refactor.text_edits import TextEdit
 from project_files import file_tree
 from refactor_cli import entry_refusal, readouterr
-
-from living_architecture.cli.dr_refactor import dr_refactor
-from living_architecture.contract import language, message
-from living_architecture.refactor import bindings
-from living_architecture.refactor.bindings import BindingCheck, Conflict, EntryEdits, module_binding
-from living_architecture.refactor.python_source import SourceFile
-from living_architecture.refactor.text_edits import TextEdit
 
 MakeProject = Callable[..., Path]
 NEW = "fresh"

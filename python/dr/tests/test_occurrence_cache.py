@@ -12,12 +12,12 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+
+from deterministic_refactor.cli.dr_compliance import dr_compliance
+from deterministic_refactor.contract import language
+from deterministic_refactor.lang import LanguageServer
 from project_files import file_tree, write_project
 from refactor_cli import run_raw
-
-from living_architecture.cli.dr_compliance import dr_compliance
-from living_architecture.contract import language
-from living_architecture.lang import LanguageServer
 
 MODELS = """class Store:
     def get_model(self) -> int:

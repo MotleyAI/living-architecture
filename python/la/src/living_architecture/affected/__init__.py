@@ -10,9 +10,9 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
 
-from living_architecture import NATIVE_LANGUAGE, __version__, changes, lang, twin
-from living_architecture.config import ConfigError, find_repo_root
-from living_architecture.contract import (
+from deterministic_refactor import changes, lang, twin
+from deterministic_refactor.config import ConfigError, find_repo_root
+from deterministic_refactor.contract import (
     contract_hash,
     is_test_file,
     language,
@@ -23,6 +23,7 @@ from living_architecture.contract import (
     schema,
     validate,
 )
+from living_architecture import NATIVE_LANGUAGE, __version__
 
 __all__ = ["run", "serve"]
 

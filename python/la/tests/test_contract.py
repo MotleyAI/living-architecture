@@ -16,8 +16,8 @@ from pathlib import Path
 import pytest
 import yaml
 
-from living_architecture import contract
-from living_architecture.contract import (
+from deterministic_refactor import contract
+from deterministic_refactor.contract import (
     DuplicateKeyError,
     YAMLError,
     canonical_repr,
@@ -36,7 +36,7 @@ from living_architecture.contract import (
 
 
 def _repo_root() -> Path:
-    return next(p for p in Path(__file__).resolve().parents if (p / "conformance" / "cases").is_dir())
+    return next(p for p in Path(__file__).resolve().parents if (p / "shared").is_dir() and (p / "plugin").is_dir())
 
 
 REPO_ROOT = _repo_root()
@@ -782,7 +782,8 @@ def _manifest_commands() -> set[str]:
 
 
 def test_console_scripts_equal_the_manifest() -> None:
-    scripts = {ep.name for ep in entry_points(group="console_scripts") if ep.dist and ep.dist.name == "living-architecture"}
+    distributions = {"deterministic-refactor", "living-architecture"}
+    scripts = {ep.name for ep in entry_points(group="console_scripts") if ep.dist and ep.dist.name in distributions}
     assert scripts == _manifest_commands()
 
 

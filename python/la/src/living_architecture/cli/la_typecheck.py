@@ -1,13 +1,13 @@
 from pathlib import Path
 
-from living_architecture import typecheck
-from living_architecture.cli import _argv, _run
+from deterministic_refactor import typecheck
+from deterministic_refactor.config.command import command_argv, run_command
 
 
 def la_typecheck(argv: list[str] | None = None) -> int:
-    return _run(
+    return run_command(
         "la-typecheck",
-        _argv(argv),
+        command_argv(argv),
         lambda args: typecheck.run(
             cwd=Path.cwd(), write=args.write_baseline, language_id=args.language, realign_from=args.realign_from
         ),

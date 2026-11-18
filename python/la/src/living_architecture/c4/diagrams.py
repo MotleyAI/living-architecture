@@ -8,12 +8,12 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from deterministic_refactor.contract import message, os_error_text
 from living_architecture.c4.index import read_index
 from living_architecture.c4.layout import layout_problem
 from living_architecture.c4.mermaid import render_mermaid
 from living_architecture.c4.model import ModelParse, parse_model, project
 from living_architecture.c4.views import View, ViewsParse, parse_views
-from living_architecture.contract import message, os_error_text
 
 _MARKER_RE = re.compile(r"<!--\s+(/?)likec4:(\w+)\s+-->")
 

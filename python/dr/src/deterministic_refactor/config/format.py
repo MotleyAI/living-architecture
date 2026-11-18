@@ -8,8 +8,8 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
-from living_architecture.config.load import ConfigError, parse_config, read_config_text
-from living_architecture.contract import (
+from deterministic_refactor.config.load import ConfigError, parse_config, read_config_text
+from deterministic_refactor.contract import (
     YAMLError,
     canonical_repr,
     config_file,

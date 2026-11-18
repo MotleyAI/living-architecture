@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+from deterministic_refactor.contract import message
 from living_architecture.c4.model import Element, ModelParse
 from living_architecture.c4.views import View
-from living_architecture.contract import message
 
 
 def _mangle(eid: str) -> str:

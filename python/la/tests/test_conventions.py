@@ -5,9 +5,10 @@ from pathlib import Path
 
 import pytest
 
-from living_architecture import config, conventions
+from deterministic_refactor import config
+from deterministic_refactor.config import CONFIG_FILENAME
+from living_architecture import conventions
 from living_architecture.cli.la_check_conventions import la_check_conventions
-from living_architecture.config import CONFIG_FILENAME
 
 
 def _violations(tmp_path: Path, source: str, rel: str = "pkg/mod.py") -> list[str]:

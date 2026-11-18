@@ -11,10 +11,10 @@ from pathlib import Path
 import pytest
 import yaml
 
-from living_architecture import config
-from living_architecture.contract import load_yaml, render_template
+from deterministic_refactor import config
+from deterministic_refactor.contract import load_yaml, render_template
 
-SHARED = next(p for p in Path(__file__).resolve().parents if (p / "shared" / "vectors").is_dir()) / "shared"
+SHARED = next(p for p in Path(__file__).resolve().parents if (p / "shared").is_dir() and (p / "plugin").is_dir()) / "shared"
 VECTORS = yaml.safe_load((SHARED / "vectors" / "format.yaml").read_text(encoding="utf-8"))
 MANIFEST = yaml.safe_load((SHARED / "cli.yaml").read_text(encoding="utf-8"))["commands"]
 BIN_DIR = Path(sys.executable).parent

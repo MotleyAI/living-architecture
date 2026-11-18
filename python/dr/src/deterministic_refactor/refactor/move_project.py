@@ -5,12 +5,12 @@ from __future__ import annotations
 import copy
 from pathlib import Path
 
-from living_architecture.contract import message
-from living_architecture.refactor.locators import RefactorError, project_rel
-from living_architecture.refactor.patch_targets import SourceFolders
-from living_architecture.refactor.python_project import ProjectLayout, Snapshot
-from living_architecture.refactor.routing import language_files
-from living_architecture.refactor.static_resolver import Module, Resolver
+from deterministic_refactor.contract import message
+from deterministic_refactor.refactor.locators import RefactorError, project_rel
+from deterministic_refactor.refactor.patch_targets import SourceFolders
+from deterministic_refactor.refactor.python_project import ProjectLayout, Snapshot
+from deterministic_refactor.refactor.routing import language_files
+from deterministic_refactor.refactor.static_resolver import Module, Resolver
 
 _INIT = "__init__.py"
 

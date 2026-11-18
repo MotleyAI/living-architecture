@@ -3,9 +3,9 @@ from pathlib import Path
 
 import pytest
 
-from living_architecture import config
+from deterministic_refactor import config
+from deterministic_refactor.config import CONFIG_FILENAME, format_value
 from living_architecture.cli.la_config import la_config as main
-from living_architecture.config import CONFIG_FILENAME, format_value
 
 
 @pytest.fixture

@@ -7,9 +7,9 @@ from pathlib import Path
 
 import pytest
 
-from living_architecture.contract import compute_hash
+from deterministic_refactor.contract import compute_hash
 
-REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+REPO_ROOT = next(p for p in Path(__file__).resolve().parents if (p / "shared").is_dir() and (p / "plugin").is_dir())
 SNAPSHOT_REL = Path("python/src/living_architecture/contract/data")
 NODE_SNAPSHOT_REL = Path("node/src/contract/data")
 SNAPSHOTS = [SNAPSHOT_REL, NODE_SNAPSHOT_REL]

@@ -5,11 +5,12 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from project_files import write_project
-from refactor_cli import run
 from rope.base.change import ChangeSet
 from rope.base.project import Project
 from rope.refactor.rename import Rename
+
+from project_files import write_project
+from refactor_cli import run
 
 
 @pytest.fixture(autouse=True)

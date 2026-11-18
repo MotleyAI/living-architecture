@@ -5,10 +5,10 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+
+from deterministic_refactor.contract import message
 from project_files import write_project
 from refactor_cli import read, run
-
-from living_architecture.contract import message
 
 MODELS = "class Model:\n    pass\n"
 NAMES = """\

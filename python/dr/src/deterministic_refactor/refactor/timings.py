@@ -7,7 +7,7 @@ import time
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
 
-from living_architecture.contract import message, timing_phases
+from deterministic_refactor.contract import message, timing_phases
 
 _CENTISECOND_NS = 10_000_000
 

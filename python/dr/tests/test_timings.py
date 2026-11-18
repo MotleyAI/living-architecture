@@ -2,8 +2,8 @@
 
 import pytest
 
-from living_architecture.contract import message, timing_phases
-from living_architecture.refactor.timings import Timer, seconds
+from deterministic_refactor.contract import message, timing_phases
+from deterministic_refactor.refactor.timings import Timer, seconds
 
 SECOND = 1_000_000_000
 

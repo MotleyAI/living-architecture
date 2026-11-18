@@ -11,21 +11,21 @@ from pathlib import Path
 
 from typing_extensions import override
 
-from living_architecture.contract import message
-from living_architecture.refactor.bindings import Conflict, bindings_after, module_binding
-from living_architecture.refactor.entry_location import Entry, EntryLocator
-from living_architecture.refactor.keyed import TypeFacts
-from living_architecture.refactor.locators import cannot_rename
-from living_architecture.refactor.move_edits import NameConflict
-from living_architecture.refactor.occurrence_index import RunIndex, candidate_files
-from living_architecture.refactor.outcomes import Finding
-from living_architecture.refactor.output_check import checked_create
-from living_architecture.refactor.python_source import SourceFile, dotted_segments, nfkc
-from living_architecture.refactor.rename_union import MapRename, RenameOptions, RenameResult, Session
-from living_architecture.refactor.static_resolver import Module, Value
-from living_architecture.refactor.text_edits import TextEdit, merge_edits
-from living_architecture.refactor.timings import timed
-from living_architecture.refactor.writer import FileMove, FileWrite
+from deterministic_refactor.contract import message
+from deterministic_refactor.refactor.bindings import Conflict, bindings_after, module_binding
+from deterministic_refactor.refactor.entry_location import Entry, EntryLocator
+from deterministic_refactor.refactor.keyed import TypeFacts
+from deterministic_refactor.refactor.locators import cannot_rename
+from deterministic_refactor.refactor.move_edits import NameConflict
+from deterministic_refactor.refactor.occurrence_index import RunIndex, candidate_files
+from deterministic_refactor.refactor.outcomes import Finding
+from deterministic_refactor.refactor.output_check import checked_create
+from deterministic_refactor.refactor.python_source import SourceFile, dotted_segments, nfkc
+from deterministic_refactor.refactor.rename_union import MapRename, RenameOptions, RenameResult, Session
+from deterministic_refactor.refactor.static_resolver import Module, Value
+from deterministic_refactor.refactor.text_edits import TextEdit, merge_edits
+from deterministic_refactor.refactor.timings import timed
+from deterministic_refactor.refactor.writer import FileMove, FileWrite
 
 _INIT = "__init__.py"
 

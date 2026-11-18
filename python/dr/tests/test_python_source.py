@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from living_architecture.refactor.python_source import SourceFile, every_parameter, header_end
+from deterministic_refactor.refactor.python_source import SourceFile, every_parameter, header_end
 
 LIGATURE = "\ufb01x"  # NFKC: "fix", one character longer
 COMBINING = "a\u0301b"  # NFKC: one precomposed letter, then "b"

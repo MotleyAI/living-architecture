@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from living_architecture.config import current_format
+from deterministic_refactor.config import current_format
 
 REPO = ["--repo", "o/r"]
 

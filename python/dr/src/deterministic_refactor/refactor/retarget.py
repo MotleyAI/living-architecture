@@ -11,15 +11,15 @@ from collections.abc import Callable, Iterator
 from pydantic import BaseModel, ConfigDict
 from typing_extensions import override
 
-from living_architecture.contract import message
-from living_architecture.refactor.carve_outs import CarveOuts
-from living_architecture.refactor.entry_location import Entry, EntryLocator
-from living_architecture.refactor.locators import RefactorError
-from living_architecture.refactor.outcomes import Finding
-from living_architecture.refactor.python_source import SourceFile, every_parameter, split_lines
-from living_architecture.refactor.rename_union import RenameOptions, RenameResult, Session, SymbolRename
-from living_architecture.refactor.static_resolver import Value, node_key
-from living_architecture.refactor.text_edits import TextEdit
+from deterministic_refactor.contract import message
+from deterministic_refactor.refactor.carve_outs import CarveOuts
+from deterministic_refactor.refactor.entry_location import Entry, EntryLocator
+from deterministic_refactor.refactor.locators import RefactorError
+from deterministic_refactor.refactor.outcomes import Finding
+from deterministic_refactor.refactor.python_source import SourceFile, every_parameter, split_lines
+from deterministic_refactor.refactor.rename_union import RenameOptions, RenameResult, Session, SymbolRename
+from deterministic_refactor.refactor.static_resolver import Value, node_key
+from deterministic_refactor.refactor.text_edits import TextEdit
 
 _FUNCTIONS = (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)
 _COMPREHENSIONS = (ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)

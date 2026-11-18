@@ -4,13 +4,13 @@ from collections.abc import Callable
 from pathlib import Path
 
 import pytest
-from project_files import file_tree
-from refactor_cli import entry_refusal, readouterr
 from rope.refactor import patchedast
 
-from living_architecture.cli.dr_refactor import dr_refactor as main
-from living_architecture.contract import message
-from living_architecture.refactor.rope_refactor import RefactorError, _offset_from_line_col
+from deterministic_refactor.cli.dr_refactor import dr_refactor as main
+from deterministic_refactor.contract import message
+from deterministic_refactor.refactor.rope_refactor import RefactorError, _offset_from_line_col
+from project_files import file_tree
+from refactor_cli import entry_refusal, readouterr
 
 
 @pytest.fixture

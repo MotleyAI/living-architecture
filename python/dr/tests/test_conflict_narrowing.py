@@ -11,12 +11,12 @@ from pathlib import Path
 
 import pytest
 
-from living_architecture.contract import message
-from living_architecture.refactor import bindings
-from living_architecture.refactor.bindings import BindingCheck, Conflict, EntryEdits
-from living_architecture.refactor.locators import RefactorError
-from living_architecture.refactor.python_source import SourceFile
-from living_architecture.refactor.text_edits import TextEdit, apply_edits
+from deterministic_refactor.contract import message
+from deterministic_refactor.refactor import bindings
+from deterministic_refactor.refactor.bindings import BindingCheck, Conflict, EntryEdits
+from deterministic_refactor.refactor.locators import RefactorError
+from deterministic_refactor.refactor.python_source import SourceFile
+from deterministic_refactor.refactor.text_edits import TextEdit, apply_edits
 
 NEW = "fresh"
 

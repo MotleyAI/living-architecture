@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Any
 
 import deterministic_refactor
-
 import living_architecture
 
 REPO_ROOT = next(p for p in Path(__file__).resolve().parents if (p / "shared").is_dir() and (p / "plugin").is_dir())

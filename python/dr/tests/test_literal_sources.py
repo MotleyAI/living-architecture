@@ -8,9 +8,9 @@ from pathlib import Path
 
 import pytest
 
-from living_architecture.refactor import literal_sources
-from living_architecture.refactor.patch_targets import SourceFolders
-from living_architecture.refactor.static_resolver import Resolver
+from deterministic_refactor.refactor import literal_sources
+from deterministic_refactor.refactor.patch_targets import SourceFolders
+from deterministic_refactor.refactor.static_resolver import Resolver
 
 # A literal as (file, its text with quotes, which occurrence of that text in the file).
 Quoted = tuple[str, str, int]

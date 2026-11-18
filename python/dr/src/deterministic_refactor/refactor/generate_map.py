@@ -11,17 +11,23 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
-from living_architecture.contract import YAMLError, language_ids, language_of, load_yaml, message
-from living_architecture.refactor.bindings import bound_at
-from living_architecture.refactor.carve_outs import CarveOuts
-from living_architecture.refactor.entry_location import EntryLocator
-from living_architecture.refactor.literal_rename import literal_member_at
-from living_architecture.refactor.locators import Locator, RefactorError, project_rel, resolve
-from living_architecture.refactor.map_file import MapError
-from living_architecture.refactor.python_source import SourceFile
-from living_architecture.refactor.rename_union import Session
-from living_architecture.refactor.symbol_path import LOCALS, WILDCARD, declared_paths, is_wildcard, locate_all
-from living_architecture.refactor.word_table import WordTable, held_words, load_table, replace_words
+from deterministic_refactor.contract import YAMLError, language_ids, language_of, load_yaml, message
+from deterministic_refactor.refactor.bindings import bound_at
+from deterministic_refactor.refactor.carve_outs import CarveOuts
+from deterministic_refactor.refactor.entry_location import EntryLocator
+from deterministic_refactor.refactor.literal_rename import literal_member_at
+from deterministic_refactor.refactor.locators import Locator, RefactorError, project_rel, resolve
+from deterministic_refactor.refactor.map_file import MapError
+from deterministic_refactor.refactor.python_source import SourceFile
+from deterministic_refactor.refactor.rename_union import Session
+from deterministic_refactor.refactor.symbol_path import (
+    LOCALS,
+    WILDCARD,
+    declared_paths,
+    is_wildcard,
+    locate_all,
+)
+from deterministic_refactor.refactor.word_table import WordTable, held_words, load_table, replace_words
 
 _PLAIN = re.compile(r"[A-Za-z0-9_$./<>()-]+")
 _LOCAL = re.compile(rf"(?:.*\.)?{re.escape(LOCALS)}\.([^.()\[\]]+)")

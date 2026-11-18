@@ -10,8 +10,8 @@ from contextlib import ExitStack
 from pathlib import Path
 from typing import TypeVar, cast
 
-from living_architecture.contract import language
-from living_architecture.lang import (
+from deterministic_refactor.contract import language
+from deterministic_refactor.lang import (
     ExportRequest,
     FactQuery,
     LanguageServer,
@@ -20,10 +20,10 @@ from living_architecture.lang import (
     PositionFacts,
     Span,
 )
-from living_architecture.lang.language_server import FACT_KINDS, FactKind, Verdict
-from living_architecture.refactor.index_cache import IndexCache, request_key
-from living_architecture.refactor.python_source import SourceFile, nfkc
-from living_architecture.refactor.timings import timed
+from deterministic_refactor.lang.language_server import FACT_KINDS, FactKind, Verdict
+from deterministic_refactor.refactor.index_cache import IndexCache, request_key
+from deterministic_refactor.refactor.python_source import SourceFile, nfkc
+from deterministic_refactor.refactor.timings import timed
 
 _FUNCTIONS = (ast.FunctionDef, ast.AsyncFunctionDef)
 READ_ATTRIBUTES = frozenset(read["attribute"] for read in language("python").get("name_reads", []))

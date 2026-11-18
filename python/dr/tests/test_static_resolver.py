@@ -9,9 +9,9 @@ from pathlib import Path
 
 import pytest
 
-from living_architecture.refactor.patch_targets import SourceFolders
-from living_architecture.refactor.python_project import ProjectLayout
-from living_architecture.refactor.static_resolver import Binder, Module, Resolver, Scope, Value
+from deterministic_refactor.refactor.patch_targets import SourceFolders
+from deterministic_refactor.refactor.python_project import ProjectLayout
+from deterministic_refactor.refactor.static_resolver import Binder, Module, Resolver, Scope, Value
 
 
 def _resolver(root: Path, files: dict[str, str]) -> Resolver:

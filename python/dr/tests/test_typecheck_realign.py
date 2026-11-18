@@ -1,7 +1,7 @@
 """`la-typecheck --realign-from`: the backward mapping, entry taking in list order, and renamed baseline keys."""
 
-from living_architecture.lang.baseline import Key
-from living_architecture.lang.realign import Entries, back_key, merged, realigned, rekeyed
+from deterministic_refactor.lang.baseline import Key
+from deterministic_refactor.lang.realign import Entries, back_key, merged, realigned, rekeyed
 
 ARG = "reportArgumentType"
 ASSIGN = "reportAssignmentType"

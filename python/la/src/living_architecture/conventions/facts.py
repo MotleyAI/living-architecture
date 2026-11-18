@@ -7,8 +7,9 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from living_architecture import __version__, lang, twin
-from living_architecture.contract import contract_hash, language_of, message
+from deterministic_refactor import lang, twin
+from deterministic_refactor.contract import contract_hash, language_of, message
+from living_architecture import __version__
 
 __all__ = ["FactsError", "collect", "emit", "language_of"]
 

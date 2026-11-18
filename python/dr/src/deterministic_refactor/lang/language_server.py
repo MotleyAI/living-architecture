@@ -24,8 +24,8 @@ import basedpyright
 from nodejs_wheel import executable as node_wheel
 from pydantic import BaseModel, ConfigDict
 
-from living_architecture.contract import language, os_error_text
-from living_architecture.lang.typecheck import (
+from deterministic_refactor.contract import language, os_error_text
+from deterministic_refactor.lang.typecheck import (
     pyright_export_env,
     pyright_patch_env,
     read_pyright_export,

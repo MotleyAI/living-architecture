@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import difflib
 
-from living_architecture.contract import message
+from deterministic_refactor.contract import message
 
 
 def _shown(text: str) -> str:

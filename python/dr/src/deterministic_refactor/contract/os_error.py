@@ -7,7 +7,7 @@ import os
 import stat
 from pathlib import Path
 
-from living_architecture.contract.render import message
+from deterministic_refactor.contract.render import message
 
 _REASONS = {
     "ENOENT": "os.not-found",

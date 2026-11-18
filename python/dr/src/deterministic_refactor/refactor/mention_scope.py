@@ -9,12 +9,12 @@ from collections.abc import Iterator
 
 from pydantic import BaseModel, ConfigDict
 
-from living_architecture.refactor.hierarchy import ClassGraph, GraphClass
-from living_architecture.refactor.members import member_declarations
-from living_architecture.refactor.mentions import Mention, code_marked
-from living_architecture.refactor.outcomes import mention_outcome
-from living_architecture.refactor.python_source import SourceFile
-from living_architecture.refactor.rename_union import Session, SymbolRename, top_declarations
+from deterministic_refactor.refactor.hierarchy import ClassGraph, GraphClass
+from deterministic_refactor.refactor.members import member_declarations
+from deterministic_refactor.refactor.mentions import Mention, code_marked
+from deterministic_refactor.refactor.outcomes import mention_outcome
+from deterministic_refactor.refactor.python_source import SourceFile
+from deterministic_refactor.refactor.rename_union import Session, SymbolRename, top_declarations
 
 Site = tuple[str, int]
 

@@ -8,12 +8,12 @@ from collections.abc import Callable
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from living_architecture import twin
-from living_architecture.config import ConfigError, find_repo_root, load_config, repo_languages
-from living_architecture.contract import glob_match, language, language_ids, language_of, message
-from living_architecture.refactor.map_file import MapError, load_map, map_language
-from living_architecture.refactor.timings import report
-from living_architecture.refactor.word_table import load_table
+from deterministic_refactor import twin
+from deterministic_refactor.config import ConfigError, find_repo_root, load_config, repo_languages
+from deterministic_refactor.contract import glob_match, language, language_ids, language_of, message
+from deterministic_refactor.refactor.map_file import MapError, load_map, map_language
+from deterministic_refactor.refactor.timings import report
+from deterministic_refactor.refactor.word_table import load_table
 
 
 class RoutingError(Exception):

@@ -5,12 +5,12 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+
+from deterministic_refactor.cli.dr_compliance import dr_compliance
+from deterministic_refactor.contract import message
+from deterministic_refactor.lang import ExportRequest, FactQuery, LanguageServer
 from project_files import file_tree, write_project
 from refactor_cli import read, run
-
-from living_architecture.cli.dr_compliance import dr_compliance
-from living_architecture.contract import message
-from living_architecture.lang import ExportRequest, FactQuery, LanguageServer
 
 ATTR = "producer_root_model"
 PLANNED = """\

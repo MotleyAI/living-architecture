@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from living_architecture.config import (
+from deterministic_refactor.config import (
     CONFIG_FILENAME,
     ConfigError,
     explicit_typecheck,
@@ -12,7 +12,7 @@ from living_architecture.config import (
     load_raw,
     resolve,
 )
-from living_architecture.contract import config_file, local_config_file
+from deterministic_refactor.contract import config_file, local_config_file
 
 DEFAULT_ISSUE_KEY_PATTERN = r"[A-Z][A-Z0-9]+-\d+"
 

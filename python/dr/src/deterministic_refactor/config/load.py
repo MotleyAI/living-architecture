@@ -8,7 +8,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict
 
-from living_architecture.contract import (
+from deterministic_refactor.contract import (
     DuplicateKeyError,
     YAMLError,
     capturing_groups,

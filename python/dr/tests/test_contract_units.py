@@ -5,7 +5,7 @@ import re
 
 import pytest
 
-from living_architecture.contract import (
+from deterministic_refactor.contract import (
     canonical_repr,
     config_file,
     findings,

@@ -10,7 +10,7 @@ import pytest
 from rope.base import codeanalyze, pyscopes, simplify, worder
 from rope.refactor import patchedast
 
-from living_architecture.refactor import rope_patches
+from deterministic_refactor.refactor import rope_patches
 
 PY312 = pytest.mark.skipif(sys.version_info < (3, 12), reason="PEP 695 / PEP 701 syntax")
 PY313 = pytest.mark.skipif(sys.version_info < (3, 13), reason="PEP 696 type parameter defaults")
@@ -236,7 +236,7 @@ except Exception:
     print("crash")
 else:
     # Imported only after the walk: importing the package applies the patches.
-    from living_architecture.refactor.rope_patches import coverage_violations
+    from deterministic_refactor.refactor.rope_patches import coverage_violations
 
     print("gap" if coverage_violations(tree, source) else "clean")
 """
@@ -361,7 +361,7 @@ def _readable_source(path: Path) -> str:
 
 
 STDLIB = Path(sysconfig.get_paths()["stdlib"])
-PACKAGE_ROOT = Path(__file__).resolve().parents[1]
+WORKSPACE = Path(__file__).resolve().parents[2]
 
 
 @pytest.mark.parametrize("path", _python_files(STDLIB), ids=lambda p: p.relative_to(STDLIB).as_posix())
@@ -371,8 +371,8 @@ def test_stdlib_is_walked_fully(path: Path) -> None:
 
 @pytest.mark.parametrize(
     "path",
-    _python_files(PACKAGE_ROOT / "src") + _python_files(PACKAGE_ROOT / "tests"),
-    ids=lambda p: p.relative_to(PACKAGE_ROOT).as_posix(),
+    [path for member in ("dr", "la") for part in ("src", "tests") for path in _python_files(WORKSPACE / member / part)],
+    ids=lambda p: p.relative_to(WORKSPACE).as_posix(),
 )
 def test_this_repo_is_walked_fully(path: Path) -> None:
     assert _violations(_readable_source(path)) == []

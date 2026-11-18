@@ -8,27 +8,27 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from living_architecture.contract import message
-from living_architecture.refactor.baseline_align import BaselineFailed
-from living_architecture.refactor.diff_render import edit_description, move_description
-from living_architecture.refactor.generate_map import generate_map
-from living_architecture.refactor.locators import (
+from deterministic_refactor.contract import message
+from deterministic_refactor.refactor.baseline_align import BaselineFailed
+from deterministic_refactor.refactor.diff_render import edit_description, move_description
+from deterministic_refactor.refactor.generate_map import generate_map
+from deterministic_refactor.refactor.locators import (
     Locator,
     RefactorError,
     named_source,
     offset_from_line_col,
     resolve,
 )
-from living_architecture.refactor.map_file import MapEntry, MapError, load_map
-from living_architecture.refactor.module_move import module_move_texts
-from living_architecture.refactor.move_edits import NameConflict
-from living_architecture.refactor.move_project import MoveProject
-from living_architecture.refactor.move_verify import verify
-from living_architecture.refactor.moved_imports import GuardedImport
-from living_architecture.refactor.moved_symbol import MovedSymbol, locate_moved
-from living_architecture.refactor.output_check import checked_write
-from living_architecture.refactor.progress import Progress, Refusal, Refused, refusal
-from living_architecture.refactor.rename_map import (
+from deterministic_refactor.refactor.map_file import MapEntry, MapError, load_map
+from deterministic_refactor.refactor.module_move import module_move_texts
+from deterministic_refactor.refactor.move_edits import NameConflict
+from deterministic_refactor.refactor.move_project import MoveProject
+from deterministic_refactor.refactor.move_verify import verify
+from deterministic_refactor.refactor.moved_imports import GuardedImport
+from deterministic_refactor.refactor.moved_symbol import MovedSymbol, locate_moved
+from deterministic_refactor.refactor.output_check import checked_write
+from deterministic_refactor.refactor.progress import Progress, Refusal, Refused, refusal
+from deterministic_refactor.refactor.rename_map import (
     baseline_failed,
     baseline_probe,
     emit,
@@ -36,12 +36,12 @@ from living_architecture.refactor.rename_map import (
     run_map,
     walker_gaps,
 )
-from living_architecture.refactor.rope_patches import WalkerGap, apply_rope_patches
-from living_architecture.refactor.routing import language_files
-from living_architecture.refactor.symbol_move import symbol_move_texts
-from living_architecture.refactor.symbol_path import LocatorError, is_wildcard, wildcard_refused
-from living_architecture.refactor.timings import timed
-from living_architecture.refactor.writer import FileChanged, FileMove, FileWrite, WriteFailed
+from deterministic_refactor.refactor.rope_patches import WalkerGap, apply_rope_patches
+from deterministic_refactor.refactor.routing import language_files
+from deterministic_refactor.refactor.symbol_move import symbol_move_texts
+from deterministic_refactor.refactor.symbol_path import LocatorError, is_wildcard, wildcard_refused
+from deterministic_refactor.refactor.timings import timed
+from deterministic_refactor.refactor.writer import FileChanged, FileMove, FileWrite, WriteFailed
 
 apply_rope_patches()
 

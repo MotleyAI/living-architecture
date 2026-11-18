@@ -7,8 +7,8 @@ import ast
 from collections.abc import Callable
 from pathlib import Path
 
-from living_architecture.refactor.members import member_declarations
-from living_architecture.refactor.static_resolver import Module, Resolver, Value, node_key
+from deterministic_refactor.refactor.members import member_declarations
+from deterministic_refactor.refactor.static_resolver import Module, Resolver, Value, node_key
 
 _INIT = "__init__.py"
 

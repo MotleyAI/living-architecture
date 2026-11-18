@@ -11,7 +11,8 @@ from typing import Any
 import pytest
 import yaml
 
-from living_architecture import __version__, config
+from deterministic_refactor import config
+from living_architecture import __version__
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 REPO_ROOT = PROJECT_ROOT.parent

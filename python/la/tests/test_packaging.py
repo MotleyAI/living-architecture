@@ -12,12 +12,12 @@ from pathlib import Path, PurePosixPath
 
 import pytest
 
-from living_architecture.config import current_format
-from living_architecture.contract import compute_hash
+from deterministic_refactor.config import current_format
+from deterministic_refactor.contract import compute_hash
 
 
 def _repo_root() -> Path:
-    return next(p for p in Path(__file__).resolve().parents if (p / "conformance" / "cases").is_dir())
+    return next(p for p in Path(__file__).resolve().parents if (p / "shared").is_dir() and (p / "plugin").is_dir())
 
 
 REPO_ROOT = _repo_root()

@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from living_architecture.config import ConfigError, load_config, repo_languages
-from living_architecture.contract import message
+from deterministic_refactor.config import ConfigError, load_config, repo_languages
+from deterministic_refactor.contract import message
 
 
 def _repo(root: Path, files: dict[str, str]) -> list[str]:

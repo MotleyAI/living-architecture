@@ -6,7 +6,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
 
-from living_architecture.contract import (
+from deterministic_refactor.contract import (
     YAMLError,
     language_ids,
     language_of,
@@ -15,7 +15,7 @@ from living_architecture.contract import (
     schema,
     validate,
 )
-from living_architecture.refactor.locators import Locator
+from deterministic_refactor.refactor.locators import Locator
 
 
 class MapError(Exception):

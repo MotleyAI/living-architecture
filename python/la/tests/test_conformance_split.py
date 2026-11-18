@@ -8,6 +8,7 @@ from typing import Any
 
 import pytest
 import yaml
+
 from test_contract import _produced_ids
 
 REPO_ROOT = next(p for p in Path(__file__).resolve().parents if (p / "shared").is_dir() and (p / "plugin").is_dir())

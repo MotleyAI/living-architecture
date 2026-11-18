@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
+from deterministic_refactor.contract import language, message, schema, validate
 from living_architecture.archcheck.index import ArchCheckError
 from living_architecture.c4 import RETIRED_ARC42_KEY, Element, ModelParse
-from living_architecture.contract import language, message, schema, validate
 
 
 class MapElement(BaseModel):

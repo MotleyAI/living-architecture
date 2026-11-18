@@ -5,10 +5,10 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from refactor_cli import git
 
-from living_architecture.cli.dr_mock_lint import dr_mock_lint
-from living_architecture.contract import message
+from deterministic_refactor.cli.dr_mock_lint import dr_mock_lint
+from deterministic_refactor.contract import message
+from refactor_cli import git
 
 BASE = "from unittest.mock import Mock\n\n\ndef test_a() -> None:\n    Mock()\n"
 MOVED_AND_ADDED = (

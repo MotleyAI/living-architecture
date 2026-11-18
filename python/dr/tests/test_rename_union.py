@@ -6,13 +6,13 @@ from collections.abc import Callable
 from pathlib import Path
 
 import pytest
+
+from deterministic_refactor.cli.dr_refactor import dr_refactor
+from deterministic_refactor.contract import message
+from deterministic_refactor.lang import ExportRequest, LanguageServer, LanguageServerError, OccurrenceIndex
+from deterministic_refactor.refactor.rename_union import Session
 from project_files import file_tree, write_project
 from refactor_cli import readouterr
-
-from living_architecture.cli.dr_refactor import dr_refactor
-from living_architecture.contract import message
-from living_architecture.lang import ExportRequest, LanguageServer, LanguageServerError, OccurrenceIndex
-from living_architecture.refactor.rename_union import Session
 
 MakeProject = Callable[..., Path]
 BROKEN_NODE = "--require /nonexistent.js"

@@ -4,7 +4,7 @@ import re
 import subprocess
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+REPO_ROOT = next(p for p in Path(__file__).resolve().parents if (p / "shared").is_dir() and (p / "plugin").is_dir())
 THIS_FILE = Path(__file__).resolve()
 
 BLOCKED = re.compile(r"\begor\b|\bjames\b|slayer|motley|\bdev-\d+|/home/", re.IGNORECASE)
@@ -15,11 +15,11 @@ PUBLISHER_ALLOWED = (
     '"name": "MotleyAI"',
     "MotleyAI/living-architecture",
 )
-README_COPIES = ("README.md", "python/README.md")
+README_COPIES = ("README.md", "python/la/README.md")
 # Per file: the maintainer only as the packages' maintainer, the project that uses the plugin only as the README's
 # links to it and to its example principles document.
 FILE_ALLOWED = {
-    "python/pyproject.toml": ('maintainers = [{ name = "Egor Kraev" }]',),
+    **{f"python/{package}/pyproject.toml": ('maintainers = [{ name = "Egor Kraev" }]',) for package in ("dr", "la")},
     "node/package.json": ('"maintainers": [\n    "Egor Kraev"\n  ]',),
     **{
         readme: (
@@ -55,7 +55,7 @@ def test_blocklist_catches_the_real_cases():
     assert _violations("Categories, Egor") == ["Egor"]
     assert _violations("Copyright (c) 2026 MotleyAI") == []
     assert _violations("the [SLayer](https://github.com/MotleyAI/slayer) codebase, SLayer", "README.md") == ["SLayer"]
-    assert _violations('maintainers = [{ name = "Egor Kraev" }], Egor', "python/pyproject.toml") == ["Egor"]
+    assert _violations('maintainers = [{ name = "Egor Kraev" }], Egor', "python/la/pyproject.toml") == ["Egor"]
 
 
 def test_file_exemptions_hold_only_in_their_own_file():

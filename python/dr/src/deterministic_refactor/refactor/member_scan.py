@@ -16,10 +16,10 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt
 
-from living_architecture.contract import language
-from living_architecture.lang import FactQuery, Span
-from living_architecture.refactor.occurrence_index import RunIndex
-from living_architecture.refactor.python_source import SourceFile
+from deterministic_refactor.contract import language
+from deterministic_refactor.lang import FactQuery, Span
+from deterministic_refactor.refactor.occurrence_index import RunIndex
+from deterministic_refactor.refactor.python_source import SourceFile
 
 _SPACE = re.compile(r"\s+")
 

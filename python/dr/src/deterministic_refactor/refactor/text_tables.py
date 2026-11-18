@@ -7,12 +7,12 @@ import ast
 from collections.abc import Callable
 from pathlib import Path
 
-from living_architecture.config import source_files
-from living_architecture.contract import manifest
-from living_architecture.refactor.compound import is_compound, words
-from living_architecture.refactor.mentions import Region, source_regions
-from living_architecture.refactor.outcomes import literal_spans
-from living_architecture.refactor.python_source import SourceFile
+from deterministic_refactor.config import source_files
+from deterministic_refactor.contract import manifest
+from deterministic_refactor.refactor.compound import is_compound, words
+from deterministic_refactor.refactor.mentions import Region, source_regions
+from deterministic_refactor.refactor.outcomes import literal_spans
+from deterministic_refactor.refactor.python_source import SourceFile
 
 Span = tuple[int, int]
 

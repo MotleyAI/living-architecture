@@ -13,22 +13,22 @@ from pathlib import Path
 
 from typing_extensions import override
 
-from living_architecture.contract import literal_value_forbidden, message
-from living_architecture.lang import Diagnostic, LanguageServer, reverse_closure
-from living_architecture.refactor.entry_location import EntryLocator
-from living_architecture.refactor.keyed import TypeFacts
-from living_architecture.refactor.locators import cannot_rename
-from living_architecture.refactor.member_scan import TextProbe
-from living_architecture.refactor.mentions import docstrings
-from living_architecture.refactor.name_follow import Held, NameFollow, display_names
-from living_architecture.refactor.occurrence_index import RunIndex
-from living_architecture.refactor.outcomes import Finding, Outcome, file_outcome, unverified_read
-from living_architecture.refactor.python_source import SourceFile
-from living_architecture.refactor.rename_union import MapRename, RenameOptions, RenameResult, Session
-from living_architecture.refactor.routing import language_files, stub_files
-from living_architecture.refactor.symbol_path import LocatorError, names_literal
-from living_architecture.refactor.text_edits import TextEdit
-from living_architecture.refactor.timings import timed
+from deterministic_refactor.contract import literal_value_forbidden, message
+from deterministic_refactor.lang import Diagnostic, LanguageServer, reverse_closure
+from deterministic_refactor.refactor.entry_location import EntryLocator
+from deterministic_refactor.refactor.keyed import TypeFacts
+from deterministic_refactor.refactor.locators import cannot_rename
+from deterministic_refactor.refactor.member_scan import TextProbe
+from deterministic_refactor.refactor.mentions import docstrings
+from deterministic_refactor.refactor.name_follow import Held, NameFollow, display_names
+from deterministic_refactor.refactor.occurrence_index import RunIndex
+from deterministic_refactor.refactor.outcomes import Finding, Outcome, file_outcome, unverified_read
+from deterministic_refactor.refactor.python_source import SourceFile
+from deterministic_refactor.refactor.rename_union import MapRename, RenameOptions, RenameResult, Session
+from deterministic_refactor.refactor.routing import language_files, stub_files
+from deterministic_refactor.refactor.symbol_path import LocatorError, names_literal
+from deterministic_refactor.refactor.text_edits import TextEdit
+from deterministic_refactor.refactor.timings import timed
 
 SENTINEL = "__la_probe_sentinel__"
 _QUOTE = re.compile(r"[rRuU]?('''|\"\"\"|'|\")")

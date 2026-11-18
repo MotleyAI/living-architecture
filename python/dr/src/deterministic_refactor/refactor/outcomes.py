@@ -8,11 +8,11 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
-from living_architecture.contract import message
-from living_architecture.refactor.member_scan import Blindspot, FormCall, object_text
-from living_architecture.refactor.mentions import Mention, docstrings
-from living_architecture.refactor.python_source import SourceFile
-from living_architecture.refactor.text_edits import TextEdit
+from deterministic_refactor.contract import message
+from deterministic_refactor.refactor.member_scan import Blindspot, FormCall, object_text
+from deterministic_refactor.refactor.mentions import Mention, docstrings
+from deterministic_refactor.refactor.python_source import SourceFile
+from deterministic_refactor.refactor.text_edits import TextEdit
 
 
 class Finding(BaseModel):

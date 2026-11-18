@@ -1,6 +1,6 @@
 """Per-repo config: `living-architecture.yaml` with its local overrides, validated and completed by the shared schema."""
 
-from living_architecture.config.format import (
+from deterministic_refactor.config.format import (
     FORMAT_KEY,
     Committed,
     check_format,
@@ -12,8 +12,8 @@ from living_architecture.config.format import (
     released_formats,
     stamp_format,
 )
-from living_architecture.config.languages import language_fact, repo_languages, source_files
-from living_architecture.config.load import (
+from deterministic_refactor.config.languages import language_fact, repo_languages, source_files
+from deterministic_refactor.config.load import (
     CONFIG_FILENAME,
     CommandsConfig,
     ConfigError,
@@ -29,7 +29,7 @@ from living_architecture.config.load import (
     load_raw,
     resolve,
 )
-from living_architecture.config.values import format_value, run_get, run_show
+from deterministic_refactor.config.values import format_value, run_get, run_show
 
 __all__ = [
     "CONFIG_FILENAME",

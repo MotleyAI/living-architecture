@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 import yaml
-from refactor_cli import git_project, leftover, read, rename_argv, run
 
-from living_architecture.config import ConfigError, load_config
+from deterministic_refactor.config import ConfigError, load_config
+from refactor_cli import git_project, leftover, read, rename_argv, run
 
 FORMS = [r"NODE TABLE (\w+)", r"\(\w*:(\w+)\)"]
 CONFIG = "refactor:\n  string_forms:\n" + "".join(f"  - '{form}'\n" for form in FORMS)

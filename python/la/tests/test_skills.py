@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-REPO_ROOT = next(p for p in Path(__file__).resolve().parents if (p / "plugin" / "skills").is_dir())
+REPO_ROOT = next(p for p in Path(__file__).resolve().parents if (p / "shared").is_dir() and (p / "plugin").is_dir())
 SKILLS_DIR = REPO_ROOT / "plugin" / "skills"
 SKILL_FILES = sorted(SKILLS_DIR.glob("*/SKILL.md"))
 MANIFEST = REPO_ROOT / "shared" / "cli.yaml"

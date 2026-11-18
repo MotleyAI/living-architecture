@@ -18,15 +18,15 @@ from typing import Any, cast
 
 from pydantic import BaseModel, ValidationError
 
-from living_architecture import __version__
-from living_architecture.contract import language
-from living_architecture.lang import (
+from deterministic_refactor import __version__
+from deterministic_refactor.contract import language
+from deterministic_refactor.lang import (
     PYRIGHT_EXPORT_PRELOAD,
     PYRIGHT_PATCH_PRELOAD,
     ExportRequest,
     OccurrenceIndex,
 )
-from living_architecture.refactor.routing import language_files, stub_files
+from deterministic_refactor.refactor.routing import language_files, stub_files
 
 _FORMAT = 1
 _CONFIGS = ("pyrightconfig.json", "pyproject.toml")
