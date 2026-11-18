@@ -1,4 +1,4 @@
-"""Positions mapped through a refactor's edits, for the type-check baseline's ranges."""
+"""Positions mapped through text edits, for the type-check baseline's ranges."""
 
 from __future__ import annotations
 

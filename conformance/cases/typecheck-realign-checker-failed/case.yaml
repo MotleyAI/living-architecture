@@ -1,0 +1,28 @@
+kind: adapter
+languages:
+- python
+command: la-typecheck
+args:
+- --realign-from
+- HEAD
+fixture: typecheck-realign
+git:
+- commit: init
+- write:
+    pkg/m.py: |
+      def f(a: int, b: int) -> int:
+          return a + b
+
+
+      def use() -> int:
+          return f(int(1), "x") + len(3)
+
+
+      def other() -> int:
+          return 1
+expect:
+  exit: 2
+  files:
+  - .basedpyright/baseline.json
+golden: manual
+note: 'the checker exits above 1 on the realignment run: its output as a check relays it, exit 2, baseline untouched'

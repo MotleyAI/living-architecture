@@ -134,9 +134,13 @@ commands:
     exit: {0: no errors outside the baseline, 1: new errors, 2: 'usage, config or checker error, or format refusal'}
     options:
       - {name: --write-baseline, type: flag,
-         help: write the baseline of each applicable language that has none (once, when adopting the gate)}
+         help: 'write the baseline of each applicable language that has none (once, when adopting the gate)'}
+      - {name: --realign-from, type: string, metavar: REF,
+         help: 'move each Python baseline entry to where its error is now, given a commit where the baseline matched,
+           then check'}
       - {name: --language, type: string, choices: [python, typescript], internal: true,
          help: check only this language}
+    exclusive: [[write_baseline, realign_from]]
 
   la-affected-tests:
     help: >-

@@ -1,0 +1,5 @@
+#!/bin/sh
+printf '{"outcome": "patched", "version": "1.40.2", "count": 1}' > "$LA_PYRIGHT_PATCH_RESULT"
+case " $* " in *" --outputjson "*) echo "basedpyright: internal error" >&2; exit 3 ;; esac
+echo "0 errors, 0 warnings, 0 notes"
+exit 0
