@@ -310,7 +310,7 @@ class File:
                 if node is not tree and isinstance(suite, list) and any(s is stmt for s in suite):
                     return suite
         return []
-    def rewrite_use(self, node: ast.Attribute, scope: Scope, new: str, needs: str | None, obj: str | None = None) -> None:
+    def rewrite_use(self, node: ast.Attribute | ast.Name, scope: Scope, new: str, needs: str | None, obj: str | None = None) -> None:
         """Rule 3: the chain `node` becomes `new`, its root free for `obj` (default: itself); `needs` is the module to
         import."""
         start, end = self.span(node)
@@ -332,7 +332,7 @@ class File:
             place = self._latest(own, root.lineno)
             self.needs.append((needs, place, found if place is not None and found is not None else self.top))
 
-    def root_rebound(self, scope: Scope, node: ast.Attribute) -> bool:
+    def root_rebound(self, scope: Scope, node: ast.Attribute | ast.Name) -> bool:
         """The chain's root is bound by a plain import this refactor rewrote to bind another name."""
         root: ast.expr = node
         while isinstance(root, ast.Attribute):

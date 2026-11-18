@@ -345,6 +345,15 @@ through. A case no rule covers then refuses instead of writing.
       (`Resolver(parsed=...)`), and the project after the move adopts the module of each file the move neither
       writes nor moves (`MoveProject.adopt`). Measured after: 1.61 s. Rejected: decision 37's fallback of comparing
       a subset of the files. *(user)*
+41. **A plain import of a moved module that no package holds** (pr-review, 2026-11-18, a Codex finding; user: fix
+    here). `import a` becomes `import dest.a` by rule 1 and no longer binds `a`, so each use of `a` through that
+    import is a rule-3 use and becomes `dest.a`. Before, the use was left and the resolver comparison refused the
+    move; on main it was written broken.
+42. **A named file that does not decode is refused, not a traceback** (pr-review, 2026-11-18, a Codex finding; user:
+    fix here). It predates this change and also affects `rename`, `retarget` and `rename-map`; no open issue covered
+    it. The decode error is caught where the named file is read and becomes `refactor.file-undecodable` (user,
+    approved wording). Another file that does not decode keeps `refactor.undecodable`. Python only: the TypeScript
+    twin reads every file as UTF-8 without failing.
 
 ## Risks / Trade-offs
 

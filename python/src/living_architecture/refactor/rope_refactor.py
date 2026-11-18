@@ -12,7 +12,13 @@ from living_architecture.contract import message
 from living_architecture.refactor.baseline_align import BaselineFailed
 from living_architecture.refactor.diff_render import edit_description, move_description
 from living_architecture.refactor.generate_map import generate_map
-from living_architecture.refactor.locators import Locator, RefactorError, offset_from_line_col, resolve
+from living_architecture.refactor.locators import (
+    Locator,
+    RefactorError,
+    named_source,
+    offset_from_line_col,
+    resolve,
+)
 from living_architecture.refactor.map_file import MapEntry, MapError, load_map
 from living_architecture.refactor.module_move import module_move_texts
 from living_architecture.refactor.move_edits import NameConflict
@@ -89,7 +95,7 @@ def move_symbol(root: Path, *, file: str, locator: Locator, dest: str, apply: bo
     try:
         with timed("resolve"):
             source = project.rel(file)
-            text = project.snapshot.source(source)
+            text = named_source(project.snapshot, source)
             if is_wildcard(locator.symbol):
                 raise wildcard_refused(file, str(locator.symbol))
             offset, located = resolve(locator, text, file)
@@ -99,7 +105,7 @@ def move_symbol(root: Path, *, file: str, locator: Locator, dest: str, apply: bo
             project.unique(source)
             moved = locate_moved(text, module, offset, file)
             target = project.destination(dest, folder=False)
-            if target != source and project.module(target) is None:
+            if target != source and named_source(project.snapshot, target).tree is None:
                 raise RefactorError(message("refactor.unparsable", path=target))
     except LocatorError as exc:
         failures.append(refusal(str(exc), 2))

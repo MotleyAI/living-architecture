@@ -86,8 +86,9 @@ class ModuleMove:
         file.after.append((stmt, line))
 
     def rewrite_uses(self, file: File) -> None:
-        """Rule 3 for each use reaching the module only as an attribute of its parent package; rule 2 keeps a use the
-        package binds explicitly (or answers through a module-level `__getattr__`)."""
+        """Rule 3 for each use reaching the module only as an attribute of its parent package, or by its own name
+        through a plain import rewritten to bind another; rule 2 keeps a use the package binds explicitly (or answers
+        through a module-level `__getattr__`)."""
         resolver = self.project.resolver
         for node, scope in file.attributes:
             if node.attr != self.basename or file.resolve(scope, node.value) != ("module", self.old_parent):
@@ -95,6 +96,9 @@ class ModuleMove:
             kept = self._binds(self.old_parent) and not file.root_rebound(scope, node)
             if not kept and resolver.member(self.old_parent, self.basename) == ("module", self.old):
                 file.rewrite_use(node, scope, self.new, self.new)
+        for name, scope in file.names:
+            if file.root_rebound(scope, name) and file.resolve(scope, name) == ("module", self.old):
+                file.rewrite_use(name, scope, self.new, self.new)
 
     def _binds(self, package: str) -> bool:
         loaded = self.project.resolver.load(package)

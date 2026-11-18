@@ -1,0 +1,3 @@
+[resolve]
+[checks]
+pkg/c.py does not decode as utf-8, so nothing was refactored

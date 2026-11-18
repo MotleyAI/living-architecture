@@ -32,7 +32,13 @@ from living_architecture.refactor.index_cache import IndexCache
 from living_architecture.refactor.keyed import TypeFacts, UnresolvedBase
 from living_architecture.refactor.keyword_links import signature_round
 from living_architecture.refactor.literal_rename import LiteralRename, check_value, literal_member_at
-from living_architecture.refactor.locators import RefactorError, cannot_rename, project_rel, resolve
+from living_architecture.refactor.locators import (
+    RefactorError,
+    cannot_rename,
+    named_source,
+    project_rel,
+    resolve,
+)
 from living_architecture.refactor.map_file import MapEntry, MapError, locator_text
 from living_architecture.refactor.member_namespace import Hierarchy, MemberCheck, RenamedMember
 from living_architecture.refactor.member_scan import FormCall, probe_round
@@ -400,7 +406,7 @@ class RenameMap:
         rel = project_rel(self.root, entry.path)
         if entry.module:
             return rel, 0
-        offset, _ = resolve(entry.locator, self.session.snapshot.source(rel), entry.file)
+        offset, _ = resolve(entry.locator, named_source(self.session.snapshot, rel), entry.file)
         return rel, offset
 
     def _definitions(self, rel: str, offset: int) -> list[tuple[Path, int]]:
@@ -427,7 +433,7 @@ class RenameMap:
             raise wildcard_refused(entry.file, symbol)
         rel = project_rel(self.root, entry.path)
         out: list[_Resolved] = []
-        for located in locate_all(self.session.snapshot.source(rel), symbol, entry.path):
+        for located in locate_all(named_source(self.session.snapshot, rel), symbol, entry.path):
             found = self.locator.at(rel, located.offset)
             out.append(_Resolved(entry, rel, found, found.key, offset=located.offset))
         return out

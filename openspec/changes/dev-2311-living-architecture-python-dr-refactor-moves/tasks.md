@@ -278,3 +278,17 @@ written with `project_files.write_project` under `tmp_path`.
 - [x] 13.4 Commit and push to PR #60. The commit message states the three goldens changed on purpose (9.10 and the
       two of decision 40), the new cases, and that their goldens are hand-written
       (`golden: manual`), as AGENTS.md requires.
+
+## 14. Review follow-ups (pr-review)
+
+- [x] 14.1 Conformance case `refactor-move-module-top-level-plain-import` for the scenario "Module outside any
+  package moved into a package" (adapter, Python, `golden: manual`), listed in `conformance/INVENTORY.md`; it fails
+  before 14.2.
+- [x] 14.2 `module_move.py` / `move_edits.py`: a use of the moved module through a rewritten plain import that binds
+  another name is rewritten to the new dotted path (decision 41).
+- [x] 14.3 `shared/findings.yaml`: `refactor.file-undecodable` (decision 42), then `scripts/sync-shared`.
+- [x] 14.4 Conformance cases, one per scenario of "Python refactors refuse a named file that does not decode"
+  (adapter, Python, `golden: manual`), plus one for `retarget`, listed in `conformance/INVENTORY.md`; they fail
+  before 14.5.
+- [x] 14.5 The named file's decode error becomes the refusal in `rename`, `retarget`, `rename-map` and
+  `move-symbol` (source and destination).

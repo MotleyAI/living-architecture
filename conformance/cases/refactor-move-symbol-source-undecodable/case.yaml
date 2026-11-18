@@ -1,0 +1,23 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- --apply
+- move-symbol
+- --file
+- pkg/c.py
+- --symbol
+- foo
+- --dest
+- pkg/a.py
+fixture: refactor-undecodable
+git:
+- commit: init
+expect:
+  exit: 1
+  files:
+  - pkg/a.py
+  - pkg/b.py
+golden: manual
+note: a move-symbol source holding bytes that are not UTF-8; refused, nothing written

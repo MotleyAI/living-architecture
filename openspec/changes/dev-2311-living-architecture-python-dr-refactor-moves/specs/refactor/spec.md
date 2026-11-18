@@ -228,6 +228,34 @@ A refused refactor SHALL write nothing. The comparison SHALL start no language s
   cases the scenarios above refuse
 - **THEN** its stdout, stderr, exit code and written files are unchanged
 
+### Requirement: Python refactors refuse a named file that does not decode
+For a Python `rename`, `retarget`, `rename-map` or `move-symbol`, a file the command must read because the command
+names it (`--file` with a locator, a map entry's `file` with a locator, or `--dest` of `move-symbol`) whose bytes do
+not decode in the encoding it declares, UTF-8 when it declares none, SHALL be refused with
+`refactor.file-undecodable` naming the file and the encoding. The exit code SHALL be 1, nothing SHALL be written,
+and no traceback SHALL be printed. A file the command names without reading its text (a module rename, a
+`move-module`) SHALL be handled as before.
+
+#### Scenario: Renamed symbol's file declares an unknown encoding
+- **WHEN** `rename --file pkg/a.py --symbol f --new-name g` runs and `pkg/a.py` starts with `# coding: nosuch`
+- **THEN** stderr holds `refactor.file-undecodable` for `pkg/a.py` and `nosuch`, the exit code is 1, and nothing is
+  written
+
+#### Scenario: Map entry's file does not decode
+- **WHEN** a `rename-map` entry names `pkg/c.py` with a symbol, and `pkg/c.py` holds a byte that is not valid UTF-8
+- **THEN** stderr holds `refactor.file-undecodable` for `pkg/c.py` and `utf-8`, the exit code is 1, and nothing is
+  written
+
+#### Scenario: Move source does not decode
+- **WHEN** `move-symbol --file pkg/c.py` runs and `pkg/c.py` holds a byte that is not valid UTF-8
+- **THEN** stderr holds `refactor.file-undecodable` for `pkg/c.py` and `utf-8`, the exit code is 1, and nothing is
+  written
+
+#### Scenario: Move destination does not decode
+- **WHEN** `move-symbol --dest pkg/c.py` runs and `pkg/c.py` holds a byte that is not valid UTF-8
+- **THEN** stderr holds `refactor.file-undecodable` for `pkg/c.py` and `utf-8`, the exit code is 1, and nothing is
+  written
+
 ## MODIFIED Requirements
 
 ### Requirement: Refactors edit only at references
@@ -295,15 +323,16 @@ exactly one rule, decided from the objects its names resolve to:
    unchanged. In a `from` import where exactly one name moves, that name SHALL be removed in place, and the moved name
    SHALL get a new `from` statement, with its alias, on the line after the statement ends, at the same indentation; in
    an inline suite (on its compound statement's header line), after `; ` at the statement's end.
-2. A use whose binding still resolves after the move SHALL be unchanged. Such a binding is a name bound by a rule-1
-   import, a name another module binds explicitly (by import or assignment, at module level or inside a block of its
+2. A use whose binding still resolves after the move SHALL be unchanged. Such a binding is a name a rule-1 import
+   still binds, a name another module binds explicitly (by import or assignment, at module level or inside a block of its
    module body), a name read from a module that defines a module-level `__getattr__`, or a name the function, lambda or
    comprehension scope the use is read in binds by anything other than a rule-1 import (a parameter of any kind, an
    assignment, a comprehension target), even when that scope also imports it. A name a `global` or `nonlocal`
    statement declares SHALL resolve in the scope the statement names, and a comprehension's first iterable SHALL
    resolve in the enclosing scope.
 3. A use whose binding no longer resolves after the move SHALL be rewritten. Such a use reaches a submodule only as a
-   package attribute, or reaches the moved symbol through its old module or a star import of it. A dotted use, its
+   package attribute, reaches the moved module by its old dotted name through a plain `import` that rule 1 rewrote to
+   bind another name, or reaches the moved symbol through its old module or a star import of it. A dotted use, its
    receiver parenthesized or not, SHALL become the new dotted path, and `import <new module>` SHALL be added on the
    line after the import binding the chain's root that sits in the scope the use resolves in; when no such import sits
    there (only a function declaring `global` imports it), after the leading import block. A bare name bound by a star
@@ -382,6 +411,10 @@ and SHALL write nothing.
   import `client`
 - **THEN** the use becomes `pkg.database.client.X` and `import pkg.database.client` is added on the line after
   `import pkg.sql as sql_pkg`
+
+#### Scenario: Module outside any package moved into a package
+- **WHEN** `a.py`, which no package holds, moves into `dest/`, and `use.py` holds `import a` and `a.func()`
+- **THEN** the import becomes `import dest.a`, the use becomes `dest.a.func()`, and no import is added
 
 #### Scenario: Symbol reached through a module alias
 - **WHEN** `move-symbol` moves `f` from `pkg/a.py` to `pkg/b.py` and a file has `import pkg.a as pa` used only as
