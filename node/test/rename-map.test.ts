@@ -365,7 +365,7 @@ describe('rename-map module entries', () => {
     const result = refactorRaw(root, '--apply', 'rename-map', 'map.yaml');
     expect(result.code).toBe(1);
     expect(result.err).toContain('[conflicts]\n');
-    expect(finalReport(result.err)).toBe(`${message('refactor.name-conflict', { name: 'd', path: 'src/a.ts', line: 1 })}\n`);
+    expect(finalReport(result.err)).toBe(`${entryRefusal('src/c.tsx', message('refactor.name-conflict', { name: 'd', path: 'src/a.ts', line: 1 }), 2)}\n`);
     expect(files(root)).toEqual(before);
   });
 
@@ -375,7 +375,8 @@ describe('rename-map module entries', () => {
       { module: 'src/c.ts', new_name: 'd' },
     ]);
     const conflict = (name: string, path: string): string => message('refactor.name-conflict', { name, path, line: 1 });
-    expect(refactorRaw(root, 'rename-map', 'map.yaml')).toEqual({ code: 1, out: '', err: `[resolve]\n[checks]\n${conflict('b', 'src/b.ts')}\n${conflict('d', 'src/d/index.ts')}\n` });
+    const refused = [entryRefusal('src/a.ts', conflict('b', 'src/b.ts')), entryRefusal('src/c.ts', conflict('d', 'src/d/index.ts'), 2)];
+    expect(refactorRaw(root, 'rename-map', 'map.yaml')).toEqual({ code: 1, out: '', err: `[resolve]\n[checks]\n${refused.join('\n')}\n` });
   });
 
   it('refuses --with on a map of module entries only, in the checks', () => {

@@ -265,7 +265,7 @@ def test_an_old_name_in_another_normal_form_is_checked_as_python_reads_it() -> N
     edits = [TextEdit(path="pkg/m.py", start=i, end=i + len(old), new_text="fresh")
              for i in (text.index(old), text.rindex(old))]
     check = BindingCheck(["pkg/__init__.py", "pkg/m.py"], [""], lambda rel: SourceFile(Path(rel), text if rel == "pkg/m.py" else ""))
-    assert _one(check, [EntryEdits(index=1, new_name="fresh", edits=edits)]) == [Conflict(site=("pkg/m.py", text.index("fresh")), name="fresh")]
+    assert _one(check, [EntryEdits(index=1, new_name="fresh", edits=edits)]) == [Conflict(site=("pkg/m.py", text.index("fresh")), name="fresh", entry=1)]
 
 
 def test_a_conflict_names_the_entry_whose_new_name_it_spells_in_another_normal_form() -> None:
@@ -275,7 +275,7 @@ def test_a_conflict_names_the_entry_whose_new_name_it_spells_in_another_normal_f
         EntryEdits(index=2, new_name=FULLWIDTH, edits=[TextEdit(path="pkg/m.py", start=6, end=9, new_text=FULLWIDTH)]),
     ]
     check = BindingCheck(["pkg/m.py"], [""], lambda rel: SourceFile(Path(rel), text))
-    assert _one(check, entries) == [Conflict(site=("pkg/m.py", text.index("fresh")), name=FULLWIDTH)]
+    assert _one(check, entries) == [Conflict(site=("pkg/m.py", text.index("fresh")), name=FULLWIDTH, entry=2)]
 
 
 def test_a_module_renamed_onto_a_package_binding_in_another_normal_form_is_refused(

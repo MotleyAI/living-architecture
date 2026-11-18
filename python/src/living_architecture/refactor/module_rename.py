@@ -300,7 +300,7 @@ class ModuleRename(MapRename):
         return None
 
     @override
-    def check_conflicts(self, edits: list[TextEdit]) -> None:
+    def check_conflicts(self, edits: list[TextEdit], merged: list[TextEdit]) -> None:
         return None
 
 
@@ -323,27 +323,28 @@ def final_paths(files: Iterable[str], moves: Iterable[FileMove]) -> dict[str, st
     return {rel: dest for rel in files if (dest := final_path(rel, ordered)) != rel}
 
 
-def move_conflicts(renames: list[ModuleRename], edits: list[TextEdit], source: Callable[[str], SourceFile],
-                   files: list[str]) -> list[Conflict]:
-    """Two moves ending at one module, each named at the earlier entry's module; and a moved module meeting a binding
-    of its new name that the edits give its package's `__init__.py`."""
-    moving = [r for r in renames if r.move is not None and r.module is not None]
-    ordered = innermost_first(r.move for r in moving if r.move is not None)
+def move_conflicts(renames: list[tuple[int, ModuleRename]], edits: list[TextEdit],
+                   source: Callable[[str], SourceFile], files: list[str]) -> list[Conflict]:
+    """Two moves ending at one module, the later entry's finding naming the earlier entry's module; and a moved module
+    meeting a binding of its new name that the edits give its package's `__init__.py`. `renames` are each module
+    rename with its entry's map index."""
+    moving = [(index, r) for index, r in renames if r.move is not None and r.module is not None]
+    ordered = innermost_first(r.move for _, r in moving if r.move is not None)
     out: list[Conflict] = []
     seen: dict[str, ModuleRename] = {}
-    for r in moving:
+    for index, r in moving:
         assert r.module is not None
         final = final_path(r.module, ordered)
         first = seen.setdefault(final if r.package() else final.removesuffix(".py"), r)
         if first is not r:
-            out.append(Conflict(site=(first.site_file(), 0), name=first.new))
-    for r in moving:
+            out.append(Conflict(site=(first.site_file(), 0), name=r.new, entry=index))
+    for index, r in moving:
         assert r.module is not None
         init = _init_of(Path(r.module).parent.as_posix())
         changed = [e for e in edits if e.path == init]
         if init not in files or not changed:
             continue
         own = {e.start for e in r.edits if e.path == init}
-        out += [Conflict(site=(init, offset), name=r.new)
+        out += [Conflict(site=(init, offset), name=r.new, entry=index)
                 for offset in bindings_after(source(init).text, changed, nfkc(r.new)) if offset not in own]
     return out

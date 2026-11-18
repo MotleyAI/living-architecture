@@ -171,7 +171,7 @@ class LiteralRename(MapRename):
         return []
 
     @override
-    def check_conflicts(self, edits: list[TextEdit]) -> None:
+    def check_conflicts(self, edits: list[TextEdit], merged: list[TextEdit]) -> None:
         """A literal member has no name to collide with."""
 
     @override

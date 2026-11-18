@@ -121,13 +121,13 @@ class MemberCheck:
             spelled = nfkc(name)
             family = [member.cls, *self.hierarchy.ancestors(member.cls), *self._descendants(member.cls, spelled)]
             existing = [s for key in family for s in self.hierarchy.declarations(key, spelled) if s not in renamed_sites]
-            out += [Conflict(site=s, name=name) for s in existing]
+            out += [Conflict(site=s, name=name, entry=member.entry) for s in existing]
             met = [m for m in renamed if m.entry != member.entry and m.site not in own[member.entry]
                    and nfkc(m.new_name) == spelled and m.cls in family]
             if met:
-                earliest = min([member, *met], key=lambda m: (m.entry, m.site))
-                first = min(m.site for m in renamed if m.entry == earliest.entry)
-                out.append(Conflict(site=first, name=name))
+                meeting = sorted([member, *met], key=lambda m: (m.entry, m.site))
+                first = min(m.site for m in renamed if m.entry == meeting[0].entry)
+                out.append(Conflict(site=first, name=meeting[-1].new_name, entry=meeting[-1].entry))
             if spelled in self.hierarchy.root_members or spelled in self.hierarchy.library_members(member.cls):
-                out.append(Conflict(site=member.site, name=name))
+                out.append(Conflict(site=member.site, name=name, entry=member.entry))
         return out

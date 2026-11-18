@@ -26,13 +26,13 @@ export interface NameConflict {
   position: number;
 }
 
-interface Internals {
+export interface Internals {
   getMeaningFromLocation(node: TS.Node): number;
   getMeaningFromDeclaration(node: TS.Node): number;
 }
 
 /** TypeScript's semantic meaning of a position or a declaration (internal in its typings). */
-function internals(): Internals {
+export function internals(): Internals {
   const found = ts() as unknown as Partial<Internals>;
   if (found.getMeaningFromLocation === undefined || found.getMeaningFromDeclaration === undefined) throw new Error('typescript no longer provides semantic meanings');
   return found as Internals;
@@ -53,7 +53,7 @@ export const identifierText = (raw: string): string =>
 const mayName = (text: string, names: Set<string>): boolean => [...names].some((name) => text.includes(name)) || text.includes(ESCAPE);
 
 /** A declared name's start: a quoted name's (computed or not) is its text's, inside the quotes. */
-function nameStart(name: TS.Node, source: TS.SourceFile): number {
+export function nameStart(name: TS.Node, source: TS.SourceFile): number {
   const literal = ts().isComputedPropertyName(name) ? name.expression : name;
   return ts().isStringLiteral(literal) || ts().isNoSubstitutionTemplateLiteral(literal) ? literal.getStart(source) + 1 : name.getStart(source);
 }
@@ -242,10 +242,10 @@ interface RenamedMember {
   checker: TS.TypeChecker;
 }
 
-const hasStatic = (d: TS.Node): boolean => ts().canHaveModifiers(d) && (ts().getModifiers(d) ?? []).some((m) => m.kind === ts().SyntaxKind.StaticKeyword);
+export const hasStatic = (d: TS.Node): boolean => ts().canHaveModifiers(d) && (ts().getModifiers(d) ?? []).some((m) => m.kind === ts().SyntaxKind.StaticKeyword);
 
 /** The type holding member `d` (a parameter property's class), null for a declaration that is no member. */
-function holderOf(d: TS.Node): TS.Node | null {
+export function holderOf(d: TS.Node): TS.Node | null {
   if (ts().isParameter(d)) return ts().isParameterPropertyDeclaration(d, d.parent) ? d.parent.parent : null;
   const parent = d.parent as TS.Node | undefined;
   if (parent === undefined) return null;
@@ -276,7 +276,7 @@ function memberAt(source: TS.SourceFile, start: number): TS.Declaration | null {
 }
 
 /** A member declaration's name: a computed key's literal value (by its type), null when it has none. */
-function memberName(d: TS.Node, checker: TS.TypeChecker | undefined): string | null {
+export function memberName(d: TS.Node, checker: TS.TypeChecker | undefined): string | null {
   const name = ts().getNameOfDeclaration(d as TS.Declaration);
   if (name === undefined) return null;
   if (!ts().isComputedPropertyName(name)) return ts().isIdentifier(name) || ts().isPrivateIdentifier(name) || ts().isStringLiteralLike(name) || ts().isNumericLiteral(name) ? name.text : null;
@@ -287,7 +287,7 @@ function memberName(d: TS.Node, checker: TS.TypeChecker | undefined): string | n
 }
 
 /** The members `holder` declares itself. */
-function ownMembers(holder: TS.Node): TS.Node[] {
+export function ownMembers(holder: TS.Node): TS.Node[] {
   if (ts().isClassLike(holder)) {
     const constructors = holder.members.filter((m) => ts().isConstructorDeclaration(m));
     const properties = constructors.flatMap((c) => c.parameters.filter((p) => ts().isParameterPropertyDeclaration(p, p.parent)));
@@ -312,7 +312,7 @@ function sideType(checker: TS.TypeChecker, holder: TS.Node, isStatic: boolean): 
 const nodeKey = (node: TS.Node): string => keyOf(node.getSourceFile().fileName, node.getStart(node.getSourceFile()));
 
 /** A member declaration's key: its name's start. */
-function memberKey(d: TS.Node): string {
+export function memberKey(d: TS.Node): string {
   const source = d.getSourceFile();
   const name = ts().getNameOfDeclaration(d as TS.Declaration);
   return keyOf(source.fileName, name === undefined ? d.getStart(source) : nameStart(name, source));
@@ -386,8 +386,9 @@ function relatedHolders(m: RenamedMember, hierarchy: Hierarchy): Set<string> {
   return new Set(near.flatMap((key) => [...hierarchy.declarations(key)]));
 }
 
-/** A conflict candidate; the first by path then offset is reported. */
+/** A conflict candidate of an entry (its index); each entry's first by path then offset is reported. */
 interface Site {
+  entry: number;
   name: string;
   path: string;
   position: number;
@@ -413,9 +414,9 @@ export class NameChecks {
     }
   }
 
-  /** The first site at which `edits` of `entries` change a name's declaration or meet a member, else null; `kept`
-   * holds the keys of the edits `--keep` dropped. */
-  check(entries: CheckEntry[], edits: EntryEdit[], kept: Set<string>): NameConflict | null {
+  /** Each entry's first site (by its index) at which `edits` of `entries` change a name's declaration or meet a
+   * member; `kept` holds the keys of the edits `--keep` dropped. */
+  check(entries: CheckEntry[], edits: EntryEdit[], kept: Set<string>): Map<number, NameConflict> {
     const byIndex = new Map(entries.map((e) => [e.index, e]));
     const ours = edits.filter((e) => byIndex.has(e.entry));
     const editAt = new Map(ours.map((e) => [keyOf(e.path, e.start), e]));
@@ -433,19 +434,23 @@ export class NameChecks {
     for (const m of members) renamed.set(m.key, m.entry);
     const first = this.firstDeclarations(renamed);
     const sites: Site[] = [];
-    const meet = (a: CheckEntry, b: CheckEntry): void => {
-      const earlier = a.index < b.index ? a : b;
-      const site = first.get(earlier.index);
-      if (site !== undefined) sites.push({ name: earlier.newName, ...site });
-    };
+    const meetings = new Meetings();
+    const meet = (a: CheckEntry, b: CheckEntry): void => meetings.add(a, b);
     for (const [key, o] of this.before) {
       const now = after.get(key);
       if (now !== undefined) this.compare(o, now, { edit: editAt.get(key), byIndex, renamed, kept, sites, meet, fallback: entries[0] as CheckEntry });
     }
     for (const now of after.values()) this.sharedScope(now, resolver, renamed, sites, meet);
     this.members(members, sites, meet);
-    const found = sites.toSorted((a, b) => byCodePoint(this.rel(a.path), this.rel(b.path)) || a.position - b.position)[0];
-    return found ?? null;
+    for (const [earliest, latest] of meetings.groups()) {
+      const site = first.get(earliest.index);
+      if (site !== undefined) sites.push({ entry: latest.index, name: latest.newName, ...site });
+    }
+    const out = new Map<number, NameConflict>();
+    for (const site of sites.toSorted((a, b) => a.entry - b.entry || byCodePoint(this.rel(a.path), this.rel(b.path)) || a.position - b.position)) {
+      if (!out.has(site.entry)) out.set(site.entry, { name: site.name, path: site.path, position: site.position });
+    }
+    return out;
   }
 
   /** Each project source's edited text. */
@@ -491,11 +496,12 @@ export class NameChecks {
     }
     if (same(now.declarations, o.declarations)) return;
     const via = added.map((k) => c.renamed.get(k)).find((e) => e !== undefined) ?? o.declarations.map((k) => c.renamed.get(k)).find((e) => e !== undefined) ?? c.fallback;
+    const site = { entry: via.index, name: via.newName };
     if (!c.kept.has(o.key)) {
-      c.sites.push({ name: via.newName, path: o.path, position: o.start });
+      c.sites.push({ ...site, path: o.path, position: o.start });
     } else if (now.declarations.length > 0) {
-      for (const k of existing) c.sites.push({ name: via.newName, ...at(k) });
-      if (existing.length === 0) c.sites.push({ name: via.newName, path: o.path, position: o.start });
+      for (const k of existing) c.sites.push({ ...site, ...at(k) });
+      if (existing.length === 0) c.sites.push({ ...site, path: o.path, position: o.start });
     }
   }
 
@@ -504,13 +510,13 @@ export class NameChecks {
     const expected = entry.expected;
     const ok = expected === null ? same(now.declarations, o.declarations) : now.declarations.length > 0 && now.declarations.every((k) => expected.has(k));
     if (ok) return;
-    for (const k of found.existing) c.sites.push({ name: entry.newName, ...at(k) });
+    for (const k of found.existing) c.sites.push({ entry: entry.index, name: entry.newName, ...at(k) });
     const others = found.added.flatMap((k) => {
       const other = c.renamed.get(k);
       return other !== undefined && other !== entry ? [other] : [];
     });
     for (const other of others) c.meet(entry, other);
-    if (found.existing.length === 0 && others.length === 0) c.sites.push({ name: entry.newName, path: o.path, position: o.start });
+    if (found.existing.length === 0 && others.length === 0) c.sites.push({ entry: entry.index, name: entry.newName, path: o.path, position: o.start });
   }
 
   /** A declaration of the edited code that shares its scope and a meaning with another, one of them renamed. */
@@ -527,10 +533,10 @@ export class NameChecks {
       if (mine !== undefined && theirs !== undefined) {
         if (mine !== theirs) meet(mine, theirs);
       } else if (theirs !== undefined) {
-        sites.push({ name: theirs.newName, path: now.path, position: now.start });
+        sites.push({ entry: theirs.index, name: theirs.newName, path: now.path, position: now.start });
       } else if (mine !== undefined) {
         const site = at(key);
-        sites.push({ name: mine.newName, ...(this.sources.has(site.path) ? site : { path: now.path, position: now.start }) });
+        sites.push({ entry: mine.index, name: mine.newName, ...(this.sources.has(site.path) ? site : { path: now.path, position: now.start }) });
       }
     }
   }
@@ -581,7 +587,7 @@ export class NameChecks {
     const holderKey = nodeKey(m.holder);
     const conflicting = (d: TS.Node): boolean => memberName(d, this.sources.get(d.getSourceFile().fileName)?.checker) === spelled && !renamedKeys.has(memberKey(d)) && (ts().isParameter(d) ? !m.isStatic : hasStatic(d) === m.isStatic);
     const push = (d: TS.Node): void => {
-      sites.push({ name, ...(this.sources.has(d.getSourceFile().fileName) ? at(memberKey(d)) : { path: m.path, position: m.start }) });
+      sites.push({ entry: m.entry.index, name, ...(this.sources.has(d.getSourceFile().fileName) ? at(memberKey(d)) : { path: m.path, position: m.start }) });
     };
     const holders: TS.Node[] = [m.holder];
     for (const key of relatedHolders(m, hierarchy)) {
@@ -592,12 +598,30 @@ export class NameChecks {
     for (const holder of holders) for (const d of ownMembers(holder).filter(conflicting)) push(d);
     const inherited = m.checker.getPropertyOfType(sideType(m.checker, m.holder, m.isStatic), spelled);
     // An implicit member (a class's `prototype`) has no declaration: the renamed one is the site.
-    if (inherited !== undefined && (inherited.declarations ?? []).length === 0) sites.push({ name, path: m.path, position: m.start });
+    if (inherited !== undefined && (inherited.declarations ?? []).length === 0) sites.push({ entry: m.entry.index, name, path: m.path, position: m.start });
     const elsewhere = (d: TS.Node): boolean => {
       const holder = holderOf(d);
       return holder === null || nodeKey(holder) !== holderKey;
     };
     for (const d of inherited?.declarations ?? []) if (elsewhere(d) && !renamedKeys.has(memberKey(d))) push(d);
+  }
+}
+
+/** The entries whose renamed declarations meet, grouped: entries that meet, directly or through others, are one group. */
+class Meetings {
+  private readonly group = new Map<number, CheckEntry[]>();
+
+  add(a: CheckEntry, b: CheckEntry): void {
+    const joined = [...new Set([...(this.group.get(a.index) ?? [a]), ...(this.group.get(b.index) ?? [b])])];
+    for (const entry of joined) this.group.set(entry.index, joined);
+  }
+
+  /** Each group's earliest and latest entry. */
+  groups(): [CheckEntry, CheckEntry][] {
+    return [...new Set(this.group.values())].map((entries) => {
+      const sorted = entries.toSorted((x, y) => x.index - y.index);
+      return [sorted[0] as CheckEntry, sorted.at(-1) as CheckEntry];
+    });
   }
 }
 

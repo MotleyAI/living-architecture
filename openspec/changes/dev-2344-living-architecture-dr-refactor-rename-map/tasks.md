@@ -41,39 +41,39 @@ New conformance cases are paired (`python`, `typescript`), hand-written (`golden
 
 ## 2. Shared contract
 
-- [ ] 2.1 Add `refactor.entry-refusal` to `shared/findings.yaml` and the help texts to `shared/cli.yaml` (design
+- [x] 2.1 Add `refactor.entry-refusal` to `shared/findings.yaml` and the help texts to `shared/cli.yaml` (design
       decisions 19 and 20, verbatim)
-- [ ] 2.2 Run `scripts/sync-shared`
+- [x] 2.2 Run `scripts/sync-shared`
 
 ## 3. Python twin
 
-- [ ] 3.1 `Site.parse(raw, root)` resolves against the project root only; migrate the site checks, the line-keep
+- [x] 3.1 `Site.parse(raw, root)` resolves against the project root only; migrate the site checks, the line-keep
       check, `Keeps` and stand-in classification
-- [ ] 3.2 One wrapper turning an entry's error or conflict into a `refactor.entry-refusal`; used by resolve, by the
+- [x] 3.2 One wrapper turning an entry's error or conflict into a `refactor.entry-refusal`; used by resolve, by the
       computing phases and by every name conflict (early, module, post-map, keyword/key, move)
-- [ ] 3.3 `Conflict` carries its entry and the declaration it meets; attribution per design decisions 8 and 15
-- [ ] 3.4 Remove the per-entry passes from `check_names`; one pass over all entries with every surviving move; each
+- [x] 3.3 `Conflict` carries its entry and the declaration it meets; attribution per design decisions 8 and 15
+- [x] 3.4 Remove the per-entry passes from `check_names`; one pass over all entries with every surviving move; each
       entry's first conflict, by entry index; no name check when a map conflict exists
-- [ ] 3.5 The keyword/key check judged on the names after every entry's edits
-- [ ] 3.6 The early own-scope check in `checks`, on the binding-site and member-declaration tables of the full check
-- [ ] 3.7 Print once: refusals printed under a `[rules]` line are kept for the exit code and left out of the final
+- [x] 3.5 The keyword/key check judged on the names after every entry's edits
+- [x] 3.6 The early own-scope check in `checks`, on the binding-site and member-declaration tables of the full check
+- [x] 3.7 Print once: refusals printed under a `[rules]` line are kept for the exit code and left out of the final
       report
 
 ## 4. npm twin
 
-- [ ] 4.1 `Site.parse(raw, root)` and its callers, as 3.1
-- [ ] 4.2 The entry wrapper, as 3.2
-- [ ] 4.3 Conflicts carry their entry; the per-entry passes removed from `nameConflicts`; no name check when a map
+- [x] 4.1 `Site.parse(raw, root)` and its callers, as 3.1
+- [x] 4.2 The entry wrapper, as 3.2
+- [x] 4.3 Conflicts carry their entry; the per-entry passes removed from `nameConflicts`; no name check when a map
       conflict exists, as 3.3 and 3.4
-- [ ] 4.4 The early own-scope check, on the compiler's symbols (meanings, merges, static and instance sides)
-- [ ] 4.5 Print once, as 3.7
-- [ ] 4.6 A `--with` stand-in gets a full edit set per distinct new name of its group's entries
+- [x] 4.4 The early own-scope check, on the compiler's symbols (meanings, merges, static and instance sides)
+- [x] 4.5 Print once, as 3.7
+- [x] 4.6 A `--with` stand-in gets a full edit set per distinct new name of its group's entries
 
 ## 5. Docs and gates
 
-- [ ] 5.1 `plugin/skills/deterministic-refactor/SKILL.md` (design decision 21, verbatim) and
+- [x] 5.1 `plugin/skills/deterministic-refactor/SKILL.md` (design decision 21, verbatim) and
       `docs/deterministic-refactoring.md` (chains, the early check, one print per refusal, site paths)
-- [ ] 5.2 Update the approved goldens with `LA_UPDATE_GOLDENS=1` where they are not `golden: manual`, the reason in
+- [x] 5.2 Update the approved goldens with `LA_UPDATE_GOLDENS=1` where they are not `golden: manual`, the reason in
       the commit message; review each diff
-- [ ] 5.3 Local test scope green in both twins; `scripts/conformance-cross` for the changed cases; `la-arch-check`,
+- [x] 5.3 Local test scope green in both twins; `scripts/conformance-cross` for the changed cases; `la-arch-check`,
       the LikeC4 validation and `la-typecheck`; `ruff`, `basedpyright`, `npm run lint && npm run typecheck`

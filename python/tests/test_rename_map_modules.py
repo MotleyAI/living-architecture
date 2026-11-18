@@ -384,7 +384,7 @@ def test_another_file_spelling_the_new_name_in_another_case_takes_it(
     root = _project(tmp_path, {"pkg/a.py": "X = 1\n", sibling: "Y = 1\n"}, [{"module": "pkg/a.py", "new_name": "B"}])
     _case_insensitive(root, monkeypatch)
     before = file_tree(root)
-    assert run_raw(root, _map(), monkeypatch, capsys) == (1, "", CHECKS + _conflict("B", named, 1) + "\n")
+    assert run_raw(root, _map(), monkeypatch, capsys) == (1, "", CHECKS + entry_refusal("pkg/a.py", _conflict("B", named, 1)) + "\n")
     assert file_tree(root) == before
 
 
@@ -398,7 +398,9 @@ def test_an_invalid_module_new_name_is_a_resolution_failure(
 ) -> None:
     root = _project(tmp_path, {"pkg/a.py": "X = 1\n", "pkg/use.py": USE_A}, [{**entry, "new_name": new_name}])
     before = file_tree(root)
-    assert run_raw(root, _map(), monkeypatch, capsys) == (1, "", CHECKS + message("refactor.cannot-rename") + "\n")
+    shown = "pkg/a.py" if "module" in entry else "pkg/use.py:1:17"
+    refused = entry_refusal(shown, message("refactor.cannot-rename"))
+    assert run_raw(root, _map(), monkeypatch, capsys) == (1, "", CHECKS + refused + "\n")
     assert file_tree(root) == before
 
 
@@ -410,8 +412,8 @@ def test_an_invalid_module_new_name_is_collected_with_the_other_resolution_failu
     code, out, err = run_raw(root, _map(), monkeypatch, capsys)
     assert (code, out) == (2, "")
     lines = err.splitlines()
-    assert lines[:3] == ["[resolve]", "[checks]", message("refactor.cannot-rename")]
-    assert lines[3].startswith("pkg/a.py: Missing names no declaration")
+    assert lines[:3] == ["[resolve]", "[checks]", entry_refusal("pkg/a.py", message("refactor.cannot-rename"))]
+    assert lines[3].startswith(entry_refusal("pkg/a.py Missing", "pkg/a.py: Missing names no declaration", 2))
     assert len(lines) == 4
 
 
