@@ -27,7 +27,7 @@ from living_architecture.refactor.moved_imports import (
     ordered,
 )
 from living_architecture.refactor.moved_symbol import MovedSymbol
-from living_architecture.refactor.python_source import split_lines
+from living_architecture.refactor.python_source import header_end, split_lines
 from living_architecture.refactor.static_resolver import Scope
 
 _INDENT = "    "
@@ -162,8 +162,9 @@ class SymbolMove:
                 raise NameConflict(self.name, file.rel, file.line(node))
         roots = {id(_root(node)) for node in self._self_uses()}
         needed = needed_imports(self.origin, self.moved, self.old, self.new, roots)
-        at = block_end(file.source)
-        added = self._future(file, needed)
+        future = self._future(file, needed)
+        added = future is not None
+        at = max(block_end(file.source), future or 0)
         checking = [part for stmt in needed.checking for line in _needed(file, stmt) for part in line.split("\n")]
         block = next((s for s in _body(file) if isinstance(s, ast.If) and is_type_checking(s)), None)
         regular = needed.regular
@@ -175,14 +176,15 @@ class SymbolMove:
         _insert_checking(file, at, block, checking)
         self._insert_moving(file, at if lines or checking or added else None)
 
-    def _future(self, file: File, needed: Needed) -> bool:
-        """Add the source's `__future__` imports the destination lacks as its first statement; whether any was added."""
+    def _future(self, file: File, needed: Needed) -> int | None:
+        """Add the source's `__future__` imports the destination lacks as its first statement; where, None when none
+        was added."""
         have = {a.name for s in _body(file) if isinstance(s, ast.ImportFrom) and s.module == "__future__" for a in s.names}
         body = _body(file)
         if body and is_docstring(body[0]):
             at = after_line(file.text, file.span(body[0])[1])
         else:
-            at = file.span(body[0])[0] if body else 0
+            at = file.span(body[0])[0] if body else header_end(file.text)
         added = False
         for stmt in needed.future:
             names = [pair for pair in stmt.names if pair[0] not in have]
@@ -190,7 +192,7 @@ class SymbolMove:
                 file.edits.insert_line(at, stmt.text(names))
                 have.update(n for n, _ in names)
                 added = True
-        return added
+        return at if added else None
 
     def _self_uses(self) -> list[ast.Attribute]:
         """The moved code's dotted uses of the symbol through its old module that run once the symbol is bound: in a

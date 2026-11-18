@@ -106,6 +106,26 @@ def split_lines(text: str) -> list[str]:
     return [text[s:e] for s, e in zip(starts, [*starts[1:], len(text)], strict=True) if s < e]
 
 
+_CODING = re.compile(r"^[ \t\f]*#.*?coding[:=][ \t]*[-_.a-zA-Z0-9]+")
+
+
+def header_lines(lines: list[str]) -> int:
+    """How many leading lines are the file's header: a shebang on line 1, a coding declaration on line 1 or, below a
+    blank or comment line, on line 2."""
+    count = 1 if lines and lines[0].startswith("#!") else 0
+    plain = bool(lines) and lines[0].strip() != "" and not lines[0].lstrip().startswith("#")
+    for index, line in enumerate(lines[: 1 if plain else 2]):
+        if _CODING.match(line):
+            count = index + 1
+    return count
+
+
+def header_end(text: str) -> int:
+    """The offset after the file's header."""
+    lines = split_lines(text)
+    return sum(len(line) for line in lines[: header_lines(lines)])
+
+
 class SourceFile:
     """`text` of the file at `path` (absolute), parsed once; `tree` is None when it does not parse."""
 

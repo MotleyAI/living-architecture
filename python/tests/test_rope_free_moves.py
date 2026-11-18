@@ -125,6 +125,18 @@ def test_the_walker_gap_check_still_runs(tmp_path: Path, monkeypatch: pytest.Mon
     assert message("refactor.rope-walk", path="gap.py", line=3) in err
 
 
+@pytest.mark.usefixtures("no_rope")
+def test_a_package_moved_by_its_init_checks_walker_gaps_under_its_own_name(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str],
+        restore_rope_visitor: Callable[[str], None], annotation_gap: str) -> None:
+    restore_rope_visitor("_arg")
+    root = write_project(tmp_path / "proj", {**FILES, "gap.py": annotation_gap + "# sql\n"})
+    argv = ["move-module", "--module", "pkg/sql/__init__.py", "--dest", "pkg/database"]
+    code, out, err = run(root, argv, monkeypatch, capsys)
+    assert (code, out) == (1, "")
+    assert message("refactor.rope-walk", path="gap.py", line=3) in err
+
+
 @pytest.mark.usefixtures("no_server")
 @pytest.mark.parametrize("flags", [[], ["--apply"]], ids=["dry-run", "apply"])
 @pytest.mark.parametrize("argv", [SYMBOL_ARGV, MODULE_ARGV], ids=["move-symbol", "move-module"])

@@ -140,8 +140,9 @@ directory like a package's.
 - **THEN** the moves and renames above give the same result with `src/` in each path
 
 ### Requirement: Python refactors check their output before writing
-Before it prints or writes anything, every Python refactor SHALL check each Python file it would write. A file that
-parsed before SHALL parse with its new text, else the refactor SHALL exit 1 with the unparsable finding naming the file.
+Before it prints its changes or writes anything, every Python refactor SHALL check each Python file it would write. A
+file that parsed before SHALL parse with its new text, else the refactor SHALL exit 1 with the unparsable finding naming
+the file.
 The file's new bytes SHALL decode, in the encoding they declare, to its new text, else the refactor SHALL exit 1 with
 the unencodable finding naming the file and that encoding.
 
@@ -356,7 +357,7 @@ the imports the moved code needs SHALL be added:
   `from <module> import <name>`; when the moved code reads a name that no binding of the source module, star import
   it can list, or builtin explains, each star import of the source module whose names cannot be listed, made absolute
   and kept as a star import;
-- after the leading import block, ordered `__future__`, standard library, third-party, project modules, plain
+- after the leading import block, ordered standard library, third-party, project modules, plain
   `import` statements before `from` imports within each, then by text;
 - for a name bound in the source only inside an `if TYPE_CHECKING:` block, inside the destination's top-level
   `if TYPE_CHECKING:` block, after its last statement, else in a new such block after the leading import block, with

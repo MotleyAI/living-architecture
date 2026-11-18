@@ -140,7 +140,8 @@ def move_module(root: Path, *, module: str, dest: str, apply: bool, progress: Pr
                 raise RefactorError(message("refactor.destination-exists", path=taken))
     except RefactorError as exc:
         failures.append(refusal(str(exc)))
-    name = Path(module).stem if not Path(module).is_dir() else Path(module).name
+    named = Path(module).parent if Path(module).name == "__init__.py" else Path(module)
+    name = named.name if named.is_dir() else named.stem
     _checks(project, progress, failures, {name}, _first_source(Path(module)))
     with timed("references"):
         move, texts = module_move_texts(project, source, folder)
