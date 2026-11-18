@@ -1,0 +1,9 @@
+kind: adapter
+languages:
+- python
+command: la-typecheck
+fixture: typecheck-python
+expect:
+  exit: 1
+golden: manual
+note: 'a plain Python check with a baseline file and new errors ends with the hint naming --realign-from'

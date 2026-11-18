@@ -1,0 +1,22 @@
+{
+    "files": {
+        "./pkg/m.py": [
+            {
+                "code": "reportArgumentType",
+                "range": {
+                    "startColumn": 21,
+                    "endColumn": 24,
+                    "lineCount": 1
+                }
+            },
+            {
+                "code": "reportArgumentType",
+                "range": {
+                    "startColumn": 32,
+                    "endColumn": 33,
+                    "lineCount": 1
+                }
+            }
+        ]
+    }
+}
