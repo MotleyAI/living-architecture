@@ -23,7 +23,7 @@ from living_architecture.refactor.keyed import (
     single_binding,
 )
 from living_architecture.refactor.occurrence_index import RunIndex, carrier_queries, unpacked_keys
-from living_architecture.refactor.python_source import SourceFile, every_parameter, name_end
+from living_architecture.refactor.python_source import SourceFile, every_parameter, name_end, nfkc
 from living_architecture.refactor.text_edits import TextEdit, apply_edits
 
 Function = ast.FunctionDef | ast.AsyncFunctionDef
@@ -124,7 +124,7 @@ def signature_round(index: RunIndex, root: Path, source: Callable[[str], SourceF
     with each file declaring a renamed parameter opened as its text with that parameter renamed."""
     renamed = _seed_edits(source, renames)
     index.record_parameter_renames(
-        frozenset((r.old, r.new) for r in renames),
+        frozenset((r.old, nfkc(r.new)) for r in renames),
         {root / rel: apply_edits(source(rel).text, found) for rel, found in renamed.items()},
         {root / rel: [(e.start, len(e.new_text) - (e.end - e.start)) for e in found] for rel, found in renamed.items()})
     index.probe_signatures(
@@ -135,11 +135,12 @@ def signature_round(index: RunIndex, root: Path, source: Callable[[str], SourceF
 
 def signature_proof(index: RunIndex, path: Path, query: int, old: str, new: str) -> bool:
     """Whether every callable alternative of the call at `query` binds `old` as the code is and `new` in its place once
-    the run's renamed parameters are renamed, its other names changing only by the run's parameter renames."""
+    the run's renamed parameters are renamed, its other names changing only by the run's parameter renames; names are
+    compared as Python binds them."""
     before = index.signature(path, query).signature
     after = index.renamed_signature(path, query)
     return bool(before) and after is not None and len(after) == len(before) and all(
-        renamed_names(index.parameter_renames(), b, a, (old, new)) for b, a in zip(before, after, strict=True))
+        renamed_names(index.parameter_renames(), b, a, (old, nfkc(new))) for b, a in zip(before, after, strict=True))
 
 
 def signature_links(index: RunIndex, path: Path, site: KeywordSite, old: str, new: str) -> bool:
@@ -279,13 +280,14 @@ def _reads_outer(scope: ast.AST, name: str, outer: list[ast.expr]) -> bool:
 
 class CarrierShape:
     """How a `def` uses its `**kw` name: its sinks, its key-form strings, the constant keys of the dict literals
-    holding it, the callees measuring it, and whether every use is a sink, a key form or a neutral use."""
+    holding it (`staged_keys`: of those bound to a name), the callees measuring it, and whether every use is a sink, a key form or a neutral use."""
 
     def __init__(self, source: SourceFile, fn: Function) -> None:
         assert fn.args.kwarg is not None
         self.sinks: list[tuple[_SinkKind, ast.Call]] = []
         self.keys: list[ast.Constant] = []
         self.literal_keys: set[str] = set()
+        self.staged_keys: set[str] = set()
         self.measures: list[ast.Name] = []
         uses, opaque = _uses(fn, fn.args.kwarg.arg)
         self.resolved = not opaque
@@ -328,7 +330,12 @@ class CarrierShape:
         if len(sinks) != len(loads) or single_binding(fn, var, {id(n) for n in loads}) is not literal:
             return False
         self.sinks += sinks
+        self.staged_keys |= {k.value for k in literal.keys if isinstance(k, ast.Constant) and isinstance(k.value, str)}
         return True
+
+    def takes(self, key: str) -> bool:
+        """Whether the carrier does anything with `key`: passes its mapping on, uses it unprovably or reads the key."""
+        return bool(self.sinks) or not self.resolved or any(k.value == key for k in self.keys)
 
 
 def _as_verdict(landing: _Landing, declared: Verdict) -> Verdict:
@@ -353,7 +360,7 @@ class KeywordFlow:
         self.index = index
         self.facts = facts
         self.old = old
-        self.new = new
+        self.new = nfkc(new)
         self._renamed = renamed
         self._verdicts: dict[tuple[Path, int], Verdict] = {}
         self._active: set[tuple[Path, int]] = set()
@@ -369,7 +376,8 @@ class KeywordFlow:
             return False
         if not all(isinstance(d, ast.Name) and d.id in _METHOD_DECORATORS and self._builtin(source, d) for d in fn.decorator_list):
             return False
-        if any(a.arg == self.new for a in (*fn.args.args, *fn.args.kwonlyargs)):
+        taken = {self.new, *(old for old, new in self.index.parameter_renames() if new == self.new)}
+        if self.old in shape.staged_keys or any(a.arg in taken for a in (*fn.args.args, *fn.args.kwonlyargs)):
             return False
         if any(self.new in _passed(call) for _, call in shape.sinks):
             return False
@@ -527,9 +535,7 @@ class KeywordFlow:
         return "unresolved" if any(declared) else "other"
 
     def _takes(self, source: SourceFile, fn: Function) -> bool:
-        """Whether carrier `fn` does anything with the key: passes its mapping on, uses it unprovably or reads the key."""
-        shape = self.shape(source, fn)
-        return bool(shape.sinks) or not shape.resolved or any(key.value == self.old for key in shape.keys)
+        return self.shape(source, fn).takes(self.old)
 
     def _field(self, cls: ClassRef) -> Verdict:
         """Where the key lands among keyed class `cls`'s fields; an aliased field does not take it."""

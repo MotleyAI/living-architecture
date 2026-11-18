@@ -4358,8 +4358,9 @@ tested for truth or passed to the builtin `len`. A carrier SHALL be resolved whe
 sink, a key form or a neutral use and every sink's callee resolves; any other use (an alias, a copy, `update`, `|`, `kw`
 as a plain argument, `return kw`, iteration, `items()`, `keys()`, `values()`, a key that is not a plain string literal,
 a rebinding, a use in a nested scope) SHALL make it unresolved. A same-named binding of a nested scope is not a use.
-For a rename to `new`, a carrier that declares a parameter `new` a keyword can bind, holds a key form `"new"`, holds
-`**kw` in a dict literal with a constant key `"new"`, or passes `new=` at a sink SHALL be unresolved.
+For a rename to `new`, a carrier that declares a parameter a keyword can bind that is named `new` or that the run
+renames to `new`, holds a key form `"new"`, holds `**kw` in a dict literal with a constant key `"new"`, passes `new=`
+at a sink, or holds `**kw` in a dict literal bound to a name with a constant key `"old"` SHALL be unresolved.
 
 For a renamed field of a keyed class or a renamed parameter `old`, each sink of a carrier SHALL yield *renamed* (the
 key `old` lands only on renamed declarations there), *other* (it lands on another declaration or on none), or
@@ -4442,7 +4443,7 @@ other rules neither rewrite nor prove to land on another declaration, where:
 - the callee resolves to a carrier whose verdict for `old` is mixed or unresolved; or
 - the checker types the callee `Unknown`, `Any`, `Never` or a union holding one of them; or
 - the callee is a class whose `__init__` and `__new__`, own or inherited, both take `old`, of which the run renames
-  only one, or the two to different names; or
+  only one, or the two to different names, or of which one takes `old` by name and the other through its own `**kw`; or
 - the key is in a dict literal unpacked into a call whose callee is neither a name nor an attribute access.
 
 Unlinked keywords SHALL be blind spots of the rename: each SHALL print one `refactor.unlinked-keyword` line on stderr
@@ -4515,7 +4516,9 @@ For a parameter of a Python `__init__` or `__new__`, the renamed declarations SH
 located `def` and of its overload group only, with or without `--no-in-hierarchy`. Call keywords SHALL follow the
 checker: `A(old=...)`, `cls(old=...)` and `super().__init__(old=...)` resolving to a renamed declaration SHALL be
 rewritten. A keyword of a call of a class whose `__init__` and `__new__`, own or inherited, both take `old` SHALL be
-rewritten only when the run renames both to the same name. The same-named constructor parameter of a base, a subclass or a sibling class, its body uses and the
+rewritten only when the run renames both to the same name. Where only one of the two takes `old` by name and the other
+passes its own `**kw` on, uses it unprovably, or reads the key by a key form, the keyword SHALL be an unlinked keyword.
+The same-named constructor parameter of a base, a subclass or a sibling class, its body uses and the
 keywords of calls resolving to it SHALL be unchanged and SHALL NOT be listed. A TypeScript rename of a constructor
 parameter SHALL likewise change no other class's constructor.
 

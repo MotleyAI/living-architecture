@@ -34,6 +34,7 @@ from living_architecture.refactor.keyed import (
     sink_candidates,
 )
 from living_architecture.refactor.keyword_links import (
+    CarrierShape,
     KeywordFlow,
     KeywordSite,
     ParameterRename,
@@ -765,15 +766,20 @@ class SymbolRename(MapRename):
 
     def _pair_is_split(self, facts: TypeFacts, cls: ClassRef) -> bool:
         """Whether the `__init__` and the `__new__` `cls` uses, its own or inherited, both take `old` by keyword while
-        the run renames one of this rename's and not both to its new name; raises `UnresolvedBase`."""
+        the run renames one of this rename's and not both to its new name, or one of this rename's takes it while the
+        other takes it through its own `**kwargs`; raises `UnresolvedBase`."""
         taking: list[set[tuple[str, int]]] = []
+        carrying: list[bool] = []
         for name in _CONSTRUCTORS:
             defs = next((found for c in facts.chain(cls).mro if (found := [
                 (c.source, s) for s in c.node.body if isinstance(s, (ast.FunctionDef, ast.AsyncFunctionDef)) and s.name == name])), [])
             spans = [(source, source.name_span(a)) for source, fn in defs for a in (*fn.args.args, *fn.args.kwonlyargs) if a.arg == self.old]
             taking.append({(self.session.rel(source.path) or "", span[0]) for source, span in spans if span is not None})
+            carrying.append(any(fn.args.kwarg is not None and CarrierShape(source, fn).takes(self.old) for source, fn in defs))
         both = taking[0] | taking[1]
-        return all(taking) and bool(both & self.seeds) and any(self.renamed_as(s) != self.new for s in both)
+        if all(taking):
+            return bool(both & self.seeds) and any(self.renamed_as(s) != self.new for s in both)
+        return bool(both & self.seeds) and any(not taken and carried for taken, carried in zip(taking, carrying, strict=True))
 
     def file(self, outcome: Outcome) -> None:
         """Record an examined site and file what its rule decided."""
@@ -961,7 +967,10 @@ class SymbolRename(MapRename):
 
     def _file_keywords(self, index: RunIndex, rel: str, parameter: bool, renamed: KeywordFlow, own: KeywordFlow) -> None:
         path, source = self.root / rel, self.snapshot.source(rel)
+        edited = {e.start for e in self.edits if e.path == rel}
         for site in unresolved_sites(index, self.session.load, path, source, self.old):
+            if site.span[0] in edited:
+                continue
             linked = parameter and signature_links(index, path, site, self.old, self.new)
             decided = "rewrite" if linked else self._carried(index, path, source, site, renamed, own)
             if decided is not None:
@@ -985,7 +994,7 @@ class SymbolRename(MapRename):
         return "rewrite" if verdict == "renamed" and own.site(source, site.call) != "other" else "unrelated"
 
     def _keyword_rewrite(self, rel: str, span: tuple[int, int]) -> Outcome:
-        edit = TextEdit(path=rel, start=span[0], end=span[1], new_text=self.new)
+        edit = TextEdit(path=rel, start=span[0], end=span[1], new_text=nfkc(self.new))
         return Outcome(kind="rewrite", rel=rel, span=span, edits=(edit,))
 
     def _keyword_outcome(self, rel: str, source: SourceFile, site: KeywordSite, decided: _KeywordDecision) -> Outcome:

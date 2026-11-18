@@ -310,6 +310,11 @@ def nests_new(**kw: Any) -> int:
     return sink(**kw, **{**{"new": 2}})
 
 
+def stages_old(**kw: Any) -> int:
+    data = {"old": 0, **kw}
+    return sink(**data)
+
+
 class Dynamic(factory()):
     def __init__(self, **kw: Any) -> None:
         self.total = sink(**kw)
@@ -339,7 +344,7 @@ def len(mapping: dict[str, Any]) -> int:
 def measured(**kw: Any) -> int:
     return len(kw) + sink(**kw)
 """
-UNPROVABLE_NAMES = ["c.concatenated", "c.sets_new", "c.defaults_new", "c.takes_new", "c.chain_new", "c.passes_new", "c.unpacks_new", "c.nests_new",
+UNPROVABLE_NAMES = ["c.concatenated", "c.sets_new", "c.defaults_new", "c.takes_new", "c.chain_new", "c.passes_new", "c.unpacks_new", "c.nests_new", "c.stages_old",
                     "c.dynamic_one",
                     "c.dynamic_two", "m.measured"]
 UNPROVABLE_USE = "from typing import Any\n\nfrom pkg import c, m\n\n\ndef use(registry: dict[str, Any]) -> None:\n" + "".join(
@@ -527,6 +532,108 @@ def test_a_key_meeting_the_new_name_in_another_unpacked_literal_is_a_name_confli
     conflict = message("refactor.name-conflict", name="new", path="pkg/q.py", line=6)
     assert err.splitlines()[-1] == entry_refusal("pkg/q.py f(old)", conflict)
     assert file_tree(root) == before
+
+
+LABELLED = """\
+from typing import Any
+
+
+def sink(*, old: int = 0) -> int:
+    return old
+
+
+def wrap(*, label: int = 0, **kw: Any) -> int:
+    return sink(**kw) + label
+
+
+def use() -> int:
+    return wrap(old=1)
+"""
+
+
+def test_a_carrier_parameter_the_map_renames_to_the_new_name_lists_the_keyword(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    entries = [{"file": "pkg/q.py", "symbol": "sink(old)", "new_name": "new"},
+               {"file": "pkg/q.py", "symbol": "wrap(label)", "new_name": "new"}]
+    root = write_project(tmp_path / "p", {"pkg/q.py": LABELLED, "map.yaml": yaml.safe_dump(entries)})
+    code, _out, err = run(root, ["--apply", "rename-map", "map.yaml", "--allow-blindspots"], monkeypatch, capsys)
+    assert code == 0
+    assert _unlinked("pkg/q.py", 13, "wrap", "old") in err.splitlines()
+    assert "return wrap(old=1)" in read(root, "pkg/q.py")
+
+
+READING_NEW = """\
+from typing import Any
+
+
+class K:
+    def __new__(cls, **kw: Any) -> "K":
+        print(kw["old"])
+        return super().__new__(cls)
+
+    def __init__(self, *, old: int) -> None:
+        self.total = old
+
+
+class Quiet:
+    def __new__(cls, **kw: Any) -> "Quiet":
+        return super().__new__(cls)
+
+    def __init__(self, *, old: int) -> None:
+        self.total = old
+
+
+def use() -> None:
+    print(K(old=1), Quiet(old=1))
+"""
+
+
+def test_a_class_call_whose_other_constructor_reads_the_key_from_its_kwargs_lists_the_keyword(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    entries = [{"file": "pkg/q.py", "symbol": f"{name}.__init__(old)", "new_name": "new"} for name in ("K", "Quiet")]
+    root = write_project(tmp_path / "p", {"pkg/q.py": READING_NEW, "map.yaml": yaml.safe_dump(entries)})
+    code, _out, err = run(root, ["--apply", "rename-map", "map.yaml", "--allow-blindspots"], monkeypatch, capsys)
+    assert code == 0
+    assert [line for line in err.splitlines() if "unlinked-keyword" in line] == [_unlinked("pkg/q.py", 22, "K", "old")]
+    assert "print(K(old=1), Quiet(new=1))" in read(root, "pkg/q.py")
+
+
+COPYING_MODEL = """\
+from typing import Any
+
+from pydantic import BaseModel
+
+
+class Query(BaseModel):
+    measures: list[str] = []
+
+    def __init__(self, **kw: Any) -> None:
+        super().__init__(**kw.copy())
+
+
+def use() -> Query:
+    return Query(**{"measures": []})
+"""
+
+
+def test_a_key_the_keyed_rule_rewrote_is_not_listed_again(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = write_project(tmp_path / "p", {"pkg/q.py": COPYING_MODEL})
+    code, _out, err = run(root, _rename("Query.measures", "metrics"), monkeypatch, capsys)
+    assert (code, err) == (0, "")
+    assert read(root, "pkg/q.py") == COPYING_MODEL.replace("measures", "metrics")
+
+
+def test_a_rewritten_key_spells_the_new_name_as_python_binds_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = write_project(tmp_path / "p", {"pkg/q.py": NESTED_KEY})
+    code, _out, err = run(root, _rename("f(old)", "\uff2bey"), monkeypatch, capsys)
+    assert (code, err) == (0, "")
+    assert 'f(**{**{"Key": 1}})' in read(root, "pkg/q.py")
 
 
 NESTED_KEY = """\
