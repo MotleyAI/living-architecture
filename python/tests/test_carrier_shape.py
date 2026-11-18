@@ -82,6 +82,7 @@ def test_key_forms_are_filed_with_their_strings() -> None:
     "class C(Base[kw]):\n    kw = 1\nreturn X(**kw)",
     "class C:\n    seen = kw\nreturn X(**kw)",
     "def inner(x: kw):\n    kw = {}\n    return kw\nreturn X(**kw)",
+    "def reset():\n    nonlocal kw\n    match v:\n        case {**kw}:\n            pass\nreturn X(**kw), reset()",
     "def inner() -> kw:\n    kw = {}\n    return kw\nreturn X(**kw)",
     "def inner():\n    nonlocal kw\n    kw = {}\nreturn X(**kw), inner()",
     "data = {**kw}\nmatch v:\n    case {**data}:\n        pass\nreturn X(**data)",
@@ -97,10 +98,11 @@ def test_literal_keys_and_measuring_callees_are_filed() -> None:
 
 
 def test_keyword_sites_are_keywords_and_plain_constant_keys_of_unpacked_literals() -> None:
-    text = "f(old=1, **{'old': 2, 'other': 3})\ng()(old=4)\nf(**{'ol' 'd': 5})\nf(**data)\n"
+    text = "f(old=1, **{'old': 2, 'other': 3})\ng()(old=4)\nf(**{'ol' 'd': 5})\nf(**data)\nh(**{**{'old': 6}})\n"
     source = SourceFile(Path("/p/s.py"), text)
     found = [(text[s.span[0] : s.span[1]], s.line, s.keyword, s.query) for s in keyword_sites(source, "old")]
-    assert found == [("old", 1, True, 2), ("old", 1, False, 0), ("old", 2, True, text.index("old=4"))]
+    assert found == [("old", 1, True, 2), ("old", 1, False, 0), ("old", 2, True, text.index("old=4")),
+                     ("old", 5, False, text.index("h("))]
     assert keyword_sites(source, "old")[1].span[0] == text.index("'old'") + 1
 
 

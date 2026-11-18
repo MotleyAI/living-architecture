@@ -183,15 +183,18 @@ def _field_of(source: SourceFile, line: int, name: str) -> tuple[ClassRef, ast.A
 
 
 def _named_items(source: SourceFile, node: ast.AST) -> list[tuple[object, int, tuple[int, int] | None]]:
-    """A call's keywords and the constant keys of the dict literals unpacked into it, or a literal's constant keys:
-    each name, line and span."""
+    """A call's keywords and the constant keys of the dict literals unpacked into it, or a literal's constant keys with
+    those of the dict literals unpacked into it: each name, line and span."""
     if isinstance(node, ast.Call):
         unpacked = [item for k in node.keywords if k.arg is None and isinstance(k.value, ast.Dict)
                     for item in _named_items(source, k.value)]
         return [*((k.arg, k.lineno, source.name_span(k)) for k in node.keywords if k.arg is not None), *unpacked]
-    if isinstance(node, (ast.Dict, ast.Set)):
-        keys = node.keys if isinstance(node, ast.Dict) else node.elts
-        return [(k.value, k.lineno, source.span(k)) for k in keys if isinstance(k, ast.Constant)]
+    if isinstance(node, ast.Dict):
+        nested = [item for k, v in zip(node.keys, node.values, strict=True) if k is None and isinstance(v, ast.Dict)
+                  for item in _named_items(source, v)]
+        return [*((k.value, k.lineno, source.span(k)) for k in node.keys if isinstance(k, ast.Constant)), *nested]
+    if isinstance(node, ast.Set):
+        return [(k.value, k.lineno, source.span(k)) for k in node.elts if isinstance(k, ast.Constant)]
     return []
 
 
@@ -689,7 +692,8 @@ class SymbolRename(MapRename):
                     self._constructor = True
 
     def _class_calls(self, index: RunIndex) -> dict[tuple[str, int], KeywordSite]:
-        """Each keyword `old=` of the candidates by its position, their callees' definitions exported in one request."""
+        """Each keyword `old=` of the candidates by its position, their callees' definitions and types exported in one
+        request."""
         out: dict[tuple[str, int], KeywordSite] = {}
         queries: list[FactQuery] = []
         for rel in self.candidates:
@@ -700,7 +704,7 @@ class SymbolRename(MapRename):
                 span = source.name_span(func) if isinstance(func, (ast.Name, ast.Attribute)) else None
                 if site.keyword and span is not None:
                     out[rel, site.span[0]] = site
-                    queries.append(FactQuery(path=self.root / rel, offset=span[0], kinds=("definition",)))
+                    queries.append(FactQuery(path=self.root / rel, offset=span[0], kinds=("definition", "typeDefinition")))
         index.ensure(queries)
         return out
 
@@ -713,7 +717,11 @@ class SymbolRename(MapRename):
         nodes = [(decl, decl.defined_at((s.start, s.end))) for s in found if (decl := self.session.load(s.path)) is not None]
         if nodes and len(nodes) == len(found) and all(isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) for _, n in nodes):
             return False
-        classes = [ClassRef(decl, n) for decl, n in nodes if isinstance(n, ast.ClassDef)] or self._holders(o)
+        classes = [ClassRef(decl, n) for decl, n in nodes if isinstance(n, ast.ClassDef)]
+        if not classes and span is not None:
+            typed = [(decl, s) for s in index.type_definition(source.path, span[0]) if (decl := self.session.load(s.path)) is not None]
+            classes = [ClassRef(decl, n) for decl, s in typed if isinstance(n := decl.defined_at((s.start, s.end)), ast.ClassDef)]
+        classes = classes or self._holders(o)
         try:
             return any(self._pair_is_split(facts, cls) for cls in classes)
         except UnresolvedBase:

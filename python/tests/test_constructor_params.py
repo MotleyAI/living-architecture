@@ -227,6 +227,10 @@ class Lone:
 
 def use() -> list[object]:
     return [Child(field="a"), Grand(field="b"), Lone(field="c")]
+
+
+def make(factory: type[Grand]) -> Grand:
+    return factory(field="d")
 """
 
 
@@ -241,7 +245,8 @@ def test_an_inherited_constructor_taking_the_keyword_lists_the_class_call(
     assert err.splitlines() == [
         message("refactor.unlinked-keyword", path="pkg/e.py", line=21, callee="Child", old="field"),
         message("refactor.unlinked-keyword", path="pkg/e.py", line=21, callee="Grand", old="field"),
-        message("refactor.blindspots", count=2, names="field="),
+        message("refactor.unlinked-keyword", path="pkg/e.py", line=25, callee="factory", old="field"),
+        message("refactor.blindspots", count=3, names="field="),
     ]
     assert file_tree(root) == before
 

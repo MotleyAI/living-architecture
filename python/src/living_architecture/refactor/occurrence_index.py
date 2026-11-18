@@ -205,16 +205,22 @@ def _call_queries(found: _Queries, call: ast.Call, names: set[str], shape: _Shap
 
 
 def carrier_queries(source: SourceFile) -> list[FactQuery]:
-    """The callees and receivers of every call in a `def` of `source` with a `**kwargs` parameter."""
+    """The decorators of each `def` of `source` with a `**kwargs` parameter, and the callees and receivers of every call
+    in it."""
     found = _Queries(source)
     for fn in (n for n in source.nodes if isinstance(n, _FUNCTIONS) and n.args.kwarg is not None):
+        for decorator in fn.decorator_list:
+            found.ask(decorator if isinstance(decorator, ast.Name) else None, "definition")
         for call in (n for n in ast.walk(fn) if isinstance(n, ast.Call)):
-            func = call.func
-            found.ask(func if isinstance(func, (ast.Name, ast.Attribute)) else None, "definition", "typeDefinition", "signature")
-            if isinstance(func, ast.Attribute):
-                receiver = func.value.func if isinstance(func.value, ast.Call) else func.value
-                found.ask(_name_node(receiver), "definition", "typeDefinition")
+            _callee_queries(found, call.func)
     return found.queries()
+
+
+def _callee_queries(found: _Queries, func: ast.expr) -> None:
+    found.ask(func if isinstance(func, (ast.Name, ast.Attribute)) else None, "definition", "typeDefinition", "signature")
+    if isinstance(func, ast.Attribute):
+        receiver = func.value.func if isinstance(func.value, ast.Call) else func.value
+        found.ask(_name_node(receiver), "definition", "typeDefinition")
 
 
 def _escaped_constant(source: SourceFile, names: set[str]) -> bool:

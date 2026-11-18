@@ -36,13 +36,14 @@ such keyword; nothing SHALL be written to the project for it.
 - **THEN** the run sends the same number of export requests as before this change
 
 ### Requirement: Python renames follow keywords through **kwargs carriers
-A carrier SHALL be a `def` or `async def` with a `**kw` parameter. Its sinks SHALL be:
+A carrier SHALL be a `def` or `async def` with a `**kw` parameter. A `def` under a decorator other than the builtin
+`staticmethod` or `classmethod` SHALL be an unresolved carrier. Its sinks SHALL be:
 - `X(**kw)`, where the checker resolves `X` to a keyed class (a key names the field its method resolution order holds),
   to a function or method (a key names its positional-or-keyword or keyword-only parameter), to any other class (a key
   names a parameter of the `__init__` or `__new__` the checker resolves the call to), or to another carrier (a key that
   none of that carrier's own parameters can bind as a keyword continues into its flow). A class sink SHALL be
-  unresolved when one of its two constructors declares the renamed parameter and the other passes the key on through
-  its own `**kw` or reads it by a key form. A function or method sink whose `def` is decorated
+  unresolved when one of its two constructors declares the renamed parameter and the other passes its own `**kw` on,
+  uses it unprovably, or reads the key by a key form. A function or method sink whose `def` is decorated
   SHALL count only when the checker's signature at the sink binds `old` in the code as it is and `new` once the renamed
   declarations are renamed; otherwise the sink is unresolved;
 - `X.model_construct(**kw)`, `X.model_validate(kw)` and `x.model_copy(update=kw)`, as the requirement on typed dict
@@ -66,7 +67,8 @@ For a renamed field of a keyed class or a renamed parameter `old`, each sink of 
 key `old` lands only on renamed declarations there), *other* (it lands on another declaration or on none), or
 *unresolved*; a sink that is a carrier yields that carrier's verdict. A carrier's verdict SHALL be: *unresolved* when
 the carrier is unresolved, any sink is unresolved, or the carrier calls itself through a chain of carriers; else *mixed*
-when some sinks are renamed and some other; else *renamed* when every sink is renamed; else *other*.
+when any sink is mixed, or some sinks are renamed and some other; else *renamed* when it has a sink and every sink is
+renamed; else *other*.
 
 For a carrier `F` whose verdict is renamed, `dr-refactor` SHALL rewrite the keyword `old=` of each call the checker
 resolves to `F` where no parameter of `F` can bind `old` as a keyword, the constant key `"old"` of a dict literal unpacked into
@@ -138,11 +140,11 @@ call, or a constant key `"old"` of a dict literal unpacked into a call, in a pro
 other rules neither rewrite nor prove to land on another declaration, where:
 - the callee expression resolves, as the checker resolves it (aliases and bound methods followed, a class through the
   constructors the checker resolves, any member of a union), to a function, method or class declaring a renamed
-  parameter, while the callee's signature as the checker types it does not bind `old` there; or
+  parameter, while the checker's signature there does not prove the link in every callable alternative; or
 - the callee resolves to a carrier whose verdict for `old` is mixed or unresolved; or
 - the checker types the callee `Unknown`, `Any`, `Never` or a union holding one of them; or
 - the callee is a class whose `__init__` and `__new__`, own or inherited, both take `old`, of which the run renames
-  only one; or
+  only one, or the two to different names; or
 - the key is in a dict literal unpacked into a call whose callee is neither a name nor an attribute access.
 
 Unlinked keywords SHALL be blind spots of the rename: each SHALL print one `refactor.unlinked-keyword` line on stderr

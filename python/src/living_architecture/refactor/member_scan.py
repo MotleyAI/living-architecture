@@ -614,6 +614,8 @@ _LINE_END = re.compile(r"\r\n|\r|\n")
 @functools.lru_cache(maxsize=4)
 def _comments(text: str) -> tuple[tuple[int, int], ...]:
     """The span of each comment of `text`, in order; lines end as Python ends them."""
+    if "#" not in text:
+        return ()
     starts = [0, *(m.end() for m in _LINE_END.finditer(text))]
     try:
         tokens = list(tokenize.generate_tokens(io.StringIO(_LINE_END.sub("\n", text)).readline))
@@ -658,7 +660,7 @@ def written_text(source: SourceFile, node: ast.expr, left: int) -> str:
     """`node`'s source text with the parentheses written around it from `left` on, whitespace runs collapsed."""
     text = source.text
     start, end = source.span(node)
-    comments = _comments(text) if text.find("#", left) != -1 else ()
+    comments = _comments(text)
     while True:
         before, after = _blank_before(text, comments, start - 1, left), _blank_after(text, comments, end)
         if before < left or text[before] != "(" or after >= len(text) or text[after] != ")":

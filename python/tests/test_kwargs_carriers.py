@@ -302,6 +302,14 @@ def passes_new(**kw: Any) -> int:
     return sink(new=2, **kw)
 
 
+def unpacks_new(**kw: Any) -> int:
+    return sink(**kw, **{"new": 2})
+
+
+def nests_new(**kw: Any) -> int:
+    return sink(**kw, **{**{"new": 2}})
+
+
 class Dynamic(factory()):
     def __init__(self, **kw: Any) -> None:
         self.total = sink(**kw)
@@ -331,7 +339,8 @@ def len(mapping: dict[str, Any]) -> int:
 def measured(**kw: Any) -> int:
     return len(kw) + sink(**kw)
 """
-UNPROVABLE_NAMES = ["c.concatenated", "c.sets_new", "c.defaults_new", "c.takes_new", "c.chain_new", "c.passes_new", "c.dynamic_one",
+UNPROVABLE_NAMES = ["c.concatenated", "c.sets_new", "c.defaults_new", "c.takes_new", "c.chain_new", "c.passes_new", "c.unpacks_new", "c.nests_new",
+                    "c.dynamic_one",
                     "c.dynamic_two", "m.measured"]
 UNPROVABLE_USE = "from typing import Any\n\nfrom pkg import c, m\n\n\ndef use(registry: dict[str, Any]) -> None:\n" + "".join(
     f"    {name}(old=1)\n" for name in UNPROVABLE_NAMES) + '    registry["build"](**{"old": 1})\n    c.plain(old=1)\n'
@@ -386,19 +395,39 @@ def mk_static(**kw: Any) -> int:
     return K.make(**kw)
 
 
+class Factory:
+    @staticmethod
+    def static(**kw: Any) -> AbstractContextManager[int]:
+        return engine(**kw)
+
+    @classmethod
+    def of(cls, **kw: Any) -> AbstractContextManager[int]:
+        return engine(**kw)
+
+
+@functools.cache
+def wrapped_carrier(**kw: Any) -> AbstractContextManager[int]:
+    return engine(**kw)
+
+
 def use() -> None:
     print(mk_engine($engine=1), mk_cached(models=1), mk_static($make=1))
+    print(Factory.static($engine=1), Factory.of($engine=1))
+
+
+def wrapped() -> None:
+    print(wrapped_carrier(models=1))
 """)
 DECORATED_SLOTS = {"engine": "models", "cached": "models", "make": "models"}
 
 
 @pytest.mark.parametrize(("symbol", "slot"), [("engine(models)", "engine"), ("K.make(models)", "make")])
-def test_a_decorated_sink_whose_signature_follows_the_rename_carries_the_keyword(
+def test_a_decorated_sink_whose_signature_follows_the_rename_carries_the_keyword_and_a_wrapped_carrier_lists_it(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], symbol: str, slot: str
 ) -> None:
     root = write_project(tmp_path / "p", {"pkg/q.py": DECORATED_SINKS.substitute(DECORATED_SLOTS)})
-    code, _out, err = run(root, _rename(symbol, "datasets"), monkeypatch, capsys)
-    assert (code, err) == (0, "")
+    code, _out, err = run(root, _rename(symbol, "datasets", "--allow-blindspots"), monkeypatch, capsys)
+    assert (code, err.splitlines()) == (0, [_unlinked("pkg/q.py", 56, "wrapped_carrier", "models")])
     assert read(root, "pkg/q.py") == DECORATED_SINKS.substitute({**DECORATED_SLOTS, slot: "datasets"})
 
 
@@ -407,7 +436,8 @@ def test_a_decorated_sink_whose_signature_drops_the_parameter_lists_the_keyword(
 ) -> None:
     root = write_project(tmp_path / "p", {"pkg/q.py": DECORATED_SINKS.substitute(DECORATED_SLOTS)})
     code, _out, err = run(root, _rename("cached(models)", "datasets", "--allow-blindspots"), monkeypatch, capsys)
-    assert (code, err.splitlines()) == (0, [_unlinked("pkg/q.py", 36, "mk_cached", "models")])
+    assert (code, err.splitlines()) == (0, [_unlinked("pkg/q.py", 51, "mk_cached", "models"),
+                                            _unlinked("pkg/q.py", 56, "wrapped_carrier", "models")])
     assert read(root, "pkg/q.py") == DECORATED_SINKS.substitute({**DECORATED_SLOTS, "cached": "datasets"})
 
 
@@ -432,6 +462,19 @@ class Passes:
         self.total = old
 
 
+def observe(*, old: int) -> None:
+    print(old)
+
+
+class Forwards:
+    def __new__(cls, **kw: Any) -> "Forwards":
+        observe(**kw)
+        return super().__new__(cls)
+
+    def __init__(self, *, old: int) -> None:
+        self.total = old
+
+
 def reads(**kw: Any) -> Reads:
     return Reads(**kw)
 
@@ -440,20 +483,26 @@ def passes(**kw: Any) -> Passes:
     return Passes(**kw)
 
 
+def forwards(**kw: Any) -> Forwards:
+    return Forwards(**kw)
+
+
 def use() -> None:
-    print(reads(old=1), passes(old=1))
+    print(reads(old=1), passes(old=1), forwards(old=1))
 """
 
 
 def test_a_carrier_into_a_class_whose_other_constructor_reads_the_key_lists_its_keyword(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    entries = [{"file": "pkg/q.py", "symbol": f"{name}.__init__(old)", "new_name": "new"} for name in ("Reads", "Passes")]
+    entries = [{"file": "pkg/q.py", "symbol": f"{name}.__init__(old)", "new_name": "new"} for name in ("Reads", "Passes", "Forwards")]
     root = write_project(tmp_path / "p", {"pkg/q.py": BOTH_RECEIVE, "map.yaml": yaml.safe_dump(entries)})
     code, _out, err = run(root, ["--apply", "rename-map", "map.yaml", "--allow-blindspots"], monkeypatch, capsys)
     assert code == 0
-    assert _unlinked("pkg/q.py", 30, "reads", "old") in err.splitlines()
-    assert "print(reads(old=1), passes(new=1))" in read(root, "pkg/q.py")
+    lines = err.splitlines()
+    assert [line for line in lines if "unlinked-keyword" in line] == [
+        _unlinked("pkg/q.py", 47, callee, "old") for callee in ("reads", "forwards")]
+    assert "print(reads(old=1), passes(new=1), forwards(old=1))" in read(root, "pkg/q.py")
 
 
 UNPACKED_TWICE = """\
@@ -464,12 +513,14 @@ def f(*, old: int = 0, **rest: int) -> int:
 def use() -> int:
     return f(**{"old": 1}, **{"new": 2})
 """
+NESTED_UNPACK = UNPACKED_TWICE.replace('f(**{"old": 1}, **{"new": 2})', 'f(**{"old": 1, **{"new": 2}})')
 
 
+@pytest.mark.parametrize("text", [UNPACKED_TWICE, NESTED_UNPACK], ids=["beside", "nested"])
 def test_a_key_meeting_the_new_name_in_another_unpacked_literal_is_a_name_conflict(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], text: str
 ) -> None:
-    root = write_project(tmp_path / "p", {"pkg/q.py": UNPACKED_TWICE})
+    root = write_project(tmp_path / "p", {"pkg/q.py": text})
     before = file_tree(root)
     code, _out, err = run(root, _rename("f(old)", "new"), monkeypatch, capsys)
     assert code == 1

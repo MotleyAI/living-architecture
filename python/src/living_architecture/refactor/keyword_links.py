@@ -35,6 +35,7 @@ _FUNCTIONS = (ast.FunctionDef, ast.AsyncFunctionDef)
 _COMPREHENSIONS = (ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)
 _NESTED = (*_FUNCTIONS, ast.Lambda, ast.ClassDef, *_COMPREHENSIONS)
 _CONSTRUCTORS = ("__init__", "__new__")
+_METHOD_DECORATORS = ("staticmethod", "classmethod")
 _KEY_METHODS = ("get", "pop", "setdefault")
 _KEYED_ARGUMENTS = (("update", "model_copy"), ("obj", "model_validate"))
 
@@ -52,6 +53,15 @@ class KeywordSite(BaseModel):
     query: int | None
 
 
+def _unpacked_keys(literal: ast.Dict) -> Iterator[ast.expr]:
+    """The keys of `literal` and of the dict literals unpacked into it, at any depth."""
+    for key, value in zip(literal.keys, literal.values, strict=True):
+        if key is not None:
+            yield key
+        elif isinstance(value, ast.Dict):
+            yield from _unpacked_keys(value)
+
+
 def keyword_sites(source: SourceFile, old: str) -> list[KeywordSite]:
     """Every keyword site of `old` in `source`, in source order."""
     out: list[KeywordSite] = []
@@ -64,7 +74,7 @@ def keyword_sites(source: SourceFile, old: str) -> list[KeywordSite]:
                 out += [
                     KeywordSite(call=call, span=span, line=source.line(span[0]), keyword=False,
                                 query=callee[0] if callee is not None else None)
-                    for key in k.value.keys if (span := plain_key_span(source, key, old)) is not None
+                    for key in _unpacked_keys(k.value) if (span := plain_key_span(source, key, old)) is not None
                 ]
     return sorted(out, key=lambda s: s.span)
 
@@ -269,10 +279,11 @@ def _nested_reads(scope: ast.AST, name: str, outer: list[ast.expr]) -> bool:
 
 
 def _reads_outer(scope: ast.AST, name: str, outer: list[ast.expr]) -> bool:
-    """Whether nested scope `scope` mentions `name` below its `outer` parts without binding it."""
+    """Whether nested scope `scope` mentions or rebinds `name` below its `outer` parts without binding it itself."""
     skipped = {id(n) for part in outer for n in ast.walk(part)}
     return not _binds(scope, name) and any(
-        isinstance(n, ast.Name) and n.id == name and id(n) not in skipped for n in ast.walk(scope))
+        id(n) not in skipped and ((isinstance(n, ast.Name) and n.id == name) or (n is not scope and binds_otherwise(n, name)))
+        for n in ast.walk(scope))
 
 
 class CarrierShape:
@@ -361,13 +372,15 @@ class KeywordFlow:
         return self.index.memo(("carrier_shape", source.path, source.span(fn)[0]), partial(CarrierShape, source, fn))
 
     def _provable(self, source: SourceFile, fn: Function, shape: CarrierShape) -> bool:
-        """Whether `shape` is resolved for this key: every measuring callee is the builtin, each key-form string of
+        """Whether `shape` is resolved for this key: `fn` is under no decorator that wraps it, every measuring callee is the builtin, each key-form string of
         `old` is a plain literal, and `fn` neither takes nor sets `new` nor passes it at a sink."""
         if not shape.resolved or self.new in shape.literal_keys or any(key.value == self.new for key in shape.keys):
             return False
+        if not all(isinstance(d, ast.Name) and d.id in _METHOD_DECORATORS and self._builtin(source, d) for d in fn.decorator_list):
+            return False
         if any(a.arg == self.new for a in (*fn.args.args, *fn.args.kwonlyargs)):
             return False
-        if any(k.arg == self.new for _, call in shape.sinks for k in call.keywords):
+        if any(self.new in _passed(call) for _, call in shape.sinks):
             return False
         if any(key.value == self.old and plain_key_span(source, key, self.old) is None for key in shape.keys):
             return False
@@ -523,8 +536,9 @@ class KeywordFlow:
         return "unresolved" if any(declared) else "other"
 
     def _takes(self, source: SourceFile, fn: Function) -> bool:
-        """Whether carrier `fn` does anything with the key: passes it on or reads it by a key form."""
-        return self.carrier(source, fn) != "other" or any(key.value == self.old for key in self.shape(source, fn).keys)
+        """Whether carrier `fn` does anything with the key: passes its mapping on, uses it unprovably or reads the key."""
+        shape = self.shape(source, fn)
+        return bool(shape.sinks) or not shape.resolved or any(key.value == self.old for key in shape.keys)
 
     def _field(self, cls: ClassRef) -> Verdict:
         """Where the key lands among keyed class `cls`'s fields; an aliased field does not take it."""
@@ -532,6 +546,13 @@ class KeywordFlow:
         if found is None or declares_alias(found[2]) or self.facts.generates_aliases(cls):
             return "other"
         return "renamed" if self._renamed(found[1].path, found[1].start) else "other"
+
+
+def _passed(call: ast.Call) -> set[object]:
+    """The names `call` passes by keyword or by a constant key of a dict literal it unpacks, at any depth."""
+    passed: set[object] = {k.arg for k in call.keywords}
+    literals = [k.value for k in call.keywords if k.arg is None and isinstance(k.value, ast.Dict)]
+    return passed.union(key.value for literal in literals for key in _unpacked_keys(literal) if isinstance(key, ast.Constant))
 
 
 def _is_super(receiver: ast.expr) -> bool:
