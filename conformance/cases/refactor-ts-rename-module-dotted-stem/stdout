@@ -1,0 +1,16 @@
+Renaming <a.test> to <c>:
+
+
+rename from src/a.test.ts
+rename to src/c.ts
+--- a/src/other.ts
++++ b/src/other.ts
+@@ -1,3 +1,3 @@
+-import { k } from './a.test';
++import { k } from './c';
+ 
+ export const j = k;
+
+
+
+DRY-RUN. 2 file(s) would change. Re-run with --apply.

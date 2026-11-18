@@ -1,11 +1,11 @@
 // `dr-refactor rename`, `retarget` and `rename-map` for TypeScript: every entry resolved first, then each rename
 // rule once per old name over one session, one refusal report and one change set.
 import { existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import type * as TS from 'typescript';
 import { sourceFiles } from '../config/index.js';
 import { byCodePoint, language, literalValueForbidden, manifest, message, readFile } from '../contract/index.js';
-import { stripSourceExtension, ts } from '../lang/index.js';
+import { canonical, stripSourceExtension, ts } from '../lang/index.js';
 import { configFailures } from './baseline.js';
 import { type CheckEntry, identifierText, NameChecks } from './bindings.js';
 import { Carving, fixtureAt, locateCarveSymbols } from './carve.js';
@@ -13,6 +13,7 @@ import { isCompound } from './compound.js';
 import { type Edit, mergeEdits, RefactorError, splitBom } from './edits.js';
 import { MapError } from './map.js';
 import { Lines } from './lines.js';
+import { moduleName, moveEdits, takenBy, validModuleName } from './module-rename.js';
 import { anyAccesses, type FormCall, formCalls, isAny, type MemberDeclaration, memberDeclarations, memberNameStart, walk } from './members.js';
 import { codeMarked, type Mention, mentions, type Owner, qualified, type Region, sourceRegions } from './mentions.js';
 import { blindspotOutcome, compoundOutcome, formCallOutcome, literalOutcomes, mentionOutcome, type Outcome } from './outcomes.js';
@@ -25,7 +26,8 @@ import { type Located, LocatorError, wildcardPath } from './symbols.js';
 import { timed } from './timings.js';
 import { loadWordTable } from './words.js';
 
-/** One rename or retarget to compute: its 1-based index, its file (absolute, and as given), locator and intent. */
+/** One rename or retarget to compute: its 1-based index, its file (absolute, and as given), locator and intent; a
+ * module rename names its module by `file` and has no locator. */
 export interface EntrySpec {
   index: number;
   file: string;
@@ -33,6 +35,13 @@ export interface EntrySpec {
   locator: Locator;
   newName?: string;
   retarget?: string;
+  module?: boolean;
+}
+
+/** A module rename's file move. */
+interface Move {
+  from: string;
+  to: string;
 }
 
 /** An entry resolved against the code: its symbol, old and new name, and the language service's rename locations. */
@@ -57,6 +66,8 @@ interface Target {
   home: Home | null;
   identity: Set<string>;
   original: string;
+  /** A module rename's move, else null. */
+  move: Move | null;
 }
 
 /** An edit with the entry it comes from. */
@@ -91,15 +102,19 @@ const modulePath = (r: Refactor, path: string): string[] => r.rel(stripSourceExt
 
 /** The project's sources and their texts, read once for every rule of every entry. */
 class Session {
-  readonly sources: Map<string, ProjectSource>;
+  private loaded: Map<string, ProjectSource> | null = null;
   private readonly texts = new Map<string, string>();
   private readonly lines = new Map<string, Lines>();
 
   constructor(
     readonly r: Refactor,
-    files: string[],
-  ) {
-    this.sources = projectSources(r, [...new Set(files.flatMap((file) => r.services(file)))]);
+    private readonly files: string[],
+  ) {}
+
+  /** The project's sources, loaded on first use. */
+  get sources(): Map<string, ProjectSource> {
+    this.loaded ??= timed('load', () => projectSources(this.r, [...new Set(this.files.flatMap((file) => this.r.services(file)))]));
+    return this.loaded;
   }
 
   /** `path`'s relevant services, else the one its source came from. */
@@ -112,7 +127,7 @@ class Session {
   text(path: string): string {
     let text = this.texts.get(path);
     if (text === undefined) {
-      text = this.sources.get(path)?.source.text ?? splitBom(readFile(path, 'utf8'))[1];
+      text = this.loaded?.get(path)?.source.text ?? splitBom(readFile(path, 'utf8'))[1];
       this.texts.set(path, text);
     }
     return text;
@@ -489,7 +504,19 @@ function targetAt(r: Refactor, spec: EntrySpec, located: Located): Target {
   const symbol = literal ? undefined : symbolOf(program.getTypeChecker(), node);
   const reexport = spec.retarget !== undefined && (ts().isImportSpecifier(node.parent) || ts().isExportSpecifier(node.parent));
   const key = (reexport ? undefined : declarationKeys(symbol, old)[0]) ?? keyOf(file, info.triggerSpan.start);
-  return { index: spec.index, indexes: [spec.index], refusals: [], retarget: spec.retarget !== undefined, file, position, old, newName: spec.newName ?? '', key, literal, intent: key, edits: [], own: new Set(), home: null, identity: new Set(), original: '' };
+  return { index: spec.index, indexes: [spec.index], refusals: [], retarget: spec.retarget !== undefined, file, position, old, newName: spec.newName ?? '', key, literal, intent: key, edits: [], own: new Set(), home: null, identity: new Set(), original: '', move: null };
+}
+
+/** `spec` as a module rename: its file moved to its new stem beside itself, keeping its extension. */
+function resolveModule(r: Refactor, spec: EntrySpec): Target {
+  const { file } = spec;
+  r.owner(file);
+  const newName = spec.newName ?? '';
+  if (!validModuleName(newName)) throw new RefactorError(message('refactor.cannot-rename'));
+  const { stem, extension } = moduleName(file);
+  const key = `module\0${canonical(file)}`;
+  const move = { from: file, to: join(dirname(file), `${newName}${extension}`) };
+  return { index: spec.index, indexes: [spec.index], refusals: [], retarget: false, file, position: 0, old: stem, newName, key, literal: false, intent: key, edits: [], own: new Set(), home: null, identity: new Set(), original: '', move };
 }
 
 /** A `refactor.map-conflict` for each site two entries rewrite differently; identical edits are one. */
@@ -527,6 +554,14 @@ class Keeps {
   kept(rel: string, line: number, mark = true): boolean {
     const hits = this.sites.flatMap((site, i) => (site.covers(rel, line) ? [i] : []));
     if (mark) for (const i of hits) this.matched.add(i);
+    return hits.length > 0;
+  }
+
+  /** A whole-file or directory keep covers `path`; marks the keeps it matches. */
+  keepsFile(path: string): boolean {
+    const rel = this.session.r.rel(path);
+    const hits = this.sites.flatMap((site, i) => (site.line === null && site.coversPath(rel) ? [i] : []));
+    for (const i of hits) this.matched.add(i);
     return hits.length > 0;
   }
 
@@ -570,6 +605,7 @@ interface Resolution {
 /** `spec`'s targets, a literal value and a retarget checked. */
 function resolveEntry(r: Refactor, spec: EntrySpec): Target[] {
   if (spec.retarget !== undefined && wildcardPath(spec.retarget) !== null) throw new LocatorError(message('refactor.symbol-wildcard', { path: spec.shown, symbol: spec.retarget }));
+  if (spec.module === true) return [resolveModule(r, spec)];
   const targets = resolve(r, spec);
   for (const target of targets) {
     if (target.literal && literalValueForbidden().some((part) => target.newName.includes(part))) throw new UsageError(message('refactor.literal-value', { value: target.newName }));
@@ -627,24 +663,49 @@ function editableFiles(r: Refactor, docs: boolean): Map<string, boolean> {
   return out;
 }
 
-/** Every check that needs no reference: each site naming something, no `--stub` (it moves only Python modules), each
- * line keep spelling an old name (in a comment only with `--docs`). */
+/** Every check that needs no reference: each site naming something, no `--stand-in` site when every entry renames a
+ * module, no `--stub` (it moves only Python modules), each line keep spelling an old name (in a comment only with
+ * `--docs`) or lying in a moved file, each module's new name free beside it. */
 function checks(r: Refactor, resolution: Resolution): Refusal[] {
   const sites: [string, string, string][] = [
     ...(r.args.with_stand_ins ?? []).map((raw): [string, string, string] => ['--with', raw, r.root]),
     ...(r.args.without_stand_ins ?? []).map((raw): [string, string, string] => ['--without', raw, r.root]),
     ...(r.args.keep ?? []).map((raw): [string, string, string] => ['--keep', raw, process.cwd()]),
   ];
-  const out: Refusal[] = [];
+  const { refusals: out, missing } = missingSites(r, sites);
+  const { targets } = resolution;
+  if (targets.length > 0 && targets.every((t) => t.move !== null)) {
+    for (const [option, raw] of sites) if (option !== '--keep' && !missing.has(`${option}\0${raw}`)) out.push(refusal(message('refactor.not-stand-in', { site: raw }), 2));
+  }
+  if (r.args.stub != null) out.push(refusal(message('refactor.stub-not-module'), 2));
+  out.push(...keepChecks(r, resolution, (raw) => missing.has(`--keep\0${raw}`)), ...takenNames(r, targets));
+  return out;
+}
+
+/** `refactor.site-missing` for each site naming nothing, and those sites' `option\0raw` keys. */
+function missingSites(r: Refactor, sites: [string, string, string][]): { refusals: Refusal[]; missing: Set<string> } {
+  const refusals: Refusal[] = [];
   const missing = new Set<string>();
   for (const [option, raw, base] of sites) {
     if (!Site.parse(raw, r.root, base).missing(r.root)) continue;
-    out.push(refusal(message('refactor.site-missing', { option, site: raw }), 2));
-    if (option === '--keep') missing.add(raw);
+    refusals.push(refusal(message('refactor.site-missing', { option, site: raw }), 2));
+    missing.add(`${option}\0${raw}`);
   }
-  if (r.args.stub != null) out.push(refusal(message('refactor.stub-not-module'), 2));
-  const keeps = (r.args.keep ?? []).filter((raw) => !missing.has(raw) && Site.parse(raw, r.root).line !== null);
-  if (!resolution.spelled || keeps.length === 0 || resolution.targets.some((t) => t.literal)) return out;
+  return { refusals, missing };
+}
+
+/** `refactor.name-conflict` for each module move whose new name a sibling already takes. */
+function takenNames(r: Refactor, targets: Target[]): Refusal[] {
+  return targets.flatMap((t) => {
+    const taken = t.move === null || t.newName === t.old ? null : takenBy(t.file, t.newName);
+    return taken === null ? [] : [refusal(message('refactor.name-conflict', { name: t.newName, path: r.rel(taken), line: 1 }))];
+  });
+}
+
+/** `refactor.keep-unmatched` for each line keep on a line spelling no old name, outside every moved file. */
+function keepChecks(r: Refactor, resolution: Resolution, missing: (raw: string) => boolean): Refusal[] {
+  const keeps = (r.args.keep ?? []).filter((raw) => !missing(raw) && Site.parse(raw, r.root).line !== null);
+  if (!resolution.spelled || keeps.length === 0 || resolution.targets.some((t) => t.literal)) return [];
   const docs = r.args.docs === true;
   const editable = editableFiles(r, docs);
   const texts = new Map<string, string>();
@@ -656,10 +717,10 @@ function checks(r: Refactor, resolution: Resolution): Refusal[] {
     }
     return found;
   };
-  for (const raw of keeps) {
-    if (!keepSpells(Site.parse(raw, r.root), editable, text, resolution.names, [], docs)) out.push(refusal(message('refactor.keep-unmatched', { site: raw }), 2));
-  }
-  return out;
+  const moved = resolution.targets.flatMap((t) => (t.move === null ? [] : [r.rel(t.move.from)]));
+  return keeps
+    .filter((raw) => !keepSpells(Site.parse(raw, r.root), editable, text, resolution.names, moved, docs))
+    .map((raw) => refusal(message('refactor.keep-unmatched', { site: raw }), 2));
 }
 
 function checkSupported(r: Refactor): void {
@@ -704,9 +765,24 @@ function runRules(group: NameGroup, docs: boolean, renamedNames: Set<string>): v
   group.dropOwnDeclarations();
 }
 
+/** Each module move whose new stem an earlier move takes in its directory, naming the earlier one's file at line 1. */
+function convergingMoves(session: Session, moves: Target[]): { path: string; line: number; name: string }[] {
+  const first = new Map<string, Target>();
+  const out: { path: string; line: number; name: string }[] = [];
+  for (const t of moves) {
+    const key = `${dirname(t.file)}\0${t.newName}`;
+    const earlier = first.get(key);
+    if (earlier === undefined) first.set(key, t);
+    else out.push({ path: session.r.rel(earlier.file), line: 1, name: t.newName });
+  }
+  return out;
+}
+
 /** A `refactor.name-conflict` for the first site of each check that finds one: each rename entry's edits alone, in map
- * order, then, when `together`, all entries'. */
-function nameConflicts(session: Session, targets: Target[], pending: Tagged[], edits: Tagged[], together: boolean): Refusal[] {
+ * order, then, when `together`, all entries' and every module move's. */
+function nameConflicts(session: Session, targets: Target[], pending: Tagged[], edits: Tagged[], together: boolean, moves: Target[]): Refusal[] {
+  const found: { path: string; line: number; name: string }[] = together ? convergingMoves(session, moves) : [];
+  if (targets.length === 0) return found.map((c) => refusal(message('refactor.name-conflict', c)));
   const done = new Set(edits.map((e) => keyOf(e.path, e.start)));
   const kept = new Set(pending.map((e) => keyOf(e.path, e.start)).filter((k) => !done.has(k)));
   const byIndex = new Map(targets.map((t): [number, CheckEntry] => [t.index, { index: t.index, old: t.old, newName: t.newName, expected: t.retarget ? t.identity : null }]));
@@ -715,7 +791,6 @@ function nameConflicts(session: Session, targets: Target[], pending: Tagged[], e
   const checks = new NameChecks(session.sources, names, (path) => session.r.rel(path));
   const passes = entries.filter((e) => e.expected === null && e.newName !== e.old).map((e) => [e]);
   if (entries.length > 1 && together) passes.push(entries);
-  const found: { path: string; line: number; name: string }[] = [];
   for (const pass of passes) {
     const conflict = checks.check(pass, edits, kept);
     if (conflict !== null) found.push({ path: session.r.rel(conflict.path), line: session.lineOf(conflict.path, conflict.position), name: conflict.name });
@@ -769,8 +844,9 @@ export function runEntries(r: Refactor, specs: EntrySpec[], map: string, progres
   const failures = [...resolution.failures, ...uncarved, ...checks(r, resolution), ...configFailures(r)];
   if (failures.length > 0) throw new Refused(failures);
   const { targets } = resolution;
+  const symbols = targets.filter((t) => t.move === null);
   progress.phase('references');
-  const session = timed('load', () => new Session(r, targets.map((t) => t.file)));
+  const session = new Session(r, symbols.map((t) => t.file));
   const keeps = new Keeps(session, r.args.keep ?? []);
   const needs: Need[] = [];
   const located = entryGroups(targets);
@@ -779,13 +855,18 @@ export function runEntries(r: Refactor, specs: EntrySpec[], map: string, progres
     progress.item(i + 1, located.length, first.indexes.toSorted((a, b) => a - b), first.old, first.newName);
     for (const target of group) {
       timed('references', () => {
+        const { move } = target;
+        if (move !== null) {
+          if (target.newName !== target.old) target.edits = moveEdits(r, move.from, move.to, [[move.from, move.to]], [move.from]);
+          return;
+        }
         target.edits = renameLocations(r.services(target.file), target.file, target.position, target.newName, !target.retarget);
         if (target.retarget) target.refusals = retargetSites(session, target, (path, position) => keeps.keeps(path, position), needs);
       });
     }
   }
-  progress.phase('rules');
-  const olds = [...new Set(targets.map((t) => t.old))];
+  const olds = [...new Set(symbols.map((t) => t.old))];
+  if (olds.length > 0) progress.phase('rules');
   const renamedNames = new Set(olds);
   const withSites = r.args.with_stand_ins ?? [];
   const withoutSites = r.args.without_stand_ins ?? [];
@@ -794,7 +875,7 @@ export function runEntries(r: Refactor, specs: EntrySpec[], map: string, progres
   const pending: Tagged[] = [];
   let stopped = false;
   for (const [n, old] of olds.entries()) {
-    const members = targets.filter((t) => t.old === old);
+    const members = symbols.filter((t) => t.old === old);
     const group = timed('rules', () => {
       const named = new NameGroup(session, old, members, carving);
       if (named.member) for (const site of named.classify(withSites, withoutSites)) matched.add(site);
@@ -813,6 +894,11 @@ export function runEntries(r: Refactor, specs: EntrySpec[], map: string, progres
       break;
     }
   }
+  const moving = targets.filter((t) => t.move !== null && t.newName !== t.old && !keeps.keepsFile(t.file));
+  const moduleEdits = targets
+    .filter((t) => t.move !== null)
+    .flatMap((t) => t.edits.map((e) => ({ ...e, entry: t.index })))
+    .filter((e) => !keeps.keeps(e.path, e.start));
   const retargets = texts(targets.flatMap((t) => t.refusals));
   const blindspots = groups.flatMap((g) => g.blindspots).sort(byPosition);
   const blind = allowed ? [] : texts(blindspots);
@@ -821,14 +907,14 @@ export function runEntries(r: Refactor, specs: EntrySpec[], map: string, progres
   let conflicts: Refusal[] = [];
   let sites: Refusal[] = [];
   if (!stopped) {
-    edits = [...groups.flatMap((g) => g.edits), ...planImports(session, needs)];
+    edits = [...groups.flatMap((g) => g.edits), ...planImports(session, needs), ...moduleEdits];
     sites = resolveSites(session, edits, keeps, [...withSites, ...withoutSites].filter((site) => !matched.has(site)), groups);
   }
   if (!stopped && sites.length === 0) {
     progress.phase('conflicts');
     conflicts = timed('conflicts', () => {
       const merged = mapConflicts(session, edits);
-      return [...nameConflicts(session, targets, pending, edits, merged.length === 0), ...merged];
+      return [...nameConflicts(session, symbols, pending, edits, merged.length === 0, moving), ...merged];
     });
   }
   const attr = groups.filter((g) => g.blindspots.length > 0).map((g) => g.old).join(', .');
@@ -838,5 +924,6 @@ export function runEntries(r: Refactor, specs: EntrySpec[], map: string, progres
   const leftovers = groups.flatMap((g) => g.leftovers).sort(byPosition);
   process.stderr.write([...blindspots, ...leftovers].map((f) => `${f.text}\n`).join(''));
   const headers = located.map(([t]) => t as Target).map((t) => message(t.retarget ? 'refactor.retarget-header' : 'refactor.rename-header', { old: t.old, new: t.newName }));
-  return r.emit(headers, mergeEdits(edits), [], [], progress);
+  const moves = moving.flatMap((t): [string, string][] => (t.move === null ? [] : [[t.move.from, t.move.to]]));
+  return r.emit(headers, mergeEdits(edits), moves, [], progress);
 }

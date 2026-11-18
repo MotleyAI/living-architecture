@@ -208,12 +208,12 @@ commands:
     subcommands:
       rename:
         help: >-
-          rename the symbol at a location; Python: on an import that names a module, or with no locator, rename the
-          module --file names (its file moves and every import follows)
+          rename the symbol at a location, or with no locator the module --file names (its file moves and every import
+          follows); Python: also on an import that names a module
         exclusive: [[offset, line, symbol]]
         options:
           - {name: --file, type: path, required: true,
-             help: 'file holding the symbol (Python, with no locator: the module to rename)'}
+             help: 'file holding the symbol (with no locator: the module to rename)'}
           - {name: --offset, type: int, help: 0-based character offset}
           - {name: --line, type: int, help: 1-based line}
           - {name: --col, type: int, help: 1-based column}

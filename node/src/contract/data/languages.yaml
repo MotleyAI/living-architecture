@@ -97,6 +97,24 @@ typescript:
     - {call: Object.defineProperty, object: 0, member: 1}
     - {call: Object.getOwnPropertyDescriptor, object: 0, member: 1}
   fixture_decorators: []
+  # Mock calls naming a module by path: the framework receivers (a named import from `module`, or the unshadowed global
+  # of that name) and their calls taking a module path as argument 0, with the factory's argument index where one is taken.
+  mock_receivers:
+    - {name: vi, module: vitest}
+    - {name: jest, module: '@jest/globals'}
+  mock_module_calls:
+    - {call: mock, factory: 1}
+    - {call: doMock, factory: 1}
+    - {call: unstable_mockModule, factory: 1}
+    - {call: unmock}
+    - {call: doUnmock}
+    - {call: dontMock}
+    - {call: setMock}
+    - {call: importActual}
+    - {call: importMock}
+    - {call: requireActual}
+    - {call: requireMock}
+    - {call: createMockFromModule}
   any_type: any
   top_type: unknown
   executables: [node, npx]

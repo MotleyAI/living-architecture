@@ -90,13 +90,14 @@ class Sources {
   }
 }
 
-/** The name spans entry `entry` locates; an error naming what its locator does not resolve to. */
-function entrySites(r: Refactor, sources: Sources, entry: MapEntry, index: number, table: WordTable): Site[] {
-  if (entry.module !== undefined) throw new MapError(message('refactor.map-module-unsupported', { map: table.shown, index }));
-  const shown = entry.file ?? '';
+/** The name spans entry `entry` locates, a module entry its whole file (`end` 0); an error naming what its locator
+ * does not resolve to. */
+function entrySites(r: Refactor, sources: Sources, entry: MapEntry): Site[] {
+  const shown = entry.module ?? entry.file ?? '';
   const file = r.inProject(shown, r.root);
   const source = sources.get(file);
   if (source === null) throw new MapError(message('refactor.source-missing', { path: shown }));
+  if (entry.module !== undefined) return [{ file, start: 0, end: 0 }];
   const position = positionOf(source.text, entry);
   let positions = position === null ? [] : [position];
   if (entry.symbol !== undefined) {
@@ -112,7 +113,7 @@ function entrySites(r: Refactor, sources: Sources, entry: MapEntry, index: numbe
 /** The first entry's failure to resolve, as exit 2. */
 function located(r: Refactor, sources: Sources, table: WordTable): Site[] {
   try {
-    return table.entries.flatMap((entry, i) => entrySites(r, sources, entry, i + 1, table));
+    return table.entries.flatMap((entry) => entrySites(r, sources, entry));
   } catch (error) {
     if (error instanceof RefactorError || error instanceof LocatorError || error instanceof MapError) throw new Refused([refusal(error.message, 2)]);
     throw error;
@@ -180,12 +181,13 @@ export function generateMap(r: Refactor): number {
     if (source === null) continue;
     const rel = r.rel(path);
     const stem = stripSourceExtension(basename(path));
-    for (const word of heldWords(stem, table.words)) {
+    const named = taken.some((site) => site.file === path && site.end === 0);
+    for (const word of named ? [] : heldWords(stem, table.words)) {
       const matcher = carved(table, [], word, { rel, annotation: null, keys: [] });
       const text = matcher === null ? message('refactor.not-generated-module', { path: rel, word }) : message('refactor.carved', { path: rel, line: 1, name: stem, word, matcher });
       listed.push({ path: rel, line: 0, position: 0, text });
     }
-    const found = rows(source, rel, table, carves, taken.filter((site) => site.file === path));
+    const found = rows(source, rel, table, carves, taken.filter((site) => site.file === path && site.end > 0));
     for (const row of found) {
       const { candidate } = row;
       if (row.taken) continue;

@@ -69,11 +69,12 @@ the refactor touches (`la-config get languages` lists the repo's).
 `--project` defaults to cwd. Locator: `--symbol Q` (the path inside `--file`,
 quoted for the shell: `'f.<locals>.g'`, `'C.m(p)'`, `"Alias['value']"`; no match
 or several exit 2 listing the candidates), `--line [--col]` (1-based)
-or `--offset N` (0-based). A Python `rename` located on an import that names a module, or given `--file` a
-module and no locator, renames the module: its file (a package's directory) moves and every import follows, while
-`move-module` only moves a module into an existing package under its own name. `--stub REMOVAL` leaves a stub at the
-old path from the repo's `refactor.python.moved_module_stub`. `rename-map MAP` reads a YAML list of
-`{file, symbol, new_name}`, `{file, symbol, retarget}` or, for a Python module, `{module, new_name}` entries
+or `--offset N` (0-based). A `rename` given `--file` a module and no locator, or a Python `rename` located on
+an import that names a module, renames the module: its file (a Python package's directory) moves beside itself, a
+TypeScript module keeping its extension (`--new-name` is the new stem), and every import follows, while
+`move-module` only moves a module into an existing package under its own name. `--stub REMOVAL` (Python) leaves a
+stub at the old path from the repo's `refactor.python.moved_module_stub`. `rename-map MAP` reads a YAML list of
+`{file, symbol, new_name}`, `{file, symbol, retarget}` or `{module, new_name}` entries
 (paths relative to `--project`), resolves every entry before renaming any, and writes all or nothing. `retarget --file F --symbol OLD --target NEW` rewrites what resolves to
 the alias `OLD` to name `NEW`, its target declared or imported in the same class or
 module, imports `NEW` where a file lacks it, and leaves `OLD` and its re-exports in

@@ -1,0 +1,29 @@
+Renaming <c> to <d>:
+Renaming <f> to <g>:
+
+
+rename from src/c.ts
+rename to src/d.ts
+--- a/src/f.ts
++++ b/src/f.ts
+@@ -1,3 +1,3 @@
+-export function f(): number {
++export function g(): number {
+   return 1;
+ }
+
+--- a/src/use.ts
++++ b/src/use.ts
+@@ -1,5 +1,5 @@
+ import * as a from './a.js';
+-import { Z } from './c.js';
+-import { f } from './f.js';
++import { Z } from './d.js';
++import { g } from './f.js';
+ 
+-export const shown = [a.X, Z, f()];
++export const shown = [a.X, Z, g()];
+
+
+
+DRY-RUN. 3 file(s) would change. Re-run with --apply.

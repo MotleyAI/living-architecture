@@ -1,0 +1,43 @@
+Renaming <api> to <client>:
+
+
+rename from src/api.ts
+rename to src/client.ts
+--- a/test/api.test.ts
++++ b/test/api.test.ts
+@@ -2,13 +2,13 @@
+ 
+ const factory = (): { get: () => number } => ({ get: () => 2 });
+ 
+-j.mock<typeof import('../src/api')>('../src/api', factory);
+-j.doMock('../src/api.js', factory);
+-j.unstable_mockModule('../src/api.js', factory);
+-j.unmock('../src/api');
+-j.doUnmock('../src/api');
+-j.dontMock('../src/api');
+-j.setMock('../src/api', {});
+-j.requireActual('../src/api');
+-j.requireMock('../src/api');
+-j.createMockFromModule('../src/api');
++j.mock<typeof import('../src/client')>('../src/client', factory);
++j.doMock('../src/client.js', factory);
++j.unstable_mockModule('../src/client.js', factory);
++j.unmock('../src/client');
++j.doUnmock('../src/client');
++j.dontMock('../src/client');
++j.setMock('../src/client', {});
++j.requireActual('../src/client');
++j.requireMock('../src/client');
++j.createMockFromModule('../src/client');
+
+--- a/test/global.test.ts
++++ b/test/global.test.ts
+@@ -1,3 +1,3 @@
+-jest.mock('../src/api');
++jest.mock('../src/client');
+ 
+ export {};
+
+
+
+DRY-RUN. 3 file(s) would change. Re-run with --apply.
