@@ -320,6 +320,7 @@ class Module:
     def __init__(self, tree: ast.Module, parts: list[str], is_package: bool, path: Path | None = None) -> None:
         self.dotted = ".".join(parts)
         self.path = path
+        self.tree = tree
         self.is_package = is_package
         binder = Binder(parts, is_package)
         for stmt in tree.body:

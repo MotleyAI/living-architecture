@@ -1,0 +1,8 @@
+[resolve]
+[checks]
+[references]
+[references 1/1] entry 1: columns -> fields
+[rules]
+[rules 1/1] entry 1: columns -> fields: clean
+[conflicts]
+entry 1 (src/m.ts Ds.columns): fields already names something else at src/m.ts:5, so nothing was refactored

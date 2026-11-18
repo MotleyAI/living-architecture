@@ -1,0 +1,26 @@
+Renaming <list_models> to <list_datasets>:
+
+
+--- a/pkg/mod.py
++++ b/pkg/mod.py
+@@ -1,2 +1,2 @@
+-def list_models() -> list[str]:
++def list_datasets() -> list[str]:
+     return []
+
+--- a/tests/test_p.py
++++ b/tests/test_p.py
+@@ -5,5 +5,5 @@
+ 
+ 
+ def test_a(monkeypatch: pytest.MonkeyPatch) -> None:
+-    assert callable(getattr(m, "list_models"))
+-    monkeypatch.setattr(pkg.mod, "list_models", lambda: ["x"])
++    assert callable(getattr(m, "list_datasets"))
++    monkeypatch.setattr(pkg.mod, "list_datasets", lambda: ["x"])
+
+
+
+APPLIED. 2 file(s) changed:
+  pkg/mod.py
+  tests/test_p.py

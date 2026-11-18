@@ -2,9 +2,9 @@
 import type * as TS from 'typescript';
 import { ts } from '../lang/index.js';
 import type { Edit } from './edits.js';
-import type { FormCall } from './members.js';
+import type { LiteralSource } from './literal-sources.js';
+import { blindspotFinding, type FormCall, walk } from './members.js';
 import type { Mention } from './mentions.js';
-import { walk } from './members.js';
 
 /** A line to print, as its template, the position it sits at and its values other than path and line. */
 export interface PendingFinding {
@@ -31,27 +31,42 @@ const rewrite = (path: string, start: number, end: number, newText: string): Out
   edits: [{ path, start, length: end - start, newText }],
 });
 
+/** A use landing on renamed and unchanged declarations: a mixed-target blind spot at `position`. */
+export function mixedOutcome(path: string, start: number, end: number, position: number, receiver: string, old: string): Outcome {
+  return { kind: 'blindspot', path, start, end, edits: [], finding: { template: 'refactor.mixed-target', position, values: { receiver, attr: old } } };
+}
+
 /** A typed member form whose lookup lands on declarations (`renamed`: whether each is renamed): rewritten when all
  * are, unrelated when none is, else a mixed-target blind spot. */
 export function formCallOutcome(path: string, found: FormCall, renamed: boolean[], receiver: string, old: string, newName: string): Outcome {
-  const site = { path, start: found.start, end: found.end, edits: [] };
-  if (!renamed.includes(true)) return { kind: 'unrelated', ...site };
+  if (!renamed.includes(true)) return { kind: 'unrelated', path, start: found.start, end: found.end, edits: [] };
   if (!renamed.includes(false)) return rewrite(path, found.start, found.end, newName);
-  const position = found.call.getStart(found.call.getSourceFile());
-  return { kind: 'blindspot', ...site, finding: { template: 'refactor.mixed-target', position, values: { receiver, attr: old } } };
+  return mixedOutcome(path, found.start, found.end, found.call.getStart(found.call.getSourceFile()), receiver, old);
 }
 
-/** An `any` receiver of the name: its access, or a string form's literal (`literal`). */
-export function blindspotOutcome(path: string, position: number, literal: [number, number] | null, receiver: string, old: string): Outcome {
+/** An `any` receiver of the name: its access, or a string-named access (`named`) with its literal (`literal`). */
+export function blindspotOutcome(
+  path: string,
+  position: number,
+  literal: [number, number] | null,
+  receiver: string,
+  old: string,
+  named: { site: string; silent?: boolean } | null = null,
+): Outcome {
   const [start, end] = literal ?? [position, position];
-  return {
-    kind: 'blindspot',
-    path,
-    start,
-    end,
-    edits: [],
-    finding: { template: 'compliance.attr-blindspot', position, values: { receiver, attr: old, type: 'any' } },
-  };
+  const finding = { position, ...blindspotFinding({ receiver, ...named }, old) };
+  return { kind: 'blindspot', path, start, end, edits: [], finding };
+}
+
+/** A literal source of a name, rewritten. */
+export const sourceOutcome = (source: LiteralSource, newName: string): Outcome => rewrite(source.path, source.start, source.end, newName);
+
+/** A site the rename leaves and does not list. */
+export const unrelatedOutcome = (path: string, start: number, end: number): Outcome => ({ kind: 'unrelated', path, start, end, edits: [] });
+
+/** A new error of the edited program at `start`..`end` that no source rewrite resolves. */
+export function unresolvedOutcome(path: string, start: number, end: number, old: string): Outcome {
+  return { kind: 'blindspot', path, start, end, edits: [], finding: { template: 'refactor.literal-unresolved', position: start, values: { old } } };
 }
 
 /** A `--docs` mention: rewritten, else listed. */

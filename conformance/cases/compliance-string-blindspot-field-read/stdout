@@ -1,0 +1,1 @@
+src/read.py:2: string-blindspot: m.model_fields['formula'] — m is Unknown, so a rename of .formula is unverifiable

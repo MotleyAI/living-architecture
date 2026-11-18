@@ -1,0 +1,14 @@
+Renaming <list_models> to <list_datasets>:
+
+
+--- a/src/pkg/mod.py
++++ b/src/pkg/mod.py
+@@ -1,2 +1,2 @@
+-def list_models() -> list[str]:
++def list_datasets() -> list[str]:
+     return []
+
+
+
+APPLIED. 1 file(s) changed:
+  src/pkg/mod.py

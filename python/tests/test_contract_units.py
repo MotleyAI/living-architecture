@@ -1,12 +1,14 @@
 """Contract helpers beyond the shared vectors: normalization, validation output, data accessors."""
 
 import datetime as dt
+import re
 
 import pytest
 
 from living_architecture.contract import (
     canonical_repr,
     config_file,
+    findings,
     language,
     local_config_file,
     manifest,
@@ -103,3 +105,110 @@ def test_twin_runner_and_install_commands(name: str, runner: str, install: str) 
     facts = language(name)
     rendered = (render_template(facts["runner"], {"version": "0.2.1"}), render_template(facts["install"], {"version": "0.2.1"}))
     assert rendered == (runner, install)
+
+
+# ---- string-named members: checks, registry forms and templates
+
+
+@pytest.mark.parametrize(
+    ("name", "checks"),
+    [
+        ("python", ["untyped-def", "unannotated-attr", "explicit-any", "mock", "rope-walk", "attr-blindspot",
+                    "string-blindspot"]),
+        ("typescript", ["tsconfig", "explicit-any", "untyped-def", "mock", "attr-blindspot", "string-blindspot"]),
+    ],
+)
+def test_string_blindspot_is_a_check_of_both_languages(name: str, checks: list[str]) -> None:
+    assert language(name)["compliance_checks"] == checks
+
+
+def _python_form(call: str) -> dict[str, object]:
+    [form] = [f for f in language("python")["string_member_calls"] if f["call"] == call]
+    return form
+
+
+def test_hasattr_is_silent_and_getattr_names_its_default_position() -> None:
+    assert _python_form("hasattr").get("silent") is True
+    assert _python_form("getattr").get("default") == 2
+    others = [f for f in language("python")["string_member_calls"] if f["call"] not in ("hasattr", "getattr")]
+    assert [f["call"] for f in others if "silent" in f or "default" in f] == []
+    assert "silent" not in _python_form("getattr")
+    assert "default" not in _python_form("hasattr")
+
+
+def test_name_decorators_are_the_pydantic_field_decorators() -> None:
+    assert language("python").get("name_decorators") == [
+        {"call": "pydantic.field_validator", "module": "pydantic.functional_validators", "qualname": "field_validator"},
+        {"call": "pydantic.field_serializer", "module": "pydantic.functional_serializers", "qualname": "field_serializer"},
+    ]
+
+
+def test_name_reads_are_the_pydantic_field_name_attributes_with_their_shapes() -> None:
+    assert language("python").get("name_reads") == [
+        {"attribute": "model_fields", "module": "pydantic.main", "qualname": "BaseModel.model_fields",
+         "shapes": ["subscript", "get", "in"]},
+        {"attribute": "model_fields_set", "module": "pydantic.main", "qualname": "BaseModel.model_fields_set",
+         "shapes": ["in"]},
+    ]
+
+
+def test_name_class_values_are_slots_and_match_args_with_their_shapes() -> None:
+    assert language("python").get("name_class_values") == [
+        {"name": "__slots__", "shapes": ["element", "string", "key"]},
+        {"name": "__match_args__", "shapes": ["element"]},
+    ]
+
+
+def _placeholders(template_id: str) -> set[str]:
+    return set(re.findall(r"\{([a-z_]+)(?:!r)?\}", findings().get(template_id, "")))
+
+
+@pytest.mark.parametrize(
+    ("template_id", "placeholders"),
+    [
+        ("compliance.string-blindspot", {"path", "line", "site", "receiver", "type", "attr"}),
+        ("compliance.string-blindspot-silent", {"path", "line", "site", "receiver", "type", "attr"}),
+        ("refactor.unverified-read", {"path", "line", "name", "old", "source_path", "source_line"}),
+        ("compliance.attr-required", {"check"}),
+    ],
+)
+def test_string_named_member_templates_take_their_placeholders(template_id: str, placeholders: set[str]) -> None:
+    assert template_id in findings()
+    assert _placeholders(template_id) == placeholders
+
+
+SITE = {"path": "pkg/m.py", "receiver": "x", "type": "Any", "attr": "columns"}
+
+
+@pytest.mark.parametrize(
+    ("template_id", "values", "rendered"),
+    [
+        ("compliance.string-blindspot", {**SITE, "line": 14, "site": "getattr(x, 'columns')"},
+         "pkg/m.py:14: string-blindspot: getattr(x, 'columns') — x is Any, so a rename of .columns is unverifiable"),
+        ("compliance.string-blindspot-silent", {**SITE, "line": 18, "site": "getattr(x, 'columns', …)"},
+         ("pkg/m.py:18: string-blindspot: getattr(x, 'columns', …) — x is Any, so a rename of .columns is unverifiable"
+          " and a miss raises no error")),
+        ("refactor.unverified-read",
+         {"path": "pkg/m.py", "line": 31, "name": "SECTIONS", "old": "columns", "source_path": "pkg/m.py", "source_line": 20},
+         ("pkg/m.py:31: unverified-read: SECTIONS holds 'columns', rewritten at pkg/m.py:20; this read is not proven to"
+          " name the renamed member")),
+        ("compliance.attr-required", {"check": "string-blindspot"}, "--select string-blindspot needs --attr NAME"),
+        ("compliance.attr-unselected", {}, "--attr needs attr-blindspot or string-blindspot among the selected checks"),
+    ],
+    ids=["string-blindspot", "string-blindspot-silent", "unverified-read", "attr-required", "attr-unselected"],
+)
+def test_string_named_member_templates_render_the_approved_lines(
+    template_id: str, values: dict[str, object], rendered: str
+) -> None:
+    assert template_id in findings()
+    assert message(template_id, **values) == rendered
+
+
+def test_the_new_kinds_are_printed_after_path_and_line() -> None:
+    kinds = {m.group(1) for text in findings().values() if (m := re.match(r"\{path\}:\{line\}: ([a-z-]+):", text))}
+    assert {"string-blindspot", "unverified-read"} <= kinds
+
+
+def test_attr_help_names_both_attribute_checks() -> None:
+    [option] = [o for o in manifest()["dr-compliance"]["options"] if o["name"] == "--attr"]
+    assert {"attr-blindspot", "string-blindspot"} <= set(re.findall(r"[a-z]+-[a-z]+", option["help"]))

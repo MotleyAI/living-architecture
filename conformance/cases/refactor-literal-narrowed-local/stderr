@@ -1,9 +1,0 @@
-[resolve]
-[checks]
-[references]
-[references 1/1] entry 1: edit_model -> edit_master
-[rules]
-[rules 1/1] entry 1: edit_model -> edit_master: 1 refusal(s)
-pkg/run.py:10: literal-unresolved: the checker needs 'edit_model' here, where no string literal can be rewritten
-[conflicts]
-1 blind spot(s) of .edit_model: type or resolve them, or pass --allow-blindspots

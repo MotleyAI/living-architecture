@@ -111,8 +111,9 @@ describe('dr-compliance --attr over every access form', () => {
   it('reports an element access and a property access on any receivers, per name, in one scan', () => {
     const loose = "export function f(a: any, b: any): number {\n  return a['getModel']() + b.saveModel();\n}\n";
     const root = tsProject({ 'src/m.ts': loose });
-    const result = run(root, 'dr-compliance', ['--select', 'attr-blindspot', '--attr', 'saveModel', '--attr', 'getModel', 'src']);
-    const spot = (receiver: string, attr: string): string => message('compliance.attr-blindspot', { path: 'src/m.ts', line: 2, receiver, attr, type: 'any' });
-    expect(result).toEqual({ code: 1, out: `${spot('a', 'getModel')}\n${spot('b', 'saveModel')}\n`, err: '' });
+    const result = run(root, 'dr-compliance', ['--select', 'attr-blindspot,string-blindspot', '--attr', 'saveModel', '--attr', 'getModel', 'src']);
+    const named = message('compliance.string-blindspot', { path: 'src/m.ts', line: 2, site: "a['getModel']", receiver: 'a', attr: 'getModel', type: 'any' });
+    const access = message('compliance.attr-blindspot', { path: 'src/m.ts', line: 2, receiver: 'b', attr: 'saveModel', type: 'any' });
+    expect(result).toEqual({ code: 1, out: `${named}\n${access}\n`, err: '' });
   });
 });

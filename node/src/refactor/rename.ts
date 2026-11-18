@@ -13,9 +13,22 @@ import { type Edit, mergeEdits, RefactorError, splitBom } from './edits.js';
 import { MapError } from './map.js';
 import { Lines } from './lines.js';
 import { moduleName, moveEdits, takenBy, validModuleName } from './module-rename.js';
-import { anyAccesses, type FormCall, formCalls, isAny, type MemberDeclaration, memberDeclarations, memberNameStart, walk } from './members.js';
+import { displayHolds, type LiteralSource, literalSources, sourceReads } from './literal-sources.js';
+import { anyAccesses, anyNamed, isAny, type MemberDeclaration, memberDeclarations, memberNameStart, type NamedAccess, namedAccesses, plainString, walk } from './members.js';
 import { codeMarked, type Mention, mentions, type Owner, qualified, type Region, sourceRegions } from './mentions.js';
-import { blindspotOutcome, compoundOutcome, formCallOutcome, literalOutcomes, mentionOutcome, type Outcome } from './outcomes.js';
+import {
+  blindspotOutcome,
+  compoundOutcome,
+  formCallOutcome,
+  literalOutcomes,
+  mentionOutcome,
+  mixedOutcome,
+  type Outcome,
+  sourceOutcome,
+  unrelatedOutcome,
+  unresolvedOutcome,
+} from './outcomes.js';
+import { type AddedError, addedErrors } from './program-check.js';
 import { declarationKeys, type Finding, type Home, keyOf, type Need, planImports, rename, resolveTarget, retargetSites, symbolOf } from './retarget.js';
 import { ownScopeConflicts } from './own-scope.js';
 import { entryRefusal, type Progress, type Refusal, refusal, Refused, unique } from './progress.js';
@@ -76,6 +89,27 @@ interface Target {
 interface Tagged extends Edit {
   entry: number;
 }
+
+/** A name in the member position of a string-named access: the sources it holds that spell OLD, the new name of each
+ * declaration its object's lookup lands on (null: unchanged; none for an untyped object), and its read. */
+interface NameUse {
+  path: string;
+  position: number;
+  start: number;
+  end: number;
+  receiver: string;
+  sources: LiteralSource[];
+  landings: (string | null)[];
+}
+
+/** A source this rename rewrites, and the reads that prove it names what is renamed. */
+interface Rewritten {
+  source: LiteralSource;
+  proven: Set<string>;
+}
+
+/** A rewritten source beside the new name `entry` gives it. */
+type Taken = NameConflict & { entry: number };
 
 const SENTINEL = '\0dr-refactor';
 const byPosition = (a: Finding, b: Finding): number => byCodePoint(a.path, b.path) || a.line - b.line || a.position - b.position;
@@ -161,6 +195,10 @@ class NameGroup {
   /** `--with` sites naming a stand-in declared by a computed name. */
   readonly computed: Refusal[] = [];
   blindspots: Finding[] = [];
+  /** Each rewritten source, by its key. */
+  private readonly rewritten = new Map<string, Rewritten>();
+  /** Each rewritten source whose display already holds the new name, by the source's key. */
+  private readonly taken = new Map<string, Taken>();
   standIns: Finding[] = [];
   leftovers: Finding[] = [];
   /** The sources spelling OLD, or holding a unicode escape that may spell it: the only ones a reference, a string
@@ -275,31 +313,163 @@ class NameGroup {
     return this.renamed.get(keyOf(file.fileName, memberNameStart(name, this.old, file) ?? name.getStart(file))) ?? null;
   }
 
-  /** Member strings landing only on declarations renamed to one name are rewritten; `any` receivers and strings
-   * landing on renamed and unchanged declarations are blind spots. */
+  /** Member strings and the sources of member names landing only on declarations renamed to one name are rewritten;
+   * `any` receivers and those landing on renamed and unchanged declarations are blind spots. */
   scan(): void {
-    for (const { source, checker } of this.holding) {
+    const holding = new Set(this.holding);
+    const uses: NameUse[] = [];
+    for (const found of this.session.sources.values()) {
+      const { source, checker } = found;
       const path = source.fileName;
-      for (const { position, receiver, literal } of timed('blindspot-scan', () => anyAccesses(checker, source, this.old))) {
-        this.record(blindspotOutcome(path, position, literal ?? null, receiver, this.old));
-      }
-      for (const found of formCalls(checker, source, this.old)) {
-        const receiver = found.object.getText(source);
-        if (isAny(checker, found.object)) {
-          this.record(blindspotOutcome(path, found.call.getStart(source), [found.start, found.end], receiver, this.old));
-        } else {
-          const names = this.landings(checker, found);
-          const distinct = new Set(names.filter((n) => n !== null));
-          const renamed = distinct.size > 1 ? [true, false] : names.map((n) => n !== null);
-          this.record(formCallOutcome(path, found, renamed, receiver, this.old, [...distinct][0] ?? ''));
+      if (holding.has(found)) {
+        for (const { position, receiver } of timed('blindspot-scan', () => anyAccesses(checker, source, this.old))) {
+          this.record(blindspotOutcome(path, position, null, receiver, this.old));
         }
       }
+      for (const access of namedAccesses(checker, source)) {
+        if (plainString(access.member, source) === null) uses.push(...this.nameUse(found, access));
+        else this.namedLiteral(found, access);
+      }
+    }
+    this.followUses(uses);
+  }
+
+  /** A string-named access of OLD by a literal: a blind spot on an `any` object, else a call form's by its landings
+   * (the language service renames a typed element access). */
+  private namedLiteral({ source, checker }: ProjectSource, access: NamedAccess): void {
+    const literal = plainString(access.member, source);
+    if (literal?.[2] !== this.old) return;
+    const path = source.fileName;
+    const spot = anyNamed(checker, source, access, this.old);
+    if (spot?.site !== undefined) {
+      this.record(blindspotOutcome(path, spot.position, [literal[0], literal[1]], spot.receiver, this.old, { site: spot.site, silent: spot.silent === true }));
+    } else if (ts().isCallExpression(access.access)) {
+      const names = this.landings(checker, access.object);
+      const distinct = new Set(names.filter((n) => n !== null));
+      const renamed = distinct.size > 1 ? [true, false] : names.map((n) => n !== null);
+      const call = { call: access.access, start: literal[0], end: literal[1], object: access.object };
+      this.record(formCallOutcome(path, call, renamed, access.object.getText(source), this.old, [...distinct][0] ?? ''));
     }
   }
 
-  /** The new name of each declaration a typed member form's lookup lands on, null for an unchanged one. */
-  private landings(checker: TS.TypeChecker, found: FormCall): (string | null)[] {
-    const type = checker.getApparentType(checker.getTypeAtLocation(found.object));
+  /** `access` when a name with a source spelling OLD stands for its member. */
+  private nameUse({ source, checker, service }: ProjectSource, access: NamedAccess): NameUse[] {
+    const sources = literalSources(service, access.member).filter((s) => s.text === this.old && this.session.sources.has(s.path));
+    if (sources.length === 0) return [];
+    const landings = isAny(checker, access.object) ? [] : this.landings(checker, access.object);
+    const [start, end] = [access.member.getStart(source), access.member.end];
+    return [{ path: source.fileName, position: access.access.getStart(source), start, end, receiver: access.object.getText(source), sources, landings }];
+  }
+
+  /** Each source of `uses`: rewritten when its uses land only on declarations renamed to one name, left unlisted when
+   * only on unchanged ones, and every landing use a mixed-target blind spot when on both. */
+  private followUses(uses: NameUse[]): void {
+    const bySource = new Map<string, [LiteralSource, NameUse[]]>();
+    for (const use of uses) {
+      for (const source of use.sources) {
+        const key = keyOf(source.path, source.start);
+        bySource.set(key, [source, [...(bySource.get(key)?.[1] ?? []), use]]);
+      }
+    }
+    for (const [source, found] of bySource.values()) {
+      const landing = found.filter((use) => use.landings.length > 0);
+      const names = landing.flatMap((use) => use.landings);
+      const distinct = [...new Set(names.filter((n) => n !== null))];
+      const [newName] = distinct;
+      if (names.length === 0) continue;
+      if (newName !== undefined && distinct.length === 1 && !names.includes(null)) {
+        this.rewrite(source, newName, landing.map((use) => keyOf(use.path, use.start)));
+        continue;
+      }
+      this.record(unrelatedOutcome(source.path, source.start, source.end));
+      if (newName !== undefined) for (const use of landing) this.record(mixedOutcome(use.path, use.start, use.end, use.position, use.receiver, this.old));
+    }
+  }
+
+  /** Rewrite `source` to `newName`, the reads at `proven` naming what is renamed. */
+  private rewrite(source: LiteralSource, newName: string, proven: string[]): void {
+    const key = keyOf(source.path, source.start);
+    const known = this.rewritten.get(key);
+    if (known !== undefined) {
+      for (const read of proven) known.proven.add(read);
+      return;
+    }
+    this.rewritten.set(key, { source, proven: new Set(proven) });
+    this.record(sourceOutcome(source, newName));
+    const file = this.session.sources.get(source.path)?.source;
+    if (file === undefined || !displayHolds(file, source, newName)) return;
+    const entry = (this.targets.find((t) => t.newName === newName) ?? (this.targets[0] as Target)).index;
+    this.taken.set(key, { entry, name: newName, path: source.path, position: source.start });
+  }
+
+  /** The rewritten sources `--keep` left. */
+  private kept(): [string, Rewritten][] {
+    return [...this.rewritten].filter(([, { source }]) => this.edits.some((e) => e.path === source.path && e.start === source.start));
+  }
+
+  /** Each rewritten source whose display already holds the new name. */
+  sourceConflicts(): Taken[] {
+    return this.kept().flatMap(([key]) => this.taken.get(key) ?? []);
+  }
+
+  /** Each read of a name holding a rewritten source that does not prove it names what is renamed. */
+  unverifiedReads(): Finding[] {
+    const out: Finding[] = [];
+    for (const [, { source, proven }] of this.kept()) {
+      const values = { old: this.old, source_path: this.r.rel(source.path), source_line: this.session.lineOf(source.path, source.start) };
+      for (const read of sourceReads(this.session.servicesFor(source.path), source)) {
+        if (!proven.has(keyOf(read.path, read.start))) out.push(this.session.finding(read.path, read.start, 'refactor.unverified-read', { ...values, name: read.name }));
+      }
+    }
+    return out;
+  }
+
+  /** A literal member's names: each error the edits bring on a name is followed to its sources spelling OLD, which are
+   * rewritten, and the program checked again; the errors then left are blind spots. */
+  follow(): void {
+    for (;;) {
+      const merged = this.mergedEdits();
+      if (merged === null) return;
+      const added = addedErrors(this.r, merged);
+      const before = this.rewritten.size;
+      if (this.newName !== null) this.rewriteSources(added, this.newName);
+      if (this.rewritten.size > before) continue;
+      for (const error of added) this.record(unresolvedOutcome(error.path, error.start, error.end, this.old));
+      return;
+    }
+  }
+
+  /** The run's edits merged per file, null when they conflict. */
+  private mergedEdits(): Map<string, Edit[]> | null {
+    try {
+      return mergeEdits(this.edits);
+    } catch (error) {
+      if (error instanceof RefactorError) return null;
+      throw error;
+    }
+  }
+
+  /** Rewrite to `newName` the sources spelling OLD of the names `errors` are on. */
+  private rewriteSources(errors: AddedError[], newName: string): void {
+    for (const error of errors) for (const [source, read] of this.errorSources(error)) this.rewrite(source, newName, [read]);
+  }
+
+  /** The sources spelling OLD of the name `error` is on, each with that read's key, but those the rename's own
+   * locations already rewrite. */
+  private errorSources(error: AddedError): [LiteralSource, string][] {
+    const found = this.session.sources.get(error.path);
+    const name = found === undefined ? null : erroringName(found.source, error.start, error.end);
+    if (found === undefined || name === null) return [];
+    const read = keyOf(error.path, name.getStart(found.source));
+    return literalSources(found.service, name)
+      .filter((s) => s.text === this.old && this.session.sources.has(s.path))
+      .filter((s) => this.rewritten.has(keyOf(s.path, s.start)) || !this.edited(s.path, s.start, s.end))
+      .map((s) => [s, read]);
+  }
+
+  /** The new name of each declaration the lookup of OLD on `object`'s type lands on, null for an unchanged one. */
+  private landings(checker: TS.TypeChecker, object: TS.Expression): (string | null)[] {
+    const type = checker.getApparentType(checker.getTypeAtLocation(object));
     return (type.getProperty(this.old)?.declarations ?? []).map((d) => this.newNameOf(d));
   }
 
@@ -431,6 +601,16 @@ class NameGroup {
     const kept = this.edits.filter((e) => !own.has(keyOf(e.path, e.start)));
     this.edits.splice(0, this.edits.length, ...kept);
   }
+}
+
+/** The identifier or dotted name an error at `start`..`end` of `source` is on: the one it spans, or the value of the
+ * `return` whose keyword it spans (where the checker reports a returned value). */
+function erroringName(source: TS.SourceFile, start: number, end: number): TS.Node | null {
+  let node = nodeAt(source, start);
+  while (node.parent.getStart(source) === start && node.parent.end <= end) node = node.parent;
+  if (ts().isReturnStatement(node) && node.getFirstToken(source)?.end === end) node = node.expression ?? node;
+  else if (node.getStart(source) !== start || node.end !== end) return null;
+  return ts().isIdentifier(node) || ts().isPropertyAccessExpression(node) ? node : null;
 }
 
 type Named = TS.Node & { name?: TS.Node };
@@ -725,6 +905,7 @@ function checkSupported(r: Refactor): void {
 
 function runRules(group: NameGroup, docs: boolean, renamedNames: Set<string>): void {
   if (group.member) group.scan();
+  if (group.literal) group.follow();
   if (group.literal) group.equalStrings();
   if (docs) group.docs();
   else group.dropCommentEdits();
@@ -747,8 +928,8 @@ function convergingMoves(moves: Target[]): Map<number, NameConflict> {
 }
 
 /** Each entry's first `refactor.name-conflict`, by entry index, on the code after every entry's `edits` and every
- * module move. */
-function nameConflicts(session: Session, all: Target[], targets: Target[], pending: Tagged[], edits: Tagged[], moves: Target[]): Refusal[] {
+ * module move, or at a rewritten source beside its new name (`taken`). */
+function nameConflicts(session: Session, all: Target[], targets: Target[], pending: Tagged[], edits: Tagged[], moves: Target[], taken: Taken[]): Refusal[] {
   const found = convergingMoves(moves);
   // A retarget alone has its own refusals; its names are checked beside other entries.
   if (targets.length > 1 || targets.some((t) => !t.retarget && t.newName !== t.old)) {
@@ -758,6 +939,12 @@ function nameConflicts(session: Session, all: Target[], targets: Target[], pendi
     const names = targets.flatMap((t) => [t.old, t.newName, ...(t.retarget ? [t.original] : [])]).map((name) => identifierText(name));
     const checks = new NameChecks(session.sources, names, (path) => session.r.rel(path));
     for (const [index, conflict] of checks.check(entries, edits, kept)) if (!found.has(index)) found.set(index, conflict);
+  }
+  const place = (c: NameConflict): [string, number] => [session.r.rel(c.path), session.lineOf(c.path, c.position)];
+  for (const { entry, ...conflict } of taken) {
+    const known = found.get(entry);
+    const [[path, line], [knownPath, knownLine]] = [place(conflict), known === undefined ? ['', 0] : place(known)];
+    if (known === undefined || (byCodePoint(path, knownPath) || line - knownLine) < 0) found.set(entry, conflict);
   }
   const refusals = all.flatMap((t) => {
     const c = found.get(t.index);
@@ -879,14 +1066,15 @@ export function runEntries(r: Refactor, specs: EntrySpec[], map: string, progres
     progress.phase('conflicts');
     conflicts = timed('conflicts', () => {
       const merged = mapConflicts(session, edits);
-      return merged.length > 0 ? merged : nameConflicts(session, targets, symbols, pending, edits, moving);
+      const taken = groups.flatMap((g) => g.sourceConflicts());
+      return merged.length > 0 ? merged : nameConflicts(session, targets, symbols, pending, edits, moving, taken);
     });
   }
   const attr = groups.filter((g) => g.blindspots.length > 0).map((g) => g.old).join(', .');
   const closing = blind.length > 0 ? [refusal(message('refactor.blindspots', { count: blind.length, attr }))] : [];
   const report = unique([...conflicts, ...sites, ...closing]);
   if (report.length > 0 || printed.length > 0) throw new Refused(report, printed);
-  const leftovers = groups.flatMap((g) => g.leftovers).sort(byPosition);
+  const leftovers = groups.flatMap((g) => [...g.leftovers, ...g.unverifiedReads()]).sort(byPosition);
   process.stderr.write([...blindspots, ...leftovers].map((f) => `${f.text}\n`).join(''));
   const headers = targets.map((t) => message(t.retarget ? 'refactor.retarget-header' : 'refactor.rename-header', { old: t.old, new: t.newName }));
   const moves = moving.flatMap((t): [string, string][] => (t.move === null ? [] : [[t.move.from, t.move.to]]));

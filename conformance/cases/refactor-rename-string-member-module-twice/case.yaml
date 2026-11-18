@@ -1,0 +1,23 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- --apply
+- rename
+- --file
+- src/pkg/mod.py
+- --symbol
+- list_models
+- --new-name
+- list_datasets
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - src/pkg/mod.py
+  - lib/pkg/mod.py
+  - tests/test_p.py
+golden: manual
+note: 'a string-member form on a module two source folders hold: a patch-target leftover, exit 0'

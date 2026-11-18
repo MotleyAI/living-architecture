@@ -1,0 +1,24 @@
+Renaming <columns> to <fields>:
+
+
+--- a/pkg/m.py
++++ b/pkg/m.py
+@@ -1,11 +1,11 @@
+ class Base:
+     def __init__(self, name: str, columns: list[str]) -> None:
+         self.name = name
+-        self.columns = columns
++        self.fields = columns
+ 
+ 
+ class Sub(Base):
+-    __match_args__ = ("name", "columns")
++    __match_args__ = ("name", "fields")
+ 
+ 
+ def read(b: Base) -> list[str]:
+
+
+
+APPLIED. 1 file(s) changed:
+  pkg/m.py

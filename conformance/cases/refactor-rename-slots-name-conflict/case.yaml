@@ -1,0 +1,22 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- --apply
+- rename
+- --file
+- pkg/m.py
+- --symbol
+- Slotted.columns
+- --new-name
+- fields
+fixture: refactor-pair
+git:
+- commit: init
+expect:
+  exit: 1
+  files:
+  - pkg/m.py
+golden: manual
+note: 'a __slots__ value already holding the new name: the name-conflict finding, nothing written'

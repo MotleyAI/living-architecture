@@ -385,6 +385,7 @@ findings:
   refactor.baseline-failed: 'the {language} type checker failed, so the baseline cannot be realigned and nothing was refactored'
   refactor.literal-value: '--new-name {value!r} holds a quote, backtick, backslash, ${{, NUL or line break, which a literal member cannot'
   refactor.literal-unresolved: '{path}:{line}: literal-unresolved: the checker needs {old!r} here, where no string literal can be rewritten'
+  refactor.unverified-read: '{path}:{line}: unverified-read: {name} holds {old!r}, rewritten at {source_path}:{source_line}; this read is not proven to name the renamed member'
   refactor.compound: '{path}:{line}: leftover: declaration {name} contains {old}'
   refactor.site-missing: '{option} {site} names no file, directory or line in the project'
   refactor.checker-exit: '  the checker exited with code {code}; its stderr:'
@@ -406,6 +407,8 @@ findings:
   compliance.untyped-return: return
   compliance.unannotated-attr: '{path}:{line}: unannotated-attr: {cls}.{attr} assigned without a type annotation'
   compliance.attr-blindspot: '{path}:{line}: attr-blindspot: {receiver}.{attr} — {receiver} is {type}, so a rename of .{attr} is unverifiable'
+  compliance.string-blindspot: '{path}:{line}: string-blindspot: {site} — {receiver} is {type}, so a rename of .{attr} is unverifiable'
+  compliance.string-blindspot-silent: '{path}:{line}: string-blindspot: {site} — {receiver} is {type}, so a rename of .{attr} is unverifiable and a miss raises no error'
   compliance.pyright-failed: 'basedpyright could not type the receivers of .{attr}'
   compliance.parse-error: '{path}:{line}: parse-error: {error}'
   compliance.rope-walk: '{path}:{line}: rope-walk: rope cannot follow this construct, so dr-refactor would refuse this file (a rope bug, not a source error)'
@@ -413,8 +416,8 @@ findings:
   compliance.tsconfig: '{path}: tsconfig: {flag} is not enabled'
   compliance.explicit-any: '{path}:{line}: explicit-any: an `{any}` type — use a real type or `{top}`'
   compliance.ts-untyped-def: '{path}:{line}: untyped-def: {name} is implicitly any'
-  compliance.attr-required: '--select attr-blindspot needs --attr NAME'
-  compliance.attr-unselected: '--attr needs attr-blindspot among the selected checks'
+  compliance.attr-required: '--select {check} needs --attr NAME'
+  compliance.attr-unselected: '--attr needs attr-blindspot or string-blindspot among the selected checks'
 
   # ---- dr-mock-lint
   mock-lint.patch: '{path}:{line}: {call}() without autospec=True/new=/spec= — stale members go undetected'
