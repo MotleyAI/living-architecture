@@ -191,7 +191,7 @@ class _Side:
             self._modules[dotted] = ("module", self.final(rel) if rel is not None else dotted)
         return self._modules[dotted]
 
-    def _decl(self, value: Value) -> Canonical:
+    def _decl(self, value: Value) -> Canonical:  # NOSONAR(S8495) — a tagged tuple; its length follows its kind
         found = self.project.resolver.declaration(value)
         if found is None:
             return ("opaque", str(value))
@@ -407,7 +407,11 @@ def _all_line(module: Module) -> int:
     """The line of the last top-level `__all__` assignment."""
     line = 1
     for stmt in module.tree.body:
-        targets = stmt.targets if isinstance(stmt, ast.Assign) else [stmt.target] if isinstance(stmt, ast.AnnAssign) else []
+        targets: list[ast.expr] = []
+        if isinstance(stmt, ast.Assign):
+            targets = stmt.targets
+        elif isinstance(stmt, ast.AnnAssign):
+            targets = [stmt.target]
         if any(isinstance(t, ast.Name) and t.id == _ALL for t in targets):
             line = stmt.lineno
     return line

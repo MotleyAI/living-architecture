@@ -1,0 +1,22 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- --apply
+- move-symbol
+- --file
+- pkg/a.py
+- --symbol
+- Child
+- --dest
+- pkg/b.py
+git:
+- commit: init
+expect:
+  exit: 1
+  files:
+  - pkg/a.py
+  - pkg/b.py
+golden: manual
+note: a dependency, the import of the moved symbol and its use on one line cannot be ordered; refused, nothing written
