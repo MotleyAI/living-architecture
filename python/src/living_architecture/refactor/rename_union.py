@@ -70,6 +70,12 @@ from living_architecture.refactor.text_tables import TextTables
 from living_architecture.refactor.timings import timed
 
 _T = TypeVar("_T")
+_Uses = dict[Held, list[tuple[str, FormCall]]]
+
+
+def _note(uses: _Uses, held: list[Held], use: tuple[str, FormCall]) -> None:
+    for literal in held:
+        uses.setdefault(literal, []).append(use)
 
 
 class Session:
@@ -655,20 +661,7 @@ class SymbolRename(MapRename):
         """Rewrite each source literal a proven use names and no use on an unchanged declaration reads; with both,
         each such use is a blind spot. A use on an untyped object is none; every other read of a rewritten literal is
         listed."""
-        proven: dict[Held, list[tuple[str, FormCall]]] = {}
-        unchanged: dict[Held, list[tuple[str, FormCall]]] = {}
-        for rel, found in self.named_uses().items():
-            calls = [call for call, _ in found]
-            path, source = self.root / rel, self.snapshot.source(rel)
-            for (call, held), (kind, definitions) in zip(found, scan.probe(path, calls), strict=True):
-                if (kind or scan.object_kind(path, source, call)) is not None:
-                    continue
-                sites = [(self.session.rel(d.path) or "", d.start) for d in definitions]
-                for literal in held:
-                    if any(s in self.seeds for s in sites):
-                        proven.setdefault(literal, []).append((rel, call))
-                    if any(not self.is_renamed(s) for s in sites):
-                        unchanged.setdefault(literal, []).append((rel, call))
+        proven, unchanged = self._named_landings(scan)
         mixed: dict[tuple[str, tuple[int, int]], FormCall] = {}
         rewritten: dict[Held, TextEdit] = {}
         for held in sorted(set(proven) | set(unchanged), key=lambda h: (h.rel, h.start)):
@@ -682,6 +675,24 @@ class SymbolRename(MapRename):
             self._file(mixed_target_outcome(rel, self.snapshot.source(rel), call, self.old))
         uses = {(rel, call.literal) for found in proven.values() for rel, call in found}
         self.list_reads(rewritten, uses)
+
+    def _named_landings(self, scan: MemberScan) -> tuple[_Uses, _Uses]:
+        """The uses on a typed object of each literal a name holds: those landing on a renamed declaration, and those
+        landing on an unchanged one."""
+        proven: _Uses = {}
+        unchanged: _Uses = {}
+        for rel, found in self.named_uses().items():
+            calls = [call for call, _ in found]
+            path, source = self.root / rel, self.snapshot.source(rel)
+            for (call, held), (kind, definitions) in zip(found, scan.probe(path, calls), strict=True):
+                if (kind or scan.object_kind(path, source, call)) is not None:
+                    continue
+                sites = [(self.session.rel(d.path) or "", d.start) for d in definitions]
+                if any(s in self.seeds for s in sites):
+                    _note(proven, held, (rel, call))
+                if any(not self.is_renamed(s) for s in sites):
+                    _note(unchanged, held, (rel, call))
+        return proven, unchanged
 
     def _source_edit(self, held: Held) -> TextEdit:
         """Rewrite the source literal `held`; a display already holding the new name is a pending conflict."""
@@ -737,18 +748,26 @@ class SymbolRename(MapRename):
         for rel in self.candidates:
             source = self.snapshot.source(rel)
             for call in scan.member_calls(self.root / rel, source):
-                found = self._module_scope(rel, call.obj) if call.obj is not None and call.forms and not call.read else None
-                if found is None or call.obj is None:
-                    continue
-                value = targets.resolver.resolve(*found, call.obj)
-                if value is not None and value[0] != "module":
-                    continue
-                if value is None and not _names_project(found[0], found[1], call.obj, folders):
-                    continue
-                resolved = targets.resolve(f"{value[1]}.{self.old}") if value is not None else None
-                renamed = None if resolved is None else any(self._declared(m, n) in self.seeds for m, n in resolved[-1])
-                self._targets.setdefault(rel, []).append(call.literal)
-                self._file(module_member_outcome(rel, source, call, renamed, self.old, self.new))
+                outcome = self._module_member_outcome(rel, source, call, folders, targets)
+                if outcome is not None:
+                    self._targets.setdefault(rel, []).append(call.literal)
+                    self._file(outcome)
+
+    def _module_member_outcome(
+        self, rel: str, source: SourceFile, call: FormCall, folders: SourceFolders, targets: TargetResolver
+    ) -> Outcome | None:
+        """What a member form's string becomes when its object is, or may be, a project module; None for any other."""
+        found = self._module_scope(rel, call.obj) if call.obj is not None and call.forms and not call.read else None
+        if found is None or call.obj is None:
+            return None
+        value = targets.resolver.resolve(*found, call.obj)
+        if value is not None and value[0] != "module":
+            return None
+        if value is None and not _names_project(found[0], found[1], call.obj, folders):
+            return None
+        resolved = targets.resolve(f"{value[1]}.{self.old}") if value is not None else None
+        renamed = None if resolved is None else any(self._declared(m, n) in self.seeds for m, n in resolved[-1])
+        return module_member_outcome(rel, source, call, renamed, self.old, self.new)
 
     def _declared(self, module: Module, node: ast.AST) -> tuple[str, int] | None:
         rel = self.session.rel(module.path) if module.path is not None else None

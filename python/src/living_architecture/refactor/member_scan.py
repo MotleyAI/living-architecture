@@ -274,46 +274,58 @@ def _member_literal(source: SourceFile, call: ast.Call, form: StringForm, name: 
     return (literal[0], obj) if literal is not None and literal[1] == name else None
 
 
+def _read_parts(node: ast.AST) -> tuple[ast.expr, ast.expr, ast.expr, str] | None:
+    """A subscript, a `.get(...)` call or an `in` test: the access, what it reads, the member expression and the shape."""
+    if isinstance(node, ast.Subscript):
+        return node, node.value, node.slice, "subscript"
+    if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "get" and node.args:
+        return None if isinstance(node.args[0], ast.Starred) else (node, node.func.value, node.args[0], "get")
+    if isinstance(node, ast.Compare) and len(node.ops) == 1 and isinstance(node.ops[0], (ast.In, ast.NotIn)):
+        return node, node.comparators[0], node.left, "in"
+    return None
+
+
 def _reads(source: SourceFile) -> Iterator[tuple[ast.expr, ast.Attribute, ast.expr, NameRead]]:
     """Each field-name read of a registry shape: the access, the attribute read, the member expression and the form."""
     by_name = {r.attribute: r for r in REGISTRY.name_reads}
+    for parts in map(_read_parts, source.nodes):
+        if parts is None or not isinstance(parts[1], ast.Attribute):
+            continue
+        found = by_name.get(parts[1].attr)
+        if found is not None and parts[3] in found.shapes:
+            yield parts[0], parts[1], parts[2], found
 
-    def form(node: ast.expr, shape: str) -> NameRead | None:
-        found = by_name.get(node.attr) if isinstance(node, ast.Attribute) else None
-        return found if found is not None and shape in found.shapes else None
 
-    for node in source.nodes:
-        if isinstance(node, ast.Subscript) and (found := form(node.value, "subscript")) is not None:
-            assert isinstance(node.value, ast.Attribute)
-            yield node, node.value, node.slice, found
-        elif isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "get" and node.args:
-            if (found := form(node.func.value, "get")) is not None and not isinstance(node.args[0], ast.Starred):
-                assert isinstance(node.func.value, ast.Attribute)
-                yield node, node.func.value, node.args[0], found
-        elif isinstance(node, ast.Compare) and len(node.ops) == 1 and isinstance(node.ops[0], (ast.In, ast.NotIn)):
-            if (found := form(node.comparators[0], "in")) is not None:
-                assert isinstance(node.comparators[0], ast.Attribute)
-                yield node, node.comparators[0], node.left, found
+def _named_call(call: ast.Call) -> NamedUse | None:
+    """`call` as a use: it has a member form's syntax and its member is a name."""
+    callee = _dotted(call.func)
+    for form in FORMS:
+        if callee is None or not _syntax(callee, form) or form.object is None or form.member is None:
+            continue
+        if len(call.args) <= max(form.object, form.member) or any(isinstance(a, ast.Starred) for a in call.args[: form.member + 1]):
+            continue
+        member = call.args[form.member]
+        if isinstance(member, (ast.Name, ast.Attribute)):
+            return NamedUse(access=call, obj=call.args[form.object], member=member, callee=call.func)
+    return None
 
 
 def named_uses(source: SourceFile) -> list[NamedUse]:
     """Each call with a member form's syntax, and each field-name read, whose member is a name; syntax only."""
-    out: list[NamedUse] = []
-    for call in _calls(source):
-        callee = _dotted(call.func)
-        for form in FORMS:
-            if callee is None or not _syntax(callee, form) or form.object is None or form.member is None:
-                continue
-            if len(call.args) <= max(form.object, form.member) or any(isinstance(a, ast.Starred) for a in call.args[: form.member + 1]):
-                continue
-            member = call.args[form.member]
-            if isinstance(member, (ast.Name, ast.Attribute)):
-                out.append(NamedUse(access=call, obj=call.args[form.object], member=member, callee=call.func))
-                break
+    out = [use for use in map(_named_call, _calls(source)) if use is not None]
     for access, attribute, member, read in _reads(source):
         if isinstance(member, (ast.Name, ast.Attribute)):
             out.append(NamedUse(access=access, obj=attribute.value, member=member, callee=attribute, read=read))
     return out
+
+
+def _assigned(stmt: ast.stmt) -> tuple[ast.expr, ast.expr] | None:
+    """The one target and the value of an assignment."""
+    if isinstance(stmt, ast.Assign) and len(stmt.targets) == 1:
+        return stmt.targets[0], stmt.value
+    if isinstance(stmt, ast.AnnAssign) and stmt.value is not None:
+        return stmt.target, stmt.value
+    return None
 
 
 def _beside(elements: list[ast.expr | None], own: ast.expr) -> tuple[str, ...]:
@@ -367,30 +379,35 @@ class MemberScan:
         return self.index.memo(("member_calls", path, self.name), lambda: self._member_calls(path, source))
 
     def _member_calls(self, path: Path, source: SourceFile) -> list[FormCall]:
-        out: list[FormCall] = []
-        for call in _calls(source):
-            callee = _dotted(call.func)
-            syntactic = [f for f in FORMS if callee is not None and _syntax(callee, f)]
-            found = next(((f, m) for f in syntactic or FORMS if (m := _member_literal(source, call, f, self.name)) is not None), None)
-            if found is None:
-                continue
-            forms = self.callees.forms(path, source, call)
-            member = [f for f in forms if _member_literal(source, call, f, self.name)] if forms is not None else None
-            if (member is not None and not member) or (member is None and not syntactic):
-                continue
-            (literal, obj) = found[1]
-            silent = any(f.misses_silently(call) for f in (member if member is not None else syntactic))
-            out.append(FormCall(call=call, literal=literal, text=self.name, obj=obj,
-                                forms=tuple(member) if member is not None else None, silent=silent))
-        for access, attribute, member_expr, read in _reads(source):
-            literal_ = plain_literal(source, member_expr)
-            if literal_ is None or literal_[1] != self.name:
+        calls = (self._form_call(path, source, call) for call in _calls(source))
+        return [*(found for found in calls if found is not None), *self._read_calls(path, source)]
+
+    def _form_call(self, path: Path, source: SourceFile, call: ast.Call) -> FormCall | None:
+        """`call` when its member literal is NAME and its callee is, or may be, a member form."""
+        callee = _dotted(call.func)
+        syntactic = [f for f in FORMS if callee is not None and _syntax(callee, f)]
+        found = next(((f, m) for f in syntactic or FORMS if (m := _member_literal(source, call, f, self.name)) is not None), None)
+        if found is None:
+            return None
+        forms = self.callees.forms(path, source, call)
+        member = [f for f in forms if _member_literal(source, call, f, self.name)] if forms is not None else None
+        if (member is not None and not member) or (member is None and not syntactic):
+            return None
+        (literal, obj) = found[1]
+        silent = any(f.misses_silently(call) for f in (member if member is not None else syntactic))
+        return FormCall(call=call, literal=literal, text=self.name, obj=obj,
+                        forms=tuple(member) if member is not None else None, silent=silent)
+
+    def _read_calls(self, path: Path, source: SourceFile) -> Iterator[FormCall]:
+        """Each field-name read whose member literal is NAME, unless its attribute resolves elsewhere."""
+        for access, attribute, member, read in _reads(source):
+            literal = plain_literal(source, member)
+            if literal is None or literal[1] != self.name:
                 continue
             resolved = self.callees.is_entry(path, source, attribute, [(read.module, read.qualname)])
             if resolved is not False:
-                out.append(FormCall(call=access, literal=literal_[0], text=self.name, obj=attribute.value,
-                                    forms=() if resolved else None, read=True))
-        return out
+                yield FormCall(call=access, literal=literal[0], text=self.name, obj=attribute.value,
+                               forms=() if resolved else None, read=True)
 
     def named(self, path: Path, source: SourceFile, use: NamedUse) -> FormCall | None:
         """`use` as an access naming NAME through its member name, when its callee resolves to a member form (its
@@ -428,18 +445,18 @@ class MemberScan:
         by_name = {v.name: v for v in REGISTRY.name_class_values}
         out: list[NameString] = []
         for cls in source.of_type(ast.ClassDef):
-            for stmt in cls.body:
-                if isinstance(stmt, ast.Assign) and len(stmt.targets) == 1:
-                    target, value = stmt.targets[0], stmt.value
-                elif isinstance(stmt, ast.AnnAssign) and stmt.value is not None:
-                    target, value = stmt.target, stmt.value
-                else:
-                    continue
+            for target, value in (found for found in map(_assigned, cls.body) if found is not None):
                 form = by_name.get(target.id) if isinstance(target, ast.Name) else None
-                for node, beside in _class_value_strings(source, value, form, self.name) if form is not None else ():
-                    found = plain_literal(source, node)
-                    if found is not None and found[1] == self.name:
-                        out.append(NameString(cls=cls, literal=found[0], line=node.lineno, beside=beside))
+                if form is not None:
+                    out += self._value_names(source, cls, value, form)
+        return out
+
+    def _value_names(self, source: SourceFile, cls: ast.ClassDef, value: ast.expr, form: NameClassValue) -> list[NameString]:
+        out: list[NameString] = []
+        for node, beside in _class_value_strings(source, value, form, self.name):
+            found = plain_literal(source, node)
+            if found is not None and found[1] == self.name:
+                out.append(NameString(cls=cls, literal=found[0], line=node.lineno, beside=beside))
         return out
 
     def target_calls(self, path: Path, source: SourceFile) -> list[FormCall]:

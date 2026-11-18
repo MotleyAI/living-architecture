@@ -418,24 +418,31 @@ class NameGroup {
   /** A literal member's names: each error the edits bring on a name is followed to its sources spelling OLD, which are
    * rewritten, and the program checked again; the errors then left are blind spots. */
   follow(): void {
-    const { newName } = this;
     for (;;) {
-      let merged: Map<string, Edit[]>;
-      try {
-        merged = mergeEdits(this.edits);
-      } catch (error) {
-        if (error instanceof RefactorError) return;
-        throw error;
-      }
+      const merged = this.mergedEdits();
+      if (merged === null) return;
       const added = addedErrors(this.r, merged);
       const before = this.rewritten.size;
-      if (newName !== null) {
-        for (const error of added) for (const [source, read] of this.errorSources(error)) this.rewrite(source, newName, [read]);
-      }
+      if (this.newName !== null) this.rewriteSources(added, this.newName);
       if (this.rewritten.size > before) continue;
       for (const error of added) this.record(unresolvedOutcome(error.path, error.start, error.end, this.old));
       return;
     }
+  }
+
+  /** The run's edits merged per file, null when they conflict. */
+  private mergedEdits(): Map<string, Edit[]> | null {
+    try {
+      return mergeEdits(this.edits);
+    } catch (error) {
+      if (error instanceof RefactorError) return null;
+      throw error;
+    }
+  }
+
+  /** Rewrite to `newName` the sources spelling OLD of the names `errors` are on. */
+  private rewriteSources(errors: AddedError[], newName: string): void {
+    for (const error of errors) for (const [source, read] of this.errorSources(error)) this.rewrite(source, newName, [read]);
   }
 
   /** The sources spelling OLD of the name `error` is on, each with that read's key, but those the rename's own

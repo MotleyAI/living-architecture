@@ -25,6 +25,17 @@ def _key(module: Module, scope: Scope, expr: ast.expr) -> _Key:
     return id(module), id(scope), expr.id if isinstance(expr, ast.Name) else id(expr)
 
 
+def _target(holder: ast.AST | None, expr: ast.expr) -> ast.expr | None:
+    """The target `holder` carries the value or the elements of `expr` to."""
+    if isinstance(holder, ast.Assign):
+        return holder.targets[0] if holder.value is expr and len(holder.targets) == 1 else None
+    if isinstance(holder, ast.AnnAssign):
+        return holder.target if holder.value is expr else None
+    if isinstance(holder, ast.For | ast.AsyncFor | ast.comprehension):
+        return holder.target if holder.iter is expr else None
+    return None
+
+
 class Source(BaseModel):
     """A plain string literal: its file, 1-based line, character column and value."""
 
@@ -100,15 +111,19 @@ class Follower:
             self._facts[id(module)] = _Facts(module, text) if text is not None else None
         return self._facts[id(module)]
 
-    def _bound(self, module: Module, facts: _Facts, name: str, node: ast.AST, scope: Scope) -> _Step | None:
-        """What the sole binding `node` of `name`, written in `scope`, binds it to."""
+    def _imported(self, module: Module, facts: _Facts, node: ast.alias) -> _Step | None:
+        """The name the `from` import `node` binds, in the module it comes from."""
+        holder = facts.parents.get(id(node))
+        origin = module.binder.from_module(holder) if isinstance(holder, ast.ImportFrom) else None
+        target = self.resolver.load(origin) if origin is not None else None
+        if target is None:
+            return None
+        return _Step(kind="name", module=target, scope=target.scope, expr=ast.Name(id=node.name, ctx=ast.Load()))
+
+    def _bound(self, module: Module, facts: _Facts, node: ast.AST, scope: Scope) -> _Step | None:
+        """What the sole binding `node` of a name, written in `scope`, binds it to."""
         if isinstance(node, ast.alias):
-            holder = facts.parents.get(id(node))
-            origin = module.binder.from_module(holder) if isinstance(holder, ast.ImportFrom) else None
-            target = self.resolver.load(origin) if origin is not None else None
-            if target is None:
-                return None
-            return _Step(kind="name", module=target, scope=target.scope, expr=ast.Name(id=node.name, ctx=ast.Load()))
+            return self._imported(module, facts, node)
         holder = facts.parents.get(id(node))
         if not isinstance(node, ast.Name):
             return None
@@ -137,7 +152,7 @@ class Follower:
         found = [(s, n) for s, n in facts.bound.get(name, []) if s.owner(name) is owner]
         if len(found) != 1 or facts.sole(name, found[0][1]) is None:
             return None
-        return self._bound(module, facts, name, found[0][1], found[0][0])
+        return self._bound(module, facts, found[0][1], found[0][0])
 
     def _step(self, module: Module, scope: Scope, expr: ast.expr) -> _Step | None:
         """What the name `expr`, or the class constant `K.NAME`, is bound to."""
@@ -203,19 +218,11 @@ class Follower:
         """The ids of the loads whose value an assignment or loop carries to a followed name."""
         if id(module) not in self._carried:
             facts = self._of(module)
-            out: set[int] = set()
-            for expr, _ in module.binder.loads if facts is not None else ():
-                holder = facts.parents.get(id(expr)) if facts is not None else None
-                target: ast.expr | None = None
-                if isinstance(holder, ast.Assign) and holder.value is expr and len(holder.targets) == 1:
-                    target = holder.targets[0]
-                elif (isinstance(holder, ast.AnnAssign) and holder.value is expr) or (
-                    isinstance(holder, ast.For | ast.AsyncFor | ast.comprehension) and holder.iter is expr
-                ):
-                    target = holder.target
-                if facts is not None and isinstance(target, ast.Name) and facts.sole(target.id, target) is not None:
-                    out.add(id(expr))
-            self._carried[id(module)] = out
+            self._carried[id(module)] = set() if facts is None else {
+                id(expr) for expr, _ in module.binder.loads
+                if isinstance(target := _target(facts.parents.get(id(expr)), expr), ast.Name)
+                and facts.sole(target.id, target) is not None
+            }
         return self._carried[id(module)]
 
 

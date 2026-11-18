@@ -223,31 +223,45 @@ function references(service: TS.LanguageService, program: TS.Program, holder: TS
   return out;
 }
 
+/** The name the literal `source` is first carried to in `program`. */
+function firstHolder(program: TS.Program | undefined, source: LiteralSource): TS.Node | null {
+  const file = program?.getSourceFile(source.path);
+  const literal = file === undefined ? null : literalAt(file, source.start);
+  if (literal === null) return null;
+  return carriedTo(ts().isArrayLiteralExpression(literal.parent) ? literal.parent : literal);
+}
+
+/** Follow `reference` to a holder of `source`: queue the name it carries the value to, else record the read. */
+function followReference(service: TS.LanguageService, source: LiteralSource, reference: TS.Identifier, pending: TS.Node[], out: Map<string, Read>): void {
+  const parent = reference.parent;
+  if (ts().isImportSpecifier(parent) || ts().isExportSpecifier(parent)) {
+    pending.push(parent.name);
+    return;
+  }
+  if (declares(parent, reference)) return;
+  const read = ts().isPropertyAccessExpression(parent) && parent.name === reference ? parent : reference;
+  const next = carriedTo(read);
+  if (next !== null && ts().isIdentifier(next) && holds(service, next, source)) pending.push(next);
+  else out.set(`${read.getSourceFile().fileName}\0${read.getStart()}`, { path: read.getSourceFile().fileName, start: read.getStart(), name: read.getText() });
+}
+
+/** The reads of the names holding `source` in `service`'s program, into `out`. */
+function collectReads(service: TS.LanguageService, source: LiteralSource, out: Map<string, Read>): void {
+  const program = service.getProgram();
+  const first = firstHolder(program, source);
+  if (program === undefined || first === null) return;
+  const pending = [first];
+  const held = new Set<TS.Node>();
+  for (let holder = pending.pop(); holder !== undefined; holder = pending.pop()) {
+    if (held.has(holder) || !ts().isIdentifier(holder) || !holds(service, holder, source)) continue;
+    held.add(holder);
+    for (const reference of references(service, program, holder)) followReference(service, source, reference, pending, out);
+  }
+}
+
 /** Every read of a name holding `source` in `services`' programs, but the ones carrying it to another such name. */
 export function sourceReads(services: TS.LanguageService[], source: LiteralSource): Read[] {
   const out = new Map<string, Read>();
-  for (const service of services) {
-    const program = service.getProgram();
-    const file = program?.getSourceFile(source.path);
-    const literal = file === undefined ? null : literalAt(file, source.start);
-    if (program === undefined || literal === null) continue;
-    const first = carriedTo(ts().isArrayLiteralExpression(literal.parent) ? literal.parent : literal);
-    const pending = first === null ? [] : [first];
-    const held = new Set<TS.Node>();
-    for (let holder = pending.pop(); holder !== undefined; holder = pending.pop()) {
-      if (held.has(holder) || !ts().isIdentifier(holder) || !holds(service, holder, source)) continue;
-      held.add(holder);
-      for (const reference of references(service, program, holder)) {
-        const parent = reference.parent;
-        if (ts().isImportSpecifier(parent) || ts().isExportSpecifier(parent)) pending.push(parent.name);
-        else if (!declares(parent, reference)) {
-          const read = ts().isPropertyAccessExpression(parent) && parent.name === reference ? parent : reference;
-          const next = carriedTo(read);
-          if (next !== null && ts().isIdentifier(next) && holds(service, next, source)) pending.push(next);
-          else out.set(`${read.getSourceFile().fileName}\0${read.getStart()}`, { path: read.getSourceFile().fileName, start: read.getStart(), name: read.getText() });
-        }
-      }
-    }
-  }
+  for (const service of services) collectReads(service, source, out);
   return [...out.values()];
 }
