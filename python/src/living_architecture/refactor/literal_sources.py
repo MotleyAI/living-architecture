@@ -25,6 +25,24 @@ def _key(module: Module, scope: Scope, expr: ast.expr) -> _Key:
     return id(module), id(scope), expr.id if isinstance(expr, ast.Name) else id(expr)
 
 
+def _mutates(facts: _Facts, parent: ast.AST | None, node: ast.Name) -> bool:
+    """`parent` assigns or deletes an item of the load `node`, or is a mutating method called on it."""
+    if isinstance(parent, ast.Subscript) and parent.value is node and isinstance(parent.ctx, ast.Store | ast.Del):
+        return True
+    call = facts.parents.get(id(parent)) if isinstance(parent, ast.Attribute) and parent.attr in _MUTATORS else None
+    return isinstance(call, ast.Call) and call.func is parent
+
+
+def _aliases(parent: ast.AST | None, node: ast.Name) -> list[str]:
+    """The names the assignment `parent` gives the value of the load `node`."""
+    targets: list[ast.expr] = []
+    if isinstance(parent, ast.Assign) and parent.value is node:
+        targets = parent.targets
+    elif isinstance(parent, ast.AnnAssign) and parent.value is node:
+        targets = [parent.target]
+    return [target.id for target in targets if isinstance(target, ast.Name)]
+
+
 def _target(holder: ast.AST | None, expr: ast.expr) -> ast.expr | None:
     """The target `holder` carries the value or the elements of `expr` to."""
     if isinstance(holder, ast.Assign):
@@ -197,20 +215,24 @@ class Follower:
             return []
         return self.elements(step.module, step.scope, step.expr, _seen | {key})
 
-    def _mutated(self, module: Module, scope: Scope, name: str) -> bool:
-        """A statement of `module` calls a mutating method on `name`, or assigns or deletes an item of it."""
+    def _mutated(self, module: Module, scope: Scope, name: str, _seen: frozenset[tuple[int, str]] = frozenset()) -> bool:
+        """A statement of `module` calls a mutating method on `name` or on a name assigned from it, augments one, or
+        assigns or deletes an item of one."""
         facts = self._of(module)
         if facts is None:
             return True
         owner = scope.resolving(name)
+        seen = _seen | {(id(owner), name)}
+        if any(isinstance(facts.parents.get(id(n)), ast.AugAssign) for s, n in facts.bound.get(name, []) if s.owner(name) is owner):
+            return True
         for node, read_in in facts.loads.get(name, []):
             if read_in.resolving(name) is not owner:
                 continue
             parent = facts.parents.get(id(node))
-            if isinstance(parent, ast.Subscript) and parent.value is node and isinstance(parent.ctx, ast.Store | ast.Del):
+            if _mutates(facts, parent, node):
                 return True
-            call = facts.parents.get(id(parent)) if isinstance(parent, ast.Attribute) and parent.attr in _MUTATORS else None
-            if isinstance(call, ast.Call) and call.func is parent:
+            fresh = [alias for alias in _aliases(parent, node) if (id(read_in.resolving(alias)), alias) not in seen]
+            if any(self._mutated(module, read_in, alias, seen) for alias in fresh):
                 return True
         return False
 
