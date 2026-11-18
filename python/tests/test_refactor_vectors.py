@@ -37,7 +37,7 @@ def test_lines(vector: dict[str, Any]) -> None:
 @pytest.mark.parametrize("vector", VECTORS["mentions"], ids=lambda v: v["name"])
 def test_mentions(vector: dict[str, Any]) -> None:
     text = vector["text"]
-    regions = iter([(s, e, "string", False) for s, e in vector.get("regions", [[0, len(text)]])])
+    regions = iter([(s, e, "string") for s, e in vector.get("regions", [[0, len(text)]])])
     assert [m.start for m in mentions(text, vector["old"], regions, lambda _: 1)] == _expected(vector, "starts")
 
 

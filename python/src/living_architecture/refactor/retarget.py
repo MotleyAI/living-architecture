@@ -177,14 +177,14 @@ class AliasRetarget(SymbolRename):
             self._parents[rel] = {} if tree is None else {c: n for n in ast.walk(tree) for c in ast.iter_child_nodes(n)}
         return self._parents[rel]
 
-    def retarget(self, kept: Callable[[str, int], bool]) -> None:
-        """Drop the edits at the alias's own declaration, at its re-export sites and on kept lines; refuse overrides,
+    def retarget(self, kept: Callable[[TextEdit], bool]) -> None:
+        """Drop the edits at the alias's own declaration, at its re-export sites and the `kept` ones; refuse overrides,
         shadowed and unbound names; record the imports the rest need."""
         own = set(self.seeds) | ({self.own} if self.own is not None else set())
         spans = {path: _reexport_spans(self.snapshot.source(path), self.old) for path in {e.path for e in self.edits}}
         edits = [e for e in self.edits if (e.path, e.start) not in own and not any(s <= e.start < t for s, t in spans[e.path])]
         self._overrides()
-        live = [e for e in edits if not kept(e.path, self.snapshot.source(e.path).line(e.start))]
+        live = [e for e in edits if not kept(e)]
         self.held = [e for e in edits if e not in live]
         if self.home is None:
             self.edits = live

@@ -90,3 +90,18 @@ def is_portable_regex(pattern: str) -> bool:
     except re.error:
         return False
     return _scan(pattern)
+
+
+def capturing_groups(pattern: str) -> int:
+    """The number of capturing groups of a portable pattern."""
+    count = i = 0
+    while i < len(pattern):
+        ch = pattern[i]
+        if ch == "\\":
+            i += 2
+        elif ch == "[":
+            i = (_class_end(pattern, i) or i) + 1
+        else:
+            count += ch == "(" and not pattern.startswith("(?", i)
+            i += 1
+    return count

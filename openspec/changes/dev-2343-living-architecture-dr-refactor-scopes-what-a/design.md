@@ -104,9 +104,18 @@ Finding texts for `shared/findings.yaml` `(user, approved wording)`:
 - `refactor.pick-ambiguous`: `--docs-pick {site}: entries {first} and {second} both mention {old} here; add =ENTRY, so nothing was refactored`
 - `refactor.keep-literal-unneeded`: `WARNING: --keep-literal {key} matches nothing this rename touches`
 
-Not yet approved, to be shown to the user before they are written: the `--docs-pick` and `--keep-literal` help
-texts in `shared/cli.yaml`, the `refactor.string_forms` description in the schema, the `shared/regex-subset.md`
-edit, and the wording of `plugin/skills/deterministic-refactor/SKILL.md`.
+Help texts for `shared/cli.yaml` `(user, approved wording)`:
+
+- `--docs-pick`: `with --docs: rewrite the mentions listed on this line, with =ENTRY only those of that entry's old name (repeatable)`
+- `--keep-literal`: `leave every edit inside a dict or object literal that holds the key KEY (repeatable)`
+
+Description of `refactor.string_forms` in the schema `(user, approved wording)`:
+
+- ``Patterns for strings that carry a symbol's name (a mini-language such as Cypher): `dr-refactor` respells the one capturing group's text when a class or another module-level symbol of that name is renamed. Each pattern uses the portable regex subset and holds exactly one capturing group.``
+
+Also approved by the user as shown in the `pr-implement` session, and applied verbatim: the opening of
+`shared/regex-subset.md` (both keys named, each with its matching rule), its row in `shared/README.md`, and the two
+edits of `plugin/skills/deterministic-refactor/SKILL.md` (two dry-run bullets, the Commands paragraph).
 
 ## Risks / Trade-offs
 

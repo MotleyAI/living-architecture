@@ -1,5 +1,5 @@
-"""`rename --docs`: the old name's mentions in comments, docstrings, strings and prose files, rewritten when
-qualified or code-marked, else listed."""
+"""`rename --docs`: the old name's mentions in comments, docstrings, strings and prose files, and what marks one as
+qualified or as code."""
 
 from __future__ import annotations
 
@@ -17,7 +17,6 @@ from living_architecture.refactor.python_source import SourceFile
 _QUALIFIER_WINDOW = 300
 _PREFIX = re.compile(r"[A-Za-z]*")
 _FSTRING_PARTS = {getattr(tokenize, name) for name in ("FSTRING_MIDDLE", "TSTRING_MIDDLE") if hasattr(tokenize, name)}
-_FSTRING_STARTS = {getattr(tokenize, name) for name in ("FSTRING_START", "TSTRING_START") if hasattr(tokenize, name)}
 
 
 class Owner(BaseModel):
@@ -38,7 +37,6 @@ class Mention(BaseModel):
     end: int
     line: int
     where: str
-    opens: bool
 
 
 class MentionRules(BaseModel):
@@ -92,31 +90,27 @@ def qualifier_segments(text: str, start: int) -> list[str] | None:
     return segments
 
 
-def _code_marked(text: str, mention: Mention) -> bool:
-    """In backticks (optionally followed by `()`), a role or `{@link}` target, or opening its string before `:`,
-    `(` or whitespace."""
+def code_marked(text: str, mention: Mention) -> bool:
+    """In backticks (optionally followed by `()`), or a role or `{@link}` target."""
     before, after = text[max(0, mention.start - 20) : mention.start], text[mention.end : mention.end + 3]
     if before.endswith(("`", "`~", "`!")) and after.startswith(("`", "()`")):
         return True
-    if re.search(r"\{@link\s+$", before) and re.match(r"[}\s|]", after):
-        return True
-    return mention.opens and re.match(r"[:(\s]", after) is not None
+    return re.search(r"\{@link\s+$", before) is not None and re.match(r"[}\s|]", after) is not None
 
 
-Region = tuple[int, int, str, bool]
+Region = tuple[int, int, str]
 
 
 def mentions(text: str, old: str, regions: Iterator[Region], line: Callable[[int], int]) -> list[Mention]:
-    """Occurrences of `old` not adjacent to an identifier character inside each region (start, end, where, whether
-    it opens a string literal)."""
+    """Occurrences of `old` not adjacent to an identifier character inside each region (start, end, where)."""
     pattern = re.compile(re.escape(old))
 
     def bounded(s: int, e: int, end: int) -> bool:
         return not (s > 0 and _continues(text[s - 1])) and not (e < end and _continues(text[e]))
 
     return [
-        Mention(start=m.start(), end=m.end(), line=line(m.start()), where=where, opens=opens and m.start() == start)
-        for start, end, where, opens in regions
+        Mention(start=m.start(), end=m.end(), line=line(m.start()), where=where)
+        for start, end, where in regions
         for m in pattern.finditer(text, start, end)
         if bounded(m.start(), m.end(), end)
     ]
@@ -165,18 +159,15 @@ def source_regions(source: SourceFile) -> Iterator[Region]:
         tokens = list(tokenize.generate_tokens(io.StringIO(source.text, newline="").readline))
     except (tokenize.TokenError, SyntaxError):
         return
-    previous = None
     for token in tokens:
-        opening = previous in _FSTRING_STARTS
-        previous = token.type
         if token.type not in (tokenize.COMMENT, tokenize.STRING, *_FSTRING_PARTS):
             continue
         offset = source.line_start(token.start[0]) + token.start[1]
         end = source.line_start(token.end[0]) + token.end[1]
         if token.type == tokenize.COMMENT:
-            yield offset, end, "comment", False
+            yield offset, end, "comment"
         elif token.type in _FSTRING_PARTS:
-            yield offset, offset + len(token.string), "string", opening
+            yield offset, offset + len(token.string), "string"
         elif token.type == tokenize.STRING:
             where = "docstring" if any(s <= offset < e for s, e in spans) else "string"
             yield from _string_regions(token.string, offset, end, where)
@@ -187,19 +178,7 @@ def _string_regions(literal: str, offset: int, end: int, where: str) -> Iterator
     prefix = len(_PREFIX.match(literal).group())  # type: ignore[union-attr]
     quote = 3 if literal[prefix : prefix + 3] in ('"""', "'''") else 1
     if "f" in literal[:prefix].lower() and sys.version_info < (3, 12):
-        for i, (s, e) in enumerate(_masked_fstring(literal[prefix + quote : len(literal) - quote])):
-            yield offset + prefix + quote + s, offset + prefix + quote + e, where, i == 0
+        for s, e in _masked_fstring(literal[prefix + quote : len(literal) - quote]):
+            yield offset + prefix + quote + s, offset + prefix + quote + e, where
     else:
-        yield offset + prefix + quote, end - quote, where, True
-
-
-def classify(text: str, found: list[Mention], rules: MentionRules, *, declaring: bool) -> tuple[list[Mention], list[Mention]]:
-    """The mentions to rewrite and the ones to list."""
-    rewrite: list[Mention] = []
-    listed: list[Mention] = []
-    for mention in found:
-        if rules.qualified(text, mention.start) or (declaring and _code_marked(text, mention)):
-            rewrite.append(mention)
-        else:
-            listed.append(mention)
-    return rewrite, listed
+        yield offset + prefix + quote, end - quote, where

@@ -35,7 +35,9 @@ export interface RefactorArgs {
   with_stand_ins?: string[];
   without_stand_ins?: string[];
   keep?: string[];
+  keep_literal?: string[];
   docs?: boolean;
+  docs_pick?: string[];
   fail_fast?: boolean;
   stub?: string;
   dest?: string;

@@ -428,7 +428,7 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 
 | Branch | Exit | Cases |
 |---|---|---|
-| *(new)* a config that cannot be read behaves as one that is not valid YAML, never a crash (both languages) | 0 | `refactor-config-permission-denied` |
+| *(new)* a config that cannot be read refuses in checks as one that is not valid YAML does, never a crash (both languages) | 2 | `refactor-config-permission-denied` |
 | rename: dry-run / apply by name, line+col, offset; hierarchy on/off; `--unsure include` warning; *(new)* changes printed sorted by path | 0 | `refactor-rename-dry-run`, `refactor-rename-apply`, `refactor-rename-single-file-dry-run`, `refactor-rename-single-file-apply`, `refactor-rename-line-col`, `refactor-rename-no-in-hierarchy`, `refactor-rename-offset`, `refactor-rename-unsure-include` |
 | *(new)* `--unsure include` renames an access whose receiver the checker types `Unknown`, still listing the blind spot; without it the access is left | 0 | `refactor-rename-unsure-untyped-receiver`, `refactor-rename-unsure-skipped` |
 | move-symbol (*(new)* sorted by path); move-module (tracked, the move staged; untracked); `--project` | 0 | `refactor-move-symbol-apply`, `refactor-move-module-apply`, `refactor-move-module-uncommitted`, `refactor-project-flag` |

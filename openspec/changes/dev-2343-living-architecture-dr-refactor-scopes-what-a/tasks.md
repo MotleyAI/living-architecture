@@ -1,15 +1,15 @@
 ## 1. Shared contract
 
-- [ ] 1.1 Get the user's OK on the exact wording still open in design.md ("Approved wording": the two flag help
+- [x] 1.1 Get the user's OK on the exact wording still open in design.md ("Approved wording": the two flag help
   texts, the `refactor.string_forms` schema description, the `shared/regex-subset.md` edit); record each approved text
   there before writing it
-- [ ] 1.2 `shared/cli.yaml`: `--docs-pick` (`PATH:LINE[=ENTRY]`, repeatable) and `--keep-literal` (`KEY`, repeatable)
+- [x] 1.2 `shared/cli.yaml`: `--docs-pick` (`PATH:LINE[=ENTRY]`, repeatable) and `--keep-literal` (`KEY`, repeatable)
   on `rename` and `rename-map`; verify both twins' `--help` list them
-- [ ] 1.3 `shared/findings.yaml`: `refactor.pick-needs-docs`, `refactor.pick-unmatched`, `refactor.pick-ambiguous`,
+- [x] 1.3 `shared/findings.yaml`: `refactor.pick-needs-docs`, `refactor.pick-unmatched`, `refactor.pick-ambiguous`,
   `refactor.keep-literal-unneeded`, with the approved texts of design.md
-- [ ] 1.4 `shared/schema/living-architecture.schema.json` and `shared/config.yaml`: `refactor.string_forms` (list of
+- [x] 1.4 `shared/schema/living-architecture.schema.json` and `shared/config.yaml`: `refactor.string_forms` (list of
   strings, default empty); `shared/regex-subset.md` names the key; verify `la-config show` prints the default
-- [ ] 1.5 `scripts/sync-shared`; verify `scripts/sync-shared --check` passes
+- [x] 1.5 `scripts/sync-shared`; verify `scripts/sync-shared --check` passes
 
 ## 2. Tests first (pr-tests)
 
@@ -48,39 +48,39 @@
 
 ## 3. Python twin
 
-- [ ] 3.1 `mentions`: drop the string-opening mark; class spans and the owner resolution; verify 2.1's mention tests
-- [ ] 3.2 `rename_union` / `rename_map`: one mention resolution per old name over the entries sharing it, so no docs
+- [x] 3.1 `mentions`: drop the string-opening mark; class spans and the owner resolution; verify 2.1's mention tests
+- [x] 3.2 `rename_union` / `rename_map`: one mention resolution per old name over the entries sharing it, so no docs
   edit reaches `merged` twice; verify `refactor-map-docs-*`
-- [ ] 3.3 `--docs-pick`: parsing, the `checks`-phase refusals, resolution over the final listed mentions beside the
+- [x] 3.3 `--docs-pick`: parsing, the `checks`-phase refusals, resolution over the final listed mentions beside the
   keeps; verify `refactor-docs-pick-*`
-- [ ] 3.4 `--keep-literal`: matching dict displays, overlap filtering of edits, blind spots and leftovers before the
+- [x] 3.4 `--keep-literal`: matching dict displays, overlap filtering of edits, blind spots and leftovers before the
   conflict phase, the unneeded warning; verify `refactor-keep-literal*`
-- [ ] 3.5 Config: load and validate `refactor.string_forms` (regex subset, one capturing group); the string-form rule
+- [x] 3.5 Config: load and validate `refactor.string_forms` (regex subset, one capturing group); the string-form rule
   for class and module-level symbol renames, its sites excluded from the `--docs` scan; verify
   `refactor-string-forms*` and `config-string-forms-invalid`
 
 ## 4. npm twin
 
-- [ ] 4.1 `mentions.ts`: drop the string-opening mark; class spans with attached JSDoc and the owner resolution;
+- [x] 4.1 `mentions.ts`: drop the string-opening mark; class spans with attached JSDoc and the owner resolution;
   verify 2.2's mention tests
-- [ ] 4.2 `rename.ts`: one mention resolution per old-name group replacing the single-new-name shortcut; verify
+- [x] 4.2 `rename.ts`: one mention resolution per old-name group replacing the single-new-name shortcut; verify
   `refactor-map-docs-*`
-- [ ] 4.3 `--docs-pick`, as 3.3; verify `refactor-docs-pick-*`
-- [ ] 4.4 `--keep-literal` on object literals, as 3.4; verify `refactor-keep-literal*`
-- [ ] 4.5 Config and the string-form rule, as 3.5; verify `refactor-string-forms*`
+- [x] 4.3 `--docs-pick`, as 3.3; verify `refactor-docs-pick-*`
+- [x] 4.4 `--keep-literal` on object literals, as 3.4; verify `refactor-keep-literal*`
+- [x] 4.5 Config and the string-form rule, as 3.5; verify `refactor-string-forms*`
 
 ## 5. Docs, skill, versions
 
-- [ ] 5.1 `docs/deterministic-refactoring.md`, `docs/configuration.md`, `docs/refactoring-internals.md`: the new
+- [x] 5.1 `docs/deterministic-refactoring.md`, `docs/configuration.md`, `docs/refactoring-internals.md`: the new
   scoping, flags and config key
-- [ ] 5.2 `plugin/skills/deterministic-refactor/SKILL.md`: show the user the exact wording and get the OK before
+- [x] 5.2 `plugin/skills/deterministic-refactor/SKILL.md`: show the user the exact wording and get the OK before
   editing; then verify `npx -y @anthropic-ai/claude-code plugin validate plugin`
 - [ ] 5.3 Minor version bump of `python/pyproject.toml`, `node/package.json` and `plugin/.claude-plugin/plugin.json`
   together (0.11.0 to 0.12.0), lockfiles included; reinstall the local editable `la` tools from the checkout
-- [ ] 5.4 Record on DEV-2343 that untyped document bodies were declined, with the reason of design.md decision 7
+- [x] 5.4 Record on DEV-2343 that untyped document bodies were declined, with the reason of design.md decision 7
 
 ## 6. Gates
 
-- [ ] 6.1 `scripts/conformance-cross` passes for the changed cases through both twins
-- [ ] 6.2 The enforcement bundle: `la-arch-check`, `npx likec4 validate`, `la-typecheck`; lint and type-check of both
+- [x] 6.1 `scripts/conformance-cross` passes for the changed cases through both twins
+- [x] 6.2 The enforcement bundle: `la-arch-check`, `npx likec4 validate`, `la-typecheck`; lint and type-check of both
   twins

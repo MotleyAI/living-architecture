@@ -26,6 +26,10 @@ class Finding(BaseModel):
     text: str
     end: int | None = None
 
+    def site(self) -> tuple[str, int, int]:
+        """The finding's file and span (`col`, else `col:end`)."""
+        return self.path, self.col, self.col + 1 if self.end is None else self.end
+
     def covers(self, edit: TextEdit) -> bool:
         """Whether `edit` rewrites part of the finding's site (`col`, else `col:end`)."""
         end = self.col + 1 if self.end is None else self.end

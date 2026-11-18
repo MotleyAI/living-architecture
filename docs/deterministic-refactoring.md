@@ -29,20 +29,34 @@ Every refactor keeps the type-check baseline aligned (Python
 through `commands.typecheck.python`, TypeScript through the bundled language service), in dry-run and `--apply`. A
 member rename refuses while a receiver of the old name is untyped (`--allow-blindspots` overrides) or a class
 outside the renamed hierarchy declares it (`--with` / `--without PATH:LINE` classify each); `--keep PATH[:LINE]`
-leaves sites untouched, and `--docs` also rewrites mentions in comments, docstrings, strings and prose files,
-listing the rest as `leftover`.
+leaves sites untouched, `--keep-literal KEY` leaves every dict or object literal holding that key, and `--docs`
+also rewrites mentions in comments, docstrings, strings and prose files, listing the rest as `leftover`.
+
+`--docs` decides each mention once over all entries of the run. A qualified mention (`Owner.OLD`) is rewritten
+everywhere. A bare mention is rewritten only when it is code-marked (in backticks, or a Sphinx role or `{@link}`
+target) and sits in a file declaring the rename: inside a class that has the member (its own or inherited), when
+that member is renamed; outside any such class, when every module-level and class-member declaration of the name in
+the file is renamed to one name. A Python class owns its statement from its first decorator; a TypeScript class,
+interface or type literal owns its declaration and the JSDoc attached to it. Every other mention is listed, a plain
+word opening a string included. `--docs-pick PATH:LINE[=ENTRY]` rewrites the mentions listed on that line; `=ENTRY`
+is needed where two entries rename the word to different names, and a kept line or literal wins over a pick.
+
+A string matching a pattern of the repo's `refactor.string_forms` (a mini-language such as Cypher) is respelled
+with a renamed class or module-level symbol, with or without `--docs`, when every module-level declaration of that
+name in the project is renamed to one name; otherwise the site is listed as a `leftover`.
 
 A run announces its phases on stderr as they start — `[resolve]`, `[checks]`, `[references]`, `[rules]`,
 `[conflicts]`, `[baseline]`, `[write]` — with `[references n/count]` as each entry's reference search starts and
 `[rules n/count]` as each old-name group is done, `clean` or followed by its refusals; `conflicts` checks the
 computed edits for map and name conflicts. Everything that needs no reference search runs
 in `checks` and refuses at once, listing every failure: entries that do not resolve, `--keep` / `--with` /
-`--without` sites naming no file or line, line keeps whose line spells no old name (a comment's spelling counts only
+`--without` / `--docs-pick` sites naming no file or line, a `--docs-pick` without `--docs`, line keeps whose line spells no old name (a comment's spelling counts only
 with `--docs`, or in a Python type comment), Python walker gaps, an
-unreadable config while the language's baseline file exists, and a checker that cannot run. Once every entry's edits
+unreadable or invalid config, and a checker that cannot run. Once every entry's edits
 are final, before `conflicts`, each keep and stand-in site is resolved exactly: an unneeded whole-file or directory
-keep prints a `WARNING:` and the run goes on, while an unmatched line keep (named with the nearest edited line) or a
-`--with` / `--without` site holding no stand-in stops the run there. Past `checks`, every entry is computed and every refusal listed in one final report;
+keep or `--keep-literal` prints a `WARNING:` and the run goes on, while an unmatched line keep (named with the nearest
+edited line), a `--with` / `--without` site holding no stand-in, or a `--docs-pick` naming no listed mention (or one
+two entries rename differently, without `=ENTRY`) stops the run there. Past `checks`, every entry is computed and every refusal listed in one final report;
 `--fail-fast` (on `rename`, `retarget`, `rename-map`) stops after the first refused group instead. A failed checker
 is followed by its cause: exit code and stderr, start error, or error answer.
 

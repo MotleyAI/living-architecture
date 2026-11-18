@@ -1,7 +1,7 @@
 """A Python symbol rename: every occurrence the run's occurrence index resolves to a renamed declaration (and those
 la's static resolver resolves to one where the checker resolves none), the keyed-class rewrites, member strings and
-patch targets, and with `--docs` mentions, as character spans over one snapshot of the project's files; a member
-rename first checks for blind spots and stand-ins."""
+patch targets, as character spans over one snapshot of the project's files; a member rename first checks for blind
+spots and stand-ins."""
 
 from __future__ import annotations
 
@@ -37,7 +37,6 @@ from living_architecture.refactor.mentions import (
     Mention,
     MentionRules,
     Owner,
-    classify,
     mentions,
 )
 from living_architecture.refactor.move_edits import NameConflict
@@ -49,7 +48,6 @@ from living_architecture.refactor.outcomes import (
     compound_outcome,
     file_outcome,
     literal_outcomes,
-    mention_outcome,
     string_member_outcome,
     target_outcome,
 )
@@ -197,7 +195,7 @@ def _same_named(source: SourceFile, fn: Function) -> list[Function]:
 
 class RenameOptions(BaseModel):
     """How a symbol rename runs: hierarchy, unsure occurrences, the blind-spot override, stand-in classifications,
-    kept sites, the mention scan and whether the run stops at its first refusal."""
+    kept sites and literals, the mention scan and its picks, and whether the run stops at its first refusal."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -207,7 +205,9 @@ class RenameOptions(BaseModel):
     with_sites: tuple[str, ...] = ()
     without_sites: tuple[str, ...] = ()
     keep: tuple[str, ...] = ()
+    keep_literal: tuple[str, ...] = ()
     docs: bool = False
+    docs_pick: tuple[str, ...] = ()
     fail_fast: bool = False
     stub: str | None = None
 
@@ -251,8 +251,8 @@ class MapRename(ABC):
 
 class SymbolRename(MapRename):
     """A rename of a symbol other than a module, its `entry` located at `site` (a file and an offset in its text) by
-    `locator`: `prepare` finds the renamed declarations and the stand-ins, `rules` the edits, `finish` the mentions and
-    leftovers."""
+    `locator`: `prepare` finds the renamed declarations and the stand-ins, `rules` the edits, `finish` the leftovers
+    that read text only."""
 
     def __init__(self, session: Session, entry: Entry, new_name: str, options: RenameOptions | None = None, *,
                  site: tuple[str, int], locator: EntryLocator) -> None:
@@ -541,7 +541,7 @@ class SymbolRename(MapRename):
                 if not any(arg is a for a in (*node.args.args, *node.args.kwonlyargs)):
                     self.keywordless.add((rel, span[0]))
 
-    def _file(self, outcome: Outcome) -> None:
+    def file(self, outcome: Outcome) -> None:
         """Record an examined site and file what its rule decided."""
         self._examined.setdefault(outcome.rel, []).append(outcome.span)
         file_outcome(outcome, edits=self.edits, blindspots=self.blindspots, leftovers=self.leftovers)
@@ -562,7 +562,7 @@ class SymbolRename(MapRename):
             for call, (_, definitions) in zip(calls, scan.probe(path, calls), strict=True):
                 sites = [(self.session.rel(d.path) or "", d.start) for d in definitions]
                 renamed = [self.is_renamed(s) for s in sites] if any(s in self.seeds for s in sites) else []
-                self._file(string_member_outcome(rel, source, call, renamed, self.old, self.new))
+                self.file(string_member_outcome(rel, source, call, renamed, self.old, self.new))
 
     def _declared(self, module: Module, node: ast.AST) -> tuple[str, int] | None:
         rel = self.session.rel(module.path) if module.path is not None else None
@@ -577,7 +577,7 @@ class SymbolRename(MapRename):
             source = self.snapshot.source(rel)
             for call in scan.target_calls(self.root / rel, source):
                 self._targets.setdefault(rel, []).append(call.literal)
-                self._file(self._target_outcome(rel, source, call, folders, targets, member))
+                self.file(self._target_outcome(rel, source, call, folders, targets, member))
 
     def _target_outcome(
         self, rel: str, source: SourceFile, call: FormCall, folders: SourceFolders, targets: TargetResolver, member: bool
@@ -592,7 +592,7 @@ class SymbolRename(MapRename):
         for rel in self.candidates:
             source = self.snapshot.source(rel)
             for b in scan.blindspots(self.root / rel, source):
-                self._file(blindspot_outcome(rel, source, b, self.old))
+                self.file(blindspot_outcome(rel, source, b, self.old))
 
     def _owners(self) -> set[Owner]:
         """The qualifying paths of the renamed module-level and class-member declarations."""
@@ -602,7 +602,7 @@ class SymbolRename(MapRename):
             if source.tree is None:
                 continue
             module = tuple(self.session.modname(rel).split("."))
-            top = [n for stmt in source.tree.body for n in _top_declarations(stmt, self.old)]
+            top = [n for stmt in source.tree.body for n in top_declarations(stmt, self.old)]
             if any(source.name_span(n) == (start, start + len(self.old)) for n in top):
                 out.add(Owner(path=module, member=False))
             for chain in _class_chains(source.tree):
@@ -620,47 +620,46 @@ class SymbolRename(MapRename):
                 return module + tuple(c.name for c in chain)
         return (*module, d.cls)
 
-    def _mention_edits(self) -> None:
+    def mention_rules(self) -> MentionRules:
+        """What qualifies a mention of this rename's symbol."""
         renamed = {(d.rel, d.start) for d in self._declarations if self.is_renamed((d.rel, d.start))}
-        rules = MentionRules(
+        return MentionRules(
             old=self.old,
             owners=frozenset(self._owners()),
             colliding=frozenset(self._class_path(d) for d in self._declarations if (d.rel, d.start) not in renamed),
         )
-        declaring = {rel for rel, _ in self.seeds}
-        files: list[tuple[str, list[Mention], bool]] = []
-        tables = self.session.tables
-        for rel in self.candidates:
-            files.append((rel, self._memo(("source_mentions", rel, self.old), partial(self._source_mentions, rel)),
-                          rel in declaring))
-        for rel in tables.prose():
-            found = self._memo(("prose_mentions", rel, self.old), partial(self._prose_mentions, rel))
-            if found is not None:
-                files.append((rel, found, False))
-        for rel, found, is_declaring in files:
-            text = self.snapshot.text(rel)
-            unhandled = [m for m in found if not self._overlaps(self._targets, rel, m.start, m.end)]
-            rewrite, listed = classify(text, unhandled, rules, declaring=is_declaring)
-            for m in sorted([*rewrite, *listed], key=lambda m: m.start):
-                self._file(mention_outcome(rel, m, rewrite=m in rewrite, old=self.old, new=self.new))
+
+    def renames_site(self, site: tuple[str, int]) -> bool:
+        """This rename renames the declaration at `site`."""
+        return site in self.seeds or any(e.path == site[0] and e.start == site[1] for e in self.edits)
+
+    def handled(self, rel: str, start: int, end: int) -> bool:
+        """`start:end` of `rel` is in a patch target or under an edit."""
+        return self._overlaps(self._targets, rel, start, end)
 
     def _memo(self, key: tuple[str, ...], compute: Callable[[], _T]) -> _T:
         assert self._index is not None
         return self._index.memo(key, compute)
 
-    def _source_mentions(self, rel: str) -> list[Mention]:
+    def source_mentions(self, rel: str) -> list[Mention]:
+        return self._memo(("source_mentions", rel, self.old), partial(self._scan_source, rel))
+
+    def _scan_source(self, rel: str) -> list[Mention]:
         source = self.snapshot.source(rel)
         return mentions(source.text, self.old, iter(self.session.tables.regions(rel)), source.line)
 
-    def _prose_mentions(self, rel: str) -> list[Mention] | None:
+    def prose_mentions(self, rel: str) -> list[Mention] | None:
         """The mentions of a prose file; None when it cannot be read or never spells the old name."""
+        return self._memo(("prose_mentions", rel, self.old), partial(self._scan_prose, rel))
+
+    def _scan_prose(self, rel: str) -> list[Mention] | None:
         try:
             source = self.snapshot.source(rel)
         except (OSError, UnicodeDecodeError, LookupError):
             return None
         if self.old not in source.text:
             return None
-        return mentions(source.text, self.old, iter([(0, len(source.text), "prose", False)]), source.line)
+        return mentions(source.text, self.old, iter([(0, len(source.text), "prose")]), source.line)
 
     def _compound_names(self) -> None:
         """Each declaration in a project source whose name holds OLD as a word sequence, listed."""
@@ -668,7 +667,7 @@ class SymbolRename(MapRename):
         found = self._memo(("compounds", self.old), partial(self.session.tables.compounds, rels, self.old))
         for rel, name, span in found:
             if name not in self.renamed_names:
-                self._file(compound_outcome(rel, self.snapshot.source(rel), span, name, self.old))
+                self.file(compound_outcome(rel, self.snapshot.source(rel), span, name, self.old))
 
     def _literal_leftovers(self) -> None:
         """Without `--docs`: each string literal exactly OLD that no rule examined, listed; every project file, as an
@@ -677,7 +676,7 @@ class SymbolRename(MapRename):
             spans = self.session.tables.literals(rel).get(self.old, [])
             handled = partial(self._overlaps, self._examined, rel)
             for outcome in literal_outcomes(rel, self.snapshot.source(rel), self.old, handled, spans) if spans else []:
-                self._file(outcome)
+                self.file(outcome)
 
     @override
     def prepare(self, index: RunIndex) -> None:
@@ -724,10 +723,9 @@ class SymbolRename(MapRename):
 
     @override
     def finish(self) -> None:
-        """The rules that read text only: mentions with `--docs`, else a member's exact-OLD string literals."""
+        """The rules that read text only: compound names with `--docs`, else a member's exact-OLD string literals."""
         with timed("rules"):
             if self.options.docs:
-                self._mention_edits()
                 self._compound_names()
             elif self.member:
                 self._literal_leftovers()
@@ -741,7 +739,7 @@ class SymbolRename(MapRename):
             _conflict(self.snapshot.source(rel), rel, [e for e in edits if e.path == rel], self.old, self.new)
 
 
-def _top_declarations(stmt: ast.stmt, name: str) -> list[ast.AST]:
+def top_declarations(stmt: ast.stmt, name: str) -> list[ast.AST]:
     """The module-level declarations of `name` a statement makes."""
     if isinstance(stmt, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
         return [stmt] if stmt.name == name else []
