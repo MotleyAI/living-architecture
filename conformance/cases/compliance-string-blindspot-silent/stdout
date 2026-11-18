@@ -1,0 +1,2 @@
+src/silent.py:2: string-blindspot: hasattr(m, 'formula') — m is Unknown, so a rename of .formula is unverifiable and a miss raises no error
+src/silent.py:6: string-blindspot: getattr(m, 'formula', …) — m is Unknown, so a rename of .formula is unverifiable and a miss raises no error

@@ -1,0 +1,16 @@
+kind: paired
+languages:
+- python
+- typescript
+command: dr-refactor
+args:
+  python: [--apply, rename, --file, pkg/kinds.py, --symbol, "DriftKind['edit_model']", --new-name, edit_master, --allow-blindspots]
+  typescript: [--apply, rename, --file, src/kinds.ts, --symbol, "Kind['edit_model']", --new-name, edit_master, --allow-blindspots]
+fixture: refactor-pair
+git:
+- commit: init
+expect:
+  exit: 0
+  git_status: true
+golden: manual
+note: '--allow-blindspots lists the literal-unresolved call site and the conditional''s string, and writes the rest'

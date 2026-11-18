@@ -1,0 +1,37 @@
+Renaming <columns> to <fields>:
+
+
+--- a/pkg/m.py
++++ b/pkg/m.py
+@@ -1,20 +1,20 @@
+ class One:
+-    __slots__ = "columns"
++    __slots__ = "fields"
+ 
+     def __init__(self) -> None:
+-        self.columns: list[str] = []
++        self.fields: list[str] = []
+ 
+ 
+ class Listed:
+-    __slots__ = ["name", "columns"]
++    __slots__ = ["name", "fields"]
+ 
+     def __init__(self) -> None:
+         self.name = "columns of a table"
+-        self.columns: list[str] = []
++        self.fields: list[str] = []
+ 
+ 
+ class Keyed:
+-    __slots__ = {"columns": "the columns"}
++    __slots__ = {"fields": "the columns"}
+ 
+     def __init__(self) -> None:
+-        self.columns: list[str] = []
++        self.fields: list[str] = []
+
+
+
+APPLIED. 1 file(s) changed:
+  pkg/m.py

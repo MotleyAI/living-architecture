@@ -1,0 +1,44 @@
+Renaming <columns> to <fields>:
+
+
+--- a/pkg/by_class.py
++++ b/pkg/by_class.py
+@@ -3,7 +3,7 @@
+ 
+ def reads() -> list[object]:
+     return [
+-        Ds.model_fields["columns"],
+-        Ds.model_fields.get("columns"),
+-        "columns" in Ds.model_fields,
++        Ds.model_fields["fields"],
++        Ds.model_fields.get("fields"),
++        "fields" in Ds.model_fields,
+     ]
+
+--- a/pkg/by_instance.py
++++ b/pkg/by_instance.py
+@@ -3,6 +3,6 @@
+ 
+ def reads(d: Ds) -> list[object]:
+     return [
+-        "columns" not in d.model_fields_set,
+-        type(d).model_fields["columns"],
++        "fields" not in d.model_fields_set,
++        type(d).model_fields["fields"],
+     ]
+
+--- a/pkg/m.py
++++ b/pkg/m.py
+@@ -2,4 +2,4 @@
+ 
+ 
+ class Ds(BaseModel):
+-    columns: list[str]
++    fields: list[str]
+
+
+
+APPLIED. 3 file(s) changed:
+  pkg/by_class.py
+  pkg/by_instance.py
+  pkg/m.py

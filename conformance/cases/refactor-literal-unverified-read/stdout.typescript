@@ -1,0 +1,17 @@
+Renaming <formula> to <expression>:
+
+
+--- a/src/c.ts
++++ b/src/c.ts
+@@ -1,5 +1,5 @@
+-export type Kind2 = 'formula' | 'sql';
+-export const DISPATCH_FORMULA = 'formula';
++export type Kind2 = 'expression' | 'sql';
++export const DISPATCH_FORMULA = 'expression';
+ 
+ export function viaConstant(): Kind2 {
+   return DISPATCH_FORMULA;
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

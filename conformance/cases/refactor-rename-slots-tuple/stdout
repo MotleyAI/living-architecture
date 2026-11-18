@@ -1,0 +1,23 @@
+Renaming <columns> to <fields>:
+
+
+--- a/pkg/m.py
++++ b/pkg/m.py
+@@ -1,9 +1,9 @@
+ class Slotted:
+-    __slots__ = ("columns",)
++    __slots__ = ("fields",)
+ 
+     def __init__(self) -> None:
+-        self.columns: list[str] = []
++        self.fields: list[str] = []
+ 
+ 
+ def make() -> list[str]:
+-    return Slotted().columns
++    return Slotted().fields
+
+
+
+APPLIED. 1 file(s) changed:
+  pkg/m.py

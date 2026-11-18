@@ -1,0 +1,8 @@
+src/m.ts:1: explicit-any: an `any` type — use a real type or `unknown`
+src/m.ts:2: string-blindspot: Reflect.get(o, 'formula') — o is any, so a rename of .formula is unverifiable
+src/m.ts:5: explicit-any: an `any` type — use a real type or `unknown`
+src/m.ts:6: attr-blindspot: o.formula — o is any, so a rename of .formula is unverifiable
+src/n.ts:1: explicit-any: an `any` type — use a real type or `unknown`
+src/n.ts:2: attr-blindspot: o.formula — o is any, so a rename of .formula is unverifiable
+src/n.ts:2: string-blindspot: Reflect.get(o, 'formula') — o is any, so a rename of .formula is unverifiable
+src/n.ts:2: attr-blindspot: o.formula — o is any, so a rename of .formula is unverifiable

@@ -1,0 +1,21 @@
+Renaming <columns> to <fields>:
+
+
+--- a/pkg/m.py
++++ b/pkg/m.py
+@@ -7,8 +7,8 @@
+ 
+ class Wide(Base):
+     __slots__ = Base.__slots__ + ("columns",)
+-    __match_args__ = ("columns",)
++    __match_args__ = ("fields",)
+ 
+     def __init__(self) -> None:
+         super().__init__()
+-        self.columns: list[str] = []
++        self.fields: list[str] = []
+
+
+
+APPLIED. 1 file(s) changed:
+  pkg/m.py

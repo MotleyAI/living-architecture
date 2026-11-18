@@ -1,0 +1,23 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- --apply
+- rename
+- --file
+- pkg/m.py
+- --symbol
+- Ds.columns
+- --new-name
+- fields
+fixture: refactor-pair
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - pkg/m.py
+  - pkg/reads.py
+golden: manual
+note: 'field-name strings of a field with an alias are rewritten: they name the field, not the alias'
