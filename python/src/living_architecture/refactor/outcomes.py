@@ -32,8 +32,13 @@ class Finding(BaseModel):
 
     def covers(self, edit: TextEdit) -> bool:
         """Whether `edit` rewrites part of the finding's site (`col`, else `col:end`)."""
-        end = self.col + 1 if self.end is None else self.end
-        return edit.path == self.path and edit.start < end and self.col < edit.end
+        return covers(self.path, self.col, self.end, edit)
+
+
+def covers(path: str, col: int, end: int | None, edit: TextEdit) -> bool:
+    """Whether `edit` rewrites part of the site `col` (else `col:end`) of `path`."""
+    stop = col + 1 if end is None else end
+    return edit.path == path and edit.start < stop and col < edit.end
 
 
 class Outcome(BaseModel):

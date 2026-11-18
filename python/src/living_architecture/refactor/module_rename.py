@@ -20,7 +20,7 @@ from living_architecture.refactor.move_edits import NameConflict
 from living_architecture.refactor.occurrence_index import RunIndex, candidate_files
 from living_architecture.refactor.outcomes import Finding
 from living_architecture.refactor.python_source import SourceFile, dotted_segments, nfkc
-from living_architecture.refactor.rename_union import MapRename, RenameOptions, Session
+from living_architecture.refactor.rename_union import MapRename, RenameOptions, RenameResult, Session
 from living_architecture.refactor.static_resolver import Module, Value
 from living_architecture.refactor.text_edits import TextEdit, merge_edits
 from living_architecture.refactor.timings import timed
@@ -37,6 +37,31 @@ def valid_module_name(name: str) -> bool:
 def _init_of(folder: str) -> str:
     """The `__init__.py` of `folder` (`""` or `"."` for the root)."""
     return f"{folder}/{_INIT}" if folder not in ("", ".") else _INIT
+
+
+class ModuleResult(RenameResult):
+    """A module rename's result: also its module, its move, whether it is a package, whether its new name is its own,
+    and the file a finding about it names."""
+
+    module: str | None
+    move: FileMove | None
+    package: bool
+    same: bool
+    site: str | None
+
+    @override
+    def live(self) -> bool:
+        return super().live() and not self.same
+
+    def stub(self, session: Session, text: str, removal: str) -> FileWrite | None:
+        """The stub left at the moved module's old path: `text` with its old and new dotted names and `removal`."""
+        if self.move is None:
+            return None
+        old = session.modname(self.move.rel)
+        parent = old.rpartition(".")[0]
+        new = f"{parent}.{nfkc(self.new)}" if parent else nfkc(self.new)
+        filled = text.replace("{old}", old).replace("{new}", new).replace("{removal}", removal)
+        return FileWrite(rel=self.move.rel, old=None, new=filled.encode())
 
 
 def _is_self(root: Path, rel: str, other: str) -> bool:
@@ -258,16 +283,6 @@ class ModuleRename(MapRename):
         offset = module_binding(self.snapshot.text(init), self.new) if init in rels else None
         return None if offset is None else NameConflict(self.new, init, self.snapshot.source(init).line(offset))
 
-    def stub(self, text: str, removal: str) -> FileWrite | None:
-        """The stub left at the moved module's old path: `text` with its old and new dotted names and `removal`."""
-        if self.move is None:
-            return None
-        old = self.session.modname(self.move.rel)
-        parent = old.rpartition(".")[0]
-        new = f"{parent}.{nfkc(self.new)}" if parent else nfkc(self.new)
-        filled = text.replace("{old}", old).replace("{new}", new).replace("{removal}", removal)
-        return FileWrite(rel=self.move.rel, old=None, new=filled.encode())
-
     # ---- the map's phases
 
     @override
@@ -300,8 +315,13 @@ class ModuleRename(MapRename):
         return None
 
     @override
-    def check_conflicts(self, edits: list[TextEdit]) -> None:
-        return None
+    def result(self, entry: int, target: str | None, kept: list[TextEdit]) -> ModuleResult:
+        return ModuleResult(
+            entry=entry, old=self.old, new=self.new, header=self.header(), target=target, member=False,
+            check_names=False, edits=self.edits, kept=kept, blindspots=self.blindspots, module=self.module,
+            move=self.move, package=self.package(), same=self.same,
+            site=self.site_file() if self.module is not None else None,
+        )
 
 
 def innermost_first(moves: Iterable[FileMove]) -> list[FileMove]:
@@ -323,20 +343,20 @@ def final_paths(files: Iterable[str], moves: Iterable[FileMove]) -> dict[str, st
     return {rel: dest for rel in files if (dest := final_path(rel, ordered)) != rel}
 
 
-def move_conflicts(renames: list[ModuleRename], edits: list[TextEdit], source: Callable[[str], SourceFile],
+def move_conflicts(renames: list[ModuleResult], edits: list[TextEdit], source: Callable[[str], SourceFile],
                    files: list[str]) -> list[Conflict]:
     """Two moves ending at one module, each named at the earlier entry's module; and a moved module meeting a binding
     of its new name that the edits give its package's `__init__.py`."""
     moving = [r for r in renames if r.move is not None and r.module is not None]
     ordered = innermost_first(r.move for r in moving if r.move is not None)
     out: list[Conflict] = []
-    seen: dict[str, ModuleRename] = {}
+    seen: dict[str, ModuleResult] = {}
     for r in moving:
         assert r.module is not None
         final = final_path(r.module, ordered)
-        first = seen.setdefault(final if r.package() else final.removesuffix(".py"), r)
-        if first is not r:
-            out.append(Conflict(site=(first.site_file(), 0), name=first.new))
+        first = seen.setdefault(final if r.package else final.removesuffix(".py"), r)
+        if first is not r and first.site is not None:
+            out.append(Conflict(site=(first.site, 0), name=first.new))
     for r in moving:
         assert r.module is not None
         init = _init_of(Path(r.module).parent.as_posix())
