@@ -1,0 +1,10 @@
+[resolve]
+[checks]
+[references]
+[references 1/1] entry 1: get_model -> get_dataset
+[rules]
+[rules 1/1] entry 1: get_model -> get_dataset: 1 refusal(s)
+tests/test_b.py:5: string-blindspot: mocker.patch.object(engine, 'get_model') — engine is Unknown, so a rename of .get_model is unverifiable
+[conflicts]
+tests/test_b.py:5: string-blindspot: mocker.patch.object(engine, 'get_model') — engine is Unknown, so a rename of .get_model is unverifiable
+1 blind spot(s) of .get_model: type or resolve them, or pass --allow-blindspots

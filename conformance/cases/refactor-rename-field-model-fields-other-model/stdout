@@ -1,0 +1,31 @@
+Renaming <columns> to <fields>:
+
+
+--- a/pkg/m.py
++++ b/pkg/m.py
+@@ -2,7 +2,7 @@
+ 
+ 
+ class Ds(BaseModel):
+-    columns: list[str]
++    fields: list[str]
+ 
+ 
+ class Other(BaseModel):
+
+--- a/pkg/reads.py
++++ b/pkg/reads.py
+@@ -3,6 +3,6 @@
+ 
+ def reads() -> list[object]:
+     return [
+-        Ds.model_fields["columns"],
++        Ds.model_fields["fields"],
+         Other.model_fields["columns"],
+     ]
+
+
+
+APPLIED. 2 file(s) changed:
+  pkg/m.py
+  pkg/reads.py

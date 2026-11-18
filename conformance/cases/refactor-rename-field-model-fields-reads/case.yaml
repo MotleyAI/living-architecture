@@ -1,0 +1,24 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- --apply
+- rename
+- --file
+- pkg/m.py
+- --symbol
+- Ds.columns
+- --new-name
+- fields
+fixture: refactor-pair
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - pkg/by_class.py
+  - pkg/by_instance.py
+  - pkg/m.py
+golden: manual
+note: field names read from model_fields and model_fields_set (subscript, get, in, not in) on the class, an instance and type() are rewritten

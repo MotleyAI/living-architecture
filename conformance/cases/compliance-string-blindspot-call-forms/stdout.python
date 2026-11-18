@@ -1,0 +1,3 @@
+src/forms.py:6: string-blindspot: getattr(x, 'columns') — x is Any, so a rename of .columns is unverifiable
+src/forms.py:7: string-blindspot: setattr(x, 'columns', …) — x is Any, so a rename of .columns is unverifiable
+src/forms.py:8: string-blindspot: patch.object(x, 'columns') — x is Any, so a rename of .columns is unverifiable

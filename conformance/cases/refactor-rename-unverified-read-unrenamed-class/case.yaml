@@ -1,0 +1,15 @@
+kind: paired
+languages:
+- python
+- typescript
+command: dr-refactor
+args:
+  python: [rename, --file, pkg/m.py, --symbol, Ds.columns, --new-name, fields, --without, 'pkg/m.py:8']
+  typescript: [rename, --file, src/m.ts, --symbol, Ds.columns, --new-name, fields, --without, 'src/m.ts:6']
+fixture: refactor-pair
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: 'a tuple whose only member use lands on a --without class is not rewritten, so its other read is not listed'

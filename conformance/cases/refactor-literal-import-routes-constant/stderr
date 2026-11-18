@@ -1,0 +1,9 @@
+[resolve]
+[checks]
+[references]
+[references 1/1] entry 1: edit_model -> edit_master
+[rules]
+[rules 1/1] entry 1: edit_model -> edit_master: clean
+[conflicts]
+other/strs.py:1: leftover: string mentions edit_model
+[write]

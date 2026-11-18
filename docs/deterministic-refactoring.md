@@ -31,7 +31,9 @@ member rename refuses while a receiver of the old name is untyped (`--allow-blin
 outside the renamed hierarchy declares it (`--with` / `--without PATH:LINE` classify each); `--keep PATH[:LINE]`
 leaves sites untouched, and `--docs` also rewrites mentions in comments, docstrings, strings and prose files,
 listing the rest as `leftover`. A parameter or field rename refuses the same way while a call keyword of the old name
-cannot be linked to it.
+cannot be linked to it. A string held by a once-bound name (a constant, a local, the elements of a constant
+tuple a loop reads) is rewritten at its literal when a use proves it names the renamed member, or when the checker
+needs a renamed literal-type member there; every other read of that name is listed as `unverified-read`.
 
 A run announces its phases on stderr as they start — `[resolve]`, `[checks]`, `[references]`, `[rules]`,
 `[conflicts]`, `[baseline]`, `[write]` — with `[references n/count]` as each entry's reference search starts and
@@ -72,12 +74,14 @@ only when:
 
 | Language | Checks |
 |---|---|
-| Python | `untyped-def`, `unannotated-attr`, `explicit-any`, `mock`, `rope-walk`, `attr-blindspot` |
-| TypeScript | `tsconfig` (`strict`, `noImplicitAny`, `noImplicitOverride` enabled), `explicit-any`, `untyped-def` (implicitly-`any` parameters, as the type checker sees them), `mock`, `attr-blindspot` |
+| Python | `untyped-def`, `unannotated-attr`, `explicit-any`, `mock`, `rope-walk`, `attr-blindspot`, `string-blindspot` |
+| TypeScript | `tsconfig` (`strict`, `noImplicitAny`, `noImplicitOverride` enabled), `explicit-any`, `untyped-def` (implicitly-`any` parameters, as the type checker sees them), `mock`, `attr-blindspot`, `string-blindspot` |
 
-`--select` picks a subset. `attr-blindspot` runs only with `--attr NAME`: it reports `x.NAME` accesses and member
-strings (`getattr(x, "NAME")`, `vi.spyOn(x, 'NAME')`, …) whose receiver the type checker cannot type: `Unknown`,
-`Any` or `Never` in Python (through the bundled basedpyright), `any` in TypeScript.
+`--select` picks a subset. `attr-blindspot` and `string-blindspot` run only with `--attr NAME`. `attr-blindspot`
+reports `x.NAME` accesses, and `string-blindspot` the accesses naming `NAME` by a string (`getattr(x, "NAME")`,
+`x.model_fields["NAME"]`, `vi.spyOn(x, 'NAME')`, `x['NAME']`, …), whose receiver the type checker cannot type:
+`Unknown`, `Any` or `Never` in Python (through the bundled basedpyright), `any` in TypeScript. A `string-blindspot` line
+ends with `and a miss raises no error` for a call that fails silently (`hasattr`, `getattr` with a default).
 
 ## Using it on an existing repo
 
@@ -124,7 +128,7 @@ the diff. See [`la:deterministic-refactor`](../plugin/skills/deterministic-refac
 Before renaming `X` or `X.attr`, close the blind spots the gate would otherwise miss: code that *might*
 reference the target but is currently invisible to the checker — untyped parameters/variables that could hold
 an `X`, classes whose attribute names match the target ("right-looking" names), unmarked overrides. The skill
-drives `dr-compliance --select attr-blindspot --attr <name>` to enumerate those sites, types them, and re-checks until the blast radius
+drives `dr-compliance --select attr-blindspot,string-blindspot --attr <name>` to enumerate those sites, types them, and re-checks until the blast radius
 is fully typed — so the post-rename gate is sound. See
 [`la:make-refactor-target-compliant`](../plugin/skills/make-refactor-target-compliant/SKILL.md).
 

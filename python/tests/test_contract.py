@@ -689,8 +689,8 @@ NEW_TEMPLATES = {
         " refactored",
     "refactor.keep-unneeded": "WARNING: --keep {site} matches nothing this rename touches",
     "refactor.leftover": "{path}:{line}: leftover: {where} mentions {old}",
-    "compliance.attr-required": "--select attr-blindspot needs --attr NAME",
-    "compliance.attr-unselected": "--attr needs attr-blindspot among the selected checks",
+    "compliance.attr-required": "--select {check} needs --attr NAME",
+    "compliance.attr-unselected": "--attr needs attr-blindspot or string-blindspot among the selected checks",
     "refactor.no-locator": "provide one of --offset, --line [--col], or --symbol",
     "refactor.symbol-unresolved": "{path}: {symbol} names no declaration; candidates: {candidates}",
     "refactor.symbol-ambiguous": "{path}: {symbol} names more than one declaration: {candidates}",
@@ -944,9 +944,9 @@ def test_refactor_prose_extensions() -> None:
 def test_attr_blindspot_is_a_check_of_both_languages() -> None:
     languages = _shared_yaml("languages.yaml")
     assert languages["python"]["compliance_checks"] == ["untyped-def", "unannotated-attr", "explicit-any", "mock",
-                                                        "rope-walk", "attr-blindspot"]
+                                                        "rope-walk", "attr-blindspot", "string-blindspot"]
     assert languages["typescript"]["compliance_checks"] == ["tsconfig", "explicit-any", "untyped-def", "mock",
-                                                            "attr-blindspot"]
+                                                            "attr-blindspot", "string-blindspot"]
 
 
 def test_every_printed_compliance_kind_is_a_check_id() -> None:

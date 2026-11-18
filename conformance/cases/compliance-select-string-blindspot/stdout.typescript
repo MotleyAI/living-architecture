@@ -1,0 +1,1 @@
+src/m.ts:2: string-blindspot: Reflect.get(o, 'formula') — o is any, so a rename of .formula is unverifiable

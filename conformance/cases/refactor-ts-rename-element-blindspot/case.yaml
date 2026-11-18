@@ -10,7 +10,7 @@ args:
 - Store.getModel
 - --new-name
 - getDataset
-fixture: refactor-ts
+fixture: refactor-ts-element
 git:
 - commit: init
 expect:

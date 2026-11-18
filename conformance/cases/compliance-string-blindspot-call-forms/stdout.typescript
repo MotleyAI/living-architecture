@@ -1,0 +1,3 @@
+src/forms.ts:2: string-blindspot: Reflect.get(x, 'columns') — x is any, so a rename of .columns is unverifiable
+src/forms.ts:3: string-blindspot: Reflect.set(x, 'columns', …) — x is any, so a rename of .columns is unverifiable
+src/forms.ts:4: string-blindspot: Object.getOwnPropertyDescriptor(x, 'columns') — x is any, so a rename of .columns is unverifiable

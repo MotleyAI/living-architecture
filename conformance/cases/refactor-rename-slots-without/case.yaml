@@ -1,0 +1,24 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- --apply
+- rename
+- --file
+- pkg/m.py
+- --symbol
+- Slotted.columns
+- --new-name
+- fields
+- --without
+- pkg/m.py:12
+fixture: refactor-pair
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - pkg/m.py
+golden: manual
+note: the __slots__ entry of a class passed to --without is neither rewritten nor listed

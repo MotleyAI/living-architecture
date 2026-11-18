@@ -1,0 +1,8 @@
+[resolve]
+[checks]
+[references]
+[references 1/1] entry 1: formula -> expression
+[rules]
+[rules 1/1] entry 1: formula -> expression: clean
+[conflicts]
+src/c.ts:9: unverified-read: DISPATCH_FORMULA holds 'formula', rewritten at src/c.ts:2; this read is not proven to name the renamed member

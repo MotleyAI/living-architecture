@@ -1,0 +1,24 @@
+Renaming <list_models> to <list_datasets>:
+
+
+--- a/pkg/mod.py
++++ b/pkg/mod.py
+@@ -1,2 +1,2 @@
+-def list_models() -> list[str]:
++def list_datasets() -> list[str]:
+     return []
+
+--- a/tests/test_p.py
++++ b/tests/test_p.py
+@@ -8,4 +8,4 @@
+ 
+ def test_a(engine: Engine) -> None:
+     assert callable(getattr(engine, "list_models"))
+-    assert callable(getattr(mod, "list_models"))
++    assert callable(getattr(mod, "list_datasets"))
+
+
+
+APPLIED. 2 file(s) changed:
+  pkg/mod.py
+  tests/test_p.py

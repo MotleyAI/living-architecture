@@ -1,0 +1,8 @@
+src/m.py:4: explicit-any: an `Any` type — use a real type or `object`
+src/m.py:5: string-blindspot: getattr(o, 'formula') — o is Any, so a rename of .formula is unverifiable
+src/m.py:8: explicit-any: an `Any` type — use a real type or `object`
+src/m.py:9: attr-blindspot: o.formula — o is Any, so a rename of .formula is unverifiable
+src/n.py:4: explicit-any: an `Any` type — use a real type or `object`
+src/n.py:5: attr-blindspot: o.formula — o is Any, so a rename of .formula is unverifiable
+src/n.py:5: string-blindspot: getattr(o, 'formula') — o is Any, so a rename of .formula is unverifiable
+src/n.py:5: attr-blindspot: o.formula — o is Any, so a rename of .formula is unverifiable

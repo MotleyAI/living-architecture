@@ -30,7 +30,7 @@ the refactor touches (`la-config get languages` lists the repo's).
    so offer to set one up (`commands.typecheck` and
    `la-typecheck --write-baseline`) first.
 3. **Type the receivers** (member renames):
-   `dr-compliance --select attr-blindspot --attr OLD <repo>` (one `--attr` per
+   `dr-compliance --select attr-blindspot,string-blindspot --attr OLD <repo>` (one `--attr` per
    old name) lists each receiver the checker cannot type. Type them
    (`la:make-refactor-target-compliant`) until it reports nothing; `dr-refactor`
    refuses a member rename while any remain.
@@ -41,7 +41,7 @@ the refactor touches (`la-config get languages` lists the repo's).
    - `stand-in`: a class outside the hierarchy declares `OLD`. `--with PATH:LINE` renames it too
      (a duck-typed implementation: a cache, a fake, a `cast()` target); `--without PATH:LINE` leaves it
      (an unrelated class).
-   - `attr-blindspot` on a receiver that cannot be typed (a third-party `Any`): `--allow-blindspots`,
+   - `attr-blindspot` or `string-blindspot` on a receiver that cannot be typed (a third-party `Any`): `--allow-blindspots`,
      and tell the user which.
    - `unlinked-keyword`: a call keyword `OLD=` the checker cannot link to the renamed parameter or field (a
      decorator that erases the signature, a `**kwargs` helper that copies its dict or passes it on). Read each
@@ -61,7 +61,7 @@ the refactor touches (`la-config get languages` lists the repo's).
    - `dr-mock-lint <tests>` passes; when the base branch already has findings,
      `dr-mock-lint --base <base-branch> <tests>` reports only the new ones;
    - the full non-integration test suite (`la-config get commands.test`) passes;
-   - by hand, only these: each `leftover` line the apply printed, each receiver and keyword
+   - by hand, only these: each `leftover` and `unverified-read` line the apply printed, each receiver and keyword
      `--allow-blindspots` let through, and the string-only references the language doc lists.
 7. Review the diff. The user commits — never commit or `git add -A`.
 

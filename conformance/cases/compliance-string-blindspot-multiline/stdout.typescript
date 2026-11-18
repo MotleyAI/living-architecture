@@ -1,0 +1,1 @@
+src/m.ts:2: string-blindspot: Reflect.get(x[ 0 ], 'columns') — x[ 0 ] is any, so a rename of .columns is unverifiable

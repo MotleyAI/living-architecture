@@ -1,14 +1,18 @@
-// A member name's receivers the checker types as `any`, the calls naming a member by a string, and the class,
-// interface and type-literal members declaring it: one scan behind `dr-compliance --attr` and a rename's guards.
+// A member name's receivers the checker types as `any`, the accesses naming a member by a string or a name, and the
+// class, interface and type-literal members declaring it: one scan behind `dr-compliance --attr` and a rename's guards.
 import type * as TS from 'typescript';
 import { language } from '../contract/index.js';
 import { ts } from '../lang/index.js';
 import { Lines } from './lines.js';
 
-interface StringForm {
+/** A registry string-member call: how it is spelled, its object's and member's argument positions, whether a miss
+ * raises no error (`silent`), or does so once the argument at `default` is passed. */
+export interface StringForm {
   call: string;
   object: number;
   member: number;
+  silent?: boolean;
+  default?: number;
 }
 
 /** A string-member call naming the member: its literal's inner span and its object argument. */
@@ -17,6 +21,14 @@ export interface FormCall {
   start: number;
   end: number;
   object: TS.Expression;
+}
+
+/** An access naming a member by an expression: a registry string-member call or an element access. */
+export interface NamedAccess {
+  access: TS.CallExpression | TS.ElementAccessExpression;
+  object: TS.Expression;
+  member: TS.Expression;
+  silent: boolean;
 }
 
 /** A class member declaration of the name: its name's start (a computed name's bracket), its line (1-based), its
@@ -29,7 +41,26 @@ export interface MemberDeclaration {
   computed: boolean;
 }
 
-const FORMS = (): StringForm[] => language('typescript').string_member_calls as StringForm[];
+const isPosition = (value: unknown): boolean => Number.isInteger(value) && (value as number) >= 0;
+
+function isStringForm(entry: unknown): entry is StringForm {
+  if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) return false;
+  const form = entry as Record<string, unknown>;
+  if (typeof form.call !== 'string' || !isPosition(form.object) || !isPosition(form.member)) return false;
+  return (form.silent === undefined || typeof form.silent === 'boolean') && (form.default === undefined || isPosition(form.default));
+}
+
+/** The registry's `string_member_calls` entries, validated; a malformed entry is an error. */
+export function stringForms(raw: unknown): StringForm[] {
+  if (!Array.isArray(raw)) throw new Error('languages.yaml: string_member_calls is not a list');
+  return raw.map((entry: unknown, i) => {
+    if (!isStringForm(entry)) throw new Error(`languages.yaml: string_member_calls[${i}] is malformed`);
+    return entry;
+  });
+}
+
+let forms: StringForm[] | null = null;
+const FORMS = (): StringForm[] => (forms ??= stringForms(language('typescript').string_member_calls));
 
 export function* walk(node: TS.Node): Generator<TS.Node> {
   yield node;
@@ -38,6 +69,9 @@ export function* walk(node: TS.Node): Generator<TS.Node> {
 
 export const isAny = (checker: TS.TypeChecker, node: TS.Node): boolean =>
   (checker.getTypeAtLocation(node).flags & ts().TypeFlags.Any) !== 0; // NOSONAR(S1529) — TypeFlags bitmask test
+
+/** `node`'s source text, each run of whitespace as one space. */
+const collapsed = (node: TS.Node): string => node.getText().replace(/\s+/gu, ' ');
 
 /** A single- or double-quoted string literal's inner span and text, without escapes. */
 export function plainString(node: TS.Node | undefined, source: TS.SourceFile): [number, number, string] | null {
@@ -59,59 +93,77 @@ function resolvesTo(checker: TS.TypeChecker, callee: TS.Expression, call: string
   return declarations.length > 0 && declarations.every((d) => d.getSourceFile().isDeclarationFile);
 }
 
-/** The registry's string-member calls whose member literal is `name`. */
-export function formCalls(checker: TS.TypeChecker, source: TS.SourceFile, name: string): FormCall[] {
-  const out: FormCall[] = [];
+/** `call` as the registry form it resolves to, else null. */
+function formAccess(checker: TS.TypeChecker, call: TS.CallExpression, source: TS.SourceFile): NamedAccess | null {
+  for (const form of FORMS()) {
+    const object = call.arguments[form.object];
+    const member = call.arguments[form.member];
+    if (object === undefined || member === undefined || ts().isSpreadElement(object) || ts().isSpreadElement(member)) continue;
+    if (!resolvesTo(checker, call.expression, form.call, source)) continue;
+    const silent = form.silent === true || (form.default !== undefined && call.arguments.length > form.default);
+    return { access: call, object, member, silent };
+  }
+  return null;
+}
+
+/** Every access of `source` naming a member by an expression, in position order. */
+export function namedAccesses(checker: TS.TypeChecker, source: TS.SourceFile): NamedAccess[] {
+  const out: NamedAccess[] = [];
   for (const node of walk(source)) {
-    if (!ts().isCallExpression(node)) continue;
-    for (const form of FORMS()) {
-      const literal = plainString(node.arguments[form.member], source);
-      const object = node.arguments[form.object];
-      if (literal?.[2] !== name || object === undefined || ts().isSpreadElement(object)) continue;
-      if (!resolvesTo(checker, node.expression, form.call, source)) continue;
-      out.push({ call: node, start: literal[0], end: literal[1], object });
-      break;
+    if (ts().isElementAccessExpression(node)) out.push({ access: node, object: node.expression, member: node.argumentExpression, silent: false });
+    else if (ts().isCallExpression(node)) {
+      const found = formAccess(checker, node, source);
+      if (found !== null) out.push(found);
     }
   }
   return out;
 }
 
-/** A receiver of `.name` typed `any`: a property or element access, or a string-member call's object; `literal` is
- * an element access's or a string form's literal span. */
+/** A string-named access as printed: `CALLEE(RECEIVER, 'NAME')`, `, …` standing for further arguments, or
+ * `RECEIVER['NAME']`. */
+export function siteText(access: TS.CallExpression | TS.ElementAccessExpression, receiver: TS.Expression, name: string): string {
+  if (ts().isElementAccessExpression(access)) return `${collapsed(receiver)}['${name}']`;
+  return `${collapsed(access.expression)}(${collapsed(receiver)}, '${name}'${access.arguments.length > 2 ? ', …' : ''})`;
+}
+
+/** A receiver of `.name` typed `any`; a string-named access has its printed `site`, its literal's inner span and
+ * whether a miss raises no error. */
 export interface AnyReceiver {
   position: number;
   receiver: string;
+  site?: string;
   literal?: [number, number];
+  silent?: boolean;
 }
 
-/** A receiver's source text, each run of whitespace as one space. */
-export function receiverText(receiver: TS.Node, source: TS.SourceFile): string {
-  return receiver.getText(source).replace(/\s+/g, ' ');
+/** An `any` receiver's finding: its template and its values other than path and line. */
+export function blindspotFinding(found: Pick<AnyReceiver, 'receiver' | 'site' | 'silent'>, name: string): { template: string; values: Record<string, unknown> } {
+  const values = { receiver: found.receiver, attr: name, type: language('typescript').any_type as string };
+  if (found.site === undefined) return { template: 'compliance.attr-blindspot', values };
+  return { template: found.silent === true ? 'compliance.string-blindspot-silent' : 'compliance.string-blindspot', values: { ...values, site: found.site } };
 }
 
-/** Every `x.name`, and `x['name']` by a plain string literal, whose receiver is typed `any`. */
+/** Every `x.name` whose receiver is typed `any`. */
 export function anyAccesses(checker: TS.TypeChecker, source: TS.SourceFile, name: string): AnyReceiver[] {
   const out: AnyReceiver[] = [];
   for (const node of walk(source)) {
-    const property = ts().isPropertyAccessExpression(node) && node.name.text === name;
-    const element = ts().isElementAccessExpression(node) ? plainString(node.argumentExpression, source) : null;
-    if (!(property || element?.[2] === name)) continue;
-    const receiver = (node as TS.PropertyAccessExpression | TS.ElementAccessExpression).expression;
-    if (!isAny(checker, receiver)) continue;
-    const found: AnyReceiver = { position: node.getStart(source), receiver: receiverText(receiver, source) };
-    if (element !== null) found.literal = [element[0], element[1]];
-    out.push(found);
+    if (!ts().isPropertyAccessExpression(node) || node.name.text !== name || !isAny(checker, node.expression)) continue;
+    out.push({ position: node.getStart(source), receiver: collapsed(node.expression) });
   }
   return out;
 }
 
-/** Every `x.name` and string-member object typed `any`, in position order. */
-export function anyReceivers(checker: TS.TypeChecker, source: TS.SourceFile, name: string): AnyReceiver[] {
-  const out = anyAccesses(checker, source, name);
-  for (const found of formCalls(checker, source, name)) {
-    if (isAny(checker, found.object)) out.push({ position: found.call.getStart(source), receiver: receiverText(found.object, source) });
-  }
-  return out.sort((a, b) => a.position - b.position);
+/** `found` naming `name` by a plain string literal on an object typed `any`, else null. */
+export function anyNamed(checker: TS.TypeChecker, source: TS.SourceFile, found: NamedAccess, name: string): AnyReceiver | null {
+  const literal = plainString(found.member, source);
+  if (literal?.[2] !== name || !isAny(checker, found.object)) return null;
+  const site = siteText(found.access, found.object, name);
+  return { position: found.access.getStart(source), receiver: collapsed(found.object), site, literal: [literal[0], literal[1]], silent: found.silent };
+}
+
+/** Every string-named access of `name` whose object is typed `any`. */
+export function anyNamedAccesses(checker: TS.TypeChecker, source: TS.SourceFile, name: string): AnyReceiver[] {
+  return namedAccesses(checker, source).flatMap((found) => anyNamed(checker, source, found, name) ?? []);
 }
 
 const OWNERS = (): Set<number> => {
