@@ -342,3 +342,28 @@ def test_a_mixed_display_rewrites_only_the_member_typed_string(
     leftover = message("refactor.leftover", path="pkg/s.py", line=5, where="string", old="old")
     assert (code, err) == (0, f"{leftover}\n")
     assert read(root, "pkg/s.py") == text.replace('"old"', '"done"', 2)
+
+
+LOOPED = """\
+from pkg.kinds import DriftKind
+
+
+def f(kind: DriftKind) -> None:
+    print(kind)
+
+
+def every() -> None:
+    for kind in ("edit_model", "drop"):
+        f(kind)
+"""
+
+
+def test_a_source_display_already_holding_the_new_value_is_a_name_conflict(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = write_project(tmp_path / "proj", {"pkg/kinds.py": KINDS, "pkg/loop.py": LOOPED})
+    before = file_tree(root)
+    code, out, err = run(root, _by_symbol("drop"), monkeypatch, capsys)
+    assert (code, out) == (1, "")
+    assert err.splitlines()[-1] == message("refactor.name-conflict", name="drop", path="pkg/loop.py", line=9)
+    assert file_tree(root) == before

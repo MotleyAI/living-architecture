@@ -87,7 +87,8 @@ describe('dr-compliance string-blindspot', () => {
   const compliance = (...argv: string[]) => run(tsProject({ 'src/m.ts': loose }), 'dr-compliance', [...argv, 'src']);
 
   it('reports both attribute checks without --select, sorted by position', () => {
-    expect(compliance('--attr', 'columns')).toEqual({ code: 1, out: access + named(), err: '' });
+    const any = `${message('compliance.explicit-any', { path: 'src/m.ts', line: 1, any: 'any', top: 'unknown' })}\n`;
+    expect(compliance('--attr', 'columns')).toEqual({ code: 1, out: any + access + named(), err: '' });
   });
 
   it('reports only the string-named accesses when selected', () => {

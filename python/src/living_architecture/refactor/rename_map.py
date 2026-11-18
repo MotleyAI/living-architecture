@@ -36,7 +36,7 @@ from living_architecture.refactor.literal_rename import LiteralRename, check_val
 from living_architecture.refactor.locators import RefactorError, cannot_rename, project_rel, resolve
 from living_architecture.refactor.map_file import MapEntry, MapError
 from living_architecture.refactor.member_namespace import Hierarchy, MemberCheck, RenamedMember
-from living_architecture.refactor.member_scan import probe_round
+from living_architecture.refactor.member_scan import FormCall, probe_round
 from living_architecture.refactor.module_rename import (
     ModuleRename,
     final_paths,
@@ -504,7 +504,7 @@ class RenameMap:
             if r.is_module():
                 renames.append(self._module(r))
             elif r.literal is not None:
-                renames.append(LiteralRename(self.session, r.rel, r.literal, str(r.entry.new_name), self.options))
+                renames.append(LiteralRename(self.session, r.rel, r.literal, str(r.entry.new_name), self.options, self.locator))
             elif r.entry.retarget is not None:
                 renames.append(self._retarget(r, finals.get(r.target_key)))  # pyright: ignore[reportArgumentType]
             else:
@@ -564,8 +564,13 @@ class RenameMap:
         if symbols:
             files = [(self.root / rel, self.session.snapshot.source(rel))
                      for rel in sorted({rel for r in symbol_renames for rel in r.candidates})]
+            named: dict[Path, tuple[SourceFile, list[FormCall]]] = {}
             with timed("rules"):
-                probe_round(self.index, files, symbols, self.session.load)
+                for r in symbol_renames:
+                    for rel, found in r.named_uses().items():
+                        calls = named.setdefault(self.root / rel, (self.session.snapshot.source(rel), []))[1]
+                        calls += [call for call, _ in found if not any(call.literal == c.literal for c in calls)]
+                probe_round(self.index, files, symbols, self.session.load, named)
         return facts
 
     # ---- rules
@@ -651,6 +656,7 @@ class RenameMap:
         held = r.held if isinstance(r, AliasRetarget) else []
         dropped = [*held, *(e for e, k in zip(r.edits, kept, strict=True) if k)]
         r.edits = [e for e, k in zip(r.edits, kept, strict=True) if not k]
+        r.list_unverified()
         r.blindspots = [b for b in r.blindspots if not keeps.kept(b.path, b.line)]
         r.leftovers = [f for f in r.leftovers if not keeps.kept(f.path, f.line, mark=False)]
         if isinstance(r, SymbolRename):

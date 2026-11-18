@@ -84,8 +84,9 @@ DECORATOR, READ, CLASS_VALUE = (NEW_KEYS[key][0] for key in ("name_decorators", 
     ],
 )
 def test_a_malformed_entry_is_a_contract_error(key: str, entry: object) -> None:
+    section = _section(**{key: entry})
     with pytest.raises(ValueError):
-        registry_forms(_section(**{key: entry}))
+        registry_forms(section)
 
 
 @pytest.mark.parametrize("key", sorted(NEW_KEYS))

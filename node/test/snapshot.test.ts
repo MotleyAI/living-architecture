@@ -63,7 +63,8 @@ describe('vendored snapshot', () => {
 
   it.each(['name_decorators', 'name_reads', 'name_class_values'])('serves the Python %s forms', (key) => {
     const entries: unknown = plain(language('python'))[key];
-    expect(Array.isArray(entries) && entries.length > 0).toBe(true);
+    expect(Array.isArray(entries)).toBe(true);
+    expect((entries as unknown[]).length).toBeGreaterThan(0);
     expect(language('typescript')[key]).toBeUndefined();
   });
 });

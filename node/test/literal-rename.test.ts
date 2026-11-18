@@ -56,6 +56,16 @@ describe('Literal member rename', () => {
     expect(read(root, 'src/use.ts')).toBe(USE_AFTER);
   });
 
+  it('refuses where a source display already holds the new value', () => {
+    const looped = "import type { Kind } from './kinds';\n\nexport function f(kind: Kind): Kind {\n  return kind;\n}\n\nfor (const kind of ['edit_model', 'drop'] as const) f(kind);\n";
+    const root = tsProject({ 'src/kinds.ts': KINDS, 'src/loop.ts': looped });
+    const before = files(root);
+    const result = renameKind(root, 'drop');
+    expect([result.code, result.out]).toEqual([1, '']);
+    expect(result.err.trimEnd().split('\n').at(-1)).toBe(message('refactor.name-conflict', { name: 'drop', path: 'src/loop.ts', line: 7 }));
+    expect(files(root)).toEqual(before);
+  });
+
   it('a locator on the string inside the type equals the path', () => {
     const bySymbol = tsProject(project);
     const byPosition = copyProject(bySymbol);

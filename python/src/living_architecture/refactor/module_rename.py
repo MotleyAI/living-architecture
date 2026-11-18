@@ -67,6 +67,7 @@ class ModuleRename(MapRename):
         self.renamed_names: set[str] = {self.old}
         self.blindspots: list[Finding] = []
         self.leftovers: list[Finding] = []
+        self.unverified: list[tuple[Finding, TextEdit]] = []
         self._file = self._module_file()
 
     @property
