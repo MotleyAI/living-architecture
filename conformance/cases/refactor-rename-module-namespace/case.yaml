@@ -1,0 +1,21 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- rename
+- --file
+- pkg/use.py
+- --line
+- '2'
+- --col
+- '15'
+- --new-name
+- ns2
+fixture: refactor-namespace
+git:
+- commit: init
+expect:
+  exit: 0
+note: a module rename rewrites chains through a namespace package
+golden: manual

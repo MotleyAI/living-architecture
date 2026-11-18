@@ -1,0 +1,4 @@
+[resolve]
+[checks]
+[references]
+pkg/b.py cannot hold its new text in its encoding ascii, so nothing was refactored

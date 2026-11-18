@@ -12,11 +12,6 @@ from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
 from typing import Any
 
-from rope.base.change import ChangeContents, ChangeSet, MoveResource
-from rope.base.fscommands import unicode_to_file_data
-from rope.base.project import Project
-from rope.base.resources import File
-
 from living_architecture.config import ConfigError, find_repo_root, load_config, source_files
 from living_architecture.contract import manifest, message
 from living_architecture.lang import LanguageServerError
@@ -37,7 +32,13 @@ from living_architecture.refactor.index_cache import IndexCache
 from living_architecture.refactor.keyed import TypeFacts, UnresolvedBase
 from living_architecture.refactor.keyword_links import signature_round
 from living_architecture.refactor.literal_rename import LiteralRename, check_value, literal_member_at
-from living_architecture.refactor.locators import RefactorError, cannot_rename, project_rel, resolve
+from living_architecture.refactor.locators import (
+    RefactorError,
+    cannot_rename,
+    named_source,
+    project_rel,
+    resolve,
+)
 from living_architecture.refactor.map_file import MapEntry, MapError, locator_text
 from living_architecture.refactor.member_namespace import Hierarchy, MemberCheck, RenamedMember
 from living_architecture.refactor.member_scan import FormCall, probe_round
@@ -58,6 +59,7 @@ from living_architecture.refactor.occurrence_index import (
     candidate_files,
 )
 from living_architecture.refactor.outcomes import Finding, covers
+from living_architecture.refactor.output_check import checked_write
 from living_architecture.refactor.progress import (
     Progress,
     Refusal,
@@ -108,7 +110,7 @@ from living_architecture.refactor.symbol_path import (
 from living_architecture.refactor.text_edits import TextEdit, apply_edits, merge_edits
 from living_architecture.refactor.timings import timed
 from living_architecture.refactor.word_table import load_table
-from living_architecture.refactor.writer import FileChanged, FileMove, FileWrite, apply, verify
+from living_architecture.refactor.writer import FileMove, FileWrite, apply, verify
 
 _WORD = re.compile(r"\w+")
 
@@ -404,7 +406,7 @@ class RenameMap:
         rel = project_rel(self.root, entry.path)
         if entry.module:
             return rel, 0
-        offset, _ = resolve(entry.locator, self.session.snapshot.source(rel), entry.file)
+        offset, _ = resolve(entry.locator, named_source(self.session.snapshot, rel), entry.file)
         return rel, offset
 
     def _definitions(self, rel: str, offset: int) -> list[tuple[Path, int]]:
@@ -431,7 +433,7 @@ class RenameMap:
             raise wildcard_refused(entry.file, symbol)
         rel = project_rel(self.root, entry.path)
         out: list[_Resolved] = []
-        for located in locate_all(self.session.snapshot.source(rel), symbol, entry.path):
+        for located in locate_all(named_source(self.session.snapshot, rel), symbol, entry.path):
             found = self.locator.at(rel, located.offset)
             out.append(_Resolved(entry, rel, found, found.key, offset=located.offset))
         return out
@@ -1157,33 +1159,6 @@ class RenameMap:
         self.rules(renames, resolved, failed, facts, keeps)
 
 
-def source_bytes(project: Project) -> dict[str, bytes]:
-    """Every file rope or la counts as Python source, its bytes read before rope computes a change set from them."""
-    root = Path(project.address).resolve()
-    rels = {path.relative_to(root).as_posix() for path in language_files(root, "python")}
-    rels |= {f.path for f in project.get_python_files()}
-    return {rel: (root / rel).read_bytes() for rel in sorted(rels)}
-
-
-def change_set_writes(changes: ChangeSet, before: dict[str, bytes]) -> tuple[list[FileWrite], list[FileMove]]:
-    """A rope change set as writes and moves, each write's old bytes as `before` holds them; `FileChanged` for a
-    write `before` does not hold, as its bytes cannot be checked against what rope read."""
-    writes: list[FileWrite] = []
-    moves: list[FileMove] = []
-    for change in changes.changes:
-        if isinstance(change, ChangeContents):
-            file: File = change.resource
-            file.read()
-            data = unicode_to_file_data(change.new_contents, newlines=file.newlines)
-            old = before.get(file.path)
-            if old is None:
-                raise FileChanged(file.path)
-            writes.append(FileWrite(rel=file.path, old=old, new=bytes(data)))
-        elif isinstance(change, MoveResource):
-            moves.append(FileMove(rel=change.resource.path, dest=change.new_resource.path))
-    return writes, moves
-
-
 def changes_of(snapshot: Snapshot, edits: list[TextEdit]) -> tuple[list[tuple[str, str]], list[FileWrite]]:
     """Each file `edits` change, by path: its printed diff, and its write."""
     described: list[tuple[str, str]] = []
@@ -1194,16 +1169,17 @@ def changes_of(snapshot: Snapshot, edits: list[TextEdit]) -> tuple[list[tuple[st
         if text == raw:
             continue
         described.append((rel, edit_description(rel, raw, text)))
-        writes.append(FileWrite(rel=rel, old=snapshot.data(rel), new=snapshot.encode(rel, text)))
+        writes.append(checked_write(snapshot, rel, text))
     return described, writes
 
 
 def emit(root: Path, headers: list[str], described: list[tuple[str, str]], apply_: bool, writes: list[FileWrite],
          moves: list[FileMove], progress: Progress, *, moved_code: bool = False,
-         edits: dict[str, list[Edit]] | None = None, creates: Sequence[FileWrite] = ()) -> None:
+         edits: dict[str, list[Edit]] | None = None, creates: Sequence[FileWrite] = (),
+         unchanged: Sequence[FileWrite] = ()) -> None:
     """Print the headers and each change's description (path, text) sorted by path, the realigned baseline included,
     then write them with `--apply`, `creates` after the moves, listing each changed path once; `BaselineFailed` when
-    the checker fails."""
+    the checker fails; `FileChanged` when a write or an `unchanged` read changed since it was read."""
     if baseline_runs(root):
         progress.phase("baseline")
     with timed("baseline"):
@@ -1219,12 +1195,12 @@ def emit(root: Path, headers: list[str], described: list[tuple[str, str]], apply
     if apply_:
         progress.phase("write")
         with timed("write"):
-            verify(root.resolve(), writes)
+            verify(root.resolve(), [*writes, *unchanged])
     print("\n".join(headers) + "\n\n\n" + "".join(text + "\n" for _, text in ordered))
     touched = list(dict.fromkeys(path for path, _ in ordered))
     if apply_:
         with timed("write"):
-            apply(root.resolve(), writes, moves, creates)
+            apply(root.resolve(), writes, moves, creates, unchanged)
         print(message("refactor.applied", count=len(touched)))
         for p in touched:
             print(message("refactor.applied-file", path=p))

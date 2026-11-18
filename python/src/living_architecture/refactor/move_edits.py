@@ -1,4 +1,5 @@
-"""Python moves as minimal edits: rope finds and resolves each occurrence, and every edit lands at a reference."""
+"""Python moves as minimal edits over each file's own text: la's static resolver finds and resolves each reference,
+and every edit lands at a reference."""
 
 from __future__ import annotations
 
@@ -6,23 +7,20 @@ import ast
 import io
 import re
 import tokenize
+from collections import defaultdict
 from collections.abc import Iterator
-from typing import cast
+from pathlib import Path
 
-from rope.base import libutils, pynames, pyobjects
-from rope.base.change import ChangeContents, ChangeSet, MoveResource
-from rope.base.project import Project
-from rope.base.resources import File, Folder, Resource
-from rope.refactor import occurrences
-from rope.refactor.importutils.importinfo import FromImport, ImportInfo
-from rope.refactor.move import MoveGlobal, MoveModule
+from living_architecture.refactor.move_project import MoveProject
+from living_architecture.refactor.python_source import SourceFile
+from living_architecture.refactor.static_resolver import ImportItem, Scope, Value
 
-from living_architecture.refactor.rope_patches import char_offset
-
-_LINE_TAIL = re.compile(r"[ \t]*(?:#[^\n]*)?\n?")
-_ITEM_TAIL = re.compile(r"[ \t]*(?:,[ \t]*)?(?:#[^\n]*)?\n?")
-_INIT = "__init__.py"
+_BREAK = re.compile(r"\r\n|\r|\n")
+_LINE_TAIL = re.compile(r"[ \t]*(?:#[^\r\n]*)?(?:\r\n|\r|\n)?")
+_ITEM_TAIL = re.compile(r"[ \t]*(?:,[ \t]*)?(?:#[^\r\n]*)?(?:\r\n|\r|\n)?")
 _SKIPPED_TOKENS = {tokenize.NL, tokenize.NEWLINE, tokenize.COMMENT, tokenize.ENDMARKER, tokenize.INDENT, tokenize.DEDENT}
+
+Positioned = ast.stmt | ast.expr | ast.alias
 
 
 class NameConflict(Exception):
@@ -47,270 +45,59 @@ def relative_module(importer: str, target: str) -> str:
     return "." * (len(here) - common + 1) + ".".join(there[common:])
 
 
-def _absolute(level: int, module: str, package: str) -> str | None:
-    if not level:
-        return module
-    parts = package.split(".") if package else []
-    if level - 1 > len(parts):
-        return None
-    return ".".join([*parts[: len(parts) - level + 1], *([module] if module else [])])
+def newline_of(text: str) -> str:
+    """The line break `text` uses: its first one, else `\\n`."""
+    found = _BREAK.search(text)
+    return found.group() if found else "\n"
 
 
-def _after_line(text: str, pos: int) -> int:
-    newline = text.find("\n", pos)
-    return len(text) if newline < 0 else newline + 1
+def after_line(text: str, pos: int) -> int:
+    found = _BREAK.search(text, pos)
+    return len(text) if found is None else found.end()
 
 
-def _line_start(text: str, pos: int) -> int:
-    return text.rfind("\n", 0, pos) + 1
+def line_start(text: str, pos: int) -> int:
+    return max(text.rfind("\n", 0, pos), text.rfind("\r", 0, pos)) + 1
 
 
-def _span(text: str, node: ast.stmt | ast.expr | ast.alias) -> tuple[int, int]:
-    end_line = node.end_lineno or node.lineno
-    return char_offset(text, node.lineno, node.col_offset), char_offset(text, end_line, node.end_col_offset or 0)
+def span(source: SourceFile, node: Positioned) -> tuple[int, int]:
+    start = source.offset(node.lineno, node.col_offset)
+    return start, source.offset(node.end_lineno or node.lineno, node.end_col_offset or 0)
 
 
-def _latest(imports: list[_Binding], line: int) -> _Binding | None:
-    """The last of `imports` written by `line`, else the last of them."""
-    before = [b for b in imports if b.line <= line]
-    return (before or imports or [None])[-1]
-
-
-def _named(aliases: list[ast.alias]) -> str:
+def named(aliases: list[ast.alias]) -> str:
     return ", ".join(f"{a.name} as {a.asname}" if a.asname else a.name for a in aliases)
 
 
-def _is_docstring(node: ast.stmt) -> bool:
+def is_docstring(node: ast.stmt) -> bool:
     return isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant) and isinstance(node.value.value, str)
 
 
-def leading_block_end(source: str) -> int:
+def block_end(source: SourceFile) -> int:
     """After the leading run of imports; without one, after the module docstring."""
-    body = ast.parse(source).body
+    body = source.tree.body if source.tree is not None else []
     end = 0
     index = 0
-    if body and _is_docstring(body[0]):
-        end = _after_line(source, _span(source, body[0])[1])
+    if body and is_docstring(body[0]):
+        end = after_line(source.text, span(source, body[0])[1])
         index = 1
     while index < len(body) and isinstance(body[index], (ast.Import, ast.ImportFrom)):
-        end = _after_line(source, _span(source, body[index])[1])
+        end = after_line(source.text, span(source, body[index])[1])
         index += 1
     return end
 
 
-class _Binding:
-    """A name bound in a scope; `obj` is what an import binds it to, `plain` the module of an unaliased `import`."""
-
-    def __init__(
-        self, line: int, obj: str | None = None, plain: str | None = None,
-        stmt: ast.Import | ast.ImportFrom | None = None, item: int = 0,
-    ) -> None:
-        self.line = line
-        self.obj = obj
-        self.plain = plain
-        self.stmt = stmt
-        self.item = item
-        self.removed = False
+def leading_block_end(text: str) -> int:
+    """`block_end` of a module's text."""
+    return block_end(SourceFile(Path(), text))
 
 
-class _Scope:
-    def __init__(self, parent: _Scope | None, is_class: bool, is_comprehension: bool = False) -> None:
-        self.parent = parent
-        self.is_class = is_class
-        self.is_comprehension = is_comprehension
-        self.bindings: dict[str, list[_Binding]] = {}
-        self.stars: list[tuple[ast.ImportFrom, str | None]] = []
-        self.globals: set[str] = set()
-        self.nonlocals: set[str] = set()
-        self.nonlocal_targets: set[str] = set()
+class Edits:
+    """Pending character edits of one text, applied at once; inserted lines end with its line break."""
 
-    def chain(self) -> Iterator[_Scope]:
-        yield self
-        scope = self.parent
-        while scope is not None:
-            if not scope.is_class:
-                yield scope
-            scope = scope.parent
-
-    def lookup(self, name: str) -> _Scope | None:
-        for scope in self.chain():
-            if name in scope.globals:
-                module = self.module()
-                return module if name in module.bindings else None
-            if name in scope.bindings:
-                return scope
-        return None
-
-    def module(self) -> _Scope:
-        scope = self
-        while scope.parent is not None:
-            scope = scope.parent
-        return scope
-
-    def nonlocal_target(self, name: str) -> _Scope | None:
-        """The enclosing function scope a `nonlocal name` here refers to."""
-        return next(
-            (s for s in self.chain() if s is not self and s.parent is not None and name not in s.nonlocals
-             and name in s.bindings),
-            None,
-        )
-
-    def is_function(self) -> bool:
-        """A function, lambda or comprehension scope: its bindings hold for its whole body."""
-        return self.parent is not None and not self.is_class
-
-
-class _Scopes:
-    """Every binding per scope, every import with its scope, and every loaded name with the scope it is read in."""
-
-    def __init__(self, tree: ast.Module, package: str) -> None:
-        self.package = package
-        self.module = _Scope(None, False)
-        self.current = self.module
-        self.imports: list[tuple[ast.Import | ast.ImportFrom, _Scope]] = []
-        self.loads: dict[tuple[int, int], tuple[ast.Name, _Scope]] = {}
-        self._deferred: list[tuple[_Scope, str, _Binding]] = []
-        self._declaring: list[_Scope] = []
-        self.visit(tree)
-        self._resolve_nonlocals()
-        self.import_scopes = {id(stmt): scope for stmt, scope in self.imports}
-
-    def visit(self, node: ast.AST) -> None:
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            self._function_def(node)
-        elif isinstance(node, ast.Lambda):
-            self._function(node, [node.body])
-        elif isinstance(node, ast.ClassDef):
-            self._class_def(node)
-        elif isinstance(node, (ast.ListComp, ast.SetComp, ast.GeneratorExp, ast.DictComp)):
-            self._comprehension(node)
-        elif isinstance(node, ast.Import):
-            self._import(node)
-        elif isinstance(node, ast.ImportFrom):
-            self._import_from(node)
-        elif isinstance(node, ast.Name):
-            self._name(node)
-        elif isinstance(node, ast.NamedExpr):
-            self._named_expr(node)
-        elif isinstance(node, ast.Global):
-            self.current.globals.update(node.names)
-        elif isinstance(node, ast.Nonlocal):
-            self.current.nonlocals.update(node.names)
-            self._declaring.append(self.current)
-        else:
-            self._bind_pattern(node)
-            self.generic_visit(node)
-
-    def generic_visit(self, node: ast.AST) -> None:
-        for child in ast.iter_child_nodes(node):
-            self.visit(child)
-
-    def _bind(self, name: str, binding: _Binding, scope: _Scope | None = None) -> None:
-        scope = scope or self.current
-        if name in scope.globals:
-            scope = self.module
-        elif name in scope.nonlocals:
-            self._deferred.append((scope, name, binding))
-            return
-        scope.bindings.setdefault(name, []).append(binding)
-
-    def _resolve_nonlocals(self) -> None:
-        """Bind each name a `nonlocal` statement declares in the scope it names, once every scope is known."""
-        for declaring in self._declaring:
-            for name in declaring.nonlocals:
-                target = declaring.nonlocal_target(name)
-                if target is not None:
-                    target.nonlocal_targets.add(name)
-        for declaring, name, binding in self._deferred:
-            target = declaring.nonlocal_target(name) or declaring
-            target.bindings.setdefault(name, []).append(binding)
-
-    def _inside(self, scope: _Scope, nodes: list) -> None:
-        outer, self.current = self.current, scope
-        for node in nodes:
-            self.visit(node)
-        self.current = outer
-
-    def _function(self, node: ast.FunctionDef | ast.AsyncFunctionDef | ast.Lambda, body: list) -> None:
-        args = node.args
-        for default in [*args.defaults, *(d for d in args.kw_defaults if d is not None)]:
-            self.visit(default)
-        scope = _Scope(self.current, False)
-        for arg in [*args.posonlyargs, *args.args, *args.kwonlyargs, args.vararg, args.kwarg]:
-            if arg is not None:
-                self._bind(arg.arg, _Binding(arg.lineno), scope)
-                if arg.annotation is not None:
-                    self.visit(arg.annotation)
-        self._inside(scope, body)
-
-    def _function_def(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
-        self._bind(node.name, _Binding(node.lineno))
-        for decorator in node.decorator_list:
-            self.visit(decorator)
-        if node.returns is not None:
-            self.visit(node.returns)
-        self._function(node, node.body)
-
-    def _class_def(self, node: ast.ClassDef) -> None:
-        self._bind(node.name, _Binding(node.lineno))
-        for child in [*node.decorator_list, *node.bases, *node.keywords]:
-            self.visit(child)
-        self._inside(_Scope(self.current, True), node.body)
-
-    def _comprehension(self, node: ast.ListComp | ast.SetComp | ast.GeneratorExp | ast.DictComp) -> None:
-        elements = [node.key, node.value] if isinstance(node, ast.DictComp) else [node.elt]
-        first, *rest = node.generators
-        self.visit(first.iter)
-        self._inside(_Scope(self.current, False, True), [first.target, *first.ifs, *rest, *elements])
-
-    def _named_expr(self, node: ast.NamedExpr) -> None:
-        """A walrus target binds in the nearest scope that is not a comprehension, as Python does."""
-        self.visit(node.value)
-        scope = self.current
-        while scope.is_comprehension and scope.parent is not None:
-            scope = scope.parent
-        self._bind(node.target.id, _Binding(node.lineno), scope)
-
-    def _import(self, node: ast.Import) -> None:
-        self.imports.append((node, self.current))
-        for index, alias in enumerate(node.names):
-            if alias.asname:
-                self._bind(alias.asname, _Binding(node.lineno, alias.name, None, node, index))
-            else:
-                root = alias.name.split(".")[0]
-                self._bind(root, _Binding(node.lineno, root, alias.name, node, index))
-
-    def _import_from(self, node: ast.ImportFrom) -> None:
-        self.imports.append((node, self.current))
-        base = _absolute(node.level, node.module or "", self.package)
-        for index, alias in enumerate(node.names):
-            if alias.name == "*":
-                self.current.stars.append((node, base))
-            else:
-                obj = f"{base}.{alias.name}" if base else None
-                self._bind(alias.asname or alias.name, _Binding(node.lineno, obj, None, node, index))
-
-    def _name(self, node: ast.Name) -> None:
-        if isinstance(node.ctx, ast.Load):
-            self.loads[(node.lineno, node.col_offset)] = (node, self.current)
-        else:
-            self._bind(node.id, _Binding(node.lineno))
-
-    def _bind_pattern(self, node: ast.AST) -> None:
-        """The name an `except ... as` clause or a match capture pattern binds."""
-        if isinstance(node, (ast.ExceptHandler, ast.MatchAs, ast.MatchStar)):
-            name = node.name
-        elif isinstance(node, ast.MatchMapping):
-            name = node.rest
-        else:
-            return
-        if name:
-            self._bind(name, _Binding(node.lineno))
-
-
-class _Edits:
     def __init__(self, text: str) -> None:
         self.text = text
+        self.newline = newline_of(text)
         self._pending: list[tuple[int, int, int, str]] = []
 
     def add(self, start: int, end: int, new: str) -> None:
@@ -319,10 +106,11 @@ class _Edits:
 
     def insert_line(self, pos: int, line: str) -> None:
         """`line` as its own line at line start `pos`, keeping a missing final newline missing."""
-        if pos == len(self.text) and self.text and not self.text.endswith("\n"):
-            self.add(pos, pos, "\n" + line)
+        line = line.replace("\n", self.newline)
+        if pos == len(self.text) and self.text and not self.text.endswith(("\n", "\r")):
+            self.add(pos, pos, self.newline + line)
         else:
-            self.add(pos, pos, line + "\n")
+            self.add(pos, pos, line + self.newline)
 
     def apply(self) -> str:
         out: list[str] = []
@@ -335,24 +123,89 @@ class _Edits:
         return "".join(out) + self.text[cursor:]
 
 
-class _File:
-    """One module's source, scopes and pending edits."""
+class File:
+    """One module's text, the resolver's scopes of it, and its pending edits."""
 
-    def __init__(self, resource: File, package: str) -> None:
-        self.resource = resource
-        self.text = resource.read()
-        self.tree = ast.parse(self.text)
+    def __init__(self, project: MoveProject, rel: str, package: str) -> None:
+        module = project.module(rel)
+        if module is None:
+            raise SyntaxError(rel)
+        self.project = project
+        self.rel = rel
+        self.source = project.snapshot.source(rel)
+        self.text = self.source.text
+        self.module = module
+        self.binder = module.binder
+        self.top = module.scope
         self.package = package
-        self.scopes = _Scopes(self.tree, package)
-        self.edits = _Edits(self.text)
+        self.edits = Edits(self.text)
+        self.bound: defaultdict[Scope, dict[str, list[ast.AST]]] = defaultdict(dict)
+        for scope, name, node in self.binder.bound:
+            self.bound[scope.owner(name)].setdefault(name, []).append(node)
+        self.names: list[tuple[ast.Name, Scope]] = []
+        self.attributes: list[tuple[ast.Attribute, Scope]] = []
+        self._loads()
         self.rewritten: set[int] = set()
+        self.removed: set[int] = set()
+        self.plain_now: dict[int, str] = {}
         self.uses_rewritten: dict[int, int] = {}
-        self.needs: list[tuple[str, _Binding | None, _Scope]] = []
+        self.needs: list[tuple[str, ast.AST | None, Scope]] = []
         self.after: list[tuple[ast.stmt, str]] = []
+        self.anchored: set[int] = set()
         self.drops: dict[int, tuple[ast.Import | ast.ImportFrom, set[int]]] = {}
 
-    def span(self, node: ast.stmt | ast.expr | ast.alias) -> tuple[int, int]:
-        return _span(self.text, node)
+    def _loads(self) -> None:
+        """Every name and attribute read, annotations included, with the scope it is read in."""
+        found: list[tuple[ast.expr, Scope]] = list(self.binder.loads)
+        for expr, scope in self.binder.annotations:
+            found += [(n, scope) for n in ast.walk(expr) if isinstance(n, (ast.Name, ast.Attribute))]
+        for node, scope in found:
+            if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load):
+                self.names.append((node, scope))
+            elif isinstance(node, ast.Attribute):
+                self.attributes.append((node, scope))
+
+    # ---- bindings
+
+    def lookup(self, scope: Scope, name: str) -> Scope | None:
+        """The scope binding `name` as read in `scope`, None when no scope does."""
+        owner = scope.resolving(name)
+        return owner if name in self.bound.get(owner, {}) else None
+
+    def item(self, node: ast.AST) -> ImportItem | None:
+        return self.binder.import_items.get(id(node)) if isinstance(node, ast.alias) else None
+
+    def line(self, node: ast.AST) -> int:
+        item = self.item(node)
+        return item.stmt.lineno if item is not None else int(getattr(node, "lineno", 0))
+
+    def obj(self, node: ast.AST) -> str | None:
+        """The dotted object an import binds its name to; None for any other binding."""
+        item = self.item(node)
+        if item is None or not isinstance(node, ast.alias):
+            return None
+        if isinstance(item.stmt, ast.Import):
+            return node.name if node.asname else node.name.split(".")[0]
+        base = self.binder.from_module(item.stmt)
+        return f"{base}.{node.name}" if base else None
+
+    def plain(self, node: ast.AST) -> str | None:
+        """The module an unaliased `import a.b` names (as rewritten); None for any other binding."""
+        item = self.item(node)
+        if item is None or not isinstance(item.stmt, ast.Import) or not isinstance(node, ast.alias) or node.asname:
+            return None
+        return self.plain_now.get(id(node), node.name)
+
+    def uses(self, name: str, scope: Scope) -> int:
+        return sum(1 for node, at in self.names if node.id == name and self.lookup(at, name) is scope)
+
+    def offset(self, node: Positioned) -> int:
+        return span(self.source, node)[0]
+
+    # ---- token-level edits
+
+    def span(self, node: Positioned) -> tuple[int, int]:
+        return span(self.source, node)
 
     def tokens(self, node: ast.stmt) -> list[tuple[str, int, int]]:
         start, end = self.span(node)
@@ -369,23 +222,18 @@ class _File:
         tokens = tokenize.generate_tokens(io.StringIO(self.text[start:end]).readline)
         return [tok.string for tok in tokens if tok.type == tokenize.COMMENT]
 
-    def binding_of(self, stmt: ast.Import | ast.ImportFrom, item: int, scope: _Scope) -> _Binding | None:
-        alias = stmt.names[item]
-        name = alias.asname or (alias.name.split(".")[0] if isinstance(stmt, ast.Import) else alias.name)
-        return next((b for b in scope.bindings.get(name, []) if b.stmt is stmt and b.item == item), None)
-
     def rewrite_module(self, stmt: ast.ImportFrom, new: str) -> None:
         tokens = self.tokens(stmt)
         cut = next(i for i, tok in enumerate(tokens) if i and tok[0] == "import")
         if not new:
             start, end = self.span(stmt)
             comments = "".join(f"  {c}" for c in self.comments(stmt))
-            self.edits.add(start, end, f"import {_named(stmt.names)}{comments}")
+            self.edits.add(start, end, f"import {named(stmt.names)}{comments}")
             return
         self.edits.add(tokens[1][1], tokens[cut - 1][2], new)
 
-    def rewrite_dotted(self, stmt: ast.Import, item: int, new: str) -> None:
-        start, end = self.span(stmt.names[item])
+    def rewrite_dotted(self, stmt: ast.Import, index: int, new: str) -> None:
+        start, end = self.span(stmt.names[index])
         name_end = start
         for text, tok_start, tok_end in self.tokens(stmt):
             if start <= tok_start < end:
@@ -394,8 +242,8 @@ class _File:
                 name_end = tok_end
         self.edits.add(start, name_end, new)
 
-    def remove_item(self, stmt: ast.Import | ast.ImportFrom, item: int) -> None:
-        self.drops.setdefault(id(stmt), (stmt, set()))[1].add(item)
+    def remove_item(self, stmt: ast.Import | ast.ImportFrom, index: int) -> None:
+        self.drops.setdefault(id(stmt), (stmt, set()))[1].add(index)
 
     def _remove_items(self, stmt: ast.Import | ast.ImportFrom, items: set[int]) -> None:
         if len(items) == len(stmt.names):
@@ -411,9 +259,9 @@ class _File:
             while last + 1 in indexes:
                 last += 1
             start, end = spans[first][0], spans[last][1]
-            line_start, line_end = _line_start(self.text, start), _after_line(self.text, end)
-            if bracketed and not self.text[line_start:start].strip() and _ITEM_TAIL.fullmatch(self.text[end:line_end]):
-                self.edits.add(line_start, line_end, "")
+            begin, stop = line_start(self.text, start), after_line(self.text, end)
+            if bracketed and not self.text[begin:start].strip() and _ITEM_TAIL.fullmatch(self.text[end:stop]):
+                self.edits.add(begin, stop, "")
             elif first:
                 self.edits.add(spans[first - 1][1], end, "")
             elif last + 1 < len(spans):
@@ -424,539 +272,195 @@ class _File:
 
     def remove_stmt(self, stmt: ast.stmt) -> None:
         start, end = self.span(stmt)
-        line_start, line_end = _line_start(self.text, start), _after_line(self.text, end)
-        before = self.text[line_start:start]
-        if not before.strip() and _LINE_TAIL.fullmatch(self.text[end:line_end]):
-            self.edits.add(line_start, line_end, "")
+        begin, stop = line_start(self.text, start), after_line(self.text, end)
+        before = self.text[begin:start]
+        if not before.strip() and _LINE_TAIL.fullmatch(self.text[end:stop]):
+            self.edits.add(begin, stop, "")
         elif before.rstrip().endswith(";"):
-            self.edits.add(self.text.rindex(";", line_start, start), end, "")
+            self.edits.add(self.text.rindex(";", begin, start), end, "")
         else:
             tail = re.match(r"[ \t]*;[ \t]*", self.text[end:])
             self.edits.add(start, end + (tail.end() if tail else 0), "")
 
     def insert_after(self, stmt: ast.stmt, line: str) -> None:
+        """`line` as the statement after `stmt` in its suite: on the next line at its indentation, or after `; ` in an
+        inline suite (one on its compound statement's header line)."""
+        self.anchored.add(id(stmt))
         start, end = self.span(stmt)
-        indent = re.match(r"[ \t]*", self.text[_line_start(self.text, start) :])
-        self.edits.insert_line(_after_line(self.text, end), (indent.group() if indent else "") + line)
+        if self._inline(stmt):
+            self.edits.add(end, end, f"; {line}")
+            return
+        indent = re.match(r"[ \t]*", self.text[line_start(self.text, start) :])
+        self.edits.insert_line(after_line(self.text, end), (indent.group() if indent else "") + line)
 
-    def use_at(self, offset: int) -> tuple[ast.Name, _Scope] | None:
-        line = self.text.count("\n", 0, offset) + 1
-        col = len(self.text[_line_start(self.text, offset) : offset].encode())
-        return self.scopes.loads.get((line, col))
+    def _inline(self, stmt: ast.stmt) -> bool:
+        """`stmt` sits in an inline suite: one starting on its header's line, after the header's `:`."""
+        suite = self._suite(stmt)
+        if not suite or suite[0].lineno != stmt.lineno:
+            return False
+        start = self.span(suite[0])[0]
+        return self.text[line_start(self.text, start) : start].rstrip().endswith(":")
 
-    def root_use(self, span: tuple[int, int]) -> tuple[ast.Name, _Scope, bool] | None:
-        """The root read of the name or attribute chain at `span`, its receiver parenthesized or not; and if a chain."""
-        start, end = span
-        try:
-            expr = ast.parse(f"({self.text[start:end]})", mode="eval").body
-        except SyntaxError:
-            return None
-        root = expr
+    def _suite(self, stmt: ast.stmt) -> list[ast.stmt]:
+        """The statement list holding `stmt`, below the module body; empty at the top level."""
+        tree = self.source.tree
+        for node in ast.walk(tree) if tree is not None else ():
+            for field in ("body", "orelse", "finalbody"):
+                suite = getattr(node, field, None)
+                if node is not tree and isinstance(suite, list) and any(s is stmt for s in suite):
+                    return suite
+        return []
+    def rewrite_use(self, node: ast.Attribute | ast.Name, scope: Scope, new: str, needs: str | None, obj: str | None = None) -> None:
+        """Rule 3: the chain `node` becomes `new`, its root free for `obj` (default: itself); `needs` is the module to
+        import."""
+        start, end = self.span(node)
+        root: ast.expr = node
         while isinstance(root, ast.Attribute):
             root = root.value
         if not isinstance(root, ast.Name):
-            return None
-        use = self.use_at(start + char_offset(f"({self.text[start:end]}", root.lineno, root.col_offset) - 1)
-        return None if use is None else (*use, isinstance(expr, ast.Attribute))
-
-    def eligible(self, span: tuple[int, int]) -> bool:
-        """A read at `span` whose root no function, lambda or comprehension scope binds other than by import (rule 2)."""
-        use = self.root_use(span)
-        if use is None:
-            return False
-        name, scope, _ = use
-        found = scope.lookup(name.id)
-        return found is None or not found.is_function() or all(b.stmt is not None for b in found.bindings[name.id])
-
-    def import_binding(self, name: ast.Name, scope: _Scope) -> tuple[_Scope | None, _Binding | None]:
-        """The scope binding `name` from `scope`, and the import there that binds it at `name`'s line."""
-        found = scope.lookup(name.id)
-        if found is None:
-            return None, None
-        return found, _latest([b for b in found.bindings[name.id] if b.stmt is not None], name.lineno)
-
-    def local_import(self, name: ast.Name, found: _Scope) -> _Binding | None:
-        """The import of `name` written in `found` itself (not redirected there by `global`/`nonlocal`) a new one follows."""
-        imports = [
-            b for b in found.bindings[name.id] if b.stmt is not None and self.scopes.import_scopes[id(b.stmt)] is found
-        ]
-        return _latest(imports, name.lineno)
-
-    def import_chains(self) -> Iterator[tuple[tuple[int, int], str, ast.Attribute]]:
-        """Each attribute chain read from an import-bound root: its span, the dotted path it names, and the node."""
-        for node in ast.walk(self.tree):
-            if not isinstance(node, ast.Attribute):
-                continue
-            parts: list[str] = []
-            root: ast.expr = node
-            while isinstance(root, ast.Attribute):
-                parts.append(root.attr)
-                root = root.value
-            use = self.scopes.loads.get((root.lineno, root.col_offset)) if isinstance(root, ast.Name) else None
-            if use is None:
-                continue
-            binding = self.import_binding(*use)[1]
-            if binding is not None and binding.obj is not None:
-                yield self.span(node), ".".join([binding.obj, *reversed(parts)]), node
-
-    def rewrite_use(self, span: tuple[int, int], new: str, needs: str | None, obj: str | None = None) -> None:
-        """Rule 3: the chain becomes `new`, its root free for `obj` (default: itself); `needs` is the module to import."""
-        start, end = span
-        use = self.root_use(span)
-        if use is None or not use[2]:
             return
-        name, scope, _ = use
-        root = new.split(".")[0]
-        self.check_free(root, obj or root, scope)
-        found, binding = self.import_binding(name, scope)
+        first = new.split(".")[0]
+        self.check_free(first, obj or first, scope)
+        found = self.lookup(scope, root.id)
+        imports = self._imports(found, root.id)
+        binding = self._latest(imports, root.lineno)
         self.edits.add(start, end, new)
         if binding is not None:
             self.uses_rewritten[id(binding)] = self.uses_rewritten.get(id(binding), 0) + 1
         if needs is not None:
-            place = self.local_import(name, found) if found is not None else None
-            self.needs.append((needs, place, self.scopes.module if place is None or found is None else found))
+            own = [b for b in imports if (item := self.item(b)) is not None and item.scope is found]
+            place = self._latest(own, root.lineno)
+            self.needs.append((needs, place, found if place is not None and found is not None else self.top))
 
-    def _uses(self, name: str, scope: _Scope) -> int:
-        return sum(1 for node, at in self.scopes.loads.values() if node.id == name and at.lookup(name) is scope)
+    def root_rebound(self, scope: Scope, node: ast.Attribute | ast.Name) -> bool:
+        """The chain's root is bound by a plain import this refactor rewrote to bind another name."""
+        root: ast.expr = node
+        while isinstance(root, ast.Attribute):
+            root = root.value
+        if not isinstance(root, ast.Name):
+            return False
+        binding = self._latest(self._imports(self.lookup(scope, root.id), root.id), root.lineno)
+        target = self.plain_now.get(id(binding)) if binding is not None else None
+        return target is not None and target.split(".")[0] != root.id
 
-    def bound(self, scope: _Scope) -> Iterator[tuple[str, _Binding]]:
-        for name, bindings in scope.bindings.items():
-            for binding in bindings:
-                yield name, binding
+    def _imports(self, scope: Scope | None, name: str) -> list[ast.AST]:
+        return [b for b in self.bound[scope][name] if self.item(b) is not None] if scope is not None else []
 
-    def _all_scopes(self) -> Iterator[_Scope]:
-        seen: dict[int, _Scope] = {id(self.scopes.module): self.scopes.module}
-        for _, scope in self.scopes.imports:
+    def _latest(self, imports: list[ast.AST], line: int) -> ast.AST | None:
+        """The last of `imports` written by `line`, else the last of them."""
+        before = [b for b in imports if self.line(b) <= line]
+        return (before or imports or [None])[-1]
+
+    def resolve(self, scope: Scope, expr: ast.expr) -> Value:
+        """`expr`'s value; a root bound outside any function or comprehension reads the last import written by its
+        line, whatever else rebinds it there."""
+        resolver = self.project.resolver
+        if isinstance(expr, ast.Attribute):
+            base = self.resolve(scope, expr.value)
+            return resolver.member(base[1], expr.attr) if base is not None and base[0] == "module" else None
+        owner = self.lookup(scope, expr.id) if isinstance(expr, ast.Name) else None
+        latest = self._latest(self._imports(owner, expr.id), expr.lineno) if isinstance(expr, ast.Name) else None
+        if owner is None or owner.kind in ("function", "comprehension") or not isinstance(latest, ast.alias):
+            return resolver.resolve(self.module, scope, expr)
+        item = self.item(latest)
+        if item is not None and isinstance(item.stmt, ast.ImportFrom):
+            return resolver.member(self.binder.from_module(item.stmt), latest.name)
+        return ("module", self.obj(latest) or latest.name)
+
+    def _scopes(self) -> Iterator[Scope]:
+        seen: dict[int, Scope] = {id(self.top): self.top}
+        for _, scope, _ in self.binder.imports:
             seen.setdefault(id(scope), scope)
         return iter(seen.values())
 
     def finish(self) -> str:
         """Remove imports whose every use was rewritten, add the imports rewritten uses need, and apply."""
-        for scope in self._all_scopes():
-            for name, binding in self.bound(scope):
-                self._drop_if_all_rewritten(name, binding, scope)
+        for scope in self._scopes():
+            for name, nodes in self.bound.get(scope, {}).items():
+                for node in nodes:
+                    self._drop_if_all_rewritten(name, node, scope)
         self._add_needed_imports()
         for stmt, line in self.after:
             self.insert_after(stmt, line)
+        gone = {id(stmt) for stmt, items in self.drops.values() if len(items) == len(stmt.names)} - self.anchored
         for stmt, items in self.drops.values():
             self._remove_items(stmt, items)
+        self._fill_emptied(gone)
         return self.edits.apply()
 
-    def _drop_if_all_rewritten(self, name: str, binding: _Binding, scope: _Scope) -> None:
-        count = self.uses_rewritten.get(id(binding), 0)
-        stmt = binding.stmt
-        if (
-            count and stmt is not None and id(stmt) not in self.rewritten and name not in scope.nonlocal_targets
-            and self._uses(name, scope) == count
-        ):
-            binding.removed = True
-            self.remove_item(stmt, binding.item)
+    def _fill_emptied(self, gone: set[int]) -> None:
+        """`pass` in each block whose every statement this refactor removes, so the block stays valid."""
+        tree = self.source.tree
+        for node in ast.walk(tree) if tree is not None and gone else ():
+            for field in ("body", "orelse", "finalbody"):
+                suite = getattr(node, field, None)
+                if node is tree or not isinstance(suite, list) or not suite or any(id(s) not in gone for s in suite):
+                    continue
+                start = self.span(suite[0])[0]
+                if self._inline(suite[0]):
+                    self.edits.add(start, start, "pass")
+                else:
+                    indent = self.text[line_start(self.text, start) : start]
+                    self.edits.insert_line(after_line(self.text, self.span(suite[-1])[1]), indent + "pass")
+
+    def _drop_if_all_rewritten(self, name: str, node: ast.AST, scope: Scope) -> None:
+        count = self.uses_rewritten.get(id(node), 0)
+        item = self.item(node)
+        named = any(name in s.nonlocals and s.owner(name) is scope for s in self.binder.scopes)
+        if count and item is not None and id(item.stmt) not in self.rewritten and self.uses(name, scope) == count \
+                and not named:
+            self.removed.add(id(node))
+            self.remove_item(item.stmt, item.index)
 
     def _add_needed_imports(self) -> None:
         added: set[tuple[str, int]] = set()
         for module, binding, scope in self.needs:
-            key = (module, id(binding.stmt) if binding is not None else 0)
+            item = self.item(binding) if binding is not None else None
+            key = (module, id(item.stmt) if item is not None else 0)
             if key in added or self.binds_module(scope, module):
                 continue
             added.add(key)
             self.check_free(module.split(".")[0], module.split(".")[0], scope)
-            if binding is not None and binding.stmt is not None:
-                self.insert_after(binding.stmt, f"import {module}")
+            if item is not None:
+                self.insert_after(item.stmt, f"import {module}")
             else:
-                self.edits.insert_line(leading_block_end(self.text), f"import {module}")
+                self.edits.insert_line(block_end(self.source), f"import {module}")
 
-    def binds_module(self, scope: _Scope, module: str) -> bool:
+    def binds_module(self, scope: Scope, module: str) -> bool:
         root = module.split(".")[0]
-        found = scope.lookup(root)
-        if found is None:
-            return False
-        return any(
-            not b.removed and b.plain is not None and (b.plain == module or b.plain.startswith(module + "."))
-            for b in found.bindings[root]
-        )
+        found = self.lookup(scope, root)
+        if found is not None and any(
+            id(b) not in self.removed and (plain := self.plain(b)) is not None
+            and (plain == module or plain.startswith(module + "."))
+            for b in self.bound[found][root]
+        ):
+            return True
+        return any(self._rewritten_binds(alias, scope, module) for alias in self._rewritten_plain())
 
-    def check_free(self, name: str, obj: str, scope: _Scope) -> None:
+    def _rewritten_plain(self) -> Iterator[ast.alias]:
+        for stmt, _, _ in self.binder.imports:
+            if isinstance(stmt, ast.Import):
+                yield from (a for a in stmt.names if id(a) in self.plain_now and id(a) not in self.removed)
+
+    def _rewritten_binds(self, alias: ast.alias, scope: Scope, module: str) -> bool:
+        """`alias`, a plain import rewritten under a new root, is visible from `scope` and binds `module`."""
+        target = self.plain_now[id(alias)]
+        if target != module and not target.startswith(module + "."):
+            return False
+        name = alias.name.split(".")[0]
+        owner = self.lookup(scope, name)
+        return owner is not None and any(b is alias for b in self.bound[owner][name])
+
+    def check_free(self, name: str, obj: str, scope: Scope) -> None:
         """Refuse when `name` already resolves, from `scope`, to anything but `obj`."""
-        found = scope.lookup(name)
+        found = self.lookup(scope, name)
         if found is None:
             return
-        for binding in found.bindings[name]:
-            if not binding.removed and binding.obj != obj:
-                raise NameConflict(name, self.resource.path, binding.line)
+        for node in self.bound[found][name]:
+            if id(node) not in self.removed and self.obj(node) != obj:
+                raise NameConflict(name, self.rel, self.line(node))
 
 
-def _package(resource: Resource) -> str:
-    name = libutils.modname(resource)
-    return name if resource.name == _INIT else name.rpartition(".")[0]
-
-
-def _explicitly_binds(resource: Resource, name: str) -> bool:
-    """Whether the module (a package: its `__init__`) binds `name` at module level, by import or assignment."""
-    if isinstance(resource, Folder):
-        if not resource.has_child(_INIT):
-            return False
-        resource = resource.get_child(_INIT)
-    if not isinstance(resource, File):
-        return False
-    scopes = _Scopes(ast.parse(resource.read()), _package(resource))
-    return name in scopes.module.bindings
-
-
-def _primary_range(occurrence: occurrences.Occurrence) -> tuple[int, int]:
-    return cast(tuple[int, int], occurrence.get_primary_range())
-
-
-def _primary(occurrence: occurrences.Occurrence) -> pynames.PyName | None:
-    return cast(tuple[pynames.PyName | None, object], occurrence.get_primary_and_pyname())[0]
-
-
-def _module_object(occurrence: occurrences.Occurrence) -> Resource | None:
-    primary = _primary(occurrence)
-    if primary is None:
-        return None
-    obj = primary.get_object()
-    if isinstance(obj, (pyobjects.PyModule, pyobjects.PyPackage)):
-        return obj.get_resource()
-    return None
-
-
-def _from(stmt: ast.ImportFrom, package: str, target: str) -> str:
+def from_name(stmt: ast.ImportFrom, package: str, target: str) -> str:
     """The module `stmt` names `target` by: in its own relative or absolute form."""
     return relative_module(package, target) if stmt.level else target
-
-
-def _finder(project: Project, name: str, pyname: object) -> occurrences.Finder:
-    return occurrences.create_finder(project, name, pyname, imports=False, keywords=False)
-
-
-class _ModuleMove:
-    """The paths of one `move-module` and the per-file rewrites of its imports and uses."""
-
-    def __init__(self, project: Project, mover: MoveModule, dest: Resource) -> None:
-        self.source = mover.source
-        self.basename = mover.old_name
-        self.old = libutils.modname(self.source)
-        dest_name = libutils.modname(dest)
-        self.new = f"{dest_name}.{self.basename}" if dest_name else self.basename
-        self.new_parent = self.new.rpartition(".")[0]
-        self.old_parent = self.old.rpartition(".")[0]
-        self.finder = _finder(project, self.basename, mover.old_pyname)
-        self.binds: dict[str, bool] = {}
-
-    def mapped(self, name: str) -> str | None:
-        return self.new + name[len(self.old) :] if name == self.old or name.startswith(self.old + ".") else None
-
-    def moves(self, resource: Resource) -> bool:
-        return resource == self.source or resource.path.startswith(self.source.path + "/")
-
-    def new_package(self, resource: Resource) -> str:
-        name = libutils.modname(resource)
-        new_name = self.mapped(name) or name
-        return new_name if resource.name == _INIT else new_name.rpartition(".")[0]
-
-    def rewrite_import(self, file: _File, stmt: ast.Import, scope: _Scope) -> None:
-        for index, alias in enumerate(stmt.names):
-            target = self.mapped(alias.name)
-            if target is None:
-                continue
-            file.rewrite_dotted(stmt, index, target)
-            file.rewritten.add(id(stmt))
-            binding = file.binding_of(stmt, index, scope)
-            if binding is not None and binding.plain is not None:
-                binding.plain = target
-
-    def rewrite_from(self, file: _File, stmt: ast.ImportFrom, moved: bool, package: str) -> None:
-        base = _absolute(stmt.level, stmt.module or "", file.package)
-        if base is None:
-            return
-        current = "." * stmt.level + (stmt.module or "")
-        relocated = moved and stmt.level > 0
-        target = self.mapped(base)
-        hits = self._hits(stmt, base)
-        if target is not None:
-            if not relocated and _from(stmt, package, target) != current:
-                file.rewrite_module(stmt, _from(stmt, package, target))
-                file.rewritten.add(id(stmt))
-            return
-        if hits and len(hits) == len(stmt.names):
-            file.rewrite_module(stmt, _from(stmt, package, self.new_parent) if self.new_parent else "")
-            file.rewritten.add(id(stmt))
-            return
-        if hits:
-            self._split(file, stmt, hits, package)
-        if relocated and _from(stmt, package, base) != current:
-            file.rewrite_module(stmt, _from(stmt, package, base))
-
-    def _hits(self, stmt: ast.ImportFrom, base: str) -> list[int]:
-        if base != self.old_parent:
-            return []
-        return [i for i, alias in enumerate(stmt.names) if alias.name == self.basename]
-
-    def _split(self, file: _File, stmt: ast.ImportFrom, hits: list[int], package: str) -> None:
-        for hit in hits:
-            file.remove_item(stmt, hit)
-        named = _named([stmt.names[i] for i in hits])
-        line = f"from {_from(stmt, package, self.new_parent)} import {named}" if self.new_parent else f"import {named}"
-        file.after.append((stmt, line))
-
-    def rewrite_uses(self, file: _File) -> None:
-        seen: set[tuple[int, int]] = set()
-        for occurrence in self.finder.find_occurrences(resource=file.resource):
-            span = _primary_range(occurrence)
-            seen.add(span)
-            holder = _module_object(occurrence)
-            if holder is not None and not self._binds(holder) and file.eligible(span):
-                file.rewrite_use(span, self.new, self.new)
-        for span, path, _ in file.import_chains():
-            if span not in seen and path == self.old and not self._binds(self.source.parent) and file.eligible(span):
-                file.rewrite_use(span, self.new, self.new)
-
-    def _binds(self, holder: Resource) -> bool:
-        """Whether `holder`, the moved module's package as a use reaches it, binds the module's name itself."""
-        if holder.path not in self.binds:
-            self.binds[holder.path] = _explicitly_binds(holder, self.basename)
-        return self.binds[holder.path]
-
-
-def module_move_changes(project: Project, mover: MoveModule, dest: Resource) -> ChangeSet:
-    """`move-module`: each import of the module rewritten in place, each broken use rewritten, then the move."""
-    move = _ModuleMove(project, mover, dest)
-    changes = ChangeSet(f"Moving module <{move.basename}>")
-    for resource in project.get_python_files():
-        moved = move.moves(resource)
-        text = resource.read()
-        if not moved and move.basename not in text:
-            continue
-        file = _File(resource, _package(resource))
-        package = move.new_package(resource) if moved else file.package
-        for stmt, scope in file.scopes.imports:
-            if isinstance(stmt, ast.Import):
-                move.rewrite_import(file, stmt, scope)
-            else:
-                move.rewrite_from(file, stmt, moved, package)
-        move.rewrite_uses(file)
-        result = file.finish()
-        if result != text:
-            changes.add_change(ChangeContents(resource, result))
-    changes.add_change(MoveResource(move.source, dest.path))
-    return changes
-
-
-def _all_lists(tree: ast.Module) -> Iterator[list[ast.expr]]:
-    for stmt in tree.body:
-        if (
-            isinstance(stmt, ast.Assign)
-            and isinstance(stmt.value, (ast.List, ast.Tuple))
-            and any(isinstance(t, ast.Name) and t.id == "__all__" for t in stmt.targets)
-        ):
-            yield stmt.value.elts
-
-
-def _all_entry(file: _File, name: str) -> None:
-    for elements in _all_lists(file.tree):
-        index = next((i for i, e in enumerate(elements) if isinstance(e, ast.Constant) and e.value == name), None)
-        if index is None:
-            continue
-        file.remove_elements([file.span(e) for e in elements], {index}, True)
-        return
-
-
-def _import_lines(info: ImportInfo, keep: list[tuple[str, str | None]]) -> str:
-    named = [f"{name} as {alias}" if alias else name for name, alias in keep]
-    if isinstance(info, FromImport):
-        return f"from {info.module_name} import {', '.join(named)}"
-    return "\n".join(f"import {n}" for n in named)
-
-
-class _SymbolMove:
-    """The paths of one `move-symbol` and the per-file edits of its references."""
-
-    def __init__(self, project: Project, mover: MoveGlobal, dest: File) -> None:
-        self.mover = mover
-        self.source = mover.source
-        self.dest = dest
-        self.name = mover.old_name
-        self.old = libutils.modname(self.source)
-        self.new = libutils.modname(dest)
-        self.region = cast(tuple[int, int], mover._get_moving_region())
-        self.finder = _finder(project, self.name, mover.old_pyname)
-
-    def edit(self, file: _File) -> None:
-        is_dest = file.resource == self.dest
-        _symbol_imports(file, self.old, self.new, self.name, is_dest)
-        if file.resource == self.source:
-            remaining = any(self._outside(file, o) for o in self.finder.find_occurrences(resource=file.resource))
-            _source_edits(file, self.region, self.name, self.new, remaining)
-        else:
-            self._rewrite_uses(file, is_dest)
-        if is_dest:
-            _dest_edits(file, self.mover, self.old, self.new, self.name)
-
-    def _rewrite(self, file: _File, span: tuple[int, int], is_dest: bool) -> None:
-        if not file.eligible(span):
-            return
-        if is_dest:
-            file.rewrite_use(span, self.name, None, f"{self.old}.{self.name}")
-        else:
-            file.rewrite_use(span, f"{self.new}.{self.name}", self.new)
-
-    def _outside(self, file: _File, occurrence: occurrences.Occurrence) -> bool:
-        span = _primary_range(occurrence)
-        return not (self.region[0] <= span[0] < self.region[1] or occurrence.is_defined()) and file.eligible(span)
-
-    def _rewrite_uses(self, file: _File, is_dest: bool) -> None:
-        stars: list[ast.ImportFrom] = []
-        seen: set[tuple[int, int]] = set()
-        for occurrence in self.finder.find_occurrences(resource=file.resource):
-            span = _primary_range(occurrence)
-            seen.add(span)
-            if _module_object(occurrence) == self.source:
-                self._rewrite(file, span, is_dest)
-            elif _primary(occurrence) is None and not is_dest:
-                stars.extend(_star_imports(file, span[0], self.old))
-        for span, path, node in file.import_chains():
-            if span not in seen and node.attr == self.name and path == f"{self.old}.{self.name}":
-                self._rewrite(file, span, is_dest)
-        for stmt in dict.fromkeys(stars):
-            file.after.append((stmt, f"from {_from(stmt, file.package, self.new)} import {self.name}"))
-
-
-def symbol_move_changes(project: Project, mover: MoveGlobal, dest: File) -> ChangeSet:
-    """`move-symbol`: the moved code, its imports, and each reference edited in place."""
-    move = _SymbolMove(project, mover, dest)
-    changes = ChangeSet(f"Moving global <{move.name}>")
-    for resource in project.get_python_files():
-        text = resource.read()
-        if resource not in (move.source, dest) and move.name not in text:
-            continue
-        file = _File(resource, _package(resource))
-        move.edit(file)
-        result = file.finish()
-        if result != text:
-            changes.add_change(ChangeContents(resource, result))
-    return changes
-
-
-def _symbol_imports(file: _File, old: str, new: str, name: str, is_dest: bool) -> None:
-    for stmt, scope in file.scopes.imports:
-        if not isinstance(stmt, ast.ImportFrom) or _absolute(stmt.level, stmt.module or "", file.package) != old:
-            continue
-        hits = [i for i, alias in enumerate(stmt.names) if alias.name == name]
-        if not hits:
-            continue
-        _move_items(file, stmt, hits, None if is_dest else _from(stmt, file.package, new))
-        if is_dest:
-            _unalias(file, stmt, hits, scope, f"{old}.{name}")
-
-
-def _unalias(file: _File, stmt: ast.ImportFrom, hits: list[int], scope: _Scope, obj: str) -> None:
-    """Destination: free the removed import's names; each use of an alias it bound becomes the symbol's name."""
-    for hit in hits:
-        binding = file.binding_of(stmt, hit, scope)
-        if binding is not None:
-            binding.removed = True
-    name = obj.rpartition(".")[2]
-    for alias in {a for i in hits if (a := stmt.names[i].asname) and a != name}:
-        other = next((b for b in scope.bindings[alias] if b.stmt is not stmt or b.item not in hits), None)
-        if other is not None:
-            raise NameConflict(alias, file.resource.path, other.line)
-        for node, at in file.scopes.loads.values():
-            if node.id == alias and at.lookup(alias) is scope:
-                file.check_free(name, obj, at)
-                file.edits.add(*file.span(node), name)
-
-
-def _move_items(file: _File, stmt: ast.ImportFrom, hits: list[int], target: str | None) -> None:
-    """Point the `hits` items of `stmt` at `target`, or drop them when `target` is None."""
-    if target is not None and len(hits) == len(stmt.names):
-        file.rewrite_module(stmt, target)
-    else:
-        for hit in hits:
-            file.remove_item(stmt, hit)
-        if target is not None:
-            file.after.append((stmt, f"from {target} import {_named([stmt.names[i] for i in hits])}"))
-    file.rewritten.add(id(stmt))
-
-
-def _star_imports(file: _File, offset: int, old: str) -> list[ast.ImportFrom]:
-    use = file.use_at(offset)
-    if use is None or use[1].lookup(use[0].id) is not None:
-        return []
-    return [stmt for scope in use[1].chain() for stmt, base in scope.stars if base == old]
-
-
-def _source_edits(file: _File, region: tuple[int, int], name: str, new: str, remaining: bool) -> None:
-    file.edits.add(region[0], region[1], "")
-    if remaining:
-        file.edits.insert_line(leading_block_end(file.text), f"from {new} import {name}")
-    _all_entry(file, name)
-    module = file.scopes.module
-    for bound, binding in file.bound(module):
-        if binding.stmt is None or id(binding.stmt) in file.rewritten:
-            continue
-        uses = [node for node, at in file.scopes.loads.values() if node.id == bound and at.lookup(bound) is module]
-        inside = [node for node in uses if region[0] <= char_offset(file.text, node.lineno, node.col_offset) < region[1]]
-        if inside and len(inside) == len(uses):
-            file.remove_item(binding.stmt, binding.item)
-
-
-def _dest_edits(file: _File, mover: MoveGlobal, old: str, new: str, name: str) -> None:
-    module = file.scopes.module
-    for binding in module.bindings.get(name, []):
-        if binding.obj != f"{old}.{name}":
-            raise NameConflict(name, file.resource.path, binding.line)
-    moving, infos = mover._get_moving_element_with_imports()
-    read = {node.id for node in ast.walk(ast.parse(moving)) if isinstance(node, ast.Name)}
-    lines = [line for info in infos if not _from_module(info, new) for line in _needed_import(file, info, read)]
-    block_end = leading_block_end(file.text)
-    for line in lines:
-        file.edits.insert_line(block_end, line)
-    _insert_moving(file, moving, block_end if lines else None)
-
-
-def _from_module(info: ImportInfo, module: str) -> bool:
-    return isinstance(info, FromImport) and info.module_name == module
-
-
-def _needed_import(file: _File, info: ImportInfo, read: set[str]) -> list[str]:
-    """The import the moved code needs from `info`, minus names the destination already binds to the same object."""
-    module = file.scopes.module
-    keep: list[tuple[str, str | None]] = []
-    for imported, alias in info.names_and_aliases:
-        bound, obj = _import_binding(info, imported, alias)
-        if bound not in read:
-            continue
-        live = any(not b.removed for b in module.bindings.get(bound, []))
-        if live:
-            file.check_free(bound, obj, module)
-        if not live or _plain_unbound(file, info, imported, alias):
-            keep.append((imported, alias))
-    return [_import_lines(info, keep)] if keep else []
-
-
-def _plain_unbound(file: _File, info: ImportInfo, imported: str, alias: str | None) -> bool:
-    """An unaliased `import a.b` whose root the destination binds, but not `a.b` itself."""
-    return not alias and not isinstance(info, FromImport) and not file.binds_module(file.scopes.module, imported)
-
-
-def _import_binding(info: ImportInfo, imported: str, alias: str | None) -> tuple[str, str]:
-    """The name an import binds and the object it binds it to."""
-    if isinstance(info, FromImport):
-        return alias or imported, f"{info.module_name}.{imported}"
-    bound = alias or imported.split(".")[0]
-    return bound, imported if alias else bound
-
-
-def _insert_moving(file: _File, moving: str, block_end: int | None) -> None:
-    """Rope's position: after the last top-level import (or added import), else after the leading comments."""
-    tops = [stmt for stmt in file.tree.body if isinstance(stmt, (ast.Import, ast.ImportFrom))]
-    if tops or block_end is not None:
-        at = max(_after_line(file.text, file.span(tops[-1])[1]) if tops else 0, block_end or 0)
-        file.edits.add(at, at, "\n\n" + moving)
-        return
-    comments = 0
-    source_lines = file.text.split("\n")
-    while comments < len(source_lines) - 1 and source_lines[comments].lstrip().startswith("#"):
-        comments += 1
-    at = sum(len(line) + 1 for line in source_lines[:comments])
-    file.edits.add(at, at, ("\n\n" if comments else "") + moving)

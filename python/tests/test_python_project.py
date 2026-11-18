@@ -122,3 +122,16 @@ def test_coding_cookie_matches_rope(source: bytes) -> None:
     assert read_str_coding(source) == rope_read_str_coding(source)
     text = source.decode("latin-1")
     assert read_str_coding(text) == rope_read_str_coding(text)
+
+
+def test_resources_leave_out_ignored_and_symlinked_entries(tmp_path: Path) -> None:
+    for rel in ("pkg/sub/a.py", "pkg/notes.md", ".venv/lib/x.py", "pkg/a.pyc", "top.py"):
+        (tmp_path / rel).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / rel).write_text("")
+    try:
+        os.symlink("top.py", tmp_path / "link.py")
+        os.symlink("pkg", tmp_path / "linked", target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pass
+    assert sorted(ProjectLayout(tmp_path).resources()) == [
+        ("pkg", True), ("pkg/notes.md", False), ("pkg/sub", True), ("pkg/sub/a.py", False), ("top.py", False)]

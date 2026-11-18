@@ -1,0 +1,3 @@
+[resolve]
+[checks]
+destination already exists: pkg/sub/solo.py

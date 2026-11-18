@@ -1,0 +1,29 @@
+Moving global <f>:
+
+
+--- a/pkg/a.py
++++ b/pkg/a.py
+@@ -1,9 +1,3 @@
+-from json import dumps
+-from pickle import dumps
+-
+-
+-def f() -> object:
+-    return dumps
+ 
+ 
+ def g() -> int:
+
+--- a/pkg/b.py
++++ b/pkg/b.py
+@@ -1 +1,6 @@
+ """Destination."""
++from pickle import dumps
++
++
++def f() -> object:
++    return dumps
+
+
+
+DRY-RUN. 2 file(s) would change. Re-run with --apply.

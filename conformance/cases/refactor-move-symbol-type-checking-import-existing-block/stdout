@@ -1,0 +1,32 @@
+Moving global <f>:
+
+
+--- a/pkg/a.py
++++ b/pkg/a.py
+@@ -6,5 +6,3 @@
+     from .x import T
+ 
+ 
+-def f(t: T) -> str:
+-    return str(t)
+
+--- a/pkg/b.py
++++ b/pkg/b.py
+@@ -3,8 +3,13 @@
+ 
+ from typing import TYPE_CHECKING
+ 
++
++def f(t: T) -> str:
++    return str(t)
++
+ if TYPE_CHECKING:
+     from pkg.y import U
++    from pkg.x import T
+ 
+ 
+ def h(u: U) -> None:
+
+
+
+DRY-RUN. 2 file(s) would change. Re-run with --apply.

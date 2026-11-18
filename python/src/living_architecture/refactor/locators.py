@@ -7,12 +7,21 @@ from pathlib import Path
 from pydantic import BaseModel
 
 from living_architecture.contract import message
+from living_architecture.refactor.python_project import Snapshot
 from living_architecture.refactor.python_source import SourceFile, split_lines
 from living_architecture.refactor.symbol_path import Located, locate
 
 
 class RefactorError(Exception):
     """The refactor cannot be computed; the message is user-facing."""
+
+
+def named_source(snapshot: Snapshot, rel: str) -> SourceFile:
+    """The source of `rel`, a file the command names; `refactor.file-undecodable` when it does not decode."""
+    encoding = snapshot.undecodable(rel)
+    if encoding is not None:
+        raise RefactorError(message("refactor.file-undecodable", path=rel, encoding=encoding))
+    return snapshot.source(rel)
 
 
 def cannot_rename() -> RefactorError:

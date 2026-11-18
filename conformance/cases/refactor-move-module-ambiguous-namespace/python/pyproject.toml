@@ -1,0 +1,2 @@
+[tool.rope]
+source_folders = ["src1", "src2"]

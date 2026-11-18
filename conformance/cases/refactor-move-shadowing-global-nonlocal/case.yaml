@@ -12,6 +12,7 @@ fixture: refactor-move-shadowing
 git:
 - commit: init
 expect:
-  exit: 0
+  exit: 1
 golden: manual
-note: uses under global and nonlocal resolve in the scope the statement names and are rewritten
+note: a name bound by a module-level import and by an assignment under global has no single value before the move
+  and loses the import after it; refused, nothing written

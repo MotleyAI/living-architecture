@@ -13,10 +13,15 @@ patches basedpyright in memory for pyright#11919, so pin a verified version (tod
 
 ## Refactoring
 
-`dr-refactor` resolves a rename's occurrences with the basedpyright bundled with la and computes every rename itself; rope computes moves.
+`dr-refactor` resolves a rename's occurrences with the basedpyright bundled with la and computes every rename and move itself.
 Its project scope (`--project`) must include `tests/` so test imports are rewritten too, and it must run in the
 project's environment (the `python` on PATH, or the venv in `[tool.basedpyright]`) so third-party types
 resolve. Move destinations must exist: a new package is a directory with an `__init__.py`.
+
+`dr-refactor` checks its output before it writes. It refuses when an edited file would no longer parse or its
+encoding cannot hold the new text. A move also refuses with `FILE:LINE: NAME would not resolve as it does now`
+when a name would mean something else after it. Nothing is written in either case. Move that declaration by
+hand; if the move looks correct to you, report the line.
 
 A rename rewrites every reference the type checker resolves, across the renamed hierarchy: calls through
 annotated or inferred receivers, `super()` calls, forward-reference strings, and keyword arguments of dataclass

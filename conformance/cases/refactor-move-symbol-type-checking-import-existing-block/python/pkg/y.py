@@ -1,0 +1,2 @@
+class U:
+    pass

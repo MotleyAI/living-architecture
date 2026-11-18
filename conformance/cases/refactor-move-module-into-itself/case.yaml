@@ -1,0 +1,24 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- --apply
+- move-module
+- --module
+- pkg
+- --dest
+- pkg/sub
+fixture: refactor-pkg
+git:
+- commit: init
+expect:
+  exit: 1
+  files:
+  - pkg/__init__.py
+  - pkg/a.py
+  - pkg/b.py
+  - pkg/solo.py
+  - pkg/sub/__init__.py
+golden: manual
+note: a package moved into its own subpackage is refused before any write

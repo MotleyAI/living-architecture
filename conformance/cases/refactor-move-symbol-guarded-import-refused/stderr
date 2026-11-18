@@ -1,0 +1,4 @@
+[resolve]
+[checks]
+[references]
+pkg/a.py:2: the moved code reads a name this guarded import binds; move it by hand

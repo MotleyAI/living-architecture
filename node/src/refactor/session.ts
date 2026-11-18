@@ -117,7 +117,7 @@ export class Refactor {
     process.stderr.write(aligned.warnings.map((line) => `${line}\n`).join(''));
     if (aligned.write !== null) writes.push(aligned.write);
     for (const { path, old, text } of writes) entries.push({ path: this.rel(path), text: unifiedDiff(old, text, this.rel(path)) });
-    for (const [from, to] of moves) entries.push({ path: this.rel(from), text: message('refactor.ts-moved', { old: this.rel(from), new: this.rel(to) }) });
+    for (const [from, to] of moves) entries.push({ path: this.rel(from), text: message('refactor.moved', { old: this.rel(from), new: this.rel(to) }) });
     entries.sort((a, b) => byCodePoint(a.path, b.path));
     const paths = [...new Set(entries.map((e) => e.path))];
     const body = entries.map((e) => `${e.text}\n`).join('');

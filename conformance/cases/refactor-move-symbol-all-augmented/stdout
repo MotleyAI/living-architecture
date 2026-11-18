@@ -1,0 +1,29 @@
+Moving global <f>:
+
+
+--- a/pkg/a.py
++++ b/pkg/a.py
+@@ -1,9 +1,5 @@
+ __all__ = ["g"]
+-__all__ += ["f"]
+-
+-
+-def f() -> int:
+-    return 1
++__all__ += []
+ 
+ 
+ def g() -> int:
+
+--- a/pkg/b.py
++++ b/pkg/b.py
+@@ -1 +1,5 @@
+ """Destination."""
++
++
++def f() -> int:
++    return 1
+
+
+
+DRY-RUN. 2 file(s) would change. Re-run with --apply.

@@ -10,9 +10,8 @@ dynamic (mock) reference into a failure. Green ⇒ provably no dangling referenc
 
 Tools (both twins, routed by each file's language):
 - `dr-refactor` — the mutator: `rename` / `rename-map` / `generate-map` / `retarget` / `move-symbol` / `move-module`. Python
-  resolves a rename's occurrences with the bundled basedpyright and computes every rename itself, and rope computes
-  moves; TypeScript runs the bundled TypeScript language service, one per project of the tsconfig's
-  reference graph.
+  resolves a rename's occurrences with the bundled basedpyright and computes every rename and move itself;
+  TypeScript runs the bundled TypeScript language service, one per project of the tsconfig's reference graph.
 - `dr-mock-lint` — fail on test doubles not bound to the real type; `--base BRANCH` prints only the findings the
   base branch lacks
 - `dr-compliance` — report the constructs that make a refactor un-verifiable

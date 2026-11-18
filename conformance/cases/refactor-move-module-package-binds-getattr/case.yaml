@@ -1,0 +1,17 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- move-module
+- --module
+- pkg/sql/client.py
+- --dest
+- pkg/database
+git:
+- commit: init
+expect:
+  exit: 0
+note: a use through a package defining a module-level __getattr__ is unchanged (rope
+  rewrote it)
+golden: manual

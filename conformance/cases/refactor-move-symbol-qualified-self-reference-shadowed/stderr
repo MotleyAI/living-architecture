@@ -1,0 +1,4 @@
+[resolve]
+[checks]
+[references]
+f already names something else at pkg/a.py:4, so nothing was refactored

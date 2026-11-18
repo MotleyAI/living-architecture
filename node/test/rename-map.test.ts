@@ -396,7 +396,7 @@ describe('rename-map module entries', () => {
     const result = refactorRaw(root, 'rename-map', 'map.yaml');
     expect(result.code).toBe(0);
     const diff = result.out.indexOf('--- a/src/store.ts\n');
-    const moved = result.out.indexOf(`${message('refactor.ts-moved', { old: 'src/store.ts', new: 'src/repository.ts' })}\n`);
+    const moved = result.out.indexOf(`${message('refactor.moved', { old: 'src/store.ts', new: 'src/repository.ts' })}\n`);
     expect(diff).toBeGreaterThan(0);
     expect(moved).toBeGreaterThan(diff);
   });

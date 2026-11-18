@@ -1,0 +1,32 @@
+Moving global <f>:
+
+
+--- a/pkg/a.py
++++ b/pkg/a.py
+@@ -1,10 +1,3 @@
+-import functools
+-from os import sep
+-
+-
+-@functools.cache
+-def f(s: str = sep) -> str:
+-    return s
+ 
+ 
+ def g() -> int:
+
+--- a/pkg/b.py
++++ b/pkg/b.py
+@@ -1 +1,8 @@
+ """Destination."""
++import functools
++from os import sep
++
++
++@functools.cache
++def f(s: str = sep) -> str:
++    return s
+
+
+
+DRY-RUN. 2 file(s) would change. Re-run with --apply.

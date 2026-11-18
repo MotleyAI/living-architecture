@@ -599,8 +599,10 @@ NEW_TEMPLATES = {
     "typecheck.not-native": "{language} type checks run only in the {language} twin",
     "typecheck.error": "la-typecheck: {error}",
     "refactor.rename-header": "Renaming <{old}> to <{new}>:",
-    "refactor.ts-move-symbol-header": "Moving global <{name}>:",
-    "refactor.ts-move-module-header": "Moving module <{name}>:",
+    "refactor.move-symbol-header": "Moving global <{name}>:",
+    "refactor.move-module-header": "Moving module <{name}>:",
+    "refactor.moved": "rename from {old}\nrename to {new}",
+    "refactor.guarded-import": "{path}:{line}: the moved code reads a name this guarded import binds; move it by hand",
     "refactor.unsupported-extension": "not a source file of a supported language: {path}",
     "refactor.cross-language-dest": "--dest {dest} is not a {language} file",
     "refactor.ts-outside-project": "no TypeScript project includes {path}",
@@ -612,6 +614,12 @@ NEW_TEMPLATES = {
     "refactor.conflicting-edits": "projects disagree on an edit in {path}",
     "refactor.destination-exists": "destination already exists: {path}",
     "refactor.destination-missing": "destination does not exist: {path}",
+    "refactor.destination-inside-source": "{path} is inside {source}, which cannot move into itself",
+    "refactor.unparsable": "{path} does not parse as Python, so nothing was refactored",
+    "refactor.ambiguous-module": "{module} names more than one file ({paths}), so nothing was refactored",
+    "refactor.unencodable": "{path} cannot hold its new text in its encoding {encoding}, so nothing was refactored",
+    "refactor.resolution-changed":
+        "{path}:{line}: {name} would not resolve as it does now, so nothing was refactored; move it by hand",
     "refactor.skipped": "{prog}: not a source file, skipped: {path}",
     "refactor.rope-walk":
         "rope cannot follow {path}:{line}, so nothing was refactored (a rope bug, not a source error);"
@@ -737,6 +745,9 @@ REMOVED_TEMPLATES = [
     "c4.view-includes-non-top-level",
     "compliance.ts-attr-blindspot",
     "refactor.symbol-not-found",
+    "refactor.ts-move-symbol-header",
+    "refactor.ts-move-module-header",
+    "refactor.ts-moved",
 ]
 
 

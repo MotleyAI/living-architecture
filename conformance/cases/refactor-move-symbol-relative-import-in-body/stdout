@@ -1,0 +1,31 @@
+Moving global <f>:
+
+
+--- a/pkg/a/m.py
++++ b/pkg/a/m.py
+@@ -1,9 +1,2 @@
+-def f() -> int:
+-    from .x import y
+-    import json
+-
+-    return y + len(json.dumps(1))
+-
+-
+ def g() -> int:
+     return 2
+
+--- a/pkg/b/d.py
++++ b/pkg/b/d.py
+@@ -1 +1,8 @@
+ """Destination."""
++
++
++def f() -> int:
++    from ..a.x import y
++    import json
++
++    return y + len(json.dumps(1))
+
+
+
+DRY-RUN. 2 file(s) would change. Re-run with --apply.
