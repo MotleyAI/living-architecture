@@ -177,8 +177,10 @@ of the names it binds lay in the moved code; an import inside a block of the sou
 module, a `__all__` entry naming the moved symbol SHALL be removed from each list or tuple literal of a top-level
 `__all__` assignment, annotated assignment, augmented assignment or `+` operand, and a remaining use of the symbol SHALL get
 `from <dest> import <name>` after the leading import block. A relative import inside the moved code SHALL be recomputed
-for the destination as rule 1 recomputes a moved module's own relative imports. In the destination, the imports the
-moved code needs SHALL be added:
+for the destination as rule 1 recomputes a moved module's own relative imports. A dotted use inside the moved code that
+reaches the moved symbol through its old module SHALL become the symbol's bare name when it is evaluated only after the
+moved code first binds the symbol: inside a function or lambda, or in a declaration after the first of an overload
+group. In the destination, the imports the moved code needs SHALL be added:
 - for each name the moved code reads that a top-level import of the source module binds, that import, made absolute;
   for each name it reads that the source module defines, `from <source module> import <name>`; each holding only the
   names the moved code reads and the destination does not already bind to the same object;
@@ -315,6 +317,10 @@ and SHALL write nothing.
 #### Scenario: Relative import inside the moved code
 - **WHEN** `move-symbol` moves `f` from `pkg/a/m.py` to `pkg/b/d.py` and `f`'s body holds `from .x import y`
 - **THEN** in `pkg/b/d.py` it becomes `from ..a.x import y`, and an absolute import in `f`'s body is unchanged
+
+#### Scenario: Qualified self-reference inside the moved code
+- **WHEN** `move-symbol` moves `f` from `pkg/a.py` to `pkg/b.py`, `f`'s body holds `pkg.a.f(n - 1)`, and nothing else in `f` reads `pkg`
+- **THEN** in `pkg/b.py` it becomes `f(n - 1)` and `import pkg.a` is not added
 
 #### Scenario: Name conflict refused
 - **WHEN** `move-symbol` moves `f`, which uses module `os`, into a destination where `os` is assigned another value

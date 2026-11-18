@@ -1,0 +1,24 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- --apply
+- move-symbol
+- --file
+- pkg/a.py
+- --symbol
+- f
+- --dest
+- pkg/b.py
+git:
+- commit: init
+expect:
+  exit: 0
+  stdout: ignore
+  files:
+  - pkg/a.py
+  - pkg/b.py
+golden: manual
+note: a dotted self-use evaluated while the declaration is defined (a default) stays, with its import; one in a lambda or
+  the body becomes the bare name

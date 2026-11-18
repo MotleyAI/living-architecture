@@ -94,13 +94,14 @@ def is_type_checking(stmt: ast.stmt) -> bool:
 class _Origin:
     """The source module as the moved code reads it."""
 
-    def __init__(self, origin: File, moved: MovedSymbol) -> None:
+    def __init__(self, origin: File, moved: MovedSymbol, rewritten: set[int]) -> None:
         self.file = origin
         self.moved = moved
         start, end = moved.region
         self.read = list(dict.fromkeys(
             node.id for node, scope in origin.names
             if start <= origin.offset(node) < end and node.id != moved.name and scope.resolving(node.id) is origin.top
+            and id(node) not in rewritten
         ))
         self.tree_body = origin.source.tree.body if origin.source.tree is not None else []
 
@@ -220,9 +221,9 @@ def _stars(origin: _Origin, unbound: set[str]) -> list[Statement]:
     return out
 
 
-def needed_imports(origin: File, moved: MovedSymbol, old: str, new: str) -> Needed:
-    """The imports the code of `moved` (in module `old`) needs in module `new`."""
-    reader = _Origin(origin, moved)
+def needed_imports(origin: File, moved: MovedSymbol, old: str, new: str, rewritten: set[int]) -> Needed:
+    """The imports the code of `moved` (in module `old`) needs in module `new`, the `rewritten` names unread."""
+    reader = _Origin(origin, moved, rewritten)
     imported, checking, unbound, defined = reader.classify()
     regular = reader.statements(imported, checking=False)
     if defined:

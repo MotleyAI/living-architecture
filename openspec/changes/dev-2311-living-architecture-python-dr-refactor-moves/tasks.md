@@ -81,6 +81,7 @@
 - [x] 4.5 la's project model and newlines (design decisions 5, 15, 21): `Snapshot`, `TextEdit`, `FileMove`,
       `changes_of`, `emit` with `refactor.move-symbol-header` / `refactor.move-module-header`; `moved_code=True` for
       `move-symbol`. Verify: 1.1's newline cases and 1.8's `FileChanged` tests pass on the new path.
+- [x] 4.6 Qualified self-reference inside the moved code (spec scenario "Qualified self-reference inside the moved code"), with a Python adapter conformance case listed in `conformance/INVENTORY.md`. Verify: the case passes and every existing move golden is unchanged.
 
 ## 5. Differential and switch
 

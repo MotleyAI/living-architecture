@@ -152,7 +152,8 @@ class SymbolMove:
         for node in file.bound[file.top].get(self.name, []):
             if file.obj(node) != f"{self.old}.{self.name}":
                 raise NameConflict(self.name, file.rel, file.line(node))
-        needed = needed_imports(self.origin, self.moved, self.old, self.new)
+        roots = {id(_root(node)) for node in self._self_uses()}
+        needed = needed_imports(self.origin, self.moved, self.old, self.new, roots)
         at = block_end(file.source)
         added = self._future(file, needed)
         checking = [part for stmt in needed.checking for line in _needed(file, stmt) for part in line.split("\n")]
@@ -183,11 +184,34 @@ class SymbolMove:
                 added = True
         return added
 
+    def _self_uses(self) -> list[ast.Attribute]:
+        """The moved code's dotted uses of the symbol through its old module that run once the symbol is bound: in a
+        function or lambda, or after the first declaration; `NameConflict` where its bare name is bound locally."""
+        origin = self.origin
+        bound_at = origin.span(self.moved.statements[0])[1]
+        found: list[ast.Attribute] = []
+        for node, scope in origin.attributes:
+            if node.attr != self.name or not self._inside(origin, node):
+                continue
+            if not _deferred(scope) and origin.offset(node) < bound_at:
+                continue
+            if self.project.resolver.resolve(origin.module, scope, node.value) != ("module", self.old):
+                continue
+            owner = origin.lookup(scope, self.name)
+            if owner is not None and owner is not origin.top:
+                raise NameConflict(self.name, origin.rel, origin.line(origin.bound[owner][self.name][0]))
+            found.append(node)
+        return found
+
     def moved_text(self, newline: str) -> str:
-        """The region's text, its relative imports recomputed for the destination, ending in one line break."""
+        """The region's text, its relative imports recomputed for the destination and its dotted self-uses bare, ending
+        in one line break."""
         origin = self.origin
         start, end = self.region
         edits = Edits(origin.text[start:end])
+        for node in self._self_uses():
+            use_start, use_end = origin.span(node)
+            edits.add(use_start - start, use_end - start, self.name)
         package = self.project.package(self.dest)
         for stmt, _, _ in origin.binder.imports:
             at = origin.span(stmt)[0]
@@ -223,6 +247,22 @@ class SymbolMove:
             comments += 1
         at = sum(len(line) for line in lines[:comments])
         file.edits.add(at, at, (newline * 2 if comments else "") + moving)
+
+
+def _deferred(scope: Scope | None) -> bool:
+    """Code in `scope` runs only after the declarations around it exist: a function or lambda encloses it."""
+    while scope is not None:
+        if scope.kind == "function":
+            return True
+        scope = scope.parent
+    return False
+
+
+def _root(node: ast.expr) -> ast.expr:
+    """The innermost receiver of an attribute chain."""
+    while isinstance(node, ast.Attribute):
+        node = node.value
+    return node
 
 
 def _insert_checking(file: File, at: int, block: ast.If | None, checking: list[str]) -> None:
