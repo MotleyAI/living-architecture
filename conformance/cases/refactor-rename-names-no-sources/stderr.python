@@ -1,0 +1,17 @@
+[resolve]
+[checks]
+[references]
+[references 1/1] entry 1: columns -> fields
+[rules]
+[rules 1/1] entry 1: columns -> fields: clean
+[conflicts]
+pkg/m.py:16: leftover: string mentions columns
+pkg/m.py:21: leftover: string mentions columns
+pkg/m.py:28: leftover: string mentions columns
+pkg/m.py:33: leftover: string mentions columns
+pkg/m.py:38: leftover: string mentions columns
+pkg/m.py:44: leftover: string mentions columns
+pkg/m.py:48: leftover: string mentions columns
+pkg/m.py:55: leftover: string mentions columns
+pkg/m.py:65: leftover: string mentions columns
+pkg/m.py:74: leftover: string mentions columns

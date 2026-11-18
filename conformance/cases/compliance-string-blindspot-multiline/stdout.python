@@ -1,0 +1,1 @@
+src/m.py:5: string-blindspot: getattr(x[ 0 ], 'columns') — x[ 0 ] is Any, so a rename of .columns is unverifiable

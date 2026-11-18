@@ -1,0 +1,8 @@
+[resolve]
+[checks]
+[references]
+[references 1/1] entry 1: formula -> expression
+[rules]
+[rules 1/1] entry 1: formula -> expression: clean
+[conflicts]
+[write]

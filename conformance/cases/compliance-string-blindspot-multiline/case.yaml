@@ -1,0 +1,15 @@
+kind: paired
+languages:
+- python
+- typescript
+command: dr-compliance
+args:
+- --select
+- string-blindspot
+- --attr
+- columns
+- src
+expect:
+  exit: 1
+golden: manual
+note: an object argument spanning lines is printed with its whitespace collapsed, in the site and as the receiver

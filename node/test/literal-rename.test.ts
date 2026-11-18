@@ -116,3 +116,78 @@ export const wrong = n('edit_model');
     expect(read(root, 'src/loose.ts')).toBe(loose);
   });
 });
+
+const TAKE = "import type { Kind } from './kinds';\n\nexport function take(k: Kind): Kind {\n  return k;\n}\n";
+const BROKEN = `${TAKE}
+export function f(c: boolean): Kind {
+  const v = c ? 'edit_model' : 'drop';
+  return take(v);
+}
+`;
+const CONSTANTS = `${TAKE}
+export const DISPATCH = 'edit_model';
+
+export function dispatch(): Kind {
+  return DISPATCH;
+}
+
+export function local(): Kind {
+  const v = 'edit_model';
+  return take(v);
+}
+
+export class K {
+  static readonly EDIT = 'edit_model';
+}
+
+export const fromClass = take(K.EDIT);
+`;
+const SHIFTED = "import type { Kind } from './kinds';\n\nexport const pair: [Kind, number] = ['edit_model', 'oops'];\nexport const later: number = 'late';\n";
+const UNEDITED = "export const bad: number = 'oops';\n";
+const KINDS_ONLY = "export type Kind = 'edit_model' | 'drop';\n";
+
+describe('Literal member rename, the edited program checked in memory', () => {
+  const unresolved = message('refactor.literal-unresolved', { path: 'src/broken.ts', line: 9, old: 'edit_model' });
+  const refused = { code: 1, out: '', err: `${unresolved}\n${message('refactor.blindspots', { count: 1, attr: 'edit_model' })}\n` };
+
+  it('refuses an edit that breaks the program, writing nothing', () => {
+    const root = tsProject({ 'src/kinds.ts': KINDS_ONLY, 'src/broken.ts': BROKEN });
+    const before = files(root);
+    expect(renameKind(root, 'edit_master')).toEqual(refused);
+    expect(files(root)).toEqual(before);
+  });
+
+  it('prints the diff and the blind spot with --allow-blindspots', () => {
+    const root = tsProject({ 'src/kinds.ts': KINDS_ONLY, 'src/broken.ts': BROKEN });
+    const result = renameKind(root, 'edit_master', '--allow-blindspots');
+    expect(result.code).toBe(0);
+    expect(result.err.split('\n')).toContain(unresolved);
+    expect(read(root, 'src/kinds.ts')).toBe(KINDS_ONLY.replace('edit_model', 'edit_master'));
+    expect(read(root, 'src/broken.ts')).toBe(BROKEN);
+  });
+
+  it('does not count an error present before the edit on a line no edit moves', () => {
+    const root = tsProject({ 'src/kinds.ts': KINDS_ONLY, 'src/broken.ts': BROKEN, 'src/unedited.ts': UNEDITED });
+    expect(renameKind(root, 'edit_master')).toEqual(refused);
+  });
+
+  it('recognises an error present before the edit at a position the edits shift', () => {
+    const root = tsProject({ 'src/kinds.ts': KINDS_ONLY, 'src/broken.ts': BROKEN, 'src/shifted.ts': SHIFTED });
+    expect(renameKind(root, 'edit_master_renamed')).toEqual(refused);
+  });
+
+  it('rewrites the one source of a constant, a local and a class constant the checker needs the member at', () => {
+    const root = tsProject({ 'src/kinds.ts': KINDS_ONLY, 'src/constants.ts': CONSTANTS });
+    const result = renameKind(root, 'edit_master');
+    expect([result.code, result.err]).toEqual([0, '']);
+    expect(read(root, 'src/constants.ts')).toBe(CONSTANTS.replaceAll("'edit_model'", "'edit_master'"));
+  });
+
+  it('exits 0 beside errors present before the rename, shifted or not', () => {
+    const root = tsProject({ 'src/kinds.ts': KINDS_ONLY, 'src/constants.ts': CONSTANTS, 'src/shifted.ts': SHIFTED, 'src/unedited.ts': UNEDITED });
+    const result = renameKind(root, 'edit_master_renamed');
+    expect([result.code, result.err]).toEqual([0, '']);
+    expect(read(root, 'src/constants.ts')).toBe(CONSTANTS.replaceAll("'edit_model'", "'edit_master_renamed'"));
+    expect(read(root, 'src/shifted.ts')).toBe(SHIFTED.replace("'edit_model'", "'edit_master_renamed'"));
+  });
+});

@@ -166,6 +166,7 @@ def f(kind: DriftKind) -> None:
 
 
 def h() -> None:
+    k = "drop"
     k = "edit_model"
     f(k)
     f("edit_model")
@@ -178,13 +179,13 @@ def test_narrowed_local_refuses(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
     code, out, err = run(root, _by_symbol(), monkeypatch, capsys)
     assert (code, out) == (1, "")
     lines = err.splitlines()
-    assert lines[0] == message("refactor.literal-unresolved", path="pkg/n.py", line=10, old="edit_model")
+    assert lines[0] == message("refactor.literal-unresolved", path="pkg/n.py", line=11, old="edit_model")
     assert template_regex(message("refactor.blindspots", count=1, attr="ATTR"), attr="ATTR").fullmatch(lines[1])
     assert len(lines) == 2
     assert file_tree(root) == before
 
 
-@pytest.mark.parametrize("flag", [["--allow-blindspots"], ["--keep", "pkg/n.py:10"]], ids=["allow", "keep"])
+@pytest.mark.parametrize("flag", [["--allow-blindspots"], ["--keep", "pkg/n.py:11"]], ids=["allow", "keep"])
 def test_narrowed_local_passes_with_allow_or_keep(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], flag: list[str]
 ) -> None:

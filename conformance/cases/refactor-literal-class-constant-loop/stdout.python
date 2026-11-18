@@ -1,0 +1,42 @@
+Renaming <formula> to <expression>:
+
+
+--- a/pkg/by_class.py
++++ b/pkg/by_class.py
+@@ -2,7 +2,7 @@
+ 
+ 
+ class K:
+-    FORMULA = "formula"
++    FORMULA = "expression"
+ 
+ 
+ def via_class() -> None:
+
+--- a/pkg/by_loop.py
++++ b/pkg/by_loop.py
+@@ -2,5 +2,5 @@
+ 
+ 
+ def via_loop() -> None:
+-    for t in ("formula", "sql"):
++    for t in ("expression", "sql"):
+         take(t)
+
+--- a/pkg/c.py
++++ b/pkg/c.py
+@@ -1,6 +1,6 @@
+ from typing import Literal
+ 
+-Kind2 = Literal["formula", "sql"]
++Kind2 = Literal["expression", "sql"]
+ 
+ 
+ def take(k: Kind2) -> None:
+
+
+
+APPLIED. 3 file(s) changed:
+  pkg/by_class.py
+  pkg/by_loop.py
+  pkg/c.py

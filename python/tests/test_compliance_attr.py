@@ -74,6 +74,15 @@ def _attr(*paths: str) -> int:
     return dr_compliance(["--select", "attr-blindspot", "--attr", "formula", *paths])
 
 
+def _string_blindspot(path: str, line: int, site: str, receiver: str, kind: str, *, silent: bool = False) -> str:
+    template = "compliance.string-blindspot-silent" if silent else "compliance.string-blindspot"
+    return message(template, path=path, line=line, site=site, receiver=receiver, attr="formula", type=kind)
+
+
+def _strings(*paths: str) -> int:
+    return dr_compliance(["--select", "string-blindspot", "--attr", "formula", *paths])
+
+
 def test_receivers_the_checker_cannot_type(cwd: Path, capsys: pytest.CaptureFixture[str]) -> None:
     (cwd / "m.py").write_text(UNTYPED, encoding="utf-8")
     assert _attr("m.py") == 1
@@ -187,7 +196,7 @@ def test_selecting_attr_blindspot_prints_only_its_findings(cwd: Path, capsys: py
 def test_attr_blindspot_without_attr_is_a_usage_error(cwd: Path, capsys: pytest.CaptureFixture[str]) -> None:
     (cwd / "m.py").write_text("def f(o):\n    return o.formula\n", encoding="utf-8")
     assert dr_compliance(["--select", "attr-blindspot", "m.py"]) == 2
-    assert capsys.readouterr() == ("", message("compliance.attr-required") + "\n")
+    assert capsys.readouterr() == ("", message("compliance.attr-required", check="attr-blindspot") + "\n")
 
 
 @pytest.mark.parametrize("select", ["untyped-def", ""], ids=["other-check", "empty"])
@@ -251,22 +260,22 @@ def typed(m: Model, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture) -> N
 
 def test_string_member_forms_on_untyped_objects_or_callees(cwd: Path, capsys: pytest.CaptureFixture[str]) -> None:
     write_project(cwd, {"m.py": STRING_FORMS})
-    assert _attr("m.py") == 1
+    assert _strings("m.py") == 1
     assert capsys.readouterr().out.splitlines() == [
-        _blindspot("m.py", 15, "m", "Unknown"),
-        _blindspot("m.py", 19, "obj", "Unknown"),
-        _blindspot("m.py", 23, "obj", "Unknown"),
-        _blindspot("m.py", 27, "o", "Unknown"),
-        _blindspot("m.py", 28, "x", "Unknown"),
-        _blindspot("m.py", 29, "x", "Unknown"),
-        _blindspot("m.py", 30, "o", "Unknown"),
+        _string_blindspot("m.py", 15, "getattr(m, 'formula')", "m", "Unknown"),
+        _string_blindspot("m.py", 19, "monkeypatch.setattr(obj, 'formula', …)", "obj", "Unknown"),
+        _string_blindspot("m.py", 23, "mocker.patch.object(obj, 'formula')", "obj", "Unknown"),
+        _string_blindspot("m.py", 27, "setattr(o, 'formula', …)", "o", "Unknown"),
+        _string_blindspot("m.py", 28, "hasattr(x, 'formula')", "x", "Unknown", silent=True),
+        _string_blindspot("m.py", 29, "delattr(x, 'formula')", "x", "Unknown"),
+        _string_blindspot("m.py", 30, "patch.object(o, 'formula')", "o", "Unknown"),
     ]
 
 
 def test_string_member_form_on_an_any_object(cwd: Path, capsys: pytest.CaptureFixture[str]) -> None:
     write_project(cwd, {"m.py": 'from typing import Any\n\n\ndef f(o: Any) -> object:\n    return getattr(o, "formula")\n'})
-    assert _attr("m.py") == 1
-    assert capsys.readouterr().out.splitlines() == [_blindspot("m.py", 5, "o", "Any")]
+    assert _strings("m.py") == 1
+    assert capsys.readouterr().out.splitlines() == [_string_blindspot("m.py", 5, "getattr(o, 'formula')", "o", "Any")]
 
 
 LOOKALIKES = """\
@@ -292,7 +301,7 @@ def f(engine: Model, cfg: Cfg, loose) -> None:
 
 def test_lookalike_callees_are_not_string_member_forms(cwd: Path, capsys: pytest.CaptureFixture[str]) -> None:
     write_project(cwd, {"m.py": LOOKALIKES})
-    assert _attr("m.py") == 0
+    assert _strings("m.py") == 0
     assert capsys.readouterr().out == ""
 
 
@@ -317,10 +326,12 @@ def test_two_names_in_one_sorted_block(cwd: Path, capsys: pytest.CaptureFixture[
 
 def test_two_names_cover_string_member_forms(cwd: Path, capsys: pytest.CaptureFixture[str]) -> None:
     write_project(cwd, {"m.py": 'def f(o):\n    getattr(o, "get_model")\n    return o.save_model()\n'}, package=False)
-    assert dr_compliance(["--select", "attr-blindspot", "--attr", "save_model", "--attr", "get_model", "m.py"]) == 1
+    select = "attr-blindspot,string-blindspot"
+    assert dr_compliance(["--select", select, "--attr", "save_model", "--attr", "get_model", "m.py"]) == 1
     out = capsys.readouterr().out.splitlines()
     assert out == [
-        message("compliance.attr-blindspot", path="m.py", line=2, receiver="o", attr="get_model", type="Unknown"),
+        message("compliance.string-blindspot", path="m.py", line=2, site="getattr(o, 'get_model')", receiver="o",
+                attr="get_model", type="Unknown"),
         message("compliance.attr-blindspot", path="m.py", line=3, receiver="o", attr="save_model", type="Unknown"),
     ]
 
@@ -330,10 +341,11 @@ def test_attr_reports_exactly_a_member_renames_blind_spots(
 ) -> None:
     root = write_project(tmp_path / "p", {"pkg/untyped.py": UNTYPED, "pkg/unions.py": UNIONS, "pkg/forms.py": STRING_FORMS})
     monkeypatch.chdir(root)
-    assert _attr("pkg") == 1
+    assert dr_compliance(["--select", "attr-blindspot,string-blindspot", "--attr", "formula", "pkg"]) == 1
     reported = capsys.readouterr().out.splitlines()
     rename = ["rename", "--file", "pkg/untyped.py", "--symbol", "Model.formula", "--new-name", "expr"]
     code, _out, err = run(root, rename, monkeypatch, capsys)
     assert code == 1
     assert reported
-    assert [line for line in err.splitlines() if ": attr-blindspot: " in line] == reported
+    kinds = (": attr-blindspot: ", ": string-blindspot: ")
+    assert [line for line in err.splitlines() if any(kind in line for kind in kinds)] == reported
