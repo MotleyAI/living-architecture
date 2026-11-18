@@ -8,8 +8,8 @@ from typing import Any
 import pytest
 import yaml
 
+from living_architecture.lang.position_map import map_range
 from living_architecture.refactor.compound import is_compound, words
-from living_architecture.refactor.position_map import map_range
 from living_architecture.refactor.symbol_path import SymbolPath
 
 VECTORS: dict[str, Any] = yaml.safe_load(

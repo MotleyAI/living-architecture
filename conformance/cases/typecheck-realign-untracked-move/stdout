@@ -1,0 +1,7 @@
+<ROOT>/repo/pkg/n.py
+  <ROOT>/repo/pkg/n.py:6:17 - error: Argument of type "Literal['x']" cannot be assigned to parameter "b" of type "int" in function "f"
+    "Literal['x']" is not assignable to "int" (reportArgumentType)
+  <ROOT>/repo/pkg/n.py:6:28 - error: Argument of type "Literal[3]" cannot be assigned to parameter "obj" of type "Sized" in function "len"
+    "Literal[3]" is incompatible with protocol "Sized"
+      "__len__" is not present (reportArgumentType)
+2 errors, 0 warnings, 0 notes
