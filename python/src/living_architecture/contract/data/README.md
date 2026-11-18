@@ -15,7 +15,7 @@ The source of truth both twins obey. Each package vendors a byte-copy of this di
 | `conventions.yaml` | conventions-gate rules and the waiver syntax |
 | `languages.yaml` | per-language extensions, test globs, comment prefix, suppression syntax, twin runner and install command |
 | `architecture.yaml` | the LikeC4 layout: the canonical model and views files, their blocks, the source extensions |
-| `regex-subset.md` | the portable `issue_key_pattern` subset |
+| `regex-subset.md` | the portable regex subset of `issue_key_pattern` and `refactor.string_forms` |
 | `vectors/` | input/output vectors both test suites consume |
 | `scripts/` | the review helpers (bash, `gh`, `jq`) |
 

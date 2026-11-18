@@ -1,0 +1,38 @@
+Renaming <columns> to <fields>:
+
+
+--- a/docs/api.md
++++ b/docs/api.md
+@@ -1,5 +1,5 @@
+ # API
+ 
+ The dataset body.
+-Send columns, then read columns back.
++Send fields, then read fields back.
+ Old clients send columns too.
+
+--- a/pkg/m.py
++++ b/pkg/m.py
+@@ -2,4 +2,4 @@
+ 
+ 
+ class Ds(BaseModel):
+-    columns: list[str] = []
++    fields: list[str] = []
+
+--- a/pkg/n.py
++++ b/pkg/n.py
+@@ -5,5 +5,5 @@
+ 
+ 
+ def rest_body() -> None:
+-    post("/datasets", json={"name": "orders", "columns": ["id"]})
++    post("/datasets", json={"name": "orders", "fields": ["id"]})
+     post("/views", json={"columns": ["id"]})
+
+
+
+APPLIED. 3 file(s) changed:
+  docs/api.md
+  pkg/m.py
+  pkg/n.py

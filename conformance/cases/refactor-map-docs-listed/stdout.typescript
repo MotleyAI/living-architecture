@@ -1,0 +1,28 @@
+Renaming <columns> to <fields>:
+Renaming <columns> to <resultColumns>:
+
+
+--- a/src/a.ts
++++ b/src/a.ts
+@@ -1,13 +1,13 @@
+ // Every table lists its `columns`.
+ 
+-/** A table and its `columns`. */
++/** A table and its `fields`. */
+ export class Table {
+-  columns: string[] = [];
++  fields: string[] = [];
+ }
+ 
+-/** A result and its `columns`. */
++/** A result and its `resultColumns`. */
+ export class Result {
+-  columns: string[] = [];
++  resultColumns: string[] = [];
+ }
+ 
+ // Both keep their `columns` in order.
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

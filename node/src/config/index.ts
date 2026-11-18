@@ -8,6 +8,7 @@ import {
   canonicalRepr,
   configFile,
   fnmatch,
+  capturingGroups,
   isPortableRegex,
   language,
   languageIds,
@@ -59,7 +60,7 @@ export interface LaConfig {
     lint: string | null;
     typecheck: { python: string | null; typescript: string | null };
   };
-  refactor: { python: { moved_module_stub: string | null } };
+  refactor: { python: { moved_module_stub: string | null }; string_forms: string[] };
   conventions: { text_ratio_max: number; exempt: string[]; rules: string[] };
 }
 
@@ -72,6 +73,10 @@ export function resolveConfig(data: unknown): LaConfig {
   const resolved = materializeDefaults(configSchema, data) as LaConfig;
   if (!isPortableRegex(resolved.issue_key_pattern)) {
     throw new Error(`issue_key_pattern ${canonicalRepr(resolved.issue_key_pattern)} is not in the portable regex subset`);
+  }
+  for (const pattern of resolved.refactor.string_forms) {
+    if (!isPortableRegex(pattern)) throw new Error(`refactor.string_forms pattern ${pattern} is not in the portable regex subset`);
+    if (capturingGroups(pattern) !== 1) throw new Error(`refactor.string_forms pattern ${pattern} must hold exactly one capturing group`);
   }
   return resolved;
 }

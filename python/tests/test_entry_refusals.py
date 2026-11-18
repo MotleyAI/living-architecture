@@ -159,6 +159,32 @@ def test_a_keep_relative_to_the_working_directory_names_nothing(
     assert run_raw(tmp_path, argv, monkeypatch, capsys) == (2, "", CHECKS + missing + "\n")
 
 
+NOTED = USE + "# foo is called twice\n"
+
+
+def test_a_pick_is_relative_to_the_project_from_another_directory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = write_project(tmp_path / "proj", {"pkg/a.py": A, "pkg/use.py": NOTED})
+    monkeypatch.chdir(tmp_path)
+    argv = ["--project", "proj", "--apply", "rename", "--file", "proj/pkg/a.py", "--symbol", "foo", "--new-name", "bar",
+            "--docs", "--docs-pick", "pkg/use.py:5"]
+    code, _out, err = run(tmp_path, argv, monkeypatch, capsys)
+    assert (code, err) == (0, "")
+    assert (root / "pkg" / "use.py").read_text(encoding="utf-8") == NOTED.replace("foo", "bar")
+
+
+def test_a_pick_relative_to_the_working_directory_names_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    write_project(tmp_path / "proj", {"pkg/a.py": A, "pkg/use.py": NOTED})
+    monkeypatch.chdir(tmp_path)
+    argv = ["--project", "proj", "rename", "--file", "proj/pkg/a.py", "--symbol", "foo", "--new-name", "bar",
+            "--docs", "--docs-pick", "proj/pkg/use.py:5"]
+    missing = message("refactor.site-missing", option="--docs-pick", site="proj/pkg/use.py:5")
+    assert run_raw(tmp_path, argv, monkeypatch, capsys) == (2, "", CHECKS + missing + "\n")
+
+
 # ---- the own-scope check
 
 MEMBER = "class C:\n    def old(self) -> int:\n        return 1\n\n{body}"

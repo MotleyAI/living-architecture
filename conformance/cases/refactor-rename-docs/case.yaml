@@ -32,5 +32,5 @@ expect:
   - pkg/engine.py
   - pkg/other.py
 golden: manual
-note: '--docs: qualified mentions everywhere, code-marked ones in the declaring file (backticks, a Sphinx role, a message
-  prefix, an f-string), prose files git lists; the rest listed; git-ignored and .json files untouched'
+note: '--docs: qualified mentions everywhere, code-marked ones in the declaring file (backticks, a Sphinx role),
+  prose files git lists; the rest listed, a message prefix and an f-string included; git-ignored and .json files untouched'

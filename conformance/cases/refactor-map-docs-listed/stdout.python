@@ -1,0 +1,30 @@
+Renaming <columns> to <fields>:
+Renaming <columns> to <result_columns>:
+
+
+--- a/pkg/a.py
++++ b/pkg/a.py
+@@ -2,15 +2,15 @@
+ 
+ 
+ class Table:
+-    """A table and its ``columns``."""
++    """A table and its ``fields``."""
+ 
+-    columns: list[str] = []
++    fields: list[str] = []
+ 
+ 
+ class Result:
+-    """A result and its ``columns``."""
++    """A result and its ``result_columns``."""
+ 
+-    columns: list[str] = []
++    result_columns: list[str] = []
+ 
+ 
+ # Both keep their ``columns`` in order.
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

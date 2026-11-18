@@ -1,0 +1,10 @@
+[resolve]
+[checks]
+[references]
+[references 1/2] entry 1: columns -> fields
+[references 2/2] entry 2: columns -> result_columns
+[rules]
+[rules 1/1] entries 1, 2: columns -> fields, result_columns: clean
+--docs-pick pkg/a.py:2 names no listed mention, so nothing was refactored
+--docs-pick pkg/a.py:5 names no listed mention, so nothing was refactored
+--docs-pick pkg/a.py:1=3 names no listed mention, so nothing was refactored

@@ -11,7 +11,7 @@ git:
 chmod:
   living-architecture.yaml: '0000'
 expect:
-  exit: 0
+  exit: 2
+  stdout: ''
 golden: manual
-note: 'an unreadable config behaves exactly as one that is not valid YAML (goldens recorded with `tracker: [`), never a
-  crash'
+note: 'an unreadable config refuses in checks as one that is not valid YAML does, never a crash'

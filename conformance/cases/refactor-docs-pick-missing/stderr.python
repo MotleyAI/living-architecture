@@ -1,0 +1,4 @@
+[resolve]
+[checks]
+--docs-pick pkg/gone.py:1 names no file, directory or line in the project
+--docs-pick pkg/a.py:99 names no file, directory or line in the project

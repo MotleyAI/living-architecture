@@ -1,0 +1,2 @@
+- {file: pkg/one.py, symbol: A.field, new_name: column}
+- {file: pkg/two.py, symbol: C.size, new_name: length}

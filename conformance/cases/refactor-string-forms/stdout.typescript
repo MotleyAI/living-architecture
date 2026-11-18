@@ -1,0 +1,30 @@
+Renaming <Model> to <Dataset>:
+
+
+--- a/src/g.ts
++++ b/src/g.ts
+@@ -1,4 +1,4 @@
+-export class Model {
++export class Dataset {
+   name = '';
+ }
+ 
+@@ -6,11 +6,11 @@
+   name = '';
+ }
+ 
+-export const SCHEMA = 'CREATE NODE TABLE Model(name STRING, PRIMARY KEY(name))';
+-export const FIND = "MATCH (m:Model) RETURN m.name";
++export const SCHEMA = 'CREATE NODE TABLE Dataset(name STRING, PRIMARY KEY(name))';
++export const FIND = "MATCH (m:Dataset) RETURN m.name";
+ 
+ export function find(i: number): string {
+-  return `MATCH (m:Model) WHERE m.id = ${i}`;
++  return `MATCH (m:Dataset) WHERE m.id = ${i}`;
+ }
+ 
+ export const OTHER = 'MATCH (m:ModelColumn)';
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

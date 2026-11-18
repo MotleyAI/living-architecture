@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict
 from living_architecture.contract import (
     DuplicateKeyError,
     YAMLError,
+    capturing_groups,
     config_file,
     is_portable_regex,
     is_regular_file,
@@ -71,6 +72,7 @@ class RefactorPythonConfig(_Strict):
 
 class RefactorConfig(_Strict):
     python: RefactorPythonConfig
+    string_forms: list[str]
 
 
 class ConventionsConfig(_Strict):
@@ -109,6 +111,11 @@ def resolve(data: Any) -> LaConfig:
         raise ValueError(
             f"issue_key_pattern {resolved['issue_key_pattern']!r} is not in the portable regex subset"
         )
+    for pattern in resolved["refactor"]["string_forms"]:
+        if not is_portable_regex(pattern):
+            raise ValueError(f"refactor.string_forms pattern {pattern} is not in the portable regex subset")
+        if capturing_groups(pattern) != 1:
+            raise ValueError(f"refactor.string_forms pattern {pattern} must hold exactly one capturing group")
     return LaConfig.model_validate(resolved)
 
 

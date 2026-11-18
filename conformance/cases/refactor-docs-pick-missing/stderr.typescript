@@ -1,0 +1,4 @@
+[resolve]
+[checks]
+--docs-pick src/gone.ts:1 names no file, directory or line in the project
+--docs-pick src/a.ts:99 names no file, directory or line in the project

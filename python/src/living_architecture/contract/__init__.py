@@ -7,7 +7,7 @@ from living_architecture.contract.os_error import (
     os_error_reason,
     os_error_text,
 )
-from living_architecture.contract.regex import is_portable_regex
+from living_architecture.contract.regex import capturing_groups, is_portable_regex
 from living_architecture.contract.render import canonical_repr, message, normalize, render_template
 from living_architecture.contract.schema import materialize_defaults, validate
 from living_architecture.contract.snapshot import (
@@ -40,6 +40,7 @@ __all__ = [
     "architecture",
     "base_fetch_timeout",
     "canonical_repr",
+    "capturing_groups",
     "check_ids",
     "compute_hash",
     "config_file",

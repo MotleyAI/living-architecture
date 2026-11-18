@@ -1,0 +1,5 @@
+sep = "/"
+
+
+class Decoder:
+    pass

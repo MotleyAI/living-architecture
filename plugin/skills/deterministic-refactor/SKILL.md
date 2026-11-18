@@ -46,6 +46,11 @@ the refactor touches (`la-config get languages` lists the repo's).
      and tell the user which.
    - a site that must keep the old name (a back-compat test or shim): `--keep PATH:LINE`, or
      `--keep PATH` for a whole file.
+   - a `leftover` mention that does name the renamed symbol (an untyped document body, a docstring two
+     map entries reach): `--docs-pick PATH:LINE` rewrites the mentions listed on that line; add `=ENTRY`
+     where two entries rename that word to different names.
+   - a literal that must keep its old keys (a versioned stored document): `--keep-literal KEY` leaves
+     every dict or object literal holding that key.
    - code still using the back-compat alias of an earlier rename: a `retarget` entry moves it to
      the new name and keeps the alias.
    Show the diff.
@@ -80,9 +85,15 @@ the alias `OLD` to name `NEW`, its target declared or imported in the same class
 module, imports `NEW` where a file lacks it, and leaves `OLD` and its re-exports in
 place. `rename`, `rename-map` and `retarget` also take `--with` /
 `--without PATH:LINE`, `--keep PATH[:LINE]` (site paths relative to `--project`), `--allow-blindspots` and `--docs`
-(comments, docstrings, strings and prose files: qualified mentions everywhere,
-code-marked ones in the declaring files, the rest listed as `leftover`, as are
-declarations whose name contains the old name). Move destinations must already
+(comments, docstrings, strings and prose files: qualified mentions everywhere;
+code-marked ones in the declaring files where the class owning the mention has
+the renamed member, or outside such a class where every declaration of the name
+in the file is renamed to one name; the rest listed as `leftover`, as are
+declarations whose name contains the old name). `rename` and `rename-map` also
+take `--docs-pick PATH:LINE[=ENTRY]` (rewrite the mentions listed on that line)
+and `--keep-literal KEY` (leave every dict or object literal holding that key).
+A string matching a pattern of the repo's `refactor.string_forms` is respelled
+with a renamed class or module-level symbol, with or without `--docs`. Move destinations must already
 exist, and a `move-symbol` destination is a file of the same language. Run the
 repo's formatter afterwards.
 

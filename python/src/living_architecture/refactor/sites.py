@@ -1,4 +1,5 @@
-"""`PATH[:LINE]` sites of `rename --keep`, `--with` and `--without`."""
+"""`PATH[:LINE]` sites of `rename --keep`, `--with`, `--without` and `--docs-pick`, and the literals of
+`--keep-literal`."""
 
 from __future__ import annotations
 
@@ -13,10 +14,13 @@ from pydantic import BaseModel, ConfigDict
 
 from living_architecture.contract import message
 from living_architecture.refactor.progress import Refusal, refusal
-from living_architecture.refactor.python_source import nfkc, split_lines
+from living_architecture.refactor.python_source import SourceFile, nfkc, split_lines
 
 _LINE = re.compile(r"(.*):(\d+)")
 _TYPE_COMMENT = re.compile(r"#\s*type:")
+_PICK = re.compile(r"(.*:\d+)=(\d+)")
+_STRING_PREFIX = re.compile(r"[A-Za-z]*")
+_QUOTES = ('"""', "'''", '"', "'")
 
 
 class Site(BaseModel):
@@ -59,6 +63,70 @@ class Site(BaseModel):
         except OSError:
             return True
         return not 1 <= self.line <= count
+
+
+class Pick(BaseModel):
+    """A `--docs-pick` as given: its line site and the entry it names."""
+
+    model_config = ConfigDict(frozen=True)
+
+    raw: str
+    site: Site
+    entry: int | None
+
+    @classmethod
+    def parse(cls, raw: str, root: Path) -> Pick:
+        m = _PICK.fullmatch(raw)
+        site, entry = (m.group(1), int(m.group(2))) if m else (raw, None)
+        return cls(raw=raw, site=Site.parse(site, root), entry=entry)
+
+    def missing(self, root: Path) -> bool:
+        """The pick names no line of a file under `root`."""
+        return self.site.line is None or self.site.missing(root)
+
+
+def _spells(source: SourceFile, key: ast.expr | None, keys: tuple[str, ...]) -> set[int]:
+    """The indexes of `keys` a plain string literal `key` holds between its quotes, as written."""
+    if not (isinstance(key, ast.Constant) and isinstance(key.value, str)):
+        return set()
+    segment = source.segment(key)
+    body = segment[_STRING_PREFIX.match(segment).end():]  # type: ignore[union-attr]
+    return {i for i, k in enumerate(keys) if any(body == q + k + q for q in _QUOTES)}
+
+
+def literal_spans(source: SourceFile, keys: tuple[str, ...]) -> list[tuple[int, int, set[int]]]:
+    """The span of each dict display of `source` holding one of `keys`, with the indexes of the keys it holds."""
+    out: list[tuple[int, int, set[int]]] = []
+    for node in source.of_type(ast.Dict) if source.tree is not None else []:
+        held = set[int]().union(*(_spells(source, key, keys) for key in node.keys))
+        if held:
+            out.append((*source.span(node), held))
+    return out
+
+
+class LiteralKeeps:
+    """`--keep-literal` keys: the literals they keep in each file (`spans`), and the keys that kept nothing."""
+
+    def __init__(self, keys: tuple[str, ...], spans: Callable[[str], list[tuple[int, int, set[int]]]]) -> None:
+        self.keys = tuple(dict.fromkeys(keys))
+        self._spans = spans
+        self._files: dict[str, list[tuple[int, int, set[int]]]] = {}
+        self._matched: set[int] = set()
+
+    def kept(self, rel: str, start: int, end: int, *, mark: bool = True) -> bool:
+        """`start:end` of `rel` overlaps a kept literal; `mark` counts the keys keeping it."""
+        if not self.keys:
+            return False
+        if rel not in self._files:
+            self._files[rel] = self._spans(rel)
+        hits = [held for s, e, held in self._files[rel] if s < end and start < e]
+        if mark:
+            self._matched.update(*hits)
+        return bool(hits)
+
+    def unneeded(self) -> list[str]:
+        """A `refactor.keep-literal-unneeded` warning for each key that kept nothing, in command-line order."""
+        return [message("refactor.keep-literal-unneeded", key=k) for i, k in enumerate(self.keys) if i not in self._matched]
 
 
 class Keeps:

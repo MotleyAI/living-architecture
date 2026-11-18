@@ -1,0 +1,3 @@
+[resolve]
+[checks]
+--docs-pick needs --docs, so nothing was refactored

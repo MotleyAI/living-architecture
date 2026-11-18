@@ -30,13 +30,29 @@ Every refactor keeps the type-check baseline aligned (Python
 through `commands.typecheck.python`, TypeScript through the bundled language service), in dry-run and `--apply`. A
 member rename refuses while a receiver of the old name is untyped (`--allow-blindspots` overrides) or a class
 outside the renamed hierarchy declares it (`--with` / `--without PATH:LINE` classify each); `--keep PATH[:LINE]`
-leaves sites untouched (a relative PATH of any of the three is resolved against `--project`), and `--docs` also rewrites mentions in comments, docstrings, strings and prose files,
-listing the rest as `leftover`. A string held by a once-bound name (a constant, a local, the elements of a constant
-tuple a loop reads) is rewritten at its literal when a use proves it names the renamed member, or when the checker
-needs a renamed literal-type member there; every other read of that name is listed as `unverified-read`.
+leaves sites untouched (a relative PATH of any of the three, and of `--docs-pick`, is resolved against
+`--project`), `--keep-literal KEY` leaves every dict or object literal holding that key, and `--docs`
+also rewrites mentions in comments, docstrings, strings and prose files, listing the rest as `leftover`. A string
+held by a once-bound name (a constant, a local, the elements of a constant tuple a loop reads) is rewritten at its
+literal when a use proves it names the renamed member, or when the checker needs a renamed literal-type member
+there; every other read of that name is listed as `unverified-read`.
 A stand-in that needs a new name of its own is added to the map as its own entry.
 Pytest fixture methods (`@pytest.fixture`, `@pytest_asyncio.fixture`) are left without a flag; `--with` still
 renames one.
+
+`--docs` decides each mention once over all entries of the run. A qualified mention (`Owner.OLD`) is rewritten
+everywhere. A bare mention is rewritten only when it is code-marked (in backticks, or a Sphinx role or `{@link}`
+target) and sits in a file declaring the rename: inside a class that has the member (its own or inherited), when
+that member is renamed; outside any such class, when every module-level and class-member declaration of the name in
+the file is renamed to one name. A Python class owns its statement from its first decorator; a TypeScript class,
+interface or type literal owns its declaration and the JSDoc attached to it. Every other mention is listed, a plain
+word opening a string included. `--docs-pick PATH:LINE[=ENTRY]` rewrites the mentions listed on that line; `=ENTRY`
+is needed where two entries rename the word to different names, and a kept line or literal wins over a pick.
+
+A string matching a pattern of the repo's `refactor.string_forms` (a mini-language such as Cypher) is respelled
+with a renamed class or module-level symbol, with or without `--docs`, when every module-level declaration of that
+name in the project is renamed to one name; otherwise the site is listed as a `leftover`. In both rules a module-level
+import that binds the name and that the run leaves unchanged counts as a declaration left unchanged.
 
 A vocabulary rename (one word replaced across the repo) starts from a word table:
 
@@ -75,15 +91,16 @@ A run announces its phases on stderr as they start — `[resolve]`, `[checks]`, 
 `[rules n/count]` as each old-name group is done, `clean` or followed by its refusals; `conflicts` checks the
 computed edits for map and name conflicts. Everything that needs no reference search runs
 in `checks` and refuses at once, listing every failure: entries that do not resolve, `--keep` / `--with` /
-`--without` sites naming no file or line, line keeps whose line spells no old name (a comment's spelling counts only
-with `--docs`, or in a Python type comment), a new name the scope declaring the entry's symbol already holds and no
-other entry frees, Python walker gaps, an
-unreadable config while the language's baseline file exists, and a checker that cannot run. Once every entry's edits
+`--without` / `--docs-pick` sites naming no file or line, a `--docs-pick` without `--docs`, line keeps whose line
+spells no old name (a comment's spelling counts only with `--docs`, or in a Python type comment), a new name the
+scope declaring the entry's symbol already holds and no other entry frees, Python walker gaps, an unreadable or
+invalid config, and a checker that cannot run. Once every entry's edits
 are final, before `conflicts`, each keep and stand-in site is resolved exactly: an unneeded whole-file or directory
-keep prints a `WARNING:` and the run goes on, while an unmatched line keep (named with the nearest edited line) or a
-`--with` / `--without` site holding no stand-in stops the run there. Past `checks`, every entry is computed and each refusal is printed once: a group's under its `[rules]` line, the rest
-(name conflicts, map conflicts, site findings) in the final report. A refusal of one entry names it and its locator,
-as in `entry 2 (pkg/c.py:2:5): ...`;
+keep or `--keep-literal` prints a `WARNING:` and the run goes on, while an unmatched line keep (named with the nearest
+edited line), a `--with` / `--without` site holding no stand-in, or a `--docs-pick` naming no listed mention (or one
+two entries rename differently, without `=ENTRY`) stops the run there. Past `checks`, every entry is computed and
+each refusal is printed once: a group's under its `[rules]` line, the rest (name conflicts, map conflicts, site
+findings) in the final report. A refusal of one entry names it and its locator, as in `entry 2 (pkg/c.py:2:5): ...`;
 `--fail-fast` (on `rename`, `retarget`, `rename-map`) stops after the first refused group instead. A failed checker
 is followed by its cause: exit code and stderr, start error, or error answer.
 

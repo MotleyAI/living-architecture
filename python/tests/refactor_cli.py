@@ -107,6 +107,23 @@ def git(root: Path, *args: str) -> str:
     return subprocess.run(["git", *args], cwd=root, env=env, capture_output=True, text=True, check=True).stdout
 
 
+def git_project(root: Path, files: dict[str, str], config: str | None = None) -> Path:
+    """`write_project` as a git repo (prose files come from git); `config` is appended to a repo config."""
+    extra = {} if config is None else {"living-architecture.yaml": f"format: {current_format()}\n{config}"}
+    write_project(root, {**files, **extra})
+    git(root, "init", "-q", "-b", "main")
+    return root
+
+
+def rename_argv(rel: str, symbol: str, new_name: str, *flags: str, apply: bool = True) -> list[str]:
+    """`dr-refactor`'s arguments for a rename located by `--symbol`."""
+    return [*(["--apply"] if apply else []), "rename", "--file", rel, "--symbol", symbol, "--new-name", new_name, *flags]
+
+
+def leftover(path: str, line: int, where: str, old: str) -> str:
+    return message("refactor.leftover", path=path, line=line, where=where, old=old)
+
+
 def configure_typecheck(root: Path, command: str | None) -> None:
     """A git repo at `root` whose config sets `commands.typecheck.python` (YAML null for None)."""
     if not (root / ".git").exists():

@@ -30,5 +30,5 @@ expect:
   - src/engine.ts
   - src/use.ts
 golden: manual
-note: '--docs: {@link Owner#OLD}, {@link Owner.OLD}, Owner#OLD, backticks and a template-literal message prefix are rewritten;
-  bare words listed; git-ignored prose untouched'
+note: '--docs: {@link Owner#OLD}, {@link Owner.OLD}, Owner#OLD, backticks are rewritten;
+  bare words and a template-literal message prefix listed; git-ignored prose untouched'

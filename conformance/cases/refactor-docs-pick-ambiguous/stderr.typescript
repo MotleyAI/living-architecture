@@ -1,0 +1,9 @@
+[resolve]
+[checks]
+[references]
+[references 1/2] entry 1: columns -> fields
+[references 2/2] entry 2: columns -> resultColumns
+[rules]
+[rules 1/1] entries 1, 2: columns -> fields, resultColumns: clean
+--docs-pick src/a.ts:1: entries 1 and 2 both mention columns here; add =ENTRY, so nothing was refactored
+--docs-pick src/a.ts:13=2: entries 1 and 2 both mention columns here; add =ENTRY, so nothing was refactored
