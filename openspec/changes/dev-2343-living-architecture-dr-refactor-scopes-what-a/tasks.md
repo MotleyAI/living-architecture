@@ -75,8 +75,9 @@
   scoping, flags and config key
 - [x] 5.2 `plugin/skills/deterministic-refactor/SKILL.md`: show the user the exact wording and get the OK before
   editing; then verify `npx -y @anthropic-ai/claude-code plugin validate plugin`
-- [ ] 5.3 Minor version bump of `python/pyproject.toml`, `node/package.json` and `plugin/.claude-plugin/plugin.json`
-  together (0.11.0 to 0.12.0), lockfiles included; reinstall the local editable `la` tools from the checkout
+- [x] 5.3 Minor version bump of `python/pyproject.toml`, `node/package.json` and `plugin/.claude-plugin/plugin.json`
+  together (0.11.0 to 0.12.0), lockfiles included; the local editable `la` tools are reinstalled from the checkout
+  after the merge
 - [x] 5.4 Record on DEV-2343 that untyped document bodies were declined, with the reason of design.md decision 7
 
 ## 6. Gates
