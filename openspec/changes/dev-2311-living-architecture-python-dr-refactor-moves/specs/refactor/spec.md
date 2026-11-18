@@ -139,6 +139,78 @@ directory like a package's.
 - **WHEN** the project keeps its code under `src/` and `src/pkg/ns/` has no `__init__.py`
 - **THEN** the moves and renames above give the same result with `src/` in each path
 
+### Requirement: Python refactors check their output before writing
+Before it prints or writes anything, every Python refactor SHALL check each Python file it would write. A file that
+parsed before SHALL parse with its new text, else the refactor SHALL exit 1 with the unparsable finding naming the file.
+The file's new bytes SHALL decode, in the encoding they declare, to its new text, else the refactor SHALL exit 1 with
+the unencodable finding naming the file and that encoding.
+
+`move-symbol` and `move-module` SHALL then resolve the project as the move would leave it and compare it with the
+project as read, each file with itself at its new path: (a) every name or attribute chain read SHALL resolve as before:
+to the same declaration or module (a moved one counting as itself at its new place), to a binding the resolver cannot
+follow, or to no binding; (b) a read that runs while its module is imported SHALL follow a top-level binding of its name
+if and only if it did before; (c) a name a module binds at top level both before and after SHALL resolve as before. On
+a difference the move SHALL exit 1 with the resolution-changed finding naming the file, line and name of the first one.
+
+A refused refactor SHALL write nothing. The comparison SHALL start no language server.
+
+#### Scenario: Rename into an encoding that cannot hold the new name
+- **WHEN** `pkg/a.py` declares `# coding: ascii` and `rename` renames its `value` to `valué`
+- **THEN** it exits 1 with the unencodable finding naming `pkg/a.py` and `ascii`, prints no traceback, and no file
+  changes
+
+#### Scenario: Moved code reads a builtin the destination rebinds
+- **WHEN** `pkg/a.py` holds `def count(items): return len(items)` on two lines, `pkg/b.py` holds `len = 3`, and
+  `move-symbol` moves `count` to `pkg/b.py`, with or without `--apply`
+- **THEN** it exits 1 with the resolution-changed finding naming `pkg/b.py`, line 2 and `len`, and no file changes
+
+#### Scenario: Output that does not parse is refused
+- **WHEN** the text a move or a rename computes for a file that parsed does not parse
+- **THEN** it exits 1 with the unparsable finding naming that file, and no file changes
+
+#### Scenario: New bytes that decode to another text are refused
+- **WHEN** the text a refactor computes for a file declares another encoding than the one the file is written in, and
+  its bytes do not decode to that text in the declared one
+- **THEN** it exits 1 with the unencodable finding naming that file and the declared encoding, and no file changes
+
+#### Scenario: A read left without its binding is refused
+- **WHEN** the texts a move computes leave a read of a name without the import that bound it
+- **THEN** it exits 1 with the resolution-changed finding naming that file, the read's line and the name, and no file
+  changes
+
+#### Scenario: A use that would run before the moved declaration is refused
+- **WHEN** the texts a `move-symbol` computes place the moved declaration after a top-level destination statement that
+  calls it, where the destination's import of it came before that statement
+- **THEN** it exits 1 with the resolution-changed finding naming the destination, that statement's line and the name,
+  and no file changes
+
+#### Scenario: A re-export that would change is refused
+- **WHEN** the texts a move computes leave a package's `__init__.py` binding a name to another declaration than before,
+  and no file of the project reads that name
+- **THEN** it exits 1 with the resolution-changed finding naming that `__init__.py`, the binding's line and the name,
+  and no file changes
+
+#### Scenario: An export list that would change is refused
+- **WHEN** the texts a `move-symbol` computes leave the moved symbol's name in the source's literal `__all__`, and no
+  file of the project star-imports the source
+- **THEN** it exits 1 with the resolution-changed finding naming the source, the line of its `__all__` and `__all__`,
+  and no file changes
+
+#### Scenario: Self-reference evaluated while the moved declaration is defined
+- **WHEN** `pkg/a.py` has `import pkg.a` and `def f(n, step=lambda k: pkg.a.f(k), first=pkg.a.f)`, and `move-symbol`
+  moves `f` to `pkg/b.py`
+- **THEN** it exits 1 with the resolution-changed finding naming `pkg/b.py`, the line of the moved `def` and
+  `pkg.a.f`, and no file changes
+
+#### Scenario: A stub that does not parse is refused
+- **WHEN** a module rename runs with `--stub` and the configured stub text, filled in, does not parse
+- **THEN** it exits 1 with the unparsable finding naming the stub's path, and no file changes
+
+#### Scenario: Existing refactors unchanged
+- **WHEN** any Python `dr-refactor` conformance case that existed before this requirement runs, other than the
+  self-reference case above
+- **THEN** its stdout, stderr, exit code and written files are unchanged
+
 ## MODIFIED Requirements
 
 ### Requirement: Refactors edit only at references

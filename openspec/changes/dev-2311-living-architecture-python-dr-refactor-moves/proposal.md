@@ -29,6 +29,10 @@ namespace packages. This is step 5 of DEV-2306's plan; DEV-2312 then removes rop
   `refactor.move-module-header`, `refactor.moved` (renamed from their `ts-` keys; texts unchanged).
 - Moves start no language server. rope's only remaining part is the walker-gap check of a move's `checks` phase.
 - Output stays byte-identical on every existing Python `move-symbol` and `move-module` golden.
+- **Every Python refactor checks its output before writing** (second pass, design decisions 26–38): a written file
+  must still parse and its bytes must decode to the intended text; a move also resolves the project as it would leave
+  it and refuses with the new finding `refactor.resolution-changed` when a name would resolve differently. A case no
+  edit rule covers then refuses instead of writing wrong code.
 
 ## Capabilities
 
@@ -37,7 +41,8 @@ namespace packages. This is step 5 of DEV-2306's plan; DEV-2312 then removes rop
 ### Modified Capabilities
 - `refactor`: Python moves resolve statically without rope; `move-symbol` moves one top-level declaration (locators,
   movable forms, overload groups, region); moves' import rules for guarded, `__future__` and relative imports and the
-  destination import order; namespace packages resolve for moves and module renames.
+  destination import order; namespace packages resolve for moves and module renames; every Python refactor checks its
+  output before writing.
 
 ## Impact
 
@@ -46,6 +51,9 @@ namespace packages. This is step 5 of DEV-2306's plan; DEV-2312 then removes rop
   deleted), `static_resolver.py` (import statement and item per binding; namespace packages), `python_project.py`
   (namespace packages), `diff_render.py` (move text from the contract).
 - `shared/findings.yaml`: three keys renamed, `refactor.guarded-import` added; `scripts/sync-shared`.
+- Output checks: new `refactor/output_check.py` and `refactor/move_verify.py`; `rename_map.changes_of` and
+  `rope_refactor._emit` build their writes through `output_check`; `python_project.ProjectLayout.resources`;
+  `shared/findings.yaml` gains `refactor.resolution-changed`.
 - `node/src/refactor/`: `typescript.ts`, `session.ts` use the renamed keys.
 - `conformance/`: new Python adapter cases; `INVENTORY.md`.
 - Tests: `python/tests/test_move_edits.py` onto the new entry points; `python/tests/test_contract.py` key names.

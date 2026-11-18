@@ -63,6 +63,8 @@ resolver, whose scopes the planner also edits by), the AST for declarations and 
 - The TypeScript twin's behaviour (only its two message-key call sites change).
 - A version bump: versions move at release (AGENTS.md); approved scope cut of Codex finding 11.
 - Moving a guarded (`try` / other `if`) import's dependency automatically: refused with `refactor.guarded-import`.
+- Checking the module finder against Python's import machinery, an import-and-compare test harness, the resolver
+  comparison for module renames, and the comparison's known gaps (decision 38): DEV-2350.
 
 ## Decisions
 
@@ -173,6 +175,155 @@ resolver, whose scopes the planner also edits by), the AST for declarations and 
     first), standard library (`sys.stdlib_module_names`), third-party, project (resolvable under the source folders);
     within each, plain `import` before `from`, then by text. *(default, from the issue)*
 
+### Output checks (second pass on the open PR; tasks sections 8–13)
+
+Symptom: three review rounds each found narrower cases where a move wrote a file that does not parse, cannot be
+encoded, or whose names resolve differently (about 20 point fixes). Structural cause: the planner writes each file's
+text from per-case edit rules and nothing checks the result before `emit` prints and writes it, so every case no rule
+covers is silently wrong output. Fix: check the result itself, once, on the one path every Python refactor writes
+through. A case no rule covers then refuses instead of writing.
+
+26. **Two checks, in this order, before anything is printed or written.** (1) *Validity*, for every Python refactor
+    (rename, rename-map, retarget, moves). (2) *Resolver comparison*, for `move-symbol` and `move-module` only. Options
+    weighed for (1): moves only, or every refactor through one function; taken: every refactor, one code path
+    (probed: `rename --new-name valué` in a `# coding: ascii` file prints a `UnicodeEncodeError` traceback today).
+    *(user: scope "validity check and resolver comparison"; default: one path)*
+27. **Validity lives in one function**, new module `refactor/output_check.py`:
+    `checked_write(snapshot: Snapshot, rel: str, text: str) -> FileWrite`. It replaces `rope_refactor._encoded` and the
+    inline `FileWrite(... snapshot.encode(rel, text))` of `rename_map.changes_of`; those two call sites are the only
+    places a Python file's new text becomes bytes. Steps: (a) `snapshot.encode(rel, text)`; on `UnicodeEncodeError`
+    raise `RefactorError(message("refactor.unencodable", path=rel, encoding=snapshot.encoding(rel)))`. (b) Decode the
+    new bytes as a fresh read would: strip a UTF-8 byte order mark, take `read_str_coding(body) or "utf-8"`, decode;
+    when that raises `UnicodeDecodeError` or `LookupError`, or the result is not `text`, raise `refactor.unencodable`
+    with that declared encoding. (c) Only when `contract.language_of(rel) == "python"` and
+    `snapshot.source(rel).tree is not None`: `SourceFile(Path(rel), text).tree` must not be None, else raise
+    `RefactorError(message("refactor.unparsable", path=rel))`. `rel` is the path the file was read at. No new finding:
+    both texts already say exactly this. A created file has no snapshot entry, so the same module also has
+    `checked_create(rel: str, text: str) -> FileWrite` (`old=None`, UTF-8 bytes, step (c) whenever `rel` is a Python
+    file); `ModuleRename.stub` (`module_rename.py`), the one place that builds a created Python file, returns its
+    result (the stub template comes from the user's `living-architecture.yaml`, so it can fail to parse). The
+    type-check baseline that `emit` realigns (`baseline_align.py`) is the checker's JSON, not a Python file: it is
+    outside both checks. *(default; stubs and baseline: codex)*
+28. **New finding for the comparison** *(user, approved wording)*:
+    `refactor.resolution-changed: '{path}:{line}: {name} would not resolve as it does now, so nothing was refactored; move it by hand'`
+29. **Spec requirement "Python refactors check their output before writing"** *(user, approved wording)*: the three
+    paragraphs of that requirement in the spec delta, verbatim. Its scenarios are the acceptance criteria.
+30. **The project after the move is built on disk, in a temporary directory, by the real writer.** New module
+    `refactor/move_verify.py`. Options weighed: an in-memory overlay of the file system under `SourceFolders`,
+    `ProjectLayout` and `MoveProject.dotted` (all read the disk directly: `is_file`, `is_dir`, `rglob`, `os.listdir`),
+    or a copy. Taken: the copy, because it checks the bytes and layout that `--apply` will produce, with the writer's own order
+    of writes and moves, and needs no second file-system model. (The copy is no git repository, so `writer._move`
+    takes its `os.replace` branch there, not `git mv`; both leave the same files.) Steps: `tempfile.TemporaryDirectory(prefix="la-verify-")`;
+    create every directory and copy every `.py` file `ProjectLayout` sees (add a public
+    `ProjectLayout.resources() -> Iterator[tuple[str, bool]]` over `_children`, recursive: non-ignored, non-symlink;
+    the bool is "is a directory"); also every `rel` of `project.files()` the layout skipped: when it is a symlink whose target resolves inside the
+    project, a symlink to the same target inside the copy (module identity goes by resolved path,
+    `SourceFolders.files`); otherwise a regular file written from `snapshot.data(rel)`; and copy the root
+    `pyproject.toml` when it exists; then
+    `writer.apply(tmp_root, writes, moves)` with the move's own writes and moves (not the baseline write, not
+    `unchanged`); then `after = MoveProject(tmp_root)`. The directory is removed when the check ends, also on a
+    refusal. Nothing under the project root is created. *(default)*
+31. **What is compared: a fingerprint per file**, built only from `Resolver.resolve`, `Resolver.values`,
+    `Resolver.module_values`, `Resolver.declaration` and each `Module`'s `Binder`. For `before = project` and `after`,
+    and every `rel` of `before.files()` whose `before.module(rel)` is not None, the file's fingerprint is two tables.
+    `final(rel)` is `rel` after the move's `FileMove`s (`rel == m.rel` → `m.dest`; `rel` under `m.rel + "/"` → the
+    same suffix under `m.dest`; confirm `dest` is the full new path where `ModuleMove.move` is built).
+    - **Reads** (`Counter` of keys, each key also remembering its `(line, col, text)` occurrences). The reads are the
+      `ast.Name` loads and `ast.Attribute` loads of `binder.loads` plus the names and attributes inside
+      `binder.annotations` (as `move_edits.File._loads` collects them), reduced to *maximal chains*: drop every node
+      that is the `.value` of a collected `ast.Attribute`, and drop a chain whose innermost receiver is not an
+      `ast.Name`. For a chain with root name `r` read in scope `s`:
+      - *value*: the canonical value (decision 32) of `resolve(module, s, p)` for the longest prefix `p` of the chain
+        where it is not None; if none, `("unbound", r.id)` when `values(module, s, r)` is empty, else
+        `("opaque", r.id)`;
+      - *tail*: the attribute names after `p` (after `r` when there is no `p`), joined with `.`;
+      - *order*: `"annotation"` for a read that came from `binder.annotations`; else `"deferred"` when `s` or a scope
+        around it has kind `function`; else `"local"` when `s.resolving(r.id)` is not the module scope; else `"bound"`
+        when the module scope has a binding of `r.id` positioned before the read (an entry of `binder.bound` whose
+        `scope.owner(name)` is the module scope, whose own scope is not inside a function, and whose node's
+        `(lineno, col_offset)` is smaller; a `binder.star_nodes` import positioned before the read counts as a binding
+        of every name), else `"not-yet"`.
+      A read whose value is `("typing", "TYPE_CHECKING")` is left out of the table (a move may add an
+      `if TYPE_CHECKING:` block).
+    - **Top-level names**: for each name of `module.scope.bindings`, the canonical value of
+      `combine(module_values(module, name))`.
+    - **Exports**: `module.all_names` (the strings of a literal `__all__`, None without one).
+    *(default; exports: codex)*
+32. **Canonical values**, so that a value compares equal before and after although lines and module names shift:
+    - `None` → `"?"`; `("typing", n)` unchanged;
+    - `("module", dotted)`: when `project.folders(dotted)` finds a path, `("module", <that path relative to the
+      project root>)`, mapped through `final` on the before side; else `("module", dotted)` as written;
+    - `("decl", …)`: with `(module, node) = resolver.declaration(value)` and `key` its `node_key`: when
+      `binder.enclosing[key]` is the module scope (or an `annotation` scope directly under it), `("decl", <file>,
+      <name>, <ordinal>)`, where `<file>` is the module's path relative to its project root (`final` applied on the
+      before side), `<name>` is `node.name` or `node.id`, and `<ordinal>` is the declaration's index among the
+      module-level declarations of that name in the file, ordered by line then column; any other declaration →
+      `("local", <name>)`. `declaration` returning None → `("opaque", <the value's string>)`.
+    - *the moved declaration* (`move-symbol` only): before, a module-level declaration of the source file whose key is
+      in `MovedSymbol.keys`; after, a module-level declaration of the destination file named `MovedSymbol.name`; both
+      → `("decl", <destination file>, <name>, "moved")`.
+    *(default)*
+33. **The comparison.** With `F0`, `F1` the fingerprints before and after:
+    - `move-module`: for every file, `F1[final(rel)]` reads must equal `F0[rel]` reads.
+    - `move-symbol`: let `M` be the reads of the source file whose root name starts inside `MovedSymbol.region`.
+      Expected reads: source `F0[source] − M`, destination `F0[dest] + M`, every other file `F0[rel]`.
+    - both: for every file, every top-level name present in both `F0[rel]` and `F1[final(rel)]` must have the same
+      canonical value. A name present on one side only is no difference (a dropped import that something still needs
+      shows up as a changed read or a changed top-level name elsewhere, since every file is compared).
+    - both: for every file the exports must be equal, except that `move-symbol` expects the source's exports
+      without `MovedSymbol.name` (the planner removes that entry; the spec adds none to the destination).
+    - a file that parsed before and has no module after is `refactor.unparsable` naming it (cannot happen after
+      decision 27, kept as the guard).
+    The first difference, files in `final(rel)` order: among read keys counted more often after than expected, the
+    occurrence with the smallest `(line, col)` in the new text → `refactor.resolution-changed` with `final(rel)`, that
+    line and the chain as written (`ast.unparse`); when there is none, among keys counted less often, the occurrence
+    with the smallest `(line, col)` in the old text, with `rel` and that line; when the reads agree, the first
+    differing top-level name in name order, with `final(rel)`, the line of its first binding in the new text and the
+    name; when those agree too, differing exports, with `final(rel)`, the line of the last top-level `__all__`
+    assignment in the new text and the name `__all__`. One finding line only. *(default)*
+34. **Annotations are never "reads that run while the module is imported"** (part (b) of the requirement): a forward
+    reference in an annotation is legal under `from __future__ import annotations` and under Python 3.14's deferred
+    evaluation, and a moved function's `x: Later` gets `Later` imported at the destination's top, which would differ
+    from "not yet bound" in the source. Annotation reads still take part in (a). *(default; a simplification the user
+    has been told about)*
+35. **Where the checks run.** `rope_refactor._emit` builds its writes with `checked_write`, then, when the move has
+    writes or moves, calls `move_verify.verify(project: MoveProject, symbol: tuple[MovedSymbol, str, str] | None,
+    writes: list[FileWrite], moves: list[FileMove]) -> None` (`symbol` is the moved declaration with its source and
+    destination files for `move-symbol`, None for `move-module`; `final` is derived from `moves` alone), then calls
+    `emit`. Both run with and without `--apply`. A refusal raises `RefactorError`,
+    which `run_refactor` already prints with exit 1; stdout stays empty. No new progress phase and no new timing phase
+    (either would change every move golden and `shared/`); the work is charged to `references` by wrapping it in
+    `timed("references")`. *(default)*
+36. **Every existing golden but one stays byte-identical.** The one: `refactor-move-symbol-qualified-self-reference-declaration`
+    moves `def f(n, step=lambda k: pkg.a.f(k), first=pkg.a.f)` and pinned that the default `pkg.a.f` stays as written;
+    after the move `pkg/a.py` has no `f`, so the destination cannot import. It becomes a refusal: exit 1, stderr
+    `[resolve]`, `[checks]`, `[references]`, `pkg/b.py:5: pkg.a.f would not resolve as it does now, so nothing was
+    refactored; move it by hand`, no file changed *(user: "Refuse it"; found by codex)*. The lambda half of that case
+    moves to a new case. The whole Python `dr-refactor` corpus is the false-positive test of
+    the comparison. If a case that passed now refuses: STOP and show the user the case, the finding line and both
+    fingerprint entries. Never change a golden, loosen a fingerprint rule or skip a file to make it pass. *(default)*
+37. **Cost is measured, not assumed.** The comparison parses and binds every project file twice and copies the Python
+    sources once. Measure `dr-refactor --timings move-symbol` (dry run) on this repo's `python/` project before and
+    after; when the run takes more than twice as long or more than 5 s longer, STOP and ask the user. Fallback idea to
+    raise then: compare only the changed and moved files, the files spelling the moved name, and, to a fixed point,
+    the files spelling any top-level name a compared file no longer binds. *(default)*
+38. **Not in this change**, all in DEV-2350: the module finder checked against Python's own import machinery, a
+    test harness that imports a fixture project before and after a move and compares what its modules hold, the
+    comparison for module renames (`rename` without a locator, which runs through `rename_map`), and what the
+    comparison cannot see (string annotations and type comments, an import that moves in or out of a block, import
+    cycles, file headers, a read that changes between two same-named bindings of nested scopes). *(user: "a separate
+    issue for the rest")*
+39. **Codex review of this plan** (2026-11-18), beyond the findings folded in above as *(codex)*:
+    - A scope path and ordinal for `("local", name)` and `("opaque", name)`: *rejected (codex)*. A move edits nothing
+      inside a nested scope except a chain it rewrites, and that chain's value before is a declaration or module, so
+      a capture by a local already shows as a changed value. Listed in DEV-2350 as a known gap.
+    - "Task 9.2's line should not be 2": *rejected (codex)*. Probed on today's code: the moved text lands above
+      `len = 3` (a read inside a function body is no declaration-time dependency), so `len` is read on line 2.
+    - One inventory row per case: *rejected (codex)*. `INVENTORY.md` rows list several case ids each and
+      `tests/test_conformance.py` checks ids, not rows; task 9.4 now says both ids go in backticks.
+    - The exact function to patch for the rename fault and the typed `verify` signature: folded into task 9.6 and
+      decision 35. *(codex)*
+
 ## Risks / Trade-offs
 
 - [The static resolver becomes load-bearing for move edits] → its scope is narrow (bare names, module attribute
@@ -185,6 +336,12 @@ resolver, whose scopes the planner also edits by), the AST for declarations and 
 - [Moves that rope "succeeded" on now refuse (locators, repeated bindings, guarded imports)] → each refusal names the
   file and line; rope's output on those inputs was broken or undocumented.
 - [CRLF / BOM handling moves from rope to la] → decision 15 plus mixed-newline cases with `--apply`.
+
+- [The resolver comparison refuses a move that is correct] → every existing move golden must stay byte-identical
+  (decision 36); a false refusal stops the work for the user, never a loosened rule.
+- [The comparison shares the resolver with the planner, so a resolver bug passes both] → accepted here; DEV-2350 adds
+  oracles that share no code with it.
+- [The comparison reads every file twice and copies the sources] → measured (decision 37), with a recorded fallback.
 
 ## Migration Plan
 
