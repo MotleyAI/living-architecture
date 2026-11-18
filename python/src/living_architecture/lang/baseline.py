@@ -36,13 +36,14 @@ def text_edits(old: str, new: str) -> list[Edit]:
 
 
 def diagnostics(report: dict[str, Any], repo: Path) -> list[tuple[str, Key]]:
-    """The report's diagnostics in its order (each file's sorted by start, ties as the checker emits them)."""
+    """The report's diagnostics that have a range, in its order (each file's sorted by start, ties as the checker
+    emits them); a file-level one has none."""
     out: list[tuple[str, Key]] = []
     for d in report.get("generalDiagnostics", []):
         path = Path(d["file"]).resolve()
-        if not path.is_relative_to(repo):
+        r = d.get("range")
+        if r is None or not path.is_relative_to(repo):
             continue
-        r = d["range"]
         key = (str(d.get("rule", "")), r["start"]["line"], r["start"]["character"], r["end"]["line"], r["end"]["character"])
         out.append((path.relative_to(repo).as_posix(), key))
     return out
@@ -77,4 +78,16 @@ def baselined(everything: list[tuple[str, Key]], unbaselined: list[tuple[str, Ke
             shown_alone[item] -= 1
         else:
             out.append(item)
+    return out
+
+
+def marked(everything: list[tuple[str, Key]], unbaselined: list[tuple[str, Key]]) -> list[tuple[str, Key, bool]]:
+    """Every diagnostic in report order, with whether the baseline hides it."""
+    shown_alone = Counter(unbaselined)
+    out: list[tuple[str, Key, bool]] = []
+    for path, key in everything:
+        hidden = not shown_alone[(path, key)]
+        if not hidden:
+            shown_alone[(path, key)] -= 1
+        out.append((path, key, hidden))
     return out

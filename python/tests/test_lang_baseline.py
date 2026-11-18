@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from living_architecture.lang.baseline import Key, baselined, diagnostics, matches, pairs, text_edits
+from living_architecture.lang.baseline import Key, baselined, diagnostics, marked, matches, pairs, text_edits
 from living_architecture.lang.position_map import Edit, map_range
 
 ARG = "reportArgumentType"
@@ -61,3 +61,15 @@ def test_diagnostics_are_read_repo_relative_in_report_order(tmp_path: Path) -> N
     report = {"generalDiagnostics": [item(tmp_path / "pkg/m.py", 3), item(tmp_path.parent / "outside.py", 0),
                                      item(tmp_path / "pkg/m.py", 7)]}
     assert diagnostics(report, tmp_path.resolve()) == [("pkg/m.py", (ARG, 3, 1, 3, 2)), ("pkg/m.py", (ARG, 7, 1, 7, 2))]
+
+
+def test_a_diagnostic_without_a_range_is_left_out(tmp_path: Path) -> None:
+    ranged = {"file": str(tmp_path / "m.py"), "rule": ARG,
+              "range": {"start": {"line": 3, "character": 1}, "end": {"line": 3, "character": 2}}}
+    report = {"generalDiagnostics": [{"file": str(tmp_path / "m.py"), "rule": "reportImportCycles"}, ranged]}
+    assert diagnostics(report, tmp_path.resolve()) == [("m.py", (ARG, 3, 1, 3, 2))]
+
+
+def test_marked_are_all_the_diagnostics_in_report_order() -> None:
+    a, b = ("m.py", (ARG, 0, 1, 0, 2)), ("m.py", (ARG, 3, 1, 3, 2))
+    assert marked([a, b, a], [a]) == [(*a, False), (*b, True), (*a, True)]

@@ -11,20 +11,27 @@ from pathlib import Path
 from living_architecture.config import ConfigError
 from living_architecture.contract import base_fetch_timeout, message
 
-__all__ = ["base_paths", "changed_paths", "file_at", "git_paths", "is_commit", "merge_base", "pr_base", "resolve_base_ref"]
+__all__ = ["base_paths", "changed_paths", "commit_id", "file_at", "git_paths", "is_commit", "merge_base", "pr_base", "resolve_base_ref"]
 
 # Neither git nor ssh may prompt during the fetch: no terminal prompt and no askpass helper.
 _NO_PROMPT = {"GIT_TERMINAL_PROMPT": "0", "GIT_ASKPASS": "", "SSH_ASKPASS": "", "SSH_ASKPASS_REQUIRE": "never"}
 
 
-def _git(args: list[str], *, cwd: Path) -> bytes:
+def _failed(args: list[str]) -> str:
+    return message("changes.git-failed", args=" ".join(args))
+
+
+def _started(args: list[str], *, cwd: Path) -> subprocess.CompletedProcess[bytes]:
     try:
-        proc = subprocess.run(["git", *args], cwd=cwd, capture_output=True, check=False)
+        return subprocess.run(["git", *args], cwd=cwd, capture_output=True, check=False)
     except OSError as exc:
-        raise ConfigError(message("changes.git-failed", args=" ".join(args))) from exc
+        raise ConfigError(_failed(args)) from exc
+
+
+def _git(args: list[str], *, cwd: Path) -> bytes:
+    proc = _started(args, cwd=cwd)
     if proc.returncode != 0:
-        detail = proc.stderr.decode("utf-8", "replace").strip()
-        raise ConfigError(detail or message("changes.git-failed", args=" ".join(args)))
+        raise ConfigError(proc.stderr.decode("utf-8", "replace").strip() or _failed(args))
     return proc.stdout
 
 
@@ -80,7 +87,7 @@ def changed_paths(*, base_ref: str, repo_root: Path, deletions: bool, untracked:
     diff = ["diff", "-z", "--name-only", "--no-renames"] + ([] if deletions else ["--diff-filter=ACMR"])
     out: set[str] = set()
     for target in (f"{base_ref}...HEAD", "HEAD"):
-        out.update(git_paths([*diff, target], repo_root=repo_root))
+        out.update(git_paths([*diff, target, "--"], repo_root=repo_root))
     if untracked:
         out.update(git_paths(["ls-files", "-z", "--others", "--exclude-standard"], repo_root=repo_root))
     return sorted(out)
@@ -91,11 +98,20 @@ def merge_base(*, base_ref: str, repo_root: Path) -> str:
     return _git(["merge-base", base_ref, "HEAD"], cwd=repo_root).decode().strip()
 
 
+def commit_id(*, ref: str, repo_root: Path) -> str | None:
+    """The id of the commit `ref` names, None when it names none; ConfigError when git fails."""
+    proc = _started(["rev-parse", "--verify", "--quiet", "--end-of-options", f"{ref}^{{commit}}"], cwd=repo_root)
+    if proc.returncode == 0:
+        return proc.stdout.decode().strip()
+    detail = proc.stderr.decode("utf-8", "replace").strip()
+    if detail:
+        raise ConfigError(detail)
+    return None
+
+
 def is_commit(*, ref: str, repo_root: Path) -> bool:
     """Whether `ref` names a commit."""
-    proc = subprocess.run(["git", "rev-parse", "--verify", "--quiet", "--end-of-options", f"{ref}^{{commit}}"],
-                          cwd=repo_root, capture_output=True, check=False)
-    return proc.returncode == 0
+    return commit_id(ref=ref, repo_root=repo_root) is not None
 
 
 def file_at(*, ref: str, path: str, repo_root: Path) -> bytes | None:
@@ -106,7 +122,7 @@ def file_at(*, ref: str, path: str, repo_root: Path) -> bytes | None:
 
 def base_paths(*, ref: str, repo_root: Path) -> dict[str, str]:
     """Each path renamed since `ref` (tracked files of the working tree), mapped to its path at `ref`."""
-    fields = git_paths(["diff", "-z", "--name-status", "-M", ref], repo_root=repo_root)
+    fields = git_paths(["diff", "-z", "--name-status", "-M", ref, "--"], repo_root=repo_root)
     out: dict[str, str] = {}
     i = 0
     while i < len(fields):

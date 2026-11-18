@@ -149,7 +149,7 @@ describe('--realign-from', () => {
 
   function commit(root: string): string {
     execFileSync('git', ['add', '-A'], { cwd: root });
-    execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '-m', 'init'], { cwd: root });
+    execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '--no-gpg-sign', '-q', '-m', 'init'], { cwd: root });
     return root;
   }
 
@@ -184,6 +184,17 @@ describe('--realign-from', () => {
       err: `${message('typecheck.bad-ref', { ref })}\n`,
     });
     expect(lines(root, 'tsc.log')).toEqual([]);
+  });
+
+  it('exits 2 with the git failure when git does not start', () => {
+    const root = commit(tempRepo(TS_REPO));
+    vi.stubEnv('PATH', join(root, 'no-such-dir'));
+    const args = 'rev-parse --verify --quiet --end-of-options HEAD^{commit}';
+    expect(run(root, 'la-typecheck', ['--realign-from', 'HEAD'])).toEqual({
+      code: 2,
+      out: '',
+      err: `${message('typecheck.error', { error: message('changes.git-failed', { args }) })}\n`,
+    });
   });
 
   it('a bad ref stops a Python repo before the PyPI twin runs', () => {

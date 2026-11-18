@@ -65,7 +65,7 @@ changes the text earlier on a baselined line, or moves the file, therefore bring
 (`dr-refactor` realigns the baseline for its own edits). `la-typecheck --realign-from REF` moves each Python entry
 to where its error is now, then checks. `REF` is a commit where the baseline matched: `HEAD` for an uncommitted
 edit. It follows the renames git reports since `REF`, never changes the number of entries, and leaves an error
-that is really new as new. A failing Python check names the flag. TypeScript is checked as without it.
+that is really new as new. A failing Python check without the flag, in a repo with a baseline, names it. TypeScript is checked as without it.
 
 Suppress a genuine false positive with `// @ts-expect-error — <reason>`, never
 `@ts-ignore`.

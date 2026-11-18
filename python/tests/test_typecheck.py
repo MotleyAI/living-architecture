@@ -1,5 +1,7 @@
 """la-typecheck: command splitting, exit combination, which languages apply and the pyright#11919 patch."""
 
+import json
+import os
 import subprocess
 from pathlib import Path
 
@@ -328,7 +330,7 @@ BASELINED_REPO = {**PYTHON_REPO, BASELINE: '{"files": {}}\n'}
 
 def _commit(root: Path) -> Path:
     subprocess.run(["git", "add", "-A"], cwd=root, check=True)
-    subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "init"], cwd=root, check=True)
+    subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "--no-gpg-sign", "-q", "-m", "init"], cwd=root, check=True)
     return root
 
 
@@ -397,3 +399,102 @@ def test_a_patch_failure_does_not_print_the_hint(tmp_path: Path, run) -> None:
     code, _, err = run(root)
     assert code == 2
     assert hint not in err
+
+
+def test_a_baseline_entry_without_a_range_is_a_malformed_baseline(tmp_path: Path, run) -> None:
+    text = '{"files": {"./a.py": [{"code": "reportArgumentType", "range": null}]}}'
+    root = _commit(_repo(tmp_path, {**PYTHON_REPO, BASELINE: text}))
+    code, _, err = run(root, "--realign-from", "HEAD")
+    assert code == 2
+    assert err.splitlines()[-1] == message("typecheck.baseline-invalid", language="python", baseline=BASELINE)
+    assert ((root / BASELINE).read_text(encoding="utf-8"), _checker_calls(root)) == (text, [])
+
+
+def _checker(root: Path, script: str) -> None:
+    checker = root / "bin" / "checker"
+    checker.parent.mkdir()
+    checker.write_text(f"#!/bin/sh\n{script}", encoding="utf-8")
+    checker.chmod(0o755)
+
+
+def test_a_recorded_patch_refusal_comes_before_the_checkers_exit_code(tmp_path: Path) -> None:
+    _checker(tmp_path, f"printf '%s' '{UNVERIFIED}' > \"$LA_PYRIGHT_PATCH_RESULT\"\nexit 2\n")
+    with pytest.raises(typecheck.CommandError) as info:
+        typecheck.python_diagnostics(tmp_path, "bin/checker", [])
+    assert (info.value.kind, str(info.value)) == ("error", UNVERIFIED_TEXT)
+
+
+def test_the_report_run_drops_the_flags_the_checker_refuses_beside_it(tmp_path: Path) -> None:
+    _checker(tmp_path, f"printf '%s' '{PATCHED}' > \"$LA_PYRIGHT_PATCH_RESULT\"\necho \"$*\" > args.log\necho '{{}}'\n")
+    assert typecheck.python_diagnostics(tmp_path, "bin/checker --verbose -p . --stats", ["a.py"]) == {}
+    assert (tmp_path / "args.log").read_text(encoding="utf-8") == "-p . --outputjson a.py\n"
+
+
+RENAMED_ENTRY = '{"files": {"./a.py": [{"code": "reportArgumentType", "range": {"startColumn": 0, "endColumn": 1}}]}}'
+
+
+def _renamed(root: Path) -> Path:
+    """A repo whose baselined `a.py` is renamed to `b.py`, with a checker that reports nothing."""
+    _commit(_repo(root, {**PYTHON_REPO, BASELINE: RENAMED_ENTRY}))
+    report = f"printf '%s' '{PATCHED}' > \"$LA_PYRIGHT_PATCH_RESULT\"\necho '{{}}'\n"
+    (root / ".venv" / "bin" / "basedpyright").write_text(f"#!/bin/sh\n{report}", encoding="utf-8")
+    subprocess.run(["git", "mv", "a.py", "b.py"], cwd=root, check=True)
+    return root
+
+
+def test_a_realigned_baseline_keeps_its_mode_and_leaves_no_other_file(tmp_path: Path, run) -> None:
+    root = _renamed(tmp_path)
+    (root / BASELINE).chmod(0o640)
+    code, _, err = run(root, "--realign-from", "HEAD")
+    assert code == 0
+    assert message("typecheck.realign", language="python", count=1, baseline=BASELINE, ref="HEAD") in err
+    assert list(json.loads((root / BASELINE).read_text(encoding="utf-8"))["files"]) == ["./b.py"]
+    assert (root / BASELINE).stat().st_mode & 0o777 == 0o640
+    assert sorted(p.name for p in (root / BASELINE).parent.iterdir()) == ["baseline.json"]
+
+
+def test_a_baseline_that_cannot_be_replaced_exits_2_and_is_left_whole(
+    tmp_path: Path, run, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    text = RENAMED_ENTRY
+    root = _renamed(tmp_path)
+
+    def refuse(src: object, dst: object) -> None:
+        raise OSError(28, "No space left on device", str(dst))
+
+    monkeypatch.setattr(typecheck.os, "replace", refuse)
+    code, _, _ = run(root, "--realign-from", "HEAD")
+    assert code == 2
+    assert (root / BASELINE).read_text(encoding="utf-8") == text
+    assert sorted(p.name for p in (root / BASELINE).parent.iterdir()) == ["baseline.json"]
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root reads any file")
+def test_a_baseline_that_cannot_be_read_exits_2(tmp_path: Path, run) -> None:
+    root = _commit(_repo(tmp_path, BASELINED_REPO))
+    (root / BASELINE).chmod(0o000)
+    code, _, err = run(root, "--realign-from", "HEAD")
+    assert (code, _checker_calls(root)) == (2, [])
+    assert err.splitlines()[-1].startswith("la-typecheck: ")
+
+
+def test_a_linked_baseline_stays_a_link(tmp_path: Path, run) -> None:
+    root = _renamed(tmp_path)
+    real = root / "kept" / "baseline.json"
+    real.parent.mkdir()
+    (root / BASELINE).rename(real)
+    (root / BASELINE).symlink_to(real)
+    code, _, _ = run(root, "--realign-from", "HEAD")
+    assert (code, (root / BASELINE).is_symlink()) == (0, True)
+    assert list(json.loads(real.read_text(encoding="utf-8"))["files"]) == ["./b.py"]
+
+
+def test_entries_moved_onto_a_key_that_holds_some_join_them(tmp_path: Path, run) -> None:
+    root = _renamed(tmp_path)
+    moved = json.loads(RENAMED_ENTRY)["files"]["./a.py"]
+    held = [{"code": "reportCallIssue", "range": {"startColumn": 4, "endColumn": 9}}]
+    (root / BASELINE).write_text(json.dumps({"files": {"./a.py": moved, "./b.py": held}}), encoding="utf-8")
+    code, _, err = run(root, "--realign-from", "HEAD")
+    assert code == 0
+    assert message("typecheck.realign", language="python", count=1, baseline=BASELINE, ref="HEAD") in err
+    assert json.loads((root / BASELINE).read_text(encoding="utf-8"))["files"] == {"./b.py": [*held, *moved]}
