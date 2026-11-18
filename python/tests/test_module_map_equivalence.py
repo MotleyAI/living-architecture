@@ -7,9 +7,15 @@ from pathlib import Path
 
 import pytest
 import yaml
-from test_conformance import CASES, check_case, load_case, variants
+from test_conformance import CASES, CROSS, TWIN, Variant, case_args, check_case, load_case, selected, variants
 
-MODULE_CASES = [case for case in CASES if case.name.startswith("refactor-rename-module-")]
+MODULE_CASES = [case for case in CASES if case.name.startswith(("refactor-rename-module-", "refactor-ts-rename-module-"))]
+RUNS = [
+    pytest.param(case_dir, variant, id=f"{case_dir.name}[{variant.id}]")
+    for case_dir in MODULE_CASES
+    for variant in variants(load_case(case_dir))
+    if selected(load_case(case_dir), variant, TWIN, cross=CROSS)
+]
 ENTRY_OPTIONS = {"--file": "file", "--symbol": "symbol", "--line": "line", "--col": "col", "--offset": "offset",
                  "--new-name": "new_name"}
 NUMERIC = {"line", "col", "offset"}
@@ -49,14 +55,24 @@ def test_a_located_rename_keeps_its_locator() -> None:
         ["rename-map", "<ROOT>/map.yaml", "--keep", "x"], {"file": "pkg/use.py", "line": 1, "col": 17, "new_name": "b"})
 
 
-@pytest.mark.parametrize("case_dir", MODULE_CASES, ids=[case.name for case in MODULE_CASES])
-def test_a_module_rename_equals_its_one_entry_map(case_dir: Path, tmp_path: Path) -> None:
+def test_the_corpus_holds_typescript_module_rename_cases() -> None:
+    typescript = [c for c in MODULE_CASES if "typescript" in load_case(c).get("languages", [])]
+    assert len(typescript) > 20
+
+
+def test_a_typescript_rename_without_a_locator_becomes_a_module_entry() -> None:
+    assert as_map(["rename", "--file", "src/a.ts", "--new-name", "b", "--keep", "src/a.ts"]) == (
+        ["rename-map", "<ROOT>/map.yaml", "--keep", "src/a.ts"], {"module": "src/a.ts", "new_name": "b"})
+
+
+@pytest.mark.parametrize(("case_dir", "variant"), RUNS)
+def test_a_module_rename_equals_its_one_entry_map(case_dir: Path, variant: Variant, tmp_path: Path) -> None:
     case = load_case(case_dir)
-    args, entry = as_map(case["args"])
+    args, entry = as_map(case_args(case, variant))
     copy = tmp_path / "case" / case_dir.name
     shutil.copytree(case_dir, copy)
     (copy / "case.yaml").write_text(yaml.safe_dump({**case, "args": args}, sort_keys=False), encoding="utf-8")
     root = tmp_path / "run"
     root.mkdir()
     (root / "map.yaml").write_text(yaml.safe_dump([entry], sort_keys=False), encoding="utf-8")
-    assert check_case(copy, root, variant=variants(case)[0]) == []
+    assert check_case(copy, root, variant=variant) == []

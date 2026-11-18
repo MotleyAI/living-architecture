@@ -1,0 +1,13 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- rename-map
+- renames.yaml
+git:
+- commit: init
+expect:
+  exit: 1
+golden: manual
+note: 'a retarget removing its alias''s import as a duplicate, while a module entry rewrites that import''s specifier: map-conflict'

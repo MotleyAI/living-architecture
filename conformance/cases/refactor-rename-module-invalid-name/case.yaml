@@ -1,0 +1,28 @@
+kind: paired
+languages:
+- python
+- typescript
+command: dr-refactor
+args:
+  python:
+  - --apply
+  - rename
+  - --file
+  - pkg/a.py
+  - --new-name
+  - a/b
+  typescript:
+  - --apply
+  - rename
+  - --file
+  - src/a.ts
+  - --new-name
+  - a/b
+fixture: refactor-map-module
+git:
+- commit: init
+expect:
+  exit: 1
+  git_status: true
+golden: manual
+note: 'a module new name that cannot name a module: cannot-rename at resolution, before any reference search, nothing written'
