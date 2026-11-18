@@ -8,7 +8,8 @@ commands.
 
 ## What Changes
 
-- A throwaway `spike/` directory on this branch, never merged and with no PR: a Cargo workspace porting the per-file
+- A `spike/` directory on this branch, with no PR of its own (step 3 merges the branch and keeps the reusable
+  code; design decision 1): a Cargo workspace porting the per-file
   binding analysis (`SourceFile` + `static_resolver.Module` + `bindings._Parsed`) onto `ruff_python_parser`, a
   ruff-side span and token dump, a PyO3 hello-world wheel, and the Python drivers, differentials and report builders.
 - Three measurements (speedup, parser fidelity, packaging) and their report, posted as a comment on DEV-2328.

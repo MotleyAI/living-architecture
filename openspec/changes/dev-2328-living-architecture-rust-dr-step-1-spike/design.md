@@ -32,7 +32,9 @@ Each entry gives the decision, the options weighed and who took it.
 1. **Where the spike lives: `spike/` on this branch, pushed, no PR, nothing merged; the `/la:pr` flow ends after
    `pr-implement`, and this change is never archived.** Weighed: a PR merging only this change and a results document
    (contradicts "nothing merges", reviews throwaway code); merging the spike as the start of `rust/` (presumes the
-   go and the crate layout this spike decides). (user)
+   go and the crate layout this spike decides). (user) Amended after the decisions (user, 2026-11-18): step 3
+   (DEV-2330) merges this branch into its own, keeps the reusable code (moved into `rust/dr-python` and its
+   differential), deletes the rest of `spike/` and archives this change in its PR.
 2. **Equivalence: a byte-equal canonical dump of everything `_Parsed` and its scopes hold, time-boxed to 14 hours of
    port plus differential.** Mismatches left when the box ends are reported by class, with count and example, each
    marked parser difference or unported form. Weighed: a reduced dump (lets unchecked parts do less work and inflate
@@ -86,7 +88,7 @@ Each entry gives the decision, the options weighed and who took it.
 15. **Start-up comparison.** The console script, the plain Rust binary and a Python console script each print the
     same line and do nothing else; 10 warm-up runs, then 50 timed; median and p95. (codex)
 16. **PyO3 `abi3-py311`**, the package's `requires-python` floor. (default)
-17. **Spike tests live in `spike/tests`, outside `python/tests` and outside CI**: nothing merges, so CI has nothing
+17. **Spike tests live in `spike/tests`, outside `python/tests` and outside CI**: `spike/` never lands as it is (decision 1), so CI has nothing
     to guard. (default)
 18. **Ruff crates pinned `=0.0.22`; `Cargo.lock` committed.** (default, from the issue)
 
@@ -102,4 +104,4 @@ Each entry gives the decision, the options weighed and who took it.
 
 ## Migration Plan
 
-None: nothing merges.
+None here. Step 3 (DEV-2330) merges this branch and moves the reusable code into `rust/` (decision 1).

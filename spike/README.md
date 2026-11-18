@@ -1,6 +1,7 @@
 # Rust dr spike (DEV-2328)
 
-Throwaway: lives on this branch only and never merges. The plan is
+No PR of its own: step 3 (DEV-2330) merges this branch, moves the reusable code into `rust/` and deletes the rest
+of `spike/`. The plan is
 `openspec/changes/dev-2328-living-architecture-rust-dr-step-1-spike/`.
 
 ## Setup
