@@ -10,16 +10,18 @@ the invoking twin before any routing; a map that cannot be read or is not a non-
 take `rename`'s options other than the locator and `--new-name`, applying to every entry. All entries SHALL be of one
 language, else exit 2 with `refactor.map-mixed-languages`; the map runs in that language's twin.
 
-Every locator SHALL be resolved against the code before any entry is computed, so entries name old names. A Python
-module entry SHALL rename the module its file is, a package's `__init__.py` naming the package, exactly as `rename
---file` with no locator does; a module entry and an entry located on an import of the same module SHALL resolve to one
-symbol. A module rename, by a module entry or by a locator on an import, SHALL be computed beside any other entries. Two
-entries resolving to one symbol with the same intent SHALL merge; with different intents they SHALL be refused with
-`refactor.map-duplicate` naming both entry indexes, exit 2. Every entry SHALL then be computed on one snapshot of the
-project, every rename rule running once over the union of the entries' symbols, with one blind-spot scan for every
-member entry's old name and each refusal reported once (see the one-report requirement). A site any entry
-rewrites SHALL NOT be listed as another entry's leftover. Identical edits SHALL merge; every site two entries rewrite
-differently SHALL be refused with `refactor.map-conflict` naming the site and both entries, exit 1, writing nothing. Name conflicts SHALL be checked once, over all entries' edits together, on the code after the whole map: a
+Every locator SHALL be resolved against the code before any entry is computed, so entries name old names. A module
+entry SHALL rename the module its file is, exactly as `rename --file` with no locator does: in Python, a package's
+`__init__.py` naming the package, and a module entry and an entry located on an import of the same module SHALL resolve
+to one symbol; in TypeScript, the one file, as the TypeScript module-rename requirement defines, and two module entries
+naming one file SHALL resolve to one symbol. A module rename, by a module entry or by a locator on a Python import,
+SHALL be computed beside any other entries. Two entries resolving to one symbol with the same intent SHALL merge; with
+different intents they SHALL be refused with `refactor.map-duplicate` naming both entry indexes, exit 2. Every entry
+SHALL then be computed on one snapshot of the project, every rename rule running once over the union of the entries'
+symbols, with one blind-spot scan for every member entry's old name and each refusal reported once (see the
+one-report requirement). A site any entry rewrites SHALL NOT be listed as another entry's leftover. Identical edits SHALL merge;
+every site two entries rewrite differently SHALL be refused with `refactor.map-conflict` naming the site and both
+entries, exit 1, writing nothing. Name conflicts SHALL be checked once, over all entries' edits together, on the code after the whole map: a
 declaration another entry renames away SHALL NOT hold its old name, so a chain or a swap of symbol names (members,
 parameters, locals, top-level names) applies, in any entry order, and entries that meet on one name or capture each
 other's references are refused. A Python renamed keyword or key meeting its new name in one call or literal SHALL be
@@ -40,12 +42,9 @@ its package, and a module's new name capturing a reference another entry rewrite
 `refactor.name-conflict`. A module entry's new name SHALL still be checked against the code before the map (see the
 cheap checks), so a chain of module names is refused.
 
-In the TypeScript twin, a module entry SHALL be refused with `refactor.map-module-unsupported` naming the entry, for
-every module entry in index order, before any phase line, with exit 2 and nothing written.
-
 `rename` SHALL behave as a one-entry map with a `new_name`, and `retarget` as a one-entry map with a `retarget`;
-their output SHALL equal that map's byte for byte. A Python `rename --file F --new-name N` with no locator SHALL be the
-one-entry map `{module: F, new_name: N}`.
+their output SHALL equal that map's byte for byte. A `rename --file F --new-name N` with no locator SHALL be the
+one-entry map `{module: F, new_name: N}`, in either language.
 
 #### Scenario: Related renames in one pass
 - **WHEN** a map renames `StorageBackend.get_model`, `StorageBackend.get_model_sync` and
@@ -157,6 +156,14 @@ one-entry map `{module: F, new_name: N}`.
   from`/`rename to` pair and the diff of `pkg/use.py`; `pkg/relationship_edges.py` declares `RelationshipEdge`,
   `pkg/use.py` holds `from pkg.relationship_edges import RelationshipEdge` and `def read`, and the exit code is 0
 
+#### Scenario: TypeScript module entry
+- **WHEN** a map renames `{module: src/join_edges.ts}` to `relationship_edges`, its class `JoinEdge` to
+  `RelationshipEdge`, and function `src/use.ts`'s `load` to `read`, where `src/use.ts` holds
+  `import { JoinEdge } from './join_edges.js'`, and runs with `--apply`
+- **THEN** stdout holds the three headers in map order, the diff of `src/join_edges.ts` at its old path, its `rename
+  from`/`rename to` pair and the diff of `src/use.ts`, whose import reads
+  `import { RelationshipEdge } from './relationship_edges.js'`, and the exit code is 0
+
 #### Scenario: Module entry located on an import
 - **WHEN** a map renames function `pkg/use.py`'s `load` and, by a locator on `a` in `pkg/use.py`'s `import pkg.a`,
   module `pkg/a.py`
@@ -168,6 +175,29 @@ one-entry map `{module: F, new_name: N}`.
   `db`
 - **THEN** the first map is refused with `refactor.map-duplicate` naming both entries, and the second merges them into
   one rename of the package
+
+#### Scenario: Two TypeScript entries naming one file
+- **WHEN** a map holds `{module: src/a.ts, new_name: b}` twice, or `{module: src/a.ts, new_name: b}` and
+  `{module: src/a.ts, new_name: c}`
+- **THEN** the first map renames the module once with one header, and the second is refused with
+  `refactor.map-duplicate` naming both entries
+
+#### Scenario: A TypeScript map refused late writes nothing
+- **WHEN** an `--apply` map renames module `src/a.ts` to `b` and function `src/use.ts`'s `load` to `read`, with a line
+  keep that matches no edit
+- **THEN** the run is refused with `refactor.keep-unmatched-near` or `refactor.keep-unmatched`, `src/a.ts` exists,
+  `src/b.ts` does not, and every file is unchanged
+
+#### Scenario: Specifier and imported name in one import
+- **WHEN** a map renames module `src/a.ts` to `b` and its export `f` to `g`, and `src/use.ts` holds
+  `import { f } from './a.js'`
+- **THEN** the import reads `import { g } from './b.js'` and the exit code is 0
+
+#### Scenario: A retarget's removed import meeting a module entry
+- **WHEN** a TypeScript map retargets an alias so that an import of its target becomes a duplicate the retarget
+  removes, and a module entry renames the module that import's specifier names
+- **THEN** stderr's final report holds `refactor.map-conflict` naming that site and both entries, the exit code is 1
+  and nothing changes
 
 #### Scenario: Package and module inside it
 - **WHEN** a map renames package `pkg/sql/` to `db` by `{module: pkg/sql/__init__.py}` and module
@@ -189,9 +219,10 @@ one-entry map `{module: F, new_name: N}`.
 - **THEN** the map is refused with `refactor.name-conflict` naming `pkg/__init__.py` and nothing changes
 
 #### Scenario: A chain of module names
-- **WHEN** a map renames module `pkg/a.py` to `b` and module `pkg/b.py` to `c`
-- **THEN** stderr is `[resolve]`, `[checks]` and `refactor.name-conflict` naming `pkg/b.py` line 1, the exit code is 1
-  and nothing changes
+- **WHEN** a map renames module `pkg/a.py` to `b` and module `pkg/b.py` to `c`, or module `src/a.ts` to `b` and module
+  `src/b.ts` to `c`
+- **THEN** stderr is `[resolve]`, `[checks]` and `refactor.name-conflict` naming `pkg/b.py` or `src/b.ts` line 1, the
+  exit code is 1 and nothing changes
 
 #### Scenario: Stubs for every moved module file
 - **WHEN** a map renames modules `pkg/a.py` to `b` and `pkg/c.py` to `d` and function `pkg/e.py`'s `f` to `g`, with
@@ -203,27 +234,24 @@ one-entry map `{module: F, new_name: N}`.
   `import numpy as np`
 - **THEN** stderr is `[resolve]`, `[checks]` and `refactor.stub-not-module`, the exit code is 2 and nothing changes
 
-#### Scenario: TypeScript module entry
-- **WHEN** a map holds `{module: web/a.ts, new_name: b}` and `{module: web/c.ts, new_name: d}`
-- **THEN** stderr is `refactor.map-module-unsupported` naming entry 1 and then entry 2, through either invoking twin,
-  the exit code is 2 and nothing changes
-
 #### Scenario: Invalid module entries
 - **WHEN** entry 1 holds `module` and `symbol`, entry 2 `module` and `retarget`, and entry 3 `module` and `file`
 - **THEN** stderr is `refactor.map-invalid` naming entries 1, 2 and 3, through either invoking twin, and the exit code
   is 2
 
 #### Scenario: Module rename equals its map
-- **WHEN** `rename --file pkg/a.py --new-name b` and the map `[{module: pkg/a.py, new_name: b}]` run on the same project,
-  for every module-rename case of the corpus
+- **WHEN** `rename --file F --new-name N` and the map `[{module: F, new_name: N}]` run on the same project, for every
+  module-rename case of the corpus in either language
 - **THEN** their stdout, stderr and exit codes are identical
 
 ### Requirement: Cheap checks run before any reference search
 Resolving every entry's locator SHALL search no references. Every resolution failure SHALL be collected with its entry
 index, not stop the run: unresolved or ambiguous symbol paths, an out-of-range line, column or offset, a location that
-cannot be renamed, a retarget out of scope, a literal value that cannot be written, a TypeScript file outside every
-project. Duplicate entries SHALL be found among the resolved entries only. Each resolution failure SHALL be printed as
-`refactor.entry-refusal`, naming its entry and locator (see the one-report requirement).
+cannot be renamed, a module rename's new name that cannot name a module (Python: no identifier, or a keyword;
+TypeScript: as the TypeScript module-rename requirement defines) as `refactor.cannot-rename`, a retarget out of scope,
+a literal value that cannot be written, a TypeScript file outside every project. Duplicate entries SHALL be found among
+the resolved entries only. Each resolution failure SHALL be printed as `refactor.entry-refusal`, naming its
+entry and locator (see the one-report requirement).
 
 The `checks` phase SHALL then run, before any reference search:
 - every `--keep`, `--with` and `--without` SHALL name, a relative PATH resolved against `--project`, an existing file
@@ -237,11 +265,13 @@ The `checks` phase SHALL then run, before any reference search:
   optional whitespace starts with `type:`). When an entry that did not resolve spells no name in its locator, or an
   entry renames a `Literal` member, this check SHALL be skipped. A whole-file or directory keep SHALL get no check
   here beyond the site check;
-- when every entry is a Python module rename, each `--with` and `--without` site SHALL be refused with
+- when every entry is a module rename, each `--with` and `--without` site SHALL be refused with
   `refactor.not-stand-in`;
-- `--stub` SHALL be checked as the Python module-rename requirement defines;
-- each Python module rename whose package already binds its new name in the code before the refactor SHALL be refused
-  with `refactor.name-conflict`, exit 1;
+- `--stub` SHALL be checked as the Python module-rename requirement defines, and refused in a TypeScript run as the
+  TypeScript module-rename requirement defines;
+- each module rename whose new name is already taken in the code before the refactor (Python: its package binds it, as
+  the Python module-rename requirement defines; TypeScript: as the TypeScript module-rename requirement defines) SHALL
+  be refused with `refactor.name-conflict`, exit 1;
 - each `new_name` entry of a symbol other than a module SHALL be checked in the scope that declares it (a member:
   the type declaring it, in TypeScript on its own static or instance side; a parameter or local: its own scope; a
   top-level name: its module), and refused with `refactor.name-conflict`, exit 1, when that scope declares the new
@@ -308,9 +338,15 @@ nothing, and exit with the highest exit code of its findings.
   `refactor.entry-refusal` naming its entry and locator, and the exit code is 2
 
 #### Scenario: Taken module name before any search
-- **WHEN** a map renames function `f` and module `pkg/a.py` to `b`, where `pkg/b.py` exists
-- **THEN** stderr is `[resolve]`, `[checks]` and `refactor.name-conflict` naming `pkg/b.py` line 1, no `[references]`
-  line is printed, the exit code is 1 and nothing changes
+- **WHEN** a map renames function `f` and module `pkg/a.py` to `b`, where `pkg/b.py` exists; or function `f` and module
+  `src/a.ts` to `b`, where `src/b.ts` exists
+- **THEN** stderr is `[resolve]`, `[checks]` and `refactor.name-conflict` naming `pkg/b.py` or `src/b.ts` line 1, no
+  `[references]` line is printed, the exit code is 1 and nothing changes
+
+#### Scenario: Invalid module new name before any search
+- **WHEN** `rename --file pkg/a.py --new-name a/b` or `rename --file src/a.ts --new-name a/b` runs
+- **THEN** stderr is `[resolve]`, `[checks]` and `refactor.cannot-rename`, no `[references]` line is printed, the exit
+  code is 1 and nothing changes
 
 #### Scenario: Unresolved entry and bad keep
 - **WHEN** entry 1 does not resolve and `--keep src/gone.py` is passed
@@ -600,11 +636,11 @@ At site resolution, a keep that matched no edit and no blind spot SHALL be decid
 
 Keeping a declaration SHALL NOT keep its references.
 
-A whole-file keep of a module file a Python module rename moves, or a keep naming the directory of a package it moves,
-SHALL drop that move and every edit in that file or under that directory, and SHALL count as matched; a directory keep
-SHALL also drop the moves of the modules and packages under it. A module whose own move is kept SHALL still move with a
-package another entry moves, under its old name. In a `rename-map`, every keep SHALL be resolved once, over every
-entry's final edits and moves.
+A whole-file keep of a module file a module rename moves, in either language, or a keep naming the directory of a Python
+package it moves, SHALL drop that move and every edit in that file or under that directory, and SHALL count as matched;
+a directory keep SHALL also drop the moves of the modules and packages under it. A module whose own move is kept SHALL
+still move with a package another entry moves, under its old name. In a `rename-map`, every keep SHALL be resolved
+once, over every entry's final edits and moves.
 
 #### Scenario: Back-compat line kept
 - **WHEN** `Storage.get_model` is renamed with `--keep tests/test_compat.py:12`, where line 12 calls
@@ -643,6 +679,15 @@ entry's final edits and moves.
 #### Scenario: Kept module file
 - **WHEN** a Python module `pkg/old.py` is renamed with `--keep pkg/old.py`
 - **THEN** the checks pass, the module is not moved and no `refactor.keep-unneeded` is printed
+
+#### Scenario: Kept TypeScript module file
+- **WHEN** a TypeScript module `src/a.ts` is renamed with `--keep src/a.ts`
+- **THEN** the checks pass, the module is not moved, its importers are rewritten and no `refactor.keep-unneeded` is
+  printed
+
+#### Scenario: Kept importer line of a TypeScript module
+- **WHEN** `src/a.ts` is renamed to `b` with `--keep src/use.ts:1`, where line 1 imports `./a.js`
+- **THEN** the checks pass, line 1 is unchanged and every other importer reads `./b.js`
 
 #### Scenario: Kept moved package
 - **WHEN** a Python package `pkg/old/` is renamed with `--keep pkg/old`
@@ -685,9 +730,9 @@ forms, `--docs`, `--keep`, blind spots) SHALL run once over the joined set, on o
 edits merged. A `--without` stand-in SHALL be unchanged. A `--with` or `--without` naming no existing file or line
 SHALL print `refactor.site-missing` in the `checks` phase. One whose line holds no stand-in member declaration of this
 rename SHALL print `refactor.not-stand-in` at site resolution, which stops the run: nothing is written and the exit
-code is 2. A Python module rename has no stand-ins: when every entry of the run is a module rename, each `--with` and
-`--without` site SHALL print `refactor.not-stand-in` in the `checks` phase; otherwise the sites SHALL be classified by
-the run's other entries as above.
+code is 2. A module rename, in either language, has no stand-ins: when every entry of the run is a module rename, each
+`--with` and `--without` site SHALL print `refactor.not-stand-in` in the `checks` phase; otherwise the sites SHALL be
+classified by the run's other entries as above.
 A TypeScript stand-in member declared by a computed name SHALL be classified by `--without` like any other;
 `--with` naming its line SHALL print `refactor.computed-stand-in` at site resolution, write nothing and exit 2.
 
@@ -719,6 +764,11 @@ A TypeScript stand-in member declared by a computed name SHALL be classified by 
 - **WHEN** a Python module rename passes `--with pkg/use.py:3`
 - **THEN** stderr is `[resolve]`, `[checks]` and `refactor.not-stand-in` naming `pkg/use.py:3`, no `[references]`
   line is printed, the exit code is 2 and no file changes
+
+#### Scenario: Classification site on a TypeScript module rename
+- **WHEN** a TypeScript module rename passes `--with src/use.ts:3`
+- **THEN** stderr is `[resolve]`, `[checks]` and `refactor.not-stand-in` naming `src/use.ts:3`, the exit code is 2 and
+  no file changes
 
 #### Scenario: Classification site on a map with a module entry
 - **WHEN** a map renames module `pkg/a.py` and method `A.save`, and passes `--without` the line of a stand-in
