@@ -398,6 +398,7 @@ findings:
   refactor.progress-refused: '[{phase} {n}/{count}] {entries}: {old} -> {new}: {refusals} refusal(s)'
   refactor.progress-entry: 'entry {index}'
   refactor.progress-entries: 'entries {indexes}'
+  refactor.entry-refusal: '{entries} ({locator}): {text}'
   refactor.timing: 'timing: {phase} {seconds}s'
 
   # ---- dr-compliance

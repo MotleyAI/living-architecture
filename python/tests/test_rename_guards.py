@@ -321,8 +321,8 @@ def test_both_refusals_under_apply_change_nothing(project: MakeProject, capsys: 
     before = file_tree(root)
     assert _rename(root, "pkg/store.py", "get_model", "get_dataset") == 1
     assert readouterr(capsys) == ("", "".join(f"{line}\n" for line in [
-        _blindspot("tests/test_a.py", 2, "storage"),
         _stand_in("pkg/other.py", 2, "Unrelated"),
+        _blindspot("tests/test_a.py", 2, "storage"),
         _closing(1),
     ]))
     assert file_tree(root) == before

@@ -1,0 +1,2 @@
+- {file: src/q.ts, symbol: Query.rootModel, new_name: population}
+- {file: src/q.ts, symbol: Plan.rootModel, new_name: rootDataset}

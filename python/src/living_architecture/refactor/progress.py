@@ -24,10 +24,12 @@ def refusal(text: str, code: int = 1) -> Refusal:
 
 
 class Refused(Exception):
-    """The run refuses with `refusals`, printed in order; the exit code is the highest of theirs."""
+    """The run refuses with `refusals`, printed in order; the exit code is the highest of theirs and of those
+    already `printed`."""
 
-    def __init__(self, refusals: Iterable[Refusal]) -> None:
+    def __init__(self, refusals: Iterable[Refusal], printed: Iterable[Refusal] = ()) -> None:
         self.refusals = list(refusals)
+        self.printed = list(printed)
         super().__init__("\n".join(self.lines))
 
     @property
@@ -36,7 +38,7 @@ class Refused(Exception):
 
     @property
     def code(self) -> int:
-        return max((r.code for r in self.refusals), default=1)
+        return max((r.code for r in (*self.refusals, *self.printed)), default=1)
 
 
 def checker_cause(kind: str, error: str, code: int | None, stderr: str) -> list[str]:
@@ -61,6 +63,12 @@ def labels(indexes: list[int]) -> str:
     if len(indexes) == 1:
         return message("refactor.progress-entry", index=indexes[0])
     return message("refactor.progress-entries", indexes=", ".join(str(i) for i in indexes))
+
+
+def entry_refusal(indexes: list[int], locator: str, found: Refusal) -> Refusal:
+    """`found` as the refusal of the entry standing for the map `indexes`, located by `locator`."""
+    first = message("refactor.entry-refusal", entries=labels(indexes), locator=locator, text=found.lines[0])
+    return Refusal(lines=(first, *found.lines[1:]), code=found.code)
 
 
 class Progress:

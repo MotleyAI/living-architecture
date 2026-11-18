@@ -5,4 +5,4 @@
 [rules]
 [rules 1/1] entry 1: columns -> fields: clean
 [conflicts]
-fields already names something else at pkg/m.py:7, so nothing was refactored
+entry 1 (pkg/m.py Ds.columns): fields already names something else at pkg/m.py:7, so nothing was refactored

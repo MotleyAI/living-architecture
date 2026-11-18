@@ -5,4 +5,4 @@
 [rules]
 [rules 1/1] entry 1: columns -> fields: clean
 [conflicts]
-fields already names something else at pkg/m.py:2, so nothing was refactored
+entry 1 (pkg/m.py Slotted.columns): fields already names something else at pkg/m.py:2, so nothing was refactored

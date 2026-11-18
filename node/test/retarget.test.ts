@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { message } from '../src/contract/index.js';
 import { ts } from '../src/lang/index.js';
-import { copyProject, expectedOut, files, mapYaml, read, refactor, renameHeader, tsProject } from './refactor-project.js';
+import { copyProject, entryRefusal, expectedOut, files, mapYaml, read, refactor, renameHeader, tsProject } from './refactor-project.js';
 
 const ENGINE = `export class Engine {
   saveModel(m: string): void {
@@ -209,7 +209,8 @@ describe('retarget', () => {
     const root = tsProject({ 'src/engine.ts': store + ENGINE, 'src/use.ts': ENGINE_USE });
     const before = files(root);
     const result = refactor(root, '--apply', 'retarget', '--file', 'src/engine.ts', '--symbol', 'Engine.save', '--target', 'Store.saveModel');
-    expect(result).toEqual({ code: 2, out: '', err: `${message('refactor.retarget-scope', { target: 'Store.saveModel', alias: 'Engine.save' })}\n` });
+    const refused = entryRefusal('src/engine.ts Engine.save', message('refactor.retarget-scope', { target: 'Store.saveModel', alias: 'Engine.save' }));
+    expect(result).toEqual({ code: 2, out: '', err: `${refused}\n` });
     expect(files(root)).toEqual(before);
   });
 

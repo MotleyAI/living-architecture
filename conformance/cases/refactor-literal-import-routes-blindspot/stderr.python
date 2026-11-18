@@ -6,5 +6,4 @@
 [rules 1/1] entry 1: edit_model -> edit_master: 1 refusal(s)
 routes/blind.py:4: literal-unresolved: the checker needs 'edit_model' here, where no string literal can be rewritten
 [conflicts]
-routes/blind.py:4: literal-unresolved: the checker needs 'edit_model' here, where no string literal can be rewritten
 1 blind spot(s) of .edit_model: type or resolve them, or pass --allow-blindspots

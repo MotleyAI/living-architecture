@@ -1,0 +1,4 @@
+- {file: pkg/f.py, symbol: Q.measures, new_name: metrics}
+- {file: pkg/f.py, symbol: f(x), new_name: y}
+- {file: pkg/f.py, line: 14, col: 5, new_name: b}
+- {file: pkg/f.py, symbol: one, new_name: two}

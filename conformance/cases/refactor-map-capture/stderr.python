@@ -7,4 +7,4 @@
 [rules 1/2] entry 1: a -> z: clean
 [rules 2/2] entry 2: b -> z: clean
 [conflicts]
-z already names something else at pkg/m.py:1, so nothing was refactored
+entry 2 (pkg/m.py:5:5): z already names something else at pkg/m.py:1, so nothing was refactored

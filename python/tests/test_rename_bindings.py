@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 from project_files import file_tree
-from refactor_cli import readouterr
+from refactor_cli import entry_refusal, readouterr
 
 from living_architecture.cli.dr_refactor import dr_refactor
 from living_architecture.contract import language, message
@@ -41,8 +41,8 @@ def _at(text: str, needle: str, nth: int = 0) -> int:
     return offset
 
 
-def _conflict(name: str, path: str, line: int) -> tuple[str, str]:
-    return "", message("refactor.name-conflict", name=name, path=path, line=line) + "\n"
+def _conflict(locator: str, name: str, path: str, line: int) -> tuple[str, str]:
+    return "", entry_refusal(locator, message("refactor.name-conflict", name=name, path=path, line=line)) + "\n"
 
 
 def _one(check: BindingCheck, entries: list[EntryEdits]) -> list[Conflict]:
@@ -55,7 +55,7 @@ def _refused(root: Path, rel: str, offset: int, capsys: pytest.CaptureFixture[st
              new_name: str = NEW, *flags: str) -> None:
     before = file_tree(root)
     assert _rename(root, rel, offset, new_name, *flags) == 1
-    assert readouterr(capsys) == _conflict(new_name, *site)
+    assert readouterr(capsys) == _conflict(f"{rel} offset {offset}", new_name, *site)
     assert file_tree(root) == before
 
 
@@ -141,7 +141,8 @@ def test_a_binding_form_conflicts_exactly_when_python_rebinds_the_read(
     code = _rename(root, "pkg/m.py", 0)
     out, err = readouterr(capsys)
     if _rebinds(text.replace("old", NEW)):
-        prefix, suffix = message("refactor.name-conflict", name=NEW, path="pkg/m.py", line=424242).split("424242")
+        conflict = message("refactor.name-conflict", name=NEW, path="pkg/m.py", line=424242)
+        prefix, suffix = entry_refusal("pkg/m.py offset 0", conflict).split("424242")
         assert (code, out, err.startswith(prefix), err.endswith(suffix + "\n")) == (1, "", True, True), err
         assert file_tree(root) == before
     else:
@@ -264,7 +265,7 @@ def test_an_old_name_in_another_normal_form_is_checked_as_python_reads_it() -> N
     edits = [TextEdit(path="pkg/m.py", start=i, end=i + len(old), new_text="fresh")
              for i in (text.index(old), text.rindex(old))]
     check = BindingCheck(["pkg/__init__.py", "pkg/m.py"], [""], lambda rel: SourceFile(Path(rel), text if rel == "pkg/m.py" else ""))
-    assert _one(check, [EntryEdits(index=1, new_name="fresh", edits=edits)]) == [Conflict(site=("pkg/m.py", text.index("fresh")), name="fresh")]
+    assert _one(check, [EntryEdits(index=1, new_name="fresh", edits=edits)]) == [Conflict(site=("pkg/m.py", text.index("fresh")), name="fresh", entry=1)]
 
 
 def test_a_conflict_names_the_entry_whose_new_name_it_spells_in_another_normal_form() -> None:
@@ -274,7 +275,7 @@ def test_a_conflict_names_the_entry_whose_new_name_it_spells_in_another_normal_f
         EntryEdits(index=2, new_name=FULLWIDTH, edits=[TextEdit(path="pkg/m.py", start=6, end=9, new_text=FULLWIDTH)]),
     ]
     check = BindingCheck(["pkg/m.py"], [""], lambda rel: SourceFile(Path(rel), text))
-    assert _one(check, entries) == [Conflict(site=("pkg/m.py", text.index("fresh")), name=FULLWIDTH)]
+    assert _one(check, entries) == [Conflict(site=("pkg/m.py", text.index("fresh")), name=FULLWIDTH, entry=2)]
 
 
 def test_a_module_renamed_onto_a_package_binding_in_another_normal_form_is_refused(
@@ -405,16 +406,19 @@ def test_names_are_checked_after_keep(typed_project: MakeProject) -> None:
 def test_a_name_conflict_is_reported_with_the_blindspot_refusal(
     typed_project: MakeProject, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    # An inherited member: a conflict the declaring class does not decide, so the rules run before it is found.
     text = (
-        "class C:\n    def old(self) -> int:\n        return 1\n\n    def fresh(self) -> int:\n        return 2\n\n\n"
+        "class Base:\n    def fresh(self) -> int:\n        return 2\n\n\n"
+        "class C(Base):\n    def old(self) -> int:\n        return 1\n\n\n"
         "def g(o) -> int:  # type: ignore[no-untyped-def]\n    return o.old()\n"
     )
     root = typed_project({"pkg/m.py": text})
     before = file_tree(root)
-    assert _rename(root, "pkg/m.py", _at(text, "old")) == 1
+    offset = _at(text, "old")
+    assert _rename(root, "pkg/m.py", offset) == 1
     expected = [
-        message("compliance.attr-blindspot", path="pkg/m.py", line=10, receiver="o", attr="old", type="Unknown"),
-        message("refactor.name-conflict", name=NEW, path="pkg/m.py", line=5),
+        message("compliance.attr-blindspot", path="pkg/m.py", line=12, receiver="o", attr="old", type="Unknown"),
+        entry_refusal(f"pkg/m.py offset {offset}", message("refactor.name-conflict", name=NEW, path="pkg/m.py", line=2)),
         message("refactor.blindspots", count=1, attr="old"),
     ]
     assert readouterr(capsys) == ("", "".join(f"{line}\n" for line in expected))
