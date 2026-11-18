@@ -17,7 +17,7 @@ from living_architecture.contract import message
 from living_architecture.refactor import rope_refactor
 from living_architecture.refactor.module_move import ModuleMove
 from living_architecture.refactor.move_project import MoveProject
-from living_architecture.refactor.move_verify import Fingerprint, fingerprint
+from living_architecture.refactor.move_verify import Fingerprint, Moved, fingerprint
 from living_architecture.refactor.moved_symbol import MovedSymbol
 
 Texts = dict[str, str]
@@ -338,3 +338,66 @@ def test_a_declaration_keeps_its_value_when_its_file_moves(tmp_path: Path) -> No
     found = fingerprint(before, "use.py", final=lambda rel: "dst/a.py" if rel == "pkg/a.py" else rel)
     assert (found.reads, found.names) == (after.reads, after.names)
     assert found.names == {"f": ("decl", "dst/a.py", "f", 0), "m": ("module", "dst/a.py")}
+
+
+TWO_F = "def f(n=0):\n    return n\n\n\ndef f():\n    return 1\n"
+
+
+def test_bindings_that_agree_once_canonical_are_one_value(tmp_path: Path) -> None:
+    files = {"pkg/a.py": F, "use.py": "import pkg.a as m\nimport pkg.a as m\nfrom pkg.a import f\nfrom pkg.a import f\n\nf\n"}
+    found = _print(tmp_path, files)
+    assert found.names == {"m": ("module", "pkg/a.py"), "f": DECL_F}
+    assert found.reads == Counter({(DECL_F, "", "bound"): 1})
+
+
+def test_two_declarations_of_a_name_are_unknown_unless_both_move(tmp_path: Path) -> None:
+    project = MoveProject(write_project(tmp_path / "proj", {"pkg/a.py": TWO_F, "use.py": "import pkg.a\n\npkg.a.f\n"}))
+    assert fingerprint(project, "use.py").reads == Counter({(("module", "pkg/a.py"), "f", "bound"): 1})
+    module = project.module("pkg/a.py")
+    assert module is not None
+    moved = Moved(file="pkg/a.py", keys=frozenset(module.binder.decls), name="f", dest="pkg/b.py")
+    assert fingerprint(project, "use.py", moved=moved).reads == Counter({(("decl", "pkg/b.py", "f", "moved"), "", "bound"): 1})
+
+
+def test_a_chain_stops_at_a_package_that_answers_attributes_itself(tmp_path: Path) -> None:
+    files = {"pkg/sql/__init__.py": "def __getattr__(name):\n    raise AttributeError(name)\n", "pkg/sql/client.py": "X = 1\n",
+             "pkg/plain/__init__.py": "", "pkg/plain/client.py": "X = 1\n",
+             "use.py": "import pkg.sql as s\nimport pkg.plain as p\n\nprint(s.client.X, p.client.X)\n"}
+    found = _print(tmp_path, files)
+    assert _read_at(found, 4, "s.client.X") == (("module", "pkg/sql/__init__.py"), "client.X", "bound")
+    assert _read_at(found, 4, "p.client.X") == (("decl", "pkg/plain/client.py", "X", 0), "", "bound")
+
+
+def test_a_read_that_becomes_bound_is_not_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    late = "def load():\n    global f\n    from pkg.a import f\n\n\nload()\nf()\n"
+    root = write_project(tmp_path / "proj", {"pkg/a.py": F, "pkg/b.py": B, "pkg/use.py": late})
+    _inject(monkeypatch, _with_text("pkg/use.py", "from pkg.b import f\n\n\ndef load():\n    pass\n\n\nload()\nf()\n"))
+    code, _out, err = run(root, MOVE_F, monkeypatch, capsys)
+    assert (code, err) == (0, "")
+
+
+# ---- parsing each file once
+
+
+def test_the_resolver_loads_the_projects_own_module(tmp_path: Path) -> None:
+    project = MoveProject(write_project(tmp_path / "proj", {"pkg/a.py": F, "broken.py": "def f(:\n"}))
+    assert project.resolver.load("pkg.a") is project.module("pkg/a.py")
+    assert project.resolver.load("broken") is None
+
+
+def test_an_adopted_module_is_the_files_model_at_its_own_root(tmp_path: Path) -> None:
+    before = MoveProject(write_project(tmp_path / "before", {"pkg/a.py": F}))
+    after = MoveProject(write_project(tmp_path / "after", {"pkg/a.py": F, "src/pkg/a.py": F, "src/pkg/__init__.py": ""}))
+    module = before.module("pkg/a.py")
+    assert module is not None
+    after.adopt("pkg/a.py", module)
+    after.adopt("src/pkg/a.py", module)
+    adopted = after.module("pkg/a.py")
+    assert adopted is not None
+    assert (adopted.binder, adopted.path) == (module.binder, after.root / "pkg/a.py")
+    assert after.resolver.load("pkg.a") is adopted
+    other = after.module("src/pkg/a.py")
+    assert other is not None
+    assert other.binder is not module.binder

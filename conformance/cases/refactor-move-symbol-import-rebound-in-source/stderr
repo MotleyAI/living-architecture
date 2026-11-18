@@ -1,4 +1,4 @@
 [resolve]
 [checks]
 [references]
-[write]
+pkg/a.py:2: dep would not resolve as it does now, so nothing was refactored; move it by hand

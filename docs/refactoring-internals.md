@@ -53,6 +53,14 @@ A run locates each map entry from the syntax tree and la's static resolver first
 request, and runs every rule over it. Finally it prints one diff and, with `--apply`, writes every file or none.
 Module renames and moves never start the language server.
 
+Before a Python refactor prints or writes anything, it checks each file it would write. A file that parsed must
+still parse, and its new bytes must decode, in the encoding they declare, to its new text. `move-symbol` and
+`move-module` then build the project as the move would leave it in a temporary directory, resolve it with la's
+static resolver, and compare it with the project as read, file by file. The move is refused with
+`resolution-changed` when a name or attribute chain would resolve to another declaration or module, when a read
+that runs at import time would lose its top-level binding, when a top-level name would get another value, or
+when a literal `__all__` would differ from what the move intends.
+
 ## TypeScript twin
 
 The npm twin uses only the bundled `typescript` package. Its in-process language service locates symbols, finds

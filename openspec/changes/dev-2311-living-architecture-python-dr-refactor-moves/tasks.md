@@ -111,14 +111,14 @@
 Sections 8–13 are a second pass on this change, planned after PR #60 was opened (design decisions 26–38, spec
 requirement "Python refactors check their output before writing"). They replace further point fixes.
 
-- [ ] 8.1 PR #60 is open, so `/la:pr` detects `pr-review`. The user names the stage instead: `pr-tests` does section 9
+- [x] 8.1 PR #60 is open, so `/la:pr` detects `pr-review`. The user names the stage instead: `pr-tests` does section 9
       only; `pr-implement` does sections 10–13, then commits and pushes to the existing PR #60 (no new PR, no go-ahead
       gate). `pr-review` resumes only when sections 9–13 are all ticked.
-- [ ] 8.2 Rules that hold in every section: every new conformance case is a Python `adapter` case with
+- [x] 8.2 Rules that hold in every section: every new conformance case is a Python `adapter` case with
       `golden: manual`, hand-written, listed in `conformance/INVENTORY.md`; no existing golden is regenerated or
       edited, except the one case of task 9.10; the finding text and the spec requirement are applied verbatim from design decisions 28 and 29; on any
       existing case or test that starts failing, design decision 36 applies (STOP, show the user, change nothing).
-- [ ] 8.3 Do not touch what the earlier fixes added (`insert_after`'s inline suites, `_fill_emptied`, the coding
+- [x] 8.3 Do not touch what the earlier fixes added (`insert_after`'s inline suites, `_fill_emptied`, the coding
       header rule, `refactor.ambiguous-module`, the placement rules): they stay, and their goldens must stay green.
 
 ## 9. Output checks: tests (pr-tests)
@@ -247,31 +247,34 @@ written with `project_files.write_project` under `tmp_path`.
       `refactor.resolution-changed`. Verify: unit-level parts of 9.7 pass when `verify` is called directly.
 - [x] 11.5 `rope_refactor._emit` calls `verify` between building the writes and `emit` (design decision 35);
       `move_symbol` and `move_module` pass what it needs. Verify: 9.2 and 9.7 pass.
-- [ ] 11.6 Run every Python `move-symbol` and `move-module` conformance case (112 cases named `refactor-move-*`) and
+- [x] 11.6 Run every Python `move-symbol` and `move-module` conformance case (112 cases named `refactor-move-*`) and
       `tests/test_move_edits.py`, `tests/test_rope_free_moves.py`. Verify: all pass with no golden touched since section 9 (9.10's case now passes as a refusal). Any other case that
       now refuses is design decision 36: STOP and show the user the case and both fingerprint entries.
+      Six refused; resolved with the user as design decision 40.
 
 ## 12. Cost and docs (pr-implement)
 
-- [ ] 12.1 Measure (design decision 37): from `python/`, `uv run dr-refactor --timings move-symbol --file
+- [x] 12.1 Measure (design decision 37): from `python/`, `uv run dr-refactor --timings move-symbol --file
       src/living_architecture/lang/position_map.py --symbol map_range --dest
       src/living_architecture/refactor/text_edits.py` (dry run), three runs each on the commit before section 11 and
       after it. Write both `total` medians here. Over the limit of decision 37: STOP and ask.
-      Measured 2026-11-18 (236 files): `total` median 0.08 s without the comparison, 2.65 s with it.
-- [ ] 12.2 Docs: in `docs/refactoring-internals.md` and `plugin/languages/python.md`, where moves are described, add
+      Measured 2026-11-18 (236 files): `total` median 0.08 s without the comparison, 2.65 s with it; 1.61 s once each
+      file is parsed once (decision 40).
+- [x] 12.2 Docs: in `docs/refactoring-internals.md` and `plugin/languages/python.md`, where moves are described, add
       what the two checks do and what a `resolution-changed` refusal means for the caller (move it by hand, or report
       it). Show the exact wording to the user and get an OK before editing either file.
-- [ ] 12.3 Spec scenario "Existing refactors unchanged": add its row to `conformance/INVENTORY.md` only if the
+- [x] 12.3 Spec scenario "Existing refactors unchanged": add its row to `conformance/INVENTORY.md` only if the
       inventory has a place for corpus-wide statements; otherwise 10.3 and 11.6 are its evidence, recorded here.
+      The inventory has rows per branch only, so 10.3 and 11.6 are the evidence.
 
 ## 13. Gates (pr-implement)
 
-- [ ] 13.1 Local test scope (la:pr "Local test scope"): the tests of sections 9–11, the files `la-affected-tests`
+- [x] 13.1 Local test scope (la:pr "Local test scope"): the tests of sections 9–11, the files `la-affected-tests`
       prints, every `refactor-*` conformance case; `uv run ruff check src tests`; `uv run basedpyright src tests`;
       `la-typecheck`. In `node/`: `npm run lint && npm run typecheck && npm test` (the vendored `shared/` snapshot
       changed).
-- [ ] 13.2 `scripts/sync-shared --check`; `la-arch-check`; `la-doctor --contract-hash` equals the hash of `shared/`.
-- [ ] 13.3 `openspec validate dev-2311-living-architecture-python-dr-refactor-moves --strict` passes.
-- [ ] 13.4 Commit and push to PR #60. The commit message states the one golden changed on purpose (9.10: a move that left
-      the destination unable to import is now refused), the new cases, and that their goldens are hand-written
+- [x] 13.2 `scripts/sync-shared --check`; `la-arch-check`; `la-doctor --contract-hash` equals the hash of `shared/`.
+- [x] 13.3 `openspec validate dev-2311-living-architecture-python-dr-refactor-moves --strict` passes.
+- [x] 13.4 Commit and push to PR #60. The commit message states the three goldens changed on purpose (9.10 and the
+      two of decision 40), the new cases, and that their goldens are hand-written
       (`golden: manual`), as AGENTS.md requires.

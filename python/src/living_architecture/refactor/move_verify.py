@@ -17,7 +17,7 @@ from living_architecture.contract import message
 from living_architecture.refactor.locators import RefactorError
 from living_architecture.refactor.move_project import MoveProject
 from living_architecture.refactor.moved_symbol import MovedSymbol
-from living_architecture.refactor.static_resolver import Module, Scope, Value, combine, node_key
+from living_architecture.refactor.static_resolver import Module, Scope, Value, node_key
 from living_architecture.refactor.writer import FileMove, FileWrite, apply
 
 # A value in the form that compares across a move: "?" (unknown), else a tuple led by its kind.
@@ -209,17 +209,37 @@ class _Side:
             self._ordinals[id(module)] = _ordinals(module)
         return ("decl", self.final(rel), name, self._ordinals[id(module)][key])
 
+    def agreed(self, values: list[Value]) -> Canonical:
+        """The one canonical value every binding has, else "?"."""
+        found = {self.canonical(value) for value in values}
+        return found.pop() if len(found) == 1 else "?"
+
+    def _values(self, module: Module, scope: Scope, expr: ast.expr) -> list[Value]:
+        """The value of each binding behind `expr`; an attribute of a module is read from that module's own bindings,
+        and one only a module-level `__getattr__` answers has no value."""
+        resolver = self.project.resolver
+        if not isinstance(expr, ast.Attribute):
+            return resolver.values(module, scope, expr)
+        base = self._values(module, scope, expr.value)
+        first = base[0] if base else None
+        if first is None or first[0] != "module" or any(value != first for value in base):
+            return [None]
+        target = resolver.load(first[1])
+        found = resolver.module_values(target, expr.attr) if target is not None else []
+        if not found and target is not None and target.scope.bindings.get("__getattr__"):
+            return [None]
+        return found or [resolver.member(first[1], expr.attr)]
+
     def _read(self, module: Module, scope: Scope, chain: list[ast.expr]) -> tuple[Canonical, str]:
         """The canonical value of the chain's longest prefix that resolves, and the attributes after it."""
-        resolver = self.project.resolver
         attrs = _written(chain[1:]).split(".") if len(chain) > 1 else []
         for count in range(len(chain) - 1, -1, -1):
-            value = resolver.resolve(module, scope, chain[count])
-            if value is not None:
-                return self.canonical(value), ".".join(attrs[count:])
+            value = self.agreed(self._values(module, scope, chain[count]))
+            if value != "?":
+                return value, ".".join(attrs[count:])
         root = chain[0]
         assert isinstance(root, ast.Name)
-        kind = "opaque" if resolver.values(module, scope, root) else "unbound"
+        kind = "opaque" if self.project.resolver.values(module, scope, root) else "unbound"
         return (kind, root.id), ".".join(attrs)
 
     def _reads(self, module: Module) -> Iterator[tuple[Key, Site]]:
@@ -234,7 +254,7 @@ class _Side:
 
     def _names(self, module: Module) -> dict[str, Canonical]:
         resolver = self.project.resolver
-        return {name: self.canonical(combine(resolver.module_values(module, name)))
+        return {name: self.agreed(resolver.module_values(module, name))
                 for name, bindings in module.scope.bindings.items() if bindings}
 
     def fingerprint(self, rel: str) -> Fingerprint:
@@ -260,17 +280,20 @@ def fingerprint(project: MoveProject, rel: str, final: Final = _same, moved: Mov
 
 
 def _copy(project: MoveProject, root: Path) -> None:
-    """Copy the project's directories, Python files and root `pyproject.toml` to `root`."""
+    """Copy the project's directories, Python files and root `pyproject.toml` to `root`, each file the project reads
+    as it was read."""
+    read = set(project.files())
     copied: set[str] = set()
     for rel, is_dir in project.layout.resources():
         if is_dir:
             (root / rel).mkdir(parents=True, exist_ok=True)
+        elif rel in read:
+            (root / rel).write_bytes(project.snapshot.data(rel))
+            copied.add(rel)
         elif rel.endswith(".py") or rel == "pyproject.toml":
             shutil.copyfile(project.root / rel, root / rel)
-            copied.add(rel)
-    for rel in project.files():
-        if rel not in copied:
-            _copy_skipped(project, root, rel)
+    for rel in read - copied:
+        _copy_skipped(project, root, rel)
 
 
 def _copy_skipped(project: MoveProject, root: Path, rel: str) -> None:
@@ -292,6 +315,14 @@ def _final(moves: list[FileMove]) -> Final:
         return rel
 
     return final
+
+
+def _share(before: MoveProject, after: MoveProject, written: set[str], final: Final) -> None:
+    """Give `after` the parsed module of each file the move neither writes nor moves."""
+    for rel in before.files():
+        module = before.module(rel) if rel not in written and final(rel) == rel else None
+        if module is not None and not (after.root / rel).is_symlink():
+            after.adopt(rel, module)
 
 
 # ---- the comparison
@@ -330,15 +361,29 @@ class _Expected:
         return found
 
 
+def _bound_earlier(added: Counter[Key], missing: Counter[Key]) -> None:
+    """Pair off each read that is now bound with one of the same value that was not yet: no difference."""
+    for key in [key for key in added if key[2] == "bound"]:
+        was = (key[0], key[1], "not-yet")
+        paired = min(added[key], missing[was])
+        added.subtract({key: paired})
+        missing.subtract({was: paired})
+    for counter in (added, missing):
+        for key in [key for key, count in counter.items() if count <= 0]:
+            del counter[key]
+
+
 def _read_difference(shown: str, expected: list[Entry], found: Fingerprint) -> Difference | None:
     """The first read counted more often than expected, in the new text; else the first counted less often, in the
     old one."""
     counts = Counter(key for _, key, _ in expected)
-    more = [site for key, count in found.reads.items() if count > counts[key] for site in found.sites[key]]
+    added, missing = found.reads - counts, counts - found.reads
+    _bound_earlier(added, missing)
+    more = [site for key in added for site in found.sites[key]]
     if more:
         line, _, text = min(more)
         return shown, line, text
-    fewer = [(site, rel) for rel, key, site in expected if counts[key] > found.reads[key]]
+    fewer = [(site, rel) for rel, key, site in expected if key in missing]
     if fewer:
         (line, _, text), rel = min(fewer)
         return rel, line, text
@@ -403,7 +448,9 @@ def verify(project: MoveProject, symbol: tuple[MovedSymbol, str, str] | None, wr
         root = Path(directory).resolve()
         _copy(project, root)
         apply(root, writes, moves)
-        found = _compare(before, _Side(MoveProject(root), moved=sides[1]), _Expected(before, symbol))
+        after = MoveProject(root)
+        _share(project, after, {write.rel for write in writes}, final)
+        found = _compare(before, _Side(after, moved=sides[1]), _Expected(before, symbol))
     if found is not None:
         path, line, name = found
         raise RefactorError(message("refactor.resolution-changed", path=path, line=line, name=name))

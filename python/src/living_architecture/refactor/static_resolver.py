@@ -361,11 +361,14 @@ class Module:
 
 
 class Resolver:
-    """Resolves names and attributes to values, following the first-party modules `finder` locates."""
+    """Resolves names and attributes to values, following the first-party modules `finder` locates; `parsed` gives
+    the module of a file the caller has parsed already under that name, else None."""
 
-    def __init__(self, finder: ModuleFinder, read: Callable[[Path], str] | None = None) -> None:
+    def __init__(self, finder: ModuleFinder, read: Callable[[Path], str] | None = None,
+                 parsed: Callable[[str, Path], Module | None] | None = None) -> None:
         self.finder = finder
         self.read = read or (lambda path: path.read_text(encoding="utf-8"))
+        self.parsed = parsed
         self.modules: dict[str, Module | None] = {}
         self.active: set[tuple[str, str]] = set()
         self.cache: dict[tuple[str, str], list[Value]] = {}
@@ -383,7 +386,8 @@ class Resolver:
         if path.is_dir():
             return Module(ast.Module(body=[], type_ignores=[]), parts, True, path)
         try:
-            return Module(ast.parse(self.read(path)), parts, is_package, path)
+            own = self.parsed(dotted, path) if self.parsed is not None else None
+            return own or Module(ast.parse(self.read(path)), parts, is_package, path)
         except (OSError, SyntaxError, ValueError, LookupError):
             return None
 

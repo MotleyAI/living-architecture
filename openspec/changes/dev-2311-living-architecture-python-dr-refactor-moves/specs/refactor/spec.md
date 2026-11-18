@@ -148,8 +148,8 @@ the unencodable finding naming the file and that encoding.
 `move-symbol` and `move-module` SHALL then resolve the project as the move would leave it and compare it with the
 project as read, each file with itself at its new path: (a) every name or attribute chain read SHALL resolve as before:
 to the same declaration or module (a moved one counting as itself at its new place), to a binding the resolver cannot
-follow, or to no binding; (b) a read that runs while its module is imported SHALL follow a top-level binding of its name
-if and only if it did before; (c) a name a module binds at top level both before and after SHALL resolve as before. On
+follow, or to no binding; (b) a read that runs while its module is imported and followed a top-level binding of its
+name SHALL still follow one; (c) a name a module binds at top level both before and after SHALL resolve as before. On
 a difference the move SHALL exit 1 with the resolution-changed finding naming the file, line and name of the first one.
 
 A refused refactor SHALL write nothing. The comparison SHALL start no language server.
@@ -202,13 +202,30 @@ A refused refactor SHALL write nothing. The comparison SHALL start no language s
 - **THEN** it exits 1 with the resolution-changed finding naming `pkg/b.py`, the line of the moved `def` and
   `pkg.a.f`, and no file changes
 
+#### Scenario: Moved code reads a name the source imports and then rebinds
+- **WHEN** `pkg/a.py` holds `import math as dep`, then `dep = 42`, then `def f(): return dep`, and `move-symbol` moves
+  `f` to `pkg/b.py`
+- **THEN** it exits 1 with the resolution-changed finding naming `pkg/a.py`, the line of `dep = 42` and `dep`, and no
+  file changes
+
+#### Scenario: An import dropped while an assignment under global still binds its name
+- **WHEN** `use.py` holds `import pkg.sub as sub` and a function that declares `global sub`, reads `sub.thing.X` and
+  assigns `sub = None`, and `move-module` moves `pkg/sub/thing.py` to `pkg`
+- **THEN** it exits 1 with the resolution-changed finding naming `use.py`, the line of that read and `pkg.thing.X`,
+  and no file changes
+
+#### Scenario: A read that becomes bound is accepted
+- **WHEN** a file reads the moved symbol at module level through an import that only a function declaring it `global`
+  makes, and the move replaces that import by a top-level one
+- **THEN** the move exits 0
+
 #### Scenario: A stub that does not parse is refused
 - **WHEN** a module rename runs with `--stub` and the configured stub text, filled in, does not parse
 - **THEN** it exits 1 with the unparsable finding naming the stub's path, and no file changes
 
 #### Scenario: Existing refactors unchanged
 - **WHEN** any Python `dr-refactor` conformance case that existed before this requirement runs, other than the
-  self-reference case above
+  cases the scenarios above refuse
 - **THEN** its stdout, stderr, exit code and written files are unchanged
 
 ## MODIFIED Requirements

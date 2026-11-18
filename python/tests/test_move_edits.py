@@ -325,18 +325,19 @@ def test_destination_binding_only_the_package_root_gets_the_dotted_import(tmp_pa
     ],
     ids=["plain-dotted", "from-import"],
 )
-def test_destination_import_of_the_symbol_frees_its_name_for_a_needed_import(
-    tmp_path: Path, needed: str, alias: str
+def test_destination_alias_of_the_symbol_taken_by_a_needed_import_is_refused(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], needed: str, alias: str
 ) -> None:
     root = _write(tmp_path, {
         **SYMBOL_PROJECT,
         "pkg/a.py": f"{needed}\n\n\ndef f() -> object:\n    return {alias}\n",
         "pkg/b.py": f"from pkg.a import f as {alias}\n\nX = {alias}()\n",
     })
-    assert _move_f(root, "--apply") == 0
-    dest = (root / "pkg/b.py").read_text()
-    assert dest.startswith(needed + "\n")
-    assert dest.endswith("X = f()\n")
+    before = _tree(root)
+    assert _move_f(root, "--apply") == 1
+    finding = message("refactor.resolution-changed", path="pkg/b.py", line=1, name=alias)
+    assert readouterr(capsys).err.endswith(finding + "\n")
+    assert _tree(root) == before
 
 
 @pytest.mark.parametrize("flags", [(), ("--apply",)], ids=["dry-run", "apply"])

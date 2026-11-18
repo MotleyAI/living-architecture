@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 from pathlib import Path
 
 from living_architecture.contract import message
@@ -22,7 +23,7 @@ class MoveProject:
         self.layout = ProjectLayout(self.root)
         self.snapshot = Snapshot(self.root)
         self.folders = SourceFolders([*self.layout.source_folders(), self.root])
-        self.resolver = Resolver(self.folders, self._read)
+        self.resolver = Resolver(self.folders, self._read, self._parsed)
         self._roots = {"", *self.layout.source_rels}
         self._modules: dict[str, Module | None] = {}
         self._files: list[str] | None = None
@@ -32,6 +33,24 @@ class MoveProject:
         if resolved.is_relative_to(self.root):
             return self.snapshot.text(resolved.relative_to(self.root).as_posix())
         return path.read_text(encoding="utf-8")
+
+    def _parsed(self, dotted: str, path: Path) -> Module | None:
+        """The project's own module of the file at `path`, when `dotted` is its module name."""
+        resolved = path.resolve()
+        if not resolved.is_relative_to(self.root):
+            return None
+        rel = resolved.relative_to(self.root).as_posix()
+        return self.module(rel) if self.dotted(rel) == dotted else None
+
+    def adopt(self, rel: str, module: Module) -> None:
+        """Take `module`, another project's model of a file with this text at this path, as file `rel`'s, when the
+        file has the same module name here."""
+        if rel in self._modules or self.dotted(rel) != module.dotted:
+            return
+        own = copy.copy(module)
+        own.path = self.root / rel
+        self._modules[rel] = own
+        self.resolver.modules.setdefault(module.dotted, own)
 
     def rel(self, path: str) -> str:
         """`path` relative to the project (`""` for its root); `refactor.outside-project` when outside."""

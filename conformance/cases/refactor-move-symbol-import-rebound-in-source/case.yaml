@@ -14,10 +14,10 @@ args:
 git:
 - commit: init
 expect:
-  exit: 0
-  stdout: ignore
+  exit: 1
   files:
   - pkg/a.py
   - pkg/b.py
 golden: manual
-note: a name the source imports and then rebinds at top level is imported from the source, as its last binding
+note: a name the source imports and then rebinds at top level has no single value before the move and one after it;
+  refused, nothing written

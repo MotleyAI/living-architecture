@@ -323,6 +323,28 @@ through. A case no rule covers then refuses instead of writing.
       `tests/test_conformance.py` checks ids, not rows; task 9.4 now says both ids go in backticks.
     - The exact function to patch for the rename fault and the typed `verify` signature: folded into task 9.6 and
       decision 35. *(codex)*
+40. **Outcome of the false-refusal test and the cost measurement** (pr-implement, 2026-11-18). Six existing cases or
+    tests refused and the cost was over decision 37's limit; each item below is the user's call.
+    - *Agreement is judged on canonical values* (amends decisions 31–32): a name, or an attribute of a module, with
+      several bindings has a value when every binding has the same canonical value, and is `"?"` otherwise; an
+      attribute of a module is read from that module's own bindings. Keeps
+      `refactor-move-symbol-qualified-self-reference-overload` passing. *(user)*
+    - *A module-level `__getattr__`* (amends decision 31): an attribute that a module defining `__getattr__` does not
+      bind has no value, so a chain's value stops at that module, as rule 2 of decision 16 keeps the use. Keeps
+      `refactor-move-module-package-binds-getattr` passing. *(user)*
+    - *Order is compared in one direction* (amends decision 33 and part (b) of the requirement): a read counted
+      `"bound"` after the move and `"not-yet"` before it, with the same value and tail, is no difference. Keeps
+      `refactor-move-shadowing-rebound-import` passing. *(user, approved wording of part (b))*
+    - *Refused from now on*: `refactor-move-symbol-import-rebound-in-source` (golden changed to the refusal);
+      `refactor-move-shadowing-global-nonlocal` (golden changed to the refusal; the new case
+      `refactor-move-shadowing-global-nonlocal-read`, the same fixture without `sub = None`, keeps pinning the
+      rewrite); and the unit test of a destination alias of the moved symbol that a needed import takes
+      (`tests/test_move_edits.py`, renamed, now expects the refusal). *(user)*
+    - *Cost*: `--timings` `total` on `python/` (236 files) went from 0.08 s to 2.65 s. Taken: every file is still
+      compared, but parsed once. The resolver takes the project's own parsed module for a file
+      (`Resolver(parsed=...)`), and the project after the move adopts the module of each file the move neither
+      writes nor moves (`MoveProject.adopt`). Measured after: 1.61 s. Rejected: decision 37's fallback of comparing
+      a subset of the files. *(user)*
 
 ## Risks / Trade-offs
 
