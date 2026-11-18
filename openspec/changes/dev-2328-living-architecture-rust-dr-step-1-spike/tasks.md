@@ -39,7 +39,7 @@
 
 ## 6. Report and decisions
 
-- [ ] 6.1 `spike/README.md` reproduces every number; post the measurements comment on DEV-2328.
-- [ ] 6.2 Ask the user, one at a time with the numbers: go or no-go; how la uses dr as a library; reproduce or change goldens per parser difference class; the unit-test rule; the crate layout of `rust/`. Record the answers in the DEV-2328 comment.
-- [ ] 6.3 Propose the edits to DEV-2327 and the later step issues that follow from the decisions; apply each after the user's OK.
-- [ ] 6.4 Commit and push the branch; no PR. The flow ends here.
+- [x] 6.1 `spike/README.md` reproduces every number; post the measurements comment on DEV-2328.
+- [x] 6.2 Ask the user, one at a time with the numbers: go or no-go; how la uses dr as a library; reproduce or change goldens per parser difference class; the unit-test rule; the crate layout of `rust/`. Record the answers in the DEV-2328 comment.
+- [x] 6.3 Propose the edits to DEV-2327 and the later step issues that follow from the decisions; apply each after the user's OK.
+- [x] 6.4 Commit and push the branch; no PR. The flow ends here.
