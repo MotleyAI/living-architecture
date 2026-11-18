@@ -57,6 +57,7 @@ flowchart TD
   typecheck --> config
   typecheck --> contract
   typecheck --> twin
+  typecheck --> changes
   conventions --> twin
   refactor --> config
   refactor --> twin
@@ -124,6 +125,7 @@ flowchart TD
   typecheck --> config
   typecheck --> contract
   typecheck --> twin
+  typecheck --> changes
   cli --> refactor
   refactor --> contract
   refactor --> lang

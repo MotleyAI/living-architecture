@@ -25,6 +25,7 @@ from living_architecture.lang.source import (
     conventions_facts,
 )
 from living_architecture.lang.typecheck import (
+    BASEDPYRIGHT_NOT_WITH_JSON,
     BASEDPYRIGHT_WRITE_FLAG,
     PYRIGHT_EXPORT_PRELOAD,
     PYRIGHT_PATCH_PRELOAD,
@@ -46,6 +47,7 @@ from living_architecture.lang.units import (
 )
 
 __all__ = [
+    "BASEDPYRIGHT_NOT_WITH_JSON",
     "BASEDPYRIGHT_WRITE_FLAG",
     "PYRIGHT_EXPORT_PRELOAD",
     "PYRIGHT_PATCH_PRELOAD",

@@ -11,6 +11,8 @@ from typing import Literal
 from pydantic import BaseModel
 
 BASEDPYRIGHT_WRITE_FLAG = "--writebaseline"
+# The output-only flags basedpyright refuses beside `--outputjson`.
+BASEDPYRIGHT_NOT_WITH_JSON = frozenset({"--verbose", "--stats"})
 # Remove with the preload once basedpyright ships the fix for microsoft/pyright#11919.
 PYRIGHT_PATCH_PRELOAD = Path(__file__).with_name("pyright_patch.cjs")
 PYRIGHT_EXPORT_PRELOAD = Path(__file__).with_name("pyright_export.cjs")
