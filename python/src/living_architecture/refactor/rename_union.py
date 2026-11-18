@@ -12,7 +12,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterator
 from functools import partial
 from pathlib import Path
-from typing import TypeVar
+from typing import Literal, TypeVar
 
 from pydantic import BaseModel, ConfigDict
 from typing_extensions import override
@@ -28,10 +28,18 @@ from living_architecture.refactor.keyed import (
     TypeFacts,
     declares_alias,
     field_assignment,
+    plain_key_span,
     sink_candidates,
 )
+from living_architecture.refactor.keyword_links import (
+    KeywordFlow,
+    KeywordSite,
+    ParameterRename,
+    signature_links,
+    unresolved_sites,
+)
 from living_architecture.refactor.locators import cannot_rename
-from living_architecture.refactor.member_scan import FormCall, MemberScan
+from living_architecture.refactor.member_scan import FormCall, MemberScan, collapsed
 from living_architecture.refactor.members import member_declarations
 from living_architecture.refactor.mentions import (
     Mention,
@@ -180,6 +188,8 @@ def _conflict(source: SourceFile, rel: str, edits: list[TextEdit], old: str, new
 
 
 Function = ast.FunctionDef | ast.AsyncFunctionDef
+_CONSTRUCTORS = ("__init__", "__new__")
+_KeywordDecision = Literal["rewrite", "unlinked", "unrelated"]
 
 
 def _parameter(fn: Function, name: str) -> ast.arg | None:
@@ -226,6 +236,13 @@ class Declaration(BaseModel):
 class MapRename(ABC):
     """A rename map entry's phases, run over all entries in turn: `prepare`, `seed` and `rules` (on the run's
     occurrence index), `finish`."""
+
+    old: str
+    blindspots: list[Finding]
+
+    def blindspot_names(self) -> list[str]:
+        """The old name as the closing blind-spot line spells it, when the rename has a blind spot."""
+        return [f".{self.old}"] if self.blindspots else []
 
     @abstractmethod
     def header(self) -> str: ...
@@ -281,6 +298,7 @@ class SymbolRename(MapRename):
         self._files: list[str] = []
         self.entries: list[Entry] = [entry]
         self.blindspots: list[Finding] = []
+        self._unlinked: set[tuple[str, int]] = set()
         self.stand_ins: list[Finding] = []
         self.leftovers: list[Finding] = []
         self.unresolved: list[Finding] = []
@@ -334,6 +352,18 @@ class SymbolRename(MapRename):
     @override
     def header(self) -> str:
         return message("refactor.rename-header", old=self.old, new=self.new)
+
+    @override
+    def blindspot_names(self) -> list[str]:
+        """`.old` with a receiver or target blind spot, `old=` with an unlinked keyword."""
+        keywords = sum((b.path, b.col) in self._unlinked for b in self.blindspots)
+        return [*([f".{self.old}"] if keywords < len(self.blindspots) else []), *([f"{self.old}="] if keywords else [])]
+
+    def parameter_rename(self) -> ParameterRename | None:
+        """This rename as the signature proof needs it, when it renames a parameter."""
+        if self.entry.kind != "parameter" or self.seeds <= self.keywordless:
+            return None
+        return ParameterRename(old=self.old, new=self.new, seeds=frozenset(self.seeds), candidates=tuple(self.candidates))
 
     def renamed_members(self) -> list[tuple[tuple[str, int], tuple[str, int]]]:
         """Each member declaration this rename's edits rename, with its class's file and `class` line."""
@@ -511,13 +541,15 @@ class SymbolRename(MapRename):
         return out
 
     def _parameter_declarations(self, facts: TypeFacts, fn: tuple[str, int]) -> list[tuple[str, SourceFile, Function, ast.arg]]:
-        """The renamed parameters: those named `old` of the method hierarchy's declarations and their overload groups."""
+        """The renamed parameters: those named `old` of the method hierarchy's declarations and their overload groups;
+        a constructor has no hierarchy."""
         located = self._function_at(fn)
         if located is None:
             return []
         defs = [located]
         source = self.snapshot.source(located[0])
-        if any(any(s is located[1] for s in c.body) for c in source.of_type(ast.ClassDef)):
+        method = any(any(s is located[1] for s in c.body) for c in source.of_type(ast.ClassDef))
+        if method and located[1].name not in _CONSTRUCTORS:
             defs += self._method_declarations(located)
         seen: set[tuple[str, int, int]] = set()
         out: list[tuple[str, SourceFile, Function, ast.arg]] = []
@@ -587,6 +619,61 @@ class SymbolRename(MapRename):
         renamed = None if resolved is None else [any(self._declared(m, n) in self.seeds for m, n in d) for d in resolved]
         return target_outcome(rel, source, call, project_target=project_target, renamed=renamed, member=member,
                               old=self.old, new=self.new)
+
+    def _keyword_edits(self, index: RunIndex, facts: TypeFacts) -> None:
+        """A parameter's or keyed field's keyword sites the checker resolves to no declaration: rewritten when the
+        signature links them or carriers take them only to renamed declarations, a blind spot when unlinked; and the
+        key-form strings of the carriers that take the key only to renamed declarations. A parameter no keyword can
+        bind has no such site."""
+        parameter = self.entry.kind == "parameter"
+        if parameter and self.seeds <= self.keywordless:
+            return
+        if not parameter and not any(facts.chain(owner).kind is not None for owner, _, _ in self._fields):
+            return
+        renamed = KeywordFlow(index, facts, self.old, lambda path, start: self.is_renamed((self.session.rel(path) or "", start)))
+        own = KeywordFlow(index, facts, self.old, lambda path, start: (self.session.rel(path) or "", start) in self.seeds)
+        for rel in self.candidates:
+            path, source = self.root / rel, self.snapshot.source(rel)
+            for site in unresolved_sites(index, self.session.load, path, source, self.old):
+                linked = parameter and signature_links(index, path, site, self.old, self.new)
+                decided = "rewrite" if linked else self._carried(index, path, source, site, renamed, own)
+                if decided is not None:
+                    self._file(self._keyword_outcome(rel, source, site, decided))
+            for fn, key in renamed.key_forms(source):
+                span = plain_key_span(source, key, self.old)
+                if span is not None and renamed.carrier(source, fn) == "renamed" and own.carrier(source, fn) != "other":
+                    self._file(self._keyword_rewrite(rel, span))
+
+    def _carried(self, index: RunIndex, path: Path, source: SourceFile, site: KeywordSite, renamed: KeywordFlow,
+                 own: KeywordFlow) -> _KeywordDecision | None:
+        """What the callee of `site` decides: unlinked for an untyped callee or an unprovable flow, a rewrite when
+        carriers take the key only to this rename's declarations; None when the callee resolves to nothing."""
+        if site.query is not None and index.signature(path, site.query).callee is not None:
+            return "unlinked"
+        verdict = renamed.site(source, site.call)
+        if verdict is None:
+            return None
+        if verdict in ("mixed", "unresolved"):
+            return "unlinked"
+        return "rewrite" if verdict == "renamed" and own.site(source, site.call) != "other" else "unrelated"
+
+    def _keyword_rewrite(self, rel: str, span: tuple[int, int]) -> Outcome:
+        edit = TextEdit(path=rel, start=span[0], end=span[1], new_text=self.new)
+        return Outcome(kind="rewrite", rel=rel, span=span, edits=(edit,))
+
+    def _keyword_outcome(self, rel: str, source: SourceFile, site: KeywordSite, decided: _KeywordDecision) -> Outcome:
+        """A keyword site's outcome: rewritten, unrelated, or an unlinked keyword, which `--unsure include` also
+        rewrites."""
+        if decided == "unlinked":
+            self._unlinked.add((rel, site.span[0]))
+            text = message("refactor.unlinked-keyword", path=rel, line=site.line, callee=collapsed(source.segment(site.call.func)),
+                           old=self.old)
+            edits = self._keyword_rewrite(rel, site.span).edits if self._unsure else ()
+            return Outcome(kind="blindspot", rel=rel, span=site.span, edits=edits,
+                           finding=Finding(path=rel, line=site.line, col=site.span[0], text=text))
+        if decided == "rewrite":
+            return self._keyword_rewrite(rel, site.span)
+        return Outcome(kind="unrelated", rel=rel, span=site.span)
 
     def _blindspot_scan(self, scan: MemberScan) -> None:
         for rel in self.candidates:
@@ -714,6 +801,7 @@ class SymbolRename(MapRename):
         with timed("rules"):
             for field in self._fields:
                 self._keyed_edits(index, facts, field)
+            self._keyword_edits(index, facts)
             scan = MemberScan(index, self.old, self.session.load)
             if self.member:
                 self._string_member_edits(scan)

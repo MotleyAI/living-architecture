@@ -12,7 +12,7 @@ import { isCompound } from './compound.js';
 import { type Edit, mergeEdits, RefactorError, splitBom } from './edits.js';
 import { MapError } from './map.js';
 import { Lines } from './lines.js';
-import { anyAccesses, type FormCall, formCalls, isAny, type MemberDeclaration, memberDeclarations, memberNameStart, walk } from './members.js';
+import { anyAccesses, type FormCall, formCalls, isAny, type MemberDeclaration, memberDeclarations, memberNameStart, receiverText, walk } from './members.js';
 import { codeMarked, type Mention, mentions, type Owner, qualified, type Region, sourceRegions } from './mentions.js';
 import { blindspotOutcome, compoundOutcome, formCallOutcome, literalOutcomes, mentionOutcome, type Outcome } from './outcomes.js';
 import { declarationKeys, type Finding, type Home, keyOf, type Need, planImports, rename, resolveTarget, retargetSites, symbolOf } from './retarget.js';
@@ -261,7 +261,7 @@ class NameGroup {
         this.record(blindspotOutcome(path, position, literal ?? null, receiver, this.old));
       }
       for (const found of formCalls(checker, source, this.old)) {
-        const receiver = found.object.getText(source);
+        const receiver = receiverText(found.object, source);
         if (isAny(checker, found.object)) {
           this.record(blindspotOutcome(path, found.call.getStart(source), [found.start, found.end], receiver, this.old));
         } else {
@@ -756,8 +756,8 @@ export function runEntries(r: Refactor, specs: EntrySpec[], map: string, progres
       return [...nameConflicts(session, targets, pending, edits, merged.length === 0), ...merged];
     });
   }
-  const attr = groups.filter((g) => g.blindspots.length > 0).map((g) => g.old).join(', .');
-  const closing = blind.length > 0 ? [refusal(message('refactor.blindspots', { count: blind.length, attr }))] : [];
+  const names = groups.filter((g) => g.blindspots.length > 0).map((g) => `.${g.old}`).join(', ');
+  const closing = blind.length > 0 ? [refusal(message('refactor.blindspots', { count: blind.length, names }))] : [];
   const report = unique([...retargets, ...blind, ...standIns, ...conflicts, ...sites, ...closing]);
   if (report.length > 0) throw new Refused(report);
   const leftovers = groups.flatMap((g) => g.leftovers).sort(byPosition);

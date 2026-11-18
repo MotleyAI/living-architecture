@@ -19,7 +19,7 @@ from living_architecture.lang import (
     PositionFacts,
     Span,
 )
-from living_architecture.lang.language_server import FactKind, Verdict
+from living_architecture.lang.language_server import FACT_KINDS, FactKind, Verdict
 from living_architecture.refactor.index_cache import IndexCache, request_key
 from living_architecture.refactor.python_source import SourceFile, nfkc
 from living_architecture.refactor.timings import timed
@@ -114,8 +114,7 @@ class _Queries:
                 self.ask(node, "definition")
 
     def queries(self) -> list[FactQuery]:
-        order: tuple[FactKind, ...] = ("definition", "typeDefinition", "verdict", "access", "class")
-        return [FactQuery(path=self.source.path, offset=offset, kinds=tuple(k for k in order if k in kinds))
+        return [FactQuery(path=self.source.path, offset=offset, kinds=tuple(k for k in FACT_KINDS if k in kinds))
                 for offset, kinds in sorted(self.kinds.items())]
 
 
@@ -130,7 +129,7 @@ def class_queries(source: SourceFile) -> list[FactQuery]:
 def fact_queries(source: SourceFile, names: set[str]) -> list[FactQuery]:
     """The positions of `source` the rules of a rename of `names` ask about: each class, its bases and field
     annotations, decorators, the callees, receivers and annotations of keyed sinks, and string-member callees and
-    objects."""
+    objects, and the signature of each call with a keyword or an unpacked constant key in `names`."""
     if source.tree is None:
         return []
     found = _Queries(source)
@@ -181,12 +180,30 @@ def _call_queries(found: _Queries, call: ast.Call, names: set[str], shape: _Shap
         found.ask(call.func, "definition", "typeDefinition")
         if isinstance(call.func, ast.Attribute):
             found.ask(_name_node(call.func.value), "definition", "typeDefinition")
+    for k in call.keywords:
+        if k.arg in names:
+            found.ask(k, "signature")
+        elif k.arg is None and isinstance(k.value, ast.Dict) and any(_plain(key) in names for key in k.value.keys if key):
+            found.ask(call.func if isinstance(call.func, (ast.Name, ast.Attribute)) else None, "signature")
     strings = [s for a in call.args if (s := _plain(a)) is not None]
     if any(s in names or names & set(s.split(".")) for s in strings):
         found.ask(call.func, "definition")
         for a in call.args:
             if isinstance(a, (ast.Name, ast.Attribute)):
                 found.ask(a, "verdict")
+
+
+def carrier_queries(source: SourceFile) -> list[FactQuery]:
+    """The callees and receivers of every call in a `def` of `source` with a `**kwargs` parameter."""
+    found = _Queries(source)
+    for fn in (n for n in source.nodes if isinstance(n, _FUNCTIONS) and n.args.kwarg is not None):
+        for call in (n for n in ast.walk(fn) if isinstance(n, ast.Call)):
+            func = call.func
+            found.ask(func if isinstance(func, (ast.Name, ast.Attribute)) else None, "definition", "typeDefinition")
+            if isinstance(func, ast.Attribute):
+                receiver = func.value.func if isinstance(func.value, ast.Call) else func.value
+                found.ask(_name_node(receiver), "definition", "typeDefinition")
+    return found.queries()
 
 
 def _escaped_constant(source: SourceFile, names: set[str]) -> bool:
@@ -224,6 +241,7 @@ class RunIndex:
         self._facts: dict[tuple[Path, int], dict[FactKind, PositionFacts]] = {}
         self._probes: dict[tuple[Path, int], PositionFacts] = {}
         self._probe_results: dict[tuple[Path, tuple[int, int]], tuple[Verdict | None, list[Span]]] = {}
+        self._renamed_signatures: dict[tuple[Path, int], tuple[tuple[str, ...], ...]] = {}
         self.request = ExportRequest(names=[], files=[])
         self._memo: dict[Hashable, object] = {}
 
@@ -319,8 +337,22 @@ class RunIndex:
             entry.setdefault(kind, PositionFacts(path=path, offset=offset, kinds=(kind,)))
         return entry[kind]
 
+    def ensure(self, queries: list[FactQuery]) -> None:
+        """Export, in one request, the facts of `queries` the index does not hold."""
+        missing: list[FactQuery] = []
+        for q in queries:
+            held = self._facts.get((q.path, q.offset), {})
+            if any(k not in held for k in q.kinds):
+                missing.append(q)
+        if missing:
+            self._merge(self._export(ExportRequest(names=[], files=[], facts=missing)))
+
     def definition(self, path: Path, offset: int) -> list[Span]:
         return list(self._fact(path, offset, "definition").definition)
+
+    def signature(self, path: Path, offset: int) -> PositionFacts:
+        """The signature fact of the call whose keyword or callee name starts at `offset`."""
+        return self._fact(path, offset, "signature")
 
     def class_facts(self, path: Path, offset: int) -> PositionFacts:
         """The class fact of the class whose name starts at `offset`: its ancestors and the members of the run's
@@ -331,7 +363,7 @@ class RunIndex:
         return list(self._fact(path, offset, "typeDefinition").type_definition)
 
     def verdict(self, path: Path, offset: int) -> Verdict | None:
-        """`Unknown` or `Any` when the hover at `offset` types a name so."""
+        """`Unknown`, `Any` or `Never` when the hover at `offset` types a name so."""
         return self._fact(path, offset, "verdict").verdict
 
     def receiver(self, path: Path, name: str, offset: int) -> Verdict | None:
@@ -344,7 +376,7 @@ class RunIndex:
     # ---- the probe round
 
     def probe(self, texts: dict[Path, str], queries: list[FactQuery]) -> None:
-        """Export `queries` (definitions and access verdicts) with the files of `texts` opened as those texts."""
+        """Export `queries` with the files of `texts` opened as those texts."""
         if not queries:
             return
         found = self._export(ExportRequest(names=[], files=[], facts=queries), texts)
@@ -354,6 +386,13 @@ class RunIndex:
     def probed(self, path: Path, offset: int) -> PositionFacts | None:
         """The probe round's facts at `offset` of a probe text."""
         return self._probes.get((path, offset))
+
+    def record_signature(self, path: Path, offset: int, signature: tuple[tuple[str, ...], ...]) -> None:
+        self._renamed_signatures[path, offset] = signature
+
+    def renamed_signature(self, path: Path, offset: int) -> tuple[tuple[str, ...], ...] | None:
+        """The signature at `offset` (the file's own) once the run's renamed parameters are renamed, when probed."""
+        return self._renamed_signatures.get((path, offset))
 
     def record_probe(self, path: Path, literal: tuple[int, int], access: Verdict | None, definitions: list[Span]) -> None:
         self._probe_results[path, literal] = (access, definitions)

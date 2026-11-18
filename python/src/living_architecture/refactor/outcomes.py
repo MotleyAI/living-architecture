@@ -9,7 +9,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict
 
 from living_architecture.contract import message
-from living_architecture.refactor.member_scan import Blindspot, FormCall, receiver_text
+from living_architecture.refactor.member_scan import Blindspot, FormCall, object_text
 from living_architecture.refactor.mentions import Mention, docstrings
 from living_architecture.refactor.python_source import SourceFile
 from living_architecture.refactor.text_edits import TextEdit
@@ -61,7 +61,7 @@ def string_member_outcome(rel: str, source: SourceFile, call: FormCall, renamed:
         return Outcome(kind="rewrite", rel=rel, span=span, edits=(TextEdit(path=rel, start=span[0], end=span[1], new_text=new),))
     assert call.obj is not None
     line = call.call.lineno
-    text = message("refactor.mixed-target", path=rel, line=line, receiver=receiver_text(source, call.obj), attr=old)
+    text = message("refactor.mixed-target", path=rel, line=line, receiver=object_text(source, call), attr=old)
     finding = Finding(path=rel, line=line, col=source.offset(line, call.call.col_offset), text=text)
     return Outcome(kind="blindspot", rel=rel, span=span, finding=finding)
 

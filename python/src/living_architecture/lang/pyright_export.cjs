@@ -19,9 +19,11 @@ const ANCHORS = [
   [DISPATCH, `            case "${COMMAND}": {\n                return globalThis.__laExportOccurrences(this.__laServer, cmdParams, token, __webpack_require__);\n            }\n${DISPATCH}`],
 ];
 
-const NODE = { Argument: 1, Class: 10, Decorator: 16, ImportAs: 24, FormatString: 30, ImportFromAs: 26, Index: 27, Function: 31,
+const NODE = { Argument: 1, Call: 9, Class: 10, Decorator: 16, ImportAs: 24, FormatString: 30, ImportFromAs: 26, Index: 27, Function: 31,
   MemberAccess: 35, Module: 36, ModuleName: 37, Name: 38, Parameter: 41, StringList: 48, String: 49, TypeAnnotation: 54 };
 const ALIAS_DECLARATION = 8;
+const VERDICTS = ['Unknown', 'Any', 'Never'];
+const PARAM_KEYWORD = [1, 2];
 const HOVER = /^\([\p{L}\p{N}_ ]+\) [\p{L}\p{N}_.]+: ([\s\S]*)$/u;
 
 // A failure overwrites any result; `patched` never replaces one.
@@ -54,7 +56,7 @@ function patch(source, resultPath, versions) {
   return ANCHORS.reduce((text, [anchor, replacement]) => text.replace(anchor, () => replacement), source);
 }
 
-// `Unknown` or `Any` when a hover's declared type is, or is a union holding, either.
+// `Unknown`, `Any` or `Never` when a hover's declared type is, or is a union holding, one of them.
 function hoverType(hover) {
   if (hover == null) return null;
   const m = HOVER.exec(hover.split('\n\n')[0]);
@@ -73,7 +75,7 @@ function hoverType(hover) {
     }
   }
   const all = new Set([...members, text.slice(start)].map((t) => t.trim()));
-  return ['Unknown', 'Any'].find((kind) => all.has(kind)) ?? null;
+  return VERDICTS.find((kind) => all.has(kind)) ?? null;
 }
 
 // The annotation of a class-body statement `x: T` or `x: T = v`.
@@ -95,6 +97,10 @@ class Exporter {
     this.positions = req('../pyright-internal/src/common/positionUtils.ts');
     this.definitionProvider = req('../pyright-internal/src/languageService/definitionProvider.ts');
     this.hoverProvider = req('../pyright-internal/src/languageService/hoverProvider.ts');
+    this.types = req('../pyright-internal/src/analyzer/types.ts');
+    this.typeUtils = req('../pyright-internal/src/analyzer/typeUtils.ts');
+    this.constructors = req('../pyright-internal/src/analyzer/constructors.ts');
+    this.parameters = req('../pyright-internal/src/analyzer/parameterUtils.ts');
     this.reader = this.nodeInfo.getInfoReader(program);
     this.cache = new Map();
     this.followed = new Set();
@@ -153,8 +159,22 @@ class Exporter {
     return hoverType(this.hover(uri, position));
   }
 
+  // The verdict of an expression's type as the checker evaluates it: the first of `Unknown`, `Any` and `Never` it is
+  // or, as a union, holds.
+  typeVerdict(node) {
+    const type = this.program.evaluator.getType(node);
+    if (!type) return null;
+    const found = new Set();
+    this.typeUtils.doForEachSubtype(type, (sub) => {
+      if (this.types.isUnknown(sub)) found.add('Unknown');
+      else if (this.types.isAny(sub)) found.add('Any');
+      else if (this.types.isNever(sub)) found.add('Never');
+    });
+    return VERDICTS.find((kind) => found.has(kind)) ?? null;
+  }
+
   // The receiver verdict of the member access whose member name is `member`: a name or attribute receiver hovered, any
-  // other read from the access when no declaration of the member is itself untyped.
+  // other read from the access when no declaration of the member is itself untyped, else `Never` when its type is.
   access(uri, member) {
     const receiver = member.parent.d.leftExpr;
     if (receiver.nodeType === NODE.Name || receiver.nodeType === NODE.MemberAccess) {
@@ -163,9 +183,51 @@ class Exporter {
     }
     const at = this.position(uri, member.start);
     const kind = this.verdict(uri, at);
-    if (kind === null) return null;
+    if (kind === null) return this.typeVerdict(receiver) === 'Never' ? 'Never' : null;
     const declared = this.definition(uri, at).some((d) => this.verdict(this.uri(d.uri), d.range.start) !== null);
     return declared ? null : kind;
+  }
+
+  // The call a name belongs to as one of its keywords or as its callee's name.
+  callOf(node) {
+    const parent = node?.parent;
+    if (parent?.nodeType === NODE.Argument && parent.d.name === node) return parent.parent;
+    const callee = parent?.nodeType === NODE.MemberAccess && parent.d.member === node ? parent : node;
+    return callee?.parent?.nodeType === NODE.Call && callee.parent.d.leftExpr === callee ? callee.parent : undefined;
+  }
+
+  // The names each callable alternative of `type` binds by keyword: one list per overload and per union member, a
+  // class by its constructors and an instance by its `__call__`.
+  alternatives(node, type, depth = 0) {
+    const out = [];
+    this.typeUtils.doForEachSubtype(this.program.evaluator.makeTopLevelTypeVarsConcrete(type), (sub) => {
+      let inner;
+      if (this.types.isFunction(sub)) {
+        const details = this.parameters.getParamListDetails(sub);
+        out.push(details.params.filter((p) => p.param.category === 0 && PARAM_KEYWORD.includes(p.kind)).map((p) => p.param.name));
+        return;
+      }
+      if (this.types.isOverloaded(sub)) {
+        for (const overload of this.types.OverloadedType.getOverloads(sub)) out.push(...this.alternatives(node, overload, depth + 1));
+        return;
+      }
+      if (depth < 4 && this.types.isInstantiableClass(sub)) {
+        inner = this.constructors.createFunctionFromConstructor(this.program.evaluator, sub);
+      } else if (depth < 4 && this.types.isClassInstance(sub)) {
+        inner = this.constructors.getBoundCallMethod(this.program.evaluator, node, sub)?.type;
+      }
+      if (inner) out.push(...this.alternatives(node, inner, depth + 1));
+      else out.push([]);
+    });
+    return out;
+  }
+
+  // The signature fact of the call a keyword or callee name belongs to.
+  signature(uri, position) {
+    const call = this.callOf(this.nodeAt(uri, position));
+    if (!call) return { alternatives: [], callee: null };
+    const type = this.program.evaluator.getType(call.d.leftExpr);
+    return { alternatives: type ? this.alternatives(call.d.leftExpr, type) : [], callee: this.typeVerdict(call.d.leftExpr) };
   }
 
   nodeAt(uri, position) {
@@ -345,6 +407,7 @@ class Exporter {
     if (kinds.includes('typeDefinition')) answer.typeDefinition = this.typeDefinition(uri, position);
     if (kinds.includes('verdict')) answer.verdict = this.verdict(uri, position);
     if (kinds.includes('class')) answer.class = this.classFacts(uri, position);
+    if (kinds.includes('signature')) answer.signature = this.signature(uri, position);
     if (kinds.includes('access')) {
       const node = this.nodeAt(uri, position);
       answer.access = node?.parent?.nodeType === NODE.MemberAccess && node.parent.d.member === node ? this.access(uri, node) : null;

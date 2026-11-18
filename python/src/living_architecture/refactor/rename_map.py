@@ -32,6 +32,7 @@ from living_architecture.refactor.diff_render import edit_description, move_desc
 from living_architecture.refactor.entry_location import Entry, EntryLocator
 from living_architecture.refactor.index_cache import IndexCache
 from living_architecture.refactor.keyed import TypeFacts, UnresolvedBase
+from living_architecture.refactor.keyword_links import signature_round
 from living_architecture.refactor.literal_rename import LiteralRename, check_value, literal_member_at
 from living_architecture.refactor.locators import RefactorError, cannot_rename, project_rel, resolve
 from living_architecture.refactor.map_file import MapEntry, MapError
@@ -559,8 +560,10 @@ class RenameMap:
         if symbols:
             files = [(self.root / rel, self.session.snapshot.source(rel))
                      for rel in sorted({rel for r in symbol_renames for rel in r.candidates})]
+            parameters = [p for r in symbol_renames if (p := r.parameter_rename()) is not None]
             with timed("rules"):
                 probe_round(self.index, files, symbols, self.session.load)
+                signature_round(self.index, self.root, self.session.snapshot.source, self.session.load, parameters)
         return facts
 
     # ---- rules
@@ -766,8 +769,8 @@ class RenameMap:
                 keyed = self.keyed_conflicts(live)
             names = sorted({(c.path, c.line, c.name): c for c in [*keyed, *checked]}.items())
             conflicts = [*(_name_conflict(c) for _, c in names), *merged]
-        attrs = ", .".join(dict.fromkeys(r.old for r in live if r.blindspots))
-        closing = [refusal(message("refactor.blindspots", count=len(blind), attr=attrs))] if blind else []
+        names = ", ".join(dict.fromkeys(name for r in live for name in r.blindspot_names()))
+        closing = [refusal(message("refactor.blindspots", count=len(blind), names=names))] if blind else []
         return edits, unique([*own, *retargets, *_texts(blind), *stand_ins, *conflicts, *sites, *closing])
 
     def findings(self, renames: list[Renaming], edits: list[TextEdit], listed: list[Finding]) -> list[Finding]:

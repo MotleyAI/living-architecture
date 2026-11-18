@@ -37,7 +37,7 @@ FORMS = tuple(StringForm.model_validate(f) for f in language("python")["string_m
 
 
 class Blindspot(BaseModel):
-    """A receiver of the member name typed `Unknown` or `Any`, at an access or a string-member call."""
+    """A receiver of the member name typed `Unknown`, `Any` or `Never`, at an access or a string-member call."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -166,7 +166,7 @@ class MemberScan:
         self.callees = FormResolver(index, load)
 
     def accesses(self, path: Path, source: SourceFile) -> Iterator[Blindspot]:
-        """`x.NAME` accesses whose receiver is typed `Unknown` or `Any`."""
+        """`x.NAME` accesses whose receiver is typed `Unknown`, `Any` or `Never`."""
         if source.tree is None:
             return
         for node in source.nodes:
@@ -175,7 +175,7 @@ class MemberScan:
             span = source.name_span(node)
             kind = self.index.receiver(path, self.name, span[0]) if span is not None else None
             if kind is not None:
-                yield Blindspot(line=node.lineno, col=node.col_offset, receiver=receiver_text(source, node.value), kind=kind)
+                yield Blindspot(line=node.lineno, col=node.col_offset, receiver=access_receiver(source, node), kind=kind)
 
     def member_calls(self, path: Path, source: SourceFile) -> list[FormCall]:
         """Calls with a member form's syntax whose member literal is NAME, with what their callee resolves to."""
@@ -252,7 +252,7 @@ class MemberScan:
             if kind is not None:
                 assert call.obj is not None
                 found.append(Blindspot(line=call.call.lineno, col=call.call.col_offset,
-                                       receiver=receiver_text(source, call.obj), kind=kind, literal=call.literal))
+                                       receiver=object_text(source, call), kind=kind, literal=call.literal))
         return found
 
 
@@ -328,8 +328,37 @@ def probe_round(index: RunIndex, files: list[tuple[Path, SourceFile]], names: li
                 index.record_probe(path, call.literal, facts.access, [original(d) for d in facts.definition])
 
 
-def receiver_text(source: SourceFile, node: ast.expr) -> str:
-    return _SPACE.sub(" ", source.segment(node))
+def collapsed(text: str) -> str:
+    """`text` with each run of whitespace as one space."""
+    return _SPACE.sub(" ", text)
+
+
+def written_text(source: SourceFile, node: ast.expr, left: int) -> str:
+    """`node`'s source text with the parentheses written around it from `left` on, whitespace runs collapsed."""
+    text = source.text
+    start, end = source.span(node)
+    while True:
+        before, after = start - 1, end
+        while before >= left and text[before].isspace():
+            before -= 1
+        while after < len(text) and text[after].isspace():
+            after += 1
+        if before < left or text[before] != "(" or after >= len(text) or text[after] != ")":
+            return collapsed(text[start:end])
+        start, end = before, after + 1
+
+
+def access_receiver(source: SourceFile, access: ast.Attribute) -> str:
+    """The receiver of `access` as written."""
+    return written_text(source, access.value, source.span(access)[0])
+
+
+def object_text(source: SourceFile, found: FormCall) -> str:
+    """The object argument of a string-member call as written."""
+    assert found.obj is not None
+    index = next(i for i, a in enumerate(found.call.args) if a is found.obj)
+    after = source.span(found.call.args[index - 1])[1] if index else source.span(found.call.func)[1]
+    return written_text(source, found.obj, source.text.index("," if index else "(", after) + 1)
 
 
 def _calls(source: SourceFile) -> Iterator[ast.Call]:

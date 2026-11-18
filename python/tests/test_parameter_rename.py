@@ -115,7 +115,9 @@ def test_keyword_only_parameter_located_anywhere(typed_project: MakeProject, rel
     _expect(root, {
         "pkg/kw.py": KWONLY_RENAMED,
         "pkg/use.py": KW_USE.replace('kwonly(model_name="x")', 'kwonly(dataset_name="x")')
-                            .replace('kwonly, model_name="x"', 'kwonly, dataset_name="x"'),
+                            .replace('kwonly, model_name="x"', 'kwonly, dataset_name="x"')
+                            .replace('kwonly(**{"model_name": "x"})', 'kwonly(**{"dataset_name": "x"})')
+                            .replace('wrap(model_name="x")', 'wrap(dataset_name="x")'),
     })
 
 
@@ -308,19 +310,20 @@ NOT_OVERLOADS = Template(
 
 
 @pytest.mark.parametrize(
-    ("header", "deco"),
+    ("header", "deco", "flags"),
     [
-        ("", ""),
-        ("def overload(fn: object) -> object:\n    return fn\n\n\n", "@overload  # pyright: ignore[reportUntypedFunctionDecorator]\n"),
+        ("", "", ()),
+        ("def overload(fn: object) -> object:\n    return fn\n\n\n", "@overload  # pyright: ignore[reportUntypedFunctionDecorator]\n",
+         ("--allow-blindspots",)),
     ],
     ids=["plain-redefinition", "local-decorator-named-overload"],
 )
 def test_same_named_defs_without_a_resolved_overload_are_no_group(
-    typed_project: MakeProject, header: str, deco: str
+    typed_project: MakeProject, header: str, deco: str, flags: tuple[str, ...]
 ) -> None:
     source = NOT_OVERLOADS.substitute(header=header, deco=deco, first=OLD)
     root = typed_project({"pkg/m.py": source})
-    assert _rename(root, "pkg/m.py", _at(root, "pkg/m.py", OLD)) == 0
+    assert _rename(root, "pkg/m.py", _at(root, "pkg/m.py", OLD), *flags) == 0
     _expect(root, {"pkg/m.py": NOT_OVERLOADS.substitute(header=header, deco=deco, first=NEW)})
 
 

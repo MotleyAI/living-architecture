@@ -30,7 +30,8 @@ through `commands.typecheck.python`, TypeScript through the bundled language ser
 member rename refuses while a receiver of the old name is untyped (`--allow-blindspots` overrides) or a class
 outside the renamed hierarchy declares it (`--with` / `--without PATH:LINE` classify each); `--keep PATH[:LINE]`
 leaves sites untouched, and `--docs` also rewrites mentions in comments, docstrings, strings and prose files,
-listing the rest as `leftover`.
+listing the rest as `leftover`. A parameter or field rename refuses the same way while a call keyword of the old name
+cannot be linked to it.
 
 A run announces its phases on stderr as they start — `[resolve]`, `[checks]`, `[references]`, `[rules]`,
 `[conflicts]`, `[baseline]`, `[write]` — with `[references n/count]` as each entry's reference search starts and

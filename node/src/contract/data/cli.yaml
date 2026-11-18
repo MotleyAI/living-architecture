@@ -225,7 +225,7 @@ commands:
           - {name: --unsure, type: string, choices: [skip, include], default: skip,
              help: 'occurrences the checker cannot resolve: skip (default) or include (risky; Python only)'}
           - {name: --allow-blindspots, type: flag,
-             help: 'list the untyped receivers of a member''s old name and rename anyway (default: refuse)'}
+             help: 'list the blind spots of the old name (untyped receivers, unlinked keywords) and rename anyway (default: refuse)'}
           - {name: --with, type: string, dest: with_stand_ins, metavar: PATH:LINE, repeatable: true,
              help: 'rename the stand-ins declared on this line too, with their hierarchies (repeatable)'}
           - {name: --without, type: string, dest: without_stand_ins, metavar: PATH:LINE, repeatable: true,
@@ -251,7 +251,7 @@ commands:
           - {name: --unsure, type: string, choices: [skip, include], default: skip,
              help: 'occurrences the checker cannot resolve: skip (default) or include (risky; Python only)'}
           - {name: --allow-blindspots, type: flag,
-             help: 'list the untyped receivers of a member''s old name and rename anyway (default: refuse)'}
+             help: 'list the blind spots of the old name (untyped receivers, unlinked keywords) and rename anyway (default: refuse)'}
           - {name: --with, type: string, dest: with_stand_ins, metavar: PATH:LINE, repeatable: true,
              help: 'rename the stand-ins declared on this line too, with their hierarchies (repeatable)'}
           - {name: --without, type: string, dest: without_stand_ins, metavar: PATH:LINE, repeatable: true,
@@ -276,7 +276,7 @@ commands:
           - {name: --symbol, type: string, metavar: PATH, help: "the alias's path in --file"}
           - {name: --target, type: string, metavar: PATH, required: true, help: "the target's path in --file"}
           - {name: --allow-blindspots, type: flag,
-             help: 'list the untyped receivers of a member''s old name and rewrite anyway (default: refuse)'}
+             help: 'list the blind spots of the old name (untyped receivers, unlinked keywords) and rename anyway (default: refuse)'}
           - {name: --with, type: string, dest: with_stand_ins, metavar: PATH:LINE, repeatable: true,
              help: 'rewrite the stand-ins declared on this line too, with their hierarchies (repeatable)'}
           - {name: --without, type: string, dest: without_stand_ins, metavar: PATH:LINE, repeatable: true,

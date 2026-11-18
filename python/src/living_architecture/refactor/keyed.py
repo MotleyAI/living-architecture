@@ -35,6 +35,14 @@ _DECORATORS: dict[str, _DecoratorKind] = {
 }
 
 
+def plain_key_span(source: SourceFile, node: ast.AST | None, name: str) -> tuple[int, int] | None:
+    """The name characters of a plain string literal spelling `name`."""
+    if not (isinstance(node, ast.Constant) and node.value == name):
+        return None
+    m = _PLAIN_STRING.fullmatch(source.text, *source.span(node))
+    return (m.start(2), m.end(2)) if m is not None else None
+
+
 class UnresolvedBase(Exception):
     """Class `name` has a base at `path`:`line` the language server cannot resolve."""
 
@@ -400,13 +408,9 @@ class KeyedRename:
 
     def _key_edit(self, source: SourceFile, node: ast.expr, rel: str, out: list[TextEdit]) -> None:
         """Rewrite a plain string literal's name characters."""
-        if not (isinstance(node, ast.Constant) and node.value == self.old):
-            return
-        start, end = source.span(node)
-        m = _PLAIN_STRING.fullmatch(source.text, start, end)
-        if m is None:
-            return
-        out.append(TextEdit(path=rel, start=m.start(2), end=m.end(2), new_text=self.new))
+        span = plain_key_span(source, node, self.old)
+        if span is not None:
+            out.append(TextEdit(path=rel, start=span[0], end=span[1], new_text=self.new))
 
     def _rename_key(self, source: SourceFile, rel: str, key: ast.expr, cls: ClassRef, out: list[TextEdit]) -> None:
         if isinstance(key, ast.Constant) and key.value == self.old and self._renames(cls, self.old):
@@ -724,7 +728,7 @@ class Bindings:
             source = sinks[0][0]
             scope = _scope_of(source, sinks[0][1])
             assert scope is not None
-            literal = _single_binding(scope, var, {id(n) for _, n, _ in sinks})
+            literal = single_binding(scope, var, {id(n) for _, n, _ in sinks})
             if literal is None:
                 continue
             results: list[list[TextEdit]] = []
@@ -758,7 +762,7 @@ def _scope_of(source: SourceFile, name: ast.Name) -> ast.AST | None:
     return found[0] if found else None
 
 
-def _own_nodes(scope: ast.AST) -> Iterator[ast.AST]:
+def own_nodes(scope: ast.AST) -> Iterator[ast.AST]:
     """The nodes of `scope`, not descending into nested scopes."""
     stack = list(ast.iter_child_nodes(scope))
     while stack:
@@ -769,7 +773,7 @@ def _own_nodes(scope: ast.AST) -> Iterator[ast.AST]:
 
 
 def _nested_scopes(scope: ast.AST) -> Iterator[ast.AST]:
-    for node in _own_nodes(scope):
+    for node in own_nodes(scope):
         if isinstance(node, _ALL_SCOPES):
             yield node
 
@@ -789,12 +793,12 @@ def _binds_otherwise(node: ast.AST, var: str) -> bool:
     return False
 
 
-def _single_binding(scope: ast.AST, var: str, sink_loads: set[int]) -> ast.Dict | None:
+def single_binding(scope: ast.AST, var: str, sink_loads: set[int]) -> ast.Dict | None:
     """The dict literal of `var = {...}`, when that is `var`'s only binding in function `scope` and every load is a
     sink. A module-scope name is never one: other modules may import it."""
     if not isinstance(scope, (ast.FunctionDef, ast.AsyncFunctionDef)):
         return None
-    own = list(_own_nodes(scope))
+    own = list(own_nodes(scope))
     if any(_binds_otherwise(n, var) for n in own):
         return None
     names = [n for n in own if isinstance(n, ast.Name) and n.id == var]

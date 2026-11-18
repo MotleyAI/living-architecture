@@ -267,7 +267,7 @@ def test_a_keyword_collision_through_a_carrier_is_a_name_conflict(
     before = file_tree(root)
     code, _out, err = run(root, _rename("Query.measures", "metrics"), monkeypatch, capsys)
     assert code == 1
-    assert err.splitlines()[-1] == message("refactor.name-conflict", new="metrics", path="pkg/q.py", line=17)
+    assert err.splitlines()[-1] == message("refactor.name-conflict", name="metrics", path="pkg/q.py", line=17)
     assert file_tree(root) == before
 
 

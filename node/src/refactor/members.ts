@@ -84,6 +84,11 @@ export interface AnyReceiver {
   literal?: [number, number];
 }
 
+/** A receiver's source text, each run of whitespace as one space. */
+export function receiverText(receiver: TS.Node, source: TS.SourceFile): string {
+  return receiver.getText(source).replace(/\s+/g, ' ');
+}
+
 /** Every `x.name`, and `x['name']` by a plain string literal, whose receiver is typed `any`. */
 export function anyAccesses(checker: TS.TypeChecker, source: TS.SourceFile, name: string): AnyReceiver[] {
   const out: AnyReceiver[] = [];
@@ -93,7 +98,7 @@ export function anyAccesses(checker: TS.TypeChecker, source: TS.SourceFile, name
     if (!(property || element?.[2] === name)) continue;
     const receiver = (node as TS.PropertyAccessExpression | TS.ElementAccessExpression).expression;
     if (!isAny(checker, receiver)) continue;
-    const found: AnyReceiver = { position: node.getStart(source), receiver: receiver.getText(source) };
+    const found: AnyReceiver = { position: node.getStart(source), receiver: receiverText(receiver, source) };
     if (element !== null) found.literal = [element[0], element[1]];
     out.push(found);
   }
@@ -104,7 +109,7 @@ export function anyAccesses(checker: TS.TypeChecker, source: TS.SourceFile, name
 export function anyReceivers(checker: TS.TypeChecker, source: TS.SourceFile, name: string): AnyReceiver[] {
   const out = anyAccesses(checker, source, name);
   for (const found of formCalls(checker, source, name)) {
-    if (isAny(checker, found.object)) out.push({ position: found.call.getStart(source), receiver: found.object.getText(source) });
+    if (isAny(checker, found.object)) out.push({ position: found.call.getStart(source), receiver: receiverText(found.object, source) });
   }
   return out.sort((a, b) => a.position - b.position);
 }

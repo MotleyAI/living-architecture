@@ -137,6 +137,7 @@ def _lookups(index: RunIndex) -> dict[str, Callable[[PositionFacts], object]]:
         "verdict": lambda f: index.verdict(f.path, f.offset),
         "access": lambda f: index.receiver(f.path, "", f.offset),
         "class": lambda f: index.class_facts(f.path, f.offset),
+        "signature": lambda f: index.signature(f.path, f.offset),
     }
 
 
