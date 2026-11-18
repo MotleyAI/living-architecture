@@ -254,14 +254,18 @@ def _uses(fn: Function, name: str) -> tuple[list[ast.Name], bool]:
         elif isinstance(node, _NESTED):
             outer = _outer_parts(node)
             stack.extend(outer)
-            if isinstance(node, ast.ClassDef) and _binds_locally(node, name):
-                inner = [n for stmt in node.body for n in [stmt, *own_nodes(stmt)] if isinstance(n, _NESTED)]
-                opaque = opaque or any(_reads_outer(n, name, _outer_parts(n)) for n in inner)
-            else:
-                opaque = opaque or _reads_outer(node, name, outer)
+            opaque = opaque or _nested_reads(node, name, outer)
         else:
             stack.extend(ast.iter_child_nodes(node))
     return found, opaque
+
+
+def _nested_reads(scope: ast.AST, name: str, outer: list[ast.expr]) -> bool:
+    """Whether nested scope `scope` reads `name` of the scope holding it, below its `outer` parts."""
+    if isinstance(scope, ast.ClassDef) and _binds_locally(scope, name):
+        inner = [n for stmt in scope.body for n in [stmt, *own_nodes(stmt)] if isinstance(n, _NESTED)]
+        return any(_reads_outer(n, name, _outer_parts(n)) for n in inner)
+    return _reads_outer(scope, name, outer)
 
 
 def _reads_outer(scope: ast.AST, name: str, outer: list[ast.expr]) -> bool:

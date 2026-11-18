@@ -205,6 +205,58 @@ def test_a_constructor_called_by_itself_takes_its_own_keyword(
         .replace('K.__init__(k, field="b")', 'K.__init__(k, column="b")'))
 
 
+INHERITED = """\
+class Base:
+    def __new__(cls, *, field: str) -> "Base":
+        return super().__new__(cls)
+
+
+class Child(Base):
+    def __init__(self, *, field: str) -> None:
+        self.value = field
+
+
+class Grand(Child):
+    pass
+
+
+class Lone:
+    def __init__(self, *, field: str) -> None:
+        self.value = field
+
+
+def use() -> list[object]:
+    return [Child(field="a"), Grand(field="b"), Lone(field="c")]
+"""
+
+
+@pytest.mark.parametrize("symbol", ["Child.__init__(field)", "Base.__new__(field)"])
+def test_an_inherited_constructor_taking_the_keyword_lists_the_class_call(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], symbol: str
+) -> None:
+    root = write_project(tmp_path / "p", {"pkg/e.py": INHERITED})
+    before = file_tree(root)
+    code, out, err = run(root, _rename(symbol), monkeypatch, capsys)
+    assert (code, out) == (1, "")
+    assert err.splitlines() == [
+        message("refactor.unlinked-keyword", path="pkg/e.py", line=21, callee="Child", old="field"),
+        message("refactor.unlinked-keyword", path="pkg/e.py", line=21, callee="Grand", old="field"),
+        message("refactor.blindspots", count=2, names="field="),
+    ]
+    assert file_tree(root) == before
+
+
+def test_a_map_renaming_an_inherited_pair_alike_renames_every_class_call(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    entries = [{"file": "pkg/e.py", "symbol": symbol, "new_name": "column"}
+               for symbol in ("Child.__init__(field)", "Base.__new__(field)", "Lone.__init__(field)")]
+    root = write_project(tmp_path / "p", {"pkg/e.py": INHERITED, "map.yaml": yaml.safe_dump(entries)})
+    code, _out, err = run(root, ["--apply", "rename-map", "map.yaml"], monkeypatch, capsys)
+    assert (code, err) == (0, "")
+    assert read(root, "pkg/e.py") == INHERITED.replace("field", "column")
+
+
 def test_a_map_renaming_both_constructors_alike_renames_the_class_call_keyword(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:

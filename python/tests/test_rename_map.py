@@ -521,12 +521,12 @@ def test_an_error_in_one_entrys_rules_refuses_that_entry(
     ])
     index_edits = SymbolRename._index_edits  # pyright: ignore[reportPrivateUsage]
 
-    def failing(self: SymbolRename, index: object) -> None:
+    def failing(self: SymbolRename, index: object, facts: object) -> None:
         if self.old == "old":
             clash = ROPE_FAILS.index("other")
             self.edits.append(TextEdit(path="pkg/a.py", start=clash, end=clash + len("other"), new_text="clash"))
             raise RefactorError(message("refactor.cannot-rename"))
-        index_edits(self, index)  # pyright: ignore[reportArgumentType]
+        index_edits(self, index, facts)  # pyright: ignore[reportArgumentType]
 
     monkeypatch.setattr(SymbolRename, "_index_edits", failing)
     before = file_tree(root)

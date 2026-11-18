@@ -78,7 +78,7 @@ arc42 file of its own. No model, arc42 or `index.yaml` edit is needed.
     call cycle are unresolved. (codex)
 15. **A decorated callee is tied to the renamed declaration by go-to-definition on the callee expression**: aliases and
     bound methods followed, a class through the constructors the checker resolves, any member of a union. (codex)
-16. **A class declaring both `__init__` and `__new__` with a parameter `old`**: Python passes the keyword to both, so it
+16. **A class whose `__init__` and `__new__`, own or inherited, both take `old`**: Python passes the keyword to both, so it
     is rewritten only when the run renames both parameters to the same name; with only one renamed it is an unlinked
     keyword, whichever constructor the checker resolves it to. (codex; revised in review)
 17. **The unresolved-carrier fixture holds one function per unresolved use**, a nested scope shadowing `kw` (which stays

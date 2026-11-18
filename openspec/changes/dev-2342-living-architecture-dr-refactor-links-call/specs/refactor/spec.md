@@ -40,7 +40,9 @@ A carrier SHALL be a `def` or `async def` with a `**kw` parameter. Its sinks SHA
 - `X(**kw)`, where the checker resolves `X` to a keyed class (a key names the field its method resolution order holds),
   to a function or method (a key names its positional-or-keyword or keyword-only parameter), to any other class (a key
   names a parameter of the `__init__` or `__new__` the checker resolves the call to), or to another carrier (a key that
-  is none of that carrier's own parameters continues into its flow). A function or method sink whose `def` is decorated
+  none of that carrier's own parameters can bind as a keyword continues into its flow). A class sink SHALL be
+  unresolved when one of its two constructors declares the renamed parameter and the other passes the key on through
+  its own `**kw` or reads it by a key form. A function or method sink whose `def` is decorated
   SHALL count only when the checker's signature at the sink binds `old` in the code as it is and `new` once the renamed
   declarations are renamed; otherwise the sink is unresolved;
 - `X.model_construct(**kw)`, `X.model_validate(kw)` and `x.model_copy(update=kw)`, as the requirement on typed dict
@@ -57,8 +59,8 @@ tested for truth or passed to the builtin `len`. A carrier SHALL be resolved whe
 sink, a key form or a neutral use and every sink's callee resolves; any other use (an alias, a copy, `update`, `|`, `kw`
 as a plain argument, `return kw`, iteration, `items()`, `keys()`, `values()`, a key that is not a plain string literal,
 a rebinding, a use in a nested scope) SHALL make it unresolved. A same-named binding of a nested scope is not a use.
-For a rename to `new`, a carrier that declares a parameter `new` a keyword can bind, holds a key form `"new"`, or holds
-`**kw` in a dict literal with a constant key `"new"` SHALL be unresolved.
+For a rename to `new`, a carrier that declares a parameter `new` a keyword can bind, holds a key form `"new"`, holds
+`**kw` in a dict literal with a constant key `"new"`, or passes `new=` at a sink SHALL be unresolved.
 
 For a renamed field of a keyed class or a renamed parameter `old`, each sink of a carrier SHALL yield *renamed* (the
 key `old` lands only on renamed declarations there), *other* (it lands on another declaration or on none), or
@@ -67,7 +69,7 @@ the carrier is unresolved, any sink is unresolved, or the carrier calls itself t
 when some sinks are renamed and some other; else *renamed* when every sink is renamed; else *other*.
 
 For a carrier `F` whose verdict is renamed, `dr-refactor` SHALL rewrite the keyword `old=` of each call the checker
-resolves to `F` where `old` is none of `F`'s own parameters, the constant key `"old"` of a dict literal unpacked into
+resolves to `F` where no parameter of `F` can bind `old` as a keyword, the constant key `"old"` of a dict literal unpacked into
 such a call (`F(**{"old": v})`), and each key-form string `"old"` in `F`. For a verdict of other, nothing of `F` SHALL
 change or be listed. The rewrites SHALL obey the rules of typed dict keys for aliased fields, alias generators, plain
 string literals and collisions with the new name. A constant key `"old"` of a dict literal unpacked into a call the
@@ -139,8 +141,8 @@ other rules neither rewrite nor prove to land on another declaration, where:
   parameter, while the callee's signature as the checker types it does not bind `old` there; or
 - the callee resolves to a carrier whose verdict for `old` is mixed or unresolved; or
 - the checker types the callee `Unknown`, `Any`, `Never` or a union holding one of them; or
-- the callee is a class declaring both `__init__` and `__new__` with a parameter `old`, of which the run renames only
-  one; or
+- the callee is a class whose `__init__` and `__new__`, own or inherited, both take `old`, of which the run renames
+  only one; or
 - the key is in a dict literal unpacked into a call whose callee is neither a name nor an attribute access.
 
 Unlinked keywords SHALL be blind spots of the rename: each SHALL print one `refactor.unlinked-keyword` line on stderr
@@ -212,7 +214,7 @@ non-field member SHALL NOT be scanned for unlinked keywords, and `dr-compliance`
 For a parameter of a Python `__init__` or `__new__`, the renamed declarations SHALL be the parameter named `old` of the
 located `def` and of its overload group only, with or without `--no-in-hierarchy`. Call keywords SHALL follow the
 checker: `A(old=...)`, `cls(old=...)` and `super().__init__(old=...)` resolving to a renamed declaration SHALL be
-rewritten. A keyword of a call of a class declaring both `__init__` and `__new__` with a parameter `old` SHALL be
+rewritten. A keyword of a call of a class whose `__init__` and `__new__`, own or inherited, both take `old` SHALL be
 rewritten only when the run renames both to the same name. The same-named constructor parameter of a base, a subclass or a sibling class, its body uses and the
 keywords of calls resolving to it SHALL be unchanged and SHALL NOT be listed. A TypeScript rename of a constructor
 parameter SHALL likewise change no other class's constructor.
@@ -364,18 +366,20 @@ of the previous requirement.
 
 ### Requirement: Python --attr reports Unknown and Any receivers
 Python `dr-compliance --attr NAME` SHALL report, as the `attr-blindspot` check, every access `x.NAME` whose receiver
-basedpyright types as `Unknown`, `Any`, `Never`, or a union containing one of them, and every Python string-member form of the
-language registry whose member argument is the plain string literal `NAME` and whose object argument is typed so or
-whose callee basedpyright cannot resolve while the call has the form's syntax, with the shared
-`compliance.attr-blindspot` finding: `{receiver}` SHALL be the receiver's (or object argument's) source text, with
-the parentheses written around it and each run of whitespace collapsed to one space, and `{type}` SHALL be `Unknown`
-when the type is or holds `Unknown` and for an unresolved callee, else `Any` when it is or holds `Any`, else `Never`. Findings SHALL be one per access or call position, sorted by path, line and column.
+basedpyright types as `Unknown`, `Any`, `Never`, or a union containing one of them, with the shared
+`compliance.attr-blindspot` finding; and, as the `string-blindspot` check, every Python string-named access (a
+string-member form of the language registry, a field-name read) whose member is the plain string literal `NAME` and
+whose object is typed so or whose callee basedpyright cannot resolve while the call has the form's syntax, with
+`compliance.string-blindspot` or `compliance.string-blindspot-silent`. `{receiver}` SHALL be the receiver's (or
+object argument's) source text, with the parentheses written around it and each run of whitespace collapsed to one
+space, and `{type}` SHALL be `Unknown` when the type is or holds `Unknown` and for an unresolved callee, else `Any`
+when it is or holds `Any`, else `Never`. Findings SHALL be one per access or call position, sorted by path, line and column.
 The verdict at each position SHALL come from the same occurrence index a rename uses, so a site `--attr NAME`
-reports is exactly a blind spot a member rename of `NAME` reports there.
+reports is exactly a blind spot a member rename of `NAME` reports there, with the same kind.
 basedpyright SHALL start only when `--attr` is given, with the working directory as its workspace, under the same
 conditions as for `dr-refactor`. A language server that cannot start, is not patched, fails or exits SHALL make the
 command print the `compliance.pyright-failed` finding on stderr and exit 2. The TypeScript twin's `--attr` output
-SHALL use the same template with `{type}` `any`.
+SHALL use the same templates with `{type}` `any`.
 
 #### Scenario: Receivers the checker cannot type
 - **WHEN** `--attr formula` runs on a file holding `def f(*, measures: list): return [m.formula for m in measures]`,
@@ -410,12 +414,13 @@ SHALL use the same template with `{type}` `any`.
 #### Scenario: String-member forms on untyped objects
 - **WHEN** `--attr formula` runs on a file holding `def t(m): getattr(m, "formula")` and
   `def u(monkeypatch): monkeypatch.setattr(obj, "formula", 1)` with `obj: Model`
-- **THEN** the `getattr` call is reported with receiver `m` and the `monkeypatch.setattr` call (unresolved callee)
-  with receiver `obj` and `{type}` `Unknown`
+- **THEN** both are reported as `string-blindspot`: the `getattr` call with receiver `m`, printed `getattr(m,
+  'formula')`, and the `monkeypatch.setattr` call (unresolved callee) with receiver `obj` and `{type}` `Unknown`,
+  printed `monkeypatch.setattr(obj, 'formula', …)`
 
 #### Scenario: Same verdict as a rename
 - **WHEN** `--attr formula` and a dry-run rename of member `Model.formula` run on the same project
-- **THEN** the positions `--attr` reports are exactly the rename's blind-spot positions
+- **THEN** the positions and kinds `--attr` reports are exactly those of the rename's blind spots
 
 #### Scenario: Language server failure
 - **WHEN** `--attr` runs and the language server cannot start
@@ -425,25 +430,37 @@ SHALL use the same template with `{type}` `any`.
 - **WHEN** `--attr id` runs on a TypeScript file with `function g(o: any) { return o.id }`
 - **THEN** stdout is byte-identical to the golden before this change
 
+#### Scenario: Calls whose miss raises no error
+- **WHEN** `--attr formula` runs on a file holding `def t(m): return hasattr(m, "formula")` and `def u(m): return
+  getattr(m, "formula", None)`
+- **THEN** both are reported with `compliance.string-blindspot-silent`, printed `hasattr(m, 'formula')` and
+  `getattr(m, 'formula', …)`
+
+#### Scenario: Field-name read on an untyped receiver
+- **WHEN** `--attr formula` runs on a file holding `def v(m): return m.model_fields["formula"]`
+- **THEN** that subscript is reported as `string-blindspot`, printed `m.model_fields['formula']`
+
 ### Requirement: Member renames refuse on untyped receivers
 A member rename SHALL be a `dr-refactor rename` whose symbol is declared in a class body: in Python a method (sync
 or async), property, class attribute, instance attribute (`self.x`) or field; in TypeScript a property, method or
 accessor of a class, interface or type literal. A blind spot of the old name OLD SHALL be, in a source file of the
 rename's language under the project:
-- an attribute access `x.OLD` (in TypeScript also `x['OLD']`, the element a plain string literal) whose receiver
-  the checker types as unknown (Python `Unknown`, `Any`, `Never` or a union holding one of them; TypeScript `any`);
-- a string-member form whose object argument is typed so, or whose callee the checker cannot resolve while the call
-  has the form's syntax (the form's attribute path and the member argument a plain string literal exactly OLD);
+- an attribute access `x.OLD` whose receiver the checker types as unknown (Python `Unknown`, `Any`, `Never` or a
+  union holding one of them; TypeScript `any`);
+- a string-named access of OLD (a string-member form, a Python field-name read, a TypeScript `x['OLD']`) whose
+  object is typed so, or whose callee the checker cannot resolve while the call has the form's syntax (the form's
+  attribute path and the member argument a plain string literal exactly OLD);
 - a Python dotted patch target whose first segment names a project top-level package, one of whose segments is
   OLD, and that does not resolve statically to exactly one declaration, or whose call has a target form's syntax
   while its callee does not resolve.
 
 Before writing or printing a diff, a member rename SHALL find every blind spot outside a `--keep` site. With any,
 it SHALL print one line per site on stderr, sorted by path, line and column (`compliance.attr-blindspot` for an
-access or string form, `refactor.unresolved-target` for a dotted target), then `refactor.blindspots`, print
+attribute access, `compliance.string-blindspot` or `compliance.string-blindspot-silent` for a string-named access,
+`refactor.unresolved-target` for a dotted target), then `refactor.blindspots`, print
 nothing on stdout, write nothing and exit 1, with or without `--apply`. With `--allow-blindspots` the same lines
 SHALL be printed on stderr and the rename SHALL proceed. The set of blind spots SHALL equal what
-`dr-compliance --select attr-blindspot --attr OLD <project>` reports, the
+`dr-compliance --select attr-blindspot,string-blindspot --attr OLD <project>` reports, the
 project directory expanded as the routing rules expand a directory (Python's `excluded_dirs` naming virtualenv,
 version-control and tool-cache directories), plus the unresolved targets and the mixed targets.
 
@@ -468,7 +485,7 @@ version-control and tool-cache directories), plus the unresolved targets and the
 
 #### Scenario: Untyped mock fixture callee
 - **WHEN** a test holds `def test_b(mocker): mocker.patch.object(engine, "get_model")` with `mocker` unannotated
-- **THEN** the call is a blind spot and the rename refuses
+- **THEN** the call is a blind spot, printed as `string-blindspot`, and the rename refuses
 
 #### Scenario: Never receiver refuses the rename
 - **WHEN** field `Attach.producer_root_model` is renamed and a function reads `a.producer_root_model` in
@@ -486,12 +503,18 @@ version-control and tool-cache directories), plus the unresolved targets and the
 
 #### Scenario: TypeScript element access on an any receiver
 - **WHEN** property `Store.getModel` is renamed and a file holds `function g(o: any) { return o['getModel']('a') }`
-- **THEN** the rename refuses with that site's `attr-blindspot` line, and `dr-compliance --select attr-blindspot
+- **THEN** the rename refuses with that site's `string-blindspot` line, and `dr-compliance --select string-blindspot
   --attr getModel` reports the same line
 
 #### Scenario: Virtualenv skipped by both
 - **WHEN** a Python member rename's project holds `.venv/lib/x.py` with an untyped `o.OLD`
 - **THEN** neither the rename nor `dr-compliance --select attr-blindspot --attr OLD <project>` reports it
+
+#### Scenario: String-named access with a default
+- **WHEN** attribute `Ds.columns` is renamed with `--allow-blindspots` and a module holds `def a(x: Any): return
+  x.columns` and `def b(x: Any): return getattr(x, "columns", None)`
+- **THEN** the first site prints `attr-blindspot` and the second prints the `compliance.string-blindspot-silent` line
+  `getattr(x, 'columns', …) — x is Any, so a rename of .columns is unverifiable and a miss raises no error`
 
 ### Requirement: Python --unsure include renames unresolved receivers
 With `--unsure include`, a Python rename SHALL also rename every access `x.OLD` whose receiver the checker types as
