@@ -1,0 +1,20 @@
+Renaming <api> to <client>:
+
+
+rename from src/api.ts
+rename to src/client.ts
+--- a/test/api.test.ts
++++ b/test/api.test.ts
+@@ -1,6 +1,6 @@
+ import { vi } from 'vitest';
+-import { get } from '@/api';
++import { get } from '@/client';
+ 
+-vi.mock('@/api');
++vi.mock('@/client');
+ 
+ export const shown = get();
+
+
+
+DRY-RUN. 2 file(s) would change. Re-run with --apply.

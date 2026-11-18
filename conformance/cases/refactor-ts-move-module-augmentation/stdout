@@ -1,0 +1,28 @@
+Moving module <a>:
+
+
+rename from src/a.ts
+rename to src/lib/a.ts
+--- a/src/aug.ts
++++ b/src/aug.ts
+@@ -1,6 +1,6 @@
+-import { X } from './a.js';
++import { X } from './lib/a.js';
+ 
+-declare module './a.js' {
++declare module './lib/a.js' {
+   interface Extra {
+     y: number;
+   }
+
+--- a/src/use.ts
++++ b/src/use.ts
+@@ -1,3 +1,3 @@
+-import { X } from './a.js';
++import { X } from './lib/a.js';
+ 
+ export const shown = X;
+
+
+
+DRY-RUN. 3 file(s) would change. Re-run with --apply.

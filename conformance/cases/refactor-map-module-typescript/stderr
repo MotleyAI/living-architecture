@@ -1,2 +1,0 @@
-renames.yaml: entry 1 renames a module, which a TypeScript rename-map cannot do yet, so nothing was refactored
-renames.yaml: entry 2 renames a module, which a TypeScript rename-map cannot do yet, so nothing was refactored

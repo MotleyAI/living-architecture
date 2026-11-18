@@ -1,0 +1,18 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- rename
+- --file
+- core/src/foo.ts
+- --new-name
+- bar
+fixture: refactor-ts-solution
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: 'a solution tsconfig referencing core and app: each specifier in app, relative and paths-mapped, import and re-export,
+  rewritten once'

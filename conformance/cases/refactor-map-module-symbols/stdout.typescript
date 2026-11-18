@@ -1,0 +1,30 @@
+Renaming <join_edges> to <relationship_edges>:
+Renaming <JoinEdge> to <RelationshipEdge>:
+Renaming <load> to <read>:
+
+
+--- a/src/edges_use.ts
++++ b/src/edges_use.ts
+@@ -1,5 +1,5 @@
+-import { JoinEdge } from './join_edges.js';
++import { RelationshipEdge } from './relationship_edges.js';
+ 
+-export function load(): JoinEdge {
+-  return new JoinEdge();
++export function read(): RelationshipEdge {
++  return new RelationshipEdge();
+ }
+
+--- a/src/join_edges.ts
++++ b/src/join_edges.ts
+@@ -1 +1 @@
+-export class JoinEdge {}
++export class RelationshipEdge {}
+
+rename from src/join_edges.ts
+rename to src/relationship_edges.ts
+
+
+APPLIED. 2 file(s) changed:
+  src/edges_use.ts
+  src/join_edges.ts

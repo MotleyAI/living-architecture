@@ -33,6 +33,7 @@ expect:
   stdout: ignore | json | {contains: [text]}   # omitted: byte golden; json: equal as a JSON value
   stderr: ignore | {contains: [text]}
   files: [path]                    # compared with files/<path> after the run; absent reads `<MISSING>`
+                                   # paired: or {python: [...], typescript: [...]}, one list per language
   git_status: true                 # `git status --porcelain` after the run, compared with the git-status golden
 golden: manual                     # hand-written goldens; the update mode never writes them
 note: why this case exists

@@ -1,6 +1,7 @@
-kind: adapter
+kind: paired
 languages:
 - python
+- typescript
 command: dr-refactor
 args:
 - --apply

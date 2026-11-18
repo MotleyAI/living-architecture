@@ -1,0 +1,2 @@
+- {module: src/a.ts, new_name: b}
+- {file: src/use.ts, symbol: load, new_name: read}

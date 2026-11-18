@@ -21,7 +21,7 @@ from living_architecture.refactor.mentions import docstrings
 from living_architecture.refactor.occurrence_index import RunIndex
 from living_architecture.refactor.outcomes import Finding, Outcome, file_outcome
 from living_architecture.refactor.python_source import SourceFile
-from living_architecture.refactor.rename_union import MapRename, RenameOptions, Session
+from living_architecture.refactor.rename_union import MapRename, RenameOptions, RenameResult, Session
 from living_architecture.refactor.routing import language_files, stub_files
 from living_architecture.refactor.symbol_path import LocatorError, names_literal
 from living_architecture.refactor.text_edits import TextEdit
@@ -171,8 +171,11 @@ class LiteralRename(MapRename):
         return []
 
     @override
-    def check_conflicts(self, edits: list[TextEdit]) -> None:
+    def result(self, entry: int, target: str | None, kept: list[TextEdit]) -> RenameResult:
         """A literal member has no name to collide with."""
+        return RenameResult(entry=entry, old=self.old, new=self.new, header=self.header(),
+                            target=target, member=self.member, check_names=False, edits=self.edits, kept=kept,
+                            blindspots=self.blindspots, matched_sites=frozenset(self.matched_sites))
 
     @override
     def seed(self, facts: TypeFacts) -> None:
