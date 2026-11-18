@@ -60,7 +60,7 @@ class ModuleMove:
         target = self.mapped(base)
         hits = self._hits(stmt, base)
         if target is not None:
-            if not relocated and from_name(stmt, package, target) != current:
+            if from_name(stmt, package, target) != current:
                 file.rewrite_module(stmt, from_name(stmt, package, target))
                 file.rewritten.add(id(stmt))
             return
@@ -92,7 +92,8 @@ class ModuleMove:
         for node, scope in file.attributes:
             if node.attr != self.basename or file.resolve(scope, node.value) != ("module", self.old_parent):
                 continue
-            if not self._binds(self.old_parent) and resolver.member(self.old_parent, self.basename) == ("module", self.old):
+            kept = self._binds(self.old_parent) and not file.root_rebound(scope, node)
+            if not kept and resolver.member(self.old_parent, self.basename) == ("module", self.old):
                 file.rewrite_use(node, scope, self.new, self.new)
 
     def _binds(self, package: str) -> bool:

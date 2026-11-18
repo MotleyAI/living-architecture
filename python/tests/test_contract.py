@@ -638,6 +638,7 @@ NEW_TEMPLATES = {
     "refactor.destination-exists": "destination already exists: {path}",
     "refactor.destination-missing": "destination does not exist: {path}",
     "refactor.destination-inside-source": "{path} is inside {source}, which cannot move into itself",
+    "refactor.unparsable": "{path} does not parse as Python, so nothing was refactored",
     "refactor.skipped": "{prog}: not a source file, skipped: {path}",
     "refactor.rope-walk":
         "rope cannot follow {path}:{line}, so nothing was refactored (a rope bug, not a source error);"

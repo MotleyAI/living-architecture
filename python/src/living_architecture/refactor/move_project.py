@@ -21,7 +21,8 @@ class MoveProject:
         self.root = root.resolve()
         self.layout = ProjectLayout(self.root)
         self.snapshot = Snapshot(self.root)
-        self.resolver = Resolver(SourceFolders([*self.layout.source_folders(), self.root]), self._read)
+        self.folders = SourceFolders([*self.layout.source_folders(), self.root])
+        self.resolver = Resolver(self.folders, self._read)
         self._roots = {"", *self.layout.source_rels}
         self._modules: dict[str, Module | None] = {}
         self._files: list[str] | None = None
@@ -69,6 +70,24 @@ class MoveProject:
             name.insert(0, folder[-1])
             folder = folder[:-1]
         return ".".join(name)
+
+    def names(self, rel: str) -> list[str]:
+        """Every module name file or package `rel` is imported under: `dotted` first, then one per other source folder
+        holding it."""
+        path = (self.root / rel).resolve()
+        target = path / _INIT if path.is_dir() else path
+        found = [self.dotted(rel)]
+        for folder in self.folders.folders:
+            base = folder.resolve()
+            if not path.is_relative_to(base) or path == base:
+                continue
+            name = ".".join(path.relative_to(base).with_suffix("").parts) if path.suffix == ".py" else ".".join(
+                path.relative_to(base).parts)
+            name = name.removesuffix(".__init__")
+            hit = self.folders.file(name) if all(p.isidentifier() for p in name.split(".")) else None
+            if hit is not None and hit[0] == target and name not in found:
+                found.append(name)
+        return found
 
     def package(self, rel: str) -> str:
         """The package relative imports in file `rel` start from."""

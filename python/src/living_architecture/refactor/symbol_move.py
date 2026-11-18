@@ -41,10 +41,11 @@ class SymbolMove:
         self.dest = dest
         self.moved = moved
         self.name = moved.name
-        self.old = project.dotted(source)
+        self.olds = project.names(source)
+        self.old = self.olds[0]
         self.new = project.dotted(dest)
         self.region = moved.region
-        self.values = {("decl", f"{self.old}@{key}") for key in moved.keys}
+        self.values = {("decl", f"{old}@{key}") for old in self.olds for key in moved.keys}
         self.origin = File(project, source, project.package(source))
 
     def edit(self, rel: str) -> str | None:
@@ -68,7 +69,7 @@ class SymbolMove:
 
     def _importers(self, file: File, is_dest: bool) -> None:
         for stmt, scope, _ in file.binder.imports:
-            if not isinstance(stmt, ast.ImportFrom) or file.binder.from_module(stmt) != self.old:
+            if not isinstance(stmt, ast.ImportFrom) or file.binder.from_module(stmt) not in self.olds:
                 continue
             hits = [i for i, alias in enumerate(stmt.names) if alias.name == self.name]
             if not hits:
@@ -112,7 +113,7 @@ class SymbolMove:
                 continue
             values = self.project.resolver.values(file.module, scope, node)
             if values and all(v in self.values for v in values):
-                stars += [s for s in file.binder.star_nodes if file.binder.from_module(s) == self.old]
+                stars += [s for s in file.binder.star_nodes if file.binder.from_module(s) in self.olds]
         for stmt in dict.fromkeys(stars):
             file.after.append((stmt, f"from {from_name(stmt, file.package, self.new)} import {self.name}"))
 
@@ -123,9 +124,8 @@ class SymbolMove:
 
     def _through_old(self, file: File, node: ast.Attribute, scope: Scope) -> bool:
         """`node` reads the moved symbol through its old module."""
-        return node.attr == self.name and file.resolve(scope, node.value) == (
-            "module", self.old
-        )
+        value = file.resolve(scope, node.value)
+        return node.attr == self.name and value is not None and value[0] == "module" and value[1] in self.olds
 
     def _source_edits(self, file: File) -> None:
         file.edits.add(self.region[0], self.region[1], "")
@@ -157,7 +157,7 @@ class SymbolMove:
 
     def _dest_edits(self, file: File) -> None:
         for node in file.bound[file.top].get(self.name, []):
-            if file.obj(node) != f"{self.old}.{self.name}":
+            if file.obj(node) not in {f"{old}.{self.name}" for old in self.olds}:
                 raise NameConflict(self.name, file.rel, file.line(node))
         roots = {id(_root(node)) for node in self._self_uses()}
         needed = needed_imports(self.origin, self.moved, self.old, self.new, roots)
@@ -233,25 +233,39 @@ class SymbolMove:
 
     def _insert_moving(self, file: File, block: int | None) -> None:
         """After the last top-level import (or added import), else after the docstring, else after the leading
-        comments."""
+        comments; and after every destination statement binding a name the moved code reads while it is defined."""
         newline = newline_of(file.text)
-        moving = self.moved_text(newline)
+        at, prefix = self._insertion_point(file, block, newline)
+        needed = self._after_dependencies(file)
+        if needed is not None and needed > at:
+            at, prefix = needed, newline * 2
+        file.edits.add(at, at, prefix + self.moved_text(newline))
+
+    def _insertion_point(self, file: File, block: int | None, newline: str) -> tuple[int, str]:
         body = _body(file)
         tops = [s for s in body if isinstance(s, (ast.Import, ast.ImportFrom))]
         if tops or block is not None:
-            at = max(after_line(file.text, file.span(tops[-1])[1]) if tops else 0, block or 0)
-            file.edits.add(at, at, newline * 2 + moving)
-            return
+            return max(after_line(file.text, file.span(tops[-1])[1]) if tops else 0, block or 0), newline * 2
         if body and is_docstring(body[0]):
-            at = after_line(file.text, file.span(body[0])[1])
-            file.edits.add(at, at, newline * 2 + moving)
-            return
+            return after_line(file.text, file.span(body[0])[1]), newline * 2
         lines = split_lines(file.text)
         comments = 0
         while comments < len(lines) and lines[comments].lstrip().startswith("#") and _more(lines, comments):
             comments += 1
-        at = sum(len(line) for line in lines[:comments])
-        file.edits.add(at, at, (newline * 2 if comments else "") + moving)
+        return sum(len(line) for line in lines[:comments]), newline * 2 if comments else ""
+
+    def _after_dependencies(self, file: File) -> int | None:
+        """The end of the last top-level destination statement binding a name the moved code reads while it is
+        defined (bases, decorators, defaults, class bodies)."""
+        origin = self.origin
+        reads = {n.id for n, scope in origin.names
+                 if self._inside(origin, n) and not _deferred(scope) and scope.resolving(n.id) is origin.top}
+        bound = [file.offset(node) for scope, name, node in file.binder.bound
+                 if name in reads and scope.owner(name) is file.top and not _deferred(scope)
+                 and isinstance(node, (ast.stmt, ast.expr, ast.alias))]
+        spans = [file.span(stmt) for stmt in _body(file)]
+        return max((after_line(file.text, end) for start, end in spans if any(start <= b < end for b in bound)),
+                   default=None)
 
 
 def _deferred(scope: Scope | None) -> bool:

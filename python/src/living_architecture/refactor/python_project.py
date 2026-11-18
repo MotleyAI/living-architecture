@@ -269,6 +269,10 @@ class Snapshot:
         self.text(rel)
         return data.removeprefix(_BOM if rel in self._boms else b"").decode(self._encodings[rel])
 
+    def read(self) -> list[str]:
+        """Every file read so far."""
+        return list(self._data)
+
     def data(self, rel: str) -> bytes:
         """The bytes `rel` was read as, whether or not they decode."""
         self.undecodable(rel)

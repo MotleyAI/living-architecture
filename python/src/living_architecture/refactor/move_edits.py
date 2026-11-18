@@ -151,6 +151,7 @@ class File:
         self.uses_rewritten: dict[int, int] = {}
         self.needs: list[tuple[str, ast.AST | None, Scope]] = []
         self.after: list[tuple[ast.stmt, str]] = []
+        self.anchored: set[int] = set()
         self.drops: dict[int, tuple[ast.Import | ast.ImportFrom, set[int]]] = {}
 
     def _loads(self) -> None:
@@ -282,9 +283,26 @@ class File:
             self.edits.add(start, end + (tail.end() if tail else 0), "")
 
     def insert_after(self, stmt: ast.stmt, line: str) -> None:
+        """`line` as the statement after `stmt` in its suite: on the next line at its indentation, or after `; ` in an
+        inline suite (one on its compound statement's header line)."""
+        self.anchored.add(id(stmt))
         start, end = self.span(stmt)
+        if self._inline(stmt):
+            self.edits.add(end, end, f"; {line}")
+            return
         indent = re.match(r"[ \t]*", self.text[line_start(self.text, start) :])
         self.edits.insert_line(after_line(self.text, end), (indent.group() if indent else "") + line)
+
+    def _inline(self, stmt: ast.stmt) -> bool:
+        """`stmt` sits in a suite on its compound statement's header line."""
+        tree = self.source.tree
+        return tree is not None and any(
+            isinstance(node, (ast.stmt, ast.excepthandler)) and node.lineno == stmt.lineno and any(
+                stmt in suite for field in ("body", "orelse", "finalbody")
+                if isinstance(suite := getattr(node, field, None), list)
+            )
+            for node in ast.walk(tree)
+        )
 
     # ---- uses
 
@@ -309,6 +327,17 @@ class File:
             own = [b for b in imports if (item := self.item(b)) is not None and item.scope is found]
             place = self._latest(own, root.lineno)
             self.needs.append((needs, place, found if place is not None and found is not None else self.top))
+
+    def root_rebound(self, scope: Scope, node: ast.Attribute) -> bool:
+        """The chain's root is bound by a plain import this refactor rewrote to bind another name."""
+        root: ast.expr = node
+        while isinstance(root, ast.Attribute):
+            root = root.value
+        if not isinstance(root, ast.Name):
+            return False
+        binding = self._latest(self._imports(self.lookup(scope, root.id), root.id), root.lineno)
+        target = self.plain_now.get(id(binding)) if binding is not None else None
+        return target is not None and target.split(".")[0] != root.id
 
     def _imports(self, scope: Scope | None, name: str) -> list[ast.AST]:
         return [b for b in self.bound[scope][name] if self.item(b) is not None] if scope is not None else []
@@ -349,9 +378,26 @@ class File:
         self._add_needed_imports()
         for stmt, line in self.after:
             self.insert_after(stmt, line)
+        gone = {id(stmt) for stmt, items in self.drops.values() if len(items) == len(stmt.names)} - self.anchored
         for stmt, items in self.drops.values():
             self._remove_items(stmt, items)
+        self._fill_emptied(gone)
         return self.edits.apply()
+
+    def _fill_emptied(self, gone: set[int]) -> None:
+        """`pass` in each block whose every statement this refactor removes, so the block stays valid."""
+        tree = self.source.tree
+        for node in ast.walk(tree) if tree is not None and gone else ():
+            for field in ("body", "orelse", "finalbody"):
+                suite = getattr(node, field, None)
+                if node is tree or not isinstance(suite, list) or not suite or any(id(s) not in gone for s in suite):
+                    continue
+                start = self.span(suite[0])[0]
+                if self._inline(suite[0]):
+                    self.edits.add(start, start, "pass")
+                else:
+                    indent = self.text[line_start(self.text, start) : start]
+                    self.edits.insert_line(after_line(self.text, self.span(suite[-1])[1]), indent + "pass")
 
     def _drop_if_all_rewritten(self, name: str, node: ast.AST, scope: Scope) -> None:
         count = self.uses_rewritten.get(id(node), 0)
@@ -379,13 +425,27 @@ class File:
     def binds_module(self, scope: Scope, module: str) -> bool:
         root = module.split(".")[0]
         found = self.lookup(scope, root)
-        if found is None:
-            return False
-        return any(
+        if found is not None and any(
             id(b) not in self.removed and (plain := self.plain(b)) is not None
             and (plain == module or plain.startswith(module + "."))
             for b in self.bound[found][root]
-        )
+        ):
+            return True
+        return any(self._rewritten_binds(alias, scope, module) for alias in self._rewritten_plain())
+
+    def _rewritten_plain(self) -> Iterator[ast.alias]:
+        for stmt, _, _ in self.binder.imports:
+            if isinstance(stmt, ast.Import):
+                yield from (a for a in stmt.names if id(a) in self.plain_now and id(a) not in self.removed)
+
+    def _rewritten_binds(self, alias: ast.alias, scope: Scope, module: str) -> bool:
+        """`alias`, a plain import rewritten under a new root, is visible from `scope` and binds `module`."""
+        target = self.plain_now[id(alias)]
+        if target != module and not target.startswith(module + "."):
+            return False
+        name = alias.name.split(".")[0]
+        owner = self.lookup(scope, name)
+        return owner is not None and any(b is alias for b in self.bound[owner][name])
 
     def check_free(self, name: str, obj: str, scope: Scope) -> None:
         """Refuse when `name` already resolves, from `scope`, to anything but `obj`."""

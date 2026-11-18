@@ -155,3 +155,11 @@ def test_an_import_from_a_module_that_does_not_decode_asks_the_checker(tmp_path:
     with pytest.raises(RefactorError, match=refused):
         locate("pkg/a.py", locator)
     assert definitions.asked == [("pkg/a.py", len("from pkg.old import "))]
+
+
+def test_a_namespace_package_has_no_file_to_locate_in(tmp_path: Path) -> None:
+    root = write_project(tmp_path, {"ns/m.py": "X = 1\n"})
+    locator = EntryLocator(root, Definitions({}))
+    namespace = locator.resolver.load("ns")
+    assert namespace is not None
+    assert locator.module_at(namespace) is None

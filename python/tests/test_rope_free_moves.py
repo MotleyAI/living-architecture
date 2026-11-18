@@ -147,8 +147,9 @@ def test_a_move_starts_no_language_server(tmp_path: Path, monkeypatch: pytest.Mo
         ({**FILES, "ref.py": "import pkg.sql.client\n\nprint(pkg.sql.client.X)\n"}, MODULE_ARGV, "ref.py"),
         ({**FILES, "pkg/sql/dialects.py": "from pkg.sql import client\n\nD = client.X\n"},
          ["move-module", "--module", "pkg/sql", "--dest", "pkg/database"], "pkg/sql/dialects.py"),
+        (FILES, ["move-module", "--module", "pkg/sql", "--dest", "pkg/database"], "pkg/sql/client.py"),
     ],
-    ids=["reference-only-file", "child-of-a-moved-package"],
+    ids=["reference-only-file", "child-of-a-moved-package", "unedited-moved-file"],
 )
 def test_a_file_changed_between_read_and_write_writes_nothing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str],

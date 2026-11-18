@@ -347,6 +347,7 @@ findings:
   refactor.destination-exists: 'destination already exists: {path}'
   refactor.destination-missing: 'destination does not exist: {path}'
   refactor.destination-inside-source: '{path} is inside {source}, which cannot move into itself'
+  refactor.unparsable: '{path} does not parse as Python, so nothing was refactored'
   refactor.source-missing: 'source does not exist: {path}'
   refactor.mixed-languages: '{path} holds sources of more than one language: {languages}'
   refactor.rope-walk: 'rope cannot follow {path}:{line}, so nothing was refactored (a rope bug, not a source error); dr-compliance --select rope-walk lists every such file'

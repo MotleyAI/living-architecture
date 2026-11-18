@@ -41,8 +41,19 @@ class SourceFolders:
         parts = dotted.split(".")
         if not all(p.isidentifier() for p in parts) or self.files(dotted):
             return None
-        portions = [base for folder in self.folders if (base := folder.joinpath(*parts)).is_dir()]
-        return next((p.resolve() for p in portions if next(p.rglob("*.py"), None) is not None), None)
+        return next((p.resolve() for p in self._portions(parts) if next(p.rglob("*.py"), None) is not None), None)
+
+    def _portions(self, parts: list[str]) -> list[Path]:
+        """The directories that may hold namespace package `parts`, as Python searches its parent's `__path__`: in
+        every source folder at the top level, in a regular parent's own directory, in every portion of a namespace
+        parent."""
+        if len(parts) == 1:
+            return [base for folder in self.folders if (base := folder / parts[0]).is_dir()]
+        parent = self.file(".".join(parts[:-1]))
+        if parent is not None:
+            child = parent[0].parent / parts[-1]
+            return [child] if parent[1] and child.is_dir() else []
+        return [child for base in self._portions(parts[:-1]) if (child := base / parts[-1]).is_dir()]
 
     def __call__(self, dotted: str) -> tuple[Path, bool] | None:
         """`file`, else a namespace package as its directory and True."""

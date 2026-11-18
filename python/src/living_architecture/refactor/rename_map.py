@@ -852,10 +852,11 @@ def changes_of(snapshot: Snapshot, edits: list[TextEdit]) -> tuple[list[tuple[st
 
 def emit(root: Path, headers: list[str], described: list[tuple[str, str]], apply_: bool, writes: list[FileWrite],
          moves: list[FileMove], progress: Progress, *, moved_code: bool = False,
-         edits: dict[str, list[Edit]] | None = None, creates: Sequence[FileWrite] = ()) -> None:
+         edits: dict[str, list[Edit]] | None = None, creates: Sequence[FileWrite] = (),
+         unchanged: Sequence[FileWrite] = ()) -> None:
     """Print the headers and each change's description (path, text) sorted by path, the realigned baseline included,
     then write them with `--apply`, `creates` after the moves, listing each changed path once; `BaselineFailed` when
-    the checker fails."""
+    the checker fails; `FileChanged` when a write or an `unchanged` read changed since it was read."""
     if baseline_runs(root):
         progress.phase("baseline")
     with timed("baseline"):
@@ -871,12 +872,12 @@ def emit(root: Path, headers: list[str], described: list[tuple[str, str]], apply
     if apply_:
         progress.phase("write")
         with timed("write"):
-            verify(root.resolve(), writes)
+            verify(root.resolve(), [*writes, *unchanged])
     print("\n".join(headers) + "\n\n\n" + "".join(text + "\n" for _, text in ordered))
     touched = list(dict.fromkeys(path for path, _ in ordered))
     if apply_:
         with timed("write"):
-            apply(root.resolve(), writes, moves, creates)
+            apply(root.resolve(), writes, moves, creates, unchanged)
         print(message("refactor.applied", count=len(touched)))
         for p in touched:
             print(message("refactor.applied-file", path=p))

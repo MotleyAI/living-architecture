@@ -89,7 +89,7 @@ class EntryLocator:
 
     def module_at(self, module: Module) -> tuple[str, Module] | None:
         """A resolver module's file, and the model of that file the locator reads its offsets in."""
-        rel = self.rel(module.path) if module.path is not None else None
+        rel = self.rel(module.path) if module.path is not None and not module.path.is_dir() else None
         own = self.module(rel) if rel is not None else None
         return (rel, own) if rel is not None and own is not None else None
 

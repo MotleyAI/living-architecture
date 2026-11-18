@@ -1,0 +1,3 @@
+[resolve]
+[checks]
+pkg/b.py does not parse as Python, so nothing was refactored

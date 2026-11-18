@@ -159,3 +159,20 @@ def test_a_walrus_in_a_comprehension_binds_in_the_enclosing_function() -> None:
     [read] = _reads(binder, 6)
     assert read.resolving("sub") is read
     assert read is not binder.module
+
+
+@pytest.mark.parametrize(
+    ("files", "namespace", "found"),
+    [
+        ({"a/pkg/__init__.py": "", "b/pkg/ns/m.py": ""}, "pkg.ns", None),
+        ({"a/pkg/__init__.py": "", "a/pkg/ns/m.py": "", "b/pkg/ns/n.py": ""}, "pkg.ns", "a/pkg/ns"),
+        ({"a/top/x/m.py": "", "b/top/y/m.py": ""}, "top.y", "b/top/y"),
+    ],
+)
+def test_a_namespace_portion_lies_on_its_parent_package_path(tmp_path: Path, files: dict[str, str], namespace: str,
+                                                             found: str | None) -> None:
+    for rel, text in files.items():
+        (tmp_path / rel).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / rel).write_text(text, encoding="utf-8")
+    folders = SourceFolders([tmp_path / "a", tmp_path / "b"])
+    assert folders.namespace(namespace) == ((tmp_path / found).resolve() if found else None)

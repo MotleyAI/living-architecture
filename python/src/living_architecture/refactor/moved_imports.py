@@ -104,6 +104,7 @@ class _Origin:
             and id(node) not in rewritten
         ))
         self.tree_body = origin.source.tree.body if origin.source.tree is not None else []
+        self.top_level = {id(node) for stmt in self.tree_body for node in _declared(stmt)}
 
     def _checked(self, item: ImportItem) -> bool:
         guard = item.guard
@@ -122,7 +123,9 @@ class _Origin:
         for name in self.read:
             nodes = self.file.bound[top].get(name, [])
             items = [(node, item) for node in nodes if (item := self.file.item(node)) is not None and item.scope is top]
-            if any(item.guard is None for _, item in items):
+            if nodes and id(nodes[-1]) in self.top_level:
+                defined.append(name)
+            elif any(item.guard is None for _, item in items):
                 imported.add(name)
             elif items and len(items) == len(nodes) and all(self._checked(item) for _, item in items):
                 checking.add(name)
@@ -164,6 +167,15 @@ class _Origin:
         if module is None or module == _FUTURE or stmt.names[0].name == "*":
             return None
         return Statement(module, [(a.name, a.asname) for a in stmt.names])
+
+
+def _declared(stmt: ast.stmt) -> list[ast.AST]:
+    """The nodes a top-level statement outside any block binds: a definition, or an assignment's name targets."""
+    if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+        return [stmt]
+    if isinstance(stmt, ast.Assign):
+        return [t for t in stmt.targets if isinstance(t, ast.Name)]
+    return [stmt.target] if isinstance(stmt, (ast.AnnAssign, ast.AugAssign)) else []
 
 
 def _binds_last(stmt: Statement, pair: tuple[str, str | None], names: set[str], last: dict[str, str | None]) -> bool:

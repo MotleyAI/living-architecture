@@ -49,7 +49,9 @@ def _emit(project: MoveProject, header: str, texts: dict[str, str], moves: list[
     writes = [FileWrite(rel=rel, old=snapshot.data(rel), new=snapshot.encode(rel, text)) for rel, text in texts.items()]
     described = [(rel, edit_description(rel, snapshot.text(rel), text)) for rel, text in texts.items()]
     described += [(m.rel, move_description(m.rel, m.dest)) for m in moves]
-    emit(project.root, [header], described, apply, writes, moves, progress, moved_code=moved_code)
+    unchanged = [FileWrite(rel=rel, old=snapshot.data(rel), new=snapshot.data(rel)) for rel in snapshot.read()
+                 if rel not in texts and any(rel == m.rel or rel.startswith(m.rel + "/") for m in moves)]
+    emit(project.root, [header], described, apply, writes, moves, progress, moved_code=moved_code, unchanged=unchanged)
 
 
 def _checks(project: MoveProject, progress: Progress, failures: list[Refusal], names: set[str], source: Path) -> None:
@@ -85,6 +87,8 @@ def move_symbol(root: Path, *, file: str, locator: Locator, dest: str, apply: bo
                 raise RefactorError(message("refactor.not-movable", path=file))
             moved = locate_moved(text, module, offset, file)
             target = project.destination(dest, folder=False)
+            if target != source and project.module(target) is None:
+                raise RefactorError(message("refactor.unparsable", path=target))
     except LocatorError as exc:
         failures.append(refusal(str(exc), 2))
     except RefactorError as exc:
