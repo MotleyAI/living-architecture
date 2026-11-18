@@ -11,5 +11,4 @@ git:
 expect:
   exit: 0
 golden: manual
-note: a TypeScript source file whose name holds a word is listed as not-generated-module, before its declarations' listings;
-  its declarations are written
+note: a TypeScript source file whose name holds a word is a module entry, written before its declarations' entries

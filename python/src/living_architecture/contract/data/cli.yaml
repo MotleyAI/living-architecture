@@ -272,7 +272,7 @@ commands:
                with {removal} set to REMOVAL'}
       generate-map:
         help: >-
-          write a rename map for a word table: one entry per declaration and Python module whose name holds a word,
+          write a rename map for a word table: one entry per declaration and module whose name holds a word,
           leaving out and listing what a carve-out matches
         positionals:
           - {name: table, help: 'the word table: words {from, to}, carve_outs {words, annotated | paths | symbols} and entries'}

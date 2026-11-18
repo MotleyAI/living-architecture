@@ -39,7 +39,6 @@ the `refactor` spec that `python.refactor` owns.
 - Inferring inflections, and classifying unannotated declarations by type.
 - A preflight in the generator for name conflicts, keywords or captures: `rename-map` reports these.
 - `--docs` scoping by owning class and the per-site pick (DEV-2343); refusal reporting defects (DEV-2344).
-- TypeScript module entries (DEV-2325).
 
 ## Decisions
 
@@ -53,7 +52,7 @@ the `refactor` spec that `python.refactor` owns.
    rename, not to the repo, and the map schema stays a flat list. (default)
 4. **`--with PATH:LINE=NAME` is declined.** A stand-in that is its own map entry already gets its own name, and the
    generator writes that entry. (user)
-5. **The generator writes Python module entries; TypeScript lists such files.** (user)
+5. **The generator writes module entries in both languages.** (user)
 6. **`entries` in the word table.** Hand-written map entries are written first and replace the generated entry for
    the declaration they locate, so a hand decision survives regeneration. An entry also overrides a carve-out.
    (user)
@@ -117,7 +116,6 @@ the `refactor` spec that `python.refactor` owns.
 refactor.words-invalid: '{table}: {section} item {index} is not valid'
 refactor.carved: '{path}:{line}: carve-out: {name} keeps {word} ({matcher})'
 refactor.not-generated: '{path}:{line}: not-generated: {name} spells {word}, but no map entry can rename it'
-refactor.not-generated-module: '{path}: not-generated: the module name spells {word}, which a TypeScript rename-map cannot rename yet'
 refactor.generate-empty: '{table}: no declaration in the project spells a word of the table'
 refactor.generate-language: 'the project holds sources of more than one language ({languages}); pass --language'
 refactor.symbol-wildcard: '{path}: {symbol} names every matching local, which only a rename takes'
@@ -131,7 +129,7 @@ refactor.symbol-wildcard: '{path}: {symbol} names every matching local, which on
 ```yaml
 generate-map:
   help: >-
-    write a rename map for a word table: one entry per declaration and Python module whose name holds a word,
+    write a rename map for a word table: one entry per declaration and module whose name holds a word,
     leaving out and listing what a carve-out matches
   positionals:
     - {name: table, help: 'the word table: words {from, to}, carve_outs {words, annotated | paths | symbols} and entries'}
@@ -160,7 +158,7 @@ The same file, Commands section, a new paragraph after the existing one (user, a
 
 ```
 A vocabulary rename (one word replaced across the repo) starts from a word table.
-`dr-refactor --project <repo> generate-map TABLE > MAP` writes one entry per declaration and Python
+`dr-refactor --project <repo> generate-map TABLE > MAP` writes one entry per declaration and
 module whose name holds a word (`words: [{from, to}]`, one row per inflection). `carve_outs`
 (`{words, annotated | paths | symbols}`) leave out a declaration where the word keeps its old sense, and
 `entries` holds hand-written map entries, kept on every regeneration. Change the table and regenerate;
@@ -177,9 +175,9 @@ carved `--docs` mentions are listed as `leftover`. A map entry
 - [The stand-in and `refactor.map-conflict` paths differ between the twins when two entries rename one member name
   differently (DEV-2344)] → Stand-in cases of this change use entries with one new name, or classify by entry, so no
   golden depends on that difference.
-- [A Python namespace package or a TypeScript file whose name holds a word is not renamed] → TypeScript files are
-  listed; namespace-package directories are not candidates and are found by the compound-name listing of `--docs`
-  only if a declaration spells the word. Stated in `docs/deterministic-refactoring.md`.
+- [A Python namespace package whose name holds a word is not renamed] → Namespace-package directories are not
+  candidates and are found by the compound-name listing of `--docs` only if a declaration spells the word. Stated in
+  `docs/deterministic-refactoring.md`.
 - [The alias fix changes existing behaviour] → Only for a locator on the `as` name of a project module's import,
   which produced broken code. A golden that pins the old output is aligned only with the user's approval of that
   file (the `/la:pr` stopping policy).

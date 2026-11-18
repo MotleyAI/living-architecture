@@ -87,7 +87,7 @@ exist, and a `move-symbol` destination is a file of the same language. Run the
 repo's formatter afterwards.
 
 A vocabulary rename (one word replaced across the repo) starts from a word table.
-`dr-refactor --project <repo> generate-map TABLE > MAP` writes one entry per declaration and Python
+`dr-refactor --project <repo> generate-map TABLE > MAP` writes one entry per declaration and
 module whose name holds a word (`words: [{from, to}]`, one row per inflection). `carve_outs`
 (`{words, annotated | paths | symbols}`) leave out a declaration where the word keeps its old sense, and
 `entries` holds hand-written map entries, kept on every regeneration. Change the table and regenerate;

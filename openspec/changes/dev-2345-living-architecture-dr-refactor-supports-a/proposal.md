@@ -9,7 +9,7 @@ stand-ins (DEV-2345; DEV-2340 items 1, 2, 6, 14 and 25).
 
 - A word table (`words`, `carve_outs`, `entries`), validated against a new shared schema, describes a vocabulary
   rename: which word becomes which, and where a word keeps its old sense.
-- `dr-refactor generate-map TABLE` writes the rename map for a word table: one entry per declaration, and per Python
+- `dr-refactor generate-map TABLE` writes the rename map for a word table: one entry per declaration, and per
   module, whose name holds a word. It leaves out and lists what a carve-out matches, and carries the table's
   hand-written `entries` through every regeneration.
 - A symbol path may be a wildcard, `*.<locals>.NAME` or `Scope.*.<locals>.NAME`: one entry renames every local of
@@ -38,7 +38,7 @@ None.
 ## Impact
 
 - `shared/`: `cli.yaml` (`generate-map`, `--words`, the `--symbol` help), `schema/word-table.schema.json`,
-  `findings.yaml` (seven findings), `languages.yaml` (fixture decorators), a new vector file for word replacement.
+  `findings.yaml` (six findings), `languages.yaml` (fixture decorators), a new vector file for word replacement.
 - Both twins' `refactor` packages and their vendored `shared/` snapshots.
 - `conformance/` cases and `conformance/INVENTORY.md`.
 - `docs/deterministic-refactoring.md`, `docs/commands.md`, `plugin/skills/deterministic-refactor/SKILL.md`.

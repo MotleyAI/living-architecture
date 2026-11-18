@@ -182,11 +182,15 @@ export function generateMap(r: Refactor): number {
     const rel = r.rel(path);
     const stem = stripSourceExtension(basename(path));
     const named = taken.some((site) => site.file === path && site.end === 0);
+    const keptWords: string[] = [];
     for (const word of named ? [] : heldWords(stem, table.words)) {
       const matcher = carved(table, [], word, { rel, annotation: null, keys: [] });
-      const text = matcher === null ? message('refactor.not-generated-module', { path: rel, word }) : message('refactor.carved', { path: rel, line: 1, name: stem, word, matcher });
-      listed.push({ path: rel, line: 0, position: 0, text });
+      if (matcher === null) continue;
+      keptWords.push(word);
+      listed.push({ path: rel, line: 0, position: 0, text: message('refactor.carved', { path: rel, line: 1, name: stem, word, matcher }) });
     }
+    const renamed = named ? stem : replaceWords(stem, withoutWords(table.words, keptWords));
+    if (renamed !== stem) generated.push({ path: rel, line: 0, position: 0, text: line({ module: rel, new_name: renamed }) });
     const found = rows(source, rel, table, carves, taken.filter((site) => site.file === path && site.end > 0));
     for (const row of found) {
       const { candidate } = row;

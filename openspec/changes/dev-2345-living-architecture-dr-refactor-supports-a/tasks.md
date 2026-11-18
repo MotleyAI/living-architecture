@@ -2,7 +2,7 @@
 
 - [x] 1.1 `shared/schema/word-table.schema.json`: `words`, `carve_outs` (exactly one matcher), `entries` (items are
   rename-map entries); verify with schema unit tests in both twins (valid table, each invalid form)
-- [x] 1.2 `shared/findings.yaml`: the seven findings, texts verbatim from design.md "Approved wording"; verify each is
+- [x] 1.2 `shared/findings.yaml`: the six findings, texts verbatim from design.md "Approved wording"; verify each is
   produced by at least one golden
 - [x] 1.3 `shared/cli.yaml`: the `generate-map` subcommand, `--words` on `rename`, `rename-map` and `retarget`, the
   `--symbol` help form, the `dr-refactor` help's subcommand list, texts verbatim from design.md; verify with the CLI
@@ -20,12 +20,12 @@
   location (file-wide, class-scoped, nested functions, parameters excluded, no match, misplaced `*`); candidate
   indexing (path round trip, line/column fallback, lambda parameter, `as` aliases, modules and packages)
 - [x] 2.2 Node unit tests: the same list for TypeScript (JSDoc span, arrow functions and function expressions as
-  wildcard scopes, module files listed)
+  wildcard scopes, module files as module entries)
 - [x] 2.3 Conformance, generator (paired unless noted): `refactor-generate-words` (DEV-2340 item 1, and `rename-map`
   on the output), `refactor-generate-annotated` (item 14), `refactor-generate-paths-symbols`,
   `refactor-generate-partial-word`, `refactor-generate-entries`, `refactor-generate-entry-over-carve`,
   `refactor-generate-locals-wildcard`, `refactor-generate-locals-split`, `refactor-generate-modules` (Python adapter),
-  `refactor-generate-modules-ts` (TypeScript adapter, produces `refactor.not-generated-module`),
+  `refactor-generate-modules-ts` (TypeScript adapter),
   `refactor-generate-lambda` (Python adapter, produces `refactor.not-generated`), `refactor-generate-ambiguous`,
   `refactor-generate-hierarchy`, `refactor-generate-empty`, `refactor-generate-entries-only`,
   `refactor-generate-no-write` (with `--apply`, git status clean)
@@ -67,7 +67,7 @@
 ## 4. npm twin
 
 - [x] 4.1 Word table, replacement and matchers (type-annotation identifier tokens); verify 2.2
-- [x] 4.2 `generate-map` for TypeScript: candidates from the TypeScript syntax tree, module files listed, `entries`,
+- [x] 4.2 `generate-map` for TypeScript: candidates from the TypeScript syntax tree, module files as module entries, `entries`,
   locals aggregation, output; language selection and forwarding; verify 2.3 and 2.4
 - [x] 4.3 Wildcard paths in `symbols.ts` and multi-target entries in the map run; the refusals; verify 2.5
 - [x] 4.4 Carve-out stand-in default (the fixture list is empty) and carved mentions with the JSDoc span; verify 2.6
@@ -79,7 +79,7 @@
   verify `npx -y @anthropic-ai/claude-code plugin validate plugin` passes
 - [x] 5.2 `docs/deterministic-refactoring.md`: the vocabulary-rename flow (table, generate, dry run with `--words`,
   regenerate), the stand-in-as-entry route, the fixture default, what is not generated (lambda parameters,
-  TypeScript modules, namespace packages); `docs/commands.md`: `generate-map`
+  namespace packages); `docs/commands.md`: `generate-map`
 - [x] 5.3 `dr-refactor` help in `cli.yaml` and the docs name `generate-map` wherever the subcommands are listed;
   verify by reading each list
 

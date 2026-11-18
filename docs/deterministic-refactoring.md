@@ -51,7 +51,7 @@ entries:                    # hand-written map entries, written first on every r
 ```
 
 1. `dr-refactor --project <repo> generate-map TABLE > MAP` writes one entry per declaration whose name holds a word
-   as a whole word (`measures_total`, `AddMeasures`, never `remeasures`), and per Python module file and package. It
+   as a whole word (`measures_total`, `AddMeasures`, never `remeasures`), and per module file and Python package. It
    reads syntax only: no checker starts and nothing is written. Same-named locals of a file become one entry,
    `{file, symbol: '*.<locals>.NAME', new_name}`; `Scope.*.<locals>.NAME` is the same for the functions inside one
    class or function. A carved declaration is left out and listed on stderr as `carve-out`; an entry of `entries`
@@ -64,8 +64,7 @@ entries:                    # hand-written map entries, written first on every r
 3. Every refusal is fixed in the table (a carve-out or an entry), the map regenerated, and the dry run repeated;
    MAP is never edited by hand.
 
-Not generated: a Python lambda parameter (listed as `not-generated`), a TypeScript source file whose name holds a
-word (listed; a TypeScript map cannot rename modules yet), and a Python directory without an `__init__.py`.
+Not generated: a Python lambda parameter (listed as `not-generated`) and a Python directory without an `__init__.py`.
 
 A run announces its phases on stderr as they start — `[resolve]`, `[checks]`, `[references]`, `[rules]`,
 `[conflicts]`, `[baseline]`, `[write]` — with `[references n/count]` as each entry's reference search starts and

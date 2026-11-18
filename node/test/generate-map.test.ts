@@ -184,11 +184,11 @@ export function loadModel(a: string | number): string | number {
     expect(generate(project, MODEL)).toEqual({ code: 0, out: entry('src/a.ts', 'model', 'dataset'), err: '' });
   });
 
-  it('list each source file whose name holds a word, before the listings of its declarations', () => {
+  it('write each source file whose name holds a word as a module entry, before its declarations', () => {
     const table = `${MODEL}carve_outs:\n- {words: [model], annotated: [Kept]}\n`;
     const project = { 'src/model.ts': 'export const model: Kept = 1;\nexport const modelCount = 2;\n', 'src/modelStore.tsx': 'export const x = 1;\n' };
-    const listed = `${message('refactor.not-generated-module', { path: 'src/model.ts', word: 'model' })}\n${carved('src/model.ts', 1, 'model', 'model', 'annotated Kept')}${message('refactor.not-generated-module', { path: 'src/modelStore.tsx', word: 'model' })}\n`;
-    expect(generate(project, table)).toEqual({ code: 0, out: entry('src/model.ts', 'modelCount', 'datasetCount'), err: listed });
+    const out = `- {module: src/model.ts, new_name: dataset}\n${entry('src/model.ts', 'modelCount', 'datasetCount')}- {module: src/modelStore.tsx, new_name: datasetStore}\n`;
+    expect(generate(project, table)).toEqual({ code: 0, out, err: carved('src/model.ts', 1, 'model', 'model', 'annotated Kept') });
   });
 });
 

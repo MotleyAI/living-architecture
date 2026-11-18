@@ -1,1 +1,2 @@
+- {module: pkg/measures.ts, new_name: metrics}
 - {file: pkg/measures.ts, symbol: Measures, new_name: Metrics}
