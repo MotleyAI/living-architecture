@@ -1,10 +1,7 @@
-from pkg.kinds import DriftKind
-
-
-def f(kind: DriftKind) -> None:
-    print(kind)
+from pkg.kinds import f
 
 
 def run() -> None:
+    k = "drop"
     k = "edit_model"
     f(k)

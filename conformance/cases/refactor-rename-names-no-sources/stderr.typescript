@@ -1,0 +1,14 @@
+[resolve]
+[checks]
+[references]
+[references 1/1] entry 1: columns -> fields
+[rules]
+[rules 1/1] entry 1: columns -> fields: clean
+[conflicts]
+src/m.ts:11: leftover: string mentions columns
+src/m.ts:17: leftover: string mentions columns
+src/m.ts:25: leftover: string mentions columns
+src/m.ts:31: leftover: string mentions columns
+src/m.ts:37: leftover: string mentions columns
+src/m.ts:44: leftover: string mentions columns
+src/m.ts:51: leftover: string mentions columns

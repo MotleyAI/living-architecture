@@ -1,0 +1,21 @@
+Renaming <columns> to <fields>:
+
+
+--- a/src/m.ts
++++ b/src/m.ts
+@@ -1,9 +1,9 @@
+ export class Ds {
+-  columns: string[] = [];
++  fields: string[] = [];
+   label = '';
+ }
+ 
+-const FIELDS = ['label', 'columns'] as const;
++const FIELDS = ['label', 'fields'] as const;
+ 
+ export function read(d: Ds): unknown[] {
+   const out: unknown[] = [];
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

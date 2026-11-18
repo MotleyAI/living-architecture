@@ -4,11 +4,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type * as TS from 'typescript';
 import { describe, expect, it } from 'vitest';
+import { language } from '../src/contract/index.js';
 import { ts } from '../src/lang/index.js';
 import { codeMarked, mentions, qualified, sourceRegions } from '../src/refactor/mentions.js';
 import { run, tempRepo } from './cli-run.js';
 import { refactor } from './refactor-project.js';
-import { memberDeclarations } from '../src/refactor/members.js';
+import { memberDeclarations, siteText, stringForms, walk } from '../src/refactor/members.js';
 import { Site } from '../src/refactor/sites.js';
 
 describe('Site', () => {
@@ -176,5 +177,72 @@ describe('escaped exact-OLD literals', () => {
     });
     const renamed = refactor(root, 'rename', '--file', 'src/store.ts', '--symbol', 'Store.getModel', '--new-name', 'getDataset');
     expect([renamed.code, renamed.err]).toEqual([0, 'src/names.ts:1: leftover: string mentions getModel\n']);
+  });
+});
+
+describe('siteText', () => {
+  function site(text: string, name: string): string {
+    const file = ts().createSourceFile('a.ts', text, ts().ScriptTarget.Latest, true);
+    const access = [...walk(file)].find((n) => ts().isCallExpression(n) || ts().isElementAccessExpression(n)) as TS.CallExpression | TS.ElementAccessExpression;
+    const receiver = ts().isCallExpression(access) ? (access.arguments[0] as TS.Expression) : access.expression;
+    return siteText(access, receiver, name);
+  }
+
+  it.each([
+    ["vi.spyOn(o, 'id');", 'id', "vi.spyOn(o, 'id')"],
+    ["Reflect.get(x, 'columns');", 'columns', "Reflect.get(x, 'columns')"],
+    ['Reflect.get(x, "columns");', 'columns', "Reflect.get(x, 'columns')"],
+  ])('prints a call with its object and member alone: %s', (text, name, expected) => {
+    expect(site(text, name)).toBe(expected);
+  });
+
+  it.each([
+    ["Reflect.set(x, 'columns', 1);", "Reflect.set(x, 'columns', …)"],
+    ["Reflect.get(x, 'columns', x);", "Reflect.get(x, 'columns', …)"],
+    ["Object.defineProperty(x, 'columns', { value: 1, writable: true });", "Object.defineProperty(x, 'columns', …)"],
+  ])('marks further arguments: %s', (text, expected) => {
+    expect(site(text, 'columns')).toBe(expected);
+  });
+
+  it.each([
+    ["x['columns'];", "x['columns']"],
+    ['x["columns"];', "x['columns']"],
+    ["o.inner['columns'] = 1;", "o.inner['columns']"],
+  ])('prints an element access with single quotes: %s', (text, expected) => {
+    expect(site(text, 'columns')).toBe(expected);
+  });
+
+  it.each([
+    ["Reflect.get(\n  a\n    .b,\n  'columns',\n);", "Reflect.get(a .b, 'columns')"],
+    ["Reflect.set(\n  a\n    .b,\n  'columns',\n  1,\n);", "Reflect.set(a .b, 'columns', …)"],
+    ["a\n  .b['columns'];", "a .b['columns']"],
+    ["a\t\t.b['columns'];", "a .b['columns']"],
+  ])('collapses each run of whitespace of a receiver: %j', (text, expected) => {
+    expect(site(text, 'columns')).toBe(expected);
+  });
+});
+
+describe('stringForms', () => {
+  const entry = { call: 'Reflect.get', object: 0, member: 1 };
+
+  it('loads every TypeScript string-member call of the registry', () => {
+    const raw = language('typescript').string_member_calls as { call: string }[];
+    expect(stringForms(raw).map((form) => form.call)).toEqual(raw.map((form) => form.call));
+    expect(stringForms([entry])).toMatchObject([entry]);
+  });
+
+  it.each([
+    ['a value that is no list', entry],
+    ['an entry that is no mapping', ['Reflect.get']],
+    ['a missing call', [{ object: 0, member: 1 }]],
+    ['a call that is no string', [{ ...entry, call: 1 }]],
+    ['a missing member position', [{ call: 'Reflect.get', object: 0 }]],
+    ['a member position that is no integer', [{ ...entry, member: '1' }]],
+    ['a negative object position', [{ ...entry, object: -1 }]],
+    ['a silent fact that is no boolean', [{ ...entry, silent: 'yes' }]],
+    ['a default position that is no integer', [{ ...entry, default: 'two' }]],
+  ])('fails on %s', (_, raw) => {
+    expect(stringForms).toBeTypeOf('function');
+    expect(() => stringForms(raw)).toThrow();
   });
 });

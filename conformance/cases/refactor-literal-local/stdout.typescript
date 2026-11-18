@@ -1,0 +1,28 @@
+Renaming <edit_model> to <edit_master>:
+
+
+--- a/src/kinds.ts
++++ b/src/kinds.ts
+@@ -1,4 +1,4 @@
+-export type Kind = 'edit_model' | 'drop';
++export type Kind = 'edit_master' | 'drop';
+ 
+ export function f(kind: Kind): void {
+   console.log(kind);
+
+--- a/src/run.ts
++++ b/src/run.ts
+@@ -1,6 +1,6 @@
+ import { f } from './kinds';
+ 
+ export function run(): void {
+-  const k = 'edit_model';
++  const k = 'edit_master';
+   f(k);
+ }
+
+
+
+APPLIED. 2 file(s) changed:
+  src/kinds.ts
+  src/run.ts

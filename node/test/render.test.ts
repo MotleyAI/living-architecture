@@ -48,4 +48,27 @@ describe('message', () => {
       'm.py:2: explicit-any: an `Any` type — use a real type or `object`',
     );
   });
+
+  it('renders a string-named access on an untyped receiver, and its silent variant', () => {
+    const values = { path: 'pkg/m.py', receiver: 'x', type: 'Any', attr: 'columns' };
+    expect(message('compliance.string-blindspot', { ...values, line: 14, site: "getattr(x, 'columns')" })).toBe(
+      "pkg/m.py:14: string-blindspot: getattr(x, 'columns') — x is Any, so a rename of .columns is unverifiable",
+    );
+    expect(message('compliance.string-blindspot-silent', { ...values, line: 18, site: "getattr(x, 'columns', …)" })).toBe(
+      "pkg/m.py:18: string-blindspot: getattr(x, 'columns', …) — x is Any, so a rename of .columns is unverifiable and a miss raises no error",
+    );
+  });
+
+  it('renders an unverified read of a rewritten source', () => {
+    const values = { path: 'pkg/m.py', line: 31, name: 'SECTIONS', old: 'columns', source_path: 'pkg/m.py', source_line: 20 };
+    expect(message('refactor.unverified-read', values)).toBe(
+      "pkg/m.py:31: unverified-read: SECTIONS holds 'columns', rewritten at pkg/m.py:20; this read is not proven to name the renamed member",
+    );
+  });
+
+  it('names the selected check in attr-required and both attribute checks in attr-unselected', () => {
+    expect(message('compliance.attr-required', { check: 'string-blindspot' })).toBe('--select string-blindspot needs --attr NAME');
+    expect(message('compliance.attr-required', { check: 'attr-blindspot' })).toBe('--select attr-blindspot needs --attr NAME');
+    expect(message('compliance.attr-unselected')).toBe('--attr needs attr-blindspot or string-blindspot among the selected checks');
+  });
 });

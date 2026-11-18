@@ -1,23 +1,16 @@
-kind: adapter
+kind: paired
 languages:
 - python
+- typescript
 command: dr-refactor
 args:
-- --apply
-- rename
-- --file
-- pkg/kinds.py
-- --symbol
-- DriftKind['edit_model']
-- --new-name
-- edit_master
+  python: [--apply, rename, --file, pkg/kinds.py, --symbol, "DriftKind['edit_model']", --new-name, edit_master]
+  typescript: [--apply, rename, --file, src/kinds.ts, --symbol, "Kind['edit_model']", --new-name, edit_master]
+fixture: refactor-pair
 git:
 - commit: init
 expect:
   exit: 1
-  files:
-  - pkg/kinds.py
-  - pkg/run.py
+  git_status: true
 golden: manual
-note: 'a local assigned the old value and passed on: its call site is a literal-unresolved blind spot joining the blind-spot
-  refusal; exit 1, nothing written'
+note: 'a local bound twice has no sources: its call site is a literal-unresolved blind spot; exit 1, nothing written'
