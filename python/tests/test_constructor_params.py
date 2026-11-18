@@ -161,24 +161,83 @@ def use() -> K:
 """
 
 
-def test_a_class_declaring_both_constructors_renames_the_keyword_with_the_one_the_checker_resolves(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+BOTH_RENAMED = BOTH.replace("field", "column")
+
+
+@pytest.mark.parametrize("constructor", ["__init__", "__new__"])
+def test_one_constructor_of_a_class_declaring_both_lists_the_class_call_keyword(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], constructor: str
 ) -> None:
     root = write_project(tmp_path / "p", {"pkg/e.py": BOTH})
-    code, _out, err = run(root, _rename("K.__init__(field)"), monkeypatch, capsys)
-    assert (code, err) == (0, "")
+    before = file_tree(root)
+    code, out, err = run(root, _rename(f"K.{constructor}(field)"), monkeypatch, capsys)
+    assert (code, out) == (1, "")
+    assert err.splitlines() == [
+        message("refactor.unlinked-keyword", path="pkg/e.py", line=10, callee="K", old="field"),
+        message("refactor.blindspots", count=1, names="field="),
+    ]
+    assert file_tree(root) == before
+
+
+DIRECT = BOTH + """
+
+class Sub(K):
+    def __init__(self, *, field: str) -> None:
+        super().__init__(field=field)
+
+
+def direct(k: K) -> None:
+    K.__init__(k, field="b")
+"""
+
+
+def test_a_constructor_called_by_itself_takes_its_own_keyword(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = write_project(tmp_path / "p", {"pkg/e.py": DIRECT})
+    code, _out, err = run(root, _rename("K.__init__(field)", "--allow-blindspots"), monkeypatch, capsys)
+    assert (code, err.splitlines()) == (
+        0, [message("refactor.unlinked-keyword", path="pkg/e.py", line=10, callee="K", old="field")])
     assert read(root, "pkg/e.py") == (
-        BOTH.replace("*, field: str) -> None:\n        self.value = field",
-                     "*, column: str) -> None:\n        self.value = column").replace('K(field="a")', 'K(column="a")'))
+        DIRECT.replace("*, field: str) -> None:\n        self.value = field",
+                       "*, column: str) -> None:\n        self.value = column")
+        .replace("super().__init__(field=field)", "super().__init__(column=field)")
+        .replace('K.__init__(k, field="b")', 'K.__init__(k, column="b")'))
 
 
-def test_the_other_constructor_of_a_class_declaring_both_leaves_the_keyword_unlisted(
+def test_a_map_renaming_both_constructors_alike_renames_the_class_call_keyword(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    root = write_project(tmp_path / "p", {"pkg/e.py": BOTH})
-    code, _out, err = run(root, _rename("K.__new__(field)"), monkeypatch, capsys)
+    entries = [{"file": "pkg/e.py", "symbol": f"K.{name}(field)", "new_name": "column"} for name in ("__init__", "__new__")]
+    root = write_project(tmp_path / "p", {"pkg/e.py": BOTH, "map.yaml": yaml.safe_dump(entries)})
+    code, _out, err = run(root, ["--apply", "rename-map", "map.yaml"], monkeypatch, capsys)
     assert (code, err) == (0, "")
-    assert read(root, "pkg/e.py") == BOTH.replace('*, field: str) -> "K":', '*, column: str) -> "K":')
+    assert read(root, "pkg/e.py") == BOTH_RENAMED
+
+
+def test_another_class_renamed_apart_leaves_a_pair_renamed_alike_linked(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    other = "\n\nclass L:\n    def __init__(self, *, field: str) -> None:\n        self.value = field\n"
+    entries = [{"file": "pkg/e.py", "symbol": "L.__init__(field)", "new_name": "other"},
+               *({"file": "pkg/e.py", "symbol": f"K.{name}(field)", "new_name": "column"} for name in ("__init__", "__new__"))]
+    root = write_project(tmp_path / "p", {"pkg/e.py": BOTH + other, "map.yaml": yaml.safe_dump(entries)})
+    code, _out, err = run(root, ["--apply", "rename-map", "map.yaml"], monkeypatch, capsys)
+    assert (code, err) == (0, "")
+    assert read(root, "pkg/e.py") == BOTH_RENAMED + other.replace("field", "other")
+
+
+def test_a_map_renaming_both_constructors_apart_lists_the_class_call_keyword(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    entries = [{"file": "pkg/e.py", "symbol": "K.__init__(field)", "new_name": "column"},
+               {"file": "pkg/e.py", "symbol": "K.__new__(field)", "new_name": "other"}]
+    root = write_project(tmp_path / "p", {"pkg/e.py": BOTH, "map.yaml": yaml.safe_dump(entries)})
+    before = file_tree(root)
+    code, out, err = run(root, ["rename-map", "map.yaml"], monkeypatch, capsys)
+    assert (code, out) == (1, "")
+    assert message("refactor.unlinked-keyword", path="pkg/e.py", line=10, callee="K", old="field") in err.splitlines()
+    assert file_tree(root) == before
 
 
 UNRESOLVED_BOTH = """\

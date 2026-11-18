@@ -11,11 +11,12 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
-from living_architecture.lang import FactQuery, Span
+from living_architecture.lang import Span
 from living_architecture.refactor.keyed import (
     ClassRef,
     TypeFacts,
     UnresolvedBase,
+    binds_otherwise,
     declares_alias,
     own_nodes,
     plain_key_span,
@@ -99,48 +100,60 @@ class ParameterRename(BaseModel):
     candidates: tuple[str, ...]
 
 
-def signature_round(index: RunIndex, root: Path, source: Callable[[str], SourceFile], load: Load,
-                    renames: list[ParameterRename]) -> None:
-    """One export for every unresolved keyword site whose signature binds its old name: the signature there again,
-    with each file declaring a renamed parameter opened as its text with that parameter renamed."""
-    asked: set[tuple[str, int]] = set()
-    for r in renames:
-        for rel in r.candidates:
-            for site in unresolved_sites(index, load, root / rel, source(rel), r.old):
-                before = index.signature(root / rel, site.query).signature if site.query is not None else ()
-                if site.query is not None and before and all(r.old in names for names in before):
-                    asked.add((rel, site.query))
-    if not asked:
-        return
+def _binds_old(index: RunIndex, path: Path, query: int, old: str) -> bool:
+    """Whether every callable alternative at `query` binds `old`."""
+    before = index.signature(path, query).signature
+    return bool(before) and all(old in names for names in before)
+
+
+def _seed_edits(source: Callable[[str], SourceFile], renames: list[ParameterRename]) -> dict[str, list[TextEdit]]:
+    """Per file, the edits renaming the run's parameter declarations; none for a file where two renames meet on one."""
     edits: dict[str, set[TextEdit]] = {}
     for r in renames:
         for rel, start in r.seeds:
             if source(rel).text.startswith(r.old, start):
                 edits.setdefault(rel, set()).add(TextEdit(path=rel, start=start, end=start + len(r.old), new_text=r.new))
-    renamed = {rel: sorted(found, key=lambda e: e.start) for rel, found in edits.items()
-               if len({e.start for e in found}) == len(found)}
+    return {rel: sorted(found, key=lambda e: e.start) for rel, found in edits.items()
+            if len({e.start for e in found}) == len(found)}
 
-    def probe_offset(rel: str, offset: int) -> int:
-        return offset + sum(len(e.new_text) - (e.end - e.start) for e in renamed.get(rel, ()) if e.start < offset)
 
-    queries = sorted(asked)
-    index.probe({root / rel: apply_edits(source(rel).text, found) for rel, found in renamed.items()},
-                [FactQuery(path=root / rel, offset=probe_offset(rel, offset), kinds=("signature",)) for rel, offset in queries])
-    for rel, offset in queries:
-        facts = index.probed(root / rel, probe_offset(rel, offset))
-        if facts is not None:
-            index.record_signature(root / rel, offset, facts.signature)
+def signature_round(index: RunIndex, root: Path, source: Callable[[str], SourceFile], load: Load,
+                    renames: list[ParameterRename]) -> None:
+    """One export for every unresolved keyword site whose signature binds its old name: the signature there again,
+    with each file declaring a renamed parameter opened as its text with that parameter renamed."""
+    renamed = _seed_edits(source, renames)
+    index.record_parameter_renames(
+        frozenset((r.old, r.new) for r in renames),
+        {root / rel: apply_edits(source(rel).text, found) for rel, found in renamed.items()},
+        {root / rel: [(e.start, len(e.new_text) - (e.end - e.start)) for e in found] for rel, found in renamed.items()})
+    index.probe_signatures(
+        (root / rel, site.query) for r in renames for rel in r.candidates
+        for site in unresolved_sites(index, load, root / rel, source(rel), r.old)
+        if site.query is not None and _binds_old(index, root / rel, site.query, r.old))
+
+
+def signature_proof(index: RunIndex, path: Path, query: int, old: str, new: str) -> bool:
+    """Whether every callable alternative of the call at `query` binds `old` as the code is and `new` in its place once
+    the run's renamed parameters are renamed, its other names changing only by the run's parameter renames."""
+    before = index.signature(path, query).signature
+    after = index.renamed_signature(path, query)
+    return bool(before) and after is not None and len(after) == len(before) and all(
+        renamed_names(index.parameter_renames(), b, a, (old, new)) for b, a in zip(before, after, strict=True))
 
 
 def signature_links(index: RunIndex, path: Path, site: KeywordSite, old: str, new: str) -> bool:
-    """Whether every callable alternative at `site` binds `old` as the code is and `new` in its place once the run's
-    renamed parameters are renamed."""
-    if site.query is None:
+    """Whether the signature at `site` proves its keyword follows the rename."""
+    return site.query is not None and signature_proof(index, path, site.query, old, new)
+
+
+def renamed_names(run: frozenset[tuple[str, str]], before: tuple[str, ...], after: tuple[str, ...],
+                  rename: tuple[str, str]) -> bool:
+    """Whether `after` names the parameters of `before` in their order, one changed by `rename` and any other only by
+    a rename of `run`."""
+    if len(before) != len(after):
         return False
-    before = index.signature(path, site.query).signature
-    after = index.renamed_signature(path, site.query)
-    return bool(before) and after is not None and len(after) == len(before) and all(
-        old in b and new not in b and set(a) == (set(b) - {old}) | {new} for b, a in zip(before, after, strict=True))
+    changed = {(b, a) for b, a in zip(before, after, strict=True) if b != a}
+    return rename in changed and changed <= run
 
 
 def _attr(call: ast.Call) -> str | None:
@@ -172,10 +185,39 @@ def _truth(source: SourceFile, node: ast.AST) -> bool:
     return isinstance(parent, ast.BoolOp) and _truth(source, parent)
 
 
+def _is_key_form(parent: ast.AST | None, use: ast.Name) -> bool:
+    """Whether `use` under `parent` is subscripted, asked for a key by method, or tested for membership."""
+    if isinstance(parent, ast.Subscript):
+        return parent.value is use
+    if isinstance(parent, ast.Attribute):
+        return parent.attr in _KEY_METHODS
+    return isinstance(parent, ast.Compare) and len(parent.ops) == 1 and isinstance(parent.ops[0], (ast.In, ast.NotIn))
+
+
+def _form_key(source: SourceFile, parent: ast.AST | None, use: ast.Name) -> ast.AST | None:
+    """The key of the key form `use` stands in under `parent`."""
+    if isinstance(parent, ast.Subscript):
+        return parent.slice
+    if isinstance(parent, ast.Attribute):
+        call = source.parent(parent)
+        return call.args[0] if isinstance(call, ast.Call) and call.func is parent and call.args else None
+    return parent.left if isinstance(parent, ast.Compare) and parent.comparators[0] is use else None
+
+
+def _binds_locally(scope: Function | ast.ClassDef, name: str) -> bool:
+    """Whether `scope`'s body binds `name` as a name of its own."""
+    own = list(own_nodes(scope))
+    if any(isinstance(n, (ast.Global, ast.Nonlocal)) and name in n.names for n in own):
+        return False
+    return any(binds_otherwise(n, name) or (isinstance(n, ast.Name) and n.id == name and isinstance(n.ctx, ast.Store))
+               for n in own)
+
+
 def _binds(scope: ast.AST, name: str) -> bool:
-    """Whether nested scope `scope` binds `name` itself: as a parameter or as a comprehension target."""
+    """Whether nested scope `scope` binds `name` itself: as a parameter, a local or a comprehension target."""
     if isinstance(scope, (*_FUNCTIONS, ast.Lambda)):
-        return any(a.arg == name for a in every_parameter(scope.args))
+        return any(a.arg == name for a in every_parameter(scope.args)) or (
+            isinstance(scope, _FUNCTIONS) and _binds_locally(scope, name))
     if isinstance(scope, _COMPREHENSIONS):
         return any(isinstance(n, ast.Name) and n.id == name for g in scope.generators for n in ast.walk(g.target))
     return False
@@ -188,41 +230,52 @@ def _outer_parts(scope: ast.AST) -> list[ast.expr]:
     if isinstance(scope, (*_FUNCTIONS, ast.Lambda)):
         decorators = scope.decorator_list if isinstance(scope, _FUNCTIONS) else []
         return [*decorators, *scope.args.defaults, *(d for d in scope.args.kw_defaults if d is not None)]
+    if isinstance(scope, ast.ClassDef):
+        return [*scope.decorator_list, *scope.bases, *(k.value for k in scope.keywords)]
     return []
 
 
 def _uses(fn: Function, name: str) -> tuple[list[ast.Name], bool]:
-    """The uses of `name` in `fn`'s own scope, and whether a nested scope that does not bind it mentions it."""
+    """The uses of `name` in `fn`'s own scope, and whether it is out of their reach: a nested scope that does not bind
+    it mentions it, or a statement binds it without a name store. A class body binding it hides it from that body
+    only."""
     found: list[ast.Name] = []
-    nested = False
+    opaque = False
     stack: list[ast.AST] = list(fn.body)
     while stack:
         node = stack.pop()
+        opaque = opaque or binds_otherwise(node, name)
         if isinstance(node, ast.Name):
             if node.id == name:
                 found.append(node)
         elif isinstance(node, _NESTED):
             outer = _outer_parts(node)
             stack.extend(outer)
+            if isinstance(node, ast.ClassDef) and _binds_locally(node, name):
+                stack.extend(n for stmt in node.body for n in [stmt, *own_nodes(stmt)] if isinstance(n, _NESTED))
+                continue
             skipped = {id(n) for part in outer for n in ast.walk(part)}
-            nested = nested or (not _binds(node, name) and any(
+            opaque = opaque or (not _binds(node, name) and any(
                 isinstance(n, ast.Name) and n.id == name and id(n) not in skipped for n in ast.walk(node)))
         else:
             stack.extend(ast.iter_child_nodes(node))
-    return found, nested
+    return found, opaque
 
 
 class CarrierShape:
-    """How a `def` uses its `**kw` name: its sinks, its key-form strings, and whether every use is a sink, a key form
-    or a neutral use."""
+    """How a `def` uses its `**kw` name: its sinks, its key-form strings, the constant keys of the dict literals
+    holding it, the callees measuring it, and whether every use is a sink, a key form or a neutral use."""
 
     def __init__(self, source: SourceFile, fn: Function) -> None:
         assert fn.args.kwarg is not None
         self.sinks: list[tuple[_SinkKind, ast.Call]] = []
         self.keys: list[ast.Constant] = []
-        uses, nested = _uses(fn, fn.args.kwarg.arg)
-        filed = [self._use(source, fn, use) for use in uses]
-        self.resolved = not nested and all(filed)
+        self.literal_keys: set[str] = set()
+        self.measures: list[ast.Name] = []
+        uses, opaque = _uses(fn, fn.args.kwarg.arg)
+        self.resolved = not opaque
+        for use in uses:
+            self.resolved = self._use(source, fn, use) and self.resolved
 
     def _use(self, source: SourceFile, fn: Function, use: ast.Name) -> bool:
         """File one use; whether it is a sink, a key form or a neutral use."""
@@ -233,19 +286,14 @@ class CarrierShape:
             return True
         parent = source.parent(use)
         if isinstance(parent, ast.Dict):
+            self.literal_keys |= {k.value for k in parent.keys if isinstance(k, ast.Constant) and isinstance(k.value, str)}
             return any(k is None and v is use for k, v in zip(parent.keys, parent.values)) and self._literal(source, fn, parent)
-        key: ast.AST | None = None
-        if isinstance(parent, ast.Subscript) and parent.value is use:
-            key = parent.slice
-        elif isinstance(parent, ast.Attribute) and parent.attr in _KEY_METHODS:
-            call = source.parent(parent)
-            key = call.args[0] if isinstance(call, ast.Call) and call.func is parent and call.args else None
-        elif isinstance(parent, ast.Compare) and len(parent.ops) == 1 and isinstance(parent.ops[0], (ast.In, ast.NotIn)):
-            key = parent.left if parent.comparators[0] is use else None
-        elif isinstance(parent, ast.Call) and isinstance(parent.func, ast.Name) and parent.func.id == "len":
+        if isinstance(parent, ast.Call) and isinstance(parent.func, ast.Name) and parent.func.id == "len":
+            self.measures.append(parent.func)
             return len(parent.args) == 1 and not parent.keywords
-        else:
+        if not _is_key_form(parent, use):
             return _truth(source, use)
+        key = _form_key(source, parent, use)
         if isinstance(key, ast.Constant) and isinstance(key.value, str):
             self.keys.append(key)
             return True
@@ -283,19 +331,37 @@ def _join(landings: list[Verdict]) -> Verdict:
 
 
 class KeywordFlow:
-    """Where the key `old` lands from a call: only on declarations `renamed` holds, on others, on both, or unprovably."""
+    """Where the key `old` lands from a call: only on declarations `renamed` holds, on others, on both, or unprovably;
+    unprovably too where the key `new` would meet a name a carrier already takes or sets."""
 
-    def __init__(self, index: RunIndex, facts: TypeFacts, old: str, renamed: Callable[[Path, int], bool]) -> None:
+    def __init__(self, index: RunIndex, facts: TypeFacts, old: str, new: str, renamed: Callable[[Path, int], bool]) -> None:
         self.index = index
         self.facts = facts
         self.old = old
+        self.new = new
         self._renamed = renamed
         self._verdicts: dict[tuple[Path, int], Verdict] = {}
         self._active: set[tuple[Path, int]] = set()
 
     def shape(self, source: SourceFile, fn: Function) -> CarrierShape:
-        self.index.ensure(self.index.memo(("carrier_queries", source.path), partial(carrier_queries, source)))
+        self.index.memo(("carrier_facts", source.path), lambda: self.index.ensure(carrier_queries(source)))
         return self.index.memo(("carrier_shape", source.path, source.span(fn)[0]), partial(CarrierShape, source, fn))
+
+    def _provable(self, source: SourceFile, fn: Function, shape: CarrierShape) -> bool:
+        """Whether `shape` is resolved for this key: every measuring callee is the builtin, each key-form string of
+        `old` is a plain literal, and `fn` neither takes nor sets `new`."""
+        if not shape.resolved or self.new in shape.literal_keys or any(key.value == self.new for key in shape.keys):
+            return False
+        if any(a.arg == self.new for a in (*fn.args.args, *fn.args.kwonlyargs)):
+            return False
+        if any(key.value == self.old and plain_key_span(source, key, self.old) is None for key in shape.keys):
+            return False
+        return all(self._builtin(source, name) for name in shape.measures)
+
+    def _builtin(self, source: SourceFile, name: ast.Name) -> bool:
+        span = source.name_span(name)
+        found = self.index.definition(source.path, span[0]) if span is not None else []
+        return bool(found) and all(s.path.name == "builtins.pyi" for s in found)
 
     def key_forms(self, source: SourceFile) -> Iterator[tuple[Function, ast.Constant]]:
         """Each key-form string spelling the key, with its carrier."""
@@ -313,7 +379,7 @@ class KeywordFlow:
         self._active.add(key)
         shape = self.shape(source, fn)
         verdict: Verdict = "unresolved"
-        if shape.resolved:
+        if self._provable(source, fn, shape):
             verdict = _join([self._sink(source, fn, kind, call) for kind, call in shape.sinks])
         self._active.discard(key)
         self._verdicts[key] = verdict
@@ -353,7 +419,28 @@ class KeywordFlow:
         found = self._definitions(source, func, strict=True)
         if found is None:
             return "unresolved"
-        return _join([_as_verdict(self._target(decl, node, site=False), "renamed") for decl, node in found])
+        return _join([self._sink_target(source, call, decl, node) for decl, node in found])
+
+    def _sink_target(self, source: SourceFile, call: ast.Call, decl: SourceFile, node: Function | ast.ClassDef) -> Verdict:
+        """Where the key lands in a sink's callee; a decorated `def` declaring the renamed parameter only by the
+        signature's proof."""
+        landing = self._target(decl, node, site=False)
+        if landing == "declared" and isinstance(node, _FUNCTIONS) and node.decorator_list and not self._proven(source, call):
+            return "unresolved"
+        return _as_verdict(landing, "renamed")
+
+    def _proven(self, source: SourceFile, call: ast.Call) -> bool:
+        """Whether the signature at sink `call` proves the key follows the rename; one export for the file's sinks."""
+        self.index.memo(("sink_signatures", source.path, self.old), lambda: self.index.probe_signatures(self._sink_sites(source)))
+        span = source.name_span(call.func) if isinstance(call.func, (ast.Name, ast.Attribute)) else None
+        return span is not None and signature_proof(self.index, source.path, span[0], self.old, self.new)
+
+    def _sink_sites(self, source: SourceFile) -> list[tuple[Path, int]]:
+        """The callee of each call sink of `source`'s carriers whose signature binds the key."""
+        carriers = [fn for fn in source.of_type(ast.FunctionDef) + source.of_type(ast.AsyncFunctionDef) if fn.args.kwarg is not None]
+        spans = [source.name_span(call.func) for fn in carriers for kind, call in self.shape(source, fn).sinks
+                 if kind == "call" and isinstance(call.func, (ast.Name, ast.Attribute))]
+        return [(source.path, span[0]) for span in spans if span is not None and _binds_old(self.index, source.path, span[0], self.old)]
 
     def _pydantic_method(self, source: SourceFile, func: ast.expr) -> str | None:
         """The name of the method of Pydantic's `BaseModel` that callee `func` resolves to."""
@@ -411,9 +498,11 @@ class KeywordFlow:
         if not constructors:
             return "other" if site or chain.kind is None else self._field(cls)
         declared = [d for source, fn in constructors if (d := self._declared(source, fn)) is not None]
-        if declared:
-            return "declared" if all(declared) else "unresolved" if any(declared) else "other"
-        return _join([self.carrier(source, fn) for source, fn in constructors if fn.args.kwarg is not None])
+        if not declared:
+            return _join([self.carrier(source, fn) for source, fn in constructors if fn.args.kwarg is not None])
+        if all(declared):
+            return "declared"
+        return "unresolved" if any(declared) else "other"
 
     def _field(self, cls: ClassRef) -> Verdict:
         """Where the key lands among keyed class `cls`'s fields; an aliased field does not take it."""

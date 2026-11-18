@@ -386,3 +386,16 @@ def test_a_signature_fact_holds_one_alternative_per_overload_and_union_member(
     signatures: dict[str, tuple[tuple[str, ...], ...]]
 ) -> None:
     assert (_binds(signatures["ov"]), _binds(signatures["pick"])) == ([False, True], [False, True])
+
+
+CLASS_KEYWORD = "class Child(metaclass=type):\n    pass\n"
+
+
+def test_a_signature_fact_at_a_class_keyword_is_empty(tmp_path: Path) -> None:
+    root = write_project(tmp_path / "p", {"pkg/k.py": CLASS_KEYWORD}).resolve()
+    path = root / "pkg" / "k.py"
+    with LanguageServer(root) as server:
+        server.open(path, CLASS_KEYWORD)
+        index = server.export(ExportRequest(names=[], files=[], facts=[
+            FactQuery(path=path, offset=CLASS_KEYWORD.index("metaclass"), kinds=("signature",))]))
+    assert [facts.signature for facts in index.answers] == [()]

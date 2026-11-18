@@ -87,3 +87,24 @@ def test_the_export_types_a_never_receiver(tmp_path: Path) -> None:
     assert [facts.access for facts in index.answers] == ["Never", "Any", None]
     members = [o.receiver for o in index.occurrences if o.kind == "member"]
     assert members == ["Never", "Never", "Never", "Any", "Unknown", "Unknown", None]
+
+
+NAMED_NEVER = """\
+class Never:
+    id: int = 0
+
+
+def read(x: Never) -> int:
+    return x.id
+"""
+
+
+def test_a_class_named_never_is_a_typed_receiver(tmp_path: Path) -> None:
+    root = write_project(tmp_path / "p", {"pkg/n.py": NAMED_NEVER}).resolve()
+    path = root / "pkg" / "n.py"
+    with LanguageServer(root) as server:
+        server.open(path, NAMED_NEVER)
+        index = server.export(ExportRequest(names=["id"], files=[path], facts=[
+            FactQuery(path=path, offset=NAMED_NEVER.index("x.id") + 2, kinds=("access",))]))
+    assert [facts.access for facts in index.answers] == [None]
+    assert [o.receiver for o in index.occurrences if o.kind == "member"] == [None]

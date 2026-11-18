@@ -327,6 +327,36 @@ def test_a_map_reports_members_and_keywords_in_one_closing_line(
     assert file_tree(root) == before
 
 
+TWO_PARAMETERS = Template("""\
+from collections.abc import Iterator
+from contextlib import contextmanager
+
+
+@contextmanager
+def scope(*, $models: int, $limit: int, other: int = 0) -> Iterator[int]:
+    yield $models + $limit + other
+
+
+def use() -> None:
+    with scope($models=1, $limit=2) as s:
+        print(s)
+    with scope($limit=2, other=3, $models=1) as t:
+        print(t)
+""")
+
+
+def test_a_map_renaming_two_parameters_of_one_decorated_callee_links_both_keywords(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    entries = [{"file": "pkg/h.py", "symbol": "scope(models)", "new_name": NEW},
+               {"file": "pkg/h.py", "symbol": "scope(limit)", "new_name": "cap"}]
+    root = write_project(tmp_path / "p", {"pkg/h.py": TWO_PARAMETERS.substitute(models=OLD, limit="limit"),
+                                          "map.yaml": yaml.safe_dump(entries)})
+    code, _out, err = run(root, ["--apply", "rename-map", "map.yaml"], monkeypatch, capsys)
+    assert (code, err) == (0, "")
+    assert read(root, "pkg/h.py") == TWO_PARAMETERS.substitute(models=NEW, limit="cap")
+
+
 RESOLVED = "def kwonly(*, models: int) -> int:\n    return models\n"
 
 

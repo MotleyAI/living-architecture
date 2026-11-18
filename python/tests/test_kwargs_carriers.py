@@ -252,9 +252,180 @@ def test_an_aliased_field_changes_no_carrier_keyword_key_or_key_string(
 ) -> None:
     text = ALIASED.substitute(config=config, default=default)
     root = write_project(tmp_path / "p", {"pkg/q.py": text})
-    code, _out, _err = run(root, _rename("Query.measures", "metrics", "--allow-blindspots"), monkeypatch, capsys)
-    assert code == 0
+    code, _out, err = run(root, _rename("Query.measures", "metrics"), monkeypatch, capsys)
+    leftovers = [message("refactor.leftover", path="pkg/q.py", line=line, where="string", old="measures") for line in (12, 13, 13)]
+    assert (code, err.splitlines()) == (0, leftovers)
     assert read(root, "pkg/q.py") == text.replace("    measures: list[str]", "    metrics: list[str]")
+
+
+SINK = """\
+from typing import Any
+
+
+def sink(*, old: int = 0, **rest: int) -> int:
+    return old + len(rest)
+
+
+def factory() -> Any:
+    return object
+"""
+# Carriers whose flow of `old` or of `new` is unprovable, then one that only forwards.
+UNPROVABLE = """\
+from typing import Any
+
+from pkg.s import factory, sink
+
+
+def concatenated(**kw: Any) -> int:
+    print(kw["o" "ld"])
+    return sink(**kw)
+
+
+def sets_new(**kw: Any) -> int:
+    return sink(**{**kw, "new": 2})
+
+
+def defaults_new(**kw: Any) -> int:
+    kw.setdefault("new", 2)
+    return sink(**kw)
+
+
+def takes_new(*, new: int = 2, **kw: Any) -> int:
+    return sink(**kw) + new
+
+
+def chain_new(**kw: Any) -> int:
+    return takes_new(**kw)
+
+
+class Dynamic(factory()):
+    def __init__(self, **kw: Any) -> None:
+        self.total = sink(**kw)
+
+
+def dynamic_one(**kw: Any) -> Dynamic:
+    return Dynamic(**kw)
+
+
+def dynamic_two(**kw: Any) -> Dynamic:
+    return Dynamic(**kw)
+
+
+def plain(**kw: Any) -> int:
+    return sink(**kw)
+"""
+MEASURED = """\
+from typing import Any
+
+from pkg.s import sink
+
+
+def len(mapping: dict[str, Any]) -> int:
+    return mapping["o" + "ld"]
+
+
+def measured(**kw: Any) -> int:
+    return len(kw) + sink(**kw)
+"""
+UNPROVABLE_NAMES = ["c.concatenated", "c.sets_new", "c.defaults_new", "c.takes_new", "c.chain_new", "c.dynamic_one",
+                    "c.dynamic_two", "m.measured"]
+UNPROVABLE_USE = "from typing import Any\n\nfrom pkg import c, m\n\n\ndef use(registry: dict[str, Any]) -> None:\n" + "".join(
+    f"    {name}(old=1)\n" for name in UNPROVABLE_NAMES) + '    registry["build"](**{"old": 1})\n    c.plain(old=1)\n'
+
+
+def test_a_carrier_whose_flow_of_either_name_is_unprovable_lists_its_keyword(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    files = {"pkg/s.py": SINK, "pkg/c.py": UNPROVABLE, "pkg/m.py": MEASURED, "pkg/use.py": UNPROVABLE_USE}
+    root = write_project(tmp_path / "p", files)
+    argv = ["--apply", "rename", "--file", "pkg/s.py", "--symbol", "sink(old)", "--new-name", "new", "--allow-blindspots"]
+    code, _out, err = run(root, argv, monkeypatch, capsys)
+    assert code == 0
+    callees = [*UNPROVABLE_NAMES, 'registry["build"]']
+    assert err.splitlines() == [_unlinked("pkg/use.py", 7 + i, callee, "old") for i, callee in enumerate(callees)]
+    assert read(root, "pkg/use.py") == UNPROVABLE_USE.replace("c.plain(old=1)", "c.plain(new=1)")
+    assert (read(root, "pkg/c.py"), read(root, "pkg/m.py")) == (UNPROVABLE, MEASURED)
+
+
+DECORATED_SINKS = Template("""\
+import functools
+from collections.abc import Iterator
+from contextlib import AbstractContextManager, contextmanager
+from typing import Any
+
+
+@contextmanager
+def engine(*, $engine: int) -> Iterator[int]:
+    yield $engine
+
+
+@functools.lru_cache
+def cached($cached: int) -> int:
+    return $cached
+
+
+class K:
+    @staticmethod
+    def make(*, $make: int) -> int:
+        return $make
+
+
+def mk_engine(**kw: Any) -> AbstractContextManager[int]:
+    return engine(**kw)
+
+
+def mk_cached(**kw: Any) -> int:
+    return cached(**kw)
+
+
+def mk_static(**kw: Any) -> int:
+    return K.make(**kw)
+
+
+def use() -> None:
+    print(mk_engine($engine=1), mk_cached(models=1), mk_static($make=1))
+""")
+DECORATED_SLOTS = {"engine": "models", "cached": "models", "make": "models"}
+
+
+@pytest.mark.parametrize(("symbol", "slot"), [("engine(models)", "engine"), ("K.make(models)", "make")])
+def test_a_decorated_sink_whose_signature_follows_the_rename_carries_the_keyword(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], symbol: str, slot: str
+) -> None:
+    root = write_project(tmp_path / "p", {"pkg/q.py": DECORATED_SINKS.substitute(DECORATED_SLOTS)})
+    code, _out, err = run(root, _rename(symbol, "datasets"), monkeypatch, capsys)
+    assert (code, err) == (0, "")
+    assert read(root, "pkg/q.py") == DECORATED_SINKS.substitute({**DECORATED_SLOTS, slot: "datasets"})
+
+
+def test_a_decorated_sink_whose_signature_drops_the_parameter_lists_the_keyword(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = write_project(tmp_path / "p", {"pkg/q.py": DECORATED_SINKS.substitute(DECORATED_SLOTS)})
+    code, _out, err = run(root, _rename("cached(models)", "datasets", "--allow-blindspots"), monkeypatch, capsys)
+    assert (code, err.splitlines()) == (0, [_unlinked("pkg/q.py", 36, "mk_cached", "models")])
+    assert read(root, "pkg/q.py") == DECORATED_SINKS.substitute({**DECORATED_SLOTS, "cached": "datasets"})
+
+
+UNPACKED_TWICE = """\
+def f(*, old: int = 0, **rest: int) -> int:
+    return old + len(rest)
+
+
+def use() -> int:
+    return f(**{"old": 1}, **{"new": 2})
+"""
+
+
+def test_a_key_meeting_the_new_name_in_another_unpacked_literal_is_a_name_conflict(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = write_project(tmp_path / "p", {"pkg/q.py": UNPACKED_TWICE})
+    before = file_tree(root)
+    code, _out, err = run(root, _rename("f(old)", "new"), monkeypatch, capsys)
+    assert code == 1
+    assert err.splitlines()[-1] == message("refactor.name-conflict", name="new", path="pkg/q.py", line=6)
+    assert file_tree(root) == before
 
 
 COLLISION = HELPER.replace('q(measures=["n"])', 'q(measures=["n"], metrics=[])')

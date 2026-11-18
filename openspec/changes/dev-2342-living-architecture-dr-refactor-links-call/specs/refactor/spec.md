@@ -40,7 +40,9 @@ A carrier SHALL be a `def` or `async def` with a `**kw` parameter. Its sinks SHA
 - `X(**kw)`, where the checker resolves `X` to a keyed class (a key names the field its method resolution order holds),
   to a function or method (a key names its positional-or-keyword or keyword-only parameter), to any other class (a key
   names a parameter of the `__init__` or `__new__` the checker resolves the call to), or to another carrier (a key that
-  is none of that carrier's own parameters continues into its flow);
+  is none of that carrier's own parameters continues into its flow). A function or method sink whose `def` is decorated
+  SHALL count only when the checker's signature at the sink binds `old` in the code as it is and `new` once the renamed
+  declarations are renamed; otherwise the sink is unresolved;
 - `X.model_construct(**kw)`, `X.model_validate(kw)` and `x.model_copy(update=kw)`, as the requirement on typed dict
   keys targets them;
 - `super().__init__(**kw)`: the function the checker resolves it to, or, when that is Pydantic's `BaseModel.__init__`,
@@ -51,10 +53,12 @@ A carrier SHALL be a `def` or `async def` with a `**kw` parameter. Its sinks SHA
 
 A key form SHALL be `kw["s"]` (read, assigned or deleted), `kw.get("s", ...)`, `kw.pop("s", ...)`,
 `kw.setdefault("s", ...)`, `"s" in kw` or `"s" not in kw`, with `s` a plain string literal. A neutral use SHALL be `kw`
-tested for truth or passed to `len`. A carrier SHALL be resolved when every use of its `**kw` name in its body is a
+tested for truth or passed to the builtin `len`. A carrier SHALL be resolved when every use of its `**kw` name in its body is a
 sink, a key form or a neutral use and every sink's callee resolves; any other use (an alias, a copy, `update`, `|`, `kw`
 as a plain argument, `return kw`, iteration, `items()`, `keys()`, `values()`, a key that is not a plain string literal,
 a rebinding, a use in a nested scope) SHALL make it unresolved. A same-named binding of a nested scope is not a use.
+For a rename to `new`, a carrier that declares a parameter `new` a keyword can bind, holds a key form `"new"`, or holds
+`**kw` in a dict literal with a constant key `"new"` SHALL be unresolved.
 
 For a renamed field of a keyed class or a renamed parameter `old`, each sink of a carrier SHALL yield *renamed* (the
 key `old` lands only on renamed declarations there), *other* (it lands on another declaration or on none), or
@@ -135,14 +139,15 @@ other rules neither rewrite nor prove to land on another declaration, where:
   parameter, while the callee's signature as the checker types it does not bind `old` there; or
 - the callee resolves to a carrier whose verdict for `old` is mixed or unresolved; or
 - the checker types the callee `Unknown`, `Any`, `Never` or a union holding one of them; or
-- the callee is a class declaring both `__init__` and `__new__` with a parameter `old`, of which the rename renames
-  only one, and the checker resolves the keyword to neither.
+- the callee is a class declaring both `__init__` and `__new__` with a parameter `old`, of which the run renames only
+  one; or
+- the key is in a dict literal unpacked into a call whose callee is neither a name nor an attribute access.
 
 Unlinked keywords SHALL be blind spots of the rename: each SHALL print one `refactor.unlinked-keyword` line on stderr
 (`{callee}` the callee's source text with each run of whitespace collapsed to one space), sorted with the other
 blind-spot lines by path, line and column, followed by `refactor.blindspots`; the rename SHALL print nothing on stdout,
-write nothing and exit 1, with or without `--apply`. With `--allow-blindspots` the same lines SHALL be printed and the
-rename SHALL proceed, leaving those keywords unchanged. A `--keep` covering a line SHALL drop its line. With `--unsure
+write nothing and exit 1, with or without `--apply`. With `--allow-blindspots` the per-site lines SHALL be printed without
+`refactor.blindspots` and the rename SHALL proceed, leaving those keywords unchanged. A `--keep` covering a line SHALL drop its line. With `--unsure
 include` every unlinked keyword and key SHALL also be rewritten, and blind spots SHALL be reported, refused and let
 through as without it. `{names}` of `refactor.blindspots` SHALL list each old name with a blind spot once, a member's
 as `.old` and an unlinked keyword's as `old=`, joined by `, `. A rename of a function, class, module, local or
@@ -207,7 +212,8 @@ non-field member SHALL NOT be scanned for unlinked keywords, and `dr-compliance`
 For a parameter of a Python `__init__` or `__new__`, the renamed declarations SHALL be the parameter named `old` of the
 located `def` and of its overload group only, with or without `--no-in-hierarchy`. Call keywords SHALL follow the
 checker: `A(old=...)`, `cls(old=...)` and `super().__init__(old=...)` resolving to a renamed declaration SHALL be
-rewritten. The same-named constructor parameter of a base, a subclass or a sibling class, its body uses and the
+rewritten. A keyword of a call of a class declaring both `__init__` and `__new__` with a parameter `old` SHALL be
+rewritten only when the run renames both to the same name. The same-named constructor parameter of a base, a subclass or a sibling class, its body uses and the
 keywords of calls resolving to it SHALL be unchanged and SHALL NOT be listed. A TypeScript rename of a constructor
 parameter SHALL likewise change no other class's constructor.
 
@@ -231,8 +237,8 @@ parameter SHALL likewise change no other class's constructor.
 #### Scenario: Class declaring both constructors
 - **WHEN** a class declares `__new__(cls, *, field: str)` and `__init__(self, *, field: str)`, a module calls
   `K(field="a")`, and `__init__`'s `field` is renamed
-- **THEN** the keyword is renamed when the checker resolves it to `__init__`, and is listed as an unlinked keyword when
-  the checker resolves it to neither
+- **THEN** the call is listed as an unlinked keyword and the rename refuses; a `rename-map` renaming both parameters to
+  `column` renames both declarations and the call
 
 #### Scenario: Several constructors in one map
 - **WHEN** a `rename-map` holds one entry for `A.__init__(field)` and one for `B.__init__(field)`
@@ -253,7 +259,8 @@ declaration, every use of it in its function including nested scopes, and every 
 checker resolves to a renamed declaration, links to one through the callee's signature, or carries to one through
 `**kwargs` carriers, as the requirements on those links define. A `name=` keyword SHALL resolve only to a
 positional-or-keyword or keyword-only parameter, never to a positional-only parameter, `*args` or `**kwargs`.
-Positional arguments, the keys of a mapping unpacked by name (`f(**mapping)`) and every other text SHALL be unchanged.
+Positional arguments and the keys of a mapping unpacked by name (`f(**mapping)`) SHALL be unchanged, as SHALL every
+other text those requirements do not name.
 
 #### Scenario: Keyword-only parameter of a function
 - **WHEN** `def kwonly(*, model_name: str) -> str: return model_name` has its parameter renamed to `dataset_name`,

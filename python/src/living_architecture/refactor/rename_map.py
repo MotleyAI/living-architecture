@@ -606,6 +606,9 @@ class RenameMap:
         for i in live:
             renames[i].is_renamed = renamed.__contains__
         symbol_renames = [r for i in live if isinstance(r := renames[i], SymbolRename)]
+        new_names = {site: r.new for r in symbol_renames for site in r.seeds}
+        for r in symbol_renames:
+            r.renamed_as = new_names.get
         symbols = sorted({r.old for r in symbol_renames})
         if symbols:
             files = [(self.root / rel, self.session.snapshot.source(rel))
@@ -849,7 +852,7 @@ class RenameMap:
             names = sorted({(c.path, c.line, c.name): c for c in [*keyed, *checked]}.items())
             conflicts = [*(_name_conflict(c) for _, c in names), *merged]
         names = ", ".join(dict.fromkeys(name for r in live for name in r.blindspot_names()))
-        closing = [refusal(message("refactor.blindspots", count=len(blind), names=names))] if blind else []
+        closing = [refusal(message("refactor.blindspots", count=len({b.text for b in blind}), names=names))] if blind else []
         return edits, unique([*own, *retargets, *_texts(blind), *stand_ins, *conflicts, *sites, *closing])
 
     def findings(self, results: list[RenameResult], edits: list[TextEdit], listed: list[Finding]) -> list[Finding]:

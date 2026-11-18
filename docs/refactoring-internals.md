@@ -57,8 +57,10 @@ A call keyword `old=` the checker resolves to no declaration of that name is lin
 rename asks the checker for the callee's signature again, with the renamed parameters renamed in memory: the keyword
 follows when every callable alternative binds the old name before and the new name after. A `**kwargs` carrier (a
 `def` whose `**kw` only reaches calls it is unpacked into, key lookups and truth tests) passes the keyword on to what
-it builds: a keyed class, a function, a constructor or another carrier. A keyword neither rule links, and one on a
-callee typed `Unknown`, `Any` or `Never`, is an `unlinked-keyword` blind spot of a parameter or field rename.
+it builds: a keyed class, a function, a constructor or another carrier. A keyword proved to land on another
+declaration, or on none, is left alone. Any other keyword neither rule links (a callee whose signature does not bind
+the name, a carrier whose flow is mixed or unprovable), and one on a callee typed `Unknown`, `Any` or `Never`, is an
+`unlinked-keyword` blind spot of a parameter or field rename.
 
 ## TypeScript twin
 

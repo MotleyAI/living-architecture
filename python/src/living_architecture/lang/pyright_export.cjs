@@ -23,7 +23,7 @@ const NODE = { Argument: 1, Call: 9, Class: 10, Decorator: 16, ImportAs: 24, For
   MemberAccess: 35, Module: 36, ModuleName: 37, Name: 38, Parameter: 41, StringList: 48, String: 49, TypeAnnotation: 54 };
 const ALIAS_DECLARATION = 8;
 const VERDICTS = ['Unknown', 'Any', 'Never'];
-const PARAM_KEYWORD = [1, 2];
+const PARAM_KEYWORD = new Set([1, 2]);
 const HOVER = /^\([\p{L}\p{N}_ ]+\) [\p{L}\p{N}_.]+: ([\s\S]*)$/u;
 
 // A failure overwrites any result; `patched` never replaces one.
@@ -155,8 +155,12 @@ class Exporter {
     });
   }
 
+  // `Never` only as the checker evaluates it: a class of that name hovers alike.
   verdict(uri, position) {
-    return hoverType(this.hover(uri, position));
+    const kind = hoverType(this.hover(uri, position));
+    if (kind !== 'Never') return kind;
+    const node = this.nodeAt(uri, position);
+    return node && this.typeVerdict(node) === 'Never' ? kind : null;
   }
 
   // The verdict of an expression's type as the checker evaluates it: the first of `Unknown`, `Any` and `Never` it is
@@ -191,7 +195,7 @@ class Exporter {
   // The call a name belongs to as one of its keywords or as its callee's name.
   callOf(node) {
     const parent = node?.parent;
-    if (parent?.nodeType === NODE.Argument && parent.d.name === node) return parent.parent;
+    if (parent?.nodeType === NODE.Argument && parent.d.name === node) return parent.parent?.nodeType === NODE.Call ? parent.parent : undefined;
     const callee = parent?.nodeType === NODE.MemberAccess && parent.d.member === node ? parent : node;
     return callee?.parent?.nodeType === NODE.Call && callee.parent.d.leftExpr === callee ? callee.parent : undefined;
   }
@@ -204,7 +208,7 @@ class Exporter {
       let inner;
       if (this.types.isFunction(sub)) {
         const details = this.parameters.getParamListDetails(sub);
-        out.push(details.params.filter((p) => p.param.category === 0 && PARAM_KEYWORD.includes(p.kind)).map((p) => p.param.name));
+        out.push(details.params.filter((p) => p.param.category === 0 && PARAM_KEYWORD.has(p.kind)).map((p) => p.param.name));
         return;
       }
       if (this.types.isOverloaded(sub)) {

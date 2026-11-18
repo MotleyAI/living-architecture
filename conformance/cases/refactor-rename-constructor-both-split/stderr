@@ -1,0 +1,10 @@
+[resolve]
+[checks]
+[references]
+[references 1/1] entry 1: field -> column
+[rules]
+[rules 1/1] entry 1: field -> column: 1 refusal(s)
+pkg/k.py:10: unlinked-keyword: K(field=...) — the checker does not link field= to the renamed declaration, so a rename of field is unverifiable
+[conflicts]
+pkg/k.py:10: unlinked-keyword: K(field=...) — the checker does not link field= to the renamed declaration, so a rename of field is unverifiable
+1 blind spot(s) of field=: type or resolve them, or pass --allow-blindspots

@@ -45,8 +45,9 @@ the refactor touches (`la-config get languages` lists the repo's).
      and tell the user which.
    - `unlinked-keyword`: a call keyword `OLD=` the checker cannot link to the renamed parameter or field (a
      decorator that erases the signature, a `**kwargs` helper that copies its dict or passes it on). Read each
-     listed call: `--unsure include --allow-blindspots` renames them, `--allow-blindspots` alone leaves them.
-     Tell the user which.
+     listed call and the helper it reaches: `--unsure include --allow-blindspots` renames the keywords,
+     `--allow-blindspots` alone leaves them. Neither changes a key the helper reads by its old name, so fix
+     those by hand. Tell the user which.
    - a site that must keep the old name (a back-compat test or shim): `--keep PATH:LINE`, or
      `--keep PATH` for a whole file.
    - code still using the back-compat alias of an earlier rename: a `retarget` entry moves it to

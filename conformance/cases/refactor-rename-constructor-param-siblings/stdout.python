@@ -2,6 +2,7 @@ Renaming <field> to <column>:
 Renaming <field> to <column>:
 Renaming <field> to <column>:
 Renaming <field> to <column>:
+Renaming <field> to <column>:
 
 
 --- a/pkg/errors.py
@@ -53,8 +54,12 @@ Renaming <field> to <column>:
  
  
  class Ov2:
-@@ -31,5 +31,5 @@
-     def __new__(cls, *, field: str) -> "K":
+@@ -28,8 +28,8 @@
+ 
+ 
+ class K:
+-    def __new__(cls, *, field: str) -> "K":
++    def __new__(cls, *, column: str) -> "K":
          return super().__new__(cls)
  
 -    def __init__(self, *, field: str) -> None:

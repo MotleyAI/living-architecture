@@ -76,8 +76,8 @@ only when:
 | TypeScript | `tsconfig` (`strict`, `noImplicitAny`, `noImplicitOverride` enabled), `explicit-any`, `untyped-def` (implicitly-`any` parameters, as the type checker sees them), `mock`, `attr-blindspot` |
 
 `--select` picks a subset. `attr-blindspot` runs only with `--attr NAME`: it reports `x.NAME` accesses and member
-strings (`getattr(x, "NAME")`, `vi.spyOn(x, 'NAME')`, …) whose receiver the type checker cannot type: `Unknown`
-or `Any` in Python (through the bundled basedpyright), `any` in TypeScript.
+strings (`getattr(x, "NAME")`, `vi.spyOn(x, 'NAME')`, …) whose receiver the type checker cannot type: `Unknown`,
+`Any` or `Never` in Python (through the bundled basedpyright), `any` in TypeScript.
 
 ## Using it on an existing repo
 

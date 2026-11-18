@@ -159,9 +159,18 @@ class TypeFacts:
         """`cls`'s ancestry; `UnresolvedBase` when a base in it does not resolve."""
         if cls.key in self._chains:
             return self._chains[cls.key]
+        self._chains[cls.key] = _Chain([cls], None)
+        try:
+            chain = self._ancestry(cls)
+        except UnresolvedBase:
+            del self._chains[cls.key]
+            raise
+        self._chains[cls.key] = chain
+        return chain
+
+    def _ancestry(self, cls: ClassRef) -> _Chain:
         parents: list[list[ClassRef]] = []
         kind: KeyedKind | None = None
-        self._chains[cls.key] = _Chain([cls], None)
         for base in cls.node.bases:
             target = _name_node(base)
             if target is None:
@@ -179,9 +188,7 @@ class TypeFacts:
             parent_chain = self.chain(parent)
             kind = kind or parent_chain.kind
             parents.append(parent_chain.mro)
-        chain = _Chain(_c3(cls, parents), kind)
-        self._chains[cls.key] = chain
-        return chain
+        return _Chain(_c3(cls, parents), kind)
 
     def lookup(self, cls: ClassRef, name: str) -> tuple[ClassRef, Span, ast.AnnAssign | ast.Assign] | None:
         """Field `name` as found along `cls`'s method resolution order."""
@@ -778,7 +785,7 @@ def _nested_scopes(scope: ast.AST) -> Iterator[ast.AST]:
             yield node
 
 
-def _binds_otherwise(node: ast.AST, var: str) -> bool:
+def binds_otherwise(node: ast.AST, var: str) -> bool:
     """Whether `node` binds `var` other than by a plain assignment or name store."""
     if isinstance(node, (ast.Global, ast.Nonlocal)):
         return var in node.names
@@ -788,6 +795,8 @@ def _binds_otherwise(node: ast.AST, var: str) -> bool:
         return (node.asname or node.name.split(".")[0]) == var
     if isinstance(node, (ast.ExceptHandler, ast.MatchAs, ast.MatchStar)):
         return node.name == var
+    if isinstance(node, ast.MatchMapping):
+        return node.rest == var
     if isinstance(node, ast.arg):
         return node.arg == var
     return False
@@ -799,7 +808,7 @@ def single_binding(scope: ast.AST, var: str, sink_loads: set[int]) -> ast.Dict |
     if not isinstance(scope, (ast.FunctionDef, ast.AsyncFunctionDef)):
         return None
     own = list(own_nodes(scope))
-    if any(_binds_otherwise(n, var) for n in own):
+    if any(binds_otherwise(n, var) for n in own):
         return None
     names = [n for n in own if isinstance(n, ast.Name) and n.id == var]
     stores = [n for n in names if not isinstance(n.ctx, ast.Load)]
@@ -813,7 +822,7 @@ def single_binding(scope: ast.AST, var: str, sink_loads: set[int]) -> ast.Dict |
         return None
     for inner in _nested_scopes(scope):
         if any(
-            (isinstance(n, ast.Name) and n.id == var) or _binds_otherwise(n, var) for n in ast.walk(inner)
+            (isinstance(n, ast.Name) and n.id == var) or binds_otherwise(n, var) for n in ast.walk(inner)
         ):
             return None
     return assigns[0].value

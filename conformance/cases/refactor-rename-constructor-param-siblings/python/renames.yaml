@@ -2,3 +2,4 @@
 - {file: pkg/shapes.py, symbol: N1.__new__(field), new_name: column}
 - {file: pkg/shapes.py, symbol: Ov.__init__(field), new_name: column}
 - {file: pkg/shapes.py, symbol: K.__init__(field), new_name: column}
+- {file: pkg/shapes.py, symbol: K.__new__(field), new_name: column}

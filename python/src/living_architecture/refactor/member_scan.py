@@ -5,7 +5,10 @@ from __future__ import annotations
 
 import ast
 import bisect
+import functools
+import io
 import re
+import tokenize
 from collections.abc import Callable, Iterator
 from pathlib import Path
 
@@ -333,16 +336,45 @@ def collapsed(text: str) -> str:
     return _SPACE.sub(" ", text)
 
 
+@functools.lru_cache(maxsize=4)
+def _comments(text: str) -> tuple[tuple[int, int], ...]:
+    """The span of each comment of `text`."""
+    starts = [0, *(m.end() for m in re.finditer("\n", text))]
+    try:
+        tokens = list(tokenize.generate_tokens(io.StringIO(text).readline))
+    except (tokenize.TokenError, SyntaxError):
+        return ()
+    return tuple((starts[t.start[0] - 1] + t.start[1], starts[t.end[0] - 1] + t.end[1])
+                 for t in tokens if t.type == tokenize.COMMENT)
+
+
+def _blank_before(text: str, comments: tuple[tuple[int, int], ...], at: int, left: int) -> int:
+    """The last offset before `at`, not below `left`, that is neither whitespace nor in a comment."""
+    while at >= left:
+        comment = next((start for start, end in comments if start <= at < end), None)
+        if comment is None and not text[at].isspace():
+            break
+        at = at - 1 if comment is None else comment - 1
+    return at
+
+
+def _blank_after(text: str, comments: tuple[tuple[int, int], ...], at: int) -> int:
+    """The first offset from `at` on that is neither whitespace nor in a comment."""
+    while at < len(text):
+        comment = next((end for start, end in comments if start == at), None)
+        if comment is None and not text[at].isspace():
+            break
+        at = at + 1 if comment is None else comment
+    return at
+
+
 def written_text(source: SourceFile, node: ast.expr, left: int) -> str:
     """`node`'s source text with the parentheses written around it from `left` on, whitespace runs collapsed."""
     text = source.text
     start, end = source.span(node)
+    comments = _comments(text) if text.find("#", left) != -1 else ()
     while True:
-        before, after = start - 1, end
-        while before >= left and text[before].isspace():
-            before -= 1
-        while after < len(text) and text[after].isspace():
-            after += 1
+        before, after = _blank_before(text, comments, start - 1, left), _blank_after(text, comments, end)
         if before < left or text[before] != "(" or after >= len(text) or text[after] != ")":
             return collapsed(text[start:end])
         start, end = before, after + 1

@@ -810,7 +810,7 @@ export function runEntries(r: Refactor, specs: EntrySpec[], map: string, progres
     pending.push(...group.edits);
     keep(group, keeps);
     groups.push(group);
-    const refused = texts([...members.flatMap((t) => t.refusals), ...(allowed ? [] : group.blindspots), ...group.standIns]);
+    const refused = unique(texts([...members.flatMap((t) => t.refusals), ...(allowed ? [] : group.blindspots), ...group.standIns]));
     const indexes = members.flatMap((t) => t.indexes).toSorted((a, b) => a - b);
     const newNames = [...new Set(members.map((t) => t.newName))].join(', ');
     progress.result(n + 1, olds.length, indexes, old, newNames, refused.flatMap((f) => f.lines));
@@ -843,7 +843,7 @@ export function runEntries(r: Refactor, specs: EntrySpec[], map: string, progres
     });
   }
   const names = groups.filter((g) => g.blindspots.length > 0).map((g) => `.${g.old}`).join(', ');
-  const closing = blind.length > 0 ? [refusal(message('refactor.blindspots', { count: blind.length, names }))] : [];
+  const closing = blind.length > 0 ? [refusal(message('refactor.blindspots', { count: unique(blind).length, names }))] : [];
   const report = unique([...retargets, ...blind, ...standIns, ...conflicts, ...sites, ...closing]);
   if (report.length > 0) throw new Refused(report);
   const leftovers = groups.flatMap((g) => g.leftovers).sort(byPosition);

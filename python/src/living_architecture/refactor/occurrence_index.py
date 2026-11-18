@@ -173,6 +173,14 @@ def _function_queries(found: _Queries, fn: ast.FunctionDef | ast.AsyncFunctionDe
         found.names(fn.returns)
 
 
+def _signature_queries(found: _Queries, call: ast.Call, names: set[str]) -> None:
+    for k in call.keywords:
+        if k.arg in names:
+            found.ask(k, "signature")
+        elif k.arg is None and isinstance(k.value, ast.Dict) and any(_plain(key) in names for key in k.value.keys if key):
+            found.ask(call.func if isinstance(call.func, (ast.Name, ast.Attribute)) else None, "signature")
+
+
 def _call_queries(found: _Queries, call: ast.Call, names: set[str], shape: _Shape) -> None:
     arguments = [*call.args, *(k.value for k in call.keywords)]
     keyed = any(k.arg in names for k in call.keywords) or any(shape.candidate(a) for a in arguments)
@@ -180,11 +188,7 @@ def _call_queries(found: _Queries, call: ast.Call, names: set[str], shape: _Shap
         found.ask(call.func, "definition", "typeDefinition")
         if isinstance(call.func, ast.Attribute):
             found.ask(_name_node(call.func.value), "definition", "typeDefinition")
-    for k in call.keywords:
-        if k.arg in names:
-            found.ask(k, "signature")
-        elif k.arg is None and isinstance(k.value, ast.Dict) and any(_plain(key) in names for key in k.value.keys if key):
-            found.ask(call.func if isinstance(call.func, (ast.Name, ast.Attribute)) else None, "signature")
+    _signature_queries(found, call, names)
     strings = [s for a in call.args if (s := _plain(a)) is not None]
     if any(s in names or names & set(s.split(".")) for s in strings):
         found.ask(call.func, "definition")
@@ -199,7 +203,7 @@ def carrier_queries(source: SourceFile) -> list[FactQuery]:
     for fn in (n for n in source.nodes if isinstance(n, _FUNCTIONS) and n.args.kwarg is not None):
         for call in (n for n in ast.walk(fn) if isinstance(n, ast.Call)):
             func = call.func
-            found.ask(func if isinstance(func, (ast.Name, ast.Attribute)) else None, "definition", "typeDefinition")
+            found.ask(func if isinstance(func, (ast.Name, ast.Attribute)) else None, "definition", "typeDefinition", "signature")
             if isinstance(func, ast.Attribute):
                 receiver = func.value.func if isinstance(func.value, ast.Call) else func.value
                 found.ask(_name_node(receiver), "definition", "typeDefinition")
@@ -242,6 +246,9 @@ class RunIndex:
         self._probes: dict[tuple[Path, int], PositionFacts] = {}
         self._probe_results: dict[tuple[Path, tuple[int, int]], tuple[Verdict | None, list[Span]]] = {}
         self._renamed_signatures: dict[tuple[Path, int], tuple[tuple[str, ...], ...]] = {}
+        self._parameter_renames: frozenset[tuple[str, str]] = frozenset()
+        self._renamed_texts: dict[Path, str] = {}
+        self._shifts: dict[Path, list[tuple[int, int]]] = {}
         self.request = ExportRequest(names=[], files=[])
         self._memo: dict[Hashable, object] = {}
 
@@ -392,8 +399,28 @@ class RunIndex:
         """The probe round's facts at `offset` of a probe text."""
         return self._probes.get((path, offset))
 
-    def record_signature(self, path: Path, offset: int, signature: tuple[tuple[str, ...], ...]) -> None:
-        self._renamed_signatures[path, offset] = signature
+    def record_parameter_renames(self, renames: frozenset[tuple[str, str]], texts: dict[Path, str],
+                                 shifts: dict[Path, list[tuple[int, int]]]) -> None:
+        """The run's parameter renames: each old and new name, each file declaring one as its text with them renamed,
+        and per such file the start and the growth of each edit."""
+        self._parameter_renames = renames
+        self._renamed_texts = texts
+        self._shifts = shifts
+
+    def parameter_renames(self) -> frozenset[tuple[str, str]]:
+        """The old and new name of every parameter rename of the run."""
+        return self._parameter_renames
+
+    def probe_signatures(self, sites: Iterable[tuple[Path, int]]) -> None:
+        """Export, in one request, the signature at each of `sites` not yet probed, over the renamed texts."""
+        missing = sorted(set(sites) - self._renamed_signatures.keys())
+        shifted = {(path, offset): offset + sum(grown for start, grown in self._shifts.get(path, ()) if start < offset)
+                   for path, offset in missing}
+        self.probe(self._renamed_texts, [FactQuery(path=path, offset=shifted[path, offset], kinds=("signature",))
+                                         for path, offset in missing])
+        for path, offset in missing:
+            facts = self.probed(path, shifted[path, offset])
+            self._renamed_signatures[path, offset] = facts.signature if facts is not None else ()
 
     def renamed_signature(self, path: Path, offset: int) -> tuple[tuple[str, ...], ...] | None:
         """The signature at `offset` (the file's own) once the run's renamed parameters are renamed, when probed."""
