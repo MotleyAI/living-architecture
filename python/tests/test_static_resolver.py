@@ -1,5 +1,6 @@
 """la's static resolver: a package's own `from . import x` and a star import of a listed submodule reach the
-submodule; a cyclic re-export stays unresolved; namespace packages resolve; each import item is recorded."""
+submodule; a cyclic re-export stays unresolved; namespace packages resolve; each import item is recorded; `global`,
+`nonlocal`, comprehension and walrus scopes bind where Python does."""
 
 from __future__ import annotations
 
@@ -10,7 +11,7 @@ import pytest
 
 from living_architecture.refactor.patch_targets import SourceFolders
 from living_architecture.refactor.python_project import ProjectLayout
-from living_architecture.refactor.static_resolver import Module, Resolver, Value
+from living_architecture.refactor.static_resolver import Binder, Module, Resolver, Scope, Value
 
 
 def _resolver(root: Path, files: dict[str, str]) -> Resolver:
@@ -110,3 +111,51 @@ def test_the_binder_records_each_import_item_with_its_scope_and_guard() -> None:
             if (item := binder.import_items[id(alias)]).stmt is stmt]
     assert rows == [(1, 0, "module", None), (1, 1, "module", None), (3, 0, "module", "If"), (7, 0, "function", None),
                     (9, 0, "function", "Try")]
+
+
+def _binder(text: str) -> Binder:
+    return Module(ast.parse(text), ["m"], False).binder
+
+
+def _reads(binder: Binder, line: int) -> list[Scope]:
+    """The scopes of the `sub` loads on `line`, left to right."""
+    found = [(n.col_offset, s) for n, s in binder.loads if isinstance(n, ast.Name) and n.lineno == line and n.id == "sub"]
+    return [scope for _, scope in sorted(found, key=lambda pair: pair[0])]
+
+
+def _owners(binder: Binder) -> list[Scope]:
+    return [scope.owner(name) for scope, name, _ in binder.bound if name == "sub"]
+
+
+def test_a_global_name_binds_in_the_module_scope() -> None:
+    binder = _binder("import pkg.sub as sub\n\n\ndef f():\n    global sub\n    sub = None\n    return sub\n")
+    [read] = _reads(binder, 7)
+    assert read.resolving("sub") is binder.module
+    assert _owners(binder) == [binder.module, binder.module]
+
+
+def test_a_nonlocal_name_binds_in_the_enclosing_function_scope() -> None:
+    binder = _binder(
+        "def outer():\n    import pkg.sub as sub\n\n    def inner():\n        nonlocal sub\n        sub = None\n"
+        "        return sub\n\n    return inner, sub\n"
+    )
+    [read] = _reads(binder, 7)
+    [outer] = _reads(binder, 9)
+    assert read.resolving("sub") is outer
+    assert _owners(binder) == [outer, outer]
+
+
+def test_a_comprehension_first_iterable_is_read_in_the_enclosing_scope() -> None:
+    binder = _binder("import pkg.sub as sub\n\nitems = [sub for sub in sub.thing for x in sub]\n")
+    element, first, later = _reads(binder, 3)
+    assert first is binder.module
+    assert element is later
+    assert element is not binder.module
+    assert element.resolving("sub") is element
+
+
+def test_a_walrus_in_a_comprehension_binds_in_the_enclosing_function() -> None:
+    binder = _binder("import pkg.sub as sub\n\n\ndef f(xs):\n    [(sub := v) for v in xs]\n    return sub\n")
+    [read] = _reads(binder, 6)
+    assert read.resolving("sub") is read
+    assert read is not binder.module

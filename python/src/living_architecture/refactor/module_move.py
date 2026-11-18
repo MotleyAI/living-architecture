@@ -90,7 +90,7 @@ class ModuleMove:
         package binds explicitly (or answers through a module-level `__getattr__`)."""
         resolver = self.project.resolver
         for node, scope in file.attributes:
-            if node.attr != self.basename or resolver.resolve(file.module, scope, node.value) != ("module", self.old_parent):
+            if node.attr != self.basename or file.resolve(scope, node.value) != ("module", self.old_parent):
                 continue
             if not self._binds(self.old_parent) and resolver.member(self.old_parent, self.basename) == ("module", self.old):
                 file.rewrite_use(node, scope, self.new, self.new)

@@ -1,0 +1,17 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- move-module
+- --module
+- pkg/sub/thing.py
+- --dest
+- pkg
+fixture: refactor-move-shadowing
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: a use of a function-local alias import is rewritten like a module-level one

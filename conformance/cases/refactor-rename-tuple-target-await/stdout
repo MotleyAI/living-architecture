@@ -1,0 +1,17 @@
+Renaming <ds_by_model> to <datasets_by_model>:
+
+
+--- a/pkg/aw.py
++++ b/pkg/aw.py
+@@ -3,5 +3,5 @@
+ 
+ 
+ async def g(s: str) -> dict[str, int]:
+-    _scopes, ds_by_model = await scopes(s)
+-    return ds_by_model
++    _scopes, datasets_by_model = await scopes(s)
++    return datasets_by_model
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

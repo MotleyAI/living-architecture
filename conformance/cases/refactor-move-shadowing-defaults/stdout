@@ -1,0 +1,28 @@
+Moving module <thing>:
+
+
+rename from pkg/sub/thing.py
+rename to pkg/thing.py
+--- a/use.py
++++ b/use.py
+@@ -1,12 +1,12 @@
+-import pkg.sub as sub
++import pkg.thing
+ 
+ 
+-def f(sub: int = sub.thing.X):
++def f(sub: int = pkg.thing.X):
+     return sub
+ 
+ 
+-def g(sub: sub.thing.Kind) -> sub.thing.Kind:
++def g(sub: pkg.thing.Kind) -> pkg.thing.Kind:
+     return sub
+ 
+ 
+-lam = lambda sub=sub.thing.X: sub
++lam = lambda sub=pkg.thing.X: sub
+
+
+
+DRY-RUN. 2 file(s) would change. Re-run with --apply.

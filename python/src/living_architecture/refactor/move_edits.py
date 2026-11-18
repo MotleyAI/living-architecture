@@ -13,9 +13,8 @@ from pathlib import Path
 
 from living_architecture.refactor.move_project import MoveProject
 from living_architecture.refactor.python_source import SourceFile
-from living_architecture.refactor.static_resolver import ImportItem, Scope
+from living_architecture.refactor.static_resolver import ImportItem, Scope, Value
 
-_CHAIN = re.compile(r"[^\W\d]\w*(?:\s*\.\s*[^\W\d]\w*)+")
 _BREAK = re.compile(r"\r\n|\r|\n")
 _LINE_TAIL = re.compile(r"[ \t]*(?:#[^\r\n]*)?(?:\r\n|\r|\n)?")
 _ITEM_TAIL = re.compile(r"[ \t]*(?:,[ \t]*)?(?:#[^\r\n]*)?(?:\r\n|\r|\n)?")
@@ -296,21 +295,44 @@ class File:
         root: ast.expr = node
         while isinstance(root, ast.Attribute):
             root = root.value
-        if not isinstance(root, ast.Name) or not _CHAIN.fullmatch(self.text[start:end]):
+        if not isinstance(root, ast.Name):
             return
         first = new.split(".")[0]
         self.check_free(first, obj or first, scope)
         found = self.lookup(scope, root.id)
-        binding = None
-        if found is not None:
-            imports = [b for b in self.bound[found][root.id] if self.item(b) is not None]
-            before = [b for b in imports if self.line(b) <= root.lineno]
-            binding = (before or imports or [None])[-1]
+        imports = self._imports(found, root.id)
+        binding = self._latest(imports, root.lineno)
         self.edits.add(start, end, new)
         if binding is not None:
             self.uses_rewritten[id(binding)] = self.uses_rewritten.get(id(binding), 0) + 1
         if needs is not None:
-            self.needs.append((needs, binding, found if binding is not None and found is not None else self.top))
+            own = [b for b in imports if (item := self.item(b)) is not None and item.scope is found]
+            place = self._latest(own, root.lineno)
+            self.needs.append((needs, place, found if place is not None and found is not None else self.top))
+
+    def _imports(self, scope: Scope | None, name: str) -> list[ast.AST]:
+        return [b for b in self.bound[scope][name] if self.item(b) is not None] if scope is not None else []
+
+    def _latest(self, imports: list[ast.AST], line: int) -> ast.AST | None:
+        """The last of `imports` written by `line`, else the last of them."""
+        before = [b for b in imports if self.line(b) <= line]
+        return (before or imports or [None])[-1]
+
+    def resolve(self, scope: Scope, expr: ast.expr) -> Value:
+        """`expr`'s value; a root bound outside any function or comprehension reads the last import written by its
+        line, whatever else rebinds it there."""
+        resolver = self.project.resolver
+        if isinstance(expr, ast.Attribute):
+            base = self.resolve(scope, expr.value)
+            return resolver.member(base[1], expr.attr) if base is not None and base[0] == "module" else None
+        owner = self.lookup(scope, expr.id) if isinstance(expr, ast.Name) else None
+        latest = self._latest(self._imports(owner, expr.id), expr.lineno) if isinstance(expr, ast.Name) else None
+        if owner is None or owner.kind in ("function", "comprehension") or not isinstance(latest, ast.alias):
+            return resolver.resolve(self.module, scope, expr)
+        item = self.item(latest)
+        if item is not None and isinstance(item.stmt, ast.ImportFrom):
+            return resolver.member(self.binder.from_module(item.stmt), latest.name)
+        return ("module", self.obj(latest) or latest.name)
 
     def _scopes(self) -> Iterator[Scope]:
         seen: dict[int, Scope] = {id(self.top): self.top}
@@ -334,7 +356,9 @@ class File:
     def _drop_if_all_rewritten(self, name: str, node: ast.AST, scope: Scope) -> None:
         count = self.uses_rewritten.get(id(node), 0)
         item = self.item(node)
-        if count and item is not None and id(item.stmt) not in self.rewritten and self.uses(name, scope) == count:
+        named = any(name in s.nonlocals and s.owner(name) is scope for s in self.binder.scopes)
+        if count and item is not None and id(item.stmt) not in self.rewritten and self.uses(name, scope) == count \
+                and not named:
             self.removed.add(id(node))
             self.remove_item(item.stmt, item.index)
 

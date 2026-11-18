@@ -1,0 +1,23 @@
+Moving global <f>:
+
+
+--- a/pkg/a.py
++++ b/pkg/a.py
+@@ -1,7 +1,3 @@
+-def f() -> int:
+-    return 1
+-
+-
+ g = lambda f: f()
+ 
+ 
+
+--- a/pkg/b.py
++++ b/pkg/b.py
+@@ -0,0 +1,2 @@
++def f() -> int:
++    return 1
+
+
+
+DRY-RUN. 2 file(s) would change. Re-run with --apply.

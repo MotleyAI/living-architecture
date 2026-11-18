@@ -164,23 +164,30 @@ exactly one rule, decided from the objects its names resolve to:
    place, and the moved name SHALL get a new `from` statement, with its alias, on the line after the statement ends,
    at the same indentation.
 2. A use whose binding still resolves after the move SHALL be unchanged. Such a binding is a name bound by a rule-1
-   import, or a name another module binds explicitly (by import or assignment, at module level or inside a block of
-   its module body), or a name read from a module that defines a module-level `__getattr__`.
+   import, a name another module binds explicitly (by import or assignment, at module level or inside a block of its
+   module body), a name read from a module that defines a module-level `__getattr__`, or a name the function, lambda or
+   comprehension scope the use is read in binds by anything other than a rule-1 import (a parameter of any kind, an
+   assignment, a comprehension target), even when that scope also imports it. A name a `global` or `nonlocal`
+   statement declares SHALL resolve in the scope the statement names, and a comprehension's first iterable SHALL
+   resolve in the enclosing scope.
 3. A use whose binding no longer resolves after the move SHALL be rewritten. Such a use reaches a submodule only as a
-   package attribute, or reaches the moved symbol through its old module or a star import of it. A dotted use SHALL
-   become the new dotted path, and `import <new module>` SHALL be added on the line after the import binding the
-   chain's root. A bare name bound by a star import SHALL stay as it is, and `from <new module> import <name>` SHALL be
-   added on the line after the star import. No import SHALL be added where that scope already binds the same object.
-An import binding SHALL be removed in place only when every use of it was rewritten by this refactor. For
-`move-symbol`, an import statement directly in the source module's body SHALL also be removed in place when every use
-of the names it binds lay in the moved code; an import inside a block of the source module SHALL stay. In the source
-module, a `__all__` entry naming the moved symbol SHALL be removed from each list or tuple literal of a top-level
-`__all__` assignment, annotated assignment, augmented assignment or `+` operand, and a remaining use of the symbol SHALL get
-`from <dest> import <name>` after the leading import block. A relative import inside the moved code SHALL be recomputed
-for the destination as rule 1 recomputes a moved module's own relative imports. A dotted use inside the moved code that
-reaches the moved symbol through its old module SHALL become the symbol's bare name when it is evaluated only after the
-moved code first binds the symbol: inside a function or lambda, or in a declaration after the first of an overload
-group. In the destination, the imports the moved code needs SHALL be added:
+   package attribute, or reaches the moved symbol through its old module or a star import of it. A dotted use, its
+   receiver parenthesized or not, SHALL become the new dotted path, and `import <new module>` SHALL be added on the
+   line after the import binding the chain's root that sits in the scope the use resolves in; when no such import sits
+   there (only a function declaring `global` imports it), after the leading import block. A bare name bound by a star
+   import SHALL stay as it is, and `from <new module> import <name>` SHALL be added on the line after the star import.
+   No import SHALL be added where that scope already binds the same object.
+An import binding SHALL be removed in place only when every use of it was rewritten by this refactor, and no `nonlocal`
+statement names it. For `move-symbol`, an import statement directly in the source module's body SHALL also be removed in
+place when every use of the names it binds lay in the moved code; an import inside a block of the source module SHALL
+stay. In the source module, a `__all__` entry naming the moved symbol SHALL be removed from each list or tuple literal
+of a top-level `__all__` assignment, annotated assignment, augmented assignment or `+` operand, and a remaining use of
+the symbol (by rule 2, not a use a function, lambda or comprehension scope binds) SHALL get `from <dest> import <name>`
+after the leading import block. A relative import inside the moved code SHALL be recomputed for the destination as rule
+1 recomputes a moved module's own relative imports. A dotted use inside the moved code that reaches the moved symbol
+through its old module SHALL become the symbol's bare name when it is evaluated only after the moved code first binds
+the symbol: inside a function or lambda, or in a declaration after the first of an overload group. In the destination,
+the imports the moved code needs SHALL be added:
 - for each name the moved code reads that a top-level import of the source module binds, that import, made absolute;
   for each name it reads that the source module defines, `from <source module> import <name>`; each holding only the
   names the moved code reads and the destination does not already bind to the same object;
@@ -245,6 +252,11 @@ and SHALL write nothing.
   `pa.f()`
 - **THEN** the use becomes `pkg.b.f()`, `import pkg.b` replaces `import pkg.a as pa` in place, and every other line
   is unchanged
+
+#### Scenario: Parenthesized receiver
+- **WHEN** `move-symbol` moves `f` from `pkg/a.py` to `pkg/b.py`, and a file with `import pkg.a as pa` reads
+  `(pa).f()` and has `def g(x=( pa ).f)`
+- **THEN** both reads become `pkg.b.f`, and `import pkg.b` replaces `import pkg.a as pa` in place
 
 #### Scenario: Old module import with another surviving use
 - **WHEN** the file in the previous scenario also uses `pa.g()`
@@ -328,3 +340,54 @@ and SHALL write nothing.
   `import pkg.b`, sits in a function where `pkg` is a parameter or is bound by an enclosing function
 - **THEN** it exits 1 with the name-conflict finding naming that file and the existing binding's line, and no file
   changes
+
+#### Scenario: Parameters shadowing an import alias
+- **WHEN** `move-module` moves `pkg/sub/thing.py` to `pkg`, and a file with `import pkg.sub as sub` and
+  `print(sub.thing.X)` also reads `sub.thing.X` in `lambda sub: …`, in a function whose positional-only,
+  positional-or-keyword, keyword-only, `*sub` or `**sub` parameter is `sub`, and in a comprehension whose target is
+  `sub`
+- **THEN** `print(sub.thing.X)` becomes `print(pkg.thing.X)` and every shadowed use is unchanged
+
+#### Scenario: Function-local import of the alias rewritten
+- **WHEN** a function body holds `import pkg.sub as sub` and reads `sub.thing.X`, and `pkg/sub/thing.py` moves to `pkg`
+- **THEN** the use is rewritten like a module-level one
+
+#### Scenario: Function scope that also assigns the alias
+- **WHEN** a function body holds `import pkg.sub as sub`, reads `sub.thing.X`, and assigns `sub = None`
+- **THEN** the use is unchanged
+
+#### Scenario: global and nonlocal declarations
+- **WHEN** a function declares `global sub` and reads `sub.thing.X`, where `sub` is the module's `import pkg.sub as
+  sub`; and an inner function declares `nonlocal sub` and reads `sub.thing.X`, where `sub` is its enclosing
+  function's `import pkg.sub as sub`
+- **THEN** both uses are rewritten
+
+#### Scenario: nonlocal keeps the enclosing import
+- **WHEN** an inner function declares `nonlocal sub` and reads `sub.thing.X`, and that is the only use of its enclosing
+  function's `import pkg.sub as sub`
+- **THEN** the use is rewritten, the import stays, and `import pkg.thing` is added on the line after it
+
+#### Scenario: Import re-bound from another scope
+- **WHEN** `move-symbol` moves `f` out of `pkg/a.py`; `outer()` has `import pkg.a as pa` and reads `pa.f()`, and its
+  inner function declares `nonlocal pa` and imports `pkg.a as pa`; and another file reads `pa.f()` at module level,
+  where only a function declaring `global pa` imports `pkg.a as pa`
+- **THEN** both reads become `pkg.b.f()`, `import pkg.b` is added on the line after `outer`'s import and after the
+  other file's leading import block, and no import is added inside the inner functions
+
+#### Scenario: Comprehension's first iterable
+- **WHEN** a file with `import pkg.sub as sub` has `[sub for sub in sub.thing.ITEMS]`
+- **THEN** the iterable becomes `pkg.thing.ITEMS` and the target and element are unchanged
+
+#### Scenario: Defaults and annotations read the enclosing scope
+- **WHEN** a file with `import pkg.sub as sub` has `def f(sub: int = sub.thing.X): return sub`
+- **THEN** the default becomes `pkg.thing.X` and the body's `sub` is unchanged
+
+#### Scenario: Moved symbol shadowed in its source module
+- **WHEN** `move-symbol` moves `f` out of `pkg/a.py`, whose only other reads of `f` are `lambda f: f()` and a
+  function with keyword-only parameter `f`
+- **THEN** those reads are unchanged and no `from <dest> import f` is added to `pkg/a.py`
+
+#### Scenario: Star-import consumer shadowing the moved name
+- **WHEN** `move-symbol` moves `f` out of `pkg/a.py`, and a file with `from pkg.a import *` reads `f` only in
+  `lambda f: f()`
+- **THEN** that file is unchanged

@@ -123,7 +123,7 @@ class SymbolMove:
 
     def _through_old(self, file: File, node: ast.Attribute, scope: Scope) -> bool:
         """`node` reads the moved symbol through its old module."""
-        return node.attr == self.name and self.project.resolver.resolve(file.module, scope, node.value) == (
+        return node.attr == self.name and file.resolve(scope, node.value) == (
             "module", self.old
         )
 
