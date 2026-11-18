@@ -1,0 +1,16 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- move-module
+- --module
+- src/a.ts
+- --dest
+- src/lib
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: move-module rewrites a tsconfig files entry naming the moved file with its importers
