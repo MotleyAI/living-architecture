@@ -73,10 +73,22 @@ class Session:
         self.root = root.resolve()
         self.layout = ProjectLayout(self.root)
         self.snapshot = Snapshot(self.root)
-        self.tables = TextTables(self.root, self.snapshot.source)
+        self._tables: TextTables | None = None
         self._loaded: dict[Path, SourceFile | None] = {}
         self._all_python_files: list[str] | None = None
         self._python_files: list[str] | None = None
+
+    @property
+    def tables(self) -> TextTables:
+        if self._tables is None:
+            self._tables = TextTables(self.root, self.snapshot.source)
+        return self._tables
+
+    def drop_parsed(self) -> None:
+        """Forget the text tables, the files read from outside the project and the snapshot's parsed files."""
+        self._tables = None
+        self._loaded.clear()
+        self.snapshot.drop_parsed()
 
     def rel(self, path: Path) -> str | None:
         return path.relative_to(self.root).as_posix() if path.is_relative_to(self.root) else None
@@ -223,9 +235,59 @@ class Declaration(BaseModel):
     cls: str
 
 
+class RenameResult(BaseModel):
+    """What a run reads of a map entry's rename once its rules are done: the entry's map index, its target's name for
+    a retarget, the edits the keeps dropped (`kept`), and the member declarations it may rename."""
+
+    entry: int
+    old: str
+    new: str
+    header: str
+    target: str | None
+    member: bool
+    check_names: bool
+    edits: list[TextEdit]
+    kept: list[TextEdit] = []
+    imports: list[TextEdit] = []
+    blindspots: list[Finding]
+    unresolved: list[Finding] = []
+    stand_ins: list[Finding] = []
+    refusals: list[Finding] = []
+    matched_sites: frozenset[str] = frozenset()
+    declarations: list[Declaration] = []
+
+    def live(self) -> bool:
+        """The rename changes a name."""
+        return self.new != self.old
+
+    def renamed_members(self, snapshot: Snapshot) -> list[tuple[tuple[str, int], tuple[str, int]]]:
+        """Each member declaration this rename's edits rename, with its class's file and `class` line."""
+        if not self.member:
+            return []
+        starts = {(e.path, e.start) for e in self.edits}
+        out: list[tuple[tuple[str, int], tuple[str, int]]] = []
+        for d in self.declarations:
+            source = snapshot.source(d.rel)
+            if (d.rel, d.start) not in starts or source.tree is None:
+                continue
+            owner = next((cls for cls in source.of_type(ast.ClassDef) if any(
+                (span := source.name_span(n)) is not None and span[0] == d.start
+                for n in member_declarations(cls, self.old))), None)
+            if owner is not None:
+                out.append(((d.rel, d.start), (d.rel, owner.lineno)))
+        return out
+
+    def check_conflicts(self, snapshot: Snapshot, edits: list[TextEdit]) -> None:
+        """`NameConflict` where one of `edits` (this rename's, merged) meets the new name."""
+        if not self.check_names:
+            return
+        for rel in sorted({e.path for e in edits}):
+            _conflict(snapshot.source(rel), rel, [e for e in edits if e.path == rel], self.old, self.new)
+
+
 class MapRename(ABC):
     """A rename map entry's phases, run over all entries in turn: `prepare`, `seed` and `rules` (on the run's
-    occurrence index), `finish`."""
+    occurrence index), `finish`; then its `result`."""
 
     @abstractmethod
     def header(self) -> str: ...
@@ -246,7 +308,7 @@ class MapRename(ABC):
     def finish(self) -> None: ...
 
     @abstractmethod
-    def check_conflicts(self, edits: list[TextEdit]) -> None: ...
+    def result(self, entry: int, target: str | None, kept: list[TextEdit]) -> RenameResult: ...
 
 
 class SymbolRename(MapRename):
@@ -335,22 +397,14 @@ class SymbolRename(MapRename):
     def header(self) -> str:
         return message("refactor.rename-header", old=self.old, new=self.new)
 
-    def renamed_members(self) -> list[tuple[tuple[str, int], tuple[str, int]]]:
-        """Each member declaration this rename's edits rename, with its class's file and `class` line."""
-        if not self.member:
-            return []
-        starts = {(e.path, e.start) for e in self.edits}
-        out: list[tuple[tuple[str, int], tuple[str, int]]] = []
-        for d in self._declarations:
-            source = self.snapshot.source(d.rel)
-            if (d.rel, d.start) not in starts or source.tree is None:
-                continue
-            owner = next((cls for cls in source.of_type(ast.ClassDef) if any(
-                (span := source.name_span(n)) is not None and span[0] == d.start
-                for n in member_declarations(cls, self.old))), None)
-            if owner is not None:
-                out.append(((d.rel, d.start), (d.rel, owner.lineno)))
-        return out
+    @override
+    def result(self, entry: int, target: str | None, kept: list[TextEdit]) -> RenameResult:
+        return RenameResult(
+            entry=entry, old=self.old, new=self.new, header=self.header(), target=target,
+            member=self.member, check_names=self.check_names, edits=self.edits, kept=kept, blindspots=self.blindspots,
+            unresolved=self.unresolved, stand_ins=self.stand_in_findings(), matched_sites=frozenset(self.matched_sites),
+            declarations=self._declarations if self.member else [],
+        )
 
     def is_member(self) -> bool:
         """The symbol is declared in a class body (or as a `self.` attribute): a declaration the rename renames is one."""
@@ -731,14 +785,6 @@ class SymbolRename(MapRename):
                 self._compound_names()
             elif self.member:
                 self._literal_leftovers()
-
-    @override
-    def check_conflicts(self, edits: list[TextEdit]) -> None:
-        """`NameConflict` where one of `edits` (this rename's, merged) meets the new name."""
-        if not self.check_names:
-            return
-        for rel in sorted({e.path for e in edits}):
-            _conflict(self.snapshot.source(rel), rel, [e for e in edits if e.path == rel], self.old, self.new)
 
 
 def _top_declarations(stmt: ast.stmt, name: str) -> list[ast.AST]:
