@@ -17,7 +17,7 @@ The idioms for each language are in
 1. **Identify the target:** the symbol, and for a member rename the attribute
    NAME and its owning class.
 2. **Enumerate blind spots:**
-   - `dr-compliance --select attr-blindspot --attr NAME <repo>` (one `--attr`
+   - `dr-compliance --select attr-blindspot,string-blindspot --attr NAME <repo>` (one `--attr`
      per name a rename map renames) → `x.NAME`, `getattr(x, "NAME")` and the
      like where `x` is untyped. Each names the receiver to type.
    - A `dr-refactor` dry-run of the rename lists the stand-ins: classes outside
@@ -30,7 +30,7 @@ The idioms for each language are in
    - Mark the overrides in the hierarchy.
    - Type any test doubles of the class (`dr-mock-lint`).
 4. **Re-check until the blast radius is typed:**
-   - the same `dr-compliance --select attr-blindspot` command reports nothing;
+   - the same `dr-compliance --select attr-blindspot,string-blindspot` command reports nothing;
    - `la-typecheck` shows no new errors over the touched files.
 5. **Then run `la:deterministic-refactor`.** Every real reference is now
    type-visible; what is left is a string the rename lists as a `leftover`

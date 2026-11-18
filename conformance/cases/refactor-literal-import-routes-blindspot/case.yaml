@@ -1,24 +1,16 @@
-kind: adapter
+kind: paired
 languages:
 - python
+- typescript
 command: dr-refactor
 args:
-- --apply
-- rename
-- --file
-- pkg/kinds.py
-- --symbol
-- DriftKind['edit_model']
-- --new-name
-- edit_master
+  python: [--apply, rename, --file, pkg/kinds.py, --symbol, "DriftKind['edit_model']", --new-name, edit_master]
+  typescript: [--apply, rename, --file, src/kinds.ts, --symbol, "Kind['edit_model']", --new-name, edit_master]
 fixture: literal-routes
 git:
 - commit: init
 expect:
   exit: 1
-  files:
-  - pkg/kinds.py
-  - routes/blind.py
+  git_status: true
 golden: manual
-note: 'a Final constant holding the old value reaches a file without the string through a re-export chain and is passed
-  to the member type: a literal-unresolved blind spot, exit 1, nothing written'
+note: 'a module constant bound in both branches of an if has no sources: where it is passed to the member type (python: in a file without the string, through a re-export chain) is a literal-unresolved blind spot; exit 1, nothing written'

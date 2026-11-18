@@ -1,0 +1,10 @@
+[resolve]
+[checks]
+[references]
+[references 1/1] entry 1: formula -> expression
+[rules]
+[rules 1/1] entry 1: formula -> expression: 1 refusal(s)
+src/use.ts:4: literal-unresolved: the checker needs 'formula' here, where no string literal can be rewritten
+[conflicts]
+src/use.ts:4: literal-unresolved: the checker needs 'formula' here, where no string literal can be rewritten
+1 blind spot(s) of .formula: type or resolve them, or pass --allow-blindspots

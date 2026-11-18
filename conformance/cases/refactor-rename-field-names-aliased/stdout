@@ -1,0 +1,32 @@
+Renaming <columns> to <fields>:
+
+
+--- a/pkg/m.py
++++ b/pkg/m.py
+@@ -2,9 +2,9 @@
+ 
+ 
+ class Ds(BaseModel):
+-    columns: list[str] = Field(alias="cols")
++    fields: list[str] = Field(alias="cols")
+ 
+-    @field_validator("columns")
++    @field_validator("fields")
+     @classmethod
+     def _v(cls, v: list[str]) -> list[str]:
+         return v
+
+--- a/pkg/reads.py
++++ b/pkg/reads.py
+@@ -2,4 +2,4 @@
+ 
+ 
+ def read() -> object:
+-    return Ds.model_fields["columns"]
++    return Ds.model_fields["fields"]
+
+
+
+APPLIED. 2 file(s) changed:
+  pkg/m.py
+  pkg/reads.py

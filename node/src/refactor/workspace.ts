@@ -1,4 +1,5 @@
 // The TypeScript projects a refactor or check runs in: the reference graph, one language service per project.
+import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import type * as TS from 'typescript';
@@ -157,7 +158,10 @@ function host(
   };
   return {
     getScriptFileNames: () => names,
-    getScriptVersion: () => '0',
+    getScriptVersion: (name) => {
+      const text = overlay(name);
+      return text == null ? '0' : createHash('sha256').update(text).digest('hex');
+    },
     getScriptSnapshot: (name) => (fileExists(name) ? ts().ScriptSnapshot.fromString(readFile(name) ?? '') : undefined),
     getCurrentDirectory: () => dirname(parsed.options.configFilePath as string),
     getCompilationSettings: () => options,
@@ -195,7 +199,6 @@ function firstBuildTimed(service: TS.LanguageService): TS.LanguageService {
 
 export class Workspace {
   private readonly services = new Map<Project, TS.LanguageService>();
-  private readonly registry = ts().createDocumentRegistry();
   private readonly graphs = new Map<string, Projects>();
   private named: string | null | undefined;
 
@@ -204,12 +207,13 @@ export class Workspace {
 
   /** The projects under `root` (a refactor's --project, or the repo root), loaded per file on first use; programs
    * and services read files through `overlay`, each project file under its `moved` path (by canonical old path), and
-   * expand tsconfig globs over `listing` (none: the disk). */
+   * expand tsconfig globs over `listing` (none: the disk); `registry` shares another workspace's parsed files. */
   constructor(
     readonly root: string,
     private readonly overlay: Overlay = () => undefined,
     private readonly moved: Map<string, string> = new Map(),
     listing: Listing | null = null,
+    readonly registry: TS.DocumentRegistry = ts().createDocumentRegistry(),
   ) {
     this.listing = listing;
     this.readDirectory = listing === null ? (...args) => ts().sys.readDirectory(...args) : listedReadDirectory(listing, root);
