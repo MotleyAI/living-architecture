@@ -327,5 +327,5 @@ A rename of a member, a parameter, a local or a module SHALL ignore the patterns
 
 #### Scenario: Invalid pattern
 - **WHEN** the config holds a pattern with no capturing group, with two, with a named group or with a lookahead
-- **THEN** every command loading the config fails with a configuration error naming `refactor.string_forms` and
-  that pattern, and the exit code is 2
+- **THEN** every command loading the config reports a configuration error naming `refactor.string_forms` and
+  that pattern, as it reports any other configuration error; `dr-refactor` exits 2

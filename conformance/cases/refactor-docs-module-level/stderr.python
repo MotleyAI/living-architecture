@@ -1,0 +1,11 @@
+[resolve]
+[checks]
+[references]
+[references 1/2] entry 1: field -> column
+[references 2/2] entry 2: size -> length
+[rules]
+[rules 1/2] entry 1: field -> column: clean
+[rules 2/2] entry 2: size -> length: clean
+[conflicts]
+pkg/one.py:2: leftover: comment mentions field
+pkg/two.py:1: leftover: docstring mentions size

@@ -1,0 +1,25 @@
+Renaming <field> to <column>:
+
+
+--- a/pkg/errors.py
++++ b/pkg/errors.py
+@@ -1,11 +1,11 @@
+ class A:
+-    """Carries ``field``."""
++    """Carries ``column``."""
+ 
+-    field: str = ""
++    column: str = ""
+ 
+     def show(self) -> str:
+-        # `field` is shown bare
+-        return self.field
++        # `column` is shown bare
++        return self.column
+ 
+ 
+ class B:
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

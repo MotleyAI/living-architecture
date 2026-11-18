@@ -1,0 +1,10 @@
+[resolve]
+[checks]
+[references]
+[references 1/2] entry 1: x -> p
+[references 2/2] entry 2: y -> q
+[rules]
+[rules 1/2] entry 1: x -> p: clean
+[rules 2/2] entry 2: y -> q: clean
+[conflicts]
+pkg/m.py:10: leftover: comment mentions y

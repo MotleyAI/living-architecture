@@ -13,37 +13,37 @@
 
 ## 2. Tests first (pr-tests)
 
-- [ ] 2.1 Python unit tests (`python/tests/test_rename_docs.py` and beside it): the owning class of a mention
+- [x] 2.1 Python unit tests (`python/tests/test_rename_docs.py` and beside it): the owning class of a mention
   (decorated class, nested class, class without the member, inherited member, unresolved base); the file-level rule;
   one resolution for two entries sharing an old name; no string-opening mark; pick parsing and each refusal;
   literal-keep span matching (nested, non-matching forms, overlap); form sites on raw text (escapes, non-ASCII,
   f-string parts); config load of `refactor.string_forms` (valid, zero groups, two groups, named group, lookahead)
-- [ ] 2.2 Node unit tests (`node/test/rename-outcomes.test.ts`, `rename-map.test.ts`, `config.test.ts` and beside
+- [x] 2.2 Node unit tests (`node/test/rename-outcomes.test.ts`, `rename-map.test.ts`, `config.test.ts` and beside
   them): the same list for TypeScript (JSDoc attached to a class, interface and type literal; a detached comment
   before a class is not owned; merged interface declarations; object-literal keys by identifier, string and
   shorthand, not computed or spread; template-literal text)
-- [ ] 2.3 Conformance, paired Python and TypeScript, `golden: manual`: `refactor-docs-owning-class` (item 22: another
+- [x] 2.3 Conformance, paired Python and TypeScript, `golden: manual`: `refactor-docs-owning-class` (item 22: another
   class's docstring or JSDoc listed, the plain word in a message string listed), `refactor-docs-module-level`
   (listed beside an unrenamed declaration, rewritten with one), `refactor-docs-inherited-member`,
   `refactor-map-docs-owning-class` (item 9 with each class's own docstring), `refactor-map-docs-listed` (item 9: the
   module-level mention listed once, exit 0, no `map-conflict`, identical in both twins)
-- [ ] 2.4 Conformance for `--docs-pick`: `refactor-docs-pick-map` (paired; item 9 resolved with `=1`),
+- [x] 2.4 Conformance for `--docs-pick`: `refactor-docs-pick-map` (paired; item 9 resolved with `=1`),
   `refactor-docs-pick-bare` (the untyped body of item 10 and a prose line), `refactor-docs-pick-two-names`,
   `refactor-docs-pick-ambiguous` (produces `refactor.pick-ambiguous`; also two disagreeing picks),
   `refactor-docs-pick-unmatched` (produces `refactor.pick-unmatched`), `refactor-docs-pick-needs-docs` (produces
   `refactor.pick-needs-docs`), `refactor-docs-pick-missing` (`refactor.site-missing`), `refactor-docs-pick-kept`
-- [ ] 2.5 Conformance for `--keep-literal`: `refactor-keep-literal` (Python adapter; item 10's versioned document, a
+- [x] 2.5 Conformance for `--keep-literal`: `refactor-keep-literal` (Python adapter; item 10's versioned document, a
   literal bound to a name, nested literals, the non-matching forms), `refactor-keep-literal-typescript` (adapter),
   `refactor-keep-literal-collision` (no `name-conflict` inside a kept literal), `refactor-keep-literal-leftover`,
   `refactor-keep-literal-unneeded` (paired; produces `refactor.keep-literal-unneeded`)
-- [ ] 2.6 Conformance for string forms: `refactor-string-forms` (paired; item 12 without `--docs`, f-string and
+- [x] 2.6 Conformance for string forms: `refactor-string-forms` (paired; item 12 without `--docs`, f-string and
   template text, another symbol in the form), `refactor-string-forms-collision` (listed with and without `--docs`,
   and resolved by a pick), `refactor-string-forms-raw` (escape and non-ASCII), `refactor-string-forms-member`,
   `config-string-forms-invalid` (neutral; the configuration error)
-- [ ] 2.7 Existing tests and goldens that pin the old shape: list each file and what changes in it (the
+- [x] 2.7 Existing tests and goldens that pin the old shape: list each file and what changes in it (the
   string-opening rewrite in `refactor-rename-docs` and its unit tests; any docs `map-conflict`), and get the user's
   approval per file before editing, as the `/la:pr` stopping policy requires
-- [ ] 2.8 List every new case in `conformance/INVENTORY.md`; verify every new `findings.yaml` template is produced by
+- [x] 2.8 List every new case in `conformance/INVENTORY.md`; verify every new `findings.yaml` template is produced by
   a golden
 
 ## 3. Python twin

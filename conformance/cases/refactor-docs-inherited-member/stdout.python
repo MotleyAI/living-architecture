@@ -1,0 +1,21 @@
+Renaming <field> to <column>:
+
+
+--- a/pkg/base.py
++++ b/pkg/base.py
+@@ -1,9 +1,9 @@
+ class Base:
+-    field: str = ""
++    column: str = ""
+ 
+ 
+ class Sub(Base):
+-    """Reads ``field`` of the base."""
++    """Reads ``column`` of the base."""
+ 
+ 
+ class Other:
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

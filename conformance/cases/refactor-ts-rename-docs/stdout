@@ -12,7 +12,7 @@ Renaming <saveModel> to <persistModel>:
 
 --- a/src/engine.ts
 +++ b/src/engine.ts
-@@ -1,8 +1,8 @@
+@@ -1,7 +1,7 @@
 -/** The engine; see {@link Engine#saveModel} and `saveModel()`. */
 +/** The engine; see {@link Engine#persistModel} and `persistModel()`. */
  export class Engine {
@@ -21,10 +21,8 @@ Renaming <saveModel> to <persistModel>:
 +  /** Saves; see `persistModel`. */
 +  persistModel(name: string): void {
      // then saveModel runs
--    throw new Error(`saveModel: ${name}`);
-+    throw new Error(`persistModel: ${name}`);
+     throw new Error(`saveModel: ${name}`);
    }
- }
 
 --- a/src/use.ts
 +++ b/src/use.ts

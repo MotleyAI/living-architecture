@@ -22,6 +22,7 @@ cases:
     refactor:
       python:
         moved_module_stub: null
+      string_forms: []
     conventions:
       text_ratio_max: 0.15
       exempt: []
@@ -51,6 +52,7 @@ cases:
     refactor:
       python:
         moved_module_stub: null
+      string_forms: []
     conventions:
       text_ratio_max: 0.15
       exempt: []
@@ -81,6 +83,7 @@ cases:
     refactor:
       python:
         moved_module_stub: null
+      string_forms: []
     conventions:
       text_ratio_max: 0.15
       exempt: []
@@ -111,6 +114,7 @@ cases:
     refactor:
       python:
         moved_module_stub: null
+      string_forms: []
     conventions:
       text_ratio_max: 0.15
       exempt: []
@@ -141,6 +145,7 @@ cases:
     refactor:
       python:
         moved_module_stub: null
+      string_forms: []
     conventions:
       text_ratio_max: 0.15
       exempt: []
@@ -174,6 +179,7 @@ cases:
     refactor:
       python:
         moved_module_stub: null
+      string_forms: []
     conventions:
       text_ratio_max: 0.15
       exempt: []
@@ -206,6 +212,7 @@ cases:
     refactor:
       python:
         moved_module_stub: null
+      string_forms: []
     conventions:
       text_ratio_max: 0.5
       exempt:
@@ -234,6 +241,7 @@ cases:
     refactor:
       python:
         moved_module_stub: null
+      string_forms: []
     conventions:
       text_ratio_max: 0.15
       exempt:
@@ -265,6 +273,7 @@ cases:
     refactor:
       python:
         moved_module_stub: null
+      string_forms: []
     conventions:
       text_ratio_max: 0.15
       exempt: []
@@ -295,6 +304,7 @@ cases:
     refactor:
       python:
         moved_module_stub: null
+      string_forms: []
     conventions:
       text_ratio_max: 0.15
       exempt: []
@@ -325,6 +335,7 @@ cases:
     refactor:
       python:
         moved_module_stub: null
+      string_forms: []
     conventions:
       text_ratio_max: 0.15
       exempt: []

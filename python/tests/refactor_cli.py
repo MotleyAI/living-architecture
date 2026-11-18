@@ -12,6 +12,7 @@ from project_files import file_tree, write_project
 
 from living_architecture.cli.dr_refactor import dr_refactor
 from living_architecture.config import current_format
+from living_architecture.contract import message
 
 BIN_DIR = Path(sys.executable).parent
 
@@ -105,6 +106,23 @@ def git(root: Path, *args: str) -> str:
     env = {**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t", "GIT_COMMITTER_NAME": "t",
            "GIT_COMMITTER_EMAIL": "t@t"}
     return subprocess.run(["git", *args], cwd=root, env=env, capture_output=True, text=True, check=True).stdout
+
+
+def git_project(root: Path, files: dict[str, str], config: str | None = None) -> Path:
+    """`write_project` as a git repo (prose files come from git); `config` is appended to a repo config."""
+    extra = {} if config is None else {"living-architecture.yaml": f"format: {current_format()}\n{config}"}
+    write_project(root, {**files, **extra})
+    git(root, "init", "-q", "-b", "main")
+    return root
+
+
+def rename_argv(rel: str, symbol: str, new_name: str, *flags: str, apply: bool = True) -> list[str]:
+    """`dr-refactor`'s arguments for a rename located by `--symbol`."""
+    return [*(["--apply"] if apply else []), "rename", "--file", rel, "--symbol", symbol, "--new-name", new_name, *flags]
+
+
+def leftover(path: str, line: int, where: str, old: str) -> str:
+    return message("refactor.leftover", path=path, line=line, where=where, old=old)
 
 
 def configure_typecheck(root: Path, command: str | None) -> None:

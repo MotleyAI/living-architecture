@@ -30,8 +30,8 @@ class SearchQueryEngine:
         """See ``pick_root_model`` and :meth:`pick_root_model`."""
         # then recommend_root_model runs; `pick_root_model()` returns
         if x:
-            raise ValueError(f"pick_root_model: no candidates for {x}")
-        raise ValueError("pick_root_model: no candidates")
+            raise ValueError(f"recommend_root_model: no candidates for {x}")
+        raise ValueError("recommend_root_model: no candidates")
 '''
 
 OTHER = '''\
@@ -119,6 +119,8 @@ def test_every_other_mention_is_listed_in_order(project: MakeProject, capsys: py
     assert readouterr(capsys).err.splitlines() == [
         _leftover("docs/api.md", 4, "prose"),
         _leftover("pkg/engine.py", 4, "comment"),
+        _leftover("pkg/engine.py", 6, "string"),
+        _leftover("pkg/engine.py", 7, "string"),
         _leftover("pkg/other.py", 5, "docstring"),
         _leftover("pkg/other.py", 6, "comment"),
         _leftover("pkg/other.py", 8, "string"),

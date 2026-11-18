@@ -1,0 +1,19 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- rename
+- --file
+- pkg/g.py
+- --symbol
+- Model.name
+- --new-name
+- title
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: 'refactor.string_forms are ignored by a member rename: a form naming the member''s old name is unchanged
+  and, without --docs, unlisted'

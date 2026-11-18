@@ -1,0 +1,39 @@
+Renaming <columns> to <fields>:
+Renaming <columns> to <resultColumns>:
+
+
+--- a/src/a.ts
++++ b/src/a.ts
+@@ -1,19 +1,19 @@
+-/** A table and its `columns`. */
++/** A table and its `fields`. */
+ export class Table {
+-  columns: string[] = [];
++  fields: string[] = [];
+ 
+-  /** The number of `columns`. */
++  /** The number of `fields`. */
+   width(): number {
+-    return this.columns.length;
++    return this.fields.length;
+   }
+ }
+ 
+-/** A result and its `columns`. */
++/** A result and its `resultColumns`. */
+ export class Result {
+-  columns: string[] = [];
++  resultColumns: string[] = [];
+ 
+   width(): number {
+-    // `columns` are counted
+-    return this.columns.length;
++    // `resultColumns` are counted
++    return this.resultColumns.length;
+   }
+ }
+
+
+
+APPLIED. 1 file(s) changed:
+  src/a.ts

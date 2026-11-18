@@ -1,0 +1,26 @@
+Renaming <columns> to <fields>:
+
+
+--- a/pkg/m.py
++++ b/pkg/m.py
+@@ -2,4 +2,4 @@
+ 
+ 
+ class Ds(BaseModel):
+-    columns: list[str] = []
++    fields: list[str] = []
+
+--- a/pkg/n.py
++++ b/pkg/n.py
+@@ -6,4 +6,4 @@
+ 
+ 
+ def plain() -> Ds:
+-    return Ds.model_validate({"columns": []})
++    return Ds.model_validate({"fields": []})
+
+
+
+APPLIED. 2 file(s) changed:
+  pkg/m.py
+  pkg/n.py

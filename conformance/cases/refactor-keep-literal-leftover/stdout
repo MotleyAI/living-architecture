@@ -1,0 +1,15 @@
+Renaming <columns> to <fields>:
+
+
+--- a/pkg/m.py
++++ b/pkg/m.py
+@@ -2,4 +2,4 @@
+ 
+ 
+ class Ds(BaseModel):
+-    columns: list[str] = []
++    fields: list[str] = []
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

@@ -689,6 +689,11 @@ NEW_TEMPLATES = {
         " refactored",
     "refactor.keep-unneeded": "WARNING: --keep {site} matches nothing this rename touches",
     "refactor.leftover": "{path}:{line}: leftover: {where} mentions {old}",
+    "refactor.pick-needs-docs": "--docs-pick needs --docs, so nothing was refactored",
+    "refactor.pick-unmatched": "--docs-pick {site} names no listed mention, so nothing was refactored",
+    "refactor.pick-ambiguous":
+        "--docs-pick {site}: entries {first} and {second} both mention {old} here; add =ENTRY, so nothing was refactored",
+    "refactor.keep-literal-unneeded": "WARNING: --keep-literal {key} matches nothing this rename touches",
     "compliance.attr-required": "--select attr-blindspot needs --attr NAME",
     "compliance.attr-unselected": "--attr needs attr-blindspot among the selected checks",
     "refactor.no-locator": "provide one of --offset, --line [--col], or --symbol",
@@ -841,6 +846,24 @@ def test_rename_guard_options(name: str, expected: tuple[str, str, bool]) -> Non
 def _subcommand_options(subcommand: str) -> dict[str, dict]:
     spec = _shared_yaml("cli.yaml")["commands"]["dr-refactor"]["subcommands"][subcommand]
     return {o["name"]: o for o in spec.get("options", [])}
+
+
+@pytest.mark.parametrize("subcommand", ["rename", "rename-map"])
+@pytest.mark.parametrize(("name", "metavar"), [("--docs-pick", "PATH:LINE[=ENTRY]"), ("--keep-literal", "KEY")])
+def test_rename_scope_options(subcommand: str, name: str, metavar: str) -> None:
+    option = _subcommand_options(subcommand)[name]
+    assert (option["type"], option["metavar"], option.get("repeatable", False)) == ("string", metavar, True)
+
+
+def test_retarget_has_no_rename_scope_options() -> None:
+    assert not {"--docs-pick", "--keep-literal"} & set(_subcommand_options("retarget"))
+
+
+def test_config_schema_declares_string_forms() -> None:
+    refactor = _schema("living-architecture")["properties"]["refactor"]["properties"]
+    assert refactor["string_forms"]["type"] == "array"
+    assert refactor["string_forms"]["items"] == {"type": "string"}
+    assert refactor["string_forms"]["default"] == []
 
 
 LOCATORS = ["--offset", "--line", "--symbol"]

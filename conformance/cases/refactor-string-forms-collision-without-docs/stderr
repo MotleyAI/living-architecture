@@ -1,0 +1,9 @@
+[resolve]
+[checks]
+[references]
+[references 1/1] entry 1: Model -> Dataset
+[rules]
+[rules 1/1] entry 1: Model -> Dataset: clean
+[conflicts]
+pkg/g.py:5: leftover: string mentions Model
+pkg/g.py:6: leftover: string mentions Model

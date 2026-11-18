@@ -1,0 +1,43 @@
+Renaming <field> to <column>:
+Renaming <size> to <length>:
+
+
+--- a/pkg/one.py
++++ b/pkg/one.py
+@@ -1,15 +1,15 @@
+-"""Rows carry ``field``."""
++"""Rows carry ``column``."""
+ # field is plain here
+ 
+ 
+ class A:
+-    field: str = ""
++    column: str = ""
+ 
+ 
+ class Helper:
+-    """Formats ``field`` values."""
++    """Formats ``column`` values."""
+ 
+ 
+ def show(a: A) -> str:
+-    """Returns ``field``."""
+-    return a.field
++    """Returns ``column``."""
++    return a.column
+
+--- a/pkg/two.py
++++ b/pkg/two.py
+@@ -2,7 +2,7 @@
+ 
+ 
+ class C:
+-    size: int = 0
++    length: int = 0
+ 
+ 
+ class D:
+
+
+
+DRY-RUN. 2 file(s) would change. Re-run with --apply.
