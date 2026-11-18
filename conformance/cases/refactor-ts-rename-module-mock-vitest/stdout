@@ -1,0 +1,42 @@
+Renaming <api> to <client>:
+
+
+rename from src/api.ts
+rename to src/client.ts
+--- a/test/api.test.ts
++++ b/test/api.test.ts
+@@ -1,14 +1,14 @@
+ import { vi } from 'vitest';
+-import { get } from '../src/api.js';
++import { get } from '../src/client.js';
+ 
+ const factory = (): { get: () => number } => ({ get: () => 2 });
+ 
+-vi.mock('../src/api');
+-vi.doMock('../src/api.js', factory);
+-vi.unmock('../src/api');
+-vi.doUnmock('../src/api.js');
+-vi.mock(import('../src/api'), factory);
++vi.mock('../src/client');
++vi.doMock('../src/client.js', factory);
++vi.unmock('../src/client');
++vi.doUnmock('../src/client.js');
++vi.mock(import('../src/client'), factory);
+ 
+-export const real = await vi.importActual('../src/api');
+-export const mocked = await vi.importMock('../src/api.js');
++export const real = await vi.importActual('../src/client');
++export const mocked = await vi.importMock('../src/client.js');
+ export const shown = get();
+
+--- a/test/global.test.ts
++++ b/test/global.test.ts
+@@ -1,3 +1,3 @@
+-vi.mock('../src/api.js');
++vi.mock('../src/client.js');
+ 
+ export {};
+
+
+
+DRY-RUN. 3 file(s) would change. Re-run with --apply.

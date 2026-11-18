@@ -1,12 +1,19 @@
-kind: adapter
+kind: paired
 languages:
 - python
+- typescript
 command: dr-refactor
 args:
-- rename-map
-- renames.yaml
-- --without
-- pkg/m.py:7
+  python:
+  - rename-map
+  - renames.yaml
+  - --without
+  - pkg/m.py:7
+  typescript:
+  - rename-map
+  - renames.yaml
+  - --without
+  - src/m.ts:8
 git:
 - commit: init
 expect:

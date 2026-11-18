@@ -1,0 +1,26 @@
+Renaming <foo> to <bar>:
+
+
+--- a/app/src/again.ts
++++ b/app/src/again.ts
+@@ -1,2 +1,2 @@
+-export { foo } from '../../core/src/foo';
+-export { foo as again } from '@core/foo';
++export { foo } from '../../core/src/bar';
++export { foo as again } from '@core/bar';
+
+--- a/app/src/main.ts
++++ b/app/src/main.ts
+@@ -1,4 +1,4 @@
+-import { foo } from '../../core/src/foo';
+-import { foo as aliased } from '@core/foo';
++import { foo } from '../../core/src/bar';
++import { foo as aliased } from '@core/bar';
+ 
+ export const both = foo() + aliased();
+
+rename from core/src/foo.ts
+rename to core/src/bar.ts
+
+
+DRY-RUN. 3 file(s) would change. Re-run with --apply.
