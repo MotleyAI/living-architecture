@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
 from collections.abc import Mapping, Sequence
 from pathlib import Path
@@ -342,6 +343,76 @@ def test_a_taken_module_name_is_refused_before_any_reference_search(
     refused = entry_refusal("pkg/a.py", _conflict("b", "pkg/b.py", 1), 2)
     assert run_raw(root, _map(), monkeypatch, capsys) == (1, "", CHECKS + refused + "\n")
     assert file_tree(root) == before
+
+
+def _case_insensitive(root: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Under `root`, `os.stat` finds an entry spelled in another case, as a case-insensitive filesystem does."""
+    real_stat = os.stat
+
+    def fold(path: str) -> str:
+        if not path.startswith(str(root)) or os.path.lexists(path):
+            return path
+        parent, name = os.path.split(path)
+        parent = fold(parent)
+        entries = os.listdir(parent) if os.path.isdir(parent) else []
+        return os.path.join(parent, next((e for e in entries if e.lower() == name.lower()), name))
+
+    def stat(path: int | str | os.PathLike[str], *args: object, **kwargs: object) -> os.stat_result:
+        return real_stat(path if isinstance(path, int) else fold(os.fspath(path)), *args, **kwargs)  # pyright: ignore[reportArgumentType]
+
+    monkeypatch.setattr(os, "stat", stat)
+
+
+@pytest.mark.parametrize(("files", "module", "new_name"), [({"pkg/a.py": "X = 1\n"}, "pkg/a.py", "A"),
+                                                          ({"pkg/a/__init__.py": "X = 1\n"}, "pkg/a/__init__.py", "A")],
+                         ids=["module", "package"])
+def test_a_case_only_rename_on_a_case_insensitive_filesystem_is_not_taken_by_itself(
+    files: dict[str, str], module: str, new_name: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = _project(tmp_path, files, [{"module": module, "new_name": new_name}])
+    _case_insensitive(root, monkeypatch)
+    code, _, err = run(root, _map(apply=False), monkeypatch, capsys)
+    assert (code, err) == (0, ""), err
+
+
+@pytest.mark.parametrize(("sibling", "named"), [("pkg/b.py", "pkg/B.py"), ("pkg/b/__init__.py", "pkg/B/__init__.py")],
+                         ids=["module", "package"])
+def test_another_file_spelling_the_new_name_in_another_case_takes_it(
+    sibling: str, named: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = _project(tmp_path, {"pkg/a.py": "X = 1\n", sibling: "Y = 1\n"}, [{"module": "pkg/a.py", "new_name": "B"}])
+    _case_insensitive(root, monkeypatch)
+    before = file_tree(root)
+    assert run_raw(root, _map(), monkeypatch, capsys) == (1, "", CHECKS + _conflict("B", named, 1) + "\n")
+    assert file_tree(root) == before
+
+
+USE_A = "from pkg import a\n\nprint(a.X)\n"
+
+
+@pytest.mark.parametrize("new_name", ["a/b", "class", "1x", "b.py", "..", ""])
+@pytest.mark.parametrize("entry", [{"module": "pkg/a.py"}, {"file": "pkg/use.py", "line": 1, "col": 17}], ids=["module", "located"])
+def test_an_invalid_module_new_name_is_a_resolution_failure(
+    entry: dict[str, object], new_name: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = _project(tmp_path, {"pkg/a.py": "X = 1\n", "pkg/use.py": USE_A}, [{**entry, "new_name": new_name}])
+    before = file_tree(root)
+    assert run_raw(root, _map(), monkeypatch, capsys) == (1, "", CHECKS + message("refactor.cannot-rename") + "\n")
+    assert file_tree(root) == before
+
+
+def test_an_invalid_module_new_name_is_collected_with_the_other_resolution_failures(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = _project(tmp_path, {"pkg/a.py": "X = 1\n", "pkg/use.py": USE_A},
+                    [{"module": "pkg/a.py", "new_name": "class"}, {"file": "pkg/a.py", "symbol": "Missing", "new_name": "y"}])
+    code, out, err = run_raw(root, _map(), monkeypatch, capsys)
+    assert (code, out) == (2, "")
+    lines = err.splitlines()
+    assert lines[:3] == ["[resolve]", "[checks]", message("refactor.cannot-rename")]
+    assert lines[3].startswith("pkg/a.py: Missing names no declaration")
+    assert len(lines) == 4
 
 
 # ---- stubs

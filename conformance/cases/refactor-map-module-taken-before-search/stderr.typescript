@@ -1,0 +1,3 @@
+[resolve]
+[checks]
+b already names something else at src/b.ts:1, so nothing was refactored

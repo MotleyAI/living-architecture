@@ -225,8 +225,9 @@ describe('locator failures', () => {
 
   it('no locator exits 1 with the no-locator finding naming --symbol', () => {
     const root = tsProject(project);
-    const result = refactor(root, 'rename', '--file', 'src/store.ts', '--new-name', 'Repo');
-    expect(result).toEqual({ code: 1, out: '', err: `${entryRefusal('src/store.ts', message('refactor.no-locator'))}\n` });
+    const result = refactor(root, 'retarget', '--file', 'src/store.ts', '--target', 'Repo');
+    expect(result).toEqual({ code: 1, out: '', err: `${entryRefusal('src/store.ts', message('refactor.no-locator'))}
+` });
     expect(result.err).toContain('--symbol');
   });
 });

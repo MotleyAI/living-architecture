@@ -1,0 +1,3 @@
+- {module: src/join_edges.ts, new_name: relationship_edges}
+- {file: src/join_edges.ts, symbol: JoinEdge, new_name: RelationshipEdge}
+- {file: src/edges_use.ts, symbol: load, new_name: read}
