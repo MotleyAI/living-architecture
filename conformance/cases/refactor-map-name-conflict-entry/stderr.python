@@ -1,0 +1,10 @@
+[resolve]
+[checks]
+[references]
+[references 1/2] entry 1: spare -> extra
+[references 2/2] entry 2: old -> next
+[rules]
+[rules 1/2] entry 1: spare -> extra: clean
+[rules 2/2] entry 2: old -> next: clean
+[conflicts]
+entry 2 (pkg/m.py old): next already names something else at pkg/m.py:6, so nothing was refactored

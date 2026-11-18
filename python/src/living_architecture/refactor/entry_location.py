@@ -272,6 +272,43 @@ class EntryLocator:
         return Entry(kind=kind, key=(kind, rel, source.line(start), name), name=name, rel=located,
                      sites=tuple((rel, s) for s, _ in spans))
 
+    def _declaring(self, entry: Entry) -> tuple[str, Module, Scope | ast.ClassDef] | None:
+        """The file, model and scope (a member's class) that declare `entry`'s first declaration."""
+        if not entry.sites or entry.kind in ("module", "site"):
+            return None
+        rel, start = entry.sites[0]
+        module = self.module(rel)
+        if module is None:
+            return None
+        source = self.snapshot.source(rel)
+        if entry.kind in ("method", "member"):
+            for cls in source.of_type(ast.ClassDef):
+                if any((source.name_span(n) or _bound_span(source, n, entry.name) or (None,))[0] == start
+                       for n in member_declarations(cls, entry.name)):
+                    return rel, module, cls
+            return None
+        owner = next((scope.owner(bound) for scope, bound, node in module.binder.bound
+                      if bound == entry.name and bound_at(source, node, bound) == start), None)
+        return (rel, module, owner) if owner is not None and owner.kind != "class" else None
+
+    def scope_id(self, entry: Entry) -> tuple[str, int] | None:
+        """An identity of the scope declaring `entry`, equal for two entries one scope declares."""
+        found = self._declaring(entry)
+        return (found[0], id(found[2])) if found is not None else None
+
+    def sibling(self, entry: Entry, name: str) -> Entry | None:
+        """The entry of `name` as the scope declaring `entry` declares it; None when it does not."""
+        found = self._declaring(entry)
+        if found is None:
+            return None
+        rel, module, owner = found
+        try:
+            if isinstance(owner, ast.ClassDef):
+                return self._members(rel, rel, self.snapshot.source(rel), owner, name)
+            return self._group(rel, rel, module, owner, name)
+        except RefactorError:
+            return None
+
     # ---- references
 
     def _reference(self, rel: str, module: Module, start: int, name: str) -> Entry:

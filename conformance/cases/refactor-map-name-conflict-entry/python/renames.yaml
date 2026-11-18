@@ -1,0 +1,2 @@
+- {file: pkg/m.py, symbol: spare, new_name: extra}
+- {file: pkg/m.py, symbol: old, new_name: next}

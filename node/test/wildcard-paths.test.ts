@@ -3,7 +3,7 @@ import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { message } from '../src/contract/index.js';
-import { files, read, refactor, renameHeader, tsProject } from './refactor-project.js';
+import { entryRefusal, files, read, refactor, renameHeader, tsProject } from './refactor-project.js';
 
 const SOURCE = `export function f(name: string): string {
   const model = name.toUpperCase();
@@ -108,30 +108,33 @@ describe('a wildcard path', () => {
     const root = project();
     const before = files(root);
     const result = refactor(root, '--apply', 'rename', '--file', 'src/l.ts', '--symbol', symbol, '--new-name', 'dataset');
-    const prefix = message('refactor.symbol-unresolved', { path: 'src/l.ts', symbol, candidates: candidates ?? '' });
+    const prefix = entryRefusal(`src/l.ts ${symbol}`, message('refactor.symbol-unresolved', { path: 'src/l.ts', symbol, candidates: candidates ?? '' }));
     const matches = candidates === null ? result.err.startsWith(prefix) && result.err.endsWith('\n') : result.err === `${prefix}\n`;
     expect([result.code, result.out, matches, files(root)]).toEqual([2, '', true, before]);
   });
 });
 
-const WILDCARD = `${message('refactor.symbol-wildcard', { path: 'src/l.ts', symbol: '*.<locals>.model' })}\n`;
+const WILDCARD = message('refactor.symbol-wildcard', { path: 'src/l.ts', symbol: '*.<locals>.model' });
+// The refusal of entry 1 located by the entry's own symbol.
+const BY_WILDCARD = `${entryRefusal('src/l.ts *.<locals>.model', WILDCARD)}\n`;
+const BY_F = `${entryRefusal('src/l.ts f', WILDCARD)}\n`;
 
 describe('only a rename takes a wildcard', () => {
-  it.each<[string, string[]]>([
-    ['retarget --symbol', ['retarget', '--file', 'src/l.ts', '--symbol', '*.<locals>.model', '--target', 'f']],
-    ['retarget --target', ['retarget', '--file', 'src/l.ts', '--symbol', 'f', '--target', '*.<locals>.model']],
-    ['move-symbol --symbol', ['move-symbol', '--file', 'src/l.ts', '--symbol', '*.<locals>.model', '--dest', 'src/d.ts']],
-  ])('%s refuses it', (_name, argv) => {
+  it.each<[string, string[], string]>([
+    ['retarget --symbol', ['retarget', '--file', 'src/l.ts', '--symbol', '*.<locals>.model', '--target', 'f'], BY_WILDCARD],
+    ['retarget --target', ['retarget', '--file', 'src/l.ts', '--symbol', 'f', '--target', '*.<locals>.model'], BY_F],
+    ['move-symbol --symbol', ['move-symbol', '--file', 'src/l.ts', '--symbol', '*.<locals>.model', '--dest', 'src/d.ts'], `${WILDCARD}\n`],
+  ])('%s refuses it', (_name, argv, err) => {
     const root = project();
     const before = files(root);
-    expect([refactor(root, '--apply', ...argv), files(root)]).toEqual([{ code: 2, out: '', err: WILDCARD }, before]);
+    expect([refactor(root, '--apply', ...argv), files(root)]).toEqual([{ code: 2, out: '', err }, before]);
   });
 
   it.each([
-    ['symbol', wild('*.<locals>.model', 'retarget: f')],
-    ['retarget', "{file: src/l.ts, symbol: f, retarget: '*.<locals>.model'}"],
-  ])('a retarget entry refuses it as its %s', (_name, entry) => {
-    expect(runMap(project(), entry)).toEqual({ code: 2, out: '', err: WILDCARD });
+    ['symbol', wild('*.<locals>.model', 'retarget: f'), BY_WILDCARD],
+    ['retarget', "{file: src/l.ts, symbol: f, retarget: '*.<locals>.model'}", BY_F],
+  ])('a retarget entry refuses it as its %s', (_name, entry, err) => {
+    expect(runMap(project(), entry)).toEqual({ code: 2, out: '', err });
   });
 });
 
@@ -158,7 +161,7 @@ describe('a wildcard entry beside other entries', () => {
     const root = project(`${SOURCE}\nexport function taken(name: string): string {\n  const dataset = name;\n  const model = name;\n  return model + dataset;\n}\n`);
     const before = files(root);
     const result = runMap(root, wild('*.<locals>.model'));
-    const expected = `${message('refactor.name-conflict', { name: 'dataset', path: 'src/l.ts', line: 38 })}\n`;
+    const expected = `${entryRefusal('src/l.ts *.<locals>.model', message('refactor.name-conflict', { name: 'dataset', path: 'src/l.ts', line: 38 }))}\n`;
     expect([result, files(root)]).toEqual([{ code: 1, out: '', err: expected }, { ...before, 'map.yaml': read(root, 'map.yaml') }]);
   });
 });

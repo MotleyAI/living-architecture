@@ -1,0 +1,6 @@
+[resolve]
+[checks]
+[references]
+[references 1/2] entry 1: x -> y
+[references 2/2] entry 2: x -> class
+entry 2 (pkg/f.py g(x)): the element at this location cannot be renamed

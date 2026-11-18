@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 from project_files import file_tree, write_project
-from refactor_cli import read, run, template_regex
+from refactor_cli import entry_refusal, read, run, template_regex
 
 from living_architecture.contract import message
 
@@ -135,38 +135,45 @@ def test_a_wildcard_that_locates_nothing_or_is_misplaced_is_unresolved(
     code, out, err = run(root, argv, monkeypatch, capsys)
     # A misplaced `*` is unresolved like any path; which scope's names it lists is not pinned.
     listed = "CANDIDATES" if candidates is None else candidates
-    expected = template_regex(
-        message("refactor.symbol-unresolved", path="pkg/l.py", symbol=symbol, candidates=listed) + "\n", any="CANDIDATES")
+    unresolved = message("refactor.symbol-unresolved", path="pkg/l.py", symbol=symbol, candidates=listed)
+    expected = template_regex(entry_refusal(f"pkg/l.py {symbol}", unresolved) + "\n", any="CANDIDATES")
     assert (code, out, expected.fullmatch(err) is not None, file_tree(root) == before) == (2, "", True, True)
 
 
-WILDCARD = message("refactor.symbol-wildcard", path="pkg/l.py", symbol="*.<locals>.model") + "\n"
-REFUSED: dict[str, list[str]] = {
-    "retarget-symbol": ["retarget", "--file", "pkg/l.py", "--symbol", "*.<locals>.model", "--target", "f"],
-    "retarget-target": ["retarget", "--file", "pkg/l.py", "--symbol", "f", "--target", "*.<locals>.model"],
-    "move-symbol": ["move-symbol", "--file", "pkg/l.py", "--symbol", "*.<locals>.model", "--dest", "pkg/d.py"],
+WILDCARD = message("refactor.symbol-wildcard", path="pkg/l.py", symbol="*.<locals>.model")
+# The refusal of entry 1 located by the entry's own symbol.
+BY_WILDCARD = entry_refusal("pkg/l.py *.<locals>.model", WILDCARD) + "\n"
+BY_F = entry_refusal("pkg/l.py f", WILDCARD) + "\n"
+REFUSED: dict[str, tuple[list[str], str]] = {
+    "retarget-symbol": (["retarget", "--file", "pkg/l.py", "--symbol", "*.<locals>.model", "--target", "f"], BY_WILDCARD),
+    "retarget-target": (["retarget", "--file", "pkg/l.py", "--symbol", "f", "--target", "*.<locals>.model"], BY_F),
+    "move-symbol": (["move-symbol", "--file", "pkg/l.py", "--symbol", "*.<locals>.model", "--dest", "pkg/d.py"],
+                    WILDCARD + "\n"),
 }
 
 
-@pytest.mark.parametrize("argv", REFUSED.values(), ids=REFUSED.keys())
+@pytest.mark.parametrize(("argv", "expected"), REFUSED.values(), ids=REFUSED.keys())
 def test_only_a_rename_takes_a_wildcard(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], argv: list[str]
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], argv: list[str], expected: str
 ) -> None:
     root = write_project(tmp_path / "proj", {"pkg/l.py": SOURCE, "pkg/d.py": ""})
     before = file_tree(root)
-    assert (run(root, ["--apply", *argv], monkeypatch, capsys), file_tree(root) == before) == ((2, "", WILDCARD), True)
+    assert (run(root, ["--apply", *argv], monkeypatch, capsys), file_tree(root) == before) == ((2, "", expected), True)
 
 
 @pytest.mark.parametrize(
-    "entry",
-    [_wild("*.<locals>.model", "retarget: f"), "{file: pkg/l.py, symbol: f, retarget: '*.<locals>.model'}"],
+    ("entry", "expected"),
+    [
+        (_wild("*.<locals>.model", "retarget: f"), BY_WILDCARD),
+        ("{file: pkg/l.py, symbol: f, retarget: '*.<locals>.model'}", BY_F),
+    ],
     ids=["symbol", "retarget"],
 )
 def test_a_retarget_entry_refuses_a_wildcard(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], entry: str
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], entry: str, expected: str
 ) -> None:
     root = write_project(tmp_path / "proj", {"pkg/l.py": SOURCE})
-    assert run(root, _map(root, entry), monkeypatch, capsys) == (2, "", WILDCARD)
+    assert run(root, _map(root, entry), monkeypatch, capsys) == (2, "", expected)
 
 
 def test_a_wildcard_and_an_entry_for_one_of_its_locals_merge_or_are_duplicates(
@@ -198,6 +205,7 @@ def test_one_conflicting_local_refuses_the_whole_entry(
     root = write_project(tmp_path / "proj", {"pkg/l.py": CONFLICT})
     before = file_tree(root)
     code, out, err = run(root, _map(root, _wild("*.<locals>.model")), monkeypatch, capsys)
-    expected = message("refactor.name-conflict", name="dataset", path="pkg/l.py", line=37) + "\n"
+    conflict = message("refactor.name-conflict", name="dataset", path="pkg/l.py", line=37)
+    expected = entry_refusal("pkg/l.py *.<locals>.model", conflict) + "\n"
     assert (code, out, err, file_tree(root) == {**before, "map.yaml": (root / "map.yaml").read_bytes()}) == (
         1, "", expected, True)

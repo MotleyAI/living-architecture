@@ -6,4 +6,3 @@
 [rules 1/1] entry 1: columns -> fields: 1 refusal(s)
 pkg/other.ts:2: stand-in: Sheet.columns is outside the renamed hierarchy; pass --with pkg/other.ts:2 to rename it too or --without pkg/other.ts:2 to leave it
 [conflicts]
-pkg/other.ts:2: stand-in: Sheet.columns is outside the renamed hierarchy; pass --with pkg/other.ts:2 to rename it too or --without pkg/other.ts:2 to leave it

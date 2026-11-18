@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 from project_files import file_tree
-from refactor_cli import readouterr
+from refactor_cli import entry_refusal, readouterr
 from rope.refactor import patchedast
 
 from living_architecture.cli.dr_refactor import dr_refactor as main
@@ -228,7 +228,7 @@ def test_rope_refusal_is_the_cannot_rename_finding(project: Path, capsys: pytest
     offset = text.index("\nclass")
     assert _run(project, "--apply", "rename", "--file", str(project / "pkg" / "a.py"), "--offset", str(offset),
                 "--new-name", "x") == 1
-    assert readouterr(capsys) == ("", message("refactor.cannot-rename") + "\n")
+    assert readouterr(capsys) == ("", entry_refusal(f"pkg/a.py offset {offset}", message("refactor.cannot-rename")) + "\n")
     assert file_tree(project) == before
 
 

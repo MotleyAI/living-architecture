@@ -7,4 +7,3 @@
 [rules 1/1] entries 1, 2: root_model -> root_dataset: 1 refusal(s)
 pkg/q.py:12: stand-in: Fake.root_model is outside the renamed hierarchy; pass --with pkg/q.py:12 to rename it too or --without pkg/q.py:12 to leave it
 [conflicts]
-pkg/q.py:12: stand-in: Fake.root_model is outside the renamed hierarchy; pass --with pkg/q.py:12 to rename it too or --without pkg/q.py:12 to leave it

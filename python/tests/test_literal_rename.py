@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 from project_files import file_tree, write_project
-from refactor_cli import assert_same_run, line_col, read, run, template_regex
+from refactor_cli import assert_same_run, entry_refusal, line_col, read, run, template_regex
 
 from living_architecture.contract import message
 
@@ -228,7 +228,7 @@ def test_value_with_a_quote_backslash_or_line_break_refused(
 ) -> None:
     root = write_project(tmp_path / "proj", {"pkg/kinds.py": KINDS, "pkg/use.py": CONTEXTS})
     before = file_tree(root)
-    expected = message("refactor.literal-value", value=value)
+    expected = entry_refusal(f"pkg/kinds.py {SYMBOL}", message("refactor.literal-value", value=value))
     assert run(root, _by_symbol(value), monkeypatch, capsys) == (2, "", f"{expected}\n")
     assert file_tree(root) == before
 
@@ -303,7 +303,7 @@ def test_an_implicitly_concatenated_member_cannot_be_renamed(
     root = write_project(tmp_path / "proj", {"pkg/state.py": 'from typing import Literal\n\nState = Literal["re" "ady", "drop"]\n'})
     before = file_tree(root)
     code, _out, err = run(root, _by_symbol("done", symbol="State['ready']", rel="pkg/state.py"), monkeypatch, capsys)
-    assert (code, err) == (1, message("refactor.cannot-rename") + "\n")
+    assert (code, err) == (1, entry_refusal("pkg/state.py State['ready']", message("refactor.cannot-rename")) + "\n")
     assert file_tree(root) == before
 
 
@@ -365,5 +365,6 @@ def test_a_source_display_already_holding_the_new_value_is_a_name_conflict(
     before = file_tree(root)
     code, out, err = run(root, _by_symbol("drop"), monkeypatch, capsys)
     assert (code, out) == (1, "")
-    assert err.splitlines()[-1] == message("refactor.name-conflict", name="drop", path="pkg/loop.py", line=9)
+    conflict = message("refactor.name-conflict", name="drop", path="pkg/loop.py", line=9)
+    assert err.splitlines()[-1] == entry_refusal(f"pkg/kinds.py {SYMBOL}", conflict)
     assert file_tree(root) == before

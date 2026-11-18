@@ -1,0 +1,8 @@
+[resolve]
+[checks]
+[references]
+[references 1/1] entry 1: m -> n
+[rules]
+[rules 1/1] entry 1: m -> n: 1 refusal(s)
+pkg/a.py:7: stand-in: B.m is outside the renamed hierarchy; pass --with pkg/a.py:7 to rename it too or --without pkg/a.py:7 to leave it
+[conflicts]

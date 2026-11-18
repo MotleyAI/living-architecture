@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 import yaml
 from project_files import file_tree, write_project
-from refactor_cli import read, run, run_raw, template_regex
+from refactor_cli import entry_refusal, read, run, run_raw, template_regex
 
 from living_architecture.config import current_format
 from living_architecture.contract import message
@@ -83,7 +83,8 @@ def test_the_project_roots_init_names_no_module(
     root = _project(tmp_path, {"__init__.py": "X = 1\n", "a.py": "import os\n"},
                     [{"module": "__init__.py", "new_name": "foo"}, {"module": "a.py", "new_name": "b"}])
     before = file_tree(root)
-    assert run_raw(root, args, monkeypatch, capsys) == (1, "", CHECKS + message("refactor.cannot-rename") + "\n")
+    refused = entry_refusal("__init__.py", message("refactor.cannot-rename"))
+    assert run_raw(root, args, monkeypatch, capsys) == (1, "", CHECKS + refused + "\n")
     assert file_tree(root) == before
 
 
@@ -255,8 +256,10 @@ def test_three_nested_moves_print_each_entrys_own_pair(
                      "rename from pkg/sql/client.py", "rename to pkg/sql/cli.py"]
 
 
-def _refused_with_a_conflict_on(name: str, err: str) -> bool:
-    return template_regex(_conflict(name, "PATH", 999), path="PATH", line="999").fullmatch(err.splitlines()[-1]) is not None
+def _refused_with_a_conflict_on(name: str, err: str, locator: str, entry: int) -> bool:
+    """The last line of `err` is `entry`'s conflict on `name`, at any site."""
+    refused = entry_refusal(locator, _conflict(name, "PATH", 999), entry)
+    return template_regex(refused, path="PATH", line="999").fullmatch(err.splitlines()[-1]) is not None
 
 
 A_PACKAGE = {"module": "pkg/a/__init__.py", "new_name": "c"}
@@ -271,7 +274,7 @@ def test_two_moves_ending_at_one_path_are_refused(
     before = file_tree(root)
     code, out, err = run(root, _map(), monkeypatch, capsys)
     assert (code, out) == (1, "")
-    assert _refused_with_a_conflict_on("c", err), err
+    assert _refused_with_a_conflict_on("c", err, str(entries[1]["module"]), 2), err
     assert file_tree(root) == before
 
 
@@ -284,7 +287,7 @@ def test_two_packages_moved_onto_one_name_are_refused(
     before = file_tree(root)
     code, out, err = run(root, _map(), monkeypatch, capsys)
     assert (code, out) == (1, "")
-    assert _refused_with_a_conflict_on("c", err), err
+    assert _refused_with_a_conflict_on("c", err, "pkg/b/__init__.py", 2), err
     assert file_tree(root) == before
 
 
@@ -300,7 +303,8 @@ def test_a_module_meeting_a_binding_another_entry_introduces_is_refused(
     before = file_tree(root)
     code, out, err = run(root, _map(), monkeypatch, capsys)
     assert (code, out) == (1, "")
-    assert template_regex(_conflict("b", "pkg/__init__.py", 999), line="999").fullmatch(err.splitlines()[-1]), err
+    refused = entry_refusal("pkg/a.py", _conflict("b", "pkg/__init__.py", 999))
+    assert template_regex(refused, line="999").fullmatch(err.splitlines()[-1]), err
     assert file_tree(root) == before
 
 
@@ -313,7 +317,8 @@ def test_a_modules_new_name_capturing_a_reference_another_entry_rewrites_is_refu
     before = file_tree(root)
     code, out, err = run(root, _map(), monkeypatch, capsys)
     assert (code, out) == (1, "")
-    assert template_regex(_conflict("b", "pkg/use.py", 999), line="999").fullmatch(err.splitlines()[-1]), err
+    refused = entry_refusal("LOCATOR", _conflict("b", "pkg/use.py", 999), 999)
+    assert template_regex(refused, locator="LOCATOR", line="999").fullmatch(err.splitlines()[-1]), err
     assert file_tree(root) == before
 
 
@@ -323,7 +328,8 @@ def test_a_chain_of_module_names_is_refused_in_the_checks(
     root = _project(tmp_path, {"pkg/a.py": "X = 1\n", "pkg/b.py": "Y = 1\n"},
                     [{"module": "pkg/a.py", "new_name": "b"}, {"module": "pkg/b.py", "new_name": "c"}])
     before = file_tree(root)
-    assert run_raw(root, _map(), monkeypatch, capsys) == (1, "", CHECKS + _conflict("b", "pkg/b.py", 1) + "\n")
+    refused = entry_refusal("pkg/a.py", _conflict("b", "pkg/b.py", 1))
+    assert run_raw(root, _map(), monkeypatch, capsys) == (1, "", CHECKS + refused + "\n")
     assert file_tree(root) == before
 
 
@@ -334,7 +340,8 @@ def test_a_taken_module_name_is_refused_before_any_reference_search(
     root = _project(tmp_path, files, [{"file": "pkg/f.py", "symbol": "f", "new_name": "g"},
                                       {"module": "pkg/a.py", "new_name": "b"}])
     before = file_tree(root)
-    assert run_raw(root, _map(), monkeypatch, capsys) == (1, "", CHECKS + _conflict("b", "pkg/b.py", 1) + "\n")
+    refused = entry_refusal("pkg/a.py", _conflict("b", "pkg/b.py", 1), 2)
+    assert run_raw(root, _map(), monkeypatch, capsys) == (1, "", CHECKS + refused + "\n")
     assert file_tree(root) == before
 
 
@@ -377,7 +384,7 @@ def test_another_file_spelling_the_new_name_in_another_case_takes_it(
     root = _project(tmp_path, {"pkg/a.py": "X = 1\n", sibling: "Y = 1\n"}, [{"module": "pkg/a.py", "new_name": "B"}])
     _case_insensitive(root, monkeypatch)
     before = file_tree(root)
-    assert run_raw(root, _map(), monkeypatch, capsys) == (1, "", CHECKS + _conflict("B", named, 1) + "\n")
+    assert run_raw(root, _map(), monkeypatch, capsys) == (1, "", CHECKS + entry_refusal("pkg/a.py", _conflict("B", named, 1)) + "\n")
     assert file_tree(root) == before
 
 
@@ -391,7 +398,9 @@ def test_an_invalid_module_new_name_is_a_resolution_failure(
 ) -> None:
     root = _project(tmp_path, {"pkg/a.py": "X = 1\n", "pkg/use.py": USE_A}, [{**entry, "new_name": new_name}])
     before = file_tree(root)
-    assert run_raw(root, _map(), monkeypatch, capsys) == (1, "", CHECKS + message("refactor.cannot-rename") + "\n")
+    shown = "pkg/a.py" if "module" in entry else "pkg/use.py:1:17"
+    refused = entry_refusal(shown, message("refactor.cannot-rename"))
+    assert run_raw(root, _map(), monkeypatch, capsys) == (1, "", CHECKS + refused + "\n")
     assert file_tree(root) == before
 
 
@@ -403,8 +412,8 @@ def test_an_invalid_module_new_name_is_collected_with_the_other_resolution_failu
     code, out, err = run_raw(root, _map(), monkeypatch, capsys)
     assert (code, out) == (2, "")
     lines = err.splitlines()
-    assert lines[:3] == ["[resolve]", "[checks]", message("refactor.cannot-rename")]
-    assert lines[3].startswith("pkg/a.py: Missing names no declaration")
+    assert lines[:3] == ["[resolve]", "[checks]", entry_refusal("pkg/a.py", message("refactor.cannot-rename"))]
+    assert lines[3].startswith(entry_refusal("pkg/a.py Missing", "pkg/a.py: Missing names no declaration", 2))
     assert len(lines) == 4
 
 

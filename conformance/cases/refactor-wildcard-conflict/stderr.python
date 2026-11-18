@@ -1,8 +1,3 @@
 [resolve]
 [checks]
-[references]
-[references 1/1] entry 1: model -> dataset
-[rules]
-[rules 1/1] entry 1: model -> dataset: clean
-[conflicts]
-dataset already names something else at pkg/l.py:12, so nothing was refactored
+entry 1 (pkg/l.py *.<locals>.model): dataset already names something else at pkg/l.py:12, so nothing was refactored

@@ -1,0 +1,41 @@
+Renaming <x> to <y>:
+Renaming <y> to <x>:
+Renaming <n> to <m>:
+Renaming <m> to <n>:
+Renaming <b> to <c>:
+Renaming <a> to <b>:
+Renaming <p> to <q>:
+Renaming <q> to <r>:
+
+
+--- a/src/f.ts
++++ b/src/f.ts
+@@ -1,15 +1,15 @@
+-export function f(x: number, y: number): number {
+-  return x - y;
++export function f(y: number, x: number): number {
++  return y - x;
+ }
+ 
+-export function g(m: number, n: number): number {
+-  return m - n;
++export function g(n: number, m: number): number {
++  return n - m;
+ }
+ 
+-export function h(a: number, b: number): number {
+-  return a - b;
++export function h(b: number, c: number): number {
++  return b - c;
+ }
+ 
+-export function k(p: number, q: number): number {
+-  return p - q;
++export function k(q: number, r: number): number {
++  return q - r;
+ }
+
+
+
+APPLIED. 1 file(s) changed:
+  src/f.ts

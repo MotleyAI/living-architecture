@@ -1,0 +1,15 @@
+kind: paired
+languages:
+- python
+- typescript
+command: dr-refactor
+args:
+- rename-map
+- renames.yaml
+git:
+- commit: init
+expect:
+  exit: 1
+golden: manual
+note: 'a member, a parameter, a local and a top-level name each renamed onto a name its declaring scope holds: four findings
+  in checks, by entry, before any reference search'

@@ -1,3 +1,3 @@
 [resolve]
 [checks]
-pkg/a.py: nothing names no declaration; candidates: Base, foo
+entry 1 (pkg/a.py nothing): pkg/a.py: nothing names no declaration; candidates: Base, foo

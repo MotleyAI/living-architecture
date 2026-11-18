@@ -1,0 +1,39 @@
+Renaming <x> to <y>:
+Renaming <y> to <x>:
+Renaming <n> to <m>:
+Renaming <m> to <n>:
+Renaming <b> to <c>:
+Renaming <a> to <b>:
+Renaming <p> to <q>:
+Renaming <q> to <r>:
+
+
+--- a/pkg/m.py
++++ b/pkg/m.py
+@@ -1,12 +1,12 @@
+-x = 1
+-y = 2
+-m = 3
+-n = 4
+-a = 5
+-b = 6
+-p = 7
+-q = 8
++y = 1
++x = 2
++n = 3
++m = 4
++b = 5
++c = 6
++q = 7
++r = 8
+ 
+ 
+ def total() -> int:
+-    return x - y + m - n + a - b + p - q
++    return y - x + n - m + b - c + q - r
+
+
+
+APPLIED. 1 file(s) changed:
+  pkg/m.py

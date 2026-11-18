@@ -19,7 +19,10 @@ import { canonical, LangError, loadProjectsFrom, posix, type Project, type Proje
 import { RefactorError } from './edits.js';
 import { timed } from './timings.js';
 
-/** `typescript.tsconfig` of the root's architecture/index.yaml, else null; RefactorError when the index is unreadable. */
+/** The project's configuration cannot be read: a refusal of the run, not of one entry. */
+export class WorkspaceError extends RefactorError {}
+
+/** `typescript.tsconfig` of the root's architecture/index.yaml, else null; WorkspaceError when the index is unreadable. */
 function namedConfig(root: string): string | null {
   const path = join(root, 'architecture', 'index.yaml');
   let bytes: Buffer;
@@ -27,17 +30,17 @@ function namedConfig(root: string): string | null {
     if (!isRegularFile(path)) return null;
     bytes = readFile(path);
   } catch (error) {
-    if (isOsError(error)) throw new RefactorError(osErrorText(error, root, path));
+    if (isOsError(error)) throw new WorkspaceError(osErrorText(error, root, path));
     throw error;
   }
   const text = decodeUtf8OrNull(bytes);
-  if (text === null) throw new RefactorError(message('c4.index-invalid-yaml'));
+  if (text === null) throw new WorkspaceError(message('c4.index-invalid-yaml'));
   let index: { typescript?: { tsconfig?: unknown } } | null;
   try {
     index = toPlain(loadYaml(text)) as typeof index;
   } catch (error) {
-    if (error instanceof DuplicateKeyError) throw new RefactorError(message('c4.index-duplicate-key', { error: error.message }));
-    if (error instanceof YAMLError) throw new RefactorError(message('c4.index-invalid-yaml'));
+    if (error instanceof DuplicateKeyError) throw new WorkspaceError(message('c4.index-duplicate-key', { error: error.message }));
+    if (error instanceof YAMLError) throw new WorkspaceError(message('c4.index-invalid-yaml'));
     throw error;
   }
   const named = index?.typescript?.tsconfig;
@@ -265,7 +268,7 @@ export class Workspace {
   private graph(file: string): Projects {
     if (this.named === undefined) this.named = namedConfig(this.root);
     if (this.named !== null) {
-      if (!this.exists(this.named)) throw new RefactorError(message('refactor.ts-tsconfig-missing', { path: posix(relative(this.root, this.named)) }));
+      if (!this.exists(this.named)) throw new WorkspaceError(message('refactor.ts-tsconfig-missing', { path: posix(relative(this.root, this.named)) }));
       return this.load(this.named);
     }
     const key = canonical(file);

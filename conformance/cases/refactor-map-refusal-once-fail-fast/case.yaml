@@ -1,0 +1,15 @@
+kind: paired
+languages:
+- python
+- typescript
+command: dr-refactor
+args:
+- rename-map
+- renames.yaml
+- --fail-fast
+git:
+- commit: init
+expect:
+  exit: 1
+golden: manual
+note: '--fail-fast stopping on a stand-in: its line once under the first group''s rules line, nothing after it, exit 1'
