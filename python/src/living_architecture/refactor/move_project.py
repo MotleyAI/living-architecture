@@ -84,10 +84,20 @@ class MoveProject:
             name = ".".join(path.relative_to(base).with_suffix("").parts) if path.suffix == ".py" else ".".join(
                 path.relative_to(base).parts)
             name = name.removesuffix(".__init__")
-            hit = self.folders.file(name) if all(p.isidentifier() for p in name.split(".")) else None
-            if hit is not None and hit[0] == target and name not in found:
+            if not all(p.isidentifier() for p in name.split(".")) or name in found:
+                continue
+            hit = self.folders.file(name)
+            if (hit is not None and hit[0] == target) or (hit is None and path in self.folders.portions(name)):
                 found.append(name)
         return found
+
+    def unique(self, rel: str) -> None:
+        """`refactor.ambiguous-module` when another file of the project holds a module name `rel` is imported under."""
+        for name in filter(None, self.names(rel)):
+            paths = [path for path, _ in self.folders.files(name)] or self.folders.portions(name)
+            files = sorted(project_rel(self.root, str(path)) for path in paths)
+            if len(files) > 1:
+                raise RefactorError(message("refactor.ambiguous-module", module=name, paths=", ".join(files)))
 
     def package(self, rel: str) -> str:
         """The package relative imports in file `rel` start from."""

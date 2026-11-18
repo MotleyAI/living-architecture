@@ -15,6 +15,7 @@ from living_architecture.refactor.static_resolver import ImportItem
 
 _FUTURE = "__future__"
 _BUILTINS = frozenset(dir(builtins))
+_TYPING = frozenset({"typing", "typing_extensions"})
 
 
 class GuardedImport(Exception):
@@ -84,10 +85,11 @@ class Needed:
 
 
 def is_type_checking(stmt: ast.stmt) -> bool:
-    """A top-level `if TYPE_CHECKING:` (or `if typing.TYPE_CHECKING:`)."""
+    """A top-level `if TYPE_CHECKING:` (or `if typing.TYPE_CHECKING:`, `typing_extensions` alike)."""
     test = stmt.test if isinstance(stmt, ast.If) else None
     return (isinstance(test, ast.Name) and test.id == "TYPE_CHECKING") or (
         isinstance(test, ast.Attribute) and test.attr == "TYPE_CHECKING"
+        and isinstance(test.value, ast.Name) and test.value.id in _TYPING
     )
 
 

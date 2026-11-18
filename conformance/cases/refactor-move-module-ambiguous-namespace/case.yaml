@@ -1,0 +1,20 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- --apply
+- move-module
+- --module
+- src1/pkg
+- --dest
+- src1/dst
+git:
+- commit: init
+expect:
+  exit: 1
+  files:
+  - src1/pkg/a.py
+  - src2/use.py
+golden: manual
+note: a namespace package two source folders hold portions of is refused, since moving one portion would retarget the other's modules

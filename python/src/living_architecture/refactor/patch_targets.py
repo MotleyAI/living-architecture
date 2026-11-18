@@ -38,10 +38,14 @@ class SourceFolders:
     def namespace(self, dotted: str) -> Path | None:
         """The first directory of namespace package `dotted`: a directory holding Python sources but no
         `__init__.py` under some source folder, with no module or package of that name."""
+        return next(iter(self.portions(dotted)), None)
+
+    def portions(self, dotted: str) -> list[Path]:
+        """Every directory of namespace package `dotted` that holds Python sources."""
         parts = dotted.split(".")
         if not all(p.isidentifier() for p in parts) or self.files(dotted):
-            return None
-        return next((p.resolve() for p in self._portions(parts) if next(p.rglob("*.py"), None) is not None), None)
+            return []
+        return list(dict.fromkeys(p.resolve() for p in self._portions(parts) if next(p.rglob("*.py"), None) is not None))
 
     def _portions(self, parts: list[str]) -> list[Path]:
         """The directories that may hold namespace package `parts`, as Python searches its parent's `__path__`: in

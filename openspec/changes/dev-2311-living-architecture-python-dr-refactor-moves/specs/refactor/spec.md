@@ -6,7 +6,8 @@ name by Python's scoping rules over the project's own modules, without importing
 language server, and rope SHALL compute no part of it: no reference, no region, no import and no edit. rope's only
 remaining part in a move SHALL be the walker-gap check of its `checks` phase. Output SHALL be byte-identical to the
 output before this change on every input that move-symbol's locator rules accept and where that output was valid
-Python that kept every reference bound.
+Python that kept every reference bound. A move whose source module's name more than one file of the project holds SHALL
+exit 1 with the ambiguous-module finding naming the module and its files, and write nothing.
 
 #### Scenario: No server for a symbol move
 - **WHEN** `move-symbol` runs, with or without `--apply`
@@ -32,6 +33,10 @@ Python that kept every reference bound.
   `pkg.sql.client.X`
 - **THEN** the use becomes `pkg.database.client.X` and `import pkg.database.client` is added on the line after
   `import pkg.sql`
+
+#### Scenario: Module name held twice
+- **WHEN** source folders `src1` and `src2` both hold `pkg/a.py`, and `move-module` moves `src1/pkg/a.py`
+- **THEN** it exits 1 with the ambiguous-module finding naming `pkg.a` and both files, and no file changes
 
 ### Requirement: Python move-symbol moves one top-level declaration
 `move-symbol` SHALL resolve its locator (`--symbol`, `--line`/`--col` or `--offset`) to a site on one top-level

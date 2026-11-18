@@ -1,0 +1,3 @@
+[resolve]
+[checks]
+pkg names more than one file (src1/pkg, src2/pkg), so nothing was refactored

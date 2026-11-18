@@ -85,6 +85,7 @@ def move_symbol(root: Path, *, file: str, locator: Locator, dest: str, apply: bo
             module = project.module(source)
             if (located is not None and not located.top_level) or module is None:
                 raise RefactorError(message("refactor.not-movable", path=file))
+            project.unique(source)
             moved = locate_moved(text, module, offset, file)
             target = project.destination(dest, folder=False)
             if target != source and project.module(target) is None:
@@ -113,6 +114,7 @@ def move_module(root: Path, *, module: str, dest: str, apply: bool, progress: Pr
         with timed("resolve"):
             source = project.rel(module)
             folder = project.destination(dest, folder=True)
+            project.unique(source)
             moved = Path(source).parent if Path(source).name == "__init__.py" else Path(source)
             if Path(folder).is_relative_to(moved):
                 raise RefactorError(message("refactor.destination-inside-source", path=folder, source=moved.as_posix()))

@@ -1,0 +1,3 @@
+[resolve]
+[checks]
+pkg.a names more than one file (src1/pkg/a.py, src2/pkg/a.py), so nothing was refactored
