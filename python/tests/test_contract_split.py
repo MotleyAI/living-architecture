@@ -16,7 +16,7 @@ SHARED = REPO_ROOT / "shared"
 DR_FILE = "deterministic-refactor.yaml"
 LA_FILE = "living-architecture.yaml"
 DR_SCHEMA = "deterministic-refactor.schema.json"
-DR_KEYS = {"format", "exempt", "commands"}
+DR_KEYS = {"format", "exempt", "commands", "refactor"}
 DR_COMMANDS = {"dr-refactor", "dr-compliance", "dr-mock-lint", "dr-typecheck", "dr-doctor", "dr-config"}
 REVIEW_SHIMS = {
     "la-fetch-coderabbit-threads", "la-fetch-failed-pr-checks", "la-pr-reviewers", "la-reply-invalid-coderabbit",
@@ -134,7 +134,7 @@ def test_la_schema_takes_the_dr_keys_by_reference() -> None:
     assert schema["additionalProperties"] is False
     assert "allOf" not in schema
     properties = schema["properties"]
-    for key in ("format", "exempt"):
+    for key in ("format", "exempt", "refactor"):
         assert properties[key] == {"$ref": f"{DR_SCHEMA}#/properties/{key}"}, key
     commands = properties["commands"]
     assert commands["additionalProperties"] is False

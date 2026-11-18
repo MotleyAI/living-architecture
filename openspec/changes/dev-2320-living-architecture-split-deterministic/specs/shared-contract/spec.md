@@ -95,11 +95,12 @@ hashes are independent.
 - **THEN** every command loads its contract, a review shim runs its bundled script, and the package's doctor `--contract-hash` prints the same hash as its PyPI twin
 
 ### Requirement: Configuration parameters are defined only by the shared schemas
-Every key, type, constraint and default of `deterministic-refactor.yaml` SHALL be defined only by dr's shared
-JSON Schema, and of `living-architecture.yaml` only by la's, which SHALL take each dr key (`format`, `exempt`,
-`commands.test`, `commands.typecheck`) by a reference to dr's definition and stay closed to unknown keys. The keys
-`living-architecture.local.yaml` may set SHALL be defined only by the shared local schema (which references the
-main schema's definitions of those keys), and every config file name SHALL come only from the shared contracts.
+Every key, type, constraint and default of `deterministic-refactor.yaml` SHALL be defined only by dr's shared JSON
+Schema, and of `living-architecture.yaml` only by la's, which SHALL take each dr key (`format`, `exempt`,
+`commands.test`, `commands.typecheck`, `refactor`) by a reference to dr's definition and stay closed to unknown
+keys. The keys `living-architecture.local.yaml` may set SHALL be defined only by the shared local schema (which
+references the main schema's definitions of those keys), and every config file name SHALL come only from the shared
+contracts.
 Filling defaults SHALL follow such references exactly as inline definitions. Every key and type of `architecture/index.yaml` SHALL be defined
 only by the shared index schema, and every key and type of a node's model metadata SHALL be defined only by
 the shared node schema. A resolved configuration SHALL equal the input with schema defaults filled in

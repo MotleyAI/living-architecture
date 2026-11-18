@@ -152,6 +152,8 @@ Tags: `(user)` the user's choice, `(default)` an obvious default, `(codex)` a Co
 27. **Required new conformance cases** (codex finding 10): listed in tasks.md. (codex)
 28. **Interim `doctor` mapping**: until the model split (task 8.1), `cross_cutting_specs.doctor` touches
     `[python.doctor]` so `la-arch-check` stays green; 8.1 rewrites it to the approved form. (user, approved wording)
+29. **`refactor` is dr's**: the `refactor` section (added on main after planning) configures `dr-refactor`, so dr's
+    schema defines it and la's takes it by a property-level `$ref`, like the other dr keys. (user, approved extension)
 
 ## Risks / Trade-offs
 

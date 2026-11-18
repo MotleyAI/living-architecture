@@ -115,8 +115,8 @@ only. When both files exist at the repo root, every command that reads the confi
 `dr-config` included) with one shared message naming both files, before the format check; the doctors report it
 instead (see the doctor capability). A path that is not a regular file SHALL count as absent. dr SHALL ignore
 `living-architecture.local.yaml`; it overrides only la keys. `deterministic-refactor.yaml` SHALL accept exactly the
-dr keys: `format`, `exempt`, `commands.test` and `commands.typecheck`, with the same types and defaults as in
-`living-architecture.yaml`; any other key SHALL be a config error naming the key and the file.
+dr keys: `format`, `exempt`, `commands.test`, `commands.typecheck` and `refactor`, with the same types and defaults
+as in `living-architecture.yaml`; any other key SHALL be a config error naming the key and the file.
 
 #### Scenario: dr-only repo
 - **WHEN** a repo has only `deterministic-refactor.yaml` setting `commands: {typecheck: {python: 'basedpyright -p app'}}` and `dr-typecheck` runs
@@ -201,13 +201,13 @@ byte-identical files and output.
 
 ### Requirement: dr-config prints dr's resolved config
 `dr-config get <key>` and `dr-config show` SHALL behave as `la-config`'s subcommands, over the config file dr reads
-and only the dr keys: `format`, `exempt`, `commands.test`, `commands.typecheck` and their sub-keys, plus `languages`
-and `lang.<language>.<key>` exactly as `la-config` defines them. Any other key SHALL exit 2 with the unknown-key
-message. `la-config get` SHALL still accept every key, the dr keys included.
+and only the dr keys: `format`, `exempt`, `commands.test`, `commands.typecheck`, `refactor` and their sub-keys, plus
+`languages` and `lang.<language>.<key>` exactly as `la-config` defines them. Any other key SHALL exit 2 with the
+unknown-key message. `la-config get` SHALL still accept every key, the dr keys included.
 
 #### Scenario: Show in a dr-only repo
 - **WHEN** a repo has `deterministic-refactor.yaml` declaring `format: 0.13.0` and `dr-config show` runs
-- **THEN** it prints the resolved `format`, `exempt` and `commands` and exits 0
+- **THEN** it prints the resolved `format`, `exempt`, `commands` and `refactor` and exits 0
 
 #### Scenario: la key refused
 - **WHEN** `dr-config get tracker` runs
