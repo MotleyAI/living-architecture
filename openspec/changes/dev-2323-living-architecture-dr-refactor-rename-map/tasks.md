@@ -22,7 +22,7 @@
          `sed -n 's/^#   \(--[a-z-]*\)\( .*\)\?$/\1\2/p' <worktree map>` (167 lines, `--allow-blindspots` among them).
 
       Never write to SLayer. Verify: the run exits 0 and prints `timing: conflicts`.
-- [ ] 0.4 Run every measurement alone on the machine, and record its load, free memory and swap with the numbers: a
+- [x] 0.4 Run every measurement alone on the machine, and record its load, free memory and swap with the numbers: a
       contended run once tripled a phase's time.
 
 ## 1. Tests (pr-tests)
@@ -89,7 +89,7 @@
 
 ## 3. Measurement (pr-implement)
 
-- [ ] 3.1 Cold runs of both maps (0.2, 0.3) under `/usr/bin/time -v`, alone, on main at the merge (before) and on this
+- [x] 3.1 Cold runs of both maps (0.2, 0.3) under `/usr/bin/time -v`, alone, on main at the merge (before) and on this
       change: peak RSS, phase split, total. Verify: DEV-1607 peak at most 3.0 GB (main 3.74 GB, prototype 2.84 GB);
       DEV-2318 peak at most 4.0 GB (main 9.84 GB, prototype 3.91 GB); total no slower than before. Results go in a
       comment on DEV-2323 with the machine's state (0.4).
