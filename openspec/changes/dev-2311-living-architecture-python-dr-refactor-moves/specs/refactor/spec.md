@@ -56,8 +56,11 @@ holding only whitespace. A variable's region SHALL be its logical line. The move
 trailing whitespace, followed by one line break. In the destination, the moved text SHALL follow the last top-level
 import statement; in a destination without one, it SHALL follow the module docstring, else precede the first statement.
 When a later top-level destination statement binds a name the moved code reads while it is being defined (a base, a
-decorator, a default, a class-body expression), the moved text SHALL instead follow the last such statement. A
-destination that does not parse SHALL exit 1 with the unparsable finding naming it, and write nothing.
+decorator, a default, a class-body expression), the moved text SHALL instead follow the last such statement. When the
+destination imports the moved symbol from the source in a top-level statement outside any block, and a later destination
+statement before the moved text's position reads the symbol while it runs, the moved text SHALL instead follow that
+import statement, taking its place when the import is removed. A destination that does not parse SHALL exit 1 with the
+unparsable finding naming it, and write nothing.
 
 #### Scenario: Import binding or reference as the locator
 - **WHEN** `pkg/use.py` has `from pkg.engine import Engine` and calls `Engine()` in a function, and `move-symbol --file
@@ -94,6 +97,11 @@ destination that does not parse SHALL exit 1 with the unparsable finding naming 
 - **WHEN** the destination defines `class Base` and `def tag` after its imports, and `move-symbol` moves
   `@tag class Child(Base)` into it
 - **THEN** the moved code follows `def tag`, and every destination line keeps its place
+
+#### Scenario: Moved code takes the place of the destination's import
+- **WHEN** the destination has `class Base`, then `from pkg.a import Child`, then `instance = Child()`, then
+  `import os`, and `move-symbol` moves `class Child(Base)` there from `pkg/a.py`
+- **THEN** the moved code replaces `from pkg.a import Child`, before `instance = Child()`
 
 #### Scenario: Unparsable destination refused
 - **WHEN** `move-symbol` moves `f` into a destination that does not parse

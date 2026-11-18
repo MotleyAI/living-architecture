@@ -10,6 +10,8 @@ from pathlib import Path
 from living_architecture.refactor.members import member_declarations
 from living_architecture.refactor.static_resolver import Module, Resolver, Value, node_key
 
+_INIT = "__init__.py"
+
 
 class SourceFolders:
     """The project's modules: `a.b` is `<folder>/a/b.py` or `<folder>/a/b/__init__.py` under each source folder."""
@@ -25,7 +27,7 @@ class SourceFolders:
         found: dict[Path, bool] = {}
         for folder in self.folders:
             base = folder.joinpath(*parts)
-            for path, is_package in ((base / "__init__.py", True), (base.parent / f"{base.name}.py", False)):
+            for path, is_package in ((base / _INIT, True), (base.parent / f"{base.name}.py", False)):
                 if path.is_file():
                     found.setdefault(path.resolve(), is_package)
         return list(found.items())
@@ -45,19 +47,25 @@ class SourceFolders:
         parts = dotted.split(".")
         if not all(p.isidentifier() for p in parts) or self.files(dotted):
             return []
-        return list(dict.fromkeys(p.resolve() for p in self._portions(parts) if next(p.rglob("*.py"), None) is not None))
+        found = self._path(parts)
+        if len(found) == 1 and (found[0] / _INIT).is_file():
+            return []
+        return list(dict.fromkeys(p.resolve() for p in found if next(p.rglob("*.py"), None) is not None))
 
-    def _portions(self, parts: list[str]) -> list[Path]:
-        """The directories that may hold namespace package `parts`, as Python searches its parent's `__path__`: in
-        every source folder at the top level, in a regular parent's own directory, in every portion of a namespace
-        parent."""
-        if len(parts) == 1:
-            return [base for folder in self.folders if (base := folder / parts[0]).is_dir()]
-        parent = self.file(".".join(parts[:-1]))
-        if parent is not None:
-            child = parent[0].parent / parts[-1]
-            return [child] if parent[1] and child.is_dir() else []
-        return [child for base in self._portions(parts[:-1]) if (child := base / parts[-1]).is_dir()]
+    def _path(self, parts: list[str]) -> list[Path]:
+        """Package `parts`'s `__path__` as Python's import system builds it, each segment searched in its parent's:
+        the first regular package alone, none when a module comes first, else every namespace portion."""
+        search = self.folders if len(parts) == 1 else self._path(parts[:-1])
+        found: list[Path] = []
+        for base in search:
+            here = base / parts[-1]
+            if (here / _INIT).is_file():
+                return [here]
+            if (base / f"{parts[-1]}.py").is_file():
+                return []
+            if here.is_dir():
+                found.append(here)
+        return found
 
     def __call__(self, dotted: str) -> tuple[Path, bool] | None:
         """`file`, else a namespace package as its directory and True."""

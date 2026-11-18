@@ -294,18 +294,22 @@ class File:
         self.edits.insert_line(after_line(self.text, end), (indent.group() if indent else "") + line)
 
     def _inline(self, stmt: ast.stmt) -> bool:
-        """`stmt` sits in a suite on its compound statement's header line."""
+        """`stmt` sits in an inline suite: one starting on its header's line, after the header's `:`."""
+        suite = self._suite(stmt)
+        if not suite or suite[0].lineno != stmt.lineno:
+            return False
+        start = self.span(suite[0])[0]
+        return self.text[line_start(self.text, start) : start].rstrip().endswith(":")
+
+    def _suite(self, stmt: ast.stmt) -> list[ast.stmt]:
+        """The statement list holding `stmt`, below the module body; empty at the top level."""
         tree = self.source.tree
-        return tree is not None and any(
-            isinstance(node, (ast.stmt, ast.excepthandler)) and node.lineno == stmt.lineno and any(
-                stmt in suite for field in ("body", "orelse", "finalbody")
-                if isinstance(suite := getattr(node, field, None), list)
-            )
-            for node in ast.walk(tree)
-        )
-
-    # ---- uses
-
+        for node in ast.walk(tree) if tree is not None else ():
+            for field in ("body", "orelse", "finalbody"):
+                suite = getattr(node, field, None)
+                if node is not tree and isinstance(suite, list) and any(s is stmt for s in suite):
+                    return suite
+        return []
     def rewrite_use(self, node: ast.Attribute, scope: Scope, new: str, needs: str | None, obj: str | None = None) -> None:
         """Rule 3: the chain `node` becomes `new`, its root free for `obj` (default: itself); `needs` is the module to
         import."""

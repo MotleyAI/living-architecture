@@ -167,6 +167,7 @@ def test_a_walrus_in_a_comprehension_binds_in_the_enclosing_function() -> None:
         ({"a/pkg/__init__.py": "", "b/pkg/ns/m.py": ""}, "pkg.ns", None),
         ({"a/pkg/__init__.py": "", "a/pkg/ns/m.py": "", "b/pkg/ns/n.py": ""}, "pkg.ns", "a/pkg/ns"),
         ({"a/top/x/m.py": "", "b/top/y/m.py": ""}, "top.y", "b/top/y"),
+        ({"a/pkg/__init__.py": "", "b/pkg/ns/__init__.py": "", "b/pkg/ns/deep/m.py": ""}, "pkg.ns.deep", None),
     ],
 )
 def test_a_namespace_portion_lies_on_its_parent_package_path(tmp_path: Path, files: dict[str, str], namespace: str,

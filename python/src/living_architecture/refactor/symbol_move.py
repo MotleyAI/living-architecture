@@ -13,6 +13,7 @@ from living_architecture.refactor.move_edits import (
     block_end,
     from_name,
     is_docstring,
+    line_start,
     named,
     newline_of,
     relative_module,
@@ -232,14 +233,35 @@ class SymbolMove:
         return text.replace("\r\n", "\n").replace("\r", "\n").replace("\n", newline)
 
     def _insert_moving(self, file: File, block: int | None) -> None:
-        """After the last top-level import (or added import), else after the docstring, else after the leading
-        comments; and after every destination statement binding a name the moved code reads while it is defined."""
+        """After the destination's own top-level import of the symbol, else after the last top-level import (or added
+        import), else after the docstring, else after the leading comments; and after every destination statement
+        binding a name the moved code reads while it is defined."""
         newline = newline_of(file.text)
         at, prefix = self._insertion_point(file, block, newline)
+        own = self._own_import(file)
+        if own is not None and self._read_before(file, own, at):
+            start, end = file.span(own)
+            rest = file.text[end : after_line(file.text, end)].strip()
+            head = line_start(file.text, start)
+            if rest and not rest.startswith("#") and (block is None or block <= head):
+                file.edits.add(head, head, self.moved_text(newline) + newline * 2)
+                return
+            at, prefix = max(after_line(file.text, end), block or 0), newline * 2
         needed = self._after_dependencies(file)
         if needed is not None and needed > at:
             at, prefix = needed, newline * 2
         file.edits.add(at, at, prefix + self.moved_text(newline))
+
+    def _own_import(self, file: File) -> ast.ImportFrom | None:
+        """The destination's first import of the symbol from the source directly in its module body."""
+        return next((s for s in _body(file) if isinstance(s, ast.ImportFrom) and file.binder.from_module(s) in self.olds
+                     and any(a.name == self.name for a in s.names)), None)
+
+    def _read_before(self, file: File, own: ast.ImportFrom, end: int) -> bool:
+        """A destination statement after `own` and before `end` reads a name `own` binds the symbol to while it runs."""
+        names = {a.asname or a.name for a in own.names if a.name == self.name}
+        start = file.span(own)[1]
+        return any(n.id in names and not _deferred(scope) and start <= file.offset(n) < end for n, scope in file.names)
 
     def _insertion_point(self, file: File, block: int | None, newline: str) -> tuple[int, str]:
         body = _body(file)
