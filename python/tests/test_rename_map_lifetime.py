@@ -258,7 +258,8 @@ def test_every_path_ends_rules_the_same_way(
     lifetimes = Lifetimes(monkeypatch)
     lifetimes.workers()
     code, out, err = run(root, ["rename-map", "map.yaml", *flags], monkeypatch, capsys)
-    assert (code, out, err.splitlines()) == expected
+    actual = (code, out, err.splitlines())
+    assert actual == expected
     assert lifetimes.at_report == {"worker": 0}
 
 
@@ -334,7 +335,8 @@ def test_a_kept_leftover_is_dropped_without_matching_its_keep(
         {"file": "pkg/m.py", "symbol": "B.save", "new_name": "keep"},
     ])
     code, _out, err = run(root, ["rename-map", "map.yaml", "--docs", "--keep", keep], monkeypatch, capsys)
-    assert (code, err.splitlines()) == expected
+    actual = (code, err.splitlines())
+    assert actual == expected
 
 
 def _leftover(end: int | None) -> Finding:
@@ -429,7 +431,8 @@ def test_retarget_imports_and_keeps_are_planned_as_one_pass(
     root = _project(tmp_path, IMPORTS, entries)
     flags = [arg for keep in keeps for arg in ("--keep", keep)]
     code, out, err = run(root, ["rename-map", "map.yaml", *flags], monkeypatch, capsys)
-    assert (code, out, err.splitlines()) == expected
+    actual = (code, out, err.splitlines())
+    assert actual == expected
 
 
 def test_no_import_need_outlives_the_import_plan(

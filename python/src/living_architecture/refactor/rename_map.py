@@ -675,8 +675,9 @@ class RenameMap:
         """The end of `rules` on every path: each rename not yet a result made one as it stands, the retargets'
         imports planned once (unless stopped), then the phase's working state released; every result, in map
         order."""
-        for i in list(renames):
-            self._result(i, renames.pop(i), resolved[i], [])
+        while renames:
+            i, r = renames.popitem()
+            self._result(i, r, resolved[i], [])
         results = [self._results[i] for i in sorted(self._results)]
         self._results = {}
         if not self.stopped:
