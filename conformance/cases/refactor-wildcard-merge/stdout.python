@@ -1,0 +1,23 @@
+Renaming <model> to <dataset>:
+Renaming <model> to <dataset>:
+
+
+--- a/pkg/l.py
++++ b/pkg/l.py
+@@ -1,8 +1,8 @@
+ def f(name: str) -> str:
+-    model = name.upper()
+-    return model
++    dataset = name.upper()
++    return dataset
+ 
+ 
+ def g(name: str) -> str:
+-    model = name.lower()
+-    return model
++    dataset = name.lower()
++    return dataset
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

@@ -7,8 +7,10 @@ args:
 - rename
 - --file
 - tests/a.py
-- --symbol
-- client
+- --line
+- '1'
+- --col
+- '16'
 - --new-name
 - cli2
 git:

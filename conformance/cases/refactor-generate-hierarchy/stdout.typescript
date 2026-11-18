@@ -1,0 +1,2 @@
+- {file: pkg/h.ts, symbol: Base.measures, new_name: metrics}
+- {file: pkg/h.ts, symbol: Sub.measures, new_name: metrics}

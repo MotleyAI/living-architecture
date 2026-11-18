@@ -1,0 +1,11 @@
+[resolve]
+[checks]
+[references]
+[references 1/1] entry 1: root_model -> root_dataset
+[rules]
+[rules 1/1] entry 1: root_model -> root_dataset: 2 refusal(s)
+tests/test_p.py:6: stand-in: TestBase.root_model is outside the renamed hierarchy; pass --with tests/test_p.py:6 to rename it too or --without tests/test_p.py:6 to leave it
+tests/test_p.py:11: stand-in: TestSub.root_model is outside the renamed hierarchy; pass --with tests/test_p.py:11 to rename it too or --without tests/test_p.py:11 to leave it
+[conflicts]
+tests/test_p.py:6: stand-in: TestBase.root_model is outside the renamed hierarchy; pass --with tests/test_p.py:6 to rename it too or --without tests/test_p.py:6 to leave it
+tests/test_p.py:11: stand-in: TestSub.root_model is outside the renamed hierarchy; pass --with tests/test_p.py:11 to rename it too or --without tests/test_p.py:11 to leave it

@@ -1,0 +1,25 @@
+Renaming <columns> to <fields>:
+
+
+--- a/pkg/c.py
++++ b/pkg/c.py
+@@ -3,12 +3,12 @@
+ 
+ 
+ class Ds:
+-    """Holds ``columns``."""
++    """Holds ``fields``."""
+ 
+-    columns: list[str] = []
++    fields: list[str] = []
+ 
+ 
+-# reads `columns`
++# reads `fields`
+ def census_sql(columns: list[IntrospectedColumn]) -> str:
+     """Joins ``columns``."""
+     return ", ".join(c.name for c in columns)
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

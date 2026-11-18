@@ -1,0 +1,3 @@
+[resolve]
+[checks]
+pkg/l.py: *.<locals>.modle names no declaration; candidates: f, g

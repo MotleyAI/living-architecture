@@ -156,7 +156,8 @@ files.
 - **THEN** stderr holds `refactor.not-generated` naming that line and no entry locates the parameter
 
 #### Scenario: Ambiguous path written by position
-- **WHEN** a module defines `class Model` twice with different bases
+- **WHEN** a Python module defines `class C` twice and each declares a field `model`, or a TypeScript function
+  declares `const model` in two sibling blocks
 - **THEN** each is written as a `{file, line, col, new_name}` entry
 
 #### Scenario: Members of one hierarchy

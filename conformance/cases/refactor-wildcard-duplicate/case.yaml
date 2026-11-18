@@ -1,0 +1,17 @@
+kind: paired
+languages:
+- python
+- typescript
+command: dr-refactor
+args:
+- --apply
+- rename-map
+- renames.yaml
+fixture: refactor-words
+git:
+- commit: init
+expect:
+  exit: 2
+  git_status: true
+golden: manual
+note: 'a wildcard entry beside an entry for one of its locals with another new name: map-duplicate naming both entries'

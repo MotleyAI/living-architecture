@@ -1,0 +1,2 @@
+- {file: pkg/q.py, symbol: Query.root_model, new_name: root_dataset}
+- {file: pkg/q.py, symbol: Plan.root_model, new_name: root_dataset}

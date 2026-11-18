@@ -1,0 +1,17 @@
+kind: paired
+languages:
+- python
+- typescript
+command: dr-refactor
+args:
+- --apply
+- generate-map
+- words.yaml
+fixture: refactor-words
+git:
+- commit: init
+expect:
+  exit: 0
+  git_status: true
+golden: manual
+note: 'generate-map with --apply: the same map, no phase line, and no file of the project changes'

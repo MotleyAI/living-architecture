@@ -1,0 +1,18 @@
+kind: paired
+languages:
+- python
+- typescript
+command: dr-refactor
+args:
+- --apply
+- rename-map
+- renames.yaml
+fixture: refactor-words
+git:
+- commit: init
+expect:
+  exit: 1
+  git_status: true
+golden: manual
+note: 'one of a wildcard entry''s locals meets a name its function already binds: the run is refused with name-conflict there,
+  under entry 1''s progress lines, and nothing is written'

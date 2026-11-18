@@ -1,0 +1,83 @@
+# A name against a word table (`words`: each `from` and its `to`), run by both twins. `held` lists the `from`s the name
+# holds as whole words, compared without case, in the order the name first spells them; `new_name` is the name with
+# each held word replaced once by its `to`, in the word's case form: capitals for a word longer than one character
+# with no lowercase letter, capitalized for a word starting with a capital, lowercase otherwise. A name holding no
+# word is its own `new_name`. Names are split as the `words` vectors of refactor-symbols.yaml split them.
+cases:
+- name: case forms
+  words: {measure: metric, columns: fields}
+  names:
+  - {name: measure_count, held: [measure], new_name: metric_count}
+  - {name: MeasureSpec, held: [measure], new_name: MetricSpec}
+  - {name: MAX_MEASURE, held: [measure], new_name: MAX_METRIC}
+  - {name: addMeasure, held: [measure], new_name: addMetric}
+  - {name: model_columns, held: [columns], new_name: model_fields}
+  - {name: measure, held: [measure], new_name: metric}
+  - {name: Measure, held: [measure], new_name: Metric}
+  - {name: MEASURE, held: [measure], new_name: METRIC}
+- name: whole words only
+  words: {model: dataset}
+  names:
+  - {name: Modelling, held: [], new_name: Modelling}
+  - {name: models, held: [], new_name: models}
+  - {name: remodel, held: [], new_name: remodel}
+  - {name: model_name, held: [model], new_name: dataset_name}
+  - {name: Model2Vec, held: [], new_name: Model2Vec}
+  - {name: $model, held: [], new_name: $model}
+- name: inflections are their own rows
+  words: {model: dataset, models: datasets}
+  names:
+  - {name: get_models, held: [models], new_name: get_datasets}
+  - {name: ModelsOfModel, held: [models, model], new_name: DatasetsOfDataset}
+- name: a replacement is not replaced again
+  words: {model: dataset, dataset: table}
+  names:
+  - {name: model_dataset, held: [model, dataset], new_name: dataset_table}
+  - {name: dataset_model, held: [dataset, model], new_name: table_dataset}
+  - {name: DatasetModel, held: [dataset, model], new_name: TableDataset}
+- name: a swap
+  words: {left: right, right: left}
+  names:
+  - {name: left_to_right, held: [left, right], new_name: right_to_left}
+- name: every occurrence of a word
+  words: {model: dataset}
+  names:
+  - {name: model_to_model, held: [model], new_name: dataset_to_dataset}
+  - {name: ModelMODEL_model, held: [model], new_name: DatasetDATASET_dataset}
+- name: every other character is unchanged
+  words: {model: dataset}
+  names:
+  - {name: __model__, held: [model], new_name: __dataset__}
+  - {name: _model, held: [model], new_name: _dataset}
+  - {name: model__name_, held: [model], new_name: dataset__name_}
+- name: acronym runs
+  words: {http: web, model: dataset}
+  names:
+  - {name: HTTPServer, held: [http], new_name: WEBServer}
+  - {name: getHTTPResponse, held: [http], new_name: getWEBResponse}
+  - {name: HTTPModel, held: [http, model], new_name: WEBDataset}
+  - {name: HttpModel, held: [http, model], new_name: WebDataset}
+  - {name: MODELHttp, held: [model, http], new_name: DATASETWeb}
+  - {name: HTTP, held: [http], new_name: WEB}
+- name: a one-character word is capitalized, never all capitals
+  words: {x: col}
+  names:
+  - {name: x, held: [x], new_name: col}
+  - {name: X, held: [x], new_name: Col}
+  - {name: XCount, held: [x], new_name: ColCount}
+  - {name: MAX_X, held: [x], new_name: MAX_Col}
+- name: words with digits
+  words: {model2: dataset2, v1: v2}
+  names:
+  - {name: Model2Vec, held: [model2], new_name: Dataset2Vec}
+  - {name: MODEL2, held: [model2], new_name: DATASET2}
+  - {name: api_v1, held: [v1], new_name: api_v2}
+  - {name: ApiV1, held: [v1], new_name: ApiV2}
+- name: non-ASCII names
+  words: {model: dataset}
+  names:
+  - {name: modèle_model, held: [model], new_name: modèle_dataset}
+  - {name: ÉcoleModel, held: [model], new_name: ÉcoleDataset}
+  - {name: модельModel, held: [model], new_name: модельDataset}
+  - {name: modèle, held: [], new_name: modèle}
+  - {name: 模型_MODEL, held: [model], new_name: 模型_DATASET}

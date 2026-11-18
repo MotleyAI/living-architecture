@@ -1,0 +1,4 @@
+- {module: pkg/measures.py, new_name: metrics}
+- {file: pkg/measures.py, symbol: measures_count, new_name: metrics_count}
+- {module: pkg/measures_io/__init__.py, new_name: metrics_io}
+- {file: pkg/use.py, symbol: load_measures, new_name: load_metrics}

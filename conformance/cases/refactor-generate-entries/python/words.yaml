@@ -1,0 +1,4 @@
+words:
+- {from: model, to: dataset}
+entries:
+- {file: pkg/q.py, symbol: Query.root_model, new_name: population}
