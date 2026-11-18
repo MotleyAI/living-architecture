@@ -115,4 +115,24 @@ describe('--keep-literal', () => {
     expect([result.code, result.err]).toEqual([0, '']);
     expect(read(root, 'src/notes.ts')).toBe(notes);
   });
+
+  it('a source literal inside a kept literal is kept with its reads', () => {
+    const inner = "    const name = 'columns';\n    return [ds[name], name];\n";
+    const outer = "  const name = 'columns';\n  return [ds[name], name];\n";
+    const use = `${HEAD}export const KEPT = {\n  version: 3,\n  read: (ds: Ds): unknown => {\n${inner}  },\n};\n\nexport function read(ds: Ds): unknown {\n${outer}}\n`;
+    const { root, result } = kept(use);
+    expect(result.code).toBe(0);
+    expect(read(root, USE)).toBe(use.replace(outer, outer.replace("'columns'", "'fields'")));
+    expect(result.err.trimEnd().split('\n').map((line) => line.split(': ').slice(0, 2))).toEqual([[`${USE}:13`, 'unverified-read']]);
+  });
+
+  it('a pick beside a rewritten source literal rewrites the mention only', () => {
+    const use = `${HEAD}export function read(ds: Ds): unknown {\n  const name = 'columns'; // the \`columns\` field\n  return [ds[name], name];\n}\n`;
+    const root = tsProject({ 'src/ds.ts': DS, [USE]: use });
+    const argv = ['--apply', 'rename', '--file', 'src/ds.ts', '--symbol', 'Ds.columns', '--new-name', 'fields', '--docs'];
+    const result = refactor(root, ...argv, '--docs-pick', `${USE}:4`);
+    expect(result.code).toBe(0);
+    expect(read(root, USE)).toBe(use.replaceAll('columns', 'fields'));
+    expect(result.err.trimEnd().split('\n').map((line) => line.split(': ').slice(0, 2))).toEqual([[`${USE}:5`, 'unverified-read']]);
+  });
 });

@@ -160,3 +160,19 @@ def test_each_unneeded_key_warns_in_command_line_order(kept) -> None:
     _root, (code, _out, err) = kept(use, "--keep-literal", "b", "--keep-literal", "a")
     assert code == 0
     assert err.splitlines() == [message(WARNING, key="b"), message(WARNING, key="a")]
+
+
+def test_a_field_name_string_in_a_kept_literal_is_kept(kept) -> None:
+    use = HEAD + 'KEPT = {"version": 3, "info": Ds.model_fields["columns"]}\nPLAIN = {"info": Ds.model_fields["columns"]}\n'
+    root, (code, _out, err) = kept(use)
+    assert (code, err) == (0, "")
+    assert read(root, "pkg/n.py") == use.replace('PLAIN = {"info": Ds.model_fields["columns"]', 'PLAIN = {"info": Ds.model_fields["fields"]')
+
+
+def test_a_pick_beside_a_rewritten_source_literal_rewrites_the_mention_only(kept) -> None:
+    use = HEAD + 'def show(ds: Ds) -> object:\n    name = "columns"  # the `columns` field\n    return getattr(ds, name), name\n'
+    argv = rename_argv("pkg/m.py", "Ds.columns", "fields", "--docs", "--docs-pick", "pkg/n.py:4")
+    root, (code, _out, err) = kept(use, argv=argv)
+    assert code == 0
+    assert read(root, "pkg/n.py") == use.replace("columns", "fields")
+    assert [line.split(": ")[:2] for line in err.splitlines()] == [["pkg/n.py:5", "unverified-read"]]
