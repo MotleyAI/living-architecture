@@ -3,6 +3,7 @@ corpus case can reach (walker gaps, a language server that cannot start or answe
 `conflicts` phase is charged with."""
 
 import functools
+import pkgutil
 import re
 import sys
 from collections.abc import Callable
@@ -19,7 +20,6 @@ from living_architecture.refactor.bindings import BindingCheck
 from living_architecture.refactor.map_file import MapError, load_map
 from living_architecture.refactor.member_namespace import MemberCheck
 from living_architecture.refactor.rename_map import RenameMap, editable_files, keep_checks
-from living_architecture.refactor.rename_union import SymbolRename
 from living_architecture.refactor.sites import nearest_line, spelled_lines
 
 FAKE_LSP = Path(__file__).with_name("fake_lsp_server.py")
@@ -327,7 +327,7 @@ def _charged_to_conflicts_only(err: str) -> None:
         pytest.param(
             {"pkg/models.py": KEYED_MODELS, "pkg/use.py": "from pkg.models import Model\n\nb = Model(columns=[], fields=[])\n"},
             ["rename", "--file", "pkg/models.py", "--symbol", "Model.columns", "--new-name", "fields"],
-            SymbolRename, "check_conflicts", id="keyed",
+            "living_architecture.refactor.rename_union:RenameResult", "check_conflicts", id="keyed",
         ),
         pytest.param(
             {"pkg/store.py": STORE},
@@ -349,9 +349,9 @@ def _charged_to_conflicts_only(err: str) -> None:
 )
 def test_a_conflict_check_is_charged_to_the_conflicts_phase_announced_before_its_finding(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str],
-    files: dict[str, str], argv: list[str], owner: type, method: str,
+    files: dict[str, str], argv: list[str], owner: type | str, method: str,
 ) -> None:
-    _slowed(monkeypatch, owner, method)
+    _slowed(monkeypatch, owner if isinstance(owner, type) else pkgutil.resolve_name(owner), method)
     root = write_project(tmp_path / "p", files)
     code, out, err = run_raw(root, ["--timings", *argv], monkeypatch, capsys)
     assert (code, out) == (1, "")
