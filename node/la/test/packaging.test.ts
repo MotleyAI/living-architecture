@@ -1,6 +1,6 @@
-// The packed npm package carries the built bins, the root README.md and LICENSE, and the contract: `npm pack` a staged
-// copy without `dist/` (prepack builds it), install the tarball into a clean global prefix outside the checkout, then run
-// its bins from a directory outside any repo.
+// The packed npm packages carry their built bins, README.md and LICENSE, and the contract: `npm pack` both workspaces of a
+// staged copy without `dist/` (prepack builds them), install the tarballs into one clean global prefix outside the
+// checkout, then run their bins from a directory outside any repo.
 import { spawnSync, type SpawnSyncReturns } from 'node:child_process';
 import {
   chmodSync,
@@ -17,8 +17,8 @@ import {
 import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { currentFormat } from '../src/config/index.js';
-import { HASH_FILE, loadYamlFile, NODE_ROOT, readJson, REPO_ROOT, SHARED } from './helpers.js';
+import { currentFormat } from '../../dr/src/config/index.js';
+import { DR_ROOT, HASH_FILE, loadYamlFile, NODE_ROOT, readJson, REPO_ROOT, SHARED } from '../../dr/test/helpers.js';
 
 const TIMEOUT = 600_000;
 const TMP = mkdtempSync(join(tmpdir(), 'la-pack-'));
@@ -31,7 +31,15 @@ const NODE_BIN = join(TMP, 'nodebin');
 const STAGE = join(TMP, 'stage');
 const CONFORMANCE = join(REPO_ROOT, 'conformance');
 const ROOT_FILES = ['README.md', 'LICENSE'];
-let TARBALL = '';
+const PACKAGES = { dr: 'deterministic-refactor', la: 'living-architecture' } as const;
+// Each package's README.md and LICENSE, as its prepack copies them.
+const PACKED_FILES: [keyof typeof PACKAGES, string, string][] = [
+  ['dr', 'README.md', join('python', 'dr', 'README.md')],
+  ['dr', 'LICENSE', 'LICENSE'],
+  ['la', 'README.md', 'README.md'],
+  ['la', 'LICENSE', 'LICENSE'],
+];
+const TARBALLS: Record<string, string> = {};
 
 // Preloaded into every node process: logs `start <script>`, and `typescript <script>` at exit if the compiler loaded.
 const PROBE_SOURCE = `const { appendFileSync, realpathSync } = require('node:fs');
@@ -67,13 +75,18 @@ beforeAll(() => {
   // Pack a staged copy so the checkout stays untouched; without leftovers there, only prepack can supply `dist/` and the
   // root files.
   const staged = join(STAGE, 'node');
-  for (const name of ROOT_FILES) cpSync(join(REPO_ROOT, name), join(STAGE, name));
-  const skipped = new Set(['node_modules', 'dist', ...ROOT_FILES].map((name) => join(NODE_ROOT, name)));
+  for (const [, , source] of PACKED_FILES) cpSync(join(REPO_ROOT, source), join(STAGE, source));
+  const skipped = new Set(
+    ['node_modules', ...Object.keys(PACKAGES).flatMap((pkg) => [join(pkg, 'dist'), ...ROOT_FILES.map((f) => join(pkg, f))])].map(
+      (name) => join(NODE_ROOT, name),
+    ),
+  );
   cpSync(NODE_ROOT, staged, { recursive: true, filter: (src) => !skipped.has(src) });
   symlinkSync(join(NODE_ROOT, 'node_modules'), join(staged, 'node_modules'));
-  const [packed] = JSON.parse(npm(['pack', '--json', '--pack-destination', TMP], staged));
-  TARBALL = join(TMP, packed.filename);
-  npm(['install', '-g', '--prefix', PREFIX, '--no-audit', '--no-fund', TARBALL], WORK);
+  for (const entry of JSON.parse(npm(['pack', '--json', '--pack-destination', TMP, '-w', 'dr', '-w', 'la'], staged))) {
+    TARBALLS[entry.name] = join(TMP, entry.filename);
+  }
+  npm(['install', '-g', '--prefix', PREFIX, '--no-audit', '--no-fund', ...Object.values(TARBALLS)], WORK);
 }, TIMEOUT);
 
 afterAll(() => rmSync(TMP, { recursive: true, force: true }));
@@ -96,21 +109,22 @@ function probed(command: string, args: string[], cwd: string, path?: string[]) {
   return { proc, lines };
 }
 
-describe('packed npm package', () => {
-  it('carries dist/bin/<command>.js for every manifest command', () => {
-    const listed = spawnSync('tar', ['-tzf', TARBALL], { encoding: 'utf8' });
+describe('packed npm packages', () => {
+  it.each(Object.keys(PACKAGES))('%s carries dist/bin/<command>.js for every command of its package', (pkg) => {
+    const listed = spawnSync('tar', ['-tzf', TARBALLS[PACKAGES[pkg as keyof typeof PACKAGES]] ?? ''], { encoding: 'utf8' });
     expect(listed.status, listed.stderr).toBe(0);
     const entries = new Set(listed.stdout.split('\n'));
-    const commands = Object.keys(loadYamlFile(join(SHARED, 'cli.yaml')).commands);
+    const commands = Object.keys(loadYamlFile(join(SHARED, 'cli.yaml')).commands).filter((c) => c.startsWith(`${pkg}-`));
+    expect(commands.length).toBeGreaterThan(0);
     expect(commands.filter((command) => !entries.has(`package/dist/bin/${command}.js`))).toEqual([]);
   });
 
-  it.each(ROOT_FILES)('carries the root %s', (name) => {
+  it.each(PACKED_FILES)('%s carries %s from %s', (pkg, name, source) => {
     const unpacked = mkdtempSync(join(TMP, 'unpacked-'));
-    expect(spawnSync('tar', ['-xzf', TARBALL, '-C', unpacked]).status).toBe(0);
+    expect(spawnSync('tar', ['-xzf', TARBALLS[PACKAGES[pkg]] ?? '', '-C', unpacked]).status).toBe(0);
     const packed = join(unpacked, 'package', name);
     expect(existsSync(packed), `package/${name} is missing`).toBe(true);
-    expect(readFileSync(packed).equals(readFileSync(join(REPO_ROOT, name)))).toBe(true);
+    expect(readFileSync(packed).equals(readFileSync(join(REPO_ROOT, source)))).toBe(true);
   });
 });
 
@@ -118,7 +132,7 @@ describe('installed npm package', () => {
   it('la-doctor --contract-hash prints the PyPI twin hash', () => {
     const proc = run(join(PREFIX, 'bin', 'la-doctor'), ['--contract-hash'], WORK);
     expect(proc.status, proc.stderr).toBe(0);
-    const pypi = readFileSync(join(REPO_ROOT, 'python', 'src', 'living_architecture', 'contract', 'data', HASH_FILE), 'utf8');
+    const pypi = readFileSync(join(REPO_ROOT, 'python', 'dr', 'src', 'deterministic_refactor', 'contract', 'data', HASH_FILE), 'utf8');
     expect(proc.stdout).toBe(pypi);
   });
 
@@ -188,8 +202,8 @@ describe('installed npm package: forwarding', () => {
     const stub = join(TMP, 'python-twin');
     const stubLog = join(TMP, 'python-twin.log');
     mkdirSync(stub);
-    const hash = readFileSync(join(NODE_ROOT, 'src', 'contract', 'data', HASH_FILE), 'utf8').trim();
-    const identity = `python ${readJson(join(NODE_ROOT, 'package.json')).version} ${hash}`;
+    const hash = readFileSync(join(DR_ROOT, 'src', 'contract', 'data', HASH_FILE), 'utf8').trim();
+    const identity = `python ${readJson(join(DR_ROOT, 'package.json')).version} ${hash}`;
     writeFileSync(join(stub, 'la-doctor'), `#!/bin/sh\necho "la-doctor $*" >> '${stubLog}'\necho '${identity}'\n`);
     writeFileSync(join(stub, 'dr-refactor'), `#!/bin/sh\necho "dr-refactor $*" >> '${stubLog}'\nexit 7\n`);
     chmodSync(join(stub, 'la-doctor'), 0o755);

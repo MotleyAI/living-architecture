@@ -4,9 +4,9 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { NODE_ROOT } from './helpers.js';
+import { NODE_ROOT } from '../../dr/test/helpers.js';
 
-const BIN = join(NODE_ROOT, 'dist', 'bin', 'la-typecheck.js');
+const BIN = join(NODE_ROOT, 'la', 'dist', 'bin', 'la-typecheck.js');
 const REPO = join(mkdtempSync(join(tmpdir(), 'la-typecheck-')), 'repo');
 
 function typecheck(...args: string[]): SpawnSyncReturns<string> {
@@ -44,7 +44,7 @@ describe('la-typecheck with the real tsc', () => {
 
 describe('dr-refactor keeps the baseline real tsc reads', () => {
   const repo = join(mkdtempSync(join(tmpdir(), 'la-align-')), 'repo');
-  const bin = (name: string): string => join(NODE_ROOT, 'dist', 'bin', `${name}.js`);
+  const bin = (name: string): string => join(NODE_ROOT, name.startsWith('dr-') ? 'dr' : 'la', 'dist', 'bin', `${name}.js`);
   const cli = (name: string, ...args: string[]): SpawnSyncReturns<string> =>
     spawnSync(process.execPath, [bin(name), ...args], { cwd: repo, encoding: 'utf8' });
 

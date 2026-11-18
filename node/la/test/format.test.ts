@@ -3,10 +3,10 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { checkFormat, compareVersions, currentFormat, isVersion, releasedFormats, stampFormat } from '../src/config/index.js';
-import { loadYaml, renderTemplate } from '../src/contract/index.js';
+import { checkFormat, compareVersions, currentFormat, isVersion, releasedFormats, stampFormat } from '../../dr/src/config/index.js';
+import { loadYaml, renderTemplate } from '../../dr/src/contract/index.js';
 import { run, tempRepo } from './cli-run.js';
-import { NODE_ROOT, REPO_ROOT, SHARED, VECTORS, field, loadYamlFile, readJson } from './helpers.js';
+import { NODE_ROOT, REPO_ROOT, SHARED, VECTORS, field, loadYamlFile, readJson } from '../../dr/test/helpers.js';
 
 // Read with the twin's own YAML profile, so each value has the shape the check receives.
 const VECTOR_FILE = loadYaml(readFileSync(join(VECTORS, 'format.yaml'), 'utf8'));
@@ -62,10 +62,11 @@ describe('format versions', () => {
   });
 
   it('the current format is at most every package version', () => {
-    const pyproject = readFileSync(join(REPO_ROOT, 'python', 'pyproject.toml'), 'utf8');
+    const pyprojectVersion = (pkg: string) =>
+      /^\[project\][^[]*?^version = "([^"]+)"$/ms.exec(readFileSync(join(REPO_ROOT, 'python', pkg, 'pyproject.toml'), 'utf8'))?.[1];
     const versions = [
-      /^\[project\][^[]*?^version = "([^"]+)"$/ms.exec(pyproject)?.[1],
-      readJson(join(NODE_ROOT, 'package.json')).version,
+      ...['dr', 'la'].map(pyprojectVersion),
+      ...['dr', 'la'].map((pkg) => readJson(join(NODE_ROOT, pkg, 'package.json')).version),
       readJson(join(REPO_ROOT, 'plugin', '.claude-plugin', 'plugin.json')).version,
     ];
     const last = releasedFormats()[releasedFormats().length - 1] as string;

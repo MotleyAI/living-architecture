@@ -15,7 +15,7 @@ import {
   schema,
   toPlain,
   validate,
-} from '../contract/index.js';
+} from 'deterministic-refactor/contract';
 
 /** The architecture setup is too broken to check. */
 export class ArchCheckError extends Error {}

@@ -1,6 +1,6 @@
 // Parsers built from the shared CLI manifest, with argparse's semantics: no abbreviations, `--` ends options,
 // a usage error exits 2, a passthrough command hands its raw argv to its handler.
-import { manifest } from '../contract/index.js';
+import { manifest } from './index.js';
 
 export class UsageError extends Error {
   readonly exitCode = 2;

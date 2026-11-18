@@ -4,7 +4,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { run, tempRepo } from './cli-run.js';
-import { REPO_ROOT, SHARED, loadYamlFile, vectors } from './helpers.js';
+import { REPO_ROOT, SHARED, loadYamlFile, vectors } from '../../dr/test/helpers.js';
 
 const SKILLS_DIR = join(REPO_ROOT, 'plugin', 'skills');
 const SKILLS = readdirSync(SKILLS_DIR).filter((name) => existsSync(join(SKILLS_DIR, name, 'SKILL.md'))).sort();

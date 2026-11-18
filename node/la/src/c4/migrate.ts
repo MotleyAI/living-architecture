@@ -26,7 +26,7 @@ import {
   readCommitted,
   releasedFormats,
   stampFormat,
-} from '../config/index.js';
+} from 'deterministic-refactor/config';
 import {
   byCodePoint,
   configFile,
@@ -37,7 +37,7 @@ import {
   readFile,
   splitLines,
   splitLinesKeepEnds,
-} from '../contract/index.js';
+} from 'deterministic-refactor/contract';
 import { ExemptNotMigratable, moveExempt } from './exempt-move.js';
 import { INDEX_REL, type Index, loadIndex } from './index-file.js';
 import {

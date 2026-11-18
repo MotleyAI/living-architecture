@@ -2,8 +2,8 @@
 // eslint-disable-next-line no-restricted-imports -- stdin only
 import { lstatSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { changedPathBytes, repoPathBytes, resolveBaseRef } from '../changes/index.js';
-import { ConfigError, findRepoRoot } from '../config/index.js';
+import { changedPathBytes, repoPathBytes, resolveBaseRef } from 'deterministic-refactor/changes';
+import { ConfigError, findRepoRoot } from 'deterministic-refactor/config';
 import {
   byCodePoint,
   contractHash,
@@ -17,10 +17,10 @@ import {
   osErrorText,
   schema,
   validate,
-} from '../contract/index.js';
+} from 'deterministic-refactor/contract';
 import { VERSION } from '../index.js';
-import { dependencyEdges, LangError } from '../lang/index.js';
-import * as twin from '../twin/index.js';
+import { dependencyEdges, LangError } from 'deterministic-refactor/lang';
+import * as twin from 'deterministic-refactor/twin';
 
 export interface Change {
   path: string;

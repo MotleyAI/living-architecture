@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import { describe, expect, it } from 'vitest';
 import { run, tempRepo } from './cli-run.js';
-import { HASH_FILE, loadYamlFile, readJson, REPO_ROOT, tree } from './helpers.js';
+import { HASH_FILE, loadYamlFile, readJson, REPO_ROOT, tree } from '../../dr/test/helpers.js';
 
 const PACKAGES = ['dr', 'la'] as const;
 const NAMES = {

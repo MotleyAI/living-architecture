@@ -1,43 +1,25 @@
-// Every command's entry point: parse argv per the shared manifest, check the repo format, dispatch to the handler.
-import { resolve } from 'node:path';
+// The la commands' entry point: their handlers, run through the shared command runner.
+import * as config from 'deterministic-refactor/config';
+import { type Handler, commandRoot, optional, runCommand } from 'deterministic-refactor/config';
+import * as twin from 'deterministic-refactor/twin';
+import * as typecheck from 'deterministic-refactor/typecheck';
 import * as affected from '../affected/index.js';
 import * as archcheck from '../archcheck/index.js';
 import * as c4 from '../c4/index.js';
-import * as config from '../config/index.js';
 import * as conventions from '../conventions/index.js';
-import { manifest, message } from '../contract/index.js';
 import * as doctor from '../doctor/index.js';
-import * as refactor from '../refactor/index.js';
 import * as review from '../review/index.js';
-import * as twin from '../twin/index.js';
-import * as typecheck from '../typecheck/index.js';
-import { type Args, HelpRequested, UsageError, parse } from './parser.js';
 
-const root = (value: unknown): string =>
-  typeof value === 'string' && value ? resolve(value) : config.findRepoRoot(process.cwd());
-
-const optional = (value: unknown): string | null => (typeof value === 'string' ? value : null);
-
-/** The repo whose format a command checks: `--root`, else the git root of `--project`, else of the cwd. */
-const checkedRoot = (args: Args): string => {
-  const project = optional(args.project);
-  return optional(args.root) || !project ? root(args.root) : config.findRepoRoot(project);
-};
-
-/** The parsed options with null (not given) as undefined. */
-const given = (args: Args): Record<string, any> =>
-  Object.fromEntries(Object.entries(args).map(([key, value]) => [key, value === null ? undefined : value]));
-
-const HANDLERS: Record<string, (args: Args, argv: string[]) => number> = {
+const HANDLERS: Record<string, Handler> = {
   'la-config': (args) =>
-    args.subcommand === 'show' ? config.runShow(root(args.root)) : config.runGet(root(args.root), String(args.key)),
+    args.subcommand === 'show' ? config.runShow(commandRoot(args.root)) : config.runGet(commandRoot(args.root), String(args.key)),
   'la-doctor': (args) => {
     if (args.twin) {
       process.stdout.write(`${twin.identity()}\n`);
       return 0;
     }
     return doctor.run(
-      root(args.root),
+      commandRoot(args.root),
       optional(args.plugin),
       Boolean(args.contract_hash),
       Boolean(args.require_config),
@@ -47,11 +29,11 @@ const HANDLERS: Record<string, (args: Args, argv: string[]) => number> = {
   'la-arch-check': (args) => {
     const emit = optional(args.emit);
     const language = optional(args.language) ?? (emit !== null ? twin.NATIVE_LANGUAGE : null);
-    return archcheck.run(root(args.root), language, emit, Boolean(args.top_level));
+    return archcheck.run(commandRoot(args.root), language, emit, Boolean(args.top_level));
   },
-  'la-arch-scaffold': (args) => archcheck.runScaffold(root(args.root)),
-  'la-arch-diagrams': (args) => c4.run(root(args.root)),
-  'la-arch-migrate': (args) => c4.runMigrate(root(args.root)),
+  'la-arch-scaffold': (args) => archcheck.runScaffold(commandRoot(args.root)),
+  'la-arch-diagrams': (args) => c4.run(commandRoot(args.root)),
+  'la-arch-migrate': (args) => c4.runMigrate(commandRoot(args.root)),
   'la-check-conventions': (args) => {
     if (optional(args.emit) !== null) return conventions.emit(optional(args.language) ?? twin.NATIVE_LANGUAGE, process.cwd());
     return conventions.checkConventions({
@@ -71,50 +53,11 @@ const HANDLERS: Record<string, (args: Args, argv: string[]) => number> = {
   },
   'la-typecheck': (args) =>
     typecheck.run(process.cwd(), Boolean(args.write_baseline), optional(args.language), optional(args.realign_from)),
-  'dr-refactor': (args, argv) => refactor.runRefactor(argv, given(args) as refactor.RefactorArgs),
-  'dr-compliance': (args) => refactor.runCompliance(args.paths as string[], optional(args.select), args.attr as string[]),
-  'dr-mock-lint': (args) => refactor.runMockLint(args.paths as string[], optional(args.base)),
 };
 
-/** Run a command another twin implements: forward the raw argv, or exit 2 with the hint. */
-function forwarded(command: string, lang: string, argv: string[]): number {
-  try {
-    return twin.forward(command, lang, argv, config.findRepoRoot(process.cwd()));
-  } catch (error) {
-    if (!(error instanceof twin.TwinError)) throw error;
-    process.stderr.write(`${message('twin.error', { prog: command, error: error.message })}\n`);
-    return 2;
-  }
-}
-
-/** The exit code of `command` run with `argv`. */
+/** The exit code of the la command `command` run with `argv`. */
 export function dispatch(command: string, argv: string[]): number {
-  const spec = manifest()[command];
-  const native: string[] | undefined = spec.native;
-  if (native !== undefined && !native.includes(twin.NATIVE_LANGUAGE)) return forwarded(command, native[0] ?? '', argv);
-  if (spec.script !== undefined) return review.runShim(command, argv);
-  let args: Args;
-  try {
-    args = parse(command, argv);
-  } catch (error) {
-    if (error instanceof HelpRequested) {
-      process.stdout.write(error.text);
-      return 0;
-    }
-    if (!(error instanceof UsageError)) throw error;
-    process.stderr.write(`usage: ${command} [-h] ...\n${error.command}: error: ${error.message}\n`);
-    return error.exitCode;
-  }
-  if (spec.format !== 'exempt') {
-    const problem = config.checkFormat(checkedRoot(args));
-    if (problem !== null) {
-      process.stderr.write(`${problem}\n`);
-      return 2;
-    }
-  }
-  const handler = HANDLERS[command];
-  if (handler === undefined) throw new Error(`no handler for ${command}`);
-  return handler(args, argv);
+  return runCommand(command, argv, HANDLERS, review.runShim);
 }
 
 /** A bin's entry: run `command` with the process argv and exit with its code once output is flushed. */

@@ -2,7 +2,7 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
-import { ConfigError, type LaConfig, checkFormat, loadConfig, repoLanguages } from '../config/index.js';
+import { ConfigError, type LaConfig, checkFormat, loadConfig, repoLanguages } from 'deterministic-refactor/config';
 import {
   configFile,
   contractHash,
@@ -15,7 +15,7 @@ import {
   readFile,
   renderTemplate,
   which,
-} from '../contract/index.js';
+} from 'deterministic-refactor/contract';
 import { NATIVE_LANGUAGE, VERSION } from '../index.js';
 
 const REQUIRED_EXECUTABLES = ['git', 'gh'];

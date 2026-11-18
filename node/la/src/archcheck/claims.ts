@@ -1,5 +1,5 @@
 // claims-exist and claims-exactly-once: every unit of a language is claimed once and exists, per its facts.
-import { message } from '../contract/index.js';
+import { message } from 'deterministic-refactor/contract';
 import { type Facts, unitFact } from './facts.js';
 import { compareStrings } from './order.js';
 import { type MapElement, type NodeMap, separator } from './nodes.js';

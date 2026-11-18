@@ -1,6 +1,6 @@
 // enforced-tags: every arc42 principle item carries a well-formed status tag; `[lang:]` names a declared language.
 import { join } from 'node:path';
-import { checkIds, fullMatch, message, readFile, splitLines } from '../contract/index.js';
+import { checkIds, fullMatch, message, readFile, splitLines } from 'deterministic-refactor/contract';
 import { arc42Docs } from './docs.js';
 
 const TAG_RE = /\[(enforced|review|target|lang)(?![\p{L}\p{N}_])([^\]]*)\]/gu;

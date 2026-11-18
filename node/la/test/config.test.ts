@@ -5,10 +5,10 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
-import { ConfigError, currentFormat, explicitTypecheck, loadConfig, loadRaw, resolveConfig } from '../src/config/index.js';
-import { configFile, localConfigFile, schema, validate } from '../src/contract/index.js';
+import { ConfigError, currentFormat, explicitTypecheck, loadConfig, loadRaw, resolveConfig } from '../../dr/src/config/index.js';
+import { configFile, localConfigFile, schema, validate } from '../../dr/src/contract/index.js';
 import { run } from './cli-run.js';
-import { plain } from './helpers.js';
+import { plain } from '../../dr/test/helpers.js';
 
 vi.mock('node:fs', async (importOriginal) => {
   const actual = await importOriginal<typeof fs>();

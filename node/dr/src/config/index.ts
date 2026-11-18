@@ -24,6 +24,7 @@ import {
 import { ConfigError } from './error.js';
 import { parseConfig, readConfigText } from './read.js';
 
+export { type Handler, commandRoot, optional, runCommand } from './command.js';
 export { ConfigError } from './error.js';
 export {
   type Committed,

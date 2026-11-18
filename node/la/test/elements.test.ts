@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
 import { run as runArchCheck } from '../src/archcheck/index.js';
-import { REPO_ROOT } from './helpers.js';
+import { REPO_ROOT } from '../../dr/test/helpers.js';
 
 const FIXTURE = join(REPO_ROOT, 'conformance', 'fixtures', 'arch-ts');
 const MODEL = 'architecture/model.c4';

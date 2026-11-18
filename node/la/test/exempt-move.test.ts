@@ -1,7 +1,7 @@
 // la-arch-migrate's 0.4.0 step against the shared exempt-move vectors.
 import { describe, expect, it } from 'vitest';
 import { ExemptNotMigratable, moveExempt } from '../src/c4/exempt-move.js';
-import { vectors } from './helpers.js';
+import { vectors } from '../../dr/test/helpers.js';
 
 interface Case {
   name: string;

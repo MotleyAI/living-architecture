@@ -2,7 +2,7 @@
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { basename, isAbsolute, join } from 'node:path';
 import { ARCH_DIR, DOC_SUFFIX, architectureFiles, elementDoc, isFlatDoc } from '../c4/index.js';
-import { message } from '../contract/index.js';
+import { message } from 'deterministic-refactor/contract';
 import type { Index } from './index-file.js';
 import type { NodeMap } from './nodes.js';
 import { compareStrings } from './order.js';

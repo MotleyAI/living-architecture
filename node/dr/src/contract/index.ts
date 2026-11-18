@@ -29,6 +29,7 @@ export {
   snapshotDir,
   timingPhases,
 } from './snapshot.js';
+export { type Args, HelpRequested, UsageError, help, parse } from './parser.js';
 export { PyFloat, PyTimestamp, canonicalRepr, fixed1, normalize, reprFloat, toPlain } from './values.js';
 export { DuplicateKeyError, YAMLError, loadYaml } from './yaml.js';
 export { WORD, byCodePoint, decodeUtf8, decodeUtf8OrNull, isWordStart, splitLines, splitLinesKeepEnds } from './text.js';

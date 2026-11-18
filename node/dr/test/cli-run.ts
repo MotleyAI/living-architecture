@@ -1,4 +1,4 @@
-// Run a command through the CLI dispatcher in a temp repo, capturing its exit code and streams.
+// Run a command through a CLI dispatcher in a temp repo, capturing its exit code and streams.
 import { execFileSync } from 'node:child_process';
 import { chmodSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -20,7 +20,13 @@ export function tempRepo(files: Record<string, string>): string {
   return root;
 }
 
-export function run(root: string, command: string, argv: string[]): Run {
+/** `command argv` through `dispatcher` (default: dr's) from `root`, its exit code and captured streams. */
+export function run(
+  root: string,
+  command: string,
+  argv: string[],
+  dispatcher: (command: string, argv: string[]) => number = dispatch,
+): Run {
   const cwd = process.cwd();
   let out = '';
   let err = '';
@@ -28,7 +34,7 @@ export function run(root: string, command: string, argv: string[]): Run {
   const stderr = vi.spyOn(process.stderr, 'write').mockImplementation((chunk) => ((err += String(chunk)), true));
   try {
     process.chdir(root);
-    return { code: dispatch(command, argv), out, err };
+    return { code: dispatcher(command, argv), out, err };
   } finally {
     process.chdir(cwd);
     stdout.mockRestore();

@@ -6,8 +6,8 @@ architecture: true
 reviewers:
   codex: true
 commands:
-  test: uv run --project python pytest -q python
-  lint: uv run --project python ruff check python/src python/tests
+  test: (cd python/dr && uv run pytest -q) && (cd python/la && uv run pytest -q) && npm --prefix node test
+  lint: uv run --project python ruff check python && npm --prefix node run lint
   typecheck:
     python: uv run --project python basedpyright -p python
     typescript: node/node_modules/.bin/tsc -p node --noEmit

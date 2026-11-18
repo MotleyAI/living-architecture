@@ -6,12 +6,12 @@ import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, w
 import { tmpdir } from 'node:os';
 import { delimiter, dirname, join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { changedPaths, prBaseBranch, resolveBaseRef } from '../src/changes/index.js';
-import { ConfigError } from '../src/config/index.js';
-import { baseFetchTimeout, contractHash, isTestFile, language, message, schema, validate } from '../src/contract/index.js';
+import { changedPaths, prBaseBranch, resolveBaseRef } from '../../dr/src/changes/index.js';
+import { ConfigError } from '../../dr/src/config/index.js';
+import { baseFetchTimeout, contractHash, isTestFile, language, message, schema, validate } from '../../dr/src/contract/index.js';
 import { VERSION } from '../src/index.js';
 import { run, tempRepo, type Run } from './cli-run.js';
-import { SHARED, loadYamlFile, vectors } from './helpers.js';
+import { SHARED, loadYamlFile, vectors } from '../../dr/test/helpers.js';
 
 // Every test drives real git repos: the default 5 s is too tight under a parallel run.
 vi.setConfig({ testTimeout: 30_000 });

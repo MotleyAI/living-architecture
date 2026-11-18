@@ -5,9 +5,9 @@ import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
-import { dependencyEdges } from '../src/lang/index.js';
-import { runtimeSpecifiers } from '../src/lang/specifiers.js';
-import { ts } from '../src/lang/ts.js';
+import { dependencyEdges } from '../../dr/src/lang/index.js';
+import { runtimeSpecifiers } from '../../dr/src/lang/specifiers.js';
+import { ts } from '../../dr/src/lang/ts.js';
 
 const roots: string[] = [];
 afterAll(() => roots.forEach((root) => rmSync(root, { recursive: true, force: true })));

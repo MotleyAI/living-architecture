@@ -1,0 +1,25 @@
+{
+  "name": "living-architecture-twins",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "dr",
+    "la"
+  ],
+  "scripts": {
+    "build": "npm run build -w dr && npm run build -w la",
+    "lint": "eslint .",
+    "typecheck": "npm run typecheck -w dr && npm run typecheck -w la",
+    "test": "npm test -w dr && npm test -w la",
+    "test:integration": "npm run test:integration -w la",
+    "conformance": "node scripts/conformance.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@types/node": "^22.20.5",
+    "eslint": "^9.39.5",
+    "globals": "^16.5.0",
+    "typescript-eslint": "^8.71.0",
+    "vitest": "^5.0.3"
+  }
+}

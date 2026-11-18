@@ -5,9 +5,9 @@ import { dirname, join } from 'node:path';
 import ts from 'typescript';
 import { afterAll, describe, expect, it } from 'vitest';
 import { nativeTopLevelFacts } from '../src/archcheck/facts.js';
-import { LangError, moduleImports, topLevelUnits, unitStatus, type TsLayout } from '../src/lang/index.js';
-import { runtimeSpecifiers, withoutQuery } from '../src/lang/specifiers.js';
-import { cleanup, materialize } from './lang-fixtures.js';
+import { LangError, moduleImports, topLevelUnits, unitStatus, type TsLayout } from '../../dr/src/lang/index.js';
+import { runtimeSpecifiers, withoutQuery } from '../../dr/src/lang/specifiers.js';
+import { cleanup, materialize } from '../../dr/test/lang-fixtures.js';
 
 const layouts: TsLayout[] = [];
 afterAll(() => layouts.forEach(cleanup));

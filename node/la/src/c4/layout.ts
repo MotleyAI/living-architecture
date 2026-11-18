@@ -1,7 +1,7 @@
 // The canonical LikeC4 layout: exactly `architecture/model.c4` and `architecture/views.c4`, each with its blocks.
 import { lstatSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { architecture, byCodePoint, decodeUtf8, message, readFile } from '../contract/index.js';
+import { architecture, byCodePoint, decodeUtf8, message, readFile } from 'deterministic-refactor/contract';
 import { stripLineComment } from './model.js';
 
 const WORD_RE = /\w+/y;

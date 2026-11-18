@@ -5,11 +5,13 @@ import { basename, dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse } from 'yaml';
 
-export const NODE_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
+/** dr's package directory; `NODE_ROOT` is the npm workspace holding it and la. */
+export const DR_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
+export const NODE_ROOT = dirname(DR_ROOT);
 export const REPO_ROOT = dirname(NODE_ROOT);
 export const SHARED = join(REPO_ROOT, 'shared');
 export const VECTORS = join(SHARED, 'vectors');
-export const SNAPSHOT = join(NODE_ROOT, 'src', 'contract', 'data');
+export const SNAPSHOT = join(DR_ROOT, 'src', 'contract', 'data');
 export const HASH_FILE = 'CONTRACT_HASH';
 
 /** `strings` reads every scalar as text (for expected texts such as `1e+16`, a string to PyYAML). */

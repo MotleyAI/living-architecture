@@ -1,10 +1,10 @@
 // Routing files to their language and collecting each language's conventions facts, natively or from its twin.
 // eslint-disable-next-line no-restricted-imports -- stdin only
 import { readFileSync } from 'node:fs';
-import { contractHash, languageOf, message } from '../contract/index.js';
+import { contractHash, languageOf, message } from 'deterministic-refactor/contract';
 import { VERSION } from '../index.js';
-import { conventionsFacts } from '../lang/index.js';
-import * as twin from '../twin/index.js';
+import { conventionsFacts } from 'deterministic-refactor/lang';
+import * as twin from 'deterministic-refactor/twin';
 
 export type Facts = Record<string, any>;
 

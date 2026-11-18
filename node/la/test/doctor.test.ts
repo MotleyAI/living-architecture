@@ -5,8 +5,8 @@ import { chmodSync, mkdtempSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { currentFormat } from '../src/config/index.js';
-import { whichPath } from '../src/contract/index.js';
+import { currentFormat } from '../../dr/src/config/index.js';
+import { whichPath } from '../../dr/src/contract/index.js';
 import { VERSION } from '../src/index.js';
 import { run, tempRepo } from './cli-run.js';
 

@@ -4,7 +4,7 @@ import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { REPO_ROOT } from './helpers.js';
+import { REPO_ROOT } from '../../dr/test/helpers.js';
 
 const TIMEOUT = 600_000;
 const TMP = mkdtempSync(join(tmpdir(), 'la-pack-la-'));

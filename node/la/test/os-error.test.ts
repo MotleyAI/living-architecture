@@ -5,10 +5,10 @@ import { join } from 'node:path';
 import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
 import { run as runArchCheck } from '../src/archcheck/index.js';
 import { run as runDiagrams } from '../src/c4/index.js';
-import { isRegularFile, osErrorReason, osErrorText, readFile } from '../src/contract/index.js';
-import { vectors } from './helpers.js';
+import { isRegularFile, osErrorReason, osErrorText, readFile } from '../../dr/src/contract/index.js';
+import { REPO_ROOT, vectors } from '../../dr/test/helpers.js';
 
-const cases = join(import.meta.dirname, '..', '..', 'conformance');
+const cases = join(REPO_ROOT, 'conformance');
 const VECTORS = vectors('os-errors.yaml') as {
   reasons: [string | null, string][];
   cases: { name: string; code: string | null; error_path: unknown; error_dest?: string; path: string | null; root: string; text: string }[];

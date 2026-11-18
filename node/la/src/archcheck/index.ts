@@ -1,9 +1,9 @@
 // Living-architecture cross-walk checker: code, LikeC4 model, arc42 docs and specs agree.
 import { type ModelParse, checkDiagramsFresh, layoutProblem, parseModel, parseViews } from '../c4/index.js';
-import { ConfigError, loadConfig } from '../config/index.js';
-import { isOsError, message, osErrorText } from '../contract/index.js';
-import { LangError } from '../lang/index.js';
-import { NATIVE_LANGUAGE, RelayedFailure, TwinError, requestFacts } from '../twin/index.js';
+import { ConfigError, loadConfig } from 'deterministic-refactor/config';
+import { isOsError, message, osErrorText } from 'deterministic-refactor/contract';
+import { LangError } from 'deterministic-refactor/lang';
+import { NATIVE_LANGUAGE, RelayedFailure, TwinError, requestFacts } from 'deterministic-refactor/twin';
 import { checkClaims } from './claims.js';
 import { checkArc42, checkLegacyRatchet, checkSpecMapping } from './docs.js';
 import { type Facts, nativeFacts, nativeTopLevelFacts } from './facts.js';

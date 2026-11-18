@@ -3,13 +3,13 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { delimiter, join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { currentFormat } from '../src/config/index.js';
-import { contractHash, message } from '../src/contract/index.js';
+import { currentFormat } from '../../dr/src/config/index.js';
+import { contractHash, message } from '../../dr/src/contract/index.js';
 import { VERSION } from '../src/index.js';
-import { parseTscOutput } from '../src/lang/index.js';
-import { combinedExit, splitCommand } from '../src/typecheck/index.js';
+import { parseTscOutput } from '../../dr/src/lang/index.js';
+import { combinedExit, splitCommand } from '../../dr/src/typecheck/index.js';
 import { run, tempRepo } from './cli-run.js';
-import { vectors } from './helpers.js';
+import { vectors } from '../../dr/test/helpers.js';
 
 type Split = { name: string; text: string; words?: string[]; error?: boolean };
 

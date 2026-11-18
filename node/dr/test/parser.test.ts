@@ -4,7 +4,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { HelpRequested, UsageError, help, parse } from '../src/cli/parser.js';
+import { HelpRequested, UsageError, help, parse } from '../src/contract/parser.js';
 import { manifest } from '../src/contract/index.js';
 import { SNAPSHOT, plain, vectors } from './helpers.js';
 
