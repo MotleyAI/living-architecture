@@ -6,7 +6,10 @@ from __future__ import annotations
 
 import ast
 import bisect
+import functools
+import io
 import re
+import tokenize
 from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Annotated, Literal
@@ -103,7 +106,7 @@ FORMS = REGISTRY.string_member_calls
 
 
 class Blindspot(BaseModel):
-    """A receiver of the member name typed `Unknown` or `Any`: at an access, or at a string-named access printed as
+    """A receiver of the member name typed `Unknown`, `Any` or `Never`: at an access, or at a string-named access printed as
     `site`, `silent` when its miss raises no error."""
 
     model_config = ConfigDict(frozen=True)
@@ -363,7 +366,7 @@ class MemberScan:
         self.callees = FormResolver(index, load)
 
     def accesses(self, path: Path, source: SourceFile) -> Iterator[Blindspot]:
-        """`x.NAME` accesses whose receiver is typed `Unknown` or `Any`."""
+        """`x.NAME` accesses whose receiver is typed `Unknown`, `Any` or `Never`."""
         if source.tree is None:
             return
         for node in source.nodes:
@@ -372,7 +375,7 @@ class MemberScan:
             span = source.name_span(node)
             kind = self.index.receiver(path, self.name, span[0]) if span is not None else None
             if kind is not None:
-                yield Blindspot(line=node.lineno, col=node.col_offset, receiver=receiver_text(source, node.value), kind=kind)
+                yield Blindspot(line=node.lineno, col=node.col_offset, receiver=access_receiver(source, node), kind=kind)
 
     def member_calls(self, path: Path, source: SourceFile) -> list[FormCall]:
         """Calls with a member form's syntax whose member literal is NAME, with what their callee resolves to."""
@@ -513,7 +516,7 @@ class MemberScan:
             if kind is not None:
                 assert call.obj is not None
                 found.append(Blindspot(line=call.call.lineno, col=call.call.col_offset,
-                                       receiver=receiver_text(source, call.obj), kind=kind, literal=call.literal,
+                                       receiver=object_text(source, call), kind=kind, literal=call.literal,
                                        site=site_text(source, call.call, call.obj, self.name), silent=call.silent))
         return found
 
@@ -598,6 +601,87 @@ def probe_round(index: RunIndex, files: list[tuple[Path, SourceFile]], names: li
             facts = index.probed(path, offset)
             if facts is not None:
                 index.record_probe(path, call.literal, facts.access, [original(d) for d in facts.definition])
+
+
+def collapsed(text: str) -> str:
+    """`text` with each run of whitespace as one space."""
+    return _SPACE.sub(" ", text)
+
+
+_LINE_END = re.compile(r"\r\n|\r|\n")
+
+
+@functools.lru_cache(maxsize=4)
+def _comments(text: str) -> tuple[tuple[int, int], ...]:
+    """The span of each comment of `text`, in order; lines end as Python ends them."""
+    if "#" not in text:
+        return ()
+    starts = [0, *(m.end() for m in _LINE_END.finditer(text))]
+    try:
+        tokens = list(tokenize.generate_tokens(io.StringIO(_LINE_END.sub("\n", text)).readline))
+    except (tokenize.TokenError, SyntaxError):
+        return ()
+    return tuple((starts[t.start[0] - 1] + t.start[1], starts[t.end[0] - 1] + t.end[1])
+                 for t in tokens if t.type == tokenize.COMMENT)
+
+
+def _blank(text: str, at: int) -> bool:
+    """Whether the character at `at` is whitespace or the backslash of a line join."""
+    return text[at].isspace() or (text[at] == "\\" and text[at + 1 : at + 2] in ("\r", "\n"))
+
+
+def _blank_before(text: str, comments: tuple[tuple[int, int], ...], at: int, left: int) -> int:
+    """The last offset before `at`, not below `left`, that is neither blank nor in a comment."""
+    while at >= left:
+        i = bisect.bisect_right(comments, (at, len(text))) - 1
+        if i >= 0 and at < comments[i][1]:
+            at = comments[i][0] - 1
+        elif _blank(text, at):
+            at -= 1
+        else:
+            break
+    return at
+
+
+def _blank_after(text: str, comments: tuple[tuple[int, int], ...], at: int) -> int:
+    """The first offset from `at` on that is neither blank nor in a comment."""
+    while at < len(text):
+        i = bisect.bisect_left(comments, (at, 0))
+        if i < len(comments) and comments[i][0] == at:
+            at = comments[i][1]
+        elif _blank(text, at):
+            at += 1
+        else:
+            break
+    return at
+
+
+def written_text(source: SourceFile, node: ast.expr, left: int) -> str:
+    """`node`'s source text with the parentheses written around it from `left` on, whitespace runs collapsed."""
+    text = source.text
+    start, end = source.span(node)
+    comments = _comments(text)
+    while True:
+        before, after = _blank_before(text, comments, start - 1, left), _blank_after(text, comments, end)
+        if before < left or text[before] != "(" or after >= len(text) or text[after] != ")":
+            return collapsed(text[start:end])
+        start, end = before, after + 1
+
+
+def access_receiver(source: SourceFile, access: ast.Attribute) -> str:
+    """The receiver of `access` as written."""
+    return written_text(source, access.value, source.span(access)[0])
+
+
+def object_text(source: SourceFile, found: FormCall) -> str:
+    """The object of a string-named access as written."""
+    assert found.obj is not None
+    call = found.call
+    index = next((i for i, a in enumerate(call.args) if a is found.obj), None) if isinstance(call, ast.Call) else None
+    if not isinstance(call, ast.Call) or index is None:
+        return written_text(source, found.obj, source.span(call)[0])
+    after = source.span(call.args[index - 1])[1] if index else source.span(call.func)[1]
+    return written_text(source, found.obj, source.text.index("," if index else "(", after) + 1)
 
 
 def receiver_text(source: SourceFile, node: ast.expr) -> str:

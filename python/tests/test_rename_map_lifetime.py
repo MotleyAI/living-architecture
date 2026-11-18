@@ -236,7 +236,7 @@ UNCHANGED_OUT = _lines(
 )
 LOOSE_BLIND = [
     message("compliance.attr-blindspot", path="pkg/loose.py", line=2, receiver="s", attr="drop", type="Unknown"),
-    message("refactor.blindspots", count=1, attr="drop"),
+    message("refactor.blindspots", count=1, names=".drop"),
 ]
 
 

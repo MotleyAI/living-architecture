@@ -171,7 +171,7 @@ def test_one_combined_refusal(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, c
                 type="Unknown"),
     ]
     assert len(lines) == 3
-    assert template_regex(message("refactor.blindspots", count=2, attr="ATTR"), attr="ATTR").fullmatch(lines[2])
+    assert template_regex(message("refactor.blindspots", count=2, names="NAMES"), names="NAMES").fullmatch(lines[2])
     assert file_tree(root) == before
 
 
@@ -471,7 +471,7 @@ def test_entries_sharing_an_old_name_report_each_blind_spot_once(
     ])
     code, _out, err = run(root, _rename_map(), monkeypatch, capsys)
     blind = message("compliance.attr-blindspot", path="pkg/m.py", line=12, receiver="x", attr="save", type="Unknown")
-    assert (code, err) == (1, f"{blind}\n{message('refactor.blindspots', count=1, attr='save')}\n")
+    assert (code, err) == (1, f"{blind}\n{message('refactor.blindspots', count=1, names='.save')}\n")
 
 
 def test_a_failure_after_the_export_stops_the_server_and_keeps_the_cache(
@@ -521,18 +521,18 @@ def test_an_error_in_one_entrys_rules_refuses_that_entry(
     ])
     index_edits = SymbolRename._index_edits  # pyright: ignore[reportPrivateUsage]
 
-    def failing(self: SymbolRename, index: object) -> None:
+    def failing(self: SymbolRename, index: object, facts: object) -> None:
         if self.old == "old":
             clash = ROPE_FAILS.index("other")
             self.edits.append(TextEdit(path="pkg/a.py", start=clash, end=clash + len("other"), new_text="clash"))
             raise RefactorError(message("refactor.cannot-rename"))
-        index_edits(self, index)  # pyright: ignore[reportArgumentType]
+        index_edits(self, index, facts)  # pyright: ignore[reportArgumentType]
 
     monkeypatch.setattr(SymbolRename, "_index_edits", failing)
     before = file_tree(root)
     code, out, err = run(root, _rename_map(), monkeypatch, capsys)
     assert (code, out) == (1, "")
     blind = message("compliance.attr-blindspot", path="pkg/a.py", line=11, receiver="x", attr="other", type="Unknown")
-    closing = message("refactor.blindspots", count=1, attr="other")
+    closing = message("refactor.blindspots", count=1, names=".other")
     assert err == f"{entry_refusal('pkg/a.py old', message('refactor.cannot-rename'))}\n{blind}\n{closing}\n"
     assert file_tree(root) == before

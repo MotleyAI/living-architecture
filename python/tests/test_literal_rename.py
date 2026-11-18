@@ -180,7 +180,7 @@ def test_narrowed_local_refuses(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
     assert (code, out) == (1, "")
     lines = err.splitlines()
     assert lines[0] == message("refactor.literal-unresolved", path="pkg/n.py", line=11, old="edit_model")
-    assert template_regex(message("refactor.blindspots", count=1, attr="ATTR"), attr="ATTR").fullmatch(lines[1])
+    assert template_regex(message("refactor.blindspots", count=1, names="NAMES"), names="NAMES").fullmatch(lines[1])
     assert len(lines) == 2
     assert file_tree(root) == before
 

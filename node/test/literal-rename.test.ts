@@ -160,7 +160,7 @@ const KINDS_ONLY = "export type Kind = 'edit_model' | 'drop';\n";
 
 describe('Literal member rename, the edited program checked in memory', () => {
   const unresolved = message('refactor.literal-unresolved', { path: 'src/broken.ts', line: 9, old: 'edit_model' });
-  const refused = { code: 1, out: '', err: `${unresolved}\n${message('refactor.blindspots', { count: 1, attr: 'edit_model' })}\n` };
+  const refused = { code: 1, out: '', err: `${unresolved}\n${message('refactor.blindspots', { count: 1, names: '.edit_model' })}\n` };
 
   it('refuses an edit that breaks the program, writing nothing', () => {
     const root = tsProject({ 'src/kinds.ts': KINDS_ONLY, 'src/broken.ts': BROKEN });

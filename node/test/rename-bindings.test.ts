@@ -210,7 +210,7 @@ describe('check order', () => {
     const project = { 'src/m.ts': m, 'src/loose.ts': loose };
     const { root, result } = renameSymbol(project, 'src/m.ts', 'C.old', 'next');
     const blindspot = message('compliance.attr-blindspot', { path: 'src/loose.ts', line: 2, receiver: 'o', attr: 'old', type: 'any' });
-    const closing = message('refactor.blindspots', { count: 1, attr: 'old' });
+    const closing = message('refactor.blindspots', { count: 1, names: '.old' });
     expect(result).toEqual({ code: 1, out: '', err: `${blindspot}\n${conflict('src/m.ts C.old', 'next', 'src/m.ts', 2)}${closing}\n` });
     expect(files(root)).toMatchObject(project);
   });

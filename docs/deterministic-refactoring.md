@@ -33,7 +33,8 @@ member rename refuses while a receiver of the old name is untyped (`--allow-blin
 outside the renamed hierarchy declares it (`--with` / `--without PATH:LINE` classify each); `--keep PATH[:LINE]`
 leaves sites untouched (a relative PATH of any of the three, and of `--docs-pick`, is resolved against
 `--project`), `--keep-literal KEY` leaves every dict or object literal holding that key, and `--docs`
-also rewrites mentions in comments, docstrings, strings and prose files, listing the rest as `leftover`. A string
+also rewrites mentions in comments, docstrings, strings and prose files, listing the rest as `leftover`. A parameter
+or field rename refuses the same way while a call keyword of the old name cannot be linked to it. A string
 held by a once-bound name (a constant, a local, the elements of a constant tuple a loop reads) is rewritten at its
 literal when a use proves it names the renamed member, or when the checker needs a renamed literal-type member
 there; every other read of that name is listed as `unverified-read`.
@@ -136,7 +137,7 @@ only when:
 `--select` picks a subset. `attr-blindspot` and `string-blindspot` run only with `--attr NAME`. `attr-blindspot`
 reports `x.NAME` accesses, and `string-blindspot` the accesses naming `NAME` by a string (`getattr(x, "NAME")`,
 `x.model_fields["NAME"]`, `vi.spyOn(x, 'NAME')`, `x['NAME']`, …), whose receiver the type checker cannot type:
-`Unknown` or `Any` in Python (through the bundled basedpyright), `any` in TypeScript. A `string-blindspot` line
+`Unknown`, `Any` or `Never` in Python (through the bundled basedpyright), `any` in TypeScript. A `string-blindspot` line
 ends with `and a miss raises no error` for a call that fails silently (`hasattr`, `getattr` with a default).
 
 ## Using it on an existing repo

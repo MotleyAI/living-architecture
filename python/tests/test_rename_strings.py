@@ -162,7 +162,7 @@ def test_an_untyped_object_is_a_blind_spot(project: MakeProject, capsys: pytest.
     assert readouterr(capsys).err == (
         message("compliance.string-blindspot", path="pkg/use.py", line=2, site="getattr(o, 'save_model')", receiver="o",
                 attr="save_model", type="Unknown")
-        + "\n" + message("refactor.blindspots", count=1, attr="save_model") + "\n"
+        + "\n" + message("refactor.blindspots", count=1, names=".save_model") + "\n"
     )
     assert file_tree(root) == before
 
@@ -209,7 +209,7 @@ def test_an_unresolved_project_target_is_a_blind_spot(
     assert readouterr(capsys) == ("", (
         message("refactor.unresolved-target", path="tests/test_t.py", line=5,
                 target="pkg.engine.Missing.save_model", attr="save_model")
-        + "\n" + message("refactor.blindspots", count=1, attr="save_model") + "\n"
+        + "\n" + message("refactor.blindspots", count=1, names=".save_model") + "\n"
     ))
     assert file_tree(root) == before
 
@@ -381,7 +381,7 @@ def test_ambiguous_targets_refuse(
                 attr="save_model")
         for target in refused
     ]
-    expected = "".join(f"{line}\n" for line in [*lines, message("refactor.blindspots", count=len(refused), attr="save_model")])
+    expected = "".join(f"{line}\n" for line in [*lines, message("refactor.blindspots", count=len(refused), names=".save_model")])
     assert readouterr(capsys) == ("", expected)
     assert file_tree(root) == before
 
@@ -522,7 +522,7 @@ def test_a_callee_bound_to_a_form_and_to_something_else_is_unresolved(
     assert _rename_save_model(root) == 1
     unresolved = message("refactor.unresolved-target", path="tests/test_t.py", line=8,
                          target="pkg.engine.SearchQueryEngine.save_model", attr="save_model")
-    assert readouterr(capsys).err.splitlines() == [unresolved, message("refactor.blindspots", count=1, attr="save_model")]
+    assert readouterr(capsys).err.splitlines() == [unresolved, message("refactor.blindspots", count=1, names=".save_model")]
     assert _read(root, "tests/test_t.py") == test
 
 

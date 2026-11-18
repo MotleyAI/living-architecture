@@ -1,0 +1,21 @@
+Renaming <field> to <column>:
+
+
+--- a/src/errors.ts
++++ b/src/errors.ts
+@@ -7,9 +7,9 @@
+ export class A extends Base {
+   readonly label: string
+ 
+-  constructor(msg: string, field: string) {
++  constructor(msg: string, column: string) {
+     super(msg)
+-    this.label = field
++    this.label = column
+   }
+ }
+ 
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

@@ -12,13 +12,13 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterator
 from functools import partial
 from pathlib import Path
-from typing import TypeVar
+from typing import Literal, TypeVar
 
 from pydantic import BaseModel, ConfigDict
 from typing_extensions import override
 
 from living_architecture.contract import message
-from living_architecture.lang import Occurrence, Span
+from living_architecture.lang import FactQuery, Occurrence, Span
 from living_architecture.refactor.carve_outs import CarveOuts, is_fixture
 from living_architecture.refactor.entry_location import Entry, EntryLocator, StaticTrace
 from living_architecture.refactor.hierarchy import ClassGraph, ClassKey
@@ -30,10 +30,20 @@ from living_architecture.refactor.keyed import (
     UnresolvedBase,
     declares_alias,
     field_assignment,
+    plain_key_span,
     sink_candidates,
 )
+from living_architecture.refactor.keyword_links import (
+    CarrierShape,
+    KeywordFlow,
+    KeywordSite,
+    ParameterRename,
+    keyword_sites,
+    signature_links,
+    unresolved_sites,
+)
 from living_architecture.refactor.locators import cannot_rename
-from living_architecture.refactor.member_scan import FormCall, MemberScan, NameString
+from living_architecture.refactor.member_scan import FormCall, MemberScan, NameString, collapsed
 from living_architecture.refactor.members import member_declarations
 from living_architecture.refactor.mentions import (
     Mention,
@@ -173,12 +183,18 @@ def _field_of(source: SourceFile, line: int, name: str) -> tuple[ClassRef, ast.A
 
 
 def _named_items(source: SourceFile, node: ast.AST) -> list[tuple[object, int, tuple[int, int] | None]]:
-    """A call's keywords or a literal's constant keys: each name, line and span."""
+    """A call's keywords and the constant keys of the dict literals unpacked into it, or a literal's constant keys with
+    those of the dict literals unpacked into it: each name, line and span."""
     if isinstance(node, ast.Call):
-        return [(k.arg, k.lineno, source.name_span(k)) for k in node.keywords]
-    if isinstance(node, (ast.Dict, ast.Set)):
-        keys = node.keys if isinstance(node, ast.Dict) else node.elts
-        return [(k.value, k.lineno, source.span(k)) for k in keys if isinstance(k, ast.Constant)]
+        unpacked = [item for k in node.keywords if k.arg is None and isinstance(k.value, ast.Dict)
+                    for item in _named_items(source, k.value)]
+        return [*((k.arg, k.lineno, source.name_span(k)) for k in node.keywords if k.arg is not None), *unpacked]
+    if isinstance(node, ast.Dict):
+        nested = [item for k, v in zip(node.keys, node.values, strict=True) if k is None and isinstance(v, ast.Dict)
+                  for item in _named_items(source, v)]
+        return [*((k.value, k.lineno, source.span(k)) for k in node.keys if isinstance(k, ast.Constant)), *nested]
+    if isinstance(node, ast.Set):
+        return [(k.value, k.lineno, source.span(k)) for k in node.elts if isinstance(k, ast.Constant)]
     return []
 
 
@@ -212,6 +228,8 @@ def _conflict(source: SourceFile, rel: str, edits: list[TextEdit], merged: list[
 
 
 Function = ast.FunctionDef | ast.AsyncFunctionDef
+_CONSTRUCTORS = ("__init__", "__new__")
+_KeywordDecision = Literal["rewrite", "unlinked", "unrelated"]
 
 
 def _parameter(fn: Function, name: str) -> ast.arg | None:
@@ -260,8 +278,8 @@ class Declaration(BaseModel):
 
 class RenameResult(BaseModel):
     """What a run reads of a map entry's rename once its rules are done: the entry's map index, its target's name for
-    a retarget, the edits the keeps dropped (`kept`), the member declarations it may rename, and each edit whose
-    display already holds the new name, with its line (`collisions`)."""
+    a retarget, the edits the keeps dropped (`kept`), the member declarations it may rename, where its unlinked
+    keywords are, and each edit whose display already holds the new name, with its line (`collisions`)."""
 
     entry: int
     old: str
@@ -279,11 +297,18 @@ class RenameResult(BaseModel):
     refusals: list[Finding] = []
     matched_sites: frozenset[str] = frozenset()
     declarations: list[Declaration] = []
+    unlinked: frozenset[tuple[str, int]] = frozenset()
     collisions: list[tuple[TextEdit, int]] = []
 
     def live(self) -> bool:
         """The rename changes a name."""
         return self.new != self.old
+
+    def blindspot_names(self) -> list[str]:
+        """The old name as the closing blind-spot line spells it: `.old` with a receiver or target blind spot, `old=`
+        with an unlinked keyword (a blind spot at a position of `unlinked`)."""
+        keywords = sum((b.path, b.col) in self.unlinked for b in self.blindspots)
+        return [*([f".{self.old}"] if keywords < len(self.blindspots) else []), *([f"{self.old}="] if keywords else [])]
 
     def renamed_members(self, snapshot: Snapshot) -> list[tuple[tuple[str, int], tuple[str, int]]]:
         """Each member declaration this rename's edits rename, with its class's file and `class` line."""
@@ -369,6 +394,7 @@ class SymbolRename(MapRename):
         self.root = session.root
         self.snapshot = session.snapshot
         self.is_renamed: Callable[[tuple[str, int]], bool] = lambda site: site in self.seeds
+        self.renamed_as: Callable[[tuple[str, int]], str | None] = lambda site: self.new if site in self.seeds else None
         self.matched_sites: set[str] = set()
         self.member = False
         self.check_names = True
@@ -377,10 +403,12 @@ class SymbolRename(MapRename):
         self.edits: list[TextEdit] = []
         self.seeds: set[tuple[str, int]] = set()
         self.keywordless: set[tuple[str, int]] = set()
+        self._constructor = False
         self.candidates: list[str] = []
         self._files: list[str] = []
         self.entries: list[Entry] = [entry]
         self.blindspots: list[Finding] = []
+        self._unlinked: set[tuple[str, int]] = set()
         self.stand_ins: list[Finding] = []
         self.leftovers: list[Finding] = []
         self.unverified: list[tuple[Finding, TextEdit]] = []
@@ -438,13 +466,20 @@ class SymbolRename(MapRename):
     def header(self) -> str:
         return message("refactor.rename-header", old=self.old, new=self.new)
 
+    def parameter_rename(self) -> ParameterRename | None:
+        """This rename as the signature proof needs it, when it renames a parameter."""
+        if self.entry.kind != "parameter" or self.seeds <= self.keywordless:
+            return None
+        return ParameterRename(old=self.old, new=self.new, seeds=frozenset(self.seeds), candidates=tuple(self.candidates))
+
     @override
     def result(self, entry: int, target: str | None, kept: list[TextEdit]) -> RenameResult:
         return RenameResult(
             entry=entry, old=self.old, new=self.new, header=self.header(), target=target,
             member=self.member, check_names=self.check_names, edits=self.edits, kept=kept, blindspots=self.blindspots,
             unresolved=self.unresolved, stand_ins=self.stand_in_findings(), matched_sites=frozenset(self.matched_sites),
-            declarations=self._declarations if self.member else [], collisions=self._collisions,
+            declarations=self._declarations if self.member else [], unlinked=frozenset(self._unlinked),
+            collisions=self._collisions,
         )
 
     def is_member(self) -> bool:
@@ -540,18 +575,35 @@ class SymbolRename(MapRename):
             if not self.is_renamed((d.rel, d.start))
         ]
 
-    def _index_edits(self, index: RunIndex) -> None:
+    def _index_edits(self, index: RunIndex, facts: TypeFacts) -> None:
         """Every occurrence resolving to a renamed declaration or through a renamed import alias (a keyword only through
-        one that takes keywords), every access with an untyped receiver under `--unsure include`, and each name, import
+        one that takes keywords; a class call's keyword of a split constructor pair is an unlinked keyword), every access
+        with an untyped receiver under `--unsure include`, and each name, import
         or alias the checker resolves to nothing that Python's scoping resolves to a renamed declaration; one nothing
         resolves is listed."""
         unresolved: list[tuple[str, Occurrence]] = []
+        calls = self._class_calls(index) if self._constructor else {}
         for rel in self.candidates:
             for o in index.occurrences(self.root / rel, self.old):
+                if self._split_keyword(index, facts, calls, rel, o):
+                    continue
                 if self._renames(o) or (self._unsure and o.kind == "member" and o.receiver is not None):
                     self.edits.append(TextEdit(path=rel, start=o.span.start, end=o.span.end, new_text=self.new))
                 elif not o.declarations and o.kind in ("name", "import", "alias"):
                     unresolved.append((rel, o))
+        self._traced_edits(unresolved)
+
+    def _split_keyword(self, index: RunIndex, facts: TypeFacts, calls: dict[tuple[str, int], KeywordSite], rel: str,
+                       o: Occurrence) -> bool:
+        """File `o` as an unlinked keyword when it is a class call's keyword of a split constructor pair."""
+        site = calls.get((rel, o.span.start)) if o.kind == "keyword" else None
+        if site is None or not self._split(index, facts, rel, o, site):
+            return False
+        self.file(self._keyword_outcome(rel, self.snapshot.source(rel), site, "unlinked"))
+        return True
+
+    def _traced_edits(self, unresolved: list[tuple[str, Occurrence]]) -> None:
+        """Rewrite each occurrence Python's scoping resolves to a renamed declaration; list one nothing resolves."""
         trace = StaticTrace(self.locator)
         for rel, o in unresolved:
             found = trace.at(rel, o.span.start, self.old)
@@ -565,11 +617,14 @@ class SymbolRename(MapRename):
     def _renames(self, o: Occurrence) -> bool:
         """`o` resolves to a renamed declaration or through a renamed import alias (a keyword only through one that
         takes keywords)."""
-        spans = [*(d.span for d in o.declarations), *o.bindings]
-        hits = {(r, s.start) for s in spans if (r := self.session.rel(s.path)) is not None} & self.seeds
+        hits = self._resolved_sites(o) & self.seeds
         if o.kind == "keyword":
             hits -= self.keywordless
         return bool(hits)
+
+    def _resolved_sites(self, o: Occurrence) -> set[tuple[str, int]]:
+        spans = [*(d.span for d in o.declarations), *o.bindings]
+        return {(r, s.start) for s in spans if (r := self.session.rel(s.path)) is not None}
 
     def _located_field(self, entry: Entry) -> tuple[ClassRef, ast.AnnAssign | ast.Assign, Span] | None:
         """The class field `entry` declares first, when its file is a candidate."""
@@ -627,13 +682,15 @@ class SymbolRename(MapRename):
         return out
 
     def _parameter_declarations(self, facts: TypeFacts, fn: tuple[str, int]) -> list[tuple[str, SourceFile, Function, ast.arg]]:
-        """The renamed parameters: those named `old` of the method hierarchy's declarations and their overload groups."""
+        """The renamed parameters: those named `old` of the method hierarchy's declarations and their overload groups;
+        a constructor has no hierarchy."""
         located = self._function_at(fn)
         if located is None:
             return []
         defs = [located]
         source = self.snapshot.source(located[0])
-        if any(any(s is located[1] for s in c.body) for c in source.of_type(ast.ClassDef)):
+        method = any(any(s is located[1] for s in c.body) for c in source.of_type(ast.ClassDef))
+        if method and located[1].name not in _CONSTRUCTORS:
             defs += self._method_declarations(located)
         seen: set[tuple[str, int, int]] = set()
         out: list[tuple[str, SourceFile, Function, ast.arg]] = []
@@ -656,6 +713,73 @@ class SymbolRename(MapRename):
                 self.seeds.add((rel, span[0]))
                 if not any(arg is a for a in (*node.args.args, *node.args.kwonlyargs)):
                     self.keywordless.add((rel, span[0]))
+                elif node.name in _CONSTRUCTORS:
+                    self._constructor = True
+
+    def _class_calls(self, index: RunIndex) -> dict[tuple[str, int], KeywordSite]:
+        """Each keyword `old=` of the candidates by its position, their callees' definitions and types exported in one
+        request."""
+        out: dict[tuple[str, int], KeywordSite] = {}
+        queries: list[FactQuery] = []
+        for rel in self.candidates:
+            source = self.snapshot.source(rel)
+            sites = index.memo(("keyword_sites", self.root / rel, self.old), partial(keyword_sites, source, self.old))
+            for site in sites:
+                func = site.call.func
+                span = source.name_span(func) if isinstance(func, (ast.Name, ast.Attribute)) else None
+                if site.keyword and span is not None:
+                    out[rel, site.span[0]] = site
+                    queries.append(FactQuery(path=self.root / rel, offset=span[0], kinds=("definition", "typeDefinition")))
+        index.ensure(queries)
+        return out
+
+    def _split(self, index: RunIndex, facts: TypeFacts, rel: str, o: Occurrence, site: KeywordSite) -> bool:
+        """Whether `site` is a class call's keyword that Python passes to an `__init__` and a `__new__` both taking
+        `old`, of which the run renames only one, or the two to different names."""
+        source = self.snapshot.source(rel)
+        span = source.name_span(site.call.func)
+        found = index.definition(source.path, span[0]) if span is not None else []
+        nodes = [(decl, decl.defined_at((s.start, s.end))) for s in found if (decl := self.session.load(s.path)) is not None]
+        if nodes and len(nodes) == len(found) and all(isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) for _, n in nodes):
+            return False
+        classes = [ClassRef(decl, n) for decl, n in nodes if isinstance(n, ast.ClassDef)]
+        if not classes and span is not None:
+            typed = [(decl, s) for s in index.type_definition(source.path, span[0]) if (decl := self.session.load(s.path)) is not None]
+            classes = [ClassRef(decl, n) for decl, s in typed if isinstance(n := decl.defined_at((s.start, s.end)), ast.ClassDef)]
+        classes = classes or self._holders(o)
+        try:
+            return any(self._pair_is_split(facts, cls) for cls in classes)
+        except UnresolvedBase:
+            return self._renames(o)
+
+    def _holders(self, o: Occurrence) -> list[ClassRef]:
+        """The classes whose constructors declare the parameters `o` resolves to."""
+        out: list[ClassRef] = []
+        for rel, start in self._resolved_sites(o):
+            source = self.snapshot.source(rel)
+            for fn in source.of_type(ast.FunctionDef):
+                holder = source.parent(fn)
+                spans = [source.name_span(a) for a in (*fn.args.args, *fn.args.kwonlyargs)]
+                if fn.name in _CONSTRUCTORS and isinstance(holder, ast.ClassDef) and any(s is not None and s[0] == start for s in spans):
+                    out.append(ClassRef(source, holder))
+        return out
+
+    def _pair_is_split(self, facts: TypeFacts, cls: ClassRef) -> bool:
+        """Whether the `__init__` and the `__new__` `cls` uses, its own or inherited, both take `old` by keyword while
+        the run renames one of this rename's and not both to its new name, or one of this rename's takes it while the
+        other takes it through its own `**kwargs`; raises `UnresolvedBase`."""
+        taking: list[set[tuple[str, int]]] = []
+        carrying: list[bool] = []
+        for name in _CONSTRUCTORS:
+            defs = next((found for c in facts.chain(cls).mro if (found := [
+                (c.source, s) for s in c.node.body if isinstance(s, (ast.FunctionDef, ast.AsyncFunctionDef)) and s.name == name])), [])
+            spans = [(source, source.name_span(a)) for source, fn in defs for a in (*fn.args.args, *fn.args.kwonlyargs) if a.arg == self.old]
+            taking.append({(self.session.rel(source.path) or "", span[0]) for source, span in spans if span is not None})
+            carrying.append(any(fn.args.kwarg is not None and CarrierShape(source, fn).takes(self.old) for source, fn in defs))
+        both = taking[0] | taking[1]
+        if all(taking):
+            return bool(both & self.seeds) and any(self.renamed_as(s) != self.new for s in both)
+        return bool(both & self.seeds) and any(not taken and carried for taken, carried in zip(taking, carrying, strict=True))
 
     def file(self, outcome: Outcome) -> None:
         """Record an examined site and file what its rule decided."""
@@ -826,6 +950,67 @@ class SymbolRename(MapRename):
         return target_outcome(rel, source, call, project_target=project_target, renamed=renamed, member=member,
                               old=self.old, new=self.new)
 
+    def _keyword_edits(self, index: RunIndex, facts: TypeFacts) -> None:
+        """A parameter's or keyed field's keyword sites the checker resolves to no declaration: rewritten when the
+        signature links them or carriers take them only to renamed declarations, a blind spot when unlinked; and the
+        key-form strings of the carriers that take the key only to renamed declarations. A parameter no keyword can
+        bind has no such site."""
+        parameter = self.entry.kind == "parameter"
+        if parameter and self.seeds <= self.keywordless:
+            return
+        if not parameter and not any(facts.chain(owner).kind is not None for owner, _, _ in self._fields):
+            return
+        renamed = KeywordFlow(index, facts, self.old, self.new, lambda path, start: self.is_renamed((self.session.rel(path) or "", start)))
+        own = KeywordFlow(index, facts, self.old, self.new, lambda path, start: (self.session.rel(path) or "", start) in self.seeds)
+        for rel in self.candidates:
+            self._file_keywords(index, rel, parameter, renamed, own)
+
+    def _file_keywords(self, index: RunIndex, rel: str, parameter: bool, renamed: KeywordFlow, own: KeywordFlow) -> None:
+        path, source = self.root / rel, self.snapshot.source(rel)
+        edited = {e.start for e in self.edits if e.path == rel}
+        for site in unresolved_sites(index, self.session.load, path, source, self.old):
+            if site.span[0] in edited:
+                continue
+            linked = parameter and signature_links(index, path, site, self.old, self.new)
+            decided = "rewrite" if linked else self._carried(index, path, source, site, renamed, own)
+            if decided is not None:
+                self.file(self._keyword_outcome(rel, source, site, decided))
+        for fn, key in renamed.key_forms(source):
+            span = plain_key_span(source, key, self.old)
+            if span is not None and renamed.carrier(source, fn) == "renamed" and own.carrier(source, fn) != "other":
+                self.file(self._keyword_rewrite(rel, span))
+
+    def _carried(self, index: RunIndex, path: Path, source: SourceFile, site: KeywordSite, renamed: KeywordFlow,
+                 own: KeywordFlow) -> _KeywordDecision | None:
+        """What the callee of `site` decides: unlinked for an untyped or unnamed callee or an unprovable flow, a rewrite when
+        carriers take the key only to this rename's declarations; None when the callee resolves to nothing."""
+        if site.query is None or index.signature(path, site.query).callee is not None:
+            return "unlinked"
+        verdict = renamed.site(source, site.call)
+        if verdict is None:
+            return None
+        if verdict in ("mixed", "unresolved"):
+            return "unlinked"
+        return "rewrite" if verdict == "renamed" and own.site(source, site.call) != "other" else "unrelated"
+
+    def _keyword_rewrite(self, rel: str, span: tuple[int, int]) -> Outcome:
+        edit = TextEdit(path=rel, start=span[0], end=span[1], new_text=nfkc(self.new))
+        return Outcome(kind="rewrite", rel=rel, span=span, edits=(edit,))
+
+    def _keyword_outcome(self, rel: str, source: SourceFile, site: KeywordSite, decided: _KeywordDecision) -> Outcome:
+        """A keyword site's outcome: rewritten, unrelated, or an unlinked keyword, which `--unsure include` also
+        rewrites."""
+        if decided == "unlinked":
+            self._unlinked.add((rel, site.span[0]))
+            text = message("refactor.unlinked-keyword", path=rel, line=site.line, callee=collapsed(source.segment(site.call.func)),
+                           old=self.old)
+            edits = self._keyword_rewrite(rel, site.span).edits if self._unsure else ()
+            return Outcome(kind="blindspot", rel=rel, span=site.span, edits=edits,
+                           finding=Finding(path=rel, line=site.line, col=site.span[0], text=text))
+        if decided == "rewrite":
+            return self._keyword_rewrite(rel, site.span)
+        return Outcome(kind="unrelated", rel=rel, span=site.span)
+
     def _blindspot_scan(self, scan: MemberScan) -> None:
         for rel in self.candidates:
             source = self.snapshot.source(rel)
@@ -947,10 +1132,11 @@ class SymbolRename(MapRename):
     def rules(self, index: RunIndex, facts: TypeFacts) -> None:
         """Every rule over the index: occurrences, keyed classes, member strings, targets, blind spots."""
         with timed("references"):
-            self._index_edits(index)
+            self._index_edits(index, facts)
         with timed("rules"):
             for field in self._fields:
                 self._keyed_edits(index, facts, field)
+            self._keyword_edits(index, facts)
             scan = MemberScan(index, self.old, self.session.load)
             folders = SourceFolders(self.session.layout.source_folders())
             targets = TargetResolver(folders, self.session.read)

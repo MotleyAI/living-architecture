@@ -1,0 +1,27 @@
+WARNING: --unsure=include also renames occurrences the checker cannot resolve; it may rewrite unrelated attributes or keywords of the same name.
+Renaming <models> to <datasets>:
+
+
+--- a/pkg/c.py
++++ b/pkg/c.py
+@@ -2,8 +2,8 @@
+ 
+ 
+ @functools.lru_cache
+-def cached(models: int) -> int:
+-    return models
++def cached(datasets: int) -> int:
++    return datasets
+ 
+ 
+ def plain(*, models: int) -> int:
+@@ -11,4 +11,4 @@
+ 
+ 
+ def use() -> int:
+-    return cached(models=1) + plain(models=1)
++    return cached(datasets=1) + plain(models=1)
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

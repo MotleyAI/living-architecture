@@ -54,6 +54,17 @@ describe('dr-compliance --attr, repeated', () => {
   });
 });
 
+describe('dr-compliance --attr, receiver text', () => {
+  it('keeps the parentheses written around a receiver and collapses its whitespace', () => {
+    const loose = 'export function g(a: unknown, o: any): number {\n  return (a as any).id + (\n    o\n  ).id;\n}\n';
+    const root = tsProject({ 'src/m.ts': loose });
+    const result = run(root, 'dr-compliance', ['--select', 'attr-blindspot', '--attr', 'id', 'src']);
+    const spot = (receiver: string): string =>
+      message('compliance.attr-blindspot', { path: 'src/m.ts', line: 2, receiver, attr: 'id', type: 'any' });
+    expect(result).toEqual({ code: 1, out: `${spot('(a as any)')}\n${spot('( o )')}\n`, err: '' });
+  });
+});
+
 describe('dr-compliance string-blindspot', () => {
   const loose = [
     'export function f(x: any): unknown[] {',
