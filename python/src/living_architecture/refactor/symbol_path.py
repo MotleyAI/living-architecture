@@ -1,5 +1,6 @@
 """`--symbol Q`: a declaration located by its path inside a Python file (`Class.method`, `func.<locals>.inner`,
-`func(param)`, `Alias['value']`); declarations in one scope are one symbol, as the checker binds them."""
+`func(param)`, `Alias['value']`); declarations in one scope are one symbol, as the checker binds them. A wildcard path
+(`*.<locals>.NAME`, `Scope.*.<locals>.NAME`) names every local NAME of the functions under the file or scope."""
 
 from __future__ import annotations
 
@@ -15,6 +16,7 @@ from living_architecture.refactor.members import bound_targets, receiver_stores
 from living_architecture.refactor.python_source import SourceFile, every_parameter
 
 LOCALS = "<locals>"
+WILDCARD = "*"
 _PATH = re.compile(r"(?P<path>[^()\[\]]+)(?:\((?P<param>[^()]+)\))?(?:\[(?P<quote>['\"])(?P<value>.*)(?P=quote)\])?")
 _AS_NAME = re.compile(r"\bas\s+(\w+)")
 _COMPOUND = (ast.If, ast.For, ast.AsyncFor, ast.While, ast.Try, ast.With, ast.AsyncWith, ast.Match, ast.TryStar)
@@ -59,13 +61,15 @@ class Scope(BaseModel):
 
 class Located(BaseModel):
     """What a path names: the character offset of the declaration's name (or the literal member's string), the
-    declarations of its symbol, and whether it is a top-level declaration of the module."""
+    declarations of its symbol with the offset of each one's name, and whether it is a top-level declaration of the
+    module."""
 
     model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
 
     offset: int
     nodes: tuple[ast.AST, ...]
     top_level: bool
+    offsets: tuple[int, ...] = ()
 
 
 def _statements(body: list[ast.stmt]) -> Iterator[ast.stmt]:
@@ -171,7 +175,64 @@ def locate(source: SourceFile, raw: str, shown: str) -> Located:
         return located
     if path.value is not None:
         return _literal_member(source, group, path.value, unresolved)
-    return Located(offset=group[0][1], nodes=tuple(n for _, _, n in group), top_level=len(path.segments) == 1)
+    return _group_located(group, top_level=len(path.segments) == 1)
+
+
+def _group_located(group: list[Declaration], *, top_level: bool = False) -> Located:
+    return Located(offset=group[0][1], nodes=tuple(n for _, _, n in group), top_level=top_level,
+                   offsets=tuple(offset for _, offset, _ in group))
+
+
+def wildcard_parts(raw: str) -> tuple[tuple[str, ...], str] | None:
+    """A wildcard path's scope segments (none: the file) and local name; None for any other path."""
+    path = SymbolPath.parse(raw)
+    if path is None or path.param is not None or path.value is not None or len(path.segments) < 3:
+        return None
+    *scope, star, step, name = path.segments
+    if (star, step) != (WILDCARD, LOCALS) or WILDCARD in (*scope, name) or name == LOCALS:
+        return None
+    return tuple(scope), name
+
+
+def is_wildcard(raw: str | None) -> bool:
+    return raw is not None and wildcard_parts(raw) is not None
+
+
+def wildcard_refused(shown: str, raw: str) -> LocatorError:
+    return LocatorError(message("refactor.symbol-wildcard", path=shown, symbol=raw))
+
+
+def _nested_functions(node: ast.AST) -> Iterator[Function]:
+    """Every function nested at any depth inside `node`."""
+    for child in ast.iter_child_nodes(node):
+        if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            yield child
+        yield from _nested_functions(child)
+
+
+def locate_all(source: SourceFile, raw: str, shown: str) -> list[Located]:
+    """Every local the wildcard path `raw` names in `source`, in source order; LocatorError when it names none."""
+    parts = wildcard_parts(raw)
+    assert parts is not None
+    segments, name = parts
+
+    def unresolved(names: set[str]) -> LocatorError:
+        candidates = ", ".join(sorted(names))
+        return LocatorError(message("refactor.symbol-unresolved", path=shown, symbol=raw, candidates=candidates))
+
+    if source.tree is None:
+        raise unresolved(set())
+    scopes = [Scope(kind="module", node=source.tree)]
+    if segments:
+        scopes = [s for g in _walk(source, scopes[0], segments, unresolved) for s in _opened(g)]
+    found: dict[int, Located] = {}
+    for function in (f for scope in scopes for f in _nested_functions(scope.node)):
+        group = [d for d in _declarations(source, Scope(kind="function", node=function)) if d[0] == name]
+        if group:
+            found[group[0][1]] = _group_located(group)
+    if not found:
+        raise unresolved({declared for scope in scopes for declared, _, _ in _declarations(source, scope)})
+    return [found[offset] for offset in sorted(found)]
 
 
 def _walk(source: SourceFile, module: Scope, segments: tuple[str, ...], unresolved: Unresolved) -> list[list[Declaration]]:
@@ -199,7 +260,7 @@ def _parameter(source: SourceFile, group: list[Declaration], name: str, unresolv
     span = source.name_span(arg) if arg is not None else None
     if arg is None or span is None:
         raise unresolved({a.arg for a in params})
-    return Located(offset=span[0], nodes=(arg,), top_level=False)
+    return Located(offset=span[0], nodes=(arg,), top_level=False, offsets=(span[0],))
 
 
 def _literal_member(source: SourceFile, group: list[Declaration], value: str, unresolved: Unresolved) -> Located:
@@ -215,7 +276,7 @@ def _literal_member(source: SourceFile, group: list[Declaration], value: str, un
     found = next((string for text, string in strings if text == value), None)
     if found is None:
         raise unresolved({text for text, _ in strings})
-    return Located(offset=source.span(found)[0], nodes=(found,), top_level=False)
+    return Located(offset=source.span(found)[0], nodes=(found,), top_level=False, offsets=(source.span(found)[0],))
 
 
 def _literal_holder(source: SourceFile, node: ast.AST) -> ast.expr | None:
@@ -274,3 +335,40 @@ def _child_scopes(node: ast.AST) -> list[Scope]:
         else:
             pending += ast.iter_child_nodes(child)
     return out
+
+
+def declared_scopes(source: SourceFile) -> Iterator[tuple[ast.AST, list[Declaration]]]:
+    """Every module, class and function scope of `source` with the declarations a path reaches in it."""
+    if source.tree is None:
+        return
+    stack: list[Scope] = [Scope(kind="module", node=source.tree)]
+    while stack:
+        scope = stack.pop()
+        yield scope.node, _declarations(source, scope)
+        stack += _child_scopes(scope.node)
+
+
+def declared_paths(source: SourceFile) -> Iterator[tuple[str, list[Declaration]]]:
+    """Every path of `source` with the declarations it reaches in one scope; a path given twice names two symbols."""
+    if source.tree is not None:
+        yield from _scope_paths(source, Scope(kind="module", node=source.tree), "")
+
+
+def _scope_paths(source: SourceFile, scope: Scope, prefix: str) -> Iterator[tuple[str, list[Declaration]]]:
+    groups: dict[str, list[Declaration]] = {}
+    for declaration in _declarations(source, scope):
+        groups.setdefault(declaration[0], []).append(declaration)
+    for name, group in groups.items():
+        path = prefix + name
+        yield path, group
+        parameters: set[str] = set()
+        for _, _, node in group:
+            if isinstance(node, ast.ClassDef):
+                yield from _scope_paths(source, Scope(kind="class", node=node), f"{path}.")
+            elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                for arg in every_parameter(node.args):
+                    span = source.name_span(arg)
+                    if span is not None and arg.arg not in parameters:
+                        parameters.add(arg.arg)
+                        yield f"{path}({arg.arg})", [(arg.arg, span[0], arg)]
+                yield from _scope_paths(source, Scope(kind="function", node=node), f"{path}.{LOCALS}.")

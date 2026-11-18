@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict
 from typing_extensions import override
 
 from living_architecture.contract import message
+from living_architecture.refactor.carve_outs import CarveOuts
 from living_architecture.refactor.entry_location import Entry, EntryLocator
 from living_architecture.refactor.locators import RefactorError
 from living_architecture.refactor.outcomes import Finding
@@ -151,8 +152,9 @@ class AliasRetarget(SymbolRename):
 
     def __init__(self, session: Session, entry: Entry, target: str, options: RenameOptions, *,
                  site: tuple[str, int], locator: EntryLocator, line: int, home: TargetHome | None = None,
-                 own: Location | None = None, original: str | None = None, index: int = 0) -> None:
-        super().__init__(session, entry, target, options, site=site, locator=locator)
+                 own: Location | None = None, original: str | None = None, index: int = 0,
+                 carves: CarveOuts | None = None) -> None:
+        super().__init__(session, entry, target, options, site=site, locator=locator, carves=carves)
         self.check_names = False
         self.line = line
         self.home = home

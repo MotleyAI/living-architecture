@@ -4,11 +4,12 @@ import { basePaths, mergeBase, pathsAt, resolveBaseRef } from '../changes/index.
 import { language, languageIds, languageOf, message } from '../contract/index.js';
 import * as twin from '../twin/index.js';
 import { type MockBase, typescriptCompliance, typescriptMockLint } from './compliance.js';
-import { complianceSelection, refactorLanguage, RoutingError, runSplit, split } from './routing.js';
+import { complianceSelection, languageFiles, realPath, refactorLanguage, RoutingError, runSplit, split, under } from './routing.js';
 import { RefactorError } from './edits.js';
 import { entrySource, loadMap, MapError } from './map.js';
 import { report } from './timings.js';
 import { type RefactorArgs, runTypescriptRefactor } from './typescript.js';
+import { loadWordTable } from './words.js';
 
 export { unifiedDiff } from './diff.js';
 export { mergeEdits, RefactorError } from './edits.js';
@@ -41,14 +42,33 @@ function mapLanguage(map: string): string {
   return languages[0] ?? '';
 }
 
+/** The language `generate-map` generates for: `--language`, else the one language with sources under the project (this
+ * twin's when there is none); MapError when the project holds several. */
+function generateLanguage(args: RefactorArgs): string {
+  if (args.language !== undefined) return args.language;
+  const root = realPath(under(process.cwd(), args.project));
+  const found = languageIds().filter((id) => languageFiles(root, id).length > 0);
+  if (found.length > 1) throw new MapError(message('refactor.generate-language', { languages: found.join(', ') }));
+  return found[0] ?? twin.NATIVE_LANGUAGE;
+}
+
+/** The language a run is of: a word table is checked first, then the map's, the generated or the source's language. */
+function runLanguage(args: RefactorArgs): string {
+  const table = args.subcommand === 'generate-map' ? args.table : args.words;
+  if (table !== undefined) loadWordTable(table, table);
+  if (args.subcommand === 'generate-map') return generateLanguage(args);
+  if (args.subcommand === 'rename-map') return mapLanguage(args.map ?? '');
+  const source = args.subcommand === 'move-module' ? args.module : args.file;
+  return refactorLanguage(args.subcommand, source ?? '', args.dest ?? '', args.project);
+}
+
 /** `dr-refactor`: run natively, or hand the raw ARGV to the source language's twin; with `--timings`, the phase
  * times follow, unless the other twin ran and printed its own. */
 export function runRefactor(argv: string[], args: RefactorArgs): number {
   return report(args.timings === true, (scope) => {
     let id: string;
     try {
-      const source = args.subcommand === 'move-module' ? args.module : args.file;
-      id = args.subcommand === 'rename-map' ? mapLanguage(args.map ?? '') : refactorLanguage(args.subcommand, source ?? '', args.dest ?? '', args.project);
+      id = runLanguage(args);
     } catch (error) {
       if (!(error instanceof RoutingError) && !(error instanceof MapError)) throw error;
       process.stderr.write(`${error.message}\n`);

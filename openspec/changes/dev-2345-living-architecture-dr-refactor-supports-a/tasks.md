@@ -52,42 +52,42 @@
 
 ## 3. Python twin
 
-- [ ] 3.1 Word table: load, validate, report invalid items; word replacement on the compound-name split; verify 2.1
-- [ ] 3.2 Carve-out matchers over syntax (annotation tokens, path globs, symbol locators); verify 2.1
-- [ ] 3.3 `generate-map`: candidate index over the project's sources, modules and packages, `entries` first, locals
+- [x] 3.1 Word table: load, validate, report invalid items; word replacement on the compound-name split; verify 2.1
+- [x] 3.2 Carve-out matchers over syntax (annotation tokens, path globs, symbol locators); verify 2.1
+- [x] 3.3 `generate-map`: candidate index over the project's sources, modules and packages, `entries` first, locals
   aggregation, YAML output, listings; language selection and forwarding; verify 2.3 and 2.4
-- [ ] 3.4 Wildcard paths in `symbol_path`; one map entry expanding to several internal targets under one index
+- [x] 3.4 Wildcard paths in `symbol_path`; one map entry expanding to several internal targets under one index
   (headers, progress, findings, duplicates and merges per symbol); the refusals; verify 2.5
-- [ ] 3.5 Stand-in defaults in classification: fixture decorators resolved through imports, carve-outs with
+- [x] 3.5 Stand-in defaults in classification: fixture decorators resolved through imports, carve-outs with
   `--words`, the every-declaration rule, `--with` and `--without` on a defaulted stand-in; verify 2.6
-- [ ] 3.6 Carved mentions: scope spans, covering rule, listed as `refactor.leftover`; verify 2.7
-- [ ] 3.7 Entry location: a locator on the `as` name of a module import is the alias binding; `--stub` refusal as for
+- [x] 3.6 Carved mentions: scope spans, covering rule, listed as `refactor.leftover`; verify 2.7
+- [x] 3.7 Entry location: a locator on the `as` name of a module import is the alias binding; `--stub` refusal as for
   a library alias; verify 2.8
 
 ## 4. npm twin
 
-- [ ] 4.1 Word table, replacement and matchers (type-annotation identifier tokens); verify 2.2
-- [ ] 4.2 `generate-map` for TypeScript: candidates from the TypeScript syntax tree, module files listed, `entries`,
+- [x] 4.1 Word table, replacement and matchers (type-annotation identifier tokens); verify 2.2
+- [x] 4.2 `generate-map` for TypeScript: candidates from the TypeScript syntax tree, module files listed, `entries`,
   locals aggregation, output; language selection and forwarding; verify 2.3 and 2.4
-- [ ] 4.3 Wildcard paths in `symbols.ts` and multi-target entries in the map run; the refusals; verify 2.5
-- [ ] 4.4 Carve-out stand-in default (the fixture list is empty) and carved mentions with the JSDoc span; verify 2.6
+- [x] 4.3 Wildcard paths in `symbols.ts` and multi-target entries in the map run; the refusals; verify 2.5
+- [x] 4.4 Carve-out stand-in default (the fixture list is empty) and carved mentions with the JSDoc span; verify 2.6
   and 2.7
 
 ## 5. Docs and skill
 
-- [ ] 5.1 `plugin/skills/deterministic-refactor/SKILL.md`: the two edits, verbatim from design.md "Approved wording";
+- [x] 5.1 `plugin/skills/deterministic-refactor/SKILL.md`: the two edits, verbatim from design.md "Approved wording";
   verify `npx -y @anthropic-ai/claude-code plugin validate plugin` passes
-- [ ] 5.2 `docs/deterministic-refactoring.md`: the vocabulary-rename flow (table, generate, dry run with `--words`,
+- [x] 5.2 `docs/deterministic-refactoring.md`: the vocabulary-rename flow (table, generate, dry run with `--words`,
   regenerate), the stand-in-as-entry route, the fixture default, what is not generated (lambda parameters,
   TypeScript modules, namespace packages); `docs/commands.md`: `generate-map`
-- [ ] 5.3 `dr-refactor` help in `cli.yaml` and the docs name `generate-map` wherever the subcommands are listed;
+- [x] 5.3 `dr-refactor` help in `cli.yaml` and the docs name `generate-map` wherever the subcommands are listed;
   verify by reading each list
 
 ## 6. Gates
 
-- [ ] 6.1 The local test scope passes in both twins (`la-affected-tests --base main`, plus every new conformance case
+- [x] 6.1 The local test scope passes in both twins (`la-affected-tests --base main`, plus every new conformance case
   through `scripts/conformance-cross`)
-- [ ] 6.2 `uv run ruff check src tests` and `uv run basedpyright src tests` in `python/`; `npm run lint && npm run
+- [x] 6.2 `uv run ruff check src tests` and `uv run basedpyright src tests` in `python/`; `npm run lint && npm run
   typecheck` in `node/`
-- [ ] 6.3 The enforcement bundle: `la-arch-check`, LikeC4 model validation, `la-typecheck`; no model or arc42 change
+- [x] 6.3 The enforcement bundle: `la-arch-check`, LikeC4 model validation, `la-typecheck`; no model or arc42 change
   is expected, and any that turns out to be needed is presented to the user for approval first

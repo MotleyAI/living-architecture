@@ -203,17 +203,21 @@ class EntryLocator:
 
     def _import(self, rel: str, module: Module, scope: Scope, name: str, alias: ast.alias, start: int, *,
                 follow: bool) -> Entry:
-        """An import binding: the module it binds, else itself for an alias or re-export, else what it imports."""
+        """An import binding: the module it binds (under an `as` name, the alias alone), else itself for an alias or
+        re-export, else what it imports."""
         stmt = self.snapshot.source(rel).parent(alias)
         if isinstance(stmt, ast.Import):
             value: Value = ("module", alias.name if alias.asname else name)
         else:
             assert isinstance(stmt, ast.ImportFrom)
             value = self.resolver.member(module.binder.from_module(stmt), alias.name)
-        if value is not None and value[0] == "module":
+        binds_module = value is not None and value[0] == "module"
+        if value is not None and binds_module and (alias.asname is None or follow):
             return self._module_entry(rel, value[1], name)
+        if value is not None and binds_module and isinstance(stmt, ast.Import):
+            return _module(rel, None, name, value[1])
         owner = scope.owner(name)
-        aliased = alias.asname is not None and alias.asname != alias.name
+        aliased = alias.asname is not None and (binds_module or alias.asname != alias.name)
         exported = owner.kind == "module" and (alias.asname == alias.name or name in (module.all_names or ()))
         if (aliased or exported) and not follow:
             line = self.snapshot.source(rel).line(start)
@@ -417,8 +421,8 @@ def _joined(traces: list[Trace]) -> Trace:
 
 def _module(rel: str, module: str | None, name: str, dotted: str) -> Entry:
     """A module rename located in `rel`: a project module keyed by its file or package directory alone, so every way of
-    naming it is one symbol; a library module by its dotted name."""
-    key = ("module", module, 0, None) if module is not None else ("module", dotted, 0, dotted)
+    naming it is one symbol; an alias of a module by its file, name and the module's dotted name."""
+    key = ("module", module, 0, None) if module is not None else ("module", rel, name, dotted)
     return Entry(kind="module", key=key, name=name, rel=rel, module=module)
 
 

@@ -15,6 +15,7 @@ from rope.refactor.move import MoveGlobal, MoveModule, create_move
 
 from living_architecture.contract import message
 from living_architecture.refactor.baseline_align import BaselineFailed
+from living_architecture.refactor.generate_map import generate_map
 from living_architecture.refactor.locators import Locator, RefactorError, offset_from_line_col, resolve
 from living_architecture.refactor.map_file import MapEntry, MapError, load_map
 from living_architecture.refactor.move_edits import NameConflict, module_move_changes, symbol_move_changes
@@ -32,7 +33,7 @@ from living_architecture.refactor.rename_map import (
 )
 from living_architecture.refactor.rope_patches import WalkerGap, apply_rope_patches
 from living_architecture.refactor.routing import language_files
-from living_architecture.refactor.symbol_path import LocatorError
+from living_architecture.refactor.symbol_path import LocatorError, is_wildcard, wildcard_refused
 from living_architecture.refactor.timings import timed
 from living_architecture.refactor.writer import FileChanged, WriteFailed
 
@@ -105,6 +106,8 @@ def move_symbol(project: Project, *, file: str, locator: Locator, dest: str, app
         with timed("resolve"):
             moved = resource(project, file)
             snapshot = Snapshot(Path(project.address).resolve())
+            if is_wildcard(locator.symbol):
+                raise wildcard_refused(file, str(locator.symbol))
             offset, located = resolve(locator, snapshot.source(moved.path), file)
             if located is not None and not located.top_level:
                 raise RefactorError(message("refactor.not-movable", path=file))
@@ -183,6 +186,8 @@ class _RopeProject:
 
 
 def _run(rope: _RopeProject, project_root: str, command: str, apply: bool, options: dict[str, Any]) -> int:
+    if command == "generate-map":
+        return generate_map(rope.root, str(options["table"]))
     progress = Progress()
     if command in ("rename", "retarget", "rename-map"):
         entries, shown = _entries(command, project_root, options)

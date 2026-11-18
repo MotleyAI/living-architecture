@@ -7,6 +7,7 @@ import { byCodePoint, language, message } from '../contract/index.js';
 import { canonical, posix, stripSourceExtension, ts } from '../lang/index.js';
 import { configFailures } from './baseline.js';
 import { type Edit, mergeEdits, RefactorError } from './edits.js';
+import { generateMap } from './generate.js';
 import { entrySource, loadMap, MapError } from './map.js';
 import { type MovedSpan, movedOffsets } from './position.js';
 import { Progress, type Refusal, refusal, Refused } from './progress.js';
@@ -275,6 +276,7 @@ export function runTypescriptRefactor(args: RefactorArgs): number {
     const r = new Refactor(args);
     if (args.subcommand === 'rename' || args.subcommand === 'retarget') return single(r, progress);
     if (args.subcommand === 'rename-map') return renameMap(r, progress);
+    if (args.subcommand === 'generate-map') return generateMap(r);
     if (args.subcommand === 'move-symbol') return moveSymbol(r, progress);
     return moveModule(r, progress);
   } catch (error) {
