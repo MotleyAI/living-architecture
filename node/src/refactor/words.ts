@@ -83,6 +83,22 @@ export function withoutWords(table: Words, dropped: Iterable<string>): Words {
 const isMapping = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
 const valid = (document: unknown): boolean => validate(schema('word-table'), document).length === 0;
 
+const listOf = <T>(value: unknown): T[] => (Array.isArray(value) ? (value as T[]) : []);
+
+/** The 1-based indexes of the items `failing` holds for. */
+const indexesOf = <T>(items: T[], failing: (item: T) => boolean): number[] => items.flatMap((item, i) => (failing(item) ? [i + 1] : []));
+
+/** The valid rows of `rows` by their `from`, each other row added to `bad`. */
+function wordRows(rows: unknown[], bad: [string, number][]): Words {
+  const table: Words = {};
+  for (const [i, row] of rows.entries()) {
+    const { from, to } = (isMapping(row) ? row : {}) as { from?: string; to?: string };
+    if (valid({ words: [row] }) && from !== undefined && to !== undefined && from !== to && !Object.hasOwn(table, from)) table[from] = to;
+    else bad.push(['words', i + 1]);
+  }
+  return table;
+}
+
 /** The table at `path` (`shown` in messages); MapError naming every invalid item by section and 1-based index, `words`
  * item 1 for a file that holds no table. */
 export function loadWordTable(path: string, shown: string): WordTable {
@@ -91,20 +107,13 @@ export function loadWordTable(path: string, shown: string): WordTable {
   const data = yamlDocument(path);
   if (!isMapping(data) || !Array.isArray(data.words) || data.words.length === 0) throw invalid([['words', 1]]);
   const bad: [string, number][] = [];
-  const table: Words = {};
-  for (const [i, row] of (data.words as unknown[]).entries()) {
-    const { from, to } = (isMapping(row) ? row : {}) as { from?: string; to?: string };
-    if (valid({ words: [row] }) && from !== undefined && to !== undefined && from !== to && !Object.hasOwn(table, from)) table[from] = to;
-    else bad.push(['words', i + 1]);
-  }
+  const table = wordRows(data.words as unknown[], bad);
   for (const section of ['carve_outs', 'entries']) if (data[section] !== undefined && !Array.isArray(data[section])) bad.push([section, 1]);
-  const carveOuts = Array.isArray(data.carve_outs) ? (data.carve_outs as CarveOut[]) : [];
-  for (const [i, item] of carveOuts.entries()) {
-    const known = valid({ words: [ROW], carve_outs: [item] }) && item.words.every((word) => Object.hasOwn(table, word));
-    if (!known) bad.push(['carve_outs', i + 1]);
-  }
-  const entries = Array.isArray(data.entries) ? (data.entries as MapEntry[]) : [];
-  for (const [i, entry] of entries.entries()) if (validate(schema('rename-map'), [entry]).length > 0) bad.push(['entries', i + 1]);
+  const carveOuts = listOf<CarveOut>(data.carve_outs);
+  const known = (item: CarveOut): boolean => valid({ words: [ROW], carve_outs: [item] }) && item.words.every((word) => Object.hasOwn(table, word));
+  bad.push(...indexesOf(carveOuts, (item) => !known(item)).map((i): [string, number] => ['carve_outs', i]));
+  const entries = listOf<MapEntry>(data.entries);
+  bad.push(...indexesOf(entries, (entry) => validate(schema('rename-map'), [entry]).length > 0).map((i): [string, number] => ['entries', i]));
   if (bad.length > 0) throw invalid(bad);
   if (!valid(data)) throw invalid([['words', 1]]);
   return { shown, words: table, carveOuts, entries };

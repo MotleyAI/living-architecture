@@ -61,6 +61,20 @@ def _line(item: dict[str, Any]) -> str:
     return "- {" + ", ".join(f"{k}: {_scalar(item[k])}" for k in keys) + "}"
 
 
+def _plain_import(node: ast.AST) -> bool:
+    """An import binding without an `as` name."""
+    return isinstance(node, ast.alias) and node.asname is None
+
+
+def _entry(source: SourceFile, c: Candidate, new: str) -> dict[str, Any]:
+    """A declaration's entry: by its path, else by line and column."""
+    if c.path is not None:
+        return {"file": c.rel, "symbol": c.path, "new_name": new}
+    assert c.offset is not None
+    line = source.line(c.offset)
+    return {"file": c.rel, "line": line, "col": c.offset - source.line_start(line) + 1, "new_name": new}
+
+
 def _no_definitions(_rel: str, _offset: int) -> list[tuple[Path, int]]:
     return []
 
@@ -121,24 +135,12 @@ class Generator:
         module = self.locator.module(rel)
         if module is None:
             return []
-        paths: dict[str, list[list[tuple[str, int, ast.AST]]]] = {}
-        for path, group in declared_paths(source):
-            paths.setdefault(path, []).append(group)
-        found: list[Candidate] = []
         reached: set[int] = set()
-        for path, groups in paths.items():
-            for group in groups:
-                reached |= {offset for _, offset, _ in group}
-                own = [d for d in group if not (isinstance(d[2], ast.alias) and d[2].asname is None)]
-                if not own or not held_words(own[0][0], self.table.words):
-                    continue
-                exact = len(groups) == 1 and own[0] is group[0]
-                found.append(Candidate(rel=rel, name=own[0][0], key=self._key_at(rel, own[0][1]), offset=own[0][1],
-                                       offsets=tuple(d[1] for d in own), path=path if exact else None))
+        found = self._path_candidates(rel, source, reached)
         for _, name, node in module.binder.bound:
             offset = bound_at(source, node, name)
             words = held_words(name, self.table.words)
-            if offset is None or offset in reached or not words or (isinstance(node, ast.alias) and node.asname is None):
+            if offset is None or offset in reached or not words or _plain_import(node):
                 continue
             reached.add(offset)
             if isinstance(node, ast.arg) and isinstance(source.parent(source.parent(node) or node), ast.Lambda):
@@ -151,6 +153,23 @@ class Generator:
         for candidate in sorted(found, key=lambda c: c.offset or 0):
             out.setdefault(candidate.key, candidate)
         return list(out.values())
+
+    def _path_candidates(self, rel: str, source: SourceFile, reached: set[int]) -> list[Candidate]:
+        """The candidates a symbol path reaches, their offsets added to `reached`."""
+        paths: dict[str, list[list[tuple[str, int, ast.AST]]]] = {}
+        for path, group in declared_paths(source):
+            paths.setdefault(path, []).append(group)
+        found: list[Candidate] = []
+        for path, groups in paths.items():
+            for group in groups:
+                reached.update(offset for _, offset, _ in group)
+                own = [d for d in group if not _plain_import(d[2])]
+                if not own or not held_words(own[0][0], self.table.words):
+                    continue
+                exact = len(groups) == 1 and own[0] is group[0]
+                found.append(Candidate(rel=rel, name=own[0][0], key=self._key_at(rel, own[0][1]), offset=own[0][1],
+                                       offsets=tuple(d[1] for d in own), path=path if exact else None))
+        return found
 
     def _modules(self, rels: list[str]) -> list[Candidate]:
         """Each module file, and each package by its `__init__.py`, whose name holds a word."""
@@ -190,31 +209,35 @@ class Generator:
         """The entries of a file's declarations in source order, same-named locals as one wildcard entry at the
         first."""
         source = self.session.snapshot.source(rel)
+        written, whole = self._written(candidates, source)
+        joined = self._joined(rel, source, whole)
+        out: list[dict[str, Any]] = []
+        done: set[str] = set()
+        for c, new, local in written:
+            if local is None or local not in joined or c.key not in whole:
+                out.append(_entry(source, c, new))
+            elif local not in done:
+                out.append({"file": rel, "symbol": f"{WILDCARD}.{LOCALS}.{local}", "new_name": new})
+                done.add(local)
+        return out
+
+    def _written(self, candidates: list[Candidate],
+                 source: SourceFile) -> tuple[list[tuple[Candidate, str, str | None]], dict[Key, str]]:
+        """Each candidate that is written, with its new name and its name as a function local; and the locals written
+        with no word kept, by key."""
         written: list[tuple[Candidate, str, str | None]] = []
         whole: dict[Key, str] = {}
         for c in candidates:
             carved = len(self.listed)
             new = self._new_name(c, source)
+            if new is None:
+                continue
             m = _LOCAL.fullmatch(c.path) if c.path is not None else None
-            if new is not None:
-                written.append((c, new, m.group(1) if m is not None else None))
-            if new is not None and m is not None and len(self.listed) == carved:
-                whole[c.key] = m.group(1)
-        joined = self._joined(rel, source, whole)
-        out: list[dict[str, Any]] = []
-        done: set[str] = set()
-        for c, new, local in written:
-            assert c.offset is not None
-            if local in joined and c.key in whole:
-                if local not in done:
-                    out.append({"file": rel, "symbol": f"{WILDCARD}.{LOCALS}.{local}", "new_name": new})
-                done.add(str(local))
-            elif c.path is not None:
-                out.append({"file": rel, "symbol": c.path, "new_name": new})
-            else:
-                line = source.line(c.offset)
-                out.append({"file": rel, "line": line, "col": c.offset - source.line_start(line) + 1, "new_name": new})
-        return out
+            local = m.group(1) if m is not None else None
+            written.append((c, new, local))
+            if local is not None and len(self.listed) == carved:
+                whole[c.key] = local
+        return written, whole
 
     def run(self) -> int:
         """Print the map and the listings; 1 with `refactor.generate-empty` when the map is empty."""

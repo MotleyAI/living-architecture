@@ -456,18 +456,10 @@ class SymbolRename(MapRename):
         stand_ins = [d for d in self._declarations if (d.rel, d.start) not in hierarchy]
         renamed = set(hierarchy) | self.seeds if self._in_hierarchy else set(self.seeds)
         classified: set[tuple[str, int]] = set()
-        for raw, joined in [*((s, True) for s in self.options.with_sites), *((s, False) for s in self.options.without_sites)]:
-            site = Site.parse(raw, self.root, base=self.root)
-            matched = [d for d in stand_ins if site.line is not None and site.covers(d.rel, d.line)]
-            if matched:
-                self.matched_sites.add(raw)
-            for d in matched:
-                found = self.locator.at(d.rel, d.start)
-                theirs = self._hierarchy(index, {(d.rel, d.start)}, found.kind == "method")
-                classified |= theirs | {(d.rel, d.start)}
-                if joined:
-                    self.entries.append(found)
-                    renamed |= theirs | {(d.rel, d.start)} if self._in_hierarchy else self._own(index, d)
+        for raw in self.options.with_sites:
+            classified |= self._classify_site(index, raw, stand_ins, renamed)
+        for raw in self.options.without_sites:
+            classified |= self._classify_site(index, raw, stand_ins, None)
         for d in (d for d in stand_ins if (d.rel, d.start) not in classified):
             found = self.locator.at(d.rel, d.start)
             theirs = self._hierarchy(index, {(d.rel, d.start)}, found.kind == "method") | {(d.rel, d.start)}
@@ -475,6 +467,23 @@ class SymbolRename(MapRename):
                 classified |= theirs
         self._unclassified = [d for d in stand_ins if (d.rel, d.start) not in classified]
         self.seeds = renamed
+
+    def _classify_site(self, index: RunIndex, raw: str, stand_ins: list[Declaration],
+                       renamed: set[tuple[str, int]] | None) -> set[tuple[str, int]]:
+        """The declarations the `--with` (`renamed` given, which they join) or `--without` site `raw` classifies."""
+        site = Site.parse(raw, self.root, base=self.root)
+        matched = [d for d in stand_ins if site.line is not None and site.covers(d.rel, d.line)]
+        if matched:
+            self.matched_sites.add(raw)
+        classified: set[tuple[str, int]] = set()
+        for d in matched:
+            found = self.locator.at(d.rel, d.start)
+            theirs = self._hierarchy(index, {(d.rel, d.start)}, found.kind == "method") | {(d.rel, d.start)}
+            classified |= theirs
+            if renamed is not None:
+                self.entries.append(found)
+                renamed |= theirs if self._in_hierarchy else self._own(index, d)
+        return classified
 
     def _left_by_default(self, site: tuple[str, int]) -> bool:
         """The member declaration at `site` is a test fixture, or one a carve-out keeps."""

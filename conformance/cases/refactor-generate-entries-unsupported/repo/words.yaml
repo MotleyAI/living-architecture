@@ -1,0 +1,4 @@
+words:
+- {from: model, to: dataset}
+entries:
+- {file: pkg/notes.txt, symbol: load, new_name: read}

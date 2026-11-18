@@ -43,12 +43,18 @@ def _imported(source: SourceFile) -> dict[str, str]:
     out: dict[str, str] = {}
     for node in source.nodes:
         if isinstance(node, ast.Import):
-            for alias in node.names:
-                out[alias.asname or alias.name.split(".")[0]] = alias.name if alias.asname else alias.name.split(".")[0]
+            out.update(_import_binding(alias) for alias in node.names)
         elif isinstance(node, ast.ImportFrom) and node.module and not node.level:
-            for alias in node.names:
-                out[alias.asname or alias.name] = f"{node.module}.{alias.name}"
+            out.update((alias.asname or alias.name, f"{node.module}.{alias.name}") for alias in node.names)
     return out
+
+
+def _import_binding(alias: ast.alias) -> tuple[str, str]:
+    """`import a.b as c` binds `c` to `a.b`; `import a.b` binds `a` to `a`."""
+    if alias.asname:
+        return alias.asname, alias.name
+    head = alias.name.split(".")[0]
+    return head, head
 
 
 def _dotted(node: ast.expr) -> list[str] | None:
@@ -109,7 +115,7 @@ class CarveOuts:
                 file, symbol = str(item["file"]), str(item["symbol"])
                 if is_wildcard(symbol):
                     raise wildcard_refused(file, symbol)
-                sites |= {(file, offset) for offset in self._located(file, symbol)}
+                sites.update((file, offset) for offset in self._located(file, symbol))
 
     def _located(self, file: str, symbol: str) -> tuple[int, ...]:
         try:

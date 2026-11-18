@@ -35,7 +35,7 @@ export interface WildcardPath {
 /** `raw` as a wildcard path; null for any other path, a misplaced `*` included. */
 export function wildcardPath(raw: string): WildcardPath | null {
   const path = parsePath(raw);
-  if (path === null || path.param !== null || path.value !== null) return null;
+  if (path?.param !== null || path.value !== null) return null;
   const scope = path.segments.slice(0, -3);
   const [star, step, name = ''] = path.segments.slice(-3);
   if (path.segments.length < 3 || star !== '*' || step !== LOCALS || name === '*') return null;
@@ -201,8 +201,13 @@ const ids = new WeakMap<TS.Node, number>();
 let nextId = 0;
 
 function idOf(node: TS.Node): string {
-  if (!ids.has(node)) ids.set(node, (nextId += 1));
-  return `#${ids.get(node)}`;
+  let id = ids.get(node);
+  if (id === undefined) {
+    nextId += 1;
+    id = nextId;
+    ids.set(node, id);
+  }
+  return `#${id}`;
 }
 
 const opensBlock = (node: TS.Node): boolean =>
@@ -389,6 +394,19 @@ export interface Reached {
 
 const SEGMENT = /^[\p{ID_Start}$_][\p{ID_Continue}$\u200C\u200D]*$/u;
 
+const under = (path: string | null, suffix: string): string | null => (path === null ? null : `${path}${suffix}`);
+
+/** The parameters of `functions`, the first of each name by its path under `one`. */
+function parametersOf(functions: Scope[], one: string | null): Reached[] {
+  const seen = new Set<string>();
+  const found = functions.flatMap((fn) => (fn as TS.SignatureDeclaration).parameters.flatMap((param) => bindingNames(param, param.name)));
+  return found.map((p) => {
+    const first = one !== null && !seen.has(p.name) && SEGMENT.test(p.name);
+    seen.add(p.name);
+    return { path: first ? `${one}(${p.name})` : null, names: [p.nameNode], node: p.node, local: false, parameter: true };
+  });
+}
+
 /** Every symbol of `source` a symbol path reaches, read from syntax. */
 export function reach(source: TS.SourceFile): Reached[] {
   const out: Reached[] = [];
@@ -401,15 +419,10 @@ export function reach(source: TS.SourceFile): Reached[] {
       for (const group of groups) out.push({ path: one, names: group.map((d) => d.nameNode), node: (group[0] as Declaration).node, local, parameter: false });
       const nodes = groups.flat().map((d) => d.node);
       const functions = nodes.flatMap((node) => functionOf(node) ?? []);
-      const seen = new Set<string>();
-      for (const p of functions.flatMap((fn) => (fn as TS.SignatureDeclaration).parameters.flatMap((param) => bindingNames(param, param.name)))) {
-        const first = one !== null && !seen.has(p.name) && SEGMENT.test(p.name);
-        seen.add(p.name);
-        out.push({ path: first ? `${one}(${p.name})` : null, names: [p.nameNode], node: p.node, local: false, parameter: true });
-      }
-      if (functions.length > 0) visit(functions, path === null ? null : `${path}.${LOCALS}.`, true);
+      out.push(...parametersOf(functions, one));
+      if (functions.length > 0) visit(functions, under(path, `.${LOCALS}.`), true);
       const inner = nodes.flatMap(memberScopes);
-      if (inner.length > 0) visit(inner, path === null ? null : `${path}.`, false);
+      if (inner.length > 0) visit(inner, under(path, '.'), false);
     }
   };
   visit([source], '', false);

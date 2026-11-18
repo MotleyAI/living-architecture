@@ -354,6 +354,16 @@ def declared_paths(source: SourceFile) -> Iterator[tuple[str, list[Declaration]]
         yield from _scope_paths(source, Scope(kind="module", node=source.tree), "")
 
 
+def _parameter_paths(source: SourceFile, node: ast.FunctionDef | ast.AsyncFunctionDef, path: str,
+                     seen: set[str]) -> Iterator[tuple[str, list[Declaration]]]:
+    """The path of each parameter of `node` whose name is not in `seen`, which then holds it."""
+    for arg in every_parameter(node.args):
+        span = source.name_span(arg)
+        if span is not None and arg.arg not in seen:
+            seen.add(arg.arg)
+            yield f"{path}({arg.arg})", [(arg.arg, span[0], arg)]
+
+
 def _scope_paths(source: SourceFile, scope: Scope, prefix: str) -> Iterator[tuple[str, list[Declaration]]]:
     groups: dict[str, list[Declaration]] = {}
     for declaration in _declarations(source, scope):
@@ -366,9 +376,5 @@ def _scope_paths(source: SourceFile, scope: Scope, prefix: str) -> Iterator[tupl
             if isinstance(node, ast.ClassDef):
                 yield from _scope_paths(source, Scope(kind="class", node=node), f"{path}.")
             elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                for arg in every_parameter(node.args):
-                    span = source.name_span(arg)
-                    if span is not None and arg.arg not in parameters:
-                        parameters.add(arg.arg)
-                        yield f"{path}({arg.arg})", [(arg.arg, span[0], arg)]
+                yield from _parameter_paths(source, node, path, parameters)
                 yield from _scope_paths(source, Scope(kind="function", node=node), f"{path}.{LOCALS}.")

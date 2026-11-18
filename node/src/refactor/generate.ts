@@ -72,7 +72,9 @@ function scalar(value: string | number): string {
   return plain ? value : `'${value.replaceAll("'", "''")}'`;
 }
 
-const line = (entry: MapEntry): string => `- {${KEYS.flatMap((key) => (entry[key] === undefined ? [] : [`${key}: ${scalar(entry[key])}`])).join(', ')}}\n`;
+const field = (key: string, value: string | number | undefined): string[] => (value === undefined ? [] : [`${key}: ${scalar(value)}`]);
+
+const line = (entry: MapEntry): string => `- {${KEYS.flatMap((key) => field(key, entry[key])).join(', ')}}\n`;
 
 /** The project's sources, parsed once. */
 class Sources {
@@ -153,10 +155,63 @@ function rows(source: TS.SourceFile, rel: string, table: WordTable, carves: Set<
       return matcher === null ? [] : [[word, matcher]];
     });
     const row = lines.lineOf(candidate.start);
-    const col = [...source.text.slice(lines.start(row), candidate.start)].length + 1;
+    const col = [...source.text.substring(lines.start(row), candidate.start)].length + 1;
     const isTaken = candidate.positions.some((p) => taken.some((site) => site.start <= p && p <= site.end));
     return [{ candidate, taken: isTaken, kept, held: held.length, line: row, col }];
   });
+}
+
+interface Output {
+  generated: Ordered[];
+  listed: Ordered[];
+}
+
+/** The module entry of the file `rel` named `stem`, each word of its name a carve-out keeps listed. */
+function fileModule(rel: string, stem: string, table: WordTable, out: Output): void {
+  const keptWords: string[] = [];
+  for (const word of heldWords(stem, table.words)) {
+    const matcher = carved(table, [], word, { rel, annotation: null, keys: [] });
+    if (matcher === null) continue;
+    keptWords.push(word);
+    out.listed.push({ path: rel, line: 0, position: 0, text: message('refactor.carved', { path: rel, line: 1, name: stem, word, matcher }) });
+  }
+  const renamed = replaceWords(stem, withoutWords(table.words, keptWords));
+  if (renamed !== stem) out.generated.push({ path: rel, line: 0, position: 0, text: line({ module: rel, new_name: renamed }) });
+}
+
+/** The locals one wildcard entry stands for with `row`: two or more of its name, each located by its path, none
+ * located by an entry or kept; empty when `row` is written alone. */
+function wildGroup(found: Row[], row: Row): Row[] {
+  const { candidate } = row;
+  if (!candidate.local) return [];
+  const group = found.filter((other) => other.candidate.local && other.candidate.name === candidate.name);
+  return group.length > 1 && group.every((other) => other.candidate.path !== null && !other.taken && other.kept.length === 0) ? group : [];
+}
+
+/** The entries of the declarations `found` in `rel`, each kept word listed. */
+function fileDeclarations(rel: string, found: Row[], table: WordTable, out: Output): void {
+  for (const row of found.filter((each) => !each.taken)) {
+    const { candidate } = row;
+    for (const [word, matcher] of row.kept) {
+      out.listed.push({ path: rel, line: row.line, position: candidate.start, text: message('refactor.carved', { path: rel, line: row.line, name: candidate.name, word, matcher }) });
+    }
+    if (row.kept.length === row.held) continue;
+    const group = wildGroup(found, row);
+    if (group.length > 0 && group[0] !== row) continue;
+    const symbol = group.length > 0 ? `*.<locals>.${candidate.name}` : candidate.path;
+    const newName = replaceWords(candidate.name, withoutWords(table.words, row.kept.map(([word]) => word)));
+    const entry: MapEntry = symbol === null ? { file: rel, line: row.line, col: row.col, new_name: newName } : { file: rel, symbol, new_name: newName };
+    out.generated.push({ path: rel, line: row.line, position: candidate.start, text: line(entry) });
+  }
+}
+
+/** MapError unless every entry of `table` is of the generated language. */
+function checkLanguage(table: WordTable, shown: string): void {
+  const native = twin.NATIVE_LANGUAGE;
+  const languages = table.entries.map((entry) => languageOf(entrySource(entry)));
+  if (languages.every((id) => id === native)) return;
+  const ids = languageIds().filter((id) => id === native || languages.includes(id));
+  throw new MapError(message('refactor.map-mixed-languages', { map: shown, languages: ids.join(', ') }));
 }
 
 /** `generate-map`: the table's entries, then one entry per candidate, on stdout; what is left out on stderr; 0, or 1
@@ -164,9 +219,7 @@ function rows(source: TS.SourceFile, rel: string, table: WordTable, carves: Set<
 export function generateMap(r: Refactor): number {
   const shown = r.args.table ?? '';
   const table = loadWordTable(shown, shown);
-  const native = twin.NATIVE_LANGUAGE;
-  const ids = languageIds().filter((id) => id === native || table.entries.some((entry) => languageOf(entrySource(entry)) === id));
-  if (ids.length > 1) throw new MapError(message('refactor.map-mixed-languages', { map: shown, languages: ids.join(', ') }));
+  checkLanguage(table, shown);
   const sources = new Sources();
   const carves = locateCarveSymbols(table, (file, symbol) => {
     const source = sources.get(r.inProject(file, r.root));
@@ -174,43 +227,20 @@ export function generateMap(r: Refactor): number {
     return locate(null, source, symbol, file, false);
   });
   const taken = located(r, sources, table);
-  const generated: Ordered[] = [];
-  const listed: Ordered[] = [];
-  for (const path of languageFiles(r.root, native)) {
+  const out: Output = { generated: [], listed: [] };
+  for (const path of languageFiles(r.root, twin.NATIVE_LANGUAGE)) {
     const source = sources.get(path);
     if (source === null) continue;
     const rel = r.rel(path);
-    const stem = stripSourceExtension(basename(path));
     const named = taken.some((site) => site.file === path && site.end === 0);
-    const keptWords: string[] = [];
-    for (const word of named ? [] : heldWords(stem, table.words)) {
-      const matcher = carved(table, [], word, { rel, annotation: null, keys: [] });
-      if (matcher === null) continue;
-      keptWords.push(word);
-      listed.push({ path: rel, line: 0, position: 0, text: message('refactor.carved', { path: rel, line: 1, name: stem, word, matcher }) });
-    }
-    const renamed = named ? stem : replaceWords(stem, withoutWords(table.words, keptWords));
-    if (renamed !== stem) generated.push({ path: rel, line: 0, position: 0, text: line({ module: rel, new_name: renamed }) });
+    if (!named) fileModule(rel, stripSourceExtension(basename(path)), table, out);
     const found = rows(source, rel, table, carves, taken.filter((site) => site.file === path && site.end > 0));
-    for (const row of found) {
-      const { candidate } = row;
-      if (row.taken) continue;
-      for (const [word, matcher] of row.kept) {
-        listed.push({ path: rel, line: row.line, position: candidate.start, text: message('refactor.carved', { path: rel, line: row.line, name: candidate.name, word, matcher }) });
-      }
-      if (row.kept.length === row.held) continue;
-      const group = candidate.local ? found.filter((other) => other.candidate.local && other.candidate.name === candidate.name) : [];
-      const wild = group.length > 1 && group.every((other) => other.candidate.path !== null && !other.taken && other.kept.length === 0);
-      if (wild && group[0] !== row) continue;
-      const symbol = wild ? `*.<locals>.${candidate.name}` : candidate.path;
-      const newName = replaceWords(candidate.name, withoutWords(table.words, row.kept.map(([word]) => word)));
-      const entry: MapEntry = symbol === null ? { file: rel, line: row.line, col: row.col, new_name: newName } : { file: rel, symbol, new_name: newName };
-      generated.push({ path: rel, line: row.line, position: candidate.start, text: line(entry) });
-    }
+    fileDeclarations(rel, found, table, out);
   }
-  const map = [...table.entries.map(line), ...generated.sort((a, b) => inOrder(a, b, false)).map((entry) => entry.text)];
+  const map = [...table.entries.map(line), ...out.generated.toSorted((a, b) => inOrder(a, b, false)).map((entry) => entry.text)];
   const empty = map.length === 0 ? [message('refactor.generate-empty', { table: shown })] : [];
-  process.stderr.write([...listed.sort((a, b) => inOrder(a, b, true)).map((item) => item.text), ...empty].map((text) => `${text}\n`).join(''));
+  const listed = out.listed.toSorted((a, b) => inOrder(a, b, true)).map((item) => item.text);
+  process.stderr.write([...listed, ...empty].map((text) => `${text}\n`).join(''));
   process.stdout.write(map.join(''));
   return map.length === 0 ? 1 : 0;
 }
