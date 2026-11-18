@@ -7,5 +7,4 @@
 lib/loose.ts:2: attr-blindspot: s.drop — s is any, so a rename of .drop is unverifiable
 WARNING: --keep lib/notes matches nothing this rename touches
 [conflicts]
-lib/loose.ts:2: attr-blindspot: s.drop — s is any, so a rename of .drop is unverifiable
 1 blind spot(s) of .drop: type or resolve them, or pass --allow-blindspots

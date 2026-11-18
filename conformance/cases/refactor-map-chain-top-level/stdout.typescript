@@ -1,0 +1,39 @@
+Renaming <x> to <y>:
+Renaming <y> to <x>:
+Renaming <n> to <m>:
+Renaming <m> to <n>:
+Renaming <b> to <c>:
+Renaming <a> to <b>:
+Renaming <p> to <q>:
+Renaming <q> to <r>:
+
+
+--- a/src/m.ts
++++ b/src/m.ts
+@@ -1,12 +1,12 @@
+-export const x = 1;
+-export const y = 2;
+-export const m = 3;
+-export const n = 4;
+-export const a = 5;
+-export const b = 6;
+-export const p = 7;
+-export const q = 8;
++export const y = 1;
++export const x = 2;
++export const n = 3;
++export const m = 4;
++export const b = 5;
++export const c = 6;
++export const q = 7;
++export const r = 8;
+ 
+ export function total(): number {
+-  return x - y + m - n + a - b + p - q;
++  return y - x + n - m + b - c + q - r;
+ }
+
+
+
+APPLIED. 1 file(s) changed:
+  src/m.ts

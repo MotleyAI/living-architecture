@@ -1,0 +1,3 @@
+[resolve]
+[checks]
+--keep proj/pkg/use.py:5 names no file, directory or line in the project

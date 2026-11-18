@@ -1,0 +1,8 @@
+[resolve]
+[checks]
+[references]
+[references 1/1] entry 1: m -> n
+[rules]
+[rules 1/1] entry 1: m -> n: 1 refusal(s)
+src/a.ts:8: stand-in: B.m is outside the renamed hierarchy; pass --with src/a.ts:8 to rename it too or --without src/a.ts:8 to leave it
+[conflicts]

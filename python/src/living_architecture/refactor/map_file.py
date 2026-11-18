@@ -37,6 +37,19 @@ class MapEntry(BaseModel):
     module: bool = False
 
 
+def locator_text(root: Path, entry: MapEntry) -> str:
+    """The entry's locator as a refusal prints it: its file relative to the project at `root`, then `:LINE[:COL]`,
+    its symbol path or `offset N`; a module entry's is its file."""
+    resolved = Path(entry.path).resolve()
+    file = resolved.relative_to(root).as_posix() if resolved.is_relative_to(root) else entry.file
+    locator = entry.locator
+    if locator.offset is not None:
+        return f"{file} offset {locator.offset}"
+    if locator.line is not None:
+        return f"{file}:{locator.line}" + (f":{locator.col}" if locator.col is not None else "")
+    return f"{file} {locator.symbol}" if locator.symbol is not None else file
+
+
 def load_map(raw: str, project: str) -> list[MapEntry]:
     """MAP's entries, files relative to `project`; `MapError` naming every invalid entry in index order."""
 

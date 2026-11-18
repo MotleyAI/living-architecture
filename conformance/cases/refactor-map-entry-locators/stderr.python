@@ -1,0 +1,6 @@
+[resolve]
+[checks]
+entry 2 (pkg/c.py:99): line 99 out of range (file has 2 lines)
+entry 3 (pkg/c.py nope): pkg/c.py: nope names no declaration; candidates: other
+entry 4 (pkg/c.py offset 999): offset 999 out of range (file has 47 characters)
+entry 5 (__init__.py): the element at this location cannot be renamed

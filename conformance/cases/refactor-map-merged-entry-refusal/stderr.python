@@ -1,0 +1,3 @@
+[resolve]
+[checks]
+entries 1, 2 (pkg/f.py f(x)): y already names something else at pkg/f.py:1, so nothing was refactored

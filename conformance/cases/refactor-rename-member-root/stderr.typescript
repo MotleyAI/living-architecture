@@ -5,4 +5,4 @@
 [rules]
 [rules 1/1] entry 1: old -> toString: clean
 [conflicts]
-toString already names something else at src/m.ts:2, so nothing was refactored
+entry 1 (src/m.ts C.old): toString already names something else at src/m.ts:2, so nothing was refactored

@@ -1,0 +1,2 @@
+- {file: src/f.ts, symbol: Q.metrics, new_name: legacyMetrics}
+- {file: src/f.ts, symbol: Q.measures, new_name: metrics}

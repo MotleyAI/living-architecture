@@ -359,21 +359,23 @@ class EntryEdits(BaseModel):
 
 
 class Conflict(BaseModel):
-    """A site a name-conflict finding may name, with the new name it names."""
+    """A site a name-conflict finding may name, with the new name it names and the map index of its entry."""
 
     model_config = ConfigDict(frozen=True)
 
     site: Site
     name: str
+    entry: int
 
 
-def first_conflict(conflicts: list[Conflict], source: Callable[[str], SourceFile]) -> NameConflict | None:
-    """The finding for the first of `conflicts` by path, then offset in the code before the rename."""
-    if not conflicts:
-        return None
-    found = min(conflicts, key=lambda c: c.site)
-    rel, offset = found.site
-    return NameConflict(found.name, rel, source(rel).line(offset))
+def first_conflicts(conflicts: list[Conflict], source: Callable[[str], SourceFile]) -> dict[int, NameConflict]:
+    """Each entry's finding, by entry index: the first of its `conflicts` by path, then offset in the code before
+    the rename."""
+    first: dict[int, Conflict] = {}
+    for c in conflicts:
+        if c.entry not in first or c.site < first[c.entry].site:
+            first[c.entry] = c
+    return {entry: NameConflict(c.name, c.site[0], source(c.site[0]).line(c.site[1])) for entry, c in sorted(first.items())}
 
 
 class BindingCheck:
@@ -522,6 +524,10 @@ class _Plan:
         return {self.key(rel) for rel in self.changed}
 
 
+def _conflict(site: Site, entry: EntryEdits) -> Conflict:
+    return Conflict(site=site, name=entry.new_name, entry=entry.index)
+
+
 class _Judge:
     """Compares each occurrence's meanings before and after; collects the sites a finding may name."""
 
@@ -569,12 +575,9 @@ class _Judge:
         own = [site for site, e in self.declared.items() if e is entry]
         return min(own) if own else min((e.path, e.start) for e in entry.edits)
 
-    def _name(self, name: str) -> str:
-        """The new name a finding about an existing occurrence of `name` names."""
-        for entry in self.entries:
-            if nfkc(entry.new_name) == name:
-                return entry.new_name
-        return self.entries[0].new_name
+    def _naming(self, name: str) -> EntryEdits:
+        """The entry a finding about an existing occurrence of `name` belongs to: the first whose new name it is."""
+        return next((entry for entry in self.entries if nfkc(entry.new_name) == name), self.entries[0])
 
     def _verdict(self, rel: str, old: Occurrence, new: Occurrence) -> list[Conflict]:
         site = (rel, old.offset)
@@ -586,36 +589,38 @@ class _Judge:
             return self._rewritten_verdict(rel, old, new, entry, before, after)
         kept = self.kept.get(site)
         if kept is not None:
+            # A declaration another entry renames onto the kept name is that entry's finding.
+            after = {d: s for d, s in after.items() if self.declared.get(d, kept) is kept}
             if not after or after.keys() == before.keys():
                 return []
             reported = [s for s in after.values() if s[1] >= 0]
-            return [Conflict(site=s, name=kept.new_name) for s in reported or [site]]
+            return [_conflict(s, kept) for s in reported or [site]]
         if after.keys() == before.keys():
             return []
-        return [Conflict(site=site, name=self._name(new.name))]
+        return [_conflict(site, self._naming(new.name))]
 
     def _rewritten_verdict(self, rel: str, old: Occurrence, new: Occurrence, entry: EntryEdits, before: Meaning,
                            after: Meaning) -> list[Conflict]:
         expected = before if entry.target is None else self.before.meaning(rel, old.scope, entry.target, old.read_at)
         joined = self._joined(rel, new) if old.binds else []
         if joined:
-            return [Conflict(site=s, name=entry.new_name) for s in joined]
+            return [_conflict(s, entry) for s in joined]
         if after.keys() == expected.keys():
             return []
         return self._rewritten_conflicts((rel, old.offset), entry, after, expected)
 
     def _rewritten_conflicts(self, site: Site, entry: EntryEdits, after: Meaning, expected: Meaning) -> list[Conflict]:
-        """A rewritten occurrence meaning other declarations than `expected`: an existing one's sites, else the earliest
-        entry it meets, else its own site."""
+        """A rewritten occurrence meaning other declarations than `expected`: an existing one's sites, else the first
+        declaration of the earliest entry it meets (the latest one's finding), else its own site."""
         foreign = [s for s in after if s not in expected]
         existing = [after[s] for s in foreign if s not in self.declared and s[1] >= 0]
         if existing:
-            return [Conflict(site=s, name=entry.new_name) for s in existing]
+            return [_conflict(s, entry) for s in existing]
         met = [self.declared[s] for s in foreign if s in self.declared and self.declared[s] is not entry]
         if met:
-            earliest = min([entry, *met], key=lambda e: e.index)
-            return [Conflict(site=self._first_declaration(earliest), name=earliest.new_name)]
-        return [Conflict(site=site, name=entry.new_name)]
+            meeting = sorted([entry, *met], key=lambda e: e.index)
+            return [_conflict(self._first_declaration(meeting[0]), meeting[-1])]
+        return [_conflict(site, entry)]
 
     def _joined(self, rel: str, new: Occurrence) -> list[Site]:
         """The existing declarations of `new`'s name in the scopes its own declaration shares."""

@@ -9,9 +9,13 @@ export interface Refusal {
 
 export const refusal = (text: string, code = 1): Refusal => ({ lines: [text], code });
 
-/** The run refuses with `refusals`, printed in order; the exit code is the highest of theirs. */
+/** The run refuses with `refusals`, printed in order; the exit code is the highest of theirs and of those already
+ * `printed`. */
 export class Refused extends Error {
-  constructor(readonly refusals: Refusal[]) {
+  constructor(
+    readonly refusals: Refusal[],
+    readonly printed: Refusal[] = [],
+  ) {
     super(refusals.flatMap((r) => r.lines).join('\n'));
   }
 
@@ -20,7 +24,7 @@ export class Refused extends Error {
   }
 
   get code(): number {
-    return Math.max(1, ...this.refusals.map((r) => r.code));
+    return Math.max(1, ...this.refusals.map((r) => r.code), ...this.printed.map((r) => r.code));
   }
 }
 
@@ -39,6 +43,12 @@ export function unique(refusals: Refusal[]): Refusal[] {
 function labels(indexes: number[]): string {
   if (indexes.length === 1) return message('refactor.progress-entry', { index: indexes[0] });
   return message('refactor.progress-entries', { indexes: indexes.join(', ') });
+}
+
+/** `found` as the refusal of the entry standing for the map `indexes`, located by `locator`. */
+export function entryRefusal(indexes: number[], locator: string, found: Refusal): Refusal {
+  const first = message('refactor.entry-refusal', { entries: labels(indexes), locator, text: found.lines[0] ?? '' });
+  return { lines: [first, ...found.lines.slice(1)], code: found.code };
 }
 
 const print = (text: string): void => {

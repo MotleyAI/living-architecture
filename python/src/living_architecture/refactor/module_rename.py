@@ -346,8 +346,8 @@ def final_paths(files: Iterable[str], moves: Iterable[FileMove]) -> dict[str, st
 
 def move_conflicts(renames: list[ModuleResult], edits: list[TextEdit], source: Callable[[str], SourceFile],
                    files: list[str]) -> list[Conflict]:
-    """Two moves ending at one module, each named at the earlier entry's module; and a moved module meeting a binding
-    of its new name that the edits give its package's `__init__.py`."""
+    """Two moves ending at one module, the later entry's finding naming the earlier entry's module; and a moved module
+    meeting a binding of its new name that the edits give its package's `__init__.py`."""
     moving = [r for r in renames if r.move is not None and r.module is not None]
     ordered = innermost_first(r.move for r in moving if r.move is not None)
     out: list[Conflict] = []
@@ -357,7 +357,7 @@ def move_conflicts(renames: list[ModuleResult], edits: list[TextEdit], source: C
         final = final_path(r.module, ordered)
         first = seen.setdefault(final if r.package else final.removesuffix(".py"), r)
         if first is not r and first.site is not None:
-            out.append(Conflict(site=(first.site, 0), name=first.new))
+            out.append(Conflict(site=(first.site, 0), name=r.new, entry=r.entry))
     for r in moving:
         assert r.module is not None
         init = _init_of(Path(r.module).parent.as_posix())
@@ -365,6 +365,6 @@ def move_conflicts(renames: list[ModuleResult], edits: list[TextEdit], source: C
         if init not in files or not changed:
             continue
         own = {e.start for e in r.edits if e.path == init}
-        out += [Conflict(site=(init, offset), name=r.new)
+        out += [Conflict(site=(init, offset), name=r.new, entry=r.entry)
                 for offset in bindings_after(source(init).text, changed, nfkc(r.new)) if offset not in own]
     return out

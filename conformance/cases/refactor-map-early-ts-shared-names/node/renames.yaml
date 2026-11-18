@@ -1,0 +1,12 @@
+- {file: src/s.ts, symbol: A, new_name: B}
+- {file: src/s.ts, symbol: C.run, new_name: b}
+- {file: src/s.ts, line: 18, col: 9, new_name: y}
+- {file: src/s.ts, line: 31, col: 9, new_name: v}
+- {file: src/s.ts, line: 39, col: 7, new_name: amount}
+- {file: src/s.ts, symbol: E.held, new_name: value}
+- {file: src/s.ts, symbol: G.count, new_name: size}
+- {file: src/s.ts, line: 54, col: 17, new_name: fresh}
+- {file: src/s.ts, symbol: spare, new_name: over}
+- {file: src/s.ts, symbol: H.width, new_name: height}
+- {file: src/s.ts, line: 73, col: 18, new_name: Solid}
+- {file: src/s.ts, symbol: Box, new_name: Shape}

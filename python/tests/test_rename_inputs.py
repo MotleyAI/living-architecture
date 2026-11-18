@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 from project_files import write_project
-from refactor_cli import run, run_raw
+from refactor_cli import entry_refusal, run, run_raw
 
 from living_architecture.config import ConfigError, load_config
 from living_architecture.contract import language, message
@@ -23,7 +23,8 @@ def test_a_new_name_that_is_not_an_identifier_cannot_be_renamed(
     root = write_project(tmp_path / "proj", FILES)
     code, out, err = run_raw(root, ["--apply", "rename", "--file", "pkg/a.py", *locator, "--new-name", new], monkeypatch, capsys)
     assert (code, out) == (1, "")
-    assert err.endswith(message("refactor.cannot-rename") + "\n")
+    refused = entry_refusal("pkg/a.py foo" if locator else "pkg/a.py", message("refactor.cannot-rename"))
+    assert refused in err.splitlines()
     assert sorted(p.name for p in (root / "pkg").iterdir()) == ["__init__.py", "a.py", "use.py"]
     assert (root / "pkg" / "a.py").read_text(encoding="utf-8") == FILES["pkg/a.py"]
 

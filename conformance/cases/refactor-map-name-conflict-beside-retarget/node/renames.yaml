@@ -1,0 +1,3 @@
+- {file: src/m.ts, symbol: old_alias, retarget: target}
+- {file: src/m.ts, symbol: target, new_name: renamed}
+- {file: src/m.ts, symbol: spare, new_name: taken}

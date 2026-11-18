@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 from project_files import file_tree, write_project
-from refactor_cli import final_report, run_raw
+from refactor_cli import entry_refusal, final_report, run_raw
 
 from living_architecture.contract import message
 from living_architecture.lang import language_server
@@ -132,7 +132,7 @@ def test_the_keep_text_check_is_skipped_when_an_unresolved_entry_spells_no_name(
     })
     code, out, err = run_raw(root, ["rename-map", "map.yaml", "--keep", "README.md"], monkeypatch, capsys)
     assert (code, out) == (1, "")
-    assert err == CHECKS + message("refactor.line-out-of-range", line=99, count=2) + "\n"
+    assert err == CHECKS + entry_refusal("pkg/a.py:99", message("refactor.line-out-of-range", line=99, count=2), 2) + "\n"
 
 
 def test_a_keep_on_the_renamed_module_file_passes_the_checks(
@@ -153,7 +153,7 @@ def test_a_module_rename_onto_a_taken_name_reports_no_unchecked_keep(
                                           "pkg/use.py": "from . import a\n\nprint(a.X)\n"})
     argv = ["rename", "--file", "pkg/use.py", "--line", "1", "--col", "15", "--new-name", "b", "--keep", "pkg/use.py"]
     code, out, err = run_raw(root, argv, monkeypatch, capsys)
-    conflict = message("refactor.name-conflict", name="b", path="pkg/b.py", line=1)
+    conflict = entry_refusal("pkg/use.py:1:15", message("refactor.name-conflict", name="b", path="pkg/b.py", line=1))
     assert (code, out, err) == (1, "", CHECKS + conflict + "\n")
 
 
@@ -179,7 +179,8 @@ def test_walker_gaps_in_every_module_a_move_walks_refuse_in_the_checks(
     assert file_tree(root) == before
 
 
-@pytest.mark.parametrize("taken", ["", "\n\ndef bar() -> int:\n    return 3\n"], ids=["free", "new-name-taken"])
+@pytest.mark.parametrize("taken", ["", "\n\ndef use() -> int:\n    bar = 3\n    return foo() + bar\n"],
+                         ids=["free", "new-name-captured"])
 def test_a_module_rope_cannot_walk_is_traced_statically_in_the_rules(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -205,7 +206,7 @@ def test_a_module_rope_cannot_walk_is_traced_statically_in_the_rules(
                      old=old, new=new) for n, old, new in ((1, "foo", "bar"), (2, "baz", "qux"))]
     assert message("refactor.rope-walk", path="scripts/use.py", line=3) not in err
     if taken:
-        conflict = message("refactor.name-conflict", name="bar", path="pkg/a.py", line=9)
+        conflict = entry_refusal("pkg/a.py foo", message("refactor.name-conflict", name="bar", path="pkg/a.py", line=10))
         assert (code, out) == (1, "")
         assert err.splitlines()[-4:] == [*clean, CONFLICTS, conflict]
     else:
@@ -239,7 +240,8 @@ def test_a_language_server_that_cannot_start_is_reported_when_no_entry_resolves(
     code, out, err = run_raw(root, ["rename", "--file", "pkg/a.py", "--line", "99", "--new-name", "bar"], monkeypatch,
                              capsys)
     error = f"{missing}: no such file or directory"
-    expected = [message("refactor.line-out-of-range", line=99, count=2), message("refactor.pyright-failed"),
+    expected = [entry_refusal("pkg/a.py:99", message("refactor.line-out-of-range", line=99, count=2)),
+                message("refactor.pyright-failed"),
                 message("refactor.checker-not-started", error=error)]
     assert (code, out, err) == (1, "", CHECKS + "".join(f"{line}\n" for line in expected))
 
@@ -267,8 +269,10 @@ _TIMING = re.compile(
     .replace(re.escape("0.00"), r"(\d+\.\d\d)")
 )
 KEYED_MODELS = "from pydantic import BaseModel\n\n\nclass Model(BaseModel):\n    columns: list[int] = []\n"
+# `fetch` is inherited, so only the conflicts phase finds it.
 STORE = (
-    "class Store:\n    def load(self) -> int:\n        return 1\n\n    def fetch(self) -> int:\n        return 2\n\n\n"
+    "class Base:\n    def fetch(self) -> int:\n        return 2\n\n\n"
+    "class Store(Base):\n    def load(self) -> int:\n        return 1\n\n\n"
     "def run(s: Store) -> int:\n    return s.load()\n"
 )
 HIER = (
@@ -331,7 +335,7 @@ def _charged_to_conflicts_only(err: str) -> None:
             MemberCheck, "conflicts", id="member",
         ),
         pytest.param(
-            {"pkg/a.py": FOO + "\n\ndef bar() -> int:\n    return 2\n\n\nx = foo()\n"},
+            {"pkg/a.py": FOO + "\n\ndef use() -> int:\n    bar = 2\n    return foo() + bar\n"},
             RENAME_FOO,
             BindingCheck, "conflicts", id="binding",
         ),
@@ -365,7 +369,7 @@ def test_a_module_rename_checks_its_bindings_in_the_conflicts_phase(
     root = write_project(tmp_path / "p", MODULE_CAPTURE)
     argv = ["--timings", "rename", "--file", "pkg/use.py", "--line", "1", "--col", "17", "--new-name", "b"]
     code, out, err = run_raw(root, argv, monkeypatch, capsys)
-    conflict = message("refactor.name-conflict", name="b", path="pkg/use.py", line=3)
+    conflict = entry_refusal("pkg/use.py:1:17", message("refactor.name-conflict", name="b", path="pkg/use.py", line=3))
     assert (code, out) == (1, "")
     assert err.startswith(CHECKS + "[references]\n[references 1/1] entry 1: a -> b\n" + CONFLICTS + "\n" + conflict + "\n")
     _charged_to_conflicts_only(err)

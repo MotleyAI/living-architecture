@@ -1,0 +1,27 @@
+Renaming <metrics> to <legacyMetrics>:
+Renaming <measures> to <metrics>:
+
+
+--- a/src/f.ts
++++ b/src/f.ts
+@@ -1,12 +1,12 @@
+ export class Q {
+-  measures(): number {
++  metrics(): number {
+     return 1;
+   }
+-  metrics(): number {
++  legacyMetrics(): number {
+     return 2;
+   }
+ }
+ 
+ export function use(q: Q): number {
+-  return q.measures() + q.metrics();
++  return q.metrics() + q.legacyMetrics();
+ }
+
+
+
+APPLIED. 1 file(s) changed:
+  src/f.ts
