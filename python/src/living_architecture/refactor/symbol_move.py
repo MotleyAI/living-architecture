@@ -94,9 +94,8 @@ class SymbolMove:
                     file.edits.add(*file.span(node), self.name)
 
     def _rewrite_uses(self, file: File, is_dest: bool) -> None:
-        resolver = self.project.resolver
         for node, scope in file.attributes:
-            if node.attr != self.name or resolver.resolve(file.module, scope, node.value) != ("module", self.old):
+            if not self._through_old(file, node, scope):
                 continue
             if is_dest:
                 file.rewrite_use(node, scope, self.name, None, f"{self.old}.{self.name}")
@@ -122,10 +121,18 @@ class SymbolMove:
     def _inside(self, file: File, node: ast.expr) -> bool:
         return self.region[0] <= file.offset(node) < self.region[1]
 
+    def _through_old(self, file: File, node: ast.Attribute, scope: Scope) -> bool:
+        """`node` reads the moved symbol through its old module."""
+        return node.attr == self.name and self.project.resolver.resolve(file.module, scope, node.value) == (
+            "module", self.old
+        )
+
     def _source_edits(self, file: File) -> None:
         file.edits.add(self.region[0], self.region[1], "")
         top = file.top
-        if any(n.id == self.name and file.lookup(s, self.name) is top and not self._inside(file, n) for n, s in file.names):
+        bare = any(n.id == self.name and file.lookup(s, self.name) is top and not self._inside(file, n) for n, s in file.names)
+        dotted = any(self._through_old(file, n, s) and not self._inside(file, n) for n, s in file.attributes)
+        if bare or dotted:
             file.edits.insert_line(block_end(file.source), f"from {self.new} import {self.name}")
         for elements in _all_literals(file.source.tree):
             hits = {i for i, e in enumerate(elements) if isinstance(e, ast.Constant) and e.value == self.name}
@@ -191,11 +198,9 @@ class SymbolMove:
         bound_at = origin.span(self.moved.statements[0])[1]
         found: list[ast.Attribute] = []
         for node, scope in origin.attributes:
-            if node.attr != self.name or not self._inside(origin, node):
+            if not self._inside(origin, node) or not self._through_old(origin, node, scope):
                 continue
             if not _deferred(scope) and origin.offset(node) < bound_at:
-                continue
-            if self.project.resolver.resolve(origin.module, scope, node.value) != ("module", self.old):
                 continue
             owner = origin.lookup(scope, self.name)
             if owner is not None and owner is not origin.top:
