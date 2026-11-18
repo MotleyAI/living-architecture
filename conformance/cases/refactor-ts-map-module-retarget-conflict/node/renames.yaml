@@ -1,0 +1,2 @@
+- {file: src/api.ts, symbol: legacy, retarget: modern}
+- {module: src/api.ts, new_name: client}

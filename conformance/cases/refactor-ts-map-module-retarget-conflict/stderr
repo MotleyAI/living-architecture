@@ -1,0 +1,9 @@
+[resolve]
+[checks]
+[references]
+[references 1/2] entry 1: legacy -> modern
+[references 2/2] entry 2: api -> client
+[rules]
+[rules 1/1] entry 1: legacy -> modern: clean
+[conflicts]
+src/use.ts:2: entries 1 and 2 rewrite this site differently, so nothing was refactored

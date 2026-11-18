@@ -1,0 +1,17 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- rename
+- --file
+- src/api.ts
+- --new-name
+- client
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: Vitest mock module paths follow the renamed module in their own extension style, on an imported vi and the undeclared
+  global; a local vi and a namespace member are left
