@@ -133,3 +133,32 @@ def test_the_fetch_timeout_comes_from_the_shared_contract():
 def test_git_texts_moved_with_identical_wording():
     assert message("changes.git-failed", args="diff HEAD") == "git diff HEAD failed"
     assert message("changes.pr-base-unresolved", pr=7) == "could not resolve the base branch of PR 7"
+
+
+def test_a_commit_id_is_the_commit_a_ref_names(repo):
+    head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=repo, check=True, capture_output=True, text=True).stdout.strip()
+    assert changes.commit_id(ref="HEAD", repo_root=repo) == head
+    assert changes.commit_id(ref="nosuchref", repo_root=repo) is None
+    assert changes.commit_id(ref="--all", repo_root=repo) is None
+
+
+def test_commit_id_without_git(repo, no_tools):
+    with pytest.raises(ConfigError) as exc:
+        changes.is_commit(ref="HEAD", repo_root=repo)
+    assert str(exc.value) == "git rev-parse --verify --quiet --end-of-options HEAD^{commit} failed"
+
+
+def test_a_file_named_as_the_ref_does_not_hide_the_changes(repo):
+    _write(repo, {"HEAD": "", "main": ""})
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "named as refs")
+    _git(repo, "mv", "kept.py", "moved.py")
+    assert changes.base_paths(ref="HEAD", repo_root=repo) == {"moved.py": "kept.py"}
+    assert "moved.py" in changes.changed_paths(base_ref="main", repo_root=repo, deletions=False, untracked=False)
+
+
+def test_a_git_failure_is_not_taken_for_an_unknown_ref(tmp_path):
+    (tmp_path / ".git").write_text("not a git dir\n", encoding="utf-8")
+    with pytest.raises(ConfigError) as exc:
+        changes.commit_id(ref="HEAD", repo_root=tmp_path)
+    assert "git" in str(exc.value)

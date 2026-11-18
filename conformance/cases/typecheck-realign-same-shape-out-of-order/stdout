@@ -1,0 +1,5 @@
+<ROOT>/repo/pkg/m.py
+  <ROOT>/repo/pkg/m.py:8:17 - error: Argument of type "int" cannot be assigned to parameter "obj" of type "Sized" in function "len"
+    "int" is incompatible with protocol "Sized"
+      "__len__" is not present (reportArgumentType)
+1 error, 0 warnings, 0 notes

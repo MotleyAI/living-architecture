@@ -1,0 +1,2 @@
+la-typecheck: checking python with basedpyright
+la-typecheck: python: if an edit moved errors that .basedpyright/baseline.json held, run la-typecheck --realign-from <commit where it matched>

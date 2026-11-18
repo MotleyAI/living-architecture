@@ -75,7 +75,7 @@ export function changedPathBytes({ baseRef, repoRoot, deletions, untracked }: Li
   const filter = deletions ? [] : ['--diff-filter=ACMR'];
   const found: Buffer[] = [];
   for (const target of [`${baseRef}...HEAD`, 'HEAD']) {
-    found.push(...nulSplit(git(['diff', '-z', '--name-only', '--no-renames', ...filter, target], repoRoot)));
+    found.push(...nulSplit(git(['diff', '-z', '--name-only', '--no-renames', ...filter, target, '--'], repoRoot)));
   }
   if (untracked) found.push(...nulSplit(git(['ls-files', '-z', '--others', '--exclude-standard'], repoRoot)));
   return uniqueSorted(found);
@@ -107,9 +107,19 @@ export function fileAt(ref: string, path: string, repoRoot: string): Buffer | nu
   return proc.status === 0 ? proc.stdout : null;
 }
 
+/** Whether `ref` names a commit; ConfigError when git fails. */
+export function isCommit(ref: string, repoRoot: string): boolean {
+  const args = ['rev-parse', '--verify', '--quiet', '--end-of-options', `${ref}^{commit}`];
+  const proc = spawnSync('git', args, { cwd: repoRoot }); // NOSONAR(S4036) — runs the user's own git from PATH by design
+  if (proc.error !== undefined) throw new ConfigError(message('changes.git-failed', { args: args.join(' ') }));
+  const detail = proc.stderr.toString('utf8').trim();
+  if (proc.status !== 0 && detail !== '') throw new ConfigError(detail);
+  return proc.status === 0;
+}
+
 /** Each path renamed since `ref` (tracked files of the working tree), mapped to its path at `ref`. */
 export function basePaths(ref: string, repoRoot: string): Map<string, string> {
-  const fields = nulSplit(git(['diff', '-z', '--name-status', '-M', ref], repoRoot)).map((field) => field.toString('utf8'));
+  const fields = nulSplit(git(['diff', '-z', '--name-status', '-M', ref, '--'], repoRoot)).map((field) => field.toString('utf8'));
   const out = new Map<string, string>();
   for (let i = 0; i < fields.length; ) {
     if ((fields[i] ?? '').startsWith('R')) {

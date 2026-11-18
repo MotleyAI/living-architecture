@@ -1,0 +1,29 @@
+kind: adapter
+languages:
+- python
+command: la-typecheck
+args:
+- --realign-from
+- HEAD~1
+fixture: typecheck-realign
+git:
+- commit: init
+- write:
+    pkg/m.py: |
+      def f(a: int, b: int) -> int:
+          return a + b
+
+
+      def use() -> int:
+          return f(int(1), "x") + len(3)
+
+
+      def other() -> int:
+          return 1
+- commit: edit
+expect:
+  exit: 0
+  files:
+  - .basedpyright/baseline.json
+golden: manual
+note: 'the same edit committed, realigned from the commit before it'
