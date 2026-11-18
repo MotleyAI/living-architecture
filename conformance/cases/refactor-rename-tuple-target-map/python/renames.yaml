@@ -1,0 +1,4 @@
+- {file: pkg/local.py, symbol: 'f.<locals>.model_name', new_name: dataset_name}
+- {file: pkg/top.py, line: 1, col: 10, new_name: dataset_name}
+- {file: pkg/klass.py, symbol: C.y, new_name: z}
+- {file: pkg/nested.py, line: 2, col: 13, new_name: d}

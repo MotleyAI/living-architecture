@@ -55,8 +55,7 @@ from living_architecture.refactor.outcomes import (
 )
 from living_architecture.refactor.patch_targets import SourceFolders, TargetResolver
 from living_architecture.refactor.python_project import ProjectLayout, Snapshot
-from living_architecture.refactor.python_source import SourceFile, nfkc
-from living_architecture.refactor.rope_patches import every_parameter
+from living_architecture.refactor.python_source import SourceFile, every_parameter, nfkc
 from living_architecture.refactor.routing import language_files
 from living_architecture.refactor.sites import Site
 from living_architecture.refactor.static_resolver import Module
@@ -76,6 +75,7 @@ class Session:
         self.snapshot = Snapshot(self.root)
         self._tables: TextTables | None = None
         self._loaded: dict[Path, SourceFile | None] = {}
+        self._all_python_files: list[str] | None = None
         self._python_files: list[str] | None = None
 
     @property
@@ -101,8 +101,10 @@ class Session:
         return sorted({"", *self.layout.source_rels})
 
     def all_python_files(self) -> list[str]:
-        """The project's Python files, by path."""
-        return [p.relative_to(self.root).as_posix() for p in language_files(self.root, "python")]
+        """The project's Python files, by path, as they were before the run."""
+        if self._all_python_files is None:
+            self._all_python_files = [p.relative_to(self.root).as_posix() for p in language_files(self.root, "python")]
+        return self._all_python_files
 
     def python_files(self) -> list[str]:
         """The project's Python files that decode, by path."""
@@ -253,6 +255,10 @@ class RenameResult(BaseModel):
     refusals: list[Finding] = []
     matched_sites: frozenset[str] = frozenset()
     declarations: list[Declaration] = []
+
+    def live(self) -> bool:
+        """The rename changes a name."""
+        return self.new != self.old
 
     def renamed_members(self, snapshot: Snapshot) -> list[tuple[tuple[str, int], tuple[str, int]]]:
         """Each member declaration this rename's edits rename, with its class's file and `class` line."""

@@ -15,9 +15,8 @@ from living_architecture.contract import message
 from living_architecture.refactor.entry_location import Entry, EntryLocator
 from living_architecture.refactor.locators import RefactorError
 from living_architecture.refactor.outcomes import Finding
-from living_architecture.refactor.python_source import SourceFile, split_lines
+from living_architecture.refactor.python_source import SourceFile, every_parameter, split_lines
 from living_architecture.refactor.rename_union import RenameOptions, RenameResult, Session, SymbolRename
-from living_architecture.refactor.rope_patches import every_parameter
 from living_architecture.refactor.static_resolver import Value, node_key
 from living_architecture.refactor.text_edits import TextEdit
 

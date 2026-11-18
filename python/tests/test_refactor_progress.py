@@ -142,7 +142,7 @@ def test_a_keep_on_the_renamed_module_file_passes_the_checks(
     argv = ["--apply", "rename", "--file", "pkg/use.py", "--line", "1", "--col", "15", "--new-name", "b",
             "--keep", "pkg/a.py"]
     code, _out, err = run_raw(root, argv, monkeypatch, capsys)
-    assert (code, err) == (0, CHECKS + "[references]\n[conflicts]\n[write]\n")
+    assert (code, err) == (0, CHECKS + "[references]\n[references 1/1] entry 1: a -> b\n[conflicts]\n[write]\n")
     assert (root / "pkg" / "a.py").exists()
 
 
@@ -154,7 +154,7 @@ def test_a_module_rename_onto_a_taken_name_reports_no_unchecked_keep(
     argv = ["rename", "--file", "pkg/use.py", "--line", "1", "--col", "15", "--new-name", "b", "--keep", "pkg/use.py"]
     code, out, err = run_raw(root, argv, monkeypatch, capsys)
     conflict = message("refactor.name-conflict", name="b", path="pkg/b.py", line=1)
-    assert (code, out, err) == (1, "", CHECKS + "[references]\n" + conflict + "\n")
+    assert (code, out, err) == (1, "", CHECKS + conflict + "\n")
 
 
 # ---- refusals in checks
@@ -367,7 +367,7 @@ def test_a_module_rename_checks_its_bindings_in_the_conflicts_phase(
     code, out, err = run_raw(root, argv, monkeypatch, capsys)
     conflict = message("refactor.name-conflict", name="b", path="pkg/use.py", line=3)
     assert (code, out) == (1, "")
-    assert err.startswith(CHECKS + "[references]\n" + CONFLICTS + "\n" + conflict + "\n")
+    assert err.startswith(CHECKS + "[references]\n[references 1/1] entry 1: a -> b\n" + CONFLICTS + "\n" + conflict + "\n")
     _charged_to_conflicts_only(err)
 
 

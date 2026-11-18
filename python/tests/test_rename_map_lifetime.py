@@ -27,6 +27,7 @@ from living_architecture.refactor.entry_location import EntryLocator
 from living_architecture.refactor.index_cache import IndexCache
 from living_architecture.refactor.keyed import TypeFacts
 from living_architecture.refactor.literal_rename import LiteralRename
+from living_architecture.refactor.module_rename import ModuleRename
 from living_architecture.refactor.occurrence_index import RunIndex, ServerSession
 from living_architecture.refactor.outcomes import Finding
 from living_architecture.refactor.progress import Progress
@@ -98,7 +99,7 @@ class Lifetimes:
         self.monkeypatch.setattr(cls, "__init__", tracking)
 
     def workers(self) -> None:
-        for cls in (SymbolRename, LiteralRename):
+        for cls in (SymbolRename, LiteralRename, ModuleRename):
             self.track(cls, lambda _: "worker")
 
     def rules_state(self, root: Path) -> None:
@@ -603,12 +604,16 @@ def test_the_class_fact_source_keeps_no_index(tmp_path: Path) -> None:
     assert (ref(), source is not None) == (None, True)
 
 
-MODULE_OUT = _lines(
-    "Renaming <client> to <session>:",
-    "",
-    "",
+MODULE_FILES = {
+    "pkg/client.py": "def connect() -> int:\n    return 1\n",
+    "pkg/use.py": "from pkg import client\nfrom pkg.client import connect\n\nx = client.connect() + connect()\n",
+}
+MODULE_ENTRY = {"file": "pkg/use.py", "symbol": "client", "new_name": "session"}
+MODULE_DIFF = (
     "rename from pkg/client.py",
     "rename to pkg/session.py",
+)
+USE_DIFF = (
     "--- a/pkg/use.py",
     "+++ b/pkg/use.py",
     "@@ -1,4 +1,4 @@",
@@ -620,22 +625,43 @@ MODULE_OUT = _lines(
     "-x = client.connect() + connect()",
     "+x = session.connect() + connect()",
     "",
-    "",
-    "",
-    "DRY-RUN. 2 file(s) would change. Re-run with --apply.",
+)
+STORE_USE = STORE + "\n\ndef use(s: Store) -> int:\n    return s.load()\n"
+STORE_DIFF = (
+    "--- a/pkg/store.py",
+    "+++ b/pkg/store.py",
+    "@@ -1,7 +1,7 @@",
+    " class Store:",
+    "-    def load(self) -> int:",
+    "+    def fetch(self) -> int:",
+    "         return 1",
+    " ",
+    " ",
+    " def use(s: Store) -> int:",
+    "-    return s.load()",
+    "+    return s.fetch()",
     "",
 )
 
 
-@pytest.mark.parametrize("argv", [
-    ["rename", "--file", "pkg/use.py", "--symbol", "client", "--new-name", "session"],
-    ["rename-map", "map.yaml"],
-], ids=["rename", "one-entry-map"])
-def test_a_module_rename_keeps_the_rules_state_to_its_end(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], argv: list[str]
+@pytest.mark.parametrize(("files", "entries", "expected"), [
+    pytest.param(MODULE_FILES, [MODULE_ENTRY], _lines(
+        "Renaming <client> to <session>:", "", "", *MODULE_DIFF, *USE_DIFF, "", "",
+        "DRY-RUN. 2 file(s) would change. Re-run with --apply.", "",
+    ), id="alone"),
+    pytest.param({**MODULE_FILES, "pkg/store.py": STORE_USE},
+                 [MODULE_ENTRY, {"file": "pkg/store.py", "symbol": "Store.load", "new_name": "fetch"}], _lines(
+        "Renaming <client> to <session>:", "Renaming <load> to <fetch>:", "", "", *MODULE_DIFF, *STORE_DIFF,
+        *USE_DIFF, "", "", "DRY-RUN. 3 file(s) would change. Re-run with --apply.", "",
+    ), id="beside-a-symbol-rename"),
+])
+def test_a_module_entry_leaves_no_worker_or_locator_alive_at_the_report(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], files: dict[str, str],
+    entries: list[dict[str, object]], expected: str,
 ) -> None:
-    root = _project(tmp_path, {
-        "pkg/client.py": "def connect() -> int:\n    return 1\n",
-        "pkg/use.py": "from pkg import client\nfrom pkg.client import connect\n\nx = client.connect() + connect()\n",
-    }, [{"file": "pkg/use.py", "symbol": "client", "new_name": "session"}])
-    assert run(root, argv, monkeypatch, capsys) == (0, MODULE_OUT, "")
+    root = _project(tmp_path, files, entries)
+    lifetimes = Lifetimes(monkeypatch)
+    lifetimes.workers()
+    lifetimes.track(EntryLocator, lambda _: "locator")
+    assert run(root, ["rename-map", "map.yaml"], monkeypatch, capsys) == (0, expected, "")
+    assert lifetimes.at_report == {"worker": 0, "locator": 0}

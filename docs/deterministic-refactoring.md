@@ -22,8 +22,8 @@ is a dry run unless `--apply` comes before the subcommand. `--timings`, also bef
 phase's wall time on stderr after all other output. Locate the symbol with `--symbol` (its path in
 `--file`, quoted for the shell: `Class.method`, `func.<locals>.inner`, `func(param)`, `Alias['value']` for a `Literal` member; no match
 or several exit 2 listing the candidates), `--line [--col]` (1-based) or `--offset` (0-based). `rename-map MAP`
-applies a YAML list of rename and retarget entries as one refactor: every entry resolved before any is renamed,
-one diff, one refusal report, written all or nothing. `retarget` rewrites what resolves to a back-compat alias so
+applies a YAML list of rename, retarget and Python module (`{module, new_name}`) entries as one refactor: every entry
+resolved before any is renamed, one diff, one refusal report, written all or nothing. `retarget` rewrites what resolves to a back-compat alias so
 it names the alias's target, importing the target where a file lacks it and leaving the alias and its re-exports.
 Every refactor keeps the type-check baseline aligned (Python
 through `commands.typecheck.python`, TypeScript through the bundled language service), in dry-run and `--apply`. A

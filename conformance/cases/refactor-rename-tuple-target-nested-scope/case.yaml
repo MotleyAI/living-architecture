@@ -1,0 +1,18 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- rename
+- --file
+- pkg/shadow.py
+- --symbol
+- f.<locals>.model_name
+- --new-name
+- dataset_name
+fixture: refactor-tuple-targets
+git:
+- commit: init
+expect:
+  exit: 0
+note: a tuple target renamed with its use; a comprehension binding the same spelling unchanged

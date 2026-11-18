@@ -2,9 +2,10 @@
 import { existsSync, statSync } from 'node:fs';
 import { DuplicateKeyError, YAMLError, decodeUtf8OrNull, isOsError, loadYaml, message, readFile, schema, toPlain, validate } from '../contract/index.js';
 
-/** One entry of a rename map, as written. */
+/** One entry of a rename map, as written: a located entry's `file`, or a module entry's `module`. */
 export interface MapEntry {
-  file: string;
+  file?: string;
+  module?: string;
   symbol?: string;
   line?: number;
   col?: number;
@@ -46,3 +47,6 @@ export function loadMap(path: string, shown: string): MapEntry[] {
   if (bad.length > 0) throw invalid(bad);
   return data as MapEntry[];
 }
+
+/** The source file an entry names: its `file`, or a module entry's `module`. */
+export const entrySource = (entry: MapEntry): string => entry.file ?? entry.module ?? '';

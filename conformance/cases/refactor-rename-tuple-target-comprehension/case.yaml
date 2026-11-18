@@ -1,0 +1,20 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- rename
+- --file
+- pkg/comp.py
+- --line
+- '2'
+- --col
+- '23'
+- --new-name
+- dataset
+fixture: refactor-tuple-targets
+git:
+- commit: init
+expect:
+  exit: 0
+note: a comprehension tuple target, located at the target, renamed with its element; the other target unchanged

@@ -23,8 +23,8 @@ See proposal.md for why. The current shape (main after DEV-2310 and DEV-2317), i
   cache cannot hold it (it is saved in `run`'s `finally`, before `conflicts`, and anything `rules` asked for is
   merged), so it goes to `ServerSession.get()`, which starts a fresh language server, as `finally` closed the run's.
 - `ImportNeed` holds AST nodes (`anchor`, `leaving`, `duplicates`).
-- A module rename never enters `rules`: `run` hands the `RenameMap` itself to `module_rename`, which uses the session,
-  the locator and the index to the end.
+- A module rename is a map entry: `ModuleRename` prepares its edits and move in `references`; after `rules` the run
+  reads its move, module, package flag, the stub and the move conflicts.
 - `findings()` prints the keys of `{(path, line, col, text): f}` built from every rename's leftovers that no final
   edit covers (`col`, else `col:end`), then the undecodable files' findings and every `unresolved` finding. Only
   `text` is printed, so a leftover key is printed iff some copy of it is uncovered.
@@ -85,7 +85,8 @@ The prototype released the workers' state only at the end of `rules`, so its pea
    held edits, imports, blind spots, `unresolved` findings, stand-in findings (evaluated at conversion, when the
    run's `is_renamed` is final), retarget refusals, matched sites, and its member declarations. A result holds no AST
    node and no `SourceFile`, so no `ImportNeed` either. Site resolution, the report, the name checks, the findings and
-   the outputs take only results.
+   the outputs take only results. A module rename's result, `ModuleResult`, also holds its module, its move and
+   whether it is a package; the moves, the stubs and the move conflicts read those.
    - Rejected: a `release()` protocol emptying each worker's working fields. Every future working field would have
      to be added to it by hand, or it silently survives: the bug class stays open. (user)
 2. **Results are made as each group finishes.** After a group's `_finish`, its workers become results and the run
@@ -98,8 +99,7 @@ The prototype released the workers' state only at the end of `rules`, so its pea
    stopped (a `--fail-fast` stop in `references` or `rules`): every worker not yet converted becomes a result as it
    stands, with no `finish`, retarget, import or keep work done for it; then the `rules` working state is released.
    So every entry, including a failed one, one whose new name equals its old one, and one never reached, yields a
-   result. The module-rename branch never reaches this step: its callback keeps the session, the locator and the
-   index as today. (codex)
+   result. A module rename ends `rules` the same way. (codex)
 4. **The `rules` working state ends with `rules`, except the class facts.** The step of decision 3 closes the
    `RunIndex` (saving the export cache, as `run`'s `finally` does today, which still closes it on any failure) and
    the run's `ServerSession`, and keeps of the index only a class-fact source for `conflicts`: the `class` facts

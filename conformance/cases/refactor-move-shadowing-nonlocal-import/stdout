@@ -1,0 +1,22 @@
+Moving module <thing>:
+
+
+rename from pkg/sub/thing.py
+rename to pkg/thing.py
+--- a/use.py
++++ b/use.py
+@@ -1,8 +1,9 @@
+ def outer():
+     import pkg.sub as sub
++    import pkg.thing
+ 
+     def inner():
+         nonlocal sub
+-        return sub.thing.X
++        return pkg.thing.X
+ 
+     return inner
+
+
+
+DRY-RUN. 2 file(s) would change. Re-run with --apply.

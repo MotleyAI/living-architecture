@@ -31,6 +31,11 @@ def name_end(text: str, start: int) -> int:
     return end
 
 
+def every_parameter(args: ast.arguments) -> list[ast.arg]:
+    """Every parameter of `args`, in declaration order."""
+    return [a for a in (*args.posonlyargs, *args.args, args.vararg, *args.kwonlyargs, args.kwarg) if a is not None]
+
+
 def dotted_segments(text: str, start: int, end: int) -> list[tuple[int, int]]:
     """The spans of the dotted name's identifiers written in `text[start:end]`, in order."""
     out: list[tuple[int, int]] = []

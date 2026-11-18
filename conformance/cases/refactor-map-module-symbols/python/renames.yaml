@@ -1,0 +1,3 @@
+- {module: pkg/join_edges.py, new_name: relationship_edges}
+- {file: pkg/join_edges.py, symbol: JoinEdge, new_name: RelationshipEdge}
+- {file: pkg/edges_use.py, symbol: load, new_name: read}

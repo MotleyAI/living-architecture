@@ -57,8 +57,8 @@
       - a fact `prepare` merged is answered without any export.
 
       Verify: the output assertions pass today; the source's own assertions fail today on the new source.
-- [x] 1.8 A single-entry module `rename` (and a module `rename` in a one-entry map) still computes today's output: the
-      end of `rules` never runs on the module-rename branch. Verify: passes today, and pins it.
+- [x] 1.8 A module entry in a map, alone and beside a symbol rename, computes today's output, and no worker or locator is
+      alive at the report. Verify: passes today, and pins it.
 - [x] 1.9 No `ImportNeed` outlives the import plan: on a map whose retargets need imports, weak-reference their needs'
       AST nodes and check them dead at the start of `conflicts`. Verify: fails today.
 - [x] 1.10 Align `test_refactor_progress.py`'s `keyed` case to patch the keyed check on its new owner, the result
@@ -76,7 +76,7 @@
       `ImportNeed`s go to a side list that the one import plan after the last group consumes and drops (decision 2);
       leftovers go to the run-wide store after the keeps filter them with `mark=False` (decision 5). Verify: 1.2,
       1.4, 1.5, 1.6 and 1.9 pass.
-- [x] 2.3 The step ending `rules` on every path but the module-rename branch (decision 3): converts each worker left
+- [x] 2.3 The step ending `rules` on every path (decision 3): converts each worker left
       as it stands, closes the `RunIndex` (saving the cache) and the run's `ServerSession`, keeps only the class-fact
       source, which exports a miss through that `ServerSession` (decision 4), and releases `TypeFacts`, the
       `EntryLocator`, `session.tables`, the outside files and the snapshot's parsed forms. `run`'s and `run_map`'s

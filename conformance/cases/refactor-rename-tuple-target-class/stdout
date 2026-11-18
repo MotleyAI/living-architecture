@@ -1,0 +1,25 @@
+Renaming <y> to <z>:
+
+
+--- a/pkg/klass.py
++++ b/pkg/klass.py
+@@ -1,5 +1,5 @@
+ class C:
+-    x, y = 1, 2
++    x, z = 1, 2
+ 
+ 
+-print(C.y)
++print(C.z)
+
+--- a/pkg/klass_use.py
++++ b/pkg/klass_use.py
+@@ -1,3 +1,3 @@
+ from pkg.klass import C
+ 
+-print(C.x + C.y)
++print(C.x + C.z)
+
+
+
+DRY-RUN. 2 file(s) would change. Re-run with --apply.

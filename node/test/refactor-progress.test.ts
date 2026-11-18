@@ -37,6 +37,23 @@ describe('the map loader', () => {
     const expected = [2, 4].map((index) => message('refactor.map-invalid', { map: 'map.yaml', index })).join('\n');
     expect(() => loadMap(path, 'map.yaml')).toThrow(new MapError(expected));
   });
+  it('loads module entries as written', () => {
+    const root = tsProject({});
+    const path = join(root, 'map.yaml');
+    writeFileSync(path, '- {module: src/a.ts, new_name: b}\n- {file: src/c.ts, symbol: f, new_name: g}\n');
+    expect(loadMap(path, 'map.yaml')).toEqual([{ module: 'src/a.ts', new_name: 'b' }, { file: 'src/c.ts', symbol: 'f', new_name: 'g' }]);
+  });
+
+  it('names every invalid module entry', () => {
+    const root = tsProject({});
+    const path = join(root, 'map.yaml');
+    writeFileSync(
+      path,
+      '- {module: a.ts, symbol: f, new_name: g}\n- {module: a.ts, retarget: f}\n- {module: a.ts, file: a.ts, new_name: g}\n- {module: a.ts, new_name: g}\n',
+    );
+    const expected = [1, 2, 3].map((index) => message('refactor.map-invalid', { map: 'map.yaml', index })).join('\n');
+    expect(() => loadMap(path, 'map.yaml')).toThrow(new MapError(expected));
+  });
 });
 
 describe('the keep text check', () => {

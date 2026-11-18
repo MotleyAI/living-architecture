@@ -107,13 +107,13 @@ class EntryLocator:
     # ---- the entry
 
     def file_module(self, rel: str) -> Entry:
-        """The rename of the Python module `rel` itself; a package's `__init__.py` names the package."""
+        """The rename of the Python module `rel` itself; a package's `__init__.py` names the package, and the project
+        root's names none."""
         path = Path(rel)
         package = path.stem == "__init__"
-        module = path.parent.as_posix() if package else rel
-        name = path.parent.name if package else path.stem
-        dotted = self.layout.modname(self.root / rel)
-        return Entry(kind="module", key=("module", module, 0, dotted), name=name, rel=rel, module=module)
+        if package and path.parent == Path():
+            raise cannot_rename()
+        return _module(rel, path.parent.as_posix() if package else rel, path.parent.name if package else path.stem, "")
 
     def locate(self, rel: str, locator: Locator) -> Entry:
         """The entry `locator` names in `rel`."""
@@ -302,7 +302,7 @@ class EntryLocator:
         module_rel = self.rel(found[0]) if found is not None else None
         if found is not None and found[1] and module_rel is not None:
             module_rel = Path(module_rel).parent.as_posix()
-        return Entry(kind="module", key=("module", module_rel or dotted, 0, dotted), name=name, rel=rel, module=module_rel)
+        return _module(rel, module_rel, name, dotted)
 
     def _checked(self, rel: str, start: int, name: str) -> Entry:
         """The entry of the declarations the checker resolves the site to; the site itself for a library's."""
@@ -413,6 +413,13 @@ class StaticTrace:
 
 def _joined(traces: list[Trace]) -> Trace:
     return Trace(sites=frozenset().union(*(t.sites for t in traces)), resolved=any(t.resolved for t in traces))
+
+
+def _module(rel: str, module: str | None, name: str, dotted: str) -> Entry:
+    """A module rename located in `rel`: a project module keyed by its file or package directory alone, so every way of
+    naming it is one symbol; a library module by its dotted name."""
+    key = ("module", module, 0, None) if module is not None else ("module", dotted, 0, dotted)
+    return Entry(kind="module", key=key, name=name, rel=rel, module=module)
 
 
 def _function(rel: str, source: SourceFile, arg: ast.arg) -> Site | None:
