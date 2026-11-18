@@ -1,0 +1,18 @@
+Renaming <index> to <main>:
+
+
+rename from src/lib/index.ts
+rename to src/lib/main.ts
+--- a/src/use.ts
++++ b/src/use.ts
+@@ -1,4 +1,4 @@
+-import { m } from './lib/index.js';
+-import { m as n } from './lib';
++import { m } from './lib/main.js';
++import { m as n } from './lib/main';
+ 
+ export const shown = m + n;
+
+
+
+DRY-RUN. 2 file(s) would change. Re-run with --apply.

@@ -316,12 +316,20 @@ export class Workspace {
     return parsed;
   }
 
+  /** `project`'s options with `overrides`, its tsconfig given as a parsed JSON source, so a file rename edits its entries. */
+  private options(project: Project, parsed: TS.ParsedCommandLine, overrides: TS.CompilerOptions = {}): TS.CompilerOptions {
+    const text = project.config === null ? undefined : this.read(project.config);
+    const configFile = project.config === null || text === undefined ? undefined : ts().parseJsonText(project.config, text);
+    return { ...parsed.options, ...overrides, ...(configFile === undefined ? {} : { configFile }) };
+  }
+
   /** The language service of `project` (its own tsconfig options), created on first use. */
   service(project: Project): TS.LanguageService {
     let service = this.services.get(project);
     if (service === undefined) {
       const parsed = this.parsed(project);
-      service = firstBuildTimed(ts().createLanguageService(host(parsed, parsed.options, [], this.overlay, this.moved, this.readDirectory, this.listing), this.registry));
+      const serviceHost = host(parsed, this.options(project, parsed), [], this.overlay, this.moved, this.readDirectory, this.listing);
+      service = firstBuildTimed(ts().createLanguageService(serviceHost, this.registry));
       this.services.set(project, service);
     }
     return service;
@@ -334,7 +342,7 @@ export class Workspace {
     const out = new Map<string, TS.LanguageService>();
     for (const [project, group] of groups) {
       const parsed = this.parsed(project);
-      const serviceHost = host(parsed, { ...parsed.options, ...overrides }, group, this.overlay, this.moved, this.readDirectory, this.listing);
+      const serviceHost = host(parsed, this.options(project, parsed, overrides), group, this.overlay, this.moved, this.readDirectory, this.listing);
       const service = firstBuildTimed(ts().createLanguageService(serviceHost, this.registry));
       for (const file of group) out.set(file, service);
     }
