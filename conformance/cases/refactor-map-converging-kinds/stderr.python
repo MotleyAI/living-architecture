@@ -1,0 +1,7 @@
+[resolve]
+[checks]
+entry 2 (pkg/f.py f(x)): z already names something else at pkg/f.py:1, so nothing was refactored
+entry 4 (pkg/f.py:7:5): c already names something else at pkg/f.py:6, so nothing was refactored
+entry 6 (pkg/f.py:12:5): k already names something else at pkg/f.py:13, so nothing was refactored
+entry 8 (pkg/m.py two): uno already names something else at pkg/m.py:1, so nothing was refactored
+entry 10 (pkg/n.py three): tres already names something else at pkg/n.py:2, so nothing was refactored

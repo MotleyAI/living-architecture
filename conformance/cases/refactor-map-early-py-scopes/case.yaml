@@ -1,0 +1,18 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- --apply
+- rename-map
+- renames.yaml
+git:
+- commit: init
+expect:
+  exit: 0
+  stdout: ignore
+  files:
+  - pkg/s.py
+golden: manual
+note: 'a local renamed onto a name only a nested function, a comprehension, a nested class, or another function''s global
+  or nonlocal declaration binds: the checks pass and the renames apply'

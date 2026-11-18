@@ -1,0 +1,23 @@
+kind: paired
+languages:
+- python
+- typescript
+command: dr-refactor
+args:
+  python:
+  - rename-map
+  - renames.yaml
+  - --with
+  - pkg/a.py:10
+  typescript:
+  - rename-map
+  - renames.yaml
+  - --with
+  - src/q.ts:14
+git:
+- commit: init
+expect:
+  exit: 1
+golden: manual
+note: 'a --with stand-in that two entries with different new names reach gets both rewrites, at its declaration and at a read
+  through it: map-conflict at each site, nothing written'

@@ -32,20 +32,20 @@ export function copyProject(root: string): string {
 
 const PHASES = 'resolve|checks|references|rules|conflicts|baseline|write';
 const PROGRESS = new RegExp(String.raw`^(?:\[(?:${PHASES})\]|\[(?:${PHASES}) \d+/\d+\] .*)$`);
-const REFUSED = /^\[rules \d+\/\d+\] .*: (\d+) refusal\(s\)$/;
 
-/** dr-refactor's stderr without its phase and progress lines and the refusals printed under a refused group. */
+/** dr-refactor's stderr without its phase and progress lines: every refusal, in the order printed. */
 export function finalReport(err: string): string {
-  const out: string[] = [];
-  let skip = 0;
-  for (const line of err.split(/(?<=\n)/)) {
-    const text = line.replace(/\n$/, '');
-    const refused = REFUSED.exec(text);
-    if (skip > 0) skip -= 1;
-    else if (refused !== null) skip = Number(refused[1]);
-    else if (!PROGRESS.test(text)) out.push(line);
-  }
-  return out.join('');
+  return err
+    .split(/(?<=\n)/)
+    .filter((line) => !PROGRESS.test(line.replace(/\n$/, '')))
+    .join('');
+}
+
+/** `text` as the refusal of the map entries `indexes` (entry 1 by default) located by `locator`. */
+export function entryRefusal(locator: string, text: string, ...indexes: number[]): string {
+  const entries =
+    indexes.length > 1 ? message('refactor.progress-entries', { indexes: indexes.join(', ') }) : message('refactor.progress-entry', { index: indexes[0] ?? 1 });
+  return message('refactor.entry-refusal', { entries, locator, text });
 }
 
 /** dr-refactor run in `root`, its stderr whole. */

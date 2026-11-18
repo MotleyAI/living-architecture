@@ -19,12 +19,12 @@ export class Site {
     readonly line: number | null,
   ) {}
 
-  /** `raw` with its path resolved against `base` (the working directory by default). */
-  static parse(raw: string, root: string, base: string = process.cwd()): Site {
+  /** `raw` with its path resolved against the project `root`. */
+  static parse(raw: string, root: string): Site {
     const m = /^(.*):(\d+)$/u.exec(raw);
     const path = m === null ? raw : (m[1] ?? '');
     const line = m === null ? null : Number(m[2]);
-    const absolute = resolve(base, path);
+    const absolute = resolve(root, path);
     if (!existsSync(absolute)) return new Site(raw, null, line);
     const rel = relative(root, realpathSync(absolute));
     const inside = !isAbsolute(rel) && rel.split(sep)[0] !== '..';
@@ -61,9 +61,9 @@ export class Pick {
     readonly entry: number | null,
   ) {}
 
-  static parse(raw: string, root: string, base: string = process.cwd()): Pick {
+  static parse(raw: string, root: string): Pick {
     const m = /^(.*:\d+)=(\d+)$/u.exec(raw);
-    return new Pick(raw, Site.parse(m === null ? raw : (m[1] ?? ''), root, base), m === null ? null : Number(m[2]));
+    return new Pick(raw, Site.parse(m === null ? raw : (m[1] ?? ''), root), m === null ? null : Number(m[2]));
   }
 
   /** The pick names no line of a file under `root`. */

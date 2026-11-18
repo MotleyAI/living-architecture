@@ -181,24 +181,33 @@ def _named_items(source: SourceFile, node: ast.AST) -> list[tuple[object, int, t
     return []
 
 
-def _conflict(source: SourceFile, rel: str, edits: list[TextEdit], old: str, new: str) -> None:
-    """Raise `NameConflict` where a renamed keyword or key meets the new name in the same call or literal."""
+def _edit_in(edits: list[TextEdit], starts: list[int], span: tuple[int, int] | None) -> TextEdit | None:
+    """The edit of `edits` (sorted, with their `starts`) that starts inside `span`."""
+    if span is None:
+        return None
+    i = bisect.bisect_left(starts, span[0])
+    return edits[i] if i < len(starts) and starts[i] < span[1] else None
+
+
+def _conflict(source: SourceFile, rel: str, edits: list[TextEdit], merged: list[TextEdit], old: str, new: str) -> None:
+    """Raise `NameConflict` where a keyword or key `edits` rename meets the new name in the same call or literal,
+    each other name read as `merged` (every entry's edits of the file) leave it."""
     if source.tree is None:
         return
-    starts = sorted(e.start for e in edits)
+    own = sorted(edits, key=lambda e: e.start)
+    own_starts = [e.start for e in own]
+    every = sorted(merged, key=lambda e: e.start)
+    every_starts = [e.start for e in every]
 
-    def edited(span: tuple[int, int] | None) -> bool:
-        if span is None:
-            return False
-        i = bisect.bisect_left(starts, span[0])
-        return i < len(starts) and starts[i] < span[1]
+    def after(name: object, span: tuple[int, int] | None) -> object:
+        edit = _edit_in(every, every_starts, span)
+        return name if edit is None else edit.new_text.strip("'\"")
 
     for node in source.nodes:
         items = _named_items(source, node)
-        if any(name == new for name, _, _ in items):
-            line = next((line for name, line, span in items if name == old and edited(span)), None)
-            if line is not None:
-                raise NameConflict(new, rel, line)
+        renamed = [(line, span) for name, line, span in items if name == old and _edit_in(own, own_starts, span) is not None]
+        if renamed and any(after(name, span) == new for name, _, span in items if span not in [s for _, s in renamed]):
+            raise NameConflict(new, rel, renamed[0][0])
 
 
 Function = ast.FunctionDef | ast.AsyncFunctionDef
@@ -291,10 +300,12 @@ class RenameResult(BaseModel):
                 out.append(((d.rel, d.start), (d.rel, owner.lineno)))
         return out
 
-    def check_conflicts(self, snapshot: Snapshot, edits: list[TextEdit]) -> None:
-        """`NameConflict` where one of `edits` (this rename's, merged) meets the new name."""
+    def check_conflicts(self, snapshot: Snapshot, edits: list[TextEdit], merged: list[TextEdit]) -> None:
+        """`NameConflict` where one of `edits` (this rename's) meets the new name after `merged` (every entry's), or
+        rewrites a string beside it."""
         for rel in sorted({e.path for e in edits}) if self.check_names else ():
-            _conflict(snapshot.source(rel), rel, [e for e in edits if e.path == rel], self.old, self.new)
+            _conflict(snapshot.source(rel), rel, [e for e in edits if e.path == rel],
+                      [e for e in merged if e.path == rel], self.old, self.new)
         beside = sorted((edit.path, line) for edit, line in self.collisions if edit in edits)
         if beside:
             raise NameConflict(self.new, *beside[0])
@@ -481,7 +492,7 @@ class SymbolRename(MapRename):
         renamed = set(hierarchy) | self.seeds if self._in_hierarchy else set(self.seeds)
         classified: set[tuple[str, int]] = set()
         for raw, joined in [*((s, True) for s in self.options.with_sites), *((s, False) for s in self.options.without_sites)]:
-            site = Site.parse(raw, self.root, base=self.root)
+            site = Site.parse(raw, self.root)
             matched = [d for d in stand_ins if site.line is not None and site.covers(d.rel, d.line)]
             if matched:
                 self.matched_sites.add(raw)

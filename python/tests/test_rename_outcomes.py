@@ -107,7 +107,7 @@ def _keeps(tmp_path: Path, *raws: str) -> Keeps:
     root = tmp_path.resolve()
     for rel in ("a.py", "b.py"):
         (root / rel).write_text("")
-    return Keeps(raws, root, base=root)
+    return Keeps(raws, root)
 
 
 def test_keeps_cover_lines_files_and_moves(tmp_path: Path) -> None:

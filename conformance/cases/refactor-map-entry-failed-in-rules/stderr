@@ -1,0 +1,9 @@
+[resolve]
+[checks]
+[references]
+[references 1/2] entry 1: x -> y
+[references 2/2] entry 2: x -> class
+[rules]
+[rules 1/1] entries 1, 2: x -> y, class: 1 refusal(s)
+entry 2 (pkg/f.py g(x)): the element at this location cannot be renamed
+[conflicts]

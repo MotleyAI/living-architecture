@@ -5,4 +5,4 @@
 [rules]
 [rules 1/1] entry 1: old -> fresh: clean
 [conflicts]
-fresh already names something else at src/m.ts:1, so nothing was refactored
+entry 1 (src/m.ts:4:9): fresh already names something else at src/m.ts:1, so nothing was refactored

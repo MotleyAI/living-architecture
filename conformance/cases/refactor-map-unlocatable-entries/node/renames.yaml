@@ -1,0 +1,3 @@
+- {file: src/c.ts, symbol: "other(model)", new_name: dataset}
+- {file: src/c.ts, line: 2, col: 3, new_name: metric}
+- {file: src/c.ts, line: 2, col: 1, new_name: metric}

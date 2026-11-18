@@ -20,21 +20,20 @@ Result = tuple[int, str, str]
 
 _PHASES = "resolve|checks|references|rules|conflicts|baseline|write"
 _PROGRESS = re.compile(rf"\[(?:{_PHASES})\]|\[(?:{_PHASES}) \d+/\d+\] .*")
-_REFUSED = re.compile(r"\[rules \d+/\d+\] .*: (\d+) refusal\(s\)")
 
 
 def final_report(err: str) -> str:
-    """`dr-refactor`'s stderr without its phase and progress lines and the refusals printed under a refused group."""
-    out: list[str] = []
-    skip = 0
-    for line in err.splitlines(keepends=True):
-        if skip:
-            skip -= 1
-        elif refused := _REFUSED.fullmatch(line.rstrip("\n")):
-            skip = int(refused.group(1))
-        elif not _PROGRESS.fullmatch(line.rstrip("\n")):
-            out.append(line)
-    return "".join(out)
+    """`dr-refactor`'s stderr without its phase and progress lines: every refusal, in the order printed."""
+    return "".join(line for line in err.splitlines(keepends=True) if not _PROGRESS.fullmatch(line.rstrip("\n")))
+
+
+def entry_refusal(locator: str, text: str, *indexes: int) -> str:
+    """`text` as the refusal of the map entries `indexes` (entry 1 by default) located by `locator`."""
+    if len(indexes) > 1:
+        entries = message("refactor.progress-entries", indexes=", ".join(str(i) for i in indexes))
+    else:
+        entries = message("refactor.progress-entry", index=indexes[0] if indexes else 1)
+    return message("refactor.entry-refusal", entries=entries, locator=locator, text=text)
 
 
 def run_raw(root: Path, argv: list[str], monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> Result:

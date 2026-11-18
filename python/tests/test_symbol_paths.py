@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 from project_files import file_tree, write_project
-from refactor_cli import assert_same_run, line_col, read, run
+from refactor_cli import assert_same_run, entry_refusal, line_col, read, run
 
 from living_architecture.contract import message
 from living_architecture.refactor.python_source import SourceFile
@@ -238,7 +238,7 @@ def test_unresolved_path_lists_candidates(
     result = run(root, _by_symbol("pkg/storage.py", "StorageBackend.get_modle", "x"), monkeypatch, capsys)
     expected = message("refactor.symbol-unresolved", path="pkg/storage.py", symbol="StorageBackend.get_modle",
                        candidates="get_model, save_model")
-    assert result == (2, "", f"{expected}\n")
+    assert result == (2, "", entry_refusal("pkg/storage.py StorageBackend.get_modle", expected) + "\n")
     assert file_tree(root) == before
 
 
@@ -253,7 +253,7 @@ def test_ambiguous_path_lists_candidates(
     result = run(root, _by_symbol("pkg/a.py", "C.run", "go"), monkeypatch, capsys)
     expected = message("refactor.symbol-ambiguous", path="pkg/a.py", symbol="C.run",
                        candidates="pkg/a.py:2, pkg/a.py:7")
-    assert result == (2, "", f"{expected}\n")
+    assert result == (2, "", entry_refusal("pkg/a.py C.run", expected) + "\n")
     assert file_tree(root) == before
 
 
@@ -270,7 +270,8 @@ def test_out_of_range_line_keeps_exit_1(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     root = write_project(tmp_path / "proj", FILES)
-    expected = message("refactor.line-out-of-range", line=999, count=len(STORAGE.splitlines()))
+    expected = entry_refusal("pkg/storage.py:999",
+                             message("refactor.line-out-of-range", line=999, count=len(STORAGE.splitlines())))
     assert run(root, _rename("pkg/storage.py", ["--line", "999"], "x"), monkeypatch, capsys) == (1, "", f"{expected}\n")
 
 
@@ -409,8 +410,10 @@ def test_out_of_range_column_and_offset_keep_exit_1(
 ) -> None:
     root = write_project(tmp_path / "proj", FILES)
     width = len(STORAGE.splitlines()[0])
-    column = message("refactor.col-out-of-range", col=width + 2, line=1, count=width)
-    offset = message("refactor.offset-out-of-range", offset=len(STORAGE) + 1, count=len(STORAGE))
+    column = entry_refusal(f"pkg/storage.py:1:{width + 2}",
+                           message("refactor.col-out-of-range", col=width + 2, line=1, count=width))
+    offset = entry_refusal(f"pkg/storage.py offset {len(STORAGE) + 1}",
+                           message("refactor.offset-out-of-range", offset=len(STORAGE) + 1, count=len(STORAGE)))
     assert run(root, _rename("pkg/storage.py", ["--line", "1", "--col", str(width + 2)], "x"), monkeypatch, capsys) == (
         1, "", f"{column}\n")
     assert run(root, _rename("pkg/storage.py", ["--offset", str(len(STORAGE) + 1)], "x"), monkeypatch, capsys) == (

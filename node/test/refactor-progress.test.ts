@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { message } from '../src/contract/index.js';
 import { MapError, loadMap } from '../src/refactor/map.js';
 import { nearestLine, spelledLines } from '../src/refactor/sites.js';
-import { finalReport, refactorRaw, tsProject } from './refactor-project.js';
+import { entryRefusal, finalReport, refactorRaw, tsProject } from './refactor-project.js';
 
 const SECOND = 1_000_000_000n;
 
@@ -112,7 +112,7 @@ describe('the keep text check', () => {
     expect(refactorRaw(root, 'rename-map', 'map.yaml', '--keep', 'README.md')).toEqual({
       code: 1,
       out: '',
-      err: `${CHECKS}${message('refactor.line-out-of-range', { line: 99, count: 3 })}\n`,
+      err: `${CHECKS}${entryRefusal('src/a.ts:99', message('refactor.line-out-of-range', { line: 99, count: 3 }), 2)}\n`,
     });
   });
 
@@ -135,7 +135,8 @@ const TIMING = new RegExp(
     .replace('PHASE', String.raw`(\S+)`)
     .replace(String.raw`0\.00`, String.raw`(\d+\.\d\d)`)}$`,
 );
-const STORE = 'export class Store {\n  load(): number {\n    return 1;\n  }\n\n  fetch(): number {\n    return 2;\n  }\n}\n';
+// `fetch` is inherited, so only the conflicts phase finds it.
+const STORE = 'export class Base {\n  fetch(): number {\n    return 2;\n  }\n}\n\nexport class Store extends Base {\n  load(): number {\n    return 1;\n  }\n}\n';
 const HIER =
   'export class Base {\n  ping(): number {\n    return 1;\n  }\n}\n\nexport class Sub extends Base {\n  override ping(): number {\n    return 2;\n  }\n}\n';
 
@@ -156,7 +157,7 @@ describe('the conflicts phase', () => {
     ['member', { 'src/store.ts': STORE }, ['rename', '--file', 'src/store.ts', '--symbol', 'Store.load', '--new-name', 'fetch'], 'refactor.name-conflict'],
     [
       'binding',
-      { 'src/a.ts': `${FOO}\nexport function bar(): number {\n  return 2;\n}\n\nexport const x = foo();\n` },
+      { 'src/a.ts': `${FOO}\nexport function use(): number {\n  const bar = 2;\n  return foo() + bar;\n}\n` },
       ['rename', '--file', 'src/a.ts', '--symbol', 'foo', '--new-name', 'bar'],
       'refactor.name-conflict',
     ],

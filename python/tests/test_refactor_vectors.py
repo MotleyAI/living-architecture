@@ -53,7 +53,7 @@ def test_sites(vector: dict[str, Any], tmp_path: Path) -> None:
     for rel in vector["files"]:
         (root / rel).parent.mkdir(parents=True, exist_ok=True)
         (root / rel).write_text("")
-    site = Site.parse(vector["site"], root, base=root)
+    site = Site.parse(vector["site"], root)
     assert [[path, line, site.covers(path, line)] for path, line, _ in vector["checks"]] == vector["checks"]
 
 
