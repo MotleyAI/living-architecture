@@ -641,6 +641,8 @@ NEW_TEMPLATES = {
     "refactor.unparsable": "{path} does not parse as Python, so nothing was refactored",
     "refactor.ambiguous-module": "{module} names more than one file ({paths}), so nothing was refactored",
     "refactor.unencodable": "{path} cannot hold its new text in its encoding {encoding}, so nothing was refactored",
+    "refactor.resolution-changed":
+        "{path}:{line}: {name} would not resolve as it does now, so nothing was refactored; move it by hand",
     "refactor.skipped": "{prog}: not a source file, skipped: {path}",
     "refactor.rope-walk":
         "rope cannot follow {path}:{line}, so nothing was refactored (a rope bug, not a source error);"

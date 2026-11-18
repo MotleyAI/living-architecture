@@ -16,7 +16,6 @@ from rope.refactor import occurrences
 from rope.refactor.move import MoveGlobal, MoveMethod, MoveModule
 
 from living_architecture.contract import message
-from living_architecture.lang.language_server import LanguageServer
 from living_architecture.refactor import writer
 
 FILES = {
@@ -104,11 +103,6 @@ def no_rope(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(occurrences, "create_finder", _refuse("rope's finder"))
     monkeypatch.setattr(rope_move, "create_move", _refuse("rope's create_move"))
     monkeypatch.setattr(libutils, "modname", _refuse("rope's modname"))
-
-
-@pytest.fixture
-def no_server(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(LanguageServer, "__init__", _refuse("a language server"))
 
 
 @pytest.mark.usefixtures("no_rope")

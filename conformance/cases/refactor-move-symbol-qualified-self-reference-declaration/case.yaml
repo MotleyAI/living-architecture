@@ -14,11 +14,10 @@ args:
 git:
 - commit: init
 expect:
-  exit: 0
-  stdout: ignore
+  exit: 1
   files:
   - pkg/a.py
   - pkg/b.py
 golden: manual
-note: a dotted self-use evaluated while the declaration is defined (a default) stays, with its import; one in a lambda or
-  the body becomes the bare name
+note: a dotted self-use evaluated while the declaration is defined (a default) would no longer resolve once the symbol
+  has left its module; refused, nothing written

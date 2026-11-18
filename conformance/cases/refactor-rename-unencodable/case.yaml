@@ -1,0 +1,21 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- --apply
+- rename
+- --file
+- pkg/a.py
+- --symbol
+- value
+- --new-name
+- valué
+git:
+- commit: init
+expect:
+  exit: 1
+  files:
+  - pkg/a.py
+golden: manual
+note: a rename whose new name the file's declared encoding cannot hold is refused, nothing written

@@ -1,0 +1,4 @@
+[resolve]
+[checks]
+[references]
+pkg/b.py:2: len would not resolve as it does now, so nothing was refactored; move it by hand
