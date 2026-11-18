@@ -234,7 +234,7 @@ def test_a_map_renaming_both_constructors_apart_lists_the_class_call_keyword(
                {"file": "pkg/e.py", "symbol": "K.__new__(field)", "new_name": "other"}]
     root = write_project(tmp_path / "p", {"pkg/e.py": BOTH, "map.yaml": yaml.safe_dump(entries)})
     before = file_tree(root)
-    code, out, err = run(root, ["rename-map", "map.yaml"], monkeypatch, capsys)
+    code, out, err = run(root, ["--apply", "rename-map", "map.yaml"], monkeypatch, capsys)
     assert (code, out) == (1, "")
     assert message("refactor.unlinked-keyword", path="pkg/e.py", line=10, callee="K", old="field") in err.splitlines()
     assert file_tree(root) == before

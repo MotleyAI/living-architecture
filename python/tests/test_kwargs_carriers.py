@@ -298,6 +298,10 @@ def chain_new(**kw: Any) -> int:
     return takes_new(**kw)
 
 
+def passes_new(**kw: Any) -> int:
+    return sink(new=2, **kw)
+
+
 class Dynamic(factory()):
     def __init__(self, **kw: Any) -> None:
         self.total = sink(**kw)
@@ -327,7 +331,7 @@ def len(mapping: dict[str, Any]) -> int:
 def measured(**kw: Any) -> int:
     return len(kw) + sink(**kw)
 """
-UNPROVABLE_NAMES = ["c.concatenated", "c.sets_new", "c.defaults_new", "c.takes_new", "c.chain_new", "c.dynamic_one",
+UNPROVABLE_NAMES = ["c.concatenated", "c.sets_new", "c.defaults_new", "c.takes_new", "c.chain_new", "c.passes_new", "c.dynamic_one",
                     "c.dynamic_two", "m.measured"]
 UNPROVABLE_USE = "from typing import Any\n\nfrom pkg import c, m\n\n\ndef use(registry: dict[str, Any]) -> None:\n" + "".join(
     f"    {name}(old=1)\n" for name in UNPROVABLE_NAMES) + '    registry["build"](**{"old": 1})\n    c.plain(old=1)\n'
@@ -405,6 +409,51 @@ def test_a_decorated_sink_whose_signature_drops_the_parameter_lists_the_keyword(
     code, _out, err = run(root, _rename("cached(models)", "datasets", "--allow-blindspots"), monkeypatch, capsys)
     assert (code, err.splitlines()) == (0, [_unlinked("pkg/q.py", 36, "mk_cached", "models")])
     assert read(root, "pkg/q.py") == DECORATED_SINKS.substitute({**DECORATED_SLOTS, "cached": "datasets"})
+
+
+BOTH_RECEIVE = """\
+from typing import Any
+
+
+class Reads:
+    def __new__(cls, **kw: Any) -> "Reads":
+        print(kw["old"])
+        return super().__new__(cls)
+
+    def __init__(self, *, old: int) -> None:
+        self.total = old
+
+
+class Passes:
+    def __new__(cls, **kw: Any) -> "Passes":
+        return super().__new__(cls)
+
+    def __init__(self, *, old: int) -> None:
+        self.total = old
+
+
+def reads(**kw: Any) -> Reads:
+    return Reads(**kw)
+
+
+def passes(**kw: Any) -> Passes:
+    return Passes(**kw)
+
+
+def use() -> None:
+    print(reads(old=1), passes(old=1))
+"""
+
+
+def test_a_carrier_into_a_class_whose_other_constructor_reads_the_key_lists_its_keyword(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    entries = [{"file": "pkg/q.py", "symbol": f"{name}.__init__(old)", "new_name": "new"} for name in ("Reads", "Passes")]
+    root = write_project(tmp_path / "p", {"pkg/q.py": BOTH_RECEIVE, "map.yaml": yaml.safe_dump(entries)})
+    code, _out, err = run(root, ["--apply", "rename-map", "map.yaml", "--allow-blindspots"], monkeypatch, capsys)
+    assert code == 0
+    assert _unlinked("pkg/q.py", 30, "reads", "old") in err.splitlines()
+    assert "print(reads(old=1), passes(new=1))" in read(root, "pkg/q.py")
 
 
 UNPACKED_TWICE = """\

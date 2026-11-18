@@ -155,12 +155,13 @@ class Exporter {
     });
   }
 
-  // `Never` only as the checker evaluates it: a class of that name hovers alike.
+  // `Never` only as the checker evaluates it: a class of that name hovers alike, and `NoReturn` is one.
   verdict(uri, position) {
-    const kind = hoverType(this.hover(uri, position));
-    if (kind !== 'Never') return kind;
+    const hover = this.hover(uri, position);
+    const kind = hoverType(hover);
+    if (kind !== 'Never' && !(kind === null && hover?.includes('NoReturn'))) return kind;
     const node = this.nodeAt(uri, position);
-    return node && this.typeVerdict(node) === 'Never' ? kind : null;
+    return node && this.typeVerdict(node) === 'Never' ? 'Never' : null;
   }
 
   // The verdict of an expression's type as the checker evaluates it: the first of `Unknown`, `Any` and `Never` it is

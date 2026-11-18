@@ -30,6 +30,7 @@ def _shape(body: str, signature: str = "**kw") -> CarrierShape:
     "def inner():\n    kw = {}\n    return kw\nreturn X(**kw), inner()",
     "def inner():\n    import kw\n    return kw\nreturn X(**kw), inner()",
     "class C:\n    kw = 1\n    twice = kw\nreturn X(**kw)",
+    "class C:\n    kw = {'a': 1}\n    def get(self, value=kw['a']):\n        return value\nreturn X(**kw)",
 ])
 def test_sinks_key_forms_and_neutral_uses_leave_a_carrier_resolved(body: str) -> None:
     assert _shape(body).resolved
@@ -80,6 +81,8 @@ def test_key_forms_are_filed_with_their_strings() -> None:
     "class C:\n    kw = 1\n    def m(self):\n        return kw\nreturn X(**kw)",
     "class C(Base[kw]):\n    kw = 1\nreturn X(**kw)",
     "class C:\n    seen = kw\nreturn X(**kw)",
+    "def inner(x: kw):\n    kw = {}\n    return kw\nreturn X(**kw)",
+    "def inner() -> kw:\n    kw = {}\n    return kw\nreturn X(**kw)",
     "def inner():\n    nonlocal kw\n    kw = {}\nreturn X(**kw), inner()",
     "data = {**kw}\nmatch v:\n    case {**data}:\n        pass\nreturn X(**data)",
 ])
@@ -111,9 +114,12 @@ def test_keyword_sites_are_keywords_and_plain_constant_keys_of_unpacked_literals
     ("(# receiver\n    m).old", "(# receiver m)"),
     ("(m  # receiver\n).old", "(m # receiver )"),
     ("('#', m)[1].old", "('#', m)[1]"),
+    ("(m \\\n).old", "(m \\ )"),
+    ("( \\\n m).old", "( \\ m)"),
+    ("# header\r(m # receiver\r).old", "(m # receiver )"),
 ])
 def test_an_access_receiver_keeps_the_parentheses_written_around_it(text: str, expected: str) -> None:
-    source = SourceFile(Path("/p/r.py"), text + "\n")
+    source = SourceFile(Path("/p/r.py"), text + ("\r" if "\r" in text else "\n"))
     (access,) = [n for n in source.of_type(ast.Attribute) if n.attr == "old"]
     assert access_receiver(source, access) == expected
 

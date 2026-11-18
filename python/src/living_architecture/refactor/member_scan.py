@@ -336,35 +336,49 @@ def collapsed(text: str) -> str:
     return _SPACE.sub(" ", text)
 
 
+_LINE_END = re.compile(r"\r\n|\r|\n")
+
+
 @functools.lru_cache(maxsize=4)
 def _comments(text: str) -> tuple[tuple[int, int], ...]:
-    """The span of each comment of `text`."""
-    starts = [0, *(m.end() for m in re.finditer("\n", text))]
+    """The span of each comment of `text`, in order; lines end as Python ends them."""
+    starts = [0, *(m.end() for m in _LINE_END.finditer(text))]
     try:
-        tokens = list(tokenize.generate_tokens(io.StringIO(text).readline))
+        tokens = list(tokenize.generate_tokens(io.StringIO(_LINE_END.sub("\n", text)).readline))
     except (tokenize.TokenError, SyntaxError):
         return ()
     return tuple((starts[t.start[0] - 1] + t.start[1], starts[t.end[0] - 1] + t.end[1])
                  for t in tokens if t.type == tokenize.COMMENT)
 
 
+def _blank(text: str, at: int) -> bool:
+    """Whether the character at `at` is whitespace or the backslash of a line join."""
+    return text[at].isspace() or (text[at] == "\\" and text[at + 1 : at + 2] in ("\r", "\n"))
+
+
 def _blank_before(text: str, comments: tuple[tuple[int, int], ...], at: int, left: int) -> int:
-    """The last offset before `at`, not below `left`, that is neither whitespace nor in a comment."""
+    """The last offset before `at`, not below `left`, that is neither blank nor in a comment."""
     while at >= left:
-        comment = next((start for start, end in comments if start <= at < end), None)
-        if comment is None and not text[at].isspace():
+        i = bisect.bisect_right(comments, (at, len(text))) - 1
+        if i >= 0 and at < comments[i][1]:
+            at = comments[i][0] - 1
+        elif _blank(text, at):
+            at -= 1
+        else:
             break
-        at = at - 1 if comment is None else comment - 1
     return at
 
 
 def _blank_after(text: str, comments: tuple[tuple[int, int], ...], at: int) -> int:
-    """The first offset from `at` on that is neither whitespace nor in a comment."""
+    """The first offset from `at` on that is neither blank nor in a comment."""
     while at < len(text):
-        comment = next((end for start, end in comments if start == at), None)
-        if comment is None and not text[at].isspace():
+        i = bisect.bisect_left(comments, (at, 0))
+        if i < len(comments) and comments[i][0] == at:
+            at = comments[i][1]
+        elif _blank(text, at):
+            at += 1
+        else:
             break
-        at = at + 1 if comment is None else comment
     return at
 
 

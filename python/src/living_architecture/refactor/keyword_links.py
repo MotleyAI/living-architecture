@@ -228,8 +228,11 @@ def _outer_parts(scope: ast.AST) -> list[ast.expr]:
     if isinstance(scope, _COMPREHENSIONS):
         return [scope.generators[0].iter]
     if isinstance(scope, (*_FUNCTIONS, ast.Lambda)):
-        decorators = scope.decorator_list if isinstance(scope, _FUNCTIONS) else []
-        return [*decorators, *scope.args.defaults, *(d for d in scope.args.kw_defaults if d is not None)]
+        defaults = [*scope.args.defaults, *(d for d in scope.args.kw_defaults if d is not None)]
+        if isinstance(scope, ast.Lambda):
+            return defaults
+        annotations = [a.annotation for a in every_parameter(scope.args) if a.annotation is not None]
+        return [*scope.decorator_list, *defaults, *annotations, *([scope.returns] if scope.returns is not None else [])]
     if isinstance(scope, ast.ClassDef):
         return [*scope.decorator_list, *scope.bases, *(k.value for k in scope.keywords)]
     return []
@@ -238,7 +241,7 @@ def _outer_parts(scope: ast.AST) -> list[ast.expr]:
 def _uses(fn: Function, name: str) -> tuple[list[ast.Name], bool]:
     """The uses of `name` in `fn`'s own scope, and whether it is out of their reach: a nested scope that does not bind
     it mentions it, or a statement binds it without a name store. A class body binding it hides it from that body
-    only."""
+    and the headers of its scopes only."""
     found: list[ast.Name] = []
     opaque = False
     stack: list[ast.AST] = list(fn.body)
@@ -252,14 +255,20 @@ def _uses(fn: Function, name: str) -> tuple[list[ast.Name], bool]:
             outer = _outer_parts(node)
             stack.extend(outer)
             if isinstance(node, ast.ClassDef) and _binds_locally(node, name):
-                stack.extend(n for stmt in node.body for n in [stmt, *own_nodes(stmt)] if isinstance(n, _NESTED))
-                continue
-            skipped = {id(n) for part in outer for n in ast.walk(part)}
-            opaque = opaque or (not _binds(node, name) and any(
-                isinstance(n, ast.Name) and n.id == name and id(n) not in skipped for n in ast.walk(node)))
+                inner = [n for stmt in node.body for n in [stmt, *own_nodes(stmt)] if isinstance(n, _NESTED)]
+                opaque = opaque or any(_reads_outer(n, name, _outer_parts(n)) for n in inner)
+            else:
+                opaque = opaque or _reads_outer(node, name, outer)
         else:
             stack.extend(ast.iter_child_nodes(node))
     return found, opaque
+
+
+def _reads_outer(scope: ast.AST, name: str, outer: list[ast.expr]) -> bool:
+    """Whether nested scope `scope` mentions `name` below its `outer` parts without binding it."""
+    skipped = {id(n) for part in outer for n in ast.walk(part)}
+    return not _binds(scope, name) and any(
+        isinstance(n, ast.Name) and n.id == name and id(n) not in skipped for n in ast.walk(scope))
 
 
 class CarrierShape:
@@ -349,10 +358,12 @@ class KeywordFlow:
 
     def _provable(self, source: SourceFile, fn: Function, shape: CarrierShape) -> bool:
         """Whether `shape` is resolved for this key: every measuring callee is the builtin, each key-form string of
-        `old` is a plain literal, and `fn` neither takes nor sets `new`."""
+        `old` is a plain literal, and `fn` neither takes nor sets `new` nor passes it at a sink."""
         if not shape.resolved or self.new in shape.literal_keys or any(key.value == self.new for key in shape.keys):
             return False
         if any(a.arg == self.new for a in (*fn.args.args, *fn.args.kwonlyargs)):
+            return False
+        if any(k.arg == self.new for _, call in shape.sinks for k in call.keywords):
             return False
         if any(key.value == self.old and plain_key_span(source, key, self.old) is None for key in shape.keys):
             return False
@@ -498,11 +509,18 @@ class KeywordFlow:
         if not constructors:
             return "other" if site or chain.kind is None else self._field(cls)
         declared = [d for source, fn in constructors if (d := self._declared(source, fn)) is not None]
+        carriers = [(source, fn) for source, fn in constructors if fn.args.kwarg is not None and self._declared(source, fn) is None]
         if not declared:
-            return _join([self.carrier(source, fn) for source, fn in constructors if fn.args.kwarg is not None])
+            return _join([self.carrier(source, fn) for source, fn in carriers])
+        if any(declared) and any(self._takes(source, fn) for source, fn in carriers):
+            return "unresolved"
         if all(declared):
             return "declared"
         return "unresolved" if any(declared) else "other"
+
+    def _takes(self, source: SourceFile, fn: Function) -> bool:
+        """Whether carrier `fn` does anything with the key: passes it on or reads it by a key form."""
+        return self.carrier(source, fn) != "other" or any(key.value == self.old for key in self.shape(source, fn).keys)
 
     def _field(self, cls: ClassRef) -> Verdict:
         """Where the key lands among keyed class `cls`'s fields; an aliased field does not take it."""

@@ -90,21 +90,28 @@ def test_the_export_types_a_never_receiver(tmp_path: Path) -> None:
 
 
 NAMED_NEVER = """\
+from typing import NoReturn
+
+
 class Never:
     id: int = 0
 
 
 def read(x: Never) -> int:
     return x.id
+
+
+def stop(y: NoReturn) -> None:
+    print(y.id)
 """
 
 
-def test_a_class_named_never_is_a_typed_receiver(tmp_path: Path) -> None:
+def test_a_class_named_never_is_typed_and_noreturn_is_never(tmp_path: Path) -> None:
     root = write_project(tmp_path / "p", {"pkg/n.py": NAMED_NEVER}).resolve()
     path = root / "pkg" / "n.py"
     with LanguageServer(root) as server:
         server.open(path, NAMED_NEVER)
         index = server.export(ExportRequest(names=["id"], files=[path], facts=[
-            FactQuery(path=path, offset=NAMED_NEVER.index("x.id") + 2, kinds=("access",))]))
-    assert [facts.access for facts in index.answers] == [None]
-    assert [o.receiver for o in index.occurrences if o.kind == "member"] == [None]
+            FactQuery(path=path, offset=NAMED_NEVER.index(f"{name}.id") + 2, kinds=("access",)) for name in "xy"]))
+    assert [facts.access for facts in index.answers] == [None, "Never"]
+    assert [o.receiver for o in index.occurrences if o.kind == "member"] == [None, "Never"]
