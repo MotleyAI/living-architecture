@@ -1,0 +1,18 @@
+Renaming <columns> to <fields>:
+
+
+--- a/pkg/c.ts
++++ b/pkg/c.ts
+@@ -3,7 +3,7 @@
+ }
+ 
+ export class Ds {
+-  columns: string[] = [];
++  fields: string[] = [];
+ }
+ 
+ export class Probe {
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

@@ -1,0 +1,18 @@
+kind: paired
+languages:
+- python
+- typescript
+command: dr-refactor
+args:
+- rename-map
+- map.yaml
+- --words
+- words.yaml
+fixture: refactor-words
+git:
+- commit: init
+expect:
+  exit: 1
+golden: manual
+note: 'a --words table whose symbols carve-out names a file outside the project: outside-project naming the path as
+  written, after the checks phase, nothing refactored'

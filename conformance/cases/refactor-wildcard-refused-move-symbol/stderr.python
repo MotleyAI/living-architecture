@@ -1,0 +1,3 @@
+[resolve]
+[checks]
+pkg/l.py: *.<locals>.model names every matching local, which only a rename takes

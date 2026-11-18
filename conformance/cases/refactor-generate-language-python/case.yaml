@@ -1,0 +1,17 @@
+kind: neutral
+languages:
+- python
+- typescript
+command: dr-refactor
+args:
+- generate-map
+- words.yaml
+- --language
+- python
+fixture: refactor-words
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: '--language python on a mixed project: the Python map, through either invoking twin'

@@ -1,0 +1,16 @@
+kind: paired
+languages:
+- python
+- typescript
+command: dr-refactor
+args:
+- generate-map
+- words.yaml
+fixture: refactor-words
+git:
+- commit: init
+expect:
+  exit: 2
+golden: manual
+note: 'a table entry whose file is of no registered language is no entry of the generated language: map-mixed-languages
+  naming the table, nothing on stdout'

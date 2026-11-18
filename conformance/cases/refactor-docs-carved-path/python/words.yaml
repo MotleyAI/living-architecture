@@ -1,0 +1,4 @@
+words:
+- {from: columns, to: fields}
+carve_outs:
+- {words: [columns], paths: ['pkg/sql/**']}

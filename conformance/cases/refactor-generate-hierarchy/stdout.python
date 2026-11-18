@@ -1,0 +1,2 @@
+- {file: pkg/h.py, symbol: Base.measures, new_name: metrics}
+- {file: pkg/h.py, symbol: Sub.measures, new_name: metrics}

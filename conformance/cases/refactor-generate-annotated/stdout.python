@@ -1,0 +1,2 @@
+- {file: pkg/c.py, symbol: Ds.columns, new_name: fields}
+- {file: pkg/c.py, symbol: field_names(columns), new_name: fields}

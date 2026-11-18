@@ -1,0 +1,6 @@
+words:
+- {from: columns, to: fields}
+carve_outs:
+- {words: [columns], annotated: [IntrospectedColumn]}
+entries:
+- {file: pkg/c.ts, symbol: 'censusSql(columns)', new_name: cols}

@@ -1,0 +1,23 @@
+Renaming <columns> to <fields>:
+
+
+--- a/pkg/c.ts
++++ b/pkg/c.ts
+@@ -1,4 +1,4 @@
+-/** Holds `columns`. */
++/** Holds `fields`. */
+ export class Ds {
+-  columns: string[] = [];
++  fields: string[] = [];
+ }
+
+--- a/pkg/sql/notes.ts
++++ b/pkg/sql/notes.ts
+@@ -1,2 +1,2 @@
+-/** See `Ds.columns`. */
++/** See `Ds.fields`. */
+ export const NOTES = 1;
+
+
+
+DRY-RUN. 2 file(s) would change. Re-run with --apply.

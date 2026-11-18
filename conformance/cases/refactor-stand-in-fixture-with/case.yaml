@@ -1,0 +1,18 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- rename-map
+- renames.yaml
+- --with
+- tests/test_q.py:6
+- --without
+- pkg/q.py:12
+fixture: refactor-words
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: --with naming a fixture's line renames it as it renames any stand-in

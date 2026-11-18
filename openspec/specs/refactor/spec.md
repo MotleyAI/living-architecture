@@ -10,7 +10,8 @@ type-bound, so the type-check ratchet plus the tests prove nothing was missed.
 ### Requirement: dr-* inputs are routed by file language
 `dr-refactor`, `dr-compliance` and `dr-mock-lint` SHALL route each input file to the twin of its language,
 decided by the registry's source extensions. `dr-refactor`'s language SHALL be the language of `--file`
-(`rename`, `retarget`, `move-symbol`), of every entry's `file` or `module` (`rename-map`) or of `--module` (`move-module`); a
+(`rename`, `retarget`, `move-symbol`), of every entry's `file` or `module` (`rename-map`) of `--module` (`move-module`), or the language the map-generation
+requirement selects (`generate-map`); a
 source of an unregistered extension, a `--dest` of another language, or a `--module` directory whose expansion
 holds more than one language, SHALL exit 1 with a finding. For `dr-compliance` and `dr-mock-lint`, an explicit file
 of an unregistered extension, or matching the language's `declaration_globs`, SHALL be skipped with a warning on
@@ -137,7 +138,9 @@ code points of the file as read, every line terminator (`\r\n`, `\n`, a lone `\r
 SHALL count within its line excluding the line terminator. A line, column or offset out of range SHALL exit 1 with a
 finding, whose count is the file's code points for an offset. `--symbol` SHALL locate as the symbol-path requirement
 defines. No locator SHALL exit 1 with the no-locator finding, except in a `rename`, which then renames the module
-`--file` names.
+`--file` names. A Python locator on the `as` name of an import that binds a module (`import x.y as NAME`,
+`from x import y as NAME`) SHALL rename that alias and every use it binds, and SHALL NOT move the module or change the
+import's module path; with `--stub` it SHALL be refused as a library module's alias is.
 
 #### Scenario: Astral character before the symbol
 - **WHEN** a line is `const s = "😀"; const foo = 1;` and `--line 1 --col 22` points at `foo`
@@ -168,6 +171,16 @@ defines. No locator SHALL exit 1 with the no-locator finding, except in a `renam
   earlier line break to reach it
 - **THEN** both twins rename `foo`, and an offset one past the file's code points exits 1 with the out-of-range finding
   naming that count
+
+#### Scenario: Locator on a module's alias
+- **WHEN** `pkg/b.py` holds `import pkg.a as model_mod` and reads `model_mod.load()`, and `rename --symbol model_mod
+  --new-name dataset_mod` runs on it with `--apply`
+- **THEN** the line becomes `import pkg.a as dataset_mod`, the read becomes `dataset_mod.load()`, `pkg/a.py` stays
+  where it is and the exit code is 0
+
+#### Scenario: Locator on a from-import's module alias
+- **WHEN** `pkg/b.py` holds `from pkg import a as model_mod` and the same rename runs
+- **THEN** only the alias and its uses are renamed
 
 ### Requirement: TypeScript rename
 `rename` SHALL rename every reference the TypeScript language service finds, including overrides and
@@ -1401,7 +1414,8 @@ given, joined with the hierarchy of every `--with` stand-in. A stand-in SHALL be
 interface or type literal (TypeScript), declared in a project source file of the rename's language and outside the
 renamed hierarchy, that declares a member named OLD. Object literals SHALL NOT be stand-ins.
 
-A member rename with any stand-in that is neither `--with` nor `--without` SHALL print one `refactor.stand-in` line
+A member rename with any stand-in that is neither `--with` nor `--without`, nor left by default as the requirement on
+stand-ins left by default defines, SHALL print one `refactor.stand-in` line
 per stand-in member declaration on stderr, sorted by path, line and column and after any blind-spot lines, print
 nothing on stdout, write nothing and exit 1, with or without `--apply`.
 
@@ -1704,6 +1718,8 @@ to none, in which case it is listed. A mention SHALL never be refused with `refa
     OLD in that file is renamed by the run, all to one new name, and take that name; otherwise it SHALL be listed.
     A module-level import that binds OLD and that the run leaves unchanged SHALL count as a module-level declaration
     the run leaves unchanged.
+- With `--words TABLE`, a code-marked bare mention that a carve-out of the table covers SHALL be listed instead, as
+  the requirement on carved mentions defines.
 - Every other mention SHALL be listed: one `refactor.leftover` line per mention on stderr, sorted by path, line and
   column, with `{where}` one of `comment`, `docstring`, `string`, `prose`. Listing SHALL NOT change the exit code.
 - Only the characters of OLD SHALL change. A mention another rule already rewrote SHALL NOT be listed.
@@ -1823,8 +1839,8 @@ arrow-function body, and parameters.
 
 Declarations the checker resolves to one symbol (overloads, property accessors, redefinitions in one scope, merged
 TypeScript declarations) SHALL be one symbol, located at the first. A path that resolves to no declaration SHALL
-exit 2 with `refactor.symbol-unresolved`, listing the names its deepest resolved scope declares; a path that
-resolves to declarations of more than one symbol SHALL exit 2 with `refactor.symbol-ambiguous`, listing each
+exit 2 with `refactor.symbol-unresolved`, listing the names its deepest resolved scope declares; a path, other than a
+wildcard path (the requirement on wildcard paths), that resolves to declarations of more than one symbol SHALL exit 2 with `refactor.symbol-ambiguous`, listing each
 candidate's `path:line`. `move-symbol --symbol` SHALL accept only a top-level declaration.
 
 #### Scenario: Method by path
@@ -1877,6 +1893,10 @@ invalid map SHALL exit 2 with `refactor.map-invalid` naming every invalid entry'
 the invoking twin before any routing; a map that cannot be read or is not a non-empty list SHALL name entry 1. It SHALL
 take `rename`'s options other than the locator and `--new-name`, applying to every entry. All entries SHALL be of one
 language, else exit 2 with `refactor.map-mixed-languages`; the map runs in that language's twin.
+
+An entry whose `symbol` is a wildcard path SHALL stand for every symbol the path locates: the merge and duplicate
+rules SHALL apply to each of those symbols, so a wildcard entry and another entry that reach one symbol SHALL merge
+there with the same new name and SHALL be refused with `refactor.map-duplicate` naming both entries otherwise.
 
 Every locator SHALL be resolved against the code before any entry is computed, so entries name old names. A module
 entry SHALL rename the module its file is, exactly as `rename --file` with no locator does: in Python, a package's
@@ -2111,6 +2131,15 @@ one-entry map `{module: F, new_name: N}`, in either language.
 - **WHEN** `rename --file F --new-name N` and the map `[{module: F, new_name: N}]` run on the same project, for every
   module-rename case of the corpus in either language
 - **THEN** their stdout, stderr and exit codes are identical
+
+#### Scenario: Wildcard entry beside an entry for one of its locals
+- **WHEN** a map holds `{symbol: '*.<locals>.model', new_name: dataset}` and `{symbol: 'f.<locals>.model', new_name:
+  dataset}` for one file
+- **THEN** the map applies as the wildcard entry alone does
+
+#### Scenario: Wildcard entry against a different name
+- **WHEN** the second entry's new name is `table`
+- **THEN** stderr ends with `refactor.map-duplicate` naming entries 1 and 2 and the exit code is 2
 
 ### Requirement: An apply writes every file or none
 `dr-refactor --apply` SHALL re-check, immediately before writing, that no file it writes changed since it was read,
@@ -3915,3 +3944,330 @@ A rename of a member, a parameter, a local or a module SHALL ignore the patterns
 - **WHEN** the config holds a pattern with no capturing group, with two, with a named group or with a lookahead
 - **THEN** every command loading the config reports a configuration error naming `refactor.string_forms` and
   that pattern, as it reports any other configuration error; `dr-refactor` exits 2
+
+### Requirement: Word tables describe a vocabulary rename
+A word table SHALL be a YAML mapping valid against the shared word-table schema: `words`, a non-empty list of
+`{from, to}` whose values are each one word of lowercase ASCII letters and digits starting with a letter, with no
+`from` given twice and none equal to its `to`; optionally `carve_outs`, a list whose items each hold `words` (a
+non-empty list, each a `from` of the table) and exactly one matcher: `annotated` (a non-empty list of identifiers),
+`paths` (a non-empty list of globs of the shared glob dialect) or `symbols` (a non-empty list of `{file, symbol}`,
+`file` relative to `--project`); and optionally `entries`, a list of rename-map entries. A command given an invalid
+table SHALL print one `refactor.words-invalid` line per invalid item, naming its section and 1-based index, in the
+order `words`, `carve_outs`, `entries` and then by index, from the invoking twin before any routing, and exit 2. A
+table that cannot be read, is not a mapping or has no `words` list SHALL name `words` item 1.
+
+A name SHALL hold a word of the table when one of the name's words, split as the compound-name requirement splits
+names, equals a `from` ignoring case. The name's new name SHALL be the name with each such word replaced once by its
+row's `to`: in capitals when the word is longer than one character and has no lowercase letter, capitalized when the
+word starts with a capital, in lowercase otherwise. Every other character SHALL be unchanged, and a `to` SHALL NOT be
+replaced again. Inflections SHALL NOT be inferred. The shared vectors SHALL pin the new name in both twins.
+
+A carve-out SHALL match a declaration for a word W when W is among its `words`, the declaration's name holds W, and:
+
+- `annotated`: the declaration is a parameter, variable, field or attribute, and its own written type annotation,
+  read as text with string annotations included, holds an identifier token equal to a listed name. No alias or type
+  SHALL be resolved, and a declaration without a written annotation SHALL NOT match.
+- `paths`: the declaring file's project-relative path matches a listed glob.
+- `symbols`: a listed `{file, symbol}` locates the declaration, as the symbol-path requirement locates it. A listed
+  path that resolves to no declaration SHALL exit 2 with `refactor.symbol-unresolved`, and a wildcard path with
+  `refactor.symbol-wildcard`.
+
+#### Scenario: Case forms
+- **WHEN** the table holds `{from: measure, to: metric}` and `{from: columns, to: fields}`
+- **THEN** `measure_count`, `MeasureSpec`, `MAX_MEASURE`, `addMeasure` and `model_columns` become `metric_count`,
+  `MetricSpec`, `MAX_METRIC`, `addMetric` and `model_fields`
+
+#### Scenario: Whole words only
+- **WHEN** the table holds `{from: model, to: dataset}`
+- **THEN** `Modelling`, `models` and `remodel` hold no word and `model_name` does
+
+#### Scenario: A replacement is not replaced again
+- **WHEN** the table holds `{from: model, to: dataset}` and `{from: dataset, to: table}`
+- **THEN** `model_dataset` becomes `dataset_table`
+
+#### Scenario: Invalid items
+- **WHEN** `words` item 2 has an uppercase `from`, `carve_outs` item 1 holds both `paths` and `annotated`, and
+  `carve_outs` item 3 names a word that is no `from`
+- **THEN** stderr is `refactor.words-invalid` naming `words` item 2, `carve_outs` item 1 and `carve_outs` item 3 in
+  that order, through either invoking twin, and the exit code is 2
+
+#### Scenario: Unreadable table
+- **WHEN** the table file does not exist, or holds a YAML list
+- **THEN** stderr is `refactor.words-invalid` naming `words` item 1 and the exit code is 2
+
+#### Scenario: Annotation read as text
+- **WHEN** a carve-out lists `annotated: [IntrospectedColumn]` for `columns`, and parameters named `columns` are
+  annotated `list[IntrospectedColumn]`, `"IntrospectedColumn | None"`, `schema.IntrospectedColumn`, `list[str]` and
+  not at all
+- **THEN** the first three match and the last two do not
+
+### Requirement: generate-map writes a rename map from a word table
+`dr-refactor generate-map TABLE` (TABLE relative to the working directory) SHALL print on stdout a rename map for the
+word table. Its language SHALL be `--language`, else the one registered language with source files under the
+project; a project holding source files of more than one language without `--language` SHALL exit 2 with
+`refactor.generate-language` naming them in registry order. The map SHALL be generated by that language's twin,
+through either invoking twin. The command SHALL start no checker or language server, print no phase line and write
+nothing in the project; `--apply` SHALL NOT change what it does.
+
+A candidate SHALL be a declaration, in a source file of the language under the project as a rename finds them, whose
+name holds a table word and that a rename can locate. Declarations of one symbol SHALL be one candidate, located at
+the first. A Python import binding SHALL be a candidate only by its `as` name. A candidate SHALL be written as
+`{file, symbol, new_name}` when its symbol path locates exactly its symbol, else as `{file, line, col, new_name}` at
+the first declaration's name. A declaration whose name holds a word but whose kind a rename refuses (a Python lambda
+parameter) SHALL be listed with `refactor.not-generated` and not written.
+
+In Python, each module file whose name without its extension holds a word (`__init__` never), and each package whose
+directory name holds a word, SHALL be written as `{module, new_name}`, a package by its `__init__.py`; a directory
+without an `__init__.py` SHALL NOT be a candidate. In TypeScript, each source file whose name without its extension
+holds a word SHALL be written as `{module, new_name}`.
+
+For each word a candidate's name holds, the first carve-out in table order that matches the candidate for that word
+SHALL keep the word: one `refactor.carved` line SHALL name the candidate, the word and the matcher (its key, and for
+`annotated` and `paths` the listed value that matched). A candidate SHALL be written with its remaining words
+replaced, and not written when none remains. Only `paths` carve-outs SHALL match a module.
+
+The table's `entries` SHALL be valid rename-map entries of the generated language (else exit 2 with
+`refactor.map-mixed-languages` naming the table) and SHALL each resolve as a map entry does (else exit 2 with that
+locator's finding). They SHALL be written first, in table order. A candidate one of them locates SHALL NOT be
+written or listed, whatever a carve-out says.
+
+When two or more candidates in one file are function locals of one name NAME, each located by its path, none kept by
+a carve-out and none located by an entry, they SHALL be written as the single entry
+`{file, symbol: '*.<locals>.NAME', new_name}` at the first one's position; otherwise each SHALL be written alone.
+
+stdout SHALL be a YAML list valid against the rename-map schema, one flow-mapping entry per line: the table's
+entries, then the generated entries by path, line and column, a file's module entry before its declarations. stderr
+SHALL hold the `refactor.carved` and `refactor.not-generated` lines by path, line
+and column. The exit code SHALL be 0. When the map would be empty, stdout SHALL be empty, stderr SHALL end with
+`refactor.generate-empty` and the exit code SHALL be 1. The output SHALL be the same on every run over the same
+files.
+
+#### Scenario: Declarations of a word
+- **WHEN** the table holds `{from: measures, to: metrics}` and `pkg/v.py` declares field `Query.measures`, function
+  `add_measures(q, measures)` and function `census_sql(columns)`
+- **THEN** stdout is the three entries `Query.measures -> metrics`, `add_measures -> add_metrics` and
+  `add_measures(measures) -> metrics` in source order, stderr is empty, the exit code is 0, and `rename-map` on that
+  output applies all three
+
+#### Scenario: Parameter carved by its annotation
+- **WHEN** the table holds `{from: columns, to: fields}` and a carve-out `annotated: [IntrospectedColumn]`, and
+  `pkg/c.py` declares field `Ds.columns: list[str]`, `census_sql(columns: list[IntrospectedColumn])` and
+  `field_names(columns: list[str])`
+- **THEN** stdout holds entries for `Ds.columns` and `field_names(columns)` only, and stderr is one
+  `refactor.carved` line naming `census_sql(columns)`'s line, `columns` and `annotated IntrospectedColumn`
+
+#### Scenario: Path and symbol carve-outs
+- **WHEN** one carve-out lists `paths: ['pkg/sql/**']` and another `symbols` naming `pkg/c.py`'s
+  `field_names(columns)`
+- **THEN** no declaration under `pkg/sql/` and not that parameter is written, and each is listed with
+  `refactor.carved` naming `paths pkg/sql/**` or `symbols`
+
+#### Scenario: A carve-out keeps one word of a name
+- **WHEN** the table renames `model` and `columns`, only `columns` is carved under `pkg/sql/**`, and
+  `pkg/sql/x.py` declares `model_columns`
+- **THEN** the entry renames it to `dataset_columns` and one `refactor.carved` line names it and `columns`
+
+#### Scenario: Hand entries survive regeneration
+- **WHEN** the table's `entries` hold `{file: pkg/q.py, symbol: Query.root_model, new_name: population}` and the
+  words rename `model` to `dataset`
+- **THEN** stdout starts with that entry, holds no generated entry for `Query.root_model`, and holds
+  `Plan.root_model -> root_dataset`
+
+#### Scenario: An entry overrides a carve-out
+- **WHEN** an entry locates a declaration that a carve-out also matches
+- **THEN** the entry is written and no `refactor.carved` line names that declaration
+
+#### Scenario: Locals written as one wildcard entry
+- **WHEN** functions `f` and `g` of `pkg/l.py` each bind a local `model` and the table renames `model` to `dataset`
+- **THEN** stdout is the single entry `{file: pkg/l.py, symbol: '*.<locals>.model', new_name: dataset}`
+
+#### Scenario: A carved local splits the wildcard
+- **WHEN** a third function's local `model` is carved by a `symbols` carve-out
+- **THEN** the other two locals are written as two entries by their own paths and the third is listed
+
+#### Scenario: Python modules and aliases
+- **WHEN** the table renames `measures`, the project holds `pkg/measures.py` and package `pkg/measures_io/`, and
+  `pkg/use.py` holds `from pkg.core import load as load_measures`
+- **THEN** stdout holds `{module: pkg/measures.py, new_name: metrics}`,
+  `{module: pkg/measures_io/__init__.py, new_name: metrics_io}` and an entry renaming the alias to `load_metrics`
+
+#### Scenario: TypeScript modules
+- **WHEN** a TypeScript project holds `lib/measures.ts` declaring `class Measures`
+- **THEN** stdout holds `{module: lib/measures.ts, new_name: metrics}` and then the entry for `Measures`, and stderr
+  is empty
+
+#### Scenario: Lambda parameter listed
+- **WHEN** a Python function holds `lambda model: model` and the table renames `model`
+- **THEN** stderr holds `refactor.not-generated` naming that line and no entry locates the parameter
+
+#### Scenario: Ambiguous path written by position
+- **WHEN** a Python module defines `class C` twice and each declares a field `model`, or a TypeScript function
+  declares `const model` in two sibling blocks
+- **THEN** each is written as a `{file, line, col, new_name}` entry
+
+#### Scenario: Members of one hierarchy
+- **WHEN** `Base.measures` and its override `Sub.measures` are both declared
+- **THEN** both are written, and `rename-map` on the output renames the hierarchy once with exit code 0
+
+#### Scenario: Language of a mixed project
+- **WHEN** a project holds `.py` and `.ts` sources
+- **THEN** without `--language` stderr is `refactor.generate-language` naming `python, typescript` and the exit code
+  is 2; with `--language typescript` the output is the TypeScript map, through either invoking twin
+
+#### Scenario: Nothing to generate
+- **WHEN** no declaration or module holds a table word and the table has no `entries`
+- **THEN** stdout is empty, stderr is `refactor.generate-empty` and the exit code is 1
+
+#### Scenario: Entries only
+- **WHEN** no declaration holds a table word and the table has one entry
+- **THEN** stdout is that entry and the exit code is 0
+
+#### Scenario: Nothing started or written
+- **WHEN** `generate-map` runs, with or without `--apply`
+- **THEN** no language server starts, stderr holds no phase line and no file of the project changes
+
+### Requirement: A wildcard path names every local of a name
+A symbol path SHALL also take the forms `*.<locals>.NAME` and `P.*.<locals>.NAME`, where P is one or more ordinary
+segments naming a class or function. `*` SHALL stand for one or more segments: the first form SHALL locate every
+local NAME of every function, method and nested function of the file, the second every local NAME of every function
+nested at any depth inside P. A local SHALL be what the path `F.<locals>.NAME` reaches for that function F;
+parameters SHALL NOT be locals. A wildcard path that locates nothing SHALL exit 2 with `refactor.symbol-unresolved`,
+listing the names P's scope, or the module, declares. A `*` anywhere else, or with a trailing `(param)` or
+`['value']`, SHALL be refused as a path that resolves to no declaration is.
+
+`rename --symbol` and a `new_name` map entry SHALL accept a wildcard path, in both twins. `retarget` (its `--symbol`,
+its `--target`, and a map entry's `symbol` or `retarget`), `move-symbol` and a word table's `symbols` SHALL refuse
+one with `refactor.symbol-wildcard`, exit 2, writing nothing.
+
+Every symbol a wildcard entry locates SHALL be renamed as its own symbol under that entry's index: the entry SHALL
+print one header and one progress item per phase, every finding of any of its symbols SHALL name the entry, and a
+refusal of any of them SHALL refuse the run as any entry's refusal does.
+
+#### Scenario: Every local of a file
+- **WHEN** `pkg/l.py` holds functions `f` and `g`, each binding a local `model`, and the map
+  `[{file: pkg/l.py, symbol: '*.<locals>.model', new_name: dataset}]` runs
+- **THEN** both locals and their reads are renamed, stdout has one header, and the output equals that of the
+  two-entry map naming `f.<locals>.model` and `g.<locals>.model` except for its header and progress lines
+
+#### Scenario: Locals inside one class
+- **WHEN** `Query.*.<locals>.model` is renamed, methods `Query.run` and `Query.plan` and module function `load` each
+  bind a local `model`, and `Query.run` holds a nested function binding one too
+- **THEN** the three locals inside `Query` are renamed and `load`'s is not
+
+#### Scenario: Parameters are not locals
+- **WHEN** `*.<locals>.model` is renamed and function `h(model)` only has the parameter
+- **THEN** `h` is unchanged
+
+#### Scenario: No match
+- **WHEN** `*.<locals>.modle` runs on a file whose module declares `f` and `g`
+- **THEN** stderr ends with `refactor.symbol-unresolved` listing `f, g` and the exit code is 2
+
+#### Scenario: Refused outside a rename
+- **WHEN** `retarget --symbol '*.<locals>.model'`, a map entry `{symbol: '*.<locals>.model', retarget: other}`,
+  `move-symbol --symbol '*.<locals>.model'`, or a word table whose carve-out `symbols` holds that path runs
+- **THEN** stderr is `refactor.symbol-wildcard`, the exit code is 2 and nothing changes
+
+#### Scenario: One conflicting local refuses the entry
+- **WHEN** `*.<locals>.model` is renamed to `dataset` and one of three functions binding `model` already binds
+  `dataset`
+- **THEN** the run is refused with `refactor.name-conflict` at that function, the refusal names entry 1 and
+  nothing changes
+
+#### Scenario: TypeScript locals
+- **WHEN** `*.<locals>.model` is renamed in a TypeScript file whose function, method and arrow function each
+  declare a local `model`
+- **THEN** all three are renamed, through either invoking twin
+
+### Requirement: Stand-ins are left by default
+A stand-in SHALL be left by default, exactly as if `--without` named its line, when every member declaration of the
+stand-in's own hierarchy is one of:
+
+- in Python, a function decorated with a fixture decorator of the language registry (`pytest.fixture`,
+  `pytest_asyncio.fixture`), bare or called, resolved through the file's imports and their aliases;
+- with `--words TABLE`, a declaration that a carve-out of the table matches for a word the old name holds.
+
+`rename`, `rename-map` and `retarget` SHALL take `--words TABLE` (relative to the working directory), a word table;
+an invalid table, or a carve-out symbol that does not resolve, SHALL be refused as the word-table requirement
+defines, before any reference search. A default SHALL print nothing. `--with` naming a line of such a stand-in SHALL
+rename it as it renames any stand-in, and `--without` naming one SHALL be accepted. The TypeScript registry SHALL
+list no fixture decorator.
+
+#### Scenario: Fixture left, fake reported
+- **WHEN** a map renames `Query.root_model` and `Plan.root_model`, `class Fake` declares `root_model`, and test class
+  `TestQ` declares `root_model` under `@pytest.fixture`
+- **THEN** stderr holds, once, the `refactor.stand-in` line naming `Fake.root_model`, and none for `TestQ`
+
+#### Scenario: Fixture decorator through an alias
+- **WHEN** the fixture is declared under `@fixture(scope="module")` with `from pytest import fixture`, or under
+  `@pt.fixture` with `import pytest as pt`
+- **THEN** it is left by default
+
+#### Scenario: --with renames a fixture
+- **WHEN** the rename passes `--with` the fixture's line
+- **THEN** the fixture method is renamed with the entry it is a stand-in of
+
+#### Scenario: --without on a defaulted stand-in
+- **WHEN** the rename passes `--without` the fixture's line
+- **THEN** the output equals the output without that flag, and no `refactor.not-stand-in` line is printed
+
+#### Scenario: A hierarchy only partly covered
+- **WHEN** a stand-in class declares `root_model` as a fixture and its subclass overrides it as a plain method
+- **THEN** both are reported as stand-ins
+
+#### Scenario: Stand-in under a carved path
+- **WHEN** field `Ds.columns` is renamed with `--words TABLE`, the table carves `columns` under `pkg/sql/**`, and
+  `pkg/sql/meta.py`'s `class Table` and `pkg/other.py`'s `class Sheet` each declare `columns`
+- **THEN** only `Sheet.columns` is reported as a stand-in; without `--words` both are
+
+#### Scenario: Stand-in carved by its annotation
+- **WHEN** the table carves `columns` by `annotated: [IntrospectedColumn]` and `class Probe` declares
+  `columns: list[IntrospectedColumn]`
+- **THEN** `Probe.columns` is not reported, in either twin
+
+### Requirement: --words lists the --docs mentions a carve-out covers
+With `--docs` and `--words TABLE`, a code-marked bare mention of OLD that the `--docs` requirement would rewrite
+SHALL be listed with `refactor.leftover` and left unchanged when OLD holds a word W and a carve-out for W covers the
+mention:
+
+- a `paths` carve-out SHALL cover every mention in a file it matches;
+- an `annotated` or `symbols` carve-out SHALL cover every mention inside the scope declaring a declaration named OLD
+  that it matches: the function of a parameter or local, the class of a member, the module of a module-level name.
+
+A module's scope SHALL be its whole file. A class's or function's scope SHALL run from the first character of its
+declaration, decorators and a TypeScript declaration's attached JSDoc comment included, to its end; a comment before
+it SHALL be outside. Qualified mentions SHALL be unaffected, and without `--words` the `--docs` requirement SHALL
+hold unchanged.
+
+#### Scenario: Mentions under a carved path
+- **WHEN** `Table.columns` is renamed with `--docs --words TABLE`, `--with` names stand-in `Meta.columns` in
+  `pkg/sql/meta.py`, the table carves `columns` under `pkg/sql/**`, and that file's docstring
+  holds ``` ``columns`` ```
+- **THEN** the mention is unchanged and listed as `leftover` with `{where}` `docstring`
+
+#### Scenario: Mention inside a carved parameter's function
+- **WHEN** `pkg/c.py` declares field `Ds.columns` and `census_sql(columns: list[IntrospectedColumn])`, the table
+  carves `columns` by `annotated: [IntrospectedColumn]`, both docstrings hold ``` ``columns`` ```, and `Ds.columns`
+  is renamed with `--docs --words TABLE`
+- **THEN** the mention in `Ds`'s docstring is rewritten and the one in `census_sql`'s docstring is listed
+
+#### Scenario: Comment before the function
+- **WHEN** the same file holds ``# reads `columns` `` on the line before `def census_sql`
+- **THEN** that mention is rewritten, being outside the function's scope
+
+#### Scenario: Symbol carve-out
+- **WHEN** the table carves `columns` by `symbols` naming `field_names(columns)` and that function's docstring
+  holds ``` ``columns`` ```
+- **THEN** the mention is listed
+
+#### Scenario: Qualified mention
+- **WHEN** a docstring under a carved path holds `Ds.columns`
+- **THEN** it is rewritten
+
+#### Scenario: TypeScript JSDoc of a carved function
+- **WHEN** a TypeScript function with a parameter `columns: IntrospectedColumn[]` carries a JSDoc comment holding
+  `` `columns` `` and the table carves `columns` by `annotated: [IntrospectedColumn]`
+- **THEN** the mention is listed, through either invoking twin
+
+#### Scenario: Without --words
+- **WHEN** the same renames run with `--docs` only
+- **THEN** every one of those mentions is rewritten

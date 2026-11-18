@@ -9,10 +9,11 @@ def _upper(char: str) -> bool:
     return unicodedata.category(char) == "Lu"
 
 
-def words(name: str) -> list[str]:
-    """`name` split at `_`, before a capital after a non-capital, and before the last capital of a run that a
-    letter other than a capital follows."""
-    out: list[str] = []
+def word_spans(name: str) -> list[tuple[int, int]]:
+    """The spans of `name`'s words: split at `_`, before a capital after a non-capital, and before the last capital of
+    a run that a letter other than a capital follows."""
+    out: list[tuple[int, int]] = []
+    base = 0
     for chunk in name.split("_"):
         start = 0
         for i in range(1, len(chunk)):
@@ -20,11 +21,17 @@ def words(name: str) -> list[str]:
                 continue
             follows = i + 1 < len(chunk) and not _upper(chunk[i + 1]) and not chunk[i + 1].isdecimal()
             if not _upper(chunk[i - 1]) or follows:
-                out.append(chunk[start:i])
+                out.append((base + start, base + i))
                 start = i
         if chunk:
-            out.append(chunk[start:])
+            out.append((base + start, base + len(chunk)))
+        base += len(chunk) + 1
     return out
+
+
+def words(name: str) -> list[str]:
+    """`name`'s words, as `word_spans` splits it."""
+    return [name[start:end] for start, end in word_spans(name)]
 
 
 def is_compound(name: str, old: str) -> bool:

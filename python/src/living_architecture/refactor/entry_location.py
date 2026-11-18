@@ -203,24 +203,33 @@ class EntryLocator:
 
     def _import(self, rel: str, module: Module, scope: Scope, name: str, alias: ast.alias, start: int, *,
                 follow: bool) -> Entry:
-        """An import binding: the module it binds, else itself for an alias or re-export, else what it imports."""
+        """An import binding: the module it binds (under an `as` name, the alias alone), else itself for an alias or
+        re-export, else what it imports."""
         stmt = self.snapshot.source(rel).parent(alias)
         if isinstance(stmt, ast.Import):
             value: Value = ("module", alias.name if alias.asname else name)
         else:
             assert isinstance(stmt, ast.ImportFrom)
             value = self.resolver.member(module.binder.from_module(stmt), alias.name)
-        if value is not None and value[0] == "module":
-            return self._module_entry(rel, value[1], name)
+        bound = value[1] if value is not None and value[0] == "module" else None
+        if bound is not None and (alias.asname is None or follow):
+            return self._module_entry(rel, bound, name)
+        if bound is not None and isinstance(stmt, ast.Import):
+            return _module(rel, None, name, bound)
         owner = scope.owner(name)
-        aliased = alias.asname is not None and alias.asname != alias.name
-        exported = owner.kind == "module" and (alias.asname == alias.name or name in (module.all_names or ()))
-        if (aliased or exported) and not follow:
+        if not follow and self._binds_itself(module, owner, name, alias, module_bound=bound is not None):
             line = self.snapshot.source(rel).line(start)
             kind = _SCOPE_KINDS.get(owner.kind, "local")
             return Entry(kind=kind, key=(kind, rel, line, name), name=name, rel=rel, sites=((rel, start),), binding=True)
         found = self.value(value, name, rel)
         return found if found is not None else self._checked(rel, start, name)
+
+    @staticmethod
+    def _binds_itself(module: Module, owner: Scope, name: str, alias: ast.alias, *, module_bound: bool) -> bool:
+        """The import is an alias or a re-export: a name of its own."""
+        if alias.asname is not None and (module_bound or alias.asname != alias.name):
+            return True
+        return owner.kind == "module" and (alias.asname == alias.name or name in (module.all_names or ()))
 
     # ---- groups
 
@@ -454,8 +463,8 @@ def _joined(traces: list[Trace]) -> Trace:
 
 def _module(rel: str, module: str | None, name: str, dotted: str) -> Entry:
     """A module rename located in `rel`: a project module keyed by its file or package directory alone, so every way of
-    naming it is one symbol; a library module by its dotted name."""
-    key = ("module", module, 0, None) if module is not None else ("module", dotted, 0, dotted)
+    naming it is one symbol; an alias of a module by its file, name and the module's dotted name."""
+    key = ("module", module, 0, None) if module is not None else ("module", rel, name, dotted)
     return Entry(kind="module", key=key, name=name, rel=rel, module=module)
 
 

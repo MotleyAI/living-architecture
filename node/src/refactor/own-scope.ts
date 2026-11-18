@@ -111,11 +111,11 @@ function placed(r: Refactor, entry: ScopedEntry): Placed[] {
   });
 }
 
-/** Each `new_name` entry of `entries` (by its index) whose declaring scope holds its new name: a declaration no entry
+/** Each `new_name` entry of `entries` whose declaring scope holds its new name: a declaration no entry
  * renames to another name (the first one is named), else an earlier entry's renamed onto it (the latest entry's
  * finding, naming the earliest's first declaration). A pair with a declaration `kept`, or one the entries do not
  * decide, is left out. */
-export function ownScopeConflicts(r: Refactor, entries: ScopedEntry[], kept: (path: string, position: number) => boolean): Map<number, NameConflict> {
+export function ownScopeConflicts<E extends ScopedEntry>(r: Refactor, entries: E[], kept: (path: string, position: number) => boolean): Map<E, NameConflict> {
   const all = entries.map((entry) => ({ entry, declared: placed(r, entry) }));
   const owner = new Map<string, ScopedEntry>();
   for (const { entry, declared } of all) for (const p of declared) owner.set(keyAt(p.declaration), entry);
@@ -125,16 +125,16 @@ export function ownScopeConflicts(r: Refactor, entries: ScopedEntry[], kept: (pa
     byPlace: (a, b) => byCodePoint(r.rel(position(a).path), r.rel(position(b).path)) || position(a).position - position(b).position,
   };
   const renames = all.filter(({ entry }) => !entry.retarget && identifierText(entry.newName) !== identifierText(entry.old));
-  const out = new Map<number, NameConflict>();
+  const out = new Map<ScopedEntry, NameConflict>();
   for (const { entry, declared } of renames) {
     const first = staying(entry, declared, deciding);
-    if (first !== undefined) out.set(entry.index, { name: entry.newName, ...position(first) });
+    if (first !== undefined) out.set(entry, { name: entry.newName, ...position(first) });
   }
   for (const group of meetings(renames.flatMap((p) => p.declared))) {
     const met = meetingOf(group, deciding);
-    if (met !== null && !out.has(met.latest.index)) out.set(met.latest.index, { name: met.latest.newName, ...position(met.earliest) });
+    if (met !== null && !out.has(met.latest)) out.set(met.latest, { name: met.latest.newName, ...position(met.earliest) });
   }
-  return out;
+  return out as Map<E, NameConflict>;
 }
 
 /** What decides a pair: the entry renaming each declaration (by its key), the kept declarations and their order. */

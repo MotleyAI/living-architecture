@@ -199,7 +199,7 @@ commands:
     native: [python, typescript]
     help: >-
       IDE-grade refactors (Python via la's own renames and rope's moves, TypeScript via its language service): rename,
-      rename-map, retarget, move-symbol, move-module. Rewrites every import and reference across the project and keeps the type-check
+      rename-map, generate-map, retarget, move-symbol, move-module. Rewrites every import and reference across the project and keeps the type-check
       baseline aligned. Dry-run by default; pass --apply to write. Symbol location comes from --symbol (the
       declaration's path inside --file, e.g. Class.method), --offset, or --line/--col (1-based, as an editor/LSP
       reports).
@@ -222,7 +222,8 @@ commands:
           - {name: --line, type: int, help: 1-based line}
           - {name: --col, type: int, help: 1-based column}
           - {name: --symbol, type: string, metavar: PATH,
-             help: "the declaration's path in --file: Class.method, func.<locals>.inner, func(param), Alias['value']"}
+             help: "the declaration's path in --file: Class.method, func.<locals>.inner, func(param), Alias['value'],
+               '*.<locals>.name' (every local of that name)"}
           - {name: --new-name, type: string, required: true, help: the new name}
           - {name: --no-in-hierarchy, type: flag, dest: in_hierarchy, store: false,
              help: 'disable hierarchy rename (on by default: also renames overrides in sub/superclasses; Python only)'}
@@ -243,6 +244,8 @@ commands:
                name (repeatable)'}
           - {name: --keep-literal, type: string, metavar: KEY, repeatable: true,
              help: 'leave every edit inside a dict or object literal that holds the key KEY (repeatable)'}
+          - {name: --words, type: path, metavar: TABLE,
+             help: "a word table whose carve-outs leave matching stand-ins and list matching --docs mentions"}
           - {name: --fail-fast, type: flag,
              help: 'stop at the first entry with a refusal (default: compute every entry and report every refusal)'}
           - {name: --stub, type: string, metavar: REMOVAL,
@@ -274,11 +277,22 @@ commands:
                name (repeatable)'}
           - {name: --keep-literal, type: string, metavar: KEY, repeatable: true,
              help: 'leave every edit inside a dict or object literal that holds the key KEY (repeatable)'}
+          - {name: --words, type: path, metavar: TABLE,
+             help: "a word table whose carve-outs leave matching stand-ins and list matching --docs mentions"}
           - {name: --fail-fast, type: flag,
              help: 'stop at the first entry with a refusal (default: compute every entry and report every refusal)'}
           - {name: --stub, type: string, metavar: REMOVAL,
              help: 'Python module renames: leave a stub at each moved module file''s old path, refactor.python.moved_module_stub
                with {removal} set to REMOVAL'}
+      generate-map:
+        help: >-
+          write a rename map for a word table: one entry per declaration and module whose name holds a word,
+          leaving out and listing what a carve-out matches
+        positionals:
+          - {name: table, help: 'the word table: words {from, to}, carve_outs {words, annotated | paths | symbols} and entries'}
+        options:
+          - {name: --language, type: string, choices: [python, typescript],
+             help: 'the language to generate for (required when the project holds both)'}
       retarget:
         help: rewrite the references to an alias to name its target, declared or imported in the same class or module
         exclusive: [[offset, line, symbol]]
@@ -299,6 +313,8 @@ commands:
              help: 'leave every edit on this line, in this file or under this directory; PATH relative to --project (repeatable)'}
           - {name: --docs, type: flag,
              help: 'also rewrite mentions in comments, docstrings, strings and prose files; list the rest'}
+          - {name: --words, type: path, metavar: TABLE,
+             help: "a word table whose carve-outs leave matching stand-ins and list matching --docs mentions"}
           - {name: --fail-fast, type: flag,
              help: 'stop at the first entry with a refusal (default: compute every entry and report every refusal)'}
       move-symbol:

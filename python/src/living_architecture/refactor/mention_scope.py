@@ -151,6 +151,9 @@ class GroupMentions:
             return next(iter(qualified)) if len(qualified) == 1 else None
         if not declaring or not code_marked(text, m):
             return None
+        carves = self.renames[0].carves
+        if carves is not None and carves.covers(rel, self.old, m.start):
+            return None
         source = self.session.snapshot.source(rel)
         if rel not in self._spans:
             self._spans[rel] = _class_spans(source)
