@@ -4,14 +4,11 @@ one), located by a site on its name, and its region of lines."""
 from __future__ import annotations
 
 import ast
-import re
 
 from living_architecture.contract import message
 from living_architecture.refactor.locators import RefactorError
-from living_architecture.refactor.python_source import SourceFile, name_end, split_lines
+from living_architecture.refactor.python_source import SourceFile, header_lines, name_end, split_lines
 from living_architecture.refactor.static_resolver import Module, node_key
-
-_CODING = re.compile(r"^[ \t\f]*#.*?coding[:=][ \t]*[-_.a-zA-Z0-9]+")
 
 Declaration = ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef | ast.Assign | ast.AnnAssign
 
@@ -84,15 +81,6 @@ def _overload_group(body: list[ast.stmt], bound: list[ast.AST]) -> list[Declarat
     return None
 
 
-def _header(lines: list[str]) -> int:
-    """How many leading lines are the file's header: a shebang on line 1, a coding declaration on line 1 or 2."""
-    count = 1 if lines and lines[0].startswith("#!") else 0
-    for index, line in enumerate(lines[:2]):
-        if _CODING.match(line):
-            count = index + 1
-    return count
-
-
 def _region(source: SourceFile, statements: list[Declaration]) -> tuple[int, int]:
     """Lines from the first decorator (else the first line), up over `#` lines in column 0, to the last line, down over
     whitespace-only lines."""
@@ -100,7 +88,7 @@ def _region(source: SourceFile, statements: list[Declaration]) -> tuple[int, int
     decorators = getattr(first, "decorator_list", [])
     start = decorators[0].lineno if decorators else first.lineno
     lines = split_lines(source.text)
-    while start > _header(lines) + 1 and lines[start - 2].startswith("#"):
+    while start > header_lines(lines) + 1 and lines[start - 2].startswith("#"):
         start -= 1
     end = statements[-1].end_lineno or statements[-1].lineno
     while end < len(lines) and not lines[end].strip():

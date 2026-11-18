@@ -12,7 +12,7 @@ from collections.abc import Iterator
 from pathlib import Path
 
 from living_architecture.refactor.move_project import MoveProject
-from living_architecture.refactor.python_source import SourceFile
+from living_architecture.refactor.python_source import SourceFile, header_end
 from living_architecture.refactor.static_resolver import ImportItem, Scope, Value
 
 _BREAK = re.compile(r"\r\n|\r|\n")
@@ -74,9 +74,9 @@ def is_docstring(node: ast.stmt) -> bool:
 
 
 def block_end(source: SourceFile) -> int:
-    """After the leading run of imports; without one, after the module docstring."""
+    """After the leading run of imports; without one, after the module docstring, else after the file's header."""
     body = source.tree.body if source.tree is not None else []
-    end = 0
+    end = header_end(source.text)
     index = 0
     if body and is_docstring(body[0]):
         end = after_line(source.text, span(source, body[0])[1])

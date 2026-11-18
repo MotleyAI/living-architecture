@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from living_architecture.refactor.python_source import SourceFile, every_parameter
+from living_architecture.refactor.python_source import SourceFile, every_parameter, header_end
 
 LIGATURE = "\ufb01x"  # NFKC: "fix", one character longer
 COMBINING = "a\u0301b"  # NFKC: one precomposed letter, then "b"
@@ -58,3 +58,17 @@ def test_the_all_strings_are_the_names_all_exports() -> None:
 def test_every_parameter_is_listed_in_declaration_order(text: str) -> None:
     node = next(n for n in ast.walk(ast.parse(text)) if isinstance(n, (ast.FunctionDef, ast.Lambda)))
     assert [a.arg for a in every_parameter(node.args)] == ["a", "b", "c", "d", "e", "g"]
+
+
+@pytest.mark.parametrize(("text", "header"), [
+    ("#!/usr/bin/env python\n# coding: latin-1\nX = 1\n", "#!/usr/bin/env python\n# coding: latin-1\n"),
+    ("# coding: latin-1\n# note\n", "# coding: latin-1\n"),
+    ("\n# coding: latin-1\nX = 1\n", "\n# coding: latin-1\n"),
+    ("#!/usr/bin/env python\nX = 1\n", "#!/usr/bin/env python\n"),
+    ("X = 1\n# coding: latin-1\n", ""),
+    ("# note\nX = 1\n", ""),
+    ("", ""),
+], ids=["shebang-and-coding", "coding-first", "coding-below-blank", "shebang-only", "coding-below-code", "comment", "empty"])
+def test_the_header_is_the_shebang_and_the_coding_declaration(text: str, header: str) -> None:
+    assert text[: header_end(text)] == header
+
