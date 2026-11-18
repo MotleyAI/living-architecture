@@ -41,7 +41,7 @@ Tags: `(user)` the user's choice, `(default)` an obvious default, `(codex)` a Co
    `shared/la` with a hash each, lockstep versions with la pinning dr's minor, one config file per target repo, la
    calls dr as a library, a conformance tree and inventory per package with one runner, `dr-` names and the `dr:`
    namespace with `la-` aliases for one minor, and a `dr` node with only `la -> dr`. (user, via the issue)
-2. **Plugin dependency**: la's `plugin.json` declares `dependencies: [{name: dr, version: "~0.12.0"}]`, so installing
+2. **Plugin dependency**: la's `plugin.json` declares `dependencies: [{name: dr, version: "~0.13.0"}]`, so installing
    la installs dr. Verified: `claude plugin validate` 2.1.322 accepts this form and rejects a non-array. This answers
    the issue's open question. (default)
 3. **Python `source_roots`** in `index.yaml` (a list replacing `source_root`; each root package under exactly one
@@ -53,15 +53,15 @@ Tags: `(user)` the user's choice, `(default)` an obvious default, `(codex)` a Co
 5. **Conventions, count-comments and affected-tests stay in la** under their `la-` names: they serve la's workflow;
    narrowing tests after a refactor would weaken the dr gate, which runs the full suite. (user)
 6. **Top-level `exempt`** defined by dr's schema and embedded in la's, read by language detection and the conventions
-   gate; `living-architecture.yaml` moves to format 0.12.0 and `la-arch-migrate` moves the key. Rejected keeping
+   gate; `living-architecture.yaml` moves to format 0.13.0 and `la-arch-migrate` moves the key. Rejected keeping
    `conventions.exempt` in dr's schema (a dr-only config would say `conventions:` forever). In an la repo the key
    stays in the one `living-architecture.yaml`. (user)
-7. **Per-file format series** in `shared/dr/config.yaml` (`living-architecture.yaml: [0.4.0, 0.12.0]`,
-   `deterministic-refactor.yaml: [0.12.0]`); each command checks the file it read. Rejected one shared series (an
+7. **Per-file format series** in `shared/dr/config.yaml` (`living-architecture.yaml: [0.4.0, 0.13.0]`,
+   `deterministic-refactor.yaml: [0.13.0]`); each command checks the file it read. Rejected one shared series (an
    la-only bump would disturb dr-only repos and need a restamp-only `dr-migrate`) and skipping the check on the la
    file (a stale dr could misread a newer config). An la-only format bump changes dr's hash, harmless in lockstep.
    (user)
-8. **`la-typecheck` alias** prints one stderr deprecation line naming `dr-typecheck` and 0.13.0; stdout and exit
+8. **`la-typecheck` alias** prints one stderr deprecation line naming `dr-typecheck` and 0.14.0; stdout and exit
    unchanged; not printed under `LA_FORWARDED`. Rejected a silent alias (nobody would migrate before removal). (user)
 9. **dr owns more than the issue lists**: `config` (loading, YAML profile, schema, defaults, format check, language
    detection), `twin` and `changes`, because `refactor` and `typecheck` import them; plus `dr-doctor`, `dr-config` and
@@ -69,7 +69,7 @@ Tags: `(user)` the user's choice, `(default)` an obvious default, `(codex)` a Co
 10. **No stub skills**; la's skills name the `dr:` skills; the user's global `CLAUDE.md` edit (`la:deterministic-refactor`
     → `dr:deterministic-refactor`, `la-typecheck` → `dr-typecheck`) is proposed at the end. (user)
 11. **One change, one PR**, ordered so each step lands green in its own commit, rather than precursor PRs for
-    `source_roots` and `exempt` (two more full cycles; 0.12.0 could not ship until all landed). (user)
+    `source_roots` and `exempt` (two more full cycles; 0.13.0 could not ship until all landed). (user)
 12. **Harness edits** (approved wording):
     - `architecture/index.yaml`: `python: {source_roots: [python/dr/src, python/la/src], root_packages:
       [deterministic_refactor, living_architecture]}`, `typescript: {source_root: node, root_packages: [dr/src,
@@ -128,8 +128,8 @@ Tags: `(user)` the user's choice, `(default)` an obvious default, `(codex)` a Co
     directory. Both packages' commands are on `PATH` (la needs dr's), host runners are hidden as today. A self-test
     refuses a dr case invoking an `la-*` command and vice versa. la's facts documents (arch-check, conventions,
     affected) carry la's hash; the identity handshake already pins dr's. (codex)
-21. **Version bump with the format** (codex finding 4): the lockstep bump to 0.12.0 lands in the same commit that
-    appends format 0.12.0 (step 2), because a test requires the current format to be no newer than every version;
+21. **Version bump with the format** (codex finding 4): the lockstep bump to 0.13.0 lands in the same commit that
+    appends format 0.13.0 (step 2), because a test requires the current format to be no newer than every version;
     later steps update the new manifests and lockfiles atomically. (codex)
 22. **la's dr surface** (codex finding 5): la imports from dr only through these public modules —
     `deterministic_refactor.contract` (snapshot loader, `message`, schema, YAML profile, glob, repr, OS errors),
@@ -164,13 +164,13 @@ Tags: `(user)` the user's choice, `(default)` an obvious default, `(codex)` a Co
   package name); unexplained diffs block.
 - [Users install la without the dr executables] → la's install hints include them; `la-doctor` reports a missing or
   mismatched `dr-doctor`.
-- [Target repos must migrate to format 0.12.0] → `la-doctor` already names `la-arch-migrate`; the step is automatic
+- [Target repos must migrate to format 0.13.0] → `la-doctor` already names `la-arch-migrate`; the step is automatic
   and refuses shapes it cannot move faithfully.
 - [The maintainer's local setup breaks: `~/.claude/skills/la` points at `plugin/`, the editable uv tool is one
   package] → the PR description gives the re-link and reinstall commands.
 
 ## Migration Plan
 
-Release 0.12.0 of both packages and plugins together (dr first on each registry). Target repos run `la-arch-migrate`
-once; scripts calling `la-typecheck` switch to `dr-typecheck` before 0.13.0, which removes the alias. Rollback is
+Release 0.13.0 of both packages and plugins together (dr first on each registry). Target repos run `la-arch-migrate`
+once; scripts calling `la-typecheck` switch to `dr-typecheck` before 0.14.0, which removes the alias. Rollback is
 installing 0.11.x, which reads format 0.4.0 only, so a migrated repo would need its `exempt` moved back by hand.

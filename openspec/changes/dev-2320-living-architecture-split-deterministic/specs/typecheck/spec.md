@@ -178,10 +178,10 @@ verified-version table SHALL initially hold exactly `1.40.2`.
 ## ADDED Requirements
 
 ### Requirement: la-typecheck is a deprecated alias for one minor version
-The `living-architecture` package SHALL install `la-typecheck` through 0.12.x and SHALL NOT install it from 0.13.0 on.
+The `living-architecture` package SHALL install `la-typecheck` through 0.13.x and SHALL NOT install it from 0.14.0 on.
 It SHALL accept exactly the options of `dr-typecheck`, behave as `dr-typecheck` with the same arguments, and
 produce byte-identical stdout and the same exit code. Before any other output it SHALL print exactly one line on
-stderr, rendered from the shared findings registry, naming `dr-typecheck` and `0.13.0` as the release that removes
+stderr, rendered from the shared findings registry, naming `dr-typecheck` and `0.14.0` as the release that removes
 the alias; the rest of stderr SHALL equal `dr-typecheck`'s. A process carrying `LA_FORWARDED=1` SHALL NOT print the
 line, so a forwarded language section never repeats it. `--help` and usage errors SHALL behave as `dr-typecheck`'s,
 without the line.

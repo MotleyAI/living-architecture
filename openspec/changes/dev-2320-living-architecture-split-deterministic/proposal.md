@@ -6,7 +6,7 @@ verified renames and moves should be able to install it without the architecture
 
 ## What Changes
 
-- Two packages and two Claude Code plugins in this repo, released in lockstep at 0.12.0:
+- Two packages and two Claude Code plugins in this repo, released in lockstep at 0.13.0:
   `deterministic-refactor` (plugin `dr`: the language-server layer, the type-check gate, refactor, compliance,
   mock-lint) and `living-architecture` (plugin `la`: the architecture model and checks, diagrams, conventions, review
   helpers, affected tests and the PR flow), which depends on dr and pins it to the same minor. dr never depends on la.
@@ -19,7 +19,7 @@ verified renames and moves should be able to install it without the architecture
 - A dr-only repo configures dr in `deterministic-refactor.yaml`; a repo using la keeps one `living-architecture.yaml`.
   Both present is refused. Each file has its own format series.
 - **BREAKING** `conventions.exempt` becomes a top-level `exempt` key defined by dr and read by language detection and
-  the conventions gate; `living-architecture.yaml` moves to format 0.12.0 and `la-arch-migrate` moves the key.
+  the conventions gate; `living-architecture.yaml` moves to format 0.13.0 and `la-arch-migrate` moves the key.
 - `architecture/index.yaml` gains a Python-only `source_roots` list, so one language's root packages can sit under
   several import roots (a uv workspace).
 - **BREAKING** The skills `deterministic-refactor`, `make-refactor-target-compliant` and `make-diff-compliant` move to
@@ -49,6 +49,6 @@ verified renames and moves should be able to install it without the architecture
   `node/dr`/`node/la`); la imports dr's `contract`, `config`, `lang`, `twin` and `changes` as a library.
 - Distribution: a new PyPI and npm package `deterministic-refactor`; `living-architecture` depends on it; a second
   plugin `dr` in the marketplace; install hints change.
-- Target repos: `living-architecture.yaml` needs `la-arch-migrate` (0.4.0 to 0.12.0); scripts calling `la-typecheck`
-  should switch to `dr-typecheck` before 0.13.0; references to `la:deterministic-refactor` and friends become `dr:`.
+- Target repos: `living-architecture.yaml` needs `la-arch-migrate` (0.4.0 to 0.13.0); scripts calling `la-typecheck`
+  should switch to `dr-typecheck` before 0.14.0; references to `la:deterministic-refactor` and friends become `dr:`.
 - Repo: `shared/`, `conformance/`, `plugin/`, `architecture/`, CI, publish, `scripts/` and docs.

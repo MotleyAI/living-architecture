@@ -8,12 +8,12 @@ then exit 0. `dr-doctor --twin` SHALL print `<language> <version> <dr-hash>`; `l
 contract hash of that package's snapshot (for la, the dr hash of the dr library it runs with).
 
 #### Scenario: Identity line
-- **WHEN** `dr-doctor --twin` runs through the PyPI twin at version 0.12.0
-- **THEN** it prints `python 0.12.0 <dr hash>` and exits 0
+- **WHEN** `dr-doctor --twin` runs through the PyPI twin at version 0.13.0
+- **THEN** it prints `python 0.13.0 <dr hash>` and exits 0
 
 #### Scenario: la identity line
-- **WHEN** `la-doctor --twin` runs through the npm twin at version 0.12.0
-- **THEN** it prints `typescript 0.12.0 <la hash> <dr hash>` and exits 0
+- **WHEN** `la-doctor --twin` runs through the npm twin at version 0.13.0
+- **THEN** it prints `typescript 0.13.0 <la hash> <dr hash>` and exits 0
 
 ### Requirement: The other twin is found by identity
 Each package SHALL reach its own other twin: a `dr-*` command the dr twin of language L, an `la-*` command the la

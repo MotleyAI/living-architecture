@@ -1,4 +1,4 @@
-format: 0.12.0
+format: 0.13.0
 commands:
   typecheck:
     python: 'basedpyright -p la'

@@ -79,7 +79,7 @@ def test_dr_commands_native_languages() -> None:
 def test_dr_config_lists_the_config_files_and_their_formats() -> None:
     config = _yaml("dr/config.yaml")
     assert config["files"] == [DR_FILE, LA_FILE]
-    assert config["formats"] == {DR_FILE: ["0.12.0"], LA_FILE: ["0.4.0", "0.12.0"]}
+    assert config["formats"] == {DR_FILE: ["0.13.0"], LA_FILE: ["0.4.0", "0.13.0"]}
 
 
 def _package_versions() -> dict[str, str]:

@@ -6,7 +6,7 @@ committed config file"): the version of the release that introduced the format, 
 integers without leading zeros (`0.4.0`). The dr contract SHALL list, per config file name, its released formats,
 every format a release introduced for that file, as a non-empty list of such versions in strictly ascending order;
 the file's current format SHALL be its last entry. `living-architecture.yaml` SHALL have the series
-`[0.4.0, 0.12.0]` and `deterministic-refactor.yaml` the series `[0.12.0]`. Versions SHALL compare component by
+`[0.4.0, 0.13.0]` and `deterministic-refactor.yaml` the series `[0.13.0]`. Versions SHALL compare component by
 component as integers of any size.
 
 Every command the CLI manifest does not mark exempt SHALL check the declared format of the file it reads, against
@@ -87,23 +87,23 @@ forwards anything.
 
 #### Scenario: dr command in an la repo checks the la file
 - **WHEN** `living-architecture.yaml` declares `format: 0.4.0` and `dr-refactor` or `dr-typecheck` runs
-- **THEN** it exits 2 with the older-format message naming `0.4.0`, `0.12.0` and `la-arch-migrate`
+- **THEN** it exits 2 with the older-format message naming `0.4.0`, `0.13.0` and `la-arch-migrate`
 
 #### Scenario: dr file with a missing format
 - **WHEN** `deterministic-refactor.yaml` has no `format` and `dr-config show` runs
-- **THEN** it exits 2 with the message naming `format: 0.12.0` as the line to add
+- **THEN** it exits 2 with the message naming `format: 0.13.0` as the line to add
 
 #### Scenario: dr file with a newer format
 - **WHEN** `deterministic-refactor.yaml` declares `format: 9.0.0` and `dr-typecheck` runs
 - **THEN** it exits 2 with the message naming `9.0.0` as the `dr` version to upgrade to
 
 #### Scenario: dr file with an older or invalid format
-- **WHEN** `deterministic-refactor.yaml` declares `format: 0.11.0`, or `format: v0.12.0`, and `dr-config show` runs
+- **WHEN** `deterministic-refactor.yaml` declares `format: 0.11.0`, or `format: v0.13.0`, and `dr-config show` runs
 - **THEN** it exits 2 with the older-format message naming both formats, or the invalid-format message showing the value
 
 #### Scenario: dr file at the current format
-- **WHEN** `deterministic-refactor.yaml` declares `format: 0.12.0` and `dr-config get format` runs
-- **THEN** it prints `0.12.0` and exits 0
+- **WHEN** `deterministic-refactor.yaml` declares `format: 0.13.0` and `dr-config get format` runs
+- **THEN** it prints `0.13.0` and exits 0
 
 ## ADDED Requirements
 
@@ -158,7 +158,7 @@ naming `exempt`).
 - **THEN** it prints `[]`
 
 #### Scenario: Retired nested key
-- **WHEN** `living-architecture.yaml` at format 0.12.0 sets `conventions: {exempt: ['gen/*']}` and `la-config show` runs
+- **WHEN** `living-architecture.yaml` at format 0.13.0 sets `conventions: {exempt: ['gen/*']}` and `la-config show` runs
 - **THEN** it exits 1 and its error names `exempt`
 
 #### Scenario: Exempt files do not make a language
@@ -166,8 +166,8 @@ naming `exempt`).
 - **THEN** it prints `["python"]`
 
 ### Requirement: la-arch-migrate moves the exempt key
-`la-arch-migrate` on a `living-architecture.yaml` at format 0.4.0 SHALL, as its 0.4.0-to-0.12.0 step, move
-`conventions.exempt` to a top-level `exempt` and then stamp `format: 0.12.0`, editing the text: the entry's lines
+`la-arch-migrate` on a `living-architecture.yaml` at format 0.4.0 SHALL, as its 0.4.0-to-0.13.0 step, move
+`conventions.exempt` to a top-level `exempt` and then stamp `format: 0.13.0`, editing the text: the entry's lines
 (its key line, its value and every comment line inside it) SHALL move verbatim, dedented by the entry's indent, to
 directly after the `format` line, and a `conventions` mapping left empty SHALL be removed with its key line. A file
 without `conventions.exempt` SHALL only be stamped. Every other byte SHALL be kept. A flow-style `conventions`
@@ -177,7 +177,7 @@ byte-identical files and output.
 
 #### Scenario: Block sequence moved
 - **WHEN** the file at format 0.4.0 holds `conventions:` with `  text_ratio_max: 0.2` and `  exempt:` followed by `    - 'gen/*'  # generated`, and `la-arch-migrate` runs
-- **THEN** the file holds `format: 0.12.0`, then `exempt:` and `  - 'gen/*'  # generated`, and `conventions:` keeps only `text_ratio_max`
+- **THEN** the file holds `format: 0.13.0`, then `exempt:` and `  - 'gen/*'  # generated`, and `conventions:` keeps only `text_ratio_max`
 
 #### Scenario: Flow sequence moved and empty mapping removed
 - **WHEN** the file at format 0.4.0 holds `conventions:` with only `  exempt: ['conformance/*']   # fixtures`, and `la-arch-migrate` runs
@@ -185,7 +185,7 @@ byte-identical files and output.
 
 #### Scenario: Nothing to move
 - **WHEN** the file at format 0.4.0 has no `conventions.exempt` and `la-arch-migrate` runs
-- **THEN** only the `format` line changes, to `format: 0.12.0`
+- **THEN** only the `format` line changes, to `format: 0.13.0`
 
 #### Scenario: Flow-style conventions not migratable
 - **WHEN** the file at format 0.4.0 holds `conventions: {exempt: [gen/*], rules: []}` and `la-arch-migrate` runs
@@ -206,7 +206,7 @@ and `lang.<language>.<key>` exactly as `la-config` defines them. Any other key S
 message. `la-config get` SHALL still accept every key, the dr keys included.
 
 #### Scenario: Show in a dr-only repo
-- **WHEN** a repo has `deterministic-refactor.yaml` declaring `format: 0.12.0` and `dr-config show` runs
+- **WHEN** a repo has `deterministic-refactor.yaml` declaring `format: 0.13.0` and `dr-config show` runs
 - **THEN** it prints the resolved `format`, `exempt` and `commands` and exits 0
 
 #### Scenario: la key refused

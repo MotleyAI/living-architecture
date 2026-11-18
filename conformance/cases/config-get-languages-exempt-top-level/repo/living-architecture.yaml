@@ -1,2 +1,2 @@
-format: 0.12.0
+format: 0.13.0
 exempt: ['fixtures/**']

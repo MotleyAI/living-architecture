@@ -334,7 +334,7 @@ whenever it applies the release rule to an untagged version.
 - **THEN** the Python test suite fails
 
 #### Scenario: Split release read against the single-file layout
-- **WHEN** `v0.11.0` has `shared/config.yaml` with `formats: [0.4.0]` and HEAD's `shared/dr/config.yaml` gives `living-architecture.yaml` `[0.4.0, 0.12.0]` and `deterministic-refactor.yaml` `[0.12.0]` for version `0.12.0`
+- **WHEN** `v0.12.0` has `shared/config.yaml` with `formats: [0.4.0]` and HEAD's `shared/dr/config.yaml` gives `living-architecture.yaml` `[0.4.0, 0.13.0]` and `deterministic-refactor.yaml` `[0.13.0]` for version `0.13.0`
 - **THEN** the formats rule passes
 
 ### Requirement: Observable outputs reproduce the conformance goldens byte for byte

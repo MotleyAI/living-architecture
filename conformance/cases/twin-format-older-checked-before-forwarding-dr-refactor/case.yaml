@@ -16,7 +16,7 @@ args:
 - w
 normalize:
 - pattern: (?m)^(?=[^\n]*living-architecture\.yaml)(?=[^\n]*\b0\.4\.0\b)(?=[^\n]*\b0\.12\.0\b)(?=[^\n]*la-arch-migrate)[^\n]*$
-  replace: <OLDER living-architecture.yaml 0.4.0 0.12.0 la-arch-migrate>
+  replace: <OLDER living-architecture.yaml 0.4.0 0.13.0 la-arch-migrate>
 expect:
   exit: 2
 note: 'an older la file format is refused before dr-refactor forwards a typescript file: no install hint'

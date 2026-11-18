@@ -21,8 +21,8 @@ It SHALL NOT check la keys, the local file, OpenSpec, the architecture setup or 
 SHALL be the file dr reads, or the defaults.
 
 #### Scenario: Healthy dr-only repo
-- **WHEN** a repo has a valid `deterministic-refactor.yaml` at format 0.12.0, `git` is on `PATH`, and `dr-doctor --plugin <dr plugin>/skills/init` runs with matching versions
-- **THEN** it prints `ok: dr tools 0.12.0; config from deterministic-refactor.yaml` and exits 0
+- **WHEN** a repo has a valid `deterministic-refactor.yaml` at format 0.13.0, `git` is on `PATH`, and `dr-doctor --plugin <dr plugin>/skills/init` runs with matching versions
+- **THEN** it prints `ok: dr tools 0.13.0; config from deterministic-refactor.yaml` and exits 0
 
 #### Scenario: dr-doctor in an la repo
 - **WHEN** a repo has only a valid `living-architecture.yaml` and `dr-doctor` runs
@@ -60,7 +60,7 @@ missing-config finding.
 - **THEN** it prints the dr-missing finding with the la install command naming `--with-executables-from deterministic-refactor`, and exits 1
 
 #### Scenario: Other dr version on PATH
-- **WHEN** the first `dr-doctor` on `PATH` reports version 0.11.0 while la is 0.12.0
+- **WHEN** the first `dr-doctor` on `PATH` reports version 0.11.0 while la is 0.13.0
 - **THEN** `la-doctor` prints the dr-mismatch finding naming both versions and the install command, and exits 1
 
 #### Scenario: Matching dr on PATH

@@ -17,7 +17,7 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | *(new)* an exempt review shim runs in an unversioned repo | 0 | `shim-fetch-failed-pr-checks-unversioned` |
 | *(new)* the invoking twin checks before forwarding the other language's files (no install hint with the other twin absent) | 2 | `twin-format-checked-before-forwarding-python`, `twin-format-checked-before-forwarding-typescript` |
 | *(new)* a dr command in an la repo checks `living-architecture.yaml` against its series: an older `format` is refused naming both formats and `la-arch-migrate` | 2 | `refactor-format-older-la-file` |
-| *(new)* `deterministic-refactor.yaml` without `format`: refused naming `format: 0.12.0` as the line to add | 2 | `config-dr-format-missing` |
+| *(new)* `deterministic-refactor.yaml` without `format`: refused naming `format: 0.13.0` as the line to add | 2 | `config-dr-format-missing` |
 | *(new)* `deterministic-refactor.yaml` at a newer format: refused naming it as the `dr` version to upgrade to | 2 | `typecheck-dr-file-format-newer` |
 | *(new)* `deterministic-refactor.yaml` at an older or invalid format: refused naming both formats, or showing the value | 2 | `config-dr-format-older`, `config-dr-format-invalid` |
 | *(new)* `deterministic-refactor.yaml` at the current format passes | 0 | `config-dr-get-format` |
@@ -208,8 +208,8 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | *(new)* the merged files would parse differently: nothing written | 2 | `arch-migrate-verification-mismatch` |
 | *(new)* a failing delete after both writes: created files removed, repo and config unchanged (every failure point and failed restores: the migrate unit tests) | 2 | `arch-migrate-write-failure` |
 | *(new)* usage error; `--help` | 2/0 | `arch-migrate-usage-unknown-flag`, `arch-migrate-help` |
-| *(new)* 0.4.0 → 0.12.0: `conventions.exempt` moves verbatim (comments kept), dedented, to after the `format` line; an emptied `conventions:` mapping is removed; without it only the format is stamped | 0 | `arch-migrate-exempt-block-sequence`, `arch-migrate-exempt-flow-sequence-emptied`, `arch-migrate-exempt-nothing-to-move` |
-| *(new)* 0.4.0 → 0.12.0 not migratable (a flow-style `conventions:` mapping, an alias, anchor or tag on or in the entry, a merge key in `conventions:`): names the manual edit, nothing written | 2 | `arch-migrate-exempt-flow-conventions-refused`, `arch-migrate-exempt-alias-refused`, `arch-migrate-exempt-anchor-refused`, `arch-migrate-exempt-tag-refused`, `arch-migrate-exempt-merge-key-refused` |
+| *(new)* 0.4.0 → 0.13.0: `conventions.exempt` moves verbatim (comments kept), dedented, to after the `format` line; an emptied `conventions:` mapping is removed; without it only the format is stamped | 0 | `arch-migrate-exempt-block-sequence`, `arch-migrate-exempt-flow-sequence-emptied`, `arch-migrate-exempt-nothing-to-move` |
+| *(new)* 0.4.0 → 0.13.0 not migratable (a flow-style `conventions:` mapping, an alias, anchor or tag on or in the entry, a merge key in `conventions:`): names the manual edit, nothing written | 2 | `arch-migrate-exempt-flow-conventions-refused`, `arch-migrate-exempt-alias-refused`, `arch-migrate-exempt-anchor-refused`, `arch-migrate-exempt-tag-refused`, `arch-migrate-exempt-merge-key-refused` |
 
 ## la-config
 
@@ -419,7 +419,7 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 
 | Branch | Exit | Cases |
 |---|---|---|
-| *(new)* the alias: `dr-typecheck`'s stdout and exit, its stderr after one deprecation line naming `dr-typecheck` and `0.13.0` | 1 | `typecheck-dr-python-new-errors`, `typecheck-alias-python-new-errors` |
+| *(new)* the alias: `dr-typecheck`'s stdout and exit, its stderr after one deprecation line naming `dr-typecheck` and `0.14.0` | 1 | `typecheck-dr-python-new-errors`, `typecheck-alias-python-new-errors` |
 | *(new)* the line once on a mixed repo, before the python header (forwarded section silent) | 1 | `typecheck-alias-mixed-deprecation-once` |
 | *(new)* write mode through the alias | 0 | `typecheck-alias-write-baseline` |
 | *(new)* no line under `LA_FORWARDED=1`, plain or with the internal `--language` | 0 | `typecheck-alias-forwarded-no-line`, `typecheck-alias-forwarded-language-no-line` |
