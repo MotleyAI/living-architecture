@@ -20,6 +20,7 @@ from rope.base.resources import File
 from living_architecture.config import ConfigError, find_repo_root, load_config, source_files
 from living_architecture.contract import manifest, message
 from living_architecture.lang import LanguageServerError
+from living_architecture.lang.position_map import Edit
 from living_architecture.refactor.baseline_align import (
     BaselineFailed,
     align,
@@ -47,7 +48,6 @@ from living_architecture.refactor.module_rename import (
 from living_architecture.refactor.move_edits import NameConflict
 from living_architecture.refactor.occurrence_index import RunIndex, ServerSession, candidate_files
 from living_architecture.refactor.outcomes import Finding
-from living_architecture.refactor.position_map import Edit
 from living_architecture.refactor.progress import Progress, Refusal, Refused, checker_cause, refusal, unique
 from living_architecture.refactor.python_project import Snapshot
 from living_architecture.refactor.python_source import SourceFile

@@ -107,6 +107,12 @@ export function fileAt(ref: string, path: string, repoRoot: string): Buffer | nu
   return proc.status === 0 ? proc.stdout : null;
 }
 
+/** Whether `ref` names a commit. */
+export function isCommit(ref: string, repoRoot: string): boolean {
+  const args = ['rev-parse', '--verify', '--quiet', '--end-of-options', `${ref}^{commit}`];
+  return spawnSync('git', args, { cwd: repoRoot }).status === 0; // NOSONAR(S4036) — runs the user's own git from PATH by design
+}
+
 /** Each path renamed since `ref` (tracked files of the working tree), mapped to its path at `ref`. */
 export function basePaths(ref: string, repoRoot: string): Map<string, string> {
   const fields = nulSplit(git(['diff', '-z', '--name-status', '-M', ref], repoRoot)).map((field) => field.toString('utf8'));

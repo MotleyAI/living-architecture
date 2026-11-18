@@ -11,7 +11,7 @@ from pathlib import Path
 from living_architecture.config import ConfigError
 from living_architecture.contract import base_fetch_timeout, message
 
-__all__ = ["base_paths", "changed_paths", "file_at", "git_paths", "merge_base", "pr_base", "resolve_base_ref"]
+__all__ = ["base_paths", "changed_paths", "file_at", "git_paths", "is_commit", "merge_base", "pr_base", "resolve_base_ref"]
 
 # Neither git nor ssh may prompt during the fetch: no terminal prompt and no askpass helper.
 _NO_PROMPT = {"GIT_TERMINAL_PROMPT": "0", "GIT_ASKPASS": "", "SSH_ASKPASS": "", "SSH_ASKPASS_REQUIRE": "never"}
@@ -89,6 +89,13 @@ def changed_paths(*, base_ref: str, repo_root: Path, deletions: bool, untracked:
 def merge_base(*, base_ref: str, repo_root: Path) -> str:
     """The merge base of `base_ref` and HEAD."""
     return _git(["merge-base", base_ref, "HEAD"], cwd=repo_root).decode().strip()
+
+
+def is_commit(*, ref: str, repo_root: Path) -> bool:
+    """Whether `ref` names a commit."""
+    proc = subprocess.run(["git", "rev-parse", "--verify", "--quiet", "--end-of-options", f"{ref}^{{commit}}"],
+                          cwd=repo_root, capture_output=True, check=False)
+    return proc.returncode == 0
 
 
 def file_at(*, ref: str, path: str, repo_root: Path) -> bytes | None:

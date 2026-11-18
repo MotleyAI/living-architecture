@@ -1,6 +1,7 @@
 // `la-typecheck`: each applicable language's checker against its committed, only-shrinking baseline.
 import { accessSync, constants, existsSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { isCommit } from '../changes/index.js';
 import { ConfigError, findRepoRoot, type LaConfig, loadConfig, repoLanguages } from '../config/index.js';
 import { language, message, whichPath } from '../contract/index.js';
 import { checkTypescript } from '../lang/index.js';
@@ -101,10 +102,11 @@ function checkNative(root: string, command: string, write: boolean): number {
   return checkTypescript({ repoRoot: root, argv, command, baseline: language(twin.NATIVE_LANGUAGE).baseline_file, write });
 }
 
-function check(root: string, id: string, command: string, write: boolean): number {
+function check(root: string, id: string, command: string, write: boolean, realignFrom: string | null): number {
   if (id === twin.NATIVE_LANGUAGE) return checkNative(root, command, write);
+  const realign = realignFrom === null ? [] : ['--realign-from', realignFrom];
   try {
-    return twin.runLanguage('la-typecheck', id, write ? ['--write-baseline'] : [], root, root);
+    return twin.runLanguage('la-typecheck', id, write ? ['--write-baseline'] : realign, root, root);
   } catch (error) {
     if (!(error instanceof twin.TwinError)) throw error;
     err(message('typecheck.error', { error: error.message }));
@@ -127,11 +129,18 @@ function setup(cwd: string): [string, LaConfig] | number {
   }
 }
 
-/** `la-typecheck`; with `languageId` (the twins' protocol) only that native language, without a header. */
-export function run(cwd: string, write: boolean, languageId: string | null): number {
+/**
+ * `la-typecheck`; with `languageId` (the twins' protocol) only that native language, without a header. `realignFrom`
+ * goes to the Python section, whose baseline alone has positions.
+ */
+export function run(cwd: string, write: boolean, languageId: string | null, realignFrom: string | null = null): number {
   const ready = setup(cwd);
   if (typeof ready === 'number') return ready;
   const [root, config] = ready;
+  if (realignFrom !== null && !isCommit(realignFrom, root)) {
+    err(message('typecheck.bad-ref', { ref: realignFrom }));
+    return 2;
+  }
   if (languageId !== null) {
     if (languageId !== twin.NATIVE_LANGUAGE) {
       err(message('typecheck.error', { error: message('typecheck.not-native', { language: languageId }) }));
@@ -160,7 +169,7 @@ export function run(cwd: string, write: boolean, languageId: string | null): num
       err(message('typecheck.skip', { language: id, baseline }));
       continue;
     }
-    codes.push(check(root, id, command, write));
+    codes.push(check(root, id, command, write, realignFrom));
   }
   if (write && codes.length === 0) {
     err(message('typecheck.refusal'));

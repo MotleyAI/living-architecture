@@ -10,10 +10,13 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from typing import Any
 
-from living_architecture import lang, twin
+from living_architecture import changes, lang, twin
 from living_architecture.config import ConfigError, LaConfig, find_repo_root, load_config, repo_languages
 from living_architecture.contract import language, message, os_error_text
+from living_architecture.lang.baseline import Key, baselined, diagnostics
+from living_architecture.typecheck.realign import Entries, realigned, rekeyed
 
 
 class CommandError(Exception):
@@ -120,6 +123,91 @@ def _run_python(root: Path, command: str, argv: list[str], *, write: bool) -> in
     return code
 
 
+def _baseline_files(raw: bytes) -> tuple[dict[str, Any], dict[str, Entries]] | None:
+    """A basedpyright baseline's data and its entries by file key; None when malformed."""
+    try:
+        data = json.loads(raw)
+    except ValueError:
+        return None
+    files = data.get("files") if isinstance(data, dict) else None
+    if not isinstance(files, dict):
+        return None
+    if not all(isinstance(entries, list) and all(isinstance(e, dict) for e in entries) for entries in files.values()):
+        return None
+    return data, files
+
+
+def _changed_texts(root: Path, ref: str, keys: list[str], renames: dict[str, str]) -> dict[str, tuple[str, str]]:
+    """Each listed file that exists and was renamed or edited since `ref`, with its text now and at `ref`."""
+    out: dict[str, tuple[str, str]] = {}
+    for key in keys:
+        rel = key.removeprefix("./")
+        path = root / rel
+        if not key.startswith("./") or not path.is_file():
+            continue
+        before = changes.file_at(ref=ref, path=renames.get(rel, rel), repo_root=root)
+        now = path.read_bytes()
+        if before is None or (rel not in renames and before == now):
+            continue
+        try:
+            out[rel] = now.decode("utf-8"), before.decode("utf-8")
+        except UnicodeDecodeError:
+            continue
+    return out
+
+
+def _shown_and_hidden(root: Path, command: str, baseline: str, files: list[str]) -> tuple[list[tuple[str, Key]], list[tuple[str, Key]]]:
+    """The diagnostics of `files` that `baseline` lets through, and the ones it hides."""
+    with tempfile.TemporaryDirectory(prefix="la-baseline-") as tmp:
+        empty, copy = Path(tmp) / "empty.json", Path(tmp) / "copy.json"
+        empty.write_text('{"files": {}}', encoding="utf-8")
+        copy.write_text(baseline, encoding="utf-8")
+        everything = diagnostics(python_diagnostics(root, command, ["--baselinefile", str(empty), *files]), root)
+        shown = diagnostics(python_diagnostics(root, command, ["--baselinefile", str(copy), *files]), root)
+    return shown, baselined(everything, shown)
+
+
+def _realign(root: Path, command: str, ref: str) -> int | None:
+    """Move each Python baseline entry to where its error is now, given that the baseline matched at `ref`; the exit
+    code when that fails."""
+    baseline_rel: str = language("python")["baseline_file"]
+    baseline = root / baseline_rel
+    if not baseline.is_file():
+        return None
+    parsed = _baseline_files(baseline.read_bytes())
+    if parsed is None:
+        _err(message("typecheck.baseline-invalid", language="python", baseline=baseline_rel))
+        return 2
+    data, listed = parsed
+    try:
+        renames = changes.base_paths(ref=ref, repo_root=root)
+    except ConfigError as exc:
+        return _error(str(exc))
+    files = rekeyed(listed, renames)
+    count = sum(len(listed.get(f"./{old}", [])) for old in renames.values())
+    texts = _changed_texts(root, ref, list(files), renames)
+    if texts:
+        try:
+            shown, hidden = _shown_and_hidden(root, command, json.dumps({**data, "files": files}), sorted(texts))
+        except CommandError as exc:
+            if exc.kind == "exit":
+                sys.stderr.write(exc.stderr)
+                sys.stderr.flush()
+            else:
+                _err(str(exc))
+            return 2
+        for rel, (now, before) in texts.items():
+            key = f"./{rel}"
+            entries = realigned(files[key], [k for path, k in hidden if path == rel], [k for path, k in shown if path == rel], now, before)
+            count += sum(1 for old, new in zip(files[key], entries, strict=True) if old != new and rel not in renames)
+            files[key] = entries
+    if count:
+        new_data = {**data, "files": {key: files[key] for key in sorted(files) if files[key]}}
+        baseline.write_text(json.dumps(new_data, indent=4), encoding="utf-8")
+        _err(message("typecheck.realign", language="python", count=count, baseline=baseline_rel, ref=ref))
+    return None
+
+
 def python_diagnostics(root: Path, command: str, extra: list[str]) -> dict[str, object]:
     """The configured Python checker's `--outputjson` report with `extra` appended; CommandError when it fails."""
     argv = resolve_argv(root, "python", command)
@@ -152,19 +240,27 @@ def python_diagnostics(root: Path, command: str, extra: list[str]) -> dict[str, 
     return report
 
 
-def _check_native(root: Path, command: str, *, write: bool) -> int:
+def _check_native(root: Path, command: str, *, write: bool, ref: str | None) -> int:
     try:
         argv = resolve_argv(root, twin.NATIVE_LANGUAGE, command)
     except CommandError as exc:
         _err(str(exc))
         return 2
+    if ref is not None:
+        failed = _realign(root, command, ref)
+        if failed is not None:
+            return failed
     sys.stdout.flush()
-    return _run_python(root, command, argv, write=write)
+    code = _run_python(root, command, argv, write=write)
+    baseline: str = language("python")["baseline_file"]
+    if code == 1 and ref is None and not write and (root / baseline).is_file():
+        _err(message("typecheck.realign-hint", language="python", baseline=baseline))
+    return code
 
 
-def _check(root: Path, lang_id: str, command: str, *, write: bool) -> int:
+def _check(root: Path, lang_id: str, command: str, *, write: bool, ref: str | None) -> int:
     if lang_id == twin.NATIVE_LANGUAGE:
-        return _check_native(root, command, write=write)
+        return _check_native(root, command, write=write, ref=ref)
     try:
         return twin.run_language("la-typecheck", lang_id, ["--write-baseline"] if write else [], cwd=root, repo_root=root)
     except twin.TwinError as exc:
@@ -182,16 +278,20 @@ def _setup(cwd: Path) -> tuple[Path, LaConfig] | int:
         return _error(str(exc))
 
 
-def run(*, cwd: Path, write: bool, language_id: str | None) -> int:
-    """`la-typecheck`; with `language_id` (the twins' protocol) only that native language, without a header."""
+def run(*, cwd: Path, write: bool, language_id: str | None, realign_from: str | None = None) -> int:
+    """`la-typecheck`; with `language_id` (the twins' protocol) only that native language, without a header. With
+    `realign_from`, the Python baseline is realigned from that commit before its check."""
     setup = _setup(cwd)
     if isinstance(setup, int):
         return setup
     root, config = setup
+    if realign_from is not None and not changes.is_commit(ref=realign_from, repo_root=root):
+        _err(message("typecheck.bad-ref", ref=realign_from))
+        return 2
     if language_id is not None:
         if language_id != twin.NATIVE_LANGUAGE:
             return _error(message("typecheck.not-native", language=language_id))
-        return _check_native(root, _command(config, language_id) or "", write=write)
+        return _check_native(root, _command(config, language_id) or "", write=write, ref=realign_from)
     try:
         languages = applicable(root, config)
     except ConfigError as exc:
@@ -207,7 +307,7 @@ def run(*, cwd: Path, write: bool, language_id: str | None) -> int:
         if write and (root / baseline).exists():
             _err(message("typecheck.skip", language=lang_id, baseline=baseline))
             continue
-        codes.append(_check(root, lang_id, command, write=write))
+        codes.append(_check(root, lang_id, command, write=write, ref=realign_from))
     if write and not codes:
         _err(message("typecheck.refusal"))
         return 2
