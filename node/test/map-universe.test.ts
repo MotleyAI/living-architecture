@@ -3,7 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import { message } from '../src/contract/index.js';
 import { run } from './cli-run.js';
-import { files, mapYaml, read, refactor, tsProject } from './refactor-project.js';
+import { entryRefusal, files, mapYaml, read, refactor, tsProject } from './refactor-project.js';
 
 const COMPUTED = `const KEY = 'getModel';
 
@@ -23,7 +23,7 @@ describe('computed names', () => {
     const root = tsProject({ 'src/store.ts': COMPUTED });
     const result = refactor(root, 'rename', '--file', 'src/store.ts', '--symbol', 'Keyed.getModel', '--new-name', 'x');
     const expected = message('refactor.symbol-unresolved', { path: 'src/store.ts', symbol: 'Keyed.getModel', candidates: '' });
-    expect(result).toEqual({ code: 2, out: '', err: `${expected}\n` });
+    expect(result).toEqual({ code: 2, out: '', err: `${entryRefusal('src/store.ts Keyed.getModel', expected)}\n` });
   });
 
   it('a map --with on a computed-name stand-in exits 2, --without leaves it', () => {

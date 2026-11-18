@@ -23,13 +23,15 @@ phase's wall time on stderr after all other output. Locate the symbol with `--sy
 `--file`, quoted for the shell: `Class.method`, `func.<locals>.inner`, `func(param)`, `Alias['value']` for a `Literal` member; no match
 or several exit 2 listing the candidates), `--line [--col]` (1-based) or `--offset` (0-based). `rename-map MAP`
 applies a YAML list of rename, retarget and module (`{module, new_name}`) entries as one refactor: every entry
-resolved before any is renamed, one diff, one refusal report, written all or nothing. `retarget` rewrites what resolves to a back-compat alias so
+resolved before any is renamed, one diff, one refusal report, written all or nothing. Name conflicts are judged on
+the code after the whole map, so symbol entries may chain or swap names (`a` to `b` beside `b` to `c`); module names
+may not. `retarget` rewrites what resolves to a back-compat alias so
 it names the alias's target, importing the target where a file lacks it and leaving the alias and its re-exports.
 Every refactor keeps the type-check baseline aligned (Python
 through `commands.typecheck.python`, TypeScript through the bundled language service), in dry-run and `--apply`. A
 member rename refuses while a receiver of the old name is untyped (`--allow-blindspots` overrides) or a class
 outside the renamed hierarchy declares it (`--with` / `--without PATH:LINE` classify each); `--keep PATH[:LINE]`
-leaves sites untouched, and `--docs` also rewrites mentions in comments, docstrings, strings and prose files,
+leaves sites untouched (a relative PATH of any of the three is resolved against `--project`), and `--docs` also rewrites mentions in comments, docstrings, strings and prose files,
 listing the rest as `leftover`. A parameter or field rename refuses the same way while a call keyword of the old name
 cannot be linked to it. A string held by a once-bound name (a constant, a local, the elements of a constant
 tuple a loop reads) is rewritten at its literal when a use proves it names the renamed member, or when the checker
@@ -41,11 +43,14 @@ A run announces its phases on stderr as they start — `[resolve]`, `[checks]`, 
 computed edits for map and name conflicts. Everything that needs no reference search runs
 in `checks` and refuses at once, listing every failure: entries that do not resolve, `--keep` / `--with` /
 `--without` sites naming no file or line, line keeps whose line spells no old name (a comment's spelling counts only
-with `--docs`, or in a Python type comment), Python walker gaps, an
+with `--docs`, or in a Python type comment), a new name the scope declaring the entry's symbol already holds and no
+other entry frees, Python walker gaps, an
 unreadable config while the language's baseline file exists, and a checker that cannot run. Once every entry's edits
 are final, before `conflicts`, each keep and stand-in site is resolved exactly: an unneeded whole-file or directory
 keep prints a `WARNING:` and the run goes on, while an unmatched line keep (named with the nearest edited line) or a
-`--with` / `--without` site holding no stand-in stops the run there. Past `checks`, every entry is computed and every refusal listed in one final report;
+`--with` / `--without` site holding no stand-in stops the run there. Past `checks`, every entry is computed and each refusal is printed once: a group's under its `[rules]` line, the rest
+(name conflicts, map conflicts, site findings) in the final report. A refusal of one entry names it and its locator,
+as in `entry 2 (pkg/c.py:2:5): ...`;
 `--fail-fast` (on `rename`, `retarget`, `rename-map`) stops after the first refused group instead. A failed checker
 is followed by its cause: exit code and stderr, start error, or error answer.
 

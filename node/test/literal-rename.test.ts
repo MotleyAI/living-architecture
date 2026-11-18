@@ -1,7 +1,7 @@
 // A string-literal type member renamed where the language service types a string by that union.
 import { describe, expect, it } from 'vitest';
 import { message } from '../src/contract/index.js';
-import { copyProject, files, lineCol, read, refactor, tsProject } from './refactor-project.js';
+import { copyProject, entryRefusal, files, lineCol, read, refactor, tsProject } from './refactor-project.js';
 
 const KINDS = "export type Kind = 'edit_model' | 'drop';\nexport type Other = 'edit_model' | 'zzz';\nexport type Alias = Kind;\n";
 const USE = `import type { Alias, Kind, Other } from './kinds';
@@ -62,7 +62,8 @@ describe('Literal member rename', () => {
     const before = files(root);
     const result = renameKind(root, 'drop');
     expect([result.code, result.out]).toEqual([1, '']);
-    expect(result.err.trimEnd().split('\n').at(-1)).toBe(message('refactor.name-conflict', { name: 'drop', path: 'src/loop.ts', line: 7 }));
+    const conflict = message('refactor.name-conflict', { name: 'drop', path: 'src/loop.ts', line: 7 });
+    expect(result.err.trimEnd().split('\n').at(-1)).toBe(entryRefusal("src/kinds.ts Kind['edit_model']", conflict));
     expect(files(root)).toEqual(before);
   });
 
@@ -92,7 +93,8 @@ describe('Literal member rename', () => {
   it.each(["it's", 'say "hi"', 'back\\slash', 'two\nlines', 'tick`tock', 'a${b}', 'para\u2029graph', 'nul\u0000'])('refuses the value %j', (value) => {
     const root = tsProject(project);
     const before = files(root);
-    expect(renameKind(root, value)).toEqual({ code: 2, out: '', err: `${message('refactor.literal-value', { value })}\n` });
+    const refused = entryRefusal("src/kinds.ts Kind['edit_model']", message('refactor.literal-value', { value }));
+    expect(renameKind(root, value)).toEqual({ code: 2, out: '', err: `${refused}\n` });
     expect(files(root)).toEqual(before);
   });
 

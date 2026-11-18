@@ -5,4 +5,4 @@
 [rules]
 [rules 1/1] entry 1: old2 -> nxt: clean
 [conflicts]
-nxt already names something else at src/m.ts:5, so nothing was refactored
+entry 1 (src/m.ts:4:9): nxt already names something else at src/m.ts:5, so nothing was refactored

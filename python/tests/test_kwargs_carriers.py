@@ -8,7 +8,7 @@ from string import Template
 import pytest
 import yaml
 from project_files import file_tree, write_project
-from refactor_cli import read, run
+from refactor_cli import entry_refusal, read, run
 
 from living_architecture.contract import message
 
@@ -473,7 +473,8 @@ def test_a_key_meeting_the_new_name_in_another_unpacked_literal_is_a_name_confli
     before = file_tree(root)
     code, _out, err = run(root, _rename("f(old)", "new"), monkeypatch, capsys)
     assert code == 1
-    assert err.splitlines()[-1] == message("refactor.name-conflict", name="new", path="pkg/q.py", line=6)
+    conflict = message("refactor.name-conflict", name="new", path="pkg/q.py", line=6)
+    assert err.splitlines()[-1] == entry_refusal("pkg/q.py f(old)", conflict)
     assert file_tree(root) == before
 
 
@@ -487,7 +488,8 @@ def test_a_keyword_collision_through_a_carrier_is_a_name_conflict(
     before = file_tree(root)
     code, _out, err = run(root, _rename("Query.measures", "metrics"), monkeypatch, capsys)
     assert code == 1
-    assert err.splitlines()[-1] == message("refactor.name-conflict", name="metrics", path="pkg/q.py", line=17)
+    conflict = message("refactor.name-conflict", name="metrics", path="pkg/q.py", line=17)
+    assert err.splitlines()[-1] == entry_refusal("pkg/q.py Query.measures", conflict)
     assert file_tree(root) == before
 
 

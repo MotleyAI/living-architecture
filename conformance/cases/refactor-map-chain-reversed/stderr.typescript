@@ -1,0 +1,10 @@
+[resolve]
+[checks]
+[references]
+[references 1/2] entry 1: measures -> metrics
+[references 2/2] entry 2: metrics -> legacyMetrics
+[rules]
+[rules 1/2] entry 1: measures -> metrics: clean
+[rules 2/2] entry 2: metrics -> legacyMetrics: clean
+[conflicts]
+[write]

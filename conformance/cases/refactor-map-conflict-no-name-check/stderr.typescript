@@ -1,0 +1,12 @@
+[resolve]
+[checks]
+[references]
+[references 1/3] entry 1: save -> store
+[references 2/3] entry 2: save -> keep
+[references 3/3] entry 3: old -> next
+[rules]
+[rules 1/2] entries 1, 2: save -> store, keep: clean
+[rules 2/2] entry 3: old -> next: clean
+[conflicts]
+src/hier.ts:2: entries 1 and 2 rewrite this site differently, so nothing was refactored
+src/hier.ts:6: entries 1 and 2 rewrite this site differently, so nothing was refactored

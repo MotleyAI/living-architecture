@@ -227,11 +227,11 @@ commands:
           - {name: --allow-blindspots, type: flag,
              help: 'list the blind spots of the old name (untyped receivers, unlinked keywords) and rename anyway (default: refuse)'}
           - {name: --with, type: string, dest: with_stand_ins, metavar: PATH:LINE, repeatable: true,
-             help: 'rename the stand-ins declared on this line too, with their hierarchies (repeatable)'}
+             help: 'rename the stand-ins declared on this line too, with their hierarchies; PATH relative to --project (repeatable)'}
           - {name: --without, type: string, dest: without_stand_ins, metavar: PATH:LINE, repeatable: true,
-             help: 'leave the stand-ins declared on this line, with their hierarchies (repeatable)'}
+             help: 'leave the stand-ins declared on this line, with their hierarchies; PATH relative to --project (repeatable)'}
           - {name: --keep, type: string, metavar: 'PATH[:LINE]', repeatable: true,
-             help: 'leave every edit on this line, in this file or under this directory (repeatable)'}
+             help: 'leave every edit on this line, in this file or under this directory; PATH relative to --project (repeatable)'}
           - {name: --docs, type: flag,
              help: 'also rewrite mentions in comments, docstrings, strings and prose files; list the rest'}
           - {name: --fail-fast, type: flag,
@@ -253,11 +253,11 @@ commands:
           - {name: --allow-blindspots, type: flag,
              help: 'list the blind spots of the old name (untyped receivers, unlinked keywords) and rename anyway (default: refuse)'}
           - {name: --with, type: string, dest: with_stand_ins, metavar: PATH:LINE, repeatable: true,
-             help: 'rename the stand-ins declared on this line too, with their hierarchies (repeatable)'}
+             help: 'rename the stand-ins declared on this line too, with their hierarchies; PATH relative to --project (repeatable)'}
           - {name: --without, type: string, dest: without_stand_ins, metavar: PATH:LINE, repeatable: true,
-             help: 'leave the stand-ins declared on this line, with their hierarchies (repeatable)'}
+             help: 'leave the stand-ins declared on this line, with their hierarchies; PATH relative to --project (repeatable)'}
           - {name: --keep, type: string, metavar: 'PATH[:LINE]', repeatable: true,
-             help: 'leave every edit on this line, in this file or under this directory (repeatable)'}
+             help: 'leave every edit on this line, in this file or under this directory; PATH relative to --project (repeatable)'}
           - {name: --docs, type: flag,
              help: 'also rewrite mentions in comments, docstrings, strings and prose files; list the rest'}
           - {name: --fail-fast, type: flag,
@@ -278,11 +278,11 @@ commands:
           - {name: --allow-blindspots, type: flag,
              help: 'list the blind spots of the old name (untyped receivers, unlinked keywords) and rename anyway (default: refuse)'}
           - {name: --with, type: string, dest: with_stand_ins, metavar: PATH:LINE, repeatable: true,
-             help: 'rewrite the stand-ins declared on this line too, with their hierarchies (repeatable)'}
+             help: 'rewrite the stand-ins declared on this line too, with their hierarchies; PATH relative to --project (repeatable)'}
           - {name: --without, type: string, dest: without_stand_ins, metavar: PATH:LINE, repeatable: true,
-             help: 'leave the stand-ins declared on this line, with their hierarchies (repeatable)'}
+             help: 'leave the stand-ins declared on this line, with their hierarchies; PATH relative to --project (repeatable)'}
           - {name: --keep, type: string, metavar: 'PATH[:LINE]', repeatable: true,
-             help: 'leave every edit on this line, in this file or under this directory (repeatable)'}
+             help: 'leave every edit on this line, in this file or under this directory; PATH relative to --project (repeatable)'}
           - {name: --docs, type: flag,
              help: 'also rewrite mentions in comments, docstrings, strings and prose files; list the rest'}
           - {name: --fail-fast, type: flag,

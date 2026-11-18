@@ -8,7 +8,4 @@ pkg/p.py:18: attr-blindspot: a.producer_root_model — a is Never, so a rename o
 pkg/p.py:24: attr-blindspot: list(g)[0].producer_root_model — list(g)[0] is Never, so a rename of .producer_root_model is unverifiable
 pkg/p.py:25: attr-blindspot: k.producer_root_model — k is Never, so a rename of .producer_root_model is unverifiable
 [conflicts]
-pkg/p.py:18: attr-blindspot: a.producer_root_model — a is Never, so a rename of .producer_root_model is unverifiable
-pkg/p.py:24: attr-blindspot: list(g)[0].producer_root_model — list(g)[0] is Never, so a rename of .producer_root_model is unverifiable
-pkg/p.py:25: attr-blindspot: k.producer_root_model — k is Never, so a rename of .producer_root_model is unverifiable
 3 blind spot(s) of .producer_root_model: type or resolve them, or pass --allow-blindspots

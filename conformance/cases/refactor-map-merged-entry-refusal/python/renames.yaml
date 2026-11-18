@@ -1,0 +1,2 @@
+- {file: pkg/f.py, symbol: f(x), new_name: y}
+- {file: pkg/f.py, line: 1, col: 7, new_name: y}

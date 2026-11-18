@@ -6,5 +6,4 @@
 [rules 1/1] entry 1: models -> datasets: 1 refusal(s)
 pkg/c.py:14: unlinked-keyword: cached(models=...) — the checker does not link models= to the renamed declaration, so a rename of models is unverifiable
 [conflicts]
-pkg/c.py:14: unlinked-keyword: cached(models=...) — the checker does not link models= to the renamed declaration, so a rename of models is unverifiable
 1 blind spot(s) of models=: type or resolve them, or pass --allow-blindspots

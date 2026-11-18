@@ -1,0 +1,3 @@
+- {file: src/hier.ts, symbol: Base.save, new_name: store}
+- {file: src/hier.ts, symbol: Sub.save, new_name: keep}
+- {file: src/m.ts, symbol: old, new_name: next}

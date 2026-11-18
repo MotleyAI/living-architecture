@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 import yaml
 from project_files import write_project
-from refactor_cli import final_report, run, run_raw, template_regex
+from refactor_cli import entry_refusal, final_report, run, run_raw, template_regex
 
 from living_architecture.contract import message
 from living_architecture.lang import (
@@ -241,10 +241,10 @@ LOOSE_BLIND = [
 
 
 @pytest.mark.parametrize(("files", "entries", "flags", "expected"), [
-    pytest.param({"pkg/a.py": KEYWORD}, KEYWORD_MAP, ["--fail-fast"], (1, "", [message("refactor.cannot-rename")]),
+    pytest.param({"pkg/a.py": KEYWORD}, KEYWORD_MAP, ["--fail-fast"], (1, "", [entry_refusal("pkg/a.py A.old", message("refactor.cannot-rename"))]),
                  id="fail-fast-in-references"),
     pytest.param(LOOSE, LOOSE_MAP, ["--fail-fast"], (1, "", LOOSE_BLIND), id="fail-fast-in-rules"),
-    pytest.param({"pkg/a.py": KEYWORD}, KEYWORD_MAP, [], (1, "", [message("refactor.cannot-rename")]),
+    pytest.param({"pkg/a.py": KEYWORD}, KEYWORD_MAP, [], (1, "", [entry_refusal("pkg/a.py A.old", message("refactor.cannot-rename"))]),
                  id="failed-entry"),
     pytest.param({"pkg/a.py": UNCHANGED}, [{"file": "pkg/a.py", "symbol": "A.old", "new_name": "old"},
                                             {"file": "pkg/a.py", "symbol": "A.other", "new_name": "more"}],
@@ -482,6 +482,13 @@ class Exports:
 
 
 STORE = "class Store:\n    def load(self) -> int:\n        return 1\n"
+
+
+def _refused(conflict: str) -> str:
+    """`conflict` as the final report of the one entry renaming `Store.load`."""
+    return entry_refusal("pkg/store.py Store.load", conflict) + "\n"
+
+
 LIGATURE = "\ufb01eld"
 NFKC_CASES = [
     pytest.param(LIGATURE, "field", id="new-name-spelled-by-nfkc"),
@@ -502,7 +509,7 @@ def test_a_class_fact_missed_after_rules_is_exported_by_a_fresh_server(
     root = _nfkc_project(tmp_path, new, declared)
     exports = Exports(monkeypatch)
     code, out, err = run(root, ["rename-map", "map.yaml"], monkeypatch, capsys)
-    assert (code, out, err) == (1, "", message("refactor.name-conflict", name=new, path="pkg/other.py", line=5) + "\n")
+    assert (code, out, err) == (1, "", _refused(message("refactor.name-conflict", name=new, path="pkg/other.py", line=5)))
     assert exports.starts == 1
     assert [[(q.path.name, q.kinds) for q in r.facts] for r in exports.requests] == [[("other.py", ("class",))]]
     assert [r.members for r in exports.requests] == [["field"]]
@@ -534,7 +541,7 @@ def test_a_class_fact_merged_before_rules_needs_no_export(
                     [{"file": "pkg/store.py", "symbol": "Store.load", "new_name": "fetch"}])
     exports = Exports(monkeypatch)
     code, out, err = run(root, ["rename-map", "map.yaml"], monkeypatch, capsys)
-    assert (code, out, err) == (1, "", message("refactor.name-conflict", name="fetch", path="pkg/store.py", line=5) + "\n")
+    assert (code, out, err) == (1, "", _refused(message("refactor.name-conflict", name="fetch", path="pkg/store.py", line=5)))
     assert (exports.starts, exports.requests) == (0, [])
 
 

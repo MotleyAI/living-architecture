@@ -1,0 +1,10 @@
+- {file: pkg/f.py, symbol: f(y), new_name: z}
+- {file: pkg/f.py, symbol: f(x), new_name: z}
+- {file: pkg/f.py, line: 6, col: 5, new_name: c}
+- {file: pkg/f.py, line: 7, col: 5, new_name: c}
+- {file: pkg/f.py, line: 13, col: 5, new_name: k}
+- {file: pkg/f.py, line: 12, col: 5, new_name: k}
+- {file: pkg/m.py, symbol: one, new_name: uno}
+- {file: pkg/m.py, symbol: two, new_name: uno}
+- {file: pkg/n.py, symbol: four, new_name: tres}
+- {file: pkg/n.py, symbol: three, new_name: tres}

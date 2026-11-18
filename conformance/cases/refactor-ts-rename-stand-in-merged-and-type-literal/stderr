@@ -6,4 +6,3 @@
 [rules 1/1] entry 1: getModel -> getDataset: 1 refusal(s)
 src/shapes.ts:1: stand-in: Shape.getModel is outside the renamed hierarchy; pass --with src/shapes.ts:1 to rename it too or --without src/shapes.ts:1 to leave it
 [conflicts]
-src/shapes.ts:1: stand-in: Shape.getModel is outside the renamed hierarchy; pass --with src/shapes.ts:1 to rename it too or --without src/shapes.ts:1 to leave it

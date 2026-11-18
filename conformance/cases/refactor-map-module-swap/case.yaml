@@ -1,0 +1,17 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- --apply
+- rename-map
+- renames.yaml
+fixture: refactor-map-module
+git:
+- commit: init
+expect:
+  exit: 1
+  git_status: true
+golden: manual
+note: 'modules a and b swapping names: module names are checked against the code before the map, so each entry is refused
+  in checks, nothing written'

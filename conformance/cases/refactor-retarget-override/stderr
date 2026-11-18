@@ -6,4 +6,3 @@
 [rules 1/1] entry 1: save -> save_model: 1 refusal(s)
 pkg/engine.py:14: Fast.save overrides the alias, so nothing was refactored
 [conflicts]
-pkg/engine.py:14: Fast.save overrides the alias, so nothing was refactored

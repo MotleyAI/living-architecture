@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 from project_files import file_tree, write_project
-from refactor_cli import readouterr
+from refactor_cli import entry_refusal, readouterr
 
 from living_architecture.cli.dr_refactor import dr_refactor
 from living_architecture.contract import message
@@ -126,6 +126,12 @@ def _without_unrelated(root: Path, owner: str, field: str) -> list[str]:
         if line is not None and node.name not in related:
             flags += ["--without", f"{rel}:{line}"]
     return flags
+
+
+def _locator(root: Path, owner: str, field: str) -> str:
+    """The locator `_rename_field` gives, as a refusal prints it."""
+    offset = _field_offset((root / "pkg" / "models.py").read_text(encoding="utf-8"), owner, field)
+    return f"pkg/models.py offset {offset}"
 
 
 def _rename_field(root: Path, owner: str, field: str, new_name: str) -> int:
@@ -448,7 +454,8 @@ def test_key_or_keyword_collision(
     before = file_tree(root)
     assert _rename_field(root, "Model", "columns", "fields") == 1
     err = readouterr(capsys).err
-    assert err == message("refactor.name-conflict", name="fields", path="pkg/use.py", line=3) + "\n"
+    conflict = message("refactor.name-conflict", name="fields", path="pkg/use.py", line=3)
+    assert err == entry_refusal(_locator(root, "Model", "columns"), conflict) + "\n"
     assert file_tree(root) == before
 
 
@@ -480,7 +487,8 @@ def test_field_rename_refuses_an_unresolved_owner_chain(
     before = file_tree(without_pydantic)
     assert _rename_field(without_pydantic, "Model", "columns", "fields") == 1
     err = readouterr(capsys).err
-    assert err == message("refactor.unresolved-base", name="Model", path="pkg/models.py", line=4) + "\n"
+    unresolved = message("refactor.unresolved-base", name="Model", path="pkg/models.py", line=4)
+    assert err == entry_refusal(_locator(without_pydantic, "Model", "columns"), unresolved) + "\n"
     assert file_tree(without_pydantic) == before
 
 
@@ -496,7 +504,8 @@ def test_field_rename_refuses_a_base_expression(typed_project: MakeProject, caps
     assert _rename_field(root, "Model", "columns", "fields") == 1
     line = models[: models.index("class Child(")].count("\n") + 1
     err = readouterr(capsys).err
-    assert err == message("refactor.unresolved-base", name="Child", path="pkg/models.py", line=line) + "\n"
+    unresolved = message("refactor.unresolved-base", name="Child", path="pkg/models.py", line=line)
+    assert err == entry_refusal(_locator(root, "Model", "columns"), unresolved) + "\n"
     assert file_tree(root) == before
 
 
@@ -513,7 +522,8 @@ def test_unresolved_base_outside_the_project_names_its_absolute_path(
         fh.write('extraPaths = ["../ext"]\n')
     assert _rename_field(root, "Model", "columns", "fields") == 1
     err = readouterr(capsys).err
-    assert err == message("refactor.unresolved-base", name="Ext", path=ext.resolve().as_posix(), line=4) + "\n"
+    unresolved = message("refactor.unresolved-base", name="Ext", path=ext.resolve().as_posix(), line=4)
+    assert err == entry_refusal(_locator(root, "Model", "columns"), unresolved) + "\n"
 
 
 def test_method_rename_proceeds_with_an_unresolved_base(without_pydantic: Path) -> None:
@@ -522,3 +532,23 @@ def test_method_rename_proceeds_with_an_unresolved_base(without_pydantic: Path) 
     assert dr_refactor(["--project", str(without_pydantic), "--apply", "rename", "--file", str(path),
                         "--offset", str(offset), "--new-name", "summary"]) == 0
     assert path.read_text(encoding="utf-8") == UNRESOLVED.replace("describe", "summary")
+
+
+CHAINED = "from pydantic import BaseModel\n\n\nclass Model(BaseModel):\n    columns: list[int] = []\n    cols: list[int] = []\n"
+CHAINED_USE = 'from pkg.models import Model\n\na = Model(columns=[], cols=[])\nb = Model.model_validate({"columns": [], "cols": []})\n'
+
+
+@pytest.mark.parametrize("reverse", [False, True], ids=["freeing-entry-last", "freeing-entry-first"])
+def test_a_keyword_or_key_meeting_a_name_another_entry_frees_is_no_collision(
+    typed_project: MakeProject, capsys: pytest.CaptureFixture[str], reverse: bool
+) -> None:
+    entries = [{"file": "pkg/models.py", "symbol": "Model.columns", "new_name": "cols"},
+               {"file": "pkg/models.py", "symbol": "Model.cols", "new_name": "legacy"}]
+    lines = "".join(f"- {{file: {e['file']}, symbol: {e['symbol']}, new_name: {e['new_name']}}}\n"
+                    for e in (entries[::-1] if reverse else entries))
+    root = typed_project({"pkg/models.py": CHAINED, "pkg/use.py": CHAINED_USE, "map.yaml": lines})
+    assert dr_refactor(["--project", str(root), "--apply", "rename-map", str(root / "map.yaml")]) == 0
+    assert readouterr(capsys).err == ""
+    assert (root / "pkg" / "use.py").read_text(encoding="utf-8") == (
+        'from pkg.models import Model\n\na = Model(cols=[], legacy=[])\nb = Model.model_validate({"cols": [], "legacy": []})\n'
+    )

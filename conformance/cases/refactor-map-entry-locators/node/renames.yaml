@@ -1,0 +1,4 @@
+- {file: src/c.ts, symbol: "other(model)", new_name: dataset}
+- {file: src/c.ts, line: 99, new_name: a}
+- {file: src/c.ts, symbol: nope, new_name: b}
+- {file: src/c.ts, offset: 999, new_name: c}

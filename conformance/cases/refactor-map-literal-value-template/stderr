@@ -1,3 +1,0 @@
-[resolve]
-[checks]
---new-name 'a${b}' holds a quote, backtick, backslash, ${, NUL or line break, which a literal member cannot

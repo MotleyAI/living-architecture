@@ -1,0 +1,42 @@
+Renaming <m> to <n>:
+
+
+--- a/src/a.ts
++++ b/src/a.ts
+@@ -1,17 +1,17 @@
+ export class A {
+-  m(): number {
++  n(): number {
+     return 1;
+   }
+ }
+ 
+ export class W1 {
+-  m(): number {
++  n(): number {
+     return 2;
+   }
+ }
+ 
+ export class W2 {
+-  m(): number {
++  n(): number {
+     return 3;
+   }
+ }
+
+--- a/src/use.ts
++++ b/src/use.ts
+@@ -9,5 +9,5 @@
+ }
+ 
+ export function three(a: A): number {
+-  return a.m();
++  return a.n();
+ }
+
+
+
+APPLIED. 2 file(s) changed:
+  src/a.ts
+  src/use.ts
