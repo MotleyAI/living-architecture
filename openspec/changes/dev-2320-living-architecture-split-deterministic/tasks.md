@@ -6,6 +6,8 @@ Calibration notes (read first):
   `node/test`); group 3 moves them with everything else. Cases that only make sense in the split layout (package-aware
   runner, dr-only repos, two doctors) are written as `golden: manual` cases whose expected output is the spec's, and
   are expected to fail until groups 3–6 land.
+- Group 3's moves leave `la-arch-check` red until the model split: task 8.1 runs directly after 3.6, with its
+  approved wording, and the commits inside group 3 are green on their tests but not on `la-arch-check`.
 - Golden updates (`LA_UPDATE_GOLDENS=1`) carry a reason per golden in the commit message; never absorb an
   unexplained diff.
 - Harness edits (architecture/, skills) apply only the wording approved in design.md; any other wording needs the
