@@ -1,18 +1,18 @@
 ## 0. Stage order and conventions (read first)
 
-- [ ] 0.1 pr-tests does section 1 only; pr-implement does sections 2–7. While section 1 is open the stage is
+- [x] 0.1 pr-tests does section 1 only; pr-implement does sections 2–7. While section 1 is open the stage is
       `pr-tests`.
-- [ ] 0.2 Every new conformance case is a Python `adapter` case, listed in `conformance/INVENTORY.md` (design
+- [x] 0.2 Every new conformance case is a Python `adapter` case, listed in `conformance/INVENTORY.md` (design
       decisions 9, 24). A case whose output on today's (rope) code is valid Python that keeps every reference bound
       gets its golden from today's code with `LA_UPDATE_GOLDENS=1`, written in pr-tests BEFORE any production change,
       reason "new case" in the commit message, and its golden diff reviewed. Every other case is `golden: manual`,
       hand-written to the spec delta. Existing Python move goldens are never regenerated.
-- [ ] 0.3 The differential (section 5) compares raw edits (span and new text), rendered stdout and stderr, and
+- [x] 0.3 The differential (section 5) compares raw edits (span and new text), rendered stdout and stderr, and
       findings. On any difference not pinned by a `golden: manual` case: STOP and ask the user (design decision 2).
 
 ## 1. Tests (pr-tests)
 
-- [ ] 1.1 Rope-equivalence fixtures (rope-written goldens where today's output is valid; record per case which kind
+- [x] 1.1 Rope-equivalence fixtures (rope-written goldens where today's output is valid; record per case which kind
       it got and why): a top-level relative import read by the moved code; aliased imports (`import a.b as c`,
       `from m import n as o`) and a star import in the source; a package `__init__.py` as the source; a moved variable,
       a moved annotated multi-line variable; a decorated class with a comment between decorators and `#` lines above
@@ -21,7 +21,7 @@
       or a default value; mixed newlines (CRLF source → LF destination, LF source → CRLF destination without a final
       newline, a BOM source) with `--apply`. Verify: each passes on today's code; any case whose today's output turns
       out invalid is raised with the user before writing its golden.
-- [ ] 1.2 Spec "Python moves resolve statically without rope": "No server for a symbol move" (unit test: the language
+- [x] 1.2 Spec "Python moves resolve statically without rope": "No server for a symbol move" (unit test: the language
       server factory fails if called); "rope computes nothing" (unit test: every rope entry point used by moves today
       — `create_move`, `occurrences.create_finder`, `MoveGlobal._get_moving_region`,
       `_get_moving_element_with_imports`, `rope.base.project.Project`, `libutils.modname` — patched to raise, the
@@ -29,27 +29,27 @@
       that binds the module itself" (three `__init__` variants: module level, inside `if`/`try`, `__getattr__`) and
       "Use through a submodule attribute only" as conformance cases. Verify: the rope-free unit test fails on today's
       code; record which conformance cases pass on today's code.
-- [ ] 1.3 Spec "Python move-symbol moves one top-level declaration": conformance cases for "Import binding or reference
+- [x] 1.3 Spec "Python move-symbol moves one top-level declaration": conformance cases for "Import binding or reference
       as the locator" (both forms), each form of "Not movable", "Overload group moves as one", "Decorated class with
       leading comments", "Moved variable" (`golden: manual` where 0.2 says so). Verify: the not-movable and overload
       cases fail on today's code (traceback or broken output).
-- [ ] 1.4 Spec "Python refactors resolve through namespace packages": every scenario as a conformance case
+- [x] 1.4 Spec "Python refactors resolve through namespace packages": every scenario as a conformance case
       (`golden: manual`), the module-rename one included. Verify: each fails on today's code.
-- [ ] 1.5 Spec "Python moves rewrite each reference minimally", new scenarios: "Destination import order", "Import used
+- [x] 1.5 Spec "Python moves rewrite each reference minimally", new scenarios: "Destination import order", "Import used
       only by the moved code inside a block stays", "TYPE_CHECKING import follows the moved code" (both forms),
       "Other guarded import refused" (produces `refactor.guarded-import`; add the template to `shared/findings.yaml`
       with design decision 12's approved wording and run `scripts/sync-shared`), "Relative import inside the moved
       code". Verify: each fails on today's code.
-- [ ] 1.6 Spec "Refactors edit only at references", "Moved code between files of different line endings": covered by
+- [x] 1.6 Spec "Refactors edit only at references", "Moved code between files of different line endings": covered by
       1.1's newline cases. Verify: listed in INVENTORY.md against this scenario.
-- [ ] 1.7 Package-attribute fixtures (design decision 16): `import pkg.a` then `pkg.a.f`, a re-export chain, two
+- [x] 1.7 Package-attribute fixtures (design decision 16): `import pkg.a` then `pkg.a.f`, a re-export chain, two
       bindings of one package attribute. Verify: record which pass on today's code; any rope output that rewrites a
       use the package binds is raised with the user.
-- [ ] 1.8 Unit tests: `FileChanged` for a reference-only file and a child of a moved package changed between read and
+- [x] 1.8 Unit tests: `FileChanged` for a reference-only file and a child of a moved package changed between read and
       write (design decision 21); namespace-package identity (design decision 20: `src/` layout, nested namespace, a
       submodule in two portions → unresolved) on `static_resolver` / `ProjectLayout`. Verify: the namespace tests fail
       on today's code.
-- [ ] 1.9 Align existing tests with the plan (design decision 10): `python/tests/test_contract.py:625-626` to the
+- [x] 1.9 Align existing tests with the plan (design decision 10): `python/tests/test_contract.py:625-626` to the
       renamed keys; `python/tests/test_move_edits.py` to the new entry points (signature as section 4 defines it),
       same cases and expectations. Verify: both fail on today's code only on the renamed keys / entry points.
 
