@@ -1,0 +1,2 @@
+- {module: src/c.ts, new_name: d}
+- {file: src/f.ts, symbol: f, new_name: g}

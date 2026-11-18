@@ -37,6 +37,7 @@ from living_architecture.refactor.module_rename import (
     final_paths,
     innermost_first,
     move_conflicts,
+    valid_module_name,
 )
 from living_architecture.refactor.move_edits import NameConflict
 from living_architecture.refactor.occurrence_index import RunIndex, ServerSession, candidate_files
@@ -280,7 +281,7 @@ class RenameMap:
         rel = project_rel(self.root, entry.path)
         if entry.module:
             return rel, 0
-        offset, _ = resolve(entry.locator, self.session.snapshot.source(rel), entry.path)
+        offset, _ = resolve(entry.locator, self.session.snapshot.source(rel), entry.file)
         return rel, offset
 
     def _definitions(self, rel: str, offset: int) -> list[tuple[Path, int]]:
@@ -301,15 +302,19 @@ class RenameMap:
         return _Resolved(entry, rel, None, ("literal", rel, source.span(node)[0]), literal=node)
 
     def _resolve(self, entry: MapEntry) -> _Resolved:
+        """`entry` located; `refactor.cannot-rename` for a module rename whose new name cannot name a module."""
         located = self._locate(entry)
         if entry.module:
             found = self.locator.file_module(located[0])
-            return _Resolved(entry, located[0], found, found.key)
-        literal = self._literal(entry, *located)
-        if literal is not None:
-            return literal
-        found = self.locator.at(*located)
-        resolved = _Resolved(entry, located[0], found, found.key, offset=located[1])
+            resolved = _Resolved(entry, located[0], found, found.key)
+        else:
+            literal = self._literal(entry, *located)
+            if literal is not None:
+                return literal
+            found = self.locator.at(*located)
+            resolved = _Resolved(entry, located[0], found, found.key, offset=located[1])
+        if resolved.is_module() and entry.new_name is not None and not valid_module_name(entry.new_name):
+            raise cannot_rename()
         if entry.retarget is not None:
             self._resolve_target(resolved)
         return resolved

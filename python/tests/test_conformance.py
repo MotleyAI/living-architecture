@@ -202,13 +202,22 @@ def with_format(text: str) -> str:
     return text.replace("<FORMAT>", current_format()) if "<FORMAT>" in text else text
 
 
+def _per_language(value: list | dict, variant: Variant) -> list:
+    """`value`, or a paired case's entry for the variant's language when it is keyed by language."""
+    if isinstance(value, dict):
+        [language] = variant.fixture_languages
+        return value[language]
+    return value
+
+
 def case_args(case: dict, variant: Variant) -> list[str]:
     """The case's args; a paired case may key them by language."""
-    args = case.get("args", [])
-    if isinstance(args, dict):
-        [language] = variant.fixture_languages
-        args = args[language]
-    return [str(a) for a in args]
+    return [str(a) for a in _per_language(case.get("args", []), variant)]
+
+
+def case_files(case: dict, variant: Variant) -> list[str]:
+    """The files the case compares with `files/`; a paired case may key them by language."""
+    return [str(f) for f in _per_language(case.get("expect", {}).get("files", []), variant)]
 
 
 def _substitute_config_files(repo: Path, case: dict, variant: Variant) -> None:
@@ -343,7 +352,7 @@ def run_case(case_dir: Path, root: Path, variant: Variant = NEUTRAL, twin: str =
     )
     files = {
         rel: _normalize((repo / rel).read_bytes().decode("utf-8"), root, case) if (repo / rel).is_file() else "<MISSING>\n"
-        for rel in case.get("expect", {}).get("files", [])
+        for rel in case_files(case, variant)
     }
     status = None
     if case.get("expect", {}).get("git_status"):
@@ -556,6 +565,16 @@ def test_neutral_case_applies_every_listed_overlay() -> None:
 def test_paired_case_args_may_be_keyed_by_language() -> None:
     case = _case(kind="paired", languages=["python", "typescript"], args={"python": ["a.py"], "typescript": ["a.ts", 1]})
     assert [case_args(case, v) for v in variants(case)] == [["a.py"], ["a.ts", "1"]]
+
+
+def test_paired_case_files_may_be_keyed_by_language() -> None:
+    case = _case(kind="paired", languages=["python", "typescript"], expect={"exit": 0, "files": {"python": ["a.py"], "typescript": ["a.ts"]}})
+    assert [case_files(case, v) for v in variants(case)] == [["a.py"], ["a.ts"]]
+
+
+def test_case_files_default_to_one_list_for_every_variant() -> None:
+    case = _case(kind="paired", languages=["python", "typescript"], expect={"exit": 0, "files": ["shared.txt"]})
+    assert [case_files(case, v) for v in variants(case)] == [["shared.txt"], ["shared.txt"]]
 
 
 def test_native_selection_needs_own_fixture_languages() -> None:

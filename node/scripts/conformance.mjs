@@ -12,7 +12,7 @@ for (const file of readdirSync(join(ROOT, 'dist', 'bin'))) {
   symlinkSync(join(ROOT, 'dist', 'bin', file), join(bins, file.replace(/\.js$/, '')));
 }
 const env = { LA_CONFORMANCE_TWIN: 'typescript', ...process.env, LA_NODE_BIN_DIR: bins };
-const args = ['run', 'pytest', '-q', 'tests/test_conformance.py', ...process.argv.slice(2)];
+const args = ['run', 'pytest', '-q', 'tests/test_conformance.py', 'tests/test_module_map_equivalence.py', ...process.argv.slice(2)];
 const proc = spawnSync('uv', args, { cwd: join(dirname(ROOT), 'python'), env, stdio: 'inherit' });
 rmSync(bins, { recursive: true, force: true });
 process.exit(proc.status ?? 1);

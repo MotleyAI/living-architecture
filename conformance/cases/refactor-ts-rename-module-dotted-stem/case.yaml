@@ -1,0 +1,16 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- rename
+- --file
+- src/a.test.ts
+- --new-name
+- c
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: 'the stem is the name before the extension: a.test.ts renamed to c is c.ts'

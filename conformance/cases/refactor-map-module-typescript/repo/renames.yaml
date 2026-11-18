@@ -1,2 +1,0 @@
-- {module: src/b.ts, new_name: c}
-- {module: web/a.test.ts, new_name: d}

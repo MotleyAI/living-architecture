@@ -375,7 +375,6 @@ findings:
   refactor.map-invalid: '{map}: entry {index} is not a valid rename-map entry'
   refactor.map-mixed-languages: '{map} holds entries of more than one language: {languages}'
   refactor.map-duplicate: '{map}: entries {first} and {second} locate the same symbol with different changes'
-  refactor.map-module-unsupported: '{map}: entry {index} renames a module, which a TypeScript rename-map cannot do yet, so nothing was refactored'
   refactor.map-conflict: '{path}:{line}: entries {first} and {second} rewrite this site differently, so nothing was refactored'
   refactor.retarget-header: 'Retargeting <{old}> to <{new}>:'
   refactor.retarget-scope: '{target} is not declared or imported in the class or module that declares {alias}'

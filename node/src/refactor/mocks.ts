@@ -17,24 +17,56 @@ export interface MockFinding extends Finding {
   key: string;
 }
 
-type Framework = 'vitest' | 'jest';
+/** A framework receiver (`vi`, `jest`) with the module it is imported from. */
+interface Receiver {
+  name: string;
+  module: string;
+}
 
-const FRAMEWORK_MODULES: Record<string, Framework> = { vitest: 'vitest', '@jest/globals': 'jest' };
-const GLOBALS: Record<string, Framework> = { vi: 'vitest', jest: 'jest' };
-const MODULE_MOCKS = new Set(['mock', 'doMock', 'unstable_mockModule']);
+/** A call taking a module path as its first argument, with its factory's argument index when it takes one. */
+interface ModuleCall {
+  call: string;
+  factory?: number;
+}
 
-/** The framework `receiver` is bound to: an import of `vi`/`jest` from its module, or the unshadowed global. */
-function framework(checker: TS.TypeChecker, receiver: TS.Identifier): Framework | null {
+const receivers = (): Receiver[] => language('typescript').mock_receivers;
+const moduleCalls = (): ModuleCall[] => language('typescript').mock_module_calls;
+
+/** The framework module `receiver` is bound to: a named import, aliased or not, of a framework's receiver from its
+ * module, or the unshadowed global of a receiver's name; else null. */
+function framework(checker: TS.TypeChecker, receiver: TS.Identifier): string | null {
   const symbol = checker.getSymbolAtLocation(receiver);
   const declarations = symbol?.declarations ?? [];
   if (declarations.every((d) => d.getSourceFile().isDeclarationFile)) {
-    return GLOBALS[receiver.text] ?? null;
+    return receivers().find((r) => r.name === receiver.text)?.module ?? null;
   }
   const [declaration] = declarations;
   if (declaration === undefined || !ts().isImportSpecifier(declaration)) return null;
   const specifier = declaration.parent.parent.parent.moduleSpecifier;
-  const from = ts().isStringLiteral(specifier) ? FRAMEWORK_MODULES[specifier.text] : undefined;
-  return from !== undefined && GLOBALS[(declaration.propertyName ?? declaration.name).text] === from ? from : null;
+  const imported = (declaration.propertyName ?? declaration.name).text;
+  const from = ts().isStringLiteral(specifier) ? specifier.text : null;
+  return receivers().some((r) => r.name === imported && r.module === from) ? from : null;
+}
+
+/** `node` as a call on a framework receiver: its receiver, method, framework module and listed module call; else null. */
+function frameworkCall(checker: TS.TypeChecker, node: TS.Node): { receiver: TS.Identifier; method: string; module: string; listed: ModuleCall | undefined } | null {
+  if (!ts().isCallExpression(node) || !ts().isPropertyAccessExpression(node.expression)) return null;
+  const { expression: receiver, name } = node.expression;
+  if (!ts().isIdentifier(receiver)) return null;
+  const module = framework(checker, receiver);
+  if (module === null) return null;
+  return { receiver, method: name.text, module, listed: moduleCalls().find((c) => c.call === name.text) };
+}
+
+/** The module path string of each framework call in `source` the shared facts list as taking one. */
+export function mockModulePaths(checker: TS.TypeChecker, source: TS.SourceFile): TS.StringLiteral[] {
+  const out: TS.StringLiteral[] = [];
+  for (const node of walk(source)) {
+    if (frameworkCall(checker, node)?.listed === undefined) continue;
+    const [path] = (node as TS.CallExpression).arguments;
+    if (path !== undefined && ts().isStringLiteral(path)) out.push(path);
+  }
+  return out;
 }
 
 /** An ambient module name (`foo`, or a pattern with one `*` like `*.css`) matching `specifier`. */
@@ -56,8 +88,8 @@ function resolves(program: TS.Program, file: TS.SourceFile, specifier: string, h
 }
 
 /** The module the factory is typed against (Vitest: `import('m')` first argument; Jest: `<typeof import('m')>`). */
-function typedModule(call: TS.CallExpression, kind: Framework): string | null {
-  if (kind === 'vitest') {
+function typedModule(call: TS.CallExpression, module: string): string | null {
+  if (module === 'vitest') {
     const [first] = call.arguments;
     const isImport = first !== undefined && ts().isCallExpression(first) && first.expression.kind === ts().SyntaxKind.ImportKeyword;
     const [module] = isImport ? first.arguments : [];
@@ -114,14 +146,12 @@ export function mockFindings(program: TS.Program, file: string, shown: string, r
 
 /** The finding template for an untyped `vi`/`jest` mock call, else null. */
 function mockCallTemplate(program: TS.Program, source: TS.SourceFile, checker: TS.TypeChecker, node: TS.CallExpression, host: TS.ModuleResolutionHost): string | null {
-  if (!ts().isPropertyAccessExpression(node.expression)) return null;
-  const { expression: receiver, name } = node.expression;
-  if (!ts().isIdentifier(receiver)) return null;
-  const kind = framework(checker, receiver);
-  if (kind === null) return null;
-  if (name.text === 'fn' && node.typeArguments === undefined && node.arguments.length === 0) return 'mock-lint.fn';
-  const factory = node.arguments[1];
-  if (!MODULE_MOCKS.has(name.text) || factory === undefined || ts().isObjectLiteralExpression(factory)) return null;
-  const module = typedModule(node, kind);
+  const found = frameworkCall(checker, node);
+  if (found === null) return null;
+  if (found.method === 'fn' && node.typeArguments === undefined && node.arguments.length === 0) return 'mock-lint.fn';
+  const index = found.listed?.factory;
+  const factory = index === undefined ? undefined : node.arguments[index];
+  if (factory === undefined || ts().isObjectLiteralExpression(factory)) return null;
+  const module = typedModule(node, found.module);
   return module === null || !resolves(program, source, module, host) ? 'mock-lint.module' : null;
 }

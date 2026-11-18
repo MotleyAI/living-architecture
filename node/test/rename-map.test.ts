@@ -3,7 +3,7 @@ import { chmodSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { message, schema, validate } from '../src/contract/index.js';
-import { TSCONFIG, copyProject, expectedOut, files, lineCol, mapYaml, read, refactor, refactorRaw, renameHeader, tsProject } from './refactor-project.js';
+import { TSCONFIG, copyProject, expectedOut, files, finalReport, lineCol, mapYaml, read, refactor, refactorRaw, renameHeader, tsProject } from './refactor-project.js';
 
 const STORE = `export class Store {
   getModel(modelName: string): number {
@@ -311,25 +311,85 @@ describe('an apply writes every file or none', () => {
 });
 
 describe('rename-map module entries', () => {
-  const unsupported = (index: number): string => message('refactor.map-module-unsupported', { map: 'map.yaml', index });
+  const A = 'export const x = 1;\n';
+  const C = 'export const y = 2;\n';
 
-  it('refuses every module entry in index order before any phase line, writing nothing', () => {
-    const root = withMap({ 'src/a.ts': 'export const x = 1;\n', 'src/c.ts': 'export const y = 2;\n' }, [
+  it('moves every module entry and writes a member rename beside them in one apply', () => {
+    const root = withMap({ 'src/a.ts': A, 'src/c.ts': C, 'src/store.ts': STORE, 'src/use.ts': USE }, [
       { module: 'src/a.ts', new_name: 'b' },
-      { module: 'src/c.ts', new_name: 'd' },
+      { file: 'src/store.ts', symbol: 'Store.getModel', new_name: 'loadModel' },
+      { module: 'src/store.ts', new_name: 'repository' },
+    ]);
+    const result = refactorRaw(root, '--apply', 'rename-map', 'map.yaml');
+    expect(result.code).toBe(0);
+    expect(result.out.startsWith(`${renameHeader('a', 'b')}\n${renameHeader('getModel', 'loadModel')}\n${renameHeader('store', 'repository')}\n\n\n`)).toBe(true);
+    const after = files(root);
+    expect(Object.keys(after).filter((p) => p.startsWith('src/')).sort()).toEqual(['src/b.ts', 'src/c.ts', 'src/repository.ts', 'src/use.ts']);
+    expect(after['src/repository.ts']).toBe(STORE.replaceAll('getModel(', 'loadModel('));
+    expect(after['src/use.ts']).toBe(USE.replace("'./store'", "'./repository'").replace("s.getModel('a')", "s.loadModel('a')"));
+  });
+
+  it('merges two entries naming one file with one new name: one header, one move', () => {
+    const root = withMap({ 'src/a.ts': A }, [
+      { module: 'src/a.ts', new_name: 'b' },
+      { module: 'src/a.ts', new_name: 'b' },
+    ]);
+    const result = refactorRaw(root, 'rename-map', 'map.yaml');
+    expect(result.code).toBe(0);
+    expect(result.out.startsWith(`${renameHeader('a', 'b')}\n\n\n`)).toBe(true);
+    expect(result.err).toContain('[references 1/1] entries 1, 2: a -> b\n');
+  });
+
+  it('refuses two entries naming one file with different new names', () => {
+    const root = withMap({ 'src/a.ts': A }, [
+      { module: 'src/a.ts', new_name: 'b' },
+      { module: 'src/a.ts', new_name: 'c' },
+    ]);
+    const result = refactor(root, 'rename-map', 'map.yaml');
+    expect(result).toEqual({ code: 2, out: '', err: `${message('refactor.map-duplicate', { map: 'map.yaml', first: 1, second: 2 })}\n` });
+  });
+
+  it('refuses new names meeting in one directory in the conflicts phase, naming the earlier entry\'s file', () => {
+    const root = withMap({ 'src/a.ts': A, 'src/c.tsx': C }, [
+      { module: 'src/a.ts', new_name: 'd' },
+      { module: 'src/c.tsx', new_name: 'd' },
     ]);
     const before = files(root);
-    expect(refactorRaw(root, '--apply', 'rename-map', 'map.yaml')).toEqual({ code: 2, out: '', err: `${unsupported(1)}\n${unsupported(2)}\n` });
+    const result = refactorRaw(root, '--apply', 'rename-map', 'map.yaml');
+    expect(result.code).toBe(1);
+    expect(result.err).toContain('[conflicts]\n');
+    expect(finalReport(result.err)).toBe(`${message('refactor.name-conflict', { name: 'd', path: 'src/a.ts', line: 1 })}\n`);
     expect(files(root)).toEqual(before);
   });
 
-  it('refuses only the module entries of a map that also renames symbols', () => {
-    const root = withMap({ 'src/store.ts': STORE, 'src/use.ts': USE }, [
-      { file: 'src/store.ts', symbol: 'Store.getModel', new_name: 'loadModel' },
-      { module: 'src/use.ts', new_name: 'usage' },
+  it('refuses every module entry onto a taken name before any reference search', () => {
+    const root = withMap({ 'src/a.ts': A, 'src/c.ts': C, 'src/b.ts': A, 'src/d/index.ts': C }, [
+      { module: 'src/a.ts', new_name: 'b' },
+      { module: 'src/c.ts', new_name: 'd' },
     ]);
-    const before = files(root);
-    expect(refactorRaw(root, '--apply', 'rename-map', 'map.yaml')).toEqual({ code: 2, out: '', err: `${unsupported(2)}\n` });
-    expect(files(root)).toEqual(before);
+    const conflict = (name: string, path: string): string => message('refactor.name-conflict', { name, path, line: 1 });
+    expect(refactorRaw(root, 'rename-map', 'map.yaml')).toEqual({ code: 1, out: '', err: `[resolve]\n[checks]\n${conflict('b', 'src/b.ts')}\n${conflict('d', 'src/d/index.ts')}\n` });
+  });
+
+  it('refuses --with on a map of module entries only, in the checks', () => {
+    const root = withMap({ 'src/a.ts': A, 'src/store.ts': STORE }, [{ module: 'src/a.ts', new_name: 'b' }]);
+    expect(refactorRaw(root, 'rename-map', 'map.yaml', '--with', 'src/store.ts:2')).toEqual({
+      code: 2,
+      out: '',
+      err: `[resolve]\n[checks]\n${message('refactor.not-stand-in', { site: 'src/store.ts:2' })}\n`,
+    });
+  });
+
+  it('prints an edit in a moved file at its old path, before the move', () => {
+    const root = withMap({ 'src/store.ts': STORE, 'src/use.ts': USE }, [
+      { module: 'src/store.ts', new_name: 'repository' },
+      { file: 'src/store.ts', symbol: 'Store', new_name: 'Repository' },
+    ]);
+    const result = refactorRaw(root, 'rename-map', 'map.yaml');
+    expect(result.code).toBe(0);
+    const diff = result.out.indexOf('--- a/src/store.ts\n');
+    const moved = result.out.indexOf(`${message('refactor.moved', { old: 'src/store.ts', new: 'src/repository.ts' })}\n`);
+    expect(diff).toBeGreaterThan(0);
+    expect(moved).toBeGreaterThan(diff);
   });
 });
