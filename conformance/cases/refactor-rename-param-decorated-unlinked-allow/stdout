@@ -1,0 +1,21 @@
+Renaming <models> to <datasets>:
+
+
+--- a/pkg/c.py
++++ b/pkg/c.py
+@@ -2,8 +2,8 @@
+ 
+ 
+ @functools.lru_cache
+-def cached(models: int) -> int:
+-    return models
++def cached(datasets: int) -> int:
++    return datasets
+ 
+ 
+ def plain(*, models: int) -> int:
+
+
+
+APPLIED. 1 file(s) changed:
+  pkg/c.py

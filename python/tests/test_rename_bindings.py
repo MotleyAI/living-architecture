@@ -415,7 +415,7 @@ def test_a_name_conflict_is_reported_with_the_blindspot_refusal(
     expected = [
         message("compliance.attr-blindspot", path="pkg/m.py", line=10, receiver="o", attr="old", type="Unknown"),
         message("refactor.name-conflict", name=NEW, path="pkg/m.py", line=5),
-        message("refactor.blindspots", count=1, attr="old"),
+        message("refactor.blindspots", count=1, names=".old"),
     ]
     assert readouterr(capsys) == ("", "".join(f"{line}\n" for line in expected))
     assert file_tree(root) == before

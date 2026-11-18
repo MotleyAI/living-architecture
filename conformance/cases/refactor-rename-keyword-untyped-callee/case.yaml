@@ -1,0 +1,22 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- rename
+- --file
+- pkg/q.py
+- --symbol
+- Query.measures
+- --new-name
+- metrics
+- --without
+- pkg/q.py:12
+fixture: refactor-kwargs
+git:
+- commit: init
+expect:
+  exit: 1
+golden: manual
+note: 'a field rename refuses on a keyword of the old name at a callee the checker types Unknown; the same call on a
+  typed callable is not listed'

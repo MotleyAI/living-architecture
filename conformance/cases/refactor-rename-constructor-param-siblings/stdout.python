@@ -1,0 +1,94 @@
+Renaming <field> to <column>:
+Renaming <field> to <column>:
+Renaming <field> to <column>:
+Renaming <field> to <column>:
+
+
+--- a/pkg/errors.py
++++ b/pkg/errors.py
+@@ -4,8 +4,8 @@
+ 
+ 
+ class A(Base):
+-    def __init__(self, msg: str, *, field: str) -> None:
+-        self.field = field
++    def __init__(self, msg: str, *, column: str) -> None:
++        self.field = column
+         super().__init__(msg)
+ 
+ 
+@@ -17,4 +17,4 @@
+ 
+ class C(A):
+     def __init__(self, msg: str, *, field: str) -> None:
+-        super().__init__(msg, field=field)
++        super().__init__(msg, column=field)
+
+--- a/pkg/shapes.py
++++ b/pkg/shapes.py
+@@ -2,8 +2,8 @@
+ 
+ 
+ class N1:
+-    def __new__(cls, *, field: str) -> "N1":
+-        print(field)
++    def __new__(cls, *, column: str) -> "N1":
++        print(column)
+         return super().__new__(cls)
+ 
+ 
+@@ -15,11 +15,11 @@
+ 
+ class Ov:
+     @overload
+-    def __init__(self, *, field: str) -> None: ...
++    def __init__(self, *, column: str) -> None: ...
+     @overload
+-    def __init__(self, *, field: int) -> None: ...
+-    def __init__(self, *, field: str | int) -> None:
+-        self.value = field
++    def __init__(self, *, column: int) -> None: ...
++    def __init__(self, *, column: str | int) -> None:
++        self.value = column
+ 
+ 
+ class Ov2:
+@@ -31,5 +31,5 @@
+     def __new__(cls, *, field: str) -> "K":
+         return super().__new__(cls)
+ 
+-    def __init__(self, *, field: str) -> None:
+-        self.value = field
++    def __init__(self, *, column: str) -> None:
++        self.value = column
+
+--- a/pkg/use.py
++++ b/pkg/use.py
+@@ -3,7 +3,7 @@
+ 
+ 
+ def f() -> None:
+-    raise A("x", field="a")
++    raise A("x", column="a")
+ 
+ 
+ def g() -> None:
+@@ -13,10 +13,10 @@
+ def h() -> list[object]:
+     return [
+         C("z", field="c"),
+-        N1(field="a"),
++        N1(column="a"),
+         N2(field="b"),
+-        Ov(field="a"),
+-        Ov(field=1),
++        Ov(column="a"),
++        Ov(column=1),
+         Ov2(field="b"),
+-        K(field="a"),
++        K(column="a"),
+     ]
+
+
+
+DRY-RUN. 3 file(s) would change. Re-run with --apply.

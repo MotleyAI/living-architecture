@@ -1,0 +1,217 @@
+"""Python parameter renames on `__init__` and `__new__`: the located constructor and its overload group only."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+import yaml
+from project_files import file_tree, write_project
+from refactor_cli import read, run
+
+from living_architecture.contract import message
+
+ERRORS = """\
+class Base(Exception):
+    def __init__(self, msg: str) -> None:
+        super().__init__(msg)
+
+
+class A(Base):
+    def __init__(self, msg: str, *, field: str) -> None:
+        self.field = field
+        super().__init__(msg)
+
+
+class B(Base):
+    def __init__(self, msg: str, *, field: str) -> None:
+        self.field = field
+        super().__init__(f"field of {field}")
+
+
+class C(A):
+    def __init__(self, msg: str, *, field: str) -> None:
+        super().__init__(msg, field=field)
+
+    @classmethod
+    def make(cls) -> "C":
+        return cls("m", field="c")
+
+
+def use() -> list[Exception]:
+    return [A("x", field="a"), B("y", field="b"), C("z", field="c")]
+"""
+A_RENAMED = (ERRORS.replace("*, field: str) -> None:\n        self.field = field\n        super().__init__(msg)",
+                            "*, column: str) -> None:\n        self.field = column\n        super().__init__(msg)")
+             .replace("super().__init__(msg, field=field)", "super().__init__(msg, column=field)")
+             .replace('A("x", field="a")', 'A("x", column="a")'))
+
+
+def _rename(symbol: str, *flags: str) -> list[str]:
+    return ["--apply", "rename", "--file", "pkg/e.py", "--symbol", symbol, "--new-name", "column", *flags]
+
+
+@pytest.mark.parametrize("flags", [(), ("--no-in-hierarchy",)], ids=["default", "no-in-hierarchy"])
+def test_an_init_parameter_rename_stays_in_its_class(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], flags: tuple[str, ...]
+) -> None:
+    root = write_project(tmp_path / "p", {"pkg/e.py": ERRORS})
+    code, _out, err = run(root, _rename("A.__init__(field)", *flags), monkeypatch, capsys)
+    assert (code, err) == (0, "")
+    assert read(root, "pkg/e.py") == A_RENAMED
+
+
+def test_a_subclass_constructor_rename_leaves_its_base(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = write_project(tmp_path / "p", {"pkg/e.py": ERRORS})
+    code, _out, err = run(root, _rename("C.__init__(field)"), monkeypatch, capsys)
+    assert (code, err) == (0, "")
+    assert read(root, "pkg/e.py") == (
+        ERRORS.replace("*, field: str) -> None:\n        super().__init__(msg, field=field)",
+                       "*, column: str) -> None:\n        super().__init__(msg, field=column)")
+        .replace('cls("m", field="c")', 'cls("m", column="c")').replace('C("z", field="c")', 'C("z", column="c")'))
+
+
+def test_a_map_renames_several_constructors(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    entries = [{"file": "pkg/e.py", "symbol": f"{cls}.__init__(field)", "new_name": "column"} for cls in ("A", "B")]
+    root = write_project(tmp_path / "p", {"pkg/e.py": ERRORS, "map.yaml": yaml.safe_dump(entries)})
+    code, _out, err = run(root, ["--apply", "rename-map", "map.yaml"], monkeypatch, capsys)
+    assert (code, err) == (0, "")
+    assert read(root, "pkg/e.py") == A_RENAMED.replace(
+        '*, field: str) -> None:\n        self.field = field\n        super().__init__(f"field of {field}")',
+        '*, column: str) -> None:\n        self.field = column\n        super().__init__(f"field of {column}")',
+    ).replace('B("y", field="b")', 'B("y", column="b")')
+
+
+SHAPES = """\
+from typing import overload
+
+
+class N1:
+    def __new__(cls, *, field: str) -> "N1":
+        print(field)
+        return super().__new__(cls)
+
+
+class N2:
+    def __new__(cls, *, field: str) -> "N2":
+        print(field)
+        return super().__new__(cls)
+
+
+class Ov:
+    @overload
+    def __init__(self, *, field: str) -> None: ...
+    @overload
+    def __init__(self, *, field: int) -> None: ...
+    def __init__(self, *, field: str | int) -> None:
+        self.value = field
+
+
+class Ov2(Ov):
+    def __init__(self, *, field: str) -> None:
+        super().__init__(field=field)
+
+
+def use() -> list[object]:
+    return [N1(field="a"), N2(field="b"), Ov(field="a"), Ov(field=1), Ov2(field="b")]
+"""
+
+
+def test_a_new_parameter_rename_stays_in_its_class_and_renames_its_calls(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = write_project(tmp_path / "p", {"pkg/e.py": SHAPES})
+    code, _out, err = run(root, _rename("N1.__new__(field)"), monkeypatch, capsys)
+    assert (code, err) == (0, "")
+    assert read(root, "pkg/e.py") == (
+        SHAPES.replace('*, field: str) -> "N1":\n        print(field)', '*, column: str) -> "N1":\n        print(column)')
+        .replace('N1(field="a")', 'N1(column="a")'))
+
+
+def test_an_overloaded_init_renames_its_whole_group_and_no_subclass(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = write_project(tmp_path / "p", {"pkg/e.py": SHAPES})
+    code, _out, err = run(root, _rename("Ov.__init__(field)"), monkeypatch, capsys)
+    assert (code, err) == (0, "")
+    assert read(root, "pkg/e.py") == (
+        SHAPES.replace("*, field: str) -> None: ...", "*, column: str) -> None: ...")
+        .replace("*, field: int) -> None: ...", "*, column: int) -> None: ...")
+        .replace("*, field: str | int) -> None:\n        self.value = field",
+                 "*, column: str | int) -> None:\n        self.value = column")
+        .replace("super().__init__(field=field)", "super().__init__(column=field)")
+        .replace('Ov(field="a"), Ov(field=1)', 'Ov(column="a"), Ov(column=1)'))
+
+
+BOTH = """\
+class K:
+    def __new__(cls, *, field: str) -> "K":
+        return super().__new__(cls)
+
+    def __init__(self, *, field: str) -> None:
+        self.value = field
+
+
+def use() -> K:
+    return K(field="a")
+"""
+
+
+def test_a_class_declaring_both_constructors_renames_the_keyword_with_the_one_the_checker_resolves(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = write_project(tmp_path / "p", {"pkg/e.py": BOTH})
+    code, _out, err = run(root, _rename("K.__init__(field)"), monkeypatch, capsys)
+    assert (code, err) == (0, "")
+    assert read(root, "pkg/e.py") == (
+        BOTH.replace("*, field: str) -> None:\n        self.value = field",
+                     "*, column: str) -> None:\n        self.value = column").replace('K(field="a")', 'K(column="a")'))
+
+
+def test_the_other_constructor_of_a_class_declaring_both_leaves_the_keyword_unlisted(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = write_project(tmp_path / "p", {"pkg/e.py": BOTH})
+    code, _out, err = run(root, _rename("K.__new__(field)"), monkeypatch, capsys)
+    assert (code, err) == (0, "")
+    assert read(root, "pkg/e.py") == BOTH.replace('*, field: str) -> "K":', '*, column: str) -> "K":')
+
+
+UNRESOLVED_BOTH = """\
+from typing import overload
+
+
+class K:
+    def __new__(cls, *, field: str | int) -> "K":
+        return super().__new__(cls)
+
+    @overload
+    def __init__(self, *, field: str) -> None: ...
+    @overload
+    def __init__(self, *, field: int) -> None: ...
+    def __init__(self, *, field: str | int) -> None:
+        self.value = field
+
+
+def use() -> K:
+    return K(field="a")
+"""
+
+
+@pytest.mark.parametrize("constructor", ["__new__", "__init__"])
+def test_a_keyword_the_checker_resolves_to_neither_constructor_is_unlinked(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], constructor: str
+) -> None:
+    root = write_project(tmp_path / "p", {"pkg/e.py": UNRESOLVED_BOTH})
+    before = file_tree(root)
+    code, out, err = run(root, _rename(f"K.{constructor}(field)"), monkeypatch, capsys)
+    assert (code, out) == (1, "")
+    assert err.splitlines() == [
+        message("refactor.unlinked-keyword", path="pkg/e.py", line=17, callee="K", old="field"),
+        message("refactor.blindspots", count=1, names="field="),
+    ]
+    assert file_tree(root) == before

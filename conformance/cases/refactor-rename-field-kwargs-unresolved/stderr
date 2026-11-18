@@ -1,0 +1,40 @@
+[resolve]
+[checks]
+[references]
+[references 1/1] entry 1: measures -> metrics
+[rules]
+[rules 1/1] entry 1: measures -> metrics: 16 refusal(s)
+pkg/loose_use.py:5: unlinked-keyword: loose.alias(measures=...) — the checker does not link measures= to the renamed declaration, so a rename of measures is unverifiable
+pkg/loose_use.py:6: unlinked-keyword: loose.copied(measures=...) — the checker does not link measures= to the renamed declaration, so a rename of measures is unverifiable
+pkg/loose_use.py:7: unlinked-keyword: loose.copy_method(measures=...) — the checker does not link measures= to the renamed declaration, so a rename of measures is unverifiable
+pkg/loose_use.py:8: unlinked-keyword: loose.updated(measures=...) — the checker does not link measures= to the renamed declaration, so a rename of measures is unverifiable
+pkg/loose_use.py:9: unlinked-keyword: loose.merged(measures=...) — the checker does not link measures= to the renamed declaration, so a rename of measures is unverifiable
+pkg/loose_use.py:10: unlinked-keyword: loose.plain_argument(measures=...) — the checker does not link measures= to the renamed declaration, so a rename of measures is unverifiable
+pkg/loose_use.py:11: unlinked-keyword: loose.returned(measures=...) — the checker does not link measures= to the renamed declaration, so a rename of measures is unverifiable
+pkg/loose_use.py:12: unlinked-keyword: loose.iterated(measures=...) — the checker does not link measures= to the renamed declaration, so a rename of measures is unverifiable
+pkg/loose_use.py:13: unlinked-keyword: loose.items(measures=...) — the checker does not link measures= to the renamed declaration, so a rename of measures is unverifiable
+pkg/loose_use.py:14: unlinked-keyword: loose.variable_key(measures=...) — the checker does not link measures= to the renamed declaration, so a rename of measures is unverifiable
+pkg/loose_use.py:15: unlinked-keyword: loose.rebound(measures=...) — the checker does not link measures= to the renamed declaration, so a rename of measures is unverifiable
+pkg/loose_use.py:16: unlinked-keyword: loose.nested(measures=...) — the checker does not link measures= to the renamed declaration, so a rename of measures is unverifiable
+pkg/loose_use.py:17: unlinked-keyword: loose.ping(measures=...) — the checker does not link measures= to the renamed declaration, so a rename of measures is unverifiable
+pkg/loose_use.py:18: unlinked-keyword: loose.pong(measures=...) — the checker does not link measures= to the renamed declaration, so a rename of measures is unverifiable
+pkg/loose_use.py:19: unlinked-keyword: loose.both(measures=...) — the checker does not link measures= to the renamed declaration, so a rename of measures is unverifiable
+pkg/loose_use.py:20: unlinked-keyword: loose.alias(measures=...) — the checker does not link measures= to the renamed declaration, so a rename of measures is unverifiable
+[conflicts]
+pkg/loose_use.py:5: unlinked-keyword: loose.alias(measures=...) — the checker does not link measures= to the renamed declaration, so a rename of measures is unverifiable
+pkg/loose_use.py:6: unlinked-keyword: loose.copied(measures=...) — the checker does not link measures= to the renamed declaration, so a rename of measures is unverifiable
+pkg/loose_use.py:7: unlinked-keyword: loose.copy_method(measures=...) — the checker does not link measures= to the renamed declaration, so a rename of measures is unverifiable
+pkg/loose_use.py:8: unlinked-keyword: loose.updated(measures=...) — the checker does not link measures= to the renamed declaration, so a rename of measures is unverifiable
+pkg/loose_use.py:9: unlinked-keyword: loose.merged(measures=...) — the checker does not link measures= to the renamed declaration, so a rename of measures is unverifiable
+pkg/loose_use.py:10: unlinked-keyword: loose.plain_argument(measures=...) — the checker does not link measures= to the renamed declaration, so a rename of measures is unverifiable
+pkg/loose_use.py:11: unlinked-keyword: loose.returned(measures=...) — the checker does not link measures= to the renamed declaration, so a rename of measures is unverifiable
+pkg/loose_use.py:12: unlinked-keyword: loose.iterated(measures=...) — the checker does not link measures= to the renamed declaration, so a rename of measures is unverifiable
+pkg/loose_use.py:13: unlinked-keyword: loose.items(measures=...) — the checker does not link measures= to the renamed declaration, so a rename of measures is unverifiable
+pkg/loose_use.py:14: unlinked-keyword: loose.variable_key(measures=...) — the checker does not link measures= to the renamed declaration, so a rename of measures is unverifiable
+pkg/loose_use.py:15: unlinked-keyword: loose.rebound(measures=...) — the checker does not link measures= to the renamed declaration, so a rename of measures is unverifiable
+pkg/loose_use.py:16: unlinked-keyword: loose.nested(measures=...) — the checker does not link measures= to the renamed declaration, so a rename of measures is unverifiable
+pkg/loose_use.py:17: unlinked-keyword: loose.ping(measures=...) — the checker does not link measures= to the renamed declaration, so a rename of measures is unverifiable
+pkg/loose_use.py:18: unlinked-keyword: loose.pong(measures=...) — the checker does not link measures= to the renamed declaration, so a rename of measures is unverifiable
+pkg/loose_use.py:19: unlinked-keyword: loose.both(measures=...) — the checker does not link measures= to the renamed declaration, so a rename of measures is unverifiable
+pkg/loose_use.py:20: unlinked-keyword: loose.alias(measures=...) — the checker does not link measures= to the renamed declaration, so a rename of measures is unverifiable
+16 blind spot(s) of measures=: type or resolve them, or pass --allow-blindspots

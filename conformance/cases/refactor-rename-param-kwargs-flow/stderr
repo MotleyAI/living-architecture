@@ -1,0 +1,9 @@
+[resolve]
+[checks]
+[references]
+[references 1/2] entry 1: model_name -> dataset_name
+[references 2/2] entry 2: models -> datasets
+[rules]
+[rules 1/2] entry 1: model_name -> dataset_name: clean
+[rules 2/2] entry 2: models -> datasets: clean
+[conflicts]

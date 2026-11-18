@@ -8,28 +8,28 @@
 
 ## 2. Tests first (pr-tests)
 
-- [ ] 2.1 Add the Python adapter conformance cases, hand-written goldens (`golden: manual`), each failing before the fix:
+- [x] 2.1 Add the Python adapter conformance cases, hand-written goldens (`golden: manual`), each failing before the fix:
       `refactor-rename-param-decorated`, `refactor-rename-param-decorated-unlinked`,
       `refactor-rename-param-decorated-unlinked-allow`, `refactor-rename-param-decorated-unlinked-unsure`,
       `refactor-rename-field-kwargs-flow`, `refactor-rename-field-kwargs-unresolved`,
       `refactor-rename-field-kwargs-unrelated`, `refactor-rename-param-kwargs-flow`,
       `refactor-rename-keyword-untyped-callee`, `compliance-attr-blindspot-never`, `refactor-rename-blindspot-never`;
       verify each runs and fails through `uv run pytest -q tests/test_conformance.py -k <case>` in `python/`
-- [ ] 2.2 Add the paired case `refactor-rename-constructor-param-siblings` (Python: sibling `__init__`, a forwarding
+- [x] 2.2 Add the paired case `refactor-rename-constructor-param-siblings` (Python: sibling `__init__`, a forwarding
       subclass, sibling `__new__`, an overloaded `__init__`, a class declaring both constructors; TypeScript: sibling
       classes with a same-named constructor parameter); verify the Python side fails and the TypeScript side runs through
       `scripts/conformance-cross`
-- [ ] 2.3 The unresolved-carrier fixture holds one carrier per unresolved use (alias, `dict(kw)`, `kw.copy()`,
+- [x] 2.3 The unresolved-carrier fixture holds one carrier per unresolved use (alias, `dict(kw)`, `kw.copy()`,
       `base.update(kw)`, `base | kw`, plain argument, `return kw`, iteration, `kw.items()`, variable key, rebinding, nested
       function reading `kw`, a two-carrier cycle), a mixed-sink carrier and a dict literal unpacked into an unresolved
       carrier; the flow fixture holds a nested scope shadowing `kw`; verify the golden lists exactly those calls
-- [ ] 2.4 List every new case in `conformance/INVENTORY.md`, naming `refactor.unlinked-keyword` against the goldens that
+- [x] 2.4 List every new case in `conformance/INVENTORY.md`, naming `refactor.unlinked-keyword` against the goldens that
       produce it; verify the inventory test passes
-- [ ] 2.5 Unit tests in `python/tests/` for: the signature fact of the export (per callable alternative, overloads and
+- [x] 2.5 Unit tests in `python/tests/` for: the signature fact of the export (per callable alternative, overloads and
       unions), the carrier verdict join (renamed, other, mixed, unresolved, chains, cycle), the constructor rule in the
       hierarchy, the `Never` verdict and its `{type}` precedence, and the parenthesised `{receiver}`; verify they fail
       before the fix
-- [ ] 2.6 Scenarios with no conformance case get a unit or integration test: "No extra request without unresolved
+- [x] 2.6 Scenarios with no conformance case get a unit or integration test: "No extra request without unresolved
       keywords" (count the export requests), "Members and keywords in one report", "Kept line", "Keyword collision through
       a carrier", "Aliased field"
 

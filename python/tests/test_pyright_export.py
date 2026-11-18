@@ -272,3 +272,117 @@ def test_a_class_fact_at_a_name_that_is_no_class_is_empty(tmp_path: Path) -> Non
         index = server.export(ExportRequest(names=[], files=[], members=["own"], facts=[
             FactQuery(path=path, offset=CLASSES.index("own"), kinds=("class",))]))
     assert (index.answers[0].ancestors, index.answers[0].members) == ((), ())
+
+
+SIGNATURES = """\
+import functools
+import os
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
+from typing import ParamSpec, TypeVar, overload
+
+P = ParamSpec("P")
+R = TypeVar("R")
+
+
+def logged(fn: Callable[P, R]) -> Callable[P, R]:
+    return fn
+
+
+def erased(fn): ...
+
+
+@contextmanager
+def cm(*, models: int) -> Iterator[int]:
+    yield models
+
+
+@logged
+def wrapped(pos: int, /, both: int, *, models: int) -> int:
+    return pos + both + models
+
+
+@functools.lru_cache
+def cached(models: int) -> int:
+    return models
+
+
+@erased
+def gone(*, models: int) -> int:
+    return models
+
+
+@overload
+def ov(*, models: int) -> int: ...
+@overload
+def ov(*, other: str) -> str: ...
+def ov(*, models: int = 0, other: str = "") -> int | str:
+    return models or other
+
+
+def one(*, models: int) -> int:
+    return models
+
+
+def two(*, datasets: int = 0, **rest: int) -> int:
+    return datasets
+
+
+pick = one if os.environ.get("FAST") else two
+
+
+def use() -> None:
+    cm(models=1)
+    wrapped(1, 2, models=1)
+    cached(models=1)
+    gone(models=1)
+    ov(models=1)
+    pick(models=1)
+"""
+SIGNATURE_CALLS = ("cm", "wrapped", "cached", "gone", "ov", "pick")
+
+
+@pytest.fixture(scope="module")
+def signatures(tmp_path_factory: pytest.TempPathFactory) -> dict[str, tuple[tuple[str, ...], ...]]:
+    """The signature fact at the `models=` keyword of each call of `use`, by callee."""
+    root = write_project(tmp_path_factory.mktemp("signatures") / "p", {"pkg/s.py": SIGNATURES}).resolve()
+    path = root / "pkg" / "s.py"
+    body = SIGNATURES.index("def use()")
+    offsets = [SIGNATURES.index("models=", SIGNATURES.index(f"    {name}(", body)) for name in SIGNATURE_CALLS]
+    with LanguageServer(root) as server:
+        server.open(path, SIGNATURES)
+        index = server.export(ExportRequest(names=[], files=[], facts=[
+            FactQuery(path=path, offset=offset, kinds=("signature",)) for offset in offsets]))
+    assert all(facts.kinds == ("signature",) for facts in index.answers)
+    return {name: facts.signature for name, facts in zip(SIGNATURE_CALLS, index.answers, strict=True)}
+
+
+def _binds(signature: tuple[tuple[str, ...], ...], name: str = "models") -> list[bool]:
+    """Whether each callable alternative binds `name` by keyword, alternatives that do last."""
+    return sorted(name in alternative for alternative in signature)
+
+
+def test_a_signature_fact_follows_a_signature_preserving_decorator(
+    signatures: dict[str, tuple[tuple[str, ...], ...]]
+) -> None:
+    assert (_binds(signatures["cm"]), _binds(signatures["wrapped"])) == ([True], [True])
+
+
+def test_a_signature_fact_names_only_parameters_a_keyword_binds(
+    signatures: dict[str, tuple[tuple[str, ...], ...]]
+) -> None:
+    (wrapped,) = signatures["wrapped"]
+    assert sorted(wrapped) == ["both", "models"]
+
+
+def test_a_signature_fact_of_an_erased_signature_binds_no_name(
+    signatures: dict[str, tuple[tuple[str, ...], ...]]
+) -> None:
+    assert _binds(signatures["cached"]) == [False]
+    assert True not in _binds(signatures["gone"])
+
+
+def test_a_signature_fact_holds_one_alternative_per_overload_and_union_member(
+    signatures: dict[str, tuple[tuple[str, ...], ...]]
+) -> None:
+    assert (_binds(signatures["ov"]), _binds(signatures["pick"])) == ([False, True], [False, True])

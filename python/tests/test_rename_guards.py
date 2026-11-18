@@ -82,7 +82,7 @@ def _blindspot(path: str, line: int, receiver: str, kind: str = "Unknown", attr:
 
 
 def _closing(count: int, attr: str = "get_model") -> str:
-    return message("refactor.blindspots", count=count, attr=attr)
+    return message("refactor.blindspots", count=count, names=f".{attr}")
 
 
 def _stand_in(path: str, line: int, cls: str, attr: str = "get_model") -> str:

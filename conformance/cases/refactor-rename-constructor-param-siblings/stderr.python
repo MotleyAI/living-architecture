@@ -1,0 +1,10 @@
+[resolve]
+[checks]
+[references]
+[references 1/4] entry 1: field -> column
+[references 2/4] entry 2: field -> column
+[references 3/4] entry 3: field -> column
+[references 4/4] entry 4: field -> column
+[rules]
+[rules 1/1] entries 1, 2, 3, 4: field -> column: clean
+[conflicts]

@@ -1,0 +1,64 @@
+Renaming <models> to <datasets>:
+Renaming <models> to <datasets>:
+Renaming <models> to <datasets>:
+Renaming <models> to <datasets>:
+
+
+--- a/pkg/h.py
++++ b/pkg/h.py
+@@ -16,13 +16,13 @@
+ 
+ 
+ @asynccontextmanager
+-async def engine(*, models: list[int]) -> AsyncIterator[list[int]]:
+-    yield models
++async def engine(*, datasets: list[int]) -> AsyncIterator[list[int]]:
++    yield datasets
+ 
+ 
+ @contextmanager
+-def sync_engine(*, models: list[int]) -> Iterator[list[int]]:
+-    yield models
++def sync_engine(*, datasets: list[int]) -> Iterator[list[int]]:
++    yield datasets
+ 
+ 
+ def plain(*, models: list[int]) -> list[int]:
+@@ -30,11 +30,11 @@
+ 
+ 
+ @logged
+-def wrapped(*, models: list[int]) -> list[int]:
+-    return models
++def wrapped(*, datasets: list[int]) -> list[int]:
++    return datasets
+ 
+ 
+ class C:
+     @contextmanager
+-    def scope(self, *, models: list[int]) -> Iterator[list[int]]:
+-        yield models
++    def scope(self, *, datasets: list[int]) -> Iterator[list[int]]:
++        yield datasets
+
+--- a/pkg/use.py
++++ b/pkg/use.py
+@@ -2,10 +2,10 @@
+ 
+ 
+ async def f(c: C) -> None:
+-    async with engine(models=[1]) as e:
++    async with engine(datasets=[1]) as e:
+         print(e)
+-    with sync_engine(models=[1]) as s:
++    with sync_engine(datasets=[1]) as s:
+         print(s)
+-    with c.scope(models=[1]) as t:
++    with c.scope(datasets=[1]) as t:
+         print(t)
+-    print(plain(models=[1]), wrapped(models=[1]))
++    print(plain(models=[1]), wrapped(datasets=[1]))
+
+
+
+DRY-RUN. 2 file(s) would change. Re-run with --apply.
