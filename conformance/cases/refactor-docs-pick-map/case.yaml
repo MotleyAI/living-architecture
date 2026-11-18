@@ -1,0 +1,16 @@
+kind: paired
+languages:
+- python
+- typescript
+command: dr-refactor
+args:
+  python: [--apply, rename-map, renames.yaml, --docs, --docs-pick, 'pkg/a.py:1=1']
+  typescript: [--apply, rename-map, renames.yaml, --docs, --docs-pick, 'src/a.ts:1=1']
+fixture: refactor-docs-map
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: '--docs-pick PATH:LINE=ENTRY: the mention two entries reach takes the picked entry''s new name and is not
+  listed; the unpicked one stays listed'

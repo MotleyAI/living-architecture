@@ -1,0 +1,25 @@
+Renaming <x> to <p>:
+Renaming <y> to <q>:
+
+
+--- a/src/m.ts
++++ b/src/m.ts
+@@ -1,10 +1,10 @@
+ export class A {
+-  x = 0;
++  p = 0;
+ }
+ 
+ export class B {
+-  y = '';
++  q = '';
+ }
+ 
+-// x and y move together; x first
+-// x before y
++// p and q move together; p first
++// p before y
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

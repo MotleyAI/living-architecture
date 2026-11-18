@@ -1,0 +1,2 @@
+- {file: pkg/m.py, symbol: Ds.columns, new_name: fields}
+- {file: pkg/m.py, symbol: Member.type, new_name: kind}

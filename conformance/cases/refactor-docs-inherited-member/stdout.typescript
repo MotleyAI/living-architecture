@@ -1,0 +1,20 @@
+Renaming <field> to <column>:
+
+
+--- a/src/base.ts
++++ b/src/base.ts
+@@ -1,8 +1,8 @@
+ export class Base {
+-  field = '';
++  column = '';
+ }
+ 
+-/** Reads `field` of the base. */
++/** Reads `column` of the base. */
+ export class Sub extends Base {}
+ 
+ export class Other {
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

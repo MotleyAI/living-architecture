@@ -1,9 +1,14 @@
 # Portable regex subset
 
-`issue_key_pattern` must use only constructs that Python `re` and JavaScript `RegExp` (no flags) read
-identically on ASCII input. Accepted patterns are applied with full-match semantics. The accept/reject
-vectors are in `vectors/regex-subset.yaml`. A tag id containing any non-ASCII character never matches, in
-every twin, whatever the pattern.
+`issue_key_pattern` and each pattern of `refactor.string_forms` must use only constructs that Python `re` and
+JavaScript `RegExp` (no flags) read identically on ASCII input. The accept/reject vectors are in
+`vectors/regex-subset.yaml`.
+
+- `issue_key_pattern` is applied with full-match semantics. A tag id containing any non-ASCII character never
+  matches, in every twin, whatever the pattern.
+- A `refactor.string_forms` pattern is searched anywhere in a string literal's source text and must hold exactly
+  one capturing group. A literal part containing any non-ASCII character never matches, in every twin, whatever
+  the pattern.
 
 Allowed:
 

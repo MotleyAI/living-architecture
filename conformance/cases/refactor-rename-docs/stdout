@@ -27,10 +27,8 @@ Renaming <recommend_root_model> to <pick_root_model>:
 +        """See ``pick_root_model`` and :meth:`pick_root_model`."""
 +        # then recommend_root_model runs; `pick_root_model()` returns
          if x:
--            raise ValueError(f"recommend_root_model: no candidates for {x}")
--        raise ValueError("recommend_root_model: no candidates")
-+            raise ValueError(f"pick_root_model: no candidates for {x}")
-+        raise ValueError("pick_root_model: no candidates")
+             raise ValueError(f"recommend_root_model: no candidates for {x}")
+         raise ValueError("recommend_root_model: no candidates")
 
 --- a/pkg/other.py
 +++ b/pkg/other.py

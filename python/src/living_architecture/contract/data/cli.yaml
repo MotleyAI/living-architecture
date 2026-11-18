@@ -239,6 +239,11 @@ commands:
              help: 'leave every edit on this line, in this file or under this directory; PATH relative to --project (repeatable)'}
           - {name: --docs, type: flag,
              help: 'also rewrite mentions in comments, docstrings, strings and prose files; list the rest'}
+          - {name: --docs-pick, type: string, metavar: 'PATH:LINE[=ENTRY]', repeatable: true,
+             help: 'with --docs: rewrite the mentions listed on this line, with =ENTRY only those of that entry''s old
+               name (repeatable)'}
+          - {name: --keep-literal, type: string, metavar: KEY, repeatable: true,
+             help: 'leave every edit inside a dict or object literal that holds the key KEY (repeatable)'}
           - {name: --words, type: path, metavar: TABLE,
              help: "a word table whose carve-outs leave matching stand-ins and list matching --docs mentions"}
           - {name: --fail-fast, type: flag,
@@ -267,6 +272,11 @@ commands:
              help: 'leave every edit on this line, in this file or under this directory; PATH relative to --project (repeatable)'}
           - {name: --docs, type: flag,
              help: 'also rewrite mentions in comments, docstrings, strings and prose files; list the rest'}
+          - {name: --docs-pick, type: string, metavar: 'PATH:LINE[=ENTRY]', repeatable: true,
+             help: 'with --docs: rewrite the mentions listed on this line, with =ENTRY only those of that entry''s old
+               name (repeatable)'}
+          - {name: --keep-literal, type: string, metavar: KEY, repeatable: true,
+             help: 'leave every edit inside a dict or object literal that holds the key KEY (repeatable)'}
           - {name: --words, type: path, metavar: TABLE,
              help: "a word table whose carve-outs leave matching stand-ins and list matching --docs mentions"}
           - {name: --fail-fast, type: flag,

@@ -1,0 +1,2 @@
+- {file: src/a.ts, symbol: A.field, new_name: column}
+- {file: src/g.ts, symbol: Model, new_name: Dataset}

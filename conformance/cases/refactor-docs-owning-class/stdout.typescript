@@ -1,0 +1,24 @@
+Renaming <columns> to <fields>:
+
+
+--- a/src/a.ts
++++ b/src/a.ts
+@@ -1,10 +1,10 @@
+-/** Every table lists its `columns`. */
++/** Every table lists its `fields`. */
+ export class Table {
+-  columns: string[] = [];
++  fields: string[] = [];
+ 
+-  /** The count of `columns`. */
++  /** The count of `fields`. */
+   size(): number {
+-    return this.columns.length;
++    return this.fields.length;
+   }
+ }
+ 
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

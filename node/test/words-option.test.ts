@@ -57,10 +57,10 @@ describe('--docs --words', () => {
     expect([result.code, result.err, text]).toEqual([0, leftover(6), SOURCE.replace(DS, DS_RENAMED)]);
   });
 
-  it('rewrites a mention in a comment before the class that is no JSDoc of it', () => {
+  it('lists a mention in a comment before the class beside an unchanged declaration', () => {
     const source = SOURCE.replace('/** Probes `columns`. */', '// probes `columns`');
     const { result, text } = run(source, PROBE, '--docs');
-    expect([result.code, result.err, text]).toEqual([0, '', source.replace(DS, DS_RENAMED).replace('// probes `columns`', '// probes `fields`')]);
+    expect([result.code, result.err, text]).toEqual([0, leftover(6), source.replace(DS, DS_RENAMED)]);
   });
 
   it('lists every mention of the file of a carved module-level name', () => {
@@ -78,8 +78,8 @@ describe('--docs --words', () => {
     expect([result.code, result.err, text]).toEqual([0, compound, source.replace(DS, DS_RENAMED).replace('// counts `columns`', '// counts `fields`')]);
   });
 
-  it('rewrites every code-marked mention of the declaring file without --words', () => {
+  it('lists a mention owned by an unchanged class without --words', () => {
     const { result, text } = run(SOURCE, null, '--docs', '--without', 'src/c.ts:8');
-    expect([result.code, result.err, text.split('`fields`').length - 1]).toEqual([0, '', 2]);
+    expect([result.code, result.err, text.split('`fields`').length - 1]).toEqual([0, leftover(6), 1]);
   });
 });

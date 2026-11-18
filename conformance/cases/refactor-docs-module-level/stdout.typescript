@@ -1,0 +1,43 @@
+Renaming <field> to <column>:
+Renaming <size> to <length>:
+
+
+--- a/src/one.ts
++++ b/src/one.ts
+@@ -1,15 +1,15 @@
+-// Rows carry `field`.
++// Rows carry `column`.
+ // field is plain here
+ export const ROWS = 1;
+ 
+ export class A {
+-  field = '';
++  column = '';
+ }
+ 
+-/** Formats `field` values. */
++/** Formats `column` values. */
+ export class Helper {}
+ 
+-/** Returns `field`. */
++/** Returns `column`. */
+ export function show(a: A): string {
+-  return a.field;
++  return a.column;
+ }
+
+--- a/src/two.ts
++++ b/src/two.ts
+@@ -2,7 +2,7 @@
+ export const BOXES = 1;
+ 
+ export class C {
+-  size = 0;
++  length = 0;
+ }
+ 
+ export class D {
+
+
+
+DRY-RUN. 2 file(s) would change. Re-run with --apply.

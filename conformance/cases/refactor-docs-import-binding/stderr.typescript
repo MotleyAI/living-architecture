@@ -1,0 +1,11 @@
+[resolve]
+[checks]
+[references]
+[references 1/2] entry 1: field -> column
+[references 2/2] entry 2: Model -> Dataset
+[rules]
+[rules 1/2] entry 1: field -> column: clean
+[rules 2/2] entry 2: Model -> Dataset: clean
+[conflicts]
+src/a.ts:1: leftover: comment mentions field
+src/g.ts:5: leftover: string mentions Model

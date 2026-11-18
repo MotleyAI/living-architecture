@@ -1,0 +1,25 @@
+kind: adapter
+languages:
+- typescript
+command: dr-refactor
+args:
+- --apply
+- rename
+- --file
+- src/ds.ts
+- --symbol
+- Ds.columns
+- --new-name
+- fields
+- --keep-literal
+- version
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - src/ds.ts
+golden: manual
+note: '--keep-literal KEY: an object literal naming the property by an identifier, a string or a shorthand is
+  kept whole, literals nested in it included; a matching literal nested in one that does not match keeps only
+  itself; a computed key and a spread do not match'

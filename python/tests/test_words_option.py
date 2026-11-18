@@ -114,10 +114,10 @@ def test_a_carved_module_level_name_covers_every_mention_of_its_file(
         0, _leftover(2) + _leftover(8), MODULE_LEVEL.replace("    columns: list[str] = []\n", "    fields: list[str] = []\n", 1))
 
 
-def test_without_words_every_code_marked_mention_of_the_declaring_file_is_rewritten(
+def test_without_words_a_mention_owned_by_an_unchanged_class_is_listed(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     root = write_project(tmp_path / "proj", {"pkg/c.py": SOURCE})
     argv = [*RENAME[:-2], "--docs", "--without", "pkg/c.py:10"]
     code, _out, err = run(root, argv, monkeypatch, capsys)
-    assert (code, err, read(root, "pkg/c.py").count("``fields``")) == (0, "", 2)
+    assert (code, err, read(root, "pkg/c.py").count("``fields``")) == (0, _leftover(8), 1)

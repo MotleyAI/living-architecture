@@ -1,0 +1,5 @@
+format: <FORMAT>
+refactor:
+  string_forms:
+  - 'NODE TABLE (\w+)'
+  - '\(\w*:(\w+)\)'

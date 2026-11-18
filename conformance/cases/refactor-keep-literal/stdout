@@ -1,0 +1,41 @@
+Renaming <columns> to <fields>:
+Renaming <type> to <kind>:
+
+
+--- a/pkg/m.py
++++ b/pkg/m.py
+@@ -2,8 +2,8 @@
+ 
+ 
+ class Member(BaseModel):
+-    type: str = ""
++    kind: str = ""
+ 
+ 
+ class Ds(BaseModel):
+-    columns: list[Member] = []
++    fields: list[Member] = []
+
+--- a/pkg/n.py
++++ b/pkg/n.py
+@@ -9,9 +9,9 @@
+ def documents() -> list[Ds]:
+     return [
+         Ds.model_validate({"version": 3, "columns": [{"type": "INT"}]}),
+-        Ds.model_validate({"columns": [{"version": 1, "type": "INT"}, {"type": "TEXT"}]}),
+-        Ds.model_validate({"columns": []}),
+-        Ds.model_validate({"versions": 1, "columns": []}),
+-        Ds.model_validate({"ver" "sion": 3, "columns": []}),
+-        Ds.model_validate({**{"version": 3}, "columns": []}),
++        Ds.model_validate({"fields": [{"version": 1, "type": "INT"}, {"kind": "TEXT"}]}),
++        Ds.model_validate({"fields": []}),
++        Ds.model_validate({"versions": 1, "fields": []}),
++        Ds.model_validate({"ver" "sion": 3, "fields": []}),
++        Ds.model_validate({**{"version": 3}, "fields": []}),
+     ]
+
+
+
+APPLIED. 2 file(s) changed:
+  pkg/m.py
+  pkg/n.py

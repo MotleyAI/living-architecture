@@ -85,3 +85,19 @@ export function fullMatch(pattern: string, text: string): boolean {
   // eslint-disable-next-line no-control-regex
   return /^[\x00-\x7f]*$/.test(text) && new RegExp(`^(?:${pattern})$`).test(text);
 }
+
+/** The number of capturing groups of a portable pattern. */
+export function capturingGroups(pattern: string): number {
+  let count = 0;
+  let i = 0;
+  while (i < pattern.length) {
+    const ch = pattern[i];
+    if (ch === '\\') i += 2;
+    else if (ch === '[') i = (classEnd(pattern, i) ?? i) + 1;
+    else {
+      if (ch === '(' && !pattern.startsWith('(?', i)) count += 1;
+      i += 1;
+    }
+  }
+  return count;
+}

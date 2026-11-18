@@ -1,0 +1,2 @@
+class Model:
+    title: str = ""
