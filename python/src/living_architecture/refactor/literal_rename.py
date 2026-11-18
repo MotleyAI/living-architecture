@@ -20,12 +20,11 @@ from living_architecture.refactor.keyed import TypeFacts
 from living_architecture.refactor.locators import cannot_rename
 from living_architecture.refactor.member_scan import TextProbe
 from living_architecture.refactor.mentions import docstrings
-from living_architecture.refactor.move_edits import NameConflict
 from living_architecture.refactor.name_follow import Held, NameFollow, display_names
 from living_architecture.refactor.occurrence_index import RunIndex
 from living_architecture.refactor.outcomes import Finding, Outcome, file_outcome, unverified_read
 from living_architecture.refactor.python_source import SourceFile
-from living_architecture.refactor.rename_union import MapRename, RenameOptions, Session
+from living_architecture.refactor.rename_union import MapRename, RenameOptions, RenameResult, Session
 from living_architecture.refactor.routing import language_files, stub_files
 from living_architecture.refactor.symbol_path import LocatorError, names_literal
 from living_architecture.refactor.text_edits import TextEdit
@@ -185,11 +184,12 @@ class LiteralRename(MapRename):
         return []
 
     @override
-    def check_conflicts(self, edits: list[TextEdit]) -> None:
-        """`NameConflict` where a rewritten source's display already holds the new value."""
-        beside = sorted((edit.path, line) for edit, line in self._collisions if edit in edits)
-        if beside:
-            raise NameConflict(self.new, *beside[0])
+    def result(self, entry: int, target: str | None, kept: list[TextEdit]) -> RenameResult:
+        """A literal member has no name to collide with; a rewritten source's display may hold the new value."""
+        return RenameResult(entry=entry, old=self.old, new=self.new, header=self.header(),
+                            target=target, member=self.member, check_names=False, edits=self.edits, kept=kept,
+                            blindspots=self.blindspots, matched_sites=frozenset(self.matched_sites),
+                            collisions=self._collisions)
 
     @override
     def seed(self, facts: TypeFacts) -> None:
