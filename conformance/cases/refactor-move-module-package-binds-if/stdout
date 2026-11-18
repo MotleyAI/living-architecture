@@ -1,0 +1,17 @@
+Moving module <client>:
+
+
+--- a/pkg/sql/__init__.py
++++ b/pkg/sql/__init__.py
+@@ -1,4 +1,4 @@
+ import os
+ 
+ if os.environ.get("SQL"):
+-    from . import client
++    from ..database import client
+
+rename from pkg/sql/client.py
+rename to pkg/database/client.py
+
+
+DRY-RUN. 2 file(s) would change. Re-run with --apply.

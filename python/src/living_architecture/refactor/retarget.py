@@ -306,7 +306,7 @@ class AliasRetarget(SymbolRename):
         if own is None or scope is None:
             return None
         value = self._assigned(self.locator.resolver.resolve(own, scope, attr.value))
-        found = self.locator.folders(value[1]) if value is not None and value[0] == "module" else None
+        found = self.locator.folders.file(value[1]) if value is not None and value[0] == "module" else None
         path = self.session.rel(found[0]) if found is not None else None
         return (value[1], path) if value is not None and path is not None else None
 

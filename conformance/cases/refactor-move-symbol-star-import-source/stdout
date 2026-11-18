@@ -1,0 +1,28 @@
+Moving global <f>:
+
+
+--- a/pkg/a.py
++++ b/pkg/a.py
+@@ -1,8 +1,4 @@
+ from os.path import *
+-
+-
+-def f() -> str:
+-    return join("a", "b")
+ 
+ 
+ def g() -> str:
+
+--- a/pkg/b.py
++++ b/pkg/b.py
+@@ -1 +1,6 @@
+ """Destination."""
++from os.path import *
++
++
++def f() -> str:
++    return join("a", "b")
+
+
+
+DRY-RUN. 2 file(s) would change. Re-run with --apply.

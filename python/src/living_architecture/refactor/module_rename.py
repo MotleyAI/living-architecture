@@ -19,6 +19,7 @@ from living_architecture.refactor.locators import cannot_rename
 from living_architecture.refactor.move_edits import NameConflict
 from living_architecture.refactor.occurrence_index import RunIndex, candidate_files
 from living_architecture.refactor.outcomes import Finding
+from living_architecture.refactor.output_check import checked_create
 from living_architecture.refactor.python_source import SourceFile, dotted_segments, nfkc
 from living_architecture.refactor.rename_union import MapRename, RenameOptions, RenameResult, Session
 from living_architecture.refactor.static_resolver import Module, Value
@@ -61,7 +62,7 @@ class ModuleResult(RenameResult):
         parent = old.rpartition(".")[0]
         new = f"{parent}.{nfkc(self.new)}" if parent else nfkc(self.new)
         filled = text.replace("{old}", old).replace("{new}", new).replace("{removal}", removal)
-        return FileWrite(rel=self.move.rel, old=None, new=filled.encode())
+        return checked_create(self.move.rel, filled)
 
 
 def _is_self(root: Path, rel: str, other: str) -> bool:
@@ -130,7 +131,7 @@ class ModuleRename(MapRename):
         """`dotted` names the renamed module (or, for a package, the package)."""
         if dotted is None or self.module is None:
             return False
-        found = self.locator.folders(dotted)
+        found = self.locator.folders.file(dotted)
         if found is not None:
             return self._file is not None and found[0] == self._file
         rel = dotted.replace(".", "/")

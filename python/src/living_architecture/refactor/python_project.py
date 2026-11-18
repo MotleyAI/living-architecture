@@ -7,6 +7,7 @@ import os
 import re
 import sys
 import tomllib
+from collections.abc import Iterator
 from functools import cached_property
 from pathlib import Path
 
@@ -103,6 +104,17 @@ class ProjectLayout:
                 continue
             out.append(child)
         return out
+
+    def resources(self) -> Iterator[tuple[str, bool]]:
+        """Every file and directory of the project outside the ignored and symlinked ones, each with whether it is a
+        directory."""
+        pending = [""]
+        while pending:
+            for child in self._children(pending.pop()):
+                is_dir = os.path.isdir(self.path(child))
+                yield child, is_dir
+                if is_dir:
+                    pending.append(child)
 
     def _is_package(self, rel: str) -> bool:
         init = self.path(_init(rel))
@@ -265,6 +277,10 @@ class Snapshot:
         self.text(rel)
         return rel in self._boms
 
+    def encoding(self, rel: str) -> str:
+        self.text(rel)
+        return self._encodings[rel]
+
     def encode(self, rel: str, text: str) -> bytes:
         return (_BOM if self.has_bom(rel) else b"") + text.encode(self._encodings[rel])
 
@@ -272,6 +288,10 @@ class Snapshot:
         """`data` written to `rel`, as text."""
         self.text(rel)
         return data.removeprefix(_BOM if rel in self._boms else b"").decode(self._encodings[rel])
+
+    def read(self) -> list[str]:
+        """Every file read so far."""
+        return list(self._data)
 
     def data(self, rel: str) -> bytes:
         """The bytes `rel` was read as, whether or not they decode."""

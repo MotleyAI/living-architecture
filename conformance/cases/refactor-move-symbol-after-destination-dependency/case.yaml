@@ -1,0 +1,24 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- --apply
+- move-symbol
+- --file
+- pkg/a.py
+- --symbol
+- Child
+- --dest
+- pkg/b.py
+git:
+- commit: init
+expect:
+  exit: 0
+  stdout: ignore
+  files:
+  - pkg/a.py
+  - pkg/b.py
+golden: manual
+note: the moved code follows the destination statements binding names it reads while it is defined (a base,
+  a decorator, a tuple target inside an `if` block), not the leading import block

@@ -1,0 +1,25 @@
+Moving global <X>:
+
+
+--- a/pkg/a.py
++++ b/pkg/a.py
+@@ -1,5 +1,2 @@
+-from typing import Final
+ 
+-X: Final = (1,
+-    2)
+ Y = 3
+
+--- a/pkg/b.py
++++ b/pkg/b.py
+@@ -1 +1,6 @@
+ """Destination."""
++from typing import Final
++
++
++X: Final = (1,
++    2)
+
+
+
+DRY-RUN. 2 file(s) would change. Re-run with --apply.

@@ -1,0 +1,19 @@
+Renaming <m> to <ns2>:
+
+
+rename from pkg/ns/m.py
+rename to pkg/ns/ns2.py
+--- a/pkg/use.py
++++ b/pkg/use.py
+@@ -1,4 +1,4 @@
+-from pkg.ns import m
+-import pkg.ns.m
++from pkg.ns import ns2
++import pkg.ns.ns2
+ 
+-print(m.Y, pkg.ns.m.Y)
++print(ns2.Y, pkg.ns.ns2.Y)
+
+
+
+DRY-RUN. 2 file(s) would change. Re-run with --apply.

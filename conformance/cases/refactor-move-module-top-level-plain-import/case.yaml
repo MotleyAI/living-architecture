@@ -1,0 +1,22 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- --apply
+- move-module
+- --module
+- a.py
+- --dest
+- dest
+git:
+- commit: init
+expect:
+  exit: 0
+  stdout: ignore
+  files:
+  - dest/a.py
+  - use.py
+golden: manual
+note: a module no package holds moves into a package; `import a` becomes `import dest.a` and each use of `a`
+  through it becomes `dest.a`, with no second import

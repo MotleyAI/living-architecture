@@ -1,0 +1,34 @@
+Moving global <f>:
+
+
+--- a/pkg/a.py
++++ b/pkg/a.py
+@@ -1,6 +1,2 @@
+-def f() -> int:
+-    return 1
+-
+-
+ def g() -> int:
+     return 2
+
+--- a/pkg/b.py
++++ b/pkg/b.py
+@@ -1 +1,5 @@
+ """Destination."""
++
++
++def f() -> int:
++    return 1
+
+--- a/pkg/use.py
++++ b/pkg/use.py
+@@ -1,4 +1,5 @@
+ from pkg.a import *
++from pkg.b import f
+ from pkg.c import *
+ 
+ print(f(), g(), h())
+
+
+
+DRY-RUN. 3 file(s) would change. Re-run with --apply.

@@ -55,7 +55,7 @@ describe('module new name', () => {
     const root = tsProject(A);
     const result = renameA(root, name);
     expect(result.code).toBe(0);
-    expect(result.out).toContain(`${message('refactor.ts-moved', { old: 'src/a.ts', new: moved })}\n`);
+    expect(result.out).toContain(`${message('refactor.moved', { old: 'src/a.ts', new: moved })}\n`);
     expect(files(root)[moved]).toBe(A['src/a.ts']);
   });
 

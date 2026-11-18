@@ -89,7 +89,7 @@ class EntryLocator:
 
     def module_at(self, module: Module) -> tuple[str, Module] | None:
         """A resolver module's file, and the model of that file the locator reads its offsets in."""
-        rel = self.rel(module.path) if module.path is not None else None
+        rel = self.rel(module.path) if module.path is not None and not module.path.is_dir() else None
         own = self.module(rel) if rel is not None else None
         return (rel, own) if rel is not None and own is not None else None
 
@@ -344,7 +344,7 @@ class EntryLocator:
 
     def _module_entry(self, rel: str, dotted: str, name: str) -> Entry:
         """A module rename: of the project module's file or package directory, else of a library module's alias."""
-        found = self.folders(dotted)
+        found = self.folders.file(dotted)
         module_rel = self.rel(found[0]) if found is not None else None
         if found is not None and found[1] and module_rel is not None:
             module_rel = Path(module_rel).parent.as_posix()
@@ -433,7 +433,7 @@ class StaticTrace:
         stmt = source.parent(node)
         if isinstance(stmt, ast.Import):
             dotted = node.name if node.asname else name
-            return Trace(sites=sites, resolved=self.locator.folders(dotted) is not None)
+            return Trace(sites=sites, resolved=self.locator.folders.file(dotted) is not None)
         if not isinstance(stmt, ast.ImportFrom) or node.name == "*":
             return Trace(sites=sites, resolved=False)
         found = self._module(module.binder.from_module(stmt), node.name, star=False)
@@ -454,7 +454,7 @@ class StaticTrace:
         found = self._scope(rel, target, target.scope, name)
         if found.sites or found.resolved or star:
             return found
-        return Trace(sites=frozenset(), resolved=self.locator.folders(f"{dotted}.{name}") is not None)
+        return Trace(sites=frozenset(), resolved=self.locator.folders.file(f"{dotted}.{name}") is not None)
 
 
 def _joined(traces: list[Trace]) -> Trace:

@@ -10,6 +10,8 @@ from pathlib import Path
 from living_architecture.refactor.members import member_declarations
 from living_architecture.refactor.static_resolver import Module, Resolver, Value, node_key
 
+_INIT = "__init__.py"
+
 
 class SourceFolders:
     """The project's modules: `a.b` is `<folder>/a/b.py` or `<folder>/a/b/__init__.py` under each source folder."""
@@ -25,14 +27,53 @@ class SourceFolders:
         found: dict[Path, bool] = {}
         for folder in self.folders:
             base = folder.joinpath(*parts)
-            for path, is_package in ((base / "__init__.py", True), (base.parent / f"{base.name}.py", False)):
+            for path, is_package in ((base / _INIT, True), (base.parent / f"{base.name}.py", False)):
                 if path.is_file():
                     found.setdefault(path.resolve(), is_package)
         return list(found.items())
 
-    def __call__(self, dotted: str) -> tuple[Path, bool] | None:
+    def file(self, dotted: str) -> tuple[Path, bool] | None:
+        """Module `dotted`'s one file, with whether it is a package's `__init__`; None unless exactly one."""
         files = self.files(dotted)
         return files[0] if len(files) == 1 else None
+
+    def namespace(self, dotted: str) -> Path | None:
+        """The first directory of namespace package `dotted`: a directory holding Python sources but no
+        `__init__.py` under some source folder, with no module or package of that name."""
+        return next(iter(self.portions(dotted)), None)
+
+    def portions(self, dotted: str) -> list[Path]:
+        """Every directory of namespace package `dotted` that holds Python sources."""
+        parts = dotted.split(".")
+        if not all(p.isidentifier() for p in parts) or self.files(dotted):
+            return []
+        found = self._path(parts)
+        if len(found) == 1 and (found[0] / _INIT).is_file():
+            return []
+        return list(dict.fromkeys(p.resolve() for p in found if next(p.rglob("*.py"), None) is not None))
+
+    def _path(self, parts: list[str]) -> list[Path]:
+        """Package `parts`'s `__path__` as Python's import system builds it, each segment searched in its parent's:
+        the first regular package alone, none when a module comes first, else every namespace portion."""
+        search = self.folders if len(parts) == 1 else self._path(parts[:-1])
+        found: list[Path] = []
+        for base in search:
+            here = base / parts[-1]
+            if (here / _INIT).is_file():
+                return [here]
+            if (base / f"{parts[-1]}.py").is_file():
+                return []
+            if here.is_dir():
+                found.append(here)
+        return found
+
+    def __call__(self, dotted: str) -> tuple[Path, bool] | None:
+        """`file`, else a namespace package as its directory and True."""
+        found = self.file(dotted)
+        if found is not None:
+            return found
+        directory = self.namespace(dotted)
+        return (directory, True) if directory is not None else None
 
     def top_level(self, name: str) -> bool:
         """`name` is a top-level module, package or namespace directory of some source folder."""

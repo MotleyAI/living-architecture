@@ -1,0 +1,8 @@
+[resolve]
+[checks]
+[references]
+[references 1/1] entry 1: value -> valué
+[rules]
+[rules 1/1] entry 1: value -> valué: clean
+[conflicts]
+pkg/a.py cannot hold its new text in its encoding ascii, so nothing was refactored

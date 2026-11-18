@@ -1,3 +1,4 @@
 [resolve]
 [checks]
 [references]
+use.py:6: pkg.thing.X would not resolve as it does now, so nothing was refactored; move it by hand

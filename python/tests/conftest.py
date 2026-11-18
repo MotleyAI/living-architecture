@@ -14,6 +14,7 @@ import pytest
 from rope.refactor import patchedast
 
 from living_architecture.contract import snapshot_dir
+from living_architecture.lang.language_server import LanguageServer
 
 SCRIPTS_DIR = snapshot_dir() / "scripts"
 
@@ -195,6 +196,16 @@ def release_repo(tmp_path: Path) -> ReleaseRepo:
 def typed_project(tmp_path: Path) -> Callable[..., Path]:
     """`project_files.write_project` at `<tmp>/proj`."""
     return lambda files, **kw: project_files.write_project(tmp_path / "proj", files, **kw)
+
+
+@pytest.fixture
+def no_server(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Starting a language server fails the test."""
+
+    def refuse(*_: object, **__: object) -> None:
+        raise AssertionError("a language server was started")
+
+    monkeypatch.setattr(LanguageServer, "__init__", refuse)
 
 
 @cache

@@ -93,8 +93,8 @@ arch_check: 1 finding(s)
 
 Imports the code has today but the target architecture doesn't want are marked `#legacy` and counted against a
 baseline that the skills only ever lower; `/la:arch-cleanup` retires them a batch at a time. The moves that takes
-are done by `/la:deterministic-refactor`, which rewrites every import for you (rope for Python, the TypeScript
-language service for TypeScript) and has the type checker prove nothing was left dangling.
+are done by `/la:deterministic-refactor`, which rewrites every import for you (la with the bundled basedpyright for
+Python, the TypeScript language service for TypeScript) and has the type checker prove nothing was left dangling.
 
 See the model and principles this repo holds itself to in
 [`architecture/system.arc42.md`](../architecture/system.arc42.md).

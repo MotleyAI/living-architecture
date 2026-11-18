@@ -173,7 +173,7 @@ function phased<T>(r: Refactor, progress: Progress, resolve: () => T): T {
 
 function moveSymbol(r: Refactor, progress: Progress): number {
   const { file, dest, services, statement } = phased(r, progress, () => resolveMoveSymbol(r));
-  const header = message('refactor.ts-move-symbol-header', { name: declaredName(statement) });
+  const header = message('refactor.move-symbol-header', { name: declaredName(statement) });
   if (dest === file) return r.emit([header], new Map(), [], [], progress);
   const source = statement.getSourceFile();
   const range = { pos: statement.getStart(source), end: statement.end };
@@ -223,7 +223,7 @@ function moveModule(r: Refactor, progress: Progress): number {
   const { module, target, isDir, sources, moves } = phased(r, progress, () => resolveMoveModule(r));
   const edits = timed('references', () => moveEdits(r, module, target, moves, sources));
   const name = isDir ? basename(module) : basename(stripSourceExtension(module));
-  const header = message('refactor.ts-move-module-header', { name });
+  const header = message('refactor.move-module-header', { name });
   const code = r.emit([header], mergeEdits(edits), moves, [], progress);
   if (r.args.apply && isDir) removeEmptyDirs(module);
   return code;

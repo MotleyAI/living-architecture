@@ -1,0 +1,19 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- move-symbol
+- --file
+- pkg/a.py
+- --symbol
+- f
+- --dest
+- pkg/b.py
+git:
+- commit: init
+expect:
+  exit: 0
+note: 'an @overload group moves as one: the signatures and the implementation, in
+  order (rope moved only the implementation)'
+golden: manual

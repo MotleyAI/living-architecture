@@ -112,10 +112,11 @@ def verify(root: Path, writes: list[FileWrite]) -> None:
             raise FileChanged(write.rel)
 
 
-def apply(root: Path, writes: list[FileWrite], moves: list[FileMove], creates: Sequence[FileWrite] = ()) -> None:
+def apply(root: Path, writes: list[FileWrite], moves: list[FileMove], creates: Sequence[FileWrite] = (),
+          unchanged: Sequence[FileWrite] = ()) -> None:
     """Write every file, then move, then create the files the moves free; on a failure restore what was done and raise
-    `WriteFailed`."""
-    verify(root, writes)
+    `WriteFailed`; `FileChanged` first when a write or an `unchanged` read changed since it was read."""
+    verify(root, [*writes, *unchanged])
     done: list[FileWrite] = []
     moved: list[FileMove] = []
     created: list[FileWrite] = []

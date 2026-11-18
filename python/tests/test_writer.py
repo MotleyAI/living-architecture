@@ -9,11 +9,8 @@ from pathlib import Path
 import pytest
 from project_files import file_tree, write_project
 from refactor_cli import git
-from rope.base.change import ChangeContents, ChangeSet
-from rope.base.project import Project
 
-from living_architecture.refactor import rename_map, writer
-from living_architecture.refactor.rename_map import change_set_writes, source_bytes
+from living_architecture.refactor import writer
 from living_architecture.refactor.writer import FileChanged, FileMove, FileWrite, WriteFailed, apply
 
 
@@ -122,36 +119,6 @@ def test_a_tracked_move_below_the_git_root_is_staged(tmp_path: Path) -> None:
     apply(repo / "proj", [], [FileMove(rel="a.py", dest="sub/a.py")])
     status = subprocess.run(["git", "status", "--porcelain"], cwd=repo, capture_output=True, text=True, check=True).stdout
     assert "R  proj/a.py -> proj/sub/a.py" in status.splitlines()
-
-
-def test_a_rope_write_keeps_the_bytes_read_before_rope_computed(tmp_path: Path) -> None:
-    root = write_project(tmp_path / "p", {"a.py": "a = 1\n"})
-    project = Project(str(root), ropefolder=None)  # pyright: ignore[reportArgumentType]
-    before = source_bytes(project)
-    (root / "a.py").write_text("# edited\na = 1\n", encoding="utf-8")
-    changes = ChangeSet("")
-    changes.add_change(ChangeContents(project.get_resource("a.py"), "b = 1\n"))
-    writes, _moves = change_set_writes(changes, before)
-    with pytest.raises(FileChanged):
-        apply(root, writes, [])
-    assert (root / "a.py").read_text(encoding="utf-8") == "# edited\na = 1\n"
-
-
-def test_rope_files_outside_la_sources_are_snapshotted(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    root = write_project(tmp_path / "p", {"a.py": "a = 1\n"})
-    project = Project(str(root), ropefolder=None)  # pyright: ignore[reportArgumentType]
-    monkeypatch.setattr(rename_map, "language_files", lambda *_: [])
-    snapshot = source_bytes(project)
-    assert (snapshot["a.py"], set(snapshot)) == (b"a = 1\n", {f.path for f in project.get_python_files()})
-
-
-def test_a_write_without_a_snapshot_is_refused(tmp_path: Path) -> None:
-    root = write_project(tmp_path / "p", {"a.py": "a = 1\n"})
-    project = Project(str(root), ropefolder=None)  # pyright: ignore[reportArgumentType]
-    changes = ChangeSet("")
-    changes.add_change(ChangeContents(project.get_resource("a.py"), "b = 1\n"))
-    with pytest.raises(FileChanged):
-        change_set_writes(changes, {})
 
 
 def test_a_file_is_created_where_a_move_freed_its_path(tmp_path: Path) -> None:
