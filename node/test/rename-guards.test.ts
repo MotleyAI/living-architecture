@@ -4,11 +4,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type * as TS from 'typescript';
 import { describe, expect, it } from 'vitest';
+import { language } from '../src/contract/index.js';
 import { ts } from '../src/lang/index.js';
 import { codeMarked, mentions, qualified, sourceRegions } from '../src/refactor/mentions.js';
 import { run, tempRepo } from './cli-run.js';
 import { refactor } from './refactor-project.js';
-import { memberDeclarations } from '../src/refactor/members.js';
+import { memberDeclarations, siteText, stringForms, walk } from '../src/refactor/members.js';
 import { Site } from '../src/refactor/sites.js';
 
 describe('Site', () => {
@@ -17,19 +18,19 @@ describe('Site', () => {
   for (const file of ['tests/compat/old.ts', 'tests/compatible.ts', 'tests/shim.ts']) writeFileSync(join(root, file), '');
 
   it('matches a directory by whole path components', () => {
-    const site = Site.parse('tests/compat', root, root);
+    const site = Site.parse('tests/compat', root);
     expect(site.covers('tests/compat/old.ts', 1)).toBe(true);
     expect(site.covers('tests/compatible.ts', 1)).toBe(false);
   });
 
   it('matches a line of a file, normalized', () => {
-    const site = Site.parse('./tests/../tests/shim.ts:4', root, root);
+    const site = Site.parse('./tests/../tests/shim.ts:4', root);
     expect([site.covers('tests/shim.ts', 4), site.covers('tests/shim.ts', 5)]).toEqual([true, false]);
   });
 
   it('matches nothing for a missing path or one outside the project', () => {
-    expect(Site.parse('tests/missing.ts', root, root).covers('tests/missing.ts', 1)).toBe(false);
-    expect(Site.parse('..', root, root).parts).toBeNull();
+    expect(Site.parse('tests/missing.ts', root).covers('tests/missing.ts', 1)).toBe(false);
+    expect(Site.parse('..', root).parts).toBeNull();
   });
 });
 
@@ -56,11 +57,11 @@ describe('mentions', () => {
     expect(qualified('src.engine.Engine.saveModel', at('src.engine.Engine.saveModel'), owners, libEngine)).toBe(true);
   });
 
-  it('marks backticks, links and a string opening with the name', () => {
+  it('marks backticks and links, not a word opening a string', () => {
     const marked = (text: string) => found(text).map((m) => codeMarked(text, m));
     expect(marked('// `saveModel` and `saveModel()` and {@link saveModel} and saveModel\n')).toEqual([true, true, true, false]);
-    expect(marked("const a = 'saveModel: x'; const b = 'x saveModel: y';\n")).toEqual([true, false]);
-    expect(marked('const t = `saveModel: ${1} saveModel: `;\n')).toEqual([true, false]);
+    expect(marked("const a = 'saveModel: x'; const b = 'x saveModel: y';\n")).toEqual([false, false]);
+    expect(marked('const t = `saveModel: ${1} saveModel: `;\n')).toEqual([false, false]);
   });
 });
 
@@ -176,5 +177,72 @@ describe('escaped exact-OLD literals', () => {
     });
     const renamed = refactor(root, 'rename', '--file', 'src/store.ts', '--symbol', 'Store.getModel', '--new-name', 'getDataset');
     expect([renamed.code, renamed.err]).toEqual([0, 'src/names.ts:1: leftover: string mentions getModel\n']);
+  });
+});
+
+describe('siteText', () => {
+  function site(text: string, name: string): string {
+    const file = ts().createSourceFile('a.ts', text, ts().ScriptTarget.Latest, true);
+    const access = [...walk(file)].find((n) => ts().isCallExpression(n) || ts().isElementAccessExpression(n)) as TS.CallExpression | TS.ElementAccessExpression;
+    const receiver = ts().isCallExpression(access) ? (access.arguments[0] as TS.Expression) : access.expression;
+    return siteText(access, receiver, name);
+  }
+
+  it.each([
+    ["vi.spyOn(o, 'id');", 'id', "vi.spyOn(o, 'id')"],
+    ["Reflect.get(x, 'columns');", 'columns', "Reflect.get(x, 'columns')"],
+    ['Reflect.get(x, "columns");', 'columns', "Reflect.get(x, 'columns')"],
+  ])('prints a call with its object and member alone: %s', (text, name, expected) => {
+    expect(site(text, name)).toBe(expected);
+  });
+
+  it.each([
+    ["Reflect.set(x, 'columns', 1);", "Reflect.set(x, 'columns', …)"],
+    ["Reflect.get(x, 'columns', x);", "Reflect.get(x, 'columns', …)"],
+    ["Object.defineProperty(x, 'columns', { value: 1, writable: true });", "Object.defineProperty(x, 'columns', …)"],
+  ])('marks further arguments: %s', (text, expected) => {
+    expect(site(text, 'columns')).toBe(expected);
+  });
+
+  it.each([
+    ["x['columns'];", "x['columns']"],
+    ['x["columns"];', "x['columns']"],
+    ["o.inner['columns'] = 1;", "o.inner['columns']"],
+  ])('prints an element access with single quotes: %s', (text, expected) => {
+    expect(site(text, 'columns')).toBe(expected);
+  });
+
+  it.each([
+    ["Reflect.get(\n  a\n    .b,\n  'columns',\n);", "Reflect.get(a .b, 'columns')"],
+    ["Reflect.set(\n  a\n    .b,\n  'columns',\n  1,\n);", "Reflect.set(a .b, 'columns', …)"],
+    ["a\n  .b['columns'];", "a .b['columns']"],
+    ["a\t\t.b['columns'];", "a .b['columns']"],
+  ])('collapses each run of whitespace of a receiver: %j', (text, expected) => {
+    expect(site(text, 'columns')).toBe(expected);
+  });
+});
+
+describe('stringForms', () => {
+  const entry = { call: 'Reflect.get', object: 0, member: 1 };
+
+  it('loads every TypeScript string-member call of the registry', () => {
+    const raw = language('typescript').string_member_calls as { call: string }[];
+    expect(stringForms(raw).map((form) => form.call)).toEqual(raw.map((form) => form.call));
+    expect(stringForms([entry])).toMatchObject([entry]);
+  });
+
+  it.each([
+    ['a value that is no list', entry],
+    ['an entry that is no mapping', ['Reflect.get']],
+    ['a missing call', [{ object: 0, member: 1 }]],
+    ['a call that is no string', [{ ...entry, call: 1 }]],
+    ['a missing member position', [{ call: 'Reflect.get', object: 0 }]],
+    ['a member position that is no integer', [{ ...entry, member: '1' }]],
+    ['a negative object position', [{ ...entry, object: -1 }]],
+    ['a silent fact that is no boolean', [{ ...entry, silent: 'yes' }]],
+    ['a default position that is no integer', [{ ...entry, default: 'two' }]],
+  ])('fails on %s', (_, raw) => {
+    expect(stringForms).toBeTypeOf('function');
+    expect(() => stringForms(raw)).toThrow();
   });
 });

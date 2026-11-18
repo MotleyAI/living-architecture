@@ -274,3 +274,15 @@ def test_explicit_typecheck_reads_the_merged_data(tmp_path: Path) -> None:
     _write(tmp_path, "commands: {typecheck: {python: basedpyright -p python}}\n")
     _write_local(tmp_path, "tracker: none\n")
     assert explicit_typecheck(tmp_path) == {"python"}
+
+
+def test_a_moved_module_stub_is_read_from_the_refactor_section(tmp_path: Path) -> None:
+    _write(tmp_path, 'refactor:\n  python:\n    moved_module_stub: "raise_moved(\\"{old}\\")\\n"\n')
+    assert load_config(tmp_path).refactor.python.moved_module_stub == 'raise_moved("{old}")\n'
+    assert load_config(tmp_path / "missing").refactor.python.moved_module_stub is None
+
+
+def test_a_moved_module_stub_must_be_text(tmp_path: Path) -> None:
+    _write(tmp_path, "refactor:\n  python:\n    moved_module_stub: 3\n")
+    with pytest.raises(ConfigError, match="moved_module_stub"):
+        load_config(tmp_path)

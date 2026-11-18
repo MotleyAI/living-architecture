@@ -1,0 +1,79 @@
+Renaming <measures> to <metrics>:
+Renaming <source_model> to <population>:
+
+
+--- a/pkg/lit_use.py
++++ b/pkg/lit_use.py
+@@ -2,4 +2,4 @@
+ 
+ 
+ def unpacked() -> Query:
+-    return q(**{"measures": ["n"]})
++    return q(**{"metrics": ["n"]})
+
+--- a/pkg/q.py
++++ b/pkg/q.py
+@@ -4,8 +4,8 @@
+ 
+ 
+ class Query(BaseModel):
+-    source_model: str
+-    measures: list[str] = []
++    population: str
++    metrics: list[str] = []
+ 
+ 
+ class Other(BaseModel):
+@@ -18,10 +18,10 @@
+ 
+ 
+ def q(**kw: Any) -> Query:
+-    kw.setdefault("source_model", "orders")
+-    if "source_model" in kw:
+-        print(kw["source_model"], kw.get("source_model"))
+-    kw["source_model"] = kw.pop("source_model", None) or "orders"
++    kw.setdefault("population", "orders")
++    if "population" in kw:
++        print(kw["population"], kw.get("population"))
++    kw["population"] = kw.pop("population", None) or "orders"
+     return Query(**kw)
+ 
+ 
+@@ -30,11 +30,11 @@
+ 
+ 
+ def lit(**kw: Any) -> Query:
+-    return Query(**{"source_model": "orders", **kw})
++    return Query(**{"population": "orders", **kw})
+ 
+ 
+ def bound(**kw: Any) -> Query:
+-    data = {"source_model": "orders", **kw}
++    data = {"population": "orders", **kw}
+     return Query.model_validate(data)
+ 
+ 
+
+--- a/pkg/use.py
++++ b/pkg/use.py
+@@ -2,10 +2,10 @@
+ 
+ 
+ def test_it() -> None:
+-    assert q(measures=["n"]).source_model == "orders"
+-    q2(measures=["n"])
+-    Sub(measures=[])
+-    lit(measures=["n"])
+-    bound(measures=["n"])
+-    shadow(measures=["n"])
++    assert q(metrics=["n"]).population == "orders"
++    q2(metrics=["n"])
++    Sub(metrics=[])
++    lit(metrics=["n"])
++    bound(metrics=["n"])
++    shadow(metrics=["n"])
+     other(measures=[])
+
+
+
+DRY-RUN. 3 file(s) would change. Re-run with --apply.

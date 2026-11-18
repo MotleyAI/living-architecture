@@ -1,0 +1,23 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- --apply
+- rename
+- --file
+- pkg/c.py
+- --symbol
+- 'cached(models)'
+- --new-name
+- datasets
+fixture: refactor-decorated-unlinked
+git:
+- commit: init
+expect:
+  exit: 1
+  files:
+  - pkg/c.py
+golden: manual
+note: 'a call keyword of a callee whose signature the checker types without the parameter is an unlinked keyword: the
+  parameter rename refuses, nothing on stdout, nothing written'

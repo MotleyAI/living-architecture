@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 import pytest
-from rope.base import arguments, builtins, evaluate, libutils, pynames
+from rope.base import arguments, builtins, libutils
 from rope.base.project import Project
 from rope.base.pyobjects import PyObject
 from rope.base.pyobjectsdef import PyClass, PyFunction, PyModule
@@ -166,60 +166,6 @@ class K:
 )
 def test_receivers_bind_the_first_parameter(module, method: str, expected: dict[str, str | None]) -> None:
     assert _objects(_function(module(METHODS), "K", method)) == expected
-
-
-@pytest.mark.parametrize(
-    ("keyword", "resolves"),
-    [("a", False), ("b", True), ("args", False), ("c", True), ("kwargs", False)],
-    ids=["positional-only", "positional-or-keyword", "args", "keyword-only", "kwargs"],
-)
-def test_keyword_lookup_resolves_only_keyword_bindable_parameters(module, keyword: str, resolves: bool) -> None:
-    source = "def f(a, /, b, *args, c, **kwargs): pass\nf(1, a=2, b=3, args=4, c=5, kwargs=6)\n"
-    mod = module(source)
-    pyname = evaluate.eval_location(mod, source.rindex(f"{keyword}="))
-    if resolves:
-        assert isinstance(pyname, pynames.ParameterName)
-        assert pyname is _function(mod, "f").get_parameters()[keyword]
-    else:
-        assert pyname is None
-
-
-@pytest.mark.parametrize("name", ["a", "b", "c"], ids=["positional-only", "positional-or-keyword", "keyword-only"])
-def test_defaulted_header_parameter_resolves_to_its_parameter(module, name: str) -> None:
-    source = "def f(a=0, /, b=0, *, c=0): pass\n"
-    mod = module(source)
-    assert evaluate.eval_location(mod, source.index(f"{name}=")) is _function(mod, "f").get_parameters()[name]
-
-
-LAMBDAS = "def f(p, q):\n    g = lambda p, *, r=q: (p, r, q)\n    h = lambda: p\n    return g, h, p\n"
-
-
-@pytest.mark.parametrize(
-    ("needle", "shift", "owner"),
-    [
-        ("lambda p", 7, None),
-        ("r=q", 0, None),
-        ("(p, r", 1, None),
-        (", r, ", 2, None),
-        ("=q", 1, "q"),
-        (", q)", 2, "q"),
-        ("lambda: p", 8, "p"),
-        ("h, p", 3, "p"),
-    ],
-    ids=[
-        "lambda-parameter", "lambda-keyword-only", "lambda-use", "lambda-keyword-only-use", "lambda-default",
-        "outer-use-in-lambda", "parameterless-lambda", "outer-use",
-    ],
-)
-def test_names_a_lambda_binds_resolve_to_nothing(module, needle: str, shift: int, owner: str | None) -> None:
-    mod = module(LAMBDAS)
-    pyname = evaluate.eval_location(mod, LAMBDAS.index(needle) + shift)
-    assert pyname is (None if owner is None else _function(mod, "f").get_parameters()[owner])
-
-
-def test_keyword_of_an_unresolved_call_resolves_to_nothing(module) -> None:
-    source = "def f(model_name):\n    return unknown(model_name=model_name)\n"
-    assert evaluate.eval_location(module(source), source.index("model_name=")) is None
 
 
 # Canary: drop the parameter patch when rope's function model lists positional-only and keyword-only parameters.

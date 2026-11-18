@@ -1,0 +1,2 @@
+- {file: src/a.ts, symbol: Table.columns, new_name: fields}
+- {file: src/a.ts, symbol: Result.columns, new_name: resultColumns}

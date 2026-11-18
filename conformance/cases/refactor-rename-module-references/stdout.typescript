@@ -1,0 +1,70 @@
+Renaming <client> to <cli2>:
+
+
+--- a/src/api/handler.ts
++++ b/src/api/handler.ts
+@@ -1,4 +1,4 @@
+-import { X } from '../sql/client.js';
++import { X } from '../sql/cli2.js';
+ import { connect } from '../sql/engine.js';
+ 
+ export function handle(): number {
+
+rename from src/sql/client.ts
+rename to src/sql/cli2.ts
+--- a/src/sql/engine.ts
++++ b/src/sql/engine.ts
+@@ -1,4 +1,4 @@
+-import * as client from './client.js';
++import * as client from './cli2.js';
+ 
+ export function connect(): number {
+   return client.X;
+
+--- a/test/chain.ts
++++ b/test/chain.ts
+@@ -1,4 +1,4 @@
+-import { X } from '../src/sql/client.js';
+-export { X as Y } from '../src/sql/client.js';
++import { X } from '../src/sql/cli2.js';
++export { X as Y } from '../src/sql/cli2.js';
+ 
+ export const chained = X + 1;
+
+--- a/test/forms.ts
++++ b/test/forms.ts
+@@ -1,14 +1,14 @@
+-import { X } from '../src/sql/client.js';
+-import type { Client } from '../src/sql/client';
+-import legacy = require('../src/sql/client');
++import { X } from '../src/sql/cli2.js';
++import type { Client } from '../src/sql/cli2';
++import legacy = require('../src/sql/cli2');
+ 
+-export { Client as Kept } from '../src/sql/client.js';
+-export * from '../src/sql/client.js';
++export { Client as Kept } from '../src/sql/cli2.js';
++export * from '../src/sql/cli2.js';
+ 
+-export type Lazy = typeof import('../src/sql/client.js');
+-export const lazy = (): Promise<unknown> => import('../src/sql/client.js');
++export type Lazy = typeof import('../src/sql/cli2.js');
++export const lazy = (): Promise<unknown> => import('../src/sql/cli2.js');
+ 
+-declare module '../src/sql/client.js' {
++declare module '../src/sql/cli2.js' {
+   interface Client {
+     extra: number;
+   }
+
+--- a/test/legacy.js
++++ b/test/legacy.js
+@@ -1,3 +1,3 @@
+-const client = require('../src/sql/client');
++const client = require('../src/sql/cli2');
+ 
+ module.exports = client.X;
+
+
+
+DRY-RUN. 6 file(s) would change. Re-run with --apply.

@@ -18,6 +18,12 @@
       "typescript": "tsc --noEmit"
     }
   },
+  "refactor": {
+    "python": {
+      "moved_module_stub": null
+    },
+    "string_forms": []
+  },
   "conventions": {
     "text_ratio_max": 1.0,
     "exempt": [],

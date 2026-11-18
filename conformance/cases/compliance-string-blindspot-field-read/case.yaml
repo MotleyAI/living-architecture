@@ -1,0 +1,15 @@
+kind: adapter
+languages:
+- python
+command: dr-compliance
+args:
+- --select
+- string-blindspot
+- --attr
+- formula
+- src/read.py
+fixture: compliance
+expect:
+  exit: 1
+golden: manual
+note: a field-name read on an untyped receiver is a string-named access, printed as written

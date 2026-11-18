@@ -13,8 +13,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
 
-from living_architecture.contract import message
-from living_architecture.refactor.locators import RefactorError
+from living_architecture.refactor.locators import cannot_rename
 from living_architecture.refactor.move_edits import NameConflict
 from living_architecture.refactor.python_source import SourceFile, nfkc
 from living_architecture.refactor.static_resolver import Module, Scope
@@ -49,7 +48,7 @@ def _word(source: SourceFile, node: ast.AST, word: str) -> int | None:
     return None if found is None else found[0]
 
 
-def _bound_at(source: SourceFile, node: ast.AST, name: str) -> int | None:
+def bound_at(source: SourceFile, node: ast.AST, name: str) -> int | None:
     """The offset of the identifier with which `node` binds `name`."""
     span = source.name_span(node)
     return span[0] if span is not None else _word(source, node, name)
@@ -106,19 +105,20 @@ class Occurrence:
 
 class _Parsed:
     """A module's scopes, the offsets binding each name in the scope it binds in, its star imports and the
-    identifiers of each name."""
+    identifiers of each name; it keeps no syntax tree."""
 
     def __init__(self, source: SourceFile, tree: ast.Module, parts: list[str], is_package: bool) -> None:
         module = Module(tree, parts, is_package)
         binder = module.binder
-        self.module = module
+        self.scope = module.scope
+        self.all_names = module.all_names
         self.sites: defaultdict[tuple[Scope, str], list[int]] = defaultdict(list)
         # Each binding that runs: its name's offset, the offset it runs at and the span its statement evaluates first.
         self.points: defaultdict[tuple[Scope, str], list[tuple[int | None, int, Span | None]]] = defaultdict(list)
         parents = {child: node for node in ast.walk(tree) for child in ast.iter_child_nodes(node)}
         self._named: defaultdict[str, list[Occurrence]] = defaultdict(list)
         for scope, name, node in binder.bound:
-            offset = _bound_at(source, node, name)
+            offset = bound_at(source, node, name)
             parent = parents.get(node)
             if not (isinstance(parent, ast.AnnAssign) and parent.value is None):  # an annotation binds nothing
                 self.points[(scope.owner(name), name)].append((offset, *_binding_point(source, node, parents)))
@@ -228,8 +228,18 @@ def module_binding(text: str, name: str) -> int | None:
     if source.tree is None:
         return None
     parsed = _Parsed(source, source.tree, [], False)
-    sites = parsed.sites.get((parsed.module.scope, nfkc(name)))
+    sites = parsed.sites.get((parsed.scope, nfkc(name)))
     return min(sites) if sites else None
+
+
+def bindings_after(text: str, edits: list[TextEdit], name: str) -> list[int]:
+    """The module-level bindings of `name` in a module's `text` after `edits`, by their offsets before them."""
+    source = SourceFile(Path(), apply_edits(text, edits))
+    if source.tree is None:
+        return []
+    parsed = _Parsed(source, source.tree, [], False)
+    edited = _Edited(edits)
+    return sorted(edited.original(offset) for offset in parsed.sites.get((parsed.scope, nfkc(name)), []))
 
 
 def _module_parts(folders: list[str], rel: str) -> tuple[list[str], bool]:
@@ -279,7 +289,7 @@ class World:
         if parsed is None:
             return {}
         out: Meaning = {}
-        for offset in parsed.sites.get((parsed.module.scope, name), []):
+        for offset in parsed.sites.get((parsed.scope, name), []):
             site = self.origin(rel, offset)
             out[site] = site
         for dotted, offset in parsed.stars:
@@ -294,7 +304,7 @@ class World:
         parsed = self.parsed(rel)
         if parsed is None:
             return False
-        listed = parsed.module.all_names
+        listed = parsed.all_names
         return name in listed if listed is not None else not name.startswith("_")
 
     def meaning(self, rel: str, scope: Scope, name: str, at: int | None = None) -> Meaning:
@@ -349,21 +359,23 @@ class EntryEdits(BaseModel):
 
 
 class Conflict(BaseModel):
-    """A site a name-conflict finding may name, with the new name it names."""
+    """A site a name-conflict finding may name, with the new name it names and the map index of its entry."""
 
     model_config = ConfigDict(frozen=True)
 
     site: Site
     name: str
+    entry: int
 
 
-def first_conflict(conflicts: list[Conflict], source: Callable[[str], SourceFile]) -> NameConflict | None:
-    """The finding for the first of `conflicts` by path, then offset in the code before the rename."""
-    if not conflicts:
-        return None
-    found = min(conflicts, key=lambda c: c.site)
-    rel, offset = found.site
-    return NameConflict(found.name, rel, source(rel).line(offset))
+def first_conflicts(conflicts: list[Conflict], source: Callable[[str], SourceFile]) -> dict[int, NameConflict]:
+    """Each entry's finding, by entry index: the first of its `conflicts` by path, then offset in the code before
+    the rename."""
+    first: dict[int, Conflict] = {}
+    for c in conflicts:
+        if c.entry not in first or c.site < first[c.entry].site:
+            first[c.entry] = c
+    return {entry: NameConflict(c.name, c.site[0], source(c.site[0]).line(c.site[1])) for entry, c in sorted(first.items())}
 
 
 class BindingCheck:
@@ -400,7 +412,7 @@ class BindingCheck:
                 self._after[key] = (None, _Edited(list(edits)))
                 return self._after[key]
             if source.tree is None:
-                raise RefactorError(message("refactor.cannot-rename"))
+                raise cannot_rename()
             parts, is_package = _module_parts(self.folders, rel)
             self._after[key] = (_Parsed(source, source.tree, parts, is_package), _Edited(list(edits)))
         return self._after[key]
@@ -449,35 +461,71 @@ class BindingCheck:
                 out.add(nfkc(entry.target))
         return frozenset(out)
 
-    def conflicts(self, entries: list[EntryEdits], moves: dict[str, str] | None = None) -> list[Conflict]:
-        """The sites whose meaning the edits change; `moves` maps a moved file to its path after the rename."""
-        moves = moves or {}
+    def _plan(self, entries: list[EntryEdits], moves: dict[str, str]) -> _Plan | None:
+        """What a pass of `entries` judges; None when they check no name."""
         names = self._names(entries)
         if not names:
-            return []
-        pattern = re.compile(rf"(?<!\w)(?:{'|'.join(map(re.escape, sorted(names)))})(?!\w)")
+            return None
         by_file: defaultdict[str, list[TextEdit]] = defaultdict(list)
         for e in merge_edits([e for entry in entries for e in entry.edits]):
             by_file[e.path].append(e)
         binding = {rel: tuple(edits) if moves else tuple(e for e in edits if (e.start, e.end) not in self._inert_spans(rel))
                    for rel, edits in by_file.items()}
-        binding = {rel: edits for rel, edits in binding.items() if edits}
-        back = {dest: src for src, dest in moves.items()}
+        return _Plan(entries, names, dict(by_file), {rel: edits for rel, edits in binding.items() if edits}, moves)
 
+    def conflicts(self, passes: list[list[EntryEdits]], moves: dict[str, str] | None = None, *,
+                  each: list[dict[str, str]] | None = None) -> Iterator[list[Conflict]]:
+        """Each pass's sites whose meaning its edits change, in order; `moves` maps a moved file to its path after the
+        rename, `each` gives every pass its own. An after-edit state lives until the last pass reading it."""
+        own = each if each is not None else [moves or {}] * len(passes)
+        plans = [self._plan(entries, pass_moves) for entries, pass_moves in zip(passes, own, strict=True)]
+        last = {key: n for n, plan in enumerate(plans) if plan is not None for key in plan.states()}
+        for n, plan in enumerate(plans):
+            found = [] if plan is None else self._judge(plan)
+            for key in [k for k in self._after if last.get(k, -1) <= n]:
+                del self._after[key]
+            yield found
+
+    def _judge(self, plan: _Plan) -> list[Conflict]:
         def state(rel: str) -> tuple[_Parsed | None, _Edited]:
-            src = back.get(rel, rel)
-            return self._state(rel, src, binding.get(src, ()))
+            return self._state(*plan.key(rel))
 
         def after_origin(rel: str, offset: int) -> Site:
-            src = back.get(rel, rel)
-            return src, state(rel)[1].original(offset) if src in binding else offset
+            src = plan.back.get(rel, rel)
+            return src, state(rel)[1].original(offset) if src in plan.binding else offset
 
-        changed = frozenset({moves.get(rel, rel) for rel in binding} | set(moves.values()))
+        moves = plan.moves
         after = World({moves.get(f, f) for f in self.files}, self.folders, lambda rel: state(rel)[0], after_origin,
-                      unchanged=self.world, edited=changed)
-        judged = set(self.files) if moves else self._judged(set(binding))
-        checked = [rel for rel in self.files if rel in judged and (rel in by_file or may_name(pattern, self.before(rel)))]
-        return _Judge(entries, names, self.world, after, moves).conflicts(checked)
+                      unchanged=self.world, edited=plan.changed)
+        judged = set(self.files) if moves else self._judged(set(plan.binding))
+        checked = [rel for rel in self.files
+                   if rel in judged and (rel in plan.by_file or may_name(plan.pattern, self.before(rel)))]
+        return _Judge(plan.entries, plan.names, self.world, after, moves).conflicts(checked)
+
+
+class _Plan:
+    """A pass: its entries and names, its edits by file, those that can bind a name and its after-world's edited
+    modules."""
+
+    def __init__(self, entries: list[EntryEdits], names: frozenset[str], by_file: dict[str, list[TextEdit]],
+                 binding: dict[str, tuple[TextEdit, ...]], moves: dict[str, str]) -> None:
+        self.entries, self.names, self.by_file, self.binding, self.moves = entries, names, by_file, binding, moves
+        self.pattern = re.compile(rf"(?<!\w)(?:{'|'.join(map(re.escape, sorted(names)))})(?!\w)")
+        self.back = {dest: src for src, dest in moves.items()}
+        self.changed = frozenset({moves.get(rel, rel) for rel in binding} | set(moves.values()))
+
+    def key(self, rel: str) -> tuple[str, str, tuple[TextEdit, ...]]:
+        """The after-edit state of module `rel`: its path, its file before the edits and that file's binding edits."""
+        src = self.back.get(rel, rel)
+        return rel, src, self.binding.get(src, ())
+
+    def states(self) -> set[tuple[str, str, tuple[TextEdit, ...]]]:
+        """The after-edit states the pass reads."""
+        return {self.key(rel) for rel in self.changed}
+
+
+def _conflict(site: Site, entry: EntryEdits) -> Conflict:
+    return Conflict(site=site, name=entry.new_name, entry=entry.index)
 
 
 class _Judge:
@@ -527,12 +575,9 @@ class _Judge:
         own = [site for site, e in self.declared.items() if e is entry]
         return min(own) if own else min((e.path, e.start) for e in entry.edits)
 
-    def _name(self, name: str) -> str:
-        """The new name a finding about an existing occurrence of `name` names."""
-        for entry in self.entries:
-            if nfkc(entry.new_name) == name:
-                return entry.new_name
-        return self.entries[0].new_name
+    def _naming(self, name: str) -> EntryEdits:
+        """The entry a finding about an existing occurrence of `name` belongs to: the first whose new name it is."""
+        return next((entry for entry in self.entries if nfkc(entry.new_name) == name), self.entries[0])
 
     def _verdict(self, rel: str, old: Occurrence, new: Occurrence) -> list[Conflict]:
         site = (rel, old.offset)
@@ -544,36 +589,38 @@ class _Judge:
             return self._rewritten_verdict(rel, old, new, entry, before, after)
         kept = self.kept.get(site)
         if kept is not None:
+            # A declaration another entry renames onto the kept name is that entry's finding.
+            after = {d: s for d, s in after.items() if self.declared.get(d, kept) is kept}
             if not after or after.keys() == before.keys():
                 return []
             reported = [s for s in after.values() if s[1] >= 0]
-            return [Conflict(site=s, name=kept.new_name) for s in reported or [site]]
+            return [_conflict(s, kept) for s in reported or [site]]
         if after.keys() == before.keys():
             return []
-        return [Conflict(site=site, name=self._name(new.name))]
+        return [_conflict(site, self._naming(new.name))]
 
     def _rewritten_verdict(self, rel: str, old: Occurrence, new: Occurrence, entry: EntryEdits, before: Meaning,
                            after: Meaning) -> list[Conflict]:
         expected = before if entry.target is None else self.before.meaning(rel, old.scope, entry.target, old.read_at)
         joined = self._joined(rel, new) if old.binds else []
         if joined:
-            return [Conflict(site=s, name=entry.new_name) for s in joined]
+            return [_conflict(s, entry) for s in joined]
         if after.keys() == expected.keys():
             return []
         return self._rewritten_conflicts((rel, old.offset), entry, after, expected)
 
     def _rewritten_conflicts(self, site: Site, entry: EntryEdits, after: Meaning, expected: Meaning) -> list[Conflict]:
-        """A rewritten occurrence meaning other declarations than `expected`: an existing one's sites, else the earliest
-        entry it meets, else its own site."""
+        """A rewritten occurrence meaning other declarations than `expected`: an existing one's sites, else the first
+        declaration of the earliest entry it meets (the latest one's finding), else its own site."""
         foreign = [s for s in after if s not in expected]
         existing = [after[s] for s in foreign if s not in self.declared and s[1] >= 0]
         if existing:
-            return [Conflict(site=s, name=entry.new_name) for s in existing]
+            return [_conflict(s, entry) for s in existing]
         met = [self.declared[s] for s in foreign if s in self.declared and self.declared[s] is not entry]
         if met:
-            earliest = min([entry, *met], key=lambda e: e.index)
-            return [Conflict(site=self._first_declaration(earliest), name=earliest.new_name)]
-        return [Conflict(site=site, name=entry.new_name)]
+            meeting = sorted([entry, *met], key=lambda e: e.index)
+            return [_conflict(self._first_declaration(meeting[0]), meeting[-1])]
+        return [_conflict(site, entry)]
 
     def _joined(self, rel: str, new: Occurrence) -> list[Site]:
         """The existing declarations of `new`'s name in the scopes its own declaration shares."""

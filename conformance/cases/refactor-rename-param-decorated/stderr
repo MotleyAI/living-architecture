@@ -1,0 +1,10 @@
+[resolve]
+[checks]
+[references]
+[references 1/4] entry 1: models -> datasets
+[references 2/4] entry 2: models -> datasets
+[references 3/4] entry 3: models -> datasets
+[references 4/4] entry 4: models -> datasets
+[rules]
+[rules 1/1] entries 1, 2, 3, 4: models -> datasets: clean
+[conflicts]

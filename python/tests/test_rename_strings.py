@@ -160,8 +160,9 @@ def test_an_untyped_object_is_a_blind_spot(project: MakeProject, capsys: pytest.
     before = file_tree(root)
     assert _rename_save_model(root) == 1
     assert readouterr(capsys).err == (
-        message("compliance.attr-blindspot", path="pkg/use.py", line=2, receiver="o", attr="save_model", type="Unknown")
-        + "\n" + message("refactor.blindspots", count=1, attr="save_model") + "\n"
+        message("compliance.string-blindspot", path="pkg/use.py", line=2, site="getattr(o, 'save_model')", receiver="o",
+                attr="save_model", type="Unknown")
+        + "\n" + message("refactor.blindspots", count=1, names=".save_model") + "\n"
     )
     assert file_tree(root) == before
 
@@ -208,7 +209,7 @@ def test_an_unresolved_project_target_is_a_blind_spot(
     assert readouterr(capsys) == ("", (
         message("refactor.unresolved-target", path="tests/test_t.py", line=5,
                 target="pkg.engine.Missing.save_model", attr="save_model")
-        + "\n" + message("refactor.blindspots", count=1, attr="save_model") + "\n"
+        + "\n" + message("refactor.blindspots", count=1, names=".save_model") + "\n"
     ))
     assert file_tree(root) == before
 
@@ -380,7 +381,7 @@ def test_ambiguous_targets_refuse(
                 attr="save_model")
         for target in refused
     ]
-    expected = "".join(f"{line}\n" for line in [*lines, message("refactor.blindspots", count=len(refused), attr="save_model")])
+    expected = "".join(f"{line}\n" for line in [*lines, message("refactor.blindspots", count=len(refused), names=".save_model")])
     assert readouterr(capsys) == ("", expected)
     assert file_tree(root) == before
 
@@ -477,7 +478,8 @@ def test_a_callee_resolves_by_any_spelling_and_syntax_decides_only_when_unresolv
     ]
     err = readouterr(capsys).err.splitlines()
     assert err == [
-        message("compliance.attr-blindspot", path="pkg/use.py", line=13, receiver="engine", attr="save_model", type="Unknown"),
+        message("compliance.string-blindspot", path="pkg/use.py", line=13, site="mocker.patch.object(engine, 'save_model')",
+                receiver="engine", attr="save_model", type="Unknown"),
         message("refactor.leftover", path="pkg/use.py", line=12, where="string", old="save_model"),
     ]
 
@@ -520,7 +522,7 @@ def test_a_callee_bound_to_a_form_and_to_something_else_is_unresolved(
     assert _rename_save_model(root) == 1
     unresolved = message("refactor.unresolved-target", path="tests/test_t.py", line=8,
                          target="pkg.engine.SearchQueryEngine.save_model", attr="save_model")
-    assert readouterr(capsys).err.splitlines() == [unresolved, message("refactor.blindspots", count=1, attr="save_model")]
+    assert readouterr(capsys).err.splitlines() == [unresolved, message("refactor.blindspots", count=1, names=".save_model")]
     assert _read(root, "tests/test_t.py") == test
 
 
@@ -538,3 +540,146 @@ def test_an_escaped_exact_literal_in_a_file_never_spelling_old_is_listed(
     root = project({"pkg/engine.py": ENGINE, "pkg/names.py": 'VALUE = "\\x73ave_model"\n'})
     assert _rename_save_model(root) == 0
     assert readouterr(capsys).err == message("refactor.leftover", path="pkg/names.py", line=1, where="string", old="save_model") + "\n"
+
+
+# ---- field-name decorators and reads, class-body name tuples: matched by declaration, not spelling
+
+LOOKALIKE_DECORATOR = """\
+from collections.abc import Callable
+from typing import TypeVar
+
+F = TypeVar("F")
+
+
+def field_validator(*names: str) -> Callable[[F], F]:
+    def wrap(fn: F) -> F:
+        return fn
+
+    return wrap
+"""
+
+DECORATED = """\
+import pydantic
+from pydantic import BaseModel, field_serializer
+from pydantic import field_validator as fv
+
+from pkg.deco import field_validator
+
+
+class Ds(BaseModel):
+    columns: list[str] = []
+
+    @fv("columns")
+    @classmethod
+    def check(cls, v: list[str]) -> list[str]:
+        return v
+
+    @pydantic.field_validator("columns")
+    @classmethod
+    def check_again(cls, v: list[str]) -> list[str]:
+        return v
+
+    @field_serializer("columns")
+    def dump(self, v: list[str]) -> list[str]:
+        return v
+
+    @field_validator("columns")
+    def lookalike(self) -> None:
+        pass
+"""
+
+FIELD_MODELS = """\
+from typing import ClassVar
+
+from pydantic import BaseModel
+
+
+class Ds(BaseModel):
+    columns: list[str] = []
+
+
+class Plain:
+    model_fields: ClassVar[dict[str, int]] = {}
+    model_fields_set: ClassVar[set[str]] = set()
+    columns: int = 0
+"""
+
+FIELD_READS = """\
+from pkg.models import Ds, Plain
+
+
+def f(d: Ds, p: Plain) -> list[object]:
+    return [
+        Ds.model_fields["columns"],
+        type(d).model_fields.get("columns"),
+        "columns" in d.model_fields_set,
+        Plain.model_fields["columns"],
+        Plain.model_fields.get("columns"),
+        "columns" in p.model_fields_set,
+    ]
+"""
+
+CLASS_VALUES = """\
+class Slotted:
+    __slots__ = ("columns", "name")
+
+    def __init__(self) -> None:
+        self.columns: list[str] = []
+        self.name: str = ""
+
+
+class Sub(Slotted):
+    __slots__ = ()
+    __match_args__ = ("name", "columns")
+
+
+class Unrelated:
+    __slots__ = ("columns",)
+
+    def __init__(self) -> None:
+        self.columns: int = 0
+
+
+__slots__ = ("columns",)
+
+
+def f() -> tuple[str, ...]:
+    __match_args__ = ("columns",)
+    return __match_args__
+"""
+
+
+def _line(text: str, needle: str) -> int:
+    return text.count("\n", 0, text.index(needle)) + 1
+
+
+def test_field_name_decorators_match_by_declaration(project: MakeProject) -> None:
+    root = project({"pkg/deco.py": LOOKALIKE_DECORATOR, "pkg/models.py": DECORATED})
+    assert _rename(root, "pkg/models.py", "columns: list[str]", "fields") == 0
+    lookalike = '    @field_validator("columns")\n'
+    renamed = DECORATED.replace("columns", "fields").replace(lookalike.replace("columns", "fields"), lookalike)
+    assert _read(root, "pkg/models.py") == renamed
+
+
+def test_field_name_reads_match_by_the_attributes_declaration(project: MakeProject) -> None:
+    root = project({"pkg/models.py": FIELD_MODELS, "pkg/use.py": FIELD_READS})
+    without = f"pkg/models.py:{_line(FIELD_MODELS, 'columns: int')}"
+    assert _rename(root, "pkg/models.py", "columns: list[str]", "fields", "--without", without) == 0
+    head, plain = FIELD_READS.split("        Plain", 1)
+    assert _read(root, "pkg/use.py") == head.replace("columns", "fields") + "        Plain" + plain
+
+
+def test_a_same_named_attribute_of_a_plain_class_is_not_a_field_name_read(project: MakeProject) -> None:
+    root = project({"pkg/models.py": FIELD_MODELS, "pkg/use.py": FIELD_READS})
+    without = f"pkg/models.py:{_line(FIELD_MODELS, 'columns: list[str]')}"
+    assert _rename(root, "pkg/models.py", "columns: int", "fields", "--without", without) == 0
+    assert _read(root, "pkg/models.py") == FIELD_MODELS.replace("columns: int", "fields: int")
+    assert _read(root, "pkg/use.py") == FIELD_READS
+
+
+def test_class_body_name_tuples_belong_to_the_class_that_declares_them(project: MakeProject) -> None:
+    root = project({"pkg/shapes.py": CLASS_VALUES})
+    without = f"pkg/shapes.py:{_line(CLASS_VALUES, 'self.columns: int')}"
+    assert _rename(root, "pkg/shapes.py", "columns: list[str]", "fields", "--without", without) == 0
+    head, rest = CLASS_VALUES.split("class Unrelated", 1)
+    assert _read(root, "pkg/shapes.py") == head.replace("columns", "fields") + "class Unrelated" + rest

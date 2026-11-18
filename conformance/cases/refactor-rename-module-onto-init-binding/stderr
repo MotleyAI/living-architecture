@@ -1,4 +1,3 @@
 [resolve]
 [checks]
-[references]
-b already names something else at pkg/__init__.py:3, so nothing was refactored
+entry 1 (pkg/use.py:1:17): b already names something else at pkg/__init__.py:3, so nothing was refactored

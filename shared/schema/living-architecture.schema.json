@@ -71,6 +71,29 @@
         }
       }
     },
+    "refactor": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "python": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "moved_module_stub": {
+              "type": ["string", "null"],
+              "default": null,
+              "description": "The text `dr-refactor rename --stub REMOVAL` leaves at a renamed Python module's old path; {old} and {new} (dotted module names) and {removal} are replaced."
+            }
+          }
+        },
+        "string_forms": {
+          "type": "array",
+          "items": {"type": "string"},
+          "default": [],
+          "description": "Patterns for strings that carry a symbol's name (a mini-language such as Cypher): `dr-refactor` respells the one capturing group's text when a class or another module-level symbol of that name is renamed. Each pattern uses the portable regex subset and holds exactly one capturing group."
+        }
+      }
+    },
     "conventions": {
       "type": "object",
       "additionalProperties": false,

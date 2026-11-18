@@ -64,7 +64,7 @@ describe('sites', () => {
         mkdirSync(dirname(join(root, rel)), { recursive: true });
         writeFileSync(join(root, rel), '');
       }
-      const site = Site.parse(v.site, root, root);
+      const site = Site.parse(v.site, root);
       expect((v.checks as [string, number, boolean][]).map(([path, line]) => [path, line, site.covers(path, line)])).toEqual(v.checks);
     });
   }

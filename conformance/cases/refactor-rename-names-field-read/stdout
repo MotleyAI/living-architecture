@@ -1,0 +1,23 @@
+Renaming <columns> to <fields>:
+
+
+--- a/pkg/m.py
++++ b/pkg/m.py
+@@ -2,11 +2,11 @@
+ 
+ 
+ class Ds(BaseModel):
+-    columns: list[str] = []
++    fields: list[str] = []
+ 
+ 
+ def infos() -> list[object]:
+     out: list[object] = []
+-    for f in ("columns",):
++    for f in ("fields",):
+         out.append(Ds.model_fields[f])
+     return out
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

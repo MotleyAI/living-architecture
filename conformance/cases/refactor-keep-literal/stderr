@@ -1,0 +1,10 @@
+[resolve]
+[checks]
+[references]
+[references 1/2] entry 1: columns -> fields
+[references 2/2] entry 2: type -> kind
+[rules]
+[rules 1/2] entry 1: columns -> fields: clean
+[rules 2/2] entry 2: type -> kind: clean
+[conflicts]
+[write]

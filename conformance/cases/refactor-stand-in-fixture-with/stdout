@@ -1,0 +1,35 @@
+Renaming <root_model> to <root_dataset>:
+Renaming <root_model> to <root_dataset>:
+
+
+--- a/pkg/q.py
++++ b/pkg/q.py
+@@ -1,10 +1,10 @@
+ class Query:
+-    def root_model(self) -> str:
++    def root_dataset(self) -> str:
+         return "q"
+ 
+ 
+ class Plan:
+-    def root_model(self) -> str:
++    def root_dataset(self) -> str:
+         return "p"
+ 
+ 
+
+--- a/tests/test_q.py
++++ b/tests/test_q.py
+@@ -3,7 +3,7 @@
+ 
+ class TestQ:
+     @pytest.fixture
+-    def root_model(self) -> str:
++    def root_dataset(self) -> str:
+         return "x"
+ 
+     def test_it(self, root_model: str) -> None:
+
+
+
+DRY-RUN. 2 file(s) would change. Re-run with --apply.

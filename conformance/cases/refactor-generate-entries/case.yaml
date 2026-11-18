@@ -1,0 +1,15 @@
+kind: paired
+languages:
+- python
+- typescript
+command: dr-refactor
+args:
+- generate-map
+- words.yaml
+fixture: refactor-words
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: the table's entries are written first and replace the generated entry of the declaration they locate

@@ -1,0 +1,18 @@
+Renaming <columns> to <fields>:
+
+
+--- a/pkg/c.py
++++ b/pkg/c.py
+@@ -3,7 +3,7 @@
+ 
+ 
+ class Ds:
+-    columns: list[str] = []
++    fields: list[str] = []
+ 
+ 
+ class Probe:
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

@@ -1,0 +1,9 @@
+[resolve]
+[checks]
+[references]
+[references 1/1] entry 1: models -> datasets
+[rules]
+[rules 1/1] entry 1: models -> datasets: clean
+[conflicts]
+pkg/c.py:14: unlinked-keyword: cached(models=...) — the checker does not link models= to the renamed declaration, so a rename of models is unverifiable
+[write]

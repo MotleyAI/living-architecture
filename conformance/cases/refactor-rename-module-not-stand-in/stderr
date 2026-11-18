@@ -1,5 +1,0 @@
-[resolve]
-[checks]
-[references]
-[conflicts]
-tests/test_chain.py:1 is not a stand-in of this rename

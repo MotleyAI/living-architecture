@@ -5,4 +5,4 @@
 [rules]
 [rules 1/1] entry 1: columns -> fields: clean
 [conflicts]
-fields already names something else at pkg/use.py:3, so nothing was refactored
+entry 1 (pkg/models.py offset 179): fields already names something else at pkg/use.py:3, so nothing was refactored

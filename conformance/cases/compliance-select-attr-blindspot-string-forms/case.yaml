@@ -1,0 +1,16 @@
+kind: paired
+languages:
+- python
+- typescript
+command: dr-compliance
+args:
+- --select
+- attr-blindspot
+- --attr
+- formula
+- src
+fixture: compliance-attr-checks
+expect:
+  exit: 1
+golden: manual
+note: --select attr-blindspot reports only the attribute access, not the string-named one

@@ -1,0 +1,4 @@
+[resolve]
+[checks]
+entry 2 (src/c.ts:2:3): the element at this location cannot be renamed
+entry 3 (src/c.ts:2:1): the element at this location cannot be renamed

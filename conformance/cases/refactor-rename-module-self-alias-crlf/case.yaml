@@ -1,0 +1,26 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- --apply
+- rename
+- --file
+- tests/a.py
+- --line
+- '1'
+- --col
+- '16'
+- --new-name
+- cli2
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - tests/a.py
+  - tests/b.py
+  - pkg/sql/cli2.py
+  - pkg/sql/client.py
+note: 'CRLF files: an alias spelled like the module is renamed with its uses, any other alias stays; endings kept'
+golden: manual

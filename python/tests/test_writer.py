@@ -152,3 +152,24 @@ def test_a_write_without_a_snapshot_is_refused(tmp_path: Path) -> None:
     changes.add_change(ChangeContents(project.get_resource("a.py"), "b = 1\n"))
     with pytest.raises(FileChanged):
         change_set_writes(changes, {})
+
+
+def test_a_file_is_created_where_a_move_freed_its_path(tmp_path: Path) -> None:
+    root = write_project(tmp_path / "p", {"a.py": "X = 1\n"})
+    apply(root, [], [FileMove(rel="a.py", dest="b.py")], [FileWrite(rel="a.py", old=None, new=b"stub\n")])
+    assert ((root / "a.py").read_bytes(), (root / "b.py").read_bytes()) == (b"stub\n", b"X = 1\n")
+
+
+def test_a_failed_creation_undoes_the_moves_and_writes(tmp_path: Path) -> None:
+    root = write_project(tmp_path / "p", {"a.py": "X = 1\n", "use.py": "u\n", "locked/__init__.py": ""})
+    before = file_tree(root)
+    (root / "locked").chmod(0o555)
+    try:
+        writes, moves = [_write("use.py", "u\n", "U\n")], [FileMove(rel="a.py", dest="b.py")]
+        creates = [FileWrite(rel="locked/stub.py", old=None, new=b"stub\n")]
+        with pytest.raises(WriteFailed) as failed:
+            apply(root, writes, moves, creates)
+    finally:
+        (root / "locked").chmod(0o755)
+    assert failed.value.path == "locked/stub.py"
+    assert file_tree(root) == before

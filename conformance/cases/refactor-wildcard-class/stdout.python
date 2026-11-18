@@ -1,0 +1,32 @@
+Renaming <model> to <dataset>:
+
+
+--- a/pkg/l.py
++++ b/pkg/l.py
+@@ -1,16 +1,16 @@
+ class Query:
+     def run(self, name: str) -> str:
+-        model = name.upper()
++        dataset = name.upper()
+ 
+         def inner() -> str:
+-            model = name.lower()
+-            return model
++            dataset = name.lower()
++            return dataset
+ 
+-        return model + inner()
++        return dataset + inner()
+ 
+     def plan(self, name: str) -> str:
+-        model = name.title()
+-        return model
++        dataset = name.title()
++        return dataset
+ 
+ 
+ def load(name: str) -> str:
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

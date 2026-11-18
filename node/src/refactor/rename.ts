@@ -1,29 +1,49 @@
 // `dr-refactor rename`, `retarget` and `rename-map` for TypeScript: every entry resolved first, then each rename
 // rule once per old name over one session, one refusal report and one change set.
 import { existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import type * as TS from 'typescript';
-import { sourceFiles } from '../config/index.js';
-import { byCodePoint, literalValueForbidden, manifest, message, readFile } from '../contract/index.js';
-import { stripSourceExtension, ts } from '../lang/index.js';
+import { ConfigError, findRepoRoot, loadConfig, sourceFiles } from '../config/index.js';
+import { byCodePoint, language, literalValueForbidden, manifest, message, readFile } from '../contract/index.js';
+import { canonical, stripSourceExtension, ts } from '../lang/index.js';
 import { configFailures } from './baseline.js';
-import { type CheckEntry, identifierText, NameChecks } from './bindings.js';
+import { type CheckEntry, identifierText, type NameConflict, NameChecks } from './bindings.js';
+import { Carving, fixtureAt, locateCarveSymbols } from './carve.js';
 import { isCompound } from './compound.js';
 import { type Edit, mergeEdits, RefactorError, splitBom } from './edits.js';
 import { MapError } from './map.js';
 import { Lines } from './lines.js';
-import { anyAccesses, type FormCall, formCalls, isAny, type MemberDeclaration, memberDeclarations, memberNameStart, walk } from './members.js';
+import { moduleName, moveEdits, takenBy, validModuleName } from './module-rename.js';
+import { displayHolds, type LiteralSource, literalSources, sourceReads } from './literal-sources.js';
+import { anyAccesses, anyNamed, isAny, type MemberDeclaration, memberDeclarations, memberNameStart, type NamedAccess, namedAccesses, plainString, walk } from './members.js';
+import { compileForms, formSites, lookup, type OwnerSpan, ownerSpans, topDeclarations } from './mention-scope.js';
 import { codeMarked, type Mention, mentions, type Owner, qualified, type Region, sourceRegions } from './mentions.js';
-import { blindspotOutcome, compoundOutcome, formCallOutcome, literalOutcomes, mentionOutcome, type Outcome } from './outcomes.js';
+import {
+  blindspotOutcome,
+  compoundOutcome,
+  formCallOutcome,
+  literalOutcomes,
+  mentionOutcome,
+  mixedOutcome,
+  type Outcome,
+  sourceOutcome,
+  unrelatedOutcome,
+  unresolvedOutcome,
+} from './outcomes.js';
+import { type AddedError, addedErrors } from './program-check.js';
 import { declarationKeys, type Finding, type Home, keyOf, type Need, planImports, rename, resolveTarget, retargetSites, symbolOf } from './retarget.js';
-import { type Progress, type Refusal, refusal, Refused, unique } from './progress.js';
+import { ownScopeConflicts } from './own-scope.js';
+import { entryRefusal, type Progress, type Refusal, refusal, Refused, unique } from './progress.js';
 import { languageFiles } from './routing.js';
-import { type Locator, locate, nodeAt, type ProjectSource, projectSources, type Refactor, UsageError } from './session.js';
-import { keepSpells, Site } from './sites.js';
-import { LocatorError } from './symbols.js';
+import { type Locator, locate, locateEvery, nodeAt, type ProjectSource, projectSources, type Refactor, UsageError } from './session.js';
+import { keepSpells, LiteralKeeps, literalSpans, Pick, resolveKeeps, Site } from './sites.js';
+import { type Located, LocatorError, wildcardPath } from './symbols.js';
 import { timed } from './timings.js';
+import { loadWordTable } from './words.js';
+import { WorkspaceError } from './workspace.js';
 
-/** One rename or retarget to compute: its 1-based index, its file (absolute, and as given), locator and intent. */
+/** One rename or retarget to compute: its 1-based index, its file (absolute, and as given), locator and intent; a
+ * module rename names its module by `file` and has no locator. */
 export interface EntrySpec {
   index: number;
   file: string;
@@ -31,6 +51,13 @@ export interface EntrySpec {
   locator: Locator;
   newName?: string;
   retarget?: string;
+  module?: boolean;
+}
+
+/** A module rename's file move. */
+interface Move {
+  from: string;
+  to: string;
 }
 
 /** An entry resolved against the code: its symbol, old and new name, and the language service's rename locations. */
@@ -38,6 +65,8 @@ interface Target {
   index: number;
   /** Every map index merged into this entry. */
   indexes: number[];
+  /** Its locator, as a refusal prints it. */
+  shown: string;
   /** A retarget's refusals. */
   refusals: Finding[];
   retarget: boolean;
@@ -55,12 +84,35 @@ interface Target {
   home: Home | null;
   identity: Set<string>;
   original: string;
+  /** A module rename's move, else null. */
+  move: Move | null;
 }
 
 /** An edit with the entry it comes from. */
 interface Tagged extends Edit {
   entry: number;
 }
+
+/** A name in the member position of a string-named access: the sources it holds that spell OLD, the new name of each
+ * declaration its object's lookup lands on (null: unchanged; none for an untyped object), and its read. */
+interface NameUse {
+  path: string;
+  position: number;
+  start: number;
+  end: number;
+  receiver: string;
+  sources: LiteralSource[];
+  landings: (string | null)[];
+}
+
+/** A source this rename rewrites, and the reads that prove it names what is renamed. */
+interface Rewritten {
+  source: LiteralSource;
+  proven: Set<string>;
+}
+
+/** A rewritten source beside the new name `entry` gives it. */
+type Taken = NameConflict & { entry: number };
 
 const SENTINEL = '\0dr-refactor';
 const byPosition = (a: Finding, b: Finding): number => byCodePoint(a.path, b.path) || a.line - b.line || a.position - b.position;
@@ -89,15 +141,19 @@ const modulePath = (r: Refactor, path: string): string[] => r.rel(stripSourceExt
 
 /** The project's sources and their texts, read once for every rule of every entry. */
 class Session {
-  readonly sources: Map<string, ProjectSource>;
+  private loaded: Map<string, ProjectSource> | null = null;
   private readonly texts = new Map<string, string>();
   private readonly lines = new Map<string, Lines>();
 
   constructor(
     readonly r: Refactor,
-    files: string[],
-  ) {
-    this.sources = projectSources(r, [...new Set(files.flatMap((file) => r.services(file)))]);
+    private readonly files: string[],
+  ) {}
+
+  /** The project's sources, loaded on first use. */
+  get sources(): Map<string, ProjectSource> {
+    this.loaded ??= timed('load', () => projectSources(this.r, [...new Set(this.files.flatMap((file) => this.r.services(file)))]));
+    return this.loaded;
   }
 
   /** `path`'s relevant services, else the one its source came from. */
@@ -110,7 +166,7 @@ class Session {
   text(path: string): string {
     let text = this.texts.get(path);
     if (text === undefined) {
-      text = this.sources.get(path)?.source.text ?? splitBom(readFile(path, 'utf8'))[1];
+      text = this.loaded?.get(path)?.source.text ?? splitBom(readFile(path, 'utf8'))[1];
       this.texts.set(path, text);
     }
     return text;
@@ -133,15 +189,34 @@ class Session {
   }
 }
 
+/** An owner of qualified mentions with the new name its declaration takes. */
+interface NamedOwner extends Owner {
+  newName: string;
+}
+
+/** A listed mention, before any keep, with the finding listing it. */
+interface Listed {
+  path: string;
+  start: number;
+  end: number;
+  finding: Finding;
+}
+
 /** The entries renaming one old name: each rule runs once over all of them. */
 class NameGroup {
   readonly edits: Tagged[] = [];
   /** Each renamed member declaration's new name. */
   readonly renamed = new Map<string, string>();
-  readonly declaring = new Set<string>();
+  /** Each declaring file with the new names its renamed declarations take. */
+  readonly declaring = new Map<string, Set<string>>();
+  readonly listed: Listed[] = [];
   /** `--with` sites naming a stand-in declared by a computed name. */
   readonly computed: Refusal[] = [];
   blindspots: Finding[] = [];
+  /** Each rewritten source, by its key. */
+  private readonly rewritten = new Map<string, Rewritten>();
+  /** Each rewritten source whose display already holds the new name, by the source's key. */
+  private readonly taken = new Map<string, Taken>();
   standIns: Finding[] = [];
   leftovers: Finding[] = [];
   /** The sources spelling OLD, or holding a unicode escape that may spell it: the only ones a reference, a string
@@ -150,19 +225,18 @@ class NameGroup {
   private readonly declarations: MemberDeclaration[];
   private readonly examined = new Map<string, [number, number][]>();
   private readonly literalSites = new Map<string, [number, number][]>();
+  private readonly owned = new Map<string, OwnerSpan[]>();
+  private readonly fileNames = new Map<string, string | null>();
   private readonly entry: number;
-  /** The one new name of the group's entries, else null. */
-  private readonly newName: string | null;
 
   constructor(
     readonly session: Session,
     readonly old: string,
     readonly targets: Target[],
+    private readonly carving: Carving | null = null,
   ) {
     const sources = [...session.sources.values()];
     this.entry = (targets[0] as Target).index;
-    const names = new Set(targets.map((t) => t.newName));
-    this.newName = names.size === 1 ? (targets[0] as Target).newName : null;
     this.holding = sources.filter(({ source }) => source.text.includes(old) || source.text.includes(String.raw`\u`));
     this.declarations = sources.flatMap(({ source, checker }) => memberDeclarations(checker, source, old, source.fileName));
     const declared = new Set(this.declarations.map((d) => keyOf(d.path, d.start)));
@@ -186,15 +260,16 @@ class NameGroup {
     return this.targets.some((t) => t.literal);
   }
 
-  /** Record an examined site and file what its rule decided. */
-  private record(outcome: Outcome): void {
+  /** Record an examined site and file what its rule decided, its edits as entry `entry`'s; the finding filed. */
+  private record(outcome: Outcome, entry: number = this.entry): Finding | null {
     this.examined.set(outcome.path, [...(this.examined.get(outcome.path) ?? []), [outcome.start, outcome.end]]);
-    this.edits.push(...outcome.edits.map((e) => ({ ...e, entry: this.entry })));
+    this.edits.push(...outcome.edits.map((e) => ({ ...e, entry })));
     const pending = outcome.finding;
-    if (pending === undefined) return;
+    if (pending === undefined) return null;
     const found = this.session.finding(outcome.path, pending.position, pending.template, pending.values);
     if (outcome.kind === 'blindspot') this.blindspots.push(found);
     else this.leftovers.push(found);
+    return found;
   }
 
   private edited(path: string, start: number, end: number): boolean {
@@ -215,15 +290,44 @@ class NameGroup {
     const classified = new Set<string>();
     const matchedSites = new Set<string>();
     for (const [raw, joined] of [...withSites.map((s) => [s, true] as const), ...withoutSites.map((s) => [s, false] as const)]) {
-      const site = Site.parse(raw, this.r.root, this.r.root);
+      const site = Site.parse(raw, this.r.root);
       const matched = candidates.filter((d) => site.line !== null && site.covers(this.r.rel(d.path), d.line));
       if (matched.length > 0) matchedSites.add(raw);
       for (const d of matched) this.classifyStandIn(d, raw, joined, declared, classified);
     }
+    this.leaveByDefault(candidates, declared, classified);
     this.standIns = candidates
       .filter((d) => !classified.has(keyOf(d.path, d.start)))
       .map((d) => this.session.finding(d.path, d.start, 'refactor.stand-in', { cls: d.owner, attr: this.old }));
     return matchedSites;
+  }
+
+  /** `d` is a fixture, or a declaration a carve-out keeps a word of OLD for. */
+  private qualifies(d: MemberDeclaration): boolean {
+    const source = this.session.sources.get(d.path)?.source;
+    if (source === undefined) return false;
+    const fixtures: string[] = language('typescript').fixture_decorators;
+    return fixtureAt(source, d.start, fixtures) || this.carving?.keeps(source, d.start, this.old) === true;
+  }
+
+  /** Classify each unclassified stand-in whose hierarchy's every member declaration qualifies, as `--without` does. */
+  private leaveByDefault(candidates: MemberDeclaration[], declared: Set<string>, classified: Set<string>): void {
+    const byKey = new Map(this.declarations.map((d) => [keyOf(d.path, d.start), d]));
+    for (const d of candidates) {
+      if (classified.has(keyOf(d.path, d.start)) || !this.qualifies(d)) continue;
+      const keys = [keyOf(d.path, d.start), ...this.hierarchy(d, declared)];
+      const every = keys.every((k) => {
+        const member = byKey.get(k);
+        return member !== undefined && this.qualifies(member);
+      });
+      if (every) for (const k of keys) classified.add(k);
+    }
+  }
+
+  /** The language service's rename of stand-in `d`, and the member declarations of OLD it reaches. */
+  private hierarchy(d: MemberDeclaration, declared: Set<string>, edits: Edit[] = []): string[] {
+    edits.push(...renameLocations(this.session.servicesFor(d.path), d.path, d.start, (this.targets[0] as Target).newName));
+    return edits.map((e) => keyOf(e.path, e.start)).filter((k) => declared.has(k));
   }
 
   /** Classify stand-in `d` and its hierarchy by site `raw`; with `joined` its rename joins this one, which a computed
@@ -235,13 +339,17 @@ class NameGroup {
       classified.add(keyOf(d.path, d.start));
       return;
     }
-    const newName = (this.targets[0] as Target).newName;
-    const theirs = renameLocations(this.session.servicesFor(d.path), d.path, d.start, newName);
-    const keys = [keyOf(d.path, d.start), ...theirs.map((e) => keyOf(e.path, e.start)).filter((k) => declared.has(k))];
-    for (const k of keys) classified.add(k);
-    if (!joined) return;
-    this.edits.push(...theirs.map((e) => ({ ...e, entry: this.entry })));
-    for (const k of keys) this.renamed.set(k, newName);
+    // One edit set per distinct new name of the group's entries: where they differ, each site is a map conflict.
+    const first = new Map<string, number>();
+    for (const t of this.targets) if (!first.has(t.newName)) first.set(t.newName, t.index);
+    for (const [newName, entry] of first) {
+      const theirs = renameLocations(this.session.servicesFor(d.path), d.path, d.start, newName);
+      const keys = [keyOf(d.path, d.start), ...theirs.map((e) => keyOf(e.path, e.start)).filter((k) => declared.has(k))];
+      for (const k of keys) classified.add(k);
+      if (!joined) return;
+      this.edits.push(...theirs.map((e) => ({ ...e, entry })));
+      for (const k of keys) if (!this.renamed.has(k)) this.renamed.set(k, newName);
+    }
   }
 
   /** The new name of declaration `d` of OLD, null when it is unchanged. */
@@ -252,31 +360,165 @@ class NameGroup {
     return this.renamed.get(keyOf(file.fileName, memberNameStart(name, this.old, file) ?? name.getStart(file))) ?? null;
   }
 
-  /** Member strings landing only on declarations renamed to one name are rewritten; `any` receivers and strings
-   * landing on renamed and unchanged declarations are blind spots. */
+  /** Member strings and the sources of member names landing only on declarations renamed to one name are rewritten;
+   * `any` receivers and those landing on renamed and unchanged declarations are blind spots. */
   scan(): void {
-    for (const { source, checker } of this.holding) {
+    const holding = new Set(this.holding);
+    const uses: NameUse[] = [];
+    for (const found of this.session.sources.values()) {
+      const { source, checker } = found;
       const path = source.fileName;
-      for (const { position, receiver, literal } of timed('blindspot-scan', () => anyAccesses(checker, source, this.old))) {
-        this.record(blindspotOutcome(path, position, literal ?? null, receiver, this.old));
-      }
-      for (const found of formCalls(checker, source, this.old)) {
-        const receiver = found.object.getText(source);
-        if (isAny(checker, found.object)) {
-          this.record(blindspotOutcome(path, found.call.getStart(source), [found.start, found.end], receiver, this.old));
-        } else {
-          const names = this.landings(checker, found);
-          const distinct = new Set(names.filter((n) => n !== null));
-          const renamed = distinct.size > 1 ? [true, false] : names.map((n) => n !== null);
-          this.record(formCallOutcome(path, found, renamed, receiver, this.old, [...distinct][0] ?? ''));
+      if (holding.has(found)) {
+        for (const { position, receiver } of timed('blindspot-scan', () => anyAccesses(checker, source, this.old))) {
+          this.record(blindspotOutcome(path, position, null, receiver, this.old));
         }
       }
+      for (const access of namedAccesses(checker, source)) {
+        if (plainString(access.member, source) === null) uses.push(...this.nameUse(found, access));
+        else this.namedLiteral(found, access);
+      }
+    }
+    this.followUses(uses);
+  }
+
+  /** A string-named access of OLD by a literal: a blind spot on an `any` object, else a call form's by its landings
+   * (the language service renames a typed element access). */
+  private namedLiteral({ source, checker }: ProjectSource, access: NamedAccess): void {
+    const literal = plainString(access.member, source);
+    if (literal?.[2] !== this.old) return;
+    const path = source.fileName;
+    const spot = anyNamed(checker, source, access, this.old);
+    if (spot?.site !== undefined) {
+      this.record(blindspotOutcome(path, spot.position, [literal[0], literal[1]], spot.receiver, this.old, { site: spot.site, silent: spot.silent === true }));
+    } else if (ts().isCallExpression(access.access)) {
+      const names = this.landings(checker, access.object);
+      const distinct = new Set(names.filter((n) => n !== null));
+      const renamed = distinct.size > 1 ? [true, false] : names.map((n) => n !== null);
+      const call = { call: access.access, start: literal[0], end: literal[1], object: access.object };
+      this.record(formCallOutcome(path, call, renamed, access.object.getText(source), this.old, [...distinct][0] ?? ''));
     }
   }
 
-  /** The new name of each declaration a typed member form's lookup lands on, null for an unchanged one. */
-  private landings(checker: TS.TypeChecker, found: FormCall): (string | null)[] {
-    const type = checker.getApparentType(checker.getTypeAtLocation(found.object));
+  /** `access` when a name with a source spelling OLD stands for its member. */
+  private nameUse({ source, checker, service }: ProjectSource, access: NamedAccess): NameUse[] {
+    const sources = literalSources(service, access.member).filter((s) => s.text === this.old && this.session.sources.has(s.path));
+    if (sources.length === 0) return [];
+    const landings = isAny(checker, access.object) ? [] : this.landings(checker, access.object);
+    const [start, end] = [access.member.getStart(source), access.member.end];
+    return [{ path: source.fileName, position: access.access.getStart(source), start, end, receiver: access.object.getText(source), sources, landings }];
+  }
+
+  /** Each source of `uses`: rewritten when its uses land only on declarations renamed to one name, left unlisted when
+   * only on unchanged ones, and every landing use a mixed-target blind spot when on both. */
+  private followUses(uses: NameUse[]): void {
+    const bySource = new Map<string, [LiteralSource, NameUse[]]>();
+    for (const use of uses) {
+      for (const source of use.sources) {
+        const key = keyOf(source.path, source.start);
+        bySource.set(key, [source, [...(bySource.get(key)?.[1] ?? []), use]]);
+      }
+    }
+    for (const [source, found] of bySource.values()) {
+      const landing = found.filter((use) => use.landings.length > 0);
+      const names = landing.flatMap((use) => use.landings);
+      const distinct = [...new Set(names.filter((n) => n !== null))];
+      const [newName] = distinct;
+      if (names.length === 0) continue;
+      if (newName !== undefined && distinct.length === 1 && !names.includes(null)) {
+        this.rewrite(source, newName, landing.map((use) => keyOf(use.path, use.start)));
+        continue;
+      }
+      this.record(unrelatedOutcome(source.path, source.start, source.end));
+      if (newName !== undefined) for (const use of landing) this.record(mixedOutcome(use.path, use.start, use.end, use.position, use.receiver, this.old));
+    }
+  }
+
+  /** Rewrite `source` to `newName`, the reads at `proven` naming what is renamed. */
+  private rewrite(source: LiteralSource, newName: string, proven: string[]): void {
+    const key = keyOf(source.path, source.start);
+    const known = this.rewritten.get(key);
+    if (known !== undefined) {
+      for (const read of proven) known.proven.add(read);
+      return;
+    }
+    this.rewritten.set(key, { source, proven: new Set(proven) });
+    this.record(sourceOutcome(source, newName));
+    const file = this.session.sources.get(source.path)?.source;
+    if (file === undefined || !displayHolds(file, source, newName)) return;
+    const entry = (this.targets.find((t) => t.newName === newName) ?? (this.targets[0] as Target)).index;
+    this.taken.set(key, { entry, name: newName, path: source.path, position: source.start });
+  }
+
+  /** The rewritten sources `--keep` left. */
+  private kept(): [string, Rewritten][] {
+    return [...this.rewritten].filter(([, { source }]) => this.edits.some((e) => e.path === source.path && e.start === source.start));
+  }
+
+  /** Each rewritten source whose display already holds the new name. */
+  sourceConflicts(): Taken[] {
+    return this.kept().flatMap(([key]) => this.taken.get(key) ?? []);
+  }
+
+  /** Each read of a name holding a rewritten source that does not prove it names what is renamed. */
+  unverifiedReads(): Finding[] {
+    const out: Finding[] = [];
+    for (const [, { source, proven }] of this.kept()) {
+      const values = { old: this.old, source_path: this.r.rel(source.path), source_line: this.session.lineOf(source.path, source.start) };
+      for (const read of sourceReads(this.session.servicesFor(source.path), source)) {
+        if (!proven.has(keyOf(read.path, read.start))) out.push(this.session.finding(read.path, read.start, 'refactor.unverified-read', { ...values, name: read.name }));
+      }
+    }
+    return out;
+  }
+
+  /** A literal member's names: each error the edits bring on a name is followed to its sources spelling OLD, which are
+   * rewritten, and the program checked again; the errors then left are blind spots. */
+  follow(): void {
+    const names = [...new Set(this.targets.map((t) => t.newName))];
+    const newName = names.length === 1 ? names[0] : undefined;
+    for (;;) {
+      const merged = this.mergedEdits();
+      if (merged === null) return;
+      const added = addedErrors(this.r, merged);
+      const before = this.rewritten.size;
+      if (newName !== undefined) this.rewriteSources(added, newName);
+      if (this.rewritten.size > before) continue;
+      for (const error of added) this.record(unresolvedOutcome(error.path, error.start, error.end, this.old));
+      return;
+    }
+  }
+
+  /** The run's edits merged per file, null when they conflict. */
+  private mergedEdits(): Map<string, Edit[]> | null {
+    try {
+      return mergeEdits(this.edits);
+    } catch (error) {
+      if (error instanceof RefactorError) return null;
+      throw error;
+    }
+  }
+
+  /** Rewrite to `newName` the sources spelling OLD of the names `errors` are on. */
+  private rewriteSources(errors: AddedError[], newName: string): void {
+    for (const error of errors) for (const [source, read] of this.errorSources(error)) this.rewrite(source, newName, [read]);
+  }
+
+  /** The sources spelling OLD of the name `error` is on, each with that read's key, but those the rename's own
+   * locations already rewrite. */
+  private errorSources(error: AddedError): [LiteralSource, string][] {
+    const found = this.session.sources.get(error.path);
+    const name = found === undefined ? null : erroringName(found.source, error.start, error.end);
+    if (found === undefined || name === null) return [];
+    const read = keyOf(error.path, name.getStart(found.source));
+    return literalSources(found.service, name)
+      .filter((s) => s.text === this.old && this.session.sources.has(s.path))
+      .filter((s) => this.rewritten.has(keyOf(s.path, s.start)) || !this.edited(s.path, s.start, s.end))
+      .map((s) => [s, read]);
+  }
+
+  /** The new name of each declaration the lookup of OLD on `object`'s type lands on, null for an unchanged one. */
+  private landings(checker: TS.TypeChecker, object: TS.Expression): (string | null)[] {
+    const type = checker.getApparentType(checker.getTypeAtLocation(object));
     return (type.getProperty(this.old)?.declarations ?? []).map((d) => this.newNameOf(d));
   }
 
@@ -319,53 +561,155 @@ class NameGroup {
     this.literals();
   }
 
-  private owners(): Owner[] {
-    if (!this.member) {
-      for (const target of this.targets) {
-        const declarations = this.r.services(target.file)[0]?.getDefinitionAtPosition(target.file, target.position) ?? [];
-        for (const d of declarations) this.declaring.add(d.fileName);
-      }
-      return [...this.declaring].map((path) => ({ path: modulePath(this.r, path), member: false }));
-    }
-    return this.declarations
-      .filter((d) => this.renamed.has(keyOf(d.path, d.start)))
-      .map((d) => {
-        this.declaring.add(d.path);
-        return { path: [...modulePath(this.r, d.path), d.owner], member: true };
-      });
+  private declares(path: string, newName: string): void {
+    this.declaring.set(path, (this.declaring.get(path) ?? new Set()).add(newName));
   }
 
-  /** Each scanned file's mentions of OLD, and whether it declares the rename: sources, then prose files. */
-  private mentionFiles(): [string, Mention[], boolean][] {
-    const files: [string, Mention[], boolean][] = [];
-    for (const { source } of this.holding) {
-      files.push([source.fileName, mentions(source.text, this.old, sourceRegions(source)), this.declaring.has(source.fileName)]);
+  private owners(): NamedOwner[] {
+    if (!this.member) {
+      return this.targets.flatMap((target) => {
+        const declarations = this.r.services(target.file)[0]?.getDefinitionAtPosition(target.file, target.position) ?? [];
+        const paths = [...new Set(declarations.map((d) => d.fileName))];
+        for (const path of paths) this.declares(path, target.newName);
+        return paths.map((path) => ({ path: modulePath(this.r, path), member: false, newName: target.newName }));
+      });
     }
+    return this.declarations.flatMap((d) => {
+      const newName = this.renamed.get(keyOf(d.path, d.start));
+      if (newName === undefined) return [];
+      this.declares(d.path, newName);
+      return [{ path: [...modulePath(this.r, d.path), d.owner], member: true, newName }];
+    });
+  }
+
+  /** The new names the entries give the declaration whose name starts at `start` of `path`. */
+  private namesAt(path: string, start: number): Set<string> {
+    const names = new Map(this.targets.map((t) => [t.index, t.newName]));
+    const found = this.edits.filter((e) => e.path === path && e.start === start).map((e) => names.get(e.entry) ?? '');
+    return new Set([...found, ...[this.renamed.get(keyOf(path, start))].filter((n) => n !== undefined)]);
+  }
+
+  /** The one new name every one of `sites` (a path and a name start) is renamed to, else null. */
+  private oneName(sites: [string, number][]): string | null {
+    const all = new Set<string>();
+    for (const [path, start] of sites) {
+      const names = this.namesAt(path, start);
+      if (names.size === 0) return null;
+      for (const name of names) all.add(name);
+    }
+    return all.size === 1 ? ([...all][0] ?? null) : null;
+  }
+
+  private siteOf(d: TS.Declaration): [string, number] {
+    const file = d.getSourceFile();
+    const name = ts().getNameOfDeclaration(d);
+    return [file.fileName, name === undefined ? d.getStart(file) : (memberNameStart(name, this.old, file) ?? name.getStart(file))];
+  }
+
+  /** The one name every module-level and member declaration of OLD in `source` is renamed to; with no such
+   * declaration, the one name of the entries declaring in it. */
+  private fileName(source: TS.SourceFile): string | null {
+    const path = source.fileName;
+    if (!this.fileNames.has(path)) {
+      const sites: [string, number][] = [
+        ...topDeclarations(source, this.old).map((start): [string, number] => [path, start]),
+        ...this.declarations.filter((d) => d.path === path).map((d): [string, number] => [path, d.start]),
+      ];
+      const declared = this.declaring.get(path) ?? new Set();
+      const fallback = declared.size === 1 ? ([...declared][0] ?? null) : null;
+      this.fileNames.set(path, sites.length > 0 ? this.oneName(sites) : fallback);
+    }
+    return this.fileNames.get(path) ?? null;
+  }
+
+  /** The new name a code-marked mention at `position` of a declaring source takes by its owning class, else by its
+   * file; null when it is listed. */
+  private ownedName(found: ProjectSource, position: number): string | null {
+    const { source, checker } = found;
+    if (!this.owned.has(source.fileName)) this.owned.set(source.fileName, ownerSpans(source));
+    const enclosing = (this.owned.get(source.fileName) ?? [])
+      .filter((span) => span.start <= position && position < span.end)
+      .sort((a, b) => a.end - a.start - (b.end - b.start));
+    for (const { node } of enclosing) {
+      const landed = lookup(checker, node, this.old);
+      if (landed === 'incomplete') return null;
+      if (landed !== null) return this.oneName(landed.map((d) => this.siteOf(d)));
+    }
+    return this.fileName(source);
+  }
+
+  /** Each scanned file's mentions of OLD: sources, then prose files. */
+  private mentionFiles(): [string, Mention[]][] {
+    const files: [string, Mention[]][] = [];
+    for (const { source } of this.holding) files.push([source.fileName, mentions(source.text, this.old, sourceRegions(source))]);
     const extensions: string[] = manifest()['dr-refactor'].prose_extensions;
     for (const rel of sourceFiles(this.r.root, []).sort(byCodePoint)) {
       const path = join(this.r.root, rel);
       if (!extensions.some((ext) => rel.endsWith(ext)) || !existsSync(path)) continue;
       const text = this.session.text(path);
-      if (text.includes(this.old)) files.push([path, mentions(text, this.old, [{ start: 0, end: text.length, where: 'prose', opens: false }]), false]);
+      if (text.includes(this.old)) files.push([path, mentions(text, this.old, [{ start: 0, end: text.length, where: 'prose' }])]);
     }
     return files;
   }
 
-  /** `--docs`: qualified and code-marked mentions rewritten (when the group has one new name), the rest listed. */
+  /** File a mention: rewritten to `newName` as the first entry taking that name, listed when null. */
+  private decide(path: string, mention: Mention, newName: string | null): void {
+    const entry = this.targets.find((t) => t.newName === newName)?.index ?? this.entry;
+    const finding = this.record(mentionOutcome(path, mention, newName !== null, this.old, newName ?? ''), entry);
+    if (finding !== null) this.listed.push({ path, start: mention.start, end: mention.end, finding });
+  }
+
+  /** Each declared string form's site of a class or module-level rename: rewritten when every module-level
+   * declaration of OLD in the project is renamed to one name, else listed. */
+  forms(forms: RegExp[]): void {
+    if (forms.length === 0) return;
+    const declared = this.holding.flatMap(({ source }) => topDeclarations(source, this.old).map((start): [string, number] => [source.fileName, start]));
+    if (!declared.some(([path, start]) => this.namesAt(path, start).size > 0)) return;
+    const newName = this.oneName(declared);
+    for (const { source } of this.holding) {
+      const path = source.fileName;
+      const sites = sourceRegions(source).flatMap((region) => formSites(source.text, region, this.old, forms));
+      const seen = new Set<number>();
+      for (const [start, end] of sites.sort((a, b) => a[0] - b[0])) {
+        if (seen.has(start) || this.covered(path, start, end)) continue;
+        seen.add(start);
+        this.literalSites.set(path, [...(this.literalSites.get(path) ?? []), [start, end]]);
+        this.decide(path, { start, end, where: 'string' }, newName);
+      }
+    }
+  }
+
+  /** `--docs`: each mention rewritten for one entry (qualified, or code-marked and decided by its owning class or
+   * its file), else listed. */
   docs(): void {
     const owners = this.owners();
+    const names = [...new Set(owners.map((o) => o.newName))];
     const colliding = this.declarations
       .filter((d) => !this.renamed.has(keyOf(d.path, d.start)))
       .map((d) => [...modulePath(this.r, d.path), d.owner]);
-    for (const [path, found, declaring] of this.mentionFiles()) {
+    for (const [path, found] of this.mentionFiles()) {
       const text = this.session.text(path);
+      const source = this.declaring.has(path) ? this.session.sources.get(path) : undefined;
+      const carved = source === undefined || this.carving === null ? [] : this.carving.covered(source.source, this.old);
       for (const m of found) {
-        if (this.edits.some((e) => e.path === path && e.start <= m.start && m.start < e.start + e.length)) continue;
-        if ((this.literalSites.get(path) ?? []).some(([s, e]) => s <= m.start && m.start < e)) continue;
-        const rewritten = this.newName !== null && (qualified(text, m.start, owners, colliding) || (declaring && codeMarked(text, m)));
-        this.record(mentionOutcome(path, m, rewritten, this.old, this.newName ?? ''));
+        if (this.handled(path, m.start)) continue;
+        const qualifying = names.filter((name) => qualified(text, m.start, owners.filter((o) => o.newName === name), colliding));
+        const covered = carved.some(([start, end]) => start <= m.start && m.start < end);
+        this.decide(path, m, this.mentionName(qualifying, covered ? undefined : source, text, m));
       }
     }
+  }
+
+  /** The name a mention takes: the one qualifying name, else a code-marked mention's owned name; null when listed. */
+  private mentionName(qualifying: string[], source: ProjectSource | undefined, text: string, m: Mention): string | null {
+    if (qualifying.length > 0) return qualifying.length === 1 ? (qualifying[0] ?? null) : null;
+    return source !== undefined && codeMarked(text, m) ? this.ownedName(source, m.start) : null;
+  }
+
+  /** Whether an edit or a form site already covers `start`. */
+  private handled(path: string, start: number): boolean {
+    if (this.edits.some((e) => e.path === path && e.start <= start && start < e.start + e.length)) return true;
+    return (this.literalSites.get(path) ?? []).some(([s, e]) => s <= start && start < e);
   }
 
   /** `--docs`: each declaration whose name holds OLD as a word sequence, listed; `renamedNames` are never listed. */
@@ -410,6 +754,16 @@ class NameGroup {
   }
 }
 
+/** The identifier or dotted name an error at `start`..`end` of `source` is on: the one it spans, or the value of the
+ * `return` whose keyword it spans (where the checker reports a returned value). */
+function erroringName(source: TS.SourceFile, start: number, end: number): TS.Node | null {
+  let node = nodeAt(source, start);
+  while (node.parent.getStart(source) === start && node.parent.end <= end) node = node.parent;
+  if (ts().isReturnStatement(node) && node.getFirstToken(source)?.end === end) node = node.expression ?? node;
+  else if (node.getStart(source) !== start || node.end !== end) return null;
+  return ts().isIdentifier(node) || ts().isPropertyAccessExpression(node) ? node : null;
+}
+
 type Named = TS.Node & { name?: TS.Node };
 
 /** A node declaring its `name`: a variable, function, class, type, member, parameter or binding. */
@@ -432,9 +786,27 @@ function isDeclaration(node: TS.Node): node is Named {
   );
 }
 
-/** `spec` resolved: the symbol its locator names, and what can be renamed there. */
-function resolve(r: Refactor, spec: EntrySpec): Target {
-  const located = locate(r, spec.file, spec.shown, spec.locator, spec.retarget === undefined);
+/** `spec`'s locator as a refusal prints it: its file relative to the project, then `:LINE[:COL]`, its symbol path or
+ * `offset N`; a module entry's is its file. */
+function locatorText(r: Refactor, spec: EntrySpec): string {
+  const file = r.rel(spec.file);
+  const { offset, line, col, symbol } = spec.locator;
+  if (offset !== undefined) return `${file} offset ${offset}`;
+  if (line !== undefined) return col === undefined ? `${file}:${line}` : `${file}:${line}:${col}`;
+  return symbol === undefined ? file : `${file} ${symbol}`;
+}
+
+/** `found` as the refusal of `target`, with every map index merged into it. */
+const refuseTarget = (target: Target, found: Refusal): Refusal => entryRefusal(target.indexes, target.shown, found);
+
+/** `spec` resolved: each symbol its locator names (a rename's wildcard path names several). */
+function resolve(r: Refactor, spec: EntrySpec): Target[] {
+  const found = spec.retarget === undefined ? locateEvery(r, spec.file, spec.shown, spec.locator) : [locate(r, spec.file, spec.shown, spec.locator, false)];
+  return found.map((located) => targetAt(r, spec, located));
+}
+
+/** The symbol at `located`, and what can be renamed there. */
+function targetAt(r: Refactor, spec: EntrySpec, located: Located): Target {
   const { file, position } = located;
   r.owner(file);
   const services = r.services(file);
@@ -449,7 +821,19 @@ function resolve(r: Refactor, spec: EntrySpec): Target {
   const symbol = literal ? undefined : symbolOf(program.getTypeChecker(), node);
   const reexport = spec.retarget !== undefined && (ts().isImportSpecifier(node.parent) || ts().isExportSpecifier(node.parent));
   const key = (reexport ? undefined : declarationKeys(symbol, old)[0]) ?? keyOf(file, info.triggerSpan.start);
-  return { index: spec.index, indexes: [spec.index], refusals: [], retarget: spec.retarget !== undefined, file, position, old, newName: spec.newName ?? '', key, literal, intent: key, edits: [], own: new Set(), home: null, identity: new Set(), original: '' };
+  return { index: spec.index, indexes: [spec.index], shown: locatorText(r, spec), refusals: [], retarget: spec.retarget !== undefined, file, position, old, newName: spec.newName ?? '', key, literal, intent: key, edits: [], own: new Set(), home: null, identity: new Set(), original: '', move: null };
+}
+
+/** `spec` as a module rename: its file moved to its new stem beside itself, keeping its extension. */
+function resolveModule(r: Refactor, spec: EntrySpec): Target {
+  const { file } = spec;
+  r.owner(file);
+  const newName = spec.newName ?? '';
+  if (!validModuleName(newName)) throw new RefactorError(message('refactor.cannot-rename'));
+  const { stem, extension } = moduleName(file);
+  const key = `module\0${canonical(file)}`;
+  const move = { from: file, to: join(dirname(file), `${newName}${extension}`) };
+  return { index: spec.index, indexes: [spec.index], shown: locatorText(r, spec), refusals: [], retarget: false, file, position: 0, old: stem, newName, key, literal: false, intent: key, edits: [], own: new Set(), home: null, identity: new Set(), original: '', move };
 }
 
 /** A `refactor.map-conflict` for each site two entries rewrite differently; identical edits are one. */
@@ -490,23 +874,92 @@ class Keeps {
     return hits.length > 0;
   }
 
+  /** A whole-file or directory keep covers `path`; marks the keeps it matches. */
+  keepsFile(path: string): boolean {
+    const rel = this.session.r.rel(path);
+    const hits = this.sites.flatMap((site, i) => (site.line === null && site.coversPath(rel) ? [i] : []));
+    for (const i of hits) this.matched.add(i);
+    return hits.length > 0;
+  }
+
   /** The edit at `position` of `path` is on a kept line. */
   keeps(path: string, position: number): boolean {
     return this.kept(this.session.r.rel(path), this.session.lineOf(path, position));
   }
 
   /** Every keep that matched nothing, in command-line order. */
-  unmatched(): string[] {
-    return this.sites.filter((_, i) => !this.matched.has(i)).map((site) => site.raw);
+  unmatched(): Site[] {
+    return this.sites.filter((_, i) => !this.matched.has(i));
   }
 }
 
-/** Drop every edit, blind spot and leftover of `group` at a kept site. */
-function keep(group: NameGroup, keeps: Keeps): void {
-  const kept = group.edits.filter((e) => !keeps.keeps(e.path, e.start));
+/** The edit is on a kept line or in a kept literal; both count it. */
+function keptEdit(e: Edit, keeps: Keeps, literals: LiteralKeeps): boolean {
+  const line = keeps.keeps(e.path, e.start);
+  return literals.kept(e.path, e.start, e.start + e.length) || line;
+}
+
+/** Drop every edit, blind spot and leftover of `group` at a kept site or in a kept literal. */
+function keep(group: NameGroup, keeps: Keeps, literals: LiteralKeeps): void {
+  const root = group.session.r.root;
+  const inLiteral = (f: Finding, mark: boolean): boolean => literals.kept(join(root, f.path), f.position, f.position + 1, mark);
+  const kept = group.edits.filter((e) => !keptEdit(e, keeps, literals));
   group.edits.splice(0, group.edits.length, ...kept);
-  group.blindspots = group.blindspots.filter((b) => !keeps.kept(b.path, b.line));
-  group.leftovers = group.leftovers.filter((f) => !keeps.kept(f.path, f.line, false));
+  group.blindspots = group.blindspots.filter((b) => !keeps.kept(b.path, b.line) && !inLiteral(b, true));
+  group.leftovers = group.leftovers.filter((f) => !keeps.kept(f.path, f.line, false) && !inLiteral(f, false));
+}
+
+/** `refactor.pick-ambiguous` for `pick` between entries `a` and `b`. */
+const ambiguous = (pick: Pick, old: string, a: number, b: number): Refusal =>
+  refusal(message('refactor.pick-ambiguous', { site: pick.raw, first: Math.min(a, b), second: Math.max(a, b), old }), 2);
+
+/** Each listed mention `pick` rewrites with the entry whose new name it takes; its refusal when it names none, or one
+ * two entries rename differently. */
+function pickChoices(session: Session, pick: Pick, listed: [Listed, NameGroup][]): [Listed, NameGroup, Target][] | Refusal {
+  const out: [Listed, NameGroup, Target][] = [];
+  for (const [m, group] of listed) {
+    if (!pick.site.covers(session.r.rel(m.path), m.finding.line)) continue;
+    const targets = pick.entry === null ? group.targets : group.targets.filter((t) => t.indexes.includes(pick.entry ?? 0));
+    const [first] = targets;
+    if (first === undefined) continue;
+    const other = targets.find((t) => t.newName !== first.newName);
+    if (other !== undefined) return ambiguous(pick, group.old, first.index, other.index);
+    out.push([m, group, first]);
+  }
+  return out.length > 0 ? out : refusal(message('refactor.pick-unmatched', { site: pick.raw }), 2);
+}
+
+/** Each `--docs-pick` applied to the listed mentions of its line no edit covers, as an edit of the chosen entry unless
+ * its site is kept, the mention no longer listed; every pick's refusal, in pick order. */
+function resolvePicks(session: Session, groups: NameGroup[], raws: string[], keeps: Keeps, literals: LiteralKeeps): Refusal[] {
+  if (raws.length === 0) return [];
+  const edits = groups.flatMap((g) => g.edits);
+  const covered = (m: Listed): boolean => edits.some((e) => e.path === m.path && e.start < m.end && m.start < e.start + e.length);
+  const listed = groups.flatMap((g) => g.listed.filter((m) => !covered(m)).map((m): [Listed, NameGroup] => [m, g]));
+  const chosen = new Map<Listed, [NameGroup, Target]>();
+  const refusals: Refusal[] = [];
+  for (const raw of raws) {
+    const pick = Pick.parse(raw, session.r.root);
+    const found = pickChoices(session, pick, listed);
+    if (!Array.isArray(found)) {
+      refusals.push(found);
+      continue;
+    }
+    for (const [m, group, target] of found) {
+      const before = chosen.get(m)?.[1] ?? target;
+      chosen.set(m, [group, before]);
+      if (before.newName === target.newName) continue;
+      refusals.push(ambiguous(pick, group.old, before.index, target.index));
+      break;
+    }
+  }
+  if (refusals.length > 0) return refusals;
+  for (const [m, [group, target]] of chosen) {
+    group.leftovers = group.leftovers.filter((f) => f !== m.finding);
+    const edit = { path: m.path, start: m.start, length: m.end - m.start, newText: target.newName, entry: target.index };
+    if (!keptEdit(edit, keeps, literals)) group.edits.push(edit);
+  }
+  return [];
 }
 
 /** The finding of an error that refuses one entry. */
@@ -527,12 +980,16 @@ interface Resolution {
   names: Set<string>;
 }
 
-/** `spec`'s target, its literal value and retarget checked. */
-function resolveEntry(r: Refactor, spec: EntrySpec): Target {
-  const target = resolve(r, spec);
-  if (target.literal && literalValueForbidden().some((part) => target.newName.includes(part))) throw new UsageError(message('refactor.literal-value', { value: target.newName }));
-  if (spec.retarget !== undefined) target.intent = resolveTarget(r, spec.file, spec.locator, spec.shown, target, spec.retarget);
-  return target;
+/** `spec`'s targets, a literal value and a retarget checked. */
+function resolveEntry(r: Refactor, spec: EntrySpec): Target[] {
+  if (spec.retarget !== undefined && wildcardPath(spec.retarget) !== null) throw new LocatorError(message('refactor.symbol-wildcard', { path: spec.shown, symbol: spec.retarget }));
+  if (spec.module === true) return [resolveModule(r, spec)];
+  const targets = resolve(r, spec);
+  for (const target of targets) {
+    if (target.literal && literalValueForbidden().some((part) => target.newName.includes(part))) throw new UsageError(message('refactor.literal-value', { value: target.newName }));
+    if (spec.retarget !== undefined) target.intent = resolveTarget(r, spec.file, spec.locator, spec.shown, target, spec.retarget);
+  }
+  return targets;
 }
 
 /** `target` added to `targets`, or merged into the one with its key and equal intent; else `refactor.map-duplicate`. */
@@ -553,27 +1010,32 @@ function resolveAll(r: Refactor, specs: EntrySpec[], map: string): Resolution {
   const names = new Set<string>();
   let spelled = true;
   for (const spec of specs) {
-    let target: Target;
+    let found: Target[];
     try {
-      target = resolveEntry(r, spec);
+      found = resolveEntry(r, spec);
     } catch (error) {
-      failures.push(entryFailure(error));
+      if (error instanceof WorkspaceError) return { targets: [], failures: [entryFailure(error)], spelled: false, names };
+      failures.push(entryRefusal([spec.index], locatorText(r, spec), entryFailure(error)));
       const name = spelledName(spec);
       if (name === null) spelled = false;
-      else names.add(name);
+      names.add(name ?? '');
       continue;
     }
-    names.add(target.old);
+    for (const target of found) names.add(target.old);
     if (spec.retarget !== undefined) names.add(spec.retarget.match(/\w+/gu)?.at(-1) ?? '');
-    const duplicate = mergeTarget(targets, target, map);
-    if (duplicate !== null) failures.push(duplicate);
+    failures.push(...unique(found.flatMap((target) => mergeTarget(targets, target, map) ?? [])));
   }
+  followRenames(targets);
+  names.delete('');
+  return { targets, failures, spelled, names };
+}
+
+/** Each retarget whose target another entry renames takes that entry's new name. */
+function followRenames(targets: Target[]): void {
   for (const target of targets.filter((t) => t.retarget)) {
     const final = targets.find((t) => !t.retarget && t.key === target.intent)?.newName;
     if (final !== undefined) rename(target, final);
   }
-  names.delete('');
-  return { targets, failures, spelled, names };
 }
 
 /** The files a rename can edit: each TypeScript source (true), and with `docs` each prose file (false). */
@@ -585,23 +1047,66 @@ function editableFiles(r: Refactor, docs: boolean): Map<string, boolean> {
   return out;
 }
 
-/** Every check that needs no reference: each site naming something, each keep spelling an old name. */
+/** Every check that needs no reference: each site naming something, no `--stand-in` site when every entry renames a
+ * module, no `--stub` (it moves only Python modules), each line keep spelling an old name (in a comment only with
+ * `--docs`) or lying in a moved file, each module's new name free beside it and each symbol's in its own scope. */
 function checks(r: Refactor, resolution: Resolution): Refusal[] {
-  const sites: [string, string, string][] = [
-    ...(r.args.with_stand_ins ?? []).map((raw): [string, string, string] => ['--with', raw, r.root]),
-    ...(r.args.without_stand_ins ?? []).map((raw): [string, string, string] => ['--without', raw, r.root]),
-    ...(r.args.keep ?? []).map((raw): [string, string, string] => ['--keep', raw, process.cwd()]),
+  const sites: [string, string][] = [
+    ...(r.args.with_stand_ins ?? []).map((raw): [string, string] => ['--with', raw]),
+    ...(r.args.without_stand_ins ?? []).map((raw): [string, string] => ['--without', raw]),
+    ...(r.args.keep ?? []).map((raw): [string, string] => ['--keep', raw]),
+    ...(r.args.docs === true ? (r.args.docs_pick ?? []) : []).map((raw): [string, string] => ['--docs-pick', raw]),
   ];
-  const out: Refusal[] = [];
-  const missing = new Set<string>();
-  for (const [option, raw, base] of sites) {
-    if (!Site.parse(raw, r.root, base).missing(r.root)) continue;
-    out.push(refusal(message('refactor.site-missing', { option, site: raw }), 2));
-    if (option === '--keep') missing.add(raw);
+  const { refusals: out, missing } = missingSites(r, sites);
+  if ((r.args.docs_pick ?? []).length > 0 && r.args.docs !== true) out.push(refusal(message('refactor.pick-needs-docs'), 2));
+  const { targets } = resolution;
+  if (targets.length > 0 && targets.every((t) => t.move !== null)) {
+    for (const [option, raw] of sites) {
+      if ((option === '--with' || option === '--without') && !missing.has(`${option}\0${raw}`)) out.push(refusal(message('refactor.not-stand-in', { site: raw }), 2));
+    }
   }
-  const keeps = (r.args.keep ?? []).filter((raw) => !missing.has(raw));
-  if (!resolution.spelled || keeps.length === 0 || resolution.targets.some((t) => t.literal)) return out;
-  const editable = editableFiles(r, r.args.docs === true);
+  if (r.args.stub != null) out.push(refusal(message('refactor.stub-not-module'), 2));
+  out.push(...keepChecks(r, resolution, (raw) => missing.has(`--keep\0${raw}`)), ...takenNames(r, targets));
+  return out;
+}
+
+/** `refactor.site-missing` for each site naming nothing, and those sites' `option\0raw` keys. */
+function missingSites(r: Refactor, sites: [string, string][]): { refusals: Refusal[]; missing: Set<string> } {
+  const refusals: Refusal[] = [];
+  const missing = new Set<string>();
+  for (const [option, raw] of sites) {
+    const site = option === '--docs-pick' ? Pick.parse(raw, r.root) : Site.parse(raw, r.root);
+    if (!site.missing(r.root)) continue;
+    refusals.push(refusal(message('refactor.site-missing', { option, site: raw }), 2));
+    missing.add(`${option}\0${raw}`);
+  }
+  return { refusals, missing };
+}
+
+/** `refactor.name-conflict`, by entry, for each module move whose new name a sibling already takes and each symbol
+ * renamed onto a name its own scope holds. */
+function takenNames(r: Refactor, targets: Target[]): Refusal[] {
+  const keeps = (r.args.keep ?? []).map((raw) => Site.parse(raw, r.root));
+  const lineOf = (path: string, position: number): number => new Lines(splitBom(readFile(path, 'utf8'))[1]).lineOf(position);
+  const kept = (path: string, position: number): boolean => keeps.some((site) => site.covers(r.rel(path), lineOf(path, position)));
+  const own = ownScopeConflicts(r, targets.filter((t) => t.move === null && !t.literal), kept);
+  return targets.flatMap((t) => {
+    if (t.move !== null) {
+      const taken = t.newName === t.old ? null : takenBy(t.file, t.newName);
+      return taken === null ? [] : [refuseTarget(t, refusal(message('refactor.name-conflict', { name: t.newName, path: r.rel(taken), line: 1 })))];
+    }
+    const found = own.get(t);
+    if (found === undefined) return [];
+    return [refuseTarget(t, refusal(message('refactor.name-conflict', { name: found.name, path: r.rel(found.path), line: lineOf(found.path, found.position) })))];
+  });
+}
+
+/** `refactor.keep-unmatched` for each line keep on a line spelling no old name, outside every moved file. */
+function keepChecks(r: Refactor, resolution: Resolution, missing: (raw: string) => boolean): Refusal[] {
+  const keeps = (r.args.keep ?? []).filter((raw) => !missing(raw) && Site.parse(raw, r.root).line !== null);
+  if (!resolution.spelled || keeps.length === 0 || resolution.targets.some((t) => t.literal)) return [];
+  const docs = r.args.docs === true;
+  const editable = editableFiles(r, docs);
   const texts = new Map<string, string>();
   const text = (rel: string): string => {
     let found = texts.get(rel);
@@ -611,10 +1116,10 @@ function checks(r: Refactor, resolution: Resolution): Refusal[] {
     }
     return found;
   };
-  for (const raw of keeps) {
-    if (!keepSpells(Site.parse(raw, r.root), editable, text, resolution.names, [])) out.push(refusal(message('refactor.keep-unmatched', { site: raw }), 2));
-  }
-  return out;
+  const moved = resolution.targets.flatMap((t) => (t.move === null ? [] : [r.rel(t.move.from)]));
+  return keeps
+    .filter((raw) => !keepSpells(Site.parse(raw, r.root), editable, text, resolution.names, moved, docs))
+    .map((raw) => refusal(message('refactor.keep-unmatched', { site: raw }), 2));
 }
 
 function checkSupported(r: Refactor): void {
@@ -622,9 +1127,38 @@ function checkSupported(r: Refactor): void {
   if (r.args.unsure === 'include') throw new RefactorError(message('refactor.ts-not-supported', { option: '--unsure include' }));
 }
 
-function runRules(group: NameGroup, docs: boolean, renamedNames: Set<string>): void {
+/** The targets grouped by the entries that locate them, in the order of each group's first target. */
+function entryGroups(targets: Target[]): Target[][] {
+  const groups = new Map<string, Target[]>();
+  for (const target of targets) {
+    const key = target.indexes.toSorted((a, b) => a - b).join(',');
+    groups.set(key, [...(groups.get(key) ?? []), target]);
+  }
+  return [...groups.values()];
+}
+
+/** `--words TABLE`: the table's carve-outs with their symbols located; a failure for one that names nothing. */
+function carvingOf(r: Refactor): { carving: Carving | null; failures: Refusal[] } {
+  const shown = r.args.words;
+  if (shown === undefined) return { carving: null, failures: [] };
+  try {
+    const table = loadWordTable(shown, shown);
+    const located = locateCarveSymbols(table, (file, symbol) => {
+      const path = r.inProject(file, r.root);
+      if (!existsSync(path)) throw new LocatorError(message('refactor.symbol-unresolved', { path: file, symbol, candidates: '' }));
+      return locate(r, path, file, { symbol }, false);
+    });
+    return { carving: new Carving(table, located, (path) => r.rel(path)), failures: [] };
+  } catch (error) {
+    return { carving: null, failures: [entryFailure(error)] };
+  }
+}
+
+function runRules(group: NameGroup, docs: boolean, renamedNames: Set<string>, forms: RegExp[]): void {
   if (group.member) group.scan();
+  if (group.literal) group.follow();
   if (group.literal) group.equalStrings();
+  group.forms(forms);
   if (docs) group.docs();
   else group.dropCommentEdits();
   if (group.member && !docs && !group.literal) group.literals();
@@ -632,23 +1166,47 @@ function runRules(group: NameGroup, docs: boolean, renamedNames: Set<string>): v
   group.dropOwnDeclarations();
 }
 
-/** A `refactor.name-conflict` for the first site of each check that finds one: each rename entry's edits alone, in map
- * order, then, when `together`, all entries'. */
-function nameConflicts(session: Session, targets: Target[], pending: Tagged[], edits: Tagged[], together: boolean): Refusal[] {
-  const done = new Set(edits.map((e) => keyOf(e.path, e.start)));
-  const kept = new Set(pending.map((e) => keyOf(e.path, e.start)).filter((k) => !done.has(k)));
-  const entries: CheckEntry[] = targets.map((t) => ({ index: t.index, old: t.old, newName: t.newName, expected: t.retarget ? t.identity : null }));
-  const names = targets.flatMap((t) => [t.old, t.newName, ...(t.retarget ? [t.original] : [])]).map((name) => identifierText(name));
-  const checks = new NameChecks(session.sources, names, (path) => session.r.rel(path));
-  const passes = entries.filter((e) => e.expected === null && e.newName !== e.old).map((e) => [e]);
-  if (entries.length > 1 && together) passes.push(entries);
-  const found: { path: string; line: number; name: string }[] = [];
-  for (const pass of passes) {
-    const conflict = checks.check(pass, edits, kept);
-    if (conflict !== null) found.push({ path: session.r.rel(conflict.path), line: session.lineOf(conflict.path, conflict.position), name: conflict.name });
+/** Each module move whose new stem an earlier move takes in its directory, by its index: the earlier one's file. */
+function convergingMoves(moves: Target[]): Map<number, NameConflict> {
+  const first = new Map<string, Target>();
+  const out = new Map<number, NameConflict>();
+  for (const t of moves) {
+    const key = `${dirname(t.file)}\0${t.newName}`;
+    const earlier = first.get(key);
+    if (earlier === undefined) first.set(key, t);
+    else out.set(t.index, { name: t.newName, path: earlier.file, position: 0 });
   }
-  found.sort((a, b) => byCodePoint(a.path, b.path) || a.line - b.line || byCodePoint(a.name, b.name));
-  return unique(found.map((c) => refusal(message('refactor.name-conflict', c))));
+  return out;
+}
+
+/** Each entry's first `refactor.name-conflict`, by entry index, on the code after every entry's `edits` and every
+ * module move, or at a rewritten source beside its new name (`taken`). */
+function nameConflicts(session: Session, all: Target[], targets: Target[], pending: Tagged[], edits: Tagged[], moves: Target[], taken: Taken[]): Refusal[] {
+  const found = convergingMoves(moves);
+  // A retarget alone has its own refusals; its names are checked beside other entries.
+  if (targets.length > 1 || targets.some((t) => !t.retarget && t.newName !== t.old)) {
+    const done = new Set(edits.map((e) => keyOf(e.path, e.start)));
+    const kept = new Set(pending.map((e) => keyOf(e.path, e.start)).filter((k) => !done.has(k)));
+    // A wildcard entry's targets share its index.
+    const byIndex = new Map(targets.map((t): [number, CheckEntry] => [t.index, { index: t.index, old: t.old, newName: t.newName, expected: t.retarget ? t.identity : null }]));
+    const entries = [...byIndex.values()];
+    const names = targets.flatMap((t) => [t.old, t.newName, ...(t.retarget ? [t.original] : [])]).map((name) => identifierText(name));
+    const checks = new NameChecks(session.sources, names, (path) => session.r.rel(path));
+    for (const [index, conflict] of checks.check(entries, edits, kept)) if (!found.has(index)) found.set(index, conflict);
+  }
+  const place = (c: NameConflict): [string, number] => [session.r.rel(c.path), session.lineOf(c.path, c.position)];
+  for (const { entry, ...conflict } of taken) {
+    const known = found.get(entry);
+    const [[path, line], [knownPath, knownLine]] = [place(conflict), known === undefined ? ['', 0] : place(known)];
+    if (known === undefined || (byCodePoint(path, knownPath) || line - knownLine) < 0) found.set(entry, conflict);
+  }
+  const refusals = all.flatMap((t) => {
+    const c = found.get(t.index);
+    if (c === undefined) return [];
+    const line = c.position === 0 ? 1 : session.lineOf(c.path, c.position);
+    return [refuseTarget(t, refusal(message('refactor.name-conflict', { name: c.name, path: session.r.rel(c.path), line })))];
+  });
+  return unique(refusals);
 }
 
 const texts = (findings: Finding[]): Refusal[] => {
@@ -664,84 +1222,163 @@ const texts = (findings: Finding[]): Refusal[] => {
     .map((f) => refusal(f.text));
 };
 
+/** Site resolution over the final `edits`: each `--with` or `--without` site of `unclassified`, each computed `--with`
+ * stand-in, then the refused `picks`; with none of those, each unneeded whole-path keep's and literal keep's warning
+ * printed, and each line keep that matched nothing. */
+function resolveSites(session: Session, edits: Tagged[], keeps: Keeps, literals: LiteralKeeps, unclassified: string[], groups: NameGroup[], picks: Refusal[]): Refusal[] {
+  const standIns = [...unclassified.map((site) => refusal(message('refactor.not-stand-in', { site }), 2)), ...groups.flatMap((g) => g.computed)];
+  if (picks.length > 0) return [...standIns, ...picks];
+  const edited = new Map<string, number[]>();
+  for (const e of edits) {
+    const rel = session.r.rel(e.path);
+    const lines = edited.get(rel) ?? [];
+    lines.push(session.lineOf(e.path, e.start));
+    edited.set(rel, lines);
+  }
+  const { warnings, refusals } = resolveKeeps(keeps.unmatched(), edited);
+  process.stderr.write([...warnings, ...literals.unneeded()].map((w) => `${w}\n`).join(''));
+  return [...standIns, ...refusals];
+}
+
+/** The repo's `refactor.string_forms`, compiled; the config's error. */
+function stringForms(r: Refactor): { forms: RegExp[]; failures: Refusal[] } {
+  try {
+    return { forms: compileForms(loadConfig(findRepoRoot(r.root)).refactor.string_forms), failures: [] };
+  } catch (error) {
+    if (error instanceof ConfigError) return { forms: [], failures: [refusal(error.message, 2)] };
+    throw error;
+  }
+}
+
+const header = (t: Target): string => message(t.retarget ? 'refactor.retarget-header' : 'refactor.rename-header', { old: t.old, new: t.newName });
+
+const moveOf = (t: Target): [string, string][] => (t.move === null ? [] : [[t.move.from, t.move.to]]);
+
+/** The edits of `target`: a module's move, else its rename's locations and, for a retarget, its sites' refusals. */
+function references(session: Session, target: Target, kept: (path: string, position: number) => boolean, needs: Need[]): void {
+  const { r } = session;
+  const { move } = target;
+  if (move !== null) {
+    if (target.newName !== target.old) target.edits = moveEdits(r, move.from, move.to, [[move.from, move.to]], [move.from]);
+    return;
+  }
+  target.edits = renameLocations(r.services(target.file), target.file, target.position, target.newName, !target.retarget);
+  if (target.retarget) target.refusals = retargetSites(session, target, kept, needs);
+}
+
+/** What the rules of every group share: the carve-outs, the keeps and the declared string forms. */
+interface RuleScope {
+  carving: Carving | null;
+  keeps: Keeps;
+  literals: LiteralKeeps;
+  forms: RegExp[];
+}
+
+interface RuleGroups {
+  groups: NameGroup[];
+  pending: Tagged[];
+  matched: Set<string>;
+  stopped: boolean;
+  /** The refusals a `[rules]` line printed: they count for the exit code and are not printed again. */
+  printed: Refusal[];
+}
+
+/** The rules over each renamed name of `symbols`, its result announced: the groups, their edits before the keeps, the
+ * `--with` and `--without` sites that matched, and whether `--fail-fast` stopped at a refusal. */
+function ruleGroups(session: Session, symbols: Target[], scope: RuleScope, progress: Progress): RuleGroups {
+  const { carving, keeps, literals, forms } = scope;
+  const { args } = session.r;
+  const olds = [...new Set(symbols.map((t) => t.old))];
+  if (olds.length > 0) progress.phase('rules');
+  const renamedNames = new Set(olds);
+  const out: RuleGroups = { groups: [], pending: [], matched: new Set(), stopped: false, printed: [] };
+  for (const [n, old] of olds.entries()) {
+    const members = symbols.filter((t) => t.old === old);
+    const group = timed('rules', () => {
+      const named = new NameGroup(session, old, members, carving);
+      if (named.member) for (const site of named.classify(args.with_stand_ins ?? [], args.without_stand_ins ?? [])) out.matched.add(site);
+      runRules(named, args.docs === true, renamedNames, forms);
+      return named;
+    });
+    out.pending.push(...group.edits);
+    keep(group, keeps, literals);
+    out.groups.push(group);
+    const refused = unique(texts([...members.flatMap((t) => t.refusals), ...(args.allow_blindspots === true ? [] : group.blindspots), ...group.standIns]));
+    const indexes = [...new Set(members.flatMap((t) => t.indexes))].toSorted((a, b) => a - b);
+    const newNames = [...new Set(members.map((t) => t.newName))].join(', ');
+    progress.result(n + 1, olds.length, indexes, old, newNames, refused.flatMap((f) => f.lines));
+    out.printed.push(...refused);
+    if (refused.length > 0 && args.fail_fast === true) {
+      out.stopped = true;
+      break;
+    }
+  }
+  return out;
+}
+
 /** Run `specs` (a rename, a retarget, or a map's entries; `map` in messages) as one refactor, its phases announced
  * on `progress`: 0, or `Refused` with every refusal. */
 export function runEntries(r: Refactor, specs: EntrySpec[], map: string, progress: Progress): number {
   checkSupported(r);
-  const failFast = r.args.fail_fast === true;
   const allowed = r.args.allow_blindspots === true;
   progress.phase('resolve');
   const resolution = timed('resolve', () => resolveAll(r, specs, map));
+  const { carving, failures: uncarved } = timed('resolve', () => carvingOf(r));
   progress.phase('checks');
-  const failures = [...resolution.failures, ...checks(r, resolution), ...configFailures(r)];
+  const { forms, failures: formFailures } = stringForms(r);
+  const told = new Set(formFailures.flatMap((f) => f.lines));
+  const untold = configFailures(r).filter((f) => !f.lines.some((line) => told.has(line)));
+  const failures = [...resolution.failures, ...uncarved, ...checks(r, resolution), ...formFailures, ...untold];
   if (failures.length > 0) throw new Refused(failures);
   const { targets } = resolution;
+  const symbols = targets.filter((t) => t.move === null);
   progress.phase('references');
-  const session = timed('load', () => new Session(r, targets.map((t) => t.file)));
+  const session = new Session(r, symbols.map((t) => t.file));
   const keeps = new Keeps(session, r.args.keep ?? []);
+  const literals = new LiteralKeeps(r.args.keep_literal ?? [], (path, keys) => {
+    const source = session.sources.get(path)?.source;
+    return source === undefined ? [] : literalSpans(source, keys);
+  });
+  const keptSite = (path: string, position: number): boolean => keptEdit({ path, start: position, length: 1, newText: '' }, keeps, literals);
   const needs: Need[] = [];
-  for (const [i, target] of targets.entries()) {
-    progress.item(i + 1, targets.length, target.indexes, target.old, target.newName);
-    timed('references', () => {
-      target.edits = renameLocations(r.services(target.file), target.file, target.position, target.newName, !target.retarget);
-      if (target.retarget) target.refusals = retargetSites(session, target, (path, position) => keeps.keeps(path, position), needs);
-    });
+  const located = entryGroups(targets);
+  for (const [i, group] of located.entries()) {
+    const first = group[0] as Target;
+    progress.item(i + 1, located.length, first.indexes.toSorted((a, b) => a - b), first.old, first.newName);
+    for (const target of group) timed('references', () => references(session, target, keptSite, needs));
   }
-  progress.phase('rules');
-  const olds = [...new Set(targets.map((t) => t.old))];
-  const renamedNames = new Set(olds);
   const withSites = r.args.with_stand_ins ?? [];
   const withoutSites = r.args.without_stand_ins ?? [];
-  const matched = new Set<string>();
-  const groups: NameGroup[] = [];
-  const pending: Tagged[] = [];
-  let stopped = false;
-  for (const [n, old] of olds.entries()) {
-    const members = targets.filter((t) => t.old === old);
-    const group = timed('rules', () => {
-      const named = new NameGroup(session, old, members);
-      if (named.member) for (const site of named.classify(withSites, withoutSites)) matched.add(site);
-      runRules(named, r.args.docs === true, renamedNames);
-      return named;
-    });
-    pending.push(...group.edits);
-    keep(group, keeps);
-    groups.push(group);
-    const refused = texts([...members.flatMap((t) => t.refusals), ...(allowed ? [] : group.blindspots), ...group.standIns]);
-    const indexes = members.flatMap((t) => t.indexes).toSorted((a, b) => a - b);
-    const newNames = [...new Set(members.map((t) => t.newName))].join(', ');
-    progress.result(n + 1, olds.length, indexes, old, newNames, refused.flatMap((f) => f.lines));
-    if (refused.length > 0 && failFast) {
-      stopped = true;
-      break;
-    }
-  }
-  const retargets = texts(targets.flatMap((t) => t.refusals));
+  const { groups, pending, matched, stopped, printed } = ruleGroups(session, symbols, { carving, keeps, literals, forms }, progress);
+  const moving = targets.filter((t) => t.move !== null && t.newName !== t.old && !keeps.keepsFile(t.file));
+  const moduleEdits = targets
+    .filter((t) => t.move !== null)
+    .flatMap((t) => t.edits.map((e) => ({ ...e, entry: t.index })))
+    .filter((e) => !keptEdit(e, keeps, literals));
   const blindspots = groups.flatMap((g) => g.blindspots).sort(byPosition);
   const blind = allowed ? [] : texts(blindspots);
-  const standIns = texts(groups.flatMap((g) => g.standIns));
   let edits: Tagged[] = [];
   let conflicts: Refusal[] = [];
   let sites: Refusal[] = [];
   if (!stopped) {
-    edits = [...groups.flatMap((g) => g.edits), ...planImports(session, needs)];
+    const picks = resolvePicks(session, groups, r.args.docs_pick ?? [], keeps, literals);
+    edits = [...groups.flatMap((g) => g.edits), ...planImports(session, needs), ...moduleEdits];
+    sites = resolveSites(session, edits, keeps, literals, [...withSites, ...withoutSites].filter((site) => !matched.has(site)), groups, picks);
+  }
+  if (!stopped && sites.length === 0) {
     progress.phase('conflicts');
     conflicts = timed('conflicts', () => {
       const merged = mapConflicts(session, edits);
-      return [...nameConflicts(session, targets, pending, edits, merged.length === 0), ...merged];
+      const taken = groups.flatMap((g) => g.sourceConflicts());
+      return merged.length > 0 ? merged : nameConflicts(session, targets, symbols, pending, edits, moving, taken);
     });
-    sites = [
-      ...[...withSites, ...withoutSites].filter((site) => !matched.has(site)).map((site) => refusal(message('refactor.not-stand-in', { site }), 2)),
-      ...groups.flatMap((g) => g.computed),
-      ...keeps.unmatched().map((site) => refusal(message('refactor.keep-unmatched', { site }), 2)),
-    ];
   }
-  const attr = groups.filter((g) => g.blindspots.length > 0).map((g) => g.old).join(', .');
-  const closing = blind.length > 0 ? [refusal(message('refactor.blindspots', { count: blind.length, attr }))] : [];
-  const report = unique([...retargets, ...blind, ...standIns, ...conflicts, ...sites, ...closing]);
-  if (report.length > 0) throw new Refused(report);
-  const leftovers = groups.flatMap((g) => g.leftovers).sort(byPosition);
+  const names = groups.filter((g) => g.blindspots.length > 0).map((g) => `.${g.old}`).join(', ');
+  const closing = blind.length > 0 ? [refusal(message('refactor.blindspots', { count: unique(blind).length, names }))] : [];
+  const report = unique([...conflicts, ...sites, ...closing]);
+  if (report.length > 0 || printed.length > 0) throw new Refused(report, printed);
+  const leftovers = groups.flatMap((g) => [...g.leftovers, ...g.unverifiedReads()]).sort(byPosition);
   process.stderr.write([...blindspots, ...leftovers].map((f) => `${f.text}\n`).join(''));
-  const headers = targets.map((t) => message(t.retarget ? 'refactor.retarget-header' : 'refactor.rename-header', { old: t.old, new: t.newName }));
-  return r.emit(headers, mergeEdits(edits), [], [], progress);
+  const headers = located.map(([t]) => header(t as Target));
+  return r.emit(headers, mergeEdits(edits), moving.flatMap(moveOf), [], progress);
 }

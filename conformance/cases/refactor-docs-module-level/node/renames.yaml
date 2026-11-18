@@ -1,0 +1,2 @@
+- {file: src/one.ts, symbol: A.field, new_name: column}
+- {file: src/two.ts, symbol: C.size, new_name: length}

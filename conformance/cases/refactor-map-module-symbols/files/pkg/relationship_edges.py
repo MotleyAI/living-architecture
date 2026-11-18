@@ -1,0 +1,2 @@
+class RelationshipEdge:
+    pass

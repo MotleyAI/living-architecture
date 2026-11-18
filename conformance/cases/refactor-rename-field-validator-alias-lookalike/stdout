@@ -1,0 +1,22 @@
+Renaming <columns> to <fields>:
+
+
+--- a/pkg/m.py
++++ b/pkg/m.py
+@@ -3,9 +3,9 @@
+ 
+ 
+ class Ds(BaseModel):
+-    columns: list[str]
++    fields: list[str]
+ 
+-    @fv("columns")
++    @fv("fields")
+     @classmethod
+     def _v(cls, v: list[str]) -> list[str]:
+         return v
+
+
+
+APPLIED. 1 file(s) changed:
+  pkg/m.py

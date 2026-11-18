@@ -1,0 +1,29 @@
+Renaming <edit_model> to <edit_master>:
+
+
+--- a/pkg/kinds.py
++++ b/pkg/kinds.py
+@@ -1,6 +1,6 @@
+ from typing import Literal
+ 
+-DriftKind = Literal["edit_model", "drop"]
++DriftKind = Literal["edit_master", "drop"]
+ 
+ 
+ def f(kind: DriftKind) -> None:
+
+--- a/pkg/run.py
++++ b/pkg/run.py
+@@ -2,5 +2,5 @@
+ 
+ 
+ def run() -> None:
+-    k = "edit_model"
++    k = "edit_master"
+     f(k)
+
+
+
+APPLIED. 2 file(s) changed:
+  pkg/kinds.py
+  pkg/run.py

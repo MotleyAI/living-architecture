@@ -1,0 +1,29 @@
+Retargeting <AcmeModel> to <Model>:
+
+
+--- a/app/use_all.py
++++ b/app/use_all.py
+@@ -1,3 +1,4 @@
+ from pkg.exp_all import *
++from pkg.models import Model
+ 
+-a = AcmeModel()
++a = Model()
+
+--- a/app/use_none.py
++++ b/app/use_none.py
+@@ -1,3 +1,3 @@
+ from pkg.exp_none import *
+ 
+-b = AcmeModel()
++b = Model()
+
+--- a/pkg/exp_none.py
++++ b/pkg/exp_none.py
+@@ -1 +1 @@
+-from pkg.models import AcmeModel, Model
++from pkg.models import Model
+
+
+
+DRY-RUN. 3 file(s) would change. Re-run with --apply.

@@ -1,0 +1,20 @@
+Renaming <formula> to <expression>:
+
+
+--- a/pkg/c.py
++++ b/pkg/c.py
+@@ -1,7 +1,7 @@
+ from typing import Literal
+ 
+-Kind2 = Literal["formula", "sql"]
+-DISPATCH_FORMULA = "formula"
++Kind2 = Literal["expression", "sql"]
++DISPATCH_FORMULA = "expression"
+ 
+ 
+ def via_constant() -> Kind2:
+
+
+
+APPLIED. 1 file(s) changed:
+  pkg/c.py

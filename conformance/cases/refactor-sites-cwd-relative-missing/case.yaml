@@ -1,0 +1,27 @@
+kind: paired
+languages:
+- python
+- typescript
+command: dr-refactor
+args:
+  python:
+  - --project
+  - proj
+  - rename-map
+  - map.yaml
+  - --keep
+  - proj/pkg/use.py:5
+  typescript:
+  - --project
+  - proj
+  - rename-map
+  - map.yaml
+  - --keep
+  - proj/src/use.ts:4
+fixture: refactor-sites-project
+git:
+- commit: init
+expect:
+  exit: 2
+golden: manual
+note: 'a --keep path relative to the working directory, not to --project, names nothing in the project: site-missing'

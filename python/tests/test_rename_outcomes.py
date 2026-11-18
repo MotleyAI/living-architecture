@@ -80,7 +80,7 @@ def test_blindspot_outcome(literal: tuple[int, int] | None) -> None:
 
 @pytest.mark.parametrize("rewrite", [True, False])
 def test_mention_outcome(rewrite: bool) -> None:
-    mention = Mention(start=4, end=14, line=1, where="comment", opens=False)
+    mention = Mention(start=4, end=14, line=1, where="comment")
     outcome = mention_outcome("t.py", mention, rewrite=rewrite, old=OLD, new=NEW)
     assert (outcome.kind, outcome.span) == ("rewrite" if rewrite else "leftover", (4, 14))
 
@@ -107,7 +107,7 @@ def _keeps(tmp_path: Path, *raws: str) -> Keeps:
     root = tmp_path.resolve()
     for rel in ("a.py", "b.py"):
         (root / rel).write_text("")
-    return Keeps(raws, root, base=root)
+    return Keeps(raws, root)
 
 
 def test_keeps_cover_lines_files_and_moves(tmp_path: Path) -> None:

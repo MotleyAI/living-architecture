@@ -20,6 +20,10 @@ cases:
       typecheck:
         python: basedpyright
         typescript: tsc --noEmit
+    refactor:
+      python:
+        moved_module_stub: null
+      string_forms: []
     conventions:
       text_ratio_max: 0.15
       rules:
@@ -46,6 +50,10 @@ cases:
       typecheck:
         python: basedpyright
         typescript: tsc --noEmit
+    refactor:
+      python:
+        moved_module_stub: null
+      string_forms: []
     conventions:
       text_ratio_max: 0.15
       rules:
@@ -73,6 +81,10 @@ cases:
       typecheck:
         python: basedpyright
         typescript: tsc --noEmit
+    refactor:
+      python:
+        moved_module_stub: null
+      string_forms: []
     conventions:
       text_ratio_max: 0.15
       rules:
@@ -100,6 +112,10 @@ cases:
       typecheck:
         python: basedpyright
         typescript: tsc --noEmit
+    refactor:
+      python:
+        moved_module_stub: null
+      string_forms: []
     conventions:
       text_ratio_max: 0.15
       rules:
@@ -127,6 +143,10 @@ cases:
       typecheck:
         python: basedpyright
         typescript: tsc --noEmit
+    refactor:
+      python:
+        moved_module_stub: null
+      string_forms: []
     conventions:
       text_ratio_max: 0.15
       rules:
@@ -158,6 +178,10 @@ cases:
       typecheck:
         python: basedpyright
         typescript: tsc --noEmit
+    refactor:
+      python:
+        moved_module_stub: null
+      string_forms: []
     conventions:
       text_ratio_max: 0.15
       rules: []
@@ -189,6 +213,10 @@ cases:
       typecheck:
         python: basedpyright
         typescript: tsc --noEmit
+    refactor:
+      python:
+        moved_module_stub: null
+      string_forms: []
     conventions:
       text_ratio_max: 0.5
       rules:
@@ -214,6 +242,10 @@ cases:
       typecheck:
         python: basedpyright
         typescript: tsc --noEmit
+    refactor:
+      python:
+        moved_module_stub: null
+      string_forms: []
     conventions:
       text_ratio_max: 0.15
       rules:
@@ -241,6 +273,10 @@ cases:
       typecheck:
         python: basedpyright
         typescript: null
+    refactor:
+      python:
+        moved_module_stub: null
+      string_forms: []
     conventions:
       text_ratio_max: 0.15
       rules:
@@ -268,6 +304,10 @@ cases:
       typecheck:
         python: basedpyright -p python
         typescript: tsc --noEmit
+    refactor:
+      python:
+        moved_module_stub: null
+      string_forms: []
     conventions:
       text_ratio_max: 0.15
       rules:
@@ -295,6 +335,10 @@ cases:
       typecheck:
         python: basedpyright
         typescript: tsc --noEmit
+    refactor:
+      python:
+        moved_module_stub: null
+      string_forms: []
     conventions:
       text_ratio_max: 0.15
       rules:

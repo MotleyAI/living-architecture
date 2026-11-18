@@ -1,0 +1,52 @@
+Renaming <x> to <y>:
+Renaming <y> to <x>:
+Renaming <n> to <m>:
+Renaming <m> to <n>:
+Renaming <b> to <c>:
+Renaming <a> to <b>:
+Renaming <p> to <q>:
+Renaming <q> to <r>:
+
+
+--- a/pkg/f.py
++++ b/pkg/f.py
+@@ -1,22 +1,22 @@
+ def f() -> int:
+-    x = 1
+-    y = 2
+-    return x - y
++    y = 1
++    x = 2
++    return y - x
+ 
+ 
+ def g() -> int:
+-    m = 1
+-    n = 2
+-    return m - n
++    n = 1
++    m = 2
++    return n - m
+ 
+ 
+ def h() -> int:
+-    a = 1
+-    b = 2
+-    return a - b
++    b = 1
++    c = 2
++    return b - c
+ 
+ 
+ def k() -> int:
+-    p = 1
+-    q = 2
+-    return p - q
++    q = 1
++    r = 2
++    return q - r
+
+
+
+APPLIED. 1 file(s) changed:
+  pkg/f.py

@@ -5,4 +5,4 @@
 [rules]
 [rules 1/1] entry 1: old -> next: clean
 [conflicts]
-next already names something else at pkg/m.py:6, so nothing was refactored
+entry 1 (pkg/m.py old): next already names something else at pkg/m.py:6, so nothing was refactored

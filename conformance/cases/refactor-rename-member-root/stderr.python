@@ -5,4 +5,4 @@
 [rules]
 [rules 1/1] entry 1: old -> __repr__: clean
 [conflicts]
-__repr__ already names something else at pkg/m.py:2, so nothing was refactored
+entry 1 (pkg/m.py C.old): __repr__ already names something else at pkg/m.py:2, so nothing was refactored

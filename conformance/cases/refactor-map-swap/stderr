@@ -1,11 +1,22 @@
 [resolve]
 [checks]
 [references]
-[references 1/2] entry 1: x -> y
-[references 2/2] entry 2: y -> x
+[references 1/8] entry 1: x -> y
+[references 2/8] entry 2: y -> x
+[references 3/8] entry 3: n -> m
+[references 4/8] entry 4: m -> n
+[references 5/8] entry 5: b -> c
+[references 6/8] entry 6: a -> b
+[references 7/8] entry 7: p -> q
+[references 8/8] entry 8: q -> r
 [rules]
-[rules 1/2] entry 1: x -> y: clean
-[rules 2/2] entry 2: y -> x: clean
+[rules 1/8] entry 1: x -> y: clean
+[rules 2/8] entry 2: y -> x: clean
+[rules 3/8] entry 3: n -> m: clean
+[rules 4/8] entry 4: m -> n: clean
+[rules 5/8] entry 5: b -> c: clean
+[rules 6/8] entry 6: a -> b: clean
+[rules 7/8] entry 7: p -> q: clean
+[rules 8/8] entry 8: q -> r: clean
 [conflicts]
-x already names something else at pkg/f.py:1, so nothing was refactored
-y already names something else at pkg/f.py:1, so nothing was refactored
+[write]

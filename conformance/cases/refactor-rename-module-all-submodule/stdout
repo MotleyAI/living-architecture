@@ -1,0 +1,23 @@
+Renaming <inner> to <core>:
+
+
+--- a/app/use.py
++++ b/app/use.py
+@@ -1,4 +1,4 @@
+ from pkg import *
+ from pkg.sub import *
+ 
+-print(old.X, inner.Y)
++print(old.X, core.Y)
+
+--- a/pkg/sub/__init__.py
++++ b/pkg/sub/__init__.py
+@@ -1 +1 @@
+-__all__ = ["inner"]
++__all__ = ["core"]
+
+rename from pkg/sub/inner.py
+rename to pkg/sub/core.py
+
+
+DRY-RUN. 3 file(s) would change. Re-run with --apply.

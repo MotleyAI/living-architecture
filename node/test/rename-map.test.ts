@@ -3,7 +3,7 @@ import { chmodSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { message, schema, validate } from '../src/contract/index.js';
-import { TSCONFIG, copyProject, expectedOut, files, lineCol, mapYaml, read, refactor, renameHeader, tsProject } from './refactor-project.js';
+import { TSCONFIG, copyProject, entryRefusal, expectedOut, files, finalReport, lineCol, mapYaml, read, refactor, refactorRaw, renameHeader, tsProject } from './refactor-project.js';
 
 const STORE = `export class Store {
   getModel(modelName: string): number {
@@ -34,6 +34,8 @@ describe('rename-map schema', () => {
     [[{ file: 'src/a.ts', offset: 120, new_name: 'fresh' }]],
     [[{ file: 'src/models.ts', symbol: 'AcmeModel', retarget: 'Model' }]],
     [[{ file: 'src/a.ts', symbol: 'A.old', new_name: 'fresh' }, { file: 'src/a.ts', symbol: "Kind['edit_model']", new_name: 'edit master' }]],
+    [[{ module: 'src/a.ts', new_name: 'b' }]],
+    [[{ module: 'pkg/sql/__init__.py', new_name: 'db' }, { file: 'pkg/a.py', symbol: 'f', new_name: 'g' }]],
   ])('accepts %j', (document) => {
     expect(validate(schema('rename-map'), document)).toEqual([]);
   });
@@ -50,6 +52,11 @@ describe('rename-map schema', () => {
     [[{ symbol: 'A.old', new_name: 'fresh' }]],
     [[{ file: 'src/a.ts', symbol: 'A.old', new_name: 'fresh', unsure: 'include' }]],
     [[{ file: 'src/a.ts', line: '3', new_name: 'fresh' }]],
+    [[{ module: 'src/a.ts', symbol: 'A', new_name: 'b' }]],
+    [[{ module: 'src/a.ts', retarget: 'A' }]],
+    [[{ module: 'src/a.ts', file: 'src/a.ts', new_name: 'b' }]],
+    [[{ module: 'src/a.ts' }]],
+    [[{ module: '', new_name: 'b' }]],
   ])('rejects %j', (document) => {
     expect(validate(schema('rename-map'), document)).not.toEqual([]);
   });
@@ -102,11 +109,11 @@ describe('rename-map', () => {
     expect(result.code).toBe(1);
     expect(result.out).toBe('');
     expect(lines.slice(0, 2)).toEqual([
-      message('compliance.attr-blindspot', { path: 'src/loose.ts', line: 2, receiver: 'a', attr: 'getModelSync', type: 'any' }),
       message('compliance.attr-blindspot', { path: 'src/loose.ts', line: 2, receiver: 'b', attr: 'getModel', type: 'any' }),
+      message('compliance.attr-blindspot', { path: 'src/loose.ts', line: 2, receiver: 'a', attr: 'getModelSync', type: 'any' }),
     ]);
     expect(lines).toHaveLength(3);
-    expect(lines[2]).toBe(message('refactor.blindspots', { count: 2, attr: 'getModel, .getModelSync' }));
+    expect(lines[2]).toBe(message('refactor.blindspots', { count: 2, names: '.getModel, .getModelSync' }));
     expect(files(root)).toEqual(before);
   });
 
@@ -154,16 +161,21 @@ export function run(b: Base): void {
     expect(files(root)).toEqual(before);
   });
 
-  it('refuses a swap inside one scope with the name-conflict finding', () => {
+  it.each([
+    ['a swap', 'x', 'f(y: number, x: number): number {\n  return y - x;'],
+    ['a chain', 'z', 'f(y: number, z: number): number {\n  return y - z;'],
+  ])('applies %s inside one scope, in either entry order', (_kind, last, after) => {
     const f = 'export function f(x: number, y: number): number {\n  return x - y;\n}\n';
-    const root = withMap({ 'src/f.ts': f }, [
+    const entries = [
       { file: 'src/f.ts', symbol: 'f(x)', new_name: 'y' },
-      { file: 'src/f.ts', symbol: 'f(y)', new_name: 'x' },
-    ]);
-    const result = refactor(root, '--apply', 'rename-map', 'map.yaml');
-    const conflicts = ['x', 'y'].map((name) => message('refactor.name-conflict', { name, path: 'src/f.ts', line: 1 }));
-    expect(result).toEqual({ code: 1, out: '', err: conflicts.map((conflict) => `${conflict}\n`).join('') });
-    expect(read(root, 'src/f.ts')).toBe(f);
+      { file: 'src/f.ts', symbol: 'f(y)', new_name: last },
+    ];
+    for (const ordered of [entries, entries.toReversed()]) {
+      const root = withMap({ 'src/f.ts': f }, ordered);
+      const result = refactor(root, '--apply', 'rename-map', 'map.yaml');
+      expect([result.code, result.err]).toEqual([0, '']);
+      expect(read(root, 'src/f.ts')).toBe(`export function ${after}\n}\n`);
+    }
   });
 
   it.each([
@@ -175,7 +187,8 @@ export function run(b: Base): void {
       { file: 'src/f.ts', symbol: second, new_name: 'z' },
     ]);
     const result = refactor(root, '--apply', 'rename-map', 'map.yaml');
-    expect(result).toEqual({ code: 1, out: '', err: `${message('refactor.name-conflict', { name: 'z', path: 'src/f.ts', line: 1 })}\n` });
+    const conflict = message('refactor.name-conflict', { name: 'z', path: 'src/f.ts', line: 1 });
+    expect(result).toEqual({ code: 1, out: '', err: `${entryRefusal(`src/f.ts ${second}`, conflict, 2)}\n` });
     expect(read(root, 'src/f.ts')).toBe(f);
   });
 
@@ -215,7 +228,8 @@ export function run(b: Base): void {
       { file: 'src/f.ts', symbol: 'C.b', new_name: 'x' },
     ]);
     const result = refactor(root, '--apply', 'rename-map', 'map.yaml');
-    expect(result).toEqual({ code: 1, out: '', err: `${message('refactor.name-conflict', { name: 'x', path: 'src/f.ts', line: 4 })}\n` });
+    const conflict = message('refactor.name-conflict', { name: 'x', path: 'src/f.ts', line: 4 });
+    expect(result).toEqual({ code: 1, out: '', err: `${entryRefusal('src/f.ts C.b', conflict, 2)}\n` });
     expect(read(root, 'src/f.ts')).toBe(f);
   });
 
@@ -300,5 +314,90 @@ describe('an apply writes every file or none', () => {
       chmodSync(join(root, 'src', 'z'), 0o755);
     }
     expect(files(root)).toEqual(before);
+  });
+});
+
+describe('rename-map module entries', () => {
+  const A = 'export const x = 1;\n';
+  const C = 'export const y = 2;\n';
+
+  it('moves every module entry and writes a member rename beside them in one apply', () => {
+    const root = withMap({ 'src/a.ts': A, 'src/c.ts': C, 'src/store.ts': STORE, 'src/use.ts': USE }, [
+      { module: 'src/a.ts', new_name: 'b' },
+      { file: 'src/store.ts', symbol: 'Store.getModel', new_name: 'loadModel' },
+      { module: 'src/store.ts', new_name: 'repository' },
+    ]);
+    const result = refactorRaw(root, '--apply', 'rename-map', 'map.yaml');
+    expect(result.code).toBe(0);
+    expect(result.out.startsWith(`${renameHeader('a', 'b')}\n${renameHeader('getModel', 'loadModel')}\n${renameHeader('store', 'repository')}\n\n\n`)).toBe(true);
+    const after = files(root);
+    expect(Object.keys(after).filter((p) => p.startsWith('src/')).sort()).toEqual(['src/b.ts', 'src/c.ts', 'src/repository.ts', 'src/use.ts']);
+    expect(after['src/repository.ts']).toBe(STORE.replaceAll('getModel(', 'loadModel('));
+    expect(after['src/use.ts']).toBe(USE.replace("'./store'", "'./repository'").replace("s.getModel('a')", "s.loadModel('a')"));
+  });
+
+  it('merges two entries naming one file with one new name: one header, one move', () => {
+    const root = withMap({ 'src/a.ts': A }, [
+      { module: 'src/a.ts', new_name: 'b' },
+      { module: 'src/a.ts', new_name: 'b' },
+    ]);
+    const result = refactorRaw(root, 'rename-map', 'map.yaml');
+    expect(result.code).toBe(0);
+    expect(result.out.startsWith(`${renameHeader('a', 'b')}\n\n\n`)).toBe(true);
+    expect(result.err).toContain('[references 1/1] entries 1, 2: a -> b\n');
+  });
+
+  it('refuses two entries naming one file with different new names', () => {
+    const root = withMap({ 'src/a.ts': A }, [
+      { module: 'src/a.ts', new_name: 'b' },
+      { module: 'src/a.ts', new_name: 'c' },
+    ]);
+    const result = refactor(root, 'rename-map', 'map.yaml');
+    expect(result).toEqual({ code: 2, out: '', err: `${message('refactor.map-duplicate', { map: 'map.yaml', first: 1, second: 2 })}\n` });
+  });
+
+  it('refuses new names meeting in one directory in the conflicts phase, naming the earlier entry\'s file', () => {
+    const root = withMap({ 'src/a.ts': A, 'src/c.tsx': C }, [
+      { module: 'src/a.ts', new_name: 'd' },
+      { module: 'src/c.tsx', new_name: 'd' },
+    ]);
+    const before = files(root);
+    const result = refactorRaw(root, '--apply', 'rename-map', 'map.yaml');
+    expect(result.code).toBe(1);
+    expect(result.err).toContain('[conflicts]\n');
+    expect(finalReport(result.err)).toBe(`${entryRefusal('src/c.tsx', message('refactor.name-conflict', { name: 'd', path: 'src/a.ts', line: 1 }), 2)}\n`);
+    expect(files(root)).toEqual(before);
+  });
+
+  it('refuses every module entry onto a taken name before any reference search', () => {
+    const root = withMap({ 'src/a.ts': A, 'src/c.ts': C, 'src/b.ts': A, 'src/d/index.ts': C }, [
+      { module: 'src/a.ts', new_name: 'b' },
+      { module: 'src/c.ts', new_name: 'd' },
+    ]);
+    const conflict = (name: string, path: string): string => message('refactor.name-conflict', { name, path, line: 1 });
+    const refused = [entryRefusal('src/a.ts', conflict('b', 'src/b.ts')), entryRefusal('src/c.ts', conflict('d', 'src/d/index.ts'), 2)];
+    expect(refactorRaw(root, 'rename-map', 'map.yaml')).toEqual({ code: 1, out: '', err: `[resolve]\n[checks]\n${refused.join('\n')}\n` });
+  });
+
+  it('refuses --with on a map of module entries only, in the checks', () => {
+    const root = withMap({ 'src/a.ts': A, 'src/store.ts': STORE }, [{ module: 'src/a.ts', new_name: 'b' }]);
+    expect(refactorRaw(root, 'rename-map', 'map.yaml', '--with', 'src/store.ts:2')).toEqual({
+      code: 2,
+      out: '',
+      err: `[resolve]\n[checks]\n${message('refactor.not-stand-in', { site: 'src/store.ts:2' })}\n`,
+    });
+  });
+
+  it('prints an edit in a moved file at its old path, before the move', () => {
+    const root = withMap({ 'src/store.ts': STORE, 'src/use.ts': USE }, [
+      { module: 'src/store.ts', new_name: 'repository' },
+      { file: 'src/store.ts', symbol: 'Store', new_name: 'Repository' },
+    ]);
+    const result = refactorRaw(root, 'rename-map', 'map.yaml');
+    expect(result.code).toBe(0);
+    const diff = result.out.indexOf('--- a/src/store.ts\n');
+    const moved = result.out.indexOf(`${message('refactor.ts-moved', { old: 'src/store.ts', new: 'src/repository.ts' })}\n`);
+    expect(diff).toBeGreaterThan(0);
+    expect(moved).toBeGreaterThan(diff);
   });
 });

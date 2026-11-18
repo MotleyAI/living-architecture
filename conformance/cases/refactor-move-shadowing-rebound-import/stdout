@@ -1,0 +1,49 @@
+Moving global <f>:
+
+
+--- a/load.py
++++ b/load.py
+@@ -1,10 +1,10 @@
+ import sys
++import pkg.b
+ 
+ 
+ def load():
+     global pa
+-    import pkg.a as pa
+ 
+ 
+ load()
+-print(pa.f(), sys.argv)
++print(pkg.b.f(), sys.argv)
+
+--- a/outer.py
++++ b/outer.py
+@@ -1,9 +1,10 @@
+ def outer():
+     import pkg.a as pa
++    import pkg.b
+ 
+     def reset():
+         nonlocal pa
+         import pkg.a as pa
+ 
+     reset()
+-    return pa.f()
++    return pkg.b.f()
+
+--- a/pkg/a.py
++++ b/pkg/a.py
+@@ -1,2 +0,0 @@
+-def f() -> int:
+-    return 1
+
+--- a/pkg/b.py
++++ b/pkg/b.py
+@@ -0,0 +1,2 @@
++def f() -> int:
++    return 1
+
+
+
+DRY-RUN. 4 file(s) would change. Re-run with --apply.

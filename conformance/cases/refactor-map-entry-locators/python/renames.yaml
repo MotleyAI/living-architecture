@@ -1,0 +1,5 @@
+- {file: pkg/c.py, symbol: "other(model)", new_name: dataset}
+- {file: pkg/c.py, line: 99, new_name: a}
+- {file: pkg/c.py, symbol: nope, new_name: b}
+- {file: pkg/c.py, offset: 999, new_name: c}
+- {module: __init__.py, new_name: d}

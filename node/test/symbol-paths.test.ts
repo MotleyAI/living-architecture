@@ -1,7 +1,7 @@
 // dr-refactor --symbol: a declaration by its path inside --file, through the TypeScript twin.
 import { describe, expect, it } from 'vitest';
 import { message } from '../src/contract/index.js';
-import { copyProject, files, lineCol, read, refactor, tsProject } from './refactor-project.js';
+import { copyProject, entryRefusal, files, lineCol, read, refactor, tsProject } from './refactor-project.js';
 
 const STORE = `export class Store {
   count(): number {
@@ -194,7 +194,7 @@ describe('locator failures', () => {
     const before = files(root);
     const result = refactor(root, 'rename', '--file', 'src/store.ts', '--symbol', 'Store.getModle', '--new-name', 'x');
     const expected = message('refactor.symbol-unresolved', { path: 'src/store.ts', symbol: 'Store.getModle', candidates: 'count, getModel, saveModel' });
-    expect(result).toEqual({ code: 2, out: '', err: `${expected}\n` });
+    expect(result).toEqual({ code: 2, out: '', err: `${entryRefusal('src/store.ts Store.getModle', expected)}\n` });
     expect(files(root)).toEqual(before);
   });
 
@@ -202,7 +202,7 @@ describe('locator failures', () => {
     const root = tsProject({ 'src/store.ts': 'export function f(): number {\n  {\n    const x = 1;\n  }\n  {\n    const x = 2;\n    return x;\n  }\n}\n' });
     const result = refactor(root, 'rename', '--file', 'src/store.ts', '--symbol', 'f.<locals>.x', '--new-name', 'y');
     const expected = message('refactor.symbol-ambiguous', { path: 'src/store.ts', symbol: 'f.<locals>.x', candidates: 'src/store.ts:3, src/store.ts:6' });
-    expect(result).toEqual({ code: 2, out: '', err: `${expected}\n` });
+    expect(result).toEqual({ code: 2, out: '', err: `${entryRefusal('src/store.ts f.<locals>.x', expected)}\n` });
   });
 
   it.each([
@@ -225,8 +225,9 @@ describe('locator failures', () => {
 
   it('no locator exits 1 with the no-locator finding naming --symbol', () => {
     const root = tsProject(project);
-    const result = refactor(root, 'rename', '--file', 'src/store.ts', '--new-name', 'Repo');
-    expect(result).toEqual({ code: 1, out: '', err: `${message('refactor.no-locator')}\n` });
+    const result = refactor(root, 'retarget', '--file', 'src/store.ts', '--target', 'Repo');
+    expect(result).toEqual({ code: 1, out: '', err: `${entryRefusal('src/store.ts', message('refactor.no-locator'))}
+` });
     expect(result.err).toContain('--symbol');
   });
 });

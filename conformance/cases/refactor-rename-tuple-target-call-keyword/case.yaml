@@ -1,0 +1,18 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- rename
+- --file
+- pkg/kw.py
+- --symbol
+- h.<locals>.x
+- --new-name
+- y
+fixture: refactor-tuple-targets
+git:
+- commit: init
+expect:
+  exit: 0
+note: a tuple target renamed with its use; a call keyword of the same spelling unchanged

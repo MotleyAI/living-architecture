@@ -1,0 +1,25 @@
+Renaming <client> to <cli>:
+Renaming <sql> to <db>:
+Renaming <pkg> to <app>:
+
+
+--- a/main.py
++++ b/main.py
+@@ -1,4 +1,4 @@
+-import pkg.sql.client
+-from pkg.sql import client
++import app.db.cli
++from app.db import cli
+ 
+-print(pkg.sql.client.connect(), client.connect(), pkg.sql.VERSION)
++print(app.db.cli.connect(), cli.connect(), app.db.VERSION)
+
+rename from pkg
+rename to app
+rename from pkg/sql
+rename to pkg/db
+rename from pkg/sql/client.py
+rename to pkg/sql/cli.py
+
+
+DRY-RUN. 4 file(s) would change. Re-run with --apply.

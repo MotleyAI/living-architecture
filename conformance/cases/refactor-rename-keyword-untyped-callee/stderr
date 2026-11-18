@@ -1,0 +1,9 @@
+[resolve]
+[checks]
+[references]
+[references 1/1] entry 1: measures -> metrics
+[rules]
+[rules 1/1] entry 1: measures -> metrics: 1 refusal(s)
+tests/test_totals.py:7: unlinked-keyword: make_query(measures=...) — the checker does not link measures= to the renamed declaration, so a rename of measures is unverifiable
+[conflicts]
+1 blind spot(s) of measures=: type or resolve them, or pass --allow-blindspots

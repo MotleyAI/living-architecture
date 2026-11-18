@@ -1,4 +1,0 @@
-[resolve]
-[checks]
-[references]
-b already names something else at pkg/b/__init__.py:1, so nothing was refactored

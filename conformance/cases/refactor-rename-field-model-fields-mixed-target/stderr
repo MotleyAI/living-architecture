@@ -1,0 +1,9 @@
+[resolve]
+[checks]
+[references]
+[references 1/1] entry 1: columns -> fields
+[rules]
+[rules 1/1] entry 1: columns -> fields: 1 refusal(s)
+pkg/m.py:13: mixed-target: m.columns lands on renamed and unchanged declarations
+[conflicts]
+1 blind spot(s) of .columns: type or resolve them, or pass --allow-blindspots

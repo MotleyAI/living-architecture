@@ -1,0 +1,8 @@
+[resolve]
+[checks]
+[references]
+[references 1/1] entry 1: columns -> fields
+[rules]
+[rules 1/1] entry 1: columns -> fields: clean
+[conflicts]
+pkg/n.py:11: leftover: string mentions columns

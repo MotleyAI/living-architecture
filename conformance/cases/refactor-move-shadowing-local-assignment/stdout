@@ -1,0 +1,8 @@
+Moving module <thing>:
+
+
+rename from pkg/sub/thing.py
+rename to pkg/thing.py
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

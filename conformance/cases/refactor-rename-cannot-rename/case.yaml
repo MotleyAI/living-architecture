@@ -21,4 +21,4 @@ expect:
   - pkg/models.py
   - .ropeproject/history.json
 golden: manual
-note: 'rope refuses the location (whitespace between statements): the finding, no traceback'
+note: 'the location is not an identifier (whitespace between statements): the finding, no traceback'

@@ -1,0 +1,28 @@
+Renaming <field> to <column>:
+Renaming <Model> to <Dataset>:
+
+
+--- a/src/a.ts
++++ b/src/a.ts
+@@ -2,7 +2,7 @@
+ import { sep as field } from './lib.js';
+ 
+ export class A {
+-  field = '';
++  column = '';
+ }
+ 
+ export const SHOWN = field;
+
+--- a/src/g.ts
++++ b/src/g.ts
+@@ -1,4 +1,4 @@
+-export class Model {
++export class Dataset {
+   name = '';
+ }
+ 
+
+
+
+DRY-RUN. 2 file(s) would change. Re-run with --apply.

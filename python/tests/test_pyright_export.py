@@ -228,3 +228,174 @@ def test_a_direct_definition_in_a_library_or_typeshed_is_answered(pydantic_expor
     _, base, builtin = pydantic_export.index.answers
     assert any("pydantic" in d.path.parts for d in base.definition)
     assert any(d.path.name == "builtins.pyi" for d in builtin.definition)
+
+
+CLASSES = ("from typing import cast\n\nfrom pydantic import BaseModel\n\n\nclass Root:\n    def own(self) -> int:\n"
+           "        return 0\n\n\nclass Mid(Root):\n    pass\n\n\nclass Cast(cast(\"type[Mid]\", object)):\n    pass\n\n\n"
+           "class Model(BaseModel):\n    pass\n")
+
+
+@pytest.fixture(scope="module")
+def class_export(tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, OccurrenceIndex]:
+    """One export of the class facts of `Mid`, `Cast` and `Model`, looking up `own` and `model_dump`."""
+    root = write_project(tmp_path_factory.mktemp("classes") / "p", {"pkg/c.py": CLASSES}).resolve()
+    path = root / "pkg" / "c.py"
+    offsets = [CLASSES.index(f"class {name}") + len("class ") for name in ("Mid", "Cast", "Model")]
+    with LanguageServer(root) as server:
+        server.open(path, CLASSES)
+        index = server.export(ExportRequest(names=[], files=[], members=["own", "model_dump"], facts=[
+            FactQuery(path=path, offset=offset, kinds=("class",)) for offset in offsets]))
+    return path, index
+
+
+def test_a_class_fact_lists_its_ancestors_by_name(class_export: tuple[Path, OccurrenceIndex]) -> None:
+    path, index = class_export
+    mid, cast_base, _ = index.answers
+    root_name = (path, CLASSES.index("class Root") + len("class "))
+    mid_name = (path, CLASSES.index("class Mid") + len("class "))
+    assert next((s.path, s.start) for s in mid.ancestors) == root_name
+    assert [(s.path, s.start) for s in cast_base.ancestors][:2] == [mid_name, root_name]
+    assert mid.kinds == ("class",)
+
+
+def test_a_class_fact_names_only_members_a_library_class_declares(class_export: tuple[Path, OccurrenceIndex]) -> None:
+    mid, cast_base, model = class_export[1].answers
+    assert (mid.members, cast_base.members, model.members) == ((), (), ("model_dump",))
+    assert any("pydantic" in s.path.parts for s in model.ancestors)
+
+
+def test_a_class_fact_at_a_name_that_is_no_class_is_empty(tmp_path: Path) -> None:
+    root = write_project(tmp_path / "p", {"pkg/c.py": CLASSES}).resolve()
+    path = root / "pkg" / "c.py"
+    with LanguageServer(root) as server:
+        server.open(path, CLASSES)
+        index = server.export(ExportRequest(names=[], files=[], members=["own"], facts=[
+            FactQuery(path=path, offset=CLASSES.index("own"), kinds=("class",))]))
+    assert (index.answers[0].ancestors, index.answers[0].members) == ((), ())
+
+
+SIGNATURES = """\
+import functools
+import os
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
+from typing import ParamSpec, TypeVar, overload
+
+P = ParamSpec("P")
+R = TypeVar("R")
+
+
+def logged(fn: Callable[P, R]) -> Callable[P, R]:
+    return fn
+
+
+def erased(fn): ...
+
+
+@contextmanager
+def cm(*, models: int) -> Iterator[int]:
+    yield models
+
+
+@logged
+def wrapped(pos: int, /, both: int, *, models: int) -> int:
+    return pos + both + models
+
+
+@functools.lru_cache
+def cached(models: int) -> int:
+    return models
+
+
+@erased
+def gone(*, models: int) -> int:
+    return models
+
+
+@overload
+def ov(*, models: int) -> int: ...
+@overload
+def ov(*, other: str) -> str: ...
+def ov(*, models: int = 0, other: str = "") -> int | str:
+    return models or other
+
+
+def one(*, models: int) -> int:
+    return models
+
+
+def two(*, datasets: int = 0, **rest: int) -> int:
+    return datasets
+
+
+pick = one if os.environ.get("FAST") else two
+
+
+def use() -> None:
+    cm(models=1)
+    wrapped(1, 2, models=1)
+    cached(models=1)
+    gone(models=1)
+    ov(models=1)
+    pick(models=1)
+"""
+SIGNATURE_CALLS = ("cm", "wrapped", "cached", "gone", "ov", "pick")
+
+
+@pytest.fixture(scope="module")
+def signatures(tmp_path_factory: pytest.TempPathFactory) -> dict[str, tuple[tuple[str, ...], ...]]:
+    """The signature fact at the `models=` keyword of each call of `use`, by callee."""
+    root = write_project(tmp_path_factory.mktemp("signatures") / "p", {"pkg/s.py": SIGNATURES}).resolve()
+    path = root / "pkg" / "s.py"
+    body = SIGNATURES.index("def use()")
+    offsets = [SIGNATURES.index("models=", SIGNATURES.index(f"    {name}(", body)) for name in SIGNATURE_CALLS]
+    with LanguageServer(root) as server:
+        server.open(path, SIGNATURES)
+        index = server.export(ExportRequest(names=[], files=[], facts=[
+            FactQuery(path=path, offset=offset, kinds=("signature",)) for offset in offsets]))
+    assert all(facts.kinds == ("signature",) for facts in index.answers)
+    return {name: facts.signature for name, facts in zip(SIGNATURE_CALLS, index.answers, strict=True)}
+
+
+def _binds(signature: tuple[tuple[str, ...], ...], name: str = "models") -> list[bool]:
+    """Whether each callable alternative binds `name` by keyword, alternatives that do last."""
+    return sorted(name in alternative for alternative in signature)
+
+
+def test_a_signature_fact_follows_a_signature_preserving_decorator(
+    signatures: dict[str, tuple[tuple[str, ...], ...]]
+) -> None:
+    assert (_binds(signatures["cm"]), _binds(signatures["wrapped"])) == ([True], [True])
+
+
+def test_a_signature_fact_names_only_parameters_a_keyword_binds(
+    signatures: dict[str, tuple[tuple[str, ...], ...]]
+) -> None:
+    (wrapped,) = signatures["wrapped"]
+    assert sorted(wrapped) == ["both", "models"]
+
+
+def test_a_signature_fact_of_an_erased_signature_binds_no_name(
+    signatures: dict[str, tuple[tuple[str, ...], ...]]
+) -> None:
+    assert _binds(signatures["cached"]) == [False]
+    assert True not in _binds(signatures["gone"])
+
+
+def test_a_signature_fact_holds_one_alternative_per_overload_and_union_member(
+    signatures: dict[str, tuple[tuple[str, ...], ...]]
+) -> None:
+    assert (_binds(signatures["ov"]), _binds(signatures["pick"])) == ([False, True], [False, True])
+
+
+CLASS_KEYWORD = "class Child(metaclass=type):\n    pass\n"
+
+
+def test_a_signature_fact_at_a_class_keyword_is_empty(tmp_path: Path) -> None:
+    root = write_project(tmp_path / "p", {"pkg/k.py": CLASS_KEYWORD}).resolve()
+    path = root / "pkg" / "k.py"
+    with LanguageServer(root) as server:
+        server.open(path, CLASS_KEYWORD)
+        index = server.export(ExportRequest(names=[], files=[], facts=[
+            FactQuery(path=path, offset=CLASS_KEYWORD.index("metaclass"), kinds=("signature",))]))
+    assert [facts.signature for facts in index.answers] == [()]

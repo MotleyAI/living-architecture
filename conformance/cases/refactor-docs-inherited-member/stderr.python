@@ -1,0 +1,8 @@
+[resolve]
+[checks]
+[references]
+[references 1/1] entry 1: field -> column
+[rules]
+[rules 1/1] entry 1: field -> column: clean
+[conflicts]
+pkg/base.py:14: leftover: docstring mentions field

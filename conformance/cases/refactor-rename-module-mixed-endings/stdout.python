@@ -1,0 +1,20 @@
+Renaming <client> to <cli2>:
+
+
+rename from pkg/client.py
+rename to pkg/cli2.py
+--- a/pkg/use.py
++++ b/pkg/use.py
+@@ -1,4 +1,4 @@
+-from pkg import client
++from pkg import cli2
+ import os
+ 
+-print(client.X, os.sep)
++print(cli2.X, os.sep)
+
+
+
+APPLIED. 2 file(s) changed:
+  pkg/client.py
+  pkg/use.py

@@ -1,0 +1,10 @@
+- {file: src/f.ts, symbol: f(y), new_name: z}
+- {file: src/f.ts, symbol: f(x), new_name: z}
+- {file: src/f.ts, line: 6, col: 9, new_name: c}
+- {file: src/f.ts, line: 7, col: 9, new_name: c}
+- {file: src/f.ts, line: 13, col: 9, new_name: k}
+- {file: src/f.ts, line: 12, col: 9, new_name: k}
+- {file: src/m.ts, symbol: one, new_name: uno}
+- {file: src/m.ts, symbol: two, new_name: uno}
+- {file: src/n.ts, symbol: four, new_name: tres}
+- {file: src/n.ts, symbol: three, new_name: tres}

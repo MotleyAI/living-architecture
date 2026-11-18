@@ -82,7 +82,7 @@ def _blindspot(path: str, line: int, receiver: str, kind: str = "Unknown", attr:
 
 
 def _closing(count: int, attr: str = "get_model") -> str:
-    return message("refactor.blindspots", count=count, attr=attr)
+    return message("refactor.blindspots", count=count, names=f".{attr}")
 
 
 def _stand_in(path: str, line: int, cls: str, attr: str = "get_model") -> str:
@@ -147,7 +147,9 @@ def test_untyped_mock_fixture_callee_is_a_blind_spot(project: MakeProject, capsy
     root = project({"pkg/store.py": STORE, "tests/test_b.py": test})
     before = file_tree(root)
     assert _rename(root, "pkg/store.py", "get_model", "get_dataset") == 1
-    assert readouterr(capsys).err == f"{_blindspot('tests/test_b.py', 7, 'engine')}\n{_closing(1)}\n"
+    blind = message("compliance.string-blindspot", path="tests/test_b.py", line=7,
+                    site="mocker.patch.object(engine, 'get_model')", receiver="engine", attr="get_model", type="Unknown")
+    assert readouterr(capsys).err == f"{blind}\n{_closing(1)}\n"
     assert file_tree(root) == before
 
 
@@ -178,7 +180,7 @@ def test_blind_spots_equal_dr_compliance_over_the_project(project: MakeProject, 
     assert _rename(root, "pkg/store.py", "get_model", "get_dataset", apply=False) == 1
     refused = readouterr(capsys).err.splitlines()
     assert refused[-1] == _closing(3)
-    assert dr_compliance(["--select", "attr-blindspot", "--attr", "get_model", "."]) == 1
+    assert dr_compliance(["--select", "attr-blindspot,string-blindspot", "--attr", "get_model", "."]) == 1
     assert refused[:-1] == readouterr(capsys).out.splitlines()
 
 
@@ -319,8 +321,8 @@ def test_both_refusals_under_apply_change_nothing(project: MakeProject, capsys: 
     before = file_tree(root)
     assert _rename(root, "pkg/store.py", "get_model", "get_dataset") == 1
     assert readouterr(capsys) == ("", "".join(f"{line}\n" for line in [
-        _blindspot("tests/test_a.py", 2, "storage"),
         _stand_in("pkg/other.py", 2, "Unrelated"),
+        _blindspot("tests/test_a.py", 2, "storage"),
         _closing(1),
     ]))
     assert file_tree(root) == before
@@ -385,15 +387,64 @@ def test_a_file_keep_and_a_line_keep_together(project: MakeProject) -> None:
         ("pkg/a.py:99", message("refactor.site-missing", option="--keep", site="pkg/a.py:99")),
         ("pkg/a.py:1", message("refactor.keep-unmatched", site="pkg/a.py:1")),
         ("pkg/missing.py", message("refactor.site-missing", option="--keep", site="pkg/missing.py")),
-        ("docs", message("refactor.keep-unmatched", site="docs")),
     ],
-    ids=["past-the-end", "untouched-line", "missing-file", "untouched-directory"],
+    ids=["past-the-end", "untouched-line", "missing-file"],
 )
 def test_an_unmatched_keep(project: MakeProject, capsys: pytest.CaptureFixture[str], site: str, expected: str) -> None:
     root = project({"pkg/store.py": STORE, "pkg/a.py": KEEP_USE, "docs/x.py": "y = 1\n"})
     before = file_tree(root)
     assert _rename(root, "pkg/store.py", "get_model", "get_dataset", "--keep", site) == 2
     assert readouterr(capsys) == ("", expected + "\n")
+    assert file_tree(root) == before
+
+
+SHIM = "def get_model() -> int:\n    return 0\n"
+
+
+@pytest.mark.parametrize("site", ["docs", "pkg/shim.py"], ids=["directory", "file"])
+def test_an_unneeded_whole_path_keep_warns_and_writes(
+    project: MakeProject, capsys: pytest.CaptureFixture[str], site: str
+) -> None:
+    root = project({"pkg/store.py": STORE, "pkg/a.py": KEEP_USE, "pkg/shim.py": SHIM, "docs/x.py": "y = 1\n"})
+    assert _rename(root, "pkg/store.py", "get_model", "get_dataset", "--keep", site) == 0
+    err = capsys.readouterr().err.splitlines()
+    warning = message("refactor.keep-unneeded", site=site)
+    assert warning in err
+    assert err.index("[rules 1/1] entry 1: get_model -> get_dataset: clean") < err.index(warning) < err.index("[conflicts]")
+    assert _read(root, "pkg/a.py") == KEEP_USE.replace("get_model", "get_dataset")
+    assert _read(root, "pkg/shim.py") == SHIM
+
+
+@pytest.mark.parametrize(
+    ("site", "expected"),
+    [
+        ("pkg/a.py:12", message("refactor.keep-unmatched-near", site="pkg/a.py:12", path="pkg/a.py", line=9)),
+        ("pkg/shim.py:1", message("refactor.keep-unmatched", site="pkg/shim.py:1")),
+    ],
+    ids=["nearest-edited-line", "file-without-edits"],
+)
+def test_a_late_unmatched_line_keep_stops_before_the_conflicts(
+    project: MakeProject, capsys: pytest.CaptureFixture[str], site: str, expected: str
+) -> None:
+    root = project({"pkg/store.py": STORE, "pkg/a.py": f"{KEEP_USE}\n\n{SHIM}", "pkg/shim.py": SHIM})
+    before = file_tree(root)
+    assert _rename(root, "pkg/store.py", "get_model", "get_dataset", "--keep", site) == 2
+    out, err = capsys.readouterr()
+    assert out == ""
+    assert "[rules 1/1] entry 1: get_model -> get_dataset: clean" in err.splitlines()
+    assert "[conflicts]" not in err.splitlines()
+    assert err.splitlines()[-1] == expected
+    assert file_tree(root) == before
+
+
+def test_an_unneeded_keep_and_an_unmatched_line_keep(project: MakeProject, capsys: pytest.CaptureFixture[str]) -> None:
+    root = project({"pkg/store.py": STORE, "pkg/a.py": KEEP_USE, "pkg/shim.py": SHIM})
+    before = file_tree(root)
+    assert _rename(root, "pkg/store.py", "get_model", "get_dataset", "--keep", "pkg/shim.py", "--keep", "pkg/shim.py:1") == 2
+    assert readouterr(capsys) == ("", "".join(f"{line}\n" for line in [
+        message("refactor.keep-unneeded", site="pkg/shim.py"),
+        message("refactor.keep-unmatched", site="pkg/shim.py:1"),
+    ]))
     assert file_tree(root) == before
 
 

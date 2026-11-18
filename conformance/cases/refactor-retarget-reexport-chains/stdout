@@ -1,0 +1,66 @@
+Retargeting <AcmeModel> to <Model>:
+
+
+--- a/app/use_barrel.py
++++ b/app/use_barrel.py
+@@ -1,3 +1,3 @@
+-from pkg import AcmeModel
++from pkg.models import Model
+ 
+-b = AcmeModel()
++b = Model()
+
+--- a/app/use_chain.py
++++ b/app/use_chain.py
+@@ -1,3 +1,3 @@
+-from pkg.compat2 import AcmeModel
++from pkg.models import Model
+ 
+-c = AcmeModel()
++c = Model()
+
+--- a/app/use_direct.py
++++ b/app/use_direct.py
+@@ -1,3 +1,3 @@
+-from pkg.models import AcmeModel
++from pkg.models import Model
+ 
+-a = AcmeModel()
++a = Model()
+
+--- a/app/use_relative.py
++++ b/app/use_relative.py
+@@ -1,3 +1,3 @@
+-from pkg.sub import AcmeModel
++from pkg.models import Model
+ 
+-d = AcmeModel()
++d = Model()
+
+--- a/pkg/__init__.py
++++ b/pkg/__init__.py
+@@ -1 +1 @@
+-from pkg.models import AcmeModel
++from pkg.models import Model
+
+--- a/pkg/compat.py
++++ b/pkg/compat.py
+@@ -1 +1 @@
+-from pkg.models import AcmeModel
++from pkg.models import Model
+
+--- a/pkg/compat2.py
++++ b/pkg/compat2.py
+@@ -1 +1 @@
+-from pkg.compat import AcmeModel
++from pkg.models import Model
+
+--- a/pkg/sub/__init__.py
++++ b/pkg/sub/__init__.py
+@@ -1 +1 @@
+-from ..models import AcmeModel
++from ..models import Model
+
+
+
+DRY-RUN. 8 file(s) would change. Re-run with --apply.

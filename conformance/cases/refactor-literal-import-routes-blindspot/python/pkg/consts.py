@@ -1,3 +1,6 @@
-from typing import Final
+import random
 
-DEFAULT: Final = "edit_model"
+if random.random() < 0.5:
+    DEFAULT = "drop"
+else:
+    DEFAULT = "edit_model"  # pyright: ignore[reportConstantRedefinition]

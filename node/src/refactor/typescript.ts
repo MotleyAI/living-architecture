@@ -3,11 +3,13 @@
 import { existsSync, readdirSync, rmdirSync, statSync } from 'node:fs';
 import { basename, dirname, join, relative } from 'node:path';
 import type * as TS from 'typescript';
-import { byCodePoint, language, message } from '../contract/index.js';
+import { language, message } from '../contract/index.js';
 import { canonical, posix, stripSourceExtension, ts } from '../lang/index.js';
 import { configFailures } from './baseline.js';
 import { type Edit, mergeEdits, RefactorError } from './edits.js';
-import { loadMap, MapError } from './map.js';
+import { generateMap } from './generate.js';
+import { entrySource, loadMap, MapError } from './map.js';
+import { filesUnder, moveEdits } from './module-rename.js';
 import { type MovedSpan, movedOffsets } from './position.js';
 import { Progress, type Refusal, Refused } from './progress.js';
 import { type EntrySpec, entryFailure, runEntries } from './rename.js';
@@ -23,23 +25,26 @@ const formatSettings = (): TS.FormatCodeSettings => ts().getDefaultFormatCodeSet
 
 const locatorOf = (args: RefactorArgs): Locator => ({ offset: args.offset, line: args.line, col: args.col, symbol: args.symbol });
 
-/** `rename` and `retarget` as their one-entry map. */
+/** `rename` and `retarget` as their one-entry map; a `rename` with no locator renames the module `--file` names. */
 function single(r: Refactor, progress: Progress): number {
   const { args } = r;
+  const locator = locatorOf(args);
   const intent = args.subcommand === 'retarget' ? { retarget: args.target ?? '' } : { newName: args.new_name ?? '' };
-  return runEntries(r, [{ index: 1, file: r.inProject(args.file ?? ''), shown: args.file ?? '', locator: locatorOf(args), ...intent }], '', progress);
+  const module = args.subcommand === 'rename' && Object.values(locator).every((v) => v === undefined);
+  return runEntries(r, [{ index: 1, file: r.inProject(args.file ?? ''), shown: args.file ?? '', locator, ...intent, module }], '', progress);
 }
 
-/** `rename-map MAP`: MAP from the working directory, its entries' files from --project. */
+/** `rename-map MAP`: MAP from the working directory, its entries' files and modules from --project. */
 function renameMap(r: Refactor, progress: Progress): number {
   const shown = r.args.map ?? '';
   const specs = loadMap(shown, shown).map((entry, i): EntrySpec => ({
     index: i + 1,
-    file: r.inProject(entry.file, r.root),
-    shown: entry.file,
+    file: r.inProject(entrySource(entry), r.root),
+    shown: entrySource(entry),
     locator: { offset: entry.offset, line: entry.line, col: entry.col, symbol: entry.symbol },
     newName: entry.new_name,
     retarget: entry.retarget,
+    module: entry.module !== undefined,
   }));
   return runEntries(r, specs, shown, progress);
 }
@@ -214,25 +219,9 @@ function movedSpans(file: string, range: TS.TextRange, text: string, dest: strin
     .slice(0, 1);
 }
 
-/** Every file under `dir`, in path order. */
-function filesUnder(dir: string): string[] {
-  return readdirSync(dir, { withFileTypes: true })
-    .sort((a, b) => byCodePoint(a.name, b.name))
-    .flatMap((entry) => (entry.isDirectory() ? filesUnder(join(dir, entry.name)) : [join(dir, entry.name)]));
-}
-
-/** Every project's edits for renaming `module` (a file or directory) to `target`. */
-function fileRenameEdits(services: Iterable<TS.LanguageService>, module: string, target: string): Edit[] {
-  return [...services].flatMap((service) =>
-    service
-      .getEditsForFileRename(module, target, formatSettings(), PREFERENCES)
-      .flatMap((change) => change.textChanges.map((t) => ({ path: change.fileName, start: t.span.start, length: t.span.length, newText: t.newText }))),
-  );
-}
-
 function moveModule(r: Refactor, progress: Progress): number {
   const { module, target, isDir, sources, moves } = phased(r, progress, () => resolveMoveModule(r));
-  const edits = timed('references', () => fileRenameEdits(new Set(sources.flatMap((f) => r.services(f))), module, target));
+  const edits = timed('references', () => moveEdits(r, module, target, moves, sources));
   const name = isDir ? basename(module) : basename(stripSourceExtension(module));
   const header = message('refactor.ts-move-module-header', { name });
   const code = r.emit([header], mergeEdits(edits), moves, [], progress);
@@ -270,6 +259,7 @@ export function runTypescriptRefactor(args: RefactorArgs): number {
     const r = new Refactor(args);
     if (args.subcommand === 'rename' || args.subcommand === 'retarget') return single(r, progress);
     if (args.subcommand === 'rename-map') return renameMap(r, progress);
+    if (args.subcommand === 'generate-map') return generateMap(r);
     if (args.subcommand === 'move-symbol') return moveSymbol(r, progress);
     return moveModule(r, progress);
   } catch (error) {

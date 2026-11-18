@@ -1,0 +1,17 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- move-module
+- --module
+- pkg/sub/thing.py
+- --dest
+- pkg
+fixture: refactor-move-shadowing
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: a use whose alias a walrus in a comprehension rebinds in the enclosing function is unchanged; the module-level use is rewritten

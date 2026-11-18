@@ -1,0 +1,9 @@
+[resolve]
+[checks]
+[references]
+[references 1/1] entry 1: list_models -> list_datasets
+[rules]
+[rules 1/1] entry 1: list_models -> list_datasets: clean
+[conflicts]
+tests/test_p.py:7: leftover: patch target mentions list_models
+[write]

@@ -1,0 +1,3 @@
+[resolve]
+[checks]
+entries 1, 2 (src/f.ts f(x)): y already names something else at src/f.ts:1, so nothing was refactored

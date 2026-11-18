@@ -1,0 +1,4 @@
+words:
+- {from: model, to: dataset}
+entries:
+- {file: pkg/a.py, symbol: load, new_name: read}

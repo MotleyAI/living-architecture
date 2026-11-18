@@ -2,9 +2,10 @@
 import { describe, expect, it } from 'vitest';
 import { message } from '../src/contract/index.js';
 import { identifierText } from '../src/refactor/bindings.js';
-import { files, lineCol, read, refactor, tsProject } from './refactor-project.js';
+import { entryRefusal, files, lineCol, read, refactor, tsProject } from './refactor-project.js';
 
-const conflict = (name: string, path: string, line: number): string => `${message('refactor.name-conflict', { name, path, line })}\n`;
+const conflict = (locator: string, name: string, path: string, line: number, entry = 1): string =>
+  `${entryRefusal(locator, message('refactor.name-conflict', { name, path, line }), entry)}\n`;
 
 function renameSymbol(project: Record<string, string>, file: string, symbol: string, newName: string, ...flags: string[]): { root: string; result: ReturnType<typeof refactor> } {
   const root = tsProject(project);
@@ -34,14 +35,14 @@ describe('identity by declaration set', () => {
       'src/use.ts': "import { q } from './barrel';\n\nexport const v = q;\n",
     };
     const { root, result } = renameSymbol(project, 'src/m.ts', 'old', 'next');
-    expect(result).toEqual({ code: 1, out: '', err: conflict('next', 'src/barrel.ts', 1) });
+    expect(result).toEqual({ code: 1, out: '', err: conflict('src/m.ts old', 'next', 'src/barrel.ts', 1) });
     expect(files(root)).toMatchObject(project);
   });
 
   it('refuses an overload group renamed onto a function its module declares', () => {
     const m = 'export function old(x: number): number;\nexport function old(x: string): string;\nexport function old(x: number | string): number | string {\n  return x;\n}\n\nexport function next(): number {\n  return 0;\n}\n';
     const { root, result } = renameSymbol({ 'src/m.ts': m }, 'src/m.ts', 'old', 'next');
-    expect(result).toEqual({ code: 1, out: '', err: conflict('next', 'src/m.ts', 7) });
+    expect(result).toEqual({ code: 1, out: '', err: conflict('src/m.ts old', 'next', 'src/m.ts', 7) });
     expect(read(root, 'src/m.ts')).toBe(m);
   });
 });
@@ -57,14 +58,14 @@ describe('per-meaning resolution', () => {
   it('refuses a type alias renamed onto an interface: one meaning', () => {
     const m = 'export type Old = { a: number };\n\nexport interface Next {\n  b: number;\n}\n\nexport const x: Old = { a: 1 };\n';
     const { root, result } = renameSymbol({ 'src/m.ts': m }, 'src/m.ts', 'Old', 'Next');
-    expect(result).toEqual({ code: 1, out: '', err: conflict('Next', 'src/m.ts', 3) });
+    expect(result).toEqual({ code: 1, out: '', err: conflict('src/m.ts Old', 'Next', 'src/m.ts', 3) });
     expect(read(root, 'src/m.ts')).toBe(m);
   });
 
   it('refuses a type reference captured by a local type of the new name', () => {
     const m = 'export type Old = number;\n\nexport function f(): number {\n  type Next = string;\n  const v: Old = 1;\n  const w: Next = "w";\n  return v + w.length;\n}\n';
     const { root, result } = renameSymbol({ 'src/m.ts': m }, 'src/m.ts', 'Old', 'Next');
-    expect(result).toEqual({ code: 1, out: '', err: conflict('Next', 'src/m.ts', 4) });
+    expect(result).toEqual({ code: 1, out: '', err: conflict('src/m.ts Old', 'Next', 'src/m.ts', 4) });
     expect(read(root, 'src/m.ts')).toBe(m);
   });
 });
@@ -78,14 +79,14 @@ describe('member namespace', () => {
     ['an enum member', 'export enum E {\n  old,\n  fresh,\n}\n', 'E.old', 3],
   ])('refuses a member renamed onto %s of its type', (_kind, m, symbol, line) => {
     const { root, result } = renameSymbol({ 'src/m.ts': m }, 'src/m.ts', symbol, 'fresh');
-    expect(result).toEqual({ code: 1, out: '', err: conflict('fresh', 'src/m.ts', line) });
+    expect(result).toEqual({ code: 1, out: '', err: conflict(`src/m.ts ${symbol}`, 'fresh', 'src/m.ts', line) });
     expect(read(root, 'src/m.ts')).toBe(m);
   });
 
   it('refuses a member renamed onto a computed key of its type, by the key value', () => {
     const m = 'const key = "next";\n\nexport class C {\n  old(): number {\n    return 1;\n  }\n\n  [key](): number {\n    return 2;\n  }\n}\n';
     const { root, result } = renameSymbol({ 'src/m.ts': m }, 'src/m.ts', 'C.old', 'next');
-    expect(result).toEqual({ code: 1, out: '', err: conflict('next', 'src/m.ts', 8) });
+    expect(result).toEqual({ code: 1, out: '', err: conflict('src/m.ts C.old', 'next', 'src/m.ts', 8) });
     expect(read(root, 'src/m.ts')).toBe(m);
   });
 
@@ -99,8 +100,9 @@ describe('member namespace', () => {
   it('refuses a shorthand property renamed onto a property of its object', () => {
     const m = 'const old = 1;\n\nexport const obj = { old, next: 2 };\nexport const v = obj.old;\n';
     const root = tsProject({ 'src/m.ts': m });
-    const result = refactor(root, '--apply', 'rename', '--file', 'src/m.ts', ...lineCol(root, 'src/m.ts', 'obj.old', 0, 4), '--new-name', 'next');
-    expect(result).toEqual({ code: 1, out: '', err: conflict('next', 'src/m.ts', 3) });
+    const at = lineCol(root, 'src/m.ts', 'obj.old', 0, 4);
+    const result = refactor(root, '--apply', 'rename', '--file', 'src/m.ts', ...at, '--new-name', 'next');
+    expect(result).toEqual({ code: 1, out: '', err: conflict(`src/m.ts:${at[1]}:${at[3]}`, 'next', 'src/m.ts', 3) });
     expect(read(root, 'src/m.ts')).toBe(m);
   });
 });
@@ -118,7 +120,7 @@ describe('quoted and escaped names', () => {
   it('refuses a reference in a destructuring default captured by a local of the new name', () => {
     const m = 'export const old = 1;\n\nexport function f(): number {\n  const next = 2;\n  const { x = old } = {} as { x?: number };\n  return x + next;\n}\n';
     const { root, result } = renameSymbol({ 'src/m.ts': m }, 'src/m.ts', 'old', 'next');
-    expect(result).toEqual({ code: 1, out: '', err: conflict('next', 'src/m.ts', 4) });
+    expect(result).toEqual({ code: 1, out: '', err: conflict('src/m.ts old', 'next', 'src/m.ts', 4) });
     expect(read(root, 'src/m.ts')).toBe(m);
   });
 
@@ -129,7 +131,7 @@ describe('quoted and escaped names', () => {
 `;
     const root = tsProject({ 'src/m.ts': m, 'renames.yaml': map });
     const result = refactor(root, '--apply', 'rename-map', 'renames.yaml');
-    expect(result).toEqual({ code: 1, out: '', err: conflict('next', 'src/m.ts', 2) });
+    expect(result).toEqual({ code: 1, out: '', err: conflict('src/m.ts C.b', String.raw`n\u0065xt`, 'src/m.ts', 2, 2) });
     expect(read(root, 'src/m.ts')).toBe(m);
   });
 
@@ -138,21 +140,21 @@ describe('quoted and escaped names', () => {
     const map = '- {file: src/m.ts, symbol: I.a, new_name: next}\n- {file: src/m.ts, symbol: I.b, new_name: next}\n';
     const root = tsProject({ 'src/m.ts': m, 'renames.yaml': map });
     const result = refactor(root, '--apply', 'rename-map', 'renames.yaml');
-    expect(result).toEqual({ code: 1, out: '', err: conflict('next', 'src/m.ts', 2) });
+    expect(result).toEqual({ code: 1, out: '', err: conflict('src/m.ts I.b', 'next', 'src/m.ts', 2, 2) });
     expect(read(root, 'src/m.ts')).toBe(m);
   });
 
   it("refuses a member renamed onto a name another declaration of a descendant's merged interface declares", () => {
     const m = 'export interface Base {\n  a: number;\n}\n\nexport interface Mid extends Base {\n  c: number;\n}\n\nexport interface Mid {\n  b: string;\n}\n';
     const { root, result } = renameSymbol({ 'src/m.ts': m }, 'src/m.ts', 'Base.a', 'b');
-    expect(result).toEqual({ code: 1, out: '', err: conflict('b', 'src/m.ts', 10) });
+    expect(result).toEqual({ code: 1, out: '', err: conflict('src/m.ts Base.a', 'b', 'src/m.ts', 10) });
     expect(read(root, 'src/m.ts')).toBe(m);
   });
 
   it('refuses a static member renamed onto the implicit prototype', () => {
     const m = 'export class C {\n  static old(): number {\n    return 1;\n  }\n}\n';
     const { root, result } = renameSymbol({ 'src/m.ts': m }, 'src/m.ts', 'C.old', 'prototype');
-    expect(result).toEqual({ code: 1, out: '', err: conflict('prototype', 'src/m.ts', 2) });
+    expect(result).toEqual({ code: 1, out: '', err: conflict('src/m.ts C.old', 'prototype', 'src/m.ts', 2) });
     expect(read(root, 'src/m.ts')).toBe(m);
   });
 
@@ -165,8 +167,9 @@ export function f(): number {
 }
 `;
     const root = tsProject({ 'src/m.ts': m });
-    const result = refactor(root, '--apply', 'rename', '--file', 'src/m.ts', ...lineCol(root, 'src/m.ts', String.raw`o\u`), '--new-name', 'next');
-    expect(result).toEqual({ code: 1, out: '', err: conflict('next', 'src/m.ts', 4) });
+    const at = lineCol(root, 'src/m.ts', String.raw`o\u`);
+    const result = refactor(root, '--apply', 'rename', '--file', 'src/m.ts', ...at, '--new-name', 'next');
+    expect(result).toEqual({ code: 1, out: '', err: conflict(`src/m.ts:${at[1]}:${at[3]}`, 'next', 'src/m.ts', 4) });
     expect(read(root, 'src/m.ts')).toBe(m);
   });
 
@@ -188,7 +191,7 @@ export function f(): number {
 `;
     const project = { 'src/a.ts': 'namespace N {\n  export const old = 1;\n}\n', 'src/b.ts': b, 'src/c.ts': "const next = 'outer';\n" };
     const { root, result } = renameSymbol(project, 'src/a.ts', 'N.old', 'next');
-    expect(result).toEqual({ code: 1, out: '', err: conflict('next', 'src/b.ts', 3) });
+    expect(result).toEqual({ code: 1, out: '', err: conflict('src/a.ts N.old', 'next', 'src/b.ts', 3) });
     expect(files(root)).toMatchObject(project);
   });
 });
@@ -202,13 +205,13 @@ describe('check order', () => {
   });
 
   it('reports a name conflict with the blind-spot refusal', () => {
-    const m = 'export class C {\n  old(): number {\n    return 1;\n  }\n\n  next(): number {\n    return 2;\n  }\n}\n';
+    const m = 'export class Base {\n  next(): number {\n    return 2;\n  }\n}\n\nexport class C extends Base {\n  old(): number {\n    return 1;\n  }\n}\n';
     const loose = 'export function g(o: any): number {\n  return o.old();\n}\n';
     const project = { 'src/m.ts': m, 'src/loose.ts': loose };
     const { root, result } = renameSymbol(project, 'src/m.ts', 'C.old', 'next');
     const blindspot = message('compliance.attr-blindspot', { path: 'src/loose.ts', line: 2, receiver: 'o', attr: 'old', type: 'any' });
-    const closing = message('refactor.blindspots', { count: 1, attr: 'old' });
-    expect(result).toEqual({ code: 1, out: '', err: `${blindspot}\n${conflict('next', 'src/m.ts', 6)}${closing}\n` });
+    const closing = message('refactor.blindspots', { count: 1, names: '.old' });
+    expect(result).toEqual({ code: 1, out: '', err: `${blindspot}\n${conflict('src/m.ts C.old', 'next', 'src/m.ts', 2)}${closing}\n` });
     expect(files(root)).toMatchObject(project);
   });
 });
@@ -217,6 +220,6 @@ describe('finding site', () => {
   it('names the first site by path, then offset', () => {
     const use = "import { old } from './m';\n\nexport function f(): number {\n  const next = 1;\n  return old + next;\n}\n\nexport function g(): number {\n  const next = 2;\n  return old + next;\n}\n";
     const { result } = renameSymbol({ 'src/m.ts': 'export const old = 1;\n', 'src/z_use.ts': use, 'src/a_use.ts': use }, 'src/m.ts', 'old', 'next');
-    expect(result).toEqual({ code: 1, out: '', err: conflict('next', 'src/a_use.ts', 4) });
+    expect(result).toEqual({ code: 1, out: '', err: conflict('src/m.ts old', 'next', 'src/a_use.ts', 4) });
   });
 });

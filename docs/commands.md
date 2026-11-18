@@ -12,7 +12,7 @@ The skills drive these commands; you can also run them directly. `<command> --he
 | `la-arch-migrate` | Convert the repo to the current `format` one released format at a time: a repo without one first gets a legacy `architecture/model/*.c4` model merged into `architecture/model.c4` and the retired `arc42` key format converted; then stamp `format` (verified, all-or-nothing) |
 | `la-check-conventions <PR>` / `--base BRANCH` | Imports-at-top, text-ratio and test-assertion gate on changed `.py` and TS/JS files |
 | `la-count-comments` | Count comment and doc (docstring, JSDoc) lines, or the net change vs a git ref |
-| `la-typecheck [--write-baseline]` | Type-check each applicable language against a baseline that only shrinks |
+| `la-typecheck [--write-baseline \| --realign-from REF]` | Type-check each applicable language against a baseline that only shrinks |
 | `la-affected-tests --base BRANCH` | Print the test files a change can affect, one per line, without running them |
 | `la-pr-reviewers <PR>` | Which review bots ran on a PR (CodeRabbit, Sonar and its project key), as JSON |
 | `la-wait-for-reviews <PR>` | Watch CI, Sonar and, when it is on the PR, CodeRabbit until they settle, printing each new failed check, CodeRabbit comment and finished Sonar analysis once |
@@ -39,7 +39,8 @@ the language facts they need with `la-config get lang.<language>.<key>` (`source
 The `dr-*` commands route each input by file language: `dr-compliance` and `dr-mock-lint` print one block per
 language, in registry order, and exit with the highest code; a directory expands to the repo languages' files
 (every registered language's when the repo has none), never declaration files or `node_modules`.
-`dr-refactor` runs in the language of its `--file`, its `--module` or its rename map's entries (one language per map). A Python rename and Python `dr-compliance
+`dr-refactor` runs in the language of its `--file`, its `--module` or its rename map's entries (one language per map);
+`generate-map` in `--language`, else the one language with sources under the project. A Python rename and Python `dr-compliance
 --attr` start the basedpyright bundled with the PyPI package as a language server, with the pyright#11919 patch,
 outside the project; it reads the project's own configuration and interpreter.
 
@@ -58,7 +59,16 @@ whose dropped diagnostics depend on file order and thread count; the command mus
 (today `1.40.2`) under Node and keep `NODE_OPTIONS`, else the run exits 2. Python keeps basedpyright's own
 baseline; TypeScript keeps `.tsc-baseline.json`, a multiset of diagnostics keyed by file, code and message, so moved lines are not new
 errors. New errors exit 1; fixed ones shrink the baseline. Run `la-typecheck --write-baseline` once to create
-the missing baselines. Suppress a genuine false positive with `// @ts-expect-error — <reason>`, never
+the missing baselines.
+
+A basedpyright baseline entry holds its error's rule and columns, without a line. A hand edit or a script that
+changes the text earlier on a baselined line, or moves the file, therefore brings the error back as new
+(`dr-refactor` realigns the baseline for its own edits). `la-typecheck --realign-from REF` moves each Python entry
+to where its error is now, then checks. `REF` is a commit where the baseline matched: `HEAD` for an uncommitted
+edit. It follows the renames git reports since `REF`, never changes the number of entries, and leaves an error
+that is really new as new. A failing Python check without the flag, in a repo with a baseline, names it. TypeScript is checked as without it.
+
+Suppress a genuine false positive with `// @ts-expect-error — <reason>`, never
 `@ts-ignore`.
 
 ## Affected tests

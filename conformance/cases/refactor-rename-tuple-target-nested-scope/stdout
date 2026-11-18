@@ -1,0 +1,15 @@
+Renaming <model_name> to <dataset_name>:
+
+
+--- a/pkg/shadow.py
++++ b/pkg/shadow.py
+@@ -1,3 +1,3 @@
+ def f(s: tuple[str, str], xs: list[str]) -> tuple[list[str], str]:
+-    a, model_name = s
+-    return [model_name for model_name in xs], model_name
++    a, dataset_name = s
++    return [model_name for model_name in xs], dataset_name
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

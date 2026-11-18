@@ -1,0 +1,49 @@
+Renaming <columns> to <fields>:
+
+
+--- a/src/const.ts
++++ b/src/const.ts
+@@ -1,6 +1,6 @@
+ import { Ds } from './m';
+ 
+-const NAME = 'columns';
++const NAME = 'fields';
+ 
+ export function read(d: Ds): unknown {
+   return d[NAME];
+
+--- a/src/local.ts
++++ b/src/local.ts
+@@ -1,6 +1,6 @@
+ import { Ds } from './m';
+ 
+ export function local(d: Ds): unknown {
+-  let key = 'columns';
++  let key = 'fields';
+   return Reflect.get(d, key);
+ }
+
+--- a/src/loop.ts
++++ b/src/loop.ts
+@@ -1,7 +1,7 @@
+ import { Ds } from './m';
+ 
+ export function clear(d: Ds): void {
+-  for (const s of ['columns', 'name'] as const) {
++  for (const s of ['fields', 'name'] as const) {
+     Reflect.set(d, s, null);
+   }
+ }
+
+--- a/src/m.ts
++++ b/src/m.ts
+@@ -1,4 +1,4 @@
+ export class Ds {
+-  columns: string[] | null = [];
++  fields: string[] | null = [];
+   name: string | null = '';
+ }
+
+
+
+DRY-RUN. 4 file(s) would change. Re-run with --apply.

@@ -1,3 +1,3 @@
 [resolve]
 [checks]
---new-name "it's" holds a quote, backtick, backslash, ${, NUL or line break, which a literal member cannot
+entry 1 (src/kinds.ts Kind['edit_model']): --new-name "it's" holds a quote, backtick, backslash, ${, NUL or line break, which a literal member cannot

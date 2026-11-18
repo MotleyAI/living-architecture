@@ -1,0 +1,2 @@
+- {file: src/m.ts, symbol: A.x, new_name: p}
+- {file: src/m.ts, symbol: B.y, new_name: q}

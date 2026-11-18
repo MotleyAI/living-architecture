@@ -1,4 +1,4 @@
-WARNING: --unsure=include also renames occurrences the checker cannot resolve; it may rewrite unrelated attributes of the same name.
+WARNING: --unsure=include also renames occurrences the checker cannot resolve; it may rewrite unrelated attributes or keywords of the same name.
 Renaming <run> to <go>:
 
 

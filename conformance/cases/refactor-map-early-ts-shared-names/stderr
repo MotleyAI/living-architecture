@@ -1,0 +1,30 @@
+[resolve]
+[checks]
+[references]
+[references 1/12] entry 1: A -> B
+[references 2/12] entry 2: run -> b
+[references 3/12] entry 3: x -> y
+[references 4/12] entry 4: w -> v
+[references 5/12] entry 5: value -> amount
+[references 6/12] entry 6: held -> value
+[references 7/12] entry 7: count -> size
+[references 8/12] entry 8: over -> fresh
+[references 9/12] entry 9: spare -> over
+[references 10/12] entry 10: width -> height
+[references 11/12] entry 11: Shape -> Solid
+[references 12/12] entry 12: Box -> Shape
+[rules]
+[rules 1/12] entry 1: A -> B: clean
+[rules 2/12] entry 2: run -> b: clean
+[rules 3/12] entry 3: x -> y: clean
+[rules 4/12] entry 4: w -> v: clean
+[rules 5/12] entry 5: value -> amount: clean
+[rules 6/12] entry 6: held -> value: clean
+[rules 7/12] entry 7: count -> size: clean
+[rules 8/12] entry 8: over -> fresh: clean
+[rules 9/12] entry 9: spare -> over: clean
+[rules 10/12] entry 10: width -> height: clean
+[rules 11/12] entry 11: Shape -> Solid: clean
+[rules 12/12] entry 12: Box -> Shape: clean
+[conflicts]
+[write]

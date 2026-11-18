@@ -1,0 +1,22 @@
+Renaming <columns> to <fields>:
+
+
+--- a/pkg/m.py
++++ b/pkg/m.py
+@@ -3,9 +3,9 @@
+ 
+ class Ds(BaseModel):
+     name: str
+-    columns: list[str]
++    fields: list[str]
+ 
+-    @field_validator("name", "columns", mode="before")
++    @field_validator("name", "fields", mode="before")
+     @classmethod
+     def _v(cls, v: object) -> object:
+         return v
+
+
+
+APPLIED. 1 file(s) changed:
+  pkg/m.py

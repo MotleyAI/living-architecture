@@ -1,5 +1,6 @@
 """Python moves edit only at references: rule classification, token-level import edits, positions, removal."""
 
+import ast
 from pathlib import Path
 
 import pytest
@@ -7,7 +8,7 @@ from refactor_cli import readouterr
 
 from living_architecture.cli.dr_refactor import dr_refactor as main
 from living_architecture.contract import message
-from living_architecture.refactor.move_edits import leading_block_end, relative_module
+from living_architecture.refactor.move_edits import _Scope, _Scopes, leading_block_end, relative_module
 
 MODULE_PROJECT = {
     "pkg/__init__.py": "",
@@ -478,3 +479,111 @@ def test_uses_inside_every_scope_kind_are_resolved(tmp_path: Path) -> None:
     root = _write(tmp_path, {**MODULE_PROJECT, "use.py": "import pkg.sql as s" + body})
     assert _move_module(root, "--apply") == 0
     assert (root / "use.py").read_text() == "import pkg.database.client" + body.replace("s.client", "pkg.database.client")
+
+
+def _reads(scopes: _Scopes, line: int) -> list[_Scope]:
+    """The scopes of the `sub` loads on `line`, left to right."""
+    found = [(node.col_offset, scope) for node, scope in scopes.loads.values() if node.lineno == line and node.id == "sub"]
+    return [scope for _, scope in sorted(found, key=lambda pair: pair[0])]
+
+
+def test_a_global_name_binds_in_the_module_scope() -> None:
+    text = "import pkg.sub as sub\n\n\ndef f():\n    global sub\n    sub = None\n    return sub\n"
+    scopes = _Scopes(ast.parse(text), "")
+    [read] = _reads(scopes, 7)
+    assert "sub" not in read.bindings
+    assert read.lookup("sub") is scopes.module
+    assert len(scopes.module.bindings["sub"]) == 2
+
+
+def test_a_nonlocal_name_binds_in_the_enclosing_function_scope() -> None:
+    text = (
+        "def outer():\n    import pkg.sub as sub\n\n    def inner():\n        nonlocal sub\n        sub = None\n"
+        "        return sub\n\n    return inner, sub\n"
+    )
+    scopes = _Scopes(ast.parse(text), "")
+    [read] = _reads(scopes, 7)
+    [outer] = _reads(scopes, 9)
+    assert "sub" not in read.bindings
+    assert read.lookup("sub") is outer
+    assert len(outer.bindings["sub"]) == 2
+
+
+def test_a_comprehension_first_iterable_is_read_in_the_enclosing_scope() -> None:
+    text = "import pkg.sub as sub\n\nitems = [sub for sub in sub.thing for x in sub]\n"
+    scopes = _Scopes(ast.parse(text), "")
+    element, first, later = _reads(scopes, 3)
+    assert first is scopes.module
+    assert element is later is not scopes.module
+    assert element.lookup("sub") is element
+
+
+def test_a_walrus_in_a_comprehension_binds_in_the_enclosing_function() -> None:
+    text = "import pkg.sub as sub\n\n\ndef f(xs):\n    [(sub := v) for v in xs]\n    return sub\n"
+    scopes = _Scopes(ast.parse(text), "")
+    [read] = _reads(scopes, 6)
+    assert read.lookup("sub") is read
+    assert read is not scopes.module
+
+
+def test_module_use_a_comprehension_walrus_shadows_is_unchanged(tmp_path: Path) -> None:
+    shadowed = "\n\ndef f(xs):\n    [(s := v) for v in xs]\n    return s.client.X\n"
+    root = _write(tmp_path, {**MODULE_PROJECT, "use.py": "import pkg.sql as s\n\nprint(s.client.X)\n" + shadowed})
+    assert _move_module(root, "--apply") == 0
+    assert (root / "use.py").read_text() == "import pkg.database.client\n\nprint(pkg.database.client.X)\n" + shadowed
+
+
+HEADER_READS ="def g(pa=pa.f, /, *, y: pa.f = 1) -> pa.f:\n    return pa\n\n\nitems = [pa for pa in pa.f()]\n"
+
+
+def test_symbol_uses_rope_misses_in_a_def_header_are_rewritten(tmp_path: Path) -> None:
+    root = _write(tmp_path, {**SYMBOL_PROJECT, "use.py": "import pkg.a as pa\n\n\n" + HEADER_READS})
+    assert _move_f(root, "--apply") == 0
+    assert (root / "use.py").read_text() == "import pkg.b\n\n\n" + HEADER_READS.replace("pa.f", "pkg.b.f")
+
+
+def test_symbol_chain_reads_a_parameter_or_comprehension_shadows_are_unchanged(tmp_path: Path) -> None:
+    shadowed = (
+        "\n\ndef h(pa):\n    return pa.f()\n\n\nitems = [pa.f() for pa in [1]]\nlam = lambda pa: pa.f()\n\n\n"
+        "def k():\n    import pkg.a as pa\n\n    value = pa.f()\n    pa = None\n    return value, pa\n"
+    )
+    use = "import pkg.a as pa\n\nprint(pa.f())\n" + shadowed
+    root = _write(tmp_path, {**SYMBOL_PROJECT, "use.py": use})
+    assert _move_f(root, "--apply") == 0
+    assert (root / "use.py").read_text() == "import pkg.b\n\nprint(pkg.b.f())\n" + shadowed
+
+
+def test_new_import_follows_the_import_written_where_a_nonlocal_rebound_read_resolves(tmp_path: Path) -> None:
+    use = (
+        "def outer():\n    import pkg.a as pa\n\n    def reset():\n        nonlocal pa\n        import pkg.a as pa\n\n"
+        "    reset()\n    return pa.f()\n"
+    )
+    root = _write(tmp_path, {**SYMBOL_PROJECT, "use.py": use})
+    assert _move_f(root, "--apply") == 0
+    assert (root / "use.py").read_text() == use.replace(
+        "    import pkg.a as pa\n\n", "    import pkg.a as pa\n    import pkg.b\n\n", 1
+    ).replace("pa.f()", "pkg.b.f()")
+
+
+def test_new_import_goes_after_the_leading_block_when_only_a_global_import_binds(tmp_path: Path) -> None:
+    use = "import os\n\n\ndef load():\n    global pa\n    import pkg.a as pa\n\n\nload()\nprint(pa.f(), os.sep)\n"
+    root = _write(tmp_path, {**SYMBOL_PROJECT, "use.py": use})
+    assert _move_f(root, "--apply") == 0
+    expected = "import os\nimport pkg.b\n\n\ndef load():\n    global pa\n\n\nload()\nprint(pkg.b.f(), os.sep)\n"
+    assert (root / "use.py").read_text() == expected
+
+
+def test_parenthesized_receivers_are_rewritten(tmp_path: Path) -> None:
+    body = "\n\n\ndef g(x=( pa ).f):\n    return x\n\n\nprint((pa).f())\nprint((\n    pa\n).f())\n"
+    root = _write(tmp_path, {**SYMBOL_PROJECT, "use.py": "import pkg.a as pa" + body})
+    assert _move_f(root, "--apply") == 0
+    expected = "import pkg.b\n\n\ndef g(x=pkg.b.f):\n    return x\n\n\nprint(pkg.b.f())\nprint(pkg.b.f())\n"
+    assert (root / "use.py").read_text() == expected
+
+
+def test_module_uses_rope_misses_keep_a_package_binding(tmp_path: Path) -> None:
+    files = {**MODULE_PROJECT, "pkg/sql/__init__.py": "from pkg.sql import client\n"}
+    use = "import pkg.sql as s\n\n\ndef g(x=s.client.X) -> object:\n    return [s for s in s.client.ITEMS]\n"
+    root = _write(tmp_path, {**files, "use.py": use})
+    assert _move_module(root, "--apply") == 0
+    assert (root / "use.py").read_text() == use

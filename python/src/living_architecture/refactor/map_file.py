@@ -23,16 +23,31 @@ class MapError(Exception):
 
 
 class MapEntry(BaseModel):
-    """One entry: its 1-based index, its file (as given and as a path), its locator and its intent."""
+    """One entry: its 1-based index, its file (as given and as a path), its locator and its intent; a module entry's
+    file is the module it renames."""
 
     model_config = ConfigDict(frozen=True)
 
     index: int
     file: str
     path: str
-    locator: Locator
+    locator: Locator = Locator()
     new_name: str | None = None
     retarget: str | None = None
+    module: bool = False
+
+
+def locator_text(root: Path, entry: MapEntry) -> str:
+    """The entry's locator as a refusal prints it: its file relative to the project at `root`, then `:LINE[:COL]`,
+    its symbol path or `offset N`; a module entry's is its file."""
+    resolved = Path(entry.path).resolve()
+    file = resolved.relative_to(root).as_posix() if resolved.is_relative_to(root) else entry.file
+    locator = entry.locator
+    if locator.offset is not None:
+        return f"{file} offset {locator.offset}"
+    if locator.line is not None:
+        return f"{file}:{locator.line}" + (f":{locator.col}" if locator.col is not None else "")
+    return f"{file} {locator.symbol}" if locator.symbol is not None else file
 
 
 def load_map(raw: str, project: str) -> list[MapEntry]:
@@ -52,6 +67,11 @@ def load_map(raw: str, project: str) -> list[MapEntry]:
         raise invalid(*bad)
     entries: list[MapEntry] = []
     for index, item in enumerate(document, 1):
+        if "module" in item:
+            module = item["module"]
+            entries.append(MapEntry(index=index, file=module, path=str(Path(project) / module), new_name=item["new_name"],
+                                    module=True))
+            continue
         locator = Locator(symbol=item.get("symbol"), line=item.get("line"), col=item.get("col"), offset=item.get("offset"))
         entries.append(MapEntry(
             index=index, file=item["file"], path=str(Path(project) / item["file"]), locator=locator,

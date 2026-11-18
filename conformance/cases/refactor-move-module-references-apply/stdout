@@ -200,9 +200,8 @@ rename to pkg/database/client.py
 
 
 
-APPLIED. 20 file(s) changed:
+APPLIED. 19 file(s) changed:
   pkg/api/handler.py
-  pkg/sql/client.py
   pkg/sql/client.py
   pkg/sql/engine.py
   tests/test_backslash.py

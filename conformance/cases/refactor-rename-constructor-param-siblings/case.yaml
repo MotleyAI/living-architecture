@@ -1,0 +1,16 @@
+kind: paired
+languages:
+- python
+- typescript
+command: dr-refactor
+args:
+- rename-map
+- renames.yaml
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: 'a constructor parameter rename stays in its class: sibling and forwarding subclass constructors keep their
+  parameter (Python: __init__, __new__, an overloaded __init__ and a class declaring both constructors renamed alike,
+  with the call keywords the checker resolves or links)'

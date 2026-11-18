@@ -3,7 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import { message } from '../src/contract/index.js';
 import { run } from './cli-run.js';
-import { files, mapYaml, read, refactor, tsProject } from './refactor-project.js';
+import { entryRefusal, files, mapYaml, read, refactor, tsProject } from './refactor-project.js';
 
 const COMPUTED = `const KEY = 'getModel';
 
@@ -23,7 +23,7 @@ describe('computed names', () => {
     const root = tsProject({ 'src/store.ts': COMPUTED });
     const result = refactor(root, 'rename', '--file', 'src/store.ts', '--symbol', 'Keyed.getModel', '--new-name', 'x');
     const expected = message('refactor.symbol-unresolved', { path: 'src/store.ts', symbol: 'Keyed.getModel', candidates: '' });
-    expect(result).toEqual({ code: 2, out: '', err: `${expected}\n` });
+    expect(result).toEqual({ code: 2, out: '', err: `${entryRefusal('src/store.ts Keyed.getModel', expected)}\n` });
   });
 
   it('a map --with on a computed-name stand-in exits 2, --without leaves it', () => {
@@ -99,7 +99,7 @@ describe('one file universe', () => {
     expect(result.err).toBe(
       [
         message('compliance.attr-blindspot', { path: 'scripts/tool.ts', line: 2, receiver: 'o', attr: 'save', type: 'any' }),
-        message('refactor.blindspots', { count: 1, attr: 'save' }),
+        message('refactor.blindspots', { count: 1, names: '.save' }),
         '',
       ].join('\n'),
     );
@@ -111,8 +111,9 @@ describe('dr-compliance --attr over every access form', () => {
   it('reports an element access and a property access on any receivers, per name, in one scan', () => {
     const loose = "export function f(a: any, b: any): number {\n  return a['getModel']() + b.saveModel();\n}\n";
     const root = tsProject({ 'src/m.ts': loose });
-    const result = run(root, 'dr-compliance', ['--select', 'attr-blindspot', '--attr', 'saveModel', '--attr', 'getModel', 'src']);
-    const spot = (receiver: string, attr: string): string => message('compliance.attr-blindspot', { path: 'src/m.ts', line: 2, receiver, attr, type: 'any' });
-    expect(result).toEqual({ code: 1, out: `${spot('a', 'getModel')}\n${spot('b', 'saveModel')}\n`, err: '' });
+    const result = run(root, 'dr-compliance', ['--select', 'attr-blindspot,string-blindspot', '--attr', 'saveModel', '--attr', 'getModel', 'src']);
+    const named = message('compliance.string-blindspot', { path: 'src/m.ts', line: 2, site: "a['getModel']", receiver: 'a', attr: 'getModel', type: 'any' });
+    const access = message('compliance.attr-blindspot', { path: 'src/m.ts', line: 2, receiver: 'b', attr: 'saveModel', type: 'any' });
+    expect(result).toEqual({ code: 1, out: `${named}\n${access}\n`, err: '' });
   });
 });

@@ -1,0 +1,30 @@
+Renaming <columns> to <fields>:
+
+
+--- a/pkg/m.py
++++ b/pkg/m.py
+@@ -1,9 +1,9 @@
+ class Ds:
+     def __init__(self) -> None:
+-        self.columns: list[str] = []
++        self.fields: list[str] = []
+ 
+     def size(self) -> int:
+-        return len(self.columns)
++        return len(self.fields)
+ 
+ 
+ class Report:
+@@ -17,7 +17,7 @@
+         return sum(self.rows)
+ 
+ 
+-SECTIONS = ("columns",)
++SECTIONS = ("fields",)
+ 
+ 
+ def fill(d: Ds, report: Report) -> dict[str, int]:
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

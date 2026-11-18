@@ -1,0 +1,37 @@
+Renaming <old> to <new>:
+
+
+--- a/app/direct.py
++++ b/app/direct.py
+@@ -1,3 +1,3 @@
+-from pkg import old
++from pkg import new
+ 
+-print(old.X)
++print(new.X)
+
+--- a/app/use.py
++++ b/app/use.py
+@@ -1,4 +1,4 @@
+ from pkg import *
+ from pkg.sub import *
+ 
+-print(old.X, inner.Y)
++print(new.X, inner.Y)
+
+--- a/pkg/__init__.py
++++ b/pkg/__init__.py
+@@ -1,5 +1,5 @@
+-from . import old
++from . import new
+ 
+-__all__ = ["old", "VERSION"]
++__all__ = ["new", "VERSION"]
+ 
+ VERSION = 1
+
+rename from pkg/old.py
+rename to pkg/new.py
+
+
+DRY-RUN. 4 file(s) would change. Re-run with --apply.

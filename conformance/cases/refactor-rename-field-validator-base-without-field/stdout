@@ -1,0 +1,22 @@
+Renaming <columns> to <fields>:
+
+
+--- a/pkg/m.py
++++ b/pkg/m.py
+@@ -9,9 +9,9 @@
+ 
+ 
+ class Ds(Base):
+-    columns: list[str]
++    fields: list[str]
+ 
+-    @field_validator("columns")
++    @field_validator("fields")
+     @classmethod
+     def _own(cls, v: list[str]) -> list[str]:
+         return v
+
+
+
+APPLIED. 1 file(s) changed:
+  pkg/m.py

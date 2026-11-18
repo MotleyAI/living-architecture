@@ -24,6 +24,17 @@ describe('dr-compliance kinds', () => {
   it('lists attr-blindspot for both languages', () => {
     for (const id of ['python', 'typescript']) expect(language(id).compliance_checks).toContain('attr-blindspot');
   });
+
+  it('prints string-blindspot, with and without the silent variant', () => {
+    expect(kinds.has('string-blindspot')).toBe(true);
+    for (const id of ['compliance.string-blindspot', 'compliance.string-blindspot-silent']) expect(findings()[id]).toMatch(/^\{path\}:\{line\}: string-blindspot: \{site\} /);
+  });
+
+  it('lists the attribute checks of each language', () => {
+    const sorted = (id: string): string[] => (language(id).compliance_checks as string[]).toSorted();
+    expect(sorted('python')).toEqual(['attr-blindspot', 'explicit-any', 'mock', 'rope-walk', 'string-blindspot', 'unannotated-attr', 'untyped-def']);
+    expect(sorted('typescript')).toEqual(['attr-blindspot', 'explicit-any', 'mock', 'string-blindspot', 'tsconfig', 'untyped-def']);
+  });
 });
 
 describe('dr-compliance --attr, repeated', () => {
@@ -40,5 +51,71 @@ describe('dr-compliance --attr, repeated', () => {
       spot('src/m.ts', 6, 'c', 'getModel'),
     ];
     expect(result).toEqual({ code: 1, out: lines.map((line) => `${line}\n`).join(''), err: '' });
+  });
+});
+
+describe('dr-compliance --attr, receiver text', () => {
+  it('keeps the parentheses written around a receiver and collapses its whitespace', () => {
+    const loose = 'export function g(a: unknown, o: any): number {\n  return (a as any).id + (\n    o\n  ).id;\n}\n';
+    const root = tsProject({ 'src/m.ts': loose });
+    const result = run(root, 'dr-compliance', ['--select', 'attr-blindspot', '--attr', 'id', 'src']);
+    const spot = (receiver: string): string =>
+      message('compliance.attr-blindspot', { path: 'src/m.ts', line: 2, receiver, attr: 'id', type: 'any' });
+    expect(result).toEqual({ code: 1, out: `${spot('(a as any)')}\n${spot('( o )')}\n`, err: '' });
+  });
+});
+
+describe('dr-compliance string-blindspot', () => {
+  const loose = [
+    'export function f(x: any): unknown[] {',
+    '  return [',
+    '    x.columns,',
+    "    x['columns'],",
+    '    x["columns"],',
+    "    Reflect.get(x, 'columns'),",
+    "    Reflect.set(x, 'columns', 1),",
+    '    Reflect.has(',
+    '      x',
+    '        .inner,',
+    "      'columns',",
+    '    ),',
+    '  ];',
+    '}',
+    '',
+  ].join('\n');
+  const values = { path: 'src/m.ts', attr: 'columns', type: 'any' };
+  const access = `${message('compliance.attr-blindspot', { ...values, line: 3, receiver: 'x' })}\n`;
+  const named = (): string =>
+    [
+      message('compliance.string-blindspot', { ...values, line: 4, receiver: 'x', site: "x['columns']" }),
+      message('compliance.string-blindspot', { ...values, line: 5, receiver: 'x', site: "x['columns']" }),
+      message('compliance.string-blindspot', { ...values, line: 6, receiver: 'x', site: "Reflect.get(x, 'columns')" }),
+      message('compliance.string-blindspot', { ...values, line: 7, receiver: 'x', site: "Reflect.set(x, 'columns', …)" }),
+      message('compliance.string-blindspot', { ...values, line: 8, receiver: 'x .inner', site: "Reflect.has(x .inner, 'columns')" }),
+    ]
+      .map((line) => `${line}\n`)
+      .join('');
+  const compliance = (...argv: string[]) => run(tsProject({ 'src/m.ts': loose }), 'dr-compliance', [...argv, 'src']);
+
+  it('reports both attribute checks without --select, sorted by position', () => {
+    const any = `${message('compliance.explicit-any', { path: 'src/m.ts', line: 1, any: 'any', top: 'unknown' })}\n`;
+    expect(compliance('--attr', 'columns')).toEqual({ code: 1, out: any + access + named(), err: '' });
+  });
+
+  it('reports only the string-named accesses when selected', () => {
+    expect(compliance('--select', 'string-blindspot', '--attr', 'columns')).toEqual({ code: 1, out: named(), err: '' });
+  });
+
+  it('leaves the string-named accesses out of attr-blindspot', () => {
+    expect(compliance('--select', 'attr-blindspot', '--attr', 'columns')).toEqual({ code: 1, out: access, err: '' });
+  });
+
+  it.each([['string-blindspot'], ['string-blindspot,attr-blindspot'], ['untyped-def,string-blindspot']])('--select %s needs --attr, naming the first attribute check', (select) => {
+    const err = `${message('compliance.attr-required', { check: 'string-blindspot' })}\n`;
+    expect(compliance('--select', select)).toEqual({ code: 2, out: '', err });
+  });
+
+  it('takes --attr with string-blindspot alone selected', () => {
+    expect(compliance('--select', 'string-blindspot', '--attr', 'missing')).toEqual({ code: 0, out: '', err: '' });
   });
 });

@@ -1,21 +1,31 @@
-kind: adapter
+kind: paired
 languages:
 - python
+- typescript
 command: dr-refactor
 args:
-- rename
-- --file
-- tests/test_multi_name.py
-- --symbol
-- client
-- --new-name
-- cli2
-- --with
-- tests/test_chain.py:1
+  python:
+  - rename
+  - --file
+  - tests/test_multi_name.py
+  - --symbol
+  - client
+  - --new-name
+  - cli2
+  - --with
+  - tests/test_chain.py:1
+  typescript:
+  - rename
+  - --file
+  - src/sql/client.ts
+  - --new-name
+  - cli2
+  - --with
+  - test/chain.ts:1
 fixture: refactor-references
 git:
 - commit: init
 expect:
   exit: 2
 golden: manual
-note: a module rename has no stand-ins, so --with or --without names no stand-in of it
+note: a module rename has no stand-ins, so each --with or --without is refused in checks

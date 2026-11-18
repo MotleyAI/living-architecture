@@ -1,0 +1,32 @@
+Renaming <model> to <dataset>:
+
+
+--- a/pkg/l.ts
++++ b/pkg/l.ts
+@@ -1,16 +1,16 @@
+ export class Query {
+   run(name: string): string {
+-    const model = name.toUpperCase();
++    const dataset = name.toUpperCase();
+     const inner = (): string => {
+-      const model = name.toLowerCase();
+-      return model;
++      const dataset = name.toLowerCase();
++      return dataset;
+     };
+-    return model + inner();
++    return dataset + inner();
+   }
+ 
+   plan(name: string): string {
+-    const model = name.trim();
+-    return model;
++    const dataset = name.trim();
++    return dataset;
+   }
+ }
+ 
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

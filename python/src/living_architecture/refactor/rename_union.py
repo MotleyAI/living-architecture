@@ -1,49 +1,58 @@
 """A Python symbol rename: every occurrence the run's occurrence index resolves to a renamed declaration (and those
-rope resolves where the checker resolves none), the keyed-class rewrites, member strings and patch targets, and with
-`--docs` mentions, as character spans over one snapshot of the project's files; a member rename first checks for blind
+la's static resolver resolves to one where the checker resolves none), the keyed-class rewrites, member strings and
+patch targets, as character spans over one snapshot of the project's files; a member rename first checks for blind
 spots and stand-ins."""
 
 from __future__ import annotations
 
 import ast
 import bisect
+import keyword
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterator
 from functools import partial
 from pathlib import Path
-from typing import Any, TypeVar
+from typing import Literal, TypeVar
 
 from pydantic import BaseModel, ConfigDict
-from rope.base import libutils, pynamesdef
-from rope.base.fscommands import read_str_coding
-from rope.base.project import Project
-from rope.base.pyobjectsdef import PyClass, PyFunction, PyModule
-from rope.refactor import occurrences
-from rope.refactor.rename import Rename, _is_local
 from typing_extensions import override
 
 from living_architecture.contract import message
-from living_architecture.lang import Occurrence, Span
+from living_architecture.lang import FactQuery, Occurrence, Span
+from living_architecture.refactor.carve_outs import CarveOuts, is_fixture
+from living_architecture.refactor.entry_location import Entry, EntryLocator, StaticTrace
 from living_architecture.refactor.hierarchy import ClassGraph, ClassKey
 from living_architecture.refactor.keyed import (
     Bindings,
     ClassRef,
     KeyedRename,
     TypeFacts,
+    UnresolvedBase,
     declares_alias,
     field_assignment,
+    plain_key_span,
     sink_candidates,
 )
-from living_architecture.refactor.member_scan import FormCall, MemberScan
+from living_architecture.refactor.keyword_links import (
+    CarrierShape,
+    KeywordFlow,
+    KeywordSite,
+    ParameterRename,
+    keyword_sites,
+    signature_links,
+    unresolved_sites,
+)
+from living_architecture.refactor.locators import cannot_rename
+from living_architecture.refactor.member_scan import FormCall, MemberScan, NameString, collapsed
 from living_architecture.refactor.members import member_declarations
 from living_architecture.refactor.mentions import (
     Mention,
     MentionRules,
     Owner,
-    classify,
     mentions,
 )
 from living_architecture.refactor.move_edits import NameConflict
+from living_architecture.refactor.name_follow import Held, NameFollow, display_names
 from living_architecture.refactor.occurrence_index import RunIndex
 from living_architecture.refactor.outcomes import (
     Finding,
@@ -52,84 +61,76 @@ from living_architecture.refactor.outcomes import (
     compound_outcome,
     file_outcome,
     literal_outcomes,
-    mention_outcome,
+    mixed_target_outcome,
+    module_member_outcome,
+    name_string_outcome,
     string_member_outcome,
     target_outcome,
+    unverified_read,
 )
 from living_architecture.refactor.patch_targets import SourceFolders, TargetResolver
-from living_architecture.refactor.python_source import SourceFile
-from living_architecture.refactor.rope_patches import every_parameter
+from living_architecture.refactor.python_project import ProjectLayout, Snapshot
+from living_architecture.refactor.python_source import SourceFile, every_parameter, nfkc
 from living_architecture.refactor.routing import language_files
 from living_architecture.refactor.sites import Site
-from living_architecture.refactor.static_resolver import Module
+from living_architecture.refactor.static_resolver import Module, Scope
 from living_architecture.refactor.text_edits import TextEdit
 from living_architecture.refactor.text_tables import TextTables
 from living_architecture.refactor.timings import timed
 
 _T = TypeVar("_T")
+_Uses = dict[Held, list[tuple[str, FormCall]]]
 
 
-def _normalize(text: str) -> str:
-    """The text as rope reads it."""
-    return text.replace("\r\n", "\n").replace("\r", "\n")
-
-
-class Snapshot:
-    """Each project file read once: its bytes, encoding, text and syntax tree."""
-
-    def __init__(self, root: Path) -> None:
-        self.root = root
-        self._data: dict[str, bytes] = {}
-        self._texts: dict[str, str] = {}
-        self._encodings: dict[str, str] = {}
-        self._sources: dict[str, SourceFile] = {}
-
-    def text(self, rel: str) -> str:
-        if rel not in self._texts:
-            data = (self.root / rel).read_bytes()
-            encoding = read_str_coding(data) or "utf-8"
-            self._data[rel] = data
-            self._encodings[rel] = encoding
-            self._texts[rel] = data.decode(encoding)
-        return self._texts[rel]
-
-    def source(self, rel: str) -> SourceFile:
-        if rel not in self._sources:
-            self._sources[rel] = SourceFile(self.root / rel, self.text(rel))
-        return self._sources[rel]
-
-    def encode(self, rel: str, text: str) -> bytes:
-        return text.encode(self._encodings[rel])
-
-    def decode(self, rel: str, data: bytes) -> str:
-        """`data` written to `rel`, as text."""
-        self.text(rel)
-        return data.decode(self._encodings[rel])
-
-    def data(self, rel: str) -> bytes:
-        """The bytes `rel` was read as."""
-        self.text(rel)
-        return self._data[rel]
+def _note(uses: _Uses, held: list[Held], use: tuple[str, FormCall]) -> None:
+    for literal in held:
+        uses.setdefault(literal, []).append(use)
 
 
 class Session:
-    """One refactor's view of the project: rope's project, the snapshot, and files read outside it."""
+    """One refactor's view of the project at `root`: its layout, the snapshot, and files read outside it."""
 
-    def __init__(self, project: Project) -> None:
-        self.project = project
-        self.root = Path(project.address).resolve()
+    def __init__(self, root: Path) -> None:
+        self.root = root.resolve()
+        self.layout = ProjectLayout(self.root)
         self.snapshot = Snapshot(self.root)
-        self.tables = TextTables(self.root, self.snapshot.source)
+        self._tables: TextTables | None = None
         self._loaded: dict[Path, SourceFile | None] = {}
+        self._all_python_files: list[str] | None = None
         self._python_files: list[str] | None = None
+
+    @property
+    def tables(self) -> TextTables:
+        if self._tables is None:
+            self._tables = TextTables(self.root, self.snapshot.source)
+        return self._tables
+
+    def drop_parsed(self) -> None:
+        """Forget the text tables, the files read from outside the project and the snapshot's parsed files."""
+        self._tables = None
+        self._loaded.clear()
+        self.snapshot.drop_parsed()
 
     def rel(self, path: Path) -> str | None:
         return path.relative_to(self.root).as_posix() if path.is_relative_to(self.root) else None
 
+    def modname(self, rel: str) -> str:
+        return self.layout.modname(self.root / rel)
+
+    def source_folders(self) -> list[str]:
+        """The project's source folders as relative paths, the root (`""`) among them."""
+        return sorted({"", *self.layout.source_rels})
+
+    def all_python_files(self) -> list[str]:
+        """The project's Python files, by path, as they were before the run."""
+        if self._all_python_files is None:
+            self._all_python_files = [p.relative_to(self.root).as_posix() for p in language_files(self.root, "python")]
+        return self._all_python_files
+
     def python_files(self) -> list[str]:
-        """The project's Python files, by path."""
+        """The project's Python files that decode, by path."""
         if self._python_files is None:
-            self._python_files = [p.relative_to(self.root).as_posix() for p in language_files(self.root, "python")]
+            self._python_files = [rel for rel in self.all_python_files() if self.snapshot.undecodable(rel) is None]
         return self._python_files
 
     def load(self, path: Path) -> SourceFile | None:
@@ -182,36 +183,53 @@ def _field_of(source: SourceFile, line: int, name: str) -> tuple[ClassRef, ast.A
 
 
 def _named_items(source: SourceFile, node: ast.AST) -> list[tuple[object, int, tuple[int, int] | None]]:
-    """A call's keywords or a literal's constant keys: each name, line and span."""
+    """A call's keywords and the constant keys of the dict literals unpacked into it, or a literal's constant keys with
+    those of the dict literals unpacked into it: each name, line and span."""
     if isinstance(node, ast.Call):
-        return [(k.arg, k.lineno, source.name_span(k)) for k in node.keywords]
-    if isinstance(node, (ast.Dict, ast.Set)):
-        keys = node.keys if isinstance(node, ast.Dict) else node.elts
-        return [(k.value, k.lineno, source.span(k)) for k in keys if isinstance(k, ast.Constant)]
+        unpacked = [item for k in node.keywords if k.arg is None and isinstance(k.value, ast.Dict)
+                    for item in _named_items(source, k.value)]
+        return [*((k.arg, k.lineno, source.name_span(k)) for k in node.keywords if k.arg is not None), *unpacked]
+    if isinstance(node, ast.Dict):
+        nested = [item for k, v in zip(node.keys, node.values, strict=True) if k is None and isinstance(v, ast.Dict)
+                  for item in _named_items(source, v)]
+        return [*((k.value, k.lineno, source.span(k)) for k in node.keys if isinstance(k, ast.Constant)), *nested]
+    if isinstance(node, ast.Set):
+        return [(k.value, k.lineno, source.span(k)) for k in node.elts if isinstance(k, ast.Constant)]
     return []
 
 
-def _conflict(source: SourceFile, rel: str, edits: list[TextEdit], old: str, new: str) -> None:
-    """Raise `NameConflict` where a renamed keyword or key meets the new name in the same call or literal."""
+def _edit_in(edits: list[TextEdit], starts: list[int], span: tuple[int, int] | None) -> TextEdit | None:
+    """The edit of `edits` (sorted, with their `starts`) that starts inside `span`."""
+    if span is None:
+        return None
+    i = bisect.bisect_left(starts, span[0])
+    return edits[i] if i < len(starts) and starts[i] < span[1] else None
+
+
+def _conflict(source: SourceFile, rel: str, edits: list[TextEdit], merged: list[TextEdit], old: str, new: str) -> None:
+    """Raise `NameConflict` where a keyword or key `edits` rename meets the new name in the same call or literal,
+    each other name read as `merged` (every entry's edits of the file) leave it."""
     if source.tree is None:
         return
-    starts = sorted(e.start for e in edits)
+    own = sorted(edits, key=lambda e: e.start)
+    own_starts = [e.start for e in own]
+    every = sorted(merged, key=lambda e: e.start)
+    every_starts = [e.start for e in every]
 
-    def edited(span: tuple[int, int] | None) -> bool:
-        if span is None:
-            return False
-        i = bisect.bisect_left(starts, span[0])
-        return i < len(starts) and starts[i] < span[1]
+    def after(name: object, span: tuple[int, int] | None) -> object:
+        edit = _edit_in(every, every_starts, span)
+        return name if edit is None else edit.new_text.strip("'\"")
 
     for node in source.nodes:
         items = _named_items(source, node)
-        if any(name == new for name, _, _ in items):
-            line = next((line for name, line, span in items if name == old and edited(span)), None)
-            if line is not None:
-                raise NameConflict(new, rel, line)
+        renamed = [(line, span) for name, line, span in items if name == old and _edit_in(own, own_starts, span) is not None]
+        if renamed and any(after(name, span) == new for name, _, span in items if span not in [s for _, s in renamed]):
+            raise NameConflict(new, rel, renamed[0][0])
 
 
 Function = ast.FunctionDef | ast.AsyncFunctionDef
+_CONSTRUCTORS = ("__init__", "__new__")
+_KeywordDecision = Literal["rewrite", "unlinked", "unrelated"]
 
 
 def _parameter(fn: Function, name: str) -> ast.arg | None:
@@ -227,36 +245,9 @@ def _same_named(source: SourceFile, fn: Function) -> list[Function]:
     return [fn]
 
 
-class RopeSites:
-    """The occurrences the checker resolves to no declaration, each evaluated by rope at most once per run."""
-
-    def __init__(self, project: Project, snapshot: Snapshot) -> None:
-        self.project = project
-        self.snapshot = snapshot
-        self._tools: dict[str, Any] = {}
-        self._sites: dict[tuple[str, int], Any] = {}
-
-    def _occurrence(self, rel: str, start: int) -> Any:
-        if rel not in self._tools:
-            self._tools[rel] = occurrences._OccurrenceToolsCreator(  # pyright: ignore[reportPrivateUsage]
-                self.project, resource=self.project.get_resource(rel), docs=False)
-        if (rel, start) not in self._sites:
-            self._sites[rel, start] = occurrences.Occurrence(self._tools[rel], _rope_offset(self.snapshot.text(rel), start))
-        return self._sites[rel, start]
-
-    def matches(self, finder: Any, rel: str, start: int) -> bool:
-        """Whether rope's `finder` accepts the occurrence starting at `start` of `rel`, as its own search would."""
-        occurrence = self._occurrence(rel, start)
-        for found in finder.filters:
-            result = found(occurrence)
-            if result is not None:
-                return bool(result)
-        return False
-
-
 class RenameOptions(BaseModel):
     """How a symbol rename runs: hierarchy, unsure occurrences, the blind-spot override, stand-in classifications,
-    kept sites, the mention scan and whether the run stops at its first refusal."""
+    kept sites and literals, the mention scan and its picks, and whether the run stops at its first refusal."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -266,8 +257,12 @@ class RenameOptions(BaseModel):
     with_sites: tuple[str, ...] = ()
     without_sites: tuple[str, ...] = ()
     keep: tuple[str, ...] = ()
+    keep_literal: tuple[str, ...] = ()
     docs: bool = False
+    docs_pick: tuple[str, ...] = ()
     fail_fast: bool = False
+    stub: str | None = None
+    words: str | None = None
 
 
 class Declaration(BaseModel):
@@ -281,14 +276,71 @@ class Declaration(BaseModel):
     cls: str
 
 
-def _rope_offset(raw: str, offset: int) -> int:
-    """`offset` in `raw` as an offset in rope's newline-normalized text."""
-    return offset - raw.count("\r\n", 0, offset)
+class RenameResult(BaseModel):
+    """What a run reads of a map entry's rename once its rules are done: the entry's map index, its target's name for
+    a retarget, the edits the keeps dropped (`kept`), the member declarations it may rename, where its unlinked
+    keywords are, and each edit whose display already holds the new name, with its line (`collisions`)."""
+
+    entry: int
+    old: str
+    new: str
+    header: str
+    target: str | None
+    member: bool
+    check_names: bool
+    edits: list[TextEdit]
+    kept: list[TextEdit] = []
+    imports: list[TextEdit] = []
+    blindspots: list[Finding]
+    unresolved: list[Finding] = []
+    stand_ins: list[Finding] = []
+    refusals: list[Finding] = []
+    matched_sites: frozenset[str] = frozenset()
+    declarations: list[Declaration] = []
+    unlinked: frozenset[tuple[str, int]] = frozenset()
+    collisions: list[tuple[TextEdit, int]] = []
+
+    def live(self) -> bool:
+        """The rename changes a name."""
+        return self.new != self.old
+
+    def blindspot_names(self) -> list[str]:
+        """The old name as the closing blind-spot line spells it: `.old` with a receiver or target blind spot, `old=`
+        with an unlinked keyword (a blind spot at a position of `unlinked`)."""
+        keywords = sum((b.path, b.col) in self.unlinked for b in self.blindspots)
+        return [*([f".{self.old}"] if keywords < len(self.blindspots) else []), *([f"{self.old}="] if keywords else [])]
+
+    def renamed_members(self, snapshot: Snapshot) -> list[tuple[tuple[str, int], tuple[str, int]]]:
+        """Each member declaration this rename's edits rename, with its class's file and `class` line."""
+        if not self.member:
+            return []
+        starts = {(e.path, e.start) for e in self.edits}
+        out: list[tuple[tuple[str, int], tuple[str, int]]] = []
+        for d in self.declarations:
+            source = snapshot.source(d.rel)
+            if (d.rel, d.start) not in starts or source.tree is None:
+                continue
+            owner = next((cls for cls in source.of_type(ast.ClassDef) if any(
+                (span := source.name_span(n)) is not None and span[0] == d.start
+                for n in member_declarations(cls, self.old))), None)
+            if owner is not None:
+                out.append(((d.rel, d.start), (d.rel, owner.lineno)))
+        return out
+
+    def check_conflicts(self, snapshot: Snapshot, edits: list[TextEdit], merged: list[TextEdit]) -> None:
+        """`NameConflict` where one of `edits` (this rename's) meets the new name after `merged` (every entry's), or
+        rewrites a string beside it."""
+        for rel in sorted({e.path for e in edits}) if self.check_names else ():
+            _conflict(snapshot.source(rel), rel, [e for e in edits if e.path == rel],
+                      [e for e in merged if e.path == rel], self.old, self.new)
+        beside = sorted((edit.path, line) for edit, line in self.collisions if edit in edits)
+        if beside:
+            raise NameConflict(self.new, *beside[0])
 
 
 class MapRename(ABC):
     """A rename map entry's phases, run over all entries in turn: `prepare`, `seed` and `rules` (on the run's
-    occurrence index), `finish`."""
+    occurrence index), `finish`; then its `result`."""
 
     @abstractmethod
     def header(self) -> str: ...
@@ -309,30 +361,40 @@ class MapRename(ABC):
     def finish(self) -> None: ...
 
     @abstractmethod
-    def check_conflicts(self, edits: list[TextEdit]) -> None: ...
+    def result(self, entry: int, target: str | None, kept: list[TextEdit]) -> RenameResult: ...
+
+    edits: list[TextEdit]
+    leftovers: list[Finding]
+    unverified: list[tuple[Finding, TextEdit]]
+
+    def list_unverified(self) -> None:
+        """Move each unverified read whose source edit this rename still makes to the leftovers."""
+        self.leftovers += [finding for finding, edit in self.unverified if edit in self.edits]
+        self.unverified = []
 
 
 class SymbolRename(MapRename):
-    """A rename of a symbol other than a module, located by rope's `renamer` at `site` (a file and an offset in its
-    text): `prepare` finds the renamed declarations and the stand-ins, `rules` the edits, `finish` the mentions and
-    leftovers."""
+    """A rename of a symbol other than a module, its `entry` located at `site` (a file and an offset in its text) by
+    `locator`: `prepare` finds the renamed declarations and the stand-ins, `rules` the edits, `finish` the leftovers
+    that read text only."""
 
-    def __init__(self, session: Session, renamer: Rename, new_name: str, options: RenameOptions | None = None, *,
-                 site: tuple[str, int], rope_sites: RopeSites | None = None) -> None:
+    def __init__(self, session: Session, entry: Entry, new_name: str, options: RenameOptions | None = None, *,
+                 site: tuple[str, int], locator: EntryLocator, carves: CarveOuts | None = None) -> None:
         self.session = session
+        self.carves = carves
         self.site = site
-        self.rope_sites = rope_sites or RopeSites(session.project, session.snapshot)
+        self.entry = entry
+        self.locator = locator
         self._index: RunIndex | None = None
         self._graph: ClassGraph | None = None
         self._located_sites: set[tuple[str, int]] = set()
-        self.project = session.project
-        self.renamer = renamer
         self.options = options or RenameOptions()
-        self.old: str = renamer.get_old_name()
+        self.old: str = entry.name
         self.new = new_name
         self.root = session.root
         self.snapshot = session.snapshot
         self.is_renamed: Callable[[tuple[str, int]], bool] = lambda site: site in self.seeds
+        self.renamed_as: Callable[[tuple[str, int]], str | None] = lambda site: self.new if site in self.seeds else None
         self.matched_sites: set[str] = set()
         self.member = False
         self.check_names = True
@@ -341,12 +403,18 @@ class SymbolRename(MapRename):
         self.edits: list[TextEdit] = []
         self.seeds: set[tuple[str, int]] = set()
         self.keywordless: set[tuple[str, int]] = set()
+        self._constructor = False
         self.candidates: list[str] = []
         self._files: list[str] = []
-        self.renamers: list[Rename] = [renamer]
+        self.entries: list[Entry] = [entry]
         self.blindspots: list[Finding] = []
+        self._unlinked: set[tuple[str, int]] = set()
         self.stand_ins: list[Finding] = []
         self.leftovers: list[Finding] = []
+        self.unverified: list[tuple[Finding, TextEdit]] = []
+        self.unresolved: list[Finding] = []
+        self._collisions: list[tuple[TextEdit, int]] = []
+        self._follow: NameFollow | None = None
         self._declarations: list[Declaration] = []
         self._unclassified: list[Declaration] = []
         self._examined: dict[str, list[tuple[int, int]]] = {}
@@ -354,18 +422,9 @@ class SymbolRename(MapRename):
         self._in_hierarchy = self.options.in_hierarchy
         self._unsure = self.options.unsure
 
-    def _finder(self, renamer: Rename) -> Any:
-        return occurrences.create_finder(
-            self.project,
-            self.old,
-            renamer.old_pyname,
-            docs=False,
-            instance=renamer.old_instance,
-            in_hierarchy=self._in_hierarchy and renamer.is_method(),
-        )
-
     def _validate(self) -> None:
-        self.renamer.validate_changes(self.new)
+        if not self.new.isidentifier() or keyword.iskeyword(nfkc(self.new)):
+            raise cannot_rename()
 
     def _project_declarations(self, found: Occurrence | None) -> set[tuple[str, int]]:
         if found is None:
@@ -374,21 +433,18 @@ class SymbolRename(MapRename):
 
     def _located(self, index: RunIndex) -> set[tuple[str, int]]:
         """An import alias's own binding at the entry's site, else the declarations the checker resolves the site to;
-        where it resolves none in the project, those on the line rope finds the symbol defined at."""
+        where it resolves none in the project, the declarations on the line of the entry's first."""
         rel, offset = self.site
         at = index.at(self.root / rel, self.old, offset)
         if at is not None and at.kind == "alias":
             return {(rel, at.span.start)}
         found = self._project_declarations(at)
-        if found:
+        if found or not self.entry.sites:
             return found
-        location = self.renamer.old_pyname.get_definition_location() if self.renamer.old_pyname is not None else None
-        module, line = location or (None, None)
-        resource = module.get_resource() if isinstance(module, PyModule) else None
-        if resource is None or line is None:
-            return set()
-        source = self.snapshot.source(resource.path)
-        return {(resource.path, s) for s, e in _declarations(source) if source.line(s) == line and source.text[s:e] == self.old}
+        first, start = self.entry.sites[0]
+        source = self.snapshot.source(first)
+        line = source.line(start)
+        return {(first, s) for s, e in _declarations(source) if source.line(s) == line and source.text[s:e] == self.old}
 
     def _member_declarations(self, index: RunIndex) -> list[Declaration]:
         """Every declaration of a class member named like the symbol, in the candidate files."""
@@ -410,26 +466,25 @@ class SymbolRename(MapRename):
     def header(self) -> str:
         return message("refactor.rename-header", old=self.old, new=self.new)
 
-    def renamed_members(self) -> list[tuple[tuple[str, int], tuple[str, int]]]:
-        """Each member declaration this rename's edits rename, with its class's file and `class` line."""
-        if not self.member:
-            return []
-        starts = {(e.path, e.start) for e in self.edits}
-        out: list[tuple[tuple[str, int], tuple[str, int]]] = []
-        for d in self._declarations:
-            source = self.snapshot.source(d.rel)
-            if (d.rel, d.start) not in starts or source.tree is None:
-                continue
-            owner = next((cls for cls in source.of_type(ast.ClassDef) if any(
-                (span := source.name_span(n)) is not None and span[0] == d.start
-                for n in member_declarations(cls, self.old))), None)
-            if owner is not None:
-                out.append(((d.rel, d.start), (d.rel, owner.lineno)))
-        return out
+    def parameter_rename(self) -> ParameterRename | None:
+        """This rename as the signature proof needs it, when it renames a parameter."""
+        if self.entry.kind != "parameter" or self.seeds <= self.keywordless:
+            return None
+        return ParameterRename(old=self.old, new=self.new, seeds=frozenset(self.seeds), candidates=tuple(self.candidates))
+
+    @override
+    def result(self, entry: int, target: str | None, kept: list[TextEdit]) -> RenameResult:
+        return RenameResult(
+            entry=entry, old=self.old, new=self.new, header=self.header(), target=target,
+            member=self.member, check_names=self.check_names, edits=self.edits, kept=kept, blindspots=self.blindspots,
+            unresolved=self.unresolved, stand_ins=self.stand_in_findings(), matched_sites=frozenset(self.matched_sites),
+            declarations=self._declarations if self.member else [], unlinked=frozenset(self._unlinked),
+            collisions=self._collisions,
+        )
 
     def is_member(self) -> bool:
-        """The symbol is declared in a class body (or as a `self.` attribute): a declaration rope renames is one."""
-        if isinstance(self.renamer.old_pyname, pynamesdef.ParameterName):
+        """The symbol is declared in a class body (or as a `self.` attribute): a declaration the rename renames is one."""
+        if self.entry.kind == "parameter":
             return False
         return any((d.rel, d.start) in self.seeds for d in self._declarations)
 
@@ -449,7 +504,7 @@ class SymbolRename(MapRename):
         return self._graph.roots(found, self.old) if found is not None else frozenset()
 
     def _hierarchy(self, index: RunIndex, sites: set[tuple[str, int]], method: bool) -> set[tuple[str, int]]:
-        """The member declarations rope renames with the member declared at `sites` when the hierarchy is on: for a
+        """The member declarations renamed with the member declared at `sites` when the hierarchy is on: for a
         method, those whose class's roots meet its class's; for any other member, its own declarations."""
         spans = {(d.rel, d.start) for d in self._declarations}
         at = [d for d in self._declarations if (d.rel, d.start) in sites]
@@ -461,7 +516,7 @@ class SymbolRename(MapRename):
     def located_hierarchy(self) -> set[tuple[str, int]]:
         """The hierarchy of the located declaration, whether or not the rename's hierarchy flag is on."""
         assert self._index is not None
-        return self._hierarchy(self._index, self._located_sites, self.renamer.is_method())
+        return self._hierarchy(self._index, self._located_sites, self.entry.kind == "method")
 
     def _own(self, index: RunIndex, d: Declaration) -> set[tuple[str, int]]:
         """The declarations of the member declared at `d`, as the checker resolves its name there."""
@@ -470,24 +525,45 @@ class SymbolRename(MapRename):
     def _classify(self, index: RunIndex) -> None:
         """The renamed declarations: the hierarchy (with it on) and every `--with` stand-in's; record the stand-ins left
         unclassified."""
-        hierarchy = self._hierarchy(index, self.seeds, self.renamer.is_method())
+        hierarchy = self._hierarchy(index, self.seeds, self.entry.kind == "method")
         stand_ins = [d for d in self._declarations if (d.rel, d.start) not in hierarchy]
         renamed = set(hierarchy) | self.seeds if self._in_hierarchy else set(self.seeds)
         classified: set[tuple[str, int]] = set()
-        for raw, joined in [*((s, True) for s in self.options.with_sites), *((s, False) for s in self.options.without_sites)]:
-            site = Site.parse(raw, self.root, base=self.root)
-            matched = [d for d in stand_ins if site.line is not None and site.covers(d.rel, d.line)]
-            if matched:
-                self.matched_sites.add(raw)
-            for d in matched:
-                renamer = Rename(self.project, self.project.get_resource(d.rel), _rope_offset(self.snapshot.text(d.rel), d.start))
-                theirs = self._hierarchy(index, {(d.rel, d.start)}, renamer.is_method())
-                classified |= theirs | {(d.rel, d.start)}
-                if joined:
-                    self.renamers.append(renamer)
-                    renamed |= theirs | {(d.rel, d.start)} if self._in_hierarchy else self._own(index, d)
+        for raw in self.options.with_sites:
+            classified |= self._classify_site(index, raw, stand_ins, renamed)
+        for raw in self.options.without_sites:
+            classified |= self._classify_site(index, raw, stand_ins, None)
+        for d in (d for d in stand_ins if (d.rel, d.start) not in classified):
+            found = self.locator.at(d.rel, d.start)
+            theirs = self._hierarchy(index, {(d.rel, d.start)}, found.kind == "method") | {(d.rel, d.start)}
+            if all(self._left_by_default(site) for site in theirs):
+                classified |= theirs
         self._unclassified = [d for d in stand_ins if (d.rel, d.start) not in classified]
         self.seeds = renamed
+
+    def _classify_site(self, index: RunIndex, raw: str, stand_ins: list[Declaration],
+                       renamed: set[tuple[str, int]] | None) -> set[tuple[str, int]]:
+        """The declarations the `--with` (`renamed` given, which they join) or `--without` site `raw` classifies."""
+        site = Site.parse(raw, self.root)
+        matched = [d for d in stand_ins if site.line is not None and site.covers(d.rel, d.line)]
+        if matched:
+            self.matched_sites.add(raw)
+        classified: set[tuple[str, int]] = set()
+        for d in matched:
+            found = self.locator.at(d.rel, d.start)
+            theirs = self._hierarchy(index, {(d.rel, d.start)}, found.kind == "method") | {(d.rel, d.start)}
+            classified |= theirs
+            if renamed is not None:
+                self.entries.append(found)
+                renamed |= theirs if self._in_hierarchy else self._own(index, d)
+        return classified
+
+    def _left_by_default(self, site: tuple[str, int]) -> bool:
+        """The member declaration at `site` is a test fixture, or one a carve-out keeps."""
+        rel, start = site
+        if is_fixture(self.snapshot.source(rel), start):
+            return True
+        return self.carves is not None and bool(self.carves.carved(rel, self.old, [start]))
 
     @override
     def stand_in_findings(self) -> list[Finding]:
@@ -499,43 +575,64 @@ class SymbolRename(MapRename):
             if not self.is_renamed((d.rel, d.start))
         ]
 
-    def _index_edits(self, index: RunIndex) -> None:
+    def _index_edits(self, index: RunIndex, facts: TypeFacts) -> None:
         """Every occurrence resolving to a renamed declaration or through a renamed import alias (a keyword only through
-        one that takes keywords), every access with an untyped receiver under `--unsure include`, and each name, import
-        or alias the checker resolves to nothing that rope resolves to a renamed symbol."""
+        one that takes keywords; a class call's keyword of a split constructor pair is an unlinked keyword), every access
+        with an untyped receiver under `--unsure include`, and each name, import
+        or alias the checker resolves to nothing that Python's scoping resolves to a renamed declaration; one nothing
+        resolves is listed."""
         unresolved: list[tuple[str, Occurrence]] = []
+        calls = self._class_calls(index) if self._constructor else {}
         for rel in self.candidates:
             for o in index.occurrences(self.root / rel, self.old):
+                if self._split_keyword(index, facts, calls, rel, o):
+                    continue
                 if self._renames(o) or (self._unsure and o.kind == "member" and o.receiver is not None):
                     self.edits.append(TextEdit(path=rel, start=o.span.start, end=o.span.end, new_text=self.new))
                 elif not o.declarations and o.kind in ("name", "import", "alias"):
                     unresolved.append((rel, o))
-        if not unresolved:
-            return
-        finders = [self._finder(r) for r in self.renamers]
+        self._traced_edits(unresolved)
+
+    def _split_keyword(self, index: RunIndex, facts: TypeFacts, calls: dict[tuple[str, int], KeywordSite], rel: str,
+                       o: Occurrence) -> bool:
+        """File `o` as an unlinked keyword when it is a class call's keyword of a split constructor pair."""
+        site = calls.get((rel, o.span.start)) if o.kind == "keyword" else None
+        if site is None or not self._split(index, facts, rel, o, site):
+            return False
+        self.file(self._keyword_outcome(rel, self.snapshot.source(rel), site, "unlinked"))
+        return True
+
+    def _traced_edits(self, unresolved: list[tuple[str, Occurrence]]) -> None:
+        """Rewrite each occurrence Python's scoping resolves to a renamed declaration; list one nothing resolves."""
+        trace = StaticTrace(self.locator)
         for rel, o in unresolved:
-            if any(self.rope_sites.matches(f, rel, o.span.start) for f in finders):
+            found = trace.at(rel, o.span.start, self.old)
+            if found.sites & self.seeds:
                 self.edits.append(TextEdit(path=rel, start=o.span.start, end=o.span.end, new_text=self.new))
+            elif not found.resolved:
+                line = self.snapshot.source(rel).line(o.span.start)
+                text = message("refactor.unresolved-name", path=rel, line=line, old=self.old)
+                self.unresolved.append(Finding(path=rel, line=line, col=o.span.start, text=text))
 
     def _renames(self, o: Occurrence) -> bool:
         """`o` resolves to a renamed declaration or through a renamed import alias (a keyword only through one that
         takes keywords)."""
-        spans = [*(d.span for d in o.declarations), *o.bindings]
-        hits = {(r, s.start) for s in spans if (r := self.session.rel(s.path)) is not None} & self.seeds
+        hits = self._resolved_sites(o) & self.seeds
         if o.kind == "keyword":
             hits -= self.keywordless
         return bool(hits)
 
-    def _located_field(self, renamer: Rename) -> tuple[ClassRef, ast.AnnAssign | ast.Assign, Span] | None:
-        pyname = renamer.old_pyname
-        location = pyname.get_definition_location() if pyname is not None else None
-        module, line = location or (None, None)
-        resource = module.get_resource() if isinstance(module, PyModule) else None
-        if resource is None or resource.path not in self.candidates:
+    def _resolved_sites(self, o: Occurrence) -> set[tuple[str, int]]:
+        spans = [*(d.span for d in o.declarations), *o.bindings]
+        return {(r, s.start) for s in spans if (r := self.session.rel(s.path)) is not None}
+
+    def _located_field(self, entry: Entry) -> tuple[ClassRef, ast.AnnAssign | ast.Assign, Span] | None:
+        """The class field `entry` declares first, when its file is a candidate."""
+        if not entry.sites or entry.sites[0][0] not in self.candidates:
             return None
-        source = self.snapshot.source(resource.path)
-        lines = [line] if line is not None else sorted({source.line(o) for rel, o in self.seeds if rel == resource.path})
-        return next((f for n in lines if (f := _field_of(source, n, self.old)) is not None), None)
+        rel, start = entry.sites[0]
+        source = self.snapshot.source(rel)
+        return _field_of(source, source.line(start), self.old)
 
     def _keyed_edits(self, index: RunIndex, facts: TypeFacts, field: tuple[ClassRef, ast.AnnAssign | ast.Assign, Span]) -> None:
         owner, stmt, declared = field
@@ -550,30 +647,22 @@ class SymbolRename(MapRename):
         self.edits += keyed.edits
         self.edits += bindings.edits()
 
-    def _function_at(self, fn: PyFunction) -> tuple[str, Function] | None:
-        """rope's function `fn` as a node of its file's snapshot."""
-        module = fn.get_module()
-        resource = module.get_resource() if isinstance(module, PyModule) else None
-        if resource is None or resource.path not in self.candidates:
+    def _function_at(self, fn: tuple[str, int]) -> tuple[str, Function] | None:
+        """The def whose name starts at `fn`, when its file is a candidate."""
+        rel, start = fn
+        if rel not in self.candidates:
             return None
-        node = fn.get_ast()
-        found = (
-            n
-            for n in self.snapshot.source(resource.path).nodes
-            if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
-            and (n.lineno, n.col_offset, n.name) == (node.lineno, node.col_offset, node.name)
-        )
-        return next(((resource.path, n) for n in found), None)
+        source = self.snapshot.source(rel)
+        found = (n for n in source.of_type(ast.FunctionDef) + source.of_type(ast.AsyncFunctionDef)
+                 if (span := source.name_span(n)) is not None and span[0] == start)
+        return next(((rel, n) for n in found), None)
 
-    def _method_declarations(self, fn: PyFunction) -> list[tuple[str, Function]]:
-        """The declarations a rename of method `fn` renames: its own, and with the hierarchy on those of every class
-        whose roots for its name meet its class's."""
+    def _method_declarations(self, located: tuple[str, Function]) -> list[tuple[str, Function]]:
+        """The declarations a rename of the method `located` renames: its own, and with the hierarchy on those of every
+        class whose roots for its name meet its class's."""
         assert self._graph is not None
-        name = fn.get_name()
-        located = self._function_at(fn)
-        if located is None:
-            return []
         rel, node = located
+        name = node.name
         source = self.snapshot.source(rel)
         owner = next((c for c in source.of_type(ast.ClassDef) if any(s is node for s in c.body)), None)
         if owner is None:
@@ -592,14 +681,17 @@ class SymbolRename(MapRename):
                     out += [(candidate, s) for s in c.body if isinstance(s, (ast.FunctionDef, ast.AsyncFunctionDef)) and s.name == name]
         return out
 
-    def _parameter_declarations(self, facts: TypeFacts, fn: PyFunction) -> list[tuple[str, SourceFile, Function, ast.arg]]:
-        """The renamed parameters: those named `old` of the method hierarchy's declarations and their overload groups."""
+    def _parameter_declarations(self, facts: TypeFacts, fn: tuple[str, int]) -> list[tuple[str, SourceFile, Function, ast.arg]]:
+        """The renamed parameters: those named `old` of the method hierarchy's declarations and their overload groups;
+        a constructor has no hierarchy."""
         located = self._function_at(fn)
         if located is None:
             return []
         defs = [located]
-        if isinstance(fn.parent, PyClass):
-            defs += self._method_declarations(fn)
+        source = self.snapshot.source(located[0])
+        method = any(any(s is located[1] for s in c.body) for c in source.of_type(ast.ClassDef))
+        if method and located[1].name not in _CONSTRUCTORS:
+            defs += self._method_declarations(located)
         seen: set[tuple[str, int, int]] = set()
         out: list[tuple[str, SourceFile, Function, ast.arg]] = []
         for rel, node in defs:
@@ -613,7 +705,7 @@ class SymbolRename(MapRename):
                     out.append((rel, source, member, arg))
         return out
 
-    def _parameter_seeds(self, facts: TypeFacts, fn: PyFunction) -> None:
+    def _parameter_seeds(self, facts: TypeFacts, fn: tuple[str, int]) -> None:
         """Seed every renamed parameter."""
         for rel, source, node, arg in self._parameter_declarations(facts, fn):
             span = source.name_span(arg)
@@ -621,8 +713,75 @@ class SymbolRename(MapRename):
                 self.seeds.add((rel, span[0]))
                 if not any(arg is a for a in (*node.args.args, *node.args.kwonlyargs)):
                     self.keywordless.add((rel, span[0]))
+                elif node.name in _CONSTRUCTORS:
+                    self._constructor = True
 
-    def _file(self, outcome: Outcome) -> None:
+    def _class_calls(self, index: RunIndex) -> dict[tuple[str, int], KeywordSite]:
+        """Each keyword `old=` of the candidates by its position, their callees' definitions and types exported in one
+        request."""
+        out: dict[tuple[str, int], KeywordSite] = {}
+        queries: list[FactQuery] = []
+        for rel in self.candidates:
+            source = self.snapshot.source(rel)
+            sites = index.memo(("keyword_sites", self.root / rel, self.old), partial(keyword_sites, source, self.old))
+            for site in sites:
+                func = site.call.func
+                span = source.name_span(func) if isinstance(func, (ast.Name, ast.Attribute)) else None
+                if site.keyword and span is not None:
+                    out[rel, site.span[0]] = site
+                    queries.append(FactQuery(path=self.root / rel, offset=span[0], kinds=("definition", "typeDefinition")))
+        index.ensure(queries)
+        return out
+
+    def _split(self, index: RunIndex, facts: TypeFacts, rel: str, o: Occurrence, site: KeywordSite) -> bool:
+        """Whether `site` is a class call's keyword that Python passes to an `__init__` and a `__new__` both taking
+        `old`, of which the run renames only one, or the two to different names."""
+        source = self.snapshot.source(rel)
+        span = source.name_span(site.call.func)
+        found = index.definition(source.path, span[0]) if span is not None else []
+        nodes = [(decl, decl.defined_at((s.start, s.end))) for s in found if (decl := self.session.load(s.path)) is not None]
+        if nodes and len(nodes) == len(found) and all(isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) for _, n in nodes):
+            return False
+        classes = [ClassRef(decl, n) for decl, n in nodes if isinstance(n, ast.ClassDef)]
+        if not classes and span is not None:
+            typed = [(decl, s) for s in index.type_definition(source.path, span[0]) if (decl := self.session.load(s.path)) is not None]
+            classes = [ClassRef(decl, n) for decl, s in typed if isinstance(n := decl.defined_at((s.start, s.end)), ast.ClassDef)]
+        classes = classes or self._holders(o)
+        try:
+            return any(self._pair_is_split(facts, cls) for cls in classes)
+        except UnresolvedBase:
+            return self._renames(o)
+
+    def _holders(self, o: Occurrence) -> list[ClassRef]:
+        """The classes whose constructors declare the parameters `o` resolves to."""
+        out: list[ClassRef] = []
+        for rel, start in self._resolved_sites(o):
+            source = self.snapshot.source(rel)
+            for fn in source.of_type(ast.FunctionDef):
+                holder = source.parent(fn)
+                spans = [source.name_span(a) for a in (*fn.args.args, *fn.args.kwonlyargs)]
+                if fn.name in _CONSTRUCTORS and isinstance(holder, ast.ClassDef) and any(s is not None and s[0] == start for s in spans):
+                    out.append(ClassRef(source, holder))
+        return out
+
+    def _pair_is_split(self, facts: TypeFacts, cls: ClassRef) -> bool:
+        """Whether the `__init__` and the `__new__` `cls` uses, its own or inherited, both take `old` by keyword while
+        the run renames one of this rename's and not both to its new name, or one of this rename's takes it while the
+        other takes it through its own `**kwargs`; raises `UnresolvedBase`."""
+        taking: list[set[tuple[str, int]]] = []
+        carrying: list[bool] = []
+        for name in _CONSTRUCTORS:
+            defs = next((found for c in facts.chain(cls).mro if (found := [
+                (c.source, s) for s in c.node.body if isinstance(s, (ast.FunctionDef, ast.AsyncFunctionDef)) and s.name == name])), [])
+            spans = [(source, source.name_span(a)) for source, fn in defs for a in (*fn.args.args, *fn.args.kwonlyargs) if a.arg == self.old]
+            taking.append({(self.session.rel(source.path) or "", span[0]) for source, span in spans if span is not None})
+            carrying.append(any(fn.args.kwarg is not None and CarrierShape(source, fn).takes(self.old) for source, fn in defs))
+        both = taking[0] | taking[1]
+        if all(taking):
+            return bool(both & self.seeds) and any(self.renamed_as(s) != self.new for s in both)
+        return bool(both & self.seeds) and any(not taken and carried for taken, carried in zip(taking, carrying, strict=True))
+
+    def file(self, outcome: Outcome) -> None:
         """Record an examined site and file what its rule decided."""
         self._examined.setdefault(outcome.rel, []).append(outcome.span)
         file_outcome(outcome, edits=self.edits, blindspots=self.blindspots, leftovers=self.leftovers)
@@ -637,28 +796,150 @@ class SymbolRename(MapRename):
         and unchanged declarations is a blind spot."""
         for rel in self.candidates:
             path, source = self.root / rel, self.snapshot.source(rel)
-            calls = [c for c in scan.member_calls(path, source) if c.forms]
+            calls = [c for c in scan.member_calls(path, source) if c.forms is not None]
             if not calls:
                 continue
             for call, (_, definitions) in zip(calls, scan.probe(path, calls), strict=True):
                 sites = [(self.session.rel(d.path) or "", d.start) for d in definitions]
                 renamed = [self.is_renamed(s) for s in sites] if any(s in self.seeds for s in sites) else []
-                self._file(string_member_outcome(rel, source, call, renamed, self.old, self.new))
+                self.file(string_member_outcome(rel, source, call, renamed, self.old, self.new))
+
+    def follow(self) -> NameFollow:
+        if self._follow is None:
+            self._follow = NameFollow(self.root, self.snapshot, self.locator, self.session.python_files)
+        return self._follow
+
+    def named_uses(self) -> dict[str, list[tuple[FormCall, list[Held]]]]:
+        """Per file, the member forms naming the old name through a name, with the literals that name holds."""
+        if not self.member or self._index is None:
+            return {}
+        scan = MemberScan(self._index, self.old, self.session.load)
+        return self._memo(("named_uses", self.old), partial(self.follow().uses, scan))
+
+    def _named_edits(self, scan: MemberScan) -> None:
+        """Rewrite each source literal a proven use names and no use on an unchanged declaration reads; with both,
+        each such use is a blind spot. A use on an untyped object is none; every other read of a rewritten literal is
+        listed."""
+        proven, unchanged = self._named_landings(scan)
+        mixed: dict[tuple[str, tuple[int, int]], FormCall] = {}
+        rewritten: dict[Held, TextEdit] = {}
+        for held in sorted(set(proven) | set(unchanged), key=lambda h: (h.rel, h.start)):
+            if held in proven and held in unchanged:
+                mixed |= {(rel, call.literal): call for rel, call in [*proven[held], *unchanged[held]]}
+            elif held in proven:
+                rewritten[held] = self._source_edit(held)
+            else:
+                self.file(Outcome(kind="unrelated", rel=held.rel, span=(held.start, held.end)))
+        for (rel, _), call in sorted(mixed.items(), key=lambda found: found[0]):
+            self.file(mixed_target_outcome(rel, self.snapshot.source(rel), call, self.old))
+        uses = {(rel, call.literal) for found in proven.values() for rel, call in found}
+        self.list_reads(rewritten, uses)
+
+    def _named_landings(self, scan: MemberScan) -> tuple[_Uses, _Uses]:
+        """The uses on a typed object of each literal a name holds: those landing on a renamed declaration, and those
+        landing on an unchanged one."""
+        proven: _Uses = {}
+        unchanged: _Uses = {}
+        for rel, found in self.named_uses().items():
+            calls = [call for call, _ in found]
+            path, source = self.root / rel, self.snapshot.source(rel)
+            for (call, held), (kind, definitions) in zip(found, scan.probe(path, calls), strict=True):
+                if (kind or scan.object_kind(path, source, call)) is not None:
+                    continue
+                sites = [(self.session.rel(d.path) or "", d.start) for d in definitions]
+                if any(s in self.seeds for s in sites):
+                    _note(proven, held, (rel, call))
+                if any(not self.is_renamed(s) for s in sites):
+                    _note(unchanged, held, (rel, call))
+        return proven, unchanged
+
+    def _source_edit(self, held: Held) -> TextEdit:
+        """Rewrite the source literal `held`; a display already holding the new name is a pending conflict."""
+        edit = TextEdit(path=held.rel, start=held.start, end=held.end, new_text=self.new)
+        self.file(Outcome(kind="rewrite", rel=held.rel, span=(held.start, held.end), edits=(edit,)))
+        if self.new in display_names(self.snapshot.source(held.rel), held):
+            self._collisions.append((edit, held.line))
+        return edit
+
+    def list_reads(self, rewritten: dict[Held, TextEdit], proven: set[tuple[str, tuple[int, int]]]) -> None:
+        """Record each read of a name holding a rewritten literal, the `proven` ones (file and span) aside."""
+        for read in self.follow().reads(set(rewritten)) if rewritten else ():
+            if (read.rel, (read.start, read.end)) not in proven:
+                finding = unverified_read(read.rel, self.snapshot.source(read.rel), (read.start, read.end), read.name,
+                                          self.old, (read.held.rel, read.held.line))
+                self.unverified.append((finding, rewritten[read.held]))
+
+    def _lands(self, facts: TypeFacts, source: SourceFile, cls: ast.ClassDef) -> list[tuple[str, int]] | None:
+        """The declarations of the old name in the first class of `cls`'s resolution order declaring it."""
+        try:
+            order = facts.chain(ClassRef(source, cls)).mro
+        except UnresolvedBase:
+            return None
+        for ancestor in order:
+            spans = [span for n in member_declarations(ancestor.node, self.old) if (span := ancestor.source.name_span(n))]
+            if spans:
+                return [(self.session.rel(ancestor.source.path) or "", span[0]) for span in spans]
+        return None
+
+    def _class_name_edits(self, scan: MemberScan, facts: TypeFacts) -> None:
+        """Rewrite each decorator argument and class-body value naming the old name whose class's lookup lands on a
+        renamed declaration; one landing on unchanged declarations is unrelated."""
+        for rel in self.candidates:
+            source = self.snapshot.source(rel)
+            found: list[NameString] = [*scan.decorator_names(self.root / rel, source), *scan.class_values(source)]
+            for string in found:
+                sites = self._lands(facts, source, string.cls)
+                if sites is None:
+                    continue
+                outcome = name_string_outcome(rel, string.literal, [self.is_renamed(s) for s in sites], self.new)
+                self.file(outcome)
+                if outcome.edits and self.new in string.beside:
+                    self._collisions.append((outcome.edits[0], string.line))
+
+    def _module_scope(self, rel: str, node: ast.expr) -> tuple[Module, Scope] | None:
+        module = self.locator.module(rel)
+        scope = self.locator.load_scopes(rel, module).get(id(node)) if module is not None else None
+        return (module, scope) if module is not None and scope is not None else None
+
+    def _module_member_edits(self, scan: MemberScan, folders: SourceFolders, targets: TargetResolver) -> None:
+        """Rewrite the member string of a member form whose object is a project module declaring the renamed symbol;
+        one that names a project package but does not resolve is listed."""
+        for rel in self.candidates:
+            source = self.snapshot.source(rel)
+            for call in scan.member_calls(self.root / rel, source):
+                outcome = self._module_member_outcome(rel, source, call, folders, targets)
+                if outcome is not None:
+                    self._targets.setdefault(rel, []).append(call.literal)
+                    self.file(outcome)
+
+    def _module_member_outcome(
+        self, rel: str, source: SourceFile, call: FormCall, folders: SourceFolders, targets: TargetResolver
+    ) -> Outcome | None:
+        """What a member form's string becomes when its object is, or may be, a project module; None for any other."""
+        found = self._module_scope(rel, call.obj) if call.obj is not None and call.forms and not call.read else None
+        if found is None or call.obj is None:
+            return None
+        value = targets.resolver.resolve(*found, call.obj)
+        if value is not None and value[0] != "module":
+            return None
+        if value is None and not _names_project(found[0], found[1], call.obj, folders):
+            return None
+        resolved = targets.resolve(f"{value[1]}.{self.old}") if value is not None else None
+        renamed = None if resolved is None else any(self._declared(m, n) in self.seeds for m, n in resolved[-1])
+        return module_member_outcome(rel, source, call, renamed, self.old, self.new)
 
     def _declared(self, module: Module, node: ast.AST) -> tuple[str, int] | None:
         rel = self.session.rel(module.path) if module.path is not None else None
         span = self.snapshot.source(rel).name_span(node) if rel is not None else None
         return (rel, span[0]) if rel is not None and span is not None else None
 
-    def _target_edits(self, scan: MemberScan, member: bool) -> None:
+    def _target_edits(self, scan: MemberScan, member: bool, folders: SourceFolders, targets: TargetResolver) -> None:
         """Rewrite dotted target segments that resolve to a renamed declaration; refuse or list the rest."""
-        folders = SourceFolders([Path(f.real_path) for f in self.project.get_source_folders()])
-        targets = TargetResolver(folders, self.session.read)
         for rel in self.candidates:
             source = self.snapshot.source(rel)
             for call in scan.target_calls(self.root / rel, source):
                 self._targets.setdefault(rel, []).append(call.literal)
-                self._file(self._target_outcome(rel, source, call, folders, targets, member))
+                self.file(self._target_outcome(rel, source, call, folders, targets, member))
 
     def _target_outcome(
         self, rel: str, source: SourceFile, call: FormCall, folders: SourceFolders, targets: TargetResolver, member: bool
@@ -669,11 +950,72 @@ class SymbolRename(MapRename):
         return target_outcome(rel, source, call, project_target=project_target, renamed=renamed, member=member,
                               old=self.old, new=self.new)
 
+    def _keyword_edits(self, index: RunIndex, facts: TypeFacts) -> None:
+        """A parameter's or keyed field's keyword sites the checker resolves to no declaration: rewritten when the
+        signature links them or carriers take them only to renamed declarations, a blind spot when unlinked; and the
+        key-form strings of the carriers that take the key only to renamed declarations. A parameter no keyword can
+        bind has no such site."""
+        parameter = self.entry.kind == "parameter"
+        if parameter and self.seeds <= self.keywordless:
+            return
+        if not parameter and not any(facts.chain(owner).kind is not None for owner, _, _ in self._fields):
+            return
+        renamed = KeywordFlow(index, facts, self.old, self.new, lambda path, start: self.is_renamed((self.session.rel(path) or "", start)))
+        own = KeywordFlow(index, facts, self.old, self.new, lambda path, start: (self.session.rel(path) or "", start) in self.seeds)
+        for rel in self.candidates:
+            self._file_keywords(index, rel, parameter, renamed, own)
+
+    def _file_keywords(self, index: RunIndex, rel: str, parameter: bool, renamed: KeywordFlow, own: KeywordFlow) -> None:
+        path, source = self.root / rel, self.snapshot.source(rel)
+        edited = {e.start for e in self.edits if e.path == rel}
+        for site in unresolved_sites(index, self.session.load, path, source, self.old):
+            if site.span[0] in edited:
+                continue
+            linked = parameter and signature_links(index, path, site, self.old, self.new)
+            decided = "rewrite" if linked else self._carried(index, path, source, site, renamed, own)
+            if decided is not None:
+                self.file(self._keyword_outcome(rel, source, site, decided))
+        for fn, key in renamed.key_forms(source):
+            span = plain_key_span(source, key, self.old)
+            if span is not None and renamed.carrier(source, fn) == "renamed" and own.carrier(source, fn) != "other":
+                self.file(self._keyword_rewrite(rel, span))
+
+    def _carried(self, index: RunIndex, path: Path, source: SourceFile, site: KeywordSite, renamed: KeywordFlow,
+                 own: KeywordFlow) -> _KeywordDecision | None:
+        """What the callee of `site` decides: unlinked for an untyped or unnamed callee or an unprovable flow, a rewrite when
+        carriers take the key only to this rename's declarations; None when the callee resolves to nothing."""
+        if site.query is None or index.signature(path, site.query).callee is not None:
+            return "unlinked"
+        verdict = renamed.site(source, site.call)
+        if verdict is None:
+            return None
+        if verdict in ("mixed", "unresolved"):
+            return "unlinked"
+        return "rewrite" if verdict == "renamed" and own.site(source, site.call) != "other" else "unrelated"
+
+    def _keyword_rewrite(self, rel: str, span: tuple[int, int]) -> Outcome:
+        edit = TextEdit(path=rel, start=span[0], end=span[1], new_text=nfkc(self.new))
+        return Outcome(kind="rewrite", rel=rel, span=span, edits=(edit,))
+
+    def _keyword_outcome(self, rel: str, source: SourceFile, site: KeywordSite, decided: _KeywordDecision) -> Outcome:
+        """A keyword site's outcome: rewritten, unrelated, or an unlinked keyword, which `--unsure include` also
+        rewrites."""
+        if decided == "unlinked":
+            self._unlinked.add((rel, site.span[0]))
+            text = message("refactor.unlinked-keyword", path=rel, line=site.line, callee=collapsed(source.segment(site.call.func)),
+                           old=self.old)
+            edits = self._keyword_rewrite(rel, site.span).edits if self._unsure else ()
+            return Outcome(kind="blindspot", rel=rel, span=site.span, edits=edits,
+                           finding=Finding(path=rel, line=site.line, col=site.span[0], text=text))
+        if decided == "rewrite":
+            return self._keyword_rewrite(rel, site.span)
+        return Outcome(kind="unrelated", rel=rel, span=site.span)
+
     def _blindspot_scan(self, scan: MemberScan) -> None:
         for rel in self.candidates:
             source = self.snapshot.source(rel)
             for b in scan.blindspots(self.root / rel, source):
-                self._file(blindspot_outcome(rel, source, b, self.old))
+                self.file(blindspot_outcome(rel, source, b, self.old))
 
     def _owners(self) -> set[Owner]:
         """The qualifying paths of the renamed module-level and class-member declarations."""
@@ -682,8 +1024,8 @@ class SymbolRename(MapRename):
             source = self.snapshot.source(rel)
             if source.tree is None:
                 continue
-            module = tuple(libutils.modname(self.project.get_resource(rel)).split("."))
-            top = [n for stmt in source.tree.body for n in _top_declarations(stmt, self.old)]
+            module = tuple(self.session.modname(rel).split("."))
+            top = [n for stmt in source.tree.body for n in top_declarations(stmt, self.old)]
             if any(source.name_span(n) == (start, start + len(self.old)) for n in top):
                 out.add(Owner(path=module, member=False))
             for chain in _class_chains(source.tree):
@@ -693,7 +1035,7 @@ class SymbolRename(MapRename):
 
     def _class_path(self, d: Declaration) -> tuple[str, ...]:
         """The qualifying path (module segments, then classes) of the class declaring `d`."""
-        module = tuple(libutils.modname(self.project.get_resource(d.rel)).split("."))
+        module = tuple(self.session.modname(d.rel).split("."))
         tree = self.snapshot.source(d.rel).tree
         for chain in _class_chains(tree) if tree is not None else ():
             source = self.snapshot.source(d.rel)
@@ -701,47 +1043,46 @@ class SymbolRename(MapRename):
                 return module + tuple(c.name for c in chain)
         return (*module, d.cls)
 
-    def _mention_edits(self) -> None:
+    def mention_rules(self) -> MentionRules:
+        """What qualifies a mention of this rename's symbol."""
         renamed = {(d.rel, d.start) for d in self._declarations if self.is_renamed((d.rel, d.start))}
-        rules = MentionRules(
+        return MentionRules(
             old=self.old,
             owners=frozenset(self._owners()),
             colliding=frozenset(self._class_path(d) for d in self._declarations if (d.rel, d.start) not in renamed),
         )
-        declaring = {rel for rel, _ in self.seeds}
-        files: list[tuple[str, list[Mention], bool]] = []
-        tables = self.session.tables
-        for rel in self.candidates:
-            files.append((rel, self._memo(("source_mentions", rel, self.old), partial(self._source_mentions, rel)),
-                          rel in declaring))
-        for rel in tables.prose():
-            found = self._memo(("prose_mentions", rel, self.old), partial(self._prose_mentions, rel))
-            if found is not None:
-                files.append((rel, found, False))
-        for rel, found, is_declaring in files:
-            text = self.snapshot.text(rel)
-            unhandled = [m for m in found if not self._overlaps(self._targets, rel, m.start, m.end)]
-            rewrite, listed = classify(text, unhandled, rules, declaring=is_declaring)
-            for m in sorted([*rewrite, *listed], key=lambda m: m.start):
-                self._file(mention_outcome(rel, m, rewrite=m in rewrite, old=self.old, new=self.new))
+
+    def renames_site(self, site: tuple[str, int]) -> bool:
+        """This rename renames the declaration at `site`."""
+        return site in self.seeds or any(e.path == site[0] and e.start == site[1] for e in self.edits)
+
+    def handled(self, rel: str, start: int, end: int) -> bool:
+        """`start:end` of `rel` is in a patch target or under an edit."""
+        return self._overlaps(self._targets, rel, start, end)
 
     def _memo(self, key: tuple[str, ...], compute: Callable[[], _T]) -> _T:
         assert self._index is not None
         return self._index.memo(key, compute)
 
-    def _source_mentions(self, rel: str) -> list[Mention]:
+    def source_mentions(self, rel: str) -> list[Mention]:
+        return self._memo(("source_mentions", rel, self.old), partial(self._scan_source, rel))
+
+    def _scan_source(self, rel: str) -> list[Mention]:
         source = self.snapshot.source(rel)
         return mentions(source.text, self.old, iter(self.session.tables.regions(rel)), source.line)
 
-    def _prose_mentions(self, rel: str) -> list[Mention] | None:
+    def prose_mentions(self, rel: str) -> list[Mention] | None:
         """The mentions of a prose file; None when it cannot be read or never spells the old name."""
+        return self._memo(("prose_mentions", rel, self.old), partial(self._scan_prose, rel))
+
+    def _scan_prose(self, rel: str) -> list[Mention] | None:
         try:
             source = self.snapshot.source(rel)
         except (OSError, UnicodeDecodeError, LookupError):
             return None
         if self.old not in source.text:
             return None
-        return mentions(source.text, self.old, iter([(0, len(source.text), "prose", False)]), source.line)
+        return mentions(source.text, self.old, iter([(0, len(source.text), "prose")]), source.line)
 
     def _compound_names(self) -> None:
         """Each declaration in a project source whose name holds OLD as a word sequence, listed."""
@@ -749,7 +1090,7 @@ class SymbolRename(MapRename):
         found = self._memo(("compounds", self.old), partial(self.session.tables.compounds, rels, self.old))
         for rel, name, span in found:
             if name not in self.renamed_names:
-                self._file(compound_outcome(rel, self.snapshot.source(rel), span, name, self.old))
+                self.file(compound_outcome(rel, self.snapshot.source(rel), span, name, self.old))
 
     def _literal_leftovers(self) -> None:
         """Without `--docs`: each string literal exactly OLD that no rule examined, listed; every project file, as an
@@ -758,7 +1099,7 @@ class SymbolRename(MapRename):
             spans = self.session.tables.literals(rel).get(self.old, [])
             handled = partial(self._overlaps, self._examined, rel)
             for outcome in literal_outcomes(rel, self.snapshot.source(rel), self.old, handled, spans) if spans else []:
-                self._file(outcome)
+                self.file(outcome)
 
     @override
     def prepare(self, index: RunIndex) -> None:
@@ -767,9 +1108,8 @@ class SymbolRename(MapRename):
             self._index = index
             self._graph = ClassGraph(index, self.session.load)
             self._validate()
-            pyname = self.renamer.old_pyname
-            local = _is_local(pyname)
-            self._files = [self.renamer.resource.path] if local else sorted(self.session.python_files())
+            local = self.entry.kind == "local" and bool(self.entry.sites)
+            self._files = [self.entry.sites[0][0]] if local else sorted(self.session.python_files())
             self.candidates = [rel for rel in self._files if self.old in self.snapshot.text(rel)]
             self._declarations = self._member_declarations(index)
             self.seeds = self._located(index)
@@ -777,15 +1117,14 @@ class SymbolRename(MapRename):
             self.member = self.is_member()
             if self.member:
                 self._classify(index)
-            self._fields = [f for r in self.renamers if (f := self._located_field(r)) is not None]
+            self._fields = [f for e in self.entries if (f := self._located_field(e)) is not None]
 
     @override
     def seed(self, facts: TypeFacts) -> None:
         """The declarations only the checker's facts add; raises `UnresolvedBase`."""
         with timed("rules"):
-            pyname = self.renamer.old_pyname
-            if isinstance(pyname, pynamesdef.ParameterName):
-                self._parameter_seeds(facts, pyname.pyfunction)
+            if self.entry.kind == "parameter" and self.entry.function is not None:
+                self._parameter_seeds(facts, self.entry.function)
             for field in self._fields:
                 facts.chain(field[0])
 
@@ -793,48 +1132,72 @@ class SymbolRename(MapRename):
     def rules(self, index: RunIndex, facts: TypeFacts) -> None:
         """Every rule over the index: occurrences, keyed classes, member strings, targets, blind spots."""
         with timed("references"):
-            self._index_edits(index)
+            self._index_edits(index, facts)
         with timed("rules"):
             for field in self._fields:
                 self._keyed_edits(index, facts, field)
+            self._keyword_edits(index, facts)
             scan = MemberScan(index, self.old, self.session.load)
+            folders = SourceFolders(self.session.layout.source_folders())
+            targets = TargetResolver(folders, self.session.read)
             if self.member:
                 self._string_member_edits(scan)
-            self._target_edits(scan, self.member)
+                self._named_edits(scan)
+                self._class_name_edits(scan, facts)
+            elif self.entry.kind == "name":
+                self._module_member_edits(scan, folders, targets)
+            self._target_edits(scan, self.member, folders, targets)
             if self.member:
                 with timed("blindspot-scan"):
                     self._blindspot_scan(scan)
 
     @override
     def finish(self) -> None:
-        """The rules that read text only: mentions with `--docs`, else a member's exact-OLD string literals."""
+        """The rules that read text only: compound names with `--docs`, else a member's exact-OLD string literals."""
         with timed("rules"):
             if self.options.docs:
-                self._mention_edits()
                 self._compound_names()
             elif self.member:
                 self._literal_leftovers()
 
-    @override
-    def check_conflicts(self, edits: list[TextEdit]) -> None:
-        """`NameConflict` where one of `edits` (this rename's, merged) meets the new name."""
-        if not self.check_names:
-            return
-        for rel in sorted({e.path for e in edits}):
-            _conflict(self.snapshot.source(rel), rel, [e for e in edits if e.path == rel], self.old, self.new)
+
+def _names_project(module: Module, scope: Scope, obj: ast.expr, folders: SourceFolders) -> bool:
+    """The first segment of the dotted `obj` is bound by an import of a project top-level package."""
+    head = obj
+    while isinstance(head, ast.Attribute):
+        head = head.value
+    if not isinstance(head, ast.Name):
+        return False
+    owner = scope.resolving(head.id)
+    bindings = owner.bindings.get(head.id, [])
+    return any(b is not None and b[0] in ("module", "member") and b[1] is not None and folders.top_level(b[1].split(".")[0])
+               for b in bindings)
 
 
-def _top_declarations(stmt: ast.stmt, name: str) -> list[ast.AST]:
-    """The module-level declarations of `name` a statement makes."""
+def top_declarations(stmt: ast.stmt, name: str) -> list[ast.AST]:
+    """The module-level declarations of `name` a statement makes, import bindings included."""
     if isinstance(stmt, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
         return [stmt] if stmt.name == name else []
+    if isinstance(stmt, ast.Import | ast.ImportFrom):
+        return [a for a in stmt.names if (a.asname or a.name.split(".")[0]) == name]
     if isinstance(stmt, ast.Assign):
         targets = stmt.targets
     elif isinstance(stmt, ast.AnnAssign):
         targets = [stmt.target]
     else:
         return []
-    return [t for t in targets if isinstance(t, ast.Name) and t.id == name]
+    return [n for t in targets for n in _bound_names(t) if n.id == name]
+
+
+def _bound_names(target: ast.expr) -> Iterator[ast.Name]:
+    """The names an assignment target binds, through unpacking."""
+    if isinstance(target, ast.Name):
+        yield target
+    elif isinstance(target, ast.Tuple | ast.List):
+        for element in target.elts:
+            yield from _bound_names(element)
+    elif isinstance(target, ast.Starred):
+        yield from _bound_names(target.value)
 
 
 def _class_chains(tree: ast.Module) -> Iterator[list[ast.ClassDef]]:

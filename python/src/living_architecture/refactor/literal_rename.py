@@ -1,5 +1,6 @@
 """A rename of a `Literal` member: the strings the checker types by that literal type, found by probing the checker
-with the member replaced by a sentinel; every other equal string is listed unless another literal type holds it."""
+with the member replaced by a sentinel, and the literal sources of the names it needs the member at; every other equal
+string is listed unless another literal type holds it."""
 
 from __future__ import annotations
 
@@ -10,19 +11,20 @@ import tokenize
 from collections.abc import Callable
 from pathlib import Path
 
-from rope.base.project import Project
 from typing_extensions import override
 
 from living_architecture.contract import literal_value_forbidden, message
 from living_architecture.lang import Diagnostic, LanguageServer, reverse_closure
+from living_architecture.refactor.entry_location import EntryLocator
 from living_architecture.refactor.keyed import TypeFacts
-from living_architecture.refactor.locators import RefactorError
+from living_architecture.refactor.locators import cannot_rename
 from living_architecture.refactor.member_scan import TextProbe
 from living_architecture.refactor.mentions import docstrings
+from living_architecture.refactor.name_follow import Held, NameFollow, display_names
 from living_architecture.refactor.occurrence_index import RunIndex
-from living_architecture.refactor.outcomes import Finding, Outcome, file_outcome
+from living_architecture.refactor.outcomes import Finding, Outcome, file_outcome, unverified_read
 from living_architecture.refactor.python_source import SourceFile
-from living_architecture.refactor.rename_union import MapRename, RenameOptions, Session
+from living_architecture.refactor.rename_union import MapRename, RenameOptions, RenameResult, Session
 from living_architecture.refactor.routing import language_files, stub_files
 from living_architecture.refactor.symbol_path import LocatorError, names_literal
 from living_architecture.refactor.text_edits import TextEdit
@@ -138,12 +140,19 @@ def _reveal_anchors(probe: TextProbe | None, subs: list[tuple[int, int, str, int
     return {probe.accesses[i]: s for i, (s, _, text, _) in enumerate(subs) if text.startswith(_REVEAL)}
 
 
+def _name_at(source: SourceFile, span: tuple[int, int]) -> ast.Name | ast.Attribute | None:
+    """The name or dotted name of `source` spanning exactly `span`."""
+    return next((n for n in source.nodes if isinstance(n, (ast.Name, ast.Attribute)) and isinstance(n.ctx, ast.Load)
+                 and source.span(n) == span), None)
+
+
 class LiteralRename(MapRename):
     """Rename `Literal` member `node` of file `rel` to `new`, as a rename map's entry."""
 
-    def __init__(self, session: Session, rel: str, node: ast.Constant, new: str, options: RenameOptions) -> None:
+    def __init__(self, session: Session, rel: str, node: ast.Constant, new: str, options: RenameOptions,
+                 locator: EntryLocator) -> None:
         self.session = session
-        self.project: Project = session.project
+        self.follow = NameFollow(session.root, session.snapshot, locator, session.python_files)
         self.root = session.root
         self.snapshot = session.snapshot
         self.options = options
@@ -161,6 +170,8 @@ class LiteralRename(MapRename):
         self.edits: list[TextEdit] = []
         self.blindspots: list[Finding] = []
         self.leftovers: list[Finding] = []
+        self.unverified: list[tuple[Finding, TextEdit]] = []
+        self._collisions: list[tuple[TextEdit, int]] = []
         self._sites: list[_Site] = []
         self._member: _Site | None = None
 
@@ -173,8 +184,12 @@ class LiteralRename(MapRename):
         return []
 
     @override
-    def check_conflicts(self, edits: list[TextEdit]) -> None:
-        """A literal member has no name to collide with."""
+    def result(self, entry: int, target: str | None, kept: list[TextEdit]) -> RenameResult:
+        """A literal member has no name to collide with; a rewritten source's display may hold the new value."""
+        return RenameResult(entry=entry, old=self.old, new=self.new, header=self.header(),
+                            target=target, member=self.member, check_names=False, edits=self.edits, kept=kept,
+                            blindspots=self.blindspots, matched_sites=frozenset(self.matched_sites),
+                            collisions=self._collisions)
 
     @override
     def seed(self, facts: TypeFacts) -> None:
@@ -195,7 +210,7 @@ class LiteralRename(MapRename):
             trees = {rel: source.tree if source.tree is not None else source.text for rel, source in {**modules, **stubs}.items()}
             self.candidates = sorted((reverse_closure(self.rel, trees) & set(modules)) | holding)
         if self._member is None or self._member.inner is None:
-            raise RefactorError(message("refactor.cannot-rename"))
+            raise cannot_rename()
 
     def _sources(self, paths: list[Path]) -> dict[str, SourceFile]:
         """Each readable file of `paths` by its project-relative path, in path order."""
@@ -281,10 +296,12 @@ class LiteralRename(MapRename):
             before: dict[str, set[Key]] = {}
             typed = self._typed(server, before)
             self._file(Outcome(kind="rewrite", rel=self.rel, span=self._member.span, edits=(self._edit(self._member),)))
-            for site in typed:
+            sources, needed, remaining = self._follow_names(server, before, typed)
+            for site in [*typed, *sources]:
                 self._file(Outcome(kind="rewrite", rel=site.rel, span=site.span, edits=(self._edit(site),)))
-            self._verify(server, before, typed)
-            self._others(server, before, [s for s in self._sites if s not in typed])
+            self._blind(remaining)
+            self._others(server, before, [s for s in self._sites if s not in typed and s not in sources])
+            self._list_reads(sources, needed)
 
     def _edit(self, site: _Site) -> TextEdit:
         assert site.inner is not None
@@ -332,24 +349,61 @@ class LiteralRename(MapRename):
         subs.append((start, end, f"{_REVEAL}{source.text[start:end]})", len(_REVEAL)))
         return start
 
-    def _verify(self, server: LanguageServer, before: dict[str, set[Key]], typed: list[_Site]) -> None:
-        """With the member and every rewritten literal set to the sentinel, each new error is a blind spot."""
+    def _verify(self, server: LanguageServer, before: dict[str, set[Key]], rewritten: list[_Site]) -> list[tuple[str, Diagnostic]]:
+        """The new errors with the member and every rewritten literal set to the sentinel, by path and offset."""
         assert self._member is not None
-        result = self._round(server, self._sentinels([self._member, *typed]), self.candidates)
+        result = self._round(server, self._sentinels([self._member, *rewritten]), self.candidates)
         self._pull_before(server, before, result)
+        return [(rel, d) for rel, (_, diagnostics) in sorted(result.items())
+                for d, _ in sorted(diagnostics, key=lambda d: d[0].span.start)
+                if d.severity in (1, 2) and (d.code, d.span.start, d.span.end) not in before.get(rel, set())]
+
+    def _follow_names(self, server: LanguageServer, before: dict[str, set[Key]], typed: list[_Site]
+                      ) -> tuple[list[_Site], set[tuple[str, tuple[int, int]]], list[tuple[str, Diagnostic]]]:
+        """Each new error on a name is followed to that name's literal sources, which are rewritten and the check
+        repeated: the source literals, the names (file and span) the checker needs the member at, and the errors left."""
+        by_start = {(s.rel, s.inner[0]): s for s in self._sites if s.inner is not None}
+        sources: list[_Site] = []
+        needed: set[tuple[str, tuple[int, int]]] = set()
+        while True:
+            errors = self._verify(server, before, [*typed, *sources])
+            found: list[_Site] = []
+            for rel, d in errors:
+                name = _name_at(self.snapshot.source(rel), (d.span.start, d.span.end))
+                held = self.follow.sources(rel, name, self.old) if name is not None else []
+                sites = [site for h in held if (site := by_start.get((h.rel, h.start))) is not None]
+                if sites:
+                    needed.add((rel, (d.span.start, d.span.end)))
+                found += [s for s in sites if s not in typed and s not in sources and s not in found]
+            if not found:
+                return sources, needed, errors
+            sources += found
+
+    def _blind(self, errors: list[tuple[str, Diagnostic]]) -> None:
+        """Each line still drawing a new error is a blind spot."""
         seen: set[tuple[str, int]] = set()
-        for rel, (_, diagnostics) in sorted(result.items()):
-            source = self.snapshot.source(rel)
-            for d, _ in sorted(diagnostics, key=lambda d: d[0].span.start):
-                if d.severity not in (1, 2) or (d.code, d.span.start, d.span.end) in before.get(rel, set()):
-                    continue
-                line = source.line(d.span.start)
-                if (rel, line) in seen:
-                    continue
-                seen.add((rel, line))
-                text = message("refactor.literal-unresolved", path=rel, line=line, old=self.old)
-                finding = Finding(path=rel, line=line, col=d.span.start, text=text)
-                self._file(Outcome(kind="blindspot", rel=rel, span=(d.span.start, d.span.end), finding=finding))
+        for rel, d in errors:
+            line = self.snapshot.source(rel).line(d.span.start)
+            if (rel, line) in seen:
+                continue
+            seen.add((rel, line))
+            text = message("refactor.literal-unresolved", path=rel, line=line, old=self.old)
+            finding = Finding(path=rel, line=line, col=d.span.start, text=text)
+            self._file(Outcome(kind="blindspot", rel=rel, span=(d.span.start, d.span.end), finding=finding))
+
+    def _list_reads(self, sources: list[_Site], needed: set[tuple[str, tuple[int, int]]]) -> None:
+        """Record each read of a name holding a rewritten source that the checker does not need the member at, and
+        each source whose display already holds the new value."""
+        rewritten = {Held(rel=s.rel, start=s.inner[0], end=s.inner[1], line=self.snapshot.source(s.rel).line(s.span[0])): s
+                     for s in sources if s.inner is not None}
+        for held, site in rewritten.items():
+            if self.new in display_names(self.snapshot.source(held.rel), held):
+                self._collisions.append((self._edit(site), held.line))
+        for read in self.follow.reads(set(rewritten)) if rewritten else ():
+            if (read.rel, (read.start, read.end)) not in needed:
+                finding = unverified_read(read.rel, self.snapshot.source(read.rel), (read.start, read.end), read.name,
+                                          self.old, (read.held.rel, read.held.line))
+                self.unverified.append((finding, self._edit(rewritten[read.held])))
 
     def _others(self, server: LanguageServer, before: dict[str, set[Key]], others: list[_Site]) -> None:
         """Each other equal string: unrelated where a sentinel in its place draws a new error on it, else listed (a

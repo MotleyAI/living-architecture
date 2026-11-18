@@ -1,0 +1,2 @@
+- {file: pkg/a.py, symbol: A.field, new_name: column}
+- {file: pkg/g.py, symbol: Model, new_name: Dataset}

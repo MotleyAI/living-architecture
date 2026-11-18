@@ -1,0 +1,42 @@
+Renaming <columns> to <fields>:
+Renaming <columns> to <result_columns>:
+
+
+--- a/pkg/a.py
++++ b/pkg/a.py
+@@ -1,21 +1,21 @@
+ class Table:
+-    """A table and its ``columns``."""
++    """A table and its ``fields``."""
+ 
+-    columns: list[str] = []
++    fields: list[str] = []
+ 
+     def width(self) -> int:
+-        """The number of ``columns``."""
+-        return len(self.columns)
++        """The number of ``fields``."""
++        return len(self.fields)
+ 
+     class Meta:
+-        """Options of the table's ``columns``."""
++        """Options of the table's ``fields``."""
+ 
+ 
+ class Result:
+-    """A result and its ``columns``."""
++    """A result and its ``result_columns``."""
+ 
+-    columns: list[str] = []
++    result_columns: list[str] = []
+ 
+     def width(self) -> int:
+-        # `columns` are counted
+-        return len(self.columns)
++        # `result_columns` are counted
++        return len(self.result_columns)
+
+
+
+APPLIED. 1 file(s) changed:
+  pkg/a.py

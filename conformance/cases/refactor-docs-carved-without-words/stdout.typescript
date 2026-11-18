@@ -1,0 +1,27 @@
+Renaming <columns> to <fields>:
+
+
+--- a/pkg/c.ts
++++ b/pkg/c.ts
+@@ -2,13 +2,13 @@
+   name: string;
+ }
+ 
+-/** Holds `columns`. */
++/** Holds `fields`. */
+ export class Ds {
+-  columns: string[] = [];
++  fields: string[] = [];
+ }
+ 
+-// reads `columns`
++// reads `fields`
+ export function censusSql(columns: IntrospectedColumn[]): string {
+-  // joins `columns`
++  // joins `fields`
+   return columns.map((c) => c.name).join(', ');
+ }
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

@@ -1,0 +1,8 @@
+[resolve]
+[checks]
+[references]
+[references 1/1] entry 1: load -> fetch
+[rules]
+[rules 1/1] entry 1: load -> fetch: clean
+WARNING: --keep lib/shim.ts matches nothing this rename touches
+--keep lib/near.ts:7 matches nothing this rename touches; the nearest edited line is lib/near.ts:4, so nothing was refactored

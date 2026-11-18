@@ -654,16 +654,25 @@ NEW_TEMPLATES = {
     "arch-migrate.unknown-format": "cannot migrate from format {declared}, which no la release used; this la reads format {current}",
     "arch-migrate.stamp-mismatch": "cannot write the format into living-architecture.yaml; set format: {current} by hand",
     "arch-migrate.rollback-failed": "{error}; restoring failed, so these paths are left changed: {paths}",
-    "refactor.blindspots": "{count} blind spot(s) of .{attr}: type or resolve them, or pass --allow-blindspots",
+    "refactor.blindspots": "{count} blind spot(s) of {names}: type or resolve them, or pass --allow-blindspots",
     "refactor.unresolved-target": "{path}:{line}: unresolved-target: {target} names .{attr} but does not resolve",
     "refactor.stand-in":
         "{path}:{line}: stand-in: {cls}.{attr} is outside the renamed hierarchy; pass --with {path}:{line} to rename"
         " it too or --without {path}:{line} to leave it",
-    "refactor.not-stand-in": "{site} is not a stand-in of this rename",
-    "refactor.keep-unmatched": "--keep {site} matches nothing this rename touches",
+    "refactor.not-stand-in": "{site} is not a stand-in of this rename, so nothing was refactored",
+    "refactor.keep-unmatched": "--keep {site} matches nothing this rename touches, so nothing was refactored",
+    "refactor.keep-unmatched-near":
+        "--keep {site} matches nothing this rename touches; the nearest edited line is {path}:{line}, so nothing was"
+        " refactored",
+    "refactor.keep-unneeded": "WARNING: --keep {site} matches nothing this rename touches",
     "refactor.leftover": "{path}:{line}: leftover: {where} mentions {old}",
-    "compliance.attr-required": "--select attr-blindspot needs --attr NAME",
-    "compliance.attr-unselected": "--attr needs attr-blindspot among the selected checks",
+    "refactor.pick-needs-docs": "--docs-pick needs --docs, so nothing was refactored",
+    "refactor.pick-unmatched": "--docs-pick {site} names no listed mention, so nothing was refactored",
+    "refactor.pick-ambiguous":
+        "--docs-pick {site}: entries {first} and {second} both mention {old} here; add =ENTRY, so nothing was refactored",
+    "refactor.keep-literal-unneeded": "WARNING: --keep-literal {key} matches nothing this rename touches",
+    "compliance.attr-required": "--select {check} needs --attr NAME",
+    "compliance.attr-unselected": "--attr needs attr-blindspot or string-blindspot among the selected checks",
     "refactor.no-locator": "provide one of --offset, --line [--col], or --symbol",
     "refactor.symbol-unresolved": "{path}: {symbol} names no declaration; candidates: {candidates}",
     "refactor.symbol-ambiguous": "{path}: {symbol} names more than one declaration: {candidates}",
@@ -799,6 +808,7 @@ RENAME_GUARD_OPTIONS = {
     "--without": ("string", "without_stand_ins", True),
     "--keep": ("string", "keep", True),
     "--docs": ("flag", "docs", False),
+    "--words": ("path", "words", False),
     "--fail-fast": ("flag", "fail_fast", False),
 }
 
@@ -814,6 +824,24 @@ def test_rename_guard_options(name: str, expected: tuple[str, str, bool]) -> Non
 def _subcommand_options(subcommand: str) -> dict[str, dict]:
     spec = _shared_yaml("cli.yaml")["commands"]["dr-refactor"]["subcommands"][subcommand]
     return {o["name"]: o for o in spec.get("options", [])}
+
+
+@pytest.mark.parametrize("subcommand", ["rename", "rename-map"])
+@pytest.mark.parametrize(("name", "metavar"), [("--docs-pick", "PATH:LINE[=ENTRY]"), ("--keep-literal", "KEY")])
+def test_rename_scope_options(subcommand: str, name: str, metavar: str) -> None:
+    option = _subcommand_options(subcommand)[name]
+    assert (option["type"], option["metavar"], option.get("repeatable", False)) == ("string", metavar, True)
+
+
+def test_retarget_has_no_rename_scope_options() -> None:
+    assert not {"--docs-pick", "--keep-literal"} & set(_subcommand_options("retarget"))
+
+
+def test_config_schema_declares_string_forms() -> None:
+    refactor = _schema("living-architecture")["properties"]["refactor"]["properties"]
+    assert refactor["string_forms"]["type"] == "array"
+    assert refactor["string_forms"]["items"] == {"type": "string"}
+    assert refactor["string_forms"]["default"] == []
 
 
 LOCATORS = ["--offset", "--line", "--symbol"]
@@ -917,9 +945,9 @@ def test_refactor_prose_extensions() -> None:
 def test_attr_blindspot_is_a_check_of_both_languages() -> None:
     languages = _shared_yaml("languages.yaml")
     assert languages["python"]["compliance_checks"] == ["untyped-def", "unannotated-attr", "explicit-any", "mock",
-                                                        "rope-walk", "attr-blindspot"]
+                                                        "rope-walk", "attr-blindspot", "string-blindspot"]
     assert languages["typescript"]["compliance_checks"] == ["tsconfig", "explicit-any", "untyped-def", "mock",
-                                                            "attr-blindspot"]
+                                                            "attr-blindspot", "string-blindspot"]
 
 
 def test_every_printed_compliance_kind_is_a_check_id() -> None:

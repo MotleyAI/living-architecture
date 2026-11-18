@@ -14,7 +14,6 @@ from refactor_cli import readouterr
 from living_architecture.cli.dr_refactor import dr_refactor
 from living_architecture.refactor.mentions import mentions, qualifier_segments, source_regions
 from living_architecture.refactor.python_source import SourceFile, split_lines
-from living_architecture.refactor.rope_refactor import _kept_lines  # pyright: ignore[reportPrivateUsage]
 from living_architecture.refactor.sites import Site
 
 VECTORS: dict[str, Any] = yaml.safe_load(
@@ -38,7 +37,7 @@ def test_lines(vector: dict[str, Any]) -> None:
 @pytest.mark.parametrize("vector", VECTORS["mentions"], ids=lambda v: v["name"])
 def test_mentions(vector: dict[str, Any]) -> None:
     text = vector["text"]
-    regions = iter([(s, e, "string", False) for s, e in vector.get("regions", [[0, len(text)]])])
+    regions = iter([(s, e, "string") for s, e in vector.get("regions", [[0, len(text)]])])
     assert [m.start for m in mentions(text, vector["old"], regions, lambda _: 1)] == _expected(vector, "starts")
 
 
@@ -54,7 +53,7 @@ def test_sites(vector: dict[str, Any], tmp_path: Path) -> None:
     for rel in vector["files"]:
         (root / rel).parent.mkdir(parents=True, exist_ok=True)
         (root / rel).write_text("")
-    site = Site.parse(vector["site"], root, base=root)
+    site = Site.parse(vector["site"], root)
     assert [[path, line, site.covers(path, line)] for path, line, _ in vector["checks"]] == vector["checks"]
 
 
@@ -72,11 +71,6 @@ def test_docs_regions_in_a_cr_only_file() -> None:
     text = "x = 1\r# calls save_model\ry = 'save_model'\r"
     found = mentions(text, "save_model", source_regions(SourceFile(Path("a.py"), text)), lambda _: 1)
     assert [(m.start, m.where) for m in found] == [(text.index("save_model"), "comment"), (text.rindex("save_model"), "string")]
-
-
-def test_a_kept_line_counts_python_lines_only() -> None:
-    old, new = "a\fb = 1\nc = 1\n", "a\fB = 1\nc = 1\n"
-    assert _kept_lines("a.py", old, new, lambda _, line: line == 1) == old
 
 
 @pytest.mark.parametrize(

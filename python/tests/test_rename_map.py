@@ -9,10 +9,10 @@ from pathlib import Path
 import pytest
 import yaml
 from project_files import file_tree, write_project
-from refactor_cli import assert_same_run, line_col, read, run, run_raw, template_regex
-from rope.base.exceptions import RefactoringError
+from refactor_cli import assert_same_run, entry_refusal, line_col, read, run, run_raw, template_regex
 
 from living_architecture.contract import message
+from living_architecture.refactor.locators import RefactorError
 from living_architecture.refactor.occurrence_index import ServerSession
 from living_architecture.refactor.rename_map import RenameMap
 from living_architecture.refactor.rename_union import SymbolRename
@@ -165,13 +165,13 @@ def test_one_combined_refusal(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, c
     assert (code, out) == (1, "")
     lines = err.splitlines()
     assert lines[:2] == [
-        message("compliance.attr-blindspot", path="tests/test_a.py", line=2, receiver="storage", attr="save_model",
-                type="Unknown"),
         message("compliance.attr-blindspot", path="tests/test_b.py", line=2, receiver="storage", attr="get_model",
+                type="Unknown"),
+        message("compliance.attr-blindspot", path="tests/test_a.py", line=2, receiver="storage", attr="save_model",
                 type="Unknown"),
     ]
     assert len(lines) == 3
-    assert template_regex(message("refactor.blindspots", count=2, attr="ATTR"), attr="ATTR").fullmatch(lines[2])
+    assert template_regex(message("refactor.blindspots", count=2, names="NAMES"), names="NAMES").fullmatch(lines[2])
     assert file_tree(root) == before
 
 
@@ -245,26 +245,25 @@ def test_conflicting_edits(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caps
 
 
 PARAMS = "def f(x: int, y: int) -> int:\n    return x - y\n"
-NAME_CONFLICT = message("refactor.name-conflict", name="NAME", path="PATH", line=999)
 
 
+@pytest.mark.parametrize("reverse", [False, True], ids=["as-written", "reversed"])
 @pytest.mark.parametrize(
-    "renames",
-    [[("f(x)", "y"), ("f(y)", "x")], [("f(x)", "y"), ("f(y)", "z")]],
+    ("renames", "after"),
+    [([("f(x)", "y"), ("f(y)", "x")], "def f(y: int, x: int) -> int:\n    return y - x\n"),
+     ([("f(x)", "y"), ("f(y)", "z")], "def f(y: int, z: int) -> int:\n    return y - z\n")],
     ids=["swap", "chain"],
 )
-def test_swaps_and_chains_in_one_scope_refuse(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], renames: list[tuple[str, str]]
+def test_swaps_and_chains_in_one_scope_apply(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], renames: list[tuple[str, str]],
+    after: str, reverse: bool,
 ) -> None:
+    ordered = renames[::-1] if reverse else renames
     root = _project(tmp_path, {"pkg/f.py": PARAMS},
-                    [{"file": "pkg/f.py", "symbol": symbol, "new_name": new} for symbol, new in renames])
-    before = file_tree(root)
-    code, out, err = run(root, _rename_map(), monkeypatch, capsys)
-    assert (code, out) == (1, "")
-    pattern = template_regex(NAME_CONFLICT, name="NAME", path="PATH", line="999")
-    assert err.splitlines()
-    assert all(pattern.fullmatch(line) for line in err.splitlines())
-    assert file_tree(root) == before
+                    [{"file": "pkg/f.py", "symbol": symbol, "new_name": new} for symbol, new in ordered])
+    code, _out, err = run(root, _rename_map(), monkeypatch, capsys)
+    assert (code, err) == (0, "")
+    assert read(root, "pkg/f.py") == after
 
 
 @pytest.mark.parametrize(
@@ -283,7 +282,8 @@ def test_two_entries_converging_on_one_name_refuse(
     before = file_tree(root)
     code, out, err = run(root, _rename_map(), monkeypatch, capsys)
     new = renames[0][1]
-    assert (code, out, err) == (1, "", message("refactor.name-conflict", name=new, path="pkg/f.py", line=line) + "\n")
+    conflict = message("refactor.name-conflict", name=new, path="pkg/f.py", line=line)
+    assert (code, out, err) == (1, "", entry_refusal(f"pkg/f.py {renames[1][0]}", conflict, 2) + "\n")
     assert file_tree(root) == before
 
 
@@ -471,7 +471,7 @@ def test_entries_sharing_an_old_name_report_each_blind_spot_once(
     ])
     code, _out, err = run(root, _rename_map(), monkeypatch, capsys)
     blind = message("compliance.attr-blindspot", path="pkg/m.py", line=12, receiver="x", attr="save", type="Unknown")
-    assert (code, err) == (1, f"{blind}\n{message('refactor.blindspots', count=1, attr='save')}\n")
+    assert (code, err) == (1, f"{blind}\n{message('refactor.blindspots', count=1, names='.save')}\n")
 
 
 def test_a_failure_after_the_export_stops_the_server_and_keeps_the_cache(
@@ -512,7 +512,7 @@ def use(x):
 """
 
 
-def test_a_rope_error_in_one_entrys_rules_refuses_that_entry(
+def test_an_error_in_one_entrys_rules_refuses_that_entry(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     root = _project(tmp_path, {"pkg/a.py": ROPE_FAILS}, [
@@ -521,18 +521,18 @@ def test_a_rope_error_in_one_entrys_rules_refuses_that_entry(
     ])
     index_edits = SymbolRename._index_edits  # pyright: ignore[reportPrivateUsage]
 
-    def failing(self: SymbolRename, index: object) -> None:
+    def failing(self: SymbolRename, index: object, facts: object) -> None:
         if self.old == "old":
             clash = ROPE_FAILS.index("other")
             self.edits.append(TextEdit(path="pkg/a.py", start=clash, end=clash + len("other"), new_text="clash"))
-            raise RefactoringError("rope failed")
-        index_edits(self, index)  # pyright: ignore[reportArgumentType]
+            raise RefactorError(message("refactor.cannot-rename"))
+        index_edits(self, index, facts)  # pyright: ignore[reportArgumentType]
 
     monkeypatch.setattr(SymbolRename, "_index_edits", failing)
     before = file_tree(root)
     code, out, err = run(root, _rename_map(), monkeypatch, capsys)
     assert (code, out) == (1, "")
     blind = message("compliance.attr-blindspot", path="pkg/a.py", line=11, receiver="x", attr="other", type="Unknown")
-    closing = message("refactor.blindspots", count=1, attr="other")
-    assert err == f"{message('refactor.cannot-rename')}\n{blind}\n{closing}\n"
+    closing = message("refactor.blindspots", count=1, names=".other")
+    assert err == f"{entry_refusal('pkg/a.py old', message('refactor.cannot-rename'))}\n{blind}\n{closing}\n"
     assert file_tree(root) == before

@@ -12,6 +12,7 @@ from project_files import file_tree, write_project
 
 from living_architecture.cli.dr_refactor import dr_refactor
 from living_architecture.config import current_format
+from living_architecture.contract import message
 
 BIN_DIR = Path(sys.executable).parent
 
@@ -19,21 +20,20 @@ Result = tuple[int, str, str]
 
 _PHASES = "resolve|checks|references|rules|conflicts|baseline|write"
 _PROGRESS = re.compile(rf"\[(?:{_PHASES})\]|\[(?:{_PHASES}) \d+/\d+\] .*")
-_REFUSED = re.compile(r"\[rules \d+/\d+\] .*: (\d+) refusal\(s\)")
 
 
 def final_report(err: str) -> str:
-    """`dr-refactor`'s stderr without its phase and progress lines and the refusals printed under a refused group."""
-    out: list[str] = []
-    skip = 0
-    for line in err.splitlines(keepends=True):
-        if skip:
-            skip -= 1
-        elif refused := _REFUSED.fullmatch(line.rstrip("\n")):
-            skip = int(refused.group(1))
-        elif not _PROGRESS.fullmatch(line.rstrip("\n")):
-            out.append(line)
-    return "".join(out)
+    """`dr-refactor`'s stderr without its phase and progress lines: every refusal, in the order printed."""
+    return "".join(line for line in err.splitlines(keepends=True) if not _PROGRESS.fullmatch(line.rstrip("\n")))
+
+
+def entry_refusal(locator: str, text: str, *indexes: int) -> str:
+    """`text` as the refusal of the map entries `indexes` (entry 1 by default) located by `locator`."""
+    if len(indexes) > 1:
+        entries = message("refactor.progress-entries", indexes=", ".join(str(i) for i in indexes))
+    else:
+        entries = message("refactor.progress-entry", index=indexes[0] if indexes else 1)
+    return message("refactor.entry-refusal", entries=entries, locator=locator, text=text)
 
 
 def run_raw(root: Path, argv: list[str], monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> Result:
@@ -105,6 +105,23 @@ def git(root: Path, *args: str) -> str:
     env = {**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t", "GIT_COMMITTER_NAME": "t",
            "GIT_COMMITTER_EMAIL": "t@t"}
     return subprocess.run(["git", *args], cwd=root, env=env, capture_output=True, text=True, check=True).stdout
+
+
+def git_project(root: Path, files: dict[str, str], config: str | None = None) -> Path:
+    """`write_project` as a git repo (prose files come from git); `config` is appended to a repo config."""
+    extra = {} if config is None else {"living-architecture.yaml": f"format: {current_format()}\n{config}"}
+    write_project(root, {**files, **extra})
+    git(root, "init", "-q", "-b", "main")
+    return root
+
+
+def rename_argv(rel: str, symbol: str, new_name: str, *flags: str, apply: bool = True) -> list[str]:
+    """`dr-refactor`'s arguments for a rename located by `--symbol`."""
+    return [*(["--apply"] if apply else []), "rename", "--file", rel, "--symbol", symbol, "--new-name", new_name, *flags]
+
+
+def leftover(path: str, line: int, where: str, old: str) -> str:
+    return message("refactor.leftover", path=path, line=line, where=where, old=old)
 
 
 def configure_typecheck(root: Path, command: str | None) -> None:

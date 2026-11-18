@@ -1,0 +1,34 @@
+Renaming <model> to <dataset>:
+
+
+--- a/pkg/l.py
++++ b/pkg/l.py
+@@ -1,18 +1,18 @@
+ def f(name: str) -> str:
+-    model = name.upper()
+-    return model
++    dataset = name.upper()
++    return dataset
+ 
+ 
+ class Q:
+     def run(self, name: str) -> str:
+-        model = name.lower()
+-        return model
++        dataset = name.lower()
++        return dataset
+ 
+ 
+ def k(name: str) -> str:
+     def inner() -> str:
+-        model = name.strip()
+-        return model
++        dataset = name.strip()
++        return dataset
+ 
+     return inner()
+ 
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

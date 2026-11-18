@@ -1,0 +1,8 @@
+[resolve]
+[checks]
+[references]
+[references 1/1] entry 1: columns -> fields
+[rules]
+[rules 1/1] entry 1: columns -> fields: clean
+[conflicts]
+src/other.ts:4: unverified-read: SECTIONS holds 'columns', rewritten at src/m.ts:5; this read is not proven to name the renamed member

@@ -1,6 +1,7 @@
-kind: adapter
+kind: paired
 languages:
 - python
+- typescript
 command: dr-refactor
 args:
 - --apply
@@ -9,9 +10,8 @@ args:
 git:
 - commit: init
 expect:
-  exit: 1
-  files:
-  - pkg/f.py
+  exit: 0
+  git_status: true
 golden: manual
-note: 'a swap of two parameters in one scope: name conflicts are checked against the code before the map, so each entry
-  meets the existing name-conflict refusal, both reported in one report; nothing written'
+note: 'swaps and chains of parameters in one scope, each in both entry orders: every entry is resolved against the code before
+  the map and the name conflicts are checked on the code after it, all applied'

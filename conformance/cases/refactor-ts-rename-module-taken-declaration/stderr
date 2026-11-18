@@ -1,0 +1,3 @@
+[resolve]
+[checks]
+entry 1 (src/a.ts): b already names something else at src/b.d.ts:1, so nothing was refactored

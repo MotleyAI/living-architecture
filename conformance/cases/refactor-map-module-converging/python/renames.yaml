@@ -1,0 +1,2 @@
+- {module: pkg/a/__init__.py, new_name: c}
+- {module: pkg/b.py, new_name: c}

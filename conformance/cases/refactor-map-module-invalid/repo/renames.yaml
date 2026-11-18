@@ -1,0 +1,3 @@
+- {module: src/a.py, symbol: f, new_name: g}
+- {module: src/a.py, retarget: f}
+- {module: src/a.py, file: src/a.py, new_name: g}

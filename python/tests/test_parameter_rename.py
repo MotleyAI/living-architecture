@@ -9,7 +9,7 @@ from string import Template
 
 import pytest
 from project_files import file_tree
-from refactor_cli import readouterr
+from refactor_cli import entry_refusal, readouterr
 
 from living_architecture.cli.dr_refactor import dr_refactor
 from living_architecture.contract import message
@@ -115,7 +115,9 @@ def test_keyword_only_parameter_located_anywhere(typed_project: MakeProject, rel
     _expect(root, {
         "pkg/kw.py": KWONLY_RENAMED,
         "pkg/use.py": KW_USE.replace('kwonly(model_name="x")', 'kwonly(dataset_name="x")')
-                            .replace('kwonly, model_name="x"', 'kwonly, dataset_name="x"'),
+                            .replace('kwonly, model_name="x"', 'kwonly, dataset_name="x"')
+                            .replace('kwonly(**{"model_name": "x"})', 'kwonly(**{"dataset_name": "x"})')
+                            .replace('wrap(model_name="x")', 'wrap(dataset_name="x")'),
     })
 
 
@@ -171,14 +173,11 @@ SHADOWED = Template(
 
 @pytest.mark.parametrize("star", ["*, ", ""], ids=["keyword-only", "positional-or-keyword"])
 @pytest.mark.parametrize("needle", ["lambda model_name", ": model_name\n"], ids=["lambda-parameter", "lambda-body"])
-def test_lambda_shadowing_a_parameter_is_refused(
-    typed_project: MakeProject, capsys: pytest.CaptureFixture[str], star: str, needle: str
-) -> None:
+def test_a_lambda_shadowing_a_parameter_renames_only_its_own(typed_project: MakeProject, star: str, needle: str) -> None:
     root = typed_project({"pkg/s.py": SHADOWED.substitute(star=star, p=OLD, k=OLD)})
-    before = file_tree(root)
-    assert _rename(root, "pkg/s.py", _at(root, "pkg/s.py", needle) + needle.index(OLD)) == 1
-    assert readouterr(capsys) == ("", message("refactor.cannot-rename") + "\n")
-    assert file_tree(root) == before
+    assert _rename(root, "pkg/s.py", _at(root, "pkg/s.py", needle) + needle.index(OLD)) == 0
+    expected = SHADOWED.substitute(star=star, p=OLD, k=OLD).replace(f"lambda {OLD}: {OLD}", f"lambda {NEW}: {NEW}")
+    _expect(root, {"pkg/s.py": expected})
 
 
 @pytest.mark.parametrize("star", ["*, ", ""], ids=["keyword-only", "positional-or-keyword"])
@@ -311,19 +310,20 @@ NOT_OVERLOADS = Template(
 
 
 @pytest.mark.parametrize(
-    ("header", "deco"),
+    ("header", "deco", "flags"),
     [
-        ("", ""),
-        ("def overload(fn: object) -> object:\n    return fn\n\n\n", "@overload  # pyright: ignore[reportUntypedFunctionDecorator]\n"),
+        ("", "", ()),
+        ("def overload(fn: object) -> object:\n    return fn\n\n\n", "@overload  # pyright: ignore[reportUntypedFunctionDecorator]\n",
+         ("--allow-blindspots",)),
     ],
     ids=["plain-redefinition", "local-decorator-named-overload"],
 )
 def test_same_named_defs_without_a_resolved_overload_are_no_group(
-    typed_project: MakeProject, header: str, deco: str
+    typed_project: MakeProject, header: str, deco: str, flags: tuple[str, ...]
 ) -> None:
     source = NOT_OVERLOADS.substitute(header=header, deco=deco, first=OLD)
     root = typed_project({"pkg/m.py": source})
-    assert _rename(root, "pkg/m.py", _at(root, "pkg/m.py", OLD)) == 0
+    assert _rename(root, "pkg/m.py", _at(root, "pkg/m.py", OLD), *flags) == 0
     _expect(root, {"pkg/m.py": NOT_OVERLOADS.substitute(header=header, deco=deco, first=NEW)})
 
 
@@ -383,7 +383,8 @@ def _refused(
 ) -> None:
     before = file_tree(root)
     assert _rename(root, rel, offset) == 1
-    assert readouterr(capsys) == ("", message("refactor.name-conflict", name=NEW, path=path, line=line) + "\n")
+    conflict = message("refactor.name-conflict", name=NEW, path=path, line=line)
+    assert readouterr(capsys) == ("", entry_refusal(f"{rel} offset {offset}", conflict) + "\n")
     assert file_tree(root) == before
 
 
@@ -432,8 +433,10 @@ def test_type_parameter_of_the_new_name_is_a_conflict(
 ) -> None:
     root = typed_project({"pkg/t.py": TYPE_PARAMETERS})
     before = file_tree(root)
-    assert _rename(root, "pkg/t.py", _at(root, "pkg/t.py", OLD, nth=nth), new_name=new_name) == 1
-    assert readouterr(capsys) == ("", message("refactor.name-conflict", name=new_name, path="pkg/t.py", line=line) + "\n")
+    offset = _at(root, "pkg/t.py", OLD, nth=nth)
+    assert _rename(root, "pkg/t.py", offset, new_name=new_name) == 1
+    conflict = message("refactor.name-conflict", name=new_name, path="pkg/t.py", line=line)
+    assert readouterr(capsys) == ("", entry_refusal(f"pkg/t.py offset {offset}", conflict) + "\n")
     assert file_tree(root) == before
 
 

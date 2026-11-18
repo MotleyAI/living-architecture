@@ -50,6 +50,23 @@ describe('vendored snapshot', () => {
     expect([language('typescript').any_type, language('typescript').top_type]).toEqual(['any', 'unknown']);
     expect([language('python').any_type, language('python').top_type]).toEqual(['Any', 'object']);
   });
+
+  it('marks the Python string-member calls whose miss raises no error', () => {
+    const forms = plain(language('python')).string_member_calls as Record<string, unknown>[];
+    const form = (call: string): Record<string, unknown> => forms.find((f) => f.call === call) ?? {};
+    expect(form('hasattr').silent).toBe(true);
+    expect(form('getattr').default).toBe(2);
+    expect(forms.filter((f) => f.silent !== undefined).map((f) => f.call)).toEqual(['hasattr']);
+    expect(forms.filter((f) => f.default !== undefined).map((f) => f.call)).toEqual(['getattr']);
+    expect((plain(language('typescript')).string_member_calls as Record<string, unknown>[]).filter((f) => f.silent !== undefined || f.default !== undefined)).toEqual([]);
+  });
+
+  it.each(['name_decorators', 'name_reads', 'name_class_values'])('serves the Python %s forms', (key) => {
+    const entries: unknown = plain(language('python'))[key];
+    expect(Array.isArray(entries)).toBe(true);
+    expect((entries as unknown[]).length).toBeGreaterThan(0);
+    expect(language('typescript')[key]).toBeUndefined();
+  });
 });
 
 describe('computeHash', () => {
