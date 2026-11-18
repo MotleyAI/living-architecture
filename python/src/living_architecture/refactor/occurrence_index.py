@@ -291,6 +291,11 @@ class RunIndex:
         if self.cache is not None:
             self.cache.save()
 
+    def class_fact_source(self) -> ClassFactSource:
+        """The class facts merged so far, holding nothing else of the index."""
+        facts = {key: entry["class"] for key, entry in self._facts.items() if "class" in entry}
+        return ClassFactSource(facts, list(self.request.members), self._source, self.server)
+
     # ---- lookups
 
     def memo(self, key: Hashable, compute: Callable[[], _T]) -> _T:
@@ -362,3 +367,30 @@ class RunIndex:
         """The receiver verdict and declarations of the probe access standing for the member call whose literal is
         `literal`, in the files' own offsets."""
         return self._probe_results.get((path, literal))
+
+
+class ClassFactSource:
+    """Class facts by position; a miss is exported alone, looking up `members`, through the run's language server."""
+
+    def __init__(self, facts: dict[tuple[Path, int], PositionFacts], members: list[str],
+                 source: Callable[[Path], SourceFile | None], server: ServerSession) -> None:
+        self._facts = facts
+        self._members = members
+        self._source = source
+        self._server = server
+
+    def class_facts(self, path: Path, offset: int) -> PositionFacts:
+        if (path, offset) not in self._facts:
+            server = self._server.get()
+            source = self._source(path)
+            if source is not None:
+                server.open(path, source.text)
+            request = ExportRequest(names=[], files=[], members=self._members,
+                                    facts=[FactQuery(path=path, offset=offset, kinds=("class",))])
+            with timed("references"):
+                found = server.export(request)
+            for facts in [*found.answers, *found.followed]:
+                if "class" in facts.kinds:
+                    _ = self._facts.setdefault((facts.path, facts.offset), facts)
+            _ = self._facts.setdefault((path, offset), PositionFacts(path=path, offset=offset, kinds=("class",)))
+        return self._facts[path, offset]
