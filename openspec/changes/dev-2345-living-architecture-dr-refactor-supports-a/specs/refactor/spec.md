@@ -225,7 +225,7 @@ refusal of any of them SHALL refuse the run as any entry's refusal does.
 #### Scenario: One conflicting local refuses the entry
 - **WHEN** `*.<locals>.model` is renamed to `dataset` and one of three functions binding `model` already binds
   `dataset`
-- **THEN** the run is refused with `refactor.name-conflict` at that function, the progress line names entry 1 and
+- **THEN** the run is refused with `refactor.name-conflict` at that function, the refusal names entry 1 and
   nothing changes
 
 #### Scenario: TypeScript locals
@@ -250,7 +250,7 @@ list no fixture decorator.
 #### Scenario: Fixture left, fake reported
 - **WHEN** a map renames `Query.root_model` and `Plan.root_model`, `class Fake` declares `root_model`, and test class
   `TestQ` declares `root_model` under `@pytest.fixture`
-- **THEN** stderr's final report holds one `refactor.stand-in` line, naming `Fake.root_model`, and none for `TestQ`
+- **THEN** stderr holds, once, the `refactor.stand-in` line naming `Fake.root_model`, and none for `TestQ`
 
 #### Scenario: Fixture decorator through an alias
 - **WHEN** the fixture is declared under `@fixture(scope="module")` with `from pytest import fixture`, or under
@@ -295,8 +295,8 @@ hold unchanged.
 
 #### Scenario: Mentions under a carved path
 - **WHEN** `Table.columns` is renamed with `--docs --words TABLE`, `--with` names stand-in `Meta.columns` in
-  `pkg/sql/meta.py`, the table carves `columns` under `pkg/sql/**`, and that file's docstring holds
-  ``` ``columns`` ```
+  `pkg/sql/meta.py`, the table carves `columns` under `pkg/sql/**`, and that file's docstring
+  holds ``` ``columns`` ```
 - **THEN** the mention is unchanged and listed as `leftover` with `{where}` `docstring`
 
 #### Scenario: Mention inside a carved parameter's function
@@ -310,8 +310,8 @@ hold unchanged.
 - **THEN** that mention is rewritten, being outside the function's scope
 
 #### Scenario: Symbol carve-out
-- **WHEN** the table carves `columns` by `symbols` naming `field_names(columns)` and that function's docstring holds
-  ``` ``columns`` ```
+- **WHEN** the table carves `columns` by `symbols` naming `field_names(columns)` and that function's docstring
+  holds ``` ``columns`` ```
 - **THEN** the mention is listed
 
 #### Scenario: Qualified mention
@@ -445,7 +445,8 @@ stand-ins left by default defines, SHALL print one `refactor.stand-in` line
 per stand-in member declaration on stderr, sorted by path, line and column and after any blind-spot lines, print
 nothing on stdout, write nothing and exit 1, with or without `--apply`.
 
-`--with PATH:LINE` and `--without PATH:LINE` (each repeatable) SHALL classify every stand-in member declared on that
+`--with PATH:LINE` and `--without PATH:LINE` (each repeatable, a relative PATH resolved against `--project`) SHALL
+classify every stand-in member declared on that
 line, together with that stand-in's own hierarchy. A `--with` stand-in SHALL be renamed in the same run: its
 hierarchy joins the renamed hierarchy, and every rule of the rename (references, keyed rewrites, string-member
 forms, `--docs`, `--keep`, blind spots) SHALL run once over the joined set, on one snapshot of the files, identical
@@ -461,7 +462,7 @@ A TypeScript stand-in member declared by a computed name SHALL be classified by 
 #### Scenario: Cast stand-in refuses until classified
 - **WHEN** `StorageBackend.get_model` is renamed and `class _ModelReadCache` (no base in the hierarchy) defines
   `get_model` and is used as `cast(StorageBackend, _ModelReadCache(...))`
-- **THEN** stderr's final report is the `refactor.stand-in` line naming `_ModelReadCache.get_model` with its path and
+- **THEN** stderr holds, once, the `refactor.stand-in` line naming `_ModelReadCache.get_model` with its path and
   line, the exit code is 1 and no file changes
 
 #### Scenario: --with renames the stand-in in the same diff
@@ -677,12 +678,17 @@ naming one file SHALL resolve to one symbol. A module rename, by a module entry 
 SHALL be computed beside any other entries. Two entries resolving to one symbol with the same intent SHALL merge; with
 different intents they SHALL be refused with `refactor.map-duplicate` naming both entry indexes, exit 2. Every entry
 SHALL then be computed on one snapshot of the project, every rename rule running once over the union of the entries'
-symbols, with one blind-spot scan for every member entry's old name and one combined refusal report, sorted as a single
-rename sorts it. A site any entry rewrites SHALL NOT be listed as another entry's leftover. Identical edits SHALL merge;
+symbols, with one blind-spot scan for every member entry's old name and each refusal reported once (see the
+one-report requirement). A site any entry rewrites SHALL NOT be listed as another entry's leftover. Identical edits SHALL merge;
 every site two entries rewrite differently SHALL be refused with `refactor.map-conflict` naming the site and both
-entries, exit 1, writing nothing. Name conflicts SHALL be checked first for each `new_name` entry alone against
-the code before the map, in map order, so a swap or a chain of names inside one scope is refused, and then for all
-entries' edits together, so entries that meet on one name or capture each other's references are refused. A retarget
+entries, exit 1, writing nothing. Name conflicts SHALL be checked once, over all entries' edits together, on the code after the whole map: a
+declaration another entry renames away SHALL NOT hold its old name, so a chain or a swap of symbol names (members,
+parameters, locals, top-level names) applies, in any entry order, and entries that meet on one name or capture each
+other's references are refused. A Python renamed keyword or key meeting its new name in one call or literal SHALL be
+judged on the names after every entry's edits. When any site is refused with `refactor.map-conflict`, no
+name-conflict check SHALL run. A `--with` stand-in that entries with different new names reach SHALL get each such
+entry's rewrite, at its declaration and at every reference through it, so each of those sites is refused with
+`refactor.map-conflict`, in both twins. A retarget
 entry's rewritten references SHALL resolve to its target, which another entry may rename. A retarget entry whose
 target another entry renames SHALL write the target's new name.
 
@@ -691,10 +697,10 @@ printed as one `rename from`/`rename to` pair, from its old path to its new name
 move moves SHALL be printed at the file's old path and, with `--apply`, written before the move. Moves inside a package
 another entry moves SHALL compose: every project file SHALL end at the path its own move and every surviving move of
 a package holding it produce, in any entry order, and the moves SHALL be made innermost first. The name-conflict
-checks SHALL see each entry's own move when it is checked alone, and every surviving move composed when all entries
-are checked together, so two moves that end at one path, a moved module meeting a name another entry's edits bind in
+check SHALL see every surviving move composed, so two moves that end at one path, a moved module meeting a name another entry's edits bind in
 its package, and a module's new name capturing a reference another entry rewrites are each refused with
-`refactor.name-conflict`.
+`refactor.name-conflict`. A module entry's new name SHALL still be checked against the code before the map (see the
+cheap checks), so a chain of module names is refused.
 
 `rename` SHALL behave as a one-entry map with a `new_name`, and `retarget` as a one-entry map with a `retarget`;
 their output SHALL equal that map's byte for byte. A `rename --file F --new-name N` with no locator SHALL be the
@@ -712,7 +718,7 @@ one-entry map `{module: F, new_name: N}`, in either language.
 
 #### Scenario: One combined refusal
 - **WHEN** two member entries each meet one untyped receiver
-- **THEN** stderr's final report lists both blind spots in path, line and column order, followed by one
+- **THEN** each blind spot is printed once, under its group's `[rules]` line, the final report is one
   `refactor.blindspots` line, the exit code is 1 and nothing changes
 
 #### Scenario: Duplicate entries
@@ -725,12 +731,45 @@ one-entry map `{module: F, new_name: N}`, in either language.
   1 and nothing changes
 
 #### Scenario: Swap in one scope refused
-- **WHEN** a map renames parameter `f(x)` to `y` and `f(y)` to `x`
-- **THEN** the rename refuses with the existing name-conflict finding of each entry and nothing changes
+- **WHEN** a map renames module `pkg/a.py` to `b` and module `pkg/b.py` to `a`
+- **THEN** stderr is `[resolve]`, `[checks]` and the `refactor.name-conflict` finding of each entry, the exit
+  code is 1 and nothing changes
+
+#### Scenario: Swap of symbol names applies
+- **WHEN** a map renames parameter `f(x)` to `y` and `f(y)` to `x` and runs with `--apply`
+- **THEN** both renames apply, every read of each parameter follows it, and the exit code is 0
+
+#### Scenario: Chain of member names
+- **WHEN** a map renames `Q.metrics` to `legacy_metrics` (TypeScript `legacyMetrics`) and `Q.measures` to `metrics`,
+  in either entry order, and runs with `--apply`
+- **THEN** both renames apply, a call `q.measures() + q.metrics()` becomes `q.metrics() + q.legacy_metrics()`, and
+  the exit code is 0
+
+#### Scenario: Chain and swap of each symbol kind
+- **WHEN** maps chain and swap two parameters of one function, two locals of one function and two top-level names
+  of one module, in either entry order
+- **THEN** each map applies and the exit code is 0
+
+#### Scenario: Chain whose freed declaration is kept
+- **WHEN** the member chain runs with `--keep` on the line declaring `Q.metrics`
+- **THEN** the checks pass, and the map is refused in `conflicts` with the `refactor.name-conflict` finding of the
+  entry renaming `Q.measures`, naming the kept line; nothing changes and the exit code is 1
+
+#### Scenario: Stand-in two entries reach
+- **WHEN** a map renames `Table.columns` to `fields` and `Result.columns` to `result_columns`, a third class
+  `Other` declares `columns` and a function reads it through `o: Other`, and the map passes `--with` the line of
+  `Other.columns`
+- **THEN** stderr's final report holds `refactor.map-conflict` naming entries 1 and 2 for the declaration's line and
+  for the read's line, through either twin, the exit code is 1 and nothing changes
+
+#### Scenario: Map conflict without a name check
+- **WHEN** two entries rewrite one site differently and a third entry's new name would capture a reference
+- **THEN** the final report holds the `refactor.map-conflict` finding and no `refactor.name-conflict` finding
 
 #### Scenario: Two entries converging on one name
 - **WHEN** a map renames parameter `f(x)` to `z` and `f(y)` to `z`
-- **THEN** the rename refuses with the existing name-conflict finding and nothing changes
+- **THEN** stderr is `[resolve]`, `[checks]` and the `refactor.name-conflict` finding of entry 2 naming the line of
+  `f`, and nothing changes
 
 #### Scenario: Two catch variables taking one name
 - **WHEN** a TypeScript map renames the variables of two separate `catch` clauses to `err`
@@ -739,7 +778,8 @@ one-entry map `{module: F, new_name: N}`, in either language.
 #### Scenario: Entries capturing each other's references
 - **WHEN** one entry renames a module-level `a` to `z`, another renames a function's local `b` to `z`, and that
   function reads `a`, so that each entry alone is clean
-- **THEN** the map is refused with the name-conflict finding and nothing changes
+- **THEN** the map is refused in `conflicts` with the `refactor.name-conflict` finding of the later entry, naming the
+  line of `a`, and nothing changes
 
 #### Scenario: Retarget beside a rename
 - **WHEN** a map retargets alias `old_alias` to `target` and renames `target` to `renamed`, and a function reading
