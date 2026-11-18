@@ -3,7 +3,7 @@ import { ConfigError, findRepoRoot } from '../config/index.js';
 import { basePaths, mergeBase, pathsAt, resolveBaseRef } from '../changes/index.js';
 import { language, languageIds, languageOf, message } from '../contract/index.js';
 import * as twin from '../twin/index.js';
-import { type MockBase, typescriptCompliance, typescriptMockLint } from './compliance.js';
+import { ATTRIBUTE_CHECKS, type MockBase, typescriptCompliance, typescriptMockLint } from './compliance.js';
 import { complianceSelection, languageFiles, realPath, refactorLanguage, RoutingError, runSplit, split, under } from './routing.js';
 import { RefactorError } from './edits.js';
 import { entrySource, loadMap, MapError } from './map.js';
@@ -94,8 +94,9 @@ export function runCompliance(paths: string[], select: string | null, attrs: str
   let groups: Map<string, string[]>;
   try {
     selected = complianceSelection(select);
-    if (selected?.has('attr-blindspot') === true && attrs.length === 0) throw new RoutingError(message('compliance.attr-required'));
-    if (selected !== null && !selected.has('attr-blindspot') && attrs.length > 0) throw new RoutingError(message('compliance.attr-unselected'));
+    const check = [...(selected ?? [])].find((id) => (ATTRIBUTE_CHECKS as readonly string[]).includes(id));
+    if (check !== undefined && attrs.length === 0) throw new RoutingError(message('compliance.attr-required', { check }));
+    if (selected !== null && check === undefined && attrs.length > 0) throw new RoutingError(message('compliance.attr-unselected'));
     groups = split('dr-compliance', paths);
   } catch (error) {
     if (!(error instanceof RoutingError)) throw error;

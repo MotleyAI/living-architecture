@@ -1,0 +1,6 @@
+[project]
+name = "r"
+version = "0"
+
+[tool.basedpyright]
+include = ["pkg"]

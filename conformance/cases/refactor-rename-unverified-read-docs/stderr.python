@@ -1,0 +1,8 @@
+[resolve]
+[checks]
+[references]
+[references 1/1] entry 1: columns -> fields
+[rules]
+[rules 1/1] entry 1: columns -> fields: clean
+[conflicts]
+pkg/m.py:13: unverified-read: s holds 'columns', rewritten at pkg/m.py:6; this read is not proven to name the renamed member

@@ -23,11 +23,13 @@ comes out in TypeScript's default formatting.
 
 A member rename refuses while a receiver of the old name is `any` (`--allow-blindspots` overrides) or a class,
 interface or type literal outside the hierarchy declares the old name (`--with` / `--without`). A rename of a
-string-literal type member (`--symbol Kind['value']`) rewrites every string whose contextual type is that union.
+string-literal type member (`--symbol Kind['value']`) rewrites every string whose contextual type is that union,
+and the literal of a `const` or once-assigned `let` the checker needs it at; it refuses (`literal-unresolved`) where the
+edited program would no longer check.
 `--apply` keeps `.tsc-baseline.json` aligned: an entry whose message names a renamed symbol follows it.
 
 String-only references no static tool sees: dynamic `import()` of a computed path, `require()` of a computed
-path, `vi.mock('path')` / `jest.mock('path')` strings, property access by a computed key (`obj[name]`), an
+path, `vi.mock('path')` / `jest.mock('path')` strings, property access by a key the rename cannot follow to one literal (`obj[name]` with `name` a parameter), an
 object literal outside any declared type holding the old key, JSON and config files, and package `exports` maps.
 
 ## Compliance fixes (`dr-compliance`)
@@ -36,6 +38,7 @@ object literal outside any declared type holding the old key, JSON and config fi
 - `explicit-any` → a real type, or `unknown` narrowed where it is used.
 - `untyped-def` → annotate the parameter (callbacks typed by context are fine).
 - `attr-blindspot` → type the receiver so `x.NAME` resolves.
+- `string-blindspot` → type the receiver so `x['NAME']` or `Reflect.get(x, 'NAME')` resolves.
 - `mock` → type the double: `vi.fn<typeof real>()` (or give it an implementation), `vi.mock(import('./m'), …)`
   for Vitest or `jest.mock<typeof import('./m')>('./m', …)` for Jest, and build typed test doubles instead of
   `as unknown as T`.

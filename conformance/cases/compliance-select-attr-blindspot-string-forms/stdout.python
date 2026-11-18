@@ -1,0 +1,1 @@
+src/m.py:9: attr-blindspot: o.formula — o is Any, so a rename of .formula is unverifiable

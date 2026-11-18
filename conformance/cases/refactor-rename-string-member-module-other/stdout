@@ -1,0 +1,25 @@
+Renaming <list_models> to <list_datasets>:
+
+
+--- a/pkg/mod.py
++++ b/pkg/mod.py
+@@ -1,2 +1,2 @@
+-def list_models() -> list[str]:
++def list_datasets() -> list[str]:
+     return []
+
+--- a/tests/test_p.py
++++ b/tests/test_p.py
+@@ -6,5 +6,5 @@
+ def test_a() -> None:
+     with patch.object(other, "list_models", return_value=[]):
+         pass
+-    with patch.object(mod, "list_models", return_value=[]):
++    with patch.object(mod, "list_datasets", return_value=[]):
+         pass
+
+
+
+APPLIED. 2 file(s) changed:
+  pkg/mod.py
+  tests/test_p.py

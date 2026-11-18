@@ -5,7 +5,7 @@ import { language, message } from '../contract/index.js';
 import { findRepoRoot } from '../config/index.js';
 import { posix, ts } from '../lang/index.js';
 import { Lines } from './lines.js';
-import { anyReceivers } from './members.js';
+import { anyAccesses, anyNamedAccesses, type AnyReceiver, blindspotFinding } from './members.js';
 import { type Finding, type MockFinding, mockFindings } from './mocks.js';
 import { fileAt, repoPathBytes } from '../changes/index.js';
 import { listingOf, Workspace } from './workspace.js';
@@ -13,6 +13,8 @@ import { listingOf, Workspace } from './workspace.js';
 /** Implicit-any diagnostics of a parameter, a binding element and a rest parameter. */
 const IMPLICIT_ANY = new Set([7006, 7031, 7019]);
 const TSCONFIG_FLAGS = ['strict', 'noImplicitAny', 'noImplicitOverride'] as const;
+/** The checks that need `--attr`: `x.NAME` accesses, and accesses naming NAME by a string. */
+export const ATTRIBUTE_CHECKS = ['attr-blindspot', 'string-blindspot'] as const;
 export const CHECKER_OPTIONS: TS.CompilerOptions = { noImplicitAny: true, allowJs: true, checkJs: true, noEmit: true };
 
 function* walk(node: TS.Node): Generator<TS.Node> {
@@ -57,9 +59,12 @@ function fileFindings(program: TS.Program, source: TS.SourceFile, shown: string,
     }
   }
   for (const attr of new Set(attrs)) {
-    for (const { position, receiver } of anyReceivers(checker, source, attr)) {
-      const at = lines.lineOf(position);
-      out.push({ position, text: message('compliance.attr-blindspot', { path: shown, line: at, receiver, attr, type: 'any' }) });
+    const found: AnyReceiver[] = [];
+    if (selected.has(ATTRIBUTE_CHECKS[0])) found.push(...anyAccesses(checker, source, attr));
+    if (selected.has(ATTRIBUTE_CHECKS[1])) found.push(...anyNamedAccesses(checker, source, attr));
+    for (const spot of found) {
+      const { template, values } = blindspotFinding(spot, attr);
+      out.push({ position: spot.position, text: message(template, { ...values, path: shown, line: lines.lineOf(spot.position) }) });
     }
   }
   if (selected.has('untyped-def')) out.push(...untypedDefs(program, source, shown));

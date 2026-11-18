@@ -18,6 +18,18 @@ export function mapRange(edits: Replaced[], start: number, end: number): [number
   return start === end ? [newStart, newStart] : [newStart, newEnd];
 }
 
+/** The position of the text before `edits` (sorted, disjoint) that `position` of the edited text comes from: one
+ * inside a replacement comes from the replaced span's start. */
+export function unmapPosition(edits: Replaced[], position: number): number {
+  let shift = 0;
+  for (const [s, e, length] of edits) {
+    if (position < s + shift) break;
+    if (position < s + shift + length) return s;
+    shift += length - (e - s);
+  }
+  return position - shift;
+}
+
 /** A declaration moved from `start..end` of `from` into the text an edit inserts at `at` of `to`. */
 export interface MovedSpan {
   from: string;
@@ -36,7 +48,7 @@ export interface PositionMap {
   spans: MovedSpan[];
 }
 
-const replaced = (edits: Edit[]): Replaced[] => edits.map((e) => [e.start, e.start + e.length, e.newText.length]);
+export const replaced = (edits: Edit[]): Replaced[] => edits.map((e) => [e.start, e.start + e.length, e.newText.length]);
 
 /** The file and start a position of `file` moves to; null when the refactor rewrote the text around it. */
 export function mapPosition(map: PositionMap, file: string, position: number): { file: string; position: number } | null {

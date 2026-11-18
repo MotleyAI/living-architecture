@@ -170,7 +170,10 @@ def test_a_pre_existing_error_on_the_literal_counts_only_with_the_same_code(
     assert "pkg/use.py" in spy.before
 
 
-CONSTS = 'from typing import Final\n\nDEFAULT: Final = "edit_model"\n'
+CONSTS = (
+    'import sys\n\nif sys.argv:\n    DEFAULT = "drop"\nelse:\n'
+    '    DEFAULT = "edit_model"  # pyright: ignore[reportConstantRedefinition]\n'
+)
 CALLER = "from pkg.consts import DEFAULT\nfrom pkg.use import f\n\nf(DEFAULT)\n"
 
 
