@@ -261,6 +261,10 @@ class Snapshot:
         self.text(rel)
         return rel in self._boms
 
+    def encoding(self, rel: str) -> str:
+        self.text(rel)
+        return self._encodings[rel]
+
     def encode(self, rel: str, text: str) -> bytes:
         return (_BOM if self.has_bom(rel) else b"") + text.encode(self._encodings[rel])
 

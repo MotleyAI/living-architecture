@@ -46,12 +46,21 @@ def _emit(project: MoveProject, header: str, texts: dict[str, str], moves: list[
     """Print the move's changes sorted by path, each file's diff at the path it was read at; write them all or nothing
     with `apply`, refusing a file that changed since it was read."""
     snapshot = project.snapshot
-    writes = [FileWrite(rel=rel, old=snapshot.data(rel), new=snapshot.encode(rel, text)) for rel, text in texts.items()]
+    writes = [FileWrite(rel=rel, old=snapshot.data(rel), new=_encoded(project, rel, text)) for rel, text in texts.items()]
     described = [(rel, edit_description(rel, snapshot.text(rel), text)) for rel, text in texts.items()]
     described += [(m.rel, move_description(m.rel, m.dest)) for m in moves]
     unchanged = [FileWrite(rel=rel, old=snapshot.data(rel), new=snapshot.data(rel)) for rel in snapshot.read()
                  if rel not in texts and any(rel == m.rel or rel.startswith(m.rel + "/") for m in moves)]
     emit(project.root, [header], described, apply, writes, moves, progress, moved_code=moved_code, unchanged=unchanged)
+
+
+def _encoded(project: MoveProject, rel: str, text: str) -> bytes:
+    """`text` in `rel`'s encoding; `refactor.unencodable` when that encoding cannot hold it."""
+    try:
+        return project.snapshot.encode(rel, text)
+    except UnicodeEncodeError as exc:
+        encoding = project.snapshot.encoding(rel)
+        raise RefactorError(message("refactor.unencodable", path=rel, encoding=encoding)) from exc
 
 
 def _checks(project: MoveProject, progress: Progress, failures: list[Refusal], names: set[str], source: Path) -> None:
