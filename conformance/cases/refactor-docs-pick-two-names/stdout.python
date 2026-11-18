@@ -1,0 +1,25 @@
+Renaming <x> to <p>:
+Renaming <y> to <q>:
+
+
+--- a/pkg/m.py
++++ b/pkg/m.py
+@@ -1,10 +1,10 @@
+ class A:
+-    x: int = 0
++    p: int = 0
+ 
+ 
+ class B:
+-    y: int = 0
++    q: int = 0
+ 
+ 
+-# x and y move together; x first
+-# x before y
++# p and q move together; p first
++# p before y
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

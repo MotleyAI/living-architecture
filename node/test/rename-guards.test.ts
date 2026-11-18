@@ -57,11 +57,11 @@ describe('mentions', () => {
     expect(qualified('src.engine.Engine.saveModel', at('src.engine.Engine.saveModel'), owners, libEngine)).toBe(true);
   });
 
-  it('marks backticks, links and a string opening with the name', () => {
+  it('marks backticks and links, not a word opening a string', () => {
     const marked = (text: string) => found(text).map((m) => codeMarked(text, m));
     expect(marked('// `saveModel` and `saveModel()` and {@link saveModel} and saveModel\n')).toEqual([true, true, true, false]);
-    expect(marked("const a = 'saveModel: x'; const b = 'x saveModel: y';\n")).toEqual([true, false]);
-    expect(marked('const t = `saveModel: ${1} saveModel: `;\n')).toEqual([true, false]);
+    expect(marked("const a = 'saveModel: x'; const b = 'x saveModel: y';\n")).toEqual([false, false]);
+    expect(marked('const t = `saveModel: ${1} saveModel: `;\n')).toEqual([false, false]);
   });
 });
 

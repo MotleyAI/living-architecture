@@ -1,0 +1,16 @@
+Renaming <name> to <title>:
+
+
+--- a/pkg/g.py
++++ b/pkg/g.py
+@@ -1,5 +1,5 @@
+ class Model:
+-    name: str = ""
++    title: str = ""
+ 
+ 
+ FIND = "MATCH (m:name)"
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

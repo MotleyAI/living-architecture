@@ -9,7 +9,7 @@ the commands do, see [Deterministic refactoring](deterministic-refactoring.md).
 flowchart LR
   cmd["dr-refactor / dr-compliance --attr"]
   subgraph la["living-architecture (Python)"]
-    rules["rules: references, hierarchy, stand-ins,<br/>blind spots, keyed keys, string members,<br/>targets, --docs mentions"]
+    rules["rules: references, hierarchy, stand-ins,<br/>blind spots, keyed keys, string members,<br/>targets, string forms, --docs mentions"]
     client["LSP client<br/>(lang/language_server.py)"]
     cache[("occurrence index cache<br/>LA_CACHE_DIR")]
     stdlib["stdlib ast / tokenize<br/>(text rules, edit placement)"]
@@ -45,7 +45,7 @@ flowchart LR
 | la's preloads | Patch basedpyright's bundle as Node loads it: the pyright#11919 fix, and the export command that returns the whole index in one request. | basedpyright has no batch export (requested upstream as basedpyright#1909). Both are pinned to verified versions; any other version refuses. |
 | rope (+ la's walker patches) | Computes `move-symbol` and `move-module`. | Moves are built on it. |
 | la's static resolver | Resolves names, imports and module attribute chains by Python's scoping over the project's source folders: entry locations, the names basedpyright leaves unresolved, retarget's lookups and module renames. | It reads files only, so it resolves what the checker's configuration misses without running project code. |
-| stdlib `ast` / `tokenize` | Edit placement, `--docs` mentions, compound names, dict-key and keyword shapes. | These rules read text and syntax only. |
+| stdlib `ast` / `tokenize` | Edit placement, `--docs` mentions and their owning classes, string forms, kept literals, compound names, dict-key and keyword shapes. | These rules read text and syntax only. |
 | Occurrence index cache | Reuses the index when nothing that can change it has changed (sources, config, interpreter, packages, request). | It makes the dry-run → fix flags → re-run loop cost no checker time. |
 | The project's checker | Keeps the type-check baseline aligned after the edits. | The baseline belongs to the checker the project configures, not to la's bundled one. |
 

@@ -1,0 +1,4 @@
+format: <FORMAT>
+refactor:
+  string_forms:
+  - '(\w+) TABLE (\w+)'

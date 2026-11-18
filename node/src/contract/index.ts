@@ -2,7 +2,7 @@
 export { fnmatch, globMatch } from './glob.js';
 export { pyJson } from './json.js';
 export { displayPath, isOsError, isRegularFile, osErrorReason, osErrorText, readFile } from './os-error.js';
-export { fullMatch, isPortableRegex } from './regex.js';
+export { capturingGroups, fullMatch, isPortableRegex } from './regex.js';
 export { message, renderTemplate } from './render.js';
 export { materializeDefaults, validate } from './schema.js';
 export {

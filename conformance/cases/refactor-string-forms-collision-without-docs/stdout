@@ -1,0 +1,15 @@
+Renaming <Model> to <Dataset>:
+
+
+--- a/pkg/g.py
++++ b/pkg/g.py
+@@ -1,4 +1,4 @@
+-class Model:
++class Dataset:
+     name: str = ""
+ 
+ 
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

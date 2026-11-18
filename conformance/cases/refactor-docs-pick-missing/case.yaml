@@ -1,0 +1,16 @@
+kind: paired
+languages:
+- python
+- typescript
+command: dr-refactor
+args:
+  python: [--apply, rename-map, renames.yaml, --docs, --docs-pick, 'pkg/gone.py:1', --docs-pick, 'pkg/a.py:99']
+  typescript: [--apply, rename-map, renames.yaml, --docs, --docs-pick, 'src/gone.ts:1', --docs-pick, 'src/a.ts:99']
+fixture: refactor-docs-map
+git:
+- commit: init
+expect:
+  exit: 2
+  git_status: true
+golden: manual
+note: 'picks naming no file and a line past the file''s end: site-missing naming --docs-pick, in checks'

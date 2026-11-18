@@ -1,0 +1,20 @@
+kind: adapter
+languages:
+- python
+command: dr-refactor
+args:
+- rename
+- --file
+- pkg/g.py
+- --symbol
+- Model
+- --new-name
+- Dataset
+- --docs
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: 'refactor.string_forms match the raw source text: an escape spelling the name is no form site, and a
+  literal holding a non-ASCII character holds none, so --docs lists its plain word'

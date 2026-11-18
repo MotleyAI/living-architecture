@@ -1,15 +1,14 @@
-// `rename --docs`: the old name's mentions in comments, strings, template text and prose files, rewritten when
-// qualified or code-marked, else listed.
+// `rename --docs`: the old name's mentions in comments, strings, template text and prose files, and what marks one as
+// qualified or as code.
 import type * as TS from 'typescript';
 import { ts } from '../lang/index.js';
 import { walk } from './members.js';
 
-/** A comment, string literal content or prose text, and whether it opens a string literal. */
+/** A comment, string literal content or prose text. */
 export interface Region {
   start: number;
   end: number;
   where: 'comment' | 'string' | 'prose';
-  opens: boolean;
 }
 
 /** A renamed declaration's qualifying path (module segments, then classes) and whether a class declares it. */
@@ -22,7 +21,6 @@ export interface Mention {
   start: number;
   end: number;
   where: Region['where'];
-  opens: boolean;
 }
 
 // Identifier-continuation characters: Unicode's, the zero-width joiners and `$`.
@@ -62,7 +60,7 @@ export function sourceRegions(source: TS.SourceFile): Region[] {
     for (const r of ranges ?? []) {
       if (seen.has(r.pos)) continue;
       seen.add(r.pos);
-      out.push({ start: r.pos, end: r.end, where: 'comment', opens: false });
+      out.push({ start: r.pos, end: r.end, where: 'comment' });
     }
   };
   const k = ts().SyntaxKind;
@@ -71,13 +69,11 @@ export function sourceRegions(source: TS.SourceFile): Region[] {
     comment(ts().getTrailingCommentRanges(text, node.end));
     const start = node.kind === k.EndOfFileToken ? -1 : node.getStart(source);
     if (node.kind === k.StringLiteral || node.kind === k.NoSubstitutionTemplateLiteral) {
-      out.push({ start: start + 1, end: node.end - 1, where: 'string', opens: true });
-    } else if (node.kind === k.TemplateHead) {
-      out.push({ start: start + 1, end: node.end - 2, where: 'string', opens: true });
-    } else if (node.kind === k.TemplateMiddle) {
-      out.push({ start: start + 1, end: node.end - 2, where: 'string', opens: false });
+      out.push({ start: start + 1, end: node.end - 1, where: 'string' });
+    } else if (node.kind === k.TemplateHead || node.kind === k.TemplateMiddle) {
+      out.push({ start: start + 1, end: node.end - 2, where: 'string' });
     } else if (node.kind === k.TemplateTail) {
-      out.push({ start: start + 1, end: node.end - 1, where: 'string', opens: false });
+      out.push({ start: start + 1, end: node.end - 1, where: 'string' });
     }
   }
   return out;
@@ -91,7 +87,7 @@ export function mentions(text: string, old: string, regions: Region[]): Mention[
     const upToEnd = text.slice(0, region.end);
     pattern.lastIndex = region.start;
     for (let m = pattern.exec(upToEnd); m !== null; m = pattern.exec(upToEnd)) {
-      out.push({ start: m.index, end: m.index + old.length, where: region.where, opens: region.opens && m.index === region.start });
+      out.push({ start: m.index, end: m.index + old.length, where: region.where });
     }
   }
   return out;
@@ -110,12 +106,10 @@ export function qualified(text: string, start: number, owners: Owner[], collidin
   return owners.some((owner) => endsWith(owner.path, segments) && (!owner.member || !ambiguous));
 }
 
-/** In backticks (optionally followed by `()`), a `{@link}` or role target, or opening its string before `:`, `(` or
- * whitespace. */
+/** In backticks (optionally followed by `()`), or a `{@link}` or role target. */
 export function codeMarked(text: string, mention: Mention): boolean {
   const before = text.slice(Math.max(0, mention.start - 20), mention.start);
   const after = text.slice(mention.end, mention.end + 3);
   if (/`[~!]?$/u.test(before) && (after.startsWith('`') || after.startsWith('()`'))) return true;
-  if (/\{@link\s+$/u.test(before) && /^[}\s|]/u.test(after)) return true;
-  return mention.opens && /^[:(\s]/u.test(after);
+  return /\{@link\s+$/u.test(before) && /^[}\s|]/u.test(after);
 }

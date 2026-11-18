@@ -13,6 +13,8 @@ from living_architecture.refactor.members import member_declarations
 from living_architecture.refactor.python_source import SourceFile
 
 ClassKey = tuple[Path, int]
+# A linearized class, or None for a base that resolves to no class.
+Linearized = list["GraphClass | None"]
 
 
 class Definitions(Protocol):
@@ -35,6 +37,27 @@ def _base_name(expr: ast.expr) -> ast.expr | None:
     return expr if isinstance(expr, (ast.Name, ast.Attribute)) else None
 
 
+def _merge(cls: GraphClass, orders: list[Linearized]) -> Linearized | None:
+    """C3: `cls`, then the head of the first of `orders` that no other order holds past its head, repeatedly."""
+    out: Linearized = [cls]
+    pending = [list(o) for o in orders if o]
+    while pending:
+        head = next((o[0] for o in pending if not any(_holds(other[1:], o[0]) for other in pending)), cls)
+        if head is cls:
+            return None
+        out.append(head)
+        pending = [rest for o in pending if (rest := o[1:] if _same(o[0], head) else o)]
+    return out
+
+
+def _same(a: GraphClass | None, b: GraphClass | None) -> bool:
+    return a is b if a is None or b is None else a.key == b.key
+
+
+def _holds(order: Linearized, item: GraphClass | None) -> bool:
+    return item is not None and any(_same(o, item) for o in order)
+
+
 class ClassGraph:
     """Classes, their bases as the checker resolves them, and the roots of a member name in each."""
 
@@ -45,6 +68,7 @@ class ClassGraph:
         self._bases: dict[ClassKey, list[GraphClass]] = {}
         self._has: dict[tuple[ClassKey, str], bool] = {}
         self._roots: dict[tuple[ClassKey, str], frozenset[ClassKey]] = {}
+        self._mro: dict[ClassKey, Linearized | None] = {}
 
     def at(self, path: Path, start: int) -> GraphClass | None:
         """The class whose name starts at `start` of the file at `path`."""
@@ -73,6 +97,30 @@ class ClassGraph:
                         out.append(found)
             self._bases[cls.key] = out
         return self._bases[cls.key]
+
+    def mro(self, cls: GraphClass, seen: frozenset[ClassKey] = frozenset()) -> Linearized | None:
+        """`cls`'s method resolution order, None standing for each base that resolves to no class; None when the
+        bases have no consistent order."""
+        if cls.key in seen:
+            return None
+        if cls.key not in self._mro:
+            parents: Linearized = []
+            for base in cls.node.bases:
+                parents += self._base_classes(cls.source, base) or [None]
+            tails: list[Linearized | None] = [[None] if p is None else self.mro(p, seen | {cls.key}) for p in parents]
+            orders = [t for t in tails if t is not None]
+            self._mro[cls.key] = _merge(cls, [*orders, parents]) if len(orders) == len(tails) else None
+        return self._mro[cls.key]
+
+    def lookup(self, cls: GraphClass, name: str) -> GraphClass | bool:
+        """The first class of `cls`'s resolution order declaring member `name`; False when none does, True when the
+        order cannot be followed that far."""
+        for found in self.mro(cls) or [None]:
+            if found is None:
+                return True
+            if member_declarations(found.node, name):
+                return found
+        return False
 
     def _base_classes(self, source: SourceFile, base: ast.expr) -> list[GraphClass]:
         name = _base_name(base)

@@ -106,6 +106,17 @@ describe('sites resolve against the project', () => {
     const missing = message('refactor.site-missing', { option: '--keep', site: 'proj/src/use.ts:3' });
     expect(run(root, 'dr-refactor', argv)).toEqual({ code: 2, out: '', err: `${CHECKS}${missing}\n` });
   });
+
+  it('takes a --docs-pick relative to the project from another directory, not one relative to the working directory', () => {
+    const noted = `${use}// foo is called twice\n`;
+    const root = tempRepo({ 'living-architecture.yaml': `format: ${currentFormat()}\n`, 'proj/tsconfig.json': TSCONFIG, 'proj/src/a.ts': A, 'proj/src/use.ts': noted });
+    const argv = ['--project', 'proj', '--apply', 'rename', '--file', 'proj/src/a.ts', '--symbol', 'foo', '--new-name', 'bar', '--docs'];
+    const missing = message('refactor.site-missing', { option: '--docs-pick', site: 'proj/src/use.ts:5' });
+    expect(run(root, 'dr-refactor', [...argv, '--docs-pick', 'proj/src/use.ts:5'])).toEqual({ code: 2, out: '', err: `${CHECKS}${missing}\n` });
+    const result = run(root, 'dr-refactor', [...argv, '--docs-pick', 'src/use.ts:5']);
+    expect([result.code, finalReport(result.err)]).toEqual([0, '']);
+    expect(read(root, 'proj/src/use.ts')).toBe(noted.replaceAll('foo', 'bar'));
+  });
 });
 
 describe('the own-scope check', () => {
