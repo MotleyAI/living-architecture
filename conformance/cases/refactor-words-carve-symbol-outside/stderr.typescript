@@ -1,0 +1,3 @@
+[resolve]
+[checks]
+path is not inside the project: ../x.ts

@@ -509,10 +509,12 @@ class RenameMap:
         if self.options.words is None:
             return []
         try:
-            self.carves = CarveOuts(load_table(self.options.words), self.session.snapshot.source)
+            self.carves = CarveOuts(load_table(self.options.words), self.root, self.session.snapshot.source)
             self.carves.resolve()
         except (LocatorError, MapError) as exc:
             return [refusal(str(exc), 2)]
+        except RefactorError as exc:
+            return [refusal(str(exc))]
         return []
 
     # ---- checks

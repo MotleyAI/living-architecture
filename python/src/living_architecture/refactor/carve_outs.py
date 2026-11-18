@@ -8,7 +8,8 @@ import re
 from collections.abc import Callable, Iterable
 from pathlib import Path
 
-from living_architecture.contract import glob_match, language
+from living_architecture.contract import glob_match, language, message
+from living_architecture.refactor.locators import RefactorError, project_rel
 from living_architecture.refactor.python_source import SourceFile, every_parameter
 from living_architecture.refactor.symbol_path import (
     declared_scopes,
@@ -96,10 +97,12 @@ def _scope_span(source: SourceFile, node: ast.AST) -> Span:
 
 
 class CarveOuts:
-    """The carve-outs of `table` against the project's sources (`source`: a project-relative path's file)."""
+    """The carve-outs of `table` against the sources of the project at `root` (`source`: a project-relative path's
+    file)."""
 
-    def __init__(self, table: WordTable, source: Callable[[str], SourceFile]) -> None:
+    def __init__(self, table: WordTable, root: Path, source: Callable[[str], SourceFile]) -> None:
         self.table = table
+        self.root = root
         self.source = source
         self._annotations: dict[str, dict[int, str]] = {}
         self._symbols: dict[int, set[tuple[str, int]]] = {}
@@ -115,14 +118,21 @@ class CarveOuts:
                 file, symbol = str(item["file"]), str(item["symbol"])
                 if is_wildcard(symbol):
                     raise wildcard_refused(file, symbol)
-                sites.update((file, offset) for offset in self._located(file, symbol))
+                sites.update((rel, offset) for rel in [self._rel(file)] for offset in self._located(rel, symbol, file))
 
-    def _located(self, file: str, symbol: str) -> tuple[int, ...]:
+    def _rel(self, file: str) -> str:
+        """`file` as a project-relative path; `refactor.outside-project` naming it as written."""
         try:
-            source = self.source(file)
+            return project_rel(self.root, str(self.root / file))
+        except RefactorError:
+            raise RefactorError(message("refactor.outside-project", path=file)) from None
+
+    def _located(self, rel: str, symbol: str, shown: str) -> tuple[int, ...]:
+        try:
+            source = self.source(rel)
         except (OSError, UnicodeDecodeError, LookupError):
-            source = SourceFile(Path(file), "")
-        return locate(source, symbol, file).offsets
+            source = SourceFile(Path(rel), "")
+        return locate(source, symbol, shown).offsets
 
     def _annotation(self, rel: str, offset: int) -> str | None:
         if rel not in self._annotations:

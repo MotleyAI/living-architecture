@@ -87,7 +87,7 @@ class Generator:
         self.session = Session(root)
         self.root = self.session.root
         self.locator = EntryLocator(self.root, _no_definitions, self.session.snapshot, self.session.layout)
-        self.carves = CarveOuts(table, self.session.snapshot.source)
+        self.carves = CarveOuts(table, self.root, self.session.snapshot.source)
         self.listed: list[tuple[str, int, int, str]] = []
 
     # ---- the table's entries
