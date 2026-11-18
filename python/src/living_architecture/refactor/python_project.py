@@ -7,6 +7,7 @@ import os
 import re
 import sys
 import tomllib
+from collections.abc import Iterator
 from functools import cached_property
 from pathlib import Path
 
@@ -103,6 +104,17 @@ class ProjectLayout:
                 continue
             out.append(child)
         return out
+
+    def resources(self) -> Iterator[tuple[str, bool]]:
+        """Every file and directory of the project outside the ignored and symlinked ones, each with whether it is a
+        directory."""
+        pending = [""]
+        while pending:
+            for child in self._children(pending.pop()):
+                is_dir = os.path.isdir(self.path(child))
+                yield child, is_dir
+                if is_dir:
+                    pending.append(child)
 
     def _is_package(self, rel: str) -> bool:
         init = self.path(_init(rel))

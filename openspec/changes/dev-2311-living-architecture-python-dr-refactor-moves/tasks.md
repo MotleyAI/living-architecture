@@ -221,31 +221,31 @@ written with `project_files.write_project` under `tmp_path`.
 
 ## 10. Validity check (pr-implement)
 
-- [ ] 10.1 New `python/src/living_architecture/refactor/output_check.py` with `checked_write` and
+- [x] 10.1 New `python/src/living_architecture/refactor/output_check.py` with `checked_write` and
       `checked_create` exactly as design decision 27 describes; `ModuleRename.stub` returns `checked_create`'s result.
       Verify: 9.5 and 9.11 pass.
-- [ ] 10.2 `rename_map.changes_of` builds each write with `checked_write`; `rope_refactor._emit` does too and
+- [x] 10.2 `rename_map.changes_of` builds each write with `checked_write`; `rope_refactor._emit` does too and
       `rope_refactor._encoded` is deleted. Verify: 9.3 and 9.6 pass; `rg -n "snapshot.encode\(" python/src` shows only
       `output_check.py` and `python_project.py`, and `rg -n "FileWrite\(" python/src/living_architecture/refactor`
       shows no Python-file write built outside `output_check.py` (the baseline's in `baseline_align.py` and the
       `unchanged` reads in `rope_refactor.py` are not Python-file writes).
-- [ ] 10.3 Run every Python `dr-refactor` conformance case and `tests/test_rename*.py`, `tests/test_refactor*.py`,
+- [x] 10.3 Run every Python `dr-refactor` conformance case and `tests/test_rename*.py`, `tests/test_refactor*.py`,
       `tests/test_retarget.py`, `tests/test_move_edits.py`, `tests/test_rope_free_*.py`. Verify: all pass with no
       golden touched; otherwise design decision 36.
 
 ## 11. Resolver comparison (pr-implement)
 
-- [ ] 11.1 `ProjectLayout.resources()` in `python_project.py` (design decision 30), with a unit test in
+- [x] 11.1 `ProjectLayout.resources()` in `python_project.py` (design decision 30), with a unit test in
       `tests/test_python_project.py`: ignored and symlinked entries are left out, directories are flagged.
-- [ ] 11.2 New `python/src/living_architecture/refactor/move_verify.py`: the copy and `writer.apply` into a temporary
+- [x] 11.2 New `python/src/living_architecture/refactor/move_verify.py`: the copy and `writer.apply` into a temporary
       directory, then `MoveProject` over it (design decision 30). Verify: 9.8 passes.
-- [ ] 11.3 In `move_verify.py`: the fingerprint and canonical values (design decisions 31, 32, 34). Keep each function
+- [x] 11.3 In `move_verify.py`: the fingerprint and canonical values (design decisions 31, 32, 34). Keep each function
       small (Sonar's cognitive-complexity limit applies); no dataclasses, Pydantic `BaseModel` for any record type.
       Verify: 9.9 passes.
-- [ ] 11.4 In `move_verify.py`: `verify` with the signature of design decision 35, the comparison and the
+- [x] 11.4 In `move_verify.py`: `verify` with the signature of design decision 35, the comparison and the
       choice of the first difference (design decision 33), raising `RefactorError` with
       `refactor.resolution-changed`. Verify: unit-level parts of 9.7 pass when `verify` is called directly.
-- [ ] 11.5 `rope_refactor._emit` calls `verify` between building the writes and `emit` (design decision 35);
+- [x] 11.5 `rope_refactor._emit` calls `verify` between building the writes and `emit` (design decision 35);
       `move_symbol` and `move_module` pass what it needs. Verify: 9.2 and 9.7 pass.
 - [ ] 11.6 Run every Python `move-symbol` and `move-module` conformance case (112 cases named `refactor-move-*`) and
       `tests/test_move_edits.py`, `tests/test_rope_free_moves.py`. Verify: all pass with no golden touched since section 9 (9.10's case now passes as a refusal). Any other case that
@@ -257,6 +257,7 @@ written with `project_files.write_project` under `tmp_path`.
       src/living_architecture/lang/position_map.py --symbol map_range --dest
       src/living_architecture/refactor/text_edits.py` (dry run), three runs each on the commit before section 11 and
       after it. Write both `total` medians here. Over the limit of decision 37: STOP and ask.
+      Measured 2026-11-18 (236 files): `total` median 0.08 s without the comparison, 2.65 s with it.
 - [ ] 12.2 Docs: in `docs/refactoring-internals.md` and `plugin/languages/python.md`, where moves are described, add
       what the two checks do and what a `resolution-changed` refusal means for the caller (move it by hand, or report
       it). Show the exact wording to the user and get an OK before editing either file.

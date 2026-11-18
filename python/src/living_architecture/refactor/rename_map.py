@@ -50,6 +50,7 @@ from living_architecture.refactor.occurrence_index import (
     candidate_files,
 )
 from living_architecture.refactor.outcomes import Finding, covers
+from living_architecture.refactor.output_check import checked_write
 from living_architecture.refactor.progress import (
     Progress,
     Refusal,
@@ -1047,7 +1048,7 @@ def changes_of(snapshot: Snapshot, edits: list[TextEdit]) -> tuple[list[tuple[st
         if text == raw:
             continue
         described.append((rel, edit_description(rel, raw, text)))
-        writes.append(FileWrite(rel=rel, old=snapshot.data(rel), new=snapshot.encode(rel, text)))
+        writes.append(checked_write(snapshot, rel, text))
     return described, writes
 
 

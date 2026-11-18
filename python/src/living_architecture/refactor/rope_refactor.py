@@ -17,8 +17,10 @@ from living_architecture.refactor.map_file import MapEntry, MapError, load_map
 from living_architecture.refactor.module_move import module_move_texts
 from living_architecture.refactor.move_edits import NameConflict
 from living_architecture.refactor.move_project import MoveProject
+from living_architecture.refactor.move_verify import verify
 from living_architecture.refactor.moved_imports import GuardedImport
 from living_architecture.refactor.moved_symbol import MovedSymbol, locate_moved
+from living_architecture.refactor.output_check import checked_write
 from living_architecture.refactor.progress import Progress, Refusal, Refused, refusal
 from living_architecture.refactor.rename_map import (
     baseline_failed,
@@ -43,25 +45,22 @@ _offset_from_line_col = offset_from_line_col
 
 
 def _emit(project: MoveProject, header: str, texts: dict[str, str], moves: list[FileMove], apply: bool,
-          progress: Progress, *, moved_code: bool = False) -> None:
+          progress: Progress, *, symbol: tuple[MovedSymbol, str, str] | None = None) -> None:
     """Print the move's changes sorted by path, each file's diff at the path it was read at; write them all or nothing
-    with `apply`, refusing a file that changed since it was read."""
+    with `apply`, refusing a file that changed since it was read. `symbol` is a `move-symbol`'s declaration with its
+    source and destination files. Refuses first when a file's new text is not valid or a name would resolve
+    differently."""
     snapshot = project.snapshot
-    writes = [FileWrite(rel=rel, old=snapshot.data(rel), new=_encoded(project, rel, text)) for rel, text in texts.items()]
+    writes = [checked_write(snapshot, rel, text) for rel, text in texts.items()]
+    if writes or moves:
+        with timed("references"):
+            verify(project, symbol, writes, moves)
     described = [(rel, edit_description(rel, snapshot.text(rel), text)) for rel, text in texts.items()]
     described += [(m.rel, move_description(m.rel, m.dest)) for m in moves]
     unchanged = [FileWrite(rel=rel, old=snapshot.data(rel), new=snapshot.data(rel)) for rel in snapshot.read()
                  if rel not in texts and any(rel == m.rel or rel.startswith(m.rel + "/") for m in moves)]
-    emit(project.root, [header], described, apply, writes, moves, progress, moved_code=moved_code, unchanged=unchanged)
-
-
-def _encoded(project: MoveProject, rel: str, text: str) -> bytes:
-    """`text` in `rel`'s encoding; `refactor.unencodable` when that encoding cannot hold it."""
-    try:
-        return project.snapshot.encode(rel, text)
-    except UnicodeEncodeError as exc:
-        encoding = project.snapshot.encoding(rel)
-        raise RefactorError(message("refactor.unencodable", path=rel, encoding=encoding)) from exc
+    emit(project.root, [header], described, apply, writes, moves, progress, moved_code=symbol is not None,
+         unchanged=unchanged)
 
 
 def _checks(project: MoveProject, progress: Progress, failures: list[Refusal], names: set[str], source: Path) -> None:
@@ -114,7 +113,7 @@ def move_symbol(root: Path, *, file: str, locator: Locator, dest: str, apply: bo
         return
     with timed("references"):
         texts = symbol_move_texts(project, source, moved, target)
-    _emit(project, header, texts, [], apply, progress, moved_code=True)
+    _emit(project, header, texts, [], apply, progress, symbol=(moved, source, target))
 
 
 def move_module(root: Path, *, module: str, dest: str, apply: bool, progress: Progress) -> None:
