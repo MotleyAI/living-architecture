@@ -9,7 +9,7 @@ static reference remains; marked overrides turn a missed override into an error;
 dynamic (mock) reference into a failure. Green ⇒ provably no dangling reference.
 
 Tools (both twins, routed by each file's language):
-- `dr-refactor` — the mutator: `rename` / `rename-map` / `retarget` / `move-symbol` / `move-module`. Python
+- `dr-refactor` — the mutator: `rename` / `rename-map` / `generate-map` / `retarget` / `move-symbol` / `move-module`. Python
   resolves a rename's occurrences with the bundled basedpyright and computes every rename itself, and rope computes
   moves; TypeScript runs the bundled TypeScript language service, one per project of the tsconfig's
   reference graph.
@@ -35,6 +35,41 @@ leaves sites untouched (a relative PATH of any of the three is resolved against 
 listing the rest as `leftover`. A string held by a once-bound name (a constant, a local, the elements of a constant
 tuple a loop reads) is rewritten at its literal when a use proves it names the renamed member, or when the checker
 needs a renamed literal-type member there; every other read of that name is listed as `unverified-read`.
+A stand-in that needs a new name of its own is added to the map as its own entry.
+Pytest fixture methods (`@pytest.fixture`, `@pytest_asyncio.fixture`) are left without a flag; `--with` still
+renames one.
+
+A vocabulary rename (one word replaced across the repo) starts from a word table:
+
+```yaml
+words:                      # one lowercase word per side; one row per inflection
+- {from: measures, to: metrics}
+- {from: columns, to: fields}
+carve_outs:                 # where a word keeps its old sense; exactly one matcher each
+- {words: [columns], annotated: [IntrospectedColumn]}   # a written annotation naming the identifier
+- {words: [columns], paths: ['pkg/sql/**']}             # the declaring file
+- words: [columns]
+  symbols:
+  - {file: pkg/c.py, symbol: field_names(columns)}      # one declaration
+entries:                    # hand-written map entries, written first on every regeneration
+- {file: pkg/q.py, symbol: Query.root_model, new_name: population}
+```
+
+1. `dr-refactor --project <repo> generate-map TABLE > MAP` writes one entry per declaration whose name holds a word
+   as a whole word (`measures_total`, `AddMeasures`, never `remeasures`), and per module file and Python package. It
+   reads syntax only: no checker starts and nothing is written. Same-named locals of a file become one entry,
+   `{file, symbol: '*.<locals>.NAME', new_name}`; `Scope.*.<locals>.NAME` is the same for the functions inside one
+   class or function. A carved declaration is left out and listed on stderr as `carve-out`; an entry of `entries`
+   replaces the generated entry of its declaration and overrides a carve-out. A project holding both languages
+   needs `--language`.
+2. `dr-refactor --project <repo> rename-map MAP --docs --words TABLE` is the dry run. With `--words`, a stand-in a
+   carve-out matches is left like a `--without` one, and a code-marked `--docs` mention a carve-out covers (a carved
+   path's file; the function, class or module declaring a carved declaration of that name) is listed as `leftover`
+   instead of rewritten.
+3. Every refusal is fixed in the table (a carve-out or an entry), the map regenerated, and the dry run repeated;
+   MAP is never edited by hand.
+
+Not generated: a Python lambda parameter (listed as `not-generated`) and a Python directory without an `__init__.py`.
 
 A run announces its phases on stderr as they start — `[resolve]`, `[checks]`, `[references]`, `[rules]`,
 `[conflicts]`, `[baseline]`, `[write]` — with `[references n/count]` as each entry's reference search starts and

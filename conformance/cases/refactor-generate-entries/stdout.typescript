@@ -1,0 +1,2 @@
+- {file: pkg/q.ts, symbol: Query.rootModel, new_name: population}
+- {file: pkg/q.ts, symbol: Plan.rootModel, new_name: rootDataset}

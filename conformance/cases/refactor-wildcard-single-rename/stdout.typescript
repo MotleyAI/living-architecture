@@ -1,0 +1,23 @@
+Renaming <model> to <dataset>:
+
+
+--- a/pkg/l.ts
++++ b/pkg/l.ts
+@@ -1,9 +1,9 @@
+ export function f(name: string): string {
+-  const model = name.toUpperCase();
+-  return model;
++  const dataset = name.toUpperCase();
++  return dataset;
+ }
+ 
+ export function g(name: string): string {
+-  const model = name.toLowerCase();
+-  return model;
++  const dataset = name.toLowerCase();
++  return dataset;
+ }
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

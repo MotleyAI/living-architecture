@@ -1,0 +1,25 @@
+Renaming <columns> to <fields>:
+
+
+--- a/pkg/c.ts
++++ b/pkg/c.ts
+@@ -1,4 +1,4 @@
+-/** Holds `columns`. */
++/** Holds `fields`. */
+ export class Ds {
+-  columns: string[] = [];
++  fields: string[] = [];
+ }
+
+--- a/pkg/sql/meta.ts
++++ b/pkg/sql/meta.ts
+@@ -1,4 +1,4 @@
+ /** Reads `columns` of the catalog. */
+ export class Meta {
+-  columns: string[] = [];
++  fields: string[] = [];
+ }
+
+
+
+DRY-RUN. 2 file(s) would change. Re-run with --apply.

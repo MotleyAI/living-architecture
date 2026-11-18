@@ -1,0 +1,23 @@
+Renaming <root_model> to <root_dataset>:
+Renaming <root_model> to <root_dataset>:
+
+
+--- a/pkg/q.py
++++ b/pkg/q.py
+@@ -1,10 +1,10 @@
+ class Query:
+-    def root_model(self) -> str:
++    def root_dataset(self) -> str:
+         return "q"
+ 
+ 
+ class Plan:
+-    def root_model(self) -> str:
++    def root_dataset(self) -> str:
+         return "p"
+ 
+ 
+
+
+
+DRY-RUN. 1 file(s) would change. Re-run with --apply.

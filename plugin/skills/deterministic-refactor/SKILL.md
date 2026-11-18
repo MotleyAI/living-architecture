@@ -40,7 +40,8 @@ the refactor touches (`la-config get languages` lists the repo's).
    Method renames rename the hierarchy by default. Re-run until it is the rename you want:
    - `stand-in`: a class outside the hierarchy declares `OLD`. `--with PATH:LINE` renames it too
      (a duck-typed implementation: a cache, a fake, a `cast()` target); `--without PATH:LINE` leaves it
-     (an unrelated class).
+     (an unrelated class). To give it a different new name, add it to the map as its own entry.
+     Pytest fixtures are left by default.
    - `attr-blindspot` or `string-blindspot` on a receiver that cannot be typed (a third-party `Any`): `--allow-blindspots`,
      and tell the user which.
    - a site that must keep the old name (a back-compat test or shim): `--keep PATH:LINE`, or
@@ -62,7 +63,7 @@ the refactor touches (`la-config get languages` lists the repo's).
 
 ## Commands
 
-`dr-refactor` subcommands: `rename` / `rename-map` / `retarget` / `move-symbol` /
+`dr-refactor` subcommands: `rename` / `rename-map` / `generate-map` / `retarget` / `move-symbol` /
 `move-module`. Dry-run is default; `--apply` writes, baseline included;
 `--timings` (also before the subcommand) prints each phase's wall time on stderr;
 `--project` defaults to cwd. Locator: `--symbol Q` (the path inside `--file`,
@@ -84,3 +85,12 @@ code-marked ones in the declaring files, the rest listed as `leftover`, as are
 declarations whose name contains the old name). Move destinations must already
 exist, and a `move-symbol` destination is a file of the same language. Run the
 repo's formatter afterwards.
+
+A vocabulary rename (one word replaced across the repo) starts from a word table.
+`dr-refactor --project <repo> generate-map TABLE > MAP` writes one entry per declaration and
+module whose name holds a word (`words: [{from, to}]`, one row per inflection). `carve_outs`
+(`{words, annotated | paths | symbols}`) leave out a declaration where the word keeps its old sense, and
+`entries` holds hand-written map entries, kept on every regeneration. Change the table and regenerate;
+never edit MAP by hand. Pass the table to the rename as `--words TABLE`: carved stand-ins are left and
+carved `--docs` mentions are listed as `leftover`. A map entry
+`{file, symbol: '*.<locals>.NAME', new_name}` renames every local of that name in the file.

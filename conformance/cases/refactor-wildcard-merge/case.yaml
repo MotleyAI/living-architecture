@@ -1,0 +1,21 @@
+kind: paired
+languages:
+- python
+- typescript
+command: dr-refactor
+args:
+- rename-map
+- renames.yaml
+fixture: refactor-words
+git:
+- commit: init
+expect:
+  exit: 0
+  stderr:
+    contains:
+    - '[rules 1/1] entries 1, 2: model -> dataset: clean
+
+      '
+golden: manual
+note: 'a wildcard entry beside an entry for one of its locals with the same new name: they merge there and the map applies
+  as the wildcard entry alone does, with one header per entry'

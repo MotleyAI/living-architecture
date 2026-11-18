@@ -1,0 +1,3 @@
+- {file: pkg/c.py, symbol: census_sql(columns), new_name: cols}
+- {file: pkg/c.py, symbol: Ds.columns, new_name: fields}
+- {file: pkg/c.py, symbol: field_names(columns), new_name: fields}

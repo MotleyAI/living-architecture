@@ -1,0 +1,16 @@
+Renaming <model_mod> to <dataset_mod>:
+
+
+--- a/pkg/b.py
++++ b/pkg/b.py
+@@ -1,3 +1,3 @@
+-from pkg import a as model_mod
++from pkg import a as dataset_mod
+ 
+-print(model_mod.load())
++print(dataset_mod.load())
+
+
+
+APPLIED. 1 file(s) changed:
+  pkg/b.py

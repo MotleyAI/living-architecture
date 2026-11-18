@@ -29,6 +29,7 @@ from living_architecture.refactor.baseline_align import (
     probe,
 )
 from living_architecture.refactor.bindings import BindingCheck, EntryEdits, first_conflicts
+from living_architecture.refactor.carve_outs import CarveOuts
 from living_architecture.refactor.diff_render import edit_description, move_description
 from living_architecture.refactor.entry_location import Entry, EntryLocator
 from living_architecture.refactor.index_cache import IndexCache
@@ -85,9 +86,17 @@ from living_architecture.refactor.retarget_imports import plan_imports
 from living_architecture.refactor.rope_patches import walk_gap_line
 from living_architecture.refactor.routing import language_files
 from living_architecture.refactor.sites import Keeps, Site, keep_spells, resolve_keeps
-from living_architecture.refactor.symbol_path import LocatorError, declaration_scope, locate
+from living_architecture.refactor.symbol_path import (
+    LocatorError,
+    declaration_scope,
+    is_wildcard,
+    locate,
+    locate_all,
+    wildcard_refused,
+)
 from living_architecture.refactor.text_edits import TextEdit, apply_edits, merge_edits
 from living_architecture.refactor.timings import timed
+from living_architecture.refactor.word_table import load_table
 from living_architecture.refactor.writer import FileChanged, FileMove, FileWrite, apply, verify
 
 _WORD = re.compile(r"\w+")
@@ -282,6 +291,15 @@ def keep_checks(keeps: list[str], root: Path, editable: dict[str, bool], text: C
     return out
 
 
+def _entry_groups(resolved: list[_Resolved]) -> list[list[int]]:
+    """The positions of the resolved symbols by the entries that locate them, in the order of each group's first:
+    the symbols of one wildcard entry are one group."""
+    groups: dict[tuple[int, ...], list[int]] = {}
+    for i, r in enumerate(resolved):
+        groups.setdefault(tuple(sorted(r.indexes)), []).append(i)
+    return list(groups.values())
+
+
 def _spelled(entry: MapEntry) -> str | None:
     """The name an entry's locator spells: the last word of its symbol path."""
     words = _WORD.findall(entry.locator.symbol or "")
@@ -330,6 +348,7 @@ class RenameMap:
         self.leftovers = Leftovers()
         self._results: dict[int, RenameResult] = {}
         self._needs: dict[int, list[ImportNeed]] = {}
+        self.carves: CarveOuts | None = None
         self.stopped = False
         # The refusals a `[rules]` line printed, and the renames whose group printed its line.
         self.printed: list[Refusal] = []
@@ -382,8 +401,22 @@ class RenameMap:
         check_value(entry.new_name)
         return _Resolved(entry, rel, None, ("literal", rel, source.span(node)[0]), literal=node)
 
+    def _wildcard(self, entry: MapEntry) -> list[_Resolved]:
+        """Every local a wildcard entry names, each as its own symbol; a retarget takes none."""
+        symbol = str(entry.locator.symbol)
+        if entry.retarget is not None:
+            raise wildcard_refused(entry.file, symbol)
+        rel = project_rel(self.root, entry.path)
+        out: list[_Resolved] = []
+        for located in locate_all(self.session.snapshot.source(rel), symbol, entry.path):
+            found = self.locator.at(rel, located.offset)
+            out.append(_Resolved(entry, rel, found, found.key, offset=located.offset))
+        return out
+
     def _resolve(self, entry: MapEntry) -> _Resolved:
         """`entry` located; `refactor.cannot-rename` for a module rename whose new name cannot name a module."""
+        if is_wildcard(entry.retarget):
+            raise wildcard_refused(entry.file, str(entry.retarget))
         located = self._locate(entry)
         if entry.module:
             found = self.locator.file_module(located[0])
@@ -483,21 +516,36 @@ class RenameMap:
         spelled = True
         for entry in self.entries:
             try:
-                resolved = self._resolve(entry)
+                wild = not entry.module and is_wildcard(entry.locator.symbol)
+                located = self._wildcard(entry) if wild else [self._resolve(entry)]
             except _ENTRY_ERRORS as exc:
                 failures += self._failure(entry, exc)
                 spelled = spelled and _spelled(entry) is not None
                 continue
-            resolved.shown = locator_text(self.root, entry)
-            first = next((r for r in out if r.key == resolved.key), None)
-            if first is None:
-                out.append(resolved)
-            elif first.intent() != resolved.intent():
-                failures.append(refusal(message("refactor.map-duplicate", map=self.map_shown, first=first.entry.index,
-                                                second=entry.index), 2))
-            else:
-                first.indexes.append(entry.index)
-        return out, failures, spelled
+            for resolved in located:
+                resolved.shown = locator_text(self.root, entry)
+                first = next((r for r in out if r.key == resolved.key), None)
+                if first is None:
+                    out.append(resolved)
+                elif first.intent() != resolved.intent():
+                    failures.append(refusal(message("refactor.map-duplicate", map=self.map_shown,
+                                                    first=first.entry.index, second=entry.index), 2))
+                elif entry.index not in first.indexes:
+                    first.indexes.append(entry.index)
+        return out, unique([*failures, *self._carve_outs()]), spelled
+
+    def _carve_outs(self) -> list[Refusal]:
+        """The `--words` table's carve-outs, their symbols located; the failure of one that locates nothing."""
+        if self.options.words is None:
+            return []
+        try:
+            self.carves = CarveOuts(load_table(self.options.words), self.root, self.session.snapshot.source)
+            self.carves.resolve()
+        except (LocatorError, MapError) as exc:
+            return [refusal(str(exc), 2)]
+        except RefactorError as exc:
+            return [refusal(str(exc))]
+        return []
 
     # ---- checks
 
@@ -622,7 +670,7 @@ class RenameMap:
             else:
                 assert r.located is not None
                 renames.append(SymbolRename(self.session, r.located, str(r.entry.new_name), self.options, site=self._site(r),
-                                            locator=self.locator))
+                                            locator=self.locator, carves=self.carves))
         return renames
 
     def _site(self, r: _Resolved) -> tuple[str, int]:
@@ -639,25 +687,27 @@ class RenameMap:
         elif final is not None and home is not None:
             home = home.model_copy(update={"exported": final})
         return AliasRetarget(self.session, r.located, target, self.options, site=self._site(r), locator=self.locator,
-                             line=r.line, home=home, own=r.own, original=r.target_name, index=r.entry.index)
+                             line=r.line, home=home, own=r.own, original=r.target_name, index=r.entry.index,
+                             carves=self.carves)
 
     def references(self, renames: list[Renaming], resolved: list[_Resolved]) -> dict[int, list[Refusal]]:
         """Each entry's renamed declarations, read from the run's occurrence index (exported first), announced as each
-        entry starts; the entries that failed."""
+        entry starts (a wildcard entry once, for every symbol it names); the symbols that failed."""
         if any(isinstance(r, SymbolRename) for r in renames):
             self.index.build()
         failed: dict[int, list[Refusal]] = {}
-        for n, (r, res) in enumerate(zip(renames, resolved, strict=True), 1):
+        groups = _entry_groups(resolved)
+        for n, group in enumerate(groups, 1):
             if self.stopped:
                 break
-            self.progress.item(n, len(renames), res.indexes, r.old, r.new)
-            if not _live(r):
-                continue
-            try:
-                r.prepare(self.index)
-            except _ENTRY_ERRORS as exc:
-                failed[n - 1] = self._failure(res, exc)
-                self.stopped = self.options.fail_fast
+            self.progress.item(n, len(groups), sorted(resolved[group[0]].indexes), renames[group[0]].old,
+                               renames[group[0]].new)
+            for i in (i for i in group if _live(renames[i]) and not self.stopped):
+                try:
+                    renames[i].prepare(self.index)
+                except _ENTRY_ERRORS as exc:
+                    failed[i] = self._failure(resolved[i], exc)
+                    self.stopped = self.options.fail_fast
         return failed
 
     def seed(self, renames: dict[int, Renaming], resolved: list[_Resolved], active: list[int],
@@ -714,7 +764,7 @@ class RenameMap:
             for i in group:
                 self._result(i, renames.pop(i), resolved[i], dropped.get(i, []))
             refused = self._group_refusals(group, failed)
-            indexes = sorted(index for i in group for index in resolved[i].indexes)
+            indexes = sorted({index for i in group for index in resolved[i].indexes})
             news = ", ".join(dict.fromkeys(self._results[i].new for i in group))
             self.progress.result(n, len(groups), indexes, old, news, [line for f in refused for line in f.lines])
             self.printed += refused
@@ -971,7 +1021,8 @@ class RenameMap:
         by_file: dict[str, list[Edit]] = {}
         for e in edits:
             by_file.setdefault(e.path, []).append((e.start, e.end, len(e.new_text)))
-        emit(self.root, [r.header for r in results], [*described, *moved], apply_, writes, moves, self.progress,
+        headers = [results[group[0]].header for group in _entry_groups(resolved)]
+        emit(self.root, headers, [*described, *moved], apply_, writes, moves, self.progress,
              edits=by_file, creates=stubs)
         return 0
 
@@ -1092,4 +1143,5 @@ def entry_options(options: dict[str, Any]) -> RenameOptions:
         docs=bool(options.get("docs")),
         fail_fast=bool(options.get("fail_fast")),
         stub=options.get("stub"),
+        words=options.get("words"),
     )
