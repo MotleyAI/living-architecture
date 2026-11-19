@@ -53,7 +53,7 @@ export interface LaConfig {
 export function resolveConfig(data: unknown): LaConfig {
   const configSchema = schema('living-architecture');
   if (data !== null && !(data instanceof Map)) throw new Error('top level must be a mapping');
-  const errors = validate(configSchema, data === null ? new Map() : data);
+  const errors = validate(configSchema, data ?? new Map());
   if (errors.length > 0) throw new Error(errors.join('; '));
   const resolved = materializeDefaults(configSchema, data) as LaConfig;
   if (!isPortableRegex(resolved.issue_key_pattern)) {

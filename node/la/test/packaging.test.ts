@@ -1,6 +1,6 @@
-// The packed npm packages carry their built bins, README.md and LICENSE, and the contract: `npm pack` both workspaces of a
-// staged copy without `dist/` (prepack builds them), install the tarballs into one clean global prefix outside the
-// checkout, then run their bins from a directory outside any repo.
+// The packed npm packages carry their built bins, README.md and LICENSE, and the contract: `npm pack` each workspace,
+// la alone first, of a staged copy without `dist/` (prepack builds them, la's dr too), install the tarballs into one
+// clean global prefix outside the checkout, then run their bins from a directory outside any repo.
 import { spawnSync, type SpawnSyncReturns } from 'node:child_process';
 import {
   chmodSync,
@@ -8,6 +8,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   realpathSync,
   rmSync,
@@ -82,9 +83,17 @@ beforeAll(() => {
     ),
   );
   cpSync(NODE_ROOT, staged, { recursive: true, filter: (src) => !skipped.has(src) });
-  symlinkSync(join(NODE_ROOT, 'node_modules'), join(staged, 'node_modules'));
-  for (const entry of JSON.parse(npm(['pack', '--json', '--pack-destination', TMP, '-w', 'dr', '-w', 'la'], staged))) {
-    TARBALLS[entry.name] = join(TMP, entry.filename);
+  // The installed dependencies, but each workspace package links to its staged copy, so la builds against staged dr.
+  const workspaces = new Map<string, string>(Object.entries(PACKAGES).map(([dir, name]) => [name, dir]));
+  mkdirSync(join(staged, 'node_modules'));
+  for (const entry of readdirSync(join(NODE_ROOT, 'node_modules'))) {
+    const dir = workspaces.get(entry);
+    symlinkSync(dir === undefined ? join(NODE_ROOT, 'node_modules', entry) : join('..', dir), join(staged, 'node_modules', entry));
+  }
+  for (const workspace of ['la', 'dr']) {
+    for (const entry of JSON.parse(npm(['pack', '--json', '--pack-destination', TMP, '-w', workspace], staged))) {
+      TARBALLS[entry.name] = join(TMP, entry.filename);
+    }
   }
   npm(['install', '-g', '--prefix', PREFIX, '--no-audit', '--no-fund', ...Object.values(TARBALLS)], WORK);
 }, TIMEOUT);

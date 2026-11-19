@@ -33,14 +33,17 @@ jobs:
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
       - run: uv build --package deterministic-refactor --out-dir dist/dr
       - run: uv build --package living-architecture --out-dir dist/la
+      # skip-existing: a rerun after a partial release publishes only what is missing.
       - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
         with:
           packages-dir: python/dist/dr/
+          skip-existing: true
       - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
         with:
           packages-dir: python/dist/la/
+          skip-existing: true
 
-  # dr first, as on PyPI; a package marked private is skipped.
+  # dr first, as on PyPI; a package marked private, or whose version is already on npm (a rerun), is skipped.
   npm:
     needs: check
     runs-on: ubuntu-latest
@@ -56,14 +59,18 @@ jobs:
         with:
           node-version: "22"
           registry-url: "https://registry.npmjs.org"
-      - run: npm install -g npm@latest  # trusted publishing needs npm >= 11.5
+      - run: npm install -g --ignore-scripts npm@11.21.3  # trusted publishing needs npm >= 11.5
       - run: npm ci
       - run: npm run build
       - name: Publish dr, then la
         run: |
           for package in dr la; do
+            name=$(jq -r .name "$package/package.json")
+            version=$(jq -r .version "$package/package.json")
             if [ "$(jq -r '.private // false' "$package/package.json")" = "true" ]; then
               echo "node/$package/package.json is private: skipping its npm publish"
+            elif [ "$(npm view "$name@$version" version)" = "$version" ]; then
+              echo "$name@$version is already on npm: skipping its publish"
             else
               npm publish -w "$package" --provenance --access public
             fi

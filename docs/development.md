@@ -86,10 +86,12 @@ GitHub Actions). A release that changes a config file's format appends its own v
 `formats` in `shared/dr/config.yaml`; for `living-architecture.yaml` (or anything under `architecture/`) it also
 adds, in both twins, the `la-arch-migrate` step from the previous format. The tests check that every older format
 has a step, and `scripts/release-check` that the release appended exactly its own version to each series. Tag
-`v<version>` and publish a GitHub release for it; the `Publish` workflow first runs `scripts/release-check` (HEAD is
-the tag's commit, every version equals the tag, la pins dr to its minor, each snapshot records its contract's hash,
+`dr--v<version>` with `claude plugin tag --push` from `plugin/dr` (the tag la's plugin dependency on dr resolves
+against), then tag `v<version>` and publish a GitHub release for it; the `Publish` workflow first runs
+`scripts/release-check` (HEAD is the tag's commit, every version equals the tag, la pins dr to its minor, each snapshot records its contract's hash,
 and the release rule holds against the highest reachable `vX.Y.Z` tag below it; it also refuses a shallow clone or
 no reachable previous release) and publishes no twin otherwise. It publishes `deterministic-refactor` before
-`living-architecture` on PyPI and on npm, skipping an npm package whose `package.json` is `"private": true`. npm
+`living-architecture` on PyPI and on npm, skipping an npm package whose `package.json` is `"private": true`, and
+on a rerun every distribution already published, so a rerun finishes a partial release. npm
 publishes through trusted publishing, which trusts `publish.yml` in this repository by name: renaming the workflow
 needs a new trusted publisher in each package's npmjs.com settings.

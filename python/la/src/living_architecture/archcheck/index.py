@@ -17,6 +17,8 @@ from deterministic_refactor.contract import (
 from living_architecture.c4 import INDEX_REL
 from living_architecture.contract import message, schema, validate
 
+_ROOTS_OVERLAP = "arch-check.root-packages-overlap"
+
 
 class ArchCheckError(Exception):
     """The architecture setup is too broken to check."""
@@ -71,7 +73,7 @@ def _root_configuration(section: Any) -> tuple[str, list[str]]:
     roots = cast(list[str], roots)
     duplicate = _first_duplicate(roots)
     if duplicate is not None:
-        raise ArchCheckError(message("arch-check.root-packages-overlap", first=duplicate, second=duplicate))
+        raise ArchCheckError(message(_ROOTS_OVERLAP, first=duplicate, second=duplicate))
     return "root_packages", roots
 
 
@@ -206,7 +208,7 @@ def _layout_under_source_roots(repo_root: Path, key: str, roots: list[str], entr
     resolved: list[tuple[str, Path]] = []
     for root in roots:
         entry, path = _holder(key, root, source_roots)
-        _add_disjoint(resolved, root, _resolve_root(path, key, root, entry), "arch-check.root-packages-overlap")
+        _add_disjoint(resolved, root, _resolve_root(path, key, root, entry), _ROOTS_OVERLAP)
         held[entry].append(root)
     for entry in entries:
         if not held[entry]:
@@ -233,5 +235,5 @@ def resolve_layout(repo_root: Path, section: dict[str, Any]) -> Layout:
     shown = "." if value is None else value
     resolved: list[tuple[str, Path]] = []
     for root in roots:
-        _add_disjoint(resolved, root, _resolve_root(source_root, key, root, shown), "arch-check.root-packages-overlap")
+        _add_disjoint(resolved, root, _resolve_root(source_root, key, root, shown), _ROOTS_OVERLAP)
     return Layout(repo_root=repo_root, source_roots=[SourceRoot(path=source_root, root_packages=roots)])

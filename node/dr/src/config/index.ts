@@ -111,7 +111,7 @@ export function checkStringForms(patterns: string[]): void {
 export function resolveConfig(data: unknown): DrConfig {
   const drSchema = schema(DR_SCHEMA);
   if (data !== null && !(data instanceof Map)) throw new Error('top level must be a mapping');
-  const errors = validate(drSchema, data === null ? new Map() : data);
+  const errors = validate(drSchema, data ?? new Map());
   if (errors.length > 0) throw new Error(errors.join('; '));
   const resolved = materializeDefaults(drSchema, data) as DrConfig;
   checkStringForms(resolved.refactor.string_forms);

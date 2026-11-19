@@ -16,8 +16,9 @@ import shutil
 import subprocess
 import sys
 import tempfile
-from collections.abc import Collection
+from collections.abc import Callable, Collection
 from pathlib import Path
+from typing import Any
 
 import yaml
 
@@ -56,6 +57,9 @@ MANIFEST = {name: spec for commands in MANIFESTS.values() for name, spec in comm
 # Never reachable from a case unless it provides them: the host's own la tools and the twins' runners.
 _ALWAYS_HIDDEN = {*MANIFEST, "npx", "uvx"}
 FIXED_DATE = "2026-01-01T00:00:00+00:00"
+VERSION_PLACEHOLDER = "<VERSION>"
+CONTRACT_HASH_PLACEHOLDER = "<CONTRACT_HASH>"
+DR_CONTRACT_HASH_PLACEHOLDER = "<DR_CONTRACT_HASH>"
 COMMAND_PREFIXES = {
     "affected", "arch", "config", "doctor", "conventions", "count", "compliance", "mock", "refactor", "shim", "twin",
     "typecheck",
@@ -141,35 +145,41 @@ def _write_files(repo: Path, files: dict[str, str]) -> None:
         path.write_bytes(content.encode("utf-8"))
 
 
+# Per git step taking its argument as-is: the git arguments it runs.
+_GIT_STEPS: dict[str, Callable[[Any], list[str]]] = {
+    "branch": lambda arg: ["checkout", "-q", "-b", arg],
+    "checkout": lambda arg: ["checkout", "-q", arg],
+    "orphan": lambda arg: ["checkout", "-q", "--orphan", arg],
+    "stage": lambda arg: ["add", "--", *arg],
+    "git_rm": lambda arg: ["rm", "-q", "--", *arg],
+}
+
+
+def _push_origin(repo: Path, root: Path, env: dict[str, str], refs: list[str]) -> None:
+    origin = root / "origin.git"
+    if not origin.exists():
+        subprocess.run(["git", "init", "-q", "--bare", str(origin)], env=env, check=True, capture_output=True)
+        _git(repo, env, "remote", "add", "origin", str(origin))
+    _git(repo, env, "push", "-q", "origin", *refs)
+
+
 def _apply_step(step: dict, *, repo: Path, root: Path, env: dict[str, str], package: str = "la") -> None:
     [(op, arg)] = step.items()
-    if op == "write":
+    if op in _GIT_STEPS:
+        _git(repo, env, *_GIT_STEPS[op](arg))
+    elif op == "write":
         _write_files(repo, {rel: with_format(substitute(text, root, package)) for rel, text in arg.items()})
     elif op == "commit":
         _git(repo, env, "add", "-A")
         _git(repo, env, "commit", "-q", "-m", arg)
-    elif op == "branch":
-        _git(repo, env, "checkout", "-q", "-b", arg)
-    elif op == "checkout":
-        _git(repo, env, "checkout", "-q", arg)
-    elif op == "orphan":
-        _git(repo, env, "checkout", "-q", "--orphan", arg)
-    elif op == "stage":
-        _git(repo, env, "add", "--", *arg)
     elif op == "delete":
         for rel in arg:
             (repo / rel).unlink()
-    elif op == "git_rm":
-        _git(repo, env, "rm", "-q", "--", *arg)
     elif op == "rename":
         for src, dst in arg.items():
             _git(repo, env, "mv", src, dst)
     elif op == "origin":
-        origin = root / "origin.git"
-        if not origin.exists():
-            subprocess.run(["git", "init", "-q", "--bare", str(origin)], env=env, check=True, capture_output=True)
-            _git(repo, env, "remote", "add", "origin", str(origin))
-        _git(repo, env, "push", "-q", "origin", *arg)
+        _push_origin(repo, root, env, arg)
     else:
         raise ValueError(f"unknown git step {op!r}")
 
@@ -206,9 +216,15 @@ def version(package: str) -> str:
 def substitute(text: str, root: Path, package: str = "la") -> str:
     """Placeholders allowed in args and fake executables; `<VERSION>` and `<CONTRACT_HASH>` are the case's package's."""
     major, minor = version(package).split(".")[:2]
-    text = text.replace("<VERSION>", version(package)).replace("<MAJOR>", major).replace("<MINOR>", minor)
-    text = text.replace("<DR_CONTRACT_HASH>", dr_contract_hash()).replace("<CONTRACT_HASH>", contract_hash(package))
+    text = _installed(text, package).replace("<MAJOR>", major).replace("<MINOR>", minor)
     return text.replace("<ROOT>", str(root))
+
+
+def _installed(text: str, package: str) -> str:
+    """`text` with the version and contract hash placeholders replaced by `package`'s installed values."""
+    text = text.replace(VERSION_PLACEHOLDER, version(package))
+    text = text.replace(DR_CONTRACT_HASH_PLACEHOLDER, dr_contract_hash())
+    return text.replace(CONTRACT_HASH_PLACEHOLDER, contract_hash(package))
 
 
 def current_format() -> str:
@@ -368,11 +384,11 @@ def _normalize(text: str, root: Path, case: dict, package: str) -> str:
         text = text.replace(form, "<ROOT>")
     for rule in case.get("normalize", []):
         if rule == "version":
-            text = text.replace(version(package), "<VERSION>")
+            text = text.replace(version(package), VERSION_PLACEHOLDER)
         elif rule == "contract_hash":
-            text = text.replace(contract_hash(package), "<CONTRACT_HASH>")
+            text = text.replace(contract_hash(package), CONTRACT_HASH_PLACEHOLDER)
         elif rule == "dr_contract_hash":
-            text = text.replace(dr_contract_hash(), "<DR_CONTRACT_HASH>")
+            text = text.replace(dr_contract_hash(), DR_CONTRACT_HASH_PLACEHOLDER)
         else:
             text = re.sub(rule["pattern"], rule["replace"], text)
     return text
@@ -460,9 +476,7 @@ def check_json(path: Path, actual: str, package: str = "la") -> list[str]:
         document = json.loads(actual)
     except json.JSONDecodeError as exc:
         return [f"stdout is not one JSON document: {exc}\n{actual}"]
-    golden = path.read_text(encoding="utf-8").replace("<VERSION>", version(package))
-    golden = golden.replace("<DR_CONTRACT_HASH>", dr_contract_hash())
-    expected = json.loads(golden.replace("<CONTRACT_HASH>", contract_hash(package)))
+    expected = json.loads(_installed(path.read_text(encoding="utf-8"), package))
     if document == expected:
         return []
     return [_diff(_pretty(expected), _pretty(document), "stdout (json)")]

@@ -5,6 +5,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { globMatch } from './glob.js';
+import { byCodePoint } from './text.js';
 import { toPlain } from './values.js';
 import { loadYaml } from './yaml.js';
 
@@ -130,7 +131,7 @@ export function language(id: string): Record<string, any> {
 
 /** Every language of the registry, in id order. */
 export function languageIds(): string[] {
-  return Object.keys(DR.yaml('languages.yaml')).sort();
+  return Object.keys(DR.yaml('languages.yaml')).sort(byCodePoint);
 }
 
 /** The registry language whose source extensions contain the path's extension, else null. */
