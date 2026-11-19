@@ -5,7 +5,7 @@ Bug reports, questions and pull requests are welcome.
 ## Reporting a problem
 
 Open an [issue](https://github.com/MotleyAI/living-architecture/issues/new/choose). For a wrong finding or a
-crash, include the command you ran, its full output, the installed version (`la-doctor` prints it) and, if you
+crash, include the command you ran, its full output, the installed version (`dr-doctor` or `la-doctor` prints it) and, if you
 can, a minimal repo or `architecture/` folder that reproduces it. Report security problems privately, as
 described in [SECURITY.md](SECURITY.md).
 
@@ -13,7 +13,8 @@ described in [SECURITY.md](SECURITY.md).
 
 ```bash
 git clone https://github.com/MotleyAI/living-architecture
-cd living-architecture/python && uv sync && uv run pytest -q
+cd living-architecture/python && uv sync --all-packages
+(cd dr && uv run pytest -q) && (cd la && uv run pytest -q)
 cd ../node && npm ci && npm test
 ```
 
@@ -30,10 +31,12 @@ PR has to pass CI, and the CodeRabbit and Sonar reviews when they run on it. If 
 
 The rules that matter most are in [AGENTS.md](AGENTS.md):
 
-- **One contract, two implementations.** Every command exists in a Python package (`python/`) and an npm package
-  (`node/`) that must behave identically. Parameters, defaults and user-facing texts live only in `shared/`; run
-  `scripts/sync-shared` after editing it.
-- **The conformance corpus decides.** Each behaviour is pinned by a case under `conformance/cases/`. A twin
+- **Two packages, one contract each, two implementations each.** The repo ships `deterministic-refactor` (`dr-*`)
+  and `living-architecture` (`la-*`), which depends on it. Every command exists in a Python package (`python/dr`,
+  `python/la`) and an npm package (`node/dr`, `node/la`) that must behave identically. Parameters, defaults and
+  user-facing texts live only in `shared/dr/` and `shared/la/`; run `scripts/sync-shared` after editing them.
+- **The conformance corpus decides.** Each behaviour is pinned by a case under `conformance/dr/cases/` or
+  `conformance/la/cases/`. A twin
   whose output differs from a golden is wrong, not the golden. Regenerate goldens only for a deliberate change,
   and say why in the commit message.
 - **The architecture is checked.** `architecture/` holds this repo's own model and principles. `la-arch-check`

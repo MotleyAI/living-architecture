@@ -12,16 +12,19 @@ from pathlib import Path
 import pytest
 import yaml
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-CI = PROJECT_ROOT.parent / ".github" / "workflows" / "ci.yml"
+REPO_ROOT = next(p for p in Path(__file__).resolve().parents if (p / "shared").is_dir() and (p / "plugin").is_dir())
+CI = REPO_ROOT / ".github" / "workflows" / "ci.yml"
+PACKAGES = ("dr", "la")
 DURATIONS = "tests/durations"
 CONFORMANCE_CASES = "tests/test_conformance.py::test_case"
-# Per job kind: shard count, environment and pytest arguments, as the CI job runs them.
+# Per package: the tests its cross-twin run collects, as node/scripts/conformance.mjs runs them.
+CROSS_TESTS = {"dr": ["tests/test_conformance.py", "tests/test_module_map_equivalence.py"], "la": ["tests/test_conformance.py"]}
+# Per job kind: shard count, environment and pytest arguments, as the CI job runs them in a package.
 KINDS = {
-    "suite": (2, {}, ["--deselect", CONFORMANCE_CASES]),
-    "cross-python": (3, {"LA_CONFORMANCE_CROSS": "1", "LA_CONFORMANCE_TWIN": "python"}, ["tests/test_conformance.py"]),
+    "suite": (2, {}, lambda package: ["--deselect", CONFORMANCE_CASES]),
+    "cross-python": (3, {"LA_CONFORMANCE_CROSS": "1", "LA_CONFORMANCE_TWIN": "python"}, CROSS_TESTS.__getitem__),
     "cross-typescript": (3, {"LA_CONFORMANCE_CROSS": "1", "LA_CONFORMANCE_TWIN": "typescript"},
-                         ["tests/test_conformance.py"]),
+                         CROSS_TESTS.__getitem__),
 }
 
 
@@ -50,9 +53,12 @@ def _condition(step: dict) -> str | None:
     return None if condition is None else re.sub(r"^\$\{\{(.*)\}\}$", r"\1", _normal(str(condition))).strip()
 
 
-def test_test_job_is_version_by_two_shards() -> None:
+def test_test_job_is_version_by_package_by_two_shards() -> None:
     job = _jobs()["test"]
-    assert job["strategy"]["matrix"] == {"python-version": ["3.11", "3.12", "3.13", "3.14"], "shard": [1, 2]}
+    assert job["strategy"]["matrix"] == {
+        "python-version": ["3.11", "3.12", "3.13", "3.14"], "package": list(PACKAGES), "shard": [1, 2]
+    }
+    assert _normal(job["defaults"]["run"]["working-directory"]) == "python/${{matrix.package}}"
     run = _step(job, "uv run pytest")["run"]
     assert (_option(run, "--splits"), _option(run, "--group")) == ("2", "${{matrix.shard}}")
     assert _option(run, "--durations-path") == f"{DURATIONS}/suite.json"
@@ -61,15 +67,17 @@ def test_test_job_is_version_by_two_shards() -> None:
 
 def test_checks_run_in_the_first_shard_only() -> None:
     job = _jobs()["test"]
-    for command in ("../scripts/sync-shared --check", "uv run ruff", "uv run basedpyright"):
+    for command in ("../../scripts/sync-shared --check", "uv run ruff", "uv run basedpyright"):
         assert _condition(_step(job, command)) == "matrix.shard == 1", command
     for command in ("uv sync", "uv run pytest"):
         assert _condition(_step(job, command)) is None, command
 
 
-def test_idle_workers_steal_queued_tests() -> None:
+@pytest.mark.parametrize("package", PACKAGES)
+def test_idle_workers_steal_queued_tests(package: str) -> None:
     # A shard's expensive tests sit together in collection order; without stealing, one worker runs them all.
-    pytest_options = tomllib.loads((PROJECT_ROOT / "pyproject.toml").read_text(encoding="utf-8"))["tool"]["pytest"]
+    pyproject = REPO_ROOT / "python" / package / "pyproject.toml"
+    pytest_options = tomllib.loads(pyproject.read_text(encoding="utf-8"))["tool"]["pytest"]
     addopts = shlex.split(pytest_options["ini_options"]["addopts"])
     assert addopts[addopts.index("--dist") + 1] == "worksteal"
 
@@ -83,26 +91,29 @@ def test_cross_twin_job_is_twin_by_three_shards() -> None:
     assert _option(run, "--durations-path") == f"{DURATIONS}/cross-${{{{matrix.twin}}}}.json"
 
 
-def _collect(env: dict[str, str], args: list[str]) -> list[str]:
+def _collect(project: Path, env: dict[str, str], args: list[str]) -> list[str]:
     proc = subprocess.run(
         [sys.executable, "-m", "pytest", "--collect-only", "-q", "-n", "0", "-p", "no:cacheprovider", *args],
-        cwd=PROJECT_ROOT, env=env, capture_output=True, text=True, timeout=600, check=False,
+        cwd=project, env=env, capture_output=True, text=True, timeout=600, check=False,
     )
     assert proc.returncode == 0, proc.stdout[-3000:] + proc.stderr[-3000:]
     return [line for line in proc.stdout.splitlines() if "::" in line]
 
 
+@pytest.mark.parametrize("package", PACKAGES)
 @pytest.mark.parametrize("kind", KINDS)
-def test_each_shard_split_partitions_its_job(kind: str, tmp_path: Path) -> None:
-    shards, extra, args = KINDS[kind]
-    durations = PROJECT_ROOT / DURATIONS / f"{kind}.json"
+def test_each_shard_split_partitions_its_job(kind: str, package: str, tmp_path: Path) -> None:
+    shards, extra, package_args = KINDS[kind]
+    args = package_args(package)
+    project = REPO_ROOT / "python" / package
+    durations = project / DURATIONS / f"{kind}.json"
     assert durations.is_file()
     env = {k: v for k, v in os.environ.items() if not k.startswith(("LA_", "PYTEST_"))} | extra
     if extra:
         env["LA_NODE_BIN_DIR"] = str(tmp_path)  # collection needs only the key
-    full = _collect(env, args)
+    full = _collect(project, env, args)
     groups = [
-        _collect(env, [*args, "--splits", str(shards), "--group", str(g), "--durations-path", str(durations)])
+        _collect(project, env, [*args, "--splits", str(shards), "--group", str(g), "--durations-path", str(durations)])
         for g in range(1, shards + 1)
     ]
     assert full

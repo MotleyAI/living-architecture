@@ -8,6 +8,10 @@ call, and subclass override. So it is never trusted — it is *verified*. A stri
 static reference remains; marked overrides turn a missed override into an error; a mock lint turns a missed
 dynamic (mock) reference into a failure. Green ⇒ provably no dangling reference.
 
+The tools are the `deterministic-refactor` package (PyPI and npm, the `dr-*` commands) and the `dr` plugin's skills;
+they install and run without the architecture workflow, configured by `deterministic-refactor.yaml` (`/dr:init`
+writes it) or, in a repo that uses la, by `living-architecture.yaml`.
+
 Tools (both twins, routed by each file's language):
 - `dr-refactor` — the mutator: `rename` / `rename-map` / `generate-map` / `retarget` / `move-symbol` / `move-module`. Python
   resolves a rename's occurrences with the bundled basedpyright and computes every rename and move itself;
@@ -114,7 +118,7 @@ only when:
    every variable/parameter that holds an instance of a class typed. An untyped `x.attr` is unresolvable, so a
    miss there is invisible — determinism is bought with type coverage.
 2. **A type checker runs against the project's own environment** — basedpyright (or mypy) in the project
-   venv, `tsc --noEmit` against the repo's `node_modules` — passing, or at a recorded baseline (`la-typecheck`).
+   venv, `tsc --noEmit` against the repo's `node_modules` — passing, or at a recorded baseline (`dr-typecheck`).
 3. **Overrides are marked**, so a base rename that orphans an override is an error, not a silent break:
    `@typing.override` with `reportImplicitOverride` (basedpyright) or mypy strict; the `override` modifier with
    `noImplicitOverride`.
@@ -122,7 +126,7 @@ only when:
    `spec_set=` / `autospec=True` / a `Protocol` fake. TypeScript: `vi.fn<typeof real>()` (or an
    implementation), module factories typed against the module (`vi.mock(import('./m'), …)`,
    `jest.mock<typeof import('./m')>('./m', …)`), and no `as unknown as T` in tests.
-5. **The gate is wired into CI/pre-commit**: `la-typecheck` (no new errors vs baseline) + `dr-mock-lint` + the
+5. **The gate is wired into CI/pre-commit**: `dr-typecheck` (no new errors vs baseline) + `dr-mock-lint` + the
    test suite, on every change.
 
 `dr-compliance` checks each file with its language's checks and reports each violation as
@@ -158,26 +162,26 @@ ends with `and a miss raises no error` for a call that fails silently (`hasattr`
   ```
 
   For TypeScript, `tsc` in `node_modules` and `strict` plus `noImplicitOverride` in the tsconfig.
-- Record the current error set as the baseline (`la-typecheck --write-baseline`) — you do **not** need a clean
-  whole repo, only "no *new* errors" per change — and add `la-typecheck` and `dr-mock-lint <tests>` to CI.
+- Record the current error set as the baseline (`dr-typecheck --write-baseline`) — you do **not** need a clean
+  whole repo, only "no *new* errors" per change — and add `dr-typecheck` and `dr-mock-lint <tests>` to CI.
 
 The mutators do **not** belong in the project's dependencies. Python `dr-refactor` and `dr-compliance --attr`
-run the basedpyright bundled with la against the project's configuration and interpreter, so run them in the
+run the basedpyright bundled with dr against the project's configuration and interpreter, so run them in the
 project's environment (the `python` on PATH, or the venv in `[tool.basedpyright]`).
 
 ### 2. Keep every PR compliant — skill `make-diff-compliant`
 
 Bring exactly the files a PR touches up to the five conditions before it merges, so compliance grows
 monotonically with the diff instead of requiring a big-bang migration. The skill runs `dr-compliance` on the
-changed files, fixes what it reports, and loops until `la-typecheck` and `dr-mock-lint` are clean on the diff.
-See [`la:make-diff-compliant`](../plugin/skills/make-diff-compliant/SKILL.md).
+changed files, fixes what it reports, and loops until `dr-typecheck` and `dr-mock-lint` are clean on the diff.
+See [`dr:make-diff-compliant`](../plugin/dr/skills/make-diff-compliant/SKILL.md).
 
 ### 3. Do a refactor — skill `deterministic-refactor`
 
-Locate the symbol with the editor/LSP → `dr-refactor` dry-run → apply → run the gate (`la-typecheck` shows no
+Locate the symbol with the editor/LSP → `dr-refactor` dry-run → apply → run the gate (`dr-typecheck` shows no
 new errors, `dr-mock-lint` passes, tests pass, check the printed `leftover` lines and the string-only references
 the language doc lists) → review
-the diff. See [`la:deterministic-refactor`](../plugin/skills/deterministic-refactor/SKILL.md).
+the diff. See [`dr:deterministic-refactor`](../plugin/dr/skills/deterministic-refactor/SKILL.md).
 
 ### 4. Make a refactor's blast radius compliant first — skill `make-refactor-target-compliant`
 
@@ -186,6 +190,6 @@ reference the target but is currently invisible to the checker — untyped param
 an `X`, classes whose attribute names match the target ("right-looking" names), unmarked overrides. The skill
 drives `dr-compliance --select attr-blindspot,string-blindspot --attr <name>` to enumerate those sites, types them, and re-checks until the blast radius
 is fully typed — so the post-rename gate is sound. See
-[`la:make-refactor-target-compliant`](../plugin/skills/make-refactor-target-compliant/SKILL.md).
+[`dr:make-refactor-target-compliant`](../plugin/dr/skills/make-refactor-target-compliant/SKILL.md).
 
-The per-language idioms the skills rely on are in [`plugin/languages/`](../plugin/languages/).
+The per-language idioms the skills rely on are in [`plugin/dr/languages/`](../plugin/dr/languages/).
