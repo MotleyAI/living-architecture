@@ -1,11 +1,11 @@
 # TypeScript idioms
 
 The skills stay language-neutral; this is what they mean for a TS/JS repo. Concrete facts (globs, suppression
-syntax, waiver, baseline file) come from `la-config get lang.typescript.<key>`.
+syntax, waiver, baseline file) come from `dr-config get lang.typescript.<key>`.
 
 ## Environment
 
-Tools resolve against the repo's `node_modules` (`npm ci` first); `la-doctor` requires `node` and `npx`. The
+Tools resolve against the repo's `node_modules` (`npm ci` first); `dr-doctor` requires `node` and `npx`. The
 type checker is `tsc --noEmit` (`commands.typecheck.typescript`); a project whose tsconfig is not at the root
 sets e.g. `tsc --noEmit -p web/tsconfig.json`, and a checker that is not tsc-compatible sets `null`.
 `architecture/index.yaml`'s `typescript.tsconfig` names the tsconfig the tools load (default: the nearest

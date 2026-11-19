@@ -80,8 +80,8 @@ re-run until it passes.
 ## 7. Next steps (full run only)
 
 Offer, each as a yes/no:
-- **Type-check baseline.** If `la-typecheck` checks a language that has no baseline yet, offer
-  `la-typecheck --write-baseline`. This is the one legitimate recording: afterwards the baseline only shrinks.
+- **Type-check baseline.** If `dr-typecheck` checks a language that has no baseline yet, offer
+  `dr-typecheck --write-baseline`. This is the one legitimate recording: afterwards the baseline only shrinks.
 - **Architecture.** If `architecture: false`, offer the `la:arch-init` skill to build the model.
 
 Never wire CI; the docs explain how when the user asks. Do not commit: the user commits the config.

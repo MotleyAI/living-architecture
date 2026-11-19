@@ -1,13 +1,13 @@
 # Python idioms
 
 The skills stay language-neutral; this is what they mean for a Python repo. Concrete facts (globs, suppression
-syntax, waiver, baseline file) come from `la-config get lang.python.<key>`.
+syntax, waiver, baseline file) come from `dr-config get lang.python.<key>`.
 
 ## Environment
 
 Run every tool in the project env (the `.venv` the tests use, e.g. `uv run …`), so third-party types resolve.
 The type checker is basedpyright (`commands.typecheck.python`, default `basedpyright`); a subdirectory project
-sets `basedpyright -p <dir>`, and a checker that is not basedpyright-compatible sets `null`. `la-typecheck`
+sets `basedpyright -p <dir>`, and a checker that is not basedpyright-compatible sets `null`. `dr-typecheck`
 patches basedpyright in memory for pyright#11919, so pin a verified version (today `1.40.2`) and keep
 `NODE_OPTIONS` in the command; otherwise it exits 2.
 

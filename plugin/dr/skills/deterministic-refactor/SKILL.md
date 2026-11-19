@@ -1,21 +1,21 @@
 ---
 name: deterministic-refactor
-description: Use to rename or move a module/class/function/method/attribute (Python or TypeScript) and update all imports/references, with a deterministic check that nothing was missed. Mutator = dr-refactor; the guarantee = la-typecheck + dr-mock-lint + the test suite. Only sound on a compliant target (see docs/deterministic-refactoring.md).
+description: Use to rename or move a module/class/function/method/attribute (Python or TypeScript) and update all imports/references, with a deterministic check that nothing was missed. Mutator = dr-refactor; the guarantee = dr-typecheck + dr-mock-lint + the test suite. Only sound on a compliant target (see docs/deterministic-refactoring.md).
 ---
 
-**Preflight:** run `la-doctor --plugin <this skill's base directory> --require-config` once per session before using any `la-*` or `dr-*` command. If it reports the missing-config finding (the one naming `/la:init`), run the fast path of the `la:init` skill, then re-run this preflight; stop and show the user its output on anything it still reports, or on any other failure.
+**Preflight:** run `dr-doctor --plugin <this skill's base directory> --require-config` once per session before using any `dr-*` command. If it reports the missing-config finding (the one naming `/dr:init`), run the fast path of the `dr:init` skill, then re-run this preflight; stop and show the user its output on anything it still reports, or on any other failure.
 
 # Deterministic refactor
 
 The mutator is best-effort — no tool reliably rewrites every annotated
 `obj.attr`, `super()` call, and override. The **type-check gate is the
 guarantee**, and it is only sound on code that meets the compliance conditions
-(`docs/deterministic-refactoring.md`). If the blast radius is not typed, run `la:make-refactor-target-compliant`
+(`docs/deterministic-refactoring.md`). If the blast radius is not typed, run `dr:make-refactor-target-compliant`
 first.
 
 The file's language decides the mutator and its idioms: read
 `<this skill's base directory>/../../languages/<language>.md` for each language
-the refactor touches (`la-config get languages` lists the repo's).
+the refactor touches (`dr-config get languages` lists the repo's).
 
 ## Procedure
 
@@ -23,16 +23,16 @@ the refactor touches (`la-config get languages` lists the repo's).
    (`--file F --symbol Class.method`; also `func.<locals>.inner`,
    `Class.method(param)`, `Alias['value']` for a `Literal` member). Related
    renames go in one rename map: one dry-run, one apply, one gate.
-2. **Check the verifier**: run `la-typecheck`. It runs the project's type
+2. **Check the verifier**: run `dr-typecheck`. It runs the project's type
    checker in the project env (the one the tests use) against its committed
    baseline, and it must pass before you start. If it prints "nothing to
    check", STOP and tell the user: with no type check there is no guarantee,
    so offer to set one up (`commands.typecheck` and
-   `la-typecheck --write-baseline`) first.
+   `dr-typecheck --write-baseline`) first.
 3. **Type the receivers** (member renames):
    `dr-compliance --select attr-blindspot,string-blindspot --attr OLD <repo>` (one `--attr` per
    old name) lists each receiver the checker cannot type. Type them
-   (`la:make-refactor-target-compliant`) until it reports nothing; `dr-refactor`
+   (`dr:make-refactor-target-compliant`) until it reports nothing; `dr-refactor`
    refuses a member rename while any remain.
 4. **Dry-run** (default):
    `dr-refactor --project <repo> rename --file F --symbol Q --new-name N --docs`,
@@ -63,10 +63,10 @@ the refactor touches (`la-config get languages` lists the repo's).
    (`dr-refactor --project <repo> --apply rename ...`); trailing it errors.
    It realigns the type-check baseline too; never edit the baseline by hand.
 6. **GATE — done only when ALL pass:**
-   - `la-typecheck` passes: **no new errors** vs the baseline;
+   - `dr-typecheck` passes: **no new errors** vs the baseline;
    - `dr-mock-lint <tests>` passes; when the base branch already has findings,
      `dr-mock-lint --base <base-branch> <tests>` reports only the new ones;
-   - the full non-integration test suite (`la-config get commands.test`) passes;
+   - the full non-integration test suite (`dr-config get commands.test`) passes;
    - by hand, only these: each `leftover` and `unverified-read` line the apply printed, each receiver and keyword
      `--allow-blindspots` let through, and the string-only references the language doc lists.
 7. Review the diff. The user commits — never commit or `git add -A`.

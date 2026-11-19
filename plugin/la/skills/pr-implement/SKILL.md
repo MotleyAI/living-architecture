@@ -71,7 +71,7 @@ What it checks and how to fix each finding is described once, in the
 `import-not-top` waiver must be confirmed with me BEFORE landing it. Re-run
 until green.
 
-**Type check.** Run `la-typecheck`. It checks each applicable language against
+**Type check.** Run `dr-typecheck`. It checks each applicable language against
 its committed baseline, and exit 1 means this change added errors outside it.
 The baseline is a ratchet:
 - never re-record it (`--write-baseline` exists only to adopt the gate once);
@@ -81,9 +81,9 @@ The baseline is a ratchet:
   positive) or the wrongness is deliberate (e.g. an invalid-input test);
 - it only shrinks: when a file you touch carries baselined errors that
   root-fix without much churn, fix those too, and commit the baseline
-  `la-typecheck` shrinks.
+  `dr-typecheck` shrinks.
 
-`la-typecheck` printing "nothing to check" means no language applies, which is
+`dr-typecheck` printing "nothing to check" means no language applies, which is
 not a failure. Re-run until green.
 
 ## Step 3 — Push, then ask me to open the PR

@@ -35,18 +35,18 @@ each slice still gets its own branch and PR, and its own issue when the repo has
 
    Present the per-edge resolution table BEFORE mutating anything — this is a
    nontrivial design decision, the one permitted pause.
-3. **Baseline the gate:** `la-typecheck` green (the type checker against its
+3. **Baseline the gate:** `dr-typecheck` green (the type checker against its
    committed baseline, in the project env) — if it prints "nothing to check",
    STOP and tell the user: without a type check the moves cannot be verified,
-   so offer to set one up (`commands.typecheck` and `la-typecheck
+   so offer to set one up (`commands.typecheck` and `dr-typecheck
    --write-baseline`) first; `la-arch-check` green; the repo's test command (`la-config get commands.test`; if unset, the repo's documented full non-integration suite) green.
-4. **Execute the moves** via the `la:deterministic-refactor` skill (dry-run →
+4. **Execute the moves** via the `dr:deterministic-refactor` skill (dry-run →
    apply → format). The refactor's project scope must include the tests so
    test imports are rewritten too. New destination packages are created first
    (destinations must exist before moving; the language doc says what a new
    package needs).
 5. **Move gate — done only when ALL pass:**
-   - `la-typecheck`: **no new errors** vs baseline. A stale `from old import X`
+   - `dr-typecheck`: **no new errors** vs baseline. A stale `from old import X`
      or `old_mod.X` surfaces here even in untyped code — module members are
      statically resolvable without annotations;
    - delete the slice's now-dead `#legacy` arrows from the model and lower
@@ -79,5 +79,5 @@ in step 5.
 
 The moment a slice must **rename** an attribute or method (e.g. while
 inverting a dependency), that guarantee needs typed receivers: run
-`la:make-refactor-target-compliant` on the blast radius first, then
-`la:deterministic-refactor` for the rename.
+`dr:make-refactor-target-compliant` on the blast radius first, then
+`dr:deterministic-refactor` for the rename.

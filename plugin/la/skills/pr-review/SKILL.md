@@ -46,7 +46,7 @@ Split the gates into two tiers:
     repo's usual linter);
   - conventions gate (`la-check-conventions <PR>`), handled as the
     `la:process-reviews` conventions gate section describes;
-  - type check (`la-typecheck`), under the ratchet rule described at the
+  - type check (`dr-typecheck`), under the ratchet rule described at the
     type-check gate of the `la:pr-implement` skill;
   - Codex on the local diff (`mcp__codex__codex`, read-only; when
     `reviewers.codex` is on) — it analyses the working tree, so it needs no push;

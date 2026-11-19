@@ -60,7 +60,7 @@ Calibration notes (read first):
 
 ## 7. Plugins and skills
 
-- [ ] 7.1 Split `plugin/` into `plugin/dr/` (`.claude-plugin/plugin.json` `dr` 0.13.0; skills deterministic-refactor, make-refactor-target-compliant, make-diff-compliant; `languages/`) and `plugin/la/` (`plugin.json` `la` 0.13.0 with `dependencies: [{name: dr, version: "~0.13.0"}]`; every other skill); list both in `.claude-plugin/marketplace.json`; verify `npx -y @anthropic-ai/claude-code plugin validate plugin/dr` and `plugin/la`
+- [x] 7.1 Split `plugin/` into `plugin/dr/` (`.claude-plugin/plugin.json` `dr` 0.13.0; skills deterministic-refactor, make-refactor-target-compliant, make-diff-compliant; `languages/`) and `plugin/la/` (`plugin.json` `la` 0.13.0 with `dependencies: [{name: dr, version: "~0.13.0"}]`; every other skill); list both in `.claude-plugin/marketplace.json`; verify `npx -y @anthropic-ai/claude-code plugin validate plugin/dr` and `plugin/la`
 - [ ] 7.2 Apply the mechanical skill renames (dr skills: `dr-doctor --plugin`, `dr-config`, `dr-typecheck`; la skills: `dr:` skill names, `dr-typecheck`); verify the skills tests (manifest references, language-neutral, dr skills name only dr commands)
 - [ ] 7.3 Draft `dr:init` and the `la:init` hand-off (dr keys and baseline step to `dr:init`), show the user the exact wording, apply only after the OK; verify the skills tests
 - [ ] 7.4 Propose the exact edit to the user's global `~/.claude/CLAUDE.md` (`la:deterministic-refactor` → `dr:deterministic-refactor`, `la-typecheck` → `dr-typecheck`) and apply it only with the user's OK

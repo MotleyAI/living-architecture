@@ -15,8 +15,8 @@ show each model, arc42 and `index.yaml` edit and get the user's OK before landin
 
 - `architecture/index.yaml` does not exist (otherwise this is maintenance: use `la:living-architecture`).
 - `openspec: true` in the config means `openspec/` is healthy; if not, run `la:openspec-init` first.
-- A type check with a baseline: run `la-typecheck`. If it checks a language that has no baseline, offer
-  `la-typecheck --write-baseline` (the one legitimate recording; afterwards the baseline only shrinks). If it
+- A type check with a baseline: run `dr-typecheck`. If it checks a language that has no baseline, offer
+  `dr-typecheck --write-baseline` (the one legitimate recording; afterwards the baseline only shrinks). If it
   prints "nothing to check", tell the user that `la:arch-cleanup` cannot verify moves without one, and offer
   to set `commands.typecheck` first.
 

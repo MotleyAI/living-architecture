@@ -193,7 +193,7 @@ model-truth runs once over all of them.
 
 **The enforcement bundle** = `la-arch-check` + LikeC4 model validation
 (`npx likec4 validate`; if the installed CLI version lacks it, use the lightest
-command that parses the model, e.g. `npx likec4 build`) + `la-typecheck` against
+command that parses the model, e.g. `npx likec4 build`) + `dr-typecheck` against
 its committed baseline. It is blocking: run it before declaring any change done,
 and in CI. `arch_check` is cheap and deterministic, so wire it there once the setup
 has settled (not at init), pinned to a release, in the form of the repo's

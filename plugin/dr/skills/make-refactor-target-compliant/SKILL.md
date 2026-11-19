@@ -3,12 +3,12 @@ name: make-refactor-target-compliant
 description: Use BEFORE renaming a symbol/attribute (Python or TypeScript) to make its blast radius verifiable — type the code that might reference it (untyped params/vars that could hold the class, classes with matching attribute names, overrides not marked as such) so the post-rename type-check gate is sound.
 ---
 
-**Preflight:** run `la-doctor --plugin <this skill's base directory>` once per session before using any `la-*` or `dr-*` command; if it fails, stop and show the user its output.
+**Preflight:** run `dr-doctor --plugin <this skill's base directory>` once per session before using any `dr-*` command; if it fails, stop and show the user its output.
 
 # Make a refactor's blast radius compliant
 
 A rename is only provable over code the type checker can resolve. This closes
-the blind spots first, so the `la:deterministic-refactor` gate afterwards is sound.
+the blind spots first, so the `dr:deterministic-refactor` gate afterwards is sound.
 The idioms for each language are in
 `<this skill's base directory>/../../languages/<language>.md`.
 
@@ -23,7 +23,7 @@ The idioms for each language are in
    - A `dr-refactor` dry-run of the rename lists the stand-ins: classes outside
      the hierarchy that declare NAME. Make a real implementation a subclass or
      a `Protocol` implementation now, or classify it at the rename (`--with` /
-     `--without`, see `la:deterministic-refactor`).
+     `--without`, see `dr:deterministic-refactor`).
 3. **Make them resolvable (do NOT rename yet):**
    - Type the flagged parameters/variables with the owning class (or its
      interface/protocol); type the class's own attributes.
@@ -31,8 +31,8 @@ The idioms for each language are in
    - Type any test doubles of the class (`dr-mock-lint`).
 4. **Re-check until the blast radius is typed:**
    - the same `dr-compliance --select attr-blindspot,string-blindspot` command reports nothing;
-   - `la-typecheck` shows no new errors over the touched files.
-5. **Then run `la:deterministic-refactor`.** Every real reference is now
+   - `dr-typecheck` shows no new errors over the touched files.
+5. **Then run `dr:deterministic-refactor`.** Every real reference is now
    type-visible; what is left is a string the rename lists as a `leftover`
    or the language doc names.
 
