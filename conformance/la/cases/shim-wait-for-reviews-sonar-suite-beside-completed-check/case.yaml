@@ -11,9 +11,10 @@ gh:
 - match:
   - pr
   - view
-  - headRefOid,statusCheckRollup
+  - headRefOid,mergeable,statusCheckRollup
   stdout:
     headRefOid: abc
+    mergeable: MERGEABLE
     statusCheckRollup:
     - __typename: CheckRun
       name: tests
@@ -26,6 +27,11 @@ gh:
       conclusion: SUCCESS
       detailsUrl: https://sonarcloud.io/dashboard?id=url_key&pullRequest=7
 - match:
+  - api
+  - user
+  stdout:
+    login: me
+- match:
   - repos/o/r/commits/abc/check-suites
   stdout:
     check_suites:
@@ -35,8 +41,10 @@ gh:
 - match:
   - repos/o/r/issues/7/comments
   stdout:
-  - user:
-      login: alice
+  - id: 31
+    user:
+      login: me
+    html_url: https://github.com/o/r/pull/7#issuecomment-31
     updated_at: '2026-01-02T00:00:00Z'
     body: LGTM
 - match:
@@ -44,6 +52,9 @@ gh:
   stdout: []
 - match:
   - repos/o/r/pulls/7/reviews
+  stdout: []
+- match:
+  - repos/o/r/pulls/7/comments
   stdout: []
 expect:
   exit: 1

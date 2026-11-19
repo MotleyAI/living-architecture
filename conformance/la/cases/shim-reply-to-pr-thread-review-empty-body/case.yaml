@@ -1,0 +1,9 @@
+kind: neutral
+command: la-reply-to-pr-thread
+args:
+- https://github.com/o/r/pull/5#pullrequestreview-1
+stdin: ''
+expect:
+  exit: 2
+golden: manual
+note: an empty body is refused for a review URL too

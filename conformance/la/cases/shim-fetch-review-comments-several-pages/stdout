@@ -1,0 +1,74 @@
+# Review comments on o/r PR #7
+
+## Thread 1 — a.py:10
+URL: https://x/a1
+Resolved: false   Outdated: false   Answered: false
+
+### Comment 1 — alice  2026-01-01T00:00:00Z
+<https://x/a1>
+
+> a-1
+
+### Comment 2 — alice  2026-01-02T00:00:00Z
+<https://x/a2>
+
+> a-2
+
+---
+
+## Thread 2 — b.py:10
+URL: https://x/b1
+Resolved: false   Outdated: false   Answered: false
+
+### Comment 1 — bob  2026-01-01T00:00:00Z
+<https://x/b1>
+
+> b-1
+
+---
+
+## Review bodies
+
+### Review 1 — alice  2026-01-01T00:00:00Z
+<https://github.com/o/r/pull/7#pullrequestreview-51>
+Answered: false
+
+> r-1
+
+---
+
+### Review 2 — bob  2026-01-01T00:00:00Z
+<https://github.com/o/r/pull/7#pullrequestreview-52>
+Answered: false
+
+> r-2
+
+---
+
+## Conversation comments
+
+### Comment 1 — alice  2026-01-01T00:00:00Z
+<https://github.com/o/r/pull/7#issuecomment-41>
+Answered: false
+
+> c-1
+
+---
+
+### Comment 2 — bob  2026-01-01T00:00:00Z
+<https://github.com/o/r/pull/7#issuecomment-42>
+Answered: false
+
+> c-2
+
+---
+
+## CodeRabbit review-summary nitpicks
+
+_No nitpicks._
+
+## CodeRabbit outside-diff-range comments
+
+_No outside-diff comments._
+
+JSON: <ROOT>/tmp/review-comments-7-<TS>.json

@@ -10,10 +10,11 @@ gh:
 - match:
   - pr
   - view
-  - headRefOid,statusCheckRollup
+  - headRefOid,mergeable,statusCheckRollup
   responses:
   - stdout:
       headRefOid: abcdef0123
+      mergeable: MERGEABLE
       statusCheckRollup:
       - &id001
         __typename: CheckRun
@@ -28,11 +29,13 @@ gh:
         detailsUrl: https://github.com/o/r/actions/runs/1/job/9
   - stdout:
       headRefOid: abcdef0123
+      mergeable: MERGEABLE
       statusCheckRollup:
       - *id001
       - *id002
   - stdout:
       headRefOid: abcdef0123
+      mergeable: MERGEABLE
       statusCheckRollup:
       - *id001
       - __typename: CheckRun
@@ -41,16 +44,29 @@ gh:
         conclusion: SUCCESS
         detailsUrl: https://github.com/o/r/actions/runs/1/job/9
 - match:
+  - api
+  - user
+  stdout:
+    login: me
+- match:
   - repos/o/r/issues/7/comments
   stdout:
-  - user:
-      login: alice
+  - id: 31
+    user:
+      login: me
+    html_url: https://github.com/o/r/pull/7#issuecomment-31
     updated_at: '2026-01-02T00:00:00Z'
     body: LGTM
 - match:
   - repos/o/r/commits/abcdef0123/check-suites
   stdout:
     check_suites: []
+- match:
+  - repos/o/r/pulls/7/reviews
+  stdout: []
+- match:
+  - repos/o/r/pulls/7/comments
+  stdout: []
 expect:
   exit: 0
   stderr:

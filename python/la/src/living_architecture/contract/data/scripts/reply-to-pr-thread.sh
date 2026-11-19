@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Reply to a GitHub PR review thread (CodeRabbit, human reviewer, or any other).
-# Body is read from stdin. Calls POST /repos/{owner}/{repo}/pulls/{pr}/comments/{id}/replies.
+# Reply to a GitHub PR review thread (CodeRabbit, human reviewer, or any other), review body or conversation comment.
+# Body is read from stdin. A thread reply calls POST /repos/{owner}/{repo}/pulls/{pr}/comments/{id}/replies; a review
+# body or conversation comment cannot be threaded, so it gets a PR conversation comment starting `Re: <url>`.
 set -euo pipefail
 
 usage() {
@@ -10,6 +11,9 @@ usage: la-reply-to-pr-thread <DISCUSSION_URL>
 
   <DISCUSSION_URL>   e.g. https://github.com/owner/repo/pull/70#discussion_r3177795982
                      parses owner, repo, PR, and comment ID from the URL.
+                     A review URL (...#pullrequestreview-ID) or conversation-comment URL
+                     (...#issuecomment-ID) gets a PR conversation comment: "Re: <url>", a blank
+                     line, then the body.
   --comment-id ID    integer comment ID (the digits after "discussion_r")
   --pr PR            PR number
   --repo OWNER/REPO  defaults to the current repo via gh repo view
@@ -21,6 +25,7 @@ EOF
 }
 
 URL=""
+UNTHREADED=0
 COMMENT_ID=""
 PR=""
 REPO=""
@@ -65,16 +70,17 @@ if [ -n "$URL" ]; then
         : "${REPO:=${BASH_REMATCH[1]}/${BASH_REMATCH[2]}}"
         : "${PR:=${BASH_REMATCH[3]}}"
         : "${COMMENT_ID:=${BASH_REMATCH[4]}}"
-    elif [[ "$URL" == *"#pullrequestreview-"* ]]; then
-        echo "error: this URL is a review-summary, not a review thread; the replies endpoint only works for #discussion_r... URLs" >&2
-        exit 2
+    elif [[ "$URL" =~ ^https://github\.com/([^/]+)/([^/]+)/pull/([0-9]+)#(pullrequestreview|issuecomment)-[0-9]+$ ]]; then
+        REPO="${BASH_REMATCH[1]}/${BASH_REMATCH[2]}"
+        PR="${BASH_REMATCH[3]}"
+        UNTHREADED=1
     else
         echo "error: URL doesn't match github.com/OWNER/REPO/pull/PR#discussion_rID: $URL" >&2
         exit 2
     fi
 fi
 
-[ -n "$COMMENT_ID" ] || { echo "error: --comment-id (or a discussion URL) is required" >&2; usage; }
+(( UNTHREADED )) || [ -n "$COMMENT_ID" ] || { echo "error: --comment-id (or a discussion URL) is required" >&2; usage; }
 [ -n "$PR" ]         || { echo "error: --pr (or a discussion URL) is required" >&2; usage; }
 
 if [ -z "$REPO" ]; then
@@ -82,7 +88,7 @@ if [ -z "$REPO" ]; then
     [ -n "$REPO" ] || { echo "error: --repo not given and could not auto-detect (cwd is not a gh-recognised repo)" >&2; exit 2; }
 fi
 
-[[ "$COMMENT_ID" =~ ^[0-9]+$ ]] || { echo "error: comment-id must be a positive integer, got: $COMMENT_ID" >&2; exit 2; }
+(( UNTHREADED )) || [[ "$COMMENT_ID" =~ ^[0-9]+$ ]] || { echo "error: comment-id must be a positive integer, got: $COMMENT_ID" >&2; exit 2; }
 [[ "$PR"         =~ ^[0-9]+$ ]] || { echo "error: pr must be a positive integer, got: $PR" >&2; exit 2; }
 
 case "$REPO" in
@@ -110,10 +116,13 @@ cat > "$BODY_FILE"
 [ -s "$BODY_FILE" ] || { echo "error: stdin was empty" >&2; exit 2; }
 
 # Build the JSON payload via jq so newlines / special chars are escaped properly.
-jq -nR --rawfile body "$BODY_FILE" '{body: $body}' > "$PAYLOAD_FILE"
+if (( UNTHREADED )); then
+    jq -nR --arg url "$URL" --rawfile body "$BODY_FILE" '{body: "Re: \($url)\n\n\($body)"}' > "$PAYLOAD_FILE"
+    ENDPOINT="repos/$REPO/issues/$PR/comments"
+else
+    jq -nR --rawfile body "$BODY_FILE" '{body: $body}' > "$PAYLOAD_FILE"
+    ENDPOINT="repos/$REPO/pulls/$PR/comments/$COMMENT_ID/replies"
+fi
 
 # POST and surface the new reply's URL.
-gh api -X POST \
-    "repos/$REPO/pulls/$PR/comments/$COMMENT_ID/replies" \
-    --input "$PAYLOAD_FILE" \
-  | jq -r '.html_url'
+gh api -X POST "$ENDPOINT" --input "$PAYLOAD_FILE" | jq -r '.html_url'

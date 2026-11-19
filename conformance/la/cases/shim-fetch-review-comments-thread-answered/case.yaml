@@ -1,0 +1,83 @@
+kind: neutral
+command: la-fetch-review-comments
+args:
+- '7'
+- --repo
+- o/r
+gh:
+- match:
+  - api
+  - user
+  stdout:
+    login: me
+- match:
+  - graphql
+  stdout:
+    data:
+      repository:
+        pullRequest:
+          reviewThreads:
+            pageInfo:
+              hasNextPage: false
+              endCursor: null
+            nodes:
+            - id: T_a.py
+              isResolved: false
+              isOutdated: false
+              path: a.py
+              line: 10
+              originalLine: 10
+              comments:
+                pageInfo:
+                  hasNextPage: false
+                  endCursor: null
+                nodes:
+                - author:
+                    login: alice
+                  body: Fix
+                  url: https://x/a1
+                  createdAt: '2026-01-01T00:00:00Z'
+                - author:
+                    login: me
+                  body: Fixed
+                  url: https://x/a2
+                  createdAt: '2026-01-02T00:00:00Z'
+            - id: T_b.py
+              isResolved: false
+              isOutdated: false
+              path: b.py
+              line: 10
+              originalLine: 10
+              comments:
+                pageInfo:
+                  hasNextPage: false
+                  endCursor: null
+                nodes:
+                - author:
+                    login: alice
+                  body: Fix
+                  url: https://x/b1
+                  createdAt: '2026-01-01T00:00:00Z'
+                - author:
+                    login: me
+                  body: Fixed
+                  url: https://x/b2
+                  createdAt: '2026-01-02T00:00:00Z'
+                - author:
+                    login: alice
+                  body: Not quite
+                  url: https://x/b3
+                  createdAt: '2026-01-03T00:00:00Z'
+- match:
+  - repos/o/r/pulls/7/reviews
+  stdout: []
+- match:
+  - repos/o/r/issues/7/comments
+  stdout: []
+normalize:
+- pattern: -[0-9]{8}-[0-9]{6}\.json
+  replace: -<TS>.json
+expect:
+  exit: 0
+golden: manual
+note: a thread is answered when its last comment is the logged-in user's

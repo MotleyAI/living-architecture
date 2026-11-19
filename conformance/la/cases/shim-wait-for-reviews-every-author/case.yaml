@@ -1,0 +1,98 @@
+kind: neutral
+command: la-wait-for-reviews
+args:
+- '7'
+- --repo
+- o/r
+env:
+  LA_WAIT_POLL_SECONDS: '0'
+gh:
+- match:
+  - pr
+  - view
+  - headRefOid,mergeable,statusCheckRollup
+  responses:
+  - stdout:
+      headRefOid: abcdef0123
+      mergeable: MERGEABLE
+      statusCheckRollup:
+      - __typename: CheckRun
+        name: tests
+        status: COMPLETED
+        conclusion: SUCCESS
+        detailsUrl: https://github.com/o/r/actions/runs/1/job/2
+- match:
+  - api
+  - user
+  stdout:
+    login: me
+- match:
+  - repos/o/r/commits/abcdef0123/check-suites
+  stdout:
+    check_suites: []
+- match:
+  - repos/o/r/commits/abcdef0123/statuses
+  stdout: []
+- match:
+  - repos/o/r/issues/7/comments
+  stdout:
+  - id: 31
+    user:
+      login: bob
+    html_url: https://github.com/o/r/pull/7#issuecomment-31
+    updated_at: '2026-01-02T00:00:00Z'
+    body: a comment
+  - id: 32
+    user:
+      login: sonarqubecloud[bot]
+    html_url: https://github.com/o/r/pull/7#issuecomment-32
+    updated_at: '2026-01-02T00:00:00Z'
+    body: Quality Gate passed
+  - id: 33
+    user:
+      login: me
+    html_url: https://github.com/o/r/pull/7#issuecomment-33
+    updated_at: '2026-01-02T00:00:00Z'
+    body: a comment
+- match:
+  - repos/o/r/pulls/7/reviews
+  stdout:
+  - id: 23
+    user:
+      login: alice
+    commit_id: abcdef0123
+    body: Please split this
+    html_url: https://github.com/o/r/pull/7#pullrequestreview-23
+  - id: 24
+    user:
+      login: me
+    commit_id: abcdef0123
+    body: Self review
+    html_url: https://github.com/o/r/pull/7#pullrequestreview-24
+  - id: 25
+    user:
+      login: carol
+    commit_id: abcdef0123
+    body: " \n"
+    html_url: https://github.com/o/r/pull/7#pullrequestreview-25
+- match:
+  - repos/o/r/pulls/7/comments
+  stdout:
+  - id: 13
+    user:
+      login: alice
+    html_url: https://github.com/o/r/pull/7#discussion_r13
+    updated_at: '2026-01-02T00:00:00Z'
+    body: comment 13
+  - id: 14
+    user:
+      login: me
+    html_url: https://github.com/o/r/pull/7#discussion_r14
+    updated_at: '2026-01-02T00:00:00Z'
+    body: comment 14
+expect:
+  exit: 0
+  stderr: ignore
+golden: manual
+note: without CodeRabbit, every author's comments are items except the logged-in user's; a whitespace-only review body is
+  not

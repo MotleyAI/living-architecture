@@ -1,0 +1,38 @@
+kind: neutral
+command: la-fetch-review-comments
+args:
+- '7'
+- --repo
+- o/r
+gh:
+- match:
+  - api
+  - user
+  stdout: ''
+  stderr: |
+    gh: Bad credentials (HTTP 401)
+  exit: 1
+- match:
+  - graphql
+  stdout:
+    data:
+      repository:
+        pullRequest:
+          reviewThreads:
+            pageInfo:
+              hasNextPage: false
+              endCursor: null
+            nodes: []
+- match:
+  - repos/o/r/pulls/7/reviews
+  stdout: []
+- match:
+  - repos/o/r/issues/7/comments
+  stdout: []
+expect:
+  exit: 1
+  stderr:
+    contains:
+    - Bad credentials
+golden: manual
+note: 'the logged-in user is unreadable: the command fails'

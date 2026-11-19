@@ -10,10 +10,11 @@ gh:
 - match:
   - pr
   - view
-  - headRefOid,statusCheckRollup
+  - headRefOid,mergeable,statusCheckRollup
   responses:
   - stdout:
       headRefOid: abcdef0123
+      mergeable: MERGEABLE
       statusCheckRollup:
       - &id001
         __typename: CheckRun
@@ -26,11 +27,13 @@ gh:
         state: SUCCESS
   - stdout:
       headRefOid: abcdef0123
+      mergeable: MERGEABLE
       statusCheckRollup:
       - *id001
       - *id002
   - stdout:
       headRefOid: abcdef0123
+      mergeable: MERGEABLE
       statusCheckRollup:
       - __typename: CheckRun
         name: lint
@@ -38,6 +41,11 @@ gh:
         conclusion: SUCCESS
         detailsUrl: https://github.com/o/r/actions/runs/1/job/9
       - *id002
+- match:
+  - api
+  - user
+  stdout:
+    login: me
 - match:
   - repos/o/r/commits/abcdef0123/check-suites
   stdout:
@@ -59,12 +67,14 @@ gh:
 - match:
   - repos/o/r/issues/7/comments
   stdout:
-  - user:
+  - id: 31
+    user:
       login: coderabbitai[bot]
+    html_url: https://github.com/o/r/pull/7#issuecomment-31
     updated_at: '2026-01-02T00:00:00Z'
-    body: '<!-- This is an auto-generated comment: summarize by coderabbit.ai -->
-
-      ## Summary'
+    body: |-
+      <!-- This is an auto-generated comment: summarize by coderabbit.ai -->
+      ## Summary
 - match:
   - repos/o/r/pulls/7/reviews
   stdout: []

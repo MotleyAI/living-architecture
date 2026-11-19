@@ -1,15 +1,19 @@
 #!/usr/bin/env bash
 # Watch a PR until CodeRabbit, Sonar and CI are terminal on HEAD, printing each new review item once on stdout.
 #
-# Every LA_WAIT_POLL_SECONDS one poll reads HEAD's snapshot (SHA + status-check rollup), HEAD's Sonar check suites
-# and, when CodeRabbit is on the PR (as la-pr-reviewers detects it), its evidence and comments. Items, one stdout
-# line each, never the same key twice (the keys persist per PR in the git dir):
+# Every LA_WAIT_POLL_SECONDS one poll reads HEAD's snapshot (SHA, mergeable state, status-check rollup), HEAD's
+# Sonar check suites, the PR's review comments, reviews and conversation comments, and, when CodeRabbit is on the PR
+# (as la-pr-reviewers detects it), HEAD's CodeRabbit statuses. Items, one stdout line each, never the same key twice
+# (the keys persist per PR in the git dir); <login> is the author, `ghost` when GitHub gives none, and comments by
+# the logged-in gh user are never items:
 #   ci-failed <sha7> <url> <name>         a failed check on HEAD other than CodeRabbit's or Sonar's
-#   coderabbit-comment <url>              a CodeRabbit PR review comment (thread or reply)
-#   coderabbit-review <url>               a CodeRabbit PR review with a body
+#   review-comment <login> <url>          a PR review comment (thread or reply)
+#   review <login> <url>                  a PR review with a body
+#   pr-comment <login> <url>              a PR conversation comment
 #   sonar-done <sha7> <conclusion>        every Sonar suite and check on HEAD finished
 #   coderabbit-settled <sha7> <outcome>   reviewed / carried-forward / rate-limited / paused / skipped / cap
 #   head-moved <old7> <new7>              HEAD changed since the previous poll; the gate and settle restart
+#   merge-conflict <sha7>                 the PR conflicts with its base; printed alone, then exit 4
 # Progress and diagnostics go to stderr.
 #
 # The gate is clear when no check is PENDING / EXPECTED / QUEUED / IN_PROGRESS / WAITING / REQUESTED and every Sonar
@@ -22,8 +26,8 @@
 #      LA_WAIT_CR_SETTLE (CodeRabbit cap after the gate clears, seconds, default 600).
 #
 # Exits, once the gate is clear: 0 when CodeRabbit reviewed or carried forward HEAD, is not on the PR, or its cap ran
-# out; 3 when it is rate limited, paused or skipped its review on HEAD. 1 on the gate timeout, 2 when the repo can't be
-# resolved, 64 on usage.
+# out; 3 when it is rate limited, paused or skipped its review on HEAD. 4 at once on a merge conflict, 1 on the gate
+# timeout, 2 when the repo can't be resolved, 64 on usage.
 #
 # Usage:
 #   la-wait-for-reviews <PR_NUMBER> [--repo OWNER/REPO]
@@ -155,14 +159,37 @@ emit() {
 # One poll
 # ---------------------------------------------------------------------------
 
-# HEAD's snapshot into HEAD_SHA and ROLLUP, then its Sonar suites into SUITES. Returns 1 when the snapshot read
-# fails, 2 when the suites read does.
-read_head() {
+# HEAD's snapshot into HEAD_SHA, MERGEABLE (empty unless a string) and ROLLUP; fails when the read does.
+read_snapshot() {
     local snapshot
     snapshot=$(rb_snapshot "$PR" "$REPO" 2>/dev/null) || return 1
     HEAD_SHA=$(jq -r '.headRefOid' <<<"$snapshot")
+    MERGEABLE=$(jq -r '.mergeable | strings' <<<"$snapshot")
     ROLLUP=$(jq -c '.statusCheckRollup' <<<"$snapshot")
-    SUITES=$(rb_sonar_suites "$HEAD_SHA" "$REPO" 2>/dev/null) || return 2
+}
+
+# The logged-in gh user into SELF, unless already known; fails while it is unknown.
+SELF=""
+read_self() {
+    local login
+    [[ -z "$SELF" ]] || return 0
+    if login=$(gh api user --jq '.login' 2>/dev/null) && [[ "$login" =~ ^[^[:space:]]+$ ]]; then
+        SELF=$login
+        return 0
+    fi
+    return 1
+}
+
+# The PR's conversation comments, reviews and review comments into ISSUE_COMMENTS, REVIEWS and REVIEW_COMMENTS, each
+# empty when its read fails; all empty, unread, while the logged-in user is unknown.
+read_comments() {
+    ISSUE_COMMENTS=""
+    REVIEWS=""
+    REVIEW_COMMENTS=""
+    read_self || return 0
+    ISSUE_COMMENTS=$(rb_list "repos/$REPO/issues/$PR/comments" '.[]' 2>/dev/null) || ISSUE_COMMENTS=""
+    REVIEWS=$(rb_list "repos/$REPO/pulls/$PR/reviews" '.[]' 2>/dev/null) || REVIEWS=""
+    REVIEW_COMMENTS=$(rb_list "repos/$REPO/pulls/$PR/comments" '.[]' 2>/dev/null) || REVIEW_COMMENTS=""
 }
 
 # The ci-failed items of ROLLUP, as "<key>\t<line>" lines.
@@ -190,13 +217,32 @@ sonar_item() {
         | "sonar \($sha)\tsonar-done \($short) \($conclusion)"' <<<"$SUITES"
 }
 
-# CodeRabbit on HEAD: sets OUTCOME to reviewed / carried-forward / rate-limited / paused / skipped / none, DETAIL to the
-# evidence, and CR_ITEMS to its comment and review items. $1 is 1 when every earlier read of the poll succeeded.
+# The review-comment, review and pr-comment items of the lists read, as "<key>\t<line>" lines.
+comment_items() {
+    local author='(.user.login // null) as $login | select($login == null or $login != $me)
+        | ($login // "ghost") as $login'
+    if [[ -n "$REVIEW_COMMENTS" ]]; then
+        jq -r --arg me "$SELF" '.[] | '"$author"'
+            | "review-comment \(.id)\treview-comment \($login) \(.html_url)"' <<<"$REVIEW_COMMENTS"
+    fi
+    if [[ -n "$REVIEWS" ]]; then
+        jq -r --arg me "$SELF" '.[] | select(.body // "" | test("\\S")) | '"$author"'
+            | "review \(.id)\treview \($login) \(.html_url)"' <<<"$REVIEWS"
+    fi
+    if [[ -n "$ISSUE_COMMENTS" ]]; then
+        jq -r --arg me "$SELF" '.[] | '"$author"'
+            | "pr-comment \(.id)\tpr-comment \($login) \(.html_url)"' <<<"$ISSUE_COMMENTS"
+    fi
+    return 0
+}
+
+# CodeRabbit on HEAD, from its statuses and the comment lists read: sets OUTCOME to reviewed / carried-forward /
+# rate-limited / paused / skipped / none and DETAIL to the evidence. $1 is 1 when every earlier read of the poll
+# succeeded.
 cr_poll() {
-    local all_ok=$1 list statuses="" covered="" on_head="" comments="" reviews=""
+    local all_ok=$1 list statuses="" covered="" on_head=""
     OUTCOME=none
     DETAIL=""
-    CR_ITEMS=""
 
     # HEAD's CodeRabbit status descriptions, lowercased, newest first.
     if ! { list=$(rb_list "repos/$REPO/commits/$HEAD_SHA/statuses" '.[]' 2>/dev/null) \
@@ -205,32 +251,22 @@ cr_poll() {
         statuses=""
         all_ok=0
     fi
-    if ! { list=$(rb_list "repos/$REPO/issues/$PR/comments" '.[]' 2>/dev/null) \
-        && covered=$(jq -r --arg head "$HEAD_SHA" 'any(.[];
+    if ! { [[ -n "$ISSUE_COMMENTS" ]] && covered=$(jq -r --arg head "$HEAD_SHA" 'any(.[];
                 (.user.login // "" | '"$CR_LOGIN"')
                 and (.body // "" | contains("summarize by coderabbit.ai"))
                 and any(.body | capture("final_review_risk_coverage:(?<marker>\\{[^}]*\\})")? | .marker
-                        | fromjson? | .coveredCommitId; . == $head))' <<<"$list" 2>/dev/null); }; then
+                        | fromjson? | .coveredCommitId; . == $head))' <<<"$ISSUE_COMMENTS" 2>/dev/null); }; then
         covered=""
         all_ok=0
     fi
-    if ! { list=$(rb_list "repos/$REPO/pulls/$PR/reviews" '.[]' 2>/dev/null) \
-        && reviews=$(jq -c 'map(select((.user.login // "" | '"$CR_LOGIN"') and (.body // "" | test("\\S"))))' \
-            <<<"$list" 2>/dev/null) \
-        && on_head=$(jq -r --arg head "$HEAD_SHA" 'any(.[]; .commit_id == $head)' <<<"$reviews"); }; then
-        reviews=""
+    if ! { [[ -n "$REVIEWS" ]] && on_head=$(jq -r --arg head "$HEAD_SHA" 'any(.[];
+                (.user.login // "" | '"$CR_LOGIN"') and (.body // "" | test("\\S")) and .commit_id == $head)' \
+            <<<"$REVIEWS" 2>/dev/null); }; then
         on_head=""
         all_ok=0
     fi
-    if ! { list=$(rb_list "repos/$REPO/pulls/$PR/comments" '.[]' 2>/dev/null) \
-        && comments=$(jq -r '.[] | select(.user.login // "" | '"$CR_LOGIN"')
-                | "coderabbit-comment \(.id)\tcoderabbit-comment \(.html_url)"' <<<"$list" 2>/dev/null); }; then
-        comments=""
+    if [[ -z "$REVIEW_COMMENTS" ]]; then
         all_ok=0
-    fi
-    CR_ITEMS=$comments
-    if [[ -n "$reviews" ]]; then
-        CR_ITEMS+=$'\n'$(jq -r '.[] | "coderabbit-review \(.id)\tcoderabbit-review \(.html_url)"' <<<"$reviews")
     fi
 
     if [[ -n "$statuses" && $(jq -r 'any(.[]; contains("review completed"))' <<<"$statuses") == "true" ]]; then
@@ -269,9 +305,8 @@ cleared_at=""
 
 while :; do
     rc=0
-    read_head || rc=$?
     OUTCOME=none
-    if (( rc == 1 )); then
+    if ! read_snapshot; then
         pending="(unknown — could not read the check rollup)"
     else
         short=${HEAD_SHA:0:7}
@@ -282,6 +317,12 @@ while :; do
             cleared_at=""
         fi
         prev=$HEAD_SHA
+        if [[ "$MERGEABLE" == "CONFLICTING" ]]; then
+            printf 'merge-conflict %s\n' "$short"
+            echo "Stage 0a: PR #$PR conflicts with its base branch at HEAD $short, so CI will not run — merge the base into the branch and push." >&2
+            exit 4
+        fi
+        SUITES=$(rb_sonar_suites "$HEAD_SHA" "$REPO" 2>/dev/null) || rc=2
 
         pending=$(jq -r '[.[] | select('"$NON_TERMINAL"') | (.name // .context)] | join(", ")' <<<"$ROLLUP")
         if (( rc == 2 )); then
@@ -292,13 +333,14 @@ while :; do
                 | join(", ")' <<<"$SUITES")
         fi
 
+        read_comments
         if [[ "$present" != "true" ]]; then
-            present=$(rb_coderabbit "$PR" "$REPO" "$ROLLUP" 2>/dev/null) || present=""
+            present=$(rb_coderabbit "$PR" "$REPO" "$ROLLUP" "$ISSUE_COMMENTS" 2>/dev/null) || present=""
         fi
         items=$(ci_items)
+        items+=$'\n'$(comment_items)
         if [[ "$present" == "true" ]]; then
             cr_poll "$(( rc == 0 ))"
-            items+=$'\n'$CR_ITEMS
         fi
         if (( rc == 0 )); then
             items+=$'\n'$(sonar_item)
