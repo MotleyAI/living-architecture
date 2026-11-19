@@ -154,6 +154,9 @@ Tags: `(user)` the user's choice, `(default)` an obvious default, `(codex)` a Co
     `[python.doctor]` so `la-arch-check` stays green; 8.1 rewrites it to the approved form. (user, approved wording)
 29. **`refactor` is dr's**: the `refactor` section (added on main after planning) configures `dr-refactor`, so dr's
     schema defines it and la's takes it by a property-level `$ref`, like the other dr keys. (user, approved extension)
+30. **Root-package nodes** (found implementing 8.1): a node whose `package` is a configured root claims that root's
+    top-level units, so this repo's `dr` and `la` nodes can sit on the root packages with their modules nested; the
+    alternative, one node per module, would turn `la -> dr` into one arrow per module pair. (user)
 
 ## Risks / Trade-offs
 

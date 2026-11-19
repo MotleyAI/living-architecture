@@ -30,12 +30,12 @@ Calibration notes (read first):
 
 ## 3. Workspaces and module moves
 
-- [ ] 3.1 Turn `python/` into a uv workspace root (members `dr`, `la`, `conformance`), create `python/dr/pyproject.toml` (`deterministic-refactor`, 0.13.0, rope/basedpyright/pydantic/pyyaml/jsonschema deps as needed) and `python/la/pyproject.toml` (`living-architecture`, depends on `deterministic-refactor>=0.13.0,<0.14` from the workspace); verify `uv sync --locked` in `python/`
-- [ ] 3.2 Move `contract`, `config`, `lang`, `twin`, `changes`, `typecheck`, `refactor` and the dr CLI entry points to `python/dr/src/deterministic_refactor/` with `dr-refactor` (dogfooding); if it cannot move across source roots or packages, STOP and ask the user before any fallback; verify `dr-typecheck`/basedpyright, `dr-mock-lint` and the moved tests pass
+- [x] 3.1 Turn `python/` into a uv workspace root (members `dr`, `la`, `conformance`), create `python/dr/pyproject.toml` (`deterministic-refactor`, 0.13.0, rope/basedpyright/pydantic/pyyaml/jsonschema deps as needed) and `python/la/pyproject.toml` (`living-architecture`, depends on `deterministic-refactor>=0.13.0,<0.14` from the workspace); verify `uv sync --locked` in `python/`
+- [x] 3.2 Move `contract`, `config`, `lang`, `twin`, `changes`, `typecheck`, `refactor` and the dr CLI entry points to `python/dr/src/deterministic_refactor/` with `dr-refactor` (dogfooding); if it cannot move across source roots or packages, STOP and ask the user before any fallback; verify `dr-typecheck`/basedpyright, `dr-mock-lint` and the moved tests pass
 - [ ] 3.3 Split `config` so dr holds loading, YAML profile, schema, defaults, format check/stamp and language detection, and la holds only la's resolved-config model; parametrise `twin` by package identity (doctor command, runner, install, hashes); split `cli` per package; give each package its own `__version__`/`NATIVE_LANGUAGE`; verify la imports only the public dr modules listed in design decision 22
-- [ ] 3.4 Move `python/tests` into `python/dr/tests` and `python/la/tests` by the module they test; move the conformance runner into the dev-only `python/conformance` member; verify both packages' suites collect and pass
-- [ ] 3.5 Turn `node/` into a private npm workspace root with `node/dr` (`deterministic-refactor`) and `node/la` (`living-architecture`, `"deterministic-refactor": "~0.13.0"`), moving modules as in 3.2–3.3 with `dr-refactor` (same stop rule); `node/la/tsconfig.json` maps `deterministic-refactor` to `../dr/src`, `node/la/tsconfig.build.json` resolves dr's built declarations; dr builds first; verify `npm ci`, lint, typecheck, `npm test` in both workspaces and a pack test proving la's tarball imports only `deterministic-refactor`
-- [ ] 3.6 Update `living-architecture.yaml` `commands.test`/`lint`/`typecheck` to cover both workspaces in both ecosystems; verify each command runs green
+- [x] 3.4 Move `python/tests` into `python/dr/tests` and `python/la/tests` by the module they test; move the conformance runner into the dev-only `python/conformance` member; verify both packages' suites collect and pass
+- [x] 3.5 Turn `node/` into a private npm workspace root with `node/dr` (`deterministic-refactor`) and `node/la` (`living-architecture`, `"deterministic-refactor": "~0.13.0"`), moving modules as in 3.2–3.3 with `dr-refactor` (same stop rule); `node/la/tsconfig.json` maps `deterministic-refactor` to `../dr/src`, `node/la/tsconfig.build.json` resolves dr's built declarations; dr builds first; verify `npm ci`, lint, typecheck, `npm test` in both workspaces and a pack test proving la's tarball imports only `deterministic-refactor`
+- [x] 3.6 Update `living-architecture.yaml` `commands.test`/`lint`/`typecheck` to cover both workspaces in both ecosystems; verify each command runs green
 
 ## 4. Contract split
 
@@ -67,6 +67,7 @@ Calibration notes (read first):
 
 ## 8. Architecture harnesses
 
+- [ ] 8.0 Implement root-package nodes claiming their root's top-level units in both twins' claims checks; add one conformance case per new arch-check scenario (Python through both twins, TypeScript), list them in `conformance/INVENTORY.md`; verify they pass through both twins
 - [ ] 8.1 Apply the approved `index.yaml`, `model.c4`, `views.c4` and `system.arc42.md` edits (design decision 12), add `cross_cutting_specs.doctor` touching `python.dr.doctor` and `python.la.doctor`, move spec mappings and `touches:` to nested ids, regenerate diagrams with `la-arch-diagrams`; verify `la-arch-check` exits 0 and `npx likec4 validate` passes
 
 ## 9. CI, publishing, scripts and docs
