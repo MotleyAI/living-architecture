@@ -1,7 +1,7 @@
 // Routing `dr-*` inputs by file language: own-language files run here, the other language's in its twin.
 import { type Dirent, lstatSync, readdirSync, readlinkSync, realpathSync, statSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, relative, sep } from 'node:path';
-import { ConfigError, findRepoRoot, loadConfig, repoLanguages } from '../config/index.js';
+import { ConfigError, findRepoRoot, languageSettings, repoLanguages } from '../config/index.js';
 import { byCodePoint, globMatch, language, languageIds, languageOf, message } from '../contract/index.js';
 import * as twin from '../twin/index.js';
 
@@ -79,7 +79,7 @@ function filesUnder(dir: string, pruned: Set<string> = new Set()): string[] {
 
 function expansionLanguages(root: string): string[] {
   try {
-    const languages = repoLanguages(root, loadConfig(root));
+    const languages = repoLanguages(root, languageSettings(root));
     return languages.length > 0 ? languages : languageIds();
   } catch (error) {
     if (error instanceof ConfigError) throw new RoutingError(error.message);

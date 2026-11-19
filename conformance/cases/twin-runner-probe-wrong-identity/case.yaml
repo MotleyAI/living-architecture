@@ -11,7 +11,7 @@ bins:
       #!/bin/sh
       echo "uvx $*" >> <ROOT>/repo/probe.log
       if [ "$*" = "--from living-architecture==<VERSION> la-doctor --twin" ]; then
-        echo "python 9.9.9 <CONTRACT_HASH>"
+        echo "python 9.9.9 <CONTRACT_HASH> <DR_CONTRACT_HASH>"
         exit 0
       fi
       echo "fake uvx: unexpected $*" >&2

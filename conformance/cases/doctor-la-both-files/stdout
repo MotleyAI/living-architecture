@@ -1,1 +1,1 @@
-FAIL: <BOTH-FILES>
+FAIL: deterministic-refactor.yaml and living-architecture.yaml are both at the repo root; keep one: a repo using la keeps living-architecture.yaml

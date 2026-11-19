@@ -11,7 +11,7 @@ bins:
       #!/bin/sh
       echo "pypi-twin: la-doctor $*" >> <ROOT>/repo/probe.log
       [ "$*" = "--twin" ] || { echo "fake la-doctor: unexpected $*" >&2; exit 99; }
-      echo "python <VERSION> <CONTRACT_HASH>"
+      echo "python <VERSION> <CONTRACT_HASH> <DR_CONTRACT_HASH>"
     la-arch-check: |
       #!/bin/sh
       echo "pypi-twin: la-arch-check $*" >> <ROOT>/repo/probe.log

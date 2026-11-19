@@ -13,7 +13,7 @@ args:
 bins:
 - dir: other-twin
   files:
-    la-doctor: |
+    dr-doctor: |
       #!/bin/sh
       echo "python <VERSION> <CONTRACT_HASH>"
     dr-compliance: |

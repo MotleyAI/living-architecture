@@ -13,7 +13,7 @@ args:
 bins:
 - dir: other-twin
   files:
-    la-doctor: |
+    dr-doctor: |
       #!/bin/sh
       echo "typescript <VERSION> <CONTRACT_HASH>"
     dr-compliance: |

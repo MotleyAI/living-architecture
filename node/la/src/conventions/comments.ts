@@ -4,7 +4,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, posix } from 'node:path';
 import { findRepoRoot } from 'deterministic-refactor/config';
-import { manifest, message } from 'deterministic-refactor/contract';
+import { manifest, message } from '../contract/index.js';
 import { collect, FactsError, type Facts, languageOf } from './facts.js';
 
 const PROG = 'la-count-comments';

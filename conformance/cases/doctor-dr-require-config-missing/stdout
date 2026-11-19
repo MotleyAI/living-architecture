@@ -1,1 +1,1 @@
-FAIL: <DR-CONFIG-MISSING>
+FAIL: no deterministic-refactor.yaml or living-architecture.yaml at the repo root; run /dr:init to onboard this repo

@@ -37,7 +37,7 @@ import {
   readFile,
   splitLines,
   splitLinesKeepEnds,
-} from 'deterministic-refactor/contract';
+} from '../contract/index.js';
 import { ExemptNotMigratable, moveExempt } from './exempt-move.js';
 import { INDEX_REL, type Index, loadIndex } from './index-file.js';
 import {
@@ -585,7 +585,7 @@ export const STEPS: MigrationStep[] = [
 function declaredFormat(root: string, formats: string[]): [string | null, string] | null {
   let committed;
   try {
-    committed = readCommitted(root);
+    committed = readCommitted(root, configFile());
   } catch (error) {
     if (error instanceof ConfigError) throw new MigrateError(error.message);
     throw error;
@@ -595,7 +595,7 @@ function declaredFormat(root: string, formats: string[]): [string | null, string
   if (!data.has(FORMAT_KEY)) return [null, committed.text];
   const current = formats.at(-1) as string;
   const declared = data.get(FORMAT_KEY);
-  const problem = formatProblem(data, current);
+  const problem = formatProblem(data, configFile(), current);
   if (problem === null) return null;
   if (!isVersion(declared) || compareVersions(declared, current) > 0) throw new MigrateError(problem);
   if (!formats.includes(declared)) throw new MigrateError(message('arch-migrate.unknown-format', { declared, current }));
@@ -606,7 +606,7 @@ function declaredFormat(root: string, formats: string[]): [string | null, string
  * Migrate the repo at `root` through `steps` (default: STEPS) up to the last of `formats` (default: the released
  * ones); the lines to print. Throws having changed nothing, unless the error names the paths.
  */
-export function migrate(root: string, { steps = STEPS, formats = releasedFormats() }: { steps?: MigrationStep[]; formats?: string[] } = {}): string[] {
+export function migrate(root: string, { steps = STEPS, formats = releasedFormats(configFile()) }: { steps?: MigrationStep[]; formats?: string[] } = {}): string[] {
   const current = formats.at(-1) as string;
   const found = declaredFormat(root, formats);
   if (found === null) return [message('arch-migrate.nothing', { current })];

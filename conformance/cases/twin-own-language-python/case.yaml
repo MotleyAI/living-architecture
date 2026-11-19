@@ -12,7 +12,7 @@ bins:
       #!/bin/sh
       echo "npm-twin: la-doctor $*" >> <ROOT>/repo/probe.log
       [ "$*" = "--twin" ] || { echo "fake la-doctor: unexpected $*" >&2; exit 99; }
-      echo "typescript <VERSION> <CONTRACT_HASH>"
+      echo "typescript <VERSION> <CONTRACT_HASH> <DR_CONTRACT_HASH>"
     la-arch-check: |
       #!/bin/sh
       echo "npm-twin: la-arch-check $*" >> <ROOT>/repo/probe.log

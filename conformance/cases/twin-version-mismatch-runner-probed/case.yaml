@@ -7,10 +7,10 @@ args:
 bins:
 - dir: decoy
   files:
-    la-doctor: |
+    dr-doctor: |
       #!/bin/sh
-      echo "decoy: la-doctor $*" >> <ROOT>/repo/probe.log
-      [ "$*" = "--twin" ] || { echo "fake la-doctor: unexpected $*" >&2; exit 99; }
+      echo "decoy: dr-doctor $*" >> <ROOT>/repo/probe.log
+      [ "$*" = "--twin" ] || { echo "fake dr-doctor: unexpected $*" >&2; exit 99; }
       echo "python 0.0.0 <CONTRACT_HASH>"
     dr-mock-lint: |
       #!/bin/sh
@@ -22,11 +22,11 @@ bins:
     uvx: |
       #!/bin/sh
       echo "uvx $*" >> <ROOT>/repo/probe.log
-      if [ "$*" = "--from living-architecture==<VERSION> la-doctor --twin" ]; then
+      if [ "$*" = "--from deterministic-refactor==<VERSION> dr-doctor --twin" ]; then
         echo "python <VERSION> <CONTRACT_HASH>"
         exit 0
       fi
-      if [ "$1 $2 $3" = "--from living-architecture==<VERSION> dr-mock-lint" ]; then
+      if [ "$1 $2 $3" = "--from deterministic-refactor==<VERSION> dr-mock-lint" ]; then
         [ "$LA_FORWARDED" = 1 ] || { echo "fake uvx: LA_FORWARDED is not 1" >&2; exit 99; }
         echo "served by uvx"
         echo "uvx stderr" >&2

@@ -2,7 +2,7 @@ kind: neutral
 languages:
 - python
 - typescript
-command: la-typecheck
+command: dr-typecheck
 args:
 - --realign-from
 - HEAD

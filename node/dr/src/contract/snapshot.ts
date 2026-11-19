@@ -10,10 +10,6 @@ import { loadYaml } from './yaml.js';
 
 export const HASH_FILE = 'CONTRACT_HASH';
 
-export function snapshotDir(): string {
-  return join(dirname(fileURLToPath(import.meta.url)), 'data');
-}
-
 function files(root: string): string[] {
   const rels = readdirSync(root, { recursive: true, encoding: 'utf8' })
     .map((entry) => relative(root, join(root, entry)).split(sep).join('/'))
@@ -33,66 +29,108 @@ export function computeHash(root: string): string {
   return digest.digest('hex');
 }
 
-/** The hash recorded when the snapshot was vendored. */
+/** A vendored contract directory: its recorded hash and its data files. */
+export class Snapshot {
+  private readonly cache = new Map<string, any>();
+
+  constructor(readonly root: string) {}
+
+  /** The hash recorded when the snapshot was vendored. */
+  contractHash(): string {
+    return readFileSync(join(this.root, HASH_FILE), 'utf8').trim();
+  }
+
+  private data(name: string, load: (text: string) => any): any {
+    if (!this.cache.has(name)) this.cache.set(name, load(readFileSync(join(this.root, name), 'utf8')));
+    return this.cache.get(name);
+  }
+
+  yaml(name: string): any {
+    return this.data(name, (text) => toPlain(loadYaml(text)));
+  }
+
+  schema(name: string): Record<string, any> {
+    return this.data(join('schema', `${name}.schema.json`), JSON.parse);
+  }
+
+  /** Every schema's name, as `schema` takes it. */
+  schemaNames(): string[] {
+    return readdirSync(join(this.root, 'schema'))
+      .filter((name) => name.endsWith('.schema.json'))
+      .map((name) => name.slice(0, -'.schema.json'.length))
+      .sort();
+  }
+
+  findings(): Record<string, string> {
+    return this.yaml('findings.yaml').findings;
+  }
+
+  manifest(): Record<string, any> {
+    return this.yaml('cli.yaml').commands;
+  }
+
+  scriptPath(name: string): string {
+    return join(this.root, 'scripts', name);
+  }
+}
+
+export const DR = new Snapshot(join(dirname(fileURLToPath(import.meta.url)), 'data'));
+
+export function snapshotDir(): string {
+  return DR.root;
+}
+
+/** The hash recorded when dr's snapshot was vendored. */
 export function contractHash(): string {
-  return readFileSync(join(snapshotDir(), HASH_FILE), 'utf8').trim();
+  return DR.contractHash();
 }
-
-const cache = new Map<string, any>();
-
-function data(name: string, load: (text: string) => any): any {
-  if (!cache.has(name)) cache.set(name, load(readFileSync(join(snapshotDir(), name), 'utf8')));
-  return cache.get(name);
-}
-
-const yamlFile = (name: string): any => data(name, (text) => toPlain(loadYaml(text)));
 
 export function schema(name: string): Record<string, any> {
-  return data(join('schema', `${name}.schema.json`), JSON.parse);
+  return DR.schema(name);
 }
 
-/** Every shared schema's name, as `schema` takes it. */
+/** Every dr schema's name, as `schema` takes it. */
 export function schemaNames(): string[] {
-  return readdirSync(join(snapshotDir(), 'schema'))
-    .filter((name) => name.endsWith('.schema.json'))
-    .map((name) => name.slice(0, -'.schema.json'.length))
-    .sort();
+  return DR.schemaNames();
 }
 
 export function findings(): Record<string, string> {
-  return yamlFile('findings.yaml').findings;
-}
-
-export function checkIds(): string[] {
-  return yamlFile('findings.yaml').check_ids;
+  return DR.findings();
 }
 
 export function manifest(): Record<string, any> {
-  return yamlFile('cli.yaml').commands;
+  return DR.manifest();
 }
+
+const cli = (): any => DR.yaml('cli.yaml');
 
 /** Seconds after which the best-effort fetch of a base branch is killed. */
 export function baseFetchTimeout(): number {
-  return Number(yamlFile('cli.yaml').base_fetch_timeout_seconds);
+  return Number(cli().base_fetch_timeout_seconds);
 }
 
 /** The substrings a literal member's new value may not hold. */
 export function literalValueForbidden(): string[] {
-  return (yamlFile('cli.yaml').literal_value_forbidden as unknown[]).map(String);
+  return (cli().literal_value_forbidden as unknown[]).map(String);
 }
 
 /** The phases `dr-refactor --timings` reports, in print order. */
 export function timingPhases(): string[] {
-  return (yamlFile('cli.yaml').timing_phases as unknown[]).map(String);
+  return (cli().timing_phases as unknown[]).map(String);
+}
+
+/** The public `lang.<language>.<key>` keys. */
+export function languageKeys(): string[] {
+  return (cli().language_keys as unknown[]).map(String);
 }
 
 export function language(id: string): Record<string, any> {
-  return yamlFile('languages.yaml')[id];
+  return DR.yaml('languages.yaml')[id];
 }
 
 /** Every language of the registry, in id order. */
 export function languageIds(): string[] {
-  return Object.keys(yamlFile('languages.yaml')).sort();
+  return Object.keys(DR.yaml('languages.yaml')).sort();
 }
 
 /** The registry language whose source extensions contain the path's extension, else null. */
@@ -106,29 +144,12 @@ export function isTestFile(rel: string): boolean {
   return id !== null && (language(id).test_globs as string[]).some((glob) => globMatch(glob, rel));
 }
 
-export function conventions(): Record<string, any> {
-  return yamlFile('conventions.yaml');
+/** The committed config files a dr command reads, in order: the first present at the repo root. */
+export function configFiles(): string[] {
+  return [...DR.yaml('config.yaml').files];
 }
 
-export function architecture(): Record<string, any> {
-  return yamlFile('architecture.yaml');
-}
-
-/** The committed per-repo config file, relative to the repo root. */
-export function configFile(): string {
-  return yamlFile('config.yaml').file;
-}
-
-/** One contributor's git-ignored overrides of it. */
-export function localConfigFile(): string {
-  return yamlFile('config.yaml').local_file;
-}
-
-/** Every released repo format, oldest first. */
-export function configFormats(): string[] {
-  return [...yamlFile('config.yaml').formats];
-}
-
-export function scriptPath(name: string): string {
-  return join(snapshotDir(), 'scripts', name);
+/** Every released format of config file `file`, oldest first. */
+export function configFormats(file: string): string[] {
+  return [...DR.yaml('config.yaml').formats[file]];
 }

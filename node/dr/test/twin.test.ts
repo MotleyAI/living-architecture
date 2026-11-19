@@ -1,4 +1,4 @@
-// Twin discovery: the invoking twin's own `la-doctor` is never probed; without one, nothing is skipped. The entry
+// Twin discovery: the invoking twin's own `dr-doctor` is never probed; without one, nothing is skipped. The entry
 // point (`process.argv[1]`) and every spawned executable are set up by the test.
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -18,11 +18,11 @@ function executable(path: string, body: string): void {
   chmodSync(path, 0o755);
 }
 
-/** A directory whose `la-doctor --twin` qualifies as the Python twin; each run appends `<tag>:<command>` to the log. */
-function stubTwin(dir: string, tag: string, doctorName = 'la-doctor'): string {
+/** A directory whose `dr-doctor --twin` qualifies as the Python twin; each run appends `<tag>:<command>` to the log. */
+function stubTwin(dir: string, tag: string, doctorName = 'dr-doctor'): string {
   mkdirSync(dir, { recursive: true });
-  executable(join(dir, doctorName), `echo '${tag}:la-doctor' >> '${log}'\necho '${PYTHON_IDENTITY}'\n`);
-  executable(join(dir, 'la-check-conventions'), `echo '${tag}:la-check-conventions' >> '${log}'\n`);
+  executable(join(dir, doctorName), `echo '${tag}:dr-doctor' >> '${log}'\necho '${PYTHON_IDENTITY}'\n`);
+  executable(join(dir, 'dr-compliance'), `echo '${tag}:dr-compliance' >> '${log}'\n`);
   return dir;
 }
 
@@ -31,7 +31,7 @@ async function forwardFrom(entry: string, path: string[]): Promise<{ status: num
   process.env.PATH = [...path, ...(saved.path ?? '').split(delimiter)].join(delimiter);
   vi.resetModules();
   const { forward } = await import('../src/twin/index.js');
-  const status = forward('la-check-conventions', 'python', [], root);
+  const status = forward('dr-compliance', 'python', [], root);
   return { status, spawns: existsSync(log) ? readFileSync(log, 'utf8').trim().split('\n') : [] };
 }
 
@@ -50,31 +50,31 @@ afterEach(() => {
 afterAll(() => rmSync(TMP, { recursive: true, force: true }));
 
 describe('twin discovery', () => {
-  it('skips the directory whose la-doctor is the entry point sibling, even if it would qualify', async () => {
-    const own = stubTwin(join(root, 'own'), 'own', 'la-doctor.js');
-    writeFileSync(join(own, 'la-check-conventions.js'), '');
+  it('skips the directory whose dr-doctor is the entry point sibling, even if it would qualify', async () => {
+    const own = stubTwin(join(root, 'own'), 'own', 'dr-doctor.js');
+    writeFileSync(join(own, 'dr-compliance.js'), '');
     const links = join(root, 'links');
     mkdirSync(links);
-    symlinkSync(join(own, 'la-doctor.js'), join(links, 'la-doctor'));
+    symlinkSync(join(own, 'dr-doctor.js'), join(links, 'dr-doctor'));
     const other = stubTwin(join(root, 'other'), 'other');
-    expect(await forwardFrom(join(own, 'la-check-conventions.js'), [links, other])).toEqual({
+    expect(await forwardFrom(join(own, 'dr-compliance.js'), [links, other])).toEqual({
       status: 0,
-      spawns: ['other:la-doctor', 'other:la-check-conventions'],
+      spawns: ['other:dr-doctor', 'other:dr-compliance'],
     });
   });
 
   it.each(['missing', 'dangling', 'directory', 'entry-missing'])(
-    'skips nothing without a resolvable own la-doctor (%s)',
+    'skips nothing without a resolvable own dr-doctor (%s)',
     async (sibling) => {
       const first = stubTwin(join(root, 'first'), 'first');
       const second = stubTwin(join(root, 'second'), 'second');
-      const entry = join(first, 'la-check-conventions.js');
+      const entry = join(first, 'dr-compliance.js');
       if (sibling !== 'entry-missing') writeFileSync(entry, '');
-      if (sibling === 'dangling') symlinkSync(join(root, 'nowhere'), join(first, 'la-doctor.js'));
-      if (sibling === 'directory') mkdirSync(join(first, 'la-doctor.js'));
+      if (sibling === 'dangling') symlinkSync(join(root, 'nowhere'), join(first, 'dr-doctor.js'));
+      if (sibling === 'directory') mkdirSync(join(first, 'dr-doctor.js'));
       expect(await forwardFrom(entry, [first, second])).toEqual({
         status: 0,
-        spawns: ['first:la-doctor', 'first:la-check-conventions'],
+        spawns: ['first:dr-doctor', 'first:dr-compliance'],
       });
     },
   );

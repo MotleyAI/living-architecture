@@ -1,7 +1,8 @@
 // la-arch-migrate's 0.4.0 step against the shared exempt-move vectors.
 import { describe, expect, it } from 'vitest';
 import { ExemptNotMigratable, moveExempt } from '../src/c4/exempt-move.js';
-import { vectors } from '../../dr/test/helpers.js';
+import { join } from 'node:path';
+import { LA_VECTORS, loadYamlFile } from '../../dr/test/helpers.js';
 
 interface Case {
   name: string;
@@ -10,7 +11,7 @@ interface Case {
   refused?: boolean;
 }
 
-const CASES: Case[] = vectors('exempt-move.yaml').cases;
+const CASES: Case[] = loadYamlFile(join(LA_VECTORS, 'exempt-move.yaml')).cases;
 
 describe('moveExempt', () => {
   it.each(CASES.filter((c) => !c.refused).map((c) => [c.name, c] as const))('%s', (_name, c) => {

@@ -66,7 +66,6 @@
     "build": "node scripts/build.mjs",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
-    "test:integration": "LA_INTEGRATION=1 vitest run test/typecheck.integration.test.ts",
     "prepack": "npm run build && node -e \"for (const f of ['README.md', 'LICENSE']) require('node:fs').copyFileSync('../../' + f, f)\""
   },
   "dependencies": {

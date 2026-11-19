@@ -1,7 +1,8 @@
 // `la-check-conventions`: the deterministic conventions gate over a change's source files, every language.
 import { changedPaths, prBaseBranch, resolveBaseRef } from 'deterministic-refactor/changes';
-import { ConfigError, loadConfig } from 'deterministic-refactor/config';
-import { byCodePoint, conventions, fixed1, fnmatch, isTestFile, language, languageIds, message } from 'deterministic-refactor/contract';
+import { ConfigError } from 'deterministic-refactor/config';
+import { loadConfig } from '../config/index.js';
+import { byCodePoint, conventions, fixed1, fnmatch, isTestFile, language, languageIds, message } from '../contract/index.js';
 import { collect, FactsError, type Facts, languageOf } from './facts.js';
 
 const FAILURES = new Set(['unreadable', 'syntax-error']);

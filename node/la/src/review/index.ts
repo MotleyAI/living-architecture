@@ -1,7 +1,7 @@
 // Review shims: run a bundled contract script.
 import { spawnSync } from 'node:child_process';
 import { constants } from 'node:os';
-import { manifest, scriptPath } from 'deterministic-refactor/contract';
+import { manifest, scriptPath } from '../contract/index.js';
 
 /** Run the command's bundled script with `argv` unchanged. */
 export function runShim(command: string, argv: string[]): number {

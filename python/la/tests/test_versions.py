@@ -106,8 +106,8 @@ def test_doc_pins_name_the_current_version() -> None:
 
 def test_current_format_is_at_most_every_package_version() -> None:
     """The format is the version of the release that introduced it, so it never runs ahead of a package."""
-    current = config.released_formats()[-1]
-    assert current == config.current_format()
+    current = config.released_formats("living-architecture.yaml")[-1]
+    assert current == config.current_format("living-architecture.yaml")
     package = json.loads((REPO_ROOT / "node" / "package.json").read_text(encoding="utf-8"))["version"]
     for version in (__version__, package, _plugin_version()):
         assert config.compare_versions(current, version) <= 0, version

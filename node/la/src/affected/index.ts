@@ -12,12 +12,13 @@ import {
   isTestFile,
   language,
   languageIds,
+  identity,
   languageOf,
   message,
   osErrorText,
   schema,
   validate,
-} from 'deterministic-refactor/contract';
+} from '../contract/index.js';
 import { VERSION } from '../index.js';
 import { dependencyEdges, LangError } from 'deterministic-refactor/lang';
 import * as twin from 'deterministic-refactor/twin';
@@ -98,7 +99,12 @@ function computed(repoRoot: string, changes: Change[]): string[] {
 function languageTests(repoRoot: string, lang: string, changes: Change[]): string[] {
   if (lang === twin.NATIVE_LANGUAGE) return selection(repoRoot, lang, changes);
   try {
-    return twin.requestAffected(lang, changes, repoRoot);
+    const document = twin.requestDocument(lang, identity(), 'la-affected-tests', ['--language', lang], 'affected-response', {
+      repoRoot,
+      cwd: repoRoot,
+      stdin: JSON.stringify({ changes: changes.map((c) => ({ path: c.path, deleted: c.deleted })) }),
+    });
+    return document.tests;
   } catch (error) {
     if (error instanceof twin.RelayedFailure) throw new AffectedError('');
     if (error instanceof twin.TwinError) throw new AffectedError(error.message);

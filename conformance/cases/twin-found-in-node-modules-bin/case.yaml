@@ -15,7 +15,7 @@ bins:
       #!/bin/sh
       echo "local: la-doctor $*" >> <ROOT>/repo/probe.log
       [ "$*" = "--twin" ] || { echo "fake la-doctor: unexpected $*" >&2; exit 99; }
-      echo "typescript <VERSION> <CONTRACT_HASH>"
+      echo "typescript <VERSION> <CONTRACT_HASH> <DR_CONTRACT_HASH>"
     local-la-arch-check: |
       #!/bin/sh
       case " $* " in *" --language typescript "*) ;; *) echo "fake la-arch-check: not a typescript facts request: $*" >&2; exit 99 ;; esac

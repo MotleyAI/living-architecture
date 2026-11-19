@@ -1,5 +1,5 @@
 kind: neutral
-command: la-typecheck
+command: dr-typecheck
 expect:
   exit: 0
 golden: manual

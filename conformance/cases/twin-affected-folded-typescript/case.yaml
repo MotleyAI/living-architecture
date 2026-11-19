@@ -9,7 +9,7 @@ bins:
     la-doctor: |
       #!/bin/sh
       [ "$*" = "--twin" ] || { echo "fake la-doctor: unexpected $*" >&2; exit 99; }
-      echo "python <VERSION> <CONTRACT_HASH>"
+      echo "python <VERSION> <CONTRACT_HASH> <DR_CONTRACT_HASH>"
     la-affected-tests: |
       #!/bin/sh
       case " $* " in *" --language python "*) ;; *) echo "fake la-affected-tests: not a python request: $*" >&2; exit 99 ;; esac

@@ -18,7 +18,7 @@ import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { currentFormat } from '../../dr/src/config/index.js';
-import { DR_ROOT, HASH_FILE, loadYamlFile, NODE_ROOT, readJson, REPO_ROOT, SHARED } from '../../dr/test/helpers.js';
+import { DR_ROOT, HASH_FILE, loadYamlFile, NODE_ROOT, readJson, REPO_ROOT, SHARED_ROOT } from '../../dr/test/helpers.js';
 
 const TIMEOUT = 600_000;
 const TMP = mkdtempSync(join(tmpdir(), 'la-pack-'));
@@ -114,7 +114,7 @@ describe('packed npm packages', () => {
     const listed = spawnSync('tar', ['-tzf', TARBALLS[PACKAGES[pkg as keyof typeof PACKAGES]] ?? ''], { encoding: 'utf8' });
     expect(listed.status, listed.stderr).toBe(0);
     const entries = new Set(listed.stdout.split('\n'));
-    const commands = Object.keys(loadYamlFile(join(SHARED, 'cli.yaml')).commands).filter((c) => c.startsWith(`${pkg}-`));
+    const commands = Object.keys(loadYamlFile(join(SHARED_ROOT, pkg, 'cli.yaml')).commands);
     expect(commands.length).toBeGreaterThan(0);
     expect(commands.filter((command) => !entries.has(`package/dist/bin/${command}.js`))).toEqual([]);
   });
@@ -132,7 +132,7 @@ describe('installed npm package', () => {
   it('la-doctor --contract-hash prints the PyPI twin hash', () => {
     const proc = run(join(PREFIX, 'bin', 'la-doctor'), ['--contract-hash'], WORK);
     expect(proc.status, proc.stderr).toBe(0);
-    const pypi = readFileSync(join(REPO_ROOT, 'python', 'dr', 'src', 'deterministic_refactor', 'contract', 'data', HASH_FILE), 'utf8');
+    const pypi = readFileSync(join(REPO_ROOT, 'python', 'la', 'src', 'living_architecture', 'contract', 'data', HASH_FILE), 'utf8');
     expect(proc.stdout).toBe(pypi);
   });
 
@@ -149,7 +149,7 @@ describe('installed npm package', () => {
     const proc = run(bin('la-arch-migrate'), ['--root', repo], WORK);
     expect(proc.status, proc.stderr).toBe(0);
     expect(readFileSync(join(repo, 'architecture', 'model.c4'), 'utf8')).toBe('specification {\n}\nmodel {\n}\n');
-    expect(readFileSync(join(repo, 'living-architecture.yaml'), 'utf8')).toBe(`format: ${currentFormat()}\ntracker: linear\n`);
+    expect(readFileSync(join(repo, 'living-architecture.yaml'), 'utf8')).toBe(`format: ${currentFormat('living-architecture.yaml')}\ntracker: linear\n`);
   });
 
   it('a review shim runs its bundled script', () => {
@@ -198,23 +198,23 @@ describe('installed npm package: TypeScript compiler loading', () => {
 });
 
 describe('installed npm package: forwarding', () => {
-  it("does not run the installed package's own la-doctor", () => {
+  it("does not run the installed package's own dr-doctor", () => {
     const stub = join(TMP, 'python-twin');
     const stubLog = join(TMP, 'python-twin.log');
     mkdirSync(stub);
     const hash = readFileSync(join(DR_ROOT, 'src', 'contract', 'data', HASH_FILE), 'utf8').trim();
     const identity = `python ${readJson(join(DR_ROOT, 'package.json')).version} ${hash}`;
-    writeFileSync(join(stub, 'la-doctor'), `#!/bin/sh\necho "la-doctor $*" >> '${stubLog}'\necho '${identity}'\n`);
+    writeFileSync(join(stub, 'dr-doctor'), `#!/bin/sh\necho "dr-doctor $*" >> '${stubLog}'\necho '${identity}'\n`);
     writeFileSync(join(stub, 'dr-refactor'), `#!/bin/sh\necho "dr-refactor $*" >> '${stubLog}'\nexit 7\n`);
-    chmodSync(join(stub, 'la-doctor'), 0o755);
+    chmodSync(join(stub, 'dr-doctor'), 0o755);
     chmodSync(join(stub, 'dr-refactor'), 0o755);
     const args = ['rename', '--file', 'a.py', '--symbol', 'x', '--new-name', 'y'];
     writeFileSync(join(WORK, 'a.py'), 'x = 1\n');
     const { proc, lines } = probed('dr-refactor', args, WORK, [join(PREFIX, 'bin'), stub, NODE_BIN]);
     expect(proc.status, proc.stderr).toBe(7);
-    expect(readFileSync(stubLog, 'utf8').trim().split('\n')).toEqual(['la-doctor --twin', `dr-refactor ${args.join(' ')}`]);
+    expect(readFileSync(stubLog, 'utf8').trim().split('\n')).toEqual(['dr-doctor --twin', `dr-refactor ${args.join(' ')}`]);
     expect(lines).toContain(`start ${realpathSync(bin('dr-refactor'))}`);
-    expect(lines).not.toContain(`start ${realpathSync(bin('la-doctor'))}`);
+    expect(lines).not.toContain(`start ${realpathSync(bin('dr-doctor'))}`);
     expect(lines.filter((line) => line.startsWith('typescript '))).toEqual([]);
   });
 });

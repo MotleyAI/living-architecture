@@ -1,22 +1,22 @@
 kind: neutral
 twin: typescript
 other_twin: absent
-command: la-typecheck
+command: dr-typecheck
 args:
 - --language
 - python
 bins:
 - dir: pypi-twin
   files:
-    la-doctor: |
+    dr-doctor: |
       #!/bin/sh
-      echo "pypi-twin: la-doctor $*" >> <ROOT>/repo/probe.log
-      [ "$*" = "--twin" ] || { echo "fake la-doctor: unexpected $*" >&2; exit 99; }
+      echo "pypi-twin: dr-doctor $*" >> <ROOT>/repo/probe.log
+      [ "$*" = "--twin" ] || { echo "fake dr-doctor: unexpected $*" >&2; exit 99; }
       echo "python <VERSION> <CONTRACT_HASH>"
-    la-typecheck: |
+    dr-typecheck: |
       #!/bin/sh
-      echo "pypi-twin: la-typecheck $*" >> <ROOT>/repo/probe.log
-      echo "pypi-twin la-typecheck must not run" >&2
+      echo "pypi-twin: dr-typecheck $*" >> <ROOT>/repo/probe.log
+      echo "pypi-twin dr-typecheck must not run" >&2
       exit 99
 - dir: runner
   files:

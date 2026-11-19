@@ -71,8 +71,14 @@ model {
     dr.changes -> dr.config
     dr.changes -> dr.contract
     dr.cli -> dr.config
+    dr.cli -> dr.doctor
     dr.cli -> dr.refactor
+    dr.cli -> dr.twin
+    dr.cli -> dr.typecheck
     dr.config -> dr.contract
+    dr.doctor -> dr.config
+    dr.doctor -> dr.contract
+    dr.doctor -> dr.twin
     dr.lang -> dr.contract
     dr.refactor -> dr.changes
     dr.refactor -> dr.config
@@ -86,13 +92,25 @@ model {
     dr.typecheck -> dr.contract
     dr.typecheck -> dr.lang
     dr.typecheck -> dr.twin
+    la.affected -> la.contract
     la.archcheck -> la.c4
+    la.archcheck -> la.config
+    la.archcheck -> la.contract
+    la.c4 -> la.contract
     la.cli -> la.affected
     la.cli -> la.archcheck
     la.cli -> la.c4
+    la.cli -> la.config
+    la.cli -> la.contract
     la.cli -> la.conventions
     la.cli -> la.doctor
     la.cli -> la.review
+    la.config -> la.contract
+    la.conventions -> la.config
+    la.conventions -> la.contract
+    la.doctor -> la.config
+    la.doctor -> la.contract
+    la.review -> la.contract
   }
   typescript = system 'npm twins' {
     dr = node 'deterministic-refactor' {
@@ -128,9 +146,15 @@ model {
     dr.changes -> dr.config
     dr.changes -> dr.contract
     dr.cli -> dr.config
+    dr.cli -> dr.doctor
     dr.cli -> dr.refactor
+    dr.cli -> dr.twin
+    dr.cli -> dr.typecheck
     dr.config -> dr.contract
     dr.config -> dr.twin
+    dr.doctor -> dr.config
+    dr.doctor -> dr.contract
+    dr.doctor -> dr.twin
     dr.lang -> dr.contract
     dr.refactor -> dr.changes
     dr.refactor -> dr.config
@@ -143,12 +167,24 @@ model {
     dr.typecheck -> dr.contract
     dr.typecheck -> dr.lang
     dr.typecheck -> dr.twin
+    la.affected -> la.contract
     la.archcheck -> la.c4
+    la.archcheck -> la.config
+    la.archcheck -> la.contract
+    la.c4 -> la.contract
     la.cli -> la.affected
     la.cli -> la.archcheck
     la.cli -> la.c4
+    la.cli -> la.config
+    la.cli -> la.contract
     la.cli -> la.conventions
     la.cli -> la.doctor
     la.cli -> la.review
+    la.config -> la.contract
+    la.conventions -> la.config
+    la.conventions -> la.contract
+    la.doctor -> la.config
+    la.doctor -> la.contract
+    la.review -> la.contract
   }
 }

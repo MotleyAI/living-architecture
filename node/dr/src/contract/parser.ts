@@ -58,8 +58,8 @@ const NEGATIVE_NUMBER = /^-\d+$|^-\d*\.\d+$/;
 const INT_RE = /^\s*[-+]?\d+(?:_\d+)*\s*$/;
 const FLOAT_RE = /^\s*[-+]?(?:(?:\d+(?:_\d+)*)?\.?\d+(?:_\d+)*(?:[eE][-+]?\d+(?:_\d+)*)?|\d+(?:_\d+)*\.|inf|infinity|nan)\s*$/i;
 
-function spec(command: string): CommandSpec {
-  const found = manifest()[command] as CommandSpec | undefined;
+function spec(command: string, commands?: Record<string, any>): CommandSpec {
+  const found = (commands ?? manifest())[command] as CommandSpec | undefined;
   if (found === undefined) throw new Error(`unknown command ${command}`);
   return found;
 }
@@ -192,9 +192,12 @@ function truthy(value: unknown): boolean {
   return Array.isArray(value) ? value.length > 0 : Boolean(value);
 }
 
-/** Parse `argv` for `command`: dests (and `subcommand`), or `{argv}` for a passthrough command. */
-export function parse(command: string, argv: string[]): Args {
-  const cmd = spec(command);
+/**
+ * Parse `argv` for `command` of `commands` (default: dr's manifest): dests (and `subcommand`), or `{argv}` for a
+ * passthrough command.
+ */
+export function parse(command: string, argv: string[], commands?: Record<string, any>): Args {
+  const cmd = spec(command, commands);
   if (cmd.passthrough) return { argv: [...argv] };
   const args = defaults(cmd);
   parseLevel(command, cmd, argv, args);
@@ -211,9 +214,9 @@ function optionLines(cmd: CommandSpec): string[] {
     .map((o) => `  ${o.name}${o.type === 'flag' ? '' : ` ${o.metavar ?? dest(o).toUpperCase()}`}  ${o.help}`);
 }
 
-/** The command's --help text (internal options omitted). */
-export function help(command: string): string {
-  return renderHelp(command, spec(command));
+/** The command's --help text (internal options omitted); `commands` defaults to dr's manifest. */
+export function help(command: string, commands?: Record<string, any>): string {
+  return renderHelp(command, spec(command, commands));
 }
 
 /** Help for `cmd`, the command or subcommand invoked as `prog`. */

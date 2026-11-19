@@ -1,80 +1,45 @@
 // `la-doctor`: check the installed tools match the plugin's minor series and the repo config is valid.
 import { spawnSync } from 'node:child_process';
 import { existsSync, statSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
-import { ConfigError, type LaConfig, checkFormat, loadConfig, repoLanguages } from 'deterministic-refactor/config';
+import { join } from 'node:path';
+import { ConfigError, bothFilesProblem, checkFormat, repoLanguages } from 'deterministic-refactor/config';
+import * as twin from 'deterministic-refactor/twin';
+import { type LaConfig, languagesOf, loadConfig, loadRaw, resolveRaw } from '../config/index.js';
 import {
+  LA,
   configFile,
   contractHash,
+  identity,
   isOsError,
   isRegularFile,
   language,
   localConfigFile,
   message,
   osErrorText,
-  readFile,
-  renderTemplate,
+  pluginProblem,
   which,
-} from 'deterministic-refactor/contract';
+  whichPath,
+} from '../contract/index.js';
 import { NATIVE_LANGUAGE, VERSION } from '../index.js';
 
 const REQUIRED_EXECUTABLES = ['git', 'gh'];
-const PLUGIN_MANIFEST = join('.claude-plugin', 'plugin.json');
-const VERSION_FORM = /^(\d+)\.(\d+)\..+$/s;
 
-/** A missing entry or a path under a regular file is absent; other stat errors propagate. */
-function isFile(path: string): boolean {
-  try {
-    return statSync(path).isFile();
-  } catch (error) {
-    const code = (error as NodeJS.ErrnoException).code;
-    if (code === 'ENOENT' || code === 'ENOTDIR') return false;
-    throw error;
-  }
-}
+const pluginName = (): string => LA.yaml('cli.yaml').plugin;
 
-/** Major and minor of `<digits>.<digits>.<rest>` as written, or null. */
-function series(version: string): [string, string] | null {
-  const match = VERSION_FORM.exec(version);
-  return match === null ? null : [match[1] ?? '', match[2] ?? ''];
-}
+const install = (version: string): string => twin.installCommand(NATIVE_LANGUAGE, identity(), version);
 
-const canonical = (parts: [string, string]): string => parts.map((part) => part.replace(/^0+/, '') || '0').join('.');
+const isFile = (path: string): boolean => existsSync(path) && statSync(path).isFile();
 
-function versionProblem(expected: string, plugin: [string, string]): string | null {
-  const installed = series(VERSION);
-  if (installed !== null && canonical(installed) === canonical(plugin)) return null;
-  const install = renderTemplate(language(NATIVE_LANGUAGE).install, { version: expected });
-  return message('doctor.version-mismatch', { installed: VERSION, expected, series: plugin.join('.'), install });
-}
-
-function manifestProblem(manifest: string, raw: Buffer): string | null {
-  let version: unknown = null;
-  try {
-    const data: unknown = JSON.parse(new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(raw));
-    if (data !== null && typeof data === 'object' && !Array.isArray(data)) version = (data as Record<string, unknown>).version;
-  } catch {
-    version = null;
-  }
-  const parts = typeof version === 'string' && !/\p{Surrogate}/u.test(version) ? series(version) : null;
-  if (typeof version !== 'string' || parts === null) return message('doctor.plugin-invalid', { path: manifest });
-  return versionProblem(version, parts);
-}
-
-/** Check against the version in the nearest `.claude-plugin/plugin.json` at or above `plugin`. */
-function pluginProblem(plugin: string): string | null {
-  const start = resolve(plugin);
-  for (let dir = start; ; dir = dirname(dir)) {
-    const manifest = join(dir, PLUGIN_MANIFEST);
-    let raw: Buffer | null;
-    try {
-      raw = isFile(manifest) ? readFile(manifest) : null;
-    } catch {
-      return message('doctor.plugin-unreadable', { path: manifest });
-    }
-    if (raw !== null) return manifestProblem(manifest, raw);
-    if (dirname(dir) === dir) return message('doctor.plugin-not-found', { dir: start });
-  }
+/** The first `dr-doctor` on PATH missing, or reporting another language, version or dr contract than la runs with. */
+export function drProblem(): string | null {
+  const dr = twin.drIdentity();
+  const expected = twin.line({ ...dr, version: VERSION }, NATIVE_LANGUAGE);
+  const found = whichPath(dr.doctor);
+  if (!found) return message('doctor.dr-missing', { install: install(VERSION) });
+  const proc = spawnSync(found, ['--twin'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  const reported = proc.error === undefined && proc.status === 0 ? proc.stdout.trim() : '';
+  if (reported === expected) return null;
+  return message('doctor.dr-mismatch', { reported, version: VERSION, expected, install: install(VERSION) });
 }
 
 /** Whether `path` is a regular file, or the OS error probing it. */
@@ -144,26 +109,29 @@ function localProblem(root: string): string | null {
 /** What the repo languages need on PATH; none outside git or with an invalid config. */
 function languageExecutables(root: string): string[] {
   if (!existsSync(join(root, '.git'))) return [];
-  let config: LaConfig;
+  let settings;
   try {
-    config = loadConfig(root);
+    const raw = loadRaw(root);
+    settings = languagesOf(resolveRaw(root, raw), raw);
   } catch (error) {
     if (!(error instanceof ConfigError)) throw error;
     return [];
   }
-  return repoLanguages(root, config).flatMap((id) => language(id).executables as string[]);
+  return repoLanguages(root, settings).flatMap((id) => language(id).executables as string[]);
 }
 
-/** Problems found; empty means healthy. A format refusal replaces every check that reads the config. */
+/** Problems found; empty means healthy. Both config files present, or a format refusal, replace every check that reads the config. */
 export function runChecks(
   root: string,
   plugin: string | null = null,
   requireConfig = false,
   requirePlanStore = false,
 ): string[] {
-  const version = plugin !== null ? pluginProblem(plugin) : null;
+  const version = plugin !== null ? pluginProblem(plugin, pluginName(), VERSION, install) : null;
   const problems = version !== null ? [version] : [];
-  const refusal = checkFormat(root);
+  const dr = drProblem();
+  if (dr !== null) problems.push(dr);
+  const refusal = bothFilesProblem(root) ?? checkFormat(root, configFile());
   problems.push(...(refusal !== null ? [refusal] : configProblems(root, requireConfig, requirePlanStore)));
   const local = localProblem(root);
   if (local !== null) problems.push(local);
@@ -196,7 +164,7 @@ export function run(
   if (problems.length === 0) {
     let source = isFile(join(root, configFile())) ? configFile() : message('doctor.no-config-file');
     if (isFile(join(root, localConfigFile()))) source = message('doctor.local-source', { source, local: localConfigFile() });
-    process.stdout.write(`${message('doctor.ok', { version: VERSION, source })}\n`);
+    process.stdout.write(`${message('doctor.ok', { package: pluginName(), version: VERSION, source })}\n`);
   }
   return problems.length > 0 ? 1 : 0;
 }

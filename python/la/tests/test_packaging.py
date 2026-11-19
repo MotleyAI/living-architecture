@@ -125,7 +125,7 @@ def test_installed_artifact_runs_every_command(kind, artifacts, tmp_path, fake_g
             assert proc.stdout == stdout, argv
     assert "    a -> b\n" in (scaffold / "architecture" / "model.c4").read_text(encoding="utf-8")
     assert (legacy / "architecture" / "model.c4").read_text(encoding="utf-8") == "specification {\n}\nmodel {\n}\n"
-    assert (legacy / "living-architecture.yaml").read_text(encoding="utf-8") == f"format: {current_format()}\ntracker: linear\n"
+    assert (legacy / "living-architecture.yaml").read_text(encoding="utf-8") == f"format: {current_format('living-architecture.yaml')}\ntracker: linear\n"
 
 
 def test_wheel_carries_the_pyright_patch_preload(artifacts, tmp_path):

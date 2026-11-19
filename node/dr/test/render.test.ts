@@ -31,13 +31,13 @@ describe('renderTemplate', () => {
 
 describe('message', () => {
   it('renders a registry template by id', () => {
-    expect(message('arch-check.layout-not-relative', { key: 'source_root', value: "it's" })).toBe(
-      'architecture/index.yaml: source_root "it\'s" must be a relative path',
-    );
+    expect(message('config.unknown-key', { prog: 'dr-config', key: "it's" })).toBe('dr-config: unknown key "it\'s"');
   });
 
   it('renders a template without placeholders', () => {
-    expect(message('arch-check.ok')).toBe('arch_check: OK');
+    expect(message('typecheck.no-languages')).toBe(
+      'dr-typecheck: nothing to check (no language is configured or has source files and a root marker)',
+    );
   });
 
   it('renders explicit-any with the language spellings of the any and top types', () => {

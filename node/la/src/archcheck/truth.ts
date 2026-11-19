@@ -1,6 +1,6 @@
 // model-truth: the model's arrows equal the measured runtime import edges.
 import { isOrAncestor } from '../c4/index.js';
-import { message } from 'deterministic-refactor/contract';
+import { message } from '../contract/index.js';
 import type { ModuleImports } from 'deterministic-refactor/lang';
 import { compareEdge, compareStrings } from './order.js';
 

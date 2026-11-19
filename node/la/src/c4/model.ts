@@ -1,6 +1,6 @@
 // The constrained `.c4` model parser (element FQN = dotted path; relations resolve inside their root).
 import { join } from 'node:path';
-import { WORD, architecture, message, readFile, splitLines } from 'deterministic-refactor/contract';
+import { WORD, architecture, message, readFile, splitLines } from '../contract/index.js';
 
 export interface Element {
   id: string;

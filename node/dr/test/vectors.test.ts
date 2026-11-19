@@ -13,11 +13,10 @@ import {
   loadYaml,
   materializeDefaults,
   normalize,
-  validate,
 } from '../src/contract/index.js';
 import { SHARED, VECTORS, field, loadYamlFile, plain, readJson, vectors } from './helpers.js';
 
-const CONFIG_SCHEMA = readJson(join(SHARED, 'schema', 'living-architecture.schema.json'));
+const CONFIG_SCHEMA = readJson(join(SHARED, 'schema', 'deterministic-refactor.schema.json'));
 const LANGUAGES = loadYamlFile(join(SHARED, 'languages.yaml'));
 
 function present(name: string, cases: unknown[] | undefined): unknown[] {
@@ -101,15 +100,6 @@ describe.each(['', '!!int '])('the decimal digit cap (tag %j)', (tag) => {
   });
 });
 
-describe('defaults.yaml', () => {
-  for (const v of present('defaults.yaml', vectors('defaults.yaml')?.cases) as { name: string; config: string | null; resolved: unknown }[]) {
-    it(v.name, () => {
-      const data = v.config === null ? null : loadYaml(v.config);
-      expect(plain(materializeDefaults(CONFIG_SCHEMA, data))).toEqual(v.resolved);
-    });
-  }
-});
-
 describe('materialize.yaml', () => {
   for (const v of present('materialize.yaml', vectors('materialize.yaml')?.cases) as { name: string; schema: object; input: unknown; output: unknown }[]) {
     it(v.name, () => {
@@ -118,9 +108,9 @@ describe('materialize.yaml', () => {
   }
 
   it('does not mutate its input', () => {
-    const data = { reviewers: { codex: true } };
+    const data = { refactor: { python: {} } };
     materializeDefaults(CONFIG_SCHEMA, data);
-    expect(data).toEqual({ reviewers: { codex: true } });
+    expect(data).toEqual({ refactor: { python: {} } });
   });
 });
 
@@ -136,34 +126,4 @@ describe('regex-subset.yaml', () => {
       expect(isPortableRegex(pattern)).toBe(false);
     });
   }
-});
-
-for (const [file, schemaName] of [
-  ['facts.yaml', 'facts.schema.json'],
-  ['conventions-facts.yaml', 'conventions-facts.schema.json'],
-] as const) {
-  describe(file, () => {
-    const v = vectors(file) ?? {};
-    const schemaFile = join(SHARED, 'schema', schemaName);
-    for (const { name, document } of present(`${file} accept`, v.accept) as { name: string; document: unknown }[]) {
-      it(`accepts ${name}`, () => {
-        expect(validate(readJson(schemaFile), document)).toEqual([]);
-      });
-    }
-    for (const { name, document } of present(`${file} reject`, v.reject) as { name: string; document: unknown }[]) {
-      it(`rejects ${name}`, () => {
-        expect(validate(readJson(schemaFile), document)).not.toEqual([]);
-      });
-    }
-  });
-}
-
-describe('validation messages', () => {
-  it('name the offending value', () => {
-    expect(validate(CONFIG_SCHEMA, { tracker: 'jira', exempt: 'a', conventions: { rules: ['no-such-rule'] } })).toEqual([
-      "conventions.rules.0: 'no-such-rule' is not one of ['import-not-top', 'text-ratio', 'composite-assert', 'raises-single-throw']",
-      "exempt: 'a' is not of type 'array'",
-      "tracker: 'jira' is not one of ['linear', 'github', 'none']",
-    ]);
-  });
 });

@@ -1,12 +1,14 @@
 // la-doctor and the local override: the git-state finding, its placement, the merged consistency checks and the
-// ok line's second source. PATH holds only the real git (or a fake one) and, unless dropped, a stub gh.
+// ok line's second source. PATH holds only the real git (or a fake one), a matching stub dr-doctor and, unless dropped, a
+// stub gh.
 import { execFileSync } from 'node:child_process';
 import { chmodSync, mkdtempSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { currentFormat } from '../../dr/src/config/index.js';
-import { whichPath } from '../../dr/src/contract/index.js';
+import { contractHash as drContractHash, whichPath } from '../../dr/src/contract/index.js';
+import { drProblem } from '../src/doctor/index.js';
 import { VERSION } from '../src/index.js';
 import { run, tempRepo } from './cli-run.js';
 
@@ -25,13 +27,17 @@ function script(path: string, body: string): void {
   chmodSync(path, 0o755);
 }
 
-/** PATH = one dir with the real git (or `fakeGit` as a script) and, when `gh`, a stub gh. */
-function isolatePath(options: { fakeGit?: string; gh?: boolean } = {}): void {
+/** PATH = one dir with the real git (or `fakeGit` as a script), a stub dr-doctor printing `drLine` and, when `gh`, a
+ * stub gh. */
+function isolatePath(options: { fakeGit?: string; gh?: boolean; drLine?: string | null } = {}): string {
   const bin = mkdtempSync(join(tmpdir(), 'la-doctor-bin-'));
+  const drLine = options.drLine === undefined ? `typescript ${VERSION} ${drContractHash()}` : options.drLine;
+  if (drLine !== null) script(join(bin, 'dr-doctor'), `echo '${drLine}'\n`);
   if (options.fakeGit === undefined) symlinkSync(REAL_GIT as string, join(bin, 'git'));
   else script(join(bin, 'git'), options.fakeGit);
   if (options.gh ?? true) script(join(bin, 'gh'), 'exit 0\n');
   vi.stubEnv('PATH', bin);
+  return bin;
 }
 
 function git(root: string, ...args: string[]): void {
@@ -42,7 +48,7 @@ function localRepo(options: { local?: string | null; ignored?: boolean; committe
   const files: Record<string, string> = {};
   if (options.local !== null) files[LOCAL] = options.local ?? 'tracker: github\n';
   if (options.ignored) files['.gitignore'] = `${LOCAL}\n`;
-  if (options.committed !== undefined) files[COMMITTED] = `format: ${currentFormat()}\n${options.committed}`;
+  if (options.committed !== undefined) files[COMMITTED] = `format: ${currentFormat('living-architecture.yaml')}\n${options.committed}`;
   return tempRepo(files);
 }
 
@@ -160,5 +166,37 @@ describe('la-doctor with a local file', () => {
     expect(lines[0]).toBe(MISSING_CONFIG);
     expect(lines[1]).toContain('openspec');
     expect(lines[1]).toContain(LOCAL);
+  });
+});
+
+describe('la-doctor and the dr installation', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('a matching dr-doctor is healthy', () => {
+    isolatePath();
+    expect(drProblem()).toBeNull();
+  });
+
+  it('a missing dr-doctor names the install command', () => {
+    isolatePath({ drLine: null });
+    expect(drProblem()).toContain(`npm install -g living-architecture@${VERSION} deterministic-refactor@${VERSION}`);
+  });
+
+  it('another dr version is reported', () => {
+    isolatePath({ drLine: `typescript 0.11.0 ${drContractHash()}` });
+    const problem = drProblem() ?? '';
+    expect(problem).toContain('0.11.0');
+    expect(problem).toContain(VERSION);
+  });
+
+  it('both config files are reported once', () => {
+    isolatePath();
+    const root = tempRepo({ [COMMITTED]: 'tracker: jira\n', 'deterministic-refactor.yaml': 'format: 9.9.9\n' });
+    const [code, lines] = doctor(root);
+    expect(code).toBe(1);
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toContain('deterministic-refactor.yaml');
   });
 });

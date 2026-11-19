@@ -1,6 +1,6 @@
 // The 0.4.0 step of `la-arch-migrate`: `conventions.exempt` moves, as text, to a top-level `exempt` key.
 import { isDeepStrictEqual } from 'node:util';
-import { YAMLError, loadYaml, message, normalize } from 'deterministic-refactor/contract';
+import { YAMLError, loadYaml, message, normalize } from '../contract/index.js';
 
 const KEY_LINE = /^conventions:[ \t]*(?:#.*)?$/;
 const EXEMPT_LINE = /^exempt:(?:[ \t]|$)/;

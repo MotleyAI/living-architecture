@@ -1,7 +1,7 @@
 // Routing files to their language and collecting each language's conventions facts, natively or from its twin.
 // eslint-disable-next-line no-restricted-imports -- stdin only
 import { readFileSync } from 'node:fs';
-import { contractHash, languageOf, message } from 'deterministic-refactor/contract';
+import { contractHash, identity, languageOf, message } from '../contract/index.js';
 import { VERSION } from '../index.js';
 import { conventionsFacts } from 'deterministic-refactor/lang';
 import * as twin from 'deterministic-refactor/twin';
@@ -32,7 +32,13 @@ export function collect(paths: string[], cwd: string, repoRoot: string): Map<str
       entries = conventionsFacts(cwd, group);
     } else {
       try {
-        entries = twin.requestConventionsFacts(id, cwd, group, repoRoot);
+        const document = twin.requestDocument(id, identity(), 'la-check-conventions', ['--language', id, '--emit', 'facts'], 'conventions-facts', {
+          repoRoot,
+          cwd,
+          stdin: JSON.stringify(group),
+          accept: (doc) => doc.files.length === group.length && doc.files.every((f: { path: string }, i: number) => f.path === group[i]),
+        });
+        entries = document.files;
       } catch (error) {
         if (error instanceof twin.RelayedFailure) throw new FactsError('');
         if (error instanceof twin.TwinError) throw new FactsError(error.message);

@@ -1,10 +1,7 @@
 kind: neutral
 command: dr-doctor
 args: [--require-config]
-normalize:
-- pattern: '(?m)^FAIL: (?=.*/dr:init).*$'
-  replace: 'FAIL: <DR-CONFIG-MISSING>'
 expect:
   exit: 1
-golden: manual
 note: with --require-config and neither config file, one finding naming /dr:init
+golden: manual

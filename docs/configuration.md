@@ -34,7 +34,7 @@ conventions:
 
 Types are strict: `codex: 'true'` or `text_ratio_max: '0.2'` is an error naming the key, not a coerced value.
 YAML 1.1 booleans (`yes`, `no`, `on`, `off`) are booleans. `issue_key_pattern` must use the portable regex
-subset in [`shared/regex-subset.md`](../shared/regex-subset.md), and so must each pattern of
+subset in [`shared/dr/regex-subset.md`](../shared/dr/regex-subset.md), and so must each pattern of
 `refactor.string_forms`, which also holds exactly one capturing group: `dr-refactor` searches every string literal
 with each pattern and respells the group's text when a class or another module-level symbol of that name is
 renamed. `la-config show` prints the resolved

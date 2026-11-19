@@ -8,7 +8,8 @@ import { delimiter, dirname, join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { changedPaths, prBaseBranch, resolveBaseRef } from '../../dr/src/changes/index.js';
 import { ConfigError } from '../../dr/src/config/index.js';
-import { baseFetchTimeout, contractHash, isTestFile, language, message, schema, validate } from '../../dr/src/contract/index.js';
+import { contractHash as drContractHash } from '../../dr/src/contract/index.js';
+import { baseFetchTimeout, contractHash, isTestFile, language, message, schema, validate } from '../src/contract/index.js';
 import { VERSION } from '../src/index.js';
 import { run, tempRepo, type Run } from './cli-run.js';
 import { SHARED, loadYamlFile, vectors } from '../../dr/test/helpers.js';
@@ -16,7 +17,7 @@ import { SHARED, loadYamlFile, vectors } from '../../dr/test/helpers.js';
 // Every test drives real git repos: the default 5 s is too tight under a parallel run.
 vi.setConfig({ testTimeout: 30_000 });
 
-const PYTHON_IDENTITY = `python ${VERSION} ${contractHash()}`;
+const PYTHON_IDENTITY = `python ${VERSION} ${contractHash()} ${drContractHash()}`;
 const LANGUAGES = loadYamlFile(join(SHARED, 'languages.yaml'));
 const BASE = {
   'src/a.ts': "import { b } from './b';\nexport const a = b;\n",
@@ -308,7 +309,7 @@ describe('the other language', () => {
     gitOnlyPath();
     write(root, { 'tests/test_x.py': 'import os\n' });
     const result = affected(root, '--base', 'main');
-    const hint = `la-affected-tests: the python twin (living-architecture ${VERSION}) is not reachable; install it with: uv tool install living-architecture==${VERSION}\n`;
+    const hint = `la-affected-tests: the python twin (living-architecture ${VERSION}) is not reachable; install it with: uv tool install living-architecture==${VERSION} --with-executables-from deterministic-refactor\n`;
     expect([result.code, result.out, result.err]).toEqual([2, '', hint]);
   });
 

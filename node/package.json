@@ -11,7 +11,7 @@
     "lint": "eslint .",
     "typecheck": "npm run typecheck -w dr && npm run typecheck -w la",
     "test": "npm test -w dr && npm test -w la",
-    "test:integration": "npm run test:integration -w la",
+    "test:integration": "npm run test:integration -w dr",
     "conformance": "node scripts/conformance.mjs"
   },
   "devDependencies": {

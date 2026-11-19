@@ -21,9 +21,9 @@ cwd: web
 bins:
 - dir: npm-twin
   files:
-    la-doctor: |
+    dr-doctor: |
       #!/bin/sh
-      [ "$*" = "--twin" ] || { echo "fake la-doctor: unexpected $*" >&2; exit 99; }
+      [ "$*" = "--twin" ] || { echo "fake dr-doctor: unexpected $*" >&2; exit 99; }
       echo "typescript <VERSION> <CONTRACT_HASH>"
     dr-refactor: |
       #!/bin/sh

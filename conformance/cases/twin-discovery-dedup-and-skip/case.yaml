@@ -12,7 +12,7 @@ bins:
       #!/bin/sh
       echo "first: la-doctor $*" >> <ROOT>/repo/probe.log
       [ "$*" = "--twin" ] || { echo "fake la-doctor: unexpected $*" >&2; exit 99; }
-      echo "typescript <VERSION> 0000000000000000000000000000000000000000000000000000000000000000"
+      echo "typescript <VERSION> 0000000000000000000000000000000000000000000000000000000000000000 <DR_CONTRACT_HASH>"
     la-arch-check: |
       #!/bin/sh
       echo "first: la-arch-check $*" >> <ROOT>/repo/probe.log
@@ -34,7 +34,7 @@ bins:
       #!/bin/sh
       echo "not-executable: la-doctor $*" >> <ROOT>/repo/probe.log
       [ "$*" = "--twin" ] || { echo "fake la-doctor: unexpected $*" >&2; exit 99; }
-      echo "typescript <VERSION> <CONTRACT_HASH>"
+      echo "typescript <VERSION> <CONTRACT_HASH> <DR_CONTRACT_HASH>"
     la-arch-check: |
       #!/bin/sh
       echo "not-executable: la-arch-check $*" >> <ROOT>/repo/probe.log
@@ -46,7 +46,7 @@ bins:
       #!/bin/sh
       echo "good: la-doctor $*" >> <ROOT>/repo/probe.log
       [ "$*" = "--twin" ] || { echo "fake la-doctor: unexpected $*" >&2; exit 99; }
-      echo "typescript <VERSION> <CONTRACT_HASH>"
+      echo "typescript <VERSION> <CONTRACT_HASH> <DR_CONTRACT_HASH>"
     la-arch-check: |
       #!/bin/sh
       case " $* " in *" --language typescript "*) ;; *) echo "fake la-arch-check: not a typescript facts request: $*" >&2; exit 99 ;; esac
@@ -73,7 +73,7 @@ bins:
     la-doctor: |
       #!/bin/sh
       [ "$*" = "--twin" ] || { echo "fake la-doctor: unexpected $*" >&2; exit 99; }
-      echo "typescript <VERSION> <CONTRACT_HASH>"
+      echo "typescript <VERSION> <CONTRACT_HASH> <DR_CONTRACT_HASH>"
     la-arch-check: |
       #!/bin/sh
       echo "later: la-arch-check $*" >> <ROOT>/repo/probe.log

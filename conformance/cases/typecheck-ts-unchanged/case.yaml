@@ -1,7 +1,7 @@
 kind: adapter
 languages:
 - typescript
-command: la-typecheck
+command: dr-typecheck
 fixture: typecheck-ts-src
 bins:
 - dir: path-tsc

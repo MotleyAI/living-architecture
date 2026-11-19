@@ -22,7 +22,7 @@ import {
   run as runMigrate,
 } from '../src/c4/migrate.js';
 import { compareVersions, currentFormat, releasedFormats } from '../../dr/src/config/index.js';
-import { message } from '../../dr/src/contract/index.js';
+import { message } from '../src/contract/index.js';
 
 const faults = vi.hoisted(() => ({
   root: '',
@@ -302,7 +302,7 @@ describe('la-arch-migrate', () => {
     );
     expect(existsSync(join(repo, 'architecture', 'model'))).toBe(false);
     expect(readFileSync(join(repo, 'architecture', 'model.c4'), 'utf8')).toBe(SPEC + PYTHON);
-    expect(readFileSync(join(repo, CONFIG), 'utf8')).toBe(`# repo config\nformat: ${currentFormat()}\ntracker: linear\n`);
+    expect(readFileSync(join(repo, CONFIG), 'utf8')).toBe(`# repo config\nformat: ${currentFormat('living-architecture.yaml')}\ntracker: linear\n`);
   });
 
   it.each(Object.entries(REPOS))('writes nothing when the staged files would parse differently (%s)', (label, make) => {
@@ -420,7 +420,7 @@ describe('la-arch-migrate step chain', () => {
   afterAll(() => rmSync(tmp, { recursive: true, force: true }));
 
   it('has every released older format step to the next one', () => {
-    const formats = releasedFormats();
+    const formats = releasedFormats('living-architecture.yaml');
     expect(STEPS.filter((s) => s.source === null).map((s) => s.target)).toEqual([formats[0]]);
     const versioned = STEPS.filter((s) => s.source !== null).map((s) => [s.source, s.target]);
     const pairs = formats.slice(1).map((target, i) => [formats[i], target]);

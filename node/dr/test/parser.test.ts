@@ -39,13 +39,13 @@ describe('subcommand help', () => {
   it('describes the subcommand, not its parent', () => {
     let error: unknown;
     try {
-      parse('la-config', ['get', '--help']);
+      parse('dr-config', ['get', '--help']);
     } catch (e) {
       error = e;
     }
     expect(error).toBeInstanceOf(HelpRequested);
     const text = (error as HelpRequested).text;
-    expect(text).toMatch(/^usage: la-config get/);
+    expect(text).toMatch(/^usage: dr-config get/);
     expect(text).toContain('positional arguments:');
     expect(text).toContain('key');
     expect(text).not.toContain('subcommands:');
@@ -54,8 +54,8 @@ describe('subcommand help', () => {
 
 describe('internal options', () => {
   it.each([
-    ['la-doctor', '--contract-hash', ['--twin']],
-    ['la-arch-check', '--root', ['--language', '--emit']],
+    ['dr-doctor', '--contract-hash', ['--twin']],
+    ['dr-typecheck', '--write-baseline', ['--language']],
   ])('%s --help omits them', (command, shown, hidden) => {
     const text = help(command);
     expect(text).toContain(shown);
@@ -63,11 +63,8 @@ describe('internal options', () => {
   });
 
   it('are still accepted', () => {
-    expect(parse('la-doctor', ['--twin'])).toMatchObject({ twin: true });
-    expect(parse('la-arch-check', ['--language', 'typescript', '--emit', 'facts'])).toMatchObject({
-      language: 'typescript',
-      emit: 'facts',
-    });
+    expect(parse('dr-doctor', ['--twin'])).toMatchObject({ twin: true });
+    expect(parse('dr-typecheck', ['--language', 'typescript'])).toMatchObject({ language: 'typescript' });
   });
 });
 
@@ -76,9 +73,5 @@ describe('manifest', () => {
     expect(Object.entries(manifest()).filter(([, spec]) => 'gate' in (spec as object)).map(([name]) => name)).toEqual([]);
     const header = readFileSync(join(SNAPSHOT, 'cli.yaml'), 'utf8').split('\ncommands:')[0];
     expect(header).not.toContain('gate');
-  });
-
-  it('runs la-pr-reviewers through its bundled script', () => {
-    expect(manifest()['la-pr-reviewers']?.script).toBe('pr-reviewers.sh');
   });
 });

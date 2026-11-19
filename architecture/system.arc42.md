@@ -41,8 +41,14 @@ flowchart TD
   dr__changes --> dr__config
   dr__changes --> dr__contract
   dr__cli --> dr__config
+  dr__cli --> dr__doctor
   dr__cli --> dr__refactor
+  dr__cli --> dr__twin
+  dr__cli --> dr__typecheck
   dr__config --> dr__contract
+  dr__doctor --> dr__config
+  dr__doctor --> dr__contract
+  dr__doctor --> dr__twin
   dr__lang --> dr__contract
   dr__refactor --> dr__changes
   dr__refactor --> dr__config
@@ -56,13 +62,25 @@ flowchart TD
   dr__typecheck --> dr__contract
   dr__typecheck --> dr__lang
   dr__typecheck --> dr__twin
+  la__affected --> la__contract
   la__archcheck --> la__c4
+  la__archcheck --> la__config
+  la__archcheck --> la__contract
+  la__c4 --> la__contract
   la__cli --> la__affected
   la__cli --> la__archcheck
   la__cli --> la__c4
+  la__cli --> la__config
+  la__cli --> la__contract
   la__cli --> la__conventions
   la__cli --> la__doctor
   la__cli --> la__review
+  la__config --> la__contract
+  la__conventions --> la__config
+  la__conventions --> la__contract
+  la__doctor --> la__config
+  la__doctor --> la__contract
+  la__review --> la__contract
   classDef leaf fill:none;
   class dr__contract,dr__config,dr__lang,dr__twin,dr__changes,dr__typecheck,dr__refactor,dr__doctor,dr__cli,la__contract,la__config,la__cli,la__c4,la__archcheck,la__conventions,la__review,la__doctor,la__affected leaf;
 ```
@@ -98,9 +116,15 @@ flowchart TD
   dr__changes --> dr__config
   dr__changes --> dr__contract
   dr__cli --> dr__config
+  dr__cli --> dr__doctor
   dr__cli --> dr__refactor
+  dr__cli --> dr__twin
+  dr__cli --> dr__typecheck
   dr__config --> dr__contract
   dr__config --> dr__twin
+  dr__doctor --> dr__config
+  dr__doctor --> dr__contract
+  dr__doctor --> dr__twin
   dr__lang --> dr__contract
   dr__refactor --> dr__changes
   dr__refactor --> dr__config
@@ -113,13 +137,25 @@ flowchart TD
   dr__typecheck --> dr__contract
   dr__typecheck --> dr__lang
   dr__typecheck --> dr__twin
+  la__affected --> la__contract
   la__archcheck --> la__c4
+  la__archcheck --> la__config
+  la__archcheck --> la__contract
+  la__c4 --> la__contract
   la__cli --> la__affected
   la__cli --> la__archcheck
   la__cli --> la__c4
+  la__cli --> la__config
+  la__cli --> la__contract
   la__cli --> la__conventions
   la__cli --> la__doctor
   la__cli --> la__review
+  la__config --> la__contract
+  la__conventions --> la__config
+  la__conventions --> la__contract
+  la__doctor --> la__config
+  la__doctor --> la__contract
+  la__review --> la__contract
   classDef leaf fill:none;
   class dr__contract,dr__config,dr__lang,dr__twin,dr__changes,dr__typecheck,dr__refactor,dr__doctor,dr__cli,la__contract,la__config,la__cli,la__c4,la__archcheck,la__conventions,la__review,la__doctor,la__affected leaf;
 ```

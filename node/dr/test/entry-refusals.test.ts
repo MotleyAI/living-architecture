@@ -72,7 +72,7 @@ describe('sites resolve against the project', () => {
   const use = "import { foo } from './a';\n\nexport const x = foo();\nexport const y = foo();\n";
   const nested = (): string =>
     tempRepo({
-      'living-architecture.yaml': `format: ${currentFormat()}\n`,
+      'living-architecture.yaml': `format: ${currentFormat('living-architecture.yaml')}\n`,
       'proj/tsconfig.json': TSCONFIG,
       'proj/src/a.ts': A,
       'proj/src/use.ts': use,
@@ -109,7 +109,7 @@ describe('sites resolve against the project', () => {
 
   it('takes a --docs-pick relative to the project from another directory, not one relative to the working directory', () => {
     const noted = `${use}// foo is called twice\n`;
-    const root = tempRepo({ 'living-architecture.yaml': `format: ${currentFormat()}\n`, 'proj/tsconfig.json': TSCONFIG, 'proj/src/a.ts': A, 'proj/src/use.ts': noted });
+    const root = tempRepo({ 'living-architecture.yaml': `format: ${currentFormat('living-architecture.yaml')}\n`, 'proj/tsconfig.json': TSCONFIG, 'proj/src/a.ts': A, 'proj/src/use.ts': noted });
     const argv = ['--project', 'proj', '--apply', 'rename', '--file', 'proj/src/a.ts', '--symbol', 'foo', '--new-name', 'bar', '--docs'];
     const missing = message('refactor.site-missing', { option: '--docs-pick', site: 'proj/src/use.ts:5' });
     expect(run(root, 'dr-refactor', [...argv, '--docs-pick', 'proj/src/use.ts:5'])).toEqual({ code: 2, out: '', err: `${CHECKS}${missing}\n` });

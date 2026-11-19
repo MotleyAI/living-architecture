@@ -1,5 +1,6 @@
 // One language's architecture facts: unit statuses, top-level units and witnessed element edges.
-import { contractHash } from 'deterministic-refactor/contract';
+import { requestDocument } from 'deterministic-refactor/twin';
+import { contractHash, identity } from '../contract/index.js';
 import { moduleImports, topLevelUnits, unitStatus, type TsLayout } from 'deterministic-refactor/lang';
 import { VERSION } from '../index.js';
 import { type NodeMap, unitToElement } from './nodes.js';
@@ -64,4 +65,22 @@ export function nativeFacts(layout: TsLayout, nodeMap: NodeMap, language: string
 /** The TypeScript facts with edges between top-level units; no model involved. */
 export function nativeTopLevelFacts(layout: TsLayout, language: string): Facts {
   return facts(layout, language, [], new Map([...topLevelUnits(layout)].map((unit) => [unit, unit])));
+}
+
+function consistent(document: any, expectedUnits: string[], topLevel: boolean): boolean {
+  if (!topLevel) {
+    const units = new Set<string>(document.units.map((u: { unit: string }) => u.unit));
+    return expectedUnits.every((unit) => units.has(unit));
+  }
+  const tops = new Set<string>(document.top_level_units);
+  return document.units.length === 0 && document.edges.every((e: { src: string; dst: string }) => tops.has(e.src) && tops.has(e.dst));
+}
+
+/** `language`'s facts from la's twin of it, schema-checked; RelayedFailure or TwinError otherwise. */
+export function requestedFacts(language: string, root: string, expectedUnits: string[], topLevel = false): Facts {
+  const args = ['--root', root, '--language', language, '--emit', 'facts', ...(topLevel ? ['--top-level'] : [])];
+  return requestDocument(language, identity(), 'la-arch-check', args, 'facts', {
+    repoRoot: root,
+    accept: (document) => consistent(document, expectedUnits, topLevel),
+  }) as Facts;
 }

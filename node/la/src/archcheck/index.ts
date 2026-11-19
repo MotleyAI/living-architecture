@@ -1,12 +1,13 @@
 // Living-architecture cross-walk checker: code, LikeC4 model, arc42 docs and specs agree.
 import { type ModelParse, checkDiagramsFresh, layoutProblem, parseModel, parseViews } from '../c4/index.js';
-import { ConfigError, loadConfig } from 'deterministic-refactor/config';
-import { isOsError, message, osErrorText } from 'deterministic-refactor/contract';
+import { ConfigError } from 'deterministic-refactor/config';
+import { loadConfig } from '../config/index.js';
+import { isOsError, message, osErrorText } from '../contract/index.js';
 import { LangError } from 'deterministic-refactor/lang';
-import { NATIVE_LANGUAGE, RelayedFailure, TwinError, requestFacts } from 'deterministic-refactor/twin';
+import { NATIVE_LANGUAGE, RelayedFailure, TwinError } from 'deterministic-refactor/twin';
 import { checkClaims } from './claims.js';
 import { checkArc42, checkLegacyRatchet, checkSpecMapping } from './docs.js';
-import { type Facts, nativeFacts, nativeTopLevelFacts } from './facts.js';
+import { type Facts, nativeFacts, nativeTopLevelFacts, requestedFacts } from './facts.js';
 import {
   ArchCheckError,
   type Index,
@@ -48,7 +49,7 @@ function facts(root: string, s: Setup, language: string): Facts {
     const layout = resolveLayout(root, values);
     return nativeFacts({ ...layout, tsconfig: resolveTsconfig(root, values.tsconfig) }, s.nodeMap, language);
   }
-  return requestFacts(language, root, s.nodeMap.units(language)) as Facts;
+  return requestedFacts(language, root, s.nodeMap.units(language));
 }
 
 function findings(root: string): string[] {

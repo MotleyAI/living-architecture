@@ -5,20 +5,19 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import { describe, expect, it } from 'vitest';
-import { HASH_FILE, NODE_ROOT, REPO_ROOT, SHARED, loadYamlFile, readJson, tree } from '../../dr/test/helpers.js';
+import { HASH_FILE, NODE_ROOT, REPO_ROOT, SHARED_ROOT, loadYamlFile, readJson, tree } from '../../dr/test/helpers.js';
 
 const PACKAGES = ['dr', 'la'] as const;
 const packageJson = (pkg: string): any => readJson(join(NODE_ROOT, pkg, 'package.json'));
-// Each package's contract snapshot and its PyPI twin's; la has none of its own until its contract splits off dr's.
-const SNAPSHOTS: [string, string][] = [
-  [join(NODE_ROOT, 'dr', 'src', 'contract', 'data'), join(REPO_ROOT, 'python', 'dr', 'src', 'deterministic_refactor', 'contract', 'data')],
+// Each package's contract, its npm snapshot and its PyPI twin's.
+const SNAPSHOTS: [string, string, string][] = [
+  ['dr', join(NODE_ROOT, 'dr', 'src', 'contract', 'data'), join(REPO_ROOT, 'python', 'dr', 'src', 'deterministic_refactor', 'contract', 'data')],
+  ['la', join(NODE_ROOT, 'la', 'src', 'contract', 'data'), join(REPO_ROOT, 'python', 'la', 'src', 'living_architecture', 'contract', 'data')],
 ];
 
 describe.each(PACKAGES)('node/%s/package.json', (pkg) => {
   it('has one bin per command of its package, at dist/bin/<command>.js', () => {
-    const commands = Object.keys(loadYamlFile(join(SHARED, 'cli.yaml')).commands)
-      .filter((c) => c.startsWith(`${pkg}-`))
-      .sort();
+    const commands = Object.keys(loadYamlFile(join(SHARED_ROOT, pkg, 'cli.yaml')).commands).sort();
     expect(packageJson(pkg).bin ?? {}).toEqual(Object.fromEntries(commands.map((c) => [c, `dist/bin/${c}.js`])));
   });
 
@@ -55,9 +54,9 @@ describe('packed README.md and LICENSE', () => {
   });
 });
 
-describe.each(SNAPSHOTS)('vendored contract %s', (snapshot, pythonSnapshot) => {
-  it('is byte-identical to shared/ with modes preserved', () => {
-    const current = isDeepStrictEqual(tree(snapshot), tree(SHARED));
+describe.each(SNAPSHOTS)('vendored %s contract', (pkg, snapshot, pythonSnapshot) => {
+  it('is byte-identical to shared/<package> with modes preserved', () => {
+    const current = isDeepStrictEqual(tree(snapshot), tree(join(SHARED_ROOT, pkg)));
     expect(current, 'the vendored contract snapshot is stale; run scripts/sync-shared').toBe(true);
   });
 

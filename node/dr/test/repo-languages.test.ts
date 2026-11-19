@@ -4,13 +4,13 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ConfigError, loadConfig, repoLanguages } from '../src/config/index.js';
+import { ConfigError, languageSettings, repoLanguages } from '../src/config/index.js';
 import { message } from '../src/contract/index.js';
 import { tempRepo } from './cli-run.js';
 
 const languagesOf = (files: Record<string, string>): string[] => {
   const root = tempRepo(files);
-  return repoLanguages(root, loadConfig(root));
+  return repoLanguages(root, languageSettings(root));
 };
 
 describe('repoLanguages', () => {
@@ -57,7 +57,7 @@ describe('repoLanguages', () => {
     const root = tempRepo({ 'tsconfig.json': '{}', 'out/b.ts': 'export {};\n' });
     execFileSync('git', ['add', 'out/b.ts'], { cwd: root });
     writeFileSync(join(root, '.gitignore'), 'out/\n');
-    expect(repoLanguages(root, loadConfig(root))).toEqual(['typescript']);
+    expect(repoLanguages(root, languageSettings(root))).toEqual(['typescript']);
   });
 
   describe('without git on PATH', () => {
@@ -76,13 +76,13 @@ describe('repoLanguages', () => {
 
     it('inside a repo is an error', () => {
       const root = bare(true);
-      const config = loadConfig(root);
+      const config = languageSettings(root);
       expect(() => repoLanguages(root, config)).toThrow(new ConfigError(message('config.git-failed')));
     });
 
     it('outside a repo lists nothing', () => {
       const root = bare(false);
-      expect(repoLanguages(root, loadConfig(root))).toEqual([]);
+      expect(repoLanguages(root, languageSettings(root))).toEqual([]);
     });
   });
 });

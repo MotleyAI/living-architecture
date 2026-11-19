@@ -1,7 +1,7 @@
 kind: adapter
 languages:
 - typescript
-command: la-typecheck
+command: dr-typecheck
 args:
 - --realign-from
 - HEAD

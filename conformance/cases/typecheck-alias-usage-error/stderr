@@ -1,1 +1,2 @@
-<USAGE ERROR WITHOUT DEPRECATION LINE>
+usage: la-typecheck <USAGE>
+la-typecheck: error: unrecognized arguments: --bogus

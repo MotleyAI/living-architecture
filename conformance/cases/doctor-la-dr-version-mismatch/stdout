@@ -1,1 +1,1 @@
-FAIL: <DR-MISMATCH>
+FAIL: the dr-doctor on PATH reports python 0.11.0 <DR_CONTRACT_HASH>, but la <VERSION> needs python <VERSION> <DR_CONTRACT_HASH>; install la with its dr: uv tool install living-architecture==<VERSION> --with-executables-from deterministic-refactor

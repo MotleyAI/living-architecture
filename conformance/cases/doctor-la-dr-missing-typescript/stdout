@@ -1,1 +1,1 @@
-FAIL: <DR-MISSING>
+FAIL: no dr-doctor on PATH, so the dr commands la runs are missing; install la with them: npm install -g living-architecture@<VERSION> deterministic-refactor@<VERSION>

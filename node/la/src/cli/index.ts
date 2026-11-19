@@ -1,21 +1,27 @@
 // The la commands' entry point: their handlers, run through the shared command runner.
-import * as config from 'deterministic-refactor/config';
-import { type Handler, commandRoot, optional, runCommand } from 'deterministic-refactor/config';
+import { spawnSync } from 'node:child_process';
+import { constants as osConstants } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
+import * as drConfig from 'deterministic-refactor/config';
+import { type Handler, commandRoot, optional } from 'deterministic-refactor/config';
 import * as twin from 'deterministic-refactor/twin';
-import * as typecheck from 'deterministic-refactor/typecheck';
 import * as affected from '../affected/index.js';
 import * as archcheck from '../archcheck/index.js';
 import * as c4 from '../c4/index.js';
+import { laView, runCommand } from '../config/index.js';
+import { HelpRequested, UsageError, identity, manifest, message, parse } from '../contract/index.js';
 import * as conventions from '../conventions/index.js';
 import * as doctor from '../doctor/index.js';
 import * as review from '../review/index.js';
 
 const HANDLERS: Record<string, Handler> = {
-  'la-config': (args) =>
-    args.subcommand === 'show' ? config.runShow(commandRoot(args.root)) : config.runGet(commandRoot(args.root), String(args.key)),
+  'la-config': (args) => {
+    const root = commandRoot(args.root);
+    return args.subcommand === 'show' ? drConfig.runShow('la-config', root, laView) : drConfig.runGet('la-config', root, String(args.key), laView);
+  },
   'la-doctor': (args) => {
     if (args.twin) {
-      process.stdout.write(`${twin.identity()}\n`);
+      process.stdout.write(`${twin.identity(identity())}\n`);
       return 0;
     }
     return doctor.run(
@@ -37,7 +43,7 @@ const HANDLERS: Record<string, Handler> = {
   'la-check-conventions': (args) => {
     if (optional(args.emit) !== null) return conventions.emit(optional(args.language) ?? twin.NATIVE_LANGUAGE, process.cwd());
     return conventions.checkConventions({
-      repoRoot: config.findRepoRoot(process.cwd()),
+      repoRoot: drConfig.findRepoRoot(process.cwd()),
       pr: optional(args.pr),
       repo: optional(args.repo),
       base: optional(args.base),
@@ -51,13 +57,31 @@ const HANDLERS: Record<string, Handler> = {
     const language = optional(args.language);
     return language !== null ? affected.serve(process.cwd(), language) : affected.run(process.cwd(), String(args.base));
   },
-  'la-typecheck': (args) =>
-    typecheck.run(process.cwd(), Boolean(args.write_baseline), optional(args.language), optional(args.realign_from)),
 };
+
+/** The deprecated alias: `dr-typecheck` with the same arguments, after one deprecation line on stderr. */
+function laTypecheck(argv: string[]): number {
+  try {
+    parse('la-typecheck', argv, manifest());
+  } catch (error) {
+    if (error instanceof HelpRequested) {
+      process.stdout.write(error.text);
+      return 0;
+    }
+    if (!(error instanceof UsageError)) throw error;
+    process.stderr.write(`usage: la-typecheck [-h] ...\n${error.command}: error: ${error.message}\n`);
+    return error.exitCode;
+  }
+  if (process.env.LA_FORWARDED !== '1') process.stderr.write(`${message('typecheck-alias.deprecated')}\n`);
+  const drTypecheck = join(dirname(resolve(process.argv[1] ?? '')), 'dr-typecheck');
+  const proc = spawnSync(drTypecheck, argv, { stdio: 'inherit' });
+  if (proc.error !== undefined) throw proc.error;
+  return proc.signal !== null ? 128 + (osConstants.signals[proc.signal] ?? 0) : (proc.status ?? 1);
+}
 
 /** The exit code of the la command `command` run with `argv`. */
 export function dispatch(command: string, argv: string[]): number {
-  return runCommand(command, argv, HANDLERS, review.runShim);
+  return command === 'la-typecheck' ? laTypecheck(argv) : runCommand(command, argv, HANDLERS, review.runShim);
 }
 
 /** A bin's entry: run `command` with the process argv and exit with its code once output is flushed. */

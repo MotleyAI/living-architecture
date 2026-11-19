@@ -1,27 +1,26 @@
-// Per-repo config: `living-architecture.yaml` with its local overrides, validated and completed by the shared schema; the
-// repo's languages.
+// Per-repo config: the committed file dr reads, validated and completed by dr's schema; the shared loading, format
+// check, language detection and config-command machinery la's config builds on.
 import { spawnSync } from 'node:child_process';
 import { existsSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import {
   PyFloat,
-  canonicalRepr,
-  configFile,
-  fnmatch,
   capturingGroups,
+  fnmatch,
   isPortableRegex,
   language,
   languageIds,
-  localConfigFile,
-  manifest,
+  languageKeys,
   materializeDefaults,
   message,
   pyJson,
   reprFloat,
   schema,
+  schemaOrdered,
   validate,
 } from '../contract/index.js';
 import { ConfigError } from './error.js';
+import { configSource, ownFile } from './files.js';
 import { parseConfig, readConfigText } from './read.js';
 
 export { type Handler, commandRoot, optional, runCommand } from './command.js';
@@ -38,49 +37,34 @@ export {
   releasedFormats,
   stampFormat,
 } from './format.js';
+export { parseConfig, readConfigText } from './read.js';
+export { bothFilesProblem, configSource, ownFile } from './files.js';
 
-export const CONFIG_FILENAME = configFile();
+const DR_SCHEMA = 'deterministic-refactor';
 
-/** The committed data with the local file merged over it, before `resolveConfig`. */
-export interface RawConfig {
-  data: unknown;
-  overrides: string[];
-  hasCommitted: boolean;
-  hasLocal: boolean;
+export interface TypecheckConfig {
+  python: string | null;
+  typescript: string | null;
 }
 
-export interface LaConfig {
+export interface RefactorConfig {
+  python: { moved_module_stub: string | null };
+  string_forms: string[];
+}
+
+/** dr's resolved config; built only by `resolveConfig`, so every default comes from the schema. */
+export interface DrConfig {
   format: string | null;
   exempt: string[];
-  tracker: 'linear' | 'github' | 'none';
-  openspec: boolean;
-  architecture: boolean;
-  reviewers: { codex: boolean; sonar: { project_key: string | null } };
-  issue_key_pattern: string;
-  commands: {
-    test: string | null;
-    lint: string | null;
-    typecheck: { python: string | null; typescript: string | null };
-  };
-  refactor: { python: { moved_module_stub: string | null }; string_forms: string[] };
-  conventions: { text_ratio_max: number; rules: string[] };
+  commands: { test: string | null; typecheck: TypecheckConfig };
+  refactor: RefactorConfig;
 }
 
-/** Validate raw config data (null = no file) and fill the schema defaults; Error if invalid. */
-export function resolveConfig(data: unknown): LaConfig {
-  const configSchema = schema('living-architecture');
-  if (data !== null && !(data instanceof Map)) throw new Error('top level must be a mapping');
-  const errors = validate(configSchema, data === null ? new Map() : data);
-  if (errors.length > 0) throw new Error(errors.join('; '));
-  const resolved = materializeDefaults(configSchema, data) as LaConfig;
-  if (!isPortableRegex(resolved.issue_key_pattern)) {
-    throw new Error(`issue_key_pattern ${canonicalRepr(resolved.issue_key_pattern)} is not in the portable regex subset`);
-  }
-  for (const pattern of resolved.refactor.string_forms) {
-    if (!isPortableRegex(pattern)) throw new Error(`refactor.string_forms pattern ${pattern} is not in the portable regex subset`);
-    if (capturingGroups(pattern) !== 1) throw new Error(`refactor.string_forms pattern ${pattern} must hold exactly one capturing group`);
-  }
-  return resolved;
+/** What repo-language detection reads from a config: exempt paths, checker commands, the ones set explicitly. */
+export interface LanguageSettings {
+  exempt: string[];
+  typecheck: TypecheckConfig;
+  explicit: Set<string>;
 }
 
 /** Nearest ancestor of `start` (inclusive) containing `.git`, else `start`. */
@@ -96,68 +80,80 @@ export function findRepoRoot(start: string): string {
 
 const isFile = (path: string): boolean => existsSync(path) && statSync(path).isFile();
 
-function raw(root: string, name: string): unknown {
+/** Config file `name` parsed, null when it does not exist; ConfigError when unreadable or not YAML. */
+export function readConfig(root: string, name: string): unknown {
   const text = readConfigText(root, name);
   return text === null ? null : parseConfig(text, name);
 }
 
-function merge(base: unknown, over: unknown): unknown {
-  if (!(base instanceof Map && over instanceof Map)) return over;
-  const out = new Map(base);
-  for (const [key, value] of over) out.set(key, merge(base.get(key), value));
+/** `data` with only the keys `sub` defines, recursively through the objects that list their keys. */
+function project(sub: Record<string, any>, data: unknown): unknown {
+  if (!(data instanceof Map) || sub.properties === undefined) return data;
+  const out = new Map();
+  for (const [key, value] of data) if (Object.hasOwn(sub.properties, String(key))) out.set(key, project(sub.properties[String(key)], value));
   return out;
 }
 
-/** The dotted keys `data` sets, in the schema's property order. */
-function leaves(sub: Record<string, any>, data: Map<unknown, unknown>, prefix = ''): string[] {
-  const out: string[] = [];
-  for (const [key, prop] of Object.entries<any>(sub.properties)) {
-    if (!data.has(key)) continue;
-    const value = data.get(key);
-    if (prop.properties !== undefined && value instanceof Map) out.push(...leaves(prop, value, `${prefix}${key}.`));
-    else out.push(`${prefix}${key}`);
-  }
-  return out;
+/** The dr keys of config file `name`'s data: all of dr's own file, and dr's share of another package's file. */
+export function drData(data: unknown, name: string): unknown {
+  return name === ownFile() || !(data instanceof Map) ? data : project(schema(DR_SCHEMA), data);
 }
 
-/** Both files read and the local one checked against its schema; ConfigError naming the faulty file. */
-export function loadRaw(root: string): RawConfig {
-  const committed = raw(root, configFile());
-  const localPath = join(root, localConfigFile());
-  const local = raw(root, localConfigFile());
-  let overrides: string[] = [];
-  let data = committed;
-  if (local !== null) {
-    if (!(local instanceof Map)) throw new ConfigError(`${localPath}: top level must be a mapping`);
-    const localSchema = schema('living-architecture.local');
-    const errors = validate(localSchema, local);
-    if (errors.length > 0) throw new ConfigError(`${localPath}: ${errors.join('; ')}`);
-    overrides = leaves(localSchema, local);
-    if (committed === null || committed instanceof Map) data = merge(committed ?? new Map(), local);
+/** Error unless every pattern is portable and holds exactly one capturing group. */
+export function checkStringForms(patterns: string[]): void {
+  for (const pattern of patterns) {
+    if (!isPortableRegex(pattern)) throw new Error(`refactor.string_forms pattern ${pattern} is not in the portable regex subset`);
+    if (capturingGroups(pattern) !== 1) throw new Error(`refactor.string_forms pattern ${pattern} must hold exactly one capturing group`);
   }
-  return { data, overrides, hasCommitted: isFile(join(root, configFile())), hasLocal: isFile(localPath) };
 }
 
-/** `raw` resolved; ConfigError naming the committed file. */
-export function resolveRaw(root: string, raw: RawConfig): LaConfig {
+/** Validate dr's config data (null = no file) and fill the schema defaults; Error if invalid. */
+export function resolveConfig(data: unknown): DrConfig {
+  const drSchema = schema(DR_SCHEMA);
+  if (data !== null && !(data instanceof Map)) throw new Error('top level must be a mapping');
+  const errors = validate(drSchema, data === null ? new Map() : data);
+  if (errors.length > 0) throw new Error(errors.join('; '));
+  const resolved = materializeDefaults(drSchema, data) as DrConfig;
+  checkStringForms(resolved.refactor.string_forms);
+  return resolved;
+}
+
+/** dr's share of the config file it reads, and that file's name; [null, null] without one. */
+export function loadDrData(root: string): [unknown, string | null] {
+  const name = configSource(root);
+  return name === null ? [null, null] : [drData(readConfig(root, name), name), name];
+}
+
+function resolved(root: string, data: unknown, name: string | null): DrConfig {
   try {
-    return resolveConfig(raw.data);
+    return resolveConfig(data);
   } catch (error) {
-    throw new ConfigError(`${join(root, configFile())}: ${(error as Error).message}`);
+    throw new ConfigError(`${join(root, String(name))}: ${(error as Error).message}`);
   }
 }
 
-/** Config at `root`; defaults when neither file exists. */
-export function loadConfig(root: string): LaConfig {
-  return resolveRaw(root, loadRaw(root));
+/** dr's config at `root`; defaults without a config file. ConfigError naming the faulty file. */
+export function loadConfig(root: string): DrConfig {
+  return resolved(root, ...loadDrData(root));
 }
 
-/** The languages `commands.typecheck` sets explicitly (to a command or null); the config must be valid. */
-export function explicitTypecheck(root: string): Set<string> {
-  const { data } = loadRaw(root);
+/** The languages config `data` sets `commands.typecheck` for explicitly (to a command or null). */
+export function explicitTypecheck(data: unknown): Set<string> {
   const commands = data instanceof Map ? data.get('commands') : undefined;
   const typecheck = commands instanceof Map ? commands.get('typecheck') : undefined;
   return new Set(typecheck instanceof Map ? [...typecheck.keys()].map(String) : []);
+}
+
+/** dr's config at `root`, and that config as language detection reads it, from one read of the file. */
+export function loadWithLanguages(root: string): [DrConfig, LanguageSettings] {
+  const [data, name] = loadDrData(root);
+  const config = resolved(root, data, name);
+  return [config, { exempt: config.exempt, typecheck: config.commands.typecheck, explicit: explicitTypecheck(data) }];
+}
+
+/** dr's config at `root` as language detection reads it. */
+export function languageSettings(root: string): LanguageSettings {
+  return loadWithLanguages(root)[1];
 }
 
 /** Tracked and untracked-but-not-ignored files, minus the exempt globs; none outside git. ConfigError when git fails inside a repo. */
@@ -169,18 +165,17 @@ export function sourceFiles(root: string, exempt: string[]): string[] {
 }
 
 /** Languages with an explicit typecheck command, or with a root marker and a counted file; registry order. */
-export function repoLanguages(root: string, config: LaConfig): string[] {
-  const explicit = explicitTypecheck(root);
+export function repoLanguages(root: string, settings: LanguageSettings): string[] {
   let files: string[] | null = null;
   const out: string[] = [];
   for (const id of languageIds()) {
-    if (explicit.has(id) && config.commands.typecheck[id as 'python' | 'typescript'] !== null) {
+    if (settings.explicit.has(id) && settings.typecheck[id as keyof TypecheckConfig] !== null) {
       out.push(id);
       continue;
     }
     const entry = language(id);
     if (!(entry.markers as string[]).some((marker) => isFile(join(root, marker)))) continue;
-    files ??= sourceFiles(root, config.exempt);
+    files ??= sourceFiles(root, settings.exempt);
     const extensions = entry.source_extensions as string[];
     if (files.some((f) => extensions.some((ext) => f.endsWith(ext)))) out.push(id);
   }
@@ -189,25 +184,20 @@ export function repoLanguages(root: string, config: LaConfig): string[] {
 
 /** A public fact of a registered language; RangeError for any other language or key. */
 export function languageFact(id: string, key: string): unknown {
-  const keys: string[] = manifest()['la-config'].subcommands.get.language_keys;
-  if (!languageIds().includes(id) || !keys.includes(key)) throw new RangeError(key);
+  if (!languageIds().includes(id) || !languageKeys().includes(key)) throw new RangeError(key);
   const entry = language(id);
   if (key === 'source_globs') return (entry.source_extensions as string[]).map((ext) => `**/*${ext}`);
   if (key === 'waiver') return message('config.waiver', { prefix: entry.comment_prefix });
   return entry[key];
 }
 
-/** `value` with its keys in the schema's property order, as the typed config dumps it. */
-function ordered(sub: any, value: any): any {
-  if (value === null || typeof value !== 'object' || Array.isArray(value) || sub?.properties === undefined) return value;
-  return Object.fromEntries(Object.keys(sub.properties).map((key) => [key, ordered(sub.properties[key], value[key])]));
-}
-
-/** The resolved config as Python dumps it: schema order, `text_ratio_max` always a float. */
-function dumpable(config: LaConfig): unknown {
-  const out = ordered(schema('living-architecture'), config);
-  out.conventions.text_ratio_max = new PyFloat(config.conventions.text_ratio_max);
-  return out;
+/** A resolved config as a config command prints it: its dumpable values, the keys a local file overrides (in
+ * `localFile`), and what language detection reads. */
+export interface ConfigView {
+  values: unknown;
+  overrides: string[];
+  localFile: string | null;
+  languages: LanguageSettings;
 }
 
 function lookup(data: unknown, dotted: string): unknown {
@@ -231,67 +221,72 @@ export function formatValue(value: unknown): string {
   return String(value);
 }
 
-/** Run `action` on the config and its local overrides, both from one read of the files. */
-function withConfig(root: string, action: (config: LaConfig, overrides: string[]) => number): number {
-  let raw: RawConfig;
-  let config: LaConfig;
+function withView(prog: string, root: string, load: (root: string) => ConfigView, action: (view: ConfigView) => number): number {
+  let view: ConfigView;
   try {
-    raw = loadRaw(root);
-    config = resolveRaw(root, raw);
+    view = load(root);
   } catch (error) {
     if (!(error instanceof ConfigError)) throw error;
-    process.stderr.write(`${message('config.error', { error: error.message })}\n`);
+    process.stderr.write(`${message('config.error', { prog, error: error.message })}\n`);
     return 1;
   }
-  return action(config, raw.overrides);
+  return action(view);
 }
 
-export function runShow(root: string): number {
-  return withConfig(root, (config, overrides) => {
-    process.stdout.write(`${pyJson(dumpable(config), 2)}\n`);
-    for (const key of overrides) {
-      process.stderr.write(`${message('config.local-override', { key, file: localConfigFile() })}\n`);
+/** `show`: the resolved config as JSON, then one stderr note per key a local file overrides. */
+export function runShow(prog: string, root: string, load: (root: string) => ConfigView): number {
+  return withView(prog, root, load, (view) => {
+    process.stdout.write(`${pyJson(view.values, 2)}\n`);
+    for (const key of view.overrides) {
+      process.stderr.write(`${message('config.local-override', { prog, key, file: view.localFile })}\n`);
     }
     return 0;
   });
 }
 
-function printLanguages(root: string, config: LaConfig): number {
+function printLanguages(prog: string, root: string, view: ConfigView): number {
   if (!existsSync(join(root, '.git'))) {
-    process.stderr.write(`${message('config.not-git')}\n`);
+    process.stderr.write(`${message('config.not-git', { prog })}\n`);
     return 2;
   }
   let languages: string[];
   try {
-    languages = repoLanguages(root, config);
+    languages = repoLanguages(root, view.languages);
   } catch (error) {
     if (!(error instanceof ConfigError)) throw error;
-    process.stderr.write(`${message('config.error', { error: error.message })}\n`);
+    process.stderr.write(`${message('config.error', { prog, error: error.message })}\n`);
     return 2;
   }
   process.stdout.write(`${formatValue(languages)}\n`);
   return 0;
 }
 
-function value(config: LaConfig, key: string): unknown {
+function value(view: ConfigView, key: string): unknown {
   const parts = key.split('.');
   if (parts[0] === 'lang' && parts.length === 3) return languageFact(parts[1] ?? '', parts[2] ?? '');
   if (parts[0] === 'lang') throw new RangeError(key);
-  return lookup(dumpable(config), key);
+  return lookup(view.values, key);
 }
 
-export function runGet(root: string, key: string): number {
-  return withConfig(root, (config) => {
-    if (key === 'languages') return printLanguages(root, config);
+/** `get KEY`: one value by dotted key; `languages` the repo languages, `lang.<language>.<key>` a language fact. */
+export function runGet(prog: string, root: string, key: string, load: (root: string) => ConfigView): number {
+  return withView(prog, root, load, (view) => {
+    if (key === 'languages') return printLanguages(prog, root, view);
     let found: unknown;
     try {
-      found = value(config, key);
+      found = value(view, key);
     } catch (error) {
       if (!(error instanceof RangeError)) throw error;
-      process.stderr.write(`${message('config.unknown-key', { key })}\n`);
+      process.stderr.write(`${message('config.unknown-key', { prog, key })}\n`);
       return 2;
     }
     process.stdout.write(`${formatValue(found)}\n`);
     return 0;
   });
+}
+
+/** dr's config at `root`, as `dr-config` prints it. */
+export function drView(root: string): ConfigView {
+  const [config, languages] = loadWithLanguages(root);
+  return { values: schemaOrdered(schema(DR_SCHEMA), config), overrides: [], localFile: null, languages };
 }

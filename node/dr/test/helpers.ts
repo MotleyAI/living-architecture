@@ -9,9 +9,14 @@ import { parse } from 'yaml';
 export const DR_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 export const NODE_ROOT = dirname(DR_ROOT);
 export const REPO_ROOT = dirname(NODE_ROOT);
-export const SHARED = join(REPO_ROOT, 'shared');
+/** `shared/`; `SHARED` is dr's contract in it, `LA_SHARED` la's. */
+export const SHARED_ROOT = join(REPO_ROOT, 'shared');
+export const SHARED = join(SHARED_ROOT, 'dr');
+export const LA_SHARED = join(SHARED_ROOT, 'la');
 export const VECTORS = join(SHARED, 'vectors');
+export const LA_VECTORS = join(LA_SHARED, 'vectors');
 export const SNAPSHOT = join(DR_ROOT, 'src', 'contract', 'data');
+export const LA_SNAPSHOT = join(NODE_ROOT, 'la', 'src', 'contract', 'data');
 export const HASH_FILE = 'CONTRACT_HASH';
 
 /** `strings` reads every scalar as text (for expected texts such as `1e+16`, a string to PyYAML). */

@@ -20,7 +20,7 @@ export const TSCONFIG = `${JSON.stringify(
 
 /** A git repo with a strict tsconfig over `src`, the current format and `config` appended to the repo config. */
 export function tsProject(files: Record<string, string>, config = ''): string {
-  return tempRepo({ 'tsconfig.json': TSCONFIG, 'living-architecture.yaml': `format: ${currentFormat()}\n${config}`, ...files });
+  return tempRepo({ 'tsconfig.json': TSCONFIG, 'living-architecture.yaml': `format: ${currentFormat('living-architecture.yaml')}\n${config}`, ...files });
 }
 
 /** A copy of `root` in a fresh temp directory. */

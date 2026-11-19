@@ -1,2 +1,2 @@
-la-typecheck: checking python with basedpyright
-la-typecheck: python: wrote .basedpyright/baseline.json
+dr-typecheck: checking python with basedpyright
+dr-typecheck: python: wrote .basedpyright/baseline.json

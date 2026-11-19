@@ -1,5 +1,5 @@
 // Deterministic mermaid rendering of a view.
-import { message } from 'deterministic-refactor/contract';
+import { message } from '../contract/index.js';
 import type { Element, ModelParse } from './model.js';
 import type { View } from './views.js';
 

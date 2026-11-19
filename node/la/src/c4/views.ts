@@ -1,7 +1,7 @@
 // The constrained `views.c4` include grammar and view expansion over a root-local projection.
 import { existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { architecture, isWordStart, message, readFile, splitLines } from 'deterministic-refactor/contract';
+import { architecture, isWordStart, message, readFile, splitLines } from '../contract/index.js';
 import { readIndex } from './index-file.js';
 import { type ModelParse, type Relation, isOrAncestor, project, roots, stripLineComment } from './model.js';
 

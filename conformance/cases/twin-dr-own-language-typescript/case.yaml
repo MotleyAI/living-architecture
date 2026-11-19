@@ -12,9 +12,9 @@ args:
 bins:
 - dir: pypi-twin
   files:
-    la-doctor: |
+    dr-doctor: |
       #!/bin/sh
-      [ "$*" = "--twin" ] || { echo "fake la-doctor: unexpected $*" >&2; exit 99; }
+      [ "$*" = "--twin" ] || { echo "fake dr-doctor: unexpected $*" >&2; exit 99; }
       echo "python <VERSION> <CONTRACT_HASH>"
     dr-mock-lint: |
       #!/bin/sh

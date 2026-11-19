@@ -11,9 +11,8 @@ bins:
       echo "python 0.11.0 <DR_CONTRACT_HASH>"
 normalize:
 - version
-- pattern: '(?m)^FAIL: (?=.*0\.11\.0)(?=.*<VERSION>)(?=.*uv tool install living-architecture==<VERSION> --with-executables-from deterministic-refactor).*$'
-  replace: 'FAIL: <DR-MISMATCH>'
+- dr_contract_hash
 expect:
   exit: 1
-golden: manual
 note: 'the first dr-doctor on PATH reports dr 0.11.0: one finding naming both versions and the la install command'
+golden: manual

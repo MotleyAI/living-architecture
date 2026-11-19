@@ -1,2 +1,2 @@
-la-typecheck: checking python with basedpyright
-la-typecheck: python: 2 entr(ies) of .basedpyright/baseline.json realigned from HEAD
+dr-typecheck: checking python with basedpyright
+dr-typecheck: python: 2 entr(ies) of .basedpyright/baseline.json realigned from HEAD

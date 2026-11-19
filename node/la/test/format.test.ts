@@ -5,17 +5,23 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { checkFormat, compareVersions, currentFormat, isVersion, releasedFormats, stampFormat } from '../../dr/src/config/index.js';
 import { loadYaml, renderTemplate } from '../../dr/src/contract/index.js';
-import { run, tempRepo } from './cli-run.js';
-import { NODE_ROOT, REPO_ROOT, SHARED, VECTORS, field, loadYamlFile, readJson } from '../../dr/test/helpers.js';
+import { type Run, run, tempRepo } from './cli-run.js';
+import { LA_SHARED, NODE_ROOT, REPO_ROOT, SHARED, VECTORS, field, loadYamlFile, readJson } from '../../dr/test/helpers.js';
 
 // Read with the twin's own YAML profile, so each value has the shape the check receives.
 const VECTOR_FILE = loadYaml(readFileSync(join(VECTORS, 'format.yaml'), 'utf8'));
 const vector = (key: string): any[] => [...(field(VECTOR_FILE, key) as Iterable<any>)];
-const MANIFEST = loadYamlFile(join(SHARED, 'cli.yaml')).commands as Record<string, { format?: string }>;
-const FORMATS: string[] = loadYamlFile(join(SHARED, 'config.yaml')).formats ?? [];
-const CURRENT = FORMATS.at(-1) as string;
-const FINDINGS = loadYamlFile(join(SHARED, 'findings.yaml')).findings as Record<string, string>;
+const MANIFEST = {
+  ...loadYamlFile(join(SHARED, 'cli.yaml')).commands,
+  ...loadYamlFile(join(LA_SHARED, 'cli.yaml')).commands,
+} as Record<string, { format?: string }>;
 const CONFIG = 'living-architecture.yaml';
+const FORMATS: string[] = loadYamlFile(join(SHARED, 'config.yaml')).formats[CONFIG] ?? [];
+const CURRENT = FORMATS.at(-1) as string;
+const FINDINGS = {
+  ...loadYamlFile(join(SHARED, 'findings.yaml')).findings,
+  ...loadYamlFile(join(LA_SHARED, 'findings.yaml')).findings,
+} as Record<string, string>;
 
 const refusal = (id: string, values: Record<string, unknown> = {}): string =>
   renderTemplate(FINDINGS[id] ?? '', { current: CURRENT, ...values });
@@ -29,21 +35,21 @@ function repo(committed?: string | Buffer, local?: string): string {
 
 describe('format versions', () => {
   it('the current format comes from the contract', () => {
-    expect(currentFormat()).toBe(CURRENT);
+    expect(currentFormat(CONFIG)).toBe(CURRENT);
   });
 
   it('the released formats come from the contract', () => {
-    expect(releasedFormats()).toEqual(FORMATS);
+    expect(releasedFormats(CONFIG)).toEqual(FORMATS);
   });
 
   it('the released formats ascend and end with the current format', () => {
-    const formats = releasedFormats();
+    const formats = releasedFormats(CONFIG);
     expect(formats.length).toBeGreaterThan(0);
     for (const format of formats) expect(isVersion(format), format).toBe(true);
     for (let i = 1; i < formats.length; i++) {
       expect(compareVersions(formats[i - 1] as string, formats[i] as string), String(formats)).toBe(-1);
     }
-    expect(formats[formats.length - 1]).toBe(currentFormat());
+    expect(formats[formats.length - 1]).toBe(currentFormat(CONFIG));
   });
 
   it.each(vector('valid'))('%s is a version', (value) => {
@@ -69,7 +75,7 @@ describe('format versions', () => {
       ...['dr', 'la'].map((pkg) => readJson(join(NODE_ROOT, pkg, 'package.json')).version),
       readJson(join(REPO_ROOT, 'plugin', '.claude-plugin', 'plugin.json')).version,
     ];
-    const last = releasedFormats()[releasedFormats().length - 1] as string;
+    const last = releasedFormats(CONFIG)[releasedFormats(CONFIG).length - 1] as string;
     for (const version of versions) expect(compareVersions(last, version), version).toBeLessThanOrEqual(0);
   });
 });
@@ -82,12 +88,12 @@ describe('stampFormat', () => {
   }));
 
   it.each(cases)('$name', ({ text, stamped }) => {
-    expect(stampFormat(text)).toBe(stamped === null ? null : stamped.replaceAll('<FORMAT>', CURRENT));
+    expect(stampFormat(text, CURRENT)).toBe(stamped === null ? null : stamped.replaceAll('<FORMAT>', CURRENT));
   });
 
   it.each(cases.filter((c) => c.stamped !== null))('$name adds only the format', ({ text }) => {
     const before = loadYaml(text);
-    const after = loadYaml(stampFormat(text) ?? '');
+    const after = loadYaml(stampFormat(text, CURRENT) ?? '');
     const entries = (value: unknown) => (value instanceof Map ? Object.fromEntries(value) : (value ?? {}));
     expect(entries(after)).toEqual({ ...entries(before), format: CURRENT });
   });
@@ -152,6 +158,9 @@ const ARGV: Record<string, string[]> = {
   'dr-refactor': ['rename', '--file', 'a.ts', '--symbol', 'f', '--new-name', 'g'],
   'dr-compliance': ['a.ts'],
   'dr-mock-lint': ['a.ts'],
+  'dr-typecheck': [],
+  'dr-doctor': [],
+  'dr-config': ['show'],
 };
 
 describe('the format check in dispatch', () => {
@@ -161,10 +170,25 @@ describe('the format check in dispatch', () => {
 
   it.each(Object.keys(MANIFEST).sort())('%s runs the check unless the manifest exempts it', (command) => {
     const root = tempRepo({ [CONFIG]: 'tracker: linear\n', 'a.ts': 'export function f(): void {}\n' });
-    const result = run(root, command, ARGV[command] ?? []);
+    // The alias runs the dr-typecheck beside its entry point, here a stub refusing as the real one does.
+    const entry = process.argv[1] ?? '';
+    if (command === 'la-typecheck') {
+      const bin = join(root, '.alias-bin');
+      mkdirSync(bin);
+      writeFileSync(join(bin, 'dr-typecheck'), '#!/bin/sh\nexit 2\n', { mode: 0o755 });
+      process.argv[1] = join(bin, command);
+    }
+    let result: Run;
+    try {
+      result = run(root, command, ARGV[command] ?? []);
+    } finally {
+      process.argv[1] = entry;
+    }
     const missing = `${refusal('format.missing')}\n`;
-    if (command === 'la-doctor') expect(result.err).not.toContain(missing);
-    else if (MANIFEST[command]?.format === 'exempt') expect(result.out + result.err).not.toContain(missing.trim());
+    if (command === 'la-doctor' || command === 'dr-doctor') expect(result.err).not.toContain(missing);
+    else if (command === 'la-typecheck') {
+      expect(result).toEqual({ code: 2, out: '', err: `${FINDINGS['typecheck-alias.deprecated']}\n` });
+    } else if (MANIFEST[command]?.format === 'exempt') expect(result.out + result.err).not.toContain(missing.trim());
     else expect(result).toEqual({ code: 2, out: '', err: missing });
   });
 });

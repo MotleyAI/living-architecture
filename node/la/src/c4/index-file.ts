@@ -10,7 +10,7 @@ import {
   message,
   osErrorText,
   readFile,
-} from 'deterministic-refactor/contract';
+} from '../contract/index.js';
 
 export const INDEX_REL = 'architecture/index.yaml';
 

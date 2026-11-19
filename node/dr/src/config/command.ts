@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 import { manifest, message } from '../contract/index.js';
 import { type Args, HelpRequested, UsageError, parse } from '../contract/parser.js';
 import * as twin from '../twin/index.js';
+import { bothFilesProblem } from './files.js';
 import { checkFormat } from './format.js';
 import { findRepoRoot } from './index.js';
 
@@ -23,9 +24,9 @@ const checkedRoot = (args: Args): string => {
 };
 
 /** Run a command another twin implements: forward the raw argv, or exit 2 with the hint. */
-function forwarded(command: string, lang: string, argv: string[]): number {
+function forwarded(command: string, lang: string, argv: string[], who: twin.Identity | undefined): number {
   try {
-    return twin.forward(command, lang, argv, findRepoRoot(process.cwd()));
+    return twin.forward(command, lang, argv, findRepoRoot(process.cwd()), who);
   } catch (error) {
     if (!(error instanceof twin.TwinError)) throw error;
     process.stderr.write(`${message('twin.error', { prog: command, error: error.message })}\n`);
@@ -33,20 +34,27 @@ function forwarded(command: string, lang: string, argv: string[]): number {
   }
 }
 
-/** The exit code of `command` run with `argv`; `shim` runs a command the manifest backs with a bundled script. */
-export function runCommand(
-  command: string,
-  argv: string[],
-  handlers: Record<string, Handler>,
-  shim?: (command: string, argv: string[]) => number,
-): number {
-  const spec = manifest()[command];
+/** How a package runs its commands: its manifest, the config file whose format it checks (default: the one dr
+ * reads), its twin identity, and the runner of commands the manifest backs with a bundled script. */
+export interface CommandSet {
+  commands?: Record<string, any>;
+  configFile?: string;
+  who?: twin.Identity;
+  shim?: (command: string, argv: string[]) => number;
+}
+
+/**
+ * The exit code of `command` run with `argv`: forwarded to its native twin, or parsed, refused when both config files
+ * are present or the format is wrong (unless exempt), and dispatched to its handler.
+ */
+export function runCommand(command: string, argv: string[], handlers: Record<string, Handler>, set: CommandSet = {}): number {
+  const spec = (set.commands ?? manifest())[command];
   const native: string[] | undefined = spec.native;
-  if (native !== undefined && !native.includes(twin.NATIVE_LANGUAGE)) return forwarded(command, native[0] ?? '', argv);
-  if (spec.script !== undefined && shim !== undefined) return shim(command, argv);
+  if (native !== undefined && !native.includes(twin.NATIVE_LANGUAGE)) return forwarded(command, native[0] ?? '', argv, set.who);
+  if (spec.script !== undefined && set.shim !== undefined) return set.shim(command, argv);
   let args: Args;
   try {
-    args = parse(command, argv);
+    args = parse(command, argv, set.commands);
   } catch (error) {
     if (error instanceof HelpRequested) {
       process.stdout.write(error.text);
@@ -57,7 +65,8 @@ export function runCommand(
     return error.exitCode;
   }
   if (spec.format !== 'exempt') {
-    const problem = checkFormat(checkedRoot(args));
+    const root = checkedRoot(args);
+    const problem = bothFilesProblem(root) ?? checkFormat(root, set.configFile ?? null);
     if (problem !== null) {
       process.stderr.write(`${problem}\n`);
       return 2;

@@ -1,4 +1,5 @@
 kind: adapter
+twin: python
 languages:
 - python
 fixture: typecheck-python

@@ -3,9 +3,6 @@ languages:
 - python
 fixture: typecheck-python
 command: la-typecheck
-normalize:
-- pattern: \A(?=[^\n]*dr-typecheck)(?=[^\n]*0\.14\.0)[^\n]*
-  replace: <DEPRECATED dr-typecheck 0.14.0>
 expect:
   exit: 1
 note: 'the alias: stdout and exit of typecheck-dr-python-new-errors, its stderr after one deprecation line'

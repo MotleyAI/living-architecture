@@ -34,8 +34,11 @@
   },
   "bin": {
     "dr-compliance": "dist/bin/dr-compliance.js",
+    "dr-config": "dist/bin/dr-config.js",
+    "dr-doctor": "dist/bin/dr-doctor.js",
     "dr-mock-lint": "dist/bin/dr-mock-lint.js",
-    "dr-refactor": "dist/bin/dr-refactor.js"
+    "dr-refactor": "dist/bin/dr-refactor.js",
+    "dr-typecheck": "dist/bin/dr-typecheck.js"
   },
   "exports": {
     "./changes": {
@@ -72,6 +75,7 @@
     "build": "node scripts/build.mjs",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
+    "test:integration": "LA_INTEGRATION=1 vitest run test/typecheck.integration.test.ts",
     "prepack": "npm run build && node -e \"const fs = require('node:fs'); fs.copyFileSync('../../LICENSE', 'LICENSE'); fs.copyFileSync('../../python/dr/README.md', 'README.md')\""
   },
   "dependencies": {

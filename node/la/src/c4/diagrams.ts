@@ -1,7 +1,7 @@
 // Mermaid blocks in arc42 docs: regeneration (`la-arch-diagrams`) and the diagrams-fresh check.
 import { existsSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { decodeUtf8, isOsError, message, osErrorText, readFile } from 'deterministic-refactor/contract';
+import { decodeUtf8, isOsError, message, osErrorText, readFile } from '../contract/index.js';
 import { readIndex } from './index-file.js';
 import { layoutProblem } from './layout.js';
 import { renderMermaid } from './mermaid.js';

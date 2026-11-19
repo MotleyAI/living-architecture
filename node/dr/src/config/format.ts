@@ -1,15 +1,15 @@
-// The repo format: `format` in the committed `living-architecture.yaml`, the check every gated command runs, the stamp.
+// The format of a committed config file: its `format` key, the check every gated command runs, the stamp.
 import {
   YAMLError,
   byCodePoint,
   canonicalRepr,
-  configFile,
   configFormats,
   loadYaml,
   message,
   normalize,
 } from '../contract/index.js';
 import { ConfigError } from './error.js';
+import { configSource, ownFile } from './files.js';
 import { parseConfig, readConfigText } from './read.js';
 
 export const FORMAT_KEY = 'format';
@@ -28,14 +28,14 @@ export interface Committed {
   data: Map<unknown, unknown> | null;
 }
 
-/** Every released repo format, oldest first. */
-export function releasedFormats(): string[] {
-  return configFormats();
+/** Every released format of config file `file`, oldest first. */
+export function releasedFormats(file: string): string[] {
+  return configFormats(file);
 }
 
-/** The repo format this la reads and writes: the last released one. */
-export function currentFormat(): string {
-  return configFormats().at(-1) as string;
+/** The format of config file `file` its package reads and writes: the last released one. */
+export function currentFormat(file: string): string {
+  return configFormats(file).at(-1) as string;
 }
 
 /** Three dot-separated decimal integers without leading zeros. */
@@ -54,35 +54,41 @@ export function compareVersions(a: string, b: string): number {
   return 0;
 }
 
-/** The committed file, null without one; ConfigError when it is unreadable, not YAML or not a mapping. */
-export function readCommitted(root: string): Committed | null {
-  const text = readConfigText(root, configFile());
+/** Committed config file `file`, null without it; ConfigError when it is unreadable, not YAML or not a mapping. */
+export function readCommitted(root: string, file: string): Committed | null {
+  const text = readConfigText(root, file);
   if (text === null) return null;
-  const data = parseConfig(text, configFile());
-  if (data !== null && !(data instanceof Map)) throw new ConfigError(`${configFile()}: top level must be a mapping`);
+  const data = parseConfig(text, file);
+  if (data !== null && !(data instanceof Map)) throw new ConfigError(`${file}: top level must be a mapping`);
   return { text, data };
 }
 
-/** The refusal of a committed mapping's `format`, or null when it declares `current` (default: the current format). */
-export function formatProblem(data: Map<unknown, unknown>, current: string = currentFormat()): string | null {
-  if (!data.has(FORMAT_KEY)) return message('format.missing', { current });
+/** The refusal of config file `file`'s `format`, or null when it declares `current` (default: its current format). */
+export function formatProblem(data: Map<unknown, unknown>, file: string, current: string = currentFormat(file)): string | null {
+  const kind = file === ownFile() ? 'format.dr-' : 'format.';
+  if (!data.has(FORMAT_KEY)) return message(`${kind}missing`, { current });
   const declared = data.get(FORMAT_KEY);
-  if (!isVersion(declared)) return message('format.invalid', { value: declared, current });
+  if (!isVersion(declared)) return message(`${kind}invalid`, { value: declared, current });
   const sign = compareVersions(declared, current);
   if (sign === 0) return null;
-  return message(sign > 0 ? 'format.newer' : 'format.older', { declared, current });
+  return message(sign > 0 ? `${kind}newer` : `${kind}older`, { declared, current });
 }
 
-/** The format check's refusal, or null to go on (also for a committed file it cannot judge). */
-export function checkFormat(root: string): string | null {
+/**
+ * The format check's refusal for config file `file` (default: the one dr reads), or null to go on (also for a committed
+ * file it cannot judge).
+ */
+export function checkFormat(root: string, file: string | null = null): string | null {
+  const name = file ?? configSource(root);
+  if (name === null) return null;
   let committed: Committed | null;
   try {
-    committed = readCommitted(root);
+    committed = readCommitted(root, name);
   } catch (error) {
     if (error instanceof ConfigError) return null;
     throw error;
   }
-  return committed?.data ? formatProblem(committed.data) : null;
+  return committed?.data ? formatProblem(committed.data, name) : null;
 }
 
 /** The canonical repr of a normalized value, with every mapping's entries sorted. */
@@ -161,11 +167,8 @@ function replaced(text: string, current: string): string | null {
   return lines.join('');
 }
 
-/**
- * `text` declaring `current` (default: the current format): a `format` line inserted or its value replaced,
- * verified to change only that key; null when it cannot be.
- */
-export function stampFormat(text: string, current: string = currentFormat()): string | null {
+/** `text` declaring `current`: a `format` line inserted or its value replaced, verified to change only that key; null when it cannot be. */
+export function stampFormat(text: string, current: string): string | null {
   const before = parsed(text);
   if (before === null || (before.value !== null && !(before.value instanceof Map))) return null;
   const original = (before.value as Map<unknown, unknown> | null) ?? new Map<unknown, unknown>();

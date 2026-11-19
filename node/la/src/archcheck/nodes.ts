@@ -1,6 +1,6 @@
 // The canonical element map: every model element, with node mappings from metadata and nested units by convention.
 import { type Element, type ModelParse, RETIRED_ARC42_KEY } from '../c4/index.js';
-import { language, message, schema, validate } from 'deterministic-refactor/contract';
+import { language, message, schema, validate } from '../contract/index.js';
 import { ArchCheckError } from './index-file.js';
 
 /**

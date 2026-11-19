@@ -3,8 +3,8 @@ command: la-typecheck
 args:
 - --bogus
 normalize:
-- pattern: (?s)\A(?=.*--bogus)(?!.*0\.14\.0).*\Z
-  replace: <USAGE ERROR WITHOUT DEPRECATION LINE>
+- pattern: '(?m)^usage: la-typecheck .*$'
+  replace: 'usage: la-typecheck <USAGE>'
 expect:
   exit: 2
   stdout: ignore
