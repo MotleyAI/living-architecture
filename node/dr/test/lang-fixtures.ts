@@ -9,7 +9,7 @@ import { REPO_ROOT } from './helpers.js';
 const CORPUS = join(REPO_ROOT, 'conformance');
 
 export function materialize(caseName: string): TsLayout {
-  const caseDir = join(CORPUS, 'cases', caseName);
+  const caseDir = ['dr', 'la'].map((tree) => join(CORPUS, tree, 'cases', caseName)).find((dir) => existsSync(dir)) ?? caseName;
   const spec = parse(readFileSync(join(caseDir, 'case.yaml'), 'utf8'));
   const repo = join(mkdtempSync(join(tmpdir(), 'la-lang-')), 'repo');
   mkdirSync(repo);

@@ -1,9 +1,19 @@
 // `la-check-conventions`: the deterministic conventions gate over a change's source files, every language.
-import { changedPaths, prBaseBranch, resolveBaseRef } from 'deterministic-refactor/changes';
+import { spawnSync } from 'node:child_process';
+import { changedPaths, resolveBaseRef } from 'deterministic-refactor/changes';
 import { ConfigError } from 'deterministic-refactor/config';
 import { loadConfig } from '../config/index.js';
 import { byCodePoint, conventions, fixed1, fnmatch, isTestFile, language, languageIds, message } from '../contract/index.js';
 import { collect, FactsError, type Facts, languageOf } from './facts.js';
+
+/** The base branch of PR `pr`; ConfigError when `gh` cannot tell. */
+export function prBaseBranch(pr: string | null, repo: string | null, repoRoot: string): string {
+  const cmd = ['pr', 'view', String(pr), '--json', 'baseRefName', '--jq', '.baseRefName', ...(repo ? ['--repo', repo] : [])];
+  const proc = spawnSync('gh', cmd, { cwd: repoRoot, encoding: 'utf8' }); // NOSONAR(S4036) — runs the user's own gh from PATH by design
+  const branch = (proc.stdout ?? '').trim();
+  if (proc.status !== 0 || !branch) throw new ConfigError(message('changes.pr-base-unresolved', { pr }));
+  return branch;
+}
 
 const FAILURES = new Set(['unreadable', 'syntax-error']);
 

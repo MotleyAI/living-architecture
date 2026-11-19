@@ -1,0 +1,10 @@
+kind: adapter
+languages:
+- typescript
+command: dr-typecheck
+chmod:
+  checker: '0755'
+expect:
+  exit: 2
+note: 'a checker whose interpreter path runs through a regular file (/bin/sh) cannot start: the OS error naming the checker, exit 2'
+golden: manual

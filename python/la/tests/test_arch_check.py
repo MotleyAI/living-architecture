@@ -1844,7 +1844,7 @@ def test_invalid_root_packages_entry_is_a_setup_error(tmp_path, section, error):
     assert str(excinfo.value) == f"architecture/index.yaml: {error}"
 
 
-CASES = next(p for p in Path(__file__).resolve().parents if (p / "shared").is_dir() and (p / "plugin").is_dir()) / "conformance" / "cases"
+CASES = next(p for p in Path(__file__).resolve().parents if (p / "shared").is_dir() and (p / "plugin").is_dir()) / "conformance" / "la" / "cases"
 
 
 @pytest.mark.parametrize("check_case", ["arch-check-scaffolded-clean", "arch-check-scaffolded-unmapped-spec"])

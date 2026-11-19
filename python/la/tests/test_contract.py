@@ -39,7 +39,7 @@ REPO_ROOT = _repo_root()
 SHARED_ROOT = REPO_ROOT / "shared"
 # la's contract: the one la's snapshot, hash and doctor are checked against.
 SHARED = SHARED_ROOT / "la"
-CASES = REPO_ROOT / "conformance" / "cases"
+TREES = [REPO_ROOT / "conformance" / package / "cases" for package in ("dr", "la")]
 BIN_DIR = Path(sys.executable).parent
 HASH_FILE = "CONTRACT_HASH"
 SHARED_FILES = (
@@ -514,9 +514,10 @@ def _template_regex(template: str) -> re.Pattern[str]:
 
 def _golden_records() -> list[str]:
     """Each golden file and each `contains` needle, as separate records."""
-    records = [p.read_text(encoding="utf-8") for p in CASES.rglob("*") if p.is_file() and p.parent.name != "repo"
-               and (p.name.startswith(("stdout", "stderr")) or "files" in p.relative_to(CASES).parts[1:2])]
-    for case_file in CASES.glob("*/case.yaml"):
+    records = [p.read_text(encoding="utf-8") for tree in TREES for p in tree.rglob("*") if p.is_file()
+               and p.parent.name != "repo"
+               and (p.name.startswith(("stdout", "stderr")) or "files" in p.relative_to(tree).parts[1:2])]
+    for case_file in (f for tree in TREES for f in tree.glob("*/case.yaml")):
         expect = yaml.safe_load(case_file.read_text(encoding="utf-8"))["expect"]
         for stream in ("stdout", "stderr"):
             if isinstance(expect.get(stream), dict):

@@ -5,13 +5,13 @@ from __future__ import annotations
 import ast
 import io
 import tokenize
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel
 
-from deterministic_refactor.contract import message, os_error_reason
+from deterministic_refactor.contract import os_error_reason
 
 _RAISES_CALLEES = ("raises", "assertRaises", "assertRaisesRegex", "assertRaisesRegexp")
 _DOC_OWNERS = (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
@@ -178,7 +178,7 @@ def comment_doc_counts(src: str | None) -> tuple[int, int]:
     return comment, doc
 
 
-def _file_facts(path: Path, rel: str) -> dict[str, Any]:
+def _file_facts(path: Path, rel: str, render: Callable[[str], str]) -> dict[str, Any]:
     try:
         source = path.read_text(encoding="utf-8")
     except (FileNotFoundError, NotADirectoryError):
@@ -186,7 +186,7 @@ def _file_facts(path: Path, rel: str) -> dict[str, Any]:
     except OSError as exc:
         return {"path": rel, "status": "unreadable", "line": 1, "message": os_error_reason(exc)}
     except UnicodeDecodeError:
-        return {"path": rel, "status": "unreadable", "line": 1, "message": message("conventions.not-utf8")}
+        return {"path": rel, "status": "unreadable", "line": 1, "message": render("conventions.not-utf8")}
     comment, doc = comment_doc_counts(source)
     try:
         analysis = analyze(source)
@@ -201,6 +201,7 @@ def _file_facts(path: Path, rel: str) -> dict[str, Any]:
     return {"path": rel, "status": "ok", "detections": detections, **counts, "comment_lines": comment, "doc_lines": doc}
 
 
-def conventions_facts(root: Path, rels: list[str]) -> list[dict[str, Any]]:
-    """One conventions-facts entry per path (relative to `root`), in input order."""
-    return [_file_facts(root / rel, rel) for rel in rels]
+def conventions_facts(root: Path, rels: list[str], render: Callable[[str], str]) -> list[dict[str, Any]]:
+    """One conventions-facts entry per path (relative to `root`), in input order; `render` renders the caller's
+    template by id."""
+    return [_file_facts(root / rel, rel, render) for rel in rels]

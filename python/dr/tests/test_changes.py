@@ -87,12 +87,6 @@ def test_resolve_base_ref_without_git(repo, no_tools):
     assert str(exc.value) == "git rev-parse --verify --quiet origin/main failed"
 
 
-def test_pr_base_without_gh(repo, no_tools):
-    with pytest.raises(ConfigError) as exc:
-        changes.pr_base(pr="7", repo=None, repo_root=repo)
-    assert str(exc.value) == "could not resolve the base branch of PR 7"
-
-
 def _alive(pid: int) -> bool:
     try:
         os.kill(pid, 0)
@@ -132,7 +126,6 @@ def test_the_fetch_timeout_comes_from_the_shared_contract():
 
 def test_git_texts_moved_with_identical_wording():
     assert message("changes.git-failed", args="diff HEAD") == "git diff HEAD failed"
-    assert message("changes.pr-base-unresolved", pr=7) == "could not resolve the base branch of PR 7"
 
 
 def test_a_commit_id_is_the_commit_a_ref_names(repo):

@@ -11,7 +11,7 @@ from pathlib import Path
 from deterministic_refactor.config import ConfigError
 from deterministic_refactor.contract import base_fetch_timeout, message
 
-__all__ = ["base_paths", "changed_paths", "commit_id", "file_at", "git_paths", "is_commit", "merge_base", "pr_base", "resolve_base_ref"]
+__all__ = ["base_paths", "changed_paths", "commit_id", "file_at", "git_paths", "is_commit", "merge_base", "resolve_base_ref"]
 
 # Neither git nor ssh may prompt during the fetch: no terminal prompt and no askpass helper.
 _NO_PROMPT = {"GIT_TERMINAL_PROMPT": "0", "GIT_ASKPASS": "", "SSH_ASKPASS": "", "SSH_ASKPASS_REQUIRE": "never"}
@@ -38,21 +38,6 @@ def _git(args: list[str], *, cwd: Path) -> bytes:
 def git_paths(args: list[str], *, repo_root: Path) -> list[str]:
     """The NUL-delimited paths a git listing prints; undecodable bytes kept as surrogate escapes."""
     return [p.decode("utf-8", "surrogateescape") for p in _git(args, cwd=repo_root).split(b"\0") if p]
-
-
-def pr_base(*, pr: str | None, repo: str | None, repo_root: Path) -> str:
-    """The base branch of PR `pr` through `gh`."""
-    cmd = ["gh", "pr", "view", str(pr), "--json", "baseRefName", "--jq", ".baseRefName"]
-    if repo:
-        cmd += ["--repo", repo]
-    try:
-        proc = subprocess.run(cmd, cwd=repo_root, capture_output=True, text=True, check=False)
-    except OSError as exc:
-        raise ConfigError(message("changes.pr-base-unresolved", pr=pr)) from exc
-    base = proc.stdout.strip()
-    if proc.returncode != 0 or not base:
-        raise ConfigError(message("changes.pr-base-unresolved", pr=pr))
-    return base
 
 
 def _bounded_fetch(base: str, repo_root: Path, timeout: float) -> None:

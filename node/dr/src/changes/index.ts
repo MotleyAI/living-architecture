@@ -40,15 +40,6 @@ function uniqueSorted(paths: Buffer[]): Buffer[] {
   return [...seen.values()].sort(Buffer.compare);
 }
 
-/** The base branch of PR `pr`; ConfigError when `gh` cannot tell. */
-export function prBaseBranch(pr: string | null, repo: string | null, repoRoot: string): string {
-  const cmd = ['pr', 'view', String(pr), '--json', 'baseRefName', '--jq', '.baseRefName', ...(repo ? ['--repo', repo] : [])];
-  const proc = spawnSync('gh', cmd, { cwd: repoRoot, encoding: 'utf8' }); // NOSONAR(S4036) — runs the user's own gh from PATH by design
-  const branch = (proc.stdout ?? '').trim();
-  if (proc.status !== 0 || !branch) throw new ConfigError(message('changes.pr-base-unresolved', { pr }));
-  return branch;
-}
-
 /** `git fetch origin <base>` in its own process group, the whole group killed after `timeout` seconds. */
 function boundedFetch(base: string, repoRoot: string, timeout: number): void {
   const env = { ...process.env, ...NO_PROMPT };

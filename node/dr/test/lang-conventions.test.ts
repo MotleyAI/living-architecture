@@ -10,12 +10,15 @@ afterAll(() => rmSync(ROOT, { recursive: true, force: true }));
 
 let serial = 0;
 
+/** The caller's renderer: here each template id in angle brackets. */
+const render = (id: string): string => `<${id}>`;
+
 /** The facts entry for `content` written to a fresh repo at `rel`. */
 function facts(rel: string, content: string | Buffer): any {
   const repo = join(ROOT, String(serial++));
   mkdirSync(dirname(join(repo, rel)), { recursive: true });
   writeFileSync(join(repo, rel), content);
-  const [entry] = conventionsFacts(repo, [rel]);
+  const [entry] = conventionsFacts(repo, [rel], render);
   return entry;
 }
 
@@ -143,12 +146,12 @@ describe('line sets', () => {
 });
 
 describe('failures', () => {
-  it('invalid UTF-8 is unreadable', () => {
+  it('invalid UTF-8 is unreadable, in the caller\'s not-utf8 template', () => {
     expect(facts('a.ts', Buffer.from([0x78, 0x20, 0xff, 0x0a]))).toEqual({
       path: 'a.ts',
       status: 'unreadable',
       line: 1,
-      message: 'not valid UTF-8',
+      message: '<conventions.not-utf8>',
     });
   });
 
@@ -167,7 +170,7 @@ describe('failures', () => {
     const repo = join(ROOT, 'missing');
     mkdirSync(repo);
     writeFileSync(join(repo, 'b.ts'), 'export const b = 1;\n');
-    expect(conventionsFacts(repo, ['a.ts', 'b.ts']).map((e: any) => [e.path, e.status])).toEqual([
+    expect(conventionsFacts(repo, ['a.ts', 'b.ts'], render).map((e: any) => [e.path, e.status])).toEqual([
       ['a.ts', 'missing'],
       ['b.ts', 'ok'],
     ]);

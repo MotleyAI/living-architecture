@@ -1,4 +1,4 @@
-"""Conformance runner: every case under conformance/cases reproduces its goldens byte-for-byte.
+"""Conformance runner: every case under conformance/<package>/cases reproduces its goldens byte-for-byte.
 
 `LA_UPDATE_GOLDENS=1` writes goldens; a normal run only diffs. Case format: conformance/README.md.
 `LA_CONFORMANCE_TWIN` (python | typescript) picks the invoking twin, `LA_NODE_BIN_DIR` holds the npm twin's
@@ -22,6 +22,7 @@ from pathlib import Path
 import yaml
 
 from conformance_runner import fake_gh_cli
+from deterministic_refactor import __version__ as dr_version
 from deterministic_refactor.contract import config_files, config_formats, language
 from deterministic_refactor.contract import contract_hash as dr_contract_hash
 from living_architecture import __version__
@@ -30,14 +31,16 @@ from living_architecture.contract import contract_hash as la_contract_hash
 
 def _repo_root() -> Path:
     for candidate in Path(__file__).resolve().parents:
-        if (candidate / "conformance" / "cases").is_dir():
+        if (candidate / "conformance" / "fixtures").is_dir():
             return candidate
-    raise RuntimeError("conformance/cases not found above the runner")
+    raise RuntimeError("conformance/fixtures not found above the runner")
 
 
 REPO_ROOT = _repo_root()
 CORPUS = REPO_ROOT / "conformance"
-CASES = sorted(p.parent for p in (CORPUS / "cases").glob("*/case.yaml"))
+PACKAGES = ("dr", "la")
+CASES = sorted((p.parent for package in PACKAGES for p in (CORPUS / package / "cases").glob("*/case.yaml")),
+               key=lambda case_dir: case_dir.name)
 UPDATE = os.environ.get("LA_UPDATE_GOLDENS") == "1"
 TWIN = os.environ.get("LA_CONFORMANCE_TWIN", "python")
 CROSS = os.environ.get("LA_CONFORMANCE_CROSS") == "1"
@@ -45,14 +48,11 @@ BIN_DIRS = {"python": Path(sys.executable).parent}
 if os.environ.get("LA_NODE_BIN_DIR"):
     BIN_DIRS["typescript"] = Path(os.environ["LA_NODE_BIN_DIR"])
 OVERLAY_DIRS = {"python": "python", "typescript": "node"}
-PACKAGES = ("dr", "la")
-MANIFEST = {
-    name: spec
+MANIFESTS = {
+    package: yaml.safe_load((REPO_ROOT / "shared" / package / "cli.yaml").read_text(encoding="utf-8"))["commands"]
     for package in PACKAGES
-    for name, spec in yaml.safe_load((REPO_ROOT / "shared" / package / "cli.yaml").read_text(encoding="utf-8"))[
-        "commands"
-    ].items()
 }
+MANIFEST = {name: spec for commands in MANIFESTS.values() for name, spec in commands.items()}
 # Never reachable from a case unless it provides them: the host's own la tools and the twins' runners.
 _ALWAYS_HIDDEN = {*MANIFEST, "npx", "uvx"}
 FIXED_DATE = "2026-01-01T00:00:00+00:00"
@@ -198,10 +198,15 @@ def contract_hash(package: str) -> str:
     return la_contract_hash() if package == "la" else dr_contract_hash()
 
 
+def version(package: str) -> str:
+    """The installed version of `package`."""
+    return __version__ if package == "la" else dr_version
+
+
 def substitute(text: str, root: Path, package: str = "la") -> str:
-    """Placeholders allowed in args and fake executables; `<CONTRACT_HASH>` is the case's package's."""
-    major, minor = __version__.split(".")[:2]
-    text = text.replace("<VERSION>", __version__).replace("<MAJOR>", major).replace("<MINOR>", minor)
+    """Placeholders allowed in args and fake executables; `<VERSION>` and `<CONTRACT_HASH>` are the case's package's."""
+    major, minor = version(package).split(".")[:2]
+    text = text.replace("<VERSION>", version(package)).replace("<MAJOR>", major).replace("<MINOR>", minor)
     text = text.replace("<DR_CONTRACT_HASH>", dr_contract_hash()).replace("<CONTRACT_HASH>", contract_hash(package))
     return text.replace("<ROOT>", str(root))
 
@@ -250,7 +255,7 @@ def _substitute_config_files(repo: Path, case: dict, variant: Variant) -> None:
                 path.write_bytes(data.replace(b"<FORMAT>", _file_format(name).encode("utf-8")))
 
 
-def _fake_bins(root: Path, case: dict) -> tuple[list[str], list[str]]:
+def _fake_bins(root: Path, case: dict, package: str) -> tuple[list[str], list[str]]:
     """The case's fake executable dirs placed (before, after) the twins' bin dirs."""
     placed: dict[str, list[str]] = {"before": [], "after": []}
     for spec in case.get("bins", []):
@@ -262,7 +267,7 @@ def _fake_bins(root: Path, case: dict) -> tuple[list[str], list[str]]:
             directory.mkdir(parents=True)
         for name, text in spec.get("files", {}).items():
             path = directory / name
-            path.write_text(substitute(text, root, package_of(case)), encoding="utf-8")
+            path.write_text(substitute(text, root, package), encoding="utf-8")
             path.chmod(0o644 if name in spec.get("nonexec", []) else 0o755)
         placed[spec.get("position", "after")].append(str(directory))
     return placed["before"], placed["after"]
@@ -290,7 +295,7 @@ def _twin_dirs(case: dict, twin: str, root: Path) -> list[str]:
     return [str(_without(path, hidden, root)) for path in dirs]
 
 
-def _environment(root: Path, case: dict, twin: str) -> dict[str, str]:
+def _environment(root: Path, case: dict, twin: str, package: str) -> dict[str, str]:
     home = root / "home"
     home.mkdir()
     (home / ".gitconfig").write_text("", encoding="utf-8")
@@ -301,7 +306,7 @@ def _environment(root: Path, case: dict, twin: str) -> dict[str, str]:
     if "gh" not in hidden:
         fake_gh_cli.install(fake_bin)
     fake_gh_cli.write_routes(root / "gh-routes.json", case.get("gh", []))
-    before, after = _fake_bins(root, case)
+    before, after = _fake_bins(root, case, package)
     tools = _tools_dir(frozenset({*hidden, *_ALWAYS_HIDDEN}))
     cache = root / "cache"
     cache.mkdir()
@@ -327,7 +332,7 @@ def _environment(root: Path, case: dict, twin: str) -> dict[str, str]:
         "FAKE_GH_ROUTES": str(root / "gh-routes.json"),
         language("python")["cache_dir_variable"]: str(cache),
     }
-    env.update({k: substitute(str(v), root, package_of(case)) for k, v in case.get("env", {}).items()})
+    env.update({k: substitute(str(v), root, package) for k, v in case.get("env", {}).items()})
     return env
 
 
@@ -346,25 +351,26 @@ def materialize(
     for link, target in case.get("symlinks", {}).items():
         (repo / link).parent.mkdir(parents=True, exist_ok=True)
         (repo / link).symlink_to(target)
-    env = _environment(root, case, twin)
+    package = package_of(case_dir)
+    env = _environment(root, case, twin, package)
     git = case.get("git", [])
     if git != "none":
         _git(repo, env, "init", "-q", "-b", "main")
         for step in git:
-            _apply_step(step, repo=repo, root=root, env=env, package=package_of(case))
+            _apply_step(step, repo=repo, root=root, env=env, package=package)
     for rel, mode in case.get("chmod", {}).items():
         (repo / rel).chmod(int(mode, 8))
     return repo, env
 
 
-def _normalize(text: str, root: Path, case: dict) -> str:
+def _normalize(text: str, root: Path, case: dict, package: str) -> str:
     for form in {str(root.resolve()), str(root)}:
         text = text.replace(form, "<ROOT>")
     for rule in case.get("normalize", []):
         if rule == "version":
-            text = text.replace(__version__, "<VERSION>")
+            text = text.replace(version(package), "<VERSION>")
         elif rule == "contract_hash":
-            text = text.replace(contract_hash(package_of(case)), "<CONTRACT_HASH>")
+            text = text.replace(contract_hash(package), "<CONTRACT_HASH>")
         elif rule == "dr_contract_hash":
             text = text.replace(dr_contract_hash(), "<DR_CONTRACT_HASH>")
         else:
@@ -374,12 +380,15 @@ def _normalize(text: str, root: Path, case: dict) -> str:
 
 def run_case(case_dir: Path, root: Path, variant: Variant = NEUTRAL, twin: str = TWIN) -> CaseResult:
     case = load_case(case_dir)
+    package = package_of(case_dir)
+    if case["command"] not in MANIFESTS[package]:
+        raise ValueError(f"{case_dir.name}: {case['command']} is not a {package} command")
     repo, env = materialize(case_dir, case, root, variant, twin)
     command = BIN_DIRS[twin] / case["command"]
     if not command.is_file():
         raise FileNotFoundError(f"command {case['command']} is not installed in {BIN_DIRS[twin]}")
     proc = subprocess.run(
-        [str(command), *[substitute(a, root, package_of(case)) for a in case_args(case, variant)]],
+        [str(command), *[substitute(a, root, package) for a in case_args(case, variant)]],
         cwd=repo / case.get("cwd", "."),
         env=env,
         input=case.get("stdin", "").encode("utf-8"),
@@ -388,19 +397,19 @@ def run_case(case_dir: Path, root: Path, variant: Variant = NEUTRAL, twin: str =
         check=False,
     )
     files = {
-        rel: _normalize((repo / rel).read_bytes().decode("utf-8"), root, case) if (repo / rel).is_file() else "<MISSING>\n"
+        rel: _normalize((repo / rel).read_bytes().decode("utf-8"), root, case, package) if (repo / rel).is_file() else "<MISSING>\n"
         for rel in case_files(case, variant)
     }
     status = None
     if case.get("expect", {}).get("git_status"):
         listed = subprocess.run(["git", "status", "--porcelain"], cwd=repo, env=env, capture_output=True, check=True)
-        status = _normalize(listed.stdout.decode("utf-8"), root, case)
+        status = _normalize(listed.stdout.decode("utf-8"), root, case, package)
     for rel in case.get("chmod", {}):
         (repo / rel).chmod(0o755)
     return CaseResult(
         exit_code=proc.returncode,
-        stdout=_normalize(proc.stdout.decode("utf-8"), root, case),
-        stderr=_normalize(proc.stderr.decode("utf-8"), root, case),
+        stdout=_normalize(proc.stdout.decode("utf-8"), root, case, package),
+        stderr=_normalize(proc.stderr.decode("utf-8"), root, case, package),
         files=files,
         git_status=status,
     )
@@ -451,7 +460,7 @@ def check_json(path: Path, actual: str, package: str = "la") -> list[str]:
         document = json.loads(actual)
     except json.JSONDecodeError as exc:
         return [f"stdout is not one JSON document: {exc}\n{actual}"]
-    golden = path.read_text(encoding="utf-8").replace("<VERSION>", __version__)
+    golden = path.read_text(encoding="utf-8").replace("<VERSION>", version(package))
     golden = golden.replace("<DR_CONTRACT_HASH>", dr_contract_hash())
     expected = json.loads(golden.replace("<CONTRACT_HASH>", contract_hash(package)))
     if document == expected:
@@ -469,7 +478,7 @@ def check_case(
     if result.exit_code != expect["exit"]:
         return [f"exit {result.exit_code}, expected {expect['exit']}\nstdout:\n{result.stdout}\nstderr:\n{result.stderr}"]
     write = update and case.get("golden") != "manual"
-    package = package_of(case)
+    package = package_of(case_dir)
     problems = _check_stream(
         case_dir, expect.get("stdout"), "stdout", result.stdout, variant.golden, update=write, package=package
     )
@@ -490,14 +499,14 @@ def check_case(
     return problems
 
 
-def package_of(case: dict) -> str:
-    """The package whose command a case invokes: `dr` or `la`."""
-    return "dr" if case["command"].startswith("dr-") else "la"
+def package_of(case_dir: Path) -> str:
+    """The package of the tree holding the case: `dr` or `la`."""
+    return case_dir.parent.parent.name
 
 
 def package_cases(package: str) -> list[Path]:
-    """The case directories of `package`, in name order."""
-    return [case_dir for case_dir in CASES if package_of(load_case(case_dir)) == package]
+    """The case directories of `package`'s tree, in name order."""
+    return sorted(p.parent for p in (CORPUS / package / "cases").glob("*/case.yaml"))
 
 
 def selected_runs(cases: list[Path]) -> list[tuple[Path, Variant, str]]:

@@ -71,9 +71,10 @@ def install_command(lang: str, who: Identity, version: str | None = None) -> str
 
 
 def _hint(template_id: str, lang: str, who: Identity) -> str:
-    return message(
-        template_id, language=lang, package=who.package, version=who.version, install=install_command(lang, who)
-    )
+    """The hint `template_id` from `who`'s registry, else from dr's."""
+    values = {"language": lang, "package": who.package, "version": who.version, "install": install_command(lang, who)}
+    template = who.contract.findings().get(template_id)
+    return message(template_id, **values) if template is None else render_template(template, values)
 
 
 def _env() -> dict[str, str]:

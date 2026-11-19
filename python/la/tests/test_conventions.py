@@ -6,9 +6,11 @@ from pathlib import Path
 import pytest
 
 from deterministic_refactor import config
+from deterministic_refactor.config import ConfigError
 from living_architecture import conventions
 from living_architecture.cli.la_check_conventions import la_check_conventions
 from living_architecture.contract import config_file
+from living_architecture.conventions.gate import pr_base
 
 
 def _violations(tmp_path: Path, source: str, rel: str = "pkg/mod.py") -> list[str]:
@@ -196,3 +198,12 @@ def test_facts_keep_the_order_of_a_path_list_longer_than_a_command_line(tmp_path
     assert {f["status"] for f in files[:15_000]} == {"missing"}
     assert files[15_000]["status"] == "ok"
     assert [d["line"] for d in files[15_000]["detections"]] == [2]
+
+
+def test_pr_base_without_gh(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    monkeypatch.setenv("PATH", str(empty))
+    with pytest.raises(ConfigError) as exc:
+        pr_base(pr="7", repo=None, repo_root=tmp_path)
+    assert str(exc.value) == "could not resolve the base branch of PR 7"

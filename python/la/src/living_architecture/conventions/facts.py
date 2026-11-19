@@ -34,7 +34,7 @@ def collect(paths: list[str], *, cwd: Path, repo_root: Path) -> dict[str, dict[s
     out: dict[str, dict[str, Any]] = {}
     for lang_id, group in by_language(paths).items():
         if lang_id == twin.NATIVE_LANGUAGE:
-            entries = lang.conventions_facts(cwd, group)
+            entries = lang.conventions_facts(cwd, group, message)
         else:
             try:
                 document = twin.request_document(
@@ -67,7 +67,7 @@ def emit(lang_id: str, *, cwd: Path) -> int:
         "language": lang_id,
         "version": __version__,
         "contract_hash": contract_hash(),
-        "files": lang.conventions_facts(cwd, paths),
+        "files": lang.conventions_facts(cwd, paths, message),
     }
     print(json.dumps(document))
     return 0

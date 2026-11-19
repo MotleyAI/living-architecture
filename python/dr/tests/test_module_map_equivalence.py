@@ -80,7 +80,7 @@ def test_a_typescript_rename_without_a_locator_becomes_a_module_entry() -> None:
 def test_a_module_rename_equals_its_one_entry_map(case_dir: Path, variant: Variant, tmp_path: Path) -> None:
     case = load_case(case_dir)
     args, entry = as_map(case_args(case, variant))
-    copy = tmp_path / "case" / case_dir.name
+    copy = tmp_path / "dr" / "cases" / case_dir.name
     shutil.copytree(case_dir, copy)
     (copy / "case.yaml").write_text(yaml.safe_dump({**case, "args": args}, sort_keys=False), encoding="utf-8")
     root = tmp_path / "run"

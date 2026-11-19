@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import re
 import subprocess
 from pathlib import Path
 
@@ -12,7 +11,6 @@ import pytest
 import conformance_runner
 from conformance_runner import (
     CASES,
-    COMMAND_PREFIXES,
     CORPUS,
     NEUTRAL,
     OVERLAY_DIRS,
@@ -26,6 +24,8 @@ from conformance_runner import (
     load_case,
     materialize,
     package_cases,
+    package_of,
+    run_case,
     selected,
     selected_runs,
     substitute,
@@ -53,13 +53,6 @@ def test_case_declares_kind_and_exit(case_dir: Path) -> None:
     assert isinstance(case["expect"]["exit"], int)
 
 
-def test_inventory_lists_exactly_the_cases() -> None:
-    listed = set(re.findall(r"`([a-z0-9-]+)`", (CORPUS / "INVENTORY.md").read_text(encoding="utf-8")))
-    cases = {c.name for c in CASES}
-    assert cases - listed == set(), "cases missing from INVENTORY.md"
-    assert {name for name in listed if name.split("-")[0] in COMMAND_PREFIXES} - cases == set()
-
-
 def test_no_corpus_file_is_git_ignored() -> None:
     """An ignored fixture passes locally but is never committed, so the case breaks in CI."""
     out = subprocess.run(
@@ -76,11 +69,11 @@ def _ignored(rel: str) -> bool:
 
 def test_only_the_root_local_config_is_git_ignored() -> None:
     assert _ignored("living-architecture.local.yaml")
-    assert not _ignored("conformance/cases/config-local-empty/repo/living-architecture.local.yaml")
+    assert not _ignored("conformance/la/cases/config-local-empty/repo/living-architecture.local.yaml")
 
 
 def _wrong_golden_case(tmp_path: Path) -> Path:
-    case_dir = tmp_path / "cases" / "wrong"
+    case_dir = tmp_path / "la" / "cases" / "wrong"
     case_dir.mkdir(parents=True)
     (case_dir / "case.yaml").write_text(
         "kind: neutral\ncommand: la-config\nargs: [get, issue_key_pattern]\nexpect: {exit: 0}\n", encoding="utf-8"
@@ -206,7 +199,7 @@ def test_pinned_case_without_the_other_twin_needs_no_bins() -> None:
 
 
 def test_later_overlay_overwrites_an_earlier_one(tmp_path: Path) -> None:
-    case_dir = tmp_path / "cases" / "both"
+    case_dir = tmp_path / "la" / "cases" / "both"
     for sub, text in (("python", "py\n"), ("node", "ts\n")):
         (case_dir / sub).mkdir(parents=True)
         (case_dir / sub / "shared.txt").write_text(text, encoding="utf-8")
@@ -218,7 +211,7 @@ def test_later_overlay_overwrites_an_earlier_one(tmp_path: Path) -> None:
 
 def test_format_placeholder_fills_committed_configs_and_write_steps_only(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setattr(conformance_runner, "current_format", lambda: "7.8.9")
-    case_dir = tmp_path / "cases" / "fmt"
+    case_dir = tmp_path / "la" / "cases" / "fmt"
     texts = {
         "living-architecture.yaml": "format: <FORMAT>\r\ntracker: linear\r\n",
         "sub/living-architecture.yaml": "format: <FORMAT>\n",
@@ -248,7 +241,7 @@ def test_series_placeholders_fill_args_env_fake_executables_and_write_steps(tmp_
         git=[{"write": {"written.txt": "<MAJOR> <MINOR> <VERSION>\n"}}],
     )
     root = tmp_path / "run"
-    repo, env = materialize(tmp_path / "cases" / "series", case, root, NEUTRAL)
+    repo, env = materialize(tmp_path / "la" / "cases" / "series", case, root, NEUTRAL)
     assert substitute("--plugin=<MAJOR>.<MINOR>.0", root) == "--plugin=012.34.0"
     assert env["SERIES"] == "012|34"
     assert (root / "bins" / "fake" / "exe").read_text(encoding="utf-8") == "012.34.x\n"
@@ -260,7 +253,7 @@ def test_format_is_read_only_when_a_placeholder_needs_it(tmp_path: Path, monkeyp
         raise AssertionError("current format read without a placeholder")
 
     monkeypatch.setattr(conformance_runner, "current_format", unavailable)
-    case_dir = tmp_path / "cases" / "plain"
+    case_dir = tmp_path / "la" / "cases" / "plain"
     (case_dir / "repo").mkdir(parents=True)
     (case_dir / "repo" / "living-architecture.yaml").write_bytes(b"\xff tracker: linear\n")
     repo, _ = materialize(case_dir, _case(git=[{"write": {"a.txt": "a\n"}}]), tmp_path / "run", NEUTRAL)
@@ -268,7 +261,7 @@ def test_format_is_read_only_when_a_placeholder_needs_it(tmp_path: Path, monkeyp
 
 
 def test_orphan_step_leaves_head_unborn_with_the_index_kept(tmp_path: Path) -> None:
-    case_dir = tmp_path / "cases" / "orphan"
+    case_dir = tmp_path / "la" / "cases" / "orphan"
     case_dir.mkdir(parents=True)
     steps = [{"write": {"a.txt": "a\n"}}, {"commit": "init"}, {"orphan": "fresh"}]
     repo, env = materialize(case_dir, _case(git=steps), tmp_path / "run", NEUTRAL)
@@ -295,7 +288,7 @@ def test_json_stream_ignores_formatting_but_not_array_order(tmp_path: Path) -> N
 
 
 def test_every_case_runs_with_a_fresh_cache_directory_of_its_own(tmp_path: Path) -> None:
-    case_dir = CORPUS / "cases" / "refactor-rename-dry-run"
+    case_dir = CORPUS / "dr" / "cases" / "refactor-rename-dry-run"
     case = load_case(case_dir)
     dirs = []
     for root in (tmp_path / "one", tmp_path / "two"):
@@ -307,3 +300,13 @@ def test_every_case_runs_with_a_fresh_cache_directory_of_its_own(tmp_path: Path)
         assert not cache.is_relative_to(repo)
         dirs.append(cache)
     assert dirs[0] != dirs[1]
+
+
+@pytest.mark.parametrize(("tree", "command"), [("la", "dr-config"), ("dr", "la-config")])
+def test_a_case_invoking_the_other_packages_command_is_refused(tree: str, command: str, tmp_path: Path) -> None:
+    case_dir = tmp_path / tree / "cases" / "foreign"
+    case_dir.mkdir(parents=True)
+    (case_dir / "case.yaml").write_text(f"kind: neutral\ncommand: {command}\nexpect: {{exit: 0}}\n", encoding="utf-8")
+    assert package_of(case_dir) == tree
+    with pytest.raises(ValueError, match=f"{command} is not a {tree} command"):
+        run_case(case_dir, tmp_path / "run")

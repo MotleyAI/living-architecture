@@ -108,13 +108,19 @@ def _restore(path: Path, content: bytes | None) -> None:
 
 def _run_python(root: Path, command: str, argv: list[str], *, write: bool) -> int:
     baseline = root / language("python")["baseline_file"]
-    before = baseline.read_bytes() if baseline.exists() else None
+    try:
+        before = baseline.read_bytes() if baseline.exists() else None
+    except OSError as exc:
+        return _error(os_error_text(exc, root))
     flag = [lang.BASEDPYRIGHT_WRITE_FLAG] if write else []
     versions: list[str] = language("python")["checker_patch_versions"]
     with tempfile.TemporaryDirectory(prefix="la-pyright-patch-") as tmp:
         result = Path(tmp) / "result.json"
         env = lang.pyright_patch_env(os.environ, result=result, versions=versions)
-        returncode = subprocess.run([*argv, *flag], cwd=root, env=env, check=False).returncode
+        try:
+            returncode = subprocess.run([*argv, *flag], cwd=root, env=env, check=False).returncode
+        except OSError as exc:
+            return _error(os_error_text(exc, root, argv[0]))
         patch = lang.read_pyright_patch(result)
     failure = _patch_failure(patch, command, versions)
     if failure is not None:

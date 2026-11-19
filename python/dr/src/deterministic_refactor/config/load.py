@@ -111,17 +111,25 @@ def read_config(root: Path, name: str) -> Any:
     return None if text is None else parse_config(text, name)
 
 
+def _present(path: Path) -> bool:
+    """A regular file, or an entry whose probe fails (reading it reports the OS error)."""
+    try:
+        return is_regular_file(path)
+    except OSError:
+        return True
+
+
 def both_files_problem(root: Path) -> str | None:
     """The refusal when every committed config file is at the repo root, else None."""
     files = config_files()
-    if all(is_regular_file(root / name) for name in files):
+    if all(_present(root / name) for name in files):
         return message("config.both-files", first=files[0], second=files[1])
     return None
 
 
 def config_source(root: Path) -> str | None:
     """The committed config file dr reads: the first of the contract's files at the repo root, else None."""
-    return next((name for name in config_files() if is_regular_file(root / name)), None)
+    return next((name for name in config_files() if _present(root / name)), None)
 
 
 def own_file() -> str:

@@ -29,7 +29,7 @@ export function collect(paths: string[], cwd: string, repoRoot: string): Map<str
   for (const [id, group] of byLanguage(paths)) {
     let entries: Facts[];
     if (id === twin.NATIVE_LANGUAGE) {
-      entries = conventionsFacts(cwd, group);
+      entries = conventionsFacts(cwd, group, message);
     } else {
       try {
         const document = twin.requestDocument(id, identity(), 'la-check-conventions', ['--language', id, '--emit', 'facts'], 'conventions-facts', {
@@ -68,7 +68,7 @@ export function emit(lang: string, cwd: string): number {
   if (lang !== twin.NATIVE_LANGUAGE) return fail(message('twin.not-native', { language: lang }));
   const paths = stdinPaths();
   if (paths === null) return fail(message('conventions.facts-stdin-invalid'));
-  const document = { language: lang, version: VERSION, contract_hash: contractHash(), files: conventionsFacts(cwd, paths) };
+  const document = { language: lang, version: VERSION, contract_hash: contractHash(), files: conventionsFacts(cwd, paths, message) };
   process.stdout.write(`${JSON.stringify(document)}\n`);
   return 0;
 }

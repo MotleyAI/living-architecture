@@ -2,7 +2,7 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, writeFileSync } from 'node:fs';
 import { isAbsolute, join, relative, sep } from 'node:path';
-import { byCodePoint, message, readFile } from '../contract/index.js';
+import { byCodePoint, message, osErrorText, readFile } from '../contract/index.js';
 
 export interface TscDiagnostic {
   file: string;
@@ -95,6 +95,10 @@ export interface TscRun {
 export function checkTypescript({ repoRoot, argv, command, baseline, write }: TscRun): number {
   const [cmd = '', ...args] = argv;
   const proc = spawnSync(cmd, [...args, '--pretty', 'false'], { cwd: repoRoot, maxBuffer: 1 << 30 });
+  if (proc.error !== undefined) {
+    process.stderr.write(`${message('typecheck.error', { error: osErrorText(proc.error, repoRoot, cmd) })}\n`);
+    return 2;
+  }
   const stdout = proc.stdout?.toString('utf8') ?? '';
   const stderr = proc.stderr?.toString('utf8') ?? '';
   const fail = (text: string): number => {

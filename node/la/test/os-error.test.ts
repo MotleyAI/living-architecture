@@ -128,7 +128,7 @@ describe('commands print the template texts', () => {
     const repo = join(tmp, name);
     cpSync(join(cases, 'fixtures', 'arch-diagrams', 'repo'), repo, { recursive: true });
     copyFileSync(
-      join(cases, 'cases', 'arch-diagrams-doc-missing', 'repo', 'architecture', 'index.yaml'),
+      join(cases, 'la', 'cases', 'arch-diagrams-doc-missing', 'repo', 'architecture', 'index.yaml'),
       join(repo, 'architecture', 'index.yaml'),
     );
     return repo;

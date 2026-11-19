@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import fnmatch
 import re
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -20,6 +21,20 @@ from living_architecture.conventions.facts import FactsError, collect, language_
 
 _FAILURES = ("unreadable", "syntax-error")
 
+
+def pr_base(*, pr: str | None, repo: str | None, repo_root: Path) -> str:
+    """The base branch of PR `pr` through `gh`."""
+    cmd = ["gh", "pr", "view", str(pr), "--json", "baseRefName", "--jq", ".baseRefName"]
+    if repo:
+        cmd += ["--repo", repo]
+    try:
+        proc = subprocess.run(cmd, cwd=repo_root, capture_output=True, text=True, check=False)
+    except OSError as exc:
+        raise ConfigError(message("changes.pr-base-unresolved", pr=pr)) from exc
+    base = proc.stdout.strip()
+    if proc.returncode != 0 or not base:
+        raise ConfigError(message("changes.pr-base-unresolved", pr=pr))
+    return base
 
 class Violation(BaseModel):
     model_config = ConfigDict(frozen=True)
@@ -96,7 +111,7 @@ def _violations(entry: dict[str, Any], rules: list[str]) -> list[Violation]:
 
 def check_file(path: Path, *, rel: str, rules: list[str] | None = None) -> tuple[list[Violation], FileCounts | None]:
     """One native-language file's violations (default: every rule) and text/total counts (None when unanalysable)."""
-    [entry] = lang.conventions_facts(path.parent, [path.name])
+    [entry] = lang.conventions_facts(path.parent, [path.name], message)
     entry = {**entry, "path": rel}
     counts = FileCounts(rel=rel, text=entry["text_lines"], total=entry["total_lines"]) if entry["status"] == "ok" else None
     selected = list(conventions()["rules"]) if rules is None else rules
@@ -187,7 +202,7 @@ def check_conventions(
         if files:
             rels = files
         else:
-            branch = base if base is not None else changes.pr_base(pr=pr, repo=repo, repo_root=repo_root)
+            branch = base if base is not None else pr_base(pr=pr, repo=repo, repo_root=repo_root)
             base_ref = changes.resolve_base_ref(base=branch, repo_root=repo_root)
             rels = changed_source_files(base_ref=base_ref, repo_root=repo_root)
     except ConfigError as exc:

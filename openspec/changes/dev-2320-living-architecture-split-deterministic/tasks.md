@@ -53,10 +53,10 @@ Calibration notes (read first):
 
 ## 6. Conformance split
 
-- [ ] 6.1 Split `conformance/cases` into `conformance/dr/cases` and `conformance/la/cases` by the command each case invokes (`la-typecheck` cases become `dr-typecheck` cases), each tree with its `INVENTORY.md`; keep `conformance/fixtures/` shared; update `conformance/README.md`; verify both inventory tests
-- [ ] 6.2 Make the runner package-aware (tree decides manifest, format series, version, hash placeholder, Python entry points, npm bins; both packages' commands on `PATH`; host runners hidden) with the self-test refusing cross-package invocations; update `node/scripts/conformance.mjs` and `scripts/conformance-cross`; verify both trees through both twins
-- [ ] 6.3 Add the remaining required cases: the alias and its stderr line; the format matrix for both file names; both-files refusal from a dr and an la command; local file ignored by dr; both doctor identities and hashes; a wrong dr version or hash on `PATH` for `la-doctor`; the uvx/npx fallback command lines naming each package; dr missing after a plain la install; finding-template coverage per corpus; verify each passes through both twins and every template of both registries is produced
-- [ ] 6.4 Re-bless goldens changed only by an explained cause (install hints naming the package, the ok line's package, runner and identity lines, paths), listing each reason in the commit message; verify `scripts/conformance-cross` over both trees
+- [x] 6.1 Split `conformance/cases` into `conformance/dr/cases` and `conformance/la/cases` by the command each case invokes (`la-typecheck` cases become `dr-typecheck` cases), each tree with its `INVENTORY.md`; keep `conformance/fixtures/` shared; update `conformance/README.md`; verify both inventory tests
+- [x] 6.2 Make the runner package-aware (tree decides manifest, format series, version, hash placeholder, Python entry points, npm bins; both packages' commands on `PATH`; host runners hidden) with the self-test refusing cross-package invocations; update `node/scripts/conformance.mjs` and `scripts/conformance-cross`; verify both trees through both twins
+- [x] 6.3 Add the remaining required cases: the alias and its stderr line; the format matrix for both file names; both-files refusal from a dr and an la command; local file ignored by dr; both doctor identities and hashes; a wrong dr version or hash on `PATH` for `la-doctor`; the uvx/npx fallback command lines naming each package; dr missing after a plain la install; finding-template coverage per corpus; verify each passes through both twins and every template of both registries is produced
+- [x] 6.4 Re-bless goldens changed only by an explained cause (install hints naming the package, the ok line's package, runner and identity lines, paths), listing each reason in the commit message; verify `scripts/conformance-cross` over both trees
 
 ## 7. Plugins and skills
 

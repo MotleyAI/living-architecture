@@ -18,7 +18,7 @@ from living_architecture import contract
 from living_architecture.c4 import migrate as c4_migrate
 from living_architecture.cli.la_arch_migrate import la_arch_migrate
 
-CASES = next(p for p in Path(__file__).resolve().parents if (p / "shared").is_dir() and (p / "plugin").is_dir()) / "conformance" / "cases"
+CASES = next(p for p in Path(__file__).resolve().parents if (p / "shared").is_dir() and (p / "plugin").is_dir()) / "conformance" / "la" / "cases"
 
 SPEC = "specification {\n  element system\n  element node\n}\n"
 PYTHON = "model {\n  python = system 'Python' {\n    core = node 'Core'\n    db = node 'DB'\n    core -> db\n  }\n}\n"

@@ -6,7 +6,8 @@ import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, w
 import { tmpdir } from 'node:os';
 import { delimiter, dirname, join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { changedPaths, prBaseBranch, resolveBaseRef } from '../../dr/src/changes/index.js';
+import { changedPaths, resolveBaseRef } from '../../dr/src/changes/index.js';
+import { prBaseBranch } from '../src/conventions/gate.js';
 import { ConfigError } from '../../dr/src/config/index.js';
 import { contractHash as drContractHash } from '../../dr/src/contract/index.js';
 import { baseFetchTimeout, contractHash, isTestFile, language, message, schema, validate } from '../src/contract/index.js';

@@ -46,8 +46,11 @@ export function installCommand(lang: string, who: Identity, version: string = wh
   return renderTemplate(language(lang).install[who.package], { version });
 }
 
+/** The hint `templateId` from `who`'s registry, else from dr's. */
 function hint(templateId: string, lang: string, who: Identity): string {
-  return message(templateId, { language: lang, package: who.package, version: who.version, install: installCommand(lang, who) });
+  const values = { language: lang, package: who.package, version: who.version, install: installCommand(lang, who) };
+  const template = who.contract.findings()[templateId];
+  return template === undefined ? message(templateId, values) : renderTemplate(template, values);
 }
 
 const env = (): NodeJS.ProcessEnv => ({ ...process.env, [FORWARDED_ENV]: '1' });

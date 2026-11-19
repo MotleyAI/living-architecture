@@ -187,7 +187,7 @@ describe('installed npm package: TypeScript compiler loading', () => {
     for (const overlay of ['repo', 'node']) cpSync(join(CONFORMANCE, 'fixtures', 'arch-ts', overlay), repo, { recursive: true });
     expect(spawnSync('git', ['init', '-q', '-b', 'main'], { cwd: repo }).status).toBe(0);
     const { proc, lines } = probed('la-arch-check', [], repo);
-    const golden = join(CONFORMANCE, 'cases', 'arch-check-ts-ok');
+    const golden = join(CONFORMANCE, 'la', 'cases', 'arch-check-ts-ok');
     expect({ status: proc.status, stdout: proc.stdout, stderr: proc.stderr }).toEqual({
       status: 0,
       stdout: readFileSync(join(golden, 'stdout'), 'utf8'),

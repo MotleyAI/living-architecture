@@ -1,7 +1,7 @@
 // TS/JS conventions facts: rule detections with their line text, line counts, and file failures.
 import { resolve } from 'node:path';
 import type * as TS from 'typescript';
-import { isOsError, message, osErrorReason, readFile } from '../contract/index.js';
+import { isOsError, osErrorReason, readFile } from '../contract/index.js';
 import { sourceExtension } from './files.js';
 import { commentRanges, lineCounts, LineMap } from './lines.js';
 import { ts } from './ts.js';
@@ -224,7 +224,7 @@ function analyze(path: string, text: string): ConventionsFileFacts {
   };
 }
 
-function fileFacts(root: string, path: string): ConventionsFileFacts {
+function fileFacts(root: string, path: string, render: (id: string) => string): ConventionsFileFacts {
   let bytes: Buffer;
   try {
     bytes = readFile(resolve(root, path));
@@ -235,11 +235,11 @@ function fileFacts(root: string, path: string): ConventionsFileFacts {
     return { path, status: 'unreadable', line: 1, message: osErrorReason(error) };
   }
   const text = decode(bytes);
-  if (text === undefined) return { path, status: 'unreadable', line: 1, message: message('conventions.not-utf8') };
+  if (text === undefined) return { path, status: 'unreadable', line: 1, message: render('conventions.not-utf8') };
   return analyze(path, text);
 }
 
 /** The conventions facts of each path (relative to `root`), in input order. */
-export function conventionsFacts(root: string, paths: string[]): ConventionsFileFacts[] {
-  return paths.map((path) => fileFacts(root, path));
+export function conventionsFacts(root: string, paths: string[], render: (id: string) => string): ConventionsFileFacts[] {
+  return paths.map((path) => fileFacts(root, path, render));
 }
