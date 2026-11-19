@@ -30,7 +30,7 @@ architecture workflow), which depends on `dr`. Each plugin's skills come in two 
 | `la:pr-implement` | Stage 3 of `la:pr`: implement until green, then open the PR |
 | `la:pr-review` | Stage 4 of `la:pr`: the review loop until every gate is clean, then archive |
 | `la:process-reviews` | One sweep over CI, Codex, CodeRabbit and Sonar feedback, triaged into a fix plan |
-| `la:fetch-coderabbit-threads` | Unresolved CodeRabbit threads and nitpicks on a PR |
+| `la:fetch-review-comments` | Every review comment and unresolved thread on a PR, from any reviewer |
 | `la:fetch-failed-pr-checks` | Failed CI checks on a PR, with a log excerpt of each |
 | `la:reply-to-pr-thread` | Reply to a PR review thread |
 | `la:codex-review` | Codex review of the current diff |

@@ -9,30 +9,30 @@
 
 ## 2. Merge conflict (watcher)
 
-- [ ] 2.1 `rb_snapshot` reads and projects `mergeable`; verify `shim-pr-reviewers-*` stay green
-- [ ] 2.2 `wait-for-reviews.sh`: after `head-moved`, on `CONFLICTING` print only `merge-conflict <sha7>`, report on stderr, exit 4 before other reads, items, state writes and the timeout check; header lists the item and exit; `shared/la/cli.yaml` exit map gains `4`; verify the 1.2 cases pass
+- [x] 2.1 `rb_snapshot` reads and projects `mergeable`; verify `shim-pr-reviewers-*` stay green
+- [x] 2.2 `wait-for-reviews.sh`: after `head-moved`, on `CONFLICTING` print only `merge-conflict <sha7>`, report on stderr, exit 4 before other reads, items, state writes and the timeout check; header lists the item and exit; `shared/la/cli.yaml` exit map gains `4`; verify the 1.2 cases pass
 
 ## 3. Comment items for every author (watcher)
 
-- [ ] 3.1 Read the logged-in user (retried each poll; while unknown the comment lists are failed reads); read review comments, reviews and conversation comments once per poll whatever CodeRabbit's presence; `rb_coderabbit` takes the poll's conversation comments (`la-pr-reviewers` unchanged); CodeRabbit settle evidence from the same lists; verify the call-count case passes
-- [ ] 3.2 Emit `review-comment` / `review` / `pr-comment <login> <url>` (null author → `ghost`, self excluded, empty-body reviews skipped) keyed by kind + id; verify the 1.3 cases pass
+- [x] 3.1 Read the logged-in user (retried each poll; while unknown the comment lists are failed reads); read review comments, reviews and conversation comments once per poll whatever CodeRabbit's presence; `rb_coderabbit` takes the poll's conversation comments (`la-pr-reviewers` unchanged); CodeRabbit settle evidence from the same lists; verify the call-count case passes
+- [x] 3.2 Emit `review-comment` / `review` / `pr-comment <login> <url>` (null author → `ghost`, self excluded, empty-body reviews skipped) keyed by kind + id; verify the 1.3 cases pass
 
 ## 4. la-fetch-review-comments
 
-- [ ] 4.1 Rename the script to `shared/la/scripts/fetch-review-comments.sh`, the `shared/la/cli.yaml` entry (help text), the Python entry module and `python/la/pyproject.toml` script, the `node/la/package.json` bin (and `node/package-lock.json`); drop `--all-authors`; verify the 1.6 lists pass
-- [ ] 4.2 Self, `ghost`, `threads` / `reviews` / `comments` with `answered` (thread: last comment is self; review / conversation comment: a later self conversation comment whose first line is `Re: <url>`), all pages, Markdown sections and JSON at `${TMPDIR:-/tmp}/review-comments-<pr>-<ts>.json`; verify the 1.4 cases pass
+- [x] 4.1 Rename the script to `shared/la/scripts/fetch-review-comments.sh`, the `shared/la/cli.yaml` entry (help text), the Python entry module and `python/la/pyproject.toml` script, the `node/la/package.json` bin (and `node/package-lock.json`); drop `--all-authors`; verify the 1.6 lists pass
+- [x] 4.2 Self, `ghost`, `threads` / `reviews` / `comments` with `answered` (thread: last comment is self; review / conversation comment: a later self conversation comment whose first line is `Re: <url>`), all pages, Markdown sections and JSON at `${TMPDIR:-/tmp}/review-comments-<pr>-<ts>.json`; verify the 1.4 cases pass
 
 ## 5. la-reply-to-pr-thread
 
-- [ ] 5.1 Accept `#pullrequestreview-<ID>` and `#issuecomment-<ID>` URLs: post `Re: <url>`, a blank line and the body to the PR's issue comments and print the URL; usage text names the forms; verify the 1.5 cases pass
+- [x] 5.1 Accept `#pullrequestreview-<ID>` and `#issuecomment-<ID>` URLs: post `Re: <url>`, a blank line and the body to the PR's issue comments and print the URL; usage text names the forms; verify the 1.5 cases pass
 
 ## 6. Skills and docs (approved wording in design.md, verbatim)
 
-- [ ] 6.1 process-reviews and pr-review: the merge-conflict wording and the every-reviewer wording (a–k, and the pr-review reply-drafts sentence); verify the skill tests (`test_skills.py`) pass
-- [ ] 6.2 Rename `plugin/la/skills/fetch-coderabbit-threads/` to `fetch-review-comments/` with the approved text; reply-to-pr-thread edits a–c; `docs/commands.md` and `docs/skills.md` rows; verify `test_skills.py` and `plugin validate plugin/la` pass
+- [x] 6.1 process-reviews and pr-review: the merge-conflict wording and the every-reviewer wording (a–k, and the pr-review reply-drafts sentence); verify the skill tests (`test_skills.py`) pass
+- [x] 6.2 Rename `plugin/la/skills/fetch-coderabbit-threads/` to `fetch-review-comments/` with the approved text; reply-to-pr-thread edits a–c; `docs/commands.md` and `docs/skills.md` rows; verify `test_skills.py` and `plugin validate plugin/la` pass
 
 ## 7. Sync and gates
 
-- [ ] 7.1 `scripts/sync-shared`, then verify `scripts/sync-shared --check` and the drift tests pass
-- [ ] 7.2 Run the local test scope (the affected Python tests and the `conformance/la` cases through both twins), `ruff`, `basedpyright`, npm lint/typecheck, `la-arch-check` and `openspec validate dev-2363-living-architecture-la-wait-for-reviews --strict`; verify all green
-- [ ] 7.3 Drop the stale `fetch-coderabbit-threads` entries from `python/{la,dr}/tests/durations/*.json`; verify no test names the old command
+- [x] 7.1 `scripts/sync-shared`, then verify `scripts/sync-shared --check` and the drift tests pass
+- [x] 7.2 Run the local test scope (the affected Python tests and the `conformance/la` cases through both twins), `ruff`, `basedpyright`, npm lint/typecheck, `la-arch-check` and `openspec validate dev-2363-living-architecture-la-wait-for-reviews --strict`; verify all green
+- [x] 7.3 Drop the stale `fetch-coderabbit-threads` entries from `python/{la,dr}/tests/durations/*.json`; verify no test names the old command

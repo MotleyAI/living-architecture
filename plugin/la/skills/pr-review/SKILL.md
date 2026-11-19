@@ -80,9 +80,13 @@ The loop:
    Run the local gates on these fixes as you go; the full convergence, Codex included, runs once the watch has exited.
 3. **Push once.** Only after step 2 has fully converged (Codex included),
    commit and push — this re-triggers the remote gates a single time for the
-   whole batch. Never push while a question to me is pending (or about to be
-   asked) — ask first, push after I answer, even if the batch excludes the
-   disputed change.
+   whole batch. Before every push, fetch and, when `origin/<base>` is not an
+   ancestor of HEAD, merge it (never rebase) and re-run the local gates. Reply
+   drafts `/la:process-reviews` returned go to me as one approval question
+   before that push (or before reporting green when no push follows); post the
+   approved ones with `la-reply-to-pr-thread` once the push is up. Never push
+   while a question to me is pending (or about to be asked) — ask first, push
+   after I answer, even if the batch excludes the disputed change.
 4. **Full remote sweep.** Run `/la:process-reviews` again on the new HEAD (it also re-runs Codex), fixing each valid item as it is triaged, without pushing, until its watch exits. Any new failure sends you back to step 2, then step 3. Repeat until one full push cycle returns every source green with nothing left to fix.
 
 **"Green" for CI means an actually-COMPLETE, PASSING run — every check finished

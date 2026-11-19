@@ -526,9 +526,10 @@ def test_review_comments_every_author_but_the_logged_in_user(fake_gh, run_script
     for heading in ("## Review bodies", "## Conversation comments", "## CodeRabbit review-summary nitpicks",
                     "## CodeRabbit outside-diff-range comments"):
         assert heading in out
-    assert "Rename this" in out and "Consider X" in out and "Why this?" in out
-    assert "Old news" not in out and "Note to self" not in out and "My own review" not in out
-    assert "Pushed a fix" not in out
+    for shown in ("Rename this", "Consider X", "Why this?"):
+        assert shown in out
+    for hidden in ("Old news", "Note to self", "My own review", "Pushed a fix"):
+        assert hidden not in out
 
 
 def test_review_comments_thread_answered_by_its_last_comment(fake_gh, run_script):

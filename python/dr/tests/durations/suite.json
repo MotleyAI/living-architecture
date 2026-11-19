@@ -2164,7 +2164,6 @@
     "tests/test_rope_patches.py::test_this_repo_is_walked_fully[src/living_architecture/cli/la_config.py]": 0.00798466702690348,
     "tests/test_rope_patches.py::test_this_repo_is_walked_fully[src/living_architecture/cli/la_count_comments.py]": 0.006347537972033024,
     "tests/test_rope_patches.py::test_this_repo_is_walked_fully[src/living_architecture/cli/la_doctor.py]": 0.005549186025746167,
-    "tests/test_rope_patches.py::test_this_repo_is_walked_fully[src/living_architecture/cli/la_fetch_coderabbit_threads.py]": 0.005788907001260668,
     "tests/test_rope_patches.py::test_this_repo_is_walked_fully[src/living_architecture/cli/la_fetch_failed_pr_checks.py]": 0.0028745990130119026,
     "tests/test_rope_patches.py::test_this_repo_is_walked_fully[src/living_architecture/cli/la_pr_reviewers.py]": 0.004207313002552837,
     "tests/test_rope_patches.py::test_this_repo_is_walked_fully[src/living_architecture/cli/la_reply_invalid_coderabbit.py]": 0.0012348020100034773,

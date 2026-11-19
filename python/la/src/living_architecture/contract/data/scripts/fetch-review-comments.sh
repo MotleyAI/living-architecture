@@ -1,31 +1,26 @@
 #!/usr/bin/env bash
-# Fetch unresolved CodeRabbit review threads, review-summary nitpicks, AND
-# review-summary "Outside diff range" comments for a GitHub PR. Outside-diff
-# comments are CodeRabbit findings on lines NOT in the PR's diff hunks (e.g. an
-# unchanged adjacent block); they live in the same PullRequestReview body as
-# the Nitpick section but in a separate <details><summary>⚠️ Outside diff
-# range comments (N)</summary>...</details> block. They are NEVER threaded
-# review comments, so they don't surface through pulls/N/comments or the
-# reviewThreads GraphQL connection. Always emits Markdown to stdout AND writes
-# the full filtered JSON to a tempfile.
+# Fetch every review comment on a GitHub PR not written by the logged-in gh user: unresolved review threads, review
+# bodies and conversation comments, each marked answered, plus CodeRabbit's review-summary nitpicks and "Outside diff
+# range" comments. A thread is answered when its last comment is the user's; a review body or conversation comment
+# when a later conversation comment of the user's has `Re: <its URL>` as its first line. CodeRabbit's review bodies
+# appear only through their nitpick and outside-diff sections (findings on lines outside the diff hunks, never
+# threaded). Always emits Markdown to stdout AND writes the full JSON to a tempfile; any failed gh read fails.
 set -euo pipefail
 
 usage() {
     cat >&2 <<EOF
-usage: la-fetch-coderabbit-threads <PR_NUMBER> [--repo OWNER/REPO] [--all-authors]
+usage: la-fetch-review-comments <PR_NUMBER> [--repo OWNER/REPO]
 
   <PR_NUMBER>           required, the PR number
   --repo OWNER/REPO     optional, defaults to the repo of the current git directory
-  --all-authors         include unresolved threads from any author, not just CodeRabbit
 
-Output: Markdown to stdout, full JSON to \${TMPDIR:-/tmp}/coderabbit-threads-<pr>-<ts>.json.
+Output: Markdown to stdout, full JSON to \${TMPDIR:-/tmp}/review-comments-<pr>-<ts>.json.
 EOF
     exit 2
 }
 
 PR=""
 REPO=""
-ALL_AUTHORS=0
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -34,8 +29,6 @@ while [ $# -gt 0 ]; do
             REPO="$2"; shift 2 ;;
         --repo=*)
             REPO="${1#--repo=}"; shift ;;
-        --all-authors)
-            ALL_AUTHORS=1; shift ;;
         -h|--help)
             usage ;;
         --)
@@ -78,6 +71,13 @@ command -v gh >/dev/null 2>&1 || { echo "error: gh is required" >&2; exit 127; }
 # are character-class metacharacters in regex; using `[[]bot[]]` avoids needing
 # a backslash escape, which jq's JSON-string parser would reject as `\[`.
 CODERABBIT_LOGIN_RE='^coderabbitai([[]bot[]])?$'
+
+# The logged-in user, whose comments are our own replies.
+SELF="$(gh api user --jq '.login')"
+if ! [[ "$SELF" =~ ^[^[:space:]]+$ ]]; then
+    echo "error: could not read the logged-in gh user" >&2
+    exit 1
+fi
 
 # ---- Fetch review threads via GraphQL (manual cursor loop; --paginate doesn't drive nested cursors) ----
 threads_all_json="$(mktemp)"
@@ -182,19 +182,34 @@ while [ "$i" -lt "$n_threads" ]; do
     i=$((i + 1))
 done
 
-# Filter: unresolved + (CodeRabbit author unless --all-authors)
-filter_jq='[.[] | select(.isResolved == false)]'
-if [ "$ALL_AUTHORS" -eq 0 ]; then
-    filter_jq='[.[] | select(.isResolved == false) | select(any(.comments.nodes[]?.author.login // ""; test("'"$CODERABBIT_LOGIN_RE"'")))]'
-fi
-threads_filtered="$(jq "$filter_jq" "$threads_paginated")"
+# Unresolved threads with a comment not by SELF; a missing author is `ghost`.
+threads_filtered="$(jq --arg me "$SELF" '[.[]
+    | .comments.nodes |= map(.author = {login: (.author.login // "ghost")})
+    | select(.isResolved == false and any(.comments.nodes[]; .author.login != $me))
+    | .answered = ((.comments.nodes | last | .author.login) == $me)]' "$threads_paginated")"
 
-# ---- Fetch nitpicks from review bodies (REST) ----
+# ---- Review bodies and conversation comments (REST) ----
 # Don't mask errors — set -euo pipefail propagates a real failure (auth /
-# rate-limit / 404) instead of silently turning into "no nitpicks".
+# rate-limit / 404) instead of silently turning into an empty list.
 reviews_raw="$(gh api --paginate "repos/$OWNER/$NAME/pulls/$PR/reviews")"
+comments_raw="$(gh api --paginate "repos/$OWNER/$NAME/issues/$PR/comments")"
 # --paginate may concatenate JSON arrays; normalise to a single array.
-reviews_json="$(echo "$reviews_raw" | jq -s 'if length == 0 then [] elif (.[0] | type) == "array" then add else . end')"
+normalise='if length == 0 then [] elif (.[0] | type) == "array" then add else . end'
+reviews_json="$(echo "$reviews_raw" | jq -s "$normalise")"
+comments_json="$(echo "$comments_raw" | jq -s "$normalise")"
+
+# SELF's conversation comments by first line, then each entry not by SELF with `answered`.
+replies="$(echo "$comments_json" | jq --arg me "$SELF" '[.[] | select(.user.login == $me)
+    | {at: .created_at, first: ((.body // "") | split("\n")[0] | rtrimstr("\r"))}]')"
+entries='{author: (.user.login // "ghost"), url: .html_url, createdAt: $at, body: (.body // "")}
+    | select(.author != $me)
+    | . as $e | .answered = any($replies[0][]; .first == "Re: \($e.url)" and .at > $e.createdAt)'
+reviews_out="$(echo "$reviews_json" | jq --arg me "$SELF" --arg re "$CODERABBIT_LOGIN_RE" \
+    --slurpfile replies <(echo "$replies") \
+    '[.[] | select((.body // "" | test("\\S")) and (.user.login // "" | test($re) | not))
+     | .submitted_at as $at | '"$entries"']')"
+comments_out="$(echo "$comments_json" | jq --arg me "$SELF" --slurpfile replies <(echo "$replies") \
+    '[.[] | .created_at as $at | '"$entries"']')"
 
 # Keep CodeRabbit reviews with non-empty bodies that mention "Nitpick".
 nitpick_reviews="$(echo "$reviews_json" | jq --arg re "$CODERABBIT_LOGIN_RE" '
@@ -279,18 +294,21 @@ outside_diff="$(echo "$outside_reviews" | jq '
 
 # ---- Write JSON file ----
 ts="$(date -u +%Y%m%d-%H%M%S)"
-json_out="${TMPDIR:-/tmp}/coderabbit-threads-${PR}-${ts}.json"
+json_out="${TMPDIR:-/tmp}/review-comments-${PR}-${ts}.json"
 jq -n \
     --argjson pr "$PR" \
     --arg repo "$REPO" \
     --slurpfile threads <(echo "$threads_filtered") \
+    --slurpfile reviews <(echo "$reviews_out") \
+    --slurpfile comments <(echo "$comments_out") \
     --slurpfile nitpicks <(echo "$nitpicks") \
     --slurpfile outside_diff <(echo "$outside_diff") \
-    '{pr: $pr, repo: $repo, threads: $threads[0], nitpicks: $nitpicks[0], outside_diff: $outside_diff[0]}' \
+    '{pr: $pr, repo: $repo, threads: $threads[0], reviews: $reviews[0], comments: $comments[0],
+      nitpicks: $nitpicks[0], outside_diff: $outside_diff[0]}' \
     > "$json_out"
 
 # ---- Render Markdown ----
-echo "# Unresolved CodeRabbit threads on $REPO PR #$PR"
+echo "# Review comments on $REPO PR #$PR"
 echo
 
 thread_count="$(echo "$threads_filtered" | jq 'length')"
@@ -305,7 +323,7 @@ else
         | (
             "## Thread \($i) — \($t.path // "?"):\($t.line // $t.originalLine // "file-level")",
             "URL: " + ((($t.comments.nodes // [])[0].url) // "n/a"),
-            "Resolved: \($t.isResolved)   Outdated: \($t.isOutdated)",
+            "Resolved: \($t.isResolved)   Outdated: \($t.isOutdated)   Answered: \($t.answered)",
             "",
             ( ($t.comments.nodes // [])
               | to_entries[]
@@ -320,6 +338,31 @@ else
           )
     '
 fi
+
+# Renders the entries JSON $1 under heading $2, each titled $3, or the line $4 when there are none.
+render_entries() {
+    echo "## $2"
+    echo
+    if [ "$(echo "$1" | jq 'length')" = "0" ]; then
+        echo "$4"
+        echo
+        return
+    fi
+    echo "$1" | jq -r --arg title "$3" '
+        to_entries[]
+        | "### \($title) \(.key + 1) — \(.value.author)  \(.value.createdAt // "")",
+          "<\(.value.url)>",
+          "Answered: \(.value.answered)",
+          "",
+          (.value.body | split("\n") | map("> " + .) | join("\n")),
+          "",
+          "---",
+          ""
+    '
+}
+
+render_entries "$reviews_out" "Review bodies" "Review" "_No review bodies._"
+render_entries "$comments_out" "Conversation comments" "Comment" "_No conversation comments._"
 
 echo "## CodeRabbit review-summary nitpicks"
 echo
