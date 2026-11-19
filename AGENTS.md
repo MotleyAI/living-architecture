@@ -89,7 +89,7 @@ language's source hands its raw arguments to that twin. `la-check-conventions` a
 neutral: the other language's files come back as a conventions-facts document (`la-check-conventions --language
 L --emit facts`, paths on stdin).
 `dr-typecheck` runs the other language's section as `dr-typecheck --language L` in its twin; `la-typecheck` is its
-deprecated alias until 0.14.0.
+deprecated alias until 0.15.0.
 
 Integration tests run a real checker and are deselected by default: `uv run pytest -m integration` in
 `python/dr`, `npm run build && npm run test:integration` in `node/`.

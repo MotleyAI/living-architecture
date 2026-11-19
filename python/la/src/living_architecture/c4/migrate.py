@@ -544,7 +544,7 @@ def _no_files(_root: Path, _tx: Transaction) -> None:
 
 STEPS = [
     MigrationStep(source=None, target="0.4.0", apply=_unversioned),
-    MigrationStep(source="0.4.0", target="0.13.0", apply=_no_files, config=move_exempt),
+    MigrationStep(source="0.4.0", target="0.14.0", apply=_no_files, config=move_exempt),
 ]
 
 

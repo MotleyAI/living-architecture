@@ -7,5 +7,5 @@ expect:
   stderr:
     contains:
     - exempt
-note: 'conventions.exempt is retired at format 0.13.0: a config error naming exempt'
+note: 'conventions.exempt is retired at format 0.14.0: a config error naming exempt'
 golden: manual
