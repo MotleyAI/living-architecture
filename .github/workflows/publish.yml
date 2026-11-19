@@ -64,12 +64,20 @@ jobs:
       - run: npm run build
       - name: Publish dr, then la
         run: |
+          err=$(mktemp)
           for package in dr la; do
             name=$(jq -r .name "$package/package.json")
             version=$(jq -r .version "$package/package.json")
             if [ "$(jq -r '.private // false' "$package/package.json")" = "true" ]; then
               echo "node/$package/package.json is private: skipping its npm publish"
-            elif [ "$(npm view "$name@$version" version)" = "$version" ]; then
+              continue
+            fi
+            # Empty for an unpublished version; E404 for an unpublished package; any other failure stops the job.
+            if ! published=$(npm view "$name@$version" version 2>"$err"); then
+              grep -q E404 "$err" || { cat "$err" >&2; exit 1; }
+              published=""
+            fi
+            if [ "$published" = "$version" ]; then
               echo "$name@$version is already on npm: skipping its publish"
             else
               npm publish -w "$package" --provenance --access public

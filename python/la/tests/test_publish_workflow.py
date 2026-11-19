@@ -4,6 +4,7 @@ import json
 import subprocess
 from pathlib import Path
 
+import pytest
 import yaml
 
 REPO_ROOT = next(p for p in Path(__file__).resolve().parents if (p / "shared").is_dir() and (p / "plugin").is_dir())
@@ -45,21 +46,40 @@ def test_npm_installs_run_no_lifecycle_scripts() -> None:
     assert all("--ignore-scripts" in tokens for tokens in installs), installs
 
 
-def test_npm_rerun_publishes_only_the_missing_package(tmp_path: Path) -> None:
+# What the fake npm's `view` of living-architecture@1.2.0 prints to stdout and stderr, and its exit code.
+LA_UNPUBLISHED_VERSION = ("", "", 0)
+LA_UNPUBLISHED_PACKAGE = ("", "npm error code E404", 1)
+LA_LOOKUP_DENIED = ("", "npm error code E401", 1)
+
+
+def _publish(tmp_path: Path, la_view: tuple[str, str, int]) -> tuple[int, list[str]]:
+    """Run the npm publish step where deterministic-refactor@1.2.0 is on npm; its exit code and the publishes it ran."""
     [publish] = [step["run"] for step in _jobs()["npm"]["steps"] if "npm publish" in step.get("run", "")]
     for package, name in (("dr", "deterministic-refactor"), ("la", "living-architecture")):
         (tmp_path / package).mkdir()
         (tmp_path / package / "package.json").write_text(json.dumps({"name": name, "version": "1.2.0"}))
     fake = tmp_path / "bin"
     fake.mkdir()
-    # npm knows deterministic-refactor@1.2.0 only, and logs every publish.
+    out, err, code = la_view
     (fake / "npm").write_text(
-        '#!/bin/sh\n'
-        'if [ "$1" = view ]; then [ "$2" = deterministic-refactor@1.2.0 ] && echo 1.2.0; exit 0; fi\n'
+        "#!/bin/sh\n"
+        'if [ "$1 $2" = "view deterministic-refactor@1.2.0" ]; then echo 1.2.0; exit 0; fi\n'
+        f'if [ "$1" = view ]; then printf %s "{out}"; printf %s "{err}" >&2; exit {code}; fi\n'
         'echo "$*" >> "$NPM_LOG"\n'
     )
     (fake / "npm").chmod(0o755)
     log = tmp_path / "npm.log"
     env = {"PATH": f"{fake}:/usr/bin:/bin", "NPM_LOG": str(log)}
-    subprocess.run(["bash", "-e", "-c", publish], cwd=tmp_path, env=env, check=True, capture_output=True)
-    assert log.read_text().splitlines() == ["publish -w la --provenance --access public"]
+    proc = subprocess.run(["bash", "-e", "-c", publish], cwd=tmp_path, env=env, capture_output=True, check=False)
+    return proc.returncode, log.read_text().splitlines() if log.exists() else []
+
+
+@pytest.mark.parametrize("la_view", [LA_UNPUBLISHED_VERSION, LA_UNPUBLISHED_PACKAGE])
+def test_npm_rerun_publishes_only_the_missing_package(tmp_path: Path, la_view: tuple[str, str, int]) -> None:
+    assert _publish(tmp_path, la_view) == (0, ["publish -w la --provenance --access public"])
+
+
+def test_npm_lookup_failure_stops_the_publish(tmp_path: Path) -> None:
+    code, published = _publish(tmp_path, LA_LOOKUP_DENIED)
+    assert code != 0
+    assert published == []
