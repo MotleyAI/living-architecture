@@ -91,6 +91,7 @@ SINGLE_FORMATS_CONFIG = "living-architecture.yaml"
 _V = r"(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)"
 _TAIL = r"[ \t]*(?:#.*)?"
 _LIST = rf"\[({_V}(?:, {_V})*)?\]"
+_FORMATS_KEY = "formats:"
 _FORMATS = re.compile(rf"formats: {_LIST}{_TAIL}", re.ASCII)
 _FORMAT = re.compile(rf"format: (?:({_V})|'({_V})'|\"({_V})\"){_TAIL}", re.ASCII)
 _FILE_FORMATS = re.compile(rf"  ([\w.-]+): {_LIST}{_TAIL}", re.ASCII)
@@ -131,7 +132,7 @@ def parse_formats(text: str) -> list[str] | None:
     """The released formats of a pre-split `shared/config.yaml` text: its one-line `formats` list, else its single
     `format`; None when it declares neither in that form."""
     lines = _lines(text)
-    for key, pattern in (("formats:", _FORMATS), ("format:", _FORMAT)):
+    for key, pattern in ((_FORMATS_KEY, _FORMATS), ("format:", _FORMAT)):
         found = [line for line in lines if line.startswith(key)]
         if found:
             match = pattern.fullmatch(found[0]) if len(found) == 1 else None
@@ -147,8 +148,8 @@ def parse_file_formats(text: str) -> dict[str, list[str]] | None:
     """The per-file released formats of a `shared/dr/config.yaml` text: its `formats:` block of one-line lists, one
     per file; None when it has no such block."""
     lines = _lines(text)
-    starts = [i for i, line in enumerate(lines) if line.startswith("formats:")]
-    if len(starts) != 1 or lines[starts[0]].split("#")[0].strip() != "formats:":
+    starts = [i for i, line in enumerate(lines) if line.startswith(_FORMATS_KEY)]
+    if len(starts) != 1 or lines[starts[0]].split("#")[0].strip() != _FORMATS_KEY:
         return None
     formats: dict[str, list[str]] = {}
     for line in lines[starts[0] + 1:]:

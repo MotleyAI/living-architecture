@@ -14,7 +14,13 @@ _FORMAT_LINE = re.compile(r"format:[ \t]")
 _SEQUENCE_ITEM = re.compile(r"-(?:[ \t]|$)")
 _MERGE_KEY = re.compile(r"(?:<<|!!merge|!<tag:yaml\.org,2002:merge>)[ \t]*:")
 # `&`, `*` or `!` where a node starts: an anchor, an alias or a tag.
-_NODE_PROPERTY = re.compile(r"(?:^[ \t]*|[\[{,][ \t]*|(?:^|[ \t])[-?][ \t]+|:[ \t]+)[&*!]", re.MULTILINE)
+_NODE_PROPERTIES = (
+    re.compile(r"^[ \t]*[&*!]", re.MULTILINE),
+    re.compile(r"[\[{,][ \t]*[&*!]"),
+    re.compile(r"(?:^|[ \t])[-?][ \t]+[&*!]", re.MULTILINE),
+    re.compile(r":[ \t]+[&*!]"),
+)
+_LINE_BREAK = re.compile(r"(?<=\n)|(?<=\r)(?!\n)")
 
 
 class ExemptNotMigratable(Exception):
@@ -24,41 +30,44 @@ class ExemptNotMigratable(Exception):
         super().__init__(message("arch-migrate.exempt-by-hand"))
 
 
+def _quoted_step(text: str, i: int, quote: str) -> tuple[str, int, str | None]:
+    """The masked piece at `text[i]` inside a `quote` scalar, the characters it spans, and the open quote after it."""
+    char = text[i]
+    if char == "\\" and quote == '"' and i + 1 < len(text):
+        return ("xx" if text[i + 1] not in "\r\n" else "x" + text[i + 1]), 2, quote
+    if char == quote == "'" and text[i + 1 : i + 2] == "'":
+        return "xx", 2, quote
+    return (char if char in "\r\n" else "x"), 1, (None if char == quote else quote)
+
+
+def _plain_step(text: str, i: int) -> tuple[str, int, str | None]:
+    """The masked piece at `text[i]` outside quotes, the characters it spans, and the open quote after it."""
+    char = text[i]
+    if char in "'\"":
+        return "x", 1, char
+    if char == "#" and (i == 0 or text[i - 1] in " \t\r\n"):
+        end = i
+        while end < len(text) and text[end] not in "\r\n":
+            end += 1
+        return "", end - i, None
+    return char, 1, None
+
+
 def _masked(text: str) -> str:
     """`text` with quoted scalars blanked and comments removed, line breaks kept."""
     out: list[str] = []
     quote: str | None = None
     i = 0
     while i < len(text):
-        char = text[i]
-        if quote is not None:
-            if char == "\\" and quote == '"' and i + 1 < len(text):
-                out.append("xx" if text[i + 1] not in "\r\n" else "x" + text[i + 1])
-                i += 2
-                continue
-            if char == quote and quote == "'" and text[i + 1 : i + 2] == "'":
-                out.append("xx")
-                i += 2
-                continue
-            if char == quote:
-                quote = None
-            out.append(char if char in "\r\n" else "x")
-        elif char in "'\"":
-            quote = char
-            out.append("x")
-        elif char == "#" and (i == 0 or text[i - 1] in " \t\r\n"):
-            while i < len(text) and text[i] not in "\r\n":
-                i += 1
-            continue
-        else:
-            out.append(char)
-        i += 1
+        piece, size, quote = _plain_step(text, i) if quote is None else _quoted_step(text, i, quote)
+        out.append(piece)
+        i += size
     return "".join(out)
 
 
 def _lines(text: str) -> list[str]:
     """`text` split after each `\r\n`, `\r` or `\n`, every break kept."""
-    return re.findall(r"[^\r\n]*(?:\r\n|\r|\n)|[^\r\n]+$", text)
+    return [line for line in _LINE_BREAK.split(text) if line]
 
 
 def _bare(line: str) -> str:
@@ -138,23 +147,13 @@ def move_exempt(text: str, current: str) -> str:
     indent, start, stop = _entry_span(lines, key)
     entry = lines[start:stop]
     value = re.sub(r"\r\n?", "\n", _masked("".join(entry)[indent + len("exempt") :]))
-    if _NODE_PROPERTY.search(value):
+    if any(pattern.search(value) for pattern in _NODE_PROPERTIES):
         raise ExemptNotMigratable()
     rest = lines[:start] + lines[stop:]
     body = rest[key + 1 :]
     if not any(not _blank(line) and not _comment(line) and _indent(line) > 0 for line in body[: _body_end(body)]):
         del rest[key]
-    formats = [i for i, line in enumerate(rest) if _FORMAT_LINE.match(line)]
-    if len(formats) != 1:
-        raise ExemptNotMigratable()
-    at = formats[0]
-    ending = re.search(r"\r?\n$", rest[at])
-    newline = ending.group() if ending else "\n"
-    moved = [_dedent(line, indent) for line in entry]
-    moved = [line if line.endswith(("\n", "\r")) else line + newline for line in moved]
-    if not ending:
-        rest[at] += newline
-    result = "".join(rest[: at + 1] + moved + rest[at + 1 :])
+    result = _insert_after_format(rest, [_dedent(line, indent) for line in entry])
     try:
         migrated = load_yaml(result)
     except YAMLError as exc:
@@ -162,6 +161,19 @@ def move_exempt(text: str, current: str) -> str:
     if normalize(migrated) != normalize(_expected(data, current)):
         raise ExemptNotMigratable()
     return result
+
+
+def _insert_after_format(lines: list[str], entry: list[str]) -> str:
+    """`lines` joined with `entry` inserted after the one `format` line, breaks completed in its style."""
+    formats = [i for i, line in enumerate(lines) if _FORMAT_LINE.match(line)]
+    if len(formats) != 1:
+        raise ExemptNotMigratable()
+    at = formats[0]
+    ending = re.search(r"\r?\n$", lines[at])
+    newline = ending.group() if ending else "\n"
+    moved = [line if line.endswith(("\n", "\r")) else line + newline for line in entry]
+    head = [*lines[:at], lines[at] + ("" if ending else newline)]
+    return "".join(head + moved + lines[at + 1 :])
 
 
 def _body_end(body: list[str]) -> int:

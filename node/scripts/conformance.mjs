@@ -20,7 +20,7 @@ const env = { LA_CONFORMANCE_TWIN: 'typescript', ...process.env, LA_NODE_BIN_DIR
 let status = 0;
 for (const [pkg, tests] of Object.entries(SUITES)) {
   const args = ['run', 'pytest', '-q', ...tests, ...process.argv.slice(2)];
-  const proc = spawnSync('uv', args, { cwd: join(PYTHON, pkg), env, stdio: 'inherit' });
+  const proc = spawnSync('uv', args, { cwd: join(PYTHON, pkg), env, stdio: 'inherit' }); // NOSONAR(S4036) — runs the developer's own uv from PATH by design
   // 5: a filter selected none of this suite's tests.
   if (proc.status !== 0 && proc.status !== 5) status = proc.status ?? 1;
 }

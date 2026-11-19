@@ -17,6 +17,7 @@ CI = REPO_ROOT / ".github" / "workflows" / "ci.yml"
 PACKAGES = ("dr", "la")
 DURATIONS = "tests/durations"
 CONFORMANCE_CASES = "tests/test_conformance.py::test_case"
+UV_RUN = "uv run --locked --no-build"
 # Per package: the tests its cross-twin run collects, as node/scripts/conformance.mjs runs them.
 CROSS_TESTS = {"dr": ["tests/test_conformance.py", "tests/test_module_map_equivalence.py"], "la": ["tests/test_conformance.py"]}
 # Per job kind: shard count, environment and pytest arguments, as the CI job runs them in a package.
@@ -59,7 +60,7 @@ def test_test_job_is_version_by_package_by_two_shards() -> None:
         "python-version": ["3.11", "3.12", "3.13", "3.14"], "package": list(PACKAGES), "shard": [1, 2]
     }
     assert _normal(job["defaults"]["run"]["working-directory"]) == "python/${{matrix.package}}"
-    run = _step(job, "uv run pytest")["run"]
+    run = _step(job, f"{UV_RUN} pytest")["run"]
     assert (_option(run, "--splits"), _option(run, "--group")) == ("2", "${{matrix.shard}}")
     assert _option(run, "--durations-path") == f"{DURATIONS}/suite.json"
     assert _option(run, "--deselect") == CONFORMANCE_CASES
@@ -67,10 +68,17 @@ def test_test_job_is_version_by_package_by_two_shards() -> None:
 
 def test_checks_run_in_the_first_shard_only() -> None:
     job = _jobs()["test"]
-    for command in ("../../scripts/sync-shared --check", "uv run ruff", "uv run basedpyright"):
+    for command in ("../../scripts/sync-shared --check", f"{UV_RUN} ruff", f"{UV_RUN} basedpyright"):
         assert _condition(_step(job, command)) == "matrix.shard == 1", command
-    for command in ("uv sync", "uv run pytest"):
+    for command in ("uv sync", f"{UV_RUN} pytest"):
         assert _condition(_step(job, command)) is None, command
+
+
+def test_uv_steps_install_only_locked_prebuilt_dependencies() -> None:
+    runs = [_normal(step.get("run", "")).split() for job in _jobs().values() for step in job["steps"]]
+    uv = [tokens for tokens in runs if tokens[:2] in (["uv", "sync"], ["uv", "run"])]
+    assert len(uv) == 7
+    assert all("--locked" in tokens and "--no-build" in tokens for tokens in uv), uv
 
 
 @pytest.mark.parametrize("package", PACKAGES)
