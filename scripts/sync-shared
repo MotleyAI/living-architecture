@@ -6,14 +6,14 @@ Usage: scripts/sync-shared [--check]   (--check: exit 1 if any copy is stale, wr
 
 from __future__ import annotations
 
-import hashlib
 import shutil
 import sys
 from pathlib import Path
 
+from contract_hash import HASH_FILE, compute_hash, contract_files
+
 ROOT = Path(__file__).resolve().parent.parent
 SHARED = ROOT / "shared"
-HASH_FILE = "CONTRACT_HASH"
 # Each twin's snapshot, by the package whose contract it vendors.
 SNAPSHOTS = {
     ROOT / "python" / "dr" / "src" / "deterministic_refactor" / "contract" / "data": "dr",
@@ -23,27 +23,10 @@ SNAPSHOTS = {
 }
 
 
-def _files(root: Path) -> list[Path]:
-    return sorted(
-        (p for p in root.rglob("*") if p.is_file() and p.name != HASH_FILE),
-        key=lambda p: p.relative_to(root).as_posix().encode("utf-8"),
-    )
-
-
-def compute_hash(root: Path) -> str:
-    digest = hashlib.sha256()
-    for path in _files(root):
-        data = path.read_bytes()
-        executable = b"1" if path.stat().st_mode & 0o111 else b"0"
-        rel = path.relative_to(root).as_posix().encode("utf-8")
-        digest.update(b"\0".join([rel, executable, str(len(data)).encode("ascii"), data]))
-    return digest.hexdigest()
-
-
 def _tree(root: Path) -> dict[str, tuple[bool, bytes]]:
     if not root.is_dir():
         return {}
-    return {p.relative_to(root).as_posix(): (bool(p.stat().st_mode & 0o111), p.read_bytes()) for p in _files(root)}
+    return {p.relative_to(root).as_posix(): (bool(p.stat().st_mode & 0o111), p.read_bytes()) for p in contract_files(root)}
 
 
 def _snapshot_is_current(snapshot: Path, source: Path, expected_hash: str) -> bool:

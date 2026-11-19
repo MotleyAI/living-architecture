@@ -9,108 +9,98 @@ from types import ModuleType
 from typing import Any
 
 import pytest
-import yaml
 
 from deterministic_refactor import config
 from living_architecture import __version__
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-REPO_ROOT = PROJECT_ROOT.parent
-# An install pin: `living-architecture==X` (PyPI) or `living-architecture@X` (npm).
-PIN = re.compile(r"living-architecture(?:==|@)(\d[\w.+-]*)")
+REPO_ROOT = next(p for p in Path(__file__).resolve().parents if (p / "shared").is_dir() and (p / "plugin").is_dir())
+PACKAGES = ("dr", "la")
+# An install pin: `<package>==X` (PyPI) or `<package>@X` (npm).
+PIN = re.compile(r"(?:living-architecture|deterministic-refactor)(?:==|@)(\d[\w.+-]*)")
 # A tool input of the release rule.
-TOOL = "python/src/living_architecture/__init__.py"
+TOOL = "python/la/src/living_architecture/__init__.py"
 
 
 def _json(rel: str) -> dict:
     return json.loads((REPO_ROOT / rel).read_text(encoding="utf-8"))
 
 
-def _plugin() -> dict:
-    return _json("plugin/.claude-plugin/plugin.json")
+def _plugin(package: str) -> dict:
+    return _json(f"plugin/{package}/.claude-plugin/plugin.json")
 
 
-def _marketplace() -> dict:
-    return _json(".claude-plugin/marketplace.json")
+def _marketplace_entry(package: str) -> dict:
+    return next(entry for entry in _json(".claude-plugin/marketplace.json")["plugins"] if entry["name"] == package)
 
 
-def _npm_package() -> dict:
-    return _json("node/package.json")
+def _npm_package(package: str) -> dict:
+    return _json(f"node/{package}/package.json")
 
 
-def _pyproject() -> dict:
-    return tomllib.loads((PROJECT_ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
+def _pyproject(package: str) -> dict:
+    return tomllib.loads((REPO_ROOT / "python" / package / "pyproject.toml").read_text(encoding="utf-8"))["project"]
 
 
-def _plugin_version() -> str:
-    return _plugin()["version"]
-
-
-def test_plugin_and_package_versions_agree() -> None:
-    assert _pyproject()["version"] == _plugin_version() == __version__
-
-
-def test_marketplace_lists_the_plugin() -> None:
-    [entry] = _marketplace()["plugins"]
-    assert entry["name"] == _plugin()["name"]
-    assert (REPO_ROOT / entry["source"] / ".claude-plugin" / "plugin.json").is_file()
-
-
-@pytest.mark.parametrize("name", ["README.md", "LICENSE"])
-def test_root_files_are_relative_symlinks(name: str) -> None:
-    link = PROJECT_ROOT / name
-    assert link.is_symlink(), f"python/{name} is not a symlink"
-    assert os.readlink(link) == f"../{name}"
+@pytest.mark.parametrize(
+    ("package", "name"), [("la", "README.md"), ("la", "LICENSE"), ("dr", "LICENSE")], ids=lambda v: v
+)
+def test_root_files_are_relative_symlinks(package: str, name: str) -> None:
+    link = REPO_ROOT / "python" / package / name
+    assert link.is_symlink(), f"python/{package}/{name} is not a symlink"
+    assert os.readlink(link) == f"../../{name}"
     assert link.resolve() == (REPO_ROOT / name).resolve()
 
 
-def test_npm_package_version_agrees() -> None:
-    assert (REPO_ROOT / "node" / "package.json").is_file(), "node/package.json is missing"
-    assert _npm_package()["version"] == _plugin_version() == __version__
+@pytest.mark.parametrize("package", PACKAGES)
+def test_package_listings_share_one_description(package: str) -> None:
+    descriptions = {_pyproject(package)["description"], _npm_package(package)["description"], _plugin(package)["description"]}
+    assert descriptions == {_marketplace_entry(package)["description"]}
 
 
-def test_package_listings_share_one_description() -> None:
-    [entry] = _marketplace()["plugins"]
-    descriptions = {_pyproject()["description"], _npm_package()["description"], _plugin()["description"]}
-    assert descriptions == {entry["description"]}
-
-
-def test_package_listings_share_the_keywords() -> None:
-    keywords = _pyproject()["keywords"]
+@pytest.mark.parametrize("package", PACKAGES)
+def test_package_listings_share_the_keywords(package: str) -> None:
+    keywords = _pyproject(package)["keywords"]
     assert keywords
-    assert _npm_package()["keywords"] == _plugin()["keywords"] == keywords
+    assert _npm_package(package)["keywords"] == _plugin(package)["keywords"] == keywords
 
 
-def test_pypi_links_back_to_the_repo() -> None:
-    urls = _pyproject()["urls"]
+@pytest.mark.parametrize("package", PACKAGES)
+def test_pypi_links_back_to_the_repo(package: str) -> None:
+    urls = _pyproject(package)["urls"]
     assert urls["Repository"] == "https://github.com/MotleyAI/living-architecture"
     assert all(url.startswith(urls["Repository"]) for url in urls.values())
 
 
-def test_python_classifiers_match_the_ci_matrix() -> None:
+@pytest.mark.parametrize("package", PACKAGES)
+def test_python_classifiers_match_the_ci_matrix(package: str) -> None:
     ci = (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
     matrix = re.search(r"python-version: \[([^\]]*)\]", ci)
     assert matrix
     tested = [version.strip().strip('"') for version in matrix.group(1).split(",")]
     prefix = "Programming Language :: Python :: "
-    declared = [c.removeprefix(prefix) for c in _pyproject()["classifiers"] if c.startswith(prefix + "3.")]
+    declared = [c.removeprefix(prefix) for c in _pyproject(package)["classifiers"] if c.startswith(prefix + "3.")]
     assert declared == tested
 
 
 def test_doc_pins_name_the_current_version() -> None:
     docs = [REPO_ROOT / "README.md", *sorted((REPO_ROOT / "docs").glob("*.md"))]
     pins = [(doc.name, version) for doc in docs for version in PIN.findall(doc.read_text(encoding="utf-8"))]
-    assert pins, "no living-architecture version pin found in README.md or docs/"
+    assert pins, "no package version pin found in README.md or docs/"
     assert [pin for pin in pins if pin[1] != __version__] == []
 
 
 def test_current_format_is_at_most_every_package_version() -> None:
     """The format is the version of the release that introduced it, so it never runs ahead of a package."""
-    current = config.released_formats("living-architecture.yaml")[-1]
-    assert current == config.current_format("living-architecture.yaml")
-    package = json.loads((REPO_ROOT / "node" / "package.json").read_text(encoding="utf-8"))["version"]
-    for version in (__version__, package, _plugin_version()):
-        assert config.compare_versions(current, version) <= 0, version
+    versions = [
+        *(_pyproject(package)["version"] for package in PACKAGES),
+        *(_npm_package(package)["version"] for package in PACKAGES),
+        *(_plugin(package)["version"] for package in PACKAGES),
+    ]
+    for name in ("living-architecture.yaml", "deterministic-refactor.yaml"):
+        current = config.released_formats(name)[-1]
+        assert current == config.current_format(name)
+        for version in versions:
+            assert config.compare_versions(current, version) <= 0, (name, version)
 
 
 @pytest.fixture(scope="session")
@@ -182,12 +172,11 @@ def test_no_release_tag_fails_on_github_actions(release_repo, release_rule: Modu
         _unreleased_bump_problem(release_repo.root, "0.4.1", release_rule, on_actions=True)
 
 
-SHARED_CONFIG = "shared/config.yaml"
+FORMATS_CONFIG = "shared/dr/config.yaml"
 
 
-def test_the_formats_reader_reads_the_shared_config_like_yaml(release_rule: ModuleType) -> None:
-    text = (REPO_ROOT / SHARED_CONFIG).read_text(encoding="utf-8")
-    assert release_rule.parse_formats(text) == yaml.safe_load(text)["formats"]
+def _formats(la: str) -> str:
+    return f"files: [living-architecture.yaml]\nformats:\n  living-architecture.yaml: {la}\n"
 
 
 @pytest.mark.parametrize(
@@ -214,9 +203,29 @@ def test_the_formats_reader(release_rule: ModuleType, text: str, formats: list[s
     assert release_rule.parse_formats(text) == formats
 
 
+@pytest.mark.parametrize(
+    ("text", "formats"),
+    [
+        ("formats:\n  a.yaml: [0.4.0]\n  b.yaml: [0.4.0, 0.7.0]  # oldest first\r\nnext: x\n",
+         {"a.yaml": ["0.4.0"], "b.yaml": ["0.4.0", "0.7.0"]}),
+        ("formats:  # per file\n  a.yaml: []\n", {"a.yaml": []}),
+        ("formats: [0.4.0]\n", None),
+        ("formats:\n  a.yaml: 0.4.0\n", None),
+        ("formats:\n  a.yaml: [0.4]\n", None),
+        ("formats:\n  a.yaml: [0.4.0]\n  a.yaml: [0.7.0]\n", None),
+        ("formats:\nnext: x\n", None),
+        ("file: x\n", None),
+    ],
+    ids=["two-files", "empty-list", "one-list", "scalar", "invalid-entry", "duplicate", "empty-block", "neither"],
+)
+def test_the_per_file_formats_reader(release_rule: ModuleType, text: str, formats: dict[str, list[str]] | None) -> None:
+    assert release_rule.parse_file_formats(text) == formats
+
+
 def test_formats_appending_another_version_fail_before_tagging(release_repo, release_rule: ModuleType) -> None:
+    release_repo.write(FORMATS_CONFIG, _formats("[0.4.0]"))
     release_repo.release("0.6.0")
-    release_repo.write(SHARED_CONFIG, "formats: [0.4.0, 0.8.0]\n")
+    release_repo.write(FORMATS_CONFIG, _formats("[0.4.0, 0.8.0]"))
     release_repo.bump("0.7.0")
     problem = _unreleased_bump_problem(release_repo.root, "0.7.0", release_rule, on_actions=False)
     assert problem is not None
@@ -224,15 +233,17 @@ def test_formats_appending_another_version_fail_before_tagging(release_repo, rel
 
 
 def test_formats_appending_the_own_version_pass_before_tagging(release_repo, release_rule: ModuleType) -> None:
+    release_repo.write(FORMATS_CONFIG, _formats("[0.4.0]"))
     release_repo.release("0.6.0")
-    release_repo.write(SHARED_CONFIG, "formats: [0.4.0, 0.7.0]\n")
+    release_repo.write(FORMATS_CONFIG, _formats("[0.4.0, 0.7.0]"))
     release_repo.bump("0.7.0")
     assert _unreleased_bump_problem(release_repo.root, "0.7.0", release_rule, on_actions=False) is None
 
 
 def test_a_formats_change_fails_even_with_a_minor_bump_and_no_other_change(release_repo, release_rule: ModuleType) -> None:
+    release_repo.write(FORMATS_CONFIG, _formats("[0.4.0]"))
     release_repo.release("0.6.0")
-    release_repo.write(SHARED_CONFIG, "formats: [0.4.1]\n")
+    release_repo.write(FORMATS_CONFIG, _formats("[0.4.1]"))
     release_repo.bump("0.7.0")
     problem = _unreleased_bump_problem(release_repo.root, "0.7.0", release_rule, on_actions=False)
     assert problem is not None
@@ -247,7 +258,7 @@ def test_an_unreadable_previous_formats_list_fails_naming_the_release(
     real = subprocess.run
 
     def failing_show(args: Any, *rest: Any, **kwargs: Any) -> Any:
-        if list(args[:2]) == ["git", "show"] and str(args[2]) == f"v0.6.0:{SHARED_CONFIG}":
+        if list(args[:2]) == ["git", "show"] and str(args[2]) == f"v0.6.0:{FORMATS_CONFIG}":
             if kwargs.get("check"):
                 raise subprocess.CalledProcessError(128, args, "", "fatal: bad object")
             return subprocess.CompletedProcess(args, 128, "", "fatal: bad object")

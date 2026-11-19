@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Check a release tag: HEAD is its commit, every version equals it, both contract hashes agree, and the release rule
-holds against the previous release.
+"""Check a release tag: HEAD is its commit, every version equals it, la pins dr to its minor, each package's snapshots
+record its contract's hash, and the release rule holds against the previous release.
 
-Usage: scripts/release-check <tag>   (e.g. v0.2.1; exit 1 naming every mismatch, so neither twin publishes)
+Usage: scripts/release-check <tag>   (e.g. v0.2.1; exit 1 naming every mismatch, so no twin publishes)
 """
 
 from __future__ import annotations
@@ -11,32 +11,64 @@ import json
 import re
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
+from typing import Any
 
-from release_rule import bump_problem, git, previous_release
+from contract_hash import HASH_FILE, compute_hash
+from release_rule import bump_problem, git, previous_release, pypi_pin, tilde_pin
 
 ROOT = Path(__file__).resolve().parent.parent
-HASHES = {
-    "python": ROOT / "python" / "src" / "living_architecture" / "contract" / "data" / "CONTRACT_HASH",
-    "node": ROOT / "node" / "src" / "contract" / "data" / "CONTRACT_HASH",
+# Each twin's snapshot hash file, by the package whose contract it vendors.
+SNAPSHOT_HASHES = {
+    f"python/dr/src/deterministic_refactor/contract/data/{HASH_FILE}": "dr",
+    f"node/dr/src/contract/data/{HASH_FILE}": "dr",
+    f"python/la/src/living_architecture/contract/data/{HASH_FILE}": "la",
+    f"node/la/src/contract/data/{HASH_FILE}": "la",
 }
+PYPROJECTS = ("python/dr/pyproject.toml", "python/la/pyproject.toml")
+PACKAGE_JSONS = ("node/dr/package.json", "node/la/package.json")
+PLUGINS = ("plugin/dr/.claude-plugin/plugin.json", "plugin/la/.claude-plugin/plugin.json")
 
 
-def _python_version() -> str | None:
-    project = re.split(r"^\[", (ROOT / "python" / "pyproject.toml").read_text(encoding="utf-8"), flags=re.M)
-    section = next((s for s in project if s.startswith("project]")), "")
-    m = re.search(r'^version = "([^"]+)"$', section, flags=re.M)
-    return m.group(1) if m else None
+def _json(rel: str) -> Any:
+    return json.loads((ROOT / rel).read_text(encoding="utf-8"))
+
+
+def _project(rel: str) -> dict[str, Any]:
+    return tomllib.loads((ROOT / rel).read_text(encoding="utf-8")).get("project", {})
 
 
 def _versions() -> dict[str, str | None]:
     return {
-        "python/pyproject.toml": _python_version(),
-        "node/package.json": json.loads((ROOT / "node" / "package.json").read_text(encoding="utf-8"))["version"],
-        "plugin/.claude-plugin/plugin.json": json.loads(
-            (ROOT / "plugin" / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8")
-        )["version"],
+        **{rel: _project(rel).get("version") for rel in PYPROJECTS},
+        **{rel: _json(rel).get("version") for rel in (*PACKAGE_JSONS, *PLUGINS)},
     }
+
+
+def _pin_problems(version: str) -> list[str]:
+    """la's three pins on dr name `version`'s minor series."""
+    dr_deps = [d for d in _project("python/la/pyproject.toml").get("dependencies", []) if re.match(r"deterministic-refactor\b", d)]
+    pins = {
+        "python/la/pyproject.toml": (dr_deps, [pypi_pin(version)]),
+        "node/la/package.json": (_json("node/la/package.json").get("dependencies", {}).get("deterministic-refactor"),
+                                 tilde_pin(version)),
+        "plugin/la/.claude-plugin/plugin.json": (_json(PLUGINS[1]).get("dependencies"),
+                                                 [{"name": "dr", "version": tilde_pin(version)}]),
+    }
+    return [f"{rel} pins dr as {actual}, not {expected}" for rel, (actual, expected) in pins.items() if actual != expected]
+
+
+def _hash_problems() -> list[str]:
+    expected = {package: compute_hash(ROOT / "shared" / package) for package in sorted(set(SNAPSHOT_HASHES.values()))}
+    problems = []
+    for rel, package in SNAPSHOT_HASHES.items():
+        path = ROOT / rel
+        recorded = path.read_text(encoding="utf-8").strip() if path.is_file() else None
+        if recorded != expected[package]:
+            problems.append(f"{rel} records contract hash {recorded}, but shared/{package} hashes to"
+                            f" {expected[package]}; run scripts/sync-shared")
+    return problems
 
 
 def _history_problems(tag: str, version: str) -> list[str]:
@@ -60,9 +92,8 @@ def main(argv: list[str]) -> int:
     expected = argv[0].removeprefix("v")
     problems = _history_problems(argv[0], expected)
     problems += [f"{path} is {version}, the tag is {argv[0]}" for path, version in _versions().items() if version != expected]
-    hashes = {twin: path.read_text(encoding="utf-8").strip() if path.is_file() else None for twin, path in HASHES.items()}
-    if len(set(hashes.values())) != 1 or None in hashes.values():
-        problems.append(f"contract hashes differ: {hashes}; run scripts/sync-shared")
+    problems += _pin_problems(expected)
+    problems += _hash_problems()
     for problem in problems:
         print(f"release-check: {problem}", file=sys.stderr)
     return 1 if problems else 0

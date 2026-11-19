@@ -1,4 +1,4 @@
-"""The built wheel and sdist carry the root README and LICENSE, the contract and the pyright#11919 preload."""
+"""Each package's built wheel and sdist carry its README and the root LICENSE, its contract, and dr's pyright preloads."""
 
 from __future__ import annotations
 
@@ -21,28 +21,43 @@ def _repo_root() -> Path:
 
 
 REPO_ROOT = _repo_root()
-PROJECT = REPO_ROOT / "python"
+WORKSPACE = REPO_ROOT / "python"
 FIXTURES = REPO_ROOT / "conformance" / "fixtures"
 CLEAN = '"""Clean."""\n\nimport os\n\n\ndef f(x: int) -> str:\n    return os.sep * x\n'
+PACKAGES = {"dr": "deterministic-refactor", "la": "living-architecture"}
+# The README each package's listing carries: dr has its own, la the repo's.
+READMES = {"dr": WORKSPACE / "dr" / "README.md", "la": REPO_ROOT / "README.md"}
 
 
 @pytest.fixture(scope="module")
-def artifacts(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Path]:
+def artifacts(tmp_path_factory: pytest.TempPathFactory) -> dict[str, dict[str, Path]]:
+    """Per package, its wheel and sdist."""
     dist = tmp_path_factory.mktemp("dist")
-    subprocess.run(["uv", "build", "--out-dir", str(dist), str(PROJECT)], check=True, capture_output=True)
-    [wheel] = dist.glob("*.whl")
-    [sdist] = dist.glob("*.tar.gz")
-    return {"wheel": wheel, "sdist": sdist}
+    for name in PACKAGES.values():
+        subprocess.run(["uv", "build", "--package", name, "--out-dir", str(dist)], cwd=WORKSPACE, check=True,
+                       capture_output=True)
+    built = {}
+    for package, name in PACKAGES.items():
+        stem = name.replace("-", "_")
+        [wheel] = dist.glob(f"{stem}-*.whl")
+        [sdist] = dist.glob(f"{stem}-*.tar.gz")
+        built[package] = {"wheel": wheel, "sdist": sdist}
+    return built
 
 
+def _root_file(package: str, name: str) -> Path:
+    return READMES[package] if name == "README.md" else REPO_ROOT / name
+
+
+@pytest.mark.parametrize("package", PACKAGES)
 @pytest.mark.parametrize("name", ["README.md", "LICENSE"])
-def test_sdist_carries_the_root_file(artifacts, name):
-    with tarfile.open(artifacts["sdist"]) as sdist:
+def test_sdist_carries_the_root_file(artifacts, package, name):
+    with tarfile.open(artifacts[package]["sdist"]) as sdist:
         [member] = [m for m in sdist.getmembers() if PurePosixPath(m.name).parts[1:] == (name,)]
         assert member.isfile(), member.type
         extracted = sdist.extractfile(member)
         assert extracted is not None
-        assert extracted.read() == (REPO_ROOT / name).read_bytes()
+        assert extracted.read() == _root_file(package, name).read_bytes()
 
 
 def _wheel_file(wheel: Path, suffix: str) -> bytes:
@@ -51,19 +66,22 @@ def _wheel_file(wheel: Path, suffix: str) -> bytes:
         return archive.read(name)
 
 
-def test_wheel_description_is_the_root_readme(artifacts):
-    _, _, description = _wheel_file(artifacts["wheel"], ".dist-info/METADATA").decode("utf-8").partition("\n\n")
-    assert description == (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+@pytest.mark.parametrize("package", PACKAGES)
+def test_wheel_description_is_the_package_readme(artifacts, package):
+    metadata = _wheel_file(artifacts[package]["wheel"], ".dist-info/METADATA").decode("utf-8")
+    _, _, description = metadata.partition("\n\n")
+    assert description == READMES[package].read_text(encoding="utf-8")
 
 
-def test_wheel_license_is_the_root_license(artifacts):
-    assert _wheel_file(artifacts["wheel"], ".dist-info/licenses/LICENSE") == (REPO_ROOT / "LICENSE").read_bytes()
+@pytest.mark.parametrize("package", PACKAGES)
+def test_wheel_license_is_the_root_license(artifacts, package):
+    assert _wheel_file(artifacts[package]["wheel"], ".dist-info/licenses/LICENSE") == (REPO_ROOT / "LICENSE").read_bytes()
 
 
-def _install(artifact: Path, where: Path) -> Path:
+def _install(where: Path, *artifacts: Path) -> Path:
     venv = where / "venv"
     subprocess.run(["uv", "venv", "--python", sys.executable, str(venv)], check=True, capture_output=True)
-    subprocess.run(["uv", "pip", "install", "--python", str(venv / "bin" / "python"), str(artifact)],
+    subprocess.run(["uv", "pip", "install", "--python", str(venv / "bin" / "python"), *map(str, artifacts)],
                    check=True, capture_output=True)
     return venv / "bin"
 
@@ -76,7 +94,7 @@ def _materialize(fixture: str, dest: Path) -> Path:
 
 @pytest.mark.parametrize("kind", ["wheel", "sdist"])
 def test_installed_artifact_runs_every_command(kind, artifacts, tmp_path, fake_gh):
-    bin_dir = _install(artifacts[kind], tmp_path)
+    bin_dir = _install(tmp_path, artifacts["dr"][kind], artifacts["la"][kind])
     work = tmp_path / "work"
     work.mkdir()
     (work / "a.py").write_text(CLEAN, encoding="utf-8")
@@ -101,12 +119,15 @@ def test_installed_artifact_runs_every_command(kind, artifacts, tmp_path, fake_g
                               capture_output=True, text=True, timeout=120, check=False)
 
     expectations = [
-        (("la-doctor", "--contract-hash"), 0, f"{compute_hash(REPO_ROOT / 'shared')}\n"),
+        (("dr-doctor", "--contract-hash"), 0, f"{compute_hash(REPO_ROOT / 'shared' / 'dr')}\n"),
+        (("la-doctor", "--contract-hash"), 0, f"{compute_hash(REPO_ROOT / 'shared' / 'la')}\n"),
+        (("dr-config", "show"), 0, None),
         (("la-config", "show"), 0, None),
         (("la-arch-check", "--root", str(_materialize("arch-ok", tmp_path / "arch"))), 0, "arch_check: OK\n"),
         (("la-arch-diagrams", "--root", str(_materialize("arch-diagrams", tmp_path / "diagrams"))), 0, ""),
         (("la-check-conventions", "--file", "a.py"), 0, None),
         (("la-count-comments", "a.py"), 0, None),
+        (("dr-typecheck",), 2, ""),
         (("la-typecheck",), 2, ""),
         (("dr-compliance", "a.py"), 0, ""),
         (("dr-mock-lint", "a.py"), 0, ""),
@@ -128,24 +149,17 @@ def test_installed_artifact_runs_every_command(kind, artifacts, tmp_path, fake_g
     assert (legacy / "living-architecture.yaml").read_text(encoding="utf-8") == f"format: {current_format('living-architecture.yaml')}\ntracker: linear\n"
 
 
-def test_wheel_carries_the_pyright_patch_preload(artifacts, tmp_path):
-    source = PROJECT / "src" / "living_architecture" / "lang" / "pyright_patch.cjs"
-    assert _wheel_file(artifacts["wheel"], "living_architecture/lang/pyright_patch.cjs") == source.read_bytes()
-    bin_dir = _install(artifacts["wheel"], tmp_path)
+@pytest.mark.parametrize(("source", "attribute"), [
+    ("pyright_patch.cjs", "PYRIGHT_PATCH_PRELOAD"),
+    ("pyright_export.cjs", "PYRIGHT_EXPORT_PRELOAD"),
+])
+def test_dr_wheel_carries_the_pyright_preload(artifacts, tmp_path, source, attribute):
+    expected = (WORKSPACE / "dr" / "src" / "deterministic_refactor" / "lang" / source).read_bytes()
+    assert _wheel_file(artifacts["dr"]["wheel"], f"deterministic_refactor/lang/{source}") == expected
+    bin_dir = _install(tmp_path, artifacts["dr"]["wheel"])
     located = subprocess.run(
-        [str(bin_dir / "python"), "-c", "from living_architecture import lang; print(lang.PYRIGHT_PATCH_PRELOAD)"],
+        [str(bin_dir / "python"), "-c", f"from deterministic_refactor import lang; print(lang.{attribute})"],
         capture_output=True, text=True, check=True,
     ).stdout.strip()
     assert Path(located).is_relative_to(tmp_path / "venv")
-    assert Path(located).read_bytes() == source.read_bytes()
-
-
-def test_wheel_carries_the_occurrence_export_preload(artifacts, tmp_path):
-    source = PROJECT / "src" / "living_architecture" / "lang" / "pyright_export.cjs"
-    assert _wheel_file(artifacts["wheel"], "living_architecture/lang/pyright_export.cjs") == source.read_bytes()
-    bin_dir = _install(artifacts["wheel"], tmp_path)
-    located = subprocess.run(
-        [str(bin_dir / "python"), "-c", "from living_architecture import lang; print(lang.PYRIGHT_EXPORT_PRELOAD)"],
-        capture_output=True, text=True, check=True,
-    ).stdout.strip()
-    assert Path(located).read_bytes() == source.read_bytes()
+    assert Path(located).read_bytes() == expected

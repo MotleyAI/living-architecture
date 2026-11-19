@@ -73,7 +73,7 @@ describe('format versions', () => {
     const versions = [
       ...['dr', 'la'].map(pyprojectVersion),
       ...['dr', 'la'].map((pkg) => readJson(join(NODE_ROOT, pkg, 'package.json')).version),
-      readJson(join(REPO_ROOT, 'plugin', '.claude-plugin', 'plugin.json')).version,
+      ...['dr', 'la'].map((pkg) => readJson(join(REPO_ROOT, 'plugin', pkg, '.claude-plugin', 'plugin.json')).version),
     ];
     const last = releasedFormats(CONFIG)[releasedFormats(CONFIG).length - 1] as string;
     for (const version of versions) expect(compareVersions(last, version), version).toBeLessThanOrEqual(0);

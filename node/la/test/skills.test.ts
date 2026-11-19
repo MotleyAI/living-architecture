@@ -1,19 +1,29 @@
-// Skills are language-neutral: no language-only token (shared/vectors/skill-leaks.yaml) and only valid
-// `la-config get` keys, `<language>` standing for every registered language.
+// Skills are language-neutral: no language-only token (shared/dr/vectors/skill-leaks.yaml) and only valid
+// `la-config get` / `dr-config get` keys, `<language>` standing for every registered language.
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { run, tempRepo } from './cli-run.js';
 import { REPO_ROOT, SHARED, loadYamlFile, vectors } from '../../dr/test/helpers.js';
 
-const SKILLS_DIR = join(REPO_ROOT, 'plugin', 'skills');
-const SKILLS = readdirSync(SKILLS_DIR).filter((name) => existsSync(join(SKILLS_DIR, name, 'SKILL.md'))).sort();
+const PLUGIN_ROOT = join(REPO_ROOT, 'plugin');
+const SKILLS = ['dr', 'la']
+  .flatMap((pkg) => {
+    const dir = join(PLUGIN_ROOT, pkg, 'skills');
+    return readdirSync(dir)
+      .filter((name) => existsSync(join(dir, name, 'SKILL.md')))
+      .map((name) => `${pkg}:${name}`);
+  })
+  .sort();
 const LEAKS: Record<string, string[]> = vectors('skill-leaks.yaml') ?? {};
 const LANGUAGES = Object.keys(loadYamlFile(join(SHARED, 'languages.yaml')));
-const CONFIG_GET = /la-config get ([A-Za-z0-9_.<>-]*[A-Za-z0-9_>])/g;
+const CONFIG_GET = /\b((?:la|dr)-config) get ([A-Za-z0-9_.<>-]*[A-Za-z0-9_>])/g;
 
 const escape = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-const skillText = (name: string): string => readFileSync(join(SKILLS_DIR, name, 'SKILL.md'), 'utf8');
+const skillText = (id: string): string => {
+  const [pkg, name] = id.split(':') as [string, string];
+  return readFileSync(join(PLUGIN_ROOT, pkg, 'skills', name, 'SKILL.md'), 'utf8');
+};
 
 function leaks(text: string): string[] {
   const tokens = [...new Set(Object.values(LEAKS).flat())].sort();
@@ -22,10 +32,11 @@ function leaks(text: string): string[] {
 
 function invalidKeys(text: string): string[] {
   const root = tempRepo({});
-  const keys = [...new Set([...text.matchAll(CONFIG_GET)].map((m) => m[1] ?? ''))].sort();
-  return keys.filter((key) => {
+  const uses = [...new Set([...text.matchAll(CONFIG_GET)].map((m) => `${m[1]} get ${m[2]}`))].sort();
+  return uses.filter((use) => {
+    const [command, , key] = use.split(' ') as [string, string, string];
     const concrete = key.includes('<language>') ? LANGUAGES.map((lang) => key.replaceAll('<language>', lang)) : [key];
-    return concrete.some((k) => run(root, 'la-config', ['get', k]).code !== 0);
+    return concrete.some((k) => run(root, command, ['get', k]).code !== 0);
   });
 }
 
@@ -39,24 +50,25 @@ describe('skill leaks', () => {
     expect(leaks('europe tscx jester')).toEqual([]);
   });
 
-  it.each(SKILLS)('%s names no language-only token', (name) => {
-    expect(leaks(skillText(name))).toEqual([]);
+  it.each(SKILLS)('%s names no language-only token', (id) => {
+    expect(leaks(skillText(id))).toEqual([]);
   });
 });
 
-describe('la-config keys in skills', () => {
+describe('config keys in skills', () => {
   it('flags an unknown key', () => {
-    expect(invalidKeys('`la-config get lang.<language>.runner`')).toEqual(['lang.<language>.runner']);
-    expect(invalidKeys('`la-config get languages` and `la-config get lang.<language>.markers`')).toEqual([]);
+    expect(invalidKeys('`la-config get lang.<language>.runner`')).toEqual(['la-config get lang.<language>.runner']);
+    expect(invalidKeys('`dr-config get tracker`')).toEqual(['dr-config get tracker']);
+    expect(invalidKeys('`la-config get languages` and `dr-config get lang.<language>.markers`')).toEqual([]);
   });
 
-  it.each(SKILLS)('%s names only valid keys', (name) => {
-    expect(invalidKeys(skillText(name))).toEqual([]);
+  it.each(SKILLS)('%s names only valid keys', (id) => {
+    expect(invalidKeys(skillText(id))).toEqual([]);
   });
 });
 
 describe('language idioms', () => {
-  it.each(LANGUAGES)('plugin/languages/%s.md exists', (language) => {
-    expect(existsSync(join(REPO_ROOT, 'plugin', 'languages', `${language}.md`))).toBe(true);
+  it.each(LANGUAGES)('plugin/dr/languages/%s.md exists', (language) => {
+    expect(existsSync(join(PLUGIN_ROOT, 'dr', 'languages', `${language}.md`))).toBe(true);
   });
 });

@@ -34,14 +34,11 @@ Read, don't ask. For each key note the value and where it came from:
 - **`reviewers.sonar.project_key`.** Only needed when it cannot be inferred: Sonar in CI
   (`.github/workflows/*`) with no `sonar-project.properties` key. `la-pr-reviewers <PR>` on a recent PR shows
   what is inferred.
-- **`commands.test` / `commands.lint`.** From the package manifests (`la-config get lang.<language>.markers`, `package.json` scripts), a `Makefile`, the CI
-  workflows and `CLAUDE.md`/`AGENTS.md`. The test command must be the full non-integration suite.
-- **`commands.typecheck`.** Each language's checker. Propose an entry only where the default
-  (`la-config get commands.typecheck.<language>`) does not fit — a subdirectory project, or `null` for a
-  checker that is not compatible with the default (the language docs in `<this skill's base
-  directory>/../../languages/` give examples).
-- **`conventions`.** Keep the defaults unless the repo's own instructions say otherwise. **`exempt`.** Propose globs
-  for generated or vendored code and fixtures you find.
+- **dr's keys** (`commands.test`, `commands.typecheck`, `exempt`, `refactor`). Detect them as step 1 of the
+  `dr:init` skill describes; they go in this same file.
+- **`commands.lint`.** From the package manifests (`la-config get lang.<language>.markers`, `package.json` scripts),
+  a `Makefile`, the CI workflows and `CLAUDE.md`/`AGENTS.md`.
+- **`conventions`.** Keep the defaults unless the repo's own instructions say otherwise.
 
 ## 2. Propose
 
@@ -80,8 +77,7 @@ re-run until it passes.
 ## 7. Next steps (full run only)
 
 Offer, each as a yes/no:
-- **Type-check baseline.** If `dr-typecheck` checks a language that has no baseline yet, offer
-  `dr-typecheck --write-baseline`. This is the one legitimate recording: afterwards the baseline only shrinks.
+- **Type-check baseline.** As step 5 of the `dr:init` skill describes.
 - **Architecture.** If `architecture: false`, offer the `la:arch-init` skill to build the model.
 
 Never wire CI; the docs explain how when the user asks. Do not commit: the user commits the config.

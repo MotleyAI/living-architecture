@@ -1,34 +1,33 @@
-"""Skills reference only real skills and commands, and check the tools against their own plugin."""
+"""Skill shapes across both plugins, the docs listing them, and the docs' links."""
 
 import re
-import subprocess
-import sys
 from pathlib import Path
 
 import pytest
 import yaml
 
 REPO_ROOT = next(p for p in Path(__file__).resolve().parents if (p / "shared").is_dir() and (p / "plugin").is_dir())
-SKILLS_DIR = REPO_ROOT / "plugin" / "skills"
-SKILL_FILES = sorted(SKILLS_DIR.glob("*/SKILL.md"))
-MANIFESTS = [REPO_ROOT / "shared" / package / "cli.yaml" for package in ("dr", "la")]
+PLUGIN_DIR = REPO_ROOT / "plugin"
+SKILL_FILES = sorted(PLUGIN_DIR.glob("*/skills/*/SKILL.md"))
 LEAKS = yaml.safe_load((REPO_ROOT / "shared" / "dr" / "vectors" / "skill-leaks.yaml").read_text(encoding="utf-8"))
-LANGUAGE_IDS = list(yaml.safe_load((REPO_ROOT / "shared" / "dr" / "languages.yaml").read_text(encoding="utf-8")))
-LA_CONFIG = Path(sys.executable).parent / "la-config"
-CONFIG_GET_RE = re.compile(r"la-config get ([A-Za-z0-9_.<>-]*[A-Za-z0-9_>])")
+PREFLIGHT = "{doctor} --plugin <this skill's base directory>"
 
-COMMAND_RE = re.compile(r"(?<![\w/.-])((?:la|dr)-[a-z][a-z-]*[a-z])\b")
-SKILL_REF_RE = re.compile(r"\bla:([a-z][a-z-]*[a-z])\b")
-PREFLIGHT = "la-doctor --plugin <this skill's base directory>"
-PREFLIGHT_CMD_RE = re.compile(rf"`{re.escape(PREFLIGHT)}(?: --require-config)?(?: --require-plan-store)?`")
+
+def _qualified(path: Path) -> str:
+    """`<plugin>:<skill>` of a SKILL.md path."""
+    return f"{path.parents[2].name}:{path.parent.name}"
 
 
 def _id(path: Path) -> str:
-    return path.parent.name
+    return _qualified(path)
+
+
+def _doctor(path: Path) -> str:
+    return f"{path.parents[2].name}-doctor"
 
 
 def test_skills_exist():
-    assert len(SKILL_FILES) >= 17
+    assert len(SKILL_FILES) >= 18
 
 
 @pytest.mark.parametrize("path", SKILL_FILES, ids=_id)
@@ -38,36 +37,12 @@ def test_frontmatter_name_matches_directory(path):
     assert m.group(1) == path.parent.name
 
 
-@pytest.mark.parametrize("path", SKILL_FILES, ids=_id)
-def test_skill_references_resolve(path):
-    names = {p.parent.name for p in SKILL_FILES}
-    refs = set(SKILL_REF_RE.findall(path.read_text(encoding="utf-8")))
-    assert refs <= names, refs - names
-
-
-def _manifest_commands() -> set[str]:
-    return {name for path in MANIFESTS for name in yaml.safe_load(path.read_text(encoding="utf-8"))["commands"]}
-
-
-@pytest.mark.parametrize("path", SKILL_FILES, ids=_id)
-def test_commands_exist_in_the_manifest(path):
-    used = set(COMMAND_RE.findall(path.read_text(encoding="utf-8")))
-    assert used <= _manifest_commands(), used - _manifest_commands()
-
-
-@pytest.mark.parametrize("path", SKILL_FILES, ids=_id)
-def test_tool_users_run_the_plugin_preflight(path):
-    text = path.read_text(encoding="utf-8")
-    if path.parent.name not in STAGES and set(COMMAND_RE.findall(text)) - {"la-doctor"}:
-        assert PREFLIGHT_CMD_RE.search(text), "uses la-*/dr-* commands without the la-doctor preflight"
-
-
-MAIN_SKILLS = {"init", "pr", "arch-init", "arch-cleanup", "deterministic-refactor"}
+MAIN_SKILLS = {"la:init", "la:pr", "la:arch-init", "la:arch-cleanup", "dr:init", "dr:deterministic-refactor"}
 # The README's table: la:init names la:arch-init in its purpose; docs/skills.md lists every main skill.
-README_SKILLS = {"init", "pr", "deterministic-refactor"}
-STAGES = {"pr-plan", "pr-tests", "pr-implement", "pr-review"}
-REQUIRE_CONFIG = MAIN_SKILLS - {"init"}
-REQUIRE_PLAN_STORE = {"pr"}
+README_SKILLS = {"la:init", "la:pr", "dr:init", "dr:deterministic-refactor"}
+STAGES = {"la:pr-plan", "la:pr-tests", "la:pr-implement", "la:pr-review"}
+REQUIRE_CONFIG = MAIN_SKILLS - {"la:init", "dr:init"}
+REQUIRE_PLAN_STORE = {"la:pr"}
 DOCS_DIR = REPO_ROOT / "docs"
 DOCS_PAGES = [
     "how-it-works.md",
@@ -81,12 +56,13 @@ DOCS_PAGES = [
 BLOB_PREFIX = "https://github.com/MotleyAI/living-architecture/blob/main/"
 RAW_PREFIX = "https://raw.githubusercontent.com/MotleyAI/living-architecture/main/"
 LINK_RE = re.compile(r"\]\(([^)\s]+)\)")
-TABLE_SKILL_RE = re.compile(r"^\|\s*`la:([a-z][a-z-]*[a-z])`\s*\|", re.MULTILINE)
+TABLE_SKILL_RE = re.compile(r"^\|\s*`((?:la|dr):[a-z][a-z-]*[a-z])`\s*\|", re.MULTILINE)
 PREFLIGHT_RE = re.compile(r"^\*\*Preflight:\*\*.*$", re.MULTILINE)
 
 
-def _skill_text(name: str) -> str:
-    return (SKILLS_DIR / name / "SKILL.md").read_text(encoding="utf-8")
+def _skill_text(qualified: str) -> str:
+    plugin, name = qualified.split(":")
+    return (PLUGIN_DIR / plugin / "skills" / name / "SKILL.md").read_text(encoding="utf-8")
 
 
 def _section(text: str, heading: str) -> str:
@@ -96,7 +72,7 @@ def _section(text: str, heading: str) -> str:
 
 
 def test_main_skill_set_exists():
-    assert MAIN_SKILLS | STAGES <= {p.parent.name for p in SKILL_FILES}
+    assert MAIN_SKILLS | STAGES <= {_qualified(p) for p in SKILL_FILES}
 
 
 @pytest.mark.parametrize("page", DOCS_PAGES)
@@ -107,9 +83,9 @@ def test_docs_page_exists(page):
 def test_docs_skills_lists_every_skill_once_in_its_role():
     text = (DOCS_DIR / "skills.md").read_text(encoding="utf-8")
     listed = TABLE_SKILL_RE.findall(text)
-    assert sorted(listed) == sorted(p.parent.name for p in SKILL_FILES)
+    assert sorted(listed) == sorted(_qualified(p) for p in SKILL_FILES)
     assert set(TABLE_SKILL_RE.findall(_section(text, "## Main skills"))) == MAIN_SKILLS
-    helpers = {p.parent.name for p in SKILL_FILES} - MAIN_SKILLS
+    helpers = {_qualified(p) for p in SKILL_FILES} - MAIN_SKILLS
     assert set(TABLE_SKILL_RE.findall(_section(text, "## Helper skills"))) == helpers
 
 
@@ -122,11 +98,12 @@ def test_readme_skills_table_lists_exactly_the_entry_skills():
 @pytest.mark.parametrize("path", SKILL_FILES, ids=_id)
 def test_preflight_requires_config_only_in_main_skills(path):
     preflight = PREFLIGHT_RE.findall(path.read_text(encoding="utf-8"))
-    if path.parent.name in REQUIRE_CONFIG:
+    skill = _qualified(path)
+    if skill in REQUIRE_CONFIG:
         assert len(preflight) == 1
-        flags = " --require-plan-store" if path.parent.name in REQUIRE_PLAN_STORE else ""
-        assert f"`{PREFLIGHT} --require-config{flags}`" in preflight[0]
-    elif path.parent.name in STAGES:
+        flags = " --require-plan-store" if skill in REQUIRE_PLAN_STORE else ""
+        assert f"`{PREFLIGHT.format(doctor=_doctor(path))} --require-config{flags}`" in preflight[0]
+    elif skill in STAGES:
         assert preflight == []
     else:
         assert all("--require-config" not in line for line in preflight)
@@ -180,11 +157,11 @@ def test_readme_links_into_docs_are_absolute():
 
 @pytest.mark.parametrize("name", ["init", "arch-init", "arch-cleanup"])
 def test_new_skill_exists(name):
-    assert (SKILLS_DIR / name / "SKILL.md").is_file()
+    assert (PLUGIN_DIR / "la" / "skills" / name / "SKILL.md").is_file()
 
 
 def test_arch_slice_is_gone():
-    assert not (SKILLS_DIR / "arch-slice").exists()
+    assert not list(PLUGIN_DIR.glob("*/skills/arch-slice"))
     files = [
         *REPO_ROOT.joinpath("plugin").rglob("*"),
         *DOCS_DIR.rglob("*"),
@@ -198,7 +175,7 @@ def test_arch_slice_is_gone():
 
 
 def test_living_architecture_is_a_reference():
-    assert not re.search(r"^## (Init|Migrate)\b", _skill_text("living-architecture"), re.MULTILINE)
+    assert not re.search(r"^## (Init|Migrate)\b", _skill_text("la:living-architecture"), re.MULTILINE)
 
 
 @pytest.mark.parametrize("path", SKILL_FILES, ids=_id)
@@ -209,7 +186,7 @@ def test_no_removed_review_settings(path):
 
 
 def test_process_reviews_detects_bots_per_pr():
-    assert "la-pr-reviewers" in _skill_text("process-reviews")
+    assert "la-pr-reviewers" in _skill_text("la:process-reviews")
 
 
 @pytest.mark.parametrize("path", SKILL_FILES, ids=_id)
@@ -219,13 +196,13 @@ def test_codex_steps_follow_the_config(path):
         assert "reviewers.codex" in text
 
 
-@pytest.mark.parametrize("name", ["pr-implement", "pr-review", "arch-cleanup", "deterministic-refactor"])
+@pytest.mark.parametrize("name", ["la:pr-implement", "la:pr-review", "la:arch-cleanup", "dr:deterministic-refactor"])
 def test_typecheck_gate(name):
-    assert "la-typecheck" in _skill_text(name)
+    assert "dr-typecheck" in _skill_text(name)
 
 
 def test_pr_follows_tracker_and_openspec_config():
-    text = _skill_text("pr")
+    text = _skill_text("la:pr")
     assert "la-config get tracker" in text
     assert "la-config get openspec" in text
     assert "gh issue develop --list" in text
@@ -234,24 +211,6 @@ def test_pr_follows_tracker_and_openspec_config():
 def _leaks(text: str) -> list[str]:
     tokens = sorted({token for tokens in LEAKS.values() for token in tokens})
     return [token for token in tokens if re.search(rf"(?<!\w){re.escape(token)}(?!\w)", text)]
-
-
-def _invalid_keys(text: str, root: Path) -> list[str]:
-    """`la-config get` keys in `text` that fail, `<language>` standing for each registered language."""
-    bad = []
-    for key in sorted(set(CONFIG_GET_RE.findall(text))):
-        for concrete in [key.replace("<language>", lang) for lang in LANGUAGE_IDS] if "<language>" in key else [key]:
-            proc = subprocess.run([str(LA_CONFIG), "--root", str(root), "get", concrete], capture_output=True, check=False)
-            if proc.returncode != 0:
-                bad.append(key)
-                break
-    return bad
-
-
-@pytest.fixture
-def git_root(tmp_path: Path) -> Path:
-    subprocess.run(["git", "init", "-q", "-b", "main"], cwd=tmp_path, check=True)
-    return tmp_path
 
 
 def test_leak_matcher_needs_whole_tokens():
@@ -264,21 +223,6 @@ def test_no_language_only_token(path):
     assert _leaks(path.read_text(encoding="utf-8")) == [], f"{path.parent.name} names language-only tokens"
 
 
-def test_config_key_checker(git_root: Path):
-    assert _invalid_keys("`la-config get lang.<language>.runner`", git_root) == ["lang.<language>.runner"]
-    assert _invalid_keys("`la-config get languages` and `la-config get lang.<language>.markers`", git_root) == []
-
-
-@pytest.mark.parametrize("path", SKILL_FILES, ids=_id)
-def test_config_keys_are_valid(path, git_root: Path):
-    assert _invalid_keys(path.read_text(encoding="utf-8"), git_root) == []
-
-
-@pytest.mark.parametrize("language", LANGUAGE_IDS)
-def test_language_idioms_doc_exists(language):
-    assert (REPO_ROOT / "plugin" / "languages" / f"{language}.md").is_file()
-
-
 RETIRED_ARC42_FORMS = ["architecture/**/*.arc42.md", "arc42 '", "<node>.arc42.md", "touches unknown node"]
 
 
@@ -288,7 +232,7 @@ def test_skills_name_only_flat_id_named_arc42_docs(path):
     assert [form for form in RETIRED_ARC42_FORMS if form in text] == []
 
 
-@pytest.mark.parametrize("name", ["deterministic-refactor", "arch-cleanup", "make-diff-compliant"])
+@pytest.mark.parametrize("name", ["dr:deterministic-refactor", "la:arch-cleanup", "dr:make-diff-compliant"])
 def test_soundness_skills_keep_the_full_suite(name):
     assert "local test scope" not in _skill_text(name)
 

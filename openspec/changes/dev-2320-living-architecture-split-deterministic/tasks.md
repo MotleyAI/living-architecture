@@ -63,12 +63,12 @@ Calibration notes (read first):
 - [x] 7.1 Split `plugin/` into `plugin/dr/` (`.claude-plugin/plugin.json` `dr` 0.13.0; skills deterministic-refactor, make-refactor-target-compliant, make-diff-compliant; `languages/`) and `plugin/la/` (`plugin.json` `la` 0.13.0 with `dependencies: [{name: dr, version: "~0.13.0"}]`; every other skill); list both in `.claude-plugin/marketplace.json`; verify `npx -y @anthropic-ai/claude-code plugin validate plugin/dr` and `plugin/la`
 - [ ] 7.2 Apply the mechanical skill renames (dr skills: `dr-doctor --plugin`, `dr-config`, `dr-typecheck`; la skills: `dr:` skill names, `dr-typecheck`); verify the skills tests (manifest references, language-neutral, dr skills name only dr commands)
 - [ ] 7.3 Draft `dr:init` and the `la:init` hand-off (dr keys and baseline step to `dr:init`), show the user the exact wording, apply only after the OK; verify the skills tests
-- [ ] 7.4 Propose the exact edit to the user's global `~/.claude/CLAUDE.md` (`la:deterministic-refactor` → `dr:deterministic-refactor`, `la-typecheck` → `dr-typecheck`) and apply it only with the user's OK
+- [ ] 7.4 At release time, after the maintainer's re-setup (9.5), apply the approved edit to the user's global `~/.claude/CLAUDE.md` (`la:deterministic-refactor` → `dr:deterministic-refactor`, `la-typecheck` → `dr-typecheck`)
 
 ## 8. Architecture harnesses
 
 - [x] 8.0 Implement root-package nodes claiming their root's top-level units in both twins' claims checks; add one conformance case per new arch-check scenario (Python through both twins, TypeScript), list them in `conformance/INVENTORY.md`; verify they pass through both twins
-- [ ] 8.1 Apply the approved `index.yaml`, `model.c4`, `views.c4` and `system.arc42.md` edits (design decision 12), add `cross_cutting_specs.doctor` touching `python.dr.doctor` and `python.la.doctor`, move spec mappings and `touches:` to nested ids, regenerate diagrams with `la-arch-diagrams`; verify `la-arch-check` exits 0 and `npx likec4 validate` passes
+- [x] 8.1 Apply the approved `index.yaml`, `model.c4`, `views.c4` and `system.arc42.md` edits (design decision 12), add `cross_cutting_specs.doctor` touching `python.dr.doctor` and `python.la.doctor`, move spec mappings and `touches:` to nested ids, regenerate diagrams with `la-arch-diagrams`; verify `la-arch-check` exits 0 and `npx likec4 validate` passes
 
 ## 9. CI, publishing, scripts and docs
 

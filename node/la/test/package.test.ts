@@ -34,7 +34,7 @@ describe.each(PACKAGES)('node/%s/package.json', (pkg) => {
     const pyproject = readFileSync(join(REPO_ROOT, 'python', pkg, 'pyproject.toml'), 'utf8');
     const project = pyproject.split(/^\[/m).find((section) => section.startsWith('project]')) ?? '';
     const pythonVersion = /^version = "([^"]+)"$/m.exec(project)?.[1];
-    const pluginVersion = readJson(join(REPO_ROOT, 'plugin', '.claude-plugin', 'plugin.json')).version;
+    const pluginVersion = readJson(join(REPO_ROOT, 'plugin', pkg, '.claude-plugin', 'plugin.json')).version;
     expect([packageJson(pkg).version, packageJson(pkg).version]).toEqual([pythonVersion, pluginVersion]);
   });
 });

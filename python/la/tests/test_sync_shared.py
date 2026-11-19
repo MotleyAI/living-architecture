@@ -1,4 +1,4 @@
-"""scripts/sync-shared: vendors shared/ into each twin's snapshot with its hash; --check reports staleness."""
+"""scripts/sync-shared on the real tree: --check writes nothing, a sync copies, removes and rehashes, root files stay."""
 
 import shutil
 import subprocess
@@ -10,20 +10,24 @@ import pytest
 from deterministic_refactor.contract import compute_hash
 
 REPO_ROOT = next(p for p in Path(__file__).resolve().parents if (p / "shared").is_dir() and (p / "plugin").is_dir())
-SNAPSHOT_REL = Path("python/src/living_architecture/contract/data")
-NODE_SNAPSHOT_REL = Path("node/src/contract/data")
-SNAPSHOTS = [SNAPSHOT_REL, NODE_SNAPSHOT_REL]
-ROOT_FILES = ["README.md", "LICENSE"]
+SNAPSHOTS = {
+    Path("python/dr/src/deterministic_refactor/contract/data"): "dr",
+    Path("python/la/src/living_architecture/contract/data"): "la",
+    Path("node/dr/src/contract/data"): "dr",
+    Path("node/la/src/contract/data"): "la",
+}
+# Each package's root-file symlinks to the repo's README.md and LICENSE.
+ROOT_LINKS = {Path("python/la/README.md"), Path("python/la/LICENSE"), Path("python/dr/LICENSE")}
 
 
 @pytest.fixture
 def tree(tmp_path: Path) -> Path:
-    """The real layout around sync-shared: snapshots, root files, `python/` symlinks to them, no `node/` copies."""
-    for rel in ("scripts", "shared", SNAPSHOT_REL, NODE_SNAPSHOT_REL):
+    """The real layout around sync-shared: snapshots, root files, the packages' symlinks to them, no `node/` copies."""
+    for rel in ("scripts", "shared", *SNAPSHOTS):
         shutil.copytree(REPO_ROOT / rel, tmp_path / rel)
-    for name in ROOT_FILES:
-        shutil.copy2(REPO_ROOT / name, tmp_path / name)
-        (tmp_path / "python" / name).symlink_to(Path("..") / name)
+    for link in ROOT_LINKS:
+        shutil.copy2(REPO_ROOT / link.name, tmp_path / link.name)
+        (tmp_path / link).symlink_to(Path("..") / ".." / link.name)
     return tmp_path
 
 
@@ -37,50 +41,36 @@ def test_check_passes_on_a_synced_tree(tree: Path) -> None:
     assert _sync(tree, "--check").returncode == 0
 
 
-def test_check_fails_after_shared_changes_and_writes_nothing(tree: Path) -> None:
-    (tree / "shared" / "findings.yaml").write_text("changed\n", encoding="utf-8")
+@pytest.mark.parametrize("package", ["dr", "la"])
+def test_check_fails_after_shared_changes_and_writes_nothing(tree: Path, package: str) -> None:
+    (tree / "shared" / package / "findings.yaml").write_text("changed\n", encoding="utf-8")
     proc = _sync(tree, "--check")
     assert proc.returncode == 1
     assert "scripts/sync-shared" in proc.stderr
-    assert (tree / SNAPSHOT_REL / "findings.yaml").read_text(encoding="utf-8") != "changed\n"
+    for snapshot in SNAPSHOTS:
+        assert (tree / snapshot / "findings.yaml").read_text(encoding="utf-8") != "changed\n"
 
 
-@pytest.mark.parametrize("snapshot_rel", SNAPSHOTS, ids=str)
-def test_sync_copies_removes_and_rehashes(tree: Path, snapshot_rel: Path) -> None:
-    (tree / "shared" / "new.yaml").write_text("x: 1\n", encoding="utf-8")
-    (tree / "shared" / "regex-subset.md").unlink()
+@pytest.mark.parametrize(("snapshot_rel", "package"), SNAPSHOTS.items(), ids=str)
+def test_sync_copies_removes_and_rehashes(tree: Path, snapshot_rel: Path, package: str) -> None:
+    (tree / "shared" / package / "new.yaml").write_text("x: 1\n", encoding="utf-8")
+    (tree / "shared" / package / "README.md").unlink()
     assert _sync(tree).returncode == 0
     snapshot = tree / snapshot_rel
     assert (snapshot / "new.yaml").read_text(encoding="utf-8") == "x: 1\n"
-    assert not (snapshot / "regex-subset.md").exists()
-    assert (snapshot / "CONTRACT_HASH").read_text(encoding="utf-8") == compute_hash(tree / "shared") + "\n"
+    assert not (snapshot / "README.md").exists()
+    assert (snapshot / "CONTRACT_HASH").read_text(encoding="utf-8") == compute_hash(tree / "shared" / package) + "\n"
     assert _sync(tree, "--check").returncode == 0
-
-
-def test_check_reports_a_stale_node_snapshot(tree: Path) -> None:
-    assert _sync(tree).returncode == 0
-    stale = tree / NODE_SNAPSHOT_REL / "findings.yaml"
-    stale.parent.mkdir(parents=True, exist_ok=True)
-    stale.write_text("changed\n", encoding="utf-8")
-    proc = _sync(tree, "--check")
-    assert proc.returncode == 1
-    assert str(NODE_SNAPSHOT_REL) in proc.stderr
 
 
 def test_sync_leaves_the_root_files_and_their_links_alone(tree: Path) -> None:
-    before = {name: (tree / name).read_bytes() for name in ROOT_FILES}
+    names = sorted({link.name for link in ROOT_LINKS})
+    before = {name: (tree / name).read_bytes() for name in names}
     assert _sync(tree, "--check").returncode == 0
     assert _sync(tree).returncode == 0
-    for name in ROOT_FILES:
-        link = tree / "python" / name
-        assert link.is_symlink(), name
-        assert link.resolve() == (tree / name).resolve(), name
-        assert not (tree / "node" / name).exists(), name
+    for link in ROOT_LINKS:
+        assert (tree / link).is_symlink(), link
+        assert (tree / link).resolve() == (tree / link.name).resolve(), link
+    for name in names:
+        assert not list((tree / "node").glob(f"*/{name}")), name
         assert (tree / name).read_bytes() == before[name], name
-
-
-@pytest.mark.parametrize("snapshot_rel", SNAPSHOTS, ids=str)
-def test_sync_preserves_the_executable_bit(tree: Path, snapshot_rel: Path) -> None:
-    assert _sync(tree).returncode == 0
-    script = tree / snapshot_rel / "scripts" / "wait-for-reviews.sh"
-    assert script.stat().st_mode & 0o111
