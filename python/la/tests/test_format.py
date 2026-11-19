@@ -14,36 +14,45 @@ import yaml
 from deterministic_refactor import config
 from deterministic_refactor.contract import load_yaml, render_template
 
-SHARED = next(p for p in Path(__file__).resolve().parents if (p / "shared").is_dir() and (p / "plugin").is_dir()) / "shared"
+SHARED_ROOT = next(p for p in Path(__file__).resolve().parents if (p / "shared").is_dir() and (p / "plugin").is_dir()) / "shared"
+SHARED = SHARED_ROOT / "dr"
 VECTORS = yaml.safe_load((SHARED / "vectors" / "format.yaml").read_text(encoding="utf-8"))
-MANIFEST = yaml.safe_load((SHARED / "cli.yaml").read_text(encoding="utf-8"))["commands"]
+MANIFEST = {
+    name: spec
+    for package in ("dr", "la")
+    for name, spec in yaml.safe_load((SHARED_ROOT / package / "cli.yaml").read_text(encoding="utf-8"))["commands"].items()
+}
 BIN_DIR = Path(sys.executable).parent
 CONFIG = "living-architecture.yaml"
 
 
 def _current() -> str:
-    return yaml.safe_load((SHARED / "config.yaml").read_text(encoding="utf-8"))["formats"][-1]
+    return yaml.safe_load((SHARED / "config.yaml").read_text(encoding="utf-8"))["formats"][CONFIG][-1]
 
 
 def _message(template_id: str, **values: object) -> str:
-    template = yaml.safe_load((SHARED / "findings.yaml").read_text(encoding="utf-8"))["findings"][template_id]
+    findings = {
+        **yaml.safe_load((SHARED / "findings.yaml").read_text(encoding="utf-8"))["findings"],
+        **yaml.safe_load((SHARED_ROOT / "la" / "findings.yaml").read_text(encoding="utf-8"))["findings"],
+    }
+    template = findings[template_id]
     return render_template(template, values)
 
 
 def test_current_format_comes_from_the_contract() -> None:
-    assert config.current_format() == _current()
+    assert config.current_format(CONFIG) == _current()
 
 
 def test_released_formats_come_from_the_contract() -> None:
-    assert config.released_formats() == yaml.safe_load((SHARED / "config.yaml").read_text(encoding="utf-8"))["formats"]
+    assert config.released_formats(CONFIG) == yaml.safe_load((SHARED / "config.yaml").read_text(encoding="utf-8"))["formats"][CONFIG]
 
 
 def test_released_formats_ascend_and_end_with_the_current_format() -> None:
-    formats = config.released_formats()
+    formats = config.released_formats(CONFIG)
     assert formats
     assert all(config.is_version(f) for f in formats), formats
     assert all(config.compare_versions(a, b) < 0 for a, b in itertools.pairwise(formats)), formats
-    assert formats[-1] == config.current_format()
+    assert formats[-1] == config.current_format(CONFIG)
 
 
 @pytest.mark.parametrize("value", VECTORS["valid"])
@@ -64,13 +73,14 @@ def test_version_comparison(a: str, b: str, sign: int) -> None:
 @pytest.mark.parametrize("vector", VECTORS["stamp"], ids=lambda v: v["name"])
 def test_stamp(vector: dict) -> None:
     expected = vector["stamped"]
-    assert config.stamp_format(vector["text"]) == (None if expected is None else expected.replace("<FORMAT>", _current()))
+    stamped = config.stamp_format(vector["text"], _current())
+    assert stamped == (None if expected is None else expected.replace("<FORMAT>", _current()))
 
 
 @pytest.mark.parametrize("vector", [v for v in VECTORS["stamp"] if v["stamped"] is not None], ids=lambda v: v["name"])
 def test_stamp_adds_only_the_format(vector: dict) -> None:
     before = load_yaml(vector["text"]) or {}
-    assert load_yaml(config.stamp_format(vector["text"]) or "") == {**before, "format": _current()}
+    assert load_yaml(config.stamp_format(vector["text"], _current()) or "") == {**before, "format": _current()}
 
 
 def _repo(tmp_path: Path, committed: bytes | None, local: str | None = None) -> Path:
@@ -155,6 +165,9 @@ ARGV = {
     "dr-refactor": ["rename", "--file", "a.py", "--symbol", "f", "--new-name", "g"],
     "dr-compliance": ["a.py"],
     "dr-mock-lint": ["a.py"],
+    "dr-typecheck": [],
+    "dr-doctor": [],
+    "dr-config": ["show"],
 }
 
 
@@ -171,8 +184,10 @@ def test_format_check_runs_unless_the_manifest_exempts_the_command(command: str,
     proc = subprocess.run([str(BIN_DIR / command), *ARGV[command]], cwd=root, env=env, capture_output=True, text=True,
                           timeout=120, check=False)
     refusal = _message("format.missing", current=_current()) + "\n"
-    if command == "la-doctor":
+    if command in ("la-doctor", "dr-doctor"):
         assert refusal not in proc.stderr
+    elif command == "la-typecheck":
+        assert (proc.returncode, proc.stdout, proc.stderr) == (2, "", _message("typecheck-alias.deprecated") + "\n" + refusal)
     elif MANIFEST[command].get("format") == "exempt":
         assert refusal.strip() not in proc.stdout + proc.stderr
     else:

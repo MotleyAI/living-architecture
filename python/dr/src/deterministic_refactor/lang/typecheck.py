@@ -1,4 +1,4 @@
-"""basedpyright as la-typecheck's Python checker: its baseline flag, exit codes, the pyright#11919 patch and the
+"""basedpyright as dr-typecheck's Python checker: its baseline flag, exit codes, the pyright#11919 patch and the
 language server's occurrence-export preload."""
 
 from __future__ import annotations

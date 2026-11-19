@@ -1,22 +1,32 @@
-"""Running a command: parse argv per the shared manifest, check the repo format, dispatch to the handler."""
+"""Running a command: parse argv per its manifest, check the config file, dispatch to the handler."""
+
 from __future__ import annotations
 
 import argparse
 import sys
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 from deterministic_refactor import config
 from deterministic_refactor.contract import manifest
 from deterministic_refactor.contract.parser import parse
 
 
-def run_command(command: str, argv: list[str], handler: Callable[[argparse.Namespace], int]) -> int:
-    """Parse `argv` (not for a passthrough command), check the repo format unless exempt, then run `handler`."""
-    spec = manifest()[command]
-    args = argparse.Namespace() if spec.get("passthrough") else parse(command, argv)
+def run_command(
+    command: str,
+    argv: list[str],
+    handler: Callable[[argparse.Namespace], int],
+    commands: dict[str, Any] | None = None,
+    config_file: str | None = None,
+) -> int:
+    """Parse `argv` per `commands` (default: dr's manifest; not for a passthrough command), refuse both config files
+    and check the format of `config_file` (default: the one dr reads) unless exempt, then run `handler`."""
+    spec = (commands or manifest())[command]
+    args = argparse.Namespace() if spec.get("passthrough") else parse(command, argv, commands)
     if spec.get("format") != "exempt":
-        problem = config.check_format(_checked_root(args))
+        root = _checked_root(args)
+        problem = config.both_files_problem(root) or config.check_format(root, config_file)
         if problem is not None:
             print(problem, file=sys.stderr)
             return 2

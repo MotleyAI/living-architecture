@@ -8,8 +8,9 @@ from pathlib import Path
 from typing import Any
 
 from deterministic_refactor import lang, twin
-from deterministic_refactor.contract import contract_hash, language_of, message
+from deterministic_refactor.contract import language_of
 from living_architecture import __version__
+from living_architecture.contract import contract_hash, identity, message
 
 __all__ = ["FactsError", "collect", "emit", "language_of"]
 
@@ -36,7 +37,12 @@ def collect(paths: list[str], *, cwd: Path, repo_root: Path) -> dict[str, dict[s
             entries = lang.conventions_facts(cwd, group)
         else:
             try:
-                entries = twin.request_conventions_facts(lang_id, cwd=cwd, paths=group, repo_root=repo_root)
+                document = twin.request_document(
+                    lang_id, identity(), "la-check-conventions", ["--language", lang_id, "--emit", "facts"],
+                    "conventions-facts", repo_root=repo_root, cwd=cwd, stdin=json.dumps(group).encode("utf-8"),
+                    accept=lambda doc, group=group: [f["path"] for f in doc["files"]] == group,
+                )
+                entries = document["files"]
             except twin.RelayedFailure as exc:
                 raise FactsError("") from exc
             except twin.TwinError as exc:

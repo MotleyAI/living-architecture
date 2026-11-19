@@ -1,6 +1,8 @@
-# The per-repo config files at the repo root: the committed one, and one contributor's git-ignored overrides.
-file: living-architecture.yaml
-local_file: living-architecture.local.yaml
-# Every released repo format (`format` in living-architecture.yaml), oldest first: the la version that introduced
-# it. The last is the format this la reads and writes; la-arch-migrate converts from each earlier one.
-formats: [0.4.0, 0.13.0]
+# The committed config files at the repo root a dr command reads, in order: the first that exists. la's file carries
+# dr's keys too, so a repo using la keeps one file.
+files: [deterministic-refactor.yaml, living-architecture.yaml]
+# Per file, every released format (its `format` key), oldest first: the release that introduced it. The last is the
+# format the file's package reads and writes; la-arch-migrate converts living-architecture.yaml from each earlier one.
+formats:
+  deterministic-refactor.yaml: [0.13.0]
+  living-architecture.yaml: [0.4.0, 0.13.0]

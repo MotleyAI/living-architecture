@@ -54,6 +54,9 @@ Changelog = "https://github.com/MotleyAI/living-architecture/releases"
 dr-refactor = "deterministic_refactor.cli.dr_refactor:dr_refactor"
 dr-mock-lint = "deterministic_refactor.cli.dr_mock_lint:dr_mock_lint"
 dr-compliance = "deterministic_refactor.cli.dr_compliance:dr_compliance"
+dr-config = "deterministic_refactor.cli.dr_config:dr_config"
+dr-doctor = "deterministic_refactor.cli.dr_doctor:dr_doctor"
+dr-typecheck = "deterministic_refactor.cli.dr_typecheck:dr_typecheck"
 
 [build-system]
 requires = ["uv_build>=0.9,<0.13"]

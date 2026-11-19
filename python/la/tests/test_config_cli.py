@@ -4,14 +4,15 @@ from pathlib import Path
 import pytest
 
 from deterministic_refactor import config
-from deterministic_refactor.config import CONFIG_FILENAME, format_value
+from deterministic_refactor.config import format_value
 from living_architecture.cli.la_config import la_config as main
+from living_architecture.contract import config_file
 
 
 @pytest.fixture
 def repo(tmp_path: Path) -> Path:
-    (tmp_path / CONFIG_FILENAME).write_text(
-        f"format: {config.current_format()}\n"
+    (tmp_path / config_file()).write_text(
+        f"format: {config.current_format(config_file())}\n"
         "reviewers:\n  codex: false\n  sonar: {project_key: k}\n"
         "exempt: [a.py]\n",
         encoding="utf-8",
@@ -64,7 +65,7 @@ def test_defaults_without_file(tmp_path: Path, capsys: pytest.CaptureFixture[str
 
 
 def test_invalid_config_exits_1(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    (tmp_path / CONFIG_FILENAME).write_text(f"format: {config.current_format()}\nbogus: 1\n", encoding="utf-8")
+    (tmp_path / config_file()).write_text(f"format: {config.current_format(config_file())}\nbogus: 1\n", encoding="utf-8")
     assert main(["--root", str(tmp_path), "show"]) == 1
     assert "bogus" in capsys.readouterr().err
 

@@ -5,16 +5,14 @@ import re
 
 import pytest
 
-from deterministic_refactor.contract import (
-    canonical_repr,
+from deterministic_refactor.contract import canonical_repr, language, normalize, render_template
+from deterministic_refactor.contract import findings as dr_findings
+from deterministic_refactor.contract import manifest as dr_manifest
+from living_architecture.contract import (
     config_file,
-    findings,
-    language,
     local_config_file,
     manifest,
     message,
-    normalize,
-    render_template,
     schema,
     script_path,
     validate,
@@ -95,16 +93,22 @@ def test_typescript_language_facts() -> None:
 
 
 @pytest.mark.parametrize(
-    ("name", "runner", "install"),
+    ("name", "package", "runner", "install"),
     [
-        ("python", "uvx --from living-architecture==0.2.1", "uv tool install living-architecture==0.2.1"),
-        ("typescript", "npx -y -p living-architecture@0.2.1", "npm install -g living-architecture@0.2.1"),
+        ("python", "deterministic-refactor", "uvx --from deterministic-refactor==0.2.1",
+         "uv tool install deterministic-refactor==0.2.1"),
+        ("python", "living-architecture", "uvx --from living-architecture==0.2.1",
+         "uv tool install living-architecture==0.2.1 --with-executables-from deterministic-refactor"),
+        ("typescript", "deterministic-refactor", "npx -y -p deterministic-refactor@0.2.1",
+         "npm install -g deterministic-refactor@0.2.1"),
+        ("typescript", "living-architecture", "npx -y -p living-architecture@0.2.1",
+         "npm install -g living-architecture@0.2.1 deterministic-refactor@0.2.1"),
     ],
 )
-def test_twin_runner_and_install_commands(name: str, runner: str, install: str) -> None:
+def test_twin_runner_and_install_commands(name: str, package: str, runner: str, install: str) -> None:
     facts = language(name)
-    rendered = (render_template(facts["runner"], {"version": "0.2.1"}), render_template(facts["install"], {"version": "0.2.1"}))
-    assert rendered == (runner, install)
+    values = {"package": package, "version": "0.2.1"}
+    assert (render_template(facts["runner"], values), render_template(facts["install"][package], values)) == (runner, install)
 
 
 # ---- string-named members: checks, registry forms and templates
@@ -160,7 +164,7 @@ def test_name_class_values_are_slots_and_match_args_with_their_shapes() -> None:
 
 
 def _placeholders(template_id: str) -> set[str]:
-    return set(re.findall(r"\{([a-z_]+)(?:!r)?\}", findings().get(template_id, "")))
+    return set(re.findall(r"\{([a-z_]+)(?:!r)?\}", dr_findings().get(template_id, "")))
 
 
 @pytest.mark.parametrize(
@@ -173,7 +177,7 @@ def _placeholders(template_id: str) -> set[str]:
     ],
 )
 def test_string_named_member_templates_take_their_placeholders(template_id: str, placeholders: set[str]) -> None:
-    assert template_id in findings()
+    assert template_id in dr_findings()
     assert _placeholders(template_id) == placeholders
 
 
@@ -200,15 +204,15 @@ SITE = {"path": "pkg/m.py", "receiver": "x", "type": "Any", "attr": "columns"}
 def test_string_named_member_templates_render_the_approved_lines(
     template_id: str, values: dict[str, object], rendered: str
 ) -> None:
-    assert template_id in findings()
+    assert template_id in dr_findings()
     assert message(template_id, **values) == rendered
 
 
 def test_the_new_kinds_are_printed_after_path_and_line() -> None:
-    kinds = {m.group(1) for text in findings().values() if (m := re.match(r"\{path\}:\{line\}: ([a-z-]+):", text))}
+    kinds = {m.group(1) for text in dr_findings().values() if (m := re.match(r"\{path\}:\{line\}: ([a-z-]+):", text))}
     assert {"string-blindspot", "unverified-read"} <= kinds
 
 
 def test_attr_help_names_both_attribute_checks() -> None:
-    [option] = [o for o in manifest()["dr-compliance"]["options"] if o["name"] == "--attr"]
+    [option] = [o for o in dr_manifest()["dr-compliance"]["options"] if o["name"] == "--attr"]
     assert {"attr-blindspot", "string-blindspot"} <= set(re.findall(r"[a-z]+-[a-z]+", option["help"]))

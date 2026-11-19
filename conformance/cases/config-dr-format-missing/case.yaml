@@ -3,7 +3,7 @@ command: dr-config
 args:
 - show
 normalize:
-- pattern: '(?m)^(?=[^\n]*deterministic-refactor\.yaml)(?=[^\n]*format: 0\.12\.0)[^\n]*$'
+- pattern: '(?m)^(?=[^\n]*deterministic-refactor\.yaml)(?=[^\n]*format: 0\.13\.0)[^\n]*$'
   replace: '<FORMAT REFUSED deterministic-refactor.yaml format: 0.13.0>'
 expect:
   exit: 2

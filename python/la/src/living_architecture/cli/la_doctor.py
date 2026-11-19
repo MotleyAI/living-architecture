@@ -1,13 +1,15 @@
 import argparse
 
 from deterministic_refactor import twin
-from deterministic_refactor.config.command import command_argv, command_root, run_command
+from deterministic_refactor.config.command import command_argv, command_root
 from living_architecture import doctor
+from living_architecture.config import run_command
+from living_architecture.contract import identity
 
 
 def _doctor(args: argparse.Namespace) -> int:
     if args.twin:
-        print(twin.identity())
+        print(twin.identity(identity()))
         return 0
     return doctor.run(
         root=command_root(args.root),

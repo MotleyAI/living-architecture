@@ -2,16 +2,18 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel
 
-from deterministic_refactor.contract import contract_hash
+from deterministic_refactor import twin
 from deterministic_refactor.lang import top_level_units, unit_exists
 from living_architecture import __version__
 from living_architecture.archcheck.index import Layout
 from living_architecture.archcheck.nodes import NodeMap, unit_to_element
 from living_architecture.archcheck.truth import measure_runtime_edges
+from living_architecture.contract import contract_hash, identity
 
 
 class UnitFact(BaseModel):
@@ -83,3 +85,20 @@ def native_top_level_facts(layout: Layout, language: str) -> Facts:
     """The Python facts with edges between top-level units; no model involved."""
     tops = _top_level_units(layout)
     return _facts(layout, language, [], {unit: unit for unit in tops})
+
+
+def _consistent(document: dict[str, Any], expected_units: list[str], top_level: bool) -> bool:
+    if not top_level:
+        return {u["unit"] for u in document["units"]} >= set(expected_units)
+    tops = set(document["top_level_units"])
+    return not document["units"] and all({e["src"], e["dst"]} <= tops for e in document["edges"])
+
+
+def requested_facts(language: str, root: Path, expected_units: list[str], *, top_level: bool = False) -> Facts:
+    """`language`'s facts from la's twin of it, schema-checked; twin.RelayedFailure or twin.TwinError otherwise."""
+    args = ["--root", str(root), "--language", language, "--emit", "facts", *(["--top-level"] if top_level else [])]
+    document = twin.request_document(
+        language, identity(), "la-arch-check", args, "facts", repo_root=root,
+        accept=lambda doc: _consistent(doc, expected_units, top_level),
+    )
+    return Facts.model_validate(document)

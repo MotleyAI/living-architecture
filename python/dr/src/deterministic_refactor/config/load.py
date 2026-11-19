@@ -1,10 +1,9 @@
-"""Loading `living-architecture.yaml`, with `living-architecture.local.yaml` merged over it, into the typed config."""
+"""Loading the committed config file dr reads into dr's typed config, and the helpers la's config loading shares."""
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
@@ -12,11 +11,10 @@ from deterministic_refactor.contract import (
     DuplicateKeyError,
     YAMLError,
     capturing_groups,
-    config_file,
+    config_files,
     is_portable_regex,
     is_regular_file,
     load_yaml,
-    local_config_file,
     materialize_defaults,
     message,
     os_error_text,
@@ -24,35 +22,15 @@ from deterministic_refactor.contract import (
     validate,
 )
 
-CONFIG_FILENAME = config_file()
+DR_SCHEMA = "deterministic-refactor"
 
 
 class ConfigError(Exception):
     """The config file is unreadable or invalid."""
 
 
-class RawConfig(BaseModel):
-    """The committed data with the local file merged over it, before `resolve`."""
-
-    model_config = ConfigDict(frozen=True)
-
-    data: Any
-    overrides: list[str]
-    has_committed: bool
-    has_local: bool
-
-
 class _Strict(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
-
-
-class SonarConfig(_Strict):
-    project_key: str | None
-
-
-class ReviewersConfig(_Strict):
-    codex: bool
-    sonar: SonarConfig
 
 
 class TypecheckConfig(_Strict):
@@ -60,9 +38,8 @@ class TypecheckConfig(_Strict):
     typescript: str | None
 
 
-class CommandsConfig(_Strict):
+class DrCommandsConfig(_Strict):
     test: str | None
-    lint: str | None
     typecheck: TypecheckConfig
 
 
@@ -75,48 +52,23 @@ class RefactorConfig(_Strict):
     string_forms: list[str]
 
 
-class ConventionsConfig(_Strict):
-    text_ratio_max: float
-    rules: list[str]
-
-
-class LaConfig(_Strict):
-    """The resolved config; built only by `resolve`, so every default comes from the schema."""
+class DrConfig(_Strict):
+    """dr's resolved config; built only by `resolve`, so every default comes from the schema."""
 
     format: str | None
     exempt: list[str]
-    tracker: Literal["linear", "github", "none"]
-    openspec: bool
-    architecture: bool
-    reviewers: ReviewersConfig
-    issue_key_pattern: str
-    commands: CommandsConfig
+    commands: DrCommandsConfig
     refactor: RefactorConfig
-    conventions: ConventionsConfig
-
-    def issue_key_re(self) -> re.Pattern[str]:
-        return re.compile(self.issue_key_pattern)
 
 
-def resolve(data: Any) -> LaConfig:
-    """Validate raw config data (None = no file) and fill the schema defaults; ValueError if invalid."""
-    config_schema = schema("living-architecture")
-    if data is not None and not isinstance(data, dict):
-        raise ValueError("top level must be a mapping")
-    errors = validate(config_schema, {} if data is None else data)
-    if errors:
-        raise ValueError("; ".join(errors))
-    resolved = materialize_defaults(config_schema, data)
-    if not is_portable_regex(resolved["issue_key_pattern"]):
-        raise ValueError(
-            f"issue_key_pattern {resolved['issue_key_pattern']!r} is not in the portable regex subset"
-        )
-    for pattern in resolved["refactor"]["string_forms"]:
-        if not is_portable_regex(pattern):
-            raise ValueError(f"refactor.string_forms pattern {pattern} is not in the portable regex subset")
-        if capturing_groups(pattern) != 1:
-            raise ValueError(f"refactor.string_forms pattern {pattern} must hold exactly one capturing group")
-    return LaConfig.model_validate(resolved)
+class LanguageSettings(BaseModel):
+    """What repo-language detection reads from a config: exempt paths, checker commands, the ones set explicitly."""
+
+    model_config = ConfigDict(frozen=True)
+
+    exempt: list[str]
+    typecheck: TypecheckConfig
+    explicit: frozenset[str]
 
 
 def find_repo_root(start: Path) -> Path:
@@ -153,71 +105,98 @@ def parse_config(text: str, name: str) -> Any:
         raise ConfigError(message("yaml.invalid", path=name)) from exc
 
 
-def _raw(root: Path, name: str) -> Any:
+def read_config(root: Path, name: str) -> Any:
+    """Config file `name` parsed, None when it does not exist; ConfigError when unreadable or not YAML."""
     text = read_config_text(root, name)
     return None if text is None else parse_config(text, name)
 
 
-def _merge(base: Any, over: Any) -> Any:
-    if not (isinstance(base, dict) and isinstance(over, dict)):
-        return over
-    return {**base, **{key: _merge(base.get(key), value) for key, value in over.items()}}
+def both_files_problem(root: Path) -> str | None:
+    """The refusal when every committed config file is at the repo root, else None."""
+    files = config_files()
+    if all(is_regular_file(root / name) for name in files):
+        return message("config.both-files", first=files[0], second=files[1])
+    return None
 
 
-def _leaves(sub: dict[str, Any], data: dict[str, Any], prefix: str = "") -> list[str]:
-    """The dotted keys `data` sets, in the schema's property order."""
-    out: list[str] = []
-    for key, prop in sub["properties"].items():
-        if key not in data:
-            continue
-        if "properties" in prop and isinstance(data[key], dict):
-            out += _leaves(prop, data[key], f"{prefix}{key}.")
-        else:
-            out.append(f"{prefix}{key}")
-    return out
+def config_source(root: Path) -> str | None:
+    """The committed config file dr reads: the first of the contract's files at the repo root, else None."""
+    return next((name for name in config_files() if is_regular_file(root / name)), None)
 
 
-def load_raw(root: Path) -> RawConfig:
-    """Both files read and the local one checked against its schema; ConfigError naming the faulty file."""
-    committed = _raw(root, config_file())
-    local_path = root / local_config_file()
-    local = _raw(root, local_config_file())
-    overrides: list[str] = []
-    data = committed
-    if local is not None:
-        if not isinstance(local, dict):
-            raise ConfigError(f"{local_path}: top level must be a mapping")
-        local_schema = schema("living-architecture.local")
-        errors = validate(local_schema, local)
-        if errors:
-            raise ConfigError(f"{local_path}: {'; '.join(errors)}")
-        overrides = _leaves(local_schema, local)
-        if committed is None or isinstance(committed, dict):
-            data = _merge(committed or {}, local)
-    return RawConfig(
-        data=data,
-        overrides=overrides,
-        has_committed=(root / config_file()).is_file(),
-        has_local=local_path.is_file(),
+def own_file() -> str:
+    """dr's own config file; the others carry dr's keys among their package's."""
+    return config_files()[0]
+
+
+def _project(sub: dict[str, Any], data: Any) -> Any:
+    """`data` with only the keys `sub` defines, recursively through the objects that list their keys."""
+    if not isinstance(data, dict) or "properties" not in sub:
+        return data
+    return {key: _project(sub["properties"][key], value) for key, value in data.items() if key in sub["properties"]}
+
+
+def dr_data(data: Any, name: str) -> Any:
+    """The dr keys of config file `name`'s data: all of dr's own file, and dr's share of another package's file."""
+    return data if name == own_file() or not isinstance(data, dict) else _project(schema(DR_SCHEMA), data)
+
+
+def check_string_forms(patterns: list[str]) -> None:
+    """ValueError unless every pattern is portable and holds exactly one capturing group."""
+    for pattern in patterns:
+        if not is_portable_regex(pattern):
+            raise ValueError(f"refactor.string_forms pattern {pattern} is not in the portable regex subset")
+        if capturing_groups(pattern) != 1:
+            raise ValueError(f"refactor.string_forms pattern {pattern} must hold exactly one capturing group")
+
+
+def resolve(data: Any) -> DrConfig:
+    """Validate dr's config data (None = no file) and fill the schema defaults; ValueError if invalid."""
+    dr_schema = schema(DR_SCHEMA)
+    if data is not None and not isinstance(data, dict):
+        raise ValueError("top level must be a mapping")
+    errors = validate(dr_schema, {} if data is None else data)
+    if errors:
+        raise ValueError("; ".join(errors))
+    resolved = materialize_defaults(dr_schema, data)
+    check_string_forms(resolved["refactor"]["string_forms"])
+    return DrConfig.model_validate(resolved)
+
+
+def load_dr_data(root: Path) -> tuple[Any, str | None]:
+    """dr's share of the config file it reads, and that file's name; (None, None) without one."""
+    name = config_source(root)
+    return (None, None) if name is None else (dr_data(read_config(root, name), name), name)
+
+
+def _resolved(root: Path, data: Any, name: str | None) -> DrConfig:
+    try:
+        return resolve(data)
+    except ValueError as exc:
+        raise ConfigError(f"{root / str(name)}: {exc}") from exc
+
+
+def load_config(root: Path) -> DrConfig:
+    """dr's config at `root`; defaults without a config file. ConfigError naming the faulty file."""
+    return _resolved(root, *load_dr_data(root))
+
+
+def explicit_typecheck(data: Any) -> frozenset[str]:
+    """The languages config `data` sets `commands.typecheck` for explicitly (to a command or null)."""
+    commands = data.get("commands") if isinstance(data, dict) else None
+    typecheck = commands.get("typecheck") if isinstance(commands, dict) else None
+    return frozenset(typecheck) if isinstance(typecheck, dict) else frozenset()
+
+
+def load_with_languages(root: Path) -> tuple[DrConfig, LanguageSettings]:
+    """dr's config at `root`, and that config as language detection reads it, from one read of the file."""
+    data, name = load_dr_data(root)
+    config = _resolved(root, data, name)
+    return config, LanguageSettings(
+        exempt=config.exempt, typecheck=config.commands.typecheck, explicit=explicit_typecheck(data)
     )
 
 
-def resolve_raw(root: Path, raw: RawConfig) -> LaConfig:
-    """`raw` resolved; ConfigError naming the committed file."""
-    try:
-        return resolve(raw.data)
-    except ValueError as exc:
-        raise ConfigError(f"{root / config_file()}: {exc}") from exc
-
-
-def load_config(root: Path) -> LaConfig:
-    """Config at `root`; defaults when neither file exists."""
-    return resolve_raw(root, load_raw(root))
-
-
-def explicit_typecheck(root: Path) -> set[str]:
-    """The languages `commands.typecheck` sets explicitly (to a command or null); the config must be valid."""
-    data = load_raw(root).data
-    commands = data.get("commands") if isinstance(data, dict) else None
-    typecheck = commands.get("typecheck") if isinstance(commands, dict) else None
-    return set(typecheck) if isinstance(typecheck, dict) else set()
+def language_settings(root: Path) -> LanguageSettings:
+    """dr's config at `root` as language detection reads it."""
+    return load_with_languages(root)[1]

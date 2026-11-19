@@ -10,11 +10,11 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict
 
 from deterministic_refactor import twin
-from deterministic_refactor.config import ConfigError, load_config
-from deterministic_refactor.contract import message, os_error_text
+from deterministic_refactor.config import ConfigError
+from deterministic_refactor.contract import os_error_text
 from living_architecture.archcheck.claims import check_claims
 from living_architecture.archcheck.docs import check_arc42, check_legacy_ratchet, check_spec_mapping
-from living_architecture.archcheck.facts import Facts, native_facts, native_top_level_facts
+from living_architecture.archcheck.facts import Facts, native_facts, native_top_level_facts, requested_facts
 from living_architecture.archcheck.index import (
     ArchCheckError,
     Layout,
@@ -28,6 +28,8 @@ from living_architecture.archcheck.scaffold import run_scaffold
 from living_architecture.archcheck.tags import check_enforced_tags
 from living_architecture.archcheck.truth import check_model_truth, license, measure_runtime_edges
 from living_architecture.c4 import ModelParse, check_diagrams_fresh, layout_problem, parse_model, parse_views
+from living_architecture.config import load_config
+from living_architecture.contract import message
 
 __all__ = [
     "ArchCheckError",
@@ -70,7 +72,7 @@ def _facts(root: Path, setup: _Setup, language: str) -> Facts:
     """Native facts in-process; another language's from its twin."""
     if language == twin.NATIVE_LANGUAGE:
         return native_facts(resolve_layout(root, setup.index[language]), setup.node_map, language)
-    return Facts.model_validate(twin.request_facts(language, root, setup.node_map.units(language)))
+    return requested_facts(language, root, setup.node_map.units(language))
 
 
 def _findings(root: Path) -> list[str]:

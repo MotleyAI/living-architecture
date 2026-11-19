@@ -44,7 +44,7 @@ def _repo(root: Path, files: dict[str, str], command: str | None = None) -> Path
     subprocess.run(["git", "init", "-q", "-b", "main"], cwd=root, check=True)
     (root / "pyproject.toml").write_text('[project]\nname = "demo"\nversion = "0.0.0"\n', encoding="utf-8")
     if command is not None:
-        config = f"format: {current_format()}\ncommands: {{typecheck: {{python: {command}}}}}\n"
+        config = f"format: {current_format('living-architecture.yaml')}\ncommands: {{typecheck: {{python: {command}}}}}\n"
         (root / "living-architecture.yaml").write_text(config, encoding="utf-8")
     for rel, text in files.items():
         (root / rel).write_text(text, encoding="utf-8")

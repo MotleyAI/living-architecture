@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from deterministic_refactor.contract import message
 from living_architecture.archcheck.facts import Facts
 from living_architecture.archcheck.nodes import MapElement, NodeMap, separator
+from living_architecture.contract import message
 
 
 def _claimed(node: MapElement, roots: list[str], facts: Facts) -> list[str]:

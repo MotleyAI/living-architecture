@@ -9,7 +9,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 from deterministic_refactor.config import find_repo_root
-from deterministic_refactor.contract import manifest, message
+from living_architecture.contract import manifest, message
 from living_architecture.conventions.facts import FactsError, collect, language_of
 
 _PROG = "la-count-comments"

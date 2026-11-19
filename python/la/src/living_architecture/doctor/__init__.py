@@ -2,90 +2,43 @@
 
 from __future__ import annotations
 
-import json
-import os
-import re
 import shutil
-import stat
 import subprocess
 from pathlib import Path
 
-from deterministic_refactor.config import ConfigError, LaConfig, check_format, load_config, repo_languages
-from deterministic_refactor.contract import (
-    config_file,
-    contract_hash,
-    is_regular_file,
-    language,
-    local_config_file,
-    message,
-    os_error_text,
-    render_template,
-)
+from deterministic_refactor import twin
+from deterministic_refactor.config import ConfigError, both_files_problem, check_format, repo_languages
+from deterministic_refactor.contract import is_regular_file, language, os_error_text, plugin_problem
 from living_architecture import NATIVE_LANGUAGE, __version__
+from living_architecture.config import LaConfig, languages_of, load_config, load_raw, resolve_raw
+from living_architecture.contract import LA, config_file, contract_hash, identity, local_config_file, message
 
 REQUIRED_EXECUTABLES = ("git", "gh")
-PLUGIN_MANIFEST = Path(".claude-plugin") / "plugin.json"
-_LONE_SURROGATE = re.compile("[\ud800-\udfff]")
-_VERSION_FORM = re.compile(r"(\d+)\.(\d+)\..+", re.ASCII | re.DOTALL)
 
 
-def _series(version: str) -> tuple[str, str] | None:
-    """Major and minor of `<digits>.<digits>.<rest>` as written, or None."""
-    match = _VERSION_FORM.fullmatch(version)
-    return (match[1], match[2]) if match else None
+def _plugin_name() -> str:
+    return LA.yaml("cli.yaml")["plugin"]
 
 
-def _canonical(series: tuple[str, str]) -> tuple[str, ...]:
-    return tuple(part.lstrip("0") or "0" for part in series)
+def _install(version: str) -> str:
+    return twin.install_command(NATIVE_LANGUAGE, identity(), version)
 
 
-def _version_problem(expected: str, series: tuple[str, str]) -> str | None:
-    installed = _series(__version__)
-    if installed is not None and _canonical(installed) == _canonical(series):
+def _dr_problem() -> str | None:
+    """The first `dr-doctor` on PATH missing, or reporting another language, version or dr contract than la runs with."""
+    expected = twin.dr_identity().model_copy(update={"version": __version__}).line(NATIVE_LANGUAGE)
+    found = shutil.which(twin.dr_identity().doctor)
+    if found is None:
+        return message("doctor.dr-missing", install=_install(__version__))
+    try:
+        proc = subprocess.run([found, "--twin"], capture_output=True, check=False)
+        reported = proc.stdout.decode("utf-8", "replace").strip() if proc.returncode == 0 else ""
+    except OSError:
+        reported = ""
+    if reported == expected:
         return None
-    install = render_template(language(NATIVE_LANGUAGE)["install"], {"version": expected})
-    return message(
-        "doctor.version-mismatch", installed=__version__, expected=expected, series=".".join(series), install=install
-    )
-
-
-def _reject_constant(name: str) -> None:
-    raise ValueError(name)
-
-
-def _is_file(path: Path) -> bool:
-    """A missing entry or a path under a regular file is absent; other stat errors propagate."""
-    try:
-        return stat.S_ISREG(path.stat().st_mode)
-    except (FileNotFoundError, NotADirectoryError):
-        return False
-
-
-def _manifest_problem(manifest: Path, raw: bytes) -> str | None:
-    try:
-        data = json.loads(raw.decode("utf-8"), parse_constant=_reject_constant)
-    except ValueError:
-        data = None
-    version = data.get("version") if isinstance(data, dict) else None
-    if not isinstance(version, str) or _LONE_SURROGATE.search(version) or (series := _series(version)) is None:
-        return message("doctor.plugin-invalid", path=manifest)
-    return _version_problem(version, series)
-
-
-def _plugin_problem(plugin: str) -> str | None:
-    """Check against the version in the nearest `.claude-plugin/plugin.json` at or above `plugin`."""
-    # Collapse POSIX's leading `//` as Node's resolve() does.
-    start = Path(re.sub(r"^//(?=[^/])", "/", os.path.abspath(plugin)))
-    for directory in (start, *start.parents):
-        manifest = directory / PLUGIN_MANIFEST
-        try:
-            if not _is_file(manifest):
-                continue
-            raw = manifest.read_bytes()
-        except OSError:
-            return message("doctor.plugin-unreadable", path=manifest)
-        return _manifest_problem(manifest, raw)
-    return message("doctor.plugin-not-found", dir=start)
+    install = _install(__version__)
+    return message("doctor.dr-mismatch", reported=reported, version=__version__, expected=expected, install=install)
 
 
 def _consistency(root: Path, cfg: LaConfig, *, require_plan_store: bool) -> list[str]:
@@ -155,19 +108,25 @@ def _language_executables(root: Path) -> list[str]:
     if not (root / ".git").exists():
         return []
     try:
-        cfg = load_config(root)
+        raw = load_raw(root)
+        settings = languages_of(resolve_raw(root, raw), raw)
     except ConfigError:
         return []
-    return [exe for lang_id in repo_languages(root, cfg) for exe in language(lang_id)["executables"]]
+    return [exe for lang_id in repo_languages(root, settings) for exe in language(lang_id)["executables"]]
 
 
 def run_checks(
     *, root: Path, plugin: str | None = None, require_config: bool = False, require_plan_store: bool = False
 ) -> list[str]:
-    """Problems found; empty means healthy. A format refusal replaces every check that reads the config."""
-    version = _plugin_problem(plugin) if plugin is not None else None
-    problems = [version] if version is not None else []
-    refusal = check_format(root)
+    """Problems found; empty means healthy. Both config files present, or a format refusal, replace every check that
+    reads the config."""
+    problems: list[str] = []
+    if plugin is not None and (version := plugin_problem(plugin, _plugin_name(), __version__, _install)) is not None:
+        problems.append(version)
+    dr = _dr_problem()
+    if dr is not None:
+        problems.append(dr)
+    refusal = both_files_problem(root) or check_format(root, config_file())
     if refusal is not None:
         problems.append(refusal)
     else:
@@ -200,5 +159,5 @@ def run(
         source = config_file() if (root / config_file()).is_file() else message("doctor.no-config-file")
         if (root / local_config_file()).is_file():
             source = message("doctor.local-source", source=source, local=local_config_file())
-        print(message("doctor.ok", version=__version__, source=source))
+        print(message("doctor.ok", package=_plugin_name(), version=__version__, source=source))
     return 1 if problems else 0

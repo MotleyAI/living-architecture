@@ -13,7 +13,7 @@ from deterministic_refactor.refactor.compound import is_compound, words
 from deterministic_refactor.refactor.symbol_path import SymbolPath
 
 VECTORS: dict[str, Any] = yaml.safe_load(
-    (next(p for p in Path(__file__).resolve().parents if (p / "shared").is_dir() and (p / "plugin").is_dir()) / "shared/vectors/refactor-symbols.yaml")
+    (next(p for p in Path(__file__).resolve().parents if (p / "shared").is_dir() and (p / "plugin").is_dir()) / "shared/dr/vectors/refactor-symbols.yaml")
     .read_text(encoding="utf-8")
 )
 

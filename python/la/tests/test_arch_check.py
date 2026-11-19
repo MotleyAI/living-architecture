@@ -7,10 +7,10 @@ from pathlib import Path
 import pytest
 
 from deterministic_refactor import config
-from deterministic_refactor.contract import check_ids
 from living_architecture import archcheck, c4
 from living_architecture.archcheck.scaffold import write_scaffold
 from living_architecture.cli.la_arch_check import la_arch_check
+from living_architecture.contract import check_ids
 
 INDEX = """
 python:
@@ -1647,7 +1647,7 @@ def test_main_findings(tmp_path, capsys):
 
 def test_main_broken_setup(tmp_path, capsys):
     root = make_repo(tmp_path)
-    (root / "living-architecture.yaml").write_text(f"format: {config.current_format()}\nnope: 1\n", encoding="utf-8")
+    (root / "living-architecture.yaml").write_text(f"format: {config.current_format('living-architecture.yaml')}\nnope: 1\n", encoding="utf-8")
     assert la_arch_check(["--root", str(root)]) == 2
     assert "nope" in capsys.readouterr().err
 

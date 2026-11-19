@@ -19,12 +19,14 @@ def _repo_root() -> Path:
     return next(p for p in Path(__file__).resolve().parents if (p / "shared").is_dir() and (p / "plugin").is_dir())
 
 
-VECTORS = _repo_root() / "shared" / "vectors"
+SHARED = _repo_root() / "shared"
 LA_CONFIG = Path(sys.executable).parent / "la-config"
 
 
 def _load(name: str) -> dict:
-    return yaml.safe_load((VECTORS / name).read_text(encoding="utf-8"))
+    """Vector file `name` of whichever package's contract holds it."""
+    [path] = [SHARED / package / "vectors" / name for package in ("dr", "la") if (SHARED / package / "vectors" / name).is_file()]
+    return yaml.safe_load(path.read_text(encoding="utf-8"))
 
 
 @pytest.mark.parametrize("vector", _load("repr.yaml")["cases"], ids=lambda v: v["repr"])
@@ -63,7 +65,8 @@ def test_default_vectors_through_la_config_show(vector: dict, tmp_path: Path) ->
         text = vector["config"]
         data = yaml.safe_load(text)
         if isinstance(data, dict):
-            current = yaml.safe_load((VECTORS.parent / "config.yaml").read_text(encoding="utf-8"))["formats"][-1]
+            formats = yaml.safe_load((SHARED / "dr" / "config.yaml").read_text(encoding="utf-8"))["formats"]
+            current = formats["living-architecture.yaml"][-1]
             text = yaml.safe_dump({"format": current, **data})
             expected = {**expected, "format": current}
         (tmp_path / "living-architecture.yaml").write_text(text, encoding="utf-8")

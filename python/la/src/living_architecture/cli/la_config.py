@@ -1,12 +1,13 @@
 import argparse
 
-from deterministic_refactor import config
-from deterministic_refactor.config.command import command_argv, command_root, run_command
+from deterministic_refactor.config import run_get, run_show
+from deterministic_refactor.config.command import command_argv, command_root
+from living_architecture.config import la_view, run_command
 
 
 def _config(args: argparse.Namespace) -> int:
     root = command_root(args.root)
-    return config.run_show(root) if args.subcommand == "show" else config.run_get(root, args.key)
+    return run_show("la-config", root, la_view) if args.subcommand == "show" else run_get("la-config", root, args.key, la_view)
 
 
 def la_config(argv: list[str] | None = None) -> int:

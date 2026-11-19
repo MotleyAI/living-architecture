@@ -1,23 +1,18 @@
-# Shared contract
+# deterministic-refactor contract
 
-The source of truth both twins obey. Each package vendors a byte-copy of this directory (refreshed by
-`scripts/sync-shared`) and loads only that copy at runtime.
+The source of truth both dr twins obey. Each twin vendors a byte-copy of this directory (refreshed by
+`scripts/sync-shared`) and loads only that copy at runtime; la loads it through the dr library it runs with.
 
 | File | Defines |
 |---|---|
-| `schema/living-architecture.schema.json` | config keys, types, bounds, cross-field rules, defaults |
-| `schema/index.schema.json` | the `architecture/index.yaml` shape |
-| `schema/node.schema.json` | a node's `metadata { }` block in the LikeC4 model |
-| `schema/facts.schema.json` | one language's architecture facts, as one twin hands them to the other |
-| `schema/affected-request.schema.json`, `schema/affected-response.schema.json` | the change set one twin hands the other for `la-affected-tests`, and that language's selected tests |
-| `findings.yaml` | every finding, verdict and hint, by id; the arch-check ids |
-| `cli.yaml` | every command's options, positionals, subcommands, exit codes and native languages; the base-branch fetch timeout |
-| `conventions.yaml` | conventions-gate rules and the waiver syntax |
+| `schema/deterministic-refactor.schema.json` | dr's config keys (`format`, `exempt`, `commands.test`, `commands.typecheck`, `refactor`), their types and defaults |
+| `schema/rename-map.schema.json`, `schema/word-table.schema.json` | `dr-refactor rename-map`'s map and `generate-map`'s word table |
+| `config.yaml` | the committed config files dr reads, in order, and each file's released formats |
+| `findings.yaml` | every finding, verdict and hint a dr command prints, by id |
+| `cli.yaml` | every dr command's options, positionals, subcommands, exit codes and native languages; the public language keys; the base-branch fetch timeout |
 | `languages.yaml` | per-language extensions, test globs, comment prefix, suppression syntax, twin runner and install command |
-| `architecture.yaml` | the LikeC4 layout: the canonical model and views files, their blocks, the source extensions |
 | `regex-subset.md` | the portable regex subset of `issue_key_pattern` and `refactor.string_forms` |
 | `vectors/` | input/output vectors both test suites consume |
-| `scripts/` | the review helpers (bash, `gh`, `jq`) |
 
 ## YAML profile
 
@@ -66,13 +61,6 @@ non-printable characters become `\xNN`, `\uNNNN` or `\UNNNNNNNN`. Floats use the
 Matched against the POSIX repo-relative path, case-sensitively. A pattern is split on `/`; a `**` segment
 matches zero or more whole path segments; inside any other segment `*` matches any run of characters
 (dots included) and every other character is literal. Pinned by `vectors/glob.yaml`.
-
-## LikeC4 layout
-
-A LikeC4 source is a file under `architecture/`, at any depth, whose name ends in one of `source_extensions`
-(case-sensitive). A symlink to a file counts as a file; a symlinked directory is not descended into. A
-canonical path that exists but is not a regular file (or a symlink to one) is "not a file". Paths are listed
-repo-relative, in ascending code-point order (never UTF-16 order); violations within one file follow file order.
 
 ## Contract hash
 

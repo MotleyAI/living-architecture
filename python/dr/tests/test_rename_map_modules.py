@@ -425,7 +425,7 @@ STUB_FILES = {"pkg/a.py": "A = 1\n", "pkg/c.py": "C = 1\n", "pkg/e.py": "def f()
 
 
 def _stubbed(tmp_path: Path, entries: Entries) -> Path:
-    config = (f"format: {current_format()}\nrefactor:\n  python:\n    moved_module_stub: |\n"
+    config = (f"format: {current_format('living-architecture.yaml')}\nrefactor:\n  python:\n    moved_module_stub: |\n"
               '      raise_moved("{old}", "{new}", removal="{removal}")\n')
     root = _project(tmp_path, {**STUB_FILES, "living-architecture.yaml": config}, entries)
     subprocess.run(["git", "init", "-q", str(root)], check=True)

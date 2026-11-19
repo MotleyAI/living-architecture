@@ -1,4 +1,4 @@
-"""`la-typecheck`: each applicable language's checker against its committed, only-shrinking baseline."""
+"""`dr-typecheck`: each applicable language's checker against its committed, only-shrinking baseline."""
 
 from __future__ import annotations
 
@@ -13,7 +13,14 @@ from pathlib import Path
 from typing import Any
 
 from deterministic_refactor import changes, lang, twin
-from deterministic_refactor.config import ConfigError, LaConfig, find_repo_root, load_config, repo_languages
+from deterministic_refactor.config import (
+    ConfigError,
+    DrConfig,
+    find_repo_root,
+    language_settings,
+    load_config,
+    repo_languages,
+)
 from deterministic_refactor.contract import language, message, os_error_text
 from deterministic_refactor.lang.baseline import Key, diagnostics, marked
 from deterministic_refactor.lang.realign import Entries, merged, realigned, rekeyed
@@ -49,13 +56,13 @@ def _error(error: str) -> int:
     return 2
 
 
-def _command(config: LaConfig, lang_id: str) -> str | None:
+def _command(config: DrConfig, lang_id: str) -> str | None:
     return getattr(config.commands.typecheck, lang_id)
 
 
-def applicable(root: Path, config: LaConfig) -> list[str]:
+def applicable(root: Path, config: DrConfig) -> list[str]:
     """The repo languages whose typecheck command is not `null`."""
-    return [lang_id for lang_id in repo_languages(root, config) if _command(config, lang_id) is not None]
+    return [lang_id for lang_id in repo_languages(root, language_settings(root)) if _command(config, lang_id) is not None]
 
 
 def _executable(path: Path) -> bool:
@@ -311,12 +318,12 @@ def _check(root: Path, lang_id: str, command: str, *, write: bool, ref: str | No
     if lang_id == twin.NATIVE_LANGUAGE:
         return _check_native(root, command, write=write, ref=ref)
     try:
-        return twin.run_language("la-typecheck", lang_id, ["--write-baseline"] if write else [], cwd=root, repo_root=root)
+        return twin.run_language("dr-typecheck", lang_id, ["--write-baseline"] if write else [], cwd=root, repo_root=root)
     except twin.TwinError as exc:
         return _error(str(exc))
 
 
-def _setup(cwd: Path) -> tuple[Path, LaConfig] | int:
+def _setup(cwd: Path) -> tuple[Path, DrConfig] | int:
     root = find_repo_root(cwd)
     if not (root / ".git").exists():
         _err(message("typecheck.not-git"))
@@ -327,13 +334,13 @@ def _setup(cwd: Path) -> tuple[Path, LaConfig] | int:
         return _error(str(exc))
 
 
-def _check_only(root: Path, config: LaConfig, language_id: str, *, write: bool, ref: str | None) -> int:
+def _check_only(root: Path, config: DrConfig, language_id: str, *, write: bool, ref: str | None) -> int:
     if language_id != twin.NATIVE_LANGUAGE:
         return _error(message("typecheck.not-native", language=language_id))
     return _check_native(root, _command(config, language_id) or "", write=write, ref=ref)
 
 
-def _check_all(root: Path, config: LaConfig, *, write: bool, ref: str | None) -> int:
+def _check_all(root: Path, config: DrConfig, *, write: bool, ref: str | None) -> int:
     try:
         languages = applicable(root, config)
     except ConfigError as exc:
@@ -357,7 +364,7 @@ def _check_all(root: Path, config: LaConfig, *, write: bool, ref: str | None) ->
 
 
 def run(*, cwd: Path, write: bool, language_id: str | None, realign_from: str | None = None) -> int:
-    """`la-typecheck`; with `language_id` (the twins' protocol) only that native language, without a header. With
+    """`dr-typecheck`; with `language_id` (the twins' protocol) only that native language, without a header. With
     `realign_from`, the Python baseline is realigned from that commit before its check."""
     setup = _setup(cwd)
     if isinstance(setup, int):

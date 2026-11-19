@@ -77,7 +77,7 @@ def test_a_rename_whose_text_does_not_parse_is_refused(
 def test_a_stub_that_does_not_parse_is_refused(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], flags: list[str]
 ) -> None:
-    config = (f"format: {current_format()}\nrefactor:\n  python:\n    moved_module_stub: |\n"
+    config = (f"format: {current_format('living-architecture.yaml')}\nrefactor:\n  python:\n    moved_module_stub: |\n"
               "      import {new} as {removal}\n")
     root = write_project(tmp_path / "proj", {"pkg/a.py": "A = 1\n", "living-architecture.yaml": config})
     argv = [*flags, "rename", "--file", "pkg/a.py", "--new-name", "b", "--stub", "2.0"]

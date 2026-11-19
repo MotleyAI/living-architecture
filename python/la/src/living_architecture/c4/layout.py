@@ -9,8 +9,8 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-from deterministic_refactor.contract import architecture, message
 from living_architecture.c4.model import strip_line_comment
+from living_architecture.contract import architecture, message
 
 _WORD_RE = re.compile(r"\w+", re.ASCII)
 _UNBALANCED = "c4-layout.unbalanced-braces"

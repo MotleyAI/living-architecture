@@ -1,5 +1,6 @@
-from deterministic_refactor.config.command import command_argv, run_command
+from deterministic_refactor.config.command import command_argv
 from living_architecture import conventions
+from living_architecture.config import run_command
 
 
 def la_count_comments(argv: list[str] | None = None) -> int:

@@ -8,16 +8,20 @@ import shlex
 import shutil
 import subprocess
 import sys
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from pydantic import BaseModel, ConfigDict
+
 from deterministic_refactor import NATIVE_LANGUAGE, __version__
 from deterministic_refactor.contract import (
+    DR,
+    Snapshot,
     contract_hash,
     language,
     message,
     render_template,
-    schema,
     validate,
 )
 
@@ -33,18 +37,43 @@ class RelayedFailure(Exception):
     """The other twin's facts run failed; its stderr was already passed through."""
 
 
-def identity() -> str:
-    """This twin's `la-doctor --twin` line."""
-    return f"{NATIVE_LANGUAGE} {__version__} {contract_hash()}"
+class Identity(BaseModel):
+    """A package's twin as the other twin's probe sees it: the package, the doctor answering `--twin`, its version,
+    its contract hashes (its own first), and the contract holding the schemas of the documents it exchanges."""
+
+    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
+
+    package: str
+    doctor: str
+    version: str
+    hashes: tuple[str, ...]
+    contract: Snapshot
+
+    def line(self, lang: str) -> str:
+        """The `--twin` line the package's twin of `lang` prints."""
+        return " ".join((lang, self.version, *self.hashes))
 
 
-def _expected(lang: str) -> str:
-    return f"{lang} {__version__} {contract_hash()}"
+def dr_identity() -> Identity:
+    """dr's twin identity."""
+    cli = DR.yaml("cli.yaml")
+    return Identity(package=cli["package"], doctor=cli["doctor"], version=__version__, hashes=(contract_hash(),), contract=DR)
 
 
-def _hint(template_id: str, lang: str) -> str:
-    install = render_template(language(lang)["install"], {"version": __version__})
-    return message(template_id, language=lang, version=__version__, install=install)
+def identity(who: Identity | None = None) -> str:
+    """This twin's `--twin` line for `who` (default: dr)."""
+    return (who or dr_identity()).line(NATIVE_LANGUAGE)
+
+
+def install_command(lang: str, who: Identity, version: str | None = None) -> str:
+    """The command installing `who`'s twin of `lang` at `version` (default: its own)."""
+    return render_template(language(lang)["install"][who.package], {"version": version or who.version})
+
+
+def _hint(template_id: str, lang: str, who: Identity) -> str:
+    return message(
+        template_id, language=lang, package=who.package, version=who.version, install=install_command(lang, who)
+    )
 
 
 def _env() -> dict[str, str]:
@@ -62,13 +91,13 @@ class _Launcher:
         return [str(self.directory / command)] if self.directory is not None else [*self.runner, command]
 
 
-def _qualifies(argv: list[str], lang: str) -> bool:
-    """`argv` (an `la-doctor --twin` invocation) reports `lang` at this version and contract."""
+def _qualifies(argv: list[str], lang: str, who: Identity) -> bool:
+    """`argv` (a doctor's `--twin` invocation) reports `who`'s twin of `lang`."""
     try:
         proc = subprocess.run(argv, capture_output=True, env=_env(), check=False)
     except OSError:
         return False
-    return proc.returncode == 0 and proc.stdout.decode("utf-8", "replace").strip() == _expected(lang)
+    return proc.returncode == 0 and proc.stdout.decode("utf-8", "replace").strip() == who.line(lang)
 
 
 def _candidate_dirs(repo_root: Path) -> list[Path]:
@@ -76,10 +105,10 @@ def _candidate_dirs(repo_root: Path) -> list[Path]:
     return [*dirs, repo_root / "node_modules" / ".bin"]
 
 
-def _own_doctor() -> Path | None:
-    """The real path of the running entry point's sibling `la-doctor`; None when it is not a file."""
+def _own_doctor(who: Identity) -> Path | None:
+    """The real path of the running entry point's sibling doctor of `who`; None when it is not a file."""
     try:
-        doctor = (Path(sys.argv[0]).resolve().parent / "la-doctor").resolve(strict=True)
+        doctor = (Path(sys.argv[0]).resolve().parent / who.doctor).resolve(strict=True)
     except (OSError, RuntimeError):
         return None
     return doctor if doctor.is_file() else None
@@ -92,9 +121,9 @@ def _is_own(doctor: Path, own: Path | None) -> bool:
         return False
 
 
-def _discover_dir(lang: str, repo_root: Path) -> Path | None:
-    """The first directory (each real path once, never our own) whose executable `la-doctor` qualifies."""
-    own = _own_doctor()
+def _discover_dir(lang: str, repo_root: Path, who: Identity) -> Path | None:
+    """The first directory (each real path once, never our own) whose executable doctor of `who` qualifies."""
+    own = _own_doctor(who)
     probed: set[Path] = set()
     for directory in _candidate_dirs(repo_root):
         try:
@@ -104,23 +133,23 @@ def _discover_dir(lang: str, repo_root: Path) -> Path | None:
         if real in probed:
             continue
         probed.add(real)
-        doctor = directory / "la-doctor"
+        doctor = directory / who.doctor
         if _is_own(doctor, own):
             continue
-        if doctor.is_file() and os.access(doctor, os.X_OK) and _qualifies([str(doctor), "--twin"], lang):
+        if doctor.is_file() and os.access(doctor, os.X_OK) and _qualifies([str(doctor), "--twin"], lang, who):
             return directory
     return None
 
 
-def _launcher(lang: str, repo_root: Path) -> _Launcher:
-    """How to run the `lang` twin's commands; TwinError when no twin qualifies."""
-    directory = _discover_dir(lang, repo_root)
+def _launcher(lang: str, repo_root: Path, who: Identity) -> _Launcher:
+    """How to run `who`'s `lang` twin's commands; TwinError when no twin qualifies."""
+    directory = _discover_dir(lang, repo_root, who)
     if directory is not None:
         return _Launcher(directory, [])
-    runner = shlex.split(render_template(language(lang)["runner"], {"version": __version__}))
-    if shutil.which(runner[0]) is not None and _qualifies([*runner, "la-doctor", "--twin"], lang):
+    runner = shlex.split(render_template(language(lang)["runner"], {"package": who.package, "version": who.version}))
+    if shutil.which(runner[0]) is not None and _qualifies([*runner, who.doctor, "--twin"], lang, who):
         return _Launcher(None, runner)
-    raise TwinError(_hint("twin.unavailable", lang))
+    raise TwinError(_hint("twin.unavailable", lang, who))
 
 
 def refuse_if_forwarded(lang: str) -> None:
@@ -128,28 +157,27 @@ def refuse_if_forwarded(lang: str) -> None:
         raise TwinError(message("twin.forward-refused", language=lang))
 
 
-def _identity_ok(document: dict[str, Any], lang: str) -> bool:
-    return (document["language"], document["version"], document["contract_hash"]) == (lang, __version__, contract_hash())
+def _identity_ok(document: dict[str, Any], lang: str, who: Identity) -> bool:
+    expected = (lang, who.version, who.hashes[0])
+    return (document["language"], document["version"], document["contract_hash"]) == expected
 
 
-def _document(proc: subprocess.CompletedProcess[bytes], schema_name: str, lang: str) -> dict[str, Any] | None:
-    """The run's stdout as a schema-valid document of `lang` at this version; RelayedFailure on a non-zero exit."""
+def _document(
+    proc: subprocess.CompletedProcess[bytes], schema_name: str, lang: str, who: Identity
+) -> dict[str, Any] | None:
+    """The run's stdout as a document of `who`'s `lang` twin, valid against `who`'s schema; RelayedFailure on a
+    non-zero exit."""
     if proc.returncode > 0:
         raise RelayedFailure
     try:
         document = json.loads(proc.stdout.decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError):
         return None
-    if proc.returncode < 0 or not isinstance(document, dict) or validate(schema(schema_name), document):
+    if not isinstance(document, dict) or proc.returncode < 0:
         return None
-    return document if _identity_ok(document, lang) else None
-
-
-def _facts_consistent(document: dict[str, Any], expected_units: list[str], top_level: bool) -> bool:
-    if not top_level:
-        return {u["unit"] for u in document["units"]} >= set(expected_units)
-    tops = set(document["top_level_units"])
-    return not document["units"] and all({e["src"], e["dst"]} <= tops for e in document["edges"])
+    if validate(who.contract.schema(schema_name), document, (who.contract,)):
+        return None
+    return document if _identity_ok(document, lang, who) else None
 
 
 def _run(
@@ -163,68 +191,61 @@ def _run(
         raise TwinError(message("twin.launch-failed", language=lang, command=command)) from exc
 
 
-def request_facts(lang: str, repo_root: Path, expected_units: list[str], *, top_level: bool = False) -> dict[str, Any]:
-    """`lang`'s facts from its twin, schema-checked; RelayedFailure when its run fails, TwinError otherwise."""
+def request_document(
+    lang: str,
+    who: Identity,
+    command: str,
+    args: list[str],
+    schema_name: str,
+    *,
+    repo_root: Path,
+    cwd: Path | None = None,
+    stdin: bytes | None = None,
+    accept: Callable[[dict[str, Any]], bool] = lambda _document: True,
+) -> dict[str, Any]:
+    """`command ARGS` in `who`'s `lang` twin: its stdout as one document valid against `who`'s schema `schema_name`
+    that `accept` takes; RelayedFailure when the run fails, TwinError otherwise."""
     refuse_if_forwarded(lang)
-    argv = [*_launcher(lang, repo_root).argv("la-arch-check"), "--root", str(repo_root), "--language", lang, "--emit", "facts"]
-    if top_level:
-        argv.append("--top-level")
-    document = _document(_run(lang, "la-arch-check", argv, capture=True), "facts", lang)
-    if document is None or not _facts_consistent(document, expected_units, top_level):
-        raise TwinError(_hint(_FACTS_INVALID, lang))
+    argv = [*_launcher(lang, repo_root, who).argv(command), *args]
+    sys.stdout.flush()
+    sys.stderr.flush()
+    document = _document(_run(lang, command, argv, cwd=cwd, stdin=stdin, capture=True), schema_name, lang, who)
+    if document is None or not accept(document):
+        raise TwinError(_hint(_FACTS_INVALID, lang, who))
     return document
 
 
-def request_conventions_facts(lang: str, *, cwd: Path, paths: list[str], repo_root: Path) -> list[dict[str, Any]]:
-    """`lang`'s conventions facts for `paths` (relative to `cwd`), one per path in order; errors as `request_facts`."""
+def run_language(
+    command: str, lang: str, args: list[str], *, cwd: Path, repo_root: Path, who: Identity | None = None
+) -> int:
+    """`command --language lang ARGS` in `who`'s (default: dr's) `lang` twin, streams relayed; its exit code (a
+    signal: 2)."""
     refuse_if_forwarded(lang)
-    argv = [*_launcher(lang, repo_root).argv("la-check-conventions"), "--language", lang, "--emit", "facts"]
-    sys.stdout.flush()
-    sys.stderr.flush()
-    proc = _run(lang, "la-check-conventions", argv, cwd=cwd, stdin=json.dumps(paths).encode("utf-8"), capture=True)
-    document = _document(proc, "conventions-facts", lang)
-    if document is None or [f["path"] for f in document["files"]] != paths:
-        raise TwinError(_hint(_FACTS_INVALID, lang))
-    return document["files"]
-
-
-def request_affected(lang: str, changes: list[dict[str, Any]], *, repo_root: Path) -> list[str]:
-    """`lang`'s selected tests for the change list, from its twin run at the repo root; errors as `request_facts`."""
-    refuse_if_forwarded(lang)
-    argv = [*_launcher(lang, repo_root).argv("la-affected-tests"), "--language", lang]
-    sys.stdout.flush()
-    sys.stderr.flush()
-    stdin = json.dumps({"changes": changes}).encode("utf-8")
-    document = _document(_run(lang, "la-affected-tests", argv, cwd=repo_root, stdin=stdin, capture=True), "affected-response", lang)
-    if document is None:
-        raise TwinError(_hint(_FACTS_INVALID, lang))
-    return document["tests"]
-
-
-def run_language(command: str, lang: str, args: list[str], *, cwd: Path, repo_root: Path) -> int:
-    """`command --language lang ARGS` in the `lang` twin, streams relayed; its exit code (a signal: 2)."""
-    refuse_if_forwarded(lang)
-    argv = [*_launcher(lang, repo_root).argv(command), "--language", lang, *args]
+    argv = [*_launcher(lang, repo_root, who or dr_identity()).argv(command), "--language", lang, *args]
     sys.stdout.flush()
     sys.stderr.flush()
     code = _run(lang, command, argv, cwd=cwd).returncode
     return code if code >= 0 else 2
 
 
-def forward(command: str, lang: str, argv: list[str], *, repo_root: Path) -> int:
-    """`command ARGV` in the `lang` twin from the current directory, streams relayed; its exit code (a signal: 128+N)."""
+def forward(command: str, lang: str, argv: list[str], *, repo_root: Path, who: Identity | None = None) -> int:
+    """`command ARGV` in `who`'s (default: dr's) `lang` twin from the current directory, streams relayed; its exit
+    code (a signal: 128+N)."""
     refuse_if_forwarded(lang)
     sys.stdout.flush()
     sys.stderr.flush()
-    code = _run(lang, command, [*_launcher(lang, repo_root).argv(command), *argv]).returncode
+    code = _run(lang, command, [*_launcher(lang, repo_root, who or dr_identity()).argv(command), *argv]).returncode
     return code if code >= 0 else 128 - code
 
 
-def run_captured(command: str, lang: str, args: list[str], *, repo_root: Path) -> tuple[int, bytes]:
-    """`command ARGS` in the `lang` twin from the current directory: its exit code (a signal: 2) and stdout; stderr relayed."""
+def run_captured(
+    command: str, lang: str, args: list[str], *, repo_root: Path, who: Identity | None = None
+) -> tuple[int, bytes]:
+    """`command ARGS` in `who`'s (default: dr's) `lang` twin from the current directory: its exit code (a signal: 2)
+    and stdout; stderr relayed."""
     refuse_if_forwarded(lang)
     sys.stdout.flush()
     sys.stderr.flush()
-    argv = [*_launcher(lang, repo_root).argv(command), *args]
+    argv = [*_launcher(lang, repo_root, who or dr_identity()).argv(command), *args]
     proc = _run(lang, command, argv, capture=True)
     return (proc.returncode if proc.returncode >= 0 else 2), proc.stdout

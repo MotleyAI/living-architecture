@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from conformance_runner import fake_gh_cli
-from deterministic_refactor.contract import snapshot_dir
+from living_architecture.contract import snapshot_dir
 
 SCRIPTS_DIR = snapshot_dir() / "scripts"
 

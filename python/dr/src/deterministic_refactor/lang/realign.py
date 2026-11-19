@@ -1,4 +1,4 @@
-"""`la-typecheck --realign-from`: basedpyright baseline entries carried to where their errors are now."""
+"""`dr-typecheck --realign-from`: basedpyright baseline entries carried to where their errors are now."""
 
 from __future__ import annotations
 

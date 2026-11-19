@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from typing import NoReturn
 
-from deterministic_refactor.contract import manifest, script_path
+from living_architecture.contract import manifest, script_path
 
 
 def run_shim(command: str, argv: list[str]) -> NoReturn:

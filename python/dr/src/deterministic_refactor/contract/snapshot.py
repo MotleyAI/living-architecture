@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-from functools import cache
 from pathlib import Path
 from typing import Any
 
@@ -12,10 +11,6 @@ from deterministic_refactor.contract.glob import glob_match
 from deterministic_refactor.contract.yaml_profile import load_yaml
 
 HASH_FILE = "CONTRACT_HASH"
-
-
-def snapshot_dir() -> Path:
-    return Path(__file__).resolve().parent / "data"
 
 
 def _files(root: Path) -> list[Path]:
@@ -36,40 +31,74 @@ def compute_hash(root: Path) -> str:
     return digest.hexdigest()
 
 
+class Snapshot:
+    """A vendored contract directory: its recorded hash and its data files."""
+
+    def __init__(self, root: Path) -> None:
+        self.root = root
+        self._yaml: dict[str, Any] = {}
+        self._schemas: dict[str, dict[str, Any]] = {}
+
+    def contract_hash(self) -> str:
+        """The hash recorded when the snapshot was vendored."""
+        return (self.root / HASH_FILE).read_text(encoding="utf-8").strip()
+
+    def yaml(self, name: str) -> Any:
+        if name not in self._yaml:
+            self._yaml[name] = load_yaml((self.root / name).read_text(encoding="utf-8"))
+        return self._yaml[name]
+
+    def schema(self, name: str) -> dict[str, Any]:
+        if name not in self._schemas:
+            path = self.root / "schema" / f"{name}.schema.json"
+            self._schemas[name] = json.loads(path.read_text(encoding="utf-8"))
+        return self._schemas[name]
+
+    def schema_names(self) -> list[str]:
+        """Every schema's name, as `schema` takes it."""
+        return sorted(p.name.removesuffix(".schema.json") for p in (self.root / "schema").glob("*.schema.json"))
+
+    def findings(self) -> dict[str, str]:
+        return self.yaml("findings.yaml")["findings"]
+
+    def manifest(self) -> dict[str, Any]:
+        return self.yaml("cli.yaml")["commands"]
+
+    def script_path(self, name: str) -> Path:
+        return self.root / "scripts" / name
+
+
+DR = Snapshot(Path(__file__).resolve().parent / "data")
+
+
+def snapshot_dir() -> Path:
+    return DR.root
+
+
 def contract_hash() -> str:
-    """The hash recorded when the snapshot was vendored."""
-    return (snapshot_dir() / HASH_FILE).read_text(encoding="utf-8").strip()
+    """The hash recorded when dr's snapshot was vendored."""
+    return DR.contract_hash()
 
 
-@cache
-def _yaml(name: str) -> Any:
-    return load_yaml((snapshot_dir() / name).read_text(encoding="utf-8"))
-
-
-@cache
 def schema(name: str) -> dict[str, Any]:
-    return json.loads((snapshot_dir() / "schema" / f"{name}.schema.json").read_text(encoding="utf-8"))
+    return DR.schema(name)
 
 
 def schema_names() -> list[str]:
-    """Every shared schema's name, as `schema` takes it."""
-    return sorted(p.name.removesuffix(".schema.json") for p in (snapshot_dir() / "schema").glob("*.schema.json"))
-
-
-def _cli() -> Any:
-    return _yaml("cli.yaml")
+    """Every dr schema's name, as `schema` takes it."""
+    return DR.schema_names()
 
 
 def findings() -> dict[str, str]:
-    return _yaml("findings.yaml")["findings"]
-
-
-def check_ids() -> frozenset[str]:
-    return frozenset(_yaml("findings.yaml")["check_ids"])
+    return DR.findings()
 
 
 def manifest() -> dict[str, Any]:
-    return _cli()["commands"]
+    return DR.manifest()
+
+
+def _cli() -> Any:
+    return DR.yaml("cli.yaml")
 
 
 def base_fetch_timeout() -> float:
@@ -87,13 +116,18 @@ def timing_phases() -> tuple[str, ...]:
     return tuple(_cli()["timing_phases"])
 
 
+def language_keys() -> list[str]:
+    """The public `lang.<language>.<key>` keys."""
+    return list(_cli()["language_keys"])
+
+
 def language(name: str) -> dict[str, Any]:
-    return _yaml("languages.yaml")[name]
+    return DR.yaml("languages.yaml")[name]
 
 
 def language_ids() -> list[str]:
     """Every language of the registry, in id order."""
-    return sorted(_yaml("languages.yaml"))
+    return sorted(DR.yaml("languages.yaml"))
 
 
 def language_of(path: str) -> str | None:
@@ -110,32 +144,11 @@ def is_test_file(path: str) -> bool:
     return lang_id is not None and any(glob_match(g, path) for g in language(lang_id)["test_globs"])
 
 
-def conventions() -> dict[str, Any]:
-    return _yaml("conventions.yaml")
+def config_files() -> list[str]:
+    """The committed config files a dr command reads, in order: the first present at the repo root."""
+    return list(DR.yaml("config.yaml")["files"])
 
 
-def architecture() -> dict[str, Any]:
-    return _yaml("architecture.yaml")
-
-
-def _config() -> dict[str, Any]:
-    return _yaml("config.yaml")
-
-
-def config_file() -> str:
-    """The committed per-repo config file, relative to the repo root."""
-    return _config()["file"]
-
-
-def local_config_file() -> str:
-    """One contributor's git-ignored overrides of it."""
-    return _config()["local_file"]
-
-
-def config_formats() -> list[str]:
-    """Every released repo format, oldest first."""
-    return list(_config()["formats"])
-
-
-def script_path(name: str) -> Path:
-    return snapshot_dir() / "scripts" / name
+def config_formats(file: str) -> list[str]:
+    """Every released format of config file `file`, oldest first."""
+    return list(DR.yaml("config.yaml")["formats"][file])

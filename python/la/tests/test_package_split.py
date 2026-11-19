@@ -61,6 +61,8 @@ def _python_dr_imports(root: Path) -> set[str]:
         for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
             if isinstance(node, ast.Import):
                 modules |= {alias.name for alias in node.names}
+            elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module == "deterministic_refactor":
+                modules |= {f"{node.module}.{alias.name}" for alias in node.names}
             elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
                 modules |= {node.module, *(f"{node.module}.{alias.name}" for alias in node.names)}
     return {m for m in modules if m.split(".")[0] == "deterministic_refactor"}

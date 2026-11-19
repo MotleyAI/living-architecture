@@ -38,8 +38,9 @@ def _add_arguments(parser: argparse.ArgumentParser, spec: dict[str, Any]) -> Non
         groups.get(_dest(option), parser).add_argument(option["name"], **kwargs)
 
 
-def build_parser(command: str) -> argparse.ArgumentParser:
-    spec = manifest()[command]
+def build_parser(command: str, commands: dict[str, Any] | None = None) -> argparse.ArgumentParser:
+    """`command`'s parser from `commands` (default: dr's manifest)."""
+    spec = (commands or manifest())[command]
     parser = argparse.ArgumentParser(prog=command, description=spec["help"], allow_abbrev=False)
     _add_arguments(parser, spec)
     subcommands = spec.get("subcommands", {})
@@ -61,10 +62,10 @@ def _subcommand_after_double_dash(argv: list[str], subcommands: dict[str, Any]) 
     return [*argv[:i], argv[i + 1], "--", *argv[i + 2 :]]
 
 
-def parse(command: str, argv: list[str]) -> argparse.Namespace:
-    """Parse `argv` for `command`; a usage error exits 2."""
-    spec = manifest()[command]
-    parser = build_parser(command)
+def parse(command: str, argv: list[str], commands: dict[str, Any] | None = None) -> argparse.Namespace:
+    """Parse `argv` for `command` of `commands` (default: dr's manifest); a usage error exits 2."""
+    spec = (commands or manifest())[command]
+    parser = build_parser(command, commands)
     args = parser.parse_args(_subcommand_after_double_dash(argv, spec.get("subcommands", {})))
     required = spec.get("require_one_of")
     if required and not any(getattr(args, dest) for dest in required):

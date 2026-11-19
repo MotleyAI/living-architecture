@@ -12,18 +12,9 @@ from pydantic import BaseModel, ConfigDict
 
 from deterministic_refactor import changes, lang, twin
 from deterministic_refactor.config import ConfigError, find_repo_root
-from deterministic_refactor.contract import (
-    contract_hash,
-    is_test_file,
-    language,
-    language_ids,
-    language_of,
-    message,
-    os_error_text,
-    schema,
-    validate,
-)
+from deterministic_refactor.contract import is_test_file, language, language_ids, language_of, os_error_text
 from living_architecture import NATIVE_LANGUAGE, __version__
+from living_architecture.contract import contract_hash, identity, message, schema, validate
 
 __all__ = ["run", "serve"]
 
@@ -112,7 +103,12 @@ def _changes(repo_root: Path, base: str) -> list[Change]:
 
 def _request(lang_id: str, changed: list[Change], repo_root: Path) -> list[str]:
     try:
-        return twin.request_affected(lang_id, [c.model_dump() for c in changed], repo_root=repo_root)
+        stdin = json.dumps({"changes": [c.model_dump() for c in changed]}).encode("utf-8")
+        document = twin.request_document(
+            lang_id, identity(), "la-affected-tests", ["--language", lang_id], "affected-response",
+            repo_root=repo_root, cwd=repo_root, stdin=stdin,
+        )
+        return document["tests"]
     except twin.RelayedFailure as exc:
         raise AffectedError("") from exc
     except twin.TwinError as exc:

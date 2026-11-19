@@ -9,7 +9,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 from deterministic_refactor import twin
-from deterministic_refactor.config import ConfigError, find_repo_root, load_config, repo_languages
+from deterministic_refactor.config import ConfigError, find_repo_root, language_settings, repo_languages
 from deterministic_refactor.contract import glob_match, language, language_ids, language_of, message
 from deterministic_refactor.refactor.map_file import MapError, load_map, map_language
 from deterministic_refactor.refactor.timings import report
@@ -26,7 +26,7 @@ def _declaration(path: str, lang_id: str) -> bool:
 
 def _expansion_languages(root: Path) -> list[str]:
     try:
-        return repo_languages(root, load_config(root)) or language_ids()
+        return repo_languages(root, language_settings(root)) or language_ids()
     except ConfigError as exc:
         raise RoutingError(str(exc)) from exc
 

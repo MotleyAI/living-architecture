@@ -85,7 +85,10 @@ module-name = "living_architecture"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-n auto --dist worksteal -m 'not integration'"
-markers = ["integration: runs a real external checker; select with -m integration"]
+markers = [
+    "integration: runs a real external checker; select with -m integration",
+    "dr_check: runs la-doctor's real check of the dr installation",
+]
 
 [tool.uv.sources]
 deterministic-refactor = { workspace = true }

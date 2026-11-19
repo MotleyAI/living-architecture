@@ -12,7 +12,7 @@ from living_architecture.c4.exempt_move import ExemptNotMigratable, move_exempt
 
 REPO_ROOT = next(p for p in Path(__file__).resolve().parents if (p / "shared").is_dir() and (p / "plugin").is_dir())
 CASES: list[dict[str, Any]] = yaml.safe_load(
-    (REPO_ROOT / "shared" / "vectors" / "exempt-move.yaml").read_text(encoding="utf-8")
+    (REPO_ROOT / "shared" / "la" / "vectors" / "exempt-move.yaml").read_text(encoding="utf-8")
 )["cases"]
 
 

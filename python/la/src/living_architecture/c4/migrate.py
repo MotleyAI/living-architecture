@@ -28,7 +28,7 @@ from deterministic_refactor.config import (
     released_formats,
     stamp_format,
 )
-from deterministic_refactor.contract import config_file, load_yaml, message, os_error_text
+from deterministic_refactor.contract import load_yaml, os_error_text
 from living_architecture.c4.exempt_move import ExemptNotMigratable, move_exempt
 from living_architecture.c4.index import INDEX_REL, Index, load_index
 from living_architecture.c4.layout import (
@@ -52,6 +52,7 @@ from living_architecture.c4.model import (
     strip_line_comment,
 )
 from living_architecture.c4.views import EMPTY_VIEWS, parse_views
+from living_architecture.contract import config_file, message
 
 
 class MigrateError(Exception):
@@ -551,7 +552,7 @@ def _declared(root: Path, formats: list[str]) -> tuple[str | None, str] | None:
     """The declared format (None when absent) and the config text; None when it is current; MigrateError when it
     cannot be migrated."""
     try:
-        committed = read_committed(root)
+        committed = read_committed(root, config_file())
     except ConfigError as exc:
         raise MigrateError(str(exc)) from exc
     if committed is None:
@@ -560,7 +561,7 @@ def _declared(root: Path, formats: list[str]) -> tuple[str | None, str] | None:
     if FORMAT_KEY not in data:
         return None, committed.text
     current, declared = formats[-1], data[FORMAT_KEY]
-    problem = format_problem(data, current)
+    problem = format_problem(data, config_file(), current)
     if problem is None:
         return None
     if not is_version(declared) or compare_versions(declared, current) > 0:
@@ -573,7 +574,7 @@ def _declared(root: Path, formats: list[str]) -> tuple[str | None, str] | None:
 def migrate(root: Path, steps: list[MigrationStep] | None = None, formats: list[str] | None = None) -> list[str]:
     """Migrate the repo at `root` through `steps` (default: STEPS) up to the last of `formats` (default: the released
     ones); the lines to print. MigrateError or OSError having changed nothing, unless named."""
-    formats = formats or released_formats()
+    formats = formats or released_formats(config_file())
     current = formats[-1]
     found = _declared(root, formats)
     if found is None:

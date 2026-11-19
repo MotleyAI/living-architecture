@@ -5,7 +5,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from deterministic_refactor.contract import YAMLError, load_yaml, message, normalize
+from deterministic_refactor.contract import YAMLError, load_yaml, normalize
+from living_architecture.contract import message
 
 _KEY_LINE = re.compile(r"conventions:[ \t]*(?:#.*)?")
 _EXEMPT_LINE = re.compile(r"exempt:(?:[ \t]|$)")

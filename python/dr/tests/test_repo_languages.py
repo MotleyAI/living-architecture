@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from deterministic_refactor.config import ConfigError, load_config, repo_languages
+from deterministic_refactor.config import ConfigError, language_settings, repo_languages
 from deterministic_refactor.contract import message
 
 
@@ -14,7 +14,7 @@ def _repo(root: Path, files: dict[str, str]) -> list[str]:
     for rel, text in files.items():
         (root / rel).parent.mkdir(parents=True, exist_ok=True)
         (root / rel).write_text(text, encoding="utf-8")
-    return repo_languages(root, load_config(root))
+    return repo_languages(root, language_settings(root))
 
 
 def test_stray_script_is_not_a_language(tmp_path: Path) -> None:
@@ -55,7 +55,7 @@ def test_tracked_file_counts_even_when_ignored(tmp_path: Path) -> None:
     subprocess.run(["git", "init", "-q", "-b", "main"], cwd=tmp_path, check=True)
     subprocess.run(["git", "add", "out/b.ts"], cwd=tmp_path, check=True)
     (tmp_path / ".gitignore").write_text("out/\n", encoding="utf-8")
-    assert repo_languages(tmp_path, load_config(tmp_path)) == ["typescript"]
+    assert repo_languages(tmp_path, language_settings(tmp_path)) == ["typescript"]
 
 
 def _without_git(root: Path, monkeypatch: pytest.MonkeyPatch, *, repo: bool) -> None:
@@ -68,11 +68,11 @@ def _without_git(root: Path, monkeypatch: pytest.MonkeyPatch, *, repo: bool) -> 
 
 def test_git_missing_inside_a_repo_is_an_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     _without_git(tmp_path, monkeypatch, repo=True)
-    config = load_config(tmp_path)
+    settings = language_settings(tmp_path)
     with pytest.raises(ConfigError, match=message("config.git-failed")):
-        repo_languages(tmp_path, config)
+        repo_languages(tmp_path, settings)
 
 
 def test_git_missing_outside_a_repo_lists_nothing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     _without_git(tmp_path, monkeypatch, repo=False)
-    assert repo_languages(tmp_path, load_config(tmp_path)) == []
+    assert repo_languages(tmp_path, language_settings(tmp_path)) == []

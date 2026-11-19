@@ -7,7 +7,7 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
-from deterministic_refactor.contract import architecture, message
+from living_architecture.contract import architecture, message
 
 
 class Element(BaseModel):

@@ -1,4 +1,4 @@
-"""la-typecheck: command splitting, exit combination, which languages apply and the pyright#11919 patch."""
+"""dr-typecheck: command splitting, exit combination, which languages apply and the pyright#11919 patch."""
 
 import json
 import os
@@ -8,12 +8,12 @@ from pathlib import Path
 import pytest
 import yaml
 
-from deterministic_refactor import config as la_config
+from deterministic_refactor import config as dr_config
 from deterministic_refactor import lang, typecheck
+from deterministic_refactor.cli.dr_typecheck import dr_typecheck
 from deterministic_refactor.contract import message
-from living_architecture.cli.la_typecheck import la_typecheck
 
-VECTORS = next(p for p in Path(__file__).resolve().parents if (p / "shared").is_dir() and (p / "plugin").is_dir()) / "shared" / "vectors"
+VECTORS = next(p for p in Path(__file__).resolve().parents if (p / "shared").is_dir() and (p / "plugin").is_dir()) / "shared" / "dr" / "vectors"
 SPLITS = yaml.safe_load((VECTORS / "command-split.yaml").read_text(encoding="utf-8"))["cases"]
 PATCHED = '{"outcome": "patched", "version": "1.40.2", "count": 1}'
 FAKE_CHECKER = """#!/bin/sh
@@ -68,7 +68,7 @@ def _checker_calls(root: Path) -> list[str]:
 def run(monkeypatch: pytest.MonkeyPatch, capfd: pytest.CaptureFixture[str]):
     def go(root: Path, *argv: str) -> tuple[int, str, str]:
         monkeypatch.chdir(root)
-        code = la_typecheck(list(argv))
+        code = dr_typecheck(list(argv))
         out, err = capfd.readouterr()
         return code, out, err
 
@@ -84,14 +84,14 @@ def test_stray_script_checks_only_python(tmp_path: Path, run) -> None:
 
 
 def test_explicit_entry_without_markers(tmp_path: Path, run) -> None:
-    config = f"format: {la_config.current_format()}\ncommands: {{typecheck: {{python: basedpyright -p python}}}}\n"
+    config = f"format: {dr_config.current_format('living-architecture.yaml')}\ncommands: {{typecheck: {{python: basedpyright -p python}}}}\n"
     root = _repo(tmp_path, {"living-architecture.yaml": config, "python/a.py": "X = 1\n"})
     assert run(root)[0] == 0
     assert _checker_calls(root) == ["-p python"]
 
 
 def test_null_turns_a_language_off(tmp_path: Path, run) -> None:
-    config = f"format: {la_config.current_format()}\ncommands: {{typecheck: {{python: null}}}}\n"
+    config = f"format: {dr_config.current_format('living-architecture.yaml')}\ncommands: {{typecheck: {{python: null}}}}\n"
     root = _repo(tmp_path, {"living-architecture.yaml": config, "pyproject.toml": "", "a.py": "X = 1\n"})
     code, _, err = run(root)
     assert (code, _checker_calls(root)) == (0, [])
@@ -138,13 +138,13 @@ def _log(root: Path, name: str) -> str:
 
 
 PYTHON_REPO = {"pyproject.toml": "", "a.py": "X = 1\n"}
-NOT_APPLIED = ("la-typecheck: python: basedpyright loaded no basedpyright, so the pyright#11919 patch was not applied;"
+NOT_APPLIED = ("dr-typecheck: python: basedpyright loaded no basedpyright, so the pyright#11919 patch was not applied;"
                " run basedpyright under Node and keep NODE_OPTIONS")
 UNVERIFIED = '{"outcome": "unverified", "version": "1.39.10", "count": 1}'
-UNVERIFIED_TEXT = ("la-typecheck: python: the pyright#11919 patch is verified for basedpyright 1.40.2, but 1.39.10 is"
+UNVERIFIED_TEXT = ("dr-typecheck: python: the pyright#11919 patch is verified for basedpyright 1.40.2, but 1.39.10 is"
                    " installed; pin a verified version")
 MISMATCH = '{"outcome": "mismatch", "version": "1.40.2", "count": 0}'
-MISMATCH_TEXT = ("la-typecheck: python: basedpyright 1.40.2 has the pyright#11919 line 0 times, not once;"
+MISMATCH_TEXT = ("dr-typecheck: python: basedpyright 1.40.2 has the pyright#11919 line 0 times, not once;"
                  " reinstall basedpyright")
 PATCH_TEXTS = (NOT_APPLIED, UNVERIFIED_TEXT, MISMATCH_TEXT)
 
@@ -475,7 +475,7 @@ def test_a_baseline_that_cannot_be_read_exits_2(tmp_path: Path, run) -> None:
     (root / BASELINE).chmod(0o000)
     code, _, err = run(root, "--realign-from", "HEAD")
     assert (code, _checker_calls(root)) == (2, [])
-    assert err.splitlines()[-1].startswith("la-typecheck: ")
+    assert err.splitlines()[-1].startswith("dr-typecheck: ")
 
 
 def test_a_linked_baseline_stays_a_link(tmp_path: Path, run) -> None:

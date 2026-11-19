@@ -3,22 +3,15 @@ from pathlib import Path
 
 import pytest
 
-from deterministic_refactor.config import (
-    CONFIG_FILENAME,
-    ConfigError,
-    explicit_typecheck,
-    find_repo_root,
-    load_config,
-    load_raw,
-    resolve,
-)
-from deterministic_refactor.contract import config_file, local_config_file
+from deterministic_refactor.config import ConfigError, explicit_typecheck, find_repo_root
+from living_architecture.config import load_config, load_raw, resolve
+from living_architecture.contract import config_file, local_config_file
 
 DEFAULT_ISSUE_KEY_PATTERN = r"[A-Z][A-Z0-9]+-\d+"
 
 
 def _write(root: Path, text: str) -> None:
-    (root / CONFIG_FILENAME).write_text(text, encoding="utf-8")
+    (root / config_file()).write_text(text, encoding="utf-8")
 
 
 def test_missing_file_gives_defaults(tmp_path: Path) -> None:
@@ -273,7 +266,7 @@ def test_committed_error_with_valid_local_names_committed_file(tmp_path: Path, t
 def test_explicit_typecheck_reads_the_merged_data(tmp_path: Path) -> None:
     _write(tmp_path, "commands: {typecheck: {python: basedpyright -p python}}\n")
     _write_local(tmp_path, "tracker: none\n")
-    assert explicit_typecheck(tmp_path) == {"python"}
+    assert explicit_typecheck(load_raw(tmp_path).data) == {"python"}
 
 
 def test_a_moved_module_stub_is_read_from_the_refactor_section(tmp_path: Path) -> None:

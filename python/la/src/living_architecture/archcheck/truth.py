@@ -5,11 +5,11 @@ from __future__ import annotations
 from functools import cache
 from pathlib import Path
 
-from deterministic_refactor.contract import message
 from deterministic_refactor.lang import import_targets, source_modules
 from living_architecture.archcheck.index import ArchCheckError, Layout, declared_languages, load_index
 from living_architecture.archcheck.nodes import build_node_map, unit_to_element
 from living_architecture.c4 import is_or_ancestor, layout_problem, parse_model
+from living_architecture.contract import message
 
 
 def _attribute(module: str, units: dict[str, str]) -> str | None:

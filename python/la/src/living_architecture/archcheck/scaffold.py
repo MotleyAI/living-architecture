@@ -10,8 +10,8 @@ from pathlib import Path
 from typing import Any
 
 from deterministic_refactor import twin
-from deterministic_refactor.contract import message, os_error_text
-from living_architecture.archcheck.facts import Facts, native_top_level_facts
+from deterministic_refactor.contract import os_error_text
+from living_architecture.archcheck.facts import Facts, native_top_level_facts, requested_facts
 from living_architecture.archcheck.index import (
     INDEX_REL,
     ArchCheckError,
@@ -29,6 +29,7 @@ from living_architecture.c4 import (
     sources,
     views_file,
 )
+from living_architecture.contract import message
 
 ARC42_REL = "architecture/system.arc42.md"
 
@@ -132,7 +133,7 @@ def _arc42(files: dict[str, str], languages: list[str]) -> str:
 def _facts(root: Path, index: dict[str, Any], language: str) -> Facts:
     if language == twin.NATIVE_LANGUAGE:
         return native_top_level_facts(resolve_layout(root, index[language]), language)
-    return Facts.model_validate(twin.request_facts(language, root, [], top_level=True))
+    return requested_facts(language, root, [], top_level=True)
 
 
 def scaffold(root: Path) -> dict[str, str]:

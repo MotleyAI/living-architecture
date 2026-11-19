@@ -6,7 +6,7 @@ command: la-typecheck
 args:
 - --write-baseline
 normalize:
-- pattern: \A(?=[^\n]*dr-typecheck)(?=[^\n]*0\.13\.0)[^\n]*
+- pattern: \A(?=[^\n]*dr-typecheck)(?=[^\n]*0\.14\.0)[^\n]*
   replace: <DEPRECATED dr-typecheck 0.14.0>
 expect:
   exit: 0

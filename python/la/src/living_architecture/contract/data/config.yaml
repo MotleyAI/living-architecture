@@ -1,0 +1,3 @@
+# la's committed config file at the repo root, and one contributor's git-ignored overrides of its per-person keys.
+file: living-architecture.yaml
+local_file: living-architecture.local.yaml

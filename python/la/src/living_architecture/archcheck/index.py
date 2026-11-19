@@ -12,12 +12,10 @@ from deterministic_refactor.contract import (
     YAMLError,
     language_ids,
     load_yaml,
-    message,
     os_error_text,
-    schema,
-    validate,
 )
 from living_architecture.c4 import INDEX_REL
+from living_architecture.contract import message, schema, validate
 
 
 class ArchCheckError(Exception):

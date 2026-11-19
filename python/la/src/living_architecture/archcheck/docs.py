@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from deterministic_refactor.contract import message
 from living_architecture.archcheck.nodes import NodeMap
 from living_architecture.c4 import ARCH_DIR, DOC_SUFFIX, architecture_files, element_doc, is_flat_doc
+from living_architecture.contract import message
 
 SYSTEM_DOC = f"{ARCH_DIR}system{DOC_SUFFIX}"
 

@@ -109,7 +109,7 @@ def git(root: Path, *args: str) -> str:
 
 def git_project(root: Path, files: dict[str, str], config: str | None = None) -> Path:
     """`write_project` as a git repo (prose files come from git); `config` is appended to a repo config."""
-    extra = {} if config is None else {"living-architecture.yaml": f"format: {current_format()}\n{config}"}
+    extra = {} if config is None else {"living-architecture.yaml": f"format: {current_format('living-architecture.yaml')}\n{config}"}
     write_project(root, {**files, **extra})
     git(root, "init", "-q", "-b", "main")
     return root
@@ -130,7 +130,7 @@ def configure_typecheck(root: Path, command: str | None) -> None:
         git(root, "init", "-q", "-b", "main")
     value = "null" if command is None else command
     (root / "living-architecture.yaml").write_text(
-        f"format: {current_format()}\ncommands: {{typecheck: {{python: {value}}}}}\n", encoding="utf-8"
+        f"format: {current_format('living-architecture.yaml')}\ncommands: {{typecheck: {{python: {value}}}}}\n", encoding="utf-8"
     )
 
 

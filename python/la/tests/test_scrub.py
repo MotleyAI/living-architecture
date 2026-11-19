@@ -20,7 +20,7 @@ README_COPIES = ("README.md", "python/la/README.md")
 # links to it and to its example principles document.
 FILE_ALLOWED = {
     **{f"python/{package}/pyproject.toml": ('maintainers = [{ name = "Egor Kraev" }]',) for package in ("dr", "la")},
-    "node/package.json": ('"maintainers": [\n    "Egor Kraev"\n  ]',),
+    **{f"node/{package}/package.json": ('"maintainers": [\n    "Egor Kraev"\n  ]',) for package in ("dr", "la")},
     **{
         readme: (
             "[SLayer](https://github.com/MotleyAI/slayer)",

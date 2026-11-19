@@ -993,7 +993,7 @@ def test_pr_reviewers_sonar_context_matched_case_insensitively(fake_gh, run_scri
 @pytest.mark.parametrize(("slug", "status"), [("sonarqubecloud", "queued"), ("SonarCloud", "completed")])
 def test_pr_reviewers_sonar_by_check_suite_only(fake_gh, run_script, slug, status):
     (fake_gh.tmp / "living-architecture.yaml").write_text(
-        f"format: {current_format()}\nreviewers: {{sonar: {{project_key: cfg_key}}}}\n", encoding="utf-8")
+        f"format: {current_format('living-architecture.yaml')}\nreviewers: {{sonar: {{project_key: cfg_key}}}}\n", encoding="utf-8")
     out = _reviewers(fake_gh, run_script, [TESTS_RUN], [], suites=[_suite(slug, status)])
     assert out["sonar"] == {"present": True, "project_key": "cfg_key"}
 

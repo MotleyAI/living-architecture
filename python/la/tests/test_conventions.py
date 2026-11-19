@@ -6,9 +6,9 @@ from pathlib import Path
 import pytest
 
 from deterministic_refactor import config
-from deterministic_refactor.config import CONFIG_FILENAME
 from living_architecture import conventions
 from living_architecture.cli.la_check_conventions import la_check_conventions
+from living_architecture.contract import config_file
 
 
 def _violations(tmp_path: Path, source: str, rel: str = "pkg/mod.py") -> list[str]:
@@ -99,8 +99,8 @@ def test_text_ratio_uses_config_cap_and_exempt(repo, capsys):
     (repo / "surface.py").write_text("# a\n# b\n# c\nY = 1\n")
     assert la_check_conventions(["--file", "wordy.py"]) == 1
     assert "[text-ratio] source" in capsys.readouterr().out
-    (repo / CONFIG_FILENAME).write_text(
-        f"format: {config.current_format()}\nexempt: [surface.py]\nconventions: {{text_ratio_max: 0.7}}\n"
+    (repo / config_file()).write_text(
+        f"format: {config.current_format(config_file())}\nexempt: [surface.py]\nconventions: {{text_ratio_max: 0.7}}\n"
     )
     assert la_check_conventions(["--file", "wordy.py", "--file", "surface.py"]) == 0
     assert "exempt, skipped: surface.py" in capsys.readouterr().err

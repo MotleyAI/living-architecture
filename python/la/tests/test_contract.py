@@ -22,17 +22,13 @@ from deterministic_refactor.contract import (
     YAMLError,
     canonical_repr,
     compute_hash,
-    contract_hash,
     glob_match,
     is_portable_regex,
     load_yaml,
-    materialize_defaults,
-    message,
     normalize,
     render_template,
-    snapshot_dir,
-    validate,
 )
+from living_architecture.contract import contract_hash, materialize_defaults, message, snapshot_dir, validate
 
 
 def _repo_root() -> Path:
@@ -40,8 +36,9 @@ def _repo_root() -> Path:
 
 
 REPO_ROOT = _repo_root()
-SHARED = REPO_ROOT / "shared"
-VECTORS = SHARED / "vectors"
+SHARED_ROOT = REPO_ROOT / "shared"
+# la's contract: the one la's snapshot, hash and doctor are checked against.
+SHARED = SHARED_ROOT / "la"
 CASES = REPO_ROOT / "conformance" / "cases"
 BIN_DIR = Path(sys.executable).parent
 HASH_FILE = "CONTRACT_HASH"
@@ -72,12 +69,27 @@ SHARED_FILES = (
 )
 
 
+def _located(rel: str) -> list[Path]:
+    """`rel` in each package's contract that holds it."""
+    return [SHARED_ROOT / package / rel for package in ("dr", "la") if (SHARED_ROOT / package / rel).is_file()]
+
+
+def _load(rel: str) -> dict:
+    [path] = _located(rel)
+    return yaml.safe_load(path.read_text(encoding="utf-8"))
+
+
 def _vectors(name: str) -> dict:
-    return yaml.safe_load((VECTORS / name).read_text(encoding="utf-8"))
+    return _load(f"vectors/{name}")
 
 
 def _shared_yaml(name: str) -> dict:
-    return yaml.safe_load((SHARED / name).read_text(encoding="utf-8"))
+    """A contract file; the CLI manifests and the findings registries as one, the way la reads them."""
+    if name not in ("cli.yaml", "findings.yaml"):
+        return _load(name)
+    dr, la = (yaml.safe_load((SHARED_ROOT / package / name).read_text(encoding="utf-8")) for package in ("dr", "la"))
+    key = "commands" if name == "cli.yaml" else "findings"
+    return {**dr, **la, key: {**dr[key], **la[key]}}
 
 
 def _tree(root: Path) -> dict[str, tuple[bool, bytes]]:
@@ -94,11 +106,12 @@ def _tree(root: Path) -> dict[str, tuple[bool, bytes]]:
 
 @pytest.mark.parametrize("rel", SHARED_FILES)
 def test_shared_file_exists(rel: str) -> None:
-    assert (SHARED / rel).is_file()
+    assert _located(rel)
 
 
 def _schema(name: str) -> dict:
-    return json.loads((SHARED / "schema" / f"{name}.schema.json").read_text(encoding="utf-8"))
+    [path] = _located(f"schema/{name}.schema.json")
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def test_node_schema_defines_every_element_variety() -> None:
@@ -332,7 +345,7 @@ def test_explicit_any_renders_the_language_spellings() -> None:
 
 
 def test_python_typecheck_command_description_names_the_patch_obligations() -> None:
-    schema = _schema("living-architecture")
+    schema = _schema("deterministic-refactor")
     description = schema["properties"]["commands"]["properties"]["typecheck"]["properties"]["python"]["description"]
     for needle in ("verified basedpyright", "checker_patch_versions", "under Node", "keep NODE_OPTIONS"):
         assert needle in description
@@ -463,7 +476,7 @@ def test_yaml_profile(vector: dict) -> None:
 
 @pytest.mark.parametrize("vector", _vectors("defaults.yaml")["cases"], ids=lambda v: v["name"])
 def test_default_materialization(vector: dict) -> None:
-    schema = json.loads((SHARED / "schema" / "living-architecture.schema.json").read_text(encoding="utf-8"))
+    schema = _schema("living-architecture")
     data = None if vector["config"] is None else load_yaml(vector["config"])
     assert materialize_defaults(schema, data) == vector["resolved"]
 
@@ -474,7 +487,7 @@ def test_generic_materialization(vector: dict) -> None:
 
 
 def test_materialization_does_not_mutate_its_input() -> None:
-    schema = json.loads((SHARED / "schema" / "living-architecture.schema.json").read_text(encoding="utf-8"))
+    schema = _schema("living-architecture")
     data = {"reviewers": {"codex": False}}
     materialize_defaults(schema, data)
     assert data == {"reviewers": {"codex": False}}
@@ -557,9 +570,9 @@ NEW_TEMPLATES = {
     "claims-exist.child-ambiguous": "claims-exist: element {element} maps to {unit}, which is ambiguous: {candidates}",
     "enforced-tags.unknown-language": "enforced-tags: {doc} tags undeclared language {language!r}",
     "twin.unavailable":
-        "the {language} twin (living-architecture {version}) is not reachable; install it with: {install}",
+        "the {language} twin ({package} {version}) is not reachable; install it with: {install}",
     "twin.facts-invalid":
-        "the {language} twin (living-architecture {version}) returned invalid facts; reinstall it with: {install}",
+        "the {language} twin ({package} {version}) returned invalid facts; reinstall it with: {install}",
     "twin.forward-refused": "refusing to forward to the {language} twin from a forwarded process (LA_FORWARDED=1)",
     "twin.not-native": "{language} facts are served only by the {language} twin",
     "conventions.ts-import-after-code":
@@ -572,32 +585,32 @@ NEW_TEMPLATES = {
     "conventions.not-utf8": "not valid UTF-8",
     "conventions.unknown-extension": "check-conventions: unknown extension, skipped: {path}",
     "count-comments.unknown-extension": "count-comments: unknown extension, skipped: {path}",
-    "typecheck.header": "la-typecheck: checking {language} with {command}",
+    "typecheck.header": "dr-typecheck: checking {language} with {command}",
     "typecheck.new-error": "{file}({line},{col}): error {code}: {message}",
     "typecheck.count": "{file}({line},{col}): error {code}: {message} (baseline {baseline}, now {now})",
-    "typecheck.new-errors": "la-typecheck: {language}: {count} new error(s) not in {baseline}",
-    "typecheck.shrink": "la-typecheck: {language}: {count} fixed error(s) removed from {baseline}",
-    "typecheck.write": "la-typecheck: {language}: wrote {baseline}",
-    "typecheck.skip": "la-typecheck: {language}: {baseline} exists, skipped",
-    "typecheck.refusal": "la-typecheck: every applicable language already has a baseline; nothing written",
-    "typecheck.not-found": "la-typecheck: {language}: {command} not found in {local_bin} or on PATH",
+    "typecheck.new-errors": "dr-typecheck: {language}: {count} new error(s) not in {baseline}",
+    "typecheck.shrink": "dr-typecheck: {language}: {count} fixed error(s) removed from {baseline}",
+    "typecheck.write": "dr-typecheck: {language}: wrote {baseline}",
+    "typecheck.skip": "dr-typecheck: {language}: {baseline} exists, skipped",
+    "typecheck.refusal": "dr-typecheck: every applicable language already has a baseline; nothing written",
+    "typecheck.not-found": "dr-typecheck: {language}: {command} not found in {local_bin} or on PATH",
     "typecheck.no-languages":
-        "la-typecheck: nothing to check (no language is configured or has source files and a root marker)",
-    "typecheck.not-git": "la-typecheck: not inside a git repository",
-    "typecheck.global-diagnostic": "la-typecheck: {language}: the checker reported an error without a file",
-    "typecheck.checker-failed": "la-typecheck: {language}: {command} exited {code} without a parsable diagnostic",
-    "typecheck.baseline-invalid": "la-typecheck: {language}: {baseline} is malformed",
+        "dr-typecheck: nothing to check (no language is configured or has source files and a root marker)",
+    "typecheck.not-git": "dr-typecheck: not inside a git repository",
+    "typecheck.global-diagnostic": "dr-typecheck: {language}: the checker reported an error without a file",
+    "typecheck.checker-failed": "dr-typecheck: {language}: {command} exited {code} without a parsable diagnostic",
+    "typecheck.baseline-invalid": "dr-typecheck: {language}: {baseline} is malformed",
     "typecheck.patch-not-applied":
-        "la-typecheck: python: {command} loaded no basedpyright, so the pyright#11919 patch was not applied;"
+        "dr-typecheck: python: {command} loaded no basedpyright, so the pyright#11919 patch was not applied;"
         " run basedpyright under Node and keep NODE_OPTIONS",
     "typecheck.patch-unverified":
-        "la-typecheck: python: the pyright#11919 patch is verified for basedpyright {verified}, but {version} is"
+        "dr-typecheck: python: the pyright#11919 patch is verified for basedpyright {verified}, but {version} is"
         " installed; pin a verified version",
     "typecheck.patch-mismatch":
-        "la-typecheck: python: basedpyright {version} has the pyright#11919 line {count} times, not once;"
+        "dr-typecheck: python: basedpyright {version} has the pyright#11919 line {count} times, not once;"
         " reinstall basedpyright",
     "typecheck.not-native": "{language} type checks run only in the {language} twin",
-    "typecheck.error": "la-typecheck: {error}",
+    "typecheck.error": "dr-typecheck: {error}",
     "refactor.rename-header": "Renaming <{old}> to <{new}>:",
     "refactor.move-symbol-header": "Moving global <{name}>:",
     "refactor.move-module-header": "Moving module <{name}>:",
@@ -635,8 +648,8 @@ NEW_TEMPLATES = {
         "{path}:{line}: {call}() factory not typed against a resolvable module"
         " — pass import('<module>') (Vitest) or <typeof import('<module>')> (Jest)",
     "mock-lint.cast": "{path}:{line}: double assertion through {via} — build a typed double instead",
-    "config.not-git": "la-config: not inside a git repository",
-    "config.local-override": "la-config: {key} from {file}",
+    "config.not-git": "{prog}: not inside a git repository",
+    "config.local-override": "{prog}: {key} from {file}",
     "doctor.local-tracked":
         "{file} is tracked by git, but it holds one contributor's overrides;"
         " run git rm --cached {file} and add it to .gitignore",
@@ -850,7 +863,7 @@ def test_retarget_has_no_rename_scope_options() -> None:
 
 
 def test_config_schema_declares_string_forms() -> None:
-    refactor = _schema("living-architecture")["properties"]["refactor"]["properties"]
+    refactor = _schema("deterministic-refactor")["properties"]["refactor"]["properties"]
     assert refactor["string_forms"]["type"] == "array"
     assert refactor["string_forms"]["items"] == {"type": "string"}
     assert refactor["string_forms"]["default"] == []
@@ -1028,6 +1041,7 @@ def test_manifest_declares_la_typecheck() -> None:
 FORMAT_EXEMPT = {
     "la-arch-migrate",
     "la-doctor",
+    "dr-doctor",
     "la-fetch-coderabbit-threads",
     "la-reply-invalid-coderabbit",
     "la-reply-to-pr-thread",

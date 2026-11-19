@@ -13,7 +13,8 @@ from typing import Any, TypeAlias
 
 import pytest
 
-from deterministic_refactor import config, contract
+from deterministic_refactor import config
+from living_architecture import contract
 from living_architecture.c4 import migrate as c4_migrate
 from living_architecture.cli.la_arch_migrate import la_arch_migrate
 
@@ -257,7 +258,7 @@ def test_successful_migration_removes_the_emptied_model_directory(tmp_path, caps
     )
     assert not (repo / "architecture" / "model").exists()
     assert (repo / "architecture" / "model.c4").read_text(encoding="utf-8") == SPEC + PYTHON
-    current = config.current_format()
+    current = config.current_format(contract.config_file())
     assert (repo / CONFIG).read_text(encoding="utf-8") == f"# repo config\nformat: {current}\ntracker: linear\n"
 
 
@@ -378,7 +379,7 @@ def wrote(rel: str) -> str:
 
 
 def test_every_released_older_format_has_a_step_to_the_next() -> None:
-    formats = config.released_formats()
+    formats = config.released_formats(contract.config_file())
     steps = c4_migrate.STEPS
     unversioned = [s for s in steps if s.source is None]
     assert [s.target for s in unversioned] == [formats[0]]

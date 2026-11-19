@@ -4,9 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from deterministic_refactor.config import CONFIG_FILENAME
-from deterministic_refactor.contract import manifest, snapshot_dir
 from living_architecture import review
+from living_architecture.contract import config_file, manifest, snapshot_dir
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 SCRIPTS_DIR = snapshot_dir() / "scripts"
@@ -36,11 +35,11 @@ def repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 
 def _invalid_config(repo: Path) -> None:
-    (repo / CONFIG_FILENAME).write_text("bogus: 1\n", encoding="utf-8")
+    (repo / config_file()).write_text("bogus: 1\n", encoding="utf-8")
 
 
 def _removed_coderabbit_key(repo: Path) -> None:
-    (repo / CONFIG_FILENAME).write_text("reviewers: {coderabbit: false}\n", encoding="utf-8")
+    (repo / config_file()).write_text("reviewers: {coderabbit: false}\n", encoding="utf-8")
 
 
 # The config-free review shims, by entry-point name (resolved lazily, so one missing entry fails alone).

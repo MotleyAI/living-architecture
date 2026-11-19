@@ -1,4 +1,4 @@
-"""The shared contract, loaded from the vendored snapshot."""
+"""dr's shared contract, loaded from its vendored snapshot; `Snapshot` loads another package's."""
 
 from deterministic_refactor.contract.glob import glob_match
 from deterministic_refactor.contract.os_error import (
@@ -7,46 +7,45 @@ from deterministic_refactor.contract.os_error import (
     os_error_reason,
     os_error_text,
 )
+from deterministic_refactor.contract.plugin import plugin_problem
 from deterministic_refactor.contract.regex import capturing_groups, is_portable_regex
 from deterministic_refactor.contract.render import canonical_repr, message, normalize, render_template
 from deterministic_refactor.contract.schema import materialize_defaults, validate
 from deterministic_refactor.contract.snapshot import (
-    architecture,
+    DR,
+    Snapshot,
     base_fetch_timeout,
-    check_ids,
     compute_hash,
-    config_file,
+    config_files,
     config_formats,
     contract_hash,
-    conventions,
     findings,
     is_test_file,
     language,
     language_ids,
+    language_keys,
     language_of,
     literal_value_forbidden,
-    local_config_file,
     manifest,
     schema,
-    script_path,
+    schema_names,
     snapshot_dir,
     timing_phases,
 )
 from deterministic_refactor.contract.yaml_profile import DuplicateKeyError, YAMLError, load_yaml
 
 __all__ = [
+    "DR",
     "DuplicateKeyError",
+    "Snapshot",
     "YAMLError",
-    "architecture",
     "base_fetch_timeout",
     "canonical_repr",
     "capturing_groups",
-    "check_ids",
     "compute_hash",
-    "config_file",
+    "config_files",
     "config_formats",
     "contract_hash",
-    "conventions",
     "display_path",
     "findings",
     "glob_match",
@@ -55,19 +54,20 @@ __all__ = [
     "is_test_file",
     "language",
     "language_ids",
+    "language_keys",
     "language_of",
     "literal_value_forbidden",
     "load_yaml",
-    "local_config_file",
     "manifest",
     "materialize_defaults",
     "message",
     "normalize",
     "os_error_reason",
     "os_error_text",
+    "plugin_problem",
     "render_template",
     "schema",
-    "script_path",
+    "schema_names",
     "snapshot_dir",
     "timing_phases",
     "validate",

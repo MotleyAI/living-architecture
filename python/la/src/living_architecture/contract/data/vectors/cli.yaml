@@ -1,0 +1,292 @@
+# Manifest parser vectors: `argv` given to `command` either parses to `args` (every dest, defaults included, plus
+# `subcommand` for a command with subcommands; a passthrough command's handler receives `{argv: [...]}` verbatim)
+# or is a usage error (`exit: 2`). Parser error wording and --help text are not pinned.
+cases:
+- name: abbreviated option rejected
+  command: la-check-conventions
+  argv: [--bas, main]
+  exit: 2
+- name: abbreviated flag rejected
+  command: la-doctor
+  argv: [--contract]
+  exit: 2
+- name: base only, repeatables default to empty
+  command: la-check-conventions
+  argv: [--base, main]
+  args:
+    pr: null
+    repo: null
+    base: main
+    files: []
+    exclude: []
+    text_ratio_cap: null
+    language: null
+    emit: null
+- name: repeatable options keep order
+  command: la-check-conventions
+  argv: [--file, b.py, --file, a.py, --exclude, gen/*, --exclude, x/*]
+  args:
+    pr: null
+    repo: null
+    base: null
+    files: [b.py, a.py]
+    exclude: [gen/*, x/*]
+    text_ratio_cap: null
+    language: null
+    emit: null
+- name: optional positional
+  command: la-check-conventions
+  argv: ['42']
+  args:
+    pr: '42'
+    repo: null
+    base: null
+    files: []
+    exclude: []
+    text_ratio_cap: null
+    language: null
+    emit: null
+- name: double dash before an optional positional
+  command: la-check-conventions
+  argv: [--, --odd]
+  args:
+    pr: --odd
+    repo: null
+    base: null
+    files: []
+    exclude: []
+    text_ratio_cap: null
+    language: null
+    emit: null
+- name: option value may start with a dash
+  command: la-check-conventions
+  argv: [--base=-x]
+  args:
+    pr: null
+    repo: null
+    base: -x
+    files: []
+    exclude: []
+    text_ratio_cap: null
+    language: null
+    emit: null
+- name: require_one_of with none given
+  command: la-check-conventions
+  argv: [--repo, o/r]
+  exit: 2
+- name: require_one_of with nothing
+  command: la-check-conventions
+  argv: []
+  exit: 2
+- name: float option
+  command: la-check-conventions
+  argv: [--base, main, --text-ratio-cap, '12.5']
+  args:
+    pr: null
+    repo: null
+    base: main
+    files: []
+    exclude: []
+    text_ratio_cap: 12.5
+    language: null
+    emit: null
+- name: float option type error
+  command: la-check-conventions
+  argv: [--base, main, --text-ratio-cap, abc]
+  exit: 2
+- name: extra positional
+  command: la-check-conventions
+  argv: ['1', '2']
+  exit: 2
+- name: option missing its value
+  command: la-check-conventions
+  argv: [--base]
+  exit: 2
+- name: unknown option
+  command: la-arch-diagrams
+  argv: [--nope]
+  exit: 2
+- name: root option
+  command: la-arch-diagrams
+  argv: [--root, r]
+  args: {root: r}
+- name: subcommand with positional
+  command: la-config
+  argv: [get, reviewers.codex]
+  args: {root: null, subcommand: get, key: reviewers.codex}
+- name: parent option before subcommand
+  command: la-config
+  argv: [--root, /r, show]
+  args: {root: /r, subcommand: show}
+- name: double dash before a subcommand
+  command: la-config
+  argv: [--, get, --odd-key]
+  args: {root: null, subcommand: get, key: --odd-key}
+- name: double dash after a subcommand
+  command: la-config
+  argv: [get, --, --odd-key]
+  args: {root: null, subcommand: get, key: --odd-key}
+- name: subcommand required
+  command: la-config
+  argv: []
+  exit: 2
+- name: unknown subcommand
+  command: la-config
+  argv: [bogus]
+  exit: 2
+- name: object member names are not subcommands
+  command: la-config
+  argv: [toString]
+  exit: 2
+- name: object member names are not subcommands (constructor)
+  command: la-config
+  argv: [constructor]
+  exit: 2
+- name: subcommand positional required
+  command: la-config
+  argv: [get]
+  exit: 2
+- name: parent option after subcommand rejected
+  command: la-config
+  argv: [show, --root, /r]
+  exit: 2
+- name: defaults
+  command: la-doctor
+  argv: []
+  args: {plugin: null, root: null, contract_hash: false, twin: false, require_config: false, require_plan_store: false}
+- name: flag and string options
+  command: la-doctor
+  argv: [--root, r, --contract-hash]
+  args: {plugin: null, root: r, contract_hash: true, twin: false, require_config: false, require_plan_store: false}
+- name: plugin directory
+  command: la-doctor
+  argv: [--plugin, skills/pr]
+  args: {plugin: skills/pr, root: null, contract_hash: false, twin: false, require_config: false, require_plan_store: false}
+- name: removed option rejected
+  command: la-doctor
+  argv: [--expect, 0.4.1]
+  exit: 2
+- name: defaults
+  command: la-arch-check
+  argv: []
+  args: {root: null, language: null, emit: null, top_level: false}
+- name: internal flag
+  command: la-doctor
+  argv: [--twin]
+  args: {plugin: null, root: null, contract_hash: false, twin: true, require_config: false, require_plan_store: false}
+- name: internal flag not abbreviable
+  command: la-doctor
+  argv: [--tw]
+  exit: 2
+- name: facts request
+  command: la-arch-check
+  argv: [--language, typescript, --emit, facts]
+  args: {root: null, language: typescript, emit: facts, top_level: false}
+- name: facts request with root
+  command: la-arch-check
+  argv: [--root, r, --language, python, --emit, facts]
+  args: {root: r, language: python, emit: facts, top_level: false}
+- name: top-level facts request
+  command: la-arch-check
+  argv: [--language, python, --emit, facts, --top-level]
+  args: {root: null, language: python, emit: facts, top_level: true}
+- name: require config
+  command: la-doctor
+  argv: [--require-config]
+  args: {plugin: null, root: null, contract_hash: false, twin: false, require_config: true, require_plan_store: false}
+- name: require plan store
+  command: la-doctor
+  argv: [--require-config, --require-plan-store]
+  args: {plugin: null, root: null, contract_hash: false, twin: false, require_config: true, require_plan_store: true}
+- name: scaffold root
+  command: la-arch-scaffold
+  argv: [--root, r]
+  args: {root: r}
+- name: migrate defaults
+  command: la-arch-migrate
+  argv: []
+  args: {root: null}
+- name: migrate root
+  command: la-arch-migrate
+  argv: [--root, r]
+  args: {root: r}
+- name: migrate unknown option
+  command: la-arch-migrate
+  argv: [--dry-run]
+  exit: 2
+- name: unknown language
+  command: la-arch-check
+  argv: [--language, rust]
+  exit: 2
+- name: unknown emit format
+  command: la-arch-check
+  argv: [--emit, json]
+  exit: 2
+- name: internal option not abbreviable
+  command: la-arch-check
+  argv: [--lang, python]
+  exit: 2
+- name: passthrough hands raw argv
+  command: la-count-comments
+  argv: [--range, main, a.py]
+  args:
+    argv: [--range, main, a.py]
+- name: passthrough keeps double dash
+  command: la-count-comments
+  argv: [--, --help]
+  args:
+    argv: [--, --help]
+- name: passthrough never rejects abbreviations
+  command: la-count-comments
+  argv: [--ran, a.py]
+  args:
+    argv: [--ran, a.py]
+- name: passthrough shim
+  command: la-wait-for-reviews
+  argv: ['12', --x]
+  args:
+    argv: ['12', --x]
+- name: affected tests against a base
+  command: la-affected-tests
+  argv: [--base, main]
+  args: {base: main, language: null}
+- name: affected tests base with a slash
+  command: la-affected-tests
+  argv: [--base=release/1.0]
+  args: {base: release/1.0, language: null}
+- name: affected tests internal language request
+  command: la-affected-tests
+  argv: [--language, typescript]
+  args: {base: null, language: typescript}
+- name: affected tests without a base
+  command: la-affected-tests
+  argv: []
+  exit: 2
+- name: affected tests unknown language
+  command: la-affected-tests
+  argv: [--language, ruby]
+  exit: 2
+- name: affected tests takes no positional
+  command: la-affected-tests
+  argv: [--base, main, '42']
+  exit: 2
+- name: typecheck defaults
+  command: la-typecheck
+  argv: []
+  args: {write_baseline: false, realign_from: null, language: null}
+- name: typecheck realign from a ref
+  command: la-typecheck
+  argv: [--realign-from, HEAD~1]
+  args: {write_baseline: false, realign_from: HEAD~1, language: null}
+- name: typecheck realign with the internal language request
+  command: la-typecheck
+  argv: [--language, python, --realign-from, HEAD]
+  args: {write_baseline: false, realign_from: HEAD, language: python}
+- name: typecheck realign without a ref
+  command: la-typecheck
+  argv: [--realign-from]
+  exit: 2
+- name: typecheck realign with write is exclusive
+  command: la-typecheck
+  argv: [--realign-from, HEAD, --write-baseline]
+  exit: 2

@@ -41,7 +41,7 @@ def _venv(where: Path) -> Path:
 
 def _install(bin_dir: Path, dist: Path, *artifacts: Path) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        ["uv", "pip", "install", "--python", str(bin_dir / "python"), "--no-index", "--find-links", str(dist),
+        ["uv", "pip", "install", "--python", str(bin_dir / "python"), "--find-links", str(dist),
          *map(str, artifacts)],
         capture_output=True, text=True, check=False,
     )
@@ -81,7 +81,7 @@ def test_la_install_resolves_dr(dist: Path, tmp_path: Path) -> None:
 def test_uv_tool_install_with_dr_executables_exposes_both_command_sets(dist: Path, tmp_path: Path) -> None:
     env = {**os.environ, "UV_TOOL_DIR": str(tmp_path / "tools"), "UV_TOOL_BIN_DIR": str(tmp_path / "bin")}
     proc = subprocess.run(
-        ["uv", "tool", "install", "--python", sys.executable, "--no-index", "--find-links", str(dist),
+        ["uv", "tool", "install", "--python", sys.executable, "--find-links", str(dist),
          str(_wheel(dist, PACKAGES["la"])), "--with-executables-from", PACKAGES["dr"]],
         env=env, capture_output=True, text=True, check=False,
     )

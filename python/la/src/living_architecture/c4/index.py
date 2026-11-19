@@ -12,9 +12,9 @@ from deterministic_refactor.contract import (
     YAMLError,
     is_regular_file,
     load_yaml,
-    message,
     os_error_text,
 )
+from living_architecture.contract import message
 
 INDEX_REL = "architecture/index.yaml"
 

@@ -11,7 +11,7 @@ import yaml
 
 from deterministic_refactor.contract import is_regular_file, os_error_reason, os_error_text
 
-SHARED = next(p for p in Path(__file__).resolve().parents if (p / "shared").is_dir() and (p / "plugin").is_dir()) / "shared"
+SHARED = next(p for p in Path(__file__).resolve().parents if (p / "shared").is_dir() and (p / "plugin").is_dir()) / "shared" / "dr"
 VECTORS = yaml.safe_load((SHARED / "vectors" / "os-errors.yaml").read_text(encoding="utf-8"))
 UNPRIVILEGED = hasattr(os, "geteuid") and os.geteuid() != 0
 

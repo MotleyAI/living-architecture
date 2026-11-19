@@ -5,15 +5,22 @@ from pathlib import Path
 import pytest
 
 from deterministic_refactor import config as la_config
-from deterministic_refactor.config import CONFIG_FILENAME
-from deterministic_refactor.contract import contract_hash
+from deterministic_refactor.contract import contract_hash as dr_contract_hash
 from living_architecture import __version__, doctor
 from living_architecture.cli.la_doctor import la_doctor
+from living_architecture.contract import config_file, contract_hash
 
 
 def _declared(text: str) -> str:
     """`text` as a committed config declaring the current format."""
-    return f"format: {la_config.current_format()}\n{text}"
+    return f"format: {la_config.current_format(config_file())}\n{text}"
+
+
+@pytest.fixture(autouse=True)
+def dr_installed(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A matching dr installation, except for the tests of the dr check itself (marked `dr_check`)."""
+    if request.node.get_closest_marker("dr_check") is None:
+        monkeypatch.setattr(doctor, "_dr_problem", lambda: None)
 
 
 @pytest.fixture
@@ -48,14 +55,14 @@ def test_prerelease_installed_version_reports_another_series(tmp_path: Path, mon
     monkeypatch.setattr(doctor, "__version__", "1.2.3rc1")
     mismatch = (
         "installed la tools are 1.2.3rc1, but plugin 1.3.0 needs 1.3.x;"
-        " reinstall them with: uv tool install living-architecture==1.3.0"
+        " reinstall them with: uv tool install living-architecture==1.3.0 --with-executables-from deterministic-refactor"
     )
     assert doctor.run_checks(root=tmp_path, plugin=_plugin(tmp_path, "1.3.0")) == [mismatch]
 
 
 @pytest.mark.usefixtures("all_tools")
 def test_invalid_config(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    (tmp_path / CONFIG_FILENAME).write_text(_declared("tracker: jira\n"), encoding="utf-8")
+    (tmp_path / config_file()).write_text(_declared("tracker: jira\n"), encoding="utf-8")
     assert la_doctor(["--root", str(tmp_path)]) == 1
     assert "FAIL:" in capsys.readouterr().out
 
@@ -68,7 +75,7 @@ def test_missing_executable(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> 
 def test_twin_identity_line(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     monkeypatch.chdir(tmp_path)
     assert la_doctor(["--twin"]) == 0
-    assert capsys.readouterr().out == f"python {__version__} {contract_hash()}\n"
+    assert capsys.readouterr().out == f"python {__version__} {contract_hash()} {dr_contract_hash()}\n"
 
 
 MISSING_CONFIG = "FAIL: no living-architecture.yaml at the repo root; run /la:init to onboard this repo"
@@ -101,10 +108,10 @@ def test_require_config_missing(tmp_path: Path, capsys: pytest.CaptureFixture[st
 
 @pytest.mark.usefixtures("all_tools")
 def test_require_config_present(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    (tmp_path / CONFIG_FILENAME).write_text(_declared("openspec: false\n"), encoding="utf-8")
+    (tmp_path / config_file()).write_text(_declared("openspec: false\n"), encoding="utf-8")
     code, out = _doctor(tmp_path, capsys, "--require-config")
     assert code == 0
-    assert out == [f"ok: la tools {__version__}; config from {CONFIG_FILENAME}"]
+    assert out == [f"ok: la tools {__version__}; config from {config_file()}"]
 
 
 @pytest.mark.usefixtures("all_tools")
@@ -137,7 +144,7 @@ def test_config_disk_consistency(
     files: list[str],
     expected: list[str],
 ) -> None:
-    (tmp_path / CONFIG_FILENAME).write_text(_declared(config), encoding="utf-8")
+    (tmp_path / config_file()).write_text(_declared(config), encoding="utf-8")
     for d in dirs:
         (tmp_path / d).mkdir()
     for f in files:
@@ -150,7 +157,7 @@ def test_config_disk_consistency(
 
 @pytest.mark.usefixtures("all_tools")
 def test_plan_store_not_required_without_flag(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    (tmp_path / CONFIG_FILENAME).write_text(_declared("tracker: none\nopenspec: false\n"), encoding="utf-8")
+    (tmp_path / config_file()).write_text(_declared("tracker: none\nopenspec: false\n"), encoding="utf-8")
     assert _doctor(tmp_path, capsys, "--require-config")[0] == 0
 
 
@@ -200,8 +207,8 @@ def _fake_git(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, script: str) -> N
 @pytest.mark.usefixtures("all_tools")
 def test_local_ignored_is_a_second_source(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     root = _repo(tmp_path, ignored=True)
-    (root / CONFIG_FILENAME).write_text(_declared("openspec: false\n"), encoding="utf-8")
-    assert _doctor(root, capsys) == (0, [f"ok: la tools {__version__}; config from {CONFIG_FILENAME} + {LOCAL}"])
+    (root / config_file()).write_text(_declared("openspec: false\n"), encoding="utf-8")
+    assert _doctor(root, capsys) == (0, [f"ok: la tools {__version__}; config from {config_file()} + {LOCAL}"])
 
 
 @pytest.mark.usefixtures("all_tools")
@@ -275,14 +282,14 @@ def test_local_not_git_runs_no_local_check(
 def test_local_finding_order(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     monkeypatch.setattr(doctor.shutil, "which", lambda exe: None if exe == "gh" else f"/usr/bin/{exe}")
     root = _repo(tmp_path, local="tracker: none\n")
-    (root / CONFIG_FILENAME).write_text(_declared("openspec: false\n"), encoding="utf-8")
+    (root / config_file()).write_text(_declared("openspec: false\n"), encoding="utf-8")
     assert _doctor(root, capsys, "--require-plan-store") == (1, [NO_PLAN_STORE, LOCAL_NOT_IGNORED, "FAIL: `gh` not found on PATH"])
 
 
 @pytest.mark.usefixtures("all_tools")
 def test_local_takes_part_in_consistency(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     root = _repo(tmp_path, local="tracker: none\n", ignored=True)
-    (root / CONFIG_FILENAME).write_text(_declared("openspec: false\n"), encoding="utf-8")
+    (root / config_file()).write_text(_declared("openspec: false\n"), encoding="utf-8")
     assert _doctor(root, capsys, "--require-plan-store") == (1, [NO_PLAN_STORE])
 
 
@@ -318,3 +325,51 @@ def test_require_config_still_validates_a_local_file(tmp_path: Path, capsys: pyt
     assert missing == MISSING_CONFIG
     assert "openspec" in invalid
     assert LOCAL in invalid
+
+
+def _fake_dr_doctor(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, line: str) -> None:
+    """A `dr-doctor` first on PATH whose `--twin` prints `line`."""
+    bin_dir = tmp_path / "dr-bin"
+    bin_dir.mkdir()
+    fake = bin_dir / "dr-doctor"
+    fake.write_text(f"#!/bin/sh\necho '{line}'\n", encoding="utf-8")
+    fake.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{bin_dir}{os.pathsep}{os.environ['PATH']}")
+
+
+def _dr_line(version: str) -> str:
+    return f"python {version} {dr_contract_hash()}"
+
+
+@pytest.mark.dr_check
+def test_matching_dr_installation_is_healthy(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _fake_dr_doctor(tmp_path, monkeypatch, _dr_line(__version__))
+    assert doctor._dr_problem() is None
+
+
+@pytest.mark.dr_check
+def test_missing_dr_installation_names_the_install_command(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(doctor.shutil, "which", lambda exe: None if exe == "dr-doctor" else f"/usr/bin/{exe}")
+    problem = doctor._dr_problem()
+    assert problem is not None
+    assert f"uv tool install living-architecture=={__version__} --with-executables-from deterministic-refactor" in problem
+
+
+@pytest.mark.dr_check
+def test_other_dr_version_is_reported(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _fake_dr_doctor(tmp_path, monkeypatch, _dr_line("0.11.0"))
+    problem = doctor._dr_problem()
+    assert problem is not None
+    assert "0.11.0" in problem
+    assert __version__ in problem
+
+
+@pytest.mark.usefixtures("all_tools")
+def test_both_config_files_are_reported_once(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    (tmp_path / config_file()).write_text(_declared("tracker: jira\n"), encoding="utf-8")
+    (tmp_path / "deterministic-refactor.yaml").write_text("format: 9.9.9\n", encoding="utf-8")
+    assert la_doctor(["--root", str(tmp_path)]) == 1
+    lines = capsys.readouterr().out.splitlines()
+    assert len(lines) == 1
+    assert "deterministic-refactor.yaml" in lines[0]
+    assert config_file() in lines[0]

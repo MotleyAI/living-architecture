@@ -1,8 +1,9 @@
 import argparse
 from pathlib import Path
 
-from deterministic_refactor.config.command import command_argv, run_command
+from deterministic_refactor.config.command import command_argv
 from living_architecture import affected
+from living_architecture.config import run_command
 
 
 def _affected_tests(args: argparse.Namespace) -> int:

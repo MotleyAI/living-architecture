@@ -17,7 +17,7 @@ from deterministic_refactor.refactor.sites import Site
 from refactor_cli import readouterr
 
 VECTORS: dict[str, Any] = yaml.safe_load(
-    (next(p for p in Path(__file__).resolve().parents if (p / "shared").is_dir() and (p / "plugin").is_dir()) / "shared/vectors/refactor-text.yaml")
+    (next(p for p in Path(__file__).resolve().parents if (p / "shared").is_dir() and (p / "plugin").is_dir()) / "shared/dr/vectors/refactor-text.yaml")
     .read_text(encoding="utf-8")
 )
 

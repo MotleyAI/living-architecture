@@ -8,10 +8,10 @@ from typing import Any
 
 import pytest
 
-from deterministic_refactor.contract import validate
+from living_architecture.contract import validate
 
 REPO_ROOT = next(p for p in Path(__file__).resolve().parents if (p / "shared").is_dir() and (p / "plugin").is_dir())
-INDEX_SCHEMA = json.loads((REPO_ROOT / "shared" / "schema" / "index.schema.json").read_text(encoding="utf-8"))
+INDEX_SCHEMA = json.loads((REPO_ROOT / "shared" / "la" / "schema" / "index.schema.json").read_text(encoding="utf-8"))
 
 
 @pytest.mark.parametrize(

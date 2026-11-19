@@ -11,9 +11,9 @@ import yaml
 REPO_ROOT = next(p for p in Path(__file__).resolve().parents if (p / "shared").is_dir() and (p / "plugin").is_dir())
 SKILLS_DIR = REPO_ROOT / "plugin" / "skills"
 SKILL_FILES = sorted(SKILLS_DIR.glob("*/SKILL.md"))
-MANIFEST = REPO_ROOT / "shared" / "cli.yaml"
-LEAKS = yaml.safe_load((REPO_ROOT / "shared" / "vectors" / "skill-leaks.yaml").read_text(encoding="utf-8"))
-LANGUAGE_IDS = list(yaml.safe_load((REPO_ROOT / "shared" / "languages.yaml").read_text(encoding="utf-8")))
+MANIFESTS = [REPO_ROOT / "shared" / package / "cli.yaml" for package in ("dr", "la")]
+LEAKS = yaml.safe_load((REPO_ROOT / "shared" / "dr" / "vectors" / "skill-leaks.yaml").read_text(encoding="utf-8"))
+LANGUAGE_IDS = list(yaml.safe_load((REPO_ROOT / "shared" / "dr" / "languages.yaml").read_text(encoding="utf-8")))
 LA_CONFIG = Path(sys.executable).parent / "la-config"
 CONFIG_GET_RE = re.compile(r"la-config get ([A-Za-z0-9_.<>-]*[A-Za-z0-9_>])")
 
@@ -46,7 +46,7 @@ def test_skill_references_resolve(path):
 
 
 def _manifest_commands() -> set[str]:
-    return set(yaml.safe_load(MANIFEST.read_text(encoding="utf-8"))["commands"])
+    return {name for path in MANIFESTS for name in yaml.safe_load(path.read_text(encoding="utf-8"))["commands"]}
 
 
 @pytest.mark.parametrize("path", SKILL_FILES, ids=_id)

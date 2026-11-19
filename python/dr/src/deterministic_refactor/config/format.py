@@ -1,4 +1,4 @@
-"""The repo format: `format` in the committed `living-architecture.yaml`, the check every gated command runs, the stamp."""
+"""The format of a committed config file: its `format` key, the check every gated command runs, the stamp."""
 
 from __future__ import annotations
 
@@ -8,11 +8,16 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
-from deterministic_refactor.config.load import ConfigError, parse_config, read_config_text
+from deterministic_refactor.config.load import (
+    ConfigError,
+    config_source,
+    own_file,
+    parse_config,
+    read_config_text,
+)
 from deterministic_refactor.contract import (
     YAMLError,
     canonical_repr,
-    config_file,
     config_formats,
     load_yaml,
     message,
@@ -39,14 +44,14 @@ class Committed(BaseModel):
     data: dict[Any, Any] | None
 
 
-def released_formats() -> list[str]:
-    """Every released repo format, oldest first."""
-    return config_formats()
+def released_formats(file: str) -> list[str]:
+    """Every released format of config file `file`, oldest first."""
+    return config_formats(file)
 
 
-def current_format() -> str:
-    """The repo format this la reads and writes: the last released one."""
-    return config_formats()[-1]
+def current_format(file: str) -> str:
+    """The format of config file `file` its package reads and writes: the last released one."""
+    return config_formats(file)[-1]
 
 
 def is_version(value: object) -> bool:
@@ -62,38 +67,43 @@ def compare_versions(a: str, b: str) -> int:
     return 0
 
 
-def read_committed(root: Path) -> Committed | None:
-    """The committed file, None without one; ConfigError when it is unreadable, not YAML or not a mapping."""
-    text = read_config_text(root, config_file())
+def read_committed(root: Path, file: str) -> Committed | None:
+    """Committed config file `file`, None without it; ConfigError when it is unreadable, not YAML or not a mapping."""
+    text = read_config_text(root, file)
     if text is None:
         return None
-    data = parse_config(text, config_file())
+    data = parse_config(text, file)
     if data is not None and not isinstance(data, dict):
-        raise ConfigError(f"{config_file()}: top level must be a mapping")
+        raise ConfigError(f"{file}: top level must be a mapping")
     return Committed(text=text, data=data)
 
 
-def format_problem(data: dict[Any, Any], current: str | None = None) -> str | None:
-    """The refusal of a committed mapping's `format`, or None when it declares `current` (default: the current format)."""
-    current = current or current_format()
+def format_problem(data: dict[Any, Any], file: str, current: str | None = None) -> str | None:
+    """The refusal of config file `file`'s `format`, or None when it declares `current` (default: its current format)."""
+    current = current or current_format(file)
+    kind = "format.dr-" if file == own_file() else "format."
     if FORMAT_KEY not in data:
-        return message("format.missing", current=current)
+        return message(f"{kind}missing", current=current)
     declared = data[FORMAT_KEY]
     if not is_version(declared):
-        return message("format.invalid", value=declared, current=current)
+        return message(f"{kind}invalid", value=declared, current=current)
     sign = compare_versions(declared, current)
     if sign == 0:
         return None
-    return message("format.newer" if sign > 0 else "format.older", declared=declared, current=current)
+    return message(f"{kind}newer" if sign > 0 else f"{kind}older", declared=declared, current=current)
 
 
-def check_format(root: Path) -> str | None:
-    """The format check's refusal, or None to go on (also for a committed file it cannot judge)."""
+def check_format(root: Path, file: str | None = None) -> str | None:
+    """The format check's refusal for config file `file` (default: the one dr reads), or None to go on (also for a
+    committed file it cannot judge)."""
+    file = file or config_source(root)
+    if file is None:
+        return None
     try:
-        committed = read_committed(root)
+        committed = read_committed(root, file)
     except ConfigError:
         return None
-    return None if committed is None or committed.data is None else format_problem(committed.data)
+    return None if committed is None or committed.data is None else format_problem(committed.data, file)
 
 
 def _unordered_repr(value: object) -> str:
@@ -153,10 +163,9 @@ def _replaced(text: str, current: str) -> str | None:
     return "".join(lines)
 
 
-def stamp_format(text: str, current: str | None = None) -> str | None:
-    """`text` declaring `current` (default: the current format): a `format` line inserted or its value replaced,
-    verified to change only that key; None when it cannot be."""
-    current = current or current_format()
+def stamp_format(text: str, current: str) -> str | None:
+    """`text` declaring `current`: a `format` line inserted or its value replaced, verified to change only that key;
+    None when it cannot be."""
     try:
         before = load_yaml(text)
     except YAMLError:
