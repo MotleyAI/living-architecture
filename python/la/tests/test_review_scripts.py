@@ -37,16 +37,33 @@ def test_reply_with_explicit_ids(fake_gh, run_script):
     assert "repos/o/r/pulls/3/comments/9/replies" in fake_gh.calls()[0]["argv"]
 
 
-def test_reply_rejects_review_summary_url(run_script):
-    r = run_script("reply-to-pr-thread.sh", "https://github.com/o/r/pull/5#pullrequestreview-1", stdin="x")
-    assert r.returncode == 2
-    assert "review-summary" in r.stderr
+REVIEW_URL = "https://github.com/o/r/pull/5#pullrequestreview-1"
+CONVERSATION_URL = "https://github.com/o/r/pull/5#issuecomment-9"
 
 
-def test_reply_rejects_empty_body(fake_gh, run_script):
-    r = run_script("reply-to-pr-thread.sh", "https://github.com/o/r/pull/5#discussion_r1", stdin="")
+@pytest.mark.parametrize("url", [REVIEW_URL, CONVERSATION_URL], ids=["review-body", "conversation-comment"])
+def test_reply_to_an_unthreaded_comment_posts_a_re_comment(fake_gh, run_script, url):
+    fake_gh.route((["api", "POST"], {"html_url": "https://github.com/o/r/pull/5#issuecomment-77"}))
+    r = run_script("reply-to-pr-thread.sh", url, stdin="Fixed in abc1234.\n")
+    assert r.returncode == 0, r.stderr
+    assert r.stdout.strip() == "https://github.com/o/r/pull/5#issuecomment-77"
+    [call] = fake_gh.calls()
+    assert "repos/o/r/issues/5/comments" in call["argv"]
+    assert json.loads(call["input"]) == {"body": f"Re: {url}\n\nFixed in abc1234.\n"}
+
+
+@pytest.mark.parametrize("url", ["https://github.com/o/r/pull/5#discussion_r1", REVIEW_URL, CONVERSATION_URL],
+                         ids=["discussion", "review-body", "conversation-comment"])
+def test_reply_rejects_empty_body(fake_gh, run_script, url):
+    r = run_script("reply-to-pr-thread.sh", url, stdin="")
     assert r.returncode == 2
     assert fake_gh.calls() == []
+
+
+def test_reply_usage_names_every_url_form(run_script):
+    r = run_script("reply-to-pr-thread.sh", "-h")
+    assert r.returncode == 2
+    assert all(form in r.stderr for form in ("#discussion_r", "#pullrequestreview-", "#issuecomment-"))
 
 
 def test_reply_invalid_coderabbit_prepends_mention(fake_gh, run_script):
@@ -422,28 +439,16 @@ def test_failed_checks_check_requires_a_value(fake_gh, run_script):
     assert fake_gh.calls() == []
 
 
-# --------------------------------------------------------------------------- fetch-coderabbit-threads
+# --------------------------------------------------------------------------- fetch-review-comments
 
+ME = "me"
+T0, T1, T2 = "2026-01-01T00:00:00Z", "2026-01-02T00:00:00Z", "2026-01-03T00:00:00Z"
+SELF_ROUTE = (["api", "user"], {"login": ME})
+REVIEWS_LIST = ["repos/o/r/pulls/7/reviews"]
+COMMENTS_LIST = ["repos/o/r/issues/7/comments"]
+COMMENT_URL = "https://github.com/o/r/pull/7#issuecomment-{}"
+REVIEW_BODY_URL = "https://github.com/o/r/pull/7#pullrequestreview-{}"
 
-def _thread(*, resolved: bool, login: str, body: str, path: str) -> dict:
-    return {
-        "id": f"T_{path}", "isResolved": resolved, "isOutdated": False, "path": path, "line": 10,
-        "originalLine": 10,
-        "comments": {
-            "pageInfo": {"hasNextPage": False, "endCursor": None},
-            "nodes": [{"author": {"login": login}, "body": body, "url": f"https://x/{path}", "createdAt": "t"}],
-        },
-    }
-
-
-GRAPHQL = {"data": {"repository": {"pullRequest": {"reviewThreads": {
-    "pageInfo": {"hasNextPage": False, "endCursor": None},
-    "nodes": [
-        _thread(resolved=False, login="coderabbitai", body="Fix this", path="src/a.py"),
-        _thread(resolved=True, login="coderabbitai", body="Old news", path="src/b.py"),
-        _thread(resolved=False, login="someone", body="Human note", path="src/c.py"),
-    ],
-}}}}}
 
 REVIEW_BODY = (
     "Actionable comments posted: 1\n\n"
@@ -452,44 +457,192 @@ REVIEW_BODY = (
     "<details>\n<summary>🧹 Nitpick comments (1)</summary><blockquote>\n\nNit finding text\n\n"
     "</blockquote></details>\n\n🤖 Prompt for all review comments with AI agents\n\nprompt"
 )
-REVIEWS = [{"user": {"login": "coderabbitai[bot]"}, "body": REVIEW_BODY, "html_url": "https://x/review/1",
+
+
+def _pages(*pages: list) -> str:
+    """A paginated REST list as `gh api --paginate` prints it: one JSON array per page."""
+    return "\n".join(json.dumps(p) for p in pages)
+
+
+def _node(login: str | None, body: str, url: str, created: str = T0) -> dict:
+    return {"author": None if login is None else {"login": login}, "body": body, "url": url, "createdAt": created}
+
+
+def _thread(path: str, *nodes: dict, resolved: bool = False, more: str | None = None) -> dict:
+    """A review thread; `more` is the cursor of a further page of its comments."""
+    return {"id": f"T_{path}", "isResolved": resolved, "isOutdated": False, "path": path, "line": 10,
+            "originalLine": 10,
+            "comments": {"pageInfo": {"hasNextPage": more is not None, "endCursor": more}, "nodes": list(nodes)}}
+
+
+def _threads_page(*threads: dict, more: str | None = None) -> dict:
+    return {"data": {"repository": {"pullRequest": {"reviewThreads": {
+        "pageInfo": {"hasNextPage": more is not None, "endCursor": more}, "nodes": list(threads)}}}}}
+
+
+def _rest_review(rid: int, login: str | None, body: str, submitted: str = T0) -> dict:
+    return {"id": rid, "user": None if login is None else {"login": login}, "body": body,
+            "html_url": REVIEW_BODY_URL.format(rid), "submitted_at": submitted}
+
+
+def _rest_comment(cid: int, login: str | None, body: str, created: str = T0) -> dict:
+    return {"id": cid, "user": None if login is None else {"login": login}, "body": body,
+            "html_url": COMMENT_URL.format(cid), "created_at": created}
+
+
+def _fetch_comments(fake_gh, run_script, threads=None, reviews=(), comments=()) -> tuple[str, dict]:
+    """Run the fetcher; returns its Markdown and its JSON."""
+    graphql = threads if isinstance(threads, dict) else _threads_page(*(threads or ()))
+    fake_gh.route(SELF_ROUTE, (["graphql"], graphql), (REVIEWS_LIST, list(reviews)),
+                  (COMMENTS_LIST, list(comments)))
+    r = run_script("fetch-review-comments.sh", "7", *REPO)
+    assert r.returncode == 0, r.stderr
+    return r.stdout, json.loads(_json_path(r.stdout).read_text())
+
+
+def _authors(entries: list[dict]) -> list[str]:
+    return [e["author"] for e in entries]
+
+
+def test_review_comments_every_author_but_the_logged_in_user(fake_gh, run_script):
+    threads = [_thread("a.py", _node("alice", "Rename this", "https://x/a")),
+               _thread("b.py", _node("bob", "Old news", "https://x/b"), resolved=True),
+               _thread("c.py", _node(ME, "Note to self", "https://x/c"))]
+    reviews = [_rest_review(51, "copilot-pull-request-reviewer[bot]", "Consider X"),
+               _rest_review(52, "coderabbitai[bot]", REVIEW_BODY), _rest_review(53, ME, "My own review"),
+               _rest_review(54, "dave", " \n")]
+    comments = [_rest_comment(41, "bob", "Why this?"), _rest_comment(42, "sonarqubecloud[bot]", "Quality Gate passed"),
+                _rest_comment(43, ME, "Pushed a fix")]
+    out, data = _fetch_comments(fake_gh, run_script, threads, reviews, comments)
+    assert list(data) == ["pr", "repo", "threads", "reviews", "comments", "nitpicks", "outside_diff"]
+    assert [t["id"] for t in data["threads"]] == ["T_a.py"]
+    assert _authors(data["reviews"]) == ["copilot-pull-request-reviewer[bot]"]
+    assert data["reviews"][0] == {"author": "copilot-pull-request-reviewer[bot]", "url": REVIEW_BODY_URL.format(51),
+                                  "createdAt": T0, "body": "Consider X", "answered": False}
+    assert _authors(data["comments"]) == ["bob", "sonarqubecloud[bot]"]
+    assert data["comments"][0] == {"author": "bob", "url": COMMENT_URL.format(41), "createdAt": T0,
+                                   "body": "Why this?", "answered": False}
+    assert _json_path(out).name.startswith("review-comments-7-")
+    for heading in ("## Review bodies", "## Conversation comments", "## CodeRabbit review-summary nitpicks",
+                    "## CodeRabbit outside-diff-range comments"):
+        assert heading in out
+    assert "Rename this" in out and "Consider X" in out and "Why this?" in out
+    assert "Old news" not in out and "Note to self" not in out and "My own review" not in out
+    assert "Pushed a fix" not in out
+
+
+def test_review_comments_thread_answered_by_its_last_comment(fake_gh, run_script):
+    threads = [_thread("a.py", _node("alice", "Fix", "https://x/a1"), _node(ME, "Fixed", "https://x/a2", T1)),
+               _thread("b.py", _node("alice", "Fix", "https://x/b1"), _node(ME, "Fixed", "https://x/b2", T1),
+                       _node("alice", "Not quite", "https://x/b3", T2))]
+    _, data = _fetch_comments(fake_gh, run_script, threads)
+    assert [(t["id"], t["answered"]) for t in data["threads"]] == [("T_a.py", True), ("T_b.py", False)]
+
+
+def test_review_comments_answered_by_a_later_re_line(fake_gh, run_script):
+    reviews = [_rest_review(51, "copilot-pull-request-reviewer[bot]", "Consider X")]
+    comments = [_rest_comment(41, "bob", "Why this?"), _rest_comment(42, "carol", "And this?"),
+                _rest_comment(43, "erin", "Also?"),
+                _rest_comment(61, ME, f"Re: {COMMENT_URL.format(41)}\n\nBecause.", T1),
+                _rest_comment(62, ME, f"Thanks.\nRe: {REVIEW_BODY_URL.format(51)}", T1),
+                _rest_comment(63, ME, f"Re: {COMMENT_URL.format(42)} too", T1),
+                _rest_comment(64, ME, f"Re: {COMMENT_URL.format(43)}0", T1)]
+    _, data = _fetch_comments(fake_gh, run_script, reviews=reviews, comments=comments)
+    assert [(c["author"], c["answered"]) for c in data["comments"]] == [("bob", True), ("carol", False),
+                                                                        ("erin", False)]
+    assert [r["answered"] for r in data["reviews"]] == [False]
+
+
+def test_review_comments_a_reply_older_than_the_comment_does_not_answer_it(fake_gh, run_script):
+    comments = [_rest_comment(61, ME, f"Re: {COMMENT_URL.format(41)}", T0), _rest_comment(41, "bob", "Why?", T1)]
+    _, data = _fetch_comments(fake_gh, run_script, comments=comments)
+    assert [(c["author"], c["answered"]) for c in data["comments"]] == [("bob", False)]
+
+
+def test_review_comments_deleted_account_is_ghost(fake_gh, run_script):
+    threads = [_thread("a.py", _node(None, "Fix", "https://x/a"))]
+    out, data = _fetch_comments(fake_gh, run_script, threads, [_rest_review(51, None, "Consider X")],
+                                [_rest_comment(41, None, "Why?")])
+    assert [n["author"]["login"] for n in data["threads"][0]["comments"]["nodes"]] == ["ghost"]
+    assert _authors(data["reviews"]) == ["ghost"]
+    assert _authors(data["comments"]) == ["ghost"]
+    assert "ghost" in out
+
+
+INNER_PAGE = ["graphql", "threadId=T_a.py", "cursor=c1"]
+
+
+def test_review_comments_read_every_page(fake_gh, run_script):
+    first = _threads_page(_thread("a.py", _node("alice", "a-1", "https://x/a1"), more="c1"), more="p1")
+    second = _threads_page(_thread("b.py", _node("bob", "b-1", "https://x/b1")))
+    inner = {"data": {"node": {"comments": {"pageInfo": {"hasNextPage": False, "endCursor": None},
+                                            "nodes": [_node("alice", "a-2", "https://x/a2", T1)]}}}}
+    fake_gh.route(SELF_ROUTE, (INNER_PAGE, inner),
+                  {"match": ["graphql"], "responses": [{"stdout": first}, {"stdout": second}]},
+                  (REVIEWS_LIST, _pages([_rest_review(51, "alice", "r-1")], [_rest_review(52, "bob", "r-2")])),
+                  (COMMENTS_LIST, _pages([_rest_comment(41, "alice", "c-1")], [_rest_comment(42, "bob", "c-2")])))
+    r = run_script("fetch-review-comments.sh", "7", *REPO)
+    assert r.returncode == 0, r.stderr
+    data = json.loads(_json_path(r.stdout).read_text())
+    assert [[n["body"] for n in t["comments"]["nodes"]] for t in data["threads"]] == [["a-1", "a-2"], ["b-1"]]
+    assert [x["body"] for x in data["reviews"]] == ["r-1", "r-2"]
+    assert [x["body"] for x in data["comments"]] == ["c-1", "c-2"]
+    assert [c for c in fake_gh.calls() if all(t in c["argv"] for t in INNER_PAGE)]
+    outer = [c["argv"] for c in fake_gh.calls() if "graphql" in c["argv"] and "threadId=T_a.py" not in c["argv"]]
+    assert len(outer) == 2
+    assert any("p1" in token for token in outer[1])
+    lists = [c["argv"] for c in fake_gh.calls() if any(t in c["argv"] for t in (*REVIEWS_LIST, *COMMENTS_LIST))]
+    assert len(lists) == 2
+    assert all("--paginate" in argv for argv in lists)
+
+
+def test_review_comments_reject_the_old_all_authors_flag(fake_gh, run_script):
+    r = run_script("fetch-review-comments.sh", "7", *REPO, "--all-authors")
+    assert r.returncode == 2
+    assert fake_gh.calls() == []
+
+
+@pytest.mark.parametrize("failing", ["user", "graphql", "reviews", "comments"])
+def test_review_comments_fail_on_a_failed_read(fake_gh, run_script, failing):
+    routes = {"user": SELF_ROUTE, "graphql": (["graphql"], _threads_page()), "reviews": (REVIEWS_LIST, []),
+              "comments": (COMMENTS_LIST, [])}
+    routes[failing] = (routes[failing][0], "", 1)
+    fake_gh.route(*routes.values())
+    r = run_script("fetch-review-comments.sh", "7", *REPO)
+    assert r.returncode != 0
+    assert [c for c in fake_gh.calls() if all(t in c["argv"] for t in routes[failing][0])]
+    assert "JSON: " not in r.stdout
+    assert not list(fake_gh.tmp.glob("review-comments-*.json"))
+
+
+GRAPHQL = _threads_page(_thread("src/a.py", _node("coderabbitai", "Fix this", "https://x/src/a.py")),
+                        _thread("src/b.py", _node("coderabbitai", "Old news", "https://x/src/b.py"), resolved=True),
+                        _thread("src/c.py", _node("someone", "Human note", "https://x/src/c.py")))
+
+REVIEWS = [{"id": 1, "user": {"login": "coderabbitai[bot]"}, "body": REVIEW_BODY, "html_url": "https://x/review/1",
             "submitted_at": "t"}]
 
 
-def test_coderabbit_threads_nitpicks_and_outside_diff(fake_gh, run_script):
-    fake_gh.route((["graphql"], GRAPHQL), (["repos/o/r/pulls/7/reviews"], REVIEWS))
-    r = run_script("fetch-coderabbit-threads.sh", "7", *REPO)
-    assert r.returncode == 0, r.stderr
-    assert "## Thread 1 — src/a.py:10" in r.stdout
-    assert "> Fix this" in r.stdout
-    assert "Old news" not in r.stdout
-    assert "Human note" not in r.stdout
-    assert "### Nitpick 1" in r.stdout
-    assert "Nit finding text" in r.stdout
-    assert "### Outside-diff 1" in r.stdout
-    assert "Outside finding text" in r.stdout
-    data = json.loads(_json_path(r.stdout).read_text())
-    assert [t["path"] for t in data["threads"]] == ["src/a.py"]
+def test_review_comments_nitpicks_and_outside_diff(fake_gh, run_script):
+    out, data = _fetch_comments(fake_gh, run_script, GRAPHQL, REVIEWS)
+    assert "## Thread 1 — src/a.py:10" in out
+    assert "> Fix this" in out
+    assert "## Thread 2 — src/c.py:10" in out
+    assert "Human note" in out
+    assert "Old news" not in out
+    assert "### Nitpick 1" in out
+    assert "Nit finding text" in out
+    assert "### Outside-diff 1" in out
+    assert "Outside finding text" in out
+    assert [t["path"] for t in data["threads"]] == ["src/a.py", "src/c.py"]
+    assert data["reviews"] == []
+    assert [n["url"] for n in data["nitpicks"]] == ["https://x/review/1"]
 
 
-def test_coderabbit_threads_with_a_body_larger_than_an_argument(fake_gh, run_script):
+def test_review_comments_with_a_body_larger_than_an_argument(fake_gh, run_script):
     body = "big " * 50_000
-    graphql = {"data": {"repository": {"pullRequest": {"reviewThreads": {
-        "pageInfo": {"hasNextPage": False, "endCursor": None},
-        "nodes": [_thread(resolved=False, login="coderabbitai", body=body, path="src/a.py")],
-    }}}}}
-    fake_gh.route((["graphql"], graphql), (["repos/o/r/pulls/7/reviews"], []))
-    r = run_script("fetch-coderabbit-threads.sh", "7", *REPO)
-    assert r.returncode == 0, r.stderr
-    assert json.loads(_json_path(r.stdout).read_text())["threads"][0]["comments"]["nodes"][0]["body"] == body
-
-
-def test_coderabbit_threads_all_authors(fake_gh, run_script):
-    fake_gh.route((["graphql"], GRAPHQL), (["repos/o/r/pulls/7/reviews"], []))
-    r = run_script("fetch-coderabbit-threads.sh", "7", *REPO, "--all-authors")
-    assert "Human note" in r.stdout
-    assert "Old news" not in r.stdout
-    assert "_No nitpicks._" in r.stdout
+    _, data = _fetch_comments(fake_gh, run_script, [_thread("src/a.py", _node("coderabbitai", body, "https://x/a"))])
+    assert data["threads"][0]["comments"]["nodes"][0]["body"] == body
 
 
 # --------------------------------------------------------------------------- fake gh
@@ -510,17 +663,23 @@ def test_fake_gh_serves_sequenced_responses(fake_gh):
 # --------------------------------------------------------------------------- wait-for-reviews
 
 HEAD = "abc"
-SNAPSHOT = ["pr", "view", "headRefOid,statusCheckRollup"]
+SNAPSHOT = ["pr", "view", "headRefOid,mergeable,statusCheckRollup"]
 TESTS_RUN = {"__typename": "CheckRun", "name": "tests", "status": "COMPLETED"}
 CR_CONTEXT = {"__typename": "StatusContext", "context": "CodeRabbit", "state": "SUCCESS"}
 SONAR_RUN = {"__typename": "CheckRun", "name": "SonarCloud Code Analysis", "status": "COMPLETED",
              "detailsUrl": "https://sonarcloud.io/dashboard?id=url_key&pullRequest=7"}
 CR_USER = {"login": "coderabbitai[bot]"}
-HUMAN_COMMENTS = [{"user": {"login": "alice"}, "updated_at": "2026-01-02T00:00:00Z", "body": "LGTM"}]
+PR_URL = "https://github.com/o/r/pull/7"
+OWN_COMMENTS = [{"id": 30, "user": {"login": ME}, "html_url": f"{PR_URL}#issuecomment-30",
+                 "updated_at": "2026-01-02T00:00:00Z", "body": "LGTM"}]
 SUMMARIZE = "<!-- This is an auto-generated comment: summarize by coderabbit.ai -->"
 CR_REVIEW = "<!-- coderabbit-ai-generated:v1 -->\n**Actionable comments posted: 1**"
-PR_URL = "https://github.com/o/r/pull/7"
 RETRIGGER = "'gh pr comment 7 --repo o/r --body \"@coderabbitai review\"'"
+SUMMARY_ITEM = f"pr-comment coderabbitai[bot] {PR_URL}#issuecomment-31\n"
+REPLY_ITEM = f"pr-comment coderabbitai[bot] {PR_URL}#issuecomment-32\n"
+RUNNING = {**TESTS_RUN, "name": "lint", "status": "IN_PROGRESS", "detailsUrl": "https://github.com/o/r/actions/runs/1/job/9"}
+COMMENT_LISTS = ("repos/o/r/issues/7/comments", "repos/o/r/pulls/7/reviews", "repos/o/r/pulls/7/comments")
+_ABSENT = object()
 
 
 def _settled(outcome: str, head: str = HEAD) -> str:
@@ -537,11 +696,18 @@ def _coverage(sha: str) -> str:
 
 def _summary(text: str = "## Summary", *, covers: str | None = None) -> dict:
     body = "\n".join([SUMMARIZE, text, *([_coverage(covers)] if covers else [])])
-    return {"user": CR_USER, "updated_at": "2026-01-02T00:00:00Z", "body": body}
+    return {"id": 31, "user": CR_USER, "html_url": f"{PR_URL}#issuecomment-31", "updated_at": "2026-01-02T00:00:00Z",
+            "body": body}
 
 
 def _cr_reply(body: str) -> dict:
-    return {"user": CR_USER, "updated_at": "2026-01-03T00:00:00Z", "body": body}
+    return {"id": 32, "user": CR_USER, "html_url": f"{PR_URL}#issuecomment-32", "updated_at": "2026-01-03T00:00:00Z",
+            "body": body}
+
+
+def _conversation(cid: int, login: str | None, body: str = "a comment") -> dict:
+    return {"id": cid, "user": None if login is None else {"login": login}, "html_url": f"{PR_URL}#issuecomment-{cid}",
+            "updated_at": "2026-01-02T00:00:00Z", "body": body}
 
 
 def _status(description: str, state: str = "success", context: str = "CodeRabbit") -> dict:
@@ -553,8 +719,8 @@ def _review(body: str = CR_REVIEW, *, commit: str = HEAD, login: str = "coderabb
             "html_url": f"{PR_URL}#pullrequestreview-{rid}"}
 
 
-def _review_comment(cid: int, login: str = "coderabbitai[bot]") -> dict:
-    return {"id": cid, "user": {"login": login}, "html_url": f"{PR_URL}#discussion_r{cid}",
+def _review_comment(cid: int, login: str | None = "coderabbitai[bot]") -> dict:
+    return {"id": cid, "user": None if login is None else {"login": login}, "html_url": f"{PR_URL}#discussion_r{cid}",
             "updated_at": "2026-01-02T00:00:00Z", "body": f"comment {cid}"}
 
 
@@ -567,11 +733,18 @@ def _failed_run(name: str, job: int) -> dict:
             "detailsUrl": f"https://github.com/o/r/actions/runs/1/job/{job}"}
 
 
+def _snapshot(head: str = HEAD, rollup=(TESTS_RUN, CR_CONTEXT), mergeable: object = "MERGEABLE") -> dict:
+    snapshot = {"headRefOid": head, "statusCheckRollup": list(rollup)}
+    return snapshot if mergeable is _ABSENT else {**snapshot, "mergeable": mergeable}
+
+
 def _routes(*, head: str = HEAD, rollup=(TESTS_RUN, CR_CONTEXT), suites=(), comments=(), statuses=(),
-            reviews=(), review_comments=()) -> dict[str, Any]:
-    """The wait's reads by name: HEAD's snapshot, suites and statuses; issue comments, reviews, review comments."""
+            reviews=(), review_comments=(), mergeable: object = "MERGEABLE") -> dict[str, Any]:
+    """The wait's reads by name: HEAD's snapshot, the logged-in user, HEAD's suites and statuses; issue comments,
+    reviews, review comments."""
     return {
-        "snapshot": (SNAPSHOT, {"headRefOid": head, "statusCheckRollup": list(rollup)}),
+        "snapshot": (SNAPSHOT, _snapshot(head, rollup, mergeable)),
+        "user": SELF_ROUTE,
         "suites": ([f"repos/o/r/commits/{head}/check-suites"], {"check_suites": list(suites)}),
         "comments": (["repos/o/r/issues/7/comments"], list(comments)),
         "statuses": ([f"repos/o/r/commits/{head}/statuses"], list(statuses)),
@@ -593,14 +766,14 @@ def _wait(fake_gh, run_script, routes: dict) -> subprocess.CompletedProcess[str]
 
 @pytest.mark.usefixtures("fast_wait")
 def test_wait_gate_clear_without_coderabbit(fake_gh, run_script):
-    r = _wait(fake_gh, run_script, _routes(rollup=[TESTS_RUN], comments=HUMAN_COMMENTS))
+    r = _wait(fake_gh, run_script, _routes(rollup=[TESTS_RUN], comments=OWN_COMMENTS))
     assert (r.returncode, r.stdout) == (0, ""), r.stderr
 
 
 @pytest.mark.usefixtures("fast_wait")
 def test_wait_settles_when_coderabbit_only_commented(fake_gh, run_script):
     r = _wait(fake_gh, run_script, _routes(rollup=[TESTS_RUN], comments=[_summary(covers=HEAD)]))
-    assert (r.returncode, r.stdout) == (0, _settled("reviewed")), r.stderr
+    assert (r.returncode, r.stdout) == (0, SUMMARY_ITEM + _settled("reviewed")), r.stderr
 
 
 def test_wait_rejects_skip_coderabbit(fake_gh, run_script, monkeypatch):
@@ -660,21 +833,21 @@ def test_wait_gate_waits_for_sonar_suite_beside_completed_sonar_run(fake_gh, run
 @pytest.mark.usefixtures("fast_wait")
 def test_wait_gate_clears_on_completed_sonar_suite_beside_idle_apps(fake_gh, run_script):
     suites = [_suite("sonarqubecloud", "completed", "success"), _suite("github-actions", "queued")]
-    r = _wait(fake_gh, run_script, _routes(rollup=[TESTS_RUN], suites=suites, comments=HUMAN_COMMENTS))
+    r = _wait(fake_gh, run_script, _routes(rollup=[TESTS_RUN], suites=suites, comments=OWN_COMMENTS))
     assert (r.returncode, r.stdout) == (0, "sonar-done abc success\n"), r.stderr
 
 
 @pytest.mark.usefixtures("fast_wait")
 def test_wait_sonar_done_names_the_first_non_success_conclusion(fake_gh, run_script):
     suites = [_suite("sonarqubecloud", "completed", conclusion) for conclusion in ("success", "neutral", "failure")]
-    r = _wait(fake_gh, run_script, _routes(rollup=[TESTS_RUN], suites=suites, comments=HUMAN_COMMENTS))
+    r = _wait(fake_gh, run_script, _routes(rollup=[TESTS_RUN], suites=suites, comments=OWN_COMMENTS))
     assert (r.returncode, r.stdout) == (0, "sonar-done abc neutral\n"), r.stderr
 
 
 @pytest.mark.usefixtures("fast_wait")
 @pytest.mark.parametrize("suites_route",[("", 1), ({"check_suites": ["{not json"]}, 0)], ids=["fails", "invalid"])
 def test_wait_gate_stays_closed_when_suites_unreadable(fake_gh, run_script, suites_route):
-    routes = _routes(rollup=[TESTS_RUN], comments=HUMAN_COMMENTS)
+    routes = _routes(rollup=[TESTS_RUN], comments=OWN_COMMENTS)
     routes["suites"] = (routes["suites"][0], *suites_route)
     r = _wait(fake_gh, run_script, routes)
     assert (r.returncode, r.stdout) == (1, "")
@@ -687,59 +860,60 @@ def test_wait_gate_stays_closed_when_suites_unreadable(fake_gh, run_script, suit
 @pytest.mark.usefixtures("fast_wait")
 def test_wait_settles_when_summary_covers_head(fake_gh, run_script):
     r = _wait(fake_gh, run_script, _routes(comments=[_summary(covers=HEAD)]))
-    assert (r.returncode, r.stdout) == (0, _settled("reviewed")), r.stderr
+    assert (r.returncode, r.stdout) == (0, SUMMARY_ITEM + _settled("reviewed")), r.stderr
 
 
 @pytest.mark.usefixtures("fast_wait")
 def test_wait_placeholder_summary_does_not_settle(fake_gh, run_script):
     r = _wait(fake_gh, run_script, _routes(comments=[_summary()]))
-    assert (r.returncode, r.stdout) == (0, _settled("cap")), r.stderr
+    assert (r.returncode, r.stdout) == (0, SUMMARY_ITEM + _settled("cap")), r.stderr
 
 
 @pytest.mark.usefixtures("fast_wait")
 def test_wait_settles_on_completed_status_without_coverage(fake_gh, run_script):
     r = _wait(fake_gh, run_script, _routes(comments=[_summary(covers="prev")], statuses=[_status("Review completed")]))
-    assert (r.returncode, r.stdout) == (0, _settled("reviewed")), r.stderr
+    assert (r.returncode, r.stdout) == (0, SUMMARY_ITEM + _settled("reviewed")), r.stderr
 
 
 @pytest.mark.usefixtures("fast_wait")
 def test_wait_settles_on_review_on_head(fake_gh, run_script):
     r = _wait(fake_gh, run_script, _routes(comments=[_summary()], reviews=[_review()]))
-    assert (r.returncode, r.stdout) == (0, f"coderabbit-review {PR_URL}#pullrequestreview-21\n" + _settled("reviewed"))
+    assert (r.returncode, r.stdout) == (0, f"review coderabbitai[bot] {PR_URL}#pullrequestreview-21\n" + SUMMARY_ITEM
+                                          + _settled("reviewed"))
 
 
 @pytest.mark.usefixtures("fast_wait")
 @pytest.mark.parametrize(("review", "item"), [
     (_review(""), ""),
-    (_review(commit="prev"), f"coderabbit-review {PR_URL}#pullrequestreview-21\n"),
-    (_review(login="alice"), ""),
+    (_review(commit="prev"), f"review coderabbitai[bot] {PR_URL}#pullrequestreview-21\n"),
+    (_review(login="alice"), f"review alice {PR_URL}#pullrequestreview-21\n"),
 ], ids=["empty-body", "other-commit", "other-author"])
 def test_wait_ignores_reviews_other_than_coderabbits_on_head(fake_gh, run_script, review, item):
     r = _wait(fake_gh, run_script, _routes(comments=[_summary()], reviews=[review]))
-    assert (r.returncode, r.stdout) == (0, item + _settled("cap")), r.stderr
+    assert (r.returncode, r.stdout) == (0, item + SUMMARY_ITEM + _settled("cap")), r.stderr
 
 
 @pytest.mark.usefixtures("fast_wait")
 def test_wait_matches_status_descriptions_case_insensitively(fake_gh, run_script):
     r = _wait(fake_gh, run_script, _routes(comments=[_summary()], statuses=[_status("review COMPLETED")]))
-    assert (r.returncode, r.stdout) == (0, _settled("reviewed")), r.stderr
+    assert (r.returncode, r.stdout) == (0, SUMMARY_ITEM + _settled("reviewed")), r.stderr
 
 
 @pytest.mark.usefixtures("fast_wait")
 def test_wait_ignores_statuses_of_other_contexts(fake_gh, run_script):
     statuses = [_status("Review rate limited", context="other-bot"), _status("Review completed", context="ci")]
     r = _wait(fake_gh, run_script, _routes(comments=[_summary()], statuses=statuses))
-    assert (r.returncode, r.stdout) == (0, _settled("cap")), r.stderr
+    assert (r.returncode, r.stdout) == (0, SUMMARY_ITEM + _settled("cap")), r.stderr
 
 
 @pytest.mark.usefixtures("fast_wait")
-@pytest.mark.parametrize("comment", [
-    _cr_reply(f"Sure, reviewing.\n{_coverage(HEAD)}"),
-    {"user": {"login": "alice"}, "updated_at": "2026-01-03T00:00:00Z", "body": f"{SUMMARIZE}\n{_coverage(HEAD)}"},
+@pytest.mark.parametrize(("comment", "item"), [
+    (_cr_reply(f"Sure, reviewing.\n{_coverage(HEAD)}"), REPLY_ITEM),
+    (_conversation(33, "alice", f"{SUMMARIZE}\n{_coverage(HEAD)}"), f"pr-comment alice {PR_URL}#issuecomment-33\n"),
 ], ids=["coderabbit-reply", "human-copy"])
-def test_wait_summary_is_coderabbits_summarize_comment(fake_gh, run_script, comment):
+def test_wait_summary_is_coderabbits_summarize_comment(fake_gh, run_script, comment, item):
     r = _wait(fake_gh, run_script, _routes(comments=[_summary(), comment]))
-    assert (r.returncode, r.stdout) == (0, _settled("cap")), r.stderr
+    assert (r.returncode, r.stdout) == (0, SUMMARY_ITEM + item + _settled("cap")), r.stderr
 
 
 @pytest.mark.usefixtures("fast_wait")
@@ -747,14 +921,14 @@ def test_wait_summary_is_coderabbits_summarize_comment(fake_gh, run_script, comm
                          ids=["in-progress", "unknown"])
 def test_wait_other_statuses_poll_to_cap(fake_gh, run_script, statuses):
     r = _wait(fake_gh, run_script, _routes(comments=[_summary()], statuses=statuses))
-    assert (r.returncode, r.stdout) == (0, _settled("cap")), r.stderr
+    assert (r.returncode, r.stdout) == (0, SUMMARY_ITEM + _settled("cap")), r.stderr
 
 
 @pytest.mark.usefixtures("fast_wait")
 def test_wait_detects_rate_limit(fake_gh, run_script):
     comments = [_summary("Review limit reached", covers="prev"), _cr_reply("@coderabbitai review — on it.")]
     r = _wait(fake_gh, run_script, _routes(comments=comments, statuses=[_status("Review rate limited")]))
-    assert (r.returncode, r.stdout) == (3, _settled("rate-limited"))
+    assert (r.returncode, r.stdout) == (3, SUMMARY_ITEM + REPLY_ITEM + _settled("rate-limited"))
     assert "RATE LIMITED" in r.stderr
     assert RETRIGGER in r.stderr
 
@@ -762,7 +936,7 @@ def test_wait_detects_rate_limit(fake_gh, run_script):
 @pytest.mark.usefixtures("fast_wait")
 def test_wait_detects_pause(fake_gh, run_script):
     r = _wait(fake_gh, run_script, _routes(comments=[_summary()], statuses=[_status("Review paused")]))
-    assert (r.returncode, r.stdout) == (3, _settled("paused"))
+    assert (r.returncode, r.stdout) == (3, SUMMARY_ITEM + _settled("paused"))
     assert "PAUSED" in r.stderr
     assert RETRIGGER in r.stderr
 
@@ -774,14 +948,14 @@ def test_wait_detects_pause(fake_gh, run_script):
 ], ids=["paused-latest", "rate-limited-latest"])
 def test_wait_latest_status_decides(fake_gh, run_script, statuses, outcome):
     r = _wait(fake_gh, run_script, _routes(comments=[_summary()], statuses=statuses))
-    assert (r.returncode, r.stdout) == (3, _settled(outcome))
+    assert (r.returncode, r.stdout) == (3, SUMMARY_ITEM + _settled(outcome))
 
 
 @pytest.mark.usefixtures("fast_wait")
 def test_wait_carried_forward(fake_gh, run_script):
     r = _wait(fake_gh, run_script, _routes(comments=[_summary(covers="prev")],
                                            statuses=[_status("Prior review carried forward")]))
-    assert (r.returncode, r.stdout) == (0, _settled("carried-forward")), r.stderr
+    assert (r.returncode, r.stdout) == (0, SUMMARY_ITEM + _settled("carried-forward")), r.stderr
 
 
 @pytest.mark.usefixtures("fast_wait")
@@ -792,21 +966,21 @@ def test_wait_carried_forward(fake_gh, run_script):
 ], ids=["completed-then-rate-limited", "paused-but-covered", "carried-forward-but-covered"])
 def test_wait_reviewed_wins(fake_gh, run_script, statuses, comments):
     r = _wait(fake_gh, run_script, _routes(comments=comments, statuses=statuses))
-    assert (r.returncode, r.stdout) == (0, _settled("reviewed")), r.stderr
+    assert (r.returncode, r.stdout) == (0, SUMMARY_ITEM + _settled("reviewed")), r.stderr
 
 
 @pytest.mark.usefixtures("fast_wait")
 def test_wait_stale_rate_limit_text_with_fresh_reply(fake_gh, run_script):
     comments = [_summary("Review limit reached", covers="prev"), _cr_reply("Sure!")]
     r = _wait(fake_gh, run_script, _routes(comments=comments))
-    assert (r.returncode, r.stdout) == (0, _settled("cap")), r.stderr
+    assert (r.returncode, r.stdout) == (0, SUMMARY_ITEM + REPLY_ITEM + _settled("cap")), r.stderr
 
 
 @pytest.mark.usefixtures("fast_wait")
 def test_wait_names_head_by_its_short_sha(fake_gh, run_script):
     head = "0123456789abcdef0123456789abcdef01234567"
     r = _wait(fake_gh, run_script, _routes(head=head, comments=[_summary(covers=head)]))
-    assert (r.returncode, r.stdout) == (0, "coderabbit-settled 0123456 reviewed\n"), r.stderr
+    assert (r.returncode, r.stdout) == (0, SUMMARY_ITEM + "coderabbit-settled 0123456 reviewed\n"), r.stderr
 
 
 @pytest.mark.usefixtures("fast_wait")
@@ -835,22 +1009,23 @@ def test_wait_failed_read_is_never_an_answer(fake_gh, run_script, source, termin
         routes[source] = (routes[source][0], "", 1)
     r = _wait(fake_gh, run_script, routes)
     # A failed snapshot or suites read also keeps the gate closed until its timeout.
-    expected = (1, "") if source in ("snapshot", "suites") else (0, _settled("cap"))
+    items = "" if source in ("snapshot", "comments") else SUMMARY_ITEM
+    expected = (1, items) if source in ("snapshot", "suites") else (0, items + _settled("cap"))
     actual = (r.returncode, r.stdout)
     assert actual == expected, r.stderr
 
 
 @pytest.mark.usefixtures("fast_wait")
-@pytest.mark.parametrize(("failing", "comments", "statuses"), [
-    ("statuses", [_summary(covers=HEAD)], []),
-    ("reviews", [_summary()], [_status("Review completed")]),
-    ("comments", [], [_status("Review completed")]),
+@pytest.mark.parametrize(("failing", "comments", "statuses", "items"), [
+    ("statuses", [_summary(covers=HEAD)], [], SUMMARY_ITEM),
+    ("reviews", [_summary()], [_status("Review completed")], SUMMARY_ITEM),
+    ("comments", [], [_status("Review completed")], ""),
 ])
-def test_wait_reviewed_stands_on_the_reads_that_succeeded(fake_gh, run_script, failing, comments, statuses):
+def test_wait_reviewed_stands_on_the_reads_that_succeeded(fake_gh, run_script, failing, comments, statuses, items):
     routes = _routes(comments=comments, statuses=statuses)
     routes[failing] = (routes[failing][0], "", 1)
     r = _wait(fake_gh, run_script, routes)
-    assert (r.returncode, r.stdout) == (0, _settled("reviewed")), r.stderr
+    assert (r.returncode, r.stdout) == (0, items + _settled("reviewed")), r.stderr
 
 
 @pytest.mark.usefixtures("git_repo")
@@ -861,7 +1036,7 @@ def test_wait_keeps_polling_after_a_failed_read(fake_gh, run_script, monkeypatch
     routes["statuses"] = {"match": routes["statuses"][0],
                           "responses": [{"stdout": "", "exit": 1}, {"stdout": [_status("Review completed")]}]}
     r = _wait(fake_gh, run_script, routes)
-    assert (r.returncode, r.stdout) == (0, _settled("reviewed")), r.stderr
+    assert (r.returncode, r.stdout) == (0, SUMMARY_ITEM + _settled("reviewed")), r.stderr
 
 
 @pytest.mark.usefixtures("fast_wait")
@@ -869,10 +1044,12 @@ def test_wait_restarts_when_head_moves(fake_gh, run_script, monkeypatch):
     monkeypatch.setenv("LA_WAIT_CR_SETTLE", "600")
     abc, defs = _routes(), _routes(head="def", statuses=[_status("Review completed")])
     snapshots = [{"stdout": abc["snapshot"][1]}, {"stdout": defs["snapshot"][1]}]
-    fake_gh.route({"match": SNAPSHOT, "responses": snapshots}, abc["suites"], defs["suites"], abc["statuses"],
-                  defs["statuses"], (abc["comments"][0], [_summary()]), abc["reviews"], abc["review_comments"])
+    fake_gh.route({"match": SNAPSHOT, "responses": snapshots}, abc["user"], abc["suites"], defs["suites"],
+                  abc["statuses"], defs["statuses"], (abc["comments"][0], [_summary()]), abc["reviews"],
+                  abc["review_comments"])
     r = run_script("wait-for-reviews.sh", "7", *REPO)
-    assert (r.returncode, r.stdout) == (0, "head-moved abc def\n" + _settled("reviewed", "def")), r.stderr
+    expected = SUMMARY_ITEM + "head-moved abc def\n" + _settled("reviewed", "def")
+    assert (r.returncode, r.stdout) == (0, expected), r.stderr
     assert [c for c in fake_gh.calls() if "repos/o/r/commits/def/check-suites" in c["argv"]]
 
 
@@ -894,8 +1071,8 @@ def test_wait_second_run_prints_nothing_new(fake_gh, run_script):
     first = _wait(fake_gh, run_script, routes)
     assert (first.returncode, first.stdout) == (0, _ci_failed(routes["snapshot"][1]["statusCheckRollup"][0]["detailsUrl"],
                                                               "tests")
-                                                + f"coderabbit-comment {PR_URL}#discussion_r11\n"
-                                                + f"coderabbit-review {PR_URL}#pullrequestreview-21\n"
+                                                + f"review-comment coderabbitai[bot] {PR_URL}#discussion_r11\n"
+                                                + f"review coderabbitai[bot] {PR_URL}#pullrequestreview-21\n" + SUMMARY_ITEM
                                                 + "sonar-done abc success\n" + _settled("reviewed")), first.stderr
     assert _state_file(fake_gh).is_file()
     second = _wait(fake_gh, run_script, routes)
@@ -906,7 +1083,7 @@ def test_wait_second_run_prints_nothing_new(fake_gh, run_script):
 def test_wait_keeps_keys_of_a_concurrent_run(fake_gh, run_script, monkeypatch):
     monkeypatch.setenv("LA_WAIT_POLL_SECONDS", "0")
     tests_failed, lint_failed = _failed_run("tests", 2), _failed_run("lint", 9)
-    other = _wait(fake_gh, run_script, _routes(rollup=[tests_failed], comments=HUMAN_COMMENTS))
+    other = _wait(fake_gh, run_script, _routes(rollup=[tests_failed], comments=OWN_COMMENTS))
     assert other.stdout == _ci_failed(tests_failed["detailsUrl"], "tests"), other.stderr
     state = _state_file(fake_gh)
     others_keys = fake_gh.tmp / "others-keys.json"
@@ -924,16 +1101,190 @@ def test_wait_keeps_keys_of_a_concurrent_run(fake_gh, run_script, monkeypatch):
         f'exec "{real}" "$@"\n', encoding="utf-8")
     gh.chmod(0o755)
     running = {**TESTS_RUN, "name": "lint", "status": "IN_PROGRESS"}
-    snapshots = [{"stdout": {"headRefOid": HEAD, "statusCheckRollup": rollup}} for rollup in ([running], [lint_failed])]
-    routes = _routes(comments=HUMAN_COMMENTS)
+    snapshots = [{"stdout": _snapshot(rollup=rollup)} for rollup in ([running], [lint_failed])]
+    routes = _routes(comments=OWN_COMMENTS)
     routes["snapshot"] = {"match": SNAPSHOT, "responses": snapshots}
     fake_gh.route(*routes.values())
     this = run_script("wait-for-reviews.sh", "7", *REPO)
     assert (this.returncode, this.stdout) == (0, _ci_failed(lint_failed["detailsUrl"], "lint")), this.stderr
     assert count.read_text().strip() == "2"
 
-    later = _wait(fake_gh, run_script, _routes(rollup=[tests_failed, lint_failed], comments=HUMAN_COMMENTS))
+    later = _wait(fake_gh, run_script, _routes(rollup=[tests_failed, lint_failed], comments=OWN_COMMENTS))
     assert (later.returncode, later.stdout) == (0, "")
+
+
+# Merge conflict
+
+
+def _slow_gate(monkeypatch, timeout: str = "600") -> None:
+    """Instant polls, but neither the gate timeout nor the CodeRabbit cap ends the run."""
+    monkeypatch.setenv("LA_WAIT_GATE_TIMEOUT", timeout)
+    monkeypatch.setenv("LA_WAIT_POLL_SECONDS", "0")
+    monkeypatch.setenv("LA_WAIT_CR_SETTLE", "600")
+
+
+def _polls(routes: dict, *snapshots: dict) -> dict:
+    """`routes` with the snapshot read serving `snapshots` in order, the last repeating."""
+    return {**routes, "snapshot": {"match": SNAPSHOT, "responses": [{"stdout": s} for s in snapshots]}}
+
+
+def _snapshot_calls(fake_gh) -> int:
+    return sum(all(t in c["argv"] for t in SNAPSHOT) for c in fake_gh.calls())
+
+
+CONFLICT = "merge-conflict abc\n"
+
+
+@pytest.mark.usefixtures("git_repo")
+@pytest.mark.parametrize("timeout", ["600", "0"], ids=["gate-pending", "gate-timed-out"])
+def test_wait_merge_conflict_while_a_check_runs(fake_gh, run_script, monkeypatch, timeout):
+    _slow_gate(monkeypatch, timeout)
+    routes = _routes(rollup=[RUNNING, CR_CONTEXT], comments=[_summary()], review_comments=[_review_comment(13, "alice")],
+                     mergeable="CONFLICTING")
+    r = _wait(fake_gh, run_script, routes)
+    assert (r.returncode, r.stdout) == (4, CONFLICT), r.stderr
+    assert all(word in r.stderr.lower() for word in ("conflict", "base", "merge"))
+    assert [c["argv"] for c in fake_gh.calls() if not all(t in c["argv"] for t in SNAPSHOT)] == []
+    assert not _state_file(fake_gh).exists()
+
+
+@pytest.mark.usefixtures("git_repo")
+def test_wait_merge_conflict_during_the_settle(fake_gh, run_script, monkeypatch):
+    _slow_gate(monkeypatch)
+    r = _wait(fake_gh, run_script, _polls(_routes(), _snapshot(), _snapshot(mergeable="CONFLICTING")))
+    assert (r.returncode, r.stdout) == (4, CONFLICT), r.stderr
+    assert _snapshot_calls(fake_gh) == 2
+
+
+@pytest.mark.usefixtures("fast_wait")
+@pytest.mark.parametrize("mergeable", ["UNKNOWN", "MERGEABLE", _ABSENT, None, True, ["CONFLICTING"]],
+                         ids=["unknown", "mergeable", "missing", "null", "boolean", "list"])
+def test_wait_only_a_conflicting_state_is_a_conflict(fake_gh, run_script, mergeable):
+    r = _wait(fake_gh, run_script, _routes(rollup=[TESTS_RUN], comments=OWN_COMMENTS, mergeable=mergeable))
+    assert (r.returncode, r.stdout) == (0, ""), r.stderr
+
+
+@pytest.mark.usefixtures("git_repo")
+def test_wait_unknown_then_conflicting(fake_gh, run_script, monkeypatch):
+    _slow_gate(monkeypatch)
+    routes = _polls(_routes(rollup=[RUNNING]), _snapshot(rollup=[RUNNING], mergeable="UNKNOWN"),
+                    _snapshot(rollup=[RUNNING], mergeable="CONFLICTING"))
+    r = _wait(fake_gh, run_script, routes)
+    assert (r.returncode, r.stdout) == (4, CONFLICT), r.stderr
+    assert _snapshot_calls(fake_gh) == 2
+
+
+@pytest.mark.usefixtures("git_repo")
+def test_wait_conflict_prints_no_other_item(fake_gh, run_script, monkeypatch):
+    _slow_gate(monkeypatch)
+    failed = _failed_run("tests", 2)
+    routes = _routes(rollup=[failed], review_comments=[_review_comment(13, "alice")], mergeable="CONFLICTING")
+    first = _wait(fake_gh, run_script, routes)
+    assert (first.returncode, first.stdout) == (4, CONFLICT), first.stderr
+    assert not _state_file(fake_gh).exists()
+    later = _wait(fake_gh, run_script, {**routes, "snapshot": (SNAPSHOT, _snapshot(rollup=[failed]))})
+    expected = _ci_failed(failed["detailsUrl"], "tests") + f"review-comment alice {PR_URL}#discussion_r13\n"
+    assert (later.returncode, later.stdout) == (0, expected), later.stderr
+
+
+@pytest.mark.usefixtures("git_repo")
+def test_wait_head_moved_onto_a_conflict(fake_gh, run_script, monkeypatch):
+    _slow_gate(monkeypatch)
+    routes = _polls(_routes(rollup=[RUNNING]), _snapshot(rollup=[RUNNING]),
+                    _snapshot("def", [RUNNING], mergeable="CONFLICTING"))
+    r = _wait(fake_gh, run_script, routes)
+    assert (r.returncode, r.stdout) == (4, "head-moved abc def\nmerge-conflict def\n"), r.stderr
+
+
+@pytest.mark.usefixtures("fast_wait")
+def test_wait_second_run_reports_the_conflict_again(fake_gh, run_script):
+    routes = _routes(rollup=[RUNNING], mergeable="CONFLICTING")
+    first = _wait(fake_gh, run_script, routes)
+    second = _wait(fake_gh, run_script, routes)
+    assert [(r.returncode, r.stdout) for r in (first, second)] == [(4, CONFLICT), (4, CONFLICT)]
+
+
+# Comment items from every author
+
+
+@pytest.mark.usefixtures("fast_wait")
+def test_wait_comment_items_from_every_author_but_the_logged_in_user(fake_gh, run_script):
+    routes = _routes(rollup=[TESTS_RUN], review_comments=[_review_comment(13, "alice"), _review_comment(14, ME)],
+                     reviews=[_review("Please split this", login="alice", rid=23),
+                              _review("Self review", login=ME, rid=24), _review(" \n", login="carol", rid=25)],
+                     comments=[_conversation(31, "bob"), _conversation(32, "sonarqubecloud[bot]"),
+                               _conversation(33, ME)])
+    r = _wait(fake_gh, run_script, routes)
+    assert (r.returncode, r.stdout) == (0, (f"review-comment alice {PR_URL}#discussion_r13\n"
+                                            f"review alice {PR_URL}#pullrequestreview-23\n"
+                                            f"pr-comment bob {PR_URL}#issuecomment-31\n"
+                                            f"pr-comment sonarqubecloud[bot] {PR_URL}#issuecomment-32\n")), r.stderr
+
+
+_NO_USER = {k: v for k, v in _review_comment(16).items() if k != "user"}
+
+
+@pytest.mark.usefixtures("fast_wait")
+@pytest.mark.parametrize(("lists", "line"), [
+    ({"review_comments": [_review_comment(13, None)]}, f"review-comment ghost {PR_URL}#discussion_r13\n"),
+    ({"review_comments": [_NO_USER]}, f"review-comment ghost {PR_URL}#discussion_r16\n"),
+    ({"reviews": [{**_review("Hm", rid=23), "user": None}]}, f"review ghost {PR_URL}#pullrequestreview-23\n"),
+    ({"comments": [_conversation(31, None)]}, f"pr-comment ghost {PR_URL}#issuecomment-31\n"),
+], ids=["review-comment", "review-comment-without-user", "review", "pr-comment"])
+def test_wait_deleted_account_is_ghost(fake_gh, run_script, lists, line):
+    r = _wait(fake_gh, run_script, _routes(rollup=[TESTS_RUN], **lists))
+    assert (r.returncode, r.stdout) == (0, line), r.stderr
+
+
+@pytest.mark.usefixtures("git_repo")
+def test_wait_comment_items_wait_for_the_logged_in_user(fake_gh, run_script, monkeypatch):
+    _slow_gate(monkeypatch)
+    lint_failed = {**RUNNING, "status": "COMPLETED", "conclusion": "FAILURE"}
+    routes = _polls(_routes(rollup=[RUNNING], review_comments=[_review_comment(13, "alice")]),
+                    _snapshot(rollup=[RUNNING]), _snapshot(rollup=[lint_failed]))
+    routes["user"] = {"match": SELF_ROUTE[0], "responses": [{"stdout": "", "exit": 1}, {"stdout": SELF_ROUTE[1]}]}
+    r = _wait(fake_gh, run_script, routes)
+    # The ci-failed line of poll 2 comes first: the comment is printed only once the user is known.
+    expected = _ci_failed(lint_failed["detailsUrl"], "lint") + f"review-comment alice {PR_URL}#discussion_r13\n"
+    assert (r.returncode, r.stdout) == (0, expected), r.stderr
+
+
+@pytest.mark.usefixtures("git_repo")
+@pytest.mark.parametrize("comments", [OWN_COMMENTS, [_summary(covers=HEAD)]],
+                         ids=["coderabbit-absent", "coderabbit-by-comment"])
+def test_wait_reads_each_comment_list_once_per_poll(fake_gh, run_script, monkeypatch, comments):
+    _slow_gate(monkeypatch)
+    r = _wait(fake_gh, run_script, _polls(_routes(rollup=[RUNNING], comments=comments), _snapshot(rollup=[RUNNING]),
+                                          _snapshot(rollup=[TESTS_RUN])))
+    assert r.returncode == 0, r.stderr
+    assert _snapshot_calls(fake_gh) == 2
+    assert {e: sum(e in c["argv"] for c in fake_gh.calls()) for e in COMMENT_LISTS} == dict.fromkeys(COMMENT_LISTS, 2)
+
+
+@pytest.mark.usefixtures("fast_wait")
+def test_wait_reads_comment_lists_paginated_without_coderabbit(fake_gh, run_script):
+    r = _wait(fake_gh, run_script, _routes(rollup=[TESTS_RUN], comments=OWN_COMMENTS))
+    assert r.returncode == 0, r.stderr
+    lists = [c["argv"] for c in fake_gh.calls() if any(e in c["argv"] for e in COMMENT_LISTS)]
+    assert sorted(e for argv in lists for e in COMMENT_LISTS if e in argv) == sorted(COMMENT_LISTS)
+    assert all("--paginate" in argv for argv in lists), lists
+
+
+@pytest.mark.usefixtures("fast_wait")
+def test_wait_prints_comment_items_from_every_page(fake_gh, run_script):
+    routes = _routes(rollup=[TESTS_RUN])
+    routes["review_comments"] = (routes["review_comments"][0],
+                                 _pages([_review_comment(13, "alice")], [_review_comment(15, "bob")]))
+    routes["reviews"] = (routes["reviews"][0],
+                         _pages([_review("a", login="alice", rid=23)], [_review("b", login="bob", rid=26)]))
+    routes["comments"] = (routes["comments"][0], _pages([_conversation(31, "alice")], [_conversation(34, "bob")]))
+    r = _wait(fake_gh, run_script, routes)
+    assert (r.returncode, r.stdout) == (0, (f"review-comment alice {PR_URL}#discussion_r13\n"
+                                            f"review-comment bob {PR_URL}#discussion_r15\n"
+                                            f"review alice {PR_URL}#pullrequestreview-23\n"
+                                            f"review bob {PR_URL}#pullrequestreview-26\n"
+                                            f"pr-comment alice {PR_URL}#issuecomment-31\n"
+                                            f"pr-comment bob {PR_URL}#issuecomment-34\n")), r.stderr
 
 
 # --------------------------------------------------------------------------- pr-reviewers
@@ -954,7 +1305,7 @@ def _reviewers(fake_gh, run_script, rollup, comments, suites=()):
 
 @pytest.mark.usefixtures("git_repo")
 def test_pr_reviewers_coderabbit_by_status(fake_gh, run_script):
-    assert _reviewers(fake_gh, run_script, [TESTS_RUN, CR_CONTEXT], HUMAN_COMMENTS)["coderabbit"] is True
+    assert _reviewers(fake_gh, run_script, [TESTS_RUN, CR_CONTEXT], OWN_COMMENTS)["coderabbit"] is True
 
 
 @pytest.mark.usefixtures("git_repo")
@@ -965,7 +1316,7 @@ def test_pr_reviewers_coderabbit_by_comment(fake_gh, run_script):
 
 @pytest.mark.usefixtures("git_repo")
 def test_pr_reviewers_no_bots(fake_gh, run_script):
-    out = _reviewers(fake_gh, run_script, [TESTS_RUN], HUMAN_COMMENTS, suites=[_suite("github-actions", "completed")])
+    out = _reviewers(fake_gh, run_script, [TESTS_RUN], OWN_COMMENTS, suites=[_suite("github-actions", "completed")])
     assert out == {"coderabbit": False, "sonar": {"present": False, "project_key": None}}
 
 

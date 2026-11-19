@@ -10,10 +10,11 @@ gh:
 - match:
   - pr
   - view
-  - headRefOid,statusCheckRollup
+  - headRefOid,mergeable,statusCheckRollup
   responses:
   - stdout:
       headRefOid: abcdef0123
+      mergeable: MERGEABLE
       statusCheckRollup:
       - __typename: CheckRun
         name: tests
@@ -23,6 +24,11 @@ gh:
       - __typename: StatusContext
         context: CodeRabbit
         state: SUCCESS
+- match:
+  - api
+  - user
+  stdout:
+    login: me
 - match:
   - repos/o/r/commits/abcdef0123/check-suites
   stdout:
@@ -36,12 +42,14 @@ gh:
 - match:
   - repos/o/r/issues/7/comments
   stdout:
-  - user:
+  - id: 31
+    user:
       login: coderabbitai[bot]
+    html_url: https://github.com/o/r/pull/7#issuecomment-31
     updated_at: '2026-01-02T00:00:00Z'
-    body: '<!-- This is an auto-generated comment: summarize by coderabbit.ai -->
-
-      ## Summary'
+    body: |-
+      <!-- This is an auto-generated comment: summarize by coderabbit.ai -->
+      ## Summary
 - match:
   - repos/o/r/pulls/7/reviews
   stdout:
@@ -75,7 +83,7 @@ gh:
     in_reply_to_id: 11
   - id: 13
     user:
-      login: alice
+      login: me
     html_url: https://github.com/o/r/pull/7#discussion_r13
     updated_at: '2026-01-02T00:00:00Z'
     body: comment 13
@@ -83,5 +91,5 @@ expect:
   exit: 0
   stderr: ignore
 golden: manual
-note: CodeRabbit review comments (thread, reply) and reviews with a body are items;
-  a human comment and an empty-body review are not
+note: CodeRabbit's review comments (thread, reply), its review with a body and its summary comment are items; the logged-in
+  user's comment and an empty-body review are not

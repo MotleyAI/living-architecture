@@ -1,7 +1,0 @@
-kind: neutral
-command: la-fetch-coderabbit-threads
-args:
-- '7'
-- --bogus
-expect:
-  exit: 2

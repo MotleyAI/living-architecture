@@ -10,9 +10,10 @@ gh:
 - match:
   - pr
   - view
-  - headRefOid,statusCheckRollup
+  - headRefOid,mergeable,statusCheckRollup
   stdout:
     headRefOid: abc
+    mergeable: MERGEABLE
     statusCheckRollup:
     - __typename: CheckRun
       name: tests
@@ -23,21 +24,30 @@ gh:
       context: CodeRabbit
       state: SUCCESS
 - match:
+  - api
+  - user
+  stdout:
+    login: me
+- match:
   - repos/o/r/commits/abc/check-suites
   stdout:
     check_suites: []
 - match:
   - repos/o/r/issues/7/comments
   stdout:
-  - user:
+  - id: 31
+    user:
       login: coderabbitai[bot]
+    html_url: https://github.com/o/r/pull/7#issuecomment-31
     updated_at: '2026-01-02T00:00:00Z'
     body: |-
       <!-- This is an auto-generated comment: summarize by coderabbit.ai -->
       Review limit reached
       <!-- final_review_risk_coverage:{"sourceCommitId":"prev","coveredCommitId":"prev","kind":"reviewed"} -->
-  - user:
+  - id: 32
+    user:
       login: coderabbitai[bot]
+    html_url: https://github.com/o/r/pull/7#issuecomment-32
     updated_at: '2026-01-03T00:00:00Z'
     body: Sure!
 - match:

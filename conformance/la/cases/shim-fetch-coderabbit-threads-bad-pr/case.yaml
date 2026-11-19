@@ -1,8 +1,0 @@
-kind: neutral
-command: la-fetch-coderabbit-threads
-args:
-- abc
-- --repo
-- o/r
-expect:
-  exit: 2

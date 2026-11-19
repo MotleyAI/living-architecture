@@ -1,0 +1,11 @@
+kind: neutral
+command: la-fetch-review-comments
+args:
+- '7'
+- --repo
+- o/r
+- --all-authors
+expect:
+  exit: 2
+golden: manual
+note: '--all-authors is gone: every author is always listed'

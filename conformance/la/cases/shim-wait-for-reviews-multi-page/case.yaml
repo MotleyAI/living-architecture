@@ -1,0 +1,55 @@
+kind: neutral
+command: la-wait-for-reviews
+args:
+- '7'
+- --repo
+- o/r
+env:
+  LA_WAIT_POLL_SECONDS: '0'
+gh:
+- match:
+  - pr
+  - view
+  - headRefOid,mergeable,statusCheckRollup
+  responses:
+  - stdout:
+      headRefOid: abcdef0123
+      mergeable: MERGEABLE
+      statusCheckRollup:
+      - __typename: CheckRun
+        name: tests
+        status: COMPLETED
+        conclusion: SUCCESS
+        detailsUrl: https://github.com/o/r/actions/runs/1/job/2
+- match:
+  - api
+  - user
+  stdout:
+    login: me
+- match:
+  - repos/o/r/commits/abcdef0123/check-suites
+  stdout:
+    check_suites: []
+- match:
+  - repos/o/r/commits/abcdef0123/statuses
+  stdout: []
+- match:
+  - repos/o/r/issues/7/comments
+  stdout: |
+    [{"id": 31, "user": {"login": "alice"}, "html_url": "https://github.com/o/r/pull/7#issuecomment-31", "updated_at": "2026-01-02T00:00:00Z", "body": "a comment"}]
+    [{"id": 34, "user": {"login": "bob"}, "html_url": "https://github.com/o/r/pull/7#issuecomment-34", "updated_at": "2026-01-02T00:00:00Z", "body": "a comment"}]
+- match:
+  - repos/o/r/pulls/7/reviews
+  stdout: |
+    [{"id": 23, "user": {"login": "alice"}, "commit_id": "abcdef0123", "body": "a", "html_url": "https://github.com/o/r/pull/7#pullrequestreview-23"}]
+    [{"id": 26, "user": {"login": "bob"}, "commit_id": "abcdef0123", "body": "b", "html_url": "https://github.com/o/r/pull/7#pullrequestreview-26"}]
+- match:
+  - repos/o/r/pulls/7/comments
+  stdout: |
+    [{"id": 13, "user": {"login": "alice"}, "html_url": "https://github.com/o/r/pull/7#discussion_r13", "updated_at": "2026-01-02T00:00:00Z", "body": "comment 13"}]
+    [{"id": 15, "user": {"login": "bob"}, "html_url": "https://github.com/o/r/pull/7#discussion_r15", "updated_at": "2026-01-02T00:00:00Z", "body": "comment 15"}]
+expect:
+  exit: 0
+  stderr: ignore
+golden: manual
+note: each comment list is read across all its pages

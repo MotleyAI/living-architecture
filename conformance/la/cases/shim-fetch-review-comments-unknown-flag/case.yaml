@@ -1,0 +1,7 @@
+kind: neutral
+command: la-fetch-review-comments
+args:
+- '7'
+- --bogus
+expect:
+  exit: 2

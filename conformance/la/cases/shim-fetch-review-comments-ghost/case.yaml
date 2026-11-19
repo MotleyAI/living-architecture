@@ -1,0 +1,61 @@
+kind: neutral
+command: la-fetch-review-comments
+args:
+- '7'
+- --repo
+- o/r
+gh:
+- match:
+  - api
+  - user
+  stdout:
+    login: me
+- match:
+  - graphql
+  stdout:
+    data:
+      repository:
+        pullRequest:
+          reviewThreads:
+            pageInfo:
+              hasNextPage: false
+              endCursor: null
+            nodes:
+            - id: T_a.py
+              isResolved: false
+              isOutdated: false
+              path: a.py
+              line: 10
+              originalLine: 10
+              comments:
+                pageInfo:
+                  hasNextPage: false
+                  endCursor: null
+                nodes:
+                - author: null
+                  body: Fix
+                  url: https://x/a
+                  createdAt: '2026-01-01T00:00:00Z'
+- match:
+  - repos/o/r/pulls/7/reviews
+  stdout:
+  - id: 51
+    user: null
+    body: Consider X
+    html_url: https://github.com/o/r/pull/7#pullrequestreview-51
+    submitted_at: '2026-01-01T00:00:00Z'
+- match:
+  - repos/o/r/issues/7/comments
+  stdout:
+  - id: 41
+    user: null
+    body: Why?
+    html_url: https://github.com/o/r/pull/7#issuecomment-41
+    created_at: '2026-01-01T00:00:00Z'
+normalize:
+- pattern: -[0-9]{8}-[0-9]{6}\.json
+  replace: -<TS>.json
+expect:
+  exit: 0
+golden: manual
+note: a deleted account is ghost, never the logged-in user
