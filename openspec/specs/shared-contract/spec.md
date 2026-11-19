@@ -436,11 +436,11 @@ version whenever no tag for that version exists, skipping without reachable rele
 where it SHALL fail instead.
 
 #### Scenario: Tool change released as a minor
-- **WHEN** a file under `python/src/` changed since `v0.4.1` and `scripts/release-check v0.5.0` runs on the tagged commit
+- **WHEN** a file under `python/dr/src/` changed since `v0.4.1` and `scripts/release-check v0.5.0` runs on the tagged commit
 - **THEN** the rule passes
 
 #### Scenario: Tool change released as a patch
-- **WHEN** a file under `node/src/` or a dependency in `node/package.json` changed since `v0.4.1` and `scripts/release-check v0.4.2` runs on the tagged commit
+- **WHEN** a file under `node/dr/src/` or a dependency in `node/dr/package.json` changed since `v0.4.1` and `scripts/release-check v0.4.2` runs on the tagged commit
 - **THEN** it exits 1 naming `v0.4.1` and the changed inputs
 
 #### Scenario: Unchanged tools released as a patch
