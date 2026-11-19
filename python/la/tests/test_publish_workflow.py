@@ -38,6 +38,13 @@ def test_npm_publishes_dr_before_la() -> None:
     assert 'npm publish -w "$package" --provenance --access public' in publish
 
 
+def test_npm_installs_run_no_lifecycle_scripts() -> None:
+    runs = [step.get("run", "").split() for step in _jobs()["npm"]["steps"]]
+    installs = [tokens for tokens in runs if tokens[:2] in (["npm", "ci"], ["npm", "install"])]
+    assert len(installs) == 2
+    assert all("--ignore-scripts" in tokens for tokens in installs), installs
+
+
 def test_npm_rerun_publishes_only_the_missing_package(tmp_path: Path) -> None:
     [publish] = [step["run"] for step in _jobs()["npm"]["steps"] if "npm publish" in step.get("run", "")]
     for package, name in (("dr", "deterministic-refactor"), ("la", "living-architecture")):

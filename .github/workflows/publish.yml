@@ -60,7 +60,7 @@ jobs:
           node-version: "22"
           registry-url: "https://registry.npmjs.org"
       - run: npm install -g --ignore-scripts npm@11.21.3  # trusted publishing needs npm >= 11.5
-      - run: npm ci
+      - run: npm ci --ignore-scripts
       - run: npm run build
       - name: Publish dr, then la
         run: |
