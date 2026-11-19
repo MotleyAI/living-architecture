@@ -76,7 +76,7 @@ Calibration notes (read first):
 - [x] 9.2 Update `.github/workflows/publish.yml` (build with `uv build --package`, `npm -w` build/publish, dr before la) and `scripts/release-check` plus `scripts/release_rule.py` (lockstep across four package versions, two `plugin.json`, la's pin and plugin dependency; per-package hashes; per-file format series read against the pre-split layout); verify the release-rule tests incl. the new scenarios
 - [ ] 9.3 Update `scripts/acceptance-node-only` (packs and installs both npm packages); verify the acceptance job
 - [x] 9.4 Update `AGENTS.md`, `README.md`, `CONTRIBUTING.md` and `docs/*` for the two packages, commands, plugins, config files and migration; add dr's package README; verify the docs build/links tests and that no doc names `la-typecheck` except as the deprecated alias
-- [ ] 9.5 Put in the PR description the maintainer's local re-setup: re-link `~/.claude/skills/la` → `plugin/la` and `~/.claude/skills/dr` → `plugin/dr`; reinstall editable tools with `uv tool install -e python/la --with-editable python/dr --with-executables-from deterministic-refactor`
+- [x] 9.5 Put in the PR description the maintainer's local re-setup: re-link `~/.claude/skills/la` → `plugin/la` and `~/.claude/skills/dr` → `plugin/dr`; reinstall editable tools with `uv tool install -e python/la --with-editable python/dr --with-executables-from deterministic-refactor`
 
 ## 10. Finish
 
