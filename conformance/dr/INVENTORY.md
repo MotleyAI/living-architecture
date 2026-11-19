@@ -11,7 +11,7 @@ restructure; their goldens are hand-written.
 |---|---|---|
 | *(new)* the invoking twin checks before forwarding the other language's files (no install hint with the other twin absent) | 2 | `twin-format-checked-before-forwarding-python`, `twin-format-checked-before-forwarding-typescript` |
 | *(new)* a dr command in an la repo checks `living-architecture.yaml` against its series: an older `format` is refused naming both formats and `la-arch-migrate` | 2 | `refactor-format-older-la-file` |
-| *(new)* `deterministic-refactor.yaml` without `format`: refused naming `format: 0.13.0` as the line to add | 2 | `config-dr-format-missing` |
+| *(new)* `deterministic-refactor.yaml` without `format`: refused naming `format: 0.14.0` as the line to add | 2 | `config-dr-format-missing` |
 | *(new)* `deterministic-refactor.yaml` at a newer format: refused naming it as the `dr` version to upgrade to | 2 | `typecheck-dr-file-format-newer` |
 | *(new)* `deterministic-refactor.yaml` at an older or invalid format: refused naming both formats, or showing the value | 2 | `config-dr-format-older`, `config-dr-format-invalid` |
 | *(new)* `deterministic-refactor.yaml` at the current format passes | 0 | `config-dr-get-format` |

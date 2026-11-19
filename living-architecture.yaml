@@ -1,4 +1,4 @@
-format: 0.13.0
+format: 0.14.0
 exempt: ['conformance/*']   # fixtures and goldens that break the rules on purpose
 tracker: linear
 openspec: true

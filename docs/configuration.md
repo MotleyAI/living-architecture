@@ -5,7 +5,7 @@ In a committed file every key but `format` is optional and takes the default sho
 repo is onboarded: main skills check for it with `la-doctor --require-config`.
 
 ```yaml
-format: 0.13.0                      # the repo format (below); la-arch-migrate stamps it
+format: 0.14.0                      # the repo format (below); la-arch-migrate stamps it
 exempt: []                          # repo-relative globs that are not the repo's own source (fixtures, generated code)
 tracker: linear                     # linear | github | none: where issues and (without OpenSpec) plans live
 openspec: true                      # the flow keeps specs and changes under openspec/
@@ -53,7 +53,7 @@ them. A repo that uses la keeps them in `living-architecture.yaml`, so it has on
 keeps them in `deterministic-refactor.yaml`, which `/dr:init` writes and which holds dr's keys alone:
 
 ```yaml
-format: 0.13.0
+format: 0.14.0
 exempt: []
 commands:
   test: null
@@ -75,7 +75,7 @@ its own series: `living-architecture.yaml` (with everything under `architecture/
 `deterministic-refactor.yaml` dr's. Every command except `la-arch-migrate`, the doctors and the review shims checks
 the file it read first and exits 2 on any other format. For `living-architecture.yaml`, a newer one names the `la`
 to upgrade to, and an older or missing one says to run `la-arch-migrate`, which converts the repo one released
-format at a time, starting from the declared one, and stamps the current format (from 0.4.0 to 0.13.0 it moves
+format at a time, starting from the declared one, and stamps the current format (from 0.4.0 to 0.14.0 it moves
 `conventions.exempt` to the top-level `exempt`). For `deterministic-refactor.yaml`, a newer one names the dr to
 upgrade to. `la-doctor` and `dr-doctor` report the same refusal as a problem. Without a committed file there is
 nothing to check; the local file cannot set `format`.

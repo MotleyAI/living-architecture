@@ -52,8 +52,8 @@ For an example of a project using this, look at [SLayer](https://github.com/Motl
 /plugin install la@living-architecture
 
 # the commands (la-*, dr-*), pinned to the same version as the plugin, from your repo's ecosystem
-uv tool install living-architecture==0.13.0 --with-executables-from deterministic-refactor   # Python repos (Python >= 3.11)
-npm install -g living-architecture@0.13.0 deterministic-refactor@0.13.0                      # TypeScript/JavaScript repos (Node >= 22)
+uv tool install living-architecture==0.14.0 --with-executables-from deterministic-refactor   # Python repos (Python >= 3.11)
+npm install -g living-architecture@0.14.0 deterministic-refactor@0.14.0                      # TypeScript/JavaScript repos (Node >= 22)
 ```
 
 The repo ships two packages that release together: `deterministic-refactor` (the `dr-*` commands and the `dr`
@@ -74,8 +74,8 @@ To get verified renames and moves without the architecture workflow, install onl
 
 ```bash
 /plugin install dr@living-architecture
-uv tool install deterministic-refactor==0.13.0      # Python repos
-npm install -g deterministic-refactor@0.13.0        # TypeScript/JavaScript repos
+uv tool install deterministic-refactor==0.14.0      # Python repos
+npm install -g deterministic-refactor@0.14.0        # TypeScript/JavaScript repos
 ```
 
 Then run `/dr:init` in the repo: it writes `deterministic-refactor.yaml` with the test and type-check commands.
