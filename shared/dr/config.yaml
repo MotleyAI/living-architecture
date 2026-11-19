@@ -4,5 +4,5 @@ files: [deterministic-refactor.yaml, living-architecture.yaml]
 # Per file, every released format (its `format` key), oldest first: the release that introduced it. The last is the
 # format the file's package reads and writes; la-arch-migrate converts living-architecture.yaml from each earlier one.
 formats:
-  deterministic-refactor.yaml: [0.13.0]
-  living-architecture.yaml: [0.4.0, 0.13.0]
+  deterministic-refactor.yaml: [0.14.0]
+  living-architecture.yaml: [0.4.0, 0.14.0]

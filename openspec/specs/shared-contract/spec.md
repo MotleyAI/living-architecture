@@ -553,7 +553,7 @@ whenever it applies the release rule to an untagged version.
 - **THEN** the Python test suite fails
 
 #### Scenario: Split release read against the single-file layout
-- **WHEN** `v0.12.0` has `shared/config.yaml` with `formats: [0.4.0]` and HEAD's `shared/dr/config.yaml` gives `living-architecture.yaml` `[0.4.0, 0.13.0]` and `deterministic-refactor.yaml` `[0.13.0]` for version `0.13.0`
+- **WHEN** `v0.13.0` has `shared/config.yaml` with `formats: [0.4.0]` and HEAD's `shared/dr/config.yaml` gives `living-architecture.yaml` `[0.4.0, 0.14.0]` and `deterministic-refactor.yaml` `[0.14.0]` for version `0.14.0`
 - **THEN** the formats rule passes
 
 ### Requirement: OS and YAML errors render from the shared registry

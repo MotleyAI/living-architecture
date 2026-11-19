@@ -81,7 +81,7 @@ requires-dist = [
 
 [[package]]
 name = "deterministic-refactor"
-version = "0.13.0"
+version = "0.14.0"
 source = { editable = "dr" }
 dependencies = [
     { name = "basedpyright" },
@@ -151,7 +151,7 @@ wheels = [
 
 [[package]]
 name = "living-architecture"
-version = "0.13.0"
+version = "0.14.0"
 source = { editable = "la" }
 dependencies = [
     { name = "deterministic-refactor" },

@@ -578,7 +578,7 @@ export interface MigrationStep {
 
 export const STEPS: MigrationStep[] = [
   { source: null, target: '0.4.0', apply: (root, tx) => apply(planOf(root), tx) },
-  { source: '0.4.0', target: '0.13.0', apply: () => undefined, config: moveExempt },
+  { source: '0.4.0', target: '0.14.0', apply: () => undefined, config: moveExempt },
 ];
 
 /** The declared format (null when absent) and the config text; null when it is current; MigrateError when it cannot be migrated. */
