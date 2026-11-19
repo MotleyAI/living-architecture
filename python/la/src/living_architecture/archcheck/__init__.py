@@ -18,6 +18,7 @@ from living_architecture.archcheck.facts import Facts, native_facts, native_top_
 from living_architecture.archcheck.index import (
     ArchCheckError,
     Layout,
+    configured_roots,
     declared_languages,
     load_index,
     resolve_layout,
@@ -85,7 +86,8 @@ def _findings(root: Path) -> list[str]:
     legacy_count = sum(1 for r in model.relations if r.legacy)
     findings: list[str] = []
     for language_facts in facts:
-        findings += check_claims(setup.node_map, language_facts)
+        roots = configured_roots(setup.index[language_facts.language], language_facts.language)
+        findings += check_claims(setup.node_map, language_facts, roots)
     findings += check_arc42(root, setup.index, setup.node_map)
     findings += check_spec_mapping(root, setup.index, setup.node_map)
     findings += check_legacy_ratchet(setup.index, legacy_count)

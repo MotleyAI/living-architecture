@@ -101,6 +101,9 @@ exists. Cases marked *(new)* pin behaviour introduced by this change; their gold
 | *(new)* top-level facts: several modules of one unit importing another give one edge, witnessed by the first sorted source module | 0 | `arch-check-top-level-facts-one-witness` |
 | *(new)* disjoint `root_packages`: union top-level facts and cross-root import edges in both native twins | 0 | `arch-check-multiple-root-packages-python`, `arch-check-multiple-root-packages-typescript` |
 | *(new)* the arch-scaffold-python output passes the check; with an existing spec directory only the unmapped-spec finding remains | 0/1 | `arch-check-scaffolded-clean`, `arch-check-scaffolded-unmapped-spec` |
+| *(new)* a node on the root package claims the top-level units under it; its nested element maps by convention | 0 | `arch-check-root-node-claims` |
+| *(new)* a top-level unit claimed through a root-package node and by another node: claimed twice | 1 | `arch-check-root-node-claimed-twice` |
+| *(new)* TypeScript nodes on two root packages claim the units under each; one arrow licenses every cross edge | 0 | `arch-check-root-node-ts` |
 | *(new)* Python `source_roots`: two packages under their own entries, units by dotted name | 0 | `arch-check-source-roots-workspace` |
 | *(new)* Python `source_roots`: top-level facts span every entry with dotted ids and cross-root edges | 0 | `arch-check-source-roots-facts` |
 | *(new)* `source_root` and `source_roots` both set: refused naming both keys | 2 | `arch-check-source-roots-both-forms` |

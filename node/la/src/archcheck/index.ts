@@ -7,7 +7,16 @@ import { NATIVE_LANGUAGE, RelayedFailure, TwinError, requestFacts } from 'determ
 import { checkClaims } from './claims.js';
 import { checkArc42, checkLegacyRatchet, checkSpecMapping } from './docs.js';
 import { type Facts, nativeFacts, nativeTopLevelFacts } from './facts.js';
-import { ArchCheckError, type Index, declaredLanguages, loadIndex, resolveLayout, resolveTsconfig, section } from './index-file.js';
+import {
+  ArchCheckError,
+  type Index,
+  configuredRoots,
+  declaredLanguages,
+  loadIndex,
+  resolveLayout,
+  resolveTsconfig,
+  section,
+} from './index-file.js';
 import { type NodeMap, buildNodeMap } from './nodes.js';
 import { scaffold, writeScaffold } from './scaffold.js';
 import { checkEnforcedTags } from './tags.js';
@@ -56,7 +65,10 @@ function findings(root: string): string[] {
   const arrows: [string, string][] = s.model.relations.map((r) => [r.src, r.dst]);
   const legacyCount = s.model.relations.filter((r) => r.legacy).length;
   const out: string[] = [];
-  for (const languageFacts of all) out.push(...checkClaims(s.nodeMap, languageFacts));
+  for (const languageFacts of all) {
+    const roots = configuredRoots(section(s.index, languageFacts.language), languageFacts.language);
+    out.push(...checkClaims(s.nodeMap, languageFacts, roots));
+  }
   out.push(
     ...checkArc42(root, s.index, s.nodeMap),
     ...checkSpecMapping(root, s.index, s.nodeMap),

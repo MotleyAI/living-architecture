@@ -75,6 +75,12 @@ function sourceRootsConfiguration(values: unknown): void {
   }
 }
 
+/** The section's roots as units of `language`: dotted for Python, paths otherwise. */
+export function configuredRoots(sectionValues: unknown, language: string): string[] {
+  const { roots } = rootConfiguration(sectionValues);
+  return language === 'python' ? roots.map((root) => root.split('/').join('.')) : roots;
+}
+
 /** The validated index mapping; ArchCheckError when it is unusable. */
 export function loadIndex(root: string): Index {
   const path = join(root, INDEX_REL);

@@ -5,251 +5,150 @@ specification {
   tag virtual
 }
 model {
-  python = system 'PyPI twin' {
-    contract = node 'Shared contract' {
+  python = system 'PyPI twins' {
+    dr = node 'deterministic-refactor' {
       metadata {
-        package 'living_architecture.contract'
+        package 'deterministic_refactor'
       }
-    }
-    config = node 'Config' {
-      metadata {
-        package 'living_architecture.config'
+      contract = node 'Shared contract'
+      config = node 'Config'
+      lang = node 'Language adapter'
+      twin = node 'Twin forwarding' {
+        metadata {
+          specs ['twin-forwarding']
+        }
       }
-    }
-    cli = node 'CLI' {
-      metadata {
-        package 'living_architecture.cli'
+      changes = node 'Change set'
+      typecheck = node 'Type check' {
+        metadata {
+          specs ['typecheck']
+        }
       }
-    }
-    c4 = node 'LikeC4 model' {
-      metadata {
-        package 'living_architecture.c4'
-        specs ['c4-layout']
+      refactor = node 'Deterministic refactoring' {
+        metadata {
+          specs ['refactor']
+        }
       }
+      doctor = node 'Doctor'
+      cli = node 'CLI'
     }
-    archcheck = node 'Architecture check' {
+    la = node 'living-architecture' {
       metadata {
-        package 'living_architecture.archcheck'
-        specs ['arch-check', 'arch-scaffold']
+        package 'living_architecture'
       }
-    }
-    lang = node 'Language adapter' {
-      metadata {
-        package 'living_architecture.lang'
+      contract = node 'Shared contract'
+      config = node 'Config'
+      cli = node 'CLI'
+      c4 = node 'LikeC4 model' {
+        metadata {
+          specs ['c4-layout']
+        }
       }
-    }
-    conventions = node 'Conventions and comments' {
-      metadata {
-        package 'living_architecture.conventions'
-        specs ['conventions']
+      archcheck = node 'Architecture check' {
+        metadata {
+          specs ['arch-check', 'arch-scaffold']
+        }
       }
-    }
-    review = node 'Review shims' {
-      metadata {
-        package 'living_architecture.review'
-        specs ['review-detection', 'failed-pr-checks']
+      conventions = node 'Conventions and comments' {
+        metadata {
+          specs ['conventions']
+        }
       }
-    }
-    doctor = node 'Doctor' {
-      metadata {
-        package 'living_architecture.doctor'
+      review = node 'Review shims' {
+        metadata {
+          specs ['review-detection', 'failed-pr-checks']
+        }
       }
-    }
-    refactor = node 'Deterministic refactoring' {
-      metadata {
-        package 'living_architecture.refactor'
-        specs ['refactor']
-      }
-    }
-    twin = node 'Twin forwarding' {
-      metadata {
-        package 'living_architecture.twin'
-        specs ['twin-forwarding']
-      }
-    }
-    typecheck = node 'Type check' {
-      metadata {
-        package 'living_architecture.typecheck'
-        specs ['typecheck']
-      }
-    }
-    changes = node 'Change set' {
-      metadata {
-        package 'living_architecture.changes'
-      }
-    }
-    affected = node 'Affected tests' {
-      metadata {
-        package 'living_architecture.affected'
-        specs ['affected-tests']
+      doctor = node 'Doctor'
+      affected = node 'Affected tests' {
+        metadata {
+          specs ['affected-tests']
+        }
       }
     }
 
-    cli -> contract
-    cli -> config
-    cli -> archcheck
-    cli -> c4
-    cli -> conventions
-    cli -> review
-    cli -> doctor
-    cli -> refactor
-    archcheck -> c4
-    archcheck -> lang
-    archcheck -> config
-    archcheck -> contract
-    conventions -> lang
-    conventions -> config
-    conventions -> contract
-    c4 -> contract
-    c4 -> config
-    config -> contract
-    review -> contract
-    doctor -> config
-    doctor -> contract
-    refactor -> contract
-    cli -> twin
-    archcheck -> twin
-    twin -> contract
-    cli -> typecheck
-    typecheck -> lang
-    typecheck -> config
-    typecheck -> contract
-    typecheck -> twin
-    typecheck -> changes
-    conventions -> twin
-    refactor -> config
-    refactor -> twin
-    cli -> affected
-    affected -> changes
-    affected -> lang
-    affected -> config
-    affected -> contract
-    affected -> twin
-    conventions -> changes
-    changes -> config
-    changes -> contract
-    refactor -> lang
-    refactor -> changes
-    refactor -> typecheck
-    lang -> contract
+    la -> dr
+    dr.changes -> dr.config
+    dr.changes -> dr.contract
+    dr.cli -> dr.config
+    dr.cli -> dr.refactor
+    dr.config -> dr.contract
+    dr.lang -> dr.contract
+    dr.refactor -> dr.changes
+    dr.refactor -> dr.config
+    dr.refactor -> dr.contract
+    dr.refactor -> dr.lang
+    dr.refactor -> dr.twin
+    dr.refactor -> dr.typecheck
+    dr.twin -> dr.contract
+    dr.typecheck -> dr.changes
+    dr.typecheck -> dr.config
+    dr.typecheck -> dr.contract
+    dr.typecheck -> dr.lang
+    dr.typecheck -> dr.twin
+    la.archcheck -> la.c4
+    la.cli -> la.affected
+    la.cli -> la.archcheck
+    la.cli -> la.c4
+    la.cli -> la.conventions
+    la.cli -> la.doctor
+    la.cli -> la.review
   }
-  typescript = system 'npm twin' {
-    contract = node 'Shared contract' {
+  typescript = system 'npm twins' {
+    dr = node 'deterministic-refactor' {
       metadata {
-        package 'src/contract'
+        package 'dr/src'
       }
+      contract = node 'Shared contract'
+      config = node 'Config'
+      lang = node 'Language adapter'
+      twin = node 'Twin forwarding'
+      changes = node 'Change set'
+      typecheck = node 'Type check'
+      refactor = node 'Deterministic refactoring'
+      doctor = node 'Doctor'
+      cli = node 'CLI'
     }
-    config = node 'Config' {
+    la = node 'living-architecture' {
       metadata {
-        package 'src/config'
+        package 'la/src'
       }
-    }
-    cli = node 'CLI' {
-      metadata {
-        package 'src/cli'
-      }
-    }
-    c4 = node 'LikeC4 model' {
-      metadata {
-        package 'src/c4'
-      }
-    }
-    archcheck = node 'Architecture check' {
-      metadata {
-        package 'src/archcheck'
-      }
-    }
-    lang = node 'Language adapter' {
-      metadata {
-        package 'src/lang'
-      }
-    }
-    review = node 'Review shims' {
-      metadata {
-        package 'src/review'
-      }
-    }
-    doctor = node 'Doctor' {
-      metadata {
-        package 'src/doctor'
-      }
-    }
-    twin = node 'Twin forwarding' {
-      metadata {
-        package 'src/twin'
-      }
-    }
-    conventions = node 'Conventions and comments' {
-      metadata {
-        package 'src/conventions'
-      }
-    }
-    typecheck = node 'Type check' {
-      metadata {
-        package 'src/typecheck'
-      }
-    }
-    refactor = node 'Deterministic refactoring' {
-      metadata {
-        package 'src/refactor'
-      }
-    }
-    changes = node 'Change set' {
-      metadata {
-        package 'src/changes'
-      }
-    }
-    affected = node 'Affected tests' {
-      metadata {
-        package 'src/affected'
-      }
+      contract = node 'Shared contract'
+      config = node 'Config'
+      cli = node 'CLI'
+      c4 = node 'LikeC4 model'
+      archcheck = node 'Architecture check'
+      conventions = node 'Conventions and comments'
+      review = node 'Review shims'
+      doctor = node 'Doctor'
+      affected = node 'Affected tests'
     }
 
-    cli -> contract
-    cli -> config
-    cli -> archcheck
-    cli -> c4
-    cli -> review
-    cli -> doctor
-    cli -> twin
-    archcheck -> c4
-    archcheck -> lang
-    archcheck -> config
-    archcheck -> contract
-    archcheck -> twin
-    lang -> contract
-    c4 -> contract
-    c4 -> config
-    config -> contract
-    review -> contract
-    doctor -> config
-    doctor -> contract
-    twin -> contract
-    cli -> conventions
-    cli -> typecheck
-    conventions -> lang
-    conventions -> config
-    conventions -> contract
-    conventions -> twin
-    typecheck -> lang
-    typecheck -> config
-    typecheck -> contract
-    typecheck -> twin
-    typecheck -> changes
-    cli -> refactor
-    refactor -> contract
-    refactor -> lang
-    refactor -> config
-    refactor -> twin
-    refactor -> changes
-    cli -> affected
-    affected -> changes
-    affected -> lang
-    affected -> config
-    affected -> contract
-    affected -> twin
-    conventions -> changes
-    changes -> config
-    changes -> contract
+    la -> dr
+    dr.changes -> dr.config
+    dr.changes -> dr.contract
+    dr.cli -> dr.config
+    dr.cli -> dr.refactor
+    dr.config -> dr.contract
+    dr.config -> dr.twin
+    dr.lang -> dr.contract
+    dr.refactor -> dr.changes
+    dr.refactor -> dr.config
+    dr.refactor -> dr.contract
+    dr.refactor -> dr.lang
+    dr.refactor -> dr.twin
+    dr.twin -> dr.contract
+    dr.typecheck -> dr.changes
+    dr.typecheck -> dr.config
+    dr.typecheck -> dr.contract
+    dr.typecheck -> dr.lang
+    dr.typecheck -> dr.twin
+    la.archcheck -> la.c4
+    la.cli -> la.affected
+    la.cli -> la.archcheck
+    la.cli -> la.c4
+    la.cli -> la.conventions
+    la.cli -> la.doctor
+    la.cli -> la.review
   }
 }

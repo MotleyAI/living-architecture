@@ -67,7 +67,7 @@ Calibration notes (read first):
 
 ## 8. Architecture harnesses
 
-- [ ] 8.0 Implement root-package nodes claiming their root's top-level units in both twins' claims checks; add one conformance case per new arch-check scenario (Python through both twins, TypeScript), list them in `conformance/INVENTORY.md`; verify they pass through both twins
+- [x] 8.0 Implement root-package nodes claiming their root's top-level units in both twins' claims checks; add one conformance case per new arch-check scenario (Python through both twins, TypeScript), list them in `conformance/INVENTORY.md`; verify they pass through both twins
 - [ ] 8.1 Apply the approved `index.yaml`, `model.c4`, `views.c4` and `system.arc42.md` edits (design decision 12), add `cross_cutting_specs.doctor` touching `python.dr.doctor` and `python.la.doctor`, move spec mappings and `touches:` to nested ids, regenerate diagrams with `la-arch-diagrams`; verify `la-arch-check` exits 0 and `npx likec4 validate` passes
 
 ## 9. CI, publishing, scripts and docs

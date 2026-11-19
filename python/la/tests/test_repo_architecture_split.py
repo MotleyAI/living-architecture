@@ -10,7 +10,7 @@ import yaml
 REPO_ROOT = next(p for p in Path(__file__).resolve().parents if (p / "shared").is_dir() and (p / "plugin").is_dir())
 ARCHITECTURE = REPO_ROOT / "architecture"
 MODEL = (ARCHITECTURE / "model.c4").read_text(encoding="utf-8")
-RELATION = re.compile(r"^\s*([\w.]+)\s*-\[?[\w#]*\]?->\s*([\w.]+)", re.MULTILINE)
+RELATION = re.compile(r"^\s*([\w.]+)\s*-(?:\[[\w#]*\]-)?>\s*([\w.]+)", re.MULTILINE)
 
 
 def _index() -> dict[str, Any]:

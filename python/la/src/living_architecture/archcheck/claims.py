@@ -7,17 +7,30 @@ from living_architecture.archcheck.facts import Facts
 from living_architecture.archcheck.nodes import MapElement, NodeMap, separator
 
 
-def _declared_findings(node_map: NodeMap, facts: Facts) -> list[str]:
+def _claimed(node: MapElement, roots: list[str], facts: Facts) -> list[str]:
+    """`node`'s declared units, then, when its package is a configured root, that root's top-level units."""
+    if node.package not in roots:
+        return node.units
+    sep = separator(facts.language)
+    return [*node.units, *sorted(u for u in facts.top_level_units if u.startswith(f"{node.package}{sep}"))]
+
+
+def _existence_findings(node: MapElement, unit: str, facts: Facts) -> list[str]:
+    fact = facts.unit(unit)
+    if fact.status == "missing":
+        return [message("claims-exist.unit-missing", node=node.id, unit=unit)]
+    if fact.status == "ambiguous":
+        return [message("claims-exist.unit-ambiguous", node=node.id, unit=unit, candidates=", ".join(fact.candidates))]
+    return []
+
+
+def _declared_findings(node_map: NodeMap, facts: Facts, roots: list[str]) -> list[str]:
     findings: list[str] = []
     seen: dict[str, str] = {}
     for node in node_map.language_nodes(facts.language):
-        for unit in node.units:
-            fact = facts.unit(unit)
-            if fact.status == "missing":
-                findings.append(message("claims-exist.unit-missing", node=node.id, unit=unit))
-            elif fact.status == "ambiguous":
-                candidates = ", ".join(fact.candidates)
-                findings.append(message("claims-exist.unit-ambiguous", node=node.id, unit=unit, candidates=candidates))
+        for unit in _claimed(node, roots, facts):
+            if unit in node.units:
+                findings += _existence_findings(node, unit, facts)
             if unit in seen:
                 findings.append(
                     message("claims-exactly-once.claimed-twice", unit=unit, first=seen[unit], second=node.id)
@@ -51,9 +64,10 @@ def _derived_findings(element: MapElement, candidates: list[str], facts: Facts) 
     return findings
 
 
-def check_claims(node_map: NodeMap, facts: Facts) -> list[str]:
-    """One language's declared, then model-derived units: they exist, and each nests only under its own node."""
-    findings = _declared_findings(node_map, facts)
+def check_claims(node_map: NodeMap, facts: Facts, roots: list[str]) -> list[str]:
+    """One language's declared, then model-derived units: they exist, each top-level unit is claimed once (a node on a
+    configured root claims that root's), and each nests only under its own node."""
+    findings = _declared_findings(node_map, facts, roots)
     nodes = node_map.language_nodes(facts.language)
     declared = sorted({unit for node in nodes for unit in node.units})
     for node in nodes:

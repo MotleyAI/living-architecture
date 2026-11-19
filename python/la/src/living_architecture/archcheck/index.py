@@ -91,6 +91,12 @@ def _source_roots_configuration(section: Any) -> None:
         raise ArchCheckError(message("arch-check.source-roots-overlap", first=duplicate, second=duplicate))
 
 
+def configured_roots(section: dict[str, Any], language: str) -> list[str]:
+    """The section's roots as units of `language`: dotted for Python, paths otherwise."""
+    _, roots = _root_configuration(section)
+    return [".".join(r.split("/")) for r in roots] if language == "python" else roots
+
+
 def load_index(root: Path) -> dict[str, Any]:
     """The validated index mapping; ArchCheckError when it is unusable."""
     path = root / INDEX_REL
