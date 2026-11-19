@@ -1,0 +1,22 @@
+kind: adapter
+languages:
+- python
+fixture: dr-mixed
+command: dr-refactor
+args:
+- rename
+- --file
+- src/a.py
+- --symbol
+- foo
+- --new-name
+- bar
+expect:
+  exit: 2
+  stderr:
+    contains:
+    - 0.4.0
+    - 0.13.0
+    - la-arch-migrate
+note: dr-refactor in an la repo checks living-architecture.yaml against its 0.13.0 series
+golden: manual

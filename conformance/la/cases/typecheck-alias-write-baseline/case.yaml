@@ -1,0 +1,13 @@
+kind: adapter
+languages:
+- python
+fixture: typecheck-python
+command: la-typecheck
+args:
+- --write-baseline
+expect:
+  exit: 0
+  files:
+  - .basedpyright/baseline.json
+note: write mode through the alias writes the baseline as dr-typecheck --write-baseline does
+golden: manual

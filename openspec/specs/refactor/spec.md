@@ -2282,7 +2282,7 @@ text and an end before it, and an empty range SHALL map both ends as its start.
   of the refactor, so a command that cannot run refuses before any reference search.
 - TypeScript (`.tsc-baseline.json`): the before and after diagnostics SHALL be the pre-emit diagnostics, from the
   bundled language services of every project holding the file, of every file the baseline lists, before and after
-  the edits applied in memory, keyed as `la-typecheck` keys tsc's output. A baselined key whose instances all map to
+  the edits applied in memory, keyed as `dr-typecheck` keys tsc's output. A baselined key whose instances all map to
   one new key SHALL move its count there.
 
 A diagnostic whose range cannot be mapped, or a TypeScript key whose instances map to different keys while only
@@ -2293,7 +2293,7 @@ followed by the checker's cause, and write nothing.
 #### Scenario: Rename shifts baselined columns
 - **WHEN** a line holds a baselined `reportArgumentType` error after a call of `get_model`, and `get_model` is
   renamed to `load` with `--apply`
-- **THEN** that entry's columns shift by the length difference, every other entry is unchanged, and `la-typecheck`
+- **THEN** that entry's columns shift by the length difference, every other entry is unchanged, and `dr-typecheck`
   passes afterwards
 
 #### Scenario: Dry-run shows the baseline
@@ -2303,7 +2303,7 @@ followed by the checker's cause, and write nothing.
 #### Scenario: Matching follows basedpyright
 - **WHEN** a file's baseline holds two identical-shaped entries, a stale entry, and an entry for a diagnostic below a
   newly unbaselined one, and a rename edits those lines
-- **THEN** exactly the entries basedpyright matched are rewritten, and `la-typecheck` reports the same new errors
+- **THEN** exactly the entries basedpyright matched are rewritten, and `dr-typecheck` reports the same new errors
   as before the rename
 
 #### Scenario: Configured command with a project flag
@@ -2312,7 +2312,7 @@ followed by the checker's cause, and write nothing.
 
 #### Scenario: Moved module
 - **WHEN** `move-module` moves `pkg/a.py`, which has baseline entries, into `pkg/sub/`
-- **THEN** those entries are listed under `./pkg/sub/a.py` and `la-typecheck` passes
+- **THEN** those entries are listed under `./pkg/sub/a.py` and `dr-typecheck` passes
 
 #### Scenario: Moved declaration
 - **WHEN** `move-symbol` moves a function with a baselined error into another file that has entries of its own

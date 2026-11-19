@@ -1,0 +1,1 @@
+FAIL: no dr-doctor on PATH, so the dr commands la runs are missing; install la with them: uv tool install living-architecture==<VERSION> --with-executables-from deterministic-refactor

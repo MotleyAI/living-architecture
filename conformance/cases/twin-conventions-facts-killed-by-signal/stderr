@@ -1,1 +1,0 @@
-la-check-conventions: the typescript twin (living-architecture <VERSION>) returned invalid facts; reinstall it with: npm install -g living-architecture@<VERSION>

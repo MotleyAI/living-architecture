@@ -1,0 +1,11 @@
+# repo config
+format: 0.4.0
+tracker: linear
+conventions:
+  text_ratio_max: 0.2
+  exempt:
+    # fixtures and generated code
+    - 'gen/*'  # generated
+    - 'conformance/*'
+  rules: [text-ratio]
+openspec: false

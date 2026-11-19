@@ -1,0 +1,1 @@
+arch_check: architecture/index.yaml: source_roots entry 'escape' resolves outside the repo

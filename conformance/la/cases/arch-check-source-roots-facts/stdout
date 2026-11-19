@@ -1,0 +1,10 @@
+{
+  "language": "python",
+  "version": "<VERSION>",
+  "contract_hash": "<CONTRACT_HASH>",
+  "units": [],
+  "top_level_units": ["pa.x", "pb.y"],
+  "edges": [
+    {"src": "pa.x", "dst": "pb.y", "src_module": "pa.x", "dst_module": "pb.y"}
+  ]
+}

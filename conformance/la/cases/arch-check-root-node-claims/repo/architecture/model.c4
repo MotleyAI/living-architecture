@@ -1,0 +1,15 @@
+specification {
+  element system
+  element node
+}
+
+model {
+  python = system 'Python' {
+    app = node 'App' {
+      metadata {
+        package 'pkg'
+      }
+      api = node 'API'
+    }
+  }
+}

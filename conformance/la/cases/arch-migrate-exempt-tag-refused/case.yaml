@@ -1,0 +1,8 @@
+kind: neutral
+command: la-arch-migrate
+expect:
+  exit: 2
+  files:
+  - living-architecture.yaml
+note: a tag inside the exempt value is not migratable
+golden: manual

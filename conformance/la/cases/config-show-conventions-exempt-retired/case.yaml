@@ -1,0 +1,11 @@
+kind: neutral
+command: la-config
+args:
+- show
+expect:
+  exit: 1
+  stderr:
+    contains:
+    - exempt
+note: 'conventions.exempt is retired at format 0.13.0: a config error naming exempt'
+golden: manual

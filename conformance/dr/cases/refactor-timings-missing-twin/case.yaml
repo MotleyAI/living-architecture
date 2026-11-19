@@ -1,0 +1,34 @@
+kind: neutral
+languages:
+- python
+- typescript
+fixture: dr-mixed
+golden: manual
+twin: python
+other_twin: absent
+command: dr-refactor
+args:
+- --timings
+- rename
+- --file
+- src/b.ts
+- --symbol
+- foo
+- --new-name
+- bar
+bins:
+- dir: other-twin
+  files:
+    dr-doctor: |
+      #!/bin/sh
+      echo "typescript <VERSION> <CONTRACT_HASH>"
+    dr-refactor: |
+      #!/bin/sh
+      exit 0
+  nonexec:
+  - dr-refactor
+normalize:
+- {pattern: '\d+\.\d\ds', replace: '<S>s'}
+expect:
+  exit: 2
+note: '--timings when the other twin cannot run dr-refactor: the twin error, then only total, exit 2'

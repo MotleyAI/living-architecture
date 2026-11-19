@@ -1,0 +1,5 @@
+format: <FORMAT>
+exempt: []
+conventions: {rules: []}
+reviewers: {codex: false}
+commands: {test: ''}

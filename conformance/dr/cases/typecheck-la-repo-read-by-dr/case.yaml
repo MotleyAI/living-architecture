@@ -1,0 +1,9 @@
+kind: adapter
+languages:
+- python
+fixture: typecheck-python
+command: dr-typecheck
+expect:
+  exit: 0
+note: without deterministic-refactor.yaml, dr reads living-architecture.yaml
+golden: manual

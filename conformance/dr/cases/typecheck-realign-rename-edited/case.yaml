@@ -1,0 +1,30 @@
+kind: adapter
+languages:
+- python
+command: dr-typecheck
+args:
+- --realign-from
+- HEAD
+fixture: typecheck-realign
+git:
+- commit: init
+- rename:
+    pkg/m.py: pkg/n.py
+- write:
+    pkg/n.py: |
+      def f(a: int, b: int) -> int:
+          return a + b
+
+
+      def use() -> int:
+          return f(int(1), "x") + len(3)
+
+
+      def other() -> int:
+          return 1
+expect:
+  exit: 0
+  files:
+  - .basedpyright/baseline.json
+golden: manual
+note: 'a file moved with git mv and edited: its entries sit under the new key with the new columns'

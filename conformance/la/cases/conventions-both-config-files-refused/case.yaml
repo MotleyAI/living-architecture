@@ -1,0 +1,9 @@
+kind: neutral
+command: la-check-conventions
+args:
+- --base
+- main
+expect:
+  exit: 2
+note: 'both config files: an la command refuses with the same message'
+golden: manual

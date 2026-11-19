@@ -1,0 +1,4 @@
+format: <FORMAT>
+exempt: [a.py]
+tracker: linear
+exempt: [b.py]

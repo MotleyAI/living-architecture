@@ -1,0 +1,8 @@
+kind: neutral
+command: la-config
+args:
+- show
+expect:
+  exit: 2
+note: 'both config files: la-config refuses with the same message'
+golden: manual

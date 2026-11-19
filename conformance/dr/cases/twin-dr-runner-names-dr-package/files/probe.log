@@ -1,0 +1,2 @@
+npx -y -p deterministic-refactor@<VERSION> dr-doctor --twin
+npx -y -p deterministic-refactor@<VERSION> dr-refactor (forwarded)

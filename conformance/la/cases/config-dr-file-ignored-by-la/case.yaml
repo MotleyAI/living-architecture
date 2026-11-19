@@ -1,0 +1,9 @@
+kind: neutral
+command: la-config
+args:
+- get
+- commands.test
+expect:
+  exit: 0
+note: 'an la command reads only living-architecture.yaml: no format check, no value'
+golden: manual

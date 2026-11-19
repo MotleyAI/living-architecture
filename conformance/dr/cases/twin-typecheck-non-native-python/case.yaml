@@ -1,0 +1,33 @@
+kind: neutral
+twin: typescript
+other_twin: absent
+command: dr-typecheck
+args:
+- --language
+- python
+bins:
+- dir: pypi-twin
+  files:
+    dr-doctor: |
+      #!/bin/sh
+      echo "pypi-twin: dr-doctor $*" >> <ROOT>/repo/probe.log
+      [ "$*" = "--twin" ] || { echo "fake dr-doctor: unexpected $*" >&2; exit 99; }
+      echo "python <VERSION> <CONTRACT_HASH>"
+    dr-typecheck: |
+      #!/bin/sh
+      echo "pypi-twin: dr-typecheck $*" >> <ROOT>/repo/probe.log
+      echo "pypi-twin dr-typecheck must not run" >&2
+      exit 99
+- dir: runner
+  files:
+    uvx: |
+      #!/bin/sh
+      echo "runner: uvx $*" >> <ROOT>/repo/probe.log
+      echo "runner uvx must not run" >&2
+      exit 99
+expect:
+  exit: 2
+  files:
+  - probe.log
+golden: manual
+note: the npm twin refuses a Python language request without starting any process

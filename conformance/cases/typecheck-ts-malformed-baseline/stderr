@@ -1,2 +1,0 @@
-la-typecheck: checking typescript with tsc --noEmit
-la-typecheck: typescript: .tsc-baseline.json is malformed

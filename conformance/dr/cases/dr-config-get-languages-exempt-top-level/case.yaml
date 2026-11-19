@@ -1,0 +1,9 @@
+kind: neutral
+command: dr-config
+args:
+- get
+- languages
+expect:
+  exit: 0
+note: files under the top-level exempt do not make a language
+golden: manual

@@ -1,0 +1,9 @@
+kind: neutral
+command: dr-config
+args:
+- get
+- exempt
+expect:
+  exit: 0
+note: exempt is a dr key, default []
+golden: manual

@@ -1,0 +1,8 @@
+kind: neutral
+command: la-arch-migrate
+expect:
+  exit: 0
+  files:
+  - living-architecture.yaml
+note: 'no conventions.exempt: only the format line changes'
+golden: manual

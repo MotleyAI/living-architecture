@@ -1,0 +1,11 @@
+kind: neutral
+languages:
+- python
+- typescript
+twin: python
+command: la-typecheck
+fixture: typecheck-ts-src
+expect:
+  exit: 1
+note: the forwarded typescript section repeats no deprecation line; it comes before the python header
+golden: manual

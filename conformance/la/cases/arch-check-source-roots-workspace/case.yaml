@@ -1,0 +1,8 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+expect:
+  exit: 0
+golden: manual
+note: 'new behaviour: two Python packages under their own source_roots entries, units by dotted name'

@@ -1,0 +1,11 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+fixture: arch-ok
+remove:
+- pkg
+expect:
+  exit: 2
+golden: manual
+note: 'new behaviour: a non-canonical source_roots entry is a setup error naming source_roots'

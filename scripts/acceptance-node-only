@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Node-only acceptance: the packed npm twin, installed into an isolated prefix, runs the TypeScript flow on
+# Node-only acceptance: both packed npm twins, installed into an isolated prefix, runs the TypeScript flow on
 # acceptance/node-only/repo while `python`, `python3`, `uv` and `uvx` are trapped; any call to them fails the run.
 #
 # Usage: scripts/acceptance-node-only   (needs node >= 22, npm, git and network for npm installs)
@@ -9,8 +9,8 @@ ROOT=$(cd "$(dirname "$0")/.." && pwd)
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 TRAP_LOG=$WORK/trap.log
-COMMANDS=(la-doctor la-config la-arch-scaffold la-arch-check la-typecheck la-check-conventions la-count-comments
-  dr-compliance dr-mock-lint dr-refactor)
+COMMANDS=(la-doctor la-config la-arch-scaffold la-arch-check la-check-conventions la-count-comments
+  dr-doctor dr-config dr-typecheck dr-compliance dr-mock-lint dr-refactor)
 
 step() { printf '\n== %s\n' "$*"; }
 fail() { printf 'acceptance-node-only: %s\n' "$*" >&2; exit 1; }
@@ -32,9 +32,10 @@ printf '#!/bin/sh\nexit 0\n' > "$WORK/stub/gh"
 chmod +x "$WORK/stub/gh"
 export PATH="$WORK/trap:$WORK/prefix/bin:$PATH:$WORK/stub"
 
-step "pack the npm twin and install it into an isolated prefix"
-(cd "$ROOT/node" && npm ci --no-audit --no-fund && npm run build && npm pack --pack-destination "$WORK")
-npm install -g --no-audit --no-fund --prefix "$WORK/prefix" "$WORK"/living-architecture-*.tgz
+step "pack both npm twins and install them into an isolated prefix"
+(cd "$ROOT/node" && npm ci --no-audit --no-fund && npm run build && npm pack -w dr -w la --pack-destination "$WORK")
+npm install -g --no-audit --no-fund --prefix "$WORK/prefix" "$WORK"/deterministic-refactor-*.tgz \
+  "$WORK"/living-architecture-*.tgz
 for command in "${COMMANDS[@]}"; do
   [ "$(command -v "$command")" = "$WORK/prefix/bin/$command" ] || fail "$command resolves to $(command -v "$command")"
 done
@@ -53,9 +54,11 @@ git remote add origin "$WORK/origin.git"
 git push -q origin main
 git checkout -q -b accept
 
-step "la-doctor and la-config"
+step "la-doctor, dr-doctor and their configs"
 la-doctor --require-config
+dr-doctor --require-config
 [ "$(la-config get languages)" = '["typescript"]' ] || fail "la-config get languages: $(la-config get languages)"
+[ "$(dr-config get languages)" = '["typescript"]' ] || fail "dr-config get languages: $(dr-config get languages)"
 
 step "architecture: scaffold, check, validate"
 la-arch-scaffold
@@ -63,8 +66,8 @@ la-arch-check
 npx -y likec4 validate architecture
 
 step "type check: baseline, then the gate"
-la-typecheck --write-baseline
-la-typecheck
+dr-typecheck --write-baseline
+dr-typecheck
 git add -A
 git commit -q -m scaffold
 
@@ -83,7 +86,7 @@ step "fixes"
 cp -r "$ROOT/acceptance/node-only/fixes/." .
 dr-compliance src tests
 dr-mock-lint tests
-la-typecheck
+dr-typecheck
 npx vitest run
 git add -A
 git commit -q -m fixes
@@ -104,7 +107,7 @@ grep -qE "from ['\"]\.\./\.\./util/text['\"]" src/api/routes/handler.ts || fail 
 grep -q "src/api/routes/handler" tests/handler.test.ts || fail "move-module did not rewrite the test import"
 
 step "the gate after the refactors"
-la-typecheck
+dr-typecheck
 npx vitest run
 la-arch-check
 git add -A

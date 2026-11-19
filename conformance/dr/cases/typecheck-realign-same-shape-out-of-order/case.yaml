@@ -1,0 +1,27 @@
+kind: adapter
+languages:
+- python
+command: dr-typecheck
+args:
+- --realign-from
+- HEAD
+fixture: typecheck-realign
+git:
+- commit: init
+- write:
+    pkg/m.py: |
+      def f(a: int, b: int) -> int:
+          return a + b
+
+
+      def use(v: int) -> int:
+          a = len("")
+          b = f(1, "x")
+          c = 0 + len(v)
+          return a + b + c
+expect:
+  exit: 1
+  files:
+  - .basedpyright/baseline.json
+golden: manual
+note: 'the first error is fixed and a later line gains an error that maps back to its columns, after an error still matched: the entry is not taken out of order'

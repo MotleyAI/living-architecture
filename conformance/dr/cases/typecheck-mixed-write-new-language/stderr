@@ -1,0 +1,4 @@
+dr-typecheck: checking python with basedpyright
+dr-typecheck: python: .basedpyright/baseline.json exists, skipped
+dr-typecheck: checking typescript with tsc --noEmit
+dr-typecheck: typescript: wrote .tsc-baseline.json

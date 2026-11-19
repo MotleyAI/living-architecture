@@ -1,0 +1,8 @@
+kind: neutral
+command: la-arch-migrate
+expect:
+  exit: 0
+  files:
+  - living-architecture.yaml
+note: a flow exempt entry moves with its comment; the emptied conventions mapping is removed
+golden: manual

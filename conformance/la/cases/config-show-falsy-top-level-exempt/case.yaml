@@ -1,0 +1,8 @@
+kind: neutral
+command: la-config
+args: [show]
+expect:
+  exit: 0
+  stdout: json
+golden: manual
+note: explicit empty lists and false are kept, the top-level exempt included

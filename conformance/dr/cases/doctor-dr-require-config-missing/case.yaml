@@ -1,0 +1,7 @@
+kind: neutral
+command: dr-doctor
+args: [--require-config]
+expect:
+  exit: 1
+note: with --require-config and neither config file, one finding naming /dr:init
+golden: manual

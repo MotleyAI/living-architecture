@@ -1,0 +1,3 @@
+dr-typecheck: checking python with basedpyright
+dr-typecheck: checking typescript with tsc --noEmit
+dr-typecheck: typescript: 1 new error(s) not in .tsc-baseline.json

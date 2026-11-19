@@ -1,0 +1,8 @@
+kind: neutral
+command: la-config
+args: [show]
+expect:
+  exit: 0
+  stdout: json
+golden: manual
+note: an explicit null under a referenced dr key is kept while its sibling gets the default

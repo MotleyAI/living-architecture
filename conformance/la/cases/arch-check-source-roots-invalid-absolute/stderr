@@ -1,0 +1,1 @@
+arch_check: architecture/index.yaml: source_roots '/a/src' must be a relative path

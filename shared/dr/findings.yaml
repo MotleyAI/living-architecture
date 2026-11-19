@@ -1,0 +1,211 @@
+# Every finding, verdict and hint a command prints, by stable id. `{name}` inserts the value as text (a
+# non-string value as its canonical repr); `{name!r}` inserts the canonical repr; `{{` and `}}` are literal
+# braces. Callers pre-format numbers that need padding or fixed decimals. See README.md.
+
+findings:
+  # ---- the YAML profile
+  yaml.duplicate-key: 'duplicate key {key!r} at lines {first} and {second}'
+
+  # ---- OS and YAML errors
+  os.error: '{path}: {reason}'
+  os.not-found: no such file or directory
+  os.permission-denied: permission denied
+  os.is-a-directory: is a directory
+  os.not-a-directory: not a directory
+  os.other: 'OS error {code}'
+  yaml.invalid: '{path}: invalid YAML'
+  yaml.invalid-because: '{path}: invalid YAML: {error}'
+
+  # ---- diagrams: why the index.yaml diagrams block is unusable
+  c4.index-invalid-yaml: index.yaml is not valid YAML
+  c4.index-duplicate-key: 'index.yaml is not valid YAML: {error}'
+
+  # ---- the repo format check, before every command the CLI manifest does not mark `format: exempt`
+  format.missing: 'living-architecture.yaml declares no format, but this la reads format {current}: run la-arch-migrate to convert the repo'
+  format.invalid: 'living-architecture.yaml: format {value!r} is not a version (three dot-separated integers); this la reads format {current}'
+  format.newer: 'living-architecture.yaml declares format {declared}, but this la reads format {current}: upgrade la to {declared} or later'
+  format.older: 'living-architecture.yaml declares format {declared}, but this la reads format {current}: run la-arch-migrate to convert the repo'
+  format.dr-missing: 'deterministic-refactor.yaml declares no format, but this dr reads format {current}: add the line `format: {current}`'
+  format.dr-invalid: 'deterministic-refactor.yaml: format {value!r} is not a version (three dot-separated integers); this dr reads format {current}'
+  format.dr-newer: 'deterministic-refactor.yaml declares format {declared}, but this dr reads format {current}: upgrade dr to {declared} or later'
+  format.dr-older: 'deterministic-refactor.yaml declares format {declared}, but this dr reads format {current}'
+
+  # ---- the config files
+  config.both-files: '{first} and {second} are both at the repo root; keep one: a repo using la keeps {second}'
+
+  # ---- la-config and dr-config
+  config.error: '{prog}: {error}'
+  config.unknown-key: '{prog}: unknown key {key!r}'
+  config.not-git: '{prog}: not inside a git repository'
+  config.git-failed: git ls-files failed, so the repo's files cannot be listed
+  # `get lang.<language>.waiver`: the language's waiver comment.
+  config.waiver: '{prefix} ALLOW(<rule>): <reason>'
+  # `la-config show`, on stderr: one per key the local file sets.
+  config.local-override: '{prog}: {key} from {file}'
+
+  # ---- twin forwarding
+  twin.error: '{prog}: {error}'
+  twin.unavailable: 'the {language} twin ({package} {version}) is not reachable; install it with: {install}'
+  twin.forward-refused: refusing to forward to the {language} twin from a forwarded process (LA_FORWARDED=1)
+  twin.launch-failed: 'the {language} twin could not run {command}'
+
+  # ---- the change set
+  changes.git-failed: git {args} failed
+
+  # ---- dr-typecheck
+  typecheck.error: 'dr-typecheck: {error}'
+  typecheck.header: 'dr-typecheck: checking {language} with {command}'
+  typecheck.not-git: 'dr-typecheck: not inside a git repository'
+  typecheck.no-languages: 'dr-typecheck: nothing to check (no language is configured or has source files and a root marker)'
+  typecheck.not-found: 'dr-typecheck: {language}: {command} not found in {local_bin} or on PATH'
+  typecheck.bad-command: 'dr-typecheck: commands.typecheck.{language} is not a command: {command!r}'
+  typecheck.not-native: '{language} type checks run only in the {language} twin'
+  typecheck.skip: 'dr-typecheck: {language}: {baseline} exists, skipped'
+  typecheck.refusal: 'dr-typecheck: every applicable language already has a baseline; nothing written'
+  typecheck.write: 'dr-typecheck: {language}: wrote {baseline}'
+  typecheck.new-error: '{file}({line},{col}): error {code}: {message}'
+  typecheck.count: '{file}({line},{col}): error {code}: {message} (baseline {baseline}, now {now})'
+  typecheck.new-errors: 'dr-typecheck: {language}: {count} new error(s) not in {baseline}'
+  typecheck.shrink: 'dr-typecheck: {language}: {count} fixed error(s) removed from {baseline}'
+  typecheck.global-diagnostic: 'dr-typecheck: {language}: the checker reported an error without a file'
+  typecheck.checker-failed: 'dr-typecheck: {language}: {command} exited {code} without a parsable diagnostic'
+  typecheck.bad-ref: 'dr-typecheck: {ref} is not a commit'
+  typecheck.realign: 'dr-typecheck: {language}: {count} entr(ies) of {baseline} realigned from {ref}'
+  typecheck.realign-hint: 'dr-typecheck: {language}: if an edit moved errors that {baseline} held, run dr-typecheck --realign-from <commit where it matched>'
+  typecheck.baseline-invalid: 'dr-typecheck: {language}: {baseline} is malformed'
+  typecheck.patch-not-applied: 'dr-typecheck: python: {command} loaded no basedpyright, so the pyright#11919 patch was not applied; run basedpyright under Node and keep NODE_OPTIONS'
+  typecheck.patch-unverified: 'dr-typecheck: python: the pyright#11919 patch is verified for basedpyright {verified}, but {version} is installed; pin a verified version'
+  typecheck.patch-mismatch: 'dr-typecheck: python: basedpyright {version} has the pyright#11919 line {count} times, not once; reinstall basedpyright'
+
+  # ---- dr-refactor
+  refactor.line-out-of-range: line {line} out of range (file has {count} lines)
+  refactor.no-locator: provide one of --offset, --line [--col], or --symbol
+  refactor.outside-project: 'path is not inside the project: {path}'
+  refactor.unsure-warning: 'WARNING: --unsure=include also renames occurrences the checker cannot resolve; it may rewrite unrelated attributes or keywords of the same name.'
+  refactor.applied: "\nAPPLIED. {count} file(s) changed:"
+  refactor.applied-file: '  {path}'
+  refactor.dry-run: "\nDRY-RUN. {count} file(s) would change. Re-run with --apply."
+  refactor.unsupported-extension: 'not a source file of a supported language: {path}'
+  refactor.cross-language-dest: '--dest {dest} is not a {language} file'
+  refactor.skipped: '{prog}: not a source file, skipped: {path}'
+  refactor.rename-header: 'Renaming <{old}> to <{new}>:'
+  refactor.move-symbol-header: 'Moving global <{name}>:'
+  refactor.move-module-header: 'Moving module <{name}>:'
+  refactor.moved: "rename from {old}\nrename to {new}"
+  refactor.ts-outside-project: no TypeScript project includes {path}
+  refactor.ts-not-supported: '{option} is not supported for TypeScript'
+  refactor.ts-tsconfig-missing: 'architecture/index.yaml names tsconfig {path}, which does not exist'
+  refactor.col-out-of-range: column {col} out of range (line {line} has {count} characters)
+  refactor.offset-out-of-range: offset {offset} out of range (file has {count} characters)
+  refactor.cannot-rename: the element at this location cannot be renamed
+  refactor.not-movable: 'nothing to move here: the location must name a top-level declaration of {path}'
+  refactor.conflicting-edits: projects disagree on an edit in {path}
+  refactor.destination-exists: 'destination already exists: {path}'
+  refactor.destination-missing: 'destination does not exist: {path}'
+  refactor.destination-inside-source: '{path} is inside {source}, which cannot move into itself'
+  refactor.unparsable: '{path} does not parse as Python, so nothing was refactored'
+  refactor.file-undecodable: '{path} does not decode as {encoding}, so nothing was refactored'
+  refactor.ambiguous-module: '{module} names more than one file ({paths}), so nothing was refactored'
+  refactor.unencodable: '{path} cannot hold its new text in its encoding {encoding}, so nothing was refactored'
+  refactor.resolution-changed: '{path}:{line}: {name} would not resolve as it does now, so nothing was refactored; move it by hand'
+  refactor.source-missing: 'source does not exist: {path}'
+  refactor.mixed-languages: '{path} holds sources of more than one language: {languages}'
+  refactor.rope-walk: 'rope cannot follow {path}:{line}, so nothing was refactored (a rope bug, not a source error); dr-compliance --select rope-walk lists every such file'
+  refactor.name-conflict: '{name} already names something else at {path}:{line}, so nothing was refactored'
+  refactor.guarded-import: '{path}:{line}: the moved code reads a name this guarded import binds; move it by hand'
+  refactor.pyright-failed: 'basedpyright could not find the references, so nothing was refactored'
+  refactor.unresolved-base: '{name} has a base basedpyright cannot resolve at {path}:{line}, so nothing was refactored; run dr-refactor in the project environment'
+  refactor.file-changed: '{path} changed while dr-refactor ran, so nothing was refactored'
+  refactor.blindspots: '{count} blind spot(s) of {names}: type or resolve them, or pass --allow-blindspots'
+  refactor.unlinked-keyword: '{path}:{line}: unlinked-keyword: {callee}({old}=...) — the checker does not link {old}= to the renamed declaration, so a rename of {old} is unverifiable'
+  refactor.unresolved-target: '{path}:{line}: unresolved-target: {target} names .{attr} but does not resolve'
+  refactor.mixed-target: '{path}:{line}: mixed-target: {receiver}.{attr} lands on renamed and unchanged declarations'
+  refactor.stand-in: '{path}:{line}: stand-in: {cls}.{attr} is outside the renamed hierarchy; pass --with {path}:{line} to rename it too or --without {path}:{line} to leave it'
+  refactor.not-stand-in: '{site} is not a stand-in of this rename, so nothing was refactored'
+  refactor.computed-stand-in: '{path}:{line}: computed-stand-in: {cls}.{attr} is declared by a computed name; pass --without {path}:{line} and rename it by hand'
+  refactor.keep-unmatched: '--keep {site} matches nothing this rename touches, so nothing was refactored'
+  refactor.keep-unmatched-near: '--keep {site} matches nothing this rename touches; the nearest edited line is {path}:{line}, so nothing was refactored'
+  refactor.keep-unneeded: 'WARNING: --keep {site} matches nothing this rename touches'
+  refactor.keep-literal-unneeded: 'WARNING: --keep-literal {key} matches nothing this rename touches'
+  refactor.leftover: '{path}:{line}: leftover: {where} mentions {old}'
+  refactor.pick-needs-docs: '--docs-pick needs --docs, so nothing was refactored'
+  refactor.pick-unmatched: '--docs-pick {site} names no listed mention, so nothing was refactored'
+  refactor.pick-ambiguous: '--docs-pick {site}: entries {first} and {second} both mention {old} here; add =ENTRY, so nothing was refactored'
+  refactor.unresolved-name: '{path}:{line}: unresolved-name: {old} resolves to no declaration here, so it is left unchanged'
+  refactor.undecodable: '{path}: undecodable: the file does not decode as {encoding}, so it is left unchanged although it may mention {old}'
+  refactor.stub-not-module: '--stub applies only to the rename of a Python module file, so nothing was refactored'
+  refactor.stub-unconfigured: '--stub needs refactor.python.moved_module_stub in living-architecture.yaml, so nothing was refactored'
+  refactor.symbol-unresolved: '{path}: {symbol} names no declaration; candidates: {candidates}'
+  refactor.symbol-ambiguous: '{path}: {symbol} names more than one declaration: {candidates}'
+  refactor.map-invalid: '{map}: entry {index} is not a valid rename-map entry'
+  refactor.map-mixed-languages: '{map} holds entries of more than one language: {languages}'
+  refactor.map-duplicate: '{map}: entries {first} and {second} locate the same symbol with different changes'
+  refactor.map-conflict: '{path}:{line}: entries {first} and {second} rewrite this site differently, so nothing was refactored'
+  refactor.words-invalid: '{table}: {section} item {index} is not valid'
+  refactor.carved: '{path}:{line}: carve-out: {name} keeps {word} ({matcher})'
+  refactor.not-generated: '{path}:{line}: not-generated: {name} spells {word}, but no map entry can rename it'
+  refactor.generate-empty: '{table}: no declaration in the project spells a word of the table'
+  refactor.generate-language: 'the project holds sources of more than one language ({languages}); pass --language'
+  refactor.symbol-wildcard: '{path}: {symbol} names every matching local, which only a rename takes'
+  refactor.retarget-header: 'Retargeting <{old}> to <{new}>:'
+  refactor.retarget-scope: '{target} is not declared or imported in the class or module that declares {alias}'
+  refactor.retarget-override: '{path}:{line}: {cls}.{name} overrides the alias, so nothing was refactored'
+  refactor.retarget-shadowed: '{path}:{line}: {name} names something else here, so nothing was refactored'
+  refactor.retarget-unbound: '{path}:{line}: {module} does not bind {name}, so nothing was refactored'
+  refactor.write-failed: 'could not write {path}; the files already written are restored, so nothing was refactored'
+  refactor.rollback-failed: 'could not write {path}; restoring failed, so these paths are left changed: {paths}'
+  refactor.baseline-ambiguous: 'WARNING: {baseline}: the {code} entry of {path} cannot follow the refactor; left unchanged'
+  refactor.baseline-failed: 'the {language} type checker failed, so the baseline cannot be realigned and nothing was refactored'
+  refactor.literal-value: '--new-name {value!r} holds a quote, backtick, backslash, ${{, NUL or line break, which a literal member cannot'
+  refactor.literal-unresolved: '{path}:{line}: literal-unresolved: the checker needs {old!r} here, where no string literal can be rewritten'
+  refactor.unverified-read: '{path}:{line}: unverified-read: {name} holds {old!r}, rewritten at {source_path}:{source_line}; this read is not proven to name the renamed member'
+  refactor.compound: '{path}:{line}: leftover: declaration {name} contains {old}'
+  refactor.site-missing: '{option} {site} names no file, directory or line in the project'
+  refactor.checker-exit: '  the checker exited with code {code}; its stderr:'
+  refactor.checker-not-started: '  the checker could not start: {error}'
+  refactor.checker-error: '  the checker answered: {error}'
+  refactor.checker-no-report: no JSON report on stdout
+  refactor.progress-phase: '[{phase}]'
+  refactor.progress-item: '[{phase} {n}/{count}] {entries}: {old} -> {new}'
+  refactor.progress-clean: '[{phase} {n}/{count}] {entries}: {old} -> {new}: clean'
+  refactor.progress-refused: '[{phase} {n}/{count}] {entries}: {old} -> {new}: {refusals} refusal(s)'
+  refactor.progress-entry: 'entry {index}'
+  refactor.progress-entries: 'entries {indexes}'
+  refactor.entry-refusal: '{entries} ({locator}): {text}'
+  refactor.timing: 'timing: {phase} {seconds}s'
+
+  # ---- dr-compliance
+  compliance.untyped-def: '{path}:{line}: untyped-def: {name}() missing {missing}'
+  compliance.untyped-params: params {params}
+  compliance.untyped-return: return
+  compliance.unannotated-attr: '{path}:{line}: unannotated-attr: {cls}.{attr} assigned without a type annotation'
+  compliance.attr-blindspot: '{path}:{line}: attr-blindspot: {receiver}.{attr} — {receiver} is {type}, so a rename of .{attr} is unverifiable'
+  compliance.string-blindspot: '{path}:{line}: string-blindspot: {site} — {receiver} is {type}, so a rename of .{attr} is unverifiable'
+  compliance.string-blindspot-silent: '{path}:{line}: string-blindspot: {site} — {receiver} is {type}, so a rename of .{attr} is unverifiable and a miss raises no error'
+  compliance.pyright-failed: 'basedpyright could not type the receivers of .{attr}'
+  compliance.parse-error: '{path}:{line}: parse-error: {error}'
+  compliance.rope-walk: '{path}:{line}: rope-walk: rope cannot follow this construct, so dr-refactor would refuse this file (a rope bug, not a source error)'
+  compliance.unknown-checks: 'unknown check(s): {checks}'
+  compliance.tsconfig: '{path}: tsconfig: {flag} is not enabled'
+  compliance.explicit-any: '{path}:{line}: explicit-any: an `{any}` type — use a real type or `{top}`'
+  compliance.ts-untyped-def: '{path}:{line}: untyped-def: {name} is implicitly any'
+  compliance.attr-required: '--select {check} needs --attr NAME'
+  compliance.attr-unselected: '--attr needs attr-blindspot or string-blindspot among the selected checks'
+
+  # ---- dr-mock-lint
+  mock-lint.patch: '{path}:{line}: {call}() without autospec=True/new=/spec= — stale members go undetected'
+  mock-lint.mock: '{path}:{line}: {call}() without spec=/spec_set= — bind it to the real class (or use create_autospec)'
+  mock-lint.fn: '{path}:{line}: {call}() without a type argument or implementation — type it as {call}<typeof real>()'
+  mock-lint.module: "{path}:{line}: {call}() factory not typed against a resolvable module — pass import('<module>') (Vitest) or <typeof import('<module>')> (Jest)"
+  mock-lint.cast: '{path}:{line}: double assertion through {via} — build a typed double instead'
+
+  # ---- dr-doctor and la-doctor
+  doctor.ok: 'ok: {package} tools {version}; config from {source}'
+  doctor.version-mismatch: 'installed {package} tools are {installed}, but plugin {expected} needs {series}.x; reinstall them with: {install}'
+  doctor.no-config-file: defaults (no config file)
+  doctor.fail: 'FAIL: {problem}'
+  doctor.missing-executable: '`{exe}` not found on PATH'
+  doctor.plugin-not-found: no .claude-plugin/plugin.json at or above {dir}
+  doctor.plugin-invalid: '{path} is not valid JSON with a "version" of the form <major>.<minor>.<rest>'
+  doctor.plugin-unreadable: cannot inspect {path}
+  doctor.dr-config-missing: no deterministic-refactor.yaml or living-architecture.yaml at the repo root; run /dr:init to onboard this repo

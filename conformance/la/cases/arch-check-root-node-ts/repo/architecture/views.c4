@@ -1,0 +1,6 @@
+views {
+  view npm of typescript {
+    title 'npm'
+    include *
+  }
+}

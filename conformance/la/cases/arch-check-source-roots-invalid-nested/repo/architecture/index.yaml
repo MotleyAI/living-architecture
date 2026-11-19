@@ -1,0 +1,3 @@
+python:
+  source_roots: [lib, lib/src]
+  root_packages: [pa]

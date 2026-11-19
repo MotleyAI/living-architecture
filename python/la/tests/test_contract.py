@@ -1,0 +1,1141 @@
+"""The shared contract: vectors, registry coverage, manifest, vendored snapshot and its hash."""
+
+from __future__ import annotations
+
+import ast
+import json
+import os
+import re
+import shutil
+import stat
+import subprocess
+import sys
+from importlib.metadata import entry_points
+from pathlib import Path
+
+import pytest
+import yaml
+
+from deterministic_refactor import contract
+from deterministic_refactor.contract import (
+    DuplicateKeyError,
+    YAMLError,
+    canonical_repr,
+    compute_hash,
+    glob_match,
+    is_portable_regex,
+    load_yaml,
+    normalize,
+    render_template,
+)
+from living_architecture.contract import contract_hash, materialize_defaults, message, snapshot_dir, validate
+
+
+def _repo_root() -> Path:
+    return next(p for p in Path(__file__).resolve().parents if (p / "shared").is_dir() and (p / "plugin").is_dir())
+
+
+REPO_ROOT = _repo_root()
+SHARED_ROOT = REPO_ROOT / "shared"
+# la's contract: the one la's snapshot, hash and doctor are checked against.
+SHARED = SHARED_ROOT / "la"
+TREES = [REPO_ROOT / "conformance" / package / "cases" for package in ("dr", "la")]
+BIN_DIR = Path(sys.executable).parent
+HASH_FILE = "CONTRACT_HASH"
+SHARED_FILES = (
+    "schema/living-architecture.schema.json",
+    "schema/living-architecture.local.schema.json",
+    "schema/index.schema.json",
+    "schema/node.schema.json",
+    "schema/facts.schema.json",
+    "schema/conventions-facts.schema.json",
+    "schema/affected-request.schema.json",
+    "schema/affected-response.schema.json",
+    "schema/rename-map.schema.json",
+    "findings.yaml",
+    "cli.yaml",
+    "conventions.yaml",
+    "languages.yaml",
+    "architecture.yaml",
+    "config.yaml",
+    "regex-subset.md",
+    "scripts/fetch-coderabbit-threads.sh",
+    "scripts/fetch-failed-pr-checks.sh",
+    "scripts/reply-invalid-coderabbit.sh",
+    "scripts/reply-to-pr-thread.sh",
+    "scripts/wait-for-reviews.sh",
+    "scripts/pr-reviewers.sh",
+    "scripts/review-bots.bash",
+)
+
+
+def _located(rel: str) -> list[Path]:
+    """`rel` in each package's contract that holds it."""
+    return [SHARED_ROOT / package / rel for package in ("dr", "la") if (SHARED_ROOT / package / rel).is_file()]
+
+
+def _load(rel: str) -> dict:
+    [path] = _located(rel)
+    return yaml.safe_load(path.read_text(encoding="utf-8"))
+
+
+def _vectors(name: str) -> dict:
+    return _load(f"vectors/{name}")
+
+
+def _shared_yaml(name: str) -> dict:
+    """A contract file; the CLI manifests and the findings registries as one, the way la reads them."""
+    if name not in ("cli.yaml", "findings.yaml"):
+        return _load(name)
+    dr, la = (yaml.safe_load((SHARED_ROOT / package / name).read_text(encoding="utf-8")) for package in ("dr", "la"))
+    key = "commands" if name == "cli.yaml" else "findings"
+    return {**dr, **la, key: {**dr[key], **la[key]}}
+
+
+def _tree(root: Path) -> dict[str, tuple[bool, bytes]]:
+    """Relative POSIX path -> (executable, bytes) for every file under `root`, minus the hash file."""
+    return {
+        p.relative_to(root).as_posix(): (bool(p.stat().st_mode & 0o111), p.read_bytes())
+        for p in sorted(root.rglob("*"))
+        if p.is_file() and p.name != HASH_FILE and "__pycache__" not in p.parts
+    }
+
+
+# ---- shared files and vectors
+
+
+@pytest.mark.parametrize("rel", SHARED_FILES)
+def test_shared_file_exists(rel: str) -> None:
+    assert _located(rel)
+
+
+def _schema(name: str) -> dict:
+    [path] = _located(f"schema/{name}.schema.json")
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def test_node_schema_defines_every_element_variety() -> None:
+    defs = _schema("node")["$defs"]
+    assert defs["precise"]["required"] == ["package"]
+    assert set(defs["precise"]["properties"]) == {"package", "claims", "specs"}
+    assert set(defs["virtual"]["properties"]) == {"packages", "specs"}
+    assert set(defs["element"]["properties"]) == {"specs"}
+    for variety in ("precise", "virtual", "element"):
+        assert defs[variety]["additionalProperties"] is False
+
+
+@pytest.mark.parametrize(
+    ("variety", "metadata", "valid"),
+    [
+        ("precise", {"package": "p", "claims": ["a"], "specs": ["s"]}, True),
+        ("precise", {"package": "p", "arc42": "d.md"}, False),
+        ("precise", {"package": ["p"]}, False),
+        ("precise", {"package": "p", "claims": "a"}, False),
+        ("precise", {"package": "p", "claims": [1]}, False),
+        ("precise", {"package": "p", "specs": "s"}, False),
+        ("virtual", {"packages": ["a"], "specs": ["s"]}, True),
+        ("virtual", {"arc42": "d.md"}, False),
+        ("virtual", {}, True),
+        ("virtual", {"packages": "a"}, False),
+        ("virtual", {"packages": [1]}, False),
+        ("element", {"specs": ["s"]}, True),
+        ("element", {}, True),
+        ("element", {"specs": "s"}, False),
+        ("element", {"package": "p"}, False),
+        ("element", {"claims": ["a"]}, False),
+        ("element", {"packages": ["a"]}, False),
+        ("element", {"arc42": "d.md"}, False),
+    ],
+)
+def test_node_schema_value_types(variety: str, metadata: dict, valid: bool) -> None:
+    schema = {"$defs": _schema("node")["$defs"], "$ref": f"#/$defs/{variety}"}
+    assert (validate(schema, metadata) == []) is valid
+
+
+def test_index_schema_does_not_define_nodes() -> None:
+    index = _schema("index")
+    assert "nodes" not in index["properties"]
+    assert index["additionalProperties"] is False
+
+
+def test_index_schema_keys() -> None:
+    index = _schema("index")
+    assert set(index["properties"]) == {
+        "python", "typescript", "cross_cutting_arc42", "cross_cutting_specs", "legacy_arrows", "diagrams", "view_depth",
+    }
+    assert set(index["patternProperties"]) == {"^x-"}
+
+
+_SETTINGS = {"cross_cutting_arc42": [], "cross_cutting_specs": {}, "legacy_arrows": {"baseline": 0}, "diagrams": {},
+             "view_depth": {}}
+
+
+@pytest.mark.parametrize(
+    ("document", "valid"),
+    [
+        ({"python": {"root_package": "pkg"}}, True),
+        ({"python": {"root_packages": ["app", "packages/ui"]}}, True),
+        ({"python": {"root_package": "pkg", "source_root": "python/src"}}, True),
+        ({"typescript": {"root_package": "src", "source_root": "node", "tsconfig": "node/tsconfig.json"}}, True),
+        ({"python": {"root_package": "pkg"}, "typescript": {"root_package": "src"}, "x-foo": 1, **_SETTINGS}, True),
+        ({"python": {"root_package": "pkg"}, "x-guards": {"baseline": 0}}, True),
+        ({}, False),
+        ({"x-a": 1}, False),
+        (_SETTINGS, False),
+        ({"root_package": "pkg"}, False),
+        ({"python": {"root_package": "pkg"}, "root_package": "pkg"}, False),
+        ({"python": {"root_package": "pkg"}, "source_root": "src"}, False),
+        ({"python": {"root_package": "pkg"}, "nodes": {}}, False),
+        ({"python": {"root_package": "pkg"}, "guards": {"baseline": 0}}, False),
+        ({"python": {"root_package": "pkg"}, "rust": {"root_package": "src"}}, False),
+        ({"python": {}}, False),
+        ({"python": {"root_packages": []}}, False),
+        ({"python": {"root_packages": ["pkg", "pkg"]}}, False),
+        ({"python": {"root_package": "pkg", "root_packages": ["pkg"]}}, False),
+        ({"python": {"root_packages": "pkg"}}, False),
+        ({"python": {"root_package": ""}}, False),
+        ({"python": {"root_package": "pkg", "tsconfig": "tsconfig.json"}}, False),
+        ({"python": {"root_package": "pkg", "extra": 1}}, False),
+        ({"typescript": {"root_package": "src", "extra": 1}}, False),
+        ({"python": "pkg"}, False),
+    ],
+)
+def test_index_schema_language_sections(document: dict, valid: bool) -> None:
+    assert (validate(_schema("index"), document) == []) is valid
+
+
+@pytest.mark.parametrize("vector", _vectors("facts.yaml")["accept"], ids=lambda v: v["name"])
+def test_facts_schema_accepts(vector: dict) -> None:
+    assert validate(_schema("facts"), vector["document"]) == []
+
+
+@pytest.mark.parametrize("vector", _vectors("facts.yaml")["reject"], ids=lambda v: v["name"])
+def test_facts_schema_rejects(vector: dict) -> None:
+    assert validate(_schema("facts"), vector["document"]) != []
+
+
+@pytest.mark.parametrize("vector", _vectors("conventions-facts.yaml")["accept"], ids=lambda v: v["name"])
+def test_conventions_facts_schema_accepts(vector: dict) -> None:
+    assert validate(_schema("conventions-facts"), vector["document"]) == []
+
+
+@pytest.mark.parametrize("vector", _vectors("conventions-facts.yaml")["reject"], ids=lambda v: v["name"])
+def test_conventions_facts_schema_rejects(vector: dict) -> None:
+    assert validate(_schema("conventions-facts"), vector["document"]) != []
+
+
+@pytest.mark.parametrize(
+    ("commands", "valid"),
+    [
+        ({"typecheck": {"python": "basedpyright -p python"}}, True),
+        ({"typecheck": {"typescript": None}}, True),
+        ({"typecheck": {}}, True),
+        ({"typecheck": "basedpyright"}, False),
+        ({"typecheck": {"rust": "cargo check"}}, False),
+        ({"typecheck": {"python": 1}}, False),
+    ],
+)
+def test_config_schema_typecheck_values(commands: dict, valid: bool) -> None:
+    assert (validate(_schema("living-architecture"), {"commands": commands}) == []) is valid
+
+
+_CONFIG_NAME_RE = re.compile(r"living-architecture(?:\.local)?\.yaml")
+_TS_COMMENT_RE = re.compile(r"^\s*(?://|/?\*)")
+
+
+def _python_string_literals(path: Path) -> list[str]:
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    docstrings = {
+        id(node.body[0].value)
+        for node in ast.walk(tree)
+        if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef))
+        and node.body and isinstance(node.body[0], ast.Expr) and isinstance(node.body[0].value, ast.Constant)
+    }
+    return [n.value for n in ast.walk(tree)
+            if isinstance(n, ast.Constant) and isinstance(n.value, str) and id(n) not in docstrings]
+
+
+def _source_files(root: Path, suffix: str) -> list[Path]:
+    return [p for p in sorted(root.rglob(f"*{suffix}")) if "data" not in p.relative_to(root).parts]
+
+
+def test_no_twin_hard_codes_a_config_file_name() -> None:
+    python = [f"{p}: {s!r}" for p in _source_files(REPO_ROOT / "python" / "src", ".py")
+              for s in _python_string_literals(p) if _CONFIG_NAME_RE.search(s)]
+    node = [f"{p}: {line.strip()}" for p in _source_files(REPO_ROOT / "node" / "src", ".ts")
+            for line in p.read_text(encoding="utf-8").splitlines()
+            if _CONFIG_NAME_RE.search(line) and not _TS_COMMENT_RE.match(line)]
+    assert python + node == []
+
+
+@pytest.mark.parametrize(
+    ("value", "valid"),
+    [("0.4.0", True), ("99999999999999999999.0.0", True), (None, True), ("0.4", False), ("v0.4.0", False),
+     ("0.04.0", False), ("0.4.0.1", False), (0.4, False), (["0", "4", "0"], False)],
+    ids=repr,
+)
+def test_config_schema_format_values(value: object, valid: bool) -> None:
+    assert (validate(_schema("living-architecture"), {"format": value}) == []) is valid
+
+
+def test_local_schema_references_the_main_schema() -> None:
+    local = _schema("living-architecture.local")
+    assert local["$id"] == "living-architecture.local.schema.json"
+    assert local["additionalProperties"] is False
+    assert set(local["properties"]) == {"tracker", "reviewers"}
+    assert local["properties"]["tracker"] == {"$ref": "living-architecture.schema.json#/properties/tracker"}
+    reviewers = local["properties"]["reviewers"]
+    assert reviewers["additionalProperties"] is False
+    assert reviewers["properties"] == {
+        "codex": {"$ref": "living-architecture.schema.json#/properties/reviewers/properties/codex"}
+    }
+
+
+_LOCAL_VALUES = [
+    *({"tracker": value} for value in ("linear", "github", "none", "jira", None, 1, True)),
+    *({"reviewers": {"codex": value}} for value in (True, False, None, "yes", 1)),
+    {"reviewers": {}},
+    {"reviewers": None},
+]
+
+
+@pytest.mark.parametrize("document", _LOCAL_VALUES, ids=repr)
+def test_local_schema_follows_the_main_schema(document: dict) -> None:
+    valid_main = validate(_schema("living-architecture"), document) == []
+    assert (validate(_schema("living-architecture.local"), document) == []) is valid_main
+
+
+@pytest.mark.parametrize(
+    ("document", "key"),
+    [
+        ({"openspec": False}, "openspec"),
+        ({"architecture": True}, "architecture"),
+        ({"issue_key_pattern": "X-\\d+"}, "issue_key_pattern"),
+        ({"commands": {"test": "pytest"}}, "commands"),
+        ({"conventions": {"exempt": []}}, "conventions"),
+        ({"reviewers": {"sonar": {"project_key": "o_r"}}}, "sonar"),
+    ],
+)
+def test_local_schema_refuses_repo_decisions(document: dict, key: str) -> None:
+    errors = validate(_schema("living-architecture.local"), document)
+    assert errors != []
+    assert key in "; ".join(errors)
+
+
+def test_language_facts() -> None:
+    languages = _shared_yaml("languages.yaml")
+    python, typescript = languages["python"], languages["typescript"]
+    assert (python["local_bin"], python["baseline_file"]) == (".venv/bin", ".basedpyright/baseline.json")
+    assert typescript["markers"] == ["tsconfig.json"]
+    assert (typescript["files_label"], typescript["comment_prefix"]) == ("TS/JS", "//")
+    assert typescript["suppression"] == "// @ts-expect-error — <reason>"
+    assert (typescript["local_bin"], typescript["baseline_file"]) == ("node_modules/.bin", ".tsc-baseline.json")
+    assert "type_checker" not in python
+    assert "type_checker" not in typescript
+    assert python["checker_patch_versions"] == ["1.40.2"]
+    assert "checker_patch_versions" not in typescript
+    assert (python["any_type"], python["top_type"]) == ("Any", "object")
+    assert (typescript["any_type"], typescript["top_type"]) == ("any", "unknown")
+
+
+def test_explicit_any_renders_the_language_spellings() -> None:
+    python = _shared_yaml("languages.yaml")["python"]
+    text = message("compliance.explicit-any", path="m.py", line=2, any=python["any_type"], top=python["top_type"])
+    assert text == "m.py:2: explicit-any: an `Any` type — use a real type or `object`"
+
+
+def test_python_typecheck_command_description_names_the_patch_obligations() -> None:
+    schema = _schema("deterministic-refactor")
+    description = schema["properties"]["commands"]["properties"]["typecheck"]["properties"]["python"]["description"]
+    for needle in ("verified basedpyright", "checker_patch_versions", "under Node", "keep NODE_OPTIONS"):
+        assert needle in description
+
+
+def test_every_rule_has_a_description_per_language() -> None:
+    rules = _shared_yaml("conventions.yaml")["rules"]
+    assert {name: sorted(rule["description"]) for name, rule in rules.items()} == {
+        name: ["python", "typescript"] for name in rules
+    }
+
+
+def test_config_rules_match_the_conventions_registry() -> None:
+    registry = list(_shared_yaml("conventions.yaml")["rules"])
+    rules = _schema("living-architecture")["properties"]["conventions"]["properties"]["rules"]
+    assert rules["items"]["enum"] == registry
+    assert rules["default"] == registry
+
+
+@pytest.mark.parametrize("vector", _vectors("repr.yaml")["cases"], ids=lambda v: v["repr"])
+def test_canonical_repr(vector: dict) -> None:
+    assert canonical_repr(vector["value"]) == vector["repr"]
+
+
+def test_render_template_repr_of_a_quote() -> None:
+    assert render_template("got {value!r}", {"value": "it's"}) == "got \"it's\""
+
+
+def test_render_template_plain_placeholder() -> None:
+    assert render_template("{node} claims {unit}", {"node": "api", "unit": "pkg.api"}) == "api claims pkg.api"
+
+
+@pytest.mark.parametrize("vector", _vectors("glob.yaml")["cases"], ids=lambda v: f"{v['pattern']}|{v['path']}")
+def test_glob_dialect(vector: dict) -> None:
+    assert glob_match(vector["pattern"], vector["path"]) is vector["match"]
+
+
+@pytest.mark.parametrize("vector", _vectors("test-files.yaml")["python"], ids=lambda v: v["path"])
+def test_python_test_globs_reproduce_classification(vector: dict) -> None:
+    globs = _shared_yaml("languages.yaml")["python"]["test_globs"]
+    assert any(glob_match(g, vector["path"]) for g in globs) is vector["test"]
+
+
+@pytest.mark.parametrize("vector", _vectors("test-files.yaml")["typescript"], ids=lambda v: v["path"])
+def test_typescript_test_globs_classify(vector: dict) -> None:
+    globs = _shared_yaml("languages.yaml")["typescript"]["test_globs"]
+    assert any(glob_match(g, vector["path"]) for g in globs) is vector["test"]
+
+
+@pytest.mark.parametrize(
+    ("language", "vector"),
+    [(lang, v) for lang in ("python", "typescript") for v in _vectors("test-files.yaml")[lang]],
+    ids=lambda v: v if isinstance(v, str) else v["path"],
+)
+def test_is_test_file_reproduces_the_vectors(language: str, vector: dict) -> None:
+    extensions = _shared_yaml("languages.yaml")[language]["source_extensions"]
+    expected = vector["test"] and any(vector["path"].endswith(ext) for ext in extensions)
+    assert contract.is_test_file(vector["path"]) is expected
+
+
+@pytest.mark.parametrize(
+    ("rel", "expected"),
+    [("tests/a.py", True), ("pkg/test_a.py", True), ("pkg/a_test.py", True), ("conftest.py", True),
+     ("pkg/a.py", False), ("tests/data.json", False), ("web/a.test.ts", True), ("web/a.ts", False)],
+)
+def test_is_test_file(rel: str, expected: bool) -> None:
+    assert contract.is_test_file(rel) is expected
+
+
+@pytest.mark.parametrize("tag", ["", "!!int "])
+def test_yaml_profile_caps_decimal_digits(tag: str) -> None:
+    """Python's 4300-digit cap on decimal integer strings; the npm twin mirrors it."""
+    assert load_yaml(f"x: {tag}{'9' * 4300}") == {"x": int("9" * 4300)}
+    with pytest.raises(YAMLError):
+        load_yaml(f"x: {tag}{'9' * 4301}")
+
+
+DUPLICATE_KEYS = [
+    ('a: 1\n"a": 2\n', "'a'", 1, 2),
+    ("1: a\ntrue: b\n", "1", 1, 2),
+    ("true: a\n1: b\n", "True", 1, 2),
+    ("false: a\n0.0: b\n", "False", 1, 2),
+    ("1.0: a\n1: b\n", "1.0", 1, 2),
+    ("-0.0: a\n0: b\n", "-0.0", 1, 2),
+    ("~: a\nnull: b\n", "None", 1, 2),
+    (".nan: a\n.nan: b\n", "nan", 1, 2),
+    ("-.inf: a\n-.Inf: b\n", "-inf", 1, 2),
+    ("9007199254740993: a\n9007199254740993: b\n", "9007199254740993", 1, 2),
+    ('2026-01-02: a\n"2026-01-02": b\n', "'2026-01-02'", 1, 2),
+    ('"2026-01-02T03:04:05+00:00": a\n2026-01-02T03:04:05Z: b\n', "'2026-01-02T03:04:05+00:00'", 1, 2),
+    ("x: &x {k: 1}\nz:\n  <<: *x\n  !!merge <<: *x\n", "'<<'", 3, 4),
+    ("a: &k s\nm:\n  *k : 1\n  *k : 2\n", "'s'", 3, 4),
+    ("r:\n  s:\n    - {t: 1,\n       t: 2}\n", "'t'", 3, 4),
+]
+
+
+@pytest.mark.parametrize(("text", "key", "first", "second"), DUPLICATE_KEYS)
+def test_duplicate_key_error_carries_key_and_lines(text: str, key: str, first: int, second: int) -> None:
+    with pytest.raises(DuplicateKeyError) as caught:
+        load_yaml(text)
+    assert canonical_repr(caught.value.key) == key
+    assert (caught.value.first, caught.value.second) == (first, second)
+    assert str(caught.value) == f"duplicate key {key} at lines {first} and {second}"
+
+
+def test_duplicate_key_error_is_a_yaml_error() -> None:
+    assert issubclass(DuplicateKeyError, YAMLError)
+
+
+@pytest.mark.parametrize("vector", _vectors("yaml.yaml")["cases"], ids=lambda v: v["name"])
+def test_yaml_profile(vector: dict) -> None:
+    if vector.get("error") == "duplicate":
+        with pytest.raises(DuplicateKeyError) as caught:
+            load_yaml(vector["text"])
+        assert str(caught.value) == vector["message"]
+        return
+    if vector.get("error"):
+        with pytest.raises(YAMLError) as caught:
+            load_yaml(vector["text"])
+        assert not isinstance(caught.value, DuplicateKeyError)
+        return
+    value = load_yaml(vector["text"])
+    if "json" in vector:
+        assert value == json.loads(vector["json"])
+    else:
+        assert canonical_repr(normalize(value)) == vector["repr"]
+
+
+@pytest.mark.parametrize("vector", _vectors("defaults.yaml")["cases"], ids=lambda v: v["name"])
+def test_default_materialization(vector: dict) -> None:
+    schema = _schema("living-architecture")
+    data = None if vector["config"] is None else load_yaml(vector["config"])
+    assert materialize_defaults(schema, data) == vector["resolved"]
+
+
+@pytest.mark.parametrize("vector", _vectors("materialize.yaml")["cases"], ids=lambda v: v["name"])
+def test_generic_materialization(vector: dict) -> None:
+    assert materialize_defaults(vector["schema"], vector["input"]) == vector["output"]
+
+
+def test_materialization_does_not_mutate_its_input() -> None:
+    schema = _schema("living-architecture")
+    data = {"reviewers": {"codex": False}}
+    materialize_defaults(schema, data)
+    assert data == {"reviewers": {"codex": False}}
+
+
+@pytest.mark.parametrize("pattern", _vectors("regex-subset.yaml")["accept"])
+def test_portable_regex_accepted(pattern: str) -> None:
+    assert is_portable_regex(pattern)
+
+
+@pytest.mark.parametrize("pattern", _vectors("regex-subset.yaml")["reject"])
+def test_non_portable_regex_rejected(pattern: str) -> None:
+    assert not is_portable_regex(pattern)
+
+
+# ---- findings registry
+
+
+def _template_regex(template: str) -> re.Pattern[str]:
+    parts = re.split(r"(?<!\{)\{[a-z_]+(?:!r)?\}(?!\})", template)
+    literal = [part.replace("{{", "{").replace("}}", "}") for part in parts]
+    return re.compile("[^\n]+?".join(re.escape(part) for part in literal))
+
+
+def _golden_records() -> list[str]:
+    """Each golden file and each `contains` needle, as separate records."""
+    records = [p.read_text(encoding="utf-8") for tree in TREES for p in tree.rglob("*") if p.is_file()
+               and p.parent.name != "repo"
+               and (p.name.startswith(("stdout", "stderr")) or "files" in p.relative_to(tree).parts[1:2])]
+    for case_file in (f for tree in TREES for f in tree.glob("*/case.yaml")):
+        expect = yaml.safe_load(case_file.read_text(encoding="utf-8"))["expect"]
+        for stream in ("stdout", "stderr"):
+            if isinstance(expect.get(stream), dict):
+                records.extend(expect[stream]["contains"])
+    return records
+
+
+def _produced_ids(registry: dict[str, str], records: list[str]) -> set[str]:
+    """The templates some golden produces: a multi-line one found in a record; a one-line one found in a golden line
+    unless a template whose literal text strictly contains its own matches that line whole (so
+    `{error}; restoring failed, ...` cannot claim `could not write {path}; restoring failed, ...`)."""
+    produced = {fid for fid, template in registry.items() if "\n" in template
+                and any(_template_regex(template).search(record) for record in records)}
+    singles = {fid: (_template_regex(t), re.sub(r"\{[^{}]*\}", "", t)) for fid, t in registry.items() if "\n" not in t}
+    for line in (line for record in records for line in record.splitlines()):
+        whole = [literal for pattern, literal in singles.values() if pattern.fullmatch(line)]
+        produced |= {fid for fid, (pattern, literal) in singles.items() if pattern.search(line)
+                     and not any(literal in other and literal != other for other in whole)}
+    return produced
+
+
+NEW_TEMPLATES = {
+    "arch-check.no-language-section":
+        "architecture/index.yaml: a language section is required (one of python, typescript)",
+    "arch-check.root-undeclared": "model element {element}: top-level elements must be declared language roots",
+    "arch-check.root-missing": "model has no root element for declared language {language}",
+    "arch-check.arc42-key-retired":
+        "model element {element}: the arc42 key is retired; its doc is architecture/{element}.arc42.md",
+    "spec-mapping.unknown-element": "spec-mapping: {group} touches unknown element {element}",
+    "spec-mapping.unmapped": "spec-mapping: spec group {group} is mapped by no element and not cross-cutting",
+    "arc42-exists.orphan":
+        "arc42-exists: {doc} is orphaned — not {system}, the doc of a model element, or in cross_cutting_arc42",
+    "arc42-exists.nested-doc": "arc42-exists: {doc} must sit directly in architecture/",
+    "arc42-exists.cross-cutting-not-flat":
+        "arc42-exists: cross_cutting_arc42 names {doc}, which must sit directly in architecture/",
+    "arc42-exists.cross-cutting-is-element":
+        "arc42-exists: cross_cutting_arc42 names {doc}, the doc of model element {element}",
+    "arch-migrate.moved": "moved {source} to {target}",
+    "arch-migrate.source-missing": "{source} does not exist; nothing written",
+    "arch-migrate.source-moved-twice": "{source} would move to both {first} and {second}; nothing written",
+    "arch-migrate.shared-target": "{first} and {second} would both move to {target}; nothing written",
+    "arch-migrate.target-taken": "{source} cannot move to {target}, which already exists; nothing written",
+    "arch-migrate.diagrams-key-taken":
+        "{source} cannot move to {target}: architecture/index.yaml already has the diagrams key {target}; nothing written",
+    "c4.relation-outside-root": "relation {src} -> {dst} outside every language root",
+    "c4.view-unscoped": "view {view} is not scoped to a language root",
+    "c4.index-duplicate-key": "index.yaml is not valid YAML: {error}",
+    "yaml.duplicate-key": "duplicate key {key!r} at lines {first} and {second}",
+    "c4.view-scope-unknown": "view {view} is scoped to {root}, which is not a language root",
+    "claims-exist.unit-ambiguous": "claims-exist: {node} claims {unit}, which is ambiguous: {candidates}",
+    "claims-exist.child-ambiguous": "claims-exist: element {element} maps to {unit}, which is ambiguous: {candidates}",
+    "enforced-tags.unknown-language": "enforced-tags: {doc} tags undeclared language {language!r}",
+    "twin.unavailable":
+        "the {language} twin ({package} {version}) is not reachable; install it with: {install}",
+    "twin.facts-invalid":
+        "the {language} twin ({package} {version}) returned invalid facts; reinstall it with: {install}",
+    "twin.forward-refused": "refusing to forward to the {language} twin from a forwarded process (LA_FORWARDED=1)",
+    "twin.not-native": "{language} facts are served only by the {language} twin",
+    "conventions.ts-import-after-code":
+        "static import after other module-level statements; move it to the top of the file",
+    "conventions.ts-require-not-top": "require() call outside module scope; use a top-level import or require",
+    "conventions.ts-composite-assert":
+        "composite `expect(... && ...)` or `assert(... && ...)`; split into separate assertions",
+    "conventions.ts-raises-single-throw":
+        "`toThrow`/`rejects` assertion makes {calls} calls that can throw; move all but the call under test outside it",
+    "conventions.not-utf8": "not valid UTF-8",
+    "conventions.unknown-extension": "check-conventions: unknown extension, skipped: {path}",
+    "count-comments.unknown-extension": "count-comments: unknown extension, skipped: {path}",
+    "typecheck.header": "dr-typecheck: checking {language} with {command}",
+    "typecheck.new-error": "{file}({line},{col}): error {code}: {message}",
+    "typecheck.count": "{file}({line},{col}): error {code}: {message} (baseline {baseline}, now {now})",
+    "typecheck.new-errors": "dr-typecheck: {language}: {count} new error(s) not in {baseline}",
+    "typecheck.shrink": "dr-typecheck: {language}: {count} fixed error(s) removed from {baseline}",
+    "typecheck.write": "dr-typecheck: {language}: wrote {baseline}",
+    "typecheck.skip": "dr-typecheck: {language}: {baseline} exists, skipped",
+    "typecheck.refusal": "dr-typecheck: every applicable language already has a baseline; nothing written",
+    "typecheck.not-found": "dr-typecheck: {language}: {command} not found in {local_bin} or on PATH",
+    "typecheck.no-languages":
+        "dr-typecheck: nothing to check (no language is configured or has source files and a root marker)",
+    "typecheck.not-git": "dr-typecheck: not inside a git repository",
+    "typecheck.global-diagnostic": "dr-typecheck: {language}: the checker reported an error without a file",
+    "typecheck.checker-failed": "dr-typecheck: {language}: {command} exited {code} without a parsable diagnostic",
+    "typecheck.baseline-invalid": "dr-typecheck: {language}: {baseline} is malformed",
+    "typecheck.patch-not-applied":
+        "dr-typecheck: python: {command} loaded no basedpyright, so the pyright#11919 patch was not applied;"
+        " run basedpyright under Node and keep NODE_OPTIONS",
+    "typecheck.patch-unverified":
+        "dr-typecheck: python: the pyright#11919 patch is verified for basedpyright {verified}, but {version} is"
+        " installed; pin a verified version",
+    "typecheck.patch-mismatch":
+        "dr-typecheck: python: basedpyright {version} has the pyright#11919 line {count} times, not once;"
+        " reinstall basedpyright",
+    "typecheck.not-native": "{language} type checks run only in the {language} twin",
+    "typecheck.error": "dr-typecheck: {error}",
+    "refactor.rename-header": "Renaming <{old}> to <{new}>:",
+    "refactor.move-symbol-header": "Moving global <{name}>:",
+    "refactor.move-module-header": "Moving module <{name}>:",
+    "refactor.moved": "rename from {old}\nrename to {new}",
+    "refactor.guarded-import": "{path}:{line}: the moved code reads a name this guarded import binds; move it by hand",
+    "refactor.unsupported-extension": "not a source file of a supported language: {path}",
+    "refactor.cross-language-dest": "--dest {dest} is not a {language} file",
+    "refactor.ts-outside-project": "no TypeScript project includes {path}",
+    "refactor.col-out-of-range": "column {col} out of range (line {line} has {count} characters)",
+    "refactor.offset-out-of-range": "offset {offset} out of range (file has {count} characters)",
+    "refactor.ts-not-supported": "{option} is not supported for TypeScript",
+    "refactor.cannot-rename": "the element at this location cannot be renamed",
+    "refactor.not-movable": "nothing to move here: the location must name a top-level declaration of {path}",
+    "refactor.conflicting-edits": "projects disagree on an edit in {path}",
+    "refactor.destination-exists": "destination already exists: {path}",
+    "refactor.destination-missing": "destination does not exist: {path}",
+    "refactor.destination-inside-source": "{path} is inside {source}, which cannot move into itself",
+    "refactor.unparsable": "{path} does not parse as Python, so nothing was refactored",
+    "refactor.ambiguous-module": "{module} names more than one file ({paths}), so nothing was refactored",
+    "refactor.unencodable": "{path} cannot hold its new text in its encoding {encoding}, so nothing was refactored",
+    "refactor.resolution-changed":
+        "{path}:{line}: {name} would not resolve as it does now, so nothing was refactored; move it by hand",
+    "refactor.skipped": "{prog}: not a source file, skipped: {path}",
+    "refactor.rope-walk":
+        "rope cannot follow {path}:{line}, so nothing was refactored (a rope bug, not a source error);"
+        " dr-compliance --select rope-walk lists every such file",
+    "compliance.rope-walk":
+        "{path}:{line}: rope-walk: rope cannot follow this construct, so dr-refactor would refuse this file"
+        " (a rope bug, not a source error)",
+    "compliance.tsconfig": "{path}: tsconfig: {flag} is not enabled",
+    "compliance.explicit-any": "{path}:{line}: explicit-any: an `{any}` type — use a real type or `{top}`",
+    "compliance.ts-untyped-def": "{path}:{line}: untyped-def: {name} is implicitly any",
+    "mock-lint.fn": "{path}:{line}: {call}() without a type argument or implementation — type it as {call}<typeof real>()",
+    "mock-lint.module":
+        "{path}:{line}: {call}() factory not typed against a resolvable module"
+        " — pass import('<module>') (Vitest) or <typeof import('<module>')> (Jest)",
+    "mock-lint.cast": "{path}:{line}: double assertion through {via} — build a typed double instead",
+    "config.not-git": "{prog}: not inside a git repository",
+    "config.local-override": "{prog}: {key} from {file}",
+    "doctor.local-tracked":
+        "{file} is tracked by git, but it holds one contributor's overrides;"
+        " run git rm --cached {file} and add it to .gitignore",
+    "doctor.local-not-ignored": "{file} is not git-ignored; add it to .gitignore",
+    "doctor.local-git-failed": "git failed, so whether {file} is git-ignored cannot be checked",
+    "doctor.local-source": "{source} + {local}",
+    "format.missing":
+        "living-architecture.yaml declares no format, but this la reads format {current}: run la-arch-migrate to convert"
+        " the repo",
+    "format.invalid":
+        "living-architecture.yaml: format {value!r} is not a version (three dot-separated integers); this la reads"
+        " format {current}",
+    "format.newer":
+        "living-architecture.yaml declares format {declared}, but this la reads format {current}: upgrade la to"
+        " {declared} or later",
+    "format.older":
+        "living-architecture.yaml declares format {declared}, but this la reads format {current}: run la-arch-migrate"
+        " to convert the repo",
+    "arch-migrate.nothing": "nothing to migrate: this la reads format {current}, which living-architecture.yaml already declares",
+    "arch-migrate.no-config":
+        "no living-architecture.yaml at the repo root, so there is no format to migrate; run /la:init to onboard this"
+        " repo",
+    "arch-migrate.unknown-format": "cannot migrate from format {declared}, which no la release used; this la reads format {current}",
+    "arch-migrate.stamp-mismatch": "cannot write the format into living-architecture.yaml; set format: {current} by hand",
+    "arch-migrate.rollback-failed": "{error}; restoring failed, so these paths are left changed: {paths}",
+    "refactor.blindspots": "{count} blind spot(s) of {names}: type or resolve them, or pass --allow-blindspots",
+    "refactor.unresolved-target": "{path}:{line}: unresolved-target: {target} names .{attr} but does not resolve",
+    "refactor.stand-in":
+        "{path}:{line}: stand-in: {cls}.{attr} is outside the renamed hierarchy; pass --with {path}:{line} to rename"
+        " it too or --without {path}:{line} to leave it",
+    "refactor.not-stand-in": "{site} is not a stand-in of this rename, so nothing was refactored",
+    "refactor.keep-unmatched": "--keep {site} matches nothing this rename touches, so nothing was refactored",
+    "refactor.keep-unmatched-near":
+        "--keep {site} matches nothing this rename touches; the nearest edited line is {path}:{line}, so nothing was"
+        " refactored",
+    "refactor.keep-unneeded": "WARNING: --keep {site} matches nothing this rename touches",
+    "refactor.leftover": "{path}:{line}: leftover: {where} mentions {old}",
+    "refactor.pick-needs-docs": "--docs-pick needs --docs, so nothing was refactored",
+    "refactor.pick-unmatched": "--docs-pick {site} names no listed mention, so nothing was refactored",
+    "refactor.pick-ambiguous":
+        "--docs-pick {site}: entries {first} and {second} both mention {old} here; add =ENTRY, so nothing was refactored",
+    "refactor.keep-literal-unneeded": "WARNING: --keep-literal {key} matches nothing this rename touches",
+    "compliance.attr-required": "--select {check} needs --attr NAME",
+    "compliance.attr-unselected": "--attr needs attr-blindspot or string-blindspot among the selected checks",
+    "refactor.no-locator": "provide one of --offset, --line [--col], or --symbol",
+    "refactor.symbol-unresolved": "{path}: {symbol} names no declaration; candidates: {candidates}",
+    "refactor.symbol-ambiguous": "{path}: {symbol} names more than one declaration: {candidates}",
+    "refactor.map-invalid": "{map}: entry {index} is not a valid rename-map entry",
+    "refactor.map-mixed-languages": "{map} holds entries of more than one language: {languages}",
+    "refactor.map-duplicate": "{map}: entries {first} and {second} locate the same symbol with different changes",
+    "refactor.map-conflict":
+        "{path}:{line}: entries {first} and {second} rewrite this site differently, so nothing was refactored",
+    "refactor.retarget-header": "Retargeting <{old}> to <{new}>:",
+    "refactor.retarget-scope": "{target} is not declared or imported in the class or module that declares {alias}",
+    "refactor.retarget-override": "{path}:{line}: {cls}.{name} overrides the alias, so nothing was refactored",
+    "refactor.retarget-shadowed": "{path}:{line}: {name} names something else here, so nothing was refactored",
+    "refactor.retarget-unbound": "{path}:{line}: {module} does not bind {name}, so nothing was refactored",
+    "refactor.write-failed":
+        "could not write {path}; the files already written are restored, so nothing was refactored",
+    "refactor.rollback-failed": "could not write {path}; restoring failed, so these paths are left changed: {paths}",
+    "refactor.baseline-ambiguous":
+        "WARNING: {baseline}: the {code} entry of {path} cannot follow the refactor; left unchanged",
+    "refactor.baseline-failed":
+        "the {language} type checker failed, so the baseline cannot be realigned and nothing was refactored",
+    "refactor.literal-value": "--new-name {value!r} holds a quote, backtick, backslash, ${{, NUL or line break, which a literal member cannot",
+    "refactor.literal-unresolved":
+        "{path}:{line}: literal-unresolved: the checker needs {old!r} here, where no string literal can be rewritten",
+    "refactor.compound": "{path}:{line}: leftover: declaration {name} contains {old}",
+    "refactor.site-missing": "{option} {site} names no file, directory or line in the project",
+    "refactor.checker-exit": "  the checker exited with code {code}; its stderr:",
+    "refactor.checker-not-started": "  the checker could not start: {error}",
+    "refactor.checker-error": "  the checker answered: {error}",
+    "refactor.progress-phase": "[{phase}]",
+    "refactor.progress-item": "[{phase} {n}/{count}] {entries}: {old} -> {new}",
+    "refactor.progress-clean": "[{phase} {n}/{count}] {entries}: {old} -> {new}: clean",
+    "refactor.progress-refused": "[{phase} {n}/{count}] {entries}: {old} -> {new}: {refusals} refusal(s)",
+    "refactor.progress-entry": "entry {index}",
+    "refactor.progress-entries": "entries {indexes}",
+    "refactor.timing": "timing: {phase} {seconds}s",
+    "os.error": "{path}: {reason}",
+    "os.not-found": "no such file or directory",
+    "os.permission-denied": "permission denied",
+    "os.is-a-directory": "is a directory",
+    "os.not-a-directory": "not a directory",
+    "os.other": "OS error {code}",
+    "yaml.invalid": "{path}: invalid YAML",
+    "yaml.invalid-because": "{path}: invalid YAML: {error}",
+}
+REMOVED_TEMPLATES = {"c4-layout.migrate"}
+# Defensive findings no real input reaches; each is pinned by a unit test instead of a golden.
+UNPRODUCED_BY_DESIGN = {
+    "arch-migrate.rollback-failed": "no corpus case can fail a restore; pinned by the migrate rollback unit tests",
+    "refactor.conflicting-edits": "TypeScript never returns differing rename edits across projects (node/test/refactor.test.ts)",
+    "refactor.rope-walk": "no known input reaches a walker gap; pinned by the rope-walk unit tests",
+    "compliance.rope-walk": "no known input reaches a walker gap; pinned by the rope-walk unit tests",
+    "refactor.file-changed": "needs a concurrent edit no corpus case can make; pinned by the rename-union unit tests",
+}
+
+
+REMOVED_TEMPLATES = [
+    "arch-check.metadata-on-root",
+    "arch-check.metadata-on-nested",
+    "arc42-exists.node-doc-missing",
+    "spec-mapping.unknown-node",
+    "c4.include-non-top-level",
+    "c4.view-includes-non-top-level",
+    "compliance.ts-attr-blindspot",
+    "refactor.symbol-not-found",
+    "refactor.ts-move-symbol-header",
+    "refactor.ts-move-module-header",
+    "refactor.ts-moved",
+]
+
+
+@pytest.mark.parametrize(("template_id", "text"), NEW_TEMPLATES.items())
+def test_registry_template_text(template_id: str, text: str) -> None:
+    assert _shared_yaml("findings.yaml")["findings"].get(template_id) == text
+
+
+@pytest.mark.parametrize("template_id", sorted(REMOVED_TEMPLATES))
+def test_removed_template_is_gone(template_id: str) -> None:
+    assert template_id not in _shared_yaml("findings.yaml")["findings"]
+
+
+def test_every_registry_template_is_produced_by_a_golden() -> None:
+    records = _golden_records()
+    registry = _shared_yaml("findings.yaml")["findings"]
+    unproduced = sorted(set(registry) - _produced_ids(registry, records))
+    assert unproduced == sorted(UNPRODUCED_BY_DESIGN)
+
+
+def test_no_golden_carries_runtime_os_error_wording() -> None:
+    """OS errors print from the os.* templates: no errno number, no runtime message."""
+    runtime = re.compile(r"\[Errno \d+\]|\bE[A-Z]{2,}: [a-z]")
+    assert [record for record in _golden_records() if runtime.search(record)] == []
+
+
+# ---- CLI manifest
+
+
+def _manifest_commands() -> set[str]:
+    return set(_shared_yaml("cli.yaml")["commands"])
+
+
+def test_console_scripts_equal_the_manifest() -> None:
+    distributions = {"deterministic-refactor", "living-architecture"}
+    scripts = {ep.name for ep in entry_points(group="console_scripts") if ep.dist and ep.dist.name in distributions}
+    assert scripts == _manifest_commands()
+
+
+def test_manifest_declares_the_passthrough_commands() -> None:
+    commands = _shared_yaml("cli.yaml")["commands"]
+    passthrough = {name for name, spec in commands.items() if spec.get("passthrough")}
+    assert passthrough >= {
+        "la-count-comments",
+        "la-fetch-coderabbit-threads",
+        "la-reply-invalid-coderabbit",
+        "la-reply-to-pr-thread",
+        "la-fetch-failed-pr-checks",
+        "la-wait-for-reviews",
+    }
+
+
+def test_wait_for_reviews_exit_3_covers_pause_and_skip() -> None:
+    expected = "CodeRabbit rate limited, paused or skipped its review"
+    assert _shared_yaml("cli.yaml")["commands"]["la-wait-for-reviews"]["exit"][3] == expected
+
+
+DR_COMMANDS = {"dr-refactor", "dr-compliance", "dr-mock-lint"}
+
+
+def test_manifest_declares_native_languages() -> None:
+    commands = _shared_yaml("cli.yaml")["commands"]
+    native = {name: spec["native"] for name, spec in commands.items() if "native" in spec}
+    assert native == {name: ["python", "typescript"] for name in DR_COMMANDS}
+
+
+RENAME_GUARD_OPTIONS = {
+    "--allow-blindspots": ("flag", "allow_blindspots", False),
+    "--with": ("string", "with_stand_ins", True),
+    "--without": ("string", "without_stand_ins", True),
+    "--keep": ("string", "keep", True),
+    "--docs": ("flag", "docs", False),
+    "--words": ("path", "words", False),
+    "--fail-fast": ("flag", "fail_fast", False),
+}
+
+
+@pytest.mark.parametrize(("name", "expected"), RENAME_GUARD_OPTIONS.items())
+def test_rename_guard_options(name: str, expected: tuple[str, str, bool]) -> None:
+    options = _shared_yaml("cli.yaml")["commands"]["dr-refactor"]["subcommands"]["rename"]["options"]
+    [option] = [o for o in options if o["name"] == name]
+    actual = (option["type"], option.get("dest", name[2:].replace("-", "_")), option.get("repeatable", False))
+    assert actual == expected
+
+
+def _subcommand_options(subcommand: str) -> dict[str, dict]:
+    spec = _shared_yaml("cli.yaml")["commands"]["dr-refactor"]["subcommands"][subcommand]
+    return {o["name"]: o for o in spec.get("options", [])}
+
+
+@pytest.mark.parametrize("subcommand", ["rename", "rename-map"])
+@pytest.mark.parametrize(("name", "metavar"), [("--docs-pick", "PATH:LINE[=ENTRY]"), ("--keep-literal", "KEY")])
+def test_rename_scope_options(subcommand: str, name: str, metavar: str) -> None:
+    option = _subcommand_options(subcommand)[name]
+    assert (option["type"], option["metavar"], option.get("repeatable", False)) == ("string", metavar, True)
+
+
+def test_retarget_has_no_rename_scope_options() -> None:
+    assert not {"--docs-pick", "--keep-literal"} & set(_subcommand_options("retarget"))
+
+
+def test_config_schema_declares_string_forms() -> None:
+    refactor = _schema("deterministic-refactor")["properties"]["refactor"]["properties"]
+    assert refactor["string_forms"]["type"] == "array"
+    assert refactor["string_forms"]["items"] == {"type": "string"}
+    assert refactor["string_forms"]["default"] == []
+
+
+LOCATORS = ["--offset", "--line", "--symbol"]
+
+
+@pytest.mark.parametrize("subcommand", ["rename", "move-symbol", "retarget"])
+def test_locators_are_one_exclusive_group(subcommand: str) -> None:
+    spec = _shared_yaml("cli.yaml")["commands"]["dr-refactor"]["subcommands"][subcommand]
+    options = _subcommand_options(subcommand)
+    assert "--name" not in options
+    assert options["--symbol"]["type"] == "string"
+    assert spec["exclusive"] == [["offset", "line", "symbol"]]
+
+
+def test_rename_map_takes_renames_options_minus_the_locators() -> None:
+    spec = _shared_yaml("cli.yaml")["commands"]["dr-refactor"]["subcommands"]["rename-map"]
+    assert [p["name"] for p in spec["positionals"]] == ["map"]
+    expected = set(_subcommand_options("rename")) - {"--file", *LOCATORS, "--col", "--new-name"}
+    assert set(_subcommand_options("rename-map")) == expected
+
+
+def test_retarget_options() -> None:
+    options = _subcommand_options("retarget")
+    assert set(options) == {"--file", *LOCATORS, "--col", "--target", *RENAME_GUARD_OPTIONS}
+    assert options["--target"].get("required") is True
+    assert options["--file"].get("required") is True
+
+
+def test_compliance_attr_is_repeatable() -> None:
+    assert _option("dr-compliance", "--attr").get("repeatable") is True
+
+
+def test_mock_lint_is_a_parsed_command_with_a_base() -> None:
+    spec = _shared_yaml("cli.yaml")["commands"]["dr-mock-lint"]
+    assert not spec.get("passthrough")
+    assert spec["positionals"] == [{"name": "paths", "nargs": "+", "help": spec["positionals"][0]["help"]}]
+    assert _option("dr-mock-lint", "--base")["type"] == "string"
+
+
+def test_manifest_exclusive_names_options_of_its_command() -> None:
+    def walk(spec: dict) -> list[tuple[list[str], set[str]]]:
+        dests = {o.get("dest", o["name"][2:].replace("-", "_")) for o in spec.get("options", [])}
+        groups = [(group, dests) for group in spec.get("exclusive", [])]
+        return groups + [g for sub in spec.get("subcommands", {}).values() for g in walk(sub)]
+
+    groups = [g for spec in _shared_yaml("cli.yaml")["commands"].values() for g in walk(spec)]
+    assert groups
+    assert [(group, sorted(set(group) - dests)) for group, dests in groups if not set(group) <= dests] == []
+
+
+def _rename_map_valid(document: object) -> bool:
+    return validate(_schema("rename-map"), document) == []
+
+
+@pytest.mark.parametrize(
+    "document",
+    [
+        [{"file": "pkg/a.py", "symbol": "A.old", "new_name": "new"}],
+        [{"file": "pkg/a.py", "line": 3, "new_name": "new"}],
+        [{"file": "pkg/a.py", "line": 3, "col": 9, "new_name": "new"}],
+        [{"file": "src/a.ts", "offset": 120, "new_name": "next"}],
+        [{"file": "pkg/models.py", "symbol": "AcmeModel", "retarget": "Model"}],
+        [
+            {"file": "pkg/a.py", "symbol": "A.old", "new_name": "new"},
+            {"file": "pkg/a.py", "symbol": "A.old(x)", "new_name": "y"},
+            {"file": "pkg/a.py", "symbol": "Kind['edit_model']", "new_name": "edit master"},
+        ],
+    ],
+    ids=["symbol", "line", "line-col", "offset", "retarget", "several"],
+)
+def test_rename_map_schema_accepts(document: object) -> None:
+    assert _rename_map_valid(document)
+
+
+@pytest.mark.parametrize(
+    "document",
+    [
+        {"file": "pkg/a.py", "symbol": "A.old", "new_name": "new"},
+        [],
+        [{"file": "pkg/a.py", "symbol": "A.old", "line": 3, "new_name": "new"}],
+        [{"file": "pkg/a.py", "offset": 1, "line": 3, "new_name": "new"}],
+        [{"file": "pkg/a.py", "new_name": "new"}],
+        [{"file": "pkg/a.py", "col": 3, "new_name": "new"}],
+        [{"file": "pkg/a.py", "symbol": "A.old", "new_name": "new", "retarget": "A.new"}],
+        [{"file": "pkg/a.py", "symbol": "A.old"}],
+        [{"symbol": "A.old", "new_name": "new"}],
+        [{"file": "pkg/a.py", "symbol": "A.old", "new_name": "new", "unsure": "include"}],
+        [{"file": "pkg/a.py", "line": "3", "new_name": "new"}],
+    ],
+    ids=["not-a-list", "empty", "two-locators", "offset-and-line", "no-locator", "col-alone", "both-intents",
+         "no-intent", "no-file", "unknown-key", "line-not-int"],
+)
+def test_rename_map_schema_rejects(document: object) -> None:
+    assert not _rename_map_valid(document)
+
+
+def test_refactor_prose_extensions() -> None:
+    assert _shared_yaml("cli.yaml")["commands"]["dr-refactor"]["prose_extensions"] == [".md", ".rst", ".txt"]
+
+
+def test_attr_blindspot_is_a_check_of_both_languages() -> None:
+    languages = _shared_yaml("languages.yaml")
+    assert languages["python"]["compliance_checks"] == ["untyped-def", "unannotated-attr", "explicit-any", "mock",
+                                                        "rope-walk", "attr-blindspot", "string-blindspot"]
+    assert languages["typescript"]["compliance_checks"] == ["tsconfig", "explicit-any", "untyped-def", "mock",
+                                                            "attr-blindspot", "string-blindspot"]
+
+
+def test_every_printed_compliance_kind_is_a_check_id() -> None:
+    languages = _shared_yaml("languages.yaml")
+    checks = {c for lang in ("python", "typescript") for c in languages[lang]["compliance_checks"]}
+    kinds = {
+        m.group(1)
+        for fid, text in _shared_yaml("findings.yaml")["findings"].items()
+        if fid.startswith("compliance.") and (m := re.match(r"\{path\}(?::\{line\})?: ([a-z-]+):", text))
+    }
+    assert "attr-blindspot" in kinds
+    assert kinds - {"parse-error"} <= checks
+
+
+def _string_member_calls(language: str) -> list[str]:
+    return [form["call"] for form in _shared_yaml("languages.yaml")[language]["string_member_calls"]]
+
+
+def test_typescript_string_member_calls() -> None:
+    assert sorted(_string_member_calls("typescript")) == sorted([
+        "vi.spyOn", "jest.spyOn", "Reflect.get", "Reflect.set", "Reflect.has", "Reflect.deleteProperty",
+        "Reflect.defineProperty", "Reflect.getOwnPropertyDescriptor", "Object.defineProperty",
+        "Object.getOwnPropertyDescriptor",
+    ])
+
+
+def test_python_string_member_calls() -> None:
+    calls = _string_member_calls("python")
+    assert {"getattr", "setattr", "hasattr", "delattr"} <= set(calls)
+    assert [c for c in calls if c.endswith("MonkeyPatch.setattr")]
+    assert [c for c in calls if c.endswith("MonkeyPatch.delattr")]
+    assert len([c for c in calls if c.endswith("patch.object")]) == 2
+    assert len([c for c in calls if c.endswith(".patch")]) == 2
+
+
+def _option(command: str, name: str) -> dict:
+    [option] = [o for o in _shared_yaml("cli.yaml")["commands"][command]["options"] if o["name"] == name]
+    return option
+
+
+@pytest.mark.parametrize(
+    ("command", "name", "type_", "choices"),
+    [
+        ("la-doctor", "--twin", "flag", None),
+        ("la-arch-check", "--language", "string", ["python", "typescript"]),
+        ("la-arch-check", "--emit", "string", ["facts"]),
+        ("la-check-conventions", "--language", "string", ["python", "typescript"]),
+        ("la-check-conventions", "--emit", "string", ["facts"]),
+        ("la-typecheck", "--language", "string", ["python", "typescript"]),
+    ],
+)
+def test_manifest_internal_options(command: str, name: str, type_: str, choices: list[str] | None) -> None:
+    option = _option(command, name)
+    assert (option["type"], option.get("choices"), option.get("internal")) == (type_, choices, True)
+
+
+def test_manifest_declares_la_typecheck() -> None:
+    spec = _shared_yaml("cli.yaml")["commands"]["la-typecheck"]
+    assert "native" not in spec
+    assert not spec.get("passthrough")
+    assert set(spec["exit"]) == {0, 1, 2}
+    write = _option("la-typecheck", "--write-baseline")
+    assert (write["type"], write.get("internal")) == ("flag", None)
+
+
+FORMAT_EXEMPT = {
+    "la-arch-migrate",
+    "la-doctor",
+    "dr-doctor",
+    "la-fetch-coderabbit-threads",
+    "la-reply-invalid-coderabbit",
+    "la-reply-to-pr-thread",
+    "la-fetch-failed-pr-checks",
+    "la-wait-for-reviews",
+    "la-pr-reviewers",
+}
+
+
+def test_manifest_declares_the_format_exempt_commands() -> None:
+    commands = _shared_yaml("cli.yaml")["commands"]
+    assert {spec.get("format") for spec in commands.values()} <= {None, "exempt"}
+    assert {name for name, spec in commands.items() if spec.get("format") == "exempt"} == FORMAT_EXEMPT
+
+
+def test_every_checked_command_documents_the_format_refusal() -> None:
+    commands = _shared_yaml("cli.yaml")["commands"]
+    undocumented = [name for name, spec in commands.items()
+                    if name not in FORMAT_EXEMPT and "format" not in str(spec["exit"].get(2, ""))]
+    assert undocumented == []
+
+
+def test_manifest_la_arch_migrate_converts_to_the_current_format() -> None:
+    spec = _shared_yaml("cli.yaml")["commands"]["la-arch-migrate"]
+    assert spec["help"] == (
+        "Convert the repo to the current format (`format` in living-architecture.yaml) one released format at a time,"
+        " starting from the declared one. A repo that predates the key first gets its legacy architecture/model/*.c4"
+        " model merged into architecture/model.c4 (creating an empty architecture/views.c4 when absent) and the"
+        " retired arc42 metadata key converted (each element's doc moved to architecture/<element id>.arc42.md, the"
+        " key dropped, cross_cutting_arc42 docs flattened into architecture/ and their diagrams keys renamed). Then"
+        " the current format is stamped. Verified; writes everything or nothing and prints each changed path once, by"
+        " its final state."
+    )
+    assert all(word in spec["exit"][2] for word in ("config", "newer", "invalid", "unknown"))
+
+
+def test_only_the_twin_options_are_internal() -> None:
+    commands = _shared_yaml("cli.yaml")["commands"]
+    specs = [*commands.values(), *(sub for spec in commands.values() for sub in spec.get("subcommands", {}).values())]
+    internal = {o["name"] for spec in specs for o in spec.get("options", []) if o.get("internal")}
+    assert internal == {"--twin", "--language", "--emit", "--top-level"}
+
+
+# ---- vendored snapshot and contract hash
+
+
+def test_snapshot_matches_shared() -> None:
+    stale = _tree(Path(str(snapshot_dir()))) != _tree(SHARED)
+    assert not stale, "the vendored contract snapshot is stale; run scripts/sync-shared"
+
+
+def test_snapshot_hash_file_matches_the_source_tree() -> None:
+    recorded = (Path(str(snapshot_dir())) / HASH_FILE).read_text(encoding="utf-8").strip()
+    assert recorded == compute_hash(SHARED) == contract_hash()
+
+
+def _hash_after(tmp_path: Path, change: str) -> str:
+    tree = tmp_path / change
+    shutil.copytree(SHARED, tree)
+    target = tree / "findings.yaml"
+    if change == "bytes":
+        target.write_bytes(target.read_bytes() + b"\n")
+    elif change == "mode":
+        target.chmod(target.stat().st_mode ^ stat.S_IXUSR)
+    elif change == "path":
+        target.rename(tree / "findings2.yaml")
+    return compute_hash(tree)
+
+
+@pytest.mark.parametrize("change", ["bytes", "mode", "path"])
+def test_hash_covers_bytes_modes_and_paths(tmp_path: Path, change: str) -> None:
+    assert _hash_after(tmp_path, change) != compute_hash(SHARED)
+
+
+def test_hash_ignores_non_executable_mode_bits(tmp_path: Path) -> None:
+    tree = tmp_path / "copy"
+    shutil.copytree(SHARED, tree)
+    target = tree / "findings.yaml"
+    target.chmod(target.stat().st_mode ^ stat.S_IWGRP)
+    assert compute_hash(tree) == compute_hash(SHARED)
+
+
+def test_hash_ignores_the_hash_file_itself(tmp_path: Path) -> None:
+    tree = tmp_path / "copy"
+    shutil.copytree(SHARED, tree)
+    (tree / HASH_FILE).write_text("anything\n", encoding="utf-8")
+    assert compute_hash(tree) == compute_hash(SHARED)
+
+
+def test_la_doctor_reports_the_contract_hash(tmp_path: Path) -> None:
+    proc = subprocess.run(
+        [str(BIN_DIR / "la-doctor"), "--contract-hash"], cwd=tmp_path, capture_output=True, text=True, check=False,
+        env={**os.environ, "PATH": f"{BIN_DIR}{os.pathsep}{os.environ['PATH']}"},
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert proc.stdout == f"{compute_hash(SHARED)}\n"

@@ -1,0 +1,8 @@
+kind: neutral
+command: dr-config
+args:
+- show
+expect:
+  exit: 2
+note: 'both config files: dr-config refuses too'
+golden: manual

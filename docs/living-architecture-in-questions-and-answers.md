@@ -20,7 +20,7 @@ it. `/la:arch-cleanup` retires them a batch at a time.
 
 ### Aligning modules with the target causes a lot of import churn, which costs tokens and time
 
-`/la:deterministic-refactor` moves and renames code (Python with the bundled basedpyright and la's own resolver,
+`/dr:deterministic-refactor` moves and renames code (Python with the bundled basedpyright and dr's own resolver,
 TypeScript with its language service), which rewrites every import for you. The type checker then proves that
 nothing was left dangling. The agent does not edit each import by hand. See
 [Deterministic refactoring](deterministic-refactoring.md).

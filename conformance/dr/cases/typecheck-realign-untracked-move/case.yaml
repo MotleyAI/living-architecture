@@ -1,0 +1,31 @@
+kind: adapter
+languages:
+- python
+command: dr-typecheck
+args:
+- --realign-from
+- HEAD
+fixture: typecheck-realign
+git:
+- commit: init
+- delete:
+  - pkg/m.py
+- write:
+    pkg/n.py: |
+      def f(a: int, b: int) -> int:
+          return a + b
+
+
+      def use() -> int:
+          return f(1, "x") + len(3)
+
+
+      def other() -> int:
+          return 1
+expect:
+  exit: 1
+  files:
+  - .basedpyright/baseline.json
+golden: manual
+note: 'a file moved without git: the untracked destination is not followed and the missing file is not considered, so its errors
+  are new and the baseline is unchanged'

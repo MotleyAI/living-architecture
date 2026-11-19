@@ -1,0 +1,22 @@
+specification {
+  element system
+  element node
+}
+
+model {
+  typescript = system 'TypeScript' {
+    dr = node 'dr' {
+      metadata {
+        package 'dr/src'
+      }
+      core = node 'Core'
+    }
+    la = node 'la' {
+      metadata {
+        package 'la/src'
+      }
+    }
+
+    la -> dr
+  }
+}

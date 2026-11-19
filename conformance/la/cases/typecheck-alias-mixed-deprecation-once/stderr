@@ -1,0 +1,4 @@
+la-typecheck is deprecated and will be removed in 0.14.0; run dr-typecheck instead
+dr-typecheck: checking python with basedpyright
+dr-typecheck: checking typescript with tsc --noEmit
+dr-typecheck: typescript: 1 new error(s) not in .tsc-baseline.json

@@ -1,0 +1,11 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+fixture: arch-ok
+remove:
+- pkg
+expect:
+  exit: 2
+golden: manual
+note: 'new behaviour: two source_roots entries one inside the other is a setup error naming source_roots'

@@ -1,0 +1,8 @@
+kind: neutral
+command: dr-config
+args:
+- show
+expect:
+  exit: 0
+note: dr-config show prints the dr keys with their defaults
+golden: manual

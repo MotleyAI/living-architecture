@@ -1,0 +1,9 @@
+kind: neutral
+command: dr-config
+args:
+- get
+- lang.python.waiver
+expect:
+  exit: 0
+note: 'a public language fact, served in any repo; a list prints as JSON, a string as text'
+golden: manual

@@ -1,0 +1,86 @@
+{
+  "name": "deterministic-refactor",
+  "version": "0.13.0",
+  "description": "Verified renames and moves for Python and TypeScript code: every import and reference rewritten, checked by a type-check gate against a committed baseline.",
+  "keywords": [
+    "claude-code",
+    "claude-code-plugin",
+    "agent-skills",
+    "coding-agents",
+    "ai-coding",
+    "refactoring",
+    "rename",
+    "type-checking"
+  ],
+  "homepage": "https://github.com/MotleyAI/living-architecture#readme",
+  "bugs": {
+    "url": "https://github.com/MotleyAI/living-architecture/issues"
+  },
+  "author": {
+    "name": "MotleyAI"
+  },
+  "maintainers": [
+    "Egor Kraev"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MotleyAI/living-architecture.git",
+    "directory": "node/dr"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "dr-compliance": "dist/bin/dr-compliance.js",
+    "dr-config": "dist/bin/dr-config.js",
+    "dr-doctor": "dist/bin/dr-doctor.js",
+    "dr-mock-lint": "dist/bin/dr-mock-lint.js",
+    "dr-refactor": "dist/bin/dr-refactor.js",
+    "dr-typecheck": "dist/bin/dr-typecheck.js"
+  },
+  "exports": {
+    "./changes": {
+      "types": "./dist/changes/index.d.ts",
+      "default": "./dist/changes/index.js"
+    },
+    "./config": {
+      "types": "./dist/config/index.d.ts",
+      "default": "./dist/config/index.js"
+    },
+    "./contract": {
+      "types": "./dist/contract/index.d.ts",
+      "default": "./dist/contract/index.js"
+    },
+    "./lang": {
+      "types": "./dist/lang/index.d.ts",
+      "default": "./dist/lang/index.js"
+    },
+    "./twin": {
+      "types": "./dist/twin/index.d.ts",
+      "default": "./dist/twin/index.js"
+    },
+    "./typecheck": {
+      "types": "./dist/typecheck/index.d.ts",
+      "default": "./dist/typecheck/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:integration": "LA_INTEGRATION=1 vitest run test/typecheck.integration.test.ts",
+    "prepack": "npm run build && node -e \"const fs = require('node:fs'); fs.copyFileSync('../../LICENSE', 'LICENSE'); fs.copyFileSync('../../python/dr/README.md', 'README.md')\""
+  },
+  "dependencies": {
+    "ajv": "^8.20.0",
+    "typescript": "~6.0.3",
+    "yaml": "^2.9.1"
+  }
+}

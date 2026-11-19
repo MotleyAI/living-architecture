@@ -1,0 +1,2 @@
+claims-exactly-once: pkg.core claimed by both python.app and python.core
+arch_check: 1 finding(s)

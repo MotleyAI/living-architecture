@@ -1,0 +1,11 @@
+kind: adapter
+languages:
+- typescript
+command: dr-typecheck
+fixture: typecheck-ts-src
+expect:
+  exit: 2
+  files:
+  - .tsc-baseline.json
+golden: manual
+note: 'a diagnostic without a file: tsc output relayed, exit 2'

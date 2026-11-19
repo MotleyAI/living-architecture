@@ -1,0 +1,2 @@
+dr-typecheck: checking python with basedpyright
+dr-typecheck: python: if an edit moved errors that .basedpyright/baseline.json held, run dr-typecheck --realign-from <commit where it matched>

@@ -1,0 +1,13 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+fixture: arch-ok
+expect:
+  exit: 2
+  stderr:
+    contains:
+    - architecture/index.yaml
+    - source_roots
+golden: manual
+note: source_roots lives in the python section; at the top level it is an unknown key

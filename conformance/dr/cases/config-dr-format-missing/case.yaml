@@ -1,0 +1,8 @@
+kind: neutral
+command: dr-config
+args:
+- show
+expect:
+  exit: 2
+note: 'a dr file without format: names the line to add'
+golden: manual

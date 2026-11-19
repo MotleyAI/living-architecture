@@ -1,0 +1,2 @@
+dr-typecheck: checking python with basedpyright
+dr-typecheck: python: .basedpyright/baseline.json is malformed
