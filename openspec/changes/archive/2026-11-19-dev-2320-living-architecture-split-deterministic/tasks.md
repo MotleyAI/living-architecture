@@ -63,7 +63,7 @@ Calibration notes (read first):
 - [x] 7.1 Split `plugin/` into `plugin/dr/` (`.claude-plugin/plugin.json` `dr` 0.13.0; skills deterministic-refactor, make-refactor-target-compliant, make-diff-compliant; `languages/`) and `plugin/la/` (`plugin.json` `la` 0.13.0 with `dependencies: [{name: dr, version: "~0.13.0"}]`; every other skill); list both in `.claude-plugin/marketplace.json`; verify `npx -y @anthropic-ai/claude-code plugin validate plugin/dr` and `plugin/la`
 - [x] 7.2 Apply the mechanical skill renames (dr skills: `dr-doctor --plugin`, `dr-config`, `dr-typecheck`; la skills: `dr:` skill names, `dr-typecheck`); verify the skills tests (manifest references, language-neutral, dr skills name only dr commands)
 - [x] 7.3 Draft `dr:init` and the `la:init` hand-off (dr keys and baseline step to `dr:init`), show the user the exact wording, apply only after the OK; verify the skills tests
-- [ ] 7.4 At release time, after the maintainer's re-setup (9.5), apply the approved edit to the user's global `~/.claude/CLAUDE.md` (`la:deterministic-refactor` → `dr:deterministic-refactor`, `la-typecheck` → `dr-typecheck`)
+- [x] ~~7.4 At release time, after the maintainer's re-setup (9.5), apply the approved edit to the user's global `~/.claude/CLAUDE.md` (`la:deterministic-refactor` → `dr:deterministic-refactor`, `la-typecheck` → `dr-typecheck`)~~ moved to DEV-2366 (the 0.13.0 release, step 5)
 
 ## 8. Architecture harnesses
 
@@ -72,13 +72,13 @@ Calibration notes (read first):
 
 ## 9. CI, publishing, scripts and docs
 
-- [ ] 9.1 Update `.github/workflows/ci.yml`: per-package pytest/ruff/basedpyright, packaging job building and installing all four artifacts (an la-only install resolving dr; a `uv tool install` proving which executables reach `PATH`), node job over both workspaces, cross-twin over both trees, node-only acceptance packing both, `plugin validate` on both plugins; verify the workflow runs green on the PR
+- [x] 9.1 Update `.github/workflows/ci.yml`: per-package pytest/ruff/basedpyright, packaging job building and installing all four artifacts (an la-only install resolving dr; a `uv tool install` proving which executables reach `PATH`), node job over both workspaces, cross-twin over both trees, node-only acceptance packing both, `plugin validate` on both plugins; verify the workflow runs green on the PR
 - [x] 9.2 Update `.github/workflows/publish.yml` (build with `uv build --package`, `npm -w` build/publish, dr before la) and `scripts/release-check` plus `scripts/release_rule.py` (lockstep across four package versions, two `plugin.json`, la's pin and plugin dependency; per-package hashes; per-file format series read against the pre-split layout); verify the release-rule tests incl. the new scenarios
-- [ ] 9.3 Update `scripts/acceptance-node-only` (packs and installs both npm packages); verify the acceptance job
+- [x] 9.3 Update `scripts/acceptance-node-only` (packs and installs both npm packages); verify the acceptance job
 - [x] 9.4 Update `AGENTS.md`, `README.md`, `CONTRIBUTING.md` and `docs/*` for the two packages, commands, plugins, config files and migration; add dr's package README; verify the docs build/links tests and that no doc names `la-typecheck` except as the deprecated alias
 - [x] 9.5 Put in the PR description the maintainer's local re-setup: re-link `~/.claude/skills/la` → `plugin/la` and `~/.claude/skills/dr` → `plugin/dr`; reinstall editable tools with `uv tool install -e python/la --with-editable python/dr --with-executables-from deterministic-refactor`
 
 ## 10. Finish
 
-- [ ] 10.1 At archive time, rewrite the `## Purpose` of `openspec/specs/typecheck/spec.md` to name `dr-typecheck` (a delta cannot change a Purpose); verify `openspec validate --strict --all`
+- [x] 10.1 At archive time, rewrite the `## Purpose` of `openspec/specs/typecheck/spec.md` to name `dr-typecheck` (a delta cannot change a Purpose); verify `openspec validate --strict --all`
 - [x] 10.2 Run the enforcement bundle (`la-arch-check`, `npx likec4 validate`, `dr-typecheck` against its baseline) and the full local test scope; verify all green
