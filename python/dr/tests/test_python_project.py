@@ -12,7 +12,7 @@ from rope.base import libutils
 from rope.base.fscommands import read_str_coding as rope_read_str_coding
 from rope.base.project import Project
 
-from deterministic_refactor.refactor.python_project import ProjectLayout, read_str_coding
+from trmv.refactor.python_project import ProjectLayout, read_str_coding
 
 # Each layout: files (empty unless given) and symlinks (link -> target, relative to the root).
 LAYOUTS: dict[str, tuple[dict[str, str], dict[str, str]]] = {

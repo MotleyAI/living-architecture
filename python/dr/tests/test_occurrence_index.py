@@ -11,9 +11,9 @@ from typing import Any
 import pytest
 import yaml
 
-from deterministic_refactor.lang import LanguageServer
 from project_files import write_project
 from refactor_cli import read, run
+from trmv.lang import LanguageServer
 
 EXPORT = "la.exportOccurrences"
 PER_OCCURRENCE = ("textDocument/references", "textDocument/hover", "textDocument/definition",

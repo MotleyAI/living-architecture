@@ -1,2 +1,2 @@
-la-typecheck is deprecated and will be removed in 0.15.0; run dr-typecheck instead
-dr-typecheck: checking python with basedpyright
+la-typecheck is deprecated and will be removed in 0.15.0; run trmv-typecheck instead
+trmv-typecheck: checking python with basedpyright

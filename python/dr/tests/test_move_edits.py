@@ -4,10 +4,10 @@ from pathlib import Path
 
 import pytest
 
-from deterministic_refactor.cli.dr_refactor import dr_refactor as main
-from deterministic_refactor.contract import message
-from deterministic_refactor.refactor.move_edits import leading_block_end, relative_module
 from refactor_cli import readouterr
+from trmv.cli.trmv_refactor import trmv_refactor as main
+from trmv.contract import message
+from trmv.refactor.move_edits import leading_block_end, relative_module
 
 MODULE_PROJECT = {
     "pkg/__init__.py": "",

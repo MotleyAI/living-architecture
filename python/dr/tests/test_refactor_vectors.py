@@ -10,14 +10,14 @@ from typing import Any
 import pytest
 import yaml
 
-from deterministic_refactor.cli.dr_refactor import dr_refactor
-from deterministic_refactor.refactor.mentions import mentions, qualifier_segments, source_regions
-from deterministic_refactor.refactor.python_source import SourceFile, split_lines
-from deterministic_refactor.refactor.sites import Site
 from refactor_cli import readouterr
+from trmv.cli.trmv_refactor import trmv_refactor
+from trmv.refactor.mentions import mentions, qualifier_segments, source_regions
+from trmv.refactor.python_source import SourceFile, split_lines
+from trmv.refactor.sites import Site
 
 VECTORS: dict[str, Any] = yaml.safe_load(
-    (next(p for p in Path(__file__).resolve().parents if (p / "shared").is_dir() and (p / "plugin").is_dir()) / "shared/dr/vectors/refactor-text.yaml")
+    (next(p for p in Path(__file__).resolve().parents if (p / "shared").is_dir() and (p / "plugin").is_dir()) / "shared/trmv/vectors/refactor-text.yaml")
     .read_text(encoding="utf-8")
 )
 
@@ -62,7 +62,7 @@ def test_sites(vector: dict[str, Any], tmp_path: Path) -> None:
 
 def test_line_locator_counts_python_lines_only(typed_project: Callable[..., Path], capsys: pytest.CaptureFixture[str]) -> None:
     root = typed_project({"pkg/m.py": "x = 1  # a\fb\ndef old() -> None:\n    pass\n"})
-    assert dr_refactor(["--project", str(root), "rename", "--file", str(root / "pkg/m.py"), "--line", "2", "--col", "5",
+    assert trmv_refactor(["--project", str(root), "rename", "--file", str(root / "pkg/m.py"), "--line", "2", "--col", "5",
                         "--new-name", "new"]) == 0
     assert "-def old() -> None:\n+def new() -> None:" in readouterr(capsys).out
 

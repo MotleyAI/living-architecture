@@ -1,4 +1,4 @@
-// dr-refactor phases: the map loader's every invalid entry, the keep text check, and what the conflicts phase is
+// trmv-refactor phases: the map loader's every invalid entry, the keep text check, and what the conflicts phase is
 // charged with.
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';

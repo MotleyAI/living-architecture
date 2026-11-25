@@ -9,7 +9,7 @@ from pathlib import Path
 import basedpyright
 import pytest
 
-from deterministic_refactor.config import current_format
+from trmv.config import current_format
 
 BIN_DIR = Path(sys.executable).parent
 REPRO = 'd: dict[str, int] = {"a": 1}\nfor k in ["a"]:\n    assert k in d, k\nx: str = d["a"]\n'

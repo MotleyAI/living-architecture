@@ -1,4 +1,4 @@
-"""Receivers basedpyright types `Never`: blind spots of `dr-compliance --attr` and of a member rename."""
+"""Receivers basedpyright types `Never`: blind spots of `trmv-compliance --attr` and of a member rename."""
 
 from __future__ import annotations
 
@@ -6,11 +6,11 @@ from pathlib import Path
 
 import pytest
 
-from deterministic_refactor.cli.dr_compliance import dr_compliance
-from deterministic_refactor.contract import message
-from deterministic_refactor.lang import ExportRequest, FactQuery, LanguageServer
 from project_files import file_tree, write_project
 from refactor_cli import read, run
+from trmv.cli.trmv_compliance import trmv_compliance
+from trmv.contract import message
+from trmv.lang import ExportRequest, FactQuery, LanguageServer
 
 ATTR = "producer_root_model"
 PLANNED = """\
@@ -49,7 +49,7 @@ def test_compliance_reports_never_receivers_with_their_type(
 ) -> None:
     root = write_project(tmp_path / "p", {"pkg/p.py": PLANNED})
     monkeypatch.chdir(root)
-    assert dr_compliance(["--select", "attr-blindspot", "--attr", ATTR, "pkg/p.py"]) == 1
+    assert trmv_compliance(["--select", "attr-blindspot", "--attr", ATTR, "pkg/p.py"]) == 1
     assert capsys.readouterr().out.splitlines() == _blindspots()
 
 

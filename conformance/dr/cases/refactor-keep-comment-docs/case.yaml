@@ -2,7 +2,7 @@ kind: paired
 languages:
 - python
 - typescript
-command: dr-refactor
+command: trmv-refactor
 args:
   python: [--apply, rename-map, renames.yaml, --docs, --keep, lib/commented.py:2, --keep, lib/commented.py:3]
   typescript: [--apply, rename-map, renames.yaml, --docs, --keep, lib/commented.ts:2, --keep, lib/commented.ts:3]

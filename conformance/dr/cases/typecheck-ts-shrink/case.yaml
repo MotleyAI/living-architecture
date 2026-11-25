@@ -1,7 +1,7 @@
 kind: adapter
 languages:
 - typescript
-command: dr-typecheck
+command: trmv-typecheck
 fixture: typecheck-ts-src
 expect:
   exit: 0

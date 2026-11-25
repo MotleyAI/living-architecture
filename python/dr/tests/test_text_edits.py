@@ -2,7 +2,7 @@
 
 import pytest
 
-from deterministic_refactor.refactor.text_edits import OverlappingEdits, TextEdit, apply_edits, merge_edits
+from trmv.refactor.text_edits import OverlappingEdits, TextEdit, apply_edits, merge_edits
 
 
 def _edit(start: int, end: int, text: str = "new", path: str = "m.py") -> TextEdit:

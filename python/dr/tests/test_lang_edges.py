@@ -8,7 +8,7 @@ from typing import Any
 
 import pytest
 
-from deterministic_refactor import lang
+from trmv import lang
 
 
 def _edges(

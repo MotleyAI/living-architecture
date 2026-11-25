@@ -2,7 +2,7 @@ kind: neutral
 languages:
 - python
 - typescript
-command: dr-typecheck
+command: trmv-typecheck
 args:
 - --write-baseline
 fixture: typecheck-ts-src

@@ -1,4 +1,4 @@
-"""Python `dr-refactor rename` keeps every reference's binding: Python's own scoping, star imports, the edits that take
+"""Python `trmv-refactor rename` keeps every reference's binding: Python's own scoping, star imports, the edits that take
 part, the finding site, the check order and the implicit root's members."""
 
 from __future__ import annotations
@@ -16,21 +16,21 @@ from pathlib import Path
 
 import pytest
 
-from deterministic_refactor.cli.dr_refactor import dr_refactor
-from deterministic_refactor.contract import language, message
-from deterministic_refactor.refactor import bindings
-from deterministic_refactor.refactor.bindings import BindingCheck, Conflict, EntryEdits, module_binding
-from deterministic_refactor.refactor.python_source import SourceFile
-from deterministic_refactor.refactor.text_edits import TextEdit
 from project_files import file_tree
 from refactor_cli import entry_refusal, readouterr
+from trmv.cli.trmv_refactor import trmv_refactor
+from trmv.contract import language, message
+from trmv.refactor import bindings
+from trmv.refactor.bindings import BindingCheck, Conflict, EntryEdits, module_binding
+from trmv.refactor.python_source import SourceFile
+from trmv.refactor.text_edits import TextEdit
 
 MakeProject = Callable[..., Path]
 NEW = "fresh"
 
 
 def _rename(root: Path, rel: str, offset: int, new_name: str = NEW, *flags: str) -> int:
-    return dr_refactor(["--project", str(root), "--apply", "rename", "--file", str(root / rel), "--offset", str(offset),
+    return trmv_refactor(["--project", str(root), "--apply", "rename", "--file", str(root / rel), "--offset", str(offset),
                         "--new-name", new_name, *flags])
 
 

@@ -1,5 +1,5 @@
 kind: neutral
-command: dr-config
+command: trmv-config
 args:
 - get
 - tracker
@@ -8,5 +8,5 @@ expect:
   stderr:
     contains:
     - unknown key 'tracker'
-note: an la key is an unknown key to dr-config
+note: an la key is an unknown key to trmv-config
 golden: manual

@@ -1,8 +1,8 @@
 kind: neutral
-command: dr-config
+command: trmv-config
 args:
 - show
 expect:
   exit: 0
-note: dr ignores living-architecture.local.yaml and shows only dr keys
+note: trmv ignores living-architecture.local.yaml and shows only trmv keys
 golden: manual

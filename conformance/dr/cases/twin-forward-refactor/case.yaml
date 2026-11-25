@@ -2,7 +2,7 @@ kind: adapter
 languages:
 - python
 twin: typescript
-command: dr-refactor
+command: trmv-refactor
 args:
 - rename
 - --file
@@ -21,4 +21,4 @@ expect:
   - pkg/b.py
   - .ropeproject/history.json
 golden: manual
-note: 'npm twin forwards dr-refactor wholesale: output equals the PyPI twin''s own run'
+note: 'npm twin forwards trmv-refactor wholesale: output equals the PyPI twin''s own run'

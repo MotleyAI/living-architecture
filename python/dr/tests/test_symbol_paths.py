@@ -1,4 +1,4 @@
-"""Python `dr-refactor --symbol`: a declaration located by its path inside `--file`."""
+"""Python `trmv-refactor --symbol`: a declaration located by its path inside `--file`."""
 
 from __future__ import annotations
 
@@ -6,11 +6,11 @@ from pathlib import Path
 
 import pytest
 
-from deterministic_refactor.contract import message
-from deterministic_refactor.refactor.python_source import SourceFile
-from deterministic_refactor.refactor.symbol_path import LocatorError, locate
 from project_files import file_tree, write_project
 from refactor_cli import assert_same_run, entry_refusal, line_col, read, run
+from trmv.contract import message
+from trmv.refactor.python_source import SourceFile
+from trmv.refactor.symbol_path import LocatorError, locate
 
 STORAGE = """\
 class StorageBackend:

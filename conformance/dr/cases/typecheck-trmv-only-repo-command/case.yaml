@@ -2,8 +2,8 @@ kind: adapter
 languages:
 - python
 fixture: typecheck-python
-command: dr-typecheck
+command: trmv-typecheck
 expect:
   exit: 0
-note: a dr-only repo configures dr-typecheck in deterministic-refactor.yaml
+note: a trmv-only repo configures trmv-typecheck in trmv.yaml
 golden: manual

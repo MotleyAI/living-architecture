@@ -1,4 +1,4 @@
-"""Python `dr-refactor rename` of a parameter: every kind, its hierarchy, its overload group and name conflicts."""
+"""Python `trmv-refactor rename` of a parameter: every kind, its hierarchy, its overload group and name conflicts."""
 
 from __future__ import annotations
 
@@ -9,10 +9,10 @@ from string import Template
 
 import pytest
 
-from deterministic_refactor.cli.dr_refactor import dr_refactor
-from deterministic_refactor.contract import message
 from project_files import file_tree
 from refactor_cli import entry_refusal, readouterr
+from trmv.cli.trmv_refactor import trmv_refactor
+from trmv.contract import message
 
 MakeProject = Callable[..., Path]
 OLD = "model_name"
@@ -20,7 +20,7 @@ NEW = "dataset_name"
 
 
 def _rename(root: Path, rel: str, offset: int, *flags: str, new_name: str = NEW) -> int:
-    return dr_refactor(["--project", str(root), "--apply", "rename", "--file", str(root / rel), "--offset", str(offset),
+    return trmv_refactor(["--project", str(root), "--apply", "rename", "--file", str(root / rel), "--offset", str(offset),
                         "--new-name", new_name, *flags])
 
 

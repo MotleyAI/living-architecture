@@ -5,7 +5,7 @@ languages:
 twin: python
 fixture: typecheck-ts-src
 other_twin: absent
-command: dr-typecheck
+command: trmv-typecheck
 normalize:
 - version
 expect:

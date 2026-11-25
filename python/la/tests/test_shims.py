@@ -86,7 +86,7 @@ def test_pr_reviewers_runs_its_bundled_script():
 def test_every_manifest_command_has_an_entry_point():
     scripts = {
         command
-        for member in ("dr", "la")
+        for member in ("trmv", "la")
         for command in tomllib.loads((PROJECT_ROOT.parent / member / "pyproject.toml").read_text(encoding="utf-8"))[
             "project"
         ]["scripts"]

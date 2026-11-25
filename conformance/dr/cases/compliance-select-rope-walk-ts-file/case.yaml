@@ -2,8 +2,8 @@ kind: neutral
 languages:
 - python
 - typescript
-fixture: dr-mixed
-command: dr-compliance
+fixture: trmv-mixed
+command: trmv-compliance
 args:
 - --select
 - rope-walk

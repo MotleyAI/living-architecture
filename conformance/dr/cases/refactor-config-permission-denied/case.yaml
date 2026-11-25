@@ -2,7 +2,7 @@ kind: paired
 languages:
 - python
 - typescript
-command: dr-refactor
+command: trmv-refactor
 args:
   python: [rename, --file, pkg/a.py, --symbol, foo, --new-name, bar]
   typescript: [rename, --file, src/a.ts, --symbol, foo, --new-name, bar]

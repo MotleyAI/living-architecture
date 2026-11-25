@@ -1,4 +1,4 @@
-"""The shared contract split per package: shared/dr and shared/la, their manifests, schemas, registries and formats."""
+"""The shared contract split per package: shared/trmv and shared/la, their manifests, schemas, registries and formats."""
 
 from __future__ import annotations
 
@@ -13,11 +13,11 @@ import yaml
 
 REPO_ROOT = next(p for p in Path(__file__).resolve().parents if (p / "shared").is_dir() and (p / "plugin").is_dir())
 SHARED = REPO_ROOT / "shared"
-DR_FILE = "deterministic-refactor.yaml"
+TRMV_FILE = "trmv.yaml"
 LA_FILE = "living-architecture.yaml"
-DR_SCHEMA = "deterministic-refactor.schema.json"
-DR_KEYS = {"format", "exempt", "commands", "refactor"}
-DR_COMMANDS = {"dr-refactor", "dr-compliance", "dr-mock-lint", "dr-typecheck", "dr-doctor", "dr-config"}
+TRMV_SCHEMA = "trmv.schema.json"
+TRMV_KEYS = {"format", "exempt", "commands", "refactor"}
+TRMV_COMMANDS = {"trmv-refactor", "trmv-compliance", "trmv-mock-lint", "trmv-typecheck", "trmv-doctor", "trmv-config"}
 REVIEW_SHIMS = {
     "la-fetch-coderabbit-threads", "la-fetch-failed-pr-checks", "la-pr-reviewers", "la-reply-invalid-coderabbit",
     "la-reply-to-pr-thread", "la-wait-for-reviews",
@@ -44,17 +44,17 @@ def _version_key(version: str) -> tuple[int, ...]:
 
 
 def test_shared_holds_only_the_package_contracts() -> None:
-    assert sorted(p.name for p in SHARED.iterdir()) == ["dr", "la"]
+    assert sorted(p.name for p in SHARED.iterdir()) == ["la", "trmv"]
 
 
-@pytest.mark.parametrize("package", ["dr", "la"])
+@pytest.mark.parametrize("package", ["trmv", "la"])
 def test_each_contract_has_its_manifest_registry_and_readme(package: str) -> None:
     for rel in ("cli.yaml", "findings.yaml", "README.md"):
         assert (SHARED / package / rel).is_file(), f"shared/{package}/{rel}"
 
 
-def test_dr_manifest_defines_exactly_the_dr_commands() -> None:
-    assert set(_commands("dr")) == DR_COMMANDS
+def test_trmv_manifest_defines_exactly_the_trmv_commands() -> None:
+    assert set(_commands("trmv")) == TRMV_COMMANDS
 
 
 def test_la_manifest_defines_only_la_commands() -> None:
@@ -65,21 +65,21 @@ def test_la_manifest_defines_only_la_commands() -> None:
 
 def test_format_exempt_commands() -> None:
     exempt = {
-        name for package in ("dr", "la") for name, spec in _commands(package).items() if spec.get("format") == "exempt"
+        name for package in ("trmv", "la") for name, spec in _commands(package).items() if spec.get("format") == "exempt"
     }
-    assert exempt == {"la-arch-migrate", "la-doctor", "dr-doctor", *REVIEW_SHIMS}
+    assert exempt == {"la-arch-migrate", "la-doctor", "trmv-doctor", *REVIEW_SHIMS}
 
 
-def test_dr_commands_native_languages() -> None:
-    native = {name: spec["native"] for name, spec in _commands("dr").items() if "native" in spec}
-    assert native == {name: ["python", "typescript"] for name in ("dr-refactor", "dr-compliance", "dr-mock-lint")}
+def test_trmv_commands_native_languages() -> None:
+    native = {name: spec["native"] for name, spec in _commands("trmv").items() if "native" in spec}
+    assert native == {name: ["python", "typescript"] for name in ("trmv-refactor", "trmv-compliance", "trmv-mock-lint")}
     assert not any("native" in spec for spec in _commands("la").values())
 
 
-def test_dr_config_lists_the_config_files_and_their_formats() -> None:
-    config = _yaml("dr/config.yaml")
-    assert config["files"] == [DR_FILE, LA_FILE]
-    assert config["formats"] == {DR_FILE: ["0.14.0"], LA_FILE: ["0.4.0", "0.14.0"]}
+def test_trmv_config_lists_the_config_files_and_their_formats() -> None:
+    config = _yaml("trmv/config.yaml")
+    assert config["files"] == [TRMV_FILE, LA_FILE]
+    assert config["formats"] == {TRMV_FILE: ["0.14.0"], LA_FILE: ["0.4.0", "0.14.0"]}
 
 
 def _package_versions() -> dict[str, str]:
@@ -87,19 +87,19 @@ def _package_versions() -> dict[str, str]:
         f"python/{package}/pyproject.toml": tomllib.loads(
             (REPO_ROOT / "python" / package / "pyproject.toml").read_text(encoding="utf-8")
         )["project"]["version"]
-        for package in ("dr", "la")
+        for package in ("trmv", "la")
     }
-    versions |= {f"node/{p}/package.json": _json(REPO_ROOT / "node" / p / "package.json")["version"] for p in ("dr", "la")}
+    versions |= {f"node/{p}/package.json": _json(REPO_ROOT / "node" / p / "package.json")["version"] for p in ("trmv", "la")}
     versions |= {
         f"plugin/{p}/.claude-plugin/plugin.json": _json(REPO_ROOT / "plugin" / p / ".claude-plugin" / "plugin.json")["version"]
-        for p in ("dr", "la")
+        for p in ("trmv", "la")
     }
     return versions
 
 
-@pytest.mark.parametrize("file", [DR_FILE, LA_FILE])
+@pytest.mark.parametrize("file", [TRMV_FILE, LA_FILE])
 def test_released_formats_are_well_formed(file: str) -> None:
-    formats = _yaml("dr/config.yaml")["formats"][file]
+    formats = _yaml("trmv/config.yaml")["formats"][file]
     keys = [_version_key(version) for version in formats]
     assert keys
     assert keys == sorted(set(keys))
@@ -111,11 +111,11 @@ def _schema(package: str, name: str) -> dict[str, Any]:
     return _json(SHARED / package / "schema" / name)
 
 
-def test_dr_schema_defines_exactly_the_dr_keys() -> None:
-    schema = _schema("dr", DR_SCHEMA)
-    assert schema["$id"] == DR_SCHEMA
+def test_trmv_schema_defines_exactly_the_trmv_keys() -> None:
+    schema = _schema("trmv", TRMV_SCHEMA)
+    assert schema["$id"] == TRMV_SCHEMA
     assert schema["additionalProperties"] is False
-    assert set(schema["properties"]) == DR_KEYS
+    assert set(schema["properties"]) == TRMV_KEYS
     assert next(iter(schema["properties"])) == "format"
     commands = schema["properties"]["commands"]
     assert set(commands["properties"]) == {"test", "typecheck"}
@@ -130,17 +130,17 @@ def test_dr_schema_defines_exactly_the_dr_keys() -> None:
     assert typecheck["additionalProperties"] is False
 
 
-def test_la_schema_takes_the_dr_keys_by_reference() -> None:
+def test_la_schema_takes_the_trmv_keys_by_reference() -> None:
     schema = _schema("la", "living-architecture.schema.json")
     assert schema["additionalProperties"] is False
     assert "allOf" not in schema
     properties = schema["properties"]
     for key in ("format", "exempt", "refactor"):
-        assert properties[key] == {"$ref": f"{DR_SCHEMA}#/properties/{key}"}, key
+        assert properties[key] == {"$ref": f"{TRMV_SCHEMA}#/properties/{key}"}, key
     commands = properties["commands"]
     assert commands["additionalProperties"] is False
     for key in ("test", "typecheck"):
-        assert commands["properties"][key] == {"$ref": f"{DR_SCHEMA}#/properties/commands/properties/{key}"}, key
+        assert commands["properties"][key] == {"$ref": f"{TRMV_SCHEMA}#/properties/commands/properties/{key}"}, key
     assert "$ref" not in commands["properties"]["lint"]
 
 
@@ -151,5 +151,5 @@ def test_la_schema_retires_the_nested_exempt() -> None:
 
 
 def test_finding_ids_are_unique_across_the_packages() -> None:
-    dr, la = (set(_yaml(f"{package}/findings.yaml")["findings"]) for package in ("dr", "la"))
-    assert dr & la == set()
+    trmv, la = (set(_yaml(f"{package}/findings.yaml")["findings"]) for package in ("trmv", "la"))
+    assert trmv & la == set()

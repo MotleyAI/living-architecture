@@ -1,4 +1,4 @@
-"""Python `dr-mock-lint --base BRANCH`: only the findings the base branch lacks."""
+"""Python `trmv-mock-lint --base BRANCH`: only the findings the base branch lacks."""
 
 from __future__ import annotations
 
@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from deterministic_refactor.cli.dr_mock_lint import dr_mock_lint
-from deterministic_refactor.contract import message
 from refactor_cli import git
+from trmv.cli.trmv_mock_lint import trmv_mock_lint
+from trmv.contract import message
 
 BASE = "from unittest.mock import Mock\n\n\ndef test_a() -> None:\n    Mock()\n"
 MOVED_AND_ADDED = (
@@ -35,7 +35,7 @@ def repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 def _lint(*argv: str) -> int:
     try:
-        return dr_mock_lint(list(argv))
+        return trmv_mock_lint(list(argv))
     except SystemExit as exc:
         return exc.code if isinstance(exc.code, int) else 2
 

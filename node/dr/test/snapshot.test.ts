@@ -41,7 +41,7 @@ describe('vendored snapshot', () => {
   });
 
   it('serves the shared data files', () => {
-    expect(plain(schema('deterministic-refactor'))).toEqual(readJson(join(SHARED, 'schema', 'deterministic-refactor.schema.json')));
+    expect(plain(schema('trmv'))).toEqual(readJson(join(SHARED, 'schema', 'trmv.schema.json')));
     expect(Object.keys(plain(manifest())).sort()).toEqual(Object.keys(loadYamlFile(join(SHARED, 'cli.yaml')).commands).sort());
     expect(plain(language('typescript')).test_globs).toEqual(loadYamlFile(join(SHARED, 'languages.yaml')).typescript.test_globs);
   });

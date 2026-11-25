@@ -7,9 +7,9 @@ from pathlib import Path
 import pytest
 import yaml
 
-from deterministic_refactor.contract import message
 from project_files import file_tree, write_project
 from refactor_cli import read, run
+from trmv.contract import message
 
 ERRORS = """\
 class Base(Exception):

@@ -1,7 +1,7 @@
 kind: adapter
 languages:
 - python
-command: dr-typecheck
+command: trmv-typecheck
 args:
 - --write-baseline
 expect:

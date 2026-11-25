@@ -13,17 +13,17 @@ from pathlib import Path
 
 import pytest
 
-from deterministic_refactor.lang import Span
-from deterministic_refactor.refactor.compound import is_compound
-from deterministic_refactor.refactor.hierarchy import ClassGraph
-from deterministic_refactor.refactor.index_cache import (  # pyright: ignore[reportPrivateUsage]
+from trmv.lang import Span
+from trmv.refactor.compound import is_compound
+from trmv.refactor.hierarchy import ClassGraph
+from trmv.refactor.index_cache import (  # pyright: ignore[reportPrivateUsage]
     _config_chain,
     _jsonc,
     fingerprint,
 )
-from deterministic_refactor.refactor.occurrence_index import candidate_files, fact_queries
-from deterministic_refactor.refactor.python_source import SourceFile
-from deterministic_refactor.refactor.text_tables import TextTables, declared_name
+from trmv.refactor.occurrence_index import candidate_files, fact_queries
+from trmv.refactor.python_source import SourceFile
+from trmv.refactor.text_tables import TextTables, declared_name
 
 _WORD = re.compile(r"\w+")
 

@@ -2,7 +2,7 @@ kind: neutral
 languages:
 - python
 - typescript
-command: dr-typecheck
+command: trmv-typecheck
 fixture: typecheck-ts-src
 expect:
   exit: 1

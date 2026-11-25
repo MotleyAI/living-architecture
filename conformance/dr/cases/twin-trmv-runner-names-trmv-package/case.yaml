@@ -2,11 +2,11 @@ kind: neutral
 languages:
 - python
 - typescript
-fixture: dr-mixed
+fixture: trmv-mixed
 golden: manual
 twin: python
 other_twin: absent
-command: dr-refactor
+command: trmv-refactor
 args: [--project, .., rename, --file, src/a.ts, --symbol, foo, --new-name, bar]
 cwd: web
 bins:
@@ -15,13 +15,13 @@ bins:
     npx: |
       #!/bin/sh
       case "$*" in
-        "-y -p deterministic-refactor@<VERSION> dr-doctor --twin")
+        "-y -p type-rename-move@<VERSION> trmv-doctor --twin")
           echo "npx $*" >> <ROOT>/repo/probe.log
-          echo "typescript <VERSION> <DR_CONTRACT_HASH>"
+          echo "typescript <VERSION> <TRMV_CONTRACT_HASH>"
           exit 0 ;;
-        "-y -p deterministic-refactor@<VERSION> dr-refactor "*)
+        "-y -p type-rename-move@<VERSION> trmv-refactor "*)
           [ "$LA_FORWARDED" = 1 ] || { echo "fake npx: LA_FORWARDED is not 1" >&2; exit 99; }
-          echo "npx -y -p deterministic-refactor@<VERSION> dr-refactor (forwarded)" >> <ROOT>/repo/probe.log
+          echo "npx -y -p type-rename-move@<VERSION> trmv-refactor (forwarded)" >> <ROOT>/repo/probe.log
           echo "served by npx"
           exit 0 ;;
       esac
@@ -32,5 +32,5 @@ normalize: [version]
 expect:
   exit: 0
   files: [probe.log]
-note: 'no npm twin on PATH: the PyPI twin probes and runs the dr runner, which names the deterministic-refactor package
-  and dr-doctor'
+note: 'no npm twin on PATH: the PyPI twin probes and runs the trmv runner, which names the type-rename-move package
+  and trmv-doctor'

@@ -1,7 +1,7 @@
-# Conformance inventory: deterministic-refactor
+# Conformance inventory: type-rename-move
 
-Every output and exit branch of every `dr-*` command mapped to the case(s) under `cases/` that pin it.
-`python/dr/tests/test_conformance.py` runs them; `python/la/tests/test_conformance_split.py` checks that every case
+Every output and exit branch of every `trmv-*` command mapped to the case(s) under `cases/` that pin it.
+`python/trmv/tests/test_conformance.py` runs them; `python/la/tests/test_conformance_split.py` checks that every case
 is listed here and no case of the other tree is. Cases marked *(new)* pin behaviour introduced after the
 restructure; their goldens are hand-written.
 
@@ -10,58 +10,58 @@ restructure; their goldens are hand-written.
 | Branch | Exit | Cases |
 |---|---|---|
 | *(new)* the invoking twin checks before forwarding the other language's files (no install hint with the other twin absent) | 2 | `twin-format-checked-before-forwarding-python`, `twin-format-checked-before-forwarding-typescript` |
-| *(new)* a dr command in an la repo checks `living-architecture.yaml` against its series: an older `format` is refused naming both formats and `la-arch-migrate` | 2 | `refactor-format-older-la-file` |
-| *(new)* `deterministic-refactor.yaml` without `format`: refused naming `format: 0.14.0` as the line to add | 2 | `config-dr-format-missing` |
-| *(new)* `deterministic-refactor.yaml` at a newer format: refused naming it as the `dr` version to upgrade to | 2 | `typecheck-dr-file-format-newer` |
-| *(new)* `deterministic-refactor.yaml` at an older or invalid format: refused naming both formats, or showing the value | 2 | `config-dr-format-older`, `config-dr-format-invalid` |
-| *(new)* `deterministic-refactor.yaml` at the current format passes | 0 | `config-dr-get-format` |
-| *(new)* a dr command in an la repo checks `living-architecture.yaml` (older: both formats and `la-arch-migrate`), before forwarding (no install hint) | 2 | `typecheck-la-file-format-older`, `twin-format-older-checked-before-forwarding-dr-refactor` |
+| *(new)* a trmv command in an la repo checks `living-architecture.yaml` against its series: an older `format` is refused naming both formats and `la-arch-migrate` | 2 | `refactor-format-older-la-file` |
+| *(new)* `trmv.yaml` without `format`: refused naming `format: 0.14.0` as the line to add | 2 | `config-trmv-format-missing` |
+| *(new)* `trmv.yaml` at a newer format: refused naming it as the `trmv` version to upgrade to | 2 | `typecheck-trmv-file-format-newer` |
+| *(new)* `trmv.yaml` at an older or invalid format: refused naming both formats, or showing the value | 2 | `config-trmv-format-older`, `config-trmv-format-invalid` |
+| *(new)* `trmv.yaml` at the current format passes | 0 | `config-trmv-get-format` |
+| *(new)* a trmv command in an la repo checks `living-architecture.yaml` (older: both formats and `la-arch-migrate`), before forwarding (no install hint) | 2 | `typecheck-la-file-format-older`, `twin-format-older-checked-before-forwarding-trmv-refactor` |
 
-## dr's keys in the config
+## trmv's keys in the config
 
 | Branch | Exit | Cases |
 |---|---|---|
 | *(new)* a `refactor.string_forms` pattern without exactly one capturing group: a configuration error naming the key and the pattern | 2 | `config-string-forms-invalid` |
-| *(new)* the top-level `exempt`: default `[]` (also through `dr-config`), the list as written | 0 | `dr-config-get-exempt-default` |
-| *(new)* files under the top-level `exempt` do not make a language (also through `dr-config`) | 0 | `dr-config-get-languages-exempt-top-level` |
+| *(new)* the top-level `exempt`: default `[]` (also through `trmv-config`), the list as written | 0 | `trmv-config-get-exempt-default` |
+| *(new)* files under the top-level `exempt` do not make a language (also through `trmv-config`) | 0 | `trmv-config-get-languages-exempt-top-level` |
 
 ## The committed config files
 
 | Branch | Exit | Cases |
 |---|---|---|
-| *(new)* a dr command reads `deterministic-refactor.yaml` | 0 | `typecheck-dr-only-repo-command` |
-| *(new)* a dr command without `deterministic-refactor.yaml` reads `living-architecture.yaml` | 0 | `typecheck-la-repo-read-by-dr` |
-| *(new)* a `deterministic-refactor.yaml` that is not a regular file counts as absent | 0 | `config-dr-file-directory-is-absent` |
-| *(new)* both files present: every config-reading command refuses with one message naming both, before the format check | 2 | `refactor-both-config-files-refused`, `typecheck-both-config-files-refused`, `config-dr-both-files-refused` |
-| *(new)* an la key in `deterministic-refactor.yaml`: config error naming the key and the file | 1 | `config-dr-la-key-in-dr-file` |
-| *(new)* dr ignores `living-architecture.local.yaml` | 0 | `config-dr-local-file-ignored` |
+| *(new)* a trmv command reads `trmv.yaml` | 0 | `typecheck-trmv-only-repo-command` |
+| *(new)* a trmv command without `trmv.yaml` reads `living-architecture.yaml` | 0 | `typecheck-la-repo-read-by-trmv` |
+| *(new)* a `trmv.yaml` that is not a regular file counts as absent | 0 | `config-trmv-file-directory-is-absent` |
+| *(new)* both files present: every config-reading command refuses with one message naming both, before the format check | 2 | `refactor-both-config-files-refused`, `typecheck-both-config-files-refused`, `config-trmv-both-files-refused` |
+| *(new)* an la key in `trmv.yaml`: config error naming the key and the file | 1 | `config-trmv-la-key-in-trmv-file` |
+| *(new)* trmv ignores `living-architecture.local.yaml` | 0 | `config-trmv-local-file-ignored` |
 
-## dr-config
-
-| Branch | Exit | Cases |
-|---|---|---|
-| *(new)* `show`: the resolved dr keys only (`format`, `exempt`, `commands.test`, `commands.typecheck`) | 0 | `config-dr-show-dr-only`, `config-dr-local-file-ignored` |
-| *(new)* `get` of an la key: the unknown-key message | 2 | `config-dr-get-la-key-refused` |
-| *(new)* `get languages` equals `la-config get languages` | 0 | `config-dr-get-languages-la-repo` |
-| *(new)* `get` of an unknown key or unregistered language; `get languages` outside git | 2 | `config-dr-get-lang-unknown-language`, `config-dr-get-languages-not-git` |
-| *(new)* `get lang.<language>.waiver`: the waiver comment form, in any repo | 0 | `config-dr-get-lang-python-waiver` |
-| *(new)* a duplicate key in `deterministic-refactor.yaml`; a config file that cannot be inspected (symlink loop): a config error naming the file | 1 | `config-dr-duplicate-key`, `config-dr-config-loop` |
-| *(new)* `living-architecture.yaml` at an invalid or newer format: refused with la's format texts | 2 | `config-dr-la-file-format-invalid`, `config-dr-la-file-format-newer` |
-
-## dr-doctor
+## trmv-config
 
 | Branch | Exit | Cases |
 |---|---|---|
-| *(new)* healthy: the ok line names dr and the config source (`deterministic-refactor.yaml`, `living-architecture.yaml` without the local file, or the defaults); no la-only check runs; `gh` not required | 0 | `doctor-dr-ok-dr-only`, `doctor-dr-la-repo`, `doctor-dr-missing-gh`, `twin-neutral-dr-doctor` |
-| *(new)* `--require-config` with neither config file: one finding naming `/dr:init` | 1 | `doctor-dr-require-config-missing` |
-| *(new)* both config files: the both-files problem alone, replacing the format and schema checks | 1 | `doctor-dr-both-files` |
-| *(new)* `deterministic-refactor.yaml` at a newer format: the problem names `dr` to upgrade to | 1 | `doctor-dr-format-newer` |
-| *(new)* `--plugin` series mismatch: names dr and the invoking twin's dr install command at the plugin's version | 1 | `doctor-dr-plugin-mismatch-python`, `doctor-dr-plugin-mismatch-typescript` |
-| *(new)* `--plugin` with no manifest at or above, an invalid one, or one that cannot be inspected | 1 | `doctor-dr-plugin-not-found`, `doctor-dr-plugin-nan`, `doctor-dr-plugin-unreadable` |
-| *(new)* TypeScript repo language without `node`/`npx` | 1 | `doctor-dr-typescript-missing-node` |
-| *(new)* `--twin` (internal option) prints `<language> <version> <dr-hash>`, per twin | 0 | `doctor-dr-twin-identity-python`, `doctor-dr-twin-identity-typescript` |
+| *(new)* `show`: the resolved trmv keys only (`format`, `exempt`, `commands.test`, `commands.typecheck`) | 0 | `config-trmv-show-trmv-only`, `config-trmv-local-file-ignored` |
+| *(new)* `get` of an la key: the unknown-key message | 2 | `config-trmv-get-la-key-refused` |
+| *(new)* `get languages` equals `la-config get languages` | 0 | `config-trmv-get-languages-la-repo` |
+| *(new)* `get` of an unknown key or unregistered language; `get languages` outside git | 2 | `config-trmv-get-lang-unknown-language`, `config-trmv-get-languages-not-git` |
+| *(new)* `get lang.<language>.waiver`: the waiver comment form, in any repo | 0 | `config-trmv-get-lang-python-waiver` |
+| *(new)* a duplicate key in `trmv.yaml`; a config file that cannot be inspected (symlink loop): a config error naming the file | 1 | `config-trmv-duplicate-key`, `config-trmv-config-loop` |
+| *(new)* `living-architecture.yaml` at an invalid or newer format: refused with la's format texts | 2 | `config-trmv-la-file-format-invalid`, `config-trmv-la-file-format-newer` |
 
-## dr-typecheck
+## trmv-doctor
+
+| Branch | Exit | Cases |
+|---|---|---|
+| *(new)* healthy: the ok line names trmv and the config source (`trmv.yaml`, `living-architecture.yaml` without the local file, or the defaults); no la-only check runs; `gh` not required | 0 | `doctor-trmv-ok-trmv-only`, `doctor-trmv-la-repo`, `doctor-trmv-missing-gh`, `twin-neutral-trmv-doctor` |
+| *(new)* `--require-config` with neither config file: one finding naming `/trmv:init` | 1 | `doctor-trmv-require-config-missing` |
+| *(new)* both config files: the both-files problem alone, replacing the format and schema checks | 1 | `doctor-trmv-both-files` |
+| *(new)* `trmv.yaml` at a newer format: the problem names `trmv` to upgrade to | 1 | `doctor-trmv-format-newer` |
+| *(new)* `--plugin` series mismatch: names trmv and the invoking twin's trmv install command at the plugin's version | 1 | `doctor-trmv-plugin-mismatch-python`, `doctor-trmv-plugin-mismatch-typescript` |
+| *(new)* `--plugin` with no manifest at or above, an invalid one, or one that cannot be inspected | 1 | `doctor-trmv-plugin-not-found`, `doctor-trmv-plugin-nan`, `doctor-trmv-plugin-unreadable` |
+| *(new)* TypeScript repo language without `node`/`npx` | 1 | `doctor-trmv-typescript-missing-node` |
+| *(new)* `--twin` (internal option) prints `<language> <version> <trmv-hash>`, per twin | 0 | `doctor-trmv-twin-identity-python`, `doctor-trmv-twin-identity-typescript` |
+
+## trmv-typecheck
 
 | Branch | Exit | Cases |
 |---|---|---|
@@ -85,13 +85,13 @@ restructure; their goldens are hand-written.
 | *(new)* `--realign-from` across languages: TypeScript checked without it; a mixed repo identical through either twin | 0 | `typecheck-realign-ts-plain`, `typecheck-realign-mixed` |
 | *(new)* the `--realign-from` hint ends a failing plain Python check with a baseline file; none without a baseline, none under the flag | 1 | `typecheck-python-realign-hint`, `typecheck-python-new-errors`, `typecheck-realign-beside-new-error` |
 
-## dr-typecheck: the run the la-typecheck alias mirrors
+## trmv-typecheck: the run the la-typecheck alias mirrors
 
 | Branch | Exit | Cases |
 |---|---|---|
-| *(new)* the alias: `dr-typecheck`'s stdout and exit, its stderr after one deprecation line naming `dr-typecheck` and `0.14.0` | 1 | `typecheck-dr-python-new-errors` |
+| *(new)* the alias: `trmv-typecheck`'s stdout and exit, its stderr after one deprecation line naming `trmv-typecheck` and `0.14.0` | 1 | `typecheck-trmv-python-new-errors` |
 
-## dr-compliance
+## trmv-compliance
 
 | Branch | Exit | Cases |
 |---|---|---|
@@ -117,7 +117,7 @@ restructure; their goldens are hand-written.
 | *(new)* a check only another language lists is known but does not apply | 0 | `compliance-select-other-language-check` |
 | *(new)* an explicit file of no registered language skipped with a warning | 0 | `compliance-unknown-extension-skipped` |
 | *(new)* directory expansion: a Python-only repo ignores a stray `.js`; with no repo language every registered language's files | 1 | `compliance-directory-skips-other-language`, `compliance-directory-no-repo-language` |
-| *(new)* directory expansion when git fails to list the repo's files | 2 | `dr-compliance-git-failed` |
+| *(new)* directory expansion when git fails to list the repo's files | 2 | `trmv-compliance-git-failed` |
 | *(new)* `rope-walk`: every construct rope's walker used to fail on passes, f-strings holding triple quotes included; the Python-only check does not apply to a TypeScript file | 0 | `compliance-rope-walk-clean`, `compliance-select-rope-walk-ts-file` |
 | *(new)* `explicit-any`: nested and variadic annotations, one finding per `Any`; in the default check set | 1 | `compliance-explicit-any-nested`, `compliance-explicit-any-default` |
 | *(new)* `explicit-any`: every spelling of `Any` (name, alias, module alias, full path, `typing_extensions`, star import); import lines unreported | 1 | `compliance-explicit-any-spellings` |
@@ -127,7 +127,7 @@ restructure; their goldens are hand-written.
 | *(new)* `explicit-any` scoping: `try`/`except ImportError`, class scope (parameter annotations, not method bodies), `global`; a parameter named `Any` and a rebound module alias shadow | 1 | `compliance-explicit-any-scoping` |
 | *(new)* `--attr` repeated: one scan reports every name's blind spots in one block sorted by path, line, column and name (paired) | 1 | `compliance-attr-two-names` |
 
-## dr-compliance: TypeScript
+## trmv-compliance: TypeScript
 
 | Branch | Exit | Cases |
 |---|---|---|
@@ -145,7 +145,7 @@ restructure; their goldens are hand-written.
 | *(new)* the tsconfig `index.yaml` names does not exist | 2 | `compliance-ts-index-tsconfig-missing` |
 | *(new)* `index.yaml` repeats a key: the duplicate-key error, no fallback | 2 | `compliance-ts-index-duplicate-key` |
 
-## dr-mock-lint
+## trmv-mock-lint
 
 | Branch | Exit | Cases |
 |---|---|---|
@@ -155,7 +155,7 @@ restructure; their goldens are hand-written.
 | *(new)* a parsed command: `--help` prints its help and exits 0 (neutral) | 0 | `mock-lint-help` |
 | *(new)* `--base`: only findings whose count (by path, template and parameters but the line) exceeds the base's, a moved one not printed; a file renamed since the base; both languages, each block its own new findings (neutral); `origin/BRANCH` unresolvable (paired) | 1/0/2 | `mock-lint-base-new-only`, `mock-lint-base-renamed-file`, `mock-lint-base-both-blocks`, `mock-lint-base-unresolved` |
 
-## dr-mock-lint: TypeScript
+## trmv-mock-lint: TypeScript
 
 | Branch | Exit | Cases |
 |---|---|---|
@@ -169,7 +169,7 @@ restructure; their goldens are hand-written.
 | *(new)* explicit declaration file or unknown extension skipped with a warning; directory expansion skips `.d.ts`, `node_modules` and non-repo languages | 0/1 | `mock-lint-ts-declaration-skipped`, `mock-lint-unknown-extension-skipped`, `mock-lint-ts-directory-expansion` |
 | *(new)* TypeScript `--base`: a double untyped at the base and still untyped is not printed | 0 | `mock-lint-ts-base` |
 
-## dr-refactor
+## trmv-refactor
 
 | Branch | Exit | Cases |
 |---|---|---|
@@ -244,7 +244,7 @@ restructure; their goldens are hand-written.
 | *(new)* a lambda parameter: renamed with every use its lambda binds | 0 | `refactor-rename-param-lambda` |
 | *(new)* a name bound by a tuple target, by symbol and by location, through rename and rename-map: in a function, at module level, in a class body, starred, nested, from an await, a comprehension target; a same-spelled binding in a nested scope and a same-spelled call keyword unchanged | 0 | `refactor-rename-tuple-target-local-symbol`, `refactor-rename-tuple-target-local-location`, `refactor-rename-tuple-target-module`, `refactor-rename-tuple-target-class`, `refactor-rename-tuple-target-starred`, `refactor-rename-tuple-target-nested-c`, `refactor-rename-tuple-target-nested-b`, `refactor-rename-tuple-target-await`, `refactor-rename-tuple-target-comprehension`, `refactor-rename-tuple-target-nested-scope`, `refactor-rename-tuple-target-call-keyword`, `refactor-rename-tuple-target-map` |
 | *(new)* a member rename refuses on an untyped receiver or an unclassified stand-in, nothing written (dry-run; both refusals under `--apply`); `--allow-blindspots` lists the receivers and proceeds | 1/0 | `refactor-rename-blindspots`, `refactor-rename-both-refusals-apply`, `refactor-rename-stand-in`, `refactor-rename-allow-blindspots` |
-| *(new)* a receiver the checker types `Never` is a blind spot of a member rename, at the positions `dr-compliance --attr` reports | 1 | `refactor-rename-blindspot-never` |
+| *(new)* a receiver the checker types `Never` is a blind spot of a member rename, at the positions `trmv-compliance --attr` reports | 1 | `refactor-rename-blindspot-never` |
 | *(new)* two blind spots of one text on one line are printed once and counted once (paired) | 1 | `refactor-rename-blindspots-same-line` |
 | *(new)* one constructor parameter of a class declaring both `__init__` and `__new__` with it: the class call's keyword is an unlinked keyword and the rename refuses | 1 | `refactor-rename-constructor-both-split` |
 | *(new)* a parameter rename links the call keywords of decorated functions through the checker's signature (context managers, a `ParamSpec` decorator, a decorated method) | 0 | `refactor-rename-param-decorated` |
@@ -373,7 +373,7 @@ restructure; their goldens are hand-written.
 | *(new)* a map renaming one field name on two models: each entry's keys rewritten, and no key another entry rewrites listed as a leftover | 0 | `refactor-map-keyed-leftovers` |
 | *(new)* `--docs` lists compound declarations (CamelCase, plural, snake case; a longer word is not one); none without `--docs` | 0 | `refactor-compound-names`, `refactor-compound-snake-plural`, `refactor-compound-without-docs` |
 
-## dr-refactor: TypeScript
+## trmv-refactor: TypeScript
 
 | Branch | Exit | Cases |
 |---|---|---|
@@ -436,17 +436,17 @@ restructure; their goldens are hand-written.
 |---|---|---|
 | *(new)* version / contract mismatch skipped, runner probed (`uvx --from …==<version>`, `npx -y -p …@<version>`), command run through it, exit and streams passed through | 1/0 | `twin-version-mismatch-runner-probed` |
 | *(new)* npm twin forwards each Python-only command wholesale; output equals the PyPI twin's own run | 0/1 | `twin-forward-refactor`, `twin-forward-compliance`, `twin-forward-mock-lint` |
-| *(new)* a refused `dr-refactor` run forwarded to the other twin: its progress lines, the group's refusal and the final report pass through unchanged, both ways | 1 | `twin-forward-refactor-refused-python`, `twin-forward-refactor-refused-typescript` |
-| *(new)* `dr-typecheck`: the other language runs through its twin (`--language L`, streams relayed, exit max); `--language` for a non-owned language refused without a process; twin unreachable | 1/2 | `twin-typecheck-forwarded-typescript`, `twin-typecheck-non-native-typescript`, `twin-typecheck-non-native-python`, `twin-typecheck-unavailable` |
-| *(new)* `dr-typecheck --realign-from`: the TypeScript section runs in the npm twin without the option | 1 | `twin-typecheck-realign-forwarded-typescript` |
-| *(new)* `dr-*` mixed inputs through real twins: explicit files, a directory, exit max; one block per language in registry order | 1 | `twin-dr-mixed-explicit-files`, `twin-dr-mixed-directory`, `twin-dr-mixed-exit-max` |
-| *(new)* `dr-*` hand-off protocol: `dr-refactor` raw args from the same cwd; `dr-compliance` options, `--`, the other language's files; `dr-mock-lint` the files; captured block printed in registry order | 0/1 | `twin-dr-refactor-forwarded-typescript`, `twin-dr-compliance-forwarded-files`, `twin-dr-mock-lint-forwarded-files` |
-| *(new)* `dr-*` other twin exits 2 or is killed: nothing on stdout, exit 2 | 2 | `twin-dr-other-twin-exit-2`, `twin-dr-other-twin-signal` |
-| *(new)* `dr-*` other twin qualifies but cannot run the command (captured, forwarded; from either twin): a twin error, exit 2 | 2 | `twin-dr-launch-failed-captured-python`, `twin-dr-launch-failed-captured-typescript`, `twin-dr-launch-failed-forward-python`, `twin-dr-launch-failed-forward-typescript` |
-| *(new)* `dr-*` other twin unreachable; `LA_FORWARDED=1` refusal | 2 | `twin-dr-unavailable-typescript`, `twin-dr-unavailable-python`, `twin-dr-refused-when-forwarded-typescript`, `twin-dr-refused-when-forwarded-python` |
-| *(new)* `dr-*` own-language inputs never probe the other twin | 1 | `twin-dr-own-language-python`, `twin-dr-own-language-typescript` |
-| *(new)* the dr runner names the `deterministic-refactor` package and probes `dr-doctor --twin` | 0 | `twin-dr-runner-names-dr-package` |
-| *(new)* `dr-config show` and `dr-doctor` never forward (other twin unreachable) | 0 | `twin-neutral-dr-config-show`, `twin-neutral-dr-doctor` |
+| *(new)* a refused `trmv-refactor` run forwarded to the other twin: its progress lines, the group's refusal and the final report pass through unchanged, both ways | 1 | `twin-forward-refactor-refused-python`, `twin-forward-refactor-refused-typescript` |
+| *(new)* `trmv-typecheck`: the other language runs through its twin (`--language L`, streams relayed, exit max); `--language` for a non-owned language refused without a process; twin unreachable | 1/2 | `twin-typecheck-forwarded-typescript`, `twin-typecheck-non-native-typescript`, `twin-typecheck-non-native-python`, `twin-typecheck-unavailable` |
+| *(new)* `trmv-typecheck --realign-from`: the TypeScript section runs in the npm twin without the option | 1 | `twin-typecheck-realign-forwarded-typescript` |
+| *(new)* `trmv-*` mixed inputs through real twins: explicit files, a directory, exit max; one block per language in registry order | 1 | `twin-trmv-mixed-explicit-files`, `twin-trmv-mixed-directory`, `twin-trmv-mixed-exit-max` |
+| *(new)* `trmv-*` hand-off protocol: `trmv-refactor` raw args from the same cwd; `trmv-compliance` options, `--`, the other language's files; `trmv-mock-lint` the files; captured block printed in registry order | 0/1 | `twin-trmv-refactor-forwarded-typescript`, `twin-trmv-compliance-forwarded-files`, `twin-trmv-mock-lint-forwarded-files` |
+| *(new)* `trmv-*` other twin exits 2 or is killed: nothing on stdout, exit 2 | 2 | `twin-trmv-other-twin-exit-2`, `twin-trmv-other-twin-signal` |
+| *(new)* `trmv-*` other twin qualifies but cannot run the command (captured, forwarded; from either twin): a twin error, exit 2 | 2 | `twin-trmv-launch-failed-captured-python`, `twin-trmv-launch-failed-captured-typescript`, `twin-trmv-launch-failed-forward-python`, `twin-trmv-launch-failed-forward-typescript` |
+| *(new)* `trmv-*` other twin unreachable; `LA_FORWARDED=1` refusal | 2 | `twin-trmv-unavailable-typescript`, `twin-trmv-unavailable-python`, `twin-trmv-refused-when-forwarded-typescript`, `twin-trmv-refused-when-forwarded-python` |
+| *(new)* `trmv-*` own-language inputs never probe the other twin | 1 | `twin-trmv-own-language-python`, `twin-trmv-own-language-typescript` |
+| *(new)* the trmv runner names the `type-rename-move` package and probes `trmv-doctor --twin` | 0 | `twin-trmv-runner-names-trmv-package` |
+| *(new)* `trmv-config show` and `trmv-doctor` never forward (other twin unreachable) | 0 | `twin-neutral-trmv-config-show`, `twin-neutral-trmv-doctor` |
 
 ## Excluded: crashes
 
@@ -454,8 +454,8 @@ These inputs crash today's tool with a traceback (exit 1). A traceback's module 
 survive the restructure, so the corpus does not pin them, and the post-change behaviour is not part of the
 contract:
 
-- `dr-compliance`, `dr-mock-lint`: a path that does not exist; `dr-mock-lint` on a file with a syntax error
-- `dr-refactor`: rope errors on a location that is not a renameable symbol
+- `trmv-compliance`, `trmv-mock-lint`: a path that does not exist; `trmv-mock-lint` on a file with a syntax error
+- `trmv-refactor`: rope errors on a location that is not a renameable symbol
 
 ## Excluded from byte comparison
 

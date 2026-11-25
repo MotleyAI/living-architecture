@@ -1,7 +1,7 @@
 kind: adapter
 languages:
 - typescript
-command: dr-refactor
+command: trmv-refactor
 args: [rename, --file, lib/param.ts, --line, '4', --col, '21', --new-name, reader, --keep, lib/param.ts:2]
 fixture: refactor-keep
 git:

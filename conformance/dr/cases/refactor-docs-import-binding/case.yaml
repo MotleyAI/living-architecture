@@ -2,7 +2,7 @@ kind: paired
 languages:
 - python
 - typescript
-command: dr-refactor
+command: trmv-refactor
 args: [rename-map, renames.yaml, --docs]
 git:
 - commit: init

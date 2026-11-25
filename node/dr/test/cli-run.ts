@@ -20,7 +20,7 @@ export function tempRepo(files: Record<string, string>): string {
   return root;
 }
 
-/** `command argv` through `dispatcher` (default: dr's) from `root`, its exit code and captured streams. */
+/** `command argv` through `dispatcher` (default: trmv's) from `root`, its exit code and captured streams. */
 export function run(
   root: string,
   command: string,

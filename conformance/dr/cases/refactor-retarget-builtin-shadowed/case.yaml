@@ -2,7 +2,7 @@ kind: paired
 languages:
 - python
 - typescript
-command: dr-refactor
+command: trmv-refactor
 args:
   python: [retarget, --file, pkg/home.py, --symbol, old, --target, len]
   typescript: [retarget, --file, src/home.ts, --symbol, old, --target, parseInt]

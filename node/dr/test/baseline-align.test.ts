@@ -1,4 +1,4 @@
-// Every dr-refactor subcommand keeps .tsc-baseline.json aligned, in dry-run and apply alike.
+// Every trmv-refactor subcommand keeps .tsc-baseline.json aligned, in dry-run and apply alike.
 import { describe, expect, it, vi } from 'vitest';
 import { message } from '../src/contract/index.js';
 import { expectedOut, files, read, refactor, renameHeader, tscBaseline, tsProject } from './refactor-project.js';

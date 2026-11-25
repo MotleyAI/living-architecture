@@ -1,8 +1,8 @@
 kind: neutral
-command: dr-config
+command: trmv-config
 args:
 - show
 expect:
   exit: 1
-note: a repeated top-level key in deterministic-refactor.yaml is a config error naming the file, the key and both lines
+note: a repeated top-level key in trmv.yaml is a config error naming the file, the key and both lines
 golden: manual

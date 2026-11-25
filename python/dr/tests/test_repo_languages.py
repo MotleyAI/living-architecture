@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from deterministic_refactor.config import ConfigError, language_settings, repo_languages
-from deterministic_refactor.contract import message
+from trmv.config import ConfigError, language_settings, repo_languages
+from trmv.contract import message
 
 
 def _repo(root: Path, files: dict[str, str]) -> list[str]:

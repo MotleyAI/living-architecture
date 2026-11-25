@@ -6,18 +6,18 @@ from pathlib import Path
 import pytest
 import yaml
 
-from deterministic_refactor.cli.dr_mock_lint import dr_mock_lint
-from deterministic_refactor.contract import manifest as dr_manifest
-from deterministic_refactor.contract.parser import build_parser, parse
 from living_architecture import conventions, review
 from living_architecture.contract import manifest as la_manifest
+from trmv.cli.trmv_mock_lint import trmv_mock_lint
+from trmv.contract import manifest as trmv_manifest
+from trmv.contract.parser import build_parser, parse
 
-COMMANDS = {**dr_manifest(), **la_manifest()}
+COMMANDS = {**trmv_manifest(), **la_manifest()}
 PARSED = sorted(name for name, spec in COMMANDS.items() if not spec.get("passthrough"))
 SHARED = next(p for p in Path(__file__).resolve().parents if (p / "shared").is_dir() and (p / "plugin").is_dir()) / "shared"
 CASES = [
     case
-    for package in ("dr", "la")
+    for package in ("trmv", "la")
     for case in yaml.safe_load((SHARED / package / "vectors" / "cli.yaml").read_text(encoding="utf-8"))["cases"]
 ]
 
@@ -96,8 +96,8 @@ def test_repeatable_option_collects_in_order() -> None:
 
 def test_store_false_flag() -> None:
     base = ["rename", "--file", "a.py", "--symbol", "f", "--new-name", "g"]
-    assert parse("dr-refactor", base, COMMANDS).in_hierarchy is True
-    assert parse("dr-refactor", [*base, "--no-in-hierarchy"], COMMANDS).in_hierarchy is False
+    assert parse("trmv-refactor", base, COMMANDS).in_hierarchy is True
+    assert parse("trmv-refactor", [*base, "--no-in-hierarchy"], COMMANDS).in_hierarchy is False
 
 
 def test_double_dash_before_a_subcommand() -> None:
@@ -106,7 +106,7 @@ def test_double_dash_before_a_subcommand() -> None:
 
 
 def test_double_dash_without_subcommands_keeps_positionals_in_place() -> None:
-    assert parse("dr-compliance", ["--", "-a.py", "b.py"], COMMANDS).paths == ["-a.py", "b.py"]
+    assert parse("trmv-compliance", ["--", "-a.py", "b.py"], COMMANDS).paths == ["-a.py", "b.py"]
 
 
 def test_require_one_of() -> None:
@@ -120,22 +120,22 @@ def test_require_one_of() -> None:
 def test_exclusive_locators_name_both_options(required: list[str], capsys: pytest.CaptureFixture[str]) -> None:
     argv = [required[0], "--file", "a.py", "--offset", "0", "--symbol", "f", *required[1:]]
     with pytest.raises(SystemExit) as exc:
-        parse("dr-refactor", argv, COMMANDS)
+        parse("trmv-refactor", argv, COMMANDS)
     assert exc.value.code == 2
     assert "argument --symbol: not allowed with argument --offset" in capsys.readouterr().err
 
 
 def test_mock_lint_help_prints_help(capsys: pytest.CaptureFixture[str]) -> None:
     with pytest.raises(SystemExit) as exc:
-        dr_mock_lint(["--help"])
+        trmv_mock_lint(["--help"])
     assert exc.value.code == 0
     out, err = capsys.readouterr()
-    assert "dr-mock-lint" in out
+    assert "trmv-mock-lint" in out
     assert "--base" in out
     assert err == ""
 
 
 def test_choices_enforced() -> None:
     with pytest.raises(SystemExit) as exc:
-        parse("dr-refactor", ["rename", "--file", "a.py", "--new-name", "g", "--unsure", "maybe"], COMMANDS)
+        parse("trmv-refactor", ["rename", "--file", "a.py", "--new-name", "g", "--unsure", "maybe"], COMMANDS)
     assert exc.value.code == 2

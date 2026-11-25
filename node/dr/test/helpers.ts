@@ -5,17 +5,17 @@ import { basename, dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse } from 'yaml';
 
-/** dr's package directory; `NODE_ROOT` is the npm workspace holding it and la. */
-export const DR_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
-export const NODE_ROOT = dirname(DR_ROOT);
+/** trmv's package directory; `NODE_ROOT` is the npm workspace holding it and la. */
+export const TRMV_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
+export const NODE_ROOT = dirname(TRMV_ROOT);
 export const REPO_ROOT = dirname(NODE_ROOT);
-/** `shared/`; `SHARED` is dr's contract in it, `LA_SHARED` la's. */
+/** `shared/`; `SHARED` is trmv's contract in it, `LA_SHARED` la's. */
 export const SHARED_ROOT = join(REPO_ROOT, 'shared');
-export const SHARED = join(SHARED_ROOT, 'dr');
+export const SHARED = join(SHARED_ROOT, 'trmv');
 export const LA_SHARED = join(SHARED_ROOT, 'la');
 export const VECTORS = join(SHARED, 'vectors');
 export const LA_VECTORS = join(LA_SHARED, 'vectors');
-export const SNAPSHOT = join(DR_ROOT, 'src', 'contract', 'data');
+export const SNAPSHOT = join(TRMV_ROOT, 'src', 'contract', 'data');
 export const LA_SNAPSHOT = join(NODE_ROOT, 'la', 'src', 'contract', 'data');
 export const HASH_FILE = 'CONTRACT_HASH';
 

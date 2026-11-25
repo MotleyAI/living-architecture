@@ -12,7 +12,9 @@ from typing import Any
 import pytest
 from typing_extensions import override
 
-from deterministic_refactor.lang import (
+from project_files import write_project
+from refactor_cli import run_raw
+from trmv.lang import (
     ExportRequest,
     LanguageServer,
     Occurrence,
@@ -20,10 +22,8 @@ from deterministic_refactor.lang import (
     PositionFacts,
     Span,
 )
-from deterministic_refactor.refactor.occurrence_index import RunIndex, ServerSession
-from deterministic_refactor.refactor.python_source import SourceFile
-from project_files import write_project
-from refactor_cli import run_raw
+from trmv.refactor.occurrence_index import RunIndex, ServerSession
+from trmv.refactor.python_source import SourceFile
 
 BASE = "from pydantic import BaseModel\n\n\nclass Base(BaseModel):\n    name: str\n\n\nclass Tagged(Base):\n    tag: str\n"
 A = ("from pkg.base import Base, Tagged\n\n\nclass A(Tagged):\n    name: str\n\n\n"

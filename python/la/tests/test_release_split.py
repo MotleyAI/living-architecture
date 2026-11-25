@@ -12,27 +12,27 @@ import pytest
 import yaml
 
 REPO_ROOT = next(p for p in Path(__file__).resolve().parents if (p / "shared").is_dir() and (p / "plugin").is_dir())
-DR_CONFIG = "shared/dr/config.yaml"
+TRMV_CONFIG = "shared/trmv/config.yaml"
 OLD_CONFIG = "shared/config.yaml"
 SPLIT_CONFIG = (
-    "files: [deterministic-refactor.yaml, living-architecture.yaml]\nformats:\n"
-    "  deterministic-refactor.yaml: [0.12.0]\n  living-architecture.yaml: [0.4.0, 0.12.0]\n"
+    "files: [trmv.yaml, living-architecture.yaml]\nformats:\n"
+    "  trmv.yaml: [0.12.0]\n  living-architecture.yaml: [0.4.0, 0.12.0]\n"
 )
 SNAPSHOTS = [
-    "python/dr/src/deterministic_refactor/contract/data/CONTRACT_HASH",
+    "python/trmv/src/trmv/contract/data/CONTRACT_HASH",
     "python/la/src/living_architecture/contract/data/CONTRACT_HASH",
-    "node/dr/src/contract/data/CONTRACT_HASH",
+    "node/trmv/src/contract/data/CONTRACT_HASH",
     "node/la/src/contract/data/CONTRACT_HASH",
 ]
 TOOLS = [
-    "shared/dr/cli.yaml", "shared/la/cli.yaml", "shared/la/new.yaml", "conformance/dr/README.md",
-    "conformance/la/README.md", "python/dr/src/deterministic_refactor/__init__.py",
-    "python/la/src/living_architecture/__init__.py", "node/scripts/conformance.mjs", "node/dr/src/index.ts",
-    "node/la/src/index.ts", "node/dr/scripts/build.mjs", "node/la/scripts/build.mjs", "node/dr/tsconfig.json",
+    "shared/trmv/cli.yaml", "shared/la/cli.yaml", "shared/la/new.yaml", "conformance/trmv/README.md",
+    "conformance/la/README.md", "python/trmv/src/trmv/__init__.py",
+    "python/la/src/living_architecture/__init__.py", "node/scripts/conformance.mjs", "node/trmv/src/index.ts",
+    "node/la/src/index.ts", "node/trmv/scripts/build.mjs", "node/la/scripts/build.mjs", "node/trmv/tsconfig.json",
     "node/la/tsconfig.build.json",
 ]
 DEPENDENCY_MANIFESTS = [
-    "python/dr/pyproject.toml", "python/la/pyproject.toml", "python/uv.lock", "node/dr/package.json",
+    "python/trmv/pyproject.toml", "python/la/pyproject.toml", "python/uv.lock", "node/trmv/package.json",
     "node/la/package.json", "node/package-lock.json",
 ]
 
@@ -40,7 +40,7 @@ DEPENDENCY_MANIFESTS = [
 @pytest.fixture
 def split_repo(release_repo):
     """The release repo with formats for 0.12.0 releases."""
-    release_repo.write(DR_CONFIG, SPLIT_CONFIG)
+    release_repo.write(TRMV_CONFIG, SPLIT_CONFIG)
     return release_repo
 
 
@@ -70,7 +70,7 @@ def test_each_tool_input_of_either_package_counts(split_repo, rel: str) -> None:
 
 def test_a_tool_change_released_as_a_minor_passes(split_repo) -> None:
     split_repo.release("0.12.0")
-    split_repo.change("python/dr/src/deterministic_refactor/__init__.py")
+    split_repo.change("python/trmv/src/trmv/__init__.py")
     split_repo.release("0.13.0")
     _accepted(split_repo.release_check("v0.13.0"))
 
@@ -101,8 +101,8 @@ def test_the_pins_moving_with_a_minor_bump_do_not_count_as_a_change(split_repo) 
 @pytest.mark.parametrize(
     "rel",
     [
-        "python/dr/pyproject.toml", "python/la/pyproject.toml", "node/dr/package.json", "node/la/package.json",
-        "plugin/dr/.claude-plugin/plugin.json", "plugin/la/.claude-plugin/plugin.json",
+        "python/trmv/pyproject.toml", "python/la/pyproject.toml", "node/trmv/package.json", "node/la/package.json",
+        "plugin/trmv/.claude-plugin/plugin.json", "plugin/la/.claude-plugin/plugin.json",
     ],
 )
 def test_a_version_out_of_lockstep_is_refused(split_repo, rel: str) -> None:
@@ -115,13 +115,13 @@ def test_a_version_out_of_lockstep_is_refused(split_repo, rel: str) -> None:
 @pytest.mark.parametrize(
     ("rel", "old", "new"),
     [
-        ("python/la/pyproject.toml", "deterministic-refactor>=0.12.0,<0.13", "deterministic-refactor>=0.11.0,<0.12"),
-        ("node/la/package.json", '"deterministic-refactor": "~0.12.0"', '"deterministic-refactor": "~0.11.0"'),
+        ("python/la/pyproject.toml", "type-rename-move>=0.12.0,<0.13", "type-rename-move>=0.11.0,<0.12"),
+        ("node/la/package.json", '"type-rename-move": "~0.12.0"', '"type-rename-move": "~0.11.0"'),
         ("plugin/la/.claude-plugin/plugin.json", '"version": "~0.12.0"', '"version": "~0.11.0"'),
     ],
     ids=["pypi-pin", "npm-pin", "plugin-dependency"],
 )
-def test_la_pinning_another_dr_minor_is_refused(split_repo, rel: str, old: str, new: str) -> None:
+def test_la_pinning_another_trmv_minor_is_refused(split_repo, rel: str, old: str, new: str) -> None:
     split_repo.release("0.12.0")
     text = split_repo.manifests("0.12.1")[rel]
     assert old in text
@@ -146,17 +146,17 @@ def test_a_stale_snapshot_hash_is_refused_by_name(split_repo, rel: str) -> None:
     _refused(split_repo.release_check("v0.12.1"), rel)
 
 
-def _old_layout_release(split_repo, formats: str) -> None:
-    """v0.11.0 in the single-package layout with `shared/config.yaml`."""
+def _old_layout_release(split_repo, formats: str, version: str = "0.11.0") -> None:
+    """`version` in the single-package layout with `shared/config.yaml`."""
     shared = split_repo.root / "shared"
     saved = {p.relative_to(split_repo.root).as_posix(): p.read_text(encoding="utf-8") for p in shared.rglob("*") if p.is_file()}
     shutil.rmtree(split_repo.root / "shared")
     split_repo.write(OLD_CONFIG, f"file: living-architecture.yaml\n{formats}\n")
-    split_repo.write("python/pyproject.toml", '[project]\nname = "living-architecture"\nversion = "0.11.0"\n')
-    split_repo.write("plugin/.claude-plugin/plugin.json", '{"name": "la", "version": "0.11.0"}\n')
+    split_repo.write("python/pyproject.toml", f'[project]\nname = "living-architecture"\nversion = "{version}"\n')
+    split_repo.write("plugin/.claude-plugin/plugin.json", f'{{"name": "la", "version": "{version}"}}\n')
     split_repo.git("add", "-A")
-    split_repo.git("commit", "-q", "-m", "release 0.11.0")
-    split_repo.git("tag", "v0.11.0")
+    split_repo.git("commit", "-q", "-m", f"release {version}")
+    split_repo.git("tag", f"v{version}")
     split_repo.git("rm", "-q", "-r", "shared", "plugin/.claude-plugin")
     for rel, text in saved.items():
         split_repo.write(rel, text)
@@ -169,26 +169,62 @@ def test_split_release_reads_the_single_file_layout(split_repo, previous: str) -
     _accepted(split_repo.release_check("v0.12.0"))
 
 
+V0_13_0_FORMATS = (
+    "local_file: living-architecture.local.yaml\n"
+    "# Every released repo format (`format` in living-architecture.yaml), oldest first.\n"
+    "formats: [0.4.0]"
+)
+
+
+def test_the_first_trmv_release_reads_v0_13_0_from_the_single_file_layout(split_repo) -> None:
+    _old_layout_release(split_repo, V0_13_0_FORMATS, "0.13.0")
+    split_repo.write(TRMV_CONFIG, (REPO_ROOT / TRMV_CONFIG).read_text(encoding="utf-8"))
+    split_repo.release("0.14.0")
+    _accepted(split_repo.release_check("v0.14.0"))
+
+
 def test_split_release_appending_another_version_is_refused(split_repo) -> None:
     _old_layout_release(split_repo, "formats: [0.4.0]")
-    split_repo.write(DR_CONFIG, SPLIT_CONFIG.replace("[0.4.0, 0.12.0]", "[0.4.0, 0.13.0]"))
+    split_repo.write(TRMV_CONFIG, SPLIT_CONFIG.replace("[0.4.0, 0.12.0]", "[0.4.0, 0.13.0]"))
     split_repo.release("0.12.0")
     _refused(split_repo.release_check("v0.12.0"), "living-architecture.yaml", "[0.4.0]", "[0.4.0, 0.13.0]", "0.12.0")
 
 
 def test_per_file_formats_compared_between_split_releases(split_repo) -> None:
     split_repo.release("0.12.0")
-    split_repo.write(DR_CONFIG, SPLIT_CONFIG.replace("deterministic-refactor.yaml: [0.12.0]",
-                                                         "deterministic-refactor.yaml: [0.12.0, 0.13.0]"))
+    split_repo.write(TRMV_CONFIG, SPLIT_CONFIG.replace("trmv.yaml: [0.12.0]",
+                                                         "trmv.yaml: [0.12.0, 0.13.0]"))
     split_repo.release("0.13.0")
     _accepted(split_repo.release_check("v0.13.0"))
 
 
 def test_a_file_dropping_a_format_between_split_releases_is_refused(split_repo) -> None:
     split_repo.release("0.12.0")
-    split_repo.write(DR_CONFIG, SPLIT_CONFIG.replace("[0.4.0, 0.12.0]", "[0.12.0]"))
+    split_repo.write(TRMV_CONFIG, SPLIT_CONFIG.replace("[0.4.0, 0.12.0]", "[0.12.0]"))
     split_repo.release("0.13.0")
     _refused(split_repo.release_check("v0.13.0"), "living-architecture.yaml", "[0.4.0, 0.12.0]", "[0.12.0]")
+
+
+def test_the_trmv_plugin_tag_at_the_release_commit_passes(split_repo) -> None:
+    split_repo.release("0.12.0")
+    split_repo.release("0.12.1")
+    assert split_repo.git("rev-parse", "trmv--v0.12.1^{commit}") == split_repo.git("rev-parse", "v0.12.1^{commit}")
+    _accepted(split_repo.release_check("v0.12.1"))
+
+
+def test_a_missing_trmv_plugin_tag_is_refused(split_repo) -> None:
+    split_repo.release("0.12.0")
+    split_repo.release("0.12.1", plugin_tag=False)
+    _refused(split_repo.release_check("v0.12.1"), "trmv--v0.12.1")
+
+
+def test_a_trmv_plugin_tag_at_another_commit_is_refused(split_repo) -> None:
+    split_repo.release("0.12.0")
+    split_repo.git("tag", "trmv--v0.12.1")
+    split_repo.release("0.12.1", plugin_tag=False)
+    plugin, release = (split_repo.git("rev-parse", f"{tag}^{{commit}}").strip() for tag in ("trmv--v0.12.1", "v0.12.1"))
+    assert plugin != release
+    _refused(split_repo.release_check("v0.12.1"), "trmv--v0.12.1", plugin, release)
 
 
 @pytest.fixture(scope="module")
@@ -202,5 +238,5 @@ def release_rule() -> ModuleType:
 
 
 def test_the_per_file_formats_reader_reads_like_yaml(release_rule: ModuleType) -> None:
-    text = (REPO_ROOT / DR_CONFIG).read_text(encoding="utf-8")
+    text = (REPO_ROOT / TRMV_CONFIG).read_text(encoding="utf-8")
     assert release_rule.parse_file_formats(text) == yaml.safe_load(text)["formats"]

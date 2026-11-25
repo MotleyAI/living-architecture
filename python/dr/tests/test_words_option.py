@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from deterministic_refactor.contract import message
 from project_files import write_project
 from refactor_cli import read, run
+from trmv.contract import message
 
 SOURCE = '''\
 class Ds:

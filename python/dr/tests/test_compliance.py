@@ -3,9 +3,9 @@ from pathlib import Path
 
 import pytest
 
-from deterministic_refactor.cli.dr_compliance import dr_compliance as main
-from deterministic_refactor.contract import message
-from deterministic_refactor.refactor.compliance import ALL_CHECKS, check_path
+from trmv.cli.trmv_compliance import trmv_compliance as main
+from trmv.contract import message
+from trmv.refactor.compliance import ALL_CHECKS, check_path
 
 
 def _check(tmp_path: Path, source: str, *, select: tuple[str, ...] = ALL_CHECKS, attr: str | None = None) -> list[str]:

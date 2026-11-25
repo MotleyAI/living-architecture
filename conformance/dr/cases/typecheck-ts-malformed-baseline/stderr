@@ -1,2 +1,2 @@
-dr-typecheck: checking typescript with tsc --noEmit
-dr-typecheck: typescript: .tsc-baseline.json is malformed
+trmv-typecheck: checking typescript with tsc --noEmit
+trmv-typecheck: typescript: .tsc-baseline.json is malformed

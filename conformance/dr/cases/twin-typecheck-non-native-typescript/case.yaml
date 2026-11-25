@@ -1,22 +1,22 @@
 kind: neutral
 twin: python
 other_twin: absent
-command: dr-typecheck
+command: trmv-typecheck
 args:
 - --language
 - typescript
 bins:
 - dir: npm-twin
   files:
-    dr-doctor: |
+    trmv-doctor: |
       #!/bin/sh
-      echo "npm-twin: dr-doctor $*" >> <ROOT>/repo/probe.log
-      [ "$*" = "--twin" ] || { echo "fake dr-doctor: unexpected $*" >&2; exit 99; }
+      echo "npm-twin: trmv-doctor $*" >> <ROOT>/repo/probe.log
+      [ "$*" = "--twin" ] || { echo "fake trmv-doctor: unexpected $*" >&2; exit 99; }
       echo "typescript <VERSION> <CONTRACT_HASH>"
-    dr-typecheck: |
+    trmv-typecheck: |
       #!/bin/sh
-      echo "npm-twin: dr-typecheck $*" >> <ROOT>/repo/probe.log
-      echo "npm-twin dr-typecheck must not run" >&2
+      echo "npm-twin: trmv-typecheck $*" >> <ROOT>/repo/probe.log
+      echo "npm-twin trmv-typecheck must not run" >&2
       exit 99
 - dir: runner
   files:

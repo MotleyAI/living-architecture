@@ -1,4 +1,4 @@
-// Temp TypeScript projects for the dr-refactor CLI tests, and the output they are expected to print.
+// Temp TypeScript projects for the trmv-refactor CLI tests, and the output they are expected to print.
 import { execFileSync } from 'node:child_process';
 import { cpSync, mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -33,7 +33,7 @@ export function copyProject(root: string): string {
 const PHASES = 'resolve|checks|references|rules|conflicts|baseline|write';
 const PROGRESS = new RegExp(String.raw`^(?:\[(?:${PHASES})\]|\[(?:${PHASES}) \d+/\d+\] .*)$`);
 
-/** dr-refactor's stderr without its phase and progress lines: every refusal, in the order printed. */
+/** trmv-refactor's stderr without its phase and progress lines: every refusal, in the order printed. */
 export function finalReport(err: string): string {
   return err
     .split(/(?<=\n)/)
@@ -48,8 +48,8 @@ export function entryRefusal(locator: string, text: string, ...indexes: number[]
   return message('refactor.entry-refusal', { entries, locator, text });
 }
 
-/** dr-refactor run in `root`, its stderr whole. */
-export const refactorRaw = (root: string, ...argv: string[]): Run => run(root, 'dr-refactor', argv);
+/** trmv-refactor run in `root`, its stderr whole. */
+export const refactorRaw = (root: string, ...argv: string[]): Run => run(root, 'trmv-refactor', argv);
 
 /** `refactorRaw` with its stderr reduced to the `finalReport`. */
 export function refactor(root: string, ...argv: string[]): Run {
@@ -84,7 +84,7 @@ export interface Change {
   new: string;
 }
 
-/** What dr-refactor prints: the headers, one diff per change in path order, then the footer. */
+/** What trmv-refactor prints: the headers, one diff per change in path order, then the footer. */
 export function expectedOut(headers: string[], changes: Change[], apply: boolean): string {
   const sorted = changes.toSorted((a, b) => byCodePoint(a.path, b.path));
   const body = sorted.map((c) => `${unifiedDiff(c.old, c.new, c.path)}\n`).join('');

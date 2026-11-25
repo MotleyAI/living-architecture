@@ -8,9 +8,9 @@ from pathlib import Path
 
 import pytest
 
-from deterministic_refactor import changes
-from deterministic_refactor.config import ConfigError
-from deterministic_refactor.contract import base_fetch_timeout, message
+from trmv import changes
+from trmv.config import ConfigError
+from trmv.contract import base_fetch_timeout, message
 
 
 def _git(repo: Path, *args: str) -> None:

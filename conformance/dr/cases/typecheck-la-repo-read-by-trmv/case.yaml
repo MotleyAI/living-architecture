@@ -2,8 +2,8 @@ kind: adapter
 languages:
 - python
 fixture: typecheck-python
-command: dr-typecheck
+command: trmv-typecheck
 expect:
   exit: 0
-note: without deterministic-refactor.yaml, dr reads living-architecture.yaml
+note: without trmv.yaml, trmv reads living-architecture.yaml
 golden: manual

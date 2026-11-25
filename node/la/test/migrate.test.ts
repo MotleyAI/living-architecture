@@ -21,7 +21,7 @@ import {
   migrate,
   run as runMigrate,
 } from '../src/c4/migrate.js';
-import { compareVersions, currentFormat, releasedFormats } from '../../dr/src/config/index.js';
+import { compareVersions, currentFormat, releasedFormats } from '../../trmv/src/config/index.js';
 import { message } from '../src/contract/index.js';
 
 const faults = vi.hoisted(() => ({

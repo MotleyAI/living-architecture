@@ -1,10 +1,10 @@
-// Every kind a dr-compliance finding prints is a check id `--select` accepts (parse-error aside).
+// Every kind a trmv-compliance finding prints is a check id `--select` accepts (parse-error aside).
 import { describe, expect, it } from 'vitest';
 import { findings, language, languageIds, message } from '../src/contract/index.js';
 import { run } from './cli-run.js';
 import { tsProject } from './refactor-project.js';
 
-describe('dr-compliance kinds', () => {
+describe('trmv-compliance kinds', () => {
   const checks = new Set(languageIds().flatMap((id) => language(id).compliance_checks as string[]));
   const kinds = new Set(
     Object.entries(findings())
@@ -37,11 +37,11 @@ describe('dr-compliance kinds', () => {
   });
 });
 
-describe('dr-compliance --attr, repeated', () => {
+describe('trmv-compliance --attr, repeated', () => {
   it('reports every name in one block sorted by path, line and column', () => {
     const loose = 'export function f(a: any, b: any): number {\n  return b.saveModel() + a.getModel();\n}\n\nexport function g(c: any): number {\n  return c.getModel();\n}\n';
     const root = tsProject({ 'src/m.ts': loose, 'src/a.ts': 'export function h(d: any): number {\n  return d.saveModel();\n}\n' });
-    const result = run(root, 'dr-compliance', ['--select', 'attr-blindspot', '--attr', 'saveModel', '--attr', 'getModel', 'src']);
+    const result = run(root, 'trmv-compliance', ['--select', 'attr-blindspot', '--attr', 'saveModel', '--attr', 'getModel', 'src']);
     const spot = (path: string, line: number, receiver: string, attr: string): string =>
       message('compliance.attr-blindspot', { path, line, receiver, attr, type: 'any' });
     const lines = [
@@ -54,18 +54,18 @@ describe('dr-compliance --attr, repeated', () => {
   });
 });
 
-describe('dr-compliance --attr, receiver text', () => {
+describe('trmv-compliance --attr, receiver text', () => {
   it('keeps the parentheses written around a receiver and collapses its whitespace', () => {
     const loose = 'export function g(a: unknown, o: any): number {\n  return (a as any).id + (\n    o\n  ).id;\n}\n';
     const root = tsProject({ 'src/m.ts': loose });
-    const result = run(root, 'dr-compliance', ['--select', 'attr-blindspot', '--attr', 'id', 'src']);
+    const result = run(root, 'trmv-compliance', ['--select', 'attr-blindspot', '--attr', 'id', 'src']);
     const spot = (receiver: string): string =>
       message('compliance.attr-blindspot', { path: 'src/m.ts', line: 2, receiver, attr: 'id', type: 'any' });
     expect(result).toEqual({ code: 1, out: `${spot('(a as any)')}\n${spot('( o )')}\n`, err: '' });
   });
 });
 
-describe('dr-compliance string-blindspot', () => {
+describe('trmv-compliance string-blindspot', () => {
   const loose = [
     'export function f(x: any): unknown[] {',
     '  return [',
@@ -95,7 +95,7 @@ describe('dr-compliance string-blindspot', () => {
     ]
       .map((line) => `${line}\n`)
       .join('');
-  const compliance = (...argv: string[]) => run(tsProject({ 'src/m.ts': loose }), 'dr-compliance', [...argv, 'src']);
+  const compliance = (...argv: string[]) => run(tsProject({ 'src/m.ts': loose }), 'trmv-compliance', [...argv, 'src']);
 
   it('reports both attribute checks without --select, sorted by position', () => {
     const any = `${message('compliance.explicit-any', { path: 'src/m.ts', line: 1, any: 'any', top: 'unknown' })}\n`;

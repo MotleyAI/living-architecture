@@ -1,4 +1,4 @@
-"""Python `dr-refactor rename --docs`: mentions in comments, docstrings, strings and prose files."""
+"""Python `trmv-refactor rename --docs`: mentions in comments, docstrings, strings and prose files."""
 
 from __future__ import annotations
 
@@ -8,9 +8,9 @@ from pathlib import Path
 
 import pytest
 
-from deterministic_refactor.cli.dr_refactor import dr_refactor
-from deterministic_refactor.contract import message
 from refactor_cli import readouterr
+from trmv.cli.trmv_refactor import trmv_refactor
+from trmv.contract import message
 
 MakeProject = Callable[..., Path]
 OLD, NEW = "recommend_root_model", "pick_root_model"
@@ -82,7 +82,7 @@ def project(typed_project: MakeProject, monkeypatch: pytest.MonkeyPatch) -> Make
 
 def _rename(root: Path, *flags: str, rel: str = "pkg/engine.py", needle: str = OLD, new_name: str = NEW) -> int:
     offset = (root / rel).read_text(encoding="utf-8").index(needle)
-    return dr_refactor(["--project", str(root), "--apply", "rename", "--file", rel, "--offset", str(offset),
+    return trmv_refactor(["--project", str(root), "--apply", "rename", "--file", rel, "--offset", str(offset),
                         "--new-name", new_name, *flags])
 
 

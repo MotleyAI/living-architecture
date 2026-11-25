@@ -10,13 +10,13 @@ from typing import Any
 
 import pytest
 
-from deterministic_refactor import config
 from living_architecture import __version__
+from trmv import config
 
 REPO_ROOT = next(p for p in Path(__file__).resolve().parents if (p / "shared").is_dir() and (p / "plugin").is_dir())
-PACKAGES = ("dr", "la")
+PACKAGES = ("trmv", "la")
 # An install pin: `<package>==X` (PyPI) or `<package>@X` (npm).
-PIN = re.compile(r"(?:living-architecture|deterministic-refactor)(?:==|@)(\d[\w.+-]*)")
+PIN = re.compile(r"(?:living-architecture|type-rename-move)(?:==|@)(\d[\w.+-]*)")
 # A tool input of the release rule.
 TOOL = "python/la/src/living_architecture/__init__.py"
 
@@ -42,7 +42,7 @@ def _pyproject(package: str) -> dict:
 
 
 @pytest.mark.parametrize(
-    ("package", "name"), [("la", "README.md"), ("la", "LICENSE"), ("dr", "LICENSE")], ids=lambda v: v
+    ("package", "name"), [("la", "README.md"), ("la", "LICENSE"), ("trmv", "LICENSE")], ids=lambda v: v
 )
 def test_root_files_are_relative_symlinks(package: str, name: str) -> None:
     link = REPO_ROOT / "python" / package / name
@@ -96,7 +96,7 @@ def test_current_format_is_at_most_every_package_version() -> None:
         *(_npm_package(package)["version"] for package in PACKAGES),
         *(_plugin(package)["version"] for package in PACKAGES),
     ]
-    for name in ("living-architecture.yaml", "deterministic-refactor.yaml"):
+    for name in ("living-architecture.yaml", "trmv.yaml"):
         current = config.released_formats(name)[-1]
         assert current == config.current_format(name)
         for version in versions:
@@ -172,7 +172,7 @@ def test_no_release_tag_fails_on_github_actions(release_repo, release_rule: Modu
         _unreleased_bump_problem(release_repo.root, "0.4.1", release_rule, on_actions=True)
 
 
-FORMATS_CONFIG = "shared/dr/config.yaml"
+FORMATS_CONFIG = "shared/trmv/config.yaml"
 
 
 def _formats(la: str) -> str:

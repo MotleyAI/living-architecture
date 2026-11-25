@@ -1,4 +1,4 @@
-// dr-mock-lint as a parsed command: --help, and --base printing only the findings the base branch lacks.
+// trmv-mock-lint as a parsed command: --help, and --base printing only the findings the base branch lacks.
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -14,7 +14,7 @@ const BASE_TEST = "import { vi } from 'vitest';\n\nexport const a = vi.fn();\n";
 const TSCONFIG = '{\n  "compilerOptions": {"strict": true, "noEmit": true, "module": "esnext", "moduleResolution": "bundler"},\n  "include": ["src", "tests"]\n}\n';
 
 const fn = (path: string, line: number): string => message('mock-lint.fn', { path, line, call: 'vi.fn' });
-const lint = (root: string, ...argv: string[]): Run => run(root, 'dr-mock-lint', argv);
+const lint = (root: string, ...argv: string[]): Run => run(root, 'trmv-mock-lint', argv);
 
 /** A repo whose `main` (pushed to a bare origin) holds `tests/a.test.ts` as BASE_TEST, checked out on `feat`. */
 function based(): string {
@@ -33,12 +33,12 @@ function pushed(root: string): string {
   return root;
 }
 
-describe('dr-mock-lint', () => {
+describe('trmv-mock-lint', () => {
   it('--help prints the help and exits 0', () => {
     const root = tsProject({});
     const result = lint(root, '--help');
     expect(result.code).toBe(0);
-    expect(result.out).toContain('dr-mock-lint');
+    expect(result.out).toContain('trmv-mock-lint');
     expect(result.out).toContain('--base');
     expect(result.err).toBe('');
   });
@@ -49,7 +49,7 @@ describe('dr-mock-lint', () => {
   });
 });
 
-describe('dr-mock-lint --base', () => {
+describe('trmv-mock-lint --base', () => {
   it('prints only the added finding when the old one moved down', () => {
     const root = based();
     writeFileSync(join(root, 'tests', 'a.test.ts'), "import { vi } from 'vitest';\n\n// one\n// two\n// three\nexport const a = vi.fn();\nexport const b = vi.fn();\n");

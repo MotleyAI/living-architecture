@@ -8,10 +8,10 @@ from typing import Any
 import pytest
 import yaml
 
-from deterministic_refactor import refactor
+from trmv import refactor
 
 VECTORS: dict[str, Any] = yaml.safe_load(
-    (next(p for p in Path(__file__).resolve().parents if (p / "shared").is_dir() and (p / "plugin").is_dir()) / "shared/dr/vectors/refactor-words.yaml")
+    (next(p for p in Path(__file__).resolve().parents if (p / "shared").is_dir() and (p / "plugin").is_dir()) / "shared/trmv/vectors/refactor-words.yaml")
     .read_text(encoding="utf-8")
 )
 NAMES = [(case["words"], vector) for case in VECTORS["cases"] for vector in case["names"]]

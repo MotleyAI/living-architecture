@@ -163,8 +163,8 @@ def test_language_free_case_is_native_to_both_twins() -> None:
     assert selected(case, NEUTRAL, "typescript", cross=False)
 
 
-@pytest.mark.parametrize("command", ["dr-refactor", "dr-compliance", "dr-mock-lint"])
-def test_dr_commands_are_native_to_both_twins(command: str) -> None:
+@pytest.mark.parametrize("command", ["trmv-refactor", "trmv-compliance", "trmv-mock-lint"])
+def test_trmv_commands_are_native_to_both_twins(command: str) -> None:
     case = _case(command=command, kind="adapter", languages=["typescript"])
     [variant] = variants(case)
     assert selected(case, variant, "typescript", cross=False)
@@ -186,14 +186,14 @@ def test_pinned_case_runs_only_through_its_twin() -> None:
 
 
 def test_pinned_case_forwarding_to_the_other_twin_runs_only_with_its_bins() -> None:
-    case = _case(twin="python", command="dr-refactor", kind="adapter", languages=["typescript"])
+    case = _case(twin="python", command="trmv-refactor", kind="adapter", languages=["typescript"])
     [variant] = variants(case)
     assert not selected(case, variant, "python", cross=False, bins={"python"})
     assert selected(case, variant, "python", cross=False, bins={"python", "typescript"})
 
 
 def test_pinned_case_without_the_other_twin_needs_no_bins() -> None:
-    case = _case(twin="python", command="dr-refactor", kind="adapter", languages=["typescript"], other_twin="absent")
+    case = _case(twin="python", command="trmv-refactor", kind="adapter", languages=["typescript"], other_twin="absent")
     [variant] = variants(case)
     assert selected(case, variant, "python", cross=False, bins={"python"})
 
@@ -288,7 +288,7 @@ def test_json_stream_ignores_formatting_but_not_array_order(tmp_path: Path) -> N
 
 
 def test_every_case_runs_with_a_fresh_cache_directory_of_its_own(tmp_path: Path) -> None:
-    case_dir = CORPUS / "dr" / "cases" / "refactor-rename-dry-run"
+    case_dir = CORPUS / "trmv" / "cases" / "refactor-rename-dry-run"
     case = load_case(case_dir)
     dirs = []
     for root in (tmp_path / "one", tmp_path / "two"):
@@ -302,7 +302,7 @@ def test_every_case_runs_with_a_fresh_cache_directory_of_its_own(tmp_path: Path)
     assert dirs[0] != dirs[1]
 
 
-@pytest.mark.parametrize(("tree", "command"), [("la", "dr-config"), ("dr", "la-config")])
+@pytest.mark.parametrize(("tree", "command"), [("la", "trmv-config"), ("trmv", "la-config")])
 def test_a_case_invoking_the_other_packages_command_is_refused(tree: str, command: str, tmp_path: Path) -> None:
     case_dir = tmp_path / tree / "cases" / "foreign"
     case_dir.mkdir(parents=True)

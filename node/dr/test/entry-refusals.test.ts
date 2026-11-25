@@ -1,4 +1,4 @@
-// dr-refactor: a refusal names its entry and locator, is printed once, and site paths resolve against the project;
+// trmv-refactor: a refusal names its entry and locator, is printed once, and site paths resolve against the project;
 // the own-scope name check runs before any reference search.
 import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -95,7 +95,7 @@ describe('sites resolve against the project', () => {
     const root = nested();
     const keep = form === 'absolute' ? `${join(realpathSync(root), 'proj', 'src', 'use.ts')}:3` : 'src/use.ts:3';
     const argv = ['--project', 'proj', '--apply', 'rename', '--file', 'proj/src/a.ts', '--symbol', 'foo', '--new-name', 'bar', '--keep', keep];
-    const result = run(root, 'dr-refactor', argv);
+    const result = run(root, 'trmv-refactor', argv);
     expect([result.code, finalReport(result.err)]).toEqual([0, '']);
     expect(read(root, 'proj/src/use.ts')).toBe("import { bar } from './a';\n\nexport const x = foo();\nexport const y = bar();\n");
   });
@@ -104,7 +104,7 @@ describe('sites resolve against the project', () => {
     const root = nested();
     const argv = ['--project', 'proj', 'rename', '--file', 'proj/src/a.ts', '--symbol', 'foo', '--new-name', 'bar', '--keep', 'proj/src/use.ts:3'];
     const missing = message('refactor.site-missing', { option: '--keep', site: 'proj/src/use.ts:3' });
-    expect(run(root, 'dr-refactor', argv)).toEqual({ code: 2, out: '', err: `${CHECKS}${missing}\n` });
+    expect(run(root, 'trmv-refactor', argv)).toEqual({ code: 2, out: '', err: `${CHECKS}${missing}\n` });
   });
 
   it('takes a --docs-pick relative to the project from another directory, not one relative to the working directory', () => {
@@ -112,8 +112,8 @@ describe('sites resolve against the project', () => {
     const root = tempRepo({ 'living-architecture.yaml': `format: ${currentFormat('living-architecture.yaml')}\n`, 'proj/tsconfig.json': TSCONFIG, 'proj/src/a.ts': A, 'proj/src/use.ts': noted });
     const argv = ['--project', 'proj', '--apply', 'rename', '--file', 'proj/src/a.ts', '--symbol', 'foo', '--new-name', 'bar', '--docs'];
     const missing = message('refactor.site-missing', { option: '--docs-pick', site: 'proj/src/use.ts:5' });
-    expect(run(root, 'dr-refactor', [...argv, '--docs-pick', 'proj/src/use.ts:5'])).toEqual({ code: 2, out: '', err: `${CHECKS}${missing}\n` });
-    const result = run(root, 'dr-refactor', [...argv, '--docs-pick', 'src/use.ts:5']);
+    expect(run(root, 'trmv-refactor', [...argv, '--docs-pick', 'proj/src/use.ts:5'])).toEqual({ code: 2, out: '', err: `${CHECKS}${missing}\n` });
+    const result = run(root, 'trmv-refactor', [...argv, '--docs-pick', 'src/use.ts:5']);
     expect([result.code, finalReport(result.err)]).toEqual([0, '']);
     expect(read(root, 'proj/src/use.ts')).toBe(noted.replaceAll('foo', 'bar'));
   });

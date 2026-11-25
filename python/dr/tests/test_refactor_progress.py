@@ -1,4 +1,4 @@
-"""`dr-refactor` phases: the map loader's every invalid entry, the keep text check, the `checks` refusals no
+"""`trmv-refactor` phases: the map loader's every invalid entry, the keep text check, the `checks` refusals no
 corpus case can reach (walker gaps, a language server that cannot start or answers an error), and what the
 `conflicts` phase is charged with."""
 
@@ -11,16 +11,16 @@ from pathlib import Path
 
 import pytest
 
-from deterministic_refactor.contract import message
-from deterministic_refactor.lang import language_server
-from deterministic_refactor.refactor import timings
-from deterministic_refactor.refactor.bindings import BindingCheck
-from deterministic_refactor.refactor.map_file import MapError, load_map
-from deterministic_refactor.refactor.member_namespace import MemberCheck
-from deterministic_refactor.refactor.rename_map import RenameMap, editable_files, keep_checks
-from deterministic_refactor.refactor.sites import nearest_line, spelled_lines
 from project_files import file_tree, write_project
 from refactor_cli import entry_refusal, final_report, run_raw
+from trmv.contract import message
+from trmv.lang import language_server
+from trmv.refactor import timings
+from trmv.refactor.bindings import BindingCheck
+from trmv.refactor.map_file import MapError, load_map
+from trmv.refactor.member_namespace import MemberCheck
+from trmv.refactor.rename_map import RenameMap, editable_files, keep_checks
+from trmv.refactor.sites import nearest_line, spelled_lines
 
 FAKE_LSP = Path(__file__).with_name("fake_lsp_server.py")
 CHECKS = "[resolve]\n[checks]\n"
@@ -327,7 +327,7 @@ def _charged_to_conflicts_only(err: str) -> None:
         pytest.param(
             {"pkg/models.py": KEYED_MODELS, "pkg/use.py": "from pkg.models import Model\n\nb = Model(columns=[], fields=[])\n"},
             ["rename", "--file", "pkg/models.py", "--symbol", "Model.columns", "--new-name", "fields"],
-            "deterministic_refactor.refactor.rename_union:RenameResult", "check_conflicts", id="keyed",
+            "trmv.refactor.rename_union:RenameResult", "check_conflicts", id="keyed",
         ),
         pytest.param(
             {"pkg/store.py": STORE},

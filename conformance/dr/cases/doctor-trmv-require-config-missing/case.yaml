@@ -1,7 +1,7 @@
 kind: neutral
-command: dr-doctor
+command: trmv-doctor
 args: [--require-config]
 expect:
   exit: 1
-note: with --require-config and neither config file, one finding naming /dr:init
+note: with --require-config and neither config file, one finding naming /trmv:init
 golden: manual

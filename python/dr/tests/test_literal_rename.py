@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from deterministic_refactor.contract import message
 from project_files import file_tree, write_project
 from refactor_cli import assert_same_run, entry_refusal, line_col, read, run, template_regex
+from trmv.contract import message
 
 KINDS = 'from typing import Literal\n\nDriftKind = Literal["edit_model", "drop"]\n'
 CONTEXTS = """\

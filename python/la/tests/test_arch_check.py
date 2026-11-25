@@ -6,11 +6,11 @@ from pathlib import Path
 
 import pytest
 
-from deterministic_refactor import config
 from living_architecture import archcheck, c4
 from living_architecture.archcheck.scaffold import write_scaffold
 from living_architecture.cli.la_arch_check import la_arch_check
 from living_architecture.contract import check_ids
+from trmv import config
 
 INDEX = """
 python:

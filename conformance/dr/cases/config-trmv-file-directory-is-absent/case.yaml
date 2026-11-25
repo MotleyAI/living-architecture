@@ -1,9 +1,9 @@
 kind: neutral
-command: dr-config
+command: trmv-config
 args:
 - get
 - commands.typecheck.python
 expect:
   exit: 0
-note: a deterministic-refactor.yaml that is not a regular file counts as absent
+note: a trmv.yaml that is not a regular file counts as absent
 golden: manual

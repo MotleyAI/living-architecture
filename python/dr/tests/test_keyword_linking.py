@@ -8,10 +8,10 @@ from string import Template
 import pytest
 import yaml
 
-from deterministic_refactor.contract import message
 from project_files import file_tree, write_project
 from refactor_cli import read, run
 from test_occurrence_index import EXPORT, Requests
+from trmv.contract import message
 
 OLD = "models"
 NEW = "datasets"

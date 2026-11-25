@@ -7,10 +7,10 @@ from pathlib import Path
 
 import pytest
 
-from deterministic_refactor.config import ConfigError, load_config
-from deterministic_refactor.contract import language, message
 from project_files import write_project
 from refactor_cli import entry_refusal, run, run_raw
+from trmv.config import ConfigError, load_config
+from trmv.contract import language, message
 
 FILES = {"pkg/a.py": "def foo() -> int:\n    return 1\n", "pkg/use.py": "from pkg import a\n\nprint(a.foo())\n"}
 

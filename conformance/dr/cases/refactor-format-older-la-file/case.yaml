@@ -1,8 +1,8 @@
 kind: adapter
 languages:
 - python
-fixture: dr-mixed
-command: dr-refactor
+fixture: trmv-mixed
+command: trmv-refactor
 args:
 - rename
 - --file
@@ -18,5 +18,5 @@ expect:
     - 0.4.0
     - 0.14.0
     - la-arch-migrate
-note: dr-refactor in an la repo checks living-architecture.yaml against its 0.14.0 series
+note: trmv-refactor in an la repo checks living-architecture.yaml against its 0.14.0 series
 golden: manual

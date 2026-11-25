@@ -1,7 +1,7 @@
 kind: adapter
 languages:
 - typescript
-command: dr-refactor
+command: trmv-refactor
 args:
 - rename-map
 - renames.yaml

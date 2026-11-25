@@ -8,13 +8,13 @@ from pathlib import Path
 
 import pytest
 
-from deterministic_refactor.cli.dr_refactor import dr_refactor
-from deterministic_refactor.contract import message
-from deterministic_refactor.lang import Span
-from deterministic_refactor.refactor.member_scan import FormCall, Probe, plain_literal
-from deterministic_refactor.refactor.python_source import SourceFile
 from project_files import file_tree
 from refactor_cli import readouterr
+from trmv.cli.trmv_refactor import trmv_refactor
+from trmv.contract import message
+from trmv.lang import Span
+from trmv.refactor.member_scan import FormCall, Probe, plain_literal
+from trmv.refactor.python_source import SourceFile
 
 MakeProject = Callable[..., Path]
 
@@ -105,7 +105,7 @@ def project(typed_project: MakeProject, monkeypatch: pytest.MonkeyPatch) -> Make
 
 def _rename(root: Path, rel: str, needle: str, new_name: str, *flags: str) -> int:
     offset = (root / rel).read_text(encoding="utf-8").index(needle)
-    return dr_refactor(["--project", str(root), "--apply", "rename", "--file", rel, "--offset", str(offset),
+    return trmv_refactor(["--project", str(root), "--apply", "rename", "--file", rel, "--offset", str(offset),
                         "--new-name", new_name, *flags])
 
 
@@ -450,7 +450,7 @@ def test_a_function_rename_lists_no_exact_literal(project: MakeProject, capsys: 
     funcs = 'def save_model() -> None:\n    pass\n\n\nNAME = "save_model"\n'
     root = project({"pkg/funcs.py": funcs})
     offset = funcs.index("save_model")
-    assert dr_refactor(["--project", str(root), "rename", "--file", "pkg/funcs.py", "--offset", str(offset),
+    assert trmv_refactor(["--project", str(root), "rename", "--file", "pkg/funcs.py", "--offset", str(offset),
                         "--new-name", "store_model"]) == 0
     assert readouterr(capsys).err == ""
 

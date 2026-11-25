@@ -1,2 +1,2 @@
-dr-typecheck: checking python with ./checker
-dr-typecheck: checker: no such file or directory
+trmv-typecheck: checking python with ./checker
+trmv-typecheck: checker: no such file or directory

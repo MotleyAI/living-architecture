@@ -1,2 +1,2 @@
-dr-typecheck: checking python with basedpyright
-dr-typecheck: python: wrote .basedpyright/baseline.json
+trmv-typecheck: checking python with basedpyright
+trmv-typecheck: python: wrote .basedpyright/baseline.json

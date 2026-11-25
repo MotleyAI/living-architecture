@@ -1,4 +1,4 @@
-// dr-refactor rename-map: many renames as one dry-run and one all-or-nothing apply, through the TypeScript twin.
+// trmv-refactor rename-map: many renames as one dry-run and one all-or-nothing apply, through the TypeScript twin.
 import { chmodSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';

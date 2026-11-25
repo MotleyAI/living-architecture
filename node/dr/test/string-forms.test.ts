@@ -191,7 +191,7 @@ describe('refactor.string_forms in the config', () => {
     expect(loadConfig(repo([pattern])).refactor.string_forms).toEqual([pattern]);
   });
 
-  it('dr-refactor exits 2 on an invalid form', () => {
+  it('trmv-refactor exits 2 on an invalid form', () => {
     const root = tsProject({ [G]: MODEL + FIND }, "refactor:\n  string_forms: ['(a)(b)']\n");
     const result = refactor(root, '--apply', 'rename', '--file', G, '--symbol', 'Model', '--new-name', 'Dataset');
     expect([result.code, result.out]).toEqual([2, '']);

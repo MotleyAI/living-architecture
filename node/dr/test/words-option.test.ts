@@ -1,4 +1,4 @@
-// dr-refactor --words TABLE on a rename: carve-outs leave matching stand-ins and list the --docs mentions they cover (TypeScript).
+// trmv-refactor --words TABLE on a rename: carve-outs leave matching stand-ins and list the --docs mentions they cover (TypeScript).
 import { describe, expect, it } from 'vitest';
 import { message } from '../src/contract/index.js';
 import { read, refactor, tsProject } from './refactor-project.js';

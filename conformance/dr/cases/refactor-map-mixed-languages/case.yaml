@@ -2,11 +2,11 @@ kind: neutral
 languages:
 - python
 - typescript
-command: dr-refactor
+command: trmv-refactor
 args:
 - rename-map
 - renames.yaml
-fixture: dr-mixed
+fixture: trmv-mixed
 git:
 - commit: init
 expect:

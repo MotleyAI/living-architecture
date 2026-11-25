@@ -10,9 +10,9 @@ from pathlib import Path
 import pytest
 import yaml
 
-from deterministic_refactor.refactor import keyed, member_namespace
-from deterministic_refactor.refactor.python_source import SourceFile
 from refactor_cli import read, run
+from trmv.refactor import keyed, member_namespace
+from trmv.refactor.python_source import SourceFile
 
 MakeProject = Callable[..., Path]
 

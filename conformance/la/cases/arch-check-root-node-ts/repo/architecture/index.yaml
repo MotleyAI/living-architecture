@@ -1,6 +1,6 @@
 typescript:
   source_root: node
-  root_packages: [dr/src, la/src]
+  root_packages: [trmv/src, la/src]
 legacy_arrows:
   baseline: 0
 diagrams: {}

@@ -1,6 +1,6 @@
 python:
-  source_roots: [python/dr/src, python/la/src]
-  root_packages: [deterministic_refactor, living_architecture]
+  source_roots: [python/trmv/src, python/la/src]
+  root_packages: [trmv, living_architecture]
 legacy_arrows:
   baseline: 0
 diagrams: {}

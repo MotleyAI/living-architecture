@@ -7,11 +7,11 @@ from pathlib import Path
 
 import pytest
 
-from deterministic_refactor.contract import message
-from deterministic_refactor.refactor.entry_location import EntryLocator
-from deterministic_refactor.refactor.locators import Locator, RefactorError
 from entry_source import ALT, BARREL, OTHER, M, at, line
 from project_files import write_project
+from trmv.contract import message
+from trmv.refactor.entry_location import EntryLocator
+from trmv.refactor.locators import Locator, RefactorError
 
 # (id, locator, kind, (rel, line of the group's first declaration, name[, its offset in an inner scope]))
 TABLE = [

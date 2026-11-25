@@ -1,7 +1,7 @@
 kind: adapter
 languages:
 - python
-command: dr-refactor
+command: trmv-refactor
 args:
 - rename
 - --file
@@ -16,4 +16,4 @@ git:
 expect:
   exit: 1
 golden: manual
-note: 'a member rename refuses on receivers the checker types Never, at the positions dr-compliance --attr reports'
+note: 'a member rename refuses on receivers the checker types Never, at the positions trmv-compliance --attr reports'

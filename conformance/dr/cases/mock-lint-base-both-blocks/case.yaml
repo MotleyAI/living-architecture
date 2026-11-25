@@ -2,13 +2,13 @@ kind: neutral
 languages:
 - python
 - typescript
-command: dr-mock-lint
+command: trmv-mock-lint
 args:
 - --base
 - main
 - tests/test_a.py
 - web/a.test.ts
-fixture: dr-mixed
+fixture: trmv-mixed
 git:
 - commit: base
 - origin:

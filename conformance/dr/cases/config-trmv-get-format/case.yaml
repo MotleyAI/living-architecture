@@ -1,9 +1,9 @@
 kind: neutral
-command: dr-config
+command: trmv-config
 args:
 - get
 - format
 expect:
   exit: 0
-note: a dr file at the current format passes
+note: a trmv file at the current format passes
 golden: manual

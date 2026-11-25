@@ -19,8 +19,8 @@ README_COPIES = ("README.md", "python/la/README.md")
 # Per file: the maintainer only as the packages' maintainer, the project that uses the plugin only as the README's
 # links to it and to its example principles document.
 FILE_ALLOWED = {
-    **{f"python/{package}/pyproject.toml": ('maintainers = [{ name = "Egor Kraev" }]',) for package in ("dr", "la")},
-    **{f"node/{package}/package.json": ('"maintainers": [\n    "Egor Kraev"\n  ]',) for package in ("dr", "la")},
+    **{f"python/{package}/pyproject.toml": ('maintainers = [{ name = "Egor Kraev" }]',) for package in ("trmv", "la")},
+    **{f"node/{package}/package.json": ('"maintainers": [\n    "Egor Kraev"\n  ]',) for package in ("trmv", "la")},
     **{
         readme: (
             "[SLayer](https://github.com/MotleyAI/slayer)",

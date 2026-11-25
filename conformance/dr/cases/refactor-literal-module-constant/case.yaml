@@ -2,7 +2,7 @@ kind: paired
 languages:
 - python
 - typescript
-command: dr-refactor
+command: trmv-refactor
 args:
   python: [--apply, rename, --file, pkg/c.py, --symbol, "Kind2['formula']", --new-name, expression]
   typescript: [--apply, rename, --file, src/c.ts, --symbol, "Kind2['formula']", --new-name, expression]

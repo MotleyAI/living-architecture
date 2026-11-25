@@ -1,9 +1,9 @@
-"""`dr-refactor --timings`: exclusive phase times from an injected nanosecond clock, printed in the shared order."""
+"""`trmv-refactor --timings`: exclusive phase times from an injected nanosecond clock, printed in the shared order."""
 
 import pytest
 
-from deterministic_refactor.contract import message, timing_phases
-from deterministic_refactor.refactor.timings import Timer, seconds
+from trmv.contract import message, timing_phases
+from trmv.refactor.timings import Timer, seconds
 
 SECOND = 1_000_000_000
 

@@ -1,4 +1,4 @@
-"""`dr-refactor rename-map` holds each phase's state only until its last reader, with its output unchanged."""
+"""`trmv-refactor rename-map` holds each phase's state only until its last reader, with its output unchanged."""
 
 from __future__ import annotations
 
@@ -12,32 +12,32 @@ from pathlib import Path
 import pytest
 import yaml
 
-from deterministic_refactor.contract import message
-from deterministic_refactor.lang import (
+from project_files import write_project
+from refactor_cli import entry_refusal, final_report, run, run_raw, template_regex
+from trmv.contract import message
+from trmv.lang import (
     ExportRequest,
     FactQuery,
     LanguageServer,
     OccurrenceIndex,
     language_server,
 )
-from deterministic_refactor.refactor import rename_map
-from deterministic_refactor.refactor.entry_location import EntryLocator
-from deterministic_refactor.refactor.index_cache import IndexCache
-from deterministic_refactor.refactor.keyed import TypeFacts
-from deterministic_refactor.refactor.literal_rename import LiteralRename
-from deterministic_refactor.refactor.module_rename import ModuleRename
-from deterministic_refactor.refactor.occurrence_index import RunIndex, ServerSession
-from deterministic_refactor.refactor.outcomes import Finding
-from deterministic_refactor.refactor.progress import Progress
-from deterministic_refactor.refactor.python_source import SourceFile
-from deterministic_refactor.refactor.rename_map import RenameMap
-from deterministic_refactor.refactor.rename_union import RenameOptions, Session, SymbolRename
-from deterministic_refactor.refactor.retarget import ImportNeed
-from deterministic_refactor.refactor.retarget_imports import plan_imports
-from deterministic_refactor.refactor.text_edits import TextEdit
-from deterministic_refactor.refactor.text_tables import TextTables
-from project_files import write_project
-from refactor_cli import entry_refusal, final_report, run, run_raw, template_regex
+from trmv.refactor import rename_map
+from trmv.refactor.entry_location import EntryLocator
+from trmv.refactor.index_cache import IndexCache
+from trmv.refactor.keyed import TypeFacts
+from trmv.refactor.literal_rename import LiteralRename
+from trmv.refactor.module_rename import ModuleRename
+from trmv.refactor.occurrence_index import RunIndex, ServerSession
+from trmv.refactor.outcomes import Finding
+from trmv.refactor.progress import Progress
+from trmv.refactor.python_source import SourceFile
+from trmv.refactor.rename_map import RenameMap
+from trmv.refactor.rename_union import RenameOptions, Session, SymbolRename
+from trmv.refactor.retarget import ImportNeed
+from trmv.refactor.retarget_imports import plan_imports
+from trmv.refactor.text_edits import TextEdit
+from trmv.refactor.text_tables import TextTables
 
 Refs = defaultdict[str, list[weakref.ReferenceType[object]]]
 

@@ -16,7 +16,7 @@ import {
 } from '../src/contract/index.js';
 import { SHARED, VECTORS, field, loadYamlFile, plain, readJson, vectors } from './helpers.js';
 
-const CONFIG_SCHEMA = readJson(join(SHARED, 'schema', 'deterministic-refactor.schema.json'));
+const CONFIG_SCHEMA = readJson(join(SHARED, 'schema', 'trmv.schema.json'));
 const LANGUAGES = loadYamlFile(join(SHARED, 'languages.yaml'));
 
 function present(name: string, cases: unknown[] | undefined): unknown[] {

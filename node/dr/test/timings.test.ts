@@ -1,4 +1,4 @@
-// `dr-refactor --timings`: exclusive phase times from an injected nanosecond clock, printed in the shared order.
+// `trmv-refactor --timings`: exclusive phase times from an injected nanosecond clock, printed in the shared order.
 import { describe, expect, it } from 'vitest';
 import { message, timingPhases } from '../src/contract/index.js';
 import { seconds, Timer } from '../src/refactor/timings.js';

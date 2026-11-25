@@ -1,4 +1,4 @@
-// dr-typecheck with the real tsc, repo-local, through the built bin (run `npm run build` first).
+// trmv-typecheck with the real tsc, repo-local, through the built bin (run `npm run build` first).
 import { spawnSync, type SpawnSyncReturns } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -6,8 +6,8 @@ import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { NODE_ROOT } from './helpers.js';
 
-const BIN = join(NODE_ROOT, 'dr', 'dist', 'bin', 'dr-typecheck.js');
-const REPO = join(mkdtempSync(join(tmpdir(), 'dr-typecheck-')), 'repo');
+const BIN = join(NODE_ROOT, 'trmv', 'dist', 'bin', 'trmv-typecheck.js');
+const REPO = join(mkdtempSync(join(tmpdir(), 'trmv-typecheck-')), 'repo');
 
 function typecheck(...args: string[]): SpawnSyncReturns<string> {
   return spawnSync(process.execPath, [BIN, ...args], { cwd: REPO, encoding: 'utf8' });
@@ -25,7 +25,7 @@ beforeAll(() => {
 
 afterAll(() => rmSync(join(REPO, '..'), { recursive: true, force: true }));
 
-describe('dr-typecheck with the real tsc', () => {
+describe('trmv-typecheck with the real tsc', () => {
   it('writes, holds and ratchets the baseline', () => {
     const written = typecheck('--write-baseline');
     expect(written.status, written.stdout + written.stderr).toBe(0);
@@ -42,9 +42,9 @@ describe('dr-typecheck with the real tsc', () => {
   });
 });
 
-describe('dr-refactor keeps the baseline real tsc reads', () => {
+describe('trmv-refactor keeps the baseline real tsc reads', () => {
   const repo = join(mkdtempSync(join(tmpdir(), 'la-align-')), 'repo');
-  const bin = (name: string): string => join(NODE_ROOT, 'dr', 'dist', 'bin', `${name}.js`);
+  const bin = (name: string): string => join(NODE_ROOT, 'trmv', 'dist', 'bin', `${name}.js`);
   const cli = (name: string, ...args: string[]): SpawnSyncReturns<string> =>
     spawnSync(process.execPath, [bin(name), ...args], { cwd: repo, encoding: 'utf8' });
 
@@ -58,12 +58,12 @@ describe('dr-refactor keeps the baseline real tsc reads', () => {
     writeFileSync(join(repo, 'src', 'a.ts'), 'export interface Old {\n  x: number;\n}\n\nexport function make(): Old {\n  return { x: 1 };\n}\n');
     writeFileSync(join(repo, 'src', 'c.ts'), "import { make } from './a';\n\nexport const n: number = make();\n");
     spawnSync('git', ['init', '-q', '-b', 'main'], { cwd: repo });
-    expect(cli('dr-typecheck', '--write-baseline').status).toBe(0);
+    expect(cli('trmv-typecheck', '--write-baseline').status).toBe(0);
 
-    const renamed = cli('dr-refactor', '--apply', 'rename', '--file', 'src/a.ts', '--symbol', 'Old', '--new-name', 'New');
+    const renamed = cli('trmv-refactor', '--apply', 'rename', '--file', 'src/a.ts', '--symbol', 'Old', '--new-name', 'New');
     expect(renamed.status, renamed.stdout + renamed.stderr).toBe(0);
     expect(readFileSync(join(repo, '.tsc-baseline.json'), 'utf8')).toContain("Type 'New' is not assignable to type 'number'.");
-    const checked = cli('dr-typecheck');
+    const checked = cli('trmv-typecheck');
     expect(checked.status, checked.stdout + checked.stderr).toBe(0);
   });
 });

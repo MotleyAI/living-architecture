@@ -1,14 +1,14 @@
 kind: neutral
 other_twin: absent
-command: dr-doctor
+command: trmv-doctor
 fixture: twin-mixed
 bins:
 - dir: watch
   files:
-    dr-doctor: |
+    trmv-doctor: |
       #!/bin/sh
-      echo "watch: dr-doctor $*" >> <ROOT>/repo/probe.log
-      echo "watch dr-doctor must not run" >&2
+      echo "watch: trmv-doctor $*" >> <ROOT>/repo/probe.log
+      echo "watch trmv-doctor must not run" >&2
       exit 99
     la-doctor: |
       #!/bin/sh
@@ -30,4 +30,4 @@ expect:
   exit: 0
   files: [probe.log]
 golden: manual
-note: dr-doctor on a mixed repo completes natively in either twin with the other twin unreachable
+note: trmv-doctor on a mixed repo completes natively in either twin with the other twin unreachable

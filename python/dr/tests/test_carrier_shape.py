@@ -8,9 +8,9 @@ from pathlib import Path
 
 import pytest
 
-from deterministic_refactor.refactor.keyword_links import CarrierShape, keyword_sites, renamed_names
-from deterministic_refactor.refactor.member_scan import access_receiver, written_text
-from deterministic_refactor.refactor.python_source import SourceFile
+from trmv.refactor.keyword_links import CarrierShape, keyword_sites, renamed_names
+from trmv.refactor.member_scan import access_receiver, written_text
+from trmv.refactor.python_source import SourceFile
 
 
 def _shape(body: str, signature: str = "**kw") -> CarrierShape:

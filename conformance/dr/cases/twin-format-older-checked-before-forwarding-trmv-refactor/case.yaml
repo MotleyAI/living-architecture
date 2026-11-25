@@ -2,10 +2,10 @@ kind: neutral
 languages:
 - python
 - typescript
-fixture: dr-mixed
+fixture: trmv-mixed
 twin: python
 other_twin: absent
-command: dr-refactor
+command: trmv-refactor
 args:
 - rename
 - --file
@@ -16,5 +16,5 @@ args:
 - w
 expect:
   exit: 2
-note: 'an older la file format is refused before dr-refactor forwards a typescript file: no install hint'
+note: 'an older la file format is refused before trmv-refactor forwards a typescript file: no install hint'
 golden: manual

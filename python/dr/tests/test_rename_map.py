@@ -1,4 +1,4 @@
-"""Python `dr-refactor rename-map`: many renames and retargets as one dry-run, one refusal report, one apply."""
+"""Python `trmv-refactor rename-map`: many renames and retargets as one dry-run, one refusal report, one apply."""
 
 from __future__ import annotations
 
@@ -9,14 +9,14 @@ from pathlib import Path
 import pytest
 import yaml
 
-from deterministic_refactor.contract import message
-from deterministic_refactor.refactor.locators import RefactorError
-from deterministic_refactor.refactor.occurrence_index import ServerSession
-from deterministic_refactor.refactor.rename_map import RenameMap
-from deterministic_refactor.refactor.rename_union import SymbolRename
-from deterministic_refactor.refactor.text_edits import TextEdit
 from project_files import file_tree, write_project
 from refactor_cli import assert_same_run, entry_refusal, line_col, read, run, run_raw, template_regex
+from trmv.contract import message
+from trmv.refactor.locators import RefactorError
+from trmv.refactor.occurrence_index import ServerSession
+from trmv.refactor.rename_map import RenameMap
+from trmv.refactor.rename_union import SymbolRename
+from trmv.refactor.text_edits import TextEdit
 
 STORAGE = """\
 class StorageBackend:

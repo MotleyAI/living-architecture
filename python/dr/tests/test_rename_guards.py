@@ -7,12 +7,12 @@ from pathlib import Path
 
 import pytest
 
-from deterministic_refactor.cli.dr_compliance import dr_compliance
-from deterministic_refactor.cli.dr_refactor import dr_refactor
-from deterministic_refactor.contract import message
-from deterministic_refactor.lang import LanguageServer
 from project_files import file_tree
 from refactor_cli import readouterr
+from trmv.cli.trmv_compliance import trmv_compliance
+from trmv.cli.trmv_refactor import trmv_refactor
+from trmv.contract import message
+from trmv.lang import LanguageServer
 
 MakeProject = Callable[..., Path]
 
@@ -69,7 +69,7 @@ def project(typed_project: MakeProject, monkeypatch: pytest.MonkeyPatch) -> Make
 
 def _rename(root: Path, rel: str, needle: str, new_name: str, *flags: str, apply: bool = True) -> int:
     offset = (root / rel).read_text(encoding="utf-8").index(needle)
-    return dr_refactor(["--project", str(root), *(["--apply"] if apply else []), "rename", "--file", rel,
+    return trmv_refactor(["--project", str(root), *(["--apply"] if apply else []), "rename", "--file", rel,
                         "--offset", str(offset), "--new-name", new_name, *flags])
 
 
@@ -166,7 +166,7 @@ def test_non_member_renames_are_not_scanned(project: MakeProject, rel: str, need
     assert _read(root, "pkg/loose.py") == untyped
 
 
-def test_blind_spots_equal_dr_compliance_over_the_project(project: MakeProject, capsys: pytest.CaptureFixture[str]) -> None:
+def test_blind_spots_equal_trmv_compliance_over_the_project(project: MakeProject, capsys: pytest.CaptureFixture[str]) -> None:
     untyped = 'def f(o):\n    return o.get_model("m")\n'
     root = project({
         "pkg/store.py": STORE,
@@ -180,7 +180,7 @@ def test_blind_spots_equal_dr_compliance_over_the_project(project: MakeProject, 
     assert _rename(root, "pkg/store.py", "get_model", "get_dataset", apply=False) == 1
     refused = readouterr(capsys).err.splitlines()
     assert refused[-1] == _closing(3)
-    assert dr_compliance(["--select", "attr-blindspot,string-blindspot", "--attr", "get_model", "."]) == 1
+    assert trmv_compliance(["--select", "attr-blindspot,string-blindspot", "--attr", "get_model", "."]) == 1
     assert refused[:-1] == readouterr(capsys).out.splitlines()
 
 

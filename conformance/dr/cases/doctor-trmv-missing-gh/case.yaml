@@ -1,8 +1,8 @@
 kind: neutral
-command: dr-doctor
+command: trmv-doctor
 hide: [gh]
 normalize: [version]
 expect:
   exit: 0
 golden: manual
-note: dr-doctor does not require gh
+note: trmv-doctor does not require gh

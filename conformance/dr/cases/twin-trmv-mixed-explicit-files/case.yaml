@@ -2,9 +2,9 @@ kind: neutral
 languages:
 - python
 - typescript
-fixture: dr-mixed
+fixture: trmv-mixed
 golden: manual
-command: dr-mock-lint
+command: trmv-mock-lint
 args:
 - tests/test_a.py
 - web/a.test.ts

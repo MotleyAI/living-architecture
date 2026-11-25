@@ -8,10 +8,10 @@ from pathlib import Path
 
 import pytest
 
-from deterministic_refactor.cli.dr_refactor import dr_refactor
-from deterministic_refactor.contract import message
 from project_files import file_tree, write_project
 from refactor_cli import entry_refusal, readouterr
+from trmv.cli.trmv_refactor import trmv_refactor
+from trmv.contract import message
 
 MakeProject = Callable[..., Path]
 
@@ -137,7 +137,7 @@ def _locator(root: Path, owner: str, field: str) -> str:
 def _rename_field(root: Path, owner: str, field: str, new_name: str) -> int:
     path = root / "pkg" / "models.py"
     offset = _field_offset(path.read_text(encoding="utf-8"), owner, field)
-    return dr_refactor(["--project", str(root), "--apply", "rename", "--file", str(path), "--offset", str(offset),
+    return trmv_refactor(["--project", str(root), "--apply", "rename", "--file", str(path), "--offset", str(offset),
                         "--new-name", new_name, *_without_unrelated(root, owner, field)])
 
 
@@ -529,7 +529,7 @@ def test_unresolved_base_outside_the_project_names_its_absolute_path(
 def test_method_rename_proceeds_with_an_unresolved_base(without_pydantic: Path) -> None:
     path = without_pydantic / "pkg" / "models.py"
     offset = UNRESOLVED.index("describe")
-    assert dr_refactor(["--project", str(without_pydantic), "--apply", "rename", "--file", str(path),
+    assert trmv_refactor(["--project", str(without_pydantic), "--apply", "rename", "--file", str(path),
                         "--offset", str(offset), "--new-name", "summary"]) == 0
     assert path.read_text(encoding="utf-8") == UNRESOLVED.replace("describe", "summary")
 
@@ -547,7 +547,7 @@ def test_a_keyword_or_key_meeting_a_name_another_entry_frees_is_no_collision(
     lines = "".join(f"- {{file: {e['file']}, symbol: {e['symbol']}, new_name: {e['new_name']}}}\n"
                     for e in (entries[::-1] if reverse else entries))
     root = typed_project({"pkg/models.py": CHAINED, "pkg/use.py": CHAINED_USE, "map.yaml": lines})
-    assert dr_refactor(["--project", str(root), "--apply", "rename-map", str(root / "map.yaml")]) == 0
+    assert trmv_refactor(["--project", str(root), "--apply", "rename-map", str(root / "map.yaml")]) == 0
     assert readouterr(capsys).err == ""
     assert (root / "pkg" / "use.py").read_text(encoding="utf-8") == (
         'from pkg.models import Model\n\na = Model(cols=[], legacy=[])\nb = Model.model_validate({"cols": [], "legacy": []})\n'

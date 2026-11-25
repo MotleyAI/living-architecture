@@ -1,4 +1,4 @@
-// dr-refactor generate-map: candidates, carve-outs, entries, locals and the map it prints, through the TypeScript twin.
+// trmv-refactor generate-map: candidates, carve-outs, entries, locals and the map it prints, through the TypeScript twin.
 import { parse } from 'yaml';
 import { describe, expect, it, vi } from 'vitest';
 import { message, schema, validate } from '../src/contract/index.js';

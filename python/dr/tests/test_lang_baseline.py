@@ -1,8 +1,8 @@
-"""The basedpyright baseline pieces `dr-refactor` and `la-typecheck --realign-from` share."""
+"""The basedpyright baseline pieces `trmv-refactor` and `la-typecheck --realign-from` share."""
 
 from pathlib import Path
 
-from deterministic_refactor.lang.baseline import (
+from trmv.lang.baseline import (
     Key,
     baselined,
     diagnostics,
@@ -11,7 +11,7 @@ from deterministic_refactor.lang.baseline import (
     pairs,
     text_edits,
 )
-from deterministic_refactor.lang.position_map import Edit, map_range
+from trmv.lang.position_map import Edit, map_range
 
 ARG = "reportArgumentType"
 

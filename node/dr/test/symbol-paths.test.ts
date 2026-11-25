@@ -1,4 +1,4 @@
-// dr-refactor --symbol: a declaration by its path inside --file, through the TypeScript twin.
+// trmv-refactor --symbol: a declaration by its path inside --file, through the TypeScript twin.
 import { describe, expect, it } from 'vitest';
 import { message } from '../src/contract/index.js';
 import { copyProject, entryRefusal, files, lineCol, read, refactor, tsProject } from './refactor-project.js';

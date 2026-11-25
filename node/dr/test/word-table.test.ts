@@ -1,4 +1,4 @@
-// Word tables: the shared schema, loading through dr-refactor, and every invalid form with its section and index.
+// Word tables: the shared schema, loading through trmv-refactor, and every invalid form with its section and index.
 import { describe, expect, it } from 'vitest';
 import { language, message, schema, validate } from '../src/contract/index.js';
 import { files, refactorRaw, tsProject } from './refactor-project.js';

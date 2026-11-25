@@ -10,9 +10,9 @@ from typing import Any
 
 import pytest
 
-from deterministic_refactor.contract import language
-from deterministic_refactor.refactor.member_scan import registry_forms, site_text
-from deterministic_refactor.refactor.python_source import SourceFile
+from trmv.contract import language
+from trmv.refactor.member_scan import registry_forms, site_text
+from trmv.refactor.python_source import SourceFile
 
 NEW_KEYS: dict[str, list[dict[str, object]]] = {
     "name_decorators": [

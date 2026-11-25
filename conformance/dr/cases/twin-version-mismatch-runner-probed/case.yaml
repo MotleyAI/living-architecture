@@ -1,32 +1,32 @@
 kind: neutral
 twin: typescript
 other_twin: absent
-command: dr-mock-lint
+command: trmv-mock-lint
 args:
 - a.py
 bins:
 - dir: decoy
   files:
-    dr-doctor: |
+    trmv-doctor: |
       #!/bin/sh
-      echo "decoy: dr-doctor $*" >> <ROOT>/repo/probe.log
-      [ "$*" = "--twin" ] || { echo "fake dr-doctor: unexpected $*" >&2; exit 99; }
+      echo "decoy: trmv-doctor $*" >> <ROOT>/repo/probe.log
+      [ "$*" = "--twin" ] || { echo "fake trmv-doctor: unexpected $*" >&2; exit 99; }
       echo "python 0.0.0 <CONTRACT_HASH>"
-    dr-mock-lint: |
+    trmv-mock-lint: |
       #!/bin/sh
-      echo "decoy: dr-mock-lint $*" >> <ROOT>/repo/probe.log
-      echo "decoy dr-mock-lint must not run" >&2
+      echo "decoy: trmv-mock-lint $*" >> <ROOT>/repo/probe.log
+      echo "decoy trmv-mock-lint must not run" >&2
       exit 99
 - dir: runner
   files:
     uvx: |
       #!/bin/sh
       echo "uvx $*" >> <ROOT>/repo/probe.log
-      if [ "$*" = "--from deterministic-refactor==<VERSION> dr-doctor --twin" ]; then
+      if [ "$*" = "--from type-rename-move==<VERSION> trmv-doctor --twin" ]; then
         echo "python <VERSION> <CONTRACT_HASH>"
         exit 0
       fi
-      if [ "$1 $2 $3" = "--from deterministic-refactor==<VERSION> dr-mock-lint" ]; then
+      if [ "$1 $2 $3" = "--from type-rename-move==<VERSION> trmv-mock-lint" ]; then
         [ "$LA_FORWARDED" = 1 ] || { echo "fake uvx: LA_FORWARDED is not 1" >&2; exit 99; }
         echo "served by uvx"
         echo "uvx stderr" >&2

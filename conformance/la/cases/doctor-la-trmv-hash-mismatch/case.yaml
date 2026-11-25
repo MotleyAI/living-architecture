@@ -2,17 +2,17 @@ kind: neutral
 twin: typescript
 command: la-doctor
 bins:
-- dir: other-dr
+- dir: other-trmv
   position: before
   files:
-    dr-doctor: |
+    trmv-doctor: |
       #!/bin/sh
-      [ "$*" = "--twin" ] || { echo "fake dr-doctor: unexpected $*" >&2; exit 99; }
+      [ "$*" = "--twin" ] || { echo "fake trmv-doctor: unexpected $*" >&2; exit 99; }
       echo "typescript <VERSION> 0000000000000000000000000000000000000000000000000000000000000000"
 normalize:
 - version
-- dr_contract_hash
+- trmv_contract_hash
 expect:
   exit: 1
-note: 'the first dr-doctor on PATH reports another dr contract: one finding naming both identities and the npm install command'
+note: 'the first trmv-doctor on PATH reports another trmv contract: one finding naming both identities and the npm install command'
 golden: manual

@@ -1,7 +1,7 @@
 kind: adapter
 languages:
 - python
-command: dr-refactor
+command: trmv-refactor
 cwd: ..
 args:
 - --project

@@ -1,5 +1,5 @@
 kind: neutral
-command: dr-mock-lint
+command: trmv-mock-lint
 args:
 - notes.txt
 expect:

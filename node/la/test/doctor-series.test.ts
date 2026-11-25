@@ -3,7 +3,7 @@ import { chmodSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { contractHash as drContractHash } from '../../dr/src/contract/index.js';
+import { contractHash as trmvContractHash } from '../../trmv/src/contract/index.js';
 import { runChecks } from '../src/doctor/index.js';
 
 vi.mock('../src/index.js', async (importOriginal) => ({
@@ -26,8 +26,8 @@ describe('la-doctor series with a prerelease-style installed version', () => {
       writeFileSync(join(bin, exe), '#!/bin/sh\nexit 0\n');
       chmodSync(join(bin, exe), 0o755);
     }
-    writeFileSync(join(bin, 'dr-doctor'), `#!/bin/sh\necho 'typescript 1.2.3-rc.1 ${drContractHash()}'\n`);
-    chmodSync(join(bin, 'dr-doctor'), 0o755);
+    writeFileSync(join(bin, 'trmv-doctor'), `#!/bin/sh\necho 'typescript 1.2.3-rc.1 ${trmvContractHash()}'\n`);
+    chmodSync(join(bin, 'trmv-doctor'), 0o755);
     vi.stubEnv('PATH', bin);
   });
 
@@ -43,7 +43,7 @@ describe('la-doctor series with a prerelease-style installed version', () => {
   it('plugin 1.3.0 is another series', () => {
     const [root, plugin] = pluginAt('1.3.0');
     expect(runChecks(root, plugin)).toEqual([
-      'installed la tools are 1.2.3-rc.1, but plugin 1.3.0 needs 1.3.x; reinstall them with: npm install -g living-architecture@1.3.0 deterministic-refactor@1.3.0',
+      'installed la tools are 1.2.3-rc.1, but plugin 1.3.0 needs 1.3.x; reinstall them with: npm install -g living-architecture@1.3.0 type-rename-move@1.3.0',
     ]);
   });
 });

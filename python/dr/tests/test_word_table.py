@@ -1,4 +1,4 @@
-"""Word tables: the shared schema, loading through `dr-refactor`, and every invalid form with its section and index."""
+"""Word tables: the shared schema, loading through `trmv-refactor`, and every invalid form with its section and index."""
 
 from __future__ import annotations
 
@@ -6,10 +6,10 @@ from pathlib import Path
 
 import pytest
 
-from deterministic_refactor.cli.dr_refactor import dr_refactor
-from deterministic_refactor.contract import language, message, schema, validate
 from project_files import file_tree, write_project
 from refactor_cli import run_raw
+from trmv.cli.trmv_refactor import trmv_refactor
+from trmv.contract import language, message, schema, validate
 
 ROW = {"from": "model", "to": "dataset"}
 
@@ -212,6 +212,6 @@ def test_a_table_is_read_relative_to_the_working_directory(
     root = write_project(tmp_path / "proj", {"pkg/a.py": SOURCE, "tables/words.yaml": VALID})
     (root / "tools").mkdir()
     monkeypatch.chdir(root / "tools")
-    code = dr_refactor(["--project", "..", "generate-map", "../tables/words.yaml"])
+    code = trmv_refactor(["--project", "..", "generate-map", "../tables/words.yaml"])
     out, err = capsys.readouterr()
     assert (code, out.splitlines()[0], err) == (0, "- {file: pkg/a.py, symbol: model_name, new_name: dataset_name}", "")

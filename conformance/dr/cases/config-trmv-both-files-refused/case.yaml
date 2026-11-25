@@ -1,8 +1,8 @@
 kind: neutral
-command: dr-config
+command: trmv-config
 args:
 - show
 expect:
   exit: 2
-note: 'both config files: dr-config refuses too'
+note: 'both config files: trmv-config refuses too'
 golden: manual

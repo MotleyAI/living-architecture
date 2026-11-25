@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from deterministic_refactor.contract import message
 from project_files import file_tree, write_project
 from refactor_cli import entry_refusal, read, run, template_regex
+from trmv.contract import message
 
 SOURCE = """\
 def f(name: str) -> str:

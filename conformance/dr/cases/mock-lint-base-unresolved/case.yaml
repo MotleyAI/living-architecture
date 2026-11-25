@@ -2,7 +2,7 @@ kind: paired
 languages:
 - python
 - typescript
-command: dr-mock-lint
+command: trmv-mock-lint
 args:
 - --base
 - main

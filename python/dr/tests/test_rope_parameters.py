@@ -13,7 +13,7 @@ from rope.base.project import Project
 from rope.base.pyobjects import PyObject
 from rope.base.pyobjectsdef import PyClass, PyFunction, PyModule
 
-from deterministic_refactor.refactor import rope_patches
+from trmv.refactor import rope_patches
 
 SIGNATURES = [
     pytest.param("def f(a, /, b, *xs, c=0, **kw): pass\n", ["a", "b", "xs", "kw"], ["a", "b"], id="every-kind"),

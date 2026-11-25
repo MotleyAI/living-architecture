@@ -2,11 +2,11 @@ kind: neutral
 languages:
 - python
 - typescript
-fixture: dr-mixed
+fixture: trmv-mixed
 golden: manual
 twin: python
 other_twin: absent
-command: dr-compliance
+command: trmv-compliance
 args:
 - src/b.ts
 env:
@@ -14,13 +14,13 @@ env:
 bins:
 - dir: npm-twin
   files:
-    dr-doctor: |
+    trmv-doctor: |
       #!/bin/sh
-      [ "$*" = "--twin" ] || { echo "fake dr-doctor: unexpected $*" >&2; exit 99; }
+      [ "$*" = "--twin" ] || { echo "fake trmv-doctor: unexpected $*" >&2; exit 99; }
       echo "typescript <VERSION> <CONTRACT_HASH>"
-    dr-compliance: |
+    trmv-compliance: |
       #!/bin/sh
-      echo "npm-twin: dr-compliance pwd=$(pwd) forwarded=$LA_FORWARDED args=$*" >> <ROOT>/repo/probe.log
+      echo "npm-twin: trmv-compliance pwd=$(pwd) forwarded=$LA_FORWARDED args=$*" >> <ROOT>/repo/probe.log
       exit 99
 expect:
   exit: 2

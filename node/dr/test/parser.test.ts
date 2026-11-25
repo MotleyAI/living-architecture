@@ -39,13 +39,13 @@ describe('subcommand help', () => {
   it('describes the subcommand, not its parent', () => {
     let error: unknown;
     try {
-      parse('dr-config', ['get', '--help']);
+      parse('trmv-config', ['get', '--help']);
     } catch (e) {
       error = e;
     }
     expect(error).toBeInstanceOf(HelpRequested);
     const text = (error as HelpRequested).text;
-    expect(text).toMatch(/^usage: dr-config get/);
+    expect(text).toMatch(/^usage: trmv-config get/);
     expect(text).toContain('positional arguments:');
     expect(text).toContain('key');
     expect(text).not.toContain('subcommands:');
@@ -54,8 +54,8 @@ describe('subcommand help', () => {
 
 describe('internal options', () => {
   it.each([
-    ['dr-doctor', '--contract-hash', ['--twin']],
-    ['dr-typecheck', '--write-baseline', ['--language']],
+    ['trmv-doctor', '--contract-hash', ['--twin']],
+    ['trmv-typecheck', '--write-baseline', ['--language']],
   ])('%s --help omits them', (command, shown, hidden) => {
     const text = help(command);
     expect(text).toContain(shown);
@@ -63,8 +63,8 @@ describe('internal options', () => {
   });
 
   it('are still accepted', () => {
-    expect(parse('dr-doctor', ['--twin'])).toMatchObject({ twin: true });
-    expect(parse('dr-typecheck', ['--language', 'typescript'])).toMatchObject({ language: 'typescript' });
+    expect(parse('trmv-doctor', ['--twin'])).toMatchObject({ twin: true });
+    expect(parse('trmv-typecheck', ['--language', 'typescript'])).toMatchObject({ language: 'typescript' });
   });
 });
 

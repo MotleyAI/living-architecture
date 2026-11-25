@@ -1,4 +1,4 @@
-"""Drivers for the `dr-refactor` CLI tests: run a command, locate text, compare two runs."""
+"""Drivers for the `trmv-refactor` CLI tests: run a command, locate text, compare two runs."""
 
 import os
 import re
@@ -9,10 +9,10 @@ from typing import NamedTuple
 
 import pytest
 
-from deterministic_refactor.cli.dr_refactor import dr_refactor
-from deterministic_refactor.config import current_format
-from deterministic_refactor.contract import message
 from project_files import file_tree, write_project
+from trmv.cli.trmv_refactor import trmv_refactor
+from trmv.config import current_format
+from trmv.contract import message
 
 BIN_DIR = Path(sys.executable).parent
 
@@ -23,7 +23,7 @@ _PROGRESS = re.compile(rf"\[(?:{_PHASES})\]|\[(?:{_PHASES}) \d+/\d+\] .*")
 
 
 def final_report(err: str) -> str:
-    """`dr-refactor`'s stderr without its phase and progress lines: every refusal, in the order printed."""
+    """`trmv-refactor`'s stderr without its phase and progress lines: every refusal, in the order printed."""
     return "".join(line for line in err.splitlines(keepends=True) if not _PROGRESS.fullmatch(line.rstrip("\n")))
 
 
@@ -37,10 +37,10 @@ def entry_refusal(locator: str, text: str, *indexes: int) -> str:
 
 
 def run_raw(root: Path, argv: list[str], monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> Result:
-    """`dr-refactor --project root ARGV` from `root`, its stderr whole; a usage error comes back as exit 2."""
+    """`trmv-refactor --project root ARGV` from `root`, its stderr whole; a usage error comes back as exit 2."""
     monkeypatch.chdir(root)
     try:
-        code = dr_refactor(["--project", str(root), *argv])
+        code = trmv_refactor(["--project", str(root), *argv])
     except SystemExit as exc:
         code = exc.code if isinstance(exc.code, int) else 2
     out, err = capsys.readouterr()
@@ -116,7 +116,7 @@ def git_project(root: Path, files: dict[str, str], config: str | None = None) ->
 
 
 def rename_argv(rel: str, symbol: str, new_name: str, *flags: str, apply: bool = True) -> list[str]:
-    """`dr-refactor`'s arguments for a rename located by `--symbol`."""
+    """`trmv-refactor`'s arguments for a rename located by `--symbol`."""
     return [*(["--apply"] if apply else []), "rename", "--file", rel, "--symbol", symbol, "--new-name", new_name, *flags]
 
 
@@ -140,6 +140,6 @@ class Captured(NamedTuple):
 
 
 def readouterr(capsys: pytest.CaptureFixture[str]) -> Captured:
-    """`capsys.readouterr()` with `dr-refactor`'s stderr reduced to the `final_report`."""
+    """`capsys.readouterr()` with `trmv-refactor`'s stderr reduced to the `final_report`."""
     out, err = capsys.readouterr()
     return Captured(out, final_report(err))

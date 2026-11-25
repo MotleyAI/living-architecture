@@ -1,4 +1,4 @@
-"""The two packages: their snapshots, entry points, la's dr surface and its message fallback."""
+"""The two packages: their snapshots, entry points, la's trmv surface and its message fallback."""
 
 from __future__ import annotations
 
@@ -10,20 +10,20 @@ from pathlib import Path
 import pytest
 import yaml
 
-from deterministic_refactor.contract import compute_hash
 from living_architecture.contract import message
+from trmv.contract import compute_hash
 
 REPO_ROOT = next(p for p in Path(__file__).resolve().parents if (p / "shared").is_dir() and (p / "plugin").is_dir())
 SHARED = REPO_ROOT / "shared"
 HASH_FILE = "CONTRACT_HASH"
 SNAPSHOTS = {
-    "python/dr/src/deterministic_refactor/contract/data": "dr",
+    "python/trmv/src/trmv/contract/data": "trmv",
     "python/la/src/living_architecture/contract/data": "la",
-    "node/dr/src/contract/data": "dr",
+    "node/trmv/src/contract/data": "trmv",
     "node/la/src/contract/data": "la",
 }
-DISTRIBUTIONS = {"deterministic-refactor": "dr", "living-architecture": "la"}
-DR_PUBLIC = {"contract", "config", "lang", "twin", "changes"}
+DISTRIBUTIONS = {"type-rename-move": "trmv", "living-architecture": "la"}
+TRMV_PUBLIC = {"contract", "config", "lang", "twin", "changes"}
 _TS_IMPORT = re.compile(r"""(?:from|import)\s*\(?\s*['"]([^'"]+)['"]""")
 
 
@@ -49,39 +49,39 @@ def test_console_scripts_equal_the_package_manifest(distribution: str, package: 
     assert scripts == set(manifest)
 
 
-def test_la_renders_a_dr_finding_through_its_fallback() -> None:
-    findings = yaml.safe_load((SHARED / "dr" / "findings.yaml").read_text(encoding="utf-8"))["findings"]
+def test_la_renders_a_trmv_finding_through_its_fallback() -> None:
+    findings = yaml.safe_load((SHARED / "trmv" / "findings.yaml").read_text(encoding="utf-8"))["findings"]
     template_id, text = next((i, t) for i, t in sorted(findings.items()) if "{" not in t and "}" not in t)
     assert message(template_id) == text
 
 
-def _python_dr_imports(root: Path) -> set[str]:
+def _python_trmv_imports(root: Path) -> set[str]:
     modules = set()
     for path in root.rglob("*.py"):
         for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
             if isinstance(node, ast.Import):
                 modules |= {alias.name for alias in node.names}
-            elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module == "deterministic_refactor":
+            elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module == "trmv":
                 modules |= {f"{node.module}.{alias.name}" for alias in node.names}
             elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
                 modules |= {node.module, *(f"{node.module}.{alias.name}" for alias in node.names)}
-    return {m for m in modules if m.split(".")[0] == "deterministic_refactor"}
+    return {m for m in modules if m.split(".")[0] == "trmv"}
 
 
-def test_python_la_imports_only_the_public_dr_modules() -> None:
-    imported = _python_dr_imports(REPO_ROOT / "python" / "la" / "src")
-    assert imported, "la imports nothing from deterministic_refactor"
-    private = {m for m in imported if len(m.split(".")) < 2 or m.split(".")[1] not in DR_PUBLIC}
+def test_python_la_imports_only_the_public_trmv_modules() -> None:
+    imported = _python_trmv_imports(REPO_ROOT / "python" / "la" / "src")
+    assert imported, "la imports nothing from trmv"
+    private = {m for m in imported if len(m.split(".")) < 2 or m.split(".")[1] not in TRMV_PUBLIC}
     assert private == set()
 
 
-def test_node_la_imports_only_the_public_dr_modules() -> None:
+def test_node_la_imports_only_the_public_trmv_modules() -> None:
     specifiers = {
         spec
         for path in (REPO_ROOT / "node" / "la" / "src").rglob("*.ts")
         for spec in _TS_IMPORT.findall(path.read_text(encoding="utf-8"))
     }
-    dr = {s for s in specifiers if s.split("/")[0] == "deterministic-refactor"}
-    assert dr, "node/la imports nothing from deterministic-refactor"
-    assert {s for s in dr if s.removeprefix("deterministic-refactor/") not in DR_PUBLIC} == set()
-    assert {s for s in specifiers if "dr/src" in s} == set()
+    trmv = {s for s in specifiers if s.split("/")[0] == "type-rename-move"}
+    assert trmv, "node/la imports nothing from type-rename-move"
+    assert {s for s in trmv if s.removeprefix("type-rename-move/") not in TRMV_PUBLIC} == set()
+    assert {s for s in specifiers if "trmv/src" in s} == set()

@@ -7,18 +7,18 @@ from pathlib import Path
 
 import pytest
 
-from deterministic_refactor.config import current_format
-from deterministic_refactor.contract import message
-from deterministic_refactor.refactor import rename_map, rope_refactor
-from deterministic_refactor.refactor.locators import RefactorError
-from deterministic_refactor.refactor.move_project import MoveProject
-from deterministic_refactor.refactor.moved_symbol import MovedSymbol
-from deterministic_refactor.refactor.output_check import checked_create, checked_write
-from deterministic_refactor.refactor.python_project import Snapshot
-from deterministic_refactor.refactor.text_edits import TextEdit
-from deterministic_refactor.refactor.writer import FileWrite
 from project_files import file_tree, write_project
 from refactor_cli import run
+from trmv.config import current_format
+from trmv.contract import message
+from trmv.refactor import rename_map, rope_refactor
+from trmv.refactor.locators import RefactorError
+from trmv.refactor.move_project import MoveProject
+from trmv.refactor.moved_symbol import MovedSymbol
+from trmv.refactor.output_check import checked_create, checked_write
+from trmv.refactor.python_project import Snapshot
+from trmv.refactor.text_edits import TextEdit
+from trmv.refactor.writer import FileWrite
 
 BROKEN = "def f(:\n"
 FLAGS = pytest.mark.parametrize("flags", [[], ["--apply"]], ids=["dry-run", "apply"])

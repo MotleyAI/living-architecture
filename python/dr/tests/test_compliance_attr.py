@@ -1,4 +1,4 @@
-"""Python `dr-compliance --attr`: receivers basedpyright types as Unknown or Any."""
+"""Python `trmv-compliance --attr`: receivers basedpyright types as Unknown or Any."""
 
 from __future__ import annotations
 
@@ -6,10 +6,10 @@ from pathlib import Path
 
 import pytest
 
-from deterministic_refactor.cli.dr_compliance import dr_compliance
-from deterministic_refactor.contract import message
 from project_files import write_project
 from refactor_cli import run
+from trmv.cli.trmv_compliance import trmv_compliance
+from trmv.contract import message
 
 UNTYPED = """\
 from typing import Any
@@ -71,7 +71,7 @@ def cwd(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 
 def _attr(*paths: str) -> int:
-    return dr_compliance(["--select", "attr-blindspot", "--attr", "formula", *paths])
+    return trmv_compliance(["--select", "attr-blindspot", "--attr", "formula", *paths])
 
 
 def _string_blindspot(path: str, line: int, site: str, receiver: str, kind: str, *, silent: bool = False) -> str:
@@ -80,7 +80,7 @@ def _string_blindspot(path: str, line: int, site: str, receiver: str, kind: str,
 
 
 def _strings(*paths: str) -> int:
-    return dr_compliance(["--select", "string-blindspot", "--attr", "formula", *paths])
+    return trmv_compliance(["--select", "string-blindspot", "--attr", "formula", *paths])
 
 
 def test_receivers_the_checker_cannot_type(cwd: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -165,7 +165,7 @@ def test_one_finding_per_access_position(cwd: Path, capsys: pytest.CaptureFixtur
 def test_blindspots_merge_into_each_files_line_order(cwd: Path, capsys: pytest.CaptureFixture[str]) -> None:
     (cwd / "a.py").write_text("def f(o) -> object:\n    return o.formula\n\n\ndef g(x): ...\n", encoding="utf-8")
     (cwd / "b.py").write_text("def h(x): ...\n", encoding="utf-8")
-    assert dr_compliance(["--select", "untyped-def,attr-blindspot", "--attr", "formula", "a.py", "b.py"]) == 1
+    assert trmv_compliance(["--select", "untyped-def,attr-blindspot", "--attr", "formula", "a.py", "b.py"]) == 1
     assert [line.split(": ")[0] for line in capsys.readouterr().out.splitlines()] == ["a.py:1", "a.py:2", "a.py:5", "b.py:1"]
 
 
@@ -183,19 +183,19 @@ def test_language_server_starts_only_with_attr(
 ) -> None:
     (cwd / "m.py").write_text("def f() -> None:\n    pass\n", encoding="utf-8")
     monkeypatch.setenv("NODE_OPTIONS", "--require /nonexistent.js")
-    assert dr_compliance(["m.py"]) == 0
+    assert trmv_compliance(["m.py"]) == 0
     assert capsys.readouterr() == ("", "")
 
 
 def test_selecting_attr_blindspot_prints_only_its_findings(cwd: Path, capsys: pytest.CaptureFixture[str]) -> None:
     (cwd / "m.py").write_text("def f(o):\n    return o.formula\n", encoding="utf-8")
-    assert dr_compliance(["--select", "attr-blindspot", "--attr", "formula", "m.py"]) == 1
+    assert trmv_compliance(["--select", "attr-blindspot", "--attr", "formula", "m.py"]) == 1
     assert capsys.readouterr() == (_blindspot("m.py", 2, "o", "Unknown") + "\n", "")
 
 
 def test_attr_blindspot_without_attr_is_a_usage_error(cwd: Path, capsys: pytest.CaptureFixture[str]) -> None:
     (cwd / "m.py").write_text("def f(o):\n    return o.formula\n", encoding="utf-8")
-    assert dr_compliance(["--select", "attr-blindspot", "m.py"]) == 2
+    assert trmv_compliance(["--select", "attr-blindspot", "m.py"]) == 2
     assert capsys.readouterr() == ("", message("compliance.attr-required", check="attr-blindspot") + "\n")
 
 
@@ -204,13 +204,13 @@ def test_attr_outside_the_selection_is_a_usage_error(
     cwd: Path, capsys: pytest.CaptureFixture[str], select: str
 ) -> None:
     (cwd / "m.py").write_text("def f(o):\n    return o.formula\n", encoding="utf-8")
-    assert dr_compliance(["--select", select, "--attr", "formula", "m.py"]) == 2
+    assert trmv_compliance(["--select", select, "--attr", "formula", "m.py"]) == 2
     assert capsys.readouterr() == ("", message("compliance.attr-unselected") + "\n")
 
 
 def test_default_selection_with_attr_runs_attr_blindspot(cwd: Path, capsys: pytest.CaptureFixture[str]) -> None:
     (cwd / "m.py").write_text("def f(o) -> object:\n    return o.formula\n", encoding="utf-8")
-    assert dr_compliance(["--attr", "formula", "m.py"]) == 1
+    assert trmv_compliance(["--attr", "formula", "m.py"]) == 1
     assert _blindspot("m.py", 2, "o", "Unknown") in capsys.readouterr().out.splitlines()
 
 
@@ -310,7 +310,7 @@ def test_two_names_in_one_sorted_block(cwd: Path, capsys: pytest.CaptureFixture[
     (cwd / "tests" / "test_b.py").write_text("def test_b(o):\n    o.save_model(); o.get_model()\n", encoding="utf-8")
     (cwd / "tests" / "test_a.py").write_text("def test_a(s):\n    s.get_model()\n    s.save_model()\n", encoding="utf-8")
     argv = ["--select", "attr-blindspot", "--attr", "get_model", "--attr", "save_model", "tests"]
-    assert dr_compliance(argv) == 1
+    assert trmv_compliance(argv) == 1
 
     def spot(path: str, line: int, receiver: str, attr: str) -> str:
         return message("compliance.attr-blindspot", path=path, line=line, receiver=receiver, attr=attr, type="Unknown")
@@ -327,7 +327,7 @@ def test_two_names_in_one_sorted_block(cwd: Path, capsys: pytest.CaptureFixture[
 def test_two_names_cover_string_member_forms(cwd: Path, capsys: pytest.CaptureFixture[str]) -> None:
     write_project(cwd, {"m.py": 'def f(o):\n    getattr(o, "get_model")\n    return o.save_model()\n'}, package=False)
     select = "attr-blindspot,string-blindspot"
-    assert dr_compliance(["--select", select, "--attr", "save_model", "--attr", "get_model", "m.py"]) == 1
+    assert trmv_compliance(["--select", select, "--attr", "save_model", "--attr", "get_model", "m.py"]) == 1
     out = capsys.readouterr().out.splitlines()
     assert out == [
         message("compliance.string-blindspot", path="m.py", line=2, site="getattr(o, 'get_model')", receiver="o",
@@ -341,7 +341,7 @@ def test_attr_reports_exactly_a_member_renames_blind_spots(
 ) -> None:
     root = write_project(tmp_path / "p", {"pkg/untyped.py": UNTYPED, "pkg/unions.py": UNIONS, "pkg/forms.py": STRING_FORMS})
     monkeypatch.chdir(root)
-    assert dr_compliance(["--select", "attr-blindspot,string-blindspot", "--attr", "formula", "pkg"]) == 1
+    assert trmv_compliance(["--select", "attr-blindspot,string-blindspot", "--attr", "formula", "pkg"]) == 1
     reported = capsys.readouterr().out.splitlines()
     rename = ["rename", "--file", "pkg/untyped.py", "--symbol", "Model.formula", "--new-name", "expr"]
     code, _out, err = run(root, rename, monkeypatch, capsys)

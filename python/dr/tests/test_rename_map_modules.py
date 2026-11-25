@@ -1,4 +1,4 @@
-"""Python `dr-refactor rename-map` with module entries: one union with every other entry, one check, one write."""
+"""Python `trmv-refactor rename-map` with module entries: one union with every other entry, one check, one write."""
 
 from __future__ import annotations
 
@@ -10,11 +10,11 @@ from pathlib import Path
 import pytest
 import yaml
 
-from deterministic_refactor.config import current_format
-from deterministic_refactor.contract import message
-from deterministic_refactor.lang import LanguageServer
 from project_files import file_tree, write_project
 from refactor_cli import entry_refusal, read, run, run_raw, template_regex
+from trmv.config import current_format
+from trmv.contract import message
+from trmv.lang import LanguageServer
 
 CHECKS = "[resolve]\n[checks]\n"
 Entries = Sequence[Mapping[str, object]]

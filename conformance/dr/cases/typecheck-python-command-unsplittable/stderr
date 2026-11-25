@@ -1,2 +1,2 @@
-dr-typecheck: checking python with basedpyright 'unterminated
-dr-typecheck: commands.typecheck.python is not a command: "basedpyright 'unterminated"
+trmv-typecheck: checking python with basedpyright 'unterminated
+trmv-typecheck: commands.typecheck.python is not a command: "basedpyright 'unterminated"

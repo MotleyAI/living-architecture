@@ -5,4 +5,4 @@ expect:
   exit: 0
   stdout: json
 golden: manual
-note: the dr keys la's schema takes by reference get their defaults filled like inline ones
+note: the trmv keys la's schema takes by reference get their defaults filled like inline ones

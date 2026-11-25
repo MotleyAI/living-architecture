@@ -2,7 +2,7 @@ kind: paired
 languages:
 - python
 - typescript
-command: dr-compliance
+command: trmv-compliance
 args:
 - --select
 - string-blindspot

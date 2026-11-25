@@ -16,8 +16,9 @@ from pathlib import Path
 import pytest
 import yaml
 
-from deterministic_refactor import contract
-from deterministic_refactor.contract import (
+from living_architecture.contract import contract_hash, materialize_defaults, message, snapshot_dir, validate
+from trmv import contract
+from trmv.contract import (
     DuplicateKeyError,
     YAMLError,
     canonical_repr,
@@ -28,7 +29,6 @@ from deterministic_refactor.contract import (
     normalize,
     render_template,
 )
-from living_architecture.contract import contract_hash, materialize_defaults, message, snapshot_dir, validate
 
 
 def _repo_root() -> Path:
@@ -39,7 +39,7 @@ REPO_ROOT = _repo_root()
 SHARED_ROOT = REPO_ROOT / "shared"
 # la's contract: the one la's snapshot, hash and doctor are checked against.
 SHARED = SHARED_ROOT / "la"
-TREES = [REPO_ROOT / "conformance" / package / "cases" for package in ("dr", "la")]
+TREES = [REPO_ROOT / "conformance" / package / "cases" for package in ("trmv", "la")]
 BIN_DIR = Path(sys.executable).parent
 HASH_FILE = "CONTRACT_HASH"
 SHARED_FILES = (
@@ -71,7 +71,7 @@ SHARED_FILES = (
 
 def _located(rel: str) -> list[Path]:
     """`rel` in each package's contract that holds it."""
-    return [SHARED_ROOT / package / rel for package in ("dr", "la") if (SHARED_ROOT / package / rel).is_file()]
+    return [SHARED_ROOT / package / rel for package in ("trmv", "la") if (SHARED_ROOT / package / rel).is_file()]
 
 
 def _load(rel: str) -> dict:
@@ -87,9 +87,9 @@ def _shared_yaml(name: str) -> dict:
     """A contract file; the CLI manifests and the findings registries as one, the way la reads them."""
     if name not in ("cli.yaml", "findings.yaml"):
         return _load(name)
-    dr, la = (yaml.safe_load((SHARED_ROOT / package / name).read_text(encoding="utf-8")) for package in ("dr", "la"))
+    trmv, la = (yaml.safe_load((SHARED_ROOT / package / name).read_text(encoding="utf-8")) for package in ("trmv", "la"))
     key = "commands" if name == "cli.yaml" else "findings"
-    return {**dr, **la, key: {**dr[key], **la[key]}}
+    return {**trmv, **la, key: {**trmv[key], **la[key]}}
 
 
 def _tree(root: Path) -> dict[str, tuple[bool, bytes]]:
@@ -345,7 +345,7 @@ def test_explicit_any_renders_the_language_spellings() -> None:
 
 
 def test_python_typecheck_command_description_names_the_patch_obligations() -> None:
-    schema = _schema("deterministic-refactor")
+    schema = _schema("trmv")
     description = schema["properties"]["commands"]["properties"]["typecheck"]["properties"]["python"]["description"]
     for needle in ("verified basedpyright", "checker_patch_versions", "under Node", "keep NODE_OPTIONS"):
         assert needle in description
@@ -586,32 +586,32 @@ NEW_TEMPLATES = {
     "conventions.not-utf8": "not valid UTF-8",
     "conventions.unknown-extension": "check-conventions: unknown extension, skipped: {path}",
     "count-comments.unknown-extension": "count-comments: unknown extension, skipped: {path}",
-    "typecheck.header": "dr-typecheck: checking {language} with {command}",
+    "typecheck.header": "trmv-typecheck: checking {language} with {command}",
     "typecheck.new-error": "{file}({line},{col}): error {code}: {message}",
     "typecheck.count": "{file}({line},{col}): error {code}: {message} (baseline {baseline}, now {now})",
-    "typecheck.new-errors": "dr-typecheck: {language}: {count} new error(s) not in {baseline}",
-    "typecheck.shrink": "dr-typecheck: {language}: {count} fixed error(s) removed from {baseline}",
-    "typecheck.write": "dr-typecheck: {language}: wrote {baseline}",
-    "typecheck.skip": "dr-typecheck: {language}: {baseline} exists, skipped",
-    "typecheck.refusal": "dr-typecheck: every applicable language already has a baseline; nothing written",
-    "typecheck.not-found": "dr-typecheck: {language}: {command} not found in {local_bin} or on PATH",
+    "typecheck.new-errors": "trmv-typecheck: {language}: {count} new error(s) not in {baseline}",
+    "typecheck.shrink": "trmv-typecheck: {language}: {count} fixed error(s) removed from {baseline}",
+    "typecheck.write": "trmv-typecheck: {language}: wrote {baseline}",
+    "typecheck.skip": "trmv-typecheck: {language}: {baseline} exists, skipped",
+    "typecheck.refusal": "trmv-typecheck: every applicable language already has a baseline; nothing written",
+    "typecheck.not-found": "trmv-typecheck: {language}: {command} not found in {local_bin} or on PATH",
     "typecheck.no-languages":
-        "dr-typecheck: nothing to check (no language is configured or has source files and a root marker)",
-    "typecheck.not-git": "dr-typecheck: not inside a git repository",
-    "typecheck.global-diagnostic": "dr-typecheck: {language}: the checker reported an error without a file",
-    "typecheck.checker-failed": "dr-typecheck: {language}: {command} exited {code} without a parsable diagnostic",
-    "typecheck.baseline-invalid": "dr-typecheck: {language}: {baseline} is malformed",
+        "trmv-typecheck: nothing to check (no language is configured or has source files and a root marker)",
+    "typecheck.not-git": "trmv-typecheck: not inside a git repository",
+    "typecheck.global-diagnostic": "trmv-typecheck: {language}: the checker reported an error without a file",
+    "typecheck.checker-failed": "trmv-typecheck: {language}: {command} exited {code} without a parsable diagnostic",
+    "typecheck.baseline-invalid": "trmv-typecheck: {language}: {baseline} is malformed",
     "typecheck.patch-not-applied":
-        "dr-typecheck: python: {command} loaded no basedpyright, so the pyright#11919 patch was not applied;"
+        "trmv-typecheck: python: {command} loaded no basedpyright, so the pyright#11919 patch was not applied;"
         " run basedpyright under Node and keep NODE_OPTIONS",
     "typecheck.patch-unverified":
-        "dr-typecheck: python: the pyright#11919 patch is verified for basedpyright {verified}, but {version} is"
+        "trmv-typecheck: python: the pyright#11919 patch is verified for basedpyright {verified}, but {version} is"
         " installed; pin a verified version",
     "typecheck.patch-mismatch":
-        "dr-typecheck: python: basedpyright {version} has the pyright#11919 line {count} times, not once;"
+        "trmv-typecheck: python: basedpyright {version} has the pyright#11919 line {count} times, not once;"
         " reinstall basedpyright",
     "typecheck.not-native": "{language} type checks run only in the {language} twin",
-    "typecheck.error": "dr-typecheck: {error}",
+    "typecheck.error": "trmv-typecheck: {error}",
     "refactor.rename-header": "Renaming <{old}> to <{new}>:",
     "refactor.move-symbol-header": "Moving global <{name}>:",
     "refactor.move-module-header": "Moving module <{name}>:",
@@ -637,9 +637,9 @@ NEW_TEMPLATES = {
     "refactor.skipped": "{prog}: not a source file, skipped: {path}",
     "refactor.rope-walk":
         "rope cannot follow {path}:{line}, so nothing was refactored (a rope bug, not a source error);"
-        " dr-compliance --select rope-walk lists every such file",
+        " trmv-compliance --select rope-walk lists every such file",
     "compliance.rope-walk":
-        "{path}:{line}: rope-walk: rope cannot follow this construct, so dr-refactor would refuse this file"
+        "{path}:{line}: rope-walk: rope cannot follow this construct, so trmv-refactor would refuse this file"
         " (a rope bug, not a source error)",
     "compliance.tsconfig": "{path}: tsconfig: {flag} is not enabled",
     "compliance.explicit-any": "{path}:{line}: explicit-any: an `{any}` type — use a real type or `{top}`",
@@ -796,7 +796,7 @@ def _manifest_commands() -> set[str]:
 
 
 def test_console_scripts_equal_the_manifest() -> None:
-    distributions = {"deterministic-refactor", "living-architecture"}
+    distributions = {"type-rename-move", "living-architecture"}
     scripts = {ep.name for ep in entry_points(group="console_scripts") if ep.dist and ep.dist.name in distributions}
     assert scripts == _manifest_commands()
 
@@ -819,13 +819,13 @@ def test_wait_for_reviews_exit_3_covers_pause_and_skip() -> None:
     assert _shared_yaml("cli.yaml")["commands"]["la-wait-for-reviews"]["exit"][3] == expected
 
 
-DR_COMMANDS = {"dr-refactor", "dr-compliance", "dr-mock-lint"}
+TRMV_COMMANDS = {"trmv-refactor", "trmv-compliance", "trmv-mock-lint"}
 
 
 def test_manifest_declares_native_languages() -> None:
     commands = _shared_yaml("cli.yaml")["commands"]
     native = {name: spec["native"] for name, spec in commands.items() if "native" in spec}
-    assert native == {name: ["python", "typescript"] for name in DR_COMMANDS}
+    assert native == {name: ["python", "typescript"] for name in TRMV_COMMANDS}
 
 
 RENAME_GUARD_OPTIONS = {
@@ -841,14 +841,14 @@ RENAME_GUARD_OPTIONS = {
 
 @pytest.mark.parametrize(("name", "expected"), RENAME_GUARD_OPTIONS.items())
 def test_rename_guard_options(name: str, expected: tuple[str, str, bool]) -> None:
-    options = _shared_yaml("cli.yaml")["commands"]["dr-refactor"]["subcommands"]["rename"]["options"]
+    options = _shared_yaml("cli.yaml")["commands"]["trmv-refactor"]["subcommands"]["rename"]["options"]
     [option] = [o for o in options if o["name"] == name]
     actual = (option["type"], option.get("dest", name[2:].replace("-", "_")), option.get("repeatable", False))
     assert actual == expected
 
 
 def _subcommand_options(subcommand: str) -> dict[str, dict]:
-    spec = _shared_yaml("cli.yaml")["commands"]["dr-refactor"]["subcommands"][subcommand]
+    spec = _shared_yaml("cli.yaml")["commands"]["trmv-refactor"]["subcommands"][subcommand]
     return {o["name"]: o for o in spec.get("options", [])}
 
 
@@ -864,7 +864,7 @@ def test_retarget_has_no_rename_scope_options() -> None:
 
 
 def test_config_schema_declares_string_forms() -> None:
-    refactor = _schema("deterministic-refactor")["properties"]["refactor"]["properties"]
+    refactor = _schema("trmv")["properties"]["refactor"]["properties"]
     assert refactor["string_forms"]["type"] == "array"
     assert refactor["string_forms"]["items"] == {"type": "string"}
     assert refactor["string_forms"]["default"] == []
@@ -875,7 +875,7 @@ LOCATORS = ["--offset", "--line", "--symbol"]
 
 @pytest.mark.parametrize("subcommand", ["rename", "move-symbol", "retarget"])
 def test_locators_are_one_exclusive_group(subcommand: str) -> None:
-    spec = _shared_yaml("cli.yaml")["commands"]["dr-refactor"]["subcommands"][subcommand]
+    spec = _shared_yaml("cli.yaml")["commands"]["trmv-refactor"]["subcommands"][subcommand]
     options = _subcommand_options(subcommand)
     assert "--name" not in options
     assert options["--symbol"]["type"] == "string"
@@ -883,7 +883,7 @@ def test_locators_are_one_exclusive_group(subcommand: str) -> None:
 
 
 def test_rename_map_takes_renames_options_minus_the_locators() -> None:
-    spec = _shared_yaml("cli.yaml")["commands"]["dr-refactor"]["subcommands"]["rename-map"]
+    spec = _shared_yaml("cli.yaml")["commands"]["trmv-refactor"]["subcommands"]["rename-map"]
     assert [p["name"] for p in spec["positionals"]] == ["map"]
     expected = set(_subcommand_options("rename")) - {"--file", *LOCATORS, "--col", "--new-name"}
     assert set(_subcommand_options("rename-map")) == expected
@@ -897,14 +897,14 @@ def test_retarget_options() -> None:
 
 
 def test_compliance_attr_is_repeatable() -> None:
-    assert _option("dr-compliance", "--attr").get("repeatable") is True
+    assert _option("trmv-compliance", "--attr").get("repeatable") is True
 
 
 def test_mock_lint_is_a_parsed_command_with_a_base() -> None:
-    spec = _shared_yaml("cli.yaml")["commands"]["dr-mock-lint"]
+    spec = _shared_yaml("cli.yaml")["commands"]["trmv-mock-lint"]
     assert not spec.get("passthrough")
     assert spec["positionals"] == [{"name": "paths", "nargs": "+", "help": spec["positionals"][0]["help"]}]
-    assert _option("dr-mock-lint", "--base")["type"] == "string"
+    assert _option("trmv-mock-lint", "--base")["type"] == "string"
 
 
 def test_manifest_exclusive_names_options_of_its_command() -> None:
@@ -965,7 +965,7 @@ def test_rename_map_schema_rejects(document: object) -> None:
 
 
 def test_refactor_prose_extensions() -> None:
-    assert _shared_yaml("cli.yaml")["commands"]["dr-refactor"]["prose_extensions"] == [".md", ".rst", ".txt"]
+    assert _shared_yaml("cli.yaml")["commands"]["trmv-refactor"]["prose_extensions"] == [".md", ".rst", ".txt"]
 
 
 def test_attr_blindspot_is_a_check_of_both_languages() -> None:
@@ -1042,7 +1042,7 @@ def test_manifest_declares_la_typecheck() -> None:
 FORMAT_EXEMPT = {
     "la-arch-migrate",
     "la-doctor",
-    "dr-doctor",
+    "trmv-doctor",
     "la-fetch-coderabbit-threads",
     "la-reply-invalid-coderabbit",
     "la-reply-to-pr-thread",

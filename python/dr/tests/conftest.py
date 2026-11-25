@@ -8,7 +8,7 @@ import pytest
 from rope.refactor import patchedast
 
 import project_files
-from deterministic_refactor.lang.language_server import LanguageServer
+from trmv.lang.language_server import LanguageServer
 
 
 def pytest_configure(config: pytest.Config) -> None:

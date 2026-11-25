@@ -13,11 +13,11 @@ from typing import Any
 
 import pytest
 
-from deterministic_refactor.cli.dr_compliance import dr_compliance
-from deterministic_refactor.contract import language
-from deterministic_refactor.lang import LanguageServer
 from project_files import file_tree, write_project
 from refactor_cli import run_raw
+from trmv.cli.trmv_compliance import trmv_compliance
+from trmv.contract import language
+from trmv.lang import LanguageServer
 
 MODELS = """class Store:
     def get_model(self) -> int:
@@ -337,7 +337,7 @@ def test_attr_reuses_its_index_until_a_source_changes(
         exports = Exports()
         with monkeypatch.context() as patched:
             exports.install(patched)
-            code = dr_compliance(argv)
+            code = trmv_compliance(argv)
         outputs.append((code, capsys.readouterr(), exports.count))
     assert [count for *_, count in outputs] == [1, 0, 1]
     assert outputs[0][:2] == outputs[1][:2] == outputs[2][:2]

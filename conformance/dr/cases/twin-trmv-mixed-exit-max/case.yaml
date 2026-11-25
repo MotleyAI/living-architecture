@@ -2,9 +2,9 @@ kind: neutral
 languages:
 - python
 - typescript
-fixture: dr-mixed
+fixture: trmv-mixed
 golden: manual
-command: dr-compliance
+command: trmv-compliance
 args:
 - src/clean.py
 - src/b.ts

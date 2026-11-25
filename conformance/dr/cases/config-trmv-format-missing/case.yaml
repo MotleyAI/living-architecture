@@ -1,8 +1,8 @@
 kind: neutral
-command: dr-config
+command: trmv-config
 args:
 - show
 expect:
   exit: 2
-note: 'a dr file without format: names the line to add'
+note: 'a trmv file without format: names the line to add'
 golden: manual

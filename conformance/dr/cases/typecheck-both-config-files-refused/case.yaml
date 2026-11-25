@@ -2,7 +2,7 @@ kind: adapter
 languages:
 - python
 fixture: typecheck-python
-command: dr-typecheck
+command: trmv-typecheck
 expect:
   exit: 2
 note: 'both config files: refused before the format check, nothing else printed'

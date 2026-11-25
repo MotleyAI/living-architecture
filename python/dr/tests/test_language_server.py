@@ -13,7 +13,8 @@ from typing import IO, cast
 
 import pytest
 
-from deterministic_refactor.lang import (
+from project_files import file_tree
+from trmv.lang import (
     PYRIGHT_EXPORT_PRELOAD,
     PYRIGHT_PATCH_PRELOAD,
     ExportRequest,
@@ -23,7 +24,6 @@ from deterministic_refactor.lang import (
     Span,
     utf16_index,
 )
-from project_files import file_tree
 
 FAKE = Path(__file__).with_name("fake_lsp_server.py")
 

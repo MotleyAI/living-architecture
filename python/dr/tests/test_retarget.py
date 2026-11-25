@@ -1,4 +1,4 @@
-"""Python `dr-refactor retarget`: references to an alias are rewritten to name its target; the alias stays."""
+"""Python `trmv-refactor retarget`: references to an alias are rewritten to name its target; the alias stays."""
 
 from __future__ import annotations
 
@@ -7,9 +7,9 @@ from pathlib import Path
 import pytest
 import yaml
 
-from deterministic_refactor.contract import message
 from project_files import file_tree, write_project
 from refactor_cli import entry_refusal, read, run
+from trmv.contract import message
 
 ENGINE = """\
 class Engine:

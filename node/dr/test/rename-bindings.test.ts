@@ -1,4 +1,4 @@
-// dr-refactor rename keeps every reference's binding: identity by declaration set, per-meaning resolution, check order.
+// trmv-refactor rename keeps every reference's binding: identity by declaration set, per-meaning resolution, check order.
 import { describe, expect, it } from 'vitest';
 import { message } from '../src/contract/index.js';
 import { identifierText } from '../src/refactor/bindings.js';

@@ -1,11 +1,11 @@
 kind: neutral
 twin: python
 command: la-doctor
-hide: [dr-doctor]
+hide: [trmv-doctor]
 normalize:
 - version
 expect:
   exit: 1
-note: 'no dr-doctor on PATH: one finding naming it and the python twin''s la install command, which installs the dr
+note: 'no trmv-doctor on PATH: one finding naming it and the python twin''s la install command, which installs the trmv
   commands too'
 golden: manual

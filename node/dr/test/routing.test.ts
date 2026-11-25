@@ -1,4 +1,4 @@
-// dr-* directory expansion: excluded directory names count from the repo root down.
+// trmv-* directory expansion: excluded directory names count from the repo root down.
 import { execFileSync } from 'node:child_process';
 import { chmodSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -36,12 +36,12 @@ describe('split', () => {
 
   it('an excluded ancestor outside the repo does not count', () => {
     const repo = repoUnderNodeModules();
-    expect(split('dr-compliance', [join(repo, 'src')])).toEqual(new Map([['typescript', [join(repo, 'src', 'a.ts')]]]));
+    expect(split('trmv-compliance', [join(repo, 'src')])).toEqual(new Map([['typescript', [join(repo, 'src', 'a.ts')]]]));
   });
 
   it('a requested directory inside an excluded one expands to nothing', () => {
     const repo = repoUnderNodeModules();
-    expect(split('dr-compliance', [join(repo, 'node_modules', 'dep')])).toEqual(new Map());
+    expect(split('trmv-compliance', [join(repo, 'node_modules', 'dep')])).toEqual(new Map());
   });
 
   it('a directory inside an excluded one is not walked', () => {
@@ -49,7 +49,7 @@ describe('split', () => {
     const dep = join(repo, 'node_modules', 'dep');
     listed.length = 0;
     const dest = join(repo, 'src');
-    split('dr-compliance', [dep]);
+    split('trmv-compliance', [dep]);
     expect(() => refactorLanguage('move-module', dep, dest, repo)).toThrow(RoutingError);
     expect(listed.filter((path) => path.startsWith(dep))).toEqual([]);
   });
@@ -60,7 +60,7 @@ describe('split', () => {
     mkdirSync(locked);
     chmodSync(locked, 0o000);
     try {
-      expect(split('dr-compliance', [join(repo, 'src')])).toEqual(new Map([['typescript', [join(repo, 'src', 'a.ts')]]]));
+      expect(split('trmv-compliance', [join(repo, 'src')])).toEqual(new Map([['typescript', [join(repo, 'src', 'a.ts')]]]));
     } finally {
       chmodSync(locked, 0o755);
     }

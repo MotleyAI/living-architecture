@@ -2,11 +2,11 @@ kind: neutral
 languages:
 - python
 - typescript
-fixture: dr-mixed
+fixture: trmv-mixed
 golden: manual
 twin: python
 other_twin: absent
-command: dr-refactor
+command: trmv-refactor
 args:
 - --project
 - ..
@@ -21,13 +21,13 @@ cwd: web
 bins:
 - dir: npm-twin
   files:
-    dr-doctor: |
+    trmv-doctor: |
       #!/bin/sh
-      [ "$*" = "--twin" ] || { echo "fake dr-doctor: unexpected $*" >&2; exit 99; }
+      [ "$*" = "--twin" ] || { echo "fake trmv-doctor: unexpected $*" >&2; exit 99; }
       echo "typescript <VERSION> <CONTRACT_HASH>"
-    dr-refactor: |
+    trmv-refactor: |
       #!/bin/sh
-      echo "npm-twin: dr-refactor pwd=$(pwd) forwarded=$LA_FORWARDED args=$*" >> <ROOT>/repo/probe.log
+      echo "npm-twin: trmv-refactor pwd=$(pwd) forwarded=$LA_FORWARDED args=$*" >> <ROOT>/repo/probe.log
       echo "fake npm twin: renamed"
 expect:
   exit: 0

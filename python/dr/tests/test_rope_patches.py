@@ -10,7 +10,7 @@ import pytest
 from rope.base import codeanalyze, pyscopes, simplify, worder
 from rope.refactor import patchedast
 
-from deterministic_refactor.refactor import rope_patches
+from trmv.refactor import rope_patches
 
 PY312 = pytest.mark.skipif(sys.version_info < (3, 12), reason="PEP 695 / PEP 701 syntax")
 PY313 = pytest.mark.skipif(sys.version_info < (3, 13), reason="PEP 696 type parameter defaults")
@@ -236,7 +236,7 @@ except Exception:
     print("crash")
 else:
     # Imported only after the walk: importing the package applies the patches.
-    from deterministic_refactor.refactor.rope_patches import coverage_violations
+    from trmv.refactor.rope_patches import coverage_violations
 
     print("gap" if coverage_violations(tree, source) else "clean")
 """
@@ -371,7 +371,7 @@ def test_stdlib_is_walked_fully(path: Path) -> None:
 
 @pytest.mark.parametrize(
     "path",
-    [path for member in ("dr", "la") for part in ("src", "tests") for path in _python_files(WORKSPACE / member / part)],
+    [path for member in ("trmv", "la") for part in ("src", "tests") for path in _python_files(WORKSPACE / member / part)],
     ids=lambda p: p.relative_to(WORKSPACE).as_posix(),
 )
 def test_this_repo_is_walked_fully(path: Path) -> None:

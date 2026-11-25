@@ -1,7 +1,7 @@
 kind: adapter
 languages:
 - typescript
-command: dr-typecheck
+command: trmv-typecheck
 chmod:
   checker: '0755'
 expect:

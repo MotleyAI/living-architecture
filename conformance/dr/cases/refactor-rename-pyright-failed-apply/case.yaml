@@ -2,7 +2,7 @@ kind: adapter
 languages:
 - python
 twin: python
-command: dr-refactor
+command: trmv-refactor
 args:
 - --apply
 - rename

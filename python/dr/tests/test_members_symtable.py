@@ -10,8 +10,8 @@ from pathlib import Path
 
 import pytest
 
-from deterministic_refactor.refactor.members import member_declarations
-from deterministic_refactor.refactor.python_source import SourceFile
+from trmv.refactor.members import member_declarations
+from trmv.refactor.python_source import SourceFile
 
 FORMS = {
     "def": "def save_model(self) -> None: ...",

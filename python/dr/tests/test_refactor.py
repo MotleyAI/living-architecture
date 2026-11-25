@@ -6,11 +6,11 @@ from pathlib import Path
 import pytest
 from rope.refactor import patchedast
 
-from deterministic_refactor.cli.dr_refactor import dr_refactor as main
-from deterministic_refactor.contract import message
-from deterministic_refactor.refactor.rope_refactor import RefactorError, _offset_from_line_col
 from project_files import file_tree
 from refactor_cli import entry_refusal, readouterr
+from trmv.cli.trmv_refactor import trmv_refactor as main
+from trmv.contract import message
+from trmv.refactor.rope_refactor import RefactorError, _offset_from_line_col
 
 
 @pytest.fixture

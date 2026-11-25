@@ -2,7 +2,7 @@ kind: adapter
 languages:
 - python
 twin: typescript
-command: dr-refactor
+command: trmv-refactor
 args:
 - --timings
 - rename

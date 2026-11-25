@@ -1,2 +1,2 @@
-npx -y -p deterministic-refactor@<VERSION> dr-doctor --twin
-npx -y -p deterministic-refactor@<VERSION> dr-refactor (forwarded)
+npx -y -p type-rename-move@<VERSION> trmv-doctor --twin
+npx -y -p type-rename-move@<VERSION> trmv-refactor (forwarded)

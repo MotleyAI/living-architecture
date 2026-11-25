@@ -1,4 +1,4 @@
-// dr-refactor rename-map is routed by its entries' files: another language's map goes to its twin with the raw argv.
+// trmv-refactor rename-map is routed by its entries' files: another language's map goes to its twin with the raw argv.
 import { chmodSync, realpathSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
@@ -13,14 +13,14 @@ describe('rename-map routing', () => {
     const root = tsProject({ 'pkg/a.py': 'def f() -> None:\n    pass\n', 'map.yaml': mapYaml([{ file: 'pkg/a.py', symbol: 'f', new_name: 'g' }]) });
     const argv = ['--apply', 'rename-map', 'map.yaml', '--docs'];
     expect(refactor(root, ...argv)).toEqual({ code: 7, out: '', err: '' });
-    expect(vi.mocked(twin.forward)).toHaveBeenCalledWith('dr-refactor', 'python', argv, realpathSync(root));
+    expect(vi.mocked(twin.forward)).toHaveBeenCalledWith('trmv-refactor', 'python', argv, realpathSync(root));
   });
 
   it('hands a map whose module entry is Python to the Python twin with the raw argv', () => {
     const root = tsProject({ 'pkg/a.py': 'X = 1\n', 'map.yaml': mapYaml([{ module: 'pkg/a.py', new_name: 'b' }]) });
     const argv = ['rename-map', 'map.yaml'];
     expect(refactor(root, ...argv)).toEqual({ code: 7, out: '', err: '' });
-    expect(vi.mocked(twin.forward)).toHaveBeenCalledWith('dr-refactor', 'python', argv, realpathSync(root));
+    expect(vi.mocked(twin.forward)).toHaveBeenCalledWith('trmv-refactor', 'python', argv, realpathSync(root));
   });
 
   it('takes a module entry\'s language from its path', () => {

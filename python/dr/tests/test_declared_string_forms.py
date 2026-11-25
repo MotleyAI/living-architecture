@@ -7,8 +7,8 @@ from pathlib import Path
 import pytest
 import yaml
 
-from deterministic_refactor.config import ConfigError, load_config
 from refactor_cli import git_project, leftover, read, rename_argv, run
+from trmv.config import ConfigError, load_config
 
 FORMS = [r"NODE TABLE (\w+)", r"\(\w*:(\w+)\)"]
 CONFIG = "refactor:\n  string_forms:\n" + "".join(f"  - '{form}'\n" for form in FORMS)
@@ -243,7 +243,7 @@ def test_an_escaped_parenthesis_is_not_a_group(tmp_path: Path) -> None:
     assert len(load_config(tmp_path).refactor.string_forms) == 2
 
 
-def test_dr_refactor_exits_2_on_an_invalid_form(forms) -> None:
+def test_trmv_refactor_exits_2_on_an_invalid_form(forms) -> None:
     root, (code, out, err) = forms({"pkg/g.py": MODEL + FIND}, config="refactor:\n  string_forms: ['(a)(b)']\n")
     assert (code, out) == (2, "")
     assert "refactor.string_forms" in err

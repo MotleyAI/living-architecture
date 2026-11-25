@@ -5,9 +5,9 @@ specification {
 
 model {
   typescript = system 'TypeScript' {
-    dr = node 'dr' {
+    trmv = node 'trmv' {
       metadata {
-        package 'dr/src'
+        package 'trmv/src'
       }
       core = node 'Core'
     }
@@ -17,6 +17,6 @@ model {
       }
     }
 
-    la -> dr
+    la -> trmv
   }
 }

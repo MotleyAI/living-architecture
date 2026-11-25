@@ -11,12 +11,12 @@ from pathlib import Path
 
 import pytest
 
-from deterministic_refactor.contract import message
-from deterministic_refactor.refactor import bindings
-from deterministic_refactor.refactor.bindings import BindingCheck, Conflict, EntryEdits
-from deterministic_refactor.refactor.locators import RefactorError
-from deterministic_refactor.refactor.python_source import SourceFile
-from deterministic_refactor.refactor.text_edits import TextEdit, apply_edits
+from trmv.contract import message
+from trmv.refactor import bindings
+from trmv.refactor.bindings import BindingCheck, Conflict, EntryEdits
+from trmv.refactor.locators import RefactorError
+from trmv.refactor.python_source import SourceFile
+from trmv.refactor.text_edits import TextEdit, apply_edits
 
 NEW = "fresh"
 

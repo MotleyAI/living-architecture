@@ -5,9 +5,6 @@ import re
 
 import pytest
 
-from deterministic_refactor.contract import canonical_repr, language, normalize, render_template
-from deterministic_refactor.contract import findings as dr_findings
-from deterministic_refactor.contract import manifest as dr_manifest
 from living_architecture.contract import (
     config_file,
     local_config_file,
@@ -17,6 +14,9 @@ from living_architecture.contract import (
     script_path,
     validate,
 )
+from trmv.contract import canonical_repr, language, normalize, render_template
+from trmv.contract import findings as trmv_findings
+from trmv.contract import manifest as trmv_manifest
 
 
 def test_normalize_maps_yaml_extras_onto_normalized_types() -> None:
@@ -95,14 +95,14 @@ def test_typescript_language_facts() -> None:
 @pytest.mark.parametrize(
     ("name", "package", "runner", "install"),
     [
-        ("python", "deterministic-refactor", "uvx --from deterministic-refactor==0.2.1",
-         "uv tool install deterministic-refactor==0.2.1"),
+        ("python", "type-rename-move", "uvx --from type-rename-move==0.2.1",
+         "uv tool install type-rename-move==0.2.1"),
         ("python", "living-architecture", "uvx --from living-architecture==0.2.1",
-         "uv tool install living-architecture==0.2.1 --with-executables-from deterministic-refactor"),
-        ("typescript", "deterministic-refactor", "npx -y -p deterministic-refactor@0.2.1",
-         "npm install -g deterministic-refactor@0.2.1"),
+         "uv tool install living-architecture==0.2.1 --with-executables-from type-rename-move"),
+        ("typescript", "type-rename-move", "npx -y -p type-rename-move@0.2.1",
+         "npm install -g type-rename-move@0.2.1"),
         ("typescript", "living-architecture", "npx -y -p living-architecture@0.2.1",
-         "npm install -g living-architecture@0.2.1 deterministic-refactor@0.2.1"),
+         "npm install -g living-architecture@0.2.1 type-rename-move@0.2.1"),
     ],
 )
 def test_twin_runner_and_install_commands(name: str, package: str, runner: str, install: str) -> None:
@@ -164,7 +164,7 @@ def test_name_class_values_are_slots_and_match_args_with_their_shapes() -> None:
 
 
 def _placeholders(template_id: str) -> set[str]:
-    return set(re.findall(r"\{([a-z_]+)(?:!r)?\}", dr_findings().get(template_id, "")))
+    return set(re.findall(r"\{([a-z_]+)(?:!r)?\}", trmv_findings().get(template_id, "")))
 
 
 @pytest.mark.parametrize(
@@ -177,7 +177,7 @@ def _placeholders(template_id: str) -> set[str]:
     ],
 )
 def test_string_named_member_templates_take_their_placeholders(template_id: str, placeholders: set[str]) -> None:
-    assert template_id in dr_findings()
+    assert template_id in trmv_findings()
     assert _placeholders(template_id) == placeholders
 
 
@@ -204,15 +204,15 @@ SITE = {"path": "pkg/m.py", "receiver": "x", "type": "Any", "attr": "columns"}
 def test_string_named_member_templates_render_the_approved_lines(
     template_id: str, values: dict[str, object], rendered: str
 ) -> None:
-    assert template_id in dr_findings()
+    assert template_id in trmv_findings()
     assert message(template_id, **values) == rendered
 
 
 def test_the_new_kinds_are_printed_after_path_and_line() -> None:
-    kinds = {m.group(1) for text in dr_findings().values() if (m := re.match(r"\{path\}:\{line\}: ([a-z-]+):", text))}
+    kinds = {m.group(1) for text in trmv_findings().values() if (m := re.match(r"\{path\}:\{line\}: ([a-z-]+):", text))}
     assert {"string-blindspot", "unverified-read"} <= kinds
 
 
 def test_attr_help_names_both_attribute_checks() -> None:
-    [option] = [o for o in dr_manifest()["dr-compliance"]["options"] if o["name"] == "--attr"]
+    [option] = [o for o in trmv_manifest()["trmv-compliance"]["options"] if o["name"] == "--attr"]
     assert {"attr-blindspot", "string-blindspot"} <= set(re.findall(r"[a-z]+-[a-z]+", option["help"]))

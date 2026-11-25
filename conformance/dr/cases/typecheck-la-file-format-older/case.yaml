@@ -2,8 +2,8 @@ kind: adapter
 languages:
 - python
 fixture: typecheck-python
-command: dr-typecheck
+command: trmv-typecheck
 expect:
   exit: 2
-note: dr-typecheck in an la repo checks living-architecture.yaml's format
+note: trmv-typecheck in an la repo checks living-architecture.yaml's format
 golden: manual

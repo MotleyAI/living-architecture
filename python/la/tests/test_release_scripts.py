@@ -6,10 +6,10 @@ import pytest
 
 TOOL = "python/la/src/living_architecture/__init__.py"
 MANIFESTS = [
-    "python/dr/pyproject.toml", "python/la/pyproject.toml", "python/uv.lock", "node/dr/package.json",
+    "python/trmv/pyproject.toml", "python/la/pyproject.toml", "python/uv.lock", "node/trmv/package.json",
     "node/la/package.json", "node/package-lock.json",
 ]
-PLUGINS = ["plugin/dr/.claude-plugin/plugin.json", "plugin/la/.claude-plugin/plugin.json"]
+PLUGINS = ["plugin/trmv/.claude-plugin/plugin.json", "plugin/la/.claude-plugin/plugin.json"]
 
 
 def _accepted(proc: subprocess.CompletedProcess[str]) -> None:
@@ -154,12 +154,12 @@ def test_differing_contract_hashes_are_refused(release_repo) -> None:
 
 # ---- a release that changes a file's released formats appends exactly its own version
 
-CONFIG = "shared/dr/config.yaml"
+CONFIG = "shared/trmv/config.yaml"
 OLD_CONFIG = "shared/config.yaml"
 
 
 def _config(la: str) -> str:
-    """shared/dr/config.yaml whose only formats entry is living-architecture.yaml's `la`."""
+    """shared/trmv/config.yaml whose only formats entry is living-architecture.yaml's `la`."""
     return f"files: [living-architecture.yaml]\nformats:\n  living-architecture.yaml: {la}\n"
 
 

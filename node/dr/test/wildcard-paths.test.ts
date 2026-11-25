@@ -1,4 +1,4 @@
-// dr-refactor wildcard symbol paths: `*.<locals>.NAME` and `Scope.*.<locals>.NAME` name every local of a name (TypeScript).
+// trmv-refactor wildcard symbol paths: `*.<locals>.NAME` and `Scope.*.<locals>.NAME` name every local of a name (TypeScript).
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';

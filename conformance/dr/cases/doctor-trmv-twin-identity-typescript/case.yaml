@@ -1,9 +1,9 @@
 kind: neutral
 twin: typescript
-command: dr-doctor
+command: trmv-doctor
 args: [--twin]
-normalize: [version, dr_contract_hash]
+normalize: [version, trmv_contract_hash]
 expect:
   exit: 0
 golden: manual
-note: dr-doctor --twin prints the typescript dr twin's language, version and dr contract hash
+note: trmv-doctor --twin prints the typescript trmv twin's language, version and trmv contract hash

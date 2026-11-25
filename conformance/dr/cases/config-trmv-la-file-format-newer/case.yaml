@@ -1,5 +1,5 @@
 kind: neutral
-command: dr-config
+command: trmv-config
 args:
 - get
 - exempt
@@ -8,5 +8,5 @@ normalize:
   replace: \1<FORMAT>
 expect:
   exit: 2
-note: dr-config refuses a newer living-architecture.yaml format with la's text
+note: trmv-config refuses a newer living-architecture.yaml format with la's text
 golden: manual

@@ -2,25 +2,25 @@ kind: neutral
 languages:
 - python
 - typescript
-fixture: dr-mixed
+fixture: trmv-mixed
 golden: manual
 twin: typescript
 other_twin: absent
-command: dr-compliance
+command: trmv-compliance
 args:
 - src/a.py
 - src/b.ts
 bins:
 - dir: other-twin
   files:
-    dr-doctor: |
+    trmv-doctor: |
       #!/bin/sh
       echo "python <VERSION> <CONTRACT_HASH>"
-    dr-compliance: |
+    trmv-compliance: |
       #!/bin/sh
       exit 0
   nonexec:
-  - dr-compliance
+  - trmv-compliance
 expect:
   exit: 2
-note: 'the other twin qualifies but cannot run dr-compliance: a twin error, exit 2, nothing on stdout'
+note: 'the other twin qualifies but cannot run trmv-compliance: a twin error, exit 2, nothing on stdout'

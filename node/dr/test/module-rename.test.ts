@@ -182,8 +182,8 @@ describe('mock module paths from the shared facts', () => {
   });
 });
 
-describe('dr-mock-lint reads the factory-taking calls from the shared facts', () => {
-  const lint = (root: string, ...argv: string[]): Run => run(root, 'dr-mock-lint', argv);
+describe('trmv-mock-lint reads the factory-taking calls from the shared facts', () => {
+  const lint = (root: string, ...argv: string[]): Run => run(root, 'trmv-mock-lint', argv);
   const project = (test: string): string => tsProject({ 'tsconfig.json': TEST_TSCONFIG, 'src/api.ts': API, 'test/m.test.ts': test });
 
   it.each(MODULE_CALLS.filter((c) => c.factory !== undefined).map(({ call }) => call))('an untyped factory of vi.%s is a finding', (call) => {

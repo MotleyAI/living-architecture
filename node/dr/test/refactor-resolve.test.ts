@@ -1,4 +1,4 @@
-// dr-refactor's resolve and checks phases search no references: a run refused in checks made no rename search.
+// trmv-refactor's resolve and checks phases search no references: a run refused in checks made no rename search.
 import type * as TS from 'typescript';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { refactorRaw, tsProject } from './refactor-project.js';
@@ -33,7 +33,7 @@ afterEach(() => {
   searches.count = 0;
 });
 
-describe('dr-refactor resolve', () => {
+describe('trmv-refactor resolve', () => {
   it('resolves a re-export retarget without a reference search', () => {
     const root = tsProject({
       'src/core.ts': 'export class Model {}\n',

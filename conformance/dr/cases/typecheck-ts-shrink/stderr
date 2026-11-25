@@ -1,2 +1,2 @@
-dr-typecheck: checking typescript with tsc --noEmit
-dr-typecheck: typescript: 2 fixed error(s) removed from .tsc-baseline.json
+trmv-typecheck: checking typescript with tsc --noEmit
+trmv-typecheck: typescript: 2 fixed error(s) removed from .tsc-baseline.json

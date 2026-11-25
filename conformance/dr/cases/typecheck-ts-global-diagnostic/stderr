@@ -1,2 +1,2 @@
-dr-typecheck: checking typescript with tsc --noEmit
-dr-typecheck: typescript: the checker reported an error without a file
+trmv-typecheck: checking typescript with tsc --noEmit
+trmv-typecheck: typescript: the checker reported an error without a file

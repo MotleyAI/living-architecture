@@ -2,11 +2,11 @@ kind: neutral
 languages:
 - python
 - typescript
-fixture: dr-mixed
+fixture: trmv-mixed
 golden: manual
 twin: typescript
 other_twin: absent
-command: dr-refactor
+command: trmv-refactor
 args:
 - rename
 - --file
@@ -18,14 +18,14 @@ args:
 bins:
 - dir: other-twin
   files:
-    dr-doctor: |
+    trmv-doctor: |
       #!/bin/sh
       echo "python <VERSION> <CONTRACT_HASH>"
-    dr-refactor: |
+    trmv-refactor: |
       #!/bin/sh
       exit 0
   nonexec:
-  - dr-refactor
+  - trmv-refactor
 expect:
   exit: 2
-note: 'the other twin qualifies but cannot run dr-refactor: a twin error, exit 2, nothing on stdout'
+note: 'the other twin qualifies but cannot run trmv-refactor: a twin error, exit 2, nothing on stdout'

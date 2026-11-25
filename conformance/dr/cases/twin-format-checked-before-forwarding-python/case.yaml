@@ -2,11 +2,11 @@ kind: neutral
 languages:
 - python
 - typescript
-fixture: dr-mixed
+fixture: trmv-mixed
 golden: manual
 twin: python
 other_twin: absent
-command: dr-compliance
+command: trmv-compliance
 args:
 - src/a.py
 - src/b.ts

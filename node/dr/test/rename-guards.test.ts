@@ -66,7 +66,7 @@ describe('mentions', () => {
 });
 
 describe('file universe', () => {
-  it('a member rename refuses on exactly what dr-compliance reports over the project', () => {
+  it('a member rename refuses on exactly what trmv-compliance reports over the project', () => {
     const loose = 'export function g(o: any): number {\n  return o.getModel();\n}\n';
     const root = tempRepo({
       'tsconfig.json': '{"compilerOptions": {"strict": true}, "include": ["src"]}\n',
@@ -81,7 +81,7 @@ describe('file universe', () => {
     expect(renamed.code).toBe(1);
     const lines = renamed.err.trimEnd().split('\n');
     expect(lines.pop()).toMatch(/^3 blind spot/u);
-    const compliance = run(root, 'dr-compliance', ['--select', 'attr-blindspot', '--attr', 'getModel', '.']);
+    const compliance = run(root, 'trmv-compliance', ['--select', 'attr-blindspot', '--attr', 'getModel', '.']);
     expect(compliance.code).toBe(1);
     expect(lines).toEqual(compliance.out.trimEnd().split('\n'));
   });

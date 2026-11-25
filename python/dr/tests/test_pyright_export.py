@@ -15,10 +15,10 @@ import pytest
 from nodejs_wheel.executable import ROOT_DIR
 from pydantic import BaseModel
 
-from deterministic_refactor import lang
-from deterministic_refactor.contract import language
-from deterministic_refactor.lang import ExportRequest, FactQuery, LanguageServer, OccurrenceIndex
 from project_files import write_project
+from trmv import lang
+from trmv.contract import language
+from trmv.lang import ExportRequest, FactQuery, LanguageServer, OccurrenceIndex
 
 NODE = Path(ROOT_DIR) / "bin" / "node"
 BUNDLED = Path(next(iter(basedpyright.__path__))) / "dist" / "pyright-langserver.js"

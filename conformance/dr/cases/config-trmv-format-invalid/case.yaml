@@ -1,8 +1,8 @@
 kind: neutral
-command: dr-config
+command: trmv-config
 args:
 - show
 expect:
   exit: 2
-note: an invalid dr file format shows the value
+note: an invalid trmv file format shows the value
 golden: manual

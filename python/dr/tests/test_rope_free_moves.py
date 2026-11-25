@@ -13,10 +13,10 @@ from rope.refactor import move as rope_move
 from rope.refactor import occurrences
 from rope.refactor.move import MoveGlobal, MoveMethod, MoveModule
 
-from deterministic_refactor.contract import message
-from deterministic_refactor.refactor import writer
 from project_files import file_tree, write_project
 from refactor_cli import run, run_raw
+from trmv.contract import message
+from trmv.refactor import writer
 
 FILES = {
     "pkg/sql/__init__.py": "",

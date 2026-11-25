@@ -1,1 +1,1 @@
-dr-typecheck: checking typescript with tsc --noEmit
+trmv-typecheck: checking typescript with tsc --noEmit

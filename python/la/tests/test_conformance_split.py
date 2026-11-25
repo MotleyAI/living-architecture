@@ -13,9 +13,9 @@ from test_contract import _produced_ids
 
 REPO_ROOT = next(p for p in Path(__file__).resolve().parents if (p / "shared").is_dir() and (p / "plugin").is_dir())
 CORPUS = REPO_ROOT / "conformance"
-PACKAGES = ("dr", "la")
+PACKAGES = ("trmv", "la")
 UNPRODUCED_BY_DESIGN = {
-    "dr": {"refactor.conflicting-edits", "refactor.rope-walk", "compliance.rope-walk", "refactor.file-changed"},
+    "trmv": {"refactor.conflicting-edits", "refactor.rope-walk", "compliance.rope-walk", "refactor.file-changed"},
     "la": {"arch-migrate.rollback-failed"},
 }
 
@@ -33,7 +33,7 @@ def _case(case_dir: Path) -> dict[str, Any]:
 
 
 def test_corpus_holds_the_two_trees_and_the_shared_fixtures() -> None:
-    assert sorted(p.name for p in CORPUS.iterdir() if p.is_dir()) == ["dr", "fixtures", "la"]
+    assert sorted(p.name for p in CORPUS.iterdir() if p.is_dir()) == ["fixtures", "la", "trmv"]
     for package in PACKAGES:
         assert _cases(package), package
         assert (CORPUS / package / "INVENTORY.md").is_file(), package
@@ -49,8 +49,8 @@ def test_inventory_lists_exactly_its_trees_cases(package: str) -> None:
 
 
 def test_case_ids_are_unique_across_the_trees() -> None:
-    dr, la = ({p.name for p in _cases(package)} for package in PACKAGES)
-    assert dr & la == set()
+    trmv, la = ({p.name for p in _cases(package)} for package in PACKAGES)
+    assert trmv & la == set()
 
 
 @pytest.mark.parametrize("package", PACKAGES)

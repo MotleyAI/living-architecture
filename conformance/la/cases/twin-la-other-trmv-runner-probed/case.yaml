@@ -25,7 +25,7 @@ bins:
       case "$*" in
         "-y -p living-architecture@<VERSION> la-doctor --twin")
           echo "npx $*" >> <ROOT>/repo/probe.log
-          echo "typescript <VERSION> <CONTRACT_HASH> <DR_CONTRACT_HASH>"
+          echo "typescript <VERSION> <CONTRACT_HASH> <TRMV_CONTRACT_HASH>"
           exit 0 ;;
         "-y -p living-architecture@<VERSION> la-arch-check "*)
           shift 4
@@ -58,5 +58,5 @@ expect:
   exit: 0
   files: [probe.log]
 golden: manual
-note: 'the only npm la twin on PATH has la''s version and la hash but another dr hash: skipped, npx probed, then serves
+note: 'the only npm la twin on PATH has la''s version and la hash but another trmv hash: skipped, npx probed, then serves
   the TypeScript facts'

@@ -1,4 +1,4 @@
-"""Python `dr-refactor rename`: rope's edits plus every reference basedpyright resolves."""
+"""Python `trmv-refactor rename`: rope's edits plus every reference basedpyright resolves."""
 
 from __future__ import annotations
 
@@ -7,12 +7,12 @@ from pathlib import Path
 
 import pytest
 
-from deterministic_refactor.cli.dr_refactor import dr_refactor
-from deterministic_refactor.contract import message
-from deterministic_refactor.lang import ExportRequest, LanguageServer, LanguageServerError, OccurrenceIndex
-from deterministic_refactor.refactor.rename_union import Session
 from project_files import file_tree, write_project
 from refactor_cli import readouterr
+from trmv.cli.trmv_refactor import trmv_refactor
+from trmv.contract import message
+from trmv.lang import ExportRequest, LanguageServer, LanguageServerError, OccurrenceIndex
+from trmv.refactor.rename_union import Session
 
 MakeProject = Callable[..., Path]
 BROKEN_NODE = "--require /nonexistent.js"
@@ -48,7 +48,7 @@ HIERARCHY = (
 
 def _rename(root: Path, rel: str, new_name: str, *locator: str, apply: bool = True) -> int:
     flags = ["--apply"] if apply else []
-    return dr_refactor(["--project", str(root), *flags, "rename", "--file", str(root / rel), *locator,
+    return trmv_refactor(["--project", str(root), *flags, "rename", "--file", str(root / rel), *locator,
                         "--new-name", new_name])
 
 

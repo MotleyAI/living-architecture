@@ -1,1 +1,1 @@
-ok: dr tools <VERSION>; config from deterministic-refactor.yaml
+ok: trmv tools <VERSION>; config from trmv.yaml

@@ -2,8 +2,8 @@ from pathlib import Path
 
 import pytest
 
-from deterministic_refactor.cli.dr_mock_lint import dr_mock_lint as main
-from deterministic_refactor.refactor.mock_spec_lint import check_file
+from trmv.cli.trmv_mock_lint import trmv_mock_lint as main
+from trmv.refactor.mock_spec_lint import check_file
 
 
 def _lint(tmp_path: Path, source: str) -> list[str]:

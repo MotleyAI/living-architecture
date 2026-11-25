@@ -1,4 +1,4 @@
-// dr-typecheck's neutral pieces (command splitting, exit combination, applicability) and the tsc diagnostic grammar.
+// trmv-typecheck's neutral pieces (command splitting, exit combination, applicability) and the tsc diagnostic grammar.
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { delimiter, join } from 'node:path';
@@ -97,15 +97,15 @@ describe('applicable languages', () => {
 
   it('a tsconfig.json and a TS file make TypeScript apply; a missing baseline counts as empty', () => {
     const root = tempRepo({ 'tsconfig.json': '{}', 'src/a.ts': 'export {};\n', 'node_modules/.bin/tsc': FAKE_TSC });
-    expect(run(root, 'dr-typecheck', []).code).toBe(0);
+    expect(run(root, 'trmv-typecheck', []).code).toBe(0);
     expect(tscCalls(root)).toEqual(['--noEmit --pretty false']);
   });
 
   it('TS files without a tsconfig.json check nothing', () => {
     const root = tempRepo({ 'src/a.ts': 'export {};\n', 'node_modules/.bin/tsc': FAKE_TSC });
-    const { code, err } = run(root, 'dr-typecheck', []);
+    const { code, err } = run(root, 'trmv-typecheck', []);
     expect(code).toBe(0);
-    expect(err).toContain('dr-typecheck: nothing to check');
+    expect(err).toContain('trmv-typecheck: nothing to check');
     expect(tscCalls(root)).toEqual([]);
   });
 
@@ -116,7 +116,7 @@ describe('applicable languages', () => {
       'living-architecture.yaml': `format: ${currentFormat('living-architecture.yaml')}\ncommands: {typecheck: {typescript: null}}\n`,
       'node_modules/.bin/tsc': FAKE_TSC,
     });
-    expect(run(root, 'dr-typecheck', []).code).toBe(0);
+    expect(run(root, 'trmv-typecheck', []).code).toBe(0);
     expect(tscCalls(root)).toEqual([]);
   });
 
@@ -125,7 +125,7 @@ describe('applicable languages', () => {
       'living-architecture.yaml': `format: ${currentFormat('living-architecture.yaml')}\ncommands: {typecheck: {typescript: 'tsc -p web'}}\n`,
       'node_modules/.bin/tsc': FAKE_TSC,
     });
-    expect(run(root, 'dr-typecheck', []).code).toBe(0);
+    expect(run(root, 'trmv-typecheck', []).code).toBe(0);
     expect(tscCalls(root)).toEqual(['-p web --pretty false']);
   });
 
@@ -136,7 +136,7 @@ describe('applicable languages', () => {
       'living-architecture.yaml': `format: ${currentFormat('living-architecture.yaml')}\nexempt: ['gen/*']\n`,
       'node_modules/.bin/tsc': FAKE_TSC,
     });
-    expect(run(root, 'dr-typecheck', []).code).toBe(0);
+    expect(run(root, 'trmv-typecheck', []).code).toBe(0);
     expect(tscCalls(root)).toEqual([]);
   });
 });
@@ -153,13 +153,13 @@ describe('--realign-from', () => {
     return root;
   }
 
-  /** A Python repo and, first on PATH, a PyPI twin whose `dr-typecheck` logs its arguments and exits `code`. */
+  /** A Python repo and, first on PATH, a PyPI twin whose `trmv-typecheck` logs its arguments and exits `code`. */
   function pythonRepo(code: number): string {
     const root = tempRepo({
       'pyproject.toml': '',
       'a.py': 'X = 1\n',
-      'twin/bin/dr-doctor': `#!/bin/sh\necho 'python ${VERSION} ${contractHash()}'\n`,
-      'twin/bin/dr-typecheck': `#!/bin/sh\necho "$*" >> "$(dirname "$0")/../../twin.log"\nexit ${code}\n`,
+      'twin/bin/trmv-doctor': `#!/bin/sh\necho 'python ${VERSION} ${contractHash()}'\n`,
+      'twin/bin/trmv-typecheck': `#!/bin/sh\necho "$*" >> "$(dirname "$0")/../../twin.log"\nexit ${code}\n`,
     });
     vi.stubEnv('PATH', [join(root, 'twin', 'bin'), process.env.PATH ?? ''].join(delimiter));
     return root;
@@ -169,8 +169,8 @@ describe('--realign-from', () => {
 
   it('checks TypeScript as without the option', () => {
     const root = commit(tempRepo(TS_REPO));
-    const plain = run(root, 'dr-typecheck', []);
-    expect(run(root, 'dr-typecheck', ['--realign-from', 'HEAD'])).toEqual(plain);
+    const plain = run(root, 'trmv-typecheck', []);
+    expect(run(root, 'trmv-typecheck', ['--realign-from', 'HEAD'])).toEqual(plain);
     expect(plain.code).toBe(0);
     expect(lines(root, 'tsc.log')).toEqual(['--noEmit --pretty false', '--noEmit --pretty false']);
     expect(existsSync(join(root, '.tsc-baseline.json'))).toBe(false);
@@ -178,7 +178,7 @@ describe('--realign-from', () => {
 
   it.each(['nosuchref', 'HEAD'])('a ref that is no commit (%s) exits 2 before any header', (ref) => {
     const root = tempRepo(TS_REPO);
-    expect(run(root, 'dr-typecheck', ['--realign-from', ref])).toEqual({
+    expect(run(root, 'trmv-typecheck', ['--realign-from', ref])).toEqual({
       code: 2,
       out: '',
       err: `${message('typecheck.bad-ref', { ref })}\n`,
@@ -190,7 +190,7 @@ describe('--realign-from', () => {
     const root = commit(tempRepo(TS_REPO));
     vi.stubEnv('PATH', join(root, 'no-such-dir'));
     const args = 'rev-parse --verify --quiet --end-of-options HEAD^{commit}';
-    expect(run(root, 'dr-typecheck', ['--realign-from', 'HEAD'])).toEqual({
+    expect(run(root, 'trmv-typecheck', ['--realign-from', 'HEAD'])).toEqual({
       code: 2,
       out: '',
       err: `${message('typecheck.error', { error: message('changes.git-failed', { args }) })}\n`,
@@ -199,21 +199,21 @@ describe('--realign-from', () => {
 
   it('a bad ref stops a Python repo before the PyPI twin runs', () => {
     const root = commit(pythonRepo(0));
-    const { code, err } = run(root, 'dr-typecheck', ['--realign-from', 'nosuchref']);
+    const { code, err } = run(root, 'trmv-typecheck', ['--realign-from', 'nosuchref']);
     expect([code, err]).toEqual([2, `${message('typecheck.bad-ref', { ref: 'nosuchref' })}\n`]);
     expect(lines(root, 'twin.log')).toEqual([]);
   });
 
   it('passes the option on with the Python section and returns its exit code', () => {
     const root = commit(pythonRepo(1));
-    expect(run(root, 'dr-typecheck', ['--realign-from', 'HEAD~0']).code).toBe(1);
-    expect(run(root, 'dr-typecheck', []).code).toBe(1);
+    expect(run(root, 'trmv-typecheck', ['--realign-from', 'HEAD~0']).code).toBe(1);
+    expect(run(root, 'trmv-typecheck', []).code).toBe(1);
     expect(lines(root, 'twin.log')).toEqual(['--language python --realign-from HEAD~0', '--language python']);
   });
 
   it('with --write-baseline is a usage error and runs nothing', () => {
     const root = commit(tempRepo(TS_REPO));
-    expect(run(root, 'dr-typecheck', ['--realign-from', 'HEAD', '--write-baseline']).code).toBe(2);
+    expect(run(root, 'trmv-typecheck', ['--realign-from', 'HEAD', '--write-baseline']).code).toBe(2);
     expect(lines(root, 'tsc.log')).toEqual([]);
     expect(existsSync(join(root, '.tsc-baseline.json'))).toBe(false);
   });

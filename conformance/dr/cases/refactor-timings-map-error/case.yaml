@@ -2,12 +2,12 @@ kind: neutral
 languages:
 - python
 - typescript
-command: dr-refactor
+command: trmv-refactor
 args:
 - --timings
 - rename-map
 - renames.yaml
-fixture: dr-mixed
+fixture: trmv-mixed
 git:
 - commit: init
 normalize:

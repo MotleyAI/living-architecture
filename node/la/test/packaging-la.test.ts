@@ -1,10 +1,10 @@
-// la's packed tarball reaches dr only through the `deterministic-refactor` package, never through dr's sources.
+// la's packed tarball reaches trmv only through the `type-rename-move` package, never through trmv's sources.
 import { spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { REPO_ROOT } from '../../dr/test/helpers.js';
+import { REPO_ROOT } from '../../trmv/test/helpers.js';
 
 const TIMEOUT = 600_000;
 const TMP = mkdtempSync(join(tmpdir(), 'la-pack-la-'));
@@ -14,7 +14,7 @@ const SPECIFIER = /(?:from\s*|import\s*\(\s*|require\s*\(\s*)['"]([^'"]+)['"]/g;
 const TARBALLS: Record<string, string> = {};
 
 beforeAll(() => {
-  const packed = spawnSync('npm', ['pack', '--json', '--pack-destination', TMP, '-w', 'dr', '-w', 'la'], {
+  const packed = spawnSync('npm', ['pack', '--json', '--pack-destination', TMP, '-w', 'trmv', '-w', 'la'], {
     cwd: join(REPO_ROOT, 'node'),
     encoding: 'utf8',
   });
@@ -42,23 +42,29 @@ function specifiers(): string[] {
     .flatMap((rel) => [...readFileSync(join(root, rel), 'utf8').matchAll(SPECIFIER)].map((m) => m[1] ?? ''));
 }
 
+/** `type-rename-move/<subpath>` for every export of the installed package. */
+function trmvSubpaths(): string[] {
+  const manifest = JSON.parse(readFileSync(join(PREFIX, 'lib', 'node_modules', 'type-rename-move', 'package.json'), 'utf8'));
+  return Object.keys(manifest.exports).map((key) => `type-rename-move${key.slice(1)}`);
+}
+
 describe('packed living-architecture', () => {
-  it('imports dr by its package name only', () => {
+  it('imports trmv by its package name only', () => {
     const all = specifiers();
-    expect(all.filter((s) => s.split('/')[0] === 'deterministic-refactor').length).toBeGreaterThan(0);
-    expect(all.filter((s) => s.includes('dr/src'))).toEqual([]);
+    expect(all.filter((s) => s.split('/')[0] === 'type-rename-move').length).toBeGreaterThan(0);
+    expect(all.filter((s) => s.includes('trmv/src'))).toEqual([]);
   });
 
   it.each([
     ['la-doctor', 'living_architecture'],
-    ['dr-doctor', 'deterministic_refactor'],
-  ])('installed with dr, %s --contract-hash prints the PyPI twin hash', (doctor, module) => {
+    ['trmv-doctor', 'trmv'],
+  ])('installed with trmv, %s --contract-hash prints the PyPI twin hash', (doctor, module) => {
     const proc = spawnSync(join(PREFIX, 'bin', doctor), ['--contract-hash'], {
       cwd: TMP,
       encoding: 'utf8',
     });
     expect(proc.status, proc.stderr).toBe(0);
-    const pkg = module === 'deterministic_refactor' ? 'dr' : 'la';
+    const pkg = module === 'trmv' ? 'trmv' : 'la';
     const hash = readFileSync(
       join(REPO_ROOT, 'python', pkg, 'src', module, 'contract', 'data', 'CONTRACT_HASH'),
       'utf8',
@@ -66,8 +72,23 @@ describe('packed living-architecture', () => {
     expect(proc.stdout).toBe(hash);
   });
 
-  it('declares its dependency on deterministic-refactor', () => {
+  it('imports type-rename-move only through its exported subpaths', () => {
+    const exported = new Set(trmvSubpaths().filter((s) => s !== 'type-rename-move'));
+    expect(specifiers().filter((s) => s.split('/')[0] === 'type-rename-move' && !exported.has(s))).toEqual([]);
+  });
+
+  it('resolves every exported subpath of type-rename-move from the installed tarballs', () => {
+    for (const specifier of trmvSubpaths()) {
+      const proc = spawnSync(process.execPath, ['--input-type=module', '-e', `await import(${JSON.stringify(specifier)});`], {
+        cwd: join(PREFIX, 'lib', 'node_modules', 'living-architecture'),
+        encoding: 'utf8',
+      });
+      expect(proc.status, `${specifier}: ${proc.stderr}`).toBe(0);
+    }
+  });
+
+  it('declares its dependency on type-rename-move', () => {
     const manifest = JSON.parse(readFileSync(join(UNPACKED, 'package', 'package.json'), 'utf8'));
-    expect(manifest.dependencies['deterministic-refactor']).toMatch(/^~\d+\.\d+\.0$/);
+    expect(manifest.dependencies['type-rename-move']).toMatch(/^~\d+\.\d+\.0$/);
   });
 });

@@ -1,7 +1,7 @@
 kind: adapter
 languages:
 - typescript
-command: dr-mock-lint
+command: trmv-mock-lint
 args:
 - src/a.ts
 fixture: refactor-ts

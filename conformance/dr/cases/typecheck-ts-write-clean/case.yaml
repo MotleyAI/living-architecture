@@ -1,7 +1,7 @@
 kind: adapter
 languages:
 - typescript
-command: dr-typecheck
+command: trmv-typecheck
 args:
 - --write-baseline
 fixture: typecheck-ts-src

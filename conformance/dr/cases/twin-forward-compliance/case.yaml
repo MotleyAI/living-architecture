@@ -2,11 +2,11 @@ kind: adapter
 languages:
 - python
 twin: typescript
-command: dr-compliance
+command: trmv-compliance
 args:
 - src/k.py
 fixture: compliance
 expect:
   exit: 1
 golden: manual
-note: 'npm twin forwards dr-compliance wholesale: output equals the PyPI twin''s own run'
+note: 'npm twin forwards trmv-compliance wholesale: output equals the PyPI twin''s own run'
