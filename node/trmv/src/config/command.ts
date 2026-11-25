@@ -34,7 +34,7 @@ function forwarded(command: string, lang: string, argv: string[], who: twin.Iden
   }
 }
 
-/** How a package runs its commands: its manifest, the config file whose format it checks (default: the one dr
+/** How a package runs its commands: its manifest, the config file whose format it checks (default: the one trmv
  * reads), its twin identity, and the runner of commands the manifest backs with a bundled script. */
 export interface CommandSet {
   commands?: Record<string, any>;

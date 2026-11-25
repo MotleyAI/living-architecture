@@ -13,12 +13,12 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
 
-from deterministic_refactor.contract import message
-from deterministic_refactor.refactor.locators import RefactorError
-from deterministic_refactor.refactor.move_project import MoveProject
-from deterministic_refactor.refactor.moved_symbol import MovedSymbol
-from deterministic_refactor.refactor.static_resolver import Module, Scope, Value, node_key
-from deterministic_refactor.refactor.writer import FileMove, FileWrite, apply
+from trmv.contract import message
+from trmv.refactor.locators import RefactorError
+from trmv.refactor.move_project import MoveProject
+from trmv.refactor.moved_symbol import MovedSymbol
+from trmv.refactor.static_resolver import Module, Scope, Value, node_key
+from trmv.refactor.writer import FileMove, FileWrite, apply
 
 # A value in the form that compares across a move: "?" (unknown), else a tuple led by its kind.
 Canonical = tuple[str | int, ...] | str

@@ -15,9 +15,9 @@ from typing import Literal, Protocol
 
 from pydantic import BaseModel, ConfigDict
 
-from deterministic_refactor.lang import Span
-from deterministic_refactor.refactor.python_source import SourceFile
-from deterministic_refactor.refactor.text_edits import TextEdit
+from trmv.lang import Span
+from trmv.refactor.python_source import SourceFile
+from trmv.refactor.text_edits import TextEdit
 
 KeyedKind = Literal["pydantic", "typeddict"]
 _PLAIN_STRING = re.compile(r"""(?:[rRuU])?(['"])(\w+)\1""")

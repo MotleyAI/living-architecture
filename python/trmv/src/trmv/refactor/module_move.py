@@ -6,9 +6,9 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-from deterministic_refactor.refactor.move_edits import File, from_name, named
-from deterministic_refactor.refactor.move_project import MoveProject
-from deterministic_refactor.refactor.writer import FileMove
+from trmv.refactor.move_edits import File, from_name, named
+from trmv.refactor.move_project import MoveProject
+from trmv.refactor.writer import FileMove
 
 _INIT = "__init__.py"
 

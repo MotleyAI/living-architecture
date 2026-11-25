@@ -25,15 +25,15 @@ findings:
   format.invalid: 'living-architecture.yaml: format {value!r} is not a version (three dot-separated integers); this la reads format {current}'
   format.newer: 'living-architecture.yaml declares format {declared}, but this la reads format {current}: upgrade la to {declared} or later'
   format.older: 'living-architecture.yaml declares format {declared}, but this la reads format {current}: run la-arch-migrate to convert the repo'
-  format.dr-missing: 'deterministic-refactor.yaml declares no format, but this dr reads format {current}: add the line `format: {current}`'
-  format.dr-invalid: 'deterministic-refactor.yaml: format {value!r} is not a version (three dot-separated integers); this dr reads format {current}'
-  format.dr-newer: 'deterministic-refactor.yaml declares format {declared}, but this dr reads format {current}: upgrade dr to {declared} or later'
-  format.dr-older: 'deterministic-refactor.yaml declares format {declared}, but this dr reads format {current}'
+  format.trmv-missing: 'trmv.yaml declares no format, but this trmv reads format {current}: add the line `format: {current}`'
+  format.trmv-invalid: 'trmv.yaml: format {value!r} is not a version (three dot-separated integers); this trmv reads format {current}'
+  format.trmv-newer: 'trmv.yaml declares format {declared}, but this trmv reads format {current}: upgrade trmv to {declared} or later'
+  format.trmv-older: 'trmv.yaml declares format {declared}, but this trmv reads format {current}'
 
   # ---- the config files
   config.both-files: '{first} and {second} are both at the repo root; keep one: a repo using la keeps {second}'
 
-  # ---- la-config and dr-config
+  # ---- la-config and trmv-config
   config.error: '{prog}: {error}'
   config.unknown-key: '{prog}: unknown key {key!r}'
   config.not-git: '{prog}: not inside a git repository'
@@ -52,32 +52,32 @@ findings:
   # ---- the change set
   changes.git-failed: git {args} failed
 
-  # ---- dr-typecheck
-  typecheck.error: 'dr-typecheck: {error}'
-  typecheck.header: 'dr-typecheck: checking {language} with {command}'
-  typecheck.not-git: 'dr-typecheck: not inside a git repository'
-  typecheck.no-languages: 'dr-typecheck: nothing to check (no language is configured or has source files and a root marker)'
-  typecheck.not-found: 'dr-typecheck: {language}: {command} not found in {local_bin} or on PATH'
-  typecheck.bad-command: 'dr-typecheck: commands.typecheck.{language} is not a command: {command!r}'
+  # ---- trmv-typecheck
+  typecheck.error: 'trmv-typecheck: {error}'
+  typecheck.header: 'trmv-typecheck: checking {language} with {command}'
+  typecheck.not-git: 'trmv-typecheck: not inside a git repository'
+  typecheck.no-languages: 'trmv-typecheck: nothing to check (no language is configured or has source files and a root marker)'
+  typecheck.not-found: 'trmv-typecheck: {language}: {command} not found in {local_bin} or on PATH'
+  typecheck.bad-command: 'trmv-typecheck: commands.typecheck.{language} is not a command: {command!r}'
   typecheck.not-native: '{language} type checks run only in the {language} twin'
-  typecheck.skip: 'dr-typecheck: {language}: {baseline} exists, skipped'
-  typecheck.refusal: 'dr-typecheck: every applicable language already has a baseline; nothing written'
-  typecheck.write: 'dr-typecheck: {language}: wrote {baseline}'
+  typecheck.skip: 'trmv-typecheck: {language}: {baseline} exists, skipped'
+  typecheck.refusal: 'trmv-typecheck: every applicable language already has a baseline; nothing written'
+  typecheck.write: 'trmv-typecheck: {language}: wrote {baseline}'
   typecheck.new-error: '{file}({line},{col}): error {code}: {message}'
   typecheck.count: '{file}({line},{col}): error {code}: {message} (baseline {baseline}, now {now})'
-  typecheck.new-errors: 'dr-typecheck: {language}: {count} new error(s) not in {baseline}'
-  typecheck.shrink: 'dr-typecheck: {language}: {count} fixed error(s) removed from {baseline}'
-  typecheck.global-diagnostic: 'dr-typecheck: {language}: the checker reported an error without a file'
-  typecheck.checker-failed: 'dr-typecheck: {language}: {command} exited {code} without a parsable diagnostic'
-  typecheck.bad-ref: 'dr-typecheck: {ref} is not a commit'
-  typecheck.realign: 'dr-typecheck: {language}: {count} entr(ies) of {baseline} realigned from {ref}'
-  typecheck.realign-hint: 'dr-typecheck: {language}: if an edit moved errors that {baseline} held, run dr-typecheck --realign-from <commit where it matched>'
-  typecheck.baseline-invalid: 'dr-typecheck: {language}: {baseline} is malformed'
-  typecheck.patch-not-applied: 'dr-typecheck: python: {command} loaded no basedpyright, so the pyright#11919 patch was not applied; run basedpyright under Node and keep NODE_OPTIONS'
-  typecheck.patch-unverified: 'dr-typecheck: python: the pyright#11919 patch is verified for basedpyright {verified}, but {version} is installed; pin a verified version'
-  typecheck.patch-mismatch: 'dr-typecheck: python: basedpyright {version} has the pyright#11919 line {count} times, not once; reinstall basedpyright'
+  typecheck.new-errors: 'trmv-typecheck: {language}: {count} new error(s) not in {baseline}'
+  typecheck.shrink: 'trmv-typecheck: {language}: {count} fixed error(s) removed from {baseline}'
+  typecheck.global-diagnostic: 'trmv-typecheck: {language}: the checker reported an error without a file'
+  typecheck.checker-failed: 'trmv-typecheck: {language}: {command} exited {code} without a parsable diagnostic'
+  typecheck.bad-ref: 'trmv-typecheck: {ref} is not a commit'
+  typecheck.realign: 'trmv-typecheck: {language}: {count} entr(ies) of {baseline} realigned from {ref}'
+  typecheck.realign-hint: 'trmv-typecheck: {language}: if an edit moved errors that {baseline} held, run trmv-typecheck --realign-from <commit where it matched>'
+  typecheck.baseline-invalid: 'trmv-typecheck: {language}: {baseline} is malformed'
+  typecheck.patch-not-applied: 'trmv-typecheck: python: {command} loaded no basedpyright, so the pyright#11919 patch was not applied; run basedpyright under Node and keep NODE_OPTIONS'
+  typecheck.patch-unverified: 'trmv-typecheck: python: the pyright#11919 patch is verified for basedpyright {verified}, but {version} is installed; pin a verified version'
+  typecheck.patch-mismatch: 'trmv-typecheck: python: basedpyright {version} has the pyright#11919 line {count} times, not once; reinstall basedpyright'
 
-  # ---- dr-refactor
+  # ---- trmv-refactor
   refactor.line-out-of-range: line {line} out of range (file has {count} lines)
   refactor.no-locator: provide one of --offset, --line [--col], or --symbol
   refactor.outside-project: 'path is not inside the project: {path}'
@@ -110,12 +110,12 @@ findings:
   refactor.resolution-changed: '{path}:{line}: {name} would not resolve as it does now, so nothing was refactored; move it by hand'
   refactor.source-missing: 'source does not exist: {path}'
   refactor.mixed-languages: '{path} holds sources of more than one language: {languages}'
-  refactor.rope-walk: 'rope cannot follow {path}:{line}, so nothing was refactored (a rope bug, not a source error); dr-compliance --select rope-walk lists every such file'
+  refactor.rope-walk: 'rope cannot follow {path}:{line}, so nothing was refactored (a rope bug, not a source error); trmv-compliance --select rope-walk lists every such file'
   refactor.name-conflict: '{name} already names something else at {path}:{line}, so nothing was refactored'
   refactor.guarded-import: '{path}:{line}: the moved code reads a name this guarded import binds; move it by hand'
   refactor.pyright-failed: 'basedpyright could not find the references, so nothing was refactored'
-  refactor.unresolved-base: '{name} has a base basedpyright cannot resolve at {path}:{line}, so nothing was refactored; run dr-refactor in the project environment'
-  refactor.file-changed: '{path} changed while dr-refactor ran, so nothing was refactored'
+  refactor.unresolved-base: '{name} has a base basedpyright cannot resolve at {path}:{line}, so nothing was refactored; run trmv-refactor in the project environment'
+  refactor.file-changed: '{path} changed while trmv-refactor ran, so nothing was refactored'
   refactor.blindspots: '{count} blind spot(s) of {names}: type or resolve them, or pass --allow-blindspots'
   refactor.unlinked-keyword: '{path}:{line}: unlinked-keyword: {callee}({old}=...) — the checker does not link {old}= to the renamed declaration, so a rename of {old} is unverifiable'
   refactor.unresolved-target: '{path}:{line}: unresolved-target: {target} names .{attr} but does not resolve'
@@ -174,7 +174,7 @@ findings:
   refactor.entry-refusal: '{entries} ({locator}): {text}'
   refactor.timing: 'timing: {phase} {seconds}s'
 
-  # ---- dr-compliance
+  # ---- trmv-compliance
   compliance.untyped-def: '{path}:{line}: untyped-def: {name}() missing {missing}'
   compliance.untyped-params: params {params}
   compliance.untyped-return: return
@@ -184,7 +184,7 @@ findings:
   compliance.string-blindspot-silent: '{path}:{line}: string-blindspot: {site} — {receiver} is {type}, so a rename of .{attr} is unverifiable and a miss raises no error'
   compliance.pyright-failed: 'basedpyright could not type the receivers of .{attr}'
   compliance.parse-error: '{path}:{line}: parse-error: {error}'
-  compliance.rope-walk: '{path}:{line}: rope-walk: rope cannot follow this construct, so dr-refactor would refuse this file (a rope bug, not a source error)'
+  compliance.rope-walk: '{path}:{line}: rope-walk: rope cannot follow this construct, so trmv-refactor would refuse this file (a rope bug, not a source error)'
   compliance.unknown-checks: 'unknown check(s): {checks}'
   compliance.tsconfig: '{path}: tsconfig: {flag} is not enabled'
   compliance.explicit-any: '{path}:{line}: explicit-any: an `{any}` type — use a real type or `{top}`'
@@ -192,14 +192,14 @@ findings:
   compliance.attr-required: '--select {check} needs --attr NAME'
   compliance.attr-unselected: '--attr needs attr-blindspot or string-blindspot among the selected checks'
 
-  # ---- dr-mock-lint
+  # ---- trmv-mock-lint
   mock-lint.patch: '{path}:{line}: {call}() without autospec=True/new=/spec= — stale members go undetected'
   mock-lint.mock: '{path}:{line}: {call}() without spec=/spec_set= — bind it to the real class (or use create_autospec)'
   mock-lint.fn: '{path}:{line}: {call}() without a type argument or implementation — type it as {call}<typeof real>()'
   mock-lint.module: "{path}:{line}: {call}() factory not typed against a resolvable module — pass import('<module>') (Vitest) or <typeof import('<module>')> (Jest)"
   mock-lint.cast: '{path}:{line}: double assertion through {via} — build a typed double instead'
 
-  # ---- dr-doctor and la-doctor
+  # ---- trmv-doctor and la-doctor
   doctor.ok: 'ok: {package} tools {version}; config from {source}'
   doctor.version-mismatch: 'installed {package} tools are {installed}, but plugin {expected} needs {series}.x; reinstall them with: {install}'
   doctor.no-config-file: defaults (no config file)
@@ -208,4 +208,4 @@ findings:
   doctor.plugin-not-found: no .claude-plugin/plugin.json at or above {dir}
   doctor.plugin-invalid: '{path} is not valid JSON with a "version" of the form <major>.<minor>.<rest>'
   doctor.plugin-unreadable: cannot inspect {path}
-  doctor.dr-config-missing: no deterministic-refactor.yaml or living-architecture.yaml at the repo root; run /dr:init to onboard this repo
+  doctor.trmv-config-missing: no trmv.yaml or living-architecture.yaml at the repo root; run /trmv:init to onboard this repo

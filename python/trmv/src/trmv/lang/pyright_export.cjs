@@ -1,7 +1,7 @@
 'use strict';
 // Adds the `la.exportOccurrences` command to basedpyright's language server as Node compiles its bundle: one request
 // answers, from the program in-process, every occurrence of a set of names in a set of files and a batch of position
-// facts, each as the definition and hover requests would. Loaded only by dr-refactor's language server.
+// facts, each as the definition and hover requests would. Loaded only by trmv-refactor's language server.
 const fs = require('node:fs');
 const path = require('node:path');
 const Module = require('node:module');

@@ -1,4 +1,4 @@
-"""`dr-refactor`: Python refactors, all computed by la: renames, rename maps, retargets and moves (`move-symbol`,
+"""`trmv-refactor`: Python refactors, all computed by la: renames, rename maps, retargets and moves (`move-symbol`,
 `move-module`); rope only checks a move's files for walker gaps."""
 
 from __future__ import annotations
@@ -8,27 +8,27 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from deterministic_refactor.contract import message
-from deterministic_refactor.refactor.baseline_align import BaselineFailed
-from deterministic_refactor.refactor.diff_render import edit_description, move_description
-from deterministic_refactor.refactor.generate_map import generate_map
-from deterministic_refactor.refactor.locators import (
+from trmv.contract import message
+from trmv.refactor.baseline_align import BaselineFailed
+from trmv.refactor.diff_render import edit_description, move_description
+from trmv.refactor.generate_map import generate_map
+from trmv.refactor.locators import (
     Locator,
     RefactorError,
     named_source,
     offset_from_line_col,
     resolve,
 )
-from deterministic_refactor.refactor.map_file import MapEntry, MapError, load_map
-from deterministic_refactor.refactor.module_move import module_move_texts
-from deterministic_refactor.refactor.move_edits import NameConflict
-from deterministic_refactor.refactor.move_project import MoveProject
-from deterministic_refactor.refactor.move_verify import verify
-from deterministic_refactor.refactor.moved_imports import GuardedImport
-from deterministic_refactor.refactor.moved_symbol import MovedSymbol, locate_moved
-from deterministic_refactor.refactor.output_check import checked_write
-from deterministic_refactor.refactor.progress import Progress, Refusal, Refused, refusal
-from deterministic_refactor.refactor.rename_map import (
+from trmv.refactor.map_file import MapEntry, MapError, load_map
+from trmv.refactor.module_move import module_move_texts
+from trmv.refactor.move_edits import NameConflict
+from trmv.refactor.move_project import MoveProject
+from trmv.refactor.move_verify import verify
+from trmv.refactor.moved_imports import GuardedImport
+from trmv.refactor.moved_symbol import MovedSymbol, locate_moved
+from trmv.refactor.output_check import checked_write
+from trmv.refactor.progress import Progress, Refusal, Refused, refusal
+from trmv.refactor.rename_map import (
     baseline_failed,
     baseline_probe,
     emit,
@@ -36,12 +36,12 @@ from deterministic_refactor.refactor.rename_map import (
     run_map,
     walker_gaps,
 )
-from deterministic_refactor.refactor.rope_patches import WalkerGap, apply_rope_patches
-from deterministic_refactor.refactor.routing import language_files
-from deterministic_refactor.refactor.symbol_move import symbol_move_texts
-from deterministic_refactor.refactor.symbol_path import LocatorError, is_wildcard, wildcard_refused
-from deterministic_refactor.refactor.timings import timed
-from deterministic_refactor.refactor.writer import FileChanged, FileMove, FileWrite, WriteFailed
+from trmv.refactor.rope_patches import WalkerGap, apply_rope_patches
+from trmv.refactor.routing import language_files
+from trmv.refactor.symbol_move import symbol_move_texts
+from trmv.refactor.symbol_path import LocatorError, is_wildcard, wildcard_refused
+from trmv.refactor.timings import timed
+from trmv.refactor.writer import FileChanged, FileMove, FileWrite, WriteFailed
 
 apply_rope_patches()
 
@@ -184,7 +184,7 @@ def _run(project_root: str, command: str, apply: bool, options: dict[str, Any]) 
 
 
 def run_refactor(*, project_root: str, command: str, apply: bool, options: dict[str, Any]) -> int:
-    """`dr-refactor` handler: 0 on success, else the highest exit code of the refusals on stderr: 1 when the refactor
+    """`trmv-refactor` handler: 0 on success, else the highest exit code of the refusals on stderr: 1 when the refactor
     cannot proceed or refuses, 2 for a locator or map error, or a `--keep`, `--with` or `--without` site that matches
     nothing it must."""
     try:

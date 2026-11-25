@@ -1,4 +1,4 @@
-# (path, old, new) -> the unified diff dr-refactor prints for one changed file, as rope prints it:
+# (path, old, new) -> the unified diff trmv-refactor prints for one changed file, as rope prints it:
 # difflib.unified_diff over str.splitlines(keepends=True), labels a/<path> and b/<path>, three context
 # lines, no end-of-file marker. Every twin's formatter reproduces each `diff` byte for byte.
 cases:

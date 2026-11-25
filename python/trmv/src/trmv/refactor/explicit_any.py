@@ -10,8 +10,8 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import Literal
 
-from deterministic_refactor.contract import language, message
-from deterministic_refactor.refactor.static_resolver import (
+from trmv.contract import language, message
+from trmv.refactor.static_resolver import (
     ANY,
     CommentRoot,
     Module,

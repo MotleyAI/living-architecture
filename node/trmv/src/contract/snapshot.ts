@@ -75,35 +75,35 @@ export class Snapshot {
   }
 }
 
-export const DR = new Snapshot(join(dirname(fileURLToPath(import.meta.url)), 'data'));
+export const TRMV = new Snapshot(join(dirname(fileURLToPath(import.meta.url)), 'data'));
 
 export function snapshotDir(): string {
-  return DR.root;
+  return TRMV.root;
 }
 
-/** The hash recorded when dr's snapshot was vendored. */
+/** The hash recorded when trmv's snapshot was vendored. */
 export function contractHash(): string {
-  return DR.contractHash();
+  return TRMV.contractHash();
 }
 
 export function schema(name: string): Record<string, any> {
-  return DR.schema(name);
+  return TRMV.schema(name);
 }
 
-/** Every dr schema's name, as `schema` takes it. */
+/** Every trmv schema's name, as `schema` takes it. */
 export function schemaNames(): string[] {
-  return DR.schemaNames();
+  return TRMV.schemaNames();
 }
 
 export function findings(): Record<string, string> {
-  return DR.findings();
+  return TRMV.findings();
 }
 
 export function manifest(): Record<string, any> {
-  return DR.manifest();
+  return TRMV.manifest();
 }
 
-const cli = (): any => DR.yaml('cli.yaml');
+const cli = (): any => TRMV.yaml('cli.yaml');
 
 /** Seconds after which the best-effort fetch of a base branch is killed. */
 export function baseFetchTimeout(): number {
@@ -115,7 +115,7 @@ export function literalValueForbidden(): string[] {
   return (cli().literal_value_forbidden as unknown[]).map(String);
 }
 
-/** The phases `dr-refactor --timings` reports, in print order. */
+/** The phases `trmv-refactor --timings` reports, in print order. */
 export function timingPhases(): string[] {
   return (cli().timing_phases as unknown[]).map(String);
 }
@@ -126,12 +126,12 @@ export function languageKeys(): string[] {
 }
 
 export function language(id: string): Record<string, any> {
-  return DR.yaml('languages.yaml')[id];
+  return TRMV.yaml('languages.yaml')[id];
 }
 
 /** Every language of the registry, in id order. */
 export function languageIds(): string[] {
-  return Object.keys(DR.yaml('languages.yaml')).sort(byCodePoint);
+  return Object.keys(TRMV.yaml('languages.yaml')).sort(byCodePoint);
 }
 
 /** The registry language whose source extensions contain the path's extension, else null. */
@@ -145,12 +145,12 @@ export function isTestFile(rel: string): boolean {
   return id !== null && (language(id).test_globs as string[]).some((glob) => globMatch(glob, rel));
 }
 
-/** The committed config files a dr command reads, in order: the first present at the repo root. */
+/** The committed config files a trmv command reads, in order: the first present at the repo root. */
 export function configFiles(): string[] {
-  return [...DR.yaml('config.yaml').files];
+  return [...TRMV.yaml('config.yaml').files];
 }
 
 /** Every released format of config file `file`, oldest first. */
 export function configFormats(file: string): string[] {
-  return [...DR.yaml('config.yaml').formats[file]];
+  return [...TRMV.yaml('config.yaml').formats[file]];
 }

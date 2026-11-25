@@ -8,16 +8,16 @@ import re
 from collections.abc import Callable, Iterable
 from pathlib import Path
 
-from deterministic_refactor.contract import glob_match, language, message
-from deterministic_refactor.refactor.locators import RefactorError, project_rel
-from deterministic_refactor.refactor.python_source import SourceFile, every_parameter
-from deterministic_refactor.refactor.symbol_path import (
+from trmv.contract import glob_match, language, message
+from trmv.refactor.locators import RefactorError, project_rel
+from trmv.refactor.python_source import SourceFile, every_parameter
+from trmv.refactor.symbol_path import (
     declared_scopes,
     is_wildcard,
     locate,
     wildcard_refused,
 )
-from deterministic_refactor.refactor.word_table import WordTable, held_words
+from trmv.refactor.word_table import WordTable, held_words
 
 _IDENTIFIER = re.compile(r"[^\W\d]\w*")
 _FUNCTIONS = (ast.FunctionDef, ast.AsyncFunctionDef)

@@ -1,8 +1,8 @@
-// Per-repo config: the committed file dr reads, validated and completed by dr's schema; the shared loading, format
+// Per-repo config: the committed file trmv reads, validated and completed by trmv's schema; the shared loading, format
 // check, language detection and config-command machinery la's config builds on.
 import { spawnSync } from 'node:child_process';
 import { existsSync, statSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import {
   PyFloat,
   capturingGroups,
@@ -40,7 +40,10 @@ export {
 export { parseConfig, readConfigText } from './read.js';
 export { bothFilesProblem, configSource, ownFile } from './files.js';
 
-const DR_SCHEMA = 'deterministic-refactor';
+/** The schema of trmv's own config file, named after it. */
+function ownSchema(): ReturnType<typeof schema> {
+  return schema(basename(ownFile(), '.yaml'));
+}
 
 export interface TypecheckConfig {
   python: string | null;
@@ -52,8 +55,8 @@ export interface RefactorConfig {
   string_forms: string[];
 }
 
-/** dr's resolved config; built only by `resolveConfig`, so every default comes from the schema. */
-export interface DrConfig {
+/** trmv's resolved config; built only by `resolveConfig`, so every default comes from the schema. */
+export interface TrmvConfig {
   format: string | null;
   exempt: string[];
   commands: { test: string | null; typecheck: TypecheckConfig };
@@ -94,9 +97,9 @@ function project(sub: Record<string, any>, data: unknown): unknown {
   return out;
 }
 
-/** The dr keys of config file `name`'s data: all of dr's own file, and dr's share of another package's file. */
-export function drData(data: unknown, name: string): unknown {
-  return name === ownFile() || !(data instanceof Map) ? data : project(schema(DR_SCHEMA), data);
+/** The trmv keys of config file `name`'s data: all of trmv's own file, and trmv's share of another package's file. */
+export function trmvData(data: unknown, name: string): unknown {
+  return name === ownFile() || !(data instanceof Map) ? data : project(ownSchema(), data);
 }
 
 /** Error unless every pattern is portable and holds exactly one capturing group. */
@@ -107,24 +110,24 @@ export function checkStringForms(patterns: string[]): void {
   }
 }
 
-/** Validate dr's config data (null = no file) and fill the schema defaults; Error if invalid. */
-export function resolveConfig(data: unknown): DrConfig {
-  const drSchema = schema(DR_SCHEMA);
+/** Validate trmv's config data (null = no file) and fill the schema defaults; Error if invalid. */
+export function resolveConfig(data: unknown): TrmvConfig {
+  const trmvSchema = ownSchema();
   if (data !== null && !(data instanceof Map)) throw new Error('top level must be a mapping');
-  const errors = validate(drSchema, data ?? new Map());
+  const errors = validate(trmvSchema, data ?? new Map());
   if (errors.length > 0) throw new Error(errors.join('; '));
-  const resolved = materializeDefaults(drSchema, data) as DrConfig;
+  const resolved = materializeDefaults(trmvSchema, data) as TrmvConfig;
   checkStringForms(resolved.refactor.string_forms);
   return resolved;
 }
 
-/** dr's share of the config file it reads, and that file's name; [null, null] without one. */
+/** trmv's share of the config file it reads, and that file's name; [null, null] without one. */
 export function loadDrData(root: string): [unknown, string | null] {
   const name = configSource(root);
-  return name === null ? [null, null] : [drData(readConfig(root, name), name), name];
+  return name === null ? [null, null] : [trmvData(readConfig(root, name), name), name];
 }
 
-function resolved(root: string, data: unknown, name: string | null): DrConfig {
+function resolved(root: string, data: unknown, name: string | null): TrmvConfig {
   try {
     return resolveConfig(data);
   } catch (error) {
@@ -132,8 +135,8 @@ function resolved(root: string, data: unknown, name: string | null): DrConfig {
   }
 }
 
-/** dr's config at `root`; defaults without a config file. ConfigError naming the faulty file. */
-export function loadConfig(root: string): DrConfig {
+/** trmv's config at `root`; defaults without a config file. ConfigError naming the faulty file. */
+export function loadConfig(root: string): TrmvConfig {
   return resolved(root, ...loadDrData(root));
 }
 
@@ -144,14 +147,14 @@ export function explicitTypecheck(data: unknown): Set<string> {
   return new Set(typecheck instanceof Map ? [...typecheck.keys()].map(String) : []);
 }
 
-/** dr's config at `root`, and that config as language detection reads it, from one read of the file. */
-export function loadWithLanguages(root: string): [DrConfig, LanguageSettings] {
+/** trmv's config at `root`, and that config as language detection reads it, from one read of the file. */
+export function loadWithLanguages(root: string): [TrmvConfig, LanguageSettings] {
   const [data, name] = loadDrData(root);
   const config = resolved(root, data, name);
   return [config, { exempt: config.exempt, typecheck: config.commands.typecheck, explicit: explicitTypecheck(data) }];
 }
 
-/** dr's config at `root` as language detection reads it. */
+/** trmv's config at `root` as language detection reads it. */
 export function languageSettings(root: string): LanguageSettings {
   return loadWithLanguages(root)[1];
 }
@@ -285,8 +288,8 @@ export function runGet(prog: string, root: string, key: string, load: (root: str
   });
 }
 
-/** dr's config at `root`, as `dr-config` prints it. */
-export function drView(root: string): ConfigView {
+/** trmv's config at `root`, as `trmv-config` prints it. */
+export function trmvView(root: string): ConfigView {
   const [config, languages] = loadWithLanguages(root);
-  return { values: schemaOrdered(schema(DR_SCHEMA), config), overrides: [], localFile: null, languages };
+  return { values: schemaOrdered(ownSchema(), config), overrides: [], localFile: null, languages };
 }

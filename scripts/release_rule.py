@@ -13,19 +13,19 @@ from typing import Any
 TOOL_PATHSPECS = (
     "shared",
     "conformance",
-    "python/dr/src",
+    "python/trmv/src",
     "python/la/src",
-    "node/dr/src",
+    "node/trmv/src",
     "node/la/src",
     "node/scripts",
-    "node/dr/scripts",
+    "node/trmv/scripts",
     "node/la/scripts",
     ":(glob)node/tsconfig*.json",
     ":(glob)node/*/tsconfig*.json",
 )
-PACKAGES = ("deterministic-refactor", "living-architecture")
-DR = "deterministic-refactor"
-_PYPI_PIN = re.compile(rf"^{DR}>=[^,]+,<\S+$")
+PACKAGES = ("type-rename-move", "living-architecture")
+TRMV = "type-rename-move"
+_PYPI_PIN = re.compile(rf"^{TRMV}>=[^,]+,<\S+$")
 
 
 def series(version: str) -> tuple[str, str]:
@@ -36,7 +36,7 @@ def series(version: str) -> tuple[str, str]:
 
 def pypi_pin(version: str) -> str:
     base, upper = series(version)
-    return f"{DR}>={base},<{upper}"
+    return f"{TRMV}>={base},<{upper}"
 
 
 def tilde_pin(version: str) -> str:
@@ -60,8 +60,8 @@ def _set_uv_lock(data: dict[str, Any], version: str) -> None:
 def _set_package_json(data: dict[str, Any], version: str) -> None:
     if "version" in data:
         data["version"] = version
-    if DR in data.get("dependencies", {}):
-        data["dependencies"][DR] = tilde_pin(version)
+    if TRMV in data.get("dependencies", {}):
+        data["dependencies"][TRMV] = tilde_pin(version)
 
 
 def _set_package_lock(data: dict[str, Any], version: str) -> None:
@@ -72,19 +72,19 @@ def _set_package_lock(data: dict[str, Any], version: str) -> None:
             _set_package_json(entry, version)
 
 
-# Tool inputs compared as parsed data, with each package's own version fields and la's pin on dr set to the release's.
+# Tool inputs compared as parsed data, with each package's own version fields and la's pin on trmv set to the release's.
 MANIFESTS: dict[str, tuple[Callable[[str], dict[str, Any]], Callable[[dict[str, Any], str], None]]] = {
     "python/pyproject.toml": (tomllib.loads, _set_pyproject),
-    "python/dr/pyproject.toml": (tomllib.loads, _set_pyproject),
+    "python/trmv/pyproject.toml": (tomllib.loads, _set_pyproject),
     "python/la/pyproject.toml": (tomllib.loads, _set_pyproject),
     "python/uv.lock": (tomllib.loads, _set_uv_lock),
     "node/package.json": (json.loads, _set_package_json),
-    "node/dr/package.json": (json.loads, _set_package_json),
+    "node/trmv/package.json": (json.loads, _set_package_json),
     "node/la/package.json": (json.loads, _set_package_json),
     "node/package-lock.json": (json.loads, _set_package_lock),
 }
 _RELEASE = re.compile(r"(\d+)\.(\d+)\.(\d+)", re.ASCII)
-FORMATS_FILE = "shared/dr/config.yaml"
+FORMATS_FILE = "shared/trmv/config.yaml"
 # Before the split, one formats list for living-architecture.yaml.
 SINGLE_FORMATS_FILE = "shared/config.yaml"
 SINGLE_FORMATS_CONFIG = "living-architecture.yaml"
@@ -145,7 +145,7 @@ def parse_formats(text: str) -> list[str] | None:
 
 
 def parse_file_formats(text: str) -> dict[str, list[str]] | None:
-    """The per-file released formats of a `shared/dr/config.yaml` text: its `formats:` block of one-line lists, one
+    """The per-file released formats of a `shared/trmv/config.yaml` text: its `formats:` block of one-line lists, one
     per file; None when it has no such block."""
     lines = _lines(text)
     starts = [i for i, line in enumerate(lines) if line.startswith(_FORMATS_KEY)]

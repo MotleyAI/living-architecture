@@ -13,11 +13,11 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
 
-from deterministic_refactor.refactor.locators import cannot_rename
-from deterministic_refactor.refactor.move_edits import NameConflict
-from deterministic_refactor.refactor.python_source import SourceFile, nfkc
-from deterministic_refactor.refactor.static_resolver import Module, Scope
-from deterministic_refactor.refactor.text_edits import TextEdit, apply_edits, merge_edits
+from trmv.refactor.locators import cannot_rename
+from trmv.refactor.move_edits import NameConflict
+from trmv.refactor.python_source import SourceFile, nfkc
+from trmv.refactor.static_resolver import Module, Scope
+from trmv.refactor.text_edits import TextEdit, apply_edits, merge_edits
 
 # A declaration or an occurrence: a project-relative path and a character offset in the code before the rename.
 Site = tuple[str, int]

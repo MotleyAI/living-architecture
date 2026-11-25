@@ -1,21 +1,21 @@
 ---
-name: deterministic-refactor
-description: Use to rename or move a module/class/function/method/attribute (Python or TypeScript) and update all imports/references, with a deterministic check that nothing was missed. Mutator = dr-refactor; the guarantee = dr-typecheck + dr-mock-lint + the test suite. Only sound on a compliant target (see docs/deterministic-refactoring.md).
+name: rename-move
+description: Use to rename or move a module/class/function/method/attribute (Python or TypeScript) and update all imports/references, with a deterministic check that nothing was missed. Mutator = trmv-refactor; the guarantee = trmv-typecheck + trmv-mock-lint + the test suite. Only sound on a compliant target (see docs/rename-and-move.md).
 ---
 
-**Preflight:** run `dr-doctor --plugin <this skill's base directory> --require-config` once per session before using any `dr-*` command. If it reports the missing-config finding (the one naming `/dr:init`), run the fast path of the `dr:init` skill, then re-run this preflight; stop and show the user its output on anything it still reports, or on any other failure.
+**Preflight:** run `trmv-doctor --plugin <this skill's base directory> --require-config` once per session before using any `trmv-*` command. If it reports the missing-config finding (the one naming `/trmv:init`), run the fast path of the `trmv:init` skill, then re-run this preflight; stop and show the user its output on anything it still reports, or on any other failure.
 
-# Deterministic refactor
+# Rename and move
 
 The mutator is best-effort — no tool reliably rewrites every annotated
 `obj.attr`, `super()` call, and override. The **type-check gate is the
 guarantee**, and it is only sound on code that meets the compliance conditions
-(`docs/deterministic-refactoring.md`). If the blast radius is not typed, run `dr:make-refactor-target-compliant`
+(`docs/rename-and-move.md`). If the blast radius is not typed, run `trmv:make-refactor-target-compliant`
 first.
 
 The file's language decides the mutator and its idioms: read
 `<this skill's base directory>/../../languages/<language>.md` for each language
-the refactor touches (`dr-config get languages` lists the repo's).
+the refactor touches (`trmv-config get languages` lists the repo's).
 
 ## Procedure
 
@@ -23,20 +23,20 @@ the refactor touches (`dr-config get languages` lists the repo's).
    (`--file F --symbol Class.method`; also `func.<locals>.inner`,
    `Class.method(param)`, `Alias['value']` for a `Literal` member). Related
    renames go in one rename map: one dry-run, one apply, one gate.
-2. **Check the verifier**: run `dr-typecheck`. It runs the project's type
+2. **Check the verifier**: run `trmv-typecheck`. It runs the project's type
    checker in the project env (the one the tests use) against its committed
    baseline, and it must pass before you start. If it prints "nothing to
    check", STOP and tell the user: with no type check there is no guarantee,
    so offer to set one up (`commands.typecheck` and
-   `dr-typecheck --write-baseline`) first.
+   `trmv-typecheck --write-baseline`) first.
 3. **Type the receivers** (member renames):
-   `dr-compliance --select attr-blindspot,string-blindspot --attr OLD <repo>` (one `--attr` per
+   `trmv-compliance --select attr-blindspot,string-blindspot --attr OLD <repo>` (one `--attr` per
    old name) lists each receiver the checker cannot type. Type them
-   (`dr:make-refactor-target-compliant`) until it reports nothing; `dr-refactor`
+   (`trmv:make-refactor-target-compliant`) until it reports nothing; `trmv-refactor`
    refuses a member rename while any remain.
 4. **Dry-run** (default):
-   `dr-refactor --project <repo> rename --file F --symbol Q --new-name N --docs`,
-   or `dr-refactor --project <repo> rename-map MAP --docs`.
+   `trmv-refactor --project <repo> rename --file F --symbol Q --new-name N --docs`,
+   or `trmv-refactor --project <repo> rename-map MAP --docs`.
    Method renames rename the hierarchy by default. Re-run until it is the rename you want:
    - `stand-in`: a class outside the hierarchy declares `OLD`. `--with PATH:LINE` renames it too
      (a duck-typed implementation: a cache, a fake, a `cast()` target); `--without PATH:LINE` leaves it
@@ -60,20 +60,20 @@ the refactor touches (`dr-config get languages` lists the repo's).
      the new name and keeps the alias.
    Show the diff.
 5. **Apply**: `--apply` is a GLOBAL flag and goes before the subcommand
-   (`dr-refactor --project <repo> --apply rename ...`); trailing it errors.
+   (`trmv-refactor --project <repo> --apply rename ...`); trailing it errors.
    It realigns the type-check baseline too; never edit the baseline by hand.
 6. **GATE — done only when ALL pass:**
-   - `dr-typecheck` passes: **no new errors** vs the baseline;
-   - `dr-mock-lint <tests>` passes; when the base branch already has findings,
-     `dr-mock-lint --base <base-branch> <tests>` reports only the new ones;
-   - the full non-integration test suite (`dr-config get commands.test`) passes;
+   - `trmv-typecheck` passes: **no new errors** vs the baseline;
+   - `trmv-mock-lint <tests>` passes; when the base branch already has findings,
+     `trmv-mock-lint --base <base-branch> <tests>` reports only the new ones;
+   - the full non-integration test suite (`trmv-config get commands.test`) passes;
    - by hand, only these: each `leftover` and `unverified-read` line the apply printed, each receiver and keyword
      `--allow-blindspots` let through, and the string-only references the language doc lists.
 7. Review the diff. The user commits — never commit or `git add -A`.
 
 ## Commands
 
-`dr-refactor` subcommands: `rename` / `rename-map` / `generate-map` / `retarget` / `move-symbol` /
+`trmv-refactor` subcommands: `rename` / `rename-map` / `generate-map` / `retarget` / `move-symbol` /
 `move-module`. Dry-run is default; `--apply` writes, baseline included;
 `--timings` (also before the subcommand) prints each phase's wall time on stderr;
 `--project` defaults to cwd. Locator: `--symbol Q` (the path inside `--file`,
@@ -103,7 +103,7 @@ exist, and a `move-symbol` destination is a file of the same language. Run the
 repo's formatter afterwards.
 
 A vocabulary rename (one word replaced across the repo) starts from a word table.
-`dr-refactor --project <repo> generate-map TABLE > MAP` writes one entry per declaration and
+`trmv-refactor --project <repo> generate-map TABLE > MAP` writes one entry per declaration and
 module whose name holds a word (`words: [{from, to}]`, one row per inflection). `carve_outs`
 (`{words, annotated | paths | symbols}`) leave out a declaration where the word keeps its old sense, and
 `entries` holds hand-written map entries, kept on every regeneration. Change the table and regenerate;

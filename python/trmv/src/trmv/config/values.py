@@ -10,9 +10,9 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
-from deterministic_refactor.config.languages import language_fact, repo_languages
-from deterministic_refactor.config.load import ConfigError, LanguageSettings, load_with_languages
-from deterministic_refactor.contract import message
+from trmv.config.languages import language_fact, repo_languages
+from trmv.config.load import ConfigError, LanguageSettings, load_with_languages
+from trmv.contract import message
 
 
 class ConfigView(BaseModel):
@@ -106,7 +106,7 @@ def run_get(prog: str, root: Path, key: str, load: Callable[[Path], ConfigView])
     return _with_view(prog, root, load, get)
 
 
-def dr_view(root: Path) -> ConfigView:
-    """dr's config at `root`, as `dr-config` prints it."""
+def trmv_view(root: Path) -> ConfigView:
+    """trmv's config at `root`, as `trmv-config` prints it."""
     config, languages = load_with_languages(root)
     return ConfigView(values=config.model_dump(), languages=languages)

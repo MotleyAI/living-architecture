@@ -1,11 +1,11 @@
 # TypeScript idioms
 
 The skills stay language-neutral; this is what they mean for a TS/JS repo. Concrete facts (globs, suppression
-syntax, waiver, baseline file) come from `dr-config get lang.typescript.<key>`.
+syntax, waiver, baseline file) come from `trmv-config get lang.typescript.<key>`.
 
 ## Environment
 
-Tools resolve against the repo's `node_modules` (`npm ci` first); `dr-doctor` requires `node` and `npx`. The
+Tools resolve against the repo's `node_modules` (`npm ci` first); `trmv-doctor` requires `node` and `npx`. The
 type checker is `tsc --noEmit` (`commands.typecheck.typescript`); a project whose tsconfig is not at the root
 sets e.g. `tsc --noEmit -p web/tsconfig.json`, and a checker that is not tsc-compatible sets `null`.
 `architecture/index.yaml`'s `typescript.tsconfig` names the tsconfig the tools load (default: the nearest
@@ -13,7 +13,7 @@ sets e.g. `tsc --noEmit -p web/tsconfig.json`, and a checker that is not tsc-com
 
 ## Refactoring
 
-`dr-refactor` drives the bundled TypeScript language service, one per project of the tsconfig's reference
+`trmv-refactor` drives the bundled TypeScript language service, one per project of the tsconfig's reference
 graph: `rename` renames every reference the service finds (overrides and implementations included, plus the member string of `vi.spyOn` / `jest.spyOn`, `Reflect.*` and
 `Object.defineProperty` / `getOwnPropertyDescriptor` on a typed object; comments and other strings only with
 `--docs`), `move-symbol` is the "Move to file" refactor into an existing file (re-exports
@@ -32,7 +32,7 @@ String-only references no static tool sees: dynamic `import()` of a computed pat
 path, `vi.mock('path')` / `jest.mock('path')` strings, property access by a key the rename cannot follow to one literal (`obj[name]` with `name` a parameter), an
 object literal outside any declared type holding the old key, JSON and config files, and package `exports` maps.
 
-## Compliance fixes (`dr-compliance`)
+## Compliance fixes (`trmv-compliance`)
 
 - `tsconfig` → enable `strict`, keep `noImplicitAny` on, and set `noImplicitOverride`.
 - `explicit-any` → a real type, or `unknown` narrowed where it is used.

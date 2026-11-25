@@ -23,11 +23,11 @@ from typing import Any
 import yaml
 
 from conformance_runner import fake_gh_cli
-from deterministic_refactor import __version__ as dr_version
-from deterministic_refactor.contract import config_files, config_formats, language
-from deterministic_refactor.contract import contract_hash as dr_contract_hash
 from living_architecture import __version__
 from living_architecture.contract import contract_hash as la_contract_hash
+from trmv import __version__ as trmv_version
+from trmv.contract import config_files, config_formats, language
+from trmv.contract import contract_hash as trmv_contract_hash
 
 
 def _repo_root() -> Path:
@@ -39,7 +39,7 @@ def _repo_root() -> Path:
 
 REPO_ROOT = _repo_root()
 CORPUS = REPO_ROOT / "conformance"
-PACKAGES = ("dr", "la")
+PACKAGES = ("trmv", "la")
 CASES = sorted((p.parent for package in PACKAGES for p in (CORPUS / package / "cases").glob("*/case.yaml")),
                key=lambda case_dir: case_dir.name)
 UPDATE = os.environ.get("LA_UPDATE_GOLDENS") == "1"
@@ -59,7 +59,7 @@ _ALWAYS_HIDDEN = {*MANIFEST, "npx", "uvx"}
 FIXED_DATE = "2026-01-01T00:00:00+00:00"
 VERSION_PLACEHOLDER = "<VERSION>"
 CONTRACT_HASH_PLACEHOLDER = "<CONTRACT_HASH>"
-DR_CONTRACT_HASH_PLACEHOLDER = "<DR_CONTRACT_HASH>"
+TRMV_CONTRACT_HASH_PLACEHOLDER = "<TRMV_CONTRACT_HASH>"
 COMMAND_PREFIXES = {
     "affected", "arch", "config", "doctor", "conventions", "count", "compliance", "mock", "refactor", "shim", "twin",
     "typecheck",
@@ -205,12 +205,12 @@ def _tools_dir(hidden: frozenset[str]) -> Path:
 
 def contract_hash(package: str) -> str:
     """The contract hash of `package`'s bundled snapshot."""
-    return la_contract_hash() if package == "la" else dr_contract_hash()
+    return la_contract_hash() if package == "la" else trmv_contract_hash()
 
 
 def version(package: str) -> str:
     """The installed version of `package`."""
-    return __version__ if package == "la" else dr_version
+    return __version__ if package == "la" else trmv_version
 
 
 def substitute(text: str, root: Path, package: str = "la") -> str:
@@ -223,7 +223,7 @@ def substitute(text: str, root: Path, package: str = "la") -> str:
 def _installed(text: str, package: str) -> str:
     """`text` with the version and contract hash placeholders replaced by `package`'s installed values."""
     text = text.replace(VERSION_PLACEHOLDER, version(package))
-    text = text.replace(DR_CONTRACT_HASH_PLACEHOLDER, dr_contract_hash())
+    text = text.replace(TRMV_CONTRACT_HASH_PLACEHOLDER, trmv_contract_hash())
     return text.replace(CONTRACT_HASH_PLACEHOLDER, contract_hash(package))
 
 
@@ -387,8 +387,8 @@ def _normalize(text: str, root: Path, case: dict, package: str) -> str:
             text = text.replace(version(package), VERSION_PLACEHOLDER)
         elif rule == "contract_hash":
             text = text.replace(contract_hash(package), CONTRACT_HASH_PLACEHOLDER)
-        elif rule == "dr_contract_hash":
-            text = text.replace(dr_contract_hash(), DR_CONTRACT_HASH_PLACEHOLDER)
+        elif rule == "trmv_contract_hash":
+            text = text.replace(trmv_contract_hash(), TRMV_CONTRACT_HASH_PLACEHOLDER)
         else:
             text = re.sub(rule["pattern"], rule["replace"], text)
     return text
@@ -514,7 +514,7 @@ def check_case(
 
 
 def package_of(case_dir: Path) -> str:
-    """The package of the tree holding the case: `dr` or `la`."""
+    """The package of the tree holding the case: `trmv` or `la`."""
     return case_dir.parent.parent.name
 
 

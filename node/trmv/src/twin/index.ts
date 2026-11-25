@@ -3,7 +3,7 @@ import { spawnSync, type SpawnSyncOptions, type SpawnSyncReturns } from 'node:ch
 import { accessSync, constants, realpathSync, statSync } from 'node:fs';
 import { constants as osConstants } from 'node:os';
 import { delimiter, dirname, join } from 'node:path';
-import { DR, type Snapshot, contractHash, language, message, renderTemplate, validate, which } from '../contract/index.js';
+import { TRMV, type Snapshot, contractHash, language, message, renderTemplate, validate, which } from '../contract/index.js';
 import { NATIVE_LANGUAGE, VERSION } from '../index.js';
 
 export { NATIVE_LANGUAGE };
@@ -30,14 +30,14 @@ export interface Identity {
 /** The `--twin` line `who`'s twin of `lang` prints. */
 export const line = (who: Identity, lang: string): string => [lang, who.version, ...who.hashes].join(' ');
 
-/** dr's twin identity. */
-export function drIdentity(): Identity {
-  const cli = DR.yaml('cli.yaml');
-  return { package: cli.package, doctor: cli.doctor, version: VERSION, hashes: [contractHash()], contract: DR };
+/** trmv's twin identity. */
+export function trmvIdentity(): Identity {
+  const cli = TRMV.yaml('cli.yaml');
+  return { package: cli.package, doctor: cli.doctor, version: VERSION, hashes: [contractHash()], contract: TRMV };
 }
 
-/** This twin's `--twin` line for `who` (default: dr). */
-export function identity(who: Identity = drIdentity()): string {
+/** This twin's `--twin` line for `who` (default: trmv). */
+export function identity(who: Identity = trmvIdentity()): string {
   return line(who, NATIVE_LANGUAGE);
 }
 
@@ -46,7 +46,7 @@ export function installCommand(lang: string, who: Identity, version: string = wh
   return renderTemplate(language(lang).install[who.package], { version });
 }
 
-/** The hint `templateId` from `who`'s registry, else from dr's. */
+/** The hint `templateId` from `who`'s registry, else from trmv's. */
 function hint(templateId: string, lang: string, who: Identity): string {
   const values = { language: lang, package: who.package, version: who.version, install: installCommand(lang, who) };
   const template = who.contract.findings()[templateId];
@@ -130,8 +130,8 @@ function spawnTwin(lang: string, command: string, cmd: string, args: string[], o
   return proc;
 }
 
-/** Run `command` through `who`'s (default: dr's) `lang` twin with the raw argv; streams pass through, its exit code returns. */
-export function forward(command: string, lang: string, argv: string[], repoRoot: string, who: Identity = drIdentity()): number {
+/** Run `command` through `who`'s (default: trmv's) `lang` twin with the raw argv; streams pass through, its exit code returns. */
+export function forward(command: string, lang: string, argv: string[], repoRoot: string, who: Identity = trmvIdentity()): number {
   refuseIfForwarded(lang);
   const [cmd = '', ...args] = launcher(lang, repoRoot, who)(command);
   const proc = spawnTwin(lang, command, cmd, [...args, ...argv], { env: env(), stdio: 'inherit' });
@@ -140,10 +140,10 @@ export function forward(command: string, lang: string, argv: string[], repoRoot:
 }
 
 /**
- * `command ARGS` in `who`'s (default: dr's) `lang` twin from the current directory: its exit code (a signal: 2) and
+ * `command ARGS` in `who`'s (default: trmv's) `lang` twin from the current directory: its exit code (a signal: 2) and
  * stdout; stderr relayed.
  */
-export function runCaptured(command: string, lang: string, args: string[], repoRoot: string, who: Identity = drIdentity()): [number, Buffer] {
+export function runCaptured(command: string, lang: string, args: string[], repoRoot: string, who: Identity = trmvIdentity()): [number, Buffer] {
   refuseIfForwarded(lang);
   const [cmd = '', ...rest] = launcher(lang, repoRoot, who)(command);
   const proc = spawnTwin(lang, command, cmd, [...rest, ...args], { env: env(), stdio: ['inherit', 'pipe', 'inherit'], maxBuffer: 1 << 30 });
@@ -193,8 +193,8 @@ export function requestDocument(lang: string, who: Identity, command: string, ar
   return document;
 }
 
-/** `command --language lang ARGS` in `who`'s (default: dr's) `lang` twin, streams relayed; its exit code (a signal: 2). */
-export function runLanguage(command: string, lang: string, args: string[], cwd: string, repoRoot: string, who: Identity = drIdentity()): number {
+/** `command --language lang ARGS` in `who`'s (default: trmv's) `lang` twin, streams relayed; its exit code (a signal: 2). */
+export function runLanguage(command: string, lang: string, args: string[], cwd: string, repoRoot: string, who: Identity = trmvIdentity()): number {
   refuseIfForwarded(lang);
   const [cmd = '', ...rest] = launcher(lang, repoRoot, who)(command);
   const proc = spawnTwin(lang, command, cmd, [...rest, '--language', lang, ...args], { cwd, env: env(), stdio: 'inherit' });

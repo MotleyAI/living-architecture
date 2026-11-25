@@ -7,8 +7,8 @@ import json
 from pathlib import Path
 from typing import Any
 
-from deterministic_refactor.contract.glob import glob_match
-from deterministic_refactor.contract.yaml_profile import load_yaml
+from trmv.contract.glob import glob_match
+from trmv.contract.yaml_profile import load_yaml
 
 HASH_FILE = "CONTRACT_HASH"
 
@@ -68,37 +68,37 @@ class Snapshot:
         return self.root / "scripts" / name
 
 
-DR = Snapshot(Path(__file__).resolve().parent / "data")
+TRMV = Snapshot(Path(__file__).resolve().parent / "data")
 
 
 def snapshot_dir() -> Path:
-    return DR.root
+    return TRMV.root
 
 
 def contract_hash() -> str:
-    """The hash recorded when dr's snapshot was vendored."""
-    return DR.contract_hash()
+    """The hash recorded when trmv's snapshot was vendored."""
+    return TRMV.contract_hash()
 
 
 def schema(name: str) -> dict[str, Any]:
-    return DR.schema(name)
+    return TRMV.schema(name)
 
 
 def schema_names() -> list[str]:
-    """Every dr schema's name, as `schema` takes it."""
-    return DR.schema_names()
+    """Every trmv schema's name, as `schema` takes it."""
+    return TRMV.schema_names()
 
 
 def findings() -> dict[str, str]:
-    return DR.findings()
+    return TRMV.findings()
 
 
 def manifest() -> dict[str, Any]:
-    return DR.manifest()
+    return TRMV.manifest()
 
 
 def _cli() -> Any:
-    return DR.yaml("cli.yaml")
+    return TRMV.yaml("cli.yaml")
 
 
 def base_fetch_timeout() -> float:
@@ -112,7 +112,7 @@ def literal_value_forbidden() -> tuple[str, ...]:
 
 
 def timing_phases() -> tuple[str, ...]:
-    """The phases `dr-refactor --timings` reports, in print order."""
+    """The phases `trmv-refactor --timings` reports, in print order."""
     return tuple(_cli()["timing_phases"])
 
 
@@ -122,12 +122,12 @@ def language_keys() -> list[str]:
 
 
 def language(name: str) -> dict[str, Any]:
-    return DR.yaml("languages.yaml")[name]
+    return TRMV.yaml("languages.yaml")[name]
 
 
 def language_ids() -> list[str]:
     """Every language of the registry, in id order."""
-    return sorted(DR.yaml("languages.yaml"))
+    return sorted(TRMV.yaml("languages.yaml"))
 
 
 def language_of(path: str) -> str | None:
@@ -145,10 +145,10 @@ def is_test_file(path: str) -> bool:
 
 
 def config_files() -> list[str]:
-    """The committed config files a dr command reads, in order: the first present at the repo root."""
-    return list(DR.yaml("config.yaml")["files"])
+    """The committed config files a trmv command reads, in order: the first present at the repo root."""
+    return list(TRMV.yaml("config.yaml")["files"])
 
 
 def config_formats(file: str) -> list[str]:
     """Every released format of config file `file`, oldest first."""
-    return list(DR.yaml("config.yaml")["formats"][file])
+    return list(TRMV.yaml("config.yaml")["formats"][file])

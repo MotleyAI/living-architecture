@@ -1,4 +1,4 @@
-// `dr-refactor generate-map TABLE`: a rename map for a word table, read from the TypeScript sources' syntax alone.
+// `trmv-refactor generate-map TABLE`: a rename map for a word table, read from the TypeScript sources' syntax alone.
 import { existsSync, statSync } from 'node:fs';
 import { basename } from 'node:path';
 import type * as TS from 'typescript';

@@ -11,8 +11,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
-from deterministic_refactor.lang import Span
-from deterministic_refactor.refactor.keyed import (
+from trmv.lang import Span
+from trmv.refactor.keyed import (
     ClassRef,
     TypeFacts,
     UnresolvedBase,
@@ -22,9 +22,9 @@ from deterministic_refactor.refactor.keyed import (
     plain_key_span,
     single_binding,
 )
-from deterministic_refactor.refactor.occurrence_index import RunIndex, carrier_queries, unpacked_keys
-from deterministic_refactor.refactor.python_source import SourceFile, every_parameter, name_end, nfkc
-from deterministic_refactor.refactor.text_edits import TextEdit, apply_edits
+from trmv.refactor.occurrence_index import RunIndex, carrier_queries, unpacked_keys
+from trmv.refactor.python_source import SourceFile, every_parameter, name_end, nfkc
+from trmv.refactor.text_edits import TextEdit, apply_edits
 
 Function = ast.FunctionDef | ast.AsyncFunctionDef
 Load = Callable[[Path], SourceFile | None]

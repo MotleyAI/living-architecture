@@ -1,4 +1,4 @@
-// The `dr-*` commands: TypeScript refactors and lints natively, the other language's inputs in its twin.
+// The `trmv-*` commands: TypeScript refactors and lints natively, the other language's inputs in its twin.
 import { ConfigError, findRepoRoot } from '../config/index.js';
 import { basePaths, mergeBase, pathsAt, resolveBaseRef } from '../changes/index.js';
 import { language, languageIds, languageOf, message } from '../contract/index.js';
@@ -62,7 +62,7 @@ function runLanguage(args: RefactorArgs): string {
   return refactorLanguage(args.subcommand, source ?? '', args.dest ?? '', args.project);
 }
 
-/** `dr-refactor`: run natively, or hand the raw ARGV to the source language's twin; with `--timings`, the phase
+/** `trmv-refactor`: run natively, or hand the raw ARGV to the source language's twin; with `--timings`, the phase
  * times follow, unless the other twin ran and printed its own. */
 export function runRefactor(argv: string[], args: RefactorArgs): number {
   return report(args.timings === true, (scope) => {
@@ -77,10 +77,10 @@ export function runRefactor(argv: string[], args: RefactorArgs): number {
     if (id === twin.NATIVE_LANGUAGE) return runTypescriptRefactor(args);
     let code: number;
     try {
-      code = twin.forward('dr-refactor', id, argv, findRepoRoot(process.cwd()));
+      code = twin.forward('trmv-refactor', id, argv, findRepoRoot(process.cwd()));
     } catch (error) {
       if (!(error instanceof twin.TwinError)) throw error;
-      process.stderr.write(`${message('twin.error', { prog: 'dr-refactor', error: error.message })}\n`);
+      process.stderr.write(`${message('twin.error', { prog: 'trmv-refactor', error: error.message })}\n`);
       return 2;
     }
     scope.cancel();
@@ -88,7 +88,7 @@ export function runRefactor(argv: string[], args: RefactorArgs): number {
   });
 }
 
-/** `dr-compliance`: each file with its language's checks, the other language's in its twin. */
+/** `trmv-compliance`: each file with its language's checks, the other language's in its twin. */
 export function runCompliance(paths: string[], select: string | null, attrs: string[]): number {
   let selected: Set<string> | null;
   let groups: Map<string, string[]>;
@@ -97,7 +97,7 @@ export function runCompliance(paths: string[], select: string | null, attrs: str
     const check = [...(selected ?? [])].find((id) => (ATTRIBUTE_CHECKS as readonly string[]).includes(id));
     if (check !== undefined && attrs.length === 0) throw new RoutingError(message('compliance.attr-required', { check }));
     if (selected !== null && check === undefined && attrs.length > 0) throw new RoutingError(message('compliance.attr-unselected'));
-    groups = split('dr-compliance', paths);
+    groups = split('trmv-compliance', paths);
   } catch (error) {
     if (!(error instanceof RoutingError)) throw error;
     process.stderr.write(`${error.message}\n`);
@@ -106,7 +106,7 @@ export function runCompliance(paths: string[], select: string | null, attrs: str
   const options = [...(select !== null ? ['--select', select] : []), ...attrs.flatMap((attr) => ['--attr', attr])];
   const checks: string[] = language(twin.NATIVE_LANGUAGE).compliance_checks;
   const own = new Set(checks.filter((check) => selected === null || selected.has(check)));
-  return runSplit('dr-compliance', groups, (files) => [...options, '--', ...files], (files) => native(() => typescriptCompliance(files, own, attrs)));
+  return runSplit('trmv-compliance', groups, (files) => [...options, '--', ...files], (files) => native(() => typescriptCompliance(files, own, attrs)));
 }
 
 /** The merge base of origin/`branch` and HEAD, the paths tracked there and those renamed since. */
@@ -116,12 +116,12 @@ function mockBase(branch: string): MockBase {
   return { commit, tracked: pathsAt(commit, repoRoot), renamed: basePaths(commit, repoRoot) };
 }
 
-/** `dr-mock-lint`: each file linted in its language's twin; with `base`, only the findings the base lacks. */
+/** `trmv-mock-lint`: each file linted in its language's twin; with `base`, only the findings the base lacks. */
 export function runMockLint(paths: string[], base: string | null): number {
   let groups: Map<string, string[]>;
   let compared: MockBase | null = null;
   try {
-    groups = split('dr-mock-lint', paths);
+    groups = split('trmv-mock-lint', paths);
     if (base !== null && groups.has(twin.NATIVE_LANGUAGE)) compared = mockBase(base);
   } catch (error) {
     if (!(error instanceof RoutingError) && !(error instanceof ConfigError)) throw error;
@@ -129,5 +129,5 @@ export function runMockLint(paths: string[], base: string | null): number {
     return 2;
   }
   const options = base === null ? [] : ['--base', base];
-  return runSplit('dr-mock-lint', groups, (files) => [...options, '--', ...files], (files) => native(() => typescriptMockLint(files, compared)));
+  return runSplit('trmv-mock-lint', groups, (files) => [...options, '--', ...files], (files) => native(() => typescriptMockLint(files, compared)));
 }

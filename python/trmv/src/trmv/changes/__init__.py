@@ -8,8 +8,8 @@ import signal
 import subprocess
 from pathlib import Path
 
-from deterministic_refactor.config import ConfigError
-from deterministic_refactor.contract import base_fetch_timeout, message
+from trmv.config import ConfigError
+from trmv.contract import base_fetch_timeout, message
 
 __all__ = ["base_paths", "changed_paths", "commit_id", "file_at", "git_paths", "is_commit", "merge_base", "resolve_base_ref"]
 

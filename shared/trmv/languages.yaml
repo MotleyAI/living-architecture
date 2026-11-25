@@ -1,14 +1,14 @@
 # Per-language facts. `markers` are the repo-root files that, with a file of the language, make it a repo language;
-# `executables` are what the doctors require on PATH when it is one; `compliance_checks` are its dr-compliance check
-# ids; `declaration_globs` and `excluded_dirs` (directory names) are never expanded or checked by dr-*; `local_bin`
+# `executables` are what the doctors require on PATH when it is one; `compliance_checks` are its trmv-compliance check
+# ids; `declaration_globs` and `excluded_dirs` (directory names) are never expanded or checked by trmv-*; `local_bin`
 # is where the repo installs its checker; `baseline_file` is the checker's committed baseline. `runner` runs a command through the language's twin of `{package}` at `{version}`
 # (the command is appended); `install` is, per package, the hint shown when that twin is unreachable; `unit_separator` joins a unit's
 # segments (`pkg.api`, `src/api`); `imports_non_source` means its imports can reach files of no language (JSON
 # modules), so la-affected-tests computes it for a change to such a file. `checker_patch_versions` (python) lists
-# the basedpyright versions dr-typecheck's pyright#11919 patch is verified for; any other installed version is
+# the basedpyright versions trmv-typecheck's pyright#11919 patch is verified for; any other installed version is
 # refused. `checker_export_versions` (python) lists the basedpyright versions the occurrence-export preload of
-# dr-refactor's language server is verified for; `cache_dir_variable` (python) names the environment variable holding
-# the directory of dr-refactor's occurrence-index cache. `any_type` and `top_type` spell the language's any type and its safe top type in explicit-any findings.
+# trmv-refactor's language server is verified for; `cache_dir_variable` (python) names the environment variable holding
+# the directory of trmv-refactor's occurrence-index cache. `any_type` and `top_type` spell the language's any type and its safe top type in explicit-any findings.
 # `root_members` (python) are the members of the implicit root class `object` over every supported Python version (as
 # the typeshed of the shipped basedpyright declares them), which a member rename may not take.
 # `string_member_calls` are the calls that name a member by a string, which a rename rewrites and attr-blindspot
@@ -84,8 +84,8 @@ python:
                  __reduce__, __reduce_ex__, __repr__, __setattr__, __sizeof__, __str__, __subclasshook__]
   runner: uvx --from {package}=={version}
   install:
-    deterministic-refactor: uv tool install deterministic-refactor=={version}
-    living-architecture: uv tool install living-architecture=={version} --with-executables-from deterministic-refactor
+    type-rename-move: uv tool install type-rename-move=={version}
+    living-architecture: uv tool install living-architecture=={version} --with-executables-from type-rename-move
 
 typescript:
   markers: [tsconfig.json]
@@ -142,5 +142,5 @@ typescript:
   baseline_file: .tsc-baseline.json
   runner: npx -y -p {package}@{version}
   install:
-    deterministic-refactor: npm install -g deterministic-refactor@{version}
-    living-architecture: npm install -g living-architecture@{version} deterministic-refactor@{version}
+    type-rename-move: npm install -g type-rename-move@{version}
+    living-architecture: npm install -g living-architecture@{version} type-rename-move@{version}

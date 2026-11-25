@@ -1,4 +1,4 @@
-// `dr-refactor rename-map MAP`: the map file read and checked against the shared schema.
+// `trmv-refactor rename-map MAP`: the map file read and checked against the shared schema.
 import { existsSync, statSync } from 'node:fs';
 import { DuplicateKeyError, YAMLError, decodeUtf8OrNull, isOsError, loadYaml, message, readFile, schema, toPlain, validate } from '../contract/index.js';
 

@@ -1,20 +1,20 @@
 python:
-  source_roots: [python/dr/src, python/la/src]
-  root_packages: [deterministic_refactor, living_architecture]
+  source_roots: [python/trmv/src, python/la/src]
+  root_packages: [trmv, living_architecture]
 typescript:
   source_root: node
-  root_packages: [dr/src, la/src]
+  root_packages: [trmv/src, la/src]
 legacy_arrows: {baseline: 0}
 cross_cutting_specs:
   repo-config:
-    touches: [python.dr.config, python.la.config, python.dr.doctor, python.la.doctor, python.dr.cli, python.la.cli,
+    touches: [python.trmv.config, python.la.config, python.trmv.doctor, python.la.doctor, python.trmv.cli, python.la.cli,
       python.la.c4]
   shared-contract:
-    touches: [python.dr.contract, python.la.contract, python.dr.config, python.la.config, python.dr.cli, python.la.cli,
-      python.la.c4, python.la.archcheck, python.dr.lang, python.la.conventions, python.la.review, python.dr.doctor,
-      python.la.doctor, python.dr.refactor]
+    touches: [python.trmv.contract, python.la.contract, python.trmv.config, python.la.config, python.trmv.cli, python.la.cli,
+      python.la.c4, python.la.archcheck, python.trmv.lang, python.la.conventions, python.la.review, python.trmv.doctor,
+      python.la.doctor, python.trmv.refactor]
   doctor:
-    touches: [python.dr.doctor, python.la.doctor]
+    touches: [python.trmv.doctor, python.la.doctor]
 diagrams:
   architecture/system.arc42.md: [system, npm]
 view_depth: {system: 2, npm: 2}

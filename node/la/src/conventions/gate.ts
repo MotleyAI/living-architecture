@@ -1,7 +1,7 @@
 // `la-check-conventions`: the deterministic conventions gate over a change's source files, every language.
 import { spawnSync } from 'node:child_process';
-import { changedPaths, resolveBaseRef } from 'deterministic-refactor/changes';
-import { ConfigError } from 'deterministic-refactor/config';
+import { changedPaths, resolveBaseRef } from 'type-rename-move/changes';
+import { ConfigError } from 'type-rename-move/config';
 import { loadConfig } from '../config/index.js';
 import { byCodePoint, conventions, fixed1, fnmatch, isTestFile, language, languageIds, message } from '../contract/index.js';
 import { collect, FactsError, type Facts, languageOf } from './facts.js';

@@ -1,4 +1,4 @@
-// `dr-refactor rename`, `retarget` and `rename-map` for TypeScript: every entry resolved first, then each rename
+// `trmv-refactor rename`, `retarget` and `rename-map` for TypeScript: every entry resolved first, then each rename
 // rule once per old name over one session, one refusal report and one change set.
 import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -642,7 +642,7 @@ class NameGroup {
   private mentionFiles(): [string, Mention[]][] {
     const files: [string, Mention[]][] = [];
     for (const { source } of this.holding) files.push([source.fileName, mentions(source.text, this.old, sourceRegions(source))]);
-    const extensions: string[] = manifest()['dr-refactor'].prose_extensions;
+    const extensions: string[] = manifest()['trmv-refactor'].prose_extensions;
     for (const rel of sourceFiles(this.r.root, []).sort(byCodePoint)) {
       const path = join(this.r.root, rel);
       if (!extensions.some((ext) => rel.endsWith(ext)) || !existsSync(path)) continue;
@@ -1042,7 +1042,7 @@ function followRenames(targets: Target[]): void {
 function editableFiles(r: Refactor, docs: boolean): Map<string, boolean> {
   const out = new Map(languageFiles(r.root, 'typescript').map((path): [string, boolean] => [r.rel(path), true]));
   if (!docs) return out;
-  const extensions: string[] = manifest()['dr-refactor'].prose_extensions;
+  const extensions: string[] = manifest()['trmv-refactor'].prose_extensions;
   for (const rel of sourceFiles(r.root, []).sort(byCodePoint)) if (extensions.some((ext) => rel.endsWith(ext)) && !out.has(rel)) out.set(rel, false);
   return out;
 }

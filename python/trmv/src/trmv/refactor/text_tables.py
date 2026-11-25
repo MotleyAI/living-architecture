@@ -7,12 +7,12 @@ import ast
 from collections.abc import Callable
 from pathlib import Path
 
-from deterministic_refactor.config import source_files
-from deterministic_refactor.contract import manifest
-from deterministic_refactor.refactor.compound import is_compound, words
-from deterministic_refactor.refactor.mentions import Region, source_regions
-from deterministic_refactor.refactor.outcomes import literal_spans
-from deterministic_refactor.refactor.python_source import SourceFile
+from trmv.config import source_files
+from trmv.contract import manifest
+from trmv.refactor.compound import is_compound, words
+from trmv.refactor.mentions import Region, source_regions
+from trmv.refactor.outcomes import literal_spans
+from trmv.refactor.python_source import SourceFile
 
 Span = tuple[int, int]
 
@@ -92,6 +92,6 @@ class TextTables:
     def prose(self) -> list[str]:
         """The project's prose files, by path."""
         if self._prose is None:
-            extensions = tuple(manifest()["dr-refactor"]["prose_extensions"])
+            extensions = tuple(manifest()["trmv-refactor"]["prose_extensions"])
             self._prose = [rel for rel in sorted(source_files(self.root, [])) if rel.endswith(extensions)]
         return self._prose

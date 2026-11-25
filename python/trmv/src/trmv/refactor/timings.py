@@ -1,4 +1,4 @@
-"""`dr-refactor --timings`: each phase's exclusive wall time, printed in the shared phase order."""
+"""`trmv-refactor --timings`: each phase's exclusive wall time, printed in the shared phase order."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import time
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
 
-from deterministic_refactor.contract import message, timing_phases
+from trmv.contract import message, timing_phases
 
 _CENTISECOND_NS = 10_000_000
 

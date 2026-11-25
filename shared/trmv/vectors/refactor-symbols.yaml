@@ -1,4 +1,4 @@
-# The primitives of `dr-refactor`'s symbol paths, compound names and baseline ranges, run by both twins. Offsets
+# The primitives of `trmv-refactor`'s symbol paths, compound names and baseline ranges, run by both twins. Offsets
 # count code points.
 
 # A `--symbol` path parsed: its segments, trailing `(param)` and trailing `['value']`; `invalid` when it is no path.

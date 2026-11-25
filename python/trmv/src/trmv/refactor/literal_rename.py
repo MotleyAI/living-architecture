@@ -13,22 +13,22 @@ from pathlib import Path
 
 from typing_extensions import override
 
-from deterministic_refactor.contract import literal_value_forbidden, message
-from deterministic_refactor.lang import Diagnostic, LanguageServer, reverse_closure
-from deterministic_refactor.refactor.entry_location import EntryLocator
-from deterministic_refactor.refactor.keyed import TypeFacts
-from deterministic_refactor.refactor.locators import cannot_rename
-from deterministic_refactor.refactor.member_scan import TextProbe
-from deterministic_refactor.refactor.mentions import docstrings
-from deterministic_refactor.refactor.name_follow import Held, NameFollow, display_names
-from deterministic_refactor.refactor.occurrence_index import RunIndex
-from deterministic_refactor.refactor.outcomes import Finding, Outcome, file_outcome, unverified_read
-from deterministic_refactor.refactor.python_source import SourceFile
-from deterministic_refactor.refactor.rename_union import MapRename, RenameOptions, RenameResult, Session
-from deterministic_refactor.refactor.routing import language_files, stub_files
-from deterministic_refactor.refactor.symbol_path import LocatorError, names_literal
-from deterministic_refactor.refactor.text_edits import TextEdit
-from deterministic_refactor.refactor.timings import timed
+from trmv.contract import literal_value_forbidden, message
+from trmv.lang import Diagnostic, LanguageServer, reverse_closure
+from trmv.refactor.entry_location import EntryLocator
+from trmv.refactor.keyed import TypeFacts
+from trmv.refactor.locators import cannot_rename
+from trmv.refactor.member_scan import TextProbe
+from trmv.refactor.mentions import docstrings
+from trmv.refactor.name_follow import Held, NameFollow, display_names
+from trmv.refactor.occurrence_index import RunIndex
+from trmv.refactor.outcomes import Finding, Outcome, file_outcome, unverified_read
+from trmv.refactor.python_source import SourceFile
+from trmv.refactor.rename_union import MapRename, RenameOptions, RenameResult, Session
+from trmv.refactor.routing import language_files, stub_files
+from trmv.refactor.symbol_path import LocatorError, names_literal
+from trmv.refactor.text_edits import TextEdit
+from trmv.refactor.timings import timed
 
 SENTINEL = "__la_probe_sentinel__"
 _QUOTE = re.compile(r"[rRuU]?('''|\"\"\"|'|\")")

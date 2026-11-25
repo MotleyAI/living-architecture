@@ -11,15 +11,15 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
-from deterministic_refactor.config import ConfigError, find_repo_root, load_config
-from deterministic_refactor.contract import language, message
-from deterministic_refactor.lang.baseline import Key, baselined, diagnostics, line_starts, pairs, text_edits
-from deterministic_refactor.lang.language_server import utf16_index, utf16_position
-from deterministic_refactor.lang.position_map import Edit, map_range
-from deterministic_refactor.refactor.progress import checker_cause
-from deterministic_refactor.refactor.python_project import read_str_coding
-from deterministic_refactor.refactor.writer import FileMove, FileWrite
-from deterministic_refactor.typecheck import CommandError, python_diagnostics
+from trmv.config import ConfigError, find_repo_root, load_config
+from trmv.contract import language, message
+from trmv.lang.baseline import Key, baselined, diagnostics, line_starts, pairs, text_edits
+from trmv.lang.language_server import utf16_index, utf16_position
+from trmv.lang.position_map import Edit, map_range
+from trmv.refactor.progress import checker_cause
+from trmv.refactor.python_project import read_str_coding
+from trmv.refactor.writer import FileMove, FileWrite
+from trmv.typecheck import CommandError, python_diagnostics
 
 
 class BaselineFailed(Exception):

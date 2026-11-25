@@ -1,4 +1,4 @@
-"""Routing `dr-*` inputs by file language: own-language files run here, the other language's in its twin."""
+"""Routing `trmv-*` inputs by file language: own-language files run here, the other language's in its twin."""
 
 from __future__ import annotations
 
@@ -8,12 +8,12 @@ from collections.abc import Callable
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from deterministic_refactor import twin
-from deterministic_refactor.config import ConfigError, find_repo_root, language_settings, repo_languages
-from deterministic_refactor.contract import glob_match, language, language_ids, language_of, message
-from deterministic_refactor.refactor.map_file import MapError, load_map, map_language
-from deterministic_refactor.refactor.timings import report
-from deterministic_refactor.refactor.word_table import load_table
+from trmv import twin
+from trmv.config import ConfigError, find_repo_root, language_settings, repo_languages
+from trmv.contract import glob_match, language, language_ids, language_of, message
+from trmv.refactor.map_file import MapError, load_map, map_language
+from trmv.refactor.timings import report
+from trmv.refactor.word_table import load_table
 
 
 class RoutingError(Exception):
@@ -78,7 +78,7 @@ def _expand(directory: Path, languages: list[str], root: Path) -> list[tuple[str
 
 
 def language_files(directory: Path, lang_id: str) -> list[Path]:
-    """Every file of language `lang_id` under `directory` that `dr-*` checks, in path order."""
+    """Every file of language `lang_id` under `directory` that `trmv-*` checks, in path order."""
     return [Path(path) for _, path in _expand(directory, [lang_id], directory)]
 
 
@@ -196,7 +196,7 @@ def _generate_language(args: Any) -> str:
 
 
 def refactor_language(args: Any) -> str:
-    """The language `dr-refactor` runs in; RoutingError (exit 1) for a bad or unsupported source or a cross-language
+    """The language `trmv-refactor` runs in; RoutingError (exit 1) for a bad or unsupported source or a cross-language
     dest, `MapError` (exit 2) for an invalid map or word table."""
     if args.subcommand == "generate-map":
         return _generate_language(args)
@@ -215,7 +215,7 @@ def refactor_language(args: Any) -> str:
 
 
 def route_refactor(argv: list[str], args: Any, native: Callable[[], int]) -> int:
-    """`dr-refactor`: run natively, or hand the raw ARGV to the source language's twin; with `--timings`, the phase
+    """`trmv-refactor`: run natively, or hand the raw ARGV to the source language's twin; with `--timings`, the phase
     times follow, unless the other twin ran and printed its own."""
     with report(bool(args.timings)) as scope:
         try:
@@ -229,9 +229,9 @@ def route_refactor(argv: list[str], args: Any, native: Callable[[], int]) -> int
         if lang_id == twin.NATIVE_LANGUAGE:
             return native()
         try:
-            code = twin.forward("dr-refactor", lang_id, argv, repo_root=find_repo_root(Path.cwd()))
+            code = twin.forward("trmv-refactor", lang_id, argv, repo_root=find_repo_root(Path.cwd()))
         except twin.TwinError as exc:
-            print(message("twin.error", prog="dr-refactor", error=str(exc)), file=sys.stderr)
+            print(message("twin.error", prog="trmv-refactor", error=str(exc)), file=sys.stderr)
             return 2
         scope.cancel()
         return code

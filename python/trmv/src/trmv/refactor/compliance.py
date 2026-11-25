@@ -1,4 +1,4 @@
-"""`dr-compliance`: report constructs that make a rename un-verifiable.
+"""`trmv-compliance`: report constructs that make a rename un-verifiable.
 
 A rename's completeness can only be proven by a type checker over code the checker can resolve. This flags
 the blind spots: untyped-def, unannotated-attr, explicit-any (a reference to `typing.Any`), mock (a double not bound
@@ -15,17 +15,17 @@ from collections import defaultdict
 from pathlib import Path
 from typing import TypeGuard
 
-from deterministic_refactor.contract import language, message
-from deterministic_refactor.lang import LanguageServerError
-from deterministic_refactor.refactor.explicit_any import check_explicit_any
-from deterministic_refactor.refactor.index_cache import IndexCache
-from deterministic_refactor.refactor.member_scan import MemberScan, probe_round
-from deterministic_refactor.refactor.mock_spec_lint import mock_findings
-from deterministic_refactor.refactor.occurrence_index import RunIndex, ServerSession
-from deterministic_refactor.refactor.outcomes import blindspot_text
-from deterministic_refactor.refactor.python_source import SourceFile
-from deterministic_refactor.refactor.rope_patches import apply_rope_patches, walk_gap_line
-from deterministic_refactor.refactor.routing import RoutingError, compliance_selection, run_split, split
+from trmv.contract import language, message
+from trmv.lang import LanguageServerError
+from trmv.refactor.explicit_any import check_explicit_any
+from trmv.refactor.index_cache import IndexCache
+from trmv.refactor.member_scan import MemberScan, probe_round
+from trmv.refactor.mock_spec_lint import mock_findings
+from trmv.refactor.occurrence_index import RunIndex, ServerSession
+from trmv.refactor.outcomes import blindspot_text
+from trmv.refactor.python_source import SourceFile
+from trmv.refactor.rope_patches import apply_rope_patches, walk_gap_line
+from trmv.refactor.routing import RoutingError, compliance_selection, run_split, split
 
 apply_rope_patches()
 
@@ -201,7 +201,7 @@ def _check_native(paths: list[str], selected: set[str], attrs: list[str]) -> int
 
 
 def run_compliance(*, paths: list[str], select: str | None, attrs: list[str]) -> int:
-    """`dr-compliance`: each file with its language's checks, the other language's in its twin."""
+    """`trmv-compliance`: each file with its language's checks, the other language's in its twin."""
     try:
         selected = compliance_selection(select)
         named = [c.strip() for c in (select or "").split(",") if c.strip() in ATTR_CHECKS]
@@ -209,10 +209,10 @@ def run_compliance(*, paths: list[str], select: str | None, attrs: list[str]) ->
             raise RoutingError(message("compliance.attr-required", check=named[0]))
         if selected is not None and not named and attrs:
             raise RoutingError(message("compliance.attr-unselected"))
-        groups = split("dr-compliance", paths, Path.cwd())
+        groups = split("trmv-compliance", paths, Path.cwd())
     except RoutingError as exc:
         print(exc, file=sys.stderr)
         return 2
     options = [*(["--select", select] if select is not None else []), *(a for attr in attrs for a in ("--attr", attr))]
     own = set(ALL_CHECKS) if selected is None else selected & set(ALL_CHECKS)
-    return run_split("dr-compliance", groups, lambda files: [*options, "--", *files], lambda files: _check_native(files, own, attrs))
+    return run_split("trmv-compliance", groups, lambda files: [*options, "--", *files], lambda files: _check_native(files, own, attrs))

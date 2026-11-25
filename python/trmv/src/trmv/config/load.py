@@ -1,4 +1,4 @@
-"""Loading the committed config file dr reads into dr's typed config, and the helpers la's config loading shares."""
+"""Loading the committed config file trmv reads into trmv's typed config, and the helpers la's config loading shares."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
-from deterministic_refactor.contract import (
+from trmv.contract import (
     DuplicateKeyError,
     YAMLError,
     capturing_groups,
@@ -21,8 +21,6 @@ from deterministic_refactor.contract import (
     schema,
     validate,
 )
-
-DR_SCHEMA = "deterministic-refactor"
 
 
 class ConfigError(Exception):
@@ -38,7 +36,7 @@ class TypecheckConfig(_Strict):
     typescript: str | None
 
 
-class DrCommandsConfig(_Strict):
+class TrmvCommandsConfig(_Strict):
     test: str | None
     typecheck: TypecheckConfig
 
@@ -52,12 +50,12 @@ class RefactorConfig(_Strict):
     string_forms: list[str]
 
 
-class DrConfig(_Strict):
-    """dr's resolved config; built only by `resolve`, so every default comes from the schema."""
+class TrmvConfig(_Strict):
+    """trmv's resolved config; built only by `resolve`, so every default comes from the schema."""
 
     format: str | None
     exempt: list[str]
-    commands: DrCommandsConfig
+    commands: TrmvCommandsConfig
     refactor: RefactorConfig
 
 
@@ -128,13 +126,18 @@ def both_files_problem(root: Path) -> str | None:
 
 
 def config_source(root: Path) -> str | None:
-    """The committed config file dr reads: the first of the contract's files at the repo root, else None."""
+    """The committed config file trmv reads: the first of the contract's files at the repo root, else None."""
     return next((name for name in config_files() if _present(root / name)), None)
 
 
 def own_file() -> str:
-    """dr's own config file; the others carry dr's keys among their package's."""
+    """trmv's own config file; the others carry trmv's keys among their package's."""
     return config_files()[0]
+
+
+def _own_schema() -> dict[str, Any]:
+    """The schema of trmv's own config file, named after it."""
+    return schema(Path(own_file()).stem)
 
 
 def _project(sub: dict[str, Any], data: Any) -> Any:
@@ -144,9 +147,9 @@ def _project(sub: dict[str, Any], data: Any) -> Any:
     return {key: _project(sub["properties"][key], value) for key, value in data.items() if key in sub["properties"]}
 
 
-def dr_data(data: Any, name: str) -> Any:
-    """The dr keys of config file `name`'s data: all of dr's own file, and dr's share of another package's file."""
-    return data if name == own_file() or not isinstance(data, dict) else _project(schema(DR_SCHEMA), data)
+def trmv_data(data: Any, name: str) -> Any:
+    """The trmv keys of config file `name`'s data: all of trmv's own file, and trmv's share of another package's file."""
+    return data if name == own_file() or not isinstance(data, dict) else _project(_own_schema(), data)
 
 
 def check_string_forms(patterns: list[str]) -> None:
@@ -158,34 +161,34 @@ def check_string_forms(patterns: list[str]) -> None:
             raise ValueError(f"refactor.string_forms pattern {pattern} must hold exactly one capturing group")
 
 
-def resolve(data: Any) -> DrConfig:
-    """Validate dr's config data (None = no file) and fill the schema defaults; ValueError if invalid."""
-    dr_schema = schema(DR_SCHEMA)
+def resolve(data: Any) -> TrmvConfig:
+    """Validate trmv's config data (None = no file) and fill the schema defaults; ValueError if invalid."""
+    trmv_schema = _own_schema()
     if data is not None and not isinstance(data, dict):
         raise ValueError("top level must be a mapping")
-    errors = validate(dr_schema, {} if data is None else data)
+    errors = validate(trmv_schema, {} if data is None else data)
     if errors:
         raise ValueError("; ".join(errors))
-    resolved = materialize_defaults(dr_schema, data)
+    resolved = materialize_defaults(trmv_schema, data)
     check_string_forms(resolved["refactor"]["string_forms"])
-    return DrConfig.model_validate(resolved)
+    return TrmvConfig.model_validate(resolved)
 
 
 def load_dr_data(root: Path) -> tuple[Any, str | None]:
-    """dr's share of the config file it reads, and that file's name; (None, None) without one."""
+    """trmv's share of the config file it reads, and that file's name; (None, None) without one."""
     name = config_source(root)
-    return (None, None) if name is None else (dr_data(read_config(root, name), name), name)
+    return (None, None) if name is None else (trmv_data(read_config(root, name), name), name)
 
 
-def _resolved(root: Path, data: Any, name: str | None) -> DrConfig:
+def _resolved(root: Path, data: Any, name: str | None) -> TrmvConfig:
     try:
         return resolve(data)
     except ValueError as exc:
         raise ConfigError(f"{root / str(name)}: {exc}") from exc
 
 
-def load_config(root: Path) -> DrConfig:
-    """dr's config at `root`; defaults without a config file. ConfigError naming the faulty file."""
+def load_config(root: Path) -> TrmvConfig:
+    """trmv's config at `root`; defaults without a config file. ConfigError naming the faulty file."""
     return _resolved(root, *load_dr_data(root))
 
 
@@ -196,8 +199,8 @@ def explicit_typecheck(data: Any) -> frozenset[str]:
     return frozenset(typecheck) if isinstance(typecheck, dict) else frozenset()
 
 
-def load_with_languages(root: Path) -> tuple[DrConfig, LanguageSettings]:
-    """dr's config at `root`, and that config as language detection reads it, from one read of the file."""
+def load_with_languages(root: Path) -> tuple[TrmvConfig, LanguageSettings]:
+    """trmv's config at `root`, and that config as language detection reads it, from one read of the file."""
     data, name = load_dr_data(root)
     config = _resolved(root, data, name)
     return config, LanguageSettings(
@@ -206,5 +209,5 @@ def load_with_languages(root: Path) -> tuple[DrConfig, LanguageSettings]:
 
 
 def language_settings(root: Path) -> LanguageSettings:
-    """dr's config at `root` as language detection reads it."""
+    """trmv's config at `root` as language detection reads it."""
     return load_with_languages(root)[1]

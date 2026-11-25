@@ -5,11 +5,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from deterministic_refactor.contract import language_of, message
-from deterministic_refactor.refactor.locators import RefactorError
-from deterministic_refactor.refactor.python_project import Snapshot, read_str_coding
-from deterministic_refactor.refactor.python_source import SourceFile
-from deterministic_refactor.refactor.writer import FileWrite
+from trmv.contract import language_of, message
+from trmv.refactor.locators import RefactorError
+from trmv.refactor.python_project import Snapshot, read_str_coding
+from trmv.refactor.python_source import SourceFile
+from trmv.refactor.writer import FileWrite
 
 _BOM = b"\xef\xbb\xbf"
 

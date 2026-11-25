@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Check a release tag: HEAD is its commit, every version equals it, la pins dr to its minor, each package's snapshots
-record its contract's hash, and the release rule holds against the previous release.
+"""Check a release tag: HEAD is its commit, every version equals it, la pins trmv to its minor, the trmv plugin's tag
+is at the same commit, each package's snapshots record its contract's hash, and the release rule holds against the
+previous release.
 
 Usage: scripts/release-check <tag>   (e.g. v0.2.1; exit 1 naming every mismatch, so no twin publishes)
 """
@@ -21,14 +22,14 @@ from release_rule import bump_problem, git, previous_release, pypi_pin, tilde_pi
 ROOT = Path(__file__).resolve().parent.parent
 # Each twin's snapshot hash file, by the package whose contract it vendors.
 SNAPSHOT_HASHES = {
-    f"python/dr/src/deterministic_refactor/contract/data/{HASH_FILE}": "dr",
-    f"node/dr/src/contract/data/{HASH_FILE}": "dr",
+    f"python/trmv/src/trmv/contract/data/{HASH_FILE}": "trmv",
+    f"node/trmv/src/contract/data/{HASH_FILE}": "trmv",
     f"python/la/src/living_architecture/contract/data/{HASH_FILE}": "la",
     f"node/la/src/contract/data/{HASH_FILE}": "la",
 }
-PYPROJECTS = ("python/dr/pyproject.toml", "python/la/pyproject.toml")
-PACKAGE_JSONS = ("node/dr/package.json", "node/la/package.json")
-PLUGINS = ("plugin/dr/.claude-plugin/plugin.json", "plugin/la/.claude-plugin/plugin.json")
+PYPROJECTS = ("python/trmv/pyproject.toml", "python/la/pyproject.toml")
+PACKAGE_JSONS = ("node/trmv/package.json", "node/la/package.json")
+PLUGINS = ("plugin/trmv/.claude-plugin/plugin.json", "plugin/la/.claude-plugin/plugin.json")
 
 
 def _json(rel: str) -> Any:
@@ -47,16 +48,16 @@ def _versions() -> dict[str, str | None]:
 
 
 def _pin_problems(version: str) -> list[str]:
-    """la's three pins on dr name `version`'s minor series."""
-    dr_deps = [d for d in _project("python/la/pyproject.toml").get("dependencies", []) if re.match(r"deterministic-refactor\b", d)]
+    """la's three pins on trmv name `version`'s minor series."""
+    trmv_deps = [d for d in _project("python/la/pyproject.toml").get("dependencies", []) if re.match(r"type-rename-move\b", d)]
     pins = {
-        "python/la/pyproject.toml": (dr_deps, [pypi_pin(version)]),
-        "node/la/package.json": (_json("node/la/package.json").get("dependencies", {}).get("deterministic-refactor"),
+        "python/la/pyproject.toml": (trmv_deps, [pypi_pin(version)]),
+        "node/la/package.json": (_json("node/la/package.json").get("dependencies", {}).get("type-rename-move"),
                                  tilde_pin(version)),
         "plugin/la/.claude-plugin/plugin.json": (_json(PLUGINS[1]).get("dependencies"),
-                                                 [{"name": "dr", "version": tilde_pin(version)}]),
+                                                 [{"name": "trmv", "version": tilde_pin(version)}]),
     }
-    return [f"{rel} pins dr as {actual}, not {expected}" for rel, (actual, expected) in pins.items() if actual != expected]
+    return [f"{rel} pins trmv as {actual}, not {expected}" for rel, (actual, expected) in pins.items() if actual != expected]
 
 
 def _hash_problems() -> list[str]:
@@ -71,10 +72,24 @@ def _hash_problems() -> list[str]:
     return problems
 
 
+def _tag_commit(tag: str) -> str:
+    """The commit of `tag`, or "" when there is no such tag."""
+    verify = ["git", "rev-parse", "-q", "--verify", f"refs/tags/{tag}^{{commit}}"]
+    return subprocess.run(verify, cwd=ROOT, capture_output=True, text=True, check=False).stdout.strip()
+
+
+def _plugin_tag_problems(tag: str, version: str) -> list[str]:
+    """The trmv plugin's tag, which la's plugin dependency resolves, is at the release tag's commit."""
+    plugin_tag = f"{_json(PLUGINS[0])['name']}--v{version}"
+    plugin, release = _tag_commit(plugin_tag), _tag_commit(tag)
+    if not plugin:
+        return [f"plugin tag {plugin_tag} is missing; tag it from plugin/trmv with `claude plugin tag --push`"]
+    return [] if plugin == release else [f"plugin tag {plugin_tag} is at {plugin}, not at {tag}'s commit {release}"]
+
+
 def _history_problems(tag: str, version: str) -> list[str]:
     """HEAD is the tag's commit, and the release rule holds against the previous release in the full history."""
-    verify = ["git", "rev-parse", "-q", "--verify", f"refs/tags/{tag}^{{commit}}"]
-    tagged = subprocess.run(verify, cwd=ROOT, capture_output=True, text=True, check=False).stdout.strip()
+    tagged = _tag_commit(tag)
     problems = [] if tagged == git(ROOT, "rev-parse", "HEAD").strip() else [f"HEAD is not the commit of tag {tag}"]
     if git(ROOT, "rev-parse", "--is-shallow-repository").strip() == "true":
         return [*problems, "the repository is a shallow clone; check out the full history with tags"]
@@ -93,6 +108,7 @@ def main(argv: list[str]) -> int:
     problems = _history_problems(argv[0], expected)
     problems += [f"{path} is {version}, the tag is {argv[0]}" for path, version in _versions().items() if version != expected]
     problems += _pin_problems(expected)
+    problems += _plugin_tag_problems(argv[0], expected)
     problems += _hash_problems()
     for problem in problems:
         print(f"release-check: {problem}", file=sys.stderr)

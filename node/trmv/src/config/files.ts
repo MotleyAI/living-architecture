@@ -1,4 +1,4 @@
-// The committed config files: which one dr reads, and the refusal when they are all present.
+// The committed config files: which one trmv reads, and the refusal when they are all present.
 import { join } from 'node:path';
 import { configFiles, isOsError, isRegularFile, message } from '../contract/index.js';
 
@@ -20,12 +20,12 @@ export function bothFilesProblem(root: string): string | null {
     : null;
 }
 
-/** The committed config file dr reads: the first of the contract's files at the repo root, else null. */
+/** The committed config file trmv reads: the first of the contract's files at the repo root, else null. */
 export function configSource(root: string): string | null {
   return configFiles().find((name) => present(join(root, name))) ?? null;
 }
 
-/** dr's own config file; the others carry dr's keys among their package's. */
+/** trmv's own config file; the others carry trmv's keys among their package's. */
 export function ownFile(): string {
   return configFiles()[0] as string;
 }

@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "word-table.schema.json",
-  "title": "dr-refactor word table",
+  "title": "trmv-refactor word table",
   "description": "A vocabulary rename: words (each from becomes its to wherever a name holds it as a word), carve_outs (where a word keeps its old sense: by a written annotation naming an identifier, by the declaring file's path, or by symbol) and entries (hand-written rename-map entries, kept on every regeneration). The loader also refuses a from given twice, a from equal to its to, and a carve-out word that is no from.",
   "type": "object",
   "additionalProperties": false,

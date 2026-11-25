@@ -1,6 +1,6 @@
 """The receivers of a member name basedpyright cannot type, and the registry's forms that name a member by a string
 (calls, field-name reads, decorators, class-body values): one scan over the run's occurrence index behind
-`dr-compliance --attr` and a rename's blind spots and string rewrites."""
+`trmv-compliance --attr` and a rename's blind spots and string rewrites."""
 
 from __future__ import annotations
 
@@ -16,10 +16,10 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt
 
-from deterministic_refactor.contract import language
-from deterministic_refactor.lang import FactQuery, Span
-from deterministic_refactor.refactor.occurrence_index import RunIndex
-from deterministic_refactor.refactor.python_source import SourceFile
+from trmv.contract import language
+from trmv.lang import FactQuery, Span
+from trmv.refactor.occurrence_index import RunIndex
+from trmv.refactor.python_source import SourceFile
 
 _SPACE = re.compile(r"\s+")
 

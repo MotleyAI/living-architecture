@@ -1,5 +1,5 @@
 // A member name's receivers the checker types as `any`, the accesses naming a member by a string or a name, and the
-// class, interface and type-literal members declaring it: one scan behind `dr-compliance --attr` and a rename's guards.
+// class, interface and type-literal members declaring it: one scan behind `trmv-compliance --attr` and a rename's guards.
 import type * as TS from 'typescript';
 import { language } from '../contract/index.js';
 import { ts } from '../lang/index.js';

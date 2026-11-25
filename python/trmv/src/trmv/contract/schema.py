@@ -1,4 +1,4 @@
-"""Schema validation and default materialization, across dr's schemas and any other contract's."""
+"""Schema validation and default materialization, across trmv's schemas and any other contract's."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from referencing import Registry, Resource
 from referencing._core import Resolver
 from referencing.jsonschema import DRAFT202012
 
-from deterministic_refactor.contract.snapshot import DR, Snapshot
+from trmv.contract.snapshot import TRMV, Snapshot
 
 
 @cache
@@ -42,7 +42,7 @@ def _validator(schema: dict[str, Any], snapshots: tuple[Snapshot, ...]) -> Draft
 def validate(schema: dict[str, Any], data: Any, extra: tuple[Snapshot, ...] = ()) -> list[str]:
     """Sorted `key.path: message` lines, one per violation; empty when valid. `extra`: other contracts' schemas."""
     errors = []
-    for error in _validator(schema, (DR, *extra)).iter_errors(data):
+    for error in _validator(schema, (TRMV, *extra)).iter_errors(data):
         path = ".".join(str(part) for part in error.absolute_path)
         errors.append(f"{path}: {error.message}" if path else error.message)
     return sorted(errors)
@@ -82,6 +82,6 @@ def _fill(schema: dict[str, Any], value: object, resolver: Resolver[Any]) -> obj
 def materialize_defaults(schema: dict[str, Any], data: object, extra: tuple[Snapshot, ...] = ()) -> Any:
     """`data` (None = missing document) with schema defaults filled in, following `$ref`s as inline definitions;
     explicit values are kept. `extra`: other contracts' schemas."""
-    resolver = _store((DR, *extra)).resolver(base_uri=str(schema.get("$id", "")))
+    resolver = _store((TRMV, *extra)).resolver(base_uri=str(schema.get("$id", "")))
     schema, resolver = _deref(schema, resolver)
     return _fill(schema, {} if data is None else data, resolver)

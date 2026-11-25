@@ -10,7 +10,15 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict
 
-from deterministic_refactor.config import (
+from living_architecture.contract import (
+    config_file,
+    local_config_file,
+    manifest,
+    materialize_defaults,
+    schema,
+    validate,
+)
+from trmv.config import (
     ConfigError,
     ConfigView,
     LanguageSettings,
@@ -20,16 +28,8 @@ from deterministic_refactor.config import (
     explicit_typecheck,
     read_config,
 )
-from deterministic_refactor.config.command import run_command as dr_run_command
-from deterministic_refactor.contract import is_portable_regex
-from living_architecture.contract import (
-    config_file,
-    local_config_file,
-    manifest,
-    materialize_defaults,
-    schema,
-    validate,
-)
+from trmv.config.command import run_command as trmv_run_command
+from trmv.contract import is_portable_regex
 
 
 class RawConfig(BaseModel):
@@ -175,5 +175,5 @@ def la_view(root: Path) -> ConfigView:
 
 
 def run_command(command: str, argv: list[str], handler: Callable[[argparse.Namespace], int]) -> int:
-    """`command` of la's manifest run through dr's command runner, checking la's config file."""
-    return dr_run_command(command, argv, handler, manifest(), config_file())
+    """`command` of la's manifest run through trmv's command runner, checking la's config file."""
+    return trmv_run_command(command, argv, handler, manifest(), config_file())

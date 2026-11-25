@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const PYTHON = join(dirname(ROOT), 'python');
 // Per package: its Python suite's conformance tests.
-const SUITES = { dr: ['tests/test_conformance.py', 'tests/test_module_map_equivalence.py'], la: ['tests/test_conformance.py'] };
+const SUITES = { trmv: ['tests/test_conformance.py', 'tests/test_module_map_equivalence.py'], la: ['tests/test_conformance.py'] };
 const bins = mkdtempSync(join(tmpdir(), 'la-node-bin-'));
 for (const pkg of Object.keys(SUITES)) {
   for (const file of readdirSync(join(ROOT, pkg, 'dist', 'bin'))) {

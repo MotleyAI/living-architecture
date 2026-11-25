@@ -10,8 +10,8 @@ from contextlib import ExitStack
 from pathlib import Path
 from typing import TypeVar, cast
 
-from deterministic_refactor.contract import language
-from deterministic_refactor.lang import (
+from trmv.contract import language
+from trmv.lang import (
     ExportRequest,
     FactQuery,
     LanguageServer,
@@ -20,10 +20,10 @@ from deterministic_refactor.lang import (
     PositionFacts,
     Span,
 )
-from deterministic_refactor.lang.language_server import FACT_KINDS, FactKind, Verdict
-from deterministic_refactor.refactor.index_cache import IndexCache, request_key
-from deterministic_refactor.refactor.python_source import SourceFile, nfkc
-from deterministic_refactor.refactor.timings import timed
+from trmv.lang.language_server import FACT_KINDS, FactKind, Verdict
+from trmv.refactor.index_cache import IndexCache, request_key
+from trmv.refactor.python_source import SourceFile, nfkc
+from trmv.refactor.timings import timed
 
 _FUNCTIONS = (ast.FunctionDef, ast.AsyncFunctionDef)
 READ_ATTRIBUTES = frozenset(read["attribute"] for read in language("python").get("name_reads", []))

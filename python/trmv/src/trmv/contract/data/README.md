@@ -1,15 +1,15 @@
-# deterministic-refactor contract
+# type-rename-move contract
 
-The source of truth both dr twins obey. Each twin vendors a byte-copy of this directory (refreshed by
-`scripts/sync-shared`) and loads only that copy at runtime; la loads it through the dr library it runs with.
+The source of truth both trmv twins obey. Each twin vendors a byte-copy of this directory (refreshed by
+`scripts/sync-shared`) and loads only that copy at runtime; la loads it through the trmv library it runs with.
 
 | File | Defines |
 |---|---|
-| `schema/deterministic-refactor.schema.json` | dr's config keys (`format`, `exempt`, `commands.test`, `commands.typecheck`, `refactor`), their types and defaults |
-| `schema/rename-map.schema.json`, `schema/word-table.schema.json` | `dr-refactor rename-map`'s map and `generate-map`'s word table |
-| `config.yaml` | the committed config files dr reads, in order, and each file's released formats |
-| `findings.yaml` | every finding, verdict and hint a dr command prints, by id |
-| `cli.yaml` | every dr command's options, positionals, subcommands, exit codes and native languages; the public language keys; the base-branch fetch timeout |
+| `schema/trmv.schema.json` | trmv's config keys (`format`, `exempt`, `commands.test`, `commands.typecheck`, `refactor`), their types and defaults |
+| `schema/rename-map.schema.json`, `schema/word-table.schema.json` | `trmv-refactor rename-map`'s map and `generate-map`'s word table |
+| `config.yaml` | the committed config files trmv reads, in order, and each file's released formats |
+| `findings.yaml` | every finding, verdict and hint a trmv command prints, by id |
+| `cli.yaml` | every trmv command's options, positionals, subcommands, exit codes and native languages; the public language keys; the base-branch fetch timeout |
 | `languages.yaml` | per-language extensions, test globs, comment prefix, suppression syntax, twin runner and install command |
 | `regex-subset.md` | the portable regex subset of `issue_key_pattern` and `refactor.string_forms` |
 | `vectors/` | input/output vectors both test suites consume |

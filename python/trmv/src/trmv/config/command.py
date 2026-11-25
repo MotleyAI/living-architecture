@@ -8,9 +8,9 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from deterministic_refactor import config
-from deterministic_refactor.contract import manifest
-from deterministic_refactor.contract.parser import parse
+from trmv import config
+from trmv.contract import manifest
+from trmv.contract.parser import parse
 
 
 def run_command(
@@ -20,8 +20,8 @@ def run_command(
     commands: dict[str, Any] | None = None,
     config_file: str | None = None,
 ) -> int:
-    """Parse `argv` per `commands` (default: dr's manifest; not for a passthrough command), refuse both config files
-    and check the format of `config_file` (default: the one dr reads) unless exempt, then run `handler`."""
+    """Parse `argv` per `commands` (default: trmv's manifest; not for a passthrough command), refuse both config files
+    and check the format of `config_file` (default: the one trmv reads) unless exempt, then run `handler`."""
     spec = (commands or manifest())[command]
     args = argparse.Namespace() if spec.get("passthrough") else parse(command, argv, commands)
     if spec.get("format") != "exempt":

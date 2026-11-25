@@ -1,5 +1,5 @@
 [project]
-name = "deterministic-refactor"
+name = "type-rename-move"
 version = "0.14.0"
 description = "Verified renames and moves for Python and TypeScript code: every import and reference rewritten, checked by a type-check gate against a committed baseline."
 readme = "README.md"
@@ -17,6 +17,13 @@ keywords = [
     "refactoring",
     "rename",
     "type-checking",
+    "move",
+    "refactor",
+    "typecheck",
+    "python",
+    "typescript",
+    "verified",
+    "imports",
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -44,26 +51,26 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://github.com/MotleyAI/living-architecture"
-Documentation = "https://github.com/MotleyAI/living-architecture/blob/main/docs/deterministic-refactoring.md"
+Documentation = "https://github.com/MotleyAI/living-architecture/blob/main/docs/rename-and-move.md"
 Repository = "https://github.com/MotleyAI/living-architecture"
 Issues = "https://github.com/MotleyAI/living-architecture/issues"
 Changelog = "https://github.com/MotleyAI/living-architecture/releases"
 
-# Must equal dr's command set in the shared CLI manifest.
+# Must equal trmv's command set in the shared CLI manifest.
 [project.scripts]
-dr-refactor = "deterministic_refactor.cli.dr_refactor:dr_refactor"
-dr-mock-lint = "deterministic_refactor.cli.dr_mock_lint:dr_mock_lint"
-dr-compliance = "deterministic_refactor.cli.dr_compliance:dr_compliance"
-dr-config = "deterministic_refactor.cli.dr_config:dr_config"
-dr-doctor = "deterministic_refactor.cli.dr_doctor:dr_doctor"
-dr-typecheck = "deterministic_refactor.cli.dr_typecheck:dr_typecheck"
+trmv-refactor = "trmv.cli.trmv_refactor:trmv_refactor"
+trmv-mock-lint = "trmv.cli.trmv_mock_lint:trmv_mock_lint"
+trmv-compliance = "trmv.cli.trmv_compliance:trmv_compliance"
+trmv-config = "trmv.cli.trmv_config:trmv_config"
+trmv-doctor = "trmv.cli.trmv_doctor:trmv_doctor"
+trmv-typecheck = "trmv.cli.trmv_typecheck:trmv_typecheck"
 
 [build-system]
 requires = ["uv_build>=0.9,<0.13"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]
-module-name = "deterministic_refactor"
+module-name = "trmv"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

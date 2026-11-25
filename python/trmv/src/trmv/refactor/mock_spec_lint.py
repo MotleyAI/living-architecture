@@ -1,4 +1,4 @@
-"""`dr-mock-lint`: every unittest.mock double must be bound to a spec.
+"""`trmv-mock-lint`: every unittest.mock double must be bound to a spec.
 
 Every Mock/MagicMock must carry spec=/spec_set=; every patch()/patch.object() must carry autospec=True (or
 an explicit new=/new_callable=/spec=). create_autospec() is always allowed.
@@ -14,10 +14,10 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
 
-from deterministic_refactor import changes, twin
-from deterministic_refactor.config import ConfigError, find_repo_root
-from deterministic_refactor.contract import message
-from deterministic_refactor.refactor.routing import RoutingError, run_split, split
+from trmv import changes, twin
+from trmv.config import ConfigError, find_repo_root
+from trmv.contract import message
+from trmv.refactor.routing import RoutingError, run_split, split
 
 MOCK_CTORS = {"Mock", "MagicMock", "NonCallableMock", "NonCallableMagicMock", "AsyncMock"}
 SPEC_KWARGS = {"spec", "spec_set"}
@@ -146,12 +146,12 @@ def _base(branch: str) -> Base:
 
 
 def run_mock_lint(*, paths: list[str], base: str | None) -> int:
-    """`dr-mock-lint`: each file linted in its language's twin; with `base`, only the findings the base lacks."""
+    """`trmv-mock-lint`: each file linted in its language's twin; with `base`, only the findings the base lacks."""
     try:
-        groups = split("dr-mock-lint", paths, Path.cwd())
+        groups = split("trmv-mock-lint", paths, Path.cwd())
         compared = _base(base) if base is not None and twin.NATIVE_LANGUAGE in groups else None
     except (RoutingError, ConfigError) as exc:
         print(exc, file=sys.stderr)
         return 2
     options = ["--base", base] if base is not None else []
-    return run_split("dr-mock-lint", groups, lambda files: [*options, "--", *files], lambda files: _lint_native(files, compared))
+    return run_split("trmv-mock-lint", groups, lambda files: [*options, "--", *files], lambda files: _lint_native(files, compared))

@@ -4,7 +4,7 @@ name = "conformance-runner"
 version = "0.0.0"
 requires-python = ">=3.11"
 classifiers = ["Private :: Do Not Upload"]
-dependencies = ["deterministic-refactor", "living-architecture", "pyyaml>=6"]
+dependencies = ["type-rename-move", "living-architecture", "pyyaml>=6"]
 
 [build-system]
 requires = ["uv_build>=0.9,<0.13"]
@@ -14,5 +14,5 @@ build-backend = "uv_build"
 module-name = "conformance_runner"
 
 [tool.uv.sources]
-deterministic-refactor = { workspace = true }
+type-rename-move = { workspace = true }
 living-architecture = { workspace = true }

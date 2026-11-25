@@ -193,7 +193,7 @@ function truthy(value: unknown): boolean {
 }
 
 /**
- * Parse `argv` for `command` of `commands` (default: dr's manifest): dests (and `subcommand`), or `{argv}` for a
+ * Parse `argv` for `command` of `commands` (default: trmv's manifest): dests (and `subcommand`), or `{argv}` for a
  * passthrough command.
  */
 export function parse(command: string, argv: string[], commands?: Record<string, any>): Args {
@@ -214,7 +214,7 @@ function optionLines(cmd: CommandSpec): string[] {
     .map((o) => `  ${o.name}${o.type === 'flag' ? '' : ` ${o.metavar ?? dest(o).toUpperCase()}`}  ${o.help}`);
 }
 
-/** The command's --help text (internal options omitted); `commands` defaults to dr's manifest. */
+/** The command's --help text (internal options omitted); `commands` defaults to trmv's manifest. */
 export function help(command: string, commands?: Record<string, any>): string {
   return renderHelp(command, spec(command, commands));
 }

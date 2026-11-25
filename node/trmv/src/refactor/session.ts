@@ -1,4 +1,4 @@
-// One `dr-refactor` run on TypeScript: the project's services, the locators, and the output with its apply.
+// One `trmv-refactor` run on TypeScript: the project's services, the locators, and the output with its apply.
 import { isAbsolute, relative, sep } from 'node:path';
 import type * as TS from 'typescript';
 import { byCodePoint, message, readFile } from '../contract/index.js';
@@ -197,7 +197,7 @@ export interface ProjectSource {
   checker: TS.TypeChecker;
 }
 
-/** The project's TypeScript files (the files `dr-compliance` expands the project to), each from the first of
+/** The project's TypeScript files (the files `trmv-compliance` expands the project to), each from the first of
  * `services`' programs holding it, else from its governing project's program. */
 export function projectSources(r: Refactor, services: TS.LanguageService[]): Map<string, ProjectSource> {
   const out = new Map<string, ProjectSource>();

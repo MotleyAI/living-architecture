@@ -8,11 +8,11 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
-from deterministic_refactor.contract import message
-from deterministic_refactor.refactor.member_scan import Blindspot, FormCall, object_text
-from deterministic_refactor.refactor.mentions import Mention, docstrings
-from deterministic_refactor.refactor.python_source import SourceFile
-from deterministic_refactor.refactor.text_edits import TextEdit
+from trmv.contract import message
+from trmv.refactor.member_scan import Blindspot, FormCall, object_text
+from trmv.refactor.mentions import Mention, docstrings
+from trmv.refactor.python_source import SourceFile
+from trmv.refactor.text_edits import TextEdit
 
 
 class Finding(BaseModel):

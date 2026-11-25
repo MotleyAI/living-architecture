@@ -7,8 +7,8 @@ import ast
 from collections.abc import Callable
 from pathlib import Path
 
-from deterministic_refactor.refactor.members import member_declarations
-from deterministic_refactor.refactor.static_resolver import Module, Resolver, Value, node_key
+from trmv.refactor.members import member_declarations
+from trmv.refactor.static_resolver import Module, Resolver, Value, node_key
 
 _INIT = "__init__.py"
 

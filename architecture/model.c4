@@ -6,9 +6,9 @@ specification {
 }
 model {
   python = system 'PyPI twins' {
-    dr = node 'deterministic-refactor' {
+    trmv = node 'type-rename-move' {
       metadata {
-        package 'deterministic_refactor'
+        package 'trmv'
       }
       contract = node 'Shared contract'
       config = node 'Config'
@@ -24,7 +24,7 @@ model {
           specs ['typecheck']
         }
       }
-      refactor = node 'Deterministic refactoring' {
+      refactor = node 'Rename and move' {
         metadata {
           specs ['refactor']
         }
@@ -67,31 +67,31 @@ model {
       }
     }
 
-    la -> dr
-    dr.changes -> dr.config
-    dr.changes -> dr.contract
-    dr.cli -> dr.config
-    dr.cli -> dr.doctor
-    dr.cli -> dr.refactor
-    dr.cli -> dr.twin
-    dr.cli -> dr.typecheck
-    dr.config -> dr.contract
-    dr.doctor -> dr.config
-    dr.doctor -> dr.contract
-    dr.doctor -> dr.twin
-    dr.lang -> dr.contract
-    dr.refactor -> dr.changes
-    dr.refactor -> dr.config
-    dr.refactor -> dr.contract
-    dr.refactor -> dr.lang
-    dr.refactor -> dr.twin
-    dr.refactor -> dr.typecheck
-    dr.twin -> dr.contract
-    dr.typecheck -> dr.changes
-    dr.typecheck -> dr.config
-    dr.typecheck -> dr.contract
-    dr.typecheck -> dr.lang
-    dr.typecheck -> dr.twin
+    la -> trmv
+    trmv.changes -> trmv.config
+    trmv.changes -> trmv.contract
+    trmv.cli -> trmv.config
+    trmv.cli -> trmv.doctor
+    trmv.cli -> trmv.refactor
+    trmv.cli -> trmv.twin
+    trmv.cli -> trmv.typecheck
+    trmv.config -> trmv.contract
+    trmv.doctor -> trmv.config
+    trmv.doctor -> trmv.contract
+    trmv.doctor -> trmv.twin
+    trmv.lang -> trmv.contract
+    trmv.refactor -> trmv.changes
+    trmv.refactor -> trmv.config
+    trmv.refactor -> trmv.contract
+    trmv.refactor -> trmv.lang
+    trmv.refactor -> trmv.twin
+    trmv.refactor -> trmv.typecheck
+    trmv.twin -> trmv.contract
+    trmv.typecheck -> trmv.changes
+    trmv.typecheck -> trmv.config
+    trmv.typecheck -> trmv.contract
+    trmv.typecheck -> trmv.lang
+    trmv.typecheck -> trmv.twin
     la.affected -> la.contract
     la.archcheck -> la.c4
     la.archcheck -> la.config
@@ -113,9 +113,9 @@ model {
     la.review -> la.contract
   }
   typescript = system 'npm twins' {
-    dr = node 'deterministic-refactor' {
+    trmv = node 'type-rename-move' {
       metadata {
-        package 'dr/src'
+        package 'trmv/src'
       }
       contract = node 'Shared contract'
       config = node 'Config'
@@ -123,7 +123,7 @@ model {
       twin = node 'Twin forwarding'
       changes = node 'Change set'
       typecheck = node 'Type check'
-      refactor = node 'Deterministic refactoring'
+      refactor = node 'Rename and move'
       doctor = node 'Doctor'
       cli = node 'CLI'
     }
@@ -142,31 +142,31 @@ model {
       affected = node 'Affected tests'
     }
 
-    la -> dr
-    dr.changes -> dr.config
-    dr.changes -> dr.contract
-    dr.cli -> dr.config
-    dr.cli -> dr.doctor
-    dr.cli -> dr.refactor
-    dr.cli -> dr.twin
-    dr.cli -> dr.typecheck
-    dr.config -> dr.contract
-    dr.config -> dr.twin
-    dr.doctor -> dr.config
-    dr.doctor -> dr.contract
-    dr.doctor -> dr.twin
-    dr.lang -> dr.contract
-    dr.refactor -> dr.changes
-    dr.refactor -> dr.config
-    dr.refactor -> dr.contract
-    dr.refactor -> dr.lang
-    dr.refactor -> dr.twin
-    dr.twin -> dr.contract
-    dr.typecheck -> dr.changes
-    dr.typecheck -> dr.config
-    dr.typecheck -> dr.contract
-    dr.typecheck -> dr.lang
-    dr.typecheck -> dr.twin
+    la -> trmv
+    trmv.changes -> trmv.config
+    trmv.changes -> trmv.contract
+    trmv.cli -> trmv.config
+    trmv.cli -> trmv.doctor
+    trmv.cli -> trmv.refactor
+    trmv.cli -> trmv.twin
+    trmv.cli -> trmv.typecheck
+    trmv.config -> trmv.contract
+    trmv.config -> trmv.twin
+    trmv.doctor -> trmv.config
+    trmv.doctor -> trmv.contract
+    trmv.doctor -> trmv.twin
+    trmv.lang -> trmv.contract
+    trmv.refactor -> trmv.changes
+    trmv.refactor -> trmv.config
+    trmv.refactor -> trmv.contract
+    trmv.refactor -> trmv.lang
+    trmv.refactor -> trmv.twin
+    trmv.twin -> trmv.contract
+    trmv.typecheck -> trmv.changes
+    trmv.typecheck -> trmv.config
+    trmv.typecheck -> trmv.contract
+    trmv.typecheck -> trmv.lang
+    trmv.typecheck -> trmv.twin
     la.affected -> la.contract
     la.archcheck -> la.c4
     la.archcheck -> la.config

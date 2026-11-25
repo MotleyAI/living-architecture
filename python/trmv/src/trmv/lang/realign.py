@@ -1,13 +1,13 @@
-"""`dr-typecheck --realign-from`: basedpyright baseline entries carried to where their errors are now."""
+"""`trmv-typecheck --realign-from`: basedpyright baseline entries carried to where their errors are now."""
 
 from __future__ import annotations
 
 from array import array
 from typing import Any
 
-from deterministic_refactor.lang.baseline import Key, matches, text_edits
-from deterministic_refactor.lang.language_server import utf16_index, utf16_position
-from deterministic_refactor.lang.position_map import Edit, map_range
+from trmv.lang.baseline import Key, matches, text_edits
+from trmv.lang.language_server import utf16_index, utf16_position
+from trmv.lang.position_map import Edit, map_range
 
 Entries = list[dict[str, Any]]
 

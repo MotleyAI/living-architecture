@@ -1,4 +1,4 @@
-"""`dr-refactor generate-map`: the rename map of a word table, from syntax alone: one entry per declaration and module
+"""`trmv-refactor generate-map`: the rename map of a word table, from syntax alone: one entry per declaration and module
 whose name holds a word, the table's entries first, what a carve-out keeps left out and listed."""
 
 from __future__ import annotations
@@ -11,23 +11,23 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
-from deterministic_refactor.contract import YAMLError, language_ids, language_of, load_yaml, message
-from deterministic_refactor.refactor.bindings import bound_at
-from deterministic_refactor.refactor.carve_outs import CarveOuts
-from deterministic_refactor.refactor.entry_location import EntryLocator
-from deterministic_refactor.refactor.literal_rename import literal_member_at
-from deterministic_refactor.refactor.locators import Locator, RefactorError, project_rel, resolve
-from deterministic_refactor.refactor.map_file import MapError
-from deterministic_refactor.refactor.python_source import SourceFile
-from deterministic_refactor.refactor.rename_union import Session
-from deterministic_refactor.refactor.symbol_path import (
+from trmv.contract import YAMLError, language_ids, language_of, load_yaml, message
+from trmv.refactor.bindings import bound_at
+from trmv.refactor.carve_outs import CarveOuts
+from trmv.refactor.entry_location import EntryLocator
+from trmv.refactor.literal_rename import literal_member_at
+from trmv.refactor.locators import Locator, RefactorError, project_rel, resolve
+from trmv.refactor.map_file import MapError
+from trmv.refactor.python_source import SourceFile
+from trmv.refactor.rename_union import Session
+from trmv.refactor.symbol_path import (
     LOCALS,
     WILDCARD,
     declared_paths,
     is_wildcard,
     locate_all,
 )
-from deterministic_refactor.refactor.word_table import WordTable, held_words, load_table, replace_words
+from trmv.refactor.word_table import WordTable, held_words, load_table, replace_words
 
 _PLAIN = re.compile(r"[A-Za-z0-9_$./<>()-]+")
 _LOCAL = re.compile(rf"(?:.*\.)?{re.escape(LOCALS)}\.([^.()\[\]]+)")

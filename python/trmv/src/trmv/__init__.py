@@ -1,6 +1,8 @@
-"""Deterministic refactoring: verified renames and moves, and the type-check gate."""
+"""Verified renames and moves, and the type-check gate."""
 
 from importlib.metadata import version
 
-__version__ = version("deterministic-refactor")
+from trmv.contract import TRMV
+
+__version__ = version(TRMV.yaml("cli.yaml")["package"])
 NATIVE_LANGUAGE = "python"

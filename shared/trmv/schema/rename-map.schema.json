@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "rename-map.schema.json",
-  "title": "dr-refactor rename-map MAP",
+  "title": "trmv-refactor rename-map MAP",
   "description": "A non-empty list of entries, each a file relative to --project, exactly one locator (symbol, line with an optional col, or offset) and exactly one intent (new_name, or retarget: the target's path in the same file). Or a module entry: module (a source file relative to --project; a Python __init__.py names its package) and new_name, nothing else.",
   "type": "array",
   "minItems": 1,

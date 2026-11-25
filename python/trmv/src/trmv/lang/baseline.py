@@ -7,7 +7,7 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
-from deterministic_refactor.lang.position_map import Edit
+from trmv.lang.position_map import Edit
 
 Key = tuple[str, int, int, int, int]
 """A diagnostic: its rule and its 0-based start and end line and column."""

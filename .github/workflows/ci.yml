@@ -16,7 +16,7 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.11", "3.12", "3.13", "3.14"]
-        package: [dr, la]
+        package: [trmv, la]
         shard: [1, 2]
     defaults:
       run:
@@ -41,8 +41,8 @@ jobs:
           uv run --locked --no-build pytest -q --splits 2 --group ${{ matrix.shard }}
           --durations-path tests/durations/suite.json --deselect tests/test_conformance.py::test_case
 
-  # Both packages' wheels and sdists, installed outside the checkout: each carries its contract, dr installs alone,
-  # an la install resolves dr, and `uv tool install` exposes both command sets.
+  # Both packages' wheels and sdists, installed outside the checkout: each carries its contract, trmv installs alone,
+  # an la install resolves trmv, and `uv tool install` exposes both command sets.
   package:
     runs-on: ubuntu-latest
     defaults:
@@ -131,5 +131,5 @@ jobs:
           node-version: "22"
       - run: npm install -g @anthropic-ai/claude-code@2.1.328  # NOSONAR(S6505) — its postinstall installs the CLI's native binary; version pinned
       - run: claude plugin validate .
-      - run: claude plugin validate plugin/dr
+      - run: claude plugin validate plugin/trmv
       - run: claude plugin validate plugin/la

@@ -8,9 +8,9 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
-from deterministic_refactor.contract import YAMLError, load_yaml, message, schema, validate
-from deterministic_refactor.refactor.compound import word_spans
-from deterministic_refactor.refactor.map_file import MapError
+from trmv.contract import YAMLError, load_yaml, message, schema, validate
+from trmv.refactor.compound import word_spans
+from trmv.refactor.map_file import MapError
 
 MATCHERS = ("annotated", "paths", "symbols")
 

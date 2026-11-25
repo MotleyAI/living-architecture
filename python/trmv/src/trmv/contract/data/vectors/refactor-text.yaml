@@ -1,4 +1,4 @@
-# The text primitives of `dr-refactor rename`, run by both twins. Offsets count code points. A key named after a
+# The text primitives of `trmv-refactor rename`, run by both twins. Offsets count code points. A key named after a
 # language (`python`, `typescript`) overrides the shared expectation where the languages differ: their line
 # terminators (Python `\r\n`, `\r`, `\n`; TypeScript adds U+2028 and U+2029) and their identifier characters
 # (TypeScript adds `$`).

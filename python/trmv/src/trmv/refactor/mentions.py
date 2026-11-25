@@ -12,7 +12,7 @@ from collections.abc import Callable, Iterator
 
 from pydantic import BaseModel, ConfigDict
 
-from deterministic_refactor.refactor.python_source import SourceFile
+from trmv.refactor.python_source import SourceFile
 
 _QUALIFIER_WINDOW = 300
 _PREFIX = re.compile(r"[A-Za-z]*")

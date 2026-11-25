@@ -7,15 +7,15 @@ from typing import Any, cast
 
 from pydantic import BaseModel, ConfigDict
 
-from deterministic_refactor.contract import (
+from living_architecture.c4 import INDEX_REL
+from living_architecture.contract import message, schema, validate
+from trmv.contract import (
     DuplicateKeyError,
     YAMLError,
     language_ids,
     load_yaml,
     os_error_text,
 )
-from living_architecture.c4 import INDEX_REL
-from living_architecture.contract import message, schema, validate
 
 _ROOTS_OVERLAP = "arch-check.root-packages-overlap"
 

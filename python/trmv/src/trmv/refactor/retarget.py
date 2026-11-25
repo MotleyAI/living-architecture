@@ -11,15 +11,15 @@ from collections.abc import Callable, Iterator
 from pydantic import BaseModel, ConfigDict
 from typing_extensions import override
 
-from deterministic_refactor.contract import message
-from deterministic_refactor.refactor.carve_outs import CarveOuts
-from deterministic_refactor.refactor.entry_location import Entry, EntryLocator
-from deterministic_refactor.refactor.locators import RefactorError
-from deterministic_refactor.refactor.outcomes import Finding
-from deterministic_refactor.refactor.python_source import SourceFile, every_parameter, split_lines
-from deterministic_refactor.refactor.rename_union import RenameOptions, RenameResult, Session, SymbolRename
-from deterministic_refactor.refactor.static_resolver import Value, node_key
-from deterministic_refactor.refactor.text_edits import TextEdit
+from trmv.contract import message
+from trmv.refactor.carve_outs import CarveOuts
+from trmv.refactor.entry_location import Entry, EntryLocator
+from trmv.refactor.locators import RefactorError
+from trmv.refactor.outcomes import Finding
+from trmv.refactor.python_source import SourceFile, every_parameter, split_lines
+from trmv.refactor.rename_union import RenameOptions, RenameResult, Session, SymbolRename
+from trmv.refactor.static_resolver import Value, node_key
+from trmv.refactor.text_edits import TextEdit
 
 _FUNCTIONS = (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)
 _COMPREHENSIONS = (ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)

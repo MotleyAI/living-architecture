@@ -1,4 +1,4 @@
-"""`dr-refactor`'s phases and progress lines on stderr, and the refusals a run collects into one report."""
+"""`trmv-refactor`'s phases and progress lines on stderr, and the refusals a run collects into one report."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from collections.abc import Iterable
 
 from pydantic import BaseModel, ConfigDict
 
-from deterministic_refactor.contract import message
+from trmv.contract import message
 
 
 class Refusal(BaseModel):

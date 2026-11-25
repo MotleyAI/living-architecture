@@ -11,7 +11,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from deterministic_refactor.contract import os_error_reason
+from trmv.contract import os_error_reason
 
 _RAISES_CALLEES = ("raises", "assertRaises", "assertRaisesRegex", "assertRaisesRegexp")
 _DOC_OWNERS = (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)

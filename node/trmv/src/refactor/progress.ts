@@ -1,4 +1,4 @@
-// `dr-refactor`'s phases and progress lines on stderr, and the refusals a run collects into one report.
+// `trmv-refactor`'s phases and progress lines on stderr, and the refusals a run collects into one report.
 import { message } from '../contract/index.js';
 
 /** A finding's lines and its exit code. */

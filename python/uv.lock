@@ -5,20 +5,20 @@ requires-python = ">=3.11"
 [manifest]
 members = [
     "conformance-runner",
-    "deterministic-refactor",
     "living-architecture",
+    "type-rename-move",
 ]
 
 [manifest.dependency-groups]
 dev = [
     { name = "conformance-runner", editable = "conformance" },
-    { name = "deterministic-refactor", editable = "dr" },
     { name = "living-architecture", editable = "la" },
     { name = "pytest", specifier = ">=8" },
     { name = "pytest-mock", specifier = ">=3.14" },
     { name = "pytest-split", specifier = ">=0.11.0" },
     { name = "pytest-xdist", specifier = ">=3.8" },
     { name = "ruff", specifier = ">=0.6" },
+    { name = "type-rename-move", editable = "trmv" },
     { name = "types-jsonschema", specifier = ">=4" },
     { name = "types-pyyaml", specifier = ">=6" },
 ]
@@ -67,41 +67,16 @@ name = "conformance-runner"
 version = "0.0.0"
 source = { editable = "conformance" }
 dependencies = [
-    { name = "deterministic-refactor" },
     { name = "living-architecture" },
     { name = "pyyaml" },
+    { name = "type-rename-move" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "deterministic-refactor", editable = "dr" },
     { name = "living-architecture", editable = "la" },
     { name = "pyyaml", specifier = ">=6" },
-]
-
-[[package]]
-name = "deterministic-refactor"
-version = "0.14.0"
-source = { editable = "dr" }
-dependencies = [
-    { name = "basedpyright" },
-    { name = "jsonschema" },
-    { name = "pydantic" },
-    { name = "pyyaml" },
-    { name = "referencing" },
-    { name = "rope" },
-    { name = "typing-extensions" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "basedpyright", specifier = "==1.40.2" },
-    { name = "jsonschema", specifier = ">=4.18" },
-    { name = "pydantic", specifier = ">=2.6" },
-    { name = "pyyaml", specifier = ">=6" },
-    { name = "referencing", specifier = ">=0.28.4" },
-    { name = "rope", specifier = ">=1.15" },
-    { name = "typing-extensions", specifier = ">=4.4" },
+    { name = "type-rename-move", editable = "trmv" },
 ]
 
 [[package]]
@@ -154,21 +129,21 @@ name = "living-architecture"
 version = "0.14.0"
 source = { editable = "la" }
 dependencies = [
-    { name = "deterministic-refactor" },
     { name = "jsonschema" },
     { name = "pydantic" },
     { name = "pyyaml" },
     { name = "referencing" },
+    { name = "type-rename-move" },
     { name = "typing-extensions" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "deterministic-refactor", editable = "dr" },
     { name = "jsonschema", specifier = ">=4.18" },
     { name = "pydantic", specifier = ">=2.6" },
     { name = "pyyaml", specifier = ">=6" },
     { name = "referencing", specifier = ">=0.28.4" },
+    { name = "type-rename-move", editable = "trmv" },
     { name = "typing-extensions", specifier = ">=4.4" },
 ]
 
@@ -638,6 +613,31 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/ac/fe/734ec7527029ac757ecf821f143c9f3fcf69149c21f53a044a899b430f5a/ruff-0.16.9-py3-none-win32.whl", hash = "sha256:0e1dbc2073624dee6618d41d0098690a7244654af746704b64759e12b6b6b385", size = 10152355, upload-time = "2026-09-24T20:37:43.025Z" },
     { url = "https://files.pythonhosted.org/packages/14/21/26e4643629b3ebb44f0a06f9c9a53058d63d989415f63a9a3c28e2ee7f22/ruff-0.16.9-py3-none-win_amd64.whl", hash = "sha256:6bd40fec8cd4c8a3d4dd589bd8ad4e6320c13c29234159bfd959a40d529d597b", size = 10592965, upload-time = "2026-09-24T20:37:44.944Z" },
     { url = "https://files.pythonhosted.org/packages/51/60/5fb1a39dbb5ae314d5f59bc7348a63c1d5c20f3cd83914c4b5cb0be31d2d/ruff-0.16.9-py3-none-win_arm64.whl", hash = "sha256:ed1a252039200f57a59eebc063b54beabea67bfbaaca0eeaa7f54b5fbcda2284", size = 10458649, upload-time = "2026-09-24T20:37:46.882Z" },
+]
+
+[[package]]
+name = "type-rename-move"
+version = "0.14.0"
+source = { editable = "trmv" }
+dependencies = [
+    { name = "basedpyright" },
+    { name = "jsonschema" },
+    { name = "pydantic" },
+    { name = "pyyaml" },
+    { name = "referencing" },
+    { name = "rope" },
+    { name = "typing-extensions" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "basedpyright", specifier = "==1.40.2" },
+    { name = "jsonschema", specifier = ">=4.18" },
+    { name = "pydantic", specifier = ">=2.6" },
+    { name = "pyyaml", specifier = ">=6" },
+    { name = "referencing", specifier = ">=0.28.4" },
+    { name = "rope", specifier = ">=1.15" },
+    { name = "typing-extensions", specifier = ">=4.4" },
 ]
 
 [[package]]

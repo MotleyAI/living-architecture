@@ -1,20 +1,20 @@
-// la's shared contract, loaded from its vendored snapshot, over dr's contract library; an id la's registry lacks
-// renders from dr's.
+// la's shared contract, loaded from its vendored snapshot, over trmv's contract library; an id la's registry lacks
+// renders from trmv's.
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   Snapshot,
-  contractHash as drContractHash,
-  materializeDefaults as drMaterializeDefaults,
-  message as drMessage,
+  contractHash as trmvContractHash,
+  materializeDefaults as trmvMaterializeDefaults,
+  message as trmvMessage,
   renderTemplate,
-  schemaOrdered as drSchemaOrdered,
-  validate as drValidate,
-} from 'deterministic-refactor/contract';
-import type { Identity } from 'deterministic-refactor/twin';
+  schemaOrdered as trmvSchemaOrdered,
+  validate as trmvValidate,
+} from 'type-rename-move/contract';
+import type { Identity } from 'type-rename-move/twin';
 import { VERSION } from '../index.js';
 
-export * from 'deterministic-refactor/contract';
+export * from 'type-rename-move/contract';
 
 export const LA = new Snapshot(join(dirname(fileURLToPath(import.meta.url)), 'data'));
 
@@ -70,29 +70,29 @@ export function scriptPath(name: string): string {
   return LA.scriptPath(name);
 }
 
-/** The finding `id` rendered from la's registry, else from dr's. */
+/** The finding `id` rendered from la's registry, else from trmv's. */
 export function message(id: string, values: Record<string, unknown> = {}): string {
   const template = findings()[id];
-  return template === undefined ? drMessage(id, values) : renderTemplate(template, values);
+  return template === undefined ? trmvMessage(id, values) : renderTemplate(template, values);
 }
 
-/** `data` against an la schema, whose `$ref`s into dr's schemas resolve. */
+/** `data` against an la schema, whose `$ref`s into trmv's schemas resolve. */
 export function validate(schema: Record<string, any>, data: unknown): string[] {
-  return drValidate(schema, data, [LA]);
+  return trmvValidate(schema, data, [LA]);
 }
 
-/** `data` with an la schema's defaults filled in, following its `$ref`s into dr's schemas. */
+/** `data` with an la schema's defaults filled in, following its `$ref`s into trmv's schemas. */
 export function materializeDefaults(schema: Record<string, any>, data: unknown): any {
-  return drMaterializeDefaults(schema, data, [LA]);
+  return trmvMaterializeDefaults(schema, data, [LA]);
 }
 
-/** `value` in an la schema's property order, following its `$ref`s into dr's schemas. */
+/** `value` in an la schema's property order, following its `$ref`s into trmv's schemas. */
 export function schemaOrdered(schema: Record<string, any>, value: unknown): any {
-  return drSchemaOrdered(schema, value, [LA]);
+  return trmvSchemaOrdered(schema, value, [LA]);
 }
 
-/** la's twin identity: its doctor, version, la's contract hash and the dr hash of the dr library it runs with. */
+/** la's twin identity: its doctor, version, la's contract hash and the trmv hash of the trmv library it runs with. */
 export function identity(): Identity {
   const cli = LA.yaml('cli.yaml');
-  return { package: cli.package, doctor: cli.doctor, version: VERSION, hashes: [contractHash(), drContractHash()], contract: LA };
+  return { package: cli.package, doctor: cli.doctor, version: VERSION, hashes: [contractHash(), trmvContractHash()], contract: LA };
 }

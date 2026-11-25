@@ -1,4 +1,4 @@
-// `dr-compliance` and `dr-mock-lint` for TypeScript files: what would make a rename unverifiable.
+// `trmv-compliance` and `trmv-mock-lint` for TypeScript files: what would make a rename unverifiable.
 import { relative, resolve } from 'node:path';
 import type * as TS from 'typescript';
 import { language, message } from '../contract/index.js';

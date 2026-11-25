@@ -1,4 +1,4 @@
-// Routing `dr-*` inputs by file language: own-language files run here, the other language's in its twin.
+// Routing `trmv-*` inputs by file language: own-language files run here, the other language's in its twin.
 import { type Dirent, lstatSync, readdirSync, readlinkSync, realpathSync, statSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, relative, sep } from 'node:path';
 import { ConfigError, findRepoRoot, languageSettings, repoLanguages } from '../config/index.js';
@@ -8,7 +8,7 @@ import * as twin from '../twin/index.js';
 // The kernel's own symlink limit (Linux MAXSYMLINKS); past it every file call fails with ELOOP anyway.
 const MAX_SYMLINK_HOPS = 40;
 
-/** The inputs cannot be routed; the message is printed (exit 2 for dr-compliance/dr-mock-lint, 1 for dr-refactor). */
+/** The inputs cannot be routed; the message is printed (exit 2 for trmv-compliance/trmv-mock-lint, 1 for trmv-refactor). */
 export class RoutingError extends Error {}
 
 /** A path as Python's PurePosixPath prints it: no empty or `.` segments, `.` when nothing is left. */
@@ -123,7 +123,7 @@ function expand(dir: string, languages: string[], root: string): [string, string
   return out;
 }
 
-/** Every file of language `id` under `dir` that `dr-*` checks, in path order. */
+/** Every file of language `id` under `dir` that `trmv-*` checks, in path order. */
 export const languageFiles = (dir: string, id: string): string[] => expand(dir, [id], dir).map(([, path]) => path);
 
 /** Paths grouped by language; directories expanded, non-source files skipped with a warning. */
@@ -217,7 +217,7 @@ function checkSource(source: string, project: string, allowDir: boolean): void {
   }
 }
 
-/** The language `dr-refactor` runs in; RoutingError for a bad or unsupported source or a cross-language dest. */
+/** The language `trmv-refactor` runs in; RoutingError for a bad or unsupported source or a cross-language dest. */
 export function refactorLanguage(subcommand: string, source: string, dest: string, project: string): string {
   checkSource(source, project, subcommand === 'move-module');
   const id = sourceLanguage(source, project);

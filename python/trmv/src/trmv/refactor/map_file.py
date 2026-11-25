@@ -6,7 +6,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
 
-from deterministic_refactor.contract import (
+from trmv.contract import (
     YAMLError,
     language_ids,
     language_of,
@@ -15,7 +15,7 @@ from deterministic_refactor.contract import (
     schema,
     validate,
 )
-from deterministic_refactor.refactor.locators import Locator
+from trmv.refactor.locators import Locator
 
 
 class MapError(Exception):

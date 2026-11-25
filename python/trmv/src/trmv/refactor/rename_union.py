@@ -17,12 +17,12 @@ from typing import Literal, TypeVar
 from pydantic import BaseModel, ConfigDict
 from typing_extensions import override
 
-from deterministic_refactor.contract import message
-from deterministic_refactor.lang import FactQuery, Occurrence, Span
-from deterministic_refactor.refactor.carve_outs import CarveOuts, is_fixture
-from deterministic_refactor.refactor.entry_location import Entry, EntryLocator, StaticTrace
-from deterministic_refactor.refactor.hierarchy import ClassGraph, ClassKey
-from deterministic_refactor.refactor.keyed import (
+from trmv.contract import message
+from trmv.lang import FactQuery, Occurrence, Span
+from trmv.refactor.carve_outs import CarveOuts, is_fixture
+from trmv.refactor.entry_location import Entry, EntryLocator, StaticTrace
+from trmv.refactor.hierarchy import ClassGraph, ClassKey
+from trmv.refactor.keyed import (
     Bindings,
     ClassRef,
     KeyedRename,
@@ -33,7 +33,7 @@ from deterministic_refactor.refactor.keyed import (
     plain_key_span,
     sink_candidates,
 )
-from deterministic_refactor.refactor.keyword_links import (
+from trmv.refactor.keyword_links import (
     CarrierShape,
     KeywordFlow,
     KeywordSite,
@@ -42,19 +42,19 @@ from deterministic_refactor.refactor.keyword_links import (
     signature_links,
     unresolved_sites,
 )
-from deterministic_refactor.refactor.locators import cannot_rename
-from deterministic_refactor.refactor.member_scan import FormCall, MemberScan, NameString, collapsed
-from deterministic_refactor.refactor.members import member_declarations
-from deterministic_refactor.refactor.mentions import (
+from trmv.refactor.locators import cannot_rename
+from trmv.refactor.member_scan import FormCall, MemberScan, NameString, collapsed
+from trmv.refactor.members import member_declarations
+from trmv.refactor.mentions import (
     Mention,
     MentionRules,
     Owner,
     mentions,
 )
-from deterministic_refactor.refactor.move_edits import NameConflict
-from deterministic_refactor.refactor.name_follow import Held, NameFollow, display_names
-from deterministic_refactor.refactor.occurrence_index import RunIndex
-from deterministic_refactor.refactor.outcomes import (
+from trmv.refactor.move_edits import NameConflict
+from trmv.refactor.name_follow import Held, NameFollow, display_names
+from trmv.refactor.occurrence_index import RunIndex
+from trmv.refactor.outcomes import (
     Finding,
     Outcome,
     blindspot_outcome,
@@ -68,15 +68,15 @@ from deterministic_refactor.refactor.outcomes import (
     target_outcome,
     unverified_read,
 )
-from deterministic_refactor.refactor.patch_targets import SourceFolders, TargetResolver
-from deterministic_refactor.refactor.python_project import ProjectLayout, Snapshot
-from deterministic_refactor.refactor.python_source import SourceFile, every_parameter, nfkc
-from deterministic_refactor.refactor.routing import language_files
-from deterministic_refactor.refactor.sites import Site
-from deterministic_refactor.refactor.static_resolver import Module, Scope
-from deterministic_refactor.refactor.text_edits import TextEdit
-from deterministic_refactor.refactor.text_tables import TextTables
-from deterministic_refactor.refactor.timings import timed
+from trmv.refactor.patch_targets import SourceFolders, TargetResolver
+from trmv.refactor.python_project import ProjectLayout, Snapshot
+from trmv.refactor.python_source import SourceFile, every_parameter, nfkc
+from trmv.refactor.routing import language_files
+from trmv.refactor.sites import Site
+from trmv.refactor.static_resolver import Module, Scope
+from trmv.refactor.text_edits import TextEdit
+from trmv.refactor.text_tables import TextTables
+from trmv.refactor.timings import timed
 
 _T = TypeVar("_T")
 _Uses = dict[Held, list[tuple[str, FormCall]]]

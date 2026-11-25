@@ -1,4 +1,4 @@
-// `dr-refactor` for TypeScript: rename, rename-map, retarget, move-symbol and move-module through the bundled
+// `trmv-refactor` for TypeScript: rename, rename-map, retarget, move-symbol and move-module through the bundled
 // language service.
 import { existsSync, readdirSync, rmdirSync, statSync } from 'node:fs';
 import { basename, dirname, join, relative } from 'node:path';
@@ -251,7 +251,7 @@ function removeEmptyDirs(dir: string): void {
   if (readdirSync(dir).length === 0) rmdirSync(dir);
 }
 
-/** `dr-refactor` on a TypeScript source: 0, else the highest exit code of the refusals on stderr (1 for a finding or
+/** `trmv-refactor` on a TypeScript source: 0, else the highest exit code of the refusals on stderr (1 for a finding or
  * refusal, 2 for a locator, map or site error). */
 export function runTypescriptRefactor(args: RefactorArgs): number {
   const progress = new Progress();

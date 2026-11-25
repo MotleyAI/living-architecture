@@ -9,12 +9,12 @@ from collections.abc import Iterator
 
 from pydantic import BaseModel, ConfigDict
 
-from deterministic_refactor.refactor.hierarchy import ClassGraph, GraphClass
-from deterministic_refactor.refactor.members import member_declarations
-from deterministic_refactor.refactor.mentions import Mention, code_marked
-from deterministic_refactor.refactor.outcomes import mention_outcome
-from deterministic_refactor.refactor.python_source import SourceFile
-from deterministic_refactor.refactor.rename_union import Session, SymbolRename, top_declarations
+from trmv.refactor.hierarchy import ClassGraph, GraphClass
+from trmv.refactor.members import member_declarations
+from trmv.refactor.mentions import Mention, code_marked
+from trmv.refactor.outcomes import mention_outcome
+from trmv.refactor.python_source import SourceFile
+from trmv.refactor.rename_union import Session, SymbolRename, top_declarations
 
 Site = tuple[str, int]
 

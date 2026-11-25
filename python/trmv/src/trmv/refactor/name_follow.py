@@ -9,11 +9,11 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
 
-from deterministic_refactor.refactor.entry_location import EntryLocator
-from deterministic_refactor.refactor.literal_sources import Follower, Source
-from deterministic_refactor.refactor.member_scan import FORMS, REGISTRY, FormCall, MemberScan, named_uses
-from deterministic_refactor.refactor.python_project import Snapshot
-from deterministic_refactor.refactor.python_source import SourceFile
+from trmv.refactor.entry_location import EntryLocator
+from trmv.refactor.literal_sources import Follower, Source
+from trmv.refactor.member_scan import FORMS, REGISTRY, FormCall, MemberScan, named_uses
+from trmv.refactor.python_project import Snapshot
+from trmv.refactor.python_source import SourceFile
 
 _DISPLAYS = (ast.Tuple, ast.List, ast.Set)
 

@@ -14,9 +14,9 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
-from deterministic_refactor import NATIVE_LANGUAGE, __version__
-from deterministic_refactor.contract import (
-    DR,
+from trmv import NATIVE_LANGUAGE, __version__
+from trmv.contract import (
+    TRMV,
     Snapshot,
     contract_hash,
     language,
@@ -54,15 +54,15 @@ class Identity(BaseModel):
         return " ".join((lang, self.version, *self.hashes))
 
 
-def dr_identity() -> Identity:
-    """dr's twin identity."""
-    cli = DR.yaml("cli.yaml")
-    return Identity(package=cli["package"], doctor=cli["doctor"], version=__version__, hashes=(contract_hash(),), contract=DR)
+def trmv_identity() -> Identity:
+    """trmv's twin identity."""
+    cli = TRMV.yaml("cli.yaml")
+    return Identity(package=cli["package"], doctor=cli["doctor"], version=__version__, hashes=(contract_hash(),), contract=TRMV)
 
 
 def identity(who: Identity | None = None) -> str:
-    """This twin's `--twin` line for `who` (default: dr)."""
-    return (who or dr_identity()).line(NATIVE_LANGUAGE)
+    """This twin's `--twin` line for `who` (default: trmv)."""
+    return (who or trmv_identity()).line(NATIVE_LANGUAGE)
 
 
 def install_command(lang: str, who: Identity, version: str | None = None) -> str:
@@ -71,7 +71,7 @@ def install_command(lang: str, who: Identity, version: str | None = None) -> str
 
 
 def _hint(template_id: str, lang: str, who: Identity) -> str:
-    """The hint `template_id` from `who`'s registry, else from dr's."""
+    """The hint `template_id` from `who`'s registry, else from trmv's."""
     values = {"language": lang, "package": who.package, "version": who.version, "install": install_command(lang, who)}
     template = who.contract.findings().get(template_id)
     return message(template_id, **values) if template is None else render_template(template, values)
@@ -219,10 +219,10 @@ def request_document(
 def run_language(
     command: str, lang: str, args: list[str], *, cwd: Path, repo_root: Path, who: Identity | None = None
 ) -> int:
-    """`command --language lang ARGS` in `who`'s (default: dr's) `lang` twin, streams relayed; its exit code (a
+    """`command --language lang ARGS` in `who`'s (default: trmv's) `lang` twin, streams relayed; its exit code (a
     signal: 2)."""
     refuse_if_forwarded(lang)
-    argv = [*_launcher(lang, repo_root, who or dr_identity()).argv(command), "--language", lang, *args]
+    argv = [*_launcher(lang, repo_root, who or trmv_identity()).argv(command), "--language", lang, *args]
     sys.stdout.flush()
     sys.stderr.flush()
     code = _run(lang, command, argv, cwd=cwd).returncode
@@ -230,23 +230,23 @@ def run_language(
 
 
 def forward(command: str, lang: str, argv: list[str], *, repo_root: Path, who: Identity | None = None) -> int:
-    """`command ARGV` in `who`'s (default: dr's) `lang` twin from the current directory, streams relayed; its exit
+    """`command ARGV` in `who`'s (default: trmv's) `lang` twin from the current directory, streams relayed; its exit
     code (a signal: 128+N)."""
     refuse_if_forwarded(lang)
     sys.stdout.flush()
     sys.stderr.flush()
-    code = _run(lang, command, [*_launcher(lang, repo_root, who or dr_identity()).argv(command), *argv]).returncode
+    code = _run(lang, command, [*_launcher(lang, repo_root, who or trmv_identity()).argv(command), *argv]).returncode
     return code if code >= 0 else 128 - code
 
 
 def run_captured(
     command: str, lang: str, args: list[str], *, repo_root: Path, who: Identity | None = None
 ) -> tuple[int, bytes]:
-    """`command ARGS` in `who`'s (default: dr's) `lang` twin from the current directory: its exit code (a signal: 2)
+    """`command ARGS` in `who`'s (default: trmv's) `lang` twin from the current directory: its exit code (a signal: 2)
     and stdout; stderr relayed."""
     refuse_if_forwarded(lang)
     sys.stdout.flush()
     sys.stderr.flush()
-    argv = [*_launcher(lang, repo_root, who or dr_identity()).argv(command), *args]
+    argv = [*_launcher(lang, repo_root, who or trmv_identity()).argv(command), *args]
     proc = _run(lang, command, argv, capture=True)
     return (proc.returncode if proc.returncode >= 0 else 2), proc.stdout

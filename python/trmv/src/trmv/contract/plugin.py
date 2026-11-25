@@ -9,7 +9,7 @@ import stat
 from collections.abc import Callable
 from pathlib import Path
 
-from deterministic_refactor.contract.render import message
+from trmv.contract.render import message
 
 PLUGIN_MANIFEST = Path(".claude-plugin") / "plugin.json"
 _LONE_SURROGATE = re.compile("[\ud800-\udfff]")

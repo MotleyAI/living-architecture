@@ -1,18 +1,18 @@
-"""dr's shared contract, loaded from its vendored snapshot; `Snapshot` loads another package's."""
+"""trmv's shared contract, loaded from its vendored snapshot; `Snapshot` loads another package's."""
 
-from deterministic_refactor.contract.glob import glob_match
-from deterministic_refactor.contract.os_error import (
+from trmv.contract.glob import glob_match
+from trmv.contract.os_error import (
     display_path,
     is_regular_file,
     os_error_reason,
     os_error_text,
 )
-from deterministic_refactor.contract.plugin import plugin_problem
-from deterministic_refactor.contract.regex import capturing_groups, is_portable_regex
-from deterministic_refactor.contract.render import canonical_repr, message, normalize, render_template
-from deterministic_refactor.contract.schema import materialize_defaults, validate
-from deterministic_refactor.contract.snapshot import (
-    DR,
+from trmv.contract.plugin import plugin_problem
+from trmv.contract.regex import capturing_groups, is_portable_regex
+from trmv.contract.render import canonical_repr, message, normalize, render_template
+from trmv.contract.schema import materialize_defaults, validate
+from trmv.contract.snapshot import (
+    TRMV,
     Snapshot,
     base_fetch_timeout,
     compute_hash,
@@ -32,10 +32,10 @@ from deterministic_refactor.contract.snapshot import (
     snapshot_dir,
     timing_phases,
 )
-from deterministic_refactor.contract.yaml_profile import DuplicateKeyError, YAMLError, load_yaml
+from trmv.contract.yaml_profile import DuplicateKeyError, YAMLError, load_yaml
 
 __all__ = [
-    "DR",
+    "TRMV",
     "DuplicateKeyError",
     "Snapshot",
     "YAMLError",

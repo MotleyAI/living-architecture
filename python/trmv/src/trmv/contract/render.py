@@ -6,7 +6,7 @@ import datetime as dt
 import re
 from collections.abc import Mapping
 
-from deterministic_refactor.contract.snapshot import findings
+from trmv.contract.snapshot import findings
 
 _PLACEHOLDER_RE = re.compile(r"\{\{|\}\}|\{([a-z_]+)(!r)?\}")
 

@@ -11,9 +11,9 @@ from collections.abc import Callable, Iterator
 
 from pydantic import BaseModel, ConfigDict
 
-from deterministic_refactor.contract import message
-from deterministic_refactor.refactor.members import bound_targets, receiver_stores
-from deterministic_refactor.refactor.python_source import SourceFile, every_parameter
+from trmv.contract import message
+from trmv.refactor.members import bound_targets, receiver_stores
+from trmv.refactor.python_source import SourceFile, every_parameter
 
 LOCALS = "<locals>"
 WILDCARD = "*"

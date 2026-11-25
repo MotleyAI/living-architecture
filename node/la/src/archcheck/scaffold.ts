@@ -15,7 +15,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { INDEX_REL, diagramBlock, modelFile, parseModel, parseViews, readIndex, sources, viewsFile } from '../c4/index.js';
 import { message, readFile } from '../contract/index.js';
-import { NATIVE_LANGUAGE } from 'deterministic-refactor/twin';
+import { NATIVE_LANGUAGE } from 'type-rename-move/twin';
 import { type Facts, nativeTopLevelFacts, requestedFacts } from './facts.js';
 import { ArchCheckError, type Index, declaredLanguages, loadIndex, resolveLayout, resolveTsconfig, section } from './index-file.js';
 import { separator } from './nodes.js';

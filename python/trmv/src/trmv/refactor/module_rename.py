@@ -11,21 +11,21 @@ from pathlib import Path
 
 from typing_extensions import override
 
-from deterministic_refactor.contract import message
-from deterministic_refactor.refactor.bindings import Conflict, bindings_after, module_binding
-from deterministic_refactor.refactor.entry_location import Entry, EntryLocator
-from deterministic_refactor.refactor.keyed import TypeFacts
-from deterministic_refactor.refactor.locators import cannot_rename
-from deterministic_refactor.refactor.move_edits import NameConflict
-from deterministic_refactor.refactor.occurrence_index import RunIndex, candidate_files
-from deterministic_refactor.refactor.outcomes import Finding
-from deterministic_refactor.refactor.output_check import checked_create
-from deterministic_refactor.refactor.python_source import SourceFile, dotted_segments, nfkc
-from deterministic_refactor.refactor.rename_union import MapRename, RenameOptions, RenameResult, Session
-from deterministic_refactor.refactor.static_resolver import Module, Value
-from deterministic_refactor.refactor.text_edits import TextEdit, merge_edits
-from deterministic_refactor.refactor.timings import timed
-from deterministic_refactor.refactor.writer import FileMove, FileWrite
+from trmv.contract import message
+from trmv.refactor.bindings import Conflict, bindings_after, module_binding
+from trmv.refactor.entry_location import Entry, EntryLocator
+from trmv.refactor.keyed import TypeFacts
+from trmv.refactor.locators import cannot_rename
+from trmv.refactor.move_edits import NameConflict
+from trmv.refactor.occurrence_index import RunIndex, candidate_files
+from trmv.refactor.outcomes import Finding
+from trmv.refactor.output_check import checked_create
+from trmv.refactor.python_source import SourceFile, dotted_segments, nfkc
+from trmv.refactor.rename_union import MapRename, RenameOptions, RenameResult, Session
+from trmv.refactor.static_resolver import Module, Value
+from trmv.refactor.text_edits import TextEdit, merge_edits
+from trmv.refactor.timings import timed
+from trmv.refactor.writer import FileMove, FileWrite
 
 _INIT = "__init__.py"
 

@@ -11,9 +11,9 @@ from collections import defaultdict
 from collections.abc import Iterator
 from pathlib import Path
 
-from deterministic_refactor.refactor.move_project import MoveProject
-from deterministic_refactor.refactor.python_source import SourceFile, header_end
-from deterministic_refactor.refactor.static_resolver import ImportItem, Scope, Value
+from trmv.refactor.move_project import MoveProject
+from trmv.refactor.python_source import SourceFile, header_end
+from trmv.refactor.static_resolver import ImportItem, Scope, Value
 
 _BREAK = re.compile(r"\r\n|\r|\n")
 _LINE_TAIL = re.compile(r"[ \t]*(?:#[^\r\n]*)?(?:\r\n|\r|\n)?")

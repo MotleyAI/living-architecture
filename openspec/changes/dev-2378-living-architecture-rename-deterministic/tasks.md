@@ -23,32 +23,32 @@ Calibration notes (read first):
 
 ## 2. Layout and packages (pr-implement)
 
-- [ ] 2.1 `git mv` `python/dr` → `python/trmv`, `node/dr` → `node/trmv`, `shared/dr` → `shared/trmv`, `conformance/dr` → `conformance/trmv`, `plugin/dr` → `plugin/trmv`, `plugin/trmv/skills/deterministic-refactor` → `plugin/trmv/skills/rename-move`, `docs/deterministic-refactoring.md` → `docs/rename-and-move.md`, `shared/trmv/schema/deterministic-refactor.schema.json` → `trmv.schema.json`; commit as renames
-- [ ] 2.2 Follow the moves in workspace members, package names (`type-rename-move`), la's dependency pins, `node/la/tsconfig*.json` paths, `scripts/sync-shared`, `scripts/release-check`, `scripts/release_rule.py` (`FORMATS_FILE`, keeping the `shared/config.yaml` fallback), `node/scripts/conformance.mjs`, the conformance runner's `PACKAGES`; regenerate `uv.lock` and `package-lock.json`; verify `uv sync --locked --all-packages`, `npm ci`, `scripts/sync-shared --check`
-- [ ] 2.3 Rename the Python package `deterministic_refactor` → `trmv` with `dr-refactor` (fallback: `git mv` + rewrite), commit as renames; then rewrite la's npm specifiers `deterministic-refactor/*` → `type-rename-move/*`; verify `commands.typecheck` and both twins' unit tests
+- [x] 2.1 `git mv` `python/dr` → `python/trmv`, `node/dr` → `node/trmv`, `shared/dr` → `shared/trmv`, `conformance/dr` → `conformance/trmv`, `plugin/dr` → `plugin/trmv`, `plugin/trmv/skills/deterministic-refactor` → `plugin/trmv/skills/rename-move`, `docs/deterministic-refactoring.md` → `docs/rename-and-move.md`, `shared/trmv/schema/deterministic-refactor.schema.json` → `trmv.schema.json`; commit as renames
+- [x] 2.2 Follow the moves in workspace members, package names (`type-rename-move`), la's dependency pins, `node/la/tsconfig*.json` paths, `scripts/sync-shared`, `scripts/release-check`, `scripts/release_rule.py` (`FORMATS_FILE`, keeping the `shared/config.yaml` fallback), `node/scripts/conformance.mjs`, the conformance runner's `PACKAGES`; regenerate `uv.lock` and `package-lock.json`; verify `uv sync --locked --all-packages`, `npm ci`, `scripts/sync-shared --check`
+- [x] 2.3 Rename the Python package `deterministic_refactor` → `trmv` with `dr-refactor` (fallback: `git mv` + rewrite), commit as renames; then rewrite la's npm specifiers `deterministic-refactor/*` → `type-rename-move/*`; verify `commands.typecheck` and both twins' unit tests
 
 ## 3. Contract and twins
 
-- [ ] 3.1 Apply the substitution to `shared/trmv/` (`cli.yaml` package/plugin/doctor and command names, findings and ids, `config.yaml` files and series, schema `$id` and descriptions, `languages.yaml` install templates and runners, vectors, README) and `shared/la/` (the `$ref`, the alias finding, README); run `scripts/sync-shared`; verify the drift tests
-- [ ] 3.2 Rename commands, bins, entry points, identifiers and texts in both twins; replace hard-coded package-level names with reads from the contract (design decision 11); verify both twins' unit tests
-- [ ] 3.3 Verify both conformance trees through both twins (`scripts/conformance-cross`) and that `LA_UPDATE_GOLDENS=1` produces no golden diff
-- [ ] 3.4 Implement the plugin-tag check in `scripts/release-check`; verify the 1.5 tests
+- [x] 3.1 Apply the substitution to `shared/trmv/` (`cli.yaml` package/plugin/doctor and command names, findings and ids, `config.yaml` files and series, schema `$id` and descriptions, `languages.yaml` install templates and runners, vectors, README) and `shared/la/` (the `$ref`, the alias finding, README); run `scripts/sync-shared`; verify the drift tests
+- [x] 3.2 Rename commands, bins, entry points, identifiers and texts in both twins; replace hard-coded package-level names with reads from the contract (design decision 11); verify both twins' unit tests
+- [x] 3.3 Verify both conformance trees through both twins (`scripts/conformance-cross`) and that `LA_UPDATE_GOLDENS=1` produces no golden diff
+- [x] 3.4 Implement the plugin-tag check in `scripts/release-check`; verify the 1.5 tests
 
 ## 4. Plugins, skills and harnesses
 
-- [ ] 4.1 Rename the plugin (`plugin/trmv/.claude-plugin/plugin.json` name `trmv`), la's plugin dependency `{name: trmv, version: "~0.14.0"}`, the marketplace entry; apply the substitution to every skill (`trmv:` names, `trmv-*` commands, `trmv:rename-move` heading and description per design decision 3); verify `plugin validate` on `plugin/trmv` and `plugin/la` and the skills tests
-- [ ] 4.2 Apply the approved `index.yaml`, `model.c4` and `system.arc42.md` edits (design decision 4) and regenerate diagrams with `la-arch-diagrams`; verify `la-arch-check` and `npx likec4 validate`
+- [x] 4.1 Rename the plugin (`plugin/trmv/.claude-plugin/plugin.json` name `trmv`), la's plugin dependency `{name: trmv, version: "~0.14.0"}`, the marketplace entry; apply the substitution to every skill (`trmv:` names, `trmv-*` commands, `trmv:rename-move` heading and description per design decision 3); verify `plugin validate` on `plugin/trmv` and `plugin/la` and the skills tests
+- [x] 4.2 Apply the approved `index.yaml`, `model.c4` and `system.arc42.md` edits (design decision 4) and regenerate diagrams with `la-arch-diagrams`; verify `la-arch-check` and `npx likec4 validate`
 
 ## 5. Docs, CI and metadata
 
-- [ ] 5.1 Apply the substitution and design decision 3 to `README.md`, `AGENTS.md`, `CONTRIBUTING.md`, `docs/*` (incl. the runbook tagging `trmv--v<version>` from `plugin/trmv`), both package READMEs and docstrings
-- [ ] 5.2 Update `.github/workflows/ci.yml` (matrix `[trmv, la]`, `plugin validate plugin/trmv`), `publish.yml` (`uv build --package type-rename-move`, `npm -w trmv`, trmv before la) and `scripts/acceptance-node-only`
-- [ ] 5.3 Add the keywords of design decision 17 to both trmv package manifests
-- [ ] 5.4 Verify the guard test passes
+- [x] 5.1 Apply the substitution and design decision 3 to `README.md`, `AGENTS.md`, `CONTRIBUTING.md`, `docs/*` (incl. the runbook tagging `trmv--v<version>` from `plugin/trmv`), both package READMEs and docstrings
+- [x] 5.2 Update `.github/workflows/ci.yml` (matrix `[trmv, la]`, `plugin validate plugin/trmv`), `publish.yml` (`uv build --package type-rename-move`, `npm -w trmv`, trmv before la) and `scripts/acceptance-node-only`
+- [x] 5.3 Add the keywords of design decision 17 to both trmv package manifests
+- [x] 5.4 Verify the guard test passes
 
 ## 6. Finish
 
-- [ ] 6.1 Run the enforcement bundle (`la-arch-check`, `npx likec4 validate`, `trmv-typecheck` against its baseline), the release-rule tests and the local test scope
+- [x] 6.1 Run the enforcement bundle (`la-arch-check`, `npx likec4 validate`, `trmv-typecheck` against its baseline), the release-rule tests and the local test scope
 - [ ] 6.2 Put in the PR description the maintainer re-setup: link `~/.claude/skills/trmv` → `plugin/trmv`, re-link `~/.claude/skills/la` → `plugin/la`, reinstall with `uv tool install -e python/la --with-editable python/trmv --with-executables-from type-rename-move`
 - [ ] 6.3 Edit the DEV-2371 comment in place to design decision 5's wording
 - [ ] 6.4 At archive time (pr-review): after `openspec archive`, apply `rename_deltas.py`'s substitution to the scenario titles and the Purposes of `refactor`, `typecheck` and `doctor` in `openspec/specs/`; verify `openspec validate --strict --all` and the guard test

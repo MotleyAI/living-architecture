@@ -8,14 +8,14 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
-from deterministic_refactor.config.load import (
+from trmv.config.load import (
     ConfigError,
     config_source,
     own_file,
     parse_config,
     read_config_text,
 )
-from deterministic_refactor.contract import (
+from trmv.contract import (
     YAMLError,
     canonical_repr,
     config_formats,
@@ -81,7 +81,7 @@ def read_committed(root: Path, file: str) -> Committed | None:
 def format_problem(data: dict[Any, Any], file: str, current: str | None = None) -> str | None:
     """The refusal of config file `file`'s `format`, or None when it declares `current` (default: its current format)."""
     current = current or current_format(file)
-    kind = "format.dr-" if file == own_file() else "format."
+    kind = "format.trmv-" if file == own_file() else "format."
     if FORMAT_KEY not in data:
         return message(f"{kind}missing", current=current)
     declared = data[FORMAT_KEY]
@@ -94,7 +94,7 @@ def format_problem(data: dict[Any, Any], file: str, current: str | None = None) 
 
 
 def check_format(root: Path, file: str | None = None) -> str | None:
-    """The format check's refusal for config file `file` (default: the one dr reads), or None to go on (also for a
+    """The format check's refusal for config file `file` (default: the one trmv reads), or None to go on (also for a
     committed file it cannot judge)."""
     file = file or config_source(root)
     if file is None:

@@ -1,8 +1,8 @@
 import argparse
 
-from deterministic_refactor.config import run_get, run_show
-from deterministic_refactor.config.command import command_argv, command_root
 from living_architecture.config import la_view, run_command
+from trmv.config import run_get, run_show
+from trmv.config.command import command_argv, command_root
 
 
 def _config(args: argparse.Namespace) -> int:

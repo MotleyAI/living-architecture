@@ -6,7 +6,7 @@ export { capturingGroups, fullMatch, isPortableRegex } from './regex.js';
 export { message, renderTemplate } from './render.js';
 export { materializeDefaults, schemaOrdered, validate } from './schema.js';
 export {
-  DR,
+  TRMV,
   HASH_FILE,
   Snapshot,
   baseFetchTimeout,

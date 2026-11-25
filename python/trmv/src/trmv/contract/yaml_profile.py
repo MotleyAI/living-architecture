@@ -27,7 +27,7 @@ class DuplicateKeyError(YAMLError):
     """A mapping repeats a key: the first occurrence's normalized key and the 1-based lines of both."""
 
     def __init__(self, key: object, first: int, second: int) -> None:
-        from deterministic_refactor.contract.render import message  # ALLOW(import-not-top): an import cycle
+        from trmv.contract.render import message  # ALLOW(import-not-top): an import cycle
 
         super().__init__(message("yaml.duplicate-key", key=key, first=first, second=second))
         self.key = key

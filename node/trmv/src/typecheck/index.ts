@@ -1,8 +1,8 @@
-// `dr-typecheck`: each applicable language's checker against its committed, only-shrinking baseline.
+// `trmv-typecheck`: each applicable language's checker against its committed, only-shrinking baseline.
 import { accessSync, constants, existsSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { isCommit } from '../changes/index.js';
-import { ConfigError, type DrConfig, findRepoRoot, languageSettings, loadConfig, repoLanguages } from '../config/index.js';
+import { ConfigError, type TrmvConfig, findRepoRoot, languageSettings, loadConfig, repoLanguages } from '../config/index.js';
 import { language, message, whichPath } from '../contract/index.js';
 import { checkTypescript } from '../lang/index.js';
 import * as twin from '../twin/index.js';
@@ -65,10 +65,10 @@ export function combinedExit(codes: number[]): number {
   return Math.max(0, ...codes);
 }
 
-const commandOf = (config: DrConfig, id: string): string | null => config.commands.typecheck[id as Lang] ?? null;
+const commandOf = (config: TrmvConfig, id: string): string | null => config.commands.typecheck[id as Lang] ?? null;
 
 /** The repo languages whose typecheck command is not `null`. */
-export function applicable(root: string, config: DrConfig): string[] {
+export function applicable(root: string, config: TrmvConfig): string[] {
   return repoLanguages(root, languageSettings(root)).filter((id) => commandOf(config, id) !== null);
 }
 
@@ -115,7 +115,7 @@ function check(root: string, id: string, command: string, write: boolean, realig
   if (id === twin.NATIVE_LANGUAGE) return checkNative(root, command, write);
   const realign = realignFrom === null ? [] : ['--realign-from', realignFrom];
   try {
-    return twin.runLanguage('dr-typecheck', id, write ? ['--write-baseline'] : realign, root, root);
+    return twin.runLanguage('trmv-typecheck', id, write ? ['--write-baseline'] : realign, root, root);
   } catch (error) {
     if (!(error instanceof twin.TwinError)) throw error;
     err(message('typecheck.error', { error: error.message }));
@@ -123,7 +123,7 @@ function check(root: string, id: string, command: string, write: boolean, realig
   }
 }
 
-function setup(cwd: string): [string, DrConfig] | number {
+function setup(cwd: string): [string, TrmvConfig] | number {
   const root = findRepoRoot(cwd);
   if (!existsSync(join(root, '.git'))) {
     err(message('typecheck.not-git'));
@@ -138,7 +138,7 @@ function setup(cwd: string): [string, DrConfig] | number {
   }
 }
 
-function checkOnly(root: string, config: DrConfig, languageId: string, write: boolean): number {
+function checkOnly(root: string, config: TrmvConfig, languageId: string, write: boolean): number {
   if (languageId !== twin.NATIVE_LANGUAGE) {
     err(message('typecheck.error', { error: message('typecheck.not-native', { language: languageId }) }));
     return 2;
@@ -146,7 +146,7 @@ function checkOnly(root: string, config: DrConfig, languageId: string, write: bo
   return checkNative(root, commandOf(config, languageId) ?? '', write);
 }
 
-function checkAll(root: string, config: DrConfig, write: boolean, realignFrom: string | null): number {
+function checkAll(root: string, config: TrmvConfig, write: boolean, realignFrom: string | null): number {
   let languages: string[];
   try {
     languages = applicable(root, config);
@@ -178,7 +178,7 @@ function checkAll(root: string, config: DrConfig, write: boolean, realignFrom: s
 }
 
 /**
- * `dr-typecheck`; with `languageId` (the twins' protocol) only that native language, without a header. `realignFrom`
+ * `trmv-typecheck`; with `languageId` (the twins' protocol) only that native language, without a header. `realignFrom`
  * goes to the Python section, whose baseline alone has positions.
  */
 export function run(cwd: string, write: boolean, languageId: string | null, realignFrom: string | null = null): number {

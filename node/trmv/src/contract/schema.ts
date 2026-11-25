@@ -1,6 +1,6 @@
 // Schema validation (JSON Schema 2020-12) with jsonschema-style messages, and default materialization.
 import { Ajv2020, type ErrorObject, type ValidateFunction } from 'ajv/dist/2020.js';
-import { DR, type Snapshot } from './snapshot.js';
+import { TRMV, type Snapshot } from './snapshot.js';
 import { canonicalRepr, toPlain } from './values.js';
 
 const stores = new Map<string, Ajv2020>();
@@ -66,7 +66,7 @@ function reported(error: ErrorObject): boolean {
 
 /** Sorted `key.path: message` lines, one per violation; empty when valid. `extra`: other contracts' schemas. */
 export function validate(schema: Record<string, any>, data: unknown, extra: Snapshot[] = []): string[] {
-  const fn = validator(schema, [DR, ...extra]);
+  const fn = validator(schema, [TRMV, ...extra]);
   if (fn(toPlain(data))) return [];
   return (fn.errors ?? [])
     .filter(reported)
@@ -79,10 +79,10 @@ export function validate(schema: Record<string, any>, data: unknown, extra: Snap
 
 type Docs = Map<string, any>;
 
-/** dr's schemas and `extra`'s, by `$id`. */
+/** trmv's schemas and `extra`'s, by `$id`. */
 function documents(extra: Snapshot[]): Docs {
   const docs: Docs = new Map();
-  for (const snapshot of [DR, ...extra]) {
+  for (const snapshot of [TRMV, ...extra]) {
     for (const name of snapshot.schemaNames()) {
       const doc = snapshot.schema(name);
       docs.set(String(doc.$id), doc);

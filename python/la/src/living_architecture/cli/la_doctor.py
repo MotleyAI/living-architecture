@@ -1,10 +1,10 @@
 import argparse
 
-from deterministic_refactor import twin
-from deterministic_refactor.config.command import command_argv, command_root
 from living_architecture import doctor
 from living_architecture.config import run_command
 from living_architecture.contract import identity
+from trmv import twin
+from trmv.config.command import command_argv, command_root
 
 
 def _doctor(args: argparse.Namespace) -> int:

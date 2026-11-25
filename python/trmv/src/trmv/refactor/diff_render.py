@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import difflib
 
-from deterministic_refactor.contract import message
+from trmv.contract import message
 
 
 def _shown(text: str) -> str:

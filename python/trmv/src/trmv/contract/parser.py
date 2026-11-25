@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 from typing import Any
 
-from deterministic_refactor.contract import manifest
+from trmv.contract import manifest
 
 _TYPES: dict[str, type] = {"string": str, "path": str, "int": int, "float": float}
 
@@ -39,7 +39,7 @@ def _add_arguments(parser: argparse.ArgumentParser, spec: dict[str, Any]) -> Non
 
 
 def build_parser(command: str, commands: dict[str, Any] | None = None) -> argparse.ArgumentParser:
-    """`command`'s parser from `commands` (default: dr's manifest)."""
+    """`command`'s parser from `commands` (default: trmv's manifest)."""
     spec = (commands or manifest())[command]
     parser = argparse.ArgumentParser(prog=command, description=spec["help"], allow_abbrev=False)
     _add_arguments(parser, spec)
@@ -63,7 +63,7 @@ def _subcommand_after_double_dash(argv: list[str], subcommands: dict[str, Any]) 
 
 
 def parse(command: str, argv: list[str], commands: dict[str, Any] | None = None) -> argparse.Namespace:
-    """Parse `argv` for `command` of `commands` (default: dr's manifest); a usage error exits 2."""
+    """Parse `argv` for `command` of `commands` (default: trmv's manifest); a usage error exits 2."""
     spec = (commands or manifest())[command]
     parser = build_parser(command, commands)
     args = parser.parse_args(_subcommand_after_double_dash(argv, spec.get("subcommands", {})))

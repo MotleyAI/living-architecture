@@ -1,7 +1,7 @@
 import argparse
 
-from deterministic_refactor import doctor, twin
-from deterministic_refactor.config.command import command_argv, command_root, run_command
+from trmv import doctor, twin
+from trmv.config.command import command_argv, command_root, run_command
 
 
 def _doctor(args: argparse.Namespace) -> int:
@@ -16,5 +16,5 @@ def _doctor(args: argparse.Namespace) -> int:
     )
 
 
-def dr_doctor(argv: list[str] | None = None) -> int:
-    return run_command("dr-doctor", command_argv(argv), _doctor)
+def trmv_doctor(argv: list[str] | None = None) -> int:
+    return run_command("trmv-doctor", command_argv(argv), _doctor)

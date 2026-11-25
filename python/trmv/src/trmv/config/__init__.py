@@ -1,7 +1,7 @@
-"""Per-repo config: the committed file dr reads, validated and completed by dr's schema; the shared loading, format
+"""Per-repo config: the committed file trmv reads, validated and completed by trmv's schema; the shared loading, format
 check, language detection and config-command machinery la's config builds on."""
 
-from deterministic_refactor.config.format import (
+from trmv.config.format import (
     FORMAT_KEY,
     Committed,
     check_format,
@@ -13,14 +13,14 @@ from deterministic_refactor.config.format import (
     released_formats,
     stamp_format,
 )
-from deterministic_refactor.config.languages import language_fact, repo_languages, source_files
-from deterministic_refactor.config.load import (
+from trmv.config.languages import language_fact, repo_languages, source_files
+from trmv.config.load import (
     ConfigError,
-    DrCommandsConfig,
-    DrConfig,
     LanguageSettings,
     RefactorConfig,
     RefactorPythonConfig,
+    TrmvCommandsConfig,
+    TrmvConfig,
     TypecheckConfig,
     both_files_problem,
     check_string_forms,
@@ -37,18 +37,18 @@ from deterministic_refactor.config.load import (
     read_config_text,
     resolve,
 )
-from deterministic_refactor.config.values import ConfigView, dr_view, format_value, run_get, run_show
+from trmv.config.values import ConfigView, format_value, run_get, run_show, trmv_view
 
 __all__ = [
     "FORMAT_KEY",
     "Committed",
     "ConfigError",
     "ConfigView",
-    "DrCommandsConfig",
-    "DrConfig",
     "LanguageSettings",
     "RefactorConfig",
     "RefactorPythonConfig",
+    "TrmvCommandsConfig",
+    "TrmvConfig",
     "TypecheckConfig",
     "both_files_problem",
     "check_format",
@@ -56,7 +56,6 @@ __all__ = [
     "compare_versions",
     "config_source",
     "current_format",
-    "dr_view",
     "explicit_typecheck",
     "find_repo_root",
     "format_problem",
@@ -79,4 +78,5 @@ __all__ = [
     "run_show",
     "source_files",
     "stamp_format",
+    "trmv_view",
 ]

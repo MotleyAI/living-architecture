@@ -1,4 +1,4 @@
-// `dr-doctor`: check the installed dr tools match the plugin's minor series and the config dr reads is valid.
+// `trmv-doctor`: check the installed trmv tools match the plugin's minor series and the config trmv reads is valid.
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import {
@@ -9,19 +9,19 @@ import {
   loadWithLanguages,
   repoLanguages,
 } from '../config/index.js';
-import { DR, contractHash, language, message, pluginProblem, which } from '../contract/index.js';
+import { TRMV, contractHash, language, message, pluginProblem, which } from '../contract/index.js';
 import { NATIVE_LANGUAGE, VERSION } from '../index.js';
 import * as twin from '../twin/index.js';
 
 const REQUIRED_EXECUTABLES = ['git'];
 
-const install = (version: string): string => twin.installCommand(NATIVE_LANGUAGE, twin.drIdentity(), version);
+const install = (version: string): string => twin.installCommand(NATIVE_LANGUAGE, twin.trmvIdentity(), version);
 
-/** The problems of the config dr reads, and the executables its repo languages need. */
+/** The problems of the config trmv reads, and the executables its repo languages need. */
 function configProblems(root: string, requireConfig: boolean): [string[], string[]] {
   const refusal = checkFormat(root);
   if (refusal !== null) return [[refusal], []];
-  const problems = requireConfig && configSource(root) === null ? [message('doctor.dr-config-missing')] : [];
+  const problems = requireConfig && configSource(root) === null ? [message('doctor.trmv-config-missing')] : [];
   let settings;
   try {
     settings = loadWithLanguages(root)[1];
@@ -43,7 +43,7 @@ function configProblems(root: string, requireConfig: boolean): [string[], string
 /** Problems found; empty means healthy. Both config files present replace every check that reads the config. */
 export function runChecks(root: string, plugin: string | null = null, requireConfig = false): string[] {
   const problems: string[] = [];
-  const version = plugin !== null ? pluginProblem(plugin, DR.yaml('cli.yaml').plugin, VERSION, install) : null;
+  const version = plugin !== null ? pluginProblem(plugin, TRMV.yaml('cli.yaml').plugin, VERSION, install) : null;
   if (version !== null) problems.push(version);
   const executables = [...REQUIRED_EXECUTABLES];
   const both = bothFilesProblem(root);
@@ -66,7 +66,7 @@ export function run(root: string, plugin: string | null, printHash: boolean, req
   for (const problem of problems) process.stdout.write(`${message('doctor.fail', { problem })}\n`);
   if (problems.length === 0) {
     const source = configSource(root) ?? message('doctor.no-config-file');
-    process.stdout.write(`${message('doctor.ok', { package: DR.yaml('cli.yaml').plugin, version: VERSION, source })}\n`);
+    process.stdout.write(`${message('doctor.ok', { package: TRMV.yaml('cli.yaml').plugin, version: VERSION, source })}\n`);
   }
   return problems.length > 0 ? 1 : 0;
 }

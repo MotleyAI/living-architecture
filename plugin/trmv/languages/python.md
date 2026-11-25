@@ -1,24 +1,24 @@
 # Python idioms
 
 The skills stay language-neutral; this is what they mean for a Python repo. Concrete facts (globs, suppression
-syntax, waiver, baseline file) come from `dr-config get lang.python.<key>`.
+syntax, waiver, baseline file) come from `trmv-config get lang.python.<key>`.
 
 ## Environment
 
 Run every tool in the project env (the `.venv` the tests use, e.g. `uv run …`), so third-party types resolve.
 The type checker is basedpyright (`commands.typecheck.python`, default `basedpyright`); a subdirectory project
-sets `basedpyright -p <dir>`, and a checker that is not basedpyright-compatible sets `null`. `dr-typecheck`
+sets `basedpyright -p <dir>`, and a checker that is not basedpyright-compatible sets `null`. `trmv-typecheck`
 patches basedpyright in memory for pyright#11919, so pin a verified version (today `1.40.2`) and keep
 `NODE_OPTIONS` in the command; otherwise it exits 2.
 
 ## Refactoring
 
-`dr-refactor` resolves a rename's occurrences with the basedpyright bundled with la and computes every rename and move itself.
+`trmv-refactor` resolves a rename's occurrences with the basedpyright bundled with la and computes every rename and move itself.
 Its project scope (`--project`) must include `tests/` so test imports are rewritten too, and it must run in the
 project's environment (the `python` on PATH, or the venv in `[tool.basedpyright]`) so third-party types
 resolve. Move destinations must exist: a new package is a directory with an `__init__.py`.
 
-`dr-refactor` checks its output before it writes. It refuses when an edited file would no longer parse or its
+`trmv-refactor` checks its output before it writes. It refuses when an edited file would no longer parse or its
 encoding cannot hold the new text. A move also refuses with `FILE:LINE: NAME would not resolve as it does now`
 when a name would mean something else after it. Nothing is written in either case. Move that declaration by
 hand; if the move looks correct to you, report the line.
@@ -49,7 +49,7 @@ while a subclass overrides the alias. `--apply` keeps `.basedpyright/baseline.js
 `commands.typecheck.python` over the files it changes.
 
 What a rename leaves unrenamed:
-- receivers `--allow-blindspots` let through; `dr-compliance --attr` misses only a subscript or call receiver typed
+- receivers `--allow-blindspots` let through; `trmv-compliance --attr` misses only a subscript or call receiver typed
   `Model | Any` whose `Model.NAME` is itself `Any`;
 - string-only references: `importlib`, `__all__`, entry points, config paths, strings equal to a renamed `Literal`
   member that the checker does not type by it (`str` variables, `argparse` `choices`; each listed as a `leftover`),
@@ -68,7 +68,7 @@ What a rename leaves unrenamed:
   alias, and keys on a model with an alias generator. Fixtures in a legacy format, validated through a migrating
   `mode="before"` validator, are rewritten like any other typed dict: restore their old keys by hand.
 
-## Compliance fixes (`dr-compliance`)
+## Compliance fixes (`trmv-compliance`)
 
 - `untyped-def` → annotate every parameter and the return.
 - `unannotated-attr` → annotate the attribute (class-body `x: T`, or `self.x: T = ...`).
@@ -81,7 +81,7 @@ What a rename leaves unrenamed:
 - `string-blindspot` → the same fix, for a member named by a string (`getattr(x, "NAME")`,
   `x.model_fields["NAME"]`). A line ending `and a miss raises no error` (`hasattr`, `getattr` with a default) fails
   silently after a rename, so fix it first.
-- `rope-walk` → rope cannot walk this construct, so `dr-refactor` refuses a move whose files include it. It is a rope bug, not a source error: report it with the named line; rewriting the construct is only a stopgap.
+- `rope-walk` → rope cannot walk this construct, so `trmv-refactor` refuses a move whose files include it. It is a rope bug, not a source error: report it with the named line; rewriting the construct is only a stopgap.
 - Overrides carry `@typing.override`, so a renamed base method orphans them visibly.
 
 ## Imports

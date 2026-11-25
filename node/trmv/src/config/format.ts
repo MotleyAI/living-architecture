@@ -65,7 +65,7 @@ export function readCommitted(root: string, file: string): Committed | null {
 
 /** The refusal of config file `file`'s `format`, or null when it declares `current` (default: its current format). */
 export function formatProblem(data: Map<unknown, unknown>, file: string, current: string = currentFormat(file)): string | null {
-  const kind = file === ownFile() ? 'format.dr-' : 'format.';
+  const kind = file === ownFile() ? 'format.trmv-' : 'format.';
   if (!data.has(FORMAT_KEY)) return message(`${kind}missing`, { current });
   const declared = data.get(FORMAT_KEY);
   if (!isVersion(declared)) return message(`${kind}invalid`, { value: declared, current });
@@ -75,7 +75,7 @@ export function formatProblem(data: Map<unknown, unknown>, file: string, current
 }
 
 /**
- * The format check's refusal for config file `file` (default: the one dr reads), or null to go on (also for a committed
+ * The format check's refusal for config file `file` (default: the one trmv reads), or null to go on (also for a committed
  * file it cannot judge).
  */
 export function checkFormat(root: string, file: string | null = null): string | null {

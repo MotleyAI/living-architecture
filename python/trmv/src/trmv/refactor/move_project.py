@@ -5,12 +5,12 @@ from __future__ import annotations
 import copy
 from pathlib import Path
 
-from deterministic_refactor.contract import message
-from deterministic_refactor.refactor.locators import RefactorError, project_rel
-from deterministic_refactor.refactor.patch_targets import SourceFolders
-from deterministic_refactor.refactor.python_project import ProjectLayout, Snapshot
-from deterministic_refactor.refactor.routing import language_files
-from deterministic_refactor.refactor.static_resolver import Module, Resolver
+from trmv.contract import message
+from trmv.refactor.locators import RefactorError, project_rel
+from trmv.refactor.patch_targets import SourceFolders
+from trmv.refactor.python_project import ProjectLayout, Snapshot
+from trmv.refactor.routing import language_files
+from trmv.refactor.static_resolver import Module, Resolver
 
 _INIT = "__init__.py"
 

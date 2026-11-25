@@ -1,5 +1,5 @@
 {
-  "name": "deterministic-refactor",
+  "name": "type-rename-move",
   "version": "0.14.0",
   "description": "Verified renames and moves for Python and TypeScript code: every import and reference rewritten, checked by a type-check gate against a committed baseline.",
   "keywords": [
@@ -10,7 +10,14 @@
     "ai-coding",
     "refactoring",
     "rename",
-    "type-checking"
+    "type-checking",
+    "move",
+    "refactor",
+    "typecheck",
+    "python",
+    "typescript",
+    "verified",
+    "imports"
   ],
   "homepage": "https://github.com/MotleyAI/living-architecture#readme",
   "bugs": {
@@ -26,19 +33,19 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/MotleyAI/living-architecture.git",
-    "directory": "node/dr"
+    "directory": "node/trmv"
   },
   "type": "module",
   "engines": {
     "node": ">=22"
   },
   "bin": {
-    "dr-compliance": "dist/bin/dr-compliance.js",
-    "dr-config": "dist/bin/dr-config.js",
-    "dr-doctor": "dist/bin/dr-doctor.js",
-    "dr-mock-lint": "dist/bin/dr-mock-lint.js",
-    "dr-refactor": "dist/bin/dr-refactor.js",
-    "dr-typecheck": "dist/bin/dr-typecheck.js"
+    "trmv-compliance": "dist/bin/trmv-compliance.js",
+    "trmv-config": "dist/bin/trmv-config.js",
+    "trmv-doctor": "dist/bin/trmv-doctor.js",
+    "trmv-mock-lint": "dist/bin/trmv-mock-lint.js",
+    "trmv-refactor": "dist/bin/trmv-refactor.js",
+    "trmv-typecheck": "dist/bin/trmv-typecheck.js"
   },
   "exports": {
     "./changes": {
@@ -76,7 +83,7 @@
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
     "test:integration": "LA_INTEGRATION=1 vitest run test/typecheck.integration.test.ts",
-    "prepack": "npm run build && node -e \"const fs = require('node:fs'); fs.copyFileSync('../../LICENSE', 'LICENSE'); fs.copyFileSync('../../python/dr/README.md', 'README.md')\""
+    "prepack": "npm run build && node -e \"const fs = require('node:fs'); fs.copyFileSync('../../LICENSE', 'LICENSE'); fs.copyFileSync('../../python/trmv/README.md', 'README.md')\""
   },
   "dependencies": {
     "ajv": "^8.20.0",

@@ -5,7 +5,7 @@ from __future__ import annotations
 import ast
 from collections.abc import Iterator
 
-from deterministic_refactor.refactor.move_edits import (
+from trmv.refactor.move_edits import (
     Edits,
     File,
     NameConflict,
@@ -18,17 +18,17 @@ from deterministic_refactor.refactor.move_edits import (
     newline_of,
     relative_module,
 )
-from deterministic_refactor.refactor.move_project import MoveProject
-from deterministic_refactor.refactor.moved_imports import (
+from trmv.refactor.move_project import MoveProject
+from trmv.refactor.moved_imports import (
     Needed,
     Statement,
     is_type_checking,
     needed_imports,
     ordered,
 )
-from deterministic_refactor.refactor.moved_symbol import MovedSymbol
-from deterministic_refactor.refactor.python_source import header_end, split_lines
-from deterministic_refactor.refactor.static_resolver import Scope
+from trmv.refactor.moved_symbol import MovedSymbol
+from trmv.refactor.python_source import header_end, split_lines
+from trmv.refactor.static_resolver import Scope
 
 _INDENT = "    "
 

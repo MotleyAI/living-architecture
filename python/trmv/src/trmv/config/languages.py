@@ -7,8 +7,8 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-from deterministic_refactor.config.load import ConfigError, LanguageSettings
-from deterministic_refactor.contract import language, language_ids, language_keys, message
+from trmv.config.load import ConfigError, LanguageSettings
+from trmv.contract import language, language_ids, language_keys, message
 
 
 def source_files(root: Path, exempt: list[str]) -> list[str]:

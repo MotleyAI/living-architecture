@@ -1,4 +1,4 @@
-"""`dr-refactor rename-map`: rename, retarget and module entries resolved against the code before the map, checked
+"""`trmv-refactor rename-map`: rename, retarget and module entries resolved against the code before the map, checked
 before any reference search, computed on one snapshot and one occurrence index (one language server, started only
 when needed), printed as one diff with every move and written all or nothing. `rename` and `retarget` are one-entry
 maps."""
@@ -12,38 +12,38 @@ from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
 from typing import Any
 
-from deterministic_refactor.config import ConfigError, find_repo_root, load_config, source_files
-from deterministic_refactor.contract import manifest, message
-from deterministic_refactor.lang import LanguageServerError
-from deterministic_refactor.lang.position_map import Edit
-from deterministic_refactor.refactor.baseline_align import (
+from trmv.config import ConfigError, find_repo_root, load_config, source_files
+from trmv.contract import manifest, message
+from trmv.lang import LanguageServerError
+from trmv.lang.position_map import Edit
+from trmv.refactor.baseline_align import (
     BaselineFailed,
     align,
     baseline_runs,
     config_error,
     probe,
 )
-from deterministic_refactor.refactor.bindings import BindingCheck, EntryEdits, first_conflicts
-from deterministic_refactor.refactor.carve_outs import CarveOuts
-from deterministic_refactor.refactor.diff_render import edit_description, move_description
-from deterministic_refactor.refactor.entry_location import Entry, EntryLocator
-from deterministic_refactor.refactor.hierarchy import ClassGraph
-from deterministic_refactor.refactor.index_cache import IndexCache
-from deterministic_refactor.refactor.keyed import TypeFacts, UnresolvedBase
-from deterministic_refactor.refactor.keyword_links import signature_round
-from deterministic_refactor.refactor.literal_rename import LiteralRename, check_value, literal_member_at
-from deterministic_refactor.refactor.locators import (
+from trmv.refactor.bindings import BindingCheck, EntryEdits, first_conflicts
+from trmv.refactor.carve_outs import CarveOuts
+from trmv.refactor.diff_render import edit_description, move_description
+from trmv.refactor.entry_location import Entry, EntryLocator
+from trmv.refactor.hierarchy import ClassGraph
+from trmv.refactor.index_cache import IndexCache
+from trmv.refactor.keyed import TypeFacts, UnresolvedBase
+from trmv.refactor.keyword_links import signature_round
+from trmv.refactor.literal_rename import LiteralRename, check_value, literal_member_at
+from trmv.refactor.locators import (
     RefactorError,
     cannot_rename,
     named_source,
     project_rel,
     resolve,
 )
-from deterministic_refactor.refactor.map_file import MapEntry, MapError, locator_text
-from deterministic_refactor.refactor.member_namespace import Hierarchy, MemberCheck, RenamedMember
-from deterministic_refactor.refactor.member_scan import FormCall, probe_round
-from deterministic_refactor.refactor.mention_scope import GroupMentions, Listed
-from deterministic_refactor.refactor.module_rename import (
+from trmv.refactor.map_file import MapEntry, MapError, locator_text
+from trmv.refactor.member_namespace import Hierarchy, MemberCheck, RenamedMember
+from trmv.refactor.member_scan import FormCall, probe_round
+from trmv.refactor.mention_scope import GroupMentions, Listed
+from trmv.refactor.module_rename import (
     ModuleRename,
     ModuleResult,
     final_paths,
@@ -51,16 +51,16 @@ from deterministic_refactor.refactor.module_rename import (
     move_conflicts,
     valid_module_name,
 )
-from deterministic_refactor.refactor.move_edits import NameConflict
-from deterministic_refactor.refactor.occurrence_index import (
+from trmv.refactor.move_edits import NameConflict
+from trmv.refactor.occurrence_index import (
     ClassFactSource,
     RunIndex,
     ServerSession,
     candidate_files,
 )
-from deterministic_refactor.refactor.outcomes import Finding, covers
-from deterministic_refactor.refactor.output_check import checked_write
-from deterministic_refactor.refactor.progress import (
+from trmv.refactor.outcomes import Finding, covers
+from trmv.refactor.output_check import checked_write
+from trmv.refactor.progress import (
     Progress,
     Refusal,
     Refused,
@@ -69,15 +69,15 @@ from deterministic_refactor.refactor.progress import (
     refusal,
     unique,
 )
-from deterministic_refactor.refactor.python_project import Snapshot
-from deterministic_refactor.refactor.python_source import SourceFile, nfkc
-from deterministic_refactor.refactor.rename_union import (
+from trmv.refactor.python_project import Snapshot
+from trmv.refactor.python_source import SourceFile, nfkc
+from trmv.refactor.rename_union import (
     RenameOptions,
     RenameResult,
     Session,
     SymbolRename,
 )
-from deterministic_refactor.refactor.retarget import (
+from trmv.refactor.retarget import (
     AliasRetarget,
     ImportNeed,
     Location,
@@ -87,10 +87,10 @@ from deterministic_refactor.refactor.retarget import (
     imported_module,
     module_name,
 )
-from deterministic_refactor.refactor.retarget_imports import plan_imports
-from deterministic_refactor.refactor.rope_patches import walk_gap_line
-from deterministic_refactor.refactor.routing import language_files
-from deterministic_refactor.refactor.sites import (
+from trmv.refactor.retarget_imports import plan_imports
+from trmv.refactor.rope_patches import walk_gap_line
+from trmv.refactor.routing import language_files
+from trmv.refactor.sites import (
     Keeps,
     LiteralKeeps,
     Pick,
@@ -99,7 +99,7 @@ from deterministic_refactor.refactor.sites import (
     literal_spans,
     resolve_keeps,
 )
-from deterministic_refactor.refactor.symbol_path import (
+from trmv.refactor.symbol_path import (
     LocatorError,
     declaration_scope,
     is_wildcard,
@@ -107,10 +107,10 @@ from deterministic_refactor.refactor.symbol_path import (
     locate_all,
     wildcard_refused,
 )
-from deterministic_refactor.refactor.text_edits import TextEdit, apply_edits, merge_edits
-from deterministic_refactor.refactor.timings import timed
-from deterministic_refactor.refactor.word_table import load_table
-from deterministic_refactor.refactor.writer import FileMove, FileWrite, apply, verify
+from trmv.refactor.text_edits import TextEdit, apply_edits, merge_edits
+from trmv.refactor.timings import timed
+from trmv.refactor.word_table import load_table
+from trmv.refactor.writer import FileMove, FileWrite, apply, verify
 
 _WORD = re.compile(r"\w+")
 
@@ -284,7 +284,7 @@ def editable_files(root: Path, docs: bool) -> dict[str, bool]:
     """The files a rename can edit: each Python source (True), and with `docs` each prose file (False)."""
     out = {path.relative_to(root).as_posix(): True for path in language_files(root, "python")}
     if docs:
-        extensions = tuple(manifest()["dr-refactor"]["prose_extensions"])
+        extensions = tuple(manifest()["trmv-refactor"]["prose_extensions"])
         for rel in sorted(source_files(root, [])):
             if rel.endswith(extensions):
                 out.setdefault(rel, False)

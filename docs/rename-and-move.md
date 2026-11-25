@@ -1,4 +1,4 @@
-# Deterministic refactoring
+# Renames and moves
 
 Rename and move Python or TypeScript code with automatic import/reference rewriting — and, the actual point, a
 **deterministic check that the refactor left nothing dangling**.
@@ -8,19 +8,19 @@ call, and subclass override. So it is never trusted — it is *verified*. A stri
 static reference remains; marked overrides turn a missed override into an error; a mock lint turns a missed
 dynamic (mock) reference into a failure. Green ⇒ provably no dangling reference.
 
-The tools are the `deterministic-refactor` package (PyPI and npm, the `dr-*` commands) and the `dr` plugin's skills;
-they install and run without the architecture workflow, configured by `deterministic-refactor.yaml` (`/dr:init`
+The tools are the `type-rename-move` package (PyPI and npm, the `trmv-*` commands) and the `trmv` plugin's skills;
+they install and run without the architecture workflow, configured by `trmv.yaml` (`/trmv:init`
 writes it) or, in a repo that uses la, by `living-architecture.yaml`.
 
 Tools (both twins, routed by each file's language):
-- `dr-refactor` — the mutator: `rename` / `rename-map` / `generate-map` / `retarget` / `move-symbol` / `move-module`. Python
+- `trmv-refactor` — the mutator: `rename` / `rename-map` / `generate-map` / `retarget` / `move-symbol` / `move-module`. Python
   resolves a rename's occurrences with the bundled basedpyright and computes every rename and move itself;
   TypeScript runs the bundled TypeScript language service, one per project of the tsconfig's reference graph.
-- `dr-mock-lint` — fail on test doubles not bound to the real type; `--base BRANCH` prints only the findings the
+- `trmv-mock-lint` — fail on test doubles not bound to the real type; `--base BRANCH` prints only the findings the
   base branch lacks
-- `dr-compliance` — report the constructs that make a refactor un-verifiable
+- `trmv-compliance` — report the constructs that make a refactor un-verifiable
 
-`dr-refactor` prints one unified diff per changed file (and a `rename from`/`rename to` pair per moved file); it
+`trmv-refactor` prints one unified diff per changed file (and a `rename from`/`rename to` pair per moved file); it
 is a dry run unless `--apply` comes before the subcommand. `--timings`, also before the subcommand, prints each
 phase's wall time on stderr after all other output. Locate the symbol with `--symbol` (its path in
 `--file`, quoted for the shell: `Class.method`, `func.<locals>.inner`, `func(param)`, `Alias['value']` for a `Literal` member; no match
@@ -75,14 +75,14 @@ entries:                    # hand-written map entries, written first on every r
 - {file: pkg/q.py, symbol: Query.root_model, new_name: population}
 ```
 
-1. `dr-refactor --project <repo> generate-map TABLE > MAP` writes one entry per declaration whose name holds a word
+1. `trmv-refactor --project <repo> generate-map TABLE > MAP` writes one entry per declaration whose name holds a word
    as a whole word (`measures_total`, `AddMeasures`, never `remeasures`), and per module file and Python package. It
    reads syntax only: no checker starts and nothing is written. Same-named locals of a file become one entry,
    `{file, symbol: '*.<locals>.NAME', new_name}`; `Scope.*.<locals>.NAME` is the same for the functions inside one
    class or function. A carved declaration is left out and listed on stderr as `carve-out`; an entry of `entries`
    replaces the generated entry of its declaration and overrides a carve-out. A project holding both languages
    needs `--language`.
-2. `dr-refactor --project <repo> rename-map MAP --docs --words TABLE` is the dry run. With `--words`, a stand-in a
+2. `trmv-refactor --project <repo> rename-map MAP --docs --words TABLE` is the dry run. With `--words`, a stand-in a
    carve-out matches is left like a `--without` one, and a code-marked `--docs` mention a carve-out covers (a carved
    path's file; the function, class or module declaring a carved declaration of that name) is listed as `leftover`
    instead of rewritten.
@@ -118,7 +118,7 @@ only when:
    every variable/parameter that holds an instance of a class typed. An untyped `x.attr` is unresolvable, so a
    miss there is invisible — determinism is bought with type coverage.
 2. **A type checker runs against the project's own environment** — basedpyright (or mypy) in the project
-   venv, `tsc --noEmit` against the repo's `node_modules` — passing, or at a recorded baseline (`dr-typecheck`).
+   venv, `tsc --noEmit` against the repo's `node_modules` — passing, or at a recorded baseline (`trmv-typecheck`).
 3. **Overrides are marked**, so a base rename that orphans an override is an error, not a silent break:
    `@typing.override` with `reportImplicitOverride` (basedpyright) or mypy strict; the `override` modifier with
    `noImplicitOverride`.
@@ -126,10 +126,10 @@ only when:
    `spec_set=` / `autospec=True` / a `Protocol` fake. TypeScript: `vi.fn<typeof real>()` (or an
    implementation), module factories typed against the module (`vi.mock(import('./m'), …)`,
    `jest.mock<typeof import('./m')>('./m', …)`), and no `as unknown as T` in tests.
-5. **The gate is wired into CI/pre-commit**: `dr-typecheck` (no new errors vs baseline) + `dr-mock-lint` + the
+5. **The gate is wired into CI/pre-commit**: `trmv-typecheck` (no new errors vs baseline) + `trmv-mock-lint` + the
    test suite, on every change.
 
-`dr-compliance` checks each file with its language's checks and reports each violation as
+`trmv-compliance` checks each file with its language's checks and reports each violation as
 `file:line: <kind>: <message>`:
 
 | Language | Checks |
@@ -162,34 +162,34 @@ ends with `and a miss raises no error` for a call that fails silently (`hasattr`
   ```
 
   For TypeScript, `tsc` in `node_modules` and `strict` plus `noImplicitOverride` in the tsconfig.
-- Record the current error set as the baseline (`dr-typecheck --write-baseline`) — you do **not** need a clean
-  whole repo, only "no *new* errors" per change — and add `dr-typecheck` and `dr-mock-lint <tests>` to CI.
+- Record the current error set as the baseline (`trmv-typecheck --write-baseline`) — you do **not** need a clean
+  whole repo, only "no *new* errors" per change — and add `trmv-typecheck` and `trmv-mock-lint <tests>` to CI.
 
-The mutators do **not** belong in the project's dependencies. Python `dr-refactor` and `dr-compliance --attr`
-run the basedpyright bundled with dr against the project's configuration and interpreter, so run them in the
+The mutators do **not** belong in the project's dependencies. Python `trmv-refactor` and `trmv-compliance --attr`
+run the basedpyright bundled with trmv against the project's configuration and interpreter, so run them in the
 project's environment (the `python` on PATH, or the venv in `[tool.basedpyright]`).
 
 ### 2. Keep every PR compliant — skill `make-diff-compliant`
 
 Bring exactly the files a PR touches up to the five conditions before it merges, so compliance grows
-monotonically with the diff instead of requiring a big-bang migration. The skill runs `dr-compliance` on the
-changed files, fixes what it reports, and loops until `dr-typecheck` and `dr-mock-lint` are clean on the diff.
-See [`dr:make-diff-compliant`](../plugin/dr/skills/make-diff-compliant/SKILL.md).
+monotonically with the diff instead of requiring a big-bang migration. The skill runs `trmv-compliance` on the
+changed files, fixes what it reports, and loops until `trmv-typecheck` and `trmv-mock-lint` are clean on the diff.
+See [`trmv:make-diff-compliant`](../plugin/trmv/skills/make-diff-compliant/SKILL.md).
 
-### 3. Do a refactor — skill `deterministic-refactor`
+### 3. Do a refactor — skill `type-rename-move`
 
-Locate the symbol with the editor/LSP → `dr-refactor` dry-run → apply → run the gate (`dr-typecheck` shows no
-new errors, `dr-mock-lint` passes, tests pass, check the printed `leftover` lines and the string-only references
+Locate the symbol with the editor/LSP → `trmv-refactor` dry-run → apply → run the gate (`trmv-typecheck` shows no
+new errors, `trmv-mock-lint` passes, tests pass, check the printed `leftover` lines and the string-only references
 the language doc lists) → review
-the diff. See [`dr:deterministic-refactor`](../plugin/dr/skills/deterministic-refactor/SKILL.md).
+the diff. See [`trmv:rename-move`](../plugin/trmv/skills/rename-move/SKILL.md).
 
 ### 4. Make a refactor's blast radius compliant first — skill `make-refactor-target-compliant`
 
 Before renaming `X` or `X.attr`, close the blind spots the gate would otherwise miss: code that *might*
 reference the target but is currently invisible to the checker — untyped parameters/variables that could hold
 an `X`, classes whose attribute names match the target ("right-looking" names), unmarked overrides. The skill
-drives `dr-compliance --select attr-blindspot,string-blindspot --attr <name>` to enumerate those sites, types them, and re-checks until the blast radius
+drives `trmv-compliance --select attr-blindspot,string-blindspot --attr <name>` to enumerate those sites, types them, and re-checks until the blast radius
 is fully typed — so the post-rename gate is sound. See
-[`dr:make-refactor-target-compliant`](../plugin/dr/skills/make-refactor-target-compliant/SKILL.md).
+[`trmv:make-refactor-target-compliant`](../plugin/trmv/skills/make-refactor-target-compliant/SKILL.md).
 
-The per-language idioms the skills rely on are in [`plugin/dr/languages/`](../plugin/dr/languages/).
+The per-language idioms the skills rely on are in [`plugin/trmv/languages/`](../plugin/trmv/languages/).

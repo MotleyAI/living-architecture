@@ -1,4 +1,4 @@
-// `dr-refactor --timings`: each phase's exclusive wall time, printed in the shared phase order.
+// `trmv-refactor --timings`: each phase's exclusive wall time, printed in the shared phase order.
 import { message, timingPhases } from '../contract/index.js';
 
 const CENTISECOND_NS = 10_000_000n;

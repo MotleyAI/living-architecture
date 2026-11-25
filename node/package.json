@@ -3,15 +3,15 @@
   "private": true,
   "type": "module",
   "workspaces": [
-    "dr",
+    "trmv",
     "la"
   ],
   "scripts": {
-    "build": "npm run build -w dr && npm run build -w la",
+    "build": "npm run build -w trmv && npm run build -w la",
     "lint": "eslint .",
-    "typecheck": "npm run typecheck -w dr && npm run typecheck -w la",
-    "test": "npm test -w dr && npm test -w la",
-    "test:integration": "npm run test:integration -w dr",
+    "typecheck": "npm run typecheck -w trmv && npm run typecheck -w la",
+    "test": "npm test -w trmv && npm test -w la",
+    "test:integration": "npm run test:integration -w trmv",
     "conformance": "node scripts/conformance.mjs"
   },
   "devDependencies": {

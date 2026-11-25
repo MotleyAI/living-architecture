@@ -3,7 +3,7 @@ name: init
 description: Onboard a repo to the la plugin — detect its tracker, test/lint/type-check commands, Codex, Sonar and any existing OpenSpec or architecture setup, propose a complete living-architecture.yaml with a source for every key, ask only what cannot be detected, write the file, then offer the type-check baseline and la:arch-init. Also the fast path other skills run when a repo has no config, and the way to edit or convert an existing config.
 ---
 
-**Preflight:** run `la-doctor --plugin <this skill's base directory>` once per session before using any `la-*` or `dr-*` command; if it fails, stop and show the user its output — unless the only failure is the existing `living-architecture.yaml` being invalid or declaring an older format, which this skill converts (steps 1 and 5).
+**Preflight:** run `la-doctor --plugin <this skill's base directory>` once per session before using any `la-*` or `trmv-*` command; if it fails, stop and show the user its output — unless the only failure is the existing `living-architecture.yaml` being invalid or declaring an older format, which this skill converts (steps 1 and 5).
 
 # Onboard a repo
 
@@ -34,8 +34,8 @@ Read, don't ask. For each key note the value and where it came from:
 - **`reviewers.sonar.project_key`.** Only needed when it cannot be inferred: Sonar in CI
   (`.github/workflows/*`) with no `sonar-project.properties` key. `la-pr-reviewers <PR>` on a recent PR shows
   what is inferred.
-- **dr's keys** (`commands.test`, `commands.typecheck`, `exempt`, `refactor`). Detect them as step 1 of the
-  `dr:init` skill describes; they go in this same file.
+- **trmv's keys** (`commands.test`, `commands.typecheck`, `exempt`, `refactor`). Detect them as step 1 of the
+  `trmv:init` skill describes; they go in this same file.
 - **`commands.lint`.** From the package manifests (`la-config get lang.<language>.markers`, `package.json` scripts),
   a `Makefile`, the CI workflows and `CLAUDE.md`/`AGENTS.md`.
 - **`conventions`.** Keep the defaults unless the repo's own instructions say otherwise.
@@ -77,7 +77,7 @@ re-run until it passes.
 ## 7. Next steps (full run only)
 
 Offer, each as a yes/no:
-- **Type-check baseline.** As step 5 of the `dr:init` skill describes.
+- **Type-check baseline.** As step 5 of the `trmv:init` skill describes.
 - **Architecture.** If `architecture: false`, offer the `la:arch-init` skill to build the model.
 
 Never wire CI; the docs explain how when the user asks. Do not commit: the user commits the config.
