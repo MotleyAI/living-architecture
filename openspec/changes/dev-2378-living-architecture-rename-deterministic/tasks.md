@@ -13,13 +13,13 @@ Calibration notes (read first):
 
 ## 1. Tests (pr-tests)
 
-- [ ] 1.1 Apply the substitution to both twins' unit tests (imports `trmv` / `type-rename-move/<module>`, bins and entry points `trmv-*`, `TRMV_*`/`Trmv*` identifiers, test names, the `la-typecheck` alias text, install hints, identity lines, `trmv.yaml`, `trmv.schema.json`, `format.trmv-*`); verify they fail only for the missing names
-- [ ] 1.2 Apply the substitution to every conformance case (commands, fixtures, goldens, case and fixture names containing `dr`, both `INVENTORY.md` files and `conformance/README.md`); verify the corpus fails only for the missing names
-- [ ] 1.3 Rename the test and case ids in the six `tests/durations/*.json` files to match 1.1–1.2
-- [ ] 1.4 Update the skills, docs and plugin tests for the `trmv` plugin, `trmv:rename-move`, `docs/rename-and-move.md` and the marketplace entry
-- [ ] 1.5 Add release-rule tests: `scripts/release-check` with `trmv--v<version>` at the release commit passes, missing or at another commit exits 1 naming the tag (and both commits); the `v0.13.0` → 0.14.0 formats transition reads `shared/config.yaml` at v0.13.0 and `shared/trmv/config.yaml` at HEAD
-- [ ] 1.6 Add the guard test to la's suite (design decision 6: patterns, path scan, exclusions incl. specs pending an active change); verify it fails listing today's names
-- [ ] 1.7 Extend the npm pack test: la's tarball imports only `type-rename-move/<module>`, and every export subpath resolves from the packed tarballs
+- [x] 1.1 Apply the substitution to both twins' unit tests (imports `trmv` / `type-rename-move/<module>`, bins and entry points `trmv-*`, `TRMV_*`/`Trmv*` identifiers, test names, the `la-typecheck` alias text, install hints, identity lines, `trmv.yaml`, `trmv.schema.json`, `format.trmv-*`); verify they fail only for the missing names
+- [x] 1.2 Apply the substitution to every conformance case (commands, fixtures, goldens, case and fixture names containing `dr`, both `INVENTORY.md` files and `conformance/README.md`); verify the corpus fails only for the missing names
+- [x] 1.3 Rename the test and case ids in the six `tests/durations/*.json` files to match 1.1–1.2
+- [x] 1.4 Update the skills, docs and plugin tests for the `trmv` plugin, `trmv:rename-move`, `docs/rename-and-move.md` and the marketplace entry
+- [x] 1.5 Add release-rule tests: `scripts/release-check` with `trmv--v<version>` at the release commit passes, missing or at another commit exits 1 naming the tag (and both commits); the `v0.13.0` → 0.14.0 formats transition reads `shared/config.yaml` at v0.13.0 and `shared/trmv/config.yaml` at HEAD
+- [x] 1.6 Add the guard test to la's suite (design decision 6: patterns, path scan, exclusions incl. specs pending an active change); verify it fails listing today's names
+- [x] 1.7 Extend the npm pack test: la's tarball imports only `type-rename-move/<module>`, and every export subpath resolves from the packed tarballs
 
 ## 2. Layout and packages (pr-implement)
 
