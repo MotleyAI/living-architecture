@@ -1,0 +1,1 @@
+FAIL: no trmv-doctor on PATH, so the trmv commands la runs are missing; install la with them: uv tool install living-architecture==<VERSION> --with-executables-from type-rename-move

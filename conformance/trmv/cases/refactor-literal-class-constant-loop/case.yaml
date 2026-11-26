@@ -1,0 +1,16 @@
+kind: paired
+languages:
+- python
+- typescript
+command: trmv-refactor
+args:
+  python: [--apply, rename, --file, pkg/c.py, --symbol, "Kind2['formula']", --new-name, expression]
+  typescript: [--apply, rename, --file, src/c.ts, --symbol, "Kind2['formula']", --new-name, expression]
+fixture: refactor-pair
+git:
+- commit: init
+expect:
+  exit: 0
+  git_status: true
+golden: manual
+note: 'a class constant read as K.NAME and a loop over a display of literals: both old strings are rewritten'

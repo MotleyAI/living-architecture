@@ -2,9 +2,9 @@
 import { spawnSync } from 'node:child_process';
 import { constants as osConstants } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
-import * as drConfig from 'deterministic-refactor/config';
-import { type Handler, commandRoot, optional } from 'deterministic-refactor/config';
-import * as twin from 'deterministic-refactor/twin';
+import * as trmvConfig from 'type-rename-move/config';
+import { type Handler, commandRoot, optional } from 'type-rename-move/config';
+import * as twin from 'type-rename-move/twin';
 import * as affected from '../affected/index.js';
 import * as archcheck from '../archcheck/index.js';
 import * as c4 from '../c4/index.js';
@@ -17,7 +17,7 @@ import * as review from '../review/index.js';
 const HANDLERS: Record<string, Handler> = {
   'la-config': (args) => {
     const root = commandRoot(args.root);
-    return args.subcommand === 'show' ? drConfig.runShow('la-config', root, laView) : drConfig.runGet('la-config', root, String(args.key), laView);
+    return args.subcommand === 'show' ? trmvConfig.runShow('la-config', root, laView) : trmvConfig.runGet('la-config', root, String(args.key), laView);
   },
   'la-doctor': (args) => {
     if (args.twin) {
@@ -43,7 +43,7 @@ const HANDLERS: Record<string, Handler> = {
   'la-check-conventions': (args) => {
     if (optional(args.emit) !== null) return conventions.emit(optional(args.language) ?? twin.NATIVE_LANGUAGE, process.cwd());
     return conventions.checkConventions({
-      repoRoot: drConfig.findRepoRoot(process.cwd()),
+      repoRoot: trmvConfig.findRepoRoot(process.cwd()),
       pr: optional(args.pr),
       repo: optional(args.repo),
       base: optional(args.base),
@@ -59,7 +59,7 @@ const HANDLERS: Record<string, Handler> = {
   },
 };
 
-/** The deprecated alias: `dr-typecheck` with the same arguments, after one deprecation line on stderr. */
+/** The deprecated alias: `trmv-typecheck` with the same arguments, after one deprecation line on stderr. */
 function laTypecheck(argv: string[]): number {
   try {
     parse('la-typecheck', argv, manifest());
@@ -73,8 +73,8 @@ function laTypecheck(argv: string[]): number {
     return error.exitCode;
   }
   if (process.env.LA_FORWARDED !== '1') process.stderr.write(`${message('typecheck-alias.deprecated')}\n`);
-  const drTypecheck = join(dirname(resolve(process.argv[1] ?? '')), 'dr-typecheck');
-  const proc = spawnSync(drTypecheck, argv, { stdio: 'inherit' });
+  const trmvTypecheck = join(dirname(resolve(process.argv[1] ?? '')), 'trmv-typecheck');
+  const proc = spawnSync(trmvTypecheck, argv, { stdio: 'inherit' });
   if (proc.error !== undefined) throw proc.error;
   return proc.signal !== null ? 128 + (osConstants.signals[proc.signal] ?? 0) : (proc.status ?? 1);
 }

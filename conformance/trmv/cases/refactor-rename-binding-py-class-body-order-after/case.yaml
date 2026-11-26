@@ -1,0 +1,17 @@
+kind: adapter
+languages:
+- python
+command: trmv-refactor
+args:
+- rename
+- --file
+- pkg/m.py
+- --symbol
+- old
+- --new-name
+- next
+git:
+- commit: init
+expect:
+  exit: 0
+note: 'a class body reads the renamed name before it binds the new name: the read still reaches the module global, no conflict'

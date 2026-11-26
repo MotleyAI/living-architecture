@@ -1,0 +1,28 @@
+kind: paired
+languages:
+- python
+- typescript
+command: trmv-refactor
+args:
+  python:
+  - rename-map
+  - --keep
+  - pkg/use.py:6
+  - --keep
+  - pkg/use.py:7
+  - --keep
+  - pkg/use.py:8
+  - renames.yaml
+  typescript:
+  - rename-map
+  - --keep
+  - src/use.ts:4
+  - renames.yaml
+fixture: retarget-unbound-attribute
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: '--keep on each unbound module attribute releases its refusal: those lines unchanged, the rest rewritten, in
+  both languages'

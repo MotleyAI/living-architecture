@@ -1,4 +1,4 @@
-// Compile src/ to dist/ against dr's built declarations, copy la's contract snapshot (modes kept), and write one bin per
+// Compile src/ to dist/ against trmv's built declarations, copy la's contract snapshot (modes kept), and write one bin per
 // la command.
 import { execFileSync } from 'node:child_process';
 import { chmodSync, cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';

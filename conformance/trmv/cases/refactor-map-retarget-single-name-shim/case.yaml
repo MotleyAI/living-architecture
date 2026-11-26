@@ -1,0 +1,15 @@
+kind: paired
+languages:
+- python
+- typescript
+command: trmv-refactor
+args:
+- rename-map
+- renames.yaml
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: 'a single-name re-export shim keeps its re-export, imports the target for its own uses; its importers import the
+  target from the home, in both languages'

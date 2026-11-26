@@ -1,0 +1,17 @@
+kind: paired
+languages:
+- python
+- typescript
+command: trmv-refactor
+args:
+  python: [rename, --file, pkg/m.py, --symbol, Ds.columns, --new-name, fields]
+  typescript: [rename, --file, src/m.ts, --symbol, Ds.columns, --new-name, fields]
+fixture: refactor-pair
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: 'a member argument bound any unsupported way (a parameter, both branches, an unpacking, a walrus, a second or augmented
+  assignment, a mutated list, a call''s result, a with or catch target, a global or nonlocal name) has no sources: nothing
+  but the declaration changes and each equal string is a leftover'

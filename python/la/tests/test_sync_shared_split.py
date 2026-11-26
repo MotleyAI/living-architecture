@@ -1,4 +1,4 @@
-"""scripts/sync-shared vendors shared/dr and shared/la into their four snapshots, each with its own hash."""
+"""scripts/sync-shared vendors shared/trmv and shared/la into their four snapshots, each with its own hash."""
 
 import shutil
 import subprocess
@@ -7,22 +7,22 @@ from pathlib import Path
 
 import pytest
 
-from deterministic_refactor.contract import compute_hash
+from trmv.contract import compute_hash
 
 REPO_ROOT = next(p for p in Path(__file__).resolve().parents if (p / "shared").is_dir() and (p / "plugin").is_dir())
 SNAPSHOTS = {
-    Path("python/dr/src/deterministic_refactor/contract/data"): "dr",
+    Path("python/trmv/src/trmv/contract/data"): "trmv",
     Path("python/la/src/living_architecture/contract/data"): "la",
-    Path("node/dr/src/contract/data"): "dr",
+    Path("node/trmv/src/contract/data"): "trmv",
     Path("node/la/src/contract/data"): "la",
 }
 
 
 @pytest.fixture
 def tree(tmp_path: Path) -> Path:
-    """scripts/ beside a small shared/dr and shared/la, never synced."""
+    """scripts/ beside a small shared/trmv and shared/la, never synced."""
     shutil.copytree(REPO_ROOT / "scripts", tmp_path / "scripts")
-    for package in ("dr", "la"):
+    for package in ("trmv", "la"):
         (tmp_path / "shared" / package).mkdir(parents=True)
         (tmp_path / "shared" / package / "cli.yaml").write_text(f"commands: {{{package}-x: {{}}}}\n", encoding="utf-8")
     run = tmp_path / "shared" / "la" / "scripts" / "run.sh"
@@ -55,7 +55,7 @@ def test_executable_bit_is_preserved(tree: Path) -> None:
     assert (tree / "python/la/src/living_architecture/contract/data/scripts/run.sh").stat().st_mode & 0o111
 
 
-@pytest.mark.parametrize("package", ["dr", "la"])
+@pytest.mark.parametrize("package", ["trmv", "la"])
 def test_check_names_only_the_stale_snapshots(tree: Path, package: str) -> None:
     assert _sync(tree).returncode == 0
     (tree / "shared" / package / "cli.yaml").write_text("commands: {}\n", encoding="utf-8")

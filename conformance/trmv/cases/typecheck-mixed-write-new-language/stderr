@@ -1,0 +1,4 @@
+trmv-typecheck: checking python with basedpyright
+trmv-typecheck: python: .basedpyright/baseline.json exists, skipped
+trmv-typecheck: checking typescript with tsc --noEmit
+trmv-typecheck: typescript: wrote .tsc-baseline.json

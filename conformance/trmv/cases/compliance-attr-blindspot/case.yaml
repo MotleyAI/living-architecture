@@ -1,0 +1,13 @@
+kind: adapter
+languages:
+- python
+command: trmv-compliance
+args:
+- --select
+- attr-blindspot
+- --attr
+- name
+- src/k.py
+fixture: compliance
+expect:
+  exit: 1

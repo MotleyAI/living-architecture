@@ -1,0 +1,6 @@
+kind: neutral
+command: trmv-doctor
+expect:
+  exit: 1
+note: 'both committed config files present: the both-files problem replaces the format and schema checks'
+golden: manual

@@ -4,7 +4,7 @@ command: la-doctor
 args: [--plugin, plugin]
 git:
 - write:
-    plugin/.claude-plugin/plugin.json: '{"version": "0.0.0"}'
+    plugin/.claude-plugin/plugin.json: '{"version": "999.0.0"}'
 normalize: [version]
 expect:
   exit: 1

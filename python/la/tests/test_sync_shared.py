@@ -7,17 +7,17 @@ from pathlib import Path
 
 import pytest
 
-from deterministic_refactor.contract import compute_hash
+from trmv.contract import compute_hash
 
 REPO_ROOT = next(p for p in Path(__file__).resolve().parents if (p / "shared").is_dir() and (p / "plugin").is_dir())
 SNAPSHOTS = {
-    Path("python/dr/src/deterministic_refactor/contract/data"): "dr",
+    Path("python/trmv/src/trmv/contract/data"): "trmv",
     Path("python/la/src/living_architecture/contract/data"): "la",
-    Path("node/dr/src/contract/data"): "dr",
+    Path("node/trmv/src/contract/data"): "trmv",
     Path("node/la/src/contract/data"): "la",
 }
 # Each package's root-file symlinks to the repo's README.md and LICENSE.
-ROOT_LINKS = {Path("python/la/README.md"), Path("python/la/LICENSE"), Path("python/dr/LICENSE")}
+ROOT_LINKS = {Path("python/la/README.md"), Path("python/la/LICENSE"), Path("python/trmv/LICENSE")}
 
 
 @pytest.fixture
@@ -41,7 +41,7 @@ def test_check_passes_on_a_synced_tree(tree: Path) -> None:
     assert _sync(tree, "--check").returncode == 0
 
 
-@pytest.mark.parametrize("package", ["dr", "la"])
+@pytest.mark.parametrize("package", ["trmv", "la"])
 def test_check_fails_after_shared_changes_and_writes_nothing(tree: Path, package: str) -> None:
     (tree / "shared" / package / "findings.yaml").write_text("changed\n", encoding="utf-8")
     proc = _sync(tree, "--check")

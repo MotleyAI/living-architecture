@@ -3,10 +3,10 @@ from pathlib import Path
 
 import pytest
 
-from deterministic_refactor import config
-from deterministic_refactor.config import format_value
 from living_architecture.cli.la_config import la_config as main
 from living_architecture.contract import config_file
+from trmv import config
+from trmv.config import format_value
 
 
 @pytest.fixture

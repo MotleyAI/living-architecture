@@ -1,8 +1,0 @@
-kind: neutral
-command: dr-config
-args:
-- show
-expect:
-  exit: 2
-note: an older dr file format names both formats
-golden: manual

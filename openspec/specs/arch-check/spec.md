@@ -91,7 +91,7 @@ both.
 - **THEN** `claims-exactly-once.claimed-twice` is reported for `pkg.core`, naming both nodes, and the exit code is 1
 
 #### Scenario: TypeScript nodes on root packages
-- **WHEN** the `typescript` section sets `source_root: node` and `root_packages: [dr/src, la/src]`, and nodes `dr` (package `dr/src`) and `la` (package `la/src`) are declared
+- **WHEN** the `typescript` section sets `source_root: node` and `root_packages: [trmv/src, la/src]`, and nodes `trmv` (package `trmv/src`) and `la` (package `la/src`) are declared
 - **THEN** every top-level unit under each root is claimed by its node
 
 ### Requirement: Nested elements map to units by convention
@@ -684,8 +684,8 @@ and the offending entries: a malformed list, an invalid or overlapping entry, a 
 a root package found under more than one entry, and an entry that holds no configured root package.
 
 #### Scenario: Workspace layout checked
-- **WHEN** the `python` section sets `source_roots: [python/dr/src, python/la/src]` and `root_packages: [deterministic_refactor, living_architecture]`, each package under its own entry
-- **THEN** `la-arch-check` measures both packages, and the model names their units `deterministic_refactor.<...>` and `living_architecture.<...>`
+- **WHEN** the `python` section sets `source_roots: [python/trmv/src, python/la/src]` and `root_packages: [trmv, living_architecture]`, each package under its own entry
+- **THEN** `la-arch-check` measures both packages, and the model names their units `trmv.<...>` and `living_architecture.<...>`
 
 #### Scenario: Root package under no source root
 - **WHEN** a `root_packages` entry exists under none of the `source_roots`

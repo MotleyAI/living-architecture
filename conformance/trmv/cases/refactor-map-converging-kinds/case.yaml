@@ -1,0 +1,15 @@
+kind: paired
+languages:
+- python
+- typescript
+command: trmv-refactor
+args:
+- rename-map
+- renames.yaml
+git:
+- commit: init
+expect:
+  exit: 1
+golden: manual
+note: 'two entries giving parameters, locals and top-level names of one scope the same new name, in both entry orders: each
+  pair refused in checks as the later entry''s finding, naming the earlier entry''s declaration'

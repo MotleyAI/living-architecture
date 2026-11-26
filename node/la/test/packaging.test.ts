@@ -1,5 +1,5 @@
 // The packed npm packages carry their built bins, README.md and LICENSE, and the contract: `npm pack` each workspace,
-// la alone first, of a staged copy without `dist/` (prepack builds them, la's dr too), install the tarballs into one
+// la alone first, of a staged copy without `dist/` (prepack builds them, la's trmv too), install the tarballs into one
 // clean global prefix outside the checkout, then run their bins from a directory outside any repo.
 import { spawnSync, type SpawnSyncReturns } from 'node:child_process';
 import {
@@ -18,8 +18,8 @@ import {
 import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { currentFormat } from '../../dr/src/config/index.js';
-import { DR_ROOT, HASH_FILE, loadYamlFile, NODE_ROOT, readJson, REPO_ROOT, SHARED_ROOT } from '../../dr/test/helpers.js';
+import { currentFormat } from '../../trmv/src/config/index.js';
+import { HASH_FILE, loadYamlFile, NODE_ROOT, readJson, REPO_ROOT, SHARED_ROOT, TRMV_ROOT } from '../../trmv/test/helpers.js';
 
 const TIMEOUT = 600_000;
 const TMP = mkdtempSync(join(tmpdir(), 'la-pack-'));
@@ -32,11 +32,11 @@ const NODE_BIN = join(TMP, 'nodebin');
 const STAGE = join(TMP, 'stage');
 const CONFORMANCE = join(REPO_ROOT, 'conformance');
 const ROOT_FILES = ['README.md', 'LICENSE'];
-const PACKAGES = { dr: 'deterministic-refactor', la: 'living-architecture' } as const;
+const PACKAGES = { trmv: 'type-rename-move', la: 'living-architecture' } as const;
 // Each package's README.md and LICENSE, as its prepack copies them.
 const PACKED_FILES: [keyof typeof PACKAGES, string, string][] = [
-  ['dr', 'README.md', join('python', 'dr', 'README.md')],
-  ['dr', 'LICENSE', 'LICENSE'],
+  ['trmv', 'README.md', join('python', 'trmv', 'README.md')],
+  ['trmv', 'LICENSE', 'LICENSE'],
   ['la', 'README.md', 'README.md'],
   ['la', 'LICENSE', 'LICENSE'],
 ];
@@ -83,14 +83,14 @@ beforeAll(() => {
     ),
   );
   cpSync(NODE_ROOT, staged, { recursive: true, filter: (src) => !skipped.has(src) });
-  // The installed dependencies, but each workspace package links to its staged copy, so la builds against staged dr.
+  // The installed dependencies, but each workspace package links to its staged copy, so la builds against staged trmv.
   const workspaces = new Map<string, string>(Object.entries(PACKAGES).map(([dir, name]) => [name, dir]));
   mkdirSync(join(staged, 'node_modules'));
   for (const entry of readdirSync(join(NODE_ROOT, 'node_modules'))) {
     const dir = workspaces.get(entry);
     symlinkSync(dir === undefined ? join(NODE_ROOT, 'node_modules', entry) : join('..', dir), join(staged, 'node_modules', entry));
   }
-  for (const workspace of ['la', 'dr']) {
+  for (const workspace of ['la', 'trmv']) {
     for (const entry of JSON.parse(npm(['pack', '--json', '--pack-destination', TMP, '-w', workspace], staged))) {
       TARBALLS[entry.name] = join(TMP, entry.filename);
     }
@@ -207,23 +207,23 @@ describe('installed npm package: TypeScript compiler loading', () => {
 });
 
 describe('installed npm package: forwarding', () => {
-  it("does not run the installed package's own dr-doctor", () => {
+  it("does not run the installed package's own trmv-doctor", () => {
     const stub = join(TMP, 'python-twin');
     const stubLog = join(TMP, 'python-twin.log');
     mkdirSync(stub);
-    const hash = readFileSync(join(DR_ROOT, 'src', 'contract', 'data', HASH_FILE), 'utf8').trim();
-    const identity = `python ${readJson(join(DR_ROOT, 'package.json')).version} ${hash}`;
-    writeFileSync(join(stub, 'dr-doctor'), `#!/bin/sh\necho "dr-doctor $*" >> '${stubLog}'\necho '${identity}'\n`);
-    writeFileSync(join(stub, 'dr-refactor'), `#!/bin/sh\necho "dr-refactor $*" >> '${stubLog}'\nexit 7\n`);
-    chmodSync(join(stub, 'dr-doctor'), 0o755);
-    chmodSync(join(stub, 'dr-refactor'), 0o755);
+    const hash = readFileSync(join(TRMV_ROOT, 'src', 'contract', 'data', HASH_FILE), 'utf8').trim();
+    const identity = `python ${readJson(join(TRMV_ROOT, 'package.json')).version} ${hash}`;
+    writeFileSync(join(stub, 'trmv-doctor'), `#!/bin/sh\necho "trmv-doctor $*" >> '${stubLog}'\necho '${identity}'\n`);
+    writeFileSync(join(stub, 'trmv-refactor'), `#!/bin/sh\necho "trmv-refactor $*" >> '${stubLog}'\nexit 7\n`);
+    chmodSync(join(stub, 'trmv-doctor'), 0o755);
+    chmodSync(join(stub, 'trmv-refactor'), 0o755);
     const args = ['rename', '--file', 'a.py', '--symbol', 'x', '--new-name', 'y'];
     writeFileSync(join(WORK, 'a.py'), 'x = 1\n');
-    const { proc, lines } = probed('dr-refactor', args, WORK, [join(PREFIX, 'bin'), stub, NODE_BIN]);
+    const { proc, lines } = probed('trmv-refactor', args, WORK, [join(PREFIX, 'bin'), stub, NODE_BIN]);
     expect(proc.status, proc.stderr).toBe(7);
-    expect(readFileSync(stubLog, 'utf8').trim().split('\n')).toEqual(['dr-doctor --twin', `dr-refactor ${args.join(' ')}`]);
-    expect(lines).toContain(`start ${realpathSync(bin('dr-refactor'))}`);
-    expect(lines).not.toContain(`start ${realpathSync(bin('dr-doctor'))}`);
+    expect(readFileSync(stubLog, 'utf8').trim().split('\n')).toEqual(['trmv-doctor --twin', `trmv-refactor ${args.join(' ')}`]);
+    expect(lines).toContain(`start ${realpathSync(bin('trmv-refactor'))}`);
+    expect(lines).not.toContain(`start ${realpathSync(bin('trmv-doctor'))}`);
     expect(lines.filter((line) => line.startsWith('typescript '))).toEqual([]);
   });
 });

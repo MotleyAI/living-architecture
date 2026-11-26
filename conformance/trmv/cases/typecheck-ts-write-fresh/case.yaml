@@ -1,0 +1,13 @@
+kind: adapter
+languages:
+- typescript
+command: trmv-typecheck
+args:
+- --write-baseline
+fixture: typecheck-ts-src
+expect:
+  exit: 0
+  files:
+  - .tsc-baseline.json
+golden: manual
+note: --write-baseline writes the multiset sorted by file, code and message

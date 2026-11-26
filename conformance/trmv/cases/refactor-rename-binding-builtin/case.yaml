@@ -1,0 +1,14 @@
+kind: paired
+languages:
+- python
+- typescript
+command: trmv-refactor
+args:
+- rename-map
+- renames.yaml
+git:
+- commit: init
+expect:
+  exit: 1
+golden: manual
+note: 'a module-level rename onto a builtin (global) the module calls: name-conflict naming the call'

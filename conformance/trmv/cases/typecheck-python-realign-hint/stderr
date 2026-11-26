@@ -1,0 +1,2 @@
+trmv-typecheck: checking python with basedpyright
+trmv-typecheck: python: if an edit moved errors that .basedpyright/baseline.json held, run trmv-typecheck --realign-from <commit where it matched>

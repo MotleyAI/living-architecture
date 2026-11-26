@@ -1,0 +1,15 @@
+kind: paired
+languages:
+- python
+- typescript
+command: trmv-refactor
+args:
+  python: [rename, --file, pkg/m.py, --symbol, Ds.columns, --new-name, fields]
+  typescript: [rename, --file, src/m.ts, --symbol, Ds.columns, --new-name, fields]
+fixture: refactor-pair
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: 'a rewritten constant read whole in another module: that read is listed under the constant''s name, the import is not'

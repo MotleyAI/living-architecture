@@ -9,9 +9,6 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
-from deterministic_refactor import twin
-from deterministic_refactor.config import ConfigError
-from deterministic_refactor.contract import os_error_text
 from living_architecture.archcheck.claims import check_claims
 from living_architecture.archcheck.docs import check_arc42, check_legacy_ratchet, check_spec_mapping
 from living_architecture.archcheck.facts import Facts, native_facts, native_top_level_facts, requested_facts
@@ -30,6 +27,9 @@ from living_architecture.archcheck.truth import check_model_truth, license, meas
 from living_architecture.c4 import ModelParse, check_diagrams_fresh, layout_problem, parse_model, parse_views
 from living_architecture.config import load_config
 from living_architecture.contract import message
+from trmv import twin
+from trmv.config import ConfigError
+from trmv.contract import os_error_text
 
 __all__ = [
     "ArchCheckError",

@@ -11,8 +11,8 @@ import {
   checkStringForms,
   explicitTypecheck,
   readConfig,
-  runCommand as drRunCommand,
-} from 'deterministic-refactor/config';
+  runCommand as trmvRunCommand,
+} from 'type-rename-move/config';
 import {
   PyFloat,
   canonicalRepr,
@@ -130,12 +130,12 @@ export function laView(root: string): ConfigView {
   return { values, overrides: raw.overrides, localFile: localConfigFile(), languages: languagesOf(config, raw) };
 }
 
-/** `command` of la's manifest run through dr's command runner, checking la's config file. */
+/** `command` of la's manifest run through trmv's command runner, checking la's config file. */
 export function runCommand(
   command: string,
   argv: string[],
   handlers: Record<string, Handler>,
   shim?: (command: string, argv: string[]) => number,
 ): number {
-  return drRunCommand(command, argv, handlers, { commands: manifest(), configFile: configFile(), who: identity(), shim });
+  return trmvRunCommand(command, argv, handlers, { commands: manifest(), configFile: configFile(), who: identity(), shim });
 }

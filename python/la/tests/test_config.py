@@ -3,9 +3,9 @@ from pathlib import Path
 
 import pytest
 
-from deterministic_refactor.config import ConfigError, explicit_typecheck, find_repo_root
 from living_architecture.config import load_config, load_raw, resolve
 from living_architecture.contract import config_file, local_config_file
+from trmv.config import ConfigError, explicit_typecheck, find_repo_root
 
 DEFAULT_ISSUE_KEY_PATTERN = r"[A-Z][A-Z0-9]+-\d+"
 

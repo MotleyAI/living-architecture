@@ -3,7 +3,7 @@ name: reply-to-pr-thread
 description: Use when the user asks to reply / comment on a PR review thread, review body or conversation comment (CodeRabbit or anyone), OR when posting a reasoning/explanation reply tagging @coderabbitai for a thread you've classified as invalid. Body is read from stdin.
 ---
 
-**Preflight:** run `la-doctor --plugin <this skill's base directory>` once per session before using any `la-*` or `dr-*` command; if it fails, stop and show the user its output.
+**Preflight:** run `la-doctor --plugin <this skill's base directory>` once per session before using any `la-*` or `trmv-*` command; if it fails, stop and show the user its output. If `la-doctor` is not found, or reports the la tools older than the plugin, stop and give the user the install command at this plugin's `version` (in its `.claude-plugin/plugin.json`): `uv tool install living-architecture==<version> --with-executables-from type-rename-move` in a Python repo, `npm install -g living-architecture@<version> type-rename-move@<version>` in a TS/JS repo.
 
 # Reply to a GitHub PR review thread
 

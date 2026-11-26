@@ -1,9 +1,0 @@
-kind: adapter
-languages:
-- typescript
-command: dr-typecheck
-fixture: typecheck-ts-src
-expect:
-  exit: 0
-golden: manual
-note: 'commands.typecheck.typescript: null turns TypeScript off; nothing else applies'

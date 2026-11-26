@@ -1,0 +1,11 @@
+kind: neutral
+command: la-doctor
+args: [--plugin, plugin]
+git:
+- write:
+    plugin/.claude-plugin/plugin.json: '{"version": "0.0.0"}'
+normalize: [version]
+expect:
+  exit: 1
+golden: manual
+note: a plugin series older than the tools' names the plugin update, not a reinstall

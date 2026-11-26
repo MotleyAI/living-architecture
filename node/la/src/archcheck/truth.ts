@@ -1,7 +1,7 @@
 // model-truth: the model's arrows equal the measured runtime import edges.
 import { isOrAncestor } from '../c4/index.js';
 import { message } from '../contract/index.js';
-import type { ModuleImports } from 'deterministic-refactor/lang';
+import type { ModuleImports } from 'type-rename-move/lang';
 import { compareEdge, compareStrings } from './order.js';
 
 /** Element edge key `src\0dst` -> its first witness [importing module, imported module]. */

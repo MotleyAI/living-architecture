@@ -1,0 +1,21 @@
+kind: adapter
+languages:
+- python
+command: trmv-refactor
+args:
+- rename
+- --file
+- pkg/storage.py
+- --symbol
+- StorageBackend.get_modle
+- --new-name
+- x
+git:
+- commit: init
+expect:
+  exit: 2
+  files:
+  - pkg/storage.py
+golden: manual
+note: 'a path that resolves to no declaration: symbol-unresolved listing the names its deepest resolved scope declares; nothing
+  changes'

@@ -17,8 +17,8 @@ INDEX_SCHEMA = json.loads((REPO_ROOT / "shared" / "la" / "schema" / "index.schem
 @pytest.mark.parametrize(
     ("document", "valid"),
     [
-        ({"python": {"source_roots": ["python/dr/src", "python/la/src"],
-                     "root_packages": ["deterministic_refactor", "living_architecture"]}}, True),
+        ({"python": {"source_roots": ["python/trmv/src", "python/la/src"],
+                     "root_packages": ["trmv", "living_architecture"]}}, True),
         ({"python": {"source_roots": ["src"], "root_package": "pkg"}}, True),
         ({"python": {"source_root": "src", "source_roots": ["src"], "root_package": "pkg"}}, False),
         ({"typescript": {"source_roots": ["a", "b"], "root_package": "src"}}, False),

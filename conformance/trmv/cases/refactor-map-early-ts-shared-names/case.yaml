@@ -1,0 +1,20 @@
+kind: adapter
+languages:
+- typescript
+command: trmv-refactor
+args:
+- --apply
+- rename-map
+- renames.yaml
+git:
+- commit: init
+expect:
+  exit: 0
+  stdout: ignore
+  files:
+  - src/s.ts
+golden: manual
+note: 'names the language lets share a scope pass the checks and apply: a type beside a value, an instance member beside a
+  static one, sibling blocks, a block let beside a function var, a field beside a plain constructor parameter, a parameter
+  property beside a method parameter, and names freed by an entry renaming both accessors, every overload or every declaration
+  of a merged interface'

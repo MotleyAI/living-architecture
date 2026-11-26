@@ -1,0 +1,18 @@
+kind: adapter
+languages:
+- python
+command: trmv-refactor
+args:
+- rename
+- --file
+- pkg/starred.py
+- --symbol
+- starred.<locals>.rest
+- --new-name
+- tail
+fixture: refactor-tuple-targets
+git:
+- commit: init
+expect:
+  exit: 0
+note: a starred tuple target renamed with its use; the star stays

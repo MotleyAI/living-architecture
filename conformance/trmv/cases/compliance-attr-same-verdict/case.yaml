@@ -1,0 +1,17 @@
+kind: adapter
+languages:
+- python
+command: trmv-compliance
+args:
+- --select
+- attr-blindspot,string-blindspot
+- --attr
+- formula
+- pkg
+fixture: index-same-verdict
+git:
+- commit: init
+expect:
+  exit: 1
+golden: manual
+note: --attr reports the same positions as the rename in refactor-rename-same-verdict

@@ -1,0 +1,18 @@
+kind: adapter
+languages:
+- typescript
+command: trmv-refactor
+args:
+- rename
+- --file
+- src/m.ts
+- --symbol
+- old
+- --new-name
+- next
+git:
+- commit: init
+expect:
+  exit: 0
+note: 'a named re-export is a boundary: it becomes `export { next as old }` and its importer, binding its own next, is unchanged;
+  no conflict'

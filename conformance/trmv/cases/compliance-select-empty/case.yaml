@@ -1,0 +1,11 @@
+kind: adapter
+languages:
+- python
+command: trmv-compliance
+args:
+- --select
+- ''
+- src/k.py
+fixture: compliance
+expect:
+  exit: 0

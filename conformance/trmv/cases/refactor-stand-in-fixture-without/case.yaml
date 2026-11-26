@@ -1,0 +1,18 @@
+kind: adapter
+languages:
+- python
+command: trmv-refactor
+args:
+- rename-map
+- renames.yaml
+- --without
+- tests/test_q.py:6
+- --without
+- pkg/q.py:12
+fixture: refactor-words
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: '--without naming a stand-in left by default is accepted: the output of the run without it, and no not-stand-in'

@@ -5,9 +5,9 @@ specification {
 
 model {
   python = system 'Python' {
-    dr = node 'deterministic-refactor' {
+    trmv = node 'type-rename-move' {
       metadata {
-        package 'deterministic_refactor.core'
+        package 'trmv.core'
       }
       engine = node 'Engine'
     }
@@ -17,6 +17,6 @@ model {
       }
     }
 
-    la -> dr.engine
+    la -> trmv.engine
   }
 }

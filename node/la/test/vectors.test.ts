@@ -1,9 +1,9 @@
 // la's shared vectors, through la's contract: materializeDefaults and validate over la's schemas, whose `$ref`s into
-// dr's schemas resolve.
+// trmv's schemas resolve.
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { loadYaml, materializeDefaults, validate } from '../src/contract/index.js';
-import { LA_SHARED, LA_VECTORS, loadYamlFile, plain, readJson } from '../../dr/test/helpers.js';
+import { LA_SHARED, LA_VECTORS, loadYamlFile, plain, readJson } from '../../trmv/test/helpers.js';
 
 const CONFIG_SCHEMA = readJson(join(LA_SHARED, 'schema', 'living-architecture.schema.json'));
 const vectors = (name: string): any => loadYamlFile(join(LA_VECTORS, name));

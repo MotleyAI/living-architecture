@@ -1,0 +1,17 @@
+kind: paired
+languages:
+- python
+- typescript
+command: trmv-refactor
+args:
+- --apply
+- rename-map
+- renames.yaml
+fixture: refactor-progress
+git:
+- commit: init
+expect:
+  exit: 0
+  git_status: true
+golden: manual
+note: '--apply with a baseline file (and, for Python, its command): [baseline] then [write] after the rules'

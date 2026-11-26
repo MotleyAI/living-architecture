@@ -1,0 +1,40 @@
+kind: paired
+languages:
+- python
+- typescript
+command: trmv-refactor
+args:
+  python:
+  - rename
+  - --file
+  - pkg/c.py
+  - --symbol
+  - Ds.columns
+  - --new-name
+  - fields
+  - --docs
+  - --words
+  - words.yaml
+  - --with
+  - pkg/sql/meta.py:5
+  typescript:
+  - rename
+  - --file
+  - pkg/c.ts
+  - --symbol
+  - Ds.columns
+  - --new-name
+  - fields
+  - --docs
+  - --words
+  - words.yaml
+  - --with
+  - pkg/sql/meta.ts:3
+fixture: refactor-words
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: '--docs --words with a --with stand-in under a carved path: its file''s code-marked mention is listed as leftover and
+  left, the renamed class''s own is rewritten'

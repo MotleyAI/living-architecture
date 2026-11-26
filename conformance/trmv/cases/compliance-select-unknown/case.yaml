@@ -1,0 +1,11 @@
+kind: adapter
+languages:
+- python
+command: trmv-compliance
+args:
+- --select
+- zeta,untyped-def,alpha
+- src/k.py
+fixture: compliance
+expect:
+  exit: 2

@@ -1,0 +1,33 @@
+kind: paired
+languages:
+- python
+- typescript
+command: trmv-refactor
+args:
+  python:
+  - rename
+  - --file
+  - pkg/use.py
+  - --line
+  - '1'
+  - --col
+  - '15'
+  - --new-name
+  - server
+  - --keep
+  - pkg/other.py
+  typescript:
+  - rename
+  - --file
+  - src/client.ts
+  - --new-name
+  - server
+  - --keep
+  - src/other.ts
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: 'a module rename with a whole-file keep where none of its edits or moves lands: a warning before [conflicts], the rename
+  goes on'

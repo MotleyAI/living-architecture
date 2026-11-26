@@ -1,0 +1,18 @@
+kind: neutral
+twin: python
+command: la-doctor
+bins:
+- dir: trmv
+  position: before
+  files:
+    trmv-doctor: |
+      #!/bin/sh
+      echo "trmv-doctor $*" >> <ROOT>/repo/probe.log
+      [ "$*" = "--twin" ] || { echo "fake trmv-doctor: unexpected $*" >&2; exit 99; }
+      echo "python <VERSION> <TRMV_CONTRACT_HASH>"
+normalize: [version]
+expect:
+  exit: 0
+  files: [probe.log]
+golden: manual
+note: the first trmv-doctor on PATH reports the invoking language, la's version and la's trmv hash, so no trmv finding

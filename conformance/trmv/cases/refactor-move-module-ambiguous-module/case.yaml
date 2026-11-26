@@ -1,0 +1,20 @@
+kind: adapter
+languages:
+- python
+command: trmv-refactor
+args:
+- --apply
+- move-module
+- --module
+- src1/pkg/a.py
+- --dest
+- src1/pkg/d
+git:
+- commit: init
+expect:
+  exit: 1
+  files:
+  - src1/pkg/a.py
+  - src2/use.py
+golden: manual
+note: a module name two source folders hold is refused before any edit, since an importer may reach either file

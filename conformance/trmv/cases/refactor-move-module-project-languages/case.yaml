@@ -1,0 +1,21 @@
+kind: adapter
+languages:
+- python
+command: trmv-refactor
+cwd: ..
+args:
+- --project
+- repo
+- move-module
+- --module
+- repo/pkg/sub
+- --dest
+- repo/other
+fixture: refactor-pkg
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - .ropeproject/history.json
+note: a directory expands with the languages of --project's repo, not the working directory's

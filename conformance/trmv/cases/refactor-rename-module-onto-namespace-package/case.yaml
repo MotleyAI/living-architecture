@@ -1,0 +1,28 @@
+kind: paired
+languages:
+- python
+- typescript
+command: trmv-refactor
+args:
+  python:
+  - rename
+  - --file
+  - pkg/use.py
+  - --line
+  - '1'
+  - --col
+  - '17'
+  - --new-name
+  - b
+  typescript:
+  - rename
+  - --file
+  - src/a.ts
+  - --new-name
+  - b
+git:
+- commit: init
+expect:
+  exit: 1
+golden: manual
+note: 'a module renamed onto a namespace package of its package: name-conflict naming its first Python file by path'

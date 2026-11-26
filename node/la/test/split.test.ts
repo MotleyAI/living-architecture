@@ -1,14 +1,14 @@
-// The npm workspace of the two packages: manifests, bins, la's pin on dr, tsconfig mapping, snapshots, split skills.
+// The npm workspace of the two packages: manifests, bins, la's pin on trmv, tsconfig mapping, snapshots, split skills.
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import { describe, expect, it } from 'vitest';
 import { run, tempRepo } from './cli-run.js';
-import { HASH_FILE, loadYamlFile, readJson, REPO_ROOT, tree } from '../../dr/test/helpers.js';
+import { HASH_FILE, loadYamlFile, readJson, REPO_ROOT, tree } from '../../trmv/test/helpers.js';
 
-const PACKAGES = ['dr', 'la'] as const;
+const PACKAGES = ['trmv', 'la'] as const;
 const NAMES = {
-  dr: 'deterministic-refactor',
+  trmv: 'type-rename-move',
   la: 'living-architecture',
 } as const;
 const SHARED = join(REPO_ROOT, 'shared');
@@ -22,7 +22,7 @@ const pythonSnapshot = (pkg: string): string =>
     'python',
     pkg,
     'src',
-    pkg === 'dr' ? 'deterministic_refactor' : 'living_architecture',
+    pkg === 'trmv' ? 'trmv' : 'living_architecture',
     'contract',
     'data',
   );
@@ -35,7 +35,7 @@ function series(): [string, string] {
 describe('workspace root', () => {
   it('is private, lists both packages and installs no bin', () => {
     const root = readJson(join(NODE, 'package.json'));
-    expect([root.private, root.workspaces, root.bin]).toEqual([true, ['dr', 'la'], undefined]);
+    expect([root.private, root.workspaces, root.bin]).toEqual([true, ['trmv', 'la'], undefined]);
   });
 });
 
@@ -76,24 +76,24 @@ describe.each(PACKAGES)('node/%s/package.json', (pkg) => {
   });
 });
 
-describe('la depends on dr', () => {
-  it('pins dr to its own minor', () => {
-    expect(packageJson('la').dependencies['deterministic-refactor']).toBe(`~${series()[0]}`);
-    expect(packageJson('dr').dependencies?.['living-architecture']).toBeUndefined();
+describe('la depends on trmv', () => {
+  it('pins trmv to its own minor', () => {
+    expect(packageJson('la').dependencies['type-rename-move']).toBe(`~${series()[0]}`);
+    expect(packageJson('trmv').dependencies?.['living-architecture']).toBeUndefined();
   });
 
-  it('typechecks against dr sources and builds against dr declarations', () => {
+  it('typechecks against trmv sources and builds against trmv declarations', () => {
     const paths = (name: string) => readJson(join(NODE, 'la', name)).compilerOptions?.paths ?? {};
-    expect(paths('tsconfig.json')['deterministic-refactor']).toEqual(['../dr/src']);
+    expect(paths('tsconfig.json')['type-rename-move']).toEqual(['../trmv/src']);
     expect(readJson(join(NODE, 'la', 'tsconfig.json')).compilerOptions?.noEmit).toBe(true);
-    expect(Object.keys(paths('tsconfig.build.json')).filter((key) => key.startsWith('deterministic-refactor'))).toEqual(
+    expect(Object.keys(paths('tsconfig.build.json')).filter((key) => key.startsWith('type-rename-move'))).toEqual(
       [],
     );
   });
 });
 
-const LEAKS: Record<string, string[]> = loadYamlFile(join(SHARED, 'dr', 'vectors', 'skill-leaks.yaml')) ?? {};
-const LANGUAGES = Object.keys(loadYamlFile(join(SHARED, 'dr', 'languages.yaml')));
+const LEAKS: Record<string, string[]> = loadYamlFile(join(SHARED, 'trmv', 'vectors', 'skill-leaks.yaml')) ?? {};
+const LANGUAGES = Object.keys(loadYamlFile(join(SHARED, 'trmv', 'languages.yaml')));
 const skills = (pkg: string): string[] => {
   const dir = join(REPO_ROOT, 'plugin', pkg, 'skills');
   return existsSync(dir)
@@ -119,23 +119,23 @@ describe('split skills', () => {
     );
   });
 
-  it.each(ALL_SKILLS.filter(([pkg]) => pkg === 'dr'))('%s:%s names only valid dr-config keys', (pkg, name) => {
+  it.each(ALL_SKILLS.filter(([pkg]) => pkg === 'trmv'))('%s:%s names only valid trmv-config keys', (pkg, name) => {
     const root = tempRepo({});
     const text = skillText(pkg, name);
     expect([...text.matchAll(/la-config get /g)]).toEqual([]);
     const keys = [
-      ...new Set([...text.matchAll(/dr-config get ([A-Za-z0-9_.<>-]*[A-Za-z0-9_>])/g)].map((m) => m[1] ?? '')),
+      ...new Set([...text.matchAll(/trmv-config get ([A-Za-z0-9_.<>-]*[A-Za-z0-9_>])/g)].map((m) => m[1] ?? '')),
     ];
     const invalid = keys.filter((key) =>
       (key.includes('<language>') ? LANGUAGES.map((l) => key.replaceAll('<language>', l)) : [key]).some(
-        (k) => run(root, 'dr-config', ['get', k]).code !== 0,
+        (k) => run(root, 'trmv-config', ['get', k]).code !== 0,
       ),
     );
     expect(invalid).toEqual([]);
   });
 
-  it('dr-config refuses an la key', () => {
-    expect(run(tempRepo({}), 'dr-config', ['get', 'tracker']).code).toBe(2);
-    expect(run(tempRepo({}), 'dr-config', ['get', 'exempt']).code).toBe(0);
+  it('trmv-config refuses an la key', () => {
+    expect(run(tempRepo({}), 'trmv-config', ['get', 'tracker']).code).toBe(2);
+    expect(run(tempRepo({}), 'trmv-config', ['get', 'exempt']).code).toBe(0);
   });
 });

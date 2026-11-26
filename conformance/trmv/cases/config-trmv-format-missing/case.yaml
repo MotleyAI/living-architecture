@@ -1,0 +1,8 @@
+kind: neutral
+command: trmv-config
+args:
+- show
+expect:
+  exit: 2
+note: 'a trmv file without format: names the line to add'
+golden: manual

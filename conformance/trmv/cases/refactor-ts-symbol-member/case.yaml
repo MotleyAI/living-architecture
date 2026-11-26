@@ -1,0 +1,23 @@
+kind: adapter
+languages:
+- typescript
+command: trmv-refactor
+args:
+- --apply
+- rename
+- --file
+- src/store.ts
+- --symbol
+- Store.getModel
+- --new-name
+- loadModel
+fixture: refactor-ts
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - src/store.ts
+  - src/use.ts
+golden: manual
+note: 'TypeScript --symbol Class.member: the method and its call; the same-named top-level function unchanged'

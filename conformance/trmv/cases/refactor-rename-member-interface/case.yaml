@@ -1,0 +1,13 @@
+kind: paired
+languages:
+- python
+- typescript
+command: trmv-refactor
+args:
+- rename-map
+- renames.yaml
+git:
+- commit: init
+expect:
+  exit: 0
+note: 'an interface (Protocol) method renamed with its implementation: the renamed hierarchy is no conflict'

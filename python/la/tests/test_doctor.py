@@ -4,11 +4,11 @@ from pathlib import Path
 
 import pytest
 
-from deterministic_refactor import config as la_config
-from deterministic_refactor.contract import contract_hash as dr_contract_hash
 from living_architecture import __version__, doctor
 from living_architecture.cli.la_doctor import la_doctor
 from living_architecture.contract import config_file, contract_hash
+from trmv import config as la_config
+from trmv.contract import contract_hash as trmv_contract_hash
 
 
 def _declared(text: str) -> str:
@@ -17,9 +17,9 @@ def _declared(text: str) -> str:
 
 
 @pytest.fixture(autouse=True)
-def dr_installed(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
-    """A matching dr installation, except for the tests of the dr check itself (marked `dr_check`)."""
-    if request.node.get_closest_marker("dr_check") is None:
+def trmv_installed(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A matching trmv installation, except for the tests of the trmv check itself (marked `trmv_check`)."""
+    if request.node.get_closest_marker("trmv_check") is None:
         monkeypatch.setattr(doctor, "_dr_problem", lambda: None)
 
 
@@ -55,9 +55,36 @@ def test_prerelease_installed_version_reports_another_series(tmp_path: Path, mon
     monkeypatch.setattr(doctor, "__version__", "1.2.3rc1")
     mismatch = (
         "installed la tools are 1.2.3rc1, but plugin 1.3.0 needs 1.3.x;"
-        " reinstall them with: uv tool install living-architecture==1.3.0 --with-executables-from deterministic-refactor"
+        " reinstall them with: uv tool install living-architecture==1.3.0 --with-executables-from type-rename-move"
     )
     assert doctor.run_checks(root=tmp_path, plugin=_plugin(tmp_path, "1.3.0")) == [mismatch]
+
+
+@pytest.mark.usefixtures("all_tools")
+@pytest.mark.parametrize("plugin_version", ["1.1.9", "0.99.0", "01.0009.0"])
+def test_older_plugin_series_reports_the_plugin_update(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, plugin_version: str
+) -> None:
+    monkeypatch.setattr(doctor, "__version__", "1.10.0")
+    behind = (
+        f"installed la tools are 1.10.0, but plugin {plugin_version} is older; update the plugin:"
+        " claude plugin marketplace update living-architecture && claude plugin update la@living-architecture"
+    )
+    assert doctor.run_checks(root=tmp_path, plugin=_plugin(tmp_path, plugin_version)) == [behind]
+
+
+@pytest.mark.usefixtures("all_tools")
+@pytest.mark.parametrize("plugin_version", ["1.11.0", "2.0.0", "1.100000000000000000000001.0"])
+def test_newer_plugin_series_reports_the_reinstall(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, plugin_version: str
+) -> None:
+    monkeypatch.setattr(doctor, "__version__", "1.10.0")
+    series = ".".join(plugin_version.split(".")[:2])
+    mismatch = (
+        f"installed la tools are 1.10.0, but plugin {plugin_version} needs {series}.x; reinstall them with:"
+        f" uv tool install living-architecture=={plugin_version} --with-executables-from type-rename-move"
+    )
+    assert doctor.run_checks(root=tmp_path, plugin=_plugin(tmp_path, plugin_version)) == [mismatch]
 
 
 @pytest.mark.usefixtures("all_tools")
@@ -75,7 +102,7 @@ def test_missing_executable(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> 
 def test_twin_identity_line(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     monkeypatch.chdir(tmp_path)
     assert la_doctor(["--twin"]) == 0
-    assert capsys.readouterr().out == f"python {__version__} {contract_hash()} {dr_contract_hash()}\n"
+    assert capsys.readouterr().out == f"python {__version__} {contract_hash()} {trmv_contract_hash()}\n"
 
 
 MISSING_CONFIG = "FAIL: no living-architecture.yaml at the repo root; run /la:init to onboard this repo"
@@ -327,37 +354,37 @@ def test_require_config_still_validates_a_local_file(tmp_path: Path, capsys: pyt
     assert LOCAL in invalid
 
 
-def _fake_dr_doctor(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, line: str) -> None:
-    """A `dr-doctor` first on PATH whose `--twin` prints `line`."""
-    bin_dir = tmp_path / "dr-bin"
+def _fake_trmv_doctor(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, line: str) -> None:
+    """A `trmv-doctor` first on PATH whose `--twin` prints `line`."""
+    bin_dir = tmp_path / "trmv-bin"
     bin_dir.mkdir()
-    fake = bin_dir / "dr-doctor"
+    fake = bin_dir / "trmv-doctor"
     fake.write_text(f"#!/bin/sh\necho '{line}'\n", encoding="utf-8")
     fake.chmod(0o755)
     monkeypatch.setenv("PATH", f"{bin_dir}{os.pathsep}{os.environ['PATH']}")
 
 
 def _dr_line(version: str) -> str:
-    return f"python {version} {dr_contract_hash()}"
+    return f"python {version} {trmv_contract_hash()}"
 
 
-@pytest.mark.dr_check
-def test_matching_dr_installation_is_healthy(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    _fake_dr_doctor(tmp_path, monkeypatch, _dr_line(__version__))
+@pytest.mark.trmv_check
+def test_matching_trmv_installation_is_healthy(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _fake_trmv_doctor(tmp_path, monkeypatch, _dr_line(__version__))
     assert doctor._dr_problem() is None
 
 
-@pytest.mark.dr_check
-def test_missing_dr_installation_names_the_install_command(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(doctor.shutil, "which", lambda exe: None if exe == "dr-doctor" else f"/usr/bin/{exe}")
+@pytest.mark.trmv_check
+def test_missing_trmv_installation_names_the_install_command(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(doctor.shutil, "which", lambda exe: None if exe == "trmv-doctor" else f"/usr/bin/{exe}")
     problem = doctor._dr_problem()
     assert problem is not None
-    assert f"uv tool install living-architecture=={__version__} --with-executables-from deterministic-refactor" in problem
+    assert f"uv tool install living-architecture=={__version__} --with-executables-from type-rename-move" in problem
 
 
-@pytest.mark.dr_check
-def test_other_dr_version_is_reported(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    _fake_dr_doctor(tmp_path, monkeypatch, _dr_line("0.11.0"))
+@pytest.mark.trmv_check
+def test_other_trmv_version_is_reported(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _fake_trmv_doctor(tmp_path, monkeypatch, _dr_line("0.11.0"))
     problem = doctor._dr_problem()
     assert problem is not None
     assert "0.11.0" in problem
@@ -367,9 +394,9 @@ def test_other_dr_version_is_reported(tmp_path: Path, monkeypatch: pytest.Monkey
 @pytest.mark.usefixtures("all_tools")
 def test_both_config_files_are_reported_once(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     (tmp_path / config_file()).write_text(_declared("tracker: jira\n"), encoding="utf-8")
-    (tmp_path / "deterministic-refactor.yaml").write_text("format: 9.9.9\n", encoding="utf-8")
+    (tmp_path / "trmv.yaml").write_text("format: 9.9.9\n", encoding="utf-8")
     assert la_doctor(["--root", str(tmp_path)]) == 1
     lines = capsys.readouterr().out.splitlines()
     assert len(lines) == 1
-    assert "deterministic-refactor.yaml" in lines[0]
+    assert "trmv.yaml" in lines[0]
     assert config_file() in lines[0]

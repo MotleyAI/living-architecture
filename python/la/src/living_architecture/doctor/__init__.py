@@ -6,12 +6,12 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from deterministic_refactor import twin
-from deterministic_refactor.config import ConfigError, both_files_problem, check_format, repo_languages
-from deterministic_refactor.contract import is_regular_file, language, os_error_text, plugin_problem
 from living_architecture import NATIVE_LANGUAGE, __version__
 from living_architecture.config import LaConfig, languages_of, load_config, load_raw, resolve_raw
 from living_architecture.contract import LA, config_file, contract_hash, identity, local_config_file, message
+from trmv import twin
+from trmv.config import ConfigError, both_files_problem, check_format, repo_languages
+from trmv.contract import is_regular_file, language, os_error_text, plugin_problem
 
 REQUIRED_EXECUTABLES = ("git", "gh")
 
@@ -25,11 +25,11 @@ def _install(version: str) -> str:
 
 
 def _dr_problem() -> str | None:
-    """The first `dr-doctor` on PATH missing, or reporting another language, version or dr contract than la runs with."""
-    expected = twin.dr_identity().model_copy(update={"version": __version__}).line(NATIVE_LANGUAGE)
-    found = shutil.which(twin.dr_identity().doctor)
+    """The first `trmv-doctor` on PATH missing, or reporting another language, version or trmv contract than la runs with."""
+    expected = twin.trmv_identity().model_copy(update={"version": __version__}).line(NATIVE_LANGUAGE)
+    found = shutil.which(twin.trmv_identity().doctor)
     if found is None:
-        return message("doctor.dr-missing", install=_install(__version__))
+        return message("doctor.trmv-missing", install=_install(__version__))
     try:
         proc = subprocess.run([found, "--twin"], capture_output=True, check=False)
         reported = proc.stdout.decode("utf-8", "replace").strip() if proc.returncode == 0 else ""
@@ -38,7 +38,7 @@ def _dr_problem() -> str | None:
     if reported == expected:
         return None
     install = _install(__version__)
-    return message("doctor.dr-mismatch", reported=reported, version=__version__, expected=expected, install=install)
+    return message("doctor.trmv-mismatch", reported=reported, version=__version__, expected=expected, install=install)
 
 
 def _consistency(root: Path, cfg: LaConfig, *, require_plan_store: bool) -> list[str]:
@@ -123,9 +123,9 @@ def run_checks(
     problems: list[str] = []
     if plugin is not None and (version := plugin_problem(plugin, _plugin_name(), __version__, _install)) is not None:
         problems.append(version)
-    dr = _dr_problem()
-    if dr is not None:
-        problems.append(dr)
+    trmv = _dr_problem()
+    if trmv is not None:
+        problems.append(trmv)
     refusal = both_files_problem(root) or check_format(root, config_file())
     if refusal is not None:
         problems.append(refusal)

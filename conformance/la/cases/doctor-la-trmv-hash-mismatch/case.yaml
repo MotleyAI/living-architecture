@@ -1,0 +1,18 @@
+kind: neutral
+twin: typescript
+command: la-doctor
+bins:
+- dir: other-trmv
+  position: before
+  files:
+    trmv-doctor: |
+      #!/bin/sh
+      [ "$*" = "--twin" ] || { echo "fake trmv-doctor: unexpected $*" >&2; exit 99; }
+      echo "typescript <VERSION> 0000000000000000000000000000000000000000000000000000000000000000"
+normalize:
+- version
+- trmv_contract_hash
+expect:
+  exit: 1
+note: 'the first trmv-doctor on PATH reports another trmv contract: one finding naming both identities and the npm install command'
+golden: manual

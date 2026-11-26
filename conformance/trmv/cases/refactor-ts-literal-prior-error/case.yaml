@@ -1,0 +1,24 @@
+kind: adapter
+languages:
+- typescript
+command: trmv-refactor
+args:
+- --apply
+- rename
+- --file
+- src/kinds.ts
+- --symbol
+- Kind['edit_model']
+- --new-name
+- edit_master
+fixture: refactor-ts
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - src/kinds.ts
+  - src/run.ts
+golden: manual
+note: 'a checker error present before the rename, on an unedited line below an edit, is not a blind spot: the constant''s
+  literal is rewritten; exit 0'

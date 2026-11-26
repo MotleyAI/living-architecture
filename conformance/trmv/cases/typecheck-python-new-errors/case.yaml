@@ -1,0 +1,9 @@
+kind: adapter
+languages:
+- python
+command: trmv-typecheck
+fixture: typecheck-python
+expect:
+  exit: 1
+golden: manual
+note: basedpyright exit 1 (errors outside its baseline) passed through

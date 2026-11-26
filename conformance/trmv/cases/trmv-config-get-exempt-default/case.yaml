@@ -1,0 +1,9 @@
+kind: neutral
+command: trmv-config
+args:
+- get
+- exempt
+expect:
+  exit: 0
+note: exempt is a trmv key, default []
+golden: manual

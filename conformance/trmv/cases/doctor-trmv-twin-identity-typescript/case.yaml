@@ -1,0 +1,9 @@
+kind: neutral
+twin: typescript
+command: trmv-doctor
+args: [--twin]
+normalize: [version, trmv_contract_hash]
+expect:
+  exit: 0
+golden: manual
+note: trmv-doctor --twin prints the typescript trmv twin's language, version and trmv contract hash

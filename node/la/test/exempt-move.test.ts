@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { ExemptNotMigratable, moveExempt } from '../src/c4/exempt-move.js';
 import { join } from 'node:path';
-import { LA_VECTORS, loadYamlFile } from '../../dr/test/helpers.js';
+import { LA_VECTORS, loadYamlFile } from '../../trmv/test/helpers.js';
 
 interface Case {
   name: string;

@@ -1,0 +1,12 @@
+kind: neutral
+command: trmv-doctor
+args: [--plugin, <ROOT>/repo/plugin/skills/init]
+git:
+- write:
+    plugin/.claude-plugin/plugin.json: '{"name": "trmv", "version": "<VERSION>"}'
+    plugin/skills/init/SKILL.md: skill
+normalize: [version]
+expect:
+  exit: 0
+golden: manual
+note: a healthy trmv-only repo with a matching trmv plugin; the ok line names trmv and trmv.yaml

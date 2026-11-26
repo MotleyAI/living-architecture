@@ -1,0 +1,19 @@
+kind: paired
+languages:
+- python
+- typescript
+command: trmv-refactor
+args:
+- --apply
+- rename-map
+- renames.yaml
+- --keep-literal
+- schema_version
+fixture: refactor-keep
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: 'a --keep-literal whose literals no edit and no blind spot overlaps: one warning before [conflicts], the
+  rename is written'

@@ -1,0 +1,37 @@
+kind: neutral
+languages:
+- python
+- typescript
+fixture: trmv-mixed
+golden: manual
+twin: python
+other_twin: absent
+command: trmv-refactor
+args:
+- --project
+- ..
+- rename
+- --file
+- src/a.ts
+- --symbol
+- foo
+- --new-name
+- bar
+cwd: web
+bins:
+- dir: npm-twin
+  files:
+    trmv-doctor: |
+      #!/bin/sh
+      [ "$*" = "--twin" ] || { echo "fake trmv-doctor: unexpected $*" >&2; exit 99; }
+      echo "typescript <VERSION> <CONTRACT_HASH>"
+    trmv-refactor: |
+      #!/bin/sh
+      echo "npm-twin: trmv-refactor pwd=$(pwd) forwarded=$LA_FORWARDED args=$*" >> <ROOT>/repo/probe.log
+      echo "fake npm twin: renamed"
+expect:
+  exit: 0
+  files:
+  - probe.log
+note: 'a TS --file: the PyPI twin hands the raw arguments to the npm twin from the same working directory (LA_FORWARDED=1);
+  streams and exit relayed'

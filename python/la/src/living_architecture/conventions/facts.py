@@ -7,10 +7,10 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from deterministic_refactor import lang, twin
-from deterministic_refactor.contract import language_of
 from living_architecture import __version__
 from living_architecture.contract import contract_hash, identity, message
+from trmv import lang, twin
+from trmv.contract import language_of
 
 __all__ = ["FactsError", "collect", "emit", "language_of"]
 

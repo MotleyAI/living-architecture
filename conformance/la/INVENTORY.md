@@ -234,19 +234,19 @@ restructure; their goldens are hand-written.
 | *(new)* a repeated key in `living-architecture.yaml` or `living-architecture.local.yaml`: a config error naming the file, the key and both lines | 1 | `config-show-duplicate-key`, `config-local-duplicate-key` |
 | *(new)* a config that cannot be read (the os.* text) or is not valid UTF-8 (invalid YAML): a config error, never a crash | 1 | `config-unreadable`, `config-not-utf8` |
 | *(new)* `format`: `null` in the defaults (shown in every `show` golden), `get format` | 0 | `config-show-defaults`, `config-get-format` |
-| *(new)* the top-level `exempt`: default `[]` (also through `dr-config`), the list as written | 0 | `config-get-exempt-default`, `config-get-exempt-top-level` |
+| *(new)* the top-level `exempt`: default `[]` (also through `trmv-config`), the list as written | 0 | `config-get-exempt-default`, `config-get-exempt-top-level` |
 | *(new)* the retired `conventions.exempt`: a config error naming `exempt` | 1 | `config-show-conventions-exempt-retired` |
-| *(new)* files under the top-level `exempt` do not make a language (also through `dr-config`) | 0 | `config-get-languages-exempt-top-level` |
-| *(new)* the dr keys la's schema takes by reference get their defaults (`exempt` `[]`, `commands.typecheck` both languages); an explicit null under them is kept; explicit empty lists and `false` are kept | 0 | `config-show-dr-keys-referenced`, `config-show-null-through-reference`, `config-show-falsy-top-level-exempt` |
+| *(new)* files under the top-level `exempt` do not make a language (also through `trmv-config`) | 0 | `config-get-languages-exempt-top-level` |
+| *(new)* the trmv keys la's schema takes by reference get their defaults (`exempt` `[]`, `commands.typecheck` both languages); an explicit null under them is kept; explicit empty lists and `false` are kept | 0 | `config-show-trmv-keys-referenced`, `config-show-null-through-reference`, `config-show-falsy-top-level-exempt` |
 
 ## The committed config files
 
 | Branch | Exit | Cases |
 |---|---|---|
 | *(new)* both files present: every config-reading command refuses with one message naming both, before the format check | 2 | `conventions-both-config-files-refused`, `config-both-files-refused` |
-| *(new)* an la command ignores `deterministic-refactor.yaml` (no format check, no values) | 0 | `config-dr-file-ignored-by-la` |
+| *(new)* an la command ignores `trmv.yaml` (no format check, no values) | 0 | `config-trmv-file-ignored-by-la` |
 
-## la-config and dr-config
+## la-config and trmv-config
 
 | Branch | Exit | Cases |
 |---|---|---|
@@ -265,7 +265,8 @@ restructure; their goldens are hand-written.
 | *(new)* `--plugin` DIR with a leading `//` resolves as `/` | 1 | `doctor-plugin-double-slash` |
 | *(new)* `--plugin`: the nearest manifest cannot be inspected (any stat or read error but a missing entry) | 1 | `doctor-plugin-unreadable` |
 | *(new)* `--plugin`: the installed major.minor, whatever follows (another patch, a prerelease rest, leading zeros, components beyond any float) | 0 | `doctor-plugin-same-series-other-patch`, `doctor-plugin-same-series-prerelease`, `doctor-plugin-same-series-leading-zeros`, `doctor-plugin-huge-components` |
-| *(new)* `--plugin` series mismatch (older, newer minor, other major, a 400-digit minor), naming the plugin's series and the invoking twin's install command at the plugin's version (byte-exact per twin, plain and prerelease) | 1 | `doctor-plugin-mismatch`, `doctor-plugin-newer-minor`, `doctor-plugin-other-major`, `doctor-plugin-huge-component-mismatch`, `doctor-plugin-mismatch-python`, `doctor-plugin-mismatch-typescript`, `doctor-plugin-mismatch-prerelease-python`, `doctor-plugin-mismatch-prerelease-typescript` |
+| *(new)* `--plugin` series older than the tools': names the plugin update command | 1 | `doctor-plugin-behind` |
+| *(new)* `--plugin` series newer than the tools' (newer minor, other major, a 400-digit minor), naming the plugin's series and the invoking twin's install command at the plugin's version (byte-exact per twin, plain and prerelease) | 1 | `doctor-plugin-newer-minor`, `doctor-plugin-other-major`, `doctor-plugin-huge-component-mismatch`, `doctor-plugin-mismatch-python`, `doctor-plugin-mismatch-typescript`, `doctor-plugin-mismatch-prerelease-python`, `doctor-plugin-mismatch-prerelease-typescript` |
 | *(new)* `--plugin`: no manifest at or above DIR; manifest not valid JSON (syntax, `NaN`, BOM, invalid UTF-8), not an object, no or non-string `version`, `version` with a lone surrogate, or not `<digits>.<digits>.<rest>` (two components, `v` prefix, empty rest, non-ASCII digit, an escaped surrogate pair) | 1 | `doctor-plugin-not-found`, `doctor-plugin-invalid-json`, `doctor-plugin-nan`, `doctor-plugin-bom`, `doctor-plugin-invalid-utf8`, `doctor-plugin-not-an-object`, `doctor-plugin-no-version`, `doctor-plugin-version-not-string`, `doctor-plugin-lone-surrogate`, `doctor-plugin-surrogate-pair`, `doctor-plugin-version-two-components`, `doctor-plugin-version-v-prefix`, `doctor-plugin-version-empty-rest`, `doctor-plugin-version-non-ascii-digit` |
 | *(new)* `--plugin` without a value | 2 | `doctor-usage-plugin-without-value` |
 | *(new)* `--twin` (internal option) prints `<language> <version> <contract-hash>`, per twin | 0 | `doctor-twin-identity-python`, `doctor-twin-identity-typescript` |
@@ -280,12 +281,12 @@ restructure; their goldens are hand-written.
 | *(new)* a format refusal is the problem line and skips the config checks (no schema error for a newer key, no config-vs-disk findings, no language executables); the version, local-file and required-executable checks still run | 1 | `doctor-format-newer-unknown-key`, `doctor-format-older`, `doctor-format-missing-require-config`, `doctor-format-missing-plugin-mismatch`, `doctor-format-missing-other-checks-run` |
 
 `--contract-hash` *(new)* prints a value that changes with `shared/`; it is pinned by `tests/test_contract.py`.
-| *(new)* no `dr-doctor` on `PATH`: one finding naming it and the invoking twin's la install command, which installs the dr commands too | 1 | `doctor-la-dr-missing-python`, `doctor-la-dr-missing-typescript` |
-| *(new)* the first `dr-doctor` on `PATH` reports another version: one finding naming both versions and the install command | 1 | `doctor-la-dr-version-mismatch` |
-| *(new)* the first `dr-doctor` on PATH reports another dr contract hash: one finding naming both identities and the invoking twin's la install command | 1 | `doctor-la-dr-hash-mismatch` |
-| *(new)* the first `dr-doctor` on `PATH` matches the invoking language, version and dr hash: no dr finding | 0 | `doctor-la-dr-match-python`, `doctor-la-dr-match-typescript` |
+| *(new)* no `trmv-doctor` on `PATH`: one finding naming it and the invoking twin's la install command, which installs the trmv commands too | 1 | `doctor-la-trmv-missing-python`, `doctor-la-trmv-missing-typescript` |
+| *(new)* the first `trmv-doctor` on `PATH` reports another version: one finding naming both versions and the install command | 1 | `doctor-la-trmv-version-mismatch` |
+| *(new)* the first `trmv-doctor` on PATH reports another trmv contract hash: one finding naming both identities and the invoking twin's la install command | 1 | `doctor-la-trmv-hash-mismatch` |
+| *(new)* the first `trmv-doctor` on `PATH` matches the invoking language, version and trmv hash: no trmv finding | 0 | `doctor-la-trmv-match-python`, `doctor-la-trmv-match-typescript` |
 | *(new)* both config files: the both-files problem once, replacing format, schema and consistency checks | 1 | `doctor-la-both-files` |
-| *(new)* `--require-config` in a dr-only repo: the la missing-config finding | 1 | `doctor-la-require-config-dr-only` |
+| *(new)* `--require-config` in a trmv-only repo: the la missing-config finding | 1 | `doctor-la-require-config-trmv-only` |
 
 ## la-check-conventions
 
@@ -370,16 +371,16 @@ restructure; their goldens are hand-written.
 | `--range`: added, removed, unchanged, new file; repo-relative ref paths | 0 | `count-comments-range`, `count-comments-range-paths-are-repo-relative` |
 | usage: no args; `--range` with too few args | 2 | `count-comments-usage-no-args`, `count-comments-range-too-few-args` |
 
-## la-typecheck (deprecated alias of dr-typecheck)
+## la-typecheck (deprecated alias of trmv-typecheck)
 
 | Branch | Exit | Cases |
 |---|---|---|
-| *(new)* the alias: `dr-typecheck`'s stdout and exit, its stderr after one deprecation line naming `dr-typecheck` and `0.14.0` | 1 | `typecheck-alias-python-new-errors` |
+| *(new)* the alias: `trmv-typecheck`'s stdout and exit, its stderr after one deprecation line naming `trmv-typecheck` and `0.14.0` | 1 | `typecheck-alias-python-new-errors` |
 | *(new)* the line once on a mixed repo, before the python header (forwarded section silent) | 1 | `typecheck-alias-mixed-deprecation-once` |
 | *(new)* write mode through the alias | 0 | `typecheck-alias-write-baseline` |
 | *(new)* no line under `LA_FORWARDED=1`, plain or with the internal `--language` | 0 | `typecheck-alias-forwarded-no-line`, `typecheck-alias-forwarded-language-no-line` |
 | *(new)* `--help`: no line | 0 | `typecheck-alias-help` |
-| *(new)* a usage error: `dr-typecheck`'s, no line | 2 | `typecheck-alias-usage-error` |
+| *(new)* a usage error: `trmv-typecheck`'s, no line | 2 | `typecheck-alias-usage-error` |
 
 ## Review shims and their bundled scripts
 
@@ -448,7 +449,7 @@ time or many paged responses. Those branches are pinned by `tests/test_review_sc
 | *(new)* the npm twin refuses a Python top-level facts request without starting any process | 2 | `twin-facts-top-level-non-native-python` |
 | *(new)* `la-arch-scaffold` through the PyPI twin gets TypeScript top-level facts from the npm twin | 0 | `twin-scaffold-forwarded-top-level` |
 | *(new)* schema-invalid top-level facts from the npm twin: protocol failure | 2 | `twin-scaffold-top-level-schema-invalid` |
-| *(new)* an la twin with la's version and la hash but another dr hash is skipped; the runner is probed | 0 | `twin-la-other-dr-runner-probed` |
+| *(new)* an la twin with la's version and la hash but another trmv hash is skipped; the runner is probed | 0 | `twin-la-other-trmv-runner-probed` |
 
 ## Excluded: crashes
 

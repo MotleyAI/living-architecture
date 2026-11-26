@@ -1,0 +1,32 @@
+kind: paired
+languages:
+- python
+- typescript
+command: trmv-refactor
+args:
+  python:
+  - --apply
+  - move-symbol
+  - --file
+  - pkg/l.py
+  - --symbol
+  - '*.<locals>.model'
+  - --dest
+  - pkg/d.py
+  typescript:
+  - --apply
+  - move-symbol
+  - --file
+  - pkg/l.ts
+  - --symbol
+  - '*.<locals>.model'
+  - --dest
+  - pkg/d.ts
+fixture: refactor-words
+git:
+- commit: init
+expect:
+  exit: 2
+  git_status: true
+golden: manual
+note: 'move-symbol --symbol refuses a wildcard path: symbol-wildcard, nothing written'

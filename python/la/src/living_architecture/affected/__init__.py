@@ -10,11 +10,11 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
 
-from deterministic_refactor import changes, lang, twin
-from deterministic_refactor.config import ConfigError, find_repo_root
-from deterministic_refactor.contract import is_test_file, language, language_ids, language_of, os_error_text
 from living_architecture import NATIVE_LANGUAGE, __version__
 from living_architecture.contract import contract_hash, identity, message, schema, validate
+from trmv import changes, lang, twin
+from trmv.config import ConfigError, find_repo_root
+from trmv.contract import is_test_file, language, language_ids, language_of, os_error_text
 
 __all__ = ["run", "serve"]
 

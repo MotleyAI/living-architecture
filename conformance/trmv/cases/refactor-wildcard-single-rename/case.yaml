@@ -1,0 +1,29 @@
+kind: paired
+languages:
+- python
+- typescript
+command: trmv-refactor
+args:
+  python:
+  - rename
+  - --file
+  - pkg/l.py
+  - --symbol
+  - '*.<locals>.model'
+  - --new-name
+  - dataset
+  typescript:
+  - rename
+  - --file
+  - pkg/l.ts
+  - --symbol
+  - '*.<locals>.model'
+  - --new-name
+  - dataset
+fixture: refactor-words
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: rename --symbol takes a wildcard path and prints what the one-entry map prints

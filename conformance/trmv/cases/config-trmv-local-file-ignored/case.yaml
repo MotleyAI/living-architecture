@@ -1,0 +1,8 @@
+kind: neutral
+command: trmv-config
+args:
+- show
+expect:
+  exit: 0
+note: trmv ignores living-architecture.local.yaml and shows only trmv keys
+golden: manual

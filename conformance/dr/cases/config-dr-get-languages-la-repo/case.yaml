@@ -1,9 +1,0 @@
-kind: neutral
-command: dr-config
-args:
-- get
-- languages
-expect:
-  exit: 0
-note: 'dr-config and la-config print the same languages (the other: config-get-languages-la-repo)'
-golden: manual

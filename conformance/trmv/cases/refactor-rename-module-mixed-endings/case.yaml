@@ -1,0 +1,33 @@
+kind: paired
+languages:
+- python
+- typescript
+command: trmv-refactor
+args:
+  python:
+  - --apply
+  - rename
+  - --file
+  - pkg/use.py
+  - --symbol
+  - client
+  - --new-name
+  - cli2
+  typescript:
+  - --apply
+  - rename
+  - --file
+  - src/client.ts
+  - --new-name
+  - cli2
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+    python:
+    - pkg/use.py
+    typescript:
+    - src/use.ts
+golden: manual
+note: 'an importer with mixed CRLF and LF lines: only the module''s spelling changes, each line keeps its own ending'

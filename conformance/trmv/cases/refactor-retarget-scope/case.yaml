@@ -1,0 +1,14 @@
+kind: paired
+languages:
+- python
+- typescript
+command: trmv-refactor
+args:
+- rename-map
+- renames.yaml
+git:
+- commit: init
+expect:
+  exit: 2
+golden: manual
+note: 'a member alias whose target is in another class of its module: retarget-scope, exit 2, in both languages'

@@ -3,7 +3,7 @@ name: living-architecture
 description: 'Reference for the living-architecture layer (LikeC4 structure model + arc42 principles + model-truth import enforcement + cross-check): its syntax, the checks, the rules a coding agent follows when it changes code under it, and how to maintain it. Building the first model is la:arch-init; carving a boundary is la:arch-cleanup.'
 ---
 
-**Preflight:** run `la-doctor --plugin <this skill's base directory>` once per session before using any `la-*` or `dr-*` command; if it fails, stop and show the user its output.
+**Preflight:** run `la-doctor --plugin <this skill's base directory>` once per session before using any `la-*` or `trmv-*` command; if it fails, stop and show the user its output. If `la-doctor` is not found, or reports the la tools older than the plugin, stop and give the user the install command at this plugin's `version` (in its `.claude-plugin/plugin.json`): `uv tool install living-architecture==<version> --with-executables-from type-rename-move` in a Python repo, `npm install -g living-architecture@<version> type-rename-move@<version>` in a TS/JS repo.
 
 # Living architecture
 
@@ -193,7 +193,7 @@ model-truth runs once over all of them.
 
 **The enforcement bundle** = `la-arch-check` + LikeC4 model validation
 (`npx likec4 validate`; if the installed CLI version lacks it, use the lightest
-command that parses the model, e.g. `npx likec4 build`) + `dr-typecheck` against
+command that parses the model, e.g. `npx likec4 build`) + `trmv-typecheck` against
 its committed baseline. It is blocking: run it before declaring any change done,
 and in CI. `arch_check` is cheap and deterministic, so wire it there once the setup
 has settled (not at init), pinned to a release, in the form of the repo's

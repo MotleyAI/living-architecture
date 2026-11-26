@@ -18,17 +18,6 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from deterministic_refactor.config import (
-    FORMAT_KEY,
-    ConfigError,
-    compare_versions,
-    format_problem,
-    is_version,
-    read_committed,
-    released_formats,
-    stamp_format,
-)
-from deterministic_refactor.contract import load_yaml, os_error_text
 from living_architecture.c4.exempt_move import ExemptNotMigratable, move_exempt
 from living_architecture.c4.index import INDEX_REL, Index, load_index
 from living_architecture.c4.layout import (
@@ -53,6 +42,17 @@ from living_architecture.c4.model import (
 )
 from living_architecture.c4.views import EMPTY_VIEWS, parse_views
 from living_architecture.contract import config_file, message
+from trmv.config import (
+    FORMAT_KEY,
+    ConfigError,
+    compare_versions,
+    format_problem,
+    is_version,
+    read_committed,
+    released_formats,
+    stamp_format,
+)
+from trmv.contract import load_yaml, os_error_text
 
 
 class MigrateError(Exception):

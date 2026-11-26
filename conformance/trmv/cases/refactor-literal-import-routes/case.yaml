@@ -1,0 +1,35 @@
+kind: adapter
+languages:
+- python
+command: trmv-refactor
+args:
+- --apply
+- rename
+- --file
+- pkg/kinds.py
+- --symbol
+- DriftKind['edit_model']
+- --new-name
+- edit_master
+fixture: literal-routes
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - pkg/kinds.py
+  - pkg/relative.py
+  - routes/builtins.py
+  - routes/chain.py
+  - routes/in_function.py
+  - routes/init_stub.py
+  - routes/namespace.py
+  - routes/star.py
+  - routes/stub.py
+  - routes/stubs_dir.py
+  - routes/type_checking.py
+  - other/strs.py
+golden: manual
+note: 'a Literal member reaches a file only through one import route each (a re-export chain, a star import, a relative
+  import, TYPE_CHECKING, an import in a function, a .pyi stub, an __init__.pyi, a -stubs directory, a namespace package,
+  a project __builtins__.pyi): every argument rewritten; an equal string in a file outside its reach listed as leftover'

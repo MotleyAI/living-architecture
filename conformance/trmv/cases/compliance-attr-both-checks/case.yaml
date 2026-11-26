@@ -1,0 +1,14 @@
+kind: paired
+languages:
+- python
+- typescript
+command: trmv-compliance
+args:
+- --attr
+- formula
+- src
+fixture: compliance-attr-checks
+expect:
+  exit: 1
+golden: manual
+note: without --select both attribute checks run, their findings in one block sorted by path, line and column

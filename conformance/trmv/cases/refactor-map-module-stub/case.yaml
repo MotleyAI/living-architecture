@@ -1,0 +1,24 @@
+kind: adapter
+languages:
+- python
+command: trmv-refactor
+args:
+- --apply
+- rename-map
+- renames.yaml
+- --stub
+- '2.0'
+fixture: refactor-stub
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - pkg/a.py
+  - pkg/b.py
+  - pkg/c.py
+  - pkg/d.py
+  - pkg/e.py
+  - pkg/use.py
+golden: manual
+note: '--stub on a map of two module entries and a function: each moved module file gets its own stub'

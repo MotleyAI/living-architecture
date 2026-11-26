@@ -1,7 +1,7 @@
 from typing import NoReturn
 
-from deterministic_refactor.config.command import command_argv
 from living_architecture import review
+from trmv.config.command import command_argv
 
 
 def la_fetch_failed_pr_checks(argv: list[str] | None = None) -> NoReturn:

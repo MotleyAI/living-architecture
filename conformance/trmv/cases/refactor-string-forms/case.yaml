@@ -1,0 +1,16 @@
+kind: paired
+languages:
+- python
+- typescript
+command: trmv-refactor
+args:
+  python: [rename, --file, pkg/g.py, --symbol, Model, --new-name, Dataset]
+  typescript: [rename, --file, src/g.ts, --symbol, Model, --new-name, Dataset]
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: 'refactor.string_forms without --docs: a class rename respells its name where a declared pattern''s group
+  matches it, in a string, an f-string part or template text; another symbol in the form and the plain word are
+  unchanged and unlisted'

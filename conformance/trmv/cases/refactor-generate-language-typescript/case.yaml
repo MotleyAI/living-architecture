@@ -1,0 +1,17 @@
+kind: neutral
+languages:
+- python
+- typescript
+command: trmv-refactor
+args:
+- generate-map
+- words.yaml
+- --language
+- typescript
+fixture: refactor-words
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: '--language typescript on a mixed project: the TypeScript map, through either invoking twin'

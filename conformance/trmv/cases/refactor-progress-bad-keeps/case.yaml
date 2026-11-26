@@ -1,0 +1,22 @@
+kind: paired
+languages:
+- python
+- typescript
+command: trmv-refactor
+args:
+- rename-map
+- renames.yaml
+- --keep
+- lib/gone
+- --keep
+- architecture/notes.md:1
+- --keep
+- README.md:3
+fixture: refactor-progress
+git:
+- commit: init
+expect:
+  exit: 2
+golden: manual
+note: 'three bad keeps, one missing and two line keeps holding no editable old name: all three in checks, in
+  command-line order'

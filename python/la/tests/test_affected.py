@@ -11,10 +11,10 @@ from pathlib import Path
 
 import pytest
 
-from deterministic_refactor.contract import language
 from living_architecture import __version__
 from living_architecture.cli.la_affected_tests import la_affected_tests
 from living_architecture.contract import contract_hash, identity, schema, validate
+from trmv.contract import language
 
 TYPESCRIPT_IDENTITY = identity().line("typescript")
 BASE = {
@@ -264,7 +264,7 @@ def test_other_twin_unreachable(repo, capsys, restrict_path):
     code, out, err = _affected(capsys, "--base", "main")
     expected_err = (
         f"la-affected-tests: the typescript twin (living-architecture {__version__}) is not reachable; install it"
-        f" with: npm install -g living-architecture@{__version__} deterministic-refactor@{__version__}\n"
+        f" with: npm install -g living-architecture@{__version__} type-rename-move@{__version__}\n"
     )
     assert (code, out, err) == (2, [], expected_err)
 

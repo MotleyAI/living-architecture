@@ -1,7 +1,7 @@
-// la's manifest through dr's parser: la's cli.yaml vectors, subcommand help, internal options and bundled scripts.
+// la's manifest through trmv's parser: la's cli.yaml vectors, subcommand help, internal options and bundled scripts.
 import { describe, expect, it } from 'vitest';
 import { HelpRequested, UsageError, help, manifest, parse } from '../src/contract/index.js';
-import { LA_VECTORS, loadYamlFile, plain } from '../../dr/test/helpers.js';
+import { LA_VECTORS, loadYamlFile, plain } from '../../trmv/test/helpers.js';
 import { join } from 'node:path';
 
 type Vector = { name: string; command: string; argv: string[]; args?: unknown; exit?: number };

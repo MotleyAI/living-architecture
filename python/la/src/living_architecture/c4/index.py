@@ -7,14 +7,14 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from deterministic_refactor.contract import (
+from living_architecture.contract import message
+from trmv.contract import (
     DuplicateKeyError,
     YAMLError,
     is_regular_file,
     load_yaml,
     os_error_text,
 )
-from living_architecture.contract import message
 
 INDEX_REL = "architecture/index.yaml"
 

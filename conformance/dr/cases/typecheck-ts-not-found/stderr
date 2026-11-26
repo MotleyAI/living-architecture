@@ -1,2 +1,0 @@
-dr-typecheck: checking typescript with tsc --noEmit
-dr-typecheck: typescript: tsc not found in node_modules/.bin or on PATH

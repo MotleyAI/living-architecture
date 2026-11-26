@@ -1,0 +1,13 @@
+kind: adapter
+languages:
+- typescript
+command: trmv-refactor
+args:
+- rename-map
+- renames.yaml
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: a module entry and an entry renaming its export compose in one import statement

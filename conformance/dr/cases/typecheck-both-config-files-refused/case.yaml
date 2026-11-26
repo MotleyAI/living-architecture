@@ -1,9 +1,0 @@
-kind: adapter
-languages:
-- python
-fixture: typecheck-python
-command: dr-typecheck
-expect:
-  exit: 2
-note: 'both config files: refused before the format check, nothing else printed'
-golden: manual

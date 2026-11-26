@@ -1,0 +1,18 @@
+kind: adapter
+languages:
+- python
+command: trmv-refactor
+args:
+- 'rename'
+- '--file'
+- 'pkg/a.py'
+- '--new-name'
+- 'b'
+- '--stub'
+- '2.0'
+git:
+- commit: init
+expect:
+  exit: 2
+golden: manual
+note: '--stub with no refactor.python.moved_module_stub configured refuses: stub-unconfigured, nothing written'

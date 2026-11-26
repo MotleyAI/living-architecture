@@ -1,0 +1,18 @@
+kind: neutral
+command: trmv-refactor
+args:
+- rename
+- --file
+- a.py
+- --line
+- '1'
+- --symbol
+- foo
+- --new-name
+- bar
+expect:
+  exit: 2
+  stdout: ignore
+  stderr: ignore
+golden: manual
+note: '--line and --symbol together: a usage error (manifest exclusive group), through either twin'

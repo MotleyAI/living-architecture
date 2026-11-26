@@ -3,10 +3,10 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { checkFormat, compareVersions, currentFormat, isVersion, releasedFormats, stampFormat } from '../../dr/src/config/index.js';
-import { loadYaml, renderTemplate } from '../../dr/src/contract/index.js';
+import { checkFormat, compareVersions, currentFormat, isVersion, releasedFormats, stampFormat } from '../../trmv/src/config/index.js';
+import { loadYaml, renderTemplate } from '../../trmv/src/contract/index.js';
 import { type Run, run, tempRepo } from './cli-run.js';
-import { LA_SHARED, NODE_ROOT, REPO_ROOT, SHARED, VECTORS, field, loadYamlFile, readJson } from '../../dr/test/helpers.js';
+import { LA_SHARED, NODE_ROOT, REPO_ROOT, SHARED, VECTORS, field, loadYamlFile, readJson } from '../../trmv/test/helpers.js';
 
 // Read with the twin's own YAML profile, so each value has the shape the check receives.
 const VECTOR_FILE = loadYaml(readFileSync(join(VECTORS, 'format.yaml'), 'utf8'));
@@ -71,9 +71,9 @@ describe('format versions', () => {
     const pyprojectVersion = (pkg: string) =>
       /^\[project\][^[]*?^version = "([^"]+)"$/ms.exec(readFileSync(join(REPO_ROOT, 'python', pkg, 'pyproject.toml'), 'utf8'))?.[1];
     const versions = [
-      ...['dr', 'la'].map(pyprojectVersion),
-      ...['dr', 'la'].map((pkg) => readJson(join(NODE_ROOT, pkg, 'package.json')).version),
-      ...['dr', 'la'].map((pkg) => readJson(join(REPO_ROOT, 'plugin', pkg, '.claude-plugin', 'plugin.json')).version),
+      ...['trmv', 'la'].map(pyprojectVersion),
+      ...['trmv', 'la'].map((pkg) => readJson(join(NODE_ROOT, pkg, 'package.json')).version),
+      ...['trmv', 'la'].map((pkg) => readJson(join(REPO_ROOT, 'plugin', pkg, '.claude-plugin', 'plugin.json')).version),
     ];
     const last = releasedFormats(CONFIG)[releasedFormats(CONFIG).length - 1] as string;
     for (const version of versions) expect(compareVersions(last, version), version).toBeLessThanOrEqual(0);
@@ -155,12 +155,12 @@ const ARGV: Record<string, string[]> = {
   'la-fetch-failed-pr-checks': ['--help'],
   'la-wait-for-reviews': ['--help'],
   'la-pr-reviewers': ['--help'],
-  'dr-refactor': ['rename', '--file', 'a.ts', '--symbol', 'f', '--new-name', 'g'],
-  'dr-compliance': ['a.ts'],
-  'dr-mock-lint': ['a.ts'],
-  'dr-typecheck': [],
-  'dr-doctor': [],
-  'dr-config': ['show'],
+  'trmv-refactor': ['rename', '--file', 'a.ts', '--symbol', 'f', '--new-name', 'g'],
+  'trmv-compliance': ['a.ts'],
+  'trmv-mock-lint': ['a.ts'],
+  'trmv-typecheck': [],
+  'trmv-doctor': [],
+  'trmv-config': ['show'],
 };
 
 describe('the format check in dispatch', () => {
@@ -170,12 +170,12 @@ describe('the format check in dispatch', () => {
 
   it.each(Object.keys(MANIFEST).sort())('%s runs the check unless the manifest exempts it', (command) => {
     const root = tempRepo({ [CONFIG]: 'tracker: linear\n', 'a.ts': 'export function f(): void {}\n' });
-    // The alias runs the dr-typecheck beside its entry point, here a stub refusing as the real one does.
+    // The alias runs the trmv-typecheck beside its entry point, here a stub refusing as the real one does.
     const entry = process.argv[1] ?? '';
     if (command === 'la-typecheck') {
       const bin = join(root, '.alias-bin');
       mkdirSync(bin);
-      writeFileSync(join(bin, 'dr-typecheck'), '#!/bin/sh\nexit 2\n', { mode: 0o755 });
+      writeFileSync(join(bin, 'trmv-typecheck'), '#!/bin/sh\nexit 2\n', { mode: 0o755 });
       process.argv[1] = join(bin, command);
     }
     let result: Run;
@@ -185,7 +185,7 @@ describe('the format check in dispatch', () => {
       process.argv[1] = entry;
     }
     const missing = `${refusal('format.missing')}\n`;
-    if (command === 'la-doctor' || command === 'dr-doctor') expect(result.err).not.toContain(missing);
+    if (command === 'la-doctor' || command === 'trmv-doctor') expect(result.err).not.toContain(missing);
     else if (command === 'la-typecheck') {
       expect(result).toEqual({ code: 2, out: '', err: `${FINDINGS['typecheck-alias.deprecated']}\n` });
     } else if (MANIFEST[command]?.format === 'exempt') expect(result.out + result.err).not.toContain(missing.trim());

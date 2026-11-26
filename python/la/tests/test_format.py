@@ -11,15 +11,15 @@ from pathlib import Path
 import pytest
 import yaml
 
-from deterministic_refactor import config
-from deterministic_refactor.contract import load_yaml, render_template
+from trmv import config
+from trmv.contract import load_yaml, render_template
 
 SHARED_ROOT = next(p for p in Path(__file__).resolve().parents if (p / "shared").is_dir() and (p / "plugin").is_dir()) / "shared"
-SHARED = SHARED_ROOT / "dr"
+SHARED = SHARED_ROOT / "trmv"
 VECTORS = yaml.safe_load((SHARED / "vectors" / "format.yaml").read_text(encoding="utf-8"))
 MANIFEST = {
     name: spec
-    for package in ("dr", "la")
+    for package in ("trmv", "la")
     for name, spec in yaml.safe_load((SHARED_ROOT / package / "cli.yaml").read_text(encoding="utf-8"))["commands"].items()
 }
 BIN_DIR = Path(sys.executable).parent
@@ -162,12 +162,12 @@ ARGV = {
     "la-fetch-failed-pr-checks": ["--help"],
     "la-wait-for-reviews": ["--help"],
     "la-pr-reviewers": ["--help"],
-    "dr-refactor": ["rename", "--file", "a.py", "--symbol", "f", "--new-name", "g"],
-    "dr-compliance": ["a.py"],
-    "dr-mock-lint": ["a.py"],
-    "dr-typecheck": [],
-    "dr-doctor": [],
-    "dr-config": ["show"],
+    "trmv-refactor": ["rename", "--file", "a.py", "--symbol", "f", "--new-name", "g"],
+    "trmv-compliance": ["a.py"],
+    "trmv-mock-lint": ["a.py"],
+    "trmv-typecheck": [],
+    "trmv-doctor": [],
+    "trmv-config": ["show"],
 }
 
 
@@ -184,7 +184,7 @@ def test_format_check_runs_unless_the_manifest_exempts_the_command(command: str,
     proc = subprocess.run([str(BIN_DIR / command), *ARGV[command]], cwd=root, env=env, capture_output=True, text=True,
                           timeout=120, check=False)
     refusal = _message("format.missing", current=_current()) + "\n"
-    if command in ("la-doctor", "dr-doctor"):
+    if command in ("la-doctor", "trmv-doctor"):
         assert refusal not in proc.stderr
     elif command == "la-typecheck":
         assert (proc.returncode, proc.stdout, proc.stderr) == (2, "", _message("typecheck-alias.deprecated") + "\n" + refusal)

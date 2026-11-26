@@ -1,0 +1,15 @@
+kind: adapter
+languages:
+- typescript
+command: trmv-compliance
+args:
+- --select
+- attr-blindspot
+- --attr
+- id
+- src/e.ts
+fixture: compliance-ts
+expect:
+  exit: 0
+golden: manual
+note: --select attr-blindspot does not report an element access on an any receiver

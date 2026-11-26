@@ -26,7 +26,7 @@ import {
   readCommitted,
   releasedFormats,
   stampFormat,
-} from 'deterministic-refactor/config';
+} from 'type-rename-move/config';
 import {
   byCodePoint,
   configFile,

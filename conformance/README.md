@@ -1,6 +1,6 @@
 # Conformance corpus
 
-One case tree per package: `dr/cases/` invokes only `dr-*` commands, `la/cases/` only `la-*` commands; the two
+One case tree per package: `trmv/cases/` invokes only `trmv-*` commands, `la/cases/` only `la-*` commands; the two
 share `fixtures/`, and case ids are unique across both. Each package's suite runs every applicable case of its tree
 against the installed commands and compares the exit code, stdout and stderr byte-for-byte. Each tree's
 `INVENTORY.md` maps every output branch of its commands to its cases.
@@ -15,7 +15,7 @@ languages: [python]                # the fixture languages; required unless neut
 twin: python | typescript          # only this twin invokes the command (forwarding and facts cases)
 other_twin: absent                 # the other twin's bin dir is kept off PATH
 command: la-arch-check
-args: [--root, .]                  # `<VERSION>`, `<MAJOR>`, `<MINOR>`, `<CONTRACT_HASH>`, `<DR_CONTRACT_HASH>`, `<ROOT>`
+args: [--root, .]                  # `<VERSION>`, `<MAJOR>`, `<MINOR>`, `<CONTRACT_HASH>`, `<TRMV_CONTRACT_HASH>`, `<ROOT>`
                                    # are substituted
                                    # paired: or {python: [...], typescript: [...]}, one list per language
 cwd: sub/dir                       # relative to the repo; default: the repo root
@@ -30,7 +30,7 @@ bins: [{dir: name, position: before | after, files: {exe: text}, nonexec: [exe],
 git: none | [step, ...]            # default: `git init -b main` with no commits
 gh: [{match: [argv tokens], stdout: text-or-json, stderr: text, exit: 0}]   # the fake `gh`; first match wins
   # or {match: [...], responses: [{stdout: ..., stderr: ..., exit: 0}, ...]}: served in call order, the last repeating
-normalize: [version, contract_hash, dr_contract_hash, {pattern: regex, replace: text}]
+normalize: [version, contract_hash, trmv_contract_hash, {pattern: regex, replace: text}]
 expect:
   exit: 0
   stdout: ignore | json | {contains: [text]}   # omitted: byte golden; json: equal as a JSON value
@@ -44,7 +44,7 @@ note: why this case exists
 
 The tree decides the package: `<VERSION>` is its version, `<CONTRACT_HASH>` its contract's hash (`contract_hash`
 normalizes it back), and the runner refuses a case whose command is not in its package's manifest.
-`<DR_CONTRACT_HASH>` is always dr's (normalized by `dr_contract_hash`), for la's two-hash identity line.
+`<TRMV_CONTRACT_HASH>` is always trmv's (normalized by `trmv_contract_hash`), for la's two-hash identity line.
 
 `<MAJOR>` and `<MINOR>` are the installed version's first two components as written, substituted wherever
 `<VERSION>` is (args, env, fake executables, `write:` steps). A golden that would show the installed series uses a

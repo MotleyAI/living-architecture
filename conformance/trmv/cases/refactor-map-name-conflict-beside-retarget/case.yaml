@@ -1,0 +1,15 @@
+kind: paired
+languages:
+- python
+- typescript
+command: trmv-refactor
+args:
+- rename-map
+- renames.yaml
+git:
+- commit: init
+expect:
+  exit: 1
+golden: manual
+note: 'a retarget and a rename of its target beside an entry whose new name captures a reference: the one name-conflict finding
+  names the capturing entry'

@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "trmv.schema.json",
+  "title": "trmv.yaml",
+  "description": "trmv's config keys at the repo root, in trmv.yaml or, in a repo using la, in living-architecture.yaml. Every key is optional in the schema; absent keys take their defaults, and the format check requires format.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "format": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$",
+      "default": null,
+      "description": "The file's format: the release that introduced it. Every command but the exempt ones refuses any other format."
+    },
+    "exempt": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": [],
+      "description": "Repo-relative fnmatch globs naming paths that are not the repo's own source (fixtures, generated code): language detection leaves them out and the conventions gate exempts them."
+    },
+    "commands": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "test": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
+          "description": "The repo's full non-integration test command."
+        },
+        "typecheck": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "trmv-typecheck's checker per language, run without a shell from the repo root; null turns the language off. Setting a language forces it on.",
+          "properties": {
+            "python": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "default": "basedpyright",
+              "description": "A basedpyright-compatible command: it must accept --writebaseline and keep its baseline at .basedpyright/baseline.json. It must run a verified basedpyright (languages.yaml checker_patch_versions) under Node and keep NODE_OPTIONS, so la can apply the pyright#11919 patch."
+            },
+            "typescript": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "default": "tsc --noEmit",
+              "description": "A tsc-compatible command; --pretty false is appended."
+            }
+          }
+        }
+      }
+    },
+    "refactor": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "python": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "moved_module_stub": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "default": null,
+              "description": "The text `trmv-refactor rename --stub REMOVAL` leaves at a renamed Python module's old path; {old} and {new} (dotted module names) and {removal} are replaced."
+            }
+          }
+        },
+        "string_forms": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Patterns for strings that carry a symbol's name (a mini-language such as Cypher): `trmv-refactor` respells the one capturing group's text when a class or another module-level symbol of that name is renamed. Each pattern uses the portable regex subset and holds exactly one capturing group."
+        }
+      }
+    }
+  }
+}

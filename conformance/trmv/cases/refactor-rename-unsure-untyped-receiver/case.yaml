@@ -1,0 +1,22 @@
+kind: adapter
+languages:
+- python
+command: trmv-refactor
+args:
+- rename
+- --file
+- pkg/a.py
+- --symbol
+- A.run
+- --new-name
+- go
+- --unsure
+- include
+- --allow-blindspots
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: --unsure include renames an access whose receiver the checker types Unknown;
+  the blind spot is still listed

@@ -1,0 +1,14 @@
+kind: paired
+languages:
+- python
+- typescript
+command: trmv-refactor
+args:
+- rename-map
+- renames.yaml
+- --docs
+git:
+- commit: init
+expect:
+  exit: 0
+note: '--docs rewrites a code-marked comment mention inside a function binding a local of the new name: no conflict'

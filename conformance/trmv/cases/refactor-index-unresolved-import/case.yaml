@@ -1,0 +1,19 @@
+kind: adapter
+languages:
+- python
+command: trmv-refactor
+args:
+- rename
+- --file
+- pkg/a.py
+- --symbol
+- foo
+- --new-name
+- bar
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: 'an import basedpyright cannot resolve (the project root is off its search path
+  for scripts/): Python''s import rules over the source folders resolve it'

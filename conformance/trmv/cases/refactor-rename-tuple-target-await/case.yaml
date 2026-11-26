@@ -1,0 +1,18 @@
+kind: adapter
+languages:
+- python
+command: trmv-refactor
+args:
+- rename
+- --file
+- pkg/aw.py
+- --symbol
+- g.<locals>.ds_by_model
+- --new-name
+- datasets_by_model
+fixture: refactor-tuple-targets
+git:
+- commit: init
+expect:
+  exit: 0
+note: a tuple target bound from an await renamed with its use

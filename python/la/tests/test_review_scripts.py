@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from deterministic_refactor.config import current_format
+from trmv.config import current_format
 
 REPO = ["--repo", "o/r"]
 

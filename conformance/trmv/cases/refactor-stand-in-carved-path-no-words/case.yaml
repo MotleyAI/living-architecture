@@ -1,0 +1,29 @@
+kind: paired
+languages:
+- python
+- typescript
+command: trmv-refactor
+args:
+  python:
+  - rename
+  - --file
+  - pkg/c.py
+  - --symbol
+  - Ds.columns
+  - --new-name
+  - fields
+  typescript:
+  - rename
+  - --file
+  - pkg/c.ts
+  - --symbol
+  - Ds.columns
+  - --new-name
+  - fields
+fixture: refactor-words
+git:
+- commit: init
+expect:
+  exit: 1
+golden: manual
+note: 'the same rename without --words: both stand-ins are reported'

@@ -1,0 +1,14 @@
+kind: adapter
+languages:
+- python
+command: trmv-refactor
+args: [--apply, rename, --file, pkg/store.py, --symbol, Storage, --new-name, Dataset, --keep, pkg/use.py:4]
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - pkg/use.py
+golden: manual
+note: 'a line keep whose only spelling of the old name is a type comment, without --docs: the type comment counts as code,
+  so the checks pass and the kept line stays'

@@ -93,7 +93,7 @@ arch_check: 1 finding(s)
 
 Imports the code has today but the target architecture doesn't want are marked `#legacy` and counted against a
 baseline that the skills only ever lower; `/la:arch-cleanup` retires them a batch at a time. The moves that takes
-are done by `/dr:deterministic-refactor`, which rewrites every import for you (dr with the bundled basedpyright for
+are done by `/trmv:rename-move`, which rewrites every import for you (trmv with the bundled basedpyright for
 Python, the TypeScript language service for TypeScript) and has the type checker prove nothing was left dangling.
 
 See the model and principles this repo holds itself to in

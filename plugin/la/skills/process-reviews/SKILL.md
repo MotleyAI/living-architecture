@@ -3,7 +3,7 @@ name: process-reviews
 description: Use when the user asks to process / triage / address / handle PR reviews from CodeRabbit, SonarQube, Codex, and CI all together (CodeRabbit and Sonar only when they ran on the PR). Watches the PR every minute (30 min cap) and triages each new failed CI check, review comment and finished Sonar analysis as it appears, while a Codex review runs concurrently against the local diff. Once everything is terminal, fetches every review comment and unresolved thread from every reviewer, Sonar's findings plus failed CI checks, validates each against the actual code / log, handles invalid ones in place (reply on thread / NOSONAR comment), and presents a unified plan for fixing the valid ones (split into logical groups if more than 3). Invoked from la:pr-review, it returns the triaged list instead.
 ---
 
-**Preflight:** run `la-doctor --plugin <this skill's base directory>` once per session before using any `la-*` or `dr-*` command; if it fails, stop and show the user its output.
+**Preflight:** run `la-doctor --plugin <this skill's base directory>` once per session before using any `la-*` or `trmv-*` command; if it fails, stop and show the user its output. If `la-doctor` is not found, or reports the la tools older than the plugin, stop and give the user the install command at this plugin's `version` (in its `.claude-plugin/plugin.json`): `uv tool install living-architecture==<version> --with-executables-from type-rename-move` in a Python repo, `npm install -g living-architecture@<version> type-rename-move@<version>` in a TS/JS repo.
 
 # Process unresolved review feedback (CodeRabbit + SonarQube + Codex + failed CI)
 

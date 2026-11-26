@@ -1,0 +1,9 @@
+kind: adapter
+languages:
+- python
+command: trmv-typecheck
+fixture: typecheck-python
+expect:
+  exit: 0
+golden: manual
+note: basedpyright's own baseline shrink message passed through, exit 0

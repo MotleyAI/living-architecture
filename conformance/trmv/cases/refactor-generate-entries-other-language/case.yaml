@@ -1,0 +1,15 @@
+kind: neutral
+languages:
+- python
+command: trmv-refactor
+args:
+- generate-map
+- words.yaml
+fixture: refactor-words
+git:
+- commit: init
+expect:
+  exit: 2
+golden: manual
+note: 'a table entry of another language than the generated one: map-mixed-languages naming the table, through either invoking
+  twin'

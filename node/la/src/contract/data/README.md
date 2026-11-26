@@ -2,12 +2,12 @@
 
 The source of truth both la twins obey. Each twin vendors a byte-copy of this directory (refreshed by
 `scripts/sync-shared`) and loads only that copy at runtime. The YAML profile, configuration filling, templates,
-canonical repr, glob dialect and contract hash are dr's (`shared/dr/README.md`); la renders a finding id from its
-own registry, else from dr's.
+canonical repr, glob dialect and contract hash are trmv's (`shared/trmv/README.md`); la renders a finding id from its
+own registry, else from trmv's.
 
 | File | Defines |
 |---|---|
-| `schema/living-architecture.schema.json` | la's config keys, types, bounds, cross-field rules, defaults; dr's keys by reference to dr's schema |
+| `schema/living-architecture.schema.json` | la's config keys, types, bounds, cross-field rules, defaults; trmv's keys by reference to trmv's schema |
 | `schema/living-architecture.local.schema.json` | the per-person keys `living-architecture.local.yaml` may override |
 | `schema/index.schema.json` | the `architecture/index.yaml` shape |
 | `schema/node.schema.json` | a node's `metadata { }` block in the LikeC4 model |

@@ -1,3 +1,0 @@
-decoy: dr-doctor --twin
-uvx --from deterministic-refactor==<VERSION> dr-doctor --twin
-uvx --from deterministic-refactor==<VERSION> dr-mock-lint -- a.py

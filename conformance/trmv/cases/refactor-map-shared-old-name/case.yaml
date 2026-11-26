@@ -1,0 +1,16 @@
+kind: paired
+languages:
+- python
+- typescript
+command: trmv-refactor
+args:
+- rename-map
+- renames.yaml
+git:
+- commit: init
+expect:
+  exit: 1
+  stdout: ignore
+golden: manual
+note: 'two entries renaming methods of one old name meet one untyped receiver: the blind spot is listed once and counted
+  once, exit 1, in both languages'

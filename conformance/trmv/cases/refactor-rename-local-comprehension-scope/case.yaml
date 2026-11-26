@@ -1,0 +1,21 @@
+kind: adapter
+languages:
+- python
+command: trmv-refactor
+args:
+- rename
+- --file
+- pkg/m.py
+- --line
+- '2'
+- --col
+- '5'
+- --new-name
+- acc
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: a local renamed with its nonlocal uses and loop target; a comprehension's own same-named variable
+  is left

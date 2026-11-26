@@ -3,7 +3,7 @@ import { spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, posix } from 'node:path';
-import { findRepoRoot } from 'deterministic-refactor/config';
+import { findRepoRoot } from 'type-rename-move/config';
 import { manifest, message } from '../contract/index.js';
 import { collect, FactsError, type Facts, languageOf } from './facts.js';
 
