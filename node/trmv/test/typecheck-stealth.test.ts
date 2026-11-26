@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, realpathSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { withMergeBaseCheckout } from '../src/lang/index.js';
+import { rooted, withMergeBaseCheckout } from '../src/lang/index.js';
 import { cacheKey } from '../src/typecheck/index.js';
 import { tempRepo } from './cli-run.js';
 
@@ -82,5 +82,33 @@ describe('withMergeBaseCheckout', () => {
     expect(() => withMergeBaseCheckout(root, commit, [], fail)).toThrow('boom');
     expect(existsSync(seen)).toBe(false);
     expect(worktrees(root)).not.toContain(seen);
+  });
+});
+
+describe('rooted', () => {
+  const diagnostic = (root: string) => ({
+    file: join(root, 'src', 'a.ts'),
+    line: 3,
+    col: 1,
+    code: 'TS2322',
+    message: `Type 'import("${root}/src/b").C' is not assignable to type 'import("${root}/src/a").C'.`,
+  });
+
+  it('keys a diagnostic the same in any checkout', () => {
+    const [one, two] = [tempRepo({}), tempRepo({})];
+    expect(rooted(one, diagnostic(one))).toEqual(rooted(two, diagnostic(two)));
+  });
+
+  it('drops the root from the message and the file', () => {
+    const root = tempRepo({});
+    expect(rooted(root, diagnostic(root))).toMatchObject({
+      file: 'src/a.ts',
+      message: `Type 'import("src/b").C' is not assignable to type 'import("src/a").C'.`,
+    });
+  });
+
+  it('drops the resolved root too', () => {
+    const root = tempRepo({});
+    expect(rooted(root, diagnostic(realpathSync(root))).message).toBe(rooted(root, diagnostic(root)).message);
   });
 });

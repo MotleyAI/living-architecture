@@ -211,8 +211,10 @@ everything marked *"OpenSpec repos only"* in the stage skills.
 trmv was used. These rules then override every stage skill:
 
 - **No tracker writes.** Read the tracker issue as usual; never comment on it, change its state or post a plan to it.
-- **No la files in the repo.** Never write or commit la or OpenSpec files in the working tree. With `OPENSPEC=1` and
-  a repo that tracks nothing under `openspec/`, the change lives in the private OpenSpec store: every `openspec`
+- **No la files in the repo.** Never write or commit la files in the working tree, nor OpenSpec files unless the repo
+  tracks a path under `openspec/`: then the change lives in the repo's own `openspec/`, as in any repo that uses
+  OpenSpec. With `OPENSPEC=1` and a repo that tracks nothing under `openspec/`, the change lives in the private
+  OpenSpec store: every `openspec`
   command takes `--store $(la-config get openspec_store)`, and stage-end commits of the change go to the store's own
   git repository (`git -C <C>/living-architecture/openspec`), naming only this change's paths; retry a commit that
   hits another worktree's `index.lock`. With `OPENSPEC=0` the plan is `<C>/living-architecture/plans/<CHANGE_ID>.md`:

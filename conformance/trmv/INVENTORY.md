@@ -114,6 +114,7 @@ restructure; their goldens are hand-written.
 | *(new)* the merge-base result is cached per commit and fingerprint; a changed fingerprint file or a malformed cache entry runs the checker at the merge base again | 0 | `typecheck-stealth-cached`, `typecheck-stealth-fingerprint-recomputes`, `typecheck-stealth-cache-malformed` |
 | *(new)* the base ref: `--base` through the shared base resolution (a remote-tracking `upstream/main`), else the target of `refs/remotes/origin/HEAD`, else refused naming `--base` | 0/2 | `typecheck-stealth-remote-base`, `typecheck-stealth-origin-head`, `typecheck-stealth-no-base` |
 | *(new)* a checker failure at the merge base names the merge-base commit | 2 | `typecheck-stealth-merge-base-failed` |
+| *(new)* a merge-base checkout that cannot be created fails the same way, in each language | 2 | `typecheck-stealth-checkout-failed-py`, `typecheck-stealth-checkout-failed-ts` |
 | *(new)* a language whose baseline the repo tracks behaves as outside stealth | 0 | `typecheck-stealth-tracked-baseline` |
 | *(new)* `--write-baseline`, and `--realign-from` without a tracked python baseline, refused before any checker runs | 2 | `typecheck-stealth-write-refused`, `typecheck-stealth-realign-refused` |
 | *(new)* typescript in stealth (environment dirs linked into the merge-base worktree); a mixed repo byte-identical through either twin, `--base` passed on to the other twin | 1 | `typecheck-stealth-ts`, `typecheck-stealth-mixed` |

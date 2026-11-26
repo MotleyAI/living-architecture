@@ -56,7 +56,7 @@ function boundedFetch(remote: string, branch: string, repoRoot: string, timeout:
 /** The configured git remotes; none when git cannot list them. */
 function remotes(repoRoot: string): string[] {
   const proc = spawnSync('git', ['remote'], { cwd: repoRoot }); // NOSONAR(S4036) — runs the user's own git from PATH by design
-  return proc.status === 0 ? proc.stdout.toString('utf8').split(/\s+/).filter((r) => r) : [];
+  return proc.status === 0 ? proc.stdout.toString('utf8').split(/\s+/).filter(Boolean) : [];
 }
 
 /**

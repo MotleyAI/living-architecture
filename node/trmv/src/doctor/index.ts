@@ -54,8 +54,10 @@ export function runChecks(root: string, plugin: string | null = null, requireCon
     problems.push(...found);
     executables.push(...needed);
   }
-  problems.push(...trmvStrayFindings(root));
-  problems.push(...executables.filter((exe) => !which(exe)).map((exe) => message('doctor.missing-executable', { exe })));
+  problems.push(
+    ...trmvStrayFindings(root),
+    ...executables.filter((exe) => !which(exe)).map((exe) => message('doctor.missing-executable', { exe })),
+  );
   return problems;
 }
 

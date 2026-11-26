@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from pydantic import BaseModel, ConfigDict
 
 from conformance_runner import fake_gh_cli
 from living_architecture import __version__
@@ -155,6 +156,7 @@ _GIT_STEPS: dict[str, Callable[[Any], list[str]]] = {
     "orphan": lambda arg: ["checkout", "-q", "--orphan", arg],
     "stage": lambda arg: ["add", "--", *arg],
     "git_rm": lambda arg: ["rm", "-q", "--", *arg],
+    "merge": lambda arg: ["merge", "-q", "--no-ff", "-m", arg["message"], arg["ref"]],
 }
 
 
@@ -188,41 +190,73 @@ def _add_submodule(repo: Path, root: Path, env: dict[str, str], arg: dict) -> No
     _git(repo, env, "-c", "protocol.file.allow=always", "submodule", "add", "-q", str(source), arg["path"])
 
 
+class _StepContext(BaseModel):
+    """Where a fixture's git steps run."""
+
+    model_config = ConfigDict(frozen=True)
+
+    repo: Path
+    root: Path
+    env: dict[str, str]
+    package: str
+
+    def rendered(self, files: dict[str, str]) -> dict[str, str]:
+        return {rel: with_format(substitute(text, self.root, self.package)) for rel, text in files.items()}
+
+
+def _commit_step(arg: str, at: _StepContext) -> None:
+    _git(at.repo, at.env, "add", "-A")
+    _git(at.repo, at.env, "commit", "-q", "-m", arg)
+
+
+def _delete_step(arg: list[str], at: _StepContext) -> None:
+    for rel in arg:
+        (at.repo / rel).unlink()
+
+
+def _rename_step(arg: dict[str, str], at: _StepContext) -> None:
+    for src, dst in arg.items():
+        _git(at.repo, at.env, "mv", src, dst)
+
+
+def _remote_step(arg: dict[str, list[str]], at: _StepContext) -> None:
+    for name, refs in arg.items():
+        _push_remote(at.repo, at.root, at.env, name, refs)
+
+
+def _exclude_step(arg: list[str], at: _StepContext) -> None:
+    exclude = common_dir(at.repo, at.env) / "info" / "exclude"
+    exclude.parent.mkdir(parents=True, exist_ok=True)
+    with exclude.open("a", encoding="utf-8") as handle:
+        handle.writelines(f"{pattern}\n" for pattern in arg)
+
+
+def _sh_step(arg: str, at: _StepContext) -> None:
+    subprocess.run(["sh", "-ec", substitute(arg, at.root, at.package)], cwd=at.repo, env=at.env, check=True,
+                   capture_output=True)
+
+
+_STEPS: dict[str, Callable[[Any, _StepContext], None]] = {
+    "write": lambda arg, at: _write_files(at.repo, at.rendered(arg)),
+    "commit": _commit_step,
+    "delete": _delete_step,
+    "rename": _rename_step,
+    "origin": lambda arg, at: _push_remote(at.repo, at.root, at.env, "origin", arg),
+    "remote": _remote_step,
+    "common_dir": lambda arg, at: _write_files(common_dir(at.repo, at.env), at.rendered(arg)),
+    "exclude": _exclude_step,
+    "sh": _sh_step,
+    "worktree": lambda arg, at: _add_worktree(at.repo, at.root, at.env, arg),
+    "submodule": lambda arg, at: _add_submodule(at.repo, at.root, at.env, arg),
+}
+
+
 def _apply_step(step: dict, *, repo: Path, root: Path, env: dict[str, str], package: str = "la") -> None:
     [(op, arg)] = step.items()
     if op in _GIT_STEPS:
         _git(repo, env, *_GIT_STEPS[op](arg))
-    elif op == "write":
-        _write_files(repo, {rel: with_format(substitute(text, root, package)) for rel, text in arg.items()})
-    elif op == "commit":
-        _git(repo, env, "add", "-A")
-        _git(repo, env, "commit", "-q", "-m", arg)
-    elif op == "delete":
-        for rel in arg:
-            (repo / rel).unlink()
-    elif op == "rename":
-        for src, dst in arg.items():
-            _git(repo, env, "mv", src, dst)
-    elif op == "origin":
-        _push_remote(repo, root, env, "origin", arg)
-    elif op == "remote":
-        for name, refs in arg.items():
-            _push_remote(repo, root, env, name, refs)
-    elif op == "common_dir":
-        _write_files(common_dir(repo, env), {rel: with_format(substitute(text, root, package)) for rel, text in arg.items()})
-    elif op == "exclude":
-        exclude = common_dir(repo, env) / "info" / "exclude"
-        exclude.parent.mkdir(parents=True, exist_ok=True)
-        with exclude.open("a", encoding="utf-8") as handle:
-            handle.writelines(f"{pattern}\n" for pattern in arg)
-    elif op == "sh":
-        subprocess.run(["sh", "-ec", substitute(arg, root, package)], cwd=repo, env=env, check=True, capture_output=True)
-    elif op == "merge":
-        _git(repo, env, "merge", "-q", "--no-ff", "-m", arg["message"], arg["ref"])
-    elif op == "worktree":
-        _add_worktree(repo, root, env, arg)
-    elif op == "submodule":
-        _add_submodule(repo, root, env, arg)
+    elif op in _STEPS:
+        _STEPS[op](arg, _StepContext(repo=repo, root=root, env=env, package=package))
     else:
         raise ValueError(f"unknown git step {op!r}")
 

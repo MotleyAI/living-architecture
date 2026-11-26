@@ -98,11 +98,15 @@ trap 'rm -f "$BODY_FILE" "$PAYLOAD_FILE"' EXIT
 cat > "$BODY_FILE"
 [[ -s "$BODY_FILE" ]] || { echo "error: stdin was empty" >&2; exit 2; }
 
-# In stealth mode, refuse a body that shows la or trmv was used, before any network call.
-if [[ "$(la-config get stealth 2>/dev/null || true)" == true ]]; then
-    status=0
-    la-leak-check --text - < "$BODY_FILE" >&2 || status=$?
-    (( status == 0 )) || exit "$status"
+# Refuse, before any network call, a stealth-mode body that shows la or trmv was used, or any body when a stealth
+# config cannot be read; the check's note outside stealth mode is dropped.
+status=0
+exec 3>&2
+leak_err="$(la-leak-check --text - < "$BODY_FILE" 2>&1 1>&3)" || status=$?
+exec 3>&-
+if (( status != 0 )); then
+    [[ -z "$leak_err" ]] || printf '%s\n' "$leak_err" >&2
+    exit "$status"
 fi
 
 if [[ -z "$REPO" ]]; then

@@ -34,6 +34,8 @@ from trmv.typecheck.cache import cache_key, fingerprints, read_entry, write_entr
 __all__ = ["CommandError", "applicable", "cache_key", "combined_exit", "python_diagnostics", "resolve_argv", "run",
            "split_command"]
 
+_PATCH_RESULT = "result.json"
+
 
 class Stealth(BaseModel):
     """A stealth run: the raw `--base` to hand another twin, and the merge-base commit, once one is needed."""
@@ -133,7 +135,7 @@ def _run_python(root: Path, command: str, argv: list[str], *, write: bool, extra
     flag = [lang.BASEDPYRIGHT_WRITE_FLAG] if write else []
     versions: list[str] = language("python")["checker_patch_versions"]
     with tempfile.TemporaryDirectory(prefix="la-pyright-patch-") as tmp:
-        result = Path(tmp) / "result.json"
+        result = Path(tmp) / _PATCH_RESULT
         env = lang.pyright_patch_env(os.environ, result=result, versions=versions)
         try:
             returncode = subprocess.run([*argv, *flag, *(extra or [])], cwd=root, env=env, check=False).returncode
@@ -242,6 +244,22 @@ def _replaced(root: Path, baseline: Path, text: str) -> int | None:
     return None
 
 
+def _realign_texts(texts: dict[str, tuple[str, str]], found: list[tuple[str, Key, bool]], listed: dict[str, Entries],
+                   files: dict[str, Entries], renames: dict[str, str]) -> int:
+    """Realign `files` in place to each changed file's errors now; how many entries of an unrenamed file moved."""
+    count = 0
+    for rel, (now, before) in texts.items():
+        key = f"./{rel}"
+        ours = [(k, hidden) for path, k, hidden in found if path == rel]
+        if rel in renames and listed.get(key):
+            files[key] = merged(listed[key], listed[f"./{renames[rel]}"], ours, now, before)
+        entries = realigned(files[key], ours, now, before)
+        if rel not in renames:
+            count += sum(1 for old, new in zip(files[key], entries, strict=True) if old != new)
+        files[key] = entries
+    return count
+
+
 def _realign(root: Path, command: str, ref: str, baseline: Path | None = None) -> int | None:
     """Move each Python baseline entry to where its error is now, given that the baseline matched at `ref`; the exit
     code when that fails. `baseline` (default: the committed one) given, the realignment is silent."""
@@ -267,14 +285,7 @@ def _realign(root: Path, command: str, ref: str, baseline: Path | None = None) -
             found = _marked(root, command, json.dumps({**data, "files": files}), sorted(texts))
         except CommandError as exc:
             return _probe_failed(exc)
-        for rel, (now, before) in texts.items():
-            key = f"./{rel}"
-            ours = [(k, hidden) for path, k, hidden in found if path == rel]
-            if rel in renames and listed.get(key):
-                files[key] = merged(listed[key], listed[f"./{renames[rel]}"], ours, now, before)
-            entries = realigned(files[key], ours, now, before)
-            count += sum(1 for old, new in zip(files[key], entries, strict=True) if old != new and rel not in renames)
-            files[key] = entries
+        count += _realign_texts(texts, found, listed, files, renames)
     if not count:
         return None
     new_data = {**data, "files": {key: files[key] for key in sorted(files) if files[key]}}
@@ -289,6 +300,29 @@ def _merge_base_failed(lang_id: str, command: str, commit: str) -> int:
     return 2
 
 
+def _python_checked_out(root: Path, command: str, commit: str) -> str | None:
+    """The checker's Python baseline at `commit`, from a temporary checkout; None when the checker fails there."""
+    versions: list[str] = language("python")["checker_patch_versions"]
+    with lang.merge_base_checkout(root, commit, language("python")["environment_dirs"]) as checkout:
+        try:
+            argv = resolve_argv(checkout, "python", command)
+        except CommandError:
+            return None
+        with tempfile.TemporaryDirectory(prefix="la-pyright-patch-") as tmp:
+            result = Path(tmp) / _PATCH_RESULT
+            env = lang.pyright_patch_env(os.environ, result=result, versions=versions)
+            try:
+                proc = subprocess.run([*argv, lang.BASEDPYRIGHT_WRITE_FLAG], cwd=checkout, env=env, capture_output=True,
+                                      check=False)
+            except OSError:
+                return None
+            patch = lang.read_pyright_patch(result)
+        if _patch_failure(patch, command, versions) is not None or lang.basedpyright_exit(proc.returncode, write=True):
+            return None
+        written = checkout / language("python")["baseline_file"]
+        return written.read_text(encoding="utf-8") if written.is_file() else lang.empty_basedpyright_baseline()
+
+
 def _python_at(root: Path, command: str, commit: str) -> str | int:
     """The Python baseline of the checker's errors at `commit`, from the cache or a temporary checkout; the exit code
     when the checker fails there."""
@@ -299,25 +333,11 @@ def _python_at(root: Path, command: str, commit: str) -> str | int:
     cached = None if entry is None else read_entry(entry)
     if cached is not None and _baseline_files(cached.encode("utf-8")) is not None:
         return cached
-    versions: list[str] = language("python")["checker_patch_versions"]
-    with lang.merge_base_checkout(root, commit, language("python")["environment_dirs"]) as checkout:
-        try:
-            argv = resolve_argv(checkout, "python", command)
-        except CommandError:
-            return _merge_base_failed("python", command, commit)
-        with tempfile.TemporaryDirectory(prefix="la-pyright-patch-") as tmp:
-            env = lang.pyright_patch_env(os.environ, result=Path(tmp) / "result.json", versions=versions)
-            try:
-                proc = subprocess.run([*argv, lang.BASEDPYRIGHT_WRITE_FLAG], cwd=checkout, env=env, capture_output=True,
-                                      check=False)
-            except OSError:
-                return _merge_base_failed("python", command, commit)
-            patch = lang.read_pyright_patch(Path(tmp) / "result.json")
-        if _patch_failure(patch, command, versions) is not None or lang.basedpyright_exit(proc.returncode, write=True):
-            return _merge_base_failed("python", command, commit)
-        written = checkout / language("python")["baseline_file"]
-        text = written.read_text(encoding="utf-8") if written.is_file() else lang.empty_basedpyright_baseline()
-    if _baseline_files(text.encode("utf-8")) is None:
+    try:
+        text = _python_checked_out(root, command, commit)
+    except lang.CheckoutError:
+        text = None
+    if text is None or _baseline_files(text.encode("utf-8")) is None:
         return _merge_base_failed("python", command, commit)
     if entry is not None:
         write_entry(entry, text)
@@ -344,7 +364,7 @@ def python_diagnostics(root: Path, command: str, extra: list[str]) -> dict[str, 
     argv = [word for word in resolve_argv(root, "python", command) if word not in lang.BASEDPYRIGHT_NOT_WITH_JSON]
     versions: list[str] = language("python")["checker_patch_versions"]
     with tempfile.TemporaryDirectory(prefix="la-pyright-patch-") as tmp:
-        result = Path(tmp) / "result.json"
+        result = Path(tmp) / _PATCH_RESULT
         env = lang.pyright_patch_env(os.environ, result=result, versions=versions)
         try:
             proc = subprocess.run([*argv, "--outputjson", *extra], cwd=root, env=env, capture_output=True, check=False)

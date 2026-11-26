@@ -32,7 +32,8 @@ def repo(tmp_path: Path) -> Path:
 
 
 def test_cache_key_is_deterministic() -> None:
-    assert cache_key(**KEY) == cache_key(**KEY)
+    first = cache_key(**KEY)
+    assert cache_key(**KEY) == first
 
 
 @pytest.mark.parametrize(("field", "value"), [

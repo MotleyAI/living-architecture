@@ -4,7 +4,7 @@ name = "conformance-runner"
 version = "0.0.0"
 requires-python = ">=3.11"
 classifiers = ["Private :: Do Not Upload"]
-dependencies = ["type-rename-move", "living-architecture", "pyyaml>=6"]
+dependencies = ["type-rename-move", "living-architecture", "pydantic>=2", "pyyaml>=6"]
 
 [build-system]
 requires = ["uv_build>=0.9,<0.13"]

@@ -1,7 +1,7 @@
 ## Purpose
 
-In stealth mode, keeps the text that leaves the machine (the pushed branch name, commits, added code, PR text and
-review-thread replies) free of tokens that show la or trmv was used.
+In stealth mode, keeps the text that leaves the machine (the pushed branch name, commit messages, the code the branch
+adds as of `HEAD`, PR text and review-thread replies) free of tokens that show la or trmv was used.
 
 ## ADDED Requirements
 
@@ -41,8 +41,8 @@ not from the merge base, merge commits included, oldest first; then, in Unicode 
 added, or renamed to, between the merge base and `HEAD`, and each added line of that diff. With `--text -`, it SHALL
 scan each line of stdin. It SHALL print one line per hit on stdout, in scan order, as `branch: <token>`,
 `<short sha>: <token>`, `<path>: <token>`, `<path>:<line>: <token>` or `stdin:<line>: <token>`, with tokens in the
-order they occur, and SHALL exit 1 when it printed a hit, 0 otherwise, and 2 on a usage, config or git error. Outside
-stealth mode it SHALL print a note on stderr, nothing on stdout, and exit 0.
+order they occur, and SHALL exit 1 when it printed a hit, 0 otherwise, and 2 on a usage, config or git error. Without a
+stealth config file it SHALL print a note on stderr, nothing on stdout, and exit 0, whatever the root config holds.
 
 #### Scenario: Leaking branch name
 - **WHEN** the current branch is `egor/dev-1-living-architecture-stealth` and `la-leak-check --base main` runs in stealth mode
@@ -87,7 +87,12 @@ stealth mode it SHALL print a note on stderr, nothing on stdout, and exit 0.
 ### Requirement: Reply commands refuse leaking bodies in stealth
 In stealth mode, `la-reply-to-pr-thread` and `la-reply-invalid-coderabbit` SHALL scan the reply body exactly as
 `la-leak-check --text -` does before any network call, and on a hit SHALL print the hits on stderr, post nothing and
-exit 1. Outside stealth mode their behaviour SHALL be unchanged.
+exit 1. When a stealth config file is present but the config cannot be read, they SHALL print the error, post nothing
+and exit 2. Outside stealth mode their behaviour SHALL be unchanged.
+
+#### Scenario: Broken stealth config refuses the reply
+- **WHEN** a stealth config and a root config are both present and `la-reply-to-pr-thread <url>` runs
+- **THEN** it prints the config error on stderr, never calls `gh`, and exits 2
 
 #### Scenario: Leaking reply refused
 - **WHEN** `la-reply-to-pr-thread <url>` runs in stealth mode with a body naming `la-typecheck`

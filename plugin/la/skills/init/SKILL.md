@@ -18,8 +18,9 @@ to that skill. A full run (the user invoked `/la:init`) continues to step 7.
 in stealth mode: for a repo the user does not own, where nothing committed, pushed or posted may show the tools were
 used. In stealth mode the config is `<C>/living-architecture/living-architecture.yaml` (`<C>` =
 `git rev-parse --path-format=absolute --git-common-dir`), never a file at the repo root, and `architecture` is
-`false`. Step 4 sets up the private OpenSpec store when the repo tracks no `openspec/`. Step 5 writes the stealth file
-and offers no `.gitignore` edit. Step 7 offers neither a type-check baseline (`trmv-typecheck` compares with the merge
+`false`. Step 5 runs before step 4: it writes the stealth file, with its final `openspec` value, and offers no
+`.gitignore` edit, so `la:openspec-init` in step 4 sees stealth mode and sets up the private OpenSpec store when the
+repo tracks no `openspec/`. Step 7 offers neither a type-check baseline (`trmv-typecheck` compares with the merge
 base) nor `la:arch-init`. Nothing is committed. Details: `docs/configuration.md`, "Stealth mode".
 
 ## 1. Detect

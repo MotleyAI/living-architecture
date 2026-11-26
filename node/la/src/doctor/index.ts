@@ -204,8 +204,10 @@ export function runChecks(
   const trmv = trmvProblem();
   if (trmv !== null) problems.push(trmv);
   const refusal = filesProblem(root) ?? checkFormat(root, 'la');
-  problems.push(...(refusal !== null ? [refusal] : configProblems(root, requireConfig, requirePlanStore)));
-  problems.push(...registryProblems(root));
+  problems.push(
+    ...(refusal !== null ? [refusal] : configProblems(root, requireConfig, requirePlanStore)),
+    ...registryProblems(root),
+  );
   const local = localProblem(root);
   if (local !== null) problems.push(local);
   let executables: string[] = [...REQUIRED_EXECUTABLES];

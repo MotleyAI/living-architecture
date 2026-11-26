@@ -6,10 +6,10 @@ import subprocess
 import sys
 from pathlib import Path
 
-from living_architecture.config import load_raw, resolve_raw, tracks_openspec
+from living_architecture.config import RawConfig, load_raw, resolve_raw, tracks_openspec
 from living_architecture.contract import leak_token_groups, manifest, message, stealth_registry
 from trmv import changes
-from trmv.config import ConfigError
+from trmv.config import ConfigError, present_files
 from trmv.contract import manifest as trmv_manifest
 from trmv.contract import stealth_registry as trmv_registry
 
@@ -138,11 +138,21 @@ def scan_text(text: str, tokens: list[str]) -> list[str]:
     return [message("leaks.stdin", line=n, token=t) for n, line in enumerate(lines, 1) for t in find_tokens(line, tokens)]
 
 
+def _load_raw(root: Path) -> RawConfig | None:
+    """The raw config; None on a config error when no stealth config file is present."""
+    try:
+        return load_raw(root)
+    except ConfigError:
+        if any(f.stealth for f in present_files(root)):
+            raise
+        return None
+
+
 def run(*, base: str | None, root: Path) -> int:
     """`la-leak-check`: print each hit; exit 1 with hits, 0 without or outside stealth mode, 2 on an error."""
     try:
-        raw = load_raw(root)
-        if raw.source is None or not raw.source.stealth:
+        raw = _load_raw(root)
+        if raw is None or raw.source is None or not raw.source.stealth:
             print(message("leaks.not-stealth"), file=sys.stderr)
             return 0
         config = resolve_raw(root, raw)

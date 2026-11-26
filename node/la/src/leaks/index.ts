@@ -3,16 +3,16 @@ import { spawnSync } from 'node:child_process';
 // eslint-disable-next-line no-restricted-imports -- stdin only
 import { readFileSync } from 'node:fs';
 import { mergeBase, resolveBaseRef } from 'type-rename-move/changes';
-import { ConfigError } from 'type-rename-move/config';
+import { ConfigError, presentFiles } from 'type-rename-move/config';
 import { byCodePoint, isWordStart, manifest as trmvManifest, stealthRegistry as trmvRegistry } from 'type-rename-move/contract';
-import { loadRaw, resolveRaw, tracksOpenspec } from '../config/index.js';
+import { loadRaw, type RawConfig, resolveRaw, tracksOpenspec } from '../config/index.js';
 import { leakTokenGroups, manifest, message, stealthRegistry } from '../contract/index.js';
 
 const asciiLower = (text: string): string => text.replace(/[A-Z]/g, (c) => c.toLowerCase());
 
 /** The code point that ends just before `index`. */
 function before(text: string, index: number): string {
-  const low = text.charCodeAt(index - 1);
+  const low = text.codePointAt(index - 1) ?? 0;
   return low >= 0xdc00 && low <= 0xdfff && index >= 2 ? text.slice(index - 2, index) : text.slice(index - 1, index);
 }
 
@@ -67,7 +67,7 @@ function branch(root: string): string | null {
 
 /** Each commit since `base`, oldest first, with its full message. */
 function commits(root: string, base: string): [string, string][] {
-  const records = text(git(root, 'log', '--reverse', '-z', '--format=%H%n%B', `${base}..HEAD`)).split('\0').filter((r) => r);
+  const records = text(git(root, 'log', '--reverse', '-z', '--format=%H%n%B', `${base}..HEAD`)).split('\0').filter(Boolean);
   return records.map((r) => {
     const cut = r.indexOf('\n');
     return cut === -1 ? [r, ''] : [r.slice(0, cut), r.slice(cut + 1)];
@@ -128,12 +128,22 @@ export function scanText(input: string, tokens: string[]): string[] {
   return lines.flatMap((line, i) => findTokens(line, tokens).map((token) => message('leaks.stdin', { line: i + 1, token })));
 }
 
+/** The raw config; null on a config error when no stealth config file is present. */
+function rawConfig(root: string): RawConfig | null {
+  try {
+    return loadRaw(root);
+  } catch (error) {
+    if (!(error instanceof ConfigError) || presentFiles(root).some((f) => f.stealth)) throw error;
+    return null;
+  }
+}
+
 /** `la-leak-check`: print each hit; exit 1 with hits, 0 without or outside stealth mode, 2 on an error. */
 export function run(root: string, base: string | null): number {
   let hits: string[];
   try {
-    const raw = loadRaw(root);
-    if (!raw.source?.stealth) {
+    const raw = rawConfig(root);
+    if (!raw?.source?.stealth) {
       process.stderr.write(`${message('leaks.not-stealth')}\n`);
       return 0;
     }

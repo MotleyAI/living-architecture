@@ -96,6 +96,9 @@ The decisions log of the planning interview, in order:
     every `trmv-*` command, `/trmv:`, `type-rename-move`, `trmv` and `trmv.yaml`. (default)
 29. **Stealth covers trmv-only repos too**: `<C>/trmv/trmv.yaml`, `/trmv:init` offers stealth, `trmv-doctor` gets its
     registry check. Rejected: trmv reading only la's stealth config. (user)
+30. **Branch content is checked as of `HEAD`**: the net diff from the merge base, before every push; a token only in an
+    intermediate commit is accepted, since leak tokens are not secrets. Rejected: scanning each commit, squashing
+    before each push. (user)
 
 Rejected Codex findings:
 - **Always use a private store, even when the repo tracks `openspec/`** — rejected (codex): the user's brief keeps the
@@ -106,8 +109,8 @@ Rejected Codex findings:
 Implementation notes:
 - The resolver returns the config file and whether it is a stealth one; `stealth` is derived, never parsed.
 - `openspec_store` id: `la-` + first 12 hex digits of SHA-256 of the absolute `<C>/living-architecture/` path.
-- The reply scripts call `la-leak-check --text -` with the body before any `gh` call when `la-config get stealth`
-  prints `true`.
+- The reply scripts pipe every body through `la-leak-check --text -` before any `gh` call and stop on a nonzero exit;
+  `la-leak-check` decides stealth by whether a stealth config file is present, before reading any config.
 - Skill edits: each exact wording is shown to the user and approved before the edit (see tasks.md).
 
 ## Risks / Trade-offs

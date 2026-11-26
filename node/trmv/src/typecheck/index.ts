@@ -15,7 +15,7 @@ import {
 } from '../config/index.js';
 import { language, message, whichPath } from '../contract/index.js';
 import { VERSION } from '../index.js';
-import { type BaselineCounts, checkTypescript, parseBaseline, renderBaseline, tscCounts, withMergeBaseCheckout } from '../lang/index.js';
+import { type BaselineCounts, CheckoutError, checkTypescript, parseBaseline, renderBaseline, tscCounts, withMergeBaseCheckout } from '../lang/index.js';
 import * as twin from '../twin/index.js';
 import { cacheKey, fingerprints, readEntry, writeEntry } from './cache.js';
 
@@ -126,6 +126,25 @@ function mergeBaseFailed(id: string, command: string, commit: string): number {
 
 /** The TypeScript baseline counts of the checker's errors at `commit`, from the cache or a temporary checkout; the exit
  * code when the checker fails there. */
+/** tsc's counts at `commit`, from a temporary checkout; null when the checker or the checkout fails there. */
+function typescriptCheckedOut(root: string, command: string, commit: string): BaselineCounts | null {
+  try {
+    return withMergeBaseCheckout(root, commit, language('typescript').environment_dirs as string[], (checkout) => {
+      let argv: string[];
+      try {
+        argv = resolveArgv(checkout, 'typescript', command);
+      } catch (error) {
+        if (!(error instanceof CommandError)) throw error;
+        return null;
+      }
+      return tscCounts(checkout, argv);
+    });
+  } catch (error) {
+    if (!(error instanceof CheckoutError)) throw error;
+    return null;
+  }
+}
+
 function typescriptAt(root: string, command: string, commit: string): BaselineCounts | number {
   const key = cacheKey({ commit, language: 'typescript', command, version: VERSION, fingerprints: fingerprints(root, 'typescript') });
   const directory = stealthDir(root, 'trmv');
@@ -133,16 +152,7 @@ function typescriptAt(root: string, command: string, commit: string): BaselineCo
   const cached = entry === null ? null : readEntry(entry);
   const parsed = cached === null ? null : parseBaseline(cached);
   if (parsed !== null) return parsed;
-  const counts = withMergeBaseCheckout(root, commit, language('typescript').environment_dirs as string[], (checkout) => {
-    let argv: string[];
-    try {
-      argv = resolveArgv(checkout, 'typescript', command);
-    } catch (error) {
-      if (!(error instanceof CommandError)) throw error;
-      return null;
-    }
-    return tscCounts(checkout, argv);
-  });
+  const counts = typescriptCheckedOut(root, command, commit);
   if (counts === null) return mergeBaseFailed('typescript', command, commit);
   if (entry !== null) writeEntry(entry, renderBaseline(counts));
   return counts;
@@ -168,7 +178,9 @@ function checkNative(root: string, command: string, write: boolean, stealth: Ste
 
 function check(root: string, id: string, command: string, write: boolean, realignFrom: string | null, stealth: Stealth | null): number {
   if (id === twin.NATIVE_LANGUAGE) return checkNative(root, command, write, stealth);
-  const args = write ? ['--write-baseline'] : realignFrom === null ? [] : ['--realign-from', realignFrom];
+  const args: string[] = [];
+  if (write) args.push('--write-baseline');
+  else if (realignFrom !== null) args.push('--realign-from', realignFrom);
   if (stealth?.base) args.push('--base', stealth.base);
   try {
     return twin.runLanguage('trmv-typecheck', id, args, root, root);

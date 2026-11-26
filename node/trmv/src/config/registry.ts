@@ -9,7 +9,7 @@ import { presentFiles } from './files.js';
 function listed(root: string, args: string[]): Set<string> {
   const proc = spawnSync('git', args, { cwd: root, maxBuffer: 1 << 30 }); // NOSONAR(S4036) — runs the user's own git from PATH by design
   if (proc.status !== 0) throw new ConfigError(message('changes.git-failed', { args: args.join(' ') }));
-  return new Set(proc.stdout.toString('utf8').split('\0').filter((p) => p));
+  return new Set(proc.stdout.toString('utf8').split('\0').filter(Boolean));
 }
 
 /** Each of `paths`, then each path under one of `prefixes`, that is staged as an addition or present, untracked and

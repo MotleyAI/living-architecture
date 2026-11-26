@@ -3,7 +3,7 @@ name: openspec-init
 description: Initialize or repair OpenSpec in the current repo for the /la:pr flow. Ensures the openspec CLI is available (global install, npx fallback), scaffolds openspec/ with `openspec init --tools none` (corpus only, no /opsx:* commands), and verifies. Invoked by /la:pr when openspec/ is absent or invalid, or run directly.
 ---
 
-**Preflight:** run `la-doctor --plugin <this skill's base directory>` once per session before using any `la-*` or `trmv-*` command; if it fails, stop and show the user its output. If `la-doctor` is not found, or reports the la tools older than the plugin, stop and give the user the install command at this plugin's `version` (in its `.claude-plugin/plugin.json`): `uv tool install living-architecture==<version> --with-executables-from type-rename-move` in a Python repo, `npm install -g living-architecture@<version> type-rename-move@<version>` in a TS/JS repo.
+**Preflight:** run `la-doctor --plugin <this skill's base directory>` once per session before using any `la-*` or `trmv-*` command; if it fails, stop and show the user its output — unless the only failure is the private-store finding (the one naming `/la:openspec-init`), which Step 1b fixes. If `la-doctor` is not found, or reports the la tools older than the plugin, stop and give the user the install command at this plugin's `version` (in its `.claude-plugin/plugin.json`): `uv tool install living-architecture==<version> --with-executables-from type-rename-move` in a Python repo, `npm install -g living-architecture@<version> type-rename-move@<version>` in a TS/JS repo.
 
 Bring the current repo to a valid OpenSpec state: the `openspec` CLI resolvable
 and an `openspec/` corpus (`specs/` + `changes/`) present and healthy. Corpus

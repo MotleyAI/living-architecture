@@ -16,6 +16,7 @@ export {
   parseTscOutput,
   posixRel,
   render as renderBaseline,
+  rooted,
   type TscDiagnostic,
   type TscRun,
   tscCounts,

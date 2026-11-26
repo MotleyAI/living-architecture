@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import type * as TS from 'typescript';
 import { ConfigError, findRepoRoot, loadConfig } from '../config/index.js';
 import { byCodePoint, language, message, readFile } from '../contract/index.js';
-import { baselineKey, canonical, parseBaseline, parseTscOutput, posix, posixRel, renderBaseline, ts } from '../lang/index.js';
+import { baselineKey, canonical, parseBaseline, parseTscOutput, posix, renderBaseline, rooted, ts } from '../lang/index.js';
 import { splitBom } from './edits.js';
 import { mapPosition, type PositionMap } from './position.js';
 import { type Refusal, refusal } from './progress.js';
@@ -32,7 +32,8 @@ function diagnostics(services: TS.LanguageService[], file: string, repoRoot: str
       if (d.file !== source || d.category !== ts().DiagnosticCategory.Error) continue;
       const parsed = parseTscOutput(ts().formatDiagnostic(d, host)).diagnostics[0];
       if (parsed === undefined) continue;
-      const key = baselineKey(posixRel(repoRoot, parsed.file), parsed.code, parsed.message);
+      const own = rooted(repoRoot, parsed);
+      const key = baselineKey(own.file, own.code, own.message);
       const id = `${d.start ?? 0}\0${key}`;
       if (seen.has(id)) continue;
       seen.add(id);

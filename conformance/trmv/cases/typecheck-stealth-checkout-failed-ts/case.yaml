@@ -1,0 +1,29 @@
+kind: adapter
+languages:
+- typescript
+command: trmv-typecheck
+fixture: typecheck-stealth
+args:
+- --base
+- main
+git:
+- exclude:
+  - node_modules/
+- common_dir:
+    trmv/trmv.yaml: 'format: 0.14.0
+
+      '
+- commit: init
+- origin:
+  - main
+- branch: feat
+- write:
+    src/c.ts: 'export const c = 1;
+
+      '
+- commit: work
+- sh: printf '#!/bin/sh\nexit 1\n' > .git/hooks/post-checkout && chmod +x .git/hooks/post-checkout
+expect:
+  exit: 2
+note: 'the merge-base checkout cannot be created (a failing post-checkout hook): exit 2 naming the merge-base commit'
+golden: manual
